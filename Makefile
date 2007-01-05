@@ -2,7 +2,7 @@ default: src/Makefile
 	make -C src lpp
 
 src/Makefile: src/Makefile.in configure
-	./configure
+	./configure --disable-nativecode
 configure: configure.ac
 	autoconf
 

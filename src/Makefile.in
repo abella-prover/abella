@@ -5,9 +5,9 @@ all: lpp
 
 cmo = @cmo@
 cma = @cma@
-OCAMLC = @OCAMLC@ -c -I ndcore
+OCAMLC = @OCAMLC@ -c -I ndcore -I ext
 OCAMLL = @OCAMLC@
-OCAMLDEP = @OCAMLDEP@ -I ndcore
+OCAMLDEP = @OCAMLDEP@ -I ndcore -I ext
 OCAMLDOC = ocamldoc
 OCAMLYACC = @OCAMLYACC@ -v
 OCAMLLEX = @OCAMLLEX@
@@ -71,6 +71,7 @@ clean:
 	rm -f parser.ml parser.mli lexer.ml parser.output
 	rm -f *.cm[ixo] *.o
 	rm -f ndcore/*.cm[ixo] ndcore/*.o
+	rm -f ext/*.cm[ixo] ext/*.o
 
 .PHONY: superclean
 superclean: clean

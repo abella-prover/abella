@@ -1,0 +1,49 @@
+################################################
+# OCaml Flags
+#
+
+EXT_OBJ = .o
+BYTE_ENABLED = true
+NATIVE_ENABLED = false
+OCAML_OTHER_LIBS = unix
+OCAMLINCLUDES += $(dir ndcore ext)
+
+OUNIT = $(file ext/oUnit)
+
+.SUBDIRS: ndcore ext
+
+################################################
+# Generated files
+#
+# Workaround for the fact that ocamldep does not pay attention to .mll
+# and .mly files.
+#
+OCamlGeneratedFiles(parser.ml lexer.ml)
+
+################################################
+# Build an OCaml program
+#
+
+LPP_FILES[] =
+   table
+   system
+   parser
+   lexer
+   prover
+   main
+
+NDCORE_FILES[] =
+   ndcore/term
+   ndcore/norm
+   ndcore/pprint
+   ndcore/unify
+   ndcore/index
+
+PROGRAM = lpp
+
+.DEFAULT: $(OCamlProgram $(PROGRAM), $(NDCORE_FILES) $(LPP_FILES))
+
+.PHONY: clean
+clean:
+   rm $(filter-proper-targets $(ls R, .))
+   rm -f parser.output

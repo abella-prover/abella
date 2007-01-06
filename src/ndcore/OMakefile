@@ -1,0 +1,16 @@
+FILES[] =
+   term
+   norm
+   pprint
+   unify
+   index
+   $(OUNIT)
+   test
+
+PROGRAM = test
+
+.PHONY: test
+test: $(OCamlProgram $(PROGRAM), $(FILES))
+   ./$(PROGRAM)
+
+.DEFAULT:

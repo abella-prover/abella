@@ -324,22 +324,6 @@ let rec prove ~success ~failure ~level ~timestamp ~local g =
             List.iter (fun t -> printf "%a\n%!" Pprint.pp_term t) goals ;
             success failure
 
-        (* Get an AST *)
-        | Var {name="parse"} ->
-            begin match goals with
-              | [file;t] ->
-                  begin match Term.observe file with
-                    | Term.Var {Term.name=file} ->
-                        let ast = Parser.to_term Lexer.token file in
-                          if unify level ast t then
-                            success failure
-                          else
-                            failure ()
-                    | _ -> assert false
-                  end
-              | _ -> assert false
-            end
-
         (* Check for definitions *)
         | Var {name=d;tag=Constant} -> prove_atom d goals
 

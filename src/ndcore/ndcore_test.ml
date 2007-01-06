@@ -1,4 +1,3 @@
-
 open OUnit
 open Term
 open Term.Notations
@@ -36,8 +35,8 @@ let rec extract path t =
       | App (t,_) when hd = H -> !!t
       | _ -> Var {name="notfound";lts=0;ts=0;tag=Constant}
 
-let test =
-  "Tests" >:::
+let tests =
+  "NDCore" >:::
   [
     "Norm" >:::
     [
@@ -459,67 +458,5 @@ let test =
          unify t (c ^^ [y]) ;
          unify (Norm.hnorm t) (c ^^ [nabla 2]))
 
-    ] ;
-
-    "Indexing" >:::
-    [
-
-    "Four ground terms" >::
-    (fun () ->
-       let d = db in
-       let t1 = ((d 1) ^^ [ d 2 ; (d 1) ^^ [ d 2 ; d 2 ] ]) in
-       let t2 = ((d 1) ^^ [ d 3 ; (d 1) ^^ [ d 4 ; d 5 ] ]) in
-       let t3 = ((d 1) ^^ [ d 3 ; (d 1) ^^ [ d 4 ; d 4 ] ]) in
-       let t4 = ((d 1) ^^ [ d 3 ; d 2 ]) in
-       let i0 = Index.empty in
-       let i1 = Index.add i0 [t1] 10 in
-       let i2 = Index.add i1 [t2] 20 in
-       let i3 = Index.add i2 [t3] 30 in
-         assert (None = Index.find i3 [t4]) ;
-         let i4 = Index.add i3 [t4] 40 in
-           assert (Some 40 = Index.find i4 [t4]) ;
-           assert (Some 20 = Index.find i2 [t2]) ;
-           assert (Some 20 = Index.find i4 [t2]) ;
-           let i5 = Index.add i4 [t4] 42 in
-             assert (Some 42 = Index.find i5 [t4])) ;
-
-    "With eigenvariables" >::
-    (fun () ->
-       let x = var ~tag:Eigen "x" 0 in
-       let y = var ~tag:Eigen "y" 0 in
-       let z = var ~tag:Eigen "z" 0 in
-       let t1 = (db 1) ^^ [ x ; y ; y ] in
-       let t2 = (db 1) ^^ [ y ; y ; y ] in
-       let index = Index.add (Index.add Index.empty [t1] 1) [t2] 2 in
-         assert (Some 1 = Index.find index [(db 1) ^^ [ y ; z ; z ]]) ;
-         assert (Some 2 = Index.find index [(db 1) ^^ [ x ; x ; x ]]) ;
-         assert (None = Index.find index [(db 1) ^^ [ x ; z ; x ]]))
-
     ]
   ]
-
-let _ =
-  if Array.length Sys.argv > 1 then
-    (* Running a specific test (given its position in the tree)
-     * so you can trace exceptions or do whatever debugging you want.. *)
-    let id = int_of_string Sys.argv.(1) in
-    let lbl = ref "" in
-    let test =
-      let rec g n k t =
-        let next n = match k with
-          | [] -> raise Not_found
-          | t::tl -> g n tl t
-        in
-          match t with
-            | TestCase f -> if n = id then f else next (n+1)
-            | TestList [] -> next n
-            | TestLabel (l,t) -> lbl := l ; g n k t
-            | TestList (h::tl) -> g n (tl@k) h
-      in g 0 [] test
-    in
-      Printf.printf "Running test %d: %s\n%!" id !lbl ;
-      test ()
-  else
-    let l = run_test_tt ~verbose:true test in
-      if List.exists (function RSuccess _ -> false | _ -> true) l then
-        exit 1

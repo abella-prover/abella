@@ -11,6 +11,8 @@ OCAMLINCLUDES += $(dir ndcore ext)
 OUNIT = $(file ext/oUnit)
 
 .SUBDIRS: ndcore ext
+   if $(file-exists OMakefile)
+      include OMakefile
 
 ################################################
 # Generated files
@@ -18,32 +20,29 @@ OUNIT = $(file ext/oUnit)
 # Workaround for the fact that ocamldep does not pay attention to .mll
 # and .mly files.
 #
-OCamlGeneratedFiles(parser.ml lexer.ml)
+# OCamlGeneratedFiles(parser.ml lexer.ml)
 
 ################################################
 # Build an OCaml program
 #
-
-LPP_FILES[] =
-   table
-   system
-   parser
-   lexer
-   prover
-   main
 
 NDCORE_FILES[] =
    ndcore/term
    ndcore/norm
    ndcore/pprint
    ndcore/unify
-   ndcore/index
 
-PROGRAM = lpp
+# TODO - can we replace this with a search for files ending in _test?
+TEST_FILES[] =
+   $(rootname $(find . -name *_test.ml))
+   test
 
-.DEFAULT: $(OCamlProgram $(PROGRAM), $(NDCORE_FILES) $(LPP_FILES))
+TEST = unit_test
+
+.PHONY: test
+test: $(OCamlProgram $(TEST), $(OUNIT) $(NDCORE_FILES) $(TEST_FILES))
+   ./$(TEST) -verbose
 
 .PHONY: clean
 clean:
    rm $(filter-proper-targets $(ls R, .))
-   rm -f parser.output

@@ -36,10 +36,17 @@ let tests =
            let t = forall [(a, tm)] evalAB in
              assert_pprint_equal "forall (A : tm), {eval A B}" t) ;
       
-      "Print restricted object" >::
+      "Print active restricted object" >::
         (fun () ->
-           let evalAB = obj_r (app (atom "eval") [a; b]) 1 in
+           let evalAB = active_obj (app (atom "eval") [a; b]) 1 in
            let typeofAB = obj (app (atom "typeof") [a; b]) in
            let t = arrow evalAB typeofAB in
              assert_pprint_equal "{eval A B}* -> {typeof A B}" t) ;
+      
+      "Print inactive restricted object" >::
+        (fun () ->
+           let evalAB = inactive_obj (app (atom "eval") [a; b]) 1 in
+           let typeofAB = obj (app (atom "typeof") [a; b]) in
+           let t = arrow evalAB typeofAB in
+             assert_pprint_equal "{eval A B} -> {typeof A B}" t) ;
     ]

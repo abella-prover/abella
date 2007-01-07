@@ -40,7 +40,7 @@ let priority x =
 let get_max_priority () = List.length !infix
 
 (* Support for object level logic *)
-let is_obj x = x = "obj"
+let is_obj_quantifier x = x = "pi" || x = "sigma"
 
 (* Generic output function *)
 
@@ -57,7 +57,7 @@ let rec list_range a b =
 
 let term_to_string term =
   let term = Norm.deep_norm term in
-  let high_pr = 1 + get_max_priority () in
+  let high_pr = 2 + get_max_priority () in
   let pre = getAbsName () in
   let pp_var x = pre ^ (string_of_int x) in
   let rec pp pr n term =
@@ -79,13 +79,13 @@ let term_to_string term =
                   (pp pr_left n a) ^ " " ^ op ^ " " ^ (pp pr_right n b)
                 in
                   if op_p >= pr then res else parenthesis res
-            | Var {name=op; tag=Constant}, [a] when is_obj op ->
-                bracket (pp high_pr n a)
+            | Var {name=op; tag=Constant}, [a] when is_obj_quantifier op ->
+                op ^ " " ^ (pp 0 n a)
             | _ ->
                 let res =
                   String.concat " " (List.map (pp high_pr n) (t::ts))
                 in
-                  if pr == 0 then res else parenthesis res
+                  if pr < high_pr then res else parenthesis res
           end
       | Lam (0,t) -> assert false
       | Lam (i,t) ->
@@ -96,7 +96,7 @@ let term_to_string term =
       | Ptr t -> assert false (* observe *)
       | Susp _ -> assert false (* deep_norm *)
  in
-    pp high_pr 0 term
+    pp 0 0 term
 
 let pp_term out term = fprintf out "%s" (term_to_string term)
 

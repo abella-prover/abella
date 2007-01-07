@@ -4,15 +4,10 @@ open Term.Notations
 
 let eq a b = Term.eq (Norm.deep_norm a) (Norm.deep_norm b)
 
-let equal2 a b c d =
-  assert_equal
-    ~cmp:(fun (a,c) (b,d) -> eq a b && eq c d)
-    ~printer:(fun (a,b) ->
-                (Pprint.term_to_string a) ^ " and " ^
-                  (Pprint.term_to_string b) ^ "\n")
-    (a,c) (b,d)
+let assert_term_equal = assert_equal ~cmp:eq ~printer:Pprint.term_to_string
 
-let assert_equal = assert_equal ~cmp:eq ~printer:Pprint.term_to_string
+let id x = x
+let assert_string_equal = assert_equal ~printer:id
 
 let unify =
   let module Unify =
@@ -45,7 +40,7 @@ let tests =
         let c = const "c" 1 in
         let t = (1 // db 1) ^^ [c] in
         let t = Norm.hnorm t in
-          assert_equal c t) ;
+          assert_term_equal c t) ;
 
       "[(x\\ y\\ x) a b]" >::
       (fun () ->
@@ -53,7 +48,7 @@ let tests =
         let b = const "b" 1 in
         let t = (2 // db 2) ^^ [a; b] in
         let t = Norm.hnorm t in
-          assert_equal a t) ;
+          assert_term_equal a t) ;
       
       "[(x\\ y\\ y) a b]" >::
       (fun () ->
@@ -61,27 +56,27 @@ let tests =
         let b = const "b" 1 in
         let t = (2 // db 1) ^^ [a; b] in
         let t = Norm.hnorm t in
-          assert_equal b t) ;
+          assert_term_equal b t) ;
       
       "[(x\\ y\\ z\\ x)]" >::
       (fun () ->
         let t = (3 // db 3) in
         let t = Norm.hnorm t in
-          assert_equal (3 // db 3) t) ;
+          assert_term_equal (3 // db 3) t) ;
       
       "[(x\\ y\\ z\\ x) a]" >::
       (fun () ->
         let a = const "a" 1 in
         let t = (3 // db 3) ^^ [a] in
         let t = Norm.hnorm t in
-          assert_equal (2 // a) t) ;
+          assert_term_equal (2 // a) t) ;
       
       "[(x\\ x (x\\ x)) (x\\y\\ x y)]" >::
       (fun () ->
         let t = 1 // (db 1 ^^ [1 // db 1]) in
         let t = t ^^ [ 2 // (db 2 ^^ [db 1]) ] in
         let t = Norm.hnorm t in
-          assert_equal (1 // ((1 // db 1) ^^ [db 1]))  t) ;
+          assert_term_equal (1 // ((1 // db 1) ^^ [db 1]))  t) ;
       
       "[(x\\ x (x\\ x)) (x\\y\\ x y) c]" >::
       (fun () ->
@@ -89,14 +84,14 @@ let tests =
         let t = 1 // (db 1 ^^ [1 // db 1]) in
         let t = t ^^ [ 2 // (db 2 ^^ [db 1]) ; c ] in
         let t = Norm.hnorm t in
-          assert_equal c t) ;
+          assert_term_equal c t) ;
 
       "[x\\ c x]" >::
       (fun () ->
         let c = const "c" 1 in
         let t = 1 // (c ^^ [db 1]) in
         let t = Norm.hnorm t in
-          assert_equal (1 // (c ^^ [db 1])) t) ;
+          assert_term_equal (1 // (c ^^ [db 1])) t) ;
       
       (* This is a normalization pb which appeared to be causing
        * a failure in an unification test below. *)
@@ -105,7 +100,7 @@ let tests =
         let ii = 2 // (db 2 ^^ [db 1]) in
         let t = 2 // (ii ^^ [db 2;db 1]) in
         let t = Norm.hnorm t in
-          assert_equal (2//(db 2 ^^ [db 1])) t) ;
+          assert_term_equal (2//(db 2 ^^ [db 1])) t) ;
 
       (* Test that Term.App is flattened *)
       "[(a b) c]" >::
@@ -115,14 +110,14 @@ let tests =
         let c = const "c" 1 in
         let t = (a ^^ [b]) ^^ [c] in
         let t = Norm.hnorm t in
-          assert_equal (a ^^ [b ; c]) t) ;
+          assert_term_equal (a ^^ [b ; c]) t) ;
 
       (* Test that Term.Lam is flattened *)
       "[x\\ (y\\ x)]" >::
       (fun () ->
         let t = 1 // (1 // db 2) in
         let t = Norm.hnorm t in
-          assert_equal (2 // db 2) t) ;
+          assert_term_equal (2 // db 2) t) ;
 ] ;
 
     (* Tests from Nadathur's SML implementation ---------------------------- *)
@@ -136,7 +131,7 @@ let tests =
        let m = var "m" 1 in
        let t2 = 1 // ( m ^^ [ db 1 ] ) in
          unify t1 t2 ;
-         assert_equal (1 // db 1) m) ;
+         assert_term_equal (1 // db 1) m) ;
 
     (* Example 2, adds descending into constructors *)
     "[x\\ c x = x\\ c (N x)]" >::
@@ -146,7 +141,7 @@ let tests =
        let t1 = 1 // (c ^^ [ db 1 ]) in
        let t2 = 1 // (c ^^ [ n ^^ [ db 1 ] ]) in
          unify t1 t2 ;
-         assert_equal (1 // db 1) n) ;
+         assert_term_equal (1 // db 1) n) ;
 
     (* Example 3, needs eta expanding on the fly *)
     "[x\\y\\ c y x = N]" >::
@@ -155,7 +150,7 @@ let tests =
        let c = const "c" 1 in
        let t = 2 // (c ^^ [ db 1 ; db 2 ]) in
          unify t n ;
-         assert_equal (2 // (c ^^ [ db 1 ; db 2 ])) n) ;
+         assert_term_equal (2 // (c ^^ [ db 1 ; db 2 ])) n) ;
 
     (* Example 4, on-the-fly eta, constructors at top-level *)
     "[x\\y\\ c x y = x\\ c (N x)]" >::
@@ -163,7 +158,7 @@ let tests =
        let n = var "n" 1 in
        let c = const "c" 1 in
          unify (2 // (c ^^ [db 2;db 1])) (1 // (c ^^ [n ^^ [db 1]])) ;
-         assert_equal (1 // db 1) n) ;
+         assert_term_equal (1 // db 1) n) ;
 
     (* Example 5, flex-flex case where we need to raise & prune *)
     "[X1 a2 b3 = Y2 b3 c3]" >::
@@ -182,9 +177,8 @@ let tests =
              | Var {name=h;ts=1;tag=Logic} -> var h 1
              | _ -> failwith "X should match x\\y\\ H ..."
          in
-           equal2
-             (2 // (h ^^ [ db 2 ; db 1 ])) x
-             (2 // (h ^^ [ a ; db 2 ])) y) ;
+           assert_term_equal (2 // (h ^^ [db 2; db 1])) x ;
+           assert_term_equal (2 // (h ^^ [ a ; db 2 ])) y) ;
 
     (* Example 6, flex-rigid case involving raise & prune relative to an
      * embedded flex term. *)
@@ -203,9 +197,8 @@ let tests =
              | Var {name=h;ts=1;tag=Logic} -> var h 1
              | _ -> failwith "X should match x\\y\\ _ H .."
          in
-           equal2
-             (2 // (c ^^ [h^^[db 2;db 1]])) x
-             (2 // (h ^^ [a;db 2])) y) ;
+           assert_term_equal (2 // (c ^^ [h^^[db 2;db 1]])) x ;
+           assert_term_equal (2 // (h ^^ [a;db 2])) y) ;
 
     (* Example 7, multiple occurences *)
     "[c1 (X1 a2 b3) (X b3 d2) = c1 (Y2 b3 c3) (b3 d2)]" >::
@@ -219,9 +212,8 @@ let tests =
          unify
            (c ^^ [ x ^^ [a;b] ; x ^^ [b;d] ])
            (c ^^ [ y ^^ [b;c] ; b ^^ [d] ]) ;
-         equal2
-           (2 // (db 2 ^^ [db 1])) x
-           (2 // (a ^^ [db 2])) y) ;
+         assert_term_equal (2 // (db 2 ^^ [db 1])) x ;
+         assert_term_equal (2 // (a ^^ [db 2])) y) ;
 
     (* Example 8, multiple occurences with a bound var as the rigid part
      * instead of a constant *)
@@ -236,9 +228,8 @@ let tests =
          unify
            (1 // (c ^^ [ x ^^ [a;b] ; x ^^ [db 1;d]]))
            (1 // (c ^^ [ y ^^ [b;c] ; db 1 ^^ [d] ])) ;
-         equal2
-           (2 // (db 2 ^^ [db 1])) x
-           (2 // (a ^^ [db 2])) y) ;
+         assert_term_equal (2 // (db 2 ^^ [db 1])) x ;
+         assert_term_equal (2 // (a ^^ [db 2])) y) ;
 
     (* Example 9, flex-flex with same var at both heads *)
     "[X1 a2 b3 c3 = X1 c3 b3 a2]" >::
@@ -254,7 +245,7 @@ let tests =
              | Var {name=h;ts=1;tag=Logic} -> var h 1
              | _ -> failwith "X should match x\\y\\z\\ H ..."
          in
-           assert_equal (3 // (h^^[db 2])) x) ;
+           assert_term_equal (3 // (h^^[db 2])) x) ;
 
     (* Example 10, failure due to OccursCheck
      * TODO Are the two different timestamps wanted for c ? *)
@@ -301,9 +292,8 @@ let tests =
                       (Printf.sprintf "X=%s should match Lam (_,(App H _))"
                          (Pprint.term_to_string x))
          in
-           equal2
-             (2 // (h ^^ [db 1])) x
-             (2 // (h ^^ [db 2])) y) ;
+           assert_term_equal (2 // (h ^^ [db 1])) x ;
+           assert_term_equal (2 // (h ^^ [db 2])) y) ;
 
     (* Example 12, flex-flex with raising on one var, pruning on the other *)
     "[X1 a2 b3 c3 = Y2 c3]" >::
@@ -320,9 +310,8 @@ let tests =
              | Var {name=h;ts=1;tag=Logic} -> var h 1
              | _ -> failwith "X should match x\\y\\z\\ H ..."
          in
-           equal2
-             (3 // (h ^^ [db 3;db 1])) x
-             (1 // (h ^^ [a;db 1])) y) ;
+           assert_term_equal (3 // (h ^^ [db 3;db 1])) x ;
+           assert_term_equal (1 // (h ^^ [a;db 1])) y) ;
 
     (* Example 13, flex-rigid where rigid has to be abstracted *)
     "[X1 a2 b3 = a2 (Y2 b3 c3)]" >::
@@ -339,9 +328,8 @@ let tests =
              | Var {name=h;ts=1;tag=Logic} -> var h 1
              | _ -> failwith "X should match x\\y\\ _ (H ..) .."
          in
-           equal2
-             (2 // (db 2 ^^ [h ^^ [db 2 ; db 1]])) x
-             (2 // (h ^^ [a ; db 2])) y) ;
+           assert_term_equal (2 // (db 2 ^^ [h ^^ [db 2 ; db 1]])) x ;
+           assert_term_equal (2 // (h ^^ [a ; db 2])) y) ;
 
     (* Example 14, OccursCheck *)
     "[X1 a2 b3 != d3 (Y2 b3 c3)]" >::
@@ -383,7 +371,7 @@ let tests =
        let p = var "P" 1 in
        let q = var "Q" 1 in
          unify (2 // (p ^^ [db 2])) (1 // (q ^^ [db 1])) ;
-         assert_equal (2 // (p ^^ [db 2])) q) ;
+         assert_term_equal (2 // (p ^^ [db 2])) q) ;
 
     (* This one used to fail, I don't remember having fixed it consciously.. *)
     "[T = a X, T = a Y, Y = T]" >::
@@ -405,7 +393,7 @@ let tests =
        let g = var "G" 2 in
          (* Different timestamps matter *)
          unify (2// (h ^^ [db 2])) (2// (g ^^ [db 2])) ;
-         assert_equal (g^^[db 2]) (h^^[db 2])) ;
+         assert_term_equal (g^^[db 2]) (h^^[db 2])) ;
 
     "[X1 = y2]" >::
     (fun () ->
@@ -419,17 +407,17 @@ let tests =
        let x = var "X" 0 in
        let y = var "Y" 0 in
          unify (x ^^ [nabla 1]) y ;
-         assert_equal (1 // y) x) ;
+         assert_term_equal (1 // y) x) ;
 
     "[X^0 n1 = Y^1]" >::
     (fun () ->
        let x = var "X" 0 in
        let y = var "Y" ~lts:1 0 in
          unify (x ^^ [nabla 1]) y ;
-         assert_equal y (x ^^ [nabla 1]) ;
+         assert_term_equal y (x ^^ [nabla 1]) ;
          match !!x with
            | Var v -> ()
-           | _ -> assert_equal (var "a_variable" 0) x) ;
+           | _ -> assert_term_equal (var "a_variable" 0) x) ;
 
     "[X^0 = Y^1]" >::
     (fun () ->

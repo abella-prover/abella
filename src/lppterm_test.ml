@@ -6,37 +6,40 @@ let id x = x
   
 let assert_pprint_equal s t =
   assert_equal ~printer:id s (lppterm_to_string t)
-  
+
+let a = var "A" 0
+let b = var "B" 0
+let c = var "C" 0
+    
 let tests =
   "LPP Term" >:::
     [
-      "{eval P V}" >::
+      "Print object" >::
         (fun () ->
-           let p = var "P" 0 in
-           let v = var "V" 0 in
-           let t = Obj(app (atom "eval") [p; v]) in
-             assert_pprint_equal "{eval P V}" t) ;
+           let t = obj (app (atom "eval") [a; b]) in
+             assert_pprint_equal "{eval A B}" t) ;
       
-      "{A} -> {B}" >::
+      "Print arrow" >::
         (fun () ->
-           let a = var "A" 0 in
-           let b = var "B" 0 in
-           let t = Arrow(Obj(a), Obj(b))  in
+           let t = arrow (obj a) (obj b)  in
              assert_pprint_equal "{A} -> {B}" t) ;
       
-      "{A} -> {B} -> {C}" >::
+      "Print multiple arrows" >::
         (fun () ->
-           let a = var "A" 0 in
-           let b = var "B" 0 in
-           let c = var "C" 0 in
-           let t = Arrow(Arrow(Obj(a), Obj(b)), Obj(c))  in
+           let t = arrow (arrow (obj a) (obj b)) (obj c)  in
              assert_pprint_equal "{A} -> {B} -> {C}" t) ;
       
-      "forall (A : tm), {eval A}" >::
+      "Print forall" >::
         (fun () ->
-           let a = var "A" 0 in
-           let evalA = Obj(app (atom "eval") [a]) in
+           let evalAB = obj (app (atom "eval") [a; b]) in
            let tm = atom "tm" in
-           let t = Forall([(a, tm)], evalA) in
-             assert_pprint_equal "forall (A : tm), {eval A}" t) ;
+           let t = forall [(a, tm)] evalAB in
+             assert_pprint_equal "forall (A : tm), {eval A B}" t) ;
+      
+      "Print restricted object" >::
+        (fun () ->
+           let evalAB = obj_r (app (atom "eval") [a; b]) 1 in
+           let typeofAB = obj (app (atom "typeof") [a; b]) in
+           let t = arrow evalAB typeofAB in
+             assert_pprint_equal "{eval A B}* -> {typeof A B}" t) ;
     ]

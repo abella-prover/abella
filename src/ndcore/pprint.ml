@@ -39,6 +39,9 @@ let priority x =
     | Found i -> i
 let get_max_priority () = List.length !infix
 
+(* Support for object level logic *)
+let is_obj x = x = "obj"
+
 (* Generic output function *)
 
 let tag2str = function
@@ -47,6 +50,7 @@ let tag2str = function
   | Logic -> "l"
 
 let parenthesis x = "(" ^ x ^ ")"
+let bracket x = "{" ^ x ^ "}"
 
 let rec list_range a b =
   if a > b then [] else a::(list_range (a+1) b)
@@ -75,6 +79,8 @@ let term_to_string term =
                   (pp pr_left n a) ^ " " ^ op ^ " " ^ (pp pr_right n b)
                 in
                   if op_p >= pr then res else parenthesis res
+            | Var {name=op; tag=Constant}, [a] when is_obj op ->
+                bracket (pp high_pr n a)
             | _ ->
                 let res =
                   String.concat " " (List.map (pp high_pr n) (t::ts))

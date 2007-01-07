@@ -32,7 +32,8 @@ NDCORE_FILES[] =
    ndcore/pprint
    ndcore/unify
 
-# TODO - can we replace this with a search for files ending in _test?
+FILES[] =
+
 TEST_FILES[] =
    $(rootname $(find . -name *_test.ml))
    test
@@ -40,7 +41,7 @@ TEST_FILES[] =
 TEST = unit_test
 
 .PHONY: test
-test: $(OCamlProgram $(TEST), $(OUNIT) $(NDCORE_FILES) $(TEST_FILES))
+test: $(OCamlProgram $(TEST), $(OUNIT) $(NDCORE_FILES) $(FILES) $(TEST_FILES))
    ./$(TEST) -verbose
 
 .PHONY: clean

@@ -32,6 +32,28 @@ let rec lppterm_to_string t =
     | Forall(ts, t) ->
         "forall " ^ (bindings_to_string ts) ^ ", " ^ (lppterm_to_string t)
 
+let is_imp t =
+  match observe t with
+    | App(t, _) -> eq t (atom "=>")
+    | _ -> false
+
+let extract_imp t =
+  match observe t with
+    | App(t, [a; b]) -> (a, b)
+    | _ -> failwith "Check is_imp before calling extract_imp"
+          
+let object_cut t1 t2 =
+  match t1, t2 with
+    | Obj(t1, _), Obj(t2, _) ->
+        if is_imp t1 then
+          let (a, b) = extract_imp t1 in
+            if eq a t2 then
+              obj b
+            else
+              failwith "Object cut applied to non-matching hypotheses"
+        else
+          failwith "First hypothesis to object cut must be an implication"
+    | _ -> failwith "Object cut can only be used on objects"
 
   
     

@@ -49,4 +49,19 @@ let tests =
            let typeofAB = obj (app (atom "typeof") [a; b]) in
            let t = arrow evalAB typeofAB in
              assert_pprint_equal "{eval A B} -> {typeof A B}" t) ;
+      
+      "Simple object cut" >::
+        (fun () ->
+           let atob = obj (app (atom "=>") [a; b]) in
+           let t = object_cut atob (obj a) in
+             assert_pprint_equal "{B}" t) ;
+      
+      "Compound object cut" >::
+        (fun () ->
+           let evalAB = app (atom "eval") [a; b] in
+           let typeofBC = app (atom "typeof") [b; c] in
+           let imp = obj (app (atom "=>") [evalAB; typeofBC]) in
+           let t = object_cut imp (obj evalAB) in
+             assert_pprint_equal "{typeof B C}" t) ;
+
     ]

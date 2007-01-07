@@ -33,6 +33,7 @@ NDCORE_FILES[] =
    ndcore/unify
 
 FILES[] =
+   lppterm
 
 TEST_FILES[] =
    $(rootname $(find . -name *_test.ml))

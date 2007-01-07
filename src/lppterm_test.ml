@@ -1,5 +1,6 @@
 open OUnit
 open Term
+open Term.Notations
 open Lppterm
   
 let id x = x
@@ -63,5 +64,13 @@ let tests =
            let imp = obj (app (atom "=>") [evalAB; typeofBC]) in
            let t = object_cut imp (obj evalAB) in
              assert_pprint_equal "{typeof B C}" t) ;
+
+      "Simple object instantiation" >::
+        (fun () ->
+           (* (pi x\ eval x B) instantiated with A *)
+           let evalxB = app (atom "eval") [db 1; b] in
+           let pi_evalxB = obj (app (atom "pi") [1 // evalxB]) in
+           let t = object_inst pi_evalxB a in
+             assert_pprint_equal "{eval A B}" t) ;
 
     ]

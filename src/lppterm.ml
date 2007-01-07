@@ -1,4 +1,5 @@
 open Term
+open Norm
 open Pprint
 
 type restriction = int * bool
@@ -55,5 +56,32 @@ let object_cut t1 t2 =
           failwith "First hypothesis to object cut must be an implication"
     | _ -> failwith "Object cut can only be used on objects"
 
+let is_pi_abs t =
+  match observe t with
+    | App(t, [abs]) -> eq t (atom "pi") &&
+        begin match observe abs with
+          | Lam(1, _) -> true
+          | _ -> false
+        end
+    | _ -> false
+
+let extract_pi_abs t =
+  match observe t with
+    | App(t, [abs]) -> abs
+    | _ -> failwith "Check is_pi_abs before calling extract_pi_abs"
+        
+let object_inst t x =
+  match t with
+    | Obj(t, _) ->
+        if is_pi_abs t then
+          let abs = extract_pi_abs t in
+            obj (deep_norm (app abs [x]))
+        else
+          failwith ("First hypothesis to object instantion must have the " ^
+                      "form (pi x\\ ...)")
+    | _ -> failwith ("Object instantiation expects an object as the first " ^
+                       "argument")
+        
+      
   
     

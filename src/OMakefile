@@ -36,6 +36,7 @@ FILES[] =
    lppterm
    parser
    lexer
+   tactics
    prover
 
 TEST_FILES[] =

@@ -20,7 +20,7 @@ OUNIT = $(file ext/oUnit)
 # Workaround for the fact that ocamldep does not pay attention to .mll
 # and .mly files.
 #
-# OCamlGeneratedFiles(parser.ml lexer.ml)
+OCamlGeneratedFiles(lppterm_parser.ml lppterm_lexer.ml)
 
 ################################################
 # Build an OCaml program
@@ -34,6 +34,8 @@ NDCORE_FILES[] =
 
 FILES[] =
    lppterm
+   lppterm_parser
+   lppterm_lexer
 
 TEST_FILES[] =
    $(rootname $(find . -name *_test.ml))

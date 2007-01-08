@@ -75,40 +75,18 @@ let replace_vars alist t =
   in
     aux_lppterm t
 
-let is_capital name =
-  name = String.capitalize name
-
-let uniq lst =
-  List.fold_right
-    (fun t result -> if List.mem t result then result else t::result)
-    lst []
-
-let extract_capital_varnames t =
-  let result = ref [] in
-  let rec aux_term t =
-    match observe t with
-      | Var {name=name} when is_capital name && not (List.mem name !result) ->
-          result := name::!result
-      | Var _
-      | DB _
-      | NB _ -> ()
-      | Lam(i, t) -> aux_term t
-      | App(t, ts) -> aux_term t; List.iter aux_term ts
-      | Susp _ -> failwith "Susp found during replace_vars"
-      | Ptr _ -> assert false
-  in
-  let rec aux_lppterm t =
-    match t with
-      | Obj(t, r) -> aux_term t
-      | Arrow(a, b) -> aux_lppterm a; aux_lppterm b
-      | Forall _ -> failwith "Cannot replace vars inside forall"
-  in
-    aux_lppterm t ;
-    !result
-
-let extract_capital_varnames_list ts =
-  uniq (List.flatten (List.map extract_capital_varnames ts))
-      
+let extract_obj t =
+  match t with
+    | Obj(t, _) -> t
+    | _ -> failwith "extract_obj called on non object"
+        
+let logic_var_names ts =
+  List.map (fun v ->
+              match observe v with
+                | Var {name=name} -> name
+                | _ -> failwith "logic_vars returned non-var")
+    (logic_vars (List.map extract_obj ts))
+                                                    
 module Right =
   Unify.Make (struct
                 let instantiatable = Logic
@@ -131,7 +109,7 @@ let apply_forall stmt ts =
   match stmt with
     | Forall(bindings, body) ->
         let alist = fresh_alist (List.map fst bindings) in
-        let freshbody = replace_vars alist body in
+        let fresh_body = replace_vars alist body in
           List.fold_left
             (fun stmt arg ->
                match stmt, arg with
@@ -143,7 +121,7 @@ let apply_forall stmt ts =
                      end ;
                      right
                  | _ -> failwith "Too few implications in forall application")
-            freshbody
+            fresh_body
             ts
     | _ -> failwith "apply_forall can only be used on Forall(...) statements"
 
@@ -156,22 +134,22 @@ let case term clauses =
   let initial_state = save_state () in
     List.fold_right
       (fun (head, body) result ->
-         let varnames = extract_capital_varnames_list (head::body) in
-         let freshnames = fresh_alist ~tag:Eigen varnames in
-         let freshen = replace_vars freshnames in
-         let freshhead = freshen head in
-         let freshbody = List.map freshen body in
+         let var_names = logic_var_names (head::body) in
+         let fresh_names = fresh_alist ~tag:Eigen var_names in
+         let freshen = replace_vars fresh_names in
+         let fresh_head = freshen head in
+         let fresh_body = List.map freshen body in
            try
-             right_object_unify freshhead term ;
+             right_object_unify fresh_head term ;
              let subst = get_subst initial_state in
              let restore () = (restore_state initial_state ;
                                ignore (apply_subst subst)) in
                restore_state initial_state ;
                match term with
                  | Obj(_, (n, _)) when n > 0 ->
-                     (restore,
-                      List.map (apply_active_restriction n) freshbody)::result
-                 | _ -> (restore, freshbody)::result
+                     (restore, List.map
+                        (apply_active_restriction n) fresh_body)::result
+                 | _ -> (restore, fresh_body)::result
            with
              | Unify.Error _ -> result)
       clauses []

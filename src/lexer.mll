@@ -1,5 +1,5 @@
 {
-  open Lppterm_parser
+  open Parser
   open Lexing
 
   let incrline lexbuf =
@@ -22,6 +22,8 @@ rule token = parse
 | "{" { LBRACKET }
 | "}" { RBRACKET }
 | "=>" { IMP }
+| ":-" { DEF }
+| "." { DOT }
 | "->" { RARROW }
 | "forall" { FORALL }
 | "\\" { BSLASH }

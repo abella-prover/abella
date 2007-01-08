@@ -17,6 +17,11 @@ let inactive_obj t r = Obj(t, (r, false))
 let active_obj t r = Obj(t, (r, true))
 let obj_r t r = Obj(t, r)
 
+let apply_active_restriction n t =
+  match t with
+    | Obj(t, _) -> active_obj t n
+    | _ -> failwith "Attempting to apply restriction to non-object"
+
 let restriction_to_string (n, active) =
   if active then String.make n '*' else ""
 
@@ -196,11 +201,14 @@ let case term clauses =
            try
              right_object_unify freshhead term ;
              let subst = get_subst initial_state in
-             let restore () =
-               (restore_state initial_state ;
-                ignore (apply_subst subst)) in
+             let restore () = (restore_state initial_state ;
+                               ignore (apply_subst subst)) in
                restore_state initial_state ;
-               (restore, freshbody)::result
+               match term with
+                 | Obj(_, (n, _)) when n > 0 ->
+                     (restore,
+                      List.map (apply_active_restriction n) freshbody)::result
+                 | _ -> (restore, freshbody)::result
            with
              | Unify.Error _ -> result)
       clauses []

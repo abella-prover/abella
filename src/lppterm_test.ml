@@ -187,12 +187,39 @@ let tests =
            let str = "eval (abs R) (abs R).\n" ^
              "eval (app M N) V :- eval M (abs R), eval (R N) V." in
            let prog = Parser.clauses Lexer.token (Lexing.from_string str) in
+           let a = var ~tag:Eigen "A" 0 in
+           let b = var ~tag:Eigen "B" 0 in
            let term = obj (app (atom "eval") [a; b]) in
+           let initial_state = save_state () in
              match case term prog with
                | [(f1, []); (f2, [b1; b2])] ->
                    f1 () ;
                    assert_pprint_equal "{eval (abs R) (abs R)}" term ;
                    f2 () ;
-                   assert_pprint_equal "{eval (app M N) V}" term
+                   assert_pprint_equal "{eval (app M N) V}" term ;
+                   assert_pprint_equal "{eval M (abs R)}" b1 ;
+                   assert_pprint_equal "{eval (R N) V}" b2 
+               | _ -> assert_failure "Pattern mismatch") ;
+      
+      "Restricted case application" >::
+        (fun () ->
+           (* eval (abs R) (abs R).
+              eval (app M N) V :- eval M (abs R), eval (R N) V.
+
+              case {eval A B} which has inactive restriction 1 *)
+           let str = "eval (abs R) (abs R).\n" ^
+             "eval (app M N) V :- eval M (abs R), eval (R N) V." in
+           let prog = Parser.clauses Lexer.token (Lexing.from_string str) in
+           let a = var ~tag:Eigen "A" 0 in
+           let b = var ~tag:Eigen "B" 0 in
+           let term = inactive_obj (app (atom "eval") [a; b]) 1 in
+             match case term prog with
+               | [(f1, []); (f2, [b1; b2])] ->
+                   f1 () ;
+                   assert_pprint_equal "{eval (abs R) (abs R)}" term ;
+                   f2 () ;
+                   assert_pprint_equal "{eval (app M N) V}" term ;
+                   assert_pprint_equal "{eval M (abs R)}*" b1 ;
+                   assert_pprint_equal "{eval (R N) V}*" b2 
                | _ -> assert_failure "Pattern mismatch") ;
     ]

@@ -177,4 +177,22 @@ let tests =
            let badabsR = obj (app (atom "bad") [absR; arrowST]) in
              assert_raises (Failure "Unification failure")
                (fun () -> apply_forall stmt [evalabsR; badabsR])) ;
+
+      "Case application" >::
+        (fun () ->
+           (* eval (abs R) (abs R).
+              eval (app M N) V :- eval M (abs R), eval (R N) V.
+
+              case {eval A B} *)
+           let str = "eval (abs R) (abs R).\n" ^
+             "eval (app M N) V :- eval M (abs R), eval (R N) V." in
+           let prog = Parser.clauses Lexer.token (Lexing.from_string str) in
+           let term = obj (app (atom "eval") [a; b]) in
+             match case term prog with
+               | [(f1, []); (f2, [b1; b2])] ->
+                   f1 () ;
+                   assert_pprint_equal "{eval (abs R) (abs R)}" term ;
+                   f2 () ;
+                   assert_pprint_equal "{eval (app M N) V}" term
+               | _ -> assert_failure "Pattern mismatch") ;
     ]

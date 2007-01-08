@@ -46,7 +46,6 @@ let constant tag =
   tag = Constant || tag = constant_like
 let variable tag =
   tag = instantiatable
-let fresh = Term.fresh ~tag:instantiatable
 
 (* Transforming a term to represent substitutions under abstractions *)
 let rec lift t n = match Term.observe t with
@@ -388,6 +387,7 @@ let makesubst h1 t2 a1 =
     | Term.Var v -> assert (v.tag=instantiatable) ; v,v.ts,v.lts
     | _ -> assert false
   in
+  let fresh = Term.fresh ~name:v1.name ~tag:instantiatable in
   let a1 = List.map Norm.hnorm a1 in
 
   (** Generating a substitution term and performing raising and

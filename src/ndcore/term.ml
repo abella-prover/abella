@@ -180,9 +180,9 @@ let fresh =
         incr varcount ;
         i
 
-let fresh ?(tag=Logic) ?(lts=0) ts =
+let fresh ?(name="") ?(tag=Logic) ?(lts=0) ts =
   let i = fresh () in
-  let name = (prefix tag) ^ (string_of_int i) in
+  let name = if name = "" then (prefix tag) ^ (string_of_int i) else name in
     Ptr (ref (V { name=name ; ts=ts ; lts=lts ; tag=tag }))
 
 (* Recursively raise dB indices and abstract over variables

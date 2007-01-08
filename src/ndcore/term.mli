@@ -121,7 +121,7 @@ val getAbsName : unit -> string
 (** Generating a fresh variable with a given time stamp; the use of ref
   * ensures uniqueness. We should attach useful names as well, but this 
   * will do for the moment. *)
-val fresh : ?tag:tag -> ?lts:int -> int -> term
+val fresh : ?name:id -> ?tag:tag -> ?lts:int -> int -> term
 
 exception NonNormalTerm
 

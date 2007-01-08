@@ -22,7 +22,7 @@ open Format
 
 exception Found of int
 
-type assoc = Left | Right | Both | None
+type assoc = Left | Right | Both | No
   
 (* List of infix operators sorted by priority. *)
 let infix : (string * assoc) list ref = ref []

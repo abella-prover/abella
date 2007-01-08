@@ -82,6 +82,10 @@ let object_inst t x =
     | _ -> failwith ("Object instantiation expects an object as the first " ^
                        "argument")
         
-      
-  
+let apply_forall stmt ts =
+  match stmt with
+    | Forall(bindings, body) ->
+        (* abstract out the bindings into fresh logic variables *)
+        (* then start matching elements of ts with the body *)
+    | _ -> failwith "apply_forall can only be used on Forall(...) statements"
     

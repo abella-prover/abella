@@ -8,6 +8,7 @@ let id x = x
 let assert_pprint_equal s t =
   assert_equal ~printer:id s (lppterm_to_string t)
 
+(* TODO - change these to eigen vars? *)
 let a = var "A" 0
 let b = var "B" 0
 let c = var "C" 0
@@ -73,4 +74,27 @@ let tests =
            let t = object_inst pi_evalxB a in
              assert_pprint_equal "{eval A B}" t) ;
 
+      "Forall application" >::
+        (fun () ->
+           (* forall (A : tm) (B : tm) (C : ty),
+                {eval A B} -> {typeof A C} -> {typeof B C}
+              instantiated with {eval (abs R) (abs R)}
+                                {typeof (abs R) (arrow S T)} *)
+           let tm = atom "tm" in
+           let ty = atom "ty" in
+           let evalAB = obj (app (atom "eval") [a; b]) in
+           let typeofAC = obj (app (atom "typeof") [a; c]) in
+           let typeofBC = obj (app (atom "typeof") [b; c]) in
+             (* TODO - these should not be these kind of variables? *)
+           let stmt = forall [(a, tm); (b, tm); (c, ty)]
+             (arrow evalAB (arrow typeofAC typeofBC)) in
+           let absR = app (atom "abs") [var ~tag:Eigen "R" 0] in
+           let evalabsR = obj (app (atom "eval") [absR; absR]) in
+           let arrowST = app (atom "arrow") [var ~tag:Eigen "S" 0;
+                                             var ~tag:Eigen "T" 0] in
+           let typeofabsR = obj (app (atom "typeof") [absR; arrowST]) in
+           let t = apply_forall stmt [evalabsR; typeofabsR] in
+             assert_pprint_equal "{eval (abs R) (arrow S T)}" t) ;
+
+(* TODO - will this mess up the logic vars and if so how do we reset *)
     ]

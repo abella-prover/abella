@@ -7,7 +7,7 @@ type restriction = int * bool
 type lppterm =
   | Obj of term * restriction
   | Arrow of lppterm * lppterm
-  | Forall of (term * term) list * lppterm
+  | Forall of (id * term) list * lppterm
 
 let obj t = Obj(t, (0, false))
 let arrow a b = Arrow(a, b)
@@ -15,12 +15,13 @@ let forall ts t = Forall(ts, t)
 
 let inactive_obj t r = Obj(t, (r, false))
 let active_obj t r = Obj(t, (r, true))
+let obj_r t r = Obj(t, r)
 
 let restriction_to_string (n, active) =
   if active then String.make n '*' else ""
 
 let binding_to_string (tm, ty) =
-  "(" ^ (term_to_string tm) ^ " : " ^ (term_to_string ty) ^ ")"
+  "(" ^ tm ^ " : " ^ (term_to_string ty) ^ ")"
 
 let bindings_to_string ts =
   String.concat " " (List.map binding_to_string ts)
@@ -81,11 +82,60 @@ let object_inst t x =
                       "form (pi x\\ ...)")
     | _ -> failwith ("Object instantiation expects an object as the first " ^
                        "argument")
-        
+
+let fresh_alist ts =
+  List.map (fun x -> (x, fresh 0)) ts
+
+let replace_vars alist t =
+  let rec aux_term t =
+    match observe t with
+      | Var {name=name} when List.mem_assoc name alist ->
+          List.assoc name alist
+      | Var _
+      | DB _
+      | NB _ -> t
+      | Lam(i, t) -> lambda i (aux_term t)
+      | App(t, ts) -> app (aux_term t) (List.map aux_term ts)
+      | Susp _ -> failwith "Susp found during replace_vars"
+      | Ptr _ -> assert false
+  in
+  let rec aux_lppterm t =
+    match t with
+      | Obj(t, r) -> obj_r (aux_term t) r
+      | Arrow(a, b) -> arrow (aux_lppterm a) (aux_lppterm b)
+      | Forall _ -> failwith "Cannot replace vars inside forall"
+  in
+    aux_lppterm t
+
+module Right =
+  Unify.Make (struct
+                let instantiatable = Logic
+                let constant_like = Eigen
+              end)
+
+let check_restriction (n1, a1) (n2, a2) =
+  if a1 && (n1 != n2 || not a2) then
+    failwith "Restriction violated"
+  else
+    ()
+
 let apply_forall stmt ts =
   match stmt with
     | Forall(bindings, body) ->
-        (* abstract out the bindings into fresh logic variables *)
-        (* then start matching elements of ts with the body *)
+        let alist = fresh_alist (List.map fst bindings) in
+        let freshbody = replace_vars alist body in
+          List.fold_left
+            (fun stmt arg ->
+               match stmt, arg with
+                 | Arrow(Obj(left, r1), right), Obj(arg, r2) ->
+                     check_restriction r1 r2 ;
+                     begin try Right.pattern_unify left arg with
+                       | Unify.Error _ ->
+                           failwith "Unification failure"
+                     end ;
+                     right
+                 | _ -> failwith "Too few implications in forall application")
+            freshbody
+            ts
     | _ -> failwith "apply_forall can only be used on Forall(...) statements"
     

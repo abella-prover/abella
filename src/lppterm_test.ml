@@ -8,10 +8,9 @@ let id x = x
 let assert_pprint_equal s t =
   assert_equal ~printer:id s (lppterm_to_string t)
 
-(* TODO - change these to eigen vars? *)
-let a = var "A" 0
-let b = var "B" 0
-let c = var "C" 0
+let a = var ~tag:Eigen "A" 0
+let b = var ~tag:Eigen "B" 0
+let c = var ~tag:Eigen "C" 0
     
 let tests =
   "LPP Term" >:::
@@ -35,7 +34,7 @@ let tests =
         (fun () ->
            let evalAB = obj (app (atom "eval") [a; b]) in
            let tm = atom "tm" in
-           let t = forall [(a, tm)] evalAB in
+           let t = forall [("A", tm)] evalAB in
              assert_pprint_equal "forall (A : tm), {eval A B}" t) ;
       
       "Print active restricted object" >::
@@ -85,8 +84,7 @@ let tests =
            let evalAB = obj (app (atom "eval") [a; b]) in
            let typeofAC = obj (app (atom "typeof") [a; c]) in
            let typeofBC = obj (app (atom "typeof") [b; c]) in
-             (* TODO - these should not be these kind of variables? *)
-           let stmt = forall [(a, tm); (b, tm); (c, ty)]
+           let stmt = forall [("A", tm); ("B", tm); ("C", ty)]
              (arrow evalAB (arrow typeofAC typeofBC)) in
            let absR = app (atom "abs") [var ~tag:Eigen "R" 0] in
            let evalabsR = obj (app (atom "eval") [absR; absR]) in
@@ -94,7 +92,89 @@ let tests =
                                              var ~tag:Eigen "T" 0] in
            let typeofabsR = obj (app (atom "typeof") [absR; arrowST]) in
            let t = apply_forall stmt [evalabsR; typeofabsR] in
-             assert_pprint_equal "{eval (abs R) (arrow S T)}" t) ;
+             assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
-(* TODO - will this mess up the logic vars and if so how do we reset *)
+      "Properly restricted forall application" >::
+        (fun () ->
+           (* forall (A : tm) (B : tm) (C : ty),
+                {eval A B}* -> {typeof A C} -> {typeof B C}
+              instantiated with {eval (abs R) (abs R)}*
+                                {typeof (abs R) (arrow S T)} *)
+           let tm = atom "tm" in
+           let ty = atom "ty" in
+           let evalAB = active_obj (app (atom "eval") [a; b]) 1 in
+           let typeofAC = obj (app (atom "typeof") [a; c]) in
+           let typeofBC = obj (app (atom "typeof") [b; c]) in
+           let stmt = forall [("A", tm); ("B", tm); ("C", ty)]
+             (arrow evalAB (arrow typeofAC typeofBC)) in
+           let absR = app (atom "abs") [var ~tag:Eigen "R" 0] in
+           let evalabsR = active_obj (app (atom "eval") [absR; absR]) 1 in
+           let arrowST = app (atom "arrow") [var ~tag:Eigen "S" 0;
+                                             var ~tag:Eigen "T" 0] in
+           let typeofabsR = obj (app (atom "typeof") [absR; arrowST]) in
+           let t = apply_forall stmt [evalabsR; typeofabsR] in
+             assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
+
+      "Needlessly restricted forall application" >::
+        (fun () ->
+           (* forall (A : tm) (B : tm) (C : ty),
+                {eval A B} -> {typeof A C} -> {typeof B C}
+              instantiated with {eval (abs R) (abs R)}*
+                                {typeof (abs R) (arrow S T)} *)
+           let tm = atom "tm" in
+           let ty = atom "ty" in
+           let evalAB = obj (app (atom "eval") [a; b]) in
+           let typeofAC = obj (app (atom "typeof") [a; c]) in
+           let typeofBC = obj (app (atom "typeof") [b; c]) in
+           let stmt = forall [("A", tm); ("B", tm); ("C", ty)]
+             (arrow evalAB (arrow typeofAC typeofBC)) in
+           let absR = app (atom "abs") [var ~tag:Eigen "R" 0] in
+           let evalabsR = active_obj (app (atom "eval") [absR; absR]) 1 in
+           let arrowST = app (atom "arrow") [var ~tag:Eigen "S" 0;
+                                             var ~tag:Eigen "T" 0] in
+           let typeofabsR = obj (app (atom "typeof") [absR; arrowST]) in
+           let t = apply_forall stmt [evalabsR; typeofabsR] in
+             assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
+      
+      "Improperly restricted forall application" >::
+        (fun () ->
+           (* forall (A : tm) (B : tm) (C : ty),
+                {eval A B}* -> {typeof A C} -> {typeof B C}
+              instantiated with {eval (abs R) (abs R)}
+                                {typeof (abs R) (arrow S T)} *)
+           let tm = atom "tm" in
+           let ty = atom "ty" in
+           let evalAB = active_obj (app (atom "eval") [a; b]) 1 in
+           let typeofAC = obj (app (atom "typeof") [a; c]) in
+           let typeofBC = obj (app (atom "typeof") [b; c]) in
+           let stmt = forall [("A", tm); ("B", tm); ("C", ty)]
+             (arrow evalAB (arrow typeofAC typeofBC)) in
+           let absR = app (atom "abs") [var ~tag:Eigen "R" 0] in
+           let evalabsR = obj (app (atom "eval") [absR; absR]) in
+           let arrowST = app (atom "arrow") [var ~tag:Eigen "S" 0;
+                                             var ~tag:Eigen "T" 0] in
+           let typeofabsR = obj (app (atom "typeof") [absR; arrowST]) in
+             assert_raises (Failure "Restriction violated")
+               (fun () -> apply_forall stmt [evalabsR; typeofabsR])) ;
+
+      "Unification failure during forall application" >::
+        (fun () ->
+           (* forall (A : tm) (B : tm) (C : ty),
+                {eval A B} -> {typeof A C} -> {typeof B C}
+              instantiated with {eval (abs R) (abs R)}
+                                {bad (abs R) (arrow S T)} *)
+           let tm = atom "tm" in
+           let ty = atom "ty" in
+           let evalAB = obj (app (atom "eval") [a; b]) in
+           let typeofAC = obj (app (atom "typeof") [a; c]) in
+           let typeofBC = obj (app (atom "typeof") [b; c]) in
+           let stmt = forall [("A", tm); ("B", tm); ("C", ty)]
+             (arrow evalAB (arrow typeofAC typeofBC)) in
+           let absR = app (atom "abs") [var ~tag:Eigen "R" 0] in
+           let evalabsR = obj (app (atom "eval") [absR; absR]) in
+           let arrowST = app (atom "arrow") [var ~tag:Eigen "S" 0;
+                                             var ~tag:Eigen "T" 0] in
+           let badabsR = obj (app (atom "bad") [absR; arrowST]) in
+             assert_raises (Failure "Unification failure")
+               (fun () -> apply_forall stmt [evalabsR; badabsR])) ;
     ]

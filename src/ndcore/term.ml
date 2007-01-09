@@ -207,10 +207,11 @@ let abstract_var v t = lambda 1 (abstract (fun t id' -> t = v) 1 t)
 let abstract id t = lambda 1 (abstract (fun t id' -> id' = id) 1 t)
 
 (** Logic variables of [ts], assuming that it is normalized. *)
-let logic_vars ts =
+  
+let find_vars ?(tag=Logic) ts =
   let rec fv l t = match observe t with
     | Var v ->
-        if v.tag = Logic && not (List.mem t l) then (t::l) else l
+        if v.tag = tag && not (List.mem t l) then (t::l) else l
     | App (h,ts) -> List.fold_left fv (fv l h) ts
     | Lam (n,t') -> fv l t'
     | NB _ | DB _ -> l
@@ -218,6 +219,8 @@ let logic_vars ts =
     | Ptr _ -> assert false
   in
     List.fold_left fv [] ts
+      
+let logic_vars = find_vars ~tag:Logic
 
 (** Utilities.
   * Easy creation of constants and variables, with sharing. *)

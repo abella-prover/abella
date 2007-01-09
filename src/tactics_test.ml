@@ -100,13 +100,21 @@ let tests =
            let b = var ~tag:Eigen "B" 0 in
            let term = obj (app (atom "eval") [a; b]) in
              match case term prog with
-               | [(f1, []); (f2, [b1; b2])] ->
+               | [(f1, v1, []); (f2, v2, [b1; b2])] ->
                    f1 () ;
                    assert_pprint_equal "{eval (abs R) (abs R)}" term ;
+                   assert_bool "R should be flagged as used"
+                     (List.mem "R" v1) ;
                    f2 () ;
                    assert_pprint_equal "{eval (app M N) V}" term ;
                    assert_pprint_equal "{eval M (abs R)}" b1 ;
-                   assert_pprint_equal "{eval (R N) V}" b2 
+                   assert_pprint_equal "{eval (R N) V}" b2 ;
+                   assert_bool "R should be flagged as used"
+                     (List.mem "R" v2) ;
+                   assert_bool "M should be flagged as used"
+                     (List.mem "M" v2) ;
+                   assert_bool "N should be flagged as used"
+                     (List.mem "N" v2)
                | _ -> assert_failure "Pattern mismatch") ;
       
       "Restricted case application" >::
@@ -122,7 +130,7 @@ let tests =
            let b = var ~tag:Eigen "B" 0 in
            let term = inactive_obj (app (atom "eval") [a; b]) 1 in
              match case term prog with
-               | [(f1, []); (f2, [b1; b2])] ->
+               | [(f1, v1, []); (f2, v2, [b1; b2])] ->
                    f1 () ;
                    assert_pprint_equal "{eval (abs R) (abs R)}@" term ;
                    f2 () ;

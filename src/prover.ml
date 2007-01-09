@@ -38,15 +38,11 @@ let add_hyp ?(name=fresh_hyp_name ()) term =
 let add_var name =
   vars := List.append !vars [name]
 
+let add_if_new_var name =
+  if not (List.mem name !vars) then add_var name
+
 let get_hyp name =
   List.assoc name !hyps
-
-let add_cases_to_subgoals cases =
-  let case_to_subgoal (set_state, new_hyps) =
-    let labeled_hyps = List.map (fun h -> (fresh_hyp_name (), h)) new_hyps in
-      (set_state, !vars, List.append !hyps labeled_hyps, !goal)
-  in
-    subgoals := List.append !subgoals (List.map case_to_subgoal cases)
 
 let next_subgoal () =
   match !subgoals with
@@ -69,22 +65,37 @@ let apply h args =
         | Obj(t, _), [arg] when Tactics.is_imp t ->
             Tactics.object_cut stmt (get_hyp arg)
         | Obj(t, _), [arg] when Tactics.is_pi_abs t ->
-            (* TODO - we should always be able to find this
-               in the vars, but right now the vars doesn't get
-               updated after performing case *)
-            Tactics.object_inst stmt (atom ~tag:Eigen arg)
+            if List.mem arg !vars then
+              Tactics.object_inst stmt (atom ~tag:Eigen arg)
+            else
+              failwith ("Variable not found: " ^ arg)
         | _ -> failwith "Bad application"
       end
 
 (* Case *)
 
+let set_minus lst1 lst2 =
+  List.filter (fun x -> not (List.mem x lst2)) lst1
+
+let add_cases_to_subgoals cases =
+  let case_to_subgoal (set_state, used_vars, new_hyps) =
+    let labeled_hyps = List.map (fun h -> (fresh_hyp_name (), h)) new_hyps in
+    let new_vars = set_minus used_vars !vars in
+      (set_state,
+       List.append !vars new_vars,
+       List.append !hyps labeled_hyps,
+       !goal)
+  in
+    subgoals := List.append !subgoals (List.map case_to_subgoal cases)
+      
 let case str =
   let obj = get_hyp str in
   let cases = Tactics.case obj !clauses in
     match cases with
       | [] -> next_subgoal ()
-      | (set_state, new_hyps)::other_cases ->
+      | (set_state, used_vars, new_hyps)::other_cases ->
           add_cases_to_subgoals other_cases ;
+          List.iter add_if_new_var used_vars ;
           set_state () ;
           List.iter add_hyp new_hyps
 

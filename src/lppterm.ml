@@ -17,6 +17,11 @@ let inactive_obj t r = Obj(t, (r, false))
 let active_obj t r = Obj(t, (r, true))
 let obj_r t r = Obj(t, r)
 
+let obj_to_term t =
+  match t with
+    | Obj(t, _) -> t
+    | _ -> failwith "obj_to_term called on non-obj"
+
 let apply_active_restriction n t =
   match t with
     | Obj(t, _) -> active_obj t n

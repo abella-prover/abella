@@ -129,7 +129,11 @@ let right_object_unify t1 t2 =
   match t1, t2 with
     | Obj(t1, _), Obj(t2, _) -> Left.pattern_unify t1 t2
     | _ -> failwith "right_object_unify called on non-object"
-        
+
+let find_obj_vars ts =
+  List.map term_to_string
+    (find_vars ~tag:Eigen (List.map obj_to_term ts))
+
 let case term clauses =
   let initial_state = save_state () in
     List.fold_right
@@ -141,15 +145,16 @@ let case term clauses =
          let fresh_body = List.map freshen body in
            try
              right_object_unify fresh_head term ;
+             let used_vars = find_obj_vars (fresh_head::fresh_body) in
              let subst = get_subst initial_state in
              let restore () = (restore_state initial_state ;
                                ignore (apply_subst subst)) in
                restore_state initial_state ;
                match term with
                  | Obj(_, (n, _)) when n > 0 ->
-                     (restore, List.map
+                     (restore, used_vars, List.map
                         (apply_active_restriction n) fresh_body)::result
-                 | _ -> (restore, fresh_body)::result
+                 | _ -> (restore, used_vars, fresh_body)::result
            with
              | Unify.Error _ -> result)
       clauses []

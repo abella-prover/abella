@@ -3,7 +3,9 @@ open Pprint
 open Lppterm
 
 let vars_to_string vars =
-  String.concat "\n" vars
+  match vars with
+    | [] -> ""
+    | _ -> "  Variables: " ^ (String.concat ", " vars)
 
 let hyps_to_string hyps =
   String.concat "\n"

@@ -133,3 +133,5 @@ val abstract : string -> term -> term
 
 (** Logic variables of [ts]. *)
 val logic_vars : term list -> term list
+
+val find_vars : ?tag:tag -> term list -> term list

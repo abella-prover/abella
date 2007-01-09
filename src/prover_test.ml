@@ -1,5 +1,7 @@
 open OUnit
 open Prover
+open Lppterm
+open Term
 
 let clauses_str =
   "eval (abs R) (abs R).\n" ^
@@ -17,5 +19,16 @@ let parse str =
  let tests =
   "Prover" >:::
     [
-
+      "New variables added to context" >::
+        (fun () ->
+           vars := ["A"; "B"] ;
+           hyps := [("H1", parse "{eval A B}")] ;
+           goal := obj (atom "placeholder") ;
+           subgoals := [] ;
+           case "H1" ;
+           assert_bool "R should be added to variable list"
+             (List.mem "R" !vars)
+        ) ;
+           
+           
     ]

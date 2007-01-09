@@ -24,7 +24,7 @@ let subgoals : subgoal list ref = ref []
 
 type clauses = (lppterm * lppterm list) list
   
-let clauses : Clause.clauses ref = ref []
+let clauses : clauses ref = ref []
 
 let fresh_hyp_name =
   let count = ref 0 in

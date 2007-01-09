@@ -49,5 +49,5 @@ let tests =
            let evalAB = inactive_obj (app (atom "eval") [a; b]) 1 in
            let typeofAB = obj (app (atom "typeof") [a; b]) in
            let t = arrow evalAB typeofAB in
-             assert_pprint_equal "{eval A B} -> {typeof A B}" t) ;
+             assert_pprint_equal "{eval A B}@ -> {typeof A B}" t) ;
     ]

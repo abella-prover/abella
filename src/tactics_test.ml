@@ -169,9 +169,9 @@ let tests =
              match case term prog with
                | [(f1, []); (f2, [b1; b2])] ->
                    f1 () ;
-                   assert_pprint_equal "{eval (abs R) (abs R)}" term ;
+                   assert_pprint_equal "{eval (abs R) (abs R)}@" term ;
                    f2 () ;
-                   assert_pprint_equal "{eval (app M N) V}" term ;
+                   assert_pprint_equal "{eval (app M N) V}@" term ;
                    assert_pprint_equal "{eval M (abs R)}*" b1 ;
                    assert_pprint_equal "{eval (R N) V}*" b2 
                | _ -> assert_failure "Pattern mismatch") ;
@@ -185,7 +185,7 @@ let tests =
                "forall (A : tm), {first A}* -> {second A} -> {third A}"
                ih ;
              assert_pprint_equal
-               "forall (A : tm), {first A} -> {second A} -> {third A}"
+               "forall (A : tm), {first A}@ -> {second A} -> {third A}"
                goal) ;
       
       "Double induction creation" >::
@@ -197,7 +197,7 @@ let tests =
                "forall (A : tm), {first A}* -> {second A}** -> {third A}"
                ih ;
              assert_pprint_equal
-               "forall (A : tm), {first A} -> {second A} -> {third A}"
+               "forall (A : tm), {first A}@ -> {second A}@@ -> {third A}"
                goal) ;
       
     ]

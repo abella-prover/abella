@@ -29,6 +29,8 @@ rule token = parse
 | "\\" { BSLASH }
 | "(" { LPAREN }
 | ")" { RPAREN }
+| "*" { STAR }
+| "@" { AT }
 
 | name as n { ID n }
 

@@ -49,7 +49,19 @@ let tests =
            let str = "{pi x1\\eval x1 A => typeof x1 B}" in
            let t = parse_lppterm str in
              assert_pprint_equal str t) ;
+      
+      "Active restriction" >::
+        (fun () ->
+           let str = "{A}**" in
+           let t = parse_lppterm str in
+             assert_pprint_equal str t) ;
 
+      "Inactive restriction" >::
+        (fun () ->
+           let str = "{A}@@" in
+           let t = parse_lppterm str in
+             assert_pprint_equal str t) ;
+      
       "Empty bodied clause" >::
         (fun () ->
            let str = "eval (abs R) (abs R)." in

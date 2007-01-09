@@ -1,6 +1,7 @@
 %token BSLASH LPAREN RPAREN
 %token FORALL IMP RARROW COLON COMMA
 %token LBRACKET RBRACKET
+%token STAR AT
 %token DEF DOT
 %token <string> ID
 %token EOF
@@ -29,7 +30,17 @@ binding:
 
 object_term:
   | LBRACKET term RBRACKET            { Lppterm.obj $2 }
+  | LBRACKET term RBRACKET stars      { Lppterm.active_obj $2 $4 }
+  | LBRACKET term RBRACKET ats        { Lppterm.inactive_obj $2 $4 }
 
+stars:
+  | stars STAR                        { $1 + 1 }
+  | STAR                              { 1 }
+
+ats:
+  | ats AT                            { $1 + 1 }
+  | AT                                { 1 }
+      
 term:
   | term IMP term                     { Term.app (Term.atom "=>") [$1; $3] }
   | ID BSLASH term                    { Term.abstract $1 $3 }

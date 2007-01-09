@@ -23,7 +23,7 @@ let apply_active_restriction n t =
     | _ -> failwith "Attempting to apply restriction to non-object"
 
 let restriction_to_string (n, active) =
-  if active then String.make n '*' else ""
+  if active then String.make n '*' else String.make n '@'
 
 let binding_to_string (tm, ty) =
   "(" ^ tm ^ " : " ^ (term_to_string ty) ^ ")"

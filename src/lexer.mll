@@ -9,6 +9,7 @@
           pos_lnum = 1 + lexbuf.lex_curr_p.pos_lnum }
 }
 
+let number = ['0'-'9'] +
 let name = ['A' - 'Z' 'a'-'z' '_' '/' '0'-'9' '\''] +
 let blank = ' ' | '\t' | '\r'
 
@@ -31,7 +32,16 @@ rule token = parse
 | ")" { RPAREN }
 | "*" { STAR }
 | "@" { AT }
+      
+| "induction" { IND }
+| "apply" { APPLY }
+| "case" { CASE }
+| "search" { SEARCH }
+| "to" { TO }
+| "on" { ON }
+| "and" { AND }
 
+| number as n { NUM (int_of_string n) }
 | name as n { ID n }
 
 | eof    { EOF }

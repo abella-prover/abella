@@ -34,6 +34,8 @@ NDCORE_FILES[] =
 
 FILES[] =
    lppterm
+   command
+   clause
    parser
    lexer
    tactics

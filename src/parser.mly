@@ -2,6 +2,8 @@
 %token FORALL IMP RARROW COLON COMMA
 %token LBRACKET RBRACKET
 %token STAR AT
+%token IND APPLY CASE SEARCH TO ON AND
+%token <int> NUM
 %token DEF DOT
 %token <string> ID
 %token EOF
@@ -9,10 +11,11 @@
 %nonassoc BSLASH
 %right IMP
 
-%start lppterm term clauses
+%start lppterm term clauses command
 %type <Lppterm.lppterm> lppterm
 %type <Term.term> term
-%type <Prover.clauses> clauses
+%type <Clause.clauses> clauses
+%type <Command.command> command
 
 %%
 
@@ -67,3 +70,19 @@ clause:
 clause_body:
   | term COMMA clause_body            { (Lppterm.obj $1)::$3 }
   | term                              { [Lppterm.obj $1] }
+
+command:
+  | IND ON num_arg_list               { Command.Induction($3) }
+  | APPLY ID TO id_arg_list           { Command.Apply($2, $4) }
+  | CASE ID                           { Command.Case($2) }
+  | SEARCH                            { Command.Search }
+
+num_arg_list:
+  | NUM AND num_arg_list              { $1::$3 }
+  | NUM                               { [$1] }
+
+id_arg_list:
+  | ID AND id_arg_list                { $1::$3 }
+  | ID                                { [$1] }
+   
+

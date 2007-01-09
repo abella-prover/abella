@@ -39,7 +39,8 @@ FILES[] =
    parser
    lexer
    tactics
-   prover
+
+MAIN = prover
 
 TEST_FILES[] =
    $(rootname $(find . -name *_test.ml))
@@ -50,6 +51,9 @@ TEST = unit_test
 .PHONY: test
 test: $(OCamlProgram $(TEST), $(OUNIT) $(NDCORE_FILES) $(FILES) $(TEST_FILES))
    ./$(TEST) -verbose
+
+.PHONY: lpp
+lpp: $(OCamlProgram lpp, $(NDCORE_FILES) $(FILES) $(MAIN))
 
 .PHONY: clean
 clean:

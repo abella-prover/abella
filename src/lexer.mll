@@ -40,6 +40,8 @@ rule token = parse
 | "to" { TO }
 | "on" { ON }
 | "and" { AND }
+| "Theorem" { THEOREM }
+| "intros" { INTROS }
 
 | number as n { NUM (int_of_string n) }
 | name as n { ID n }

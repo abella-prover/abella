@@ -1,3 +1,5 @@
+open Lppterm
+
 type id = string
 
 type command =
@@ -5,4 +7,5 @@ type command =
   | Apply of id * id list
   | Case of id
   | Search
-
+  | Theorem of lppterm
+  | Intros

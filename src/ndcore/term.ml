@@ -236,7 +236,7 @@ let reset_namespace_vars () =
        | _ -> ())
     tbl
 
-let atom ?(ts=0) name =
+let atom ?(tag=Logic) ?(ts=0) name =
   try
     Hashtbl.find tbl name
   with
@@ -244,7 +244,7 @@ let atom ?(ts=0) name =
         assert (name <> "") ;
         let t =
           match name.[0] with
-            | 'A'..'Z' -> var name ts
+            | 'A'..'Z' -> var ~tag:tag name ts
             | _ -> const name ts
         in
           Hashtbl.add tbl name t ;

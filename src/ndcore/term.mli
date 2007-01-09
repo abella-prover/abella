@@ -57,7 +57,7 @@ val reset_namespace_vars : unit -> unit
 val const : ?tag:tag -> ?lts:int -> string -> int -> term
 val var   : ?tag:tag -> ?lts:int -> string -> int -> term
 
-val atom : ?ts:int -> string -> term
+val atom : ?tag:tag -> ?ts:int -> string -> term
 val string : string -> term
 
 val binop : string -> term -> term -> term

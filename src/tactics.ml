@@ -169,11 +169,15 @@ let apply_restrictions active args stmt =
             | _ -> failwith "Not enough implications in induction"
   in
     aux 1 args 1 stmt
+
+let freshen_vars bindings body =
+  replace_vars (fresh_alist (List.map fst bindings)) body
   
 let induction args stmt =
   match stmt with
     | Forall(bindings, body) ->
         let ih_body = apply_restrictions true args body in
+        let fresh_ih_body = freshen_vars bindings ih_body in
         let goal_body = apply_restrictions false args body in
-        (forall bindings ih_body, forall bindings goal_body)
+          (forall bindings fresh_ih_body, forall bindings goal_body)
     | _ -> failwith "Induction applied to non-forall statement"

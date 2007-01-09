@@ -44,84 +44,39 @@ let tests =
 
       "Properly restricted forall application" >::
         (fun () ->
-           (* We have to construct this manually because the parser does
-              not understand restrictions.
-              
-              forall (A : tm) (B : tm) (C : ty),
-                {eval A B}* -> {typeof A C} -> {typeof B C}
-              instantiated with {eval (abs R) (abs R)}*
-                                {typeof (abs R) (arrow S T)} *)
-           let a = atom "A" in
-           let b = atom "B" in
-           let c = atom "C" in
-           let tm = atom "tm" in
-           let ty = atom "ty" in
-           let evalAB = active_obj (app (atom "eval") [a; b]) 1 in
-           let typeofAC = obj (app (atom "typeof") [a; c]) in
-           let typeofBC = obj (app (atom "typeof") [b; c]) in
-           let stmt = forall [("A", tm); ("B", tm); ("C", ty)]
-             (arrow evalAB (arrow typeofAC typeofBC)) in
-           let absR = app (atom "abs") [var ~tag:Eigen "R" 0] in
-           let evalabsR = active_obj (app (atom "eval") [absR; absR]) 1 in
-           let arrowST = app (atom "arrow") [var ~tag:Eigen "S" 0;
-                                             var ~tag:Eigen "T" 0] in
-           let typeofabsR = obj (app (atom "typeof") [absR; arrowST]) in
-           let t = apply_forall stmt [evalabsR; typeofabsR] in
+           let h0 = parse ("forall (A : tm) (B : tm) (C : ty), " ^
+                             "{eval A B}* -> {typeof A C} -> {typeof B C}") in
+           let h1 = parse "{eval (abs R) (abs R)}*" in
+           let h2 = parse "{typeof (abs R) (arrow S T)}" in
+           let t = apply_forall h0 [h1; h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
       "Needlessly restricted forall application" >::
         (fun () ->
-           (* We have to construct this manually because the parser does
-              not understand restrictions.
-              
-              forall (A : tm) (B : tm) (C : ty),
-                {eval A B} -> {typeof A C} -> {typeof B C}
-              instantiated with {eval (abs R) (abs R)}*
-                                {typeof (abs R) (arrow S T)} *)
-           let a = atom "A" in
-           let b = atom "B" in
-           let c = atom "C" in
-           let tm = atom "tm" in
-           let ty = atom "ty" in
-           let evalAB = obj (app (atom "eval") [a; b]) in
-           let typeofAC = obj (app (atom "typeof") [a; c]) in
-           let typeofBC = obj (app (atom "typeof") [b; c]) in
-           let stmt = forall [("A", tm); ("B", tm); ("C", ty)]
-             (arrow evalAB (arrow typeofAC typeofBC)) in
-           let absR = app (atom "abs") [var ~tag:Eigen "R" 0] in
-           let evalabsR = active_obj (app (atom "eval") [absR; absR]) 1 in
-           let arrowST = app (atom "arrow") [var ~tag:Eigen "S" 0;
-                                             var ~tag:Eigen "T" 0] in
-           let typeofabsR = obj (app (atom "typeof") [absR; arrowST]) in
-           let t = apply_forall stmt [evalabsR; typeofabsR] in
+           let h0 = parse ("forall (A : tm) (B : tm) (C : ty), " ^
+                             "{eval A B} -> {typeof A C} -> {typeof B C}") in
+           let h1 = parse "{eval (abs R) (abs R)}*" in
+           let h2 = parse "{typeof (abs R) (arrow S T)}" in
+           let t = apply_forall h0 [h1; h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
       
       "Improperly restricted forall application" >::
         (fun () ->
-           (* We have to construct this manually because the parser does
-              not understand restrictions.
-              
-              forall (A : tm) (B : tm) (C : ty),
-                {eval A B}* -> {typeof A C} -> {typeof B C}
-              instantiated with {eval (abs R) (abs R)}
-                                {typeof (abs R) (arrow S T)} *)
-           let a = atom "A" in
-           let b = atom "B" in
-           let c = atom "C" in
-           let tm = atom "tm" in
-           let ty = atom "ty" in
-           let evalAB = active_obj (app (atom "eval") [a; b]) 1 in
-           let typeofAC = obj (app (atom "typeof") [a; c]) in
-           let typeofBC = obj (app (atom "typeof") [b; c]) in
-           let stmt = forall [("A", tm); ("B", tm); ("C", ty)]
-             (arrow evalAB (arrow typeofAC typeofBC)) in
-           let absR = app (atom "abs") [var ~tag:Eigen "R" 0] in
-           let evalabsR = obj (app (atom "eval") [absR; absR]) in
-           let arrowST = app (atom "arrow") [var ~tag:Eigen "S" 0;
-                                             var ~tag:Eigen "T" 0] in
-           let typeofabsR = obj (app (atom "typeof") [absR; arrowST]) in
+           let h0 = parse ("forall (A : tm) (B : tm) (C : ty), " ^
+                             "{eval A B}* -> {typeof A C} -> {typeof B C}") in
+           let h1 = parse "{eval (abs R) (abs R)}" in
+           let h2 = parse "{typeof (abs R) (arrow S T)}" in
              assert_raises (Failure "Restriction violated")
-               (fun () -> apply_forall stmt [evalabsR; typeofabsR])) ;
+               (fun () -> apply_forall h0 [h1; h2])) ;
+
+      "Improperly inactivated forall application" >::
+        (fun () ->
+           let h0 = parse ("forall (A : tm) (B : tm) (C : ty), " ^
+                             "{eval A B}* -> {typeof A C} -> {typeof B C}") in
+           let h1 = parse "{eval (abs R) (abs R)}@" in
+           let h2 = parse "{typeof (abs R) (arrow S T)}" in
+             assert_raises (Failure "Restriction violated")
+               (fun () -> apply_forall h0 [h1; h2])) ;
 
       "Unification failure during forall application" >::
         (fun () ->

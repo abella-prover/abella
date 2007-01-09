@@ -153,4 +153,27 @@ let case term clauses =
            with
              | Unify.Error _ -> result)
       clauses []
+
+let apply_restrictions active args stmt =
+  let rec aux curr_arg args curr_ind stmt =
+    match args with
+      | [] -> stmt
+      | (x::xs) ->
+          match stmt with
+            | Arrow(Obj(left, _), right) ->
+                if x = curr_arg then
+                  Arrow(obj_r left (curr_ind, active),
+                        aux (curr_arg + 1) xs (curr_ind + 1) right)
+                else
+                  Arrow(obj left, aux (curr_arg + 1) (x::xs) curr_ind right)
+            | _ -> failwith "Not enough implications in induction"
+  in
+    aux 1 args 1 stmt
   
+let induction args stmt =
+  match stmt with
+    | Forall(bindings, body) ->
+        let ih_body = apply_restrictions true args body in
+        let goal_body = apply_restrictions false args body in
+        (forall bindings ih_body, forall bindings goal_body)
+    | _ -> failwith "Induction applied to non-forall statement"

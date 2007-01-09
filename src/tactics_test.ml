@@ -175,4 +175,29 @@ let tests =
                    assert_pprint_equal "{eval M (abs R)}*" b1 ;
                    assert_pprint_equal "{eval (R N) V}*" b2 
                | _ -> assert_failure "Pattern mismatch") ;
+
+      "Single induction creation" >::
+        (fun () ->
+           let stmt = parse
+               "forall (A : tm), {first A} -> {second A} -> {third A}" in
+           let (ih, goal) = induction [1] stmt in
+             assert_pprint_equal
+               "forall (A : tm), {first A}* -> {second A} -> {third A}"
+               ih ;
+             assert_pprint_equal
+               "forall (A : tm), {first A} -> {second A} -> {third A}"
+               goal) ;
+      
+      "Double induction creation" >::
+        (fun () ->
+           let stmt = parse
+               "forall (A : tm), {first A} -> {second A} -> {third A}" in
+           let (ih, goal) = induction [1; 2] stmt in
+             assert_pprint_equal
+               "forall (A : tm), {first A}* -> {second A}** -> {third A}"
+               ih ;
+             assert_pprint_equal
+               "forall (A : tm), {first A} -> {second A} -> {third A}"
+               goal) ;
+      
     ]

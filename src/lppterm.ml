@@ -7,7 +7,7 @@ type restriction = int * bool
 type lppterm =
   | Obj of term * restriction
   | Arrow of lppterm * lppterm
-  | Forall of (id * term) list * lppterm
+  | Forall of id list * lppterm
 
 let obj t = Obj(t, (0, false))
 let arrow a b = Arrow(a, b)
@@ -25,11 +25,8 @@ let apply_active_restriction n t =
 let restriction_to_string (n, active) =
   if active then String.make n '*' else String.make n '@'
 
-let binding_to_string (tm, ty) =
-  "(" ^ tm ^ " : " ^ (term_to_string ty) ^ ")"
-
 let bindings_to_string ts =
-  String.concat " " (List.map binding_to_string ts)
+  String.concat " " ts
 
 let rec lppterm_to_string t =
   match t with

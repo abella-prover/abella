@@ -12,7 +12,7 @@ type command =
 
 type id = string
 
-type vars = (id * term) list
+type vars = id list
 type hyps = (id * lppterm) list
 
 type subgoal = (unit -> unit) * vars * hyps * lppterm
@@ -35,14 +35,11 @@ let fresh_hyp_name =
 let add_hyp ?(name=fresh_hyp_name ()) term =
   hyps := List.append !hyps [(name, term)]
 
-let add_var name term =
-  vars := List.append !vars [(name, term)]
+let add_var name =
+  vars := List.append !vars [name]
 
 let get_hyp name =
   List.assoc name !hyps
-
-let get_var name =
-  List.assoc name !vars
 
 let add_cases_to_subgoals cases =
   let case_to_subgoal (set_state, new_hyps) =
@@ -137,7 +134,7 @@ let split_bindings_and_args stmt =
     
 let intros () =
   let (new_vars, new_hyps, new_goal) = split_bindings_and_args !goal in
-    List.iter (fun (v, ty) -> add_var v ty) new_vars ;
+    List.iter add_var new_vars ;
     List.iter add_hyp new_hyps ;
     goal := new_goal
 

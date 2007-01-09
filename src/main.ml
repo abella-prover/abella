@@ -3,8 +3,7 @@ open Pprint
 open Lppterm
 
 let vars_to_string vars =
-  String.concat "\n"
-    (List.map (fun (id, t) -> "  " ^ id ^ " : " ^ (term_to_string t)) vars)
+  String.concat "\n" vars
 
 let hyps_to_string hyps =
   String.concat "\n"

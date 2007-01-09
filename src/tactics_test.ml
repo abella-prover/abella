@@ -35,7 +35,7 @@ let tests =
 
       "Forall application" >::
         (fun () ->
-           let h0 = parse ("forall (A : tm) (B : tm) (C : ty), " ^
+           let h0 = parse ("forall A B C, " ^
                              "{eval A B} -> {typeof A C} -> {typeof B C}") in
            let h1 = parse "{eval (abs R) (abs R)}" in
            let h2 = parse "{typeof (abs R) (arrow S T)}" in
@@ -44,7 +44,7 @@ let tests =
 
       "Properly restricted forall application" >::
         (fun () ->
-           let h0 = parse ("forall (A : tm) (B : tm) (C : ty), " ^
+           let h0 = parse ("forall A B C, " ^
                              "{eval A B}* -> {typeof A C} -> {typeof B C}") in
            let h1 = parse "{eval (abs R) (abs R)}*" in
            let h2 = parse "{typeof (abs R) (arrow S T)}" in
@@ -53,7 +53,7 @@ let tests =
 
       "Needlessly restricted forall application" >::
         (fun () ->
-           let h0 = parse ("forall (A : tm) (B : tm) (C : ty), " ^
+           let h0 = parse ("forall A B C, " ^
                              "{eval A B} -> {typeof A C} -> {typeof B C}") in
            let h1 = parse "{eval (abs R) (abs R)}*" in
            let h2 = parse "{typeof (abs R) (arrow S T)}" in
@@ -62,7 +62,7 @@ let tests =
       
       "Improperly restricted forall application" >::
         (fun () ->
-           let h0 = parse ("forall (A : tm) (B : tm) (C : ty), " ^
+           let h0 = parse ("forall A B C, " ^
                              "{eval A B}* -> {typeof A C} -> {typeof B C}") in
            let h1 = parse "{eval (abs R) (abs R)}" in
            let h2 = parse "{typeof (abs R) (arrow S T)}" in
@@ -71,7 +71,7 @@ let tests =
 
       "Improperly inactivated forall application" >::
         (fun () ->
-           let h0 = parse ("forall (A : tm) (B : tm) (C : ty), " ^
+           let h0 = parse ("forall A B C, " ^
                              "{eval A B}* -> {typeof A C} -> {typeof B C}") in
            let h1 = parse "{eval (abs R) (abs R)}@" in
            let h2 = parse "{typeof (abs R) (arrow S T)}" in
@@ -80,7 +80,7 @@ let tests =
 
       "Unification failure during forall application" >::
         (fun () ->
-           let h0 = parse ("forall (A : tm) (B : tm) (C : ty), " ^
+           let h0 = parse ("forall A B C, " ^
                              "{eval A B} -> {typeof A C} -> {typeof B C}") in
            let h1 = parse "{eval (abs R) (abs R)}" in
            let h2 = parse "{bad (abs R) (arrow S T)}" in
@@ -134,25 +134,25 @@ let tests =
       "Single induction creation" >::
         (fun () ->
            let stmt = parse
-               "forall (A : tm), {first A} -> {second A} -> {third A}" in
+               "forall A, {first A} -> {second A} -> {third A}" in
            let (ih, goal) = induction [1] stmt in
              assert_pprint_equal
-               "forall (A : tm), {first A}* -> {second A} -> {third A}"
+               "forall A, {first A}* -> {second A} -> {third A}"
                ih ;
              assert_pprint_equal
-               "forall (A : tm), {first A}@ -> {second A} -> {third A}"
+               "forall A, {first A}@ -> {second A} -> {third A}"
                goal) ;
       
       "Double induction creation" >::
         (fun () ->
            let stmt = parse
-               "forall (A : tm), {first A} -> {second A} -> {third A}" in
+               "forall A, {first A} -> {second A} -> {third A}" in
            let (ih, goal) = induction [1; 2] stmt in
              assert_pprint_equal
-               "forall (A : tm), {first A}* -> {second A}** -> {third A}"
+               "forall A, {first A}* -> {second A}** -> {third A}"
                ih ;
              assert_pprint_equal
-               "forall (A : tm), {first A}@ -> {second A}@@ -> {third A}"
+               "forall A, {first A}@ -> {second A}@@ -> {third A}"
                goal) ;
       
     ]

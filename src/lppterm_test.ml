@@ -34,8 +34,8 @@ let tests =
         (fun () ->
            let evalAB = obj (app (atom "eval") [a; b]) in
            let tm = atom "tm" in
-           let t = forall [("A", tm)] evalAB in
-             assert_pprint_equal "forall (A : tm), {eval A B}" t) ;
+           let t = forall ["A"] evalAB in
+             assert_pprint_equal "forall A, {eval A B}" t) ;
       
       "Print active restricted object" >::
         (fun () ->

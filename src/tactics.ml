@@ -108,7 +108,7 @@ let check_restriction (n1, a1) (n2, a2) =
 let apply_forall stmt ts =
   match stmt with
     | Forall(bindings, body) ->
-        let alist = fresh_alist (List.map fst bindings) in
+        let alist = fresh_alist bindings in
         let fresh_body = replace_vars alist body in
           List.fold_left
             (fun stmt arg ->
@@ -171,7 +171,7 @@ let apply_restrictions active args stmt =
     aux 1 args 1 stmt
 
 let freshen_vars bindings body =
-  replace_vars (fresh_alist (List.map fst bindings)) body
+  replace_vars (fresh_alist bindings) body
   
 let induction args stmt =
   match stmt with

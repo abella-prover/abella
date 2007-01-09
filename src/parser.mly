@@ -29,7 +29,7 @@ binding_list:
   | binding                           { [$1] }
 
 binding:
-  | LPAREN ID COLON term RPAREN       { ($2, $4) }
+  | ID                                { $1 }
 
 object_term:
   | LBRACKET term RBRACKET            { Lppterm.obj $2 }

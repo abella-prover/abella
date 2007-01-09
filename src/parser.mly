@@ -14,8 +14,8 @@
 %start lppterm term clauses command
 %type <Lppterm.lppterm> lppterm
 %type <Term.term> term
-%type <Clause.clauses> clauses
-%type <Command.command> command
+%type <Prover.clauses> clauses
+%type <Prover.command> command
 
 %%
 
@@ -72,12 +72,12 @@ clause_body:
   | term                              { [Lppterm.obj $1] }
 
 command:
-  | IND ON num_arg_list DOT           { Command.Induction($3) }
-  | APPLY ID TO id_arg_list DOT       { Command.Apply($2, $4) }
-  | CASE ID DOT                       { Command.Case($2) }
-  | SEARCH DOT                        { Command.Search }
-  | THEOREM lppterm DOT               { Command.Theorem($2) }
-  | INTROS DOT                        { Command.Intros }
+  | IND ON num_arg_list DOT           { Prover.Induction($3) }
+  | APPLY ID TO id_arg_list DOT       { Prover.Apply($2, $4) }
+  | CASE ID DOT                       { Prover.Case($2) }
+  | SEARCH DOT                        { Prover.Search }
+  | THEOREM lppterm DOT               { Prover.Theorem($2) }
+  | INTROS DOT                        { Prover.Intros }
 
 num_arg_list:
   | NUM AND num_arg_list              { $1::$3 }

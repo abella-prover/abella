@@ -39,8 +39,9 @@ FILES[] =
    parser
    lexer
    tactics
+   prover
 
-MAIN = prover
+MAIN = main
 
 TEST_FILES[] =
    $(rootname $(find . -name *_test.ml))

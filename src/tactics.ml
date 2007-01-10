@@ -13,18 +13,14 @@ let extract_imp t =
     | _ -> failwith "Check is_imp before calling extract_imp"
           
 let object_cut t1 t2 =
-  match t1, t2 with
-    | Obj(t1, _), Obj(t2, _) ->
-        if is_imp t1 then
-          let (a, b) = extract_imp t1 in
-            if eq a t2 then
-              obj b
-            else
-              failwith "Object cut applied to non-matching hypotheses"
-        else
-          failwith "First hypothesis to object cut must be an implication"
-    | _ -> failwith "Object cut can only be used on objects"
-
+  let t1 = obj_to_term t1 in
+  let t2 = obj_to_term t2 in 
+  let (a, b) = extract_imp t1 in
+    if eq a t2 then
+      obj b
+    else
+      failwith "Object cut applied to non-matching hypotheses"
+        
 let is_pi_abs t =
   match observe t with
     | App(t, [abs]) -> eq t (const "pi") &&
@@ -40,16 +36,9 @@ let extract_pi_abs t =
     | _ -> failwith "Check is_pi_abs before calling extract_pi_abs"
         
 let object_inst t x =
-  match t with
-    | Obj(t, _) ->
-        if is_pi_abs t then
-          let abs = extract_pi_abs t in
-            obj (Norm.deep_norm (app abs [x]))
-        else
-          failwith ("First hypothesis to object instantion must have the " ^
-                      "form (pi x\\ ...)")
-    | _ -> failwith ("Object instantiation expects an object as the first " ^
-                       "argument")
+  let t = obj_to_term t in
+  let abs = extract_pi_abs t in
+    obj (Norm.deep_norm (app abs [x]))
         
 let fresh_alist tag ts =
   List.map (fun x -> (x, var ~tag:tag x 0)) ts
@@ -81,18 +70,13 @@ let replace_vars alist t =
       | Forall _ -> failwith "Cannot replace vars inside forall"
   in
     aux_lppterm t
-
-let extract_obj t =
-  match t with
-    | Obj(t, _) -> t
-    | _ -> failwith "extract_obj called on non object"
         
 let logic_var_names ts =
   List.map (fun v ->
               match observe v with
                 | Var {name=name} -> name
                 | _ -> failwith "logic_vars returned non-var")
-    (logic_vars (List.map extract_obj ts))
+    (logic_vars (List.map obj_to_term ts))
                                                     
 module Right =
   Unify.Make (struct
@@ -132,10 +116,10 @@ let apply_forall stmt ts =
             ts
     | _ -> failwith "apply_forall can only be used on Forall(...) statements"
 
-let right_object_unify t1 t2 =
-  match t1, t2 with
-    | Obj(t1, _), Obj(t2, _) -> Left.pattern_unify t1 t2
-    | _ -> failwith "right_object_unify called on non-object"
+let left_object_unify t1 t2 =
+  let t1 = obj_to_term t1 in
+  let t2 = obj_to_term t2 in
+    Left.pattern_unify t1 t2
 
 let find_obj_vars ts =
   List.map (fun v -> v.name)
@@ -169,7 +153,7 @@ let case term clauses used =
            | [] -> assert false
            | fresh_head::fresh_body ->
                try
-                 right_object_unify fresh_head term ;
+                 left_object_unify fresh_head term ;
                  let used_vars = find_obj_vars (fresh_head::fresh_body) in
                  let subst = get_subst initial_state in
                  let restore () = (restore_state initial_state ;

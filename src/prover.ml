@@ -63,6 +63,27 @@ let next_subgoal () =
         goal := next_goal ;
         subgoals := rest
 
+let vars_to_string vars =
+  match vars with
+    | [] -> ""
+    | _ -> "  Variables: " ^ (String.concat ", " vars)
+
+let hyps_to_string hyps =
+  String.concat "\n"
+    (List.map (fun (id, t) -> "  " ^ id ^ " : " ^ (lppterm_to_string t)) hyps)
+   
+let div = "  ============================\n"
+
+let display () =
+  print_int (1 + List.length !subgoals) ;
+  print_string " subgoal(s).\n" ;
+  print_newline () ;
+  print_endline (vars_to_string !vars) ;
+  print_endline (hyps_to_string !hyps) ;
+  print_string div ;
+  print_string "  "; print_endline (lppterm_to_string !goal) ;
+  print_newline ()
+
 (* Apply *)
           
 let apply h args =
@@ -102,9 +123,9 @@ let add_cases_to_subgoals cases =
   in
     subgoals := List.append !subgoals (List.map case_to_subgoal cases)
       
-let case str used =
+let case str =
   let obj = get_hyp str in
-  let cases = Tactics.case obj !clauses used in
+  let cases = Tactics.case obj !clauses !vars in
     match cases with
       | [] -> next_subgoal ()
       | (set_state, used_vars, new_hyps)::other_cases ->
@@ -165,8 +186,8 @@ let freshen_bindings stmt used =
              (Tactics.fresh_alist_wrt Eigen bindings used) body)
     | _ -> stmt
             
-let intros used =
-  goal := freshen_bindings !goal used ;
+let intros () =
+  goal := freshen_bindings !goal !vars ;
   let (new_vars, new_hyps, new_goal) = split_bindings_and_args !goal in
     List.iter add_var new_vars ;
     List.iter add_hyp new_hyps ;

@@ -30,7 +30,7 @@ let assert_length_equal n lst =
                    reset_prover () ;
                    vars := ["A"; "B"] ;
                    hyps := [("H1", hyp)] ;
-                   case "H1" !vars ;
+                   case "H1" ;
                    assert_bool "R should be added to variable list"
                      (List.mem "R" !vars) ;
                | _ -> assert false
@@ -43,16 +43,16 @@ let assert_length_equal n lst =
                             "{eval P V} -> {typeof P T} -> {typeof V T}") ;
 
            induction [1] ;
-           intros !vars ;
-           case "H1" !vars ;
+           intros () ;
+           case "H1" ;
            assert_length_equal 1 !subgoals ;
            
            search () ;
            assert_length_equal 0 !subgoals ;
 
-           case "H2" !vars ;
+           case "H2" ;
            apply "IH" ["H3"; "H5"] ;
-           case "H7" !vars ;
+           case "H7" ;
            apply "H8" ["N"] ;
            apply "H9" ["H6"] ;
            apply "IH" ["H4"; "H10"] ;

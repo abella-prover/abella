@@ -21,16 +21,25 @@ let vars : vars ref = ref []
 let hyps : hyps ref = ref []
 let goal : lppterm ref = ref (obj (const "placeholder"))
 let subgoals : subgoal list ref = ref []
+  
+let fresh_hyp_name, reset_prover =
+  let count = ref 0 in
+  let fresh_hyp_name () =
+    incr count ;
+    "H" ^ (string_of_int !count)
+  in
+  let reset_prover () =
+    count := 0 ;
+    vars := [] ;
+    hyps := [] ;
+    goal := obj (const "placeholder") ;
+    subgoals := []
+  in
+    (fresh_hyp_name, reset_prover)
 
 type clauses = (lppterm * lppterm list) list
   
 let clauses : clauses ref = ref []
-
-let fresh_hyp_name =
-  let count = ref 0 in
-    fun () ->
-      incr count ;
-      "H" ^ (string_of_int !count)
 
 let add_hyp ?(name=fresh_hyp_name ()) term =
   hyps := List.append !hyps [(name, term)]

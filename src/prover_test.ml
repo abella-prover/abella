@@ -16,6 +16,9 @@ let _ =
 let parse str =
   Parser.lppterm Lexer.token (Lexing.from_string str)
 
+let assert_length_equal n lst =
+  assert_equal ~printer:string_of_int n (List.length lst)
+    
  let tests =
   "Prover" >:::
     [
@@ -24,14 +27,36 @@ let parse str =
            match Tactics.freshen_capital_vars
              Eigen [parse "{eval A B}"] [] with
                | [hyp] ->
+                   reset_prover () ;
                    vars := ["A"; "B"] ;
                    hyps := [("H1", hyp)] ;
-                   goal := obj (const "placeholder") ;
-                   subgoals := [] ;
                    case "H1" !vars ;
                    assert_bool "R should be added to variable list"
                      (List.mem "R" !vars) ;
                | _ -> assert false
         ) ;
       
+      "Eval example" >::
+        (fun () ->
+           reset_prover () ;
+           goal := parse ("forall P V T, " ^
+                            "{eval P V} -> {typeof P T} -> {typeof V T}") ;
+
+           induction [1] ;
+           intros !vars ;
+           case "H1" !vars ;
+           assert_length_equal 1 !subgoals ;
+           
+           search () ;
+           assert_length_equal 0 !subgoals ;
+
+           case "H2" !vars ;
+           apply "IH" ["H3"; "H5"] ;
+           case "H7" !vars ;
+           apply "H8" ["N"] ;
+           apply "H9" ["H6"] ;
+           apply "IH" ["H4"; "H10"] ;
+           assert_raises (Failure("Proof completed."))
+             search ;
+        ) ;
     ]

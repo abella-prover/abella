@@ -66,6 +66,11 @@ let apply h args =
             Tactics.object_cut stmt (get_hyp arg)
         | Obj(t, _), [arg] when Tactics.is_pi_abs t ->
             if List.mem arg !vars then
+              (* TODO - this is a slight bug, if we recreate the variable
+                 like this then it won't be updated if the variable is
+                 unified with something else. We should instead find this
+                 variable in the context, but we don't yet track the
+                 actual variables there *)
               Tactics.object_inst stmt (var ~tag:Eigen arg 0)
             else
               failwith ("Variable not found: " ^ arg)

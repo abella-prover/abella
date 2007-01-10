@@ -29,7 +29,7 @@ let tests =
       "Simple object instantiation" >::
         (fun () ->
            let h0 = parse "{pi x\\ eval x B}" in
-           let a = atom "A" in
+           let a = var ~tag:Eigen "A" 0 in
            let t = object_inst h0 a in
              assert_pprint_equal "{eval A B}" t) ;
 
@@ -98,7 +98,7 @@ let tests =
            let prog = Parser.clauses Lexer.token (Lexing.from_string str) in
            let a = var ~tag:Eigen "A" 0 in
            let b = var ~tag:Eigen "B" 0 in
-           let term = obj (app (atom "eval") [a; b]) in
+           let term = obj (app (const "eval") [a; b]) in
              match case term prog ["A"; "B"] with
                | [(f1, v1, []); (f2, v2, [b1; b2])] ->
                    f1 () ;
@@ -128,7 +128,7 @@ let tests =
            let prog = Parser.clauses Lexer.token (Lexing.from_string str) in
            let a = var ~tag:Eigen "A" 0 in
            let b = var ~tag:Eigen "B" 0 in
-           let term = inactive_obj (app (atom "eval") [a; b]) 1 in
+           let term = inactive_obj (app (const "eval") [a; b]) 1 in
              match case term prog ["A"; "B"] with
                | [(f1, v1, []); (f2, v2, [b1; b2])] ->
                    f1 () ;

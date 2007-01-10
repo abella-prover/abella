@@ -154,19 +154,7 @@ let abstract id t = lambda 1 (abstract (fun t id' -> id' = id) 1 t)
 (** Utilities.
   * Easy creation of constants and variables, with sharing. *)
 
-let const ?(tag=Constant) s n = Ptr (ref (V { name=s ; ts=n ; tag=tag }))
 let var   ?(tag=Logic)    s n = Ptr (ref (V { name=s ; ts=n ; tag=tag }))
-
-let tbl = Hashtbl.create 100
-let reset_namespace () = Hashtbl.clear tbl
-let reset_namespace_vars () =
-  Hashtbl.iter
-    (fun k v -> match v with
-       | Ptr {contents=V {tag=Logic}} -> Hashtbl.remove tbl k
-       | _ -> ())
-    tbl
-
-let string text = const text 0
 
 let rec collapse_lam t = match t with
   | Lam (n,t') ->
@@ -193,20 +181,8 @@ end
 
 (** LPP specific changes *)
 
-let atom ?(tag=Logic) ?(ts=0) name =
-  try
-    Hashtbl.find tbl name
-  with
-    | Not_found ->
-        assert (name <> "") ;
-        let t =
-          match name.[0] with
-            | 'A'..'Z' -> var ~tag:tag name ts
-            | _ -> const name ts
-        in
-          Hashtbl.add tbl name t ;
-          t
-
+let const ?(ts=0) s = Ptr (ref (V { name=s ; ts=ts ; tag=Constant }))
+  
 let prefix = function
   | Constant -> "c"
   | Logic -> "H"
@@ -222,15 +198,15 @@ let fresh =
 let fresh ?(tag=Logic) ts =
   let i = fresh () in
   let name = (prefix tag) ^ (string_of_int i) in
-    Ptr (ref (V { name=name ; ts=ts ; tag=tag }))
+    var ~tag:tag name ts
 
 let rec fresh_wrt tag name used =
   if List.mem name used then
     fresh_wrt tag (name ^ "'") used
   else
-    (atom ~tag:tag name, name::used)
+    (var ~tag:tag name 0, name::used)
 
-let binop s a b = App ((atom s),[a;b])
+let binop s a b = App ((const s),[a;b])
             
 let find_vars tag ts =
   let rec fv l t = match observe t with
@@ -279,12 +255,3 @@ let get_subst state =
 
 let apply_subst s =
   List.iter (fun (v, value) -> bind v value) s
-    
-let reset_namespace_except vars =
-  Hashtbl.iter
-    (fun k v ->
-       if not (List.mem k vars) then
-         match v with
-           | Ptr {contents=V {tag=Constant}} -> ()
-           | _ -> Hashtbl.remove tbl k)
-    tbl

@@ -4,7 +4,7 @@ open Pprint
 
 let is_imp t =
   match observe t with
-    | App(t, _) -> eq t (atom "=>")
+    | App(t, _) -> eq t (const "=>")
     | _ -> false
 
 let extract_imp t =
@@ -27,7 +27,7 @@ let object_cut t1 t2 =
 
 let is_pi_abs t =
   match observe t with
-    | App(t, [abs]) -> eq t (atom "pi") &&
+    | App(t, [abs]) -> eq t (const "pi") &&
         begin match observe abs with
           | Lam(1, _) -> true
           | _ -> false

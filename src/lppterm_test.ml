@@ -17,7 +17,7 @@ let tests =
     [
       "Print object" >::
         (fun () ->
-           let t = obj (app (atom "eval") [a; b]) in
+           let t = obj (app (const "eval") [a; b]) in
              assert_pprint_equal "{eval A B}" t) ;
       
       "Print arrow" >::
@@ -32,22 +32,21 @@ let tests =
       
       "Print forall" >::
         (fun () ->
-           let evalAB = obj (app (atom "eval") [a; b]) in
-           let tm = atom "tm" in
+           let evalAB = obj (app (const "eval") [a; b]) in
            let t = forall ["A"] evalAB in
              assert_pprint_equal "forall A, {eval A B}" t) ;
       
       "Print active restricted object" >::
         (fun () ->
-           let evalAB = active_obj (app (atom "eval") [a; b]) 1 in
-           let typeofAB = obj (app (atom "typeof") [a; b]) in
+           let evalAB = active_obj (app (const "eval") [a; b]) 1 in
+           let typeofAB = obj (app (const "typeof") [a; b]) in
            let t = arrow evalAB typeofAB in
              assert_pprint_equal "{eval A B}* -> {typeof A B}" t) ;
       
       "Print inactive restricted object" >::
         (fun () ->
-           let evalAB = inactive_obj (app (atom "eval") [a; b]) 1 in
-           let typeofAB = obj (app (atom "typeof") [a; b]) in
+           let evalAB = inactive_obj (app (const "eval") [a; b]) 1 in
+           let typeofAB = obj (app (const "typeof") [a; b]) in
            let t = arrow evalAB typeofAB in
              assert_pprint_equal "{eval A B}@ -> {typeof A B}" t) ;
     ]

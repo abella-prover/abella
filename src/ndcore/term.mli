@@ -47,15 +47,7 @@ val observe : term -> rawterm
 (** Creation of terms.
   * There is probably more to come here. *)
 
-(* Two const/var/atoms created with the same names are shared except if
- * reset_namespace is called between the two creations. *)
-val reset_namespace : unit -> unit
-val reset_namespace_vars : unit -> unit
-
-val const : ?tag:tag -> string -> int -> term
 val var : ?tag:tag -> string -> int -> term
-
-val string : string -> term
 
 val binop : string -> term -> term -> term
 
@@ -116,7 +108,7 @@ val abstract : string -> term -> term
 val logic_vars : term list -> term list
 
 (** LPP specific additions and changes *)
-val atom : ?tag:tag -> ?ts:int -> string -> term
+val const : ?ts:int -> string -> term
 val fresh : ?tag:tag -> int -> term
 val fresh_wrt : tag -> id -> id list -> term * id list 
   
@@ -125,5 +117,3 @@ val map_vars : (var -> 'a) -> term -> 'a list
 val map_vars_list : (var -> 'a) -> term list -> 'a list
   
 val apply_subst : subst -> unit
-  
-val reset_namespace_except : id list -> unit

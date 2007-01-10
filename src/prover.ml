@@ -19,7 +19,7 @@ type subgoal = (unit -> unit) * vars * hyps * lppterm
 
 let vars : vars ref = ref []
 let hyps : hyps ref = ref []
-let goal : lppterm ref = ref (obj (atom "placeholder"))
+let goal : lppterm ref = ref (obj (const "placeholder"))
 let subgoals : subgoal list ref = ref []
 
 type clauses = (lppterm * lppterm list) list
@@ -66,7 +66,7 @@ let apply h args =
             Tactics.object_cut stmt (get_hyp arg)
         | Obj(t, _), [arg] when Tactics.is_pi_abs t ->
             if List.mem arg !vars then
-              Tactics.object_inst stmt (atom ~tag:Eigen arg)
+              Tactics.object_inst stmt (var ~tag:Eigen arg 0)
             else
               failwith ("Variable not found: " ^ arg)
         | _ -> failwith "Bad application"
@@ -94,7 +94,6 @@ let case str used =
     match cases with
       | [] -> next_subgoal ()
       | (set_state, used_vars, new_hyps)::other_cases ->
-          reset_namespace_except used_vars ;
           add_cases_to_subgoals other_cases ;
           List.iter add_if_new_var used_vars ;
           set_state () ;

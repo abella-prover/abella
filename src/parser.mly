@@ -45,14 +45,14 @@ ats:
   | AT                                { 1 }
       
 term:
-  | term IMP term                     { Term.app (Term.atom "=>") [$1; $3] }
+  | term IMP term                     { Term.app (Term.const "=>") [$1; $3] }
   | ID BSLASH term                    { Term.abstract $1 $3 }
   | exp exp_list                      { Term.app $1 $2 }
   | exp                               { $1 }
       
 exp:
   | LPAREN term RPAREN                { $2 }
-  | ID                                { Term.const $1 0 }
+  | ID                                { Term.const $1 }
       
 exp_list:
   | exp exp_list                      { $1::$2 }

@@ -41,7 +41,7 @@ let tests =
       "[x\\ c x = x\\ c (N x)]" >::
         (fun () ->
            let n = var "n" 1 in
-           let c = const "c" 1 in
+           let c = const ~ts:1 "c" in
            let t1 = 1 // (c ^^ [ db 1 ]) in
            let t2 = 1 // (c ^^ [ n ^^ [ db 1 ] ]) in
              unify t1 t2 ;
@@ -51,7 +51,7 @@ let tests =
       "[x\\y\\ c y x = N]" >::
         (fun () ->
            let n = var "n" 1 in
-           let c = const "c" 1 in
+           let c = const ~ts:1 "c" in
            let t = 2 // (c ^^ [ db 1 ; db 2 ]) in
              unify t n ;
              assert_term_equal (2 // (c ^^ [ db 1 ; db 2 ])) n) ;
@@ -60,7 +60,7 @@ let tests =
       "[x\\y\\ c x y = x\\ c (N x)]" >::
         (fun () ->
            let n = var "n" 1 in
-           let c = const "c" 1 in
+           let c = const ~ts:1 "c" in
              unify (2 // (c ^^ [db 2;db 1])) (1 // (c ^^ [n ^^ [db 1]])) ;
              assert_term_equal (1 // db 1) n) ;
 
@@ -69,9 +69,9 @@ let tests =
         (fun () ->
            let x = var "x" 1 in
            let y = var "y" 2 in
-           let a = const "a" 2 in
-           let b = const "b" 3 in
-           let c = const "c" 3 in
+           let a = const ~ts:2 "a" in
+           let b = const ~ts:3 "b" in
+           let c = const ~ts:3 "c" in
            let t1 = x ^^ [ a ; b ] in
            let t2 = y ^^ [ b ; c ] in
              unify t1 t2 ;
@@ -90,10 +90,10 @@ let tests =
         (fun () ->
            let x = var "x" 1 in
            let y = var "y" 2 in
-           let a = const "a" 2 in
-           let b = const "b" 3 in
-           let c = const "c" 1 in
-           let c3 = const "c" 3 in
+           let a = const ~ts:2 "a" in
+           let b = const ~ts:3 "b" in
+           let c = const ~ts:1 "c" in
+           let c3 = const ~ts:3 "c" in
              unify (x ^^ [a;b]) (c ^^ [y ^^ [b;c3]]) ;
              let h =
                let x = Norm.hnorm x in
@@ -109,10 +109,10 @@ let tests =
         (fun () ->
            let x = var "x" 1 in
            let y = var "y" 2 in
-           let a = const "a" 2 in
-           let b = const "b" 3 in
-           let c = const "c" 3 in
-           let d = const "d" 2 in
+           let a = const ~ts:2 "a" in
+           let b = const ~ts:3 "b" in
+           let c = const ~ts:3 "c" in
+           let d = const ~ts:2 "d" in
              unify
                (c ^^ [ x ^^ [a;b] ; x ^^ [b;d] ])
                (c ^^ [ y ^^ [b;c] ; b ^^ [d] ]) ;
@@ -125,10 +125,10 @@ let tests =
         (fun () ->
            let x = var "x" 1 in
            let y = var "y" 2 in
-           let a = const "a" 2 in
-           let b = const "b" 3 in
-           let d = const "d" 2 in
-           let c = const "c" 3 in
+           let a = const ~ts:2 "a" in
+           let b = const ~ts:3 "b" in
+           let d = const ~ts:2 "d" in
+           let c = const ~ts:3 "c" in
              unify
                (1 // (c ^^ [ x ^^ [a;b] ; x ^^ [db 1;d]]))
                (1 // (c ^^ [ y ^^ [b;c] ; db 1 ^^ [d] ])) ;
@@ -139,9 +139,9 @@ let tests =
       "[X1 a2 b3 c3 = X1 c3 b3 a2]" >::
         (fun () ->
            let x = var "x" 1 in
-           let a = const "a" 2 in
-           let b = const "b" 3 in
-           let c = const "c" 3 in
+           let a = const ~ts:2 "a" in
+           let b = const ~ts:3 "b" in
+           let c = const ~ts:3 "c" in
              unify (x ^^ [a;b;c]) (x ^^ [c;b;a]) ;
              let h =
                let x = Norm.hnorm x in
@@ -156,10 +156,10 @@ let tests =
       "[X1 a2 b3 != c1 (X1 b3 c3)]" >::
         (fun () ->
            let x = var "x" 1 in
-           let a = const "a" 2 in
-           let b = const "b" 3 in
-           let c1 = const "c" 1 in
-           let c3 = const "c" 3 in
+           let a = const ~ts:2 "a" in
+           let b = const ~ts:3 "b" in
+           let c1 = const ~ts:1 "c" in
+           let c3 = const ~ts:3 "c" in
              try
                unify (x ^^ [a;b]) (c1 ^^ [x ^^ [b;c3]]) ;
                "Expected OccursCheck" @? false
@@ -170,9 +170,9 @@ let tests =
       "[X1 a2 b3 != c3 (X b c)]" >::
         (fun () ->
            let x = var "x" 1 in
-           let a = const "a" 2 in
-           let b = const "b" 3 in
-           let c = const "c" 3 in
+           let a = const ~ts:2 "a" in
+           let b = const ~ts:3 "b" in
+           let c = const ~ts:3 "c" in
              try
                unify (x ^^ [a;b]) (c ^^ [x ^^ [b;c]]) ;
                "Expected OccursCheck" @? false
@@ -184,9 +184,9 @@ let tests =
         (fun () ->
            let x = var "x" 1 in
            let y = var "y" 1 in
-           let a = const "a" 2 in
-           let b = const "b" 3 in
-           let c = const "c" 3 in
+           let a = const ~ts:2 "a" in
+           let b = const ~ts:3 "b" in
+           let c = const ~ts:3 "c" in
              unify (x ^^ [a;b]) (y ^^ [b;c]) ;
              let h =
                let x = Norm.hnorm x in
@@ -204,9 +204,9 @@ let tests =
         (fun () ->
            let x = var "x" 1 in
            let y = var "y" 2 in
-           let a = const "a" 2 in
-           let b = const "b" 3 in
-           let c = const "c" 3 in
+           let a = const ~ts:2 "a" in
+           let b = const ~ts:3 "b" in
+           let c = const ~ts:3 "c" in
              unify (x ^^ [a;b;c]) (y ^^ [c]) ;
              let h =
                let x = Norm.hnorm x in
@@ -222,9 +222,9 @@ let tests =
         (fun () ->
            let x = var "x" 1 in
            let y = var "y" 2 in
-           let a = const "a" 2 in
-           let b = const "b" 3 in
-           let c = const "c" 3 in
+           let a = const ~ts:2 "a" in
+           let b = const ~ts:3 "b" in
+           let c = const ~ts:3 "c" in
              unify (x ^^ [a;b]) (a ^^ [y ^^ [b;c]]) ;
              let h =
                let x = Norm.hnorm x in
@@ -240,10 +240,10 @@ let tests =
         (fun () ->
            let x = var "x" 1 in
            let y = var "y" 2 in
-           let a = const "a" 2 in
-           let b = const "b" 3 in
-           let c = const "c" 3 in
-           let d = const "d" 3 in
+           let a = const ~ts:2 "a" in
+           let b = const ~ts:3 "b" in
+           let c = const ~ts:3 "c" in
+           let d = const ~ts:3 "d" in
              try
                unify (x ^^ [a;b]) (d ^^ [y ^^ [b;c]]) ;
                "Expected OccursCheck" @? false
@@ -252,12 +252,12 @@ let tests =
 
       "[a = a]" >::
         (fun () ->
-           unify (const "a" 1) (const "a" 1)) ;
+           unify (const ~ts:1 "a") (const ~ts:1 "a")) ;
 
       "[x\\ a x b = x\\ a x b]" >::
         (fun () ->
-           let a = const "a" 1 in
-           let b = const "b" 1 in
+           let a = const ~ts:1 "a" in
+           let b = const ~ts:1 "b" in
            let t = 1 // ( a ^^ [ db 1 ; b ] ) in
              unify t t) ;
 
@@ -265,8 +265,8 @@ let tests =
 
       "[f\\ a a = f\\ X X]" >::
         (fun () ->
-           let a = const "a" 2 in
-           let f = const "f" 1 in
+           let a = const ~ts:2 "a" in
+           let f = const ~ts:1 "f" in
            let x = var "x" 3 in
              unify (f ^^ [x;x]) (f ^^ [a;a])) ;
 
@@ -283,7 +283,7 @@ let tests =
            let t = var "T" 1 in
            let x = var "X" 1 in
            let y = var "Y" 1 in
-           let a = const "a" 0 in
+           let a = const ~ts:0 "a" in
            let a x = a ^^ [x] in
              unify t (a x) ;
              unify t (a y) ;
@@ -329,8 +329,8 @@ let tests =
            let m = var "M" 0 in
            let n = var "N" 0 in
            let v = var "V" 0 in
-           let ceval = const "eval" 0 in
-           let capp = const "app" 0 in
+           let ceval = const "eval" in
+           let capp = const "app" in
            let evalAB = app ceval [a; b] in
            let evalapp = app ceval [(app capp [m; n]); v] in
              unify evalAB evalapp ;

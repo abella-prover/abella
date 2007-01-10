@@ -51,7 +51,7 @@ let object_inst t x =
     | _ -> failwith ("Object instantiation expects an object as the first " ^
                        "argument")
 
-let fresh_alist ?(tag=Logic) ts =
+let fresh_alist tag ts =
   List.map (fun x -> (x, fresh ~name:x ~tag:tag 0)) ts
 
 let replace_vars alist t =
@@ -60,8 +60,7 @@ let replace_vars alist t =
       | Var {name=name} when List.mem_assoc name alist ->
           List.assoc name alist
       | Var _
-      | DB _
-      | NB _ -> t
+      | DB _ -> t
       | Lam(i, t) -> lambda i (aux_term t)
       | App(t, ts) -> app (aux_term t) (List.map aux_term ts)
       | Susp _ -> failwith "Susp found during replace_vars"
@@ -108,7 +107,7 @@ let check_restriction (n1, a1) (n2, a2) =
 let apply_forall stmt ts =
   match stmt with
     | Forall(bindings, body) ->
-        let alist = fresh_alist bindings in
+        let alist = fresh_alist Logic bindings in
         let fresh_body = replace_vars alist body in
           List.fold_left
             (fun stmt arg ->
@@ -131,32 +130,50 @@ let right_object_unify t1 t2 =
     | _ -> failwith "right_object_unify called on non-object"
 
 let find_obj_vars ts =
-  List.map term_to_string
-    (find_vars ~tag:Eigen (List.map obj_to_term ts))
+  List.map (fun v -> v.name)
+    (find_vars Eigen (List.map obj_to_term ts))
 
+let is_capital str =
+  match str.[0] with
+    | 'A'..'Z' -> true
+    | _ -> false
+
+let uniq lst =
+  List.fold_left
+    (fun result x -> if List.mem x result then result else x::result)
+    [] lst
+    
+let capital_var_names ts =
+  uniq (List.filter is_capital
+          (map_vars_list (fun v -> v.name)
+             (List.map obj_to_term ts)))
+
+let freshen_capital_vars tag ts =
+  let var_names = capital_var_names ts in
+  let fresh_names = fresh_alist tag var_names in
+    List.map (replace_vars fresh_names) ts
+    
 let case term clauses =
   let initial_state = save_state () in
     List.fold_right
       (fun (head, body) result ->
-         let var_names = logic_var_names (head::body) in
-         let fresh_names = fresh_alist ~tag:Eigen var_names in
-         let freshen = replace_vars fresh_names in
-         let fresh_head = freshen head in
-         let fresh_body = List.map freshen body in
-           try
-             right_object_unify fresh_head term ;
-             let used_vars = find_obj_vars (fresh_head::fresh_body) in
-             let subst = get_subst initial_state in
-             let restore () = (restore_state initial_state ;
-                               ignore (apply_subst subst)) in
-               restore_state initial_state ;
-               match term with
-                 | Obj(_, (n, _)) when n > 0 ->
-                     (restore, used_vars, List.map
-                        (apply_active_restriction n) fresh_body)::result
-                 | _ -> (restore, used_vars, fresh_body)::result
-           with
-             | Unify.Error _ -> result)
+         match freshen_capital_vars Eigen (head::body) with
+           | [] -> assert false
+           | fresh_head::fresh_body ->
+               try
+                 right_object_unify term fresh_head ;
+                 let used_vars = find_obj_vars (fresh_head::fresh_body) in
+                 let subst = get_subst initial_state in
+                 let restore () = (restore_state initial_state ;
+                                   apply_subst subst) in
+                   restore_state initial_state ;
+                   match term with
+                     | Obj(_, (n, _)) when n > 0 ->
+                         (restore, used_vars, List.map
+                            (apply_active_restriction n) fresh_body)::result
+                     | _ -> (restore, used_vars, fresh_body)::result
+               with
+                 | Unify.Error _ -> result)
       clauses []
 
 let apply_restrictions active args stmt =
@@ -176,7 +193,7 @@ let apply_restrictions active args stmt =
     aux 1 args 1 stmt
 
 let freshen_vars bindings body =
-  replace_vars (fresh_alist bindings) body
+  replace_vars (fresh_alist Eigen bindings) body
   
 let induction args stmt =
   match stmt with

@@ -142,8 +142,17 @@ let split_bindings_and_args stmt =
     | _ ->
         let args, goal = split_args stmt in
           ([], args, goal)
-    
+
+let freshen_bindings stmt =
+  match stmt with
+    | Forall(bindings, body) ->
+        forall bindings
+          (Tactics.replace_vars
+             (Tactics.fresh_alist Eigen bindings) body)
+    | _ -> stmt
+            
 let intros () =
+  goal := freshen_bindings !goal ;
   let (new_vars, new_hyps, new_goal) = split_bindings_and_args !goal in
     List.iter add_var new_vars ;
     List.iter add_hyp new_hyps ;

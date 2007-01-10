@@ -20,17 +20,15 @@
 type tag = Eigen | Constant | Logic
 type id = string
 type var = {
-  name : id  ;
-  tag  : tag ;
-  ts   : int ; (* Always zero for constants in Bedwyr *)
-  lts  : int
+  name : id ;
+  tag  : tag    ;
+  ts   : int
 }
 
 type term = rawterm
 and rawterm =
   | Var  of var
   | DB   of int
-  | NB   of int (* Nabla variables *)
   | Lam  of int * term
   | App  of term * term list
   | Susp of term * int * int * env
@@ -47,8 +45,7 @@ exception NotValidTerm
 let rec eq t1 t2 =
   match t1,t2 with
     (* Compare leafs *)
-    | DB i1, DB i2
-    | NB i1, NB i2 -> i1=i2
+    | DB i1, DB i2 -> i1=i2
     | Ptr {contents=V v1}, Ptr {contents=V v2} -> v1=v2
     (* Ignore Ptr. It's an implementation artifact *)
     | _, Ptr {contents=T t2} -> eq t1 t2
@@ -107,9 +104,6 @@ let restore_state n =
   done ;
   bind_len := n
 
-type subst = (ptr*in_ptr) list
-type unsubst = subst
-
 let bind v t =
   let dv = getref (deref v) in
   let dt = deref t in
@@ -120,26 +114,6 @@ let bind v t =
     end
 
 exception Done
-
-let get_subst state =
-  let subst = ref [] in
-  let count = ref (!bind_len-state) in
-    assert (!count >= 0) ;
-    try
-      Stack.iter
-        (fun (v,old) ->
-           if !count = 0 then raise Done ;
-           subst := (v,!v)::!subst ;
-           decr count)
-        bind_stack ;
-      !subst
-    with Done -> !subst
-
-let apply_subst s = List.fold_left (fun sub (v,contents) ->
-                                      let old = !v in
-                                        v := contents ;
-                                        (v,old)::sub) [] s
-let undo_subst = List.iter (fun (s,old) -> s:=old)
 
 (* Raise the substitution *)
 let rec add_dummies env n m = 
@@ -180,17 +154,11 @@ let fresh =
         incr varcount ;
         i
 
-let fresh ?(name="") ?(tag=Logic) ?(lts=0) ts =
-  let i = fresh () in
-  let name = if name = "" then (prefix tag) ^ (string_of_int i) else name in
-    Ptr (ref (V { name=name ; ts=ts ; lts=lts ; tag=tag }))
-
 (* Recursively raise dB indices and abstract over variables
  * selected by [test]. *)
 let abstract test =
   let rec aux n t = match t with
-    | NB i -> t
-    | DB i -> if i>=n then DB (i+1) else t
+    | DB i -> t
     | App (h,ts) ->
         App ((aux n h), (List.map (aux n) ts))
     | Lam (m,s) -> Lam (m, aux (n+m) s)
@@ -206,29 +174,11 @@ let abstract_var v t = lambda 1 (abstract (fun t id' -> t = v) 1 t)
 (** Abstract [t] over constant or variable named [id]. *)
 let abstract id t = lambda 1 (abstract (fun t id' -> id' = id) 1 t)
 
-(** Logic variables of [ts], assuming that it is normalized. *)
-  
-let find_vars ?(tag=Logic) ts =
-  let rec fv l t = match observe t with
-    | Var v ->
-        if v.tag = tag && not (List.mem t l) then (t::l) else l
-    | App (h,ts) -> List.fold_left fv (fv l h) ts
-    | Lam (n,t') -> fv l t'
-    | NB _ | DB _ -> l
-    | Susp _ -> assert false
-    | Ptr _ -> assert false
-  in
-    List.fold_left fv [] ts
-      
-let logic_vars = find_vars ~tag:Logic
-
 (** Utilities.
   * Easy creation of constants and variables, with sharing. *)
 
-let const ?(tag=Constant) ?(lts=0) s n =
-  Ptr (ref (V { name=s; ts=n; lts=lts; tag=tag }))
-let var ?(tag=Logic) ?(lts=0) s n =
-  Ptr (ref (V { name=s; ts=n; lts=lts; tag=tag }))
+let const ?(tag=Constant) s n = Ptr (ref (V { name=s ; ts=n ; tag=tag }))
+let var   ?(tag=Logic)    s n = Ptr (ref (V { name=s ; ts=n ; tag=tag }))
 
 let tbl = Hashtbl.create 100
 let reset_namespace () = Hashtbl.clear tbl
@@ -238,6 +188,41 @@ let reset_namespace_vars () =
        | Ptr {contents=V {tag=Logic}} -> Hashtbl.remove tbl k
        | _ -> ())
     tbl
+
+let string text = const text 0
+
+let rec collapse_lam t = match t with
+  | Lam (n,t') ->
+      begin match collapse_lam t' with 
+        | Lam (m,u) -> Lam (n+m,u)
+        | _ -> t
+      end
+  | _ -> t
+
+let db n = DB n
+(* let app a b = if b = [] then a else ref (App (a,b)) *)
+let app a b = if b = [] then a else match observe a with
+  | App(a,c) -> App (a,c @ b)
+  | _ -> App (a,b)
+let susp t ol nl e = Susp (t,ol,nl,e)
+
+module Notations =
+struct
+  let (%=) = eq
+  let (!!) = observe
+  let (//) = lambda
+  let (^^) = app
+end
+
+(** LPP specific changes *)
+
+let fresh ?(name="")?(tag=Logic) ts =
+  if name = "" then
+    let i = fresh () in
+    let name = (prefix tag) ^ (string_of_int i) in
+      Ptr (ref (V { name=name ; ts=ts ; tag=tag }))
+  else
+    Ptr (ref (V { name=name ; ts=ts ; tag=tag }))
 
 let atom ?(tag=Logic) ?(ts=0) name =
   try
@@ -253,31 +238,56 @@ let atom ?(tag=Logic) ?(ts=0) name =
           Hashtbl.add tbl name t ;
           t
 
-let string text = const text 0
-
 let binop s a b = App ((atom s),[a;b])
+            
+let find_vars tag ts =
+  let rec fv l t = match observe t with
+    | Var v ->
+        if v.tag = tag && not (List.mem v l) then v::l else l
+    | App (h,ts) -> List.fold_left fv (fv l h) ts
+    | Lam (n,t') -> fv l t'
+    | DB _ -> l
+    | Susp _ -> assert false
+    | Ptr _ -> assert false
+  in
+    List.fold_left fv [] ts
+      
+let logic_vars ts = List.map (fun v -> Var(v)) (find_vars Logic ts)
 
-let rec collapse_lam t = match t with
-  | Lam (n,t') ->
-      begin match collapse_lam t' with 
-        | Lam (m,u) -> Lam (n+m,u)
-        | _ -> t
-      end
-  | _ -> t
+let map_vars f t =
+  let rec aux t =
+    match observe t with
+      | Var(v) -> [f v]
+      | DB _ -> []
+      | Lam(i, t) -> aux t
+      | App(t, ts) -> List.append (aux t) (List.flatten (List.map aux ts))
+      | Susp _ -> failwith "map_vars called on non-normal term"
+      | Ptr _ -> assert false
+  in
+    aux t
 
-let db n = DB n
-let nabla n = NB n
+let map_vars_list f ts =
+  List.flatten (List.map (map_vars f) ts)
 
-(* let app a b = if b = [] then a else ref (App (a,b)) *)
-let app a b = if b = [] then a else match observe a with
-  | App(a,c) -> App (a,c @ b)
-  | _ -> App (a,b)
-let susp t ol nl e = Susp (t,ol,nl,e)
+type subst = (term * term) list
 
-module Notations =
-struct
-  let (%=) = eq
-  let (!!) = observe
-  let (//) = lambda
-  let (^^) = app
-end
+let get_subst state =
+  let subst = ref [] in
+  let count = ref (!bind_len-state) in
+    assert (!count >= 0) ;
+    try
+      Stack.iter
+        (fun (v, _) ->
+           if !count = 0 then raise Done ;
+           decr count ;
+           subst := (Ptr v, Ptr (ref !v))::!subst)
+        bind_stack ;
+      !subst
+    with Done -> !subst
+
+let apply_subst s =
+  List.iter (fun (v, value) -> bind v value) s
+
+
+
+

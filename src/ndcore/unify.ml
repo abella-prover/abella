@@ -46,6 +46,7 @@ let constant tag =
   tag = Constant || tag = constant_like
 let variable tag =
   tag = instantiatable
+let fresh = Term.fresh ~tag:instantiatable
 
 (* Transforming a term to represent substitutions under abstractions *)
 let rec lift t n = match Term.observe t with
@@ -77,26 +78,17 @@ let rec unique_bv n l = match l with
         | _ -> unique_bv n rargs
       end
 
-let rec unique_nb n l = match l with
-  | [] -> true
-  | t::tl ->
-      begin match observe t with
-        | NB j when j=n -> false
-        | _ -> unique_nb n tl
-      end
-
 (** [check_flex_args l fts] checks that a list of terms meets the LLambda
   * requirements for the arguments of a flex term whose timestamp is [fts].
   * @raise NotLLambda if the list doesn't satisfy the requirements. *)
-let rec check_flex_args l fts flts =
+let rec check_flex_args l fts =
   match l with
     | [] -> ()
     | t::q ->
         begin match Term.observe t with
           | Var v when constant v.tag && v.ts>fts && unique_var v q ->
-              check_flex_args q fts flts
-          | DB i when unique_bv i q -> check_flex_args q fts flts
-          | NB i when i>flts && unique_nb i q -> check_flex_args q fts flts
+              check_flex_args q fts
+          | DB i when unique_bv i q -> check_flex_args q fts
           | _ -> not_ll t
         end
 
@@ -110,14 +102,6 @@ let rec bvindex i l n = match l with
      begin match Term.observe t with
        | Term.DB j when i=j -> n
        | _ -> bvindex i q (n-1)
-     end
-
-let rec nbindex i l n = match l with
-  | [] -> 0
-  | t::q ->
-     begin match Term.observe t with
-       | Term.NB j when i=j -> n
-       | _ -> nbindex i q (n-1)
      end
 
 (** [cindex c l n] return a nonzero index iff the constant [c]
@@ -176,23 +160,20 @@ let rec cindex c l n = match l with
   * The list [c1 ... ck] in this case are simply the indices
   * relative to [a21 ... a2m] of the terms in [a21 ... a2m] that are
   * preserved (i.e. not pruned) in [b1 ... bk].
-  *
+  * 
   * This definition assumes that the [aij] are in
   * head-normal form and that [a1] satisfies the LLambda 
   * requirements. If [a2] does not satisfy these requirements, an
   * exception will be raised. *)
-let raise_and_invert v1 v2 a1 a2 lev =
-  let stamps = function {Term.ts=ts;Term.lts=lts} -> ts,lts in
-  let ts1,lts1 = stamps v1 in
-  let ts2,lts2 = stamps v2 in
+let raise_and_invert ts1 ts2 a1 a2 lev =
   let l1 = List.length a1 in
 
   (* [raise_var args n] generates the collection of
    * constants in [args] that have a time stamp less than [ts2],
    * assuming [n] is the index for the abstraction corresponding
    * to the first term in [args]. In other words, constants which cannot
-   * appear in [v2]'s body.
-   * This serves to raise [v2] in the case where [ts1 < ts2]. The boolean
+   * appear in [v2]'s body. This
+   * serves to raise [v2] in the case where [ts1 < ts2]. The boolean
    * component of the returned triple tells if there is
    * any raising to be done. The terms in [args] are assumed to be
    * constants or de Bruijn indices, as head normalized
@@ -202,18 +183,11 @@ let raise_and_invert v1 v2 a1 a2 lev =
     | t::tl ->
         begin match Term.observe t with
           | Term.DB _ -> raise_var tl (n-1)
-          | Term.NB j ->
-              let raised,inds,consts = raise_var tl (n-1) in
-                if j <= lts2 then
-                  (true,(Term.db (n+lev))::inds,t::consts)
-                else
-                  raised,inds,consts
           | Term.Var {ts=cts;tag=tag} when constant tag ->
               let raised,inds,consts = raise_var tl (n-1) in
-                if cts <= ts2 then
-                  (true,(Term.db (n+lev))::inds,t::consts)
-                else
-                  (raised,inds,consts)
+                if cts<=ts2
+                then (true,(Term.db (n+lev))::inds,t::consts)
+                else (raised,inds,consts)
           | _ -> assert false
         end
   in
@@ -225,12 +199,12 @@ let raise_and_invert v1 v2 a1 a2 lev =
     * the length of [args] here and hence yields the index of the
     * leftmost argument position. This pruning computation is
     * relevant to the case when [ts1 < ts2]. The terms in [args]
-    * are assumed to be constants or de Bruijn or nabla indices. *)
+    * are assumed to be constants or de Bruijn indices. *)
   let rec prune l n = match l,n with
     | [],0 -> false,[],[]
     | t::q,n ->
         begin match Term.observe t with
-          | DB i -> 
+          | Term.DB i -> 
               let pruned,inds1,inds2 = prune q (n-1) in
                 if i > lev then
                   let j = bvindex (i-lev) a1 l1 in
@@ -242,18 +216,9 @@ let raise_and_invert v1 v2 a1 a2 lev =
                        (Term.db n)::inds2)
                 else
                   (pruned,t::inds1,(Term.db n)::inds2)
-          | Var v when constant v.tag ->
-              let pruned,inds1,inds2 = prune q (n-1) in
+          | Term.Var v when constant v.tag ->
+              let (pruned,inds1,inds2) = prune q (n-1) in
               let j = cindex v a1 l1 in
-                if j = 0 then
-                  (true,inds1,inds2)
-                else
-                  (pruned,
-                   (Term.db (j+lev))::inds1,
-                   (Term.db n)::inds2)
-          | NB i ->
-              let pruned,inds1,inds2 = prune q (n-1) in
-              let j = nbindex i a1 l1 in
                 if j = 0 then
                   (true,inds1,inds2)
                 else
@@ -268,18 +233,18 @@ let raise_and_invert v1 v2 a1 a2 lev =
   (** Relevant to the case when [ts1 > ts2]. In this case,
     * [prune_and_raise args n] prunes those constants and de
     * Bruijn indices not bound by an embedded abstraction that do
-    * not appear in [a1] and, in the case of constants, that have
-    * a timestamp greater than [ts1]. These constants are preserved
-    * via a raising of [v1].
-    * As in prune, [n] is assumed to be the length of the list
-    * args. The terms in [args] are assumed to be constants, nabla or
-    * de Bruijn indices. *)
+    * not appear in [a1] and, in the case of constants, that do not
+    * have a timestamp less than [ts1]. Constants that do have a timestamp
+    * greater than or equal to [ts1] are preserved via a raising of
+    * [v1]. As in prune, [n] is assumed to be the length of the list
+    * args. The terms in [args] are assumed to be constants or de
+    * Bruijn indices. *)
   let rec prune_and_raise l n = match l,n with
     | [],0 -> false,[],[]
     | a::q,n ->
         begin match Term.observe a with
           | Term.DB i -> 
-              let pruned,inds1,inds2 = prune_and_raise q (n-1) in
+              let (pruned,inds1,inds2) = prune_and_raise q (n-1) in
                 if i > lev then
                   let j = bvindex (i-lev) a1 l1 in
                     if j = 0 then
@@ -288,20 +253,7 @@ let raise_and_invert v1 v2 a1 a2 lev =
                       (pruned,
                        (Term.db (j+lev))::inds1,
                        (Term.db n)::inds2)
-                else
-                  (pruned,a::inds1,(Term.db n)::inds2)
-          | Term.NB i ->
-              let pruned,inds1,inds2 = prune_and_raise q (n-1) in
-                if i <= lts1 then
-                  pruned,a::inds1,(Term.db n)::inds2
-                else
-                  let j = nbindex i a1 l1 in
-                    if j = 0 then
-                      (true,inds1,inds2)
-                    else
-                      (pruned,
-                       (Term.db (j+lev))::inds1,
-                       (Term.db n)::inds2)
+                else (pruned,a::inds1,(Term.db n)::inds2)
           | Term.Var v when constant v.tag -> 
               let pruned,inds1,inds2 = prune_and_raise q (n-1) in
                 if v.ts <= ts1 then
@@ -319,16 +271,16 @@ let raise_and_invert v1 v2 a1 a2 lev =
     | _ -> assert false
   in
 
-    if ts1<ts2 || lts1<lts2 then
-      let raised,args_r1,args_r2 = raise_var a1 l1 in
-      let pruned,args_p1,args_p2 = prune a2 (List.length a2) in
-        (raised||pruned,args_r1@args_p1,args_r2@args_p2)
+    if ts1<ts2 then
+      let raised,args11,args12 = raise_var a1 l1 in
+      let pruned,args21,args22 = prune a2 (List.length a2) in
+        (raised||pruned,args11@args21,args12@args22)
     else
       prune_and_raise a2 (List.length a2)
 
 (* Generating the arguments of a pruning substitution for the case
- * when trying to unify two flexible terms of the form (v t_1 ... t_n)
- * and lam ... lam (v s_1 ... s_m) where there are j abstractions at the 
+ * when trying to unify two flexible terms of the form (v t1 ... tn)
+ * and lam ... lam (v s1 ... sm) where there are j abstractions at the 
  * head of the second term. The first two arguments to prune_same_var
  * are the two lists of arguments, the third argument is j (i.e. the
  * number of abstractions at the head) and the last argument is n+j. It
@@ -336,7 +288,7 @@ let raise_and_invert v1 v2 a1 a2 lev =
  * i.e. n+j is indeed equal to m and also that the two argument lists
  * are known to be of the form required for LLambda unification. The
  * computation essentially does the eta fluffing of the first term on
- * the fly (i.e. each t_i has to be lifted over j abstractions and and
+ * the fly (i.e. each ti has to be lifted over j abstractions and and
  * j new arguments bound by these abstractions are added to the first
  * term). *)
 let rec prune_same_var l1 l2 j bl = match l1,l2 with
@@ -350,11 +302,9 @@ let rec prune_same_var l1 l2 j bl = match l1,l2 with
   | t1::a1,t2::a2 ->
       begin match Term.observe t1,Term.observe t2 with
         | Term.Var {tag=tag1},Term.Var {tag=tag2}
-          when constant tag1 && Term.eq t1 t2 ->
+          when tag1=tag2 && constant tag1 && Term.eq t1 t2 ->
             (Term.db bl)::(prune_same_var a1 a2 j (bl-1))
-        | Term.NB i, Term.NB j when i=j ->
-            (Term.db bl)::(prune_same_var a1 a2 j (bl-1))
-        | Term.DB i1,Term.DB i2 when i1+j = i2 ->
+        | Term.DB i1,Term.DB i2     when i1+j = i2 ->
             (Term.db bl)::(prune_same_var a1 a2 j (bl-1))
         | _ -> prune_same_var a1 a2 j (bl-1)
       end
@@ -367,7 +317,7 @@ let rec prune_same_var l1 l2 j bl = match l1,l2 with
   * necessary to variables appearing within [t2].
   *
   * [t2] is assumed to be in head normal form, [h1] and [a1] are assumed to be
-  * dereferenced.
+  * dereferenced, and [n] is supposed to be the length of [a1].
   * 
   * Exceptions can be
   * raised from this code if a non LLambda situation is discovered or
@@ -380,14 +330,12 @@ let rec prune_same_var l1 l2 j bl = match l1,l2 with
   * because [h1], the variable head of the first term can appear at the
   * toplevel in t2 without sacrificing unifiability but not in a nested
   * part. *)
-let makesubst h1 t2 a1 =
-  let n = List.length a1 in
-  (* Check that h1 is a variable, get its timestamps *)
-  let v1,ts1,lts1 = match Term.observe h1 with
-    | Term.Var v -> assert (v.tag=instantiatable) ; v,v.ts,v.lts
+let makesubst h1 t2 a1 n =
+  (* Check that h1 is a variable, get its timestamp *)
+  let ts1 = match Term.observe h1 with
+    | Term.Var v -> assert (v.tag=instantiatable) ; v.ts
     | _ -> assert false
   in
-  let fresh = Term.fresh ~name:v1.name ~tag:instantiatable in
   let a1 = List.map Norm.hnorm a1 in
 
   (** Generating a substitution term and performing raising and
@@ -401,28 +349,27 @@ let makesubst h1 t2 a1 =
     match Term.observe c with
       | Term.Var v when constant v.tag ->
           (* Can [h1] depend on [c] ?
-           * If so, the substitution is [c] itself, and the llambda restriction
-           * ensures that this is the only solution.
+           * If so, the substitution is [c] itself -- why couldn't we pick an
+           * argument in that case too ? TODO
            * If not, [c] must belong to the argument list. *)
-          if v.ts <= ts1 && v.lts <= lts1 then c else
+          if v.ts <= ts1 then c else
             let j = cindex v a1 n in
               if j = 0 then raise OccursCheck ;
               Term.db (j+lev)
-      | Term.NB i ->
-          if i <= lts1 then c else
-            let j = nbindex i a1 n in
-              if j = 0 then raise OccursCheck ;
-              Term.db (j+lev)
       | Term.DB i ->
-          if i <= lev then c else
+          if i<=lev then c else
             let j = bvindex (i-lev) a1 n in
               if j = 0 then raise OccursCheck ;
               Term.db (j+lev)
-      | Term.Var v2 when variable v2.tag ->
+      | Term.Var {ts=ts2;tag=tag} when variable tag ->
           if Term.eq c h1 then raise OccursCheck ;
-          let (changed,a1',a2') = raise_and_invert v1 v2 a1 [] lev in
-            if changed || ts1<v2.ts || lts1<v2.lts then
-              let h'= fresh ~lts:(min lts1 v2.lts) (min ts1 v2.ts) in
+          let (changed,a1',a2') = raise_and_invert ts1 ts2 a1 [] lev in
+            if changed || ts1<ts2 then
+              let h'=
+                if ts1<ts2 then fresh ts1
+                else fresh ts2
+              in
+                (* TODO read carefuly *)
                 Term.bind c (Term.app h' a2') ;
                 Term.app h' a1'
             else
@@ -432,29 +379,33 @@ let makesubst h1 t2 a1 =
       | Term.App (h2,a2) ->
           begin match Term.observe h2 with
             | Term.Var {tag=tag} when constant tag ->
+                (* TODO I'm defeated here ;) wtf is the invariant ? *)
                 let a2 = List.map Norm.hnorm a2 in
                 Term.app
                   (nested_subst h2 lev)
                   (List.map (fun x -> nested_subst x lev) a2)
-            | Term.DB _ | Term.NB _ ->
+            | Term.DB _ -> 
+                (* TODO I'm defeated here ;) wtf is the invariant ? *)
                 let a2 = List.map Norm.hnorm a2 in
                 Term.app
                   (nested_subst h2 lev)
                   (List.map (fun x -> nested_subst x lev) a2)
-            | Term.Var v2 when variable v2.tag ->
+            | Term.Var {ts=ts2;tag=tag} when tag=instantiatable ->
                 if Term.eq h2 h1 then raise OccursCheck ;
                 let a2 = List.map Norm.hnorm a2 in
-                let ts2,lts2 = v2.ts,v2.lts in
-                check_flex_args a2 ts2 lts2 ;
-                let changed,a1',a2' = raise_and_invert v1 v2 a1 a2 lev in
+                check_flex_args a2 ts2 ;
+                let changed,a1',a2' =
+                  raise_and_invert ts1 ts2 a1 a2 lev
+                in
                   if changed then
-                    let h' = fresh ~lts:(min lts1 v2.lts) (min ts1 ts2) in
+                    let h' = fresh (min ts1 ts2) in
                       Term.bind h2
-                        (Term.lambda (List.length a2) (Term.app h' a2')) ;
+                        (Term.lambda (List.length a2)
+                           (Term.app h' a2')) ;
                       Term.app h' a1'
                   else
-                    if ts1<ts2 || lts1<lts2 then
-                      let h' = fresh ~lts:(min lts1 v2.lts) ts1 in
+                    if ts1<ts2 then
+                      let h' = fresh ts1 in
                         Term.bind h2 h' ;
                         Term.app h' a1'
                     else 
@@ -483,21 +434,17 @@ let makesubst h1 t2 a1 =
   let rec toplevel_subst t2 lev =
     match Term.observe t2 with
       | Term.Lam (n,t2) -> toplevel_subst t2 (lev+n)
-      | Term.Var v2 when variable v2.tag ->
+      | Term.Var {tag=t} when variable t ->
           if h1=t2 then
             if n=0 && lev=0 then h1 else raise TypesMismatch
           else
-            (* TODO Why wasn't there something similar before, concerning
-             *      the global timestamp ? *)
-            let h'= fresh ~lts:(min lts1 v2.lts) (min ts1 v2.ts) in
-              Term.bind t2 h' ;
-              Term.lambda (lev+n) h'
+            Term.lambda (lev+n) t2
       | Term.App (h2,a2) ->
           begin match Term.observe h2 with
-            | Term.Var {ts=ts2;lts=lts2} when Term.eq h1 h2 ->
+            | Term.Var {ts=ts2} when Term.eq h1 h2 ->
                 (* [h1] being instantiatable, no need to check it for [h2] *)
                 let a2 = List.map Norm.hnorm a2 in
-                check_flex_args a2 ts2 lts2 ;
+                check_flex_args a2 ts2 ;
                 let bindlen = n+lev in
                   if bindlen = List.length a2 then
                     let h1' = fresh ts1 in
@@ -506,7 +453,7 @@ let makesubst h1 t2 a1 =
                   else
                     raise TypesMismatch
             | Term.App _ | Term.Lam _
-            | Term.Var _ | Term.DB _ | Term.NB _ ->
+            | Term.Var _ | Term.DB _ ->
                 Term.lambda (n+lev) (nested_subst t2 lev)
             | Term.Susp _ | Term.Ptr _ -> assert false
           end
@@ -514,7 +461,7 @@ let makesubst h1 t2 a1 =
       | _ -> Term.lambda (n+lev) (nested_subst t2 lev)
   in
 
-    check_flex_args a1 ts1 lts1 ;
+    check_flex_args a1 ts1 ;
     toplevel_subst t2 0
 
 (** Unifying the arguments of two rigid terms with the same head, these
@@ -547,25 +494,10 @@ and unify_const_term cst t2 = if Term.eq cst t2 then () else
 and unify_bv_term n1 t1 t2 = match Term.observe t2 with
   | Term.DB n2 ->
       if n1<>n2 then raise (ConstClash (t1,t2))
-  | Term.NB n2 ->
-      raise (ConstClash (t1,t2))
   | Term.Lam (n,t2)  ->
       let t1' = lift t1 n in
       let a1 = lift_args [] n in
         unify_app_term t1' a1 (Term.app t1' a1) t2
-  | Var {tag=t} when not (variable t || constant t) ->
-      failwith "logic variable on the left"
-  | _ -> assert false
-
-(* Unifying the nabla variable [t1] with [t2]. *)
-and unify_nv_term n1 t1 t2 = match Term.observe t2 with
-  | Term.NB n2 ->
-      if n1<>n2 then raise (ConstClash (t1,t2))
-  | Term.DB n2 ->
-      raise (ConstClash (t1,t2))
-  | Term.Lam (n,t2) ->
-      let a1 = lift_args [] n in
-        unify_app_term t1 a1 (Term.app t1 a1) t2
   | Var {tag=t} when not (variable t || constant t) ->
       failwith "logic variable on the left"
   | _ -> assert false
@@ -575,7 +507,8 @@ and unify_nv_term n1 t1 t2 = match Term.observe t2 with
  * [t2] should be dereferenced and head-normalized, different from a var. *)
 and unify_app_term h1 a1 t1 t2 = match Term.observe h1,Term.observe t2 with
   | Term.Var {tag=tag}, _ when variable tag ->
-      Term.bind h1 (makesubst h1 t2 a1)
+      let n = List.length a1 in
+        Term.bind h1 (makesubst h1 t2 a1 n)
   | Term.Var {tag=tag}, Term.App (h2,a2) when constant tag ->
       begin match Term.observe h2 with
         | Var {tag=tag} when constant tag ->
@@ -586,37 +519,10 @@ and unify_app_term h1 a1 t1 t2 = match Term.observe h1,Term.observe t2 with
         | DB _ ->
             raise (ConstClash (h1,h2))
         | Var {tag=tag} when variable tag ->
-            Term.bind h2 (makesubst h2 t1 a2)
+            let m = List.length a2 in
+              Term.bind h2 (makesubst h2 t1 a2 m)
         | Var {tag=t} when not (variable t || constant t) ->
             failwith "logic variable on the left"
-        | _ -> assert false
-      end
-  | Term.NB n1, Term.App (h2,a2) ->
-      begin match Term.observe h2 with
-        | Term.DB n2 -> raise (ConstClash (h1,h2))
-        | Term.NB n2 ->
-            if n1=n2 then unify_list a1 a2 else raise (ConstClash (h1,h2))
-        | Term.Var v ->
-            if constant v.tag then
-              raise (ConstClash (h1,h2))
-            else if variable v.tag then
-              Term.bind h2 (makesubst h2 t1 a2)
-            else
-              failwith "logic variable on the left"
-        | _ -> assert false
-      end
-  | Term.DB n1, Term.App (h2,a2) ->
-      begin match Term.observe h2 with
-        | Term.NB n2 -> raise (ConstClash (h1,h2))
-        | Term.DB n2 ->
-            if n1=n2 then unify_list a1 a2 else raise (ConstClash (h1,h2))
-        | Term.Var v ->
-            if constant v.tag then
-              raise (ConstClash (h1,h2))
-            else if variable v.tag then
-              Term.bind h2 (makesubst h2 t1 a2)
-            else
-              failwith "logic variable on the left"
         | _ -> assert false
       end
   | _, Term.Lam (n,t2) ->
@@ -624,9 +530,8 @@ and unify_app_term h1 a1 t1 t2 = match Term.observe h1,Term.observe t2 with
       let a1' = lift_args a1 n in
       let t1' = Term.app h1' a1' in
         unify_app_term h1' a1' t1' t2
-  | Term.Ptr  _, _ | _, Term.Ptr  _
+  | Term.Ptr _, _ | _, Term.Ptr _
   | Term.Susp _, _ | _, Term.Susp _ -> assert false
-  | _, Term.Var {tag=t}
   | Term.Var {tag=t}, _ when not (variable t || constant t) ->
       failwith "logic variable on the left"
   | _ -> raise (ConstClash (h1,t2))
@@ -644,16 +549,14 @@ and unify_app_term h1 a1 t1 t2 = match Term.observe h1,Term.observe t2 with
   * lambdas or applications at the top level. Any necessary adjustment
   * of binders through the eta rule is done on the fly. *)
 and unify t1 t2 = match Term.observe t1,Term.observe t2 with
-  | Term.Var {tag=t},_ when variable t -> Term.bind t1 (makesubst t1 t2 [])
-  | _,Term.Var {tag=t} when variable t -> Term.bind t2 (makesubst t2 t1 [])
+  | Term.Var {tag=t},_ when variable t -> Term.bind t1 (makesubst t1 t2 [] 0)
+  | _,Term.Var {tag=t} when variable t -> Term.bind t2 (makesubst t2 t1 [] 0)
   | Term.App (h1,a1),_                 -> unify_app_term h1 a1 t1 t2
   | _,Term.App (h2,a2)                 -> unify_app_term h2 a2 t2 t1
   | Term.Var {tag=t},_ when constant t -> unify_const_term t1 t2
   | _,Term.Var {tag=t} when constant t -> unify_const_term t2 t1
   | Term.DB n,_                        -> unify_bv_term n t1 t2
   | _,Term.DB n                        -> unify_bv_term n t2 t1
-  | Term.NB n,_                        -> unify_nv_term n t1 t2
-  | _,Term.NB n                        -> unify_nv_term n t2 t1
   | Term.Lam (n1,t1),Term.Lam(n2,t2)   ->
       if n1>n2 then
         unify (Term.lambda (n1-n2) t1) t2

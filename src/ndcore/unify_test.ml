@@ -22,8 +22,8 @@ let rec extract path t =
       | Lam (_,t) when hd = L -> extract tl t
       | App (_,l) when hd = A -> extract tl (List.nth l 0)
       | App (t,_) when hd = H -> !!t
-      | _ -> Var {name="notfound";lts=0;ts=0;tag=Constant}
-  
+      | _ -> Var {name="notfound";ts=0;tag=Constant}
+          
 (* Tests from Nadathur's SML implementation *)
 let tests =
   "Unify" >:::
@@ -81,7 +81,7 @@ let tests =
                    | Var {name=h;ts=1;tag=Logic} -> var h 1
                    | _ -> failwith "X should match x\\y\\ H ..."
              in
-               assert_term_equal (2 // (h ^^ [db 2; db 1])) x ;
+               assert_term_equal (2 // (h ^^ [ db 2 ; db 1 ])) x ;
                assert_term_equal (2 // (h ^^ [ a ; db 2 ])) y) ;
 
       (* Example 6, flex-rigid case involving raise & prune relative to an
@@ -277,6 +277,7 @@ let tests =
              unify (2 // (p ^^ [db 2])) (1 // (q ^^ [db 1])) ;
              assert_term_equal (2 // (p ^^ [db 2])) q) ;
 
+      (* This one used to fail, I don't remember having fixed it consciously.. *)
       "[T = a X, T = a Y, Y = T]" >::
         (fun () ->
            let t = var "T" 1 in
@@ -289,6 +290,7 @@ let tests =
              begin try unify y t ; assert false with
                | Unify.Error _ -> () end) ;
 
+      (* This one used to fail, but the bug is fixed *)
       "[x\\y\\ H1 x = x\\y\\ G2 x]" >::
         (fun () ->
            let h = var "H" 1 in
@@ -304,48 +306,34 @@ let tests =
              try unify x y ; assert false with
                | Unify.Error _ -> ()) ;
 
-      "[X^0 n1 = Y^0]" >::
+      "Saving and restoring states and substs" >::
         (fun () ->
-           let x = var "X" 0 in
-           let y = var "Y" 0 in
-             unify (x ^^ [nabla 1]) y ;
-             assert_term_equal (1 // y) x) ;
+           let a = var "A" 0 in
+           let b = var "B" 0 in
+           let state = save_state () in
+             bind a b ;
+             assert_pprint_equal "B" a ;
+             assert_pprint_equal "B" b ;
+             let subst = get_subst state in
+               restore_state state ;
+               assert_pprint_equal "A" a ;
+               assert_pprint_equal "B" b ;
+               apply_subst subst ;
+               assert_pprint_equal "B" a ;
+               assert_pprint_equal "B" b) ;
 
-      "[X^0 n1 = Y^1]" >::
+      "No new names for simple unification" >::
         (fun () ->
-           let x = var "X" 0 in
-           let y = var "Y" ~lts:1 0 in
-             unify (x ^^ [nabla 1]) y ;
-             assert_term_equal y (x ^^ [nabla 1]) ;
-             match !!x with
-               | Var v -> ()
-               | _ -> assert_term_equal (var "a_variable" 0) x) ;
-
-      "[X^0 = Y^1]" >::
-        (fun () ->
-           let x = var "X" 0 in
-           let y = var "Y" ~lts:1 0 in
-             unify x y ;
-             match !!x,!!y with
-               | Var {lts=0}, Var {lts=0} -> ()
-               | _ -> assert false) ;
-
-      "[X^0 = c Y^1]" >::
-        (fun () ->
-           let x = var "X" 0 in
-           let c = var ~tag:Constant "c" 0 in
-           let y = var "Y" ~lts:1 0 in
-             unify x (c ^^ [y]) ;
-             match !!y with
-               | Var {lts=0} -> () | _ -> Pprint.print_term y ; assert false) ;
-
-      "[X^0 n1 n2 = c Y^2 = c n2]" >::
-        (fun () ->
-           let x = var "X" 0 in
-           let y = var "Y" ~lts:2 0 in
-           let c = const "c" 0 in
-           let t = x ^^ [nabla 1 ; nabla 2] in
-             unify t (c ^^ [y]) ;
-             unify (Norm.hnorm t) (c ^^ [nabla 2]))
-
+           let a = var "A" 0 in
+           let b = var "B" 0 in
+           let m = var "M" 0 in
+           let n = var "N" 0 in
+           let v = var "V" 0 in
+           let ceval = const "eval" 0 in
+           let capp = const "app" 0 in
+           let evalAB = app ceval [a; b] in
+           let evalapp = app ceval [(app capp [m; n]); v] in
+             unify evalAB evalapp ;
+             assert_pprint_equal "eval (app M N) V" evalAB) ;
+      
     ]

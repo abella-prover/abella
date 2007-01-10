@@ -34,8 +34,7 @@ let make_env n args =
 let rec hnorm term =
   match Term.observe term with
     | Term.Var _
-    | Term.DB _
-    | Term.NB _ -> term
+    | Term.DB _ -> term
     | Term.Lam(n,t) -> Term.lambda n (hnorm t)
     | Term.App(t,args) ->
         let t = hnorm t in
@@ -51,7 +50,7 @@ let rec hnorm term =
     | Term.Susp(t,ol,nl,e) ->
         let t = hnorm t in
           begin match Term.observe t with
-            | Term.NB _ | Term.Var _ -> t
+            | Term.Var _ -> t
             | Term.DB i ->
                 if i > ol then
                   (* The index points to something outside the suspension *)
@@ -76,7 +75,7 @@ let rec hnorm term =
 let rec deep_norm t =
   let t = hnorm t in
     match Term.observe t with
-      | Term.NB _ | Term.Var _ | Term.DB _ -> t
+      | Term.Var _ | Term.DB _ -> t
       | Term.Lam (n,t) -> Term.lambda n (deep_norm t)
       | Term.App (a,b) ->
             begin match Term.observe a with

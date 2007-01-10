@@ -7,6 +7,7 @@ let tests = "LPP" >:::
     Pprint_test.tests ;
     Lppterm_test.tests ;
     Parser_test.tests ;
+    Top_parser_test.tests ;
     Tactics_test.tests ;
     Prover_test.tests ;
   ]

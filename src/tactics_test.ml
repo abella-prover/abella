@@ -9,7 +9,7 @@ let id x = x
 let assert_pprint_equal s t =
   assert_equal ~printer:id s (lppterm_to_string t)
 
-let parse str = Parser.lppterm Lexer.token (Lexing.from_string str)
+let parse str = Top_parser.lppterm Top_lexer.token (Lexing.from_string str)
     
 let tests =
   "Tactics" >:::

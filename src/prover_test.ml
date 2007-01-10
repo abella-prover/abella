@@ -14,7 +14,7 @@ let _ =
     Parser.clauses Lexer.token (Lexing.from_string clauses_str)
 
 let parse str =
-  Parser.lppterm Lexer.token (Lexing.from_string str)
+  Top_parser.lppterm Top_lexer.token (Lexing.from_string str)
 
 let assert_length_equal n lst =
   assert_equal ~printer:string_of_int n (List.length lst)

@@ -1,5 +1,5 @@
 {
-  open Parser
+  open Top_parser
   open Lexing
 
   let incrline lexbuf =
@@ -9,33 +9,24 @@
           pos_lnum = 1 + lexbuf.lex_curr_p.pos_lnum }
 }
 
-let number = ['0'-'9'] +
 let name = ['A' - 'Z' 'a'-'z' '_' '/' '0'-'9' '\''] +
 let blank = ' ' | '\t' | '\r'
+let term = '{' [^ '}'] + '}'
 
 rule token = parse
 | '%' [^'\n'] * '\n' { incrline lexbuf; token lexbuf }
 | blank              { token lexbuf }
 | '\n'               { incrline lexbuf; token lexbuf }
 
-| "=>"               { IMP }
-| ":-"               { DEF }
 | ","                { COMMA }
 | "."                { DOT }
-| "\\"               { BSLASH }
-| "("                { LPAREN }
-| ")"                { RPAREN }
-      
-| "induction"        { IND }
-| "apply"            { APPLY }
-| "case"             { CASE }
-| "search"           { SEARCH }
-| "to"               { TO }
-| "on"               { ON }
-| "and"              { AND }
-| "intros"           { INTROS }
+| "->"               { RARROW }
+| "forall"           { FORALL }
+| "*"                { STAR }
+| "@"                { AT }
+| "Theorem"          { THEOREM }
 
-| number as n        { NUM (int_of_string n) }
 | name as n          { ID n }
+| term as s          { TERM s }
 
 | eof                { EOF }

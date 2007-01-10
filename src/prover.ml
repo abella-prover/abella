@@ -2,12 +2,14 @@ open Term
 open Pprint
 open Lppterm
 
+type top_command =
+  | Theorem of lppterm
+
 type command =
   | Induction of int list
   | Apply of id * id list
   | Case of id
   | Search
-  | Theorem of lppterm
   | Intros
 
 type id = string

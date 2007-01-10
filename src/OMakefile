@@ -20,7 +20,7 @@ OUNIT = $(file ext/oUnit)
 # Workaround for the fact that ocamldep does not pay attention to .mll
 # and .mly files.
 #
-OCamlGeneratedFiles(parser.ml lexer.ml)
+OCamlGeneratedFiles(parser.ml lexer.ml top_parser.ml top_lexer.ml)
 
 ################################################
 # Build an OCaml program
@@ -36,6 +36,8 @@ FILES[] =
    lppterm
    parser
    lexer
+   top_parser
+   top_lexer
    tactics
    prover
 

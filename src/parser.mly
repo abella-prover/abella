@@ -1,49 +1,19 @@
-%token BSLASH LPAREN RPAREN
-%token FORALL IMP RARROW COLON COMMA
-%token LBRACKET RBRACKET
-%token STAR AT
-%token IND APPLY CASE SEARCH TO ON AND THEOREM INTROS
+%token IMP DEF COMMA DOT BSLASH LPAREN RPAREN
+%token IND APPLY CASE SEARCH TO ON AND INTROS
 %token <int> NUM
-%token DEF DOT
 %token <string> ID
 %token EOF
 
 %nonassoc BSLASH
 %right IMP
 
-%start lppterm term clauses command
-%type <Lppterm.lppterm> lppterm
+%start term clauses command
 %type <Term.term> term
 %type <Prover.clauses> clauses
 %type <Prover.command> command
 
 %%
 
-lppterm:
-  | FORALL binding_list COMMA lppterm { Lppterm.forall $2 $4 }
-  | object_term RARROW lppterm        { Lppterm.arrow $1 $3 }
-  | object_term                       { $1 }
-
-binding_list:
-  | binding binding_list              { $1::$2 }
-  | binding                           { [$1] }
-
-binding:
-  | ID                                { $1 }
-
-object_term:
-  | LBRACKET term RBRACKET            { Lppterm.obj $2 }
-  | LBRACKET term RBRACKET stars      { Lppterm.active_obj $2 $4 }
-  | LBRACKET term RBRACKET ats        { Lppterm.inactive_obj $2 $4 }
-
-stars:
-  | stars STAR                        { $1 + 1 }
-  | STAR                              { 1 }
-
-ats:
-  | ats AT                            { $1 + 1 }
-  | AT                                { 1 }
-      
 term:
   | term IMP term                     { Term.app (Term.const "=>") [$1; $3] }
   | ID BSLASH term                    { Term.abstract $1 $3 }
@@ -76,7 +46,6 @@ command:
   | APPLY ID TO id_arg_list DOT       { Prover.Apply($2, $4) }
   | CASE ID DOT                       { Prover.Case($2) }
   | SEARCH DOT                        { Prover.Search }
-  | THEOREM lppterm DOT               { Prover.Theorem($2) }
   | INTROS DOT                        { Prover.Intros }
 
 num_arg_list:

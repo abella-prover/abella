@@ -50,9 +50,17 @@ let object_inst t x =
                       "form (pi x\\ ...)")
     | _ -> failwith ("Object instantiation expects an object as the first " ^
                        "argument")
-
+        
 let fresh_alist tag ts =
-  List.map (fun x -> (x, fresh ~name:x ~tag:tag 0)) ts
+  List.map (fun x -> (x, var ~tag:tag x 0)) ts
+
+let fresh_alist_wrt tag ts vars =
+  let used = ref vars in
+    (List.map (fun x ->
+                let (fresh, curr_used) = fresh_wrt tag x !used in
+                  used := curr_used ;
+                  (x, fresh))
+      ts)
 
 let replace_vars alist t =
   let rec aux_term t =
@@ -148,20 +156,20 @@ let capital_var_names ts =
           (map_vars_list (fun v -> v.name)
              (List.map obj_to_term ts)))
 
-let freshen_capital_vars tag ts =
+let freshen_capital_vars tag ts used =
   let var_names = capital_var_names ts in
-  let fresh_names = fresh_alist tag var_names in
+  let fresh_names = fresh_alist_wrt tag var_names used in
     List.map (replace_vars fresh_names) ts
     
-let case term clauses =
+let case term clauses used =
   let initial_state = save_state () in
     List.fold_right
       (fun (head, body) result ->
-         match freshen_capital_vars Eigen (head::body) with
+         match freshen_capital_vars Eigen (head::body) used with
            | [] -> assert false
            | fresh_head::fresh_body ->
                try
-                 right_object_unify term fresh_head ;
+                 right_object_unify fresh_head term ;
                  let used_vars = find_obj_vars (fresh_head::fresh_body) in
                  let subst = get_subst initial_state in
                  let restore () = (restore_state initial_state ;
@@ -192,14 +200,10 @@ let apply_restrictions active args stmt =
   in
     aux 1 args 1 stmt
 
-let freshen_vars bindings body =
-  replace_vars (fresh_alist Eigen bindings) body
-  
 let induction args stmt =
   match stmt with
     | Forall(bindings, body) ->
         let ih_body = apply_restrictions true args body in
-        let fresh_ih_body = freshen_vars bindings ih_body in
         let goal_body = apply_restrictions false args body in
-          (forall bindings fresh_ih_body, forall bindings goal_body)
+          (forall bindings ih_body, forall bindings goal_body)
     | _ -> failwith "Induction applied to non-forall statement"

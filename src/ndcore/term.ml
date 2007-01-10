@@ -129,30 +129,7 @@ let rec lambda n t =
         | Lam (n',t') -> lambda (n+n') t'
         | _ -> Lam (n,t)
 
-(** We try to attach useful names to generated variables.
-  * For that purpose we use prefixes like 'h' or 'x',
-  * freshness is ensured by the suffix. During parsing, one must take care
-  * to rename variables that could conflict with generated ones.
-  * TODO choose a policy here.. use more prefixes depending on the type,
-  * if typing is introduced ? *)
-
-let prefix = function
-  | Constant -> "c"
-  | Logic -> "H"
-  | Eigen -> "h"
-
 let getAbsName () = "x"
-
-(** Generating a fresh variable with a given time stamp; the use of ref
-  * ensures uniqueness. We should attach useful names as well, but this 
-  * will do for the moment. 
-  * I hide [varcount] cause resetting it hurts the consistency of the system. *)
-let fresh =
-  let varcount = ref 0 in
-    fun () ->
-      let i = !varcount in
-        incr varcount ;
-        i
 
 (* Recursively raise dB indices and abstract over variables
  * selected by [test]. *)
@@ -216,14 +193,6 @@ end
 
 (** LPP specific changes *)
 
-let fresh ?(name="")?(tag=Logic) ts =
-  if name = "" then
-    let i = fresh () in
-    let name = (prefix tag) ^ (string_of_int i) in
-      Ptr (ref (V { name=name ; ts=ts ; tag=tag }))
-  else
-    Ptr (ref (V { name=name ; ts=ts ; tag=tag }))
-
 let atom ?(tag=Logic) ?(ts=0) name =
   try
     Hashtbl.find tbl name
@@ -237,6 +206,29 @@ let atom ?(tag=Logic) ?(ts=0) name =
         in
           Hashtbl.add tbl name t ;
           t
+
+let prefix = function
+  | Constant -> "c"
+  | Logic -> "H"
+  | Eigen -> "h"
+
+let fresh =
+  let varcount = ref 0 in
+    fun () ->
+      let i = !varcount in
+        incr varcount ;
+        i
+      
+let fresh ?(tag=Logic) ts =
+  let i = fresh () in
+  let name = (prefix tag) ^ (string_of_int i) in
+    Ptr (ref (V { name=name ; ts=ts ; tag=tag }))
+
+let rec fresh_wrt tag name used =
+  if List.mem name used then
+    fresh_wrt tag (name ^ "'") used
+  else
+    (atom ~tag:tag name, name::used)
 
 let binop s a b = App ((atom s),[a;b])
             
@@ -287,7 +279,12 @@ let get_subst state =
 
 let apply_subst s =
   List.iter (fun (v, value) -> bind v value) s
-
-
-
-
+    
+let reset_namespace_except vars =
+  Hashtbl.iter
+    (fun k v ->
+       if not (List.mem k vars) then
+         match v with
+           | Ptr {contents=V {tag=Constant}} -> ()
+           | _ -> Hashtbl.remove tbl k)
+    tbl

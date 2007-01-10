@@ -52,7 +52,7 @@ term:
       
 exp:
   | LPAREN term RPAREN                { $2 }
-  | ID                                { Term.atom ~tag:Term.Constant $1 }
+  | ID                                { Term.const $1 0 }
       
 exp_list:
   | exp exp_list                      { $1::$2 }

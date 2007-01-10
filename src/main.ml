@@ -29,10 +29,10 @@ let rec process ?(interactive=true) lexbuf =
     begin match Parser.command Lexer.token lexbuf with
       | Induction(args) -> induction args
       | Apply(h, args) -> apply h args
-      | Case(str) -> case str
+      | Case(str) -> case str !vars
       | Search -> search ()
       | Theorem(thm) -> theorem thm
-      | Intros -> intros ()
+      | Intros -> intros !vars
     end ;
     display () ;
     if interactive then flush stdout

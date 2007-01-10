@@ -102,13 +102,6 @@ val add_dummies : env -> int -> int -> env
 (* Add [n] abstractions. *)
 val lambda : int -> term -> term
 
-(** We try to attach useful names to generated variables.
-  * For that purpose we use prefixes like 'h' or 'x',
-  * freshness is ensured by the suffix. During parsing, one must take care
-  * to rename variables that could conflict with generated ones.
-  * TODO choose a policy here.. use more prefixes depending on the type,
-  * if typing is introduced ? *)
-
 val getAbsName : unit -> string
 
 exception NonNormalTerm
@@ -123,11 +116,14 @@ val abstract : string -> term -> term
 val logic_vars : term list -> term list
 
 (** LPP specific additions and changes *)
-val fresh : ?name:id -> ?tag:tag -> int -> term
 val atom : ?tag:tag -> ?ts:int -> string -> term
-
+val fresh : ?tag:tag -> int -> term
+val fresh_wrt : tag -> id -> id list -> term * id list 
+  
 val find_vars : tag -> term list -> var list
 val map_vars : (var -> 'a) -> term -> 'a list
 val map_vars_list : (var -> 'a) -> term list -> 'a list
   
 val apply_subst : subst -> unit
+  
+val reset_namespace_except : id list -> unit

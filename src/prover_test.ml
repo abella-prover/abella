@@ -21,17 +21,18 @@ let parse str =
     [
       "New variables added to context" >::
         (fun () ->
+           reset_namespace () ;
            match Tactics.freshen_capital_vars
-             Eigen [parse "{eval A B}"] with
-             | [hyp] ->
-                 vars := ["A"; "B"] ;
-                 hyps := [("H1", hyp)] ;
-                 goal := obj (atom "placeholder") ;
-                 subgoals := [] ;
-                 case "H1" ;
-                 assert_bool "R should be added to variable list"
-                   (List.mem "R" !vars)
-             | _ -> assert false
+             Eigen [parse "{eval A B}"] [] with
+               | [hyp] ->
+                   vars := ["A"; "B"] ;
+                   hyps := [("H1", hyp)] ;
+                   goal := obj (atom "placeholder") ;
+                   subgoals := [] ;
+                   case "H1" !vars ;
+                   assert_bool "R should be added to variable list"
+                     (List.mem "R" !vars) ;
+               | _ -> assert false
         ) ;
       
     ]

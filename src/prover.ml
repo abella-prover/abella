@@ -88,12 +88,13 @@ let add_cases_to_subgoals cases =
   in
     subgoals := List.append !subgoals (List.map case_to_subgoal cases)
       
-let case str =
+let case str used =
   let obj = get_hyp str in
-  let cases = Tactics.case obj !clauses in
+  let cases = Tactics.case obj !clauses used in
     match cases with
       | [] -> next_subgoal ()
       | (set_state, used_vars, new_hyps)::other_cases ->
+          reset_namespace_except used_vars ;
           add_cases_to_subgoals other_cases ;
           List.iter add_if_new_var used_vars ;
           set_state () ;
@@ -143,20 +144,17 @@ let split_bindings_and_args stmt =
         let args, goal = split_args stmt in
           ([], args, goal)
 
-let freshen_bindings stmt =
+let freshen_bindings stmt used =
   match stmt with
     | Forall(bindings, body) ->
         forall bindings
           (Tactics.replace_vars
-             (Tactics.fresh_alist Eigen bindings) body)
+             (Tactics.fresh_alist_wrt Eigen bindings used) body)
     | _ -> stmt
             
-let intros () =
-  goal := freshen_bindings !goal ;
+let intros used =
+  goal := freshen_bindings !goal used ;
   let (new_vars, new_hyps, new_goal) = split_bindings_and_args !goal in
     List.iter add_var new_vars ;
     List.iter add_hyp new_hyps ;
     goal := new_goal
-
-
-      

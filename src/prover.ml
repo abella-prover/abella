@@ -116,16 +116,14 @@ let add_cases_to_subgoals cases =
     let saved_hyps = !hyps in
     let saved_goal = !goal in
     let saved_count = !count in
-    let set_case () =
-      vars := saved_vars ;
-      hyps := saved_hyps ;
-      goal := saved_goal ;
-      count := saved_count ;
-      List.iter add_if_new_var used_vars ;
-      List.iter add_hyp new_hyps ;
-      set_state () ;
-    in
-      set_case
+      fun () ->
+        vars := saved_vars ;
+        hyps := saved_hyps ;
+        goal := saved_goal ;
+        count := saved_count ;
+        List.iter add_if_new_var used_vars ;
+        List.iter add_hyp new_hyps ;
+        set_state () ;
   in
     subgoals := List.append !subgoals (List.map case_to_subgoal cases)
       

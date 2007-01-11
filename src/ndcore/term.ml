@@ -219,6 +219,19 @@ let find_vars tag ts =
     | Ptr _ -> assert false
   in
     List.fold_left fv [] ts
+
+let find_var_refs tag ts =
+  let rec fv l t = match t with
+    | Var _ -> assert false
+    | App (h, ts) -> List.fold_left fv (fv l h) ts
+    | Lam (n, t') -> fv l t'
+    | DB _ -> l
+    | Susp _ -> assert false
+    | Ptr {contents=T t'} -> fv l t'
+    | Ptr {contents=V v} ->
+        if v.tag = tag && not (List.mem t l) then t::l else l
+  in
+    List.fold_left fv [] ts
       
 let logic_vars ts = List.map (fun v -> Var(v)) (find_vars Logic ts)
 
@@ -255,3 +268,8 @@ let get_subst state =
 
 let apply_subst s =
   List.iter (fun (v, value) -> bind v value) s
+
+let term_to_var t =
+  match observe t with
+    | Var v -> v
+    | _ -> failwith "term_to_var called on non-var"

@@ -10,6 +10,7 @@ let rec process_proof ?(interactive=true) lexbuf =
       begin match Parser.command Lexer.token lexbuf with
         | Induction(args) -> induction args
         | Apply(h, args) -> apply h args
+        | Inst(h, t) -> inst h t
         | Case(str) -> case str
         | Search -> search ()
         | Intros -> intros ()

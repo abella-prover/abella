@@ -113,7 +113,10 @@ val fresh : ?tag:tag -> int -> term
 val fresh_wrt : tag -> id -> id list -> term * id list 
   
 val find_vars : tag -> term list -> var list
+val find_var_refs : tag -> term list -> term list
 val map_vars : (var -> 'a) -> term -> 'a list
 val map_vars_list : (var -> 'a) -> term list -> 'a list
   
 val apply_subst : subst -> unit
+
+val term_to_var : term -> var

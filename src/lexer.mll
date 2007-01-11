@@ -28,9 +28,11 @@ rule token = parse
       
 | "induction"        { IND }
 | "apply"            { APPLY }
+| "inst"             { INST }
 | "case"             { CASE }
 | "search"           { SEARCH }
 | "to"               { TO }
+| "with"             { WITH }
 | "on"               { ON }
 | "and"              { AND }
 | "intros"           { INTROS }

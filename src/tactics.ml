@@ -51,25 +51,28 @@ let fresh_alist_wrt tag ts vars =
                   (x, fresh))
       ts)
 
-let replace_vars alist t =
-  let rec aux_term t =
+let replace_term_vars alist t =
+  let rec aux t =
     match observe t with
-      | Var {name=name} when List.mem_assoc name alist ->
-          List.assoc name alist
-      | Var _
-      | DB _ -> t
-      | Lam(i, t) -> lambda i (aux_term t)
-      | App(t, ts) -> app (aux_term t) (List.map aux_term ts)
-      | Susp _ -> failwith "Susp found during replace_vars"
-      | Ptr _ -> assert false
+        | Var {name=name} when List.mem_assoc name alist ->
+            List.assoc name alist
+        | Var _
+        | DB _ -> t
+        | Lam(i, t) -> lambda i (aux t)
+        | App(t, ts) -> app (aux t) (List.map aux ts)
+        | Susp _ -> failwith "Susp found during replace_vars"
+        | Ptr _ -> assert false
   in
-  let rec aux_lppterm t =
+    aux t
+
+let replace_lppterm_vars alist t =
+  let rec aux t =
     match t with
-      | Obj(t, r) -> obj_r (aux_term t) r
-      | Arrow(a, b) -> arrow (aux_lppterm a) (aux_lppterm b)
+      | Obj(t, r) -> obj_r (replace_term_vars alist t) r
+      | Arrow(a, b) -> arrow (aux a) (aux b)
       | Forall _ -> failwith "Cannot replace vars inside forall"
   in
-    aux_lppterm t
+    aux t
         
 let logic_var_names ts =
   List.map (fun v ->
@@ -100,7 +103,7 @@ let apply_forall stmt ts =
   match stmt with
     | Forall(bindings, body) ->
         let alist = fresh_alist Logic bindings in
-        let fresh_body = replace_vars alist body in
+        let fresh_body = replace_lppterm_vars alist body in
           List.fold_left
             (fun stmt arg ->
                match stmt, arg with
@@ -136,9 +139,9 @@ let try_right_object_unify t1 t2 =
           restore_state state;
           false
       
-let find_obj_vars ts =
-  List.map (fun v -> v.name)
-    (find_vars Eigen (List.map obj_to_term ts))
+let get_eigen_vars_alist ts =
+  List.map (fun v -> ((term_to_var v).name, v))
+    (find_var_refs Eigen (List.map obj_to_term ts))
 
 let is_capital str =
   match str.[0] with
@@ -158,7 +161,7 @@ let capital_var_names ts =
 let freshen_capital_vars tag ts used =
   let var_names = capital_var_names ts in
   let fresh_names = fresh_alist_wrt tag var_names used in
-    List.map (replace_vars fresh_names) ts
+    List.map (replace_lppterm_vars fresh_names) ts
     
 let case term clauses used =
   let initial_state = save_state () in
@@ -169,7 +172,8 @@ let case term clauses used =
            | fresh_head::fresh_body ->
                try
                  left_object_unify fresh_head term ;
-                 let used_vars = find_obj_vars (fresh_head::fresh_body) in
+                 let used_vars =
+                   get_eigen_vars_alist (fresh_head::fresh_body) in
                  let subst = get_subst initial_state in
                  let restore () = (restore_state initial_state ;
                                    apply_subst subst) in

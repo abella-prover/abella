@@ -106,17 +106,17 @@ let tests =
                    f1 () ;
                    assert_pprint_equal "{eval (abs R) (abs R)}" term ;
                    assert_bool "R should be flagged as used"
-                     (List.mem "R" v1) ;
+                     (List.mem "R" (List.map fst v1)) ;
                    f2 () ;
                    assert_pprint_equal "{eval (app M N) B}" term ;
                    assert_pprint_equal "{eval M (abs R)}" b1 ;
                    assert_pprint_equal "{eval (R N) B}" b2 ;
                    assert_bool "R should be flagged as used"
-                     (List.mem "R" v2) ;
+                     (List.mem "R" (List.map fst v2)) ;
                    assert_bool "M should be flagged as used"
-                     (List.mem "M" v2) ;
+                     (List.mem "M" (List.map fst v2)) ;
                    assert_bool "N should be flagged as used"
-                     (List.mem "N" v2)
+                     (List.mem "N" (List.map fst v2))
                | _ -> assert_failure "Pattern mismatch") ;
       
       "Restricted case application" >::

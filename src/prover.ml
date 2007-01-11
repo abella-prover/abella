@@ -8,13 +8,14 @@ type top_command =
 type command =
   | Induction of int list
   | Apply of id * id list
+  | Inst of id * term
   | Case of id
   | Search
   | Intros
 
 type id = string
 
-type vars = id list
+type vars = (id * term) list
 type hyps = (id * lppterm) list
 
 type subgoal = unit -> unit
@@ -24,31 +25,35 @@ let hyps : hyps ref = ref []
 let goal : lppterm ref = ref (obj (const "placeholder"))
 let subgoals : subgoal list ref = ref []
 
+let var_names () =
+  List.map fst !vars
+
 let count = ref 0
 
 let fresh_hyp_name () =
   incr count ;
   "H" ^ (string_of_int !count)
   
+type clauses = (lppterm * lppterm list) list
+  
+let clauses : clauses ref = ref []
+
 let reset_prover () =
   count := 0 ;
   vars := [] ;
   hyps := [] ;
   goal := obj (const "placeholder") ;
-  subgoals := []
-
-type clauses = (lppterm * lppterm list) list
+  subgoals := [] ;
+  clauses := []
   
-let clauses : clauses ref = ref []
-
 let add_hyp ?(name=fresh_hyp_name ()) term =
   hyps := List.append !hyps [(name, term)]
 
-let add_var name =
-  vars := List.append !vars [name]
+let add_var v =
+  vars := List.append !vars [v]
 
-let add_if_new_var name =
-  if not (List.mem name !vars) then add_var name
+let add_if_new_var (name, v) =
+  if not (List.mem name (var_names ())) then add_var (name, v)
 
 let get_hyp name =
   List.assoc name !hyps
@@ -63,7 +68,7 @@ let next_subgoal () =
 let vars_to_string vars =
   match vars with
     | [] -> ""
-    | _ -> "  Variables: " ^ (String.concat ", " vars)
+    | _ -> "  Variables: " ^ (String.concat ", " (var_names ()))
 
 let hyps_to_string hyps =
   String.concat "\n"
@@ -81,6 +86,16 @@ let display () =
   print_string "  "; print_endline (lppterm_to_string !goal) ;
   print_newline ()
 
+(* Inst *)
+
+let inst h t =
+  let stmt = get_hyp h in
+    if Tactics.is_pi_abs (obj_to_term stmt) then
+      add_hyp (Tactics.object_inst stmt (Tactics.replace_term_vars !vars t))
+    else
+      failwith ("Hypothesis must have the form {pi x\\ ...} " ^
+                  "in order to instantiate it with a term.")
+
 (* Apply *)
           
 let apply h args =
@@ -91,16 +106,6 @@ let apply h args =
             Tactics.apply_forall stmt (List.map get_hyp args)
         | Obj(t, _), [arg] when Tactics.is_imp t ->
             Tactics.object_cut stmt (get_hyp arg)
-        | Obj(t, _), [arg] when Tactics.is_pi_abs t ->
-            if List.mem arg !vars then
-              (* TODO - this is a slight bug, if we recreate the variable
-                 like this then it won't be updated if the variable is
-                 unified with something else. We should instead find this
-                 variable in the context, but we don't yet track the
-                 actual variables there *)
-              Tactics.object_inst stmt (var ~tag:Eigen arg 0)
-            else
-              failwith ("Variable not found: " ^ arg)
         | _ -> failwith "Bad application"
       end
 
@@ -128,7 +133,7 @@ let add_cases_to_subgoals cases =
       
 let case str =
   let obj = get_hyp str in
-  let cases = Tactics.case obj !clauses !vars in
+  let cases = Tactics.case obj !clauses (List.map fst !vars) in
     match cases with
       | [] -> next_subgoal ()
       | (set_state, used_vars, new_hyps)::other_cases ->
@@ -147,7 +152,7 @@ let induction args =
 (* Search *)
 
 let search () =
-  if Tactics.search 1 !goal !clauses !vars (List.map snd !hyps) then
+  if Tactics.search 1 !goal !clauses (var_names ()) (List.map snd !hyps) then
     next_subgoal ()
   else
     ()
@@ -167,26 +172,17 @@ let rec split_args stmt =
     | Obj _ -> ([], stmt)
     | Forall _ -> failwith "Forall found in split_args"
 
-let split_bindings_and_args stmt =
-  match stmt with
-    | Forall(bindings, body) ->
-        let args, goal = split_args body in
-          (bindings, args, goal)
-    | _ ->
-        let args, goal = split_args stmt in
-          ([], args, goal)
-
-let freshen_bindings stmt used =
-  match stmt with
-    | Forall(bindings, body) ->
-        forall bindings
-          (Tactics.replace_vars
-             (Tactics.fresh_alist_wrt Eigen bindings used) body)
-    | _ -> stmt
-            
 let intros () =
-  goal := freshen_bindings !goal !vars ;
-  let (new_vars, new_hyps, new_goal) = split_bindings_and_args !goal in
-    List.iter add_var new_vars ;
-    List.iter add_hyp new_hyps ;
-    goal := new_goal
+  if !vars != [] then
+    failwith "Intros can only be used when there are no context variables" ;
+  match !goal with
+    | Forall(bindings, body) ->
+        vars := Tactics.fresh_alist_wrt Eigen bindings [] ;
+        let fresh_body = Tactics.replace_lppterm_vars !vars body in
+        let args, new_goal = split_args fresh_body in
+          List.iter add_hyp args ;
+          goal := new_goal
+    | _ ->
+        let args, new_goal = split_args !goal in
+          List.iter add_hyp args ;
+          goal := new_goal

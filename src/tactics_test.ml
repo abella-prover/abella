@@ -10,6 +10,11 @@ let assert_pprint_equal s t =
   assert_equal ~printer:id s (lppterm_to_string t)
 
 let parse str = Top_parser.lppterm Top_lexer.token (Lexing.from_string str)
+
+let prog =
+  let str = "eval (abs R) (abs R).\n" ^
+    "eval (app M N) V :- eval M (abs R), eval (R N) V." in
+    Parser.clauses Lexer.token (Lexing.from_string str)
     
 let tests =
   "Tactics" >:::
@@ -93,9 +98,6 @@ let tests =
               eval (app M N) V :- eval M (abs R), eval (R N) V.
 
               case {eval A B} *)
-           let str = "eval (abs R) (abs R).\n" ^
-             "eval (app M N) V :- eval M (abs R), eval (R N) V." in
-           let prog = Parser.clauses Lexer.token (Lexing.from_string str) in
            let a = var ~tag:Eigen "A" 0 in
            let b = var ~tag:Eigen "B" 0 in
            let term = obj (app (const "eval") [a; b]) in
@@ -123,9 +125,6 @@ let tests =
               eval (app M N) V :- eval M (abs R), eval (R N) V.
 
               case {eval A B} which has inactive restriction 1 *)
-           let str = "eval (abs R) (abs R).\n" ^
-             "eval (app M N) V :- eval M (abs R), eval (R N) V." in
-           let prog = Parser.clauses Lexer.token (Lexing.from_string str) in
            let a = var ~tag:Eigen "A" 0 in
            let b = var ~tag:Eigen "B" 0 in
            let term = inactive_obj (app (const "eval") [a; b]) 1 in
@@ -163,4 +162,27 @@ let tests =
                "forall A, {first A}@ -> {second A}@@ -> {third A}"
                goal) ;
       
+      "0-step search" >::
+        (fun () ->
+           let term = parse "{eval A B}" in
+           let vars = ["A"; "B"] in
+             assert_bool "Search should succeed"
+               (search 0 term prog vars [term])) ;
+      
+      "1-step search with no body" >::
+        (fun () ->
+           let goal = parse "{eval (abs R) (abs R)}" in
+           let vars = ["R"] in
+             assert_bool "Search should succeed"
+               (search 1 goal prog vars [])) ;
+      
+      "1-step search with body" >::
+        (fun () ->
+           let hyp1 = parse "{eval M (abs R)}" in
+           let hyp2 = parse "{eval (R N) V}" in
+           let goal = parse "{eval (app M N) V}" in
+           let vars = ["M"; "N"; "V"; "R"] in
+             assert_bool "Search should succeed"
+               (search 1 goal prog vars [hyp1; hyp2])) ;
+
     ]

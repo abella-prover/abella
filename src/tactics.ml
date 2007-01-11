@@ -121,6 +121,21 @@ let left_object_unify t1 t2 =
   let t2 = obj_to_term t2 in
     Left.pattern_unify t1 t2
 
+let right_object_unify t1 t2 =
+  let t1 = obj_to_term t1 in
+  let t2 = obj_to_term t2 in
+    Right.pattern_unify t1 t2
+
+let try_right_object_unify t1 t2 =
+  let state = save_state () in
+    try
+      right_object_unify t1 t2 ;
+      true
+    with
+      | Unify.Error _ ->
+          restore_state state;
+          false
+      
 let find_obj_vars ts =
   List.map (fun v -> v.name)
     (find_vars Eigen (List.map obj_to_term ts))
@@ -191,3 +206,30 @@ let induction args stmt =
         let goal_body = apply_restrictions false args body in
           (forall bindings ih_body, forall bindings goal_body)
     | _ -> failwith "Induction applied to non-forall statement"
+
+let is_obj t =
+  match t with
+    | Obj _ -> true
+    | _ -> false
+        
+let rec search n goal clauses used hyps =
+  if List.exists (try_right_object_unify goal) (List.filter is_obj hyps) then
+    true
+  else if n = 0 then
+    false
+  else
+    List.exists
+      (fun (head, body) ->
+         let state = save_state () in
+           match freshen_capital_vars Logic (head::body) used with
+             | [] -> assert false
+             | fresh_head::fresh_body ->
+                 try
+                   right_object_unify fresh_head goal ;
+                   List.for_all (fun g ->
+                                   search (n-1) g clauses used hyps) fresh_body
+                 with
+                   | Unify.Error _ ->
+                       restore_state state;
+                       false)
+      clauses

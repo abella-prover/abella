@@ -37,7 +37,6 @@ let reset_prover () =
   goal := obj (const "placeholder") ;
   subgoals := []
 
-
 type clauses = (lppterm * lppterm list) list
   
 let clauses : clauses ref = ref []
@@ -147,13 +146,8 @@ let induction args =
 
 (* Search *)
 
-let obj_match t1 t2 =
-  match t1, t2 with
-    | Obj(t1, _), Obj(t2, _) -> eq t1 t2
-    | _ -> false
-
 let search () =
-  if List.exists (obj_match !goal) (List.map snd !hyps) then
+  if Tactics.search 1 !goal !clauses !vars (List.map snd !hyps) then
     next_subgoal ()
   else
     ()

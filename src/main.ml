@@ -3,26 +3,31 @@ open Pprint
 open Lppterm
 
 let rec process_proof ?(interactive=true) lexbuf =
-  try while true do try
-    display () ;
-    if interactive then Format.printf "Proof < %!" ;
-    begin match Parser.command Lexer.token lexbuf with
-      | Induction(args) -> induction args
-      | Apply(h, args) -> apply h args
-      | Case(str) -> case str
-      | Search -> search ()
-      | Intros -> intros ()
-    end ;
-    if interactive then flush stdout
-  with
-    | Failure "lexing: empty token" ->
-        exit (if interactive then 0 else 1)
-    | Failure s ->
-        Format.printf "Error: %s\n" s
-    | e ->
-        Format.printf "Unknown error: %s\n%!" (Printexc.to_string e)
-  done with
-  | Failure "eof" -> ()
+  let finished = ref false in
+    try while not !finished do try
+      display () ;
+      if interactive then Format.printf "Proof < %!" ;
+      begin match Parser.command Lexer.token lexbuf with
+        | Induction(args) -> induction args
+        | Apply(h, args) -> apply h args
+        | Case(str) -> case str
+        | Search -> search ()
+        | Intros -> intros ()
+      end ;
+      if interactive then flush stdout
+    with
+      | Failure "lexing: empty token" ->
+          exit (if interactive then 0 else 1)
+      | Failure "Proof completed." ->
+          print_endline "Proof completed." ;
+          reset_prover () ;
+          finished := true
+      | Failure s ->
+          Format.printf "Error: %s\n" s
+      | e ->
+          Format.printf "Unknown error: %s\n%!" (Printexc.to_string e)
+    done with
+      | Failure "eof" -> ()
 
 let rec process ?(interactive=true) lexbuf =
   try while true do try

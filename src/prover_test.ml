@@ -16,8 +16,14 @@ let _ =
 let parse str =
   Top_parser.lppterm Top_lexer.token (Lexing.from_string str)
 
+let assert_int_equal = assert_equal ~printer:string_of_int
+
 let assert_length_equal n lst =
-  assert_equal ~printer:string_of_int n (List.length lst)
+  assert_int_equal n (List.length lst)
+
+let assert_string_list_equal lst1 lst2 =
+  assert_int_equal (List.length lst1) (List.length lst2) ;
+  ignore (List.map2 (assert_equal ~printer:(fun s -> s)) lst1 lst2)
     
  let tests =
   "Prover" >:::
@@ -59,4 +65,22 @@ let assert_length_equal n lst =
            assert_raises (Failure("Proof completed."))
              search ;
         ) ;
+
+      "Cases should not consume fresh hyp names" >::
+        (fun () ->
+           reset_prover () ;
+           goal := parse ("forall P V, {typeof P V} -> {typeof P V}") ;
+
+           intros () ;
+           case "H1" ;
+           assert_length_equal 1 !subgoals ;
+           assert_string_list_equal ["H1"; "H2"] (List.map fst !hyps) ;
+           
+           search () ;
+           assert_length_equal 0 !subgoals ;
+
+           assert_string_list_equal
+             ["H1"; "H2"; "H3"] (List.map fst !hyps)           
+        ) ;
+
     ]

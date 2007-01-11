@@ -17,27 +17,26 @@ type id = string
 type vars = id list
 type hyps = (id * lppterm) list
 
-type subgoal = (unit -> unit) * vars * hyps * lppterm
+type subgoal = unit -> unit
 
 let vars : vars ref = ref []
 let hyps : hyps ref = ref []
 let goal : lppterm ref = ref (obj (const "placeholder"))
 let subgoals : subgoal list ref = ref []
+
+let count = ref 0
+
+let fresh_hyp_name () =
+  incr count ;
+  "H" ^ (string_of_int !count)
   
-let fresh_hyp_name, reset_prover =
-  let count = ref 0 in
-  let fresh_hyp_name () =
-    incr count ;
-    "H" ^ (string_of_int !count)
-  in
-  let reset_prover () =
-    count := 0 ;
-    vars := [] ;
-    hyps := [] ;
-    goal := obj (const "placeholder") ;
-    subgoals := []
-  in
-    (fresh_hyp_name, reset_prover)
+let reset_prover () =
+  count := 0 ;
+  vars := [] ;
+  hyps := [] ;
+  goal := obj (const "placeholder") ;
+  subgoals := []
+
 
 type clauses = (lppterm * lppterm list) list
   
@@ -58,11 +57,8 @@ let get_hyp name =
 let next_subgoal () =
   match !subgoals with
     | [] -> failwith "Proof completed."
-    | (set_state, next_vars, next_hyps, next_goal)::rest ->
-        set_state () ;
-        vars := next_vars ;
-        hyps := next_hyps ;
-        goal := next_goal ;
+    | set_subgoal::rest ->
+        set_subgoal () ;
         subgoals := rest
 
 let vars_to_string vars =
@@ -116,12 +112,20 @@ let set_minus lst1 lst2 =
 
 let add_cases_to_subgoals cases =
   let case_to_subgoal (set_state, used_vars, new_hyps) =
-    let labeled_hyps = List.map (fun h -> (fresh_hyp_name (), h)) new_hyps in
-    let new_vars = set_minus used_vars !vars in
-      (set_state,
-       List.append !vars new_vars,
-       List.append !hyps labeled_hyps,
-       !goal)
+    let saved_vars = !vars in
+    let saved_hyps = !hyps in
+    let saved_goal = !goal in
+    let saved_count = !count in
+    let set_case () =
+      vars := saved_vars ;
+      hyps := saved_hyps ;
+      goal := saved_goal ;
+      count := saved_count ;
+      List.iter add_if_new_var used_vars ;
+      List.iter add_hyp new_hyps ;
+      set_state () ;
+    in
+      set_case
   in
     subgoals := List.append !subgoals (List.map case_to_subgoal cases)
       

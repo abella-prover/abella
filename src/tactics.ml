@@ -68,7 +68,7 @@ let replace_term_vars alist t =
 let replace_lppterm_vars alist t =
   let rec aux t =
     match t with
-      | Obj(t, r) -> obj_r (replace_term_vars alist t) r
+      | Obj(c, t, r) -> Obj(c, replace_term_vars alist t, r)
       | Arrow(a, b) -> arrow (aux a) (aux b)
       | Forall _ -> failwith "Cannot replace vars inside forall"
   in
@@ -107,7 +107,8 @@ let apply_forall stmt ts =
           List.fold_left
             (fun stmt arg ->
                match stmt, arg with
-                 | Arrow(Obj(left, r1), right), Obj(arg, r2) ->
+                 | Arrow(Obj(c1, left, r1), right), Obj(c2, arg, r2) ->
+                     (* TODO - check c1 and c2 *)
                      check_restriction r1 r2 ;
                      begin try Right.pattern_unify left arg with
                        | Unify.Error _ ->
@@ -179,7 +180,7 @@ let case term clauses used =
                                    apply_subst subst) in
                    restore_state initial_state ;
                    match term with
-                     | Obj(_, (n, _)) when n > 0 ->
+                     | Obj(_, _, (n, _)) when n > 0 ->
                          (restore, used_vars, List.map
                             (apply_active_restriction n) fresh_body)::result
                      | _ -> (restore, used_vars, fresh_body)::result
@@ -193,9 +194,9 @@ let apply_restrictions active args stmt =
       | [] -> stmt
       | (x::xs) ->
           match stmt with
-            | Arrow(Obj(left, _), right) ->
+            | Arrow(Obj(c, left, _), right) ->
                 if x = curr_arg then
-                  Arrow(obj_r left (curr_ind, active),
+                  Arrow(Obj(c, left, (curr_ind, active)),
                         aux (curr_arg + 1) xs (curr_ind + 1) right)
                 else
                   Arrow(obj left, aux (curr_arg + 1) (x::xs) curr_ind right)

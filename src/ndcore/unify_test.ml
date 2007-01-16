@@ -306,6 +306,7 @@ let tests =
              try unify x y ; assert false with
                | Unify.Error _ -> ()) ;
 
+      (* Tests added while developing LPP *)
       "Saving and restoring states and substs" >::
         (fun () ->
            let a = var "A" 0 in
@@ -335,5 +336,13 @@ let tests =
            let evalapp = app ceval [(app capp [m; n]); v] in
              unify evalAB evalapp ;
              assert_pprint_equal "eval (app M N) V" evalAB) ;
+      
+      "Loosening of LLambda restriction" >::
+        (fun () ->
+           let a = var "A" 0 in
+           let b = var "B" 0 in
+           let c = var "C" 0 in
+             assert_raises (Unify.NotLLambda c)
+               (fun () -> unify a (app b [c]))) ;
       
     ]

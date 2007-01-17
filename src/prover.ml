@@ -129,7 +129,7 @@ let add_cases_to_subgoals cases =
         List.iter add_hyp new_hyps ;
         set_state () ;
   in
-    subgoals := List.append !subgoals (List.map case_to_subgoal cases)
+    subgoals := List.append (List.map case_to_subgoal cases) !subgoals
       
 let case str =
   let obj = get_hyp str in

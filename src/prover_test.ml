@@ -3,11 +3,11 @@ open Prover
 open Lppterm
 open Term
 
-let eval_clauses =
-  Parser.clauses Lexer.token (Lexing.from_channel (open_in "eval.mod"))
-    
-let pcf_clauses =
-  Parser.clauses Lexer.token (Lexing.from_channel (open_in "pcf.mod"))
+let read_mod filename =
+  Parser.clauses Lexer.token (Lexing.from_channel (open_in filename))
+
+let eval_clauses = read_mod "eval.mod"
+let pcf_clauses = read_mod "pcf.mod"
 
 let parse str =
   Top_parser.lppterm Top_lexer.token (Lexing.from_string str)
@@ -17,12 +17,11 @@ let parse_term str =
 
 let assert_int_equal = assert_equal ~printer:string_of_int
 
-let assert_length_equal n lst =
-  assert_int_equal n (List.length lst)
-
 let assert_string_list_equal lst1 lst2 =
   assert_int_equal (List.length lst1) (List.length lst2) ;
   ignore (List.map2 (assert_equal ~printer:(fun s -> s)) lst1 lst2)
+
+let assert_n_subgoals n = assert_int_equal (n-1) (List.length !subgoals)
     
  let tests =
   "Prover" >:::
@@ -51,10 +50,10 @@ let assert_string_list_equal lst1 lst2 =
            induction [1] ;
            intros () ;
            case "H1" ;
-           assert_length_equal 1 !subgoals ;
+           assert_n_subgoals 2 ;
            
            search () ;
-           assert_length_equal 0 !subgoals ;
+           assert_n_subgoals 1 ;
 
            case "H2" ;
            apply "IH" ["H3"; "H5"] ;
@@ -75,11 +74,11 @@ let assert_string_list_equal lst1 lst2 =
 
            intros () ;
            case "H1" ;
-           assert_length_equal 1 !subgoals ;
+           assert_n_subgoals 2 ;
            assert_string_list_equal ["H1"; "H2"] (List.map fst !hyps) ;
            
            search () ;
-           assert_length_equal 0 !subgoals ;
+           assert_n_subgoals 1 ;
 
            assert_string_list_equal
              ["H1"; "H2"; "H3"] (List.map fst !hyps)           
@@ -95,52 +94,52 @@ let assert_string_list_equal lst1 lst2 =
            induction [1] ;
            intros () ;
            case "H1" ;
-           assert_length_equal 12 !subgoals ;
+           assert_n_subgoals 13 ;
            
            search () ;
-           assert_length_equal 11 !subgoals ;
+           assert_n_subgoals 12 ;
 
            search () ;
-           assert_length_equal 10 !subgoals ;
+           assert_n_subgoals 11 ;
 
            search () ;
-           assert_length_equal 9 !subgoals ;
+           assert_n_subgoals 10 ;
 
            case "H2" ;
            apply "IH" ["H3"; "H4"] ;
            search () ;
-           assert_length_equal 8 !subgoals ;
+           assert_n_subgoals 9 ;
 
            case "H2" ;
            search () ;
-           assert_length_equal 7 !subgoals ;
+           assert_n_subgoals 8 ;
 
            case "H2" ;
            apply "IH" ["H3"; "H4"] ;
            case "H5" ;
            search () ;
-           assert_length_equal 6 !subgoals ;
+           assert_n_subgoals 7 ;
 
            case "H2" ;
            search () ;
-           assert_length_equal 5 !subgoals ;
+           assert_n_subgoals 6 ;
 
            case "H2" ;
            search () ;
-           assert_length_equal 4 !subgoals ;
+           assert_n_subgoals 5 ;
 
            case "H2" ;
            apply "IH" ["H4"; "H6"] ;
            search () ;
-           assert_length_equal 3 !subgoals ;
+           assert_n_subgoals 4 ;
 
            case "H2" ;
            apply "IH" ["H4"; "H7"] ;
            search () ;
-           assert_length_equal 2 !subgoals ;
+           assert_n_subgoals 3 ;
 
            search () ;
-           assert_length_equal 1 !subgoals ;
+           assert_n_subgoals 2 ;
 
            case "H2" ;
            apply "IH" ["H3"; "H5"] ;
@@ -149,7 +148,7 @@ let assert_string_list_equal lst1 lst2 =
            apply "H9" ["H6"] ;
            apply "IH" ["H4"; "H10"] ;
            search () ;
-           assert_length_equal 0 !subgoals ;
+           assert_n_subgoals 1 ;
 
            case "H2" ;
            inst "H4" (parse_term "rec T R") ;
@@ -158,4 +157,5 @@ let assert_string_list_equal lst1 lst2 =
            assert_raises (Failure("Proof completed."))
              search ;
         ) ;
+      
     ]

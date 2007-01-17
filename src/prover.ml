@@ -104,7 +104,7 @@ let apply h args =
       begin match stmt, args with
         | Forall _, _ ->
             Tactics.apply_forall stmt (List.map get_hyp args)
-        | Obj(c, t, _), [arg] when Tactics.is_imp t ->
+        | Obj(t, _), [arg] when Tactics.is_imp t ->
             Tactics.object_cut stmt (get_hyp arg)
         | _ -> failwith "Bad application"
       end

@@ -49,19 +49,4 @@ let tests =
            let typeofAB = obj (app (const "typeof") [a; b]) in
            let t = arrow evalAB typeofAB in
              assert_pprint_equal "{eval A B}@ -> {typeof A B}" t) ;
-      
-      "Print single element context" >::
-        (fun () ->
-           let evalAB = app (const "eval") [a; b] in
-           let typeofAB = app (const "typeof") [a; b] in
-           let t = context_obj [evalAB] typeofAB in
-             assert_pprint_equal "{eval A B |- typeof A B}" t) ;
-      
-      "Print mutiple element context" >::
-        (fun () ->
-           let evalAB = app (const "eval") [a; b] in
-           let evalAC = app (const "eval") [a; c] in
-           let typeofAB = app (const "typeof") [a; b] in
-           let t = context_obj [evalAB; evalAC] typeofAB in
-             assert_pprint_equal "{eval A B, eval A C |- typeof A B}" t) ;
     ]

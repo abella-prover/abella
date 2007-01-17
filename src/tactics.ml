@@ -93,22 +93,45 @@ module Left =
                 let constant_like = Logic
               end)
 
-let check_restriction (n1, a1) (n2, a2) =
-  if a1 && (n1 != n2 || not a2) then
+let check_restrictions formal actual =
+  (* If there are no restrictions then we can skip this check *)
+  if List.for_all (fun (n1, a1) -> not a1) formal then
+    ()
+  (* Otherwise make sure that all active restrictions are matched *)
+  else if List.exists2 (fun (n1, a1) (n2, a2) ->
+                          a1 && (n1 != n2)) formal actual then
     failwith "Restriction violated"
   else
-    ()
+    (* And make sure that at least one active restriction is satisfied *)
+    if List.exists2 (fun (n1, a1) (n2, a2) -> a1 && a2) formal actual then
+      ()
+    else
+      failwith "Restriction violated"
+
+let obj_to_restriction t =
+  match t with
+    | Obj(_, r) -> r
+    | _ -> failwith "obj_to_restriction called on non-object"
+
+let rec map_args f t =
+  match t with
+    | Arrow(left, right) ->
+        (f left) :: (map_args f right)
+    | Obj _ -> []
+    | Forall _ -> failwith "Forall encountered during map_args"
 
 let apply_forall stmt ts =
   match stmt with
     | Forall(bindings, body) ->
         let alist = fresh_alist Logic bindings in
         let fresh_body = replace_lppterm_vars alist body in
+        let formal = map_args obj_to_restriction fresh_body in
+        let actual = List.map obj_to_restriction ts in
+          check_restrictions formal actual ;
           List.fold_left
             (fun stmt arg ->
                match stmt, arg with
-                 | Arrow(Obj(left, r1), right), Obj(arg, r2) ->
-                     check_restriction r1 r2 ;
+                 | Arrow(Obj(left, _), right), Obj(arg, _) ->
                      begin try Right.pattern_unify left arg with
                        | Unify.Error _ ->
                            failwith "Unification failure"

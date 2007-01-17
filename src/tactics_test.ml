@@ -92,6 +92,15 @@ let tests =
              assert_raises (Failure "Unification failure")
                (fun () -> apply_forall h0 [h1; h2])) ;
 
+      "Forall application with two restrictions" >::
+        (fun () ->
+           let h0 = parse ("forall A B C, " ^
+                             "{eval A B}* -> {typeof A C}** -> {typeof B C}") in
+           let h1 = parse "{eval (abs R) (abs R)}@" in
+           let h2 = parse "{typeof (abs R) (arrow S T)}**" in
+           let t = apply_forall h0 [h1; h2] in
+             assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
+      
       "Case application" >::
         (fun () ->
            (* eval (abs R) (abs R).

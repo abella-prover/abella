@@ -8,6 +8,7 @@ let read_mod filename =
 
 let eval_clauses = read_mod "eval.mod"
 let pcf_clauses = read_mod "pcf.mod"
+let fsub_clauses = read_mod "fsub.mod"
 
 let parse str =
   Top_parser.lppterm Top_lexer.token (Lexing.from_string str)
@@ -21,7 +22,7 @@ let assert_string_list_equal lst1 lst2 =
   assert_int_equal (List.length lst1) (List.length lst2) ;
   ignore (List.map2 (assert_equal ~printer:(fun s -> s)) lst1 lst2)
 
-let assert_n_subgoals n = assert_int_equal (n-1) (List.length !subgoals)
+let assert_n_subgoals n = assert_int_equal n (1 + List.length !subgoals)
     
  let tests =
   "Prover" >:::
@@ -158,4 +159,16 @@ let assert_n_subgoals n = assert_int_equal (n-1) (List.length !subgoals)
              search ;
         ) ;
       
+      "Failed unification during case" >::
+        (fun () ->
+           reset_prover () ;
+           Prover.clauses := fsub_clauses ;
+           match Tactics.freshen_capital_vars
+             Eigen [parse "{sub S top}"] [] with
+               | [hyp] ->
+                   hyps := [("H1", hyp)] ;
+                   case "H1" ;
+                   assert_n_subgoals 2 ;
+               | _ -> assert false
+        ) ;
     ]

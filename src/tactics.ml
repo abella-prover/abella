@@ -207,7 +207,9 @@ let case term clauses used =
                             (apply_active_restriction n) fresh_body)::result
                      | _ -> (restore, used_vars, fresh_body)::result
                with
-                 | Unify.Error _ -> result)
+                 | Unify.Error _ ->
+                     restore_state initial_state ;
+                     result)
       clauses []
 
 let apply_restrictions active args stmt =

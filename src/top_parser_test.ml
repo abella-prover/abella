@@ -1,12 +1,8 @@
 open OUnit
+open Test_helper
 open Lppterm
 open Top_lexer
 open Top_parser
-
-let assert_pprint_equal = Lppterm_test.assert_pprint_equal
-
-let parse_lppterm str =
-  lppterm token (Lexing.from_string str)
 
 let tests =
   "Top Parser" >:::

@@ -1,9 +1,8 @@
 open OUnit
+open Test_helper
 open Lppterm
 open Lexer
 open Parser
-
-let assert_pprint_equal = Lppterm_test.assert_pprint_equal
 
 let parse_clauses str =
   clauses token (Lexing.from_string str)

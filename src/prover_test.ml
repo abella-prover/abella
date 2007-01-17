@@ -1,22 +1,10 @@
 open OUnit
+open Test_helper
 open Prover
 open Lppterm
 open Term
 
-let read_mod filename =
-  Parser.clauses Lexer.token (Lexing.from_channel (open_in filename))
-
-let eval_clauses = read_mod "eval.mod"
-let pcf_clauses = read_mod "pcf.mod"
-let fsub_clauses = read_mod "fsub.mod"
-
-let parse str =
-  Top_parser.lppterm Top_lexer.token (Lexing.from_string str)
-
-let parse_term str =
-  Parser.term Lexer.token (Lexing.from_string str)
-
-let assert_int_equal = assert_equal ~printer:string_of_int
+let parse = parse_lppterm
 
 let assert_string_list_equal lst1 lst2 =
   assert_int_equal (List.length lst1) (List.length lst2) ;

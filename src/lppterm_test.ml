@@ -1,13 +1,9 @@
 open OUnit
+open Test_helper
 open Term
 open Term.Notations
 open Lppterm
   
-let id x = x
-  
-let assert_pprint_equal s t =
-  assert_equal ~printer:id s (lppterm_to_string t)
-
 let a = var ~tag:Eigen "A" 0
 let b = var ~tag:Eigen "B" 0
 let c = var ~tag:Eigen "C" 0

@@ -1,20 +1,12 @@
 open OUnit
+open Test_helper
 open Term
-open Term.Notations
 open Lppterm
 open Tactics
   
-let id x = x
-  
-let assert_pprint_equal s t =
-  assert_equal ~printer:id s (lppterm_to_string t)
+let parse = parse_lppterm
 
-let parse str = Top_parser.lppterm Top_lexer.token (Lexing.from_string str)
-
-let prog =
-  let str = "eval (abs R) (abs R).\n" ^
-    "eval (app M N) V :- eval M (abs R), eval (R N) V." in
-    Parser.clauses Lexer.token (Lexing.from_string str)
+let prog = eval_clauses
     
 let tests =
   "Tactics" >:::

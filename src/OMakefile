@@ -44,6 +44,7 @@ FILES[] =
 MAIN = main
 
 TEST_FILES[] =
+   test_helper
    $(rootname $(find . -name *_test.ml))
    test
 

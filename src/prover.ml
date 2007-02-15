@@ -3,7 +3,7 @@ open Pprint
 open Lppterm
 
 type top_command =
-  | Theorem of lppterm
+  | Theorem of id * lppterm
 
 type command =
   | Induction of int list
@@ -17,6 +17,7 @@ type id = string
 
 type vars = (id * term) list
 type hyps = (id * lppterm) list
+type lemmas = (id * lppterm) list
 
 type subgoal = unit -> unit
 
@@ -24,6 +25,7 @@ let vars : vars ref = ref []
 let hyps : hyps ref = ref []
 let goal : lppterm ref = ref (obj (const "placeholder"))
 let subgoals : subgoal list ref = ref []
+let lemmas : lemmas ref = ref []
 
 let var_names () =
   List.map fst !vars
@@ -43,9 +45,13 @@ let reset_prover () =
   vars := [] ;
   hyps := [] ;
   goal := obj (const "placeholder") ;
-  subgoals := [] ;
-  clauses := []
+  subgoals := []
   
+let full_reset_prover () =
+  reset_prover () ;
+  clauses := [] ;
+  lemmas := [] 
+
 let add_hyp ?(name=fresh_hyp_name ()) term =
   hyps := List.append !hyps [(name, term)]
 
@@ -55,8 +61,20 @@ let add_var v =
 let add_if_new_var (name, v) =
   if not (List.mem name (var_names ())) then add_var (name, v)
 
+let add_lemma name lemma =
+  lemmas := (name, lemma)::!lemmas
+
 let get_hyp name =
   List.assoc name !hyps
+
+let get_lemma name =
+  List.assoc name !lemmas
+
+let get_hyp_or_lemma name =
+  if List.mem_assoc name !hyps then
+    get_hyp name
+  else
+    get_lemma name
 
 let next_subgoal () =
   match !subgoals with
@@ -99,7 +117,7 @@ let inst h t =
 (* Apply *)
           
 let apply h args =
-  let stmt = get_hyp h in
+  let stmt = get_hyp_or_lemma h in
     add_hyp
       begin match stmt, args with
         | Forall _, _ ->

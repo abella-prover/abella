@@ -15,6 +15,7 @@ let read_mod filename =
 let eval_clauses = read_mod "eval.mod"
 let pcf_clauses = read_mod "pcf.mod"
 let fsub_clauses = read_mod "fsub.mod"
+let add_clauses = read_mod "add.mod"
   
 (* Custom asserts *)
     

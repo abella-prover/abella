@@ -7,7 +7,7 @@
       Parser.term Lexer.token (Lexing.from_string str)
 %}
 
-%token COMMA DOT RARROW FORALL STAR AT THEOREM
+%token COMMA DOT COLON RARROW FORALL STAR AT THEOREM
 %token <string> ID
 %token <string> TERM
 %token EOF
@@ -46,4 +46,5 @@ ats:
   | AT                                { 1 }
       
 top_command:
-  | THEOREM lppterm DOT               { Prover.Theorem($2) }
+  | THEOREM ID COLON lppterm DOT      { Prover.Theorem($2, $4) }
+  | THEOREM lppterm DOT               { Prover.Theorem("Goal", $2) }

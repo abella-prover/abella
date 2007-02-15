@@ -2,11 +2,11 @@ open Prover
 open Pprint
 open Lppterm
 
-let rec process_proof ?(interactive=true) lexbuf =
+let rec process_proof name ?(interactive=true) lexbuf =
   let finished = ref false in
     try while not !finished do try
       display () ;
-      if interactive then Format.printf "Proof < %!" ;
+      if interactive then Format.printf "%s < %!" name ;
       begin match Parser.command Lexer.token lexbuf with
         | Induction(args) -> induction args
         | Apply(h, args) -> apply h args
@@ -34,9 +34,10 @@ let rec process ?(interactive=true) lexbuf =
   try while true do try
     if interactive then Format.printf "LPP < %!" ;
     begin match Top_parser.top_command Top_lexer.token lexbuf with
-      | Theorem(thm) ->
+      | Theorem(name, thm) ->
           theorem thm ;
-          process_proof ~interactive:interactive lexbuf
+          process_proof ~interactive:interactive name lexbuf ;
+          add_lemma name thm
     end ;
     if interactive then flush stdout
   with

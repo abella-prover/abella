@@ -20,6 +20,7 @@ rule token = parse
 
 | ","                { COMMA }
 | "."                { DOT }
+| ":"                { COLON }
 | "->"               { RARROW }
 | "forall"           { FORALL }
 | "*"                { STAR }

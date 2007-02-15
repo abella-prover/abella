@@ -17,7 +17,7 @@ let assert_n_subgoals n = assert_int_equal n (1 + List.length !subgoals)
     [
       "New variables added to context" >::
         (fun () ->
-           reset_prover () ;
+           full_reset_prover () ;
            Prover.clauses := eval_clauses ;
            match Tactics.freshen_capital_vars
              Eigen [parse "{eval A B}"] [] with
@@ -31,7 +31,7 @@ let assert_n_subgoals n = assert_int_equal n (1 + List.length !subgoals)
       
       "Eval example" >::
         (fun () ->
-           reset_prover () ;
+           full_reset_prover () ;
            Prover.clauses := eval_clauses ;
            goal := parse ("forall P V T, " ^
                             "{eval P V} -> {typeof P T} -> {typeof V T}") ;
@@ -57,7 +57,7 @@ let assert_n_subgoals n = assert_int_equal n (1 + List.length !subgoals)
 
       "Cases should not consume fresh hyp names" >::
         (fun () ->
-           reset_prover () ;
+           full_reset_prover () ;
            Prover.clauses := eval_clauses ;
            goal := parse ("forall P V, {typeof P V} -> {typeof P V}") ;
 
@@ -75,7 +75,7 @@ let assert_n_subgoals n = assert_int_equal n (1 + List.length !subgoals)
 
       "PCF example" >::
         (fun () ->
-           reset_prover () ;
+           full_reset_prover () ;
            Prover.clauses := pcf_clauses ;
            goal := parse ("forall P V T, " ^
                             "{eval P V} -> {typeof P T} -> {typeof V T}") ;
@@ -149,7 +149,7 @@ let assert_n_subgoals n = assert_int_equal n (1 + List.length !subgoals)
       
       "Failed unification during case" >::
         (fun () ->
-           reset_prover () ;
+           full_reset_prover () ;
            Prover.clauses := fsub_clauses ;
            match Tactics.freshen_capital_vars
              Eigen [parse "{sub S top}"] [] with
@@ -159,4 +159,33 @@ let assert_n_subgoals n = assert_int_equal n (1 + List.length !subgoals)
                    assert_n_subgoals 2 ;
                | _ -> assert false
         ) ;
+
+      "Add example (lemmas)" >::
+        (fun () ->
+           full_reset_prover () ;
+           Prover.clauses := add_clauses ;
+           
+           lemmas := [
+             ("base", parse "forall N, {nat N} -> {add N z N}") ;
+             ("step", parse "forall A B C, {add A B C} -> {add A (s B) (s C)}")
+           ] ;
+           
+           goal := parse ("forall A B C, " ^
+                            "{nat B} -> {add A B C} -> {add B A C}") ;
+
+           induction [2] ;
+           intros () ;
+           case "H2" ;
+           assert_n_subgoals 2 ;
+           
+           apply "base" ["H1"] ;
+           search () ;
+           assert_n_subgoals 1 ;
+
+           apply "IH" ["H1"; "H3"] ;
+           apply "step" ["H4"] ;
+           assert_raises (Failure("Proof completed."))
+             search ;
+        ) ;
+      
     ]

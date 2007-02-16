@@ -344,5 +344,17 @@ let tests =
            let c = var "C" 0 in
              assert_raises (Unify.NotLLambda c)
                (fun () -> unify a (app b [c]))) ;
-      
+
+      (* This is a test for a bug pointed out by David. Since we don't use
+         timestamps, however, I'm going to ignore it for now.
+         
+      "[X^0 = Y^1]" >::
+        (fun () ->
+           let x = var "X" 0 in
+           let y = var "Y" 1 in
+             unify x y ;
+             match !!x,!!y with
+               | Var {ts=0}, Var {ts=0} -> ()
+               | _ -> assert false) ;
+      *)
     ]

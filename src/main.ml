@@ -25,6 +25,9 @@ let rec process_proof name ?(interactive=true) lexbuf =
           finished := true
       | Failure s ->
           Format.printf "Error: %s\n" s
+      | End_of_file ->
+          print_endline "Proof NOT completed." ;
+          exit 1
       | e ->
           Format.printf "Unknown error: %s\n%!" (Printexc.to_string e)
     done with
@@ -45,6 +48,9 @@ let rec process ?(interactive=true) lexbuf =
         exit (if interactive then 0 else 1)
     | Failure s ->
         Format.printf "Error: %s\n" s
+    | End_of_file ->
+        print_endline "Goodbye." ;
+        exit 0
     | e ->
         Format.printf "Unknown error: %s\n%!" (Printexc.to_string e)
   done with

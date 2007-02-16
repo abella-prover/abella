@@ -48,6 +48,7 @@ command:
   | CASE ID DOT                         { Prover.Case($2) }
   | SEARCH DOT                          { Prover.Search }
   | INTROS DOT                          { Prover.Intros }
+  | EOF                                 { raise End_of_file }
 
 num_arg_list:
   | NUM AND num_arg_list                { $1::$3 }

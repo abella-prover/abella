@@ -48,3 +48,4 @@ ats:
 top_command:
   | THEOREM ID COLON lppterm DOT      { Prover.Theorem($2, $4) }
   | THEOREM lppterm DOT               { Prover.Theorem("Goal", $2) }
+  | EOF                               { raise End_of_file }

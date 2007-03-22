@@ -170,7 +170,7 @@ let induction args =
 (* Search *)
 
 let search () =
-  if Tactics.search 1 !goal !clauses (var_names ()) (List.map snd !hyps) then
+  if Tactics.search 5 !goal !clauses (var_names ()) (List.map snd !hyps) then
     next_subgoal ()
   else
     ()

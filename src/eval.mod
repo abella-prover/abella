@@ -11,3 +11,8 @@ nstep A A.
 nstep A C :- step A B, nstep B C.
 
 eq X X.
+
+value (abs R).
+
+progress M :- value M.
+progress M :- step M N.

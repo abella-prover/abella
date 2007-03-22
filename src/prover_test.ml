@@ -29,7 +29,7 @@ let assert_n_subgoals n = assert_int_equal n (1 + List.length !subgoals)
                | _ -> assert false
         ) ;
       
-      "Eval example" >::
+      "Subject reduction for eval example" >::
         (fun () ->
            full_reset_prover () ;
            Prover.clauses := eval_clauses ;
@@ -51,6 +51,32 @@ let assert_n_subgoals n = assert_int_equal n (1 + List.length !subgoals)
 
            apply "H9" ["H6"] ;
            apply "IH" ["H4"; "H10"] ;
+           assert_raises (Failure("Proof completed."))
+             search ;
+        ) ;
+
+      "Progress for eval example" >::
+        (fun () ->
+           full_reset_prover () ;
+           Prover.clauses := eval_clauses ;
+           goal := parse ("forall P T, {typeof P T} -> {progress P}") ;
+
+           induction [1] ;
+           intros () ;
+           case "H1" ;
+           assert_n_subgoals 2 ;
+           
+           search () ;
+           assert_n_subgoals 1 ;
+
+           apply "IH" ["H2"] ;
+           case "H4" ;
+           assert_n_subgoals 2 ;
+
+           case "H5" ;
+           search () ;
+           assert_n_subgoals 1 ;
+
            assert_raises (Failure("Proof completed."))
              search ;
         ) ;

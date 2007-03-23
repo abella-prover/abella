@@ -2,7 +2,7 @@ sub G S top.
 
 sub G (var X) (var X).
 
-sub (var X) T :- bound X U G, sub G U T.
+sub G (var X) T :- bound X U G, sub G U T.
 
 sub G (arrow S1 S2) (arrow T1 T2) :- sub G T1 S1, sub G S2 T2.
 

@@ -1,6 +1,7 @@
 open Term
 open Pprint
 open Lppterm
+open Printf
 
 type top_command =
   | Theorem of id * lppterm
@@ -47,11 +48,6 @@ let reset_prover () =
   goal := obj (const "placeholder") ;
   subgoals := []
   
-let full_reset_prover () =
-  reset_prover () ;
-  clauses := [] ;
-  lemmas := [] 
-
 let add_hyp ?(name=fresh_hyp_name ()) term =
   hyps := List.append !hyps [(name, term)]
 
@@ -92,17 +88,21 @@ let hyps_to_string hyps =
   String.concat "\n"
     (List.map (fun (id, t) -> "  " ^ id ^ " : " ^ (lppterm_to_string t)) hyps)
    
-let div = "  ============================\n"
+let div = "  ============================"
 
+let get_display () =
+  let buffer = Buffer.create 100 in
+    bprintf buffer "%d subgoal(s).\n" (1 + List.length !subgoals) ;
+    bprintf buffer "\n" ;
+    bprintf buffer "%s\n" (vars_to_string !vars) ;
+    bprintf buffer "%s\n" (hyps_to_string !hyps) ;
+    bprintf buffer "%s\n" div ;
+    bprintf buffer "  %s\n" (lppterm_to_string !goal) ;
+    bprintf buffer "\n" ;
+    Buffer.contents buffer
+    
 let display () =
-  print_int (1 + List.length !subgoals) ;
-  print_string " subgoal(s).\n" ;
-  print_newline () ;
-  print_endline (vars_to_string !vars) ;
-  print_endline (hyps_to_string !hyps) ;
-  print_string div ;
-  print_string "  "; print_endline (lppterm_to_string !goal) ;
-  print_newline ()
+  print_string (get_display ())
 
 (* Inst *)
 

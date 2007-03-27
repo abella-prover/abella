@@ -13,6 +13,7 @@ type command =
   | Case of id
   | Search
   | Intros
+  | Undo
 
 type id = string
 
@@ -47,6 +48,27 @@ let reset_prover () =
   hyps := [] ;
   goal := obj (const "placeholder") ;
   subgoals := []
+
+
+let undo_stack = ref []
+  
+let save_undo_state () =
+  undo_stack := (!count, !vars, !hyps, !goal, !subgoals, Term.save_state ())::
+    !undo_stack
+    
+let undo () =
+  match !undo_stack with
+    | (saved_count, saved_vars, saved_hyps, saved_goal, saved_subgoals,
+       saved_term_state)::rest ->
+        count := saved_count ;
+        vars := saved_vars ;
+        hyps := saved_hyps ;
+        goal := saved_goal ;
+        subgoals := saved_subgoals ;
+        Term.restore_state saved_term_state ;
+        undo_stack := rest
+    | [] -> failwith "Nothing left to undo"
+          
   
 let add_hyp ?(name=fresh_hyp_name ()) term =
   hyps := List.append !hyps [(name, term)]
@@ -107,6 +129,7 @@ let display () =
 (* Inst *)
 
 let inst h t =
+  save_undo_state () ;
   let stmt = get_hyp h in
     if Tactics.is_pi_abs (obj_to_term stmt) then
       add_hyp (Tactics.object_inst stmt (Tactics.replace_term_vars !vars t))
@@ -117,6 +140,7 @@ let inst h t =
 (* Apply *)
           
 let apply h args =
+  save_undo_state () ;
   let stmt = get_hyp_or_lemma h in
     add_hyp
       begin match stmt, args with
@@ -150,6 +174,7 @@ let add_cases_to_subgoals cases =
     subgoals := List.append (List.map case_to_subgoal cases) !subgoals
       
 let case str =
+  save_undo_state () ;
   let obj = get_hyp str in
   let cases = Tactics.case obj !clauses (List.map fst !vars) in
     match cases with
@@ -163,6 +188,7 @@ let case str =
 (* Induction *)
             
 let induction args =
+  save_undo_state () ;
   let (ih, new_goal) = Tactics.induction args !goal in
     add_hyp ~name:"IH" ih ;
     goal := new_goal
@@ -170,6 +196,7 @@ let induction args =
 (* Search *)
 
 let search () =
+  save_undo_state () ;
   if Tactics.search 5 !goal !clauses (var_names ()) (List.map snd !hyps) then
     next_subgoal ()
   else
@@ -191,6 +218,7 @@ let rec split_args stmt =
     | Forall _ -> failwith "Forall found in split_args"
 
 let intros () =
+  save_undo_state () ;
   if !vars != [] then
     failwith "Intros can only be used when there are no context variables" ;
   match !goal with

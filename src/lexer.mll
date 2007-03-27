@@ -36,6 +36,7 @@ rule token = parse
 | "on"               { ON }
 | "and"              { AND }
 | "intros"           { INTROS }
+| "undo"             { UNDO }
 
 | number as n        { NUM (int_of_string n) }
 | name as n          { ID n }

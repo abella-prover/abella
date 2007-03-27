@@ -14,6 +14,7 @@ let rec process_proof name ?(interactive=true) lexbuf =
         | Case(str) -> case str
         | Search -> search ()
         | Intros -> intros ()
+        | Undo -> undo ()
       end ;
       if interactive then flush stdout
     with

@@ -228,5 +228,25 @@ let tests =
                 search () ;
              )
         ) ;
-      
+
+      "Undo should restore previous state" >::
+        (fun () ->
+           setup_prover ()
+             ~clauses:eval_clauses
+             ~goal:"forall P V T, {eval P V} -> {typeof P T} -> {typeof V T}" ;
+
+           induction [1] ;
+           intros () ;
+           assert_n_subgoals 1 ;
+           
+           case "H1" ;
+           assert_n_subgoals 2 ;
+           
+           undo () ;
+           assert_n_subgoals 1 ;
+
+           case "H1" ;
+           assert_n_subgoals 2 ;
+        ) ;
+             
     ]

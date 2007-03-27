@@ -1,5 +1,5 @@
 %token IMP DEF COMMA DOT BSLASH LPAREN RPAREN
-%token IND INST APPLY CASE SEARCH TO ON WITH AND INTROS
+%token IND INST APPLY CASE SEARCH TO ON WITH AND INTROS UNDO
 %token <int> NUM
 %token <string> ID
 %token EOF
@@ -48,6 +48,7 @@ command:
   | CASE ID DOT                         { Prover.Case($2) }
   | SEARCH DOT                          { Prover.Search }
   | INTROS DOT                          { Prover.Intros }
+  | UNDO DOT                            { Prover.Undo }
   | EOF                                 { raise End_of_file }
 
 num_arg_list:

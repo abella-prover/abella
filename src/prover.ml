@@ -13,6 +13,7 @@ type command =
   | Case of id
   | Search
   | Intros
+  | Skip
   | Undo
 
 type id = string
@@ -232,3 +233,9 @@ let intros () =
         let args, new_goal = split_args !goal in
           List.iter add_hyp args ;
           goal := new_goal
+
+(* Skip *)
+
+let skip () =
+  save_undo_state () ;
+  next_subgoal ()

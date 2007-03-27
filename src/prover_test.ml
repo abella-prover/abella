@@ -118,6 +118,20 @@ let tests =
              ["H1"; "H2"; "H3"] (List.map fst !hyps)           
         ) ;
 
+      "Skip should remove current subcase" >::
+        (fun () ->
+           setup_prover ()
+             ~clauses:eval_clauses
+             ~goal:"forall P V, {typeof P V} -> {typeof P V}" ;
+
+           intros () ;
+           case "H1" ;
+           assert_n_subgoals 2 ;
+           
+           skip () ;
+           assert_n_subgoals 1 ;
+        ) ;
+
       "PCF example" >::
         (fun () ->
            setup_prover ()

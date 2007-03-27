@@ -14,6 +14,7 @@ let rec process_proof name ?(interactive=true) lexbuf =
         | Case(str) -> case str
         | Search -> search ()
         | Intros -> intros ()
+        | Skip -> skip ()
         | Undo -> undo ()
       end ;
       if interactive then flush stdout
@@ -73,14 +74,3 @@ let _ =
     usage_message ;
   Pprint.set_infix [("=>", Pprint.Right)] ;
   process ~interactive:true (Lexing.from_channel stdin)
-
-
-
-
-
-
-
-
-
-
-

@@ -13,6 +13,10 @@ sub G (forall S1 (x\ S2 x)) (forall T1 (x\ T2 x)) :-
 bound X T (cons X T G).
 bound X T (cons Y S G) :- bound X T G.
 
-subsumes nil nil.
 subsumes (cons X T G1) (cons X T G2) :- subsumes G1 G2.
 subsumes (cons X Q G) (cons X P G) :- sub G P Q.
+
+ty top.
+ty (var X).
+ty (arrow T1 T2) :- ty T1, ty T2.
+ty (forall T1 T2) :- ty T1, pi x\ ty (T2 x).

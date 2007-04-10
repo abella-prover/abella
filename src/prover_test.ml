@@ -22,7 +22,7 @@ let assert_proof proof_function =
 let setup_prover ?clauses:(clauses=[]) ?goal:(goal="") ?lemmas:(lemmas=[]) () =
   reset_prover () ;
   Prover.clauses := clauses ;
-  if goal <> "" then Prover.goal := parse_lppterm goal ;
+  if goal <> "" then Prover.sequent.goal <- parse_lppterm goal ;
   Prover.lemmas :=
     List.map (fun (name,body) -> (name, parse_lppterm body)) lemmas
 
@@ -39,7 +39,7 @@ let tests =
            setup_prover ()
              ~clauses:eval_clauses ;
 
-           hyps := [("H1", freshen "{eval A B}")] ;
+           sequent.hyps <- [("H1", freshen "{eval A B}")] ;
            case "H1" ;
            assert_bool "R should be added to variable list"
              (List.mem "R" (var_names ())) ;
@@ -109,13 +109,13 @@ let tests =
            intros () ;
            case "H1" ;
            assert_n_subgoals 2 ;
-           assert_string_list_equal ["H1"; "H2"] (List.map fst !hyps) ;
+           assert_string_list_equal ["H1"; "H2"] (List.map fst sequent.hyps) ;
            
            search () ;
            assert_n_subgoals 1 ;
 
            assert_string_list_equal
-             ["H1"; "H2"; "H3"] (List.map fst !hyps)           
+             ["H1"; "H2"; "H3"] (List.map fst sequent.hyps)           
         ) ;
 
       "Skip should remove current subcase" >::
@@ -212,7 +212,7 @@ let tests =
            setup_prover ()
              ~clauses:fsub_clauses ;
 
-           hyps := [("H1", freshen "{sub S top}")] ;
+           sequent.hyps <- [("H1", freshen "{sub S top}")] ;
            case "H1" ;
            assert_n_subgoals 2 ;
         ) ;

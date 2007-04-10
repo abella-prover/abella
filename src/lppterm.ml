@@ -24,16 +24,6 @@ let obj_to_term t =
     | Obj(t, _) -> t
     | _ -> failwith "obj_to_term called on non-obj"
 
-let is_or t =
-  match t with
-    | Or _ -> true
-    | _ -> false
-
-let split_or t =
-  match t with
-    | Or(left, right) -> (left, right)
-    | _ -> assert false
-
 let apply_active_restriction n t =
   match t with
     | Obj(t, _) -> active_obj t n

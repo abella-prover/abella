@@ -245,8 +245,8 @@ let is_obj t =
     | Obj _ -> true
     | _ -> false
 
-let rec search n goal clauses used hyps =
-  let rec aux n goal =
+let search n goal clauses used hyps =
+  let rec term_aux n goal =
     if List.exists (try_right_object_unify goal)
       (List.filter is_obj hyps) then
         true
@@ -261,14 +261,14 @@ let rec search n goal clauses used hyps =
                   | [] -> assert false
                   | fresh_head::fresh_body ->
                       right_object_unify fresh_head goal ;
-                      List.for_all (aux (n-1)) fresh_body))
+                      List.for_all (term_aux (n-1)) fresh_body))
         clauses
   in
-    if is_or goal then
-      let left, right = split_or goal in
-        search n left clauses used hyps or
-          search n right clauses used hyps
-    else
-      aux n goal
+  let rec lppterm_aux goal =
+    match goal with
+      | Or(left, right) -> lppterm_aux left or lppterm_aux right
+      | _ -> term_aux n goal
+  in
+    lppterm_aux goal
 
 

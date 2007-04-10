@@ -22,6 +22,9 @@ Parse lambda prolog sig files
 
 Seperate parsers more?
 
+Change OMakefile so exceptions print full stack trace? Is there a way
+  to integrate this with OUnit?
+
 
 Theorems for eval
 =================

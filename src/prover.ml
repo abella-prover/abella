@@ -219,8 +219,9 @@ let rec split_args stmt =
     | Arrow(left, right) ->
         let args, goal = split_args right in
           (left::args, goal)
-    | Obj _ -> ([], stmt)
-    | Forall _ -> failwith "Forall found in split_args"
+    | Obj _
+    | Or(_, _) -> ([], stmt)
+    | _ -> invalid_lppterm_arg stmt
 
 let intros () =
   save_undo_state () ;

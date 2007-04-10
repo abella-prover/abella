@@ -59,5 +59,3 @@ num_arg_list:
 id_arg_list:
   | ID AND id_arg_list                  { $1::$3 }
   | ID                                  { [$1] }
-   
-

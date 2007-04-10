@@ -8,10 +8,12 @@ type lppterm =
   | Obj of term * restriction
   | Arrow of lppterm * lppterm
   | Forall of id list * lppterm
+  | Or of lppterm * lppterm
 
 let obj t = Obj(t, (0, false))
 let arrow a b = Arrow(a, b)
 let forall ts t = Forall(ts, t)
+let lpp_or a b = Or(a, b)
 
 let inactive_obj t r = Obj(t, (r, false))
 let active_obj t r = Obj(t, (r, true))
@@ -21,6 +23,16 @@ let obj_to_term t =
   match t with
     | Obj(t, _) -> t
     | _ -> failwith "obj_to_term called on non-obj"
+
+let is_or t =
+  match t with
+    | Or _ -> true
+    | _ -> false
+
+let split_or t =
+  match t with
+    | Or(left, right) -> (left, right)
+    | _ -> assert false
 
 let apply_active_restriction n t =
   match t with
@@ -37,6 +49,11 @@ let rec lppterm_to_string t =
   match t with
     | Obj(t, r) -> "{" ^ (term_to_string t) ^ "}" ^
         (restriction_to_string r)
-    | Arrow(a,b) -> (lppterm_to_string a) ^ " -> " ^ (lppterm_to_string b)
+    | Arrow(a, b) -> (lppterm_to_string a) ^ " -> " ^ (lppterm_to_string b)
     | Forall(ts, t) ->
         "forall " ^ (bindings_to_string ts) ^ ", " ^ (lppterm_to_string t)
+    | Or(a, b) ->
+        (lppterm_to_string a) ^ " or " ^ (lppterm_to_string b)
+
+let invalid_lppterm_arg t =
+  invalid_arg (lppterm_to_string t)

@@ -186,4 +186,20 @@ let tests =
              assert_bool "Search should succeed"
                (search 1 goal prog vars [hyp1; hyp2])) ;
 
+      "OR left search" >::
+        (fun () ->
+           let hyp = parse "{eval A B}" in
+           let term = parse "{eval A B} or {false}" in
+           let vars = ["A"; "B"] in
+             assert_bool "Search should succeed"
+               (search 0 term prog vars [hyp])) ;
+      
+      "OR right search" >::
+        (fun () ->
+           let hyp = parse "{eval A B}" in
+           let term = parse "{false} or {eval A B}" in
+           let vars = ["A"; "B"] in
+             assert_bool "Search should succeed"
+               (search 0 term prog vars [hyp])) ;
+      
     ]

@@ -7,7 +7,7 @@
       Parser.term Lexer.token (Lexing.from_string str)
 %}
 
-%token COMMA DOT COLON RARROW FORALL STAR AT THEOREM
+%token COMMA DOT COLON RARROW FORALL STAR AT THEOREM OR
 %token <string> ID
 %token <string> TERM
 %token EOF
@@ -22,6 +22,7 @@ lppterm:
   | FORALL binding_list COMMA lppterm { Lppterm.forall $2 $4 }
   | object_term RARROW lppterm        { Lppterm.arrow $1 $3 }
   | object_term                       { $1 }
+  | object_term OR object_term        { Lppterm.lpp_or $1 $3 }
 
 binding_list:
   | binding binding_list              { $1::$2 }
@@ -45,7 +46,7 @@ ats:
   | ats AT                            { $1 + 1 }
   | AT                                { 1 }
       
-top_command:
+top_command :
   | THEOREM ID COLON lppterm DOT      { Prover.Theorem($2, $4) }
   | THEOREM lppterm DOT               { Prover.Theorem("Goal", $2) }
   | EOF                               { raise End_of_file }

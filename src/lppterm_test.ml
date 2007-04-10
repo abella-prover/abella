@@ -45,4 +45,12 @@ let tests =
            let typeofAB = obj (app (const "typeof") [a; b]) in
            let t = arrow evalAB typeofAB in
              assert_pprint_equal "{eval A B}@ -> {typeof A B}" t) ;
+
+      "Print OR" >::
+        (fun () ->
+           let a = obj (const "A") in
+           let b = obj (const "B") in
+           let t = lpp_or a b in
+             assert_pprint_equal "{A} or {B}" t) ;
+           
     ]

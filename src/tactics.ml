@@ -71,6 +71,7 @@ let replace_lppterm_vars alist t =
       | Obj(t, r) -> obj_r (replace_term_vars alist t) r
       | Arrow(a, b) -> arrow (aux a) (aux b)
       | Forall _ -> failwith "Cannot replace vars inside forall"
+      | Or(a, b) -> lpp_or (aux a) (aux b)
   in
     aux t
         
@@ -118,7 +119,7 @@ let rec map_args f t =
     | Arrow(left, right) ->
         (f left) :: (map_args f right)
     | Obj _ -> []
-    | Forall _ -> failwith "Forall encountered during map_args"
+    | _ -> invalid_lppterm_arg t
 
 let apply_forall stmt ts =
   match stmt with
@@ -152,15 +153,18 @@ let right_object_unify t1 t2 =
   let t2 = obj_to_term t2 in
     Right.pattern_unify t1 t2
 
-let try_right_object_unify t1 t2 =
+let try_with_state f =
   let state = save_state () in
     try
-      right_object_unify t1 t2 ;
-      true
+      f ()
     with
-      | Unify.Error _ ->
-          restore_state state;
-          false
+      | _ -> restore_state state ; false
+
+let try_right_object_unify t1 t2 =
+  try_with_state
+    (fun () ->
+       right_object_unify t1 t2 ;
+       true)
       
 let get_eigen_vars_alist ts =
   List.map (fun v -> ((term_to_var v).name, v))
@@ -240,25 +244,31 @@ let is_obj t =
   match t with
     | Obj _ -> true
     | _ -> false
-        
+
 let rec search n goal clauses used hyps =
-  if List.exists (try_right_object_unify goal) (List.filter is_obj hyps) then
-    true
-  else if n = 0 then
-    false
-  else
-    List.exists
-      (fun (head, body) ->
-         let state = save_state () in
-           match freshen_capital_vars Logic (head::body) used with
-             | [] -> assert false
-             | fresh_head::fresh_body ->
-                 try
-                   right_object_unify fresh_head goal ;
-                   List.for_all (fun g ->
-                                   search (n-1) g clauses used hyps) fresh_body
-                 with
-                   | Unify.Error _ ->
-                       restore_state state;
-                       false)
-      clauses
+  let rec aux n goal =
+    if List.exists (try_right_object_unify goal)
+      (List.filter is_obj hyps) then
+        true
+    else if n = 0 then
+      false
+    else
+      List.exists
+        (fun (head, body) ->
+           try_with_state
+             (fun () ->
+                match freshen_capital_vars Logic (head::body) used with
+                  | [] -> assert false
+                  | fresh_head::fresh_body ->
+                      right_object_unify fresh_head goal ;
+                      List.for_all (aux (n-1)) fresh_body))
+        clauses
+  in
+    if is_or goal then
+      let left, right = split_or goal in
+        search n left clauses used hyps or
+          search n right clauses used hyps
+    else
+      aux n goal
+
+

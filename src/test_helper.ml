@@ -9,6 +9,9 @@ let parse_term str =
 let parse_lppterm str =
   Top_parser.lppterm Top_lexer.token (Lexing.from_string str)
 
+let parse_clauses str =
+  Parser.clauses Lexer.token (Lexing.from_string str)
+
 let read_mod filename =
   Parser.clauses Lexer.token (Lexing.from_channel (open_in filename))
 

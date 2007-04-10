@@ -4,55 +4,54 @@ open Lppterm
 open Top_lexer
 open Top_parser
 
+let assert_pprint_equal_parse str =
+  assert_pprint_equal str (parse_lppterm str)
+
 let tests =
   "Top Parser" >:::
     [
       "Simple object statement" >::
         (fun () ->
-           let str = "{eval A B}" in
-           let t = parse_lppterm str in
-             assert_pprint_equal str t) ;
+           assert_pprint_equal_parse "{eval A B}") ;
       
       "Compound object statement" >::
         (fun () ->
-           let str = "{eval (abs R) (abs R)}" in
-           let t = parse_lppterm str in
-             assert_pprint_equal str t) ;
+           assert_pprint_equal_parse "{eval (abs R) (abs R)}") ;
       
       "Implication object statement" >::
         (fun () ->
-           let str = "{eval A B => typeof C D}" in
-           let t = parse_lppterm str in
-             assert_pprint_equal str t) ;
+           assert_pprint_equal_parse "{eval A B => typeof C D}") ;
       
       "Lambda object statement" >::
         (fun () ->
-           let str = "{x1\\typeof x1 A}" in
-           let t = parse_lppterm str in
-             assert_pprint_equal str t) ;
+           assert_pprint_equal_parse "{x1\\typeof x1 A}") ;
       
       "Pi lambda object statement" >::
         (fun () ->
-           let str = "{pi x1\\typeof x1 A}" in
-           let t = parse_lppterm str in
-             assert_pprint_equal str t) ;
+           assert_pprint_equal_parse "{pi x1\\typeof x1 A}") ;
       
       "Pi lambda implies object statement" >::
         (fun () ->
-           let str = "{pi x1\\eval x1 A => typeof x1 B}" in
-           let t = parse_lppterm str in
-             assert_pprint_equal str t) ;
+           assert_pprint_equal_parse "{pi x1\\eval x1 A => typeof x1 B}") ;
       
       "Active restriction" >::
         (fun () ->
-           let str = "{A}**" in
-           let t = parse_lppterm str in
-             assert_pprint_equal str t) ;
+           assert_pprint_equal_parse "{A}**") ;
 
       "Inactive restriction" >::
         (fun () ->
-           let str = "{A}@@" in
-           let t = parse_lppterm str in
-             assert_pprint_equal str t) ;
+           assert_pprint_equal_parse "{A}@@") ;
+
+      "Implies statement" >::
+        (fun () ->
+           assert_pprint_equal_parse "{A} -> {B}") ;
+      
+      "OR statement" >::
+        (fun () ->
+           assert_pprint_equal_parse "{A} or {B}") ;
+      
+      "Implies OR statement" >::
+        (fun () ->
+           assert_pprint_equal_parse "{A} -> {B} or {C}") ;
       
     ]

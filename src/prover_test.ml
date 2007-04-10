@@ -263,4 +263,27 @@ let tests =
            assert_n_subgoals 2 ;
         ) ;
              
+      "Proving OR" >::
+        (fun () ->
+           let clauses = parse_clauses "foo a. foo b. eq X X." in
+             
+             setup_prover ()
+               ~clauses:clauses
+               ~goal:"forall X, {foo X} -> {eq X a} or {eq X b}" ;
+             
+             assert_proof
+               (fun () ->
+                  induction [1] ;
+                  intros () ;
+                  
+                  case "H1" ;
+                  assert_n_subgoals 2 ;
+                  
+                  search () ;
+                  assert_n_subgoals 1 ;
+                  
+                  search () ;
+               )
+        ) ;
+
     ]

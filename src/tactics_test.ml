@@ -139,6 +139,16 @@ let tests =
                    assert_pprint_equal "{eval (R N) B}*" b2 
                | _ -> assert_failure "Pattern mismatch") ;
 
+      "Case on OR" >::
+        (fun () ->
+           let term = parse "{A} or {B}" in
+           let used = ["A"; "B"] in
+             match case term prog used with
+               | [(f1, v1, [h1]); (f2, v2, [h2])] ->
+                   assert_pprint_equal "{A}" h1 ;
+                   assert_pprint_equal "{B}" h2 ;
+               | _ -> assert_failure "Pattern mismatch") ;
+
       "Single induction creation" >::
         (fun () ->
            let stmt = parse

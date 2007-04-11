@@ -1,7 +1,6 @@
 Soon
 ====
 Add 'or'
-  Add case analysis for 'or' hypotheses
   Allow use of IH when 'or' is in result
 
 Add a show_lemmas command

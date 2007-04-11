@@ -189,8 +189,8 @@ let freshen_capital_vars tag ts used =
   let var_names = capital_var_names ts in
   let fresh_names = fresh_alist_wrt tag var_names used in
     List.map (replace_lppterm_vars fresh_names) ts
-    
-let case term clauses used =
+
+let term_case term clauses used =
   let initial_state = save_state () in
     List.fold_right
       (fun (head, body) result ->
@@ -216,6 +216,15 @@ let case term clauses used =
                      result)
       clauses []
 
+let case term clauses used =
+  match term with
+    | Obj _ -> term_case term clauses used
+    | Or(left, right) ->
+        let empty x = () in
+          [(empty, [], [left]) ;
+           (empty, [], [right])]
+    | _ -> invalid_lppterm_arg term
+      
 let apply_restrictions active args stmt =
   let rec aux curr_arg args curr_ind stmt =
     match args with

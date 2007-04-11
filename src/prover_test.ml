@@ -286,4 +286,37 @@ let tests =
                )
         ) ;
 
+      "Using IH with OR" >::
+        (fun () ->
+           let clauses = parse_clauses
+             ("nat z. nat (s X) :- nat X." ^
+                "even z. even (s X) :- odd X." ^
+                "odd (s z). odd (s X) :- even X.") in
+             
+             setup_prover ()
+               ~clauses:clauses
+               ~goal:"forall X, {nat X} -> {even X} or {odd X}" ;
+             
+             assert_proof
+               (fun () ->
+                  induction [1] ;
+                  intros () ;
+                  
+                  case "H1" ;
+                  assert_n_subgoals 2 ;
+
+                  search () ;
+                  assert_n_subgoals 1 ;
+
+                  apply "IH" ["H2"] ;
+                  case "H3" ;
+                  assert_n_subgoals 2 ;
+
+                  search () ;
+                  assert_n_subgoals 1 ;
+
+                  search () ;
+               )
+        ) ;
+
     ]

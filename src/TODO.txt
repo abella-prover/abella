@@ -1,8 +1,5 @@
 Soon
 ====
-Add 'or'
-  Allow use of IH when 'or' is in result
-
 Add a show_lemmas command
 
 Add 'abort'

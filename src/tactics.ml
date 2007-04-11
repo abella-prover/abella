@@ -119,6 +119,8 @@ let rec map_args f t =
     | Arrow(left, right) ->
         (f left) :: (map_args f right)
     | Obj _ -> []
+    | Or(left, right) ->
+        List.append (map_args f left) (map_args f right)
     | _ -> invalid_lppterm_arg t
 
 let apply_forall stmt ts =

@@ -53,7 +53,7 @@ let tests =
 
            assert_proof
              (fun () ->
-                induction [1] ;
+                induction 1 ;
                 intros () ;
                 case "H1" ;
                 assert_n_subgoals 2 ;
@@ -80,7 +80,7 @@ let tests =
 
            assert_proof
              (fun () ->
-                induction [1] ;
+                induction 1 ;
                 intros () ;
                 case "H1" ;
                 assert_n_subgoals 2 ;
@@ -140,7 +140,7 @@ let tests =
 
            assert_proof
              (fun () ->
-                induction [1] ;
+                induction 1 ;
                 intros () ;
                 case "H1" ;
                 assert_n_subgoals 13 ;
@@ -228,7 +228,7 @@ let tests =
 
            assert_proof
              (fun () ->
-                induction [2] ;
+                induction 2 ;
                 intros () ;
                 case "H2" ;
                 assert_n_subgoals 2 ;
@@ -249,7 +249,7 @@ let tests =
              ~clauses:eval_clauses
              ~goal:"forall P V T, {eval P V} -> {typeof P T} -> {typeof V T}" ;
 
-           induction [1] ;
+           induction 1 ;
            intros () ;
            assert_n_subgoals 1 ;
            
@@ -273,7 +273,7 @@ let tests =
              
              assert_proof
                (fun () ->
-                  induction [1] ;
+                  induction 1 ;
                   intros () ;
                   
                   case "H1" ;
@@ -321,7 +321,7 @@ let tests =
              
              assert_proof
                (fun () ->
-                  induction [1] ;
+                  induction 1 ;
                   intros () ;
                   
                   case "H1" ;

@@ -84,15 +84,6 @@ let tests =
              assert_raises (Failure "Unification failure")
                (fun () -> apply_forall h0 [h1; h2])) ;
 
-      "Forall application with two restrictions" >::
-        (fun () ->
-           let h0 = parse ("forall A B C, " ^
-                             "{eval A B}* -> {typeof A C}** -> {typeof B C}") in
-           let h1 = parse "{eval (abs R) (abs R)}@" in
-           let h2 = parse "{typeof (abs R) (arrow S T)}**" in
-           let t = apply_forall h0 [h1; h2] in
-             assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
-      
       "Case application" >::
         (fun () ->
            (* eval (abs R) (abs R).
@@ -125,10 +116,11 @@ let tests =
            (* eval (abs R) (abs R).
               eval (app M N) V :- eval M (abs R), eval (R N) V.
 
-              case {eval A B} which has inactive restriction 1 *)
+              case {eval A B} which has inactive restriction *)
            let a = var ~tag:Eigen "A" 0 in
            let b = var ~tag:Eigen "B" 0 in
-           let term = inactive_obj (app (const "eval") [a; b]) 1 in
+           let evalAB = obj (app (const "eval") [a; b]) in
+           let term = apply_restriction Equal evalAB in
              match case term prog ["A"; "B"] with
                | [(f1, v1, []); (f2, v2, [b1; b2])] ->
                    f1 () ;
@@ -153,7 +145,7 @@ let tests =
         (fun () ->
            let stmt = parse
                "forall A, {first A} -> {second A} -> {third A}" in
-           let (ih, goal) = induction [1] stmt in
+           let (ih, goal) = induction 1 stmt in
              assert_pprint_equal
                "forall A, {first A}* -> {second A} -> {third A}"
                ih ;
@@ -161,22 +153,10 @@ let tests =
                "forall A, {first A}@ -> {second A} -> {third A}"
                goal) ;
       
-      "Double induction creation" >::
-        (fun () ->
-           let stmt = parse
-               "forall A, {first A} -> {second A} -> {third A}" in
-           let (ih, goal) = induction [1; 2] stmt in
-             assert_pprint_equal
-               "forall A, {first A}* -> {second A}** -> {third A}"
-               ih ;
-             assert_pprint_equal
-               "forall A, {first A}@ -> {second A}@@ -> {third A}"
-               goal) ;
-
       "Induction with OR on left of arrow" >::
         (fun () ->
            let stmt = parse "forall X, {A} or {B} -> {C} -> {D}" in
-           let (ih, goal) = induction [2] stmt in
+           let (ih, goal) = induction 2 stmt in
              assert_pprint_equal
                "forall X, {A} or {B} -> {C}* -> {D}"
                ih ;

@@ -95,19 +95,12 @@ module Left =
               end)
 
 let check_restrictions formal actual =
-  (* If there are no restrictions then we can skip this check *)
-  if List.for_all (fun (n1, a1) -> not a1) formal then
-    ()
-  (* Otherwise make sure that all active restrictions are matched *)
-  else if List.exists2 (fun (n1, a1) (n2, a2) ->
-                          a1 && (n1 != n2)) formal actual then
-    failwith "Restriction violated"
-  else
-    (* And make sure that at least one active restriction is satisfied *)
-    if List.exists2 (fun (n1, a1) (n2, a2) -> a1 && a2) formal actual then
-      ()
-    else
-      failwith "Restriction violated"
+  List.iter2 (fun fr ar -> match fr, ar with
+                | Smaller, Equal
+                | Smaller, Irrelevant ->
+                    failwith "Restriction violated"
+                | _ -> ())
+    formal actual
 
 let obj_to_restriction t =
   match t with
@@ -208,9 +201,9 @@ let term_case term clauses used =
                                    apply_subst subst) in
                    restore_state initial_state ;
                    match term with
-                     | Obj(_, (n, _)) when n > 0 ->
+                     | Obj(_, r) when r <> Irrelevant ->
                          (restore, used_vars, List.map
-                            (apply_active_restriction n) fresh_body)::result
+                            (apply_restriction Smaller) fresh_body)::result
                      | _ -> (restore, used_vars, fresh_body)::result
                with
                  | Unify.Error _ ->
@@ -227,31 +220,21 @@ let case term clauses used =
           [(restore, [], [left]) ;
            (restore, [], [right])]
     | _ -> invalid_lppterm_arg term
-      
-let apply_restrictions active args stmt =
-  let rec aux curr_arg args curr_ind stmt =
-    match args with
-      | [] -> stmt
-      | (x::xs) ->
-          match stmt with
-            | Arrow(left, right) ->
-                if x = curr_arg then
-                  match left with
-                    | Obj(left, _) ->
-                        Arrow(obj_r left (curr_ind, active),
-                              aux (curr_arg + 1) xs (curr_ind + 1) right)
-                    | _ -> failwith "Unable to apply induction restriction"
-                else
-                  Arrow(left, aux (curr_arg + 1) (x::xs) curr_ind right)
-            | _ -> failwith "Not enough implications in induction"
-  in
-    aux 1 args 1 stmt
 
-let induction args stmt =
+let rec apply_restriction_at res stmt arg =
+  match stmt with
+    | Arrow(left, right) ->
+        if arg = 1 then
+          Arrow(apply_restriction res left, right)
+        else
+          Arrow(left, apply_restriction_at res right (arg-1))
+    | _ -> failwith "Not enough implications in induction"
+      
+let induction ind_arg stmt =
   match stmt with
     | Forall(bindings, body) ->
-        let ih_body = apply_restrictions true args body in
-        let goal_body = apply_restrictions false args body in
+        let ih_body = apply_restriction_at Smaller body ind_arg in
+        let goal_body = apply_restriction_at Equal body ind_arg in
           (forall bindings ih_body, forall bindings goal_body)
     | _ -> failwith "Induction applied to non-forall statement"
 

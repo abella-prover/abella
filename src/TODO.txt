@@ -1,14 +1,7 @@
 Soon
 ====
-Remove induction on more than 1 variable
-Make induction automatically do intros and case analysis?
-
-Add a show_lemmas command
-
-Add 'abort'
-Add 'and'
 Add 'exists'
-
+Add 'and'
 
 Larger or longer term issues
 ============================
@@ -28,6 +21,9 @@ Change OMakefile so exceptions print full stack trace? Is there a way
 
 Allow forall application with OR on the left
 Allow multiple ORs
+
+Add a show_lemmas command
+Add 'abort'
 
 Theorems for eval
 =================

@@ -2,7 +2,7 @@ open Term
 open Norm
 open Pprint
 
-type restriction = int * bool
+type restriction = Smaller | Equal | Irrelevant
 
 type lppterm =
   | Obj of term * restriction
@@ -10,27 +10,27 @@ type lppterm =
   | Forall of id list * lppterm
   | Or of lppterm * lppterm
 
-let obj t = Obj(t, (0, false))
+let obj t = Obj(t, Irrelevant)
+let obj_r t r = Obj(t, r)
 let arrow a b = Arrow(a, b)
 let forall ts t = Forall(ts, t)
 let lpp_or a b = Or(a, b)
-
-let inactive_obj t r = Obj(t, (r, false))
-let active_obj t r = Obj(t, (r, true))
-let obj_r t r = Obj(t, r)
 
 let obj_to_term t =
   match t with
     | Obj(t, _) -> t
     | _ -> failwith "obj_to_term called on non-obj"
 
-let apply_active_restriction n t =
+let apply_restriction r t =
   match t with
-    | Obj(t, _) -> active_obj t n
+    | Obj(t, _) -> Obj(t, r)
     | _ -> failwith "Attempting to apply restriction to non-object"
 
-let restriction_to_string (n, active) =
-  if active then String.make n '*' else String.make n '@'
+let restriction_to_string r =
+  match r with
+    | Smaller -> "*"
+    | Equal -> "@"
+    | Irrelevant -> ""
 
 let bindings_to_string ts =
   String.concat " " ts

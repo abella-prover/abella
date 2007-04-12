@@ -36,11 +36,11 @@ let tests =
       
       "Active restriction" >::
         (fun () ->
-           assert_pprint_equal_parse "{A}**") ;
+           assert_pprint_equal_parse "{A}*") ;
 
       "Inactive restriction" >::
         (fun () ->
-           assert_pprint_equal_parse "{A}@@") ;
+           assert_pprint_equal_parse "{A}@") ;
 
       "Implies statement" >::
         (fun () ->

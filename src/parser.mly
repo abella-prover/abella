@@ -42,7 +42,7 @@ clause_body:
   | term                                { [Lppterm.obj $1] }
 
 command:
-  | IND ON num_arg_list DOT             { Prover.Induction($3) }
+  | IND ON NUM DOT                      { Prover.Induction($3) }
   | APPLY ID TO id_arg_list DOT         { Prover.Apply($2, $4) }
   | INST ID WITH term DOT               { Prover.Inst($2, $4) }
   | CASE ID DOT                         { Prover.Case($2) }
@@ -51,10 +51,6 @@ command:
   | SKIP DOT                            { Prover.Skip }
   | UNDO DOT                            { Prover.Undo }
   | EOF                                 { raise End_of_file }
-
-num_arg_list:
-  | NUM AND num_arg_list                { $1::$3 }
-  | NUM                                 { [$1] }
 
 id_arg_list:
   | ID AND id_arg_list                  { $1::$3 }

@@ -222,9 +222,10 @@ let case term clauses used =
   match term with
     | Obj _ -> term_case term clauses used
     | Or(left, right) ->
-        let empty x = () in
-          [(empty, [], [left]) ;
-           (empty, [], [right])]
+        let initial_state = save_state () in
+        let restore () = restore_state initial_state in
+          [(restore, [], [left]) ;
+           (restore, [], [right])]
     | _ -> invalid_lppterm_arg term
       
 let apply_restrictions active args stmt =
@@ -233,12 +234,15 @@ let apply_restrictions active args stmt =
       | [] -> stmt
       | (x::xs) ->
           match stmt with
-            | Arrow(Obj(left, _), right) ->
+            | Arrow(left, right) ->
                 if x = curr_arg then
-                  Arrow(obj_r left (curr_ind, active),
-                        aux (curr_arg + 1) xs (curr_ind + 1) right)
+                  match left with
+                    | Obj(left, _) ->
+                        Arrow(obj_r left (curr_ind, active),
+                              aux (curr_arg + 1) xs (curr_ind + 1) right)
+                    | _ -> failwith "Unable to apply induction restriction"
                 else
-                  Arrow(obj left, aux (curr_arg + 1) (x::xs) curr_ind right)
+                  Arrow(left, aux (curr_arg + 1) (x::xs) curr_ind right)
             | _ -> failwith "Not enough implications in induction"
   in
     aux 1 args 1 stmt

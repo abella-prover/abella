@@ -50,8 +50,12 @@ let tests =
         (fun () ->
            assert_pprint_equal_parse "{A} or {B}") ;
       
-      "Implies OR statement" >::
+      "OR statement on right side of arrow" >::
         (fun () ->
            assert_pprint_equal_parse "{A} -> {B} or {C}") ;
+      
+      "OR statement on left side of arrow" >::
+        (fun () ->
+           assert_pprint_equal_parse "{A} or {B} -> {C}") ;
       
     ]

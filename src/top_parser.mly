@@ -16,11 +16,14 @@
 %type <Lppterm.lppterm> lppterm
 %type <Prover.top_command> top_command
 
+%nonassoc COMMA
+%right RARROW
+  
 %%
 
 lppterm:
   | FORALL binding_list COMMA lppterm { Lppterm.forall $2 $4 }
-  | object_term RARROW lppterm        { Lppterm.arrow $1 $3 }
+  | lppterm RARROW lppterm            { Lppterm.arrow $1 $3 }
   | object_term                       { $1 }
   | object_term OR object_term        { Lppterm.lpp_or $1 $3 }
 

@@ -1,5 +1,8 @@
 Soon
 ====
+Remove induction on more than 1 variable
+Make induction automatically do intros and case analysis?
+
 Add a show_lemmas command
 
 Add 'abort'
@@ -23,6 +26,8 @@ Seperate parsers more?
 Change OMakefile so exceptions print full stack trace? Is there a way
   to integrate this with OUnit?
 
+Allow forall application with OR on the left
+Allow multiple ORs
 
 Theorems for eval
 =================

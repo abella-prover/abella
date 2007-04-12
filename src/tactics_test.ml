@@ -172,6 +172,17 @@ let tests =
              assert_pprint_equal
                "forall A, {first A}@ -> {second A}@@ -> {third A}"
                goal) ;
+
+      "Induction with OR on left of arrow" >::
+        (fun () ->
+           let stmt = parse "forall X, {A} or {B} -> {C} -> {D}" in
+           let (ih, goal) = induction [2] stmt in
+             assert_pprint_equal
+               "forall X, {A} or {B} -> {C}* -> {D}"
+               ih ;
+             assert_pprint_equal
+               "forall X, {A} or {B} -> {C}@ -> {D}"
+               goal) ;
       
       "0-step search" >::
         (fun () ->

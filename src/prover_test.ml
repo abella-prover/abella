@@ -286,6 +286,28 @@ let tests =
                )
         ) ;
 
+      "OR on left side of arrow" >::
+        (fun () ->
+           let clauses = parse_clauses "foo a. foo b. eq X X." in
+             
+             setup_prover ()
+               ~clauses:clauses
+               ~goal:"forall X, {eq X a} or {eq X b} -> {foo X}" ;
+             
+             assert_proof
+               (fun () ->
+                  intros () ;
+                  case "H1" ;
+                  assert_n_subgoals 2 ;
+
+                  case "H2" ;
+                  search () ;
+
+                  case "H2" ;
+                  search () ;
+               )
+        ) ;
+      
       "Using IH with OR" >::
         (fun () ->
            let clauses = parse_clauses

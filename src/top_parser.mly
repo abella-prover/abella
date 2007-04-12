@@ -8,6 +8,7 @@
 %}
 
 %token COMMA DOT COLON RARROW FORALL STAR AT THEOREM OR
+%token LPAREN RPAREN
 %token <string> ID
 %token <string> TERM
 %token EOF
@@ -16,16 +17,23 @@
 %type <Lppterm.lppterm> lppterm
 %type <Prover.top_command> top_command
 
+  
+/* Lower */
+  
 %nonassoc COMMA
 %right RARROW
+%left OR
+  
+/* Higher */
   
 %%
 
 lppterm:
   | FORALL binding_list COMMA lppterm { Lppterm.Forall($2, $4) }
   | lppterm RARROW lppterm            { Lppterm.Arrow($1, $3) }
+  | lppterm OR lppterm                { Lppterm.Or($1, $3) }
+  | LPAREN lppterm RPAREN             { $2 }
   | object_term                       { $1 }
-  | object_term OR object_term        { Lppterm.Or($1, $3) }
 
 binding_list:
   | binding binding_list              { $1::$2 }

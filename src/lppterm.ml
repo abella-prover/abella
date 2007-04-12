@@ -35,15 +35,30 @@ let restriction_to_string r =
 let bindings_to_string ts =
   String.concat " " ts
 
-let rec lppterm_to_string t =
-  match t with
-    | Obj(t, r) -> "{" ^ (term_to_string t) ^ "}" ^
-        (restriction_to_string r)
-    | Arrow(a, b) -> (lppterm_to_string a) ^ " -> " ^ (lppterm_to_string b)
-    | Forall(ts, t) ->
-        "forall " ^ (bindings_to_string ts) ^ ", " ^ (lppterm_to_string t)
-    | Or(a, b) ->
-        (lppterm_to_string a) ^ " or " ^ (lppterm_to_string b)
+let lppterm_to_string t =
+  let priority t =
+    match t with
+      | Obj _ -> 3
+      | Or _ -> 2
+      | Arrow _ -> 1
+      | Forall _ -> 0
+  in
+  let rec aux pr t =
+    let op_p = priority t in
+    let pp =
+      match t with
+        | Obj(t, r) ->
+            "{" ^ (term_to_string t) ^ "}" ^ (restriction_to_string r)
+        | Arrow(a, b) ->
+            (aux (op_p + 1) a) ^ " -> " ^ (aux op_p b)
+        | Forall(ts, t) ->
+            "forall " ^ (bindings_to_string ts) ^ ", " ^ (aux op_p t)
+        | Or(a, b) ->
+            (aux op_p a) ^ " or " ^ (aux (op_p + 1) b)
+    in
+      if op_p >= pr then pp else "(" ^ pp ^ ")"
+  in
+    aux 0 t
 
 let invalid_lppterm_arg t =
   invalid_arg (lppterm_to_string t)

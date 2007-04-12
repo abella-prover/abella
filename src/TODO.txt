@@ -20,7 +20,6 @@ Change OMakefile so exceptions print full stack trace? Is there a way
   to integrate this with OUnit?
 
 Allow forall application with OR on the left
-Allow multiple ORs
 
 Add a show_lemmas command
 Add 'abort'

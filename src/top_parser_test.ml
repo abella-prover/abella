@@ -57,5 +57,17 @@ let tests =
       "OR statement on left side of arrow" >::
         (fun () ->
            assert_pprint_equal_parse "{A} or {B} -> {C}") ;
-      
+
+      "Multiple OR statement" >::
+        (fun () ->
+           assert_pprint_equal_parse "{A} or {B} or {C}") ;
+
+      "Multiple OR statement (right assoc)" >::
+        (fun () ->
+           assert_pprint_equal_parse "{A} or ({B} or {C})") ;
+
+      "Arrow underneath OR" >::
+        (fun () ->
+           assert_pprint_equal_parse "{A} or ({B} -> {C})") ;
+
     ]

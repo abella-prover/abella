@@ -27,6 +27,9 @@ rule token = parse
 | "@"                { AT }
 | "Theorem"          { THEOREM }
 | "or"               { OR }
+      
+| "("                { LPAREN }
+| ")"                { RPAREN }
 
 | name as n          { ID n }
 | term as s          { TERM s }

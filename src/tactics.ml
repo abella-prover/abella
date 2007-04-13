@@ -34,6 +34,12 @@ let try_with_state f =
     with
       | _ -> restore_state state ; false
 
+let try_left_object_unify t1 t2 =
+  try_with_state
+    (fun () ->
+       left_object_unify t1 t2 ;
+       true)
+
 let try_right_object_unify t1 t2 =
   try_with_state
     (fun () ->
@@ -75,6 +81,10 @@ let freshen_capital_vars tag ts used =
   let fresh_names = fresh_alist tag var_names used in
     List.map (replace_lppterm_vars fresh_names) ts
 
+let freshen_clause tag head body used =
+  match freshen_capital_vars tag (head::body) used with
+    | head::body -> head, body
+    | _ -> assert false
 
 (* Object level cut *)
 
@@ -161,31 +171,40 @@ let apply_forall stmt ts =
 
 (* Case analysis *)
 
+type case = {
+  set_state : unit -> unit ;
+  new_vars : (id * term) list ;
+  new_hyps : lppterm list ;
+}
+
+let collect_some f list =
+  List.map (fun x ->
+              match x with
+                | Some y -> y
+                | _ -> assert false)
+    (List.filter (fun x -> x <> None)
+       (List.map f list))
+    
 let term_case term clauses used =
-  let initial_state = save_state () in
-    List.fold_right
-      (fun (head, body) result ->
-         match freshen_capital_vars Eigen (head::body) used with
-           | [] -> assert false
-           | fresh_head::fresh_body ->
-               try
-                 left_object_unify fresh_head term ;
-                 let used_vars =
-                   get_eigen_vars_alist (fresh_head::fresh_body) in
-                 let subst = get_subst initial_state in
-                 let restore () = (restore_state initial_state ;
-                                   apply_subst subst) in
-                   restore_state initial_state ;
-                   match term with
-                     | Obj(_, r) when r <> Irrelevant ->
-                         (restore, used_vars, List.map
-                            (apply_restriction Smaller) fresh_body)::result
-                     | _ -> (restore, used_vars, fresh_body)::result
-               with
-                 | Unify.Error _ ->
-                     restore_state initial_state ;
-                     result)
-      clauses []
+  collect_some
+    (fun (head, body) ->
+       let fresh_head, fresh_body = freshen_clause Eigen head body used in
+       let initial_state = save_state () in
+         if try_left_object_unify fresh_head term then
+           let new_vars = get_eigen_vars_alist (fresh_head::fresh_body) in
+           let subst = get_subst initial_state in
+           let set_state () = (restore_state initial_state ;
+                               apply_subst subst) in
+             restore_state initial_state ;
+             Some { set_state = set_state ;
+                    new_vars = new_vars ;
+                    new_hyps = match term with
+                      | Obj(_, r) when r <> Irrelevant ->
+                          List.map (apply_restriction Smaller) fresh_body
+                      | _ -> fresh_body }
+         else
+           None)
+    clauses
 
 let case term clauses used =
   let initial_state = save_state () in
@@ -193,12 +212,16 @@ let case term clauses used =
     match term with
       | Obj _ -> term_case term clauses used
       | Or(left, right) ->
-          [(restore, [], [left]) ;
-           (restore, [], [right])]
+          let make_simple_case h =
+            { set_state = restore ; new_vars = [] ; new_hyps = [h] }
+          in
+            [make_simple_case left; make_simple_case right]
       | Exists(ids, body) ->
           let fresh_ids = fresh_alist Eigen ids used in
           let fresh_body = replace_lppterm_vars fresh_ids body in
-            [(restore, fresh_ids, [fresh_body])]
+            [{ set_state = restore ;
+               new_vars = fresh_ids ;
+               new_hyps = [fresh_body] }]
       | _ -> invalid_lppterm_arg term
 
 
@@ -236,11 +259,11 @@ let search n goal clauses used hyps =
         (fun (head, body) ->
            try_with_state
              (fun () ->
-                match freshen_capital_vars Logic (head::body) used with
-                  | [] -> assert false
-                  | fresh_head::fresh_body ->
-                      right_object_unify fresh_head goal ;
-                      List.for_all (term_aux (n-1)) fresh_body))
+                let fresh_head, fresh_body =
+                  freshen_clause Logic head body used
+                in
+                  right_object_unify fresh_head goal ;
+                  List.for_all (term_aux (n-1)) fresh_body))
         clauses
   in
   let rec lppterm_aux goal =

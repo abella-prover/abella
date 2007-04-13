@@ -2,6 +2,7 @@ open Term
 open Pprint
 open Lppterm
 open Printf
+open Tactics
 
 type top_command =
   | Theorem of id * lppterm
@@ -150,9 +151,8 @@ let display () =
 let inst h t =
   save_undo_state () ;
   let stmt = get_hyp h in
-    if Tactics.is_pi_abs (obj_to_term stmt) then
-      add_hyp (Tactics.object_inst stmt
-                 (replace_term_vars sequent.vars t))
+    if is_pi_abs (obj_to_term stmt) then
+      add_hyp (object_inst stmt (replace_term_vars sequent.vars t))
     else
       failwith ("Hypothesis must have the form {pi x\\ ...} " ^
                   "in order to instantiate it with a term.")
@@ -166,9 +166,9 @@ let apply h args =
     add_hyp
       begin match stmt, args with
         | Forall _, _ ->
-            Tactics.apply_forall stmt (List.map get_hyp args)
-        | Obj(t, _), [arg] when Tactics.is_imp t ->
-            Tactics.object_cut stmt (get_hyp arg)
+            apply_forall stmt (List.map get_hyp args)
+        | Obj(t, _), [arg] when is_imp t ->
+            object_cut stmt (get_hyp arg)
         | _ -> failwith "Bad application"
       end
 
@@ -179,13 +179,13 @@ let set_minus lst1 lst2 =
   List.filter (fun x -> not (List.mem x lst2)) lst1
 
 let add_cases_to_subgoals cases =
-  let case_to_subgoal (set_state, used_vars, new_hyps) =
+  let case_to_subgoal case =
     let saved_sequent = copy_sequent () in
       fun () ->
         set_sequent saved_sequent ;
-        List.iter add_if_new_var used_vars ;
-        List.iter add_hyp new_hyps ;
-        set_state () ;
+        List.iter add_if_new_var case.new_vars ;
+        List.iter add_hyp case.new_hyps ;
+        case.set_state () ;
   in
     subgoals := List.append (List.map case_to_subgoal cases) !subgoals
       
@@ -193,15 +193,10 @@ let case str =
   save_undo_state () ;
   let obj = get_hyp str in
   let cases = Tactics.case obj !clauses (var_names ()) in
-    match cases with
-      | [] -> next_subgoal ()
-      | (set_state, used_vars, new_hyps)::other_cases ->
-          add_cases_to_subgoals other_cases ;
-          List.iter add_if_new_var used_vars ;
-          set_state () ;
-          List.iter add_hyp new_hyps
+    add_cases_to_subgoals cases ;
+    next_subgoal ()
 
-            
+      
 (* Induction *)
             
 let induction args =
@@ -245,7 +240,7 @@ let intros () =
     failwith "Intros can only be used when there are no context variables" ;
   match sequent.goal with
     | Forall(bindings, body) ->
-        sequent.vars <- Tactics.fresh_alist Eigen bindings (var_names ()) ;
+        sequent.vars <- fresh_alist Eigen bindings (var_names ()) ;
         let fresh_body = replace_lppterm_vars sequent.vars body in
         let args, new_goal = split_args fresh_body in
           List.iter add_hyp args ;

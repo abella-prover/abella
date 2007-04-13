@@ -3,7 +3,6 @@ Soon
 Add 'exists'
     Add searching for exists goal
     Add apply IH when there is exists in the result
-Add record type for cases?
 Add 'and'
 
 Move things from prover to tactics if they use Tactics.foo

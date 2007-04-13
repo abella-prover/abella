@@ -94,51 +94,61 @@ let tests =
            let b = var ~tag:Eigen "B" 0 in
            let term = obj (app (const "eval") [a; b]) in
              match case term prog ["A"; "B"] with
-               | [(f1, v1, []); (f2, v2, [b1; b2])] ->
-                   f1 () ;
+               | [case1; case2] ->
+                   case1.set_state () ;
                    assert_pprint_equal "{eval (abs R) (abs R)}" term ;
                    assert_bool "R should be flagged as used"
-                     (List.mem "R" (List.map fst v1)) ;
-                   f2 () ;
+                     (List.mem "R" (List.map fst case1.new_vars)) ;
+                   
+                   case2.set_state () ;
                    assert_pprint_equal "{eval (app M N) B}" term ;
-                   assert_pprint_equal "{eval M (abs R)}" b1 ;
-                   assert_pprint_equal "{eval (R N) B}" b2 ;
+                   begin match case2.new_hyps with
+                     | [h1; h2] ->
+                         assert_pprint_equal "{eval M (abs R)}" h1 ;
+                         assert_pprint_equal "{eval (R N) B}" h2 ;
+                     | _ -> assert_failure "Expected 2 new hypotheses"
+                   end ;
                    assert_bool "R should be flagged as used"
-                     (List.mem "R" (List.map fst v2)) ;
+                     (List.mem "R" (List.map fst case2.new_vars)) ;
                    assert_bool "M should be flagged as used"
-                     (List.mem "M" (List.map fst v2)) ;
+                     (List.mem "M" (List.map fst case2.new_vars)) ;
                    assert_bool "N should be flagged as used"
-                     (List.mem "N" (List.map fst v2))
-               | _ -> assert_failure "Pattern mismatch") ;
+                     (List.mem "N" (List.map fst case2.new_vars))
+               | _ -> assert_failure "Expected 2 cases") ;
       
       "Restricted case application" >::
         (fun () ->
            (* eval (abs R) (abs R).
               eval (app M N) V :- eval M (abs R), eval (R N) V.
 
-              case {eval A B} which has inactive restriction *)
+              case {eval A B} which has Smaller restriction *)
            let a = var ~tag:Eigen "A" 0 in
            let b = var ~tag:Eigen "B" 0 in
            let evalAB = obj (app (const "eval") [a; b]) in
            let term = apply_restriction Equal evalAB in
              match case term prog ["A"; "B"] with
-               | [(f1, v1, []); (f2, v2, [b1; b2])] ->
-                   f1 () ;
+               | [case1; case2] ->
+                   case1.set_state () ;
                    assert_pprint_equal "{eval (abs R) (abs R)}@" term ;
-                   f2 () ;
+                   
+                   case2.set_state () ;
                    assert_pprint_equal "{eval (app M N) B}@" term ;
-                   assert_pprint_equal "{eval M (abs R)}*" b1 ;
-                   assert_pprint_equal "{eval (R N) B}*" b2 
-               | _ -> assert_failure "Pattern mismatch") ;
+                   begin match case2.new_hyps with
+                     | [h1; h2] ->
+                         assert_pprint_equal "{eval M (abs R)}*" h1 ;
+                         assert_pprint_equal "{eval (R N) B}*" h2
+                     | _ -> assert_failure "Expected 2 new hypotheses"
+                   end
+               | _ -> assert_failure "Expected 2 cases") ;
 
       "Case on OR" >::
         (fun () ->
            let term = parse "{A} or {B}" in
            let used = ["A"; "B"] in
              match case term prog used with
-               | [(f1, v1, [h1]); (f2, v2, [h2])] ->
-                   assert_pprint_equal "{A}" h1 ;
-                   assert_pprint_equal "{B}" h2 ;
+               | [{new_hyps=[hyp1]} ; {new_hyps=[hyp2]}] ->
+                   assert_pprint_equal "{A}" hyp1 ;
+                   assert_pprint_equal "{B}" hyp2 ;
                | _ -> assert_failure "Pattern mismatch") ;
 
       "Case on exists" >::
@@ -146,10 +156,10 @@ let tests =
            let term = parse "exists A B, {eval A B}" in
            let used = [] in
              match case term prog used with
-               | [(f, v, [h])] ->
-                   let var_names = List.map fst v in
+               | [{new_vars=new_vars ; new_hyps=[hyp]}] ->
+                   let var_names = List.map fst new_vars in
                      assert_string_list_equal ["A"; "B"] var_names ;
-                     assert_pprint_equal "{eval A B}" h ;
+                     assert_pprint_equal "{eval A B}" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
       "Single induction creation" >::

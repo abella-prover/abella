@@ -2,86 +2,9 @@ open Term
 open Lppterm
 open Pprint
 
-let is_imp t =
-  match observe t with
-    | App(t, _) -> eq t (const "=>")
-    | _ -> false
 
-let extract_imp t =
-  match observe t with
-    | App(t, [a; b]) -> (a, b)
-    | _ -> failwith "Check is_imp before calling extract_imp"
-          
-let object_cut t1 t2 =
-  let t1 = obj_to_term t1 in
-  let t2 = obj_to_term t2 in 
-  let (a, b) = extract_imp t1 in
-    if eq a t2 then
-      obj b
-    else
-      failwith "Object cut applied to non-matching hypotheses"
-        
-let is_pi_abs t =
-  match observe t with
-    | App(t, [abs]) -> eq t (const "pi") &&
-        begin match observe abs with
-          | Lam(1, _) -> true
-          | _ -> false
-        end
-    | _ -> false
+(* Unification utilities *)
 
-let extract_pi_abs t =
-  match observe t with
-    | App(t, [abs]) -> abs
-    | _ -> failwith "Check is_pi_abs before calling extract_pi_abs"
-        
-let object_inst t x =
-  let t = obj_to_term t in
-  let abs = extract_pi_abs t in
-    obj (Norm.deep_norm (app abs [x]))
-        
-let fresh_alist tag ts =
-  List.map (fun x -> (x, var ~tag:tag x 0)) ts
-
-let fresh_alist_wrt tag ts vars =
-  let used = ref vars in
-    (List.map (fun x ->
-                let (fresh, curr_used) = fresh_wrt tag x !used in
-                  used := curr_used ;
-                  (x, fresh))
-      ts)
-
-let replace_term_vars alist t =
-  let rec aux t =
-    match observe t with
-        | Var {name=name} when List.mem_assoc name alist ->
-            List.assoc name alist
-        | Var _
-        | DB _ -> t
-        | Lam(i, t) -> lambda i (aux t)
-        | App(t, ts) -> app (aux t) (List.map aux ts)
-        | Susp _ -> failwith "Susp found during replace_vars"
-        | Ptr _ -> assert false
-  in
-    aux t
-
-let replace_lppterm_vars alist t =
-  let rec aux t =
-    match t with
-      | Obj(t, r) -> obj_r (replace_term_vars alist t) r
-      | Arrow(a, b) -> arrow (aux a) (aux b)
-      | Forall _ -> failwith "Cannot replace vars inside forall"
-      | Or(a, b) -> lpp_or (aux a) (aux b)
-  in
-    aux t
-        
-let logic_var_names ts =
-  List.map (fun v ->
-              match observe v with
-                | Var {name=name} -> name
-                | _ -> failwith "logic_vars returned non-var")
-    (logic_vars (List.map obj_to_term ts))
-                                                    
 module Right =
   Unify.Make (struct
                 let instantiatable = Logic
@@ -93,50 +16,6 @@ module Left =
                 let instantiatable = Eigen
                 let constant_like = Logic
               end)
-
-let check_restrictions formal actual =
-  List.iter2 (fun fr ar -> match fr, ar with
-                | Smaller, Equal
-                | Smaller, Irrelevant ->
-                    failwith "Restriction violated"
-                | _ -> ())
-    formal actual
-
-let obj_to_restriction t =
-  match t with
-    | Obj(_, r) -> r
-    | _ -> failwith "obj_to_restriction called on non-object"
-
-let rec map_args f t =
-  match t with
-    | Arrow(left, right) ->
-        (f left) :: (map_args f right)
-    | Obj _ -> []
-    | Or(left, right) ->
-        List.append (map_args f left) (map_args f right)
-    | _ -> invalid_lppterm_arg t
-
-let apply_forall stmt ts =
-  match stmt with
-    | Forall(bindings, body) ->
-        let alist = fresh_alist Logic bindings in
-        let fresh_body = replace_lppterm_vars alist body in
-        let formal = map_args obj_to_restriction fresh_body in
-        let actual = List.map obj_to_restriction ts in
-          check_restrictions formal actual ;
-          List.fold_left
-            (fun stmt arg ->
-               match stmt, arg with
-                 | Arrow(Obj(left, _), right), Obj(arg, _) ->
-                     begin try Right.pattern_unify left arg with
-                       | Unify.Error _ ->
-                           failwith "Unification failure"
-                     end ;
-                     right
-                 | _ -> failwith "Too few implications in forall application")
-            fresh_body
-            ts
-    | _ -> failwith "apply_forall can only be used on Forall(...) statements"
 
 let left_object_unify t1 t2 =
   let t1 = obj_to_term t1 in
@@ -160,6 +39,17 @@ let try_right_object_unify t1 t2 =
     (fun () ->
        right_object_unify t1 t2 ;
        true)
+
+
+(* Variable naming utilities *)
+
+let fresh_alist tag ids used =
+  let used = ref used in
+    List.map (fun x ->
+                let (fresh, curr_used) = fresh_wrt tag x !used in
+                  used := curr_used ;
+                  (x, fresh))
+      ids
       
 let get_eigen_vars_alist ts =
   List.map (fun v -> ((term_to_var v).name, v))
@@ -182,8 +72,94 @@ let capital_var_names ts =
 
 let freshen_capital_vars tag ts used =
   let var_names = capital_var_names ts in
-  let fresh_names = fresh_alist_wrt tag var_names used in
+  let fresh_names = fresh_alist tag var_names used in
     List.map (replace_lppterm_vars fresh_names) ts
+
+
+(* Object level cut *)
+
+let is_imp t =
+  match observe t with
+    | App(t, _) -> eq t (const "=>")
+    | _ -> false
+
+let extract_imp t =
+  match observe t with
+    | App(t, [a; b]) -> (a, b)
+    | _ -> failwith "Check is_imp before calling extract_imp"
+          
+let object_cut t1 t2 =
+  let t1 = obj_to_term t1 in
+  let t2 = obj_to_term t2 in 
+  let (a, b) = extract_imp t1 in
+    if eq a t2 then
+      obj b
+    else
+      failwith "Object cut applied to non-matching hypotheses"
+
+
+(* Object level instantiation *)
+        
+let is_pi_abs t =
+  match observe t with
+    | App(t, [abs]) -> eq t (const "pi") &&
+        begin match observe abs with
+          | Lam(1, _) -> true
+          | _ -> false
+        end
+    | _ -> false
+
+let extract_pi_abs t =
+  match observe t with
+    | App(t, [abs]) -> abs
+    | _ -> failwith "Check is_pi_abs before calling extract_pi_abs"
+
+let object_inst t x =
+  let t = obj_to_term t in
+  let abs = extract_pi_abs t in
+    obj (Norm.deep_norm (app abs [x]))
+
+
+(* Apply forall statement *)
+
+let check_restrictions formal actual =
+  List.iter2 (fun fr ar -> match fr, ar with
+                | Smaller, Equal
+                | Smaller, Irrelevant ->
+                    failwith "Restriction violated"
+                | _ -> ())
+    formal actual
+
+let rec map_args f t =
+  match t with
+    | Arrow(left, right) ->
+        (f left) :: (map_args f right)
+    | _ -> []
+
+let apply_forall stmt ts =
+  match stmt with
+    | Forall(bindings, body) ->
+        let alist = fresh_alist Logic bindings [] in
+        let fresh_body = replace_lppterm_vars alist body in
+        let formal = map_args obj_to_restriction fresh_body in
+        let actual = List.map obj_to_restriction ts in
+          check_restrictions formal actual ;
+          List.fold_left
+            (fun stmt arg ->
+               match stmt, arg with
+                 | Arrow(Obj(left, _), right), Obj(arg, _) ->
+                     begin try Right.pattern_unify left arg with
+                       | Unify.Error _ ->
+                           failwith "Unification failure"
+                     end ;
+                     right
+                 | _ -> failwith "Too few implications in forall application")
+            fresh_body
+            ts
+    | _ -> failwith "apply_forall can only be used on Forall(...) statements"
+
+
+(* Case analysis *)
 
 let term_case term clauses used =
   let initial_state = save_state () in
@@ -221,6 +197,9 @@ let case term clauses used =
            (restore, [], [right])]
     | _ -> invalid_lppterm_arg term
 
+
+(* Induction *)
+
 let rec apply_restriction_at res stmt arg =
   match stmt with
     | Arrow(left, right) ->
@@ -238,10 +217,8 @@ let induction ind_arg stmt =
           (forall bindings ih_body, forall bindings goal_body)
     | _ -> failwith "Induction applied to non-forall statement"
 
-let is_obj t =
-  match t with
-    | Obj _ -> true
-    | _ -> false
+
+(* Search *)
 
 let search n goal clauses used hyps =
   let rec term_aux n goal =

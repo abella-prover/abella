@@ -54,6 +54,9 @@ let fresh_hyp_name () =
 type clauses = (lppterm * lppterm list) list
 let clauses : clauses ref = ref []
 
+
+(* Undo support *)
+  
 type undo_stack = (sequent * subgoal list * Term.bind_state) list
 let undo_stack : undo_stack ref = ref []
   
@@ -69,7 +72,10 @@ let undo () =
         Term.restore_state saved_term_state ;
         undo_stack := rest
     | [] -> failwith "Nothing left to undo"
-          
+
+        
+(* Proof state manipulation utilities *)
+
 let reset_prover =
   let original_sequent = copy_sequent () in
     fun () ->
@@ -108,6 +114,9 @@ let next_subgoal () =
         set_subgoal () ;
         subgoals := rest
 
+          
+(* Pretty print *)
+          
 let vars_to_string () =
   match sequent.vars with
     | [] -> ""
@@ -135,18 +144,20 @@ let get_display () =
 let display () =
   print_string (get_display ())
 
-(* Inst *)
+    
+(* Object level instantiation *)
 
 let inst h t =
   save_undo_state () ;
   let stmt = get_hyp h in
     if Tactics.is_pi_abs (obj_to_term stmt) then
       add_hyp (Tactics.object_inst stmt
-                 (Tactics.replace_term_vars sequent.vars t))
+                 (replace_term_vars sequent.vars t))
     else
       failwith ("Hypothesis must have the form {pi x\\ ...} " ^
                   "in order to instantiate it with a term.")
 
+        
 (* Apply *)
           
 let apply h args =
@@ -161,7 +172,8 @@ let apply h args =
         | _ -> failwith "Bad application"
       end
 
-(* Case *)
+      
+(* Case analysis *)
 
 let set_minus lst1 lst2 =
   List.filter (fun x -> not (List.mem x lst2)) lst1
@@ -189,6 +201,7 @@ let case str =
           set_state () ;
           List.iter add_hyp new_hyps
 
+            
 (* Induction *)
             
 let induction args =
@@ -197,6 +210,7 @@ let induction args =
     add_hyp ~name:"IH" ih ;
     sequent.goal <- new_goal
 
+      
 (* Search *)
 
 let search () =
@@ -207,12 +221,14 @@ let search () =
   else
     ()
 
+      
 (* Theorem *)
 
 let theorem thm =
   sequent.goal <- thm
 
-(* Intros *)
+    
+(* Introduction of forall variables *)
 
 let rec split_args stmt =
   match stmt with
@@ -229,8 +245,8 @@ let intros () =
     failwith "Intros can only be used when there are no context variables" ;
   match sequent.goal with
     | Forall(bindings, body) ->
-        sequent.vars <- Tactics.fresh_alist_wrt Eigen bindings [] ;
-        let fresh_body = Tactics.replace_lppterm_vars sequent.vars body in
+        sequent.vars <- Tactics.fresh_alist Eigen bindings (var_names ()) ;
+        let fresh_body = replace_lppterm_vars sequent.vars body in
         let args, new_goal = split_args fresh_body in
           List.iter add_hyp args ;
           sequent.goal <- new_goal
@@ -239,6 +255,7 @@ let intros () =
           List.iter add_hyp args ;
           sequent.goal <- new_goal
 
+            
 (* Skip *)
 
 let skip () =

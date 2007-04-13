@@ -7,7 +7,7 @@
       Parser.term Lexer.token (Lexing.from_string str)
 %}
 
-%token COMMA DOT COLON RARROW FORALL STAR AT THEOREM OR
+%token COMMA DOT COLON RARROW FORALL EXISTS STAR AT THEOREM OR
 %token LPAREN RPAREN
 %token <string> ID
 %token <string> TERM
@@ -30,6 +30,7 @@
 
 lppterm:
   | FORALL binding_list COMMA lppterm { Lppterm.Forall($2, $4) }
+  | EXISTS binding_list COMMA lppterm { Lppterm.Exists($2, $4) }
   | lppterm RARROW lppterm            { Lppterm.Arrow($1, $3) }
   | lppterm OR lppterm                { Lppterm.Or($1, $3) }
   | LPAREN lppterm RPAREN             { $2 }

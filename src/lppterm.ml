@@ -8,14 +8,15 @@ type lppterm =
   | Obj of term * restriction
   | Arrow of lppterm * lppterm
   | Forall of id list * lppterm
+  | Exists of id list * lppterm
   | Or of lppterm * lppterm
-
 
 (* Constructions *)
 
 let obj t = Obj(t, Irrelevant)
 let arrow a b = Arrow(a, b)
-let forall ts t = Forall(ts, t)
+let forall ids t = Forall(ids, t)
+let exists ids t = Exists(ids, t)
 let lpp_or a b = Or(a, b)
 
 
@@ -64,6 +65,7 @@ let replace_lppterm_vars alist t =
       | Obj(t, r) -> Obj(replace_term_vars alist t, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Forall _ -> failwith "Cannot replace vars inside forall"
+      | Exists _ -> failwith "Cannot replace vars inside exists"
       | Or(a, b) -> Or(aux a, aux b)
   in
     aux t
@@ -86,6 +88,7 @@ let priority t =
     | Or _ -> 2
     | Arrow _ -> 1
     | Forall _ -> 0
+    | Exists _ -> 0
     
 let lppterm_to_string t =
   let rec aux pr_above t =
@@ -96,8 +99,10 @@ let lppterm_to_string t =
             "{" ^ (term_to_string t) ^ "}" ^ (restriction_to_string r)
         | Arrow(a, b) ->
             (aux (pr_curr + 1) a) ^ " -> " ^ (aux pr_curr b)
-        | Forall(ts, t) ->
-            "forall " ^ (bindings_to_string ts) ^ ", " ^ (aux pr_curr t)
+        | Forall(ids, t) ->
+            "forall " ^ (bindings_to_string ids) ^ ", " ^ (aux pr_curr t)
+        | Exists(ids, t) ->
+            "exists " ^ (bindings_to_string ids) ^ ", " ^ (aux pr_curr t)
         | Or(a, b) ->
             (aux pr_curr a) ^ " or " ^ (aux (pr_curr + 1) b)
     in
@@ -105,7 +110,7 @@ let lppterm_to_string t =
   in
     aux 0 t
 
-      
+
 (* Error reporting *)
 
 let invalid_lppterm_arg t =

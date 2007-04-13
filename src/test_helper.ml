@@ -28,3 +28,8 @@ let assert_pprint_equal s t =
   assert_equal ~printer:id s (lppterm_to_string t)
 
 let assert_int_equal = assert_equal ~printer:string_of_int
+
+let assert_string_list_equal lst1 lst2 =
+  assert_int_equal (List.length lst1) (List.length lst2) ;
+  ignore (List.map2 (assert_equal ~printer:id) lst1 lst2)
+

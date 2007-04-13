@@ -23,6 +23,7 @@ rule token = parse
 | ":"                { COLON }
 | "->"               { RARROW }
 | "forall"           { FORALL }
+| "exists"           { EXISTS }
 | "*"                { STAR }
 | "@"                { AT }
 | "Theorem"          { THEOREM }

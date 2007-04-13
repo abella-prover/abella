@@ -188,14 +188,18 @@ let term_case term clauses used =
       clauses []
 
 let case term clauses used =
-  match term with
-    | Obj _ -> term_case term clauses used
-    | Or(left, right) ->
-        let initial_state = save_state () in
-        let restore () = restore_state initial_state in
+  let initial_state = save_state () in
+  let restore () = restore_state initial_state in
+    match term with
+      | Obj _ -> term_case term clauses used
+      | Or(left, right) ->
           [(restore, [], [left]) ;
            (restore, [], [right])]
-    | _ -> invalid_lppterm_arg term
+      | Exists(ids, body) ->
+          let fresh_ids = fresh_alist Eigen ids used in
+          let fresh_body = replace_lppterm_vars fresh_ids body in
+            [(restore, fresh_ids, [fresh_body])]
+      | _ -> invalid_lppterm_arg term
 
 
 (* Induction *)

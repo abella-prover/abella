@@ -35,6 +35,11 @@ let tests =
            let t = forall ["A"] b in
              assert_pprint_equal "forall A, {B}" t) ;
       
+      "Print exists" >::
+        (fun () ->
+           let t = exists ["A"] b in
+             assert_pprint_equal "exists A, {B}" t) ;
+      
       "Print smaller restricted object" >::
         (fun () ->
            let t = apply_restriction Smaller a in
@@ -69,5 +74,10 @@ let tests =
         (fun () ->
            let t = lpp_or (arrow a b) c in
              assert_pprint_equal "({A} -> {B}) or {C}" t) ;
-           
+
+      "Print exists left of OR" >::
+        (fun () ->
+           let t = lpp_or (exists ["A"] b) c in
+             assert_pprint_equal "(exists A, {B}) or {C}" t) ;
+
     ]

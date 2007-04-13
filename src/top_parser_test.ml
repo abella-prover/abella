@@ -69,5 +69,21 @@ let tests =
       "Arrow underneath OR" >::
         (fun () ->
            assert_pprint_equal_parse "{A} or ({B} -> {C})") ;
-
+      
+      "Forall" >::
+        (fun () ->
+           assert_pprint_equal_parse "forall A B, {C}") ;
+      
+      "Exists" >::
+        (fun () ->
+           assert_pprint_equal_parse "exists A B, {C}") ;
+      
+      "Exists on left of OR" >::
+        (fun () ->
+           assert_pprint_equal_parse "(exists A, {B}) or {C}") ;
+      
+      "OR underneath exists" >::
+        (fun () ->
+           assert_pprint_equal_parse "exists A, {B} or {C}") ;
+      
     ]

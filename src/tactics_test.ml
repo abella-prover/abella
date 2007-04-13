@@ -141,6 +141,17 @@ let tests =
                    assert_pprint_equal "{B}" h2 ;
                | _ -> assert_failure "Pattern mismatch") ;
 
+      "Case on exists" >::
+        (fun () ->
+           let term = parse "exists A B, {eval A B}" in
+           let used = [] in
+             match case term prog used with
+               | [(f, v, [h])] ->
+                   let var_names = List.map fst v in
+                     assert_string_list_equal ["A"; "B"] var_names ;
+                     assert_pprint_equal "{eval A B}" h ;
+               | _ -> assert_failure "Pattern mismatch") ;
+
       "Single induction creation" >::
         (fun () ->
            let stmt = parse

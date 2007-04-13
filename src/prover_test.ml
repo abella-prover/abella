@@ -4,10 +4,6 @@ open Prover
 open Lppterm
 open Term
 
-let assert_string_list_equal lst1 lst2 =
-  assert_int_equal (List.length lst1) (List.length lst2) ;
-  ignore (List.map2 (assert_equal ~printer:(fun s -> s)) lst1 lst2)
-
 let assert_n_subgoals n =
   if n <> 1 + List.length !subgoals then
     assert_failure ("Expected " ^ (string_of_int n) ^ " subgoal(s), " ^

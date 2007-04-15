@@ -86,6 +86,9 @@ let freshen_clause tag head body used =
     | head::body -> head, body
     | _ -> assert false
 
+let freshen_bindings tag bindings term used =
+  replace_lppterm_vars (fresh_alist tag bindings used) term
+
 (* Object level cut *)
 
 let is_imp t =
@@ -149,8 +152,7 @@ let rec map_args f t =
 let apply_forall stmt ts =
   match stmt with
     | Forall(bindings, body) ->
-        let alist = fresh_alist Logic bindings [] in
-        let fresh_body = replace_lppterm_vars alist body in
+        let fresh_body = freshen_bindings Logic bindings body [] in
         let formal = map_args obj_to_restriction fresh_body in
         let actual = List.map obj_to_restriction ts in
           check_restrictions formal actual ;
@@ -269,8 +271,8 @@ let search n goal clauses used hyps =
   let rec lppterm_aux goal =
     match goal with
       | Or(left, right) -> lppterm_aux left or lppterm_aux right
+      | Exists(bindings, body) ->
+          term_aux n (freshen_bindings Logic bindings body used)
       | _ -> term_aux n goal
   in
     lppterm_aux goal
-
-

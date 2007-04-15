@@ -7,6 +7,8 @@ open Tactics
 let parse = parse_lppterm
 
 let prog = eval_clauses
+
+let assert_search_success f = assert_bool "Search should succeed" f
     
 let tests =
   "Tactics" >:::
@@ -189,15 +191,13 @@ let tests =
         (fun () ->
            let term = parse "{eval A B}" in
            let vars = ["A"; "B"] in
-             assert_bool "Search should succeed"
-               (search 0 term prog vars [term])) ;
+             assert_search_success (search 0 term prog vars [term])) ;
       
       "1-step search with no body" >::
         (fun () ->
            let goal = parse "{eval (abs R) (abs R)}" in
            let vars = ["R"] in
-             assert_bool "Search should succeed"
-               (search 1 goal prog vars [])) ;
+             assert_search_success (search 1 goal prog vars [])) ;
       
       "1-step search with body" >::
         (fun () ->
@@ -205,23 +205,26 @@ let tests =
            let hyp2 = parse "{eval (R N) V}" in
            let goal = parse "{eval (app M N) V}" in
            let vars = ["M"; "N"; "V"; "R"] in
-             assert_bool "Search should succeed"
-               (search 1 goal prog vars [hyp1; hyp2])) ;
+             assert_search_success (search 1 goal prog vars [hyp1; hyp2])) ;
 
       "OR left search" >::
         (fun () ->
            let hyp = parse "{eval A B}" in
            let term = parse "{eval A B} or {false}" in
            let vars = ["A"; "B"] in
-             assert_bool "Search should succeed"
-               (search 0 term prog vars [hyp])) ;
+             assert_search_success (search 0 term prog vars [hyp])) ;
       
       "OR right search" >::
         (fun () ->
            let hyp = parse "{eval A B}" in
            let term = parse "{false} or {eval A B}" in
            let vars = ["A"; "B"] in
-             assert_bool "Search should succeed"
-               (search 0 term prog vars [hyp])) ;
+             assert_search_success (search 0 term prog vars [hyp])) ;
+
+      "Exists search" >::
+        (fun () ->
+           let term = parse "exists R, {eq (app M N) R}" in
+           let vars = ["M"; "N"] in
+             assert_search_success (search 1 term prog vars [])) ;
       
     ]

@@ -1,7 +1,6 @@
 Soon
 ====
 Add 'exists'
-    Add searching for exists goal
     Add apply IH when there is exists in the result
 Add 'and'
 

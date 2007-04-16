@@ -96,6 +96,36 @@ let tests =
              )
         ) ;
 
+      "Progress for eval example (without explicit progress predicate)" >::
+        (fun () ->
+           setup_prover ()
+             ~clauses:eval_clauses
+             ~goal:("forall P T, {typeof P T} -> " ^
+                      "{value P} or exists P', {step P P'}") ;
+
+           assert_proof
+             (fun () ->
+                induction 1 ;
+                intros () ;
+                case "H1" ;
+                assert_n_subgoals 2 ;
+                
+                search () ;
+                assert_n_subgoals 1 ;
+
+                apply "IH" ["H2"] ;
+                case "H4" ;
+                assert_n_subgoals 2 ;
+
+                case "H5" ;
+                search () ;
+                assert_n_subgoals 1 ;
+
+                case "H5" ;
+                search () ;
+             )
+        ) ;
+
       "Cases should not consume fresh hyp names" >::
         (fun () ->
            setup_prover ()

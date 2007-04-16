@@ -80,4 +80,16 @@ let tests =
            let t = lpp_or (exists ["A"] b) c in
              assert_pprint_equal "(exists A, {B}) or {C}" t) ;
 
+      "Replace should descend underneath exists" >::
+        (fun () ->
+           let t = exists ["A"] b in
+           let t' = replace_lppterm_vars [("B", var_c)] t in
+             assert_pprint_equal "exists A, {C}" t') ;
+
+      "Replace should not descend underneath exists if names are equal" >::
+        (fun () ->
+           let t = exists ["A"] a in
+           let t' = replace_lppterm_vars [("A", var_b)] t in
+             assert_pprint_equal "exists A, {A}" t') ;
+
     ]

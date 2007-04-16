@@ -59,16 +59,28 @@ let replace_term_vars alist t =
   in
     aux t
 
-let replace_lppterm_vars alist t =
-  let rec aux t =
+let remove_assoc_list to_remove alist =
+  let rec aux alist =
+    match alist with
+      | (a, b)::rest ->
+          if List.mem a to_remove
+          then aux rest
+          else (a, b)::(aux rest)
+      | [] -> []
+  in
+    aux alist
+      
+let rec replace_lppterm_vars alist t =
+  let aux t = replace_lppterm_vars alist t in
     match t with
       | Obj(t, r) -> Obj(replace_term_vars alist t, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Forall _ -> failwith "Cannot replace vars inside forall"
-      | Exists _ -> failwith "Cannot replace vars inside exists"
+      | Exists(bindings, body) ->
+          let alist' = remove_assoc_list bindings alist in
+          let body' = replace_lppterm_vars alist' body in
+            Exists(bindings, body')
       | Or(a, b) -> Or(aux a, aux b)
-  in
-    aux t
 
       
 (* Pretty printing *)

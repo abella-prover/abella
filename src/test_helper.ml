@@ -33,3 +33,10 @@ let assert_string_list_equal lst1 lst2 =
   assert_int_equal (List.length lst1) (List.length lst2) ;
   ignore (List.map2 (assert_equal ~printer:id) lst1 lst2)
 
+let assert_raises_any ?msg (f: unit -> 'a) =
+  let str = "expected exception, but no exception was raised." in
+    match raises f, msg with
+      | Some e, _ -> ()
+	  | None, None -> assert_failure str
+	  | None, Some s -> assert_failure (Format.sprintf "%s\n%s" s str)
+

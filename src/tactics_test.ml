@@ -18,6 +18,11 @@ let tests =
            let t = object_cut (parse "{A => B}") (parse "{A}") in
              assert_pprint_equal "{B}" t) ;
       
+      "Failed object cut" >::
+        (fun () ->
+           assert_raises_any
+             (fun () -> object_cut (parse "{A => B}") (parse "{C}"))) ;
+      
       "Compound object cut" >::
         (fun () ->
            let h0 = parse "{eval A B => typeof B C}" in
@@ -31,6 +36,20 @@ let tests =
            let a = var ~tag:Eigen "A" 0 in
            let t = object_inst h0 a in
              assert_pprint_equal "{eval A B}" t) ;
+      
+      "Failed object instantiation - missing pi" >::
+        (fun () ->
+           let h0 = parse "{sigma x\\ eval x B}" in
+           let a = var ~tag:Eigen "A" 0 in
+             assert_raises_any
+               (fun () -> object_inst h0 a)) ;
+
+      "Failed object instantiation - missing lambda" >::
+        (fun () ->
+           let h0 = parse "{pi eval x B}" in
+           let a = var ~tag:Eigen "A" 0 in
+             assert_raises_any
+               (fun () -> object_inst h0 a)) ;
 
       "Forall application" >::
         (fun () ->

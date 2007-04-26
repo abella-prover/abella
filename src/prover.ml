@@ -150,14 +150,9 @@ let display () =
 
 let inst h t =
   save_undo_state () ;
-  let stmt = get_hyp h in
-    if is_pi_abs (obj_to_term stmt) then
-      add_hyp (object_inst stmt (replace_term_vars sequent.vars t))
-    else
-      failwith ("Hypothesis must have the form {pi x\\ ...} " ^
-                  "in order to instantiate it with a term.")
+  add_hyp (object_inst (get_hyp h) (replace_term_vars sequent.vars t))
 
-        
+      
 (* Apply *)
           
 let apply h args =

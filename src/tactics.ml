@@ -129,8 +129,11 @@ let extract_pi_abs t =
 
 let object_inst t x =
   let t = obj_to_term t in
-  let abs = extract_pi_abs t in
-    obj (Norm.deep_norm (app abs [x]))
+    if is_pi_abs t then
+      obj (Norm.deep_norm (app (extract_pi_abs t) [x]))
+    else
+      failwith ("Object instantiation requires a hypothesis of the form " ^
+                  "{pi x\\ ...}")
 
 
 (* Apply forall statement *)

@@ -10,7 +10,7 @@ induction on 1. intros. case H1.
   apply app_det to H2 and H3. case H4. search.
   case H2. apply IH to H4 and H5 and H3. search.
 
-Theorem lemma : forall A A' B X,
+Theorem rev_lemma : forall A A' B X,
  {rev A A'} -> {append A (cons X nil) B} -> {rev B (cons X A')}.
 induction on 1. intros. case H1.
   case H2. search.
@@ -20,4 +20,18 @@ Theorem rev_rev : forall A B,
  {rev A B} -> {rev B A}.
 induction on 1. intros. case H1.
   search.
-  apply IH to H2. apply lemma to H4 and H3. search.
+  apply IH to H2. apply rev_lemma to H4 and H3. search.
+
+Theorem perm_lemma : forall A B B' X,
+ {perm B' A} -> {select B X B'} -> {perm B (cons X A)}.
+induction on 2. intros. case H2.
+  search.
+  case H1. apply IH to H4 and H3. search.
+  
+Theorem perm_perm : forall A B,
+ {perm A B} -> {perm B A}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. apply perm_lemma to H4 and H3. search.
+  
+  

@@ -32,6 +32,9 @@ Allow forall application with OR on the left
 Add a show_lemmas command
 Add 'abort'
 
+Add warning if using a capital name without it appearing in forall
+  e.g. forall A, {rev A B} -> {rev B A}. should warn about B.
+
 Theorems for eval
 =================
 

@@ -1,0 +1,23 @@
+Theorem app_det : forall A B C C',
+ {append A B C} -> {append A B C'} -> {eq C C'}.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H3 and H4. case H5. search.
+
+Theorem app_assoc : forall A B C AB BC ABC,
+ {append A B AB} -> {append AB C ABC} -> {append B C BC} -> {append A BC ABC}.
+induction on 1. intros. case H1.
+  apply app_det to H2 and H3. case H4. search.
+  case H2. apply IH to H4 and H5 and H3. search.
+
+Theorem lemma : forall A A' B X,
+ {rev A A'} -> {append A (cons X nil) B} -> {rev B (cons X A')}.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H3 and H5. search.
+
+Theorem rev_rev : forall A B,
+ {rev A B} -> {rev B A}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. apply lemma to H4 and H3. search.

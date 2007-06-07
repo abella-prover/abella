@@ -209,41 +209,35 @@ let tests =
       "0-step search" >::
         (fun () ->
            let term = parse "{eval A B}" in
-           let vars = ["A"; "B"] in
-             assert_search_success (search 0 term prog vars [term])) ;
+             assert_search_success (search 0 term prog [term])) ;
       
       "1-step search with no body" >::
         (fun () ->
            let goal = parse "{eval (abs R) (abs R)}" in
-           let vars = ["R"] in
-             assert_search_success (search 1 goal prog vars [])) ;
+             assert_search_success (search 1 goal prog [])) ;
       
       "1-step search with body" >::
         (fun () ->
            let hyp1 = parse "{eval M (abs R)}" in
            let hyp2 = parse "{eval (R N) V}" in
            let goal = parse "{eval (app M N) V}" in
-           let vars = ["M"; "N"; "V"; "R"] in
-             assert_search_success (search 1 goal prog vars [hyp1; hyp2])) ;
+             assert_search_success (search 1 goal prog [hyp1; hyp2])) ;
 
       "OR left search" >::
         (fun () ->
            let hyp = parse "{eval A B}" in
            let term = parse "{eval A B} or {false}" in
-           let vars = ["A"; "B"] in
-             assert_search_success (search 0 term prog vars [hyp])) ;
+             assert_search_success (search 0 term prog [hyp])) ;
       
       "OR right search" >::
         (fun () ->
            let hyp = parse "{eval A B}" in
            let term = parse "{false} or {eval A B}" in
-           let vars = ["A"; "B"] in
-             assert_search_success (search 0 term prog vars [hyp])) ;
+             assert_search_success (search 0 term prog [hyp])) ;
 
       "Exists search" >::
         (fun () ->
            let term = parse "exists R, {eq (app M N) R}" in
-           let vars = ["M"; "N"] in
-             assert_search_success (search 1 term prog vars [])) ;
+             assert_search_success (search 1 term prog [])) ;
       
     ]

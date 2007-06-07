@@ -10,5 +10,4 @@ select (cons X A) X A.
 select (cons Y A) X (cons Y B) :- select A X B.
 
 perm nil nil.
-perm (cons X A') B :- perm A' B', select B X B'.
-% Proofs don't yet work if select is first
+perm (cons X A') B :- select B X B', perm A' B'.

@@ -205,8 +205,7 @@ let induction args =
 
 let search () =
   save_undo_state () ;
-  if Tactics.search 5 sequent.goal !clauses
-    (var_names ()) (List.map snd sequent.hyps) then
+  if Tactics.search 5 sequent.goal !clauses (List.map snd sequent.hyps) then
     next_subgoal ()
   else
     ()

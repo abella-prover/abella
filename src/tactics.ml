@@ -57,9 +57,9 @@ let fresh_alist tag ids used =
                   (x, fresh))
       ids
       
-let get_eigen_vars_alist ts =
+let get_vars_alist tag ts =
   List.map (fun v -> ((term_to_var v).name, v))
-    (find_var_refs Eigen (List.map obj_to_term ts))
+    (find_var_refs tag (List.map obj_to_term ts))
 
 let is_capital str =
   match str.[0] with
@@ -196,7 +196,7 @@ let term_case term clauses used =
        let fresh_head, fresh_body = freshen_clause Eigen head body used in
        let initial_state = save_state () in
          if try_left_object_unify fresh_head term then
-           let new_vars = get_eigen_vars_alist (fresh_head::fresh_body) in
+           let new_vars = get_vars_alist Eigen (fresh_head::fresh_body) in
            let subst = get_subst initial_state in
            let set_state () = (restore_state initial_state ;
                                apply_subst subst) in
@@ -252,8 +252,8 @@ let induction ind_arg stmt =
 
 (* Search *)
 
-let search n goal clauses used hyps =
-  let rec term_aux n goal =
+let search n goal clauses hyps =
+  let rec term_aux n used goal =
     if List.exists (try_right_object_unify goal)
       (List.filter is_obj hyps) then
         true
@@ -268,14 +268,19 @@ let search n goal clauses used hyps =
                   freshen_clause Logic head body used
                 in
                   right_object_unify fresh_head goal ;
-                  List.for_all (term_aux (n-1)) fresh_body))
+                  let curr_used =
+                    List.map fst (get_vars_alist Logic fresh_body)
+                  in
+                    List.for_all (term_aux (n-1) curr_used) fresh_body))
         clauses
   in
   let rec lppterm_aux goal =
     match goal with
       | Or(left, right) -> lppterm_aux left or lppterm_aux right
       | Exists(bindings, body) ->
-          term_aux n (freshen_bindings Logic bindings body used)
-      | _ -> term_aux n goal
+          let term = freshen_bindings Logic bindings body [] in
+          let used = List.map fst (get_vars_alist Logic [term]) in
+            term_aux n used term
+      | _ -> term_aux n [] goal
   in
     lppterm_aux goal

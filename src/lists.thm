@@ -26,12 +26,12 @@ Theorem perm_lemma : forall A B B' X,
  {perm B' A} -> {select B X B'} -> {perm B (cons X A)}.
 induction on 2. intros. case H2.
   search.
-  case H1. apply IH to H4 and H3. search.
+  case H1. apply IH to H5 and H3. search.
   
-Theorem perm_perm : forall A B,
- {perm A B} -> {perm B A}.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. apply perm_lemma to H4 and H3. search.
+%Theorem perm_perm : forall A B,
+% {perm A B} -> {perm B A}.
+%induction on 1. intros. case H1.
+%  search.
+%  apply IH to H2. apply perm_lemma to H4 and H3. search.
   
   

@@ -22,10 +22,15 @@ non_normal (app M N) :- non_normal N.
 non_normal (abs R) :- pi x\ non_normal (R x).
 
 
-normal (abs R) :- pi x\ normal_head x => normal (R x).
+normal (abs R) :- pi x\ var x => normal (R x).
 normal (app M N) :- normal_head M, normal N.
+normal X :- var X.
 
 normal_head (app M N) :- normal_head M, normal N.
+normal_head X :- var X.
 
 % Theorem forall T, {term T} -> {normal T} or {non_normal T}.
+%
+% Theorem head_lemma : forall T, {normal_head T} -> {normal T}.
 % Theorem forall T, {term T} -> {normal T} -> {non_normal T} -> {false}.
+

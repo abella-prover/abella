@@ -1,5 +1,15 @@
 Soon
 ====
+Add support for contexts and variables
+
+With support for contexts, do the cut elimination proof
+
+With support for contexts and names,
+     Dale's copy example
+     Dale's normal example
+     Dale's substitution example
+     Cut elimination with forall quantifier
+
 Add 'and'
 
 Move things from prover to tactics if they use Tactics.foo

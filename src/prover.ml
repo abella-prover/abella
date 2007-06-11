@@ -226,6 +226,7 @@ let rec split_args stmt =
           (left::args, goal)
     | Obj _
     | Or(_, _) -> ([], stmt)
+    | Exists(_, _) -> ([], stmt)
     | _ -> invalid_lppterm_arg stmt
 
 let intros () =

@@ -1,3 +1,9 @@
+Theorem app_total : forall A B,
+  {list A} -> exists C, {append A B C}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. case H3. search.
+
 Theorem app_det : forall A B C C',
  {append A B C} -> {append A B C'} -> {eq C C'}.
 induction on 1. intros. case H1.
@@ -28,10 +34,10 @@ induction on 2. intros. case H2.
   search.
   case H1. apply IH to H5 and H3. search.
   
-%Theorem perm_perm : forall A B,
-% {perm A B} -> {perm B A}.
-%induction on 1. intros. case H1.
-%  search.
-%  apply IH to H2. apply perm_lemma to H4 and H3. search.
+Theorem perm_perm : forall A B,
+ {perm A B} -> {perm B A}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H3. apply perm_lemma to H4 and H2. search.
   
   

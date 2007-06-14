@@ -1,6 +1,5 @@
 Soon
 ====
-Fix LLambda unification issue
 Add equivariant unification
 
 Where do we add raising over supp(T)?
@@ -47,20 +46,3 @@ Add 'abort'
 
 Add warning if using a capital name without it appearing in forall
   e.g. forall A, {rev A B} -> {rev B A}. should warn about B.
-
-Theorems for eval
-=================
-
-Determinancy of semantics:
-  (Done) big step
-  (Fail) one step - not LLambda
-  (Fail) nstep - requires lemma on one-step
-
-Equivalence of semantics
-  (Fail) big step -> nstep - I think this requires a lemma about nstep/step
-  (Fail) nstep -> big step - Not LLambda and requires lemma
-
-Subject reduction
-  (Done) big step
-  (Fail) one step - not LLambda
-  (Fail) nstep - probably requires lemma on one-step

@@ -536,6 +536,19 @@ and unify_app_term h1 a1 t1 t2 = match Term.observe h1,Term.observe t2 with
       failwith "logic variable on the left"
   | _ -> raise (ConstClash (h1,t2))
 
+(** Here we assume t1 is a variable we want to bind to t2. We must check that
+  * there is no-cyclic substitution and that nothing with a timestamp higher
+  * than t1 is allowed. *)
+and rigid_path_check t1 t2 =
+  match Term.observe t1, Term.observe t2 with
+    | Term.Var v1, Term.Var v2 when v1 = v2 -> raise OccursCheck
+    | Term.Var {ts=ts1}, Term.Var {ts=ts2} when ts2 > ts1 -> raise OccursCheck
+    | _, Term.Var _ -> ()
+    | _, Term.DB i -> ()
+    | _, Term.Lam(n2,t2) -> rigid_path_check t1 t2
+    | Term.Var v1, Term.App(h2,a2) -> List.iter (rigid_path_check t1) a2
+    | _, _ -> assert false
+
 (** The main unification procedure.
   * Either succeeds and realizes the unification substitutions as side effects
   * or raises an exception to indicate nonunifiability or to signal
@@ -549,8 +562,13 @@ and unify_app_term h1 a1 t1 t2 = match Term.observe h1,Term.observe t2 with
   * lambdas or applications at the top level. Any necessary adjustment
   * of binders through the eta rule is done on the fly. *)
 and unify t1 t2 = match Term.observe t1,Term.observe t2 with
-  | Term.Var {tag=t},_ when variable t -> Term.bind t1 (makesubst t1 t2 [] 0)
-  | _,Term.Var {tag=t} when variable t -> Term.bind t2 (makesubst t2 t1 [] 0)
+  | Term.Var v1, Term.Var v2 when v1 = v2 -> ()
+  | Term.Var {tag=t},_ when variable t ->
+      rigid_path_check t1 t2 ;
+      Term.bind t1 t2
+  | _,Term.Var {tag=t} when variable t ->
+      rigid_path_check t2 t1 ;
+      Term.bind t2 t1
   | Term.App (h1,a1),_                 -> unify_app_term h1 a1 t1 t2
   | _,Term.App (h2,a2)                 -> unify_app_term h2 a2 t2 t1
   | Term.Var {tag=t},_ when constant t -> unify_const_term t1 t2

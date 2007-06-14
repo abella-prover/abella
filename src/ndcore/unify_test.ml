@@ -277,7 +277,6 @@ let tests =
              unify (2 // (p ^^ [db 2])) (1 // (q ^^ [db 1])) ;
              assert_term_equal (2 // (p ^^ [db 2])) q) ;
 
-      (* This one used to fail, I don't remember having fixed it consciously.. *)
       "[T = a X, T = a Y, Y = T]" >::
         (fun () ->
            let t = var "T" 1 in
@@ -290,7 +289,6 @@ let tests =
              begin try unify y t ; assert false with
                | Unify.Error _ -> () end) ;
 
-      (* This one used to fail, but the bug is fixed *)
       "[x\\y\\ H1 x = x\\y\\ G2 x]" >::
         (fun () ->
            let h = var "H" 1 in
@@ -337,13 +335,29 @@ let tests =
              unify evalAB evalapp ;
              assert_pprint_equal "eval (app M N) V" evalAB) ;
       
+      "[X = X]" >::
+        (fun () ->
+           let x = var "X" 0 in
+             unify x x ;
+             assert_pprint_equal "X" x) ;
+      
       "Loosening of LLambda restriction" >::
         (fun () ->
            let a = var "A" 0 in
            let b = var "B" 0 in
            let c = var "C" 0 in
-             assert_raises (Unify.NotLLambda c)
-               (fun () -> unify a (app b [c]))) ;
+             unify a (app b [c]) ;
+             assert_pprint_equal "B C" a) ;
+
+      "Loosening of LLambda restriction inside of constructor" >::
+        (fun () ->
+           let a = var "A" 0 in
+           let b = var "B" 0 in
+           let c = var "C" 0 in
+           let d = var "D" 0 in
+           let term = app (const "cons") [app b [c]; d] in
+             unify a term ;
+             assert_pprint_equal "cons (B C) D" a) ;
 
       (* This is a test for a bug pointed out by David. Since we don't use
          timestamps, however, I'm going to ignore it for now.

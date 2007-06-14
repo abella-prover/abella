@@ -1,6 +1,13 @@
 Soon
 ====
-Add support for contexts and variables
+Fix LLambda unification issue
+Add equivariant unification
+
+Where do we add raising over supp(T)?
+
+Add support for contexts
+
+Add support for linc predicates like ctxpair and neg
 
 With support for contexts, do the cut elimination proof
 
@@ -17,8 +24,6 @@ Move things from prover to tactics if they use Tactics.foo
 Larger or longer term issues
 ============================
 
-Fix LLambda issue
-
 Fix all substitution capture issues with replace_lppterm_vars
       "Replace should not capture exists variables" >::
         (fun () ->
@@ -28,9 +33,7 @@ Fix all substitution capture issues with replace_lppterm_vars
 
 Handle the context on induction and restrictions on case
 
-Parse lambda prolog sig files
-  Moreover, are we ever going to do something with all these types
-  floating around?
+Use type information from sig files?
 
 Seperate parsers more?
 

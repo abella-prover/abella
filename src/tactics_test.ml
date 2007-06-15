@@ -272,5 +272,10 @@ let tests =
                "{eval M (abs R), eval (R N) V |- eval (app M N) V}"
            in
              assert_search_success (search 1 goal prog [])) ;
-      
+
+      "Search should move implies to the left" >::
+        (fun () ->
+           let hyp = parse "{A |- B}" in
+           let goal = parse "{A => B}" in
+             assert_search_success (search 1 goal prog [hyp])) ;
     ]

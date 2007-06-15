@@ -101,6 +101,8 @@ let is_imp t =
     | App(t, _) -> eq t (const "=>")
     | _ -> false
 
+let obj_is_imp t = is_imp (obj_to_term t)
+    
 let extract_imp t =
   match observe t with
     | App(t, [a; b]) -> (a, b)
@@ -196,15 +198,17 @@ let collect_some f list =
                 | _ -> assert false)
     (List.filter (fun x -> x <> None)
        (List.map f list))
+
+let set_current_state () =
+  let current_state = save_state () in
+    (fun () -> restore_state current_state)
     
 let term_case term clauses used =
-  if is_imp (obj_to_term term) then
+  if obj_is_imp term then
     match term with
       | Obj(ctx, term, res) ->
           let a, b = extract_imp term in
-          let initial_state = save_state () in
-          let set_state () = restore_state initial_state in
-            [{ set_state = set_state ;
+            [{ set_state = set_current_state () ;
                new_vars = [] ;
                new_hyps = [ reduce_restriction
                               (Obj(Context.add a ctx, b, res)) ] }]
@@ -231,22 +235,21 @@ let term_case term clauses used =
       clauses
 
 let case term clauses used =
-  let initial_state = save_state () in
-  let restore () = restore_state initial_state in
-    match term with
-      | Obj _ -> term_case term clauses used
-      | Or(left, right) ->
-          let make_simple_case h =
-            { set_state = restore ; new_vars = [] ; new_hyps = [h] }
-          in
-            [make_simple_case left; make_simple_case right]
-      | Exists(ids, body) ->
-          let fresh_ids = fresh_alist Eigen ids used in
-          let fresh_body = replace_lppterm_vars fresh_ids body in
-            [{ set_state = restore ;
-               new_vars = fresh_ids ;
-               new_hyps = [fresh_body] }]
-      | _ -> invalid_lppterm_arg term
+  match term with
+    | Obj _ -> term_case term clauses used
+    | Or(left, right) ->
+        let make_simple_case h =
+          { set_state = set_current_state () ;
+            new_vars = [] ; new_hyps = [h] }
+        in
+          [make_simple_case left; make_simple_case right]
+    | Exists(ids, body) ->
+        let fresh_ids = fresh_alist Eigen ids used in
+        let fresh_body = replace_lppterm_vars fresh_ids body in
+          [{ set_state = set_current_state () ;
+             new_vars = fresh_ids ;
+             new_hyps = [fresh_body] }]
+    | _ -> invalid_lppterm_arg term
 
 
 (* Induction *)
@@ -284,6 +287,12 @@ let search n goal clauses hyps =
         true
     else if n = 0 then
       false
+    else if obj_is_imp goal then
+      match goal with
+      | Obj(ctx, goal, res) ->
+          let a, b = extract_imp goal in
+            term_aux (n-1) used (Obj(Context.add a ctx, b, res))
+      | _ -> assert false
     else
       List.exists
         (fun (head, body) ->

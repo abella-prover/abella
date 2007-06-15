@@ -6,6 +6,7 @@ Contexts
 
   do we have to consider logic variables in the context during search?
 
+Make an objection function called case_imp or whatever
 Move obj to its own type so we don't have to use so many accessors and stuff
 
 Fix rigid_path_check
@@ -30,6 +31,8 @@ Move things from prover to tactics if they use Tactics.foo
 
 Larger or longer term issues
 ============================
+
+Remove duplication between case analysis and searching
 
 Fix all substitution capture issues with replace_lppterm_vars
       "Replace should not capture exists variables" >::

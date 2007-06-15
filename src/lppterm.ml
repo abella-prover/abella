@@ -31,10 +31,15 @@ let is_obj t =
         
 (* Manipulations *)
   
+let obj_to_context t =
+  match t with
+    | Obj(c, _, _) -> c
+    | _ -> failwith "obj_to_context called on non-object"
+        
 let obj_to_term t =
   match t with
     | Obj(_, t, _) -> t
-    | _ -> failwith "obj_to_term called on non-obj"
+    | _ -> failwith "obj_to_term called on non-object"
 
 let obj_to_restriction t =
   match t with
@@ -46,10 +51,23 @@ let apply_restriction r t =
     | Obj(c, t, _) -> Obj(c, t, r)
     | _ -> failwith "Attempting to apply restriction to non-object"
 
+let reduce_restriction t =
+  match t with
+    | Obj(c, t, Irrelevant) -> Obj(c, t, Irrelevant)
+    | Obj(c, t, Equal) -> Obj(c, t, Smaller)
+    | Obj(c, t, Smaller) -> Obj(c, t, Smaller)
+    | _ -> failwith "Attempting to apply restriction to non-object"
+
 let add_to_context elt t =
   match t with
     | Obj(c, t, r) -> Obj(Context.add elt c, t, r)
+    | _ -> failwith "Attempting to add to context to non-object"
+
+let add_context ctx t =
+  match t with
+    | Obj(c, t, r) -> Obj(Context.union c ctx, t, r)
     | _ -> failwith "Attempting to add context to non-object"
+    
 
 let replace_term_vars alist t =
   let rec aux t =

@@ -1,15 +1,12 @@
 Soon
 ====
-Need better parsing of contexts,
-  Should distinguish between variables and terms
-
 Contexts
-  search should check context for answer
-  search should require subcontext for hypothesis
-  case should work on implications
   apply should instantiate one context with another
   case should look in context as a subcase
 
+  do we have to consider logic variables in the context during search?
+
+Move obj to its own type so we don't have to use so many accessors and stuff
 
 Fix rigid_path_check
 

@@ -94,7 +94,7 @@ let tests =
 
       "Print non-empty context" >::
         (fun () ->
-           let t = add_to_context (Context.var "L") a in
+           let t = add_to_context (const "L") a in
              assert_pprint_equal "{L |- A}" t) ;
 
     ]

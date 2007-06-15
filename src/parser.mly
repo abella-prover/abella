@@ -20,9 +20,9 @@ contexted_term:
   | term                                { Lppterm.obj $1 }
 
 context:
-  | term COMMA context                  { Context.add (Context.term $1) $3 }
-  | term                                { Context.add (Context.term $1)
-                                            Context.empty }
+  | term COMMA context                  { Context.add $1 $3 }
+  | term                                { Context.add $1 Context.empty }
+      
 term:
   | term IMP term                       { Term.binop "=>" $1 $3 }
   | ID BSLASH term                      { Term.abstract $1 $3 }

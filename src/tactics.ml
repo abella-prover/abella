@@ -46,6 +46,11 @@ let try_right_object_unify t1 t2 =
        right_object_unify t1 t2 ;
        true)
 
+let try_right_unify t1 t2 =
+  try_with_state
+    (fun () ->
+       Right.pattern_unify t1 t2 ;
+       true)
 
 (* Variable naming utilities *)
 
@@ -193,25 +198,37 @@ let collect_some f list =
        (List.map f list))
     
 let term_case term clauses used =
-  collect_some
-    (fun (head, body) ->
-       let fresh_head, fresh_body = freshen_clause Eigen head body used in
-       let initial_state = save_state () in
-         if try_left_object_unify fresh_head term then
-           let new_vars = get_vars_alist Eigen (fresh_head::fresh_body) in
-           let subst = get_subst initial_state in
-           let set_state () = (restore_state initial_state ;
-                               apply_subst subst) in
-             restore_state initial_state ;
-             Some { set_state = set_state ;
-                    new_vars = new_vars ;
-                    new_hyps = match term with
-                      | Obj(_, _, r) when r <> Irrelevant ->
-                          List.map (apply_restriction Smaller) fresh_body
-                      | _ -> fresh_body }
-         else
-           None)
-    clauses
+  if is_imp (obj_to_term term) then
+    match term with
+      | Obj(ctx, term, res) ->
+          let a, b = extract_imp term in
+          let initial_state = save_state () in
+          let set_state () = restore_state initial_state in
+            [{ set_state = set_state ;
+               new_vars = [] ;
+               new_hyps = [ reduce_restriction
+                              (Obj(Context.add a ctx, b, res)) ] }]
+      | _ -> assert false
+  else
+    collect_some
+      (fun (head, body) ->
+         let fresh_head, fresh_body = freshen_clause Eigen head body used in
+         let initial_state = save_state () in
+           if try_left_object_unify fresh_head term then
+             let new_vars = get_vars_alist Eigen (fresh_head::fresh_body) in
+             let subst = get_subst initial_state in
+             let set_state () = (restore_state initial_state ;
+                                 apply_subst subst) in
+               restore_state initial_state ;
+               Some { set_state = set_state ;
+                      new_vars = new_vars ;
+                      new_hyps = match term with
+                        | Obj(_, _, r) when r <> Irrelevant ->
+                            List.map (apply_restriction Smaller) fresh_body
+                        | _ -> fresh_body }
+           else
+             None)
+      clauses
 
 let case term clauses used =
   let initial_state = save_state () in
@@ -254,10 +271,16 @@ let induction ind_arg stmt =
 
 (* Search *)
 
+let derivable goal hyp =
+  Context.subcontext (obj_to_context hyp) (obj_to_context goal) &&
+    try_right_object_unify goal hyp
+
 let search n goal clauses hyps =
   let rec term_aux n used goal =
-    if List.exists (try_right_object_unify goal)
-      (List.filter is_obj hyps) then
+    if List.exists (derivable goal) (List.filter is_obj hyps) then
+        true
+    else if Context.exists (try_right_unify (obj_to_term goal))
+      (obj_to_context goal) then
         true
     else if n = 0 then
       false
@@ -273,7 +296,10 @@ let search n goal clauses hyps =
                   let curr_used =
                     List.map fst (get_vars_alist Logic fresh_body)
                   in
-                    List.for_all (term_aux (n-1) curr_used) fresh_body))
+                  let contexted_body =
+                    List.map (add_context (obj_to_context goal)) fresh_body
+                  in
+                    List.for_all (term_aux (n-1) curr_used) contexted_body))
         clauses
   in
   let rec lppterm_aux goal =

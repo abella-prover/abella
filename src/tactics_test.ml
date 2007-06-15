@@ -8,7 +8,8 @@ let parse = parse_lppterm
 
 let prog = eval_clauses
 
-let assert_search_success f = assert_bool "Search should succeed" f
+let assert_search_success b = assert_bool "Search should succeed" b
+let assert_search_failure b = assert_bool "Search should fail" (not b)
     
 let tests =
   "Tactics" >:::
@@ -183,6 +184,15 @@ let tests =
                      assert_pprint_equal "{eval A B}" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
+      "Case on implies" >::
+        (fun () ->
+           let term = parse "{L |- hyp A => conc B}" in
+           let used = [] in
+             match case term prog used with
+               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+                   assert_pprint_equal "{L, hyp A |- conc B}" hyp
+               | _ -> assert_failure "Pattern mismatch") ;
+
       "Single induction creation" >::
         (fun () ->
            let stmt = parse
@@ -206,17 +216,17 @@ let tests =
                "forall X, {A} or {B} -> {C}@ -> {D}"
                goal) ;
       
-      "0-step search" >::
+      "Search should check hypotheses" >::
         (fun () ->
-           let term = parse "{eval A B}" in
-             assert_search_success (search 0 term prog [term])) ;
+           let goal = parse "{eval A B}" in
+             assert_search_success (search 0 goal prog [goal])) ;
       
-      "1-step search with no body" >::
+      "Search should succeed if clause matches" >::
         (fun () ->
            let goal = parse "{eval (abs R) (abs R)}" in
              assert_search_success (search 1 goal prog [])) ;
       
-      "1-step search with body" >::
+      "Search should backchain on clauses" >::
         (fun () ->
            let hyp1 = parse "{eval M (abs R)}" in
            let hyp2 = parse "{eval (R N) V}" in
@@ -226,18 +236,41 @@ let tests =
       "OR left search" >::
         (fun () ->
            let hyp = parse "{eval A B}" in
-           let term = parse "{eval A B} or {false}" in
-             assert_search_success (search 0 term prog [hyp])) ;
+           let goal = parse "{eval A B} or {false}" in
+             assert_search_success (search 0 goal prog [hyp])) ;
       
       "OR right search" >::
         (fun () ->
            let hyp = parse "{eval A B}" in
-           let term = parse "{false} or {eval A B}" in
-             assert_search_success (search 0 term prog [hyp])) ;
+           let goal = parse "{false} or {eval A B}" in
+             assert_search_success (search 0 goal prog [hyp])) ;
 
       "Exists search" >::
         (fun () ->
-           let term = parse "exists R, {eq (app M N) R}" in
-             assert_search_success (search 1 term prog [])) ;
+           let goal = parse "exists R, {eq (app M N) R}" in
+             assert_search_success (search 1 goal prog [])) ;
+
+      "Search should fail if there is no proof" >::
+        (fun () ->
+           let goal = parse "{eval A B}" in
+             assert_search_failure (search 5 goal prog [])) ;
+      
+      "Search should check context" >::
+        (fun () ->
+           let goal = parse "{eval A B |- eval A B}" in
+             assert_search_success (search 0 goal prog [])) ;
+
+      "Search should fail if hypothesis has non-subcontext" >::
+        (fun () ->
+           let hyp = parse "{eval A B |- eval A B}" in
+           let goal = parse "{eval A B}" in
+             assert_search_failure (search 5 goal prog [hyp])) ;
+
+      "Search should preserve context while backchaining" >::
+        (fun () ->
+           let goal = parse
+               "{eval M (abs R), eval (R N) V |- eval (app M N) V}"
+           in
+             assert_search_success (search 1 goal prog [])) ;
       
     ]

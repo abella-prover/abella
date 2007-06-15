@@ -223,13 +223,16 @@ let term_case term clauses used =
              let subst = get_subst initial_state in
              let set_state () = (restore_state initial_state ;
                                  apply_subst subst) in
+             let contexted_body =
+               List.map (add_context (obj_to_context term)) fresh_body
+             in
                restore_state initial_state ;
                Some { set_state = set_state ;
                       new_vars = new_vars ;
                       new_hyps = match term with
                         | Obj(_, _, r) when r <> Irrelevant ->
-                            List.map (apply_restriction Smaller) fresh_body
-                        | _ -> fresh_body }
+                            List.map (apply_restriction Smaller) contexted_body
+                        | _ -> contexted_body }
            else
              None)
       clauses

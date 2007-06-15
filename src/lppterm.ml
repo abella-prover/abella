@@ -97,9 +97,9 @@ let remove_assoc_list to_remove alist =
 let rec replace_lppterm_vars alist t =
   let aux t = replace_lppterm_vars alist t in
     match t with
-      | Obj([], t, r) -> Obj([], replace_term_vars alist t, r)
       | Obj(c, t, r) ->
-          failwith "replace_term_vars called with non-empty context"
+          Obj(Context.map (replace_term_vars alist) c,
+              replace_term_vars alist t, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Forall _ -> failwith "Cannot replace vars inside forall"
       | Exists(bindings, body) ->

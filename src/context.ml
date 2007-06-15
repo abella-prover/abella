@@ -32,3 +32,5 @@ let union ctx1 ctx2 =
   ctx1 @ ctx2
 
 let exists f ctx = List.exists f ctx
+
+let map f ctx = List.map f ctx

@@ -193,6 +193,30 @@ let tests =
                    assert_pprint_equal "{L, hyp A |- conc B}" hyp
                | _ -> assert_failure "Pattern mismatch") ;
 
+      "Case should pass along context" >::
+        (fun () ->
+           let a = var ~tag:Eigen "A" 0 in
+           let b = var ~tag:Eigen "B" 0 in
+           let l = var ~tag:Eigen "L" 0 in
+           let term = obj (app (const "eval") [a; b]) in
+           let contexted_term = add_to_context l term in
+             match case contexted_term prog ["A"; "B"] with
+               | [case1; case2] ->
+                   case1.set_state () ;
+                   assert_pprint_equal "{L |- eval (abs R) (abs R)}"
+                     contexted_term ;
+                   
+                   case2.set_state () ;
+                   assert_pprint_equal "{L |- eval (app M N) B}"
+                     contexted_term ;
+                   begin match case2.new_hyps with
+                     | [h1; h2] ->
+                         assert_pprint_equal "{L |- eval M (abs R)}" h1 ;
+                         assert_pprint_equal "{L |- eval (R N) B}" h2 ;
+                     | _ -> assert_failure "Expected 2 new hypotheses"
+                   end ;
+               | _ -> assert_failure "Expected 2 cases") ;
+
       "Single induction creation" >::
         (fun () ->
            let stmt = parse

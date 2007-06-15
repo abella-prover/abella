@@ -1,0 +1,6 @@
+Theorem land_left_inv :
+  forall L C1 C2, {L |- conc (land C1 C2)} -> {L |- conc C1}.
+induction on 1. intros. case H1.
+  search.
+  search.
+  case H3. case H4. apply IH to H5.

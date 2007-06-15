@@ -24,6 +24,8 @@ let add_clauses = read_mod "add.mod"
     
 let id x = x
 
+let assert_string_equal = assert_equal ~printer:(fun s -> s)
+
 let assert_pprint_equal s t =
   assert_equal ~printer:id s (lppterm_to_string t)
 
@@ -31,7 +33,7 @@ let assert_int_equal = assert_equal ~printer:string_of_int
 
 let assert_string_list_equal lst1 lst2 =
   assert_int_equal (List.length lst1) (List.length lst2) ;
-  ignore (List.map2 (assert_equal ~printer:id) lst1 lst2)
+  ignore (List.map2 assert_string_equal lst1 lst2)
 
 let assert_raises_any ?msg (f: unit -> 'a) =
   let str = "expected exception, but no exception was raised." in

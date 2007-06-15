@@ -1,10 +1,21 @@
 Soon
 ====
+Need better parsing of contexts,
+  Should distinguish between variables and terms
+
+Contexts
+  search should check context for answer
+  search should require subcontext for hypothesis
+  case should work on implications
+  apply should instantiate one context with another
+  case should look in context as a subcase
+
+
+Fix rigid_path_check
+
 Add equivariant unification
 
 Where do we add raising over supp(T)?
-
-Add support for contexts
 
 Add support for linc predicates like ctxpair and neg
 

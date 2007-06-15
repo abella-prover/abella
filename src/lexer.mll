@@ -25,6 +25,7 @@ rule token = parse
 | "\\"               { BSLASH }
 | "("                { LPAREN }
 | ")"                { RPAREN }
+| "|-"               { TURN }
       
 | "induction"        { IND }
 | "apply"            { APPLY }

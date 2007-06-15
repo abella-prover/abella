@@ -85,5 +85,9 @@ let tests =
       "OR underneath exists" >::
         (fun () ->
            assert_pprint_equal_parse "exists A, {B} or {C}") ;
+
+      "Variable in context" >::
+        (fun () ->
+           assert_pprint_equal_parse "{L |- A}") ;
       
     ]

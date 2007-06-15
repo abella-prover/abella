@@ -10,6 +10,7 @@ let tests = "LPP" >:::
     Top_parser_test.tests ;
     Tactics_test.tests ;
     Prover_test.tests ;
+    Context_test.tests ;
   ]
   
 let _ = run_test_tt_main tests

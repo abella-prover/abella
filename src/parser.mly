@@ -1,4 +1,4 @@
-%token IMP DEF COMMA DOT BSLASH LPAREN RPAREN
+%token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN
 %token IND INST APPLY CASE SEARCH TO ON WITH AND INTROS SKIP UNDO
 %token <int> NUM
 %token <string> ID
@@ -7,13 +7,22 @@
 %nonassoc BSLASH
 %right IMP
 
-%start term clauses command
+%start term clauses command contexted_term
 %type <Term.term> term
 %type <Prover.clauses> clauses
 %type <Prover.command> command
+%type <Lppterm.lppterm> contexted_term
 
 %%
 
+contexted_term:
+  | context TURN term                   { Lppterm.context_obj $1 $3 }
+  | term                                { Lppterm.obj $1 }
+
+context:
+  | term COMMA context                  { Context.add (Context.term $1) $3 }
+  | term                                { Context.add (Context.term $1)
+                                            Context.empty }
 term:
   | term IMP term                       { Term.binop "=>" $1 $3 }
   | ID BSLASH term                      { Term.abstract $1 $3 }

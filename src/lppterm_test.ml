@@ -92,4 +92,9 @@ let tests =
            let t' = replace_lppterm_vars [("A", var_b)] t in
              assert_pprint_equal "exists A, {A}" t') ;
 
+      "Print non-empty context" >::
+        (fun () ->
+           let t = add_to_context (Context.var "L") a in
+             assert_pprint_equal "{L |- A}" t) ;
+
     ]

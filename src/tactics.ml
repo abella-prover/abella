@@ -162,7 +162,9 @@ let apply_forall stmt ts =
           List.fold_left
             (fun stmt arg ->
                match stmt, arg with
-                 | Arrow(Obj(left, _), right), Obj(arg, _) ->
+                 | Arrow(Obj(c1, left, _), right), Obj(c2, arg, _) ->
+                     if not (Context.is_empty c1 && Context.is_empty c2) then
+                       failwith "apply_forall with non-empty contexts" ;
                      begin try Right.pattern_unify left arg with
                        | Unify.Error _ ->
                            failwith "Unification failure"
@@ -204,7 +206,7 @@ let term_case term clauses used =
              Some { set_state = set_state ;
                     new_vars = new_vars ;
                     new_hyps = match term with
-                      | Obj(_, r) when r <> Irrelevant ->
+                      | Obj(_, _, r) when r <> Irrelevant ->
                           List.map (apply_restriction Smaller) fresh_body
                       | _ -> fresh_body }
          else

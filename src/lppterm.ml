@@ -5,7 +5,7 @@ open Pprint
 type restriction = Smaller | Equal | Irrelevant
 
 type lppterm =
-  | Obj of term * restriction
+  | Obj of Context.t * term * restriction
   | Arrow of lppterm * lppterm
   | Forall of id list * lppterm
   | Exists of id list * lppterm
@@ -13,12 +13,13 @@ type lppterm =
 
 (* Constructions *)
 
-let obj t = Obj(t, Irrelevant)
+let obj t = Obj(Context.empty, t, Irrelevant)
 let arrow a b = Arrow(a, b)
 let forall ids t = Forall(ids, t)
 let exists ids t = Exists(ids, t)
 let lpp_or a b = Or(a, b)
 
+let context_obj ctx t = Obj(ctx, t, Irrelevant)
 
 (* Queries *)
   
@@ -32,18 +33,23 @@ let is_obj t =
   
 let obj_to_term t =
   match t with
-    | Obj(t, _) -> t
+    | Obj(_, t, _) -> t
     | _ -> failwith "obj_to_term called on non-obj"
 
 let obj_to_restriction t =
   match t with
-    | Obj(_, r) -> r
+    | Obj(_, _, r) -> r
     | _ -> failwith "obj_to_restriction called on non-object"
 
 let apply_restriction r t =
   match t with
-    | Obj(t, _) -> Obj(t, r)
+    | Obj(c, t, _) -> Obj(c, t, r)
     | _ -> failwith "Attempting to apply restriction to non-object"
+
+let add_to_context elt t =
+  match t with
+    | Obj(c, t, r) -> Obj(Context.add elt c, t, r)
+    | _ -> failwith "Attempting to add context to non-object"
 
 let replace_term_vars alist t =
   let rec aux t =
@@ -73,7 +79,9 @@ let remove_assoc_list to_remove alist =
 let rec replace_lppterm_vars alist t =
   let aux t = replace_lppterm_vars alist t in
     match t with
-      | Obj(t, r) -> Obj(replace_term_vars alist t, r)
+      | Obj([], t, r) -> Obj([], replace_term_vars alist t, r)
+      | Obj(c, t, r) ->
+          failwith "replace_term_vars called with non-empty context"
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Forall _ -> failwith "Cannot replace vars inside forall"
       | Exists(bindings, body) ->
@@ -107,8 +115,12 @@ let lppterm_to_string t =
     let pr_curr = priority t in
     let pp =
       match t with
-        | Obj(t, r) ->
-            "{" ^ (term_to_string t) ^ "}" ^ (restriction_to_string r)
+        | Obj(c, t, r) ->
+            if Context.is_empty c then
+              "{" ^ (term_to_string t) ^ "}" ^ (restriction_to_string r)
+            else
+              "{" ^ (Context.context_to_string c) ^ " |- " ^
+                (term_to_string t) ^ "}" ^ (restriction_to_string r)
         | Arrow(a, b) ->
             (aux (pr_curr + 1) a) ^ " -> " ^ (aux pr_curr b)
         | Forall(ids, t) ->

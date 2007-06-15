@@ -2,9 +2,9 @@
   let strip_brackets str =
     String.sub str 1 ((String.length str) - 2)
     
-  let parse_term str =
+  let parse_contexted_term str =
     let str = strip_brackets str in
-      Parser.term Lexer.token (Lexing.from_string str)
+      Parser.contexted_term Lexer.token (Lexing.from_string str)
 %}
 
 %token COMMA DOT COLON RARROW FORALL EXISTS STAR AT THEOREM OR
@@ -44,12 +44,13 @@ binding:
   | ID                                { $1 }
 
 object_term:
-  | TERM                              { Lppterm.Obj(parse_term $1,
-                                                    Lppterm.Irrelevant) }
-  | TERM STAR                         { Lppterm.Obj(parse_term $1,
-                                                    Lppterm.Smaller) }
-  | TERM AT                           { Lppterm.Obj(parse_term $1,
-                                                    Lppterm.Equal) }
+  | TERM                              { parse_contexted_term $1 }
+  | TERM STAR                         { Lppterm.apply_restriction
+                                          Lppterm.Smaller
+                                          (parse_contexted_term $1) }
+  | TERM AT                           { Lppterm.apply_restriction
+                                          Lppterm.Equal
+                                          (parse_contexted_term $1) }
 
 top_command :
   | THEOREM ID COLON lppterm DOT      { Prover.Theorem($2, $4) }

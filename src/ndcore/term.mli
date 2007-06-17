@@ -65,7 +65,6 @@ sig
   val (^^) : term -> term list -> term
 end
 
-exception NotValidTerm
 
 (* Fast structural equality modulo Ptr.
  * Fast: try to use physical equality first.
@@ -120,3 +119,10 @@ val map_vars_list : (var -> 'a) -> term list -> 'a list
 val apply_subst : subst -> unit
 
 val term_to_var : term -> var
+
+val hnorm : term -> term
+val deep_norm : term -> term
+
+type assoc = Left | Right | Both | No
+ val set_infix : (string * assoc) list -> unit
+val term_to_string : term -> string

@@ -1,5 +1,4 @@
 open Term
-open Pprint
 open Lppterm
 open Printf
 open Tactics
@@ -32,7 +31,7 @@ type sequent = {
   mutable goal : lppterm ;
   mutable count : int ;
 }
-    
+
 let sequent =
   { vars = [] ; hyps = [] ; goal = termobj (const "placeholder") ; count = 0 }
 

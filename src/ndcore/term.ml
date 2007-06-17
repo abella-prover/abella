@@ -39,7 +39,6 @@ and env = envitem list
 and envitem = Dum of int | Binding of term * int
 
 exception NonNormalTerm
-exception NotValidTerm
 
 (* Fast structural equality modulo Ptr -- no normalization peformed. *)
 let rec eq t1 t2 =
@@ -273,3 +272,146 @@ let term_to_var t =
   match observe t with
     | Var v -> v
     | _ -> failwith "term_to_var called on non-var"
+
+(* Normalization *)
+
+(** Make an environment appropriate to [n] lambda abstractions applied to
+    the arguments in [args]. Return the environment together with any
+    remaining lambda abstractions and arguments. (There can not be both
+    abstractions and arguments left over). *)
+let make_env n args =
+  let rec aux n args e =
+    if n = 0 || args = []
+    then (e, n, args)
+    else aux (n-1) (List.tl args) (Binding(List.hd args, 0)::e)
+  in aux n args []
+        
+(** Head normalization function.*)
+let rec hnorm term =
+  match observe term with
+    | Var _
+    | DB _ -> term
+    | Lam(n,t) -> lambda n (hnorm t)
+    | App(t,args) ->
+        let t = hnorm t in
+          begin match observe t with
+            | Lam(n,t) ->
+                let e, n', args' = make_env n args in
+                let ol = List.length e in
+                  if n' > 0
+                  then hnorm (susp (lambda n' t) ol 0 e)
+                  else hnorm (app (susp t ol 0 e) args')
+            | _ -> app t args
+          end
+    | Susp(t,ol,nl,e) ->
+        let t = hnorm t in
+          begin match observe t with
+            | Var _ -> t
+            | DB i ->
+                if i > ol then
+                  (* The index points to something outside the suspension *)
+                  db (i-ol+nl)
+                else
+                  (* The index has to be substituted for [e]'s [i]th element *)
+                  begin match List.nth e (i-1) with
+                    | Dum l -> db (nl - l)
+                    | Binding (t,l) -> hnorm (susp t 0 (nl-l) [])
+                  end
+            | Lam(n,t) ->
+                lambda n (hnorm (susp t (ol+n) (nl+n)
+                                       (add_dummies e n nl)))
+            | App(t,args) ->
+                let wrap x = susp x ol nl e in
+                  hnorm (app (wrap t) (List.map wrap args))
+            | Susp _ -> hnorm (susp (hnorm t) ol nl e)
+            | Ptr _ -> assert false
+          end
+    | Ptr _ -> assert false
+
+let rec deep_norm t =
+  let t = hnorm t in
+    match observe t with
+      | Var _ | DB _ -> t
+      | Lam (n,t) -> lambda n (deep_norm t)
+      | App (a,b) ->
+            begin match observe a with
+              | Var _ | DB _ ->
+                    app a (List.map deep_norm b)
+              | _ -> deep_norm (app (deep_norm a) (List.map deep_norm b))
+            end
+      | Ptr _ | Susp _ -> assert false
+          
+(* Pretty printing *)
+
+exception Found of int
+
+type assoc = Left | Right | Both | No
+  
+(* List of infix operators sorted by priority. *)
+let infix : (string * assoc) list ref = ref []
+let set_infix l = infix := l
+let is_infix x = List.mem_assoc x !infix
+let get_assoc op = List.assoc op !infix
+let priority x =
+  try
+    ignore (List.fold_left
+              (fun i (e, assoc) -> if e = x then raise (Found i) else i+1)
+              1 !infix) ;
+    0
+  with
+    | Found i -> i
+let get_max_priority () = List.length !infix
+
+let is_obj_quantifier x = x = "pi" || x = "sigma"
+
+let tag2str = function
+  | Constant -> "c"
+  | Eigen -> "e"
+  | Logic -> "l"
+
+let parenthesis x = "(" ^ x ^ ")"
+
+let rec list_range a b =
+  if a > b then [] else a::(list_range (a+1) b)
+
+let term_to_string term =
+  let term = deep_norm term in
+  let high_pr = 2 + get_max_priority () in
+  let pre = getAbsName () in
+  let pp_var x = pre ^ (string_of_int x) in
+  let rec pp pr n term =
+    match observe term with
+      | Var v -> Printf.sprintf "%s" v.name
+      | DB i -> pp_var (n-i+1)
+      | App (t,ts) ->
+          begin match observe t, ts with
+            | Var {name=op; tag=Constant}, [a; b] when is_infix op ->
+                let op_p = priority op in
+                let assoc = get_assoc op in
+                let pr_left, pr_right = begin match assoc with
+                  | Left -> op_p, op_p+1
+                  | Right -> op_p+1, op_p
+                  | _ -> op_p, op_p
+                  end in
+                let res =
+                  (pp pr_left n a) ^ " " ^ op ^ " " ^ (pp pr_right n b)
+                in
+                  if op_p >= pr then res else parenthesis res
+            | Var {name=op; tag=Constant}, [a] when is_obj_quantifier op ->
+                op ^ " " ^ (pp 0 n a)
+            | _ ->
+                let res =
+                  String.concat " " (List.map (pp high_pr n) (t::ts))
+                in
+                  if pr < high_pr then res else parenthesis res
+          end
+      | Lam (0,t) -> assert false
+      | Lam (i,t) ->
+          let res = ((String.concat "\\"
+                       (List.map pp_var (list_range (n+1) (n+i)))) ^ "\\" ^
+                      (pp 0 (n+i) t)) in
+            if pr == 0 then res else parenthesis res
+      | Ptr t -> assert false (* observe *)
+      | Susp _ -> assert false (* deep_norm *)
+ in
+    pp 0 0 term

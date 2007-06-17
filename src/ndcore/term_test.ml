@@ -3,14 +3,14 @@ open Term
 open Term.Notations
 open Ndcore_test
 
-let tests =
+let norm_tests =
   "Norm" >:::
     [
       "[(x\\ x) c]" >::
         (fun () ->
            let c = const ~ts:1 "c" in
            let t = (1 // db 1) ^^ [c] in
-           let t = Norm.hnorm t in
+           let t = hnorm t in
              assert_term_equal c t) ;
 
       "[(x\\ y\\ x) a b]" >::
@@ -18,7 +18,7 @@ let tests =
            let a = const ~ts:1 "a" in
            let b = const ~ts:1 "b" in
            let t = (2 // db 2) ^^ [a; b] in
-           let t = Norm.hnorm t in
+           let t = hnorm t in
              assert_term_equal a t) ;
       
       "[(x\\ y\\ y) a b]" >::
@@ -26,27 +26,27 @@ let tests =
            let a = const ~ts:1 "a" in
            let b = const ~ts:1 "b" in
            let t = (2 // db 1) ^^ [a; b] in
-           let t = Norm.hnorm t in
+           let t = hnorm t in
              assert_term_equal b t) ;
       
       "[(x\\ y\\ z\\ x)]" >::
         (fun () ->
            let t = (3 // db 3) in
-           let t = Norm.hnorm t in
+           let t = hnorm t in
              assert_term_equal (3 // db 3) t) ;
       
       "[(x\\ y\\ z\\ x) a]" >::
         (fun () ->
            let a = const ~ts:1 "a" in
            let t = (3 // db 3) ^^ [a] in
-           let t = Norm.hnorm t in
+           let t = hnorm t in
              assert_term_equal (2 // a) t) ;
       
       "[(x\\ x (x\\ x)) (x\\y\\ x y)]" >::
         (fun () ->
            let t = 1 // (db 1 ^^ [1 // db 1]) in
            let t = t ^^ [ 2 // (db 2 ^^ [db 1]) ] in
-           let t = Norm.hnorm t in
+           let t = hnorm t in
              assert_term_equal (1 // ((1 // db 1) ^^ [db 1]))  t) ;
       
       "[(x\\ x (x\\ x)) (x\\y\\ x y) c]" >::
@@ -54,14 +54,14 @@ let tests =
            let c = const ~ts:1 "c" in
            let t = 1 // (db 1 ^^ [1 // db 1]) in
            let t = t ^^ [ 2 // (db 2 ^^ [db 1]) ; c ] in
-           let t = Norm.hnorm t in
+           let t = hnorm t in
              assert_term_equal c t) ;
 
       "[x\\ c x]" >::
         (fun () ->
            let c = const ~ts:1 "c" in
            let t = 1 // (c ^^ [db 1]) in
-           let t = Norm.hnorm t in
+           let t = hnorm t in
              assert_term_equal (1 // (c ^^ [db 1])) t) ;
       
       (* This is a normalization pb which appeared to be causing
@@ -70,7 +70,7 @@ let tests =
         (fun () ->
            let ii = 2 // (db 2 ^^ [db 1]) in
            let t = 2 // (ii ^^ [db 2;db 1]) in
-           let t = Norm.hnorm t in
+           let t = hnorm t in
              assert_term_equal (2//(db 2 ^^ [db 1])) t) ;
 
       (* Test that Term.App is flattened *)
@@ -80,13 +80,56 @@ let tests =
            let b = const ~ts:1 "b" in
            let c = const ~ts:1 "c" in
            let t = (a ^^ [b]) ^^ [c] in
-           let t = Norm.hnorm t in
+           let t = hnorm t in
              assert_term_equal (a ^^ [b ; c]) t) ;
 
       (* Test that Term.Lam is flattened *)
       "[x\\ (y\\ x)]" >::
         (fun () ->
            let t = 1 // (1 // db 2) in
-           let t = Norm.hnorm t in
+           let t = hnorm t in
              assert_term_equal (2 // db 2) t) ;
     ]
+
+let pprint_tests =
+  "Pprint" >:::
+    [
+      "eval P V" >::
+        (fun () ->
+           let p = var "P" 0 in
+           let v = var "V" 0 in
+           let t = app (const "eval") [p; v] in
+             assert_pprint_equal "eval P V" t) ;
+
+      "eval (abs R) (abs R)" >::
+        (fun () ->
+           let absR = (app (const "abs") [var "R" 0]) in
+           let t = app (const "eval") [absR; absR] in
+             assert_pprint_equal "eval (abs R) (abs R)" t) ;
+      
+      "A => B" >::
+        (fun () ->
+           set_infix [("=>", Right)] ;
+           let a = var "A" 0 in
+           let b = var "B" 0 in
+           let t = app (const "=>") [a; b] in
+             assert_pprint_equal "A => B" t) ;
+
+      "pi x\\eq x x" >::
+        (fun () ->
+           let t = app (const "pi") [1 // (app (const "eq") [db 1; db 1])] in
+             assert_pprint_equal "pi x1\\eq x1 x1" t) ;
+
+      "pi x\\typeof x U => typeof (R x) T" >::
+        (fun () ->
+           set_infix [("=>", Right)] ;
+           let typeofxU = app (const "typeof") [db 1; var "U" 0] in
+           let rx = app (var "R" 0) [db 1] in
+           let typeofRxT = app (const "typeof") [rx; var "T" 0] in
+           let t = app (const "pi")
+             [1 // (app (const "=>") [typeofxU; typeofRxT])] in
+             assert_pprint_equal "pi x1\\typeof x1 U => typeof (R x1) T" t) ;
+    ]
+
+let tests =
+  "Term" >::: [norm_tests; pprint_tests]

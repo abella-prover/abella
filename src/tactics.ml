@@ -1,6 +1,5 @@
 open Term
 open Lppterm
-open Pprint
 open Unify
 
 (* Variable naming utilities *)
@@ -92,7 +91,7 @@ let extract_pi_abs t =
 let object_inst obj1 x =
   let t = obj1.term in
     if is_pi_abs t then
-      termobj (Norm.deep_norm (app (extract_pi_abs t) [x]))
+      termobj (deep_norm (app (extract_pi_abs t) [x]))
     else
       failwith ("Object instantiation requires a hypothesis of the form " ^
                   "{pi x\\ ...}")

@@ -28,8 +28,6 @@ OCamlGeneratedFiles(parser.ml lexer.ml top_parser.ml top_lexer.ml)
 
 NDCORE_FILES[] =
    ndcore/term
-   ndcore/norm
-   ndcore/pprint
    ndcore/unify
 
 FILES[] =

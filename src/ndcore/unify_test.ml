@@ -68,7 +68,7 @@ let tests =
            let t2 = y ^^ [ b ; c ] in
              right_unify t1 t2 ;
              let h =
-               let x = Norm.hnorm x in
+               let x = hnorm x in
                  match extract [L;H] x with
                    | Var {name=h;ts=1;tag=Logic} -> var h 1
                    | _ -> failwith "X should match x\\y\\ H ..."
@@ -88,7 +88,7 @@ let tests =
            let c3 = const ~ts:3 "c" in
              right_unify (x ^^ [a;b]) (c ^^ [y ^^ [b;c3]]) ;
              let h =
-               let x = Norm.hnorm x in
+               let x = hnorm x in
                  match extract [L;A;H] x with
                    | Var {name=h;ts=1;tag=Logic} -> var h 1
                    | _ -> failwith "X should match x\\y\\ _ H .."
@@ -136,7 +136,7 @@ let tests =
            let c = const ~ts:3 "c" in
              right_unify (x ^^ [a;b;c]) (x ^^ [c;b;a]) ;
              let h =
-               let x = Norm.hnorm x in
+               let x = hnorm x in
                  match extract [L;H] x with
                    | Var {name=h;ts=1;tag=Logic} -> var h 1
                    | _ -> failwith "X should match x\\y\\z\\ H ..."
@@ -181,12 +181,12 @@ let tests =
            let c = const ~ts:3 "c" in
              right_unify (x ^^ [a;b]) (y ^^ [b;c]) ;
              let h =
-               let x = Norm.hnorm x in
+               let x = hnorm x in
                  match extract [L;H] x with
                    | Var {name=h;ts=1;tag=Logic} -> var h 1
                    | _ -> failwith
                        (Printf.sprintf "X=%s should match Lam (_,(App H _))"
-                          (Pprint.term_to_string x))
+                          (term_to_string x))
              in
                assert_term_equal (2 // (h ^^ [db 1])) x ;
                assert_term_equal (2 // (h ^^ [db 2])) y) ;
@@ -201,7 +201,7 @@ let tests =
            let c = const ~ts:3 "c" in
              right_unify (x ^^ [a;b;c]) (y ^^ [c]) ;
              let h =
-               let x = Norm.hnorm x in
+               let x = hnorm x in
                  match extract [L;H] x with
                    | Var {name=h;ts=1;tag=Logic} -> var h 1
                    | _ -> failwith "X should match x\\y\\z\\ H ..."
@@ -219,7 +219,7 @@ let tests =
            let c = const ~ts:3 "c" in
              right_unify (x ^^ [a;b]) (a ^^ [y ^^ [b;c]]) ;
              let h =
-               let x = Norm.hnorm x in
+               let x = hnorm x in
                  match extract [L;A;H] x with
                    | Var {name=h;ts=1;tag=Logic} -> var h 1
                    | _ -> failwith "X should match x\\y\\ _ (H ..) .."

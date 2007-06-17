@@ -17,7 +17,7 @@ let add elt ctx = ctx @ [elt]
 let is_empty ctx = ctx = []
 
 let element_to_string elt =
-  Pprint.term_to_string elt
+  term_to_string elt
 
 let context_to_string ctx =
   let rec aux lst =

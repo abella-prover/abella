@@ -1,5 +1,4 @@
 open Term
-open Pprint
 
 type restriction = Smaller | Equal | Irrelevant
 

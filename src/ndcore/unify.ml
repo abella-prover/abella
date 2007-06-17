@@ -336,7 +336,7 @@ let makesubst h1 t2 a1 n =
     | Term.Var v -> assert (v.tag=instantiatable) ; v.ts
     | _ -> assert false
   in
-  let a1 = List.map Norm.hnorm a1 in
+  let a1 = List.map hnorm a1 in
 
   (** Generating a substitution term and performing raising and
     * pruning substitutions corresponding to a non top-level
@@ -380,19 +380,19 @@ let makesubst h1 t2 a1 n =
           begin match Term.observe h2 with
             | Term.Var {tag=tag} when constant tag ->
                 (* TODO I'm defeated here ;) wtf is the invariant ? *)
-                let a2 = List.map Norm.hnorm a2 in
+                let a2 = List.map hnorm a2 in
                 Term.app
                   (nested_subst h2 lev)
                   (List.map (fun x -> nested_subst x lev) a2)
             | Term.DB _ -> 
                 (* TODO I'm defeated here ;) wtf is the invariant ? *)
-                let a2 = List.map Norm.hnorm a2 in
+                let a2 = List.map hnorm a2 in
                 Term.app
                   (nested_subst h2 lev)
                   (List.map (fun x -> nested_subst x lev) a2)
             | Term.Var {ts=ts2;tag=tag} when tag=instantiatable ->
                 if Term.eq h2 h1 then raise OccursCheck ;
-                let a2 = List.map Norm.hnorm a2 in
+                let a2 = List.map hnorm a2 in
                 check_flex_args a2 ts2 ;
                 let changed,a1',a2' =
                   raise_and_invert ts1 ts2 a1 a2 lev
@@ -443,7 +443,7 @@ let makesubst h1 t2 a1 n =
           begin match Term.observe h2 with
             | Term.Var {ts=ts2} when Term.eq h1 h2 ->
                 (* [h1] being instantiatable, no need to check it for [h2] *)
-                let a2 = List.map Norm.hnorm a2 in
+                let a2 = List.map hnorm a2 in
                 check_flex_args a2 ts2 ;
                 let bindlen = n+lev in
                   if bindlen = List.length a2 then
@@ -470,7 +470,7 @@ let makesubst h1 t2 a1 n =
   * latter will not arise if type checking has been done. *)
 let rec unify_list l1 l2 =
   try
-    List.iter2 (fun a1 a2 -> unify (Norm.hnorm a1) (Norm.hnorm a2)) l1 l2
+    List.iter2 (fun a1 a2 -> unify (hnorm a1) (hnorm a2)) l1 l2
   with
     | Invalid_argument _ -> raise TypesMismatch
 
@@ -582,7 +582,7 @@ and unify t1 t2 = match Term.observe t1,Term.observe t2 with
         unify t1 (Term.lambda (n2-n1) t2)
   | _ -> failwith "logic variable on the left"
 
-let pattern_unify t1 t2 = unify (Norm.hnorm t1) (Norm.hnorm t2)
+let pattern_unify t1 t2 = unify (hnorm t1) (hnorm t2)
 
 end
 

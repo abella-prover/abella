@@ -8,16 +8,16 @@ let var_a = var ~tag:Eigen "A" 0
 let var_b = var ~tag:Eigen "B" 0
 let var_c = var ~tag:Eigen "C" 0
 
-let a = obj var_a
-let b = obj var_b
-let c = obj var_c
+let a = termobj var_a
+let b = termobj var_b
+let c = termobj var_c
     
 let tests =
   "LPP Term" >:::
     [
       "Print object" >::
         (fun () ->
-           let t = obj (app (const "eval") [var_a; var_b]) in
+           let t = termobj (app (const "eval") [var_a; var_b]) in
              assert_pprint_equal "{eval A B}" t) ;
       
       "Print arrow" >::
@@ -42,12 +42,12 @@ let tests =
       
       "Print smaller restricted object" >::
         (fun () ->
-           let t = apply_restriction_to_lppterm Smaller a in
+           let t = apply_restriction Smaller a in
              assert_pprint_equal "{A}*" t) ;
       
       "Print equal restricted object" >::
         (fun () ->
-           let t = apply_restriction_to_lppterm Equal a in
+           let t = apply_restriction Equal a in
              assert_pprint_equal "{A}@" t) ;
 
       "Print OR" >::
@@ -94,8 +94,8 @@ let tests =
 
       "Print non-empty context" >::
         (fun () ->
-           let t = context_obj (Context.add (const "L") Context.empty) var_a
-           in
+           let ctx = Context.add (const "L") Context.empty in
+           let t = Obj(context_obj ctx var_a, Irrelevant) in
              assert_pprint_equal "{L |- A}" t) ;
 
     ]

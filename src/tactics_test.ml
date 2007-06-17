@@ -114,7 +114,7 @@ let tests =
               case {eval A B} *)
            let a = var ~tag:Eigen "A" 0 in
            let b = var ~tag:Eigen "B" 0 in
-           let term = obj (app (const "eval") [a; b]) in
+           let term = termobj (app (const "eval") [a; b]) in
              match case term prog ["A"; "B"] with
                | [case1; case2] ->
                    case1.set_state () ;
@@ -146,8 +146,8 @@ let tests =
               case {eval A B} which has Smaller restriction *)
            let a = var ~tag:Eigen "A" 0 in
            let b = var ~tag:Eigen "B" 0 in
-           let evalAB = obj (app (const "eval") [a; b]) in
-           let term = apply_restriction_to_lppterm Equal evalAB in
+           let evalAB = termobj (app (const "eval") [a; b]) in
+           let term = apply_restriction Equal evalAB in
              match case term prog ["A"; "B"] with
                | [case1; case2] ->
                    case1.set_state () ;
@@ -200,7 +200,7 @@ let tests =
            let l = var ~tag:Eigen "L" 0 in
            let term = app (const "eval") [a; b] in
            let ctx = Context.add l Context.empty in
-           let contexted_term = context_obj ctx term in
+           let contexted_term = Obj(context_obj ctx term, Irrelevant) in
              match case contexted_term prog ["A"; "B"] with
                | [case1; case2] ->
                    case1.set_state () ;

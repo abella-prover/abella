@@ -4,7 +4,8 @@ Move obj to its own type so we don't have to use so many accessors
      Look for basic accessors to eliminate (overall clean up too)
      Search for uses of functions in lppterm.ml
      Make an objection function called case_imp or whatever
-     
+
+Make explicit cut tactic
 
 Contexts
   apply should instantiate one context with another

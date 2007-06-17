@@ -16,14 +16,8 @@
 %%
 
 contexted_term:
-  | context TURN term                   { {Lppterm.context = $1 ;
-                                           Lppterm.term = $3 ;
-                                           Lppterm.restriction =
-                                              Lppterm.Irrelevant} }
-  | term                                { {Lppterm.context = Context.empty ;
-                                           Lppterm.term = $1 ;
-                                           Lppterm.restriction =
-                                              Lppterm.Irrelevant} }
+  | context TURN term                   { Lppterm.context_obj $1 $3 }
+  | term                                { Lppterm.obj $1 }
 
 context:
   | term COMMA context                  { Context.add $1 $3 }

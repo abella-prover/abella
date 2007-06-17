@@ -33,7 +33,7 @@ type sequent = {
 }
     
 let sequent =
-  { vars = [] ; hyps = [] ; goal = obj (const "placeholder") ; count = 0 }
+  { vars = [] ; hyps = [] ; goal = termobj (const "placeholder") ; count = 0 }
 
 (* The vars = sequent.vars is superfluous, but forces the copy *)
 let copy_sequent () =
@@ -163,7 +163,7 @@ let apply h args =
       begin match stmt, args with
         | Forall _, _ ->
             apply_forall stmt (List.map get_hyp args)
-        | Obj obj, [arg] when is_imp obj.term ->
+        | Obj(obj, r), [arg] when is_imp obj.term ->
             if not (Context.is_empty obj.context) then
               failwith "apply called with non-empty context" ;
             object_cut obj (term_to_obj (get_hyp arg))

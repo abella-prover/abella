@@ -84,7 +84,7 @@ let extract_imp t =
 let object_cut obj1 obj2 =
   let a, b = extract_imp obj1.term in
     if eq a obj2.term then
-      obj b
+      termobj b
     else
       failwith "Object cut applied to non-matching hypotheses"
 
@@ -108,7 +108,7 @@ let extract_pi_abs t =
 let object_inst obj1 x =
   let t = obj1.term in
     if is_pi_abs t then
-      obj (Norm.deep_norm (app (extract_pi_abs t) [x]))
+      termobj (Norm.deep_norm (app (extract_pi_abs t) [x]))
     else
       failwith ("Object instantiation requires a hypothesis of the form " ^
                   "{pi x\\ ...}")
@@ -131,7 +131,9 @@ let rec map_args f t =
     | _ -> []
 
 let term_to_restriction t =
-  (term_to_obj t).restriction
+  match t with
+    | Obj(_, r) -> r
+    | _ -> failwith "term_to_restriction called on non-object"
         
 let apply_forall stmt ts =
   match stmt with
@@ -143,7 +145,7 @@ let apply_forall stmt ts =
           List.fold_left
             (fun stmt arg ->
                match stmt, arg with
-                 | Arrow(Obj obj_left, right), Obj obj_arg ->
+                 | Arrow(Obj(obj_left, _), right), Obj(obj_arg, _) ->
                      if not (Context.is_empty obj_left.context &&
                                Context.is_empty obj_arg.context) then
                        failwith "apply_forall with non-empty contexts" ;
@@ -177,16 +179,14 @@ let set_current_state () =
   let current_state = save_state () in
     (fun () -> restore_state current_state)
 
-let obj_case obj clauses used =
+let obj_case obj r clauses used =
   if is_imp obj.term then
     let a, b = extract_imp obj.term in
       [{ set_state = set_current_state () ;
          new_vars = [] ;
          new_hyps =
-           [ Obj (reduce_restriction
-                    {context = Context.add a obj.context ;
-                     term = b ;
-                     restriction = obj.restriction}) ]
+           [ Obj({context = Context.add a obj.context ; term = b},
+                 reduce_restriction r) ]
        }]
   else
     collect_some
@@ -194,29 +194,24 @@ let obj_case obj clauses used =
          let fresh_head, fresh_body = freshen_clause Eigen head body used in
          let initial_state = save_state () in
            if try_left_unify fresh_head obj.term then
-             let new_vars =
-               get_term_vars_alist Eigen (fresh_head::fresh_body)
-             in
+             let new_vars = get_term_vars_alist Eigen (fresh_head::fresh_body) in
              let subst = get_subst initial_state in
-             let set_state () = (restore_state initial_state ;
-                                 apply_subst subst) in
-             let contexted_body =
-               List.map (context_obj obj.context) fresh_body
+             let set_state () = (restore_state initial_state ; apply_subst subst) in
+             let contexted_body = List.map (context_obj obj.context) fresh_body in
+             let restricted_body =
+               List.map (fun obj -> Obj(obj, reduce_restriction r)) contexted_body
              in
                restore_state initial_state ;
                Some { set_state = set_state ;
                       new_vars = new_vars ;
-                      new_hyps = match obj.restriction with
-                        | Irrelevant -> contexted_body
-                        | _ -> List.map (apply_restriction_to_lppterm Smaller)
-                            contexted_body }
+                      new_hyps = restricted_body }
            else
              None)
       clauses
 
 let case term clauses used =
   match term with
-    | Obj obj -> obj_case obj clauses used
+    | Obj(obj, r) -> obj_case obj r clauses used
     | Or(left, right) ->
         let make_simple_case h =
           { set_state = set_current_state () ;
@@ -238,7 +233,7 @@ let rec apply_restriction_at res stmt arg =
   match stmt with
     | Arrow(left, right) ->
         if arg = 1 then
-          Arrow(apply_restriction_to_lppterm res left, right)
+          Arrow(apply_restriction res left, right)
         else
           Arrow(left, apply_restriction_at res right (arg-1))
     | _ -> failwith "Not enough implications in induction"
@@ -268,9 +263,7 @@ let search n goal clauses hyps =
       false
     else if is_imp goal.term then
       let a, b = extract_imp goal.term in
-        term_aux (n-1) used {context = Context.add a goal.context ;
-                             term = b ;
-                             restriction = goal.restriction}
+        term_aux (n-1) used {context = Context.add a goal.context ; term = b}
     else
       List.exists
         (fun (head, body) ->
@@ -296,7 +289,7 @@ let search n goal clauses hyps =
           let term = freshen_bindings Logic bindings body [] in
           let used = List.map fst (get_lppterm_vars_alist Logic [term]) in
             lppterm_aux term
-      | Obj obj -> term_aux n [] obj
+      | Obj(obj, r) -> term_aux n [] obj
       | _ -> false
   in
     lppterm_aux goal

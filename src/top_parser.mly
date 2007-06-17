@@ -34,7 +34,7 @@ lppterm:
   | lppterm RARROW lppterm            { Lppterm.Arrow($1, $3) }
   | lppterm OR lppterm                { Lppterm.Or($1, $3) }
   | LPAREN lppterm RPAREN             { $2 }
-  | object_term                       { Lppterm.Obj $1 }
+  | object_term                       { $1 }
 
 binding_list:
   | binding binding_list              { $1::$2 }
@@ -44,13 +44,12 @@ binding:
   | ID                                { $1 }
 
 object_term:
-  | TERM                              { parse_contexted_term $1 }
-  | TERM STAR                         { Lppterm.apply_restriction
-                                          Lppterm.Smaller
-                                          (parse_contexted_term $1) }
-  | TERM AT                           { Lppterm.apply_restriction
-                                          Lppterm.Equal
-                                          (parse_contexted_term $1) }
+  | TERM                              { Lppterm.Obj(parse_contexted_term $1,
+                                                    Lppterm.Irrelevant) }
+  | TERM STAR                         { Lppterm.Obj(parse_contexted_term $1,
+                                                    Lppterm.Smaller) }
+  | TERM AT                           { Lppterm.Obj(parse_contexted_term $1,
+                                                    Lppterm.Equal) }
 
 top_command :
   | THEOREM ID COLON lppterm DOT      { Prover.Theorem($2, $4) }

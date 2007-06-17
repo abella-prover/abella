@@ -5,11 +5,10 @@ open Pprint
 type restriction = Smaller | Equal | Irrelevant
 
 type obj = { context : Context.t ;
-             term : term ;
-             restriction : restriction }
+             term : term }
     
 type lppterm =
-  | Obj of obj
+  | Obj of obj * restriction
   | Arrow of lppterm * lppterm
   | Forall of id list * lppterm
   | Exists of id list * lppterm
@@ -17,17 +16,15 @@ type lppterm =
 
 (* Constructions *)
 
-let obj t = Obj { context = Context.empty ;
-                  term = t ;
-                  restriction = Irrelevant }
+let context_obj ctx t = { context = ctx ; term = t }
+let obj t = { context = Context.empty ; term = t }
+
+let termobj t = Obj(obj t, Irrelevant)
 let arrow a b = Arrow(a, b)
 let forall ids t = Forall(ids, t)
 let exists ids t = Exists(ids, t)
 let lpp_or a b = Or(a, b)
 
-let context_obj ctx t = Obj { context = ctx ;
-                              term = t ;
-                              restriction = Irrelevant }
 
 (* Queries *)
   
@@ -42,26 +39,28 @@ let is_obj t =
 let rec filter_objs ts =
   match ts with
     | [] -> []
-    | (Obj obj)::rest -> obj::(filter_objs rest)
+    | Obj(obj, _)::rest -> obj::(filter_objs rest)
     | _::rest -> filter_objs rest
 
 let term_to_obj t =
   match t with
-    | Obj obj -> obj
+    | Obj(obj, _) -> obj
     | _ -> failwith "term_to_obj called on non-object"
   
-let apply_restriction r obj =
-  {obj with restriction = r}
-
-let apply_restriction_to_lppterm r t =
+let apply_restriction r t =
   match t with
-    | Obj obj -> Obj (apply_restriction r obj)
+    | Obj(obj, _) -> Obj(obj, r)
     | _ -> failwith "Attempting to apply restriction to non-object"
 
-let reduce_restriction obj =
+let reduce_restriction r =
+  match r with
+    | Irrelevant -> Irrelevant
+    | _ -> Smaller
+        
+(* let reduce_restriction obj =
   match obj with
     | {restriction = Irrelevant} -> obj
-    | _ -> {obj with restriction = Smaller}
+    | _ -> {obj with restriction = Smaller} *)
 
 let add_to_context elt obj =
   {obj with context = Context.add elt obj.context}
@@ -97,13 +96,12 @@ let replace_term_vars alist t =
 let replace_obj_vars alist obj =
   let aux t = replace_term_vars alist t in
     { context = Context.map aux obj.context ;
-      term = aux obj.term ;
-      restriction = obj.restriction }
+      term = aux obj.term }
       
 let rec replace_lppterm_vars alist t =
   let aux t = replace_lppterm_vars alist t in
     match t with
-      | Obj obj -> Obj (replace_obj_vars alist obj)
+      | Obj(obj, r) -> Obj(replace_obj_vars alist obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Forall _ -> failwith "Cannot replace vars inside forall"
       | Exists(bindings, body) ->
@@ -139,15 +137,14 @@ let obj_to_string obj =
     else (Context.context_to_string obj.context ^ " |- ")
   in
   let term = term_to_string obj.term in
-  let restriction = restriction_to_string obj.restriction in
-    "{" ^ context ^ term ^ "}" ^ restriction
+    "{" ^ context ^ term ^ "}"
     
 let lppterm_to_string t =
   let rec aux pr_above t =
     let pr_curr = priority t in
     let pp =
       match t with
-        | Obj obj -> obj_to_string obj
+        | Obj(obj, r) -> (obj_to_string obj) ^ (restriction_to_string r)
         | Arrow(a, b) ->
             (aux (pr_curr + 1) a) ^ " -> " ^ (aux pr_curr b)
         | Forall(ids, t) ->

@@ -24,7 +24,7 @@ let setup_prover ?clauses:(clauses=[]) ?goal:(goal="") ?lemmas:(lemmas=[]) () =
 
 let freshen str =
   match Tactics.freshen_capital_vars Eigen [parse_term str] [] with
-    | [fresh] -> obj fresh
+    | [fresh] -> termobj fresh
     | _ -> assert false
   
 let tests =

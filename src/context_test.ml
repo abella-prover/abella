@@ -2,6 +2,7 @@ open OUnit
 open Test_helper
 open Context
 open Lppterm
+open Unify
 
 let assert_true b = assert_bool "" b
 let assert_false b = assert_bool "" (not b)
@@ -52,4 +53,11 @@ let tests =
       (fun () ->
          let ctx = add evalAB empty in
            assert_false (subcontext ctx empty)) ;
+
+    "Context membership should be based on equality modulo pointers" >::
+      (fun () ->
+         let ctx = add evalAB empty in
+         let var = Term.var ~tag:Term.Logic "X" 0 in
+           right_unify var evalAB ;
+           assert_true (mem var ctx)) ;
   ]

@@ -585,3 +585,39 @@ and unify t1 t2 = match Term.observe t1,Term.observe t2 with
 let pattern_unify t1 t2 = unify (Norm.hnorm t1) (Norm.hnorm t2)
 
 end
+
+module Right =
+  Make (struct
+          let instantiatable = Term.Logic
+          let constant_like = Term.Eigen
+        end)
+    
+module Left =
+  Make (struct
+          let instantiatable = Term.Eigen
+          let constant_like = Term.Logic
+        end)
+
+let right_unify t1 t2 = Right.pattern_unify t1 t2
+
+let left_unify t1 t2 = Left.pattern_unify t1 t2
+
+let try_with_state f =
+  let state = Term.save_state () in
+    try
+      f ()
+    with
+      | _ -> Term.restore_state state ; false
+
+let try_right_unify t1 t2 =
+  try_with_state
+    (fun () ->
+       Right.pattern_unify t1 t2 ;
+       true)
+
+let try_left_unify t1 t2 =
+  try_with_state
+    (fun () ->
+       Right.pattern_unify t1 t2 ;
+       true)
+

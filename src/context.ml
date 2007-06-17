@@ -7,7 +7,10 @@ type t = elt list
 
 let empty : t = []
 
-let mem elt ctx = List.mem elt ctx
+let rec mem elt ctx =
+  match ctx with
+    | [] -> false
+    | head::tail -> eq elt head || mem elt tail
 
 let add elt ctx = ctx @ [elt]
 

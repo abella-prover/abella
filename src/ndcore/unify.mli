@@ -25,13 +25,10 @@ type error =
 exception Error      of error
 exception NotLLambda of Term.term
 
-module type Param =
-sig
-  val instantiatable : Term.tag
-  val constant_like  : Term.tag
-end
+val right_unify : Term.term -> Term.term -> unit
+val left_unify : Term.term -> Term.term -> unit
 
-module Make : functor (P:Param) -> sig
-  val unify : Term.term -> Term.term -> unit
-  val pattern_unify : Term.term -> Term.term -> unit
-end
+val try_with_state : (unit -> bool) -> bool
+
+val try_right_unify : Term.term -> Term.term -> bool
+val try_left_unify : Term.term -> Term.term -> bool  

@@ -1,38 +1,19 @@
 open Term
 open Lppterm
 open Pprint
-
+open Unify
 
 (* Unification utilities *)
-
-module Right =
-  Unify.Make (struct
-                let instantiatable = Logic
-                let constant_like = Eigen
-              end)
-    
-module Left =
-  Unify.Make (struct
-                let instantiatable = Eigen
-                let constant_like = Logic
-              end)
 
 let left_object_unify t1 t2 =
   let t1 = obj_to_term t1 in
   let t2 = obj_to_term t2 in
-    Left.pattern_unify t1 t2
+    left_unify t1 t2
 
 let right_object_unify t1 t2 =
   let t1 = obj_to_term t1 in
   let t2 = obj_to_term t2 in
-    Right.pattern_unify t1 t2
-
-let try_with_state f =
-  let state = save_state () in
-    try
-      f ()
-    with
-      | _ -> restore_state state ; false
+    right_unify t1 t2
 
 let try_left_object_unify t1 t2 =
   try_with_state
@@ -44,12 +25,6 @@ let try_right_object_unify t1 t2 =
   try_with_state
     (fun () ->
        right_object_unify t1 t2 ;
-       true)
-
-let try_right_unify t1 t2 =
-  try_with_state
-    (fun () ->
-       Right.pattern_unify t1 t2 ;
        true)
 
 (* Variable naming utilities *)
@@ -172,7 +147,7 @@ let apply_forall stmt ts =
                  | Arrow(Obj(c1, left, _), right), Obj(c2, arg, _) ->
                      if not (Context.is_empty c1 && Context.is_empty c2) then
                        failwith "apply_forall with non-empty contexts" ;
-                     begin try Right.pattern_unify left arg with
+                     begin try right_unify left arg with
                        | Unify.Error _ ->
                            failwith "Unification failure"
                      end ;

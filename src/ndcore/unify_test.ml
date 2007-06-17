@@ -2,16 +2,8 @@ open OUnit
 open Term
 open Term.Notations
 open Ndcore_test
+open Unify
 
-let unify =
-  let module Unify =
-    Unify.Make (struct
-                  let instantiatable = Logic
-                  let constant_like  = Eigen
-                end)
-  in
-    Unify.unify
-      
 (* Extracting a variable at some position in a term,
  * used when we know a variable should be there, but don't know what it is
  * since it's fresh. *)
@@ -34,7 +26,7 @@ let tests =
            let t1 = 1 // db 1 in
            let m = var "m" 1 in
            let t2 = 1 // ( m ^^ [ db 1 ] ) in
-             unify t1 t2 ;
+             right_unify t1 t2 ;
              assert_term_equal (1 // db 1) m) ;
 
       (* Example 2, adds descending into constructors *)
@@ -44,7 +36,7 @@ let tests =
            let c = const ~ts:1 "c" in
            let t1 = 1 // (c ^^ [ db 1 ]) in
            let t2 = 1 // (c ^^ [ n ^^ [ db 1 ] ]) in
-             unify t1 t2 ;
+             right_unify t1 t2 ;
              assert_term_equal (1 // db 1) n) ;
 
       (* Example 3, needs eta expanding on the fly *)
@@ -53,7 +45,7 @@ let tests =
            let n = var "n" 1 in
            let c = const ~ts:1 "c" in
            let t = 2 // (c ^^ [ db 1 ; db 2 ]) in
-             unify t n ;
+             right_unify t n ;
              assert_term_equal (2 // (c ^^ [ db 1 ; db 2 ])) n) ;
 
       (* Example 4, on-the-fly eta, constructors at top-level *)
@@ -61,7 +53,7 @@ let tests =
         (fun () ->
            let n = var "n" 1 in
            let c = const ~ts:1 "c" in
-             unify (2 // (c ^^ [db 2;db 1])) (1 // (c ^^ [n ^^ [db 1]])) ;
+             right_unify (2 // (c ^^ [db 2;db 1])) (1 // (c ^^ [n ^^ [db 1]])) ;
              assert_term_equal (1 // db 1) n) ;
 
       (* Example 5, flex-flex case where we need to raise & prune *)
@@ -74,7 +66,7 @@ let tests =
            let c = const ~ts:3 "c" in
            let t1 = x ^^ [ a ; b ] in
            let t2 = y ^^ [ b ; c ] in
-             unify t1 t2 ;
+             right_unify t1 t2 ;
              let h =
                let x = Norm.hnorm x in
                  match extract [L;H] x with
@@ -94,7 +86,7 @@ let tests =
            let b = const ~ts:3 "b" in
            let c = const ~ts:1 "c" in
            let c3 = const ~ts:3 "c" in
-             unify (x ^^ [a;b]) (c ^^ [y ^^ [b;c3]]) ;
+             right_unify (x ^^ [a;b]) (c ^^ [y ^^ [b;c3]]) ;
              let h =
                let x = Norm.hnorm x in
                  match extract [L;A;H] x with
@@ -113,7 +105,7 @@ let tests =
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
            let d = const ~ts:2 "d" in
-             unify
+             right_unify
                (c ^^ [ x ^^ [a;b] ; x ^^ [b;d] ])
                (c ^^ [ y ^^ [b;c] ; b ^^ [d] ]) ;
              assert_term_equal (2 // (db 2 ^^ [db 1])) x ;
@@ -129,7 +121,7 @@ let tests =
            let b = const ~ts:3 "b" in
            let d = const ~ts:2 "d" in
            let c = const ~ts:3 "c" in
-             unify
+             right_unify
                (1 // (c ^^ [ x ^^ [a;b] ; x ^^ [db 1;d]]))
                (1 // (c ^^ [ y ^^ [b;c] ; db 1 ^^ [d] ])) ;
              assert_term_equal (2 // (db 2 ^^ [db 1])) x ;
@@ -142,7 +134,7 @@ let tests =
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
-             unify (x ^^ [a;b;c]) (x ^^ [c;b;a]) ;
+             right_unify (x ^^ [a;b;c]) (x ^^ [c;b;a]) ;
              let h =
                let x = Norm.hnorm x in
                  match extract [L;H] x with
@@ -161,10 +153,10 @@ let tests =
            let c1 = const ~ts:1 "c" in
            let c3 = const ~ts:3 "c" in
              try
-               unify (x ^^ [a;b]) (c1 ^^ [x ^^ [b;c3]]) ;
+               right_unify (x ^^ [a;b]) (c1 ^^ [x ^^ [b;c3]]) ;
                "Expected OccursCheck" @? false
              with
-               | Unify.Error Unify.OccursCheck -> ()) ;
+               | Unify.Error OccursCheck -> ()) ;
 
       (* 10bis: quantifier dependency violation -- raise OccursCheck too *)
       "[X1 a2 b3 != c3 (X b c)]" >::
@@ -174,10 +166,10 @@ let tests =
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
              try
-               unify (x ^^ [a;b]) (c ^^ [x ^^ [b;c]]) ;
+               right_unify (x ^^ [a;b]) (c ^^ [x ^^ [b;c]]) ;
                "Expected OccursCheck" @? false
              with
-               | Unify.Error Unify.OccursCheck -> ()) ;
+               | Unify.Error OccursCheck -> ()) ;
 
       (* Example 11, flex-flex without raising *)
       "[X1 a2 b3 = Y1 b3 c3]" >::
@@ -187,7 +179,7 @@ let tests =
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
-             unify (x ^^ [a;b]) (y ^^ [b;c]) ;
+             right_unify (x ^^ [a;b]) (y ^^ [b;c]) ;
              let h =
                let x = Norm.hnorm x in
                  match extract [L;H] x with
@@ -207,7 +199,7 @@ let tests =
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
-             unify (x ^^ [a;b;c]) (y ^^ [c]) ;
+             right_unify (x ^^ [a;b;c]) (y ^^ [c]) ;
              let h =
                let x = Norm.hnorm x in
                  match extract [L;H] x with
@@ -225,7 +217,7 @@ let tests =
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
-             unify (x ^^ [a;b]) (a ^^ [y ^^ [b;c]]) ;
+             right_unify (x ^^ [a;b]) (a ^^ [y ^^ [b;c]]) ;
              let h =
                let x = Norm.hnorm x in
                  match extract [L;A;H] x with
@@ -245,21 +237,21 @@ let tests =
            let c = const ~ts:3 "c" in
            let d = const ~ts:3 "d" in
              try
-               unify (x ^^ [a;b]) (d ^^ [y ^^ [b;c]]) ;
+               right_unify (x ^^ [a;b]) (d ^^ [y ^^ [b;c]]) ;
                "Expected OccursCheck" @? false
              with
-               | Unify.Error Unify.OccursCheck -> ()) ;
+               | Unify.Error OccursCheck -> ()) ;
 
       "[a = a]" >::
         (fun () ->
-           unify (const ~ts:1 "a") (const ~ts:1 "a")) ;
+           right_unify (const ~ts:1 "a") (const ~ts:1 "a")) ;
 
       "[x\\ a x b = x\\ a x b]" >::
         (fun () ->
            let a = const ~ts:1 "a" in
            let b = const ~ts:1 "b" in
            let t = 1 // ( a ^^ [ db 1 ; b ] ) in
-             unify t t) ;
+             right_unify t t) ;
 
       (* End of Gopalan's examples *)
 
@@ -268,13 +260,13 @@ let tests =
            let a = const ~ts:2 "a" in
            let f = const ~ts:1 "f" in
            let x = var "x" 3 in
-             unify (f ^^ [x;x]) (f ^^ [a;a])) ;
+             right_unify (f ^^ [x;x]) (f ^^ [a;a])) ;
 
       "[x\\x1\\ P x = x\\ Q x]" >::
         (fun () ->
            let p = var "P" 1 in
            let q = var "Q" 1 in
-             unify (2 // (p ^^ [db 2])) (1 // (q ^^ [db 1])) ;
+             right_unify (2 // (p ^^ [db 2])) (1 // (q ^^ [db 1])) ;
              assert_term_equal (2 // (p ^^ [db 2])) q) ;
 
       "[T = a X, T = a Y, Y = T]" >::
@@ -284,9 +276,9 @@ let tests =
            let y = var "Y" 1 in
            let a = const ~ts:0 "a" in
            let a x = a ^^ [x] in
-             unify t (a x) ;
-             unify t (a y) ;
-             begin try unify y t ; assert false with
+             right_unify t (a x) ;
+             right_unify t (a y) ;
+             begin try right_unify y t ; assert false with
                | Unify.Error _ -> () end) ;
 
       "[x\\y\\ H1 x = x\\y\\ G2 x]" >::
@@ -294,14 +286,14 @@ let tests =
            let h = var "H" 1 in
            let g = var "G" 2 in
              (* Different timestamps matter *)
-             unify (2// (h ^^ [db 2])) (2// (g ^^ [db 2])) ;
+             right_unify (2// (h ^^ [db 2])) (2// (g ^^ [db 2])) ;
              assert_term_equal (g^^[db 2]) (h^^[db 2])) ;
 
       "[X1 = y2]" >::
         (fun () ->
            let x = var "X" 1 in
            let y = var ~tag:Eigen "y" 2 in
-             try unify x y ; assert false with
+             try right_unify x y ; assert false with
                | Unify.Error _ -> ()) ;
 
       (* Tests added while developing LPP *)
@@ -332,13 +324,13 @@ let tests =
            let capp = const "app" in
            let evalAB = app ceval [a; b] in
            let evalapp = app ceval [(app capp [m; n]); v] in
-             unify evalAB evalapp ;
+             right_unify evalAB evalapp ;
              assert_pprint_equal "eval (app M N) V" evalAB) ;
       
       "[X = X]" >::
         (fun () ->
            let x = var "X" 0 in
-             unify x x ;
+             right_unify x x ;
              assert_pprint_equal "X" x) ;
       
       "Loosening of LLambda restriction" >::
@@ -346,7 +338,7 @@ let tests =
            let a = var "A" 0 in
            let b = var "B" 0 in
            let c = var "C" 0 in
-             unify a (app b [c]) ;
+             right_unify a (app b [c]) ;
              assert_pprint_equal "B C" a) ;
 
       "Loosening of LLambda restriction inside of constructor" >::
@@ -356,7 +348,7 @@ let tests =
            let c = var "C" 0 in
            let d = var "D" 0 in
            let term = app (const "cons") [app b [c]; d] in
-             unify a term ;
+             right_unify a term ;
              assert_pprint_equal "cons (B C) D" a) ;
 
       (* This is a test for a bug pointed out by David. Since we don't use
@@ -366,7 +358,7 @@ let tests =
         (fun () ->
            let x = var "X" 0 in
            let y = var "Y" 1 in
-             unify x y ;
+             right_unify x y ;
              match !!x,!!y with
                | Var {ts=0}, Var {ts=0} -> ()
                | _ -> assert false) ;

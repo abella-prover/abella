@@ -3,26 +3,6 @@ open Lppterm
 open Pprint
 open Unify
 
-(* Unification utilities *)
-
-let left_object_unify obj1 obj2 =
-  left_unify obj1.term obj2.term
-
-let right_object_unify obj1 obj2 =
-  right_unify obj1.term obj2.term
-
-let try_left_object_unify t1 t2 =
-  try_with_state
-    (fun () ->
-       left_object_unify t1 t2 ;
-       true)
-
-let try_right_object_unify t1 t2 =
-  try_with_state
-    (fun () ->
-       right_object_unify t1 t2 ;
-       true)
-
 (* Variable naming utilities *)
 
 let fresh_alist tag ids used =
@@ -88,7 +68,11 @@ let object_cut obj1 obj2 =
     else
       failwith "Object cut applied to non-matching hypotheses"
 
+let move_imp_to_context obj =
+  let a, b = extract_imp obj.term in
+    {context = Context.add a obj.context ; term = b}
 
+      
 (* Object level instantiation *)
         
 let is_pi_abs t =
@@ -149,7 +133,7 @@ let apply_forall stmt ts =
                      if not (Context.is_empty obj_left.context &&
                                Context.is_empty obj_arg.context) then
                        failwith "apply_forall with non-empty contexts" ;
-                     begin try right_object_unify obj_left obj_arg with
+                     begin try right_unify obj_left.term obj_arg.term with
                        | Unify.Error _ -> failwith "Unification failure"
                      end ;
                      right
@@ -181,13 +165,10 @@ let set_current_state () =
 
 let obj_case obj r clauses used =
   if is_imp obj.term then
-    let a, b = extract_imp obj.term in
-      [{ set_state = set_current_state () ;
-         new_vars = [] ;
-         new_hyps =
-           [ Obj({context = Context.add a obj.context ; term = b},
-                 reduce_restriction r) ]
-       }]
+    [{ set_state = set_current_state () ;
+       new_vars = [] ;
+       new_hyps = [ Obj(move_imp_to_context obj, reduce_restriction r) ]
+     }]
   else
     collect_some
       (fun (head, body) ->
@@ -262,8 +243,7 @@ let search n goal clauses hyps =
     else if n = 0 then
       false
     else if is_imp goal.term then
-      let a, b = extract_imp goal.term in
-        term_aux (n-1) used {context = Context.add a goal.context ; term = b}
+      term_aux (n-1) used (move_imp_to_context goal)
     else
       List.exists
         (fun (head, body) ->

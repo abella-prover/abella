@@ -1,5 +1,4 @@
 open Term
-open Norm
 open Pprint
 
 type restriction = Smaller | Equal | Irrelevant
@@ -14,6 +13,7 @@ type lppterm =
   | Exists of id list * lppterm
   | Or of lppterm * lppterm
 
+      
 (* Constructions *)
 
 let context_obj ctx t = { context = ctx ; term = t }
@@ -25,15 +25,7 @@ let forall ids t = Forall(ids, t)
 let exists ids t = Exists(ids, t)
 let lpp_or a b = Or(a, b)
 
-
-(* Queries *)
   
-let is_obj t =
-  match t with
-    | Obj _ -> true
-    | _ -> false
-
-
 (* Manipulations *)
 
 let rec filter_objs ts =
@@ -57,16 +49,14 @@ let reduce_restriction r =
     | Irrelevant -> Irrelevant
     | _ -> Smaller
         
-(* let reduce_restriction obj =
-  match obj with
-    | {restriction = Irrelevant} -> obj
-    | _ -> {obj with restriction = Smaller} *)
-
 let add_to_context elt obj =
   {obj with context = Context.add elt obj.context}
 
 let add_context ctx obj =
   {obj with context = Context.union ctx obj.context}
+
+
+(* Variable Renaming *)
 
 let remove_assoc_list to_remove alist =
   let rec aux alist =

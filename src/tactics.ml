@@ -5,15 +5,11 @@ open Unify
 
 (* Unification utilities *)
 
-let left_object_unify t1 t2 =
-  let t1 = obj_to_term t1 in
-  let t2 = obj_to_term t2 in
-    left_unify t1 t2
+let left_object_unify obj1 obj2 =
+  left_unify obj1.term obj2.term
 
-let right_object_unify t1 t2 =
-  let t1 = obj_to_term t1 in
-  let t2 = obj_to_term t2 in
-    right_unify t1 t2
+let right_object_unify obj1 obj2 =
+  right_unify obj1.term obj2.term
 
 let try_left_object_unify t1 t2 =
   try_with_state
@@ -37,10 +33,15 @@ let fresh_alist tag ids used =
                   (x, fresh))
       ids
       
-let get_vars_alist tag ts =
+let get_term_vars_alist tag ts =
   List.map (fun v -> ((term_to_var v).name, v))
-    (find_var_refs tag (List.map obj_to_term ts))
+    (find_var_refs tag ts)
 
+let get_lppterm_vars_alist tag ts =
+  get_term_vars_alist tag
+    (List.map (fun obj -> obj.term)
+       (List.map term_to_obj ts))
+    
 let is_capital str =
   match str.[0] with
     | 'A'..'Z' -> true
@@ -53,13 +54,12 @@ let uniq lst =
     
 let capital_var_names ts =
   uniq (List.filter is_capital
-          (map_vars_list (fun v -> v.name)
-             (List.map obj_to_term ts)))
+          (map_vars_list (fun v -> v.name) ts))
 
 let freshen_capital_vars tag ts used =
   let var_names = capital_var_names ts in
   let fresh_names = fresh_alist tag var_names used in
-    List.map (replace_lppterm_vars fresh_names) ts
+    List.map (replace_term_vars fresh_names) ts
 
 let freshen_clause tag head body used =
   match freshen_capital_vars tag (head::body) used with
@@ -76,18 +76,14 @@ let is_imp t =
     | App(t, _) -> eq t (const "=>")
     | _ -> false
 
-let obj_is_imp t = is_imp (obj_to_term t)
-    
 let extract_imp t =
   match observe t with
     | App(t, [a; b]) -> (a, b)
     | _ -> failwith "Check is_imp before calling extract_imp"
           
-let object_cut t1 t2 =
-  let t1 = obj_to_term t1 in
-  let t2 = obj_to_term t2 in 
-  let (a, b) = extract_imp t1 in
-    if eq a t2 then
+let object_cut obj1 obj2 =
+  let a, b = extract_imp obj1.term in
+    if eq a obj2.term then
       obj b
     else
       failwith "Object cut applied to non-matching hypotheses"
@@ -109,8 +105,8 @@ let extract_pi_abs t =
     | App(t, [abs]) -> abs
     | _ -> failwith "Check is_pi_abs before calling extract_pi_abs"
 
-let object_inst t x =
-  let t = obj_to_term t in
+let object_inst obj1 x =
+  let t = obj1.term in
     if is_pi_abs t then
       obj (Norm.deep_norm (app (extract_pi_abs t) [x]))
     else
@@ -134,22 +130,25 @@ let rec map_args f t =
         (f left) :: (map_args f right)
     | _ -> []
 
+let term_to_restriction t =
+  (term_to_obj t).restriction
+        
 let apply_forall stmt ts =
   match stmt with
     | Forall(bindings, body) ->
         let fresh_body = freshen_bindings Logic bindings body [] in
-        let formal = map_args obj_to_restriction fresh_body in
-        let actual = List.map obj_to_restriction ts in
+        let formal = map_args term_to_restriction fresh_body in
+        let actual = List.map term_to_restriction ts in
           check_restrictions formal actual ;
           List.fold_left
             (fun stmt arg ->
                match stmt, arg with
-                 | Arrow(Obj(c1, left, _), right), Obj(c2, arg, _) ->
-                     if not (Context.is_empty c1 && Context.is_empty c2) then
+                 | Arrow(Obj obj_left, right), Obj obj_arg ->
+                     if not (Context.is_empty obj_left.context &&
+                               Context.is_empty obj_arg.context) then
                        failwith "apply_forall with non-empty contexts" ;
-                     begin try right_unify left arg with
-                       | Unify.Error _ ->
-                           failwith "Unification failure"
+                     begin try right_object_unify obj_left obj_arg with
+                       | Unify.Error _ -> failwith "Unification failure"
                      end ;
                      right
                  | _ -> failwith "Too few implications in forall application")
@@ -177,44 +176,47 @@ let collect_some f list =
 let set_current_state () =
   let current_state = save_state () in
     (fun () -> restore_state current_state)
-    
-let term_case term clauses used =
-  if obj_is_imp term then
-    match term with
-      | Obj(ctx, term, res) ->
-          let a, b = extract_imp term in
-            [{ set_state = set_current_state () ;
-               new_vars = [] ;
-               new_hyps = [ reduce_restriction
-                              (Obj(Context.add a ctx, b, res)) ] }]
-      | _ -> assert false
+
+let obj_case obj clauses used =
+  if is_imp obj.term then
+    let a, b = extract_imp obj.term in
+      [{ set_state = set_current_state () ;
+         new_vars = [] ;
+         new_hyps =
+           [ Obj (reduce_restriction
+                    {context = Context.add a obj.context ;
+                     term = b ;
+                     restriction = obj.restriction}) ]
+       }]
   else
     collect_some
       (fun (head, body) ->
          let fresh_head, fresh_body = freshen_clause Eigen head body used in
          let initial_state = save_state () in
-           if try_left_object_unify fresh_head term then
-             let new_vars = get_vars_alist Eigen (fresh_head::fresh_body) in
+           if try_left_unify fresh_head obj.term then
+             let new_vars =
+               get_term_vars_alist Eigen (fresh_head::fresh_body)
+             in
              let subst = get_subst initial_state in
              let set_state () = (restore_state initial_state ;
                                  apply_subst subst) in
              let contexted_body =
-               List.map (add_context (obj_to_context term)) fresh_body
+               List.map (context_obj obj.context) fresh_body
              in
                restore_state initial_state ;
                Some { set_state = set_state ;
                       new_vars = new_vars ;
-                      new_hyps = match term with
-                        | Obj(_, _, r) when r <> Irrelevant ->
-                            List.map (apply_restriction Smaller) contexted_body
-                        | _ -> contexted_body }
+                      new_hyps = match obj.restriction with
+                        | Irrelevant -> contexted_body
+                        | _ -> List.map (apply_restriction_to_lppterm Smaller)
+                            contexted_body }
            else
              None)
       clauses
 
 let case term clauses used =
   match term with
-    | Obj _ -> term_case term clauses used
+    | Obj obj -> obj_case obj clauses used
     | Or(left, right) ->
         let make_simple_case h =
           { set_state = set_current_state () ;
@@ -236,7 +238,7 @@ let rec apply_restriction_at res stmt arg =
   match stmt with
     | Arrow(left, right) ->
         if arg = 1 then
-          Arrow(apply_restriction res left, right)
+          Arrow(apply_restriction_to_lppterm res left, right)
         else
           Arrow(left, apply_restriction_at res right (arg-1))
     | _ -> failwith "Not enough implications in induction"
@@ -253,24 +255,22 @@ let induction ind_arg stmt =
 (* Search *)
 
 let derivable goal hyp =
-  Context.subcontext (obj_to_context hyp) (obj_to_context goal) &&
-    try_right_object_unify goal hyp
+  Context.subcontext hyp.context goal.context &&
+    try_right_unify goal.term hyp.term
 
 let search n goal clauses hyps =
   let rec term_aux n used goal =
-    if List.exists (derivable goal) (List.filter is_obj hyps) then
+    if List.exists (derivable goal) (filter_objs hyps) then
         true
-    else if Context.exists (try_right_unify (obj_to_term goal))
-      (obj_to_context goal) then
-        true
+    else if Context.exists (try_right_unify goal.term) goal.context then
+      true
     else if n = 0 then
       false
-    else if obj_is_imp goal then
-      match goal with
-      | Obj(ctx, goal, res) ->
-          let a, b = extract_imp goal in
-            term_aux (n-1) used (Obj(Context.add a ctx, b, res))
-      | _ -> assert false
+    else if is_imp goal.term then
+      let a, b = extract_imp goal.term in
+        term_aux (n-1) used {context = Context.add a goal.context ;
+                             term = b ;
+                             restriction = goal.restriction}
     else
       List.exists
         (fun (head, body) ->
@@ -279,12 +279,12 @@ let search n goal clauses hyps =
                 let fresh_head, fresh_body =
                   freshen_clause Logic head body used
                 in
-                  right_object_unify fresh_head goal ;
+                  right_unify fresh_head goal.term ;
                   let curr_used =
-                    List.map fst (get_vars_alist Logic fresh_body)
+                    List.map fst (get_term_vars_alist Logic fresh_body)
                   in
                   let contexted_body =
-                    List.map (add_context (obj_to_context goal)) fresh_body
+                    List.map (fun t -> {goal with term = t}) fresh_body
                   in
                     List.for_all (term_aux (n-1) curr_used) contexted_body))
         clauses
@@ -294,8 +294,9 @@ let search n goal clauses hyps =
       | Or(left, right) -> lppterm_aux left or lppterm_aux right
       | Exists(bindings, body) ->
           let term = freshen_bindings Logic bindings body [] in
-          let used = List.map fst (get_vars_alist Logic [term]) in
-            term_aux n used term
-      | _ -> term_aux n [] goal
+          let used = List.map fst (get_lppterm_vars_alist Logic [term]) in
+            lppterm_aux term
+      | Obj obj -> term_aux n [] obj
+      | _ -> false
   in
     lppterm_aux goal

@@ -618,6 +618,6 @@ let try_right_unify t1 t2 =
 let try_left_unify t1 t2 =
   try_with_state
     (fun () ->
-       Right.pattern_unify t1 t2 ;
+       Left.pattern_unify t1 t2 ;
        true)
 

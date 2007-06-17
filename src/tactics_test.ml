@@ -16,38 +16,38 @@ let tests =
     [
       "Simple object cut" >::
         (fun () ->
-           let t = object_cut (parse "{A => B}") (parse "{A}") in
+           let t = object_cut (parse_obj "A => B") (parse_obj "A") in
              assert_pprint_equal "{B}" t) ;
       
       "Failed object cut" >::
         (fun () ->
            assert_raises_any
-             (fun () -> object_cut (parse "{A => B}") (parse "{C}"))) ;
+             (fun () -> object_cut (parse_obj "A => B") (parse_obj "C"))) ;
       
       "Compound object cut" >::
         (fun () ->
-           let h0 = parse "{eval A B => typeof B C}" in
-           let h1 = parse "{eval A B}" in
+           let h0 = parse_obj "eval A B => typeof B C" in
+           let h1 = parse_obj "eval A B" in
            let t = object_cut h0 h1 in
              assert_pprint_equal "{typeof B C}" t) ;
 
       "Simple object instantiation" >::
         (fun () ->
-           let h0 = parse "{pi x\\ eval x B}" in
+           let h0 = parse_obj "pi x\\ eval x B" in
            let a = var ~tag:Eigen "A" 0 in
            let t = object_inst h0 a in
              assert_pprint_equal "{eval A B}" t) ;
       
       "Failed object instantiation - missing pi" >::
         (fun () ->
-           let h0 = parse "{sigma x\\ eval x B}" in
+           let h0 = parse_obj "sigma x\\ eval x B" in
            let a = var ~tag:Eigen "A" 0 in
              assert_raises_any
                (fun () -> object_inst h0 a)) ;
 
       "Failed object instantiation - missing lambda" >::
         (fun () ->
-           let h0 = parse "{pi eval x B}" in
+           let h0 = parse_obj "pi eval x B" in
            let a = var ~tag:Eigen "A" 0 in
              assert_raises_any
                (fun () -> object_inst h0 a)) ;
@@ -147,7 +147,7 @@ let tests =
            let a = var ~tag:Eigen "A" 0 in
            let b = var ~tag:Eigen "B" 0 in
            let evalAB = obj (app (const "eval") [a; b]) in
-           let term = apply_restriction Equal evalAB in
+           let term = apply_restriction_to_lppterm Equal evalAB in
              match case term prog ["A"; "B"] with
                | [case1; case2] ->
                    case1.set_state () ;
@@ -198,8 +198,9 @@ let tests =
            let a = var ~tag:Eigen "A" 0 in
            let b = var ~tag:Eigen "B" 0 in
            let l = var ~tag:Eigen "L" 0 in
-           let term = obj (app (const "eval") [a; b]) in
-           let contexted_term = add_to_context l term in
+           let term = app (const "eval") [a; b] in
+           let ctx = Context.add l Context.empty in
+           let contexted_term = context_obj ctx term in
              match case contexted_term prog ["A"; "B"] with
                | [case1; case2] ->
                    case1.set_state () ;

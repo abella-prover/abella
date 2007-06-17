@@ -42,12 +42,12 @@ let tests =
       
       "Print smaller restricted object" >::
         (fun () ->
-           let t = apply_restriction Smaller a in
+           let t = apply_restriction_to_lppterm Smaller a in
              assert_pprint_equal "{A}*" t) ;
       
       "Print equal restricted object" >::
         (fun () ->
-           let t = apply_restriction Equal a in
+           let t = apply_restriction_to_lppterm Equal a in
              assert_pprint_equal "{A}@" t) ;
 
       "Print OR" >::
@@ -94,7 +94,8 @@ let tests =
 
       "Print non-empty context" >::
         (fun () ->
-           let t = add_to_context (const "L") a in
+           let t = context_obj (Context.add (const "L") Context.empty) var_a
+           in
              assert_pprint_equal "{L |- A}" t) ;
 
     ]

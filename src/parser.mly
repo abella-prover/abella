@@ -11,13 +11,19 @@
 %type <Term.term> term
 %type <Prover.clauses> clauses
 %type <Prover.command> command
-%type <Lppterm.lppterm> contexted_term
+%type <Lppterm.obj> contexted_term
 
 %%
 
 contexted_term:
-  | context TURN term                   { Lppterm.context_obj $1 $3 }
-  | term                                { Lppterm.obj $1 }
+  | context TURN term                   { {Lppterm.context = $1 ;
+                                           Lppterm.term = $3 ;
+                                           Lppterm.restriction =
+                                              Lppterm.Irrelevant} }
+  | term                                { {Lppterm.context = Context.empty ;
+                                           Lppterm.term = $1 ;
+                                           Lppterm.restriction =
+                                              Lppterm.Irrelevant} }
 
 context:
   | term COMMA context                  { Context.add $1 $3 }
@@ -43,12 +49,12 @@ clauses:
   |                                     { [] }
 
 clause:
-  | term DOT                            { (Lppterm.obj $1, []) }
-  | term DEF clause_body DOT            { (Lppterm.obj $1, $3) }
+  | term DOT                            { ($1, []) }
+  | term DEF clause_body DOT            { ($1, $3) }
 
 clause_body:
-  | term COMMA clause_body              { (Lppterm.obj $1)::$3 }
-  | term                                { [Lppterm.obj $1] }
+  | term COMMA clause_body              { $1::$3 }
+  | term                                { [$1] }
 
 command:
   | IND ON NUM DOT                      { Prover.Induction($3) }

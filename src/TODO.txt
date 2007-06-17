@@ -1,13 +1,17 @@
 Soon
 ====
+Move obj to its own type so we don't have to use so many accessors
+     Look for basic accessors to eliminate (overall clean up too)
+     Search for uses of functions in lppterm.ml
+     Make an objection function called case_imp or whatever
+     
+
 Contexts
   apply should instantiate one context with another
   case should look in context as a subcase
 
   do we have to consider logic variables in the context during search?
-
-Make an objection function called case_imp or whatever
-Move obj to its own type so we don't have to use so many accessors and stuff
+  how does object cut work with contexts?
 
 Fix rigid_path_check
 

@@ -23,8 +23,8 @@ let setup_prover ?clauses:(clauses=[]) ?goal:(goal="") ?lemmas:(lemmas=[]) () =
     List.map (fun (name,body) -> (name, parse_lppterm body)) lemmas
 
 let freshen str =
-  match Tactics.freshen_capital_vars Eigen [parse_lppterm str] [] with
-    | [fresh] -> fresh
+  match Tactics.freshen_capital_vars Eigen [parse_term str] [] with
+    | [fresh] -> obj fresh
     | _ -> assert false
   
 let tests =
@@ -35,7 +35,7 @@ let tests =
            setup_prover ()
              ~clauses:eval_clauses ;
 
-           sequent.hyps <- [("H1", freshen "{eval A B}")] ;
+           sequent.hyps <- [("H1", freshen "eval A B")] ;
            case "H1" ;
            assert_bool "R should be added to variable list"
              (List.mem "R" (var_names ())) ;
@@ -238,7 +238,7 @@ let tests =
            setup_prover ()
              ~clauses:fsub_clauses ;
 
-           sequent.hyps <- [("H1", freshen "{sub S top}")] ;
+           sequent.hyps <- [("H1", freshen "sub S top")] ;
            case "H1" ;
            assert_n_subgoals 2 ;
         ) ;

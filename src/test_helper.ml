@@ -6,6 +6,9 @@ open Lppterm
 let parse_term str =
   Parser.term Lexer.token (Lexing.from_string str)
 
+let parse_obj str =
+  Parser.contexted_term Lexer.token (Lexing.from_string str)
+
 let parse_lppterm str =
   Top_parser.lppterm Top_lexer.token (Lexing.from_string str)
 

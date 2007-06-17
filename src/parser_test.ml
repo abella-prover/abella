@@ -7,6 +7,9 @@ open Parser
 let parse_clauses str =
   clauses token (Lexing.from_string str)
 
+let assert_pprint_equal str term =
+  assert_pprint_equal str (obj term)
+
 let tests =
   "Parser" >:::
     [

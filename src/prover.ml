@@ -52,7 +52,7 @@ let fresh_hyp_name () =
   sequent.count <- sequent.count + 1 ;
   "H" ^ (string_of_int sequent.count)
   
-type clauses = (lppterm * lppterm list) list
+type clauses = (term * term list) list
 let clauses : clauses ref = ref []
 
 
@@ -150,7 +150,8 @@ let display () =
 
 let inst h t =
   save_undo_state () ;
-  add_hyp (object_inst (get_hyp h) (replace_term_vars sequent.vars t))
+  add_hyp (object_inst (term_to_obj (get_hyp h))
+             (replace_term_vars sequent.vars t))
 
       
 (* Apply *)
@@ -162,10 +163,10 @@ let apply h args =
       begin match stmt, args with
         | Forall _, _ ->
             apply_forall stmt (List.map get_hyp args)
-        | Obj(c, t, _), [arg] when is_imp t ->
-            if not (Context.is_empty c) then
+        | Obj obj, [arg] when is_imp obj.term ->
+            if not (Context.is_empty obj.context) then
               failwith "apply called with non-empty context" ;
-            object_cut stmt (get_hyp arg)
+            object_cut obj (term_to_obj (get_hyp arg))
         | _ -> failwith "Bad application"
       end
 

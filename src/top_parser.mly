@@ -34,7 +34,7 @@ lppterm:
   | lppterm RARROW lppterm            { Lppterm.Arrow($1, $3) }
   | lppterm OR lppterm                { Lppterm.Or($1, $3) }
   | LPAREN lppterm RPAREN             { $2 }
-  | object_term                       { $1 }
+  | object_term                       { Lppterm.Obj $1 }
 
 binding_list:
   | binding binding_list              { $1::$2 }

@@ -62,7 +62,7 @@ let tests =
                 case "H7" ;
                 inst "H8" (parse_term "N") ;
                 
-                apply "H9" ["H6"] ;
+                cut "H9" "H6" ;
                 apply "IH" ["H4"; "H10"] ;
                 search () ;
              )
@@ -220,14 +220,14 @@ let tests =
                 apply "IH" ["H3"; "H5"] ;
                 case "H7" ;
                 inst "H8" (parse_term "N") ;
-                apply "H9" ["H6"] ;
+                cut "H9" "H6" ;
                 apply "IH" ["H4"; "H10"] ;
                 search () ;
                 assert_n_subgoals 1 ;
                 
                 case "H2" ;
                 inst "H4" (parse_term "rec T R") ;
-                apply "H5" ["H2"] ;
+                cut "H5" "H2" ;
                 apply "IH" ["H3"; "H6"] ;
                 search () ;
              )

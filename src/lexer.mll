@@ -30,6 +30,7 @@ rule token = parse
 | "induction"        { IND }
 | "apply"            { APPLY }
 | "inst"             { INST }
+| "cut"              { CUT }
 | "case"             { CASE }
 | "search"           { SEARCH }
 | "to"               { TO }

@@ -67,7 +67,7 @@ Theorem sr_eval :
 induction on 1. intros. case H1.
   search.
   case H2. apply IH to H3 and H5. case H7. inst H8 with N.
-    apply H9 to H6. apply IH to H4 and H10. search.
+    cut H9 with H6. apply IH to H4 and H10. search.
 
 %Theorem sr_step :
 %  forall E1 E2 T, {step E1 E2} -> {typeof E1 T} -> {typeof E2 T}.

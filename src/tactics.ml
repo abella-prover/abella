@@ -282,14 +282,14 @@ let search n goal clauses hyps =
                     List.for_all (term_aux (n-1) curr_used) contexted_body))
         clauses
   in
-  let rec lppterm_aux goal =
+  let rec lppterm_aux used goal =
     match goal with
-      | Or(left, right) -> lppterm_aux left or lppterm_aux right
+      | Or(left, right) -> lppterm_aux used left or lppterm_aux used right
       | Exists(bindings, body) ->
           let term = freshen_bindings Logic bindings body [] in
           let used = List.map fst (get_lppterm_vars_alist Logic [term]) in
-            lppterm_aux term
-      | Obj(obj, r) -> term_aux n [] obj
+            lppterm_aux used term
+      | Obj(obj, r) -> term_aux n used obj
       | _ -> false
   in
-    lppterm_aux goal
+    lppterm_aux [] goal

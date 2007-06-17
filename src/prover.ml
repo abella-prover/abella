@@ -10,6 +10,7 @@ type top_command =
 type command =
   | Induction of int
   | Apply of id * id list
+  | Cut of id * id
   | Inst of id * term
   | Case of id
   | Search
@@ -153,7 +154,25 @@ let inst h t =
   add_hyp (object_inst (term_to_obj (get_hyp h))
              (replace_term_vars sequent.vars t))
 
-      
+
+(* Object level cut *)
+    
+let cut h arg =
+  save_undo_state () ;
+  let h = get_hyp h in
+  let arg = get_hyp arg in
+  let result =
+    match h, arg with
+      | Obj(obj_h, _), Obj(obj_arg, _) when is_imp obj_h.term ->
+          if not (Context.is_empty obj_h.context &&
+                    Context.is_empty obj_arg.context) then
+            failwith "Cut called with non-empty context" ;
+          object_cut obj_h obj_arg
+      | _ -> failwith "Invalid hypothesis for object cut"
+  in
+    add_hyp result
+
+            
 (* Apply *)
           
 let apply h args =
@@ -163,11 +182,7 @@ let apply h args =
       begin match stmt, args with
         | Forall _, _ ->
             apply_forall stmt (List.map get_hyp args)
-        | Obj(obj, r), [arg] when is_imp obj.term ->
-            if not (Context.is_empty obj.context) then
-              failwith "apply called with non-empty context" ;
-            object_cut obj (term_to_obj (get_hyp arg))
-        | _ -> failwith "Bad application"
+        | _ -> failwith "Apply called on non-forall statement"
       end
 
       

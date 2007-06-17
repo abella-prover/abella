@@ -1,5 +1,5 @@
 %token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN
-%token IND INST APPLY CASE SEARCH TO ON WITH AND INTROS SKIP UNDO
+%token IND INST APPLY CASE SEARCH TO ON WITH AND INTROS SKIP UNDO CUT
 %token <int> NUM
 %token <string> ID
 %token EOF
@@ -53,6 +53,7 @@ clause_body:
 command:
   | IND ON NUM DOT                      { Prover.Induction($3) }
   | APPLY ID TO id_arg_list DOT         { Prover.Apply($2, $4) }
+  | CUT ID WITH ID                      { Prover.Cut($2, $4) }
   | INST ID WITH term DOT               { Prover.Inst($2, $4) }
   | CASE ID DOT                         { Prover.Case($2) }
   | SEARCH DOT                          { Prover.Search }

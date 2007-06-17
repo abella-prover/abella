@@ -5,8 +5,6 @@ Move obj to its own type so we don't have to use so many accessors
      Search for uses of functions in lppterm.ml
      Make an objection function called case_imp or whatever
 
-Make explicit cut tactic
-
 Contexts
   apply should instantiate one context with another
   case should look in context as a subcase
@@ -31,6 +29,8 @@ With support for contexts and names,
      Cut elimination with forall quantifier
 
 Add 'and'
+
+Make omake target that checks all thm files with their mod files
 
 Move things from prover to tactics if they use Tactics.foo
 

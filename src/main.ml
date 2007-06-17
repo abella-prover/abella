@@ -1,5 +1,4 @@
 open Prover
-open Pprint
 open Lppterm
 
 let rec process_proof name ?(interactive=true) lexbuf =
@@ -73,5 +72,5 @@ let _ =
                         (Lexing.from_channel (open_in file_name)))
            !clauses)
     usage_message ;
-  Pprint.set_infix [("=>", Pprint.Right)] ;
+  Term.set_infix [("=>", Term.Right)] ;
   process ~interactive:true (Lexing.from_channel stdin)

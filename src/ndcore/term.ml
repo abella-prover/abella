@@ -52,20 +52,18 @@ let rec eq t1 t2 =
     (* Propagation *)
     | App (h1,l1), App (h2,l2) ->
         List.length l1 = List.length l2 &&
-        List.fold_left2
-          (fun test t1 t2 -> test && eq t1 t2)
-          true (h1::l1) (h2::l2)
+        List.for_all2 eq (h1::l1) (h2::l2)
     | Lam (n,t1), Lam (m,t2) -> n = m && eq t1 t2
     | Var _, _ | _, Var _ -> assert false
-    | Susp (t,ol,nl,e), Susp (tt,oll,nll,ee) ->
-        ol = oll && nl = nll && eq t tt &&
-          List.fold_left2
-            (fun test e1 e2 ->
-               test && match e1,e2 with
-                 | Dum i, Dum j when i = j -> true
-                 | Binding (t,i), Binding (tt,j) when i=j && eq t tt -> true
+    | Susp (t1,ol1,nl1,e1), Susp (t2,ol2,nl2,e2) ->
+        ol1 = ol2 && nl1 = nl2 && eq t1 t2 &&
+          List.for_all2
+            (fun et1 et2 ->
+               match et1,et2 with
+                 | Dum i, Dum j -> i = j
+                 | Binding (t1,i), Binding (t2,j) -> i=j && eq t1 t2
                  | _ -> false)
-            true e ee
+          e1 e2
     | _ -> false
 
 let rec observe = function

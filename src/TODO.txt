@@ -1,10 +1,5 @@
 Soon
 ====
-Clean up context_pair code in apply_forall
-Fix issue where hyp B2 comes before hyp B1 in Forall application with
-contexts
-Why is hyp C1 come before L in Theorem imp_inv?
-
 Case should look in context as a subcase.
   case on {L, hyp A |- hyp C} should have
     hyp C -in- L

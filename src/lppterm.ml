@@ -65,6 +65,9 @@ let map_objs f t =
   in
     aux t
 
+let normalize_contexts t =
+  map_objs (fun obj -> {obj with context = Context.normalize obj.context}) t
+
 (* Variable Renaming *)
 
 let remove_assoc_list to_remove alist =

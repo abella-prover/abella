@@ -119,6 +119,7 @@ let extract_singleton ctx =
     | _ -> failwith "Non-singleton context encountered"
 
 let reconcile pair_list =
+  let pair_list = List.filter (fun (x,y) -> not (is_empty x)) pair_list in
   let pair_list = List.map (fun (x,y) -> xor x y) pair_list in
   let var_ctx_list = List.map
     (fun (x,y) -> (extract_singleton x, y)) pair_list

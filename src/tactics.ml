@@ -141,13 +141,8 @@ let apply_forall stmt ts =
               fresh_body
               ts
           in
-          let context_pairs = List.filter
-            (fun (x,y) -> not (Context.is_empty x && Context.is_empty y))
-            !context_pairs in
-            Context.reconcile context_pairs ;
-            map_objs
-              (fun obj -> {obj with context = Context.normalize obj.context})
-              result
+            Context.reconcile !context_pairs ;
+            normalize_contexts result
     | _ -> failwith "apply_forall can only be used on Forall(...) statements"
 
 

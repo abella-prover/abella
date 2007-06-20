@@ -20,7 +20,7 @@ contexted_term:
   | term                                { Lppterm.obj $1 }
 
 context:
-  | term COMMA context                  { Context.add $1 $3 }
+  | context COMMA term                  { Context.add $3 $1 }
   | term                                { Context.add $1 Context.empty }
       
 term:

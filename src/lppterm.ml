@@ -54,6 +54,16 @@ let add_to_context elt obj =
 let add_context ctx obj =
   {obj with context = Context.union ctx obj.context}
 
+let map_objs f t =
+  let rec aux t =
+    match t with
+      | Obj(obj, r) -> Obj(f obj, r)
+      | Arrow(a, b) -> Arrow(aux a, aux b)
+      | Forall(bindings, body) -> Forall(bindings, aux body)
+      | Exists(bindings, body) -> Exists(bindings, aux body)
+      | Or(a, b) -> Or(aux a, aux b)
+  in
+    aux t
 
 (* Variable Renaming *)
 

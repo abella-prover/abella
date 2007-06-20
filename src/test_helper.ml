@@ -32,6 +32,9 @@ let assert_string_equal = assert_equal ~printer:(fun s -> s)
 let assert_pprint_equal s t =
   assert_equal ~printer:id s (lppterm_to_string t)
 
+let assert_term_pprint_equal s t =
+  assert_equal ~printer:id s (Term.term_to_string t)
+
 let assert_int_equal = assert_equal ~printer:string_of_int
 
 let assert_string_list_equal lst1 lst2 =

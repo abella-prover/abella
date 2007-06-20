@@ -124,21 +124,30 @@ let apply_forall stmt ts =
         let fresh_body = freshen_bindings Logic bindings body [] in
         let formal = map_args term_to_restriction fresh_body in
         let actual = List.map term_to_restriction ts in
+        let context_pairs = ref [] in
           check_restrictions formal actual ;
-          List.fold_left
-            (fun stmt arg ->
-               match stmt, arg with
-                 | Arrow(Obj(obj_left, _), right), Obj(obj_arg, _) ->
-                     if not (Context.is_empty obj_left.context &&
-                               Context.is_empty obj_arg.context) then
-                       failwith "apply_forall with non-empty contexts" ;
-                     begin try right_unify obj_left.term obj_arg.term with
-                       | Unify.Error _ -> failwith "Unification failure"
-                     end ;
-                     right
-                 | _ -> failwith "Too few implications in forall application")
-            fresh_body
-            ts
+          let result =
+            List.fold_left
+              (fun stmt arg ->
+                 match stmt, arg with
+                   | Arrow(Obj(left, _), right), Obj(arg, _) ->
+                       context_pairs :=
+                         (left.context, arg.context)::!context_pairs ;
+                       begin try right_unify left.term arg.term with
+                         | Unify.Error _ -> failwith "Unification failure"
+                       end ;
+                       right
+                   | _ -> failwith "Too few implications in forall application")
+              fresh_body
+              ts
+          in
+          let context_pairs = List.filter
+            (fun (x,y) -> not (Context.is_empty x && Context.is_empty y))
+            !context_pairs in
+            Context.reconcile context_pairs ;
+            map_objs
+              (fun obj -> {obj with context = Context.normalize obj.context})
+              result
     | _ -> failwith "apply_forall can only be used on Forall(...) statements"
 
 
@@ -230,13 +239,13 @@ let induction ind_arg stmt =
 (* Search *)
 
 let derivable goal hyp =
-  Context.subcontext hyp.context goal.context &&
-    try_right_unify goal.term hyp.term
+  try_right_unify goal.term hyp.term &&
+    Context.subcontext hyp.context goal.context
 
 let search n goal clauses hyps =
   let rec term_aux n used goal =
     if List.exists (derivable goal) (filter_objs hyps) then
-        true
+      true
     else if Context.exists (try_right_unify goal.term) goal.context then
       true
     else if n = 0 then

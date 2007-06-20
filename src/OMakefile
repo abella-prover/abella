@@ -59,3 +59,8 @@ lpp: $(OCamlProgram lpp, $(NDCORE_FILES) $(FILES) $(MAIN))
 .PHONY: clean
 clean:
    rm $(filter-proper-targets $(ls R, .))
+
+THM = cut
+.PHONY: $(THM)
+$(THM): $(THM).mod $(THM).thm lpp
+   ./lpp $(THM).mod < $(THM).thm

@@ -271,6 +271,11 @@ let term_to_var t =
     | Var v -> v
     | _ -> failwith "term_to_var called on non-var"
 
+let is_eigen t =
+  match observe t with
+    | Var v -> v.tag = Eigen
+    | _ -> false
+
 (* Normalization *)
 
 (** Make an environment appropriate to [n] lambda abstractions applied to

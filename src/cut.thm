@@ -3,4 +3,26 @@ Theorem land_left_inv :
 induction on 1. intros. case H1.
   search.
   search.
-  case H3. case H4. apply IH to H5.
+  case H3. case H4. apply IH to H5. search.
+  case H4. apply IH to H5. search.
+
+Theorem land_right_inv :
+  forall L C1 C2, {L |- conc (land C1 C2)} -> {L |- conc C1}.
+induction on 1. intros. case H1.
+  search.
+  search.
+  case H3. case H4. apply IH to H5. search.
+  case H4. apply IH to H5. search.
+
+Theorem imp_inv :
+  forall L C1 C2, {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
+induction on 1. intros. case H1.
+  search.
+  case H3. case H4. apply IH to H5. search.
+  case H2. search.
+  case H4. apply IH to H5. search.
+
+Theorem cut_elim :
+  forall L A C, {L |- conc A} -> {L, hyp A |- conc C} -> {L |- conc C}.
+induction on 2. intros. case H2.
+

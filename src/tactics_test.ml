@@ -10,7 +10,7 @@ let prog = eval_clauses
 
 let assert_search_success b = assert_bool "Search should succeed" b
 let assert_search_failure b = assert_bool "Search should fail" (not b)
-    
+
 let tests =
   "Tactics" >:::
     [
@@ -105,6 +105,19 @@ let tests =
            let h2 = parse "{bad (abs R) (arrow S T)}" in
              assert_raises (Failure "Unification failure")
                (fun () -> apply_forall h0 [h1; h2])) ;
+
+      "Forall application with contexts" >::
+        (fun () ->
+           let h0 = parse
+               ("forall E A C," ^
+                  "{E, hyp A |- conc C} -> {E |- conc A} -> {E |- conc C}") in
+           let h1 = parse "{L, hyp A, hyp B1, hyp B2 |- conc C}" in
+           let h2 = parse "{L |- conc A}" in
+           let l = var ~tag:Eigen "L" 0 in
+           let h1 = replace_lppterm_vars [("L", l)] h1 in
+           let h2 = replace_lppterm_vars [("L", l)] h2 in
+           let t = apply_forall h0 [h1; h2] in
+             assert_pprint_equal "{L, hyp B1, hyp B2 |- conc C}" t) ;
 
       "Case application" >::
         (fun () ->

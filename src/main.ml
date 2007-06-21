@@ -1,5 +1,7 @@
 open Prover
 open Lppterm
+open Command
+open Clauses
 
 let rec process_proof name ?(interactive=true) lexbuf =
   let finished = ref false in

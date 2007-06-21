@@ -1,15 +1,10 @@
 Soon
 ====
-Case on member should work as follows
-  case on [member (hyp C) (hyp A :: L)] has two subcases
-    [member (hyp C) L]
-    hyp C = hyp A ?
-
 Add support for Axiom declarations
 
 Add support for multiple inductive restrictions again?
 
-Do cut elimination proof
+Do cut elimination proof (remove skips)
 
 Case should look in context as a subcase
 

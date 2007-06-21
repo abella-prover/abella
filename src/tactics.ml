@@ -177,6 +177,24 @@ let set_current_state () =
   let current_state = save_state () in
     (fun () -> restore_state current_state)
 
+let term_case term clauses used wrapper =
+  collect_some
+    (fun (head, body) ->
+       let fresh_head, fresh_body = freshen_clause Eigen head body used in
+       let initial_state = save_state () in
+         if try_left_unify fresh_head term then
+           let new_vars = get_term_vars_alist Eigen (fresh_head::fresh_body) in
+           let subst = get_subst initial_state in
+           let set_state () = (restore_state initial_state ; apply_subst subst) in
+           let wrapped_body = List.map wrapper fresh_body in
+             restore_state initial_state ;
+             Some { set_state = set_state ;
+                        new_vars = new_vars ;
+                        new_hyps = wrapped_body }
+         else
+               None)
+    clauses
+      
 let obj_case obj r clauses used =
   if is_imp obj.term then
     [{ set_state = set_current_state () ;
@@ -184,27 +202,8 @@ let obj_case obj r clauses used =
        new_hyps = [ Obj(move_imp_to_context obj, reduce_restriction r) ]
      }]
   else
-    let clause_cases =
-      collect_some
-        (fun (head, body) ->
-           let fresh_head, fresh_body = freshen_clause Eigen head body used in
-           let initial_state = save_state () in
-             if try_left_unify fresh_head obj.term then
-               let new_vars = get_term_vars_alist Eigen (fresh_head::fresh_body) in
-               let subst = get_subst initial_state in
-               let set_state () = (restore_state initial_state ; apply_subst subst) in
-               let contexted_body = List.map (context_obj obj.context) fresh_body in
-               let restricted_body =
-                 List.map (fun obj -> Obj(obj, reduce_restriction r)) contexted_body
-               in
-                 restore_state initial_state ;
-                 Some { set_state = set_state ;
-                        new_vars = new_vars ;
-                        new_hyps = restricted_body }
-             else
-               None)
-        clauses
-    in
+    let wrapper t = Obj(context_obj obj.context t, reduce_restriction r) in
+    let clause_cases = term_case obj.term clauses used wrapper in
     let member_case =
       { set_state = set_current_state () ;
         new_vars = [] ;
@@ -214,7 +213,6 @@ let obj_case obj r clauses used =
         clause_cases
       else
         member_case :: clause_cases
-      
 
 let case term clauses used =
   match term with

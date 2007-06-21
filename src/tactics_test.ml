@@ -201,23 +201,16 @@ let tests =
 
       "Case should pass along context" >::
         (fun () ->
-           let a = var ~tag:Eigen "A" 0 in
-           let b = var ~tag:Eigen "B" 0 in
-           let l = var ~tag:Eigen "L" 0 in
-           let term = app (const "eval") [a; b] in
-           let ctx = Context.add l Context.empty in
-           let contexted_term = Obj(context_obj ctx term, Irrelevant) in
-             match case contexted_term prog ["A"; "B"] with
+           let term = freshen "{L |- eval A B}" in
+             match case term prog ["A"; "B"] with
                | [case1; case2; case3] ->
                    (* case1 is the member case *)
                    
                    case2.set_state () ;
-                   assert_pprint_equal "{L |- eval (abs R) (abs R)}"
-                     contexted_term ;
+                   assert_pprint_equal "{L |- eval (abs R) (abs R)}" term ;
                    
                    case3.set_state () ;
-                   assert_pprint_equal "{L |- eval (app M N) B}"
-                     contexted_term ;
+                   assert_pprint_equal "{L |- eval (app M N) B}" term ;
                    begin match case3.new_hyps with
                      | [h1; h2] ->
                          assert_pprint_equal "{L |- eval M (abs R)}" h1 ;

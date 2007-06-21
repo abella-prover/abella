@@ -24,6 +24,7 @@ let forall ids t = Forall(ids, t)
 let exists ids t = Exists(ids, t)
 let lpp_or a b = Or(a, b)
 
+let member e ctx = Pred (app (Term.const "member") [e; ctx])
   
 (* Manipulations *)
 
@@ -65,6 +66,17 @@ let map_objs f t =
       | Pred _ -> t
   in
     aux t
+
+let rec collect_terms t =
+  match t with
+    | Obj(obj, r) -> (Context.context_to_list obj.context) @ [obj.term]
+    | Arrow(a, b) -> (collect_terms a) @ (collect_terms b)
+    | Forall(bindings, body) -> collect_terms body
+    | Exists(bindings, body) -> collect_terms body
+    | Or(a, b) -> (collect_terms a) @ (collect_terms b)
+    | Pred p -> [p]
+
+let map_term_list f t = List.map f (collect_terms t)
 
 let normalize_contexts t =
   map_objs (fun obj -> {obj with context = Context.normalize obj.context}) t

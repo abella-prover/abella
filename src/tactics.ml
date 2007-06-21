@@ -31,6 +31,17 @@ let uniq lst =
     (fun result x -> if List.mem x result then result else x::result)
     [] lst
     
+let lppterm_capital_var_names t =
+  let names = List.flatten (map_term_list (fun t -> map_vars_list (fun v -> v.name) [t]) t)
+  in
+  let capital_names = List.filter is_capital names in
+    uniq capital_names
+
+let freshen_lppterm_capital_vars tag t used =
+  let var_names = lppterm_capital_var_names t in
+  let fresh_names = fresh_alist tag var_names used in
+    replace_lppterm_vars fresh_names t
+    
 let capital_var_names ts =
   uniq (List.filter is_capital
           (map_vars_list (fun v -> v.name) ts))
@@ -173,25 +184,37 @@ let obj_case obj r clauses used =
        new_hyps = [ Obj(move_imp_to_context obj, reduce_restriction r) ]
      }]
   else
-    collect_some
-      (fun (head, body) ->
-         let fresh_head, fresh_body = freshen_clause Eigen head body used in
-         let initial_state = save_state () in
-           if try_left_unify fresh_head obj.term then
-             let new_vars = get_term_vars_alist Eigen (fresh_head::fresh_body) in
-             let subst = get_subst initial_state in
-             let set_state () = (restore_state initial_state ; apply_subst subst) in
-             let contexted_body = List.map (context_obj obj.context) fresh_body in
-             let restricted_body =
-               List.map (fun obj -> Obj(obj, reduce_restriction r)) contexted_body
-             in
-               restore_state initial_state ;
-               Some { set_state = set_state ;
-                      new_vars = new_vars ;
-                      new_hyps = restricted_body }
-           else
-             None)
-      clauses
+    let clause_cases =
+      collect_some
+        (fun (head, body) ->
+           let fresh_head, fresh_body = freshen_clause Eigen head body used in
+           let initial_state = save_state () in
+             if try_left_unify fresh_head obj.term then
+               let new_vars = get_term_vars_alist Eigen (fresh_head::fresh_body) in
+               let subst = get_subst initial_state in
+               let set_state () = (restore_state initial_state ; apply_subst subst) in
+               let contexted_body = List.map (context_obj obj.context) fresh_body in
+               let restricted_body =
+                 List.map (fun obj -> Obj(obj, reduce_restriction r)) contexted_body
+               in
+                 restore_state initial_state ;
+                 Some { set_state = set_state ;
+                        new_vars = new_vars ;
+                        new_hyps = restricted_body }
+             else
+               None)
+        clauses
+    in
+    let member_case =
+      { set_state = set_current_state () ;
+        new_vars = [] ;
+        new_hyps = [member obj.term (Context.context_to_term obj.context)] }
+    in
+      if Context.is_empty obj.context then
+        clause_cases
+      else
+        member_case :: clause_cases
+      
 
 let case term clauses used =
   match term with

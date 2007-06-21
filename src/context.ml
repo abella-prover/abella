@@ -78,6 +78,8 @@ let rec group pair_list =
         let pair_list' = remove_assoc a pair_list in
           (a, pairings)::(group pair_list')
 
+let context_to_list ctx = ctx
+            
 let cons = const "::"
             
 let context_to_term ctx =

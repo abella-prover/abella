@@ -35,6 +35,7 @@ rule token = parse
 | "*"                { STAR }
 | "@"                { AT }
 | "Theorem"          { THEOREM }
+| "Axiom"            { AXIOM }
 | "or"               { OR }
 | "{"                { LBRACK }
 | "}"                { RBRACK }

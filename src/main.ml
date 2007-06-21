@@ -45,6 +45,8 @@ let rec process ?(interactive=true) lexbuf =
           theorem thm ;
           process_proof ~interactive:interactive name lexbuf ;
           add_lemma name thm
+      | Axiom(name, axiom) ->
+          add_lemma name axiom
     end ;
     if interactive then flush stdout
   with

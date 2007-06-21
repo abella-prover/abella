@@ -5,6 +5,7 @@ type id = string
 
 type top_command =
   | Theorem of id * lppterm
+  | Axiom of id * lppterm
 
 type command =
   | Induction of int list

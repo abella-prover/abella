@@ -1,8 +1,7 @@
 Soon
 ====
-Add support for Axiom declarations
-
 Do cut elimination proof (remove skips)
+  Apply-forall needs to be extended to work on non-objects?
 
 Clean up search code
 Clean up restriction checking code

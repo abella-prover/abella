@@ -22,11 +22,11 @@
 
 %start lppterm term clauses top_command command contexted_term
 %type <Term.term> term
-%type <Prover.clauses> clauses
-%type <Prover.command> command
+%type <Clauses.clauses> clauses
+%type <Command.command> command
 %type <Lppterm.obj> contexted_term
 %type <Lppterm.lppterm> lppterm
-%type <Prover.top_command> top_command
+%type <Command.top_command> top_command
 
 %%
 
@@ -67,15 +67,15 @@ clause_body:
   | term                                { [$1] }
 
 command:
-  | IND ON NUM DOT                      { Prover.Induction($3) }
-  | APPLY ID TO id_arg_list DOT         { Prover.Apply($2, $4) }
-  | CUT ID WITH ID                      { Prover.Cut($2, $4) }
-  | INST ID WITH term DOT               { Prover.Inst($2, $4) }
-  | CASE ID DOT                         { Prover.Case($2) }
-  | SEARCH DOT                          { Prover.Search }
-  | INTROS DOT                          { Prover.Intros }
-  | SKIP DOT                            { Prover.Skip }
-  | UNDO DOT                            { Prover.Undo }
+  | IND ON NUM DOT                      { Command.Induction($3) }
+  | APPLY ID TO id_arg_list DOT         { Command.Apply($2, $4) }
+  | CUT ID WITH ID                      { Command.Cut($2, $4) }
+  | INST ID WITH term DOT               { Command.Inst($2, $4) }
+  | CASE ID DOT                         { Command.Case($2) }
+  | SEARCH DOT                          { Command.Search }
+  | INTROS DOT                          { Command.Intros }
+  | SKIP DOT                            { Command.Skip }
+  | UNDO DOT                            { Command.Undo }
   | EOF                                 { raise End_of_file }
 
 id_arg_list:
@@ -104,6 +104,6 @@ object_term:
   | LBRACK contexted_term RBRACK AT     { Lppterm.Obj($2, Lppterm.Equal) }
 
 top_command :
-  | THEOREM ID COLON lppterm DOT        { Prover.Theorem($2, $4) }
-  | THEOREM lppterm DOT                 { Prover.Theorem("Goal", $2) }
+  | THEOREM ID COLON lppterm DOT        { Command.Theorem($2, $4) }
+  | THEOREM lppterm DOT                 { Command.Theorem("Goal", $2) }
   | EOF                                 { raise End_of_file }

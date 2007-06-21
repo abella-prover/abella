@@ -17,7 +17,7 @@ let assert_proof proof_function =
 
 let setup_prover ?clauses:(clauses=[]) ?goal:(goal="") ?lemmas:(lemmas=[]) () =
   reset_prover () ;
-  Prover.clauses := clauses ;
+  Clauses.clauses := clauses ;
   if goal <> "" then Prover.sequent.goal <- parse_lppterm goal ;
   Prover.lemmas :=
     List.map (fun (name,body) -> (name, parse_lppterm body)) lemmas

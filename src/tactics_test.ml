@@ -228,6 +228,23 @@ let tests =
                    assert_pprint_equal "member (hyp B) (hyp A :: L)" hyp
                | _ -> assert_failure "Pattern mismatch") ;
 
+      "Case on member" >::
+        (fun () ->
+           let term = freshen "member (hyp A) (hyp C :: L)" in
+           let used = ["A"; "C"; "L"] in
+             match case term prog used with
+               | [case1; case2] ->
+                   case1.set_state () ;
+                   assert_pprint_equal "member (hyp C) (hyp C :: L)" term ;
+
+                   case2.set_state () ;
+                   begin match case2.new_hyps with
+                     | [hyp] ->
+                         assert_pprint_equal "member (hyp A) L" hyp ;
+                     | _ -> assert_failure "Expected 1 new hypothesis"
+                   end
+               | _ -> assert_failure "Expected two cases") ;
+
       "Single induction creation" >::
         (fun () ->
            let stmt = parse

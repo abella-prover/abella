@@ -37,6 +37,8 @@ FILES[] =
    tactics
    prover
    context
+   command
+   clauses
 
 MAIN = main
 

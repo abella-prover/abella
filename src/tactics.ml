@@ -164,7 +164,7 @@ type case = {
   new_vars : (id * term) list ;
   new_hyps : lppterm list ;
 }
-
+    
 let collect_some f list =
   List.map (fun x ->
               match x with
@@ -185,7 +185,9 @@ let term_case term clauses used wrapper =
          if try_left_unify fresh_head term then
            let new_vars = get_term_vars_alist Eigen (fresh_head::fresh_body) in
            let subst = get_subst initial_state in
-           let set_state () = (restore_state initial_state ; apply_subst subst) in
+           let set_state () = (restore_state initial_state ;
+                               apply_subst subst)
+           in
            let wrapped_body = List.map wrapper fresh_body in
              restore_state initial_state ;
              Some { set_state = set_state ;
@@ -214,6 +216,12 @@ let obj_case obj r clauses used =
       else
         member_case :: clause_cases
 
+let parse_clauses str =
+  Parser.clauses Lexer.token (Lexing.from_string str)
+
+let meta_clauses =
+  parse_clauses "member A (A :: L). member A (B :: L) :- member A L."
+      
 let case term clauses used =
   match term with
     | Obj(obj, r) -> obj_case obj r clauses used
@@ -229,6 +237,9 @@ let case term clauses used =
           [{ set_state = set_current_state () ;
              new_vars = fresh_ids ;
              new_hyps = [fresh_body] }]
+    | Pred(p) ->
+        let wrapper t = Pred(t) in
+          term_case p meta_clauses used wrapper
     | _ -> invalid_lppterm_arg term
 
 

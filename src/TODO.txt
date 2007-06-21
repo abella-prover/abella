@@ -5,7 +5,7 @@ Case on member should work as follows
     [member (hyp C) L]
     hyp C = hyp A ?
 
-Add support for %axiom declarations
+Add support for Axiom declarations
 
 Add support for multiple inductive restrictions again?
 

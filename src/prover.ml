@@ -2,22 +2,8 @@ open Term
 open Lppterm
 open Printf
 open Tactics
-
-type top_command =
-  | Theorem of id * lppterm
-
-type command =
-  | Induction of int
-  | Apply of id * id list
-  | Cut of id * id
-  | Inst of id * term
-  | Case of id
-  | Search
-  | Intros
-  | Skip
-  | Undo
-
-type id = string
+open Command
+open Clauses
 
 type lemmas = (id * lppterm) list
 let lemmas : lemmas ref = ref []
@@ -52,10 +38,6 @@ let fresh_hyp_name () =
   sequent.count <- sequent.count + 1 ;
   "H" ^ (string_of_int sequent.count)
   
-type clauses = (term * term list) list
-let clauses : clauses ref = ref []
-
-
 (* Undo support *)
   
 type undo_stack = (sequent * subgoal list * Term.bind_state) list
@@ -200,7 +182,7 @@ let add_cases_to_subgoals cases =
         case.set_state () ;
   in
     subgoals := List.append (List.map case_to_subgoal cases) !subgoals
-      
+
 let case str =
   save_undo_state () ;
   let obj = get_hyp str in

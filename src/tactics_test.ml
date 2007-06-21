@@ -143,6 +143,13 @@ let tests =
            let t = apply_forall h0 [h1; h2] in
              assert_pprint_equal "{L, hyp B1, hyp B2 |- conc C}" t) ;
 
+      "Forall application on non-object" >::
+        (fun () ->
+           let h0 = parse "forall A, pred A -> result A" in
+           let h1 = freshen "pred B" in
+           let t = apply_forall h0 [h1] in
+             assert_pprint_equal "result B" t) ;
+      
       "Case application" >::
         (fun () ->
            (* eval (abs R) (abs R).

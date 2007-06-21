@@ -140,7 +140,7 @@ let rec map_args f t =
 let term_to_restriction t =
   match t with
     | Obj(_, r) -> r
-    | _ -> failwith "term_to_restriction called on non-object"
+    | _ -> Irrelevant
         
 let apply_forall stmt ts =
   match stmt with
@@ -159,6 +159,11 @@ let apply_forall stmt ts =
                          (left.context, arg.context)::!context_pairs ;
                        begin try right_unify left.term arg.term with
                          | Unify.Error _ -> failwith "Unification failure"
+                       end ;
+                       right
+                   | Arrow(Pred(left), right), Pred(arg) ->
+                       begin try right_unify left arg with
+                         | Unify.Error _ -> failwith "Unificaion failure"
                        end ;
                        right
                    | _ -> failwith "Too few implications in forall application")

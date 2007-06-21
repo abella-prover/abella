@@ -1,7 +1,7 @@
 Soon
 ====
 Do cut elimination proof (remove skips)
-  Apply-forall needs to be extended to work on non-objects?
+  Need to add a body to neg so we can search on it
 
 Clean up search code
 Clean up restriction checking code
@@ -24,6 +24,9 @@ How does object cut work with contexts?
 Add 'and'
 
 Fix rigid_path_check
+
+Add unification over lppterms?
+  If so then simplify search, case, and apply_forall
 
 Make omake target that checks all thm files with their mod files
 

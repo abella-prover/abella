@@ -31,6 +31,10 @@ let tests =
                    assert_term_pprint_equal "eval (R N) V" b2 ;
                | _ -> assert_failure "Pattern mismatch" ) ;
 
+      "Infix cons" >::
+        (fun () ->
+           assert_pprint_equal_parse "{member A (A :: B :: L)}") ;
+
       "Simple object statement" >::
         (fun () ->
            assert_pprint_equal_parse "{eval A B}") ;

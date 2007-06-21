@@ -26,6 +26,7 @@ rule token = parse
 | "("                { LPAREN }
 | ")"                { RPAREN }
 | "|-"               { TURN }
+| "::"               { CONS }
 
 | ":"                { COLON }
 | "->"               { RARROW }

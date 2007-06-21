@@ -28,11 +28,20 @@ let member e ctx = Pred (app (Term.const "member") [e; ctx])
   
 (* Manipulations *)
 
+let obj_to_member obj =
+  member obj.term (Context.context_to_term obj.context)
+
 let rec filter_objs ts =
   match ts with
     | [] -> []
     | Obj(obj, _)::rest -> obj::(filter_objs rest)
     | _::rest -> filter_objs rest
+
+let rec filter_preds ts =
+  match ts with
+    | [] -> []
+    | Pred(p)::rest -> p::(filter_preds rest)
+    | _::rest -> filter_preds rest
 
 let term_to_obj t =
   match t with

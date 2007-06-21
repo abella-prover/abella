@@ -330,4 +330,10 @@ let tests =
            let hyp = freshen "{A |- B}" in
            let goal = freshen "{A => B}" in
              assert_search_success (search 1 goal prog [hyp])) ;
+
+      "Search should look for member" >::
+        (fun () ->
+           let hyp = freshen "member (hyp A) L" in
+           let goal = freshen "{L |- hyp A}" in
+             assert_search_success (search 1 goal prog [hyp])) ;
     ]

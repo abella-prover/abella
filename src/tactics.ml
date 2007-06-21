@@ -209,7 +209,7 @@ let obj_case obj r clauses used =
     let member_case =
       { set_state = set_current_state () ;
         new_vars = [] ;
-        new_hyps = [member obj.term (Context.context_to_term obj.context)] }
+        new_hyps = [obj_to_member obj] }
     in
       if Context.is_empty obj.context then
         clause_cases
@@ -270,7 +270,21 @@ let derivable goal hyp =
     Context.subcontext hyp.context goal.context
 
 let search n goal clauses hyps =
-  let rec term_aux n used goal =
+  let rec term_aux n used clauses goal next =
+    List.exists
+      (fun (head, body) ->
+         try_with_state
+           (fun () ->
+              let fresh_head, fresh_body =
+                freshen_clause Logic head body used
+              in
+                right_unify fresh_head goal ;
+                let curr_used =
+                  List.map fst (get_term_vars_alist Logic fresh_body)
+                in
+                  List.for_all (next (n-1) curr_used) fresh_body))
+      clauses
+  and obj_aux n used goal =
     if List.exists (derivable goal) (filter_objs hyps) then
       true
     else if Context.exists (try_right_unify goal.term) goal.context then
@@ -278,33 +292,24 @@ let search n goal clauses hyps =
     else if n = 0 then
       false
     else if is_imp goal.term then
-      term_aux (n-1) used (move_imp_to_context goal)
+      obj_aux (n-1) used (move_imp_to_context goal)
     else
-      List.exists
-        (fun (head, body) ->
-           try_with_state
-             (fun () ->
-                let fresh_head, fresh_body =
-                  freshen_clause Logic head body used
-                in
-                  right_unify fresh_head goal.term ;
-                  let curr_used =
-                    List.map fst (get_term_vars_alist Logic fresh_body)
-                  in
-                  let contexted_body =
-                    List.map (fun t -> {goal with term = t}) fresh_body
-                  in
-                    List.for_all (term_aux (n-1) curr_used) contexted_body))
-        clauses
-  in
-  let rec lppterm_aux used goal =
+      ((not (Context.is_empty goal.context)) &&
+         lppterm_aux (n-1) used (obj_to_member goal))
+      || (term_aux n used clauses goal.term
+            (fun n used t -> obj_aux n used {goal with term=t}))
+  and lppterm_aux n used goal =
     match goal with
-      | Or(left, right) -> lppterm_aux used left or lppterm_aux used right
+      | Or(left, right) -> lppterm_aux n used left or lppterm_aux n used right
       | Exists(bindings, body) ->
           let term = freshen_bindings Logic bindings body [] in
           let used = List.map fst (get_lppterm_vars_alist Logic [term]) in
-            lppterm_aux used term
-      | Obj(obj, r) -> term_aux n used obj
+            lppterm_aux n used term
+      | Obj(obj, r) -> obj_aux n used obj
+      | Pred(p) ->
+          List.exists (try_right_unify p) (filter_preds hyps) ||
+            term_aux n used meta_clauses p
+            (fun n used t -> lppterm_aux n used (Pred t))
       | _ -> false
   in
-    lppterm_aux [] goal
+    lppterm_aux n [] goal

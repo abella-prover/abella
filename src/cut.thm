@@ -28,15 +28,26 @@ induction on 1. intros. case H1.
 Theorem cut_elim :
   forall L K C,
     {prop K} -> {L |- conc K} -> {L, hyp K |- conc C} -> {L |- conc C}.
-% induction on 2. intros. case H2.
-%  skip.
-%  case H3. case H4.
-%    search.
-%    search.
-%  search.
-%  apply IH to H1 and H3. apply IH to H1 and H4. search.
-%  case H4. case H5. apply IH to H1 and H6. case H3. case H8.
-%    apply land_left_inv to H1. apply land_right_inv to H1. search.
+induction on 1 and 3. intros. case H3.
+  skip.
+  case H4. case H5.
+    search.
+    search.
+  search.
+  apply IH to H1 and H2 and H4. apply IH to H1 and H2 and H5. search.
+  case H5. case H6. apply IH to H1 and H2 and H7. case H4. case H9.
+    apply land_left_inv to H2. apply land_right_inv to H2. case H1.
+      apply IH to H12 and H10 and H8. apply IH to H13 and H11 and H14.
+        search.
+    search.
+  case H4. apply IH to H1 and H2 and H5. search.
+    case H6. apply IH to H1 and H2 and H5. apply IH to H1 and H2 and H7.
+      case H4. case H10.
+        apply imp_inv to H2. case H1. apply IH to H12 and H8 and H11.
+          apply IH to H13 and H14 and H9. search.
+        search.
+  
+
     
   
 

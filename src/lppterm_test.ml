@@ -42,14 +42,19 @@ let tests =
       
       "Print smaller restricted object" >::
         (fun () ->
-           let t = apply_restriction Smaller a in
+           let t = apply_restriction (Smaller 1) a in
              assert_pprint_equal "{A}*" t) ;
       
       "Print equal restricted object" >::
         (fun () ->
-           let t = apply_restriction Equal a in
+           let t = apply_restriction (Equal 1) a in
              assert_pprint_equal "{A}@" t) ;
 
+      "Print second smaller restricted object" >::
+        (fun () ->
+           let t = apply_restriction (Smaller 2) a in
+             assert_pprint_equal "{A}**" t) ;
+      
       "Print OR" >::
         (fun () ->
            let t = lpp_or a b in

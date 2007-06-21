@@ -9,7 +9,7 @@ let rec process_proof name ?(interactive=true) lexbuf =
       display () ;
       if interactive then Format.printf "%s < %!" name ;
       begin match Parser.command Lexer.token lexbuf with
-        | Induction(arg) -> induction arg
+        | Induction(args) -> induction args
         | Apply(h, args) -> apply h args
         | Cut(h, arg) -> cut h arg
         | Inst(h, t) -> inst h t

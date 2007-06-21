@@ -110,13 +110,26 @@ let object_inst obj1 x =
 
 (* Apply forall statement *)
 
+
+let has_restrictions res_list =
+  List.exists (fun r -> r <> Irrelevant) res_list
+    
 let check_restrictions formal actual =
-  List.iter2 (fun fr ar -> match fr, ar with
-                | Smaller, Equal
-                | Smaller, Irrelevant ->
-                    failwith "Restriction violated"
-                | _ -> ())
-    formal actual
+  if has_restrictions formal then
+    let level = ref (List.length formal) in
+    let one_smaller = ref false in
+      List.iter2 (fun fr ar -> match fr, ar with
+                    | Smaller i, Smaller j when i = j ->
+                        level := min !level i ;
+                        one_smaller := true
+                    | Smaller i, Equal j when i = j ->
+                        ()
+                    | Smaller i, _ ->
+                        level := min !level (i - 1)
+                    | Irrelevant, _ -> ()
+                    | _, _ -> failwith "Bad restriction")
+        formal actual ;
+      if !level = 0 || not !one_smaller then failwith "Restriction violated"
 
 let rec map_args f t =
   match t with
@@ -253,13 +266,20 @@ let rec apply_restriction_at res stmt arg =
         else
           Arrow(left, apply_restriction_at res right (arg-1))
     | _ -> failwith "Not enough implications in induction"
-      
-let induction ind_arg stmt =
+
+let apply_restrictions ind_args body res_f =
+  let count = ref 0 in
+  List.fold_left
+    (fun term ind ->
+       incr count; apply_restriction_at (res_f !count) term ind)
+    body ind_args
+        
+let induction ind_args stmt =
   match stmt with
     | Forall(bindings, body) ->
-        let ih_body = apply_restriction_at Smaller body ind_arg in
-        let goal_body = apply_restriction_at Equal body ind_arg in
-          (forall bindings ih_body, forall bindings goal_body)
+        let ih = apply_restrictions ind_args body (fun i -> Smaller i) in
+        let goal = apply_restrictions ind_args body (fun i -> Equal i) in
+          (forall bindings ih, forall bindings goal)
     | _ -> failwith "Induction applied to non-forall statement"
 
 

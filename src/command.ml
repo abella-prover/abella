@@ -7,7 +7,7 @@ type top_command =
   | Theorem of id * lppterm
 
 type command =
-  | Induction of int
+  | Induction of int list
   | Apply of id * id list
   | Cut of id * id
   | Inst of id * term

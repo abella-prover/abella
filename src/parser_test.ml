@@ -67,6 +67,10 @@ let tests =
         (fun () ->
            assert_pprint_equal_parse "{A}@") ;
 
+      "Second Active restriction" >::
+        (fun () ->
+           assert_pprint_equal_parse "{A}**") ;
+      
       "Implies statement" >::
         (fun () ->
            assert_pprint_equal_parse "{A} -> {B}") ;

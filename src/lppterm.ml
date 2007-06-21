@@ -1,6 +1,9 @@
 open Term
 
-type restriction = Smaller | Equal | Irrelevant
+type restriction =
+  | Smaller of int
+  | Equal of int
+  | Irrelevant
 
 type obj = { context : Context.t ;
              term : term }
@@ -56,7 +59,8 @@ let apply_restriction r t =
 let reduce_restriction r =
   match r with
     | Irrelevant -> Irrelevant
-    | _ -> Smaller
+    | Equal i -> Smaller i
+    | Smaller i -> Smaller i
         
 let add_to_context elt obj =
   {obj with context = Context.add elt obj.context}
@@ -140,8 +144,8 @@ let rec replace_lppterm_vars alist t =
 
 let restriction_to_string r =
   match r with
-    | Smaller -> "*"
-    | Equal -> "@"
+    | Smaller i -> String.make i '*'
+    | Equal i -> String.make i '@'
     | Irrelevant -> ""
 
 let bindings_to_string ts =

@@ -1,17 +1,30 @@
 %token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN
 %token IND INST APPLY CASE SEARCH TO ON WITH AND INTROS SKIP UNDO CUT
+%token COLON RARROW FORALL EXISTS STAR AT THEOREM OR LBRACK RBRACK
+
 %token <int> NUM
 %token <string> ID
 %token EOF
 
+/* Lower */
+  
+%nonassoc COMMA
+%right RARROW
+%left OR
+  
 %nonassoc BSLASH
 %right IMP
 
-%start term clauses command contexted_term
+/* Higher */
+
+
+%start lppterm term clauses top_command command contexted_term
 %type <Term.term> term
 %type <Prover.clauses> clauses
 %type <Prover.command> command
 %type <Lppterm.obj> contexted_term
+%type <Lppterm.lppterm> lppterm
+%type <Prover.top_command> top_command
 
 %%
 
@@ -65,3 +78,29 @@ command:
 id_arg_list:
   | ID AND id_arg_list                  { $1::$3 }
   | ID                                  { [$1] }
+
+lppterm:
+  | FORALL binding_list COMMA lppterm   { Lppterm.Forall($2, $4) }
+  | EXISTS binding_list COMMA lppterm   { Lppterm.Exists($2, $4) }
+  | lppterm RARROW lppterm              { Lppterm.Arrow($1, $3) }
+  | lppterm OR lppterm                  { Lppterm.Or($1, $3) }
+  | LPAREN lppterm RPAREN               { $2 }
+  | object_term                         { $1 }
+  | term                                { Lppterm.Pred($1) }
+
+binding_list:
+  | binding binding_list                { $1::$2 }
+  | binding                             { [$1] }
+
+binding:
+  | ID                                  { $1 }
+
+object_term:
+  | LBRACK contexted_term RBRACK        { Lppterm.Obj($2, Lppterm.Irrelevant) }
+  | LBRACK contexted_term RBRACK STAR   { Lppterm.Obj($2, Lppterm.Smaller) }
+  | LBRACK contexted_term RBRACK AT     { Lppterm.Obj($2, Lppterm.Equal) }
+
+top_command :
+  | THEOREM ID COLON lppterm DOT        { Prover.Theorem($2, $4) }
+  | THEOREM lppterm DOT                 { Prover.Theorem("Goal", $2) }
+  | EOF                                 { raise End_of_file }

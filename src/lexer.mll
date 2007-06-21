@@ -26,7 +26,18 @@ rule token = parse
 | "("                { LPAREN }
 | ")"                { RPAREN }
 | "|-"               { TURN }
-      
+
+| ":"                { COLON }
+| "->"               { RARROW }
+| "forall"           { FORALL }
+| "exists"           { EXISTS }
+| "*"                { STAR }
+| "@"                { AT }
+| "Theorem"          { THEOREM }
+| "or"               { OR }
+| "{"                { LBRACK }
+| "}"                { RBRACK }
+
 | "induction"        { IND }
 | "apply"            { APPLY }
 | "inst"             { INST }

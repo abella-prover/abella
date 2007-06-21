@@ -11,7 +11,7 @@ type lppterm =
   | Forall of id list * lppterm
   | Exists of id list * lppterm
   | Or of lppterm * lppterm
-  | Pred of string * term list
+  | Pred of term
 
 (* Constructions *)
 
@@ -112,7 +112,7 @@ let rec replace_lppterm_vars alist t =
           let body' = replace_lppterm_vars alist' body in
             Exists(bindings, body')
       | Or(a, b) -> Or(aux a, aux b)
-      | Pred(p, ts) -> Pred(p, List.map (replace_term_vars alist) ts)
+      | Pred(p) -> Pred(replace_term_vars alist p)
 
       
 (* Pretty printing *)
@@ -158,10 +158,7 @@ let lppterm_to_string t =
             "exists " ^ (bindings_to_string ids) ^ ", " ^ (aux pr_curr t)
         | Or(a, b) ->
             (aux pr_curr a) ^ " or " ^ (aux (pr_curr + 1) b)
-        | Pred(p, ts) ->
-            "[" ^ p ^ " " ^
-              (String.concat " " (List.map (term_to_string ~nested:true) ts)) ^
-              "]"
+        | Pred(p) -> term_to_string p
     in
       if pr_curr >= pr_above then pp else "(" ^ pp ^ ")"
   in

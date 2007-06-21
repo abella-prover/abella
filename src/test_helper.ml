@@ -10,7 +10,7 @@ let parse_obj str =
   Parser.contexted_term Lexer.token (Lexing.from_string str)
 
 let parse_lppterm str =
-  Top_parser.lppterm Top_lexer.token (Lexing.from_string str)
+  Parser.lppterm Lexer.token (Lexing.from_string str)
 
 let parse_clauses str =
   Parser.clauses Lexer.token (Lexing.from_string str)

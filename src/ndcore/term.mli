@@ -125,4 +125,4 @@ val is_eigen : term -> bool
 val hnorm : term -> term
 val deep_norm : term -> term
 
-val term_to_string : ?nested:bool -> term -> string
+val term_to_string : term -> string

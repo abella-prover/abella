@@ -378,7 +378,7 @@ let parenthesis x = "(" ^ x ^ ")"
 let rec list_range a b =
   if a > b then [] else a::(list_range (a+1) b)
 
-let term_to_string ?(nested=false) term =
+let term_to_string term =
   let term = deep_norm term in
   let high_pr = 2 + get_max_priority () in
   let pre = getAbsName () in
@@ -418,7 +418,4 @@ let term_to_string ?(nested=false) term =
       | Ptr t -> assert false (* observe *)
       | Susp _ -> assert false (* deep_norm *)
   in
-    if nested then
-      pp high_pr 0 term
-    else
-      pp 0 0 term
+    pp 0 0 term

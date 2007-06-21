@@ -100,7 +100,8 @@ let tests =
 
       "Print predicate" >::
         (fun () ->
-           let t = Pred("head", [const "A"; const "B"]) in
-             assert_pprint_equal "[head A B]" t) ;
+           let p = app (const "head") [const "A"; const "B"] in
+           let t = Pred(p) in
+             assert_pprint_equal "head A B" t) ;
 
     ]

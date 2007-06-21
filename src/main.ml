@@ -38,7 +38,7 @@ let rec process_proof name ?(interactive=true) lexbuf =
 let rec process ?(interactive=true) lexbuf =
   try while true do try
     if interactive then Format.printf "LPP < %!" ;
-    begin match Top_parser.top_command Top_lexer.token lexbuf with
+    begin match Parser.top_command Lexer.token lexbuf with
       | Theorem(name, thm) ->
           theorem thm ;
           process_proof ~interactive:interactive name lexbuf ;

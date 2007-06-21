@@ -12,6 +12,7 @@
 let name = ['A' - 'Z' 'a'-'z' '_' '/' '0'-'9' '\''] +
 let blank = ' ' | '\t' | '\r'
 let term = '{' [^ '}'] + '}'
+let pred = '[' [^ ']'] + ']'
 
 rule token = parse
 | '%' [^'\n'] * '\n' { incrline lexbuf; token lexbuf }
@@ -34,5 +35,6 @@ rule token = parse
 
 | name as n          { ID n }
 | term as s          { TERM s }
+| pred as p          { PRED p }
 
 | eof                { EOF }

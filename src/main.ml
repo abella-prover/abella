@@ -72,5 +72,4 @@ let _ =
                         (Lexing.from_channel (open_in file_name)))
            !clauses)
     usage_message ;
-  Term.set_infix [("=>", Term.Right)] ;
   process ~interactive:true (Lexing.from_channel stdin)

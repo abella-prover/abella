@@ -2,8 +2,12 @@ Soon
 ====
 Case should look in context as a subcase.
   case on {L, hyp A |- hyp C} should have
-    hyp C -in- L
+    [member (hyp C) L]
     hyp C = hyp A ?
+
+Automatically skip case if context is empty
+
+Add support for %axiom declarations
 
 Add support for multiple inductive restrictions again?
 

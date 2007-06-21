@@ -109,7 +109,6 @@ let pprint_tests =
       
       "A => B" >::
         (fun () ->
-           set_infix [("=>", Right)] ;
            let a = var "A" 0 in
            let b = var "B" 0 in
            let t = app (const "=>") [a; b] in
@@ -122,7 +121,6 @@ let pprint_tests =
 
       "pi x\\typeof x U => typeof (R x) T" >::
         (fun () ->
-           set_infix [("=>", Right)] ;
            let typeofxU = app (const "typeof") [db 1; var "U" 0] in
            let rx = app (var "R" 0) [db 1] in
            let typeofRxT = app (const "typeof") [rx; var "T" 0] in

@@ -89,5 +89,12 @@ let tests =
       "Variable in context" >::
         (fun () ->
            assert_pprint_equal_parse "{L |- A}") ;
-      
+
+      "Simple predicate" >::
+        (fun () ->
+           assert_pprint_equal_parse "[head A B]") ;
+
+      "Complex predicate" >::
+        (fun () ->
+           assert_pprint_equal_parse "[head (hyp A) (conc B)]") ;
     ]

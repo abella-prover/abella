@@ -125,6 +125,4 @@ val is_eigen : term -> bool
 val hnorm : term -> term
 val deep_norm : term -> term
 
-type assoc = Left | Right | Both | No
- val set_infix : (string * assoc) list -> unit
-val term_to_string : term -> string
+val term_to_string : ?nested:bool -> term -> string

@@ -351,19 +351,20 @@ exception Found of int
 type assoc = Left | Right | Both | No
   
 (* List of infix operators sorted by priority. *)
-let infix : (string * assoc) list ref = ref []
-let set_infix l = infix := l
-let is_infix x = List.mem_assoc x !infix
-let get_assoc op = List.assoc op !infix
+let infix : (string * assoc) list =
+  [("=>", Right); ("::", Right)]
+
+let is_infix x = List.mem_assoc x infix
+let get_assoc op = List.assoc op infix
 let priority x =
   try
     ignore (List.fold_left
               (fun i (e, assoc) -> if e = x then raise (Found i) else i+1)
-              1 !infix) ;
+              1 infix) ;
     0
   with
     | Found i -> i
-let get_max_priority () = List.length !infix
+let get_max_priority () = List.length infix
 
 let is_obj_quantifier x = x = "pi" || x = "sigma"
 
@@ -377,7 +378,7 @@ let parenthesis x = "(" ^ x ^ ")"
 let rec list_range a b =
   if a > b then [] else a::(list_range (a+1) b)
 
-let term_to_string term =
+let term_to_string ?(nested=false) term =
   let term = deep_norm term in
   let high_pr = 2 + get_max_priority () in
   let pre = getAbsName () in
@@ -416,5 +417,8 @@ let term_to_string term =
             if pr == 0 then res else parenthesis res
       | Ptr t -> assert false (* observe *)
       | Susp _ -> assert false (* deep_norm *)
- in
-    pp 0 0 term
+  in
+    if nested then
+      pp high_pr 0 term
+    else
+      pp 0 0 term

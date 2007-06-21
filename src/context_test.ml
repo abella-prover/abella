@@ -97,7 +97,7 @@ let tests =
          let b = Term.const "B" in
          let ctx = add a (add b empty) in
            assert_term_pprint_equal
-             "cons A (cons B nil)" (context_to_term ctx)) ;
+             "A :: B :: nil" (context_to_term ctx)) ;
     
     "Context to term with context variable" >::
       (fun () ->
@@ -106,7 +106,7 @@ let tests =
          let l = Term.var ~tag:Term.Eigen "L" 0 in
          let ctx = add a (add b (add l empty)) in
            assert_term_pprint_equal
-             "cons A (cons B L)" (context_to_term ctx)) ;
+             "A :: B :: L" (context_to_term ctx)) ;
 
     "Normalize should remove duplicates" >::
       (fun () ->
@@ -120,7 +120,7 @@ let tests =
       (fun () ->
          let a = Term.const "A" in
          let l = Term.var ~tag:Term.Eigen "L" 0 in
-         let term = Term.app (Term.const "cons") [a; l] in
+         let term = Term.app cons [a; l] in
          let ctx = normalize (add term empty) in
            assert_true (mem a ctx) ;
            assert_true (mem l ctx)) ;

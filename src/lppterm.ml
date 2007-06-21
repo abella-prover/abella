@@ -11,8 +11,8 @@ type lppterm =
   | Forall of id list * lppterm
   | Exists of id list * lppterm
   | Or of lppterm * lppterm
+  | Pred of string * term list
 
-      
 (* Constructions *)
 
 let context_obj ctx t = { context = ctx ; term = t }
@@ -62,6 +62,7 @@ let map_objs f t =
       | Forall(bindings, body) -> Forall(bindings, aux body)
       | Exists(bindings, body) -> Exists(bindings, aux body)
       | Or(a, b) -> Or(aux a, aux b)
+      | Pred _ -> t
   in
     aux t
 
@@ -111,6 +112,7 @@ let rec replace_lppterm_vars alist t =
           let body' = replace_lppterm_vars alist' body in
             Exists(bindings, body')
       | Or(a, b) -> Or(aux a, aux b)
+      | Pred(p, ts) -> Pred(p, List.map (replace_term_vars alist) ts)
 
       
 (* Pretty printing *)
@@ -131,6 +133,7 @@ let priority t =
     | Arrow _ -> 1
     | Forall _ -> 0
     | Exists _ -> 0
+    | Pred _ -> 0
 
 let obj_to_string obj =
   let context =
@@ -155,6 +158,10 @@ let lppterm_to_string t =
             "exists " ^ (bindings_to_string ids) ^ ", " ^ (aux pr_curr t)
         | Or(a, b) ->
             (aux pr_curr a) ^ " or " ^ (aux (pr_curr + 1) b)
+        | Pred(p, ts) ->
+            "[" ^ p ^ " " ^
+              (String.concat " " (List.map (term_to_string ~nested:true) ts)) ^
+              "]"
     in
       if pr_curr >= pr_above then pp else "(" ^ pp ^ ")"
   in

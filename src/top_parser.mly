@@ -5,12 +5,21 @@
   let parse_contexted_term str =
     let str = strip_brackets str in
       Parser.contexted_term Lexer.token (Lexing.from_string str)
+
+  let parse_predicate str =
+    let str = strip_brackets str in
+    let term = Parser.term Lexer.token (Lexing.from_string str) in
+      match Term.observe term with
+        | Term.App(t, ts) -> Lppterm.Pred(Term.term_to_string t, ts)
+        | _ -> failwith "Bad predicate while parsing"
+
 %}
 
 %token COMMA DOT COLON RARROW FORALL EXISTS STAR AT THEOREM OR
 %token LPAREN RPAREN
 %token <string> ID
 %token <string> TERM
+%token <string> PRED
 %token EOF
 
 %start lppterm top_command
@@ -35,6 +44,7 @@ lppterm:
   | lppterm OR lppterm                { Lppterm.Or($1, $3) }
   | LPAREN lppterm RPAREN             { $2 }
   | object_term                       { $1 }
+  | PRED                              { parse_predicate $1 }
 
 binding_list:
   | binding binding_list              { $1::$2 }

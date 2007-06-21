@@ -98,4 +98,9 @@ let tests =
            let t = Obj(context_obj ctx var_a, Irrelevant) in
              assert_pprint_equal "{L |- A}" t) ;
 
+      "Print predicate" >::
+        (fun () ->
+           let t = Pred("head", [const "A"; const "B"]) in
+             assert_pprint_equal "[head A B]" t) ;
+
     ]

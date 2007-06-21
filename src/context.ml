@@ -78,18 +78,20 @@ let rec group pair_list =
         let pair_list' = remove_assoc a pair_list in
           (a, pairings)::(group pair_list')
 
+let cons = const "::"
+            
 let context_to_term ctx =
   let rec aux ctx =
     match ctx with
       | [] -> const "nil"
       | [last] when is_eigen last -> last
-      | head::tail -> app (const "cons") [head; aux tail]
+      | head::tail -> app cons [head; aux tail]
   in
     aux (List.rev ctx)
 
 let is_cons t =
   match observe t with
-    | App(c, [_; _]) when c = const "cons" -> true
+    | App(c, [_; _]) when c = cons -> true
     | _ -> false
 
 let extract_cons t =

@@ -1,7 +1,8 @@
 Def ctx nil.
-Def ctx (P :: L) :- (pi c\ P = conc c) => false, ctx L.
+Def ctx (P :: L) :- pi c\ P = conc c => false, ctx L.
 
 Axiom ctx_lemma : forall A L, ctx L -> member (conc A) L -> false.
+
 
 Theorem land_left_inv :
   forall L C1 C2, ctx L -> {L |- conc (land C1 C2)} -> {L |- conc C1}.
@@ -11,55 +12,73 @@ induction on 2. intros. case H2.
   search.
   assert ctx (hyp B :: hyp A :: L).
     search.
-%     apply IH to H5 and H4. search.
-%   assert ctx (hyp B :: L).
-%     search.
-%     apply IH to H6 and H5. search.
+    apply IH to H5 and H4. search.
+  assert ctx (hyp B :: L).
+    search.
+    apply IH to H6 and H5. search.
 
-% Theorem land_right_inv :
-%   forall L C1 C2, {L |- conc (land C1 C2)} -> {L |- conc C2}.
-% induction on 1. intros. case H1.
-%   skip.
-%   search.
-%   search.
-%   case H3. case H4. apply IH to H5. search.
-%   case H4. apply IH to H5. search.
+    
+Theorem land_right_inv :
+  forall L C1 C2, ctx L -> {L |- conc (land C1 C2)} -> {L |- conc C2}.
+induction on 2. intros. case H2.
+  apply ctx_lemma to H1 and H3. case H4.
+  search.
+  search.
+  assert ctx (hyp B :: hyp A :: L).
+    search.
+    apply IH to H5 and H4. search.
+  assert ctx (hyp B :: L).
+    search.
+    apply IH to H6 and H5. search.
 
-% Theorem imp_inv :
-%   forall L C1 C2, {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
-% induction on 1. intros. case H1.
-%   skip.
-%   search.
-%   case H3. case H4. apply IH to H5. search.
-%   case H2. search.
-%   case H4. apply IH to H5. search.
+
+Theorem imp_inv :
+  forall L C1 C2, ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
+induction on 2. intros. case H2.
+  apply ctx_lemma to H1 and H3. case H4.
+  search.
+  assert ctx (hyp B :: hyp A :: L).
+    search.
+    apply IH to H5 and H4. search.
+  search.
+  assert ctx (hyp B :: L).
+    search.
+    apply IH to H6 and H5. search.
 
 
 % Axiom land_left_inv :
-%   forall L C1 C2, {L |- conc (land C1 C2)} -> {L |- conc C1}.
+%   forall L C1 C2, ctx L -> {L |- conc (land C1 C2)} -> {L |- conc C1}.
 % Axiom land_right_inv :
-%   forall L C1 C2, {L |- conc (land C1 C2)} -> {L |- conc C2}.
+%   forall L C1 C2, ctx L -> {L |- conc (land C1 C2)} -> {L |- conc C2}.
 % Axiom imp_inv :
-%   forall L C1 C2, {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
+%   forall L C1 C2, ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
 
-% Theorem cut_elim :
-%   forall L K C,
-%     {prop K} -> {L |- conc K} -> {L, hyp K |- conc C} -> {L |- conc C}.
-% induction on 1. induction on 3. intros. case H3.
-%   skip.
-%   case H4. case H5.
-%     search.
-%     search.
-%   search.
-%   apply IH' to H1 and H2 and H4. apply IH' to H1 and H2 and H5. search.
-%   apply IH' to H1 and H2 and H5. case H4. case H7.
-%     apply land_left_inv to H2. apply land_right_inv to H2. case H1.
-%       apply IH to H10 and H8 and H6. apply IH to H11 and H9 and H12. search.
-%     search.
-%   apply IH' to H1 and H2 and H4. search.
-%   apply IH' to H1 and H2 and H5. apply IH' to H1 and H2 and H6.
-%     case H4. case H9.
-%       apply imp_inv to H2. case H1. apply IH to H11 and H7 and H10.
-%         apply IH to H12 and H13 and H8. search.
-%       search.
+Theorem cut_elim :
+  forall L K C,
+    {prop K} -> ctx L -> {L |- conc K} -> {L, hyp K |- conc C} -> {L |- conc C}.
+induction on 1. induction on 4. intros.
+assert ctx (hyp K :: L). search. case H4.
+  apply ctx_lemma to H5 and H6. case H7.
+  case H6. case H7.
+    search.
+    search.
+  search.
+  apply IH' to H1 and H2 and H3 and H6.
+    apply IH' to H1 and H2 and H3 and H7. search.
+  assert ctx (hyp B :: hyp A :: L). search.
+    apply IH' to H1 and H8 and H3 and H7. case H6. case H10.
+      apply land_left_inv to H2 and H3. apply land_right_inv to H2 and H3.
+        case H1. assert ctx (hyp B :: L). search.
+          apply IH to H13 and H15 and H11 and H9.
+            apply IH to H14 and H2 and H12 and H16. search.
+      search.
+  assert ctx (hyp A :: L). search.
+    apply IH' to H1 and H7 and H3 and H6. search.
+  assert ctx (hyp B :: L). search.
+    apply IH' to H1 and H2 and H3 and H7. apply IH' to H1 and H9 and H3 and H8.
+      case H6. case H12.
+        apply imp_inv to H2 and H3. case H1.
+          apply IH to H14 and H2 and H10 and H13.
+            apply IH to H15 and H2 and H16 and H11. search.
+        search.
 

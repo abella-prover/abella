@@ -405,10 +405,24 @@ let search_tests =
            let goal = freshen "{L |- hyp A}" in
              assert_search_success (basic_search 1 [hyp] goal)) ;
 
+      "Should backchain on meta-clauses" >::
+        (fun () ->
+           let meta_clauses =
+             parse_clauses
+               ("member A (A :: L)." ^
+                  "member A (B :: L) :- member A L.")
+           in
+           let hyp = freshen "member E K" in
+           let goal = freshen "member E (F :: K)" in
+             assert_search_success
+               (search ~depth:5 ~hyps:[hyp]
+                  ~clauses:[] ~meta_clauses:meta_clauses
+                  ~goal:goal)) ;
+
       "Should use bedwyr style search on meta-level predicates" >::
         (fun () ->
            let meta_clauses =
-             parse_clauses "pred P :- (pi c\ P = conc c) => false."
+             parse_clauses "pred P :- pi c\\ P = conc c => false."
            in
            let meta_search goal =
              search ~depth:10 ~hyps:[] ~clauses:[]

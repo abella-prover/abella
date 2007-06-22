@@ -267,8 +267,15 @@ let derivable goal hyp =
   try_right_unify goal.term hyp.term &&
     Context.subcontext hyp.context goal.context
 
+let is_false t =
+  begin match observe t with
+    | Var {name=f} when f = "false" -> true
+    | _ -> false
+  end
+
 let search ~depth:n ~hyps:hyps ~clauses:clauses
     ~meta_clauses:meta_clauses ~goal:goal =
+  
   let rec term_aux n context goal =
     List.exists
       (fun (head, body) ->
@@ -281,6 +288,7 @@ let search ~depth:n ~hyps:hyps ~clauses:clauses
                   (fun t -> obj_aux (n-1) {context=context; term=t})
                   fresh_body))
       clauses
+      
   and obj_aux n goal =
     if List.exists (derivable goal) (filter_objs hyps) then
       true
@@ -294,6 +302,7 @@ let search ~depth:n ~hyps:hyps ~clauses:clauses
       ((not (Context.is_empty goal.context)) &&
          lppterm_aux (n-1) (obj_to_member goal))
       || (term_aux n goal.context goal.term)
+        
   and lppterm_aux n goal =
     match goal with
       | Or(left, right) -> lppterm_aux n left or lppterm_aux n right
@@ -305,6 +314,45 @@ let search ~depth:n ~hyps:hyps ~clauses:clauses
           List.exists (try_right_unify p) (filter_preds hyps) ||
             meta_aux n p
       | _ -> false
-  and meta_aux n goal = false
+          
+  and meta_aux n goal =
+    List.exists
+      (fun (head, body) ->
+         try_with_state
+           (fun () ->
+              let fresh_head, fresh_body = freshen_clause Logic head body
+              in
+                right_unify fresh_head goal ;
+                List.for_all
+                  (fun t -> lppterm_aux (n-1) (Pred t))
+                  fresh_body))
+      meta_clauses
+  ||
+      match observe goal with
+        | App(head, body) ->
+            begin match observe head, body with
+              | Var {name=i}, [a; b] when i = "=>" ->
+                  is_false b && negative_meta_aux n a
+                    
+              | Var {name=p}, [body] when p = "pi" ->
+                  let var = fresh ~tag:Eigen 0 in
+                  let goal = deep_norm (app body [var]) in
+                    meta_aux (n-1) goal
+
+              | _ -> false
+            end
+        | _ -> false
+    
+  (* true if we can confirm no proof exists *)
+  and negative_meta_aux n goal =
+    match observe goal with
+      | App(head, body) ->
+          begin match observe head, body with
+            | Var {name=e}, [a; b] when e = "=" ->
+                not (try_left_unify a b)
+            | _ -> false
+          end
+      | _ -> false
+        
   in
     lppterm_aux n goal

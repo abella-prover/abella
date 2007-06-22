@@ -1,10 +1,8 @@
 This week
 =========
 
-Clean up search code
-  Add bedwyr style searching for meta_clauses
-
-Do cut elimination proof
+Allow for application to _ in apply forall which will search for the
+  missing hypothesis if it doesn't have any logic variables?
 
 Clean up code for freshness in tactics
   And freshen in test_helper
@@ -13,6 +11,13 @@ Clean up case code with labelled args?
 
 Clean up how meta clauses are added to meta_clause?
 
+Add more bedwyr style searching?
+  Watch timestamps more closely?
+  Change not (try_left_unify ...) so unification errors (not failures)
+    do not result in success
+
+Redo cut elimination proof?
+    
 Next week
 =========
 
@@ -45,6 +50,8 @@ Add unification over lppterms?
 Make omake target that checks all thm files with their mod files
 
 Make omakefile target for any mod/thm combination
+
+Think about timestamps in the bedwyr style searching
 
 Flatten ndcore into src?
 

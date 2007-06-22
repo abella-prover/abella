@@ -16,7 +16,7 @@ let assert_proof proof_function =
   with Failure("Proof completed.") -> ()
 
 let setup_prover ?clauses:(clauses=[]) ?goal:(goal="") ?lemmas:(lemmas=[]) () =
-  reset_prover () ;
+  full_reset_prover () ;
   add_clauses clauses ;
   if goal <> "" then Prover.sequent.goal <- parse_lppterm goal ;
   Prover.lemmas :=

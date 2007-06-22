@@ -49,7 +49,10 @@ let add_clauses new_clauses =
   clauses := new_clauses @ !clauses
   
 let meta_clauses : clauses ref =
-  ref (parse_clauses "member A (A :: L). member A (B :: L) :- member A L.")
+  ref (parse_clauses
+         ("X = X." ^
+            "member A (A :: L)." ^
+            "member A (B :: L) :- member A L."))
   
 (* Undo support *)
   
@@ -74,14 +77,19 @@ let undo () =
 
 let reset_prover =
   let original_sequent = copy_sequent () in
-  let original_clauses = !clauses in
-  let original_meta_clauses = !meta_clauses in
     fun () ->
       set_sequent original_sequent ;
       subgoals := [] ;
-      undo_stack := [] ;
+      undo_stack := []
+
+let full_reset_prover =
+  let original_clauses = !clauses in
+  let original_meta_clauses = !meta_clauses in
+    fun () ->
+      reset_prover () ;
       clauses := original_clauses ;
       meta_clauses := original_meta_clauses
+      
 
 let add_hyp ?(name=fresh_hyp_name ()) term =
   sequent.hyps <- List.append sequent.hyps [(name, term)]

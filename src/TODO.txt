@@ -1,15 +1,18 @@
 Soon
 ====
-Allow definition of predicates at the top level
-
-Do cut elimination proof (remove skips)
-  Need to add a body to neg so we can search on it
-
 Clean up search code
 Clean up restriction checking code
 Change lexicographic induction to be nested, so you get
   two induction hypotheses but they are easier to understand with
   the *s and @s
+
+Do cut elimination proof
+
+Allow more sophisticated predicates at the top level
+  Ones with negation?
+  
+Next week
+=========
 
 Add equivariant unification
 
@@ -21,8 +24,6 @@ With support for contexts and names,
      Dale's substitution example
      Cut elimination with forall quantifier
 
-Automatically case on implies?
-     
 Do we have to consider logic variables in the context during search?
 How does object cut work with contexts?
 

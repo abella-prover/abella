@@ -113,7 +113,7 @@ let tests =
          let a = Term.const "A" in
          let b = Term.const "B" in
          let ctx = add a (add b (add a empty)) in
-         let ctx = normalize ctx in
+         let ctx = Context.normalize ctx in
            assert_equal 2 (size ctx));
 
     "Normalize should replace cons with seperate elements" >::
@@ -121,7 +121,7 @@ let tests =
          let a = Term.const "A" in
          let l = Term.var ~tag:Term.Eigen "L" 0 in
          let term = Term.app cons [a; l] in
-         let ctx = normalize (add term empty) in
+         let ctx = Context.normalize (add term empty) in
            assert_true (mem a ctx) ;
            assert_true (mem l ctx)) ;
 
@@ -138,7 +138,7 @@ let tests =
          let ctx3 = add e empty in
          let ctx4 = add d (add l empty) in
            reconcile [(ctx1, ctx2); (ctx3, ctx4)] ;
-           let ctx3' = normalize ctx3 in
+           let ctx3' = Context.normalize ctx3 in
              assert_equal 4 (size ctx3') ;
              assert_true (mem l ctx3') ;
              assert_true (mem b ctx3') ;

@@ -31,6 +31,41 @@ let member e ctx = Pred (app (Term.const "member") [e; ctx])
   
 (* Manipulations *)
 
+let map_objs f t =
+  let rec aux t =
+    match t with
+      | Obj(obj, r) -> Obj(f obj, r)
+      | Arrow(a, b) -> Arrow(aux a, aux b)
+      | Forall(bindings, body) -> Forall(bindings, aux body)
+      | Exists(bindings, body) -> Exists(bindings, aux body)
+      | Or(a, b) -> Or(aux a, aux b)
+      | Pred _ -> t
+  in
+    aux t
+
+let is_imp t =
+  match observe t with
+    | App(t, _) -> eq t (const "=>")
+    | _ -> false
+
+let extract_imp t =
+  match observe t with
+    | App(t, [a; b]) -> (a, b)
+    | _ -> failwith "Check is_imp before calling extract_imp"
+          
+let move_imp_to_context obj =
+  let a, b = extract_imp obj.term in
+    {context = Context.add a obj.context ; term = b}
+      
+let rec normalize term =
+  let rec normalize_obj obj =
+    if is_imp obj.term then
+      normalize_obj (move_imp_to_context obj)
+    else
+      {obj with context = Context.normalize obj.context}
+  in
+    map_objs normalize_obj term
+
 let obj_to_member obj =
   member obj.term (Context.context_to_term obj.context)
 
@@ -68,18 +103,6 @@ let add_to_context elt obj =
 let add_context ctx obj =
   {obj with context = Context.union ctx obj.context}
 
-let map_objs f t =
-  let rec aux t =
-    match t with
-      | Obj(obj, r) -> Obj(f obj, r)
-      | Arrow(a, b) -> Arrow(aux a, aux b)
-      | Forall(bindings, body) -> Forall(bindings, aux body)
-      | Exists(bindings, body) -> Exists(bindings, aux body)
-      | Or(a, b) -> Or(aux a, aux b)
-      | Pred _ -> t
-  in
-    aux t
-
 let rec collect_terms t =
   match t with
     | Obj(obj, r) -> (Context.context_to_list obj.context) @ [obj.term]
@@ -90,9 +113,6 @@ let rec collect_terms t =
     | Pred p -> [p]
 
 let map_term_list f t = List.map f (collect_terms t)
-
-let normalize_contexts t =
-  map_objs (fun obj -> {obj with context = Context.normalize obj.context}) t
 
 (* Variable Renaming *)
 

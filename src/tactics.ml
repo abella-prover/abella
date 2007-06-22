@@ -61,16 +61,6 @@ let freshen_bindings tag bindings term used =
 
 (* Object level cut *)
 
-let is_imp t =
-  match observe t with
-    | App(t, _) -> eq t (const "=>")
-    | _ -> false
-
-let extract_imp t =
-  match observe t with
-    | App(t, [a; b]) -> (a, b)
-    | _ -> failwith "Check is_imp before calling extract_imp"
-          
 let object_cut obj1 obj2 =
   let a, b = extract_imp obj1.term in
     if eq a obj2.term then
@@ -78,11 +68,6 @@ let object_cut obj1 obj2 =
     else
       failwith "Object cut applied to non-matching hypotheses"
 
-let move_imp_to_context obj =
-  let a, b = extract_imp obj.term in
-    {context = Context.add a obj.context ; term = b}
-
-      
 (* Object level instantiation *)
         
 let is_pi_abs t =
@@ -171,7 +156,7 @@ let apply_forall stmt ts =
               ts
           in
             Context.reconcile !context_pairs ;
-            normalize_contexts result
+            normalize result
     | _ -> failwith "apply_forall can only be used on Forall(...) statements"
 
 
@@ -221,8 +206,10 @@ let obj_case obj r clauses used =
        new_vars = [] ;
        new_hyps = [ Obj(move_imp_to_context obj, reduce_restriction r) ]
      }]
-  else
-    let wrapper t = Obj(context_obj obj.context t, reduce_restriction r) in
+  else 
+    let wrapper t =
+      normalize (Obj(context_obj obj.context t, reduce_restriction r))
+    in
     let clause_cases = term_case obj.term clauses used wrapper in
     let member_case =
       { set_state = set_current_state () ;

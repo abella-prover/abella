@@ -109,4 +109,13 @@ let tests =
            let t = Pred(p) in
              assert_pprint_equal "head A B" t) ;
 
+      "Normalize should move all implications to the context" >::
+        (fun () ->
+           let ctx = Context.add (const "L") Context.empty in
+           let bc = app (const "=>") [const "B"; const "C"] in
+           let abc = app (const "=>") [const "A"; bc] in
+           let t = Obj(context_obj ctx abc, Irrelevant) in
+             assert_pprint_equal "{L |- A => B => C}" t ;
+             assert_pprint_equal "{L, A, B |- C}" (normalize t)) ;
+
     ]

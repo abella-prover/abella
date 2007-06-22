@@ -9,12 +9,12 @@ induction on 2. intros. case H2.
   apply neg_lemma to H1 and H3. case H4.
   search.
   search.
-  case H4. case H5. assert neg (hyp B :: hyp A :: L).
+  assert neg (hyp B :: hyp A :: L).
     search.
-    apply IH to H7 and H6. search.
-  case H5. assert neg (hyp B :: L).
+    apply IH to H5 and H4. search.
+  assert neg (hyp B :: L).
     search.
-    apply IH to H7 and H6. search.
+    apply IH to H6 and H5. search.
 
 % Theorem land_right_inv :
 %   forall L C1 C2, {L |- conc (land C1 C2)} -> {L |- conc C2}.

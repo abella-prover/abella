@@ -11,50 +11,58 @@ let prog = eval_clauses
 let assert_search_success b = assert_bool "Search should succeed" b
 let assert_search_failure b = assert_bool "Search should fail" (not b)
 
-let tests =
-  "Tactics" >:::
+let object_cut_tests =
+  "Object Cut" >:::
     [
-      "Simple object cut" >::
+      "Simple" >::
         (fun () ->
            let t = object_cut (parse_obj "A |- B") (parse_obj "A") in
              assert_pprint_equal "{B}" t) ;
       
-      "Compound object cut" >::
+      "Compound" >::
         (fun () ->
            let h0 = parse_obj "eval A B |- typeof B C" in
            let h1 = parse_obj "eval A B" in
            let t = object_cut h0 h1 in
              assert_pprint_equal "{typeof B C}" t) ;
 
-      "Object cut with contexts" >::
+      "Contexts should be merged" >::
         (fun () ->
            let h0 = parse_obj "L1, A |- B" in
            let h1 = parse_obj "L2 |- A" in
            let t = object_cut h0 h1 in
              assert_pprint_equal "{L1, L2 |- B}" t) ;
+    ]
 
-      "Simple object instantiation" >::
+let object_instantiation_tests =
+  "Object Instantiation" >:::
+    [
+      "Simple" >::
         (fun () ->
            let h0 = parse_obj "pi x\\ eval x B" in
            let a = var ~tag:Eigen "A" 0 in
            let t = object_inst h0 a in
              assert_pprint_equal "{eval A B}" t) ;
       
-      "Failed object instantiation - missing pi" >::
+      "Failed - missing pi" >::
         (fun () ->
            let h0 = parse_obj "sigma x\\ eval x B" in
            let a = var ~tag:Eigen "A" 0 in
              assert_raises_any
                (fun () -> object_inst h0 a)) ;
 
-      "Failed object instantiation - missing lambda" >::
+      "Failed - missing lambda" >::
         (fun () ->
            let h0 = parse_obj "pi eval x B" in
            let a = var ~tag:Eigen "A" 0 in
              assert_raises_any
                (fun () -> object_inst h0 a)) ;
+    ]
 
-      "Forall application" >::
+let forall_application_tests =
+  "Forall Application" >:::
+    [
+      "Normal" >::
         (fun () ->
            let h0 = parse ("forall A B C, " ^
                              "{eval A B} -> {typeof A C} -> {typeof B C}") in
@@ -63,7 +71,7 @@ let tests =
            let t = apply_forall h0 [h1; h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
-      "Properly restricted forall application" >::
+      "Properly restricted" >::
         (fun () ->
            let h0 = parse ("forall A B C, " ^
                              "{eval A B}* -> {typeof A C} -> {typeof B C}") in
@@ -72,7 +80,7 @@ let tests =
            let t = apply_forall h0 [h1; h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
-      "Needlessly restricted forall application" >::
+      "Needlessly restricted" >::
         (fun () ->
            let h0 = parse ("forall A B C, " ^
                              "{eval A B} -> {typeof A C} -> {typeof B C}") in
@@ -81,7 +89,7 @@ let tests =
            let t = apply_forall h0 [h1; h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
       
-      "Improperly restricted forall application" >::
+      "Improperly restricted" >::
         (fun () ->
            let h0 = parse ("forall A B C, " ^
                              "{eval A B}* -> {typeof A C} -> {typeof B C}") in
@@ -90,7 +98,7 @@ let tests =
              assert_raises (Failure "Restriction violated")
                (fun () -> apply_forall h0 [h1; h2])) ;
 
-      "Improperly restricted forall application (2)" >::
+      "Improperly restricted (2)" >::
         (fun () ->
            let h0 = parse ("forall A B C, " ^
                              "{eval A B}* -> {typeof A C} -> {typeof B C}") in
@@ -99,7 +107,7 @@ let tests =
              assert_raises (Failure "Restriction violated")
                (fun () -> apply_forall h0 [h1; h2])) ;
 
-      "Properly double restricted forall application" >::
+      "Properly double restricted" >::
         (fun () ->
            let h0 = parse ("forall A B C, " ^
                              "{eval A B}@ -> {typeof A C}** -> {typeof B C}") in
@@ -108,7 +116,7 @@ let tests =
            let t = apply_forall h0 [h1; h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
-      "Improperly double restricted forall application" >::
+      "Improperly double restricted" >::
         (fun () ->
            let h0 = parse ("forall A B C, " ^
                              "{eval A B}@ -> {typeof A C}** -> {typeof B C}") in
@@ -117,7 +125,7 @@ let tests =
              assert_raises (Failure "Restriction violated")
                (fun () -> apply_forall h0 [h1; h2])) ;
 
-      "Improperly double restricted forall application (2)" >::
+      "Improperly double restricted (2)" >::
         (fun () ->
            let h0 = parse ("forall A B C, " ^
                              "{eval A B}@ -> {typeof A C}** -> {typeof B C}") in
@@ -126,7 +134,7 @@ let tests =
              assert_raises (Failure "Restriction violated")
                (fun () -> apply_forall h0 [h1; h2])) ;
 
-      "Unification failure during forall application" >::
+      "Unification failure" >::
         (fun () ->
            let h0 = parse ("forall A B C, " ^
                              "{eval A B} -> {typeof A C} -> {typeof B C}") in
@@ -135,7 +143,7 @@ let tests =
              assert_raises (Failure "Unification failure")
                (fun () -> apply_forall h0 [h1; h2])) ;
 
-      "Forall application with contexts" >::
+      "With contexts" >::
         (fun () ->
            let h0 = parse
                ("forall E A C," ^
@@ -145,19 +153,19 @@ let tests =
            let t = apply_forall h0 [h1; h2] in
              assert_pprint_equal "{L, hyp B1, hyp B2 |- conc C}" t) ;
 
-      "Forall application on non-object" >::
+      "On non-object" >::
         (fun () ->
            let h0 = parse "forall A, pred A -> result A" in
            let h1 = freshen "pred B" in
            let t = apply_forall h0 [h1] in
              assert_pprint_equal "result B" t) ;
-      
-      "Case application" >::
-        (fun () ->
-           (* eval (abs R) (abs R).
-              eval (app M N) V :- eval M (abs R), eval (R N) V.
+    ]
 
-              case {eval A B} *)
+let case_application_tests =
+  "Case Application" >:::
+    [
+      "Normal" >::
+        (fun () ->
            let term = freshen "{eval A B}" in
              match case term prog ["A"; "B"] with
                | [case1; case2] ->
@@ -182,12 +190,8 @@ let tests =
                      (List.mem "N" (List.map fst case2.new_vars))
                | _ -> assert_failure "Expected 2 cases") ;
       
-      "Restricted case application" >::
+      "Restriction should become smaller" >::
         (fun () ->
-           (* eval (abs R) (abs R).
-              eval (app M N) V :- eval M (abs R), eval (R N) V.
-
-              case {eval A B} which has Smaller restriction *)
            let term = freshen "{eval A B}@" in
              match case term prog ["A"; "B"] with
                | [case1; case2] ->
@@ -204,7 +208,7 @@ let tests =
                    end
                | _ -> assert_failure "Expected 2 cases") ;
 
-      "Case on OR" >::
+      "On OR" >::
         (fun () ->
            let term = freshen "{A} or {B}" in
            let used = ["A"; "B"] in
@@ -214,7 +218,7 @@ let tests =
                    assert_pprint_equal "{B}" hyp2 ;
                | _ -> assert_failure "Pattern mismatch") ;
 
-      "Case on exists" >::
+      "On exists" >::
         (fun () ->
            let term = parse "exists A B, {eval A B}" in
            let used = [] in
@@ -225,7 +229,7 @@ let tests =
                      assert_pprint_equal "{eval A B}" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
-      "Case on implies" >::
+      "On implies" >::
         (fun () ->
            let term = freshen "{L |- hyp A => conc B}" in
            let used = [] in
@@ -234,7 +238,7 @@ let tests =
                    assert_pprint_equal "{L, hyp A |- conc B}" hyp
                | _ -> assert_failure "Pattern mismatch") ;
 
-      "Case should pass along context" >::
+      "Should pass along context" >::
         (fun () ->
            let term = freshen "{L |- eval A B}" in
              match case term prog ["A"; "B"] with
@@ -254,7 +258,7 @@ let tests =
                    end ;
                | _ -> assert_failure "Expected 3 cases") ;
 
-      "Case should look in context for member" >::
+      "Should look in context for member" >::
         (fun () ->
            let term = freshen "{L, hyp A |- hyp B}" in
            let used = ["L"; "A"; "B"] in
@@ -263,7 +267,7 @@ let tests =
                    assert_pprint_equal "member (hyp B) (hyp A :: L)" hyp
                | _ -> assert_failure "Pattern mismatch") ;
 
-      "Case on member" >::
+      "On member" >::
         (fun () ->
            let term = freshen "member (hyp A) (hyp C :: L)" in
            let used = ["A"; "C"; "L"] in
@@ -279,8 +283,12 @@ let tests =
                      | _ -> assert_failure "Expected 1 new hypothesis"
                    end
                | _ -> assert_failure "Expected two cases") ;
+    ]
 
-      "Single induction creation" >::
+let induction_tests =
+  "Induction" >:::
+    [
+      "Single" >::
         (fun () ->
            let stmt = parse
                "forall A, {first A} -> {second A} -> {third A}" in
@@ -292,7 +300,7 @@ let tests =
                "forall A, {first A}@ -> {second A} -> {third A}"
                goal) ;
       
-      "Double induction creation" >::
+      "Nested" >::
         (fun () ->
            let stmt = parse
                "forall A, {first A} -> {second A} -> {third A}" in
@@ -307,7 +315,7 @@ let tests =
                assert_pprint_equal
                  "forall A, {first A}@ -> {second A}@@ -> {third A}" goal) ;
                
-      "Induction with OR on left of arrow" >::
+      "With OR on left of arrow" >::
         (fun () ->
            let stmt = parse "forall X, {A} or {B} -> {C} -> {D}" in
            let (ih, goal) = induction 2 stmt in
@@ -317,74 +325,89 @@ let tests =
              assert_pprint_equal
                "forall X, {A} or {B} -> {C}@ -> {D}"
                goal) ;
-      
-      "Search should check hypotheses" >::
+    ]
+
+let search_tests =
+  "Search" >:::
+    [
+      "Should check hypotheses" >::
         (fun () ->
            let goal = freshen "{eval A B}" in
              assert_search_success (search 0 goal prog [goal])) ;
       
-      "Search should succeed if clause matches" >::
+      "Should should succeed if clause matches" >::
         (fun () ->
            let goal = freshen "{eval (abs R) (abs R)}" in
              assert_search_success (search 1 goal prog [])) ;
       
-      "Search should backchain on clauses" >::
+      "Should backchain on clauses" >::
         (fun () ->
            let hyp1 = freshen "{eval M (abs R)}" in
            let hyp2 = freshen "{eval (R N) V}" in
            let goal = freshen "{eval (app M N) V}" in
              assert_search_success (search 1 goal prog [hyp1; hyp2])) ;
 
-      "OR left search" >::
+      "On left of OR" >::
         (fun () ->
            let hyp = freshen "{eval A B}" in
            let goal = freshen "{eval A B} or {false}" in
              assert_search_success (search 0 goal prog [hyp])) ;
       
-      "OR right search" >::
+      "On right of OR" >::
         (fun () ->
            let hyp = freshen "{eval A B}" in
            let goal = freshen "{false} or {eval A B}" in
              assert_search_success (search 0 goal prog [hyp])) ;
 
-      "Exists search" >::
+      "On exists" >::
         (fun () ->
            let goal = freshen "exists R, {eq (app M N) R}" in
              assert_search_success (search 1 goal prog [])) ;
 
-      "Search should fail if there is no proof" >::
+      "Should fail if there is no proof" >::
         (fun () ->
            let goal = freshen "{eval A B}" in
              assert_search_failure (search 5 goal prog [])) ;
       
-      "Search should check context" >::
+      "Should check context" >::
         (fun () ->
            let goal = freshen "{eval A B |- eval A B}" in
              assert_search_success (search 0 goal prog [])) ;
 
-      "Search should fail if hypothesis has non-subcontext" >::
+      "Should fail if hypothesis has non-subcontext" >::
         (fun () ->
            let hyp = freshen "{eval A B |- eval A B}" in
            let goal = freshen "{eval A B}" in
              assert_search_failure (search 5 goal prog [hyp])) ;
 
-      "Search should preserve context while backchaining" >::
+      "Should preserve context while backchaining" >::
         (fun () ->
            let goal = freshen
                "{eval M (abs R), eval (R N) V |- eval (app M N) V}"
            in
              assert_search_success (search 1 goal prog [])) ;
 
-      "Search should move implies to the left" >::
+      "Should move implies to the left" >::
         (fun () ->
            let hyp = freshen "{A |- B}" in
            let goal = freshen "{A => B}" in
              assert_search_success (search 1 goal prog [hyp])) ;
 
-      "Search should look for member" >::
+      "Should look for member" >::
         (fun () ->
            let hyp = freshen "member (hyp A) L" in
            let goal = freshen "{L |- hyp A}" in
              assert_search_success (search 1 goal prog [hyp])) ;
-      
     ]
+    
+let tests =
+  "Tactics" >:::
+    [
+      object_cut_tests ;
+      object_instantiation_tests ;
+      forall_application_tests ;
+      case_application_tests ;
+      induction_tests ;
+      search_tests ;
+    ]
+      

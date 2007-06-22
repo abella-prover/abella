@@ -4,8 +4,6 @@ This week
 Clean up search code
   Add bedwyr style searching for meta_clauses
 
-Clean up tactics tests into seperate suites for each major tactic
-
 Do cut elimination proof
 
 

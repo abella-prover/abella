@@ -85,7 +85,12 @@ let term_to_obj t =
   match t with
     | Obj(obj, _) -> obj
     | _ -> failwith "term_to_obj called on non-object"
-  
+
+let term_to_restriction t =
+  match t with
+    | Obj(_, r) -> r
+    | _ -> Irrelevant
+        
 let apply_restriction r t =
   match t with
     | Obj(obj, _) -> Obj(obj, r)

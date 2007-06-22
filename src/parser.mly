@@ -68,7 +68,7 @@ clause_body:
   | term                                { [$1] }
 
 command:
-  | IND ON num_list DOT                 { Command.Induction($3) }
+  | IND ON NUM DOT                      { Command.Induction($3) }
   | APPLY ID TO id_arg_list DOT         { Command.Apply($2, $4) }
   | CUT ID WITH ID                      { Command.Cut($2, $4) }
   | INST ID WITH term DOT               { Command.Inst($2, $4) }
@@ -84,10 +84,6 @@ id_arg_list:
   | ID AND id_arg_list                  { $1::$3 }
   | ID                                  { [$1] }
 
-num_list:
-  | NUM AND num_list                    { $1::$3 }
-  | NUM                                 { [$1] }
-      
 lppterm:
   | FORALL binding_list COMMA lppterm   { Lppterm.Forall($2, $4) }
   | EXISTS binding_list COMMA lppterm   { Lppterm.Exists($2, $4) }

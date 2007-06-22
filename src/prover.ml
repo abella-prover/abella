@@ -195,11 +195,18 @@ let assert_hyp term =
 
 
 (* Induction *)
-            
+
+let rec fresh_hyp_name_from_base base =
+  if List.mem_assoc base sequent.hyps then
+    fresh_hyp_name_from_base (base ^ "'")
+  else
+    base
+
 let induction args =
   save_undo_state () ;
   let (ih, new_goal) = Tactics.induction args sequent.goal in
-    add_hyp ~name:"IH" ih ;
+  let name = fresh_hyp_name_from_base "IH" in
+    add_hyp ~name:name ih ;
     sequent.goal <- new_goal
 
       

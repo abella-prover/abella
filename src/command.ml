@@ -10,7 +10,7 @@ type top_command =
   | Def of clause
 
 type command =
-  | Induction of int list
+  | Induction of int
   | Apply of id * id list
   | Cut of id * id
   | Inst of id * term

@@ -99,30 +99,30 @@ let tests =
              assert_raises (Failure "Restriction violated")
                (fun () -> apply_forall h0 [h1; h2])) ;
 
-      "Properly double restricted forall application on first" >::
+      "Properly double restricted forall application" >::
         (fun () ->
            let h0 = parse ("forall A B C, " ^
-                             "{eval A B}* -> {typeof A C}** -> {typeof B C}") in
-           let h1 = freshen "{eval (abs R) (abs R)}*" in
-           let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-           let t = apply_forall h0 [h1; h2] in
-             assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
-
-      "Properly double restricted forall application on second" >::
-        (fun () ->
-           let h0 = parse ("forall A B C, " ^
-                             "{eval A B}* -> {typeof A C}** -> {typeof B C}") in
+                             "{eval A B}@ -> {typeof A C}** -> {typeof B C}") in
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}**" in
            let t = apply_forall h0 [h1; h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
-      "Improperly double restricted forall application on second" >::
+      "Improperly double restricted forall application" >::
         (fun () ->
            let h0 = parse ("forall A B C, " ^
-                             "{eval A B}* -> {typeof A C}** -> {typeof B C}") in
+                             "{eval A B}@ -> {typeof A C}** -> {typeof B C}") in
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}@@" in
+             assert_raises (Failure "Restriction violated")
+               (fun () -> apply_forall h0 [h1; h2])) ;
+
+      "Improperly double restricted forall application (2)" >::
+        (fun () ->
+           let h0 = parse ("forall A B C, " ^
+                             "{eval A B}@ -> {typeof A C}** -> {typeof B C}") in
+           let h1 = freshen "{eval (abs R) (abs R)}" in
+           let h2 = freshen "{typeof (abs R) (arrow S T)}**" in
              assert_raises (Failure "Restriction violated")
                (fun () -> apply_forall h0 [h1; h2])) ;
 
@@ -284,7 +284,7 @@ let tests =
         (fun () ->
            let stmt = parse
                "forall A, {first A} -> {second A} -> {third A}" in
-           let (ih, goal) = induction [1] stmt in
+           let (ih, goal) = induction 1 stmt in
              assert_pprint_equal
                "forall A, {first A}* -> {second A} -> {third A}"
                ih ;
@@ -296,18 +296,21 @@ let tests =
         (fun () ->
            let stmt = parse
                "forall A, {first A} -> {second A} -> {third A}" in
-           let (ih, goal) = induction [1; 2] stmt in
+           let (ih, goal) = induction 1 stmt in
              assert_pprint_equal
-               "forall A, {first A}* -> {second A}** -> {third A}"
-               ih ;
+               "forall A, {first A}* -> {second A} -> {third A}" ih ;
              assert_pprint_equal
-               "forall A, {first A}@ -> {second A}@@ -> {third A}"
-               goal) ;
-      
+               "forall A, {first A}@ -> {second A} -> {third A}" goal ;
+             let (ih, goal) = induction 2 goal in
+               assert_pprint_equal
+                 "forall A, {first A}@ -> {second A}** -> {third A}" ih ;
+               assert_pprint_equal
+                 "forall A, {first A}@ -> {second A}@@ -> {third A}" goal) ;
+               
       "Induction with OR on left of arrow" >::
         (fun () ->
            let stmt = parse "forall X, {A} or {B} -> {C} -> {D}" in
-           let (ih, goal) = induction [2] stmt in
+           let (ih, goal) = induction 2 stmt in
              assert_pprint_equal
                "forall X, {A} or {B} -> {C}* -> {D}"
                ih ;

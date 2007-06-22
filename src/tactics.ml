@@ -97,26 +97,14 @@ let object_inst obj1 x =
 
 (* Apply forall statement *)
 
-
-let has_restrictions res_list =
-  List.exists (fun r -> r <> Irrelevant) res_list
-    
 let check_restrictions formal actual =
-  if has_restrictions formal then
-    let level = ref (List.length formal) in
-    let one_smaller = ref false in
-      List.iter2 (fun fr ar -> match fr, ar with
-                    | Smaller i, Smaller j when i = j ->
-                        level := min !level i ;
-                        one_smaller := true
-                    | Smaller i, Equal j when i = j ->
-                        ()
-                    | Smaller i, _ ->
-                        level := min !level (i - 1)
-                    | Irrelevant, _ -> ()
-                    | _, _ -> failwith "Bad restriction")
-        formal actual ;
-      if !level = 0 || not !one_smaller then failwith "Restriction violated"
+  List.iter2 (fun fr ar -> match fr, ar with
+                | Smaller i, Smaller j when i = j -> ()
+                | Equal i, Smaller j when i = j -> ()
+                | Equal i, Equal j when i = j -> ()
+                | Irrelevant, _ -> ()
+                | _ -> failwith "Restriction violated")
+    formal actual
 
 let rec map_args f t =
   match t with
@@ -124,11 +112,6 @@ let rec map_args f t =
         (f left) :: (map_args f right)
     | _ -> []
 
-let term_to_restriction t =
-  match t with
-    | Obj(_, r) -> r
-    | _ -> Irrelevant
-        
 let apply_forall stmt ts =
   match stmt with
     | Forall(bindings, body) ->
@@ -261,18 +244,26 @@ let rec apply_restriction_at res stmt arg =
           Arrow(left, apply_restriction_at res right (arg-1))
     | _ -> failwith "Not enough implications in induction"
 
-let apply_restrictions ind_args body res_f =
-  let count = ref 0 in
-  List.fold_left
-    (fun term ind ->
-       incr count; apply_restriction_at (res_f !count) term ind)
-    body ind_args
+let get_max_restriction t =
+  let rec aux t =
+    match t with
+      | Obj(_, Smaller n) -> n
+      | Obj(_, Equal n) -> n
+      | Obj(_, Irrelevant) -> 0
+      | Arrow(a, b) -> max (aux a) (aux b)
+      | Forall(bindings, body) -> aux body
+      | Exists(bindings, body) -> aux body
+      | Or(a, b) -> max (aux a) (aux b)
+      | Pred _ -> 0
+  in
+    aux t
         
-let induction ind_args stmt =
+let induction ind_arg stmt =
   match stmt with
     | Forall(bindings, body) ->
-        let ih = apply_restrictions ind_args body (fun i -> Smaller i) in
-        let goal = apply_restrictions ind_args body (fun i -> Equal i) in
+        let n = 1 + get_max_restriction body in
+        let ih = apply_restriction_at (Smaller n) body ind_arg in
+        let goal = apply_restriction_at (Equal n) body ind_arg in
           (forall bindings ih, forall bindings goal)
     | _ -> failwith "Induction applied to non-forall statement"
 

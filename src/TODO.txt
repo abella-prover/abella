@@ -2,14 +2,15 @@ Soon
 ====
 Clean up search code
 Clean up restriction checking code
-Change lexicographic induction to be nested, so you get
-  two induction hypotheses but they are easier to understand with
-  the *s and @s
 
 Do cut elimination proof
 
 Allow more sophisticated predicates at the top level
   Ones with negation
+
+Clean up tactics tests into seperate suites for each major tactic
+
+When there are more than 1 subgoals, show the future goals
   
 Next week
 =========

@@ -1,5 +1,5 @@
 %token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN CONS
-%token IND INST APPLY CASE SEARCH TO ON WITH AND INTROS SKIP UNDO CUT
+%token IND INST APPLY CASE SEARCH TO ON WITH AND INTROS SKIP UNDO CUT ASSERT
 %token COLON RARROW FORALL EXISTS STAR AT THEOREM AXIOM OR LBRACK RBRACK
 
 %token <int> NUM
@@ -72,6 +72,7 @@ command:
   | CUT ID WITH ID                      { Command.Cut($2, $4) }
   | INST ID WITH term DOT               { Command.Inst($2, $4) }
   | CASE ID DOT                         { Command.Case($2) }
+  | ASSERT lppterm DOT                  { Command.Assert($2) }
   | SEARCH DOT                          { Command.Search }
   | INTROS DOT                          { Command.Intros }
   | SKIP DOT                            { Command.Skip }

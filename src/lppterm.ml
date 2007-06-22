@@ -154,11 +154,11 @@ let bindings_to_string ts =
 let priority t =
   match t with
     | Obj _ -> 3
+    | Pred _ -> 3
     | Or _ -> 2
     | Arrow _ -> 1
     | Forall _ -> 0
     | Exists _ -> 0
-    | Pred _ -> 0
 
 let obj_to_string obj =
   let context =

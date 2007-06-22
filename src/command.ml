@@ -13,6 +13,7 @@ type command =
   | Cut of id * id
   | Inst of id * term
   | Case of id
+  | Assert of lppterm
   | Search
   | Intros
   | Skip

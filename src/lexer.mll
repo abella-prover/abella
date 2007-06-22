@@ -53,6 +53,7 @@ rule token = parse
 | "intros"           { INTROS }
 | "skip"             { SKIP }
 | "undo"             { UNDO }
+| "assert"           { ASSERT }
 
 | number as n        { NUM (int_of_string n) }
 | name as n          { ID n }

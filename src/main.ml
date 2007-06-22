@@ -14,6 +14,7 @@ let rec process_proof name ?(interactive=true) lexbuf =
         | Cut(h, arg) -> cut h arg
         | Inst(h, t) -> inst h t
         | Case(str) -> case str
+        | Assert(t) -> assert_hyp t
         | Search -> search ()
         | Intros -> intros ()
         | Skip -> skip ()

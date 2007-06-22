@@ -5,6 +5,9 @@ Do cut elimination proof (remove skips)
 
 Clean up search code
 Clean up restriction checking code
+Change lexicographic induction to be nested, so you get
+  two induction hypotheses but they are easier to understand with
+  the *s and @s
 
 Add equivariant unification
 

@@ -35,6 +35,24 @@ let tests =
            assert_bool "R should be added to variable list"
              (List.mem "R" (var_names ())) ;
         ) ;
+
+      "Assert test" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"{pred A}" ;
+           
+           assert_hyp (freshen "{pred B}") ;
+           assert_n_subgoals 2 ;
+
+           assert_pprint_equal "{pred B}" sequent.goal ;
+           skip () ;
+           assert_n_subgoals 1 ;
+
+           assert_pprint_equal "{pred A}" sequent.goal ;
+           match sequent.hyps with
+             | [(_, hyp)] -> assert_pprint_equal "{pred B}" hyp
+             | _ -> assert_failure "Expected one hypothesis"
+        ) ;
       
       "Subject reduction for eval example" >::
         (fun () ->

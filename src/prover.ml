@@ -190,7 +190,17 @@ let case str =
     add_cases_to_subgoals cases ;
     next_subgoal ()
 
+(* Assert *)
       
+let assert_hyp term =
+  save_undo_state () ;
+  let term = replace_lppterm_vars sequent.vars term in
+  let set_state = Tactics.set_current_state () in
+    add_cases_to_subgoals
+      [{ set_state = set_state ; new_vars = [] ; new_hyps = [term] }] ;
+    sequent.goal <- term
+
+
 (* Induction *)
             
 let induction args =

@@ -1,17 +1,18 @@
 Soon
 ====
-Clean up search code
-Clean up restriction checking code
-
-Do cut elimination proof
+Add support for equality
 
 Allow more sophisticated predicates at the top level
   Ones with negation
+
+Clean up search code
 
 Clean up tactics tests into seperate suites for each major tactic
 
 When there are more than 1 subgoals, show the future goals
   
+Do cut elimination proof
+
 Next week
 =========
 

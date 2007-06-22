@@ -74,9 +74,7 @@ let _ =
   Arg.parse []
     (fun file_name ->
        Printf.printf "Reading clauses from %s\n" file_name ;
-       clauses :=
-         List.append (Parser.clauses Lexer.token
-                        (Lexing.from_channel (open_in file_name)))
-           !clauses)
+       add_clauses (Parser.clauses Lexer.token
+                      (Lexing.from_channel (open_in file_name))))
     usage_message ;
   process ~interactive:true (Lexing.from_channel stdin)

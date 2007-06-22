@@ -5,7 +5,7 @@ induction on 1. intros. case H1.
   apply IH to H2. case H3. search.
 
 Theorem app_det : forall A B C C',
- {append A B C} -> {append A B C'} -> {eq C C'}.
+ {append A B C} -> {append A B C'} -> {C = C'}.
 induction on 1. intros. case H1.
   case H2. search.
   case H2. apply IH to H3 and H4. case H5. search.

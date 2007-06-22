@@ -386,4 +386,5 @@ let tests =
            let hyp = freshen "member (hyp A) L" in
            let goal = freshen "{L |- hyp A}" in
              assert_search_success (search 1 goal prog [hyp])) ;
+      
     ]

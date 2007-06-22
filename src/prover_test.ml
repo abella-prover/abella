@@ -17,7 +17,8 @@ let assert_proof proof_function =
 
 let setup_prover ?clauses:(clauses=[]) ?goal:(goal="") ?lemmas:(lemmas=[]) () =
   reset_prover () ;
-  Clauses.clauses := clauses ;
+  Clauses.reset () ;
+  Clauses.add_clauses clauses ;
   if goal <> "" then Prover.sequent.goal <- parse_lppterm goal ;
   Prover.lemmas :=
     List.map (fun (name,body) -> (name, parse_lppterm body)) lemmas
@@ -53,6 +54,13 @@ let tests =
              | [(_, hyp)] -> assert_pprint_equal "{pred B}" hyp
              | _ -> assert_failure "Expected one hypothesis"
         ) ;
+
+      "System should know about term equality" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"{A = A}" ;
+
+           assert_proof search) ;
       
       "Subject reduction for eval example" >::
         (fun () ->

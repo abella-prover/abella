@@ -1,4 +1,4 @@
-%token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN CONS
+%token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ
 %token IND INST APPLY CASE SEARCH TO ON WITH AND INTROS SKIP UNDO CUT ASSERT
 %token THEOREM AXIOM DEF
 %token COLON RARROW FORALL EXISTS STAR AT OR LBRACK RBRACK
@@ -17,6 +17,7 @@
 
 %nonassoc BSLASH
 %right IMP
+%nonassoc EQ
 
 /* Higher */
 
@@ -42,6 +43,7 @@ context:
 term:
   | term IMP term                       { Term.binop "=>" $1 $3 }
   | term CONS term                      { Term.binop "::" $1 $3 }
+  | term EQ term                        { Term.binop "=" $1 $3 }
   | ID BSLASH term                      { Term.abstract $1 $3 }
   | exp exp_list                        { Term.app $1 $2 }
   | exp                                 { $1 }

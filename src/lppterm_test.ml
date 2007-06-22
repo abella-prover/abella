@@ -109,6 +109,11 @@ let tests =
            let t = Pred(p) in
              assert_pprint_equal "head A B" t) ;
 
+      "Print equality" >::
+        (fun () ->
+           let t = termobj (app (const "=") [const "A"; const "B"]) in
+             assert_pprint_equal "{A = B}" t) ;
+
       "Normalize should move all implications to the context" >::
         (fun () ->
            let ctx = Context.add (const "L") Context.empty in

@@ -603,11 +603,11 @@ let right_unify t1 t2 = Right.pattern_unify t1 t2
 let left_unify t1 t2 = Left.pattern_unify t1 t2
 
 let try_with_state f =
-  let state = Term.save_state () in
+  let state = Term.get_bind_state () in
     try
       f ()
     with
-      | _ -> Term.restore_state state ; false
+      | _ -> Term.set_bind_state state ; false
 
 let try_right_unify t1 t2 =
   try_with_state

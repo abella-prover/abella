@@ -85,32 +85,33 @@ let getref = function
  * Prolog representation of bound variables but then deref will have to
  * work differently. This is the place to introduce trailing. *)
 
-type bind_state = int
 let bind_stack = Stack.create ()
-let bind_len = ref 0
-
-let where () = Printf.printf "#%d\n" !bind_len
-
-let save_state () = !bind_len
-
-let restore_state n =
-  assert (n <= !bind_len) ;
-  for i = 1 to !bind_len-n do
-    let (v,contents) = Stack.pop bind_stack in
-      v := contents
-  done ;
-  bind_len := n
 
 let bind v t =
   let dv = getref (deref v) in
   let dt = deref t in
     if match dt with Ptr r when r==dv -> false | _ -> true then begin
       Stack.push (dv,!dv) bind_stack ;
-      dv := T dt ;
-      incr bind_len
+      dv := T dt
     end
 
-exception Done
+type bind_state = (term * term) list
+    
+let get_bind_state () =
+  let state = ref [] in
+    Stack.iter
+      (fun (v, _) ->
+         state := (Ptr v, Ptr (ref !v))::!state)
+      bind_stack ;
+    !state
+
+let clear_bind_state () =
+  Stack.iter (fun (v, value) -> v := value) bind_stack ;
+  Stack.clear bind_stack
+
+let set_bind_state state =
+  clear_bind_state () ;
+  List.iter (fun (v, value) -> bind v value) state
 
 (* Raise the substitution *)
 let rec add_dummies env n m = 
@@ -246,31 +247,6 @@ let map_vars f t =
 
 let map_vars_list f ts =
   List.flatten (List.map (map_vars f) ts)
-
-type subst = (term * term) list
-
-let get_subst state =
-  let subst = ref [] in
-  let count = ref (!bind_len-state) in
-    assert (!count >= 0) ;
-    try
-      Stack.iter
-        (fun (v, _) ->
-           if !count = 0 then raise Done ;
-           decr count ;
-           subst := (Ptr v, Ptr (ref !v))::!subst)
-        bind_stack ;
-      !subst
-    with Done -> !subst
-
-let apply_subst s =
-  List.iter (fun (v, value) -> bind v value) s
-
-let get_full_state () =
-  let subst = get_subst 0 in
-    fun () ->
-      restore_state 0 ;
-      apply_subst subst
 
 let term_to_var t =
   match observe t with

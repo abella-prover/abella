@@ -161,12 +161,12 @@ let tests =
            let term = freshen "{eval A B}" in
              match case term prog ["A"; "B"] with
                | [case1; case2] ->
-                   case1.set_state () ;
+                   set_bind_state case1.bind_state ;
                    assert_pprint_equal "{eval (abs R) (abs R)}" term ;
                    assert_bool "R should be flagged as used"
                      (List.mem "R" (List.map fst case1.new_vars)) ;
                    
-                   case2.set_state () ;
+                   set_bind_state case2.bind_state ;
                    assert_pprint_equal "{eval (app M N) B}" term ;
                    begin match case2.new_hyps with
                      | [h1; h2] ->
@@ -191,10 +191,10 @@ let tests =
            let term = freshen "{eval A B}@" in
              match case term prog ["A"; "B"] with
                | [case1; case2] ->
-                   case1.set_state () ;
+                   set_bind_state case1.bind_state ;
                    assert_pprint_equal "{eval (abs R) (abs R)}@" term ;
                    
-                   case2.set_state () ;
+                   set_bind_state case2.bind_state ;
                    assert_pprint_equal "{eval (app M N) B}@" term ;
                    begin match case2.new_hyps with
                      | [h1; h2] ->
@@ -241,10 +241,10 @@ let tests =
                | [case1; case2; case3] ->
                    (* case1 is the member case *)
                    
-                   case2.set_state () ;
+                   set_bind_state case2.bind_state ;
                    assert_pprint_equal "{L |- eval (abs R) (abs R)}" term ;
                    
-                   case3.set_state () ;
+                   set_bind_state case3.bind_state ;
                    assert_pprint_equal "{L |- eval (app M N) B}" term ;
                    begin match case3.new_hyps with
                      | [h1; h2] ->
@@ -269,10 +269,10 @@ let tests =
            let used = ["A"; "C"; "L"] in
              match case term prog used with
                | [case1; case2] ->
-                   case1.set_state () ;
+                   set_bind_state case1.bind_state ;
                    assert_pprint_equal "member (hyp C) (hyp C :: L)" term ;
 
-                   case2.set_state () ;
+                   set_bind_state case2.bind_state ;
                    begin match case2.new_hyps with
                      | [hyp] ->
                          assert_pprint_equal "member (hyp A) L" hyp ;

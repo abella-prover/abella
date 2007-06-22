@@ -78,16 +78,11 @@ val eq : term -> term -> bool
  * work differently. This is the place to introduce trailing.
  * David: What's trailing ? *)
 
-type bind_state
-type subst
-val save_state : unit -> bind_state
-val restore_state : bind_state -> unit
-val get_subst : bind_state -> subst
-val where : unit -> unit
-
-val get_full_state : unit -> (unit -> unit)
-
 val bind : term -> term -> unit
+  
+type bind_state
+val get_bind_state : unit -> bind_state
+val set_bind_state : bind_state -> unit
 
 (* Raise the substitution *)
 val add_dummies : env -> int -> int -> env
@@ -117,8 +112,6 @@ val find_vars : tag -> term list -> var list
 val find_var_refs : tag -> term list -> term list
 val map_vars : (var -> 'a) -> term -> 'a list
 val map_vars_list : (var -> 'a) -> term list -> 'a list
-
-val apply_subst : subst -> unit
 
 val term_to_var : term -> var
 

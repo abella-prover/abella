@@ -297,19 +297,19 @@ let tests =
                | Unify.Error _ -> ()) ;
 
       (* Tests added while developing LPP *)
-      "Saving and restoring states and substs" >::
+      "Saving and restoring states" >::
         (fun () ->
            let a = var "A" 0 in
            let b = var "B" 0 in
-           let state = save_state () in
+           let before = get_bind_state () in
              bind a b ;
              assert_pprint_equal "B" a ;
              assert_pprint_equal "B" b ;
-             let subst = get_subst state in
-               restore_state state ;
+             let after = get_bind_state () in
+               set_bind_state before ;
                assert_pprint_equal "A" a ;
                assert_pprint_equal "B" b ;
-               apply_subst subst ;
+               set_bind_state after ;
                assert_pprint_equal "B" a ;
                assert_pprint_equal "B" b) ;
 

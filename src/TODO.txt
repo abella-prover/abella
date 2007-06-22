@@ -1,13 +1,13 @@
-Soon
-====
+This week
+=========
+
 Clean up search code
   Add bedwyr style searching for meta_clauses
-
-Clean up saving of state in term
 
 Clean up tactics tests into seperate suites for each major tactic
 
 Do cut elimination proof
+
 
 Next week
 =========
@@ -21,6 +21,10 @@ With support for contexts and names,
      Dale's normal example
      Dale's substitution example
      Cut elimination with forall quantifier
+
+     
+Future
+======
 
 Do we have to consider logic variables in the context during search?
 How does object cut work with contexts?
@@ -40,6 +44,7 @@ Flatten ndcore into src?
 
 Create extensions module which extends the standard libraries with
 missing functions
+
 
 Larger or longer term issues
 ============================

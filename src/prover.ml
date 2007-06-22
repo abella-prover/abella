@@ -40,19 +40,19 @@ let fresh_hyp_name () =
   
 (* Undo support *)
   
-type undo_stack = (sequent * subgoal list * (unit -> unit)) list
+type undo_stack = (sequent * subgoal list * Term.bind_state) list
 let undo_stack : undo_stack ref = ref []
   
 let save_undo_state () =
-  undo_stack := (copy_sequent (), !subgoals, Term.get_full_state ())::
+  undo_stack := (copy_sequent (), !subgoals, Term.get_bind_state ())::
     !undo_stack
     
 let undo () =
   match !undo_stack with
-    | (saved_sequent, saved_subgoals, restore_term_state)::rest ->
+    | (saved_sequent, saved_subgoals, bind_state)::rest ->
         set_sequent saved_sequent ;
         subgoals := saved_subgoals ;
-        restore_term_state () ;
+        Term.set_bind_state bind_state ;
         undo_stack := rest
     | [] -> failwith "Nothing left to undo"
 
@@ -186,7 +186,7 @@ let add_cases_to_subgoals cases =
         set_sequent saved_sequent ;
         List.iter add_if_new_var case.new_vars ;
         List.iter add_hyp case.new_hyps ;
-        case.set_state () ;
+        Term.set_bind_state case.bind_state ;
   in
     subgoals := List.append (List.map case_to_subgoal cases) !subgoals
 
@@ -197,14 +197,16 @@ let case str =
     add_cases_to_subgoals cases ;
     next_subgoal ()
 
+      
 (* Assert *)
       
 let assert_hyp term =
   save_undo_state () ;
   let term = replace_lppterm_vars sequent.vars term in
-  let set_state = Tactics.set_current_state () in
     add_cases_to_subgoals
-      [{ set_state = set_state ; new_vars = [] ; new_hyps = [term] }] ;
+      [{ bind_state = get_bind_state () ;
+         new_vars = [] ;
+         new_hyps = [term] }] ;
     sequent.goal <- term
 
 

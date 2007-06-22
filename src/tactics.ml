@@ -148,7 +148,7 @@ let apply_forall stmt ts =
 (* Case analysis *)
 
 type case = {
-  set_state : unit -> unit ;
+  bind_state : bind_state ;
   new_vars : (id * term) list ;
   new_hyps : lppterm list ;
 }
@@ -162,32 +162,29 @@ let collect_some f list =
        (List.map f list))
 
 let set_current_state () =
-  let current_state = save_state () in
-    (fun () -> restore_state current_state)
+  let current_state = get_bind_state () in
+    (fun () -> set_bind_state current_state)
 
 let term_case term clauses used wrapper =
   collect_some
     (fun (head, body) ->
        let fresh_head, fresh_body = freshen_clause Eigen head body used in
-       let initial_state = save_state () in
+       let initial_state = get_bind_state () in
          if try_left_unify fresh_head term then
            let new_vars = get_term_vars_alist Eigen (fresh_head::fresh_body) in
-           let subst = get_subst initial_state in
-           let set_state () = (restore_state initial_state ;
-                               apply_subst subst)
-           in
+           let bind_state = get_bind_state () in
            let wrapped_body = List.map wrapper fresh_body in
-             restore_state initial_state ;
-             Some { set_state = set_state ;
-                        new_vars = new_vars ;
-                        new_hyps = wrapped_body }
+             set_bind_state initial_state ;
+             Some { bind_state = bind_state ;
+                    new_vars = new_vars ;
+                    new_hyps = wrapped_body }
          else
                None)
     clauses
       
 let obj_case obj r clauses used =
   if is_imp obj.term then
-    [{ set_state = set_current_state () ;
+    [{ bind_state = get_bind_state () ;
        new_vars = [] ;
        new_hyps = [ Obj(move_imp_to_context obj, reduce_restriction r) ]
      }]
@@ -197,7 +194,7 @@ let obj_case obj r clauses used =
     in
     let clause_cases = term_case obj.term clauses used wrapper in
     let member_case =
-      { set_state = set_current_state () ;
+      { bind_state = get_bind_state () ;
         new_vars = [] ;
         new_hyps = [obj_to_member obj] }
     in
@@ -217,14 +214,14 @@ let case term clauses used =
     | Obj(obj, r) -> obj_case obj r clauses used
     | Or(left, right) ->
         let make_simple_case h =
-          { set_state = set_current_state () ;
+          { bind_state = get_bind_state () ;
             new_vars = [] ; new_hyps = [h] }
         in
           [make_simple_case left; make_simple_case right]
     | Exists(ids, body) ->
         let fresh_ids = fresh_alist Eigen ids used in
         let fresh_body = replace_lppterm_vars fresh_ids body in
-          [{ set_state = set_current_state () ;
+          [{ bind_state = get_bind_state () ;
              new_vars = fresh_ids ;
              new_hyps = [fresh_body] }]
     | Pred(p) ->

@@ -19,12 +19,15 @@ let read_mod filename =
   Parser.clauses Lexer.token (Lexing.from_channel (open_in filename))
 
 let freshen str =
-  Tactics.freshen_lppterm_capital_vars Term.Eigen (parse_lppterm str) []
+  let term = parse_lppterm str in
+  let var_names = Tactics.lppterm_capital_var_names term in
+  let fresh_names = Tactics.fresh_alist_wrt Term.Eigen var_names [] in
+    replace_lppterm_vars fresh_names term
 
 let eval_clauses = read_mod "eval.mod"
 let pcf_clauses = read_mod "pcf.mod"
 let fsub_clauses = read_mod "fsub.mod"
-let add_clauses = read_mod "add.mod"
+let addition_clauses = read_mod "add.mod"
   
 (* Custom asserts *)
     

@@ -17,8 +17,7 @@ let assert_proof proof_function =
 
 let setup_prover ?clauses:(clauses=[]) ?goal:(goal="") ?lemmas:(lemmas=[]) () =
   reset_prover () ;
-  Clauses.reset () ;
-  Clauses.add_clauses clauses ;
+  add_clauses clauses ;
   if goal <> "" then Prover.sequent.goal <- parse_lppterm goal ;
   Prover.lemmas :=
     List.map (fun (name,body) -> (name, parse_lppterm body)) lemmas
@@ -267,7 +266,7 @@ let tests =
       "Add example (lemmas)" >::
         (fun () ->
            setup_prover ()
-             ~clauses:add_clauses
+             ~clauses:addition_clauses
              ~goal:"forall A B C, {nat B} -> {add A B C} -> {add B A C}"
              ~lemmas:[
                ("base", "forall N, {nat N} -> {add N z N}") ;

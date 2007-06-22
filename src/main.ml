@@ -49,7 +49,7 @@ let rec process ?(interactive=true) lexbuf =
       | Axiom(name, axiom) ->
           add_lemma name axiom
       | Def(clause) ->
-          Tactics.meta_clauses := clause::!Tactics.meta_clauses
+          meta_clauses := clause::!meta_clauses
     end ;
     if interactive then flush stdout
   with

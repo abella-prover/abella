@@ -4,13 +4,16 @@ open Unify
 
 (* Variable naming utilities *)
 
-let fresh_alist tag ids used =
+let fresh_alist_wrt tag ids used =
   let used = ref used in
     List.map (fun x ->
                 let (fresh, curr_used) = fresh_wrt tag x !used in
                   used := curr_used ;
                   (x, fresh))
       ids
+      
+let fresh_alist tag ids =
+  List.map (fun x -> (x, fresh ~tag:tag 0)) ids
       
 let get_term_vars_alist tag ts =
   List.map (fun v -> ((term_to_var v).name, v))
@@ -37,27 +40,26 @@ let lppterm_capital_var_names t =
   let capital_names = List.filter is_capital names in
     uniq capital_names
 
-let freshen_lppterm_capital_vars tag t used =
-  let var_names = lppterm_capital_var_names t in
-  let fresh_names = fresh_alist tag var_names used in
-    replace_lppterm_vars fresh_names t
-    
 let capital_var_names ts =
   uniq (List.filter is_capital
           (map_vars_list (fun v -> v.name) ts))
 
-let freshen_capital_vars tag ts used =
-  let var_names = capital_var_names ts in
-  let fresh_names = fresh_alist tag var_names used in
-    List.map (replace_term_vars fresh_names) ts
+let freshen_clause_wrt tag head body used =
+  let var_names = capital_var_names (head::body) in
+  let fresh_names = fresh_alist_wrt tag var_names used in
+  let fresh_head = replace_term_vars fresh_names head in
+  let fresh_body = List.map (replace_term_vars fresh_names) body in
+    (fresh_head, fresh_body)
 
-let freshen_clause tag head body used =
-  match freshen_capital_vars tag (head::body) used with
-    | head::body -> head, body
-    | _ -> assert false
+let freshen_clause tag head body =
+  let var_names = capital_var_names (head::body) in
+  let fresh_names = fresh_alist tag var_names in
+  let fresh_head = replace_term_vars fresh_names head in
+  let fresh_body = List.map (replace_term_vars fresh_names) body in
+    (fresh_head, fresh_body)
 
 let freshen_bindings tag bindings term used =
-  replace_lppterm_vars (fresh_alist tag bindings used) term
+  replace_lppterm_vars (fresh_alist tag bindings) term
 
 (* Object level cut *)
 
@@ -168,7 +170,7 @@ let set_current_state () =
 let term_case term clauses used wrapper =
   collect_some
     (fun (head, body) ->
-       let fresh_head, fresh_body = freshen_clause Eigen head body used in
+       let fresh_head, fresh_body = freshen_clause_wrt Eigen head body used in
        let initial_state = get_bind_state () in
          if try_left_unify fresh_head term then
            let new_vars = get_term_vars_alist Eigen (fresh_head::fresh_body) in
@@ -203,13 +205,7 @@ let obj_case obj r clauses used =
       else
         member_case :: clause_cases
 
-let parse_clauses str =
-  Parser.clauses Lexer.token (Lexing.from_string str)
-
-let meta_clauses =
-  ref (parse_clauses "member A (A :: L). member A (B :: L) :- member A L.")
-      
-let case term clauses used =
+let case term clauses meta_clauses used =
   match term with
     | Obj(obj, r) -> obj_case obj r clauses used
     | Or(left, right) ->
@@ -219,14 +215,14 @@ let case term clauses used =
         in
           [make_simple_case left; make_simple_case right]
     | Exists(ids, body) ->
-        let fresh_ids = fresh_alist Eigen ids used in
+        let fresh_ids = fresh_alist_wrt Eigen ids used in
         let fresh_body = replace_lppterm_vars fresh_ids body in
           [{ bind_state = get_bind_state () ;
              new_vars = fresh_ids ;
              new_hyps = [fresh_body] }]
     | Pred(p) ->
         let wrapper t = Pred(t) in
-          term_case p !meta_clauses used wrapper
+          term_case p meta_clauses used wrapper
     | _ -> invalid_lppterm_arg term
 
 
@@ -271,22 +267,21 @@ let derivable goal hyp =
   try_right_unify goal.term hyp.term &&
     Context.subcontext hyp.context goal.context
 
-let search n goal clauses hyps =
-  let rec term_aux n used clauses goal next =
+let search ~depth:n ~hyps:hyps ~clauses:clauses
+    ~meta_clauses:meta_clauses ~goal:goal =
+  let rec term_aux n context goal =
     List.exists
       (fun (head, body) ->
          try_with_state
            (fun () ->
-              let fresh_head, fresh_body =
-                freshen_clause Logic head body used
+              let fresh_head, fresh_body = freshen_clause Logic head body
               in
                 right_unify fresh_head goal ;
-                let curr_used =
-                  List.map fst (get_term_vars_alist Logic fresh_body)
-                in
-                  List.for_all (next (n-1) curr_used) fresh_body))
+                List.for_all
+                  (fun t -> obj_aux (n-1) {context=context; term=t})
+                  fresh_body))
       clauses
-  and obj_aux n used goal =
+  and obj_aux n goal =
     if List.exists (derivable goal) (filter_objs hyps) then
       true
     else if Context.exists (try_right_unify goal.term) goal.context then
@@ -294,24 +289,22 @@ let search n goal clauses hyps =
     else if n = 0 then
       false
     else if is_imp goal.term then
-      obj_aux (n-1) used (move_imp_to_context goal)
+      obj_aux (n-1) (move_imp_to_context goal)
     else
       ((not (Context.is_empty goal.context)) &&
-         lppterm_aux (n-1) used (obj_to_member goal))
-      || (term_aux n used clauses goal.term
-            (fun n used t -> obj_aux n used {goal with term=t}))
-  and lppterm_aux n used goal =
+         lppterm_aux (n-1) (obj_to_member goal))
+      || (term_aux n goal.context goal.term)
+  and lppterm_aux n goal =
     match goal with
-      | Or(left, right) -> lppterm_aux n used left or lppterm_aux n used right
+      | Or(left, right) -> lppterm_aux n left or lppterm_aux n right
       | Exists(bindings, body) ->
           let term = freshen_bindings Logic bindings body [] in
-          let used = List.map fst (get_lppterm_vars_alist Logic [term]) in
-            lppterm_aux n used term
-      | Obj(obj, r) -> obj_aux n used obj
+            lppterm_aux n term
+      | Obj(obj, r) -> obj_aux n obj
       | Pred(p) ->
           List.exists (try_right_unify p) (filter_preds hyps) ||
-            term_aux n used !meta_clauses p
-            (fun n used t -> lppterm_aux n used (Pred t))
+            meta_aux n p
       | _ -> false
+  and meta_aux n goal = false
   in
-    lppterm_aux n [] goal
+    lppterm_aux n goal

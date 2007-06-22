@@ -37,6 +37,19 @@ let var_names () =
 let fresh_hyp_name () =
   sequent.count <- sequent.count + 1 ;
   "H" ^ (string_of_int sequent.count)
+
+(* Clauses *)
+
+let parse_clauses str =
+  Parser.clauses Lexer.token (Lexing.from_string str)
+
+let clauses : clauses ref = ref (parse_clauses "X = X.")
+
+let add_clauses new_clauses =
+  clauses := new_clauses @ !clauses
+  
+let meta_clauses : clauses ref =
+  ref (parse_clauses "member A (A :: L). member A (B :: L) :- member A L.")
   
 (* Undo support *)
   
@@ -61,10 +74,14 @@ let undo () =
 
 let reset_prover =
   let original_sequent = copy_sequent () in
+  let original_clauses = !clauses in
+  let original_meta_clauses = !meta_clauses in
     fun () ->
       set_sequent original_sequent ;
       subgoals := [] ;
-      undo_stack := []
+      undo_stack := [] ;
+      clauses := original_clauses ;
+      meta_clauses := original_meta_clauses
 
 let add_hyp ?(name=fresh_hyp_name ()) term =
   sequent.hyps <- List.append sequent.hyps [(name, term)]
@@ -193,7 +210,7 @@ let add_cases_to_subgoals cases =
 let case str =
   save_undo_state () ;
   let obj = get_hyp str in
-  let cases = Tactics.case obj !clauses (var_names ()) in
+  let cases = Tactics.case obj !clauses !meta_clauses (var_names ()) in
     add_cases_to_subgoals cases ;
     next_subgoal ()
 
@@ -230,7 +247,13 @@ let induction args =
 
 let search () =
   save_undo_state () ;
-  if Tactics.search 10 sequent.goal !clauses (List.map snd sequent.hyps) then
+  if Tactics.search
+    ~depth:10
+    ~hyps:(List.map snd sequent.hyps)
+    ~clauses:!clauses
+    ~meta_clauses:!meta_clauses
+    ~goal:sequent.goal
+  then
     next_subgoal ()
   else
     ()
@@ -260,7 +283,7 @@ let intros () =
     failwith "Intros can only be used when there are no context variables" ;
   match sequent.goal with
     | Forall(bindings, body) ->
-        sequent.vars <- fresh_alist Eigen bindings (var_names ()) ;
+        sequent.vars <- fresh_alist_wrt Eigen bindings (var_names ()) ;
         let fresh_body = replace_lppterm_vars sequent.vars body in
         let args, new_goal = split_args fresh_body in
           List.iter add_hyp args ;

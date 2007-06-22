@@ -5,12 +5,12 @@ Axiom ctx_lemma : forall A L, ctx L -> member (conc A) L -> false.
 
 Theorem land_left_inv :
   forall L C1 C2, ctx L -> {L |- conc (land C1 C2)} -> {L |- conc C1}.
-% induction on 2. intros. case H2.
-%   apply ctx_lemma to H1 and H3. case H4.
-%   search.
-%   search.
-%   assert ctx (hyp B :: hyp A :: L).
-%     search.
+induction on 2. intros. case H2.
+  apply ctx_lemma to H1 and H3. case H4.
+  search.
+  search.
+  assert ctx (hyp B :: hyp A :: L).
+    search.
 %     apply IH to H5 and H4. search.
 %   assert ctx (hyp B :: L).
 %     search.

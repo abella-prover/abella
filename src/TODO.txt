@@ -6,6 +6,12 @@ Clean up search code
 
 Do cut elimination proof
 
+Clean up code for freshness in tactics
+  And freshen in test_helper
+
+Clean up case code with labelled args?
+
+Clean up how meta clauses are added to meta_clause?
 
 Next week
 =========
@@ -23,6 +29,8 @@ With support for contexts and names,
      
 Future
 ======
+
+Merge clauses and command into a general data structure file?
 
 Do we have to consider logic variables in the context during search?
 How does object cut work with contexts?

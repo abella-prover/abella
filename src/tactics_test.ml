@@ -8,9 +8,6 @@ let parse = parse_lppterm
 
 let prog = eval_clauses
 
-let assert_search_success b = assert_bool "Search should succeed" b
-let assert_search_failure b = assert_bool "Search should fail" (not b)
-
 let object_cut_tests =
   "Object Cut" >:::
     [
@@ -167,7 +164,7 @@ let case_application_tests =
       "Normal" >::
         (fun () ->
            let term = freshen "{eval A B}" in
-             match case term prog ["A"; "B"] with
+             match case term prog [] ["A"; "B"] with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "{eval (abs R) (abs R)}" term ;
@@ -193,7 +190,7 @@ let case_application_tests =
       "Restriction should become smaller" >::
         (fun () ->
            let term = freshen "{eval A B}@" in
-             match case term prog ["A"; "B"] with
+             match case term prog [] ["A"; "B"] with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "{eval (abs R) (abs R)}@" term ;
@@ -212,7 +209,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "{A} or {B}" in
            let used = ["A"; "B"] in
-             match case term prog used with
+             match case term prog [] used with
                | [{new_hyps=[hyp1]} ; {new_hyps=[hyp2]}] ->
                    assert_pprint_equal "{A}" hyp1 ;
                    assert_pprint_equal "{B}" hyp2 ;
@@ -222,7 +219,7 @@ let case_application_tests =
         (fun () ->
            let term = parse "exists A B, {eval A B}" in
            let used = [] in
-             match case term prog used with
+             match case term prog [] used with
                | [{new_vars=new_vars ; new_hyps=[hyp]}] ->
                    let var_names = List.map fst new_vars in
                      assert_string_list_equal ["A"; "B"] var_names ;
@@ -233,7 +230,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "{L |- hyp A => conc B}" in
            let used = [] in
-             match case term prog used with
+             match case term prog [] used with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
                    assert_pprint_equal "{L, hyp A |- conc B}" hyp
                | _ -> assert_failure "Pattern mismatch") ;
@@ -241,7 +238,7 @@ let case_application_tests =
       "Should pass along context" >::
         (fun () ->
            let term = freshen "{L |- eval A B}" in
-             match case term prog ["A"; "B"] with
+             match case term prog [] ["A"; "B"] with
                | [case1; case2; case3] ->
                    (* case1 is the member case *)
                    
@@ -262,7 +259,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "{L, hyp A |- hyp B}" in
            let used = ["L"; "A"; "B"] in
-             match case term prog used with
+             match case term prog [] used with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
                    assert_pprint_equal "member (hyp B) (hyp A :: L)" hyp
                | _ -> assert_failure "Pattern mismatch") ;
@@ -271,7 +268,11 @@ let case_application_tests =
         (fun () ->
            let term = freshen "member (hyp A) (hyp C :: L)" in
            let used = ["A"; "C"; "L"] in
-             match case term prog used with
+           let member_clauses =
+               parse_clauses ("member A (A :: L)." ^
+                                "member A (B :: L) :- member A L.")
+           in
+             match case term prog member_clauses used with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "member (hyp C) (hyp C :: L)" term ;
@@ -327,77 +328,96 @@ let induction_tests =
                goal) ;
     ]
 
+let assert_search_success b = assert_bool "Search should succeed" b
+let assert_search_failure b = assert_bool "Search should fail" (not b)
+let basic_search n hyps goal =
+  search ~depth:n ~hyps:hyps ~clauses:prog ~meta_clauses:[] ~goal:goal
+  
 let search_tests =
   "Search" >:::
     [
       "Should check hypotheses" >::
         (fun () ->
            let goal = freshen "{eval A B}" in
-             assert_search_success (search 0 goal prog [goal])) ;
+             assert_search_success (basic_search 0 [goal] goal)) ;
       
       "Should should succeed if clause matches" >::
         (fun () ->
            let goal = freshen "{eval (abs R) (abs R)}" in
-             assert_search_success (search 1 goal prog [])) ;
+             assert_search_success (basic_search 1 [] goal)) ;
       
       "Should backchain on clauses" >::
         (fun () ->
            let hyp1 = freshen "{eval M (abs R)}" in
            let hyp2 = freshen "{eval (R N) V}" in
            let goal = freshen "{eval (app M N) V}" in
-             assert_search_success (search 1 goal prog [hyp1; hyp2])) ;
+             assert_search_success (basic_search 1 [hyp1; hyp2] goal)) ;
 
       "On left of OR" >::
         (fun () ->
            let hyp = freshen "{eval A B}" in
            let goal = freshen "{eval A B} or {false}" in
-             assert_search_success (search 0 goal prog [hyp])) ;
+             assert_search_success (basic_search 0 [hyp] goal)) ;
       
       "On right of OR" >::
         (fun () ->
            let hyp = freshen "{eval A B}" in
            let goal = freshen "{false} or {eval A B}" in
-             assert_search_success (search 0 goal prog [hyp])) ;
+             assert_search_success (basic_search 0 [hyp] goal)) ;
 
       "On exists" >::
         (fun () ->
            let goal = freshen "exists R, {eq (app M N) R}" in
-             assert_search_success (search 1 goal prog [])) ;
+             assert_search_success (basic_search 1 [] goal)) ;
 
       "Should fail if there is no proof" >::
         (fun () ->
            let goal = freshen "{eval A B}" in
-             assert_search_failure (search 5 goal prog [])) ;
+             assert_search_failure (basic_search 5 [] goal)) ;
       
       "Should check context" >::
         (fun () ->
            let goal = freshen "{eval A B |- eval A B}" in
-             assert_search_success (search 0 goal prog [])) ;
+             assert_search_success (basic_search 0 [] goal)) ;
 
       "Should fail if hypothesis has non-subcontext" >::
         (fun () ->
            let hyp = freshen "{eval A B |- eval A B}" in
            let goal = freshen "{eval A B}" in
-             assert_search_failure (search 5 goal prog [hyp])) ;
+             assert_search_failure (basic_search 5 [hyp] goal)) ;
 
       "Should preserve context while backchaining" >::
         (fun () ->
            let goal = freshen
                "{eval M (abs R), eval (R N) V |- eval (app M N) V}"
            in
-             assert_search_success (search 1 goal prog [])) ;
+             assert_search_success (basic_search 1 [] goal)) ;
 
       "Should move implies to the left" >::
         (fun () ->
            let hyp = freshen "{A |- B}" in
            let goal = freshen "{A => B}" in
-             assert_search_success (search 1 goal prog [hyp])) ;
+             assert_search_success (basic_search 1 [hyp] goal)) ;
 
       "Should look for member" >::
         (fun () ->
            let hyp = freshen "member (hyp A) L" in
            let goal = freshen "{L |- hyp A}" in
-             assert_search_success (search 1 goal prog [hyp])) ;
+             assert_search_success (basic_search 1 [hyp] goal)) ;
+
+      "Should use bedwyr style search on meta-level predicates" >::
+        (fun () ->
+           let meta_clauses =
+             parse_clauses "pred P :- (pi c\ P = conc c) => false."
+           in
+           let meta_search goal =
+             search ~depth:10 ~hyps:[] ~clauses:[]
+               ~meta_clauses:meta_clauses ~goal:goal
+           in
+           let goal1 = freshen "pred (hyp A)" in
+           let goal2 = freshen "pred (conc A)" in
+             assert_search_success (meta_search goal1) ;
+             assert_search_failure (meta_search goal2)) ;
     ]
     
 let tests =

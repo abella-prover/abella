@@ -1,3 +1,6 @@
+Def neg nil.
+Def neg (hyp A :: L) :- neg L.
+
 Axiom neg_lemma : forall A L, neg L -> member (conc A) L -> false.
 
 Theorem land_left_inv :
@@ -7,10 +10,10 @@ induction on 2. intros. case H2.
   search.
   search.
   case H4. case H5. assert neg (hyp B :: hyp A :: L).
-    skip.
+    search.
     apply IH to H7 and H6. search.
   case H5. assert neg (hyp B :: L).
-    skip.
+    search.
     apply IH to H7 and H6. search.
 
 % Theorem land_right_inv :

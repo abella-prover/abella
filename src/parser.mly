@@ -1,6 +1,7 @@
 %token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN CONS
 %token IND INST APPLY CASE SEARCH TO ON WITH AND INTROS SKIP UNDO CUT ASSERT
-%token COLON RARROW FORALL EXISTS STAR AT THEOREM AXIOM OR LBRACK RBRACK
+%token THEOREM AXIOM DEF
+%token COLON RARROW FORALL EXISTS STAR AT OR LBRACK RBRACK
 
 %token <int> NUM
 %token <string> ID
@@ -120,4 +121,5 @@ top_command :
   | THEOREM ID COLON lppterm DOT        { Command.Theorem($2, $4) }
   | THEOREM lppterm DOT                 { Command.Theorem("Goal", $2) }
   | AXIOM ID COLON lppterm DOT          { Command.Axiom($2, $4) }
+  | DEF clause                          { Command.Def($2) }
   | EOF                                 { raise End_of_file }

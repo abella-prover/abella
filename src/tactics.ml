@@ -238,7 +238,7 @@ let parse_clauses str =
   Parser.clauses Lexer.token (Lexing.from_string str)
 
 let meta_clauses =
-  parse_clauses "member A (A :: L). member A (B :: L) :- member A L."
+  ref (parse_clauses "member A (A :: L). member A (B :: L) :- member A L.")
       
 let case term clauses used =
   match term with
@@ -257,7 +257,7 @@ let case term clauses used =
              new_hyps = [fresh_body] }]
     | Pred(p) ->
         let wrapper t = Pred(t) in
-          term_case p meta_clauses used wrapper
+          term_case p !meta_clauses used wrapper
     | _ -> invalid_lppterm_arg term
 
 
@@ -333,7 +333,7 @@ let search n goal clauses hyps =
       | Obj(obj, r) -> obj_aux n used obj
       | Pred(p) ->
           List.exists (try_right_unify p) (filter_preds hyps) ||
-            term_aux n used meta_clauses p
+            term_aux n used !meta_clauses p
             (fun n used t -> lppterm_aux n used (Pred t))
       | _ -> false
   in

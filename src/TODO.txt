@@ -1,5 +1,7 @@
 Soon
 ====
+Allow definition of predicates at the top level
+
 Do cut elimination proof (remove skips)
   Need to add a body to neg so we can search on it
 
@@ -36,6 +38,9 @@ Make omake target that checks all thm files with their mod files
 Make omakefile target for any mod/thm combination
 
 Flatten ndcore into src?
+
+Create extensions module which extends the standard libraries with
+missing functions
 
 Larger or longer term issues
 ============================

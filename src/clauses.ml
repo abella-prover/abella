@@ -1,4 +1,5 @@
 open Term
 
-type clauses = (term * term list) list
+type clause = term * term list
+type clauses = clause list
 let clauses : clauses ref = ref []

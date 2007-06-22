@@ -266,6 +266,12 @@ let get_subst state =
 let apply_subst s =
   List.iter (fun (v, value) -> bind v value) s
 
+let get_full_state () =
+  let subst = get_subst 0 in
+    fun () ->
+      restore_state 0 ;
+      apply_subst subst
+
 let term_to_var t =
   match observe t with
     | Var v -> v

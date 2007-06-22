@@ -72,7 +72,7 @@ clause_body:
 command:
   | IND ON NUM DOT                      { Command.Induction($3) }
   | APPLY ID TO id_arg_list DOT         { Command.Apply($2, $4) }
-  | CUT ID WITH ID                      { Command.Cut($2, $4) }
+  | CUT ID WITH ID DOT                  { Command.Cut($2, $4) }
   | INST ID WITH term DOT               { Command.Inst($2, $4) }
   | CASE ID DOT                         { Command.Case($2) }
   | ASSERT lppterm DOT                  { Command.Assert($2) }

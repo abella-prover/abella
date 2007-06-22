@@ -40,19 +40,19 @@ let fresh_hyp_name () =
   
 (* Undo support *)
   
-type undo_stack = (sequent * subgoal list * Term.bind_state) list
+type undo_stack = (sequent * subgoal list * (unit -> unit)) list
 let undo_stack : undo_stack ref = ref []
   
 let save_undo_state () =
-  undo_stack := (copy_sequent (), !subgoals, Term.save_state ())::
+  undo_stack := (copy_sequent (), !subgoals, Term.get_full_state ())::
     !undo_stack
     
 let undo () =
   match !undo_stack with
-    | (saved_sequent, saved_subgoals, saved_term_state)::rest ->
+    | (saved_sequent, saved_subgoals, restore_term_state)::rest ->
         set_sequent saved_sequent ;
         subgoals := saved_subgoals ;
-        Term.restore_state saved_term_state ;
+        restore_term_state () ;
         undo_stack := rest
     | [] -> failwith "Nothing left to undo"
 
@@ -113,6 +113,19 @@ let hyps_to_string () =
    
 let div = "  ============================"
 
+let get_other_subgoals () =
+  save_undo_state () ;
+  let buffer = Buffer.create 100 in
+  let n = ref 1 in
+    List.iter (fun set_state ->
+                 set_state () ;
+                 incr n ;
+                 bprintf buffer "subgoal %d is:\n" !n ;
+                 bprintf buffer " %s\n\n" (lppterm_to_string sequent.goal))
+      !subgoals ;
+    undo () ;
+    Buffer.contents buffer
+
 let get_display () =
   let buffer = Buffer.create 100 in
     bprintf buffer "%d subgoal(s).\n" (1 + List.length !subgoals) ;
@@ -122,6 +135,7 @@ let get_display () =
     bprintf buffer "%s\n" div ;
     bprintf buffer "  %s\n" (lppterm_to_string sequent.goal) ;
     bprintf buffer "\n" ;
+    bprintf buffer "%s" (get_other_subgoals ()) ;
     Buffer.contents buffer
     
 let display () =

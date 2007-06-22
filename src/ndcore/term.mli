@@ -85,6 +85,8 @@ val restore_state : bind_state -> unit
 val get_subst : bind_state -> subst
 val where : unit -> unit
 
+val get_full_state : unit -> (unit -> unit)
+
 val bind : term -> term -> unit
 
 (* Raise the substitution *)

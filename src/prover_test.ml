@@ -74,7 +74,7 @@ let tests =
                 apply "IH" ["H3"; "H5"] ;
                 case "H7" ;
                 inst "H8" (parse_term "N") ;
-                
+
                 cut "H9" "H6" ;
                 apply "IH" ["H4"; "H10"] ;
                 search () ;

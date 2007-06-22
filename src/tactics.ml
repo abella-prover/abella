@@ -61,12 +61,14 @@ let freshen_bindings tag bindings term used =
 
 (* Object level cut *)
 
+(* obj1 = L1 |- A
+   obj2 = L2, A |- C
+   result = L1, L2 |- C *)
 let object_cut obj1 obj2 =
-  let a, b = extract_imp obj1.term in
-    if eq a obj2.term then
-      termobj b
-    else
-      failwith "Object cut applied to non-matching hypotheses"
+  let ctx =
+    Context.union (Context.remove obj2.term obj1.context) obj2.context
+  in
+    Obj(context_obj ctx obj1.term, Irrelevant)
 
 (* Object level instantiation *)
         
@@ -87,7 +89,7 @@ let extract_pi_abs t =
 let object_inst obj1 x =
   let t = obj1.term in
     if is_pi_abs t then
-      termobj (deep_norm (app (extract_pi_abs t) [x]))
+      normalize (termobj (deep_norm (app (extract_pi_abs t) [x])))
     else
       failwith ("Object instantiation requires a hypothesis of the form " ^
                   "{pi x\\ ...}")

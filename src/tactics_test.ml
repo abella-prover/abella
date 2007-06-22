@@ -16,20 +16,22 @@ let tests =
     [
       "Simple object cut" >::
         (fun () ->
-           let t = object_cut (parse_obj "A => B") (parse_obj "A") in
+           let t = object_cut (parse_obj "A |- B") (parse_obj "A") in
              assert_pprint_equal "{B}" t) ;
-      
-      "Failed object cut" >::
-        (fun () ->
-           assert_raises_any
-             (fun () -> object_cut (parse_obj "A => B") (parse_obj "C"))) ;
       
       "Compound object cut" >::
         (fun () ->
-           let h0 = parse_obj "eval A B => typeof B C" in
+           let h0 = parse_obj "eval A B |- typeof B C" in
            let h1 = parse_obj "eval A B" in
            let t = object_cut h0 h1 in
              assert_pprint_equal "{typeof B C}" t) ;
+
+      "Object cut with contexts" >::
+        (fun () ->
+           let h0 = parse_obj "L1, A |- B" in
+           let h1 = parse_obj "L2 |- A" in
+           let t = object_cut h0 h1 in
+             assert_pprint_equal "{L1, L2 |- B}" t) ;
 
       "Simple object instantiation" >::
         (fun () ->

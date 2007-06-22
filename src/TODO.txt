@@ -9,7 +9,7 @@ Change lexicographic induction to be nested, so you get
 Do cut elimination proof
 
 Allow more sophisticated predicates at the top level
-  Ones with negation?
+  Ones with negation
   
 Next week
 =========

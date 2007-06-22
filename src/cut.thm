@@ -1,18 +1,18 @@
-Def neg nil.
-Def neg (hyp A :: L) :- neg L.
+Def ctx nil.
+Def ctx (hyp A :: L) :- ctx L.
 
-Axiom neg_lemma : forall A L, neg L -> member (conc A) L -> false.
+Axiom ctx_lemma : forall A L, ctx L -> member (conc A) L -> false.
 
 Theorem land_left_inv :
-  forall L C1 C2, neg L -> {L |- conc (land C1 C2)} -> {L |- conc C1}.
+  forall L C1 C2, ctx L -> {L |- conc (land C1 C2)} -> {L |- conc C1}.
 induction on 2. intros. case H2.
-  apply neg_lemma to H1 and H3. case H4.
+  apply ctx_lemma to H1 and H3. case H4.
   search.
   search.
-  assert neg (hyp B :: hyp A :: L).
+  assert ctx (hyp B :: hyp A :: L).
     search.
     apply IH to H5 and H4. search.
-  assert neg (hyp B :: L).
+  assert ctx (hyp B :: L).
     search.
     apply IH to H6 and H5. search.
 

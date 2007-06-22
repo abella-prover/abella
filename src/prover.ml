@@ -142,17 +142,10 @@ let cut h arg =
   save_undo_state () ;
   let h = get_hyp h in
   let arg = get_hyp arg in
-  let result =
     match h, arg with
-      | Obj(obj_h, _), Obj(obj_arg, _) when is_imp obj_h.term ->
-          if not (Context.is_empty obj_h.context &&
-                    Context.is_empty obj_arg.context) then
-            failwith "Cut called with non-empty context" ;
-          object_cut obj_h obj_arg
-      | _ -> failwith "Invalid hypothesis for object cut"
-  in
-    add_hyp result
-
+      | Obj(obj_h, _), Obj(obj_arg, _) ->
+          add_hyp (object_cut obj_h obj_arg)
+      | _ -> failwith "Cut must be used on objects"
             
 (* Apply *)
           

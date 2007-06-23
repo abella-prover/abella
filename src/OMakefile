@@ -3,8 +3,6 @@
 #
 
 EXT_OBJ = .o
-BYTE_ENABLED = true
-NATIVE_ENABLED = false
 OCAML_OTHER_LIBS = unix
 OCAMLINCLUDES += $(dir . ndcore ext)
 

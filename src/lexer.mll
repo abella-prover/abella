@@ -51,7 +51,6 @@ rule token = parse
 | "to"               { TO }
 | "with"             { WITH }
 | "on"               { ON }
-| "and"              { AND }
 | "intros"           { INTROS }
 | "skip"             { SKIP }
 | "undo"             { UNDO }

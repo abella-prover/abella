@@ -10,4 +10,4 @@ induction on 1. intros. case H1.
 Theorem add_comm : forall A B C, {nat B} -> {add A B C} -> {add B A C}.
 induction on 2. intros. case H2.
   apply add_base to H1. search.
-  apply IH to H1 and H3. apply add_step to H4. search.
+  apply IH to H1 H3. apply add_step to H4. search.

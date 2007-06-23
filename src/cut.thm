@@ -4,38 +4,38 @@ Def ctx (P :: L) :- pi c\ P = conc c => false, ctx L.
 Axiom ctx_lemma : forall A L, ctx L -> member (conc A) L -> false.
 
 
-Theorem land_left_inv :
-  forall L C1 C2, ctx L -> {L |- conc (land C1 C2)} -> {L |- conc C1}.
+Theorem and_left_inv :
+  forall L C1 C2, ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C1}.
 induction on 2. intros. case H2.
-  apply ctx_lemma to H1 and H3. case H4.
+  apply ctx_lemma to H1 H3. case H4.
   search.
   search.
-  apply IH to _ and H4. search.
-  apply IH to _ and H5. search.
+  apply IH to _ H4. search.
+  apply IH to _ H5. search.
 
     
-Theorem land_right_inv :
-  forall L C1 C2, ctx L -> {L |- conc (land C1 C2)} -> {L |- conc C2}.
+Theorem and_right_inv :
+  forall L C1 C2, ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C2}.
 induction on 2. intros. case H2.
-  apply ctx_lemma to H1 and H3. case H4.
+  apply ctx_lemma to H1 H3. case H4.
   search.
   search.
-  apply IH to _ and H4. search.
-  apply IH to _ and H5. search.
+  apply IH to _ H4. search.
+  apply IH to _ H5. search.
 
 Theorem imp_inv :
   forall L C1 C2, ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
 induction on 2. intros. case H2.
-  apply ctx_lemma to H1 and H3. case H4.
+  apply ctx_lemma to H1 H3. case H4.
   search.
-  apply IH to _ and H4. search.
+  apply IH to _ H4. search.
   search.
-  apply IH to _ and H5. search.
+  apply IH to _ H5. search.
 
-% Axiom land_left_inv :
-%   forall L C1 C2, ctx L -> {L |- conc (land C1 C2)} -> {L |- conc C1}.
-% Axiom land_right_inv :
-%   forall L C1 C2, ctx L -> {L |- conc (land C1 C2)} -> {L |- conc C2}.
+% Axiom and_left_inv :
+%   forall L C1 C2, ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C1}.
+% Axiom and_right_inv :
+%   forall L C1 C2, ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C2}.
 % Axiom imp_inv :
 %   forall L C1 C2, ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
 
@@ -43,22 +43,20 @@ Theorem cut_elim :
   forall L K C,
     {prop K} -> ctx L -> {L |- conc K} -> {L, hyp K |- conc C} -> {L |- conc C}.
 induction on 1. induction on 4. intros. case H4.
-  apply ctx_lemma to _ and H5. case H6.
+  apply ctx_lemma to _ H5. case H6.
   case H5. case H6.
     search.
     search.
   search.
-  apply IH' to H1 and _ and H3 and H5. apply IH' to H1 and _ and H3 and H6.
+  apply IH' to H1 _ H3 H5. apply IH' to H1 _ H3 H6.
     search.
-  apply IH' to H1 and _ and H3 and H6. case H5. case H8.
-    apply land_left_inv to _ and H3. apply land_right_inv to _ and H3. case H1.
-      apply IH to H11 and _ and H9 and H7.
-        apply IH to H12 and _ and H10 and H13. search.
+  apply IH' to H1 _ H3 H6. case H5. case H8.
+    apply and_left_inv to _ H3. apply and_right_inv to _ H3. case H1.
+      apply IH to H11 _ H9 H7. apply IH to H12 _ H10 H13. search.
       search.
-  apply IH' to H1 and _ and H3 and H5. search.
-  apply IH' to H1 and _ and H3 and H6. apply IH' to H1 and _ and H3 and H7.
+  apply IH' to H1 _ H3 H5. search.
+  apply IH' to H1 _ H3 H6. apply IH' to H1 _ H3 H7.
     case H5. case H10.
-      apply imp_inv to _ and H3. case H1.
-        apply IH to H12 and _ and H8 and H11.
-          apply IH to H13 and _ and H14 and H9. search.
-    search.
+      apply imp_inv to _ H3. case H1.
+        apply IH to H12 _ H8 H11. apply IH to H13 _ H14 H9. search.
+      search.

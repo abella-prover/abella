@@ -6,8 +6,8 @@ Theorem det_eval :
   forall E V1 V2, {eval E V1} -> {eval E V2} -> {eq V1 V2}.
 induction on 1. intros. case H1.
   case H2. search.
-  case H2. apply IH to H3 and H5. case H7.
-    apply IH to H4 and H6. search.
+  case H2. apply IH to H3 H5. case H7.
+    apply IH to H4 H6. search.
 
 Theorem det_step :
   forall E1 E2 E3, {step E1 E2} -> {step E1 E3} -> {eq E2 E3}.
@@ -17,7 +17,7 @@ induction on 1. intros. case H1.
     case H3.
   case H2.
     case H3.
-    apply IH to H3 and H4. case H5. search.
+    apply IH to H3 H4. case H5. search.
 
 Theorem det_nstep :
   forall E R1 R2, {nstep E (abs R1)} -> {nstep E (abs R2)} -> {eq R1 R2}.
@@ -27,7 +27,7 @@ induction on 1. intros. case H1.
     case H3.
   case H2.
     case H3.
-    apply det_step to H3 and H5. case H7. apply IH to H4 and H6. search.
+    apply det_step to H3 H5. case H7. apply IH to H4 H6. search.
 
 
 %%
@@ -38,25 +38,25 @@ Theorem nstep_lemma :
   forall M N R V, {nstep M (abs R)} -> {nstep (R N) V} -> {nstep (app M N) V}.
 induction on 1. intros. case H1.
   search.
-  apply IH to H4 and H2. search.
+  apply IH to H4 H2. search.
 
 Theorem eval_nstep :
   forall E V, {eval E V} -> {nstep E V}.
 induction on 1. intros. case H1.
   search.
-  apply IH to H2. apply IH to H3. apply nstep_lemma to H4 and H5. search.
+  apply IH to H2. apply IH to H3. apply nstep_lemma to H4 H5. search.
 
 Theorem step_eval_lemma :
   forall A B C, {step A B} -> {eval B C} -> {eval A C}.
 induction on 1. intros. case H1.
   search.
-  case H2. apply IH to H3 and H4. search.
+  case H2. apply IH to H3 H4. search.
 
 Theorem nstep_eval :
   forall E R, {nstep E (abs R)} -> {eval E (abs R)}.
 induction on 1. intros. case H1.
   search.
-  apply IH to H3. apply step_eval_lemma to H2 and H4. search.
+  apply IH to H3. apply step_eval_lemma to H2 H4. search.
 
 %%
 %% Subject reduction
@@ -66,8 +66,8 @@ Theorem sr_eval :
   forall E V T, {eval E V} -> {typeof E T} -> {typeof V T}.
 induction on 1. intros. case H1.
   search.
-  case H2. apply IH to H3 and H5. case H7. inst H8 with N.
-    cut H9 with H6. apply IH to H4 and H10. search.
+  case H2. apply IH to H3 H5. case H7. inst H8 with N.
+    cut H9 with H6. apply IH to H4 H10. search.
 
 %Theorem sr_step :
 %  forall E1 E2 T, {step E1 E2} -> {typeof E1 T} -> {typeof E2 T}.

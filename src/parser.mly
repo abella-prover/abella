@@ -1,5 +1,5 @@
 %token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ
-%token IND INST APPLY CASE SEARCH TO ON WITH AND INTROS SKIP UNDO CUT ASSERT
+%token IND INST APPLY CASE SEARCH TO ON WITH INTROS SKIP UNDO CUT ASSERT
 %token THEOREM AXIOM DEF
 %token COLON RARROW FORALL EXISTS STAR AT OR LBRACK RBRACK
 
@@ -71,7 +71,7 @@ clause_body:
 
 command:
   | IND ON NUM DOT                      { Command.Induction($3) }
-  | APPLY ID TO id_arg_list DOT         { Command.Apply($2, $4) }
+  | APPLY ID TO id_list DOT             { Command.Apply($2, $4) }
   | CUT ID WITH ID DOT                  { Command.Cut($2, $4) }
   | INST ID WITH term DOT               { Command.Inst($2, $4) }
   | CASE ID DOT                         { Command.Case($2) }
@@ -82,8 +82,8 @@ command:
   | UNDO DOT                            { Command.Undo }
   | EOF                                 { raise End_of_file }
 
-id_arg_list:
-  | ID AND id_arg_list                  { $1::$3 }
+id_list:
+  | ID id_list                          { $1::$2 }
   | ID                                  { [$1] }
 
 lppterm:

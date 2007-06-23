@@ -6,8 +6,6 @@ Clean up code for freshness in tactics
 
 Clean up case code with labelled args?
 
-Clean up how meta clauses are added to meta_clause?
-
 Add more bedwyr style searching?
   Watch timestamps more closely?
   Change not (try_left_unify ...) so unification errors (not failures)

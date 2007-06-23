@@ -52,6 +52,10 @@ let meta_clauses : clauses ref =
          ("X = X." ^
             "member A (A :: L)." ^
             "member A (B :: L) :- member A L."))
+
+let add_meta_clause new_clause =
+  meta_clauses := new_clause::!meta_clauses
+    
   
 (* Undo support *)
   

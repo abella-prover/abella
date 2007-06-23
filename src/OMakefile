@@ -2,7 +2,6 @@
 # OCaml Flags
 #
 
-EXT_OBJ = .o
 OCAML_OTHER_LIBS = unix
 OCAMLINCLUDES += $(dir . ndcore ext)
 

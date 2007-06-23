@@ -156,6 +156,20 @@ let forall_application_tests =
            let h1 = freshen "pred B" in
            let t, _ = apply_forall h0 [Some h1] in
              assert_pprint_equal "result B" t) ;
+
+      "Absent argument should produce corresponding obligation" >::
+        (fun () ->
+           let h0 = parse ("forall L A, ctx L -> {L |- conc A}" ^
+                             " -> {L, hyp A |- pred} -> false") in
+           let h1 = freshen "{L |- conc A}" in
+           let h2 = freshen "{L, hyp A, hyp B, hyp C |- pred}" in
+           let _, obligations = apply_forall h0 [None; Some h1; Some h2] in
+             match obligations with
+               | [term] ->
+                   assert_pprint_equal "ctx (hyp C :: hyp B :: L)" term
+               | _ -> assert_failure
+                   ("Expected one obligation but found " ^
+                      (string_of_int (List.length obligations)))) ;
     ]
 
 let case_application_tests =

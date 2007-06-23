@@ -1,8 +1,6 @@
 This week
 =========
 
-Add tests for proof obligations because of _ in apply_forall
-
 Clean up code for freshness in tactics
   And freshen in test_helper
 

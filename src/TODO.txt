@@ -1,8 +1,7 @@
 This week
 =========
 
-Allow for application to _ in apply forall which will search for the
-  missing hypothesis if it doesn't have any logic variables?
+Add tests for proof obligations because of _ in apply_forall
 
 Clean up code for freshness in tactics
   And freshen in test_helper

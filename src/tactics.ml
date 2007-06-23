@@ -97,56 +97,6 @@ let object_inst obj1 x =
                   "{pi x\\ ...}")
 
 
-(* Apply forall statement *)
-
-let check_restrictions formal actual =
-  List.iter2 (fun fr ar -> match fr, ar with
-                | Smaller i, Smaller j when i = j -> ()
-                | Equal i, Smaller j when i = j -> ()
-                | Equal i, Equal j when i = j -> ()
-                | Irrelevant, _ -> ()
-                | _ -> failwith "Restriction violated")
-    formal actual
-
-let rec map_args f t =
-  match t with
-    | Arrow(left, right) ->
-        (f left) :: (map_args f right)
-    | _ -> []
-
-let apply_forall stmt ts =
-  match stmt with
-    | Forall(bindings, body) ->
-        let fresh_body = freshen_bindings Logic bindings body [] in
-        let formal = map_args term_to_restriction fresh_body in
-        let actual = List.map term_to_restriction ts in
-        let context_pairs = ref [] in
-          check_restrictions formal actual ;
-          let result =
-            List.fold_left
-              (fun stmt arg ->
-                 match stmt, arg with
-                   | Arrow(Obj(left, _), right), Obj(arg, _) ->
-                       context_pairs :=
-                         (left.context, arg.context)::!context_pairs ;
-                       begin try right_unify left.term arg.term with
-                         | Unify.Error _ -> failwith "Unification failure"
-                       end ;
-                       right
-                   | Arrow(Pred(left), right), Pred(arg) ->
-                       begin try right_unify left arg with
-                         | Unify.Error _ -> failwith "Unificaion failure"
-                       end ;
-                       right
-                   | _ -> failwith "Too few implications in forall application")
-              fresh_body
-              ts
-          in
-            Context.reconcile !context_pairs ;
-            normalize result
-    | _ -> failwith "apply_forall can only be used on Forall(...) statements"
-
-
 (* Case analysis *)
 
 type case = {
@@ -356,3 +306,62 @@ let search ~depth:n ~hyps:hyps ~clauses:clauses
         
   in
     lppterm_aux n goal
+
+      
+(* Apply forall statement *)
+
+let check_restrictions formal actual =
+  List.iter2 (fun fr ar -> match fr, ar with
+                | Smaller i, Smaller j when i = j -> ()
+                | Equal i, Smaller j when i = j -> ()
+                | Equal i, Equal j when i = j -> ()
+                | Irrelevant, _ -> ()
+                | _ -> failwith "Restriction violated")
+    formal actual
+
+let rec map_args f t =
+  match t with
+    | Arrow(left, right) ->
+        (f left) :: (map_args f right)
+    | _ -> []
+
+let apply_forall stmt ts =
+  match stmt with
+    | Forall(bindings, body) ->
+        let fresh_body = freshen_bindings Logic bindings body [] in
+        let formal = map_args term_to_restriction fresh_body in
+        let some_term_to_restriction t =
+          match t with
+            | None -> Irrelevant
+            | Some t -> term_to_restriction t
+        in
+        let actual = List.map some_term_to_restriction ts in
+        let context_pairs = ref [] in
+        let obligations = ref [] in
+          check_restrictions formal actual ;
+          let result =
+            List.fold_left
+              (fun stmt arg ->
+                 match stmt, arg with
+                   | Arrow(Obj(left, _), right), Some Obj(arg, _) ->
+                       context_pairs :=
+                         (left.context, arg.context)::!context_pairs ;
+                       begin try right_unify left.term arg.term with
+                         | Unify.Error _ -> failwith "Unification failure"
+                       end ;
+                       right
+                   | Arrow(Pred(left), right), Some (Pred arg) ->
+                       begin try right_unify left arg with
+                         | Unify.Error _ -> failwith "Unificaion failure"
+                       end ;
+                       right
+                   | Arrow(left, right), None ->
+                       obligations := left::!obligations ;
+                       right
+                   | _ -> failwith "Too few implications in forall application")
+              fresh_body
+              ts
+          in
+            Context.reconcile !context_pairs ;
+            (normalize result, !obligations)
+    | _ -> failwith "apply_forall can only be used on Forall(...) statements"

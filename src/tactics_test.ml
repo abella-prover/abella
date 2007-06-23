@@ -65,7 +65,7 @@ let forall_application_tests =
                              "{eval A B} -> {typeof A C} -> {typeof B C}") in
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-           let t = apply_forall h0 [h1; h2] in
+           let t, _ = apply_forall h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
       "Properly restricted" >::
@@ -74,7 +74,7 @@ let forall_application_tests =
                              "{eval A B}* -> {typeof A C} -> {typeof B C}") in
            let h1 = freshen "{eval (abs R) (abs R)}*" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-           let t = apply_forall h0 [h1; h2] in
+           let t, _ = apply_forall h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
       "Needlessly restricted" >::
@@ -83,7 +83,7 @@ let forall_application_tests =
                              "{eval A B} -> {typeof A C} -> {typeof B C}") in
            let h1 = freshen "{eval (abs R) (abs R)}*" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-           let t = apply_forall h0 [h1; h2] in
+           let t, _ = apply_forall h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
       
       "Improperly restricted" >::
@@ -93,7 +93,7 @@ let forall_application_tests =
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
              assert_raises (Failure "Restriction violated")
-               (fun () -> apply_forall h0 [h1; h2])) ;
+               (fun () -> apply_forall h0 [Some h1; Some h2])) ;
 
       "Improperly restricted (2)" >::
         (fun () ->
@@ -102,7 +102,7 @@ let forall_application_tests =
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
              assert_raises (Failure "Restriction violated")
-               (fun () -> apply_forall h0 [h1; h2])) ;
+               (fun () -> apply_forall h0 [Some h1; Some h2])) ;
 
       "Properly double restricted" >::
         (fun () ->
@@ -110,7 +110,7 @@ let forall_application_tests =
                              "{eval A B}@ -> {typeof A C}** -> {typeof B C}") in
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}**" in
-           let t = apply_forall h0 [h1; h2] in
+           let t, _ = apply_forall h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
       "Improperly double restricted" >::
@@ -120,7 +120,7 @@ let forall_application_tests =
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}@@" in
              assert_raises (Failure "Restriction violated")
-               (fun () -> apply_forall h0 [h1; h2])) ;
+               (fun () -> apply_forall h0 [Some h1; Some h2])) ;
 
       "Improperly double restricted (2)" >::
         (fun () ->
@@ -129,7 +129,7 @@ let forall_application_tests =
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}**" in
              assert_raises (Failure "Restriction violated")
-               (fun () -> apply_forall h0 [h1; h2])) ;
+               (fun () -> apply_forall h0 [Some h1; Some h2])) ;
 
       "Unification failure" >::
         (fun () ->
@@ -138,7 +138,7 @@ let forall_application_tests =
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{bad (abs R) (arrow S T)}" in
              assert_raises (Failure "Unification failure")
-               (fun () -> apply_forall h0 [h1; h2])) ;
+               (fun () -> apply_forall h0 [Some h1; Some h2])) ;
 
       "With contexts" >::
         (fun () ->
@@ -147,14 +147,14 @@ let forall_application_tests =
                   "{E, hyp A |- conc C} -> {E |- conc A} -> {E |- conc C}") in
            let h1 = freshen "{L, hyp A, hyp B1, hyp B2 |- conc C}" in
            let h2 = freshen "{L |- conc A}" in
-           let t = apply_forall h0 [h1; h2] in
+           let t, _ = apply_forall h0 [Some h1; Some h2] in
              assert_pprint_equal "{L, hyp B1, hyp B2 |- conc C}" t) ;
 
       "On non-object" >::
         (fun () ->
            let h0 = parse "forall A, pred A -> result A" in
            let h1 = freshen "pred B" in
-           let t = apply_forall h0 [h1] in
+           let t, _ = apply_forall h0 [Some h1] in
              assert_pprint_equal "result B" t) ;
     ]
 

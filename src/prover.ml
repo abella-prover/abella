@@ -185,20 +185,51 @@ let cut h arg =
       | Obj(obj_h, _), Obj(obj_arg, _) ->
           add_hyp (object_cut obj_h obj_arg)
       | _ -> failwith "Cut must be used on objects"
-            
+
+          
+(* Search *)
+
+let search_goal goal =
+  Tactics.search
+    ~depth:10
+    ~hyps:(List.map snd sequent.hyps)
+    ~clauses:!clauses
+    ~meta_clauses:!meta_clauses
+    ~goal:goal
+
+let search () =
+  save_undo_state () ;
+  if search_goal sequent.goal then
+    next_subgoal ()
+  else
+    ()
+
+      
 (* Apply *)
+
+let get_some_hyp name =
+  if name = "_" then
+    None
+  else
+    Some (get_hyp name)
           
 let apply h args =
   save_undo_state () ;
   let stmt = get_hyp_or_lemma h in
-    add_hyp
-      begin match stmt, args with
-        | Forall _, _ ->
-            apply_forall stmt (List.map get_hyp args)
-        | _ -> failwith "Apply called on non-forall statement"
-      end
+  let result, obligations =
+    match stmt, args with
+      | Forall _, _ ->
+          apply_forall stmt (List.map get_some_hyp args)
+      | _ -> failwith "Apply called on non-forall statement"
+  in
+    List.iter (fun g ->
+                 if not (search_goal (normalize g)) then
+                   failwith ("Failed to prove obligation: " ^
+                               (lppterm_to_string g)))
+      obligations ;
+    add_hyp result
 
-      
+    
 (* Case analysis *)
 
 let set_minus lst1 lst2 =
@@ -249,22 +280,6 @@ let induction args =
   let name = fresh_hyp_name_from_base "IH" in
     add_hyp ~name:name ih ;
     sequent.goal <- new_goal
-
-      
-(* Search *)
-
-let search () =
-  save_undo_state () ;
-  if Tactics.search
-    ~depth:10
-    ~hyps:(List.map snd sequent.hyps)
-    ~clauses:!clauses
-    ~meta_clauses:!meta_clauses
-    ~goal:sequent.goal
-  then
-    next_subgoal ()
-  else
-    ()
 
       
 (* Theorem *)

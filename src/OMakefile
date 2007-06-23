@@ -4,6 +4,7 @@
 
 OCAML_OTHER_LIBS = unix
 OCAMLINCLUDES += $(dir . ndcore ext)
+BYTE_ENABLED = true
 
 OUNIT = $(file ext/oUnit)
 

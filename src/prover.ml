@@ -2,8 +2,7 @@ open Term
 open Lppterm
 open Printf
 open Tactics
-open Command
-open Clauses
+open Types
 
 type lemmas = (id * lppterm) list
 let lemmas : lemmas ref = ref []

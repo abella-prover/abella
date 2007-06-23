@@ -24,11 +24,11 @@
 
 %start lppterm term clauses top_command command contexted_term
 %type <Term.term> term
-%type <Clauses.clauses> clauses
-%type <Command.command> command
+%type <Types.clauses> clauses
+%type <Types.command> command
 %type <Lppterm.obj> contexted_term
 %type <Lppterm.lppterm> lppterm
-%type <Command.top_command> top_command
+%type <Types.top_command> top_command
 
 %%
 
@@ -70,16 +70,16 @@ clause_body:
   | term                                { [$1] }
 
 command:
-  | IND ON NUM DOT                      { Command.Induction($3) }
-  | APPLY ID TO id_list DOT             { Command.Apply($2, $4) }
-  | CUT ID WITH ID DOT                  { Command.Cut($2, $4) }
-  | INST ID WITH term DOT               { Command.Inst($2, $4) }
-  | CASE ID DOT                         { Command.Case($2) }
-  | ASSERT lppterm DOT                  { Command.Assert($2) }
-  | SEARCH DOT                          { Command.Search }
-  | INTROS DOT                          { Command.Intros }
-  | SKIP DOT                            { Command.Skip }
-  | UNDO DOT                            { Command.Undo }
+  | IND ON NUM DOT                      { Types.Induction($3) }
+  | APPLY ID TO id_list DOT             { Types.Apply($2, $4) }
+  | CUT ID WITH ID DOT                  { Types.Cut($2, $4) }
+  | INST ID WITH term DOT               { Types.Inst($2, $4) }
+  | CASE ID DOT                         { Types.Case($2) }
+  | ASSERT lppterm DOT                  { Types.Assert($2) }
+  | SEARCH DOT                          { Types.Search }
+  | INTROS DOT                          { Types.Intros }
+  | SKIP DOT                            { Types.Skip }
+  | UNDO DOT                            { Types.Undo }
   | EOF                                 { raise End_of_file }
 
 id_list:
@@ -116,8 +116,8 @@ ats:
   | AT                                  { 1 }
       
 top_command :
-  | THEOREM ID COLON lppterm DOT        { Command.Theorem($2, $4) }
-  | THEOREM lppterm DOT                 { Command.Theorem("Goal", $2) }
-  | AXIOM ID COLON lppterm DOT          { Command.Axiom($2, $4) }
-  | DEF clause                          { Command.Def($2) }
+  | THEOREM ID COLON lppterm DOT        { Types.Theorem($2, $4) }
+  | THEOREM lppterm DOT                 { Types.Theorem("Goal", $2) }
+  | AXIOM ID COLON lppterm DOT          { Types.Axiom($2, $4) }
+  | DEF clause                          { Types.Def($2) }
   | EOF                                 { raise End_of_file }

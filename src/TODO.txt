@@ -15,8 +15,6 @@ Add more bedwyr style searching?
   Change not (try_left_unify ...) so unification errors (not failures)
     do not result in success
 
-Redo cut elimination proof?
-    
 Next week
 =========
 
@@ -33,8 +31,6 @@ With support for contexts and names,
      
 Future
 ======
-
-Merge clauses and command into a general data structure file?
 
 Do we have to consider logic variables in the context during search?
 How does object cut work with contexts?
@@ -55,7 +51,7 @@ Think about timestamps in the bedwyr style searching
 Flatten ndcore into src?
 
 Create extensions module which extends the standard libraries with
-missing functions
+  missing functions. Look into using extlib also?
 
 
 Larger or longer term issues

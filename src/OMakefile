@@ -11,8 +11,8 @@ OCAMLINCLUDES += $(dir . ndcore ext)
 OUNIT = $(file ext/oUnit)
 
 .SUBDIRS: ndcore ext
-   if $(file-exists OMakefile)
-      include OMakefile
+    if $(file-exists OMakefile)
+       include OMakefile
 
 ################################################
 # Generated files
@@ -27,31 +27,30 @@ OCamlGeneratedFiles(parser.ml lexer.ml)
 #
 
 NDCORE_FILES[] =
-   ndcore/term
-   ndcore/unify
+    ndcore/term
+    ndcore/unify
 
 FILES[] =
-   lppterm
-   parser
-   lexer
-   tactics
-   prover
-   context
-   command
-   clauses
+    lppterm
+    parser
+    lexer
+    tactics
+    prover
+    context
+    types
 
 MAIN = main
 
 TEST_FILES[] =
-   test_helper
-   $(rootname $(find . -name *_test.ml))
-   test
+    test_helper
+    $(rootname $(find . -name *_test.ml))
+    test
 
 TEST = unit_test
 
 .PHONY: test
 test: $(OCamlProgram $(TEST), $(OUNIT) $(NDCORE_FILES) $(FILES) $(TEST_FILES))
-   ./$(TEST) -verbose
+    ./$(TEST) -verbose
 
 .PHONY: lpp
 lpp: $(OCamlProgram lpp, $(NDCORE_FILES) $(FILES) $(MAIN))
@@ -63,4 +62,4 @@ clean:
 THM = cut
 .PHONY: $(THM)
 $(THM): $(THM).mod $(THM).thm lpp
-   ./lpp $(THM).mod < $(THM).thm
+    ./lpp $(THM).mod < $(THM).thm

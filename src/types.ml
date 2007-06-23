@@ -1,6 +1,8 @@
 open Lppterm
-open Clauses
 open Term
+
+type clause = term * term list
+type clauses = clause list
 
 type id = string
 

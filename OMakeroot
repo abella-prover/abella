@@ -1,5 +1,10 @@
+if $(equal $(OSTYPE), Win32)
+    OSTYPE = Cygwin
+    GCC_FOUND = true
+    GXX_FOUND = true
+    export
+
 open build/C
 open build/OCaml
-#open build/LaTeX
 
 .SUBDIRS: .

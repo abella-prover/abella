@@ -156,7 +156,10 @@ let rec replace_lppterm_vars alist t =
     match t with
       | Obj(obj, r) -> Obj(replace_obj_vars alist obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
-      | Forall _ -> failwith "Cannot replace vars inside forall"
+      | Forall(bindings, body) ->
+          let alist' = remove_assoc_list bindings alist in
+          let body' = replace_lppterm_vars alist' body in
+            Forall(bindings, body')
       | Exists(bindings, body) ->
           let alist' = remove_assoc_list bindings alist in
           let body' = replace_lppterm_vars alist' body in

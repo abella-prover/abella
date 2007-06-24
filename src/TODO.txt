@@ -6,17 +6,15 @@ Clean up code for freshness in tactics
 
 Clean up case code with labelled args?
 
-Add more bedwyr style searching?
-  Watch timestamps more closely?
-  Change not (try_left_unify ...) so unification errors (not failures)
-    do not result in success
-
 Next week
 =========
 
 Add equivariant unification
 
 Where do we add raising over supp(T)?
+
+Automatically case on {pi x\ ...} ?
+     Object instantiation should no longer need a pi then
 
 With support for contexts and names,
      Dale's copy example
@@ -28,10 +26,16 @@ With support for contexts and names,
 Future
 ======
 
+Add more bedwyr style searching?
+  Watch timestamps more closely?
+  Change not (try_left_unify ...) so unification errors (not failures)
+    do not result in success
+
 Do we have to consider logic variables in the context during search?
 How does object cut work with contexts?
 
-Add 'and'
+Add 'and' ?
+  Would pollute namespace :-/
 
 Fix rigid_path_check
 

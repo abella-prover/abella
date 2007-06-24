@@ -4,8 +4,6 @@ open Term
 open Lppterm
 open Tactics
   
-let parse = parse_lppterm
-
 let prog = eval_clauses
 
 let object_cut_tests =
@@ -61,8 +59,8 @@ let forall_application_tests =
     [
       "Normal" >::
         (fun () ->
-           let h0 = parse ("forall A B C, " ^
-                             "{eval A B} -> {typeof A C} -> {typeof B C}") in
+           let h0 = freshen
+             "forall A B C, {eval A B} -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
            let t, _ = apply_forall h0 [Some h1; Some h2] in
@@ -70,8 +68,8 @@ let forall_application_tests =
 
       "Properly restricted" >::
         (fun () ->
-           let h0 = parse ("forall A B C, " ^
-                             "{eval A B}* -> {typeof A C} -> {typeof B C}") in
+           let h0 = freshen
+             "forall A B C, {eval A B}* -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}*" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
            let t, _ = apply_forall h0 [Some h1; Some h2] in
@@ -79,8 +77,8 @@ let forall_application_tests =
 
       "Needlessly restricted" >::
         (fun () ->
-           let h0 = parse ("forall A B C, " ^
-                             "{eval A B} -> {typeof A C} -> {typeof B C}") in
+           let h0 = freshen
+             "forall A B C, {eval A B} -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}*" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
            let t, _ = apply_forall h0 [Some h1; Some h2] in
@@ -88,8 +86,8 @@ let forall_application_tests =
       
       "Improperly restricted" >::
         (fun () ->
-           let h0 = parse ("forall A B C, " ^
-                             "{eval A B}* -> {typeof A C} -> {typeof B C}") in
+           let h0 = freshen
+             "forall A B C, {eval A B}* -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
              assert_raises (Failure "Restriction violated")
@@ -97,8 +95,8 @@ let forall_application_tests =
 
       "Improperly restricted (2)" >::
         (fun () ->
-           let h0 = parse ("forall A B C, " ^
-                             "{eval A B}* -> {typeof A C} -> {typeof B C}") in
+           let h0 = freshen
+             "forall A B C, {eval A B}* -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
              assert_raises (Failure "Restriction violated")
@@ -106,8 +104,8 @@ let forall_application_tests =
 
       "Properly double restricted" >::
         (fun () ->
-           let h0 = parse ("forall A B C, " ^
-                             "{eval A B}@ -> {typeof A C}** -> {typeof B C}") in
+           let h0 = freshen
+             "forall A B C, {eval A B}@ -> {typeof A C}** -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}**" in
            let t, _ = apply_forall h0 [Some h1; Some h2] in
@@ -115,8 +113,8 @@ let forall_application_tests =
 
       "Improperly double restricted" >::
         (fun () ->
-           let h0 = parse ("forall A B C, " ^
-                             "{eval A B}@ -> {typeof A C}** -> {typeof B C}") in
+           let h0 = freshen
+             "forall A B C, {eval A B}@ -> {typeof A C}** -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}@@" in
              assert_raises (Failure "Restriction violated")
@@ -124,8 +122,8 @@ let forall_application_tests =
 
       "Improperly double restricted (2)" >::
         (fun () ->
-           let h0 = parse ("forall A B C, " ^
-                             "{eval A B}@ -> {typeof A C}** -> {typeof B C}") in
+           let h0 = freshen
+             "forall A B C, {eval A B}@ -> {typeof A C}** -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}**" in
              assert_raises (Failure "Restriction violated")
@@ -133,8 +131,8 @@ let forall_application_tests =
 
       "Unification failure" >::
         (fun () ->
-           let h0 = parse ("forall A B C, " ^
-                             "{eval A B} -> {typeof A C} -> {typeof B C}") in
+           let h0 = freshen
+             "forall A B C, {eval A B} -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{bad (abs R) (arrow S T)}" in
              assert_raises (Failure "Unification failure")
@@ -142,9 +140,9 @@ let forall_application_tests =
 
       "With contexts" >::
         (fun () ->
-           let h0 = parse
-               ("forall E A C," ^
-                  "{E, hyp A |- conc C} -> {E |- conc A} -> {E |- conc C}") in
+           let h0 = freshen
+             ("forall E A C, {E, hyp A |- conc C} -> " ^
+                "{E |- conc A} -> {E |- conc C}") in
            let h1 = freshen "{L, hyp A, hyp B1, hyp B2 |- conc C}" in
            let h2 = freshen "{L |- conc A}" in
            let t, _ = apply_forall h0 [Some h1; Some h2] in
@@ -152,15 +150,16 @@ let forall_application_tests =
 
       "On non-object" >::
         (fun () ->
-           let h0 = parse "forall A, pred A -> result A" in
+           let h0 = freshen "forall A, pred A -> result A" in
            let h1 = freshen "pred B" in
            let t, _ = apply_forall h0 [Some h1] in
              assert_pprint_equal "result B" t) ;
 
       "Absent argument should produce corresponding obligation" >::
         (fun () ->
-           let h0 = parse ("forall L A, ctx L -> {L |- conc A}" ^
-                             " -> {L, hyp A |- pred} -> false") in
+           let h0 = freshen
+             ("forall L A, ctx L -> {L |- conc A} -> " ^
+                "{L, hyp A |- pred} -> false") in
            let h1 = freshen "{L |- conc A}" in
            let h2 = freshen "{L, hyp A, hyp B, hyp C |- pred}" in
            let _, obligations = apply_forall h0 [None; Some h1; Some h2] in
@@ -231,7 +230,7 @@ let case_application_tests =
 
       "On exists" >::
         (fun () ->
-           let term = parse "exists A B, {eval A B}" in
+           let term = freshen "exists A B, {eval A B}" in
            let used = [] in
              match case term prog [] used with
                | [{new_vars=new_vars ; new_hyps=[hyp]}] ->
@@ -283,8 +282,8 @@ let case_application_tests =
            let term = freshen "member (hyp A) (hyp C :: L)" in
            let used = ["A"; "C"; "L"] in
            let member_clauses =
-               parse_clauses ("member A (A :: L)." ^
-                                "member A (B :: L) :- member A L.")
+             parse_clauses ("member A (A :: L)." ^
+                              "member A (B :: L) :- member A L.")
            in
              match case term prog member_clauses used with
                | [case1; case2] ->
@@ -305,7 +304,7 @@ let induction_tests =
     [
       "Single" >::
         (fun () ->
-           let stmt = parse
+           let stmt = freshen
                "forall A, {first A} -> {second A} -> {third A}" in
            let (ih, goal) = induction 1 stmt in
              assert_pprint_equal
@@ -317,7 +316,7 @@ let induction_tests =
       
       "Nested" >::
         (fun () ->
-           let stmt = parse
+           let stmt = freshen
                "forall A, {first A} -> {second A} -> {third A}" in
            let (ih, goal) = induction 1 stmt in
              assert_pprint_equal
@@ -329,10 +328,10 @@ let induction_tests =
                  "forall A, {first A}@ -> {second A}** -> {third A}" ih ;
                assert_pprint_equal
                  "forall A, {first A}@ -> {second A}@@ -> {third A}" goal) ;
-               
+      
       "With OR on left of arrow" >::
         (fun () ->
-           let stmt = parse "forall X, {A} or {B} -> {C} -> {D}" in
+           let stmt = freshen "forall X, {A} or {B} -> {C} -> {D}" in
            let (ih, goal) = induction 2 stmt in
              assert_pprint_equal
                "forall X, {A} or {B} -> {C}* -> {D}"
@@ -346,7 +345,7 @@ let assert_search_success b = assert_bool "Search should succeed" b
 let assert_search_failure b = assert_bool "Search should fail" (not b)
 let basic_search n hyps goal =
   search ~depth:n ~hyps:hyps ~clauses:prog ~meta_clauses:[] ~goal:goal
-  
+    
 let search_tests =
   "Search" >:::
     [
@@ -403,7 +402,7 @@ let search_tests =
       "Should preserve context while backchaining" >::
         (fun () ->
            let goal = freshen
-               "{eval M (abs R), eval (R N) V |- eval (app M N) V}"
+             "{eval M (abs R), eval (R N) V |- eval (app M N) V}"
            in
              assert_search_success (basic_search 1 [] goal)) ;
 
@@ -458,4 +457,4 @@ let tests =
       induction_tests ;
       search_tests ;
     ]
-      
+    

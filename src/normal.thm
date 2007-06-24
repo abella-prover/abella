@@ -29,9 +29,7 @@ induction on 2. intros. case H2.
 Theorem specialized : forall T,
   {term T} -> {normal T} or {non_normal T}.
 intros.
-% apply generalized to _ H1. % This runs forever with memory leak?
-assert (ctxpair nil nil). search.
-apply generalized to H2 H1.
-case H3.
+apply generalized to _ H1. % This runs forever with memory leak?
+case H2.
   search.
   search.

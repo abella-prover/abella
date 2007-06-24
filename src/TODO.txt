@@ -31,6 +31,9 @@ Add more bedwyr style searching?
   Change not (try_left_unify ...) so unification errors (not failures)
     do not result in success
 
+Add unification on lppterms?
+  Then add another case to lppterm search
+
 Case analysis on lg predicates should work differently than lp predicates
 
 Do we have to consider logic variables in the context during search?

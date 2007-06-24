@@ -250,33 +250,34 @@ let search ~depth:n ~hyps:hyps ~clauses:clauses
       | _ -> false
           
   and meta_aux n goal =
-    List.exists
-      (fun (head, body) ->
-         try_with_state
-           (fun () ->
-              let fresh_head, fresh_body = freshen_clause Logic head body
-              in
-                right_unify fresh_head goal ;
-                List.for_all
-                  (fun t -> lppterm_aux (n-1) (Pred t))
-                  fresh_body))
-      meta_clauses
-  ||
-      match observe goal with
-        | App(head, body) ->
-            begin match observe head, body with
-              | Var {name=i}, [a; b] when i = "=>" ->
-                  is_false b && negative_meta_aux n a
-                    
-              | Var {name=p}, [body] when p = "pi" ->
-                  let var = fresh ~tag:Eigen 0 in
-                  let goal = deep_norm (app body [var]) in
-                    meta_aux (n-1) goal
-
-              | _ -> false
-            end
-        | _ -> false
-    
+    if n = 0 then false else
+      List.exists
+        (fun (head, body) ->
+           try_with_state
+             (fun () ->
+                let fresh_head, fresh_body = freshen_clause Logic head body
+                in
+                  right_unify fresh_head goal ;
+                  List.for_all
+                    (fun t -> lppterm_aux (n-1) (Pred t))
+                    fresh_body))
+        meta_clauses
+      ||
+        match observe goal with
+          | App(head, body) ->
+              begin match observe head, body with
+                | Var {name=i}, [a; b] when i = "=>" ->
+                    is_false b && negative_meta_aux n a
+                      
+                | Var {name=p}, [body] when p = "pi" ->
+                    let var = fresh ~tag:Eigen 0 in
+                    let goal = deep_norm (app body [var]) in
+                      meta_aux (n-1) goal
+                        
+                | _ -> false
+              end
+          | _ -> false
+              
   (* true if we can confirm no proof exists *)
   and negative_meta_aux n goal =
     match observe goal with

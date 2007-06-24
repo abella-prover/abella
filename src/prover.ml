@@ -46,7 +46,7 @@ let parse_clauses str =
 let clauses : clauses ref = ref (parse_clauses "X = X.")
 
 let add_clauses new_clauses =
-  clauses := new_clauses @ !clauses
+  clauses := !clauses @ new_clauses
   
 let meta_clauses : clauses ref =
   ref (parse_clauses
@@ -55,7 +55,7 @@ let meta_clauses : clauses ref =
             "member A (B :: L) :- member A L."))
 
 let add_meta_clause new_clause =
-  meta_clauses := new_clause::!meta_clauses
+  meta_clauses := !meta_clauses @ [new_clause]
     
   
 (* Undo support *)

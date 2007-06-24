@@ -36,8 +36,8 @@ let object_instantiation_tests =
         (fun () ->
            let h0 = parse_obj "pi x\\ eval x B" in
            let a = var ~tag:Eigen "A" 0 in
-           let t = object_inst h0 a in
-             assert_pprint_equal "{eval A B}" t) ;
+           let obj = object_inst h0 a in
+             assert_term_pprint_equal "eval A B" obj.term) ;
       
       "Failed - missing pi" >::
         (fun () ->

@@ -1,0 +1,37 @@
+Def ctxpair nil nil.
+Def ctxpair (term X :: L1) (var X :: L2) :- ctxpair L1 L2.
+
+Axiom ctxpair_lemma : forall X L1 L2,
+  ctxpair L1 L2 -> member (term X) L1 -> member (var X) L2.
+
+Axiom ctxpair_lemma2 : forall X L1 L2,
+  ctxpair L1 L2 -> member (normal X) L2 -> false.
+
+Theorem generalized : forall T L1 L2,
+  ctxpair L1 L2 -> {L1 |- term T} -> {L2 |- normal T} or {non_normal T}.
+induction on 2. intros. case H2.
+  apply ctxpair_lemma to H1 H3. search.
+  apply IH to H1 H3. apply IH to H1 H4. case H5.
+    case H6.
+      case H7.
+        apply ctxpair_lemma2 to H1 H9. case H10.
+        search.
+        search.
+        search.
+      search.
+    search.
+  inst H3 with x. % This isn't really right
+  apply IH to _ H4.
+  case H5.
+    search. skip. % Search doesn't yet work
+    search. skip. % Search doesn't yet work
+    
+Theorem specialized : forall T,
+  {term T} -> {normal T} or {non_normal T}.
+intros.
+% apply generalized to _ H1. % This runs forever with memory leak?
+assert (ctxpair nil nil). search.
+apply generalized to H2 H1.
+case H3.
+  search.
+  search.

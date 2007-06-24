@@ -91,6 +91,11 @@ let context_to_term ctx =
   in
     aux (List.rev ctx)
 
+let is_nil t =
+  match observe t with
+    | Var {name=n} when n = "nil" -> true
+    | _ -> false
+      
 let is_cons t =
   match observe t with
     | App(c, [_; _]) when c = cons -> true
@@ -113,6 +118,8 @@ let normalize ctx =
       | head::tail when is_cons head ->
           let a, b = extract_cons head in
             remove_cons (b::a::tail)
+      | head::tail when is_nil head ->
+          remove_cons tail
       | head::tail -> head::(remove_cons tail)
   in
     remove_dups (remove_cons ctx)

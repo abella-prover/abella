@@ -125,6 +125,13 @@ let tests =
            assert_true (mem a ctx) ;
            assert_true (mem l ctx)) ;
 
+    "Normalize should replace nil with nothing" >::
+      (fun () ->
+         let l = Term.var ~tag:Term.Eigen "L" 0 in
+         let ctx = add l empty in
+           left_unify l (Term.const "nil") ;
+           assert_true (is_empty (Context.normalize ctx))) ;
+
     "Reconcile should produce subcontexts" >::
       (fun () ->
          let a = Term.const "A" in

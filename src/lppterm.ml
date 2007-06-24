@@ -56,15 +56,15 @@ let extract_imp t =
 let move_imp_to_context obj =
   let a, b = extract_imp obj.term in
     {context = Context.add a obj.context ; term = b}
+
+let rec normalize_obj obj =
+  if is_imp obj.term then
+    normalize_obj (move_imp_to_context obj)
+  else
+    {obj with context = Context.normalize obj.context}
       
-let rec normalize term =
-  let rec normalize_obj obj =
-    if is_imp obj.term then
-      normalize_obj (move_imp_to_context obj)
-    else
-      {obj with context = Context.normalize obj.context}
-  in
-    map_objs normalize_obj term
+let normalize term =
+  map_objs normalize_obj term
 
 let obj_to_member obj =
   member obj.term (Context.context_to_term obj.context)

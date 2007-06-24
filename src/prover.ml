@@ -174,9 +174,11 @@ let display () =
 
 let inst h t =
   save_undo_state () ;
-  add_hyp (object_inst (term_to_obj (get_hyp h))
-             (replace_term_vars sequent.vars t))
-
+  match get_hyp h with
+    | Obj(obj, r) ->
+        let new_obj = object_inst obj (replace_term_vars sequent.vars t) in
+          add_hyp (Obj(new_obj, r))
+    | _ -> failwith "Object cut can only be used on objects"
 
 (* Object level cut *)
     
@@ -230,7 +232,7 @@ let apply h args =
                    failwith ("Failed to prove obligation: " ^
                                (lppterm_to_string g)))
       obligations ;
-    add_hyp result
+    add_hyp (normalize result)
 
     
 (* Case analysis *)

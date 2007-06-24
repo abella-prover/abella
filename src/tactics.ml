@@ -88,13 +88,13 @@ let extract_pi_abs t =
     | App(t, [abs]) -> abs
     | _ -> failwith "Check is_pi_abs before calling extract_pi_abs"
 
-let object_inst obj1 x =
-  let t = obj1.term in
-    if is_pi_abs t then
-      normalize (termobj (deep_norm (app (extract_pi_abs t) [x])))
-    else
-      failwith ("Object instantiation requires a hypothesis of the form " ^
-                  "{pi x\\ ...}")
+let object_inst obj x =
+  if is_pi_abs obj.term then
+    normalize_obj (context_obj obj.context
+                     (deep_norm (app (extract_pi_abs obj.term) [x])))
+  else
+    failwith ("Object instantiation requires a hypothesis of the form " ^
+                "{pi x\\ ...}")
 
 
 (* Case analysis *)

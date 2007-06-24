@@ -16,6 +16,8 @@ Where do we add raising over supp(T)?
 Automatically case on {pi x\ ...} ?
      Object instantiation should no longer need a pi then
 
+Search should know how to deal with pi x\ ...
+
 With support for contexts and names,
      Dale's copy example
      Dale's normal example

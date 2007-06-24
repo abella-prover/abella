@@ -3,12 +3,12 @@
 #
 
 OCAML_OTHER_LIBS = unix
-OCAMLINCLUDES += $(dir . ndcore ext)
+OCAMLINCLUDES += $(dir ext)
 BYTE_ENABLED = true
 
 OUNIT = $(file ext/oUnit)
 
-.SUBDIRS: ndcore ext
+.SUBDIRS: ext
     if $(file-exists OMakefile)
        include OMakefile
 
@@ -24,11 +24,9 @@ OCamlGeneratedFiles(parser.ml lexer.ml)
 # Build an OCaml program
 #
 
-NDCORE_FILES[] =
-    ndcore/term
-    ndcore/unify
-
 FILES[] =
+    term
+    unify
     lppterm
     parser
     lexer
@@ -47,11 +45,11 @@ TEST_FILES[] =
 TEST = unit_test
 
 .PHONY: test
-test: $(OCamlProgram $(TEST), $(OUNIT) $(NDCORE_FILES) $(FILES) $(TEST_FILES))
+test: $(OCamlProgram $(TEST), $(OUNIT) $(FILES) $(TEST_FILES))
     ./$(TEST) -verbose
 
 .PHONY: lpp
-lpp: $(OCamlProgram lpp, $(NDCORE_FILES) $(FILES) $(MAIN))
+lpp: $(OCamlProgram lpp, $(FILES) $(MAIN))
 
 .PHONY: clean
 clean:

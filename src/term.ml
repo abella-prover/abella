@@ -401,3 +401,5 @@ let term_to_string term =
       | Susp _ -> assert false (* deep_norm *)
   in
     pp 0 0 term
+
+let full_eq t1 t2 = eq (deep_norm t1) (deep_norm t2)

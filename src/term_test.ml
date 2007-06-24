@@ -1,7 +1,7 @@
 open OUnit
 open Term
 open Term.Notations
-open Ndcore_test
+open Test_helper
 
 let norm_tests =
   "Norm" >:::
@@ -99,25 +99,25 @@ let pprint_tests =
            let p = var "P" 0 in
            let v = var "V" 0 in
            let t = app (const "eval") [p; v] in
-             assert_pprint_equal "eval P V" t) ;
+             assert_term_pprint_equal "eval P V" t) ;
 
       "eval (abs R) (abs R)" >::
         (fun () ->
            let absR = (app (const "abs") [var "R" 0]) in
            let t = app (const "eval") [absR; absR] in
-             assert_pprint_equal "eval (abs R) (abs R)" t) ;
+             assert_term_pprint_equal "eval (abs R) (abs R)" t) ;
       
       "A => B" >::
         (fun () ->
            let a = var "A" 0 in
            let b = var "B" 0 in
            let t = app (const "=>") [a; b] in
-             assert_pprint_equal "A => B" t) ;
+             assert_term_pprint_equal "A => B" t) ;
 
       "pi x\\eq x x" >::
         (fun () ->
            let t = app (const "pi") [1 // (app (const "eq") [db 1; db 1])] in
-             assert_pprint_equal "pi x1\\eq x1 x1" t) ;
+             assert_term_pprint_equal "pi x1\\eq x1 x1" t) ;
 
       "pi x\\typeof x U => typeof (R x) T" >::
         (fun () ->
@@ -126,7 +126,8 @@ let pprint_tests =
            let typeofRxT = app (const "typeof") [rx; var "T" 0] in
            let t = app (const "pi")
              [1 // (app (const "=>") [typeofxU; typeofRxT])] in
-             assert_pprint_equal "pi x1\\typeof x1 U => typeof (R x1) T" t) ;
+             assert_term_pprint_equal
+               "pi x1\\typeof x1 U => typeof (R x1) T" t) ;
     ]
 
 let tests =

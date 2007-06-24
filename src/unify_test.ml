@@ -1,7 +1,7 @@
 open OUnit
 open Term
 open Term.Notations
-open Ndcore_test
+open Test_helper
 open Unify
 
 (* Extracting a variable at some position in a term,
@@ -303,15 +303,15 @@ let tests =
            let b = var "B" 0 in
            let before = get_bind_state () in
              bind a b ;
-             assert_pprint_equal "B" a ;
-             assert_pprint_equal "B" b ;
+             assert_term_pprint_equal "B" a ;
+             assert_term_pprint_equal "B" b ;
              let after = get_bind_state () in
                set_bind_state before ;
-               assert_pprint_equal "A" a ;
-               assert_pprint_equal "B" b ;
+               assert_term_pprint_equal "A" a ;
+               assert_term_pprint_equal "B" b ;
                set_bind_state after ;
-               assert_pprint_equal "B" a ;
-               assert_pprint_equal "B" b) ;
+               assert_term_pprint_equal "B" a ;
+               assert_term_pprint_equal "B" b) ;
 
       "No new names for simple unification" >::
         (fun () ->
@@ -325,13 +325,13 @@ let tests =
            let evalAB = app ceval [a; b] in
            let evalapp = app ceval [(app capp [m; n]); v] in
              right_unify evalAB evalapp ;
-             assert_pprint_equal "eval (app M N) V" evalAB) ;
+             assert_term_pprint_equal "eval (app M N) V" evalAB) ;
       
       "[X = X]" >::
         (fun () ->
            let x = var "X" 0 in
              right_unify x x ;
-             assert_pprint_equal "X" x) ;
+             assert_term_pprint_equal "X" x) ;
       
       "Loosening of LLambda restriction" >::
         (fun () ->
@@ -339,7 +339,7 @@ let tests =
            let b = var "B" 0 in
            let c = var "C" 0 in
              right_unify a (app b [c]) ;
-             assert_pprint_equal "B C" a) ;
+             assert_term_pprint_equal "B C" a) ;
 
       "Loosening of LLambda restriction inside of constructor" >::
         (fun () ->
@@ -349,7 +349,7 @@ let tests =
            let d = var "D" 0 in
            let term = app (const "cons") [app b [c]; d] in
              right_unify a term ;
-             assert_pprint_equal "cons (B C) D" a) ;
+             assert_term_pprint_equal "cons (B C) D" a) ;
 
       (* This is a test for a bug pointed out by David. Since we don't use
          timestamps, however, I'm going to ignore it for now.

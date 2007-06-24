@@ -71,6 +71,9 @@ end
  * Structural: no normalization peformed. *)
 val eq : term -> term -> bool
 
+(* Equality after normalization *)
+val full_eq : term -> term -> bool
+
 (* Binding a variable to a term. The *contents* of the cell representing the
  * variable is a reference which must be updated. Also the variable must
  * not be made a reference to itself. This can be changed to mimic the

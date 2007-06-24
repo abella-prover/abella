@@ -1,7 +1,3 @@
-Add real support for non-interactive mode
-  Halt on errors
-  Echo commands
-
 Make another test target for running thms and mods
 
 Next week
@@ -33,6 +29,8 @@ Add more bedwyr style searching?
 
 Add unification on lppterms?
   Then add another case to lppterm search
+
+Do nicer printing of terms using Format and boxes
 
 Case analysis on lg predicates should work differently than lp predicates
 

@@ -207,8 +207,7 @@ let is_false t =
     | _ -> false
   end
 
-let search ~depth:n ~hyps:hyps ~clauses:clauses
-    ~meta_clauses:meta_clauses ~goal:goal =
+let search ~depth:n ~hyps ~clauses ~meta_clauses ~goal =
   
   let rec term_aux n context goal =
     List.exists

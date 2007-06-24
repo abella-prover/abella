@@ -301,10 +301,7 @@ let rec split_args stmt =
     | Arrow(left, right) ->
         let args, goal = split_args right in
           (left::args, goal)
-    | Obj _
-    | Or(_, _) -> ([], stmt)
-    | Exists(_, _) -> ([], stmt)
-    | _ -> invalid_lppterm_arg stmt
+    | _ -> ([], stmt)
 
 let intros () =
   save_undo_state () ;

@@ -1,6 +1,7 @@
 open Term
 open Lppterm
 open Unify
+open Extensions
 
 (* Variable naming utilities *)
 
@@ -29,20 +30,15 @@ let is_capital str =
     | 'A'..'Z' -> true
     | _ -> false
 
-let uniq lst =
-  List.fold_left
-    (fun result x -> if List.mem x result then result else x::result)
-    [] lst
-    
 let lppterm_capital_var_names t =
   let names = List.flatten (map_term_list (fun t -> map_vars_list (fun v -> v.name) [t]) t)
   in
-  let capital_names = List.filter is_capital names in
-    uniq capital_names
+  let capital_names = List.find_all is_capital names in
+    List.unique capital_names
 
 let capital_var_names ts =
-  uniq (List.filter is_capital
-          (map_vars_list (fun v -> v.name) ts))
+  List.unique (List.find_all is_capital
+                 (map_vars_list (fun v -> v.name) ts))
 
 let freshen_clause_wrt tag head body used =
   let var_names = capital_var_names (head::body) in
@@ -105,16 +101,8 @@ type case = {
   new_hyps : lppterm list ;
 }
     
-let collect_some f list =
-  List.map (fun x ->
-              match x with
-                | Some y -> y
-                | _ -> assert false)
-    (List.filter (fun x -> x <> None)
-       (List.map f list))
-
 let term_case term clauses used wrapper =
-  collect_some
+  List.filter_map
     (fun (head, body) ->
        let fresh_head, fresh_body = freshen_clause_wrt Eigen head body used in
        let initial_state = get_bind_state () in

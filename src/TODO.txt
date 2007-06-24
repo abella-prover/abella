@@ -1,7 +1,8 @@
-Create extensions module which extends the standard libraries with
-  missing functions. Look into using extlib also?
-  Move uniq to list
-  Move collect_some to list (rename it also)
+Add real support for non-interactive mode
+  Halt on errors
+  Echo commands
+
+Make another test target for running thms and mods
 
 Next week
 =========
@@ -66,10 +67,6 @@ Seperate parsers more?
 
 Change OMakefile so exceptions print full stack trace? Is there a way
   to integrate this with OUnit?
-
-Add real support for non-interactive mode
-  Halt on errors
-  Echo commands
 
 Add a show_lemmas command
 Add 'abort'

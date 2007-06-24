@@ -1,4 +1,5 @@
 open Term
+open Extensions
 
 (* Basic operations *)
 
@@ -9,16 +10,9 @@ let empty : t = []
 
 let size ctx = List.length ctx
 
-let rec mem elt ctx =
-  match ctx with
-    | [] -> false
-    | head::tail -> eq elt head || mem elt tail
-
-let rec remove elt ctx =
-  match ctx with
-    | [] -> []
-    | head::tail when eq elt head -> remove elt tail
-    | head::tail -> head::(remove elt tail)
+let mem elt ctx = List.mem ~cmp:eq elt ctx
+  
+let remove elt ctx = List.remove ~cmp:eq elt ctx
 
 let rec xor ctx1 ctx2 =
   match ctx1 with
@@ -58,24 +52,12 @@ let exists f ctx = List.exists f ctx
 
 let map f ctx = List.map f ctx
 
-let rec assoc t pair_list =
-  match pair_list with
-    | [] -> []
-    | (a, b)::tail when eq t a -> b::(assoc t tail)
-    | head::tail -> assoc t tail
-
-let rec remove_assoc t pair_list =
-  match pair_list with
-    | [] -> []
-    | (a, b)::tail when eq t a -> remove_assoc t tail
-    | head::tail -> head::(remove_assoc t tail)
-  
 let rec group pair_list =
   match pair_list with
     | [] -> []
     | (a, b)::_ ->
-        let pairings = assoc a pair_list in
-        let pair_list' = remove_assoc a pair_list in
+        let pairings = List.assoc_all ~cmp:eq a pair_list in
+        let pair_list' = List.remove_all_assoc ~cmp:eq a pair_list in
           (a, pairings)::(group pair_list')
 
 let context_to_list ctx = ctx
@@ -107,11 +89,7 @@ let extract_cons t =
     | _ -> assert false
       
 let normalize ctx =
-  let rec remove_dups ctx =
-    match ctx with
-      | [] -> []
-      | head::tail -> head::(remove_dups (remove head tail))
-  in
+  let remove_dups ctx = List.unique ~cmp:eq ctx in
   let rec remove_cons ctx =
     match ctx with
       | [] -> []
@@ -133,7 +111,7 @@ let extract_singleton ctx =
 (* For each context pair (ctx1, ctx2), make ctx2 a subcontext of ctx1 *)
 let reconcile pair_list =
   let pair_list = List.map (fun (x,y) -> xor x y) pair_list in
-  let pair_list = List.filter (fun (x,y) -> not (is_empty y)) pair_list in
+  let pair_list = List.remove_all (fun (x,y) -> is_empty y) pair_list in
   let var_ctx_list = List.map
     (fun (x,y) -> (extract_singleton x, y)) pair_list
   in

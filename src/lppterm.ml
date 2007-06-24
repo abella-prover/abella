@@ -1,4 +1,5 @@
 open Term
+open Extensions
 
 type restriction =
   | Smaller of int
@@ -121,17 +122,6 @@ let map_term_list f t = List.map f (collect_terms t)
 
 (* Variable Renaming *)
 
-let remove_assoc_list to_remove alist =
-  let rec aux alist =
-    match alist with
-      | (a, b)::rest ->
-          if List.mem a to_remove
-          then aux rest
-          else (a, b)::(aux rest)
-      | [] -> []
-  in
-    aux alist
-      
 let replace_term_vars alist t =
   let rec aux t =
     match observe t with
@@ -157,11 +147,11 @@ let rec replace_lppterm_vars alist t =
       | Obj(obj, r) -> Obj(replace_obj_vars alist obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Forall(bindings, body) ->
-          let alist' = remove_assoc_list bindings alist in
+          let alist' = List.remove_assocs bindings alist in
           let body' = replace_lppterm_vars alist' body in
             Forall(bindings, body')
       | Exists(bindings, body) ->
-          let alist' = remove_assoc_list bindings alist in
+          let alist' = List.remove_assocs bindings alist in
           let body' = replace_lppterm_vars alist' body in
             Exists(bindings, body')
       | Or(a, b) -> Or(aux a, aux b)

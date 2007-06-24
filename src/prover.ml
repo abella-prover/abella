@@ -3,6 +3,7 @@ open Lppterm
 open Printf
 open Tactics
 open Types
+open Extensions
 
 type lemmas = (id * lppterm) list
 let lemmas : lemmas ref = ref []
@@ -238,7 +239,7 @@ let apply h args =
 (* Case analysis *)
 
 let set_minus lst1 lst2 =
-  List.filter (fun x -> not (List.mem x lst2)) lst1
+  List.remove_all (fun x -> List.mem x lst2) lst1
 
 let add_cases_to_subgoals cases =
   let case_to_subgoal case =

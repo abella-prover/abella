@@ -34,6 +34,7 @@ FILES[] =
     prover
     context
     types
+    extensions
 
 MAIN = main
 

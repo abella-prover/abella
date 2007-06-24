@@ -58,5 +58,12 @@ clean:
 
 THM = normal
 .PHONY: $(THM)
-$(THM): $(THM).mod $(THM).thm lpp
+$(THM): $(THM).mod $(THM).thm lpp.exe
     ./lpp $(THM).mod < $(THM).thm
+
+THM_FILES[] = $(rootname $(find . -name *.thm))
+.PHONY: theorems
+theorems: lpp.exe $(addsuffix .thm, $(THM_FILES)) \
+                  $(addsuffix .mod, $(THM_FILES))
+    foreach(thm, $(THM_FILES))
+        ./lpp $(thm).mod -f $(thm).thm

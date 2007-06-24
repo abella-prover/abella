@@ -4,6 +4,9 @@ open Unify
 
 (* Variable naming utilities *)
 
+let fresh_alist tag ids =
+  List.map (fun x -> (x, fresh ~tag:tag 0)) ids
+      
 let fresh_alist_wrt tag ids used =
   let used = ref used in
     List.map (fun x ->
@@ -11,9 +14,6 @@ let fresh_alist_wrt tag ids used =
                   used := curr_used ;
                   (x, fresh))
       ids
-      
-let fresh_alist tag ids =
-  List.map (fun x -> (x, fresh ~tag:tag 0)) ids
       
 let get_term_vars_alist tag ts =
   List.map (fun v -> ((term_to_var v).name, v))
@@ -112,10 +112,6 @@ let collect_some f list =
                 | _ -> assert false)
     (List.filter (fun x -> x <> None)
        (List.map f list))
-
-let set_current_state () =
-  let current_state = get_bind_state () in
-    (fun () -> set_bind_state current_state)
 
 let term_case term clauses used wrapper =
   collect_some

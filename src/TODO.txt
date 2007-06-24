@@ -1,10 +1,11 @@
-This week
-=========
-
-Clean up code for freshness in tactics
-  And freshen in test_helper
-
 Clean up case code with labelled args?
+
+Create extensions module which extends the standard libraries with
+  missing functions. Look into using extlib also?
+  Move uniq to list
+  Move collect_some to list (rename it also)
+
+Flatten ndcore into src?
 
 Next week
 =========
@@ -33,6 +34,8 @@ Add more bedwyr style searching?
   Change not (try_left_unify ...) so unification errors (not failures)
     do not result in success
 
+Case analysis on lg predicates should work differently than lp predicates
+
 Do we have to consider logic variables in the context during search?
 How does object cut work with contexts?
 
@@ -49,12 +52,6 @@ Make omake target that checks all thm files with their mod files
 Make omakefile target for any mod/thm combination
 
 Think about timestamps in the bedwyr style searching
-
-Flatten ndcore into src?
-
-Create extensions module which extends the standard libraries with
-  missing functions. Look into using extlib also?
-
 
 Larger or longer term issues
 ============================

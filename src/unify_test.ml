@@ -411,4 +411,14 @@ let tests =
              assert_raises_any
                (fun () -> right_unify t1 t2)) ;
 
+      "Nominal variables at head should be renamed" >::
+        (fun () ->
+           let n1 = var ~tag:Nominal "n1" 0 in
+           let n2 = var ~tag:Nominal "n2" 0 in
+           let n3 = var ~tag:Nominal "n3" 0 in
+           let n4 = var ~tag:Nominal "n4" 0 in
+           let t1 = app n1 [n2] in
+           let t2 = app n3 [n4] in
+             right_unify t1 t2) ;
+
     ]

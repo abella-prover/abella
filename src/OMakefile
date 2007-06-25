@@ -56,10 +56,10 @@ lpp: $(OCamlProgram lpp, $(FILES) $(MAIN))
 clean:
    rm $(filter-proper-targets $(ls R, .))
 
-THM = normal
+THM = copy
 .PHONY: $(THM)
 $(THM): $(THM).mod $(THM).thm lpp$(EXE)
-    ./lpp $(THM).mod < $(THM).thm
+    ./lpp $(THM).mod -f $(THM).thm
 
 THM_FILES[] = $(rootname $(find . -name *.thm))
 .PHONY: theorems

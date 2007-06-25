@@ -1,0 +1,17 @@
+Def ctxpair nil nil.
+Def ctxpair (copy X Y :: L1) (copy' X Y :: L2) :- ctxpair L1 L2.
+
+Axiom ctxpair_lemma : forall X Y L1 L2,
+  ctxpair L1 L2 -> member (copy X Y) L1 -> member (copy' X Y) L2.
+
+Theorem generalized :
+  forall L1 L2 S T, ctxpair L1 L2 -> {L1 |- copy S T} -> {L2 |- copy' S T}.
+induction on 2. intros. case H2.
+  apply ctxpair_lemma to _ H3. search.
+  apply IH to _ H3. apply IH to _ H4. search.
+  apply IH to _ H3. search.
+
+Theorem specialized :
+  forall S T, {copy S T} -> {copy' S T}.
+intros.
+apply generalized to _ H1. search.

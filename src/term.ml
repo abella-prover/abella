@@ -17,7 +17,7 @@
 (* Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA             *)
 (****************************************************************************)
 
-type tag = Eigen | Constant | Logic
+type tag = Eigen | Constant | Logic | Nominal
 type id = string
 type var = {
   name : id ;
@@ -185,6 +185,7 @@ let prefix = function
   | Constant -> "c"
   | Logic -> "H"
   | Eigen -> "h"
+  | Nominal -> "n"
 
 let fresh =
   let varcount = ref 0 in
@@ -354,6 +355,7 @@ let tag2str = function
   | Constant -> "c"
   | Eigen -> "e"
   | Logic -> "l"
+  | Nominal -> "n"
 
 let parenthesis x = "(" ^ x ^ ")"
 
@@ -403,3 +405,17 @@ let term_to_string term =
     pp 0 0 term
 
 let full_eq t1 t2 = eq (deep_norm t1) (deep_norm t2)
+
+let set_nominal_timestamps n t =
+  let rec aux t =
+    match t with
+      | Ptr {contents=T t} -> Ptr (ref (T (aux t)))
+      | Ptr {contents=V v} when v.tag = Nominal ->
+          Ptr {contents=V {v with ts=n}}
+      | Ptr _ | DB _ -> t
+      | Lam(i, t) -> Lam(i, aux t)
+      | App(t, ts) -> App(aux t, List.map aux ts)
+      | _ -> assert false
+  in
+    aux t
+

@@ -43,6 +43,15 @@ module List = struct
     in
       aux list
 
+  let find_duplicate list =
+    let rec aux list =
+      match list with
+        | [] -> None
+        | head::tail when mem head tail -> Some head
+        | _::tail -> aux tail
+    in
+      aux list
+        
   let find_all f list =
     filter f list
 

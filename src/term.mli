@@ -17,7 +17,7 @@
 (* Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA             *)
 (****************************************************************************)
 
-type tag = Eigen | Constant | Logic
+type tag = Eigen | Constant | Logic | Nominal
 type id = string
 type var = {
   name : id ;
@@ -124,3 +124,4 @@ val hnorm : term -> term
 val deep_norm : term -> term
 
 val term_to_string : term -> string
+val set_nominal_timestamps : int -> term -> term

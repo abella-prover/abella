@@ -1,5 +1,3 @@
-Make another test target for running thms and mods
-
 Next week
 =========
 
@@ -18,6 +16,10 @@ With support for contexts and names,
      Dale's substitution example
      Cut elimination with forall quantifier
 
+Find a better way of dealing with nominal variables rather than just
+  raising all the timestamps?
+
+Check nominal pairings on the fly and raising constclash instead of nominalcheck
      
 Future
 ======
@@ -30,7 +32,11 @@ Add more bedwyr style searching?
 Add unification on lppterms?
   Then add another case to lppterm search
 
+Clarify failure vs error in unification
+  
 Do nicer printing of terms using Format and boxes
+
+Clean up unify tests (exceptions, pprint)
 
 Case analysis on lg predicates should work differently than lp predicates
 

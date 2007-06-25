@@ -23,6 +23,7 @@ type error =
   | OccursCheck
   | TypesMismatch
   | ConstClash of (Term.term * Term.term)
+  | NominalCheck
 
 exception Error of error
 exception NotLLambda of Term.term
@@ -41,12 +42,33 @@ struct
 
 open P
 open Term
+open Extensions
 
 let constant tag =
-  tag = Constant || tag = constant_like
+  tag = Constant || tag = constant_like || tag = Nominal
 let variable tag =
   tag = instantiatable
 let fresh = Term.fresh ~tag:instantiatable
+
+(* Nominal pairings *)
+  
+let nominal_pairings = ref []
+  
+let add_nominal_pairing n1 n2 =
+  nominal_pairings := (n1, n2)::!nominal_pairings
+    
+let reset_nominal_pairings () =
+  nominal_pairings := []
+    
+let check_nominal_pairings () =
+  let reverse_nominal_pairings =
+    List.map (fun (x,y) -> (y,x)) !nominal_pairings in
+  let nominal_pairings =
+    List.unique (!nominal_pairings @ reverse_nominal_pairings) in
+  let names = List.map fst nominal_pairings in
+    match List.find_duplicate names with
+      | None -> ()
+      | Some n -> raise NominalCheck
 
 (* Transforming a term to represent substitutions under abstractions *)
 let rec lift t n = match Term.observe t with
@@ -410,10 +432,10 @@ let makesubst h1 t2 a1 n =
                         Term.app h' a1'
                     else 
                       Term.app h2 a1'
-            | Var _ -> failwith "logic variable on the left"
+            | Var _ -> failwith "logic variable on the left (1)"
             | _ -> assert false
           end
-      | Var _ -> failwith "logic variable on the left"
+      | Var _ -> failwith "logic variable on the left (2)"
       | _ -> assert false
   in
 
@@ -479,12 +501,14 @@ let rec unify_list l1 l2 =
  * If it is a lambda, binders need to be equalized and so this becomes
  * an application-term unification problem. *)
 and unify_const_term cst t2 = if Term.eq cst t2 then () else
-  match Term.observe t2 with
-    | Term.Lam (n,t2) ->
+  match Term.observe cst, Term.observe t2 with
+    | _, Term.Lam (n,t2) ->
         let a1 = lift_args [] n in
           unify_app_term cst a1 (Term.app cst a1) t2
-    | Term.Var {tag=t} when not (variable t || constant t) ->
-        failwith "logic variable on the left"
+    | _, Term.Var {tag=t} when not (variable t || constant t) ->
+        failwith "logic variable on the left (3)"
+    | Term.Var v1, Term.Var v2 when v1.tag=Nominal && v2.tag=Nominal ->
+        add_nominal_pairing v1.name v2.name
     | _ -> raise (ConstClash (cst,t2))
 
 (* Unifying the bound variable [t1] with [t2].
@@ -499,7 +523,7 @@ and unify_bv_term n1 t1 t2 = match Term.observe t2 with
       let a1 = lift_args [] n in
         unify_app_term t1' a1 (Term.app t1' a1) t2
   | Var {tag=t} when not (variable t || constant t) ->
-      failwith "logic variable on the left"
+      failwith "logic variable on the left (4)"
   | _ -> assert false
 
 (* [unify_app_term h1 a1 t1 t2] unify [App h1 a1 = t2].
@@ -509,9 +533,12 @@ and unify_app_term h1 a1 t1 t2 = match Term.observe h1,Term.observe t2 with
   | Term.Var {tag=tag}, _ when variable tag ->
       let n = List.length a1 in
         Term.bind h1 (makesubst h1 t2 a1 n)
-  | Term.Var {tag=tag}, Term.App (h2,a2) when constant tag ->
+  | Term.Var v1, Term.App (h2,a2) when constant v1.tag ->
       begin match Term.observe h2 with
-        | Var {tag=tag} when constant tag ->
+        | Var v2 when v1.tag=Nominal && v2.tag=Nominal ->
+            add_nominal_pairing v1.name v2.name ;
+            unify_list a1 a2
+        | Var v2 when constant v2.tag ->
             if Term.eq h1 h2 then
               unify_list a1 a2
             else
@@ -522,7 +549,7 @@ and unify_app_term h1 a1 t1 t2 = match Term.observe h1,Term.observe t2 with
             let m = List.length a2 in
               Term.bind h2 (makesubst h2 t1 a2 m)
         | Var {tag=t} when not (variable t || constant t) ->
-            failwith "logic variable on the left"
+            failwith "logic variable on the left (5)"
         | _ -> assert false
       end
   | _, Term.Lam (n,t2) ->
@@ -533,7 +560,7 @@ and unify_app_term h1 a1 t1 t2 = match Term.observe h1,Term.observe t2 with
   | Term.Ptr _, _ | _, Term.Ptr _
   | Term.Susp _, _ | _, Term.Susp _ -> assert false
   | Term.Var {tag=t}, _ when not (variable t || constant t) ->
-      failwith "logic variable on the left"
+      failwith "logic variable on the left (6)"
   | _ -> raise (ConstClash (h1,t2))
 
 (** Here we assume t1 is a variable we want to bind to t2. We must check that
@@ -580,9 +607,12 @@ and unify t1 t2 = match Term.observe t1,Term.observe t2 with
         unify (Term.lambda (n1-n2) t1) t2
       else
         unify t1 (Term.lambda (n2-n1) t2)
-  | _ -> failwith "logic variable on the left"
+  | _ -> failwith "logic variable on the left (7)"
 
-let pattern_unify t1 t2 = unify (hnorm t1) (hnorm t2)
+let pattern_unify t1 t2 =
+  reset_nominal_pairings () ;
+  unify (hnorm t1) (hnorm t2) ;
+  check_nominal_pairings ()
 
 end
 
@@ -598,10 +628,16 @@ module Left =
           let constant_like = Term.Logic
         end)
 
-let right_unify t1 t2 = Right.pattern_unify t1 t2
+let right_unify t1 t2 =
+  let t1 = Term.set_nominal_timestamps 0 t1 in
+  let t2 = Term.set_nominal_timestamps 0 t2 in
+    Right.pattern_unify t1 t2
 
-let left_unify t1 t2 = Left.pattern_unify t1 t2
-
+let left_unify t1 t2 =
+  let t1 = Term.set_nominal_timestamps 1000 t1 in
+  let t2 = Term.set_nominal_timestamps 1000 t2 in
+    Left.pattern_unify t1 t2
+      
 let try_with_state f =
   let state = Term.get_bind_state () in
     try

@@ -363,4 +363,52 @@ let tests =
                | Var {ts=0}, Var {ts=0} -> ()
                | _ -> assert false) ;
       *)
+
+      "Logic variables on the right should unify with nominal variables" >::
+        (fun () ->
+           let a = var ~tag:Logic "A" 0 in
+           let n = var ~tag:Nominal "n" 0 in
+             right_unify a n ;
+             assert_term_equal n a) ;
+
+      "Eigen variables on left should not unify with nominal variables" >::
+        (fun () ->
+           let a = var ~tag:Eigen "a" 0 in
+           let n = var ~tag:Nominal "n" 0 in
+             assert_raises_any
+               (fun () -> left_unify a n)) ;
+
+      "Raised eigen variables on left should unify with nominal variables" >::
+        (fun () ->
+           let a = var ~tag:Eigen "a" 0 in
+           let n = var ~tag:Nominal "n" 0 in
+             left_unify (app a [n]) n ;
+             assert_term_equal (1 // db 1) a) ;
+
+      "Nominal variables should unify under renaming" >::
+        (fun () ->
+           let n1 = var ~tag:Nominal "n1" 0 in
+           let n2 = var ~tag:Nominal "n2" 0 in
+             right_unify n1 n2) ;
+
+      "Nominal variables should unify consistently under renaming" >::
+        (fun () ->
+           let a = var ~tag:Eigen "a" 0 in
+           let n1 = var ~tag:Nominal "n1" 0 in
+           let n2 = var ~tag:Nominal "n2" 0 in
+           let n3 = var ~tag:Nominal "n3" 0 in
+           let t1 = app a [n1; n1] in
+           let t2 = app a [n2; n3] in
+             assert_raises_any
+               (fun () -> right_unify t1 t2)) ;
+
+      "Equal nominal variables at head should enforce renaming constraint" >::
+        (fun () ->
+           let n1 = var ~tag:Nominal "n1" 0 in
+           let n2 = var ~tag:Nominal "n2" 0 in
+           let t1 = app n1 [n1] in
+           let t2 = app n1 [n2] in
+             assert_raises_any
+               (fun () -> right_unify t1 t2)) ;
+
     ]

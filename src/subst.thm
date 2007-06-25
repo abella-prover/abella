@@ -1,0 +1,9 @@
+Theorem generalized :
+  forall L R T S, {L |- subst R T S} -> {R T = S}.
+induction on 1. intros. case H1.
+  skip.
+  % case H2.
+  % Error: there should be more cases
+
+%Theorem specialized :
+%  forall R T S, {subst R T S} -> {R T = S}.

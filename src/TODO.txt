@@ -1,9 +1,11 @@
 Next week
 =========
 
+Dale's substitution example
+  Why are we missing cases for copy?
+
 With support for contexts and names,
-     Dale's substitution example
-     Cut elimination with forall quantifier
+     Cut elimination with forall quantifier?
 
 Equivariant unification
   Where do we add raising over supp(T)?

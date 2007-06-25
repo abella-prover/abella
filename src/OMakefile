@@ -56,7 +56,7 @@ lpp: $(OCamlProgram lpp, $(FILES) $(MAIN))
 clean:
    rm $(filter-proper-targets $(ls R, .))
 
-THM = copy
+THM = subst
 .PHONY: $(THM)
 $(THM): $(THM).mod $(THM).thm lpp$(EXE)
     ./lpp $(THM).mod -f $(THM).thm

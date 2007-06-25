@@ -2,7 +2,6 @@ Next week
 =========
 
 With support for contexts and names,
-     Dale's copy example
      Dale's substitution example
      Cut elimination with forall quantifier
 

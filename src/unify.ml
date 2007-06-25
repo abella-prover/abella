@@ -61,14 +61,11 @@ let reset_nominal_pairings () =
   nominal_pairings := []
     
 let check_nominal_pairings () =
-  let reverse_nominal_pairings =
-    List.map (fun (x,y) -> (y,x)) !nominal_pairings in
-  let nominal_pairings =
-    List.unique (!nominal_pairings @ reverse_nominal_pairings) in
-  let names = List.map fst nominal_pairings in
-    match List.find_duplicate names with
-      | None -> ()
-      | Some n -> raise NominalCheck
+  let nominal_pairings = List.unique !nominal_pairings in
+  let left_names, right_names = List.split nominal_pairings in
+    match List.find_duplicate left_names, List.find_duplicate right_names with
+      | None, None -> ()
+      | _ -> raise NominalCheck
 
 (* Transforming a term to represent substitutions under abstractions *)
 let rec lift t n = match Term.observe t with

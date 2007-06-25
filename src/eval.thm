@@ -66,7 +66,7 @@ Theorem sr_eval :
   forall E V T, {eval E V} -> {typeof E T} -> {typeof V T}.
 induction on 1. intros. case H1.
   search.
-  case H2. apply IH to H3 H5. case H7. inst H8 with N.
+  case H2. apply IH to H3 H5. case H7. inst H8 with n1 = N.
     cut H9 with H6. apply IH to H4 H10. search.
 
 %Theorem sr_step :

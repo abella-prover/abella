@@ -1,28 +1,27 @@
 Next week
 =========
 
-Add equivariant unification
-
-Where do we add raising over supp(T)?
-
-Automatically case on {pi x\ ...} ?
-     Object instantiation should no longer need a pi then
-
-Search should know how to deal with pi x\ ...
-
 With support for contexts and names,
      Dale's copy example
-     Dale's normal example
      Dale's substitution example
      Cut elimination with forall quantifier
 
-Find a better way of dealing with nominal variables rather than just
-  raising all the timestamps?
+Equivariant unification
+  Where do we add raising over supp(T)?
 
-Check nominal pairings on the fly and raising constclash instead of nominalcheck
+  Find a better way of dealing with nominal variables rather than just
+    raising all the timestamps?
+
+  Check nominal pairings on the fly and raising constclash instead of
+    nominalcheck
+
+  What do we do about logic variables being instantiated with nominal
+    constants?
      
 Future
 ======
+
+Reserve nXXX for nominals and allow parsing like that?
 
 Add more bedwyr style searching?
   Watch timestamps more closely?

@@ -16,7 +16,7 @@ type command =
   | Induction of int
   | Apply of id * id list
   | Cut of id * id
-  | Inst of id * term
+  | Inst of id * id * term
   | Case of id
   | Assert of lppterm
   | Search
@@ -46,8 +46,8 @@ let command_to_string c =
         sprintf "apply %s to %s" h (String.concat " " hs)
     | Cut(h1, h2) ->
         sprintf "cut %s with %s" h1 h2
-    | Inst(h, t) ->
-        sprintf "inst %s with %s" h (term_to_string t)
+    | Inst(h, n, t) ->
+        sprintf "inst %s with %s = %s" h n (term_to_string t)
     | Case h ->
         sprintf "case on %s" h
     | Assert t ->

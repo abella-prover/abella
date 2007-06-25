@@ -123,4 +123,11 @@ let tests =
              assert_pprint_equal "{L |- A => B => C}" t ;
              assert_pprint_equal "{L, A, B |- C}" (normalize t)) ;
 
+      "Normalize should instantiate pi x\\ with nominal constant" >::
+        (fun () ->
+           let t = app (const "pi") [1 // app (const "pred") [db 1; db 1]] in
+           let t = termobj t in
+             assert_pprint_equal "{pi x1\\pred x1 x1}" t ;
+             assert_pprint_equal "{pred n1 n1}" (normalize t)) ;
+
     ]

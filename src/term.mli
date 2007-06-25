@@ -125,3 +125,4 @@ val deep_norm : term -> term
 
 val term_to_string : term -> string
 val set_nominal_timestamps : int -> term -> term
+val prefix : tag -> string

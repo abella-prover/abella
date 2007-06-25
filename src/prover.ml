@@ -173,11 +173,11 @@ let display () =
     
 (* Object level instantiation *)
 
-let inst h t =
+let inst h n t =
   save_undo_state () ;
   match get_hyp h with
     | Obj(obj, r) ->
-        let new_obj = object_inst obj (replace_term_vars sequent.vars t) in
+        let new_obj = object_inst obj n (replace_term_vars sequent.vars t) in
           add_hyp (Obj(new_obj, r))
     | _ -> failwith "Object cut can only be used on objects"
 

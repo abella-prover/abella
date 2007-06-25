@@ -73,7 +73,7 @@ command:
   | IND ON NUM DOT                      { Types.Induction($3) }
   | APPLY ID TO id_list DOT             { Types.Apply($2, $4) }
   | CUT ID WITH ID DOT                  { Types.Cut($2, $4) }
-  | INST ID WITH term DOT               { Types.Inst($2, $4) }
+  | INST ID WITH ID EQ term DOT         { Types.Inst($2, $4, $6) }
   | CASE ID DOT                         { Types.Case($2) }
   | ASSERT lppterm DOT                  { Types.Assert($2) }
   | SEARCH DOT                          { Types.Search }

@@ -20,16 +20,15 @@ induction on 2. intros. case H2.
         search.
       search.
     search.
-  inst H3 with x. % This isn't really right
-  apply IH to _ H4.
-  case H5.
-    search. skip. % Search doesn't yet work
-    search. skip. % Search doesn't yet work
+  apply IH to _ H3.
+  case H4.
+  search.
+  search.
     
 Theorem specialized : forall T,
   {term T} -> {normal T} or {non_normal T}.
 intros.
-apply generalized to _ H1. % This runs forever with memory leak?
+apply generalized to _ H1.
 case H2.
   search.
   search.

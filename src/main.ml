@@ -14,7 +14,7 @@ let rec process_proof name ~interactive lexbuf =
           | Induction(args) -> induction args
           | Apply(h, args) -> apply h args
           | Cut(h, arg) -> cut h arg
-          | Inst(h, t) -> inst h t
+          | Inst(h, n, t) -> inst h n t
           | Case(str) -> case str
           | Assert(t) -> assert_hyp t
           | Search -> search ()

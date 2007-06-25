@@ -34,24 +34,12 @@ let object_instantiation_tests =
     [
       "Simple" >::
         (fun () ->
-           let h0 = parse_obj "pi x\\ eval x B" in
+           let n = var ~tag:Nominal "n" 0 in
+           let obj = {context = Context.empty ;
+                      term = app (const "eval") [n; const "B"]} in
            let a = var ~tag:Eigen "A" 0 in
-           let obj = object_inst h0 a in
-             assert_term_pprint_equal "eval A B" obj.term) ;
-      
-      "Failed - missing pi" >::
-        (fun () ->
-           let h0 = parse_obj "sigma x\\ eval x B" in
-           let a = var ~tag:Eigen "A" 0 in
-             assert_raises_any
-               (fun () -> object_inst h0 a)) ;
-
-      "Failed - missing lambda" >::
-        (fun () ->
-           let h0 = parse_obj "pi eval x B" in
-           let a = var ~tag:Eigen "A" 0 in
-             assert_raises_any
-               (fun () -> object_inst h0 a)) ;
+           let result = object_inst obj "n" a in
+             assert_term_pprint_equal "eval A B" result.term) ;
     ]
 
 let forall_application_tests =
@@ -410,6 +398,13 @@ let search_tests =
         (fun () ->
            let hyp = freshen "{A |- B}" in
            let goal = freshen "{A => B}" in
+             assert_search_success (basic_search 1 [hyp] goal)) ;
+
+      "Should replace pi x\\ with nominal variable" >::
+        (fun () ->
+           let n = var ~tag:Nominal "n" 0 in
+           let hyp = termobj (app (const "pred") [n; n]) in
+           let goal = freshen "{pi x\\ pred x x}" in
              assert_search_success (basic_search 1 [hyp] goal)) ;
 
       "Should look for member" >::

@@ -58,9 +58,40 @@ let move_imp_to_context obj =
   let a, b = extract_imp obj.term in
     {context = Context.add a obj.context ; term = b}
 
+let is_pi_abs t =
+  match observe t with
+    | App(t, [abs]) -> eq t (const "pi") &&
+        begin match observe abs with
+          | Lam(1, _) -> true
+          | _ -> false
+        end
+    | _ -> false
+
+let extract_pi_abs t =
+  match observe t with
+    | App(t, [abs]) -> abs
+    | _ -> failwith "Check is_pi_abs before calling extract_pi_abs"
+
+let fresh_nominal obj =
+  let used_vars = find_vars Nominal (obj.term::obj.context) in
+  let used_names = List.map (fun v -> v.name) used_vars in
+  let p = prefix Nominal in
+  let n = ref 1 in
+    while List.mem (p ^ (string_of_int !n)) used_names do
+      incr n
+    done ;
+    var ~tag:Nominal (p ^ (string_of_int !n)) 0
+        
+let replace_pi_abs_with_nominal obj =
+  let abs = extract_pi_abs obj.term in
+  let nominal = fresh_nominal obj in
+    {obj with term = deep_norm (app abs [nominal])}
+
 let rec normalize_obj obj =
   if is_imp obj.term then
     normalize_obj (move_imp_to_context obj)
+  else if is_pi_abs obj.term then
+    normalize_obj (replace_pi_abs_with_nominal obj)
   else
     {obj with context = Context.normalize obj.context}
       

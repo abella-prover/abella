@@ -70,28 +70,8 @@ let object_cut obj1 obj2 =
 
 (* Object level instantiation *)
         
-let is_pi_abs t =
-  match observe t with
-    | App(t, [abs]) -> eq t (const "pi") &&
-        begin match observe abs with
-          | Lam(1, _) -> true
-          | _ -> false
-        end
-    | _ -> false
-
-let extract_pi_abs t =
-  match observe t with
-    | App(t, [abs]) -> abs
-    | _ -> failwith "Check is_pi_abs before calling extract_pi_abs"
-
-let object_inst obj x =
-  if is_pi_abs obj.term then
-    normalize_obj (context_obj obj.context
-                     (deep_norm (app (extract_pi_abs obj.term) [x])))
-  else
-    failwith ("Object instantiation requires a hypothesis of the form " ^
-                "{pi x\\ ...}")
-
+let object_inst obj name term =
+  replace_obj_vars [(name, term)] obj
 
 (* Case analysis *)
 
@@ -231,6 +211,8 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses ~goal =
       false
     else if is_imp goal.term then
       obj_aux (n-1) (move_imp_to_context goal)
+    else if is_pi_abs goal.term then
+      obj_aux (n-1) (replace_pi_abs_with_nominal goal)
     else
       ((not (Context.is_empty goal.context)) &&
          lppterm_aux (n-1) (obj_to_member goal))

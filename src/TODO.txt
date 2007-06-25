@@ -24,6 +24,8 @@ Future
 
 Reserve nXXX for nominals and allow parsing like that?
 
+Prove that normal and non-normal are non-overlapping
+
 Add more bedwyr style searching?
   Watch timestamps more closely?
   Change not (try_left_unify ...) so unification errors (not failures)

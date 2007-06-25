@@ -49,7 +49,7 @@ let command_to_string c =
     | Inst(h, n, t) ->
         sprintf "inst %s with %s = %s" h n (term_to_string t)
     | Case h ->
-        sprintf "case on %s" h
+        sprintf "case %s" h
     | Assert t ->
         sprintf "assert %s" (lppterm_to_string t)
     | Search -> "search"

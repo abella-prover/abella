@@ -1,6 +1,6 @@
 open Term
 open Lppterm
-open Printf
+open Format
 open Tactics
 open Types
 open Extensions
@@ -132,44 +132,51 @@ let next_subgoal () =
 let vars_to_string () =
   match sequent.vars with
     | [] -> ""
-    | _ -> "  Variables: " ^ (String.concat ", " (var_names ()))
+    | _ -> "Variables: " ^ (String.concat ", " (var_names ()))
 
-let hyps_to_string () =
-  String.concat "\n"
-    (List.map
-       (fun (id, t) -> "  " ^ id ^ " : " ^ (lppterm_to_string t))
-       sequent.hyps)
+let format_hyp fmt (id, t) =
+  fprintf fmt "%s : " id ;
+  format_lppterm fmt t ;
+  pp_force_newline fmt ()
+    
+let format_hyps fmt =
+  List.iter (format_hyp fmt) sequent.hyps
    
-let div = "  ============================"
-
-let get_other_subgoals () =
+let format_other_subgoals fmt =
   save_undo_state () ;
-  let buffer = Buffer.create 100 in
   let n = ref 1 in
     List.iter (fun set_state ->
                  set_state () ;
                  incr n ;
-                 bprintf buffer "subgoal %d is:\n" !n ;
-                 bprintf buffer " %s\n\n" (lppterm_to_string sequent.goal))
+                 fprintf fmt "@[<1>subgoal %d is:@\n%a@]@\n@\n"
+                   !n format_lppterm sequent.goal)
       !subgoals ;
-    undo () ;
-    Buffer.contents buffer
+    undo ()
 
-let get_display () =
-  let buffer = Buffer.create 100 in
-    bprintf buffer "%d subgoal(s).\n" (1 + List.length !subgoals) ;
-    bprintf buffer "\n" ;
-    bprintf buffer "%s\n" (vars_to_string ()) ;
-    bprintf buffer "%s\n" (hyps_to_string ()) ;
-    bprintf buffer "%s\n" div ;
-    bprintf buffer "  %s\n" (lppterm_to_string sequent.goal) ;
-    bprintf buffer "\n" ;
-    bprintf buffer "%s" (get_other_subgoals ()) ;
-    Buffer.contents buffer
+let format_sequent fmt =
+  pp_open_box fmt 2 ;
+  fprintf fmt "  %s@\n" (vars_to_string ()) ;
+  format_hyps fmt ;
+  fprintf fmt "============================@\n" ;
+  fprintf fmt " %a" format_lppterm sequent.goal ;
+  pp_close_box fmt ()
+      
+let format_display fmt =
+  pp_open_box fmt 0 ;
+  fprintf fmt "%d subgoal(s).@\n@\n" (1 + List.length !subgoals) ;
+  format_sequent fmt ;
+  fprintf fmt "@\n@\n" ;
+  format_other_subgoals fmt ;
+  pp_close_box fmt () ;
+  pp_print_flush fmt ()
     
 let display () =
-  print_string (get_display ())
+  format_display std_formatter
 
+let get_display () =
+  let b = Buffer.create 100 in
+    format_display (formatter_of_buffer b) ;
+    Buffer.contents b
     
 (* Object level instantiation *)
 

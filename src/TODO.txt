@@ -1,6 +1,8 @@
 Next week
 =========
 
+When doing case analysis, raise eigen variables over the support.
+
 Dale's substitution example
   Why are we missing cases for copy?
 
@@ -35,9 +37,9 @@ Add unification on lppterms?
   Then add another case to lppterm search
 
 Clarify failure vs error in unification
-  
-Do nicer printing of terms using Format and boxes
 
+Display new hypotheses in future subgoals (subgoal 2 is : {...} -> ...)
+  
 Clean up unify tests (exceptions, pprint)
 
 Case analysis on lg predicates should work differently than lp predicates

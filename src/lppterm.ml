@@ -1,5 +1,6 @@
 open Term
 open Extensions
+open Format
 
 type restriction =
   | Smaller of int
@@ -238,7 +239,44 @@ let lppterm_to_string t =
   in
     aux 0 t
 
+let format_lppterm fmt t =
+  let rec aux pr_above t =
+    let pr_curr = priority t in
+      if pr_curr < pr_above then fprintf fmt "(" ;
+      begin match t with
+        | Obj(obj, r) ->
+            fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
+        | Arrow(a, b) ->
+            aux (pr_curr + 1) a ;
+            fprintf fmt " ->@ " ;
+            aux pr_curr b
+        | Forall(ids, t) ->
+            fprintf fmt "forall %s,@ " (bindings_to_string ids) ;
+            aux pr_curr t
+        | Exists(ids, t) ->
+            fprintf fmt "exists %s,@ " (bindings_to_string ids) ;
+            aux pr_curr t
+        | Or(a, b) ->
+            aux pr_curr a ;
+            fprintf fmt " or " ;
+            aux (pr_curr + 1) b ;
+        | Pred(p) ->
+            fprintf fmt "%s" (term_to_string p)
+      end ;
+      if pr_curr < pr_above then fprintf fmt ")" ;
+  in
+    pp_open_box fmt 2 ;
+    aux 0 t ;
+    pp_close_box fmt ()
 
+let lppterm_to_string t =
+  let b = Buffer.create 50 in
+  let fmt = formatter_of_buffer b in
+    pp_set_margin fmt max_int ;
+    format_lppterm fmt t ;
+    pp_print_flush fmt () ;
+    Buffer.contents b
+  
 (* Error reporting *)
 
 let invalid_lppterm_arg t =

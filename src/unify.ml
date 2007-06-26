@@ -565,12 +565,12 @@ and unify_app_term h1 a1 t1 t2 = match Term.observe h1,Term.observe t2 with
   * than t1 is allowed. *)
 and rigid_path_check t1 t2 =
   match Term.observe t1, Term.observe t2 with
-    | Term.Var v1, Term.Var v2 when v1 = v2 -> raise OccursCheck
-    | Term.Var {ts=ts1}, Term.Var {ts=ts2} when ts2 > ts1 -> raise OccursCheck
-    | _, Term.Var _ -> ()
-    | _, Term.DB i -> ()
+    | Term.Var v1, Term.Var v2 when v1 = v2 -> false
+    | Term.Var {ts=ts1}, Term.Var {ts=ts2} when ts2 > ts1 -> false
+    | _, Term.Var _ -> true
+    | _, Term.DB i -> true
     | _, Term.Lam(n2,t2) -> rigid_path_check t1 t2
-    | Term.Var v1, Term.App(h2,a2) -> List.iter (rigid_path_check t1) a2
+    | Term.Var v1, Term.App(h2,a2) -> List.for_all (rigid_path_check t1) a2
     | _, _ -> assert false
 
 (** The main unification procedure.
@@ -588,11 +588,15 @@ and rigid_path_check t1 t2 =
 and unify t1 t2 = match Term.observe t1,Term.observe t2 with
   | Term.Var v1, Term.Var v2 when v1 = v2 -> ()
   | Term.Var {tag=t},_ when variable t ->
-      rigid_path_check t1 t2 ;
-      Term.bind t1 t2
+      if rigid_path_check t1 t2 then
+        Term.bind t1 t2
+      else
+        Term.bind t1 (makesubst t1 t2 [] 0)
   | _,Term.Var {tag=t} when variable t ->
-      rigid_path_check t2 t1 ;
-      Term.bind t2 t1
+      if rigid_path_check t2 t1 then
+        Term.bind t2 t1
+      else
+        Term.bind t2 (makesubst t2 t1 [] 0)
   | Term.App (h1,a1),_                 -> unify_app_term h1 a1 t1 t2
   | _,Term.App (h2,a2)                 -> unify_app_term h2 a2 t2 t1
   | Term.Var {tag=t},_ when constant t -> unify_const_term t1 t2
@@ -645,12 +649,12 @@ let try_with_state f =
 let try_right_unify t1 t2 =
   try_with_state
     (fun () ->
-       Right.pattern_unify t1 t2 ;
+       right_unify t1 t2 ;
        true)
-
+ 
 let try_left_unify t1 t2 =
   try_with_state
     (fun () ->
-       Left.pattern_unify t1 t2 ;
+       left_unify t1 t2 ;
        true)
 

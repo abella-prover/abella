@@ -1,7 +1,7 @@
 Theorem generalized :
   forall L R T S, {L |- subst R T S} -> {R T = S}.
 induction on 1. intros. case H1.
-  skip.
+%  skip.
   % case H2.
   % Error: there should be more cases
 

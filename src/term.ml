@@ -87,13 +87,29 @@ let getref = function
 
 let bind_stack = Stack.create ()
 
-let bind v t =
+let force_bind v t =
   let dv = getref (deref v) in
   let dt = deref t in
     if match dt with Ptr r when r==dv -> false | _ -> true then begin
       Stack.push (dv,!dv) bind_stack ;
       dv := T dt
     end
+
+let prefix = function
+  | Constant -> "c"
+  | Logic -> "H"
+  | Eigen -> "h"
+  | Nominal -> "n"
+
+let is_poor_var t =
+  match observe t with
+    | Var v when v.tag <> Nominal -> String.sub v.name 0 1 = prefix v.tag
+    | _ -> false
+  
+let bind v t =
+  if is_poor_var t
+  then force_bind t v
+  else force_bind v t
 
 type bind_state = (term * term) list
     
@@ -181,12 +197,6 @@ end
 
 let const ?(ts=0) s = Ptr (ref (V { name=s ; ts=ts ; tag=Constant }))
   
-let prefix = function
-  | Constant -> "c"
-  | Logic -> "H"
-  | Eigen -> "h"
-  | Nominal -> "n"
-
 let fresh =
   let varcount = ref 0 in
     fun () ->

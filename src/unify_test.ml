@@ -421,4 +421,14 @@ let tests =
            let t2 = app n3 [n4] in
              right_unify t1 t2) ;
 
+      "Pruning for nominal variables should not pick a worthless name" >::
+        (fun () ->
+           let n = var ~tag:Nominal "n" 0 in
+           let a = var ~tag:Eigen "A" 0 in
+           let b = var ~tag:Eigen "B" 0 in
+             left_unify (app a [n]) b ;
+             assert_term_pprint_equal "x1\\B" a ;
+             assert_term_pprint_equal "B" b) ;
+             
+
     ]

@@ -80,11 +80,26 @@ type case = {
   new_vars : (id * term) list ;
   new_hyps : lppterm list ;
 }
-    
-let term_case term clauses used wrapper =
+
+let fresh_alist_wrt2 support tag ids used =
+  let used = ref used in
+    List.map (fun x ->
+                let (fresh, curr_used) = fresh_wrt tag x !used in
+                  used := curr_used ;
+                  (x, app fresh support))
+      ids
+      
+let freshen_clause_wrt2 support tag head body used =
+  let var_names = capital_var_names (head::body) in
+  let fresh_names = fresh_alist_wrt2 support tag var_names used in
+  let fresh_head = replace_term_vars fresh_names head in
+  let fresh_body = List.map (replace_term_vars fresh_names) body in
+    (fresh_head, fresh_body)
+
+let term_case support term clauses used wrapper =
   List.filter_map
     (fun (head, body) ->
-       let fresh_head, fresh_body = freshen_clause_wrt Eigen head body used in
+       let fresh_head, fresh_body = freshen_clause_wrt2 support Eigen head body used in
        let initial_state = get_bind_state () in
          if try_left_unify fresh_head term then
            let new_vars = get_term_vars_alist Eigen (fresh_head::fresh_body) in
@@ -98,7 +113,7 @@ let term_case term clauses used wrapper =
                None)
     clauses
       
-let obj_case obj r clauses used =
+let obj_case support obj r clauses used =
   if is_imp obj.term then
     [{ bind_state = get_bind_state () ;
        new_vars = [] ;
@@ -108,7 +123,7 @@ let obj_case obj r clauses used =
     let wrapper t =
       normalize (Obj(context_obj obj.context t, reduce_restriction r))
     in
-    let clause_cases = term_case obj.term clauses used wrapper in
+    let clause_cases = term_case support obj.term clauses used wrapper in
     let member_case =
       { bind_state = get_bind_state () ;
         new_vars = [] ;
@@ -121,7 +136,7 @@ let obj_case obj r clauses used =
 
 let case term clauses meta_clauses used =
   match term with
-    | Obj(obj, r) -> obj_case obj r clauses used
+    | Obj(obj, r) -> obj_case (obj_support obj) obj r clauses used
     | Or(left, right) ->
         let make_simple_case h =
           { bind_state = get_bind_state () ;
@@ -136,7 +151,7 @@ let case term clauses meta_clauses used =
              new_hyps = [fresh_body] }]
     | Pred(p) ->
         let wrapper t = Pred(t) in
-          term_case p meta_clauses used wrapper
+          term_case (term_support p) p meta_clauses used wrapper
     | _ -> invalid_lppterm_arg term
 
 
@@ -291,10 +306,19 @@ let rec map_args f t =
         (f left) :: (map_args f right)
     | _ -> []
 
+let fresh_alist2 tag ids =
+  List.map (fun x ->
+              if is_capital x
+              then (x, fresh ~tag:tag 0)
+              else (x, var ~tag:Nominal x 0)) ids
+        
+let freshen_bindings2 tag bindings term used =
+  replace_lppterm_vars (fresh_alist2 tag bindings) term
+        
 let apply_forall stmt ts =
   match stmt with
     | Forall(bindings, body) ->
-        let fresh_body = freshen_bindings Logic bindings body [] in
+        let fresh_body = freshen_bindings2 Logic bindings body [] in
         let formal = map_args term_to_restriction fresh_body in
         let some_term_to_restriction t =
           match t with

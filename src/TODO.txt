@@ -1,17 +1,20 @@
+TODO in unify is unsound. Might need to track used variable names in
+  the unify code
 
+Clean up support in lppterm
+Clean up freshness in tactics, case, and intros, apply_forall
 Clean up case analysis code
 
-Dale's substitution example
-  Why are we missing cases for copy?
+During subst.thm when we apply {... |- copy (R x) S} to
+  {... |- copy (N x) S} it is not LLambda because R will be a logic
+  variable and may contain x.
 
-Equivariant unification
-  Where do we add raising over supp(T)?
+Find a better way of dealing with nominal variables rather than just
+  raising all the timestamps?
 
-  Find a better way of dealing with nominal variables rather than just
-    raising all the timestamps?
+Dale's copy example
 
-With support for contexts and names,
-     Cut elimination with forall quantifier?
+Cut elimination with forall quantifier?
 
 Future
 ======

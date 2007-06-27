@@ -43,6 +43,14 @@ open P
 open Term
 open Extensions
 
+let used = ref []
+
+(* TODO - right now the ts is ignored *)
+let named_fresh name ts =
+  let (v, new_used) = fresh_wrt instantiatable name !used in
+    used := new_used ;
+    v
+
 let constant tag =
   tag = Constant || tag = constant_like || tag = Nominal
 let variable tag =
@@ -403,7 +411,7 @@ let makesubst h1 t2 a1 n =
                     let h' =
                       (* TODO - is this special case for a1 = [] sound? *)
                       if a1 = []
-                      then var ~tag:instantiatable hv1.name (min ts1 ts2)
+                      then named_fresh hv1.name (min ts1 ts2)
                       else fresh (min ts1 ts2)
                     in
                       Term.bind h2
@@ -554,7 +562,7 @@ and rigid_path_check t1 t2 =
     | _, Term.DB i -> true
     | _, Term.Lam(n2,t2) -> rigid_path_check t1 t2
     | Term.Var v1, Term.App(h2,a2) -> List.for_all (rigid_path_check t1) a2
-    | _, _ -> assert false
+    | _ -> false
 
 (** The main unification procedure.
   * Either succeeds and realizes the unification substitutions as side effects
@@ -594,6 +602,7 @@ and unify t1 t2 = match Term.observe t1,Term.observe t2 with
   | _ -> failwith "logic variable on the left (7)"
 
 let pattern_unify t1 t2 =
+  used := [] ;
   unify (hnorm t1) (hnorm t2)
 
 end

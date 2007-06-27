@@ -310,11 +310,20 @@ let rec split_args stmt =
           (left::args, goal)
     | _ -> ([], stmt)
 
+let fresh_alist_wrt3 tag ids used =
+  let used = ref used in
+    List.map (fun x ->
+                let tag = if is_capital x then tag else Nominal in
+                let (fresh, curr_used) = fresh_wrt tag x !used in
+                  used := curr_used ;
+                  (x, fresh))
+      ids
+
 let intros () =
   save_undo_state () ;
   match sequent.goal with
     | Forall(bindings, body) ->
-        List.iter add_var (fresh_alist_wrt Eigen bindings (var_names ())) ;
+        List.iter add_var (fresh_alist_wrt3 Eigen bindings (var_names ())) ;
         let fresh_body = replace_lppterm_vars sequent.vars body in
         let args, new_goal = split_args fresh_body in
           List.iter add_hyp args ;

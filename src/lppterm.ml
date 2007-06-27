@@ -189,6 +189,12 @@ let rec replace_lppterm_vars alist t =
       | Or(a, b) -> Or(aux a, aux b)
       | Pred(p) -> Pred(replace_term_vars alist p)
 
+let term_support t =
+  List.map (fun v -> var ~tag:v.tag v.name v.ts) (find_vars Nominal [t])
+
+let obj_support obj =
+  List.map (fun v -> var ~tag:v.tag v.name v.ts)
+    (find_vars Nominal (obj.term :: obj.context))
       
 (* Pretty printing *)
 

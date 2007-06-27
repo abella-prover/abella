@@ -159,6 +159,10 @@ let forall_application_tests =
                       (string_of_int (List.length obligations)))) ;
     ]
 
+let assert_expected_cases n cases =
+  assert_failure (Printf.sprintf "Expected %d case(s) but found %d case(s)"
+                    n (List.length cases))
+
 let case_application_tests =
   "Case Application" >:::
     [
@@ -186,7 +190,7 @@ let case_application_tests =
                      (List.mem "M" (List.map fst case2.new_vars)) ;
                    assert_bool "N should be flagged as used"
                      (List.mem "N" (List.map fst case2.new_vars))
-               | _ -> assert_failure "Expected 2 cases") ;
+               | cases -> assert_expected_cases 2 cases) ;
       
       "Restriction should become smaller" >::
         (fun () ->
@@ -204,7 +208,7 @@ let case_application_tests =
                          assert_pprint_equal "{eval (R N) B}*" h2
                      | _ -> assert_failure "Expected 2 new hypotheses"
                    end
-               | _ -> assert_failure "Expected 2 cases") ;
+               | cases -> assert_expected_cases 2 cases) ;
 
       "On OR" >::
         (fun () ->
@@ -254,7 +258,7 @@ let case_application_tests =
                          assert_pprint_equal "{L |- eval (R N) B}" h2 ;
                      | _ -> assert_failure "Expected 2 new hypotheses"
                    end ;
-               | _ -> assert_failure "Expected 3 cases") ;
+               | cases -> assert_expected_cases 3 cases) ;
 
       "Should look in context for member" >::
         (fun () ->
@@ -284,7 +288,18 @@ let case_application_tests =
                          assert_pprint_equal "member (hyp A) L" hyp ;
                      | _ -> assert_failure "Expected 1 new hypothesis"
                    end
-               | _ -> assert_failure "Expected two cases") ;
+               | cases -> assert_expected_cases 2 cases) ;
+
+      "Should raise over nominal variables" >::
+        (fun () ->
+           let clauses = parse_clauses "pred M N." in
+           let used = ["M"; "N"] in
+           let n = var ~tag:Nominal "n" 0 in
+           let term = app (const "pred") [app (const "A") [n]; const "B"] in
+             match case (Pred term) [] clauses used with
+               | [case1] -> ()
+               | cases -> assert_expected_cases 1 cases) ;
+             
     ]
 
 let induction_tests =

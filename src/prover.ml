@@ -16,10 +16,15 @@ type sequent = {
   mutable hyps : (id * lppterm) list ;
   mutable goal : lppterm ;
   mutable count : int ;
+  mutable timestamp : int ;
 }
 
 let sequent =
-  { vars = [] ; hyps = [] ; goal = termobj (const "placeholder") ; count = 0 }
+  { vars = [] ;
+    hyps = [] ;
+    goal = termobj (const "placeholder") ;
+    count = 0 ;
+    timestamp = 0}
 
 (* The vars = sequent.vars is superfluous, but forces the copy *)
 let copy_sequent () =
@@ -29,7 +34,11 @@ let set_sequent other =
   sequent.vars <- other.vars ;
   sequent.hyps <- other.hyps ;
   sequent.goal <- other.goal ;
-  sequent.count <- other.count
+  sequent.count <- other.count ;
+  sequent.timestamp <- other.timestamp
+
+let incr_timestamp () =
+  sequent.timestamp <- sequent.timestamp + 1
     
 let var_names () =
   List.map fst sequent.vars
@@ -230,10 +239,7 @@ let apply h args =
   save_undo_state () ;
   let stmt = get_hyp_or_lemma h in
   let result, obligations =
-    match stmt, args with
-      | Forall _, _ ->
-          apply_forall stmt (List.map get_some_hyp args)
-      | _ -> failwith "Apply called on non-forall statement"
+    apply_forall sequent.timestamp stmt (List.map get_some_hyp args)
   in
     List.iter (fun g ->
                  if not (search_goal (normalize g)) then
@@ -303,42 +309,34 @@ let theorem thm =
     
 (* Introduction of forall variables *)
 
-let rec split_args stmt =
-  match stmt with
-    | Arrow(left, right) ->
-        let args, goal = split_args right in
-          (left::args, goal)
-    | _ -> ([], stmt)
-
-let fresh_alist_wrt3 tag ids used =
-  let used = ref used in
-    List.map (fun x ->
-                let tag = if is_capital x then tag else Nominal in
-                let (fresh, curr_used) = fresh_wrt tag x !used in
-                  used := curr_used ;
-                  (x, fresh))
-      ids
-
 let intros () =
   save_undo_state () ;
-  match sequent.goal with
-    | Forall(bindings, body) ->
-        List.iter add_var (fresh_alist_wrt3 Eigen bindings (var_names ())) ;
-        let fresh_body = replace_lppterm_vars sequent.vars body in
-        let args, new_goal = split_args fresh_body in
-          List.iter add_hyp args ;
-          sequent.goal <- new_goal
-    | _ ->
-        let args, new_goal = split_args sequent.goal in
-          List.iter add_hyp args ;
-          sequent.goal <- new_goal
-
+  let rec aux term =
+    match term with
+      | Forall(bindings, body) ->
+          List.iter add_var
+            (fresh_alist_wrt Eigen
+               sequent.timestamp bindings (var_names ())) ;
+          incr_timestamp () ;
+          aux (replace_lppterm_vars sequent.vars body)
+      | Nabla(bindings, body) ->
+          List.iter add_var
+            (fresh_alist_wrt Nominal
+               sequent.timestamp bindings (var_names ())) ;
+          incr_timestamp () ;
+          aux (replace_lppterm_vars sequent.vars body)
+      | Arrow(left, right) ->
+          add_hyp left ;
+          aux right
+      | _ -> term
+  in
+    sequent.goal <- aux sequent.goal
             
 let intro () =
   save_undo_state () ;
   match sequent.goal with
     | Forall(first::rest, body) ->
-        let alist = fresh_alist_wrt Eigen [first] (var_names ()) in
+        let alist = fresh_alist_wrt Eigen 0 [first] (var_names ()) in
           List.iter add_var alist ;
           let fresh_body = replace_lppterm_vars alist body in
             sequent.goal <- Forall(rest, fresh_body)

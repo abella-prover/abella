@@ -8,10 +8,10 @@ open Extensions
 let fresh_alist tag ids =
   List.map (fun x -> (x, fresh ~tag:tag 0)) ids
       
-let fresh_alist_wrt tag ids used =
+let fresh_alist_wrt tag ts ids used =
   let used = ref used in
     List.map (fun x ->
-                let (fresh, curr_used) = fresh_wrt tag x !used in
+                let (fresh, curr_used) = fresh_wrt tag ts x !used in
                   used := curr_used ;
                   (x, fresh))
       ids
@@ -42,7 +42,7 @@ let capital_var_names ts =
 
 let freshen_clause_wrt tag head body used =
   let var_names = capital_var_names (head::body) in
-  let fresh_names = fresh_alist_wrt tag var_names used in
+  let fresh_names = fresh_alist_wrt tag 0 var_names used in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
@@ -54,8 +54,8 @@ let freshen_clause tag head body =
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
 
-let freshen_bindings tag bindings term used =
-  replace_lppterm_vars (fresh_alist tag bindings) term
+let freshen_bindings tag ts bindings term used =
+  replace_lppterm_vars (fresh_alist_wrt tag ts bindings used) term
 
 (* Object level cut *)
 
@@ -84,7 +84,7 @@ type case = {
 let fresh_alist_wrt2 support tag ids used =
   let used = ref used in
     List.map (fun x ->
-                let (fresh, curr_used) = fresh_wrt tag x !used in
+                let (fresh, curr_used) = fresh_wrt tag 0 x !used in
                   used := curr_used ;
                   (x, app fresh support))
       ids
@@ -101,7 +101,7 @@ let term_case support term clauses used wrapper =
     (fun (head, body) ->
        let fresh_head, fresh_body = freshen_clause_wrt2 support Eigen head body used in
        let initial_state = get_bind_state () in
-         if try_left_unify fresh_head term then
+         if try_left_unify ~used:used fresh_head term then
            let new_vars = get_term_vars_alist Eigen (fresh_head::fresh_body) in
            let bind_state = get_bind_state () in
            let wrapped_body = List.map wrapper fresh_body in
@@ -144,7 +144,7 @@ let case term clauses meta_clauses used =
         in
           [make_simple_case left; make_simple_case right]
     | Exists(ids, body) ->
-        let fresh_ids = fresh_alist_wrt Eigen ids used in
+        let fresh_ids = fresh_alist_wrt Eigen 0 ids used in
         let fresh_body = replace_lppterm_vars fresh_ids body in
           [{ bind_state = get_bind_state () ;
              new_vars = fresh_ids ;
@@ -174,6 +174,7 @@ let get_max_restriction t =
       | Obj(_, Irrelevant) -> 0
       | Arrow(a, b) -> max (aux a) (aux b)
       | Forall(bindings, body) -> aux body
+      | Nabla(bindings, body) -> aux body
       | Exists(bindings, body) -> aux body
       | Or(a, b) -> max (aux a) (aux b)
       | Pred _ -> 0
@@ -181,14 +182,21 @@ let get_max_restriction t =
     aux t
         
 let induction ind_arg stmt =
-  match stmt with
-    | Forall(bindings, body) ->
-        let n = 1 + get_max_restriction body in
-        let ih = apply_restriction_at (Smaller n) body ind_arg in
-        let goal = apply_restriction_at (Equal n) body ind_arg in
-          (forall bindings ih, forall bindings goal)
-    | _ -> failwith "Induction applied to non-forall statement"
-
+  let rec aux stmt =
+    match stmt with
+      | Forall(bindings, body) ->
+          let (ih, goal) = aux body in
+            (forall bindings ih, forall bindings goal)
+      | Nabla(bindings, body) ->
+          let (ih, goal) = aux body in
+            (nabla bindings ih, nabla bindings goal)
+      | term ->
+          let n = 1 + get_max_restriction term in
+          let ih = apply_restriction_at (Smaller n) term ind_arg in
+          let goal = apply_restriction_at (Equal n) term ind_arg in
+            (ih, goal)
+  in
+    aux stmt
 
 (* Search *)
 
@@ -237,7 +245,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses ~goal =
     match goal with
       | Or(left, right) -> lppterm_aux n left or lppterm_aux n right
       | Exists(bindings, body) ->
-          let term = freshen_bindings Logic bindings body [] in
+          let term = freshen_bindings Logic 0 bindings body [] in
             lppterm_aux n term
       | Obj(obj, r) -> obj_aux n obj
       | Pred(p) ->
@@ -305,53 +313,51 @@ let rec map_args f t =
     | Arrow(left, right) ->
         (f left) :: (map_args f right)
     | _ -> []
+        
+let some_term_to_restriction t =
+  match t with
+    | None -> Irrelevant
+    | Some t -> term_to_restriction t
 
-let fresh_alist2 tag ids =
-  List.map (fun x ->
-              if is_capital x
-              then (x, fresh ~tag:tag 0)
-              else (x, var ~tag:Nominal x 0)) ids
-        
-let freshen_bindings2 tag bindings term used =
-  replace_lppterm_vars (fresh_alist2 tag bindings) term
-        
-let apply_forall stmt ts =
-  match stmt with
-    | Forall(bindings, body) ->
-        let fresh_body = freshen_bindings2 Logic bindings body [] in
-        let formal = map_args term_to_restriction fresh_body in
-        let some_term_to_restriction t =
-          match t with
-            | None -> Irrelevant
-            | Some t -> term_to_restriction t
-        in
-        let actual = List.map some_term_to_restriction ts in
-        let context_pairs = ref [] in
-        let obligations = ref [] in
-          check_restrictions formal actual ;
-          let result =
-            List.fold_left
-              (fun stmt arg ->
-                 match stmt, arg with
-                   | Arrow(Obj(left, _), right), Some Obj(arg, _) ->
-                       context_pairs :=
-                         (left.context, arg.context)::!context_pairs ;
-                       begin try right_unify left.term arg.term with
-                         | Unify.Error _ -> failwith "Unification failure"
-                       end ;
-                       right
-                   | Arrow(Pred(left), right), Some (Pred arg) ->
-                       begin try right_unify left arg with
-                         | Unify.Error _ -> failwith "Unificaion failure"
-                       end ;
-                       right
-                   | Arrow(left, right), None ->
-                       obligations := left::!obligations ;
-                       right
-                   | _ -> failwith "Too few implications in forall application")
-              fresh_body
-              ts
-          in
-            Context.reconcile !context_pairs ;
-            (normalize result, !obligations)
-    | _ -> failwith "apply_forall can only be used on Forall(...) statements"
+let apply_forall ts term args =
+  let rec aux ts term =
+    match term with
+      | Forall(bindings, body) ->
+          aux (ts+1) (freshen_bindings Logic ts bindings body [])
+      | Nabla(bindings, body) ->
+          aux (ts+1) (freshen_bindings Nominal ts bindings body [])
+      | Arrow _ ->
+          let formal = map_args term_to_restriction term in
+          let actual = List.map some_term_to_restriction args in
+          let context_pairs = ref [] in
+          let obligations = ref [] in
+            check_restrictions formal actual ;
+            let result =
+              List.fold_left
+                (fun term arg ->
+                   match term, arg with
+                     | Arrow(Obj(left, _), right), Some Obj(arg, _) ->
+                         context_pairs :=
+                           (left.context, arg.context)::!context_pairs ;
+                         begin try right_unify left.term arg.term with
+                           | Unify.Error _ -> failwith "Unification failure"
+                         end ;
+                         right
+                     | Arrow(Pred(left), right), Some (Pred arg) ->
+                         begin try right_unify left arg with
+                           | Unify.Error _ -> failwith "Unificaion failure"
+                         end ;
+                         right
+                     | Arrow(left, right), None ->
+                         obligations := left::!obligations ;
+                         right
+                     | _ -> failwith "Too few implications in application")
+                term
+                args
+            in
+              Context.reconcile !context_pairs ;
+              (normalize result, !obligations)
+      | _ -> failwith "Attempting to apply malformed term"
+
+  in
+    aux ts term

@@ -14,6 +14,7 @@ type lppterm =
   | Obj of obj * restriction
   | Arrow of lppterm * lppterm
   | Forall of id list * lppterm
+  | Nabla of id list * lppterm
   | Exists of id list * lppterm
   | Or of lppterm * lppterm
   | Pred of term
@@ -26,6 +27,7 @@ let obj t = { context = Context.empty ; term = t }
 let termobj t = Obj(obj t, Irrelevant)
 let arrow a b = Arrow(a, b)
 let forall ids t = Forall(ids, t)
+let nabla ids t = Nabla(ids, t)
 let exists ids t = Exists(ids, t)
 let lpp_or a b = Or(a, b)
 
@@ -39,6 +41,7 @@ let map_objs f t =
       | Obj(obj, r) -> Obj(f obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Forall(bindings, body) -> Forall(bindings, aux body)
+      | Nabla(bindings, body) -> Nabla(bindings, aux body)
       | Exists(bindings, body) -> Exists(bindings, aux body)
       | Or(a, b) -> Or(aux a, aux b)
       | Pred _ -> t
@@ -146,6 +149,7 @@ let rec collect_terms t =
     | Obj(obj, r) -> (Context.context_to_list obj.context) @ [obj.term]
     | Arrow(a, b) -> (collect_terms a) @ (collect_terms b)
     | Forall(bindings, body) -> collect_terms body
+    | Nabla(bindings, body) -> collect_terms body
     | Exists(bindings, body) -> collect_terms body
     | Or(a, b) -> (collect_terms a) @ (collect_terms b)
     | Pred p -> [p]
@@ -182,6 +186,10 @@ let rec replace_lppterm_vars alist t =
           let alist' = List.remove_assocs bindings alist in
           let body' = replace_lppterm_vars alist' body in
             Forall(bindings, body')
+      | Nabla(bindings, body) ->
+          let alist' = List.remove_assocs bindings alist in
+          let body' = replace_lppterm_vars alist' body in
+            Nabla(bindings, body')
       | Exists(bindings, body) ->
           let alist' = List.remove_assocs bindings alist in
           let body' = replace_lppterm_vars alist' body in
@@ -214,6 +222,7 @@ let priority t =
     | Or _ -> 2
     | Arrow _ -> 1
     | Forall _ -> 0
+    | Nabla _ -> 0
     | Exists _ -> 0
 
 let obj_to_string obj =
@@ -225,26 +234,6 @@ let obj_to_string obj =
   let term = term_to_string obj.term in
     "{" ^ context ^ term ^ "}"
     
-let lppterm_to_string t =
-  let rec aux pr_above t =
-    let pr_curr = priority t in
-    let pp =
-      match t with
-        | Obj(obj, r) -> (obj_to_string obj) ^ (restriction_to_string r)
-        | Arrow(a, b) ->
-            (aux (pr_curr + 1) a) ^ " -> " ^ (aux pr_curr b)
-        | Forall(ids, t) ->
-            "forall " ^ (bindings_to_string ids) ^ ", " ^ (aux pr_curr t)
-        | Exists(ids, t) ->
-            "exists " ^ (bindings_to_string ids) ^ ", " ^ (aux pr_curr t)
-        | Or(a, b) ->
-            (aux pr_curr a) ^ " or " ^ (aux (pr_curr + 1) b)
-        | Pred(p) -> term_to_string p
-    in
-      if pr_curr >= pr_above then pp else "(" ^ pp ^ ")"
-  in
-    aux 0 t
-
 let format_lppterm fmt t =
   let rec aux pr_above t =
     let pr_curr = priority t in
@@ -258,6 +247,9 @@ let format_lppterm fmt t =
             aux pr_curr b
         | Forall(ids, t) ->
             fprintf fmt "forall %s,@ " (bindings_to_string ids) ;
+            aux pr_curr t
+        | Nabla(ids, t) ->
+            fprintf fmt "nabla %s,@ " (bindings_to_string ids) ;
             aux pr_curr t
         | Exists(ids, t) ->
             fprintf fmt "exists %s,@ " (bindings_to_string ids) ;

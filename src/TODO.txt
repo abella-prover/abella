@@ -2,9 +2,12 @@ Clean up support in lppterm
 Clean up freshness in tactics, case, and intros, apply_forall
 Clean up case analysis code
 
-During subst.thm when we apply {... |- copy (R x) S} to
-  {... |- copy (N x) S} it is not LLambda because R will be a logic
-  variable and may contain x.
+Merge lppterm exists forall nabla into a single constructor?
+
+Think more about timestamps in prover and how they are used by tactics
+
+Add tests for apply_forall to nabla
+  Rename apply_forall and related tests to something better
 
 Find a better way of dealing with nominal variables rather than just
   raising all the timestamps?
@@ -12,6 +15,12 @@ Find a better way of dealing with nominal variables rather than just
 Dale's copy example
 
 Cut elimination with forall quantifier?
+
+Soundness
+  Are two nominal variables with the same name but different
+  timestamps still equal?
+
+A n = B is still picking a bad name
 
 Future
 ======

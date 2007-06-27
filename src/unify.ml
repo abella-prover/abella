@@ -45,9 +45,8 @@ open Extensions
 
 let used = ref []
 
-(* TODO - right now the ts is ignored *)
 let named_fresh name ts =
-  let (v, new_used) = fresh_wrt instantiatable name !used in
+  let (v, new_used) = fresh_wrt instantiatable ts name !used in
     used := new_used ;
     v
 
@@ -601,8 +600,8 @@ and unify t1 t2 = match Term.observe t1,Term.observe t2 with
         unify t1 (Term.lambda (n2-n1) t2)
   | _ -> failwith "logic variable on the left (7)"
 
-let pattern_unify t1 t2 =
-  used := map_vars_list (fun v -> v.name) [t1; t2] ;
+let pattern_unify used_names t1 t2 =
+  used := used_names ;
   unify (hnorm t1) (hnorm t2)
 
 end
@@ -619,15 +618,13 @@ module Left =
           let constant_like = Term.Logic
         end)
 
-let right_unify t1 t2 =
-  let t1 = Term.set_nominal_timestamps 0 t1 in
-  let t2 = Term.set_nominal_timestamps 0 t2 in
-    Right.pattern_unify t1 t2
+let right_unify ?used:(used=[]) t1 t2 =
+  Right.pattern_unify used t1 t2
 
-let left_unify t1 t2 =
+let left_unify ?used:(used=[]) t1 t2 =
   let t1 = Term.set_nominal_timestamps 1000 t1 in
   let t2 = Term.set_nominal_timestamps 1000 t2 in
-    Left.pattern_unify t1 t2
+    Left.pattern_unify used t1 t2
       
 let try_with_state f =
   let state = Term.get_bind_state () in
@@ -636,15 +633,15 @@ let try_with_state f =
     with
       | _ -> Term.set_bind_state state ; false
 
-let try_right_unify t1 t2 =
+let try_right_unify ?used:(used=[]) t1 t2 =
   try_with_state
     (fun () ->
-       right_unify t1 t2 ;
+       right_unify ~used:used t1 t2 ;
        true)
  
-let try_left_unify t1 t2 =
+let try_left_unify ?used:(used=[]) t1 t2 =
   try_with_state
     (fun () ->
-       left_unify t1 t2 ;
+       left_unify ~used:used t1 t2 ;
        true)
 

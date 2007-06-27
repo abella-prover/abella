@@ -2,7 +2,7 @@
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS SKIP UNDO CUT ASSERT
 %token INTRO
 %token THEOREM AXIOM DEF
-%token COLON RARROW FORALL EXISTS STAR AT OR LBRACK RBRACK
+%token COLON RARROW FORALL NABLA EXISTS STAR AT OR LBRACK RBRACK
 
 %token <int> NUM
 %token <string> ID
@@ -91,6 +91,7 @@ id_list:
 lppterm:
   | FORALL binding_list COMMA lppterm   { Lppterm.Forall($2, $4) }
   | EXISTS binding_list COMMA lppterm   { Lppterm.Exists($2, $4) }
+  | NABLA binding_list COMMA lppterm    { Lppterm.Nabla($2, $4) }
   | lppterm RARROW lppterm              { Lppterm.Arrow($1, $3) }
   | lppterm OR lppterm                  { Lppterm.Or($1, $3) }
   | LPAREN lppterm RPAREN               { $2 }

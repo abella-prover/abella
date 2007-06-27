@@ -25,10 +25,10 @@ type error =
 exception Error      of error
 exception NotLLambda of Term.term
 
-val right_unify : Term.term -> Term.term -> unit
-val left_unify : Term.term -> Term.term -> unit
+val right_unify : ?used:Term.id list -> Term.term -> Term.term -> unit
+val left_unify : ?used:Term.id list -> Term.term -> Term.term -> unit
 
 val try_with_state : (unit -> bool) -> bool
 
-val try_right_unify : Term.term -> Term.term -> bool
-val try_left_unify : Term.term -> Term.term -> bool  
+val try_right_unify : ?used:Term.id list -> Term.term -> Term.term -> bool
+val try_left_unify : ?used:Term.id list -> Term.term -> Term.term -> bool  

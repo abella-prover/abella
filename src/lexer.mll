@@ -32,6 +32,7 @@ rule token = parse
 | ":"                { COLON }
 | "->"               { RARROW }
 | "forall"           { FORALL }
+| "nabla"            { NABLA }
 | "exists"           { EXISTS }
 | "*"                { STAR }
 | "@"                { AT }

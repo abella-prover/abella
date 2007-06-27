@@ -45,7 +45,9 @@ let rec eq t1 t2 =
   match t1,t2 with
     (* Compare leafs *)
     | DB i1, DB i2 -> i1=i2
-    | Ptr {contents=V v1}, Ptr {contents=V v2} -> v1=v2
+    | Ptr {contents=V v1}, Ptr {contents=V v2} ->
+        (v1.tag = Nominal && v2.tag = Nominal && v1.name = v2.name) ||
+          v1=v2
     (* Ignore Ptr. It's an implementation artifact *)
     | _, Ptr {contents=T t2} -> eq t1 t2
     | Ptr {contents=T t1}, _ -> eq t1 t2
@@ -199,11 +201,14 @@ let fresh ?(tag=Logic) ts =
   let name = (prefix tag) ^ (string_of_int i) in
     var ~tag:tag name ts
 
-let rec fresh_wrt tag name used =
-  if List.mem name used then
-    fresh_wrt tag (name ^ "'") used
-  else
-    (var ~tag:tag name 0, name::used)
+let fresh_wrt tag ts name used =
+  let rec aux name =
+    if List.mem name used
+    then aux (name ^ "'")
+    else name
+  in
+  let name = aux name in
+    (var ~tag:tag name ts, name::used)
 
 let binop s a b = App ((const s),[a;b])
             
@@ -369,7 +374,9 @@ let term_to_string term =
   let pp_var x = pre ^ (string_of_int x) in
   let rec pp pr n term =
     match observe term with
-      | Var v -> v.name (* ^ ":" ^ (tag2str v.tag) *) 
+      | Var v -> v.name
+          (* ^ ":" ^ (tag2str v.tag) *)
+          (* ^ ":" ^ (string_of_int v.ts) *)
       | DB i -> pp_var (n-i+1)
       | App (t,ts) ->
           begin match observe t, ts with

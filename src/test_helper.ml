@@ -21,7 +21,7 @@ let read_mod filename =
 let freshen str =
   let term = parse_lppterm str in
   let var_names = Tactics.lppterm_capital_var_names term in
-  let fresh_names = Tactics.fresh_alist_wrt Term.Eigen var_names [] in
+  let fresh_names = Tactics.fresh_alist_wrt Term.Eigen 0 var_names [] in
     replace_lppterm_vars fresh_names term
 
 let eval_clauses = read_mod "eval.mod"

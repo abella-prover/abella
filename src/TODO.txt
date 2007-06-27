@@ -1,4 +1,3 @@
-Clean up support in lppterm
 Clean up freshness in tactics, case, and intros, apply_forall
 Clean up case analysis code
 
@@ -13,6 +12,8 @@ Find a better way of dealing with nominal variables rather than just
   raising all the timestamps?
 
 Dale's copy example
+  Add apply with ...
+  Add rename or permute
 
 Cut elimination with forall quantifier?
 

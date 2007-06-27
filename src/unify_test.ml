@@ -385,42 +385,6 @@ let tests =
              left_unify (app a [n]) n ;
              assert_term_equal (1 // db 1) a) ;
 
-      "Nominal variables should unify under renaming" >::
-        (fun () ->
-           let n1 = var ~tag:Nominal "n1" 0 in
-           let n2 = var ~tag:Nominal "n2" 0 in
-             right_unify n1 n2) ;
-
-      "Nominal variables should unify consistently under renaming" >::
-        (fun () ->
-           let a = var ~tag:Eigen "a" 0 in
-           let n1 = var ~tag:Nominal "n1" 0 in
-           let n2 = var ~tag:Nominal "n2" 0 in
-           let n3 = var ~tag:Nominal "n3" 0 in
-           let t1 = app a [n1; n1] in
-           let t2 = app a [n2; n3] in
-             assert_raises_any
-               (fun () -> right_unify t1 t2)) ;
-
-      "Equal nominal variables at head should enforce renaming constraint" >::
-        (fun () ->
-           let n1 = var ~tag:Nominal "n1" 0 in
-           let n2 = var ~tag:Nominal "n2" 0 in
-           let t1 = app n1 [n1] in
-           let t2 = app n1 [n2] in
-             assert_raises_any
-               (fun () -> right_unify t1 t2)) ;
-
-      "Nominal variables at head should be renamed" >::
-        (fun () ->
-           let n1 = var ~tag:Nominal "n1" 0 in
-           let n2 = var ~tag:Nominal "n2" 0 in
-           let n3 = var ~tag:Nominal "n3" 0 in
-           let n4 = var ~tag:Nominal "n4" 0 in
-           let t1 = app n1 [n2] in
-           let t2 = app n3 [n4] in
-             right_unify t1 t2) ;
-
       "Pruning for nominal variables should not pick a worthless name" >::
         (fun () ->
            let n = var ~tag:Nominal "n" 0 in

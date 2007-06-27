@@ -1,13 +1,12 @@
-Next week
-=========
 
-When doing case analysis, raise eigen variables over the support.
+How do we deal with context subsumption when there are names?
+
+Comment in raising test in tactics
+
+Clean up case analysis code
 
 Dale's substitution example
   Why are we missing cases for copy?
-
-With support for contexts and names,
-     Cut elimination with forall quantifier?
 
 Equivariant unification
   Where do we add raising over supp(T)?
@@ -20,10 +19,21 @@ Equivariant unification
 
   What do we do about logic variables being instantiated with nominal
     constants?
+
+  Reenabled not_ll error
      
+With support for contexts and names,
+     Cut elimination with forall quantifier?
+
 Future
 ======
 
+Fix unification names (A n) = B should not rename B (on left)
+  Right now using a hack with Term.bind?
+  Fix names when matching a clause like "foo A B" we raise it to
+    "foo (A n) (B n)" but then those raisings are thrown away and the
+    new terms for A and B are h12 and h13, etc.
+  
 Reserve nXXX for nominals and allow parsing like that?
 
 Prove that normal and non-normal are non-overlapping

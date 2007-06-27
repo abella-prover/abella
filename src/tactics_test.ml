@@ -402,8 +402,8 @@ let search_tests =
 
       "Should replace pi x\\ with nominal variable" >::
         (fun () ->
-           let n = var ~tag:Nominal "n" 0 in
-           let hyp = termobj (app (const "pred") [n; n]) in
+           let n1 = var ~tag:Nominal "n1" 0 in
+           let hyp = termobj (app (const "pred") [n1; n1]) in
            let goal = freshen "{pi x\\ pred x x}" in
              assert_search_success (basic_search 1 [hyp] goal)) ;
 

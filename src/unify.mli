@@ -21,7 +21,6 @@ type error =
   | OccursCheck
   | TypesMismatch
   | ConstClash of (Term.term * Term.term)
-  | NominalCheck
 
 exception Error      of error
 exception NotLLambda of Term.term

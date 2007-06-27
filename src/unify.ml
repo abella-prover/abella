@@ -23,7 +23,6 @@ type error =
   | OccursCheck
   | TypesMismatch
   | ConstClash of (Term.term * Term.term)
-  | NominalCheck
 
 exception Error of error
 exception NotLLambda of Term.term
@@ -49,23 +48,6 @@ let constant tag =
 let variable tag =
   tag = instantiatable
 let fresh = Term.fresh ~tag:instantiatable
-
-(* Nominal pairings *)
-  
-let nominal_pairings = ref []
-  
-let add_nominal_pairing n1 n2 =
-  nominal_pairings := (n1, n2)::!nominal_pairings
-    
-let reset_nominal_pairings () =
-  nominal_pairings := []
-    
-let check_nominal_pairings () =
-  let nominal_pairings = List.unique !nominal_pairings in
-  let left_names, right_names = List.split nominal_pairings in
-    match List.find_duplicate left_names, List.find_duplicate right_names with
-      | None, None -> ()
-      | _ -> raise NominalCheck
 
 (* Transforming a term to represent substitutions under abstractions *)
 let rec lift t n = match Term.observe t with
@@ -504,8 +486,6 @@ and unify_const_term cst t2 = if Term.eq cst t2 then () else
           unify_app_term cst a1 (Term.app cst a1) t2
     | _, Term.Var {tag=t} when not (variable t || constant t) ->
         failwith "logic variable on the left (3)"
-    | Term.Var v1, Term.Var v2 when v1.tag=Nominal && v2.tag=Nominal ->
-        add_nominal_pairing v1.name v2.name
     | _ -> raise (ConstClash (cst,t2))
 
 (* Unifying the bound variable [t1] with [t2].
@@ -532,9 +512,6 @@ and unify_app_term h1 a1 t1 t2 = match Term.observe h1,Term.observe t2 with
         Term.bind h1 (makesubst h1 t2 a1 n)
   | Term.Var v1, Term.App (h2,a2) when constant v1.tag ->
       begin match Term.observe h2 with
-        | Var v2 when v1.tag=Nominal && v2.tag=Nominal ->
-            add_nominal_pairing v1.name v2.name ;
-            unify_list a1 a2
         | Var v2 when constant v2.tag ->
             if Term.eq h1 h2 then
               unify_list a1 a2
@@ -611,9 +588,7 @@ and unify t1 t2 = match Term.observe t1,Term.observe t2 with
   | _ -> failwith "logic variable on the left (7)"
 
 let pattern_unify t1 t2 =
-  reset_nominal_pairings () ;
-  unify (hnorm t1) (hnorm t2) ;
-  check_nominal_pairings ()
+  unify (hnorm t1) (hnorm t2)
 
 end
 

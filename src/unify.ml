@@ -333,10 +333,11 @@ let rec prune_same_var l1 l2 j bl = match l1,l2 with
   * part. *)
 let makesubst h1 t2 a1 n =
   (* Check that h1 is a variable, get its timestamp *)
-  let ts1 = match Term.observe h1 with
-    | Term.Var v -> assert (v.tag=instantiatable) ; v.ts
+  let hv1 = match Term.observe h1 with
+    | Term.Var v -> assert (v.tag=instantiatable) ; v
     | _ -> assert false
   in
+  let ts1 = hv1.ts in
   let a1 = List.map hnorm a1 in
 
   (** Generating a substitution term and performing raising and
@@ -399,7 +400,12 @@ let makesubst h1 t2 a1 n =
                   raise_and_invert ts1 ts2 a1 a2 lev
                 in
                   if changed then
-                    let h' = fresh (min ts1 ts2) in
+                    let h' =
+                      (* TODO - is this special case for a1 = [] sound? *)
+                      if a1 = []
+                      then var ~tag:instantiatable hv1.name (min ts1 ts2)
+                      else fresh (min ts1 ts2)
+                    in
                       Term.bind h2
                         (Term.lambda (List.length a2)
                            (Term.app h' a2')) ;

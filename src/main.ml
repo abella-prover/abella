@@ -19,6 +19,7 @@ let rec process_proof name ~interactive lexbuf =
           | Assert(t) -> assert_hyp t
           | Search -> search ()
           | Intros -> intros ()
+          | Intro -> intro ()
           | Skip -> skip ()
           | Undo -> undo ()
         end ;

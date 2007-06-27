@@ -21,6 +21,7 @@ type command =
   | Assert of lppterm
   | Search
   | Intros
+  | Intro
   | Skip
   | Undo
 
@@ -54,6 +55,7 @@ let command_to_string c =
         sprintf "assert %s" (lppterm_to_string t)
     | Search -> "search"
     | Intros -> "intros"
+    | Intro -> "intro"
     | Skip -> "skip"
     | Undo -> "undo"
       

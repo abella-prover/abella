@@ -312,11 +312,9 @@ let rec split_args stmt =
 
 let intros () =
   save_undo_state () ;
-  if sequent.vars != [] then
-    failwith "Intros can only be used when there are no context variables" ;
   match sequent.goal with
     | Forall(bindings, body) ->
-        sequent.vars <- fresh_alist_wrt Eigen bindings (var_names ()) ;
+        List.iter add_var (fresh_alist_wrt Eigen bindings (var_names ())) ;
         let fresh_body = replace_lppterm_vars sequent.vars body in
         let args, new_goal = split_args fresh_body in
           List.iter add_hyp args ;
@@ -326,6 +324,16 @@ let intros () =
           List.iter add_hyp args ;
           sequent.goal <- new_goal
 
+            
+let intro () =
+  save_undo_state () ;
+  match sequent.goal with
+    | Forall(first::rest, body) ->
+        let alist = fresh_alist_wrt Eigen [first] (var_names ()) in
+          List.iter add_var alist ;
+          let fresh_body = replace_lppterm_vars alist body in
+            sequent.goal <- Forall(rest, fresh_body)
+    | _ -> ()
             
 (* Skip *)
 

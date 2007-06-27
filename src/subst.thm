@@ -1,6 +1,14 @@
+Def ctx nil.
+Def ctx (copy X X :: L) :- ctx L.
+
+Axiom ctx_lemma : forall X Y L,
+  ctx L -> member (copy X Y) L -> X = Y.
+
 Theorem generalized :
-  forall L R T S, {L |- subst R T S} -> {R T = S}.
-induction on 1. intros. case H1.
+  forall T L R S, ctx L -> {L, copy x T |- copy (R x) S} -> {R T = S}.
+intro.
+induction on 2. intros. case H2.
+%induction on 1. intros. case H1.
 %  skip.
   % case H2.
   % Error: there should be more cases

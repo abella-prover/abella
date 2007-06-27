@@ -1,8 +1,4 @@
 
-How do we deal with context subsumption when there are names?
-
-Comment in raising test in tactics
-
 Clean up case analysis code
 
 Dale's substitution example
@@ -14,14 +10,6 @@ Equivariant unification
   Find a better way of dealing with nominal variables rather than just
     raising all the timestamps?
 
-  Check nominal pairings on the fly and raising constclash instead of
-    nominalcheck
-
-  What do we do about logic variables being instantiated with nominal
-    constants?
-
-  Reenabled not_ll error
-     
 With support for contexts and names,
      Cut elimination with forall quantifier?
 
@@ -35,6 +23,8 @@ Fix unification names (A n) = B should not rename B (on left)
     new terms for A and B are h12 and h13, etc.
   
 Reserve nXXX for nominals and allow parsing like that?
+
+Check that TODO in unify.ml is sound
 
 Prove that normal and non-normal are non-overlapping
 

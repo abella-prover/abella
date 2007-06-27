@@ -1,5 +1,6 @@
 %token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS SKIP UNDO CUT ASSERT
+%token INTRO
 %token THEOREM AXIOM DEF
 %token COLON RARROW FORALL EXISTS STAR AT OR LBRACK RBRACK
 
@@ -78,6 +79,7 @@ command:
   | ASSERT lppterm DOT                  { Types.Assert($2) }
   | SEARCH DOT                          { Types.Search }
   | INTROS DOT                          { Types.Intros }
+  | INTRO DOT                           { Types.Intro }
   | SKIP DOT                            { Types.Skip }
   | UNDO DOT                            { Types.Undo }
   | EOF                                 { raise End_of_file }

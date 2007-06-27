@@ -602,7 +602,7 @@ and unify t1 t2 = match Term.observe t1,Term.observe t2 with
   | _ -> failwith "logic variable on the left (7)"
 
 let pattern_unify t1 t2 =
-  used := [] ;
+  used := map_vars_list (fun v -> v.name) [t1; t2] ;
   unify (hnorm t1) (hnorm t2)
 
 end

@@ -1,6 +1,3 @@
-TODO in unify is unsound. Might need to track used variable names in
-  the unify code
-
 Clean up support in lppterm
 Clean up freshness in tactics, case, and intros, apply_forall
 Clean up case analysis code
@@ -19,11 +16,7 @@ Cut elimination with forall quantifier?
 Future
 ======
 
-Fix unification names (A n) = B should not rename B (on left)
-  Right now using a hack with Term.bind?
-  Fix names when matching a clause like "foo A B" we raise it to
-    "foo (A n) (B n)" but then those raisings are thrown away and the
-    new terms for A and B are h12 and h13, etc.
+Used variables in unify should use the used variables from the prover
   
 Reserve nXXX for nominals and allow parsing like that?
 

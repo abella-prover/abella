@@ -8,22 +8,22 @@ open Extensions
 let fresh_alist tag ids =
   List.map (fun x -> (x, fresh ~tag:tag 0)) ids
       
-let fresh_alist_wrt tag ts ids used =
+let fresh_alist_wrt tag ids used =
   let used = ref used in
     List.map (fun x ->
-                let (fresh, curr_used) = fresh_wrt tag ts x !used in
+                let (fresh, curr_used) = fresh_wrt tag x !used in
                   used := curr_used ;
                   (x, fresh))
       ids
       
-let get_term_vars_alist tag ts =
+let get_term_vars_alist tag terms =
   List.map (fun v -> ((term_to_var v).name, v))
-    (find_var_refs tag ts)
+    (find_var_refs tag terms)
 
-let get_lppterm_vars_alist tag ts =
+let get_lppterm_vars_alist tag terms =
   get_term_vars_alist tag
     (List.map (fun obj -> obj.term)
-       (List.map term_to_obj ts))
+       (List.map term_to_obj terms))
     
 let is_capital str =
   match str.[0] with
@@ -36,13 +36,13 @@ let lppterm_capital_var_names t =
   let capital_names = List.find_all is_capital names in
     List.unique capital_names
 
-let capital_var_names ts =
+let capital_var_names terms =
   List.unique (List.find_all is_capital
-                 (map_vars_list (fun v -> v.name) ts))
+                 (map_vars_list (fun v -> v.name) terms))
 
 let freshen_clause_wrt tag head body used =
   let var_names = capital_var_names (head::body) in
-  let fresh_names = fresh_alist_wrt tag 0 var_names used in
+  let fresh_names = fresh_alist_wrt tag var_names used in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
@@ -54,8 +54,8 @@ let freshen_clause tag head body =
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
 
-let freshen_bindings tag ts bindings term used =
-  replace_lppterm_vars (fresh_alist_wrt tag ts bindings used) term
+let freshen_bindings tag bindings term used =
+  replace_lppterm_vars (fresh_alist_wrt tag bindings used) term
 
 (* Object level cut *)
 
@@ -84,7 +84,7 @@ type case = {
 let fresh_alist_wrt2 support tag ids used =
   let used = ref used in
     List.map (fun x ->
-                let (fresh, curr_used) = fresh_wrt tag 0 x !used in
+                let (fresh, curr_used) = fresh_wrt tag x !used in
                   used := curr_used ;
                   (x, app fresh support))
       ids
@@ -95,6 +95,9 @@ let freshen_clause_wrt2 support tag head body used =
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
+
+let freshen_bindings2 support tag bindings term used =
+  replace_lppterm_vars (fresh_alist_wrt2 support tag bindings used) term
 
 let term_case support term clauses used wrapper =
   List.filter_map
@@ -144,7 +147,7 @@ let case term clauses meta_clauses used =
         in
           [make_simple_case left; make_simple_case right]
     | Exists(ids, body) ->
-        let fresh_ids = fresh_alist_wrt Eigen 0 ids used in
+        let fresh_ids = fresh_alist_wrt Eigen ids used in
         let fresh_body = replace_lppterm_vars fresh_ids body in
           [{ bind_state = get_bind_state () ;
              new_vars = fresh_ids ;
@@ -210,7 +213,7 @@ let is_false t =
     | _ -> false
   end
 
-let search ~depth:n ~hyps ~clauses ~meta_clauses ~goal =
+let search ~depth:n ~hyps ~clauses ~meta_clauses ~goal ~used =
   
   let rec term_aux n context goal =
     List.exists
@@ -245,7 +248,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses ~goal =
     match goal with
       | Or(left, right) -> lppterm_aux n left or lppterm_aux n right
       | Exists(bindings, body) ->
-          let term = freshen_bindings Logic 0 bindings body [] in
+          let term = freshen_bindings Logic bindings body [] in
             lppterm_aux n term
       | Obj(obj, r) -> obj_aux n obj
       | Pred(p) ->
@@ -259,7 +262,8 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses ~goal =
         (fun (head, body) ->
            try_with_state
              (fun () ->
-                let fresh_head, fresh_body = freshen_clause Logic head body
+                let support = term_support goal in
+                let fresh_head, fresh_body = freshen_clause_wrt2 support Logic head body used
                 in
                   right_unify fresh_head goal ;
                   List.for_all
@@ -319,13 +323,13 @@ let some_term_to_restriction t =
     | None -> Irrelevant
     | Some t -> term_to_restriction t
 
-let apply_forall ts term args =
-  let rec aux ts term =
+let apply_forall support term args =
+  let rec aux term =
     match term with
       | Forall(bindings, body) ->
-          aux (ts+1) (freshen_bindings Logic ts bindings body [])
+          aux (freshen_bindings2 support Logic bindings body [])
       | Nabla(bindings, body) ->
-          aux (ts+1) (freshen_bindings Nominal ts bindings body [])
+          aux (freshen_bindings2 [] Nominal bindings body [])
       | Arrow _ ->
           let formal = map_args term_to_restriction term in
           let actual = List.map some_term_to_restriction args in
@@ -360,4 +364,4 @@ let apply_forall ts term args =
       | _ -> failwith "Attempting to apply malformed term"
 
   in
-    aux ts term
+    aux term

@@ -100,7 +100,7 @@ let normalize ctx =
           remove_cons tail
       | head::tail -> head::(remove_cons tail)
   in
-    remove_dups (remove_cons ctx)
+    remove_dups (remove_cons (List.map deep_norm ctx))
 
 let extract_singleton ctx =
   match ctx with

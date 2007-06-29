@@ -201,14 +201,14 @@ let fresh ?(tag=Logic) ts =
   let name = (prefix tag) ^ (string_of_int i) in
     var ~tag:tag name ts
 
-let fresh_wrt tag ts name used =
+let fresh_wrt tag name used =
   let rec aux name =
     if List.mem name used
     then aux (name ^ "'")
     else name
   in
   let name = aux name in
-    (var ~tag:tag name ts, name::used)
+    (var ~tag:tag name 0, name::used)
 
 let binop s a b = App ((const s),[a;b])
             

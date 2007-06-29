@@ -109,7 +109,7 @@ val logic_vars : term list -> term list
 (** LPP specific additions and changes *)
 val const : ?ts:int -> string -> term
 val fresh : ?tag:tag -> int -> term
-val fresh_wrt : tag -> int -> id -> id list -> term * id list 
+val fresh_wrt : tag -> id -> id list -> term * id list 
   
 val find_vars : tag -> term list -> var list
 val find_var_refs : tag -> term list -> term list

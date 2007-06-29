@@ -13,6 +13,11 @@ module Option = struct
     match x with
       | Some v -> v
       | None -> failwith "Option.get called on None"
+
+  let map_default f default x =
+    match x with
+      | Some v -> f v
+      | None -> default
 end
 
 module List = struct

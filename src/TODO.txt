@@ -1,27 +1,36 @@
 Clean up freshness in tactics, case, and intros, apply_forall
+  All freshness code should take a support and a used argument?
+  
 Clean up case analysis code
+
+Should support be an argument to all these tactics or should they
+  compute it?
+
+Update used when introducing variables in search
+
+Do support raising for term backchaining in search
+
+Using apply forall should pick new names for the introduced logic
+  variables, right?
+
+Remove nominal timestamp setting and just make all nominal variables
+have a high timestamp from the start
 
 Merge lppterm exists forall nabla into a single constructor?
 
-Think more about timestamps in prover and how they are used by tactics
-
 Add tests for apply_forall to nabla
   Rename apply_forall and related tests to something better
-
-Find a better way of dealing with nominal variables rather than just
-  raising all the timestamps?
+  Add tests for apply_forall with support?
 
 Dale's copy example
-  Add apply with ...
-  Add rename or permute
 
 Cut elimination with forall quantifier?
 
-Soundness
-  Are two nominal variables with the same name but different
-  timestamps still equal?
-
 A n = B is still picking a bad name
+
+After Dale
+==========
+If not going to use timestamps, remove them from the system?
 
 Future
 ======

@@ -364,12 +364,12 @@ let tests =
                | _ -> assert false) ;
       *)
 
-      "Logic variables on the right should unify with nominal variables" >::
+      "Logic variables on right should not unify with nominal variables" >::
         (fun () ->
            let a = var ~tag:Logic "A" 0 in
            let n = var ~tag:Nominal "n" 0 in
-             right_unify a n ;
-             assert_term_equal n a) ;
+             assert_raises_any
+               (fun () -> right_unify a n)) ;
 
       "Eigen variables on left should not unify with nominal variables" >::
         (fun () ->

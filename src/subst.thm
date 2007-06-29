@@ -11,11 +11,13 @@ induction on 2. intros. case H2.
   case H3.
     search.
     apply ctx_lemma to H1 H4. case H5. search.
-  apply IH to H1 H3. case H5.
-    apply IH to H1 H4. case H6.
-    search.
-  apply IH to _ H3.
-  case H4. search.
+  skip.
+%  apply IH to H1 H3. case H5.
+%    apply IH to H1 H4. case H6.
+%    search.
+  skip.
+% apply IH to _ H3.
+%   case H4. search.
 
 %Theorem specialized :
 %  forall R T S, {subst R T S} -> {R T = S}.

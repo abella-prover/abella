@@ -201,6 +201,7 @@ let term_support t = find_var_refs Nominal [t]
 
 let obj_support obj = find_var_refs Nominal (obj.term :: obj.context)
 
+let lppterm_support t = find_var_refs Nominal (collect_terms t)
   
 (* Pretty printing *)
 

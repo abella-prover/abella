@@ -51,7 +51,7 @@ let forall_application_tests =
              "forall A B C, {eval A B} -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-           let t, _ = apply_forall 0 h0 [Some h1; Some h2] in
+           let t, _ = apply_forall [] h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
       "Properly restricted" >::
@@ -60,7 +60,7 @@ let forall_application_tests =
              "forall A B C, {eval A B}* -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}*" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-           let t, _ = apply_forall 0 h0 [Some h1; Some h2] in
+           let t, _ = apply_forall [] h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
       "Needlessly restricted" >::
@@ -69,7 +69,7 @@ let forall_application_tests =
              "forall A B C, {eval A B} -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}*" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-           let t, _ = apply_forall 0 h0 [Some h1; Some h2] in
+           let t, _ = apply_forall [] h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
       
       "Improperly restricted" >::
@@ -79,7 +79,7 @@ let forall_application_tests =
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
              assert_raises (Failure "Restriction violated")
-               (fun () -> apply_forall 0 h0 [Some h1; Some h2])) ;
+               (fun () -> apply_forall [] h0 [Some h1; Some h2])) ;
 
       "Improperly restricted (2)" >::
         (fun () ->
@@ -88,7 +88,7 @@ let forall_application_tests =
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
              assert_raises (Failure "Restriction violated")
-               (fun () -> apply_forall 0 h0 [Some h1; Some h2])) ;
+               (fun () -> apply_forall [] h0 [Some h1; Some h2])) ;
 
       "Properly double restricted" >::
         (fun () ->
@@ -96,7 +96,7 @@ let forall_application_tests =
              "forall A B C, {eval A B}@ -> {typeof A C}** -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}**" in
-           let t, _ = apply_forall 0 h0 [Some h1; Some h2] in
+           let t, _ = apply_forall [] h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
       "Improperly double restricted" >::
@@ -106,7 +106,7 @@ let forall_application_tests =
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}@@" in
              assert_raises (Failure "Restriction violated")
-               (fun () -> apply_forall 0 h0 [Some h1; Some h2])) ;
+               (fun () -> apply_forall [] h0 [Some h1; Some h2])) ;
 
       "Improperly double restricted (2)" >::
         (fun () ->
@@ -115,7 +115,7 @@ let forall_application_tests =
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}**" in
              assert_raises (Failure "Restriction violated")
-               (fun () -> apply_forall 0 h0 [Some h1; Some h2])) ;
+               (fun () -> apply_forall [] h0 [Some h1; Some h2])) ;
 
       "Unification failure" >::
         (fun () ->
@@ -124,7 +124,7 @@ let forall_application_tests =
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{bad (abs R) (arrow S T)}" in
              assert_raises (Failure "Unification failure")
-               (fun () -> apply_forall 0 h0 [Some h1; Some h2])) ;
+               (fun () -> apply_forall [] h0 [Some h1; Some h2])) ;
 
       "With contexts" >::
         (fun () ->
@@ -133,14 +133,14 @@ let forall_application_tests =
                 "{E |- conc A} -> {E |- conc C}") in
            let h1 = freshen "{L, hyp A, hyp B1, hyp B2 |- conc C}" in
            let h2 = freshen "{L |- conc A}" in
-           let t, _ = apply_forall 0 h0 [Some h1; Some h2] in
+           let t, _ = apply_forall [] h0 [Some h1; Some h2] in
              assert_pprint_equal "{L, hyp B1, hyp B2 |- conc C}" t) ;
 
       "On non-object" >::
         (fun () ->
            let h0 = freshen "forall A, pred A -> result A" in
            let h1 = freshen "pred B" in
-           let t, _ = apply_forall 0 h0 [Some h1] in
+           let t, _ = apply_forall [] h0 [Some h1] in
              assert_pprint_equal "result B" t) ;
 
       "Absent argument should produce corresponding obligation" >::
@@ -150,7 +150,7 @@ let forall_application_tests =
                 "{L, hyp A |- pred} -> false") in
            let h1 = freshen "{L |- conc A}" in
            let h2 = freshen "{L, hyp A, hyp B, hyp C |- pred}" in
-           let _, obligations = apply_forall 0 h0 [None; Some h1; Some h2] in
+           let _, obligations = apply_forall [] h0 [None; Some h1; Some h2] in
              match obligations with
                | [term] ->
                    assert_pprint_equal "ctx (hyp C :: hyp B :: L)" term
@@ -347,7 +347,13 @@ let induction_tests =
 let assert_search_success b = assert_bool "Search should succeed" b
 let assert_search_failure b = assert_bool "Search should fail" (not b)
 let basic_search n hyps goal =
-  search ~depth:n ~hyps:hyps ~clauses:prog ~meta_clauses:[] ~goal:goal
+  search
+    ~depth:n
+    ~used:[]
+    ~hyps:hyps
+    ~clauses:prog
+    ~meta_clauses:[]
+    ~goal:goal
     
 let search_tests =
   "Search" >:::
@@ -438,7 +444,7 @@ let search_tests =
            let hyp = freshen "member E K" in
            let goal = freshen "member E (F :: K)" in
              assert_search_success
-               (search ~depth:5 ~hyps:[hyp]
+               (search ~depth:5 ~hyps:[hyp] ~used:[]
                   ~clauses:[] ~meta_clauses:meta_clauses
                   ~goal:goal)) ;
 
@@ -449,7 +455,7 @@ let search_tests =
            in
            let meta_search goal =
              search ~depth:10 ~hyps:[] ~clauses:[]
-               ~meta_clauses:meta_clauses ~goal:goal
+               ~meta_clauses:meta_clauses ~used:[] ~goal:goal
            in
            let goal1 = freshen "pred (hyp A)" in
            let goal2 = freshen "pred (conc A)" in

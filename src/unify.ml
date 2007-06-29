@@ -45,8 +45,8 @@ open Extensions
 
 let used = ref []
 
-let named_fresh name ts =
-  let (v, new_used) = fresh_wrt instantiatable ts name !used in
+let named_fresh name =
+  let (v, new_used) = fresh_wrt instantiatable name !used in
     used := new_used ;
     v
 
@@ -410,7 +410,7 @@ let makesubst h1 t2 a1 n =
                     let h' =
                       (* TODO - is this special case for a1 = [] sound? *)
                       if a1 = []
-                      then named_fresh hv1.name (min ts1 ts2)
+                      then named_fresh hv1.name (* (min ts1 ts2) *)
                       else fresh (min ts1 ts2)
                     in
                       Term.bind h2
@@ -619,7 +619,9 @@ module Left =
         end)
 
 let right_unify ?used:(used=[]) t1 t2 =
-  Right.pattern_unify used t1 t2
+  let t1 = Term.set_nominal_timestamps 1000 t1 in
+  let t2 = Term.set_nominal_timestamps 1000 t2 in
+    Right.pattern_unify used t1 t2
 
 let left_unify ?used:(used=[]) t1 t2 =
   let t1 = Term.set_nominal_timestamps 1000 t1 in

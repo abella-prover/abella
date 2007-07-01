@@ -116,7 +116,7 @@ let term_case support term clauses used wrapper =
                None)
     clauses
       
-let obj_case support obj r clauses used =
+let obj_case obj r clauses used =
   if is_imp obj.term then
     [{ bind_state = get_bind_state () ;
        new_vars = [] ;
@@ -126,6 +126,7 @@ let obj_case support obj r clauses used =
     let wrapper t =
       normalize (Obj(context_obj obj.context t, reduce_restriction r))
     in
+    let support = obj_support obj in
     let clause_cases = term_case support obj.term clauses used wrapper in
     let member_case =
       { bind_state = get_bind_state () ;
@@ -139,7 +140,7 @@ let obj_case support obj r clauses used =
 
 let case term clauses meta_clauses used =
   match term with
-    | Obj(obj, r) -> obj_case (obj_support obj) obj r clauses used
+    | Obj(obj, r) -> obj_case obj r clauses used
     | Or(left, right) ->
         let make_simple_case h =
           { bind_state = get_bind_state () ;
@@ -323,7 +324,11 @@ let some_term_to_restriction t =
     | None -> Irrelevant
     | Some t -> term_to_restriction t
 
-let apply_forall support term args =
+let apply_forall term args =
+  let support =
+    List.unique (List.flatten (List.map
+                                 (Option.map_default lppterm_support []) args))
+  in
   let rec aux term =
     match term with
       | Forall(bindings, body) ->

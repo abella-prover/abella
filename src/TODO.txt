@@ -3,9 +3,6 @@ Clean up freshness in tactics, case, and intros, apply_forall
   
 Clean up case analysis code
 
-Should support be an argument to all these tactics or should they
-  compute it?
-
 Update used when introducing variables in search
 
 Do support raising for term backchaining in search

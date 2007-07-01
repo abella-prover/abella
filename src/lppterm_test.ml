@@ -4,9 +4,9 @@ open Term
 open Term.Notations
 open Lppterm
   
-let var_a = var ~tag:Eigen "A" 0
-let var_b = var ~tag:Eigen "B" 0
-let var_c = var ~tag:Eigen "C" 0
+let var_a = var Eigen "A" 0
+let var_b = var Eigen "B" 0
+let var_c = var Eigen "C" 0
 
 let a = termobj var_a
 let b = termobj var_b

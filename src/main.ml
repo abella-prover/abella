@@ -69,7 +69,8 @@ let rec process ~interactive lexbuf =
         print_endline "Goodbye." ;
         exit 0
     | e ->
-        printf "Unknown error: %s\n%!" (Printexc.to_string e)
+        printf "Unknown error: %s\n%!" (Printexc.to_string e) ;
+        if not interactive then exit 1
   done with
   | Failure "eof" -> ()
 

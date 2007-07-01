@@ -24,7 +24,7 @@ let tests =
       "[x\\ x = x\\ M x]" >::
         (fun () ->
            let t1 = 1 // db 1 in
-           let m = var "m" 1 in
+           let m = var Logic "m" 1 in
            let t2 = 1 // ( m ^^ [ db 1 ] ) in
              right_unify t1 t2 ;
              assert_term_equal (1 // db 1) m) ;
@@ -32,7 +32,7 @@ let tests =
       (* Example 2, adds descending into constructors *)
       "[x\\ c x = x\\ c (N x)]" >::
         (fun () ->
-           let n = var "n" 1 in
+           let n = var Logic "n" 1 in
            let c = const ~ts:1 "c" in
            let t1 = 1 // (c ^^ [ db 1 ]) in
            let t2 = 1 // (c ^^ [ n ^^ [ db 1 ] ]) in
@@ -42,7 +42,7 @@ let tests =
       (* Example 3, needs eta expanding on the fly *)
       "[x\\y\\ c y x = N]" >::
         (fun () ->
-           let n = var "n" 1 in
+           let n = var Logic "n" 1 in
            let c = const ~ts:1 "c" in
            let t = 2 // (c ^^ [ db 1 ; db 2 ]) in
              right_unify t n ;
@@ -51,7 +51,7 @@ let tests =
       (* Example 4, on-the-fly eta, constructors at top-level *)
       "[x\\y\\ c x y = x\\ c (N x)]" >::
         (fun () ->
-           let n = var "n" 1 in
+           let n = var Logic "n" 1 in
            let c = const ~ts:1 "c" in
              right_unify (2 // (c ^^ [db 2;db 1])) (1 // (c ^^ [n ^^ [db 1]])) ;
              assert_term_equal (1 // db 1) n) ;
@@ -59,8 +59,8 @@ let tests =
       (* Example 5, flex-flex case where we need to raise & prune *)
       "[X1 a2 b3 = Y2 b3 c3]" >::
         (fun () ->
-           let x = var "x" 1 in
-           let y = var "y" 2 in
+           let x = var Logic "x" 1 in
+           let y = var Logic "y" 2 in
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
@@ -70,7 +70,7 @@ let tests =
              let h =
                let x = hnorm x in
                  match extract [L;H] x with
-                   | Var {name=h;ts=1;tag=Logic} -> var h 1
+                   | Var {name=h;ts=1;tag=Logic} -> var Logic h 1
                    | _ -> failwith "X should match x\\y\\ H ..."
              in
                assert_term_equal (2 // (h ^^ [ db 2 ; db 1 ])) x ;
@@ -80,8 +80,8 @@ let tests =
        * embedded flex term. *)
       "[X1 a2 b3 = c1 (Y2 b3 c3)]" >::
         (fun () ->
-           let x = var "x" 1 in
-           let y = var "y" 2 in
+           let x = var Logic "x" 1 in
+           let y = var Logic "y" 2 in
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:1 "c" in
@@ -90,7 +90,7 @@ let tests =
              let h =
                let x = hnorm x in
                  match extract [L;A;H] x with
-                   | Var {name=h;ts=1;tag=Logic} -> var h 1
+                   | Var {name=h;ts=1;tag=Logic} -> var Logic h 1
                    | _ -> failwith "X should match x\\y\\ _ H .."
              in
                assert_term_equal (2 // (c ^^ [h^^[db 2;db 1]])) x ;
@@ -99,8 +99,8 @@ let tests =
       (* Example 7, multiple occurences *)
       "[c1 (X1 a2 b3) (X b3 d2) = c1 (Y2 b3 c3) (b3 d2)]" >::
         (fun () ->
-           let x = var "x" 1 in
-           let y = var "y" 2 in
+           let x = var Logic "x" 1 in
+           let y = var Logic "y" 2 in
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
@@ -115,8 +115,8 @@ let tests =
        * instead of a constant *)
       "[x\\ c1 (X1 a2 b3) (X x d2) = x\\ c1 (Y2 b3 c3) (x d2)]" >::
         (fun () ->
-           let x = var "x" 1 in
-           let y = var "y" 2 in
+           let x = var Logic "x" 1 in
+           let y = var Logic "y" 2 in
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let d = const ~ts:2 "d" in
@@ -130,7 +130,7 @@ let tests =
       (* Example 9, flex-flex with same var at both heads *)
       "[X1 a2 b3 c3 = X1 c3 b3 a2]" >::
         (fun () ->
-           let x = var "x" 1 in
+           let x = var Logic "x" 1 in
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
@@ -138,7 +138,7 @@ let tests =
              let h =
                let x = hnorm x in
                  match extract [L;H] x with
-                   | Var {name=h;ts=1;tag=Logic} -> var h 1
+                   | Var {name=h;ts=1;tag=Logic} -> var Logic h 1
                    | _ -> failwith "X should match x\\y\\z\\ H ..."
              in
                assert_term_equal (3 // (h^^[db 2])) x) ;
@@ -147,7 +147,7 @@ let tests =
        * TODO Are the two different timestamps wanted for c ? *)
       "[X1 a2 b3 != c1 (X1 b3 c3)]" >::
         (fun () ->
-           let x = var "x" 1 in
+           let x = var Logic "x" 1 in
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c1 = const ~ts:1 "c" in
@@ -161,7 +161,7 @@ let tests =
       (* 10bis: quantifier dependency violation -- raise OccursCheck too *)
       "[X1 a2 b3 != c3 (X b c)]" >::
         (fun () ->
-           let x = var "x" 1 in
+           let x = var Logic "x" 1 in
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
@@ -174,8 +174,8 @@ let tests =
       (* Example 11, flex-flex without raising *)
       "[X1 a2 b3 = Y1 b3 c3]" >::
         (fun () ->
-           let x = var "x" 1 in
-           let y = var "y" 1 in
+           let x = var Logic "x" 1 in
+           let y = var Logic "y" 1 in
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
@@ -183,7 +183,7 @@ let tests =
              let h =
                let x = hnorm x in
                  match extract [L;H] x with
-                   | Var {name=h;ts=1;tag=Logic} -> var h 1
+                   | Var {name=h;ts=1;tag=Logic} -> var Logic h 1
                    | _ -> failwith
                        (Printf.sprintf "X=%s should match Lam (_,(App H _))"
                           (term_to_string x))
@@ -194,8 +194,8 @@ let tests =
       (* Example 12, flex-flex with raising on one var, pruning on the other *)
       "[X1 a2 b3 c3 = Y2 c3]" >::
         (fun () ->
-           let x = var "x" 1 in
-           let y = var "y" 2 in
+           let x = var Logic "x" 1 in
+           let y = var Logic "y" 2 in
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
@@ -203,7 +203,7 @@ let tests =
              let h =
                let x = hnorm x in
                  match extract [L;H] x with
-                   | Var {name=h;ts=1;tag=Logic} -> var h 1
+                   | Var {name=h;ts=1;tag=Logic} -> var Logic h 1
                    | _ -> failwith "X should match x\\y\\z\\ H ..."
              in
                assert_term_equal (3 // (h ^^ [db 3;db 1])) x ;
@@ -212,8 +212,8 @@ let tests =
       (* Example 13, flex-rigid where rigid has to be abstracted *)
       "[X1 a2 b3 = a2 (Y2 b3 c3)]" >::
         (fun () ->
-           let x = var "x" 1 in
-           let y = var "y" 2 in
+           let x = var Logic "x" 1 in
+           let y = var Logic "y" 2 in
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
@@ -221,7 +221,7 @@ let tests =
              let h =
                let x = hnorm x in
                  match extract [L;A;H] x with
-                   | Var {name=h;ts=1;tag=Logic} -> var h 1
+                   | Var {name=h;ts=1;tag=Logic} -> var Logic h 1
                    | _ -> failwith "X should match x\\y\\ _ (H ..) .."
              in
                assert_term_equal (2 // (db 2 ^^ [h ^^ [db 2 ; db 1]])) x ;
@@ -230,8 +230,8 @@ let tests =
       (* Example 14, OccursCheck *)
       "[X1 a2 b3 != d3 (Y2 b3 c3)]" >::
         (fun () ->
-           let x = var "x" 1 in
-           let y = var "y" 2 in
+           let x = var Logic "x" 1 in
+           let y = var Logic "y" 2 in
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
@@ -259,21 +259,21 @@ let tests =
         (fun () ->
            let a = const ~ts:2 "a" in
            let f = const ~ts:1 "f" in
-           let x = var "x" 3 in
+           let x = var Logic "x" 3 in
              right_unify (f ^^ [x;x]) (f ^^ [a;a])) ;
 
       "[x\\x1\\ P x = x\\ Q x]" >::
         (fun () ->
-           let p = var "P" 1 in
-           let q = var "Q" 1 in
+           let p = var Logic "P" 1 in
+           let q = var Logic "Q" 1 in
              right_unify (2 // (p ^^ [db 2])) (1 // (q ^^ [db 1])) ;
              assert_term_equal (2 // (p ^^ [db 2])) q) ;
 
       "[T = a X, T = a Y, Y = T]" >::
         (fun () ->
-           let t = var "T" 1 in
-           let x = var "X" 1 in
-           let y = var "Y" 1 in
+           let t = var Logic "T" 1 in
+           let x = var Logic "X" 1 in
+           let y = var Logic "Y" 1 in
            let a = const ~ts:0 "a" in
            let a x = a ^^ [x] in
              right_unify t (a x) ;
@@ -283,24 +283,24 @@ let tests =
 
       "[x\\y\\ H1 x = x\\y\\ G2 x]" >::
         (fun () ->
-           let h = var "H" 1 in
-           let g = var "G" 2 in
+           let h = var Logic "H" 1 in
+           let g = var Logic "G" 2 in
              (* Different timestamps matter *)
              right_unify (2// (h ^^ [db 2])) (2// (g ^^ [db 2])) ;
              assert_term_equal (g^^[db 2]) (h^^[db 2])) ;
 
       "[X1 = y2]" >::
         (fun () ->
-           let x = var "X" 1 in
-           let y = var ~tag:Eigen "y" 2 in
+           let x = var Logic "X" 1 in
+           let y = var Eigen "y" 2 in
              try right_unify x y ; assert false with
                | Unify.Error _ -> ()) ;
 
       (* Tests added while developing LPP *)
       "Saving and restoring states" >::
         (fun () ->
-           let a = var "A" 0 in
-           let b = var "B" 0 in
+           let a = var Logic "A" 0 in
+           let b = var Logic "B" 0 in
            let before = get_bind_state () in
              bind a b ;
              assert_term_pprint_equal "B" a ;
@@ -315,11 +315,11 @@ let tests =
 
       "No new names for simple unification" >::
         (fun () ->
-           let a = var "A" 0 in
-           let b = var "B" 0 in
-           let m = var "M" 0 in
-           let n = var "N" 0 in
-           let v = var "V" 0 in
+           let a = var Logic "A" 0 in
+           let b = var Logic "B" 0 in
+           let m = var Logic "M" 0 in
+           let n = var Logic "N" 0 in
+           let v = var Logic "V" 0 in
            let ceval = const "eval" in
            let capp = const "app" in
            let evalAB = app ceval [a; b] in
@@ -329,24 +329,24 @@ let tests =
       
       "[X = X]" >::
         (fun () ->
-           let x = var "X" 0 in
+           let x = var Logic "X" 0 in
              right_unify x x ;
              assert_term_pprint_equal "X" x) ;
       
       "Loosening of LLambda restriction" >::
         (fun () ->
-           let a = var "A" 0 in
-           let b = var "B" 0 in
-           let c = var "C" 0 in
+           let a = var Logic "A" 0 in
+           let b = var Logic "B" 0 in
+           let c = var Logic "C" 0 in
              right_unify a (app b [c]) ;
              assert_term_pprint_equal "B C" a) ;
 
       "Loosening of LLambda restriction inside of constructor" >::
         (fun () ->
-           let a = var "A" 0 in
-           let b = var "B" 0 in
-           let c = var "C" 0 in
-           let d = var "D" 0 in
+           let a = var Logic "A" 0 in
+           let b = var Logic "B" 0 in
+           let c = var Logic "C" 0 in
+           let d = var Logic "D" 0 in
            let term = app (const "cons") [app b [c]; d] in
              right_unify a term ;
              assert_term_pprint_equal "cons (B C) D" a) ;
@@ -356,8 +356,8 @@ let tests =
          
       "[X^0 = Y^1]" >::
         (fun () ->
-           let x = var "X" 0 in
-           let y = var "Y" 1 in
+           let x = var Logic "X" 0 in
+           let y = var Logic "Y" 1 in
              right_unify x y ;
              match !!x,!!y with
                | Var {ts=0}, Var {ts=0} -> ()
@@ -366,30 +366,30 @@ let tests =
 
       "Logic variables on right should not unify with nominal variables" >::
         (fun () ->
-           let a = var ~tag:Logic "A" 0 in
-           let n = var ~tag:Nominal "n" 0 in
+           let a = var Logic "A" 0 in
+           let n = nominal_var "n" in
              assert_raises_any
                (fun () -> right_unify a n)) ;
 
       "Eigen variables on left should not unify with nominal variables" >::
         (fun () ->
-           let a = var ~tag:Eigen "a" 0 in
-           let n = var ~tag:Nominal "n" 0 in
+           let a = var Eigen "a" 0 in
+           let n = nominal_var "n" in
              assert_raises_any
                (fun () -> left_unify a n)) ;
 
       "Raised eigen variables on left should unify with nominal variables" >::
         (fun () ->
-           let a = var ~tag:Eigen "a" 0 in
-           let n = var ~tag:Nominal "n" 0 in
+           let a = var Eigen "a" 0 in
+           let n = nominal_var "n" in
              left_unify (app a [n]) n ;
              assert_term_equal (1 // db 1) a) ;
 
       "Pruning for nominal variables should not pick a worthless name" >::
         (fun () ->
-           let n = var ~tag:Nominal "n" 0 in
-           let a = var ~tag:Eigen "A" 0 in
-           let b = var ~tag:Eigen "B" 0 in
+           let n = nominal_var "n" in
+           let a = var Eigen "A" 0 in
+           let b = var Eigen "B" 0 in
              left_unify ~used:["A"; "B"] (app a [n]) b ;
              assert_term_pprint_equal "x1\\B'" a ;
              assert_term_pprint_equal "B'" b) ;

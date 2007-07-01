@@ -47,7 +47,7 @@ val observe : term -> rawterm
 (** Creation of terms.
   * There is probably more to come here. *)
 
-val var : ?tag:tag -> string -> int -> term
+val var : tag -> string -> int -> term
 
 val binop : string -> term -> term -> term
 
@@ -109,7 +109,9 @@ val logic_vars : term list -> term list
 (** LPP specific additions and changes *)
 val const : ?ts:int -> string -> term
 val fresh : ?tag:tag -> int -> term
-val fresh_wrt : tag -> id -> id list -> term * id list 
+val fresh_wrt : tag -> id -> id list -> term * id list
+
+val nominal_var : string -> term
   
 val find_vars : tag -> term list -> var list
 val find_var_refs : tag -> term list -> term list
@@ -124,5 +126,4 @@ val hnorm : term -> term
 val deep_norm : term -> term
 
 val term_to_string : term -> string
-val set_nominal_timestamps : int -> term -> term
 val prefix : tag -> string

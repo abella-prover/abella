@@ -34,10 +34,10 @@ let object_instantiation_tests =
     [
       "Simple" >::
         (fun () ->
-           let n = var ~tag:Nominal "n" 0 in
+           let n = nominal_var "n" in
            let obj = {context = Context.empty ;
                       term = app (const "eval") [n; const "B"]} in
-           let a = var ~tag:Eigen "A" 0 in
+           let a = var Eigen "A" 0 in
            let result = object_inst obj "n" a in
              assert_term_pprint_equal "eval A B" result.term) ;
     ]
@@ -294,7 +294,7 @@ let case_application_tests =
         (fun () ->
            let clauses = parse_clauses "pred M N." in
            let used = ["M"; "N"] in
-           let n = var ~tag:Nominal "n" 0 in
+           let n = nominal_var "n" in
            let term = app (const "pred") [app (const "A") [n]; const "B"] in
              match case (Pred term) [] clauses used with
                | [case1] -> ()
@@ -423,7 +423,7 @@ let search_tests =
 
       "Should replace pi x\\ with nominal variable" >::
         (fun () ->
-           let n1 = var ~tag:Nominal "n1" 0 in
+           let n1 = nominal_var "n1" in
            let hyp = termobj (app (const "pred") [n1; n1]) in
            let goal = freshen "{pi x\\ pred x x}" in
              assert_search_success (basic_search 1 [hyp] goal)) ;

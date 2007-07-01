@@ -84,7 +84,7 @@ let fresh_nominal obj =
     while List.mem (p ^ (string_of_int !n)) used_names do
       incr n
     done ;
-    var ~tag:Nominal (p ^ (string_of_int !n)) 0
+    nominal_var (p ^ (string_of_int !n))
         
 let replace_pi_abs_with_nominal obj =
   let abs = extract_pi_abs obj.term in

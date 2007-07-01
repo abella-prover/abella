@@ -160,7 +160,13 @@ let abstract id t = lambda 1 (abstract (fun t id' -> id' = id) 1 t)
 (** Utilities.
   * Easy creation of constants and variables, with sharing. *)
 
-let var   ?(tag=Logic)    s n = Ptr (ref (V { name=s ; ts=n ; tag=tag }))
+let nominal_var name = Ptr (ref (V {name=name; ts=max_int; tag=Nominal}))
+  
+let var tag name ts =
+  if tag = Nominal then
+    nominal_var name
+  else
+    Ptr (ref (V { name=name ; ts=ts ; tag=tag }))
 
 let rec collapse_lam t = match t with
   | Lam (n,t') ->
@@ -199,16 +205,17 @@ let fresh =
 let fresh ?(tag=Logic) ts =
   let i = fresh () in
   let name = (prefix tag) ^ (string_of_int i) in
-    var ~tag:tag name ts
+    var tag name ts
 
 let fresh_wrt tag name used =
   let rec aux name =
-    if List.mem name used
-    then aux (name ^ "'")
-    else name
+    if List.mem name used then
+      aux (name ^ "'")
+    else
+      name
   in
   let name = aux name in
-    (var ~tag:tag name 0, name::used)
+    (var tag name 0, name::used)
 
 let binop s a b = App ((const s),[a;b])
             
@@ -412,17 +419,3 @@ let term_to_string term =
     pp 0 0 term
 
 let full_eq t1 t2 = eq (deep_norm t1) (deep_norm t2)
-
-let set_nominal_timestamps n t =
-  let rec aux t =
-    match t with
-      | Ptr {contents=T t} -> Ptr (ref (T (aux t)))
-      | Ptr {contents=V v} when v.tag = Nominal ->
-          Ptr {contents=V {v with ts=n}}
-      | Ptr _ | DB _ -> t
-      | Lam(i, t) -> Lam(i, aux t)
-      | App(t, ts) -> App(aux t, List.map aux ts)
-      | _ -> assert false
-  in
-    aux t
-

@@ -96,21 +96,21 @@ let pprint_tests =
     [
       "eval P V" >::
         (fun () ->
-           let p = var "P" 0 in
-           let v = var "V" 0 in
+           let p = const "P" in
+           let v = const "V" in
            let t = app (const "eval") [p; v] in
              assert_term_pprint_equal "eval P V" t) ;
 
       "eval (abs R) (abs R)" >::
         (fun () ->
-           let absR = (app (const "abs") [var "R" 0]) in
+           let absR = (app (const "abs") [const "R"]) in
            let t = app (const "eval") [absR; absR] in
              assert_term_pprint_equal "eval (abs R) (abs R)" t) ;
       
       "A => B" >::
         (fun () ->
-           let a = var "A" 0 in
-           let b = var "B" 0 in
+           let a = const "A" in
+           let b = const "B" in
            let t = app (const "=>") [a; b] in
              assert_term_pprint_equal "A => B" t) ;
 
@@ -121,9 +121,9 @@ let pprint_tests =
 
       "pi x\\typeof x U => typeof (R x) T" >::
         (fun () ->
-           let typeofxU = app (const "typeof") [db 1; var "U" 0] in
-           let rx = app (var "R" 0) [db 1] in
-           let typeofRxT = app (const "typeof") [rx; var "T" 0] in
+           let typeofxU = app (const "typeof") [db 1; const "U"] in
+           let rx = app (const "R") [db 1] in
+           let typeofRxT = app (const "typeof") [rx; const "T"] in
            let t = app (const "pi")
              [1 // (app (const "=>") [typeofxU; typeofRxT])] in
              assert_term_pprint_equal

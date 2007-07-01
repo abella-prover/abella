@@ -8,7 +8,7 @@ let assert_true b = assert_bool "" b
 let assert_false b = assert_bool "" (not b)
 
 let evalAB = Term.app (Term.const "eval") [Term.const "A"; Term.const "B"]
-let varL = Term.var "L" 0
+let varL = Term.var Term.Logic "L" 0
 
 let tests =
   "Context" >::: [
@@ -57,14 +57,14 @@ let tests =
     "Context membership should be based on equality modulo pointers" >::
       (fun () ->
          let ctx = add evalAB empty in
-         let var = Term.var ~tag:Term.Logic "X" 0 in
+         let var = Term.var Term.Logic "X" 0 in
            right_unify var evalAB ;
            assert_true (mem var ctx)) ;
 
     "Remove should be based on equality modulo pointers" >::
       (fun () ->
          let ctx = add evalAB empty in
-         let var = Term.var ~tag:Term.Logic "X" 0 in
+         let var = Term.var Term.Logic "X" 0 in
            right_unify var evalAB ;
            let ctx' = remove var ctx in
              assert_true (is_empty ctx')) ;
@@ -103,7 +103,7 @@ let tests =
       (fun () ->
          let a = Term.const "A" in
          let b = Term.const "B" in
-         let l = Term.var ~tag:Term.Eigen "L" 0 in
+         let l = Term.var Term.Eigen "L" 0 in
          let ctx = add a (add b (add l empty)) in
            assert_term_pprint_equal
              "A :: B :: L" (context_to_term ctx)) ;
@@ -119,7 +119,7 @@ let tests =
     "Normalize should replace cons with seperate elements" >::
       (fun () ->
          let a = Term.const "A" in
-         let l = Term.var ~tag:Term.Eigen "L" 0 in
+         let l = Term.var Term.Eigen "L" 0 in
          let term = Term.app cons [a; l] in
          let ctx = Context.normalize (add term empty) in
            assert_true (mem a ctx) ;
@@ -127,7 +127,7 @@ let tests =
 
     "Normalize should replace nil with nothing" >::
       (fun () ->
-         let l = Term.var ~tag:Term.Eigen "L" 0 in
+         let l = Term.var Term.Eigen "L" 0 in
          let ctx = add l empty in
            left_unify l (Term.const "nil") ;
            assert_true (is_empty (Context.normalize ctx))) ;
@@ -138,8 +138,8 @@ let tests =
          let b = Term.const "B" in
          let c = Term.const "C" in
          let d = Term.const "D" in
-         let l = Term.var ~tag:Term.Eigen "L" 0 in
-         let e = Term.var ~tag:Term.Logic "E" 0 in
+         let l = Term.var Term.Eigen "L" 0 in
+         let e = Term.var Term.Logic "E" 0 in
          let ctx1 = add a (add e empty) in
          let ctx2 = add c (add b (add a (add l empty))) in
          let ctx3 = add e empty in

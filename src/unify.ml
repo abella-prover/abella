@@ -619,14 +619,10 @@ module Left =
         end)
 
 let right_unify ?used:(used=[]) t1 t2 =
-  let t1 = Term.set_nominal_timestamps 1000 t1 in
-  let t2 = Term.set_nominal_timestamps 1000 t2 in
-    Right.pattern_unify used t1 t2
+  Right.pattern_unify used t1 t2
 
 let left_unify ?used:(used=[]) t1 t2 =
-  let t1 = Term.set_nominal_timestamps 1000 t1 in
-  let t2 = Term.set_nominal_timestamps 1000 t2 in
-    Left.pattern_unify used t1 t2
+  Left.pattern_unify used t1 t2
       
 let try_with_state f =
   let state = Term.get_bind_state () in

@@ -1,18 +1,16 @@
+Add tests for raising
+  In apply
+  In search
+  In case
+
+Add test for apply to nabla variables
+
 Search
   Update used when introducing variables in search
   Do support raising for term backchaining in search
 
-Using apply_forall should pick new names for the introduced logic
+Using apply should pick new names for the introduced logic
   variables, right?
-
-Add tests for raising
-  In apply_forall
-  In search
-  In case
-
-Add test for apply_forall to nabla variables
-
-Rename apply_forall and related tests to something better
 
 A n = B is still picking a bad name
 
@@ -56,7 +54,7 @@ Add 'and' ?
 Fix rigid_path_check
 
 Add unification over lppterms?
-  If so then simplify search, case, and apply_forall
+  If so then simplify search, case, and apply
 
 Make omake target that checks all thm files with their mod files
 

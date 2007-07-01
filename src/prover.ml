@@ -235,7 +235,7 @@ let apply h args =
   save_undo_state () ;
   let stmt = get_hyp_or_lemma h in
   let args = List.map get_some_hyp args in
-  let result, obligations = apply_forall stmt args in
+  let result, obligations = Tactics.apply stmt args in
     List.iter (fun g ->
                  if not (search_goal (normalize g)) then
                    failwith ("Failed to prove obligation: " ^

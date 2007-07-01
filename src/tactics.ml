@@ -287,7 +287,7 @@ let some_term_to_restriction t =
     | None -> Irrelevant
     | Some t -> term_to_restriction t
 
-let apply_forall term args =
+let apply term args =
   let support =
     List.unique (List.flatten (List.map
                                  (Option.map_default lppterm_support []) args))

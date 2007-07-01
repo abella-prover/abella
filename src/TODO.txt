@@ -1,5 +1,4 @@
-Clean up freshness in tactics, case, and intros, apply_forall
-  All freshness code should take a support and a used argument?
+Clean up all those utilities at the top of tactics
   
 Clean up case analysis code
 
@@ -10,9 +9,14 @@ Do support raising for term backchaining in search
 Using apply forall should pick new names for the introduced logic
   variables, right?
 
-Add tests for apply_forall to nabla
-  Rename apply_forall and related tests to something better
-  Add tests for apply_forall with support?
+Add tests for raising
+  In apply_forall
+  In search
+  In case
+
+Add test for apply_forall to nabla variables
+
+Rename apply_forall and related tests to something better
 
 A n = B is still picking a bad name
 

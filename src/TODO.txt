@@ -10,9 +10,6 @@ Do support raising for term backchaining in search
 Using apply forall should pick new names for the introduced logic
   variables, right?
 
-Remove nominal timestamp setting and just make all nominal variables
-have a high timestamp from the start
-
 Merge lppterm exists forall nabla into a single constructor?
 
 Add tests for apply_forall to nabla

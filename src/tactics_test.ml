@@ -40,8 +40,8 @@ let object_instantiation_tests =
              assert_term_pprint_equal "eval A B" result.term) ;
     ]
 
-let application_tests =
-  "Application" >:::
+let apply_tests =
+  "Apply" >:::
     [
       "Normal" >::
         (fun () ->
@@ -162,8 +162,8 @@ let assert_expected_cases n cases =
   assert_failure (Printf.sprintf "Expected %d case(s) but found %d case(s)"
                     n (List.length cases))
 
-let case_application_tests =
-  "Case Application" >:::
+let case_tests =
+  "Case" >:::
     [
       "Normal" >::
         (fun () ->
@@ -292,13 +292,21 @@ let case_application_tests =
                    end
                | cases -> assert_expected_cases 2 cases) ;
 
-      "Should raise over nominal variables" >::
+      "Should raise over nominal variables in meta clauses" >::
         (fun () ->
            let clauses = parse_clauses "pred M N." in
-           let used = ["M"; "N"] in
-           let n = nominal_var "n" in
-           let term = app (const "pred") [app (const "A") [n]; const "B"] in
-             match case ~used (Pred term) [] clauses with
+           let term = make_nominals ["n"] (freshen "pred (A n) B") in
+           let used = ["A"; "B"] in
+             match case ~used term [] clauses with
+               | [case1] -> ()
+               | cases -> assert_expected_cases 1 cases) ;
+             
+      "Should raise over nominal variables in clauses" >::
+        (fun () ->
+           let clauses = parse_clauses "pred M N." in
+           let term = make_nominals ["n"] (freshen "{pred (A n) B}") in
+           let used = ["A"; "B"] in
+             match case ~used term clauses [] with
                | [case1] -> ()
                | cases -> assert_expected_cases 1 cases) ;
              
@@ -425,8 +433,7 @@ let search_tests =
 
       "Should replace pi x\\ with nominal variable" >::
         (fun () ->
-           let n1 = nominal_var "n1" in
-           let hyp = termobj (app (const "pred") [n1; n1]) in
+           let hyp = make_nominals ["n1"] (freshen "{pred n1 n1}") in
            let goal = freshen "{pi x\\ pred x x}" in
              assert_search_success (search ~hyps:[hyp] goal)) ;
 
@@ -460,19 +467,13 @@ let search_tests =
       "Should raise meta clauses over support" >::
         (fun () ->
            let meta_clauses = parse_clauses "foo X." in
-           let x = nominal_var "x" in
-           let goal =
-             replace_lppterm_vars [("x", x)] (freshen "foo (A x)")
-           in
+           let goal = make_nominals ["x"] (freshen "foo (A x)") in
              assert_search_success (search ~meta_clauses goal)) ;
 
       "Should raise object clauses over support" >::
         (fun () ->
            let clauses = parse_clauses "foo X." in
-           let x = nominal_var "x" in
-           let goal =
-             replace_lppterm_vars [("x", x)] (freshen "{foo (A x)}")
-           in
+           let goal = make_nominals ["x"] (freshen "{foo (A x)}") in
              assert_search_success (search ~clauses goal)) ;
 
     ]
@@ -482,8 +483,8 @@ let tests =
     [
       object_cut_tests ;
       object_instantiation_tests ;
-      application_tests ;
-      case_application_tests ;
+      apply_tests ;
+      case_tests ;
       induction_tests ;
       search_tests ;
     ]

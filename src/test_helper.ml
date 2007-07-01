@@ -24,6 +24,10 @@ let freshen str =
   let fresh_names = Tactics.fresh_alist ~tag:Term.Eigen ~used:[] var_names in
     replace_lppterm_vars fresh_names term
 
+let make_nominals list term =
+  let alist = List.map (fun x -> (x, Term.nominal_var x)) list in
+    replace_lppterm_vars alist term
+               
 let eval_clauses = read_mod "eval.mod"
 let pcf_clauses = read_mod "pcf.mod"
 let fsub_clauses = read_mod "fsub.mod"

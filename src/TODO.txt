@@ -1,6 +1,3 @@
-Add make_nominal function in test_helper and use it whereever we
-  construct nominals by hand
-
 Search
   Update used when introducing variables in search
   Do support raising for term backchaining in search
@@ -61,6 +58,8 @@ Make omake target that checks all thm files with their mod files
 Make omakefile target for any mod/thm combination
 
 Think about timestamps in the bedwyr style searching
+
+Fix timestamp bug in unify that David has a test for
 
 Larger or longer term issues
 ============================

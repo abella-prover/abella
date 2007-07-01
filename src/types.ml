@@ -26,9 +26,12 @@ type command =
   | Undo
 
 let clause_to_string (head, body) =
-  sprintf "%s :- %s"
-    (term_to_string head)
-    (String.concat ", " (List.map term_to_string body))
+  if body = [] then
+    term_to_string head
+  else
+    sprintf "%s :- %s"
+      (term_to_string head)
+      (String.concat ", " (List.map term_to_string body))
 
 let top_command_to_string tc =
   match tc with

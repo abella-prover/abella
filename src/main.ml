@@ -3,13 +3,18 @@ open Lppterm
 open Types
 open Printf
 
+let quiet = ref false
+
 let rec process_proof name ~interactive lexbuf =
   let finished = ref false in
     try while not !finished do try
-      display () ;
-      printf "%s < %!" name ;
+      if not !quiet then begin
+        display () ;
+        printf "%s < %!" name
+      end ;
       let input = Parser.command Lexer.token lexbuf in
-        if not interactive then printf "%s.\n\n" (command_to_string input) ;
+        if not interactive && not !quiet then
+          printf "%s.\n\n" (command_to_string input) ;
         begin match input with
           | Induction(args) -> induction args
           | Apply(h, args) -> apply h args
@@ -83,9 +88,13 @@ let command_input = ref ""
 let _ =
   printf "%s%!" welcome_msg ;
   Arg.parse
-    [("-f", Arg.Set_string command_input, "Read command input from file")]
+    [
+      ("-f", Arg.Set_string command_input, "Read command input from file") ;
+      ("-q", Arg.Set quiet, "Quiet mode")
+    ]
     (fun file_name ->
-       Printf.printf "Reading clauses from %s\n" file_name ;
+       if not !quiet then
+         Printf.printf "Reading clauses from %s\n" file_name ;
        add_clauses (Parser.clauses Lexer.token
                       (Lexing.from_channel (open_in file_name))))
     usage_message ;

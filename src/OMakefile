@@ -66,4 +66,4 @@ THM_FILES[] = $(rootname $(find . -name *.thm))
 theorems: lpp$(EXE) $(addsuffix .thm, $(THM_FILES)) \
                     $(addsuffix .mod, $(THM_FILES))
     foreach(thm, $(THM_FILES))
-        ./lpp $(thm).mod -f $(thm).thm
+        ./lpp $(thm).mod -q -f $(thm).thm

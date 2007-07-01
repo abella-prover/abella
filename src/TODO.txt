@@ -1,9 +1,5 @@
-Add tests for raising
-  In apply
-  In search
-  In case
-
-Add test for apply to nabla variables
+Add make_nominal function in test_helper and use it whereever we
+  construct nominals by hand
 
 Search
   Update used when introducing variables in search
@@ -17,6 +13,10 @@ A n = B is still picking a bad name
 After Dale
 ==========
 If not going to use timestamps, remove them from the system?
+
+Add tests for raising in apply? How are we going to handle raising in
+  apply?
+Add test for apply to nabla variables
 
 Future
 ======

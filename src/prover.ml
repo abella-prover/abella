@@ -213,7 +213,7 @@ let search_goal goal =
     ~clauses:!clauses
     ~meta_clauses:!meta_clauses
     ~used:(var_names ())
-    ~goal:goal
+    goal
 
 let search () =
   save_undo_state () ;

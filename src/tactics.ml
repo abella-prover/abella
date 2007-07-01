@@ -175,15 +175,16 @@ let is_false t =
     | _ -> false
   end
 
-let search ~depth:n ~hyps ~clauses ~meta_clauses ~goal ~used =
+let search ~depth:n ~hyps ~clauses ~meta_clauses ~used goal =
   
   let rec term_aux n context goal =
     List.exists
       (fun (head, body) ->
          try_with_state
            (fun () ->
+              let support = term_support goal in
               let fresh_head, fresh_body =
-                freshen_clause ~used:[] ~tag:Logic head body
+                freshen_clause ~support ~used:[] ~tag:Logic head body
               in
                 right_unify fresh_head goal ;
                 List.for_all

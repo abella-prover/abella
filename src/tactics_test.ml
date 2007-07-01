@@ -4,8 +4,6 @@ open Term
 open Lppterm
 open Tactics
   
-let prog = eval_clauses
-
 let object_cut_tests =
   "Object Cut" >:::
     [
@@ -157,6 +155,7 @@ let application_tests =
                | _ -> assert_failure
                    ("Expected one obligation but found " ^
                       (string_of_int (List.length obligations)))) ;
+
     ]
 
 let assert_expected_cases n cases =
@@ -170,7 +169,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "{eval A B}" in
            let used = ["A"; "B"] in
-             match case ~used term prog [] with
+             match case ~used term eval_clauses [] with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "{eval (abs R) (abs R)}" term ;
@@ -197,7 +196,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "{eval A B}@" in
            let used = ["A"; "B"] in
-             match case ~used term prog [] with
+             match case ~used term eval_clauses [] with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "{eval (abs R) (abs R)}@" term ;
@@ -216,7 +215,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "{A} or {B}" in
            let used = ["A"; "B"] in
-             match case ~used term prog [] with
+             match case ~used term eval_clauses [] with
                | [{new_hyps=[hyp1]} ; {new_hyps=[hyp2]}] ->
                    assert_pprint_equal "{A}" hyp1 ;
                    assert_pprint_equal "{B}" hyp2 ;
@@ -226,7 +225,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "exists A B, {eval A B}" in
            let used = [] in
-             match case ~used term prog [] with
+             match case ~used term eval_clauses [] with
                | [{new_vars=new_vars ; new_hyps=[hyp]}] ->
                    let var_names = List.map fst new_vars in
                      assert_string_list_equal ["A"; "B"] var_names ;
@@ -237,7 +236,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "{L |- hyp A => conc B}" in
            let used = [] in
-             match case ~used term prog [] with
+             match case ~used term eval_clauses [] with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
                    assert_pprint_equal "{L, hyp A |- conc B}" hyp
                | _ -> assert_failure "Pattern mismatch") ;
@@ -246,7 +245,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "{L |- eval A B}" in
            let used = ["A"; "B"] in
-             match case ~used term prog [] with
+             match case ~used term eval_clauses [] with
                | [case1; case2; case3] ->
                    (* case1 is the member case *)
                    
@@ -267,7 +266,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "{L, hyp A |- hyp B}" in
            let used = ["L"; "A"; "B"] in
-             match case ~used term prog [] with
+             match case ~used term eval_clauses [] with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
                    assert_pprint_equal "member (hyp B) (hyp A :: L)" hyp
                | _ -> assert_failure "Pattern mismatch") ;
@@ -280,7 +279,7 @@ let case_application_tests =
              parse_clauses ("member A (A :: L)." ^
                               "member A (B :: L) :- member A L.")
            in
-             match case ~used term prog member_clauses with
+             match case ~used term eval_clauses member_clauses with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "member (hyp C) (hyp C :: L)" term ;
@@ -349,14 +348,10 @@ let induction_tests =
 
 let assert_search_success b = assert_bool "Search should succeed" b
 let assert_search_failure b = assert_bool "Search should fail" (not b)
-let basic_search n hyps goal =
-  search
-    ~depth:n
-    ~used:[]
-    ~hyps:hyps
-    ~clauses:prog
-    ~meta_clauses:[]
-    ~goal:goal
+
+let search ?(depth=5) ?(used=[]) ?(hyps=[]) ?(clauses=[])
+    ?(meta_clauses=[]) goal =
+  search ~depth ~used ~hyps ~clauses ~meta_clauses goal
     
 let search_tests =
   "Search" >:::
@@ -364,78 +359,82 @@ let search_tests =
       "Should check hypotheses" >::
         (fun () ->
            let goal = freshen "{eval A B}" in
-             assert_search_success (basic_search 0 [goal] goal)) ;
+             assert_search_success (search ~depth:0 ~hyps:[goal] goal)) ;
       
       "Should should succeed if clause matches" >::
         (fun () ->
            let goal = freshen "{eval (abs R) (abs R)}" in
-             assert_search_success (basic_search 1 [] goal)) ;
+             assert_search_success
+               (search ~depth:1 ~clauses:eval_clauses goal)) ;
       
       "Should backchain on clauses" >::
         (fun () ->
            let hyp1 = freshen "{eval M (abs R)}" in
            let hyp2 = freshen "{eval (R N) V}" in
            let goal = freshen "{eval (app M N) V}" in
-             assert_search_success (basic_search 1 [hyp1; hyp2] goal)) ;
+             assert_search_success
+               (search ~clauses:eval_clauses ~hyps:[hyp1; hyp2] goal)) ;
 
       "On left of OR" >::
         (fun () ->
            let hyp = freshen "{eval A B}" in
            let goal = freshen "{eval A B} or {false}" in
-             assert_search_success (basic_search 0 [hyp] goal)) ;
+             assert_search_success (search ~hyps:[hyp] goal)) ;
       
       "On right of OR" >::
         (fun () ->
            let hyp = freshen "{eval A B}" in
            let goal = freshen "{false} or {eval A B}" in
-             assert_search_success (basic_search 0 [hyp] goal)) ;
+             assert_search_success (search ~hyps:[hyp] goal)) ;
 
       "On exists" >::
         (fun () ->
            let goal = freshen "exists R, {eq (app M N) R}" in
-             assert_search_success (basic_search 1 [] goal)) ;
+             assert_search_success (search ~clauses:eval_clauses goal)) ;
 
       "Should fail if there is no proof" >::
         (fun () ->
            let goal = freshen "{eval A B}" in
-             assert_search_failure (basic_search 5 [] goal)) ;
+             assert_search_failure
+               (search ~depth:5 ~clauses:eval_clauses goal)) ;
       
       "Should check context" >::
         (fun () ->
            let goal = freshen "{eval A B |- eval A B}" in
-             assert_search_success (basic_search 0 [] goal)) ;
+             assert_search_success (search ~depth:0 goal)) ;
 
       "Should fail if hypothesis has non-subcontext" >::
         (fun () ->
            let hyp = freshen "{eval A B |- eval A B}" in
            let goal = freshen "{eval A B}" in
-             assert_search_failure (basic_search 5 [hyp] goal)) ;
+             assert_search_failure
+               (search ~depth:5 ~clauses:eval_clauses ~hyps:[hyp] goal)) ;
 
       "Should preserve context while backchaining" >::
         (fun () ->
            let goal = freshen
              "{eval M (abs R), eval (R N) V |- eval (app M N) V}"
            in
-             assert_search_success (basic_search 1 [] goal)) ;
+             assert_search_success (search ~clauses:eval_clauses goal)) ;
 
       "Should move implies to the left" >::
         (fun () ->
            let hyp = freshen "{A |- B}" in
            let goal = freshen "{A => B}" in
-             assert_search_success (basic_search 1 [hyp] goal)) ;
+             assert_search_success (search ~hyps:[hyp] goal)) ;
 
       "Should replace pi x\\ with nominal variable" >::
         (fun () ->
            let n1 = nominal_var "n1" in
            let hyp = termobj (app (const "pred") [n1; n1]) in
            let goal = freshen "{pi x\\ pred x x}" in
-             assert_search_success (basic_search 1 [hyp] goal)) ;
+             assert_search_success (search ~hyps:[hyp] goal)) ;
 
       "Should look for member" >::
         (fun () ->
            let hyp = freshen "member (hyp A) L" in
            let goal = freshen "{L |- hyp A}" in
-             assert_search_success (basic_search 1 [hyp] goal)) ;
+             assert_search_success (search ~hyps:[hyp] goal)) ;
 
       "Should backchain on meta-clauses" >::
         (fun () ->
@@ -446,24 +445,36 @@ let search_tests =
            in
            let hyp = freshen "member E K" in
            let goal = freshen "member E (F :: K)" in
-             assert_search_success
-               (search ~depth:5 ~hyps:[hyp] ~used:[]
-                  ~clauses:[] ~meta_clauses:meta_clauses
-                  ~goal:goal)) ;
+             assert_search_success (search ~hyps:[hyp] ~meta_clauses goal)) ;
 
       "Should use bedwyr style search on meta-level predicates" >::
         (fun () ->
            let meta_clauses =
-             parse_clauses "pred P :- pi c\\ P = conc c => false."
+             parse_clauses "foo P :- pi c\\ P = conc c => false."
            in
-           let meta_search goal =
-             search ~depth:10 ~hyps:[] ~clauses:[]
-               ~meta_clauses:meta_clauses ~used:[] ~goal:goal
+           let goal1 = freshen "foo (hyp A)" in
+           let goal2 = freshen "foo (conc A)" in
+             assert_search_success (search ~meta_clauses goal1) ;
+             assert_search_failure (search ~meta_clauses goal2)) ;
+
+      "Should raise meta clauses over support" >::
+        (fun () ->
+           let meta_clauses = parse_clauses "foo X." in
+           let x = nominal_var "x" in
+           let goal =
+             replace_lppterm_vars [("x", x)] (freshen "foo (A x)")
            in
-           let goal1 = freshen "pred (hyp A)" in
-           let goal2 = freshen "pred (conc A)" in
-             assert_search_success (meta_search goal1) ;
-             assert_search_failure (meta_search goal2)) ;
+             assert_search_success (search ~meta_clauses goal)) ;
+
+      "Should raise object clauses over support" >::
+        (fun () ->
+           let clauses = parse_clauses "foo X." in
+           let x = nominal_var "x" in
+           let goal =
+             replace_lppterm_vars [("x", x)] (freshen "{foo (A x)}")
+           in
+             assert_search_success (search ~clauses goal)) ;
+
     ]
     
 let tests =

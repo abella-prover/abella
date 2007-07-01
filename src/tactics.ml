@@ -62,7 +62,7 @@ type case = {
   new_hyps : lppterm list ;
 }
 
-let term_case support term clauses used wrapper =
+let term_case ~support ~used term clauses wrapper =
   List.filter_map
     (fun (head, body) ->
        let fresh_head, fresh_body =
@@ -80,7 +80,7 @@ let term_case support term clauses used wrapper =
                None)
     clauses
       
-let obj_case obj r clauses used =
+let obj_case ~used obj r clauses =
   if is_imp obj.term then
     [{ bind_state = get_bind_state () ;
        new_vars = [] ;
@@ -91,7 +91,7 @@ let obj_case obj r clauses used =
       normalize (Obj(context_obj obj.context t, reduce_restriction r))
     in
     let support = obj_support obj in
-    let clause_cases = term_case support obj.term clauses used wrapper in
+    let clause_cases = term_case ~support ~used obj.term clauses wrapper in
     let member_case =
       { bind_state = get_bind_state () ;
         new_vars = [] ;
@@ -102,9 +102,9 @@ let obj_case obj r clauses used =
       else
         member_case :: clause_cases
 
-let case term clauses meta_clauses used =
+let case ~used term clauses meta_clauses =
   match term with
-    | Obj(obj, r) -> obj_case obj r clauses used
+    | Obj(obj, r) -> obj_case ~used obj r clauses
     | Or(left, right) ->
         let make_simple_case h =
           { bind_state = get_bind_state () ;
@@ -118,7 +118,7 @@ let case term clauses meta_clauses used =
              new_vars = fresh_ids ;
              new_hyps = [fresh_body] }]
     | Pred(p) ->
-        term_case (term_support p) p meta_clauses used pred
+        term_case ~used ~support:(term_support p) p meta_clauses pred
     | _ -> invalid_lppterm_arg term
 
 

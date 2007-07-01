@@ -263,7 +263,7 @@ let add_cases_to_subgoals cases =
 let case str =
   save_undo_state () ;
   let obj = get_hyp str in
-  let cases = Tactics.case obj !clauses !meta_clauses (var_names ()) in
+  let cases = Tactics.case ~used:(var_names ()) obj !clauses !meta_clauses in
     add_cases_to_subgoals cases ;
     next_subgoal ()
 

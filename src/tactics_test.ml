@@ -169,7 +169,8 @@ let case_application_tests =
       "Normal" >::
         (fun () ->
            let term = freshen "{eval A B}" in
-             match case term prog [] ["A"; "B"] with
+           let used = ["A"; "B"] in
+             match case ~used term prog [] with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "{eval (abs R) (abs R)}" term ;
@@ -195,7 +196,8 @@ let case_application_tests =
       "Restriction should become smaller" >::
         (fun () ->
            let term = freshen "{eval A B}@" in
-             match case term prog [] ["A"; "B"] with
+           let used = ["A"; "B"] in
+             match case ~used term prog [] with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "{eval (abs R) (abs R)}@" term ;
@@ -214,7 +216,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "{A} or {B}" in
            let used = ["A"; "B"] in
-             match case term prog [] used with
+             match case ~used term prog [] with
                | [{new_hyps=[hyp1]} ; {new_hyps=[hyp2]}] ->
                    assert_pprint_equal "{A}" hyp1 ;
                    assert_pprint_equal "{B}" hyp2 ;
@@ -224,7 +226,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "exists A B, {eval A B}" in
            let used = [] in
-             match case term prog [] used with
+             match case ~used term prog [] with
                | [{new_vars=new_vars ; new_hyps=[hyp]}] ->
                    let var_names = List.map fst new_vars in
                      assert_string_list_equal ["A"; "B"] var_names ;
@@ -235,7 +237,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "{L |- hyp A => conc B}" in
            let used = [] in
-             match case term prog [] used with
+             match case ~used term prog [] with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
                    assert_pprint_equal "{L, hyp A |- conc B}" hyp
                | _ -> assert_failure "Pattern mismatch") ;
@@ -243,7 +245,8 @@ let case_application_tests =
       "Should pass along context" >::
         (fun () ->
            let term = freshen "{L |- eval A B}" in
-             match case term prog [] ["A"; "B"] with
+           let used = ["A"; "B"] in
+             match case ~used term prog [] with
                | [case1; case2; case3] ->
                    (* case1 is the member case *)
                    
@@ -264,7 +267,7 @@ let case_application_tests =
         (fun () ->
            let term = freshen "{L, hyp A |- hyp B}" in
            let used = ["L"; "A"; "B"] in
-             match case term prog [] used with
+             match case ~used term prog [] with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
                    assert_pprint_equal "member (hyp B) (hyp A :: L)" hyp
                | _ -> assert_failure "Pattern mismatch") ;
@@ -277,7 +280,7 @@ let case_application_tests =
              parse_clauses ("member A (A :: L)." ^
                               "member A (B :: L) :- member A L.")
            in
-             match case term prog member_clauses used with
+             match case ~used term prog member_clauses with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "member (hyp C) (hyp C :: L)" term ;
@@ -296,7 +299,7 @@ let case_application_tests =
            let used = ["M"; "N"] in
            let n = nominal_var "n" in
            let term = app (const "pred") [app (const "A") [n]; const "B"] in
-             match case (Pred term) [] clauses used with
+             match case ~used (Pred term) [] clauses with
                | [case1] -> ()
                | cases -> assert_expected_cases 1 cases) ;
              

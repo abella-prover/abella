@@ -13,29 +13,14 @@ let fresh_alist ?(support=[]) ~used ~tag ids =
                   (x, app fresh support))
       ids
       
-let get_term_vars_alist tag terms =
-  List.map (fun v -> ((term_to_var v).name, v))
-    (find_var_refs tag terms)
-
-let get_lppterm_vars_alist tag terms =
-  get_term_vars_alist tag
-    (List.map (fun obj -> obj.term)
-       (List.map term_to_obj terms))
-    
 let is_capital str =
   match str.[0] with
     | 'A'..'Z' -> true
     | _ -> false
 
-let lppterm_capital_var_names t =
-  let names = List.flatten (map_term_list (fun t -> map_vars_list (fun v -> v.name) [t]) t)
-  in
-  let capital_names = List.find_all is_capital names in
-    List.unique capital_names
-
 let capital_var_names terms =
-  List.unique (List.find_all is_capital
-                 (map_vars_list (fun v -> v.name) terms))
+  let names = map_vars_list (fun v -> v.name) terms in
+    List.unique (List.find_all is_capital names)
 
 let freshen_clause ~tag ~used ?(support=[]) head body =
   let var_names = capital_var_names (head::body) in
@@ -48,6 +33,10 @@ let freshen_bindings ?(support=[]) ~tag ~used bindings term =
   replace_lppterm_vars
     (fresh_alist ~support ~tag ~used bindings)
     term
+
+let term_vars_alist tag terms =
+  List.map (fun v -> ((term_to_var v).name, v))
+    (find_var_refs tag terms)
 
 (* Object level cut *)
 
@@ -80,7 +69,7 @@ let term_case support term clauses used wrapper =
          freshen_clause ~support ~tag:Eigen ~used head body in
        let initial_state = get_bind_state () in
          if try_left_unify ~used fresh_head term then
-           let new_vars = get_term_vars_alist Eigen (fresh_head::fresh_body) in
+           let new_vars = term_vars_alist Eigen (fresh_head::fresh_body) in
            let bind_state = get_bind_state () in
            let wrapped_body = List.map wrapper fresh_body in
              set_bind_state initial_state ;

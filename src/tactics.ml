@@ -204,9 +204,14 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses ~used goal =
     else if is_pi_abs goal.term then
       obj_aux (n-1) (replace_pi_abs_with_nominal goal)
     else
-      ((not (Context.is_empty goal.context)) &&
-         lppterm_aux (n-1) (obj_to_member goal))
-      || (term_aux n goal.context goal.term)
+      let context_search () =
+        not (Context.is_empty goal.context) &&
+          lppterm_aux (n-1) (obj_to_member goal)
+      in
+      let backchain () =
+        term_aux n goal.context goal.term
+      in
+        context_search () || backchain ()
         
   and lppterm_aux n goal =
     match goal with
@@ -222,20 +227,22 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses ~used goal =
           
   and meta_aux n goal =
     if n = 0 then false else
-      List.exists
-        (fun (head, body) ->
-           try_with_state
-             (fun () ->
-                let support = term_support goal in
-                let fresh_head, fresh_body =
-                  freshen_clause ~support ~tag:Logic ~used head body
-                in
-                  right_unify fresh_head goal ;
-                  List.for_all
-                    (fun t -> lppterm_aux (n-1) (Pred t))
-                    fresh_body))
-        meta_clauses
-      ||
+      let backchain () =
+        List.exists
+          (fun (head, body) ->
+             try_with_state
+               (fun () ->
+                  let support = term_support goal in
+                  let fresh_head, fresh_body =
+                    freshen_clause ~support ~tag:Logic ~used head body
+                  in
+                    right_unify fresh_head goal ;
+                    List.for_all
+                      (fun t -> lppterm_aux (n-1) (Pred t))
+                      fresh_body))
+          meta_clauses
+      in
+      let negative_search () =
         match observe goal with
           | App(head, body) ->
               begin match observe head, body with
@@ -250,6 +257,8 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses ~used goal =
                 | _ -> false
               end
           | _ -> false
+      in
+        backchain () || negative_search ()
               
   (* true if we can confirm no proof exists *)
   and negative_meta_aux n goal =

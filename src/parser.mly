@@ -89,14 +89,14 @@ id_list:
   | ID                                  { [$1] }
 
 lppterm:
-  | FORALL binding_list COMMA lppterm   { Lppterm.Forall($2, $4) }
-  | EXISTS binding_list COMMA lppterm   { Lppterm.Exists($2, $4) }
-  | NABLA binding_list COMMA lppterm    { Lppterm.Nabla($2, $4) }
-  | lppterm RARROW lppterm              { Lppterm.Arrow($1, $3) }
-  | lppterm OR lppterm                  { Lppterm.Or($1, $3) }
+  | FORALL binding_list COMMA lppterm   { Lppterm.forall $2 $4 }
+  | EXISTS binding_list COMMA lppterm   { Lppterm.exists $2 $4 }
+  | NABLA binding_list COMMA lppterm    { Lppterm.nabla $2 $4 }
+  | lppterm RARROW lppterm              { Lppterm.arrow $1 $3 }
+  | lppterm OR lppterm                  { Lppterm.lpp_or $1 $3 }
   | LPAREN lppterm RPAREN               { $2 }
   | object_term                         { $1 }
-  | term                                { Lppterm.Pred($1) }
+  | term                                { Lppterm.pred $1 }
 
 binding_list:
   | binding binding_list                { $1::$2 }

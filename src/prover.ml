@@ -308,11 +308,11 @@ let intros () =
   save_undo_state () ;
   let rec aux term =
     match term with
-      | Forall(bindings, body) ->
+      | Binding(Forall, bindings, body) ->
           List.iter add_var
             (fresh_alist_wrt Eigen bindings (var_names ())) ;
           aux (replace_lppterm_vars sequent.vars body)
-      | Nabla(bindings, body) ->
+      | Binding(Nabla, bindings, body) ->
           List.iter add_var
             (fresh_alist_wrt Nominal bindings (var_names ())) ;
           aux (replace_lppterm_vars sequent.vars body)
@@ -326,11 +326,11 @@ let intros () =
 let intro () =
   save_undo_state () ;
   match sequent.goal with
-    | Forall(first::rest, body) ->
+    | Binding(Forall, first::rest, body) ->
         let alist = fresh_alist_wrt Eigen [first] (var_names ()) in
           List.iter add_var alist ;
           let fresh_body = replace_lppterm_vars alist body in
-            sequent.goal <- Forall(rest, fresh_body)
+            sequent.goal <- forall rest fresh_body
     | _ -> ()
             
 (* Skip *)

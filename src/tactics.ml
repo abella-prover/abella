@@ -147,15 +147,14 @@ let case term clauses meta_clauses used =
             new_vars = [] ; new_hyps = [h] }
         in
           [make_simple_case left; make_simple_case right]
-    | Exists(ids, body) ->
+    | Binding(Exists, ids, body) ->
         let fresh_ids = fresh_alist_wrt Eigen ids used in
         let fresh_body = replace_lppterm_vars fresh_ids body in
           [{ bind_state = get_bind_state () ;
              new_vars = fresh_ids ;
              new_hyps = [fresh_body] }]
     | Pred(p) ->
-        let wrapper t = Pred(t) in
-          term_case (term_support p) p meta_clauses used wrapper
+        term_case (term_support p) p meta_clauses used pred
     | _ -> invalid_lppterm_arg term
 
 
@@ -177,9 +176,7 @@ let get_max_restriction t =
       | Obj(_, Equal n) -> n
       | Obj(_, Irrelevant) -> 0
       | Arrow(a, b) -> max (aux a) (aux b)
-      | Forall(bindings, body) -> aux body
-      | Nabla(bindings, body) -> aux body
-      | Exists(bindings, body) -> aux body
+      | Binding(_, _, body) -> aux body
       | Or(a, b) -> max (aux a) (aux b)
       | Pred _ -> 0
   in
@@ -188,10 +185,10 @@ let get_max_restriction t =
 let induction ind_arg stmt =
   let rec aux stmt =
     match stmt with
-      | Forall(bindings, body) ->
+      | Binding(Forall, bindings, body) ->
           let (ih, goal) = aux body in
             (forall bindings ih, forall bindings goal)
-      | Nabla(bindings, body) ->
+      | Binding(Nabla, bindings, body) ->
           let (ih, goal) = aux body in
             (nabla bindings ih, nabla bindings goal)
       | term ->
@@ -248,7 +245,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses ~goal ~used =
   and lppterm_aux n goal =
     match goal with
       | Or(left, right) -> lppterm_aux n left or lppterm_aux n right
-      | Exists(bindings, body) ->
+      | Binding(Exists, bindings, body) ->
           let term = freshen_bindings Logic bindings body [] in
             lppterm_aux n term
       | Obj(obj, r) -> obj_aux n obj
@@ -331,9 +328,9 @@ let apply_forall term args =
   in
   let rec aux term =
     match term with
-      | Forall(bindings, body) ->
+      | Binding(Forall, bindings, body) ->
           aux (freshen_bindings2 support Logic bindings body [])
-      | Nabla(bindings, body) ->
+      | Binding(Nabla, bindings, body) ->
           aux (freshen_bindings2 [] Nominal bindings body [])
       | Arrow _ ->
           let formal = map_args term_to_restriction term in

@@ -10,15 +10,9 @@ Do support raising for term backchaining in search
 Using apply forall should pick new names for the introduced logic
   variables, right?
 
-Merge lppterm exists forall nabla into a single constructor?
-
 Add tests for apply_forall to nabla
   Rename apply_forall and related tests to something better
   Add tests for apply_forall with support?
-
-Dale's copy example
-
-Cut elimination with forall quantifier?
 
 A n = B is still picking a bad name
 

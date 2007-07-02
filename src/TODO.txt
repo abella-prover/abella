@@ -1,3 +1,6 @@
+Find and complete more examples
+  Prove that normal and non-normal are non-overlapping
+
 A n = B is still picking a bad name
 
 After Dale
@@ -11,32 +14,22 @@ Add test for apply to nabla variables
 Future
 ======
 
-Used variables in unify should use the used variables from the prover
-  
-Reserve nXXX for nominals and allow parsing like that?
-
 Check that TODO in unify.ml is sound
-
-Prove that normal and non-normal are non-overlapping
 
 Add more bedwyr style searching?
   Watch timestamps more closely?
   Change not (try_left_unify ...) so unification errors (not failures)
     do not result in success
 
-Add unification on lppterms?
-  Then add another case to lppterm search
-
 Clarify failure vs error in unification
 
-Display new hypotheses in future subgoals (subgoal 2 is : {...} -> ...)
+Display new hypotheses in future subgoals? (subgoal 2 is : {...} -> ...)
   
 Clean up unify tests (exceptions, pprint)
 
 Case analysis on lg predicates should work differently than lp predicates
 
 Do we have to consider logic variables in the context during search?
-How does object cut work with contexts?
 
 Add 'and' ?
   Would pollute namespace :-/
@@ -46,17 +39,11 @@ Fix rigid_path_check
 Add unification over lppterms?
   If so then simplify search, case, and apply
 
-Make omake target that checks all thm files with their mod files
-
-Make omakefile target for any mod/thm combination
-
-Think about timestamps in the bedwyr style searching
-
 Fix timestamp bug in unify that David has a test for
 
 Larger or longer term issues
 ============================
-Remove duplication between case analysis and searching
+Remove duplication between case analysis and searching?
 
 Fix all substitution capture issues with replace_lppterm_vars
       "Replace should not capture exists variables" >::
@@ -67,13 +54,11 @@ Fix all substitution capture issues with replace_lppterm_vars
 
 Use type information from sig files?
 
-Seperate parsers more?
-
 Change OMakefile so exceptions print full stack trace? Is there a way
   to integrate this with OUnit?
 
 Add a show_lemmas command
-Add 'abort'
+Add an abort command
 
 Add warning if using a capital name without it appearing in forall
   e.g. forall A, {rev A B} -> {rev B A}. should warn about B.

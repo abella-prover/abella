@@ -19,7 +19,7 @@
 
 type tag = Eigen | Constant | Logic | Nominal
 type id = string
-type var = {
+type var = private {
   name : id ;
   tag  : tag    ;
   ts   : int

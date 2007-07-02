@@ -14,8 +14,8 @@ let rec extract path t =
       | Lam (_,t) when hd = L -> extract tl t
       | App (_,l) when hd = A -> extract tl (List.nth l 0)
       | App (t,_) when hd = H -> !!t
-      | _ -> Var {name="notfound";ts=0;tag=Constant}
-          
+      | _ -> assert false
+
 (* Tests from Nadathur's SML implementation *)
 let tests =
   "Unify" >:::

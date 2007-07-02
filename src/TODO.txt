@@ -1,5 +1,10 @@
 Find and complete more examples
   Prove that normal and non-normal are non-overlapping
+  Prove that copy with 2 eigen vars is the same as copy with 1 eigen var
+
+Clarify failure vs error in unification
+
+Clean up unify tests (exceptions, pprint)
 
 A n = B is still picking a bad name
 
@@ -23,12 +28,8 @@ Add more bedwyr style searching?
   Change not (try_left_unify ...) so unification errors (not failures)
     do not result in success
 
-Clarify failure vs error in unification
-
 Display new hypotheses in future subgoals? (subgoal 2 is : {...} -> ...)
   
-Clean up unify tests (exceptions, pprint)
-
 Case analysis on lg predicates should work differently than lp predicates
 
 Do we have to consider logic variables in the context during search?

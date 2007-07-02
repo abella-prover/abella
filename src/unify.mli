@@ -17,13 +17,17 @@
 (* Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA             *)
 (****************************************************************************)
 
-type error =
+type failure =
   | OccursCheck
   | TypesMismatch
   | ConstClash of (Term.term * Term.term)
 
-exception Error      of error
-exception NotLLambda of Term.term
+exception Failure of failure
+  
+type error =
+  | NotLLambda of Term.term
+
+exception Error of error
 
 val right_unify : ?used:Term.id list -> Term.term -> Term.term -> unit
 val left_unify : ?used:Term.id list -> Term.term -> Term.term -> unit

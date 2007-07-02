@@ -156,7 +156,7 @@ let tests =
                right_unify (x ^^ [a;b]) (c1 ^^ [x ^^ [b;c3]]) ;
                "Expected OccursCheck" @? false
              with
-               | Unify.Error OccursCheck -> ()) ;
+               | Unify.Failure OccursCheck -> ()) ;
 
       (* 10bis: quantifier dependency violation -- raise OccursCheck too *)
       "[X1 a2 b3 != c3 (X b c)]" >::
@@ -169,7 +169,7 @@ let tests =
                right_unify (x ^^ [a;b]) (c ^^ [x ^^ [b;c]]) ;
                "Expected OccursCheck" @? false
              with
-               | Unify.Error OccursCheck -> ()) ;
+               | Unify.Failure OccursCheck -> ()) ;
 
       (* Example 11, flex-flex without raising *)
       "[X1 a2 b3 = Y1 b3 c3]" >::
@@ -240,7 +240,7 @@ let tests =
                right_unify (x ^^ [a;b]) (d ^^ [y ^^ [b;c]]) ;
                "Expected OccursCheck" @? false
              with
-               | Unify.Error OccursCheck -> ()) ;
+               | Unify.Failure OccursCheck -> ()) ;
 
       "[a = a]" >::
         (fun () ->
@@ -279,7 +279,7 @@ let tests =
              right_unify t (a x) ;
              right_unify t (a y) ;
              begin try right_unify y t ; assert false with
-               | Unify.Error _ -> () end) ;
+               | Unify.Failure _ -> () end) ;
 
       "[x\\y\\ H1 x = x\\y\\ G2 x]" >::
         (fun () ->
@@ -294,7 +294,7 @@ let tests =
            let x = var Logic "X" 1 in
            let y = var Eigen "y" 2 in
              try right_unify x y ; assert false with
-               | Unify.Error _ -> ()) ;
+               | Unify.Failure _ -> ()) ;
 
       (* Tests added while developing LPP *)
       "Saving and restoring states" >::
@@ -323,7 +323,7 @@ let tests =
            let ceval = const "eval" in
            let capp = const "app" in
            let evalAB = app ceval [a; b] in
-           let evalapp = app ceval [(app capp [m; n]); v] in
+           let evalapp = app ceval [app capp [m; n]; v] in
              right_unify evalAB evalapp ;
              assert_term_pprint_equal "eval (app M N) V" evalAB) ;
       
@@ -394,5 +394,4 @@ let tests =
              assert_term_pprint_equal "x1\\B'" a ;
              assert_term_pprint_equal "B'" b) ;
              
-
     ]

@@ -19,16 +19,21 @@
 
 (** Higher Order Pattern Unification *)
 
-type error =
+type failure =
   | OccursCheck
   | TypesMismatch
   | ConstClash of (Term.term * Term.term)
 
-exception Error of error
-exception NotLLambda of Term.term
+exception Failure of failure
 
-let not_ll x = raise (NotLLambda x)
-let raise e = raise (Error e)
+let fail f = raise (Failure f)
+      
+type error =
+  | NotLLambda of Term.term
+      
+exception Error of error
+
+let error e = raise (Error e)
 
 module type Param =
 sig
@@ -97,7 +102,7 @@ let rec check_flex_args l fts =
           | Var v when constant v.tag && v.ts>fts && unique_var v q ->
               check_flex_args q fts
           | DB i when unique_bv i q -> check_flex_args q fts
-          | _ -> not_ll t
+          | _ -> error (NotLLambda t)
         end
 
 (** [bvindex bv l n] return a nonzero index iff the db index [bv]
@@ -363,15 +368,15 @@ let makesubst h1 t2 a1 n =
            * If not, [c] must belong to the argument list. *)
           if v.ts <= ts1 then c else
             let j = cindex v a1 n in
-              if j = 0 then raise OccursCheck ;
+              if j = 0 then fail OccursCheck ;
               Term.db (j+lev)
       | Term.DB i ->
           if i<=lev then c else
             let j = bvindex (i-lev) a1 n in
-              if j = 0 then raise OccursCheck ;
+              if j = 0 then fail OccursCheck ;
               Term.db (j+lev)
       | Term.Var {ts=ts2;tag=tag} when variable tag ->
-          if Term.eq c h1 then raise OccursCheck ;
+          if Term.eq c h1 then fail OccursCheck ;
           let (changed,a1',a2') = raise_and_invert ts1 ts2 a1 [] lev in
             if changed || ts1<ts2 then
               let h'=
@@ -400,7 +405,7 @@ let makesubst h1 t2 a1 n =
                   (nested_subst h2 lev)
                   (List.map (fun x -> nested_subst x lev) a2)
             | Term.Var {ts=ts2;tag=tag} when tag=instantiatable ->
-                if Term.eq h2 h1 then raise OccursCheck ;
+                if Term.eq h2 h1 then fail OccursCheck ;
                 let a2 = List.map hnorm a2 in
                 check_flex_args a2 ts2 ;
                 let changed,a1',a2' =
@@ -450,7 +455,7 @@ let makesubst h1 t2 a1 n =
       | Term.Lam (n,t2) -> toplevel_subst t2 (lev+n)
       | Term.Var {tag=t} when variable t ->
           if h1=t2 then
-            if n=0 && lev=0 then h1 else raise TypesMismatch
+            if n=0 && lev=0 then h1 else fail TypesMismatch
           else
             Term.lambda (lev+n) t2
       | Term.App (h2,a2) ->
@@ -465,7 +470,7 @@ let makesubst h1 t2 a1 n =
                     let args = prune_same_var a1 a2 lev bindlen in
                       Term.lambda bindlen (Term.app h1' args)
                   else
-                    raise TypesMismatch
+                    fail TypesMismatch
             | Term.App _ | Term.Lam _
             | Term.Var _ | Term.DB _ ->
                 Term.lambda (n+lev) (nested_subst t2 lev)
@@ -486,7 +491,7 @@ let rec unify_list l1 l2 =
   try
     List.iter2 (fun a1 a2 -> unify (hnorm a1) (hnorm a2)) l1 l2
   with
-    | Invalid_argument _ -> raise TypesMismatch
+    | Invalid_argument _ -> fail TypesMismatch
 
 (* [unify_const_term cst t2] unify [cst=t2], assuming that [cst] is a constant.
  * Fail if [t2] is a variable or an application.
@@ -499,7 +504,7 @@ and unify_const_term cst t2 = if Term.eq cst t2 then () else
           unify_app_term cst a1 (Term.app cst a1) t2
     | _, Term.Var {tag=t} when not (variable t || constant t) ->
         failwith "logic variable on the left (3)"
-    | _ -> raise (ConstClash (cst,t2))
+    | _ -> fail (ConstClash (cst,t2))
 
 (* Unifying the bound variable [t1] with [t2].
  * Fail if [t2] is a variable, an application or a constant.
@@ -507,7 +512,7 @@ and unify_const_term cst t2 = if Term.eq cst t2 then () else
  * equalized and this becomes an application-term unification problem. *)
 and unify_bv_term n1 t1 t2 = match Term.observe t2 with
   | Term.DB n2 ->
-      if n1<>n2 then raise (ConstClash (t1,t2))
+      if n1<>n2 then fail (ConstClash (t1,t2))
   | Term.Lam (n,t2)  ->
       let t1' = lift t1 n in
       let a1 = lift_args [] n in
@@ -529,9 +534,9 @@ and unify_app_term h1 a1 t1 t2 = match Term.observe h1,Term.observe t2 with
             if Term.eq h1 h2 then
               unify_list a1 a2
             else
-              raise (ConstClash (h1,h2))
+              fail (ConstClash (h1,h2))
         | DB _ ->
-            raise (ConstClash (h1,h2))
+            fail (ConstClash (h1,h2))
         | Var {tag=tag} when variable tag ->
             let m = List.length a2 in
               Term.bind h2 (makesubst h2 t1 a2 m)
@@ -548,7 +553,7 @@ and unify_app_term h1 a1 t1 t2 = match Term.observe h1,Term.observe t2 with
   | Term.Susp _, _ | _, Term.Susp _ -> assert false
   | Term.Var {tag=t}, _ when not (variable t || constant t) ->
       failwith "logic variable on the left (6)"
-  | _ -> raise (ConstClash (h1,t2))
+  | _ -> fail (ConstClash (h1,t2))
 
 (** Here we assume t1 is a variable we want to bind to t2. We must check that
   * there is no-cyclic substitution and that nothing with a timestamp higher
@@ -629,7 +634,7 @@ let try_with_state f =
     try
       f ()
     with
-      | _ -> Term.set_bind_state state ; false
+      | Failure _ -> Term.set_bind_state state ; false
 
 let try_right_unify ?used:(used=[]) t1 t2 =
   try_with_state

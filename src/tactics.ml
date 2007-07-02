@@ -337,14 +337,10 @@ let apply term args =
                      | Arrow(Obj(left, _), right), Some Obj(arg, _) ->
                          context_pairs :=
                            (left.context, arg.context)::!context_pairs ;
-                         begin try right_unify left.term arg.term with
-                           | Unify.Error _ -> failwith "Unification failure"
-                         end ;
+                         right_unify left.term arg.term ;
                          right
                      | Arrow(Pred(left), right), Some (Pred arg) ->
-                         begin try right_unify left arg with
-                           | Unify.Error _ -> failwith "Unificaion failure"
-                         end ;
+                         right_unify left arg ;
                          right
                      | Arrow(left, right), None ->
                          obligations := left::!obligations ;

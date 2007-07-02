@@ -12,7 +12,7 @@ let fresh_alist ?(support=[]) ~used ~tag ids =
                   used := curr_used ;
                   (x, app fresh support))
       ids
-      
+
 let is_capital str =
   match str.[0] with
     | 'A'..'Z' -> true
@@ -37,6 +37,21 @@ let freshen_bindings ?(support=[]) ~tag ~used bindings term =
 let term_vars_alist tag terms =
   List.map (fun v -> ((term_to_var v).name, v))
     (find_var_refs tag terms)
+
+(* Freshening for Logic variables uses anonymous names *)
+
+let fresh_logic_alist ?(support=[]) ids =
+  List.map (fun x -> (x, app (fresh 0) support)) ids
+      
+let freshen_logic_clause ?(support=[]) head body =
+  let var_names = capital_var_names (head::body) in
+  let fresh_names = fresh_logic_alist ~support var_names in
+  let fresh_head = replace_term_vars fresh_names head in
+  let fresh_body = List.map (replace_term_vars fresh_names) body in
+    (fresh_head, fresh_body)
+
+let freshen_logic_bindings ?(support=[]) bindings term =
+  replace_lppterm_vars (fresh_logic_alist ~support bindings) term
 
 (* Object level cut *)
 
@@ -175,7 +190,7 @@ let is_false t =
     | _ -> false
   end
 
-let search ~depth:n ~hyps ~clauses ~meta_clauses ~used goal =
+let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
   
   let rec term_aux n context goal =
     List.exists
@@ -184,7 +199,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses ~used goal =
            (fun () ->
               let support = term_support goal in
               let fresh_head, fresh_body =
-                freshen_clause ~support ~used:[] ~tag:Logic head body
+                freshen_logic_clause ~support head body
               in
                 right_unify fresh_head goal ;
                 List.for_all
@@ -217,7 +232,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses ~used goal =
     match goal with
       | Or(left, right) -> lppterm_aux n left or lppterm_aux n right
       | Binding(Exists, bindings, body) ->
-          let term = freshen_bindings ~tag:Logic ~used bindings body in
+          let term = freshen_logic_bindings bindings body in
             lppterm_aux n term
       | Obj(obj, r) -> obj_aux n obj
       | Pred(p) ->
@@ -234,7 +249,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses ~used goal =
                (fun () ->
                   let support = term_support goal in
                   let fresh_head, fresh_body =
-                    freshen_clause ~support ~tag:Logic ~used head body
+                    freshen_logic_clause ~support head body
                   in
                     right_unify fresh_head goal ;
                     List.for_all
@@ -305,7 +320,7 @@ let apply term args =
   let rec aux term =
     match term with
       | Binding(Forall, bindings, body) ->
-          aux (freshen_bindings ~support ~tag:Logic ~used:[] bindings body)
+          aux (freshen_logic_bindings ~support bindings body)
       | Binding(Nabla, bindings, body) ->
           aux (freshen_bindings ~tag:Nominal ~used:[] bindings body)
       | Arrow _ ->

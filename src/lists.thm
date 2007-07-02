@@ -1,8 +1,8 @@
 Theorem app_total : forall A B,
-  {list A} -> exists C, {append A B C}.
+  {list A} -> {list B} -> exists C, {append A B C}.
 induction on 1. intros. case H1.
   search.
-  apply IH to H2. case H3. search.
+  apply IH to H3 H2. case H4. search.
 
 Theorem app_det : forall A B C C',
  {append A B C} -> {append A B C'} -> {C = C'}.

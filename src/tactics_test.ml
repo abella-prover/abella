@@ -357,9 +357,8 @@ let induction_tests =
 let assert_search_success b = assert_bool "Search should succeed" b
 let assert_search_failure b = assert_bool "Search should fail" (not b)
 
-let search ?(depth=5) ?(used=[]) ?(hyps=[]) ?(clauses=[])
-    ?(meta_clauses=[]) goal =
-  search ~depth ~used ~hyps ~clauses ~meta_clauses goal
+let search ?(depth=5) ?(hyps=[]) ?(clauses=[]) ?(meta_clauses=[]) goal =
+  search ~depth ~hyps ~clauses ~meta_clauses goal
     
 let search_tests =
   "Search" >:::

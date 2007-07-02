@@ -212,7 +212,6 @@ let search_goal goal =
     ~hyps:(List.map snd sequent.hyps)
     ~clauses:!clauses
     ~meta_clauses:!meta_clauses
-    ~used:(var_names ())
     goal
 
 let search () =

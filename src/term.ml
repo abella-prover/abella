@@ -99,7 +99,7 @@ let bind v t =
 
 let prefix = function
   | Constant -> "c"
-  | Logic -> "H"
+  | Logic -> "?"
   | Eigen -> "h"
   | Nominal -> "n"
 

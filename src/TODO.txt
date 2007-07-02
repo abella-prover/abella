@@ -1,9 +1,4 @@
-Search
-  Update used when introducing variables in search
-  Do support raising for term backchaining in search
-
-Using apply should pick new names for the introduced logic
-  variables, right?
+Generate OMakefile targets for every theorem file
 
 A n = B is still picking a bad name
 

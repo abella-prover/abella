@@ -1,5 +1,3 @@
-Generate OMakefile targets for every theorem file
-
 A n = B is still picking a bad name
 
 After Dale

@@ -12,17 +12,12 @@ OUNIT = $(file ext/oUnit)
     if $(file-exists OMakefile)
        include OMakefile
 
-################################################
-# Generated files
-#
-# Workaround for the fact that ocamldep does not pay attention to .mll
-# and .mly files.
-#
-OCamlGeneratedFiles(parser.ml lexer.ml)
 
 ################################################
-# Build an OCaml program
+# Main Program
 #
+
+OCamlGeneratedFiles(parser.ml lexer.ml)
 
 FILES[] =
     term
@@ -38,6 +33,13 @@ FILES[] =
 
 MAIN = main
 
+OCamlProgram(lpp, $(FILES) $(MAIN))
+
+
+################################################
+# Unit Testing
+#
+
 TEST_FILES[] =
     test_helper
     $(rootname $(find . -name *_test.ml))
@@ -49,21 +51,30 @@ TEST = unit_test
 test: $(OCamlProgram $(TEST), $(OUNIT) $(FILES) $(TEST_FILES))
     ./$(TEST) -verbose
 
-.PHONY: lpp
-lpp: $(OCamlProgram lpp, $(FILES) $(MAIN))
 
-.PHONY: clean
-clean:
-   rm $(filter-proper-targets $(ls R, .))
-
-THM = subst
-.PHONY: $(THM)
-$(THM): $(THM).mod $(THM).thm lpp$(EXE)
-    ./lpp $(THM).mod -f $(THM).thm
+################################################
+# File Testing
+#
 
 THM_FILES[] = $(rootname $(find . -name *.thm))
+
+foreach(thm, $(THM_FILES))
+    .PHONY: $(thm)
+    $(thm): $(thm).mod $(thm).thm lpp$(EXE)
+        ./lpp $(thm).mod -f $(thm).thm
+
 .PHONY: theorems
 theorems: lpp$(EXE) $(addsuffix .thm, $(THM_FILES)) \
                     $(addsuffix .mod, $(THM_FILES))
     foreach(thm, $(THM_FILES))
         ./lpp $(thm).mod -q -f $(thm).thm
+
+
+################################################
+# Utilites
+#
+
+.PHONY: clean
+clean:
+   rm $(filter-proper-targets $(ls R, .))
+

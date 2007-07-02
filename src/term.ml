@@ -38,8 +38,6 @@ and in_ptr = V of var | T of term
 and env = envitem list
 and envitem = Dum of int | Binding of term * int
 
-exception NonNormalTerm
-
 (* Fast structural equality modulo Ptr -- no normalization peformed. *)
 let rec eq t1 t2 =
   match t1,t2 with
@@ -135,8 +133,6 @@ let rec lambda n t =
         | Lam (n',t') -> lambda (n+n') t'
         | _ -> Lam (n,t)
 
-let getAbsName () = "x"
-
 (* Recursively raise dB indices and abstract over variables
  * selected by [test]. *)
 let abstract test =
@@ -148,7 +144,7 @@ let abstract test =
     | Ptr {contents=T t} -> Ptr (ref (T (aux n t)))
     | Ptr {contents=V v} -> if test t v.name then DB n else t
     | Var _ -> assert false
-    | Susp _ -> raise NonNormalTerm
+    | Susp _ -> assert false
   in aux
 
 (** Abstract [t] over term [v]. *)
@@ -168,16 +164,7 @@ let var tag name ts =
   else
     Ptr (ref (V { name=name ; ts=ts ; tag=tag }))
 
-let rec collapse_lam t = match t with
-  | Lam (n,t') ->
-      begin match collapse_lam t' with 
-        | Lam (m,u) -> Lam (n+m,u)
-        | _ -> t
-      end
-  | _ -> t
-
 let db n = DB n
-(* let app a b = if b = [] then a else ref (App (a,b)) *)
 let app a b = if b = [] then a else match observe a with
   | App(a,c) -> App (a,c @ b)
   | _ -> App (a,b)
@@ -244,8 +231,6 @@ let find_var_refs tag ts =
   in
     List.fold_left fv [] ts
       
-let logic_vars ts = List.map (fun v -> Var(v)) (find_vars Logic ts)
-
 let map_vars f t =
   let rec aux t =
     match observe t with
@@ -374,11 +359,12 @@ let parenthesis x = "(" ^ x ^ ")"
 let rec list_range a b =
   if a > b then [] else a::(list_range (a+1) b)
 
+let abs_name = "x"
+    
 let term_to_string term =
   let term = deep_norm term in
   let high_pr = 2 + get_max_priority () in
-  let pre = getAbsName () in
-  let pp_var x = pre ^ (string_of_int x) in
+  let pp_var x = abs_name ^ (string_of_int x) in
   let rec pp pr n term =
     match observe term with
       | Var v -> v.name

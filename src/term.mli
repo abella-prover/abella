@@ -51,8 +51,6 @@ val var : tag -> string -> int -> term
 
 val binop : string -> term -> term -> term
 
-val collapse_lam : term -> term
-
 val app : term -> term list -> term
 val susp : term -> int -> int -> env -> term
 val db : int -> term
@@ -78,8 +76,7 @@ val full_eq : term -> term -> bool
  * variable is a reference which must be updated. Also the variable must
  * not be made a reference to itself. This can be changed to mimic the
  * Prolog representation of bound variables but then deref will have to
- * work differently. This is the place to introduce trailing.
- * David: What's trailing ? *)
+ * work differently. *)
 
 val bind : term -> term -> unit
   
@@ -93,18 +90,11 @@ val add_dummies : env -> int -> int -> env
 (* Add [n] abstractions. *)
 val lambda : int -> term -> term
 
-val getAbsName : unit -> string
-
-exception NonNormalTerm
-
 (** Abstract [t] over term [v]. *)
 val abstract_var : term -> term -> term
 
 (** Abstract [t] over constant or variable named [id]. *)
 val abstract : string -> term -> term
-
-(** Logic variables of [ts]. *)
-val logic_vars : term list -> term list
 
 (** LPP specific additions and changes *)
 val const : ?ts:int -> string -> term

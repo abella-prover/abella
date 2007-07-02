@@ -162,6 +162,9 @@ let assert_expected_cases n cases =
   assert_failure (Printf.sprintf "Expected %d case(s) but found %d case(s)"
                     n (List.length cases))
 
+let case ?(used=[]) ?(clauses=[]) ?(meta_clauses=[]) term =
+  case ~used ~clauses ~meta_clauses term
+    
 let case_tests =
   "Case" >:::
     [
@@ -169,7 +172,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{eval A B}" in
            let used = ["A"; "B"] in
-             match case ~used term eval_clauses [] with
+             match case ~used ~clauses:eval_clauses term with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "{eval (abs R) (abs R)}" term ;
@@ -194,28 +197,24 @@ let case_tests =
       
       "Restriction should become smaller" >::
         (fun () ->
-           let term = freshen "{eval A B}@" in
-           let used = ["A"; "B"] in
-             match case ~used term eval_clauses [] with
-               | [case1; case2] ->
+           let term = freshen "{foo A}@" in
+           let clauses = parse_clauses "foo X :- bar X." in
+           let used = ["A"] in
+             match case ~used ~clauses term with
+               | [case1] ->
                    set_bind_state case1.bind_state ;
-                   assert_pprint_equal "{eval (abs R) (abs R)}@" term ;
-                   
-                   set_bind_state case2.bind_state ;
-                   assert_pprint_equal "{eval (app M N) B}@" term ;
-                   begin match case2.new_hyps with
-                     | [h1; h2] ->
-                         assert_pprint_equal "{eval M (abs R)}*" h1 ;
-                         assert_pprint_equal "{eval (R N) B}*" h2
-                     | _ -> assert_failure "Expected 2 new hypotheses"
+                   begin match case1.new_hyps with
+                     | [hyp] ->
+                         assert_pprint_equal "{bar A}*" hyp ;
+                     | _ -> assert_failure "Expected 1 new hypothesis"
                    end
-               | cases -> assert_expected_cases 2 cases) ;
+               | cases -> assert_expected_cases 1 cases) ;
 
       "On OR" >::
         (fun () ->
            let term = freshen "{A} or {B}" in
            let used = ["A"; "B"] in
-             match case ~used term eval_clauses [] with
+             match case ~used term with
                | [{new_hyps=[hyp1]} ; {new_hyps=[hyp2]}] ->
                    assert_pprint_equal "{A}" hyp1 ;
                    assert_pprint_equal "{B}" hyp2 ;
@@ -223,63 +222,59 @@ let case_tests =
 
       "On exists" >::
         (fun () ->
-           let term = freshen "exists A B, {eval A B}" in
+           let term = freshen "exists A B, {foo A B}" in
            let used = [] in
-             match case ~used term eval_clauses [] with
+             match case ~used term with
                | [{new_vars=new_vars ; new_hyps=[hyp]}] ->
                    let var_names = List.map fst new_vars in
                      assert_string_list_equal ["A"; "B"] var_names ;
-                     assert_pprint_equal "{eval A B}" hyp ;
+                     assert_pprint_equal "{foo A B}" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
       "On implies" >::
         (fun () ->
            let term = freshen "{L |- hyp A => conc B}" in
            let used = [] in
-             match case ~used term eval_clauses [] with
+             match case ~used term with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
                    assert_pprint_equal "{L, hyp A |- conc B}" hyp
                | _ -> assert_failure "Pattern mismatch") ;
-
-      "Should pass along context" >::
-        (fun () ->
-           let term = freshen "{L |- eval A B}" in
-           let used = ["A"; "B"] in
-             match case ~used term eval_clauses [] with
-               | [case1; case2; case3] ->
-                   (* case1 is the member case *)
-                   
-                   set_bind_state case2.bind_state ;
-                   assert_pprint_equal "{L |- eval (abs R) (abs R)}" term ;
-                   
-                   set_bind_state case3.bind_state ;
-                   assert_pprint_equal "{L |- eval (app M N) B}" term ;
-                   begin match case3.new_hyps with
-                     | [h1; h2] ->
-                         assert_pprint_equal "{L |- eval M (abs R)}" h1 ;
-                         assert_pprint_equal "{L |- eval (R N) B}" h2 ;
-                     | _ -> assert_failure "Expected 2 new hypotheses"
-                   end ;
-               | cases -> assert_expected_cases 3 cases) ;
 
       "Should look in context for member" >::
         (fun () ->
            let term = freshen "{L, hyp A |- hyp B}" in
            let used = ["L"; "A"; "B"] in
-             match case ~used term eval_clauses [] with
+             match case ~used term with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
                    assert_pprint_equal "member (hyp B) (hyp A :: L)" hyp
                | _ -> assert_failure "Pattern mismatch") ;
+
+      "Should pass along context" >::
+        (fun () ->
+           let term = freshen "{L |- foo A}" in
+           let clauses = parse_clauses "foo X :- bar X." in
+           let used = ["A"] in
+             match case ~used ~clauses term with
+               | [case1; case2] ->
+                   (* case1 is the member case *)
+                   
+                   set_bind_state case2.bind_state ;
+                   begin match case2.new_hyps with
+                     | [hyp] ->
+                         assert_pprint_equal "{L |- bar A}" hyp ;
+                     | _ -> assert_failure "Expected 1 new hypothesis"
+                   end ;
+               | cases -> assert_expected_cases 3 cases) ;
 
       "On member" >::
         (fun () ->
            let term = freshen "member (hyp A) (hyp C :: L)" in
            let used = ["A"; "C"; "L"] in
-           let member_clauses =
+           let meta_clauses =
              parse_clauses ("member A (A :: L)." ^
                               "member A (B :: L) :- member A L.")
            in
-             match case ~used term eval_clauses member_clauses with
+             match case ~used ~meta_clauses term with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "member (hyp C) (hyp C :: L)" term ;
@@ -294,10 +289,10 @@ let case_tests =
 
       "Should raise over nominal variables in meta clauses" >::
         (fun () ->
-           let clauses = parse_clauses "pred M N." in
+           let meta_clauses = parse_clauses "pred M N." in
            let term = make_nominals ["n"] (freshen "pred (A n) B") in
            let used = ["A"; "B"] in
-             match case ~used term [] clauses with
+             match case ~used ~meta_clauses term with
                | [case1] -> ()
                | cases -> assert_expected_cases 1 cases) ;
              
@@ -306,7 +301,7 @@ let case_tests =
            let clauses = parse_clauses "pred M N." in
            let term = make_nominals ["n"] (freshen "{pred (A n) B}") in
            let used = ["A"; "B"] in
-             match case ~used term clauses [] with
+             match case ~used ~clauses term with
                | [case1] -> ()
                | cases -> assert_expected_cases 1 cases) ;
              
@@ -376,11 +371,11 @@ let search_tests =
       
       "Should backchain on clauses" >::
         (fun () ->
-           let hyp1 = freshen "{eval M (abs R)}" in
-           let hyp2 = freshen "{eval (R N) V}" in
-           let goal = freshen "{eval (app M N) V}" in
+           let goal = freshen "{foo A}" in
+           let clauses = parse_clauses "foo X :- bar X, baz X." in
+           let hyps = [freshen "{bar A}"; freshen "{baz A}"] in
              assert_search_success
-               (search ~clauses:eval_clauses ~hyps:[hyp1; hyp2] goal)) ;
+               (search ~clauses ~hyps goal)) ;
 
       "On left of OR" >::
         (fun () ->
@@ -397,7 +392,8 @@ let search_tests =
       "On exists" >::
         (fun () ->
            let goal = freshen "exists R, {eq (app M N) R}" in
-             assert_search_success (search ~clauses:eval_clauses goal)) ;
+           let clauses = parse_clauses "eq X X." in
+             assert_search_success (search ~clauses goal)) ;
 
       "Should fail if there is no proof" >::
         (fun () ->
@@ -415,7 +411,7 @@ let search_tests =
            let hyp = freshen "{eval A B |- eval A B}" in
            let goal = freshen "{eval A B}" in
              assert_search_failure
-               (search ~depth:5 ~clauses:eval_clauses ~hyps:[hyp] goal)) ;
+               (search ~depth:5 ~hyps:[hyp] goal)) ;
 
       "Should preserve context while backchaining" >::
         (fun () ->

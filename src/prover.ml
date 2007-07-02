@@ -182,6 +182,7 @@ let get_display () =
     format_display (formatter_of_buffer b) ;
     Buffer.contents b
     
+
 (* Object level instantiation *)
 
 let inst h n t =
@@ -191,6 +192,7 @@ let inst h n t =
         let new_obj = object_inst obj n (replace_term_vars sequent.vars t) in
           add_hyp (Obj(new_obj, r))
     | _ -> failwith "Object cut can only be used on objects"
+
 
 (* Object level cut *)
     
@@ -261,8 +263,11 @@ let add_cases_to_subgoals cases =
 
 let case str =
   save_undo_state () ;
-  let obj = get_hyp str in
-  let cases = Tactics.case ~used:(var_names ()) obj !clauses !meta_clauses in
+  let term = get_hyp str in
+  let cases =
+    Tactics.case ~used:(var_names ()) ~clauses:!clauses
+      ~meta_clauses:!meta_clauses term
+  in
     add_cases_to_subgoals cases ;
     next_subgoal ()
 

@@ -11,6 +11,8 @@ Add tests for raising in apply? How are we going to handle raising in
   apply?
 Add test for apply to nabla variables
 
+Remove case on {A => B}. We should never have that type of term.
+
 Future
 ======
 

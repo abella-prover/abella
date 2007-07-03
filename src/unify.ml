@@ -569,6 +569,25 @@ and rigid_path_check t1 t2 =
     | Var v1, App(h2,a2) -> List.for_all (rigid_path_check t1) a2
     | _ -> false
 
+(** Assuming t2 is a variable which we want to bind to t1, we try here to
+    instead bind some pruned version of t1 to t2. Doing this allows us to
+    avoid generating a new name. *)
+and reverse_bind t1 t2 =
+  match observe t1, observe t2 with
+    | App(h, ts), Var v2 ->
+        let pruneable t =
+          begin match observe t with
+            | Var c when constant c.tag && c.ts > v2.ts -> true
+            | _ -> false
+          end
+        in
+          begin match observe h with
+            | Var v1 when v1.ts >= v2.ts && List.for_all pruneable ts ->
+                bind h (lambda (List.length ts) t2) ; true
+            | _ -> false
+          end
+    | _ -> false
+
 (** The main unification procedure.
   * Either succeeds and realizes the unification substitutions as side effects
   * or raises an exception to indicate nonunifiability or to signal
@@ -583,13 +602,17 @@ and rigid_path_check t1 t2 =
   * of binders through the eta rule is done on the fly. *)
 and unify t1 t2 = match observe t1,observe t2 with
   | Var v1, Var v2 when v1 = v2 -> ()
-  | Var {tag=t},_ when variable t ->
-      if rigid_path_check t1 t2 then
+  | Var v1,_ when variable v1.tag ->
+      if reverse_bind t2 t1 then
+        ()
+      else if rigid_path_check t1 t2 then
         bind t1 t2
       else
         bind t1 (makesubst t1 t2 [] 0)
-  | _,Var {tag=t} when variable t ->
-      if rigid_path_check t2 t1 then
+  | _,Var v2 when variable v2.tag ->
+      if reverse_bind t1 t2 then
+        ()
+      else if rigid_path_check t2 t1 then
         bind t2 t1
       else
         bind t2 (makesubst t2 t1 [] 0)

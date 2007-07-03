@@ -8,7 +8,7 @@ Axiom ctxpair_lemma2 : forall X L1 L2,
   ctxpair L1 L2 -> member (normal X) L2 -> false.
 
 Theorem generalized : forall T L1 L2,
-  ctxpair L1 L2 -> {L1 |- term T} -> {L2 |- normal T} or {non_normal T}.
+  ctxpair L1 L2 -> {L1 |- term T} -> {L2 |- normal T} \/ {non_normal T}.
 induction on 2. intros. case H2.
   apply ctxpair_lemma to H1 H3. search.
   apply IH to H1 H3. apply IH to H1 H4. case H5.
@@ -26,7 +26,7 @@ induction on 2. intros. case H2.
   search.
     
 Theorem specialized : forall T,
-  {term T} -> {normal T} or {non_normal T}.
+  {term T} -> {normal T} \/ {non_normal T}.
 intros.
 apply generalized to _ H1.
 case H2.

@@ -121,7 +121,7 @@ let tests =
            setup_prover ()
              ~clauses:eval_clauses
              ~goal:("forall P T, {typeof P T} -> " ^
-                      "{value P} or exists P', {step P P'}") ;
+                      "{value P} \\/ exists P', {step P P'}") ;
 
            assert_proof
              (fun () ->
@@ -315,7 +315,7 @@ let tests =
              
              setup_prover ()
                ~clauses:clauses
-               ~goal:"forall X, {foo X} -> {eq X a} or {eq X b}" ;
+               ~goal:"forall X, {foo X} -> {eq X a} \\/ {eq X b}" ;
              
              assert_proof
                (fun () ->
@@ -338,7 +338,7 @@ let tests =
              
              setup_prover ()
                ~clauses:clauses
-               ~goal:"forall X, {eq X a} or {eq X b} -> {foo X}" ;
+               ~goal:"forall X, {eq X a} \\/ {eq X b} -> {foo X}" ;
              
              assert_proof
                (fun () ->
@@ -363,7 +363,7 @@ let tests =
              
              setup_prover ()
                ~clauses:clauses
-               ~goal:"forall X, {nat X} -> {even X} or {odd X}" ;
+               ~goal:"forall X, {nat X} -> {even X} \\/ {odd X}" ;
              
              assert_proof
                (fun () ->

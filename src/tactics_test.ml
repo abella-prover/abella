@@ -213,7 +213,7 @@ let case_tests =
 
       "On OR" >::
         (fun () ->
-           let term = freshen "{A} or {B}" in
+           let term = freshen "{A} \\/ {B}" in
            let used = ["A"; "B"] in
              match case ~used term with
                | [{new_hyps=[hyp1]} ; {new_hyps=[hyp2]}] ->
@@ -340,13 +340,13 @@ let induction_tests =
       
       "With OR on left of arrow" >::
         (fun () ->
-           let stmt = freshen "forall X, {A} or {B} -> {C} -> {D}" in
+           let stmt = freshen "forall X, {A} \\/ {B} -> {C} -> {D}" in
            let (ih, goal) = induction 2 stmt in
              assert_pprint_equal
-               "forall X, {A} or {B} -> {C}* -> {D}"
+               "forall X, {A} \\/ {B} -> {C}* -> {D}"
                ih ;
              assert_pprint_equal
-               "forall X, {A} or {B} -> {C}@ -> {D}"
+               "forall X, {A} \\/ {B} -> {C}@ -> {D}"
                goal) ;
     ]
 
@@ -381,13 +381,13 @@ let search_tests =
       "On left of OR" >::
         (fun () ->
            let hyp = freshen "{eval A B}" in
-           let goal = freshen "{eval A B} or {false}" in
+           let goal = freshen "{eval A B} \\/ {false}" in
              assert_search_success (search ~hyps:[hyp] goal)) ;
       
       "On right of OR" >::
         (fun () ->
            let hyp = freshen "{eval A B}" in
-           let goal = freshen "{false} or {eval A B}" in
+           let goal = freshen "{false} \\/ {eval A B}" in
              assert_search_success (search ~hyps:[hyp] goal)) ;
 
       "On exists" >::

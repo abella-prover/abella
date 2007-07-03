@@ -39,7 +39,7 @@ rule token = parse
 | "Theorem"          { THEOREM }
 | "Axiom"            { AXIOM }
 | "Def"              { DEF }
-| "or"               { OR }
+| "\\/"              { OR }
 | "{"                { LBRACK }
 | "}"                { RBRACK }
 

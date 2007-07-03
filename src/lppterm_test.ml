@@ -58,32 +58,32 @@ let tests =
       "Print OR" >::
         (fun () ->
            let t = lpp_or a b in
-             assert_pprint_equal "{A} or {B}" t) ;
+             assert_pprint_equal "{A} \\/ {B}" t) ;
            
-      "Print multiple OR" >::
+      "Print multiple \\/" >::
         (fun () ->
            let t = lpp_or (lpp_or a b) c in
-             assert_pprint_equal "{A} or {B} or {C}" t) ;
+             assert_pprint_equal "{A} \\/ {B} \\/ {C}" t) ;
            
       "Print multiple OR (right assoc)" >::
         (fun () ->
            let t = lpp_or a (lpp_or b c) in
-             assert_pprint_equal "{A} or ({B} or {C})" t) ;
+             assert_pprint_equal "{A} \\/ ({B} \\/ {C})" t) ;
            
       "Print OR within arrow" >::
         (fun () ->
            let t = arrow a (lpp_or b c) in
-             assert_pprint_equal "{A} -> {B} or {C}" t) ;
+             assert_pprint_equal "{A} -> {B} \\/ {C}" t) ;
            
       "Print arrow within OR" >::
         (fun () ->
            let t = lpp_or (arrow a b) c in
-             assert_pprint_equal "({A} -> {B}) or {C}" t) ;
+             assert_pprint_equal "({A} -> {B}) \\/ {C}" t) ;
 
       "Print exists left of OR" >::
         (fun () ->
            let t = lpp_or (exists ["A"] b) c in
-             assert_pprint_equal "(exists A, {B}) or {C}" t) ;
+             assert_pprint_equal "(exists A, {B}) \\/ {C}" t) ;
 
       "Replace should descend underneath exists" >::
         (fun () ->

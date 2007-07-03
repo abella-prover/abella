@@ -77,27 +77,27 @@ let tests =
       
       "OR statement" >::
         (fun () ->
-           assert_pprint_equal_parse "{A} or {B}") ;
+           assert_pprint_equal_parse "{A} \\/ {B}") ;
       
       "OR statement on right side of arrow" >::
         (fun () ->
-           assert_pprint_equal_parse "{A} -> {B} or {C}") ;
+           assert_pprint_equal_parse "{A} -> {B} \\/ {C}") ;
       
       "OR statement on left side of arrow" >::
         (fun () ->
-           assert_pprint_equal_parse "{A} or {B} -> {C}") ;
+           assert_pprint_equal_parse "{A} \\/ {B} -> {C}") ;
 
       "Multiple OR statement" >::
         (fun () ->
-           assert_pprint_equal_parse "{A} or {B} or {C}") ;
+           assert_pprint_equal_parse "{A} \\/ {B} \\/ {C}") ;
 
       "Multiple OR statement (right assoc)" >::
         (fun () ->
-           assert_pprint_equal_parse "{A} or ({B} or {C})") ;
+           assert_pprint_equal_parse "{A} \\/ ({B} \\/ {C})") ;
 
       "Arrow underneath OR" >::
         (fun () ->
-           assert_pprint_equal_parse "{A} or ({B} -> {C})") ;
+           assert_pprint_equal_parse "{A} \\/ ({B} -> {C})") ;
       
       "Forall" >::
         (fun () ->
@@ -109,11 +109,11 @@ let tests =
       
       "Exists on left of OR" >::
         (fun () ->
-           assert_pprint_equal_parse "(exists A, {B}) or {C}") ;
+           assert_pprint_equal_parse "(exists A, {B}) \\/ {C}") ;
       
       "OR underneath exists" >::
         (fun () ->
-           assert_pprint_equal_parse "exists A, {B} or {C}") ;
+           assert_pprint_equal_parse "exists A, {B} \\/ {C}") ;
 
       "Variable in context" >::
         (fun () ->

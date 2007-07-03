@@ -246,7 +246,7 @@ let format_lppterm fmt t =
             aux pr_curr t
         | Or(a, b) ->
             aux pr_curr a ;
-            fprintf fmt " or " ;
+            fprintf fmt " \\/ " ;
             aux (pr_curr + 1) b ;
         | Pred(p) ->
             fprintf fmt "%s" (term_to_string p)

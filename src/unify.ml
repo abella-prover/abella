@@ -556,22 +556,34 @@ and unify_app_term h1 a1 t1 t2 = match observe h1,observe t2 with
       failwith "logic variable on the left (6)"
   | _ -> fail (ConstClash (h1,t2))
 
-(** Here we assume t1 is a variable we want to bind to t2. We must check that
-  * there is no-cyclic substitution and that nothing with a timestamp higher
-  * than t1 is allowed. *)
-and rigid_path_check t1 t2 =
-  match observe t1, observe t2 with
-    | Var v1, Var v2 when v1 = v2 -> false
-    | Var {ts=ts1}, Var {ts=ts2} when ts2 > ts1 -> false
-    | _, Var _ -> true
-    | _, DB i -> true
-    | _, Lam(n2,t2) -> rigid_path_check t1 t2
-    | Var v1, App(h2,a2) -> List.for_all (rigid_path_check t1) a2
-    | _ -> false
-
-(** Assuming t2 is a variable which we want to bind to t1, we try here to
-    instead bind some pruned version of t1 to t2. Doing this allows us to
-    avoid generating a new name. *)
+(* Here we assume v1 is a variable we want to bind to t2. We must check that
+ * there is no-cyclic substitution and that nothing with a timestamp higher
+ * than t1 is allowed. A more general check is possible here, but this
+ * should suffice *)
+and rigid_path_check v1 t2 =
+  let rec aux n t =
+    match observe (hnorm t) with
+      | Var v when v1 = v -> false
+      | Var v when v.ts <= v1.ts -> true
+      | DB i when i <= n -> true
+      | Lam(n', t) -> aux (n+n') t
+      | App(h, ts) ->
+          begin match observe (hnorm h) with
+            | Var v when v.ts <= v1.ts ->
+                List.for_all (aux n) ts
+            | DB i when i <= n ->
+                List.for_all (aux n) ts
+            | Var _ | DB _ -> false
+            | _ -> assert false
+          end
+      | Var _ | DB _ -> false
+      | _ -> assert false
+  in
+    aux 0 t2
+    
+(* Assuming t2 is a variable which we want to bind to t1, we try here to
+ * instead bind some pruned version of t1 to t2. Doing this allows us to
+ * avoid generating a new name. *)
 and reverse_bind t1 t2 =
   match observe t1, observe t2 with
     | App(h, ts), Var v2 ->
@@ -605,14 +617,14 @@ and unify t1 t2 = match observe t1,observe t2 with
   | Var v1,_ when variable v1.tag ->
       if reverse_bind t2 t1 then
         ()
-      else if rigid_path_check t1 t2 then
+      else if rigid_path_check v1 t2 then
         bind t1 t2
       else
         bind t1 (makesubst t1 t2 [] 0)
   | _,Var v2 when variable v2.tag ->
       if reverse_bind t1 t2 then
         ()
-      else if rigid_path_check t2 t1 then
+      else if rigid_path_check v2 t1 then
         bind t2 t1
       else
         bind t2 (makesubst t2 t1 [] 0)

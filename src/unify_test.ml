@@ -16,6 +16,20 @@ let rec extract path t =
       | App (t,_) when hd = H -> !!t
       | _ -> assert false
 
+let assert_raises_occurs_check f =
+  try
+    f () ;
+    assert_failure "Expected OccursCheck"
+  with
+    | Unify.Failure OccursCheck -> ()
+
+let assert_raises_failure f =
+  try
+    f () ;
+    assert_failure "Expected Failure"
+  with
+    | Unify.Failure _ -> ()
+  
 (* Tests from Nadathur's SML implementation *)
 let tests =
   "Unify" >:::
@@ -71,7 +85,7 @@ let tests =
                let x = hnorm x in
                  match extract [L;H] x with
                    | Var {name=h;ts=1;tag=Logic} -> var Logic h 1
-                   | _ -> failwith "X should match x\\y\\ H ..."
+                   | _ -> assert_failure "X should match x\\y\\ H ..."
              in
                assert_term_equal (2 // (h ^^ [ db 2 ; db 1 ])) x ;
                assert_term_equal (2 // (h ^^ [ a ; db 2 ])) y) ;
@@ -91,7 +105,7 @@ let tests =
                let x = hnorm x in
                  match extract [L;A;H] x with
                    | Var {name=h;ts=1;tag=Logic} -> var Logic h 1
-                   | _ -> failwith "X should match x\\y\\ _ H .."
+                   | _ -> assert_failure "X should match x\\y\\ _ H .."
              in
                assert_term_equal (2 // (c ^^ [h^^[db 2;db 1]])) x ;
                assert_term_equal (2 // (h ^^ [a;db 2])) y) ;
@@ -139,12 +153,11 @@ let tests =
                let x = hnorm x in
                  match extract [L;H] x with
                    | Var {name=h;ts=1;tag=Logic} -> var Logic h 1
-                   | _ -> failwith "X should match x\\y\\z\\ H ..."
+                   | _ -> assert_failure "X should match x\\y\\z\\ H ..."
              in
                assert_term_equal (3 // (h^^[db 2])) x) ;
 
-      (* Example 10, failure due to OccursCheck
-       * TODO Are the two different timestamps wanted for c ? *)
+      (* Example 10, failure due to OccursCheck *)
       "[X1 a2 b3 != c1 (X1 b3 c3)]" >::
         (fun () ->
            let x = var Logic "x" 1 in
@@ -152,24 +165,18 @@ let tests =
            let b = const ~ts:3 "b" in
            let c1 = const ~ts:1 "c" in
            let c3 = const ~ts:3 "c" in
-             try
-               right_unify (x ^^ [a;b]) (c1 ^^ [x ^^ [b;c3]]) ;
-               "Expected OccursCheck" @? false
-             with
-               | Unify.Failure OccursCheck -> ()) ;
+             assert_raises_occurs_check
+               (fun () -> right_unify (x ^^ [a;b]) (c1 ^^ [x ^^ [b;c3]]))) ;
 
       (* 10bis: quantifier dependency violation -- raise OccursCheck too *)
-      "[X1 a2 b3 != c3 (X b c)]" >::
+      "[X1 a2 b3 != c3 (X b3 c3)]" >::
         (fun () ->
            let x = var Logic "x" 1 in
            let a = const ~ts:2 "a" in
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
-             try
-               right_unify (x ^^ [a;b]) (c ^^ [x ^^ [b;c]]) ;
-               "Expected OccursCheck" @? false
-             with
-               | Unify.Failure OccursCheck -> ()) ;
+             assert_raises_occurs_check
+               (fun () -> right_unify (x ^^ [a;b]) (c ^^ [x ^^ [b;c]]))) ;
 
       (* Example 11, flex-flex without raising *)
       "[X1 a2 b3 = Y1 b3 c3]" >::
@@ -236,11 +243,8 @@ let tests =
            let b = const ~ts:3 "b" in
            let c = const ~ts:3 "c" in
            let d = const ~ts:3 "d" in
-             try
-               right_unify (x ^^ [a;b]) (d ^^ [y ^^ [b;c]]) ;
-               "Expected OccursCheck" @? false
-             with
-               | Unify.Failure OccursCheck -> ()) ;
+             assert_raises_occurs_check
+               (fun () -> right_unify (x ^^ [a;b]) (d ^^ [y ^^ [b;c]]))) ;
 
       "[a = a]" >::
         (fun () ->
@@ -278,8 +282,8 @@ let tests =
            let a x = a ^^ [x] in
              right_unify t (a x) ;
              right_unify t (a y) ;
-             begin try right_unify y t ; assert false with
-               | Unify.Failure _ -> () end) ;
+             assert_raises_failure
+               (fun () -> right_unify y t)) ;
 
       "[x\\y\\ H1 x = x\\y\\ G2 x]" >::
         (fun () ->
@@ -293,8 +297,8 @@ let tests =
         (fun () ->
            let x = var Logic "X" 1 in
            let y = var Eigen "y" 2 in
-             try right_unify x y ; assert false with
-               | Unify.Failure _ -> ()) ;
+             assert_raises_failure
+               (fun () -> right_unify x y)) ;
 
       (* Tests added while developing LPP *)
       "Saving and restoring states" >::
@@ -385,7 +389,7 @@ let tests =
              left_unify (app a [n]) n ;
              assert_term_equal (1 // db 1) a) ;
 
-      "Pruning for nominal variables should not pick a worthless name" >::
+      "Pruning should not generate a needless new name" >::
         (fun () ->
            let n = nominal_var "n" in
            let a = var Eigen "A" 0 in

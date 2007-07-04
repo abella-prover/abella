@@ -126,6 +126,9 @@ let case ~used ~clauses ~meta_clauses term =
             new_vars = [] ; new_hyps = [h] }
         in
           [make_simple_case left; make_simple_case right]
+    | And(left, right) ->
+        [{ bind_state = get_bind_state () ;
+           new_vars = [] ; new_hyps = [left; right] }]
     | Binding(Exists, ids, body) ->
         let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
         let fresh_body = replace_lppterm_vars fresh_ids body in
@@ -158,6 +161,7 @@ let get_max_restriction t =
       | Arrow(a, b) -> max (aux a) (aux b)
       | Binding(_, _, body) -> aux body
       | Or(a, b) -> max (aux a) (aux b)
+      | And(a, b) -> max (aux a) (aux b)
       | Pred _ -> 0
   in
     aux t
@@ -231,7 +235,8 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
         
   and lppterm_aux n goal =
     match goal with
-      | Or(left, right) -> lppterm_aux n left or lppterm_aux n right
+      | Or(left, right) -> lppterm_aux n left || lppterm_aux n right
+      | And(left, right) -> lppterm_aux n left && lppterm_aux n right
       | Binding(Exists, bindings, body) ->
           let term = freshen_logic_bindings bindings body in
             lppterm_aux n term

@@ -221,6 +221,16 @@ let case_tests =
                    assert_pprint_equal "{B}" hyp2 ;
                | _ -> assert_failure "Pattern mismatch") ;
 
+      "On AND" >::
+        (fun () ->
+           let term = freshen "{A} /\\ {B}" in
+           let used = ["A"; "B"] in
+             match case ~used term with
+               | [{new_hyps=[hyp1;hyp2]}] ->
+                   assert_pprint_equal "{A}" hyp1 ;
+                   assert_pprint_equal "{B}" hyp2 ;
+               | _ -> assert_failure "Pattern mismatch") ;
+
       "On exists" >::
         (fun () ->
            let term = freshen "exists A B, {foo A B}" in
@@ -389,6 +399,19 @@ let search_tests =
            let hyp = freshen "{eval A B}" in
            let goal = freshen "{false} \\/ {eval A B}" in
              assert_search_success (search ~hyps:[hyp] goal)) ;
+
+      "On AND" >::
+        (fun () ->
+           let hyp1 = freshen "{A}" in
+           let hyp2 = freshen "{B}" in
+           let goal = freshen "{A} /\\ {B}" in
+             assert_search_success (search ~hyps:[hyp1; hyp2] goal)) ;
+
+      "On AND (failure)" >::
+        (fun () ->
+           let hyp = freshen "{A}" in
+           let goal = freshen "{A} /\\ {B}" in
+             assert_search_failure (search ~hyps:[hyp] goal)) ;
 
       "On exists" >::
         (fun () ->

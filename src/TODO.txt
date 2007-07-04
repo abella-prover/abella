@@ -1,5 +1,3 @@
-Add and as /\
-
 Find and complete more examples
   Prove that copy with 2 eigen vars is the same as copy with 1 eigen var
 

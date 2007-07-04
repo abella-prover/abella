@@ -23,6 +23,7 @@ let rec process_proof name ~interactive lexbuf =
           | Case(str) -> case str
           | Assert(t) -> assert_hyp t
           | Search -> search ()
+          | Split -> split ()
           | Intros -> intros ()
           | Intro -> intro ()
           | Skip -> skip ()

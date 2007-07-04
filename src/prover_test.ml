@@ -54,6 +54,19 @@ let tests =
              | _ -> assert_failure "Expected one hypothesis"
         ) ;
 
+      "Split test" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"{A} /\\ {B}" ;
+
+           split () ;
+           assert_n_subgoals 2 ;
+
+           assert_pprint_equal "{A}" sequent.goal ;
+
+           skip () ;
+           assert_pprint_equal "{B}" sequent.goal) ;
+
       "System should know about term equality" >::
         (fun () ->
            setup_prover ()

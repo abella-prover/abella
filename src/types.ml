@@ -20,6 +20,7 @@ type command =
   | Case of id
   | Assert of lppterm
   | Search
+  | Split
   | Intros
   | Intro
   | Skip
@@ -57,6 +58,7 @@ let command_to_string c =
     | Assert t ->
         sprintf "assert %s" (lppterm_to_string t)
     | Search -> "search"
+    | Split -> "split"
     | Intros -> "intros"
     | Intro -> "intro"
     | Skip -> "skip"

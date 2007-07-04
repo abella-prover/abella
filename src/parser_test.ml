@@ -79,6 +79,14 @@ let tests =
         (fun () ->
            assert_pprint_equal_parse "{A} \\/ {B}") ;
       
+      "AND statement" >::
+        (fun () ->
+           assert_pprint_equal_parse "{A} /\\ {B}") ;
+
+      "AND within OR" >::
+        (fun () ->
+           assert_pprint_equal_parse "{A} \\/ {B} /\\ {C}") ;
+
       "OR statement on right side of arrow" >::
         (fun () ->
            assert_pprint_equal_parse "{A} -> {B} \\/ {C}") ;

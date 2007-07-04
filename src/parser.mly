@@ -1,8 +1,8 @@
 %token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS SKIP UNDO CUT ASSERT
-%token INTRO
+%token INTRO SPLIT
 %token THEOREM AXIOM DEF
-%token COLON RARROW FORALL NABLA EXISTS STAR AT OR LBRACK RBRACK
+%token COLON RARROW FORALL NABLA EXISTS STAR AT OR AND LBRACK RBRACK
 
 %token <int> NUM
 %token <string> ID
@@ -13,6 +13,7 @@
 %nonassoc COMMA
 %right RARROW
 %left OR
+%left AND
   
 %right CONS
 
@@ -78,6 +79,7 @@ command:
   | CASE ID DOT                         { Types.Case($2) }
   | ASSERT lppterm DOT                  { Types.Assert($2) }
   | SEARCH DOT                          { Types.Search }
+  | SPLIT DOT                           { Types.Split }
   | INTROS DOT                          { Types.Intros }
   | INTRO DOT                           { Types.Intro }
   | SKIP DOT                            { Types.Skip }
@@ -94,6 +96,7 @@ lppterm:
   | NABLA binding_list COMMA lppterm    { Lppterm.nabla $2 $4 }
   | lppterm RARROW lppterm              { Lppterm.arrow $1 $3 }
   | lppterm OR lppterm                  { Lppterm.lpp_or $1 $3 }
+  | lppterm AND lppterm                 { Lppterm.lpp_and $1 $3 }
   | LPAREN lppterm RPAREN               { $2 }
   | object_term                         { $1 }
   | term                                { Lppterm.pred $1 }

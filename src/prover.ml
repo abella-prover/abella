@@ -205,7 +205,7 @@ let cut h arg =
           add_hyp (object_cut obj_h obj_arg)
       | _ -> failwith "Cut must be used on objects"
 
-          
+
 (* Search *)
 
 let search_goal goal =
@@ -337,6 +337,24 @@ let intro () =
             sequent.goal <- forall rest fresh_body
     | _ -> ()
             
+
+(* Split *)
+
+let split () =
+  match sequent.goal with
+    | And(left, right) ->
+        let saved_sequent = copy_sequent () in
+        let saved_state = Term.get_bind_state () in
+        let right_case () =
+          set_sequent saved_sequent ;
+          Term.set_bind_state saved_state ;
+          sequent.goal <- right
+        in
+          subgoals := right_case :: !subgoals ;
+          sequent.goal <- left
+    | _ -> ()
+
+
 (* Skip *)
 
 let skip () =

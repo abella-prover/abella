@@ -20,6 +20,7 @@ type lppterm =
   | Arrow of lppterm * lppterm
   | Binding of binder * id list * lppterm
   | Or of lppterm * lppterm
+  | And of lppterm * lppterm
   | Pred of term
 
 (* Constructions *)
@@ -33,6 +34,7 @@ let forall ids t = Binding(Forall, ids, t)
 let nabla ids t = Binding(Nabla, ids, t)
 let exists ids t = Binding(Exists, ids, t)
 let lpp_or a b = Or(a, b)
+let lpp_and a b = And(a, b)
 let pred p = Pred(p)
 
 let member e ctx = Pred (app (Term.const "member") [e; ctx])
@@ -46,6 +48,7 @@ let map_objs f t =
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) -> Binding(binder, bindings, aux body)
       | Or(a, b) -> Or(aux a, aux b)
+      | And(a, b) -> And(aux a, aux b)
       | Pred _ -> t
   in
     aux t
@@ -152,6 +155,7 @@ let rec collect_terms t =
     | Arrow(a, b) -> (collect_terms a) @ (collect_terms b)
     | Binding(_, _, body) -> collect_terms body
     | Or(a, b) -> (collect_terms a) @ (collect_terms b)
+    | And(a, b) -> (collect_terms a) @ (collect_terms b)
     | Pred p -> [p]
 
 let map_term_list f t = List.map f (collect_terms t)
@@ -187,6 +191,7 @@ let rec replace_lppterm_vars alist t =
           let body' = replace_lppterm_vars alist' body in
             Binding(binder, bindings, body')
       | Or(a, b) -> Or(aux a, aux b)
+      | And(a, b) -> And(aux a, aux b)
       | Pred(p) -> Pred(replace_term_vars alist p)
 
 let term_support t = find_var_refs Nominal [t]
@@ -208,8 +213,9 @@ let bindings_to_string ts =
 
 let priority t =
   match t with
-    | Obj _ -> 3
-    | Pred _ -> 3
+    | Obj _ -> 4
+    | Pred _ -> 4
+    | And _ -> 3
     | Or _ -> 2
     | Arrow _ -> 1
     | Binding _ -> 0
@@ -247,6 +253,10 @@ let format_lppterm fmt t =
         | Or(a, b) ->
             aux pr_curr a ;
             fprintf fmt " \\/ " ;
+            aux (pr_curr + 1) b ;
+        | And(a, b) ->
+            aux pr_curr a ;
+            fprintf fmt " /\\ " ;
             aux (pr_curr + 1) b ;
         | Pred(p) ->
             fprintf fmt "%s" (term_to_string p)

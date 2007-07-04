@@ -40,6 +40,7 @@ rule token = parse
 | "Axiom"            { AXIOM }
 | "Def"              { DEF }
 | "\\/"              { OR }
+| "/\\"              { AND }
 | "{"                { LBRACK }
 | "}"                { RBRACK }
 
@@ -52,6 +53,7 @@ rule token = parse
 | "to"               { TO }
 | "with"             { WITH }
 | "on"               { ON }
+| "split"            { SPLIT }
 | "intro"            { INTRO }
 | "intros"           { INTROS }
 | "skip"             { SKIP }

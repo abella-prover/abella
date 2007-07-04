@@ -355,6 +355,16 @@ let split () =
     | _ -> ()
 
 
+(* Exists *)
+
+let exists t =
+  match sequent.goal with
+    | Binding(Lppterm.Exists, id::ids, body) ->
+        let t = replace_term_vars sequent.vars t in
+        let goal = exists ids (replace_lppterm_vars [(id, t)] body) in
+          sequent.goal <- goal
+    | _ -> ()
+        
 (* Skip *)
 
 let skip () =

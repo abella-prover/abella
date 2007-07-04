@@ -19,6 +19,7 @@ type command =
   | Inst of id * id * term
   | Case of id
   | Assert of lppterm
+  | Exists of term
   | Search
   | Split
   | Intros
@@ -57,6 +58,8 @@ let command_to_string c =
         sprintf "case %s" h
     | Assert t ->
         sprintf "assert %s" (lppterm_to_string t)
+    | Exists t ->
+        sprintf "exists %s" (term_to_string t)
     | Search -> "search"
     | Split -> "split"
     | Intros -> "intros"

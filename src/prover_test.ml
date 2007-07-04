@@ -1,7 +1,7 @@
 open OUnit
 open Test_helper
-open Prover
 open Lppterm
+open Prover
 open Term
 
 let assert_n_subgoals n =
@@ -66,6 +66,15 @@ let tests =
 
            skip () ;
            assert_pprint_equal "{B}" sequent.goal) ;
+
+      "Exists test" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"exists A, {foo A}" ;
+
+           exists (parse_term "X") ;
+
+           assert_pprint_equal "{foo X}" sequent.goal) ;
 
       "System should know about term equality" >::
         (fun () ->

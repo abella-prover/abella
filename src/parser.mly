@@ -78,6 +78,7 @@ command:
   | INST ID WITH ID EQ term DOT         { Types.Inst($2, $4, $6) }
   | CASE ID DOT                         { Types.Case($2) }
   | ASSERT lppterm DOT                  { Types.Assert($2) }
+  | EXISTS term DOT                     { Types.Exists($2) }
   | SEARCH DOT                          { Types.Search }
   | SPLIT DOT                           { Types.Split }
   | INTROS DOT                          { Types.Intros }

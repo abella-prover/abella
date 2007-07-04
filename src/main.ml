@@ -1,5 +1,5 @@
-open Prover
 open Lppterm
+open Prover
 open Types
 open Printf
 
@@ -22,6 +22,7 @@ let rec process_proof name ~interactive lexbuf =
           | Inst(h, n, t) -> inst h n t
           | Case(str) -> case str
           | Assert(t) -> assert_hyp t
+          | Exists(t) -> exists t
           | Search -> search ()
           | Split -> split ()
           | Intros -> intros ()

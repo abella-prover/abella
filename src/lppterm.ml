@@ -30,9 +30,9 @@ let obj t = { context = Context.empty ; term = t }
 
 let termobj t = Obj(obj t, Irrelevant)
 let arrow a b = Arrow(a, b)
-let forall ids t = Binding(Forall, ids, t)
-let nabla ids t = Binding(Nabla, ids, t)
-let exists ids t = Binding(Exists, ids, t)
+let forall ids t = if ids = [] then t else Binding(Forall, ids, t)
+let nabla ids t = if ids = [] then t else Binding(Nabla, ids, t)
+let exists ids t = if ids = [] then t else Binding(Exists, ids, t)
 let lpp_or a b = Or(a, b)
 let lpp_and a b = And(a, b)
 let pred p = Pred(p)

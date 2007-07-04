@@ -364,8 +364,7 @@ let makesubst h1 t2 a1 n =
     match observe c with
       | Var v when constant v.tag ->
           (* Can [h1] depend on [c] ?
-           * If so, the substitution is [c] itself -- why couldn't we pick an
-           * argument in that case too ? TODO
+           * If so, the substitution is [c] itself.
            * If not, [c] must belong to the argument list. *)
           if v.ts <= ts1 then c else
             let j = cindex v a1 n in
@@ -380,11 +379,7 @@ let makesubst h1 t2 a1 n =
           if eq c h1 then fail OccursCheck ;
           let (changed,a1',a2') = raise_and_invert ts1 ts2 a1 [] lev in
             if changed || ts1<ts2 then
-              let h'=
-                if ts1<ts2 then fresh ts1
-                else fresh ts2
-              in
-                (* TODO read carefuly *)
+              let h' = fresh (min ts1 ts2) in
                 bind c (app h' a2') ;
                 app h' a1'
             else
@@ -394,13 +389,11 @@ let makesubst h1 t2 a1 n =
       | App (h2,a2) ->
           begin match observe h2 with
             | Var {tag=tag} when constant tag ->
-                (* TODO I'm defeated here ;) wtf is the invariant ? *)
                 let a2 = List.map hnorm a2 in
                 app
                   (nested_subst h2 lev)
                   (List.map (fun x -> nested_subst x lev) a2)
             | DB _ -> 
-                (* TODO I'm defeated here ;) wtf is the invariant ? *)
                 let a2 = List.map hnorm a2 in
                 app
                   (nested_subst h2 lev)

@@ -1,0 +1,19 @@
+% This example is taken from some notes by John Hannan
+
+Def ctx nil.
+Def ctx (pe X Y :: L) :- (pi r\ X = abs r => false),
+                         (pi m\ pi n\ X = app m n => false),
+                         (pi r\ Y = abs r => false),
+                         (pi m\ pi n\ Y = app m n => false),
+                         ctx L.
+
+Theorem generalized : forall L E E' V,
+  ctx L -> {L |- pe E E'} -> {eval E V} ->
+    exists V', {L |- pe V V'} /\ {eval E' V'}.
+skip.
+
+Theorem specialized : forall E E' V,
+  {pe E E'} -> {eval E V} -> exists V', {pe V V'} /\ {eval E' V'}.
+intros. apply generalized to _ H1 H2.
+  case H3. case H4.
+  search.

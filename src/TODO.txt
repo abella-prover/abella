@@ -1,6 +1,5 @@
-Allow for apply obligations to become new goals
-Add induction in the middle of a proof
-Remove skips from type_uniq
+Add induction in the middle of a proof in order to remove skip from
+  type_uniq?
 
 How to deal with forall R, X = R when X gets bound to R?
   How do we know to rename to avoid capture?
@@ -23,6 +22,10 @@ Remove case on {A => B}. We should never have that type of term.
 
 Future
 ======
+
+Support tac1;tac2 where tac2 applies to all subgoals of tac1.
+  Then can remove searching from _ obligations and instead have people
+  do apply;search?
 
 Abstract out { context = List.map f context ; term = f term }
 

@@ -234,17 +234,24 @@ let get_some_hyp name =
     None
   else
     Some (get_hyp name)
-          
+
+let goal_to_subgoal g =
+  let saved_sequent = copy_sequent () in
+  let bind_state = Term.get_bind_state () in
+    fun () ->
+      set_sequent saved_sequent ;
+      Term.set_bind_state bind_state ;
+      sequent.goal <- g
+      
 let apply h args =
   save_undo_state () ;
   let stmt = get_hyp_or_lemma h in
   let args = List.map get_some_hyp args in
   let result, obligations = Tactics.apply stmt args in
-    List.iter (fun g ->
-                 if not (search_goal (normalize g)) then
-                   failwith ("Failed to prove obligation: " ^
-                               (lppterm_to_string g)))
-      obligations ;
+  let remaining_obligations =
+    List.remove_all (fun g -> search_goal (normalize g)) obligations in
+  let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
+    subgoals := List.append obligation_subgoals !subgoals ;
     add_hyp (normalize result)
 
     
@@ -346,15 +353,8 @@ let intro () =
 let split () =
   match sequent.goal with
     | And(left, right) ->
-        let saved_sequent = copy_sequent () in
-        let saved_state = Term.get_bind_state () in
-        let right_case () =
-          set_sequent saved_sequent ;
-          Term.set_bind_state saved_state ;
-          sequent.goal <- right
-        in
-          subgoals := right_case :: !subgoals ;
-          sequent.goal <- left
+        subgoals := (goal_to_subgoal right) :: !subgoals ;
+        sequent.goal <- left
     | _ -> ()
 
 

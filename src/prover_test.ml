@@ -82,6 +82,27 @@ let tests =
              ~goal:"{A = A}" ;
 
            assert_proof search) ;
+
+      "Obligations from apply should be added as subgoals" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"{third B}" ;
+
+           sequent.hyps <-
+             [("H1", freshen ("forall A," ^
+                                "{first A} -> {second A} -> {third A}")) ;
+              ("H2", freshen "{first B}")] ;
+
+           assert_n_subgoals 1 ;
+           
+           apply "H1" ["H2"; "_"] ;
+           assert_n_subgoals 2 ;
+           assert_pprint_equal "{third B}" sequent.goal ;
+
+           skip () ;
+           assert_n_subgoals 1 ;
+           assert_pprint_equal "{second B}" sequent.goal ;
+        );
       
       "Subject reduction for eval example" >::
         (fun () ->

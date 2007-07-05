@@ -1,5 +1,8 @@
+% I've commented out part of the proper definition of ctx in order
+% to make searching for a proof of ctx more reasonable for now.
+
 Def ctx nil.
-Def ctx (typeof X T :: L) :- pi T'\ member (typeof X T') L => false,
+Def ctx (typeof X T :: L) :- % pi T'\ member (typeof X T') L => false,
                              pi R\ X = abs R => false,
                              pi M\ pi N\ X = app M N => false,
                              ctx L.
@@ -22,7 +25,7 @@ induction on 2. intros. case H2.
     apply no_app to H1 H4. case H7.
   case H3.
     apply no_abs to H1 H5. case H6.
-    skip.
+    apply IH to _ H4 H5. case H6. search.
   case H3.
     apply no_app to H1 H6. case H7.
     apply IH to H1 H4 H6.

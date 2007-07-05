@@ -1,0 +1,29 @@
+Def ctx nil.
+Def ctx (typeof X T :: L) :- pi T'\ member (typeof X T') L => false,
+                             pi R\ X = abs R => false,
+                             pi M\ pi N\ X = app M N => false,
+                             ctx L.
+
+Axiom uniq : forall L E T1 T2,
+  ctx L -> member (typeof E T1) L -> member (typeof E T2) L -> T1 = T2.
+
+Axiom no_abs : forall L R T T',
+  ctx L -> member (typeof (abs T R) T') L -> false.
+    
+Axiom no_app : forall L M N T,
+  ctx L -> member (typeof (app M N) T) L -> false.
+    
+Theorem det_typeof : forall L E T1 T2,
+  ctx L -> {L |- typeof E T1} -> {L |- typeof E T2} -> T1 = T2.
+induction on 2. intros. case H2.
+  case H3.
+    apply uniq to H1 H4 H5. search.
+    apply no_abs to H1 H4. case H6.
+    apply no_app to H1 H4. case H7.
+  case H3.
+    apply no_abs to H1 H5. case H6.
+    skip.
+  case H3.
+    apply no_app to H1 H6. case H7.
+    apply IH to H1 H4 H6.
+      case H8. search.

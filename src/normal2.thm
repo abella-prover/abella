@@ -1,6 +1,6 @@
 Def ctx nil.
-Def ctx (var X :: L) :- pi r\ X = abs r => false,
-                        pi m\ pi n\ X = app m n => false,
+Def ctx (var X :: L) :- (forall R, X = abs R -> false),
+                        (forall M N, X = app M N -> false),
                         ctx L.
 
 Theorem ctx_no_head : forall L T,

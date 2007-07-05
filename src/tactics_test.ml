@@ -518,7 +518,7 @@ let search_tests =
       "Should use bedwyr style search on meta-level predicates" >::
         (fun () ->
            let meta_clauses =
-             parse_meta_clauses "foo P :- pi c\\ P = conc c => false."
+             parse_meta_clauses "foo P :- forall C, P = conc C -> false."
            in
            let goal1 = freshen "foo (hyp A)" in
            let goal2 = freshen "foo (conc A)" in

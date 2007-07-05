@@ -98,7 +98,7 @@ let bind v t =
 let prefix = function
   | Constant -> "c"
   | Logic -> "?"
-  | Eigen -> "h"
+  | Eigen -> "_"
   | Nominal -> "n"
 
 type bind_state = (term * term) list

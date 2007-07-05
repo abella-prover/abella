@@ -2,9 +2,9 @@
 % to make searching for a proof of ctx more reasonable for now.
 
 Def ctx nil.
-Def ctx (typeof X T :: L) :- % pi T'\ member (typeof X T') L => false,
-                             pi R\ X = abs R => false,
-                             pi M\ pi N\ X = app M N => false,
+Def ctx (typeof X T :: L) :- % (forall T', member (typeof X T') L -> false),
+                             (forall R, X = abs R -> false),
+                             (forall M N, X = app M N -> false),
                              ctx L.
 
 Axiom uniq : forall L E T1 T2,

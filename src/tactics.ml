@@ -55,25 +55,25 @@ let lppterm_vars_alist tag lppterms =
 
 (* Freshening for Logic variables uses anonymous names *)
 
-let fresh_logic_alist ?(support=[]) ids =
-  List.map (fun x -> (x, app (fresh 0) support)) ids
+let fresh_nameless_alist ?(support=[]) ~tag ids =
+  List.map (fun x -> (x, app (fresh ~tag 0) support)) ids
       
 let freshen_logic_clause ?(support=[]) head body =
   let var_names = capital_var_names (head::body) in
-  let fresh_names = fresh_logic_alist ~support var_names in
+  let fresh_names = fresh_nameless_alist ~tag:Logic ~support var_names in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
 
 let freshen_logic_meta_clause ?(support=[]) head body =
   let var_names = lpp_capital_var_names (pred head::body) in
-  let fresh_names = fresh_logic_alist ~support var_names in
+  let fresh_names = fresh_nameless_alist ~tag:Logic ~support var_names in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_lppterm_vars fresh_names) body in
     (fresh_head, fresh_body)
 
-let freshen_logic_bindings ?(support=[]) bindings term =
-  replace_lppterm_vars (fresh_logic_alist ~support bindings) term
+let freshen_nameless_bindings ?(support=[]) ~tag bindings term =
+  replace_lppterm_vars (fresh_nameless_alist ~support ~tag bindings) term
 
 (* Object level cut *)
 
@@ -236,10 +236,13 @@ let derivable goal hyp =
     Context.subcontext hyp.context goal.context
 
 let is_false t =
-  begin match observe t with
-    | Var {name=f} when f = "false" -> true
+  match t with
+    | Pred(p, _) ->
+        begin match observe p with
+          | Var {name=f} when f = "false" -> true
+          | _ -> false
+        end
     | _ -> false
-  end
 
 let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
   
@@ -284,46 +287,32 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
       | Or(left, right) -> lppterm_aux n left || lppterm_aux n right
       | And(left, right) -> lppterm_aux n left && lppterm_aux n right
       | Binding(Exists, bindings, body) ->
-          let term = freshen_logic_bindings bindings body in
+          let term = freshen_nameless_bindings ~tag:Logic bindings body in
             lppterm_aux n term
+      | Binding(Forall, bindings, body) ->
+          let term = freshen_nameless_bindings ~tag:Eigen bindings body in
+            lppterm_aux n term
+      | Arrow(Pred(left, _), right) when is_false right ->
+          negative_meta_aux n left
       | Obj(obj, _) -> obj_aux n obj
       | Pred(p, _) ->
           List.exists (try_right_unify p) (filter_preds hyps) ||
             meta_aux n p
       | _ -> false
-          
+
   and meta_aux n goal =
     if n = 0 then false else
-      let backchain () =
-        List.exists
-          (fun (head, body) ->
-             try_with_state
-               (fun () ->
-                  let support = term_support goal in
-                  let fresh_head, fresh_body =
-                    freshen_logic_meta_clause ~support head body
-                  in
-                    right_unify fresh_head goal ;
-                    List.for_all (lppterm_aux (n-1)) fresh_body))
-          meta_clauses
-      in
-      let negative_search () =
-        match observe goal with
-          | App(head, body) ->
-              begin match observe head, body with
-                | Var {name=i}, [a; b] when i = "=>" ->
-                    is_false b && negative_meta_aux n a
-                      
-                | Var {name=p}, [body] when p = "pi" ->
-                    let var = fresh ~tag:Eigen 0 in
-                    let goal = deep_norm (app body [var]) in
-                      meta_aux (n-1) goal
-                        
-                | _ -> false
-              end
-          | _ -> false
-      in
-        backchain () || negative_search ()
+      List.exists
+        (fun (head, body) ->
+           try_with_state
+             (fun () ->
+                let support = term_support goal in
+                let fresh_head, fresh_body =
+                  freshen_logic_meta_clause ~support head body
+                in
+                  right_unify fresh_head goal ;
+                  List.for_all (lppterm_aux (n-1)) fresh_body))
+        meta_clauses
               
   (* true if we can confirm no proof exists *)
   and negative_meta_aux n goal =
@@ -370,7 +359,7 @@ let apply term args =
   let rec aux term =
     match term with
       | Binding(Forall, bindings, body) ->
-          aux (freshen_logic_bindings ~support bindings body)
+          aux (freshen_nameless_bindings ~tag:Logic ~support bindings body)
       | Binding(Nabla, bindings, body) ->
           aux (freshen_bindings ~tag:Nominal ~used:[] bindings body)
       | Arrow _ ->

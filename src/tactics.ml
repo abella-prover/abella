@@ -135,9 +135,10 @@ let case ~used ~clauses ~meta_clauses term =
           [{ bind_state = get_bind_state () ;
              new_vars = fresh_ids ;
              new_hyps = [fresh_body] }]
-    | Pred(p) ->
-        term_case ~used ~support:(term_support p)
-          ~clauses:meta_clauses ~wrapper:pred p
+    | Pred(p, r) ->
+        let wrapper p = Pred(p, reduce_restriction r) in
+          term_case ~used ~support:(term_support p)
+            ~clauses:meta_clauses ~wrapper p
     | _ -> invalid_lppterm_arg term
 
 
@@ -240,8 +241,8 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
       | Binding(Exists, bindings, body) ->
           let term = freshen_logic_bindings bindings body in
             lppterm_aux n term
-      | Obj(obj, r) -> obj_aux n obj
-      | Pred(p) ->
+      | Obj(obj, _) -> obj_aux n obj
+      | Pred(p, _) ->
           List.exists (try_right_unify p) (filter_preds hyps) ||
             meta_aux n p
       | _ -> false
@@ -259,7 +260,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                   in
                     right_unify fresh_head goal ;
                     List.for_all
-                      (fun t -> lppterm_aux (n-1) (Pred t))
+                      (fun t -> lppterm_aux (n-1) (pred t))
                       fresh_body))
           meta_clauses
       in
@@ -344,7 +345,7 @@ let apply term args =
                            (left.context, arg.context)::!context_pairs ;
                          right_unify left.term arg.term ;
                          right
-                     | Arrow(Pred(left), right), Some (Pred arg) ->
+                     | Arrow(Pred(left, _), right), Some (Pred(arg, _)) ->
                          right_unify left arg ;
                          right
                      | Arrow(left, right), None ->

@@ -21,7 +21,7 @@ type lppterm =
   | Binding of binder * id list * lppterm
   | Or of lppterm * lppterm
   | And of lppterm * lppterm
-  | Pred of term
+  | Pred of term * restriction
 
 (* Constructions *)
 
@@ -35,9 +35,9 @@ let nabla ids t = if ids = [] then t else Binding(Nabla, ids, t)
 let exists ids t = if ids = [] then t else Binding(Exists, ids, t)
 let lpp_or a b = Or(a, b)
 let lpp_and a b = And(a, b)
-let pred p = Pred(p)
+let pred p = Pred(p, Irrelevant)
 
-let member e ctx = Pred (app (Term.const "member") [e; ctx])
+let member e ctx = pred (app (Term.const "member") [e; ctx])
   
 (* Manipulations *)
 
@@ -119,7 +119,7 @@ let rec filter_objs ts =
 let rec filter_preds ts =
   match ts with
     | [] -> []
-    | Pred(p)::rest -> p::(filter_preds rest)
+    | Pred(p, _)::rest -> p::(filter_preds rest)
     | _::rest -> filter_preds rest
 
 let term_to_obj t =
@@ -130,11 +130,13 @@ let term_to_obj t =
 let term_to_restriction t =
   match t with
     | Obj(_, r) -> r
+    | Pred(_, r) -> r
     | _ -> Irrelevant
         
 let apply_restriction r t =
   match t with
     | Obj(obj, _) -> Obj(obj, r)
+    | Pred(p, _) -> Pred(p, r)
     | _ -> failwith "Attempting to apply restriction to non-object"
 
 let reduce_restriction r =
@@ -151,12 +153,12 @@ let add_context ctx obj =
 
 let rec collect_terms t =
   match t with
-    | Obj(obj, r) -> (Context.context_to_list obj.context) @ [obj.term]
+    | Obj(obj, _) -> (Context.context_to_list obj.context) @ [obj.term]
     | Arrow(a, b) -> (collect_terms a) @ (collect_terms b)
     | Binding(_, _, body) -> collect_terms body
     | Or(a, b) -> (collect_terms a) @ (collect_terms b)
     | And(a, b) -> (collect_terms a) @ (collect_terms b)
-    | Pred p -> [p]
+    | Pred(p, _) -> [p]
 
 let map_term_list f t = List.map f (collect_terms t)
 
@@ -192,7 +194,7 @@ let rec replace_lppterm_vars alist t =
             Binding(binder, bindings, body')
       | Or(a, b) -> Or(aux a, aux b)
       | And(a, b) -> And(aux a, aux b)
-      | Pred(p) -> Pred(replace_term_vars alist p)
+      | Pred(p, r) -> Pred(replace_term_vars alist p, r)
 
 let term_support t = find_var_refs Nominal [t]
 
@@ -258,8 +260,11 @@ let format_lppterm fmt t =
             aux pr_curr a ;
             fprintf fmt " /\\ " ;
             aux (pr_curr + 1) b ;
-        | Pred(p) ->
-            fprintf fmt "%s" (term_to_string p)
+        | Pred(p, r) ->
+            if r = Irrelevant then
+              fprintf fmt "%s" (term_to_string p)
+            else
+              fprintf fmt "%s %s" (term_to_string p) (restriction_to_string r)
       end ;
       if pr_curr < pr_above then fprintf fmt ")" ;
   in

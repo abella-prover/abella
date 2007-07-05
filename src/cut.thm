@@ -1,9 +1,14 @@
 Def ctx nil.
-Def ctx (P :: L) :- pi c\ P = conc c => false, ctx L.
+Def ctx (hyp A :: L) :- ctx L.
 
-Axiom ctx_lemma : forall A L, ctx L -> member (conc A) L -> false.
+Theorem ctx_lemma :
+  forall A L, ctx L -> member (conc A) L -> false.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    apply IH to H3 H4. search.
 
-
+    
 Theorem and_left_inv :
   forall L C1 C2, ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C1}.
 induction on 2. intros. case H2.
@@ -23,6 +28,7 @@ induction on 2. intros. case H2.
   apply IH to _ H4. search.
   apply IH to _ H5. search.
 
+  
 Theorem imp_inv :
   forall L C1 C2, ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
 induction on 2. intros. case H2.
@@ -32,12 +38,6 @@ induction on 2. intros. case H2.
   search.
   apply IH to _ H5. search.
 
-% Axiom and_left_inv :
-%   forall L C1 C2, ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C1}.
-% Axiom and_right_inv :
-%   forall L C1 C2, ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C2}.
-% Axiom imp_inv :
-%   forall L C1 C2, ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
 
 Theorem cut_elim :
   forall L K C,

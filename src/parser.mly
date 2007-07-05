@@ -99,8 +99,9 @@ lppterm:
   | lppterm OR lppterm                  { Lppterm.lpp_or $1 $3 }
   | lppterm AND lppterm                 { Lppterm.lpp_and $1 $3 }
   | LPAREN lppterm RPAREN               { $2 }
-  | object_term                         { $1 }
-  | term                                { Lppterm.pred $1 }
+  | LBRACK contexted_term RBRACK restriction
+                                        { Lppterm.Obj($2, $4) }
+  | term restriction                    { Lppterm.Pred($1, $2) }
 
 binding_list:
   | binding binding_list                { $1::$2 }
@@ -109,11 +110,11 @@ binding_list:
 binding:
   | ID                                  { $1 }
 
-object_term:
-  | LBRACK contexted_term RBRACK        { Lppterm.Obj($2, Lppterm.Irrelevant) }
-  | LBRACK contexted_term RBRACK stars  { Lppterm.Obj($2, Lppterm.Smaller $4) }
-  | LBRACK contexted_term RBRACK ats    { Lppterm.Obj($2, Lppterm.Equal $4) }
-
+restriction:
+  |                                     { Lppterm.Irrelevant }
+  | stars                               { Lppterm.Smaller $1 }
+  | ats                                 { Lppterm.Equal $1 }
+      
 stars:
   | STAR stars                          { 1 + $2 }
   | STAR                                { 1 }

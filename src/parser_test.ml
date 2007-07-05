@@ -59,17 +59,21 @@ let tests =
         (fun () ->
            assert_pprint_equal_parse "{pi x1\\eval x1 A => typeof x1 B}") ;
       
-      "Active restriction" >::
+      "Smaller restriction" >::
         (fun () ->
            assert_pprint_equal_parse "{A}*") ;
 
-      "Inactive restriction" >::
+      "Equal restriction" >::
         (fun () ->
            assert_pprint_equal_parse "{A}@") ;
 
-      "Second Active restriction" >::
+      "Second smaller restriction" >::
         (fun () ->
            assert_pprint_equal_parse "{A}**") ;
+
+      "Smaller restriction on predicate" >::
+        (fun () ->
+           assert_pprint_equal_parse "pred A B *") ;
       
       "Implies statement" >::
         (fun () ->

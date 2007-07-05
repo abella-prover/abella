@@ -1,43 +1,64 @@
 Def ctx nil.
-Def ctx (var X :: L) :- ctx L.
+Def ctx (var X :: L) :- pi r\ X = abs r => false,
+                        pi m\ pi n\ X = app m n => false,
+                        ctx L.
 
-Axiom ctx_head_lemma : forall L T,
+Theorem ctx_no_head : forall L T,
   ctx L -> member (normal_head T) L -> false.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    apply IH to H5 H6. search.
 
-Axiom ctx_normal_lemma : forall L T,
+Theorem ctx_no_normal : forall L T,
   ctx L -> member (normal T) L -> false.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    apply IH to H5 H6. search.
 
-Axiom ctx_var_abs_lemma : forall L T,
-  ctx L -> {L |- var (abs T)} -> false.
+Theorem ctx_no_var_abs : forall L T,
+  ctx L -> member (var (abs T)) L -> false.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    skip. % Have hyp - pi x1\abs T = abs x1 => false
+    apply IH to H5 H6. search.
 
-Axiom ctx_var_app_lemma : forall L T1 T2,
-  ctx L -> {L |- var (app T1 T2)} -> false.
+Theorem ctx_no_var_app : forall L T1 T2,
+  ctx L -> member (var (app T1 T2)) L -> false.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    skip. % Have hyp - pi x1\pi x2\app T1 T2 = app x1 x2 => false
+    apply IH to H5 H6. search.
 
+  
 Theorem head_lemma : forall L T,
   ctx L -> {L |- normal_head T} -> {L |- normal T}.
 intros. case H2.
-  apply ctx_head_lemma to H1 H3. case H4.
+  apply ctx_no_head to H1 H3. case H4.
   search.
   search.
 
 Theorem generalized : forall T L,
   ctx L -> {L |- normal T} -> {non_normal T} -> false.
 induction on 3. intros. case H2.
-  apply ctx_normal_lemma to H1 H4. search.
+  apply ctx_no_normal to H1 H4. search.
   case H3.
     apply IH to _ H4 H5. search.
   case H3.
     case H4.
-      apply ctx_head_lemma to H1 H6. search.
-      apply ctx_var_abs_lemma to H1 H6. search.
+      apply ctx_no_head to H1 H6. search.
+      case H6. apply ctx_no_var_abs to H1 H7. search.
     apply head_lemma to H1 H4.
       apply IH to H1 H7 H6. search.
     apply IH to H1 H5 H6. search.
   case H3.
-    apply ctx_var_app_lemma to H1 H4. search.
-    apply ctx_var_app_lemma to H1 H4. search.
-    apply ctx_var_app_lemma to H1 H4. search.
-    apply ctx_var_abs_lemma to H1 H4. search.
+    case H4. apply ctx_no_var_app to H1 H5. search.
+    case H4. apply ctx_no_var_app to H1 H6. search.
+    case H4. apply ctx_no_var_app to H1 H6. search.
+    case H4. apply ctx_no_var_abs to H1 H6. search.
 
 Theorem specialized : forall T,
   {normal T} -> {non_normal T} -> false.

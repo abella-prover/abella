@@ -115,6 +115,20 @@ let apply_tests =
              assert_raises (Failure "Restriction violated")
                (fun () -> apply h0 [Some h1; Some h2])) ;
 
+      "Properly restricted on predicate" >::
+        (fun () ->
+           let h0 = freshen "forall A, foo A * -> bar A" in
+           let h1 = freshen "foo A *" in
+           let t, _ = apply h0 [Some h1] in
+             assert_pprint_equal "bar A" t) ;
+
+      "Improperly restricted on predicate" >::
+        (fun () ->
+           let h0 = freshen "forall A, foo A * -> bar A" in
+           let h1 = freshen "foo A @" in
+             assert_raises (Failure "Restriction violated")
+               (fun () -> apply h0 [Some h1])) ;
+
       "Unification failure" >::
         (fun () ->
            let h0 = freshen
@@ -207,6 +221,21 @@ let case_tests =
                    begin match case1.new_hyps with
                      | [hyp] ->
                          assert_pprint_equal "{bar A}*" hyp ;
+                     | _ -> assert_failure "Expected 1 new hypothesis"
+                   end
+               | cases -> assert_expected_cases 1 cases) ;
+
+      "Restriction on predicates should become smaller" >::
+        (fun () ->
+           let term = freshen "foo A @" in
+           let meta_clauses = parse_clauses "foo X :- bar X." in
+           let used = ["A"] in
+             match case ~used ~meta_clauses term with
+               | [case1] ->
+                   set_bind_state case1.bind_state ;
+                   begin match case1.new_hyps with
+                     | [hyp] ->
+                         assert_pprint_equal "bar A *" hyp ;
                      | _ -> assert_failure "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 1 cases) ;
@@ -358,6 +387,19 @@ let induction_tests =
              assert_pprint_equal
                "forall X, {A} \\/ {B} -> {C}@ -> {D}"
                goal) ;
+      
+      "On predicate" >::
+        (fun () ->
+           let stmt = freshen
+             "forall A, first A -> second A -> third A" in
+           let (ih, goal) = induction 1 stmt in
+             assert_pprint_equal
+               "forall A, first A * -> second A -> third A"
+               ih ;
+             assert_pprint_equal
+               "forall A, first A @ -> second A -> third A"
+               goal) ;
+      
     ]
 
 let assert_search_success b = assert_bool "Search should succeed" b

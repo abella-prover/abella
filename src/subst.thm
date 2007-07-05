@@ -1,8 +1,14 @@
 Def ctx nil.
 Def ctx (copy X X :: L) :- ctx L.
 
-Axiom ctx_lemma : forall X Y L,
+Theorem ctx_lemma : forall X Y L,
   ctx L -> member (copy X Y) L -> X = Y.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H3 H4. search.
+
 
 Theorem generalized :
   forall T L R S, nabla x, ctx L -> {L, copy x T |- copy (R x) S} -> R T = S.

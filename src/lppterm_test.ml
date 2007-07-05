@@ -121,9 +121,15 @@ let tests =
       "Print predicate" >::
         (fun () ->
            let p = app (const "head") [const "A"; const "B"] in
-           let t = Pred(p) in
+           let t = Pred(p, Irrelevant) in
              assert_pprint_equal "head A B" t) ;
 
+      "Print restricted predicate" >::
+        (fun () ->
+           let p = app (const "head") [const "A"; const "B"] in
+           let t = Pred(p, Smaller 1) in
+             assert_pprint_equal "head A B *" t) ;
+      
       "Print equality" >::
         (fun () ->
            let t = termobj (app (const "=") [const "A"; const "B"]) in

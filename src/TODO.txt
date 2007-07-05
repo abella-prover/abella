@@ -1,4 +1,6 @@
-Add tactic to instantiate exists in goal
+What to do about hyps like pi x1\abs T = abs x1 => false
+
+How to add pi T'\ member (typeof X T') L => false back in type_uniq
 
 Find and complete more examples
   Prove that copy with 2 eigen vars is the same as copy with 1 eigen var

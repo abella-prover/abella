@@ -22,7 +22,8 @@ Theorem ctx_no_var_abs : forall L T,
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    skip. % Have hyp - pi x1\abs T = abs x1 => false
+    assert abs T = abs T. search.
+      apply H3 to H6. search.
     apply IH to H5 H6. search.
 
 Theorem ctx_no_var_app : forall L T1 T2,
@@ -30,7 +31,8 @@ Theorem ctx_no_var_app : forall L T1 T2,
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    skip. % Have hyp - pi x1\pi x2\app T1 T2 = app x1 x2 => false
+    assert app T1 T2 = app T1 T2. search.
+      apply H4 to H6. search.
     apply IH to H5 H6. search.
 
   

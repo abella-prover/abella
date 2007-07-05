@@ -5,14 +5,6 @@ open Extensions
 
 (* Variable naming utilities *)
 
-let fresh_alist ?(support=[]) ~used ~tag ids =
-  let used = ref used in
-    List.map (fun x ->
-                let (fresh, curr_used) = fresh_wrt tag x !used in
-                  used := curr_used ;
-                  (x, app fresh support))
-      ids
-
 let is_capital str =
   match str.[0] with
     | 'A'..'Z' -> true

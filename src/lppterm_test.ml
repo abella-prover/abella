@@ -112,6 +112,12 @@ let tests =
            let t' = replace_lppterm_vars [("A", var_b)] t in
              assert_pprint_equal "exists A, {A}" t') ;
 
+      "Replace should not capture exists variables" >::
+        (fun () ->
+           let t = exists ["A"] b in
+           let t' = replace_lppterm_vars [("B", var_a)] t in
+             assert_pprint_equal "exists A', {A}" t') ;
+      
       "Print non-empty context" >::
         (fun () ->
            let ctx = Context.add (const "L") Context.empty in

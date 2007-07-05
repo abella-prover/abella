@@ -24,7 +24,7 @@ let read_mod filename =
 let freshen str =
   let term = parse_lppterm str in
   let var_names = Tactics.capital_var_names (collect_terms term) in
-  let fresh_names = Tactics.fresh_alist ~tag:Term.Eigen ~used:[] var_names in
+  let fresh_names = fresh_alist ~tag:Term.Eigen ~used:[] var_names in
     replace_lppterm_vars fresh_names term
 
 let make_nominals list term =

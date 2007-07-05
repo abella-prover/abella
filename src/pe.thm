@@ -1,10 +1,10 @@
 % This example is taken from some notes by John Hannan
 
 Def ctx nil.
-Def ctx (pe X Y :: L) :- (pi r\ X = abs r => false),
-                         (pi m\ pi n\ X = app m n => false),
-                         (pi r\ Y = abs r => false),
-                         (pi m\ pi n\ Y = app m n => false),
+Def ctx (pe X Y :: L) :- (forall R, X = abs R -> false),
+                         (forall M N, X = app M N -> false),
+                         (forall R, Y = abs R -> false),
+                         (forall M N, Y = app M N -> false),
                          ctx L.
 
 Theorem generalized : forall L E E' V,

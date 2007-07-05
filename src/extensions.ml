@@ -66,6 +66,9 @@ module List = struct
   let remove_all f list =
     find_all (fun x -> not (f x)) list
 
+  let minus list1 list2 =
+    remove_all (fun e -> mem e list2) list1
+
   let remove_assocs to_remove alist =
     let rec aux alist =
       match alist with

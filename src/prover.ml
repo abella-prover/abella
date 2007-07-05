@@ -52,8 +52,11 @@ let clauses : clauses ref = ref (parse_clauses "X = X.")
 let add_clauses new_clauses =
   clauses := !clauses @ new_clauses
   
-let meta_clauses : clauses ref =
-  ref (parse_clauses
+let parse_meta_clauses str =
+  Parser.meta_clauses Lexer.token (Lexing.from_string str)
+
+let meta_clauses : meta_clause list ref =
+  ref (parse_meta_clauses
          ("X = X." ^
             "member A (A :: L)." ^
             "member A (B :: L) :- member A L."))

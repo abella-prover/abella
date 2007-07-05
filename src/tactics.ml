@@ -22,11 +22,22 @@ let capital_var_names terms =
   let names = map_vars_list (fun v -> v.name) terms in
     List.unique (List.find_all is_capital names)
 
+let lpp_capital_var_names lppterms =
+  let terms = List.flatten (List.map collect_terms lppterms) in
+    capital_var_names terms
+
 let freshen_clause ~tag ~used ?(support=[]) head body =
   let var_names = capital_var_names (head::body) in
   let fresh_names = fresh_alist ~support ~tag ~used var_names in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
+    (fresh_head, fresh_body)
+
+let freshen_meta_clause ~tag ~used ?(support=[]) head body =
+  let var_names = lpp_capital_var_names (pred head::body) in
+  let fresh_names = fresh_alist ~support ~tag ~used var_names in
+  let fresh_head = replace_term_vars fresh_names head in
+  let fresh_body = List.map (replace_lppterm_vars fresh_names) body in
     (fresh_head, fresh_body)
 
 let freshen_bindings ?(support=[]) ~tag ~used bindings term =
@@ -37,6 +48,10 @@ let freshen_bindings ?(support=[]) ~tag ~used bindings term =
 let term_vars_alist tag terms =
   List.map (fun v -> ((term_to_var v).name, v))
     (find_var_refs tag terms)
+    
+let lppterm_vars_alist tag lppterms =
+  let terms = List.flatten (List.map collect_terms lppterms) in
+    term_vars_alist tag terms
 
 (* Freshening for Logic variables uses anonymous names *)
 
@@ -48,6 +63,13 @@ let freshen_logic_clause ?(support=[]) head body =
   let fresh_names = fresh_logic_alist ~support var_names in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
+    (fresh_head, fresh_body)
+
+let freshen_logic_meta_clause ?(support=[]) head body =
+  let var_names = lpp_capital_var_names (pred head::body) in
+  let fresh_names = fresh_logic_alist ~support var_names in
+  let fresh_head = replace_term_vars fresh_names head in
+  let fresh_body = List.map (replace_lppterm_vars fresh_names) body in
     (fresh_head, fresh_body)
 
 let freshen_logic_bindings ?(support=[]) bindings term =
@@ -77,6 +99,25 @@ type case = {
   new_hyps : lppterm list ;
 }
 
+let meta_term_case ~support ~used ~meta_clauses ~wrapper term =
+  List.filter_map
+    (fun (head, body) ->
+       let fresh_head, fresh_body =
+         freshen_meta_clause ~support ~tag:Eigen ~used head body in
+       let initial_state = get_bind_state () in
+         if try_left_unify ~used fresh_head term then
+           let new_vars =
+             lppterm_vars_alist Eigen (pred fresh_head::fresh_body) in
+           let bind_state = get_bind_state () in
+           let wrapped_body = List.map wrapper fresh_body in
+             set_bind_state initial_state ;
+             Some { bind_state = bind_state ;
+                    new_vars = new_vars ;
+                    new_hyps = wrapped_body }
+         else
+               None)
+    meta_clauses
+      
 let term_case ~support ~used ~clauses ~wrapper term =
   List.filter_map
     (fun (head, body) ->
@@ -103,10 +144,10 @@ let obj_case ~used obj r clauses =
      }]
   else 
     let wrapper t =
-      normalize (Obj(context_obj obj.context t, reduce_restriction r))
-    in
+      normalize (Obj(context_obj obj.context t, reduce_restriction r)) in
     let support = obj_support obj in
-    let clause_cases = term_case ~support ~used ~clauses ~wrapper obj.term in
+    let clause_cases =
+      term_case ~support ~used ~clauses ~wrapper obj.term in
     let member_case =
       { bind_state = get_bind_state () ;
         new_vars = [] ;
@@ -136,9 +177,13 @@ let case ~used ~clauses ~meta_clauses term =
              new_vars = fresh_ids ;
              new_hyps = [fresh_body] }]
     | Pred(p, r) ->
-        let wrapper p = Pred(p, reduce_restriction r) in
-          term_case ~used ~support:(term_support p)
-            ~clauses:meta_clauses ~wrapper p
+        let wrapper t =
+          match t with
+            | Pred(p, _) -> Pred(p, reduce_restriction r)
+            | _ -> t
+        in
+          meta_term_case ~used ~support:(term_support p)
+            ~meta_clauses ~wrapper p
     | _ -> invalid_lppterm_arg term
 
 
@@ -256,12 +301,10 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                (fun () ->
                   let support = term_support goal in
                   let fresh_head, fresh_body =
-                    freshen_logic_clause ~support head body
+                    freshen_logic_meta_clause ~support head body
                   in
                     right_unify fresh_head goal ;
-                    List.for_all
-                      (fun t -> lppterm_aux (n-1) (pred t))
-                      fresh_body))
+                    List.for_all (lppterm_aux (n-1)) fresh_body))
           meta_clauses
       in
       let negative_search () =

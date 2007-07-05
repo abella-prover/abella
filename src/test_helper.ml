@@ -15,6 +15,9 @@ let parse_lppterm str =
 let parse_clauses str =
   Parser.clauses Lexer.token (Lexing.from_string str)
 
+let parse_meta_clauses str =
+  Parser.meta_clauses Lexer.token (Lexing.from_string str)
+
 let read_mod filename =
   Parser.clauses Lexer.token (Lexing.from_channel (open_in filename))
 

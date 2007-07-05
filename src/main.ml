@@ -62,8 +62,8 @@ let rec process ~interactive lexbuf =
             add_lemma name thm
         | Axiom(name, axiom) ->
             add_lemma name axiom
-        | Def(clause) ->
-            add_meta_clause clause
+        | Def(meta_clause) ->
+            add_meta_clause meta_clause
       end ;
       if interactive then flush stdout
   with

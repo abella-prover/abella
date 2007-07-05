@@ -228,7 +228,7 @@ let case_tests =
       "Restriction on predicates should become smaller" >::
         (fun () ->
            let term = freshen "foo A @" in
-           let meta_clauses = parse_clauses "foo X :- bar X." in
+           let meta_clauses = parse_meta_clauses "foo X :- bar X." in
            let used = ["A"] in
              match case ~used ~meta_clauses term with
                | [case1] ->
@@ -311,8 +311,8 @@ let case_tests =
            let term = freshen "member (hyp A) (hyp C :: L)" in
            let used = ["A"; "C"; "L"] in
            let meta_clauses =
-             parse_clauses ("member A (A :: L)." ^
-                              "member A (B :: L) :- member A L.")
+             parse_meta_clauses ("member A (A :: L)." ^
+                                   "member A (B :: L) :- member A L.")
            in
              match case ~used ~meta_clauses term with
                | [case1; case2] ->
@@ -329,7 +329,7 @@ let case_tests =
 
       "Should raise over nominal variables in meta clauses" >::
         (fun () ->
-           let meta_clauses = parse_clauses "pred M N." in
+           let meta_clauses = parse_meta_clauses "pred M N." in
            let term = make_nominals ["n"] (freshen "pred (A n) B") in
            let used = ["A"; "B"] in
              match case ~used ~meta_clauses term with
@@ -507,7 +507,7 @@ let search_tests =
       "Should backchain on meta-clauses" >::
         (fun () ->
            let meta_clauses =
-             parse_clauses
+             parse_meta_clauses
                ("member A (A :: L)." ^
                   "member A (B :: L) :- member A L.")
            in
@@ -518,7 +518,7 @@ let search_tests =
       "Should use bedwyr style search on meta-level predicates" >::
         (fun () ->
            let meta_clauses =
-             parse_clauses "foo P :- pi c\\ P = conc c => false."
+             parse_meta_clauses "foo P :- pi c\\ P = conc c => false."
            in
            let goal1 = freshen "foo (hyp A)" in
            let goal2 = freshen "foo (conc A)" in
@@ -527,7 +527,7 @@ let search_tests =
 
       "Should raise meta clauses over support" >::
         (fun () ->
-           let meta_clauses = parse_clauses "foo X." in
+           let meta_clauses = parse_meta_clauses "foo X." in
            let goal = make_nominals ["x"] (freshen "foo (A x)") in
              assert_search_success (search ~meta_clauses goal)) ;
 

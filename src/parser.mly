@@ -24,9 +24,12 @@
 /* Higher */
 
 
-%start lppterm term clauses top_command command contexted_term
+%start lppterm term clauses top_command command contexted_term meta_clause
+%start meta_clauses
 %type <Term.term> term
 %type <Types.clauses> clauses
+%type <Types.meta_clause> meta_clause
+%type <Types.meta_clauses> meta_clauses
 %type <Types.command> command
 %type <Lppterm.obj> contexted_term
 %type <Lppterm.lppterm> lppterm
@@ -70,6 +73,19 @@ clause:
 clause_body:
   | term COMMA clause_body              { $1::$3 }
   | term                                { [$1] }
+
+meta_clauses:
+  | meta_clause meta_clauses            { $1::$2 }
+  |                                     { [] }
+
+meta_clause:
+  | term DOT                            { ($1, []) }
+  | term DEF meta_clause_body DOT       { ($1, $3) }
+
+meta_clause_body:
+  | lppterm COMMA meta_clause_body      { $1::$3 }
+  | lppterm                             { [$1] }
+
 
 command:
   | IND ON NUM DOT                      { Types.Induction($3) }
@@ -127,5 +143,5 @@ top_command :
   | THEOREM ID COLON lppterm DOT        { Types.Theorem($2, $4) }
   | THEOREM lppterm DOT                 { Types.Theorem("Goal", $2) }
   | AXIOM ID COLON lppterm DOT          { Types.Axiom($2, $4) }
-  | DEF clause                          { Types.Def($2) }
+  | DEF meta_clause                     { Types.Def($2) }
   | EOF                                 { raise End_of_file }

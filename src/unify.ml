@@ -658,12 +658,12 @@ let right_unify ?used:(used=[]) t1 t2 =
 let left_unify ?used:(used=[]) t1 t2 =
   Left.pattern_unify used t1 t2
       
-let try_with_state f =
+let try_with_state ?(default=false) f =
   let state = get_bind_state () in
     try
       f ()
     with
-      | Failure _ -> set_bind_state state ; false
+      | Failure _ -> set_bind_state state ; default
 
 let try_right_unify ?used:(used=[]) t1 t2 =
   try_with_state

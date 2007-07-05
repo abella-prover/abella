@@ -224,6 +224,10 @@ let obj_support obj = find_var_refs Nominal (obj.term :: obj.context)
 
 let lppterm_support t = find_var_refs Nominal (collect_terms t)
   
+let abstract_eigen t =
+  let vars = find_var_refs Eigen [t] in
+    List.fold_right abstract_var (List.rev vars) t
+
 (* Pretty printing *)
 
 let restriction_to_string r =

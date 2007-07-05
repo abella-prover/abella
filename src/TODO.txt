@@ -1,6 +1,3 @@
-Add induction in the middle of a proof in order to remove skip from
-  type_uniq?
-
 How to deal with forall R, X = R when X gets bound to R?
   How do we know to rename to avoid capture?
     Maybe normalize the term and look for constants (not eigen) with same
@@ -22,6 +19,10 @@ Remove case on {A => B}. We should never have that type of term.
 
 Future
 ======
+
+Make a reflist extension like in extlib?
+
+Abstract out List.flatten (List.map collect_terms ...) ?
 
 Support tac1;tac2 where tac2 applies to all subgoals of tac1.
   Then can remove searching from _ obligations and instead have people

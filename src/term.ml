@@ -369,7 +369,7 @@ let term_to_string term =
     match observe term with
       | Var v -> v.name
           (* ^ ":" ^ (tag2str v.tag) *)
-          (* ^ ":" ^ (string_of_int v.ts) *)
+          (* ^ ":" ^ (string_of_int v.ts) *) 
       | DB i -> pp_var (n-i+1)
       | App (t,ts) ->
           begin match observe t, ts with

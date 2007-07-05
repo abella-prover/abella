@@ -157,4 +157,9 @@ let tests =
              assert_pprint_equal "{pi x1\\pred x1 x1}" t ;
              assert_pprint_equal "{pred n1 n1}" (normalize t)) ;
 
+      "Abstract should replace eigen variables with lambda abstractions" >::
+        (fun () ->
+           let t = app (const "foo") [var_a; var_b] in
+             assert_term_pprint_equal "x1\\x2\\foo x1 x2" (abstract_eigen t))
+
     ]

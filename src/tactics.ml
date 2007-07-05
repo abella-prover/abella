@@ -57,9 +57,9 @@ let freshen_logic_clause ?(support=[]) head body =
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
 
-let freshen_logic_meta_clause ?(support=[]) head body =
+let freshen_nameless_meta_clause ?(support=[]) ~tag head body =
   let var_names = lpp_capital_var_names (pred head::body) in
-  let fresh_names = fresh_nameless_alist ~tag:Logic ~support var_names in
+  let fresh_names = fresh_nameless_alist ~tag ~support var_names in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_lppterm_vars fresh_names) body in
     (fresh_head, fresh_body)
@@ -300,7 +300,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
              (fun () ->
                 let support = term_support goal in
                 let fresh_head, fresh_body =
-                  freshen_logic_meta_clause ~support head body
+                  freshen_nameless_meta_clause ~tag:Logic ~support head body
                 in
                   right_unify fresh_head goal ;
                   List.for_all (lppterm_aux (n-1)) fresh_body))
@@ -308,20 +308,53 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
               
   (* true if we can confirm no proof exists *)
   and negative_meta_aux n goal =
-    match observe goal with
-      | App(head, body) ->
-          begin match observe head, body with
-            | Var {name=e}, [a; b] when e = "=" ->
-                not (try_left_unify a b)
-            | _ -> false
-          end
-      | _ -> false
+    let table = ref [] in
+    let rec aux n goal =
+      if n = 0 then
+        false
+      else
+        let table () =
+          let abs_goal = abstract_eigen goal in
+            if List.mem ~cmp:eq abs_goal !table then
+              true
+            else
+              begin
+                table := abs_goal :: !table ;
+                false
+              end
+        in
+        let backchain () =
+          List.for_all
+            (fun (head, body) ->
+               try_with_state ~default:true
+                 (fun () ->
+                    let support = term_support goal in
+                    let fresh_head, fresh_body =
+                      freshen_nameless_meta_clause ~tag:Eigen ~support head body
+                    in
+                    let pred_body =
+                      List.filter_map (fun t ->
+                                         match t with
+                                           | Pred(p, _) -> Some p
+                                           | _ -> None)
+                        fresh_body
+                    in
+                      left_unify fresh_head goal ;
+                      List.exists (aux (n-1)) pred_body))
+            meta_clauses
+        in
+          table () || backchain ()
+    in
+    let bind_state = Term.get_bind_state () in
+    let result = aux n goal in
+      set_bind_state bind_state ;
+      result
         
   in
     lppterm_aux n goal
 
       
-(* Apply forall statement *)
+(* Apply one statement to a list of other statements *)
 
 let check_restrictions formal actual =
   List.iter2 (fun fr ar -> match fr, ar with

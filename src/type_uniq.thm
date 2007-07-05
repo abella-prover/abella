@@ -45,7 +45,6 @@ induction on 2. intros. case H2.
   case H3.
     apply no_abs to H1 H5. case H6.
     apply IH to _ H4 H5. case H6. search.
-    skip. % ctx (typeof n1 T :: L)
   case H3.
     apply no_app to H1 H6. case H7.
     apply IH to H1 H4 H6.

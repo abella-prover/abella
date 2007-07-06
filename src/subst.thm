@@ -1,30 +1,42 @@
-Def ctx nil.
-Def ctx (copy X X :: L) :- ctx L.
+Def ctx nil nil.
+Def ctx (term X :: L1) (copy X X :: L2) :- ctx L1 L2.
 
-Theorem ctx_lemma : forall X Y L,
-  ctx L -> member (copy X Y) L -> X = Y.
+Theorem ctx_lemma : forall L1 L2 T, ctx L1 L2 -> member (term T) L1 -> member (copy T T) L2.
 induction on 1. intros. case H1.
   case H2.
   case H2.
     search.
     apply IH to H3 H4. search.
 
-
-Theorem generalized :
-  forall T L R S, nabla x, ctx L -> {L, copy x T |- copy (R x) S} -> R T = S.
-intro.
+Theorem copy_id :
+  forall L1 L2 T, ctx L1 L2 -> {L1 |- term T} -> {L2 |- copy T T}.
 induction on 2. intros. case H2.
-  case H3.
+  apply ctx_lemma to H1 H3. search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+  apply IH to _ H3.
     search.
-    apply ctx_lemma to H1 H4. case H5. search.
-  skip.
-%  apply IH to H1 H3. case H5.
-%    apply IH to H1 H4. case H6.
-%    search.
-  skip.
-% apply IH to _ H3.
-%   case H4. search.
 
-%Theorem specialized :
-%  forall R T S, {subst R T S} -> {R T = S}.
+Def ctx2 nil.
+Def ctx2 (copy X X :: L) :- ctx2 L.
 
+Theorem ctx2_eq : forall L T S, ctx2 L -> member (copy T S) L -> T = S.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H3 H4. search.
+
+Theorem copy_eq : forall L T S, ctx2 L -> {L |- copy T S} -> T = S.
+induction on 2. intros. case H2.
+  apply ctx2_eq to H1 H3. search.
+  apply IH to H1 H3. apply IH to H1 H4. case H5. case H6. search.
+  apply IH to _ H3. case H4. search.
+
+Theorem subst : forall R T S, {term T} -> {subst R T S} -> R T = S.
+intros.
+case H2.
+apply copy_id to _ H1.
+inst H3 with n1 = T.
+cut H5 with H4.
+apply copy_eq to _ H6.
+search.

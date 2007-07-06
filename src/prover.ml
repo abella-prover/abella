@@ -251,14 +251,18 @@ let apply h args =
   let remaining_obligations =
     List.remove_all (fun g -> search_goal (normalize g)) obligations in
   let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
-    subgoals := List.append obligation_subgoals !subgoals ;
-    add_hyp (normalize result)
+  let resulting_subgoal =
+    let restore = goal_to_subgoal sequent.goal in
+      fun () ->
+        restore () ;
+        add_hyp (normalize result)
+  in
+    subgoals :=
+      List.append obligation_subgoals (resulting_subgoal :: !subgoals );
+    next_subgoal ()
 
     
 (* Case analysis *)
-
-let set_minus lst1 lst2 =
-  List.remove_all (fun x -> List.mem x lst2) lst1
 
 let add_cases_to_subgoals cases =
   let case_to_subgoal case =

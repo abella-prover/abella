@@ -97,11 +97,11 @@ let tests =
            
            apply "H1" ["H2"; "_"] ;
            assert_n_subgoals 2 ;
-           assert_pprint_equal "{third B}" sequent.goal ;
-
+           assert_pprint_equal "{second B}" sequent.goal ;
+           
            skip () ;
            assert_n_subgoals 1 ;
-           assert_pprint_equal "{second B}" sequent.goal ;
+           assert_pprint_equal "{third B}" sequent.goal ;
         );
       
       "Subject reduction for eval example" >::

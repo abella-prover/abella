@@ -13,8 +13,8 @@ induction on 1. intros. case H1.
 Theorem generalized :
   forall L1 L2 S T, ctxpair L1 L2 -> {L1 |- copy S T} -> {L2 |- copy' S T}.
 induction on 2. intros. case H2.
-  apply ctxpair_lemma to _ H3. search.
-  apply IH to _ H3. apply IH to _ H4. search.
+  apply ctxpair_lemma to H1 H3. search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
   apply IH to _ H3. search.
 
 Theorem specialized :

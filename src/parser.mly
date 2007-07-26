@@ -79,8 +79,8 @@ meta_clauses:
   |                                     { [] }
 
 meta_clause:
-  | term DOT                            { ($1, []) }
-  | term DEF meta_clause_body DOT       { ($1, $3) }
+  | lppterm DOT                         { ($1, []) }
+  | lppterm DEF meta_clause_body DOT    { ($1, $3) }
 
 meta_clause_body:
   | lppterm COMMA meta_clause_body      { $1::$3 }

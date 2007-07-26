@@ -26,9 +26,9 @@ let freshen_clause ~tag ~used ?(support=[]) head body =
     (fresh_head, fresh_body)
 
 let freshen_meta_clause ~tag ~used ?(support=[]) head body =
-  let var_names = lpp_capital_var_names (pred head::body) in
+  let var_names = lpp_capital_var_names (head :: body) in
   let fresh_names = fresh_alist ~support ~tag ~used var_names in
-  let fresh_head = replace_term_vars fresh_names head in
+  let fresh_head = replace_lppterm_vars fresh_names head in
   let fresh_body = List.map (replace_lppterm_vars fresh_names) body in
     (fresh_head, fresh_body)
 
@@ -58,9 +58,9 @@ let freshen_logic_clause ?(support=[]) head body =
     (fresh_head, fresh_body)
 
 let freshen_nameless_meta_clause ?(support=[]) ~tag head body =
-  let var_names = lpp_capital_var_names (pred head::body) in
+  let var_names = lpp_capital_var_names (head :: body) in
   let fresh_names = fresh_nameless_alist ~tag ~support var_names in
-  let fresh_head = replace_term_vars fresh_names head in
+  let fresh_head = replace_lppterm_vars fresh_names head in
   let fresh_body = List.map (replace_lppterm_vars fresh_names) body in
     (fresh_head, fresh_body)
 
@@ -96,10 +96,15 @@ let meta_term_case ~support ~used ~meta_clauses ~wrapper term =
     (fun (head, body) ->
        let fresh_head, fresh_body =
          freshen_meta_clause ~support ~tag:Eigen ~used head body in
+       let unwrapped_head =
+         match fresh_head with
+           | Pred(p, _) -> p
+           | _ -> failwith "Bad head in meta-clause"
+       in
        let initial_state = get_bind_state () in
-         if try_left_unify ~used fresh_head term then
+         if try_left_unify ~used unwrapped_head term then
            let new_vars =
-             lppterm_vars_alist Eigen (pred fresh_head::fresh_body) in
+             lppterm_vars_alist Eigen (pred unwrapped_head::fresh_body) in
            let bind_state = get_bind_state () in
            let wrapped_body = List.map wrapper fresh_body in
              set_bind_state initial_state ;
@@ -302,7 +307,12 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                 let fresh_head, fresh_body =
                   freshen_nameless_meta_clause ~tag:Logic ~support head body
                 in
-                  right_unify fresh_head goal ;
+                let unwrapped_head =
+                  match fresh_head with
+                    | Pred(p, _) -> p
+                    | _ -> failwith "Bad head in meta-clause"
+                in
+                  right_unify unwrapped_head goal ;
                   List.for_all (lppterm_aux (n-1)) fresh_body))
         meta_clauses
               
@@ -332,6 +342,11 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                     let fresh_head, fresh_body =
                       freshen_nameless_meta_clause ~tag:Eigen ~support head body
                     in
+                    let unwrapped_head =
+                      match fresh_head with
+                        | Pred(p, _) -> p
+                        | _ -> failwith "Bad head in meta-clause"
+                    in
                     let pred_body =
                       List.filter_map (fun t ->
                                          match t with
@@ -339,7 +354,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                                            | _ -> None)
                         fresh_body
                     in
-                      left_unify fresh_head goal ;
+                      left_unify unwrapped_head goal ;
                       List.exists (aux (n-1)) pred_body))
             meta_clauses
         in

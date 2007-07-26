@@ -1,16 +1,9 @@
-How to deal with forall R, X = R when X gets bound to R?
-  How do we know to rename to avoid capture?
-    Maybe normalize the term and look for constants (not eigen) with same
-     name as quantifier variables? Kind of a hack...
-     Maybe introduce a new variable type : bound
-  If fixed, clean up names for type_uniq
+Change meta clauses to have lppterm on the left rather than just term?
 
 Clean up tactics now that we have two of everything for regular and meta
 
 Think about how to implement nominal unification
 
-After Dale
-==========
 Add tests for raising in apply? How are we going to handle raising in
   apply?
 Add test for apply to nabla variables
@@ -19,6 +12,13 @@ Remove case on {A => B}. We should never have that type of term.
 
 Future
 ======
+
+How to deal with forall R, X = R when X gets bound to R?
+  How do we know to rename to avoid capture?
+    Maybe normalize the term and look for constants (not eigen) with same
+     name as quantifier variables? Kind of a hack...
+     Maybe introduce a new variable type : bound
+  If fixed, clean up names for type_uniq
 
 Make a reflist extension like in extlib?
 

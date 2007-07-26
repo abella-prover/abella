@@ -5,7 +5,7 @@ open Printf
 type clause = term * term list
 type clauses = clause list
 
-type meta_clause = term * lppterm list
+type meta_clause = lppterm * lppterm list
 type meta_clauses = meta_clause list
 
 type id = string
@@ -32,10 +32,10 @@ type command =
 
 let meta_clause_to_string (head, body) =
   if body = [] then
-    term_to_string head
+    lppterm_to_string head
   else
     sprintf "%s :- %s"
-      (term_to_string head)
+      (lppterm_to_string head)
       (String.concat ", " (List.map lppterm_to_string body))
 
 let top_command_to_string tc =

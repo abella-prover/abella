@@ -1,14 +1,15 @@
-Change meta clauses to have lppterm on the left rather than just term?
+Change case to work with nabla in the head of a clause
+Change search to work with nabla in the head of a clause
 
-Clean up tactics now that we have two of everything for regular and meta
+Clean up tactics now that we have two of everything (regular and meta)
+  Can we stop treating Obj as special?
+    Would require names in the term code
+    Would require camlp4 tricks to get decent pattern matching code
+    Would require new rules for manipulating contexts?
 
-Think about how to implement nominal unification
-
-Add tests for raising in apply? How are we going to handle raising in
-  apply?
-Add test for apply to nabla variables
-
-Remove case on {A => B}. We should never have that type of term.
+Add tests for raising in apply?
+  How are we going to handle raising in apply?
+  Add test for apply to nabla variables
 
 Future
 ======
@@ -43,8 +44,6 @@ Add more bedwyr style searching?
 
 Display new hypotheses in future subgoals? (subgoal 2 is : {...} -> ...)
   
-Case analysis on lg predicates should work differently than lp predicates
-
 Do we have to consider logic variables in the context during search?
 
 Add unification over lppterms?

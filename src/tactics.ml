@@ -132,28 +132,22 @@ let term_case ~support ~used ~clauses ~wrapper term =
          else
                None)
     clauses
-      
+
 let obj_case ~used obj r clauses =
-  if is_imp obj.term then
-    [{ bind_state = get_bind_state () ;
-       new_vars = [] ;
-       new_hyps = [ Obj(move_imp_to_context obj, reduce_restriction r) ]
-     }]
-  else 
-    let wrapper t =
-      normalize (Obj(context_obj obj.context t, reduce_restriction r)) in
-    let support = obj_support obj in
-    let clause_cases =
-      term_case ~support ~used ~clauses ~wrapper obj.term in
-    let member_case =
-      { bind_state = get_bind_state () ;
-        new_vars = [] ;
-        new_hyps = [obj_to_member obj] }
-    in
-      if Context.is_empty obj.context then
-        clause_cases
-      else
-        member_case :: clause_cases
+  let wrapper t =
+    normalize (Obj(context_obj obj.context t, reduce_restriction r)) in
+  let support = obj_support obj in
+  let clause_cases =
+    term_case ~support ~used ~clauses ~wrapper obj.term in
+  let member_case =
+    { bind_state = get_bind_state () ;
+      new_vars = [] ;
+      new_hyps = [obj_to_member obj] }
+  in
+    if Context.is_empty obj.context then
+      clause_cases
+    else
+      member_case :: clause_cases
 
 let case ~used ~clauses ~meta_clauses term =
   match term with

@@ -271,15 +271,6 @@ let case_tests =
                      assert_pprint_equal "{foo A B}" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
-      "On implies" >::
-        (fun () ->
-           let term = freshen "{L |- hyp A => conc B}" in
-           let used = [] in
-             match case ~used term with
-               | [{new_vars=[] ; new_hyps=[hyp]}] ->
-                   assert_pprint_equal "{L, hyp A |- conc B}" hyp
-               | _ -> assert_failure "Pattern mismatch") ;
-
       "Should look in context for member" >::
         (fun () ->
            let term = freshen "{L, hyp A |- hyp B}" in

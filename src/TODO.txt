@@ -14,6 +14,8 @@ Add tests for raising in apply?
 Future
 ======
 
+Make a seperate type for (id * term) list?
+
 How to deal with forall R, X = R when X gets bound to R?
   How do we know to rename to avoid capture?
     Maybe normalize the term and look for constants (not eigen) with same

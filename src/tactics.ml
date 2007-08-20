@@ -26,11 +26,11 @@ let freshen_clause ~tag ~used ?(support=[]) head body =
     (fresh_head, fresh_body)
 
 let freshen_meta_clause ~tag ~used ?(support=[]) head body =
-  let var_names = lpp_capital_var_names (head :: body) in
+  let var_names = lpp_capital_var_names (pred head :: body) in
   let fresh_names = fresh_alist ~support ~tag ~used var_names in
-  let fresh_head = replace_lppterm_vars fresh_names head in
+  let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_lppterm_vars fresh_names) body in
-    (fresh_head, fresh_body)
+    (fresh_names, fresh_head, fresh_body)
 
 let freshen_bindings ?(support=[]) ~tag ~used bindings term =
   replace_lppterm_vars
@@ -91,22 +91,37 @@ type case = {
   new_hyps : lppterm list ;
 }
 
+let lift_all ~used nominals =
+  List.fold_left
+    (fun used (id, term) ->
+       let new_term, new_used = fresh_wrt Eigen id used in
+         bind term (app new_term nominals) ;
+         new_used)
+      used
+    used
+  
 let meta_term_case ~support ~used ~meta_clauses ~wrapper term =
   List.filter_map
     (fun (head, body) ->
-       let fresh_head, fresh_body =
-         freshen_meta_clause ~support ~tag:Eigen ~used head body in
-       let unwrapped_head =
-         match fresh_head with
-           | Pred(p, _) -> p
+       let used, head, body =
+         match head, body with
+           | Pred(p, _), _ -> used, p, body
+           | Binding(Nabla, [id], Pred(p, _)), body ->
+               let n = nominal_var "n1" in
+               let alist = [(id, n)] in
+                 (lift_all ~used [n],
+                  replace_term_vars alist p,
+                  List.map (replace_lppterm_vars alist) body)
            | _ -> failwith "Bad head in meta-clause"
        in
+       let used, head, body =
+         freshen_meta_clause ~support ~tag:Eigen ~used head body in
        let initial_state = get_bind_state () in
-         if try_left_unify ~used unwrapped_head term then
+         if try_left_unify ~used head term then
            let new_vars =
-             lppterm_vars_alist Eigen (pred unwrapped_head::fresh_body) in
+             lppterm_vars_alist Eigen (pred head::body) in
            let bind_state = get_bind_state () in
-           let wrapped_body = List.map wrapper fresh_body in
+           let wrapped_body = List.map wrapper body in
              set_bind_state initial_state ;
              Some { bind_state = bind_state ;
                     new_vars = new_vars ;

@@ -33,7 +33,7 @@ let tests =
            sequent.hyps <- [("H1", freshen "{eval A B}")] ;
            case "H1" ;
            assert_bool "R should be added to variable list"
-             (List.mem "R" (var_names ())) ;
+             (List.mem_assoc "R" sequent.vars)
         ) ;
 
       "Assert test" >::

@@ -35,9 +35,6 @@ let set_sequent other =
   sequent.goal <- other.goal ;
   sequent.count <- other.count
 
-let var_names () =
-  List.map fst sequent.vars
-
 let fresh_hyp_name () =
   sequent.count <- sequent.count + 1 ;
   "H" ^ (string_of_int sequent.count)
@@ -109,7 +106,8 @@ let add_var v =
   sequent.vars <- List.append sequent.vars [v]
 
 let add_if_new_var (name, v) =
-  if not (List.mem name (var_names ())) then add_var (name, v)
+  if not (List.mem_assoc name sequent.vars) then
+    add_var (name, v)
 
 let add_lemma name lemma =
   lemmas := (name, lemma)::!lemmas
@@ -139,7 +137,7 @@ let next_subgoal () =
 let vars_to_string () =
   match sequent.vars with
     | [] -> ""
-    | _ -> "Variables: " ^ (String.concat ", " (var_names ()))
+    | _ -> "Variables: " ^ (String.concat ", " (List.map fst sequent.vars))
 
 let format_hyp fmt (id, t) =
   fprintf fmt "%s : " id ;
@@ -279,7 +277,7 @@ let case str =
   save_undo_state () ;
   let term = get_hyp str in
   let cases =
-    Tactics.case ~used:(var_names ()) ~clauses:!clauses
+    Tactics.case ~used:sequent.vars ~clauses:!clauses
       ~meta_clauses:!meta_clauses term
   in
     add_cases_to_subgoals cases ;
@@ -328,11 +326,11 @@ let intros () =
     match term with
       | Binding(Forall, bindings, body) ->
           List.iter add_var
-            (fresh_alist ~tag:Eigen ~used:(var_names ()) bindings) ;
+            (fresh_alist ~tag:Eigen ~used:sequent.vars bindings) ;
           aux (replace_lppterm_vars sequent.vars body)
       | Binding(Nabla, bindings, body) ->
           List.iter add_var
-            (fresh_alist ~tag:Nominal ~used:(var_names ()) bindings) ;
+            (fresh_alist ~tag:Nominal ~used:sequent.vars bindings) ;
           aux (replace_lppterm_vars sequent.vars body)
       | Arrow(left, right) ->
           add_hyp left ;
@@ -345,7 +343,7 @@ let intro () =
   save_undo_state () ;
   match sequent.goal with
     | Binding(Forall, first::rest, body) ->
-        let alist = fresh_alist ~tag:Eigen ~used:(var_names ()) [first] in
+        let alist = fresh_alist ~tag:Eigen ~used:sequent.vars [first] in
           List.iter add_var alist ;
           let fresh_body = replace_lppterm_vars alist body in
             sequent.goal <- forall rest fresh_body

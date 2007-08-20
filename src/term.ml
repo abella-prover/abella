@@ -17,6 +17,8 @@
 (* Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA             *)
 (****************************************************************************)
 
+open Extensions
+
 type tag = Eigen | Constant | Logic | Nominal
 type id = string
 type var = {
@@ -194,15 +196,19 @@ let fresh ?(tag=Logic) ts =
   let name = (prefix tag) ^ (string_of_int i) in
     var tag name ts
 
-let fresh_wrt tag name used =
+let fresh_name name used =
   let rec aux name =
-    if List.mem name used then
+    if List.mem_assoc name used then
       aux (name ^ "'")
     else
       name
   in
-  let name = aux name in
-    (var tag name 0, name::used)
+    aux name
+      
+let fresh_wrt tag name used =
+  let name = fresh_name name used in
+  let v = var tag name 0 in
+    (v, (name, v)::used)
 
 let binop s a b = App ((const s),[a;b])
             
@@ -405,3 +411,15 @@ let term_to_string term =
     pp 0 0 term
 
 let full_eq t1 t2 = eq (deep_norm t1) (deep_norm t2)
+
+let get_used ts =
+  let rec aux t =
+    match deref (hnorm t) with
+      | DB i -> []
+      | Lam(n, t) -> aux t
+      | App(t, ts) -> (aux t) @ (List.flatten (List.map aux ts))
+      | Ptr {contents=V v} -> [(v.name, t)]
+      | _ -> assert false
+  in
+    List.unique (List.flatten (List.map aux ts))
+

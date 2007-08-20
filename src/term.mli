@@ -99,7 +99,7 @@ val abstract : string -> term -> term
 (** LPP specific additions and changes *)
 val const : ?ts:int -> string -> term
 val fresh : ?tag:tag -> int -> term
-val fresh_wrt : tag -> id -> id list -> term * id list
+val fresh_wrt : tag -> id -> (id * term) list -> term * (id * term) list
 
 val nominal_var : string -> term
   
@@ -117,3 +117,5 @@ val deep_norm : term -> term
 
 val term_to_string : term -> string
 val prefix : tag -> string
+
+val get_used : term list -> (id * term) list

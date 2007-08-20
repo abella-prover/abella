@@ -394,7 +394,7 @@ let tests =
            let n = nominal_var "n" in
            let a = var Eigen "A" 0 in
            let b = var Eigen "B" 0 in
-           let used = ["A"; "B"] in
+           let used = [("A", a); ("B", b)] in
              left_unify ~used (app a [n]) b ;
              assert_term_pprint_equal "x1\\B" a ;
              assert_term_pprint_equal "B" b) ;

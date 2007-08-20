@@ -177,8 +177,13 @@ let assert_expected_cases n cases =
   assert_failure (Printf.sprintf "Expected %d case(s) but found %d case(s)"
                     n (List.length cases))
 
-let case ?(used=[]) ?(clauses=[]) ?(meta_clauses=[]) term =
-  case ~used ~clauses ~meta_clauses term
+let case ?used ?(clauses=[]) ?(meta_clauses=[]) term =
+  let used =
+    match used with
+      | None -> lppterm_vars_alist Eigen [term]
+      | Some used -> used
+  in
+    case ~used ~clauses ~meta_clauses term
     
 let case_tests =
   "Case" >:::
@@ -186,8 +191,7 @@ let case_tests =
       "Normal" >::
         (fun () ->
            let term = freshen "{eval A B}" in
-           let used = ["A"; "B"] in
-             match case ~used ~clauses:eval_clauses term with
+             match case ~clauses:eval_clauses term with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "{eval (abs R) (abs R)}" term ;
@@ -214,8 +218,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{foo A}@" in
            let clauses = parse_clauses "foo X :- bar X." in
-           let used = ["A"] in
-             match case ~used ~clauses term with
+             match case ~clauses term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
                    begin match case1.new_hyps with
@@ -229,8 +232,7 @@ let case_tests =
         (fun () ->
            let term = freshen "foo A @" in
            let meta_clauses = parse_meta_clauses "foo X :- bar X." in
-           let used = ["A"] in
-             match case ~used ~meta_clauses term with
+             match case ~meta_clauses term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
                    begin match case1.new_hyps with
@@ -243,8 +245,7 @@ let case_tests =
       "On OR" >::
         (fun () ->
            let term = freshen "{A} \\/ {B}" in
-           let used = ["A"; "B"] in
-             match case ~used term with
+             match case term with
                | [{new_hyps=[hyp1]} ; {new_hyps=[hyp2]}] ->
                    assert_pprint_equal "{A}" hyp1 ;
                    assert_pprint_equal "{B}" hyp2 ;
@@ -253,8 +254,7 @@ let case_tests =
       "On AND" >::
         (fun () ->
            let term = freshen "{A} /\\ {B}" in
-           let used = ["A"; "B"] in
-             match case ~used term with
+             match case term with
                | [{new_hyps=[hyp1;hyp2]}] ->
                    assert_pprint_equal "{A}" hyp1 ;
                    assert_pprint_equal "{B}" hyp2 ;
@@ -274,8 +274,7 @@ let case_tests =
       "Should look in context for member" >::
         (fun () ->
            let term = freshen "{L, hyp A |- hyp B}" in
-           let used = ["L"; "A"; "B"] in
-             match case ~used term with
+             match case term with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
                    assert_pprint_equal "member (hyp B) (hyp A :: L)" hyp
                | _ -> assert_failure "Pattern mismatch") ;
@@ -284,8 +283,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{L |- foo A}" in
            let clauses = parse_clauses "foo X :- bar X." in
-           let used = ["A"] in
-             match case ~used ~clauses term with
+             match case ~clauses term with
                | [case1; case2] ->
                    (* case1 is the member case *)
                    
@@ -300,12 +298,11 @@ let case_tests =
       "On member" >::
         (fun () ->
            let term = freshen "member (hyp A) (hyp C :: L)" in
-           let used = ["A"; "C"; "L"] in
            let meta_clauses =
              parse_meta_clauses ("member A (A :: L)." ^
                                    "member A (B :: L) :- member A L.")
            in
-             match case ~used ~meta_clauses term with
+             match case ~meta_clauses term with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "member (hyp C) (hyp C :: L)" term ;
@@ -322,8 +319,7 @@ let case_tests =
         (fun () ->
            let meta_clauses = parse_meta_clauses "pred M N." in
            let term = make_nominals ["n"] (freshen "pred (A n) B") in
-           let used = ["A"; "B"] in
-             match case ~used ~meta_clauses term with
+             match case ~meta_clauses term with
                | [case1] -> ()
                | cases -> assert_expected_cases 1 cases) ;
              
@@ -331,9 +327,19 @@ let case_tests =
         (fun () ->
            let clauses = parse_clauses "pred M N." in
            let term = make_nominals ["n"] (freshen "{pred (A n) B}") in
-           let used = ["A"; "B"] in
-             match case ~used ~clauses term with
+             match case ~clauses term with
                | [case1] -> ()
+               | cases -> assert_expected_cases 1 cases) ;
+
+      "Should raise when nabla in predicate head" >::
+        (fun () ->
+           let meta_clauses =
+             parse_meta_clauses "nabla x, ctx (var x :: L) :- ctx L." in
+           let term = freshen "ctx L" in
+             match case ~meta_clauses term with
+               | [case1] ->
+                   set_bind_state case1.bind_state ;
+                   assert_pprint_equal "ctx (var n1 :: L'')" term
                | cases -> assert_expected_cases 1 cases) ;
              
     ]

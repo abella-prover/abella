@@ -17,22 +17,24 @@
 (* Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA             *)
 (****************************************************************************)
 
+open Term
+
 type failure =
   | OccursCheck
   | TypesMismatch
-  | ConstClash of (Term.term * Term.term)
+  | ConstClash of (term * term)
 
 exception Failure of failure
   
 type error =
-  | NotLLambda of Term.term
+  | NotLLambda of term
 
 exception Error of error
 
-val right_unify : ?used:Term.id list -> Term.term -> Term.term -> unit
-val left_unify : ?used:Term.id list -> Term.term -> Term.term -> unit
+val right_unify : ?used:(id * term) list -> term -> term -> unit
+val left_unify : ?used:(id * term) list -> term -> term -> unit
 
 val try_with_state : ?default:bool -> (unit -> bool) -> bool
 
-val try_right_unify : ?used:Term.id list -> Term.term -> Term.term -> bool
-val try_left_unify : ?used:Term.id list -> Term.term -> Term.term -> bool  
+val try_right_unify : ?used:(id * term) list -> term -> term -> bool
+val try_left_unify : ?used:(id * term) list -> term -> term -> bool  

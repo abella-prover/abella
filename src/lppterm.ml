@@ -164,9 +164,6 @@ let map_term_list f t = List.map f (collect_terms t)
 
 (* Variable Renaming *)
 
-let term_free_vars t =
-  map_vars (fun v -> v.name) t
-  
 let fresh_alist ?(support=[]) ~used ~tag ids =
   let used = ref used in
     List.map (fun x ->
@@ -202,14 +199,13 @@ let rec replace_lppterm_vars alist t =
       | Binding(binder, bindings, body) ->
           let alist' = List.remove_assocs bindings alist in
           let bindings', body' = freshen_alist_bindings bindings alist' body in
-          let body'' = replace_lppterm_vars alist' body' in
-            Binding(binder, bindings', body'')
+            Binding(binder, bindings', replace_lppterm_vars alist' body')
       | Or(a, b) -> Or(aux a, aux b)
       | And(a, b) -> And(aux a, aux b)
       | Pred(p, r) -> Pred(replace_term_vars alist p, r)
 
 and freshen_alist_bindings bindings alist body =
-  let used = List.flatten (List.map term_free_vars (List.map snd alist)) in
+  let used = get_used (List.map snd alist) in
   let bindings_alist = fresh_alist ~tag:Constant ~used bindings in
   let bindings' =
     List.map (fun v -> v.name)
@@ -217,7 +213,6 @@ and freshen_alist_bindings bindings alist body =
   in
     (bindings', replace_lppterm_vars bindings_alist body)
 
-    
 let term_support t = find_var_refs Nominal [t]
 
 let obj_support obj = find_var_refs Nominal (obj.term :: obj.context)

@@ -61,9 +61,9 @@ let freshen_nameless_clause ?(support=[]) head body =
     (fresh_head, fresh_body)
 
 let freshen_nameless_meta_clause ?(support=[]) ~tag head body =
-  let var_names = lpp_capital_var_names (head :: body) in
+  let var_names = lpp_capital_var_names (pred head :: body) in
   let fresh_names = fresh_nameless_alist ~tag ~support var_names in
-  let fresh_head = replace_lppterm_vars fresh_names head in
+  let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_lppterm_vars fresh_names) body in
     (fresh_head, fresh_body)
 
@@ -322,16 +322,21 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
            try_with_state
              (fun () ->
                 let support = term_support goal in
-                let fresh_head, fresh_body =
-                  freshen_nameless_meta_clause ~tag:Logic ~support head body
-                in
-                let unwrapped_head =
-                  match fresh_head with
-                    | Pred(p, _) -> p
+                let head, body =
+                  match head with
+                    | Pred(p, _) -> p, body
+                    | Binding(Nabla, [id], Pred(p, _)) ->
+                        let n = nominal_var "n1" in
+                        let alist = [(id, n)] in
+                           (replace_term_vars alist p,
+                           List.map (replace_lppterm_vars alist) body)
                     | _ -> failwith "Bad head in meta-clause"
                 in
-                  right_unify unwrapped_head goal ;
-                  List.for_all (lppterm_aux (n-1)) fresh_body))
+                let head, body =
+                  freshen_nameless_meta_clause ~tag:Logic ~support head body
+                in
+                  right_unify head goal ;
+                  List.for_all (lppterm_aux (n-1)) body))
         meta_clauses
               
   (* true if we can confirm no proof exists *)
@@ -357,23 +362,23 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                try_with_state ~default:true
                  (fun () ->
                     let support = term_support goal in
-                    let fresh_head, fresh_body =
-                      freshen_nameless_meta_clause ~tag:Eigen ~support head body
-                    in
-                    let unwrapped_head =
-                      match fresh_head with
+                    let head =
+                      match head with
                         | Pred(p, _) -> p
                         | _ -> failwith "Bad head in meta-clause"
                     in
-                    let pred_body =
+                    let head, body =
+                      freshen_nameless_meta_clause ~tag:Eigen ~support head body
+                    in
+                    let body =
                       List.filter_map (fun t ->
                                          match t with
                                            | Pred(p, _) -> Some p
                                            | _ -> None)
-                        fresh_body
+                        body
                     in
-                      left_unify unwrapped_head goal ;
-                      List.exists (aux (n-1)) pred_body))
+                      left_unify head goal ;
+                      List.exists (aux (n-1)) body))
             meta_clauses
         in
           table () || backchain ()

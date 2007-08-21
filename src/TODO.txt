@@ -1,11 +1,13 @@
-Change case to work with nabla in the head of a clause
-Change search to work with nabla in the head of a clause
+Case with nabla in the head
+  Allow more raisings
+  Allow for permutations of nabla variables
+  Figure out how to name new nabla variables
 
-Clean up tactics now that we have two of everything (regular and meta)
-  Can we stop treating Obj as special?
-    Would require names in the term code
-    Would require camlp4 tricks to get decent pattern matching code
-    Would require new rules for manipulating contexts?
+Search with nabla in the head
+  Allow more raising
+  Actually perform the raising
+  Allow for permutations of nabla variables
+  Figure out how to name new nabla variables
 
 Add tests for raising in apply?
   How are we going to handle raising in apply?
@@ -70,3 +72,12 @@ Add an abort command
 
 Add warning if using a capital name without it appearing in forall
   e.g. forall A, {rev A B} -> {rev B A}. should warn about B.
+
+Can we represent /\ and \/ using,
+  a \/ b := a.
+  a \/ b := b.
+
+  a /\ b := a, b.
+
+  What would this mean in the logic?
+    Here a and b range over predicates insetad of terms

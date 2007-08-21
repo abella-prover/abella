@@ -541,6 +541,15 @@ let search_tests =
            let goal = make_nominals ["x"] (freshen "{foo (A x)}") in
              assert_search_success (search ~clauses goal)) ;
 
+      "Should work with nabla in the head" >::
+        (fun () ->
+           let meta_clauses =
+             parse_meta_clauses "nabla x, ctx (var x :: L) :- ctx L."
+           in
+           let hyp = freshen "ctx L" in
+           let goal = make_nominals ["n1"] (freshen "ctx (var n1 :: L)") in
+             assert_search_success (search ~hyps:[hyp] ~meta_clauses goal)) ;
+
     ]
     
 let tests =

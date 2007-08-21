@@ -335,11 +335,11 @@ let case_tests =
         (fun () ->
            let meta_clauses =
              parse_meta_clauses "nabla x, ctx (var x :: L) :- ctx L." in
-           let term = freshen "ctx L" in
+           let term = freshen "ctx K" in
              match case ~meta_clauses term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
-                   assert_pprint_equal "ctx (var n1 :: L'')" term
+                   assert_pprint_equal "ctx (var n1 :: L)" term
                | cases -> assert_expected_cases 1 cases) ;
              
     ]

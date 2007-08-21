@@ -171,6 +171,9 @@ let fresh_alist ?(support=[]) ~used ~tag ids =
                   used := curr_used ;
                   (x, app fresh support))
       ids
+
+let raise_alist ~support alist =
+  List.map (fun (id, t) -> (id, app t support)) alist
         
 let replace_term_vars alist t =
   let rec aux t =

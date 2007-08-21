@@ -119,3 +119,4 @@ val term_to_string : term -> string
 val prefix : tag -> string
 
 val get_used : term list -> (id * term) list
+val is_free : term -> bool

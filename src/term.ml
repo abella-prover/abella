@@ -423,3 +423,8 @@ let get_used ts =
   in
     List.unique (List.flatten (List.map aux ts))
 
+let is_free t =
+  match t with
+    | Ptr {contents=V _} -> true
+    | Ptr {contents=T _} -> false
+    | _ -> assert false

@@ -27,10 +27,13 @@ let freshen_clause ~tag ~used ?(support=[]) head body =
 
 let freshen_meta_clause ~tag ~used ?(support=[]) head body =
   let var_names = lpp_capital_var_names (pred head :: body) in
-  let fresh_names = fresh_alist ~support ~tag ~used var_names in
-  let fresh_head = replace_term_vars fresh_names head in
-  let fresh_body = List.map (replace_lppterm_vars fresh_names) body in
-    (fresh_names, fresh_head, fresh_body)
+  let fresh_names = fresh_alist ~tag ~used var_names in
+  let used =
+    List.map (fun (_, t) -> ((term_to_var t).name, t)) fresh_names @ used in
+  let raised_names = raise_alist ~support fresh_names in
+  let fresh_head = replace_term_vars raised_names head in
+  let fresh_body = List.map (replace_lppterm_vars raised_names) body in
+    (used, fresh_head, fresh_body)
 
 let freshen_bindings ?(support=[]) ~tag ~used bindings term =
   replace_lppterm_vars
@@ -50,7 +53,7 @@ let lppterm_vars_alist tag lppterms =
 let fresh_nameless_alist ?(support=[]) ~tag ids =
   List.map (fun x -> (x, app (fresh ~tag 0) support)) ids
       
-let freshen_logic_clause ?(support=[]) head body =
+let freshen_nameless_clause ?(support=[]) head body =
   let var_names = capital_var_names (head::body) in
   let fresh_names = fresh_nameless_alist ~tag:Logic ~support var_names in
   let fresh_head = replace_term_vars fresh_names head in
@@ -94,15 +97,20 @@ type case = {
 let lift_all ~used nominals =
   List.fold_left
     (fun used (id, term) ->
-       let new_term, new_used = fresh_wrt Eigen id used in
-         bind term (app new_term nominals) ;
-         new_used)
-      used
+       if is_free term then
+         let new_term, new_used = fresh_wrt Eigen id used in
+           bind term (app new_term nominals) ;
+           new_used
+       else
+         used)
+    used
     used
   
 let meta_term_case ~support ~used ~meta_clauses ~wrapper term =
   List.filter_map
     (fun (head, body) ->
+       let initial_state = get_bind_state () in
+       let initial_used = used in
        let used, head, body =
          match head, body with
            | Pred(p, _), _ -> used, p, body
@@ -115,19 +123,20 @@ let meta_term_case ~support ~used ~meta_clauses ~wrapper term =
            | _ -> failwith "Bad head in meta-clause"
        in
        let used, head, body =
-         freshen_meta_clause ~support ~tag:Eigen ~used head body in
-       let initial_state = get_bind_state () in
+         freshen_meta_clause ~support ~tag:Eigen ~used head body
+       in
          if try_left_unify ~used head term then
-           let new_vars =
-             lppterm_vars_alist Eigen (pred head::body) in
            let bind_state = get_bind_state () in
            let wrapped_body = List.map wrapper body in
+           let used = List.unique
+             ((List.find_all (fun (_, t) -> is_free t) used) @ initial_used)
+           in
              set_bind_state initial_state ;
              Some { bind_state = bind_state ;
-                    new_vars = new_vars ;
+                    new_vars = used ;
                     new_hyps = wrapped_body }
          else
-               None)
+           (set_bind_state initial_state ; None))
     meta_clauses
       
 let term_case ~support ~used ~clauses ~wrapper term =
@@ -259,7 +268,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
            (fun () ->
               let support = term_support goal in
               let fresh_head, fresh_body =
-                freshen_logic_clause ~support head body
+                freshen_nameless_clause ~support head body
               in
                 right_unify fresh_head goal ;
                 List.for_all

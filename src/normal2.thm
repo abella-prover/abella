@@ -1,40 +1,33 @@
 Def ctx nil.
-Def ctx (var X :: L) :- (forall R, X = abs R -> false),
-                        (forall M N, X = app M N -> false),
-                        ctx L.
+Def nabla x, ctx (var x :: L) :- ctx L.
 
 Theorem ctx_no_head : forall L T,
   ctx L -> member (normal_head T) L -> false.
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    apply IH to H5 H6. search.
+    apply IH to H3 H4. search.
 
 Theorem ctx_no_normal : forall L T,
   ctx L -> member (normal T) L -> false.
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    apply IH to H5 H6. search.
+    apply IH to H3 H4. search.
 
 Theorem ctx_no_var_abs : forall L T,
   ctx L -> member (var (abs T)) L -> false.
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    assert abs T = abs T. search.
-      apply H3 to H6. search.
-    apply IH to H5 H6. search.
+    apply IH to H3 H4. search.
 
 Theorem ctx_no_var_app : forall L T1 T2,
   ctx L -> member (var (app T1 T2)) L -> false.
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    assert app T1 T2 = app T1 T2. search.
-      apply H4 to H6. search.
-    apply IH to H5 H6. search.
-
+    apply IH to H3 H4. search.
   
 Theorem head_lemma : forall L T,
   ctx L -> {L |- normal_head T} -> {L |- normal T}.

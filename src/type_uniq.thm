@@ -1,8 +1,7 @@
 Def ctx nil.
-Def ctx (typeof X T :: L) :- (forall S, member (typeof X S) L -> false),
-                             (forall S R', X = abs S R' -> false),
-                             (forall M' N', X = app M' N' -> false),
-                             ctx L.
+Def nabla x, ctx (typeof x T :: L) :-
+      (forall S, member (typeof x S) L -> false),
+      ctx L.
 
 Theorem uniq : forall L E T1 T2,
   ctx L -> member (typeof E T1) L -> member (typeof E T2) L -> T1 = T2.
@@ -11,29 +10,24 @@ induction on 1. intros. case H1.
   case H2.
     case H3.
       search.
-      apply H4 to H8. case H9.
+      apply H4 to H6. case H7.
     case H3.
-      apply H4 to H8. case H9.
-      apply IH to H7 H8 H9. search.
+      apply H4 to H6. case H7.
+      apply IH to H5 H6 H7. search.
 
-Theorem no_abs : forall L R T T',
-  ctx L -> member (typeof (abs T R) T') L -> false.
+Theorem no_abs : forall L R S T,
+  ctx L -> member (typeof (abs S R) T) L -> false.
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    assert abs T R = abs T R. search.
-      apply H4 to H7. search.
-    apply IH to H6 H7. search.
+    apply IH to H4 H5. search.
     
 Theorem no_app : forall L M N T,
   ctx L -> member (typeof (app M N) T) L -> false.
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    assert app M N = app M N. search.
-      apply H5 to H7. search.
-    apply IH to H6 H7. search.
-
+    apply IH to H4 H5. search.
     
 Theorem det_typeof : forall L E T1 T2,
   ctx L -> {L |- typeof E T1} -> {L |- typeof E T2} -> T1 = T2.

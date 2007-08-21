@@ -112,9 +112,9 @@ let meta_term_case ~support ~used ~meta_clauses ~wrapper term =
        let initial_state = get_bind_state () in
        let initial_used = used in
        let used, head, body =
-         match head, body with
-           | Pred(p, _), _ -> used, p, body
-           | Binding(Nabla, [id], Pred(p, _)), body ->
+         match head with
+           | Pred(p, _) -> used, p, body
+           | Binding(Nabla, [id], Pred(p, _)) ->
                let n = nominal_var "n1" in
                let alist = [(id, n)] in
                  (lift_all ~used [n],
@@ -362,9 +362,14 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                try_with_state ~default:true
                  (fun () ->
                     let support = term_support goal in
-                    let head =
+                    let head, body =
                       match head with
-                        | Pred(p, _) -> p
+                        | Pred(p, _) -> p, body
+                        | Binding(Nabla, [id], Pred(p, _)) ->
+                            let n = nominal_var "n1" in
+                            let alist = [(id, n)] in
+                              (replace_term_vars alist p,
+                               List.map (replace_lppterm_vars alist) body)
                         | _ -> failwith "Bad head in meta-clause"
                     in
                     let head, body =

@@ -353,6 +353,7 @@ let intro () =
 (* Split *)
 
 let split () =
+  save_undo_state () ;
   match sequent.goal with
     | And(left, right) ->
         subgoals := (goal_to_subgoal right) :: !subgoals ;
@@ -360,9 +361,19 @@ let split () =
     | _ -> ()
 
 
+(* Unfold *)
+
+let unfold () =
+  let goals = unfold ~used:sequent.vars
+    ~meta_clauses:!meta_clauses sequent.goal in
+  let goals = List.map goal_to_subgoal goals in
+    subgoals := goals @ !subgoals ;
+    next_subgoal ()
+
 (* Exists *)
 
 let exists t =
+  save_undo_state () ;
   match sequent.goal with
     | Binding(Lppterm.Exists, id::ids, body) ->
         let t = replace_term_vars sequent.vars t in

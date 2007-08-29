@@ -551,6 +551,34 @@ let search_tests =
              assert_search_success (search ~hyps:[hyp] ~meta_clauses goal)) ;
 
     ]
+
+let assert_expected_goals n goals =
+  assert_failure (Printf.sprintf "Expected %d goal(s) but found %d goal(s)"
+                    n (List.length goals))
+    
+let unfold ?used ~meta_clauses goal =
+  let used =
+    match used with
+      | None -> lppterm_vars_alist Eigen [goal]
+      | Some used -> used
+  in
+    unfold ~used ~meta_clauses goal
+    
+let unfold_tests =
+  "Unfold" >:::
+    [
+      "Should pick matching clause" >::
+        (fun () ->
+           let meta_clauses =
+             parse_meta_clauses "pred (f X) :- foo X. pred (g X) :- bar X."
+           in
+           let goal = freshen "pred (g a)" in
+             match unfold ~meta_clauses goal with
+               | [goal1] -> assert_pprint_equal "bar a" goal1
+               | goals -> assert_expected_goals 1 goals) ;
+
+    ]
+
     
 let tests =
   "Tactics" >:::
@@ -561,5 +589,6 @@ let tests =
       case_tests ;
       induction_tests ;
       search_tests ;
+      unfold_tests ;
     ]
     

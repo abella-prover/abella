@@ -25,6 +25,7 @@ let rec process_proof name ~interactive lexbuf =
           | Exists(t) -> exists t
           | Search -> search ()
           | Split -> split ()
+          | Unfold -> unfold ()
           | Intros -> intros ()
           | Intro -> intro ()
           | Skip -> skip ()

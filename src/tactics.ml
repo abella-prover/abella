@@ -461,3 +461,37 @@ let apply term args =
 
   in
     aux term
+
+
+(* Unfold the current goal *)
+let find_as f list =
+  let rec aux list =
+    match list with
+      | x::xs ->
+          begin match f x with
+            | Some y -> y
+            | None -> aux xs
+          end
+      | _ -> raise Not_found
+  in
+    aux list
+      
+let unfold ~used ~meta_clauses term =
+  match term with
+    | Pred(term, _) ->
+        find_as
+          (fun (head, body) ->
+             let used, head, body =
+               match head with
+                 | Pred(p, _) -> used, p, body
+                 | _ -> failwith "Bad head in meta-clause"
+             in
+             let used, head, body =
+               freshen_meta_clause ~tag:Logic ~used head body
+             in
+               if try_right_unify ~used head term then
+                 Some body
+               else
+                 None)
+          meta_clauses
+    | _ -> failwith "Can only unfold predicates"

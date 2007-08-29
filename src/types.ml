@@ -27,6 +27,7 @@ type command =
   | Split
   | Intros
   | Intro
+  | Unfold
   | Skip
   | Undo
 
@@ -65,6 +66,7 @@ let command_to_string c =
         sprintf "exists %s" (term_to_string t)
     | Search -> "search"
     | Split -> "split"
+    | Unfold -> "unfold"
     | Intros -> "intros"
     | Intro -> "intro"
     | Skip -> "skip"

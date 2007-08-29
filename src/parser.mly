@@ -1,6 +1,6 @@
 %token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS SKIP UNDO CUT ASSERT
-%token INTRO SPLIT
+%token INTRO SPLIT UNFOLD
 %token THEOREM AXIOM DEF
 %token COLON RARROW FORALL NABLA EXISTS STAR AT OR AND LBRACK RBRACK
 
@@ -101,6 +101,7 @@ command:
   | INTRO DOT                           { Types.Intro }
   | SKIP DOT                            { Types.Skip }
   | UNDO DOT                            { Types.Undo }
+  | UNFOLD DOT                          { Types.Unfold }
   | EOF                                 { raise End_of_file }
 
 id_list:

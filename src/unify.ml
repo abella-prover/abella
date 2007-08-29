@@ -443,7 +443,6 @@ let makesubst h1 t2 a1 n =
     * directly with the order of the "terms" reversed.
     *
     * The incoming term is assumed to be head normalized. *)
-
   let rec toplevel_subst t2 lev =
     match observe t2 with
       | Lam (n,t2) -> toplevel_subst t2 (lev+n)
@@ -473,7 +472,6 @@ let makesubst h1 t2 a1 n =
       | Ptr _ -> assert false
       | _ -> lambda (n+lev) (nested_subst t2 lev)
   in
-
     check_flex_args a1 ts1 ;
     toplevel_subst t2 0
 

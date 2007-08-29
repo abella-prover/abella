@@ -9,9 +9,9 @@ typeof (app M N) T :- typeof M (arrow U T), typeof N U.
 
 value (abs R).
 
-step (app (abs R) M) (R M) :- value M.
 step (app M N) (app M' N) :- step M M'.
 step (app M N) (app M N') :- value M, step N N'.
+step (app (abs R) M) (R M) :- value M.
 
 nstep A A.
 nstep A C :- step A B, nstep B C.

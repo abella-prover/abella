@@ -18,15 +18,22 @@ Future
 
 Make a seperate type for (id * term) list?
 
+Have "unfold" do the work of "split" ?
+
 How to deal with forall R, X = R when X gets bound to R?
   How do we know to rename to avoid capture?
     Maybe normalize the term and look for constants (not eigen) with same
      name as quantifier variables? Kind of a hack...
      Maybe introduce a new variable type : bound
-  If fixed, clean up names for type_uniq
+  If fixed, clean up names for type_uniq and norm
 
 Make a reflist extension like in extlib?
 
+Find a way of handling undo state so that I don't have to remember to
+  call it each time I start a tactic
+
+Unify/Search bug if last clause of step is moved first in norm.mod
+  
 Abstract out List.flatten (List.map collect_terms ...) ?
 
 Support tac1;tac2 where tac2 applies to all subgoals of tac1

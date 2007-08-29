@@ -1,3 +1,5 @@
+let (@@) f g x = f (g x)
+
 module Option = struct
   let is_some x =
     match x with

@@ -1,0 +1,26 @@
+Def halts T :- exists V, {nstep T V} /\ {value V}.
+
+Def reduce top T :- halts T.
+Def reduce (arrow A B) T :-
+  halts T,
+  (forall S, reduce A S -> reduce B (app T S)).
+
+Theorem reduce_halts : forall A T, reduce A T -> halts T.
+intros. case H1.
+  search.
+  search.
+
+Theorem halt_step_foward : forall S T,
+  halts S -> {step S T} -> halts T.
+skip.
+
+Theorem halt_step_backward : forall S T,
+  halts T -> {step S T} -> halts S.
+skip.
+
+Theorem reduce_step_forward : forall S T C,
+  {type C} -> {typeof S C} -> {step S T} -> reduce C S -> reduce C T.
+induction on 1. intros. case H1.
+  case H4.
+    apply halt_step_foward to H5 H3. search.
+  case H4.

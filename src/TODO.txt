@@ -36,6 +36,8 @@ How to deal with logic variables at the top level
 
 Abstract out { context = List.map f context ; term = f term }
 
+Allow naming of hypotheses and then get rid of hyps during case
+
 Add an apply tactic that works backwards like in coq?
   If so, clean up normal2.thm where we assert
 

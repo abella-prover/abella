@@ -1,4 +1,5 @@
-let (@@) f g x = f (g x)
+let (>>) f g x = f (g x)
+let (|>) x f = f x
 
 module Option = struct
   let is_some x =

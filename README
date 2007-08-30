@@ -20,7 +20,7 @@ Disclaimer
 ==========
 This release is very crude and there are some features in development
 that are not supposed to work yet. For example, nabla in the head of a
-definition clause is very poorly supported.
+definition clause is poorly supported.
 
    
 Table of Contents

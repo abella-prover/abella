@@ -1,3 +1,8 @@
+Make a dist target
+  Include only required files and a new Makefile
+  Maybe add a toplevel README file
+  Make a seperate examples directory?
+
 Case with nabla in the head
   Allow more raisings
   Allow for permutations of nabla variables
@@ -64,8 +69,6 @@ Add unification over lppterms?
 
 Fix timestamp bug in unify that David has a test for
 
-Support induction on linc predicates by assuming an implicit natural
-  number argument. Then replace axioms with theorems in examples.
 
 Larger or longer term issues
 ============================

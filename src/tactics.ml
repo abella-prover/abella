@@ -9,14 +9,18 @@ let is_capital str =
   match str.[0] with
     | 'A'..'Z' -> true
     | _ -> false
-
+        
 let capital_var_names terms =
-  let names = map_vars_list (fun v -> v.name) terms in
-    List.unique (List.find_all is_capital names)
+  terms
+  |> map_vars_list (fun v -> v.name)
+  |> List.find_all is_capital
+  |> List.unique
 
 let lpp_capital_var_names lppterms =
-  let terms = List.flatten (List.map collect_terms lppterms) in
-    capital_var_names terms
+  lppterms
+  |> List.map collect_terms
+  |> List.flatten
+  |> capital_var_names
 
 let freshen_clause ~tag ~used ?(support=[]) head body =
   let var_names = capital_var_names (head::body) in
@@ -36,22 +40,23 @@ let freshen_meta_clause ~tag ~used ?(support=[]) head body =
     (used, fresh_head, fresh_body)
 
 let freshen_bindings ?(support=[]) ~tag ~used bindings term =
-  replace_lppterm_vars
-    (fresh_alist ~support ~tag ~used bindings)
-    term
+  term |> replace_lppterm_vars (fresh_alist ~support ~tag ~used bindings)
 
 let term_vars_alist tag terms =
-  List.map (fun v -> ((term_to_var v).name, v))
-    (find_var_refs tag terms)
+  terms
+  |> find_var_refs tag
+  |> List.map (fun v -> ((term_to_var v).name, v))
     
 let lppterm_vars_alist tag lppterms =
-  let terms = List.flatten (List.map collect_terms lppterms) in
-    term_vars_alist tag terms
-
+  lppterms
+  |> List.map collect_terms
+  |> List.flatten
+  |> term_vars_alist tag
+      
 (* Freshening for Logic variables uses anonymous names *)
-
+      
 let fresh_nameless_alist ?(support=[]) ~tag ids =
-  List.map (fun x -> (x, app (fresh ~tag 0) support)) ids
+  ids |> List.map (fun x -> (x, app (fresh ~tag 0) support))
       
 let freshen_nameless_clause ?(support=[]) head body =
   let var_names = capital_var_names (head::body) in
@@ -68,7 +73,7 @@ let freshen_nameless_meta_clause ?(support=[]) ~tag head body =
     (fresh_head, fresh_body)
 
 let freshen_nameless_bindings ?(support=[]) ~tag bindings term =
-  replace_lppterm_vars (fresh_nameless_alist ~support ~tag bindings) term
+  term |> replace_lppterm_vars (fresh_nameless_alist ~support ~tag bindings)
 
 (* Object level cut *)
 
@@ -105,57 +110,55 @@ let lift_all ~used nominals =
          used)
     used
     used
-  
+
 let meta_term_case ~support ~used ~meta_clauses ~wrapper term =
-  List.filter_map
-    (fun (head, body) ->
-       let initial_state = get_bind_state () in
-       let initial_used = used in
-       let used, head, body =
-         match head with
-           | Pred(p, _) -> used, p, body
-           | Binding(Nabla, [id], Pred(p, _)) ->
-               let n = nominal_var "n1" in
-               let alist = [(id, n)] in
-                 (lift_all ~used [n],
-                  replace_term_vars alist p,
-                  List.map (replace_lppterm_vars alist) body)
-           | _ -> failwith "Bad head in meta-clause"
-       in
-       let used, head, body =
-         freshen_meta_clause ~support ~tag:Eigen ~used head body
-       in
-         if try_left_unify ~used head term then
-           let bind_state = get_bind_state () in
-           let wrapped_body = List.map wrapper body in
-           let used = List.unique
+  meta_clauses|> List.filter_map
+      (fun (head, body) ->
+         let initial_state = get_bind_state () in
+         let initial_used = used in
+         let used, head, body =
+           match head with
+             | Pred(p, _) -> used, p, body
+             | Binding(Nabla, [id], Pred(p, _)) ->
+                 let n = nominal_var "n1" in
+                 let alist = [(id, n)] in
+                   (lift_all ~used [n],
+                    replace_term_vars alist p,
+                    List.map (replace_lppterm_vars alist) body)
+             | _ -> failwith "Bad head in meta-clause"
+         in
+         let used, head, body =
+           freshen_meta_clause ~support ~tag:Eigen ~used head body
+         in
+           if try_left_unify ~used head term then
+             let bind_state = get_bind_state () in
+             let wrapped_body = List.map wrapper body in
+             let used = List.unique
              ((List.find_all (fun (_, t) -> is_free t) used) @ initial_used)
-           in
-             set_bind_state initial_state ;
-             Some { bind_state = bind_state ;
-                    new_vars = used ;
-                    new_hyps = wrapped_body }
-         else
-           (set_bind_state initial_state ; None))
-    meta_clauses
+             in
+               set_bind_state initial_state ;
+               Some { bind_state = bind_state ;
+                      new_vars = used ;
+                      new_hyps = wrapped_body }
+           else
+             (set_bind_state initial_state ; None))
       
 let term_case ~support ~used ~clauses ~wrapper term =
-  List.filter_map
-    (fun (head, body) ->
-       let fresh_head, fresh_body =
-         freshen_clause ~support ~tag:Eigen ~used head body in
-       let initial_state = get_bind_state () in
-         if try_left_unify ~used fresh_head term then
-           let new_vars = term_vars_alist Eigen (fresh_head::fresh_body) in
-           let bind_state = get_bind_state () in
-           let wrapped_body = List.map wrapper fresh_body in
-             set_bind_state initial_state ;
-             Some { bind_state = bind_state ;
-                    new_vars = new_vars ;
-                    new_hyps = wrapped_body }
-         else
-               None)
-    clauses
+  clauses |> List.filter_map
+      (fun (head, body) ->
+         let fresh_head, fresh_body =
+           freshen_clause ~support ~tag:Eigen ~used head body in
+         let initial_state = get_bind_state () in
+           if try_left_unify ~used fresh_head term then
+             let new_vars = term_vars_alist Eigen (fresh_head::fresh_body) in
+             let bind_state = get_bind_state () in
+             let wrapped_body = List.map wrapper fresh_body in
+               set_bind_state initial_state ;
+               Some { bind_state = bind_state ;
+                      new_vars = new_vars ;
+                      new_hyps = wrapped_body }
+           else
+             None)
 
 let obj_case ~used obj r clauses =
   let wrapper t =
@@ -262,7 +265,7 @@ let is_false t =
 let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
   
   let rec term_aux n context goal =
-    List.exists
+    clauses |> List.exists
       (fun (head, body) ->
          try_with_state
            (fun () ->
@@ -274,10 +277,9 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                 List.for_all
                   (fun t -> obj_aux (n-1) {context=context; term=t})
                   fresh_body))
-      clauses
       
   and obj_aux n goal =
-    if List.exists (derivable goal) (filter_objs hyps) then
+    if hyps |> filter_objs |> List.exists (derivable goal) then
       true
     else if Context.exists (try_right_unify goal.term) goal.context then
       true
@@ -317,27 +319,26 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
 
   and meta_aux n goal =
     if n = 0 then false else
-      List.exists
-        (fun (head, body) ->
-           try_with_state
-             (fun () ->
-                let support = term_support goal in
-                let head, body =
-                  match head with
-                    | Pred(p, _) -> p, body
-                    | Binding(Nabla, [id], Pred(p, _)) ->
-                        let n = nominal_var "n1" in
-                        let alist = [(id, n)] in
-                           (replace_term_vars alist p,
-                           List.map (replace_lppterm_vars alist) body)
-                    | _ -> failwith "Bad head in meta-clause"
-                in
-                let head, body =
-                  freshen_nameless_meta_clause ~tag:Logic ~support head body
-                in
-                  right_unify head goal ;
-                  List.for_all (lppterm_aux (n-1)) body))
-        meta_clauses
+      meta_clauses |> List.exists
+          (fun (head, body) ->
+             try_with_state
+               (fun () ->
+                  let support = term_support goal in
+                  let head, body =
+                    match head with
+                      | Pred(p, _) -> p, body
+                      | Binding(Nabla, [id], Pred(p, _)) ->
+                          let n = nominal_var "n1" in
+                          let alist = [(id, n)] in
+                            (replace_term_vars alist p,
+                             List.map (replace_lppterm_vars alist) body)
+                      | _ -> failwith "Bad head in meta-clause"
+                  in
+                  let head, body =
+                    freshen_nameless_meta_clause ~tag:Logic ~support head body
+                  in
+                    right_unify head goal ;
+                    List.for_all (lppterm_aux (n-1)) body))
               
   (* true if we can confirm no proof exists *)
   and negative_meta_aux n goal =
@@ -357,34 +358,34 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
               end
         in
         let backchain () =
-          List.for_all
-            (fun (head, body) ->
-               try_with_state ~default:true
-                 (fun () ->
-                    let support = term_support goal in
-                    let head, body =
-                      match head with
-                        | Pred(p, _) -> p, body
-                        | Binding(Nabla, [id], Pred(p, _)) ->
-                            let n = nominal_var "n1" in
-                            let alist = [(id, n)] in
-                              (replace_term_vars alist p,
-                               List.map (replace_lppterm_vars alist) body)
-                        | _ -> failwith "Bad head in meta-clause"
-                    in
-                    let head, body =
-                      freshen_nameless_meta_clause ~tag:Eigen ~support head body
-                    in
-                    let body =
-                      List.filter_map (fun t ->
-                                         match t with
-                                           | Pred(p, _) -> Some p
-                                           | _ -> None)
-                        body
-                    in
-                      left_unify head goal ;
-                      List.exists (aux (n-1)) body))
-            meta_clauses
+          meta_clauses |> List.for_all
+              (fun (head, body) ->
+                 try_with_state ~default:true
+                   (fun () ->
+                      let support = term_support goal in
+                      let head, body =
+                        match head with
+                          | Pred(p, _) -> p, body
+                          | Binding(Nabla, [id], Pred(p, _)) ->
+                              let n = nominal_var "n1" in
+                              let alist = [(id, n)] in
+                                (replace_term_vars alist p,
+                                 List.map (replace_lppterm_vars alist) body)
+                          | _ -> failwith "Bad head in meta-clause"
+                      in
+                      let head, body =
+                        freshen_nameless_meta_clause
+                          ~tag:Eigen ~support head body
+                      in
+                      let body =
+                        List.filter_map (fun t ->
+                                           match t with
+                                             | Pred(p, _) -> Some p
+                                             | _ -> None)
+                          body
+                      in
+                        left_unify head goal ;
+                        List.exists (aux (n-1)) body))
         in
           table () || backchain ()
     in
@@ -421,8 +422,10 @@ let some_term_to_restriction t =
 
 let apply term args =
   let support =
-    List.unique (List.flatten (List.map
-                                 (Option.map_default lppterm_support []) args))
+    args
+    |> List.map (Option.map_default lppterm_support [])
+    |> List.flatten
+    |> List.unique
   in
   let rec aux term =
     match term with
@@ -479,19 +482,18 @@ let find_as f list =
 let unfold ~used ~meta_clauses term =
   match term with
     | Pred(term, _) ->
-        find_as
-          (fun (head, body) ->
-             let used, head, body =
-               match head with
-                 | Pred(p, _) -> used, p, body
-                 | _ -> failwith "Bad head in meta-clause"
-             in
-             let used, head, body =
-               freshen_meta_clause ~tag:Logic ~used head body
-             in
-               if try_right_unify ~used head term then
-                 Some body
-               else
-                 None)
-          meta_clauses
+        meta_clauses |> find_as
+            (fun (head, body) ->
+               let used, head, body =
+                 match head with
+                   | Pred(p, _) -> used, p, body
+                   | _ -> failwith "Bad head in meta-clause"
+               in
+               let used, head, body =
+                 freshen_meta_clause ~tag:Logic ~used head body
+               in
+                 if try_right_unify ~used head term then
+                   Some body
+                 else
+                   None)
     | _ -> failwith "Can only unfold predicates"

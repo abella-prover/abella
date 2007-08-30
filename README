@@ -130,13 +130,14 @@ The following tactics are listed in order of usefulness (according to me)
   C}. This corresponds to meta-level cut for lambda prolog. See
   subject reduction in examples/eval.thm for an example.
 
-  inst <HYP-NAME> with <TERM>.
-  ============================
+  inst <HYP-NAME> with <VAR> = <TERM>.
+  ====================================
   Given a hypothesis of the form {... n1 ...} where n1 is a nominal
-  variable, the inst tactic creates the hypothesis {... t ...} where t
-  is the term specified in the tactic. Thus this tactic implements a
-  meta-level substitution property of lambda prolog. See subject
-  reduction in examples/eval.thm for an example.
+  variable specified in the command, the inst tactic creates the
+  hypothesis {... t ...} where t is the term specified in the
+  tactic. Thus this tactic implements a meta-level substitution
+  property of lambda prolog. See subject reduction in
+  examples/eval.thm for an example.
 
   unfold.
   =======

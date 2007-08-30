@@ -44,8 +44,10 @@ The syntax of terms in lpp supports the following constructs,
   F1 \/ F2                         (or)
   F1 -> F2
   pred A B C                       (LG level predicate)
-  {pred A B C}                     (Lambda prolog predicate)
-  {hyp A, hyp B |- pred A B C}     (Lambda prolog predicate with context)
+  {pred A B C}                     (Lambda prolog predicate, like
+                                    seq nil (pred A B C) )
+  {hyp A, hyp B |- pred A B C}     (Lambda prolog predicate with context, like
+                                    seq (hyp B :: hyp A :: nil) (pred A B C) )
 
 Nominal variables are denoted by n1, n2, ...
 

@@ -1,1 +1,30 @@
 .SUBDIRS: src
+
+
+################################################
+# Distribution
+#
+
+BuildDist() =
+    rm -rf dist
+
+    mkdir dist
+    cp dist-makefile dist/makefile
+    cp README dist/README
+
+    mkdir dist/src
+    cp src/*.ml src/*.mll src/*.mly src/*.mli dist/src
+    rm dist/src/*test*.ml
+
+    mkdir dist/examples
+    cp src/*.mod src/*.thm dist/examples
+
+.PHONY: dist
+dist: test theorems
+    BuildDist()
+    make -C dist
+    BuildDist()
+    rm -f lpp.tar.gz
+    mv dist lpp
+    tar c lpp | gzip - > lpp.tar.gz
+    rm -rf lpp

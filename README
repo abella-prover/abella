@@ -1,0 +1,251 @@
+README for LPP 0.1
+==================
+This is an initial release of the Lambda Prolog Prover. Please report
+all bugs, feature request, and comments to Andrew Gacek.
+
+
+Quick Start
+===========
+1) Compile the program by running "make" from the root directory.
+
+2) Start lpp, passing in the name of the lambda prolog file to reason about.
+   E.g.  ./lpp examples/eval.mod
+
+3) Consult with the corresponding thm files (e.g. examples/eval.thm)
+   for examples of theorems and their proofs. Type in the examples by
+   hand and explore the prover.
+
+
+Disclaimer
+==========
+This release is very crude and there are some features in development
+that are not supposed to work yet. For example, nabla in the head of a
+definition clause is very poorly supported.
+
+   
+Table of Contents
+=================
+ * LPP Syntax
+ * Top-level Commands
+ * Tactics List
+ * Lemmas
+ * Apply with Unknowns
+ * Overview of Examples
+ 
+
+LPP Syntax
+==========
+The syntax of terms in lpp supports the following constructs,
+
+  forall A B C, ...
+  exists A B C, ...
+  nabla A B C, ...
+  F1 /\ F2                         (and)
+  F1 \/ F2                         (or)
+  F1 -> F2
+  pred A B C                       (LG level predicate)
+  {pred A B C}                     (Lambda prolog predicate)
+  {hyp A, hyp B |- pred A B C}     (Lambda prolog predicate with context)
+
+Nominal variables are denoted by n1, n2, ...
+
+  
+Top-level Commands
+==================
+There are only three top-level commands in LPP.
+
+  Theorem <THM-NAME> : <TERM>.
+  ============================
+  This puts the prover in proving mode with the given term as the
+  goal.
+  
+  Axiom <THM-NAME> : <TERM>.
+  ==========================
+  This asserts that the given theorem is true. This is useful for
+  stating lemmas that you do not want to prove yet.
+
+  Def <PRED NAME> <PRED ARGS>.
+  Def <PRED NAME> <PRED ARGS> :- <PRED BODY>.
+  ===========================================
+  The def command defines a clause for a meta-level
+  predicate. Multiple calls to Def are used to define multiple clauses
+  of a predicate. Most often, these predicates are used to describe
+  the context of lambda prolog terms for the given file.
+
+
+Tactics List
+============
+The following tactics are listed in order of usefulness (according to me)
+
+  induction on <NUM>.
+  ===================
+  Given a goal of the form "forall A B C, F1 -> F2 -> F3 -> F4" the
+  induction tactic allows you to induct on one of F1, F2, or F3. The
+  choice of induction is based on the number <NUM>. Applying the
+  induction tactic results in an inductive hypothesis being added to
+  the current set of hypotheses. Specifics on this inductive
+  hypothesis and how it relates to the goal are given in the section
+  "Inductive Restrictions".
+
+  intros.
+  =======
+  Given a goal of the form "forall A B C, F1 -> F2 -> F3" the intros
+  tactic introduces three new eigen variables A, B, and C and adds F1
+  and F2 to the hypotheses. The new goal is F3.
+
+  case on <HYP-NAME>.
+  ===================
+  The case tactic performs case analysis on a hypothesis. This
+  corresponds to def-L in the LG logic.
+
+  search.
+  =======
+  The search tactic tries to prove the current goal by repeatedly
+  applying def-R and looking in the list of hypotheses. When the goal
+  is a lambda prolog term, this corresponds very much to lambda prolog
+  style searching.
+
+  apply <HYP-NAME> to <HYP-NAMES>.
+  ================================
+  The apply tactic applies a hypotheses of the form "forall A B C, F1
+  -> F2 -> F3" to argument hypotheses such as "F1" and "F2". A
+  previously proved theorem can be used instead of the first
+  hypothesis, and then this acts like using a lemma.
+  
+  undo.
+  =====
+  The undo tactic undoes the previous tactic.
+
+  skip.
+  =====
+  The skip tactic skips the current goal completely. This is logically
+  unsound, but very convenient during proof development.
+
+  cut <HYP-NAME> with <HYP-NAME>.
+  ===============================
+  Given hypotheses of the form {L1, A |- C} and {L2 |- A} with L1 and
+  L2 possibly empty, the cut tactic creates the hypothesis {L1, L2 |-
+  C}. This corresponds to meta-level cut for lambda prolog. See
+  subject reduction in examples/eval.thm for an example.
+
+  inst <HYP-NAME> with <TERM>.
+  ============================
+  Given a hypothesis of the form {... n1 ...} where n1 is a nominal
+  variable, the inst tactic creates the hypothesis {... t ...} where t
+  is the term specified in the tactic. Thus this tactic implements a
+  meta-level substitution property of lambda prolog. See subject
+  reduction in examples/eval.thm for an example.
+
+  unfold.
+  =======
+  The unfold tactic attempts to unfold the current goal by matching it
+  against its possible definitions. The first definition to match is
+  the one used.
+  
+  assert <FORMULA>.
+  =================
+  The assert tactic changes the current goal to the given formula and
+  once that is proven it comes back to the original goal, but with the
+  given formula as a hypothesis. I found this useful when I wanted to
+  use apply but did not have the proper hypotheses to apply to. Since
+  that time, however, I have added the ability to use apply with
+  unknowns and thus I no longer use assert. See the section "Apply
+  with Unknowns" for more information.
+  
+  exists <TERM>.
+  ==============
+  Given a goal of the form "exists A, ..." the exists tactic
+  instantiates A with the given term.
+
+  split.
+  ======
+  Given a goal of the form "F1 /\ F2" the split tactic creates the two
+  subgoals "F1" and "F2".
+
+Inductive Restrictions
+======================
+Inductive restrictions are represented by * (smaller) and @
+(equal). They are used to track the size of inductive arguments rather
+than using explicit numeric values. For example, suppose we apply
+"induction on 1." when trying to prove the following subject reduction
+theorem,
+
+ ============================
+  forall E V T, {eval E V} -> {typeof E T} -> {typeof V T}
+  
+We will get the following proof state.
+
+  IH : forall E V T, {eval E V}* -> {typeof E T} -> {typeof V T}
+  ============================
+   forall E V T, {eval E V}@ -> {typeof E T} -> {typeof V T}
+
+Here we have an inductive hypothesis where the inductive argument is
+flagged with *. This means that we can only apply that hypothesis to
+an argument which also has the *. Because * means smaller, in order to
+get an argument with a * we must perform case analysis on an argument
+that is "equal" which we denote by @. Thus the above proof proceeds by
+first doing "intros." and then "case on H1." This will give us two
+subgoals, each of which has a hypothesis now tagged with * and thus
+eligible for use with the inductive hypothesis.
+
+
+Lemmas
+======
+To use a lemma, prove it as a theorem and then refer to it by name in
+another proof using the apply tactic. For example,
+
+Theorem my_lemma : ...
+...
+
+Theorem my_theorem : ...
+...
+apply my_lemma to H3 H5.
+...
+
+
+Apply with Unknowns
+===================
+The apply tactic allows you to leave some arguments unspecified by
+replacing them with an underscore. For example, in examples/type_uniq
+we at one point have roughly the proof state,
+
+  Variables: L, E, T1, T2, U, R, T, U'
+  IH : forall L E T1 T2, ctx L -> {L |- typeof E T1}* ->
+         {L |- typeof E T2} -> T1 = T2
+  H1 : ctx L
+  H4 : {L, typeof n1 T |- typeof (R n1) U}*
+  H5 : {L, typeof n1 T |- typeof (R n1) U'}
+  ============================
+   arrow T U = arrow T U'
+
+Now we would like to apply IH to H4 and H5, but for this we would need
+a hypothesis which says "ctx (typeof n1 T :: L)". Instead, we can say
+"apply IH to _ H4 H5." The prover will then guess what needs be proved
+for the unknown hypothesis and attempt to prove it using search. If
+this fails, the current subgoal will be delayed and the unknown
+hypothesis will become the current goal.
+
+
+Overview of Examples
+====================
+The following list very briefly describes each mod/thm
+combination. The [wip] tag means that something is a work in
+progress.
+
+ * add - commutativity for addition
+ * copy - equality of identical definitions of the copy predicate
+ * cut - cut elimination for sequent calculus with "and" and "implies"
+ * eval - lambda calculus and various results on typing and evaluation
+ * fsub-full [wip] - transitivity for the algorithm Fsub
+ * lists - various results about lists (append, reverse, perm)
+ * normal - proof that each lambda term is normal or non-normal
+ * normal2 - proof that no lambda term is both normal and non-normal
+ * pe [wip] - results about partial evaluation for lambda calculus
+ * subst - correctness for LLambda subst predicate
+ * type_uniq - type uniqueness for simply typed lambda calculus
+
+The following mod files have no thm file
+
+ * fsub - basic definition of Fsub
+ * pcf - basic definition of PCF
+         (i.e. Lambda calculus with extra constructs)

@@ -16,7 +16,7 @@ let rec process_proof name ~interactive lexbuf =
         if not interactive && not !quiet then
           printf "%s.\n\n" (command_to_string input) ;
         begin match input with
-          | Induction(args) -> induction args
+          | Induction(arg) -> induction arg
           | Apply(h, args) -> apply h args
           | Cut(h, arg) -> cut h arg
           | Inst(h, n, t) -> inst h n t

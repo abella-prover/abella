@@ -1,7 +1,5 @@
-Make a dist target
-  Include only required files and a new Makefile
-  Maybe add a toplevel README file
-  Make a seperate examples directory?
+For internal release
+  Fix name capture issue?
 
 Case with nabla in the head
   Allow more raisings

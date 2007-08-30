@@ -238,6 +238,7 @@ progress.
  * eval - lambda calculus and various results on typing and evaluation
  * fsub-full [wip] - transitivity for the algorithm Fsub
  * lists - various results about lists (append, reverse, perm)
+ * norm [wip] - normalization for the simply typed lambda calculus
  * normal - proof that each lambda term is normal or non-normal
  * normal2 - proof that no lambda term is both normal and non-normal
  * pe [wip] - results about partial evaluation for lambda calculus

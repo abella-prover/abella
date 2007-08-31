@@ -39,6 +39,10 @@ let fresh_hyp_name () =
   sequent.count <- sequent.count + 1 ;
   "H" ^ (string_of_int sequent.count)
 
+let normalize_sequent () =
+  sequent.goal <- normalize sequent.goal ;
+  sequent.hyps <- sequent.hyps |> List.map (fun (n, h) -> (n, normalize h))
+    
 (* Clauses *)
 
 let parse_clauses str =
@@ -129,6 +133,7 @@ let next_subgoal () =
     | [] -> failwith "Proof completed."
     | set_subgoal::rest ->
         set_subgoal () ;
+        normalize_sequent () ;
         subgoals := rest
 
           
@@ -253,7 +258,7 @@ let apply h args =
     let restore = goal_to_subgoal sequent.goal in
       fun () ->
         restore () ;
-        add_hyp (normalize result)
+        add_hyp result
   in
     subgoals :=
       List.append obligation_subgoals (resulting_subgoal :: !subgoals );

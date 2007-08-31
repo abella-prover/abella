@@ -1,6 +1,3 @@
-For internal release
-  Fix name capture issue?
-
 Case with nabla in the head
   Allow more raisings
   Allow for permutations of nabla variables
@@ -19,16 +16,11 @@ Add tests for raising in apply?
 Future
 ======
 
+Clean up similarities between replace_lppterm_vars and normalize_binders
+
 Make a seperate type for (id * term) list?
 
 Have "unfold" do the work of "split" ?
-
-How to deal with forall R, X = R when X gets bound to R?
-  How do we know to rename to avoid capture?
-    Maybe normalize the term and look for constants (not eigen) with same
-     name as quantifier variables? Kind of a hack...
-     Maybe introduce a new variable type : bound
-  If fixed, clean up names for type_uniq and norm
 
 Make a reflist extension like in extlib?
 
@@ -43,8 +35,6 @@ Support tac1;tac2 where tac2 applies to all subgoals of tac1
 
 How to deal with logic variables at the top level
   We need to remember their bindings
-
-Abstract out { context = List.map f context ; term = f term }
 
 Allow naming of hypotheses and then get rid of hyps during case
 

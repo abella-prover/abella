@@ -157,6 +157,15 @@ let tests =
              assert_pprint_equal "{pi x1\\pred x1 x1}" t ;
              assert_pprint_equal "{pred n1 n1}" (normalize t)) ;
 
+      "Normalize should rename bound variables if needed" >::
+        (fun () ->
+           let const_a = const "A" in
+           let p = const "p" in
+           let t = forall ["A"]
+             (arrow (pred (app p [var_a])) (pred (app p [const_a])))
+           in
+             assert_pprint_equal "forall A', p A -> p A'" (normalize t)) ;
+
       "Abstract should replace eigen variables with lambda abstractions" >::
         (fun () ->
            let t = app (const "foo") [var_a; var_b] in

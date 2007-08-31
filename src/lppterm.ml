@@ -41,7 +41,7 @@ let member e ctx = pred (app (Term.const "member") [e; ctx])
   
 (* Manipulations *)
 
-let map_objs f t =
+let map_on_objs f t =
   let rec aux t =
     match t with
       | Obj(obj, r) -> Obj(f obj, r)
@@ -53,6 +53,10 @@ let map_objs f t =
   in
     aux t
 
+let map_obj f obj =
+  { context = Context.map f obj.context ;
+    term = f obj.term }
+      
 let is_imp t =
   match observe t with
     | App(t, _) -> eq t (const "=>")
@@ -95,17 +99,6 @@ let replace_pi_abs_with_nominal obj =
   let abs = extract_pi_abs obj.term in
   let nominal = fresh_nominal obj in
     {obj with term = deep_norm (app abs [nominal])}
-
-let rec normalize_obj obj =
-  if is_imp obj.term then
-    normalize_obj (move_imp_to_context obj)
-  else if is_pi_abs obj.term then
-    normalize_obj (replace_pi_abs_with_nominal obj)
-  else
-    {obj with context = Context.normalize obj.context}
-      
-let normalize term =
-  map_objs normalize_obj term
 
 let obj_to_member obj =
   member obj.term (Context.context_to_term obj.context)
@@ -151,17 +144,6 @@ let add_to_context elt obj =
 let add_context ctx obj =
   {obj with context = Context.union ctx obj.context}
 
-let rec collect_terms t =
-  match t with
-    | Obj(obj, _) -> (Context.context_to_list obj.context) @ [obj.term]
-    | Arrow(a, b) -> (collect_terms a) @ (collect_terms b)
-    | Binding(_, _, body) -> collect_terms body
-    | Or(a, b) -> (collect_terms a) @ (collect_terms b)
-    | And(a, b) -> (collect_terms a) @ (collect_terms b)
-    | Pred(p, _) -> [p]
-
-let map_term_list f t = List.map f (collect_terms t)
-
 (* Variable Renaming *)
 
 let fresh_alist ?(support=[]) ~used ~tag ids =
@@ -174,30 +156,28 @@ let fresh_alist ?(support=[]) ~used ~tag ids =
 
 let raise_alist ~support alist =
   List.map (fun (id, t) -> (id, app t support)) alist
-        
-let replace_term_vars alist t =
+
+let replace_term_vars ?tag alist t =
   let rec aux t =
     match observe t with
-        | Var {name=name} when List.mem_assoc name alist ->
-            List.assoc name alist
-        | Var _
-        | DB _ -> t
-        | Lam(i, t) -> lambda i (aux t)
-        | App(t, ts) -> app (aux t) (List.map aux ts)
-        | Susp _ -> failwith "Susp found during replace_term_vars"
-        | Ptr _ -> assert false
+      | Var v when List.mem_assoc v.name alist &&
+          (tag = None || tag = Some v.tag)
+          ->
+          List.assoc v.name alist
+      | Var _
+      | DB _ -> t
+      | Lam(i, t) -> lambda i (aux t)
+      | App(t, ts) -> app (aux t) (List.map aux ts)
+      | Susp _ -> failwith "Susp found during replace_term_vars"
+      | Ptr _ -> assert false
   in
     aux t
 
-let replace_obj_vars alist obj =
-  let aux t = replace_term_vars alist t in
-    { context = Context.map aux obj.context ;
-      term = aux obj.term }
-
 let rec replace_lppterm_vars alist t =
+  let term_aux t = replace_term_vars alist t in
   let aux t = replace_lppterm_vars alist t in
     match t with
-      | Obj(obj, r) -> Obj(replace_obj_vars alist obj, r)
+      | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) ->
           let alist' = List.remove_assocs bindings alist in
@@ -205,7 +185,7 @@ let rec replace_lppterm_vars alist t =
             Binding(binder, bindings', replace_lppterm_vars alist' body')
       | Or(a, b) -> Or(aux a, aux b)
       | And(a, b) -> And(aux a, aux b)
-      | Pred(p, r) -> Pred(replace_term_vars alist p, r)
+      | Pred(p, r) -> Pred(term_aux p, r)
 
 and freshen_alist_bindings bindings alist body =
   let used = get_used (List.map snd alist) in
@@ -215,6 +195,64 @@ and freshen_alist_bindings bindings alist body =
       (List.map term_to_var (List.map snd bindings_alist))
   in
     (bindings', replace_lppterm_vars bindings_alist body)
+
+let rec collect_terms t =
+  match t with
+    | Obj(obj, _) -> (Context.context_to_list obj.context) @ [obj.term]
+    | Arrow(a, b) -> (collect_terms a) @ (collect_terms b)
+    | Binding(_, _, body) -> collect_terms body
+    | Or(a, b) -> (collect_terms a) @ (collect_terms b)
+    | And(a, b) -> (collect_terms a) @ (collect_terms b)
+    | Pred(p, _) -> [p]
+
+let map_term_list f t = List.map f (collect_terms t)
+
+let get_lppterm_used t =
+  t |> collect_terms
+    |> find_var_refs Eigen
+    |> List.map (fun v -> ((term_to_var v).name, v))
+      
+let rec normalize_obj obj =
+  if is_imp obj.term then
+    normalize_obj (move_imp_to_context obj)
+  else if is_pi_abs obj.term then
+    normalize_obj (replace_pi_abs_with_nominal obj)
+  else
+    {obj with context = Context.normalize obj.context}
+
+let rec normalize_binders alist t =
+  let term_aux t = replace_term_vars ~tag:Constant alist t in
+  let rec aux t =
+    match t with
+      | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
+      | Arrow(a, b) -> Arrow(aux a, aux b)
+      | Binding(binder, bindings, body) ->
+          let body_used = get_lppterm_used body in
+          let bindings', body' =
+            freshen_used_bindings bindings body_used body
+          in
+            Binding(binder, bindings', normalize_binders alist body')
+      | Or(a, b) -> Or(aux a, aux b)
+      | And(a, b) -> And(aux a, aux b)
+      | Pred(p, r) -> Pred(term_aux p, r)
+  in
+    aux t
+
+and freshen_used_bindings bindings used body =
+  let bindings_alist = fresh_alist ~tag:Constant ~used bindings in
+  let bindings' =
+    bindings_alist
+    |> List.map snd
+    |> List.map term_to_var
+    |> List.map (fun v -> v.name)
+  in
+  let body' = normalize_binders bindings_alist body in
+    (bindings', body')
+  
+let normalize term =
+  term
+  |> map_on_objs normalize_obj
+  |> normalize_binders []
 
 let term_support t = find_var_refs Nominal [t]
 

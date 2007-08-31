@@ -89,7 +89,7 @@ let object_cut obj1 obj2 =
 (* Object level instantiation *)
         
 let object_inst obj name term =
-  replace_obj_vars [(name, term)] obj
+  map_obj (replace_term_vars [(name, term)]) obj
 
 (* Case analysis *)
 

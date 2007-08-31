@@ -28,8 +28,8 @@ induction on 2. intros. case H2.
     inst H6 with n1 = M.
       cut H7 with H5. search.
 
-Theorem reduce_step_forward : forall R T C,
-  {type C} -> {typeof R C} -> {step R T} -> reduce C R -> reduce C T.
+Theorem reduce_step_forward : forall S T C,
+  {type C} -> {typeof S C} -> {step S T} -> reduce C S -> reduce C T.
 induction on 1. intros. case H1.
   case H4.
     apply halt_step_forward to H6 H3.
@@ -57,3 +57,36 @@ induction on 1. intros. case H1.
       apply IH to H6 _ _ H11.
         case H10. search. search.
         search.
+
+Def ctx nil.
+Def ctx (typeof X T :: L) :- ctx L.
+        
+Def gen nil T A :- reduce A T.
+Def nabla x, gen (typeof x S :: L) (T x) A :-
+  forall V, reduce S V -> gen L (T V) A.
+
+Theorem reduce_lemma : forall L T A,
+  ctx L -> reduce A T -> gen L T A.
+skip.
+
+Theorem gen_arrow : forall L A B S T,
+  gen L T (arrow A B) -> gen L S A -> gen L (app T S) B.
+skip.
+
+Theorem gen_abs : forall L T A B,
+  ctx L ->
+  {L |- typeof T (arrow A B)} ->
+  halts T ->
+  (forall S, gen L S A -> gen L (app T S) B) ->
+    gen L T (arrow A B).
+induction on 1. intros. case H1.
+  skip.
+  skip.
+  
+Theorem generalized : forall L T A,
+  ctx L -> {L |- typeof T A} -> gen L T A.
+induction on 2. intros. case H2.
+  skip.
+  skip.
+  apply IH to H1 H3. apply IH to H1 H4.
+    apply gen_arrow to H5 H6. search.

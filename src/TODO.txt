@@ -16,6 +16,10 @@ Add tests for raising in apply?
 Future
 ======
 
+Can we use a more declarative approach to help with nabla variables?
+  So the user picks the names?
+  Could this also work with imp-L?
+
 Clean up similarities between replace_lppterm_vars and normalize_binders
 
 Make a seperate type for (id * term) list?

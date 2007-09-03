@@ -1,3 +1,8 @@
+%% Proof that each lambda term is normal or non-normal
+%%
+%% The ctxpair predicate encodes the relationship between the context
+%% of the judgements (term T) and (normal T).
+
 Def ctxpair nil nil.
 Def ctxpair (term X :: L1) (var X :: L2) :- ctxpair L1 L2.
 

@@ -1,3 +1,11 @@
+%% Cut elimination for sequent calculus with "and" and "implies"
+%%
+%% An object level sequent A_1, ..., A_n |- C is encoded as
+%% {hyp A_1, ..., hyp A_n |- conc C}. We use the ctx meta-level
+%% predicate to describe the structure of contexts for the conc
+%% predicate. In this case, the important point is that the context
+%% contains only hypotheses (hyp A) and not conclusions (conc A).
+
 Def ctx nil.
 Def ctx (hyp A :: L) :- ctx L.
 

@@ -1,3 +1,8 @@
+%% Equality of identical definitions of the copy predicate
+%%
+%% We encode the relationship between the contexts of copy and copy' using
+%% the ctxpair meta-level predicate.
+
 Def ctxpair nil nil.
 Def ctxpair (copy X Y :: L1) (copy' X Y :: L2) :- ctxpair L1 L2.
 

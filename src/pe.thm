@@ -1,4 +1,7 @@
-% This example is taken from some notes by John Hannan
+%% Results about partial evaluation for lambda calculus
+%% [Work in progress]
+%%
+%% This example is taken from some notes by John Hannan
 
 Def ctx nil.
 Def ctx (pe X Y :: L) :- (forall R, X = abs R -> false),

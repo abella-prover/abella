@@ -1,3 +1,6 @@
+%% Transitivity for the algorithm Fsub
+%% [Work in progress]
+
 Def ctx nil.
 Def ctx (var X :: L) :- ctx L.
 

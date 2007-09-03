@@ -1,3 +1,8 @@
+%% Normalization for the simply typed lambda calculus
+%% [Work in progress]
+%%
+%% It is not yet clear how best to formalize that a term halts.
+
 Def halts T :- exists V, {nstep T V} /\ {value V}.
 
 Def reduce top T :- {typeof T top}, halts T.
@@ -58,6 +63,8 @@ induction on 1. intros. case H1.
         case H10. search. search.
         search.
 
+%% Stating the generalized theorem will require some careful work
+        
 Def ctx nil.
 Def ctx (typeof X T :: L) :- ctx L.
         

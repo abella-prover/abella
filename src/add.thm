@@ -1,3 +1,7 @@
+%% Commutativity for addition
+%%
+%% We turn the type nat into a predicate so that we can induct on it.
+
 Theorem add_base : forall N, {nat N} -> {add N z N}.
 induction on 1. intros. case H1. search.
   apply IH to H2. search.

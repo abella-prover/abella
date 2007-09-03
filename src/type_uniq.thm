@@ -1,3 +1,11 @@
+%% Type uniqueness for simply typed lambda calculus
+%% [Work in progress]
+%%
+%% We should not need the non-membership clause of ctx because we are
+%% using nabla in the head. We keep it beause the implementation for
+%% nabla in the head is still in progress and there are issues related
+%% to the naming of nabla variables that have to be worked out.
+
 Def ctx nil.
 Def nabla x, ctx (typeof x T :: L) :-
       (forall S, member (typeof x S) L -> false),

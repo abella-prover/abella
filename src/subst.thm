@@ -1,7 +1,10 @@
+%% Correctness for LLambda subst predicate
+
 Def ctx nil nil.
 Def ctx (term X :: L1) (copy X X :: L2) :- ctx L1 L2.
 
-Theorem ctx_lemma : forall L1 L2 T, ctx L1 L2 -> member (term T) L1 -> member (copy T T) L2.
+Theorem ctx_lemma : forall L1 L2 T,
+  ctx L1 L2 -> member (term T) L1 -> member (copy T T) L2.
 induction on 1. intros. case H1.
   case H2.
   case H2.

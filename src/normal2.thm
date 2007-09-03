@@ -1,3 +1,9 @@
+%% Proof that no lambda term is both normal and non-normal
+%%
+%% The ctx predicate defines the context of a judgement (normal T).
+%% The nabla in the head prevents enforces that in a context
+%% var x1 :: ... :: var xn :: nil, the xi are all variables.
+
 Def ctx nil.
 Def nabla x, ctx (var x :: L) :- ctx L.
 

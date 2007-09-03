@@ -84,17 +84,22 @@ let rec process ~interactive lexbuf =
 
 let welcome_msg = "Lambda Prolog Prover 0.1\n"
 
-let usage_message = ""
+let usage_message = "lpp [options] <module-file>"
 
 let command_input = ref ""
+
+let options =
+  Arg.align
+    [
+      ("-f", Arg.Set_string command_input,
+       "<theorem-file> Read command input from file") ;
+      ("-q", Arg.Set quiet, " Quiet mode")
+    ]
 
 let _ =
   printf "%s%!" welcome_msg ;
   Arg.parse
-    [
-      ("-f", Arg.Set_string command_input, "Read command input from file") ;
-      ("-q", Arg.Set quiet, "Quiet mode")
-    ]
+    options
     (fun file_name ->
        if not !quiet then
          Printf.printf "Reading clauses from %s\n" file_name ;

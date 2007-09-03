@@ -13,14 +13,15 @@ Quick Start
 
 3) Consult with the corresponding thm files (e.g. examples/eval.thm)
    for examples of theorems and their proofs. Type in the examples by
-   hand and explore the prover.
+   hand or run them in batch mode using the -f flag. Most thm files
+   also have a short description of what is being proven.
 
 
 Disclaimer
 ==========
-This release is very crude and there are some features in development
-that are not supposed to work yet. For example, nabla in the head of a
-definition clause is poorly supported.
+This is a development release and some features not intended to work
+yet. For example, nabla in the head of a definition clause is only
+partially supported.
 
    
 Table of Contents
@@ -246,7 +247,7 @@ progress.
  * normal2 - proof that no lambda term is both normal and non-normal
  * pe [wip] - results about partial evaluation for lambda calculus
  * subst - correctness for LLambda subst predicate
- * type_uniq - type uniqueness for simply typed lambda calculus
+ * type_uniq [wip] - type uniqueness for simply typed lambda calculus
 
 The following mod files have no thm file
 

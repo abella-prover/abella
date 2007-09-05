@@ -4,8 +4,8 @@ type (arrow A B) :- type A, type B.
 term (app M N) :- term M, term N.
 term (abs R) :- pi x\ term x => term (R x).
 
-typeof (abs R) (arrow T U) :- pi x\ (typeof x T => typeof (R x) U).
 typeof (app M N) T :- typeof M (arrow U T), typeof N U.
+typeof (abs R) (arrow T U) :- pi x\ (typeof x T => typeof (R x) U).
 
 value (abs R).
 

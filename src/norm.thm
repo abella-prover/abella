@@ -85,9 +85,9 @@ Theorem gen_app : forall L M N S,
     exists MS NS, S = app MS NS /\ gen L M MS /\ gen L N NS.
 skip.
 
-Theorem gen_abs : forall L R S,
-  ctx L -> gen L (abs R) S ->
-    exists RS, S = abs RS /\ forall x V, reduce x V -> gen L (R x) (RS x).
+Theorem gen_abs : forall L R S T,
+  ctx L -> gen L (abs T R) S ->
+    exists RS, S = abs T RS /\ nabla x, gen (typeof x T :: L) (R x) (RS x).
 skip.
 
 Theorem generalized : forall L T S A,
@@ -101,4 +101,4 @@ induction on 2. intros. case H2.
     apply H16 to H13.
     search.
   apply gen_abs to H1 H3. case H5. case H6. case H7.
-  skip.
+    skip.

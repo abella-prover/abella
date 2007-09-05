@@ -60,6 +60,7 @@ rule token = parse
 | "skip"             { SKIP }
 | "undo"             { UNDO }
 | "assert"           { ASSERT }
+| "keep"             { KEEP }
 
 | number as n        { NUM (int_of_string n) }
 | name as n          { ID n }

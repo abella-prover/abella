@@ -196,7 +196,7 @@ let tests =
              ~goal:"forall P V, {typeof P V} -> {typeof P V}" ;
 
            intros () ;
-           case "H1" ;
+           case ~keep:true "H1" ;
            assert_n_subgoals 2 ;
            assert_string_list_equal ["H1"; "H2"] (List.map fst sequent.hyps) ;
            
@@ -287,8 +287,8 @@ let tests =
                 apply "IH" ["H4"; "H10"] ;
                 search () ;
                 assert_n_subgoals 1 ;
-                
-                case "H2" ;
+
+                case ~keep:true "H2" ;
                 inst "H4" "n1" (parse_term "rec T R") ;
                 cut "H5" "H2" ;
                 apply "IH" ["H3"; "H6"] ;

@@ -20,7 +20,7 @@ type command =
   | Apply of id * id list
   | Cut of id * id
   | Inst of id * id * term
-  | Case of id
+  | Case of id * bool
   | Assert of lppterm
   | Exists of term
   | Search
@@ -58,8 +58,8 @@ let command_to_string c =
         sprintf "cut %s with %s" h1 h2
     | Inst(h, n, t) ->
         sprintf "inst %s with %s = %s" h n (term_to_string t)
-    | Case h ->
-        sprintf "case %s" h
+    | Case(h, k) ->
+        sprintf "case %s" h ^ if k then " (keep)" else ""
     | Assert t ->
         sprintf "assert %s" (lppterm_to_string t)
     | Exists t ->

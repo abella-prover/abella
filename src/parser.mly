@@ -1,6 +1,6 @@
 %token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS SKIP UNDO CUT ASSERT
-%token INTRO SPLIT UNFOLD
+%token INTRO SPLIT UNFOLD KEEP
 %token THEOREM AXIOM DEF
 %token COLON RARROW FORALL NABLA EXISTS STAR AT OR AND LBRACK RBRACK
 
@@ -92,7 +92,8 @@ command:
   | APPLY ID TO id_list DOT             { Types.Apply($2, $4) }
   | CUT ID WITH ID DOT                  { Types.Cut($2, $4) }
   | INST ID WITH ID EQ term DOT         { Types.Inst($2, $4, $6) }
-  | CASE ID DOT                         { Types.Case($2) }
+  | CASE ID DOT                         { Types.Case($2, false) }
+  | CASE ID LPAREN KEEP RPAREN DOT      { Types.Case($2, true) }
   | ASSERT lppterm DOT                  { Types.Assert($2) }
   | EXISTS term DOT                     { Types.Exists($2) }
   | SEARCH DOT                          { Types.Search }

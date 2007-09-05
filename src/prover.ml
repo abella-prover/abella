@@ -106,6 +106,9 @@ let full_reset_prover =
 let add_hyp ?(name=fresh_hyp_name ()) term =
   sequent.hyps <- List.append sequent.hyps [(name, term)]
 
+let remove_hyp name =
+  sequent.hyps <- List.remove_assoc name sequent.hyps
+
 let add_var v =
   sequent.vars <- List.append sequent.vars [v]
 
@@ -278,13 +281,14 @@ let add_cases_to_subgoals cases =
   in
     subgoals := List.append (List.map case_to_subgoal cases) !subgoals
 
-let case str =
+let case ?(keep=false) str =
   save_undo_state () ;
   let term = get_hyp str in
   let cases =
     Tactics.case ~used:sequent.vars ~clauses:!clauses
       ~meta_clauses:!meta_clauses term
   in
+    if not keep then remove_hyp str ;
     add_cases_to_subgoals cases ;
     next_subgoal ()
 

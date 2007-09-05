@@ -67,7 +67,11 @@ induction on 1. intros. case H1.
         
 Def ctx nil.
 Def ctx (typeof X T :: L) :- ctx L.
-        
+
+% Gopalan also suggested splitting gen into two predicates, one which
+% matches L with a list V of values and another which substitutes those
+% values. Then the final theorem would quantify over V as well.
+
 Def gen nil T A :- reduce A T.
 Def nabla x, gen (typeof x S :: L) (T x) A :-
   forall V, reduce S V -> gen L (T V) A.

@@ -27,7 +27,6 @@ let rec process_proof name ~interactive lexbuf =
           | Split -> split ()
           | Unfold -> unfold ()
           | Intros -> intros ()
-          | Intro -> intro ()
           | Skip -> skip ()
           | Undo -> undo ()
         end ;

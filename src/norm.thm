@@ -89,6 +89,8 @@ Theorem gen_abs : forall L R S T,
   ctx L -> gen L (abs T R) S ->
     exists RS, S = abs T RS /\ nabla n1, gen (typeof n1 T :: L) (R n1) (RS n1).
 skip.
+%% Do we need to strengthen this to something like
+%% forall v, nabla x, {typeof v T} -> gen (typeof x T) (R x) (RS x) ?
 
 Theorem generalized : forall L T S A,
   ctx L -> {L |- typeof T A} -> gen L T S -> reduce A S.

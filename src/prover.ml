@@ -342,23 +342,12 @@ let intros () =
             List.iter add_var alist ;
             aux (replace_lppterm_vars alist body)
       | Arrow(left, right) ->
-          add_hyp left ;
+          add_hyp (normalize left) ;
           aux right
       | _ -> term
   in
     sequent.goal <- aux sequent.goal
             
-let intro () =
-  save_undo_state () ;
-  match sequent.goal with
-    | Binding(Forall, first::rest, body) ->
-        let alist = fresh_alist ~tag:Eigen ~used:sequent.vars [first] in
-          List.iter add_var alist ;
-          let fresh_body = replace_lppterm_vars alist body in
-            sequent.goal <- forall rest fresh_body
-    | _ -> ()
-            
-
 (* Split *)
 
 let split () =

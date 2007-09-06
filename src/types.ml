@@ -26,7 +26,6 @@ type command =
   | Search
   | Split
   | Intros
-  | Intro
   | Unfold
   | Skip
   | Undo
@@ -68,7 +67,6 @@ let command_to_string c =
     | Split -> "split"
     | Unfold -> "unfold"
     | Intros -> "intros"
-    | Intro -> "intro"
     | Skip -> "skip"
     | Undo -> "undo"
       

@@ -1,0 +1,35 @@
+%% Comparison between internal and external definition of seq
+
+Def seq L t.
+Def seq L (atom A) :- member A L.
+Def seq L (and A B) :- seq L A, seq L B.
+Def seq L (A => B) :- seq (A :: L) B.
+Def seq L (pi G) :- nabla x, seq L (G x).
+Def seq L (sigma G) :- exists x, seq L (G x).
+Def seq L (atom A) :- exists B, prog A B, seq L B.
+
+Theorem external : forall S T,
+  seq nil (pi x\ p x S => pi y\ p y T => atom (p x T)) -> S = T.
+intros.
+case H1.
+case H2.
+case H3.
+case H4.
+case H5.
+case H6.
+case H7.
+ case H8.
+ case H9.
+  search.
+ case H10.
+case H8.
+case H10.
+
+Theorem internal : forall S T,
+  {pi x\ p x S => pi y\ p y T => p x T} -> S = T.
+intros.
+case H1.
+case H2.
+case H3.
+ search.
+case H4.

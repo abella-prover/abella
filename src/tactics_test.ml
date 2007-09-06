@@ -271,6 +271,24 @@ let case_tests =
                      assert_pprint_equal "{foo A B}" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
+      "On nabla" >::
+        (fun () ->
+           let term = freshen "nabla x, foo x" in
+           let used = [] in
+             match case ~used term with
+               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+                   assert_pprint_equal "foo n1" hyp ;
+               | _ -> assert_failure "Pattern mismatch") ;
+
+      "On nabla with n1 used" >::
+        (fun () ->
+           let term = make_nominals ["n1"] (freshen "nabla x, foo n1 x") in
+           let used = [] in
+             match case ~used term with
+               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+                   assert_pprint_equal "foo n1 n2" hyp ;
+               | _ -> assert_failure "Pattern mismatch") ;
+
       "Should look in context for member" >::
         (fun () ->
            let term = freshen "{L, hyp A |- hyp B}" in

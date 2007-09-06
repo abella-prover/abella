@@ -85,21 +85,6 @@ let extract_pi_abs t =
     | App(t, [abs]) -> abs
     | _ -> failwith "Check is_pi_abs before calling extract_pi_abs"
 
-let fresh_nominal obj =
-  let used_vars = find_vars Nominal (obj.term::obj.context) in
-  let used_names = List.map (fun v -> v.name) used_vars in
-  let p = prefix Nominal in
-  let n = ref 1 in
-    while List.mem (p ^ (string_of_int !n)) used_names do
-      incr n
-    done ;
-    nominal_var (p ^ (string_of_int !n))
-        
-let replace_pi_abs_with_nominal obj =
-  let abs = extract_pi_abs obj.term in
-  let nominal = fresh_nominal obj in
-    {obj with term = deep_norm (app abs [nominal])}
-
 let obj_to_member obj =
   member obj.term (Context.context_to_term obj.context)
 
@@ -211,7 +196,22 @@ let get_lppterm_used t =
   t |> collect_terms
     |> find_var_refs Eigen
     |> List.map (fun v -> ((term_to_var v).name, v))
-      
+
+let fresh_nominal t =
+  let used_vars = find_vars Nominal (collect_terms t) in
+  let used_names = List.map (fun v -> v.name) used_vars in
+  let p = prefix Nominal in
+  let n = ref 1 in
+    while List.mem (p ^ (string_of_int !n)) used_names do
+      incr n
+    done ;
+    nominal_var (p ^ (string_of_int !n))
+
+let replace_pi_abs_with_nominal obj =
+  let abs = extract_pi_abs obj.term in
+  let nominal = fresh_nominal (Obj(obj, Irrelevant)) in
+    {obj with term = deep_norm (app abs [nominal])}
+  
 let rec normalize_obj obj =
   if is_imp obj.term then
     normalize_obj (move_imp_to_context obj)

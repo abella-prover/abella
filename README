@@ -246,6 +246,7 @@ progress.
  * normal - proof that each lambda term is normal or non-normal
  * normal2 - proof that no lambda term is both normal and non-normal
  * pe [wip] - results about partial evaluation for lambda calculus
+ * seq - comparison between internal and external definition of seq
  * subst - correctness for LLambda subst predicate
  * type_uniq [wip] - type uniqueness for simply typed lambda calculus
 

@@ -87,7 +87,7 @@ skip.
 
 Theorem gen_abs : forall L R S T,
   ctx L -> gen L (abs T R) S ->
-    exists RS, S = abs T RS /\ nabla x, gen (typeof x T :: L) (R x) (RS x).
+    exists RS, S = abs T RS /\ nabla n1, gen (typeof n1 T :: L) (R n1) (RS n1).
 skip.
 
 Theorem generalized : forall L T S A,
@@ -101,4 +101,11 @@ induction on 2. intros. case H2.
     apply H16 to H13.
     search.
   apply gen_abs to H1 H3. case H5. case H6. case H7.
-    skip.
+    unfold.
+      skip.
+      skip.
+      intros.
+       apply reduce_halts to H9.
+       case H8.
+       apply IH to _ H4 H11.
+       skip.

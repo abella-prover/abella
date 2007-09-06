@@ -194,6 +194,12 @@ let case ~used ~clauses ~meta_clauses term =
           [{ bind_state = get_bind_state () ;
              new_vars = fresh_ids ;
              new_hyps = [fresh_body] }]
+    | Binding(Nabla, ids, body) ->
+        let fresh_ids = fresh_alist ~used ~tag:Nominal ids in
+        let fresh_body = replace_lppterm_vars fresh_ids body in
+          [{ bind_state = get_bind_state () ;
+             new_vars = fresh_ids ;
+             new_hyps = [fresh_body] }]
     | Pred(p, r) ->
         let wrapper t =
           match t with

@@ -334,13 +334,13 @@ let intros () =
   let rec aux term =
     match term with
       | Binding(Forall, bindings, body) ->
-          List.iter add_var
-            (fresh_alist ~tag:Eigen ~used:sequent.vars bindings) ;
-          aux (replace_lppterm_vars sequent.vars body)
+          let alist = fresh_alist ~tag:Eigen ~used:sequent.vars bindings in
+            List.iter add_var alist ;
+            aux (replace_lppterm_vars alist body)
       | Binding(Nabla, bindings, body) ->
-          List.iter add_var
-            (fresh_alist ~tag:Nominal ~used:sequent.vars bindings) ;
-          aux (replace_lppterm_vars sequent.vars body)
+          let alist = fresh_alist ~tag:Nominal ~used:sequent.vars bindings in
+            List.iter add_var alist ;
+            aux (replace_lppterm_vars alist body)
       | Arrow(left, right) ->
           add_hyp left ;
           aux right

@@ -35,6 +35,9 @@ Unify/Search bug if last clause of step is moved first in norm.mod
   
 Abstract out List.flatten (List.map collect_terms ...) ?
 
+Support "when T = abs S R." or "when T = abs _ _". in order to
+distinguish cases. Try using this in pcf example?
+
 Support tac1;tac2 where tac2 applies to all subgoals of tac1
 
 How to deal with logic variables at the top level

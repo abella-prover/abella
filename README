@@ -245,6 +245,8 @@ progress.
  * norm [wip] - normalization for the simply typed lambda calculus
  * normal - proof that each lambda term is normal or non-normal
  * normal2 - proof that no lambda term is both normal and non-normal
+ * pcf - subject reduction for PCF
+         (i.e. Lambda calculus with extra constructs)
  * pe [wip] - results about partial evaluation for lambda calculus
  * seq - comparison between internal and external definition of seq
  * subst - correctness for LLambda subst predicate
@@ -253,5 +255,3 @@ progress.
 The following mod files have no thm file
 
  * fsub - basic definition of Fsub
- * pcf - basic definition of PCF
-         (i.e. Lambda calculus with extra constructs)

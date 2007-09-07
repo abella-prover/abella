@@ -5,8 +5,8 @@ Def seq L (atom A) :- member A L.
 Def seq L (and A B) :- seq L A, seq L B.
 Def seq L (A => B) :- seq (A :: L) B.
 Def seq L (pi G) :- nabla x, seq L (G x).
-Def seq L (sigma G) :- exists x, seq L (G x).
-Def seq L (atom A) :- exists B, prog A B, seq L B.
+Def seq L (sigma G) :- seq L (G X).
+Def seq L (atom A) :- prog A B, seq L B.
 
 Theorem external : forall S T,
   seq nil (pi x\ p x S => pi y\ p y T => atom (p x T)) -> S = T.
@@ -18,12 +18,10 @@ case H4.
 case H5.
 case H6.
 case H7.
- case H8.
- case H9.
-  search.
- case H10.
-case H8.
-case H10.
+  case H8. case H9.
+    search.
+    case H10.
+  case H8.
 
 Theorem internal : forall S T,
   {pi x\ p x S => pi y\ p y T => p x T} -> S = T.
@@ -31,5 +29,43 @@ intros.
 case H1.
 case H2.
 case H3.
- search.
-case H4.
+  search.
+  case H4.
+
+%% An external version of add.mod/thm
+%%
+%% The primary difference (besides the extra syntax of "atom") is that
+%% for (seq nil P) we have to consider both (member P nil) and
+%% (prog P B, seq nil B). Then we have to do case analysis on (prog P B)
+%% to unfold the body of P. In the internal version, all of this is
+%% contained in one case analysis.
+
+Def prog (nat z) t.
+Def prog (nat (s N)) (atom (nat N)).
+
+Def prog (add z N N) t.
+Def prog (add (s A) B (s C)) (atom (add A B C)).
+
+Theorem add_base : forall N,
+  seq nil (atom (nat N)) -> seq nil (atom (add N z N)).
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H3. search.
+
+Theorem add_step : forall A B C,
+  seq nil (atom (add A B C)) -> seq nil (atom (add A (s B) (s C))).
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H3. search.
+
+Theorem add_comm : forall A B C, seq nil (atom (nat B)) ->
+  seq nil (atom (add A B C)) -> seq nil (atom (add B A C)).
+induction on 2. intros. case H2.
+  case H3.
+  case H3.
+    apply add_base to H1. search.
+    apply IH to H1 H4. apply add_step to H5. search.

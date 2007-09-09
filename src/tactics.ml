@@ -202,9 +202,17 @@ let case ~used ~clauses ~meta_clauses term =
              new_hyps = [fresh_body] }]
     | Pred(p, r) ->
         let wrapper t =
-          match t with
-            | Pred(p, _) -> Pred(p, reduce_restriction r)
-            | _ -> t
+          let rec aux t =
+            match t with
+              | Pred(p, _) -> Pred(p, reduce_restriction r)
+              | Binding(binding, ids, body) ->
+                  Binding(binding, ids, aux body)
+              | Or(t1, t2) -> Or(aux t1, aux t2)
+              | And(t1, t2) -> And(aux t1, aux t2)
+              | Arrow(t1, t2) -> Arrow(aux t1, aux t2)
+              | Obj _ -> t
+          in
+            aux t
         in
           meta_term_case ~used ~support:(term_support p)
             ~meta_clauses ~wrapper p

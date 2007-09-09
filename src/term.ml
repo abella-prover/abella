@@ -392,7 +392,8 @@ let term_to_string term =
                 in
                   if op_p >= pr then res else parenthesis res
             | Var {name=op; tag=Constant}, [a] when is_obj_quantifier op ->
-                op ^ " " ^ (pp 0 n a)
+                let res = op ^ " " ^ (pp 0 n a) in
+                  if pr < high_pr then res else parenthesis res
             | _ ->
                 let res =
                   String.concat " " (List.map (pp high_pr n) (t::ts))

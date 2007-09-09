@@ -1,5 +1,3 @@
-Bug when printing (seq L (pi G)) the inner parens are dropped?
-
 Fix remaining skips in seq.def
 
 Case with nabla in the head

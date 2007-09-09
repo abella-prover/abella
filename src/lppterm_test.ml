@@ -141,6 +141,12 @@ let tests =
            let t = termobj (app (const "=") [const "A"; const "B"]) in
              assert_pprint_equal "{A = B}" t) ;
 
+      "Print object quantifier inside of predicate" >::
+        (fun () ->
+           let t = pred (app (const "prove")
+                           [app (const "pi") [const "G"]]) in
+             assert_pprint_equal "prove (pi G)" t) ;
+
       "Normalize should move all implications to the context" >::
         (fun () ->
            let ctx = Context.add (const "L") Context.empty in

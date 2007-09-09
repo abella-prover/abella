@@ -1,4 +1,11 @@
+Clean up nominals so that we can generate lists of them at a time.
+  Add tests for this in search, case, apply, etc
+
 Fix remaining skips in seq.def
+
+How to talk about theorems which preserve measures?
+
+Think about how to use apply with nablas so that type_uniq works.
 
 Case with nabla in the head
   Allow more raisings

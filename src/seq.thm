@@ -75,6 +75,9 @@ induction on 2. intros. case H2.
 %% meta-theoremas about lambda prolog. But first we need some properties
 %% about lists.
 
+Def list nil.
+Def list (X :: A) :- list A.
+
 Def select (X :: A) X A.
 Def select (Y :: A) X (Y :: B) :- select A X B.
 
@@ -103,6 +106,19 @@ induction on 2. intros. case H2.
     apply select_member_base to H3. search.
     apply IH to H5 H4. apply select_member_step to H3 H6. search.
 
+Theorem perm_refl : forall L,
+  list L -> perm L L.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+% Theorem seq_subset : forall L1 L2 G,
+%  seq L1 G -> (forall X, member X L1 -> member X L2) -> seq L2 G.
+%
+% We would like to prove this theorem, but since it has a complicated term
+% inside on the left of an arrow, we will need some sort of induction on
+% meta-terms in order to complete the proof in the current system.
+    
 Theorem seq_perm : forall L1 L2 G,
   seq L1 G -> perm L1 L2 -> seq L2 G.
 induction on 1. intros. case H1.
@@ -111,29 +127,26 @@ induction on 1. intros. case H1.
   apply IH to H3 H2. apply IH to H4 H2. search.
   apply IH to H3 _. search.
   case H3. apply IH to H4 H2. search.
-    skip. % Error the search should succeed
   apply IH to H3 H2. search.
   apply IH to H4 H2. search.
 
-Theorem seq_cut : forall A L G,
-  seq (K :: L) G -> seq L (atom K) -> seq L G.
-induction on 1. intros. case H1.
+Theorem seq_cut : forall K L G,
+  list L -> seq (K :: L) G -> seq L (atom K) -> seq L G.
+induction on 2. intros. case H2.
   search.
-  case H3.
-    % Key Case, G=K
+  case H4.
+    search.  % Key case: G=K
     search.
-    search.
-  apply IH to H3 H2. apply IH to H4 H2. search.
-  assert seq (K :: A' :: L) B.
-    assert perm (A' :: K :: L) (K :: A' :: L).
-      skip. % Why do we need to skip this?
-      apply seq_perm to H3 H4. search.
+  apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
+  assert seq (K :: A :: L) B.
+    assert perm (A :: K :: L) (K :: A :: L).
+      apply perm_refl to H1. search.
+      apply seq_perm to H4 H5. search.
     % We want to apply IH but we can't because we got
-    %   seq (A' :: K :: L) B *  and
-    %   seq (K :: A' :: L) B    so we were not able to keep the star
-    %                           with that lemma... hrm..
+    %   seq (A :: K :: L) B *  and
+    %   seq (K :: A :: L) B    so we were not able to keep the star
+    %                          with that lemma...
     skip.
-  case H3. apply IH to H4 H2. search.
-    skip. % Error the search should succeed.
-  apply IH to H3 H2. search.
-  apply IH to H4 H2. search.
+  case H4. apply IH to H1 H5 H3. search.
+  apply IH to H1 H4 H3. search.
+  apply IH to H1 H5 H3. search.

@@ -323,6 +323,10 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
       | Binding(Forall, bindings, body) ->
           let term = freshen_nameless_bindings ~tag:Eigen bindings body in
             lppterm_aux n term
+      | Binding(Nabla, [id], body) ->
+        let nominal = fresh_nominal body in
+        let body = replace_lppterm_vars [(id, nominal)] body in
+          lppterm_aux n body
       | Arrow(Pred(left, _), right) when is_false right ->
           negative_meta_aux n left
       | Obj(obj, _) -> obj_aux n obj

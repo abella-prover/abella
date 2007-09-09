@@ -242,6 +242,20 @@ let case_tests =
                    end
                | cases -> assert_expected_cases 1 cases) ;
 
+      "Restriction should propogate beneath binders" >::
+        (fun () ->
+           let term = freshen "foo A @" in
+           let meta_clauses = parse_meta_clauses "foo X :- forall Y, bar X." in
+             match case ~meta_clauses term with
+               | [case1] ->
+                   set_bind_state case1.bind_state ;
+                   begin match case1.new_hyps with
+                     | [hyp] ->
+                         assert_pprint_equal "forall Y, bar A *" hyp ;
+                     | _ -> assert_failure "Expected 1 new hypothesis"
+                   end
+               | cases -> assert_expected_cases 1 cases) ;
+
       "On OR" >::
         (fun () ->
            let term = freshen "{A} \\/ {B}" in

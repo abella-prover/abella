@@ -224,19 +224,6 @@ let find_vars tag ts =
   in
     List.fold_left fv [] ts
 
-let find_var_refs tag ts =
-  let rec fv l t = match t with
-    | Var _ -> assert false
-    | App (h, ts) -> List.fold_left fv (fv l h) ts
-    | Lam (n, t') -> fv l t'
-    | DB _ -> l
-    | Susp _ -> assert false
-    | Ptr {contents=T t'} -> fv l t'
-    | Ptr {contents=V v} ->
-        if v.tag = tag && not (List.mem t l) then t::l else l
-  in
-    List.fold_left fv [] ts
-      
 let map_vars f t =
   let rec aux t =
     match observe t with
@@ -429,3 +416,16 @@ let is_free t =
     | Ptr {contents=V _} -> true
     | Ptr {contents=T _} -> false
     | _ -> assert false
+
+let find_var_refs tag ts =
+  let rec fv l t = match t with
+    | Var _ -> assert false
+    | App (h, ts) -> List.fold_left fv (fv l h) ts
+    | Lam (n, t') -> fv l t'
+    | DB _ -> l
+    | Susp _ -> assert false
+    | Ptr {contents=T t'} -> fv l t'
+    | Ptr {contents=V v} ->
+        if v.tag = tag && not (List.mem t l) then t::l else l
+  in
+    List.fold_left fv [] (List.map deep_norm ts)

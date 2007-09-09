@@ -1,3 +1,7 @@
+Bug when printing (seq L (pi G)) the inner parens are dropped?
+
+Fix remaining skips in seq.def
+
 Case with nabla in the head
   Allow more raisings
   Allow for permutations of nabla variables
@@ -15,6 +19,12 @@ Add tests for raising in apply?
 
 Future
 ======
+
+Change lppterm and such to meta
+  Maybe make the constructors Mname if name is take
+  Or use mAnd for constructor functions?
+
+Poplmark problems.
 
 Can we use a more declarative approach to help with nabla variables?
   So the user picks the names?
@@ -88,3 +98,6 @@ Can we represent /\ and \/ using,
 
   What would this mean in the logic?
     Here a and b range over predicates insetad of terms
+
+What is the relationship between meta-level predicates without
+implication and object-level predicates without implication?

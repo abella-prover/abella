@@ -69,3 +69,71 @@ induction on 2. intros. case H2.
   case H3.
     apply add_base to H1. search.
     apply IH to H1 H4. apply add_step to H5. search.
+
+
+%% A benefit of the external definition of seq is that it allows us to prove
+%% meta-theoremas about lambda prolog. But first we need some properties
+%% about lists.
+
+Def select (X :: A) X A.
+Def select (Y :: A) X (Y :: B) :- select A X B.
+
+Def perm nil nil.
+Def perm (X :: A') B :- select B X B', perm A' B'.
+
+Theorem select_member_base : forall X L1 L2,
+  select L1 X L2 -> member X L1.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem select_member_step : forall X Y L1 L2,
+  select L1 X L2 -> member Y L2 -> member Y L1.
+induction on 1. intros. case H1.
+  search.
+  case H2.
+    search.
+    apply IH to H3 H4. search.
+
+Theorem perm_member : forall X L1 L2,
+  member X L1 -> perm L1 L2 -> member X L2.
+induction on 2. intros. case H2.
+  search.
+  case H1.
+    apply select_member_base to H3. search.
+    apply IH to H5 H4. apply select_member_step to H3 H6. search.
+
+Theorem seq_perm : forall L1 L2 G,
+  seq L1 G -> perm L1 L2 -> seq L2 G.
+induction on 1. intros. case H1.
+  search.
+  apply perm_member to H3 H2. search.
+  apply IH to H3 H2. apply IH to H4 H2. search.
+  apply IH to H3 _. search.
+  case H3. apply IH to H4 H2. search.
+    skip. % Error the search should succeed
+  apply IH to H3 H2. search.
+  apply IH to H4 H2. search.
+
+Theorem seq_cut : forall A L G,
+  seq (K :: L) G -> seq L (atom K) -> seq L G.
+induction on 1. intros. case H1.
+  search.
+  case H3.
+    % Key Case, G=K
+    search.
+    search.
+  apply IH to H3 H2. apply IH to H4 H2. search.
+  assert seq (K :: A' :: L) B.
+    assert perm (A' :: K :: L) (K :: A' :: L).
+      skip. % Why do we need to skip this?
+      apply seq_perm to H3 H4. search.
+    % We want to apply IH but we can't because we got
+    %   seq (A' :: K :: L) B *  and
+    %   seq (K :: A' :: L) B    so we were not able to keep the star
+    %                           with that lemma... hrm..
+    skip.
+  case H3. apply IH to H4 H2. search.
+    skip. % Error the search should succeed.
+  apply IH to H3 H2. search.
+  apply IH to H4 H2. search.

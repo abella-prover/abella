@@ -7,5 +7,8 @@
 	Added examples/seq which compares the internal definition of
 	{...} with an external definition of seq.
 
+	Added examples/seq2 which shows an alternate external
+	definition of {...} which makes the program explicit.
+
 0.1 Release
 

@@ -252,6 +252,7 @@ progress.
          (i.e. Lambda calculus with extra constructs)
  * pe [wip] - results about partial evaluation for lambda calculus
  * seq - comparison between internal and external definition of seq
+ * seq2 - an alternate definition of seq which makes the program explicit
  * subst - correctness for LLambda subst predicate
  * type_uniq [wip] - type uniqueness for simply typed lambda calculus
 

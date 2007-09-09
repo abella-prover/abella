@@ -1,0 +1,11 @@
+0.2 Release
+
+	Changed case tactic to remove hypothesis from hypothesis list.
+
+	Added examples/pcf.thm proving subject reduction for PCF.
+
+	Added examples/seq which compares the internal definition of
+	{...} with an external definition of seq.
+
+0.1 Release
+

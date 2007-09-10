@@ -16,6 +16,11 @@ intros. case H1.
   search.
   search.
 
+Theorem reduce_typeof : forall A T, reduce A T -> {typeof T A}.
+intros. case H1.
+  search.
+  search.
+
 Theorem halt_step_forward : forall S T,
   halts S -> {step S T} -> halts T.
 skip.
@@ -72,7 +77,7 @@ Def nabla x, ctx (typeof x T :: L) :- ctx L.
 % matches L with a list V of values and another which substitutes those
 % values. Then the final theorem would quantify over V as well.
 
-Def gen nil T S.
+Def gen nil T T.
 Def nabla x, gen (typeof x A :: L) (T x) S :-
   forall V, reduce A V -> gen L (T V) S.
 
@@ -87,10 +92,10 @@ skip.
 
 Theorem gen_abs : forall L R S T,
   ctx L -> gen L (abs T R) S ->
-    exists RS, S = abs T RS /\ nabla n1, gen (typeof n1 T :: L) (R n1) (RS n1).
+    exists RS, S = abs T RS /\
+               forall V, nabla n1,
+                 {typeof V T} -> gen (typeof n1 T :: L) (R n1) (RS V).
 skip.
-%% Do we need to strengthen this to something like
-%% forall v, nabla x, {typeof v T} -> gen (typeof x T) (R x) (RS x) ?
 
 Theorem generalized : forall L T S A,
   ctx L -> {L |- typeof T A} -> gen L T S -> reduce A S.
@@ -108,6 +113,12 @@ induction on 2. intros. case H2.
       skip.
       intros.
        apply reduce_halts to H9.
-       case H8.
-       apply IH to _ H4 H11.
+       % We need to evaluate S' to a value, but we'll skip that for now
+       apply reduce_typeof to H9.
+       apply H8 to H11.
+       apply IH to _ H4 H12.
+       assert step (app (abs T' RS) S') (RS S'). skip.
+          % ^^ This one fails because of unification and S' not a value
+       % apply reduce_step_backward to _ _ H14 H13.
        skip.
+

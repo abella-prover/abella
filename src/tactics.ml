@@ -90,9 +90,10 @@ let object_cut obj1 obj2 =
     Obj(context_obj ctx obj1.term, Irrelevant)
 
 (* Object level instantiation *)
-        
-let object_inst obj name term =
-  map_obj (replace_term_vars [(name, term)]) obj
+
+(* inst t1 with n = t2 *)
+let object_inst t1 n t2 =
+  map_on_objs (map_obj (replace_term_vars ~tag:Nominal [(n, t2)])) t1
 
 (* Case analysis *)
 

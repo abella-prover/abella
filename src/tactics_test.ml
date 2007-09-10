@@ -39,12 +39,17 @@ let object_instantiation_tests =
     [
       "Simple" >::
         (fun () ->
-           let n = nominal_var "n" in
-           let obj = {context = Context.empty ;
-                      term = app (const "eval") [n; const "B"]} in
+           let t = make_nominals ["n"] (freshen "{eval n B}") in
            let a = var Eigen "A" 0 in
-           let result = object_inst obj "n" a in
-             assert_term_pprint_equal "eval A B" result.term) ;
+           let result = object_inst t "n" a in
+             assert_pprint_equal "{eval A B}" result) ;
+      
+      "Should only work on nominals" >::
+        (fun () ->
+           let t = freshen "{prove A}" in
+           let b = var Eigen "B" 0 in
+           let result = object_inst t "A" b in
+             assert_pprint_equal "{prove A}" result) ;
     ]
 
 let apply_tests =

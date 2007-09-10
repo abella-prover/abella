@@ -196,11 +196,12 @@ let get_display () =
 
 let inst h n t =
   save_undo_state () ;
-  match get_hyp h with
-    | Obj(obj, r) ->
-        let new_obj = object_inst obj n (replace_term_vars sequent.vars t) in
-          add_hyp (Obj(new_obj, r))
-    | _ -> failwith "Object instantiation can only be used on objects"
+  let ht = get_hyp h in
+    match ht with
+      | Obj _ -> t |> replace_term_vars sequent.vars
+                   |> object_inst ht n
+                   |> add_hyp
+      | _ -> failwith "Object instantiation can only be used on objects"
 
 
 (* Object level cut *)
@@ -339,7 +340,6 @@ let intros () =
             aux (replace_lppterm_vars alist body)
       | Binding(Nabla, bindings, body) ->
           let alist = fresh_alist ~tag:Nominal ~used:sequent.vars bindings in
-            List.iter add_var alist ;
             aux (replace_lppterm_vars alist body)
       | Arrow(left, right) ->
           add_hyp (normalize left) ;

@@ -79,7 +79,7 @@ Def nabla x, ctx (typeof x T :: L) :- ctx L.
 
 Def gen nil T T.
 Def nabla x, gen (typeof x A :: L) (T x) S :-
-  forall V, reduce A V -> gen L (T V) S.
+  reduce A V, gen L (T V) S.
 
 Theorem lemma1 : forall L T A S,
   ctx L -> member (typeof T A) L -> gen L T S -> reduce A S.

@@ -79,10 +79,13 @@ let freshen_nameless_bindings ?(support=[]) ~tag bindings term =
 
 (* obj1 = L1 |- A
    obj2 = L2, A |- C
-   result = L1, L2 |- C *)
+   result = L2, L1 |- C *)
 let object_cut obj1 obj2 =
   let ctx =
-    Context.union (Context.remove obj2.term obj1.context) obj2.context
+    obj1.context
+    |> Context.remove obj2.term
+    |> Context.union obj2.context
+    |> Context.normalize 
   in
     Obj(context_obj ctx obj1.term, Irrelevant)
 

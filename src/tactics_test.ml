@@ -24,7 +24,14 @@ let object_cut_tests =
            let h0 = parse_obj "L1, A |- B" in
            let h1 = parse_obj "L2 |- A" in
            let t = object_cut h0 h1 in
-             assert_pprint_equal "{L1, L2 |- B}" t) ;
+             assert_pprint_equal "{L2, L1 |- B}" t) ;
+
+      "Context should be normalized" >::
+        (fun () ->
+           let h0 = parse_obj "L, A |- B" in
+           let h1 = parse_obj "L |- A" in
+           let t = object_cut h0 h1 in
+             assert_pprint_equal "{L |- B}" t) ;
     ]
 
 let object_instantiation_tests =

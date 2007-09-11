@@ -116,7 +116,7 @@ let tests =
         (fun () ->
            let t = exists ["A"] b in
            let t' = replace_lppterm_vars [("B", var_a)] t in
-             assert_pprint_equal "exists A', {A}" t') ;
+             assert_pprint_equal "exists A0, {A}" t') ;
       
       "Print non-empty context" >::
         (fun () ->
@@ -170,17 +170,17 @@ let tests =
            let t = forall ["A"]
              (arrow (pred (app p [var_a])) (pred (app p [const_a])))
            in
-             assert_pprint_equal "forall A', p A -> p A'" (normalize t)) ;
+             assert_pprint_equal "forall A0, p A -> p A0" (normalize t)) ;
 
       "Normalize should rename nested binders" >::
         (fun () ->
            (* The var_a should force renaming of the A which should
-              cascade and force renaming of A' *)
-           let eq = pred (app (const "=") [const "A"; const "A'"]) in
+              cascade and force renaming of A0 *)
+           let eq = pred (app (const "=") [const "A"; const "A0"]) in
            let t = Binding(Forall, ["A"],
-                           Arrow(pred var_a, Binding(Forall, ["A'"], eq)))
+                           Arrow(pred var_a, Binding(Forall, ["A0"], eq)))
            in
-             assert_pprint_equal "forall A', A -> (forall A'', A' = A'')"
+             assert_pprint_equal "forall A0, A -> (forall A1, A0 = A1)"
                (normalize t) );
 
       "Abstract should replace eigen variables with lambda abstractions" >::

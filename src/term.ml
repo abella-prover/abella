@@ -196,14 +196,23 @@ let fresh ?(tag=Logic) ts =
   let name = (prefix tag) ^ (string_of_int i) in
     var tag name ts
 
+let remove_trailing_numbers s =
+  Str.global_replace (Str.regexp "[0-9]*$") "" s
+      
 let fresh_name name used =
-  let rec aux name =
+  let basename = remove_trailing_numbers name in
+  let rec aux i =
+    let name = basename ^ (string_of_int i) in
+      if List.mem_assoc name used then
+        aux (i+1)
+      else
+        name
+  in
+    (* Try to avoid any renaming *)
     if List.mem_assoc name used then
-      aux (name ^ "'")
+      aux 0
     else
       name
-  in
-    aux name
       
 let fresh_wrt tag name used =
   let name = fresh_name name used in

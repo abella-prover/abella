@@ -227,9 +227,15 @@ let rec normalize_binders alist t =
       | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) ->
+          let alist_used =
+            alist
+            |> List.map snd
+            |> List.map (fun v -> ((term_to_var v).name, v))
+          in
           let body_used = get_lppterm_used body in
+          let used = alist_used @ body_used in
           let bindings', body' =
-            freshen_used_bindings bindings body_used body
+            freshen_used_bindings bindings used body
           in
             Binding(binder, bindings', normalize_binders alist body')
       | Or(a, b) -> Or(aux a, aux b)

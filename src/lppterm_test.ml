@@ -172,6 +172,17 @@ let tests =
            in
              assert_pprint_equal "forall A', p A -> p A'" (normalize t)) ;
 
+      "Normalize should rename nested binders" >::
+        (fun () ->
+           (* The var_a should force renaming of the A which should
+              cascade and force renaming of A' *)
+           let eq = pred (app (const "=") [const "A"; const "A'"]) in
+           let t = Binding(Forall, ["A"],
+                           Arrow(pred var_a, Binding(Forall, ["A'"], eq)))
+           in
+             assert_pprint_equal "forall A', A -> (forall A'', A' = A'')"
+               (normalize t) );
+
       "Abstract should replace eigen variables with lambda abstractions" >::
         (fun () ->
            let t = app (const "foo") [var_a; var_b] in

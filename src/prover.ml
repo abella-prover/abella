@@ -1,11 +1,11 @@
 open Term
-open Lppterm
+open Metaterm
 open Format
 open Tactics
 open Types
 open Extensions
 
-type lemmas = (id * lppterm) list
+type lemmas = (id * metaterm) list
 let lemmas : lemmas ref = ref []
 
 type subgoal = unit -> unit
@@ -13,8 +13,8 @@ let subgoals : subgoal list ref = ref []
   
 type sequent = {
   mutable vars : (id * term) list ;
-  mutable hyps : (id * lppterm) list ;
-  mutable goal : lppterm ;
+  mutable hyps : (id * metaterm) list ;
+  mutable goal : metaterm ;
   mutable count : int ;
 }
 
@@ -149,7 +149,7 @@ let vars_to_string () =
 
 let format_hyp fmt (id, t) =
   fprintf fmt "%s : " id ;
-  format_lppterm fmt t ;
+  format_metaterm fmt t ;
   pp_force_newline fmt ()
     
 let format_hyps fmt =
@@ -162,7 +162,7 @@ let format_other_subgoals fmt =
                  set_state () ;
                  incr n ;
                  fprintf fmt "@[<1>subgoal %d is:@\n%a@]@\n@\n"
-                   !n format_lppterm sequent.goal)
+                   !n format_metaterm sequent.goal)
       !subgoals ;
     undo ()
 
@@ -171,7 +171,7 @@ let format_sequent fmt =
   fprintf fmt "  %s@\n" (vars_to_string ()) ;
   format_hyps fmt ;
   fprintf fmt "============================@\n" ;
-  fprintf fmt " %a" format_lppterm sequent.goal ;
+  fprintf fmt " %a" format_metaterm sequent.goal ;
   pp_close_box fmt ()
       
 let format_display fmt =
@@ -298,7 +298,7 @@ let case ?(keep=false) str =
       
 let assert_hyp term =
   save_undo_state () ;
-  let term = replace_lppterm_vars sequent.vars term in
+  let term = replace_metaterm_vars sequent.vars term in
     add_cases_to_subgoals
       [{ bind_state = get_bind_state () ;
          new_vars = [] ;
@@ -337,10 +337,10 @@ let intros () =
       | Binding(Forall, bindings, body) ->
           let alist = fresh_alist ~tag:Eigen ~used:sequent.vars bindings in
             List.iter add_var alist ;
-            aux (replace_lppterm_vars alist body)
+            aux (replace_metaterm_vars alist body)
       | Binding(Nabla, bindings, body) ->
           let alist = fresh_alist ~tag:Nominal ~used:sequent.vars bindings in
-            aux (replace_lppterm_vars alist body)
+            aux (replace_metaterm_vars alist body)
       | Arrow(left, right) ->
           add_hyp (normalize left) ;
           aux right
@@ -373,9 +373,9 @@ let unfold () =
 let exists t =
   save_undo_state () ;
   match sequent.goal with
-    | Binding(Lppterm.Exists, id::ids, body) ->
+    | Binding(Metaterm.Exists, id::ids, body) ->
         let t = replace_term_vars sequent.vars t in
-        let goal = exists ids (replace_lppterm_vars [(id, t)] body) in
+        let goal = exists ids (replace_metaterm_vars [(id, t)] body) in
           sequent.goal <- goal
     | _ -> ()
         

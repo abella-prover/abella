@@ -1,7 +1,7 @@
 open OUnit
 open Test_helper
 open Context
-open Lppterm
+open Metaterm
 open Unify
 
 let assert_true b = assert_bool "" b

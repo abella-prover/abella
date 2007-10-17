@@ -4,7 +4,7 @@ let tests = "LPP" >:::
   [
     Term_test.tests ;
     Unify_test.tests ;
-    Lppterm_test.tests ;
+    Metaterm_test.tests ;
     Parser_test.tests ;
     Tactics_test.tests ;
     Prover_test.tests ;

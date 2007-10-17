@@ -1,4 +1,4 @@
-open Lppterm
+open Metaterm
 open Prover
 open Types
 open Printf

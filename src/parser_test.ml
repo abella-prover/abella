@@ -1,6 +1,6 @@
 open OUnit
 open Test_helper
-open Lppterm
+open Metaterm
 open Lexer
 open Parser
 
@@ -8,7 +8,7 @@ let parse_clauses str =
   clauses token (Lexing.from_string str)
 
 let assert_pprint_equal_parse str =
-  assert_pprint_equal str (parse_lppterm str)
+  assert_pprint_equal str (parse_metaterm str)
     
 let tests =
   "Parser" >:::

@@ -15,12 +15,12 @@ type binder =
   | Nabla
   | Exists
     
-type lppterm =
+type metaterm =
   | Obj of obj * restriction
-  | Arrow of lppterm * lppterm
-  | Binding of binder * id list * lppterm
-  | Or of lppterm * lppterm
-  | And of lppterm * lppterm
+  | Arrow of metaterm * metaterm
+  | Binding of binder * id list * metaterm
+  | Or of metaterm * metaterm
+  | And of metaterm * metaterm
   | Pred of term * restriction
 
 (* Constructions *)
@@ -33,8 +33,8 @@ let arrow a b = Arrow(a, b)
 let forall ids t = if ids = [] then t else Binding(Forall, ids, t)
 let nabla ids t = if ids = [] then t else Binding(Nabla, ids, t)
 let exists ids t = if ids = [] then t else Binding(Exists, ids, t)
-let lpp_or a b = Or(a, b)
-let lpp_and a b = And(a, b)
+let meta_or a b = Or(a, b)
+let meta_and a b = And(a, b)
 let pred p = Pred(p, Irrelevant)
 
 let member e ctx = pred (app (Term.const "member") [e; ctx])
@@ -158,16 +158,16 @@ let replace_term_vars ?tag alist t =
   in
     aux t
 
-let rec replace_lppterm_vars alist t =
+let rec replace_metaterm_vars alist t =
   let term_aux t = replace_term_vars alist t in
-  let aux t = replace_lppterm_vars alist t in
+  let aux t = replace_metaterm_vars alist t in
     match t with
       | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) ->
           let alist' = List.remove_assocs bindings alist in
           let bindings', body' = freshen_alist_bindings bindings alist' body in
-            Binding(binder, bindings', replace_lppterm_vars alist' body')
+            Binding(binder, bindings', replace_metaterm_vars alist' body')
       | Or(a, b) -> Or(aux a, aux b)
       | And(a, b) -> And(aux a, aux b)
       | Pred(p, r) -> Pred(term_aux p, r)
@@ -179,7 +179,7 @@ and freshen_alist_bindings bindings alist body =
     List.map (fun v -> v.name)
       (List.map term_to_var (List.map snd bindings_alist))
   in
-    (bindings', replace_lppterm_vars bindings_alist body)
+    (bindings', replace_metaterm_vars bindings_alist body)
 
 let rec collect_terms t =
   match t with
@@ -192,7 +192,7 @@ let rec collect_terms t =
 
 let map_term_list f t = List.map f (collect_terms t)
 
-let get_lppterm_used t =
+let get_metaterm_used t =
   t |> collect_terms
     |> find_var_refs Eigen
     |> List.map (fun v -> ((term_to_var v).name, v))
@@ -232,7 +232,7 @@ let rec normalize_binders alist t =
             |> List.map snd
             |> List.map (fun v -> ((term_to_var v).name, v))
           in
-          let body_used = get_lppterm_used body in
+          let body_used = get_metaterm_used body in
           let used = alist_used @ body_used in
           let bindings', body' =
             freshen_used_bindings bindings used body
@@ -264,7 +264,7 @@ let term_support t = find_var_refs Nominal [t]
 
 let obj_support obj = find_var_refs Nominal (obj.term :: obj.context)
 
-let lppterm_support t = find_var_refs Nominal (collect_terms t)
+let metaterm_support t = find_var_refs Nominal (collect_terms t)
   
 let abstract_eigen t =
   let vars = find_var_refs Eigen [t] in
@@ -305,7 +305,7 @@ let binder_to_string b =
     | Nabla -> "nabla"
     | Exists -> "exists"
     
-let format_lppterm fmt t =
+let format_metaterm fmt t =
   let rec aux pr_above t =
     let pr_curr = priority t in
       if pr_curr < pr_above then fprintf fmt "(" ;
@@ -340,16 +340,16 @@ let format_lppterm fmt t =
     aux 0 t ;
     pp_close_box fmt ()
 
-let lppterm_to_string t =
+let metaterm_to_string t =
   let b = Buffer.create 50 in
   let fmt = formatter_of_buffer b in
     pp_set_margin fmt max_int ;
-    format_lppterm fmt t ;
+    format_metaterm fmt t ;
     pp_print_flush fmt () ;
     Buffer.contents b
   
 (* Error reporting *)
 
-let invalid_lppterm_arg t =
-  invalid_arg (lppterm_to_string t)
+let invalid_metaterm_arg t =
+  invalid_arg (metaterm_to_string t)
 

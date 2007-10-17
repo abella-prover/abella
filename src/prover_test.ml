@@ -1,6 +1,6 @@
 open OUnit
 open Test_helper
-open Lppterm
+open Metaterm
 open Prover
 open Term
 
@@ -18,9 +18,9 @@ let assert_proof proof_function =
 let setup_prover ?clauses:(clauses=[]) ?goal:(goal="") ?lemmas:(lemmas=[]) () =
   full_reset_prover () ;
   add_clauses clauses ;
-  if goal <> "" then Prover.sequent.goal <- parse_lppterm goal ;
+  if goal <> "" then Prover.sequent.goal <- parse_metaterm goal ;
   Prover.lemmas :=
-    List.map (fun (name,body) -> (name, parse_lppterm body)) lemmas
+    List.map (fun (name,body) -> (name, parse_metaterm body)) lemmas
 
 let tests =
   "Prover" >:::

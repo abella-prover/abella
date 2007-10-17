@@ -22,7 +22,7 @@ OCamlGeneratedFiles(parser.ml lexer.ml)
 FILES[] =
     term
     unify
-    lppterm
+    metaterm
     parser
     lexer
     tactics

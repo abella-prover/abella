@@ -1,5 +1,5 @@
 open OUnit
-open Lppterm
+open Metaterm
 
 (* Parsing functions *)
 
@@ -9,8 +9,8 @@ let parse_term str =
 let parse_obj str =
   Parser.contexted_term Lexer.token (Lexing.from_string str)
 
-let parse_lppterm str =
-  Parser.lppterm Lexer.token (Lexing.from_string str)
+let parse_metaterm str =
+  Parser.metaterm Lexer.token (Lexing.from_string str)
 
 let parse_clauses str =
   Parser.clauses Lexer.token (Lexing.from_string str)
@@ -22,14 +22,14 @@ let read_mod filename =
   Parser.clauses Lexer.token (Lexing.from_channel (open_in filename))
 
 let freshen str =
-  let term = parse_lppterm str in
+  let term = parse_metaterm str in
   let var_names = Tactics.capital_var_names (collect_terms term) in
   let fresh_names = fresh_alist ~tag:Term.Eigen ~used:[] var_names in
-    replace_lppterm_vars fresh_names term
+    replace_metaterm_vars fresh_names term
 
 let make_nominals list term =
   let alist = List.map (fun x -> (x, Term.nominal_var x)) list in
-    replace_lppterm_vars alist term
+    replace_metaterm_vars alist term
                
 let eval_clauses = read_mod "eval.mod"
 let fsub_clauses = read_mod "fsub.mod"
@@ -41,7 +41,7 @@ let assert_string_equal =
   assert_equal ~printer:(fun s -> s)
 
 let assert_pprint_equal s t =
-  assert_string_equal s (lppterm_to_string t)
+  assert_string_equal s (metaterm_to_string t)
 
 let assert_term_pprint_equal s t =
   assert_string_equal s (Term.term_to_string t)

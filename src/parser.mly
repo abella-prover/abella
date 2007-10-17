@@ -24,22 +24,22 @@
 /* Higher */
 
 
-%start lppterm term clauses top_command command contexted_term meta_clause
+%start metaterm term clauses top_command command contexted_term meta_clause
 %start meta_clauses
 %type <Term.term> term
 %type <Types.clauses> clauses
 %type <Types.meta_clause> meta_clause
 %type <Types.meta_clauses> meta_clauses
 %type <Types.command> command
-%type <Lppterm.obj> contexted_term
-%type <Lppterm.lppterm> lppterm
+%type <Metaterm.obj> contexted_term
+%type <Metaterm.metaterm> metaterm
 %type <Types.top_command> top_command
 
 %%
 
 contexted_term:
-  | context TURN term                   { Lppterm.context_obj $1 $3 }
-  | term                                { Lppterm.obj $1 }
+  | context TURN term                   { Metaterm.context_obj $1 $3 }
+  | term                                { Metaterm.obj $1 }
 
 context:
   | context COMMA term                  { Context.add $3 $1 }
@@ -79,12 +79,12 @@ meta_clauses:
   |                                     { [] }
 
 meta_clause:
-  | lppterm DOT                         { ($1, []) }
-  | lppterm DEF meta_clause_body DOT    { ($1, $3) }
+  | metaterm DOT                        { ($1, []) }
+  | metaterm DEF meta_clause_body DOT   { ($1, $3) }
 
 meta_clause_body:
-  | lppterm COMMA meta_clause_body      { $1::$3 }
-  | lppterm                             { [$1] }
+  | metaterm COMMA meta_clause_body     { $1::$3 }
+  | metaterm                            { [$1] }
 
 
 command:
@@ -94,7 +94,7 @@ command:
   | INST ID WITH ID EQ term DOT         { Types.Inst($2, $4, $6) }
   | CASE ID DOT                         { Types.Case($2, false) }
   | CASE ID LPAREN KEEP RPAREN DOT      { Types.Case($2, true) }
-  | ASSERT lppterm DOT                  { Types.Assert($2) }
+  | ASSERT metaterm DOT                 { Types.Assert($2) }
   | EXISTS term DOT                     { Types.Exists($2) }
   | SEARCH DOT                          { Types.Search }
   | SPLIT DOT                           { Types.Split }
@@ -108,17 +108,17 @@ id_list:
   | ID id_list                          { $1::$2 }
   | ID                                  { [$1] }
 
-lppterm:
-  | FORALL binding_list COMMA lppterm   { Lppterm.forall $2 $4 }
-  | EXISTS binding_list COMMA lppterm   { Lppterm.exists $2 $4 }
-  | NABLA binding_list COMMA lppterm    { Lppterm.nabla $2 $4 }
-  | lppterm RARROW lppterm              { Lppterm.arrow $1 $3 }
-  | lppterm OR lppterm                  { Lppterm.lpp_or $1 $3 }
-  | lppterm AND lppterm                 { Lppterm.lpp_and $1 $3 }
-  | LPAREN lppterm RPAREN               { $2 }
+metaterm:
+  | FORALL binding_list COMMA metaterm   { Metaterm.forall $2 $4 }
+  | EXISTS binding_list COMMA metaterm   { Metaterm.exists $2 $4 }
+  | NABLA binding_list COMMA metaterm    { Metaterm.nabla $2 $4 }
+  | metaterm RARROW metaterm             { Metaterm.arrow $1 $3 }
+  | metaterm OR metaterm                 { Metaterm.meta_or $1 $3 }
+  | metaterm AND metaterm                { Metaterm.meta_and $1 $3 }
+  | LPAREN metaterm RPAREN               { $2 }
   | LBRACK contexted_term RBRACK restriction
-                                        { Lppterm.Obj($2, $4) }
-  | term restriction                    { Lppterm.Pred($1, $2) }
+                                        { Metaterm.Obj($2, $4) }
+  | term restriction                    { Metaterm.Pred($1, $2) }
 
 binding_list:
   | binding binding_list                { $1::$2 }
@@ -128,9 +128,9 @@ binding:
   | ID                                  { $1 }
 
 restriction:
-  |                                     { Lppterm.Irrelevant }
-  | stars                               { Lppterm.Smaller $1 }
-  | ats                                 { Lppterm.Equal $1 }
+  |                                     { Metaterm.Irrelevant }
+  | stars                               { Metaterm.Smaller $1 }
+  | ats                                 { Metaterm.Equal $1 }
       
 stars:
   | STAR stars                          { 1 + $2 }
@@ -141,8 +141,8 @@ ats:
   | AT                                  { 1 }
       
 top_command :
-  | THEOREM ID COLON lppterm DOT        { Types.Theorem($2, $4) }
-  | THEOREM lppterm DOT                 { Types.Theorem("Goal", $2) }
-  | AXIOM ID COLON lppterm DOT          { Types.Axiom($2, $4) }
+  | THEOREM ID COLON metaterm DOT       { Types.Theorem($2, $4) }
+  | THEOREM metaterm DOT                { Types.Theorem("Goal", $2) }
+  | AXIOM ID COLON metaterm DOT         { Types.Axiom($2, $4) }
   | DEF meta_clause                     { Types.Def($2) }
   | EOF                                 { raise End_of_file }

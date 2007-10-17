@@ -1,7 +1,7 @@
 open OUnit
 open Test_helper
 open Term
-open Lppterm
+open Metaterm
 open Tactics
   
 let object_cut_tests =
@@ -192,7 +192,7 @@ let assert_expected_cases n cases =
 let case ?used ?(clauses=[]) ?(meta_clauses=[]) term =
   let used =
     match used with
-      | None -> lppterm_vars_alist Eigen [term]
+      | None -> metaterm_vars_alist Eigen [term]
       | Some used -> used
   in
     case ~used ~clauses ~meta_clauses term
@@ -617,7 +617,7 @@ let assert_expected_goals n goals =
 let unfold ?used ~meta_clauses goal =
   let used =
     match used with
-      | None -> lppterm_vars_alist Eigen [goal]
+      | None -> metaterm_vars_alist Eigen [goal]
       | Some used -> used
   in
     unfold ~used ~meta_clauses goal

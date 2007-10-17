@@ -1,5 +1,5 @@
 open Term
-open Lppterm
+open Metaterm
 open Unify
 open Extensions
 
@@ -16,8 +16,8 @@ let capital_var_names terms =
   |> List.find_all is_capital
   |> List.unique
 
-let lpp_capital_var_names lppterms =
-  lppterms
+let meta_capital_var_names metaterms =
+  metaterms
   |> List.map collect_terms
   |> List.flatten
   |> capital_var_names
@@ -30,25 +30,25 @@ let freshen_clause ~tag ~used ?(support=[]) head body =
     (fresh_head, fresh_body)
 
 let freshen_meta_clause ~tag ~used ?(support=[]) head body =
-  let var_names = lpp_capital_var_names (pred head :: body) in
+  let var_names = meta_capital_var_names (pred head :: body) in
   let fresh_names = fresh_alist ~tag ~used var_names in
   let used =
     List.map (fun (_, t) -> ((term_to_var t).name, t)) fresh_names @ used in
   let raised_names = raise_alist ~support fresh_names in
   let fresh_head = replace_term_vars raised_names head in
-  let fresh_body = List.map (replace_lppterm_vars raised_names) body in
+  let fresh_body = List.map (replace_metaterm_vars raised_names) body in
     (used, fresh_head, fresh_body)
 
 let freshen_bindings ?(support=[]) ~tag ~used bindings term =
-  term |> replace_lppterm_vars (fresh_alist ~support ~tag ~used bindings)
+  term |> replace_metaterm_vars (fresh_alist ~support ~tag ~used bindings)
 
 let term_vars_alist tag terms =
   terms
   |> find_var_refs tag
   |> List.map (fun v -> ((term_to_var v).name, v))
     
-let lppterm_vars_alist tag lppterms =
-  lppterms
+let metaterm_vars_alist tag metaterms =
+  metaterms
   |> List.map collect_terms
   |> List.flatten
   |> term_vars_alist tag
@@ -66,14 +66,14 @@ let freshen_nameless_clause ?(support=[]) head body =
     (fresh_head, fresh_body)
 
 let freshen_nameless_meta_clause ?(support=[]) ~tag head body =
-  let var_names = lpp_capital_var_names (pred head :: body) in
+  let var_names = meta_capital_var_names (pred head :: body) in
   let fresh_names = fresh_nameless_alist ~tag ~support var_names in
   let fresh_head = replace_term_vars fresh_names head in
-  let fresh_body = List.map (replace_lppterm_vars fresh_names) body in
+  let fresh_body = List.map (replace_metaterm_vars fresh_names) body in
     (fresh_head, fresh_body)
 
 let freshen_nameless_bindings ?(support=[]) ~tag bindings term =
-  term |> replace_lppterm_vars (fresh_nameless_alist ~support ~tag bindings)
+  term |> replace_metaterm_vars (fresh_nameless_alist ~support ~tag bindings)
 
 (* Object level cut *)
 
@@ -100,7 +100,7 @@ let object_inst t1 n t2 =
 type case = {
   bind_state : bind_state ;
   new_vars : (id * term) list ;
-  new_hyps : lppterm list ;
+  new_hyps : metaterm list ;
 }
 
 let lift_all ~used nominals =
@@ -128,7 +128,7 @@ let meta_term_case ~support ~used ~meta_clauses ~wrapper term =
                  let alist = [(id, n)] in
                    (lift_all ~used [n],
                     replace_term_vars alist p,
-                    List.map (replace_lppterm_vars alist) body)
+                    List.map (replace_metaterm_vars alist) body)
              | _ -> failwith "Bad head in meta-clause"
          in
          let used, head, body =
@@ -194,13 +194,13 @@ let case ~used ~clauses ~meta_clauses term =
            new_vars = [] ; new_hyps = [left; right] }]
     | Binding(Exists, ids, body) ->
         let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
-        let fresh_body = replace_lppterm_vars fresh_ids body in
+        let fresh_body = replace_metaterm_vars fresh_ids body in
           [{ bind_state = get_bind_state () ;
              new_vars = fresh_ids ;
              new_hyps = [fresh_body] }]
     | Binding(Nabla, [id], body) ->
         let nominal = fresh_nominal body in
-        let fresh_body = replace_lppterm_vars [(id, nominal)] body in
+        let fresh_body = replace_metaterm_vars [(id, nominal)] body in
           [{ bind_state = get_bind_state () ;
              new_vars = [] ;
              new_hyps = [fresh_body] }]
@@ -220,7 +220,7 @@ let case ~used ~clauses ~meta_clauses term =
         in
           meta_term_case ~used ~support:(term_support p)
             ~meta_clauses ~wrapper p
-    | _ -> invalid_lppterm_arg term
+    | _ -> invalid_metaterm_arg term
 
 
 (* Induction *)
@@ -310,27 +310,27 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
     else
       let context_search () =
         not (Context.is_empty goal.context) &&
-          lppterm_aux (n-1) (obj_to_member goal)
+          metaterm_aux (n-1) (obj_to_member goal)
       in
       let backchain () =
         term_aux n goal.context goal.term
       in
         context_search () || backchain ()
         
-  and lppterm_aux n goal =
+  and metaterm_aux n goal =
     match goal with
-      | Or(left, right) -> lppterm_aux n left || lppterm_aux n right
-      | And(left, right) -> lppterm_aux n left && lppterm_aux n right
+      | Or(left, right) -> metaterm_aux n left || metaterm_aux n right
+      | And(left, right) -> metaterm_aux n left && metaterm_aux n right
       | Binding(Exists, bindings, body) ->
           let term = freshen_nameless_bindings ~tag:Logic bindings body in
-            lppterm_aux n term
+            metaterm_aux n term
       | Binding(Forall, bindings, body) ->
           let term = freshen_nameless_bindings ~tag:Eigen bindings body in
-            lppterm_aux n term
+            metaterm_aux n term
       | Binding(Nabla, [id], body) ->
         let nominal = fresh_nominal body in
-        let body = replace_lppterm_vars [(id, nominal)] body in
-          lppterm_aux n body
+        let body = replace_metaterm_vars [(id, nominal)] body in
+          metaterm_aux n body
       | Arrow(Pred(left, _), right) when is_false right ->
           negative_meta_aux n left
       | Obj(obj, _) -> obj_aux n obj
@@ -353,14 +353,14 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                           let n = nominal_var "n1" in
                           let alist = [(id, n)] in
                             (replace_term_vars alist p,
-                             List.map (replace_lppterm_vars alist) body)
+                             List.map (replace_metaterm_vars alist) body)
                       | _ -> failwith "Bad head in meta-clause"
                   in
                   let head, body =
                     freshen_nameless_meta_clause ~tag:Logic ~support head body
                   in
                     right_unify head goal ;
-                    List.for_all (lppterm_aux (n-1)) body))
+                    List.for_all (metaterm_aux (n-1)) body))
               
   (* true if we can confirm no proof exists *)
   and negative_meta_aux n goal =
@@ -392,7 +392,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                               let n = nominal_var "n1" in
                               let alist = [(id, n)] in
                                 (replace_term_vars alist p,
-                                 List.map (replace_lppterm_vars alist) body)
+                                 List.map (replace_metaterm_vars alist) body)
                           | _ -> failwith "Bad head in meta-clause"
                       in
                       let head, body =
@@ -417,7 +417,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
       result
         
   in
-    lppterm_aux n goal
+    metaterm_aux n goal
 
       
 (* Apply one statement to a list of other statements *)
@@ -445,7 +445,7 @@ let some_term_to_restriction t =
 let apply term args =
   let support =
     args
-    |> List.map (Option.map_default lppterm_support [])
+    |> List.map (Option.map_default metaterm_support [])
     |> List.flatten
     |> List.unique
   in

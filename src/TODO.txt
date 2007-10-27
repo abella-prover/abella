@@ -36,17 +36,13 @@ Add tests for raising in apply?
 Future
 ======
 
-Change lppterm and such to meta
-  Maybe make the constructors Mname if name is take
-  Or use mAnd for constructor functions?
-
 Poplmark problems.
 
 Can we use a more declarative approach to help with nabla variables?
   So the user picks the names?
   Could this also work with imp-L?
 
-Clean up similarities between replace_lppterm_vars and normalize_binders
+Clean up similarities between replace_metaterm_vars and normalize_binders
 
 Make a seperate type for (id * term) list?
 
@@ -85,7 +81,7 @@ Display new hypotheses in future subgoals? (subgoal 2 is : {...} -> ...)
   
 Do we have to consider logic variables in the context during search?
 
-Add unification over lppterms?
+Add unification over metaterms?
   If so then simplify search, case, and apply
 
 Fix timestamp bug in unify that David has a test for

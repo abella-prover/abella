@@ -300,7 +300,7 @@ let tests =
              assert_raises_failure
                (fun () -> right_unify x y)) ;
 
-      (* Tests added while developing LPP *)
+      (* Tests added while developing Abella *)
       "Saving and restoring states" >::
         (fun () ->
            let a = var Logic "A" 0 in

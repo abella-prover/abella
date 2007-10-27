@@ -1,6 +1,6 @@
 open OUnit
 
-let tests = "LPP" >:::
+let tests = "Abella" >:::
   [
     Term_test.tests ;
     Unify_test.tests ;

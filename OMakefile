@@ -25,7 +25,7 @@ dist: test theorems
     BuildDist()
     make -C dist
     BuildDist()
-    rm -f lpp.tar.gz
-    mv dist lpp
-    tar c lpp | gzip - > lpp.tar.gz
-    rm -rf lpp
+    rm -f abella.tar.gz
+    mv dist abella
+    tar c abella | gzip - > abella.tar.gz
+    rm -rf abella

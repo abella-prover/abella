@@ -1,15 +1,16 @@
-README for LPP 0.1
-==================
-This is an initial release of the Lambda Prolog Prover. Please report
-all bugs, feature request, and comments to Andrew Gacek.
+README for Abella 0.2
+=====================
+This is a development release of the Abella prover. Please report all
+bugs, feature request, and comments to Andrew Gacek.
 
 
 Quick Start
 ===========
 1) Compile the program by running "make" from the root directory.
 
-2) Start lpp, passing in the name of the lambda prolog file to reason about.
-   E.g.  ./lpp examples/eval.mod
+2) Start abella, passing in the name of the lambda prolog file to
+   reason about.
+   E.g.  ./abella examples/eval.mod
 
 3) Consult with the corresponding thm files (e.g. examples/eval.thm)
    for examples of theorems and their proofs. Type in the examples by
@@ -26,7 +27,7 @@ partially supported.
    
 Table of Contents
 =================
- * LPP Syntax
+ * Abella Syntax
  * Top-level Commands
  * Tactics List
  * Lemmas
@@ -34,9 +35,9 @@ Table of Contents
  * Overview of Examples
  
 
-LPP Syntax
-==========
-The syntax of terms in lpp supports the following constructs,
+Abella Syntax
+=============
+The syntax of terms in Abella supports the following constructs,
 
   forall A B C, ...
   exists A B C, ...
@@ -55,7 +56,7 @@ Nominal variables are denoted by n1, n2, ...
   
 Top-level Commands
 ==================
-There are only three top-level commands in LPP.
+There are only three top-level commands in Abella.
 
   Theorem <THM-NAME> : <TERM>.
   ============================

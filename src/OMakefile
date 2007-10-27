@@ -33,7 +33,7 @@ FILES[] =
 
 MAIN = main
 
-OCamlProgram(lpp, $(FILES) $(MAIN))
+OCamlProgram(abella, $(FILES) $(MAIN))
 
 
 ################################################
@@ -60,14 +60,14 @@ THM_FILES[] = $(rootname $(find . -name *.thm))
 
 foreach(thm, $(THM_FILES))
     .PHONY: $(thm)
-    $(thm): $(thm).mod $(thm).thm lpp$(EXE)
-        ./lpp $(thm).mod -f $(thm).thm
+    $(thm): $(thm).mod $(thm).thm abella$(EXE)
+        ./abella $(thm).mod -f $(thm).thm
 
 .PHONY: theorems
-theorems: lpp$(EXE) $(addsuffix .thm, $(THM_FILES)) \
+theorems: abella$(EXE) $(addsuffix .thm, $(THM_FILES)) \
                     $(addsuffix .mod, $(THM_FILES))
     foreach(thm, $(THM_FILES))
-        ./lpp $(thm).mod -q -f $(thm).thm
+        ./abella $(thm).mod -q -f $(thm).thm
 
 
 ################################################

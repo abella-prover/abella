@@ -180,7 +180,7 @@ struct
   let (^^) = app
 end
 
-(** LPP specific changes *)
+(** Abella specific changes *)
 
 let const ?(ts=0) s = Ptr (ref (V { name=s ; ts=ts ; tag=Constant }))
   

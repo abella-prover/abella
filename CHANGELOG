@@ -1,5 +1,7 @@
 0.2 Release
 
+	Renamed project to Abella
+
 	Changed case tactic to remove hypothesis from hypothesis list.
 
 	Added examples/pcf.thm proving subject reduction for PCF.

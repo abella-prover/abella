@@ -52,7 +52,7 @@ let rec process_proof name ~interactive lexbuf =
 
 let rec process ~interactive lexbuf =
   try while true do try
-    printf "LPP < %!" ;
+    printf "Abella < %!" ;
     let input = Parser.top_command Lexer.token lexbuf in
       if not interactive then printf "%s.\n\n" (top_command_to_string input) ;
       begin match input with
@@ -81,9 +81,9 @@ let rec process ~interactive lexbuf =
   done with
   | Failure "eof" -> ()
 
-let welcome_msg = "Lambda Prolog Prover 0.1\n"
+let welcome_msg = "Abella 0.2\n"
 
-let usage_message = "lpp [options] <module-file>"
+let usage_message = "abella [options] <module-file>"
 
 let command_input = ref ""
 

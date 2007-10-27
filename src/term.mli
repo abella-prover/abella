@@ -96,7 +96,7 @@ val abstract_var : term -> term -> term
 (** Abstract [t] over constant or variable named [id]. *)
 val abstract : string -> term -> term
 
-(** LPP specific additions and changes *)
+(** Abella specific additions and changes *)
 val const : ?ts:int -> string -> term
 val fresh : ?tag:tag -> int -> term
 val fresh_wrt : tag -> id -> (id * term) list -> term * (id * term) list

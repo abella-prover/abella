@@ -1,6 +1,6 @@
-all: lpp
+all: abella
 
-lpp: src/*.ml src/*.mly src/*.mll
+abella: src/*.ml src/*.mly src/*.mll
 	ocamllex src/lexer.mll
 	ocamlyacc src/parser.mly
 	ocamlopt -c -I src src/extensions.ml
@@ -9,7 +9,7 @@ lpp: src/*.ml src/*.mly src/*.mll
 	ocamlopt -c -I src src/unify.mli
 	ocamlopt -c -I src src/unify.ml
 	ocamlopt -c -I src src/context.ml
-	ocamlopt -c -I src src/lppterm.ml
+	ocamlopt -c -I src src/metaterm.ml
 	ocamlopt -c -I src src/types.ml
 	ocamlopt -c -I src src/parser.mli
 	ocamlopt -c -I src src/parser.ml
@@ -17,10 +17,11 @@ lpp: src/*.ml src/*.mly src/*.mll
 	ocamlopt -c -I src src/tactics.ml
 	ocamlopt -c -I src src/prover.ml
 	ocamlopt -c -I src src/main.ml
-	ocamlopt -o lpp src/extensions.cmx src/term.cmx src/unify.cmx \
-                    src/context.cmx src/lppterm.cmx src/types.cmx \
-                    src/parser.cmx src/lexer.cmx src/tactics.cmx \
-                    src/prover.cmx src/main.cmx
+	ocamlopt -o abella str.cmxa \
+                       src/extensions.cmx src/term.cmx src/unify.cmx \
+                       src/context.cmx src/metaterm.cmx src/types.cmx \
+                       src/parser.cmx src/lexer.cmx src/tactics.cmx \
+                       src/prover.cmx src/main.cmx
 
 clean:
 	rm -f src/*.cmi src/*.cmo src/*.cmx src/*.o \

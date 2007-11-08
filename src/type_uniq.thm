@@ -1,15 +1,41 @@
 %% Type uniqueness for simply typed lambda calculus
 %% [Work in progress]
-%%
-%% We should not need the non-membership clause of ctx because we are
-%% using nabla in the head. We keep it beause the implementation for
-%% nabla in the head is still in progress and there are issues related
-%% to the naming of nabla variables that have to be worked out.
+
+%% There are some results about nominal variables, freshness, and lists
+%% that we can prove in general.
+
+%% Start generic section
+
+Def nabla x, nominal x.
+
+Def nabla x, fresh x E.
+
+Theorem fresh_tail : forall X A L,
+  fresh X (A :: L) -> fresh X L.
+intros. case H1. search.
+
+Theorem member_fresh : forall X L E,
+  member E L -> fresh X L -> fresh X E.
+induction on 1. intros. case H1.
+  case H2. search.
+  apply fresh_tail to H2. apply IH to H3 H4. search.
+
+%% End generic section
 
 Def ctx nil.
-Def nabla x, ctx (typeof x T :: L) :-
-      (forall S, member (typeof x S) L -> false),
-      ctx L.
+Def ctx (typeof X T :: L) :- fresh X L, ctx L.
+% We could define this second clause as simply
+%   Def nabla x, ctx (typeof x T :: L) :- ctx L.
+% but it turns out that the version with fresh is much easier to reason with
+% since it does not require introducting nominal variables in most cases.
+
+Theorem typeof_nominal : forall L E T,
+  ctx L -> member (typeof E T) L -> nominal E.
+induction on 2. intros. case H1.
+  case H2.
+  case H2.
+    case H3. search.
+    apply IH to H4 H5. search.
 
 Theorem uniq : forall L E T1 T2,
   ctx L -> member (typeof E T1) L -> member (typeof E T2) L -> T1 = T2.
@@ -18,36 +44,32 @@ induction on 1. intros. case H1.
   case H2.
     case H3.
       search.
-      apply H4 to H6. case H7.
+      apply member_fresh to H6 H4. case H7.
     case H3.
-      apply H4 to H6. case H7.
+      apply member_fresh to H6 H4. case H7.
       apply IH to H5 H6 H7. search.
 
+% We can prove no_abs and no_app, but it's just as easy to inline
+% the proofs when needed.
 Theorem no_abs : forall L R S T,
   ctx L -> member (typeof (abs S R) T) L -> false.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    apply IH to H4 H5. search.
+intros. apply typeof_nominal to H1 H2. case H3.
     
 Theorem no_app : forall L M N T,
   ctx L -> member (typeof (app M N) T) L -> false.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    apply IH to H4 H5. search.
+intros. apply typeof_nominal to H1 H2. case H3.
     
 Theorem det_typeof : forall L E T1 T2,
   ctx L -> {L |- typeof E T1} -> {L |- typeof E T2} -> T1 = T2.
 induction on 2. intros. case H2.
   case H3.
     apply uniq to H1 H4 H5. search.
-    apply no_abs to H1 H4. case H6.
-    apply no_app to H1 H4. case H7.
+    apply typeof_nominal to H1 H4. case H6.
+    apply typeof_nominal to H1 H4. case H7.
   case H3.
-    apply no_abs to H1 H5. case H6.
+    apply typeof_nominal to H1 H5. case H6.
     apply IH to _ H4 H5. case H6. search.
   case H3.
-    apply no_app to H1 H6. case H7.
+    apply typeof_nominal to H1 H6. case H7.
     apply IH to H1 H4 H6.
       case H8. search.

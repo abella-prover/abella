@@ -22,12 +22,15 @@ induction on 1. intros. case H1.
 
 %% End generic section
 
+
 Def ctx nil.
 Def ctx (typeof X T :: L) :- fresh X L, ctx L.
+
 % We could define this second clause as simply
 %   Def nabla x, ctx (typeof x T :: L) :- ctx L.
 % but it turns out that the version with fresh is much easier to reason with
 % since it does not require introducting nominal variables in most cases.
+% Moreover, we can use lemmas based on fresh rather than on nominal variables.
 
 Theorem typeof_nominal : forall L E T,
   ctx L -> member (typeof E T) L -> nominal E.

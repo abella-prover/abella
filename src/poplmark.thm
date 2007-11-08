@@ -46,17 +46,27 @@ induction on 1. intros. case H1.
     case H3. search.
     apply IH to H4 H5. search.
 
-Theorem sub_trans : forall L S Q T,
-  ctx L -> ty L S -> ty L Q -> ty L T ->
-    {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T}.
-induction on 3. intros. case H3.
-  case H6.
-    apply no_ctx_sub to H1 H7. case H8.
+%% This proof would be much nicer if we could unify over metaterms,
+%% instead we use a _ and prove the obligation later.
+Theorem permute_weaken : forall M N S T,
+  ctx M -> ctx N -> (forall B, member B M -> member B N) -> {M |- sub S T} ->
+    {N |- sub S T}.
+induction on 4. intros. case H4.
+  apply no_ctx_sub to H1 H5. case H6.
+  search.
+  case H5. apply H3 to H6. search.
+  case H5. apply H3 to H7. apply IH to H1 H2 _ H6.
+    intros. apply H3 to H9. search.
     search.
-    case H7. apply ctx_nominal to H1 H8. case H9.
-    case H7. apply ctx_nominal to H1 H9. case H10.
-
-
+  apply IH to H1 H2 _ H5. intros. apply H3 to H7. search.
+    apply IH to H1 H2 _ H6. intros. apply H3 to H8. search.
+      search.
+  apply IH to H1 H2 _ H5. intros. apply H3 to H7. search.
+    assert nabla x, ctx (bound x T1 :: N). search. case H8.
+    apply IH to _ H9 _ H6.
+      skip. % Introducing B here should raise B over nominals
+      search.
+        
     
     
 

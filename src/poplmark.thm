@@ -1,0 +1,63 @@
+%% Start generic section
+
+Def nabla x, nominal x.
+Def nabla x, fresh x E.
+
+Theorem fresh_tail : forall X A L,
+  fresh X (A :: L) -> fresh X L.
+intros. case H1. search.
+
+Theorem member_fresh : forall X L E,
+  member E L -> fresh X L -> fresh X E.
+induction on 1. intros. case H1.
+  case H2. search.
+  apply fresh_tail to H2. apply IH to H3 H4. search.
+
+%% End generic section
+
+Def ctx nil.
+Def ctx (bound X U :: L) :- fresh X L, ctx L.
+
+Def ty L top.
+Def ty L X :- member (bound X U) L.
+Def ty L (arrow T1 T2) :- ty L T1, ty L T2.
+Def ty L (all T1 T2) :- ty L T1, (nabla x, ty (bound x T1 :: L) (T2 x)).
+
+Theorem sub_refl : forall L T,
+  ty L T -> {L |- sub T T}.
+induction on 1. intros. case H1.
+  search.
+  search.
+  apply IH to H2. apply IH to H3. search.
+  apply IH to H2. case H3. apply IH to H5. search.
+
+Theorem no_ctx_sub : forall S T L,
+  ctx L -> member (sub S T) L -> false.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    apply IH to H4 H5. search.
+
+Theorem ctx_nominal : forall L X U,
+  ctx L -> member (bound X U) L -> nominal X.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    case H3. search.
+    apply IH to H4 H5. search.
+
+Theorem sub_trans : forall L S Q T,
+  ctx L -> ty L S -> ty L Q -> ty L T ->
+    {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T}.
+induction on 3. intros. case H3.
+  case H6.
+    apply no_ctx_sub to H1 H7. case H8.
+    search.
+    case H7. apply ctx_nominal to H1 H8. case H9.
+    case H7. apply ctx_nominal to H1 H9. case H10.
+
+
+    
+    
+
+

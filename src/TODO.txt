@@ -1,25 +1,18 @@
-Can we use meta_right_unify in tactics like search and case?
-Fresh out meta_right_unify
-
 Clean up nominals so that we can generate lists of them at a time.
   Add tests for this in search, case, apply, etc
 
 How to talk about theorems which preserve measures?
   See the seq examples for a use
 
-Think about how to use apply with nablas so that type_uniq works.
-
 Change the representation of contexts to something more managable?
-  This would make a right_meta_unify and left_meta_unify much easier,
-  which we could then use in case, search, and apply.
-
   Would need to add operators to fiddle with the context so that the
   cut example could still work. But perhaps there is a benefit to
   making such operations explict since they rely on properties of
   lambda prolog. Actually they are all the same property,
     {L1 |- P} -> (forall X, member X L1 -> member X L2) -> {L2 |- P}
   So maybe a simple change_context (yuck that's long) tactic would
-  work.
+  work. The key thing is that we can still expand contexts easily
+  during typical inductions.
 
 Case with nabla in the head
   Allow more raisings
@@ -27,8 +20,7 @@ Case with nabla in the head
   Figure out how to name new nabla variables
 
 Search with nabla in the head
-  Allow more raising
-  Actually perform the raising
+  Allow more raising (maybe not needed if we use rigid definitions)
   Allow for permutations of nabla variables
   Figure out how to name new nabla variables
 
@@ -83,9 +75,6 @@ Add more bedwyr style searching?
 Display new hypotheses in future subgoals? (subgoal 2 is : {...} -> ...)
   
 Do we have to consider logic variables in the context during search?
-
-Add unification over metaterms?
-  If so then simplify search, case, and apply
 
 Fix timestamp bug in unify that David has a test for
 

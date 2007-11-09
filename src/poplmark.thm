@@ -46,28 +46,23 @@ induction on 1. intros. case H1.
     case H3. search.
     apply IH to H4 H5. search.
 
-%% This proof would be much nicer if we could unify over metaterms,
-%% instead we use a _ and prove the obligation later.
-Theorem permute_weaken : forall M N S T,
-  ctx M -> ctx N -> (forall B, member B M -> member B N) -> {M |- sub S T} ->
-    {N |- sub S T}.
-induction on 4. intros. case H4.
-  apply no_ctx_sub to H1 H5. case H6.
+Theorem permute_weaken : forall L1 L2 S T,
+  {L1 |- sub S T} -> (forall E, member E L1 -> member E L2) -> {L2 |- sub S T}.
+induction on 1. intros. case H1.
+  apply H2 to H3. search.
   search.
-  case H5. apply H3 to H6. search.
-  case H5. apply H3 to H7. apply IH to H1 H2 _ H6.
-    intros. apply H3 to H9. search.
-    search.
-  apply IH to H1 H2 _ H5. intros. apply H3 to H7. search.
-    apply IH to H1 H2 _ H6. intros. apply H3 to H8. search.
+  case H3. apply H2 to H4. search.
+  case H3. apply H2 to H5. search.
+    apply IH to H4 H2. search.
+  apply IH to H3 H2. apply IH to H4 H2. search.
+  % There's a bug here since a metavariable shows up.
+  % We either need to handle metavariables better or allow for apply
+  % with specific values for universal variables (including nablas)
+  apply IH to H3 H2. apply IH to H4 _.
+    intros. case H6.
       search.
-  apply IH to H1 H2 _ H5. intros. apply H3 to H7. search.
-    assert nabla x, ctx (bound x T1 :: N). search. case H8.
-    apply IH to _ H9 _ H6.
-  intros. case H10.
+      search.
     search.
-    apply H3 to H11. search.
-  search.
         
     
     

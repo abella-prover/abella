@@ -327,26 +327,29 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
         context_search () || backchain ()
         
   and metaterm_aux n goal =
-    match goal with
-      | Or(left, right) -> metaterm_aux n left || metaterm_aux n right
-      | And(left, right) -> metaterm_aux n left && metaterm_aux n right
-      | Binding(Exists, bindings, body) ->
-          let term = freshen_nameless_bindings ~tag:Logic bindings body in
-            metaterm_aux n term
-      | Binding(Forall, bindings, body) ->
-          let term = freshen_nameless_bindings ~tag:Eigen bindings body in
-            metaterm_aux n term
-      | Binding(Nabla, [id], body) ->
-        let nominal = fresh_nominal body in
-        let body = replace_metaterm_vars [(id, nominal)] body in
-          metaterm_aux n body
-      | Arrow(Pred(left, _), right) when is_false right ->
-          negative_meta_aux n left
-      | Obj(obj, _) -> obj_aux n obj
-      | Pred(p, _) ->
-          List.exists (try_right_unify p) (filter_preds hyps) ||
-            meta_aux n p
-      | _ -> false
+    if hyps |> List.exists (try_meta_right_unify goal) then
+      true
+    else
+      match goal with
+        | Or(left, right) -> metaterm_aux n left || metaterm_aux n right
+        | And(left, right) -> metaterm_aux n left && metaterm_aux n right
+        | Binding(Exists, bindings, body) ->
+            let term = freshen_nameless_bindings ~tag:Logic bindings body in
+              metaterm_aux n term
+        | Binding(Forall, bindings, body) ->
+            let term = freshen_nameless_bindings ~tag:Eigen bindings body in
+              metaterm_aux n term
+        | Binding(Nabla, [id], body) ->
+            let nominal = fresh_nominal body in
+            let body = replace_metaterm_vars [(id, nominal)] body in
+              metaterm_aux n body
+        | Arrow(Pred(left, _), right) when is_false right ->
+            negative_meta_aux n left
+        | Obj(obj, _) -> obj_aux n obj
+        | Pred(p, _) ->
+            List.exists (try_right_unify p) (filter_preds hyps) ||
+              meta_aux n p
+        | _ -> false
 
   and meta_aux n goal =
     if n = 0 then false else

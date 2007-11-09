@@ -37,16 +37,13 @@ induction on 2. intros. case H2.
         search.
       search.
     search.
-  apply IH to _ H3.
-  case H4.
-  search.
-  search.
+  apply IH to _ H3. case H4.
+    search.
+    search.
 
   
 Theorem specialized : forall T,
   {term T} -> {normal T} \/ {non_normal T}.
 intros.
 apply generalized to _ H1.
-case H2.
-  search.
-  search.
+search.

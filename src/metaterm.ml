@@ -359,8 +359,12 @@ open Unify
     
 let rec meta_right_unify t1 t2 =
   match t1, t2 with
+    | Obj(o1, _), Obj(o2, _) when o1.context = o2.context ->
+        right_unify o1.term o2.term
     | Pred(t1, _), Pred(t2, _) ->
         right_unify t1 t2
+    | And(l1, r1), And(l2, r2)
+    | Or(l1, r1), Or(l2, r2)
     | Arrow(l1, r1), Arrow(l2, r2) ->
         meta_right_unify l1 l2 ;
         meta_right_unify r1 r2
@@ -368,3 +372,8 @@ let rec meta_right_unify t1 t2 =
         when b1 = b2 && ids1 = ids2 -> meta_right_unify t1 t2
     | _, _ -> raise (Failure TypesMismatch)
   
+let try_meta_right_unify t1 t2 =
+  try_with_state
+    (fun () ->
+       meta_right_unify t1 t2 ;
+       true)    

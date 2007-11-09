@@ -523,6 +523,12 @@ let search_tests =
            let clauses = parse_clauses "eq X X." in
              assert_search_success (search ~clauses goal)) ;
 
+      "Should use meta unification" >::
+        (fun () ->
+           let hyp1 = freshen "{A} /\\ {B}" in
+           let goal = freshen "{A} /\\ {B}" in
+             assert_search_success (search ~hyps:[hyp1] goal)) ;
+      
       "Should fail if there is no proof" >::
         (fun () ->
            let goal = freshen "{eval A B}" in

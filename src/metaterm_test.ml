@@ -209,4 +209,11 @@ let tests =
              meta_right_unify t1 t2 ;
              assert_pprint_equal "forall A B, foo C" t2) ;
 
+      "Meta right unify - obj" >::
+        (fun () ->
+           let t1 = freshen "{L |- foo A}" in
+           let t2 = freshen "{L |- foo ?1}" in
+             meta_right_unify t1 t2 ;
+             assert_pprint_equal "{L |- foo A}" t2) ;
+
     ]

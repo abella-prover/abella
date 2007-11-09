@@ -77,29 +77,20 @@ induction on 2. intros. case H2.
 Def list nil.
 Def list (X :: A) :- list A.
 
-% This proof is a bit convoluted since it has a complicated term
-% inside on the left of an arrow. Since we don't have unification on
-% meta-terms, we avoid the issue by using _ often.
 Theorem seq_subset : forall L1 L2 G,
-  seq L1 G -> list L2 -> (forall X, member X L1 -> member X L2) -> seq L2 G.
+  seq L1 G -> (forall X, member X L1 -> member X L2) -> seq L2 G.
 induction on 1. intros. case H1.
   search.
-  apply H3 to H4. search.
-  apply IH to H4 H2 _. intros. apply H3 to H6. search.
-    apply IH to H5 H2 _. intros. apply H3 to H7. search.
+  apply H2 to H3. search.
+  apply IH to H3 H2. apply IH to H4 H2. search.
+  assert forall X, member X (A :: L1) -> member X (A :: L2).
+    intros. case H4.
       search.
-  assert list (A :: L2). search.
-    apply IH to H4 H5 _. intros. case H6.
-      search.
-      apply H3 to H7. search.
-    search.
-  case H4.
-    apply IH to H5 H2 _. intros. apply H3 to H6. search.
-      search.
-  apply IH to H4 H2 _. intros. apply H3 to H5. search.
-    search.
-  apply IH to H5 H2 _. intros. apply H3 to H6. search.
-    search.
+      apply H2 to H5. search.
+    apply IH to H3 H4. search.
+  case H3. apply IH to H4 H2. search.
+  apply IH to H3 H2. search.
+  apply IH to H4 H2. search.
 
 Theorem seq_cut : forall K L G,
   list L -> seq (K :: L) G -> seq L (atom K) -> seq L G.
@@ -109,14 +100,13 @@ induction on 2. intros. case H2.
     search.  % Key case: G=K
     search.
   apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
-  assert list (K :: A :: L). search.
-    apply seq_subset to H4 H5 _.
-      intros.
-        case H6.
-          search.
-          case H7.
-            search.
-            search.
+  assert forall X, member X (A :: K :: L) -> member X (K :: A :: L).
+    intros. case H5.
+      search.
+      case H6.
+        search.
+        search.
+    apply seq_subset to H4 H5.
     % We want to apply IH but we can't because we got
     %   seq (A :: K :: L) B *  and
     %   seq (K :: A :: L) B    so we were not able to keep the star

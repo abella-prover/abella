@@ -1,4 +1,5 @@
 Can we use meta_right_unify in tactics like search and case?
+Fresh out meta_right_unify
 
 Clean up nominals so that we can generate lists of them at a time.
   Add tests for this in search, case, apply, etc

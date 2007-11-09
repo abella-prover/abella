@@ -55,14 +55,15 @@ induction on 1. intros. case H1.
   case H3. apply H2 to H5. search.
     apply IH to H4 H2. search.
   apply IH to H3 H2. apply IH to H4 H2. search.
-  % There's a bug here since a metavariable shows up.
-  % We either need to handle metavariables better or allow for apply
-  % with specific values for universal variables (including nablas)
-  apply IH to H3 H2. apply IH to H4 _.
-    intros. case H6.
+  %% Would be nice to use nominal constants directly...
+  assert nabla x,
+    forall E, member E (bound x T1 :: L1) -> member E (bound x T1 :: L2).
+    intros. case H5.
       search.
-      search.
-    search.
+      apply H2 to H6. search.
+    case H5. apply IH to H4 H6.
+      apply IH to H3 H2.
+        search.
         
     
     

@@ -186,6 +186,27 @@ let tests =
       "Abstract should replace eigen variables with lambda abstractions" >::
         (fun () ->
            let t = app (const "foo") [var_a; var_b] in
-             assert_term_pprint_equal "x1\\x2\\foo x1 x2" (abstract_eigen t))
+             assert_term_pprint_equal "x1\\x2\\foo x1 x2" (abstract_eigen t)) ;
+
+      "Meta right unify - pred" >::
+        (fun () ->
+           let t1 = freshen "foo A" in
+           let t2 = freshen "foo ?1" in
+             meta_right_unify t1 t2 ;
+             assert_pprint_equal "foo A" t2) ;
+
+      "Meta right unify - arrow" >::
+        (fun () ->
+           let t1 = freshen "foo A -> foo B" in
+           let t2 = freshen "foo ?1 -> foo ?2" in
+             meta_right_unify t1 t2 ;
+             assert_pprint_equal "foo A -> foo B" t2) ;
+
+      "Meta right unify - forall" >::
+        (fun () ->
+           let t1 = freshen "forall A B, foo C" in
+           let t2 = freshen "forall A B, foo ?1" in
+             meta_right_unify t1 t2 ;
+             assert_pprint_equal "forall A B, foo C" t2) ;
 
     ]

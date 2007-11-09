@@ -10,7 +10,7 @@
 }
 
 let number = ['0'-'9'] +
-let name = ['A' - 'Z' 'a'-'z' '_' '/' '0'-'9' '\''] +
+let name = ['A' - 'Z' 'a'-'z' '_' '/' '0'-'9' '\'' '?'] +
 let blank = ' ' | '\t' | '\r'
 
 rule token = parse

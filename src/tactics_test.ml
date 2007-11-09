@@ -168,6 +168,13 @@ let apply_tests =
            let t, _ = apply h0 [Some h1] in
              assert_pprint_equal "result B" t) ;
 
+      "On arrow" >::
+        (fun () ->
+           let h0 = freshen "forall A, (forall B, foo A -> bar B) -> baz A" in
+           let h1 = freshen "forall B, foo C -> bar B" in
+           let t, _ = apply h0 [Some h1] in
+             assert_pprint_equal "baz C" t) ;
+
       "Absent argument should produce corresponding obligation" >::
         (fun () ->
            let h0 = freshen

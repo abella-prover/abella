@@ -1,5 +1,6 @@
 open OUnit
 open Metaterm
+open Extensions
 
 (* Parsing functions *)
 
@@ -23,9 +24,21 @@ let read_mod filename =
 
 let freshen str =
   let term = parse_metaterm str in
-  let var_names = Tactics.capital_var_names (collect_terms term) in
-  let fresh_names = fresh_alist ~tag:Term.Eigen ~used:[] var_names in
-    replace_metaterm_vars fresh_names term
+  let fresh_eigen_names =
+    term
+    |> collect_terms
+    |> Tactics.capital_var_names
+    |> fresh_alist ~tag:Term.Eigen ~used:[]
+  in
+  let fresh_logic_names =
+    term
+    |> collect_terms
+    |> Tactics.question_var_names
+    |> fresh_alist ~tag:Term.Logic ~used:[]
+  in
+    term
+    |> replace_metaterm_vars fresh_eigen_names
+    |> replace_metaterm_vars fresh_logic_names
 
 let make_nominals list term =
   let alist = List.map (fun x -> (x, Term.nominal_var x)) list in

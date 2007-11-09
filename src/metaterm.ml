@@ -353,3 +353,18 @@ let metaterm_to_string t =
 let invalid_metaterm_arg t =
   invalid_arg (metaterm_to_string t)
 
+(* Unification *)
+
+open Unify
+    
+let rec meta_right_unify t1 t2 =
+  match t1, t2 with
+    | Pred(t1, _), Pred(t2, _) ->
+        right_unify t1 t2
+    | Arrow(l1, r1), Arrow(l2, r2) ->
+        meta_right_unify l1 l2 ;
+        meta_right_unify r1 r2
+    | Binding(b1, ids1, t1), Binding(b2, ids2, t2)
+        when b1 = b2 && ids1 = ids2 -> meta_right_unify t1 t2
+    | _, _ -> raise (Failure TypesMismatch)
+  

@@ -5,6 +5,15 @@ open Extensions
 
 (* Variable naming utilities *)
 
+let is_question str =
+  str.[0] = '?'
+        
+let question_var_names terms =
+  terms
+  |> map_vars_list (fun v -> v.name)
+  |> List.find_all is_question
+  |> List.unique
+
 let is_capital str =
   match str.[0] with
     | 'A'..'Z' -> true
@@ -470,8 +479,8 @@ let apply term args =
                            (left.context, arg.context)::!context_pairs ;
                          right_unify left.term arg.term ;
                          right
-                     | Arrow(Pred(left, _), right), Some (Pred(arg, _)) ->
-                         right_unify left arg ;
+                     | Arrow(left, right), Some arg ->
+                         meta_right_unify left arg ;
                          right
                      | Arrow(left, right), None ->
                          obligations := left::!obligations ;

@@ -1,3 +1,5 @@
+Can we use meta_right_unify in tactics like search and case?
+
 Clean up nominals so that we can generate lists of them at a time.
   Add tests for this in search, case, apply, etc
 
@@ -36,7 +38,7 @@ Add tests for raising in apply?
 Future
 ======
 
-Poplmark problems.
+Should meta_right_unify track used variables?
 
 Can we use a more declarative approach to help with nabla variables?
   So the user picks the names?

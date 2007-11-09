@@ -64,8 +64,10 @@ induction on 4. intros. case H4.
   apply IH to H1 H2 _ H5. intros. apply H3 to H7. search.
     assert nabla x, ctx (bound x T1 :: N). search. case H8.
     apply IH to _ H9 _ H6.
-      skip. % Introducing B here should raise B over nominals
-      search.
+  intros. case H10.
+    search.
+    apply H3 to H11. search.
+  search.
         
     
     

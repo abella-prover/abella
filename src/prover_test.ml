@@ -15,6 +15,9 @@ let assert_proof proof_function =
     assert_failure ("Proof not completed,\n\n" ^ get_display ())
   with Failure("Proof completed.") -> ()
 
+let assert_goal goal =
+  assert_string_equal goal (metaterm_to_string sequent.goal)
+
 let setup_prover ?clauses:(clauses=[]) ?goal:(goal="") ?lemmas:(lemmas=[]) () =
   full_reset_prover () ;
   add_clauses clauses ;
@@ -36,6 +39,16 @@ let tests =
              (List.mem_assoc "R" sequent.vars)
         ) ;
 
+      "Intros should raise over support" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall L, foo n1 L" ;
+           sequent.goal <- make_nominals ["n1"] sequent.goal ;
+
+           intros () ;
+           assert_goal "foo n1 (L n1)"
+        ) ;
+           
       "Assert test" >::
         (fun () ->
            setup_prover ()

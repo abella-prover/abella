@@ -46,6 +46,14 @@ induction on 1. intros. case H1.
     case H3. search.
     apply IH to H4 H5. search.
 
+%% This would be a nice general theorem to prove, but it does not work.
+%% The P here ends up quantifying over any lambda prolog predicate introduced
+%% so far, rather than being general. Perhaps if we changed our definition
+%% of {L |- P} it would be possible. See the seq example for more information.
+%%
+%% Theorem permute_weaken_general : forall L1 L2 P,
+%%  {L1 |- P} -> (forall E, member E L1 -> member E L2) -> {L2 |- P}.
+
 Theorem permute_weaken : forall L1 L2 S T,
   {L1 |- sub S T} -> (forall E, member E L1 -> member E L2) -> {L2 |- sub S T}.
 induction on 1. intros. case H1.

@@ -168,7 +168,7 @@ The following tactics are listed in order of usefulness (according to me)
   split.
   ======
   Given a goal of the form "F1 /\ F2" the split tactic creates the two
-  subgoals "F1" and "F2".
+  subgoals "F1" and "F2". The second subgoal has "F1" as a hypothesis.
 
 Inductive Restrictions
 ======================

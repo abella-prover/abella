@@ -31,7 +31,7 @@ induction on 1. intros. case H1.
   apply IH to H2. apply IH to H3. search.
   apply IH to H2. case H3. apply IH to H5. search.
 
-Theorem no_ctx_sub : forall S T L,
+Theorem ctx_no_sub : forall S T L,
   ctx L -> member (sub S T) L -> false.
 induction on 1. intros. case H1.
   case H2.
@@ -45,6 +45,10 @@ induction on 1. intros. case H1.
   case H2.
     case H3. search.
     apply IH to H4 H5. search.
+
+Theorem ctx_nominal2 : forall L X U,
+  ctx L -> {L |- bound X U} -> nominal X.
+intros. case H2. apply ctx_nominal to H1 H3. search.
 
 %% This would be a nice general theorem to prove, but it does not work.
 %% The P here ends up quantifying over any lambda prolog predicate introduced
@@ -72,8 +76,52 @@ induction on 1. intros. case H1.
     case H5. apply IH to H4 H6.
       apply IH to H3 H2.
         search.
+
+Theorem sub_top : forall L T,
+  ctx L -> {L |- sub top T} -> T = top.
+intros. case H2.
+  apply ctx_no_sub to H1 H3. case H4.
+  search.
+  search.
+  apply ctx_nominal2 to H1 H3. case H5.
+
+Theorem dual_theorem : forall L Q,
+  ctx L -> ty L Q ->
+    (forall S T, {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T}) /\
+    (forall X M N P L',
+      (forall E, member E (bound X Q :: L) -> member E L') ->
+        {L' |- sub M N} -> {L |- sub P Q} ->
+        (forall E, member E L' -> member ???
+
+
+% Theorem transitivity : forall L Q S T,
+%   ctx L -> ty L Q -> {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T}.
+% induction on 2. induction on 3. intros. case H3.
+%   apply ctx_no_sub to H1 H5. case H6.
+%   apply sub_top to H1 H4. case H5. search.
+%   search.
+%   apply IH' to H1 H2 H6 H4. search.
+%   case H2.
+%     apply ctx_nominal to H1 H7. case H8.
+%     case H4.
+%       apply ctx_no_sub to H1 H9. case H10.
+%       search.
+%       apply ctx_nominal2 to H1 H9. case H10.
+%       apply ctx_nominal2 to H1 H9. case H11.
+%       apply IH to H1 H7 H9 H5. apply IH to H1 H8 H6 H10. search.
+%   case H2.
+%     apply ctx_nominal to H1 H7. case H8.
+%     case H8.
+%       case H4.
+%         apply ctx_no_sub to H1 H10. case H11.
+%         search.
+%         apply ctx_nominal2 to H1 H10. case H11.
+%         apply ctx_nominal2 to H1 H10. case H12.
+%         apply IH to H1 H7 H10 H5.
+
         
-    
+      
+
     
 
 

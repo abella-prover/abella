@@ -355,7 +355,11 @@ let split () =
   save_undo_state () ;
   match sequent.goal with
     | And(left, right) ->
-        subgoals := (goal_to_subgoal right) :: !subgoals ;
+        let right_subgoal () =
+          add_hyp left ;
+          goal_to_subgoal right ()
+        in
+        subgoals := right_subgoal :: !subgoals ;
         sequent.goal <- left
     | _ -> ()
 

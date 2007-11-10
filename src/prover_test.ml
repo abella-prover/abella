@@ -78,7 +78,11 @@ let tests =
            assert_pprint_equal "{A}" sequent.goal ;
 
            skip () ;
-           assert_pprint_equal "{B}" sequent.goal) ;
+           match sequent.hyps with
+             | [(_, t)] ->
+                 assert_pprint_equal "{A}" t ;
+                 assert_pprint_equal "{B}" sequent.goal
+             | _ -> assert_failure "Expected one hypothesis" ) ;
 
       "Exists test" >::
         (fun () ->

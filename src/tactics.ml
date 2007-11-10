@@ -243,17 +243,21 @@ let rec apply_restriction_at res stmt arg =
           Arrow(left, apply_restriction_at res right (arg-1))
     | _ -> failwith "Not enough implications in induction"
 
+let get_restriction r =
+  match r with
+    | Smaller n -> n
+    | Equal n -> n
+    | Irrelevant -> 0
+        
 let get_max_restriction t =
   let rec aux t =
     match t with
-      | Obj(_, Smaller n) -> n
-      | Obj(_, Equal n) -> n
-      | Obj(_, Irrelevant) -> 0
+      | Obj(_, r) -> get_restriction r
       | Arrow(a, b) -> max (aux a) (aux b)
       | Binding(_, _, body) -> aux body
       | Or(a, b) -> max (aux a) (aux b)
       | And(a, b) -> max (aux a) (aux b)
-      | Pred _ -> 0
+      | Pred(_, r) -> get_restriction r
   in
     aux t
         

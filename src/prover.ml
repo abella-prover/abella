@@ -314,9 +314,30 @@ let rec fresh_hyp_name_from_base base =
   else
     base
 
-let induction args =
+let get_restriction r =
+  match r with
+    | Smaller n -> n
+    | Equal n -> n
+    | Irrelevant -> 0
+        
+let get_max_restriction t =
+  let rec aux t =
+    match t with
+      | Obj(_, r) -> get_restriction r
+      | Arrow(a, b) -> max (aux a) (aux b)
+      | Binding(_, _, body) -> aux body
+      | Or(a, b) -> max (aux a) (aux b)
+      | And(a, b) -> max (aux a) (aux b)
+      | Pred(_, r) -> get_restriction r
+  in
+    aux t
+        
+let induction ind_arg =
   save_undo_state () ;
-  let (ih, new_goal) = Tactics.induction args sequent.goal in
+  let ind_num =
+    sequent.hyps |> List.map snd |> List.map get_max_restriction |> List.max
+  in
+  let (ih, new_goal) = Tactics.induction ind_arg (ind_num + 1) sequent.goal in
   let name = fresh_hyp_name_from_base "IH" in
     add_hyp ~name:name ih ;
     sequent.goal <- new_goal
@@ -355,9 +376,10 @@ let split () =
   save_undo_state () ;
   match sequent.goal with
     | And(left, right) ->
+        let saved = goal_to_subgoal right in
         let right_subgoal () =
-          add_hyp left ;
-          goal_to_subgoal right ()
+          saved () ;
+          add_hyp left          
         in
         subgoals := right_subgoal :: !subgoals ;
         sequent.goal <- left

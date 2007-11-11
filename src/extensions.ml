@@ -100,5 +100,13 @@ module List = struct
         | head::tail -> head::(aux tail)
     in
       aux list
+
+  let max list =
+    let rec aux list m =
+      match list with
+        | [] -> m
+        | head::tail -> aux tail (max head m)
+    in
+      aux list 0
 end
 

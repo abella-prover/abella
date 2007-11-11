@@ -1,12 +1,6 @@
-%% Issues, here again we want to talk about a term getting no larger
-%% so that we can still apply the inductive hypothesis.
-
 %% Start generic section
 
 Def nabla x, nominal x.
-
-Def append nil C C.
-Def append (X::A) B (X::C) :- append A B C.
 
 Def nat z.
 Def nat (s X) :- nat X.
@@ -49,33 +43,6 @@ Theorem ctx_nominal2 : forall L X U,
   ctx L -> {L |- bound X U} -> nominal X.
 intros. case H2. apply ctx_nominal to H1 H3. search.
 
-%% This would be a nice general theorem to prove, but it does not work.
-%% The P here ends up quantifying over any lambda prolog predicate introduced
-%% so far, rather than being general. Perhaps if we changed our definition
-%% of {L |- P} it would be possible. See the seq example for more information.
-%%
-%% Theorem permute_weaken_general : forall L1 L2 P,
-%%  {L1 |- P} -> (forall E, member E L1 -> member E L2) -> {L2 |- P}.
-
-Theorem permute_weaken : forall L1 L2 S T,
-  {L1 |- sub S T} -> (forall E, member E L1 -> member E L2) -> {L2 |- sub S T}.
-induction on 1. intros. case H1.
-  apply H2 to H3. search.
-  search.
-  case H3. apply H2 to H4. search.
-  case H3. apply H2 to H5. search.
-    apply IH to H4 H2. search.
-  apply IH to H3 H2. apply IH to H4 H2. search.
-  %% Would be nice to use nominal constants directly...
-  assert forall E, member E (bound n1 T1 :: L1) ->
-                     member E (bound n1 T1 :: L2).
-    intros. case H5.
-      search.
-      apply H2 to H6. search.
-    apply IH to H4 H5.
-      apply IH to H3 H2.
-      search.
-
 Theorem sub_top : forall L T,
   ctx L -> {L |- sub top T} -> T = top.
 intros. case H2.
@@ -98,7 +65,7 @@ induction on 1. intros. case H1.
         search.
         apply H2 to H8. case H9. search.
     apply IH to H6 H7. search.
-  
+
 Theorem change_bound_ty2 : forall L L' T N,
   ty L T N -> (forall E, member E L -> member E L') -> ty L' T N.
 intros.
@@ -107,16 +74,12 @@ assert forall X U, member (bound X U) L -> exists V, member (bound X V) L'.
 apply change_bound_ty to H1 H3. search.
 
 Theorem dual_theorem : forall N, nat N ->
-  (forall L Q S T, ctx L -> ty L Q N -> 
+  (forall L Q S T, ctx L -> ty L Q N ->
     {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T})
   /\
-  (forall L P Q Lq Lp X TM TN,
-    ctx L -> ty L Q N -> {L |- sub P Q} ->
-    (forall E, member E L -> member E Lq) -> ctx Lq ->
-    (forall E, member E Lq -> member E Lp \/ E = bound X Q) ->
-    (forall E, member E L -> member E Lp) ->
-    member (bound X P) Lp -> ctx Lp -> {Lq |- sub TM TN} ->
-      {Lp |- sub TM TN}).
+  (forall L P Q X TM TN,
+    ctx (bound X Q :: L) -> ty L Q N -> {L |- sub P Q} ->
+      {L, bound X Q |- sub TM TN} -> {L, bound X P |- sub TM TN}).
 induction on 1. intros. split.
 
   % Proof of transitivity
@@ -154,61 +117,39 @@ induction on 1. intros. split.
           assert forall E, member E L -> member E (bound n1 T1 :: L).
             intros. search.
           assert ctx (bound n1 T1 :: L). search.
-          assert forall E, member E (bound n1 T1 :: L) ->
-                   member E (bound n1 T0 :: L) \/ E = bound n1 T1.
-            intros. case H22.
-              search.
-              search.
-          assert forall E, member E L -> member E (bound n1 T0 :: L).
-            intros. search.
-          assert member (bound n1 T0) (bound n1 T0 :: L). search.
+          apply H16 to H21 H8 H11 H7.
           assert ctx (bound n1 T0 :: L). search.
-          apply H16 to H2 H8 H11 H20 H21 H22 H23 H24 H25 H7.
-          apply H15 to H25 H19 H26 H12.
+          apply H15 to H23 H19 H22 H12.
           search.
-        
-  % Proof of narrowing
-  induction on 10. intros. case H12.
-    apply ctx_no_sub to H7 H13. case H14.
-    search.
-    case H13.
-      apply H8 to H14. case H15.
-        search.
-        case H16. search.
-    apply IH' to H3 H4 H5 H6 H7 H8 H9 H10 H11 H14.
-      case H13.
-        apply H8 to H16. case H17.
-          search.
-          case H18.
-            apply permute_weaken to H5 H9.
-            apply change_bound_ty2 to H4 H9.
-            apply H2 to H11 H20 H19 H15.
-            search.
-    apply IH' to H3 H4 H5 H6 H7 H8 H9 H10 H11 H13. 
-      apply IH' to H3 H4 H5 H6 H7 H8 H9 H10 H11 H14.
-        search.
-    apply IH' to H3 H4 H5 H6 H7 H8 H9 H10 H11 H13.
-      assert forall E, member E L -> member E (bound n1 T1 :: Lq).
-        intros. apply H6 to H16. search.
-      assert ctx (bound n1 T1 :: Lq). search.
-      assert forall E, member E (bound n1 T1 :: Lq) ->
-                         member E (bound n1 T1 :: Lp) \/ E = bound X Q.
-        intros. case H18.
-          search.
-          apply H8 to H19. case H20.
-            search.
-            search.
-      assert forall E, member E L -> member E (bound n1 T1 :: Lp).
-        intros. apply H9 to H19. search.
-      assert member (bound X P) (bound n1 T1 :: Lp). search.
-      assert ctx (bound n1 T1 :: Lp). search.
-      apply IH' to H3 H4 H5 H16 H17 H18 H19 H20 H21 H14.
-      search.
 
+  % Proof of narrowing
+  induction on 4. intros. case H6.
+    apply ctx_no_sub to H3 H7. case H8.
+    search.
+    case H7. case H8.
+      search.
+      search.
+    case H7. case H9.
+      apply IH' to H3 H4 H5 H8.
+        assert ctx (bound X P :: L). case H3. search.
+        assert forall E, member E L -> member E (bound X P :: L).
+          intros. search.
+        apply change_bound_ty2 to H4 H12.
+        apply H2 to H11 H13 H5 H10.
+        search.
+      apply IH' to H3 H4 H5 H8.
+        search.
+    apply IH' to H3 H4 H5 H7. apply IH' to H3 H4 H5 H8. search.
+    apply IH' to H3 H4 H5 H7.
+      assert ctx (bound X Q :: bound n1 T1 :: L). case H3. search.
+      assert forall E, member E L -> member E (bound n1 T1 :: L).
+        intros. search.
+      apply change_bound_ty2 to H4 H11. search.
+      apply IH' to H10 H12 H5 H8.
+      search.
 
 Theorem transitivity : forall L Q S T N,
   nat N -> ctx L -> ty L Q N ->
     {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T}.
 intros. apply dual_theorem to H1. case H6.
   apply H7 to H2 H3 H4 H5. search.
-

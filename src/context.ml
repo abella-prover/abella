@@ -10,9 +10,9 @@ let empty : t = []
 
 let size ctx = List.length ctx
 
-let mem elt ctx = List.mem ~cmp:eq elt ctx
+let mem elt ctx = List.mem ~cmp:full_eq elt ctx
   
-let remove elt ctx = List.remove ~cmp:eq elt ctx
+let remove elt ctx = List.remove ~cmp:full_eq elt ctx
 
 let rec xor ctx1 ctx2 =
   match ctx1 with
@@ -41,6 +41,8 @@ let context_to_string ctx =
 
 let subcontext ctx1 ctx2 =
   List.for_all (fun elt -> mem elt ctx2) ctx1
+
+let equiv ctx1 ctx2 = subcontext ctx1 ctx2 && subcontext ctx2 ctx1
 
 let union ctx1 ctx2 =
   ctx1 @ ctx2

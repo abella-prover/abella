@@ -244,7 +244,6 @@ progress.
  * copy - equality of identical definitions of the copy predicate
  * cut - cut elimination for sequent calculus with "and" and "implies"
  * eval - lambda calculus and various results on typing and evaluation
- * fsub-full [wip] - transitivity for the algorithm Fsub
  * lists - various results about lists (append, reverse, perm)
  * norm [wip] - normalization for the simply typed lambda calculus
  * normal - proof that each lambda term is normal or non-normal
@@ -252,11 +251,8 @@ progress.
  * pcf - subject reduction for PCF
          (i.e. Lambda calculus with extra constructs)
  * pe [wip] - results about partial evaluation for lambda calculus
+ * poplmark - reflexivity and transitivity for Fsub, ie POPLmark Challenge 1a
  * seq - comparison between internal and external definition of seq
  * seq2 - an alternate definition of seq which makes the program explicit
  * subst - correctness for LLambda subst predicate
- * type_uniq [wip] - type uniqueness for simply typed lambda calculus
-
-The following mod files have no thm file
-
- * fsub - basic definition of Fsub
+ * type_uniq - type uniqueness for simply typed lambda calculus

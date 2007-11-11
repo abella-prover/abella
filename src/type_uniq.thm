@@ -1,5 +1,4 @@
 %% Type uniqueness for simply typed lambda calculus
-%% [Work in progress]
 
 %% There are some results about nominal variables, freshness, and lists
 %% that we can prove in general.
@@ -21,7 +20,6 @@ induction on 1. intros. case H1.
   apply fresh_tail to H2. apply IH to H3 H4. search.
 
 %% End generic section
-
 
 Def ctx nil.
 Def ctx (typeof X T :: L) :- fresh X L, ctx L.

@@ -1,3 +1,5 @@
+%% Reflexivity and transitivity for Fsub, ie POPLmark Challenge 1a
+
 %% Start generic section
 
 Def nabla x, nominal x.

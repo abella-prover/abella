@@ -14,10 +14,10 @@ Def nat (s X) :- nat X.
 %% End generic section
 
 Def ctx nil.
-Def ctx (bound X U :: L) :- fresh X L, ctx L.
+Def ctx (bound X U :: L) :- nominal X, ctx L.
 
-Def ty L top z.
-Def ty L X z :- member (bound X U) L.
+Def ty L top N.
+Def ty L X N :- member (bound X U) L.
 Def ty L (arrow T1 T2) (s N) :- ty L T1 N, ty L T2 N.
 Def ty L (all T1 T2) (s N) :-
   ty L T1 N, (nabla x, ty (bound x T1 :: L) (T2 x) N).
@@ -153,7 +153,7 @@ induction on 1. intros. split.
           apply change_bound_ty to H10 H18.
           assert forall E, member E L -> member E (bound n1 T1 :: L).
             intros. search.
-          assert ctx (bound n1 T1 :: L). skip.
+          assert ctx (bound n1 T1 :: L). search.
           assert forall E, member E (bound n1 T1 :: L) ->
                    member E (bound n1 T0 :: L) \/ E = bound n1 T1.
             intros. case H22.
@@ -162,7 +162,7 @@ induction on 1. intros. split.
           assert forall E, member E L -> member E (bound n1 T0 :: L).
             intros. search.
           assert member (bound n1 T0) (bound n1 T0 :: L). search.
-          assert ctx (bound n1 T0 :: L). skip.
+          assert ctx (bound n1 T0 :: L). search.
           apply H16 to H2 H8 H11 H20 H21 H22 H23 H24 H25 H7.
           apply H15 to H25 H19 H26 H12.
           search.
@@ -190,7 +190,7 @@ induction on 1. intros. split.
     apply IH' to H3 H4 H5 H6 H7 H8 H9 H10 H11 H13.
       assert forall E, member E L -> member E (bound n1 T1 :: Lq).
         intros. apply H6 to H16. search.
-      assert ctx (bound n1 T1 :: Lq). skip.
+      assert ctx (bound n1 T1 :: Lq). search.
       assert forall E, member E (bound n1 T1 :: Lq) ->
                          member E (bound n1 T1 :: Lp) \/ E = bound X Q.
         intros. case H18.
@@ -201,7 +201,7 @@ induction on 1. intros. split.
       assert forall E, member E L -> member E (bound n1 T1 :: Lp).
         intros. apply H9 to H19. search.
       assert member (bound X P) (bound n1 T1 :: Lp). search.
-      assert ctx (bound n1 T1 :: Lp). skip.
+      assert ctx (bound n1 T1 :: Lp). search.
       apply IH' to H3 H4 H5 H16 H17 H18 H19 H20 H21 H14.
       search.
 
@@ -211,3 +211,4 @@ Theorem transitivity : forall L Q S T N,
     {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T}.
 intros. apply dual_theorem to H1. case H6.
   apply H7 to H2 H3 H4 H5. search.
+

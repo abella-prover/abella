@@ -416,7 +416,7 @@ let induction_tests =
         (fun () ->
            let stmt = freshen
                "forall A, {first A} -> {second A} -> {third A}" in
-           let (ih, goal) = induction 1 stmt in
+           let (ih, goal) = induction 1 1 stmt in
              assert_pprint_equal
                "forall A, {first A}* -> {second A} -> {third A}"
                ih ;
@@ -428,12 +428,12 @@ let induction_tests =
         (fun () ->
            let stmt = freshen
                "forall A, {first A} -> {second A} -> {third A}" in
-           let (ih, goal) = induction 1 stmt in
+           let (ih, goal) = induction 1 1 stmt in
              assert_pprint_equal
                "forall A, {first A}* -> {second A} -> {third A}" ih ;
              assert_pprint_equal
                "forall A, {first A}@ -> {second A} -> {third A}" goal ;
-             let (ih, goal) = induction 2 goal in
+             let (ih, goal) = induction 2 2 goal in
                assert_pprint_equal
                  "forall A, {first A}@ -> {second A}** -> {third A}" ih ;
                assert_pprint_equal
@@ -442,7 +442,7 @@ let induction_tests =
       "With OR on left of arrow" >::
         (fun () ->
            let stmt = freshen "forall X, {A} \\/ {B} -> {C} -> {D}" in
-           let (ih, goal) = induction 2 stmt in
+           let (ih, goal) = induction 2 1 stmt in
              assert_pprint_equal
                "forall X, {A} \\/ {B} -> {C}* -> {D}"
                ih ;
@@ -454,7 +454,7 @@ let induction_tests =
         (fun () ->
            let stmt = freshen
              "forall A, first A -> second A -> third A" in
-           let (ih, goal) = induction 1 stmt in
+           let (ih, goal) = induction 1 1 stmt in
              assert_pprint_equal
                "forall A, first A * -> second A -> third A"
                ih ;

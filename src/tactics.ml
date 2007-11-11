@@ -243,25 +243,7 @@ let rec apply_restriction_at res stmt arg =
           Arrow(left, apply_restriction_at res right (arg-1))
     | _ -> failwith "Not enough implications in induction"
 
-let get_restriction r =
-  match r with
-    | Smaller n -> n
-    | Equal n -> n
-    | Irrelevant -> 0
-        
-let get_max_restriction t =
-  let rec aux t =
-    match t with
-      | Obj(_, r) -> get_restriction r
-      | Arrow(a, b) -> max (aux a) (aux b)
-      | Binding(_, _, body) -> aux body
-      | Or(a, b) -> max (aux a) (aux b)
-      | And(a, b) -> max (aux a) (aux b)
-      | Pred(_, r) -> get_restriction r
-  in
-    aux t
-        
-let induction ind_arg stmt =
+let induction ind_arg ind_num stmt =
   let rec aux stmt =
     match stmt with
       | Binding(Forall, bindings, body) ->
@@ -271,9 +253,8 @@ let induction ind_arg stmt =
           let (ih, goal) = aux body in
             (nabla bindings ih, nabla bindings goal)
       | term ->
-          let n = 1 + get_max_restriction term in
-          let ih = apply_restriction_at (Smaller n) term ind_arg in
-          let goal = apply_restriction_at (Equal n) term ind_arg in
+          let ih = apply_restriction_at (Smaller ind_num) term ind_arg in
+          let goal = apply_restriction_at (Equal ind_num) term ind_arg in
             (ih, goal)
   in
     aux stmt

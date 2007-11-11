@@ -46,7 +46,6 @@ let make_nominals list term =
     replace_metaterm_vars alist term
 
 let eval_clauses = read_mod "eval.mod"
-let fsub_clauses = read_mod "fsub.mod"
 let addition_clauses = read_mod "add.mod"
   
 (* Custom asserts *)

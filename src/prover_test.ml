@@ -153,16 +153,6 @@ let tests =
            assert_n_subgoals 1 ;
         ) ;
 
-      "Failed unification during case" >::
-        (fun () ->
-           setup_prover ()
-             ~clauses:fsub_clauses ;
-
-           sequent.hyps <- [("H1", freshen "{sub S top}")] ;
-           case "H1" ;
-           assert_n_subgoals 2 ;
-        ) ;
-
       "Add example (lemmas)" >::
         (fun () ->
            setup_prover ()

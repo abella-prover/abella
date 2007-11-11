@@ -39,9 +39,9 @@ let object_instantiation_tests =
     [
       "Simple" >::
         (fun () ->
-           let t = make_nominals ["n"] (freshen "{eval n B}") in
+           let t = (freshen "{eval n1 B}") in
            let a = var Eigen "A" 0 in
-           let result = object_inst t "n" a in
+           let result = object_inst t "n1" a in
              assert_pprint_equal "{eval A B}" result) ;
       
       "Should only work on nominals" >::
@@ -329,7 +329,7 @@ let case_tests =
 
       "On nabla with n1 used" >::
         (fun () ->
-           let term = make_nominals ["n1"] (freshen "nabla x, foo n1 x") in
+           let term = freshen "nabla x, foo n1 x" in
            let used = [] in
              match case ~used term with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
@@ -383,7 +383,7 @@ let case_tests =
       "Should raise over nominal variables in meta clauses" >::
         (fun () ->
            let meta_clauses = parse_meta_clauses "pred M N." in
-           let term = make_nominals ["n"] (freshen "pred (A n) B") in
+           let term = freshen "pred (A n1) B" in
              match case ~meta_clauses term with
                | [case1] -> ()
                | cases -> assert_expected_cases 1 cases) ;
@@ -391,7 +391,7 @@ let case_tests =
       "Should raise over nominal variables in clauses" >::
         (fun () ->
            let clauses = parse_clauses "pred M N." in
-           let term = make_nominals ["n"] (freshen "{pred (A n) B}") in
+           let term = freshen "{pred (A n1) B}" in
              match case ~clauses term with
                | [case1] -> ()
                | cases -> assert_expected_cases 1 cases) ;
@@ -562,7 +562,7 @@ let search_tests =
 
       "Should replace pi x\\ with nominal variable" >::
         (fun () ->
-           let hyp = make_nominals ["n1"] (freshen "{pred n1 n1}") in
+           let hyp = freshen "{pred n1 n1}" in
            let goal = freshen "{pi x\\ pred x x}" in
              assert_search_success (search ~hyps:[hyp] goal)) ;
 
@@ -603,14 +603,20 @@ let search_tests =
       "Should raise meta clauses over support" >::
         (fun () ->
            let meta_clauses = parse_meta_clauses "foo X." in
-           let goal = make_nominals ["x"] (freshen "foo (A x)") in
+           let goal = freshen "foo (A n1)" in
              assert_search_success (search ~meta_clauses goal)) ;
 
       "Should raise object clauses over support" >::
         (fun () ->
            let clauses = parse_clauses "foo X." in
-           let goal = make_nominals ["x"] (freshen "{foo (A x)}") in
+           let goal = freshen "{foo (A n1)}" in
              assert_search_success (search ~clauses goal)) ;
+
+      "Should raise exists over support" >::
+        (fun () ->
+           let hyps = [freshen "foo n1 n1"] in
+           let goal = freshen "exists X, foo n1 X" in
+             assert_search_success (search ~hyps goal)) ;
 
       "Should work with nabla in the head" >::
         (fun () ->
@@ -618,7 +624,7 @@ let search_tests =
              parse_meta_clauses "nabla x, ctx (var x :: L) :- ctx L."
            in
            let hyp = freshen "ctx L" in
-           let goal = make_nominals ["n1"] (freshen "ctx (var n1 :: L)") in
+           let goal = freshen "ctx (var n1 :: L)" in
              assert_search_success (search ~hyps:[hyp] ~meta_clauses goal)) ;
 
     ]

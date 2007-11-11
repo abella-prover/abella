@@ -109,13 +109,13 @@ id_list:
   | ID                                  { [$1] }
 
 metaterm:
-  | FORALL binding_list COMMA metaterm   { Metaterm.forall $2 $4 }
-  | EXISTS binding_list COMMA metaterm   { Metaterm.exists $2 $4 }
-  | NABLA binding_list COMMA metaterm    { Metaterm.nabla $2 $4 }
-  | metaterm RARROW metaterm             { Metaterm.arrow $1 $3 }
-  | metaterm OR metaterm                 { Metaterm.meta_or $1 $3 }
-  | metaterm AND metaterm                { Metaterm.meta_and $1 $3 }
-  | LPAREN metaterm RPAREN               { $2 }
+  | FORALL binding_list COMMA metaterm  { Metaterm.forall $2 $4 }
+  | EXISTS binding_list COMMA metaterm  { Metaterm.exists $2 $4 }
+  | NABLA binding_list COMMA metaterm   { Metaterm.nabla $2 $4 }
+  | metaterm RARROW metaterm            { Metaterm.arrow $1 $3 }
+  | metaterm OR metaterm                { Metaterm.meta_or $1 $3 }
+  | metaterm AND metaterm               { Metaterm.meta_and $1 $3 }
+  | LPAREN metaterm RPAREN              { $2 }
   | LBRACK contexted_term RBRACK restriction
                                         { Metaterm.Obj($2, $4) }
   | term restriction                    { Metaterm.Pred($1, $2) }

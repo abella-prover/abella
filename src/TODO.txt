@@ -1,3 +1,10 @@
+Apply uses a fixed support right now. This causes a bug with singleton
+contexts. Can we try removing all reconcilation of contexts?
+
+The fixed parsing of n[0-9]+ as nominals causes troubles because we
+have ID and NID in the parser. Maybe we should move the conversion of
+n[0-9]+ to nominal to a later phase.
+
 Clean up nominals so that we can generate lists of them at a time.
   Add tests for this in search, case, apply, etc
 

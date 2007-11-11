@@ -207,6 +207,21 @@ let fresh_nominal t =
     done ;
     nominal_var (p ^ (string_of_int !n))
 
+let n_var_names terms =
+  terms
+  |> map_vars_list (fun v -> v.name)
+  |> List.find_all (fun str -> str.[0] = 'n')
+  |> List.unique
+
+let replace_nominal_vars term =
+  let fresh_nominal_names =
+    term
+    |> collect_terms
+    |> n_var_names
+    |> fresh_alist ~tag:Term.Nominal ~used:[]
+  in
+    replace_metaterm_vars fresh_nominal_names term
+
 let replace_pi_abs_with_nominal obj =
   let abs = extract_pi_abs obj.term in
   let nominal = fresh_nominal (Obj(obj, Irrelevant)) in
@@ -264,7 +279,19 @@ let term_support t = find_var_refs Nominal [t]
 
 let obj_support obj = find_var_refs Nominal (obj.term :: obj.context)
 
-let metaterm_support t = find_var_refs Nominal (collect_terms t)
+let metaterm_support t =
+  let rec aux t =
+    match t with
+      | Obj(obj, _) -> obj_support obj
+      | Arrow(t1, t2) -> aux t1 @ aux t2
+      | Binding(Nabla, ids, t) ->
+          List.remove_all (fun x -> List.mem (term_to_var x).name ids) (aux t)
+      | Binding(_, ids, t) -> aux t
+      | Or(t1, t2) -> aux t1 @ aux t2
+      | And(t1, t2) -> aux t1 @ aux t2
+      | Pred(t, _) -> term_support t
+  in
+    List.unique (aux t)
   
 let abstract_eigen t =
   let vars = find_var_refs Eigen [t] in

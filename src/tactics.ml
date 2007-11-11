@@ -315,14 +315,17 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
     if hyps |> List.exists (try_meta_right_unify goal) then
       true
     else
+      let support = metaterm_support goal in
       match goal with
         | Or(left, right) -> metaterm_aux n left || metaterm_aux n right
         | And(left, right) -> metaterm_aux n left && metaterm_aux n right
         | Binding(Exists, bindings, body) ->
-            let term = freshen_nameless_bindings ~tag:Logic bindings body in
+            let term =
+              freshen_nameless_bindings ~support ~tag:Logic bindings body in
               metaterm_aux n term
         | Binding(Forall, bindings, body) ->
-            let term = freshen_nameless_bindings ~tag:Eigen bindings body in
+            let term =
+              freshen_nameless_bindings ~support ~tag:Eigen bindings body in
               metaterm_aux n term
         | Binding(Nabla, [id], body) ->
             let nominal = fresh_nominal body in
@@ -440,12 +443,7 @@ let some_term_to_restriction t =
     | Some t -> term_to_restriction t
 
 let apply term args =
-  let support =
-    args
-    |> List.map (Option.map_default metaterm_support [])
-    |> List.flatten
-    |> List.unique
-  in
+  let support = [nominal_var "n1"; nominal_var "n2"; nominal_var "n3"] in
   let rec aux term =
     match term with
       | Binding(Forall, bindings, body) ->

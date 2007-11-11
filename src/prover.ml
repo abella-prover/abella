@@ -299,6 +299,7 @@ let case ?(keep=false) str =
 let assert_hyp term =
   save_undo_state () ;
   let term = replace_metaterm_vars sequent.vars term in
+  let term = replace_nominal_vars term in
     add_cases_to_subgoals
       [{ bind_state = get_bind_state () ;
          new_vars = [] ;

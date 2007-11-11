@@ -38,7 +38,7 @@ module List = struct
     let rec aux list =
       match list with
         | [] -> []
-        | head::tail when cmp elt head -> tail
+        | head::tail when cmp elt head -> aux tail
         | head::tail -> head::(aux tail)
     in
       aux list

@@ -443,7 +443,12 @@ let some_term_to_restriction t =
     | Some t -> term_to_restriction t
 
 let apply term args =
-  let support = [nominal_var "n1"; nominal_var "n2"; nominal_var "n3"] in
+  let support =
+    args
+    |> List.map (Option.map_default metaterm_support [])
+    |> List.flatten
+    |> List.unique
+  in
   let rec aux term =
     match term with
       | Binding(Forall, bindings, body) ->

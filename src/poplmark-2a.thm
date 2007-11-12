@@ -1,5 +1,4 @@
 %% Progress and preservation for Fsub, ie POPLmark Challenge 2a
-%% [Work in progress]
 %%
 %% Most of this is derived from the Twelf solution by CMU
 
@@ -23,7 +22,7 @@ induction on 1. intros. case H1.
       search.
   search.
 
-Theorem sub_all : forall S T1 T2,
+Theorem sub_forall : forall S T1 T2,
   {sub S (all T1 T2)} -> exists S1 S2, S = all S1 S2.
 induction on 1. intros. case H1.
   search.
@@ -46,7 +45,7 @@ intros. apply sub_top to H1. case H2.
 
 Theorem absurd_asf : forall S1 S2 T1 T2,
   {sub (arrow S1 S2) (all T1 T2)} -> false.
-intros. apply sub_all to H1. case H2. case H3.
+intros. apply sub_forall to H1. case H2. case H3.
 
 Theorem invert_sub_arrow : forall S1 S2 T1 T2,
   {sub (arrow S1 S2) (arrow T1 T2)} -> {sub T1 S1} /\ {sub S2 T2}.
@@ -60,15 +59,18 @@ induction on 1. intros. case H1.
 
 Theorem invert_sub_forall : forall S1 S2 T1 T2,
   {sub (all S1 S2) (all T1 T2)} ->
-    {sub T1 S1} /\ {sub n1 T1 |- sub (S2 n1) (T2 n1)}.
+    {sub T1 S1} /\ nabla n1, {sub n1 T1 |- sub (S2 n1) (T2 n1)}.
 induction on 1. intros. case H1.
   search.
-  apply sub_all to H3. case H4. case H5.
-    apply IH to H2. case H6.
-      apply IH to H3. case H9.
-        search. skip.
-  search. skip.
+  apply sub_forall to H3. case H4. case H5.
+    apply IH to H2. case H6. case H8.
+      apply IH to H3. case H10. case H12.
+        assert {sub n1 T1 |- sub n1 S0}. search.
+        cut H9 with H14.
+        search.
+  search.
 
+  
 %% Typing inversions
 
 Theorem absurd_ota : forall E T1 T2 T3,
@@ -80,19 +82,32 @@ induction on 1. intros. case H1.
 Theorem absurd_oaf : forall E T1 T2 T3,
   {of (abs T1 E) (all T2 T3)} -> false.
 induction on 1. intros. case H1.
-  apply sub_all to H3. case H4. case H5.
+  apply sub_forall to H3. case H4. case H5.
     apply IH to H2. search.
 
 Theorem invert_of_abs : forall S1 E T1 T2,
   {of (abs S1 E) (arrow T1 T2)} ->
-    exists S2, {of n1 S1 |- of (E n1) S2} /\ {sub T1 S1} /\ {sub S2 T2}.
-skip.
+    exists S2, nabla n1,
+      {of n1 S1 |- of (E n1) S2} /\ {sub T1 S1} /\ {sub S2 T2}.
+induction on 1. intros. case H1.
+  search.
+  apply sub_arrow to H3. case H4. case H5.
+    apply invert_sub_arrow to H3. case H6.
+    apply IH to H2. case H9. case H10. case H11. case H12.
+    search.
 
 Theorem invert_of_tabs : forall S1 E T1 T2,
   {of (tabs S1 E) (all T1 T2)} ->
-    exists S2, {sub n1 S1 |- of (E n1) (S2 n1)} /\ {sub T1 S1} /\
-                 {sub n1 T1 |- sub (S2 n1) (T2 n1)}.
-skip.
+    exists S2, nabla n1, {sub n1 S1 |- of (E n1) (S2 n1)} /\ {sub T1 S1} /\
+                           {sub n1 T1 |- sub (S2 n1) (T2 n1)}.
+induction on 1. intros. case H1.
+  search.
+  apply sub_forall to H3. case H4. case H5.
+    apply invert_sub_forall to H3. case H6. case H8.
+    apply IH to H2. case H10. case H11. case H12. case H13.
+    assert {sub n1 T1 |- sub n1 S0}. search.
+    cut H14 with H17.
+    search.
 
 
 %% Progress
@@ -109,7 +124,9 @@ induction on 1. intros. case H1.
       case H6.
         search.
         apply absurd_ota to H4. case H8.
-      search. skip. % This fails because search is not unbinding on failure
+      % We use assert since search doesn't yet handle metavariables well
+      assert {step (app E1 E2) (app E1 E')}. search.
+      search.
     search.
   apply IH to H4 H2 H3. search.
 
@@ -141,15 +158,20 @@ Theorem preservation : forall E E' T,
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    apply invert_of_abs to H3. case H5. case H6. case H7.
-      % inst H9 with n1 = E2.
-      assert {of E2 T0 |- of (E0 E2) S2}. skip.
+    apply invert_of_abs to H3. case H5. case H6. case H7. case H8.
+      inst H10 with n1 = E2.
       assert {of E2 T0}. search.
-      cut H11 with H12. search.
+      cut H12 with H13. search.
     apply IH to H3 H5. search.
   apply IH to H4 H6. search.
   case H2.
   case H2.
-    skip.
-    apply IH to H3 H5. skip. % search. Unification error
+    apply invert_of_tabs to H3. case H5. case H6. case H7. case H8.
+      assert {sub T2 T1}. search.
+      inst H10 with n1 = T2.
+      cut H13 with H12.
+      inst H9 with n1 = T2.
+      cut H15 with H4.
+      search.
+    apply IH to H3 H5. search.
   apply IH to H3 H2. search.

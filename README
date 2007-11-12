@@ -251,8 +251,8 @@ progress.
  * pcf - subject reduction for PCF
          (i.e. Lambda calculus with extra constructs)
  * pe [wip] - results about partial evaluation for lambda calculus
- * poplmark-1a - reflexivity and transitivity for Fsub
- * poplmark-2a [wip] - progress and preservation for Fsub
+ * poplmark-1a - reflexivity and transitivity for Fsub, ie POPLmark Challenge 1a
+ * poplmark-2a - progress and preservation for Fsub, ie POPLmark Challenge 2a
  * seq - comparison between internal and external definition of seq
  * seq2 - an alternate definition of seq which makes the program explicit
  * subst - correctness for LLambda subst predicate

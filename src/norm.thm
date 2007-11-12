@@ -107,7 +107,18 @@ induction on 2. intros. case H2.
     case H12.
     apply H16 to H13.
     search.
-  apply gen_abs to H1 H3. skip.
-    % We need better hanlding of nominal constants to finish this proof
-
+  apply gen_abs to H1 H3. case H5. case H6. case H7.
+    unfold.
+      skip.
+      skip.
+      intros.
+       apply reduce_halts to H9.
+       % We need to evaluate S' to a value, but we'll skip that for now
+       apply reduce_typeof to H9.
+       apply H8 to H11.
+       apply IH to _ H4 H12.
+       assert step (app (abs T' RS) S') (RS S'). skip.
+          % ^^ This one fails because of unification and S' not a value
+       % apply reduce_step_backward to _ _ H14 H13.
+       skip.
 

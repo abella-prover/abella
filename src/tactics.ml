@@ -204,8 +204,11 @@ let case ~used ~clauses ~meta_clauses term =
     | Binding(Exists, ids, body) ->
         let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
         let fresh_body = replace_metaterm_vars fresh_ids body in
+        let new_vars =
+          List.map (fun (_, x) -> ((term_to_var x).name, x)) fresh_ids
+        in
           [{ bind_state = get_bind_state () ;
-             new_vars = fresh_ids ;
+             new_vars = new_vars ;
              new_hyps = [fresh_body] }]
     | Binding(Nabla, [id], body) ->
         let nominal = fresh_nominal body in

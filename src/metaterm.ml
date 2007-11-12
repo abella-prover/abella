@@ -349,11 +349,11 @@ let format_metaterm fmt t =
             aux pr_curr t
         | Or(a, b) ->
             aux pr_curr a ;
-            fprintf fmt " \\/ " ;
+            fprintf fmt " \\/@ " ;
             aux (pr_curr + 1) b ;
         | And(a, b) ->
             aux pr_curr a ;
-            fprintf fmt " /\\ " ;
+            fprintf fmt " /\\@ " ;
             aux (pr_curr + 1) b ;
         | Pred(p, r) ->
             if r = Irrelevant then

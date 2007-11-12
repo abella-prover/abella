@@ -661,7 +661,7 @@ let try_with_state ?(default=false) f =
     try
       f ()
     with
-      | Failure _ -> set_bind_state state ; default
+      | Failure _ | Error _ -> set_bind_state state ; default
 
 let try_right_unify ?used:(used=[]) t1 t2 =
   try_with_state

@@ -461,151 +461,208 @@ let induction_tests =
       
     ]
 
-let assert_search_success b = assert_bool "Search should succeed" b
-let assert_search_failure b = assert_bool "Search should fail" (not b)
 
-let search ?(depth=5) ?(hyps=[]) ?(clauses=[]) ?(meta_clauses=[]) goal =
-  search ~depth ~hyps ~clauses ~meta_clauses goal
-    
+let assert_search ?(clauses="") ?(meta_clauses="")
+    ?(hyps=[]) ~goal ~expect () =
+  let depth = 5 in
+  let clauses = parse_clauses clauses in
+  let meta_clauses = parse_meta_clauses meta_clauses in
+  let hyps = List.map freshen hyps in
+  let goal = freshen goal in
+  let actual = search ~depth ~hyps ~clauses ~meta_clauses goal in
+    if expect then
+      assert_bool "Search should succeed" actual
+    else
+      assert_bool "Search should fail" (not actual)
+
 let search_tests =
   "Search" >:::
     [
       "Should check hypotheses" >::
         (fun () ->
-           let goal = freshen "{eval A B}" in
-             assert_search_success (search ~depth:0 ~hyps:[goal] goal)) ;
+           assert_search ()
+             ~hyps:["{eval A B}"]
+             ~goal:"{eval A B}"
+             ~expect: true
+        );
       
       "Should should succeed if clause matches" >::
         (fun () ->
-           let goal = freshen "{eval (abs R) (abs R)}" in
-             assert_search_success
-               (search ~depth:1 ~clauses:eval_clauses goal)) ;
+           assert_search ()
+             ~clauses:eval_clauses_string
+             ~goal:"{eval (abs R) (abs R)}"
+             ~expect: true
+        );
       
       "Should backchain on clauses" >::
         (fun () ->
-           let goal = freshen "{foo A}" in
-           let clauses = parse_clauses "foo X :- bar X, baz X." in
-           let hyps = [freshen "{bar A}"; freshen "{baz A}"] in
-             assert_search_success
-               (search ~clauses ~hyps goal)) ;
+           assert_search ()
+             ~clauses:"foo X :- bar X, baz X."
+             ~hyps:["{bar A}"; "{baz A}"]
+             ~goal:"{foo A}"
+             ~expect: true
+        );
 
       "On left of OR" >::
         (fun () ->
-           let hyp = freshen "{eval A B}" in
-           let goal = freshen "{eval A B} \\/ {false}" in
-             assert_search_success (search ~hyps:[hyp] goal)) ;
+           assert_search ()
+             ~hyps:["{eval A B}"]
+             ~goal:"{eval A B} \\/ {false}"
+             ~expect: true
+        );
       
       "On right of OR" >::
         (fun () ->
-           let hyp = freshen "{eval A B}" in
-           let goal = freshen "{false} \\/ {eval A B}" in
-             assert_search_success (search ~hyps:[hyp] goal)) ;
+           assert_search ()
+             ~hyps:["{eval A B}"]
+             ~goal:"{false} \\/ {eval A B}"
+             ~expect: true
+        );
 
       "On AND" >::
         (fun () ->
-           let hyp1 = freshen "{A}" in
-           let hyp2 = freshen "{B}" in
-           let goal = freshen "{A} /\\ {B}" in
-             assert_search_success (search ~hyps:[hyp1; hyp2] goal)) ;
+           assert_search ()
+             ~hyps:["{one}"; "{two}"]
+             ~goal:"{one} /\\ {two}"
+             ~expect: true
+        );
 
       "On AND (failure)" >::
         (fun () ->
-           let hyp = freshen "{A}" in
-           let goal = freshen "{A} /\\ {B}" in
-             assert_search_failure (search ~hyps:[hyp] goal)) ;
+           assert_search ()
+             ~hyps:["{one}"]
+             ~goal:"{one} /\\ {two}"
+             ~expect: false
+        );
 
       "On exists" >::
         (fun () ->
-           let goal = freshen "exists R, {eq (app M N) R}" in
-           let clauses = parse_clauses "eq X X." in
-             assert_search_success (search ~clauses goal)) ;
+           assert_search ()
+             ~clauses:"eq X X."
+             ~goal:"exists R, {eq (app M N) R}"
+             ~expect: true
+        );
+
+      "On exists (double)" >::
+        (fun () ->
+           assert_search ()
+             ~clauses:"eq X X."
+             ~goal:"exists R1 R2, {eq (app M N) (app R1 R2)}"
+             ~expect: true
+        );
+
+      "On exists (failure)" >::
+        (fun () ->
+           assert_search ()
+             ~clauses:"eq X X."
+             ~goal:"exists R, {eq (app M N) (app R R)}"
+             ~expect: false
+        );
 
       "Should use meta unification" >::
         (fun () ->
-           let hyp1 = freshen "{A} /\\ {B}" in
-           let goal = freshen "{A} /\\ {B}" in
-             assert_search_success (search ~hyps:[hyp1] goal)) ;
+           assert_search ()
+             ~hyps:["{A} /\\ {B}"]
+             ~goal:"{A} /\\ {B}"
+             ~expect: true
+        );
       
       "Should fail if there is no proof" >::
         (fun () ->
-           let goal = freshen "{eval A B}" in
-             assert_search_failure
-               (search ~depth:5 ~clauses:eval_clauses goal)) ;
+           assert_search ()
+             ~clauses:eval_clauses_string
+             ~goal:"{eval A B}"
+             ~expect: false
+        );
       
       "Should check context" >::
         (fun () ->
-           let goal = freshen "{eval A B |- eval A B}" in
-             assert_search_success (search ~depth:0 goal)) ;
+           assert_search ()
+             ~goal:"{eval A B |- eval A B}"
+             ~expect: true
+        );
 
       "Should fail if hypothesis has non-subcontext" >::
         (fun () ->
-           let hyp = freshen "{eval A B |- eval A B}" in
-           let goal = freshen "{eval A B}" in
-             assert_search_failure
-               (search ~depth:5 ~hyps:[hyp] goal)) ;
+           assert_search ()
+             ~hyps:["{eval A B |- eval A B}"]
+             ~goal:"{eval A B}"
+             ~expect: false
+        );
 
       "Should preserve context while backchaining" >::
         (fun () ->
-           let goal = freshen
-             "{eval M (abs R), eval (R N) V |- eval (app M N) V}"
-           in
-             assert_search_success (search ~clauses:eval_clauses goal)) ;
+           assert_search ()
+             ~clauses:eval_clauses_string
+             ~goal:"{eval M (abs R), eval (R N) V |- eval (app M N) V}"
+             ~expect: true
+        );
 
       "Should move implies to the left" >::
         (fun () ->
-           let hyp = freshen "{A |- B}" in
-           let goal = freshen "{A => B}" in
-             assert_search_success (search ~hyps:[hyp] goal)) ;
+           assert_search ()
+             ~hyps:["{one |- two}"]
+             ~goal:"{one => two}"
+             ~expect: true
+        );
 
       "Should replace pi x\\ with nominal variable" >::
         (fun () ->
-           let hyp = freshen "{pred n1 n1}" in
-           let goal = freshen "{pi x\\ pred x x}" in
-             assert_search_success (search ~hyps:[hyp] goal)) ;
+           assert_search ()
+             ~hyps:["{pred n1 n1}"]
+             ~goal:"{pi x\\ pred x x}"
+             ~expect: true
+        );
 
       "Should look for member" >::
         (fun () ->
-           let hyp = freshen "member (hyp A) L" in
-           let goal = freshen "{L |- hyp A}" in
-             assert_search_success (search ~hyps:[hyp] goal)) ;
+           assert_search ()
+             ~hyps:["member (hyp A) L"]
+             ~goal:"{L |- hyp A}"
+             ~expect: true
+        );
 
       "Should backchain on meta-clauses" >::
         (fun () ->
-           let meta_clauses =
-             parse_meta_clauses
-               ("member A (A :: L)." ^
-                  "member A (B :: L) :- member A L.")
-           in
-           let hyp = freshen "member E K" in
-           let goal = freshen "member E (F :: K)" in
-             assert_search_success (search ~hyps:[hyp] ~meta_clauses goal)) ;
+           assert_search ()
+             ~meta_clauses:"member A (B :: L) :- member A L."
+             ~hyps:["member E K"]
+             ~goal:"member E (F :: K)"
+             ~expect: true
+        );
 
       "Should raise meta clauses over support" >::
         (fun () ->
-           let meta_clauses = parse_meta_clauses "foo X." in
-           let goal = freshen "foo (A n1)" in
-             assert_search_success (search ~meta_clauses goal)) ;
+           assert_search ()
+             ~meta_clauses:"foo X."
+             ~goal:"foo (A n1)"
+             ~expect: true
+        );
 
       "Should raise object clauses over support" >::
         (fun () ->
-           let clauses = parse_clauses "foo X." in
-           let goal = freshen "{foo (A n1)}" in
-             assert_search_success (search ~clauses goal)) ;
+           assert_search ()
+             ~clauses:"foo X."
+             ~goal:"{foo (A n1)}"
+             ~expect: true
+        );
 
       "Should raise exists over support" >::
         (fun () ->
-           let hyps = [freshen "foo n1 n1"] in
-           let goal = freshen "exists X, foo n1 X" in
-             assert_search_success (search ~hyps goal)) ;
+           assert_search ()
+             ~hyps:["foo n1 n1"]
+             ~goal:"exists X, foo n1 X"
+             ~expect: true
+        );
 
       "Should work with nabla in the head" >::
         (fun () ->
-           let meta_clauses =
-             parse_meta_clauses "nabla x, ctx (var x :: L) :- ctx L."
-           in
-           let hyp = freshen "ctx L" in
-           let goal = freshen "ctx (var n1 :: L)" in
-             assert_search_success (search ~hyps:[hyp] ~meta_clauses goal)) ;
+           assert_search ()
+             ~meta_clauses:"nabla x, ctx (var x :: L) :- ctx L."
+             ~hyps:["ctx L"]
+             ~goal:"ctx (var n1 :: L)"
+             ~expect: true
+        );
 
     ]
 

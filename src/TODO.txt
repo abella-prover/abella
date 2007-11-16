@@ -1,3 +1,6 @@
+Clean up case-analysis tests so they are easy to read and write like
+the search tests?
+
 Clean up nominals so that we can generate lists of them at a time.
   Add tests for this in search, case, apply, etc
 

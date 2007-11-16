@@ -3,54 +3,78 @@ open Test_helper
 open Term
 open Metaterm
 open Tactics
-  
+
+let assert_object_cut ~cut ~using ~expect =
+  let cut = parse_obj cut in
+  let using = parse_obj using in
+  let actual = object_cut cut using in
+    assert_pprint_equal expect actual
+
 let object_cut_tests =
   "Object Cut" >:::
     [
       "Simple" >::
         (fun () ->
-           let t = object_cut (parse_obj "A |- B") (parse_obj "A") in
-             assert_pprint_equal "{B}" t) ;
+           assert_object_cut
+             ~cut:    "one |- two"
+             ~using:  "one"
+             ~expect: "{two}"
+        );
       
       "Compound" >::
         (fun () ->
-           let h0 = parse_obj "eval A B |- typeof B C" in
-           let h1 = parse_obj "eval A B" in
-           let t = object_cut h0 h1 in
-             assert_pprint_equal "{typeof B C}" t) ;
+           assert_object_cut
+             ~cut:    "eval A B |- typeof B C"
+             ~using:  "eval A B"
+             ~expect: "{typeof B C}"
+        );
 
       "Contexts should be merged" >::
         (fun () ->
-           let h0 = parse_obj "L1, A |- B" in
-           let h1 = parse_obj "L2 |- A" in
-           let t = object_cut h0 h1 in
-             assert_pprint_equal "{L2, L1 |- B}" t) ;
+           assert_object_cut
+             ~cut:    "L1, one |- two"
+             ~using:  "L2 |- one"
+             ~expect: "{L2, L1 |- two}"
+        );
 
       "Context should be normalized" >::
         (fun () ->
-           let h0 = parse_obj "L, A |- B" in
-           let h1 = parse_obj "L |- A" in
-           let t = object_cut h0 h1 in
-             assert_pprint_equal "{L |- B}" t) ;
+           assert_object_cut
+             ~cut:    "L, one |- two"
+             ~using:  "L |- one"
+             ~expect: "{L |- two}"
+        );
     ]
+
+    
+let assert_object_inst ~on ~inst ~using ~expect =
+  let on = freshen on in
+  let using = var Eigen using 0 in
+  let actual = object_inst on inst using in
+    assert_pprint_equal expect actual
 
 let object_instantiation_tests =
   "Object Instantiation" >:::
     [
       "Simple" >::
         (fun () ->
-           let t = (freshen "{eval n1 B}") in
-           let a = var Eigen "A" 0 in
-           let result = object_inst t "n1" a in
-             assert_pprint_equal "{eval A B}" result) ;
+           assert_object_inst
+             ~on:"{eval n1 B}"
+             ~inst:"n1"
+             ~using:"A"
+             ~expect:"{eval A B}"
+        );
       
       "Should only work on nominals" >::
         (fun () ->
-           let t = freshen "{prove A}" in
-           let b = var Eigen "B" 0 in
-           let result = object_inst t "A" b in
-             assert_pprint_equal "{prove A}" result) ;
+           assert_object_inst
+             ~on:"{prove A}"
+             ~inst:"A"
+             ~using:"B"
+             ~expect:"{prove A}"
+        );
     ]
+
 
 let apply_tests =
   "Apply" >:::
@@ -666,6 +690,7 @@ let search_tests =
 
     ]
 
+    
 let assert_expected_goals n goals =
   assert_failure (Printf.sprintf "Expected %d goal(s) but found %d goal(s)"
                     n (List.length goals))

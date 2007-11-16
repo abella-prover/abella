@@ -428,6 +428,20 @@ let case_tests =
                    assert_pprint_equal "ctx (var n1 :: L)" term
                | cases -> assert_expected_cases 1 cases) ;
              
+      "Should permute when nabla is in the head" >::
+        (fun () ->
+           let meta_clauses =
+             parse_meta_clauses "nabla x, ctx (var x :: L) :- ctx L." in
+           let term = freshen "ctx (K n2)" in
+             match case ~meta_clauses term with
+               | [case1; case2] ->
+                   set_bind_state case1.bind_state ;
+                   assert_pprint_equal "ctx (var n1 :: L n2)" term ;
+
+                   set_bind_state case2.bind_state ;
+                   assert_pprint_equal "ctx (var n2 :: L n1)" term
+               | cases -> assert_expected_cases 2 cases) ;
+             
     ]
 
 let induction_tests =

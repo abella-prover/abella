@@ -108,5 +108,26 @@ module List = struct
         | head::tail -> aux tail (max head m)
     in
       aux list 0
+
+  let rec distribute elt list =
+    match list with
+      | head::tail -> (elt :: list) ::
+          (List.map (fun x -> head :: x) (distribute elt tail))
+      | [] -> [ [elt] ]
+          
+  let rec permute list =
+    match list with
+      | x :: rest -> List.flatten (List.map (distribute x) (permute rest))
+      | [] -> [ [] ]
+
+  let rec zip list1 list2 =
+    match list1, list2 with
+      | head1::tail1, head2::tail2 -> (head1, head2) :: (zip tail1 tail2)
+      | [], [] -> []
+      | _, _ -> failwith "zip on uneven lists"
+
+  let rec permutations list =
+    map (zip list) (permute list)
+      
 end
 

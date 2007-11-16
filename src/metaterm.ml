@@ -56,7 +56,20 @@ let map_on_objs f t =
 let map_obj f obj =
   { context = Context.map f obj.context ;
     term = f obj.term }
-      
+
+let map_terms f t =
+  let rec aux t =
+    match t with
+      | Obj(obj, r) -> Obj(map_obj f obj, r)
+      | Arrow(a, b) -> Arrow(aux a, aux b)
+      | Binding(binder, bindings, body) ->
+          Binding(binder, bindings, aux body)
+      | Or(a, b) -> Or(aux a, aux b)
+      | And(a, b) -> And(aux a, aux b)
+      | Pred(p, r) -> Pred(f p, r)
+  in
+    aux t
+    
 let is_imp t =
   match observe t with
     | App(t, _) -> eq t (const "=>")

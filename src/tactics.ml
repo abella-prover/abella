@@ -38,15 +38,15 @@ let freshen_clause ~tag ~used ?(support=[]) head body =
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
 
+let alist_to_used (_, t) = ((term_to_var t).name, t)
+
 let freshen_meta_clause ~tag ~used ?(support=[]) head body =
   let var_names = meta_capital_var_names (pred head :: body) in
   let fresh_names = fresh_alist ~tag ~used var_names in
-  let used =
-    List.map (fun (_, t) -> ((term_to_var t).name, t)) fresh_names @ used in
   let raised_names = raise_alist ~support fresh_names in
-  let fresh_head = replace_term_vars raised_names head in
-  let fresh_body = List.map (replace_metaterm_vars raised_names) body in
-    (used, fresh_head, fresh_body)
+    (List.map alist_to_used fresh_names @ used,
+     replace_term_vars raised_names head,
+     List.map (replace_metaterm_vars raised_names) body)
 
 let freshen_bindings ?(support=[]) ~tag ~used bindings term =
   term |> replace_metaterm_vars (fresh_alist ~support ~tag ~used bindings)
@@ -124,37 +124,67 @@ let lift_all ~used nominals =
     used
     used
 
-let meta_term_case ~support ~used ~meta_clauses ~wrapper term =
-  meta_clauses|> List.filter_map
+let apply_perm perm term =
+  let alist = List.map (fun (x,y) -> ((term_to_var x).name, y)) perm in
+    replace_term_vars ~tag:Nominal alist term
+      
+let meta_apply_perm perm metaterm =
+  map_terms (apply_perm perm) metaterm
+      
+let metaterm_case ~support ~used ~meta_clauses ~wrapper term =
+  meta_clauses
+  |> List.map
       (fun (head, body) ->
-         let initial_state = get_bind_state () in
+         let clause_bind_state = get_bind_state () in
          let initial_used = used in
-         let used, head, body =
+         let used, head, body, nominals =
            match head with
-             | Pred(p, _) -> used, p, body
+             | Pred(p, _) -> used, p, body, []
              | Binding(Nabla, [id], Pred(p, _)) ->
-                 let n = nominal_var "n1" in
+                 (* nominals should be fresh with respect to p and support *)
+                 let n = fresh_nominal (pred (app p support)) in
                  let alist = [(id, n)] in
-                   (lift_all ~used [n],
+                 let nominals = [n] in
+                   (lift_all ~used:used nominals,
                     replace_term_vars alist p,
-                    List.map (replace_metaterm_vars alist) body)
+                    List.map (replace_metaterm_vars alist) body,
+                    nominals)
              | _ -> failwith "Bad head in meta-clause"
          in
          let used, head, body =
            freshen_meta_clause ~support ~tag:Eigen ~used head body
          in
-           if try_left_unify ~used head term then
-             let bind_state = get_bind_state () in
-             let wrapped_body = List.map wrapper body in
-             let used = List.unique
-             ((List.find_all (fun (_, t) -> is_free t) used) @ initial_used)
-             in
-               set_bind_state initial_state ;
-               Some { bind_state = bind_state ;
-                      new_vars = used ;
-                      new_hyps = wrapped_body }
-           else
-             (set_bind_state initial_state ; None))
+         let perms = match nominals with
+           | [] -> [[]]
+           | [n] -> List.map (List.zip (n::support))
+               (List.distribute n support)
+           | _ -> failwith "Not yet supported"
+         in
+         let perm_bind_state = get_bind_state () in
+         let result = perms |> List.filter_map
+             (fun perm ->
+                let head = apply_perm perm head in
+                let result =
+                  if try_left_unify ~used head term then
+                    let bind_state = get_bind_state () in
+                    let body = List.map (meta_apply_perm perm) body in
+                    let wrapped_body = List.map wrapper body in
+                    let used = List.unique
+                      ((List.find_all (fun (_, t) -> is_free t) used)
+                       @ initial_used)
+                    in
+                      Some { bind_state = bind_state ;
+                             new_vars = used ;
+                             new_hyps = wrapped_body }
+                  else
+                    None
+                in
+                  set_bind_state perm_bind_state ;
+                  result)
+         in
+           set_bind_state clause_bind_state ;
+           result)
+  |> List.concat
       
 let term_case ~support ~used ~clauses ~wrapper term =
   clauses |> List.filter_map
@@ -204,8 +234,7 @@ let case ~used ~clauses ~meta_clauses term =
     | Binding(Exists, ids, body) ->
         let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
         let fresh_body = replace_metaterm_vars fresh_ids body in
-        let new_vars =
-          List.map (fun (_, x) -> ((term_to_var x).name, x)) fresh_ids
+        let new_vars = List.map alist_to_used fresh_ids
         in
           [{ bind_state = get_bind_state () ;
              new_vars = new_vars ;
@@ -230,7 +259,7 @@ let case ~used ~clauses ~meta_clauses term =
           in
             aux t
         in
-          meta_term_case ~used ~support:(term_support p)
+          metaterm_case ~used ~support:(term_support p)
             ~meta_clauses ~wrapper p
     | _ -> invalid_metaterm_arg term
 

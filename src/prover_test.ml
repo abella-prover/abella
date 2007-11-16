@@ -155,12 +155,18 @@ let tests =
 
       "Add example (lemmas)" >::
         (fun () ->
-           setup_prover ()
-             ~clauses:addition_clauses
-             ~goal:"forall A B C, {nat B} -> {add A B C} -> {add B A C}"
-             ~lemmas:[
-               ("base", "forall N, {nat N} -> {add N z N}") ;
-               ("step", "forall A B C, {add A B C} -> {add A (s B) (s C)}")] ;
+           let addition_clauses = parse_clauses "
+             add z N N.
+             add (s A) B (s C) :- add A B C.
+             nat z.
+             nat (s N) :- nat N."
+           in
+             setup_prover ()
+               ~clauses:addition_clauses
+               ~goal:"forall A B C, {nat B} -> {add A B C} -> {add B A C}"
+               ~lemmas:[
+                 ("base", "forall N, {nat N} -> {add N z N}") ;
+                 ("step", "forall A B C, {add A B C} -> {add A (s B) (s C)}")] ;
 
            assert_proof
              (fun () ->

@@ -53,29 +53,6 @@ test: $(OCamlProgram $(TEST), $(OUNIT) $(FILES) $(TEST_FILES))
 
 
 ################################################
-# File Testing
-#
-
-THM_FILES[] = $(rootname $(find . -name *.thm))
-
-foreach(thm, $(THM_FILES))
-    .PHONY: $(thm)
-    $(thm): $(thm).mod $(thm).thm abella$(EXE)
-        ./abella $(thm).mod -f $(thm).thm
-
-foreach(thm, $(THM_FILES))
-    .PHONY: $(thm)-tail
-    $(thm)-tail: $(thm).mod $(thm).thm abella$(EXE)
-        ./abella $(thm).mod -f $(thm).thm | tail -100
-
-.PHONY: theorems
-theorems: abella$(EXE) $(addsuffix .thm, $(THM_FILES)) \
-                    $(addsuffix .mod, $(THM_FILES))
-    foreach(thm, $(THM_FILES))
-        ./abella $(thm).mod -q -f $(thm).thm
-
-
-################################################
 # Utilites
 #
 

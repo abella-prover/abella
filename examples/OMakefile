@@ -1,0 +1,26 @@
+################################################
+# File Testing
+#
+
+ABELLA = ../src/abella$(EXE)
+
+THM_FILES[] = $(rootname $(find . -name *.thm))
+
+foreach(thm, $(THM_FILES))
+    .PHONY: $(thm)
+    $(thm): $(thm).mod $(thm).thm $(ABELLA)
+        $(ABELLA) $(thm).mod -f $(thm).thm
+
+foreach(thm, $(THM_FILES))
+    .PHONY: $(thm)-tail
+    $(thm)-tail: $(thm).mod $(thm).thm $(ABELLA)
+        $(ABELLA) $(thm).mod -f $(thm).thm | tail -100
+
+.PHONY: theorems
+theorems: $(ABELLA) $(addsuffix .thm, $(THM_FILES)) \
+                    $(addsuffix .mod, $(THM_FILES))
+    foreach(thm, $(THM_FILES))
+        $(ABELLA) $(thm).mod -q -f $(thm).thm
+
+
+

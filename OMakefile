@@ -1,4 +1,4 @@
-.SUBDIRS: src
+.SUBDIRS: src examples
 
 
 ################################################
@@ -14,11 +14,12 @@ BuildDist() =
     cp CHANGELOG dist/CHANGELOG
 
     mkdir dist/src
-    cp src/*.ml src/*.mll src/*.mly src/*.mli dist/src
+    cp src/*.ml* dist/src
     rm dist/src/*test*.ml
 
     mkdir dist/examples
-    cp src/*.mod src/*.thm dist/examples
+    cp examples/*.mod dist/examples
+    cp examples/*.thm dist/examples
 
 .PHONY: dist
 dist: test theorems

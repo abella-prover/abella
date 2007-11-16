@@ -19,9 +19,6 @@ let parse_clauses str =
 let parse_meta_clauses str =
   Parser.meta_clauses Lexer.token (Lexing.from_string str)
 
-let read_mod filename =
-  Parser.clauses Lexer.token (Lexing.from_channel (open_in filename))
-
 let freshen str =
   let term = parse_metaterm str in
   let fresh_eigen_names =
@@ -45,9 +42,12 @@ let make_nominals list term =
   let alist = List.map (fun x -> (x, Term.nominal_var x)) list in
     replace_metaterm_vars alist term
 
-let eval_clauses = read_mod "eval.mod"
-let addition_clauses = read_mod "add.mod"
-  
+let eval_clauses = parse_clauses "
+  typeof (abs R) (arrow T U) :- pi x\ (typeof x T => typeof (R x) U).
+  typeof (app M N) T :- typeof M (arrow U T), typeof N U.
+  eval (abs R) (abs R).
+  eval (app M N) V :- eval M (abs R), eval (R N) V."
+
 (* Custom asserts *)
     
 let assert_string_equal =

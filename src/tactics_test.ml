@@ -439,7 +439,7 @@ let case_tests =
                    assert_pprint_equal "ctx (var n1 :: L n2)" term ;
 
                    set_bind_state case2.bind_state ;
-                   assert_pprint_equal "ctx (var n2 :: L n1)" term
+                   assert_pprint_equal "ctx (var n2 :: L)" term
                | cases -> assert_expected_cases 2 cases) ;
              
     ]

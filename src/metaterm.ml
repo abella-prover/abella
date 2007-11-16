@@ -169,7 +169,7 @@ let replace_term_vars ?tag alist t =
       | Susp _ -> failwith "Susp found during replace_term_vars"
       | Ptr _ -> assert false
   in
-    aux t
+    aux (deep_norm t)
 
 let rec replace_metaterm_vars alist t =
   let term_aux t = replace_term_vars alist t in

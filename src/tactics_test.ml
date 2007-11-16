@@ -580,23 +580,6 @@ let search_tests =
            let goal = freshen "member E (F :: K)" in
              assert_search_success (search ~hyps:[hyp] ~meta_clauses goal)) ;
 
-      "Should use bedwyr style search on meta-level predicates" >::
-        (fun () ->
-           let meta_clauses =
-             parse_meta_clauses ("foo P :- forall C, P = conc C -> false." ^
-                                   "X = X.")
-           in
-           let goal1 = freshen "foo (hyp A)" in
-           let goal2 = freshen "foo (conc A)" in
-             assert_search_success (search ~meta_clauses goal1) ;
-             assert_search_failure (search ~meta_clauses goal2)) ;
-
-      "Should find and fail on loops on the left" >::
-        (fun () ->
-           let meta_clauses = parse_meta_clauses "foo A :- foo A." in
-           let goal = freshen "forall X, foo X -> false" in
-             assert_search_success (search ~meta_clauses goal)) ;
-
       "Should raise meta clauses over support" >::
         (fun () ->
            let meta_clauses = parse_meta_clauses "foo X." in

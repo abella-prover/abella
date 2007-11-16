@@ -334,8 +334,6 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
             let nominal = fresh_nominal body in
             let body = replace_metaterm_vars [(id, nominal)] body in
               metaterm_aux n body
-        | Arrow(Pred(left, _), right) when is_false right ->
-            negative_meta_aux n left
         | Obj(obj, _) -> obj_aux n obj
         | Pred(p, _) ->
             List.exists (try_right_unify p) (filter_preds hyps) ||
@@ -365,60 +363,6 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                     right_unify head goal ;
                     List.for_all (metaterm_aux (n-1)) body))
               
-  (* true if we can confirm no proof exists *)
-  and negative_meta_aux n goal =
-    let table = ref [] in
-    let rec aux n goal =
-      if n = 0 then
-        false
-      else
-        let table () =
-          let abs_goal = abstract_eigen goal in
-            if List.mem ~cmp:eq abs_goal !table then
-              true
-            else
-              begin
-                table := abs_goal :: !table ;
-                false
-              end
-        in
-        let backchain () =
-          meta_clauses |> List.for_all
-              (fun (head, body) ->
-                 try_with_state ~default:true
-                   (fun () ->
-                      let support = term_support goal in
-                      let head, body =
-                        match head with
-                          | Pred(p, _) -> p, body
-                          | Binding(Nabla, [id], Pred(p, _)) ->
-                              let n = nominal_var "n1" in
-                              let alist = [(id, n)] in
-                                (replace_term_vars alist p,
-                                 List.map (replace_metaterm_vars alist) body)
-                          | _ -> failwith "Bad head in meta-clause"
-                      in
-                      let head, body =
-                        freshen_nameless_meta_clause
-                          ~tag:Eigen ~support head body
-                      in
-                      let body =
-                        List.filter_map (fun t ->
-                                           match t with
-                                             | Pred(p, _) -> Some p
-                                             | _ -> None)
-                          body
-                      in
-                        left_unify head goal ;
-                        List.exists (aux (n-1)) body))
-        in
-          table () || backchain ()
-    in
-    let bind_state = Term.get_bind_state () in
-    let result = aux n goal in
-      set_bind_state bind_state ;
-      result
-        
   in
     metaterm_aux n goal
 

@@ -1,27 +1,3 @@
-Clean up case-analysis tests so they are easy to read and write like
-the search tests?
-
-Clean up nominals so that we can generate lists of them at a time.
-  Add tests for this in search, case, apply, etc
-
-How to talk about theorems which preserve measures?
-  See the seq examples for a use
-
-Change the representation of contexts to something more managable?
-  Would need to add operators to fiddle with the context so that the
-  cut example could still work. But perhaps there is a benefit to
-  making such operations explict since they rely on properties of
-  lambda prolog. Actually they are all the same property,
-    {L1 |- P} -> (forall X, member X L1 -> member X L2) -> {L2 |- P}
-  So maybe a simple change_context (yuck that's long) tactic would
-  work. The key thing is that we can still expand contexts easily
-  during typical inductions.
-
-Case with nabla in the head
-  Allow more raisings
-  Allow for permutations of nabla variables
-  Figure out how to name new nabla variables
-
 Search with nabla in the head
   Allow more raising (maybe not needed if we use rigid definitions)
   Allow for permutations of nabla variables
@@ -30,6 +6,12 @@ Search with nabla in the head
 Add tests for raising in apply?
   How are we going to handle raising in apply?
   Add test for apply to nabla variables
+
+Clean up case-analysis tests so they are easy to read and write like
+the search tests?
+
+How to talk about theorems which preserve measures?
+  See the seq examples for a use
 
 Future
 ======

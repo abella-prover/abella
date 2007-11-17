@@ -124,100 +124,53 @@ let lift_all ~used nominals =
     used
     used
 
-(* TODO:
-   Removed repeated code which performs unification and packaging.
-   Clean up how the initial state is reset
-*)
 let metaterm_case ~support ~used ~meta_clauses ~wrapper term =
   let initial_bind_state = get_bind_state () in
-    meta_clauses
-    |> List.map
-        (fun (head, body) ->
-           let initial_used = used in
-           let nominals, head =
-             match head with
-               | Pred(p, _) -> [], p
-               | Binding(Nabla, ids, Pred(p, _)) -> ids, p
-               | _ -> failwith "Bad head in meta-clause"
-           in
-           let raised_result =
-             match nominals with
-               | [] -> None
-               | [id] ->
-                   (* nominals should be fresh with respect to p and support *)
-                   let n = fresh_nominal (pred (app head support)) in
-                   let _ = set_bind_state initial_bind_state in
-                   let alist = [(id, n)] in
-                   let used = lift_all ~used:used [n] in
-                   let head = replace_term_vars alist head in
-                   let body = List.map (replace_metaterm_vars alist) body in
-                   let used, head, body =
-                     freshen_meta_clause ~support ~tag:Eigen ~used head body
-                   in
-                     if try_left_unify ~used head term then
-                       let bind_state = get_bind_state () in
-                       let wrapped_body = List.map wrapper body in
-                       let used = List.unique
-                         ((List.find_all (fun (_, t) -> is_free t) used)
-                          @ initial_used)
-                       in
-                         Some { bind_state = bind_state ;
-                                new_vars = used ;
-                                new_hyps = wrapped_body }
-                     else
-                       None
-               | _ -> failwith "Only one nominal allowed in the head"
-           in
-           let permuted_results =
-             match nominals with
-               | [] ->
-                   let used, head, body =
-                     freshen_meta_clause ~support ~tag:Eigen ~used head body
-                   in
-                     set_bind_state initial_bind_state ;
-                     if try_left_unify ~used head term then
-                       let bind_state = get_bind_state () in
-                       let wrapped_body = List.map wrapper body in
-                       let used = List.unique
-                         ((List.find_all (fun (_, t) -> is_free t) used)
-                          @ initial_used)
-                       in
-                         [{ bind_state = bind_state ;
-                            new_vars = used ;
-                            new_hyps = wrapped_body }]
-                     else
-                       []
-               | [id] ->
-                   support |> List.filter_map
-                       (fun dest ->
-                          let alist = [(id, dest)] in
-                          let support = List.remove_all
-                            (fun x -> Term.eq x dest) support in
-                          let used, head, body =
-                            freshen_meta_clause ~support ~tag:Eigen ~used head body
-                          in
-                          let head = replace_term_vars alist head in
-                          let body =
-                            List.map (replace_metaterm_vars alist) body in
-                            set_bind_state initial_bind_state ;
-                            if try_left_unify ~used head term then
-                              let bind_state = get_bind_state () in
-                              let wrapped_body = List.map wrapper body in
-                              let used = List.unique
-                                ((List.find_all (fun (_, t) -> is_free t) used)
-                                 @ initial_used)
-                              in
-                                Some { bind_state = bind_state ;
-                                       new_vars = used ;
-                                       new_hyps = wrapped_body }
-                            else
-                              None)
-               | _ -> failwith "Only one nominal allowed in the head"
-           in
-             match raised_result with
-               | None -> permuted_results
-               | Some r -> r :: permuted_results)
-    |> List.concat
+  let initial_used = used in
+  let make_case ~support ~used (head, body) term =
+    let used, head, body =
+      freshen_meta_clause ~support ~tag:Eigen ~used head body
+    in
+      if try_left_unify ~used head term then
+        let newly_used =
+          used |> List.find_all (fun (_, t) -> is_free t) |> List.unique
+        in
+          [{ bind_state = get_bind_state () ;
+            new_vars = newly_used @ initial_used ;
+            new_hyps = List.map wrapper body }]
+      else
+        []
+  in
+    meta_clauses |> List.flatten_map
+        (function
+           | Pred(head, _), body ->
+               set_bind_state initial_bind_state ;
+               make_case ~support ~used (head, body) term
+           | Binding(Nabla, [id], Pred(head, _)), body ->
+               let raised_result =
+                 set_bind_state initial_bind_state ;
+                 (* new nominal should be fresh with respect to p and support *)
+                 let n = fresh_nominal (pred (app head support)) in
+                 let alist = [(id, n)] in
+                 let used = lift_all ~used [n] in
+                 let head = replace_term_vars alist head in
+                 let body = List.map (replace_metaterm_vars alist) body in
+                   make_case ~support ~used (head, body) term
+               in
+               let permuted_results =
+                 support |> List.flatten_map
+                     (fun dest ->
+                        set_bind_state initial_bind_state ;
+                        let alist = [(id, dest)] in
+                        let support = List.remove_all
+                          (fun x -> Term.eq x dest) support in
+                        let head = replace_term_vars alist head in
+                        let body =
+                          List.map (replace_metaterm_vars alist) body in
+                          make_case ~support ~used (head, body) term)
+               in
+                 raised_result @ permuted_results
+           | _ -> failwith "Bad head in meta-clause")
       
 let term_case ~support ~used ~clauses ~wrapper term =
   clauses |> List.filter_map

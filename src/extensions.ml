@@ -66,6 +66,9 @@ module List = struct
   let filter_map f list =
     map Option.get (find_all Option.is_some (map f list))
 
+  let flatten_map f list =
+    flatten (map f list)
+
   let remove_all f list =
     find_all (fun x -> not (f x)) list
 

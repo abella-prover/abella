@@ -162,8 +162,7 @@ let metaterm_case ~support ~used ~meta_clauses ~wrapper term =
                      (fun dest ->
                         set_bind_state initial_bind_state ;
                         let alist = [(id, dest)] in
-                        let support = List.remove_all
-                          (fun x -> Term.eq x dest) support in
+                        let support = List.remove dest support in
                         let head = replace_term_vars alist head in
                         let body =
                           List.map (replace_metaterm_vars alist) body in
@@ -375,8 +374,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                           support |> List.exists
                             (fun dest ->
                                let alist = [(id, dest)] in
-                               let support = List.remove_all
-                                 (fun x -> Term.eq x dest) support in
+                               let support = List.remove dest support in
                                let head = replace_term_vars alist head in
                                let body =
                                  List.map (replace_metaterm_vars alist) body

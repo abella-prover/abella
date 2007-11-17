@@ -702,6 +702,15 @@ let search_tests =
              ~expect: true
         );
 
+      "Should work with nabla in the head despite nominal name" >::
+        (fun () ->
+           assert_search ()
+             ~meta_clauses:"nabla x, ctx (var x :: L) :- ctx L."
+             ~hyps:["ctx L"]
+             ~goal:"ctx (var n2 :: L)"
+             ~expect: true
+        );
+
     ]
 
     

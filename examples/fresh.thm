@@ -4,4 +4,4 @@ Theorem forall A B X, fresh X A -> fresh X B -> fresh X (and A B).
 intros.
   case H1.
   case H2.
-  ...
+  search.

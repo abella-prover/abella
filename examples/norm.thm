@@ -88,7 +88,10 @@ skip.
 Theorem gen_app : forall L M N S,
   ctx L -> gen L (app M N) S ->
     exists MS NS, S = app MS NS /\ gen L M MS /\ gen L N NS.
-skip.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H3 H5. case H6. case H7. case H8. case H10.
+  search.
 
 Theorem gen_abs : forall L R S T,
   ctx L -> gen L (abs T R) S ->

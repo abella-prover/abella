@@ -356,28 +356,38 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
         | _ -> false
 
   and meta_aux n goal =
+    let support = term_support goal in
     if n = 0 then false else
       meta_clauses |> List.exists
           (fun (head, body) ->
              try_with_state
                (fun () ->
-                  let support = term_support goal in
-                  let head, body =
-                    match head with
-                      | Pred(p, _) -> p, body
-                      | Binding(Nabla, [id], Pred(p, _)) ->
-                          let n = nominal_var "n1" in
-                          let alist = [(id, n)] in
-                            (replace_term_vars alist p,
-                             List.map (replace_metaterm_vars alist) body)
-                      | _ -> failwith "Bad head in meta-clause"
-                  in
-                  let head, body =
-                    freshen_nameless_meta_clause ~tag:Logic ~support head body
-                  in
-                    right_unify head goal ;
-                    List.for_all (metaterm_aux (n-1)) body))
-              
+                  match head with
+                    | Pred(head, _) ->
+                        let head, body =
+                          freshen_nameless_meta_clause
+                            ~tag:Logic ~support head body
+                        in
+                          right_unify head goal ;
+                          List.for_all (metaterm_aux (n-1)) body
+                            
+                    | Binding(Nabla, [id], Pred(head, _)) ->
+                          support |> List.exists
+                            (fun dest ->
+                               let alist = [(id, dest)] in
+                               let support = List.remove_all
+                                 (fun x -> Term.eq x dest) support in
+                               let head = replace_term_vars alist head in
+                               let body =
+                                 List.map (replace_metaterm_vars alist) body
+                               in
+                               let head, body =
+                                 freshen_nameless_meta_clause
+                                   ~tag:Logic ~support head body
+                               in
+                                 right_unify head goal ;
+                                 List.for_all (metaterm_aux (n-1)) body)
+                     | _ -> failwith "Bad head in meta-clause"))
   in
     metaterm_aux n goal
 

@@ -1,8 +1,3 @@
-Search with nabla in the head
-  Allow more raising (maybe not needed if we use rigid definitions)
-  Allow for permutations of nabla variables
-  Figure out how to name new nabla variables
-
 Add tests for raising in apply?
   How are we going to handle raising in apply?
   Add test for apply to nabla variables

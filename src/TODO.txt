@@ -11,6 +11,9 @@ How to talk about theorems which preserve measures?
 Future
 ======
 
+Add warning if using a capital name without it appearing in forall
+  e.g. forall A, {rev A B} -> {rev B A}. should warn about B.
+
 Should meta_right_unify track used variables?
 
 Can we use a more declarative approach to help with nabla variables?
@@ -22,14 +25,14 @@ Clean up similarities between replace_metaterm_vars and normalize_binders
 Make a seperate type for (id * term) list?
 
 Have "unfold" do the work of "split" ?
+  Support unfold on lambda-prolog predicates
+  Support unfold for nabla in the head
 
 Make a reflist extension like in extlib?
 
 Find a way of handling undo state so that I don't have to remember to
   call it each time I start a tactic
 
-Unify/Search bug if last clause of step is moved first in norm.mod
-  
 Abstract out List.flatten (List.map collect_terms ...) ?
 
 Support "when T = abs S R." or "when T = abs _ _". in order to
@@ -37,26 +40,15 @@ distinguish cases. Try using this in pcf example?
 
 Support tac1;tac2 where tac2 applies to all subgoals of tac1
 
-How to deal with logic variables at the top level
-  We need to remember their bindings
-
-Allow naming of hypotheses and then get rid of hyps during case
+Allow naming of hypotheses
 
 Add an apply tactic that works backwards like in coq?
-  If so, clean up normal2.thm where we assert
 
 Check that TODO in unify.ml is sound
-
-Add more bedwyr style searching?
-  Watch timestamps more closely?
-  Change not (try_left_unify ...) so unification errors (not failures)
-    do not result in success
 
 Display new hypotheses in future subgoals? (subgoal 2 is : {...} -> ...)
   
 Do we have to consider logic variables in the context during search?
-
-Fix timestamp bug in unify that David has a test for
 
 
 Larger or longer term issues
@@ -69,10 +61,6 @@ Change OMakefile so exceptions print full stack trace? Is there a way
   to integrate this with OUnit?
 
 Add a show_lemmas command
-Add an abort command
-
-Add warning if using a capital name without it appearing in forall
-  e.g. forall A, {rev A B} -> {rev B A}. should warn about B.
 
 Can we represent /\ and \/ using,
   a \/ b := a.
@@ -85,3 +73,9 @@ Can we represent /\ and \/ using,
 
 What is the relationship between meta-level predicates without
 implication and object-level predicates without implication?
+
+How to deal with logic variables at the top level
+  We need to remember their bindings
+  Would also require fixing our issues with timestamps
+  This might be best to leave unsupported
+  Fix timestamp bug in unify that David has a test for

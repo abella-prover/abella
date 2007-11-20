@@ -28,6 +28,7 @@ type command =
   | Intros
   | Unfold
   | Skip
+  | Abort
   | Undo
 
 let meta_clause_to_string (head, body) =
@@ -68,5 +69,6 @@ let command_to_string c =
     | Unfold -> "unfold"
     | Intros -> "intros"
     | Skip -> "skip"
+    | Abort -> "abort"
     | Undo -> "undo"
       

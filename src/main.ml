@@ -5,6 +5,8 @@ open Printf
 
 let quiet = ref false
 
+exception AbortProof
+
 let rec process_proof name ~interactive lexbuf =
   let finished = ref false in
     try while not !finished do try
@@ -28,6 +30,7 @@ let rec process_proof name ~interactive lexbuf =
           | Unfold -> unfold ()
           | Intros -> intros ()
           | Skip -> skip ()
+          | Abort -> raise AbortProof
           | Undo -> undo ()
         end ;
         if interactive then flush stdout
@@ -44,6 +47,10 @@ let rec process_proof name ~interactive lexbuf =
       | End_of_file ->
           print_endline "Proof NOT completed." ;
           exit 1
+      | AbortProof ->
+          print_endline "Proof aborted." ;
+          reset_prover () ;
+          raise AbortProof
       | e ->
           printf "Unknown error: %s\n%!" (Printexc.to_string e) ;
           if not interactive then exit 1
@@ -58,8 +65,10 @@ let rec process ~interactive lexbuf =
       begin match input with
         | Theorem(name, thm) ->
             theorem thm ;
-            process_proof ~interactive:interactive name lexbuf ;
-            add_lemma name thm
+            begin try
+              process_proof ~interactive:interactive name lexbuf ;
+              add_lemma name thm
+            with AbortProof -> () end
         | Axiom(name, axiom) ->
             add_lemma name axiom
         | Def(meta_clause) ->
@@ -81,7 +90,7 @@ let rec process ~interactive lexbuf =
   done with
   | Failure "eof" -> ()
 
-let welcome_msg = "Abella 0.2\n"
+let welcome_msg = "Welcome to Abella 0.2\n"
 
 let usage_message = "abella [options] <module-file>"
 

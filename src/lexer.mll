@@ -57,6 +57,7 @@ rule token = parse
 | "unfold"           { UNFOLD }
 | "intros"           { INTROS }
 | "skip"             { SKIP }
+| "abort"            { ABORT }
 | "undo"             { UNDO }
 | "assert"           { ASSERT }
 | "keep"             { KEEP }

@@ -574,7 +574,10 @@ and rigid_path_check v1 t2 =
     
 (* Assuming t2 is a variable which we want to bind to t1, we try here to
  * instead bind some pruned version of t1 to t2. Doing this allows us to
- * avoid generating a new name. *)
+ * avoid generating a new name.
+ * 
+ * Example: Instead of binding X^0 to Y^0 c^1, we bind Y^0 to z\ X^0
+ *)
 and reverse_bind t1 t2 =
   match observe t1, observe t2 with
     | App(h, ts), Var v2 ->
@@ -585,7 +588,8 @@ and reverse_bind t1 t2 =
           end
         in
           begin match observe h with
-            | Var v1 when v1.ts >= v2.ts && List.for_all pruneable ts ->
+            | Var v1 when variable v1.tag && v1.ts >= v2.ts &&
+                List.for_all pruneable ts ->
                 bind h (lambda (List.length ts) t2) ; true
             | _ -> false
           end

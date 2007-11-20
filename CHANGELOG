@@ -1,16 +1,29 @@
 0.2 Release
 
+
 	Renamed project to Abella
 
-	Changed case tactic to remove hypothesis from hypothesis list.
 
-	Added examples/pcf.thm proving subject reduction for PCF.
+    Tactics changes:
 
-	Added examples/seq which compares the internal definition of
-	{...} with an external definition of seq.
+      * The case tactic now removes the hypothesis which is being analyzed
 
-	Added examples/seq2 which shows an alternate external
-	definition of {...} which makes the program explicit.
+      * The abort tactic ends the current proof
+
+
+    New examples:
+
+      * poplmark-1a - reflexivity and transitivity for Fsub,
+                      i.e. POPLmark Challenge 1a
+
+      * poplmark-2a - progress and preservation for Fsub,
+                      i.e. POPLmark Challenge 2a
+
+      * pcf - subject reduction for PCF
+
+      * seq - comparison of internal and external definitions of lambda Prolog,
+              i.e. {L |- P} versus an explicit and user-defined seq atom
+
 
 0.1 Release
 

@@ -128,6 +128,11 @@ The following tactics are listed in order of usefulness (according to me)
   The skip tactic skips the current goal completely. This is logically
   unsound, but very convenient during proof development.
 
+  abort.
+  ======
+  The abort tactic gives up on the current theorem and returns the user
+  to the top-level.
+
   cut <HYP-NAME> with <HYP-NAME>.
   ===============================
   Given hypotheses of the form {L1, A |- C} and {L2 |- A} with L1 and
@@ -251,8 +256,10 @@ progress.
  * pcf - subject reduction for PCF
          (i.e. Lambda calculus with extra constructs)
  * pe [wip] - results about partial evaluation for lambda calculus
- * poplmark-1a - reflexivity and transitivity for Fsub, ie POPLmark Challenge 1a
- * poplmark-2a - progress and preservation for Fsub, ie POPLmark Challenge 2a
+ * poplmark-1a - reflexivity and transitivity for Fsub,
+                 i.e. POPLmark Challenge 1a
+ * poplmark-2a - progress and preservation for Fsub,
+                 i.e. POPLmark Challenge 2a
  * seq - comparison between internal and external definition of seq
  * seq2 - an alternate definition of seq which makes the program explicit
  * subst - correctness for LLambda subst predicate

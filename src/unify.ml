@@ -610,7 +610,7 @@ and reverse_bind t1 t2 =
 and unify t1 t2 = match observe t1,observe t2 with
   | Var v1, Var v2 when v1 = v2 -> ()
   | Var v1,_ when variable v1.tag ->
-      if reverse_bind t2 t1 then
+     if reverse_bind t2 t1 then
         ()
       else if rigid_path_check v1 t2 then
         bind t1 t2

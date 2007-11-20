@@ -257,3 +257,4 @@ progress.
  * seq2 - an alternate definition of seq which makes the program explicit
  * subst - correctness for LLambda subst predicate
  * type_uniq - type uniqueness for simply typed lambda calculus
+ * type_uniq2 - same as type_uniq, but using only LG-omega

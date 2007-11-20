@@ -31,6 +31,20 @@ let meta_capital_var_names metaterms =
   |> List.flatten
   |> capital_var_names
 
+let free_capital_var_names metaterm =
+  let aux_term = capital_var_names in
+  let aux_obj obj = aux_term obj.context @ aux_term [obj.term] in
+  let rec aux = function
+    | Obj(obj, r) -> aux_obj obj
+    | Arrow(a, b) -> aux a @ aux b
+    | Binding(binder, bindings, body) ->
+        List.remove_all (fun x -> List.mem x bindings) (aux body)
+    | Or(a, b) -> aux a @ aux b
+    | And(a, b) -> aux a @ aux b
+    | Pred(p, r) -> aux_term [p]
+  in
+    List.unique (aux metaterm)
+
 let freshen_clause ~tag ~used ?(support=[]) head body =
   let var_names = capital_var_names (head::body) in
   let fresh_names = fresh_alist ~support ~tag ~used var_names in

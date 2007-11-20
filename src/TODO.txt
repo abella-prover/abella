@@ -11,9 +11,6 @@ How to talk about theorems which preserve measures?
 Future
 ======
 
-Add warning if using a capital name without it appearing in forall
-  e.g. forall A, {rev A B} -> {rev B A}. should warn about B.
-
 Should meta_right_unify track used variables?
 
 Can we use a more declarative approach to help with nabla variables?

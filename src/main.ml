@@ -7,6 +7,12 @@ let quiet = ref false
 
 exception AbortProof
 
+let check_theorem thm =
+  let variables = Tactics.free_capital_var_names thm in
+    if variables <> [] then
+      printf "\n\tWarning! Potential variables treated as constants: %s\n\n"
+        (String.concat ", " variables)
+
 let rec process_proof name ~interactive lexbuf =
   let finished = ref false in
     try while not !finished do try
@@ -64,6 +70,7 @@ let rec process ~interactive lexbuf =
       if not interactive then printf "%s.\n\n" (top_command_to_string input) ;
       begin match input with
         | Theorem(name, thm) ->
+            check_theorem thm ;
             theorem thm ;
             begin try
               process_proof ~interactive:interactive name lexbuf ;

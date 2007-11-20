@@ -472,20 +472,21 @@ let find_as f list =
     aux list
       
 let unfold ~used ~meta_clauses term =
-  match term with
-    | Pred(term, _) ->
-        meta_clauses |> find_as
-            (fun (head, body) ->
-               let used, head, body =
-                 match head with
-                   | Pred(p, _) -> used, p, body
-                   | _ -> failwith "Bad head in meta-clause"
-               in
-               let used, head, body =
-                 freshen_meta_clause ~tag:Logic ~used head body
-               in
-                 if try_right_unify ~used head term then
-                   Some body
-                 else
-                   None)
-    | _ -> failwith "Can only unfold predicates"
+  let support = metaterm_support term in
+    match term with
+      | Pred(term, _) ->
+          meta_clauses |> find_as
+              (fun (head, body) ->
+                 let used, head, body =
+                   match head with
+                     | Pred(p, _) -> used, p, body
+                     | _ -> failwith "Bad head in meta-clause"
+                 in
+                 let used, head, body =
+                   freshen_meta_clause ~support ~tag:Logic ~used head body
+                 in
+                   if try_right_unify ~used head term then
+                     Some body
+                   else
+                     None)
+      | _ -> failwith "Can only unfold predicates"

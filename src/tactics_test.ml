@@ -739,6 +739,14 @@ let unfold_tests =
                | [goal1] -> assert_pprint_equal "bar a" goal1
                | goals -> assert_expected_goals 1 goals) ;
 
+      "Should work with nominals" >::
+        (fun () ->
+           let meta_clauses = parse_meta_clauses "pred X :- foo X." in
+           let goal = freshen "pred (f n1)" in
+             match unfold ~meta_clauses goal with
+               | [goal1] -> assert_pprint_equal "foo (f n1)" goal1
+               | goals -> assert_expected_goals 1 goals) ;
+
     ]
 
     

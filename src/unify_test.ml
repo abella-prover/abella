@@ -355,9 +355,6 @@ let tests =
              right_unify a term ;
              assert_term_pprint_equal "cons (B C) D" a) ;
 
-      (* This is a test for a bug pointed out by David. Since we don't use
-         timestamps, however, I'm going to ignore it for now.
-         
       "[X^0 = Y^1]" >::
         (fun () ->
            let x = var Logic "X" 0 in
@@ -365,9 +362,17 @@ let tests =
              right_unify x y ;
              match !!x,!!y with
                | Var {ts=0}, Var {ts=0} -> ()
-               | _ -> assert false) ;
-      *)
+               | _ -> assert_failure "Timestamps should be lowered to match") ;
 
+      "X^0 = f^0 a^1" >::
+        (fun () ->
+           let a = const ~ts:1 "a" in
+           let x = var Logic "X" 0 in
+           let used = [("X", x)] in
+             assert_raises_failure
+               (fun () ->
+                  right_unify ~used x (app (const "f") [a]))) ;
+             
       "Logic variables on right should not unify with nominal variables" >::
         (fun () ->
            let a = var Logic "A" 0 in

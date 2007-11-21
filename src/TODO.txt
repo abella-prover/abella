@@ -1,3 +1,9 @@
+Fix capture bug when raising over a new nominal causes an existing
+bound nabla variable to capture the new one.
+  Also an issue: the fresh nominal should be fresh with respect to the
+  entire proof state. Thus we need to pass in some info about which
+  nominal can be used. Unless we change how raising is done.
+
 Add tests for raising in apply?
   How are we going to handle raising in apply?
   Add test for apply to nabla variables

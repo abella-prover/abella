@@ -97,8 +97,8 @@ The following tactics are listed in order of usefulness (according to me)
   tactic introduces three new eigen variables A, B, and C and adds F1
   and F2 to the hypotheses. The new goal is F3.
 
-  case on <HYP-NAME>.
-  ===================
+  case <HYP-NAME>.
+  ================
   The case tactic performs case analysis on a hypothesis. This
   corresponds to def-L in the LG logic. The tactic also removes the
   hypothesis from the hypothesis list. To keep it, use the keep flag,

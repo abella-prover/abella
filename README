@@ -76,6 +76,9 @@ There are only three top-level commands in Abella.
   of a predicate. Most often, these predicates are used to describe
   the context of lambda prolog terms for the given file.
 
+  The def command can be used with one nabla in the definition head.
+  See examples/type_uniq for an example.
+
 
 Tactics List
 ============

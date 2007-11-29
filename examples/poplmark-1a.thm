@@ -2,16 +2,18 @@
 
 %% Start generic section
 
-Def nabla x, nominal x.
+Def nabla x, name x.
 
 Def nat z.
 Def nat (s X) :- nat X.
 
 %% End generic section
 
+% ctx defines the context in which subtyping judgements are made
 Def ctx nil.
-Def ctx (bound X U :: L) :- nominal X, ctx L.
+Def ctx (bound X U :: L) :- name X, ctx L.
 
+% ty defines valid types and gives a measure over them
 Def ty L top N.
 Def ty L X N :- member (bound X U) L.
 Def ty L (arrow T1 T2) (s N) :- ty L T1 N, ty L T2 N.
@@ -33,17 +35,17 @@ induction on 1. intros. case H1.
   case H2.
     apply IH to H4 H5. search.
 
-Theorem ctx_nominal : forall L X U,
-  ctx L -> member (bound X U) L -> nominal X.
+Theorem ctx_name : forall L X U,
+  ctx L -> member (bound X U) L -> name X.
 induction on 1. intros. case H1.
   case H2.
   case H2.
     case H3. search.
     apply IH to H4 H5. search.
 
-Theorem ctx_nominal2 : forall L X U,
-  ctx L -> {L |- bound X U} -> nominal X.
-intros. case H2. apply ctx_nominal to H1 H3. search.
+Theorem bound_name : forall L X U,
+  ctx L -> {L |- bound X U} -> name X.
+intros. case H2. apply ctx_name to H1 H3. search.
 
 Theorem sub_top : forall L T,
   ctx L -> {L |- sub top T} -> T = top.
@@ -51,7 +53,7 @@ intros. case H2.
   apply ctx_no_sub to H1 H3. case H4.
   search.
   search.
-  apply ctx_nominal2 to H1 H3. case H5.
+  apply bound_name to H1 H3. case H5.
 
 Theorem change_bound_ty : forall L L' T N,
   ty L T N -> (forall X U, member (bound X U) L ->
@@ -91,23 +93,23 @@ induction on 1. intros. split.
     search.
     apply IH' to H2 H3 H7 H5. search.
     case H3.
-      apply ctx_nominal to H2 H8. case H9.
+      apply ctx_name to H2 H8. case H9.
       case H5.
         apply ctx_no_sub to H2 H10. case H11.
         search.
-        apply ctx_nominal2 to H2 H10. case H11.
-        apply ctx_nominal2 to H2 H10. case H12.
+        apply bound_name to H2 H10. case H11.
+        apply bound_name to H2 H10. case H12.
         case H1. apply IH to H12. case H13.
           apply H14 to H2 H8 H10 H6.
           apply H14 to H2 H9 H7 H11.
           search.
     case H3.
-      apply ctx_nominal to H2 H8. case H9.
+      apply ctx_name to H2 H8. case H9.
       case H9. case H5.
         apply ctx_no_sub to H2 H11. case H12.
         search.
-        apply ctx_nominal2 to H2 H11. case H12.
-        apply ctx_nominal2 to H2 H11. case H13.
+        apply bound_name to H2 H11. case H12.
+        apply bound_name to H2 H11. case H13.
         case H1. apply IH to H13. case H14.
           apply H15 to H2 H8 H11 H6.
           assert forall X U, member (bound X U) (bound n1 T1 :: L) ->

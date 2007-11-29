@@ -5,7 +5,7 @@
 
 %% Start generic section
 
-Def nabla x, nominal x.
+Def nabla x, name x.
 
 Def nabla x, fresh x E.
 
@@ -30,8 +30,8 @@ Def ctx (typeof X T :: L) :- fresh X L, ctx L.
 % since it does not require introducting nominal variables in most cases.
 % Moreover, we can use lemmas based on fresh rather than on nominal variables.
 
-Theorem typeof_nominal : forall L E T,
-  ctx L -> member (typeof E T) L -> nominal E.
+Theorem typeof_name : forall L E T,
+  ctx L -> member (typeof E T) L -> name E.
 induction on 2. intros. case H1.
   case H2.
   case H2.
@@ -54,23 +54,23 @@ induction on 1. intros. case H1.
 % the proofs when needed.
 Theorem no_abs : forall L R S T,
   ctx L -> member (typeof (abs S R) T) L -> false.
-intros. apply typeof_nominal to H1 H2. case H3.
+intros. apply typeof_name to H1 H2. case H3.
     
 Theorem no_app : forall L M N T,
   ctx L -> member (typeof (app M N) T) L -> false.
-intros. apply typeof_nominal to H1 H2. case H3.
+intros. apply typeof_name to H1 H2. case H3.
     
 Theorem det_typeof : forall L E T1 T2,
   ctx L -> {L |- typeof E T1} -> {L |- typeof E T2} -> T1 = T2.
 induction on 2. intros. case H2.
   case H3.
     apply uniq to H1 H4 H5. search.
-    apply typeof_nominal to H1 H4. case H6.
-    apply typeof_nominal to H1 H4. case H7.
+    apply typeof_name to H1 H4. case H6.
+    apply typeof_name to H1 H4. case H7.
   case H3.
-    apply typeof_nominal to H1 H5. case H6.
+    apply typeof_name to H1 H5. case H6.
     apply IH to _ H4 H5. case H6. search.
   case H3.
-    apply typeof_nominal to H1 H6. case H7.
+    apply typeof_name to H1 H6. case H7.
     apply IH to H1 H4 H6.
       case H8. search.

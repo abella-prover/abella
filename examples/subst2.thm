@@ -1,0 +1,23 @@
+Def nabla x, name x.
+
+Def nabla x, fresh x E.
+
+Def ctx nil.
+Def nabla x, ctx (pair x (V x) :: L) :- ctx L.
+
+Def subst1 nil T T.
+Def nabla x, subst1 (pair x V :: L) (T x) T' :- subst1 L (T V) T'.
+
+Def subst2 L (app M N) (app M' N') :- subst2 L M M', subst2 L N N'.
+Def subst2 L (abs M) (abs M') :- nabla x, subst2 (pair x x :: L) (M x) (M' x).
+Def subst2 (pair X V :: L) X V :- name X.
+Def subst2 (pair Y V :: L) X V' :- fresh X Y, subst2 L X V'.
+Def subst2 nil T T.
+
+Theorem subst1_subst2 : forall L T T',
+  ctx L -> subst1 L T T' -> subst2 L T T'.
+skip.  
+
+Theorem subst2_subst1 : forall L T T',
+  ctx L -> subst2 L T T' -> subst1 L T T'.  
+skip.

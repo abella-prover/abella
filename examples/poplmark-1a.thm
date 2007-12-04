@@ -6,24 +6,21 @@ Def nabla x, name x.
 Def ctx nil.
 Def ctx (bound X U :: L) :- name X, ctx L.
 
-% ty defines valid types and gives a measure over them
-Def ty L top N.
-Def ty L X N :- member (bound X U) L.
-Def ty L (arrow T1 T2) (s N) :- ty L T1 N, ty L T2 N.
-Def ty L (all T1 T2) (s N) :-
-  ty L T1 N, (nabla x, ty (bound x T1 :: L) (T2 x) N).
+% cty defines valid closed types (used for reflexivity)
+Def cty L top.
+Def cty L X :- member (bound X U) L.
+Def cty L (arrow T1 T2) :- cty L T1, cty L T2.
+Def cty L (all T1 T2) :-
+  cty L T1, (nabla x, cty (bound x T1 :: L) (T2 x)).
 
-% This ty recognizes open types. It works for transitivity, but not for
-% reflexivity. In reflexivity, we need to know which variables are used so
-% we know they have a corresponding "bound" assumption and thus they have
-% reflexivity through the "sub X X :- bound X U" rule.
+% ty defines valid open types (used for transitivity)
 Def ty top.
 Def nabla x, ty x.
 Def ty (arrow T1 T2) :- ty T1, ty T2.
 Def ty (all T1 T2) :- ty T1, (nabla x, ty (T2 x)).
   
-Theorem sub_refl : forall L T N,
-  ty L T N -> {L |- sub T T}.
+Theorem sub_refl : forall L T,
+  cty L T -> {L |- sub T T}.
 induction on 1. intros. case H1.
   search.
   search.

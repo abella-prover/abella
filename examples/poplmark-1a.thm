@@ -1,13 +1,6 @@
 %% Reflexivity and transitivity for Fsub, ie POPLmark Challenge 1a
 
-%% Start generic section
-
 Def nabla x, name x.
-
-Def nat z.
-Def nat (s X) :- nat X.
-
-%% End generic section
 
 % ctx defines the context in which subtyping judgements are made
 Def ctx nil.
@@ -20,6 +13,15 @@ Def ty L (arrow T1 T2) (s N) :- ty L T1 N, ty L T2 N.
 Def ty L (all T1 T2) (s N) :-
   ty L T1 N, (nabla x, ty (bound x T1 :: L) (T2 x) N).
 
+% This ty recognizes open types. It works for transitivity, but not for
+% reflexivity. In reflexivity, we need to know which variables are used so
+% we know they have a corresponding "bound" assumption and thus they have
+% reflexivity through the "sub X X :- bound X U" rule.
+Def ty top.
+Def nabla x, ty x.
+Def ty (arrow T1 T2) :- ty T1, ty T2.
+Def ty (all T1 T2) :- ty T1, (nabla x, ty (T2 x)).
+  
 Theorem sub_refl : forall L T N,
   ty L T N -> {L |- sub T T}.
 induction on 1. intros. case H1.
@@ -55,105 +57,63 @@ intros. case H2.
   search.
   apply bound_name to H1 H3. case H5.
 
-Theorem change_bound_ty : forall L L' T N,
-  ty L T N -> (forall X U, member (bound X U) L ->
-                 exists V, member (bound X V) L') -> ty L' T N.
-induction on 1. intros. case H1.
-  search.
-  apply H2 to H3. case H4. search.
-  apply IH to H3 H2. apply IH to H4 H2. search.
-  apply IH to H3 H2. case H4.
-    assert forall X U, member (bound X U) (bound n1 T1 :: L) ->
-             exists V, member (bound X V) (bound n1 T1 :: L').
-      intros. case H7.
-        search.
-        apply H2 to H8. case H9. search.
-    apply IH to H6 H7. search.
-
-Theorem change_bound_ty2 : forall L L' T N,
-  ty L T N -> (forall E, member E L -> member E L') -> ty L' T N.
-intros.
-assert forall X U, member (bound X U) L -> exists V, member (bound X V) L'.
-  intros. apply H2 to H3. search.
-apply change_bound_ty to H1 H3. search.
-
-Theorem dual_theorem : forall N, nat N ->
-  (forall L Q S T, ctx L -> ty L Q N ->
+Theorem dual_theorem : forall Q, ty Q ->
+  (forall L S T, ctx L ->
     {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T})
   /\
-  (forall L P Q X TM TN,
-    ctx (bound X Q :: L) -> ty L Q N -> {L |- sub P Q} ->
+  (forall L P X TM TN,
+    ctx (bound X Q :: L) -> {L |- sub P Q} ->
       {L, bound X Q |- sub TM TN} -> {L, bound X P |- sub TM TN}).
 induction on 1. intros. split.
 
   % Proof of transitivity
-  induction on 3. intros. case H4.
-    apply ctx_no_sub to H2 H6. case H7.
-    apply sub_top to H2 H5. case H6. search.
+  induction on 2. intros. case H3.
+    apply ctx_no_sub to H2 H5. case H6.
+    apply sub_top to H2 H4. case H5. search.
     search.
-    apply IH' to H2 H3 H7 H5. search.
-    case H3.
-      apply ctx_name to H2 H8. case H9.
-      case H5.
-        apply ctx_no_sub to H2 H10. case H11.
-        search.
-        apply bound_name to H2 H10. case H11.
-        apply bound_name to H2 H10. case H12.
-        case H1. apply IH to H12. case H13.
-          apply H14 to H2 H8 H10 H6.
-          apply H14 to H2 H9 H7 H11.
-          search.
-    case H3.
-      apply ctx_name to H2 H8. case H9.
-      case H9. case H5.
-        apply ctx_no_sub to H2 H11. case H12.
-        search.
-        apply bound_name to H2 H11. case H12.
-        apply bound_name to H2 H11. case H13.
-        case H1. apply IH to H13. case H14.
-          apply H15 to H2 H8 H11 H6.
-          assert forall X U, member (bound X U) (bound n1 T1 :: L) ->
-                   exists V, member (bound X V) (bound n1 T0 :: L).
-            intros. case H18.
+    apply IH' to H2 H6 H4. search.
+    case H4.
+      apply ctx_no_sub to H2 H7. case H8.
+      search.
+      apply bound_name to H2 H7. case H8.
+      apply bound_name to H2 H7. case H9.
+      case H1. apply IH to H9. case H11.
+        apply IH to H10. case H14.
+          apply H12 to H2 H7 H5.
+            apply H15 to H2 H6 H8.
               search.
-              search.
-          apply change_bound_ty to H10 H18.
-          assert forall E, member E L -> member E (bound n1 T1 :: L).
-            intros. search.
-          assert ctx (bound n1 T1 :: L). search.
-          apply H16 to H21 H8 H11 H7.
-          assert ctx (bound n1 T0 :: L). search.
-          apply H15 to H23 H19 H22 H12.
-          search.
+    case H4.
+      apply ctx_no_sub to H2 H7. case H8.
+      search.
+      apply bound_name to H2 H7. case H8.
+      apply bound_name to H2 H7. case H9.
+      case H1. apply IH to H9. case H11.
+        case H10. apply IH to H14. case H15.
+          apply H12 to H2 H7 H5.
+            assert ctx (bound n1 T1 :: L). search.
+              apply H13 to H19 H7 H6.
+                apply H16 to _ H20 H8.
+                  search.
 
   % Proof of narrowing
-  induction on 4. intros. case H6.
-    apply ctx_no_sub to H3 H7. case H8.
+  induction on 3. intros. case H5.
+    apply ctx_no_sub to H3 H6. case H7.
     search.
-    case H7. case H8.
+    case H6. case H7.
       search.
       search.
-    case H7. case H9.
-      apply IH' to H3 H4 H5 H8.
-        assert ctx (bound X P :: L). case H3. search.
-        assert forall E, member E L -> member E (bound X P :: L).
-          intros. search.
-        apply change_bound_ty2 to H4 H12.
-        apply H2 to H11 H13 H5 H10.
-        search.
-      apply IH' to H3 H4 H5 H8.
-        search.
-    apply IH' to H3 H4 H5 H7. apply IH' to H3 H4 H5 H8. search.
-    apply IH' to H3 H4 H5 H7.
+    case H6. case H8.
+      apply IH' to H3 H4 H7.
+        case H3.
+          apply H2 to _ H4 H9. search.
+    apply IH' to H3 H4 H7. search.
+    apply IH' to H3 H4 H6. apply IH' to H3 H4 H7. search.
+    apply IH' to H3 H4 H6.
       assert ctx (bound X Q :: bound n1 T1 :: L). case H3. search.
-      assert forall E, member E L -> member E (bound n1 T1 :: L).
-        intros. search.
-      apply change_bound_ty2 to H4 H11. search.
-      apply IH' to H10 H12 H5 H8.
+      apply IH' to H9 H4 H7.
       search.
 
-Theorem transitivity : forall L Q S T N,
-  nat N -> ctx L -> ty L Q N ->
-    {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T}.
-intros. apply dual_theorem to H1. case H6.
-  apply H7 to H2 H3 H4 H5. search.
+Theorem transitivity : forall L Q S T,
+  ctx L -> ty Q -> {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T}.
+intros. apply dual_theorem to H2. case H5.
+  apply H6 to H1 H3 H4. search.

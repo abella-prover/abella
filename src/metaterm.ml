@@ -223,7 +223,7 @@ let fresh_nominal t =
 let n_var_names terms =
   terms
   |> map_vars_list (fun v -> v.name)
-  |> List.find_all (fun str -> str.[0] = 'n')
+  |> List.find_all (fun str -> Str.string_match (Str.regexp "^n[0-9]+$") str 0)
   |> List.unique
 
 let replace_nominal_vars term =

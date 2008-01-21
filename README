@@ -250,7 +250,7 @@ progress.
 
  * add - commutativity for addition
  * copy - equality of identical definitions of the copy predicate
- * cut - cut elimination for sequent calculus with "and" and "implies"
+ * cut - cut admissibility for an intuitionistic sequent calculus
  * eval - lambda calculus and various results on typing and evaluation
  * lists - various results about lists (append, reverse, perm)
  * norm [wip] - normalization for the simply typed lambda calculus

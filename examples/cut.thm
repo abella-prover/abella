@@ -26,7 +26,6 @@ induction on 2. intros. case H2.
   apply IH to _ H4. search.
   apply IH to _ H5. search.
 
-    
 Theorem and_right_inv :
   forall L C1 C2, ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C2}.
 induction on 2. intros. case H2.
@@ -35,7 +34,6 @@ induction on 2. intros. case H2.
   search.
   apply IH to _ H4. search.
   apply IH to _ H5. search.
-
   
 Theorem imp_inv :
   forall L C1 C2, ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
@@ -45,26 +43,52 @@ induction on 2. intros. case H2.
   apply IH to _ H4. search.
   search.
   apply IH to _ H5. search.
-
-
-Theorem cut_elim :
+  
+  
+Theorem cut_admissibility :
   forall L K C,
     {prop K} -> ctx L -> {L |- conc K} -> {L, hyp K |- conc C} -> {L |- conc C}.
+
+% The proof is by nested induction on
+%  1) The size of the cut formula K
+%  2) The height of {L, hyp K |- conc C}
+
 induction on 1. induction on 4. intros. case H4.
+  % Case analysis on {L, hyp K |- conc C}
+  
+  % conc C in context - impossible
   apply ctx_lemma to _ H5. case H6.
+
+  % init rule
   case H5. case H6.
-    search.
-    search.
+    search. % K = C
+    search. % K <> C
+
+  % C = top
   search.
+
+  % andR - C = and A B
   apply IH' to H1 _ H3 H5. apply IH' to H1 _ H3 H6.
     search.
+
+  % andL
   apply IH' to H1 _ H3 H6. case H5. case H8.
+    % essential case - K = and A B
     apply and_left_inv to _ H3. apply and_right_inv to _ H3. case H1.
       apply IH to H11 _ H9 H7. apply IH to H12 _ H10 H13. search.
-      search.
+      
+    % commutative case
+    search.
+
+  % impR - C = imp A B.
   apply IH' to H1 _ H3 H5. search.
-  apply IH' to H1 _ H3 H6. apply IH' to H1 _ H3 H7.
-    case H5. case H10.
-      apply imp_inv to _ H3. case H1.
-        apply IH to H12 _ H8 H11. apply IH to H13 _ H14 H9. search.
-      search.
+
+  % impL
+  apply IH' to H1 _ H3 H6. apply IH' to H1 _ H3 H7. case H5. case H10.
+    % essential case - K = imp A B
+    apply imp_inv to _ H3. case H1.
+      apply IH to H12 _ H8 H11. apply IH to H13 _ H14 H9. search.
+
+    % commutative case
+    search.
+    

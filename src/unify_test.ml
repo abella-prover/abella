@@ -409,4 +409,29 @@ let tests =
              assert_term_pprint_equal "x1\\B" a ;
              assert_term_pprint_equal "B" b) ;
              
+      "X^0 a^1 b^1 = Y^0 Z^0 b^1" >::
+        (fun () ->
+           let a = const ~ts:1 "a" in
+           let b = const ~ts:1 "b" in
+           let x = var Eigen "X" 0 in
+           let y = var Eigen "Y" 0 in
+           let z = var Eigen "Z" 0 in
+           let used = [("X", x); ("Y", y); ("Z", z)] in
+             left_unify ~used (app x [a;b]) (app y [z;b]) ;
+             assert_term_pprint_equal "x1\\x2\\Y Z x2" x ;
+             assert_term_pprint_equal "Y" y ;
+             assert_term_pprint_equal "Z" z) ;
+             
+      "X^0 a^1 = Y^0 (Z^0 a^1)" >::
+        (fun () ->
+           let a = const ~ts:1 "a" in
+           let x = var Eigen "X" 0 in
+           let y = var Eigen "Y" 0 in
+           let z = var Eigen "Z" 0 in
+           let used = [("X", x); ("Y", y); ("Z", z)] in
+             left_unify ~used (app x [a]) (app y [app z [a]]) ;
+             assert_term_pprint_equal "x1\\Y (Z x1)" x ;
+             assert_term_pprint_equal "Y" y ;
+             assert_term_pprint_equal "Z" z) ;
+             
     ]

@@ -93,12 +93,29 @@ induction on 1. intros. case H1.
   case H2. apply IH to H3 H5. case H6. case H7. case H8. case H10.
   search.
 
+% TODO: This proof doesn't look right. n1 caries over after applying IH
+Theorem type_ground : forall T, nabla n1,
+  {type (T n1)} -> exists S, T = (x\ S).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. case H4. case H5.
+    apply IH to H3. case H6. case H7.
+      search.
+
 Theorem gen_abs : forall L R S T,
-  ctx L -> gen L (abs T R) S ->
+  ctx L -> gen L (abs T R) S -> {type T} ->
     exists RS, S = abs T RS /\
                forall V, nabla n1,
-                 {typeof V T} -> gen (typeof n1 T :: L) (R n1) (RS V).
-skip.
+                 reduce T V -> gen (typeof n1 T :: L) (R n1) (RS V).
+induction on 1. intros. case H1.
+  case H2. exists R. split.
+    search.
+    intros. search.
+  case H2. apply type_ground to H3. case H7. case H8.
+    apply IH to H4 H6 H3. case H9. case H10. case H11.
+      exists RS. split.
+        search.
+        intros. apply H12 to H14. skip.
 
 Theorem generalized : forall L T S A,
   ctx L -> {L |- typeof T A} -> gen L T S -> reduce A S.
@@ -110,18 +127,5 @@ induction on 2. intros. case H2.
     case H12.
     apply H16 to H13.
     search.
-  apply gen_abs to H1 H3. case H5. case H6. case H7.
-    unfold.
-      skip.
-      skip.
-      intros.
-       apply reduce_halts to H9.
-       % We need to evaluate S' to a value, but we'll skip that for now
-       apply reduce_typeof to H9.
-       apply H8 to H11.
-       apply IH to _ H4 H12.
-       assert step (app (abs T' RS) S') (RS S'). skip.
-          % ^^ This one fails because of unification and S' not a value
-       % apply reduce_step_backward to _ _ H14 H13.
-       skip.
+  skip.
 

@@ -65,7 +65,7 @@ induction on 1. intros. case H1.
   apply sub_forall to H3. case H4. case H5.
     apply IH to H2. case H6. case H8.
       apply IH to H3. case H10. case H12.
-        assert {sub n1 T1 |- sub n1 S0}. search.
+        assert {sub n1 T1 |- sub n1 S3}. search.
         cut H9 with H14.
         search.
   search.
@@ -105,7 +105,7 @@ induction on 1. intros. case H1.
   apply sub_forall to H3. case H4. case H5.
     apply invert_sub_forall to H3. case H6. case H8.
     apply IH to H2. case H10. case H11. case H12. case H13.
-    assert {sub n1 T1 |- sub n1 S0}. search.
+    assert {sub n1 T1 |- sub n1 S2}. search.
     cut H14 with H17.
     search.
 
@@ -160,7 +160,7 @@ induction on 1. intros. case H1.
   case H2.
     apply invert_of_abs to H3. case H5. case H6. case H7. case H8.
       inst H10 with n1 = E2.
-      assert {of E2 T0}. search.
+      assert {of E2 T1}. search.
       cut H12 with H13. search.
     apply IH to H3 H5. search.
   apply IH to H4 H6. search.

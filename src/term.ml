@@ -185,7 +185,7 @@ end
 let const ?(ts=0) s = Ptr (ref (V { name=s ; ts=ts ; tag=Constant }))
   
 let fresh =
-  let varcount = ref 0 in
+  let varcount = ref 1 in
     fun () ->
       let i = !varcount in
         incr varcount ;
@@ -210,7 +210,7 @@ let fresh_name name used =
   in
     (* Try to avoid any renaming *)
     if List.mem_assoc name used then
-      aux 0
+      aux 1
     else
       name
       

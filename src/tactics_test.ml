@@ -452,18 +452,7 @@ let case_tests =
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "foo n2 n1" hyp
                | cases -> assert_expected_cases 1 cases) ;
-             
-      "Should not allow capture of nabla variales" >::
-        (fun () ->
-           let meta_clauses = parse_meta_clauses "nabla x, name x." in
-           let term = freshen "name A" in
-           let hyp = freshen "nabla n1, foo A n1" in
-             match case ~meta_clauses term with
-               | [case1] ->
-                   set_bind_state case1.bind_state ;
-                   assert_pprint_equal "nabla n2, foo n1 n2" hyp
-               | cases -> assert_expected_cases 1 cases) ;
-             
+
     ]
 
 let induction_tests =

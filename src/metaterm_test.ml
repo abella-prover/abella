@@ -116,7 +116,7 @@ let tests =
         (fun () ->
            let t = exists ["A"] b in
            let t' = replace_metaterm_vars [("B", var_a)] t in
-             assert_pprint_equal "exists A0, {A}" t') ;
+             assert_pprint_equal "exists A1, {A}" t') ;
       
       "Print non-empty context" >::
         (fun () ->
@@ -170,17 +170,27 @@ let tests =
            let t = forall ["A"]
              (arrow (pred (app p [var_a])) (pred (app p [const_a])))
            in
-             assert_pprint_equal "forall A0, p A -> p A0" (normalize t)) ;
+             assert_pprint_equal "forall A1, p A -> p A1" (normalize t)) ;
+
+      "Normalize should rename bound nabla variables if needed" >::
+        (fun () ->
+           let const_n1 = const "n1" in
+           let nom_n1 = nominal_var "n1" in
+           let p = const "p" in
+           let t = forall ["n1"]
+             (arrow (pred (app p [nom_n1])) (pred (app p [const_n1])))
+           in
+             assert_pprint_equal "forall n2, p n1 -> p n2" (normalize t)) ;
 
       "Normalize should rename nested binders" >::
         (fun () ->
            (* The var_a should force renaming of the A which should
-              cascade and force renaming of A0 *)
-           let eq = pred (app (const "=") [const "A"; const "A0"]) in
+              cascade and force renaming of A1 *)
+           let eq = pred (app (const "=") [const "A"; const "A1"]) in
            let t = Binding(Forall, ["A"],
-                           Arrow(pred var_a, Binding(Forall, ["A0"], eq)))
+                           Arrow(pred var_a, Binding(Forall, ["A1"], eq)))
            in
-             assert_pprint_equal "forall A0, A -> (forall A1, A0 = A1)"
+             assert_pprint_equal "forall A1, A -> (forall A2, A1 = A2)"
                (normalize t) );
 
       "Abstract should replace eigen variables with lambda abstractions" >::

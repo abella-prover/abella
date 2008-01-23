@@ -205,11 +205,31 @@ let rec collect_terms t =
 
 let map_term_list f t = List.map f (collect_terms t)
 
+let term_support t = find_var_refs Nominal [t]
+
+let obj_support obj = find_var_refs Nominal (obj.term :: obj.context)
+
+let metaterm_support t =
+  let rec aux t =
+    match t with
+      | Obj(obj, _) -> obj_support obj
+      | Arrow(t1, t2) -> aux t1 @ aux t2
+      | Binding(_, ids, t) -> aux t
+      | Or(t1, t2) -> aux t1 @ aux t2
+      | And(t1, t2) -> aux t1 @ aux t2
+      | Pred(t, _) -> term_support t
+  in
+    List.unique (aux t)
+
 let get_metaterm_used t =
   t |> collect_terms
     |> find_var_refs Eigen
     |> List.map (fun v -> ((term_to_var v).name, v))
 
+let get_metaterm_used_nominals t =
+  t |> metaterm_support
+    |> List.map (fun v -> ((term_to_var v).name, v))
+  
 let fresh_nominal t =
   let used_vars = find_vars Nominal (collect_terms t) in
   let used_names = List.map (fun v -> v.name) used_vars in
@@ -261,7 +281,8 @@ let rec normalize_binders alist t =
             |> List.map (fun v -> ((term_to_var v).name, v))
           in
           let body_used = get_metaterm_used body in
-          let used = alist_used @ body_used in
+          let nominal_used = get_metaterm_used_nominals body in
+          let used = alist_used @ body_used @ nominal_used in
           let bindings', body' =
             freshen_used_bindings bindings used body
           in
@@ -288,24 +309,6 @@ let normalize term =
   |> map_on_objs normalize_obj
   |> normalize_binders []
 
-let term_support t = find_var_refs Nominal [t]
-
-let obj_support obj = find_var_refs Nominal (obj.term :: obj.context)
-
-let metaterm_support t =
-  let rec aux t =
-    match t with
-      | Obj(obj, _) -> obj_support obj
-      | Arrow(t1, t2) -> aux t1 @ aux t2
-      | Binding(Nabla, ids, t) ->
-          List.remove_all (fun x -> List.mem (term_to_var x).name ids) (aux t)
-      | Binding(_, ids, t) -> aux t
-      | Or(t1, t2) -> aux t1 @ aux t2
-      | And(t1, t2) -> aux t1 @ aux t2
-      | Pred(t, _) -> term_support t
-  in
-    List.unique (aux t)
-  
 let abstract_eigen t =
   let vars = find_var_refs Eigen [t] in
     List.fold_right abstract_var (List.rev vars) t

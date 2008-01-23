@@ -93,7 +93,6 @@ induction on 1. intros. case H1.
   case H2. apply IH to H3 H5. case H6. case H7. case H8. case H10.
   search.
 
-% TODO: This proof doesn't look right. n1 caries over after applying IH
 Theorem type_ground : forall T, nabla n1,
   {type (T n1)} -> exists S, T = (x\ S).
 induction on 1. intros. case H1.
@@ -105,8 +104,7 @@ induction on 1. intros. case H1.
 Theorem gen_abs : forall L R S T,
   ctx L -> gen L (abs T R) S -> {type T} ->
     exists RS, S = abs T RS /\
-               forall V, nabla n1,
-                 reduce T V -> gen (typeof n1 T :: L) (R n1) (RS V).
+      forall V, reduce T V -> nabla x, gen (typeof x T :: L) (R x) (RS V).
 induction on 1. intros. case H1.
   case H2. exists R. split.
     search.

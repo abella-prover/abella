@@ -63,6 +63,17 @@ module List = struct
   let find_all f list =
     filter f list
 
+  let find_some f list =
+    let rec aux list =
+      match list with
+        | [] -> failwith "Found none"
+        | head::tail ->
+            match f head with
+              | Some v -> v
+              | None -> aux tail
+    in
+      aux list
+
   let filter_map f list =
     map Option.get (find_all Option.is_some (map f list))
 

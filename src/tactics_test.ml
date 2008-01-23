@@ -199,6 +199,13 @@ let apply_tests =
            let t, _ = apply h0 [Some h1] in
              assert_pprint_equal "baz C" t) ;
 
+      "With nabla" >::
+        (fun () ->
+           let h0 = freshen "forall A B, nabla x, foo x A (B x) -> bar A B" in
+           let h1 = freshen "foo n1 C (D n1)" in
+           let t, _ = apply h0 [Some h1] in
+             assert_pprint_equal "bar C (x1\\D x1)" t) ;
+
       "Absent argument should produce corresponding obligation" >::
         (fun () ->
            let h0 = freshen "forall L, ctx L -> {L |- pred} -> false" in

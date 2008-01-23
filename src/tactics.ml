@@ -389,12 +389,9 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                             (fun dest ->
                                try_with_state
                                  (fun () ->
-                                    let alist = [(id, dest)] in
                                     let support = List.remove dest support in
-                                    let head = replace_term_vars alist head in
-                                    let body =
-                                      List.map (replace_metaterm_vars alist) body
-                                    in
+                                    let head = replace_term_vars
+                                      [(id, dest)] head in
                                     let head, body =
                                       freshen_nameless_meta_clause
                                         ~tag:Logic ~support head body
@@ -437,10 +434,26 @@ let apply term args =
   in
   let rec aux term =
     match term with
+      | Binding(Forall, bindings, Binding(Nabla, [var], body)) ->
+          (* TODO: What about nested nablas, they should be distinct *)
+          let state = get_bind_state () in
+            support |> List.find_some
+                (fun dest ->
+                   try
+                     let support = List.remove dest support in
+                     let raised_body =
+                       freshen_nameless_bindings ~tag:Logic
+                         ~support bindings body
+                     in
+                     let permuted_body =
+                       replace_metaterm_vars [(var, dest)] raised_body
+                     in
+                       print_endline (metaterm_to_string permuted_body) ;
+                       Some (aux permuted_body)
+                   with
+                   | Failure _ | Error _ -> set_bind_state state ; None)
       | Binding(Forall, bindings, body) ->
           aux (freshen_nameless_bindings ~tag:Logic ~support bindings body)
-      | Binding(Nabla, bindings, body) ->
-          aux (freshen_bindings ~tag:Nominal ~used:[] bindings body)
       | Arrow _ ->
           let formal = map_args term_to_restriction term in
           let actual = List.map some_term_to_restriction args in

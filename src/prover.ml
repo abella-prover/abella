@@ -361,9 +361,8 @@ let intros () =
             List.iter add_var alist ;
             let alist = raise_alist ~support:(metaterm_support body) alist in
               aux (replace_metaterm_vars alist body)
-      | Binding(Nabla, bindings, body) ->
-          let alist = fresh_alist ~tag:Nominal ~used:sequent.vars bindings in
-            aux (replace_metaterm_vars alist body)
+      | Binding(Nabla, [var], body) ->
+          aux (replace_metaterm_vars [(var, fresh_nominal body)] body)
       | Arrow(left, right) ->
           add_hyp (normalize left) ;
           aux right

@@ -1,12 +1,5 @@
 Add clause_support to case analysis to prevent conflicts during raising
 
-Fix capture bug when raising over a new nominal causes an existing
-bound nabla variable to capture the new one.
-
-Add tests for raising in apply?
-  How are we going to handle raising in apply?
-  Add test for apply to nabla variables
-
 Clean up case-analysis tests so they are easy to read and write like
 the search tests?
 

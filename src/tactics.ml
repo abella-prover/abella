@@ -387,19 +387,21 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                     | Binding(Nabla, [id], Pred(head, _)) ->
                           support |> List.exists
                             (fun dest ->
-                               let alist = [(id, dest)] in
-                               let support = List.remove dest support in
-                               let head = replace_term_vars alist head in
-                               let body =
-                                 List.map (replace_metaterm_vars alist) body
-                               in
-                               let head, body =
-                                 freshen_nameless_meta_clause
-                                   ~tag:Logic ~support head body
-                               in
-                                 right_unify head goal ;
-                                 List.for_all (metaterm_aux (n-1)) body)
-                     | _ -> failwith "Bad head in meta-clause"))
+                               try_with_state
+                                 (fun () ->
+                                    let alist = [(id, dest)] in
+                                    let support = List.remove dest support in
+                                    let head = replace_term_vars alist head in
+                                    let body =
+                                      List.map (replace_metaterm_vars alist) body
+                                    in
+                                    let head, body =
+                                      freshen_nameless_meta_clause
+                                        ~tag:Logic ~support head body
+                                    in
+                                      right_unify head goal ;
+                                      List.for_all (metaterm_aux (n-1)) body))
+                    | _ -> failwith "Bad head in meta-clause"))
   in
     metaterm_aux n goal
 

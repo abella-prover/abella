@@ -446,7 +446,8 @@ let apply term args =
                        print_endline (metaterm_to_string permuted_body) ;
                        Some (aux permuted_body)
                    with
-                   | Failure _ | Error _ -> set_bind_state state ; None)
+                   | UnifyFailure _ | UnifyError _ ->
+                       set_bind_state state ; None)
       | Binding(Forall, bindings, body) ->
           aux (freshen_nameless_bindings ~tag:Logic ~support bindings body)
       | Arrow _ ->

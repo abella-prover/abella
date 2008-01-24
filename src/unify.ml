@@ -22,21 +22,21 @@
 open Term
 open Extensions
   
-type failure =
+type unify_failure =
   | OccursCheck
   | TypesMismatch
   | ConstClash of (term * term)
 
-exception Failure of failure
+exception UnifyFailure of unify_failure
 
-let fail f = raise (Failure f)
+let fail f = raise (UnifyFailure f)
       
-type error =
+type unify_error =
   | NotLLambda of term
       
-exception Error of error
+exception UnifyError of unify_error
 
-let error e = raise (Error e)
+let error e = raise (UnifyError e)
 
 module type Param =
 sig
@@ -665,7 +665,7 @@ let try_with_state ?(default=false) f =
     try
       f ()
     with
-      | Failure _ | Error _ -> set_bind_state state ; default
+      | UnifyFailure _ | UnifyError _ -> set_bind_state state ; default
 
 let try_right_unify ?used:(used=[]) t1 t2 =
   try_with_state
@@ -681,8 +681,8 @@ let try_left_unify ?used:(used=[]) t1 t2 =
       left_unify ~used t1 t2 ;
       true
     with
-      | Failure _ -> set_bind_state state ; false
-      | Error _ -> set_bind_state state ;
+      | UnifyFailure _ -> set_bind_state state ; false
+      | UnifyError _ -> set_bind_state state ;
           failwith "Unification error during case analysis"
 
 

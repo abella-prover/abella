@@ -3,6 +3,7 @@ open Test_helper
 open Term
 open Metaterm
 open Tactics
+open Unify
 
 let assert_object_cut ~cut ~using ~expect =
   let cut = parse_obj cut in
@@ -171,8 +172,8 @@ let apply_tests =
              "forall A B C, {eval A B} -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{bad (abs R) (arrow S T)}" in
-           let clash = Unify.ConstClash (const "typeof", const "bad") in
-             assert_raises (Unify.Failure clash)
+           let clash = ConstClash (const "typeof", const "bad") in
+             assert_raises (UnifyFailure clash)
                (fun () -> apply h0 [Some h1; Some h2])) ;
 
       "With contexts" >::

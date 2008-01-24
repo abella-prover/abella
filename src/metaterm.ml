@@ -405,8 +405,8 @@ let rec meta_right_unify t1 t2 =
         meta_right_unify r1 r2
     | Binding(b1, ids1, t1), Binding(b2, ids2, t2)
         when b1 = b2 && ids1 = ids2 -> meta_right_unify t1 t2
-    | _, _ -> raise (Failure TypesMismatch)
-  
+    | _, _ -> raise (UnifyFailure TypesMismatch)
+
 let try_meta_right_unify t1 t2 =
   try_with_state
     (fun () ->

@@ -19,17 +19,17 @@
 
 open Term
 
-type failure =
+type unify_failure =
   | OccursCheck
   | TypesMismatch
   | ConstClash of (term * term)
 
-exception Failure of failure
+exception UnifyFailure of unify_failure
   
-type error =
+type unify_error =
   | NotLLambda of term
 
-exception Error of error
+exception UnifyError of unify_error
 
 val right_unify : ?used:(id * term) list -> term -> term -> unit
 val left_unify : ?used:(id * term) list -> term -> term -> unit

@@ -21,14 +21,14 @@ let assert_raises_occurs_check f =
     f () ;
     assert_failure "Expected OccursCheck"
   with
-    | Unify.Failure OccursCheck -> ()
+    | UnifyFailure OccursCheck -> ()
 
 let assert_raises_failure f =
   try
     f () ;
     assert_failure "Expected Failure"
   with
-    | Unify.Failure _ -> ()
+    | UnifyFailure _ -> ()
   
 (* Tests from Nadathur's SML implementation *)
 let tests =

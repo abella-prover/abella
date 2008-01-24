@@ -1,3 +1,9 @@
+%% Arbitrary cascading substitutions on untyped lambda terms
+%%
+%% Nabla in the head of the definition of subst allows us to actively
+%% manipulate the context of a term in order to make an arbitrary
+%% number of substitutions for the nominal constants in the term.
+
 Def subst nil T T.
 Def nabla x, subst (pair x K :: L) (T x) S :- subst L (T K) S.
 
@@ -11,5 +17,4 @@ Theorem subst_abs : forall L T R,
   subst L (abs T) R -> exists S, R = abs S /\ nabla z, subst L (T z) (S z).
 induction on 1. intros. case H1.
   search.
-  apply IH to H2. case H3. case H4. case H5. case H6. skip.
-    
+  apply IH to H2. case H3. case H4. case H5. case H6. search.

@@ -109,6 +109,8 @@ val map_vars : (var -> 'a) -> term -> 'a list
 val map_vars_list : (var -> 'a) -> term list -> 'a list
 
 val term_to_var : term -> var
+val term_to_name : term -> string
+val term_to_pair : term -> string * term
 
 val is_eigen : term -> bool
 

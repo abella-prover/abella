@@ -188,10 +188,7 @@ let rec replace_metaterm_vars alist t =
 and freshen_alist_bindings bindings alist body =
   let used = get_used (List.map snd alist) in
   let bindings_alist = fresh_alist ~tag:Constant ~used bindings in
-  let bindings' =
-    List.map (fun v -> v.name)
-      (List.map term_to_var (List.map snd bindings_alist))
-  in
+  let bindings' = List.map term_to_name (List.map snd bindings_alist) in
     (bindings', replace_metaterm_vars bindings_alist body)
 
 let rec collect_terms t =
@@ -224,11 +221,11 @@ let metaterm_support t =
 let get_metaterm_used t =
   t |> collect_terms
     |> find_var_refs Eigen
-    |> List.map (fun v -> ((term_to_var v).name, v))
+    |> List.map term_to_pair
 
 let get_metaterm_used_nominals t =
   t |> metaterm_support
-    |> List.map (fun v -> ((term_to_var v).name, v))
+    |> List.map term_to_pair
   
 let fresh_nominal t =
   let used_vars = find_vars Nominal (collect_terms t) in
@@ -278,7 +275,7 @@ let rec normalize_binders alist t =
           let alist_used =
             alist
             |> List.map snd
-            |> List.map (fun v -> ((term_to_var v).name, v))
+            |> List.map term_to_pair
           in
           let body_used = get_metaterm_used body in
           let nominal_used = get_metaterm_used_nominals body in
@@ -295,12 +292,7 @@ let rec normalize_binders alist t =
 
 and freshen_used_bindings bindings used body =
   let bindings_alist = fresh_alist ~tag:Constant ~used bindings in
-  let bindings' =
-    bindings_alist
-    |> List.map snd
-    |> List.map term_to_var
-    |> List.map (fun v -> v.name)
-  in
+  let bindings' = List.map term_to_name (List.map snd bindings_alist) in
   let body' = normalize_binders bindings_alist body in
     (bindings', body')
   
@@ -419,4 +411,20 @@ let try_meta_right_unify t1 t2 =
   try_with_state
     (fun () ->
        meta_right_unify t1 t2 ;
-       true)    
+       true)
+
+(* Try to unify t1 and t2 under permutations of nominal constants.
+   t1 may contain logic variables, t2 is ground                    *)
+let try_meta_right_permute_unify t1 t2 =
+  let support_t1 = metaterm_support t1 in
+  let support_t2 = metaterm_support t2 in
+    if List.length support_t1 < List.length support_t2 then
+      (* Ground term cannot have more nominals than logic term *)
+      false
+    else
+      let support_t2_names = List.map term_to_name support_t2 in
+        support_t1 |> List.permute (List.length support_t2)
+          |> List.exists
+              (fun perm_support_t1 ->
+                 let alist = List.zip support_t2_names perm_support_t1 in
+                   try_meta_right_unify t1 (replace_metaterm_vars alist t2))

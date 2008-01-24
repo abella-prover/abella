@@ -123,5 +123,29 @@ module List = struct
     in
       aux list 0
 
+  let rec zip list1 list2 =
+    match list1, list2 with
+      | [], [] -> []
+      | head1::tail1, head2::tail2 ->
+          (head1, head2) :: (zip tail1 tail2)
+      | _, _ -> failwith "zip on unequal lengths"
+
+  let rec distribute elt list =
+    match list with
+      | [] -> [[elt]]
+      | head::tail -> (elt::list) ::
+          (map (fun x -> head::x) (distribute elt tail))
+
+  (* Generate all permutations of all n element subsets of list *)
+  let rec permute n list =
+    if n = 0 then
+      [[]]
+    else
+      match list with
+        | [] -> []
+        | head::tail ->
+            (flatten_map (distribute head) (permute (n-1) tail))
+            @ (permute n tail)
+
 end
 

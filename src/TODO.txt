@@ -1,15 +1,17 @@
+Case analysis with unification ERROR should cause tactic error
+
 Add clause_support to case analysis to prevent conflicts during raising
 
 Clean up case-analysis tests so they are easy to read and write like
 the search tests?
-
-Case analysis with unification ERROR should cause tactic error
 
 Uncomment and fix case analysis test
 Uncomment and fix two unify tests
 
 Future
 ======
+
+Allow 'apply' to use 'with' and specify instantiations?
 
 Automatic case analysis on hyps like exists? and?
 

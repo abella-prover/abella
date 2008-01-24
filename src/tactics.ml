@@ -52,7 +52,7 @@ let freshen_clause ~tag ~used ?(support=[]) head body =
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
 
-let alist_to_used (_, t) = ((term_to_var t).name, t)
+let alist_to_used (_, t) = term_to_pair t
 
 let freshen_meta_clause ~tag ~used ?(support=[]) head body =
   let var_names = meta_capital_var_names (pred head :: body) in
@@ -63,23 +63,18 @@ let freshen_meta_clause ~tag ~used ?(support=[]) head body =
      List.map (replace_metaterm_vars raised_names) body)
 
 let freshen_bindings ?(support=[]) ~tag ~used bindings term =
-  term |> replace_metaterm_vars (fresh_alist ~support ~tag ~used bindings)
+  replace_metaterm_vars (fresh_alist ~support ~tag ~used bindings) term
 
 let term_vars_alist tag terms =
-  terms
-  |> find_var_refs tag
-  |> List.map (fun v -> ((term_to_var v).name, v))
+  List.map term_to_pair (find_var_refs tag terms)
     
 let metaterm_vars_alist tag metaterms =
-  metaterms
-  |> List.map collect_terms
-  |> List.flatten
-  |> term_vars_alist tag
+  term_vars_alist tag (List.flatten_map collect_terms metaterms)
       
 (* Freshening for Logic variables uses anonymous names *)
       
 let fresh_nameless_alist ?(support=[]) ~tag ids =
-  ids |> List.map (fun x -> (x, app (fresh ~tag 0) support))
+  List.map (fun x -> (x, app (fresh ~tag 0) support)) ids
       
 let freshen_nameless_clause ?(support=[]) head body =
   let var_names = capital_var_names (head::body) in
@@ -343,7 +338,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
         context_search () || backchain ()
         
   and metaterm_aux n goal =
-    if hyps |> List.exists (try_meta_right_unify goal) then
+    if hyps |> List.exists (try_meta_right_permute_unify goal) then
       true
     else
       let support = metaterm_support goal in

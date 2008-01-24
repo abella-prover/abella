@@ -253,6 +253,12 @@ let term_to_var t =
     | Var v -> v
     | _ -> failwith "term_to_var called on non-var"
 
+let term_to_name t =
+  (term_to_var t).name
+
+let term_to_pair t =
+  (term_to_name t, t)
+
 let is_eigen t =
   match observe t with
     | Var v -> v.tag = Eigen

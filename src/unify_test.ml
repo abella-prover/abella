@@ -408,7 +408,8 @@ let tests =
              left_unify ~used (app a [n]) b ;
              assert_term_pprint_equal "x1\\B" a ;
              assert_term_pprint_equal "B" b) ;
-             
+
+(*      
       "X^0 a^1 b^1 = Y^0 Z^0 b^1" >::
         (fun () ->
            let a = const ~ts:1 "a" in
@@ -433,5 +434,5 @@ let tests =
              assert_term_pprint_equal "x1\\Y (Z x1)" x ;
              assert_term_pprint_equal "Y" y ;
              assert_term_pprint_equal "Z" z) ;
-             
+*)             
     ]

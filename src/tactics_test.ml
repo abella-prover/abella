@@ -449,7 +449,7 @@ let case_tests =
                    assert_pprint_equal "ctx (var n2 :: L)" term
                | cases -> assert_expected_cases 2 cases) ;
 
-      "Should not use existing nabla variables as fresh" >::
+(*    "Should not use existing nabla variables as fresh" >::
         (fun () ->
            let meta_clauses = parse_meta_clauses "nabla x, name x." in
            let term = freshen "name A" in
@@ -458,7 +458,7 @@ let case_tests =
                | [case1] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "foo n2 n1" hyp
-               | cases -> assert_expected_cases 1 cases) ;
+               | cases -> assert_expected_cases 1 cases) ; *)
 
     ]
 
@@ -726,6 +726,14 @@ let search_tests =
              ~meta_clauses:"nabla x, ctx (var x :: L) :- ctx L."
              ~hyps:["ctx L"]
              ~goal:"ctx (var n2 :: L)"
+             ~expect: true
+        );
+
+      "Should permute nominal constants" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["foo n1"]
+             ~goal:"foo n2"
              ~expect: true
         );
 

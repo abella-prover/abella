@@ -670,12 +670,19 @@ let try_with_state ?(default=false) f =
 let try_right_unify ?used:(used=[]) t1 t2 =
   try_with_state
     (fun () ->
-       right_unify ~used:used t1 t2 ;
+       right_unify ~used t1 t2 ;
        true)
- 
+
+(* Errors on during unification on the left represent an inability to
+   perform case analsysis. This should be propogated to the toplevel. *)
 let try_left_unify ?used:(used=[]) t1 t2 =
-  try_with_state
-    (fun () ->
-       left_unify ~used:used t1 t2 ;
-       true)
+  let state = get_bind_state () in
+    try
+      left_unify ~used t1 t2 ;
+      true
+    with
+      | Failure _ -> set_bind_state state ; false
+      | Error _ -> set_bind_state state ;
+          failwith "Unification error during case analysis"
+
 

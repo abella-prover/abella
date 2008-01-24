@@ -283,4 +283,18 @@ let tests =
                )
         ) ;
 
+      "Unification error during case analysis should propogate to toplevel" >::
+        (fun () ->
+           setup_prover ()
+             ~clauses:(parse_clauses "pred X.") ;
+
+           sequent.hyps <- [("H1", freshen "{pred (A n1 n1)}")] ;
+           try
+             case "H1" ;
+             assert_failure "Case analysis did not fail"
+           with
+             | Failure("Unification error during case analysis") -> ()
+             | _ -> assert_failure "Case analysis did not fail"
+        ) ;
+
     ]

@@ -1,5 +1,3 @@
-Case analysis with unification ERROR should cause tactic error
-
 Add clause_support to case analysis to prevent conflicts during raising
 
 Clean up case-analysis tests so they are easy to read and write like

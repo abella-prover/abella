@@ -225,13 +225,13 @@ let assert_expected_cases n cases =
   assert_failure (Printf.sprintf "Expected %d case(s) but found %d case(s)"
                     n (List.length cases))
 
-let case ?used ?(clauses=[]) ?(meta_clauses=[]) term =
+let case ?used ?(clauses=[]) ?(meta_clauses=[]) ?(global_support=[]) term =
   let used =
     match used with
       | None -> metaterm_vars_alist Eigen [term]
       | Some used -> used
   in
-    case ~used ~clauses ~meta_clauses term
+    case ~used ~clauses ~meta_clauses ~global_support term
     
 let case_tests =
   "Case" >:::
@@ -450,16 +450,16 @@ let case_tests =
                    assert_pprint_equal "ctx (var n2 :: L)" term
                | cases -> assert_expected_cases 2 cases) ;
 
-(*    "Should not use existing nabla variables as fresh" >::
+      "Should not use existing nabla variables as fresh" >::
         (fun () ->
            let meta_clauses = parse_meta_clauses "nabla x, name x." in
            let term = freshen "name A" in
-           let hyp = freshen "foo A n1" in
-             match case ~meta_clauses term with
+           let global_support = [nominal_var "n1"] in
+             match case ~meta_clauses ~global_support term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
-                   assert_pprint_equal "foo n2 n1" hyp
-               | cases -> assert_expected_cases 1 cases) ; *)
+                   assert_pprint_equal "name n2" term
+               | cases -> assert_expected_cases 1 cases) ;
 
     ]
 

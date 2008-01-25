@@ -285,9 +285,13 @@ let add_cases_to_subgoals cases =
 let case ?(keep=false) str =
   save_undo_state () ;
   let term = get_hyp str in
+  let global_support =
+    (List.flatten_map metaterm_support (List.map snd sequent.hyps)) @
+      (metaterm_support sequent.goal)
+  in
   let cases =
     Tactics.case ~used:sequent.vars ~clauses:!clauses
-      ~meta_clauses:!meta_clauses term
+      ~meta_clauses:!meta_clauses ~global_support term
   in
     if not keep then remove_hyp str ;
     add_cases_to_subgoals cases ;

@@ -133,7 +133,7 @@ let lift_all ~used nominals =
     used
     used
 
-let metaterm_case ~support ~used ~meta_clauses ~wrapper term =
+let metaterm_case ~support ~used ~meta_clauses ~wrapper ~global_support term =
   let initial_bind_state = get_bind_state () in
   let initial_used = used in
   let make_case ~support ~used (head, body) term =
@@ -158,8 +158,8 @@ let metaterm_case ~support ~used ~meta_clauses ~wrapper term =
            | Binding(Nabla, [id], Pred(head, _)), body ->
                let raised_result =
                  set_bind_state initial_bind_state ;
-                 (* new nominal should be fresh with respect to p and support *)
-                 let n = fresh_nominal (pred (app head support)) in
+                 (* should be fresh with respect to global_support *)
+                 let n = fresh_nominal (pred (app head global_support)) in
                  let alist = [(id, n)] in
                  let used = lift_all ~used [n] in
                  let head = replace_term_vars alist head in
@@ -213,7 +213,7 @@ let obj_case ~used obj r clauses =
     else
       member_case :: clause_cases
 
-let case ~used ~clauses ~meta_clauses term =
+let case ~used ~clauses ~meta_clauses ~global_support term =
   match term with
     | Obj(obj, r) -> obj_case ~used obj r clauses
     | Or(left, right) ->
@@ -254,7 +254,7 @@ let case ~used ~clauses ~meta_clauses term =
             aux t
         in
           metaterm_case ~used ~support:(term_support p)
-            ~meta_clauses ~wrapper p
+            ~meta_clauses ~wrapper ~global_support p
     | _ -> invalid_metaterm_arg term
 
 

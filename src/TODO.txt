@@ -1,8 +1,9 @@
 Clean up case-analysis tests so they are easy to read and write like
 the search tests?
 
-Uncomment and fix case analysis test
 Uncomment and fix two unify tests
+
+Comment poplmark examples
 
 Future
 ======

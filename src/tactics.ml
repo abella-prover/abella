@@ -133,129 +133,124 @@ let lift_all ~used nominals =
     used
     used
 
-let metaterm_case ~support ~used ~meta_clauses ~wrapper ~global_support term =
-  let initial_bind_state = get_bind_state () in
-  let initial_used = used in
-  let make_case ~support ~used (head, body) term =
-    let used, head, body =
-      freshen_meta_clause ~support ~tag:Eigen ~used head body
-    in
-      if try_left_unify ~used head term then
-        let newly_used =
-          used |> List.find_all (fun (_, t) -> is_free t) |> List.unique
-        in
-          [{ bind_state = get_bind_state () ;
-            new_vars = newly_used @ initial_used ;
-            new_hyps = List.map wrapper body }]
-      else
-        []
-  in
-    meta_clauses |> List.flatten_map
-        (function
-           | Pred(head, _), body ->
-               set_bind_state initial_bind_state ;
-               make_case ~support ~used (head, body) term
-           | Binding(Nabla, [id], Pred(head, _)), body ->
-               let raised_result =
-                 set_bind_state initial_bind_state ;
-                 (* should be fresh with respect to global_support *)
-                 let n = fresh_nominal (pred (app head global_support)) in
-                 let alist = [(id, n)] in
-                 let used = lift_all ~used [n] in
-                 let head = replace_term_vars alist head in
-                 let body = List.map (replace_metaterm_vars alist) body in
-                   make_case ~support ~used (head, body) term
-               in
-               let permuted_results =
-                 support |> List.flatten_map
-                     (fun dest ->
-                        set_bind_state initial_bind_state ;
-                        let alist = [(id, dest)] in
-                        let support = List.remove dest support in
-                        let head = replace_term_vars alist head in
-                        let body =
-                          List.map (replace_metaterm_vars alist) body in
-                          make_case ~support ~used (head, body) term)
-               in
-                 raised_result @ permuted_results
-           | _ -> failwith "Bad head in meta-clause")
-      
-let term_case ~support ~used ~clauses ~wrapper term =
-  clauses |> List.filter_map
-      (fun (head, body) ->
-         let fresh_head, fresh_body =
-           freshen_clause ~support ~tag:Eigen ~used head body in
-         let initial_state = get_bind_state () in
-           if try_left_unify ~used fresh_head term then
-             let new_vars = term_vars_alist Eigen (fresh_head::fresh_body) in
-             let bind_state = get_bind_state () in
-             let wrapped_body = List.map wrapper fresh_body in
-               set_bind_state initial_state ;
-               Some { bind_state = bind_state ;
-                      new_vars = new_vars ;
-                      new_hyps = wrapped_body }
-           else
-             None)
-
-let obj_case ~used obj r clauses =
-  let wrapper t =
-    normalize (Obj(context_obj obj.context t, reduce_restriction r)) in
-  let support = obj_support obj in
-  let clause_cases =
-    term_case ~support ~used ~clauses ~wrapper obj.term in
-  let member_case =
-    { bind_state = get_bind_state () ;
-      new_vars = [] ;
-      new_hyps = [obj_to_member obj] }
-  in
-    if Context.is_empty obj.context then
-      clause_cases
-    else
-      member_case :: clause_cases
-
 let case ~used ~clauses ~meta_clauses ~global_support term =
-  match term with
-    | Obj(obj, r) -> obj_case ~used obj r clauses
-    | Or(left, right) ->
-        let make_simple_case h =
+
+  let support = metaterm_support term in
+  let initial_bind_state = get_bind_state () in
+  
+  let metaclause_case ~wrapper term =
+    let initial_used = used in
+    let make_case ~support ~used (head, body) term =
+      let used, head, body =
+        freshen_meta_clause ~support ~tag:Eigen ~used head body
+      in
+        if try_left_unify ~used head term then
+          let bind_state = get_bind_state () in
+          let newly_used =
+            used |> List.find_all (fun (_, t) -> is_free t) |> List.unique
+          in
+            [{ bind_state = bind_state ;
+               new_vars = newly_used @ initial_used ;
+               new_hyps = List.map wrapper body }]
+        else
+          []
+    in
+      meta_clauses |> List.flatten_map
+          (function
+             | Pred(head, _), body ->
+                 set_bind_state initial_bind_state ;
+                 make_case ~support ~used (head, body) term
+             | Binding(Nabla, [id], Pred(head, _)), body ->
+                 let raised_result =
+                   set_bind_state initial_bind_state ;
+                   (* should be fresh with respect to global_support *)
+                   let n = fresh_nominal (pred (app head global_support)) in
+                   let alist = [(id, n)] in
+                   let used = lift_all ~used [n] in
+                   let head = replace_term_vars alist head in
+                   let body = List.map (replace_metaterm_vars alist) body in
+                     make_case ~support ~used (head, body) term
+                 in
+                 let permuted_results =
+                   support |> List.flatten_map
+                       (fun dest ->
+                          set_bind_state initial_bind_state ;
+                          let alist = [(id, dest)] in
+                          let support = List.remove dest support in
+                          let head = replace_term_vars alist head in
+                          let body =
+                            List.map (replace_metaterm_vars alist) body in
+                            make_case ~support ~used (head, body) term)
+                 in
+                   raised_result @ permuted_results
+             | _ -> failwith "Bad head in meta-clause")
+  in
+          
+  let clause_case ~wrapper term =
+    clauses |> List.filter_map
+        (fun (head, body) ->
+           set_bind_state initial_bind_state ;           
+           let fresh_head, fresh_body =
+             freshen_clause ~support ~tag:Eigen ~used head body
+           in
+             if try_left_unify ~used fresh_head term then
+               let new_vars = term_vars_alist Eigen (fresh_head::fresh_body) in
+               let bind_state = get_bind_state () in
+               let wrapped_body = List.map wrapper fresh_body in
+                 set_bind_state initial_bind_state ;
+                 Some { bind_state = bind_state ;
+                        new_vars = new_vars ;
+                        new_hyps = wrapped_body }
+             else
+               None)
+  in
+    
+  let obj_case obj r =
+    let wrapper t = Obj(context_obj obj.context t, reduce_restriction r) in
+    let clause_cases = clause_case ~wrapper obj.term in
+      if Context.is_empty obj.context then
+        clause_cases
+      else
+        let member_case =
           { bind_state = get_bind_state () ;
-            new_vars = [] ; new_hyps = [h] }
+            new_vars = [] ;
+            new_hyps = [obj_to_member obj] }
         in
-          [make_simple_case left; make_simple_case right]
-    | And(left, right) ->
-        [{ bind_state = get_bind_state () ;
-           new_vars = [] ; new_hyps = [left; right] }]
-    | Binding(Exists, ids, body) ->
-        let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
-        let fresh_body = replace_metaterm_vars fresh_ids body in
-        let new_vars = List.map alist_to_used fresh_ids
-        in
-          [{ bind_state = get_bind_state () ;
-             new_vars = new_vars ;
-             new_hyps = [fresh_body] }]
-    | Binding(Nabla, [id], body) ->
-        let nominal = fresh_nominal body in
-        let fresh_body = replace_metaterm_vars [(id, nominal)] body in
-          [{ bind_state = get_bind_state () ;
-             new_vars = [] ;
-             new_hyps = [fresh_body] }]
-    | Pred(p, r) ->
-        let wrapper t =
-          let rec aux t =
+          member_case :: clause_cases
+  in
+    
+  let make_simple_case ?(new_vars=[]) new_hyps =
+    { bind_state = get_bind_state () ;
+      new_vars = new_vars ;
+      new_hyps = new_hyps }
+  in
+    
+    match term with
+      | Obj(obj, r) -> obj_case obj r
+      | Or(left, right) -> [make_simple_case [left]; make_simple_case [right]]
+      | And(left, right) -> [make_simple_case [left; right]]
+      | Binding(Exists, ids, body) ->
+          let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
+          let fresh_body = replace_metaterm_vars fresh_ids body in
+          let new_vars = List.map alist_to_used fresh_ids in
+            [make_simple_case ~new_vars [fresh_body]]
+      | Binding(Nabla, [id], body) ->
+          let nominal = fresh_nominal body in
+          let fresh_body = replace_metaterm_vars [(id, nominal)] body in
+            [make_simple_case [fresh_body]]
+      | Pred(p, r) ->
+          let rec wrapper t =
             match t with
               | Pred(p, _) -> Pred(p, reduce_restriction r)
               | Binding(binding, ids, body) ->
-                  Binding(binding, ids, aux body)
-              | Or(t1, t2) -> Or(aux t1, aux t2)
-              | And(t1, t2) -> And(aux t1, aux t2)
-              | Arrow(t1, t2) -> Arrow(t1, aux t2)
+                  Binding(binding, ids, wrapper body)
+              | Or(t1, t2) -> Or(wrapper t1, wrapper t2)
+              | And(t1, t2) -> And(wrapper t1, wrapper t2)
+              | Arrow(t1, t2) -> Arrow(t1, wrapper t2)
               | Obj _ -> t
           in
-            aux t
-        in
-          metaterm_case ~used ~support:(term_support p)
-            ~meta_clauses ~wrapper ~global_support p
-    | _ -> invalid_metaterm_arg term
+            metaclause_case ~wrapper p
+      | _ -> invalid_metaterm_arg term
 
 
 (* Induction *)

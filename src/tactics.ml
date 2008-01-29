@@ -442,7 +442,6 @@ let apply term args =
                      let permuted_body =
                        replace_metaterm_vars [(var, dest)] raised_body
                      in
-                       print_endline (metaterm_to_string permuted_body) ;
                        Some (aux permuted_body)
                    with
                    | UnifyFailure _ | UnifyError _ ->

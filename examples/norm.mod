@@ -2,7 +2,7 @@ type top.
 type (arrow A B) :- type A, type B.
 
 term (app M N) :- term M, term N.
-term (abs T R) :- pi x\ term x => term (R x).
+term (abs T R) :- type T, pi x\ term x => term (R x).
 
 typeof (app M N) T :- typeof M (arrow U T), typeof N U.
 typeof (abs T R) (arrow T U) :- pi x\ (typeof x T => typeof (R x) U).

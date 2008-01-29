@@ -3,6 +3,8 @@ the search tests?
 
 Comment poplmark examples
 
+Add more backtracking to search
+
 Future
 ======
 

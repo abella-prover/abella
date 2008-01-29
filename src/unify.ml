@@ -613,13 +613,14 @@ and reverse_bind t1 t2 =
     | App(h, ts), Var v2 ->
         let pruneable t =
           begin match observe t with
-            | Var c when constant c.tag && c.ts > v2.ts -> true
+            | Var c when constant c.tag && v2.ts < c.ts -> true
+            | DB _ -> true
             | _ -> false
           end
         in
           begin match observe h with
-            | Var v1 when variable v1.tag && v1.ts >= v2.ts &&
-                List.for_all pruneable ts ->
+            | Var v1 when variable v1.tag && v2.ts <= v1.ts &&
+                List.for_all pruneable (List.map hnorm ts) ->
                 bind h (lambda (List.length ts) t2) ; true
             | _ -> false
           end
@@ -637,7 +638,8 @@ and reverse_bind t1 t2 =
   * head normal form and that there are no iterated
   * lambdas or applications at the top level. Any necessary adjustment
   * of binders through the eta rule is done on the fly. *)
-and unify t1 t2 = match observe t1,observe t2 with
+and unify t1 t2 =
+  match observe t1,observe t2 with
   | Var v1, Var v2 when v1 = v2 -> ()
   | Var v1,_ when variable v1.tag ->
      if reverse_bind t2 t1 then

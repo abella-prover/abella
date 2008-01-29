@@ -146,11 +146,15 @@ let case ~used ~clauses ~meta_clauses ~global_support term =
       in
         if try_left_unify ~used head term then
           let bind_state = get_bind_state () in
+            (* Names created perhaps by raising *)
           let newly_used =
             used |> List.find_all (fun (_, t) -> is_free t) |> List.unique
           in
+            (* Names created perhaps by unificiation *)
+          let newly_used_head = term_vars_alist Eigen [head] in
+          let newly_used_body = metaterm_vars_alist Eigen body in
             [{ bind_state = bind_state ;
-               new_vars = newly_used @ initial_used ;
+               new_vars = newly_used @ newly_used_head @ newly_used_body @ initial_used ;
                new_hyps = List.map wrapper body }]
         else
           []

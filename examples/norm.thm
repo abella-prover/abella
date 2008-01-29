@@ -9,7 +9,7 @@ Def reduce top T :- {typeof T top}, halts T.
 Def reduce (arrow A B) T :-
   {typeof T (arrow A B)},
   halts T,
-  (forall S, reduce A S -> reduce B (app T S)).
+  (forall R, reduce A R -> reduce B (app T R)).
 
 Theorem reduce_halts : forall A T, reduce A T -> halts T.
 intros. case H1.
@@ -78,42 +78,50 @@ Def nabla x, ctx (typeof x T :: L) :- ctx L.
 % values. Then the final theorem would quantify over V as well.
 
 Def gen nil T T.
-Def nabla x, gen (typeof x A :: L) (T x) S :-
-  reduce A V, gen L (T V) S.
+Def nabla x, gen (typeof x A :: L) (T x) R :-
+  reduce A V, {term V}, gen L (T V) R.
+% V has no quantifier so it will be treated as bound existentially in the body
+
 
 Theorem lemma1 : forall L T A S,
   ctx L -> member (typeof T A) L -> gen L T S -> reduce A S.
 skip.
 
-Theorem gen_app : forall L M N S,
-  ctx L -> gen L (app M N) S ->
-    exists MS NS, S = app MS NS /\ gen L M MS /\ gen L N NS.
+Theorem gen_app : forall L M N R,
+  ctx L -> gen L (app M N) R ->
+    exists MR NR, R = app MR NR /\ gen L M MR /\ gen L N NR.
 induction on 1. intros. case H1.
   case H2. search.
-  case H2. apply IH to H3 H5. case H6. case H7. case H8. case H10.
+  case H2. apply IH to H3 H6. case H7. case H8. case H9. case H11.
   search.
 
-Theorem type_ground : forall T, nabla n1,
-  {type (T n1)} -> exists S, T = (x\ S).
+Theorem type_ground : forall T, nabla x,
+  {type (T x)} -> exists S, T = (x\ S).
 induction on 1. intros. case H1.
   search.
   apply IH to H2. case H4. case H5.
     apply IH to H3. case H6. case H7.
       search.
 
-Theorem gen_abs : forall L R S T,
-  ctx L -> gen L (abs T R) S -> {type T} ->
-    exists RS, S = abs T RS /\
-      forall V, reduce T V -> nabla x, gen (typeof x T :: L) (R x) (RS V).
+Theorem term_ground : forall T, nabla x,
+  {term (T x)} -> exists R, T = (x\ R).
+skip.
+
+Theorem gen_abs : forall L M R T,
+  ctx L -> gen L (abs T M) R -> {type T} ->
+    exists MR, R = abs T MR /\
+      forall V, {term V} -> reduce T V ->
+                  nabla x, gen (typeof x T :: L) (M x) (MR V).
 induction on 1. intros. case H1.
-  case H2. exists R. split.
+  case H2. exists M. split.
     search.
     intros. search.
-  case H2. apply type_ground to H3. case H7. case H8.
-    apply IH to H4 H6 H3. case H9. case H10. case H11.
-      exists RS. split.
+  case H2. apply type_ground to H3. case H8. case H9.
+    apply IH to H4 H7 H3. case H10. case H11. case H12.
+      exists MR. split.
         search.
-        intros. apply H12 to H14. skip.
+        intros. apply term_ground to H15. case H17. case H18.
+          apply H13 to H15 H16. case H19. case H20. search. skip.
 
 Theorem generalized : forall L T S A,
   ctx L -> {L |- typeof T A} -> gen L T S -> reduce A S.

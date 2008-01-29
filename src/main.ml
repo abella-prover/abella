@@ -31,6 +31,7 @@ let rec process_proof name ~interactive lexbuf =
           | Case(str, keep) -> case ~keep str
           | Assert(t) -> assert_hyp t
           | Exists(t) -> exists t
+          | Clear(hs) -> clear hs
           | Search -> search ()
           | Split -> split ()
           | Unfold -> unfold ()

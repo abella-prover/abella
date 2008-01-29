@@ -10,6 +10,8 @@
 
       * The abort tactic ends the current proof
 
+      * The clear tactic removes hypotheses
+
 
     New examples:
 

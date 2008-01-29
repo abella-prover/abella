@@ -121,7 +121,7 @@ induction on 1. intros. case H1.
       exists MR. split.
         search.
         intros. apply term_ground to H15. case H17. case H18.
-          apply H13 to H15 H16. case H19. case H20. search. skip.
+          apply H13 to H15 H16. case H19. case H20. clear H16. search.
 
 Theorem generalized : forall L T S A,
   ctx L -> {L |- typeof T A} -> gen L T S -> reduce A S.

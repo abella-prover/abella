@@ -23,6 +23,7 @@ type command =
   | Case of id * bool
   | Assert of metaterm
   | Exists of term
+  | Clear of id list
   | Search
   | Split
   | Intros
@@ -64,6 +65,8 @@ let command_to_string c =
         sprintf "assert %s" (metaterm_to_string t)
     | Exists t ->
         sprintf "exists %s" (term_to_string t)
+    | Clear hs ->
+        sprintf "clear %s" (String.concat " " hs)
     | Search -> "search"
     | Split -> "split"
     | Unfold -> "unfold"

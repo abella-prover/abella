@@ -415,3 +415,9 @@ let exists t =
 let skip () =
   save_undo_state () ;
   next_subgoal ()
+
+(* Clear *)
+
+let clear hs =
+  save_undo_state () ;
+  List.iter remove_hyp hs ;

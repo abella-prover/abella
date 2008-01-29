@@ -656,9 +656,12 @@ and unify t1 t2 = match observe t1,observe t2 with
 
   (* Check for a special case of asymmetric unification outside of LLambda *)
   | App(h1,a1), App(h2,a2) ->
-      begin match observe h1, observe h2 with
+      begin match observe (hnorm h1), observe (hnorm h2) with
         | Var v1, Var v2 when variable v1.tag && variable v2.tag ->
-            begin match check_flex_args a1 v1.ts, check_flex_args a2 v2.ts with
+            begin match
+              check_flex_args (List.map hnorm a1) v1.ts,
+              check_flex_args (List.map hnorm a2) v2.ts
+            with
               | true, false -> not_llambda_bind h1 v1.ts a1 t2
               | false, true -> not_llambda_bind h2 v2.ts a2 t1
               | _ -> unify_app_term h1 a1 t1 t2

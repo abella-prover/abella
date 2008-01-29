@@ -32,11 +32,9 @@ exception UnifyFailure of unify_failure
 let fail f = raise (UnifyFailure f)
       
 type unify_error =
-  | NotLLambda of term
-      
-exception UnifyError of unify_error
+  | NotLLambda
 
-let error e = raise (UnifyError e)
+exception UnifyError of unify_error
 
 module type Param =
 sig
@@ -93,18 +91,26 @@ let rec unique_bv n l = match l with
       end
 
 (** [check_flex_args l fts] checks that a list of terms meets the LLambda
+  * requirements for the arguments of a flex term whose timestamp is [fts]. *)
+let check_flex_args l fts =
+  let rec aux = function
+    | [] -> true
+    | t::ts ->
+        match observe t with
+          | Var v when constant v.tag && v.ts>fts && unique_var v ts ->
+              aux ts
+          | DB i when unique_bv i ts ->
+              aux ts
+          | _ -> false
+  in
+    aux l
+
+(** [ensure_flex_args l fts] ensures that a list of terms meets the LLambda
   * requirements for the arguments of a flex term whose timestamp is [fts].
   * @raise NotLLambda if the list doesn't satisfy the requirements. *)
-let rec check_flex_args l fts =
-  match l with
-    | [] -> ()
-    | t::q ->
-        begin match observe t with
-          | Var v when constant v.tag && v.ts>fts && unique_var v q ->
-              check_flex_args q fts
-          | DB i when unique_bv i q -> check_flex_args q fts
-          | _ -> error (NotLLambda t)
-        end
+let ensure_flex_args l fts =
+  if not (check_flex_args l fts) then
+    raise (UnifyError NotLLambda)
 
 (** [bvindex bv l n] return a nonzero index iff the db index [bv]
   * appears in [l]; the index is the position from the right, representing
@@ -401,7 +407,7 @@ let makesubst h1 t2 a1 n =
             | Var {ts=ts2;tag=tag} when tag=instantiatable ->
                 if eq h2 h1 then fail OccursCheck ;
                 let a2 = List.map hnorm a2 in
-                check_flex_args a2 ts2 ;
+                ensure_flex_args a2 ts2 ;
                 let changed,a1',a2' =
                   raise_and_invert ts1 ts2 a1 a2 lev
                 in
@@ -456,7 +462,7 @@ let makesubst h1 t2 a1 n =
             | Var {ts=ts2} when eq h1 h2 ->
                 (* [h1] being instantiatable, no need to check it for [h2] *)
                 let a2 = List.map hnorm a2 in
-                check_flex_args a2 ts2 ;
+                ensure_flex_args a2 ts2 ;
                 let bindlen = n+lev in
                   if bindlen = List.length a2 then
                     let h1' = fresh ts1 in
@@ -472,7 +478,7 @@ let makesubst h1 t2 a1 n =
       | Ptr _ -> assert false
       | _ -> lambda (n+lev) (nested_subst t2 lev)
   in
-    check_flex_args a1 ts1 ;
+    ensure_flex_args a1 ts1 ;
     toplevel_subst t2 0
 
 (** Unifying the arguments of two rigid terms with the same head, these
@@ -571,7 +577,31 @@ and rigid_path_check v1 t2 =
       | _ -> assert false
   in
     aux 0 t2
-    
+
+(* We want to unify App(h1,a1) = t2 where h1 is a variable, the a1 are
+ * LLambda, and t2 is not LLambda. Here we try to find a most general unifier
+ * for h1 and throw NotLLambda if we fail. *)
+and not_llambda_bind h1 ts1 a1 t2 =
+  let a1 = List.map hnorm a1 in
+  let n = List.length a1 in
+  let rec aux lev t =
+    match observe t with
+      | Var v when constant v.tag && ts1 < v.ts ->
+          let i = cindex v a1 n in
+            if i = 0 then
+              raise (UnifyError NotLLambda)
+            else
+              db (i+lev)
+      | Var v when variable v.tag && v.ts <= ts1 ->
+          t
+      | App(h2,a2) ->
+          app (aux lev h2) (List.map (aux lev) a2)
+      | Lam(n2,b2) ->
+          lambda n2 (aux (lev+n2) b2)
+      | _ -> raise (UnifyError NotLLambda)
+  in
+    bind h1 (lambda n (aux 0 t2))
+
 (* Assuming t2 is a variable which we want to bind to t1, we try here to
  * instead bind some pruned version of t1 to t2. Doing this allows us to
  * avoid generating a new name.
@@ -623,6 +653,19 @@ and unify t1 t2 = match observe t1,observe t2 with
         bind t2 t1
       else
         bind t2 (makesubst t2 t1 [] 0)
+
+  (* Check for a special case of asymmetric unification outside of LLambda *)
+  | App(h1,a1), App(h2,a2) ->
+      begin match observe h1, observe h2 with
+        | Var v1, Var v2 when variable v1.tag && variable v2.tag ->
+            begin match check_flex_args a1 v1.ts, check_flex_args a2 v2.ts with
+              | true, false -> not_llambda_bind h1 v1.ts a1 t2
+              | false, true -> not_llambda_bind h2 v2.ts a2 t1
+              | _ -> unify_app_term h1 a1 t1 t2
+            end
+        | _ -> unify_app_term h1 a1 t1 t2
+      end
+        
   | App (h1,a1),_                 -> unify_app_term h1 a1 t1 t2
   | _,App (h2,a2)                 -> unify_app_term h2 a2 t2 t1
   | Var {tag=t},_ when constant t -> unify_const_term t1 t2

@@ -27,7 +27,7 @@ type unify_failure =
 exception UnifyFailure of unify_failure
   
 type unify_error =
-  | NotLLambda of term
+  | NotLLambda
 
 exception UnifyError of unify_error
 

@@ -23,10 +23,10 @@ let assert_raises_occurs_check f =
   with
     | UnifyFailure OccursCheck -> ()
 
-let assert_raises_failure f =
+let assert_raises_unify_failure f =
   try
     f () ;
-    assert_failure "Expected Failure"
+    assert_failure "Expected UnifyFailure"
   with
     | UnifyFailure _ -> ()
   
@@ -282,7 +282,7 @@ let tests =
            let a x = a ^^ [x] in
              right_unify t (a x) ;
              right_unify t (a y) ;
-             assert_raises_failure
+             assert_raises_unify_failure
                (fun () -> right_unify y t)) ;
 
       "[x\\y\\ H1 x = x\\y\\ G2 x]" >::
@@ -297,7 +297,7 @@ let tests =
         (fun () ->
            let x = var Logic "X" 1 in
            let y = var Eigen "y" 2 in
-             assert_raises_failure
+             assert_raises_unify_failure
                (fun () -> right_unify x y)) ;
 
       (* Tests added while developing Abella *)
@@ -374,7 +374,7 @@ let tests =
            let a = const ~ts:1 "a" in
            let x = var Logic "X" 0 in
            let used = [("X", x)] in
-             assert_raises_failure
+             assert_raises_unify_failure
                (fun () ->
                   right_unify ~used x (app (const "f") [a]))) ;
              

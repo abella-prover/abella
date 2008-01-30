@@ -7,17 +7,16 @@
 %% Types: A, B, C
 %% Terms: M, N, P, R, V
 
-%% It is not yet clear how best to formalize that a term halts.
 Def halts M :- exists V, {nstep M V} /\ {value V}.
 
 %% Reduce is the logical relation used to prove normalization.
-%% We write the term before the type to match the signature of typeof.
+%% We write the term before the type to match the signature of "of".
 %% This definition is not strictly admitted in the logic G due to the use
 %% of reduce in a negative context. However, a more fine grained
 %% notion of stratification will allow this definition.
-Def reduce M top :- {typeof M top}, halts M.
+Def reduce M top :- {of M top}, halts M.
 Def reduce M (arrow A B) :-
-  {typeof M (arrow A B)},
+  {of M (arrow A B)},
   halts M,
   (forall N, reduce N A -> reduce (app M N) B).
 
@@ -26,7 +25,7 @@ intros. case H1.
   search.
   search.
 
-Theorem reduce_typeof : forall A M, reduce M A -> {typeof M A}.
+Theorem reduce_of : forall A M, reduce M A -> {of M A}.
 intros. case H1.
   search.
   search.
@@ -72,8 +71,8 @@ intros. case H1. case H3. case H4.
   assert {nstep M V1}. search.
     search.
 
-Theorem typeof_step_forward : forall M N A,
-  {typeof M A} -> {step M N} -> {typeof N A}.
+Theorem of_step_forward : forall M N A,
+  {of M A} -> {step M N} -> {of N A}.
 induction on 2. intros. case H2.
   case H1. apply IH to H4 H3. search.
   case H1. apply IH to H6 H4. search.
@@ -84,46 +83,89 @@ induction on 2. intros. case H2.
 Theorem reduce_step_forward : forall M N A,
   reduce M A -> {step M N} -> reduce N A.
 induction on 1. intros. case H1.
-  apply typeof_step_forward to H3 H2.
+  apply of_step_forward to H3 H2.
     apply halt_step_forward to H4 H2.
       search.
   unfold.
-    apply typeof_step_forward to H3 H2. search.
+    apply of_step_forward to H3 H2. search.
     apply halt_step_forward to H4 H2. search.
     intros. apply H5 to H6.
       apply IH to H7 _. search.
 
 Theorem reduce_step_backward : forall M N A,
-  reduce N A -> {step M N} -> {typeof M A} -> reduce M A.
+  reduce N A -> {step M N} -> {of M A} -> reduce M A.
 induction on 1. intros. case H1.
   apply halt_step_backward to H5 H2. search.
   unfold.
     search.
     apply halt_step_backward to H5 H2. search.
     intros. apply H6 to H7.
-      apply reduce_typeof to H7.
+      apply reduce_of to H7.
         apply IH to H8 _ _. search.
+
+%% Now we need to state the generalize theorem. This will require reasoning
+%% about all possible closed instantiations of an open term.
+
+% of_ctx defines the context of "of M A" judgments
+Def of_ctx nil.
+Def nabla x, of_ctx (of x A :: L) :- of_ctx L.
+
+% Suppose that {L |- of M A} is true. Then M is an open term with nominal
+% constants that are listed in L. The judgment "close L M N" holds for all
+% closed instantiations N of the nominal constants in M. The key to defining
+% this judgment is the use of nabla in the head of a definition which
+% extracts a nominal constant from L and M. The definition of "close" then
+% substitutes for this nominal constant and continues processing the list L.
+Def close nil M M.
+Def nabla x, close (of x A :: L) (R x) M :-
+  reduce V A, {term V}, close L (R V) M.
+% V is not in the head, so it is treated as bound existentially in the body.
+% The judgment {term V} asserts that V is a closed term.
+
+Def term_ctx nil.
+Def nabla x, term_ctx (term x :: L) :- term_ctx L.
+
+Theorem absurd_member_type_term_ctx : forall L A,
+  member (type A) L -> term_ctx L -> false.
+induction on 2. intros. case H2.
+  case H1.
+  case H1. apply IH to H4 H3. case H5.
+
+% Types do not contain nominal constants
+Theorem type_ground_ext : forall L A, nabla x,
+  term_ctx L -> {L |- type (A x)} -> exists B, A = (x\ B).
+induction on 2. intros. case H2.
+  apply absurd_member_type_term_ctx to H3 H1. case H4.
+  search.
+  apply IH to H1 H3. case H5. case H6.
+    apply IH to H1 H4. case H7. case H8.
+      search.
+
+Theorem type_ground : forall A, nabla x,
+  {type (A x)} -> exists B, A = (x\ B).
+intros. apply type_ground_ext to _ H1. search.
+
+% Closed terms do not contain nominal constants.
+Theorem term_ground : forall M, nabla x,
+  {term (M x)} -> exists R, M = (x\ R).
 
 STOP.
 
-%% Stating the generalized theorem will require some careful work
-        
-Def ctx nil.
-Def nabla x, ctx (typeof x T :: L) :- ctx L.
+% Closing a closed term has no effect
+Theorem term_close : forall L M N,
+  {term M} -> close L M N -> M = N.
+induction on 2. intros. case H2.
+  search.
 
-% Gopalan also suggested splitting gen into two predicates, one which
-% matches L with a list V of values and another which substitutes those
-% values. Then the final theorem would quantify over V as well.
+..
 
-Def gen nil T T.
-Def nabla x, gen (typeof x A :: L) (T x) R :-
-  reduce A V, {term V}, gen L (T V) R.
-% V has no quantifier so it will be treated as bound existentially in the body
+Theorem close_var : forall L M N A,
+  ofctx L -> member (of M A) L -> close L M N -> reduce N A.
+induction on 2. intros. case H1.
+  case H2.
+  case H2. case H3.
 
-
-Theorem lemma1 : forall L T A S,
-  ctx L -> member (typeof T A) L -> gen L T S -> reduce A S.
-skip.
+..
 
 Theorem gen_app : forall L M N R,
   ctx L -> gen L (app M N) R ->
@@ -133,23 +175,11 @@ induction on 1. intros. case H1.
   case H2. apply IH to H3 H6. case H7. case H8. case H9. case H11.
   search.
 
-Theorem type_ground : forall T, nabla x,
-  {type (T x)} -> exists S, T = (x\ S).
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. case H4. case H5.
-    apply IH to H3. case H6. case H7.
-      search.
-
-Theorem term_ground : forall T, nabla x,
-  {term (T x)} -> exists R, T = (x\ R).
-skip.
-
 Theorem gen_abs : forall L M R T,
   ctx L -> gen L (abs T M) R -> {type T} ->
     exists MR, R = abs T MR /\
       forall V, {term V} -> reduce T V ->
-                  nabla x, gen (typeof x T :: L) (M x) (MR V).
+                  nabla x, gen (of x T :: L) (M x) (MR V).
 induction on 1. intros. case H1.
   case H2. exists M. split.
     search.
@@ -162,7 +192,7 @@ induction on 1. intros. case H1.
           apply H13 to H15 H16. case H19. case H20. clear H16. search.
 
 Theorem generalized : forall L T S A,
-  ctx L -> {L |- typeof T A} -> gen L T S -> reduce A S.
+  ctx L -> {L |- of T A} -> gen L T S -> reduce A S.
 induction on 2. intros. case H2.
   apply lemma1 to H1 H4 H3. search.
   apply gen_app to H1 H3. case H6. case H7. case H8. case H10.

@@ -5,6 +5,8 @@ Add more backtracking to search?
 For release
   Figure out license and apply as needed
   Rename examples as needed (eval -> stlc, etc)
+  Remove old examples if needed?
+  Add more comments to examples, document cases sometimes, group theorems
   Create webpage with tarball
   Create (and test under win98) windows binary package
   Document some examples on webpage

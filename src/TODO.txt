@@ -1,9 +1,15 @@
-Clean up case-analysis tests so they are easy to read and write like
-the search tests?
-
 Comment poplmark examples
 
-Add more backtracking to search
+Add more backtracking to search?
+
+For release
+  Figure out license and apply as needed
+  Rename examples as needed (eval -> stlc, etc)
+  Create webpage with tarball
+  Create (and test under win98) windows binary package
+  Document some examples on webpage
+  Draft email to TYPES, POPLmark, lambdaProlog
+  
 
 Future
 ======
@@ -14,9 +20,8 @@ Automatic case analysis on hyps like exists? and?
 
 Should meta_right_unify track used variables?
 
-Can we use a more declarative approach to help with nabla variables?
-  So the user picks the names?
-  Could this also work with imp-L?
+Clean up case-analysis tests so they are easy to read and write like
+the search tests?
 
 Clean up similarities between replace_metaterm_vars and normalize_binders
 

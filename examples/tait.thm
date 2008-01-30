@@ -143,7 +143,15 @@ induction on 1. intros. case H1.
   apply fresh_tail to H2. apply IH to H3 H4. search.
 
 
-%% Closed terms do not contain nominal constants.
+%% All types and closed terms do not contain nominal constants.
+
+Theorem type_ground : forall A, nabla x,
+  {type (A x)} -> exists B, A = (x\ B).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. case H4. case H5.
+    apply IH to H3. case H6. case H7.
+      search.
 
 Theorem absurd_member_type_term_ctx : forall L A,
   member (type A) L -> term_ctx L -> false.
@@ -151,19 +159,30 @@ induction on 2. intros. case H2.
   case H1.
   case H1. apply IH to H4 H3. case H5.
 
-% Types do not contain nominal constants
-Theorem type_ground_ext : forall L A, nabla x,
-  term_ctx L -> {L |- type (A x)} -> exists B, A = (x\ B).
+Theorem type_ignores_term_ctx : forall L A,
+  term_ctx L -> {L |- type A} -> {type A}.
 induction on 2. intros. case H2.
   apply absurd_member_type_term_ctx to H3 H1. case H4.
   search.
-  apply IH to H1 H3. case H5. case H6.
-    apply IH to H1 H4. case H7. case H8.
-      search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
 
-Theorem type_ground : forall A, nabla x,
-  {type (A x)} -> exists B, A = (x\ B).
-intros. apply type_ground_ext to _ H1. search.
+Theorem type_ground_ext : forall L A, nabla x,
+  term_ctx L -> {L |- type (A x)} -> exists B, A = (x\ B).
+intros. apply type_ignores_term_ctx to H1 H2.
+  apply type_ground to H3. search.
+
+Theorem absurd_member_type_of_ctx : forall L A,
+  member (type A) L -> of_ctx L -> false.
+induction on 2. intros. case H2.
+  case H1.
+  case H1. apply IH to H4 H3. case H5.
+
+Theorem type_ignores_of_ctx : forall L A,
+  of_ctx L -> {L |- type A} -> {type A}.
+induction on 2. intros. case H2.
+  apply absurd_member_type_of_ctx to H3 H1. case H4.
+  search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
 
 Theorem term_ground_ext : forall L R, nabla x,
   term_ctx L -> {L |- term (R x)} -> exists M, R = (x\ M).
@@ -234,7 +253,9 @@ induction on 2. intros. case H2.
     apply IH to H1 H4 H11.
     apply IH to H1 H5 H9.
       case H12. apply H16 to H13. search.
-  
+  apply type_ignores_of_ctx to H1 H4.
+    apply close_abs to H1 H3 H6. case H7. case H8. case H9. unfold.
+      STOP. % Need a typing judgment for MR, will use later too
   ..
 
 Theorem tait : forall M A, {of M A} -> halts M.

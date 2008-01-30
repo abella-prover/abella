@@ -77,8 +77,8 @@ induction on 2. intros. case H2.
   case H1. apply IH to H4 H3. search.
   case H1. apply IH to H6 H4. search.
   case H1. case H4.
-    inst H6 with n1 = M1.
-      cut H7 with H5. search.
+    inst H7 with n1 = M1.
+      cut H8 with H5. search.
 
 Theorem reduce_step_forward : forall M N A,
   reduce M A -> {step M N} -> reduce N A.
@@ -129,6 +129,22 @@ Def nabla x, close (of x A :: L) (R x) M :-
 % V is not in the head, so it is treated as bound existentially in the body.
 % The judgment {term V} asserts that V is a closed term.
 
+% Freshness and related properties
+Def nabla x, fresh x M.
+
+Theorem fresh_tail : forall X A L,
+  fresh X (A :: L) -> fresh X L.
+intros. case H1. search.
+
+Theorem member_fresh : forall X L E,
+  member E L -> fresh X L -> fresh X E.
+induction on 1. intros. case H1.
+  case H2. search.
+  apply fresh_tail to H2. apply IH to H3 H4. search.
+
+
+%% Closed terms do not contain nominal constants.
+
 Theorem absurd_member_type_term_ctx : forall L A,
   member (type A) L -> term_ctx L -> false.
 induction on 2. intros. case H2.
@@ -149,21 +165,6 @@ Theorem type_ground : forall A, nabla x,
   {type (A x)} -> exists B, A = (x\ B).
 intros. apply type_ground_ext to _ H1. search.
 
-% Freshness and related properties
-Def nabla x, fresh x M.
-
-Theorem fresh_tail : forall X A L,
-  fresh X (A :: L) -> fresh X L.
-intros. case H1. search.
-
-Theorem member_fresh : forall X L E,
-  member E L -> fresh X L -> fresh X E.
-induction on 1. intros. case H1.
-  case H2. search.
-  apply fresh_tail to H2. apply IH to H3 H4. search.
-
-
-% Closed terms do not contain nominal constants.
 Theorem term_ground_ext : forall L R, nabla x,
   term_ctx L -> {L |- term (R x)} -> exists M, R = (x\ M).
 induction on 2. intros. case H2.
@@ -200,41 +201,45 @@ induction on 1. intros. case H1.
     case H3. apply member_fresh to H5 _. case H10.
       apply IH to H4 H5 H9. search.
 
-STOP.
-
-Theorem gen_app : forall L M N R,
-  ctx L -> gen L (app M N) R ->
-    exists MR NR, R = app MR NR /\ gen L M MR /\ gen L N NR.
+Theorem close_app : forall L M N R,
+  of_ctx L -> close L (app M N) R ->
+    exists MR NR, R = app MR NR /\ close L M MR /\ close L N NR.
 induction on 1. intros. case H1.
   case H2. search.
-  case H2. apply IH to H3 H6. case H7. case H8. case H9. case H11.
-  search.
+  case H2. apply IH to H3 H7. case H8. case H9. case H10. case H12.
+    search.
 
-Theorem gen_abs : forall L M R T,
-  ctx L -> gen L (abs T M) R -> {type T} ->
-    exists MR, R = abs T MR /\
-      forall V, {term V} -> reduce T V ->
-                  nabla x, gen (of x T :: L) (M x) (MR V).
+Theorem close_abs : forall L M R A B,
+  of_ctx L -> close L (abs A M) R -> {type A} ->
+    exists MR, R = abs A MR /\
+      forall V, closed V -> {value V} -> reduce V A ->
+                  nabla x, close (of x A :: L) (M x) (MR V).
 induction on 1. intros. case H1.
   case H2. exists M. split.
     search.
     intros. search.
-  case H2. apply type_ground to H3. case H8. case H9.
-    apply IH to H4 H7 H3. case H10. case H11. case H12.
+  case H2. apply type_ground to H3. case H9. case H10.
+    apply IH to H4 H8 H3. case H11. case H12. case H13.
       exists MR. split.
         search.
-        intros. apply term_ground to H15. case H17. case H18.
-          apply H13 to H15 H16. case H19. case H20. clear H16. search.
+        intros. apply closed_ground to H16. case H19. case H20.
+          apply H14 to H16 H17 H18. case H21. case H22.
+            clear H18. search.
 
-Theorem generalized : forall L T S A,
-  ctx L -> {L |- of T A} -> gen L T S -> reduce A S.
+Theorem tait_ext : forall L M R A,
+  of_ctx L -> {L |- of M A} -> close L M R -> reduce R A.
 induction on 2. intros. case H2.
-  apply lemma1 to H1 H4 H3. search.
-  apply gen_app to H1 H3. case H6. case H7. case H8. case H10.
+  apply close_var to H1 H4 H3. search.
+  apply close_app to H1 H3. case H6. case H7. case H8. case H10.
     apply IH to H1 H4 H11.
     apply IH to H1 H5 H9.
-    case H12.
-    apply H16 to H13.
-    search.
-  skip.
+      case H12. apply H16 to H13. search.
+  
+  ..
 
+Theorem tait : forall M A, {of M A} -> halts M.
+intros. apply tait_ext to _ H1 _.
+  apply reduce_halts to H2. search.
+
+%% TODO: Reorganize and group theorems
+%% TODO: Remove norm

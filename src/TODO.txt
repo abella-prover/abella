@@ -1,6 +1,6 @@
-Comment poplmark examples
+Re-organize tait example: group the freshness lemmas, ground lemmas
 
-Add more backtracking to search?
+Comment poplmark examples
 
 For release
   Figure out license and apply as needed
@@ -12,15 +12,19 @@ For release
   Document some examples on webpage
   Draft email to TYPES, POPLmark, lambdaProlog
 
-Search should fail when it doesn't find anything - fail in file mode,
-  save no undo state?
-
 Future
 ======
+
+Add more backtracking to search?
 
 Allow 'apply' to use 'with' and specify instantiations?
 
 Automatic case analysis on hyps like exists? and?
+
+Search should fail when it doesn't find anything - fail in file mode,
+  save no undo state?
+
+  
 
 Should meta_right_unify track used variables?
 

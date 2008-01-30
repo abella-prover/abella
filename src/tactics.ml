@@ -154,7 +154,8 @@ let case ~used ~clauses ~meta_clauses ~global_support term =
           let newly_used_head = term_vars_alist Eigen [head] in
           let newly_used_body = metaterm_vars_alist Eigen body in
             [{ bind_state = bind_state ;
-               new_vars = newly_used @ newly_used_head @ newly_used_body @ initial_used ;
+               new_vars = newly_used @ newly_used_head @ newly_used_body @
+                 initial_used ;
                new_hyps = List.map wrapper body }]
         else
           []
@@ -235,7 +236,8 @@ let case ~used ~clauses ~meta_clauses ~global_support term =
       | And(left, right) -> [make_simple_case [left; right]]
       | Binding(Exists, ids, body) ->
           let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
-          let fresh_body = replace_metaterm_vars fresh_ids body in
+          let raised_ids = raise_alist ~support fresh_ids in
+          let fresh_body = replace_metaterm_vars raised_ids body in
           let new_vars = List.map alist_to_used fresh_ids in
             [make_simple_case ~new_vars [fresh_body]]
       | Binding(Nabla, [id], body) ->

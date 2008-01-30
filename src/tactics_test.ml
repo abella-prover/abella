@@ -409,6 +409,15 @@ let case_tests =
                    end
                | cases -> assert_expected_cases 2 cases) ;
 
+      "On exists should raise over support" >::
+        (fun () ->
+           let term = freshen "exists A, {foo A n1}" in
+           let used = [] in
+             match case ~used term with
+               | [{new_hyps=[hyp]}] ->
+                   assert_pprint_equal "{foo (A n1) n1}" hyp
+               | _ -> assert_failure "Pattern mismatch") ;
+
       "Should raise over nominal variables in meta clauses" >::
         (fun () ->
            let meta_clauses = parse_meta_clauses "pred M N." in

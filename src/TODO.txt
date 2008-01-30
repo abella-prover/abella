@@ -11,7 +11,9 @@ For release
   Create (and test under win98) windows binary package
   Document some examples on webpage
   Draft email to TYPES, POPLmark, lambdaProlog
-  
+
+Search should fail when it doesn't find anything - fail in file mode,
+  save no undo state?
 
 Future
 ======

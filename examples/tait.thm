@@ -110,6 +110,13 @@ induction on 1. intros. case H1.
 Def of_ctx nil.
 Def nabla x, of_ctx (of x A :: L) :- of_ctx L.
 
+% term_ctx defines the context of "term M" judgments
+Def term_ctx nil.
+Def nabla x, term_ctx (term x :: L) :- term_ctx L.
+
+% A term is closed if it is a valid term in an empty context
+Def closed M :- {term M}.
+
 % Suppose that {L |- of M A} is true. Then M is an open term with nominal
 % constants that are listed in L. The judgment "close L M N" holds for all
 % closed instantiations N of the nominal constants in M. The key to defining
@@ -118,12 +125,9 @@ Def nabla x, of_ctx (of x A :: L) :- of_ctx L.
 % substitutes for this nominal constant and continues processing the list L.
 Def close nil M M.
 Def nabla x, close (of x A :: L) (R x) M :-
-  reduce V A, {term V}, close L (R V) M.
+  reduce V A, closed V, {value V}, close L (R V) M.
 % V is not in the head, so it is treated as bound existentially in the body.
 % The judgment {term V} asserts that V is a closed term.
-
-Def term_ctx nil.
-Def nabla x, term_ctx (term x :: L) :- term_ctx L.
 
 Theorem absurd_member_type_term_ctx : forall L A,
   member (type A) L -> term_ctx L -> false.
@@ -145,27 +149,58 @@ Theorem type_ground : forall A, nabla x,
   {type (A x)} -> exists B, A = (x\ B).
 intros. apply type_ground_ext to _ H1. search.
 
-% Closed terms do not contain nominal constants.
-Theorem term_ground : forall M, nabla x,
-  {term (M x)} -> exists R, M = (x\ R).
+% Freshness and related properties
+Def nabla x, fresh x M.
 
-STOP.
+Theorem fresh_tail : forall X A L,
+  fresh X (A :: L) -> fresh X L.
+intros. case H1. search.
+
+Theorem member_fresh : forall X L E,
+  member E L -> fresh X L -> fresh X E.
+induction on 1. intros. case H1.
+  case H2. search.
+  apply fresh_tail to H2. apply IH to H3 H4. search.
+
+
+% Closed terms do not contain nominal constants.
+Theorem term_ground_ext : forall L R, nabla x,
+  term_ctx L -> {L |- term (R x)} -> exists M, R = (x\ M).
+induction on 2. intros. case H2.
+  apply member_fresh to H3 _. case H4. search.
+  apply IH to H1 H3. case H5. case H6.
+    apply IH to H1 H4. case H7. case H8.
+      search.
+  apply IH to _ H4. case H5. case H6.
+    apply type_ground_ext to H1 H3. case H7. case H8.
+      search.
+  
+Theorem term_ground : forall R, nabla x,
+  {term (R x)} -> exists M, R = (x\ M).
+intros. apply term_ground_ext to _ H1. search.
+
+Theorem closed_ground : forall R, nabla x,
+  closed (R x) -> exists M, R = (x\ M).
+intros. case H1. apply term_ground to H2. search.
 
 % Closing a closed term has no effect
-Theorem term_close : forall L M N,
-  {term M} -> close L M N -> M = N.
+Theorem closed_close : forall L M N,
+  closed M -> close L M N -> M = N.
 induction on 2. intros. case H2.
   search.
-
-..
+  apply closed_ground to H1. case H7. case H8.
+    apply IH to H1 H6. search.
 
 Theorem close_var : forall L M N A,
-  ofctx L -> member (of M A) L -> close L M N -> reduce N A.
-induction on 2. intros. case H1.
+  of_ctx L -> member (of M A) L -> close L M N -> reduce N A.
+induction on 1. intros. case H1.
   case H2.
-  case H2. case H3.
+  case H2.
+    case H3. apply closed_close to H6 H8. case H9. search.
+    case H3. apply member_fresh to H5 _. case H10.
+      apply IH to H4 H5 H9. search.
 
-..
+STOP.
 
 Theorem gen_app : forall L M N R,
   ctx L -> gen L (app M N) R ->

@@ -59,6 +59,20 @@ intros. case H2.
   apply absurd_step_value to H1 H3. case H4.
   apply step_det to H1 H4. case H6. search.
 
+Theorem nstep_right : forall M N R,
+  {nstep M N} -> {step N R} -> {nstep M R}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H4 H2. search.
+
+Theorem nstep_app_value : forall M N R,
+  {value M} -> {nstep N R} -> {nstep (app M N) (app M R)}.
+induction on 2. intros. case H2.
+  search.
+  apply IH to H1 H4.
+    assert {step (app M N) (app M P)}. search.
+      search.
+
 Theorem halt_step_forward : forall M N,
   halts M -> {step M N} -> halts N.
 intros. case H1. case H3. case H4.
@@ -92,6 +106,12 @@ induction on 1. intros. case H1.
     intros. apply H5 to H6.
       apply IH to H7 _. search.
 
+Theorem reduce_nstep_forward : forall M N A,
+  reduce M A -> {nstep M N} -> reduce N A.
+induction on 2. intros. case H2.
+  search.
+  apply reduce_step_forward to H1 H3. apply IH to H5 H4. search.
+
 Theorem reduce_step_backward : forall M N A,
   reduce N A -> {step M N} -> {of M A} -> reduce M A.
 induction on 1. intros. case H1.
@@ -102,6 +122,13 @@ induction on 1. intros. case H1.
     intros. apply H6 to H7.
       apply reduce_of to H7.
         apply IH to H8 _ _. search.
+
+Theorem reduce_nstep_backward : forall M N A,
+  reduce N A -> {nstep M N} -> {of M A} -> reduce M A.
+induction on 2. intros. case H2.
+  search.
+  apply of_step_forward to H3 H4. apply IH to H1 H5 H6.
+    apply reduce_step_backward to H7 H4 H3. search.
 
 %% Now we need to state the generalize theorem. This will require reasoning
 %% about all possible closed instantiations of an open term.
@@ -203,6 +230,30 @@ Theorem closed_ground : forall R, nabla x,
   closed (R x) -> exists M, R = (x\ M).
 intros. case H1. apply term_ground to H2. search.
 
+% This judgment aligns of_ctx with term_ctx
+Def of_term_ctx nil nil.
+Def nabla x, of_term_ctx (of x A :: L) (term x :: K) :-
+               {type A}, of_term_ctx L K.
+
+Theorem member_of_term_ctx : forall L K M A,
+  of_term_ctx L K -> member (of M A) L -> member (term M) K.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H4 H5. search.
+                     
+Theorem of_closed_ext : forall L K M A,
+  of_ctx L -> {L |- of M A} -> of_term_ctx L K -> {K |- term M}.
+induction on 2. intros. case H2.
+  apply member_of_term_ctx to H3 H4. search.
+  apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
+  apply type_ignores_of_ctx to H1 H4. case H6.
+    apply IH to _ H5 _. search.
+
+Theorem of_closed : forall M A, {of M A} -> closed M.
+intros. apply of_closed_ext to _ H1 _. search.
+
 % Closing a closed term has no effect
 Theorem closed_close : forall L M N,
   closed M -> close L M N -> M = N.
@@ -229,21 +280,25 @@ induction on 1. intros. case H1.
     search.
 
 Theorem close_abs : forall L M R A B,
-  of_ctx L -> close L (abs A M) R -> {type A} ->
-    exists MR, R = abs A MR /\
-      forall V, closed V -> {value V} -> reduce V A ->
-                  nabla x, close (of x A :: L) (M x) (MR V).
+  of_ctx L -> close L (abs A M) R ->
+    {L |- of (abs A M) (arrow A B)} -> {type (arrow A B)} ->
+      exists MR, R = abs A MR /\
+        {of (abs A MR) (arrow A B)} /\
+        (forall V, closed V -> {value V} -> reduce V A ->
+                     nabla x, close (of x A :: L) (M x) (MR V)).
 induction on 1. intros. case H1.
   case H2. exists M. split.
     search.
     intros. search.
-  case H2. apply type_ground to H3. case H9. case H10.
-    apply IH to H4 H8 H3. case H11. case H12. case H13.
-      exists MR. split.
-        search.
-        intros. apply closed_ground to H16. case H19. case H20.
-          apply H14 to H16 H17 H18. case H21. case H22.
-            clear H18. search.
+  case H2. apply type_ground to H4. case H10. case H11.
+    apply reduce_of to H6. inst H3 with n1 = V. cut H13 with H12.
+      apply IH to H5 H9 H14 H4. case H15. case H16. case H17. case H19.
+        exists MR. split. split.
+          search.
+          search.
+          intros. apply closed_ground to H22. case H25. case H26.
+            apply H18 to H22 H23 H24. case H27. case H28.
+              clear H24. search.
 
 Theorem tait_ext : forall L M R A,
   of_ctx L -> {L |- of M A} -> close L M R -> reduce R A.
@@ -254,13 +309,23 @@ induction on 2. intros. case H2.
     apply IH to H1 H5 H9.
       case H12. apply H16 to H13. search.
   apply type_ignores_of_ctx to H1 H4.
-    apply close_abs to H1 H3 H6. case H7. case H8. case H9. unfold.
-      STOP. % Need a typing judgment for MR, will use later too
-  ..
+    apply close_abs to H1 H3 _ H6. case H7. case H8. case H9. case H11. unfold.
+      search.
+      search.
+      intros. % The rest is one single case
+        apply reduce_halts to H13. case H14. case H15. case H16.
+        apply reduce_nstep_forward to H13 H17.
+        apply reduce_of to H19. apply of_closed to H20.
+        apply H10 to H21 H18 H19. case H22.
+        apply IH to _ H5 H23.
+        apply reduce_of to H13.
+        assert {value (abs A1 MR)}. search.
+        apply nstep_app_value to H26 H17.
+        assert {step (app (abs A1 MR) V1) (MR V1)}. search.
+        apply nstep_right to H27 H28.
+        apply reduce_nstep_backward to H24 H29 _. search.
+
 
 Theorem tait : forall M A, {of M A} -> halts M.
 intros. apply tait_ext to _ H1 _.
   apply reduce_halts to H2. search.
-
-%% TODO: Reorganize and group theorems
-%% TODO: Remove norm

@@ -258,7 +258,6 @@ progress.
  * cut - cut admissibility for an intuitionistic sequent calculus
  * eval - lambda calculus and various results on typing and evaluation
  * lists - various results about lists (append, reverse, perm)
- * norm [wip] - normalization for the simply typed lambda calculus
  * normal - proof that each lambda term is normal or non-normal
  * normal2 - proof that no lambda term is both normal and non-normal
  * pcf - subject reduction for PCF
@@ -271,5 +270,6 @@ progress.
  * seq - comparison between internal and external definition of seq
  * seq2 - an alternate definition of seq which makes the program explicit
  * subst - correctness for LLambda subst predicate
+ * tait - Tait's proof of normalization for the simply typed lambda calculus
  * type_uniq - type uniqueness for simply typed lambda calculus
  * type_uniq2 - same as type_uniq, but using only LG-omega

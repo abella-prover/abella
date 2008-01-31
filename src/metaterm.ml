@@ -163,12 +163,12 @@ let add_context ctx obj =
 
 (* Variable Renaming *)
 
-let fresh_alist ?(support=[]) ~used ~tag ids =
+let fresh_alist ~used ~tag ids =
   let used = ref used in
     List.map (fun x ->
                 let (fresh, curr_used) = fresh_wrt tag x !used in
                   used := curr_used ;
-                  (x, app fresh support))
+                  (x, fresh))
       ids
 
 let raise_alist ~support alist =
@@ -267,7 +267,7 @@ let replace_nominal_vars term =
     term
     |> collect_terms
     |> n_var_names
-    |> fresh_alist ~tag:Term.Nominal ~used:[]
+    |> fresh_alist ~tag:Nominal ~used:[]
   in
     replace_metaterm_vars fresh_nominal_names term
 

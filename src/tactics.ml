@@ -46,8 +46,7 @@ let capital_var_names terms =
 
 let meta_capital_var_names metaterms =
   metaterms
-  |> List.map collect_terms
-  |> List.flatten
+  |> List.flatten_map collect_terms
   |> capital_var_names
 
 let free_capital_var_names metaterm =
@@ -64,25 +63,23 @@ let free_capital_var_names metaterm =
   in
     List.unique (aux metaterm)
 
-let freshen_clause ~tag ~used ?(support=[]) head body =
-  let var_names = capital_var_names (head::body) in
-  let fresh_names = fresh_alist ~support ~tag ~used var_names in
-  let fresh_head = replace_term_vars fresh_names head in
-  let fresh_body = List.map (replace_term_vars fresh_names) body in
-    (fresh_head, fresh_body)
-
 let alist_to_used (_, t) = term_to_pair t
 
-let freshen_meta_clause ~tag ~used ?(support=[]) head body =
+let freshen_clause ~used ?(support=[]) head body =
+  let var_names = capital_var_names (head::body) in
+  let fresh_names = fresh_alist ~tag:Eigen ~used var_names in
+  let raised_names = raise_alist ~support fresh_names in
+    (List.map alist_to_used fresh_names @ used,
+     replace_term_vars raised_names head,
+     List.map (replace_term_vars raised_names) body)
+
+let freshen_meta_clause ~used ?(support=[]) head body =
   let var_names = meta_capital_var_names (pred head :: body) in
-  let fresh_names = fresh_alist ~tag ~used var_names in
+  let fresh_names = fresh_alist ~tag:Eigen ~used var_names in
   let raised_names = raise_alist ~support fresh_names in
     (List.map alist_to_used fresh_names @ used,
      replace_term_vars raised_names head,
      List.map (replace_metaterm_vars raised_names) body)
-
-let freshen_bindings ?(support=[]) ~tag ~used bindings term =
-  replace_metaterm_vars (fresh_alist ~support ~tag ~used bindings) term
 
 let term_vars_alist tag terms =
   List.map term_to_pair (find_var_refs tag terms)
@@ -92,25 +89,25 @@ let metaterm_vars_alist tag metaterms =
       
 (* Freshening for Logic variables uses anonymous names *)
       
-let fresh_nameless_alist ?(support=[]) ~tag ids =
-  List.map (fun x -> (x, app (fresh ~tag 0) support)) ids
+let fresh_nameless_alist ~support ids =
+  List.map (fun x -> (x, app (fresh ~tag:Logic 0) support)) ids
       
 let freshen_nameless_clause ?(support=[]) head body =
   let var_names = capital_var_names (head::body) in
-  let fresh_names = fresh_nameless_alist ~tag:Logic ~support var_names in
+  let fresh_names = fresh_nameless_alist ~support var_names in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
 
-let freshen_nameless_meta_clause ?(support=[]) ~tag head body =
+let freshen_nameless_meta_clause ?(support=[]) head body =
   let var_names = meta_capital_var_names (pred head :: body) in
-  let fresh_names = fresh_nameless_alist ~tag ~support var_names in
+  let fresh_names = fresh_nameless_alist ~support var_names in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_metaterm_vars fresh_names) body in
     (fresh_head, fresh_body)
 
-let freshen_nameless_bindings ?(support=[]) ~tag bindings term =
-  term |> replace_metaterm_vars (fresh_nameless_alist ~support ~tag bindings)
+let freshen_nameless_bindings ?(support=[]) bindings term =
+  replace_metaterm_vars (fresh_nameless_alist ~support bindings) term
 
 (* Object level cut *)
 
@@ -214,10 +211,9 @@ let case ~used ~clauses ~meta_clauses ~global_support term =
   let initial_bind_state = get_bind_state () in
   
   let metaclause_case ~wrapper term =
-    let initial_used = used in
     let make_case ~support ~used (head, body) term =
       let used, head, body =
-        freshen_meta_clause ~support ~tag:Eigen ~used head body
+        freshen_meta_clause ~support ~used head body
       in
         if try_left_unify ~used head term then
           let bind_state = get_bind_state () in
@@ -229,8 +225,7 @@ let case ~used ~clauses ~meta_clauses ~global_support term =
           let newly_used_head = term_vars_alist Eigen [head] in
           let newly_used_body = metaterm_vars_alist Eigen body in
             [{ bind_state = bind_state ;
-               new_vars = newly_used @ newly_used_head @ newly_used_body @
-                 initial_used ;
+               new_vars = newly_used @ newly_used_head @ newly_used_body ;
                new_hyps = List.map wrapper body }]
         else
           []
@@ -270,8 +265,8 @@ let case ~used ~clauses ~meta_clauses ~global_support term =
     clauses |> List.filter_map
         (fun (head, body) ->
            set_bind_state initial_bind_state ;           
-           let fresh_head, fresh_body =
-             freshen_clause ~support ~tag:Eigen ~used head body
+           let used, fresh_head, fresh_body =
+             freshen_clause ~support ~used head body
            in
              if try_left_unify ~used fresh_head term then
                let new_vars = term_vars_alist Eigen (fresh_head::fresh_body) in
@@ -401,11 +396,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
         | And(left, right) -> metaterm_aux n left && metaterm_aux n right
         | Binding(Exists, bindings, body) ->
             let term =
-              freshen_nameless_bindings ~support ~tag:Logic bindings body in
-              metaterm_aux n term
-        | Binding(Forall, bindings, body) ->
-            let term =
-              freshen_nameless_bindings ~support ~tag:Eigen bindings body in
+              freshen_nameless_bindings ~support bindings body in
               metaterm_aux n term
         | Binding(Nabla, [id], body) ->
             let nominal = fresh_nominal body in
@@ -427,8 +418,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                   match head with
                     | Pred(head, _) ->
                         let head, body =
-                          freshen_nameless_meta_clause
-                            ~tag:Logic ~support head body
+                          freshen_nameless_meta_clause ~support head body
                         in
                           right_unify head goal ;
                           List.for_all (metaterm_aux (n-1)) body
@@ -443,7 +433,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                                       [(id, dest)] head in
                                     let head, body =
                                       freshen_nameless_meta_clause
-                                        ~tag:Logic ~support head body
+                                        ~support head body
                                     in
                                       right_unify head goal ;
                                       List.for_all (metaterm_aux (n-1)) body))
@@ -477,8 +467,7 @@ let some_term_to_restriction t =
 let apply term args =
   let support =
     args
-    |> List.map (Option.map_default metaterm_support [])
-    |> List.flatten
+    |> List.flatten_map (Option.map_default metaterm_support [])
     |> List.unique
   in
   let rec aux term =
@@ -491,8 +480,7 @@ let apply term args =
                    try
                      let support = List.remove dest support in
                      let raised_body =
-                       freshen_nameless_bindings ~tag:Logic
-                         ~support bindings body
+                       freshen_nameless_bindings ~support bindings body
                      in
                      let permuted_body =
                        replace_metaterm_vars [(var, dest)] raised_body
@@ -502,7 +490,7 @@ let apply term args =
                    | UnifyFailure _ | UnifyError _ ->
                        set_bind_state state ; None)
       | Binding(Forall, bindings, body) ->
-          aux (freshen_nameless_bindings ~tag:Logic ~support bindings body)
+          aux (freshen_nameless_bindings ~support bindings body)
       | Arrow _ ->
           let formal = map_args term_to_restriction term in
           let actual = List.map some_term_to_restriction args in
@@ -561,7 +549,7 @@ let unfold ~used ~meta_clauses term =
                      | _ -> failwith "Bad head in meta-clause"
                  in
                  let head, body =
-                   freshen_nameless_meta_clause ~support ~tag:Logic head body
+                   freshen_nameless_meta_clause ~support head body
                  in
                    if try_right_unify ~used head term then
                      Some body

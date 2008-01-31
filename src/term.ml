@@ -240,14 +240,14 @@ let map_vars f t =
       | Var(v) -> [f v]
       | DB _ -> []
       | Lam(i, t) -> aux t
-      | App(t, ts) -> List.append (aux t) (List.flatten (List.map aux ts))
+      | App(t, ts) -> List.append (aux t) (List.flatten_map aux ts)
       | Susp _ -> failwith "map_vars called on non-normal term"
       | Ptr _ -> assert false
   in
     aux t
 
 let map_vars_list f ts =
-  List.flatten (List.map (map_vars f) ts)
+  List.flatten_map (map_vars f) ts
 
 let term_to_var t =
   match observe t with
@@ -421,11 +421,11 @@ let get_used ts =
     match deref (hnorm t) with
       | DB i -> []
       | Lam(n, t) -> aux t
-      | App(t, ts) -> (aux t) @ (List.flatten (List.map aux ts))
+      | App(t, ts) -> (aux t) @ (List.flatten_map aux ts)
       | Ptr {contents=V v} -> [(v.name, t)]
       | _ -> assert false
   in
-    List.unique (List.flatten (List.map aux ts))
+    List.unique (List.flatten_map aux ts)
 
 let is_free t =
   match t with

@@ -270,11 +270,8 @@ let goal_to_subgoal g =
       sequent.goal <- g
       
 let ensure_no_logic_variable terms =
-  let logic_vars =
-    terms |> List.flatten_map collect_terms |> find_var_refs Logic
-  in
-    if List.length logic_vars > 0 then
-      failwith "Found logic variable at toplevel"
+  if List.length (metaterm_vars_alist Logic terms) > 0 then
+    failwith "Found logic variable at toplevel"
       
 let apply h args =
   save_undo_state () ;

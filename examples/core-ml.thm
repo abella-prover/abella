@@ -1,2 +1,0 @@
-Theorem forall T V, eval T V -> exists A F, V = fun A F.
-induction on 1. intros. case H1.

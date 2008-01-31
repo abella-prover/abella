@@ -1,13 +1,13 @@
 %% Type uniqueness for simply typed lambda calculus using only LG-omega
 
 Def ctx nil.
-Def ctx (typeof X T :: L) :- (forall M N, X = app M N -> false),
-                             (forall T R, X = abs T R -> false),
-                             (forall T', member (typeof X T') L -> false),
-                             ctx L.
+Def ctx (of X T :: L) :- (forall M N, X = app M N -> false),
+                         (forall T R, X = abs T R -> false),
+                         (forall T', member (of X T') L -> false),
+                         ctx L.
 
 Theorem no_app : forall L M N T,
-  ctx L -> member (typeof (app M N) T) L -> false.
+  ctx L -> member (of (app M N) T) L -> false.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -15,7 +15,7 @@ induction on 1. intros. case H1.
     apply IH to H6 H7. search.
 
 Theorem no_abs : forall L R T S,
-  ctx L -> member (typeof (abs S R) T) L -> false.
+  ctx L -> member (of (abs S R) T) L -> false.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -23,7 +23,7 @@ induction on 1. intros. case H1.
     apply IH to H6 H7. search.
 
 Theorem uniq : forall L E T1 T2,
-  ctx L -> member (typeof E T1) L -> member (typeof E T2) L -> T1 = T2.
+  ctx L -> member (of E T1) L -> member (of E T2) L -> T1 = T2.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -34,8 +34,8 @@ induction on 1. intros. case H1.
       apply H6 to H8. case H9.
       apply IH to H7 H8 H9. search.
 
-Theorem det_typeof : forall L E T1 T2,
-  ctx L -> {L |- typeof E T1} -> {L |- typeof E T2} -> T1 = T2.
+Theorem det_of : forall L E T1 T2,
+  ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
 induction on 2. intros. case H2.
   case H3.
     apply uniq to H1 H4 H5. search.
@@ -47,7 +47,7 @@ induction on 2. intros. case H2.
       unfold.
         intros. case H6.
         intros. case H6.
-        skip. % We need to prove that (typeof n1 T) \notin L
+        skip. % We need to prove that (of n1 T) \notin L
         search.
       case H6. search.
   case H3.

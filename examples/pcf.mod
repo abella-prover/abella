@@ -12,13 +12,13 @@ eval (abs T R) (abs T R).
 eval (app M N) V :- eval M (abs T R), eval (R N) V.
 eval (rec T R) V :- eval (R (rec T R)) V.
 
-typeof zero num.
-typeof true bool.
-typeof false bool.
-typeof (succ M) num :- typeof M num.
-typeof (pred M) num :- typeof M num.
-typeof (is_zero M) bool :- typeof M num.
-typeof (if M N1 N2) T :- typeof M bool, typeof N1 T, typeof N2 T.
-typeof (abs T R) (arr T U) :- pi n\ (typeof n T => typeof (R n) U).
-typeof (app M N) T :- typeof M (arr U T), typeof N U.
-typeof (rec T R) T :- pi n\ (typeof n T => typeof (R n) T).
+of zero num.
+of true bool.
+of false bool.
+of (succ M) num :- of M num.
+of (pred M) num :- of M num.
+of (is_zero M) bool :- of M num.
+of (if M N1 N2) T :- of M bool, of N1 T, of N2 T.
+of (abs T R) (arr T U) :- pi n\ (of n T => of (R n) U).
+of (app M N) T :- of M (arr U T), of N U.
+of (rec T R) T :- pi n\ (of n T => of (R n) T).

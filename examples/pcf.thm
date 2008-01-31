@@ -1,7 +1,7 @@
 %% Subject reduction for PCF
 
 Theorem subject_reduction :
-  forall P V T, {eval P V} -> {typeof P T} -> {typeof V T}.
+  forall P V T, {eval P V} -> {of P T} -> {of V T}.
 induction on 1. intros. case H1.
   search.
   search.

@@ -22,16 +22,16 @@ induction on 1. intros. case H1.
 %% End generic section
 
 Def ctx nil.
-Def ctx (typeof X T :: L) :- fresh X L, ctx L.
+Def ctx (of X T :: L) :- fresh X L, ctx L.
 
 % We could define this second clause as simply
-%   Def nabla x, ctx (typeof x T :: L) :- ctx L.
+%   Def nabla x, ctx (of x T :: L) :- ctx L.
 % but it turns out that the version with fresh is much easier to reason with
 % since it does not require introducting nominal variables in most cases.
 % Moreover, we can use lemmas based on fresh rather than on nominal variables.
 
-Theorem typeof_name : forall L E T,
-  ctx L -> member (typeof E T) L -> name E.
+Theorem of_name : forall L E T,
+  ctx L -> member (of E T) L -> name E.
 induction on 2. intros. case H1.
   case H2.
   case H2.
@@ -39,7 +39,7 @@ induction on 2. intros. case H1.
     apply IH to H4 H5. search.
 
 Theorem uniq : forall L E T1 T2,
-  ctx L -> member (typeof E T1) L -> member (typeof E T2) L -> T1 = T2.
+  ctx L -> member (of E T1) L -> member (of E T2) L -> T1 = T2.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -53,24 +53,24 @@ induction on 1. intros. case H1.
 % We can prove no_abs and no_app, but it's just as easy to inline
 % the proofs when needed.
 Theorem no_abs : forall L R S T,
-  ctx L -> member (typeof (abs S R) T) L -> false.
-intros. apply typeof_name to H1 H2. case H3.
+  ctx L -> member (of (abs S R) T) L -> false.
+intros. apply of_name to H1 H2. case H3.
     
 Theorem no_app : forall L M N T,
-  ctx L -> member (typeof (app M N) T) L -> false.
-intros. apply typeof_name to H1 H2. case H3.
+  ctx L -> member (of (app M N) T) L -> false.
+intros. apply of_name to H1 H2. case H3.
     
-Theorem det_typeof : forall L E T1 T2,
-  ctx L -> {L |- typeof E T1} -> {L |- typeof E T2} -> T1 = T2.
+Theorem det_of : forall L E T1 T2,
+  ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
 induction on 2. intros. case H2.
   case H3.
     apply uniq to H1 H4 H5. search.
-    apply typeof_name to H1 H4. case H6.
-    apply typeof_name to H1 H4. case H7.
+    apply of_name to H1 H4. case H6.
+    apply of_name to H1 H4. case H7.
   case H3.
-    apply typeof_name to H1 H5. case H6.
+    apply of_name to H1 H5. case H6.
     apply IH to _ H4 H5. case H6. search.
   case H3.
-    apply typeof_name to H1 H6. case H7.
+    apply of_name to H1 H6. case H7.
     apply IH to H1 H4 H6.
       case H8. search.

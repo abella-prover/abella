@@ -9,14 +9,14 @@
 %%
 
 Theorem det_eval :
-  forall E V1 V2, {eval E V1} -> {eval E V2} -> {eq V1 V2}.
+  forall E V1 V2, {eval E V1} -> {eval E V2} -> V1 = V2.
 induction on 1. intros. case H1.
   case H2. search.
   case H2. apply IH to H3 H5. case H7.
     apply IH to H4 H6. search.
 
 Theorem det_step :
-  forall E1 E2 E3, {step E1 E2} -> {step E1 E3} -> {eq E2 E3}.
+  forall E1 E2 E3, {step E1 E2} -> {step E1 E3} -> E2 = E3.
 induction on 1. intros. case H1.
   case H2.
     search.
@@ -26,7 +26,7 @@ induction on 1. intros. case H1.
     apply IH to H3 H4. case H5. search.
 
 Theorem det_nstep :
-  forall E R1 R2, {nstep E (abs R1)} -> {nstep E (abs R2)} -> {eq R1 R2}.
+  forall E R1 R2, {nstep E (abs R1)} -> {nstep E (abs R2)} -> R1 = R2.
 induction on 1. intros. case H1.
   case H2.
     search.
@@ -70,14 +70,14 @@ induction on 1. intros. case H1.
 %%
 
 Theorem sr_eval :
-  forall E V T, {eval E V} -> {typeof E T} -> {typeof V T}.
+  forall E V T, {eval E V} -> {of E T} -> {of V T}.
 induction on 1. intros. case H1.
   search.
   case H2. apply IH to H3 H5. case H7. inst H8 with n1 = N.
     cut H9 with H6. apply IH to H4 H10. search.
 
 Theorem sr_step :
-  forall E1 E2 T, {step E1 E2} -> {typeof E1 T} -> {typeof E2 T}.
+  forall E1 E2 T, {step E1 E2} -> {of E1 T} -> {of E2 T}.
 induction on 1. intros. case H1.
   case H2. case H3.
     inst H5 with n1 = M. cut H6 with H4.
@@ -86,7 +86,7 @@ induction on 1. intros. case H1.
     apply IH to H3 H4. search.
 
 Theorem sr_nstep :
-  forall E1 E2 T, {nstep E1 E2} -> {typeof E1 T} -> {typeof E2 T}.
+  forall E1 E2 T, {nstep E1 E2} -> {of E1 T} -> {of E2 T}.
 induction on 1. intros. case H1.
   search.
   apply sr_step to H3 H2.
@@ -99,8 +99,8 @@ induction on 1. intros. case H1.
 
 % A cut property for typing judgments
 Theorem type_subst : forall L E E' T T', nabla x,
-  {L, typeof x T' |- typeof (E x) T} -> {L |- typeof E' T'} ->
-    {L |- typeof (E E') T}.
+  {L, of x T' |- of (E x) T} -> {L |- of E' T'} ->
+    {L |- of (E E') T}.
 intros.
 inst H1 with n1 = E'.
 cut H3 with H2.

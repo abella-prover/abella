@@ -1,5 +1,5 @@
-typeof (abs R) (arrow T U) :- pi x\ (typeof x T => typeof (R x) U).
-typeof (app M N) T :- typeof M (arrow U T), typeof N U.
+of (abs R) (arrow T U) :- pi x\ (of x T => of (R x) U).
+of (app M N) T :- of M (arrow U T), of N U.
 
 eval (abs R) (abs R).
 eval (app M N) V :- eval M (abs R), eval (R N) V.
@@ -9,10 +9,3 @@ step (app M N) (app M' N) :- step M M'.
 
 nstep A A.
 nstep A C :- step A B, nstep B C.
-
-eq X X.
-
-value (abs R).
-
-progress M :- value M.
-progress M :- step M N.

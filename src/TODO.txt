@@ -18,8 +18,6 @@ Add more backtracking to search?
 
 Allow 'apply' to use 'with' and specify instantiations?
 
-Recursive case analysis on hyps like exists, nabla, and
-
 split should work on n-ary conjunctions
 
 Search should fail when it doesn't find anything - fail in file mode,

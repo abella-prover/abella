@@ -324,4 +324,20 @@ let tests =
              | _ -> assert_failure "Case analysis did not fail"
         ) ;
 
+      "Toplevel logic variable should produce error" >::
+        (fun () ->
+           setup_prover ()
+             ~clauses:eval_clauses ;
+
+           add_hyp (freshen "forall A, {foo} -> {bar A}") ;
+           add_hyp (freshen "{foo}") ;
+
+           try
+             apply "H1" ["H2"] ;
+             assert_failure ("Logic variable did not produce error\n\n" ^
+                               get_display ())
+           with
+             | Failure("Found logic variable at toplevel") -> ()
+        ) ;
+      
     ]

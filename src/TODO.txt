@@ -1,11 +1,4 @@
-Make it an error to have a logic variable appear at the top level
 
-For release
-  Create webpage with tarball
-  Create (and test under win98) windows binary package
-  Document some examples on webpage
-  Draft email to TYPES, POPLmark, lambdaProlog
-  What acknowledgments need to be made for NSF, BS, etc?
 
 Future
 ======

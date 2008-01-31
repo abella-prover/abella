@@ -269,6 +269,13 @@ let goal_to_subgoal g =
       Term.set_bind_state bind_state ;
       sequent.goal <- g
       
+let ensure_no_logic_variable hyps =
+  let logic_vars =
+    hyps |> List.flatten_map collect_terms |> find_var_refs Logic
+  in
+    if List.length logic_vars > 0 then
+      failwith "Found logic variable at toplevel"
+      
 let apply h args =
   save_undo_state () ;
   let stmt = get_hyp_or_lemma h in
@@ -276,6 +283,7 @@ let apply h args =
   let result, obligations = Tactics.apply stmt args in
   let remaining_obligations =
     List.remove_all (fun g -> search_goal (normalize g)) obligations in
+  let () = ensure_no_logic_variable (result :: remaining_obligations) in
   let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
   let resulting_subgoal =
     let restore = goal_to_subgoal sequent.goal in

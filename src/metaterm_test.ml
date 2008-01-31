@@ -193,11 +193,6 @@ let tests =
              assert_pprint_equal "forall A1, A -> (forall A2, A1 = A2)"
                (normalize t) );
 
-      "Abstract should replace eigen variables with lambda abstractions" >::
-        (fun () ->
-           let t = app (const "foo") [var_a; var_b] in
-             assert_term_pprint_equal "x1\\x2\\foo x1 x2" (abstract_eigen t)) ;
-
       "Meta right unify - pred" >::
         (fun () ->
            let t1 = freshen "foo A" in

@@ -320,10 +320,6 @@ let normalize term =
   |> map_on_objs normalize_obj
   |> normalize_binders []
 
-let abstract_eigen t =
-  let vars = find_var_refs Eigen [t] in
-    List.fold_right abstract_var (List.rev vars) t
-
 (* Pretty printing *)
 
 let restriction_to_string r =

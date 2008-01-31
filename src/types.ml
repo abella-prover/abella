@@ -26,6 +26,7 @@ type command =
   | Clear of id list
   | Search
   | Split
+  | SplitStar
   | Intros
   | Unfold
   | Skip
@@ -69,6 +70,7 @@ let command_to_string c =
         sprintf "clear %s" (String.concat " " hs)
     | Search -> "search"
     | Split -> "split"
+    | SplitStar -> "split*"
     | Unfold -> "unfold"
     | Intros -> "intros"
     | Skip -> "skip"

@@ -262,7 +262,9 @@ let apply h args =
     let restore = goal_to_subgoal sequent.goal in
       fun () ->
         restore () ;
-        add_hyp result
+        let case = recursive_metaterm_case ~used:sequent.vars result in
+          List.iter add_if_new_var case.stateless_new_vars ;
+          List.iter add_hyp case.stateless_new_hyps ;
   in
     subgoals :=
       List.append obligation_subgoals (resulting_subgoal :: !subgoals );
@@ -376,14 +378,14 @@ let intros () =
             
 (* Split *)
 
-let split () =
+let split propogate_result =
   save_undo_state () ;
   match sequent.goal with
     | And(left, right) ->
         let saved = goal_to_subgoal right in
         let right_subgoal () =
           saved () ;
-          add_hyp left          
+          if propogate_result then add_hyp left
         in
         subgoals := right_subgoal :: !subgoals ;
         sequent.goal <- left

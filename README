@@ -17,13 +17,6 @@ Quick Start
    hand or run them in batch mode using the -f flag. Most thm files
    also have a short description of what is being proven.
 
-
-Disclaimer
-==========
-This is a development release and some features not intended to work
-yet. For example, nabla in the head of a definition clause is only
-partially supported.
-
    
 Table of Contents
 =================
@@ -45,13 +38,25 @@ The syntax of terms in Abella supports the following constructs,
   F1 /\ F2                         (and)
   F1 \/ F2                         (or)
   F1 -> F2
-  pred A B C                       (LG level predicate)
+  pred A B C                       (meta level predicate - predicate in G)
   {pred A B C}                     (Lambda prolog predicate, like
                                     seq nil (pred A B C) )
   {hyp A, hyp B |- pred A B C}     (Lambda prolog predicate with context, like
                                     seq (hyp B :: hyp A :: nil) (pred A B C) )
 
 Nominal variables are denoted by n1, n2, ...
+
+  For those who aren't familar with the logic G
+  ==============================================
+  One way to think about the different level of predicates is that
+  everything inside of {...} is at the specification level while
+  things outside are at the reasoning level. For typical reasoning
+  tasks, almost every predicate will be at the specification level,
+  except for a few reasoning level predicates to describe the
+  structure of contexts for specification predicates.
+
+  Nominal variables and the nabla quantifier can be roughly thought of
+  as representing "names."
 
   
 Top-level Commands
@@ -103,7 +108,7 @@ The following tactics are listed in order of usefulness (according to me)
   case <HYP-NAME>.
   ================
   The case tactic performs case analysis on a hypothesis. This
-  corresponds to def-L in the LG logic. The tactic also removes the
+  corresponds to def-L in the G logic. The tactic also removes the
   hypothesis from the hypothesis list. To keep it, use the keep flag,
   e.g. "case H3 (keep)." See examples/pcf.thm for an example of where
   keeping a hypothesis is convenient.
@@ -120,7 +125,8 @@ The following tactics are listed in order of usefulness (according to me)
   The apply tactic applies a hypotheses of the form "forall A B C, F1
   -> F2 -> F3" to argument hypotheses such as "F1" and "F2". A
   previously proved theorem can be used instead of the first
-  hypothesis, and then this acts like using a lemma.
+  hypothesis, and then this acts like using a lemma. This tactic also
+  triggers some basic case analysis on the resulting hypotheses.
   
   undo.
   =====
@@ -176,7 +182,8 @@ The following tactics are listed in order of usefulness (according to me)
   split.
   ======
   Given a goal of the form "F1 /\ F2" the split tactic creates the two
-  subgoals "F1" and "F2". The second subgoal has "F1" as a hypothesis.
+  subgoals "F1" and "F2". If split* is used instead of split, the second
+  subgoal has "F1" as a hypothesis.
 
   clear <HYP-NAME> ... <HYP-NAME>.
   ================================
@@ -273,3 +280,10 @@ progress.
  * tait - Tait's proof of normalization for the simply typed lambda calculus
  * type_uniq - type uniqueness for simply typed lambda calculus
  * type_uniq2 - same as type_uniq, but using only LG-omega
+
+ 
+Disclaimer
+==========
+Some features are only partially supported. In particular, we only allow
+one nabla in the head of definitions. This is sufficient for a wide
+variety of examples however.

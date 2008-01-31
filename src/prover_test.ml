@@ -72,7 +72,22 @@ let tests =
            setup_prover ()
              ~goal:"{A} /\\ {B}" ;
 
-           split () ;
+           split false ;
+           assert_n_subgoals 2 ;
+
+           assert_pprint_equal "{A}" sequent.goal ;
+
+           skip () ;
+           match sequent.hyps with
+             | [] -> assert_pprint_equal "{B}" sequent.goal
+             | _ -> assert_failure "Expected no hypotheses" ) ;
+
+      "SplitStar test" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"{A} /\\ {B}" ;
+
+           split true ;
            assert_n_subgoals 2 ;
 
            assert_pprint_equal "{A}" sequent.goal ;
@@ -119,6 +134,18 @@ let tests =
            skip () ;
            assert_n_subgoals 1 ;
            assert_pprint_equal "{third B}" sequent.goal ;
+        );
+
+      "Apply should trigger case analysis" >::
+        (fun () ->
+           setup_prover () ;
+
+           add_hyp (freshen "forall A, foo A -> bar A /\\ baz A") ;
+           add_hyp (freshen "foo B") ;
+
+           apply "H1" ["H2"] ;
+           assert_pprint_equal "bar B" (List.assoc "H3" sequent.hyps) ;
+           assert_pprint_equal "baz B" (List.assoc "H4" sequent.hyps)
         );
       
       "Cases should not consume fresh hyp names" >::

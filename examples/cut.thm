@@ -5,6 +5,8 @@
 %% predicate to describe the structure of contexts for the conc
 %% predicate. In this case, the important point is that the context
 %% contains only hypotheses (hyp A) and not conclusions (conc A).
+%%
+%% This is based on a similar development for Twelf
 
 Def ctx nil.
 Def ctx (hyp A :: L) :- ctx L.

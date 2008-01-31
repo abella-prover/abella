@@ -1,7 +1,7 @@
 %token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT
 %token SKIP UNDO ABORT
-%token SPLIT UNFOLD KEEP CLEAR
+%token SPLIT SPLITSTAR UNFOLD KEEP CLEAR
 %token THEOREM AXIOM DEF
 %token COLON RARROW FORALL NABLA EXISTS STAR AT OR AND LBRACK RBRACK
 
@@ -99,6 +99,7 @@ command:
   | EXISTS term DOT                     { Types.Exists($2) }
   | SEARCH DOT                          { Types.Search }
   | SPLIT DOT                           { Types.Split }
+  | SPLITSTAR DOT                       { Types.SplitStar }
   | INTROS DOT                          { Types.Intros }
   | SKIP DOT                            { Types.Skip }
   | ABORT DOT                           { Types.Abort }

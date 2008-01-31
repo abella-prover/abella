@@ -33,7 +33,8 @@ let rec process_proof name ~interactive lexbuf =
           | Exists(t) -> exists t
           | Clear(hs) -> clear hs
           | Search -> search ()
-          | Split -> split ()
+          | Split -> split false
+          | SplitStar -> split true
           | Unfold -> unfold ()
           | Intros -> intros ()
           | Skip -> skip ()

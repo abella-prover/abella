@@ -61,7 +61,7 @@ Theorem dual_theorem : forall Q, ty Q ->
   (forall L P X TM TN,
     ctx (bound X Q :: L) -> {L |- sub P Q} ->
       {L, bound X Q |- sub TM TN} -> {L, bound X P |- sub TM TN}).
-induction on 1. intros. split.
+induction on 1. intros. split*.
 
   % Proof of transitivity
   induction on 2. intros. case H3.
@@ -74,22 +74,22 @@ induction on 1. intros. split.
       search.
       apply bound_name to H2 H7. case H8.
       apply bound_name to H2 H7. case H9.
-      case H1. apply IH to H9. case H11.
-        apply IH to H10. case H14.
-          apply H12 to H2 H7 H5.
-            apply H15 to H2 H6 H8.
+      case H1. apply IH to H9.
+        apply IH to H10.
+          apply H11 to H2 H7 H5.
+            apply H13 to H2 H6 H8.
               search.
     case H4.
       apply ctx_no_sub to H2 H7. case H8.
       search.
       apply bound_name to H2 H7. case H8.
       apply bound_name to H2 H7. case H9.
-      case H1. apply IH to H9. case H11.
-        case H10. apply IH to H14. case H15.
-          apply H12 to H2 H7 H5.
+      case H1. apply IH to H9.
+        case H10. apply IH to H13.
+          apply H11 to H2 H7 H5.
             assert ctx (bound n1 T1 :: L). search.
-              apply H13 to H19 H7 H6.
-                apply H16 to _ H20 H8.
+              apply H12 to H17 H7 H6.
+                apply H14 to _ H18 H8.
                   search.
 
   % Proof of narrowing
@@ -112,5 +112,5 @@ induction on 1. intros. split.
 
 Theorem transitivity : forall L Q S T,
   ctx L -> ty Q -> {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T}.
-intros. apply dual_theorem to H2. case H5.
-  apply H6 to H1 H3 H4. search.
+intros. apply dual_theorem to H2.
+  apply H5 to H1 H3 H4. search.

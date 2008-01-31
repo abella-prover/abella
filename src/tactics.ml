@@ -121,6 +121,45 @@ type case = {
   new_hyps : metaterm list ;
 }
 
+type stateless_case = {
+  stateless_new_vars : (id * term) list ;
+  stateless_new_hyps : metaterm list ;
+}
+
+let stateless_case_to_case case =
+  { bind_state = get_bind_state () ;
+    new_vars = case.stateless_new_vars ;
+    new_hyps = case.stateless_new_hyps }
+
+let rec recursive_metaterm_case ~used term =
+  match term with
+    | And(left, right) ->
+        let {stateless_new_vars = vars_left ;
+             stateless_new_hyps = hyps_left } =
+          recursive_metaterm_case ~used left
+        in
+        let right_case =
+          recursive_metaterm_case ~used:(vars_left @ used) right
+        in
+          { stateless_new_vars = vars_left @ right_case.stateless_new_vars ;
+            stateless_new_hyps = hyps_left @ right_case.stateless_new_hyps }
+    | Binding(Exists, ids, body) ->
+        let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
+        let support = metaterm_support term in
+        let raised_ids = raise_alist ~support fresh_ids in
+        let fresh_body = replace_metaterm_vars raised_ids body in
+        let new_vars = List.map alist_to_used fresh_ids in
+        let nested_case =
+          recursive_metaterm_case ~used:(new_vars @ used) fresh_body
+        in
+          {nested_case with
+             stateless_new_vars = new_vars @ nested_case.stateless_new_vars}
+    | Binding(Nabla, [id], body) ->
+        let nominal = fresh_nominal body in
+        let fresh_body = replace_metaterm_vars [(id, nominal)] body in
+          recursive_metaterm_case ~used fresh_body
+    | _ -> {stateless_new_vars = [] ; stateless_new_hyps = [term]}
+
 let rec or_to_list term =
   match term with
     | Or(left, right) -> (or_to_list left) @ (or_to_list right)
@@ -241,49 +280,15 @@ let case ~used ~clauses ~meta_clauses ~global_support term =
           member_case :: clause_cases
   in
     
-  let make_simple_case ?(new_vars=[]) new_hyps =
-    { bind_state = get_bind_state () ;
-      new_vars = new_vars ;
-      new_hyps = new_hyps }
-  in
-
-  let rec recursive_metaterm_case ~used term =
-    (* This needs to be recomputed for each recursive call *)
-    let support = metaterm_support term in
-      match term with
-        | And(left, right) ->
-            let {new_vars=vars_left; new_hyps=hyps_left} =
-              recursive_metaterm_case ~used left
-            in
-            let right_case =
-              recursive_metaterm_case ~used:(vars_left @ used) right
-            in
-              {right_case with
-                 new_vars = vars_left @ right_case.new_vars ;
-                 new_hyps = hyps_left @ right_case.new_hyps }
-        | Binding(Exists, ids, body) ->
-            let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
-            let raised_ids = raise_alist ~support fresh_ids in
-            let fresh_body = replace_metaterm_vars raised_ids body in
-            let new_vars = List.map alist_to_used fresh_ids in
-            let nested_case =
-              recursive_metaterm_case ~used:(new_vars @ used) fresh_body
-            in
-              {nested_case with new_vars = new_vars @ nested_case.new_vars}
-        | Binding(Nabla, [id], body) ->
-            let nominal = fresh_nominal body in
-            let fresh_body = replace_metaterm_vars [(id, nominal)] body in
-              recursive_metaterm_case ~used fresh_body
-        | _ -> make_simple_case [term]
-  in
-    
     match term with
       | Obj(obj, r) -> obj_case obj r
       | Pred(p, r) -> metaclause_case ~wrapper:(predicate_wrapper r) p
-      | Or _ -> List.map (recursive_metaterm_case ~used) (or_to_list term)
+      | Or _ -> List.map stateless_case_to_case
+          (List.map (recursive_metaterm_case ~used) (or_to_list term))
       | And _
       | Binding(Exists, _, _)
-      | Binding(Nabla, _, _) -> [recursive_metaterm_case ~used term]
+      | Binding(Nabla, _, _) ->
+          [stateless_case_to_case (recursive_metaterm_case ~used term)]
       | _ -> invalid_metaterm_arg term
           
 

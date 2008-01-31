@@ -17,5 +17,4 @@ skip.
 
 Theorem specialized : forall E E' V,
   {pe E E'} -> {eval E V} -> exists V', {pe V V'} /\ {eval E' V'}.
-intros. apply generalized to _ H1 H2.
-  case H3. search.
+intros. apply generalized to _ H1 H2. search.

@@ -54,6 +54,7 @@ rule token = parse
 | "with"             { WITH }
 | "on"               { ON }
 | "split"            { SPLIT }
+| "split*"           { SPLITSTAR }
 | "unfold"           { UNFOLD }
 | "intros"           { INTROS }
 | "skip"             { SKIP }

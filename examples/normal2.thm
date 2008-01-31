@@ -26,19 +26,19 @@ induction on 1. intros. case H1.
 Theorem head_lemma : forall L T,
   ctx L -> {L |- normal_head T} -> {L |- normal T}.
 intros. case H2.
-  apply ctx_var to H1 H3. case H4. case H5.
+  apply ctx_var to H1 H3. case H4.
   search.
   search.
 
 Theorem generalized : forall T L,
   ctx L -> {L |- normal T} -> {non_normal T} -> false.
 induction on 3. intros. case H2.
-  apply ctx_var to H1 H4. case H5. case H6.
+  apply ctx_var to H1 H4. case H5.
   case H3.
     apply IH to _ H4 H5. search.
   case H3.
     case H4.
-      apply ctx_var to H1 H6. case H7. case H8.
+      apply ctx_var to H1 H6. case H7.
       case H6. apply ctx_var_nominal to H1 H7. case H8.
     apply head_lemma to H1 H4.
       apply IH to H1 H7 H6. search.

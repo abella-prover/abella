@@ -121,16 +121,23 @@ type case = {
   new_hyps : metaterm list ;
 }
 
-let rec and_to_list term =
-  match term with
-    | And(left, right) -> (and_to_list left) @ (and_to_list right)
-    | _ -> [term]
-
 let rec or_to_list term =
   match term with
     | Or(left, right) -> (or_to_list left) @ (or_to_list right)
     | _ -> [term]
 
+let predicate_wrapper r t =
+  let rec aux t =
+    match t with
+      | Pred(p, _) -> Pred(p, reduce_restriction r)
+      | Binding(binding, ids, body) -> Binding(binding, ids, aux body)
+      | Or(t1, t2) -> Or(aux t1, aux t2)
+      | And(t1, t2) -> And(aux t1, aux t2)
+      | Arrow(t1, t2) -> Arrow(t1, aux t2)
+      | Obj _ -> t
+  in
+    aux t
+    
 let lift_all ~used nominals =
   List.fold_left
     (fun used (id, term) ->
@@ -239,34 +246,46 @@ let case ~used ~clauses ~meta_clauses ~global_support term =
       new_vars = new_vars ;
       new_hyps = new_hyps }
   in
+
+  let rec recursive_metaterm_case ~used term =
+    (* This needs to be recomputed for each recursive call *)
+    let support = metaterm_support term in
+      match term with
+        | And(left, right) ->
+            let {new_vars=vars_left; new_hyps=hyps_left} =
+              recursive_metaterm_case ~used left
+            in
+            let right_case =
+              recursive_metaterm_case ~used:(vars_left @ used) right
+            in
+              {right_case with
+                 new_vars = vars_left @ right_case.new_vars ;
+                 new_hyps = hyps_left @ right_case.new_hyps }
+        | Binding(Exists, ids, body) ->
+            let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
+            let raised_ids = raise_alist ~support fresh_ids in
+            let fresh_body = replace_metaterm_vars raised_ids body in
+            let new_vars = List.map alist_to_used fresh_ids in
+            let nested_case =
+              recursive_metaterm_case ~used:(new_vars @ used) fresh_body
+            in
+              {nested_case with new_vars = new_vars @ nested_case.new_vars}
+        | Binding(Nabla, [id], body) ->
+            let nominal = fresh_nominal body in
+            let fresh_body = replace_metaterm_vars [(id, nominal)] body in
+              recursive_metaterm_case ~used fresh_body
+        | _ -> make_simple_case [term]
+  in
     
     match term with
       | Obj(obj, r) -> obj_case obj r
-      | Or _ -> List.map (fun h -> make_simple_case [h]) (or_to_list term)
-      | And _ -> [make_simple_case (and_to_list term)]
-      | Binding(Exists, ids, body) ->
-          let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
-          let raised_ids = raise_alist ~support fresh_ids in
-          let fresh_body = replace_metaterm_vars raised_ids body in
-          let new_vars = List.map alist_to_used fresh_ids in
-            [make_simple_case ~new_vars [fresh_body]]
-      | Binding(Nabla, [id], body) ->
-          let nominal = fresh_nominal body in
-          let fresh_body = replace_metaterm_vars [(id, nominal)] body in
-            [make_simple_case [fresh_body]]
-      | Pred(p, r) ->
-          let rec wrapper t =
-            match t with
-              | Pred(p, _) -> Pred(p, reduce_restriction r)
-              | Binding(binding, ids, body) ->
-                  Binding(binding, ids, wrapper body)
-              | Or(t1, t2) -> Or(wrapper t1, wrapper t2)
-              | And(t1, t2) -> And(wrapper t1, wrapper t2)
-              | Arrow(t1, t2) -> Arrow(t1, wrapper t2)
-              | Obj _ -> t
-          in
-            metaclause_case ~wrapper p
+      | Pred(p, r) -> metaclause_case ~wrapper:(predicate_wrapper r) p
+      | Or _ -> List.map (recursive_metaterm_case ~used) (or_to_list term)
+      | And _
+      | Binding(Exists, _, _)
+      | Binding(Nabla, _, _) -> [recursive_metaterm_case ~used term]
       | _ -> invalid_metaterm_arg term
+          
 
 
 (* Induction *)

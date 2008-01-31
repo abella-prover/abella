@@ -81,12 +81,12 @@ induction on 2. intros. case H2.
 
 Theorem halt_step_forward : forall M N,
   halts M -> {step M N} -> halts N.
-intros. case H1. case H3. case H4.
-  apply nstep_step_backward to H2 H5 H6. search.
+intros. case H1. case H3.
+  apply nstep_step_backward to H2 H4 H5. search.
 
 Theorem halt_step_backward : forall M N,
   halts N -> {step M N} -> halts M.
-intros. case H1. case H3. case H4.
+intros. case H1. case H3.
   assert {nstep M V1}. search.
     search.
 
@@ -285,7 +285,7 @@ Theorem close_app : forall L M N R,
     exists MR NR, R = app MR NR /\ close L M MR /\ close L N NR.
 induction on 1. intros. case H1.
   case H2. search.
-  case H2. apply IH to H3 H6. case H7. case H8. case H9.
+  case H2. apply IH to H3 H6. case H7.
     search.
 
 Theorem close_abs : forall L M R A B,
@@ -301,38 +301,38 @@ induction on 1. intros. case H1.
     intros. search.
   case H2. apply type_ground to H4. case H9. case H10.
     apply reduce_of to H6. inst H3 with n1 = V. cut H12 with H11.
-      apply IH to H5 H8 H13 H4. case H14. case H15. case H16.
+      apply IH to H5 H8 H13 H4. case H14. case H15.
         exists MR. split. split.
           search.
           search.
-          intros. apply reduce_closed to H20. apply closed_ground to H22.
-            case H23. case H24.
-              apply H18 to H20 H21. case H25. case H26.
-                clear H20. search.
+          intros. apply reduce_closed to H19. apply closed_ground to H21.
+            case H22. case H23.
+              apply H17 to H19 H20. case H24. case H25.
+                clear H19. search.
 
 Theorem tait_ext : forall L M R A,
   of_ctx L -> {L |- of M A} -> close L M R -> reduce R A.
 induction on 2. intros. case H2.
   apply close_var to H1 H4 H3. search.
-  apply close_app to H1 H3. case H6. case H7. case H8.
-    apply IH to H1 H4 H9.
-      apply IH to H1 H5 H10.
-        case H11. apply H15 to H12. search.
+  apply close_app to H1 H3. case H6. case H7.
+    apply IH to H1 H4 H8.
+      apply IH to H1 H5 H9.
+        case H10. apply H14 to H11. search.
   apply type_ignores_of_ctx to H1 H4.
-    apply close_abs to H1 H3 _ H6. case H7. case H8. case H9. unfold.
+    apply close_abs to H1 H3 _ H6. case H7. case H8. unfold.
       search.
       search.
       intros. % The rest is one single case
-        apply reduce_halts to H12. case H13. case H14. case H15.
-        apply reduce_nstep_forward to H12 H16.
-        apply H11 to H18 H17. case H19.
-        apply IH to _ H5 H20.
-        apply reduce_of to H12.
+        apply reduce_halts to H11. case H12. case H13.
+        apply reduce_nstep_forward to H11 H14.
+        apply H10 to H16 H15. case H17.
+        apply IH to _ H5 H18.
+        apply reduce_of to H11.
         assert {value (abs A1 MR)}. search.
-        apply nstep_app_value to H23 H16.
+        apply nstep_app_value to H21 H14.
         assert {step (app (abs A1 MR) V1) (MR V1)}. search.
-        apply nstep_right to H24 H25.
-        apply reduce_nstep_backward to H21 H26 _. search.
+        apply nstep_right to H22 H23.
+        apply reduce_nstep_backward to H19 H24 _. search.
 
 
 Theorem tait : forall M A, {of M A} -> halts M.

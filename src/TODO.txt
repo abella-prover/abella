@@ -1,3 +1,8 @@
+Make recursive_case_analysis trigger on apply
+Create apply* to prevent that
+
+Create split and split*
+
 Comment poplmark examples
 
 For release
@@ -12,6 +17,8 @@ For release
 
 Future
 ======
+
+Make case* which does a single case analysis
 
 Add more backtracking to search?
 

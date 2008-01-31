@@ -367,6 +367,30 @@ let case_tests =
                      assert_pprint_equal "{foo A B}" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
+      "On nested exists, AND" >::
+        (fun () ->
+           let term = freshen "exists A B, {foo A} /\\ {bar B}" in
+           let used = [] in
+             match case ~used term with
+               | [{new_vars=new_vars ; new_hyps=[hyp1; hyp2]}] ->
+                   let var_names = List.map fst new_vars in
+                     assert_string_list_equal ["A"; "B"] var_names ;
+                     assert_pprint_equal "{foo A}" hyp1 ;
+                     assert_pprint_equal "{bar B}" hyp2 ;
+               | _ -> assert_failure "Pattern mismatch") ;
+
+      "On nested AND, exists" >::
+        (fun () ->
+           let term = freshen "{foo} /\\ exists A, {bar A}" in
+           let used = [] in
+             match case ~used term with
+               | [{new_vars=new_vars ; new_hyps=[hyp1; hyp2]}] ->
+                   let var_names = List.map fst new_vars in
+                     assert_string_list_equal ["A"] var_names ;
+                     assert_pprint_equal "{foo}" hyp1 ;
+                     assert_pprint_equal "{bar A}" hyp2 ;
+               | _ -> assert_failure "Pattern mismatch") ;
+
       "On nabla" >::
         (fun () ->
            let term = freshen "nabla x, foo x" in
@@ -374,6 +398,17 @@ let case_tests =
              match case ~used term with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
                    assert_pprint_equal "foo n1" hyp ;
+               | _ -> assert_failure "Pattern mismatch") ;
+
+      "On nested nabla, exists" >::
+        (fun () ->
+           let term = freshen "nabla x, exists A B, {foo A B x}" in
+           let used = [] in
+             match case ~used term with
+               | [{new_vars=new_vars ; new_hyps=[hyp]}] ->
+                   let var_names = List.map fst new_vars in
+                     assert_string_list_equal ["A"; "B"] var_names ;
+                     assert_pprint_equal "{foo (A n1) (B n1) n1}" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
       "On nabla with n1 used" >::

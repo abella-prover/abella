@@ -59,17 +59,15 @@ induction on 1. intros. case H1.
 
 Theorem invert_sub_forall : forall S1 S2 T1 T2,
   {sub (all S1 S2) (all T1 T2)} ->
-    {sub T1 S1} /\ nabla n1, {sub n1 T1 |- sub (S2 n1) (T2 n1)}.
+    {sub T1 S1} /\ nabla x, {sub x T1 |- sub (S2 x) (T2 x)}.
 induction on 1. intros. case H1.
   search.
   apply sub_forall to H3. case H4. case H5.
-    apply IH to H2. case H6. case H8.
-      apply IH to H3. case H10. case H12.
+    apply IH to H2. case H6.
+      apply IH to H3. case H9.
         assert {sub n1 T1 |- sub n1 S3}. search.
-        cut H9 with H14.
-        search.
+        cut H8 with H12. search.
   search.
-
   
 %% Typing inversions
 
@@ -87,26 +85,25 @@ induction on 1. intros. case H1.
 
 Theorem invert_of_abs : forall S1 E T1 T2,
   {of (abs S1 E) (arrow T1 T2)} ->
-    exists S2, nabla n1,
-      {of n1 S1 |- of (E n1) S2} /\ {sub T1 S1} /\ {sub S2 T2}.
+    exists S2, nabla x,
+      {of x S1 |- of (E x) S2} /\ {sub T1 S1} /\ {sub S2 T2}.
 induction on 1. intros. case H1.
   search.
   apply sub_arrow to H3. case H4. case H5.
     apply invert_sub_arrow to H3. case H6.
-    apply IH to H2. case H9. case H10. case H11.
-    search.
+      apply IH to H2. case H9. search.
 
 Theorem invert_of_tabs : forall S1 E T1 T2,
   {of (tabs S1 E) (all T1 T2)} ->
-    exists S2, nabla n1, {sub n1 S1 |- of (E n1) (S2 n1)} /\ {sub T1 S1} /\
-                           {sub n1 T1 |- sub (S2 n1) (T2 n1)}.
+    exists S2, nabla x, {sub x S1 |- of (E x) (S2 x)} /\ {sub T1 S1} /\
+                        {sub x T1 |- sub (S2 x) (T2 x)}.
 induction on 1. intros. case H1.
   search.
   apply sub_forall to H3. case H4. case H5.
-    apply invert_sub_forall to H3. case H6. case H8.
-    apply IH to H2. case H10. case H11. case H12.
+    apply invert_sub_forall to H3. case H6.
+    apply IH to H2. case H9.
     assert {sub n1 T1 |- sub n1 S2}. search.
-    cut H15 with H16.
+    cut H12 with H13.
     search.
 
 
@@ -158,20 +155,20 @@ Theorem preservation : forall E E' T,
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    apply invert_of_abs to H3. case H5. case H6. case H7.
-      inst H8 with n1 = E2.
+    apply invert_of_abs to H3. case H5.
+      inst H6 with n1 = E2.
       assert {of E2 T1}. search.
-      cut H11 with H12. search.
+      cut H9 with H10. search.
     apply IH to H3 H5. search.
   apply IH to H4 H6. search.
   case H2.
   case H2.
-    apply invert_of_tabs to H3. case H5. case H6. case H7.
+    apply invert_of_tabs to H3. case H5.
       assert {sub T2 T1}. search.
+      inst H6 with n1 = T2.
+      cut H10 with H9.
       inst H8 with n1 = T2.
-      cut H12 with H11.
-      inst H10 with n1 = T2.
-      cut H14 with H4.
+      cut H12 with H4.
       search.
     apply IH to H3 H5. search.
   apply IH to H3 H2. search.

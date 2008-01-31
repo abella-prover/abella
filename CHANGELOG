@@ -1,4 +1,4 @@
-0.2 Release
+1.0 Release
 
 
 	Renamed project to Abella
@@ -6,7 +6,10 @@
 
     Tactics changes:
 
-      * The case tactic now removes the hypothesis which is being analyzed
+      * The case tactic now removes the hypothesis which is being
+	analyzed. It works recursively over /\, exists, and nabla.
+
+      * The apply tactic now triggers selective case analysis
 
       * The abort tactic ends the current proof
 

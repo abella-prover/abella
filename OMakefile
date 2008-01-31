@@ -11,6 +11,7 @@ BuildDist() =
     mkdir dist
     cp dist-makefile dist/makefile
     cp README dist/README
+    cp COPYING dist/COPYING
     cp CHANGELOG dist/CHANGELOG
 
     mkdir dist/src

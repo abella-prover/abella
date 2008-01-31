@@ -560,8 +560,8 @@ let unfold ~used ~meta_clauses term =
                      | Pred(p, _) -> used, p, body
                      | _ -> failwith "Bad head in meta-clause"
                  in
-                 let used, head, body =
-                   freshen_meta_clause ~support ~tag:Logic ~used head body
+                 let head, body =
+                   freshen_nameless_meta_clause ~support ~tag:Logic head body
                  in
                    if try_right_unify ~used head term then
                      Some body

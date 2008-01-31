@@ -34,3 +34,15 @@ dist: test theorems
     mv dist abella
     tar c abella | gzip - > abella.tar.gz
     rm -rf abella
+
+.PHONY: dist-windows
+dist-windows: test theorems
+    BuildDist()
+    make -C dist
+    mv dist/abella.exe .
+    BuildDist()
+    mv abella.exe dist/
+    rm -f abella.zip
+    mv dist abella
+    zip -r abella.zip abella
+    rm -rf abella

@@ -18,9 +18,11 @@ let assert_proof proof_function =
 let assert_goal goal =
   assert_string_equal goal (metaterm_to_string sequent.goal)
 
-let setup_prover ?clauses:(clauses=[]) ?goal:(goal="") ?lemmas:(lemmas=[]) () =
+let setup_prover ?clauses:(clauses=[]) ?meta_clauses:(meta_clauses=[])
+    ?goal:(goal="") ?lemmas:(lemmas=[]) () =
   full_reset_prover () ;
   add_clauses clauses ;
+  List.iter add_meta_clause meta_clauses ;
   if goal <> "" then Prover.sequent.goal <- parse_metaterm goal ;
   Prover.lemmas :=
     List.map (fun (name,body) -> (name, parse_metaterm body)) lemmas
@@ -324,10 +326,9 @@ let tests =
              | _ -> assert_failure "Case analysis did not fail"
         ) ;
 
-      "Toplevel logic variable should produce error" >::
+      "Toplevel logic variable should produce error in apply" >::
         (fun () ->
-           setup_prover ()
-             ~clauses:eval_clauses ;
+           setup_prover () ;
 
            add_hyp (freshen "forall A, {foo} -> {bar A}") ;
            add_hyp (freshen "{foo}") ;
@@ -340,4 +341,17 @@ let tests =
              | Failure("Found logic variable at toplevel") -> ()
         ) ;
       
+      "Toplevel logic variable should produce error in unfold" >::
+        (fun () ->
+           setup_prover ()
+             ~meta_clauses:(parse_meta_clauses "foo :- bar A.")
+             ~goal:"foo" ;
+           
+           try
+             unfold () ;
+             assert_failure ("Logic variable did not produce error\n\n" ^
+                               get_display ())
+           with
+             | Failure("Found logic variable at toplevel") -> ()
+        ) ;
     ]

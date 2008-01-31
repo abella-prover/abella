@@ -269,9 +269,9 @@ let goal_to_subgoal g =
       Term.set_bind_state bind_state ;
       sequent.goal <- g
       
-let ensure_no_logic_variable hyps =
+let ensure_no_logic_variable terms =
   let logic_vars =
-    hyps |> List.flatten_map collect_terms |> find_var_refs Logic
+    terms |> List.flatten_map collect_terms |> find_var_refs Logic
   in
     if List.length logic_vars > 0 then
       failwith "Found logic variable at toplevel"
@@ -424,6 +424,7 @@ let split propogate_result =
 let unfold () =
   let goals = unfold ~used:sequent.vars
     ~meta_clauses:!meta_clauses sequent.goal in
+  let _ = ensure_no_logic_variable goals in
   let goals = List.map goal_to_subgoal goals in
     subgoals := goals @ !subgoals ;
     next_subgoal ()

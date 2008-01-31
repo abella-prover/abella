@@ -5,7 +5,9 @@
 
 %% Conventions:
 %% Types: A, B, C
-%% Terms: M, N, P, R, V
+%% Terms: M, N, P, R
+%% Values (Terms): V
+%% Contexts: L, K
 
 Def halts M :- exists V, {nstep M V} /\ {value V}.
 
@@ -13,7 +15,9 @@ Def halts M :- exists V, {nstep M V} /\ {value V}.
 %% We write the term before the type to match the signature of "of".
 %% This definition is not strictly admitted in the logic G due to the use
 %% of reduce in a negative context. However, a more fine grained
-%% notion of stratification will allow this definition.
+%% notion of stratification (based on examining the arguments to predicates)
+%% will allow this definition since the second argument is always smaller
+%% in negative occurences.
 Def reduce M top :- {of M top}, halts M.
 Def reduce M (arrow A B) :-
   {of M (arrow A B)},
@@ -29,6 +33,9 @@ Theorem reduce_of : forall A M, reduce M A -> {of M A}.
 intros. case H1.
   search.
   search.
+
+
+%% Properties of evaluation
 
 Theorem absurd_step_value : forall V M,
   {step V M} -> {value V} -> false.
@@ -53,7 +60,7 @@ induction on 1. intros. case H1.
     apply absurd_step_value to H5 H3. case H6.
     search.
 
-Theorem step_nstep : forall M N V,
+Theorem nstep_step_backward : forall M N V,
   {step M N} -> {nstep M V} -> {value V} -> {nstep N V}.
 intros. case H2.
   apply absurd_step_value to H1 H3. case H4.
@@ -76,12 +83,11 @@ induction on 2. intros. case H2.
 Theorem halt_step_forward : forall M N,
   halts M -> {step M N} -> halts N.
 intros. case H1. case H3. case H4.
-  apply step_nstep to H2 H5 H6. search.
+  apply nstep_step_backward to H2 H5 H6. search.
 
 Theorem halt_step_backward : forall M N,
   halts N -> {step M N} -> halts M.
 intros. case H1. case H3. case H4.
-  %% TODO: why does search not find this?
   assert {nstep M V1}. search.
     search.
 
@@ -130,8 +136,8 @@ induction on 2. intros. case H2.
   apply of_step_forward to H3 H4. apply IH to H1 H5 H6.
     apply reduce_step_backward to H7 H4 H3. search.
 
-%% Now we need to state the generalize theorem. This will require reasoning
-%% about all possible closed instantiations of an open term.
+
+%% Properties about fresh, closed, and ground
 
 % of_ctx defines the context of "of M A" judgments
 Def of_ctx nil.
@@ -144,33 +150,15 @@ Def nabla x, term_ctx (term x :: L) :- term_ctx L.
 % A term is closed if it is a valid term in an empty context
 Def closed M :- {term M}.
 
-% Suppose that {L |- of M A} is true. Then M is an open term with nominal
-% constants that are listed in L. The judgment "close L M N" holds for all
-% closed instantiations N of the nominal constants in M. The key to defining
-% this judgment is the use of nabla in the head of a definition which
-% extracts a nominal constant from L and M. The definition of "close" then
-% substitutes for this nominal constant and continues processing the list L.
-Def close nil M M.
-Def nabla x, close (of x A :: L) (R x) M :-
-  reduce V A, closed V, {value V}, close L (R V) M.
-% V is not in the head, so it is treated as bound existentially in the body.
-% The judgment {term V} asserts that V is a closed term.
-
-% Freshness and related properties
 Def nabla x, fresh x M.
-
-Theorem fresh_tail : forall X A L,
-  fresh X (A :: L) -> fresh X L.
-intros. case H1. search.
 
 Theorem member_fresh : forall X L E,
   member E L -> fresh X L -> fresh X E.
 induction on 1. intros. case H1.
   case H2. search.
-  apply fresh_tail to H2. apply IH to H3 H4. search.
-
-
-%% All types and closed terms do not contain nominal constants.
+  assert fresh X L1.
+    case H2. search.
+    apply IH to H3 H4. search.
 
 Theorem type_ground : forall A, nabla x,
   {type (A x)} -> exists B, A = (x\ B).
@@ -253,6 +241,22 @@ induction on 2. intros. case H2.
 
 Theorem of_closed : forall M A, {of M A} -> closed M.
 intros. apply of_closed_ext to _ H1 _. search.
+
+
+%% Now we need to state the generalize theorem. This will require reasoning
+%% about all possible closed instantiations of an open term.
+
+% Suppose that {L |- of M A} is true. Then M is an open term with nominal
+% constants that are listed in L. The judgment "close L M N" holds for all
+% closed instantiations N of the nominal constants in M. The key to defining
+% this judgment is the use of nabla in the head of a definition which
+% extracts a nominal constant from L and M. The definition of "close" then
+% substitutes for this nominal constant and continues processing the list L.
+% Note: In the second clause, V is not mentioned in the head, thus it is
+%       treated as existentially bound in the body.
+Def close nil M M.
+Def nabla x, close (of x A :: L) (R x) M :-
+  reduce V A, closed V, {value V}, close L (R V) M.
 
 % Closing a closed term has no effect
 Theorem closed_close : forall L M N,

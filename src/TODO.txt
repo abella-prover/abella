@@ -1,5 +1,3 @@
-Re-organize tait example: group the freshness lemmas, ground lemmas
-
 Case and split should treat and and or as n-ary?
 
 Comment poplmark examples

@@ -245,13 +245,12 @@ let search_goal goal =
     ~meta_clauses:!meta_clauses
     goal
 
-let search () =
+let search ?(interactive=true) () =
   save_undo_state () ;
   if search_goal sequent.goal then
     next_subgoal ()
-  else
-    ()
-
+  else if not interactive then
+    failwith "Search failed"
       
 (* Apply *)
 
@@ -419,6 +418,7 @@ let split propogate_result =
 (* Unfold *)
 
 let unfold () =
+  save_undo_state () ;
   let goals = unfold ~used:sequent.vars
     ~meta_clauses:!meta_clauses sequent.goal in
   let _ = ensure_no_logic_variable goals in

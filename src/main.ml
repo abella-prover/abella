@@ -51,7 +51,7 @@ let rec process_proof name ~interactive lexbuf =
           | Assert(t) -> assert_hyp t
           | Exists(t) -> exists t
           | Clear(hs) -> clear hs
-          | Search -> search ()
+          | Search -> search ~interactive ()
           | Split -> split false
           | SplitStar -> split true
           | Unfold -> unfold ()
@@ -94,7 +94,7 @@ let rec process ~interactive lexbuf =
             check_theorem thm ;
             theorem thm ;
             begin try
-              process_proof ~interactive:interactive name lexbuf ;
+              process_proof ~interactive name lexbuf ;
               add_lemma name thm
             with AbortProof -> () end
         | Axiom(name, axiom) ->

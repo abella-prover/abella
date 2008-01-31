@@ -15,9 +15,6 @@ Allow 'apply' to use 'with' and specify instantiations?
 
 split should work on n-ary conjunctions
 
-Search should fail when it doesn't find anything - fail in file mode,
-  save no undo state?
-
 Should meta_right_unify track used variables?
 
 Clean up case-analysis tests so they are easy to read and write like

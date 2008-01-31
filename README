@@ -87,7 +87,9 @@ There are only three top-level commands in Abella.
 
 Tactics List
 ============
-The following tactics are listed in order of usefulness (according to me)
+The following tactics are listed in order of usefulness (according to
+me). The first five tactics account for more than 95% of the tactics
+used in the examples.
 
   induction on <NUM>.
   ===================
@@ -188,6 +190,7 @@ The following tactics are listed in order of usefulness (according to me)
   clear <HYP-NAME> ... <HYP-NAME>.
   ================================
   Removes the given hypotheses
+
 
 Inductive Restrictions
 ======================

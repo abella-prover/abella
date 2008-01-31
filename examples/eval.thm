@@ -97,8 +97,9 @@ induction on 1. intros. case H1.
 %% Misc
 %%
 
-Theorem type_subst : forall L E E' T T', nabla n1,
-  {L, typeof n1 T' |- typeof (E n1) T} -> {L |- typeof E' T'} ->
+% A cut property for typing judgments
+Theorem type_subst : forall L E E' T T', nabla x,
+  {L, typeof x T' |- typeof (E x) T} -> {L |- typeof E' T'} ->
     {L |- typeof (E E') T}.
 intros.
 inst H1 with n1 = E'.

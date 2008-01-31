@@ -159,6 +159,8 @@ induction on 1. intros. case H1.
     case H2. search.
     apply IH to H3 H4. search.
 
+% We say something is ground if it does not contain any nominal constants
+
 Theorem type_ground : forall A, nabla x,
   {type (A x)} -> exists B, A = (x\ B).
 induction on 1. intros. case H1.
@@ -291,7 +293,7 @@ Theorem close_abs : forall L M R A B,
     {L |- of (abs A M) (arrow A B)} -> {type (arrow A B)} ->
       exists MR, R = abs A MR /\
         {of (abs A MR) (arrow A B)} /\
-        (forall V, closed V -> {value V} -> reduce V A ->
+        (forall V, reduce V A -> {value V} ->
                      nabla x, close (of x A :: L) (M x) (MR V)).
 induction on 1. intros. case H1.
   case H2. exists M. split.
@@ -303,9 +305,10 @@ induction on 1. intros. case H1.
         exists MR. split. split.
           search.
           search.
-          intros. apply closed_ground to H20. case H23. case H24.
-            apply H18 to H20 H21 H22. case H25. case H26.
-              clear H22. search.
+          intros. apply reduce_closed to H20. apply closed_ground to H22.
+            case H23. case H24.
+              apply H18 to H20 H21. case H25. case H26.
+                clear H20. search.
 
 Theorem tait_ext : forall L M R A,
   of_ctx L -> {L |- of M A} -> close L M R -> reduce R A.
@@ -322,15 +325,14 @@ induction on 2. intros. case H2.
       intros. % The rest is one single case
         apply reduce_halts to H12. case H13. case H14. case H15.
         apply reduce_nstep_forward to H12 H16.
-        apply reduce_of to H18. apply of_closed to H19.
-        apply H11 to H20 H17 H18. case H21.
-        apply IH to _ H5 H22.
+        apply H11 to H18 H17. case H19.
+        apply IH to _ H5 H20.
         apply reduce_of to H12.
         assert {value (abs A1 MR)}. search.
-        apply nstep_app_value to H25 H16.
+        apply nstep_app_value to H23 H16.
         assert {step (app (abs A1 MR) V1) (MR V1)}. search.
-        apply nstep_right to H26 H27.
-        apply reduce_nstep_backward to H23 H28 _. search.
+        apply nstep_right to H24 H25.
+        apply reduce_nstep_backward to H21 H26 _. search.
 
 
 Theorem tait : forall M A, {of M A} -> halts M.

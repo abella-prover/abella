@@ -241,6 +241,9 @@ induction on 2. intros. case H2.
 Theorem of_closed : forall M A, {of M A} -> closed M.
 intros. apply of_closed_ext to _ H1 _. search.
 
+Theorem reduce_closed : forall M A, reduce M A -> closed M.
+intros. apply reduce_of to H1. apply of_closed to H2. search.
+
 
 %% Now we need to state the generalize theorem. This will require reasoning
 %% about all possible closed instantiations of an open term.
@@ -255,31 +258,32 @@ intros. apply of_closed_ext to _ H1 _. search.
 %       treated as existentially bound in the body.
 Def close nil M M.
 Def nabla x, close (of x A :: L) (R x) M :-
-  reduce V A, closed V, {value V}, close L (R V) M.
+  reduce V A, {value V}, close L (R V) M.
 
 % Closing a closed term has no effect
 Theorem closed_close : forall L M N,
   closed M -> close L M N -> M = N.
 induction on 2. intros. case H2.
   search.
-  apply closed_ground to H1. case H7. case H8.
-    apply IH to H1 H6. search.
+  apply closed_ground to H1. case H6. case H7.
+    apply IH to H1 H5. search.
 
 Theorem close_var : forall L M N A,
   of_ctx L -> member (of M A) L -> close L M N -> reduce N A.
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    case H3. apply closed_close to H6 H8. case H9. search.
-    case H3. apply member_fresh to H5 _. case H10.
-      apply IH to H4 H5 H9. search.
+    case H3. apply reduce_closed to H5.
+      apply closed_close to H8 H7. case H9. search.
+    case H3. apply member_fresh to H5 _. case H9.
+      apply IH to H4 H5 H8. search.
 
 Theorem close_app : forall L M N R,
   of_ctx L -> close L (app M N) R ->
     exists MR NR, R = app MR NR /\ close L M MR /\ close L N NR.
 induction on 1. intros. case H1.
   case H2. search.
-  case H2. apply IH to H3 H7. case H8. case H9. case H10.
+  case H2. apply IH to H3 H6. case H7. case H8. case H9.
     search.
 
 Theorem close_abs : forall L M R A B,
@@ -293,15 +297,15 @@ induction on 1. intros. case H1.
   case H2. exists M. split.
     search.
     intros. search.
-  case H2. apply type_ground to H4. case H10. case H11.
-    apply reduce_of to H6. inst H3 with n1 = V. cut H13 with H12.
-      apply IH to H5 H9 H14 H4. case H15. case H16. case H17.
+  case H2. apply type_ground to H4. case H9. case H10.
+    apply reduce_of to H6. inst H3 with n1 = V. cut H12 with H11.
+      apply IH to H5 H8 H13 H4. case H14. case H15. case H16.
         exists MR. split. split.
           search.
           search.
-          intros. apply closed_ground to H21. case H24. case H25.
-            apply H19 to H21 H22 H23. case H26. case H27.
-              clear H23. search.
+          intros. apply closed_ground to H20. case H23. case H24.
+            apply H18 to H20 H21 H22. case H25. case H26.
+              clear H22. search.
 
 Theorem tait_ext : forall L M R A,
   of_ctx L -> {L |- of M A} -> close L M R -> reduce R A.

@@ -17,6 +17,9 @@ BuildDist() =
     mkdir dist/src
     cp src/*.ml* dist/src
     rm dist/src/*test*.ml
+    rm dist/src/parser.mli
+    rm dist/src/parser.ml
+    rm dist/src/lexer.ml
 
     mkdir dist/examples
     cp examples/*.mod dist/examples

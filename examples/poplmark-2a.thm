@@ -93,7 +93,7 @@ induction on 1. intros. case H1.
   search.
   apply sub_arrow to H3. case H4. case H5.
     apply invert_sub_arrow to H3. case H6.
-    apply IH to H2. case H9. case H10. case H11. case H12.
+    apply IH to H2. case H9. case H10. case H11.
     search.
 
 Theorem invert_of_tabs : forall S1 E T1 T2,
@@ -104,9 +104,9 @@ induction on 1. intros. case H1.
   search.
   apply sub_forall to H3. case H4. case H5.
     apply invert_sub_forall to H3. case H6. case H8.
-    apply IH to H2. case H10. case H11. case H12. case H13.
+    apply IH to H2. case H10. case H11. case H12.
     assert {sub n1 T1 |- sub n1 S2}. search.
-    cut H14 with H17.
+    cut H15 with H16.
     search.
 
 
@@ -158,20 +158,20 @@ Theorem preservation : forall E E' T,
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    apply invert_of_abs to H3. case H5. case H6. case H7. case H8.
-      inst H10 with n1 = E2.
+    apply invert_of_abs to H3. case H5. case H6. case H7.
+      inst H8 with n1 = E2.
       assert {of E2 T1}. search.
-      cut H12 with H13. search.
+      cut H11 with H12. search.
     apply IH to H3 H5. search.
   apply IH to H4 H6. search.
   case H2.
   case H2.
-    apply invert_of_tabs to H3. case H5. case H6. case H7. case H8.
+    apply invert_of_tabs to H3. case H5. case H6. case H7.
       assert {sub T2 T1}. search.
+      inst H8 with n1 = T2.
+      cut H12 with H11.
       inst H10 with n1 = T2.
-      cut H13 with H12.
-      inst H9 with n1 = T2.
-      cut H15 with H4.
+      cut H14 with H4.
       search.
     apply IH to H3 H5. search.
   apply IH to H3 H2. search.

@@ -1,5 +1,3 @@
-Case and split should treat and and or as n-ary?
-
 Comment poplmark examples
 
 For release
@@ -19,12 +17,12 @@ Add more backtracking to search?
 
 Allow 'apply' to use 'with' and specify instantiations?
 
-Automatic case analysis on hyps like exists? and?
+Recursive case analysis on hyps like exists, nabla, and
+
+split should work on n-ary conjunctions
 
 Search should fail when it doesn't find anything - fail in file mode,
   save no undo state?
-
-  
 
 Should meta_right_unify track used variables?
 

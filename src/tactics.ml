@@ -121,6 +121,16 @@ type case = {
   new_hyps : metaterm list ;
 }
 
+let rec and_to_list term =
+  match term with
+    | And(left, right) -> (and_to_list left) @ (and_to_list right)
+    | _ -> [term]
+
+let rec or_to_list term =
+  match term with
+    | Or(left, right) -> (or_to_list left) @ (or_to_list right)
+    | _ -> [term]
+
 let lift_all ~used nominals =
   List.fold_left
     (fun used (id, term) ->
@@ -232,8 +242,8 @@ let case ~used ~clauses ~meta_clauses ~global_support term =
     
     match term with
       | Obj(obj, r) -> obj_case obj r
-      | Or(left, right) -> [make_simple_case [left]; make_simple_case [right]]
-      | And(left, right) -> [make_simple_case [left; right]]
+      | Or _ -> List.map (fun h -> make_simple_case [h]) (or_to_list term)
+      | And _ -> [make_simple_case (and_to_list term)]
       | Binding(Exists, ids, body) ->
           let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
           let raised_ids = raise_alist ~support fresh_ids in

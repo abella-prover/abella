@@ -327,6 +327,16 @@ let case_tests =
                    assert_pprint_equal "{B}" hyp2 ;
                | _ -> assert_failure "Pattern mismatch") ;
 
+      "On multiple OR" >::
+        (fun () ->
+           let term = freshen "{A} \\/ {B} \\/ {C}" in
+             match case term with
+               | [{new_hyps=[hyp1]} ; {new_hyps=[hyp2]} ; {new_hyps=[hyp3]}] ->
+                   assert_pprint_equal "{A}" hyp1 ;
+                   assert_pprint_equal "{B}" hyp2 ;
+                   assert_pprint_equal "{C}" hyp3 ;
+               | _ -> assert_failure "Pattern mismatch") ;
+
       "On AND" >::
         (fun () ->
            let term = freshen "{A} /\\ {B}" in
@@ -334,6 +344,16 @@ let case_tests =
                | [{new_hyps=[hyp1;hyp2]}] ->
                    assert_pprint_equal "{A}" hyp1 ;
                    assert_pprint_equal "{B}" hyp2 ;
+               | _ -> assert_failure "Pattern mismatch") ;
+
+      "On multiple AND" >::
+        (fun () ->
+           let term = freshen "{A} /\\ {B} /\\ {C}" in
+             match case term with
+               | [{new_hyps=[hyp1;hyp2;hyp3]}] ->
+                   assert_pprint_equal "{A}" hyp1 ;
+                   assert_pprint_equal "{B}" hyp2 ;
+                   assert_pprint_equal "{C}" hyp3 ;
                | _ -> assert_failure "Pattern mismatch") ;
 
       "On exists" >::

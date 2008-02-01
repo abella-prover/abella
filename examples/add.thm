@@ -1,6 +1,8 @@
-%% Commutativity for addition
+%% Properties of addition
 %%
 %% We turn the type nat into a predicate so that we can induct on it.
+
+% Add is commutative
 
 Theorem add_base : forall N, {nat N} -> {add N z N}.
 induction on 1. intros. case H1. search.
@@ -15,3 +17,19 @@ Theorem add_comm : forall A B C, {nat B} -> {add A B C} -> {add B A C}.
 induction on 2. intros. case H2.
   apply add_base to H1. search.
   apply IH to H1 H3. apply add_step to H4. search.
+
+% Add is deterministic
+
+Theorem add_det : forall A B C D,
+  {add A B C} -> {add A B D} -> C = D.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H3 H4. case H5. search.
+
+% Add is associative
+
+Theorem add_assoc : forall A B C AB BC ABC,
+  {add A B AB} -> {add AB C ABC} -> {add B C BC} -> {add A BC ABC}.
+induction on 1. intros. case H1.
+  apply add_det to H2 H3. case H4. search.
+  case H2. apply IH to H4 H5 H3. search.

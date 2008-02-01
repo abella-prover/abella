@@ -8,7 +8,7 @@ Quick Start
 ===========
 1) Compile the program by running "make" from the root directory.
 
-2) Start abella, passing in the name of the lambda prolog file to
+2) Start Abella, passing in the name of the lambda prolog file to
    reason about.
    E.g.  ./abella examples/eval.mod
 
@@ -46,7 +46,7 @@ The syntax of terms in Abella supports the following constructs,
 
 Nominal variables are denoted by n1, n2, ...
 
-  For those who aren't familar with the logic G
+  For those who aren't familiar with the logic G
   ==============================================
   One way to think about the different level of predicates is that
   everything inside of {...} is at the specification level while
@@ -262,7 +262,7 @@ The following list very briefly describes each mod/thm
 combination. The [wip] tag means that something is a work in
 progress.
 
- * add - commutativity for addition
+ * add - properties of addition (commutativity, associativity)
  * copy - equality of identical definitions of the copy predicate
  * cascade - arbitrary cascading substitutions on untyped lambda terms
  * cut - cut admissibility for an intuitionistic sequent calculus
@@ -290,3 +290,5 @@ Disclaimer
 Some features are only partially supported. In particular, we only allow
 one nabla in the head of definitions. This is sufficient for a wide
 variety of examples however.
+
+ LocalWords:  README

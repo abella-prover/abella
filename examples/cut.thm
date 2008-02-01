@@ -47,9 +47,9 @@ induction on 2. intros. case H2.
   apply IH to _ H5. search.
   
   
-Theorem cut_admissibility :
-  forall L K C,
-    {prop K} -> ctx L -> {L |- conc K} -> {L, hyp K |- conc C} -> {L |- conc C}.
+Theorem cut_admissibility : forall L K C,
+    {prop K} -> ctx L ->
+      {L |- conc K} -> {L, hyp K |- conc C} -> {L |- conc C}.
 
 % The proof is by nested induction on
 %  1) The size of the cut formula K

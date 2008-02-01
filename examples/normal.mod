@@ -8,7 +8,7 @@
 % that a term is not in beta-normal form since it contains a beta-redex
 % (in abstract syntax, it would contain a subterm of the form (app (abs
 % R) M).  An interesting theorem to try is the one that says
-%   foralll T : tm.  (normal T) or (non-normal T).
+%   forall T : tm.  (normal T) or (non-normal T).
 % This one should have a simple proof if the right induction invariant
 % can be stated.
 

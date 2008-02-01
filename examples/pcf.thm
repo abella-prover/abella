@@ -1,5 +1,7 @@
 %% Subject reduction for PCF
 
+% Most cases are trivial consequences of the inductive hypothesis
+
 Theorem subject_reduction :
   forall P V T, {eval P V} -> {of P T} -> {of V T}.
 induction on 1. intros. case H1.
@@ -14,9 +16,13 @@ induction on 1. intros. case H1.
   case H2. apply IH to H4 H6. search.
   case H2. apply IH to H4 H7. search.
   search.
+
+  % P = app M N
   case H2. apply IH to H3 H5. case H7.
     inst H8 with n1 = N. cut H9 with H6.
       apply IH to H4 H10. search.
+
+  % P = rec T1 R
   case H2 (keep).
     inst H4 with n1 = rec T R.
       cut H5 with H2.

@@ -1,17 +1,20 @@
 %% Various results about lists (append, reverse, perm)
 
+% Append is total
 Theorem app_total : forall A B,
   {list A} -> {list B} -> exists C, {append A B C}.
 induction on 1. intros. case H1.
   search.
   apply IH to H3 H2. search.
 
+% Append is deterministic
 Theorem app_det : forall A B C C',
  {append A B C} -> {append A B C'} -> {C = C'}.
 induction on 1. intros. case H1.
   case H2. search.
   case H2. apply IH to H3 H4. case H5. search.
 
+% Append is associative
 Theorem app_assoc : forall A B C AB BC ABC,
  {append A B AB} -> {append AB C ABC} -> {append B C BC} -> {append A BC ABC}.
 induction on 1. intros. case H1.
@@ -24,6 +27,7 @@ induction on 1. intros. case H1.
   case H2. search.
   case H2. apply IH to H3 H5. search.
 
+% Reverse is its own inverse
 Theorem rev_rev : forall A B,
  {rev A B} -> {rev B A}.
 induction on 1. intros. case H1.
@@ -35,7 +39,8 @@ Theorem perm_lemma : forall A B B' X,
 induction on 2. intros. case H2.
   search.
   case H1. apply IH to H5 H3. search.
-  
+
+% Permutations are invertible
 Theorem perm_perm : forall A B,
  {perm A B} -> {perm B A}.
 induction on 1. intros. case H1.

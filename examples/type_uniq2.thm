@@ -1,12 +1,14 @@
 %% Type uniqueness for simply typed lambda calculus using only LG-omega
 
+% Since LG-omega does not allow nabla in the head of a definition, we must
+% explicitly restrict structure and occurences of the variable X
 Def ctx nil.
 Def ctx (of X T :: L) :- (forall M N, X = app M N -> false),
                          (forall T R, X = abs T R -> false),
                          (forall T', member (of X T') L -> false),
                          ctx L.
 
-Theorem no_app : forall L M N T,
+Theorem ctx_app_absurd : forall L M N T,
   ctx L -> member (of (app M N) T) L -> false.
 induction on 1. intros. case H1.
   case H2.
@@ -14,7 +16,7 @@ induction on 1. intros. case H1.
     apply H3 to _. search.
     apply IH to H6 H7. search.
 
-Theorem no_abs : forall L R T S,
+Theorem ctx_abs_absurd : forall L R T S,
   ctx L -> member (of (abs S R) T) L -> false.
 induction on 1. intros. case H1.
   case H2.
@@ -34,23 +36,28 @@ induction on 1. intros. case H1.
       apply H6 to H8. case H9.
       apply IH to H7 H8 H9. search.
 
+Theorem nominal_absurd : forall T L, nabla x,
+  member (of x (T x)) L -> false.
+induction on 1. intros. case H1.
+  apply IH to H2. search.
+
 Theorem det_of : forall L E T1 T2,
   ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
 induction on 2. intros. case H2.
   case H3.
     apply uniq to H1 H4 H5. search.
-    apply no_abs to H1 H4. case H6.
-    apply no_app to H1 H4. case H7.
+    apply ctx_abs_absurd to H1 H4. case H6.
+    apply ctx_app_absurd to H1 H4. case H7.
   case H3.
-    apply no_abs to H1 H5. case H6.
+    apply ctx_abs_absurd to H1 H5. case H6.
     apply IH to _ H4 H5.
       unfold.
         intros. case H6.
         intros. case H6.
-        skip. % We need to prove that (of n1 T) \notin L
+        intros. apply nominal_absurd to H6. search.
         search.
       case H6. search.
   case H3.
-    apply no_app to H1 H6. case H7.
+    apply ctx_app_absurd to H1 H6. case H7.
     apply IH to H1 H4 H6. case H8. search.
 

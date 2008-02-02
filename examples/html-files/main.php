@@ -21,14 +21,14 @@
 </div>
 
 <div class="section" style="width: 80%">
-<h2 class="title">Specification</h2>
+<h2 class="title">Specification (<? include 'name' ?>.mod)</h2>
 <pre class="code">
 <? include 'specification' ?>
 </pre>
 </div>
 
 <div class="section" style="width: 80%">
-<h2 class="title">Reasoning</h2>
+<h2 class="title">Reasoning (<? include 'name' ?>.thm)</h2>
 <p class="body">
 Click on a command or tactic to see a detailed view of its use.
 </p>

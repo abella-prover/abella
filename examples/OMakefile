@@ -32,6 +32,7 @@ html: $(ABELLA)
     foreach(name, $(FILE_NAMES))
         echo Processing $(name)
         head -1 $(name).thm | sed -e 's/^%* *//' > html-files/title
+        echo $(name) | perl -pe 'chomp' > html-files/name
         cp $(name).mod html-files/specification
         ruby html-files/annotate_thm.rb $(name).thm > html-files/reasoning
         $(ABELLA) -a $(name).mod -f $(name).thm > html-files/details
@@ -41,6 +42,7 @@ html: $(ABELLA)
         rm html-files/specification
         rm html-files/reasoning
         rm html-files/details
+        rm html-files/name
 
 .PHONY: upload-html
 upload-html: html

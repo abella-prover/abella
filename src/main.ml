@@ -79,7 +79,7 @@ let rec process_proof name ~interactive lexbuf =
           reset_prover () ;
           raise AbortProof
       | e ->
-          printf "Unknown error: %s\n%!" (Printexc.to_string e) ;
+          printf "Error: %s\n%!" (Printexc.to_string e) ;
           if not interactive then exit 1
     done with
       | Failure "eof" -> ()

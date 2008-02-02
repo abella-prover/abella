@@ -1,6 +1,5 @@
 Tait could use more comments and groupings which explain the overall goals
 
-inst should fail if n1 does not appear?
 cut should fail similarly?
 
 Future

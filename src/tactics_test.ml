@@ -66,14 +66,26 @@ let object_instantiation_tests =
              ~expect:"{eval A B}"
         );
       
+      "Should fail if nominal is not found" >::
+        (fun () ->
+           try
+             let dummy = var Eigen "dummy" 0 in
+               ignore (object_inst (freshen "{prove n1}") "n2" dummy) ;
+               assert_failure "inst should fail when nominal is not found"
+           with
+             | Failure("Did not find n2") -> ()
+        );
+
       "Should only work on nominals" >::
         (fun () ->
-           assert_object_inst
-             ~on:"{prove A}"
-             ~inst:"A"
-             ~using:"B"
-             ~expect:"{prove A}"
+           try
+             let dummy = var Eigen "dummy" 0 in
+               ignore (object_inst (freshen "{prove A}") "A" dummy) ;
+               assert_failure "inst should only work on nominals"
+           with
+             | Failure("Did not find A") -> ()
         );
+
     ]
 
 

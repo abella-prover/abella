@@ -127,7 +127,10 @@ let object_cut obj1 obj2 =
 
 (* inst t1 with n = t2 *)
 let object_inst t1 n t2 =
-  map_on_objs (map_obj (replace_term_vars ~tag:Nominal [(n, t2)])) t1
+  if List.mem n (List.map term_to_name (metaterm_support t1)) then
+    map_on_objs (map_obj (replace_term_vars ~tag:Nominal [(n, t2)])) t1
+  else
+    failwith ("Did not find " ^ n)
 
 (* Case analysis *)
 

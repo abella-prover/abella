@@ -28,15 +28,22 @@ theorems: $(ABELLA) $(addsuffix .thm, $(FILE_NAMES)) \
 #
 .PHONY: html
 html: $(ABELLA)
-    mkdir html
+    mkdir -p html
     foreach(name, $(FILE_NAMES))
-        echo $(name) > html-files/title
+        echo Processing $(name)
+        head -1 $(name).thm | sed -e 's/^%* *//' > html-files/title
         cp $(name).mod html-files/specification
         ruby html-files/annotate_thm.rb $(name).thm > html-files/reasoning
         $(ABELLA) -a $(name).mod -f $(name).thm > html-files/details
-        php main.php > html/$(name).html
-        php details.php > html/$(name)-details.html
+        php html-files/main.php > html/$(name).html
+        php html-files/details.php > html/$(name)-details.html
         rm html-files/title
         rm html-files/specification
         rm html-files/reasoning
         rm html-files/details
+
+.PHONY: upload-html
+upload-html: html
+    cp html/* ~/.www/abella/examples/
+    chmod a+r ~/.www/abella/examples/*
+    rm -rf html

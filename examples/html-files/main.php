@@ -29,6 +29,9 @@
 
 <div class="section" style="width: 80%">
 <h2 class="title">Reasoning</h2>
+<p class="body">
+Click on a command or tactic to see a detailed view of its use.
+</p>
 <pre class="code">
 <? include 'reasoning' ?>
 </pre>

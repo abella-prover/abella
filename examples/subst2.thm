@@ -1,3 +1,5 @@
+%% Comparison between two definitions of arbitrary cascading substitutions
+
 Def nabla x, name x.
 
 Def nabla x, fresh x E.

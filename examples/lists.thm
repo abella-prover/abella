@@ -1,4 +1,5 @@
-%% Various results about lists (append, reverse, perm)
+%% Various results about lists
+%% (append, reverse, perm)
 
 % Append is total
 Theorem app_total : forall A B,

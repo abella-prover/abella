@@ -1,3 +1,5 @@
+%% Seq with explicit program quantification
+%%
 %% A revised external definition of seq that allows for quantification
 %% over lambda prolog programs.
 

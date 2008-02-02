@@ -254,36 +254,34 @@ intros. apply reduce_of to H1. apply of_closed to H2. search.
 % judgment is the use of nabla in the head of a definition which extracts
 % a nominal constant from L and M. The definition of subst then substitutes
 % for this nominal constant and continues processing the list L.
-% Note: In the second clause, V is not mentioned in the head, thus it is
-%       treated as existentially bound in the body.
 Def subst nil M M.
 Def nabla x, subst (of x A :: L) (R x) M :-
-  reduce V A, {value V}, subst L (R V) M.
+  exists V, reduce V A /\ {value V} /\ subst L (R V) M.
 
 % Subst on a closed term has no effect
 Theorem closed_subst : forall L M N,
   closed M -> subst L M N -> M = N.
 induction on 2. intros. case H2.
   search.
-  apply prune_closed to H1. case H6.
-    apply IH to H1 H5. search.
+  case H3. apply prune_closed to H1. case H7.
+    apply IH to H1 H6. search.
 
 Theorem subst_var : forall L M N A,
   of_ctx L -> member (of M A) L -> subst L M N -> reduce N A.
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    case H3. apply reduce_closed to H5.
-      apply closed_subst to H8 H7. case H9. search.
-    case H3. apply member_fresh to H5 _. case H9.
-      apply IH to H4 H5 H8. search.
+    case H3. case H5. apply reduce_closed to H6.
+      apply closed_subst to H9 H8. case H10. search.
+    case H3. case H6. apply member_fresh to H5 _. case H10.
+      apply IH to H4 H5 H9. search.
 
 Theorem subst_app : forall L M N R,
   of_ctx L -> subst L (app M N) R ->
     exists MR NR, R = app MR NR /\ subst L M MR /\ subst L N NR.
 induction on 1. intros. case H1.
   case H2. search.
-  case H2. apply IH to H3 H6. case H7.
+  case H2. case H4. apply IH to H3 H7. case H8.
     search.
 
 Theorem subst_abs : forall L M R A B,
@@ -297,16 +295,16 @@ induction on 1. intros. case H1.
   case H2. exists M. split.
     search.
     intros. search.
-  case H2. apply prune_type to H4. case H9.
-    apply reduce_of to H6. inst H3 with n1 = V. cut H11 with H10.
-      apply IH to H5 H8 H12 H4. case H13.
+  case H2. case H6. apply prune_type to H4. case H10.
+    apply reduce_of to H7. inst H3 with n1 = V1. cut H12 with H11.
+      apply IH to H5 H9 H13 H4. case H14.
         exists MR. split. split.
           search.
           search.
-          intros. apply reduce_closed to H16. apply prune_closed to H18.
-            case H19.
-              apply H15 to H16 H17. case H20.
-                clear H16. search.
+          intros. apply reduce_closed to H17. apply prune_closed to H19.
+            case H20.
+              apply H16 to H17 H18. case H21. case H22.
+                clear H17. search.
 
 Theorem tait_ext : forall L M R A,
   of_ctx L -> {L |- of M A} -> subst L M R -> reduce R A.

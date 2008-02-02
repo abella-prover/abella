@@ -12,11 +12,11 @@ Def halts M :- exists V, {nstep M V} /\ {value V}.
 
 %% Reduce is the logical relation used to prove normalization. We
 %% write the term before the type to match the signature of "of". This
-%% definition is not admitted in the logic G due to the use of reduce
-%% in a negative context. However, we can use a more fine grained
-%% notion of stratification (based on examining the arguments to
-%% predicates) and thereby allow this definition since the second
-%% argument is always smaller in negative occurences.
+%% definition is not admitted in the logic G due to the recursive use
+%% of reduce in a negative context. However, we can augment G with a
+%% more fine grained notion of stratification (based on examining the
+%% arguments to predicates) and thereby allow this definition since
+%% the second argument is always smaller in negative occurences.
 
 Def reduce M top :- {of M top}, halts M.
 Def reduce M (arrow A B) :-
@@ -57,12 +57,14 @@ induction on 1. intros. case H1.
     apply absurd_step_value to H5 H3. case H6.
     search.
 
-Theorem nstep_step_backward : forall M N V,
+Theorem step_follows_nstep : forall M N V,
   {step M N} -> {nstep M V} -> {value V} -> {nstep N V}.
 intros. case H2.
   apply absurd_step_value to H1 H3. case H4.
   apply step_det to H1 H4. case H6. search.
 
+% nstep is defined by left recursion on step, so this lemma tells us
+% that it acts right recursively as well
 Theorem nstep_right : forall M N R,
   {nstep M N} -> {step N R} -> {nstep M R}.
 induction on 1. intros. case H1.
@@ -80,7 +82,7 @@ induction on 2. intros. case H2.
 Theorem halt_step_forward : forall M N,
   halts M -> {step M N} -> halts N.
 intros. case H1. case H3.
-  apply nstep_step_backward to H2 H4 H5. search.
+  apply step_follows_nstep to H2 H4 H5. search.
 
 Theorem halt_step_backward : forall M N,
   halts N -> {step M N} -> halts M.

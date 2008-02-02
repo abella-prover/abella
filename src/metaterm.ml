@@ -397,7 +397,14 @@ let metaterm_to_string t =
     format_metaterm fmt t ;
     pp_print_flush fmt () ;
     Buffer.contents b
-  
+
+let metaterm_to_formatted_string t =
+  let b = Buffer.create 100 in
+  let fmt = formatter_of_buffer b in
+    format_metaterm fmt t ;
+    pp_print_flush fmt () ;
+    Buffer.contents b
+      
 (* Error reporting *)
 
 let invalid_metaterm_arg t =

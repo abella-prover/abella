@@ -24,6 +24,9 @@ open Printf
 
 let quiet = ref false
 
+let annotate = ref false
+let count = ref 0
+
 exception AbortProof
 
 let check_theorem thm =
@@ -36,6 +39,12 @@ let rec process_proof name ~interactive lexbuf =
   let finished = ref false in
     try while not !finished do try
       if not !quiet then begin
+        if !annotate then begin
+          printf "</pre>\n" ;
+          incr count ;
+          printf "<a name=\"%d\"></a>\n" !count ;
+          printf "<pre class=\"code\">\n"
+        end ;
         display () ;
         printf "%s < %!" name
       end ;
@@ -60,7 +69,7 @@ let rec process_proof name ~interactive lexbuf =
           | Abort -> raise AbortProof
           | Undo -> undo ()
         end ;
-        if interactive then flush stdout
+        if interactive then flush stdout ;
     with
       | Failure "lexing: empty token" ->
           exit (if interactive then 0 else 1)
@@ -86,6 +95,11 @@ let rec process_proof name ~interactive lexbuf =
 
 let rec process ~interactive lexbuf =
   try while true do try
+    if !annotate then begin
+      incr count ;
+      printf "<a name=\"%d\"></a>\n" !count ;
+      printf "<pre class=\"code\">\n"      
+    end ;
     printf "Abella < %!" ;
     let input = Parser.top_command Lexer.token lexbuf in
       if not interactive then printf "%s.\n\n" (top_command_to_string input) ;
@@ -102,7 +116,8 @@ let rec process ~interactive lexbuf =
         | Def(meta_clause) ->
             add_meta_clause meta_clause
       end ;
-      if interactive then flush stdout
+      if interactive then flush stdout ;
+      if !annotate then printf "</pre>\n"
   with
     | Failure "lexing: empty token" ->
         exit (if interactive then 0 else 1)
@@ -111,6 +126,7 @@ let rec process ~interactive lexbuf =
         if not interactive then exit 1
     | End_of_file ->
         print_endline "Goodbye." ;
+        if !annotate then printf "</pre>\n" ;
         exit 0
     | e ->
         printf "Unknown error: %s\n%!" (Printexc.to_string e) ;
@@ -129,7 +145,8 @@ let options =
     [
       ("-f", Arg.Set_string command_input,
        "<theorem-file> Read command input from file") ;
-      ("-q", Arg.Set quiet, " Quiet mode")
+      ("-q", Arg.Set quiet, " Quiet mode") ;
+      ("-a", Arg.Set annotate, " Annotate mode") ;
     ]
 
 let _ =

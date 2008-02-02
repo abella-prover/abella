@@ -21,6 +21,3 @@ theorems: $(ABELLA) $(addsuffix .thm, $(THM_FILES)) \
                     $(addsuffix .mod, $(THM_FILES))
     foreach(thm, $(THM_FILES))
         $(ABELLA) $(thm).mod -q -f $(thm).thm
-
-
-

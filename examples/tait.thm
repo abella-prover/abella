@@ -243,6 +243,11 @@ intros. apply of_closed_ext to _ H1 _. search.
 Theorem reduce_closed : forall M A, reduce M A -> closed M.
 intros. apply reduce_of to H1. apply of_closed to H2. search.
 
+Theorem prune_reduce : forall R A, nabla x,
+  reduce (R x) A -> exists M, R = (x\ M).
+intros. apply reduce_closed to H1. apply prune_closed to H2.
+  case H3. search.
+
 
 %% Now we need to state the generalize theorem. This will require reasoning
 %% about all possible closed instantiations of an open term.
@@ -284,51 +289,57 @@ induction on 1. intros. case H1.
   case H2. case H4. apply IH to H3 H7. case H8.
     search.
 
-Theorem subst_abs : forall L M R A B,
-  of_ctx L -> subst L (abs A M) R ->
-    {L |- of (abs A M) (arrow A B)} -> {type (arrow A B)} ->
+Theorem subst_abs : forall L M R A,
+  of_ctx L -> subst L (abs A M) R -> {type A} ->
       exists MR, R = abs A MR /\
-        {of (abs A MR) (arrow A B)} /\
         (forall V, reduce V A -> {value V} ->
                      nabla x, subst (of x A :: L) (M x) (MR V)).
 induction on 1. intros. case H1.
   case H2. exists M. split.
     search.
     intros. search.
-  case H2. case H6. apply prune_type to H4. case H10.
-    apply reduce_of to H7. inst H3 with n1 = V1. cut H12 with H11.
-      apply IH to H5 H9 H13 H4. case H14.
-        exists MR. split. split.
-          search.
-          search.
-          intros. apply reduce_closed to H17. apply prune_closed to H19.
-            case H20.
-              apply H16 to H17 H18. case H21. case H22.
-                clear H17. search.
+  case H2. case H5. apply prune_type to H3. case H9.
+    apply IH to H4 H8 H3. case H10.
+      exists MR. split.
+        search.
+        intros. apply prune_reduce to H12. case H14.
+          apply H11 to H12 H13. case H15. case H16.
+            clear H12. search.
+
+Theorem subst_preserves_type : forall L M N A,
+  of_ctx L -> subst L M N -> {type A} -> {L |- of M A} -> {of N A}.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. case H6.
+    apply reduce_of to H7. inst H4 with n1 = V1. cut H11 with H10.
+      apply prune_type to H3. case H13.
+        apply IH to H5 H9 H3 H12. search.
 
 Theorem tait_ext : forall L M R A,
   of_ctx L -> {L |- of M A} -> subst L M R -> reduce R A.
-induction on 2. intros. case H2.
+induction on 2. intros. case H2 (keep).
   apply subst_var to H1 H4 H3. search.
   apply subst_app to H1 H3. case H6.
     apply IH to H1 H4 H7.
       apply IH to H1 H5 H8.
         case H9. apply H13 to H10. search.
-  apply type_ignores_of_ctx to H1 H4.
-    apply subst_abs to H1 H3 _ H6. case H7. unfold.
-      search.
-      search.
-      intros. % The rest is one single case
-        apply reduce_halts to H10. case H11. case H12.
-        apply reduce_nstep_forward to H10 H13.
-        apply H9 to H15 H14.
-        apply IH to _ H5 H16.
-        apply reduce_of to H10.
-        assert {value (abs A1 MR)}. search.
-        apply nstep_app_value to H19 H13.
-        assert {step (app (abs A1 MR) V1) (MR V1)}. search.
-        apply nstep_right to H20 H21.
-        apply reduce_nstep_backward to H17 H22 _. search.
+  apply type_ignores_of_ctx to H1 H4. case H6 (keep).
+    apply subst_abs to H1 H3 H7. case H9.
+      apply subst_preserves_type to H1 H3 H6 H2. unfold.
+        search.
+        search.
+        intros. % The rest is one single case
+          apply reduce_halts to H12. case H13. case H14.
+          apply reduce_nstep_forward to H12 H15.
+          apply H10 to H17 H16.
+          apply IH to _ H5 H18.
+          assert {value (abs A1 MR)}. search.
+          apply nstep_app_value to H20 H15.
+          assert {step (app (abs A1 MR) V1) (MR V1)}. search.
+          apply nstep_right to H21 H22.
+          apply reduce_nstep_backward to H19 H23 _.
+            apply reduce_of to H12. search.
+            search.
 
 
 Theorem tait : forall M A, {of M A} -> halts M.

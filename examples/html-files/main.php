@@ -4,13 +4,14 @@
 <head>
 <title>Abella: <? include 'title' ?></title>
 <link href="../style.css" rel="stylesheet" type="text/css" />
-<link rel="icon" href="../images/favicon.ico" type="image/x-icon">
-<link rel="shortcut icon" href="../images/favicon.ico" type="image/x-icon">
+<link rel="icon" href="../images/favicon.ico" type="image/x-icon" />
+<link rel="shortcut icon" href="../images/favicon.ico"
+        type="image/x-icon" />
 </head>
 
 <body>
 
-<div id="logo-small"/>
+<div id="logo-small">
 <a href="../index.html">
 <img src="../images/logo-small.png"/>
 </a>

@@ -111,17 +111,20 @@ let freshen_nameless_bindings ?(support=[]) bindings term =
 
 (* Object level cut *)
 
-(* obj1 = L1 |- A
-   obj2 = L2, A |- C
+(* obj1 = L2, A |- C
+   obj2 = L1 |- A
    result = L2, L1 |- C *)
 let object_cut obj1 obj2 =
-  let ctx =
-    obj1.context
-    |> Context.remove obj2.term
-    |> Context.union obj2.context
-    |> Context.normalize 
-  in
-    Obj(context_obj ctx obj1.term, Irrelevant)
+  if Context.mem obj2.term obj1.context then
+    let ctx =
+      obj1.context
+      |> Context.remove obj2.term
+      |> Context.union obj2.context
+      |> Context.normalize 
+    in
+      Obj(context_obj ctx obj1.term, Irrelevant)
+  else
+    failwith "Needless use of cut"
 
 (* Object level instantiation *)
 

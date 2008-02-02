@@ -1,6 +1,5 @@
 Tait could use more comments and groupings which explain the overall goals
 
-cut should fail similarly?
 
 Future
 ======

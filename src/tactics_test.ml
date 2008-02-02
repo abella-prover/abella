@@ -45,6 +45,14 @@ let object_cut_tests =
              ~using:  "L |- one"
              ~expect: "{L |- two}"
         );
+
+      "Should fail on useless cut" >::
+        (fun () ->
+           assert_raises (Failure "Needless use of cut")
+             (fun () ->
+                object_cut (parse_obj "one |- two") (parse_obj "three")
+             )
+        );
     ]
 
     
@@ -68,22 +76,20 @@ let object_instantiation_tests =
       
       "Should fail if nominal is not found" >::
         (fun () ->
-           try
-             let dummy = var Eigen "dummy" 0 in
-               ignore (object_inst (freshen "{prove n1}") "n2" dummy) ;
-               assert_failure "inst should fail when nominal is not found"
-           with
-             | Failure("Did not find n2") -> ()
+           assert_raises (Failure "Did not find n2")
+             (fun () ->
+                let dummy = var Eigen "dummy" 0 in
+                  object_inst (freshen "{prove n1}") "n2" dummy
+             )
         );
 
       "Should only work on nominals" >::
         (fun () ->
-           try
-             let dummy = var Eigen "dummy" 0 in
-               ignore (object_inst (freshen "{prove A}") "A" dummy) ;
-               assert_failure "inst should only work on nominals"
-           with
-             | Failure("Did not find A") -> ()
+           assert_raises (Failure "Did not find A")
+             (fun () ->
+                let dummy = var Eigen "dummy" 0 in
+                  object_inst (freshen "{prove A}") "A" dummy
+             )
         );
 
     ]

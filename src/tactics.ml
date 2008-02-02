@@ -543,16 +543,18 @@ let unfold ~used ~meta_clauses term =
       | Pred(term, _) ->
           meta_clauses |> find_as
               (fun (head, body) ->
-                 let used, head, body =
-                   match head with
-                     | Pred(p, _) -> used, p, body
-                     | _ -> failwith "Bad head in meta-clause"
-                 in
-                 let head, body =
-                   freshen_nameless_meta_clause ~support head body
-                 in
-                   if try_right_unify ~used head term then
-                     Some body
-                   else
-                     None)
+                 try
+                   let used, head, body =
+                     match head with
+                       | Pred(p, _) -> used, p, body
+                       | _ -> failwith "Not yet implemented"
+                   in
+                   let head, body =
+                     freshen_nameless_meta_clause ~support head body
+                   in
+                     if try_right_unify ~used head term then
+                       Some body
+                     else
+                       None
+                 with Failure("Not yet implemented") -> None)
       | _ -> failwith "Can only unfold predicates"

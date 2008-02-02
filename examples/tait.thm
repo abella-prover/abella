@@ -136,7 +136,7 @@ induction on 2. intros. case H2.
     apply reduce_step_backward to H7 H4 H3. search.
 
 
-%% Properties about fresh, closed, and ground
+%% Properties about nominal constants, e.g. where they can and cannot occur
 
 % of_ctx defines the context of "of M A" judgments
 Def of_ctx nil.
@@ -159,9 +159,8 @@ induction on 1. intros. case H1.
     case H2. search.
     apply IH to H3 H4. search.
 
-% We say something is ground if it does not contain any nominal constants
-
-Theorem type_ground : forall A, nabla x,
+% Types do not contain nominal constants
+Theorem prune_type : forall A, nabla x,
   {type (A x)} -> exists B, A = (x\ B).
 induction on 1. intros. case H1.
   search.
@@ -182,10 +181,10 @@ induction on 2. intros. case H2.
   search.
   apply IH to H1 H3. apply IH to H1 H4. search.
 
-Theorem type_ground_ext : forall L A, nabla x,
+Theorem prune_type_ext : forall L A, nabla x,
   term_ctx L -> {L |- type (A x)} -> exists B, A = (x\ B).
 intros. apply type_ignores_term_ctx to H1 H2.
-  apply type_ground to H3. search.
+  apply prune_type to H3. search.
 
 Theorem absurd_member_type_of_ctx : forall L A,
   member (type A) L -> of_ctx L -> false.
@@ -200,7 +199,8 @@ induction on 2. intros. case H2.
   search.
   apply IH to H1 H3. apply IH to H1 H4. search.
 
-Theorem term_ground_ext : forall L R, nabla x,
+% A term cannot contain a nominal variable which does not appear in L
+Theorem prune_term : forall L R, nabla x,
   term_ctx L -> {L |- term (R x)} -> exists M, R = (x\ M).
 induction on 2. intros. case H2.
   apply member_fresh to H3 _. case H4. search.
@@ -208,16 +208,13 @@ induction on 2. intros. case H2.
     apply IH to H1 H4. case H6.
       search.
   apply IH to _ H4. case H5.
-    apply type_ground_ext to H1 H3. case H6.
+    apply prune_type_ext to H1 H3. case H6.
       search.
-  
-Theorem term_ground : forall R, nabla x,
-  {term (R x)} -> exists M, R = (x\ M).
-intros. apply term_ground_ext to _ H1. search.
 
-Theorem closed_ground : forall R, nabla x,
+% Closed terms cannot contain any nominal constants
+Theorem prune_closed : forall R, nabla x,
   closed (R x) -> exists M, R = (x\ M).
-intros. case H1. apply term_ground to H2. search.
+intros. case H1. apply prune_term to _ H2. search.
 
 % This judgment aligns of_ctx with term_ctx
 Def of_term_ctx nil nil.
@@ -231,7 +228,7 @@ induction on 1. intros. case H1.
   case H2.
     search.
     apply IH to H4 H5. search.
-                     
+
 Theorem of_closed_ext : forall L K M A,
   of_ctx L -> {L |- of M A} -> of_term_ctx L K -> {K |- term M}.
 induction on 2. intros. case H2.
@@ -251,75 +248,76 @@ intros. apply reduce_of to H1. apply of_closed to H2. search.
 %% about all possible closed instantiations of an open term.
 
 % Suppose that {L |- of M A} is true. Then M is an open term with nominal
-% constants that are listed in L. The judgment "close L M N" holds for all
-% closed instantiations N of the nominal constants in M. The key to defining
-% this judgment is the use of nabla in the head of a definition which
-% extracts a nominal constant from L and M. The definition of "close" then
-% substitutes for this nominal constant and continues processing the list L.
+% constants that are listed in L. The judgment "subst L M N" holds for all
+% instantiations N of the nominal constants in M with values that satisfy
+% the reduce relation for their respective types. The key to defining this
+% judgment is the use of nabla in the head of a definition which extracts
+% a nominal constant from L and M. The definition of subst then substitutes
+% for this nominal constant and continues processing the list L.
 % Note: In the second clause, V is not mentioned in the head, thus it is
 %       treated as existentially bound in the body.
-Def close nil M M.
-Def nabla x, close (of x A :: L) (R x) M :-
-  reduce V A, {value V}, close L (R V) M.
+Def subst nil M M.
+Def nabla x, subst (of x A :: L) (R x) M :-
+  reduce V A, {value V}, subst L (R V) M.
 
-% Closing a closed term has no effect
-Theorem closed_close : forall L M N,
-  closed M -> close L M N -> M = N.
+% Subst on a closed term has no effect
+Theorem closed_subst : forall L M N,
+  closed M -> subst L M N -> M = N.
 induction on 2. intros. case H2.
   search.
-  apply closed_ground to H1. case H6.
+  apply prune_closed to H1. case H6.
     apply IH to H1 H5. search.
 
-Theorem close_var : forall L M N A,
-  of_ctx L -> member (of M A) L -> close L M N -> reduce N A.
+Theorem subst_var : forall L M N A,
+  of_ctx L -> member (of M A) L -> subst L M N -> reduce N A.
 induction on 1. intros. case H1.
   case H2.
   case H2.
     case H3. apply reduce_closed to H5.
-      apply closed_close to H8 H7. case H9. search.
+      apply closed_subst to H8 H7. case H9. search.
     case H3. apply member_fresh to H5 _. case H9.
       apply IH to H4 H5 H8. search.
 
-Theorem close_app : forall L M N R,
-  of_ctx L -> close L (app M N) R ->
-    exists MR NR, R = app MR NR /\ close L M MR /\ close L N NR.
+Theorem subst_app : forall L M N R,
+  of_ctx L -> subst L (app M N) R ->
+    exists MR NR, R = app MR NR /\ subst L M MR /\ subst L N NR.
 induction on 1. intros. case H1.
   case H2. search.
   case H2. apply IH to H3 H6. case H7.
     search.
 
-Theorem close_abs : forall L M R A B,
-  of_ctx L -> close L (abs A M) R ->
+Theorem subst_abs : forall L M R A B,
+  of_ctx L -> subst L (abs A M) R ->
     {L |- of (abs A M) (arrow A B)} -> {type (arrow A B)} ->
       exists MR, R = abs A MR /\
         {of (abs A MR) (arrow A B)} /\
         (forall V, reduce V A -> {value V} ->
-                     nabla x, close (of x A :: L) (M x) (MR V)).
+                     nabla x, subst (of x A :: L) (M x) (MR V)).
 induction on 1. intros. case H1.
   case H2. exists M. split.
     search.
     intros. search.
-  case H2. apply type_ground to H4. case H9.
+  case H2. apply prune_type to H4. case H9.
     apply reduce_of to H6. inst H3 with n1 = V. cut H11 with H10.
       apply IH to H5 H8 H12 H4. case H13.
         exists MR. split. split.
           search.
           search.
-          intros. apply reduce_closed to H16. apply closed_ground to H18.
+          intros. apply reduce_closed to H16. apply prune_closed to H18.
             case H19.
               apply H15 to H16 H17. case H20.
                 clear H16. search.
 
 Theorem tait_ext : forall L M R A,
-  of_ctx L -> {L |- of M A} -> close L M R -> reduce R A.
+  of_ctx L -> {L |- of M A} -> subst L M R -> reduce R A.
 induction on 2. intros. case H2.
-  apply close_var to H1 H4 H3. search.
-  apply close_app to H1 H3. case H6.
+  apply subst_var to H1 H4 H3. search.
+  apply subst_app to H1 H3. case H6.
     apply IH to H1 H4 H7.
       apply IH to H1 H5 H8.
         case H9. apply H13 to H10. search.
   apply type_ignores_of_ctx to H1 H4.
-    apply close_abs to H1 H3 _ H6. case H7. unfold.
+    apply subst_abs to H1 H3 _ H6. case H7. unfold.
       search.
       search.
       intros. % The rest is one single case

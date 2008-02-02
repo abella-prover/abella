@@ -215,9 +215,9 @@ let fresh_name name used =
     else
       name
       
-let fresh_wrt tag name used =
+let fresh_wrt ?(ts=0) tag name used =
   let name = fresh_name name used in
-  let v = var tag name 0 in
+  let v = var tag name ts in
     (v, (name, v)::used)
 
 let binop s a b = App ((const s),[a;b])

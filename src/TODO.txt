@@ -45,8 +45,6 @@ Allow naming of hypotheses
 
 Add an apply tactic that works backwards like in coq?
 
-Check that TODO in unify.ml is sound
-
 Display new hypotheses in future subgoals? (subgoal 2 is : {...} -> ...)
   
 Do we have to consider logic variables in the context during search?

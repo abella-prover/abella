@@ -50,8 +50,8 @@ open P
 
 let used = ref []
 
-let named_fresh name =
-  let (v, new_used) = fresh_wrt instantiatable name !used in
+let named_fresh name ts =
+  let (v, new_used) = fresh_wrt ~ts instantiatable name !used in
     used := new_used ;
     v
 
@@ -59,7 +59,6 @@ let constant tag =
   tag = Constant || tag = constant_like || tag = Nominal
 let variable tag =
   tag = instantiatable
-let fresh = fresh ~tag:instantiatable
 
 (* Transforming a term to represent substitutions under abstractions *)
 let rec lift t n = match observe t with
@@ -386,7 +385,7 @@ let makesubst h1 t2 a1 n =
           if eq c h1 then fail OccursCheck ;
           let (changed,a1',a2') = raise_and_invert ts1 ts2 a1 [] lev in
             if changed || ts1<ts2 then
-              let h' = fresh (min ts1 ts2) in
+              let h' = named_fresh hv1.name (min ts1 ts2) in
                 bind c (app h' a2') ;
                 app h' a1'
             else
@@ -414,10 +413,7 @@ let makesubst h1 t2 a1 n =
                 in
                   if changed then
                     let h' =
-                      (* TODO - is this special case for a1 = [] sound? *)
-                      if a1 = []
-                      then named_fresh hv1.name (* (min ts1 ts2) *)
-                      else fresh (min ts1 ts2)
+                      named_fresh hv1.name (min ts1 ts2)
                     in
                       bind h2
                         (lambda (List.length a2)
@@ -425,7 +421,7 @@ let makesubst h1 t2 a1 n =
                       app h' a1'
                   else
                     if ts1<ts2 then
-                      let h' = fresh ts1 in
+                      let h' = named_fresh hv1.name ts1 in
                         bind h2 h' ;
                         app h' a1'
                     else 
@@ -466,7 +462,7 @@ let makesubst h1 t2 a1 n =
                 ensure_flex_args a2 ts2 ;
                 let bindlen = n+lev in
                   if bindlen = List.length a2 then
-                    let h1' = fresh ts1 in
+                    let h1' = named_fresh hv1.name ts1 in
                     let args = prune_same_var a1 a2 lev bindlen in
                       lambda bindlen (app h1' args)
                   else

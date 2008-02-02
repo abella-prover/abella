@@ -100,7 +100,8 @@ val abstract : string -> term -> term
 (** Abella specific additions and changes *)
 val const : ?ts:int -> string -> term
 val fresh : ?tag:tag -> int -> term
-val fresh_wrt : tag -> id -> (id * term) list -> term * (id * term) list
+val fresh_wrt : ?ts:int -> tag -> id ->
+                  (id * term) list -> term * (id * term) list
 
 val nominal_var : string -> term
   

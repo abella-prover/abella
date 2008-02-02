@@ -8,7 +8,7 @@ Quick Start
 ===========
 1) Compile the program by running "make" from the root directory.
 
-2) Start Abella, passing in the name of the lambda prolog file to
+2) Start Abella, passing in the name of the specification file to
    reason about.
    E.g.  ./abella examples/eval.mod
 
@@ -34,15 +34,13 @@ The syntax of terms in Abella supports the following constructs,
 
   forall A B C, ...
   exists A B C, ...
-  nabla A B C, ...
+  nabla a b c, ...
   F1 /\ F2                         (and)
   F1 \/ F2                         (or)
   F1 -> F2
   pred A B C                       (meta level predicate - predicate in G)
-  {pred A B C}                     (Lambda prolog predicate, like
-                                    seq nil (pred A B C) )
-  {hyp A, hyp B |- pred A B C}     (Lambda prolog predicate with context, like
-                                    seq (hyp B :: hyp A :: nil) (pred A B C) )
+  {pred A B C}                     (specification level predicate)
+  {hyp A, hyp B |- pred A B C}     (specification level predicate with context)
 
 Nominal variables are denoted by n1, n2, ...
 
@@ -76,10 +74,14 @@ There are only three top-level commands in Abella.
   Def <PRED NAME> <PRED ARGS>.
   Def <PRED NAME> <PRED ARGS> :- <PRED BODY>.
   ===========================================
-  The def command defines a clause for a meta-level
-  predicate. Multiple calls to Def are used to define multiple clauses
-  of a predicate. Most often, these predicates are used to describe
-  the context of lambda prolog terms for the given file.
+  The def command defines a clause for a meta-level predicate.
+  Multiple calls to Def are used to define multiple clauses of a
+  predicate. Most often, these predicates are used to describe the
+  context of specification level judgments. The logic G requires that
+  all definitions are stated prior to any reasoning and that all
+  definitions satisfy a stratification condition. We do not enforce
+  such restrictions thus the user must take care when defining
+  meta-level predicates.
 
   The def command can be used with one nabla in the definition head.
   See examples/type_uniq for an example.
@@ -119,8 +121,9 @@ used in the examples.
   =======
   The search tactic tries to prove the current goal by repeatedly
   applying def-R and looking in the list of hypotheses. When the goal
-  is a lambda prolog term, this corresponds very much to lambda prolog
-  style searching.
+  is a specification level judgment, this corresponds very much to the
+  executable search semantics of the specification logic.
+
 
   apply <HYP-NAME> to <HYP-NAMES>.
   ================================
@@ -129,6 +132,10 @@ used in the examples.
   previously proved theorem can be used instead of the first
   hypothesis, and then this acts like using a lemma. This tactic also
   triggers some basic case analysis on the resulting hypotheses.
+
+  A useful feature of apply is that not all of its arguments have to
+  be available. See the section "Apply with Unknowns" for more
+  information.
   
   undo.
   =====
@@ -144,21 +151,21 @@ used in the examples.
   The abort tactic gives up on the current theorem and returns the user
   to the top-level.
 
-  cut <HYP-NAME> with <HYP-NAME>.
-  ===============================
-  Given hypotheses of the form {L1, A |- C} and {L2 |- A} with L1 and
-  L2 possibly empty, the cut tactic creates the hypothesis {L1, L2 |-
-  C}. This corresponds to meta-level cut for lambda prolog. See
-  subject reduction in examples/eval.thm for an example.
-
   inst <HYP-NAME> with <VAR> = <TERM>.
   ====================================
   Given a hypothesis of the form {... n1 ...} where n1 is a nominal
   variable specified in the command, the inst tactic creates the
-  hypothesis {... t ...} where t is the term specified in the
-  tactic. Thus this tactic implements a meta-level substitution
-  property of lambda prolog. See subject reduction in
-  examples/eval.thm for an example.
+  hypothesis {... t ...} where t is the term specified to the tactic.
+  Thus this tactic implements a meta-level substitution property of
+  the specification logic. See subject reduction in examples/eval.thm
+  for an example.
+
+  cut <HYP-NAME> with <HYP-NAME>.
+  ===============================
+  Given hypotheses of the form {L1, A |- C} and {L2 |- A} with L1 and
+  L2 possibly empty, the cut tactic creates the hypothesis {L1, L2 |-
+  C}. This corresponds to meta-level cut property of the specification
+  logic. See subject reduction in examples/eval.thm for an example.
 
   unfold.
   =======
@@ -170,11 +177,9 @@ used in the examples.
   =================
   The assert tactic changes the current goal to the given formula and
   once that is proven it comes back to the original goal, but with the
-  given formula as a hypothesis. I found this useful when I wanted to
-  use apply but did not have the proper hypotheses to apply to. Since
-  that time, however, I have added the ability to use apply with
-  unknowns and thus I no longer use assert. See the section "Apply
-  with Unknowns" for more information.
+  given formula as a hypothesis. This is useful for when the prover is
+  doing a poor job with, for example, the search tactic. Using assert
+  allows you to "hold the prover's hand" to get to your desired goal.
   
   exists <TERM>.
   ==============
@@ -201,22 +206,23 @@ than using explicit numeric values. For example, suppose we apply
 theorem,
 
  ============================
-  forall E V T, {eval E V} -> {typeof E T} -> {typeof V T}
+  forall E V T, {eval E V} -> {of E T} -> {of V T}
   
 We will get the following proof state.
 
-  IH : forall E V T, {eval E V}* -> {typeof E T} -> {typeof V T}
+  IH : forall E V T, {eval E V}* -> {of E T} -> {of V T}
   ============================
-   forall E V T, {eval E V}@ -> {typeof E T} -> {typeof V T}
+   forall E V T, {eval E V}@ -> {of E T} -> {of V T}
 
 Here we have an inductive hypothesis where the inductive argument is
 flagged with *. This means that we can only apply that hypothesis to
 an argument which also has the *. Because * means smaller, in order to
 get an argument with a * we must perform case analysis on an argument
 that is "equal" which we denote by @. Thus the above proof proceeds by
-first doing "intros." and then "case on H1." This will give us two
-subgoals, each of which has a hypothesis now tagged with * and thus
-eligible for use with the inductive hypothesis.
+first doing "intros." and then case analysis on {eval E V}@. This will
+give us two subgoals, one which is trivial and the other which has
+hypotheses tagged with * and thus eligible for use with the inductive
+hypothesis.
 
 
 Lemmas
@@ -240,16 +246,16 @@ replacing them with an underscore. For example, in examples/type_uniq
 we at one point have roughly the proof state,
 
   Variables: L, E, T1, T2, U, R, T, U'
-  IH : forall L E T1 T2, ctx L -> {L |- typeof E T1}* ->
-         {L |- typeof E T2} -> T1 = T2
+  IH : forall L E T1 T2, ctx L -> {L |- of E T1}* -> {L |- of E T2} ->
+         T1 = T2
   H1 : ctx L
-  H4 : {L, typeof n1 T |- typeof (R n1) U}*
-  H5 : {L, typeof n1 T |- typeof (R n1) U'}
+  H4 : {L, of n1 T |- of (R n1) U}*
+  H5 : {L, of n1 T |- of (R n1) U'}
   ============================
    arrow T U = arrow T U'
 
 Now we would like to apply IH to H4 and H5, but for this we would need
-a hypothesis which says "ctx (typeof n1 T :: L)". Instead, we can say
+a hypothesis which says "ctx (of n1 T :: L)". Instead, we can say
 "apply IH to _ H4 H5." The prover will then guess what needs be proved
 for the unknown hypothesis and attempt to prove it using search. If
 this fails, the current subgoal will be delayed and the unknown
@@ -280,15 +286,12 @@ progress.
  * seq - comparison between internal and external definition of seq
  * seq2 - an alternate definition of seq which makes the program explicit
  * subst - correctness for LLambda subst predicate
- * tait - Tait's proof of normalization for the simply typed lambda calculus
+ * tait - Tait's logical relations argument for normalization of
+          the simply-typed lambda-calculus
  * type_uniq - type uniqueness for simply typed lambda calculus
  * type_uniq2 - same as type_uniq, but using only LG-omega
 
- 
-Disclaimer
-==========
-Some features are only partially supported. In particular, we only allow
-one nabla in the head of definitions. This is sufficient for a wide
-variety of examples however.
 
- LocalWords:  README
+ # The following is used by the spellchecker
+ LocalWords:  uniq NUM eigen eval IH ctx wip pcf PCF pe poplmark Fsub
+ LocalWords:  subst LLambda tait

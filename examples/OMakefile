@@ -31,21 +31,20 @@ html: $(ABELLA)
     mkdir -p html
     foreach(name, $(FILE_NAMES))
         echo Processing $(name)
-        head -1 $(name).thm | sed -e 's/^%* *//' > html-files/title
-        echo $(name) | perl -pe 'chomp' > html-files/name
-        cp $(name).mod html-files/specification
-        ruby html-files/annotate_thm.rb $(name).thm > html-files/reasoning
-        $(ABELLA) -a $(name).mod -f $(name).thm > html-files/details
-        php html-files/main.php > html/$(name).html
-        php html-files/details.php > html/$(name)-details.html
-        rm html-files/title
-        rm html-files/specification
-        rm html-files/reasoning
-        rm html-files/details
-        rm html-files/name
+
+        echo $(name) > name
+        head -1 $(name).thm > title-line
+        cp $(name).mod specification
+        ruby html-files/annotate_thm.rb $(name).thm > reasoning
+        $(ABELLA) -a $(name).mod -f $(name).thm > details
+
+        erb html-files/main.rhtml > html/$(name).html
+        erb html-files/details.rhtml > html/$(name)-details.html
+
+        rm name title-line specification reasoning details
 
 .PHONY: upload-html
 upload-html: html
-    cp html/* ~/.www/abella/examples/
-    chmod a+r ~/.www/abella/examples/*
+    scp $(addprefix html/, $(basename $(ls html))) \
+      "agacek@bhoop.cs.umn.edu:/home/grad01/agacek/.www/abella/examples/"
     rm -rf html

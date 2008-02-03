@@ -11,7 +11,7 @@ Def ctx (bound X U :: L) :- name X, ctx L.
 
 % cty defines valid closed types (used for reflexivity)
 Def cty L top.
-Def cty L X :- member (bound X U) L.
+Def cty L X :- exists U, member (bound X U) L.
 Def cty L (arrow T1 T2) :- cty L T1, cty L T2.
 Def cty L (all T1 T2) :-
   cty L T1, (nabla x, cty (bound x T1 :: L) (T2 x)).
@@ -26,7 +26,7 @@ Theorem sub_refl : forall L T,
   cty L T -> {L |- sub T T}.
 induction on 1. intros. case H1.
   search.
-  search.
+  case H2. search.
   apply IH to H2. apply IH to H3. search.
   apply IH to H2. case H3. apply IH to H5. search.
 

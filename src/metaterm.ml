@@ -448,5 +448,5 @@ let try_meta_right_permute_unify t1 t2 =
         support_t1 |> List.permute (List.length support_t2)
           |> List.exists
               (fun perm_support_t1 ->
-                 let alist = List.zip support_t2_names perm_support_t1 in
+                 let alist = List.combine support_t2_names perm_support_t1 in
                    try_meta_right_unify t1 (replace_metaterm_vars alist t2))

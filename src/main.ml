@@ -20,6 +20,7 @@
 open Metaterm
 open Prover
 open Types
+open Extensions
 open Printf
 
 let quiet = ref false
@@ -29,11 +30,20 @@ let count = ref 0
 
 exception AbortProof
 
+let warn_if_free_vars free_vars =
+  if free_vars <> [] then
+    printf "\n\tWarning! Potential variables treated as constants: %s\n\n"
+      (String.concat ", " free_vars)
+
 let check_theorem thm =
-  let variables = Tactics.free_capital_var_names thm in
-    if variables <> [] then
-      printf "\n\tWarning! Potential variables treated as constants: %s\n\n"
-        (String.concat ", " variables)
+  let free_vars = Tactics.free_capital_var_names thm in
+    warn_if_free_vars free_vars
+
+let check_meta_clause (head, body) =
+  let head_vars = Tactics.free_capital_var_names head in
+  let body_vars = List.flatten_map Tactics.free_capital_var_names body in
+  let free_vars = List.remove_all (fun x -> List.mem x head_vars) body_vars in
+    warn_if_free_vars free_vars
 
 let rec process_proof name ~interactive lexbuf =
   let finished = ref false in
@@ -114,6 +124,7 @@ let rec process ~interactive lexbuf =
         | Axiom(name, axiom) ->
             add_lemma name axiom
         | Def(meta_clause) ->
+            check_meta_clause meta_clause ;
             add_meta_clause meta_clause
       end ;
       if interactive then flush stdout ;

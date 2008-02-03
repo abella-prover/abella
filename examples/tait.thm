@@ -10,6 +10,7 @@
 %% Values (Terms): V
 %% Contexts: L, K
 
+
 Def halts M :- exists V, {nstep M V} /\ {value V}.
 
 %% Reduce is the logical relation used to prove normalization. We
@@ -89,7 +90,7 @@ intros. case H1. case H3.
 Theorem halt_step_backward : forall M N,
   halts N -> {step M N} -> halts M.
 intros. case H1. case H3.
-  assert {nstep M V1}. search.
+  assert {nstep M V}. search.
     search.
 
 Theorem of_step_forward : forall M N A,
@@ -326,7 +327,7 @@ Theorem subst_preserves_type : forall L M N A,
 induction on 1. intros. case H1.
   case H2. search.
   case H2. case H6.
-    apply reduce_of to H7. inst H3 with n1 = V1. cut H11 with H10.
+    apply reduce_of to H7. inst H3 with n1 = V. cut H11 with H10.
       apply of_type to _ H3. apply prune_type to H13. case H14.
         apply IH to H5 H9 H12. search.
 
@@ -350,7 +351,7 @@ induction on 2. intros. case H2 (keep).
           apply IH to _ H5 H16.
           assert {value (abs A1 MR)}. search.
           apply nstep_app_value to H18 H13.
-          assert {step (app (abs A1 MR) V1) (MR V1)}. search.
+          assert {step (app (abs A1 MR) V) (MR V)}. search.
           apply nstep_right to H19 H20.
           apply reduce_nstep_backward to H17 H21 _.
             apply reduce_of to H10. search.

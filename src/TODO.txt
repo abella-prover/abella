@@ -1,8 +1,13 @@
+Change meta_clause to defs?
+  clauses and defs?
+
 Tait could use more comments and groupings which explain the overall goals
 
 
 Future
 ======
+
+Add warning to Def when captial variable in body is not bound
 
 Make case* which does a single case analysis?
 
@@ -11,6 +16,7 @@ Make apply* which doesn't trigger case analysis?
 Make recursive case analysis work on = and false?
 
 Add more backtracking to search?
+  Then remove many asserts from examples
 
 Allow 'apply' to use 'with' and specify instantiations?
 

@@ -341,17 +341,4 @@ let tests =
              | Failure("Found logic variable at toplevel") -> ()
         ) ;
       
-      "Toplevel logic variable should produce error in unfold" >::
-        (fun () ->
-           setup_prover ()
-             ~meta_clauses:(parse_meta_clauses "foo :- bar A.")
-             ~goal:"foo" ;
-           
-           try
-             unfold () ;
-             assert_failure ("Logic variable did not produce error\n\n" ^
-                               get_display ())
-           with
-             | Failure("Found logic variable at toplevel") -> ()
-        ) ;
     ]

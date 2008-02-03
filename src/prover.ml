@@ -421,7 +421,6 @@ let unfold () =
   save_undo_state () ;
   let goals = unfold ~used:sequent.vars
     ~meta_clauses:!meta_clauses sequent.goal in
-  let _ = ensure_no_logic_variable goals in
   let goals = List.map goal_to_subgoal goals in
     subgoals := goals @ !subgoals ;
     next_subgoal ()

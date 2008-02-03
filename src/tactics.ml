@@ -44,11 +44,6 @@ let capital_var_names terms =
   |> List.find_all is_capital
   |> List.unique
 
-let meta_capital_var_names metaterms =
-  metaterms
-  |> List.flatten_map collect_terms
-  |> capital_var_names
-
 let free_capital_var_names metaterm =
   let aux_term = capital_var_names in
   let aux_obj obj = aux_term obj.context @ aux_term [obj.term] in
@@ -74,7 +69,7 @@ let freshen_clause ~used ?(support=[]) head body =
      List.map (replace_term_vars raised_names) body)
 
 let freshen_meta_clause ~used ?(support=[]) head body =
-  let var_names = meta_capital_var_names (pred head :: body) in
+  let var_names = capital_var_names [head] in
   let fresh_names = fresh_alist ~tag:Eigen ~used var_names in
   let raised_names = raise_alist ~support fresh_names in
     (List.map alist_to_used fresh_names @ used,
@@ -100,7 +95,7 @@ let freshen_nameless_clause ?(support=[]) head body =
     (fresh_head, fresh_body)
 
 let freshen_nameless_meta_clause ?(support=[]) head body =
-  let var_names = meta_capital_var_names (pred head :: body) in
+  let var_names = capital_var_names [head] in
   let fresh_names = fresh_nameless_alist ~support var_names in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_metaterm_vars fresh_names) body in
@@ -401,8 +396,7 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
         | Or(left, right) -> metaterm_aux n left || metaterm_aux n right
         | And(left, right) -> metaterm_aux n left && metaterm_aux n right
         | Binding(Exists, bindings, body) ->
-            let term =
-              freshen_nameless_bindings ~support bindings body in
+            let term = freshen_nameless_bindings ~support bindings body in
               metaterm_aux n term
         | Binding(Nabla, [id], body) ->
             let nominal = fresh_nominal body in
@@ -427,7 +421,8 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                           freshen_nameless_meta_clause ~support head body
                         in
                           right_unify head goal ;
-                          List.for_all (metaterm_aux (n-1)) body
+                          List.for_all (metaterm_aux (n-1))
+                            (List.map normalize body)
                             
                     | Binding(Nabla, [id], Pred(head, _)) ->
                           support |> List.exists
@@ -442,7 +437,8 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                                         ~support head body
                                     in
                                       right_unify head goal ;
-                                      List.for_all (metaterm_aux (n-1)) body))
+                                      List.for_all (metaterm_aux (n-1))
+                                        (List.map normalize body)))
                     | _ -> failwith "Bad head in meta-clause"))
   in
     metaterm_aux n goal

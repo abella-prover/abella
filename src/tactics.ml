@@ -352,7 +352,7 @@ let is_false t =
 
 let search ~depth:n ~hyps ~clauses ~defs goal =
   
-  let rec term_aux n context goal =
+  let rec clause_aux n context goal =
     clauses |> List.exists
       (fun (head, body) ->
          try_with_state
@@ -383,7 +383,7 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
           metaterm_aux (n-1) (obj_to_member goal)
       in
       let backchain () =
-        term_aux n goal.context goal.term
+        clause_aux n goal.context goal.term
       in
         context_search () || backchain ()
         
@@ -405,10 +405,10 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
         | Obj(obj, _) -> obj_aux n obj
         | Pred(p, _) ->
             List.exists (try_right_unify p) (filter_preds hyps) ||
-              meta_aux n p
+              def_aux n p
         | _ -> false
 
-  and meta_aux n goal =
+  and def_aux n goal =
     let support = term_support goal in
     if n = 0 then false else
       defs |> List.exists

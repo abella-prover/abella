@@ -68,7 +68,7 @@ let freshen_clause ~used ?(support=[]) head body =
      replace_term_vars raised_names head,
      List.map (replace_term_vars raised_names) body)
 
-let freshen_meta_clause ~used ?(support=[]) head body =
+let freshen_def ~used ?(support=[]) head body =
   let var_names = capital_var_names [head] in
   let fresh_names = fresh_alist ~tag:Eigen ~used var_names in
   let raised_names = raise_alist ~support fresh_names in
@@ -94,7 +94,7 @@ let freshen_nameless_clause ?(support=[]) head body =
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
 
-let freshen_nameless_meta_clause ?(support=[]) head body =
+let freshen_nameless_def ?(support=[]) head body =
   let var_names = capital_var_names [head] in
   let fresh_names = fresh_nameless_alist ~support var_names in
   let fresh_head = replace_term_vars fresh_names head in
@@ -206,15 +206,15 @@ let lift_all ~used nominals =
     used
     used
 
-let case ~used ~clauses ~meta_clauses ~global_support term =
+let case ~used ~clauses ~defs ~global_support term =
 
   let support = metaterm_support term in
   let initial_bind_state = get_bind_state () in
   
-  let metaclause_case ~wrapper term =
+  let def_case ~wrapper term =
     let make_case ~support ~used (head, body) term =
       let used, head, body =
-        freshen_meta_clause ~support ~used head body
+        freshen_def ~support ~used head body
       in
         if try_left_unify ~used head term then
           let bind_state = get_bind_state () in
@@ -231,7 +231,7 @@ let case ~used ~clauses ~meta_clauses ~global_support term =
         else
           []
     in
-      meta_clauses |> List.flatten_map
+      defs |> List.flatten_map
           (function
              | Pred(head, _), body ->
                  set_bind_state initial_bind_state ;
@@ -259,7 +259,7 @@ let case ~used ~clauses ~meta_clauses ~global_support term =
                             make_case ~support ~used (head, body) term)
                  in
                    raised_result @ permuted_results
-             | _ -> failwith "Bad head in meta-clause")
+             | _ -> failwith "Bad head in definition")
   in
           
   let clause_case ~wrapper term =
@@ -297,7 +297,7 @@ let case ~used ~clauses ~meta_clauses ~global_support term =
     
     match term with
       | Obj(obj, r) -> obj_case obj r
-      | Pred(p, r) -> metaclause_case ~wrapper:(predicate_wrapper r) p
+      | Pred(p, r) -> def_case ~wrapper:(predicate_wrapper r) p
       | Or _ -> List.map stateless_case_to_case
           (List.map (recursive_metaterm_case ~used) (or_to_list term))
       | And _
@@ -350,7 +350,7 @@ let is_false t =
         end
     | _ -> false
 
-let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
+let search ~depth:n ~hyps ~clauses ~defs goal =
   
   let rec term_aux n context goal =
     clauses |> List.exists
@@ -411,14 +411,14 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
   and meta_aux n goal =
     let support = term_support goal in
     if n = 0 then false else
-      meta_clauses |> List.exists
+      defs |> List.exists
           (fun (head, body) ->
              try_with_state
                (fun () ->
                   match head with
                     | Pred(head, _) ->
                         let head, body =
-                          freshen_nameless_meta_clause ~support head body
+                          freshen_nameless_def ~support head body
                         in
                           right_unify head goal ;
                           List.for_all (metaterm_aux (n-1))
@@ -433,13 +433,13 @@ let search ~depth:n ~hyps ~clauses ~meta_clauses goal =
                                     let head = replace_term_vars
                                       [(id, dest)] head in
                                     let head, body =
-                                      freshen_nameless_meta_clause
+                                      freshen_nameless_def
                                         ~support head body
                                     in
                                       right_unify head goal ;
                                       List.for_all (metaterm_aux (n-1))
                                         (List.map normalize body)))
-                    | _ -> failwith "Bad head in meta-clause"))
+                    | _ -> failwith "Bad head in definition"))
   in
     metaterm_aux n goal
 
@@ -539,11 +539,11 @@ let find_as f list =
   in
     aux list
       
-let unfold ~used ~meta_clauses term =
+let unfold ~used ~defs term =
   let support = metaterm_support term in
     match term with
       | Pred(term, _) ->
-          meta_clauses |> find_as
+          defs |> find_as
               (fun (head, body) ->
                  try
                    let used, head, body =
@@ -552,7 +552,7 @@ let unfold ~used ~meta_clauses term =
                        | _ -> failwith "Not yet implemented"
                    in
                    let head, body =
-                     freshen_nameless_meta_clause ~support head body
+                     freshen_nameless_def ~support head body
                    in
                      if try_right_unify ~used head term then
                        Some body

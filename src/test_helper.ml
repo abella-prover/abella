@@ -16,8 +16,8 @@ let parse_metaterm str =
 let parse_clauses str =
   Parser.clauses Lexer.token (Lexing.from_string str)
 
-let parse_meta_clauses str =
-  Parser.meta_clauses Lexer.token (Lexing.from_string str)
+let parse_defs str =
+  Parser.defs Lexer.token (Lexing.from_string str)
 
 let freshen str =
   let term = parse_metaterm str in

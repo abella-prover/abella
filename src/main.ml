@@ -39,7 +39,7 @@ let check_theorem thm =
   let free_vars = Tactics.free_capital_var_names thm in
     warn_if_free_vars free_vars
 
-let check_meta_clause (head, body) =
+let check_def (head, body) =
   let head_vars = Tactics.free_capital_var_names head in
   let body_vars = List.flatten_map Tactics.free_capital_var_names body in
   let free_vars = List.remove_all (fun x -> List.mem x head_vars) body_vars in
@@ -123,9 +123,9 @@ let rec process ~interactive lexbuf =
             with AbortProof -> () end
         | Axiom(name, axiom) ->
             add_lemma name axiom
-        | Def(meta_clause) ->
-            check_meta_clause meta_clause ;
-            add_meta_clause meta_clause
+        | Def(def) ->
+            check_def def ;
+            add_def def
       end ;
       if interactive then flush stdout ;
       if !annotate then printf "</pre>\n"

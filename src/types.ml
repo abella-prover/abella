@@ -24,15 +24,15 @@ open Printf
 type clause = term * term list
 type clauses = clause list
 
-type meta_clause = metaterm * metaterm list
-type meta_clauses = meta_clause list
+type def = metaterm * metaterm list
+type defs = def list
 
 type id = string
 
 type top_command =
   | Theorem of id * metaterm
   | Axiom of id * metaterm
-  | Def of meta_clause
+  | Def of def
 
 type command =
   | Induction of int
@@ -52,7 +52,7 @@ type command =
   | Abort
   | Undo
 
-let meta_clause_to_string (head, body) =
+let def_to_string (head, body) =
   if body = [] then
     metaterm_to_string head
   else
@@ -67,7 +67,7 @@ let top_command_to_string tc =
     | Axiom(name, body) ->
         sprintf "Axiom %s : %s" name (metaterm_to_formatted_string body)
     | Def clause ->
-        sprintf "Def %s" (meta_clause_to_string clause)
+        sprintf "Def %s" (def_to_string clause)
 
 let command_to_string c =
   match c with

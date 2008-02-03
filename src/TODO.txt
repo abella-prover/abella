@@ -1,13 +1,8 @@
-Change meta_clause to defs?
-  clauses and defs?
-
 Tait could use more comments and groupings which explain the overall goals
 
 
 Future
 ======
-
-Add warning to Def when captial variable in body is not bound
 
 Make case* which does a single case analysis?
 

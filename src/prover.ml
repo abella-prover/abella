@@ -72,17 +72,17 @@ let clauses : clauses ref = ref (parse_clauses "X = X.")
 let add_clauses new_clauses =
   clauses := !clauses @ new_clauses
   
-let parse_meta_clauses str =
-  Parser.meta_clauses Lexer.token (Lexing.from_string str)
+let parse_defs str =
+  Parser.defs Lexer.token (Lexing.from_string str)
 
-let meta_clauses : meta_clause list ref =
-  ref (parse_meta_clauses
+let defs : def list ref =
+  ref (parse_defs
          ("X = X." ^
             "member A (A :: L)." ^
             "member A (B :: L) :- member A L."))
 
-let add_meta_clause new_clause =
-  meta_clauses := !meta_clauses @ [new_clause]
+let add_def new_clause =
+  defs := !defs @ [new_clause]
     
   
 (* Undo support *)
@@ -115,11 +115,11 @@ let reset_prover =
 
 let full_reset_prover =
   let original_clauses = !clauses in
-  let original_meta_clauses = !meta_clauses in
+  let original_defs = !defs in
     fun () ->
       reset_prover () ;
       clauses := original_clauses ;
-      meta_clauses := original_meta_clauses
+      defs := original_defs
       
 
 let add_hyp ?(name=fresh_hyp_name ()) term =
@@ -242,7 +242,7 @@ let search_goal goal =
     ~depth:10
     ~hyps:(List.map snd sequent.hyps)
     ~clauses:!clauses
-    ~meta_clauses:!meta_clauses
+    ~defs:!defs
     goal
 
 let search ?(interactive=true) () =
@@ -316,7 +316,7 @@ let case ?(keep=false) str =
   in
   let cases =
     Tactics.case ~used:sequent.vars ~clauses:!clauses
-      ~meta_clauses:!meta_clauses ~global_support term
+      ~defs:!defs ~global_support term
   in
     if not keep then remove_hyp str ;
     add_cases_to_subgoals cases ;
@@ -419,8 +419,7 @@ let split propogate_result =
 
 let unfold () =
   save_undo_state () ;
-  let goals = unfold ~used:sequent.vars
-    ~meta_clauses:!meta_clauses sequent.goal in
+  let goals = unfold ~used:sequent.vars ~defs:!defs sequent.goal in
   let goals = List.map goal_to_subgoal goals in
     subgoals := goals @ !subgoals ;
     next_subgoal ()

@@ -44,12 +44,12 @@
 /* Higher */
 
 
-%start metaterm term clauses top_command command contexted_term meta_clause
-%start meta_clauses
+%start metaterm term clauses top_command command contexted_term def
+%start defs
 %type <Term.term> term
 %type <Types.clauses> clauses
-%type <Types.meta_clause> meta_clause
-%type <Types.meta_clauses> meta_clauses
+%type <Types.def> def
+%type <Types.defs> defs
 %type <Types.command> command
 %type <Metaterm.obj> contexted_term
 %type <Metaterm.metaterm> metaterm
@@ -94,16 +94,16 @@ clause_body:
   | term COMMA clause_body              { $1::$3 }
   | term                                { [$1] }
 
-meta_clauses:
-  | meta_clause meta_clauses            { $1::$2 }
+defs:
+  | def defs                            { $1::$2 }
   |                                     { [] }
 
-meta_clause:
+def:
   | metaterm DOT                        { ($1, []) }
-  | metaterm DEF meta_clause_body DOT   { ($1, $3) }
+  | metaterm DEF def_body DOT           { ($1, $3) }
 
-meta_clause_body:
-  | metaterm COMMA meta_clause_body     { $1::$3 }
+def_body:
+  | metaterm COMMA def_body             { $1::$3 }
   | metaterm                            { [$1] }
 
 
@@ -167,5 +167,5 @@ top_command :
   | THEOREM ID COLON metaterm DOT       { Types.Theorem($2, $4) }
   | THEOREM metaterm DOT                { Types.Theorem("Goal", $2) }
   | AXIOM ID COLON metaterm DOT         { Types.Axiom($2, $4) }
-  | DEF meta_clause                     { Types.Def($2) }
+  | DEF def                             { Types.Def($2) }
   | EOF                                 { raise End_of_file }

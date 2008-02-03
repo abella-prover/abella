@@ -18,11 +18,11 @@ let assert_proof proof_function =
 let assert_goal goal =
   assert_string_equal goal (metaterm_to_string sequent.goal)
 
-let setup_prover ?clauses:(clauses=[]) ?meta_clauses:(meta_clauses=[])
+let setup_prover ?clauses:(clauses=[]) ?defs:(defs=[])
     ?goal:(goal="") ?lemmas:(lemmas=[]) () =
   full_reset_prover () ;
   add_clauses clauses ;
-  List.iter add_meta_clause meta_clauses ;
+  List.iter add_def defs ;
   if goal <> "" then Prover.sequent.goal <- parse_metaterm goal ;
   Prover.lemmas :=
     List.map (fun (name,body) -> (name, parse_metaterm body)) lemmas

@@ -1,5 +1,5 @@
 <%
-  title = File.open('title-line').read.gsub(/%* */, "").chomp
+  title = File.open('title-line').read.gsub(/^%* */, "").chomp
   name = File.open('name').read.chomp
   specification = File.open('specification').read
   reasoning = File.open('reasoning').read

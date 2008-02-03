@@ -1,5 +1,5 @@
 <%
-  title = File.open('title-line').read.gsub(/%* */, "").chomp
+  title = File.open('title-line').read.gsub(/^%* */, "").chomp
   details = File.open('details').read
 %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"

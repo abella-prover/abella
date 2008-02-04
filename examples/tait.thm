@@ -13,13 +13,13 @@
 
 Define halts M := exists V, {nstep M V} /\ {value V}.
 
-%% Reduce is the logical relation used to prove normalization. We
-%% write the term before the type to match the signature of "of". This
-%% definition is not admitted in the logic G due to the recursive use
-%% of reduce in a negative context. However, we can augment G with a
-%% more fine grained notion of stratification (based on examining the
-%% arguments to predicates) and thereby allow this definition since
-%% the second argument is always smaller in negative occurences.
+%% Reduce is the logical relation used to prove normalization.
+%%
+%% This definition uses itself recursively in a negative context (the
+%% left side of an implication). In order to guarantee consistency of
+%% the system we must ensure this definition is stratified. Note the
+%% second argument to reduce is strictly smaller in the (negative)
+%% recursive occurrence, thus the definition is indeed stratified.
 
 Define reduce M top := {of M top} /\ halts M.
 Define reduce M (arrow A B) :=

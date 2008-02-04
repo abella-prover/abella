@@ -555,8 +555,8 @@ let unfold ~used ~defs term =
                      freshen_nameless_def ~support head body
                    in
                      if try_right_unify ~used head term then
-                       Some body
+                       Some (List.map normalize body)
                      else
                        None
                  with Failure("Not yet implemented") -> None)
-      | _ -> failwith "Can only unfold predicates"
+      | _ -> failwith "Can only unfold definitions"

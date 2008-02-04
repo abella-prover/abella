@@ -856,6 +856,14 @@ let unfold_tests =
                | [goal1] -> assert_pprint_equal "foo (f n1)" goal1
                | goals -> assert_expected_goals 1 goals) ;
 
+      "Should avoid variable capture" >::
+        (fun () ->
+           let defs = parse_defs "pred X :- forall A, foo X A." in
+           let goal = freshen "pred A" in
+             match unfold ~defs goal with
+               | [goal1] -> assert_pprint_equal "forall A1, foo A A1" goal1
+               | goals -> assert_expected_goals 1 goals) ;
+
     ]
 
     

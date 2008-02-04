@@ -4,7 +4,7 @@
 %% of the judgements (term T) and (normal T).
 
 Def ctxpair nil nil.
-Def ctxpair (term X :: L1) (var X :: L2) :- ctxpair L1 L2.
+Def ctxpair (term X :: L1) (var X :: L2) := ctxpair L1 L2.
 
 Theorem ctxpair_lemma : forall X L1 L2,
   ctxpair L1 L2 -> member (term X) L1 -> member (var X) L2.
@@ -21,7 +21,6 @@ induction on 1. intros. case H1.
   case H2.
   case H2.
     apply IH to H3 H4.
-      search.
 
       
 Theorem generalized : forall T L1 L2,
@@ -31,7 +30,7 @@ induction on 2. intros. case H2.
   apply IH to H1 H3. apply IH to H1 H4. case H5.
     case H6.
       case H7.
-        apply ctxpair_lemma2 to H1 H9. case H10.
+        apply ctxpair_lemma2 to H1 H9.
         search.
         search.
         search.

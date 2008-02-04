@@ -4,7 +4,7 @@
 %% the ctxpair meta-level predicate.
 
 Def ctxpair nil nil.
-Def ctxpair (copy X Y :: L1) (copy' X Y :: L2) :- ctxpair L1 L2.
+Def ctxpair (copy X Y :: L1) (copy' X Y :: L2) := ctxpair L1 L2.
 
 Theorem ctxpair_lemma : forall X Y L1 L2,
   ctxpair L1 L2 -> member (copy X Y) L1 -> member (copy' X Y) L2.

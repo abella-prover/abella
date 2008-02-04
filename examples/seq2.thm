@@ -6,18 +6,18 @@
 %% We add the argument P representing the lambda prolog program so that
 %% we can quantify over it.
 Def seq P L t.
-Def seq P L (atom A) :- member A L.
-Def seq P L (and A B) :- seq P L A, seq P L B.
-Def seq P L (A => B) :- seq P (A :: L) B.
-Def seq P L (pi G) :- nabla x, seq P L (G x).
-Def seq P L (sigma G) :- exists X, seq P L (G X).
-Def seq P L (atom A) :- exists B, lookup A P B /\ seq P L B.
+Def seq P L (atom A) := member A L.
+Def seq P L (and A B) := seq P L A /\ seq P L B.
+Def seq P L (A => B) := seq P (A :: L) B.
+Def seq P L (pi G) := nabla x, seq P L (G x).
+Def seq P L (sigma G) := exists X, seq P L (G X).
+Def seq P L (atom A) := exists B, lookup A P B /\ seq P L B.
 
 Def lookup A (atom A) t.
 Def lookup A (imp B A) B.
-Def lookup A (and P1 P2) B :- lookup A P1 B.
-Def lookup A (and P1 P2) B :- lookup A P2 B.
-Def lookup A (pi P) B :- exists X, lookup A (P X) B.
+Def lookup A (and P1 P2) B := lookup A P1 B.
+Def lookup A (and P1 P2) B := lookup A P2 B.
+Def lookup A (pi P) B := exists X, lookup A (P X) B.
 
 Theorem external : forall S T,
   seq nil nil (pi x\ p x S => pi y\ p y T => atom (p x T)) -> S = T.
@@ -28,11 +28,10 @@ case H3.
 case H4.
 case H5.
 case H6.
-case H7.
-  case H8. case H9.
+  case H7.
     search.
-    case H10.
-  case H8. case H9.
+    case H8.
+  case H6.
 
 Theorem internal : forall S T,
   {pi x\ p x S => pi y\ p y T => p x T} -> S = T.
@@ -67,13 +66,13 @@ skip.
 %% about lists.
 
 Def list nil.
-Def list (X :: A) :- list A.
+Def list (X :: A) := list A.
 
 Def select (X :: A) X A.
-Def select (Y :: A) X (Y :: B) :- select A X B.
+Def select (Y :: A) X (Y :: B) := select A X B.
 
 Def perm nil nil.
-Def perm (X :: A') B :- exists B', select B X B' /\ perm A' B'.
+Def perm (X :: A') B := exists B', select B X B' /\ perm A' B'.
 
 Theorem select_member_base : forall X L1 L2,
   select L1 X L2 -> member X L1.
@@ -93,9 +92,9 @@ Theorem perm_member : forall X L1 L2,
   member X L1 -> perm L1 L2 -> member X L2.
 induction on 2. intros. case H2.
   search.
-  case H3. case H1.
-    apply select_member_base to H4. search.
-    apply IH to H6 H5. apply select_member_step to H4 H7. search.
+  case H1.
+    apply select_member_base to H3. search.
+    apply IH to H5 H4. apply select_member_step to H3 H6. search.
 
 Theorem perm_refl : forall L,
   list L -> perm L L.
@@ -117,9 +116,9 @@ induction on 1. intros. case H1.
   apply perm_member to H3 H2. search.
   apply IH to H3 H2. apply IH to H4 H2. search.
   apply IH to H3 _. search.
-  case H3. apply IH to H4 H2. search.
-  case H3. apply IH to H4 H2. search.
-  case H3. apply IH to H5 H2. search.
+  apply IH to H3 H2. search.
+  apply IH to H3 H2. search.
+  apply IH to H4 H2. search.
 
 Theorem seq_cut : forall P K L G,
   list L -> seq P (K :: L) G -> seq P L (atom K) -> seq P L G.
@@ -138,6 +137,6 @@ induction on 2. intros. case H2.
     %   seq (K :: A :: L) B    so we were not able to keep the star
     %                          with that lemma...
     skip.
-  case H4. apply IH to H1 H5 H3. search.
-  case H4. apply IH to H1 H5 H3. search.
-  case H4. apply IH to H1 H6 H3. search.
+  apply IH to H1 H4 H3. search.
+  apply IH to H1 H4 H3. search.
+  apply IH to H1 H5 H3. search.

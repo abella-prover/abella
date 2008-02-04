@@ -48,6 +48,8 @@ let free_capital_var_names metaterm =
   let aux_term = capital_var_names in
   let aux_obj obj = aux_term obj.context @ aux_term [obj.term] in
   let rec aux = function
+    | True | False -> []
+    | Eq(a, b) -> aux_term [a; b]
     | Obj(obj, r) -> aux_obj obj
     | Arrow(a, b) -> aux a @ aux b
     | Binding(binder, bindings, body) ->
@@ -74,13 +76,13 @@ let freshen_def ~used ?(support=[]) head body =
   let raised_names = raise_alist ~support fresh_names in
     (List.map alist_to_used fresh_names @ used,
      replace_term_vars raised_names head,
-     List.map (replace_metaterm_vars raised_names) body)
+     replace_metaterm_vars raised_names body)
 
 let term_vars_alist tag terms =
   List.map term_to_pair (find_var_refs tag terms)
     
-let metaterm_vars_alist tag metaterms =
-  term_vars_alist tag (List.flatten_map collect_terms metaterms)
+let metaterm_vars_alist tag metaterm =
+  term_vars_alist tag (collect_terms metaterm)
       
 (* Freshening for Logic variables uses anonymous names *)
       
@@ -98,7 +100,7 @@ let freshen_nameless_def ?(support=[]) head body =
   let var_names = capital_var_names [head] in
   let fresh_names = fresh_nameless_alist ~support var_names in
   let fresh_head = replace_term_vars fresh_names head in
-  let fresh_body = List.map (replace_metaterm_vars fresh_names) body in
+  let fresh_body = replace_metaterm_vars fresh_names body in
     (fresh_head, fresh_body)
 
 let freshen_nameless_bindings ?(support=[]) bindings term =
@@ -143,54 +145,75 @@ type stateless_case = {
   stateless_new_hyps : metaterm list ;
 }
 
+let empty_case = { stateless_new_vars = [] ; stateless_new_hyps = [] }
+
 let stateless_case_to_case case =
   { bind_state = get_bind_state () ;
     new_vars = case.stateless_new_vars ;
     new_hyps = case.stateless_new_hyps }
 
 let rec recursive_metaterm_case ~used term =
-  match term with
+  match normalize term with
+    | True -> Some empty_case
+    | False -> None
+    | Eq(a, b) ->
+        if try_left_unify a b then
+          Some empty_case
+        else
+          None
     | And(left, right) ->
-        let {stateless_new_vars = vars_left ;
-             stateless_new_hyps = hyps_left } =
-          recursive_metaterm_case ~used left
-        in
-        let right_case =
-          recursive_metaterm_case ~used:(vars_left @ used) right
-        in
-          { stateless_new_vars = vars_left @ right_case.stateless_new_vars ;
-            stateless_new_hyps = hyps_left @ right_case.stateless_new_hyps }
+        begin match recursive_metaterm_case ~used left with
+          | None -> None
+          | Some {stateless_new_vars = vars_left ;
+                  stateless_new_hyps = hyps_left } ->
+              match recursive_metaterm_case ~used:(vars_left @ used) right with
+                | None -> None
+                | Some {stateless_new_vars = vars_right ;
+                        stateless_new_hyps = hyps_right } ->
+                    Some { stateless_new_vars = vars_left @ vars_right ;
+                           stateless_new_hyps = hyps_left @ hyps_right }
+        end
     | Binding(Exists, ids, body) ->
         let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
         let support = metaterm_support term in
         let raised_ids = raise_alist ~support fresh_ids in
         let fresh_body = replace_metaterm_vars raised_ids body in
         let new_vars = List.map alist_to_used fresh_ids in
-        let nested_case =
+        let nested =
           recursive_metaterm_case ~used:(new_vars @ used) fresh_body
         in
-          {nested_case with
-             stateless_new_vars = new_vars @ nested_case.stateless_new_vars}
+          begin match nested with
+            | None -> None
+            | Some { stateless_new_vars = nested_vars ;
+                     stateless_new_hyps = nested_hyps } ->
+                Some { stateless_new_vars = new_vars @ nested_vars ;
+                       stateless_new_hyps = nested_hyps }
+          end
     | Binding(Nabla, [id], body) ->
         let nominal = fresh_nominal body in
         let fresh_body = replace_metaterm_vars [(id, nominal)] body in
           recursive_metaterm_case ~used fresh_body
-    | _ -> {stateless_new_vars = [] ; stateless_new_hyps = [term]}
+    | _ -> Some {stateless_new_vars = [] ; stateless_new_hyps = [term]}
 
 let rec or_to_list term =
   match term with
     | Or(left, right) -> (or_to_list left) @ (or_to_list right)
     | _ -> [term]
 
+let rec and_to_list term =
+  match term with
+    | And(left, right) -> (and_to_list left) @ (and_to_list right)
+    | _ -> [term]
+
 let predicate_wrapper r t =
   let rec aux t =
     match t with
+      | True | False | Eq _ | Obj _ -> t
       | Pred(p, _) -> Pred(p, reduce_restriction r)
       | Binding(binding, ids, body) -> Binding(binding, ids, aux body)
       | Or(t1, t2) -> Or(aux t1, aux t2)
       | And(t1, t2) -> And(aux t1, aux t2)
       | Arrow(t1, t2) -> Arrow(t1, aux t2)
-      | Obj _ -> t
   in
     aux t
     
@@ -225,9 +248,15 @@ let case ~used ~clauses ~defs ~global_support term =
             (* Names created perhaps by unificiation *)
           let newly_used_head = term_vars_alist Eigen [head] in
           let newly_used_body = metaterm_vars_alist Eigen body in
-            [{ bind_state = bind_state ;
-               new_vars = newly_used @ newly_used_head @ newly_used_body ;
-               new_hyps = List.map wrapper body }]
+          let used = List.unique
+            (newly_used @ newly_used_head @ newly_used_body @ used)
+          in
+            match recursive_metaterm_case ~used body with
+              | None -> []
+              | Some case ->
+                  [{ bind_state = bind_state ;
+                     new_vars = case.stateless_new_vars @ used ;
+                     new_hyps = List.map wrapper case.stateless_new_hyps }]
         else
           []
     in
@@ -244,7 +273,7 @@ let case ~used ~clauses ~defs ~global_support term =
                    let alist = [(id, n)] in
                    let used = lift_all ~used [n] in
                    let head = replace_term_vars alist head in
-                   let body = List.map (replace_metaterm_vars alist) body in
+                   let body = replace_metaterm_vars alist body in
                      make_case ~support ~used (head, body) term
                  in
                  let permuted_results =
@@ -254,8 +283,7 @@ let case ~used ~clauses ~defs ~global_support term =
                           let alist = [(id, dest)] in
                           let support = List.remove dest support in
                           let head = replace_term_vars alist head in
-                          let body =
-                            List.map (replace_metaterm_vars alist) body in
+                          let body = replace_metaterm_vars alist body in
                             make_case ~support ~used (head, body) term)
                  in
                    raised_result @ permuted_results
@@ -299,11 +327,13 @@ let case ~used ~clauses ~defs ~global_support term =
       | Obj(obj, r) -> obj_case obj r
       | Pred(p, r) -> def_case ~wrapper:(predicate_wrapper r) p
       | Or _ -> List.map stateless_case_to_case
-          (List.map (recursive_metaterm_case ~used) (or_to_list term))
+          (List.filter_map (recursive_metaterm_case ~used) (or_to_list term))
+      | Eq _
       | And _
       | Binding(Exists, _, _)
       | Binding(Nabla, _, _) ->
-          [stateless_case_to_case (recursive_metaterm_case ~used term)]
+          Option.map_default (fun sc -> [stateless_case_to_case sc]) []
+            (recursive_metaterm_case ~used term)
       | _ -> invalid_metaterm_arg term
           
 
@@ -340,15 +370,6 @@ let induction ind_arg ind_num stmt =
 let derivable goal hyp =
   try_right_unify goal.term hyp.term &&
     Context.subcontext hyp.context goal.context
-
-let is_false t =
-  match t with
-    | Pred(p, _) ->
-        begin match observe p with
-          | Var {name=f} when f = "false" -> true
-          | _ -> false
-        end
-    | _ -> false
 
 let search ~depth:n ~hyps ~clauses ~defs goal =
   
@@ -393,6 +414,8 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
     else
       let support = metaterm_support goal in
       match goal with
+        | True -> true
+        | Eq(left, right) -> try_right_unify left right
         | Or(left, right) -> metaterm_aux n left || metaterm_aux n right
         | And(left, right) -> metaterm_aux n left && metaterm_aux n right
         | Binding(Exists, bindings, body) ->
@@ -421,8 +444,7 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
                           freshen_nameless_def ~support head body
                         in
                           right_unify head goal ;
-                          List.for_all (metaterm_aux (n-1))
-                            (List.map normalize body)
+                          metaterm_aux (n-1) (normalize body)
                             
                     | Binding(Nabla, [id], Pred(head, _)) ->
                           support |> List.exists
@@ -437,8 +459,7 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
                                         ~support head body
                                     in
                                       right_unify head goal ;
-                                      List.for_all (metaterm_aux (n-1))
-                                        (List.map normalize body)))
+                                      metaterm_aux (n-1) (normalize body)))
                     | _ -> failwith "Bad head in definition"))
   in
     metaterm_aux n goal
@@ -555,7 +576,7 @@ let unfold ~used ~defs term =
                      freshen_nameless_def ~support head body
                    in
                      if try_right_unify ~used head term then
-                       Some (List.map normalize body)
+                       Some (normalize body)
                      else
                        None
                  with Failure("Not yet implemented") -> None)

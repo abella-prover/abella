@@ -38,7 +38,8 @@ rule token = parse
 | '\n'               { incrline lexbuf; token lexbuf }
 
 | "=>"               { IMP }
-| ":-"               { DEF }
+| ":-"               { CLAUSEEQ }
+| ":="               { DEFEQ }
 | ","                { COMMA }
 | "."                { DOT }
 | "\\"               { BSLASH }
@@ -62,6 +63,8 @@ rule token = parse
 | "/\\"              { AND }
 | "{"                { LBRACK }
 | "}"                { RBRACK }
+| "true"             { TRUE }
+| "false"            { FALSE }
 
 | "induction"        { IND }
 | "apply"            { APPLY }

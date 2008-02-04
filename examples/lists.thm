@@ -10,16 +10,16 @@ induction on 1. intros. case H1.
 
 % Append is deterministic
 Theorem app_det : forall A B C C',
- {append A B C} -> {append A B C'} -> {C = C'}.
+ {append A B C} -> {append A B C'} -> C = C'.
 induction on 1. intros. case H1.
   case H2. search.
-  case H2. apply IH to H3 H4. case H5. search.
+  case H2. apply IH to H3 H4. search.
 
 % Append is associative
 Theorem app_assoc : forall A B C AB BC ABC,
  {append A B AB} -> {append AB C ABC} -> {append B C BC} -> {append A BC ABC}.
 induction on 1. intros. case H1.
-  apply app_det to H2 H3. case H4. search.
+  apply app_det to H2 H3. search.
   case H2. apply IH to H4 H5 H3. search.
 
 Theorem rev_lemma : forall A A' B X,
@@ -50,7 +50,7 @@ induction on 1. intros. case H1.
   
 %% We can define append at the meta-level and show a connection
 Def append nil C C.
-Def append (cons X A) B (cons X C) :- append A B C.
+Def append (cons X A) B (cons X C) := append A B C.
 
 Theorem meta_implies_obj : forall A B C,
   append A B C -> {append A B C}.

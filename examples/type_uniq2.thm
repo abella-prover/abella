@@ -3,9 +3,9 @@
 % Since LG-omega does not allow nabla in the head of a definition, we must
 % explicitly restrict structure and occurences of the variable X
 Def ctx nil.
-Def ctx (of X T :: L) :- (forall M N, X = app M N -> false),
-                         (forall T R, X = abs T R -> false),
-                         (forall T', member (of X T') L -> false),
+Def ctx (of X T :: L) := (forall M N, X = app M N -> false) /\
+                         (forall T R, X = abs T R -> false) /\
+                         (forall T', member (of X T') L -> false) /\
                          ctx L.
 
 Theorem ctx_app_absurd : forall L M N T,
@@ -13,16 +13,16 @@ Theorem ctx_app_absurd : forall L M N T,
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    apply H3 to _. search.
-    apply IH to H6 H7. search.
+    apply H3 to _.
+    apply IH to H6 H7.
 
 Theorem ctx_abs_absurd : forall L R T S,
   ctx L -> member (of (abs S R) T) L -> false.
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    apply H4 to _. search.
-    apply IH to H6 H7. search.
+    apply H4 to _.
+    apply IH to H6 H7.
 
 Theorem uniq : forall L E T1 T2,
   ctx L -> member (of E T1) L -> member (of E T2) L -> T1 = T2.
@@ -31,33 +31,33 @@ induction on 1. intros. case H1.
   case H2.
     case H3.
       search.
-      apply H6 to H8. case H9.
+      apply H6 to H8.
     case H3.
-      apply H6 to H8. case H9.
+      apply H6 to H8.
       apply IH to H7 H8 H9. search.
 
 Theorem nominal_absurd : forall T L, nabla x,
   member (of x (T x)) L -> false.
 induction on 1. intros. case H1.
-  apply IH to H2. search.
+  apply IH to H2.
 
 Theorem det_of : forall L E T1 T2,
   ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
 induction on 2. intros. case H2.
   case H3.
     apply uniq to H1 H4 H5. search.
-    apply ctx_abs_absurd to H1 H4. case H6.
-    apply ctx_app_absurd to H1 H4. case H7.
+    apply ctx_abs_absurd to H1 H4.
+    apply ctx_app_absurd to H1 H4.
   case H3.
-    apply ctx_abs_absurd to H1 H5. case H6.
+    apply ctx_abs_absurd to H1 H5.
     apply IH to _ H4 H5.
       unfold.
         intros. case H6.
         intros. case H6.
-        intros. apply nominal_absurd to H6. search.
+        intros. apply nominal_absurd to H6.
         search.
-      case H6. search.
+      search.
   case H3.
-    apply ctx_app_absurd to H1 H6. case H7.
-    apply IH to H1 H4 H6. case H8. search.
+    apply ctx_app_absurd to H1 H6.
+    apply IH to H1 H4 H6. search.
 

@@ -41,7 +41,7 @@ let check_theorem thm =
 
 let check_def (head, body) =
   let head_vars = Tactics.free_capital_var_names head in
-  let body_vars = List.flatten_map Tactics.free_capital_var_names body in
+  let body_vars = Tactics.free_capital_var_names body in
   let free_vars = List.remove_all (fun x -> List.mem x head_vars) body_vars in
     warn_if_free_vars free_vars
 

@@ -67,7 +67,7 @@ let normalize_sequent () =
 let parse_clauses str =
   Parser.clauses Lexer.token (Lexing.from_string str)
 
-let clauses : clauses ref = ref (parse_clauses "X = X.")
+let clauses : clauses ref = ref []
 
 let add_clauses new_clauses =
   clauses := !clauses @ new_clauses
@@ -77,12 +77,11 @@ let parse_defs str =
 
 let defs : def list ref =
   ref (parse_defs
-         ("X = X." ^
-            "member A (A :: L)." ^
-            "member A (B :: L) :- member A L."))
+         ("member A (A :: L)." ^
+            "member A (B :: L) := member A L."))
 
-let add_def new_clause =
-  defs := !defs @ [new_clause]
+let add_def new_def =
+  defs := !defs @ [new_def]
     
   
 (* Undo support *)
@@ -269,7 +268,8 @@ let goal_to_subgoal g =
       sequent.goal <- g
       
 let ensure_no_logic_variable terms =
-  if List.length (metaterm_vars_alist Logic terms) > 0 then
+  let logic_vars = List.flatten_map (metaterm_vars_alist Logic) terms in
+  if List.length logic_vars > 0 then
     failwith "Found logic variable at toplevel"
       
 let apply h args =
@@ -281,16 +281,21 @@ let apply h args =
     List.remove_all (fun g -> search_goal (normalize g)) obligations in
   let () = ensure_no_logic_variable (result :: remaining_obligations) in
   let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
+  let resulting_case = recursive_metaterm_case ~used:sequent.vars result in
   let resulting_subgoal =
     let restore = goal_to_subgoal sequent.goal in
       fun () ->
         restore () ;
-        let case = recursive_metaterm_case ~used:sequent.vars result in
-          List.iter add_if_new_var case.stateless_new_vars ;
-          List.iter add_hyp case.stateless_new_hyps ;
+        match resulting_case with
+          | None -> assert false
+          | Some case ->
+              List.iter add_if_new_var case.stateless_new_vars ;
+              List.iter add_hyp case.stateless_new_hyps
   in
-    subgoals :=
-      List.append obligation_subgoals (resulting_subgoal :: !subgoals );
+    if resulting_case = None then
+      subgoals := obligation_subgoals @ !subgoals
+    else
+      subgoals := obligation_subgoals @ (resulting_subgoal :: !subgoals ) ;
     next_subgoal ()
 
     
@@ -353,6 +358,7 @@ let get_restriction r =
 let get_max_restriction t =
   let rec aux t =
     match t with
+      | True | False | Eq _ -> 0
       | Obj(_, r) -> get_restriction r
       | Arrow(a, b) -> max (aux a) (aux b)
       | Binding(_, _, body) -> aux body
@@ -419,9 +425,9 @@ let split propogate_result =
 
 let unfold () =
   save_undo_state () ;
-  let goals = unfold ~used:sequent.vars ~defs:!defs sequent.goal in
-  let goals = List.map goal_to_subgoal goals in
-    subgoals := goals @ !subgoals ;
+  let goal = unfold ~used:sequent.vars ~defs:!defs sequent.goal in
+  let goals = and_to_list goal in
+    subgoals := (List.map goal_to_subgoal goals) @ !subgoals;
     next_subgoal ()
 
 (* Exists *)

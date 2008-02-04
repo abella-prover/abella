@@ -10,49 +10,27 @@ Theorem sub_top : forall T,
 induction on 1. intros. case H1.
   search.
   search.
-  apply IH to H2. case H4.
-    apply IH to H3. case H5.
-      search.
+  apply IH to H2. apply IH to H3. search.
 
 Theorem sub_arrow : forall S T1 T2,
   {sub S (arrow T1 T2)} -> exists S1 S2, S = arrow S1 S2.
 induction on 1. intros. case H1.
   search.
-  apply IH to H3. case H4.
-    apply IH to H2. case H5.
-      search.
+  apply IH to H3. apply IH to H2. search.
   search.
 
 Theorem sub_forall : forall S T1 T2,
   {sub S (all T1 T2)} -> exists S1 S2, S = all S1 S2.
 induction on 1. intros. case H1.
   search.
-  apply IH to H3. case H4.
-    apply IH to H2. case H5.
-      search.
+  apply IH to H3. apply IH to H2. search.
   search.
-
-Theorem absurd_tsa : forall T1 T2,
-  {sub top (arrow T1 T2)} -> false.
-intros. apply sub_top to H1. case H2.
-
-Theorem absurd_fsa : forall S1 S2 T1 T2,
-  {sub (all S1 S2) (arrow T1 T2)} -> false.
-intros. apply sub_arrow to H1. case H2.
-  
-Theorem absurd_tsf : forall T1 T2,
-  {sub top (all T1 T2)} -> false.
-intros. apply sub_top to H1. case H2.
-
-Theorem absurd_asf : forall S1 S2 T1 T2,
-  {sub (arrow S1 S2) (all T1 T2)} -> false.
-intros. apply sub_forall to H1. case H2.
 
 Theorem invert_sub_arrow : forall S1 S2 T1 T2,
   {sub (arrow S1 S2) (arrow T1 T2)} -> {sub T1 S1} /\ {sub S2 T2}.
 induction on 1. intros. case H1.
   search.
-  apply sub_arrow to H3. case H4.
+  apply sub_arrow to H3.
     apply IH to H2. apply IH to H3. search.
   search.
 
@@ -61,10 +39,10 @@ Theorem invert_sub_forall : forall S1 S2 T1 T2,
     {sub T1 S1} /\ nabla x, {sub x T1 |- sub (S2 x) (T2 x)}.
 induction on 1. intros. case H1.
   search.
-  apply sub_forall to H3. case H4.
+  apply sub_forall to H3.
     apply IH to H2. apply IH to H3.
       assert {sub n1 T1 |- sub n1 S3}. search.
-        cut H6 with H9. search.
+        cut H5 with H8. search.
   search.
   
 %% Typing inversions
@@ -72,14 +50,14 @@ induction on 1. intros. case H1.
 Theorem absurd_ota : forall E T1 T2 T3,
   {of (tabs T1 E) (arrow T2 T3)} -> false.
 induction on 1. intros. case H1.
-  apply sub_arrow to H3. case H4.
-    apply IH to H2. search.
+  apply sub_arrow to H3.
+    apply IH to H2.
 
 Theorem absurd_oaf : forall E T1 T2 T3,
   {of (abs T1 E) (all T2 T3)} -> false.
 induction on 1. intros. case H1.
-  apply sub_forall to H3. case H4.
-    apply IH to H2. search.
+  apply sub_forall to H3.
+    apply IH to H2.
 
 Theorem invert_of_abs : forall S1 E T1 T2,
   {of (abs S1 E) (arrow T1 T2)} ->
@@ -87,7 +65,7 @@ Theorem invert_of_abs : forall S1 E T1 T2,
       {of x S1 |- of (E x) S2} /\ {sub T1 S1} /\ {sub S2 T2}.
 induction on 1. intros. case H1.
   search.
-  apply sub_arrow to H3. case H4.
+  apply sub_arrow to H3.
     apply invert_sub_arrow to H3.
       apply IH to H2. search.
 
@@ -97,18 +75,18 @@ Theorem invert_of_tabs : forall S1 E T1 T2,
                         {sub x T1 |- sub (S2 x) (T2 x)}.
 induction on 1. intros. case H1.
   search.
-  apply sub_forall to H3. case H4.
+  apply sub_forall to H3.
     apply invert_sub_forall to H3.
     apply IH to H2.
     assert {sub n1 T1 |- sub n1 S2}. search.
-    cut H9 with H10.
+    cut H8 with H9.
     search.
 
 
 %% Progress
 
-Def progresses E :- {value E}.
-Def progresses E :- exists E', {step E E'}.
+Def progresses E := {value E}.
+Def progresses E := exists E', {step E E'}.
 
 Theorem app_progresses : forall E1 E2 T,
   {of (app E1 E2) T} -> progresses E1 -> progresses E2 ->
@@ -118,11 +96,11 @@ induction on 1. intros. case H1.
     case H3.
       case H6.
         search.
-        apply absurd_ota to H4. case H8.
+        apply absurd_ota to H4.
       % We use assert since search doesn't yet handle metavariables well
-      case H7. assert {step (app E1 E2) (app E1 E')}. search.
+      assert {step (app E1 E2) (app E1 E')}. search.
         search.
-    case H6. search.
+    search.
   apply IH to H4 H2 H3. search.
 
 Theorem tapp_progresses : forall E T T',
@@ -130,9 +108,9 @@ Theorem tapp_progresses : forall E T T',
 induction on 1. intros. case H1.
   case H2.
     case H5.
-      apply absurd_oaf to H3. case H6.
+      apply absurd_oaf to H3.
       search.
-    case H5. search.
+    search.
   apply IH to H3 H2. search.
 
 Theorem progress : forall E T,

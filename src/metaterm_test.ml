@@ -15,6 +15,11 @@ let c = termobj var_c
 let tests =
   "Metaterm" >:::
     [
+      "Print equality" >::
+        (fun () ->
+           let t = Eq(var_a, var_b) in
+             assert_pprint_equal "A = B" t) ;
+             
       "Print object" >::
         (fun () ->
            let t = termobj (app (const "eval") [var_a; var_b]) in
@@ -136,11 +141,6 @@ let tests =
            let t = Pred(p, Smaller 1) in
              assert_pprint_equal "head A B *" t) ;
       
-      "Print equality" >::
-        (fun () ->
-           let t = termobj (app (const "=") [const "A"; const "B"]) in
-             assert_pprint_equal "{A = B}" t) ;
-
       "Print object quantifier inside of predicate" >::
         (fun () ->
            let t = pred (app (const "prove")
@@ -186,7 +186,7 @@ let tests =
         (fun () ->
            (* The var_a should force renaming of the A which should
               cascade and force renaming of A1 *)
-           let eq = pred (app (const "=") [const "A"; const "A1"]) in
+           let eq = Eq(const "A", const "A1") in
            let t = Binding(Forall, ["A"],
                            Arrow(pred var_a, Binding(Forall, ["A1"], eq)))
            in

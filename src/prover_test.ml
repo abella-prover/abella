@@ -110,13 +110,6 @@ let tests =
 
            assert_pprint_equal "{foo X}" sequent.goal) ;
 
-      "System should know about term equality" >::
-        (fun () ->
-           setup_prover ()
-             ~goal:"{A = A}" ;
-
-           assert_proof search) ;
-
       "Obligations from apply should be added as subgoals" >::
         (fun () ->
            setup_prover ()

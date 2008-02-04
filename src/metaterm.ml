@@ -35,6 +35,9 @@ type binder =
   | Exists
     
 type metaterm =
+  | True
+  | False
+  | Eq of term * term
   | Obj of obj * restriction
   | Arrow of metaterm * metaterm
   | Binding of binder * id list * metaterm
@@ -68,7 +71,7 @@ let map_on_objs f t =
       | Binding(binder, bindings, body) -> Binding(binder, bindings, aux body)
       | Or(a, b) -> Or(aux a, aux b)
       | And(a, b) -> And(aux a, aux b)
-      | Pred _ -> t
+      | True | False | Eq _ | Pred _ -> t
   in
     aux t
 
@@ -79,6 +82,8 @@ let map_obj f obj =
 let map_terms f t =
   let rec aux t =
     match t with
+      | True | False -> t
+      | Eq(a, b) -> Eq(f a, f b)
       | Obj(obj, r) -> Obj(map_obj f obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) ->
@@ -194,6 +199,8 @@ let rec replace_metaterm_vars alist t =
   let term_aux t = replace_term_vars alist t in
   let aux t = replace_metaterm_vars alist t in
     match t with
+      | True | False -> t
+      | Eq(a, b) -> Eq(term_aux a, term_aux b)
       | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) ->
@@ -212,6 +219,8 @@ and freshen_alist_bindings bindings alist body =
 
 let rec collect_terms t =
   match t with
+    | True | False -> []
+    | Eq(a, b) -> [a; b]
     | Obj(obj, _) -> (Context.context_to_list obj.context) @ [obj.term]
     | Arrow(a, b) -> (collect_terms a) @ (collect_terms b)
     | Binding(_, _, body) -> collect_terms body
@@ -228,6 +237,8 @@ let obj_support obj = find_var_refs Nominal (obj.term :: obj.context)
 let metaterm_support t =
   let rec aux t =
     match t with
+      | True | False -> []
+      | Eq(t1, t2) -> term_support t1 @ term_support t2
       | Obj(obj, _) -> obj_support obj
       | Arrow(t1, t2) -> aux t1 @ aux t2
       | Binding(_, ids, t) -> aux t
@@ -288,6 +299,8 @@ let rec normalize_binders alist t =
   let term_aux t = replace_term_vars ~tag:Constant alist t in
   let rec aux t =
     match t with
+      | True | False -> t
+      | Eq(a, b) -> Eq(term_aux a, term_aux b)
       | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) ->
@@ -333,8 +346,7 @@ let bindings_to_string ts =
 
 let priority t =
   match t with
-    | Obj _ -> 4
-    | Pred _ -> 4
+    | True | False | Eq _ | Pred _ | Obj _ -> 4
     | And _ -> 3
     | Or _ -> 2
     | Arrow _ -> 1
@@ -360,6 +372,12 @@ let format_metaterm fmt t =
     let pr_curr = priority t in
       if pr_curr < pr_above then fprintf fmt "(" ;
       begin match t with
+        | True ->
+            fprintf fmt "true"
+        | False ->
+            fprintf fmt "false"
+        | Eq(a, b) ->
+            fprintf fmt "%s = %s" (term_to_string a) (term_to_string b)
         | Obj(obj, r) ->
             fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
         | Arrow(a, b) ->

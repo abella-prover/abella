@@ -1,12 +1,12 @@
 %% Comparison between internal and external definition of seq
 
 Def seq L t.
-Def seq L (atom A) :- member A L.
-Def seq L (and A B) :- seq L A, seq L B.
-Def seq L (A => B) :- seq (A :: L) B.
-Def seq L (pi G) :- nabla x, seq L (G x).
-Def seq L (sigma G) :- exists X, seq L (G X).
-Def seq L (atom A) :- exists B, prog A B /\ seq L B.
+Def seq L (atom A) := member A L.
+Def seq L (and A B) := seq L A /\ seq L B.
+Def seq L (A => B) := seq (A :: L) B.
+Def seq L (pi G) := nabla x, seq L (G x).
+Def seq L (sigma G) := exists X, seq L (G X).
+Def seq L (atom A) := exists B, prog A B /\ seq L B.
 
 Theorem external : forall S T,
   seq nil (pi x\ p x S => pi y\ p y T => atom (p x T)) -> S = T.
@@ -17,11 +17,10 @@ case H3.
 case H4.
 case H5.
 case H6.
-case H7.
-  case H8. case H9.
+  case H7.
     search.
-    case H10.
-  case H8. case H9.
+    case H8.
+  case H6.
 
 Theorem internal : forall S T,
   {pi x\ p x S => pi y\ p y T => p x T} -> S = T.
@@ -50,32 +49,32 @@ Theorem add_base : forall N,
   seq nil (atom (nat N)) -> seq nil (atom (add N z N)).
 induction on 1. intros. case H1.
   case H2.
-  case H2. case H3.
+  case H2.
     search.
-    apply IH to H4. search.
+    apply IH to H3. search.
 
 Theorem add_step : forall A B C,
   seq nil (atom (add A B C)) -> seq nil (atom (add A (s B) (s C))).
 induction on 1. intros. case H1.
   case H2.
-  case H2. case H3.
+  case H2.
     search.
-    apply IH to H4. search.
+    apply IH to H3. search.
 
 Theorem add_comm : forall A B C, seq nil (atom (nat B)) ->
   seq nil (atom (add A B C)) -> seq nil (atom (add B A C)).
 induction on 2. intros. case H2.
   case H3.
-  case H3. case H4.
+  case H3.
     apply add_base to H1. search.
-    apply IH to H1 H5. apply add_step to H6. search.
+    apply IH to H1 H4. apply add_step to H5. search.
 
 
 %% A benefit of the external definition of seq is that it allows us to prove
 %% meta-theoremas about lambda prolog.
 
 Def list nil.
-Def list (X :: A) :- list A.
+Def list (X :: A) := list A.
 
 Theorem seq_subset : forall L1 L2 G,
   seq L1 G -> (forall X, member X L1 -> member X L2) -> seq L2 G.
@@ -88,9 +87,9 @@ induction on 1. intros. case H1.
       search.
       apply H2 to H5. search.
     apply IH to H3 H4. search.
-  case H3. apply IH to H4 H2. search.
-  case H3. apply IH to H4 H2. search.
-  case H3. apply IH to H5 H2. search.
+  apply IH to H3 H2. search.
+  apply IH to H3 H2. search.
+  apply IH to H4 H2. search.
 
 Theorem seq_cut : forall K L G,
   list L -> seq (K :: L) G -> seq L (atom K) -> seq L G.
@@ -112,6 +111,6 @@ induction on 2. intros. case H2.
     %   seq (K :: A :: L) B    so we were not able to keep the star
     %                          with that lemma...
     skip.
-  case H4. apply IH to H1 H5 H3. search.
-  case H4. apply IH to H1 H5 H3. search.
-  case H4. apply IH to H1 H6 H3. search.
+  apply IH to H1 H4 H3. search.
+  apply IH to H1 H4 H3. search.
+  apply IH to H1 H5 H3. search.

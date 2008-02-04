@@ -243,13 +243,13 @@ let assert_expected_cases n cases =
   assert_failure (Printf.sprintf "Expected %d case(s) but found %d case(s)"
                     n (List.length cases))
 
-let case ?used ?(clauses=[]) ?(defs=[]) ?(global_support=[]) term =
+let case ?used ?(clauses=[]) ?(defs=[]) ?(global_support=[]) metaterm =
   let used =
     match used with
-      | None -> metaterm_vars_alist Eigen [term]
+      | None -> metaterm_vars_alist Eigen metaterm
       | Some used -> used
   in
-    case ~used ~clauses ~defs ~global_support term
+    case ~used ~clauses ~defs ~global_support metaterm
     
 let case_tests =
   "Case" >:::
@@ -297,7 +297,7 @@ let case_tests =
       "Restriction on predicates should become smaller" >::
         (fun () ->
            let term = freshen "foo A @" in
-           let defs = parse_defs "foo X :- bar X." in
+           let defs = parse_defs "foo X := bar X." in
              match case ~defs term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
@@ -311,7 +311,7 @@ let case_tests =
       "Restriction should descend under binders" >::
         (fun () ->
            let term = freshen "foo A @" in
-           let defs = parse_defs "foo X :- forall Y, bar X." in
+           let defs = parse_defs "foo X := forall Y, bar X." in
              match case ~defs term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
@@ -325,7 +325,7 @@ let case_tests =
       "Restriction should descend only under the right of arrows" >::
         (fun () ->
            let term = freshen "foo A @" in
-           let defs = parse_defs "foo X :- bar X -> baz X." in
+           let defs = parse_defs "foo X := bar X -> baz X." in
              match case ~defs term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
@@ -467,7 +467,7 @@ let case_tests =
            let term = freshen "member (hyp A) (hyp C :: L)" in
            let defs =
              parse_defs ("member A (A :: L)." ^
-                                   "member A (B :: L) :- member A L.")
+                                   "member A (B :: L) := member A L.")
            in
              match case ~defs term with
                | [case1; case2] ->
@@ -510,7 +510,7 @@ let case_tests =
       "Should raise when nabla in predicate head" >::
         (fun () ->
            let defs =
-             parse_defs "nabla x, ctx (var x :: L) :- ctx L." in
+             parse_defs "nabla x, ctx (var x :: L) := ctx L." in
            let term = freshen "ctx K" in
              match case ~defs term with
                | [case1] ->
@@ -521,7 +521,7 @@ let case_tests =
       "Should permute when nabla is in the head" >::
         (fun () ->
            let defs =
-             parse_defs "nabla x, ctx (var x :: L) :- ctx L." in
+             parse_defs "nabla x, ctx (var x :: L) := ctx L." in
            let term = freshen "ctx (K n2)" in
              match case ~defs term with
                | [case1; case2] ->
@@ -646,7 +646,7 @@ let search_tests =
         (fun () ->
            assert_search ()
              ~hyps:["{eval A B}"]
-             ~goal:"{eval A B} \\/ {false}"
+             ~goal:"{eval A B} \\/ false"
              ~expect: true
         );
       
@@ -654,7 +654,7 @@ let search_tests =
         (fun () ->
            assert_search ()
              ~hyps:["{eval A B}"]
-             ~goal:"{false} \\/ {eval A B}"
+             ~goal:"false \\/ {eval A B}"
              ~expect: true
         );
 
@@ -764,7 +764,7 @@ let search_tests =
       "Should backchain on definitions" >::
         (fun () ->
            assert_search ()
-             ~defs:"member A (B :: L) :- member A L."
+             ~defs:"member A (B :: L) := member A L."
              ~hyps:["member E K"]
              ~goal:"member E (F :: K)"
              ~expect: true
@@ -797,7 +797,7 @@ let search_tests =
       "Should work with nabla in the head" >::
         (fun () ->
            assert_search ()
-             ~defs:"nabla x, ctx (var x :: L) :- ctx L."
+             ~defs:"nabla x, ctx (var x :: L) := ctx L."
              ~hyps:["ctx L"]
              ~goal:"ctx (var n1 :: L)"
              ~expect: true
@@ -806,7 +806,7 @@ let search_tests =
       "Should work with nabla in the head despite nominal name" >::
         (fun () ->
            assert_search ()
-             ~defs:"nabla x, ctx (var x :: L) :- ctx L."
+             ~defs:"nabla x, ctx (var x :: L) := ctx L."
              ~hyps:["ctx L"]
              ~goal:"ctx (var n2 :: L)"
              ~expect: true
@@ -823,14 +823,10 @@ let search_tests =
     ]
 
     
-let assert_expected_goals n goals =
-  assert_failure (Printf.sprintf "Expected %d goal(s) but found %d goal(s)"
-                    n (List.length goals))
-    
 let unfold ?used ~defs goal =
   let used =
     match used with
-      | None -> metaterm_vars_alist Eigen [goal]
+      | None -> metaterm_vars_alist Eigen goal
       | Some used -> used
   in
     unfold ~used ~defs goal
@@ -841,28 +837,25 @@ let unfold_tests =
       "Should pick matching clause" >::
         (fun () ->
            let defs =
-             parse_defs "pred (f X) :- foo X. pred (g X) :- bar X."
+             parse_defs "pred (f X) := foo X. pred (g X) := bar X."
            in
            let goal = freshen "pred (g a)" in
-             match unfold ~defs goal with
-               | [goal1] -> assert_pprint_equal "bar a" goal1
-               | goals -> assert_expected_goals 1 goals) ;
+           let result = unfold ~defs goal in
+             assert_pprint_equal "bar a" result) ;
 
       "Should work with nominals" >::
         (fun () ->
-           let defs = parse_defs "pred X :- foo X." in
+           let defs = parse_defs "pred X := foo X." in
            let goal = freshen "pred (f n1)" in
-             match unfold ~defs goal with
-               | [goal1] -> assert_pprint_equal "foo (f n1)" goal1
-               | goals -> assert_expected_goals 1 goals) ;
+           let result = unfold ~defs goal in
+             assert_pprint_equal "foo (f n1)" result) ;
 
       "Should avoid variable capture" >::
         (fun () ->
-           let defs = parse_defs "pred X :- forall A, foo X A." in
+           let defs = parse_defs "pred X := forall A, foo X A." in
            let goal = freshen "pred A" in
-             match unfold ~defs goal with
-               | [goal1] -> assert_pprint_equal "forall A1, foo A A1" goal1
-               | goals -> assert_expected_goals 1 goals) ;
+           let result = unfold ~defs goal in
+             assert_pprint_equal "forall A1, foo A A1" result) ;
 
     ]
 

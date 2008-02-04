@@ -9,20 +9,18 @@
 %% This is based on a similar development for Twelf
 
 Def ctx nil.
-Def ctx (hyp A :: L) :- ctx L.
+Def ctx (hyp A :: L) := ctx L.
 
 Theorem ctx_lemma :
   forall A L, ctx L -> member (conc A) L -> false.
 induction on 1. intros. case H1.
   case H2.
-  case H2.
-    apply IH to H3 H4. search.
-
+  case H2. apply IH to H3 H4.
     
 Theorem and_left_inv :
   forall L C1 C2, ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C1}.
 induction on 2. intros. case H2.
-  apply ctx_lemma to H1 H3. case H4.
+  apply ctx_lemma to H1 H3.
   search.
   search.
   apply IH to _ H4. search.
@@ -31,7 +29,7 @@ induction on 2. intros. case H2.
 Theorem and_right_inv :
   forall L C1 C2, ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C2}.
 induction on 2. intros. case H2.
-  apply ctx_lemma to H1 H3. case H4.
+  apply ctx_lemma to H1 H3.
   search.
   search.
   apply IH to _ H4. search.
@@ -40,7 +38,7 @@ induction on 2. intros. case H2.
 Theorem imp_inv :
   forall L C1 C2, ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
 induction on 2. intros. case H2.
-  apply ctx_lemma to H1 H3. case H4.
+  apply ctx_lemma to H1 H3.
   search.
   apply IH to _ H4. search.
   search.
@@ -59,7 +57,7 @@ induction on 1. induction on 4. intros. case H4.
   % Case analysis on {L, hyp K |- conc C}
   
   % conc C in context - impossible
-  apply ctx_lemma to _ H5. case H6.
+  apply ctx_lemma to _ H5.
 
   % init rule
   case H5. case H6.

@@ -17,8 +17,8 @@
 /* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          */
 /****************************************************************************/
 
-%token IMP DEF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ
-%token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT
+%token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
+%token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR
 %token THEOREM AXIOM DEF
@@ -68,11 +68,10 @@ context:
 term:
   | term IMP term                       { Term.binop "=>" $1 $3 }
   | term CONS term                      { Term.binop "::" $1 $3 }
-  | term EQ term                        { Term.binop "=" $1 $3 }
   | ID BSLASH term                      { Term.abstract $1 $3 }
   | exp exp_list                        { Term.app $1 $2 }
   | exp                                 { $1 }
-      
+
 exp:
   | LPAREN term RPAREN                  { $2 }
   | ID                                  { Term.const $1 }
@@ -88,7 +87,7 @@ clauses:
 
 clause:
   | term DOT                            { ($1, []) }
-  | term DEF clause_body DOT            { ($1, $3) }
+  | term CLAUSEEQ clause_body DOT       { ($1, $3) }
 
 clause_body:
   | term COMMA clause_body              { $1::$3 }
@@ -99,12 +98,8 @@ defs:
   |                                     { [] }
 
 def:
-  | metaterm DOT                        { ($1, []) }
-  | metaterm DEF def_body DOT           { ($1, $3) }
-
-def_body:
-  | metaterm COMMA def_body             { $1::$3 }
-  | metaterm                            { [$1] }
+  | metaterm DOT                        { ($1, Metaterm.True) }
+  | metaterm DEFEQ metaterm DOT         { ($1, $3) }
 
 
 command:
@@ -132,6 +127,9 @@ id_list:
   | ID                                  { [$1] }
 
 metaterm:
+  | TRUE                                { Metaterm.True }
+  | FALSE                               { Metaterm.False }
+  | term EQ term                        { Metaterm.Eq($1, $3) }
   | FORALL binding_list COMMA metaterm  { Metaterm.forall $2 $4 }
   | EXISTS binding_list COMMA metaterm  { Metaterm.exists $2 $4 }
   | NABLA binding_list COMMA metaterm   { Metaterm.nabla $2 $4 }

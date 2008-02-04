@@ -22,10 +22,10 @@ induction on 1. intros. case H1.
 %% End generic section
 
 Def ctx nil.
-Def ctx (of X T :: L) :- fresh X L, ctx L.
+Def ctx (of X T :: L) := fresh X L /\ ctx L.
 
 % We could define this second clause as simply
-%   Def nabla x, ctx (of x T :: L) :- ctx L.
+%   Def nabla x, ctx (of x T :: L) := ctx L.
 % but it turns out that the version with fresh is much easier to reason with
 % since it does not require introducting nominal variables in most cases.
 % Moreover, we can use lemmas based on fresh rather than on nominal variables.
@@ -59,8 +59,7 @@ induction on 2. intros. case H2.
     apply of_name to H1 H4. case H7.
   case H3.
     apply of_name to H1 H5. case H6.
-    apply IH to _ H4 H5. case H6. search.
+    apply IH to _ H4 H5. search.
   case H3.
     apply of_name to H1 H6. case H7.
-    apply IH to H1 H4 H6.
-      case H8. search.
+    apply IH to H1 H4 H6. search.

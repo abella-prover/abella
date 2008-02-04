@@ -12,8 +12,7 @@ Theorem det_eval :
   forall E V1 V2, {eval E V1} -> {eval E V2} -> V1 = V2.
 induction on 1. intros. case H1.
   case H2. search.
-  case H2. apply IH to H3 H5. case H7.
-    apply IH to H4 H6. search.
+  case H2. apply IH to H3 H5. apply IH to H4 H6. search.
 
 Theorem det_step :
   forall E1 E2 E3, {step E1 E2} -> {step E1 E3} -> E2 = E3.
@@ -23,7 +22,7 @@ induction on 1. intros. case H1.
     case H3.
   case H2.
     case H3.
-    apply IH to H3 H4. case H5. search.
+    apply IH to H3 H4. search.
 
 Theorem det_nstep :
   forall E R1 R2, {nstep E (abs R1)} -> {nstep E (abs R2)} -> R1 = R2.
@@ -33,7 +32,7 @@ induction on 1. intros. case H1.
     case H3.
   case H2.
     case H3.
-    apply det_step to H3 H5. case H7. apply IH to H4 H6. search.
+    apply det_step to H3 H5. apply IH to H4 H6. search.
 
 
 %%

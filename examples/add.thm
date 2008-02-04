@@ -24,12 +24,12 @@ Theorem add_det : forall A B C D,
   {add A B C} -> {add A B D} -> C = D.
 induction on 1. intros. case H1.
   case H2. search.
-  case H2. apply IH to H3 H4. case H5. search.
+  case H2. apply IH to H3 H4. search.
 
 % Add is associative
 
 Theorem add_assoc : forall A B C AB BC ABC,
   {add A B AB} -> {add AB C ABC} -> {add B C BC} -> {add A BC ABC}.
 induction on 1. intros. case H1.
-  apply add_det to H2 H3. case H4. search.
+  apply add_det to H2 H3. search.
   case H2. apply IH to H4 H5 H3. search.

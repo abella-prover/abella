@@ -11,7 +11,7 @@
 %% Contexts: L, K
 
 
-Def halts M :- exists V, {nstep M V} /\ {value V}.
+Def halts M := exists V, {nstep M V} /\ {value V}.
 
 %% Reduce is the logical relation used to prove normalization. We
 %% write the term before the type to match the signature of "of". This
@@ -21,10 +21,10 @@ Def halts M :- exists V, {nstep M V} /\ {value V}.
 %% arguments to predicates) and thereby allow this definition since
 %% the second argument is always smaller in negative occurences.
 
-Def reduce M top :- {of M top}, halts M.
-Def reduce M (arrow A B) :-
-  {of M (arrow A B)},
-  halts M,
+Def reduce M top := {of M top} /\ halts M.
+Def reduce M (arrow A B) :=
+  {of M (arrow A B)} /\
+  halts M /\
   (forall N, reduce N A -> reduce (app M N) B).
 
 Theorem reduce_halts : forall A M, reduce M A -> halts M.
@@ -48,23 +48,23 @@ Theorem step_det : forall M N P,
   {step M N} -> {step M P} -> N = P.
 induction on 1. intros. case H1.
   case H2.
-    apply IH to H3 H4. case H5. search.
-    apply absurd_step_value to H3 H4. case H6.
+    apply IH to H3 H4. search.
+    apply absurd_step_value to H3 H4.
     case H3.
   case H2.
-    apply absurd_step_value to H5 H3. case H6.
-    apply IH to H4 H6. case H7. search.
-    apply absurd_step_value to H4 H5. case H6.
+    apply absurd_step_value to H5 H3.
+    apply IH to H4 H6. search.
+    apply absurd_step_value to H4 H5.
   case H2.
     case H4.
-    apply absurd_step_value to H5 H3. case H6.
+    apply absurd_step_value to H5 H3.
     search.
 
 Theorem step_follows_nstep : forall M N V,
   {step M N} -> {nstep M V} -> {value V} -> {nstep N V}.
 intros. case H2.
-  apply absurd_step_value to H1 H3. case H4.
-  apply step_det to H1 H4. case H6. search.
+  apply absurd_step_value to H1 H3.
+  apply step_det to H1 H4. search.
 
 % nstep is defined by left recursion on step, so this lemma tells us
 % that it acts right recursively as well
@@ -84,12 +84,12 @@ induction on 2. intros. case H2.
 
 Theorem halt_step_forward : forall M N,
   halts M -> {step M N} -> halts N.
-intros. case H1. case H3.
-  apply step_follows_nstep to H2 H4 H5. search.
+intros. case H1.
+  apply step_follows_nstep to H2 H3 H4. search.
 
 Theorem halt_step_backward : forall M N,
   halts N -> {step M N} -> halts M.
-intros. case H1. case H3.
+intros. case H1.
   assert {nstep M V}. search.
     search.
 
@@ -146,14 +146,14 @@ induction on 2. intros. case H2.
 % ensures that all types in the context are well-formed, e.g. they do
 % not contain nominal constants.
 Def of_ctx nil.
-Def nabla x, of_ctx (of x A :: L) :- {type A}, of_ctx L.
+Def nabla x, of_ctx (of x A :: L) := {type A} /\ of_ctx L.
 
 % term_ctx defines the context of "term M" judgments
 Def term_ctx nil.
-Def nabla x, term_ctx (term x :: L) :- term_ctx L.
+Def nabla x, term_ctx (term x :: L) := term_ctx L.
 
 % A term is closed if it is a valid term in an empty context
-Def closed M :- {term M}.
+Def closed M := {term M}.
 
 Def nabla x, fresh x M.
 
@@ -171,20 +171,18 @@ Theorem prune_type : forall A, nabla x,
   {type (A x)} -> exists B, A = (x\ B).
 induction on 1. intros. case H1.
   search.
-  apply IH to H2. case H4.
-    apply IH to H3. case H5.
-      search.
+  apply IH to H2. apply IH to H3. search.
 
 Theorem absurd_member_type_term_ctx : forall L A,
   member (type A) L -> term_ctx L -> false.
 induction on 2. intros. case H2.
   case H1.
-  case H1. apply IH to H4 H3. search.
+  case H1. apply IH to H4 H3.
 
 Theorem type_ignores_term_ctx : forall L A,
   term_ctx L -> {L |- type A} -> {type A}.
 induction on 2. intros. case H2.
-  apply absurd_member_type_term_ctx to H3 H1. case H4.
+  apply absurd_member_type_term_ctx to H3 H1.
   search.
   apply IH to H1 H3. apply IH to H1 H4. search.
 
@@ -192,12 +190,12 @@ Theorem absurd_member_type_of_ctx : forall L A,
   member (type A) L -> of_ctx L -> false.
 induction on 2. intros. case H2.
   case H1.
-  case H1. apply IH to H5 H4. search.
+  case H1. apply IH to H5 H4.
 
 Theorem type_ignores_of_ctx : forall L A,
   of_ctx L -> {L |- type A} -> {type A}.
 induction on 2. intros. case H2.
-  apply absurd_member_type_of_ctx to H3 H1. case H4.
+  apply absurd_member_type_of_ctx to H3 H1.
   search.
   apply IH to H1 H3. apply IH to H1 H4. search.
 
@@ -206,11 +204,9 @@ Theorem prune_term : forall L R, nabla x,
   term_ctx L -> {L |- term (R x)} -> exists M, R = (x\ M).
 induction on 2. intros. case H2.
   apply member_fresh to H3 _. case H4. search.
-  apply IH to H1 H3. case H5.
-    apply IH to H1 H4. case H6.
-      search.
-  apply IH to _ H4. case H5.
-    apply type_ignores_term_ctx to H1 H3. apply prune_type to H6. case H7.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+  apply IH to _ H4.
+    apply type_ignores_term_ctx to H1 H3. apply prune_type to H5.
       search.
 
 % Closed terms cannot contain any nominal constants
@@ -220,7 +216,7 @@ intros. case H1. apply prune_term to _ H2. search.
 
 % This judgment aligns of_ctx with term_ctx
 Def dual_ctxs nil nil.
-Def nabla x, dual_ctxs (of x A :: L) (term x :: K) :- dual_ctxs L K.
+Def nabla x, dual_ctxs (of x A :: L) (term x :: K) := dual_ctxs L K.
 
 Theorem member_dual_ctxs : forall L K M A,
   dual_ctxs L K -> member (of M A) L -> member (term M) K.
@@ -243,8 +239,7 @@ intros. apply reduce_of to H1. apply of_term_ext to _ H2 _. search.
 
 Theorem prune_reduce : forall R A, nabla x,
   reduce (R x) A -> exists M, R = (x\ M).
-intros. apply reduce_closed to H1. apply prune_closed to H2.
-  case H3. search.
+intros. apply reduce_closed to H1. apply prune_closed to H2. search.
 
 Theorem of_ctx_type : forall L M A,
   of_ctx L -> member (of M A) L -> {type A}.
@@ -274,7 +269,7 @@ induction on 2. intros. case H2.
 % a nominal constant from L and M. The definition of subst then substitutes
 % for this nominal constant and continues processing the list L.
 Def subst nil M M.
-Def nabla x, subst (of x A :: L) (R x) M :-
+Def nabla x, subst (of x A :: L) (R x) M :=
   exists V, reduce V A /\ {value V} /\ subst L (R V) M.
 
 % Subst on a closed term has no effect
@@ -282,26 +277,25 @@ Theorem closed_subst : forall L M N,
   closed M -> subst L M N -> M = N.
 induction on 2. intros. case H2.
   search.
-  case H3. apply prune_closed to H1. case H7.
-    apply IH to H1 H6. search.
+  apply prune_closed to H1.
+    apply IH to H1 H5. search.
 
 Theorem subst_var : forall L M N A,
   of_ctx L -> member (of M A) L -> subst L M N -> reduce N A.
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    case H3. case H6. apply reduce_closed to H7.
-      apply closed_subst to H10 H9. case H11. search.
-    case H3. case H7. apply member_fresh to H6 _. case H11.
-      apply IH to H5 H6 H10. search.
+    case H3. apply reduce_closed to H6.
+      apply closed_subst to H9 H8. search.
+    case H3. apply member_fresh to H6 _. case H10.
+      apply IH to H5 H6 H9. search.
 
 Theorem subst_app : forall L M N R,
   of_ctx L -> subst L (app M N) R ->
     exists MR NR, R = app MR NR /\ subst L M MR /\ subst L N NR.
 induction on 1. intros. case H1.
   case H2. search.
-  case H2. case H5. apply IH to H4 H8. case H9.
-    search.
+  case H2. apply IH to H4 H7. search.
 
 % This theorem has a {type A} hypothesis to ensure that no nominal variables
 % can appear in A and thus substitutions do not affect A
@@ -314,47 +308,47 @@ induction on 1. intros. case H1.
   case H2. exists M. split.
     search.
     intros. search.
-  case H2. case H6. apply prune_type to H3. case H10.
-    apply IH to H5 H9 H3. case H11.
+  case H2. apply prune_type to H3.
+    apply IH to H5 H8 H3.
       exists MR. split.
         search.
-        intros. apply prune_reduce to H13. case H15.
-          apply H12 to H13 H14. case H16. case H17.
-            clear H13. search.
+        intros. apply prune_reduce to H10.
+          apply H9 to H10 H11. case H12.
+            clear H10. search.
 
 Theorem subst_preserves_type : forall L M N A,
   of_ctx L -> subst L M N -> {L |- of M A} -> {of N A}.
 induction on 1. intros. case H1.
   case H2. search.
-  case H2. case H6.
-    apply reduce_of to H7. inst H3 with n1 = V. cut H11 with H10.
-      apply of_type to _ H3. apply prune_type to H13. case H14.
-        apply IH to H5 H9 H12. search.
+  case H2.
+    apply reduce_of to H6. inst H3 with n1 = V. cut H10 with H9.
+      apply of_type to _ H3. apply prune_type to H12.
+        apply IH to H5 H8 H11. search.
 
 Theorem tait_ext : forall L M R A,
   of_ctx L -> {L |- of M A} -> subst L M R -> reduce R A.
 induction on 2. intros. case H2 (keep).
   apply subst_var to H1 H4 H3. search.
-  apply subst_app to H1 H3. case H6.
-    apply IH to H1 H4 H7.
-      apply IH to H1 H5 H8.
-        case H9. apply H13 to H10. search.
+  apply subst_app to H1 H3.
+    apply IH to H1 H4 H6.
+      apply IH to H1 H5 H7.
+        case H8. apply H12 to H9. search.
   apply type_ignores_of_ctx to H1 H4.
-    apply subst_abs to H1 H3 H6. case H7.
+    apply subst_abs to H1 H3 H6.
       apply subst_preserves_type to H1 H3 H2. unfold.
         search.
         search.
         intros. % The rest is one single case
-          apply reduce_halts to H10. case H11. case H12.
-          apply reduce_nstep_forward to H10 H13.
-          apply H8 to H15 H14.
-          apply IH to _ H5 H16.
+          apply reduce_halts to H9. case H10.
+          apply reduce_nstep_forward to H9 H11.
+          apply H7 to H13 H12.
+          apply IH to _ H5 H14.
           assert {value (abs A1 MR)}. search.
-          apply nstep_app_value to H18 H13.
+          apply nstep_app_value to H16 H11.
           assert {step (app (abs A1 MR) V) (MR V)}. search.
-          apply nstep_right to H19 H20.
-          apply reduce_nstep_backward to H17 H21 _.
-            apply reduce_of to H10. search.
+          apply nstep_right to H17 H18.
+          apply reduce_nstep_backward to H15 H19 _.
+            apply reduce_of to H9. search.
             search.
 
 

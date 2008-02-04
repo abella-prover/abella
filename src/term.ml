@@ -341,7 +341,7 @@ type assoc = Left | Right | Both | No
   
 (* List of infix operators sorted by priority, low to high. *)
 let infix : (string * assoc) list =
-  [("=>", Right); ("::", Right); ("=", No)]
+  [("=>", Right); ("::", Right)]
 
 let is_infix x = List.mem_assoc x infix
 let get_assoc op = List.assoc op infix

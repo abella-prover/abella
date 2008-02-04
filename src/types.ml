@@ -24,7 +24,7 @@ open Printf
 type clause = term * term list
 type clauses = clause list
 
-type def = metaterm * metaterm list
+type def = metaterm * metaterm
 type defs = def list
 
 type id = string
@@ -53,12 +53,10 @@ type command =
   | Undo
 
 let def_to_string (head, body) =
-  if body = [] then
+  if body = True then
     metaterm_to_string head
   else
-    sprintf "%s :- %s"
-      (metaterm_to_string head)
-      (String.concat ", " (List.map metaterm_to_string body))
+    sprintf "%s := %s" (metaterm_to_string head) (metaterm_to_string body)
 
 let top_command_to_string tc =
   match tc with

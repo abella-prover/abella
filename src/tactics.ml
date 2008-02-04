@@ -390,8 +390,6 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
   and obj_aux n goal =
     if hyps |> filter_objs |> List.exists (derivable goal) then
       true
-    else if Context.exists (try_right_unify goal.term) goal.context then
-      true
     else if n = 0 then
       false
     else if is_imp goal.term then
@@ -413,23 +411,23 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
       true
     else
       let support = metaterm_support goal in
-      match goal with
-        | True -> true
-        | Eq(left, right) -> try_right_unify left right
-        | Or(left, right) -> metaterm_aux n left || metaterm_aux n right
-        | And(left, right) -> metaterm_aux n left && metaterm_aux n right
-        | Binding(Exists, bindings, body) ->
-            let term = freshen_nameless_bindings ~support bindings body in
-              metaterm_aux n term
-        | Binding(Nabla, [id], body) ->
-            let nominal = fresh_nominal body in
-            let body = replace_metaterm_vars [(id, nominal)] body in
-              metaterm_aux n body
-        | Obj(obj, _) -> obj_aux n obj
-        | Pred(p, _) ->
-            List.exists (try_right_unify p) (filter_preds hyps) ||
-              def_aux n p
-        | _ -> false
+        match goal with
+          | True -> true
+          | Eq(left, right) -> try_right_unify left right
+          | Or(left, right) -> metaterm_aux n left || metaterm_aux n right
+          | And(left, right) -> metaterm_aux n left && metaterm_aux n right
+          | Binding(Exists, bindings, body) ->
+              let term = freshen_nameless_bindings ~support bindings body in
+                metaterm_aux n term
+          | Binding(Nabla, [id], body) ->
+              let nominal = fresh_nominal body in
+              let body = replace_metaterm_vars [(id, nominal)] body in
+                metaterm_aux n body
+          | Obj(obj, _) -> obj_aux n obj
+          | Pred(p, _) ->
+              List.exists (try_right_unify p) (filter_preds hyps) ||
+                def_aux n p
+          | _ -> false
 
   and def_aux n goal =
     let support = term_support goal in

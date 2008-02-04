@@ -714,13 +714,6 @@ let search_tests =
              ~expect: false
         );
       
-      "Should check context" >::
-        (fun () ->
-           assert_search ()
-             ~goal:"{eval A B |- eval A B}"
-             ~expect: true
-        );
-
       "Should fail if hypothesis has non-subcontext" >::
         (fun () ->
            assert_search ()
@@ -733,6 +726,7 @@ let search_tests =
         (fun () ->
            assert_search ()
              ~clauses:eval_clauses_string
+             ~defs:"member A (A :: L). member A (B :: L) := member A L."
              ~goal:"{eval M (abs R), eval (R N) V |- eval (app M N) V}"
              ~expect: true
         );

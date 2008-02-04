@@ -56,7 +56,8 @@ let def_to_string (head, body) =
   if body = True then
     metaterm_to_string head
   else
-    sprintf "%s := %s" (metaterm_to_string head) (metaterm_to_string body)
+    sprintf "%s := %s" (metaterm_to_string head)
+      (metaterm_to_formatted_string body)
 
 let top_command_to_string tc =
   match tc with

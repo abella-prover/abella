@@ -8,8 +8,6 @@ Make case* which does a single case analysis?
 
 Make apply* which doesn't trigger case analysis?
 
-Make recursive case analysis work on = and false?
-
 Add more backtracking to search?
   Then remove many asserts from examples
 

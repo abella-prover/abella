@@ -11,7 +11,7 @@
 %% Contexts: L, K
 
 
-Def halts M := exists V, {nstep M V} /\ {value V}.
+Define halts M := exists V, {nstep M V} /\ {value V}.
 
 %% Reduce is the logical relation used to prove normalization. We
 %% write the term before the type to match the signature of "of". This
@@ -21,8 +21,8 @@ Def halts M := exists V, {nstep M V} /\ {value V}.
 %% arguments to predicates) and thereby allow this definition since
 %% the second argument is always smaller in negative occurences.
 
-Def reduce M top := {of M top} /\ halts M.
-Def reduce M (arrow A B) :=
+Define reduce M top := {of M top} /\ halts M.
+Define reduce M (arrow A B) :=
   {of M (arrow A B)} /\
   halts M /\
   (forall N, reduce N A -> reduce (app M N) B).
@@ -145,17 +145,17 @@ induction on 2. intros. case H2.
 % of_ctx defines the context of "of M A" judgments. The judgment {type A}
 % ensures that all types in the context are well-formed, e.g. they do
 % not contain nominal constants.
-Def of_ctx nil.
-Def nabla x, of_ctx (of x A :: L) := {type A} /\ of_ctx L.
+Define of_ctx nil.
+Define nabla x, of_ctx (of x A :: L) := {type A} /\ of_ctx L.
 
 % term_ctx defines the context of "term M" judgments
-Def term_ctx nil.
-Def nabla x, term_ctx (term x :: L) := term_ctx L.
+Define term_ctx nil.
+Define nabla x, term_ctx (term x :: L) := term_ctx L.
 
 % A term is closed if it is a valid term in an empty context
-Def closed M := {term M}.
+Define closed M := {term M}.
 
-Def nabla x, fresh x M.
+Define nabla x, fresh x M.
 
 Theorem member_fresh : forall X L E,
   member E L -> fresh X L -> fresh X E.
@@ -215,8 +215,8 @@ Theorem prune_closed : forall R, nabla x,
 intros. case H1. apply prune_term to _ H2. search.
 
 % This judgment aligns of_ctx with term_ctx
-Def dual_ctxs nil nil.
-Def nabla x, dual_ctxs (of x A :: L) (term x :: K) := dual_ctxs L K.
+Define dual_ctxs nil nil.
+Define nabla x, dual_ctxs (of x A :: L) (term x :: K) := dual_ctxs L K.
 
 Theorem member_dual_ctxs : forall L K M A,
   dual_ctxs L K -> member (of M A) L -> member (term M) K.
@@ -268,8 +268,8 @@ induction on 2. intros. case H2.
 % judgment is the use of nabla in the head of a definition which extracts
 % a nominal constant from L and M. The definition of subst then substitutes
 % for this nominal constant and continues processing the list L.
-Def subst nil M M.
-Def nabla x, subst (of x A :: L) (R x) M :=
+Define subst nil M M.
+Define nabla x, subst (of x A :: L) (R x) M :=
   exists V, reduce V A /\ {value V} /\ subst L (R V) M.
 
 % Subst on a closed term has no effect

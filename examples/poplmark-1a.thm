@@ -3,24 +3,24 @@
 
 % We use nominal constants to represent type variable names. This predicate
 % recognizes such nominal constants.
-Def nabla x, name x.
+Define nabla x, name x.
 
 % ctx defines the context in which subtyping judgements are made
-Def ctx nil.
-Def ctx (bound X U :: L) := name X /\ ctx L.
+Define ctx nil.
+Define ctx (bound X U :: L) := name X /\ ctx L.
 
 % cty defines valid closed types (used for reflexivity)
-Def cty L top.
-Def cty L X := exists U, member (bound X U) L.
-Def cty L (arrow T1 T2) := cty L T1 /\ cty L T2.
-Def cty L (all T1 T2) :=
+Define cty L top.
+Define cty L X := exists U, member (bound X U) L.
+Define cty L (arrow T1 T2) := cty L T1 /\ cty L T2.
+Define cty L (all T1 T2) :=
   cty L T1 /\ nabla x, cty (bound x T1 :: L) (T2 x).
 
 % ty defines valid open types (used for transitivity)
-Def ty top.
-Def nabla x, ty x.
-Def ty (arrow T1 T2) := ty T1 /\ ty T2.
-Def ty (all T1 T2) := ty T1 /\ nabla x, ty (T2 x).
+Define ty top.
+Define nabla x, ty x.
+Define ty (arrow T1 T2) := ty T1 /\ ty T2.
+Define ty (all T1 T2) := ty T1 /\ nabla x, ty (T2 x).
   
 Theorem sub_refl : forall L T,
   cty L T -> {L |- sub T T}.

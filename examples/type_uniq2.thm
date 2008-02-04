@@ -2,11 +2,11 @@
 
 % Since LG-omega does not allow nabla in the head of a definition, we must
 % explicitly restrict structure and occurences of the variable X
-Def ctx nil.
-Def ctx (of X T :: L) := (forall M N, X = app M N -> false) /\
-                         (forall T R, X = abs T R -> false) /\
-                         (forall T', member (of X T') L -> false) /\
-                         ctx L.
+Define ctx nil.
+Define ctx (of X T :: L) := (forall M N, X = app M N -> false) /\
+                            (forall T R, X = abs T R -> false) /\
+                            (forall T', member (of X T') L -> false) /\
+                            ctx L.
 
 Theorem ctx_app_absurd : forall L M N T,
   ctx L -> member (of (app M N) T) L -> false.

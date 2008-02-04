@@ -3,12 +3,12 @@
 %%
 %% This example is taken from some notes by John Hannan
 
-Def ctx nil.
-Def ctx (pe X Y :: L) := (forall R, X = abs R -> false) /\
-                         (forall M N, X = app M N -> false) /\
-                         (forall R, Y = abs R -> false) /\
-                         (forall M N, Y = app M N -> false) /\
-                         ctx L.
+Define ctx nil.
+Define ctx (pe X Y :: L) := (forall R, X = abs R -> false) /\
+                            (forall M N, X = app M N -> false) /\
+                            (forall R, Y = abs R -> false) /\
+                            (forall M N, Y = app M N -> false) /\
+                            ctx L.
 
 Theorem generalized : forall L E E' V,
   ctx L -> {L |- pe E E'} -> {eval E V} ->

@@ -5,9 +5,9 @@
 
 %% Start generic section
 
-Def nabla x, name x.
+Define nabla x, name x.
 
-Def nabla x, fresh x E.
+Define nabla x, fresh x E.
 
 Theorem fresh_tail : forall X A L,
   fresh X (A :: L) -> fresh X L.
@@ -21,11 +21,11 @@ induction on 1. intros. case H1.
 
 %% End generic section
 
-Def ctx nil.
-Def ctx (of X T :: L) := fresh X L /\ ctx L.
+Define ctx nil.
+Define ctx (of X T :: L) := fresh X L /\ ctx L.
 
 % We could define this second clause as simply
-%   Def nabla x, ctx (of x T :: L) := ctx L.
+%   Define nabla x, ctx (of x T :: L) := ctx L.
 % but it turns out that the version with fresh is much easier to reason with
 % since it does not require introducting nominal variables in most cases.
 % Moreover, we can use lemmas based on fresh rather than on nominal variables.

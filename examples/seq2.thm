@@ -5,19 +5,19 @@
 
 %% We add the argument P representing the lambda prolog program so that
 %% we can quantify over it.
-Def seq P L t.
-Def seq P L (atom A) := member A L.
-Def seq P L (and A B) := seq P L A /\ seq P L B.
-Def seq P L (A => B) := seq P (A :: L) B.
-Def seq P L (pi G) := nabla x, seq P L (G x).
-Def seq P L (sigma G) := exists X, seq P L (G X).
-Def seq P L (atom A) := exists B, lookup A P B /\ seq P L B.
+Define seq P L t.
+Define seq P L (atom A) := member A L.
+Define seq P L (and A B) := seq P L A /\ seq P L B.
+Define seq P L (A => B) := seq P (A :: L) B.
+Define seq P L (pi G) := nabla x, seq P L (G x).
+Define seq P L (sigma G) := exists X, seq P L (G X).
+Define seq P L (atom A) := exists B, lookup A P B /\ seq P L B.
 
-Def lookup A (atom A) t.
-Def lookup A (imp B A) B.
-Def lookup A (and P1 P2) B := lookup A P1 B.
-Def lookup A (and P1 P2) B := lookup A P2 B.
-Def lookup A (pi P) B := exists X, lookup A (P X) B.
+Define lookup A (atom A) t.
+Define lookup A (imp B A) B.
+Define lookup A (and P1 P2) B := lookup A P1 B.
+Define lookup A (and P1 P2) B := lookup A P2 B.
+Define lookup A (pi P) B := exists X, lookup A (P X) B.
 
 Theorem external : forall S T,
   seq nil nil (pi x\ p x S => pi y\ p y T => atom (p x T)) -> S = T.
@@ -47,7 +47,7 @@ case H3.
 %% This is the primary downside of this encoding: the resulting
 %% terms are quite large and hard to reason about.
 
-Def prog (and (pi N\ (atom (add z N N)))
+Define prog (and (pi N\ (atom (add z N N)))
               (pi A\ pi B\ pi C\
                 (imp (atom (add A B C)) (add (s A) B (s C))))).
 
@@ -65,14 +65,14 @@ skip.
 %% meta-theoremas about lambda prolog. But first we need some properties
 %% about lists.
 
-Def list nil.
-Def list (X :: A) := list A.
+Define list nil.
+Define list (X :: A) := list A.
 
-Def select (X :: A) X A.
-Def select (Y :: A) X (Y :: B) := select A X B.
+Define select (X :: A) X A.
+Define select (Y :: A) X (Y :: B) := select A X B.
 
-Def perm nil nil.
-Def perm (X :: A') B := exists B', select B X B' /\ perm A' B'.
+Define perm nil nil.
+Define perm (X :: A') B := exists B', select B X B' /\ perm A' B'.
 
 Theorem select_member_base : forall X L1 L2,
   select L1 X L2 -> member X L1.

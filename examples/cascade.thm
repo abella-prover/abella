@@ -5,8 +5,8 @@
 %% number of substitutions for the nominal constants in the term.
 %% Here we prove that this form of substitution acts compositionally.
 
-Def subst nil T T.
-Def nabla x, subst (pair x K :: L) (T x) S := subst L (T K) S.
+Define subst nil T T.
+Define nabla x, subst (pair x K :: L) (T x) S := subst L (T K) S.
 
 Theorem subst_app : forall L T R S,
   subst L (app T R) S -> exists U V, S = app U V /\ subst L T U /\ subst L R V.

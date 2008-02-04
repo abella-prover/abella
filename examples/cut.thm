@@ -8,8 +8,8 @@
 %%
 %% This is based on a similar development for Twelf
 
-Def ctx nil.
-Def ctx (hyp A :: L) := ctx L.
+Define ctx nil.
+Define ctx (hyp A :: L) := ctx L.
 
 Theorem ctx_lemma :
   forall A L, ctx L -> member (conc A) L -> false.

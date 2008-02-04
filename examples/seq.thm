@@ -1,12 +1,12 @@
 %% Comparison between internal and external definition of seq
 
-Def seq L t.
-Def seq L (atom A) := member A L.
-Def seq L (and A B) := seq L A /\ seq L B.
-Def seq L (A => B) := seq (A :: L) B.
-Def seq L (pi G) := nabla x, seq L (G x).
-Def seq L (sigma G) := exists X, seq L (G X).
-Def seq L (atom A) := exists B, prog A B /\ seq L B.
+Define seq L t.
+Define seq L (atom A) := member A L.
+Define seq L (and A B) := seq L A /\ seq L B.
+Define seq L (A => B) := seq (A :: L) B.
+Define seq L (pi G) := nabla x, seq L (G x).
+Define seq L (sigma G) := exists X, seq L (G X).
+Define seq L (atom A) := exists B, prog A B /\ seq L B.
 
 Theorem external : forall S T,
   seq nil (pi x\ p x S => pi y\ p y T => atom (p x T)) -> S = T.
@@ -39,11 +39,11 @@ case H3.
 %% to unfold the body of P. In the internal version, all of this is
 %% contained in one case analysis.
 
-Def prog (nat z) t.
-Def prog (nat (s N)) (atom (nat N)).
+Define prog (nat z) t.
+Define prog (nat (s N)) (atom (nat N)).
 
-Def prog (add z N N) t.
-Def prog (add (s A) B (s C)) (atom (add A B C)).
+Define prog (add z N N) t.
+Define prog (add (s A) B (s C)) (atom (add A B C)).
 
 Theorem add_base : forall N,
   seq nil (atom (nat N)) -> seq nil (atom (add N z N)).
@@ -73,8 +73,8 @@ induction on 2. intros. case H2.
 %% A benefit of the external definition of seq is that it allows us to prove
 %% meta-theoremas about lambda prolog.
 
-Def list nil.
-Def list (X :: A) := list A.
+Define list nil.
+Define list (X :: A) := list A.
 
 Theorem seq_subset : forall L1 L2 G,
   seq L1 G -> (forall X, member X L1 -> member X L2) -> seq L2 G.

@@ -32,7 +32,7 @@ type id = string
 type top_command =
   | Theorem of id * metaterm
   | Axiom of id * metaterm
-  | Def of def
+  | Define of def
 
 type command =
   | Induction of int
@@ -64,8 +64,8 @@ let top_command_to_string tc =
         sprintf "Theorem %s : \n%s" name (metaterm_to_formatted_string body)
     | Axiom(name, body) ->
         sprintf "Axiom %s : %s" name (metaterm_to_formatted_string body)
-    | Def clause ->
-        sprintf "Def %s" (def_to_string clause)
+    | Define def ->
+        sprintf "Define %s" (def_to_string def)
 
 let command_to_string c =
   match c with

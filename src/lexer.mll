@@ -58,7 +58,7 @@ rule token = parse
 | "@"                { AT }
 | "Theorem"          { THEOREM }
 | "Axiom"            { AXIOM }
-| "Def"              { DEF }
+| "Define"           { DEFINE }
 | "\\/"              { OR }
 | "/\\"              { AND }
 | "{"                { LBRACK }

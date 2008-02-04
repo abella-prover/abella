@@ -123,7 +123,7 @@ let rec process ~interactive lexbuf =
             with AbortProof -> () end
         | Axiom(name, axiom) ->
             add_lemma name axiom
-        | Def(def) ->
+        | Define(def) ->
             check_def def ;
             add_def def
       end ;

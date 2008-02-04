@@ -85,8 +85,8 @@ induction on 1. intros. case H1.
 
 %% Progress
 
-Def progresses E := {value E}.
-Def progresses E := exists E', {step E E'}.
+Define progresses E := {value E}.
+Define progresses E := exists E', {step E E'}.
 
 Theorem app_progresses : forall E1 E2 T,
   {of (app E1 E2) T} -> progresses E1 -> progresses E2 ->

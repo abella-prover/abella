@@ -2,10 +2,10 @@
 %%
 %% The ctx predicate defines the context of a judgement (normal T).
 
-Def nabla x, name x.
+Define nabla x, name x.
 
-Def ctx nil.
-Def ctx (var X :: L) := name X /\ ctx L.
+Define ctx nil.
+Define ctx (var X :: L) := name X /\ ctx L.
 
 Theorem ctx_var : forall L E,
   ctx L -> member E L -> exists X, E = var X /\ name X.

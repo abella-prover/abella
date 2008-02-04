@@ -65,22 +65,21 @@ There are only three top-level commands in Abella.
 
   Theorem <THM-NAME> : <TERM>.
   ============================
-  This puts the prover in proving mode with the given term as the
-  goal.
+  Puts the prover in proving mode with the given term as the goal.
   
   Axiom <THM-NAME> : <TERM>.
   ==========================
-  This asserts that the given theorem is true. This is useful for
-  stating lemmas that you do not want to prove yet.
+  Asserts that the given theorem is true. This is useful for stating
+  lemmas that you do not want to prove yet.
 
-  Def <PRED NAME> <PRED ARGS>.
-  Def <PRED NAME> <PRED ARGS> :- <PRED BODY>.
-  ===========================================
-  The def command defines a clause for a meta-level predicate.
-  Multiple calls to Def are used to define multiple clauses of a
-  predicate. Most often, these predicates are used to describe the
-  context of specification level judgments. The logic G requires that
-  all definitions are stated prior to any reasoning and that all
+  Define <PRED NAME> <PRED ARGS>.
+  Define <PRED NAME> <PRED ARGS> := <PRED BODY>.
+  ==============================================
+  Introduces a definitional clause for <PRED NAME>. Multiple calls to
+  define are used to define multiple clauses of a definition. Most
+  often, these definitions are used to describe the context of
+  specification level judgments. The logic G requires that all
+  definitions are stated prior to any reasoning and that all
   definitions satisfy a stratification condition. We do not enforce
   such restrictions thus the user must take care when defining
   meta-level predicates.

@@ -34,7 +34,6 @@ induction on 1. intros. case H1.
     case H3.
     apply det_step to H3 H5. apply IH to H4 H6. search.
 
-
 %%
 %% Equivalence of semantics
 %%
@@ -104,3 +103,12 @@ intros.
 inst H1 with n1 = E'.
 cut H3 with H2.
 search.
+
+% Self application cannot be simply-typed
+Theorem of_self_app_absurd : forall T,
+  {of (abs (x\ app x x)) T} -> false.
+intros. case H1. case H2.
+  case H3. case H4.
+  case H4. case H5.
+    case H3. case H6. case H7.
+    case H6.

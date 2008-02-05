@@ -46,5 +46,5 @@ html: $(ABELLA)
 .PHONY: upload-html
 upload-html: html
     scp $(addprefix html/, $(basename $(ls html))) \
-      "agacek@bhoop.cs.umn.edu:/home/grad01/agacek/.www/abella/examples/"
+      "agacek@bhoop.cs.umn.edu:/project/gopalan/abella/examples/"
     rm -rf html

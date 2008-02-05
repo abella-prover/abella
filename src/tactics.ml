@@ -218,16 +218,11 @@ let predicate_wrapper r t =
     aux t
     
 let lift_all ~used nominals =
-  List.fold_left
-    (fun used (id, term) ->
-       if is_free term then
-         let new_term, new_used = fresh_wrt Eigen id used in
-           bind term (app new_term nominals) ;
-           new_used
-       else
-         used)
-    used
-    used
+  used |> List.iter
+      (fun (id, term) ->
+         if is_free term then
+           let new_term = var Eigen id 0 in
+             bind term (app new_term nominals))
 
 let case ~used ~clauses ~defs ~global_support term =
 
@@ -271,7 +266,7 @@ let case ~used ~clauses ~defs ~global_support term =
                    (* should be fresh with respect to global_support *)
                    let n = fresh_nominal (pred (app head global_support)) in
                    let alist = [(id, n)] in
-                   let used = lift_all ~used [n] in
+                   let () = lift_all ~used [n] in
                    let head = replace_term_vars alist head in
                    let body = replace_metaterm_vars alist body in
                      make_case ~support ~used (head, body) term

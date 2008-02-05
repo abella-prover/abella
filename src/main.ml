@@ -53,7 +53,7 @@ let rec process_proof name ~interactive lexbuf =
           printf "</pre>\n" ;
           incr count ;
           printf "<a name=\"%d\"></a>\n" !count ;
-          printf "<pre class=\"code\">\n"
+          printf "<pre>\n"
         end ;
         display () ;
         printf "%s < %!" name

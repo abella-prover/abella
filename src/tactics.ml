@@ -74,7 +74,7 @@ let freshen_def ~used ?(support=[]) head body =
   let var_names = capital_var_names [head] in
   let fresh_names = fresh_alist ~tag:Eigen ~used var_names in
   let raised_names = raise_alist ~support fresh_names in
-    (List.map alist_to_used fresh_names @ used,
+    (List.map alist_to_used fresh_names,
      replace_term_vars raised_names head,
      replace_metaterm_vars raised_names body)
 
@@ -236,10 +236,10 @@ let case ~used ~clauses ~defs ~global_support term =
   
   let def_case ~wrapper term =
     let make_case ~support ~used (head, body) term =
-      let used, head, body =
+      let fresh_used, head, body =
         freshen_def ~support ~used head body
       in
-        if try_left_unify ~used head term then
+        if try_left_unify ~used:(fresh_used @ used) head term then
           let bind_state = get_bind_state () in
             (* Names created perhaps by raising *)
           let newly_used =
@@ -294,10 +294,10 @@ let case ~used ~clauses ~defs ~global_support term =
     clauses |> List.filter_map
         (fun (head, body) ->
            set_bind_state initial_bind_state ;           
-           let used, fresh_head, fresh_body =
+           let fresh_used, fresh_head, fresh_body =
              freshen_clause ~support ~used head body
            in
-             if try_left_unify ~used fresh_head term then
+             if try_left_unify ~used:(fresh_used @ used) fresh_head term then
                let new_vars = term_vars_alist Eigen (fresh_head::fresh_body) in
                let bind_state = get_bind_state () in
                let wrapped_body = List.map wrapper fresh_body in

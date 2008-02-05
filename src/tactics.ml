@@ -236,15 +236,11 @@ let case ~used ~clauses ~defs ~global_support term =
       in
         if try_left_unify ~used:(fresh_used @ used) head term then
           let bind_state = get_bind_state () in
-            (* Names created perhaps by raising *)
-          let newly_used =
-            used |> List.find_all (fun (_, t) -> is_free t) |> List.unique
-          in
             (* Names created perhaps by unificiation *)
-          let newly_used_head = term_vars_alist Eigen [head] in
-          let newly_used_body = metaterm_vars_alist Eigen body in
+          let used_head = term_vars_alist Eigen [head] in
+          let used_body = metaterm_vars_alist Eigen body in
           let used = List.unique
-            (newly_used @ newly_used_head @ newly_used_body @ used)
+            (used_head @ used_body @ used)
           in
             match recursive_metaterm_case ~used body with
               | None -> []

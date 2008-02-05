@@ -9,15 +9,13 @@ Define nabla x, name x.
 
 Define nabla x, fresh x E.
 
-Theorem fresh_tail : forall X A L,
-  fresh X (A :: L) -> fresh X L.
-intros. case H1. search.
-
 Theorem member_fresh : forall X L E,
   member E L -> fresh X L -> fresh X E.
 induction on 1. intros. case H1.
   case H2. search.
-  apply fresh_tail to H2. apply IH to H3 H4. search.
+  assert fresh X L1.
+    case H2. search.
+    apply IH to H3 H4. search.
 
 %% End generic section
 

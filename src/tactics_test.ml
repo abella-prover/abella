@@ -131,7 +131,7 @@ let apply_tests =
              "forall A B C, {eval A B}* -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-             assert_raises (Failure "Restriction violated")
+             assert_raises (Failure "Inductive restriction violated")
                (fun () -> apply h0 [Some h1; Some h2])) ;
 
       "Improperly restricted (2)" >::
@@ -140,7 +140,7 @@ let apply_tests =
              "forall A B C, {eval A B}* -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-             assert_raises (Failure "Restriction violated")
+             assert_raises (Failure "Inductive restriction violated")
                (fun () -> apply h0 [Some h1; Some h2])) ;
 
       "Properly double restricted" >::
@@ -158,7 +158,7 @@ let apply_tests =
              "forall A B C, {eval A B}@ -> {typeof A C}** -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}@@" in
-             assert_raises (Failure "Restriction violated")
+             assert_raises (Failure "Inductive restriction violated")
                (fun () -> apply h0 [Some h1; Some h2])) ;
 
       "Improperly double restricted (2)" >::
@@ -167,7 +167,7 @@ let apply_tests =
              "forall A B C, {eval A B}@ -> {typeof A C}** -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}**" in
-             assert_raises (Failure "Restriction violated")
+             assert_raises (Failure "Inductive restriction violated")
                (fun () -> apply h0 [Some h1; Some h2])) ;
 
       "Properly restricted on predicate" >::
@@ -181,7 +181,7 @@ let apply_tests =
         (fun () ->
            let h0 = freshen "forall A, foo A * -> bar A" in
            let h1 = freshen "foo A @" in
-             assert_raises (Failure "Restriction violated")
+             assert_raises (Failure "Inductive restriction violated")
                (fun () -> apply h0 [Some h1])) ;
 
       "Unification failure" >::

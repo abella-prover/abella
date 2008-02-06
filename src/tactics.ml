@@ -462,7 +462,7 @@ let check_restrictions formal actual =
                 | Equal i, Smaller j when i = j -> ()
                 | Equal i, Equal j when i = j -> ()
                 | Irrelevant, _ -> ()
-                | _ -> failwith "Restriction violated")
+                | _ -> failwith "Inductive restriction violated")
     formal actual
 
 let rec map_args f t =

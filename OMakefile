@@ -25,6 +25,9 @@ BuildDist() =
     cp examples/*.mod dist/examples
     cp examples/*.thm dist/examples
 
+    mkdir dist/emacs
+    cp emacs/* dist/emacs
+
 .PHONY: dist
 dist: test theorems
     BuildDist()

@@ -50,7 +50,7 @@ let tests =
            intros () ;
            assert_goal "foo n1 (L n1)"
         ) ;
-           
+      
       "Assert test" >::
         (fun () ->
            setup_prover ()
@@ -190,21 +190,21 @@ let tests =
                  ("base", "forall N, {nat N} -> {add N z N}") ;
                  ("step", "forall A B C, {add A B C} -> {add A (s B) (s C)}")] ;
 
-           assert_proof
-             (fun () ->
-                induction 2 ;
-                intros () ;
-                case "H2" ;
-                assert_n_subgoals 2 ;
-                
-                apply "base" ["H1"] ;
-                search () ;
-                assert_n_subgoals 1 ;
-                
-                apply "IH" ["H1"; "H3"] ;
-                apply "step" ["H4"] ;
-                search () ;
-             )
+             assert_proof
+               (fun () ->
+                  induction 2 ;
+                  intros () ;
+                  case "H2" ;
+                  assert_n_subgoals 2 ;
+                  
+                  apply "base" ["H1"] ;
+                  search () ;
+                  assert_n_subgoals 1 ;
+                  
+                  apply "IH" ["H1"; "H3"] ;
+                  apply "step" ["H4"] ;
+                  search () ;
+               )
         ) ;
 
       "Undo should restore previous state" >::
@@ -226,7 +226,7 @@ let tests =
            case "H1" ;
            assert_n_subgoals 2 ;
         ) ;
-             
+      
       "Proving OR" >::
         (fun () ->
            let clauses = parse_clauses "foo a. foo b. eq X X." in
@@ -333,5 +333,16 @@ let tests =
            with
              | Failure("Found logic variable at toplevel") -> ()
         ) ;
+
+      "Search should not find the inductive hypothesis" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall X, foo X -> bar X" ;
+
+           induction 1 ;
+           search () ;
+           (* This may throw Failure("Proof completed") which
+              indicates test failure *)
+        );
       
     ]

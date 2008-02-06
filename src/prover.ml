@@ -237,10 +237,15 @@ let cut h arg =
 
 (* Search *)
 
+let remove_inductive_hypotheses hyps =
+  List.remove_all
+    (fun (name, _) -> Str.string_match (Str.regexp "^IH") name 0)
+    hyps
+          
 let search_goal goal =
   Tactics.search
     ~depth:10
-    ~hyps:(List.map snd sequent.hyps)
+    ~hyps:(List.map snd (remove_inductive_hypotheses sequent.hyps))
     ~clauses:!clauses
     ~defs:!defs
     goal

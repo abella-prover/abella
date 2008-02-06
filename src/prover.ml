@@ -219,7 +219,8 @@ let inst h n t =
       | Obj _ -> t |> replace_term_vars sequent.vars
                    |> object_inst ht n
                    |> add_hyp
-      | _ -> failwith "Object instantiation can only be used on objects"
+      | _ -> failwith
+          "Instantiation can only be used on hypotheses of the form {...}"
 
 
 (* Object level cut *)
@@ -231,7 +232,7 @@ let cut h arg =
     match h, arg with
       | Obj(obj_h, _), Obj(obj_arg, _) ->
           add_hyp (object_cut obj_h obj_arg)
-      | _ -> failwith "Cut must be used on objects"
+      | _ -> failwith "Cut can only be used on hypotheses of the form {...}"
 
 
 (* Search *)
@@ -338,7 +339,8 @@ let assert_hyp term =
       [{ bind_state = get_bind_state () ;
          new_vars = [] ;
          new_hyps = [term] }] ;
-    sequent.goal <- term
+    sequent.goal <- term ;
+    if search_goal sequent.goal then next_subgoal ()
 
 
 (* Induction *)

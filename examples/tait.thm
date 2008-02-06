@@ -79,7 +79,7 @@ Theorem nstep_app_value : forall M N R,
 induction on 2. intros. case H2.
   search.
   apply IH to H1 H4.
-    assert {step (app M N) (app M P)}. search.
+    assert {step (app M N) (app M P)}.
       search.
 
 Theorem halt_step_forward : forall M N,
@@ -90,7 +90,7 @@ intros. case H1.
 Theorem halt_step_backward : forall M N,
   halts N -> {step M N} -> halts M.
 intros. case H1.
-  assert {nstep M V}. search.
+  assert {nstep M V}.
     search.
 
 Theorem of_step_forward : forall M N A,
@@ -343,9 +343,9 @@ induction on 2. intros. case H2 (keep).
           apply reduce_nstep_forward to H9 H11.
           apply H7 to H13 H12.
           apply IH to _ H5 H14.
-          assert {value (abs A1 MR)}. search.
+          assert {value (abs A1 MR)}.
           apply nstep_app_value to H16 H11.
-          assert {step (app (abs A1 MR) V) (MR V)}. search.
+          assert {step (app (abs A1 MR) V) (MR V)}.
           apply nstep_right to H17 H18.
           apply reduce_nstep_backward to H15 H19 _.
             apply reduce_of to H9. search.

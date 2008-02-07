@@ -50,6 +50,15 @@ let tests =
            intros () ;
            assert_goal "foo n1 (L n1)"
         ) ;
+
+      "Intros on multiple nabla variables" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"nabla x y, x = y" ;
+
+           intros () ;
+           assert_goal "n1 = n2"
+        ) ;
       
       "Assert test" >::
         (fun () ->

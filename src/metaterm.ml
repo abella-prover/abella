@@ -257,16 +257,28 @@ let get_metaterm_used_nominals t =
   t |> metaterm_support
     |> List.map term_to_pair
   
-let fresh_nominal t =
+let fresh_nominals n t =
   let used_vars = find_vars Nominal (collect_terms t) in
   let used_names = List.map (fun v -> v.name) used_vars in
   let p = prefix Nominal in
-  let n = ref 1 in
-    while List.mem (p ^ (string_of_int !n)) used_names do
-      incr n
+  let result = ref [] in
+  let get_name () =
+    let n = ref 1 in
+      while List.mem (p ^ (string_of_int !n)) (!result @ used_names) do
+        incr n
+      done ;
+      p ^ (string_of_int !n)
+  in
+    for i = 1 to n do
+      result := !result @ [get_name()] ;
     done ;
-    nominal_var (p ^ (string_of_int !n))
+    List.map nominal_var !result
 
+let fresh_nominal t =
+  match fresh_nominals 1 t with
+    | [n] -> n
+    | _ -> assert false
+  
 let n_var_names terms =
   terms
   |> map_vars_list (fun v -> v.name)

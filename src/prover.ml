@@ -403,8 +403,11 @@ let intros () =
             List.iter add_var alist ;
             let alist = raise_alist ~support:(metaterm_support body) alist in
               aux (replace_metaterm_vars alist body)
-      | Binding(Nabla, [var], body) ->
-          aux (replace_metaterm_vars [(var, fresh_nominal body)] body)
+      | Binding(Nabla, bindings, body) ->
+          aux (replace_metaterm_vars
+                 (List.combine bindings
+                    (fresh_nominals (List.length bindings) body))
+                 body)
       | Arrow(left, right) ->
           add_hyp (normalize left) ;
           aux right

@@ -126,6 +126,7 @@ let normalize ctx =
 let extract_singleton ctx =
   match ctx with
     | [e] -> e
+    | [] -> failwith "Context is empty"
     | _ -> failwith ("Non-singleton context encountered: " ^
                        (context_to_string ctx))
 

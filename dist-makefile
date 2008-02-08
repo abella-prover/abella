@@ -3,6 +3,7 @@ all: abella
 abella: src/*.ml src/*.mly src/*.mll
 	ocamllex src/lexer.mll
 	ocamlyacc src/parser.mly
+	ocamlopt -c -I src src/version.ml
 	ocamlopt -c -I src src/extensions.ml
 	ocamlopt -c -I src src/term.mli
 	ocamlopt -c -I src src/term.ml
@@ -18,10 +19,10 @@ abella: src/*.ml src/*.mly src/*.mll
 	ocamlopt -c -I src src/prover.ml
 	ocamlopt -c -I src src/main.ml
 	ocamlopt -o abella str.cmxa \
-                       src/extensions.cmx src/term.cmx src/unify.cmx \
-                       src/context.cmx src/metaterm.cmx src/types.cmx \
-                       src/parser.cmx src/lexer.cmx src/tactics.cmx \
-                       src/prover.cmx src/main.cmx
+                       src/version.cmx src/extensions.cmx src/term.cmx \
+                       src/unify.cmx src/context.cmx src/metaterm.cmx \
+                       src/types.cmx src/parser.cmx src/lexer.cmx \
+                       src/tactics.cmx src/prover.cmx src/main.cmx
 
 clean:
 	rm -f src/*.cmi src/*.cmo src/*.cmx src/*.o \

@@ -1,5 +1,7 @@
-.SUBDIRS: src examples
+#UPLOAD_SITE = "agacek@bhoop.cs.umn.edu:/project/gopalan/abella"
+UPLOAD_SITE = "agacek@bhoop.cs.umn.edu:/home/grad01/agacek/.www/abella"
 
+.SUBDIRS: src examples
 
 ################################################
 # Distribution
@@ -53,4 +55,4 @@ dist-windows: test theorems
 .PHONY: upload
 upload: dist dist-windows
     scp abella.zip abella.tar.gz \
-        "agacek@bhoop.cs.umn.edu:/project/gopalan/abella/"
+        $(UPLOAD_SITE)

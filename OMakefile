@@ -52,7 +52,10 @@ dist-windows: test theorems
     zip -r abella.zip abella
     rm -rf abella
 
+version.html: src/version.ml
+    sed -e 's/^.*"\(.*\)".*/\1/' src/version.ml > version.html
+
 .PHONY: upload
-upload: dist dist-windows
-    scp abella.zip abella.tar.gz src/version.ml \
-        $(UPLOAD_SITE)
+upload: dist dist-windows version.html
+    scp abella.zip abella.tar.gz version.html $(UPLOAD_SITE)
+

@@ -61,7 +61,7 @@ let rec process_proof name ~interactive lexbuf =
       let input = Parser.command Lexer.token lexbuf in
         if not interactive && not !quiet then begin
           let pre, post = if !annotate then "<b>", "</b>" else "", "" in
-            printf "%s%s.%s\n\n" pre (command_to_string input) post
+            printf "%s%s.%s\n" pre (command_to_string input) post
         end ;
         begin match input with
           | Induction(arg) -> induction arg
@@ -116,7 +116,7 @@ let rec process ~interactive lexbuf =
     let input = Parser.top_command Lexer.token lexbuf in
       if not interactive then
           let pre, post = if !annotate then "<b>", "</b>" else "", "" in
-            printf "%s%s.%s\n\n" pre (top_command_to_string input) post ;
+            printf "%s%s.%s\n" pre (top_command_to_string input) post ;
       begin match input with
         | Theorem(name, thm) ->
             check_theorem thm ;

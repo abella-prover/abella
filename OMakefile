@@ -1,6 +1,8 @@
 #UPLOAD_SITE = "agacek@bhoop.cs.umn.edu:/project/gopalan/abella"
 UPLOAD_SITE = "agacek@bhoop.cs.umn.edu:/home/grad01/agacek/.www/abella"
 
+VERSION = 1.0tester
+
 .SUBDIRS: src examples
 
 ################################################
@@ -52,8 +54,8 @@ dist-windows: test theorems
     zip -r abella.zip abella
     rm -rf abella
 
-version.html: src/version.ml
-    sed -e 's/^.*"\(.*\)".*/\1/' src/version.ml > version.html
+version.html:
+    fprint(version.html, $(VERSION))
 
 .PHONY: upload
 upload: dist dist-windows version.html

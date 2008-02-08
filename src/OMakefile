@@ -19,6 +19,9 @@ OUNIT = $(file ext/oUnit)
 
 OCamlGeneratedFiles(parser.ml lexer.ml)
 
+version.ml:
+    echo 'let version = "$(VERSION)"' > version.ml
+
 FILES[] =
     version
     term

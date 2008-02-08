@@ -149,7 +149,7 @@ let rec process ~interactive lexbuf =
   done with
   | Failure "eof" -> ()
 
-let welcome_msg = "Welcome to Abella 1.0\n"
+let welcome_msg = sprintf "Welcome to Abella %s\n" Version.version
 
 let usage_message = "abella [options] <module-file>"
 

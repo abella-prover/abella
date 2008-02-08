@@ -20,6 +20,7 @@ OUNIT = $(file ext/oUnit)
 OCamlGeneratedFiles(parser.ml lexer.ml)
 
 FILES[] =
+    version
     term
     unify
     metaterm

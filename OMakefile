@@ -54,5 +54,5 @@ dist-windows: test theorems
 
 .PHONY: upload
 upload: dist dist-windows
-    scp abella.zip abella.tar.gz \
+    scp abella.zip abella.tar.gz src\version.ml \
         $(UPLOAD_SITE)

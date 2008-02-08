@@ -60,7 +60,8 @@ let rec process_proof name ~interactive lexbuf =
       end ;
       let input = Parser.command Lexer.token lexbuf in
         if not interactive && not !quiet then
-          printf "%s.\n\n" (command_to_string input) ;
+          let pre, post = if !annotate then "<b>", "</b>" else "", "" in
+            printf "%s%s.%s\n\n" pre (command_to_string input) post ;
         begin match input with
           | Induction(arg) -> induction arg
           | Apply(h, args) -> apply h args
@@ -112,7 +113,9 @@ let rec process ~interactive lexbuf =
     end ;
     printf "Abella < %!" ;
     let input = Parser.top_command Lexer.token lexbuf in
-      if not interactive then printf "%s.\n\n" (top_command_to_string input) ;
+      if not interactive then
+          let pre, post = if !annotate then "<b>", "</b>" else "", "" in
+            printf "%s%s.%s\n\n" pre (top_command_to_string input) post ;
       begin match input with
         | Theorem(name, thm) ->
             check_theorem thm ;

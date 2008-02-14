@@ -31,8 +31,7 @@ BuildDist() =
     mkdir dist/emacs
     cp emacs/* dist/emacs
 
-.PHONY: dist
-dist: test theorems
+abella.tar.gz: test theorems
     BuildDist()
     make -C dist
     BuildDist()
@@ -41,8 +40,7 @@ dist: test theorems
     tar c abella | gzip - > abella.tar.gz
     rm -rf abella
 
-.PHONY: dist-windows
-dist-windows: test theorems
+abella.zip: test theorems
     BuildDist()
     make -C dist
     mv dist/abella.exe .
@@ -57,6 +55,15 @@ version.html:
     fprint(version.html, $(VERSION))
 
 .PHONY: upload
-upload: dist dist-windows version.html
+upload: abella.tar.gz abella.zip version.html
     scp abella.zip abella.tar.gz version.html $(UPLOAD_SITE)
 
+
+
+################################################
+# Utilites
+#
+
+.PHONY: clean
+clean:
+   rm $(filter-proper-targets $(ls R, .))

@@ -54,13 +54,3 @@ TEST = unit_test
 .PHONY: test
 test: $(OCamlProgram $(TEST), $(OUNIT) $(FILES) $(TEST_FILES))
     ./$(TEST) -verbose
-
-
-################################################
-# Utilites
-#
-
-.PHONY: clean
-clean:
-   rm $(filter-proper-targets $(ls R, .))
-

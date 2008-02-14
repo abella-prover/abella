@@ -1,5 +1,3 @@
-all: abella
-
 abella: src/*.ml src/*.mly src/*.mll
 	ocamllex src/lexer.mll
 	ocamlyacc src/parser.mly
@@ -24,6 +22,7 @@ abella: src/*.ml src/*.mly src/*.mll
                        src/types.cmx src/parser.cmx src/lexer.cmx \
                        src/tactics.cmx src/prover.cmx src/main.cmx
 
+.PHONY: clean
 clean:
 	rm -f src/*.cmi src/*.cmo src/*.cmx src/*.o \
           src/parser.ml src/parser.mli src/lexer.ml

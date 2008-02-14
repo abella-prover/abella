@@ -1,7 +1,10 @@
-Allow unfold on clauses?
 
 Future
 ======
+
+Allow 'apply' to use 'with' and specify instantiations?
+  How to prevent with using nominals that get used in nabla?
+  Does this happen naturally?
 
 Allow apply with hyps like
   forall X T, member (of X T) L -> forall T', {L |- of X T'} -> T =
@@ -14,8 +17,6 @@ Add more backtracking to search?
   Then remove many asserts from examples
   How to deal with metavariables during search that become bound while
     unfolding defs?
-
-Allow 'apply' to use 'with' and specify instantiations?
 
 Get definitions to work with multiple nablas?
 

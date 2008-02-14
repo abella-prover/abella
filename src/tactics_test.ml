@@ -225,6 +225,15 @@ let apply_tests =
            let t, _ = apply h0 [Some h1] in
              assert_pprint_equal "bar C (x1\\D x1)" t) ;
 
+      "With multiple nablas" >::
+        (fun () ->
+           let h0 =
+             freshen "forall A B, nabla x y, foo x y (A x) (B y) -> bar A B"
+           in
+           let h1 = freshen "foo n1 n2 (C n1) (D n2)" in
+           let t, _ = apply h0 [Some h1] in
+             assert_pprint_equal "bar (x1\\C x1) (x1\\D x1)" t) ;
+
       "Absent argument should produce corresponding obligation" >::
         (fun () ->
            let h0 = freshen "forall L, ctx L -> {L |- pred} -> false" in
@@ -416,6 +425,15 @@ let case_tests =
              match case ~used term with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
                    assert_pprint_equal "foo n1" hyp ;
+               | _ -> assert_failure "Pattern mismatch") ;
+
+      "On multiple nablas" >::
+        (fun () ->
+           let term = freshen "nabla x y, foo x y" in
+           let used = [] in
+             match case ~used term with
+               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+                   assert_pprint_equal "foo n1 n2" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
       "On nested nabla, exists" >::
@@ -755,6 +773,14 @@ let search_tests =
              ~expect: true
         );
 
+      "On nablas" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["foo n1 n2"]
+             ~goal:"nabla x y, foo x y"
+             ~expect: true
+        );
+
       "Should backchain on definitions" >::
         (fun () ->
            assert_search ()
@@ -817,14 +843,6 @@ let search_tests =
     ]
 
     
-let unfold ?used ~defs goal =
-  let used =
-    match used with
-      | None -> metaterm_vars_alist Eigen goal
-      | Some used -> used
-  in
-    unfold ~used ~defs goal
-    
 let unfold_tests =
   "Unfold" >:::
     [
@@ -850,6 +868,13 @@ let unfold_tests =
            let goal = freshen "pred A" in
            let result = unfold ~defs goal in
              assert_pprint_equal "forall A1, foo A A1" result) ;
+
+      "Should work on nabla in the head (permute)" >::
+        (fun () ->
+           let defs = parse_defs "nabla x, foo x Z := bar Z." in
+           let goal = freshen "foo n1 D" in
+           let result = unfold ~defs goal in
+             assert_pprint_equal "bar D" result) ;
 
     ]
 

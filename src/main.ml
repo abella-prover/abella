@@ -30,16 +30,23 @@ let count = ref 0
 
 exception AbortProof
 
+let ensure_no_restrictions term =
+  if get_max_restriction term > 0 then
+    failwith "Cannot use restrictions: * or @"
+      
 let warn_if_free_vars free_vars =
   if free_vars <> [] then
     printf "\n\tWarning! Potential variables treated as constants: %s\n\n"
       (String.concat ", " free_vars)
 
 let check_theorem thm =
+  ensure_no_restrictions thm ;
   let free_vars = Tactics.free_capital_var_names thm in
     warn_if_free_vars free_vars
 
 let check_def (head, body) =
+  ensure_no_restrictions head ;
+  ensure_no_restrictions body ;
   let head_vars = Tactics.free_capital_var_names head in
   let body_vars = Tactics.free_capital_var_names body in
   let free_vars = List.remove_all (fun x -> List.mem x head_vars) body_vars in
@@ -69,7 +76,7 @@ let rec process_proof name ~interactive lexbuf =
           | Cut(h, arg) -> cut h arg
           | Inst(h, n, t) -> inst h n t
           | Case(str, keep) -> case ~keep str
-          | Assert(t) -> assert_hyp t
+          | Assert(t) -> ensure_no_restrictions t ; assert_hyp t
           | Exists(t) -> exists t
           | Clear(hs) -> clear hs
           | Search -> search ~interactive ()
@@ -114,9 +121,10 @@ let rec process ~interactive lexbuf =
     end ;
     printf "Abella < %!" ;
     let input = Parser.top_command Lexer.token lexbuf in
-      if not interactive then
+      if not interactive then begin
           let pre, post = if !annotate then "<b>", "</b>" else "", "" in
-            printf "%s%s.%s\n" pre (top_command_to_string input) post ;
+            printf "%s%s.%s\n" pre (top_command_to_string input) post
+      end ;
       begin match input with
         | Theorem(name, thm) ->
             check_theorem thm ;
@@ -126,13 +134,15 @@ let rec process ~interactive lexbuf =
               add_lemma name thm
             with AbortProof -> () end
         | Axiom(name, axiom) ->
+            check_theorem axiom ;
             add_lemma name axiom
         | Define(def) ->
             check_def def ;
             add_def def
       end ;
       if interactive then flush stdout ;
-      if !annotate then printf "</pre>\n"
+      if !annotate then printf "</pre>" ;
+      print_newline ()
   with
     | Failure "lexing: empty token" ->
         exit (if interactive then 0 else 1)

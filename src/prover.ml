@@ -334,20 +334,6 @@ let case ?(keep=false) str =
     next_subgoal ()
 
       
-(* Assert *)
-      
-let assert_hyp term =
-  save_undo_state () ;
-  let term = replace_metaterm_vars sequent.vars term in
-  let term = replace_nominal_vars term in
-    add_cases_to_subgoals
-      [{ bind_state = get_bind_state () ;
-         new_vars = [] ;
-         new_hyps = [term] }] ;
-    sequent.goal <- term ;
-    if search_goal sequent.goal then next_subgoal ()
-
-
 (* Induction *)
 
 let rec fresh_hyp_name_from_base base =
@@ -386,6 +372,20 @@ let induction ind_arg =
     sequent.goal <- new_goal
 
       
+(* Assert *)
+
+let assert_hyp term =
+  save_undo_state () ;
+  let term = replace_metaterm_vars sequent.vars term in
+  let term = replace_nominal_vars term in
+    add_cases_to_subgoals
+      [{ bind_state = get_bind_state () ;
+         new_vars = [] ;
+         new_hyps = [term] }] ;
+    sequent.goal <- term ;
+    if search_goal sequent.goal then next_subgoal ()
+
+
 (* Theorem *)
 
 let theorem thm =
@@ -435,7 +435,7 @@ let split propogate_result =
 
 let unfold () =
   save_undo_state () ;
-  let goal = unfold ~used:sequent.vars ~defs:!defs sequent.goal in
+  let goal = unfold ~defs:!defs sequent.goal in
   let goals = and_to_list goal in
     subgoals := (List.map goal_to_subgoal goals) @ !subgoals;
     next_subgoal ()

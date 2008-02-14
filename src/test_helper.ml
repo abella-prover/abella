@@ -38,10 +38,6 @@ let freshen str =
     |> replace_metaterm_vars fresh_logic_names
     |> replace_nominal_vars
 
-let make_nominals list term =
-  let alist = List.map (fun x -> (x, Term.nominal_var x)) list in
-    replace_metaterm_vars alist term
-
 let eval_clauses_string = "
   typeof (abs R) (arrow T U) :- pi x\ (typeof x T => typeof (R x) U).
   typeof (app M N) T :- typeof M (arrow U T), typeof N U.

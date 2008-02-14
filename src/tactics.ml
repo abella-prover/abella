@@ -52,8 +52,7 @@ let free_capital_var_names metaterm =
     | Eq(a, b) -> aux_term [a; b]
     | Obj(obj, r) -> aux_obj obj
     | Arrow(a, b) -> aux a @ aux b
-    | Binding(binder, bindings, body) ->
-        List.remove_all (fun x -> List.mem x bindings) (aux body)
+    | Binding(binder, bindings, body) -> List.minus (aux body) bindings
     | Or(a, b) -> aux a @ aux b
     | And(a, b) -> aux a @ aux b
     | Pred(p, r) -> aux_term [p]
@@ -189,10 +188,9 @@ let rec recursive_metaterm_case ~used term =
                 Some { stateless_new_vars = new_vars @ nested_vars ;
                        stateless_new_hyps = nested_hyps }
           end
-    | Binding(Nabla, [id], body) ->
-        let nominal = fresh_nominal body in
-        let fresh_body = replace_metaterm_vars [(id, nominal)] body in
-          recursive_metaterm_case ~used fresh_body
+    | Binding(Nabla, ids, body) ->
+        let fresh_body = instantiate_nablas ids body in
+        recursive_metaterm_case ~used fresh_body
     | _ -> Some {stateless_new_vars = [] ; stateless_new_hyps = [term]}
 
 let rec or_to_list term =
@@ -264,15 +262,14 @@ let case ~used ~clauses ~defs ~global_support term =
                    let alist = [(id, n)] in
                    let () = lift_all ~used [n] in
                    let head = replace_term_vars alist head in
-                   let body = replace_metaterm_vars alist body in
                      make_case ~support ~used (head, body) term
                  in
                  let permuted_results =
                    support |> List.flatten_map
-                       (fun dest ->
+                       (fun nominal ->
                           set_bind_state initial_bind_state ;
-                          let alist = [(id, dest)] in
-                          let support = List.remove dest support in
+                          let alist = [(id, nominal)] in
+                          let support = List.remove nominal support in
                           let head = replace_term_vars alist head in
                           let body = replace_metaterm_vars alist body in
                             make_case ~support ~used (head, body) term)
@@ -356,100 +353,118 @@ let induction ind_arg ind_num stmt =
   in
     aux stmt
 
+
+(* Unfold the current goal *)
+
+let unfold_defs ~defs goal =
+  let support = term_support goal in
+    defs |> List.flatten_map
+        (fun (head, body) ->
+           match head with
+             | Pred(head, _) ->
+                 let head, body =
+                   freshen_nameless_def ~support head body
+                 in
+                   if try_right_unify head goal then
+                     [normalize body]
+                   else
+                     []
+             | Binding(Nabla, [id], Pred(head, _)) ->
+                 support |> List.flatten_map
+                     (fun nominal ->
+                        let support = List.remove nominal support in
+                        let alist = [(id, nominal)] in
+                        let head = replace_term_vars alist head in
+                        let head, body =
+                          freshen_nameless_def ~support head body
+                        in
+                          if try_right_unify head goal then
+                            [normalize body]
+                          else
+                            [])
+             | _ -> failwith "Bad head in definition")
+
+let unfold ~defs goal =
+  match goal with
+    | Pred(goal, _) ->
+        begin match unfold_defs ~defs goal with
+          | first::_ -> first
+          | [] -> failwith "No matching definitions"
+        end
+    | _ -> failwith "Can only unfold definitions"
+      
+
 (* Search *)
 
 let derivable goal hyp =
   try_right_unify goal.term hyp.term &&
     Context.subcontext hyp.context goal.context
 
+(* Depth is decremented only when unfolding clauses and definitions since
+   only these can cause infinite search *)
+    
 let search ~depth:n ~hyps ~clauses ~defs goal =
   
   let rec clause_aux n context goal =
-    clauses |> List.exists
-      (fun (head, body) ->
-         try_with_state
-           (fun () ->
-              let support = term_support goal in
-              let fresh_head, fresh_body =
-                freshen_nameless_clause ~support head body
-              in
-                right_unify fresh_head goal ;
-                List.for_all
-                  (fun t -> obj_aux (n-1) {context=context; term=t})
-                  fresh_body))
+    if n = 0 then
+      false
+    else
+      clauses |> List.exists
+          (fun (head, body) ->
+             try_with_state
+               (fun () ->
+                  let support = term_support goal in
+                  let fresh_head, fresh_body =
+                    freshen_nameless_clause ~support head body
+                  in
+                    right_unify fresh_head goal ;
+                    List.for_all
+                      (fun t -> obj_aux (n-1) {context=context; term=t})
+                      fresh_body))
       
   and obj_aux n goal =
     if hyps |> filter_objs |> List.exists (derivable goal) then
       true
-    else if n = 0 then
-      false
     else if is_imp goal.term then
-      obj_aux (n-1) (move_imp_to_context goal)
+      obj_aux n (move_imp_to_context goal)
     else if is_pi_abs goal.term then
-      obj_aux (n-1) (replace_pi_abs_with_nominal goal)
+      obj_aux n (replace_pi_abs_with_nominal goal)
     else
       let context_search () =
         not (Context.is_empty goal.context) &&
-          metaterm_aux (n-1) (obj_to_member goal)
+          metaterm_aux n (obj_to_member goal)
       in
       let backchain () =
         clause_aux n goal.context goal.term
       in
         context_search () || backchain ()
-        
+
   and metaterm_aux n goal =
     if hyps |> List.exists (try_meta_right_permute_unify goal) then
       true
     else
-      let support = metaterm_support goal in
-        match goal with
-          | True -> true
-          | Eq(left, right) -> try_right_unify left right
-          | Or(left, right) -> metaterm_aux n left || metaterm_aux n right
-          | And(left, right) -> metaterm_aux n left && metaterm_aux n right
-          | Binding(Exists, bindings, body) ->
-              let term = freshen_nameless_bindings ~support bindings body in
-                metaterm_aux n term
-          | Binding(Nabla, [id], body) ->
-              let nominal = fresh_nominal body in
-              let body = replace_metaterm_vars [(id, nominal)] body in
-                metaterm_aux n body
-          | Obj(obj, _) -> obj_aux n obj
-          | Pred(p, _) ->
-              List.exists (try_right_unify p) (filter_preds hyps) ||
-                def_aux n p
-          | _ -> false
+      match goal with
+        | True -> true
+        | Eq(left, right) -> try_right_unify left right
+        | Or(left, right) -> metaterm_aux n left || metaterm_aux n right
+        | And(left, right) -> metaterm_aux n left && metaterm_aux n right
+        | Binding(Exists, bindings, body) ->
+            let support = metaterm_support goal in
+            let term = freshen_nameless_bindings ~support bindings body in
+              metaterm_aux n term
+        | Binding(Nabla, ids, body) ->
+            let body = instantiate_nablas ids body in
+              metaterm_aux n body
+        | Obj(obj, _) -> obj_aux n obj
+        | Pred(p, _) -> def_aux n p
+        | _ -> false
 
   and def_aux n goal =
-    let support = term_support goal in
-    if n = 0 then false else
-      defs |> List.exists
-          (fun (head, body) ->
-             try_with_state
-               (fun () ->
-                  match head with
-                    | Pred(head, _) ->
-                        let head, body =
-                          freshen_nameless_def ~support head body
-                        in
-                          right_unify head goal ;
-                          metaterm_aux (n-1) (normalize body)
-                            
-                    | Binding(Nabla, [id], Pred(head, _)) ->
-                          support |> List.exists
-                            (fun dest ->
-                               try_with_state
-                                 (fun () ->
-                                    let support = List.remove dest support in
-                                    let head = replace_term_vars
-                                      [(id, dest)] head in
-                                    let head, body =
-                                      freshen_nameless_def
-                                        ~support head body
-                                    in
-                                      right_unify head goal ;
-                                      metaterm_aux (n-1) (normalize body)))
-                    | _ -> failwith "Bad head in definition"))
+    if n = 0 then
+      false
+    else
+      unfold_defs ~defs goal |> List.exists (metaterm_aux (n-1))
+          
   in
     metaterm_aux n goal
 
@@ -484,18 +499,19 @@ let apply term args =
   in
   let rec aux term =
     match term with
-      | Binding(Forall, bindings, Binding(Nabla, [var], body)) ->
-          (* TODO: What about nested nablas, they should be distinct *)
+      | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->
           let state = get_bind_state () in
-            support |> List.find_some
-                (fun dest ->
+          let n = List.length nablas in
+            support |> List.permute n |> List.find_some
+                (fun nominals ->
                    try
-                     let support = List.remove dest support in
+                     let support = List.minus support nominals in
                      let raised_body =
                        freshen_nameless_bindings ~support bindings body
                      in
+                     let alist = List.combine nablas nominals in
                      let permuted_body =
-                       replace_metaterm_vars [(var, dest)] raised_body
+                       replace_metaterm_vars alist raised_body
                      in
                        Some (aux permuted_body)
                    with
@@ -534,39 +550,3 @@ let apply term args =
 
   in
     aux term
-
-
-(* Unfold the current goal *)
-let find_as f list =
-  let rec aux list =
-    match list with
-      | x::xs ->
-          begin match f x with
-            | Some y -> y
-            | None -> aux xs
-          end
-      | _ -> raise Not_found
-  in
-    aux list
-      
-let unfold ~used ~defs term =
-  let support = metaterm_support term in
-    match term with
-      | Pred(term, _) ->
-          defs |> find_as
-              (fun (head, body) ->
-                 try
-                   let used, head, body =
-                     match head with
-                       | Pred(p, _) -> used, p, body
-                       | _ -> failwith "Not yet implemented"
-                   in
-                   let head, body =
-                     freshen_nameless_def ~support head body
-                   in
-                     if try_right_unify ~used head term then
-                       Some (normalize body)
-                     else
-                       None
-                 with Failure("Not yet implemented") -> None)
-      | _ -> failwith "Can only unfold definitions"

@@ -1,46 +1,37 @@
-Tait could use more comments and groupings which explain the overall goals
-
+Allow unfold on clauses?
 
 Future
 ======
 
-Make case* which does a single case analysis?
+Allow apply with hyps like
+  forall X T, member (of X T) L -> forall T', {L |- of X T'} -> T =
+  T'.
+  How to handle nested nablas then?
 
-Make apply* which doesn't trigger case analysis?
+Get David's proof to go through properly
 
 Add more backtracking to search?
   Then remove many asserts from examples
+  How to deal with metavariables during search that become bound while
+    unfolding defs?
 
 Allow 'apply' to use 'with' and specify instantiations?
 
-split should work on n-ary conjunctions
+Get definitions to work with multiple nablas?
 
-Should meta_right_unify track used variables?
+split should work on n-ary conjunctions
 
 Clean up case-analysis tests so they are easy to read and write like
 the search tests?
 
 Clean up similarities between replace_metaterm_vars and normalize_binders
 
-Make a seperate type for (id * term) list?
-
-Have "unfold" do the work of "split" ?
-  Support unfold on lambda-prolog predicates
-  Support unfold for nabla in the head
-
-Make a reflist extension like in extlib?
-
 Find a way of handling undo state so that I don't have to remember to
   call it each time I start a tactic
 
-Abstract out List.flatten (List.map collect_terms ...) ?
-
-Support "when T = abs S R." or "when T = abs _ _". in order to
-distinguish cases. Try using this in pcf example?
-
-Support tac1;tac2 where tac2 applies to all subgoals of tac1
-
-Allow naming of hypotheses
+Change tactics to be first class and implement tacticals?
+  Allow naming of hypotheses
+  Support tac1;tac2 where tac2 applies to all subgoals of tac1
 
 Add an apply tactic that works backwards like in coq?
 
@@ -48,11 +39,11 @@ Display new hypotheses in future subgoals? (subgoal 2 is : {...} -> ...)
   
 Do we have to consider logic variables in the context during search?
 
+Support unfold on lprolog predicates?
+
 
 Larger or longer term issues
 ============================
-Remove duplication between case analysis and searching?
-
 Use type information from sig files?
 
 Change OMakefile so exceptions print full stack trace? Is there a way
@@ -77,3 +68,4 @@ How to deal with logic variables at the top level
   Would also require fixing our issues with timestamps
   This might be best to leave unsupported
   Fix timestamp bug in unify that David has a test for
+  Would also search underneath forall

@@ -23,7 +23,7 @@ let setup_prover ?clauses:(clauses=[]) ?defs:(defs=[])
   full_reset_prover () ;
   add_clauses clauses ;
   List.iter add_def defs ;
-  if goal <> "" then Prover.sequent.goal <- parse_metaterm goal ;
+  if goal <> "" then Prover.sequent.goal <- freshen goal ;
   Prover.lemmas :=
     List.map (fun (name,body) -> (name, parse_metaterm body)) lemmas
 
@@ -45,7 +45,6 @@ let tests =
         (fun () ->
            setup_prover ()
              ~goal:"forall L, foo n1 L" ;
-           sequent.goal <- make_nominals ["n1"] sequent.goal ;
 
            intros () ;
            assert_goal "foo n1 (L n1)"

@@ -131,12 +131,6 @@ let rec filter_objs ts =
     | Obj(obj, _)::rest -> obj::(filter_objs rest)
     | _::rest -> filter_objs rest
 
-let rec filter_preds ts =
-  match ts with
-    | [] -> []
-    | Pred(p, _)::rest -> p::(filter_preds rest)
-    | _::rest -> filter_preds rest
-
 let term_to_obj t =
   match t with
     | Obj(obj, _) -> obj
@@ -344,6 +338,11 @@ let normalize term =
   term
   |> map_on_objs normalize_obj
   |> normalize_binders []
+
+let instantiate_nablas ids body =
+  let nominals = fresh_nominals (List.length ids) body in
+  let alist = List.combine ids nominals in
+    replace_metaterm_vars alist body
 
 (* Pretty printing *)
 

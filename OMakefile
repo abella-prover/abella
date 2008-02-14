@@ -1,5 +1,4 @@
-#UPLOAD_SITE = "agacek@bhoop.cs.umn.edu:/project/gopalan/abella"
-UPLOAD_SITE = "agacek@bhoop.cs.umn.edu:/home/grad01/agacek/.www/abella"
+UPLOAD_SITE = "agacek@bhoop.cs.umn.edu:/web/research03/abella.cs.umn.edu"
 
 VERSION = 1.0
 

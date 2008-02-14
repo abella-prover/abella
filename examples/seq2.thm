@@ -115,7 +115,8 @@ induction on 1. intros. case H1.
   search.
   apply perm_member to H3 H2. search.
   apply IH to H3 H2. apply IH to H4 H2. search.
-  apply IH to H3 _. search.
+  assert perm (A :: L1) (A :: L2).
+    apply IH to H3 H4. search.
   apply IH to H3 H2. search.
   apply IH to H3 H2. search.
   apply IH to H4 H2. search.

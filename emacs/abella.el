@@ -62,14 +62,18 @@
   (interactive)
   (backward-char 1)
   (abella-backward-command-rec)
-  (forward-char 1))
+  (if (not (bobp))
+    (forward-char 1)))
 
 (defun abella-backward-command-rec ()
   (interactive)
   (while (search-backward "%" (point-at-bol) t))
   (if (not (search-backward "." (point-at-bol) t))
-      (progn (end-of-line 0)
-             (abella-backward-command-rec))))
+      (progn
+        (beginning-of-line 1)
+        (if (not (bobp))
+            (progn (end-of-line 0)
+                   (abella-backward-command-rec))))))
 
 (defun abella-previous-command-send ()
   (interactive)

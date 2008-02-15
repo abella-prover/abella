@@ -47,17 +47,17 @@ let tests =
       
       "Print smaller restricted object" >::
         (fun () ->
-           let t = apply_restriction (Smaller 1) a in
+           let t = set_restriction (Smaller 1) a in
              assert_pprint_equal "{A}*" t) ;
       
       "Print equal restricted object" >::
         (fun () ->
-           let t = apply_restriction (Equal 1) a in
+           let t = set_restriction (Equal 1) a in
              assert_pprint_equal "{A}@" t) ;
 
       "Print second smaller restricted object" >::
         (fun () ->
-           let t = apply_restriction (Smaller 2) a in
+           let t = set_restriction (Smaller 2) a in
              assert_pprint_equal "{A}**" t) ;
       
       "Print OR" >::

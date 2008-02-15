@@ -142,11 +142,11 @@ let term_to_restriction t =
     | Pred(_, r) -> r
     | _ -> Irrelevant
         
-let apply_restriction r t =
+let set_restriction r t =
   match t with
     | Obj(obj, _) -> Obj(obj, r)
     | Pred(p, _) -> Pred(p, r)
-    | _ -> failwith "Attempting to apply restriction to non-object"
+    | _ -> failwith "Attempting to set restriction to non-object"
 
 let reduce_restriction r =
   match r with

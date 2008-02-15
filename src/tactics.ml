@@ -328,13 +328,13 @@ let case ~used ~clauses ~defs ~global_support term =
 
 (* Induction *)
 
-let rec apply_restriction_at res stmt arg =
+let rec set_restriction_at res stmt arg =
   match stmt with
     | Arrow(left, right) ->
         if arg = 1 then
-          Arrow(apply_restriction res left, right)
+          Arrow(set_restriction res left, right)
         else
-          Arrow(left, apply_restriction_at res right (arg-1))
+          Arrow(left, set_restriction_at res right (arg-1))
     | _ -> failwith "Not enough implications in induction"
 
 let induction ind_arg ind_num stmt =
@@ -347,8 +347,8 @@ let induction ind_arg ind_num stmt =
           let (ih, goal) = aux body in
             (nabla bindings ih, nabla bindings goal)
       | term ->
-          let ih = apply_restriction_at (Smaller ind_num) term ind_arg in
-          let goal = apply_restriction_at (Equal ind_num) term ind_arg in
+          let ih = set_restriction_at (Smaller ind_num) term ind_arg in
+          let goal = set_restriction_at (Equal ind_num) term ind_arg in
             (ih, goal)
   in
     aux stmt

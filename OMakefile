@@ -38,6 +38,7 @@ abella-$(VERSION).tar.gz:
     rm -f abella-$(VERSION).tar.gz
     mv dist abella
     tar c abella | gzip - > abella-$(VERSION).tar.gz
+    cmd /c chmod 664 abella-$(VERSION).tar.gz   # Set cygwin modes
     rm -rf abella
 
 abella-$(VERSION).zip: test theorems
@@ -49,6 +50,7 @@ abella-$(VERSION).zip: test theorems
     rm -f abella-$(VERSION).zip
     mv dist abella
     zip -r abella-$(VERSION).zip abella
+    cmd /c chmod 664 abella-$(VERSION).zip   # Set cygwin modes
     rm -rf abella
 
 version.html:

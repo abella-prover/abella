@@ -31,33 +31,34 @@ BuildDist() =
     mkdir dist/emacs
     cp emacs/* dist/emacs
 
-abella.tar.gz: test theorems
+abella-$(VERSION).tar.gz:
     BuildDist()
     make -C dist
     BuildDist()
-    rm -f abella.tar.gz
+    rm -f abella-$(VERSION).tar.gz
     mv dist abella
-    tar c abella | gzip - > abella.tar.gz
+    tar c abella | gzip - > abella-$(VERSION).tar.gz
     rm -rf abella
 
-abella.zip: test theorems
+abella-$(VERSION).zip: test theorems
     BuildDist()
     make -C dist
     mv dist/abella.exe .
     BuildDist()
     mv abella.exe dist/
-    rm -f abella.zip
+    rm -f abella-$(VERSION).zip
     mv dist abella
-    zip -r abella.zip abella
+    zip -r abella-$(VERSION).zip abella
     rm -rf abella
 
 version.html:
     fprint(version.html, $(VERSION))
 
 .PHONY: upload
-upload: abella.tar.gz abella.zip version.html
-    scp abella.zip abella.tar.gz version.html $(UPLOAD_SITE)
-
+upload: abella-$(VERSION).tar.gz abella-$(VERSION).zip version.html
+    scp version.html $(UPLOAD_SITE)
+    scp abella-$(VERSION).zip abella-$(VERSION).tar.gz \
+        $(UPLOAD_SITE)/distributions
 
 
 ################################################

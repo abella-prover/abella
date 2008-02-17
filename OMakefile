@@ -36,7 +36,7 @@ abella-$(VERSION).tar.gz:
     BuildDist()
     rm -f abella-$(VERSION).tar.gz
     mv dist abella
-    tar c abella | gzip - > abella-$(VERSION).tar.gz
+    tar c --mode=664 abella | gzip - > abella-$(VERSION).tar.gz
     cmd /c chmod 664 abella-$(VERSION).tar.gz   # Set cygwin modes
     rm -rf abella
 
@@ -68,4 +68,4 @@ upload: abella-$(VERSION).tar.gz abella-$(VERSION).zip version.html
 
 .PHONY: clean
 clean:
-   rm $(filter-proper-targets $(ls R, .))
+    rm $(filter-proper-targets $(ls R, .))

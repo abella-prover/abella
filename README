@@ -14,8 +14,9 @@ Quick Start
      
   3. Consult with the corresponding thm files (e.g. examples/eval.thm)
      for examples of theorems and their proofs. Type in the examples
-     by hand or run them in batch mode using the -f flag. Most thm
-     files also have a short description of what is being proven.
+     by hand or use the included emacs mode to step through the
+     proofs. Most thm files also have a short description of what is
+     being proven.
 
 
 More Information

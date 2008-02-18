@@ -13,6 +13,7 @@
 (defun make-regex (&rest args)
   (concat "\\<" (regexp-opt args) "\\>"))
 
+(require 'font-lock)
 (defvar lprolog-mod-font-lock-keywords
   (list
    (cons (make-regex "false" "true") font-lock-constant-face)

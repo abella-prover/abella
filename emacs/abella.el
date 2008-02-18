@@ -11,6 +11,7 @@
 (defun make-regex (&rest args)
   (concat "\\<" (regexp-opt args) "\\>"))
 
+(require 'font-lock)
 (defvar abella-font-lock-keywords
   (list
     (cons (make-regex "Define" "Theorem \\W*" "Axiom") font-lock-keyword-face)

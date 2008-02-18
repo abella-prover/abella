@@ -36,8 +36,8 @@ abella-$(VERSION).tar.gz: test theorems
     BuildDist()
     rm -f abella-$(VERSION).tar.gz
     mv dist abella
-    bash -c "/usr/bin/find abella -type d | xargs chmod 775"
-    bash -c "/usr/bin/find abella -type f | xargs chmod 664"
+    bash -c "/usr/bin/find abella -type d | xargs chmod 755"
+    bash -c "/usr/bin/find abella -type f | xargs chmod 644"
     tar c abella | gzip - > abella-$(VERSION).tar.gz
     bash -c "chmod 664 abella-$(VERSION).tar.gz"   # Set cygwin modes
     rm -rf abella

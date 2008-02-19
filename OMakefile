@@ -57,16 +57,21 @@ abella-$(VERSION).zip: test theorems
 version.html:
     fprint(version.html, $(VERSION))
 
-confirm(dummy) =
-   println(This command will release version $(VERSION) of Abella)
-   print(Confirm this action by repeating this version number: )
-   RESULT = $(input-line $(stdin))
-   if $(not $(mem $(RESULT), $(VERSION)))
-       exit 1
 
-.PHONY: upload
-upload: abella-$(VERSION).tar.gz abella-$(VERSION).zip version.html
-    confirm("")
+.PHONY: upload real-upload
+upload:
+    section rule
+        println(This command will release version $(VERSION) of Abella)
+        print(Confirm this action by repeating this version number: )
+        RESULT = $(input-line $(stdin))
+        if $(mem $(RESULT), $(VERSION))
+            upload: real-upload
+                println(Release completed)
+        else
+            upload:
+                exit 1
+
+real-upload: abella-$(VERSION).tar.gz abella-$(VERSION).zip version.html
     scp version.html $(UPLOAD_SITE)
     scp abella-$(VERSION).zip abella-$(VERSION).tar.gz \
         $(UPLOAD_SITE)/distributions

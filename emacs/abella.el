@@ -112,6 +112,7 @@
   (use-local-map abella-mode-keymap)
   (set (make-local-variable 'font-lock-defaults)
        '(abella-font-lock-keywords))
+  (set (make-local-variable 'comment-start) "%")
 ;  (set (make-local-variable 'indent-line-function) 'abella-indent-line)
   (setq major-mode 'abella-mode)
   (setq mode-name "Abella")

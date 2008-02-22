@@ -71,6 +71,7 @@
   (set-syntax-table lprolog-mod-mode-syntax-table)
   (set (make-local-variable 'font-lock-defaults)
        '(lprolog-mod-font-lock-keywords))
+  (set (make-local-variable 'comment-start) "%")
   (set (make-local-variable 'indent-line-function) 'lprolog-mod-indent-line)
   (setq major-mode 'lprolog-mod-mode)
   (setq mode-name "Lambda Prolog module")

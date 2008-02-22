@@ -148,12 +148,8 @@ induction on 2. intros. case H2.
 Define of_ctx nil.
 Define nabla x, of_ctx (of x A :: L) := {type A} /\ of_ctx L.
 
-% term_ctx defines the context of "term M" judgments
-Define term_ctx nil.
-Define nabla x, term_ctx (term x :: L) := term_ctx L.
-
-% A term is closed if it is a valid term in an empty context
-Define closed M := {term M}.
+% A term is closed if it it can be typed in the empty context
+Define closed M := exists A, {of M A}.
 
 Define nabla x, fresh x M.
 
@@ -173,19 +169,6 @@ induction on 1. intros. case H1.
   search.
   apply IH to H2. apply IH to H3. search.
 
-Theorem absurd_member_type_term_ctx : forall L A,
-  member (type A) L -> term_ctx L -> false.
-induction on 2. intros. case H2.
-  case H1.
-  case H1. apply IH to H4 H3.
-
-Theorem type_ignores_term_ctx : forall L A,
-  term_ctx L -> {L |- type A} -> {type A}.
-induction on 2. intros. case H2.
-  apply absurd_member_type_term_ctx to H3 H1.
-  search.
-  apply IH to H1 H3. apply IH to H1 H4. search.
-
 Theorem absurd_member_type_of_ctx : forall L A,
   member (type A) L -> of_ctx L -> false.
 induction on 2. intros. case H2.
@@ -199,43 +182,23 @@ induction on 2. intros. case H2.
   search.
   apply IH to H1 H3. apply IH to H1 H4. search.
 
-% A term cannot contain a nominal variable which does not appear in L
-Theorem prune_term : forall L R, nabla x,
-  term_ctx L -> {L |- term (R x)} -> exists M, R = (x\ M).
+% A term cannot contain a nominal variable which does not appear in
+% its typing context L.
+Theorem prune_of : forall L R A, nabla x,
+  of_ctx L -> {L |- of (R x) (A x)} -> exists M, R = (x\ M).
 induction on 2. intros. case H2.
   apply member_fresh to H3 _. case H4. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
-  apply IH to _ H4.
-    apply type_ignores_term_ctx to H1 H3. apply prune_type to H5.
-      search.
+  apply type_ignores_of_ctx to H1 H3. apply prune_type to H5.
+    apply IH to _ H4. search.
 
 % Closed terms cannot contain any nominal constants
 Theorem prune_closed : forall R, nabla x,
   closed (R x) -> exists M, R = (x\ M).
-intros. case H1. apply prune_term to _ H2. search.
-
-% This judgment aligns of_ctx with term_ctx
-Define dual_ctxs nil nil.
-Define nabla x, dual_ctxs (of x A :: L) (term x :: K) := dual_ctxs L K.
-
-Theorem member_dual_ctxs : forall L K M A,
-  dual_ctxs L K -> member (of M A) L -> member (term M) K.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    search.
-    apply IH to H3 H4. search.
-
-Theorem of_term_ext : forall L K M A,
-  of_ctx L -> {L |- of M A} -> dual_ctxs L K -> {K |- term M}.
-induction on 2. intros. case H2.
-  apply member_dual_ctxs to H3 H4. search.
-  apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
-  apply type_ignores_of_ctx to H1 H4.
-    apply IH to _ H5 _. search.
+intros. case H1. apply prune_of to _ H2. search.
 
 Theorem reduce_closed : forall M A, reduce M A -> closed M.
-intros. apply reduce_of to H1. apply of_term_ext to _ H2 _. search.
+intros. apply reduce_of to H1. search.
 
 Theorem prune_reduce : forall R A, nabla x,
   reduce (R x) A -> exists M, R = (x\ M).

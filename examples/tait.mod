@@ -1,9 +1,6 @@
 type top.
 type (arrow A B) :- type A, type B.
 
-term (app M N) :- term M, term N.
-term (abs A R) :- type A, pi x\ term x => term (R x).
-
 value (abs A R).
 
 of (app M N) B :- of M (arrow A B), of N A.

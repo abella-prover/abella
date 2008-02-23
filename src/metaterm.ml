@@ -160,6 +160,15 @@ let add_to_context elt obj =
 let add_context ctx obj =
   {obj with context = Context.union ctx obj.context}
 
+let get_def_head (term, _) =
+  let rec aux term =
+    match term with
+      | Pred(p, _) -> get_term_head p
+      | Binding(_, _, body) -> aux body
+      | _ -> failwith "Bad head in meta-clause"
+  in
+    aux term
+
 (* Variable Renaming *)
 
 let fresh_alist ~used ~tag ids =

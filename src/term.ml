@@ -445,3 +445,14 @@ let find_var_refs tag ts =
         if v.tag = tag && not (List.mem t l) then t::l else l
   in
     List.fold_left fv [] (List.map deep_norm ts)
+
+let get_term_head t =
+  let rec aux t =
+    match observe t with
+      | Var(v) -> v.name
+      | DB _ -> failwith "Term head has no name"
+      | Lam(i, t) -> aux t
+      | App(t, ts) -> aux t
+      | Susp _ | Ptr _ -> assert false
+  in
+    aux t    

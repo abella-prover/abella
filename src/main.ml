@@ -39,8 +39,28 @@ let warn_if_free_vars free_vars =
     printf "\n\tWarning! Potential variables treated as constants: %s\n\n"
       (String.concat ", " free_vars)
 
+let warn_if_def_not_defined term =
+  let def_heads = List.map get_def_head !defs in
+  let rec aux term =
+    match term with
+      | True | False | Eq _ | Obj _ -> ()
+      | Arrow(a, b) -> max (aux a) (aux b)
+      | Binding(_, _, body) -> aux body
+      | Or(a, b) -> aux a; aux b
+      | And(a, b) -> aux a; aux b
+      | Pred(pred, _) ->
+          let head = Term.get_term_head pred in
+            if not (List.mem head def_heads) then begin
+              printf "\n\tWarning! %s is not defined." head ;
+              printf "\n\tPerhaps it is mispelt or you meant {%s}.\n\n"
+                (Term.term_to_string pred)
+            end
+  in
+    aux term
+
 let check_theorem thm =
   ensure_no_restrictions thm ;
+  warn_if_def_not_defined thm ;
   let free_vars = Tactics.free_capital_var_names thm in
     warn_if_free_vars free_vars
 
@@ -76,7 +96,10 @@ let rec process_proof name ~interactive lexbuf =
           | Cut(h, arg) -> cut h arg
           | Inst(h, n, t) -> inst h n t
           | Case(str, keep) -> case ~keep str
-          | Assert(t) -> ensure_no_restrictions t ; assert_hyp t
+          | Assert(t) ->
+              ensure_no_restrictions t ;
+              warn_if_def_not_defined t ;
+              assert_hyp t
           | Exists(t) -> exists t
           | Clear(hs) -> clear hs
           | Search -> search ~interactive ()

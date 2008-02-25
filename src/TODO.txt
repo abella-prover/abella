@@ -5,6 +5,7 @@ Future
 Allow 'apply' to use 'with' and specify instantiations?
   How to prevent with using nominals that get used in nabla?
   Does this happen naturally?
+  Should also allow with to specify nabla values?
 
 Allow apply with hyps like
   forall X T, member (of X T) L -> forall T', {L |- of X T'} -> T =

@@ -243,12 +243,15 @@ let remove_inductive_hypotheses hyps =
     hyps
           
 let search_goal goal =
-  Tactics.search
-    ~depth:10
-    ~hyps:(List.map snd (remove_inductive_hypotheses sequent.hyps))
-    ~clauses:!clauses
-    ~defs:!defs
-    goal
+  let search_depth n =
+    Tactics.search
+      ~depth:n
+      ~hyps:(List.map snd (remove_inductive_hypotheses sequent.hyps))
+      ~clauses:!clauses
+      ~defs:!defs
+      goal
+  in
+    List.exists search_depth (List.range 1 10)
 
 let search ?(interactive=true) () =
   save_undo_state () ;

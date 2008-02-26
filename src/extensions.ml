@@ -159,5 +159,11 @@ module List = struct
             (flatten_map (distribute head) (permute (n-1) tail))
             @ (permute n tail)
 
+
+  let rec range a b =
+    if a > b then
+      []
+    else
+      a :: range (a+1) b
 end
 

@@ -36,11 +36,13 @@ let ensure_no_restrictions term =
       
 let warn_if_free_vars free_vars =
   if free_vars <> [] then
-    printf "\n\tWarning! Potential variables treated as constants: %s\n\n"
+    printf "\n\tWarning: Potential variables treated as constants: %s\n\n"
       (String.concat ", " free_vars)
 
-let warn_if_def_not_defined term =
-  let def_heads = List.map get_def_head !defs in
+let warn_def_usage ?(ignore=[]) term =
+  let def_arities =
+    List.map (fun d -> (def_head d, def_arity d)) !defs
+  in
   let rec aux term =
     match term with
       | True | False | Eq _ | Obj _ -> ()
@@ -49,18 +51,25 @@ let warn_if_def_not_defined term =
       | Or(a, b) -> aux a; aux b
       | And(a, b) -> aux a; aux b
       | Pred(pred, _) ->
-          let head = Term.get_term_head pred in
-            if not (List.mem head def_heads) then begin
-              printf "\n\tWarning! %s is not defined." head ;
-              printf "\n\tPerhaps it is mispelt or you meant {%s}.\n\n"
-                (Term.term_to_string pred)
+          let head = Term.term_head pred in
+          let count = Term.arg_count pred in
+            if not (List.mem head ignore) then begin
+              if not (List.mem_assoc head def_arities) then begin
+                printf "\n\tWarning: %s is not defined." head ;
+                printf "\n\tPerhaps it is mispelt or you meant {%s}.\n\n"
+                  (Term.term_to_string pred)
+              end
+              else if not (List.mem (head, count) def_arities) then begin
+                printf "\n\tWarning: %s is not defined on %d arguments.\n\n"
+                  head count
+              end
             end
   in
     aux term
 
 let check_theorem thm =
   ensure_no_restrictions thm ;
-  warn_if_def_not_defined thm ;
+  warn_def_usage thm ;
   let free_vars = Tactics.free_capital_var_names thm in
     warn_if_free_vars free_vars
 
@@ -70,7 +79,8 @@ let check_def (head, body) =
   let head_vars = Tactics.free_capital_var_names head in
   let body_vars = Tactics.free_capital_var_names body in
   let free_vars = List.remove_all (fun x -> List.mem x head_vars) body_vars in
-    warn_if_free_vars free_vars
+    warn_if_free_vars free_vars ;
+    warn_def_usage ~ignore:[def_head (head, body)] body
 
 let rec process_proof name ~interactive lexbuf =
   let finished = ref false in
@@ -98,7 +108,7 @@ let rec process_proof name ~interactive lexbuf =
           | Case(str, keep) -> case ~keep str
           | Assert(t) ->
               ensure_no_restrictions t ;
-              warn_if_def_not_defined t ;
+              warn_def_usage t ;
               assert_hyp t
           | Exists(t) -> exists t
           | Clear(hs) -> clear hs

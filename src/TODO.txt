@@ -2,9 +2,6 @@
 Future
 ======
 
-Add some basic arity checking so that if ctx is defined on two
-  arguments it gives a warning when applied to fewer or more.
-
 Allow 'apply' to use 'with' and specify instantiations?
   How to prevent with using nominals that get used in nabla?
   Does this happen naturally?

@@ -446,13 +446,24 @@ let find_var_refs tag ts =
   in
     List.fold_left fv [] (List.map deep_norm ts)
 
-let get_term_head t =
+let term_head t =
   let rec aux t =
     match observe t with
       | Var(v) -> v.name
       | DB _ -> failwith "Term head has no name"
       | Lam(i, t) -> aux t
       | App(t, ts) -> aux t
+      | Susp _ | Ptr _ -> assert false
+  in
+    aux t    
+
+let arg_count t =
+  let rec aux t =
+    match observe t with
+      | Var _ -> 0
+      | DB _ -> 0
+      | Lam(i, t) -> aux t
+      | App(t, ts) -> (aux t) + List.length ts
       | Susp _ | Ptr _ -> assert false
   in
     aux t    

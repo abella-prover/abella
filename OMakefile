@@ -1,6 +1,6 @@
 UPLOAD_SITE = "agacek@bhoop.cs.umn.edu:/web/research03/abella.cs.umn.edu"
 
-VERSION = 1.0
+VERSION = 1.0.1
 
 .SUBDIRS: src examples
 

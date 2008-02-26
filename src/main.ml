@@ -53,16 +53,16 @@ let warn_def_usage ?(ignore=[]) term =
       | Pred(pred, _) ->
           let head = Term.term_head pred in
           let count = Term.arg_count pred in
-            if not (List.mem head ignore) then begin
-              if not (List.mem_assoc head def_arities) then begin
-                printf "\n\tWarning: %s is not defined." head ;
-                printf "\n\tPerhaps it is mispelt or you meant {%s}.\n\n"
-                  (Term.term_to_string pred)
-              end
-              else if not (List.mem (head, count) def_arities) then begin
-                printf "\n\tWarning: %s is not defined on %d arguments.\n\n"
-                  head count
-              end
+            if not (List.mem_assoc head def_arities ||
+                      List.mem_assoc head ignore) then begin
+              printf "\n\tWarning: %s is not defined." head ;
+              printf "\n\tPerhaps it is mispelt or you meant {%s}.\n\n"
+                (Term.term_to_string pred)
+            end
+            else if not (List.mem (head, count) def_arities ||
+                           List.mem (head, count) ignore) then begin
+              printf "\n\tWarning: %s is not defined on %d arguments.\n\n"
+                head count
             end
   in
     aux term
@@ -76,11 +76,13 @@ let check_theorem thm =
 let check_def (head, body) =
   ensure_no_restrictions head ;
   ensure_no_restrictions body ;
+  let def = (head, body) in
   let head_vars = Tactics.free_capital_var_names head in
   let body_vars = Tactics.free_capital_var_names body in
   let free_vars = List.remove_all (fun x -> List.mem x head_vars) body_vars in
     warn_if_free_vars free_vars ;
-    warn_def_usage ~ignore:[def_head (head, body)] body
+    warn_def_usage ~ignore:[(def_head def, def_arity def)] body
+
 
 let rec process_proof name ~interactive lexbuf =
   let finished = ref false in

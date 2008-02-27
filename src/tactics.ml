@@ -357,21 +357,25 @@ let induction ind_arg ind_num stmt =
 (* Unfold the current goal *)
 
 let unfold_defs ~defs goal =
+  let initial_bind_state = get_bind_state () in
   let support = term_support goal in
+  let result =
     defs |> List.flatten_map
         (fun (head, body) ->
            match head with
              | Pred(head, _) ->
+                 let () = set_bind_state initial_bind_state in
                  let head, body =
                    freshen_nameless_def ~support head body
                  in
                    if try_right_unify head goal then
-                     [normalize body]
+                     [(get_bind_state (), normalize body)]
                    else
                      []
              | Binding(Nabla, [id], Pred(head, _)) ->
                  support |> List.flatten_map
                      (fun nominal ->
+                        let () = set_bind_state initial_bind_state in
                         let support = List.remove nominal support in
                         let alist = [(id, nominal)] in
                         let head = replace_term_vars alist head in
@@ -379,16 +383,19 @@ let unfold_defs ~defs goal =
                           freshen_nameless_def ~support head body
                         in
                           if try_right_unify head goal then
-                            [normalize body]
+                            [(get_bind_state (), normalize body)]
                           else
                             [])
              | _ -> failwith "Bad head in definition")
+  in
+    set_bind_state initial_bind_state ;
+    result
 
 let unfold ~defs goal =
   match goal with
     | Pred(goal, _) ->
         begin match unfold_defs ~defs goal with
-          | first::_ -> first
+          | (bind_state, body)::_ -> set_bind_state bind_state; body
           | [] -> failwith "No matching definitions"
         end
     | _ -> failwith "Can only unfold definitions"
@@ -463,7 +470,10 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
     if n = 0 then
       false
     else
-      unfold_defs ~defs goal |> List.exists (metaterm_aux (n-1))
+      unfold_defs ~defs goal |> List.exists
+          (fun (state, body) ->
+             set_bind_state state;
+             metaterm_aux (n-1) body)
           
   in
     metaterm_aux n goal

@@ -434,4 +434,15 @@ let tests =
              assert_term_pprint_equal "Y" y ;
              assert_term_pprint_equal "Z" z) ;
 
+      (* For this test, the system just guess at a unifier *)
+      "X^0 Y^0 = a^0 b^0 - guess" >::
+        (fun () ->
+           let a = const ~ts:0 "a" in
+           let b = const ~ts:0 "b" in
+           let x = var Logic "X" 0 in
+           let y = var Logic "Y" 0 in
+             right_unify (app x [y]) (app a [b]) ;
+             assert_term_pprint_equal "a" x ;
+             assert_term_pprint_equal "b" y) ;
+
     ]

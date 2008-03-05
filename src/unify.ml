@@ -623,6 +623,17 @@ and reverse_bind t1 t2 =
           end
     | _ -> false
 
+(* If we are unifying on the right and its not llambda then we can at
+   least take a guess. For example with ?A ?B = C D we could guess
+   ?A = C and ?B = D. *)
+and not_llambda_guess h1 a1 h2 a2 =
+  (* Guessing is only valid on the right side *)
+  if constant_like = Eigen then begin
+    unify h1 h2 ;
+    unify_list a1 a2
+  end else
+    raise (UnifyError NotLLambda)
+
 (** The main unification procedure.
   * Either succeeds and realizes the unification substitutions as side effects
   * or raises an exception to indicate nonunifiability or to signal
@@ -665,6 +676,15 @@ and unify t1 t2 =
               | false, true -> not_llambda_bind h2 v2.ts a2 t1
               | _ -> unify_app_term h1 a1 t1 t2
             end
+        | Var v1, Var v2 when variable v1.tag || variable v2.tag ->
+            if (variable v1.tag &&
+              check_flex_args (List.map hnorm a1) v1.ts) ||
+              (variable v2.tag &&
+                 check_flex_args (List.map hnorm a2) v2.ts) then
+                unify_app_term h1 a1 t1 t2
+            else
+              not_llambda_guess h1 a1 h2 a2
+            
         | _ -> unify_app_term h1 a1 t1 t2
       end
         

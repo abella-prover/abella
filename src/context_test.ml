@@ -108,6 +108,14 @@ let tests =
            assert_term_pprint_equal
              "A :: B :: L" (context_to_term ctx)) ;
 
+    "Context to term with context variable raised" >::
+      (fun () ->
+         let l = Term.var Term.Eigen "L" 0 in
+         let n = Term.nominal_var "n" in
+         let ctx = add (Term.app l [n]) empty in
+           assert_term_pprint_equal
+             "L n" (context_to_term ctx)) ;
+
     "Normalize should remove duplicates" >::
       (fun () ->
          let a = Term.const "A" in

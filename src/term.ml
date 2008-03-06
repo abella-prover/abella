@@ -260,9 +260,10 @@ let term_to_name t =
 let term_to_pair t =
   (term_to_name t, t)
 
-let is_eigen t =
+let rec has_eigen_head t =
   match observe t with
     | Var v -> v.tag = Eigen
+    | App(h, _) -> has_eigen_head h
     | _ -> false
 
 (* Normalization *)

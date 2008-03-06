@@ -89,7 +89,7 @@ let context_to_term ctx =
   let rec aux ctx =
     match ctx with
       | [] -> const "nil"
-      | [last] when is_eigen last -> last
+      | [last] when has_eigen_head last -> last
       | head::tail -> app cons [head; aux tail]
   in
     aux (List.rev ctx)

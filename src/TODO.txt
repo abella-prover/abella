@@ -18,6 +18,8 @@ Add more backtracking to search?
   Then remove many asserts from examples
   How to deal with metavariables during search that become bound while
     unfolding defs?
+  How to deal with delaying non-llambda unification problems
+    See randy's CR proof
 
 Get definitions to work with multiple nablas?
 

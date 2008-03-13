@@ -7,9 +7,6 @@ Allow 'apply' to use 'with' and specify instantiations?
   Does this happen naturally?
   Should also allow with to specify nabla values?
 
-Deal with delaying non-llambda unification problems
-  See randy's CR proof
-
 Allow apply with hyps like
   forall X T, member (of X T) L -> forall T', {L |- of X T'} -> T =
   T'.

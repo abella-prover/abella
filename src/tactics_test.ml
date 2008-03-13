@@ -856,6 +856,33 @@ let search_tests =
              ~expect:true
         );
 
+      "Should delay non-llambda pairs for clauses - simple" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{pr t1 (abs t3)}"; "{pr t2 t4}"]
+             ~goal:"{pr (app t1 t2) (t3 t4)}"
+             ~clauses:"pr (app A B) (C D) :- pr A (abs C), pr B D."
+             ~expect:true
+        );
+
+      "Should delay non-llambda pairs for clauses - complex" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{pr t1 (abs (t3 t4))}"; "{pr t2 (t5 t6)}"]
+             ~goal:"{pr (app t1 t2) (t3 t4 (t5 t6))}"
+             ~clauses:"pr (app A B) (C D) :- pr A (abs C), pr B D."
+             ~expect:true
+        );
+
+      "Should delay non-llambda pairs for defs - simple" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["pr t1 (abs t3)"; "pr t2 t4"]
+             ~goal:"pr (app t1 t2) (t3 t4)"
+             ~defs:"pr (app A B) (C D) := pr A (abs C) /\\ pr B D."
+             ~expect:true
+        );
+
     ]
 
     

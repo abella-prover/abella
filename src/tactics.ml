@@ -368,10 +368,11 @@ let unfold_defs ~defs goal =
                  let head, body =
                    freshen_nameless_def ~support head body
                  in
-                   if try_right_unify head goal then
-                     [(get_bind_state (), normalize body)]
-                   else
-                     []
+                   begin match try_right_unify_cpairs head goal with
+                     | None -> []
+                     | Some cpairs ->
+                         [(get_bind_state (), cpairs, normalize body)]
+                   end
              | Binding(Nabla, [id], Pred(head, _)) ->
                  support |> List.flatten_map
                      (fun nominal ->
@@ -382,10 +383,10 @@ let unfold_defs ~defs goal =
                         let head, body =
                           freshen_nameless_def ~support head body
                         in
-                          if try_right_unify head goal then
-                            [(get_bind_state (), normalize body)]
-                          else
-                            [])
+                          match try_right_unify_cpairs head goal with
+                            | None -> []
+                            | Some cpairs ->
+                                [(get_bind_state (), cpairs, normalize body)])
              | _ -> failwith "Bad head in definition")
   in
     set_bind_state initial_bind_state ;
@@ -394,10 +395,14 @@ let unfold_defs ~defs goal =
 let unfold ~defs goal =
   match goal with
     | Pred(goal, _) ->
-        begin match unfold_defs ~defs goal with
-          | (bind_state, body)::_ -> set_bind_state bind_state; body
-          | [] -> failwith "No matching definitions"
-        end
+        (* Find the first body without lingering conflict pairs *)
+        let rec select_non_cpair list =
+          match list with
+            | (bind_state, [], body)::_ -> set_bind_state bind_state; body
+            | _::rest -> select_non_cpair rest
+            | [] -> failwith "No matching definitions"
+        in
+          select_non_cpair (unfold_defs ~defs goal)
     | _ -> failwith "Can only unfold definitions"
       
 
@@ -408,6 +413,10 @@ exception SearchSuccess
 let iter_keep_state f list =
   let state = get_bind_state () in
     List.iter (fun x -> f x ; set_bind_state state) list
+
+let try_unify_cpairs cpairs =
+  List.for_all (fun (x,y) -> try_right_unify x y) cpairs
+      
 
 (* Depth is decremented only when unfolding clauses and definitions since
    only these can cause infinite search *)
@@ -426,10 +435,13 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
                let fresh_head, fresh_body =
                  freshen_nameless_clause ~support head body
                in
-                 if try_right_unify fresh_head goal then
-                   obj_aux_conj (n-1)
-                     (List.map (fun t -> {context=context; term=t}) fresh_body)
-                     ~sc)
+                 match try_right_unify_cpairs fresh_head goal with
+                   | None -> ()
+                   | Some cpairs ->
+                       obj_aux_conj (n-1)
+                         (List.map (fun t -> {context=context; term=t})
+                            fresh_body)
+                         ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
       
   and obj_aux n goal ~sc =
     let goal = normalize_obj goal in
@@ -475,10 +487,11 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
     if n = 0 then
       ()
     else
-      unfold_defs ~defs goal |>
-          iter_keep_state (fun (state, body) ->
-                             set_bind_state state ;
-                             metaterm_aux (n-1) body ~sc)
+      unfold_defs ~defs goal |> iter_keep_state
+          (fun (state, cpairs, body) ->
+             set_bind_state state ;
+             metaterm_aux (n-1) body
+               ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
       
   in
     try

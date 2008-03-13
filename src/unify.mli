@@ -39,3 +39,5 @@ val try_with_state : ?default:bool -> (unit -> bool) -> bool
 
 val try_right_unify : ?used:(id * term) list -> term -> term -> bool
 val try_left_unify : ?used:(id * term) list -> term -> term -> bool  
+
+val try_right_unify_cpairs : term -> term -> (term * term) list option

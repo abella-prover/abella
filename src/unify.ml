@@ -37,10 +37,13 @@ type unify_error =
 
 exception UnifyError of unify_error
 
+(* An explicit handler is specified for how to deal with
+   non-llambda conflict pairs *)
 module type Param =
 sig
   val instantiatable : tag
   val constant_like  : tag
+  val handler : term -> term -> unit
 end
 
 module Make (P:Param) =
@@ -623,17 +626,6 @@ and reverse_bind t1 t2 =
           end
     | _ -> false
 
-(* If we are unifying on the right and its not llambda then we can at
-   least take a guess. For example with ?A ?B = C D we could guess
-   ?A = C and ?B = D. *)
-and not_llambda_guess h1 a1 h2 a2 =
-  (* Guessing is only valid on the right side *)
-  if constant_like = Eigen then begin
-    unify h1 h2 ;
-    unify_list a1 a2
-  end else
-    raise (UnifyError NotLLambda)
-
 (** The main unification procedure.
   * Either succeeds and realizes the unification substitutions as side effects
   * or raises an exception to indicate nonunifiability or to signal
@@ -676,6 +668,7 @@ and unify t1 t2 =
               | false, true -> not_llambda_bind h2 v2.ts a2 t1
               | _ -> unify_app_term h1 a1 t1 t2
             end
+              
         | Var v1, Var v2 when variable v1.tag || variable v2.tag ->
             if (variable v1.tag &&
               check_flex_args (List.map hnorm a1) v1.ts) ||
@@ -683,8 +676,9 @@ and unify t1 t2 =
                  check_flex_args (List.map hnorm a2) v2.ts) then
                 unify_app_term h1 a1 t1 t2
             else
-              not_llambda_guess h1 a1 h2 a2
-            
+              (* Not LLambda *)
+              handler t1 t2
+                
         | _ -> unify_app_term h1 a1 t1 t2
       end
         
@@ -707,16 +701,20 @@ let pattern_unify used_names t1 t2 =
 
 end
 
+let standard_handler t1 t2 = raise (UnifyError NotLLambda)
+
 module Right =
   Make (struct
           let instantiatable = Logic
           let constant_like = Eigen
+          let handler = standard_handler
         end)
     
 module Left =
   Make (struct
           let instantiatable = Eigen
           let constant_like = Logic
+          let handler = standard_handler
         end)
 
 let right_unify ?used:(used=[]) t1 t2 =
@@ -750,4 +748,19 @@ let try_left_unify ?used:(used=[]) t1 t2 =
       | UnifyError _ -> set_bind_state state ;
           failwith "Unification error during case analysis"
 
+let try_right_unify_cpairs t1 t2 =
+  let state = get_bind_state () in
+  let cpairs = ref [] in
+  let cpairs_handler x y = cpairs := (x,y)::!cpairs in
+  let module RightCpairs =
+    Make (struct
+            let instantiatable = Logic
+            let constant_like = Eigen
+            let handler = cpairs_handler
+          end)
+  in
+    try
+      RightCpairs.pattern_unify [] t1 t2 ;
+      Some !cpairs
+    with UnifyFailure _ | UnifyError _ -> set_bind_state state ; None
 

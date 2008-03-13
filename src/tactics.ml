@@ -415,8 +415,8 @@ let iter_keep_state f list =
     List.iter (fun x -> f x ; set_bind_state state) list
 
 let try_unify_cpairs cpairs =
-  List.for_all (fun (x,y) -> try_right_unify x y) cpairs
-      
+  List.for_all (curry try_right_unify) cpairs
+
 
 (* Depth is decremented only when unfolding clauses and definitions since
    only these can cause infinite search *)
@@ -430,19 +430,17 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
       ()
     else
       let support = term_support goal in
-        clauses |> iter_keep_state
+      let freshen_clause = curry (freshen_nameless_clause ~support) in
+      let fresh_clauses = List.map freshen_clause clauses in
+      let wrap body = List.map (fun t -> {context=context; term=t}) body in
+        fresh_clauses |> iter_keep_state
             (fun (head, body) ->
-               let fresh_head, fresh_body =
-                 freshen_nameless_clause ~support head body
-               in
-                 match try_right_unify_cpairs fresh_head goal with
-                   | None -> ()
-                   | Some cpairs ->
-                       obj_aux_conj (n-1)
-                         (List.map (fun t -> {context=context; term=t})
-                            fresh_body)
-                         ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
-      
+               match try_right_unify_cpairs head goal with
+                 | None -> ()
+                 | Some cpairs ->
+                     obj_aux_conj (n-1) (wrap body)
+                       ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
+            
   and obj_aux n goal ~sc =
     let goal = normalize_obj goal in
       (* Check hyps for derivability *)

@@ -403,10 +403,6 @@ let unfold ~defs goal =
 
 (* Search *)
 
-let derivable goal hyp =
-  try_right_unify goal.term hyp.term &&
-    Context.subcontext hyp.context goal.context
-
 exception SearchSuccess
 
 let iter_keep_state f list =

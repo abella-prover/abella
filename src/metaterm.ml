@@ -497,3 +497,23 @@ let try_meta_right_permute_unify t1 t2 =
               (fun perm_support_t1 ->
                  let alist = List.combine support_t2_names perm_support_t1 in
                    try_meta_right_unify t1 (replace_metaterm_vars alist t2))
+
+(* Check for derivability between objects under permutations. Need
+   goal.term to unify with hyp.term and also hyp.context subcontext
+   of goal.context. Can assume hyp is ground *)
+let derivable goal hyp =
+  let support_g = obj_support goal in
+  let support_h = obj_support hyp in
+    if List.length support_g < List.length support_h then
+      false
+    else
+      let support_h_names = List.map term_to_name support_h in
+        support_g |> List.permute (List.length support_h)
+          |> List.exists
+              (fun perm_support_g ->
+                 let alist = List.combine support_h_names perm_support_g in
+                   try_right_unify goal.term
+                     (replace_term_vars alist hyp.term) &&
+                     (Context.subcontext
+                        (Context.map (replace_term_vars alist) hyp.context)
+                        goal.context))

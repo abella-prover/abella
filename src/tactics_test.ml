@@ -848,6 +848,14 @@ let search_tests =
              ~expect: true
         );
 
+      "Should permute nominal constants in derivability" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{L, hyp n1 |- foo n2}"]
+             ~goal:"{L, hyp n2, hyp n3 |- foo n2}"
+             ~expect:true
+        );
+
     ]
 
     

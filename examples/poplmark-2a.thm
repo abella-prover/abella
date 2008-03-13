@@ -96,10 +96,7 @@ induction on 1. intros. case H1.
     case H3.
       case H6.
         search.
-        apply absurd_ota to H4.
-      % We use assert since search doesn't yet handle metavariables well
-      assert {step (app E1 E2) (app E1 E')}.
-        search.
+        apply absurd_ota to H4. search.
     search.
   apply IH to H4 H2 H3. search.
 

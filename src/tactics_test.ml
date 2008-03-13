@@ -790,6 +790,14 @@ let search_tests =
              ~expect: true
         );
 
+      "Should undo partial results in favor of overall goal" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["one A"; "one B"; "two B"]
+             ~goal:"exists X, one X /\\ two X"
+             ~expect:true
+        );
+
       "Should raise definitions over support" >::
         (fun () ->
            assert_search ()

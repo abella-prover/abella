@@ -78,9 +78,7 @@ Theorem nstep_app_value : forall M N R,
   {value M} -> {nstep N R} -> {nstep (app M N) (app M R)}.
 induction on 2. intros. case H2.
   search.
-  apply IH to H1 H4.
-    assert {step (app M N) (app M P)}.
-      search.
+  apply IH to H1 H4. search.
 
 Theorem halt_step_forward : forall M N,
   halts M -> {step M N} -> halts N.
@@ -89,9 +87,7 @@ intros. case H1.
 
 Theorem halt_step_backward : forall M N,
   halts N -> {step M N} -> halts M.
-intros. case H1.
-  assert {nstep M V}.
-    search.
+intros. case H1. search.
 
 Theorem of_step_forward : forall M N A,
   {of M A} -> {step M N} -> {of N A}.
@@ -276,8 +272,7 @@ induction on 1. intros. case H1.
       exists MR. split.
         search.
         intros. apply prune_reduce to H10.
-          apply H9 to H10 H11. case H12.
-            clear H10. search.
+          apply H9 to H10 H11. case H12. search.
 
 Theorem subst_preserves_type : forall L M N A,
   of_ctx L -> subst L M N -> {L |- of M A} -> {of N A}.

@@ -407,77 +407,88 @@ let derivable goal hyp =
   try_right_unify goal.term hyp.term &&
     Context.subcontext hyp.context goal.context
 
+exception SearchSuccess
+
+let iter_keep_state f list =
+  let state = get_bind_state () in
+    List.iter (fun x -> f x ; set_bind_state state) list
+
 (* Depth is decremented only when unfolding clauses and definitions since
    only these can cause infinite search *)
-    
+(* Each aux search returns () on failure and calls sc () on success. This
+   allows for effective backtracking. sc means success continuation. *)
+
 let search ~depth:n ~hyps ~clauses ~defs goal =
   
-  let rec clause_aux n context goal =
+  let rec clause_aux n context goal ~sc =
     if n = 0 then
-      false
+      ()
     else
-      clauses |> List.exists
-          (fun (head, body) ->
-             try_with_state
-               (fun () ->
-                  let support = term_support goal in
-                  let fresh_head, fresh_body =
-                    freshen_nameless_clause ~support head body
-                  in
-                    right_unify fresh_head goal ;
-                    List.for_all
-                      (fun t -> obj_aux (n-1) {context=context; term=t})
-                      fresh_body))
+      let support = term_support goal in
+        clauses |> iter_keep_state
+            (fun (head, body) ->
+               let fresh_head, fresh_body =
+                 freshen_nameless_clause ~support head body
+               in
+                 if try_right_unify fresh_head goal then
+                   obj_aux_conj (n-1)
+                     (List.map (fun t -> {context=context; term=t}) fresh_body)
+                     ~sc)
       
-  and obj_aux n goal =
-    if hyps |> filter_objs |> List.exists (derivable goal) then
-      true
-    else if is_imp goal.term then
-      obj_aux n (move_imp_to_context goal)
-    else if is_pi_abs goal.term then
-      obj_aux n (replace_pi_abs_with_nominal goal)
-    else
-      let context_search () =
-        not (Context.is_empty goal.context) &&
-          metaterm_aux n (obj_to_member goal)
-      in
-      let backchain () =
-        clause_aux n goal.context goal.term
-      in
-        context_search () || backchain ()
+  and obj_aux n goal ~sc =
+    let goal = normalize_obj goal in
+      (* Check hyps for derivability *)
+      hyps |> filter_objs |>
+          iter_keep_state (fun obj -> if derivable goal obj then sc ()) ;
 
-  and metaterm_aux n goal =
-    if hyps |> List.exists (try_meta_right_permute_unify goal) then
-      true
-    else
-      match goal with
-        | True -> true
-        | Eq(left, right) -> try_right_unify left right
-        | Or(left, right) -> metaterm_aux n left || metaterm_aux n right
-        | And(left, right) -> metaterm_aux n left && metaterm_aux n right
-        | Binding(Exists, bindings, body) ->
-            let support = metaterm_support goal in
-            let term = freshen_nameless_bindings ~support bindings body in
-              metaterm_aux n term
-        | Binding(Nabla, ids, body) ->
-            let body = instantiate_nablas ids body in
-              metaterm_aux n body
-        | Obj(obj, _) -> obj_aux n obj
-        | Pred(p, _) -> def_aux n p
-        | _ -> false
+      (* Check context *)
+      if not (Context.is_empty goal.context) then
+        metaterm_aux n (obj_to_member goal) ~sc ;
 
-  and def_aux n goal =
+      (* Backchain *)
+      clause_aux n goal.context goal.term ~sc
+
+  and obj_aux_conj n goals ~sc =
+    match goals with
+      | [] -> sc ()
+      | g::gs -> obj_aux n g ~sc:(fun () -> obj_aux_conj n gs ~sc)
+
+  and metaterm_aux n goal ~sc =
+    hyps |> iter_keep_state
+        (fun hyp -> if try_meta_right_permute_unify goal hyp then sc ()) ;
+      
+    match goal with
+      | True -> sc ()
+      | Eq(left, right) -> if try_right_unify left right then sc ()
+      | Or(left, right) ->
+          metaterm_aux n left ~sc ; metaterm_aux n right ~sc
+      | And(left, right) ->
+          metaterm_aux n left ~sc:(fun () -> metaterm_aux n right ~sc)
+      | Binding(Exists, bindings, body) ->
+          let support = metaterm_support goal in
+          let term = freshen_nameless_bindings ~support bindings body in
+            metaterm_aux n term ~sc
+      | Binding(Nabla, ids, body) ->
+          let body = instantiate_nablas ids body in
+            metaterm_aux n body ~sc
+      | Obj(obj, _) -> obj_aux n obj ~sc
+      | Pred(p, _) -> def_aux n p ~sc
+      | _ -> ()
+
+  and def_aux n goal ~sc =
     if n = 0 then
-      false
+      ()
     else
-      unfold_defs ~defs goal |> List.exists
-          (fun (state, body) ->
-             set_bind_state state;
-             metaterm_aux (n-1) body)
-          
+      unfold_defs ~defs goal |>
+          iter_keep_state (fun (state, body) ->
+                             set_bind_state state ;
+                             metaterm_aux (n-1) body ~sc)
+      
   in
-    metaterm_aux n goal
-
+    try
+      metaterm_aux n goal ~sc:(fun () -> raise SearchSuccess) ;
+      false
+    with SearchSuccess -> true
       
 (* Apply one statement to a list of other statements *)
 

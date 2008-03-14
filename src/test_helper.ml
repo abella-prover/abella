@@ -36,7 +36,7 @@ let freshen str =
     term
     |> replace_metaterm_vars fresh_eigen_names
     |> replace_metaterm_vars fresh_logic_names
-    |> replace_nominal_vars
+    |> replace_metaterm_nominal_vars
 
 let eval_clauses_string = "
   typeof (abs R) (arrow T U) :- pi x\\ (typeof x T => typeof (R x) U).

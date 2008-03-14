@@ -104,7 +104,7 @@ let rec process_proof name ~interactive lexbuf =
         end ;
         begin match input with
           | Induction(arg) -> induction arg
-          | Apply(h, args) -> apply h args
+          | Apply(h, args, ws) -> apply h args ws
           | Cut(h, arg) -> cut h arg
           | Inst(h, n, t) -> inst h n t
           | Case(str, keep) -> case ~keep str

@@ -130,7 +130,7 @@ let tests =
 
            assert_n_subgoals 1 ;
            
-           apply "H1" ["H2"; "_"] ;
+           apply "H1" ["H2"; "_"] [] ;
            assert_n_subgoals 2 ;
            assert_pprint_equal "{second B}" sequent.goal ;
            
@@ -146,7 +146,7 @@ let tests =
            add_hyp (freshen "forall A, foo A -> bar A /\\ baz A") ;
            add_hyp (freshen "foo B") ;
 
-           apply "H1" ["H2"] ;
+           apply "H1" ["H2"] [] ;
            assert_pprint_equal "bar B" (List.assoc "H3" sequent.hyps) ;
            assert_pprint_equal "baz B" (List.assoc "H4" sequent.hyps)
         );
@@ -205,12 +205,12 @@ let tests =
                   case "H2" ;
                   assert_n_subgoals 2 ;
                   
-                  apply "base" ["H1"] ;
+                  apply "base" ["H1"] [] ;
                   search () ;
                   assert_n_subgoals 1 ;
                   
-                  apply "IH" ["H1"; "H3"] ;
-                  apply "step" ["H4"] ;
+                  apply "IH" ["H1"; "H3"] [] ;
+                  apply "step" ["H4"] [] ;
                   search () ;
                )
         ) ;
@@ -302,7 +302,7 @@ let tests =
                   search () ;
                   assert_n_subgoals 1 ;
 
-                  apply "IH" ["H2"] ;
+                  apply "IH" ["H2"] [] ;
                   case "H3" ;
                   assert_n_subgoals 2 ;
 
@@ -335,7 +335,7 @@ let tests =
            add_hyp (freshen "{foo}") ;
 
            try
-             apply "H1" ["H2"] ;
+             apply "H1" ["H2"] [] ;
              assert_failure ("Logic variable did not produce error\n\n" ^
                                get_display ())
            with

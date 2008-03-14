@@ -44,6 +44,17 @@ let sequent = {
   count = 0 ;
 }
 
+let localize_metaterm term =
+  term
+  |> replace_metaterm_vars sequent.vars
+  |> replace_metaterm_nominal_vars
+
+let localize_term term =
+  term
+  |> replace_term_vars sequent.vars
+  |> replace_term_nominal_vars
+      
+  
 (* The vars = sequent.vars is superfluous, but forces the copy *)
 let copy_sequent () =
   {sequent with vars = sequent.vars}
@@ -216,7 +227,7 @@ let inst h n t =
   save_undo_state () ;
   let ht = get_hyp h in
     match ht with
-      | Obj _ -> t |> replace_term_vars sequent.vars
+      | Obj _ -> t |> localize_term
                    |> object_inst ht n
                    |> add_hyp
       | _ -> failwith
@@ -281,11 +292,12 @@ let ensure_no_logic_variable terms =
   if List.length logic_vars > 0 then
     failwith "Found logic variable at toplevel"
       
-let apply h args =
+let apply h args ws =
   save_undo_state () ;
   let stmt = get_hyp_or_lemma h in
   let args = List.map get_some_hyp args in
-  let result, obligations = Tactics.apply stmt args in
+  let ws = List.map (fun (x,t) -> x, localize_term t) ws in
+  let result, obligations = Tactics.apply_with stmt args ws in
   let remaining_obligations =
     List.remove_all (fun g -> search_goal (normalize g)) obligations in
   let () = ensure_no_logic_variable (result :: remaining_obligations) in
@@ -379,8 +391,7 @@ let induction ind_arg =
 
 let assert_hyp term =
   save_undo_state () ;
-  let term = replace_metaterm_vars sequent.vars term in
-  let term = replace_nominal_vars term in
+  let term = localize_metaterm term in
     add_cases_to_subgoals
       [{ bind_state = get_bind_state () ;
          new_vars = [] ;

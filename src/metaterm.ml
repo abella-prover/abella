@@ -297,7 +297,7 @@ let n_var_names terms =
   |> List.find_all (fun str -> Str.string_match (Str.regexp "^n[0-9]+$") str 0)
   |> List.unique
 
-let replace_nominal_vars term =
+let replace_metaterm_nominal_vars term =
   let fresh_nominal_names =
     term
     |> collect_terms
@@ -305,6 +305,14 @@ let replace_nominal_vars term =
     |> fresh_alist ~tag:Nominal ~used:[]
   in
     replace_metaterm_vars fresh_nominal_names term
+
+let replace_term_nominal_vars term =
+  let fresh_nominal_names =
+    [term]
+    |> n_var_names
+    |> fresh_alist ~tag:Nominal ~used:[]
+  in
+    replace_term_vars fresh_nominal_names term
 
 let replace_pi_abs_with_nominal obj =
   let abs = extract_pi_abs obj.term in
@@ -477,7 +485,7 @@ let rec meta_right_unify t1 t2 =
     | _, _ -> raise (UnifyFailure TypesMismatch)
 
 let try_meta_right_unify t1 t2 =
-  try_with_state
+  try_with_state ~fail:false
     (fun () ->
        meta_right_unify t1 t2 ;
        true)

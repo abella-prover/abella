@@ -434,6 +434,11 @@ let is_free t =
     | Ptr {contents=T _} -> false
     | _ -> assert false
 
+let is_nominal t =
+  match observe t with
+    | Var {tag=Nominal} -> true
+    | _ -> false
+
 let find_var_refs tag ts =
   let rec fv l t = match t with
     | Var _ -> assert false

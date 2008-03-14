@@ -127,3 +127,5 @@ val is_free : term -> bool
 
 val term_head : term -> string
 val arg_count : term -> int
+
+val is_nominal : term -> bool

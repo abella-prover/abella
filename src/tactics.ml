@@ -500,13 +500,14 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
 (* Apply one statement to a list of other statements *)
 
 let check_restrictions formal actual =
-  List.iter2 (fun fr ar -> match fr, ar with
-                | Smaller i, Smaller j when i = j -> ()
-                | Equal i, Smaller j when i = j -> ()
-                | Equal i, Equal j when i = j -> ()
-                | Irrelevant, _ -> ()
-                | _ -> failwith "Inductive restriction violated")
-    formal actual
+  let formal = List.take (List.length actual) formal in
+    List.iter2 (fun fr ar -> match fr, ar with
+                  | Smaller i, Smaller j when i = j -> ()
+                  | Equal i, Smaller j when i = j -> ()
+                  | Equal i, Equal j when i = j -> ()
+                  | Irrelevant, _ -> ()
+                  | _ -> failwith "Inductive restriction violated")
+      formal actual
 
 let rec map_args f t =
   match t with
@@ -519,62 +520,104 @@ let some_term_to_restriction t =
     | None -> Irrelevant
     | Some t -> term_to_restriction t
 
-let apply term args =
+let apply_arrow term args =
+  let formal = map_args term_to_restriction term in
+  let actual = List.map some_term_to_restriction args in
+  let context_pairs = ref [] in
+  let obligations = ref [] in
+  let () = check_restrictions formal actual in
+  let result =
+    List.fold_left
+      (fun term arg ->
+         match term, arg with
+           | Arrow(Obj(left, _), right), Some Obj(arg, _) ->
+               context_pairs := (left.context, arg.context)::!context_pairs ;
+               right_unify left.term arg.term ;
+               right
+           | Arrow(left, right), Some arg ->
+               meta_right_unify left arg ;
+               right
+           | Arrow(left, right), None ->
+               obligations := left::!obligations ;
+               right
+           | _ -> failwith "Too few implications in application")
+      term
+      args
+  in
+    Context.reconcile !context_pairs ;
+    (normalize result, !obligations)
+      
+let apply ?(used_nominals=[]) term args =
   let support =
     args
     |> List.flatten_map (Option.map_default metaterm_support [])
     |> List.unique
+    |> (fun s -> List.minus s used_nominals)
   in
-  let rec aux term =
     match term with
       | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->
-          let state = get_bind_state () in
           let n = List.length nablas in
             support |> List.permute n |> List.find_some
                 (fun nominals ->
-                   try
-                     let support = List.minus support nominals in
-                     let raised_body =
-                       freshen_nameless_bindings ~support bindings body
-                     in
-                     let alist = List.combine nablas nominals in
-                     let permuted_body =
-                       replace_metaterm_vars alist raised_body
-                     in
-                       Some (aux permuted_body)
-                   with
-                   | UnifyFailure _ | UnifyError _ ->
-                       set_bind_state state ; None)
+                   try_with_state ~fail:None
+                     (fun () ->
+                        let support = List.minus support nominals in
+                        let raised_body =
+                          freshen_nameless_bindings ~support bindings body
+                        in
+                        let alist = List.combine nablas nominals in
+                        let permuted_body =
+                          replace_metaterm_vars alist raised_body
+                        in
+                          Some (apply_arrow permuted_body args)))
+                    
       | Binding(Forall, bindings, body) ->
-          aux (freshen_nameless_bindings ~support bindings body)
+          apply_arrow (freshen_nameless_bindings ~support bindings body) args
+            
       | Arrow _ ->
-          let formal = map_args term_to_restriction term in
-          let actual = List.map some_term_to_restriction args in
-          let context_pairs = ref [] in
-          let obligations = ref [] in
-            check_restrictions formal actual ;
-            let result =
-              List.fold_left
-                (fun term arg ->
-                   match term, arg with
-                     | Arrow(Obj(left, _), right), Some Obj(arg, _) ->
-                         context_pairs :=
-                           (left.context, arg.context)::!context_pairs ;
-                         right_unify left.term arg.term ;
-                         right
-                     | Arrow(left, right), Some arg ->
-                         meta_right_unify left arg ;
-                         right
-                     | Arrow(left, right), None ->
-                         obligations := left::!obligations ;
-                         right
-                     | _ -> failwith "Too few implications in application")
-                term
-                args
-            in
-              Context.reconcile !context_pairs ;
-              (normalize result, !obligations)
-      | _ -> failwith "Attempting to apply malformed term"
+          apply_arrow term args
+            
+      | _ -> failwith
+          ("Structure of applied term must be a " ^
+             "substructure of the following.\n" ^
+             "forall x1 ... xn, nabla z1 ... zn, h1 -> h2 -> ... -> c")
+            
+let rec ensure_unique_nominals lst =
+  match lst with
+    | [] -> ()
+    | x::xs ->
+        if is_nominal x && not (List.mem x xs) then
+          ensure_unique_nominals xs
+        else
+          failwith "Invalid instantiation for nabla variable"
 
-  in
-    aux term
+let take_from_binders binders withs =
+  let withs' = List.find_all (fun (x,t) -> List.mem x binders) withs in
+  let binders' = List.remove_all (fun x -> List.mem_assoc x withs) binders in
+    (binders', withs')
+            
+let rec instantiate_withs term withs =
+  match term with
+    | Binding(Forall, binders, body) ->
+        let binders', withs' = take_from_binders binders withs in
+        let body, used_nominals =
+          instantiate_withs (replace_metaterm_vars withs' body) withs
+        in
+          (forall binders' body, used_nominals)
+    | Binding(Nabla, binders, body) ->
+        let binders', withs' = take_from_binders binders withs in
+        let nominals = List.map snd withs' in
+        let support = metaterm_support body in
+          ensure_unique_nominals nominals ;
+          if List.exists (fun x -> List.mem x support) nominals then
+            failwith "Invalid instantiation for nabla variable" ;
+          let body, used_nominals =
+            instantiate_withs (replace_metaterm_vars withs' body) withs
+          in
+            (nabla binders' body, nominals @ used_nominals)
+    | _ -> (term, [])
+
+let apply_with term args withs =
+  let term, used_nominals = instantiate_withs term withs in
+    apply term args ~used_nominals
+  

@@ -108,6 +108,12 @@ module List = struct
   let minus list1 list2 =
     remove_all (fun e -> mem e list2) list1
 
+  let rec take n list =
+    match list, n with
+      | [], _ -> []
+      | _, n when n <= 0 -> []
+      | x::xs, n -> x::(take (n-1) xs)
+
   let remove_assocs to_remove alist =
     let rec aux alist =
       match alist with

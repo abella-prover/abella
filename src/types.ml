@@ -36,7 +36,7 @@ type top_command =
 
 type command =
   | Induction of int
-  | Apply of id * id list
+  | Apply of id * id list * (id * term) list
   | Cut of id * id
   | Inst of id * id * term
   | Case of id * bool
@@ -68,12 +68,20 @@ let top_command_to_string tc =
     | Define def ->
         sprintf "Define %s" (def_to_string def)
 
+let withs_to_string ws =
+  String.concat ", "
+    (List.map (fun (x,t) -> x ^ " = " ^ (term_to_string t)) ws)
+
 let command_to_string c =
   match c with
     | Induction i ->
         sprintf "induction on %d" i
-    | Apply(h, hs) ->
-        sprintf "apply %s to %s" h (String.concat " " hs)
+    | Apply(h, hs, ws) ->
+        if ws = [] then
+          sprintf "apply %s to %s" h (String.concat " " hs)
+        else
+          sprintf "apply %s to %s with %s" h (String.concat " " hs)
+            (withs_to_string ws)
     | Cut(h1, h2) ->
         sprintf "cut %s with %s" h1 h2
     | Inst(h, n, t) ->

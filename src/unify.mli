@@ -35,7 +35,7 @@ exception UnifyError of unify_error
 val right_unify : ?used:(id * term) list -> term -> term -> unit
 val left_unify : ?used:(id * term) list -> term -> term -> unit
 
-val try_with_state : ?default:bool -> (unit -> bool) -> bool
+val try_with_state : fail:'a -> (unit -> 'a) -> 'a
 
 val try_right_unify : ?used:(id * term) list -> term -> term -> bool
 val try_left_unify : ?used:(id * term) list -> term -> term -> bool  

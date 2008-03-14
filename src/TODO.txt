@@ -1,19 +1,9 @@
 
+Add tests for instantiate_withs
+Allow apply ... with without a "to" clause
+
 Future
 ======
-
-Allow 'apply' to use 'with' and specify instantiations?
-  How to prevent with using nominals that get used in nabla?
-  Does this happen naturally?
-  Should also allow with to specify nabla values?
-
-Allow apply with hyps like
-  forall X T, member (of X T) L -> forall T', {L |- of X T'} -> T =
-  T'.
-  How to handle nested nablas then?
-
-Get David's proof to go through properly
-
 Get definitions to work with multiple nablas?
 
 split should work on n-ary conjunctions
@@ -32,15 +22,21 @@ Change tactics to be first class and implement tacticals?
 
 Add an apply tactic that works backwards like in coq?
 
-Display new hypotheses in future subgoals? (subgoal 2 is : {...} -> ...)
-  
 Do we have to consider logic variables in the context during search?
-
-Support unfold on lprolog predicates?
 
 
 Larger or longer term issues
 ============================
+Implement a robust auto tactic which uses search but also goes
+underneath implies and forall. Should backchain on hyps and lemmas
+too.
+
+Allow apply with hyps like
+  forall X T, member (of X T) L -> forall T', {L |- of X T'} -> T =
+  T'.
+  How to handle nested nablas then?
+  Get David's proof to go through properly
+
 Use type information from sig files?
 
 Change OMakefile so exceptions print full stack trace? Is there a way

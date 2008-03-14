@@ -128,10 +128,9 @@ induction on 1. intros. split*.
       case H1. apply IH to H9.
         apply IH to H10.
           apply H11 to H2 H7 H5.
-            assert ctx (bound n1 T1 :: L).
-              apply H12 to H16 H7 H6.
-                apply H13 to _ H17 H8.
-                  search.
+            apply H12 to _ H7 H6 with X = n1.
+              apply H13 to _ H16 H8.
+                search.
 
 
   % Proof of narrowing

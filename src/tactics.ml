@@ -580,7 +580,7 @@ let apply ?(used_nominals=[]) term args =
       | _ -> failwith
           ("Structure of applied term must be a " ^
              "substructure of the following.\n" ^
-             "forall x1 ... xn, nabla z1 ... zn, h1 -> h2 -> ... -> c")
+             "forall A1 ... Ai, nabla z1 ... zj, H1 -> ... -> Hk -> C")
             
 let rec ensure_unique_nominals lst =
   match lst with

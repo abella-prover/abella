@@ -500,14 +500,13 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
 (* Apply one statement to a list of other statements *)
 
 let check_restrictions formal actual =
-  let formal = List.take (List.length actual) formal in
-    List.iter2 (fun fr ar -> match fr, ar with
-                  | Smaller i, Smaller j when i = j -> ()
-                  | Equal i, Smaller j when i = j -> ()
-                  | Equal i, Equal j when i = j -> ()
-                  | Irrelevant, _ -> ()
-                  | _ -> failwith "Inductive restriction violated")
-      formal actual
+  List.iter2 (fun fr ar -> match fr, ar with
+                | Smaller i, Smaller j when i = j -> ()
+                | Equal i, Smaller j when i = j -> ()
+                | Equal i, Equal j when i = j -> ()
+                | Irrelevant, _ -> ()
+                | _ -> failwith "Inductive restriction violated")
+    formal actual
 
 let rec map_args f t =
   match t with
@@ -552,7 +551,7 @@ let apply ?(used_nominals=[]) term args =
     args
     |> List.flatten_map (Option.map_default metaterm_support [])
     |> List.unique
-    |> (fun s -> List.minus s used_nominals)
+    |> fun s -> List.minus s used_nominals
   in
     match term with
       | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->

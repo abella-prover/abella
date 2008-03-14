@@ -1,3 +1,4 @@
+Removed used_nominal stuff
 
 Add tests for instantiate_withs
 Allow apply ... with without a "to" clause

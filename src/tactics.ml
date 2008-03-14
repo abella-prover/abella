@@ -426,21 +426,18 @@ let try_unify_cpairs cpairs =
 let search ~depth:n ~hyps ~clauses ~defs goal =
   
   let rec clause_aux n context goal ~sc =
-    if n = 0 then
-      ()
-    else
-      let support = term_support goal in
-      let freshen_clause = curry (freshen_nameless_clause ~support) in
-      let fresh_clauses = List.map freshen_clause clauses in
-      let wrap body = List.map (fun t -> {context=context; term=t}) body in
-        fresh_clauses |> iter_keep_state
-            (fun (head, body) ->
-               match try_right_unify_cpairs head goal with
-                 | None -> ()
-                 | Some cpairs ->
-                     obj_aux_conj (n-1) (wrap body)
-                       ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
-            
+    let support = term_support goal in
+    let freshen_clause = curry (freshen_nameless_clause ~support) in
+    let fresh_clauses = List.map freshen_clause clauses in
+    let wrap body = List.map (fun t -> {context=context; term=t}) body in
+      fresh_clauses |> iter_keep_state
+          (fun (head, body) ->
+             match try_right_unify_cpairs head goal with
+               | None -> ()
+               | Some cpairs ->
+                   obj_aux_conj (n-1) (wrap body)
+                     ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
+          
   and obj_aux n goal ~sc =
     let goal = normalize_obj goal in
       (* Check hyps for derivability *)
@@ -452,7 +449,7 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
         metaterm_aux n (obj_to_member goal) ~sc ;
 
       (* Backchain *)
-      clause_aux n goal.context goal.term ~sc
+      if n > 0 then clause_aux n goal.context goal.term ~sc
 
   and obj_aux_conj n goals ~sc =
     match goals with
@@ -478,19 +475,16 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
           let body = instantiate_nablas ids body in
             metaterm_aux n body ~sc
       | Obj(obj, _) -> obj_aux n obj ~sc
-      | Pred(p, _) -> def_aux n p ~sc
+      | Pred(p, _) -> if n > 0 then def_aux n p ~sc
       | _ -> ()
 
   and def_aux n goal ~sc =
-    if n = 0 then
-      ()
-    else
-      unfold_defs ~defs goal |> iter_keep_state
-          (fun (state, cpairs, body) ->
-             set_bind_state state ;
-             metaterm_aux (n-1) body
-               ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
-      
+    unfold_defs ~defs goal |> iter_keep_state
+        (fun (state, cpairs, body) ->
+           set_bind_state state ;
+           metaterm_aux (n-1) body
+             ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
+        
   in
     try
       metaterm_aux n goal ~sc:(fun () -> raise SearchSuccess) ;

@@ -303,9 +303,9 @@ induction on 2. intros. case H2 (keep).
           apply IH to _ H5 H14.
           apply nstep_app_value to _ H11 with M = abs A1 MR.
           apply nstep_right to H16 _ with R = MR V.
+          apply reduce_of to H9.
           apply reduce_nstep_backward to H15 H17 _.
-            apply reduce_of to H9. search.
-            search.
+          search.
 
 
 Theorem tait : forall M A, {of M A} -> halts M.

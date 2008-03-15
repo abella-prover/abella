@@ -514,11 +514,12 @@ let some_term_to_restriction t =
     | Some t -> term_to_restriction t
 
 let apply_arrow term args =
-  let formal = map_args term_to_restriction term in
-  let actual = List.map some_term_to_restriction args in
+  let () = check_restrictions
+    (map_args term_to_restriction term)
+    (List.map some_term_to_restriction args)
+  in
   let context_pairs = ref [] in
   let obligations = ref [] in
-  let () = check_restrictions formal actual in
   let result =
     List.fold_left
       (fun term arg ->

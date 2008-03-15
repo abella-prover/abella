@@ -246,6 +246,47 @@ let apply_tests =
                    ("Expected one obligation but found " ^
                       (string_of_int (List.length obligations)))) ;
 
+      "Instantiate should not allow existing nominal" >::
+        (fun () ->
+           let h = freshen "nabla x, foo x n1" in
+             assert_raises (Failure "Invalid instantiation for nabla variable")
+               (fun () ->
+                  instantiate_withs h [("x", nominal_var "n1")]
+               ));
+
+      "Instantiate should not allow soon to be existing nominal" >::
+        (fun () ->
+           let h = freshen "forall E, nabla x, foo E x" in
+             assert_raises (Failure "Invalid instantiation for nabla variable")
+               (fun () ->
+                  instantiate_withs h [("x", nominal_var "n1");
+                                       ("E", nominal_var "n1")]
+               ));
+
+      "Instantiate should not allow two identical nominals" >::
+        (fun () ->
+           let h = freshen "nabla x y, foo x y" in
+             assert_raises (Failure "Invalid instantiation for nabla variable")
+               (fun () ->
+                  instantiate_withs h [("x", nominal_var "n1");
+                                       ("y", nominal_var "n1")]
+               ));
+
+      "Instantiate should allow distinct nominals" >::
+        (fun () ->
+           let h = freshen "nabla x y, foo x y" in
+           let (t, _) = instantiate_withs h [("x", nominal_var "n1");
+                                             ("y", nominal_var "n2")] in
+             assert_pprint_equal "foo n1 n2" t);
+
+      "Instantiate should not allow non-nominal for nabla" >::
+        (fun () ->
+           let h = freshen "nabla x, foo x" in
+             assert_raises (Failure "Invalid instantiation for nabla variable")
+               (fun () ->
+                  instantiate_withs h [("x", const "A")]
+               ));
+
     ]
 
 let assert_expected_cases n cases =

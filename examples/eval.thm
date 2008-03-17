@@ -112,3 +112,9 @@ intros. case H1. case H2.
   case H4. case H5.
     case H3. case H6. case H7.
     case H6.
+
+% The term (lambda x . x x) (lambda x . x x) does not evaluate to a value
+Theorem no_eval : forall V,
+  {eval (app (abs x\ app x x) (abs x\ app x x)) V} -> false.
+induction on 1. intros. case H1.
+  case H2. apply IH to H3.

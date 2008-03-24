@@ -1,0 +1,214 @@
+%% Takahashi's proof of Church-Rosser using complete developments
+%% Masako Takahashi, "Parallel reduction in lambds-calculus",
+%%   Information and Computation 118(1), April 1995.
+%%
+%% Abella proof contributed by Randy Pollack
+
+Define ctxs nil nil nil.
+Define nabla x, ctxs (trm x :: L) (pr1 x x :: K) (cd1 x x :: notabs x :: J)
+      := ctxs L K J.
+      
+Define nabla x, name x.
+
+%% properties of correct contexts
+Theorem trm_worlds : forall A L K J,
+  ctxs L K J -> member (trm A) L ->
+    name A /\ member (pr1 A A) K /\ member (cd1 A A) J /\
+      member (notabs A) J.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. apply IH to H4 H3. search.
+
+Theorem pr1_worlds : forall A B L K J,
+  ctxs L K J -> member (pr1 A B) K ->
+    name A /\ A = B /\ member (trm A) L /\ 
+     member (cd1 A B) J /\ member (notabs A) J.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. apply IH to H4 H3. search.
+
+Theorem cd1_worlds : forall A B L K J,
+  ctxs L K J -> member (cd1 A B) J ->
+    name A /\ A = B /\ member (trm A) L /\
+      member (pr1 A A) K /\ member (notabs A) J.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. case H3. apply IH to H4 H5. search.
+
+Theorem notabs_worlds : forall A L K J,
+  ctxs L K J -> member (notabs A) J ->
+    name A /\ member (trm A) L /\ member (pr1 A A) K /\
+      member (cd1 A A) J.
+induction on 2. intros. case H2.
+  case H1.
+  case H1. case H3. search.
+  apply IH to H4 H5. search.
+
+%% The meaning of "notabs" is as expected
+Theorem notabs_abs_absurd: forall A L K J,
+   ctxs L K J -> {J |- notabs (abs A)} -> false.
+induction on 2. intros. case H2.
+  apply notabs_worlds to H1 H3. case H4.
+
+% {J |- cd1 A B} implies A is a term
+Theorem cd1_trm : forall A B L K J,
+  ctxs L K J -> {J |- cd1 A B} -> {L |- trm A}.
+induction on 2. intros. case H2.
+  apply cd1_worlds to H1 H3. search.
+  apply IH to H1 H4. apply IH to H1 H5. search.
+  apply IH to _ H3. search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+
+% similarly, {K |- pr1 A B} implies A is a term
+Theorem pr1_trm : forall A B L K J,
+  ctxs L K J -> {K |- pr1 A B} -> {L |- trm A}.
+induction on 2. intros. case H2.
+  apply pr1_worlds to H1 H3. search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+  apply IH to _ H3. search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+
+%% Just for information, every cd1 step is a pr1 step.
+%% Proof by induction over term structure, but second hypothesis
+%% is derivable.
+Theorem pre_cd1_pr1 : forall A B L K J,
+  ctxs L K J -> {L |- trm A} -> {J |- cd1 A B} -> {K |- pr1 A B}.
+induction on 2. intros. case H2.
+% 1) member (cd1 A B) J.  Then A = B, and we know pr1 is reflexive.
+  apply trm_worlds to H1 H4. case H3.
+    apply cd1_worlds to H1 H9. search.
+    case H5.
+    case H5.
+    case H5.
+% 2) {J |- cd1 (app M N) B}.  Should work by IH.
+  case H3.
+    apply cd1_worlds to H1 H6. case H7.
+    apply IH to H1 H4 H7. apply IH to H1 H5 H8. search.
+    apply IH to H1 H4 H6. apply IH to H1 H5 H7. search.
+% 3) {J |- cd1 (abs M) B}.  Should work by IH.
+  case H3.
+    apply cd1_worlds to H1 H5. case H6.
+    apply IH to _ H4 H5. search.
+
+Theorem cd1_pr1 : forall A B L K J,
+  ctxs L K J -> {J |- cd1 A B} -> {K |- pr1 A B}.
+intros. apply cd1_trm to H1 H2. apply pre_cd1_pr1 to H1 H3 H2. search.
+
+%% pr1 is reflexive
+Theorem pr1_rfl : forall A L K J,
+  ctxs L K J -> {L |- trm A} -> {K |- pr1 A A}.
+induction on 2. intros. case H2.
+  apply trm_worlds to H1 H3. search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+  apply IH to _ H3. search.
+
+%% cd1 has no overlap between rules, so is a functional relation
+Theorem cd1_unique: forall A B C L K J,
+  ctxs L K J -> {J |- cd1 A B} -> {J |- cd1 A C} -> B = C.
+induction on 2. intros. case H2.
+
+  apply cd1_worlds to H1 H4. case H3.
+    apply cd1_worlds to H1 H9. search.
+    case H5.
+    case H5.
+    case H5.
+
+  case H3. apply cd1_worlds to H1 H7. case H8.
+    apply IH to H1 H5 H8. apply IH to H1 H6 H9. search.
+    apply notabs_abs_absurd to H1 H4.
+
+  case H3. apply cd1_worlds to H1 H5. case H6.
+    apply IH to _ H4 H5. search.
+
+  case H3. apply cd1_worlds to H1 H6. case H7.
+    apply notabs_abs_absurd to H1 H6.
+    apply IH to H1 H4 H6. apply IH to H1 H5 H7. search.
+
+%% now to show pr1 has diamond property (Takahashi proof, using cd1)
+
+%% There is a cd1 step from every trm
+Theorem cd1_exists : forall A L K J,
+  ctxs L K J -> {L |- trm A} -> exists B, {J |- cd1 A B}.
+induction on 2. intros. case H2.
+
+  % variable
+  apply trm_worlds to H1 H3. search.
+  
+  % app
+  apply IH to H1 H3. apply IH to H1 H4. case H3.
+    apply trm_worlds to H1 H7. search.
+    search.
+    apply IH to _ H7. search.
+             
+  % abs
+  apply IH to _ H3. search.
+
+%% inversion lemmas about the shape of pr1 steps
+Theorem pr1_name: forall A B L K J,
+     ctxs L K J -> {K |- pr1 A B} -> name A -> B = A.
+intros. case H3. case H2.
+  apply pr1_worlds to H1 H4. search.
+
+Theorem pr1_abs: forall A R B L K J,
+  ctxs L K J -> {K |- pr1 (abs R) B} -> exists S, B = (abs S).
+intros. case H2.
+  apply pr1_worlds to H1 H3. case H4.
+  search.
+
+Theorem pre_pr1_subst_lem: forall A1 A2 B1 B2 L K J, nabla x,
+  ctxs L K J -> {K, pr1 x x |- pr1 (A1 x) (A2 x)} -> {K |- pr1 B1 B2} ->
+         {K |- pr1 (A1 B1) (A2 B2)}.
+induction on 2. intros. case H2.
+  case H4.
+    search.
+    apply pr1_worlds to H1 H5. case H6.
+      search.
+      search.
+  apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
+  apply IH to _ H4 H3 with x = n1. search.
+  apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
+
+Theorem pr1_subst_lem: forall A1 A2 B1 B2 L K J,
+ ctxs L K J ->
+    {K |- pr1 (abs A1) (abs A2)} -> {K |- pr1 B1 B2} ->
+         {K |- pr1 (A1 B1) (A2 B2)}.
+intros. case H2.
+  apply pr1_worlds to H1 H4. case H5.
+  apply pre_pr1_subst_lem to H1 H4 H3. search.
+
+%% The key lemma that allows to show that pr1 has the diamond
+%% property.
+Theorem cd1_pr1_triangle : forall A B C L K J,
+     ctxs L K J -> {K |- pr1 A B} -> {J |- cd1 A C} -> {K |- pr1 B C}.
+induction on 3. intros. case H3.
+
+  % cd1 var
+  apply cd1_worlds to H1 H4. apply pr1_name to H1 H2 H5. search.
+  
+  % cd1 app
+  case H2.
+    apply pr1_worlds to H1 H7. case H8.
+    apply IH to H1 H7 H5. apply IH to H1 H8 H6. search.
+    apply notabs_abs_absurd to H1 H4.
+
+  % cd1 abs    
+  case H2.
+    apply pr1_worlds to H1 H5. case H6.
+    apply IH to _ H5 H4. search.
+    
+  % cd1 contract
+  case H2.
+    apply pr1_worlds to H1 H6. case H7.
+    case H6. apply pr1_worlds to H1 H8. case H9.
+    apply IH to H1 H7 H5. apply IH to H1 _ H4. search.
+    apply IH to H1 H7 H5. apply IH to H1 _ H4.
+      apply pr1_subst_lem to H1 H9 H8. search.
+
+%% The main result
+Theorem pr1_diamond : forall A B1 B2 C L K J,
+   ctxs L K J -> {K |- pr1 A B1} -> {K |- pr1 A B2} ->
+        exists C, {K |- pr1 B1 C} /\ {K |- pr1 B2 C}.
+intros.
+apply pr1_trm to H1 H2. apply cd1_exists to H1 H4.
+apply cd1_pr1_triangle to H1 H2 H5. apply cd1_pr1_triangle to H1 H3 H5.
+search.

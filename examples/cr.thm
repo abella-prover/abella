@@ -205,68 +205,10 @@ induction on 3. intros. case H3.
       apply pr1_subst_lem to H1 H9 H8. search.
 
 %% The main result
-Theorem pr1_diamond : forall A B1 B2 L K J,
+Theorem pr1_diamond : forall A B1 B2 C L K J,
    ctxs L K J -> {K |- pr1 A B1} -> {K |- pr1 A B2} ->
         exists C, {K |- pr1 B1 C} /\ {K |- pr1 B2 C}.
 intros.
 apply pr1_trm to H1 H2. apply cd1_exists to H1 H4.
 apply cd1_pr1_triangle to H1 H2 H5. apply cd1_pr1_triangle to H1 H3 H5.
-search.
-
-Theorem beta_pr1 : forall A B L K J,
-  ctxs L K J -> {L |- trm A} -> {beta A B} -> {K |- pr1 A B}.
-induction on 3. intros. case H3.
-  case H2.
-    apply trm_worlds to H1 H5. case H6.
-    apply IH to H1 H5 H4. apply pr1_rfl to H1 H6. search.
-  case H2.
-    apply trm_worlds to H1 H5. case H6.
-    apply IH to H1 H6 H4. apply pr1_rfl to H1 H5. search.
-  case H2.
-    apply trm_worlds to H1 H5. case H6.
-    apply IH to _ H5 H4. search.
-  case H2.
-    apply trm_worlds to H1 H4. case H5.
-    apply pr1_rfl to H1 H4. apply pr1_rfl to H1 H5. search.
-
-Theorem betan_app_right : forall T S1 S2,
-  {betan S1 S2} -> {betan (app T S1) (app T S2)}.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H3 with T = T. search.
-  
-Theorem betan_app : forall T1 S1 T2 S2,
-  {betan T1 T2} -> {betan S1 S2} -> {betan (app T1 S1) (app T2 S2)}.
-induction on 1. intros. case H1.
-  apply betan_app_right to H2 with T = T2. search.
-  apply IH to H4 H2. search.
-
-Theorem betan_abs : forall S1 S2, nabla x,
-  {betan (S1 x) (S2 x)} -> {betan (abs S1) (abs S2)}.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H3. search.
-
-Theorem betan_right : forall S T R,
-  {betan S T} -> {beta T R} -> {betan S R}.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H4 H2. search.
-
-Theorem pr1_betan : forall A B L K J,
-  ctxs L K J -> {K |- pr1 A B} -> {betan A B}.
-induction on 2. intros. case H2.
-  apply pr1_worlds to H1 H3. search.
-  apply IH to H1 H3. apply IH to H1 H4. apply betan_app to H5 H6. search.
-  apply IH to _ H3. apply betan_abs to H4. search.
-  apply IH to H1 H3. apply IH to H1 H4. apply betan_app to H5 H6.
-    apply betan_right to H7 _ with R = T2 S2. search.
-
-Theorem cr : forall L K J A B1 B2,
-  ctxs L K J -> {L |- trm A} ->
-    {beta A B1} -> {beta A B2} ->
-      exists C, {betan B1 C} /\ {betan B2 C}.
-intros. apply beta_pr1 to H1 H2 H3. apply beta_pr1 to H1 H2 H4.
-apply pr1_diamond to H1 H5 H6.
-apply pr1_betan to H1 H7. apply pr1_betan to H1 H8.
 search.

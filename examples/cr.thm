@@ -47,7 +47,7 @@ induction on 2. intros. case H2.
 %% The meaning of "notabs" is as expected
 Theorem notabs_abs_absurd: forall A L K J,
    ctxs L K J -> {J |- notabs (abs A)} -> false.
-induction on 2. intros. case H2.
+intros. case H2.
   apply notabs_worlds to H1 H3. case H4.
 
 % {J |- cd1 A B} implies A is a term

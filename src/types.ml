@@ -36,6 +36,7 @@ type top_command =
 
 type command =
   | Induction of int
+  | CoInduction
   | Apply of id * id list * (id * term) list
   | Cut of id * id
   | Inst of id * id * term
@@ -76,6 +77,7 @@ let command_to_string c =
   match c with
     | Induction i ->
         sprintf "induction on %d" i
+    | CoInduction -> "coinduction"
     | Apply(h, hs, ws) ->
         if ws = [] then
           sprintf "apply %s to %s" h (String.concat " " hs)

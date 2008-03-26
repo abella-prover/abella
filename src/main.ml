@@ -32,7 +32,7 @@ exception AbortProof
 
 let ensure_no_restrictions term =
   if get_max_restriction term > 0 then
-    failwith "Cannot use restrictions: * or @"
+    failwith "Cannot use restrictions: *, @ or +"
       
 let warn_if_free_vars free_vars =
   if free_vars <> [] then
@@ -104,6 +104,7 @@ let rec process_proof name ~interactive lexbuf =
         end ;
         begin match input with
           | Induction(arg) -> induction arg
+          | CoInduction -> coinduction ()
           | Apply(h, args, ws) -> apply h args ws
           | Cut(h, arg) -> cut h arg
           | Inst(h, n, t) -> inst h n t

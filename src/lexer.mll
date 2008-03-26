@@ -56,6 +56,7 @@ rule token = parse
 | "exists"           { EXISTS }
 | "*"                { STAR }
 | "@"                { AT }
+| "+"                { PLUS }
 | "Theorem"          { THEOREM }
 | "Axiom"            { AXIOM }
 | "Define"           { DEFINE }
@@ -67,6 +68,7 @@ rule token = parse
 | "false"            { FALSE }
 
 | "induction"        { IND }
+| "coinduction"      { COIND }
 | "apply"            { APPLY }
 | "inst"             { INST }
 | "cut"              { CUT }

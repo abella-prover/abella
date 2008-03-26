@@ -659,6 +659,22 @@ let induction_tests =
       
     ]
 
+let coinduction_tests =
+  "CoInduction" >:::
+    [
+      "Single" >::
+        (fun () ->
+           let stmt = freshen "forall A, first A -> second A -> third A" in
+           let (ch, goal) = coinduction 1 stmt in
+             assert_pprint_equal
+               "forall A, first A -> second A -> third A +"
+               ch ;
+             assert_pprint_equal
+               "forall A, first A -> second A -> third A @"
+               goal) ;
+      
+    ]
+
 
 let assert_search ?(clauses="") ?(defs="")
     ?(hyps=[]) ~goal ~expect () =
@@ -924,6 +940,31 @@ let search_tests =
              ~expect:true
         );
 
+      "Should not match co-restricted hypothesis (1)" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["foo A +"]
+             ~goal:"foo A"
+             ~expect:false
+        );
+
+      "Should not match co-restricted hypothesis (2)" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["foo A +"]
+             ~goal:"foo A @"
+             ~expect:false
+        );
+
+      "Should match co-restricted hypothesis after unfolding" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["bar A +"]
+             ~goal:"foo A @"
+             ~defs:"foo X := bar X."
+             ~expect:true
+        );
+
     ]
 
     
@@ -960,6 +1001,13 @@ let unfold_tests =
            let result = unfold ~defs goal in
              assert_pprint_equal "bar D" result) ;
 
+      "Should reduce coinductive restriction" >::
+        (fun () ->
+           let defs = parse_defs "foo X := foo X." in
+           let goal = freshen "foo D @" in
+           let result = unfold ~defs goal in
+             assert_pprint_equal "foo D +" result) ;
+
     ]
 
     
@@ -971,6 +1019,7 @@ let tests =
       apply_tests ;
       case_tests ;
       induction_tests ;
+      coinduction_tests ;
       search_tests ;
       unfold_tests ;
     ]

@@ -19,9 +19,9 @@
 
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
-%token SKIP UNDO ABORT
+%token SKIP UNDO ABORT COIND
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR
-%token THEOREM AXIOM DEFINE
+%token THEOREM AXIOM DEFINE PLUS
 %token COLON RARROW FORALL NABLA EXISTS STAR AT OR AND LBRACK RBRACK
 
 %token <int> NUM
@@ -104,6 +104,7 @@ def:
 
 command:
   | IND ON NUM DOT                      { Types.Induction($3) }
+  | COIND DOT                           { Types.CoInduction }
   | APPLY ID TO id_list DOT             { Types.Apply($2, $4, []) }
   | APPLY ID TO id_list WITH withs DOT  { Types.Apply($2, $4, $6) }
   | CUT ID WITH ID DOT                  { Types.Cut($2, $4) }
@@ -156,6 +157,7 @@ binding:
 restriction:
   |                                     { Metaterm.Irrelevant }
   | stars                               { Metaterm.Smaller $1 }
+  | pluses                              { Metaterm.CoSmaller $1 }
   | ats                                 { Metaterm.Equal $1 }
       
 stars:
@@ -165,6 +167,10 @@ stars:
 ats:
   | AT ats                              { 1 + $2 }
   | AT                                  { 1 }
+      
+pluses:
+  | PLUS pluses                         { 1 + $2 }
+  | PLUS                                { 1 }
       
 top_command :
   | THEOREM ID COLON metaterm DOT       { Types.Theorem($2, $4) }

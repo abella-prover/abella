@@ -1,0 +1,34 @@
+%% The take lemma on infinite lists
+
+Define colist nil.
+Define colist (X :: L) := colist L.
+
+Define eqi nil nil.
+Define eqi (X :: L) (X :: R) := eqi L R.
+
+Define tk z L nil.
+Define tk N nil nil.
+Define tk (s N) (X :: L) (X :: R) := tk N L R.
+
+Theorem eqi_take : forall L R S N,
+  eqi L R -> tk N L S -> tk N R S.
+induction on 2. intros. case H2.
+  search.
+  case H1. search.
+  case H1. apply IH to H4 H3. search.
+
+Theorem take_eqi : forall L R,
+  colist L -> colist R ->
+    (forall N S, tk N L S -> tk N R S) ->
+    (forall N S, tk N R S -> tk N L S) ->
+      eqi L R.
+coinduction. intros. case H1.
+  apply H3 to _ with N = s z. case H5. search.
+  case H2.
+    apply H4 to _ with N = s z. case H6.
+    apply H3 to _ with N = s z. case H7.
+      assert forall N S, tk N L1 S -> tk N L2 S. intros.
+        apply H3 to _ with N = s N. case H10. search.
+      assert forall N S, tk N L2 S -> tk N L1 S. intros.
+        apply H4 to _ with N = s N. case H11. search.
+      apply CH to H5 H6 H9 H10. search.

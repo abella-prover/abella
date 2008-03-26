@@ -250,7 +250,7 @@ let cut h arg =
 
 let remove_inductive_hypotheses hyps =
   List.remove_all
-    (fun (name, _) -> Str.string_match (Str.regexp "^IH") name 0)
+    (fun (name, _) -> Str.string_match (Str.regexp "^[CI]H") name 0)
     hyps
           
 let search_goal goal =
@@ -360,6 +360,7 @@ let rec fresh_hyp_name_from_base base =
 let get_restriction r =
   match r with
     | Smaller n -> n
+    | CoSmaller n -> n
     | Equal n -> n
     | Irrelevant -> 0
         
@@ -375,15 +376,28 @@ let get_max_restriction t =
       | Pred(_, r) -> get_restriction r
   in
     aux t
-        
+
+let next_restriction () =
+  1 + (sequent.hyps |> List.map snd |>
+           List.map get_max_restriction |> List.max)
+
 let induction ind_arg =
   save_undo_state () ;
-  let ind_num =
-    sequent.hyps |> List.map snd |> List.map get_max_restriction |> List.max
-  in
-  let (ih, new_goal) = Tactics.induction ind_arg (ind_num + 1) sequent.goal in
+  let res_num = next_restriction () in
+  let (ih, new_goal) = Tactics.induction ind_arg res_num sequent.goal in
   let name = fresh_hyp_name_from_base "IH" in
-    add_hyp ~name:name ih ;
+    add_hyp ~name ih ;
+    sequent.goal <- new_goal
+
+      
+(* CoInduction *)
+
+let coinduction () =
+  save_undo_state () ;
+  let res_num = next_restriction () in
+  let (ch, new_goal) = Tactics.coinduction res_num sequent.goal in
+  let name = fresh_hyp_name_from_base "CH" in
+    add_hyp ~name ch ;
     sequent.goal <- new_goal
 
       

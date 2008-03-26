@@ -1,0 +1,63 @@
+%% Various results on the co-natural numbers (natural numbers with infinity)
+
+Define conat z.
+Define conat (s A) := conat A.
+
+Define coeq z z.
+Define coeq (s A) (s B) := coeq A B.
+
+Define inf (s A) := inf A.
+
+Define coadd (s A) B (s C) := coadd A B C.
+Define coadd z B C := coeq B C.
+
+Theorem coeq_refl : forall A,
+  conat A -> coeq A A.
+coinduction. intros. case H1.
+  search.
+  apply CH to H2. search.
+
+Theorem coeq_sym : forall A B,
+  coeq A B -> coeq B A.
+coinduction. intros. case H1.
+  search.
+  apply CH to H2. search.
+  
+Theorem coeq_trans : forall A B C,
+  coeq A B -> coeq B C -> coeq A C.
+coinduction. intros. case H1.
+  search.
+  case H2. apply CH to H3 H4. search.
+
+Theorem inf_plus_one : forall A,
+  inf A -> coeq A (s A).
+coinduction. intros. case H1.
+  apply CH to H2. search.
+
+Theorem inf_coeq : forall A B,
+  inf A -> coeq A B -> inf B.
+coinduction. intros. case H1.
+  case H2. apply CH to H3 H4. search.
+
+Theorem coadd_det : forall A B C D,
+  coadd A B C -> coadd A B D -> coeq C D.
+coinduction. intros. case H1.
+  case H2. apply CH to H3 H4. search.
+  case H2. apply coeq_sym to H3. apply coeq_trans to H5 H4. search.
+
+Theorem coadd_z : forall A,
+  conat A -> coadd A z A.
+coinduction. intros. case H1.
+  search.
+  apply CH to H2. search.
+
+Theorem coadd_inf1 : forall A B C,
+  inf A -> coadd A B C -> inf C.
+coinduction. intros. case H1.
+  case H2. apply CH to H3 H4. search.
+
+Theorem coadd_inf2 : forall A B C,
+  conat A -> inf B -> coadd A B C -> inf C.
+coinduction. intros. case H3.
+  case H1. apply CH to H5 H2 H4. search.
+  apply inf_coeq to H2 H4. search.

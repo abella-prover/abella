@@ -1,3 +1,11 @@
+Coinduction
+  Mark predicates as inductive or co-inductive somehow
+  Do not allow coinduction on {...}
+
+Unfold
+  How to select other predicates to unfold on
+  How to select nabla variables during permutation
+
 Future
 ======
 Get definitions to work with multiple nablas?

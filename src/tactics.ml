@@ -207,7 +207,7 @@ let predicate_wrapper r t =
   let rec aux t =
     match t with
       | True | False | Eq _ | Obj _ -> t
-      | Pred(p, _) -> Pred(p, reduce_restriction r)
+      | Pred(p, _) -> Pred(p, reduce_inductive_restriction r)
       | Binding(binding, ids, body) -> Binding(binding, ids, aux body)
       | Or(t1, t2) -> Or(aux t1, aux t2)
       | And(t1, t2) -> And(aux t1, aux t2)
@@ -298,7 +298,9 @@ let case ~used ~clauses ~defs ~global_support term =
   in
     
   let obj_case obj r =
-    let wrapper t = Obj(context_obj obj.context t, reduce_restriction r) in
+    let wrapper t =
+      Obj(context_obj obj.context t, reduce_inductive_restriction r)
+    in
     let clause_cases = clause_case ~wrapper obj.term in
       if Context.is_empty obj.context then
         clause_cases
@@ -353,10 +355,42 @@ let induction ind_arg ind_num stmt =
   in
     aux stmt
 
+let coinduction res_num stmt =
+  let rec aux stmt =
+    match stmt with
+      | Binding(Forall, bindings, body) ->
+          let (ch, goal) = aux body in
+            (forall bindings ch, forall bindings goal)
+      | Binding(Nabla, bindings, body) ->
+          let (ch, goal) = aux body in
+            (nabla bindings ch, nabla bindings goal)
+      | Arrow(left, right) ->
+          let (ch, goal) = aux right in
+            (arrow left ch, arrow left goal)
+      | Pred(p, _) ->
+          let ch = Pred(p, CoSmaller res_num) in
+          let goal = Pred(p, Equal res_num) in
+            (ch, goal)
+      | _ -> invalid_metaterm_arg stmt
+  in
+    aux stmt
+
 
 (* Unfold the current goal *)
 
-let unfold_defs ~defs goal =
+let coinductive_wrapper r t =
+  let rec aux t =
+    match t with
+      | True | False | Eq _ | Obj _ -> t
+      | Pred(p, _) -> Pred(p, reduce_coinductive_restriction r)
+      | Binding(binding, ids, body) -> Binding(binding, ids, aux body)
+      | Or(t1, t2) -> Or(aux t1, aux t2)
+      | And(t1, t2) -> And(aux t1, aux t2)
+      | Arrow(t1, t2) -> Arrow(t1, aux t2)
+  in
+    aux t
+    
+let unfold_defs ~defs goal r =
   let initial_bind_state = get_bind_state () in
   let support = term_support goal in
   let result =
@@ -371,7 +405,8 @@ let unfold_defs ~defs goal =
                    begin match try_right_unify_cpairs head goal with
                      | None -> []
                      | Some cpairs ->
-                         [(get_bind_state (), cpairs, normalize body)]
+                         [(get_bind_state (), cpairs,
+                           normalize (coinductive_wrapper r body))]
                    end
              | Binding(Nabla, [id], Pred(head, _)) ->
                  support |> List.flatten_map
@@ -386,7 +421,8 @@ let unfold_defs ~defs goal =
                           match try_right_unify_cpairs head goal with
                             | None -> []
                             | Some cpairs ->
-                                [(get_bind_state (), cpairs, normalize body)])
+                                [(get_bind_state (), cpairs,
+                                  normalize (coinductive_wrapper r body))])
              | _ -> failwith "Bad head in definition")
   in
     set_bind_state initial_bind_state ;
@@ -394,7 +430,7 @@ let unfold_defs ~defs goal =
 
 let unfold ~defs goal =
   match goal with
-    | Pred(goal, _) ->
+    | Pred(goal, r) ->
         (* Find the first body without lingering conflict pairs *)
         let rec select_non_cpair list =
           match list with
@@ -402,7 +438,7 @@ let unfold ~defs goal =
             | _::rest -> select_non_cpair rest
             | [] -> failwith "No matching definitions"
         in
-          select_non_cpair (unfold_defs ~defs goal)
+          select_non_cpair (unfold_defs ~defs goal r)
     | _ -> failwith "Can only unfold definitions"
       
 
@@ -458,7 +494,12 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
 
   and metaterm_aux n goal ~sc =
     hyps |> iter_keep_state
-        (fun hyp -> if try_meta_right_permute_unify goal hyp then sc ()) ;
+        (fun hyp ->
+           match hyp, goal with
+             | Pred(_, CoSmaller i), Pred(_, CoSmaller j) when i = j ->
+                 if try_meta_right_permute_unify goal hyp then sc ()
+             | Pred(_, CoSmaller i), _ -> ()
+             | _ -> if try_meta_right_permute_unify goal hyp then sc ()) ;
       
     match goal with
       | True -> sc ()
@@ -475,11 +516,11 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
           let body = instantiate_nablas ids body in
             metaterm_aux n body ~sc
       | Obj(obj, _) -> obj_aux n obj ~sc
-      | Pred(p, _) -> if n > 0 then def_aux n p ~sc
+      | Pred(p, r) -> if n > 0 then def_aux n p r ~sc
       | _ -> ()
 
-  and def_aux n goal ~sc =
-    unfold_defs ~defs goal |> iter_keep_state
+  and def_aux n goal r ~sc =
+    unfold_defs ~defs goal r |> iter_keep_state
         (fun (state, cpairs, body) ->
            set_bind_state state ;
            metaterm_aux (n-1) body

@@ -55,6 +55,11 @@ let tests =
            let t = set_restriction (Equal 1) a in
              assert_pprint_equal "{A}@" t) ;
 
+      "Print co-smaller restricted object" >::
+        (fun () ->
+           let t = set_restriction (CoSmaller 1) a in
+             assert_pprint_equal "{A}+" t) ;
+      
       "Print second smaller restricted object" >::
         (fun () ->
            let t = set_restriction (Smaller 2) a in

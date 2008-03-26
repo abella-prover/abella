@@ -24,6 +24,7 @@ open Format
 type restriction =
   | Smaller of int
   | Equal of int
+  | CoSmaller of int
   | Irrelevant
 
 type obj = { context : Context.t ;
@@ -148,11 +149,15 @@ let set_restriction r t =
     | Pred(p, _) -> Pred(p, r)
     | _ -> failwith "Attempting to set restriction to non-object"
 
-let reduce_restriction r =
+let reduce_inductive_restriction r =
   match r with
-    | Irrelevant -> Irrelevant
     | Equal i -> Smaller i
-    | Smaller i -> Smaller i
+    | _ -> r
+        
+let reduce_coinductive_restriction r =
+  match r with
+    | Equal i -> CoSmaller i
+    | _ -> r
         
 let add_to_context elt obj =
   {obj with context = Context.add elt obj.context}
@@ -375,6 +380,7 @@ let instantiate_nablas ids body =
 let restriction_to_string r =
   match r with
     | Smaller i -> String.make i '*'
+    | CoSmaller i -> String.make i '+'
     | Equal i -> String.make i '@'
     | Irrelevant -> ""
 

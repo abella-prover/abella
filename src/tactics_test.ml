@@ -602,6 +602,14 @@ let case_tests =
                    assert_pprint_equal "name n2" term
                | cases -> assert_expected_cases 1 cases) ;
 
+      "Should not apply to coinductive restriction" >::
+        (fun () ->
+           let term = freshen "foo A +" in
+             assert_raises
+               (Failure "Cannot case analyze hypothesis\
+                         \ with coinductive restriction")
+               (fun () -> case term)) ;
+
     ]
 
 let induction_tests =

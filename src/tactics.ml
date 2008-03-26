@@ -315,6 +315,8 @@ let case ~used ~clauses ~defs ~global_support term =
     
     match term with
       | Obj(obj, r) -> obj_case obj r
+      | Pred(_, CoSmaller _) -> failwith "Cannot case analyze hypothesis\
+                                          \ with coinductive restriction"
       | Pred(p, r) -> def_case ~wrapper:(predicate_wrapper r) p
       | Or _ -> List.map stateless_case_to_case
           (List.filter_map (recursive_metaterm_case ~used) (or_to_list term))

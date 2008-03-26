@@ -88,8 +88,8 @@ let parse_defs str =
 
 let defs : def list ref =
   ref (parse_defs
-         ("member A (A :: L)." ^
-            "member A (B :: L) := member A L."))
+         ("member A (A :: L). \
+         \ member A (B :: L) := member A L."))
 
 let add_def new_def =
   defs := !defs @ [new_def]

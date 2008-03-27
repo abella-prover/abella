@@ -77,7 +77,7 @@ let top_command_to_string tc =
     | Define def ->
         sprintf "Define %s" (def_to_string def)
     | CoDefine def ->
-        sprintf "Define %s" (def_to_string def)
+        sprintf "CoDefine %s" (def_to_string def)
 
 let withs_to_string ws =
   String.concat ", "

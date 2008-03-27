@@ -12,6 +12,8 @@ CoDefine coadd (s A) B (s C) := coadd A B C.
 CoDefine coadd z (s B) (s C) := coadd z B C.
 CoDefine coadd z z z.
 
+..
+
 Theorem coeq_refl : forall A,
   conat A -> coeq A A.
 coinduction. intros. case H1.

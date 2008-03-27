@@ -2,6 +2,10 @@ New syntax for inductive and coinductive definitions?
   Should include arity?
   Arity should be taken into account for inductive/coinductive
 
+Allow apply with no arguments, only with clause.
+  Must instantiate all binders or get instantiable variable at
+  toplevel error
+
 Future
 ======
 Get definitions to work with multiple nablas?

@@ -10,6 +10,12 @@ Define tk z L nil.
 Define tk N nil nil.
 Define tk (s N) (X :: L) (X :: R) := tk N L R.
 
+Define eqf L R := (forall N S, tk N L S -> tk N R S) /\
+                  (forall N S, tk N R S -> tk N L S).
+
+
+%% First we show eqi implies eqf                  
+
 Theorem eqi_take : forall L R S N,
   eqi L R -> tk N L S -> tk N R S.
 induction on 2. intros. case H2.
@@ -17,18 +23,49 @@ induction on 2. intros. case H2.
   case H1. search.
   case H1. apply IH to H4 H3. search.
 
-Theorem take_eqi : forall L R,
-  colist L -> colist R ->
-    (forall N S, tk N L S -> tk N R S) ->
-    (forall N S, tk N R S -> tk N L S) ->
-      eqi L R.
+Theorem eqi_sym : forall L R,
+  eqi L R -> eqi R L.
 coinduction. intros. case H1.
-  apply H3 to _ with N = s z. case H5. search.
-  case H2.
-    apply H4 to _ with N = s z. case H6.
-    apply H3 to _ with N = s z. case H7.
-      assert forall N S, tk N L1 S -> tk N L2 S. intros.
-        apply H3 to _ with N = s N. case H10. search.
-      assert forall N S, tk N L2 S -> tk N L1 S. intros.
-        apply H4 to _ with N = s N. case H11. search.
-      apply CH to H5 H6 H9 H10. search.
+  search.
+  apply CH to H2. search.
+
+% The first main result
+Theorem eqi_eqf : forall L R,
+  eqi L R -> eqf L R.
+intros. unfold.
+  intros. apply eqi_take to H1 H2. search.
+  intros. apply eqi_sym to H1. apply eqi_take to H3 H2. search.
+
+
+%% Second we show eqf implies eqi
+  
+Theorem eqf_nil : forall L,
+  eqf nil L -> L = nil.
+intros. case H1.
+  apply H2 to _ with N = s z. case H4. search.
+
+Theorem eqf_cons : forall X L R,
+  eqf (X :: L) R -> exists S, R = X :: S.
+intros. case H1. apply H2 to _ with N = s z.
+  case H4. search.
+
+Theorem eqf_sym : forall L R,
+  eqf L R -> eqf R L.
+intros. case H1. search.
+
+Theorem eqf_downward : forall X L R,
+  eqf (X :: L) (X :: R) -> eqf L R.
+intros. case H1. unfold.
+  intros. assert tk (s N) (X :: L) (X :: S). apply H2 to H5.
+    case H6. search.
+  intros. assert tk (s N) (X :: R) (X :: S). apply H3 to H5.
+    case H6. search.
+
+% The second main result
+Theorem eqf_eqi : forall L R,
+  colist L -> eqf L R -> eqi L R.
+coinduction. intros. case H1.
+  apply eqf_nil to H2. search.
+  apply eqf_cons to H2. apply eqf_downward to H2.
+    apply CH to H3 H4. search.
+

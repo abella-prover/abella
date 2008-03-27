@@ -352,4 +352,32 @@ let tests =
               indicates test failure *)
         );
       
+      "Search should not find complex co-inductive hypothesis" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall X, foo X -> bar X" ;
+
+           List.iter (add_def Types.CoInductive)
+             (parse_defs "bar X := bar X.") ;
+
+           coinduction () ;
+           search () ;
+           (* This may throw Failure("Proof completed") which
+              indicates test failure *)
+        );
+
+      "Search should find simple co-inductive hypothesis" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"bar X" ;
+
+           List.iter (add_def Types.CoInductive)
+             (parse_defs "bar X := bar X.") ;
+
+           assert_proof
+             (fun () ->
+                coinduction () ;
+                search ())
+        );
+      
     ]

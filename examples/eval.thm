@@ -8,13 +8,13 @@
 %% Determinancy
 %%
 
-Theorem det_eval :
+Theorem eval_det :
   forall E V1 V2, {eval E V1} -> {eval E V2} -> V1 = V2.
 induction on 1. intros. case H1.
   case H2. search.
   case H2. apply IH to H3 H5. apply IH to H4 H6. search.
 
-Theorem det_step :
+Theorem step_det :
   forall E1 E2 E3, {step E1 E2} -> {step E1 E3} -> E2 = E3.
 induction on 1. intros. case H1.
   case H2.
@@ -24,7 +24,7 @@ induction on 1. intros. case H1.
     case H3.
     apply IH to H3 H4. search.
 
-Theorem det_nstep :
+Theorem nstep_det :
   forall E R1 R2, {nstep E (abs R1)} -> {nstep E (abs R2)} -> R1 = R2.
 induction on 1. intros. case H1.
   case H2.
@@ -32,7 +32,7 @@ induction on 1. intros. case H1.
     case H3.
   case H2.
     case H3.
-    apply det_step to H3 H5. apply IH to H4 H6. search.
+    apply step_det to H3 H5. apply IH to H4 H6. search.
 
 %%
 %% Equivalence of semantics
@@ -118,3 +118,24 @@ Theorem no_eval : forall V,
   {eval (app (abs x\ app x x) (abs x\ app x x)) V} -> false.
 induction on 1. intros. case H1.
   case H2. apply IH to H3.
+
+% We can also define divergence coinductivly to prove that
+% (lambda x . x x) (lambda x . x x) diverges
+
+CoDefine diverge (app M N) := diverge M.
+CoDefine diverge (app M N) := exists R, {eval M (abs R)} /\ diverge (R N).
+
+Theorem omega_diverge :
+  diverge (app (abs x\ app x x) (abs x\ app x x)).
+coinduction. search.
+
+% More generally we can prove that evaluation and divergence are
+% mutually exclusive
+Theorem eval_diverge_absurd : forall M V,
+  {eval M V} -> diverge M -> false.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    apply IH to H3 H5.
+    apply eval_det to H3 H5. apply IH to H4 H6.
+

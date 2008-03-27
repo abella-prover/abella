@@ -259,17 +259,36 @@ let cut h arg =
 
 let remove_inductive_hypotheses hyps =
   List.remove_all
-    (fun (name, _) -> Str.string_match (Str.regexp "^[CI]H") name 0)
+    (fun (name, _) -> Str.string_match (Str.regexp "^IH") name 0)
     hyps
+
+let has_coinductive_result (name, term) =
+  let rec aux term nested =
+    match term with
+      | Binding(Forall, _, body) -> aux body true
+      | Binding(Nabla, _, body) -> aux body true
+      | Arrow(left, right) -> aux right true
+      | Pred(_, CoSmaller _) -> nested
+      | _ -> false
+  in
+    aux term false
+    
+let remove_coinductive_hypotheses hyps =
+  List.remove_all has_coinductive_result hyps
 
 let defs_to_list defs =
   H.fold (fun _ (_, dcs) acc -> dcs @ acc) defs []
           
 let search_goal goal =
+  let hyps = sequent.hyps
+    |> remove_inductive_hypotheses
+    |> remove_coinductive_hypotheses
+    |> List.map snd
+  in
   let search_depth n =
     Tactics.search
       ~depth:n
-      ~hyps:(List.map snd (remove_inductive_hypotheses sequent.hyps))
+      ~hyps
       ~clauses:!clauses
       ~defs:(defs_to_list defs)
       goal

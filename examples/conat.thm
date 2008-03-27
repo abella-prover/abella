@@ -1,4 +1,4 @@
-%% Various results on the co-natural numbers (natural numbers with infinity)
+%% Results on co-natural numbers (natural numbers with infinity)
 
 CoDefine conat z.
 CoDefine conat (s A) := conat A.

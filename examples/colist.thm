@@ -1,4 +1,4 @@
-%% The take lemma on infinite lists
+%% Results on (potentially) infinite lists
 
 CoDefine colist nil.
 CoDefine colist (X :: L) := colist L.
@@ -12,7 +12,8 @@ Define tk (s N) (X :: L) (X :: R) := tk N L R.
 
 Define eqf L R := (forall N S, tk N L S -> tk N R S) /\
                   (forall N S, tk N R S -> tk N L S).
-                 
+
+                                   
 %% First we show eqi implies eqf
 
 Theorem eqi_take : forall L R S N,
@@ -28,7 +29,6 @@ coinduction. intros. case H1.
   search.
   apply CH to H2. search.
 
-% The first main result
 Theorem eqi_eqf : forall L R,
   eqi L R -> eqf L R.
 intros. unfold.
@@ -60,7 +60,6 @@ intros. case H1. unfold.
   intros. assert tk (s N) (X :: R) (X :: S). apply H3 to H5.
     case H6. search.
 
-% The second main result
 Theorem eqf_eqi : forall L R,
   colist L -> eqf L R -> eqi L R.
 coinduction. intros. case H1.
@@ -68,3 +67,18 @@ coinduction. intros. case H1.
   apply eqf_cons to H2. apply eqf_downward to H2.
     apply CH to H3 H4. search.
 
+
+% We define co-inductive append and show it is associative
+
+CoDefine coapp (X :: A) B (X :: C) := coapp A B C.
+CoDefine coapp nil (X :: B) (X :: C) := coapp nil B C.
+CoDefine coapp nil nil nil.
+  
+Theorem coapp_assoc : forall A B C AB ABC BC,
+  coapp A B AB -> coapp AB C ABC -> coapp B C BC -> coapp A BC ABC.
+coinduction. intros. case H1.
+  case H2. apply CH to H4 H5 H3. search.
+  case H2. case H3. apply CH to H4 H5 H6. search.
+  case H2.
+    case H3. apply CH to _ H4 H5. search.
+    case H3. search.

@@ -1,7 +1,12 @@
+New syntax for inductive and coinductive definitions?
+  Should include arity?
+  Arity should be taken into account for inductive/coinductive
 
 Future
 ======
 Get definitions to work with multiple nablas?
+
+Search and case should be smart about looking up definitions
 
 split should work on n-ary conjunctions
 

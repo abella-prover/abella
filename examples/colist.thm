@@ -12,9 +12,8 @@ Define tk (s N) (X :: L) (X :: R) := tk N L R.
 
 Define eqf L R := (forall N S, tk N L S -> tk N R S) /\
                   (forall N S, tk N R S -> tk N L S).
-
-
-%% First we show eqi implies eqf                  
+                 
+%% First we show eqi implies eqf
 
 Theorem eqi_take : forall L R S N,
   eqi L R -> tk N L S -> tk N R S.

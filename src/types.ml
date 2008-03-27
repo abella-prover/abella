@@ -27,7 +27,7 @@ type clauses = clause list
 type def_type = Inductive | CoInductive
     
 type def = metaterm * metaterm
-type defs = (string, def_type * def list) Hashtbl.t
+type defs = (string * int, def_type * def list) Hashtbl.t
 
 type id = string
 
@@ -88,12 +88,13 @@ let command_to_string c =
     | Induction i ->
         sprintf "induction on %d" i
     | CoInduction -> "coinduction"
+    | Apply(h, hs, []) ->
+        sprintf "apply %s to %s" h (String.concat " " hs)
+    | Apply(h, [], ws) ->
+        sprintf "apply %s with %s" h (withs_to_string ws)
     | Apply(h, hs, ws) ->
-        if ws = [] then
-          sprintf "apply %s to %s" h (String.concat " " hs)
-        else
-          sprintf "apply %s to %s with %s" h (String.concat " " hs)
-            (withs_to_string ws)
+        sprintf "apply %s to %s with %s" h (String.concat " " hs)
+          (withs_to_string ws)
     | Cut(h1, h2) ->
         sprintf "cut %s with %s" h1 h2
     | Inst(h, n, t) ->

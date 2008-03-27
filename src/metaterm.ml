@@ -182,6 +182,11 @@ let def_arity (term, _) =
       | _ -> failwith "Bad head in definition"
   in
     aux term
+
+let def_sig d = (def_head d, def_arity d)
+let term_sig t = (term_head t, arg_count t)
+
+let sig_to_string (name, arity) = name ^ "/" ^ (string_of_int arity)
       
 (* Variable Renaming *)
 

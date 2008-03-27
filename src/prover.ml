@@ -89,19 +89,19 @@ let parse_defs str =
   Parser.defs Lexer.token (Lexing.from_string str)
 
 let defs : defs = H.create 10
-let () = H.add defs "member" 
+let () = H.add defs ("member", 2)
   (Inductive, parse_defs ("member A (A :: L). \
                          \ member A (B :: L) := member A L."))
 
 let add_def dtype new_def =
-  let head = def_head new_def in
+  let head = def_sig new_def in
     try
       let (ty, dcs) = H.find defs head in
         if ty = dtype then
           H.replace defs head (ty, dcs @ [new_def])
         else
           failwith (sprintf "%s has already been defined as %s"
-                      head (def_type_to_string ty))
+                      (sig_to_string head) (def_type_to_string ty))
     with Not_found -> H.add defs head (dtype, [new_def])
 
       
@@ -408,16 +408,16 @@ let ensure_is_inductive term =
   match term with
     | Obj _ -> ()
     | Pred(p, _) ->
-        let head = term_head p in
+        let psig = term_sig p in
           begin try
-            match H.find defs head with
+            match H.find defs psig with
               | Inductive, _ -> ()
               | CoInductive, _ -> failwith
                   (sprintf "Cannot induct on %s since it has\
-                          \ been coinductively defined" head)
+                          \ been coinductively defined" (sig_to_string psig))
           with Not_found ->
             failwith (sprintf "Cannot induct on %s since it has\
-                             \ not been defined" head)
+                             \ not been defined" (sig_to_string psig))
           end
     | _ -> failwith "Can only induct on predicates and judgments"
 
@@ -442,16 +442,16 @@ let rec conclusion term =
     | _ -> failwith "Cannot coinduct on a goal of this form"
 
 let ensure_is_coinductive p =
-  let head = term_head p in
+  let psig = term_sig p in
     try
-      match H.find defs head with
+      match H.find defs psig with
         | CoInductive, _ -> ()
         | Inductive, _ -> failwith
             (sprintf "Cannot coinduct on %s since it has\
-                    \ been inductively defined" head)
+                    \ been inductively defined" (sig_to_string psig))
     with Not_found ->
       failwith (sprintf "Cannot coinduct on %s since it has\
-                       \ not been defined" head)
+                       \ not been defined" (sig_to_string psig))
 
 let coinduction () =
   save_undo_state () ;

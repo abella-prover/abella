@@ -613,6 +613,8 @@ let apply ?(used_nominals=[]) term args =
             
       | Arrow _ ->
           apply_arrow term args
+
+      | term when List.length args = 0 -> (term, [])
             
       | _ -> failwith
           ("Structure of applied term must be a " ^

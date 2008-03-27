@@ -287,6 +287,22 @@ let apply_tests =
                   instantiate_withs h [("x", const "A")]
                ));
 
+      "Apply with no arguments" >::
+        (fun () ->
+           let h = freshen "forall E, foo E" in
+           let a = const ~ts:0 "a" in
+           let (t, _) = apply_with h [] [("E", a)] in
+             assert_pprint_equal "foo a" t);
+
+      "Apply with no arguments should contain about logic variables" >::
+        (fun () ->
+           let h = freshen "forall A B, foo A B" in
+           let a = const ~ts:0 "a" in
+           let (t, _) = apply_with h [] [("A", a)] in
+           let logic_vars = metaterm_vars_alist Logic t in
+             assert_bool "Should contain logic variable(s)"
+               (List.length logic_vars > 0));
+
     ]
 
 let assert_expected_cases n cases =

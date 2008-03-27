@@ -408,12 +408,6 @@ let case ?(keep=false) str =
       
 (* Induction *)
 
-let rec fresh_hyp_name_from_base base =
-  if List.mem_assoc base sequent.hyps then
-    fresh_hyp_name_from_base (base ^ "'")
-  else
-    base
-
 let get_restriction r =
   match r with
     | Smaller n -> n
@@ -471,7 +465,7 @@ let induction ind_arg =
   ensure_is_inductive (nth_product ind_arg sequent.goal) ;
   let res_num = next_restriction () in
   let (ih, new_goal) = Tactics.induction ind_arg res_num sequent.goal in
-  let name = fresh_hyp_name_from_base "IH" in
+  let name = fresh_name "IH" sequent.hyps in
     add_hyp ~name ih ;
     sequent.goal <- new_goal
 
@@ -503,7 +497,7 @@ let coinduction () =
   ensure_is_coinductive (conclusion sequent.goal) ;
   let res_num = next_restriction () in
   let (ch, new_goal) = Tactics.coinduction res_num sequent.goal in
-  let name = fresh_hyp_name_from_base "CH" in
+  let name = fresh_name "CH" sequent.hyps in
     add_hyp ~name ch ;
     sequent.goal <- new_goal
 

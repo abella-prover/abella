@@ -129,3 +129,4 @@ val term_head : term -> string
 val arg_count : term -> int
 
 val is_nominal : term -> bool
+val fresh_name : string -> (string * 'a) list -> string

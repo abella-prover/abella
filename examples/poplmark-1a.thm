@@ -85,7 +85,7 @@ induction on 1. intros. split*.
     search.
 
     % SA-Trans-TVar
-    apply IH' to H2 H6 H4. search.
+    apply IH1 to H2 H6 H4. search.
 
     % SA-Arrow, S = arrow S1 S2, Q = arrow T1 T2
     % Case analysis on (arrow T1 T2) <: T
@@ -151,23 +151,23 @@ induction on 1. intros. split*.
 
       % TM = X
       % Use transitivity result established for Q
-      apply IH' to H3 H4 H7.
+      apply IH1 to H3 H4 H7.
         case H3.
           apply H2 to _ H4 H9. search.
 
       % TM is bound in L
       % Use inner inductive hypothesis
-      apply IH' to H3 H4 H7. search.
+      apply IH1 to H3 H4 H7. search.
 
     % SA-Arrow, TM = arrow S1 S2, TN = arrow T1 T2
     % Use inner inductive hypothesis
-    apply IH' to H3 H4 H6. apply IH' to H3 H4 H7. search.
+    apply IH1 to H3 H4 H6. apply IH1 to H3 H4 H7. search.
 
     % SA-All, TM = all S1 (x\ S2 x), TN = all T1 (x\ T2 x)
     % Use inner inductive hypothesis
-    apply IH' to H3 H4 H6.
+    apply IH1 to H3 H4 H6.
       assert ctx (bound X Q :: bound n1 T1 :: L). case H3. search.
-        apply IH' to H9 H4 H7. search.
+        apply IH1 to H9 H4 H7. search.
 
 % We can extract the transitivity result from the generalized theorem
 Theorem transitivity : forall L Q S T,

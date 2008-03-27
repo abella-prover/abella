@@ -68,11 +68,11 @@ induction on 1. induction on 4. intros. case H4.
   search.
 
   % andR - C = and A B
-  apply IH' to H1 _ H3 H5. apply IH' to H1 _ H3 H6.
+  apply IH1 to H1 _ H3 H5. apply IH1 to H1 _ H3 H6.
     search.
 
   % andL
-  apply IH' to H1 _ H3 H6. case H5. case H8.
+  apply IH1 to H1 _ H3 H6. case H5. case H8.
     % essential case - K = and A B
     apply and_left_inv to _ H3. apply and_right_inv to _ H3. case H1.
       apply IH to H11 _ H9 H7. apply IH to H12 _ H10 H13. search.
@@ -81,10 +81,10 @@ induction on 1. induction on 4. intros. case H4.
     search.
 
   % impR - C = imp A B.
-  apply IH' to H1 _ H3 H5. search.
+  apply IH1 to H1 _ H3 H5. search.
 
   % impL
-  apply IH' to H1 _ H3 H6. apply IH' to H1 _ H3 H7. case H5. case H10.
+  apply IH1 to H1 _ H3 H6. apply IH1 to H1 _ H3 H7. case H5. case H10.
     % essential case - K = imp A B
     apply imp_inv to _ H3. case H1.
       apply IH to H12 _ H8 H11. apply IH to H13 _ H14 H9. search.

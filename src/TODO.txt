@@ -1,5 +1,3 @@
-New syntax for inductive and coinductive definitions?
-
 Future
 ======
 Get definitions to work with multiple nablas?
@@ -24,6 +22,9 @@ Add an apply tactic that works backwards like in coq?
 
 Do we have to consider logic variables in the context during search?
 
+New syntax for inductive and coinductive definitions?
+  Allow for empty predicate definitions
+  Allow for opaque predicate definitions
 
 Larger or longer term issues
 ============================

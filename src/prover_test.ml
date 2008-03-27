@@ -379,5 +379,41 @@ let tests =
                 coinduction () ;
                 search ())
         );
-      
+
+      "Apply should not work with IH as argument" >::
+        (fun () ->
+           setup_prover ()
+             ~lemmas:[("lem", "(forall X, foo X -> bar X) -> baz")]
+             ~goal:"forall X, foo X -> bar X" ;
+
+           List.iter (add_def Types.Inductive)
+             (parse_defs "foo X := foo X.") ;
+
+           induction 1 ;
+           assert_raises_any (fun () -> apply "lem" ["IH"] []) ;
+        );
+
+      "Apply should not work with CH as argument" >::
+        (fun () ->
+           setup_prover ()
+             ~lemmas:[("lem", "(forall X, foo X -> bar X) -> baz")]
+             ~goal:"forall X, foo X -> bar X" ;
+
+           List.iter (add_def Types.CoInductive)
+             (parse_defs "bar X := bar X.") ;
+
+           coinduction () ;
+           assert_raises_any (fun () -> apply "lem" ["CH"] []) ;
+        );
+          
+      "Apply should not work with coinductively restricted argument" >::
+        (fun () ->
+           setup_prover ()
+             ~lemmas:[("lem", "forall X, foo X -> bar X")]
+             ~goal:"forall X, foo X + -> bar X" ;
+
+           intros () ;
+           assert_raises_any (fun () -> apply "lem" ["H1"] []) ;
+        );
+          
     ]

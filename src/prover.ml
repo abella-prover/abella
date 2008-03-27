@@ -332,11 +332,27 @@ let ensure_no_logic_variable terms =
   let logic_vars = List.flatten_map (metaterm_vars_alist Logic) terms in
   if List.length logic_vars > 0 then
     failwith "Found logic variable at toplevel"
-      
+
+let ensure_no_restrictions term =
+  let rec aux t nested =
+    match t with
+      | Binding(Forall, _, body) -> aux body true
+      | Binding(Nabla, _, body) -> aux body true
+      | Arrow(left, right) -> aux left true; aux right true
+      | Obj(_, Smaller i) | Obj(_, Equal i) 
+      | Pred(_, Smaller i) | Pred(_, Equal i) ->
+          if nested then invalid_metaterm_arg term
+      | Pred(_, CoSmaller i) ->
+          invalid_metaterm_arg term
+      | _ -> ()
+  in
+    aux term false
+
 let apply h args ws =
   save_undo_state () ;
   let stmt = get_hyp_or_lemma h in
   let args = List.map get_some_hyp args in
+  let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
   let ws = List.map (fun (x,t) -> x, localize_term t) ws in
   let result, obligations = Tactics.apply_with stmt args ws in
   let remaining_obligations =

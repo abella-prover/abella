@@ -1,0 +1,24 @@
+%% Results on CCS
+%%
+%% These are taken from Alwen Tiu's PhD thesis
+
+Theorem mu_id_step_absurd : forall A Q,
+  {step (mu x\ x) A Q} -> false.
+induction on 1. intros. case H1.
+  apply IH to H2.
+
+  
+CoDefine sim P Q :=
+  forall A P1, {step P A P1} -> exists Q1, {step Q A Q1} /\ sim P1 Q1.
+
+Theorem sim_mu_par_ext : forall P Q Q1,
+  {step Q a (par Q Q1)} -> sim (mu x\ out a x) Q.
+coinduction. intros. unfold. intros.
+case H2. case H3.
+assert {step (par Q Q1) a (par (par Q Q1) Q1)}.
+apply CH to H4. search.
+
+Theorem sim_mu_par :
+  sim (mu x\ out a x) (mu x\ par (out a x) (out a x)).
+apply sim_mu_par_ext to _ with Q = (mu x\ par (out a x) (out a x)).
+search.

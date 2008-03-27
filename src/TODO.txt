@@ -1,5 +1,3 @@
-Coinduction
-  Mark predicates as inductive or co-inductive somehow
 
 Future
 ======

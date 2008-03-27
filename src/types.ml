@@ -24,8 +24,10 @@ open Printf
 type clause = term * term list
 type clauses = clause list
 
+type def_type = Inductive | CoInductive
+    
 type def = metaterm * metaterm
-type defs = def list
+type defs = (string, def_type * def list) Hashtbl.t
 
 type id = string
 
@@ -33,6 +35,7 @@ type top_command =
   | Theorem of id * metaterm
   | Axiom of id * metaterm
   | Define of def
+  | CoDefine of def
 
 type command =
   | Induction of int
@@ -60,6 +63,11 @@ let def_to_string (head, body) =
     sprintf "%s := %s" (metaterm_to_string head)
       (metaterm_to_formatted_string body)
 
+let def_type_to_string dtype =
+  match dtype with
+    | Inductive -> "inductive"
+    | CoInductive -> "coinductive"
+
 let top_command_to_string tc =
   match tc with
     | Theorem(name, body) ->
@@ -67,6 +75,8 @@ let top_command_to_string tc =
     | Axiom(name, body) ->
         sprintf "Axiom %s : %s" name (metaterm_to_formatted_string body)
     | Define def ->
+        sprintf "Define %s" (def_to_string def)
+    | CoDefine def ->
         sprintf "Define %s" (def_to_string def)
 
 let withs_to_string ws =

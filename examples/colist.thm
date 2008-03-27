@@ -1,10 +1,10 @@
 %% The take lemma on infinite lists
 
-Define colist nil.
-Define colist (X :: L) := colist L.
+CoDefine colist nil.
+CoDefine colist (X :: L) := colist L.
 
-Define eqi nil nil.
-Define eqi (X :: L) (X :: R) := eqi L R.
+CoDefine eqi nil nil.
+CoDefine eqi (X :: L) (X :: R) := eqi L R.
 
 Define tk z L nil.
 Define tk N nil nil.

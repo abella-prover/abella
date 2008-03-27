@@ -18,11 +18,10 @@ let assert_proof proof_function =
 let assert_goal goal =
   assert_string_equal goal (metaterm_to_string sequent.goal)
 
-let setup_prover ?clauses:(clauses=[]) ?defs:(defs=[])
+let setup_prover ?clauses:(clauses=[])
     ?goal:(goal="") ?lemmas:(lemmas=[]) () =
   full_reset_prover () ;
   add_clauses clauses ;
-  List.iter add_def defs ;
   if goal <> "" then Prover.sequent.goal <- freshen goal ;
   Prover.lemmas :=
     List.map (fun (name,body) -> (name, parse_metaterm body)) lemmas
@@ -345,7 +344,7 @@ let tests =
       "Search should not find the inductive hypothesis" >::
         (fun () ->
            setup_prover ()
-             ~goal:"forall X, foo X -> bar X" ;
+             ~goal:"forall X, {foo X} -> {bar X}" ;
 
            induction 1 ;
            search () ;

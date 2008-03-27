@@ -21,7 +21,7 @@
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR
-%token THEOREM AXIOM DEFINE PLUS
+%token THEOREM AXIOM DEFINE PLUS CODEFINE
 %token COLON RARROW FORALL NABLA EXISTS STAR AT OR AND LBRACK RBRACK
 
 %token <int> NUM
@@ -49,7 +49,7 @@
 %type <Term.term> term
 %type <Types.clauses> clauses
 %type <Types.def> def
-%type <Types.defs> defs
+%type <Types.def list> defs
 %type <Types.command> command
 %type <Metaterm.obj> contexted_term
 %type <Metaterm.metaterm> metaterm
@@ -177,4 +177,5 @@ top_command :
   | THEOREM metaterm DOT                { Types.Theorem("Goal", $2) }
   | AXIOM ID COLON metaterm DOT         { Types.Axiom($2, $4) }
   | DEFINE def                          { Types.Define($2) }
+  | CODEFINE def                        { Types.CoDefine($2) }
   | EOF                                 { raise End_of_file }

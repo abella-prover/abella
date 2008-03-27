@@ -14,7 +14,8 @@
 (require 'font-lock)
 (defvar abella-font-lock-keywords
   (list
-    (cons (make-regex "Define" "Theorem \\W*" "Axiom") font-lock-keyword-face)
+    (cons (make-regex "Define" "CoDefine" "Theorem \\W*" "Axiom")
+          font-lock-keyword-face)
 ;   (cons (make-regex "true" "false") font-lock-constant-face)
 ;   (cons (make-regex "forall" "exists" "nabla") font-lock-keyword-face)
 ;   (cons (make-regex "intros" "apply" "case" "induction" "search"

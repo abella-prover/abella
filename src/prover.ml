@@ -24,6 +24,8 @@ open Tactics
 open Types
 open Extensions
 
+module H = Hashtbl
+
 type lemmas = (id * metaterm) list
 let lemmas : lemmas ref = ref []
 
@@ -86,15 +88,23 @@ let add_clauses new_clauses =
 let parse_defs str =
   Parser.defs Lexer.token (Lexing.from_string str)
 
-let defs : def list ref =
-  ref (parse_defs
-         ("member A (A :: L). \
-         \ member A (B :: L) := member A L."))
+let defs : defs = H.create 10
+let () = H.add defs "member" 
+  (Inductive, parse_defs ("member A (A :: L). \
+                         \ member A (B :: L) := member A L."))
 
-let add_def new_def =
-  defs := !defs @ [new_def]
-    
-  
+let add_def dtype new_def =
+  let head = def_head new_def in
+    try
+      let (ty, dcs) = H.find defs head in
+        if ty = dtype then
+          H.replace defs head (ty, dcs @ [new_def])
+        else
+          failwith (sprintf "%s has already been defined as %s"
+                      head (def_type_to_string ty))
+    with Not_found -> H.add defs head (dtype, [new_def])
+
+      
 (* Undo support *)
   
 type undo_stack = (sequent * subgoal list * Term.bind_state) list
@@ -125,12 +135,11 @@ let reset_prover =
 
 let full_reset_prover =
   let original_clauses = !clauses in
-  let original_defs = !defs in
+  let original_defs = H.copy defs in
     fun () ->
       reset_prover () ;
       clauses := original_clauses ;
-      defs := original_defs
-      
+      H.assign defs original_defs
 
 let add_hyp ?(name=fresh_hyp_name ()) term =
   sequent.hyps <- List.append sequent.hyps [(name, term)]
@@ -252,6 +261,9 @@ let remove_inductive_hypotheses hyps =
   List.remove_all
     (fun (name, _) -> Str.string_match (Str.regexp "^[CI]H") name 0)
     hyps
+
+let defs_to_list defs =
+  H.fold (fun _ (_, dcs) acc -> dcs @ acc) defs []
           
 let search_goal goal =
   let search_depth n =
@@ -259,7 +271,7 @@ let search_goal goal =
       ~depth:n
       ~hyps:(List.map snd (remove_inductive_hypotheses sequent.hyps))
       ~clauses:!clauses
-      ~defs:!defs
+      ~defs:(defs_to_list defs)
       goal
   in
     List.exists search_depth (List.range 1 10)
@@ -342,7 +354,7 @@ let case ?(keep=false) str =
   in
   let cases =
     Tactics.case ~used:sequent.vars ~clauses:!clauses
-      ~defs:!defs ~global_support term
+      ~defs:(defs_to_list defs) ~global_support term
   in
     if not keep then remove_hyp str ;
     add_cases_to_subgoals cases ;
@@ -381,8 +393,37 @@ let next_restriction () =
   1 + (sequent.hyps |> List.map snd |>
            List.map get_max_restriction |> List.max)
 
+let rec nth_product n term =
+  match term with
+    | Binding(Forall, _, body) -> nth_product n body
+    | Binding(Nabla, _, body) -> nth_product n body
+    | Arrow(left, right) ->
+        if n = 1 then
+          left
+        else
+          nth_product (n-1) right
+    | _ -> failwith "Can only induct on predicates and judgments"
+
+let ensure_is_inductive term =
+  match term with
+    | Obj _ -> ()
+    | Pred(p, _) ->
+        let head = term_head p in
+          begin try
+            match H.find defs head with
+              | Inductive, _ -> ()
+              | CoInductive, _ -> failwith
+                  (sprintf "Cannot induct on %s since it has\
+                          \ been coinductively defined" head)
+          with Not_found ->
+            failwith (sprintf "Cannot induct on %s since it has\
+                             \ not been defined" head)
+          end
+    | _ -> failwith "Can only induct on predicates and judgments"
+
 let induction ind_arg =
   save_undo_state () ;
+  ensure_is_inductive (nth_product ind_arg sequent.goal) ;
   let res_num = next_restriction () in
   let (ih, new_goal) = Tactics.induction ind_arg res_num sequent.goal in
   let name = fresh_hyp_name_from_base "IH" in
@@ -392,8 +433,29 @@ let induction ind_arg =
       
 (* CoInduction *)
 
+let rec conclusion term =
+  match term with
+    | Binding(Forall, _, body) -> conclusion body
+    | Binding(Nabla, _, body) -> conclusion body
+    | Arrow(left, right) -> conclusion right
+    | Pred(p, _) -> p
+    | _ -> failwith "Cannot coinduct on a goal of this form"
+
+let ensure_is_coinductive p =
+  let head = term_head p in
+    try
+      match H.find defs head with
+        | CoInductive, _ -> ()
+        | Inductive, _ -> failwith
+            (sprintf "Cannot coinduct on %s since it has\
+                    \ been inductively defined" head)
+    with Not_found ->
+      failwith (sprintf "Cannot coinduct on %s since it has\
+                       \ not been defined" head)
+
 let coinduction () =
   save_undo_state () ;
+  ensure_is_coinductive (conclusion sequent.goal) ;
   let res_num = next_restriction () in
   let (ch, new_goal) = Tactics.coinduction res_num sequent.goal in
   let name = fresh_hyp_name_from_base "CH" in
@@ -463,7 +525,7 @@ let split propogate_result =
 
 let unfold () =
   save_undo_state () ;
-  let goal = unfold ~defs:!defs sequent.goal in
+  let goal = unfold ~defs:(defs_to_list defs) sequent.goal in
   let goals = and_to_list goal in
     subgoals := (List.map goal_to_subgoal goals) @ !subgoals;
     next_subgoal ()

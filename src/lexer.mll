@@ -60,6 +60,7 @@ rule token = parse
 | "Theorem"          { THEOREM }
 | "Axiom"            { AXIOM }
 | "Define"           { DEFINE }
+| "CoDefine"         { CODEFINE }
 | "\\/"              { OR }
 | "/\\"              { AND }
 | "{"                { LBRACK }

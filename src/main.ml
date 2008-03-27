@@ -41,7 +41,7 @@ let warn_if_free_vars free_vars =
 
 let warn_def_usage ?(ignore=[]) term =
   let def_arities =
-    List.map (fun d -> (def_head d, def_arity d)) !defs
+    List.map (fun d -> (def_head d, def_arity d)) (defs_to_list defs)
   in
   let rec aux term =
     match term with
@@ -174,7 +174,10 @@ let rec process ~interactive lexbuf =
             add_lemma name axiom
         | Define(def) ->
             check_def def ;
-            add_def def
+            add_def Inductive def
+        | CoDefine(def) ->
+            check_def def ;
+            add_def CoInductive def
       end ;
       if interactive then flush stdout ;
       if !annotate then printf "</pre>" ;

@@ -176,3 +176,11 @@ module List = struct
       a :: range (a+1) b
 end
 
+module Hashtbl = struct
+  include Hashtbl
+
+  let assign dest src =
+    clear dest ;
+    iter (fun a b -> add dest a b) src
+      
+end

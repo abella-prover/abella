@@ -257,10 +257,20 @@ let cut h arg =
 
 (* Search *)
 
+let has_inductive_hyps (name, term) =
+  let rec aux term =
+    match term with
+      | Binding(Forall, _, body) -> aux body
+      | Binding(Nabla, _, body) -> aux body
+      | Arrow(Obj(_, Smaller i), _) -> true
+      | Arrow(Pred(_, Smaller i), _) -> true
+      | Arrow(left, right) -> aux right
+      | _ -> false
+  in
+    aux term
+
 let remove_inductive_hypotheses hyps =
-  List.remove_all
-    (fun (name, _) -> Str.string_match (Str.regexp "^IH") name 0)
-    hyps
+  List.remove_all has_inductive_hyps hyps
 
 let has_coinductive_result (name, term) =
   let rec aux term nested =

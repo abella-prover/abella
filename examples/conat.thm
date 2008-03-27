@@ -9,7 +9,8 @@ CoDefine coeq (s A) (s B) := coeq A B.
 CoDefine inf (s A) := inf A.
 
 CoDefine coadd (s A) B (s C) := coadd A B C.
-CoDefine coadd z B C := coeq B C.
+CoDefine coadd z (s B) (s C) := coadd z B C.
+CoDefine coadd z z z.
 
 Theorem coeq_refl : forall A,
   conat A -> coeq A A.
@@ -34,16 +35,12 @@ Theorem inf_plus_one : forall A,
 coinduction. intros. case H1.
   apply CH to H2. search.
 
-Theorem inf_coeq : forall A B,
-  inf A -> coeq A B -> inf B.
-coinduction. intros. case H1.
-  case H2. apply CH to H3 H4. search.
-
 Theorem coadd_det : forall A B C D,
   coadd A B C -> coadd A B D -> coeq C D.
 coinduction. intros. case H1.
   case H2. apply CH to H3 H4. search.
-  case H2. apply coeq_sym to H3. apply coeq_trans to H5 H4. search.
+  case H2. apply CH to H3 H4. search.
+  case H2. search.
 
 Theorem coadd_z : forall A,
   conat A -> coadd A z A.
@@ -60,4 +57,5 @@ Theorem coadd_inf2 : forall A B C,
   conat A -> inf B -> coadd A B C -> inf C.
 coinduction. intros. case H3.
   case H1. apply CH to H5 H2 H4. search.
-  apply inf_coeq to H2 H4. search.
+  case H2. apply CH to H1 H5 H4. search.
+  search.

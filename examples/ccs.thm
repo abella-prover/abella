@@ -1,6 +1,6 @@
 %% Results on CCS
 %%
-%% These are taken from Alwen Tiu's PhD thesis
+%% Many of these are taken from Alwen Tiu's PhD thesis
 
 Theorem mu_id_step_absurd : forall A Q,
   {step (mu x\ x) A Q} -> false.
@@ -22,3 +22,18 @@ Theorem sim_mu_par :
   sim (mu x\ out a x) (mu x\ par (out a x) (out a x)).
 apply sim_mu_par_ext to _ with Q = (mu x\ par (out a x) (out a x)).
 search.
+
+Theorem sim_refl : forall P,
+  sim P P.
+coinduction. intros.
+unfold. intros.
+apply CH with P = P1. search.
+
+Theorem sim_trans : forall P Q R,
+  sim P Q -> sim Q R -> sim P R.
+coinduction. intros.
+unfold. intros.
+case H1. apply H4 to H3.
+case H2. apply H7 to H5.
+apply CH to H6 H9. search.
+

@@ -28,6 +28,7 @@ let interactive = ref false
 
 let annotate = ref false
 let count = ref 0
+let last_sig = ref ("", 0)
 
 exception AbortProof
 
@@ -68,15 +69,22 @@ let check_theorem thm =
   let free_vars = Tactics.free_capital_var_names thm in
     warn_if_free_vars free_vars
 
+let ensure_new_or_last_sig dsig =
+  if Hashtbl.mem defs dsig then
+    if dsig <> !last_sig then
+      failwith (sprintf "%s has already been defined" (sig_to_string dsig)) ;
+  last_sig := dsig
+    
 let check_def (head, body) =
   ensure_no_restrictions head ;
   ensure_no_restrictions body ;
   let head_vars = Tactics.free_capital_var_names head in
   let body_vars = Tactics.free_capital_var_names body in
   let free_vars = List.minus body_vars head_vars in
+  let dsig = def_sig (head, body) in
+    ensure_new_or_last_sig dsig ;
     warn_if_free_vars free_vars ;
-    warn_def_usage ~ignore:[def_sig (head, body)] body
-
+    warn_def_usage ~ignore:[dsig] body
 
 let rec process_proof name lexbuf =
   let finished = ref false in
@@ -161,11 +169,13 @@ let rec process lexbuf =
             theorem thm ;
             begin try
               process_proof name lexbuf ;
-              add_lemma name thm
+              add_lemma name thm ;
+              last_sig := ("", 0)
             with AbortProof -> () end
         | Axiom(name, axiom) ->
             check_theorem axiom ;
-            add_lemma name axiom
+            add_lemma name axiom ;
+            last_sig := ("", 0)
         | Define(def) ->
             check_def def ;
             add_def Inductive def

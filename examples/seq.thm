@@ -1,7 +1,11 @@
 %% Comparison between internal and external definition of seq
 
-% Assume that prog has no defining clauses for now
-Define prog A B := false.
+% prog holds the object level program which is addition in this case
+Define prog (nat z) t.
+Define prog (nat (s N)) (atom (nat N)).
+
+Define prog (add z N N) t.
+Define prog (add (s A) B (s C)) (atom (add A B C)).
 
 Define seq L t.
 Define seq L (atom A) := member A L.
@@ -41,12 +45,6 @@ case H3.
 %% (prog P B, seq nil B). Then we have to do case analysis on (prog P B)
 %% to unfold the body of P. In the internal version, all of this is
 %% contained in one case analysis.
-
-Define prog (nat z) t.
-Define prog (nat (s N)) (atom (nat N)).
-
-Define prog (add z N N) t.
-Define prog (add (s A) B (s C)) (atom (add A B C)).
 
 Theorem add_base : forall N,
   seq nil (atom (nat N)) -> seq nil (atom (add N z N)).

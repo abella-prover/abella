@@ -1,5 +1,8 @@
 %% Comparison between internal and external definition of seq
 
+% Assume that prog has no defining clauses for now
+Define prog A B := false.
+
 Define seq L t.
 Define seq L (atom A) := member A L.
 Define seq L (and A B) := seq L A /\ seq L B.

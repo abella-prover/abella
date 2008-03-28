@@ -203,11 +203,15 @@ let rec and_to_list term =
     | And(left, right) -> (and_to_list left) @ (and_to_list right)
     | _ -> [term]
 
-let predicate_wrapper r t =
+let predicate_wrapper r psig t =
   let rec aux t =
     match t with
       | True | False | Eq _ | Obj _ -> t
-      | Pred(p, _) -> Pred(p, reduce_inductive_restriction r)
+      | Pred(p, _) ->
+          if term_sig p = psig then
+            Pred(p, reduce_inductive_restriction r)
+          else
+            t
       | Binding(binding, ids, body) -> Binding(binding, ids, aux body)
       | Or(t1, t2) -> Or(aux t1, aux t2)
       | And(t1, t2) -> And(aux t1, aux t2)
@@ -317,7 +321,7 @@ let case ~used ~clauses ~defs ~global_support term =
       | Obj(obj, r) -> obj_case obj r
       | Pred(_, CoSmaller _) -> failwith "Cannot case analyze hypothesis\
                                           \ with coinductive restriction"
-      | Pred(p, r) -> def_case ~wrapper:(predicate_wrapper r) p
+      | Pred(p, r) -> def_case ~wrapper:(predicate_wrapper r (term_sig p)) p
       | Or _ -> List.map stateless_case_to_case
           (List.filter_map (recursive_metaterm_case ~used) (or_to_list term))
       | Eq _
@@ -380,11 +384,15 @@ let coinduction res_num stmt =
 
 (* Unfold the current goal *)
 
-let coinductive_wrapper r t =
+let coinductive_wrapper r psig t =
   let rec aux t =
     match t with
       | True | False | Eq _ | Obj _ -> t
-      | Pred(p, _) -> Pred(p, reduce_coinductive_restriction r)
+      | Pred(p, _) ->
+          if term_sig p = psig then
+            Pred(p, reduce_coinductive_restriction r)
+          else
+            t
       | Binding(binding, ids, body) -> Binding(binding, ids, aux body)
       | Or(t1, t2) -> Or(aux t1, aux t2)
       | And(t1, t2) -> And(aux t1, aux t2)
@@ -395,6 +403,7 @@ let coinductive_wrapper r t =
 let unfold_defs ~defs goal r =
   let initial_bind_state = get_bind_state () in
   let support = term_support goal in
+  let gsig = term_sig goal in
   let result =
     defs |> List.flatten_map
         (fun (head, body) ->
@@ -408,7 +417,7 @@ let unfold_defs ~defs goal r =
                      | None -> []
                      | Some cpairs ->
                          [(get_bind_state (), cpairs,
-                           normalize (coinductive_wrapper r body))]
+                           normalize (coinductive_wrapper r gsig body))]
                    end
              | Binding(Nabla, [id], Pred(head, _)) ->
                  support |> List.flatten_map
@@ -424,7 +433,7 @@ let unfold_defs ~defs goal r =
                             | None -> []
                             | Some cpairs ->
                                 [(get_bind_state (), cpairs,
-                                  normalize (coinductive_wrapper r body))])
+                                  normalize (coinductive_wrapper r gsig body))])
              | _ -> failwith "Bad head in definition")
   in
     set_bind_state initial_bind_state ;

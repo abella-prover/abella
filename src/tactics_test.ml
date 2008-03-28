@@ -363,13 +363,13 @@ let case_tests =
       "Restriction on predicates should become smaller" >::
         (fun () ->
            let term = freshen "foo A @" in
-           let defs = parse_defs "foo X := bar X." in
+           let defs = parse_defs "foo X := foo X." in
              match case ~defs term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
                    begin match case1.new_hyps with
                      | [hyp] ->
-                         assert_pprint_equal "bar A *" hyp ;
+                         assert_pprint_equal "foo A *" hyp ;
                      | _ -> assert_failure "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 1 cases) ;
@@ -377,13 +377,13 @@ let case_tests =
       "Restriction should descend under binders" >::
         (fun () ->
            let term = freshen "foo A @" in
-           let defs = parse_defs "foo X := forall Y, bar X." in
+           let defs = parse_defs "foo X := forall Y, foo X." in
              match case ~defs term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
                    begin match case1.new_hyps with
                      | [hyp] ->
-                         assert_pprint_equal "forall Y, bar A *" hyp ;
+                         assert_pprint_equal "forall Y, foo A *" hyp ;
                      | _ -> assert_failure "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 1 cases) ;
@@ -391,13 +391,27 @@ let case_tests =
       "Restriction should descend only under the right of arrows" >::
         (fun () ->
            let term = freshen "foo A @" in
-           let defs = parse_defs "foo X := bar X -> baz X." in
+           let defs = parse_defs "foo X := foo X -> foo X." in
              match case ~defs term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
                    begin match case1.new_hyps with
                      | [hyp] ->
-                         assert_pprint_equal "bar A -> baz A *" hyp ;
+                         assert_pprint_equal "foo A -> foo A *" hyp ;
+                     | _ -> assert_failure "Expected 1 new hypothesis"
+                   end
+               | cases -> assert_expected_cases 1 cases) ;
+
+      "Restriction should only apply to matching predicates" >::
+        (fun () ->
+           let term = freshen "foo A @" in
+           let defs = parse_defs "foo X := foo X \\/ bar X." in
+             match case ~defs term with
+               | [case1] ->
+                   set_bind_state case1.bind_state ;
+                   begin match case1.new_hyps with
+                     | [hyp] ->
+                         assert_pprint_equal "foo A * \\/ bar A" hyp ;
                      | _ -> assert_failure "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 1 cases) ;
@@ -519,6 +533,14 @@ let case_tests =
              match case term with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
                    assert_pprint_equal "member (hyp B) (hyp A :: L)" hyp
+               | _ -> assert_failure "Pattern mismatch") ;
+
+      "Member case should not get restriction from object" >::
+        (fun () ->
+           let term = freshen "{L |- foo A}@" in
+             match case term with
+               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+                   assert_pprint_equal "member (foo A) L" hyp
                | _ -> assert_failure "Pattern mismatch") ;
 
       "Should pass along context" >::
@@ -983,9 +1005,9 @@ let search_tests =
       "Should match co-restricted hypothesis after unfolding" >::
         (fun () ->
            assert_search ()
-             ~hyps:["bar A +"]
-             ~goal:"foo A @"
-             ~defs:"foo X := bar X."
+             ~hyps:["foo A +"]
+             ~goal:"foo (s A) @"
+             ~defs:"foo (s X) := foo X."
              ~expect:true
         );
 
@@ -1031,6 +1053,13 @@ let unfold_tests =
            let goal = freshen "foo D @" in
            let result = unfold ~defs goal in
              assert_pprint_equal "foo D +" result) ;
+
+      "Should not reduce restriction for different signature" >::
+        (fun () ->
+           let defs = parse_defs "foo X := bar X." in
+           let goal = freshen "foo D @" in
+           let result = unfold ~defs goal in
+             assert_pprint_equal "bar D" result) ;
 
     ]
 

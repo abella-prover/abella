@@ -36,14 +36,12 @@ let ensure_no_restrictions term =
   if get_max_restriction term > 0 then
     failwith "Cannot use restrictions: *, @ or +"
       
-let warn_if_free_vars free_vars =
-  if free_vars <> [] then begin
-    printf "\n\tWarning: Potential variables treated as constants: %s\n\n"
-      (String.concat ", " free_vars) ;
-    if not !interactive then exit 1
-  end
+let ensure_no_free_vars free_vars =
+  if free_vars <> [] then
+    failwith (sprintf "Unbound variables: %s"
+                (String.concat ", " free_vars))
 
-let warn_def_usage ?(ignore=[]) term =
+let ensure_defs_exist ?(ignore=[]) term =
   let rec aux term =
     match term with
       | True | False | Eq _ | Obj _ -> ()
@@ -54,20 +52,17 @@ let warn_def_usage ?(ignore=[]) term =
       | Pred(pred, _) ->
           let psig = Term.term_sig pred in
             if not (Hashtbl.mem defs psig) && not (List.mem psig ignore) then
-              begin
-                printf "\n\tWarning: %s is not defined." (sig_to_string psig) ;
-                printf "\n\tPerhaps it is mispelt or you meant {%s}.\n\n"
-                  (Term.term_to_string pred) ;
-                if not !interactive then exit 1
-              end
+              failwith (sprintf "%s is not defined.\
+                                 \ Prehaps it is mispelt or you meant {%s}."
+                          (sig_to_string psig) (Term.term_to_string pred))
   in
     aux term
 
 let check_theorem thm =
   ensure_no_restrictions thm ;
-  warn_def_usage thm ;
+  ensure_defs_exist thm ;
   let free_vars = Tactics.free_capital_var_names thm in
-    warn_if_free_vars free_vars
+    ensure_no_free_vars free_vars
 
 let ensure_new_or_last_sig dsig =
   if Hashtbl.mem defs dsig then
@@ -80,11 +75,11 @@ let check_def (head, body) =
   ensure_no_restrictions body ;
   let head_vars = Tactics.free_capital_var_names head in
   let body_vars = Tactics.free_capital_var_names body in
-  let free_vars = List.minus body_vars head_vars in
+  let free_vars = List.minus head_vars body_vars in
   let dsig = def_sig (head, body) in
     ensure_new_or_last_sig dsig ;
-    warn_if_free_vars free_vars ;
-    warn_def_usage ~ignore:[dsig] body
+    ensure_no_free_vars free_vars ;
+    ensure_defs_exist ~ignore:[dsig] body
 
 let rec process_proof name lexbuf =
   let finished = ref false in
@@ -113,7 +108,11 @@ let rec process_proof name lexbuf =
           | Case(str, keep) -> case ~keep str
           | Assert(t) ->
               ensure_no_restrictions t ;
-              warn_def_usage t ;
+              ensure_defs_exist t ;
+              ensure_no_free_vars
+                (List.minus
+                   (Tactics.free_capital_var_names t)
+                   (List.map fst sequent.vars)) ;
               assert_hyp t
           | Exists(t) -> exists t
           | Clear(hs) -> clear hs

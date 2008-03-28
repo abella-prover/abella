@@ -58,7 +58,6 @@ rule token = parse
 | "@"                { AT }
 | "+"                { PLUS }
 | "Theorem"          { THEOREM }
-| "Axiom"            { AXIOM }
 | "Define"           { DEFINE }
 | "CoDefine"         { CODEFINE }
 | "\\/"              { OR }

@@ -42,21 +42,13 @@ let ensure_no_free_vars free_vars =
                 (String.concat ", " free_vars))
 
 let ensure_defs_exist ?(ignore=[]) term =
-  let rec aux term =
-    match term with
-      | True | False | Eq _ | Obj _ -> ()
-      | Arrow(a, b) -> aux a; aux b
-      | Binding(_, _, body) -> aux body
-      | Or(a, b) -> aux a; aux b
-      | And(a, b) -> aux a; aux b
-      | Pred(pred, _) ->
-          let psig = Term.term_sig pred in
-            if not (Hashtbl.mem defs psig) && not (List.mem psig ignore) then
-              failwith (sprintf "%s is not defined.\
-                                 \ Prehaps it is mispelt or you meant {%s}."
-                          (sig_to_string psig) (Term.term_to_string pred))
-  in
-    aux term
+  term |> iter_preds
+      (fun pred ->
+         let psig = Term.term_sig pred in
+           if not (Hashtbl.mem defs psig) && not (List.mem psig ignore) then
+             failwith (sprintf "%s is not defined.\
+                                \ Prehaps it is mispelt or you meant {%s}."
+                         (sig_to_string psig) (Term.term_to_string pred)))
 
 let check_theorem thm =
   ensure_no_restrictions thm ;
@@ -170,10 +162,6 @@ let rec process lexbuf =
               add_lemma name thm ;
               last_sig := ("", 0)
             with AbortProof -> () end
-        | Axiom(name, axiom) ->
-            check_theorem axiom ;
-            add_lemma name axiom ;
-            last_sig := ("", 0)
         | Define(def) ->
             check_def def ;
             add_def Inductive def

@@ -33,7 +33,6 @@ type id = string
 
 type top_command =
   | Theorem of id * metaterm
-  | Axiom of id * metaterm
   | Define of def
   | CoDefine of def
 
@@ -72,8 +71,6 @@ let top_command_to_string tc =
   match tc with
     | Theorem(name, body) ->
         sprintf "Theorem %s : \n%s" name (metaterm_to_formatted_string body)
-    | Axiom(name, body) ->
-        sprintf "Axiom %s : %s" name (metaterm_to_formatted_string body)
     | Define def ->
         sprintf "Define %s" (def_to_string def)
     | CoDefine def ->

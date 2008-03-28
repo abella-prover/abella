@@ -94,6 +94,18 @@ let map_terms f t =
       | Pred(p, r) -> Pred(f p, r)
   in
     aux t
+
+let iter_preds f term =
+  let rec aux term =
+    match term with
+      | True | False | Eq _ | Obj _ -> ()
+      | Arrow(a, b) -> aux a; aux b
+      | Binding(_, _, body) -> aux body
+      | Or(a, b) -> aux a; aux b
+      | And(a, b) -> aux a; aux b
+      | Pred(pred, _) -> f pred
+  in
+    aux term
     
 let is_imp t =
   match observe t with

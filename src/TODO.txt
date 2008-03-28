@@ -11,6 +11,11 @@ Before releasing with coinduction
 
 Future
 ======
+New syntax for inductive and coinductive definitions?
+  Allow for empty predicate definitions? (can define :- false)
+  Require used definitions to be defined
+  Allow mutual recursion between coinductive and inductive but not both
+
 Get definitions to work with multiple nablas?
 
 Search and case should be smart about looking up definitions
@@ -32,10 +37,6 @@ Change tactics to be first class and implement tacticals?
 Add an apply tactic that works backwards like in coq?
 
 Do we have to consider logic variables in the context during search?
-
-New syntax for inductive and coinductive definitions?
-  Allow for empty predicate definitions
-  Allow for opaque predicate definitions
 
 Larger or longer term issues
 ============================

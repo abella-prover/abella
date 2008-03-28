@@ -61,8 +61,7 @@ let ensure_defs_exist ?(ignore=[]) term =
 let check_theorem thm =
   ensure_no_restrictions thm ;
   ensure_defs_exist thm ;
-  let free_vars = Tactics.free_capital_var_names thm in
-    ensure_no_free_vars free_vars
+  ensure_no_free_vars (Tactics.free_capital_var_names thm)
 
 let ensure_new_or_last_sig dsig =
   if Hashtbl.mem defs dsig then
@@ -75,7 +74,7 @@ let check_def (head, body) =
   ensure_no_restrictions body ;
   let head_vars = Tactics.free_capital_var_names head in
   let body_vars = Tactics.free_capital_var_names body in
-  let free_vars = List.minus head_vars body_vars in
+  let free_vars = List.minus body_vars head_vars in
   let dsig = def_sig (head, body) in
     ensure_new_or_last_sig dsig ;
     ensure_no_free_vars free_vars ;

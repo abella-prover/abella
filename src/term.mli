@@ -125,8 +125,7 @@ val prefix : tag -> string
 val get_used : term list -> (id * term) list
 val is_free : term -> bool
 
-val term_head : term -> string
-val arg_count : term -> int
+val term_sig : term -> string * int
 
 val is_nominal : term -> bool
 val fresh_name : string -> (string * 'a) list -> string

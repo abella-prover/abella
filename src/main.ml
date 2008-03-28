@@ -40,30 +40,21 @@ let warn_if_free_vars free_vars =
       (String.concat ", " free_vars)
 
 let warn_def_usage ?(ignore=[]) term =
-  let def_arities =
-    List.map (fun d -> (def_head d, def_arity d)) (defs_to_list defs)
-  in
   let rec aux term =
     match term with
       | True | False | Eq _ | Obj _ -> ()
-      | Arrow(a, b) -> max (aux a) (aux b)
+      | Arrow(a, b) -> aux a; aux b
       | Binding(_, _, body) -> aux body
       | Or(a, b) -> aux a; aux b
       | And(a, b) -> aux a; aux b
       | Pred(pred, _) ->
-          let head = Term.term_head pred in
-          let count = Term.arg_count pred in
-            if not (List.mem_assoc head def_arities ||
-                      List.mem_assoc head ignore) then begin
-              printf "\n\tWarning: %s is not defined." head ;
-              printf "\n\tPerhaps it is mispelt or you meant {%s}.\n\n"
-                (Term.term_to_string pred)
-            end
-            else if not (List.mem (head, count) def_arities ||
-                           List.mem (head, count) ignore) then begin
-              printf "\n\tWarning: %s is not defined on %d arguments.\n\n"
-                head count
-            end
+          let psig = Term.term_sig pred in
+            if not (Hashtbl.mem defs psig) && not (List.mem psig ignore) then
+              begin
+                printf "\n\tWarning: %s is not defined." (sig_to_string psig) ;
+                printf "\n\tPerhaps it is mispelt or you meant {%s}.\n\n"
+                  (Term.term_to_string pred)
+              end
   in
     aux term
 
@@ -81,7 +72,7 @@ let check_def (head, body) =
   let body_vars = Tactics.free_capital_var_names body in
   let free_vars = List.remove_all (fun x -> List.mem x head_vars) body_vars in
     warn_if_free_vars free_vars ;
-    warn_def_usage ~ignore:[(def_head def, def_arity def)] body
+    warn_def_usage ~ignore:[def_sig def] body
 
 
 let rec process_proof name ~interactive lexbuf =

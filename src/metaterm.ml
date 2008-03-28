@@ -165,27 +165,15 @@ let add_to_context elt obj =
 let add_context ctx obj =
   {obj with context = Context.union ctx obj.context}
 
-let def_head (term, _) =
+let def_sig (term, _) =
   let rec aux term =
     match term with
-      | Pred(p, _) -> term_head p
+      | Pred(p, _) -> term_sig p
       | Binding(_, _, body) -> aux body
       | _ -> failwith "Bad head in definition"
   in
     aux term
-
-let def_arity (term, _) =
-  let rec aux term =
-    match term with
-      | Pred(p, _) -> arg_count p
-      | Binding(_, _, body) -> aux body
-      | _ -> failwith "Bad head in definition"
-  in
-    aux term
-
-let def_sig d = (def_head d, def_arity d)
-let term_sig t = (term_head t, arg_count t)
-
+    
 let sig_to_string (name, arity) = name ^ "/" ^ (string_of_int arity)
       
 (* Variable Renaming *)

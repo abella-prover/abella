@@ -11,11 +11,13 @@
 (defun make-regex (&rest args)
   (concat "\\<" (regexp-opt args) "\\>"))
 
-(require 'font-lock)
+(defun make-command-regex (&rest args)
+  (concat "\\<" (regexp-opt args) "[^.]*."))
+
 (defvar abella-font-lock-keywords
   (list
-    (cons (make-regex "Define" "CoDefine" "Theorem \\W*" "Axiom")
-          font-lock-keyword-face)
+    (cons (make-command-regex "Define" "CoDefine") font-lock-keyword-face)
+    (cons (make-command-regex "Theorem" "Axiom") font-lock-function-name-face)
 ;   (cons (make-regex "true" "false") font-lock-constant-face)
 ;   (cons (make-regex "forall" "exists" "nabla") font-lock-keyword-face)
 ;   (cons (make-regex "intros" "apply" "case" "induction" "search"
@@ -59,6 +61,7 @@
       (progn (beginning-of-line)
              (next-line 1)
              (abella-forward-command))))
+
 
 (defun abella-backward-command ()
   (interactive)

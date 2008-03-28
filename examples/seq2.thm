@@ -3,6 +3,15 @@
 %% A revised external definition of seq that allows for quantification
 %% over lambda prolog programs.
 
+% Assume that prog has no defining clauses for now
+Define prog A B := false.
+
+Define lookup A (atom A) t.
+Define lookup A (imp B A) B.
+Define lookup A (and P1 P2) B := lookup A P1 B.
+Define lookup A (and P1 P2) B := lookup A P2 B.
+Define lookup A (pi P) B := exists X, lookup A (P X) B.
+
 %% We add the argument P representing the lambda prolog program so that
 %% we can quantify over it.
 Define seq P L t.
@@ -12,12 +21,6 @@ Define seq P L (A => B) := seq P (A :: L) B.
 Define seq P L (pi G) := nabla x, seq P L (G x).
 Define seq P L (sigma G) := exists X, seq P L (G X).
 Define seq P L (atom A) := exists B, lookup A P B /\ seq P L B.
-
-Define lookup A (atom A) t.
-Define lookup A (imp B A) B.
-Define lookup A (and P1 P2) B := lookup A P1 B.
-Define lookup A (and P1 P2) B := lookup A P2 B.
-Define lookup A (pi P) B := exists X, lookup A (P X) B.
 
 Theorem external : forall S T,
   seq nil nil (pi x\ p x S => pi y\ p y T => atom (p x T)) -> S = T.

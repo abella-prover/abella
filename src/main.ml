@@ -24,6 +24,7 @@ open Extensions
 open Printf
 
 let quiet = ref false
+let interactive = ref false
 
 let annotate = ref false
 let count = ref 0
@@ -35,9 +36,11 @@ let ensure_no_restrictions term =
     failwith "Cannot use restrictions: *, @ or +"
       
 let warn_if_free_vars free_vars =
-  if free_vars <> [] then
+  if free_vars <> [] then begin
     printf "\n\tWarning: Potential variables treated as constants: %s\n\n"
-      (String.concat ", " free_vars)
+      (String.concat ", " free_vars) ;
+    if not !interactive then exit 1
+  end
 
 let warn_def_usage ?(ignore=[]) term =
   let rec aux term =
@@ -53,7 +56,8 @@ let warn_def_usage ?(ignore=[]) term =
               begin
                 printf "\n\tWarning: %s is not defined." (sig_to_string psig) ;
                 printf "\n\tPerhaps it is mispelt or you meant {%s}.\n\n"
-                  (Term.term_to_string pred)
+                  (Term.term_to_string pred) ;
+                if not !interactive then exit 1
               end
   in
     aux term
@@ -67,15 +71,14 @@ let check_theorem thm =
 let check_def (head, body) =
   ensure_no_restrictions head ;
   ensure_no_restrictions body ;
-  let def = (head, body) in
   let head_vars = Tactics.free_capital_var_names head in
   let body_vars = Tactics.free_capital_var_names body in
-  let free_vars = List.remove_all (fun x -> List.mem x head_vars) body_vars in
+  let free_vars = List.minus body_vars head_vars in
     warn_if_free_vars free_vars ;
-    warn_def_usage ~ignore:[def_sig def] body
+    warn_def_usage ~ignore:[def_sig (head, body)] body
 
 
-let rec process_proof name ~interactive lexbuf =
+let rec process_proof name lexbuf =
   let finished = ref false in
     try while not !finished do try
       if not !quiet then begin
@@ -89,7 +92,7 @@ let rec process_proof name ~interactive lexbuf =
         printf "%s < %!" name
       end ;
       let input = Parser.command Lexer.token lexbuf in
-        if not interactive && not !quiet then begin
+        if not !interactive && not !quiet then begin
           let pre, post = if !annotate then "<b>", "</b>" else "", "" in
             printf "%s%s.%s\n" pre (command_to_string input) post
         end ;
@@ -106,7 +109,7 @@ let rec process_proof name ~interactive lexbuf =
               assert_hyp t
           | Exists(t) -> exists t
           | Clear(hs) -> clear hs
-          | Search -> search ~interactive ()
+          | Search -> search ~interactive:!interactive ()
           | Split -> split false
           | SplitStar -> split true
           | Unfold -> unfold ()
@@ -115,17 +118,17 @@ let rec process_proof name ~interactive lexbuf =
           | Abort -> raise AbortProof
           | Undo -> undo ()
         end ;
-        if interactive then flush stdout ;
+        if !interactive then flush stdout ;
     with
       | Failure "lexing: empty token" ->
-          exit (if interactive then 0 else 1)
+          exit (if !interactive then 0 else 1)
       | Failure "Proof completed." ->
           print_endline "Proof completed." ;
           reset_prover () ;
           finished := true
       | Failure s ->
           printf "Error: %s\n" s ;
-          if not interactive then exit 1
+          if not !interactive then exit 1
       | End_of_file ->
           print_endline "Proof NOT completed." ;
           exit 1
@@ -135,11 +138,11 @@ let rec process_proof name ~interactive lexbuf =
           raise AbortProof
       | e ->
           printf "Error: %s\n%!" (Printexc.to_string e) ;
-          if not interactive then exit 1
+          if not !interactive then exit 1
     done with
       | Failure "eof" -> ()
 
-let rec process ~interactive lexbuf =
+let rec process lexbuf =
   try while true do try
     if !annotate then begin
       incr count ;
@@ -148,7 +151,7 @@ let rec process ~interactive lexbuf =
     end ;
     printf "Abella < %!" ;
     let input = Parser.top_command Lexer.token lexbuf in
-      if not interactive then begin
+      if not !interactive then begin
           let pre, post = if !annotate then "<b>", "</b>" else "", "" in
             printf "%s%s.%s\n" pre (top_command_to_string input) post
       end ;
@@ -157,7 +160,7 @@ let rec process ~interactive lexbuf =
             check_theorem thm ;
             theorem thm ;
             begin try
-              process_proof ~interactive name lexbuf ;
+              process_proof name lexbuf ;
               add_lemma name thm
             with AbortProof -> () end
         | Axiom(name, axiom) ->
@@ -170,22 +173,22 @@ let rec process ~interactive lexbuf =
             check_def def ;
             add_def CoInductive def
       end ;
-      if interactive then flush stdout ;
+      if !interactive then flush stdout ;
       if !annotate then printf "</pre>" ;
       print_newline ()
   with
     | Failure "lexing: empty token" ->
-        exit (if interactive then 0 else 1)
+        exit (if !interactive then 0 else 1)
     | Failure s ->
         printf "Error: %s\n" s ;
-        if not interactive then exit 1
+        if not !interactive then exit 1
     | End_of_file ->
         print_endline "Goodbye." ;
         if !annotate then printf "</pre>\n" ;
         exit 0
     | e ->
         printf "Unknown error: %s\n%!" (Printexc.to_string e) ;
-        if not interactive then exit 1
+        if not !interactive then exit 1
   done with
   | Failure "eof" -> ()
 
@@ -214,8 +217,11 @@ let _ =
        add_clauses (Parser.clauses Lexer.token
                       (Lexing.from_channel (open_in file_name))))
     usage_message ;
-  if !command_input = "" then
-    process ~interactive:true (Lexing.from_channel stdin)
-  else
-    process ~interactive:false (Lexing.from_channel (open_in !command_input))
+  match !command_input with
+    | "" ->
+        interactive := true ;
+        process (Lexing.from_channel stdin)
+    | name ->
+        interactive := false ;
+        process (Lexing.from_channel (open_in name))
         

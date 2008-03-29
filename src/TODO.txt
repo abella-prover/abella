@@ -1,14 +1,3 @@
-Unfold on inductive definition should remove the inductive
-constraints. But why? Does something similar happen for case analysis
-on the left with induction?
-
-Before releasing with coinduction
-  Add some description of co-induction to reference guide or new
-    walkthrough?
-  Add new examples to reference-guide
-  Add to release notes
-  Send release information to Alwen, Dale, Gopalan, David, Zach
-
 Future
 ======
 New syntax for inductive and coinductive definitions?

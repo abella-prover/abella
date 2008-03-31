@@ -1,3 +1,10 @@
+Coinduction followed by induction would allow hypotheses with @ on
+them. What does these mean? Should they be allowed? prevented?
+ignored?
+
+What about induction followed by coinduction?
+
+
 Future
 ======
 New syntax for inductive and coinductive definitions?

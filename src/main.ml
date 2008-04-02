@@ -47,7 +47,7 @@ let ensure_defs_exist ?(ignore=[]) term =
          let psig = Term.term_sig pred in
            if not (Hashtbl.mem defs psig) && not (List.mem psig ignore) then
              failwith (sprintf "%s is not defined.\
-                                \ Prehaps it is mispelt or you meant {%s}."
+                                \ Perhaps it is mispelt or you meant {%s}."
                          (sig_to_string psig) (Term.term_to_string pred)))
 
 let check_theorem thm =

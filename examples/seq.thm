@@ -72,13 +72,38 @@ induction on 2. intros. case H2.
 
 
 %% A benefit of the external definition of seq is that it allows us to prove
-%% meta-theoremas about lambda prolog.
+%% meta-theoremas about lambda prolog. Since these proofs require more than
+%% just structural induction on seq, we define seq/3 which is annotated
+%% with an explicit measure.
 
-Define list nil.
-Define list (X :: A) := list A.
+Define seq N L t.
+Define seq N L (atom A) := member A L.
+Define seq (s N) L (and A B) := seq N L A /\ seq N L B.
+Define seq (s N) L (A => B) := seq N (A :: L) B.
+Define seq (s N) L (pi G) := nabla x, seq N L (G x).
+Define seq (s N) L (sigma G) := exists X, seq N L (G X).
+Define seq (s N) L (atom A) := exists B, prog A B /\ seq N L B.
 
-Theorem seq_subset : forall L1 L2 G,
-  seq L1 G -> (forall X, member X L1 -> member X L2) -> seq L2 G.
+
+%% We show that seq/3 is no more powerful than seq/2
+
+Theorem seq3_seq2 : forall N L G,
+  seq N L G -> seq L G.
+induction on 1. intros. case H1.
+  search.
+  search.
+  apply IH to H2. apply IH to H3. search.
+  apply IH to H2. search.
+  apply IH to H2. search.
+  apply IH to H2. search.
+  apply IH to H3. search.
+
+  
+%% Not only do permutations not effect provability, but they also
+%% preserve proof height.
+
+Theorem seq_subset : forall L1 L2 G N,
+  seq N L1 G -> (forall X, member X L1 -> member X L2) -> seq N L2 G.
 induction on 1. intros. case H1.
   search.
   apply H2 to H3. search.
@@ -92,14 +117,23 @@ induction on 1. intros. case H1.
   apply IH to H3 H2. search.
   apply IH to H4 H2. search.
 
-Theorem seq_cut : forall K L G,
-  list L -> seq (K :: L) G -> seq L (atom K) -> seq L G.
-induction on 2. intros. case H2.
+
+%% The main result is that seq/3 admits a cut property. The proof is on
+%% the height of one of the derivations, but note that the induction
+%% cannot be structural since we must at one point permute the context
+%% before the inductive hypothesis can be applied.
+    
+Define nat z.
+Define nat (s X) := nat X.
+
+Theorem seq3_cut : forall K L G N M,
+  nat N -> seq N (K :: L) G -> seq M L (atom K) -> seq L G.
+induction on 1. intros. case H2.
   search.
   case H4.
-    search.  % Key case: G=K
+    apply seq3_seq2 to H3. search.  % Key case: G=K
     search.
-  apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
+  case H1. apply IH to H6 H4 H3. apply IH to H6 H5 H3. search.
   assert forall X, member X (A :: K :: L) -> member X (K :: A :: L).
     intros. case H5.
       search.
@@ -107,11 +141,11 @@ induction on 2. intros. case H2.
         search.
         search.
     apply seq_subset to H4 H5.
-    % We want to apply IH but we can't because we got
-    %   seq (A :: K :: L) B *  and
-    %   seq (K :: A :: L) B    so we were not able to keep the star
-    %                          with that lemma...
-    skip.
-  apply IH to H1 H4 H3. search.
-  apply IH to H1 H4 H3. search.
-  apply IH to H1 H5 H3. search.
+      assert forall X, member X L -> member X (A :: L).
+        intros. search.
+      apply seq_subset to H3 H7.
+        case H1. apply IH to H9 H6 H8. search.
+  case H1. apply IH to H5 H4 H3. search.
+  case H1. apply IH to H5 H4 H3. search.
+  case H1. apply IH to H6 H5 H3. search.
+  

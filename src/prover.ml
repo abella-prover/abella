@@ -529,7 +529,7 @@ let intros () =
     match term with
       | Binding(Forall, bindings, body) ->
           let alist = fresh_alist ~tag:Eigen ~used:sequent.vars bindings in
-            List.iter add_var alist ;
+            List.iter add_var (List.map alist_to_used alist) ;
             let alist = raise_alist ~support:(metaterm_support body) alist in
               aux (replace_metaterm_vars alist body)
       | Binding(Nabla, bindings, body) ->

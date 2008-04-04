@@ -1,6 +1,6 @@
 %% Convert a natural deduction proof into to sequent calculus proof
 %%
-%% We consider a logic with just impliciation and conjuction
+%% We consider a logic with just impliciation
 
 Define convert nil nil.
 Define convert (nd G :: L) (hyp G :: K) := convert L K.
@@ -16,7 +16,6 @@ Theorem nd_to_seq_ext : forall L K G,
 induction on 1. intros. case H1.
   apply convert_member to H2 H3. search.
   apply IH to H3 _. search.
-  apply IH to H3 H2. apply IH to H4 H2. search.
   apply IH to H3 H2. apply IH to H4 H2. search.
   
 Theorem nd_to_seq : forall G, {nd G} -> {conc G}.

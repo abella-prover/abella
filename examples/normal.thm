@@ -1,5 +1,4 @@
-%% Proof that each lambda term is normal or non-normal, but not both.
-
+%% Disjoint partitioning of lambda terms into normal and non-normal form
 
 %% The ctxs predicate encodes the relationship between the context
 %% of the judgements (term T) and (normal T).

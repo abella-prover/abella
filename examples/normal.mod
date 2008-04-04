@@ -1,4 +1,4 @@
-% From Dale,
+% From Dale Miller:
 %
 % It is easy to write code that determines if a given lambda-terms (type
 % tm) is in beta-normal form (using the fact that a term in normal form

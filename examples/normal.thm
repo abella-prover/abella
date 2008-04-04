@@ -1,13 +1,19 @@
-%% Proof that each lambda term is normal or non-normal
-%%
-%% The ctxpair predicate encodes the relationship between the context
+%% Proof that each lambda term is normal or non-normal, but not both.
+
+
+%% The ctxs predicate encodes the relationship between the context
 %% of the judgements (term T) and (normal T).
 
-Define ctxpair nil nil.
-Define ctxpair (term X :: L1) (var X :: L2) := ctxpair L1 L2.
+Define nabla x, name x.
 
-Theorem ctxpair_lemma : forall X L1 L2,
-  ctxpair L1 L2 -> member (term X) L1 -> member (var X) L2.
+Define ctxs nil nil.
+Define nabla x, ctxs (term x :: L) (var x :: K) := ctxs L K.
+
+
+%% Lemmas about contexts
+
+Theorem ctxs_member_term : forall X L K,
+  ctxs L K -> member (term X) L -> member (var X) K.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -15,22 +21,25 @@ induction on 1. intros. case H1.
     apply IH to H3 H4.
       search.
 
-Theorem ctxpair_lemma2 : forall X L1 L2,
-  ctxpair L1 L2 -> member (normal X) L2 -> false.
+Theorem ctxs_var : forall E L K,
+  ctxs L K -> member E K -> exists X, E = var X /\ name X.
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    apply IH to H3 H4.
+    search.
+    apply IH to H3 H4. search.
 
+
+%% Partitioning is total
       
-Theorem generalized : forall T L1 L2,
-  ctxpair L1 L2 -> {L1 |- term T} -> {L2 |- normal T} \/ {non_normal T}.
+Theorem total_ext : forall T L K,
+  ctxs L K -> {L |- term T} -> {K |- normal T} \/ {non_normal T}.
 induction on 2. intros. case H2.
-  apply ctxpair_lemma to H1 H3. search.
+  apply ctxs_member_term to H1 H3. search.
   apply IH to H1 H3. apply IH to H1 H4. case H5.
     case H6.
       case H7.
-        apply ctxpair_lemma2 to H1 H9.
+        apply ctxs_var to H1 H9.
         search.
         search.
         search.
@@ -40,9 +49,34 @@ induction on 2. intros. case H2.
     search.
     search.
 
-  
-Theorem specialized : forall T,
+Theorem total : forall T,
   {term T} -> {normal T} \/ {non_normal T}.
-intros.
-apply generalized to _ H1.
-search.
+intros. apply total_ext to _ H1. search.
+
+
+%% Partitioning is disjoint
+
+Theorem normal_head_normal : forall L K T,
+  ctxs L K -> {K |- normal_head T} -> {K |- normal T}.
+intros. case H2.
+  apply ctxs_var to H1 H3.
+  search.
+  search.
+
+Theorem disjoint_ext : forall L K T,
+  ctxs L K -> {K |- normal T} -> {non_normal T} -> false.
+induction on 3. intros. case H2.
+  apply ctxs_var to H1 H4.
+  case H3. apply IH to _ H4 H5.
+  case H3.
+    case H4.
+      apply ctxs_var to H1 H6.
+      case H6. apply ctxs_var to H1 H7. case H8.
+    apply normal_head_normal to H1 H4.
+      apply IH to H1 H7 H6.
+    apply IH to H1 H5 H6.
+  case H4. apply ctxs_var to H1 H5. case H6. case H3.
+
+Theorem disjoint : forall T,
+  {normal T} -> {non_normal T} -> false.
+intros. apply disjoint_ext to _ H1 H2.

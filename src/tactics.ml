@@ -259,7 +259,7 @@ let case ~used ~clauses ~defs ~global_support term =
                  set_bind_state initial_bind_state ;
                  make_case ~support ~used (head, body) term
              | Binding(Nabla, ids, Pred(head, _)), body ->
-                 List.backwards_range 0 (List.length ids) |> List.flatten_map
+                 List.range 0 (List.length ids) |> List.rev |> List.flatten_map
                      (fun n ->
                         (* n is the number of nablas to be raised *)
                         (* They should be fresh with respect to global_support *)
@@ -278,7 +278,6 @@ let case ~used ~clauses ~defs ~global_support term =
                                           let support = List.minus support permuted in
                                           let alist = List.combine ids permuted in
                                           let head = replace_term_vars alist head in
-                                          let body = replace_metaterm_vars alist body in
                                             make_case ~support ~used (head, body) term)))
              | _ -> failwith "Bad head in definition")
   in

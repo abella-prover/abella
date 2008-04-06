@@ -185,8 +185,6 @@ module List = struct
     else
       a :: range (a+1) b
 
-  let backwards_range a b =
-    rev (range a b)
 end
 
 module Hashtbl = struct

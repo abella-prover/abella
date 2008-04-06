@@ -357,6 +357,11 @@ let priority x =
 let get_max_priority () = List.length infix
 
 let is_obj_quantifier x = x = "pi" || x = "sigma"
+  
+let is_lam t =
+  match observe t with
+    | Lam _ -> true
+    | _ -> false
 
 let tag2str = function
   | Constant -> "c"
@@ -395,7 +400,8 @@ let term_to_string term =
                   (pp pr_left n a) ^ " " ^ op ^ " " ^ (pp pr_right n b)
                 in
                   if op_p >= pr then res else parenthesis res
-            | Var {name=op; tag=Constant}, [a] when is_obj_quantifier op ->
+            | Var {name=op; tag=Constant}, [a] when
+                is_obj_quantifier op && is_lam a ->
                 let res = op ^ " " ^ (pp 0 n a) in
                   if pr < high_pr then res else parenthesis res
             | _ ->

@@ -128,6 +128,11 @@ let pprint_tests =
              [1 // (app (const "=>") [typeofxU; typeofRxT])] in
              assert_term_pprint_equal
                "pi x1\\typeof x1 U => typeof (R x1) T" t) ;
+      
+      "pi (A B)" >::
+        (fun () ->
+           let t = app (const "pi") [app (const "A") [const "B"]] in
+             assert_term_pprint_equal "pi (A B)" t) ;
     ]
 
 let tests =

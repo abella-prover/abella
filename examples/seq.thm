@@ -148,4 +148,36 @@ induction on 1. intros. case H2.
   case H1. apply IH to H5 H4 H3. search.
   case H1. apply IH to H5 H4 H3. search.
   case H1. apply IH to H6 H5 H3. search.
+
+
+%% Another important result is that nabla variables can be treated as
+%% universally quantified inside of seq. That is, we can always
+%% instantiate them. Furthermore, this instantiation does not increase
+%% the proof height.
+
+Theorem member_inst : forall L A T, nabla x,
+  member (A x) (L x) -> member (A T) (L T).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2 with T = T. search.
+
+Theorem prog_inst : forall A B T, nabla x,
+  prog (A x) (B x) -> prog (A T) (B T).
+intros. case H1.
+  search.
+  search.
+  search.
+  search.
+  
+Theorem seq_inst : forall N L G T, nabla x,
+  seq N (L x) (G x) -> seq N (L T) (G T).
+induction on 1. intros. case H1.
+  search.
+  apply member_inst to H2 with T = T. search.
+  apply IH to H2 with T = T. apply IH to H3 with T = T. search.
+  apply IH to H2 with T = T. search.  
+  apply IH to H2 with T = T, x = n1. search.
+  apply IH to H2 with T = T. search.
+  apply prog_inst to H2 with T = T. apply IH to H3 with T = T. search.
+
   

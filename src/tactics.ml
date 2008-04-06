@@ -279,9 +279,6 @@ let case ~used ~clauses ~defs ~global_support term =
                                           let alist = List.combine ids permuted in
                                           let head = replace_term_vars alist head in
                                           let body = replace_metaterm_vars alist body in
-                                          let _ = List.map print_string (List.map term_to_string support) in
-                                          let () = print_endline (term_to_string head) in
-                                          let () = print_endline (metaterm_to_string body) in
                                             make_case ~support ~used (head, body) term)))
              | _ -> failwith "Bad head in definition")
   in

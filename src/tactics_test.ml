@@ -943,6 +943,15 @@ let search_tests =
              ~expect: true
         );
 
+      "Should work with multiple nabla in the head" >::
+        (fun () ->
+           assert_search ()
+             ~defs:"nabla x y, ctx (pair x y :: L) := ctx L."
+             ~hyps:["ctx L"]
+             ~goal:"ctx (pair n3 n2 :: L)"
+             ~expect: true
+        );
+      
       "Should permute nominal constants" >::
         (fun () ->
            assert_search ()

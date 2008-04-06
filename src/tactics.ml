@@ -403,37 +403,26 @@ let coinductive_wrapper r psig t =
 let unfold_defs ~defs goal r =
   let initial_bind_state = get_bind_state () in
   let support = term_support goal in
-  let gsig = term_sig goal in
+  let wrapper = coinductive_wrapper r (term_sig goal) in
+  let unfold_def ids head body =
+    support |> List.permute (List.length ids) |> List.flatten_map
+        (fun nominals ->
+           let () = set_bind_state initial_bind_state in
+           let support = List.minus support nominals in
+           let alist = List.combine ids nominals in
+           let head = replace_term_vars alist head in
+           let head, body = freshen_nameless_def ~support head body in
+             match try_right_unify_cpairs head goal with
+               | None -> []
+               | Some cpairs ->
+                   [(get_bind_state (), cpairs, normalize (wrapper body))])
+  in
   let result =
     defs |> List.flatten_map
         (fun (head, body) ->
            match head with
-             | Pred(head, _) ->
-                 let () = set_bind_state initial_bind_state in
-                 let head, body =
-                   freshen_nameless_def ~support head body
-                 in
-                   begin match try_right_unify_cpairs head goal with
-                     | None -> []
-                     | Some cpairs ->
-                         [(get_bind_state (), cpairs,
-                           normalize (coinductive_wrapper r gsig body))]
-                   end
-             | Binding(Nabla, [id], Pred(head, _)) ->
-                 support |> List.flatten_map
-                     (fun nominal ->
-                        let () = set_bind_state initial_bind_state in
-                        let support = List.remove nominal support in
-                        let alist = [(id, nominal)] in
-                        let head = replace_term_vars alist head in
-                        let head, body =
-                          freshen_nameless_def ~support head body
-                        in
-                          match try_right_unify_cpairs head goal with
-                            | None -> []
-                            | Some cpairs ->
-                                [(get_bind_state (), cpairs,
-                                  normalize (coinductive_wrapper r gsig body))])
+             | Pred(head, _) -> unfold_def [] head body
+             | Binding(Nabla, ids, Pred(head, _)) -> unfold_def ids head body
              | _ -> failwith "Bad head in definition")
   in
     set_bind_state initial_bind_state ;

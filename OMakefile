@@ -61,7 +61,8 @@ version.html:
 .PHONY: upload real-upload
 upload:
     section rule
-        println(This command will release version $(VERSION) of Abella)
+        println(This command will release version $(VERSION) of Abella to)
+        println($(UPLOAD_SITE))
         print(Confirm this action by repeating this version number: )
         RESULT = $(input-line $(stdin))
         if $(mem $(RESULT), $(VERSION))

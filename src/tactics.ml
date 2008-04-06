@@ -258,27 +258,31 @@ let case ~used ~clauses ~defs ~global_support term =
              | Pred(head, _), body ->
                  set_bind_state initial_bind_state ;
                  make_case ~support ~used (head, body) term
-             | Binding(Nabla, [id], Pred(head, _)), body ->
-                 let raised_result =
-                   set_bind_state initial_bind_state ;
-                   (* should be fresh with respect to global_support *)
-                   let n = fresh_nominal (pred (app head global_support)) in
-                   let alist = [(id, n)] in
-                   let () = lift_all ~used [n] in
-                   let head = replace_term_vars alist head in
-                     make_case ~support ~used (head, body) term
-                 in
-                 let permuted_results =
-                   support |> List.flatten_map
-                       (fun nominal ->
-                          set_bind_state initial_bind_state ;
-                          let alist = [(id, nominal)] in
-                          let support = List.remove nominal support in
-                          let head = replace_term_vars alist head in
-                          let body = replace_metaterm_vars alist body in
-                            make_case ~support ~used (head, body) term)
-                 in
-                   raised_result @ permuted_results
+             | Binding(Nabla, ids, Pred(head, _)), body ->
+                 List.backwards_range 0 (List.length ids) |> List.flatten_map
+                     (fun n ->
+                        (* n is the number of nablas to be raised *)
+                        (* They should be fresh with respect to global_support *)
+                        let nominals = fresh_nominals n (pred (app head global_support)) in
+                          List.choose n ids |> List.flatten_map
+                              (fun raised ->
+                                 set_bind_state initial_bind_state ;
+                                 let alist = List.combine raised nominals in
+                                 let () = lift_all ~used nominals in
+                                 let head = replace_term_vars alist head in
+                                 let ids = List.minus ids raised in
+                                 let inner_bind_state = get_bind_state () in
+                                   List.permute (List.length ids) support |> List.flatten_map
+                                       (fun permuted ->
+                                          set_bind_state inner_bind_state ;
+                                          let support = List.minus support permuted in
+                                          let alist = List.combine ids permuted in
+                                          let head = replace_term_vars alist head in
+                                          let body = replace_metaterm_vars alist body in
+                                          let _ = List.map print_string (List.map term_to_string support) in
+                                          let () = print_endline (term_to_string head) in
+                                          let () = print_endline (metaterm_to_string body) in
+                                            make_case ~support ~used (head, body) term)))
              | _ -> failwith "Bad head in definition")
   in
           

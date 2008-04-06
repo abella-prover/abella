@@ -168,12 +168,25 @@ module List = struct
             (flatten_map (distribute head) (permute (n-1) tail))
             @ (permute n tail)
 
+  (* Generate all n element subsets of list *)
+  let rec choose n list =
+    if n = 0 then
+      [[]]
+    else
+      match list with
+        | [] -> []
+        | head::tail ->
+            (map (fun t -> head::t) (choose (n-1) tail))
+            @ (choose n tail)
 
   let rec range a b =
     if a > b then
       []
     else
       a :: range (a+1) b
+
+  let backwards_range a b =
+    rev (range a b)
 end
 
 module Hashtbl = struct

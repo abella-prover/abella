@@ -629,6 +629,24 @@ let case_tests =
                    assert_pprint_equal "ctx (var n2 :: L)" term
                | cases -> assert_expected_cases 2 cases) ;
 
+      "With multiple nabla in the head" >::
+        (fun () ->
+           let defs =
+             parse_defs "nabla x y, ctx (pair x y :: L) := ctx L." in
+           let term = freshen "ctx (K n2)" in
+           let global_support = [nominal_var "n2"] in
+             match case ~defs ~global_support term with
+               | [case1; case2; case3] ->
+                   set_bind_state case1.bind_state ;
+                   assert_pprint_equal "ctx (pair n1 n3 :: L n2)" term ;
+
+                   set_bind_state case2.bind_state ;
+                   assert_pprint_equal "ctx (pair n1 n2 :: L)" term ;
+                     
+                   set_bind_state case3.bind_state ;
+                   assert_pprint_equal "ctx (pair n2 n1 :: L)" term ;
+               | cases -> assert_expected_cases 3 cases) ;
+      
       "Should not use existing nabla variables as fresh" >::
         (fun () ->
            let defs = parse_defs "nabla x, name x." in

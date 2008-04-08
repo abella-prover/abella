@@ -45,6 +45,7 @@ html: $(ABELLA)
 
 .PHONY: upload-html
 upload-html: html
+    bash -c "/usr/bin/find . -name \*.html | xargs chmod 664"
     scp $(addprefix html/, $(basename $(ls html))) \
       $(UPLOAD_SITE)/examples
     rm -rf html

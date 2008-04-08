@@ -14,6 +14,7 @@
 (defun make-command-regex (&rest args)
   (concat "\\<" (regexp-opt args) "[^.]*."))
 
+(require 'font-lock)
 (defvar abella-font-lock-keywords
   (list
     (cons (make-command-regex "Define" "CoDefine") font-lock-keyword-face)

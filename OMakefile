@@ -76,6 +76,7 @@ real-upload: abella-$(VERSION).tar.gz abella-$(VERSION).zip version.html
     scp version.html $(UPLOAD_SITE)
     scp abella-$(VERSION).zip abella-$(VERSION).tar.gz \
         $(UPLOAD_SITE)/distributions
+    rm -f abella-$(VERSION).zip abella-$(VERSION).tar.gz
 
 
 ################################################

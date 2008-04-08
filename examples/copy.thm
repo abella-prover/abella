@@ -1,13 +1,39 @@
-%% Equality of identical definitions of the copy predicate
+%% Equivalence of single and double eigenvariable definitions of copy
 %%
-%% We encode the relationship between the contexts of copy and copy' using
-%% the ctxpair meta-level predicate.
+%% I beleive this is currently impossible to do in Twelf since the
+%% reasoning you can do with regular worlds is not fine-grained
+%% enough.
 
-Define ctxpair nil nil.
-Define ctxpair (copy X Y :: L1) (copy' X Y :: L2) := ctxpair L1 L2.
+Define nabla x, fresh x E.
 
-Theorem ctxpair_lemma : forall X Y L1 L2,
-  ctxpair L1 L2 -> member (copy X Y) L1 -> member (copy' X Y) L2.
+Theorem member_fresh : forall X L E,
+  member E L -> fresh X L -> fresh X E.
+induction on 1. intros. case H1.
+  case H2. search.
+  assert fresh X L1.
+    case H2. search.
+    apply IH to H3 H4. search.
+
+Define ctxs nil nil.
+Define ctxs (copy X Y :: L1) (copy2 X Y :: L2) := ctxs L1 L2.
+
+
+%% copy implies copy2
+
+% show that copy2 could descend under abstractions like copy
+
+Theorem copy2_align : forall M N L, nabla z,
+  {L, copy2 z z |- copy2 (M z) (N z)} ->
+    nabla x y, {L, copy2 x y |- copy2 (M x) (N y)}.
+induction on 1. intros. case H1.
+  case H2.
+    search.
+    apply member_fresh to H3 _. case H4. search.
+  apply IH to H2. apply IH to H3. search.
+  apply IH to H2. search.
+
+Theorem ctxs_member1 : forall X Y L K,
+  ctxs L K -> member (copy X Y) L -> member (copy2 X Y) K.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -15,14 +41,42 @@ induction on 1. intros. case H1.
     apply IH to H3 H4.
       search.
 
-Theorem generalized :
-  forall L1 L2 S T, ctxpair L1 L2 -> {L1 |- copy S T} -> {L2 |- copy' S T}.
+Theorem copy_copy2 : forall L K M N,
+  ctxs L K -> {L |- copy M N} -> {K |- copy2 M N}.
 induction on 2. intros. case H2.
-  apply ctxpair_lemma to H1 H3. search.
+  apply ctxs_member1 to H1 H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
-  apply IH to _ H3. search.
+  apply IH to _ H3. apply copy2_align to H4. search.
 
-Theorem specialized :
-  forall S T, {copy S T} -> {copy' S T}.
-intros.
-apply generalized to _ H1. search.
+
+%% copy2 implies copy
+
+% show that copy could descend under abstractions like copy2
+
+Theorem copy_align : forall M N L, nabla x y,
+  {L, copy x y |- copy (M x) (N y)} ->
+    nabla z, {L, copy z z |- copy (M z) (N z)}.
+induction on 1. intros. case H1.
+  case H2.
+    search.
+    apply member_fresh to H3 _. case H4.
+      apply member_fresh to H3 _. case H5.
+        search.
+  apply IH to H2. apply IH to H3. search.
+  apply IH to H2. search.
+
+Theorem ctxs_member2 : forall X Y L K,
+  ctxs L K -> member (copy2 X Y) K -> member (copy X Y) L.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H3 H4.
+      search.
+      
+Theorem copy2_copy : forall L K M N,
+  ctxs L K -> {K |- copy2 M N} -> {L |- copy M N}.
+induction on 2. intros. case H2.
+  apply ctxs_member2 to H1 H3. search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+  apply IH to _ H3. apply copy_align to H4. search.

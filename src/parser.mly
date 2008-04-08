@@ -19,7 +19,7 @@
 
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
-%token SKIP UNDO ABORT COIND
+%token SKIP UNDO ABORT COIND LEFT RIGHT
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR
 %token THEOREM DEFINE PLUS CODEFINE
 %token COLON RARROW FORALL NABLA EXISTS STAR AT OR AND LBRACK RBRACK
@@ -117,6 +117,8 @@ command:
   | SEARCH DOT                          { Types.Search }
   | SPLIT DOT                           { Types.Split }
   | SPLITSTAR DOT                       { Types.SplitStar }
+  | LEFT DOT                            { Types.Left }
+  | RIGHT DOT                           { Types.Right }
   | INTROS DOT                          { Types.Intros }
   | SKIP DOT                            { Types.Skip }
   | ABORT DOT                           { Types.Abort }

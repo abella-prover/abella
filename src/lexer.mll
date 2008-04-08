@@ -79,6 +79,8 @@ rule token = parse
 | "on"               { ON }
 | "split"            { SPLIT }
 | "split*"           { SPLITSTAR }
+| "left"             { LEFT }
+| "right"            { RIGHT }
 | "unfold"           { UNFOLD }
 | "intros"           { INTROS }
 | "skip"             { SKIP }

@@ -129,3 +129,4 @@ val term_sig : term -> string * int
 
 val is_nominal : term -> bool
 val fresh_name : string -> (string * 'a) list -> string
+val term_head_var : term -> term option

@@ -249,17 +249,6 @@ let map_vars f t =
 let map_vars_list f ts =
   List.flatten_map (map_vars f) ts
 
-let term_to_var t =
-  match observe t with
-    | Var v -> v
-    | _ -> failwith "term_to_var called on non-var"
-
-let term_to_name t =
-  (term_to_var t).name
-
-let term_to_pair t =
-  (term_to_name t, t)
-
 let rec has_eigen_head t =
   match observe t with
     | Var v -> v.tag = Eigen
@@ -434,6 +423,18 @@ let get_used ts =
   in
     List.unique (List.flatten_map aux ts)
 
+let term_to_var t =
+  match observe (hnorm t) with
+    | Var v -> v
+    | _ -> failwith
+        ("term_to_var called on non-var: " ^ (term_to_string t))
+
+let term_to_name t =
+  (term_to_var t).name
+
+let term_to_pair t =
+  (term_to_name t, t)
+
 let is_free t =
   match t with
     | Ptr {contents=V _} -> true
@@ -468,3 +469,14 @@ let term_sig t =
       | _ -> assert false
   in
     aux t
+
+let term_head_var t =
+  let rec aux t =
+    match hnorm t with
+      | Ptr {contents=T t} -> aux t
+      | Ptr {contents=V v} -> Some t
+      | App(t, ts) -> aux t
+      | _ -> None
+  in
+    aux t
+      

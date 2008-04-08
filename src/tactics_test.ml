@@ -620,7 +620,8 @@ let case_tests =
            let defs =
              parse_defs "nabla x, ctx (var x :: L) := ctx L." in
            let term = freshen "ctx (K n2)" in
-             match case ~defs term with
+           let global_support = [nominal_var "n2"] in
+             match case ~defs ~global_support term with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "ctx (var n1 :: L n2)" term ;

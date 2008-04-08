@@ -225,7 +225,7 @@ let lift_all ~used nominals =
          if is_free term then
            let new_term = var Eigen id 0 in
              bind term (app new_term nominals))
-
+      
 let case ~used ~clauses ~defs ~global_support term =
 
   let support = metaterm_support term in
@@ -241,9 +241,7 @@ let case ~used ~clauses ~defs ~global_support term =
             (* Names created perhaps by unificiation *)
           let used_head = term_vars_alist Eigen [head] in
           let used_body = metaterm_vars_alist Eigen body in
-          let used = List.unique
-            (used_head @ used_body @ used)
-          in
+          let used = List.unique (used_head @ used_body @ used) in
             match recursive_metaterm_case ~used body with
               | None -> []
               | Some case ->
@@ -592,7 +590,7 @@ let apply ?(used_nominals=[]) term args =
     match term with
       | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->
           let n = List.length nablas in
-            support |> List.permute n |> List.find_some
+            support |> List.rev |> List.permute n |> List.find_some
                 (fun nominals ->
                    try_with_state ~fail:None
                      (fun () ->

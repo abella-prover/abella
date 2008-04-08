@@ -379,6 +379,17 @@ let apply h args ws =
     
 (* Case analysis *)
 
+(* Lifting during case analysis may cause some variables to be bound to
+   themselves. We need to update sequent.vars to reflect this. *)
+let update_self_bound_vars () =
+  sequent.vars <-
+    sequent.vars |> List.map
+        (fun (id, term) ->
+           match term_head_var term with
+             | Some v when term_to_name v = id ->
+                 (id, v)
+             | _ -> (id, term))
+
 let add_cases_to_subgoals cases =
   let case_to_subgoal case =
     let saved_sequent = copy_sequent () in
@@ -387,6 +398,7 @@ let add_cases_to_subgoals cases =
         List.iter add_if_new_var case.new_vars ;
         List.iter add_hyp case.new_hyps ;
         Term.set_bind_state case.bind_state ;
+        update_self_bound_vars () ;
   in
     subgoals := List.append (List.map case_to_subgoal cases) !subgoals
 
@@ -559,6 +571,21 @@ let split propogate_result =
         sequent.goal <- left
     | _ -> ()
 
+
+(* Left and right side of disjunction *)
+
+let left () =
+  save_undo_state () ;
+  match sequent.goal with
+    | Or(left, _) -> sequent.goal <- left
+    | _ -> ()
+
+let right () =
+  save_undo_state () ;
+  match sequent.goal with
+    | Or(_, right) -> sequent.goal <- right
+    | _ -> ()
+        
 
 (* Unfold *)
 

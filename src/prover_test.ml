@@ -415,5 +415,33 @@ let tests =
            intros () ;
            assert_raises_any (fun () -> apply "lem" ["H1"] []) ;
         );
+
+      "Case-analysis with nabla in the head, two in a row" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall X Y, name X -> name Y -> \
+                          (X = Y \\/ (X = Y -> false))" ;
+
+           List.iter (add_def Types.Inductive)
+             (parse_defs "nabla x, name x.") ;
+
+           assert_proof
+             (fun () ->
+                intros () ;
+                case "H1" ;
+                assert_n_subgoals 1 ;
+                
+                case "H2" ;
+                assert_n_subgoals 2 ;
+
+                right () ;
+                intros () ;
+                case "H3" ;
+                assert_n_subgoals 1 ;
+
+                search ()
+             )
+        ) ;
+      
           
     ]

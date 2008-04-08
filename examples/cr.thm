@@ -165,7 +165,7 @@ induction on 2. intros. case H2.
       search.
       search.
   apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
-  apply IH to _ H4 H3 with x = n1. search.
+  apply IH to _ H4 H3. search.
   apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
 
 Theorem pr1_subst_lem: forall A1 A2 B1 B2 L K J,

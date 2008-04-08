@@ -110,6 +110,8 @@ let rec process_proof name lexbuf =
           | Search -> search ~interactive:!interactive ()
           | Split -> split false
           | SplitStar -> split true
+          | Left -> left ()
+          | Right -> right ()
           | Unfold -> unfold ()
           | Intros -> intros ()
           | Skip -> skip ()

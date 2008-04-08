@@ -49,6 +49,8 @@ type command =
   | Search
   | Split
   | SplitStar
+  | Left
+  | Right
   | Intros
   | Unfold
   | Skip
@@ -107,6 +109,8 @@ let command_to_string c =
     | Search -> "search"
     | Split -> "split"
     | SplitStar -> "split*"
+    | Left -> "left"
+    | Right -> "right"
     | Unfold -> "unfold"
     | Intros -> "intros"
     | Skip -> "skip"

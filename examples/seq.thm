@@ -176,7 +176,7 @@ induction on 1. intros. case H1.
   apply member_inst to H2 with T = T. search.
   apply IH to H2 with T = T. apply IH to H3 with T = T. search.
   apply IH to H2 with T = T. search.  
-  apply IH to H2 with T = T, x = n1. search.
+  apply IH to H2 with T = T. search.
   apply IH to H2 with T = T. search.
   apply prog_inst to H2 with T = T. apply IH to H3 with T = T. search.
 

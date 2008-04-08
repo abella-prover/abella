@@ -19,13 +19,7 @@
   (list
     (cons (make-command-regex "Define" "CoDefine") font-lock-keyword-face)
     (cons (make-command-regex "Theorem" "Axiom") font-lock-function-name-face)
-    (cons (make-regex "skip") font-lock-warning-face)
-;   (cons (make-regex "true" "false") font-lock-constant-face)
-;   (cons (make-regex "forall" "exists" "nabla") font-lock-keyword-face)
-;   (cons (make-regex "intros" "apply" "case" "induction" "search"
-;                     "to" "on" "inst" "with" "cut" "unfold"
-;                     "assert" "exists" "split" "split*" "clear")
-   font-lock-keyword-face)
+    (cons (make-regex "skip") font-lock-warning-face))
   "Default highlighting for Abella major mode")
 
 (defvar abella-mode-syntax-table

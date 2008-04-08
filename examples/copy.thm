@@ -4,15 +4,11 @@
 %% reasoning you can do with regular worlds is not fine-grained
 %% enough.
 
-Define nabla x, fresh x E.
-
-Theorem member_fresh : forall X L E,
-  member E L -> fresh X L -> fresh X E.
+Theorem member_nabla : forall L E, nabla x,
+  member (E x) L -> exists E1, E = (y\E1).
 induction on 1. intros. case H1.
-  case H2. search.
-  assert fresh X L1.
-    case H2. search.
-    apply IH to H3 H4. search.
+  search.
+  apply IH to H2. search.
 
 Define ctxs nil nil.
 Define ctxs (copy X Y :: L1) (copy2 X Y :: L2) := ctxs L1 L2.
@@ -28,7 +24,7 @@ Theorem copy2_align : forall M N L, nabla z,
 induction on 1. intros. case H1.
   case H2.
     search.
-    apply member_fresh to H3 _. case H4. search.
+    apply member_nabla to H3. search.
   apply IH to H2. apply IH to H3. search.
   apply IH to H2. search.
 
@@ -59,9 +55,7 @@ Theorem copy_align : forall M N L, nabla x y,
 induction on 1. intros. case H1.
   case H2.
     search.
-    apply member_fresh to H3 _. case H4.
-      apply member_fresh to H3 _. case H5.
-        search.
+    apply member_nabla to H3. apply member_nabla to H3. search.
   apply IH to H2. apply IH to H3. search.
   apply IH to H2. search.
 

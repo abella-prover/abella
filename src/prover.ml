@@ -617,4 +617,4 @@ let skip () =
 
 let clear hs =
   save_undo_state () ;
-  List.iter remove_hyp hs ;
+  List.iter remove_hyp hs

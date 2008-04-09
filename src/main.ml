@@ -90,6 +90,7 @@ let rec process_proof name lexbuf =
           let pre, post = if !annotate then "<b>", "</b>" else "", "" in
             printf "%s%s.%s\n" pre (command_to_string input) post
         end ;
+        save_undo_state () ;
         begin match input with
           | Induction(arg) -> induction arg
           | CoInduction -> coinduction ()
@@ -116,7 +117,7 @@ let rec process_proof name lexbuf =
           | Intros -> intros ()
           | Skip -> skip ()
           | Abort -> raise AbortProof
-          | Undo -> undo ()
+          | Undo -> undo () ; undo () (* undo recent save, and previous save *)
         end ;
         if !interactive then flush stdout ;
     with

@@ -214,7 +214,7 @@ let tests =
                )
         ) ;
 
-      "Undo should restore previous state" >::
+      "Undo should restore previous save state" >::
         (fun () ->
            setup_prover ()
              ~clauses:eval_clauses
@@ -223,7 +223,8 @@ let tests =
            induction 1 ;
            intros () ;
            assert_n_subgoals 1 ;
-           
+
+           save_undo_state () ;
            case "H1" ;
            assert_n_subgoals 2 ;
            

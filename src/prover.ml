@@ -194,13 +194,13 @@ let format_hyps fmt =
   List.iter (format_hyp fmt) sequent.hyps
    
 let format_other_subgoals fmt =
-  save_undo_state () ;
   let n = ref 1 in
+    save_undo_state () ;
     List.iter (fun set_state ->
                  set_state () ;
                  incr n ;
                  fprintf fmt "@[<1>subgoal %d is:@\n%a@]@\n@\n"
-                   !n format_metaterm sequent.goal)
+                   !n format_metaterm (normalize sequent.goal))
       !subgoals ;
     undo ()
 
@@ -233,7 +233,6 @@ let get_display () =
 (* Object level instantiation *)
 
 let inst h n t =
-  save_undo_state () ;
   let ht = get_hyp h in
     match ht with
       | Obj _ -> t |> localize_term
@@ -246,7 +245,6 @@ let inst h n t =
 (* Object level cut *)
     
 let cut h arg =
-  save_undo_state () ;
   let h = get_hyp h in
   let arg = get_hyp arg in
     match h, arg with
@@ -306,7 +304,6 @@ let search_goal goal =
     List.exists search_depth (List.range 1 10)
 
 let search ?(interactive=true) () =
-  save_undo_state () ;
   if search_goal sequent.goal then
     next_subgoal ()
   else if not interactive then
@@ -349,7 +346,6 @@ let ensure_no_restrictions term =
     aux term false
 
 let apply h args ws =
-  save_undo_state () ;
   let stmt = get_hyp_or_lemma h in
   let args = List.map get_some_hyp args in
   let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
@@ -403,7 +399,6 @@ let add_cases_to_subgoals cases =
     subgoals := List.append (List.map case_to_subgoal cases) !subgoals
 
 let case ?(keep=false) str =
-  save_undo_state () ;
   let term = get_hyp str in
   let global_support =
     (List.flatten_map metaterm_support (List.map snd sequent.hyps)) @
@@ -473,7 +468,6 @@ let ensure_is_inductive term =
     | _ -> failwith "Can only induct on predicates and judgments"
 
 let induction ind_arg =
-  save_undo_state () ;
   ensure_is_inductive (nth_product ind_arg sequent.goal) ;
   let res_num = next_restriction () in
   let (ih, new_goal) = Tactics.induction ind_arg res_num sequent.goal in
@@ -505,7 +499,6 @@ let ensure_is_coinductive p =
                        \ not been defined" (sig_to_string psig))
 
 let coinduction () =
-  save_undo_state () ;
   ensure_is_coinductive (conclusion sequent.goal) ;
   let res_num = next_restriction () in
   let (ch, new_goal) = Tactics.coinduction res_num sequent.goal in
@@ -517,7 +510,6 @@ let coinduction () =
 (* Assert *)
 
 let assert_hyp term =
-  save_undo_state () ;
   let term = localize_metaterm term in
     add_cases_to_subgoals
       [{ bind_state = get_bind_state () ;
@@ -536,7 +528,6 @@ let theorem thm =
 (* Introduction of forall variables *)
 
 let intros () =
-  save_undo_state () ;
   let rec aux term =
     match term with
       | Binding(Forall, bindings, body) ->
@@ -559,7 +550,6 @@ let intros () =
 (* Split *)
 
 let split propogate_result =
-  save_undo_state () ;
   match sequent.goal with
     | And(left, right) ->
         let saved = goal_to_subgoal right in
@@ -575,13 +565,11 @@ let split propogate_result =
 (* Left and right side of disjunction *)
 
 let left () =
-  save_undo_state () ;
   match sequent.goal with
     | Or(left, _) -> sequent.goal <- left
     | _ -> ()
 
 let right () =
-  save_undo_state () ;
   match sequent.goal with
     | Or(_, right) -> sequent.goal <- right
     | _ -> ()
@@ -590,7 +578,6 @@ let right () =
 (* Unfold *)
 
 let unfold () =
-  save_undo_state () ;
   let goal = unfold ~defs:(defs_to_list defs) sequent.goal in
   let goals = and_to_list goal in
     subgoals := (List.map goal_to_subgoal goals) @ !subgoals;
@@ -599,7 +586,6 @@ let unfold () =
 (* Exists *)
 
 let exists t =
-  save_undo_state () ;
   match sequent.goal with
     | Binding(Metaterm.Exists, id::ids, body) ->
         let t = replace_term_vars sequent.vars t in
@@ -610,11 +596,9 @@ let exists t =
 (* Skip *)
 
 let skip () =
-  save_undo_state () ;
   next_subgoal ()
 
 (* Clear *)
 
 let clear hs =
-  save_undo_state () ;
   List.iter remove_hyp hs

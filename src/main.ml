@@ -32,6 +32,16 @@ let last_sig = ref ("", 0)
 
 exception AbortProof
 
+let position lexbuf =
+  let curr = lexbuf.Lexing.lex_curr_p in
+  let file = curr.Lexing.pos_fname in
+  let line = curr.Lexing.pos_lnum in
+  let char = curr.Lexing.pos_cnum - curr.Lexing.pos_bol in
+    if file = "" then
+      "" (* lexbuf information is rarely accurate at the toplevel *)
+    else 
+      Format.sprintf ": file %s, line %d, character %d" file line char
+
 let ensure_no_restrictions term =
   if get_max_restriction term > 0 then
     failwith "Cannot use restrictions: *, @ or +"
@@ -143,6 +153,10 @@ let rec process_proof name lexbuf =
           print_endline "Proof aborted." ;
           reset_prover () ;
           raise AbortProof
+      | Parsing.Parse_error ->
+          Format.printf "Syntax error%s.\n%!" (position lexbuf) ;
+          Lexing.flush_input lexbuf ;
+          if not !interactive then exit 1
       | e ->
           printf "Error: %s\n%!" (Printexc.to_string e) ;
           if not !interactive then exit 1
@@ -191,6 +205,10 @@ let rec process lexbuf =
         print_endline "Goodbye." ;
         if !annotate then printf "</pre>\n" ;
         exit 0
+    | Parsing.Parse_error ->
+        Format.printf "Syntax error%s.\n%!" (position lexbuf) ;
+        Lexing.flush_input lexbuf ;
+        if not !interactive then exit 1
     | e ->
         printf "Unknown error: %s\n%!" (Printexc.to_string e) ;
         if not !interactive then exit 1
@@ -212,21 +230,32 @@ let options =
       ("-a", Arg.Set annotate, " Annotate mode") ;
     ]
 
+let lexbuf_from_file filename =
+  let lexbuf = Lexing.from_channel (open_in filename) in
+    lexbuf.Lexing.lex_curr_p <- {
+      lexbuf.Lexing.lex_curr_p with
+        Lexing.pos_fname = filename } ;
+    lexbuf
+
+let parse_mod_file name =
+  if not !quiet then
+    Format.printf "Reading clauses from %s\n" name ;
+  let lexbuf = lexbuf_from_file name in
+    try
+      add_clauses (Parser.clauses Lexer.token lexbuf)
+    with
+      | Parsing.Parse_error ->
+          Format.printf "Syntax error%s.\n%!" (position lexbuf) ;
+          exit 1
+
 let _ =
   printf "%s%!" welcome_msg ;
-  Arg.parse
-    options
-    (fun file_name ->
-       if not !quiet then
-         Printf.printf "Reading clauses from %s\n" file_name ;
-       add_clauses (Parser.clauses Lexer.token
-                      (Lexing.from_channel (open_in file_name))))
-    usage_message ;
+  Arg.parse options parse_mod_file usage_message ;
   match !command_input with
     | "" ->
         interactive := true ;
         process (Lexing.from_channel stdin)
     | name ->
         interactive := false ;
-        process (Lexing.from_channel (open_in name))
+        process (lexbuf_from_file !command_input)
         

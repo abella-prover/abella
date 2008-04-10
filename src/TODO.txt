@@ -1,5 +1,3 @@
-Clean up parse errors at top level. Show exact error?
-
 Coinduction followed by induction would allow hypotheses with @ on
 them. What does these mean? Should they be allowed? prevented?
 ignored?

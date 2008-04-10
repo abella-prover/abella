@@ -588,7 +588,7 @@ let unfold () =
 let exists t =
   match sequent.goal with
     | Binding(Metaterm.Exists, id::ids, body) ->
-        let t = replace_term_vars sequent.vars t in
+        let t = localize_term t in
         let goal = exists ids (replace_metaterm_vars [(id, t)] body) in
           sequent.goal <- goal
     | _ -> ()

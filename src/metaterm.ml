@@ -62,6 +62,97 @@ let pred p = Pred(p, Irrelevant)
 
 let member e ctx = pred (app (Term.const "member") [e; ctx])
   
+(* Pretty printing *)
+
+let restriction_to_string r =
+  match r with
+    | Smaller i -> String.make i '*'
+    | CoSmaller i -> String.make i '+'
+    | Equal i -> String.make i '@'
+    | Irrelevant -> ""
+
+let bindings_to_string ts =
+  String.concat " " ts
+
+let priority t =
+  match t with
+    | True | False | Eq _ | Pred _ | Obj _ -> 4
+    | And _ -> 3
+    | Or _ -> 2
+    | Arrow _ -> 1
+    | Binding _ -> 0
+
+let obj_to_string obj =
+  let context =
+    if Context.is_empty obj.context
+    then ""
+    else (Context.context_to_string obj.context ^ " |- ")
+  in
+  let term = term_to_string obj.term in
+    "{" ^ context ^ term ^ "}"
+
+let binder_to_string b =
+  match b with
+    | Forall -> "forall"
+    | Nabla -> "nabla"
+    | Exists -> "exists"
+    
+let format_metaterm fmt t =
+  let rec aux pr_above t =
+    let pr_curr = priority t in
+      if pr_curr < pr_above then fprintf fmt "(" ;
+      begin match t with
+        | True ->
+            fprintf fmt "true"
+        | False ->
+            fprintf fmt "false"
+        | Eq(a, b) ->
+            fprintf fmt "%s = %s" (term_to_string a) (term_to_string b)
+        | Obj(obj, r) ->
+            fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
+        | Arrow(a, b) ->
+            aux (pr_curr + 1) a ;
+            fprintf fmt " ->@ " ;
+            aux pr_curr b
+        | Binding(b, ids, t) ->
+            fprintf fmt "%s %s,@ "
+              (binder_to_string b) (bindings_to_string ids) ;
+            aux pr_curr t
+        | Or(a, b) ->
+            aux pr_curr a ;
+            fprintf fmt " \\/@ " ;
+            aux (pr_curr + 1) b ;
+        | And(a, b) ->
+            aux pr_curr a ;
+            fprintf fmt " /\\@ " ;
+            aux (pr_curr + 1) b ;
+        | Pred(p, r) ->
+            if r = Irrelevant then
+              fprintf fmt "%s" (term_to_string p)
+            else
+              fprintf fmt "%s %s" (term_to_string p) (restriction_to_string r)
+      end ;
+      if pr_curr < pr_above then fprintf fmt ")" ;
+  in
+    pp_open_box fmt 2 ;
+    aux 0 t ;
+    pp_close_box fmt ()
+
+let metaterm_to_string t =
+  let b = Buffer.create 50 in
+  let fmt = formatter_of_buffer b in
+    pp_set_margin fmt max_int ;
+    format_metaterm fmt t ;
+    pp_print_flush fmt () ;
+    Buffer.contents b
+
+let metaterm_to_formatted_string t =
+  let b = Buffer.create 100 in
+  let fmt = formatter_of_buffer b in
+    format_metaterm fmt t ;
+    pp_print_flush fmt () ;
+    Buffer.contents b
+      
 (* Manipulations *)
 
 let map_on_objs f t =
@@ -212,7 +303,7 @@ let replace_term_vars ?tag alist t =
       | DB _ -> t
       | Lam(i, t) -> lambda i (aux t)
       | App(t, ts) -> app (aux t) (List.map aux ts)
-      | Susp _ -> failwith "Susp found during replace_term_vars"
+      | Susp _ -> assert false
       | Ptr _ -> assert false
   in
     aux (deep_norm t)
@@ -226,18 +317,15 @@ let rec replace_metaterm_vars alist t =
       | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) ->
-          let alist' = List.remove_assocs bindings alist in
-          let bindings', body' = freshen_alist_bindings bindings alist' body in
-            Binding(binder, bindings', replace_metaterm_vars alist' body')
+          let alist = List.remove_assocs bindings alist in
+          let used = get_used (List.map snd alist) in
+          let bindings_alist = fresh_alist ~tag:Constant ~used bindings in
+            Binding(binder,
+                    List.map term_to_name (List.map snd bindings_alist),
+                    replace_metaterm_vars (alist @ bindings_alist) body)
       | Or(a, b) -> Or(aux a, aux b)
       | And(a, b) -> And(aux a, aux b)
       | Pred(p, r) -> Pred(term_aux p, r)
-
-and freshen_alist_bindings bindings alist body =
-  let used = get_used (List.map snd alist) in
-  let bindings_alist = fresh_alist ~tag:Constant ~used bindings in
-  let bindings' = List.map term_to_name (List.map snd bindings_alist) in
-    (bindings', replace_metaterm_vars bindings_alist body)
 
 let rec collect_terms t =
   match t with
@@ -380,97 +468,6 @@ let instantiate_nablas ids body =
   let alist = List.combine ids nominals in
     replace_metaterm_vars alist body
 
-(* Pretty printing *)
-
-let restriction_to_string r =
-  match r with
-    | Smaller i -> String.make i '*'
-    | CoSmaller i -> String.make i '+'
-    | Equal i -> String.make i '@'
-    | Irrelevant -> ""
-
-let bindings_to_string ts =
-  String.concat " " ts
-
-let priority t =
-  match t with
-    | True | False | Eq _ | Pred _ | Obj _ -> 4
-    | And _ -> 3
-    | Or _ -> 2
-    | Arrow _ -> 1
-    | Binding _ -> 0
-
-let obj_to_string obj =
-  let context =
-    if Context.is_empty obj.context
-    then ""
-    else (Context.context_to_string obj.context ^ " |- ")
-  in
-  let term = term_to_string obj.term in
-    "{" ^ context ^ term ^ "}"
-
-let binder_to_string b =
-  match b with
-    | Forall -> "forall"
-    | Nabla -> "nabla"
-    | Exists -> "exists"
-    
-let format_metaterm fmt t =
-  let rec aux pr_above t =
-    let pr_curr = priority t in
-      if pr_curr < pr_above then fprintf fmt "(" ;
-      begin match t with
-        | True ->
-            fprintf fmt "true"
-        | False ->
-            fprintf fmt "false"
-        | Eq(a, b) ->
-            fprintf fmt "%s = %s" (term_to_string a) (term_to_string b)
-        | Obj(obj, r) ->
-            fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
-        | Arrow(a, b) ->
-            aux (pr_curr + 1) a ;
-            fprintf fmt " ->@ " ;
-            aux pr_curr b
-        | Binding(b, ids, t) ->
-            fprintf fmt "%s %s,@ "
-              (binder_to_string b) (bindings_to_string ids) ;
-            aux pr_curr t
-        | Or(a, b) ->
-            aux pr_curr a ;
-            fprintf fmt " \\/@ " ;
-            aux (pr_curr + 1) b ;
-        | And(a, b) ->
-            aux pr_curr a ;
-            fprintf fmt " /\\@ " ;
-            aux (pr_curr + 1) b ;
-        | Pred(p, r) ->
-            if r = Irrelevant then
-              fprintf fmt "%s" (term_to_string p)
-            else
-              fprintf fmt "%s %s" (term_to_string p) (restriction_to_string r)
-      end ;
-      if pr_curr < pr_above then fprintf fmt ")" ;
-  in
-    pp_open_box fmt 2 ;
-    aux 0 t ;
-    pp_close_box fmt ()
-
-let metaterm_to_string t =
-  let b = Buffer.create 50 in
-  let fmt = formatter_of_buffer b in
-    pp_set_margin fmt max_int ;
-    format_metaterm fmt t ;
-    pp_print_flush fmt () ;
-    Buffer.contents b
-
-let metaterm_to_formatted_string t =
-  let b = Buffer.create 100 in
-  let fmt = formatter_of_buffer b in
-    format_metaterm fmt t ;
-    pp_print_flush fmt () ;
-    Buffer.contents b
-      
 (* Error reporting *)
 
 let invalid_metaterm_arg t =

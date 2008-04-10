@@ -127,6 +127,15 @@ let tests =
            let t = exists ["A"] b in
            let t' = replace_metaterm_vars [("B", var_a)] t in
              assert_pprint_equal "exists A1, {A}" t') ;
+
+      "Cascading capture" >::
+        (fun () ->
+           let t = forall ["E2"]
+             (arrow (Eq(const "E2", var Eigen "E" 0))
+                (exists ["E1"] (Eq(const "E1", const "E2")))) in
+           let t' = replace_metaterm_vars [("E", var Eigen "E1" 0)] t in
+             assert_pprint_equal
+               "forall E2, E2 = E1 -> (exists E3, E3 = E2)" t');
       
       "Print non-empty context" >::
         (fun () ->

@@ -60,6 +60,11 @@ let ensure_new_or_last_sig dsig =
     if dsig <> !last_sig then
       failwith (sprintf "%s has already been defined" (sig_to_string dsig)) ;
   last_sig := dsig
+
+let ensure_not_capital (name, _) =
+  if Tactics.is_capital name then
+    failwith (sprintf "Defined predicates may not begin with \
+                       a capital letter.")
     
 let check_def (head, body) =
   ensure_no_restrictions head ;
@@ -68,6 +73,7 @@ let check_def (head, body) =
   let body_vars = Tactics.free_capital_var_names body in
   let free_vars = List.minus body_vars head_vars in
   let dsig = def_sig (head, body) in
+    ensure_not_capital dsig ;
     ensure_new_or_last_sig dsig ;
     ensure_no_free_vars free_vars ;
     ensure_defs_exist ~ignore:[dsig] body

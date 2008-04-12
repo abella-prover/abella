@@ -239,7 +239,7 @@ let lexbuf_from_file filename =
 
 let parse_mod_file name =
   if not !quiet then
-    Format.printf "Reading clauses from %s\n" name ;
+    Format.printf "Reading clauses from %s\n%!" name ;
   let lexbuf = lexbuf_from_file name in
     try
       add_clauses (Parser.clauses Lexer.token lexbuf)

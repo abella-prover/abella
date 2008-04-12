@@ -157,7 +157,11 @@ let rec recursive_metaterm_case ~used term =
     | False -> None
     | Eq(a, b) ->
         if try_left_unify ~used a b then
-          Some empty_case
+          Some {
+            (* Names created perhaps by unification *)
+            stateless_new_vars = term_vars_alist Eigen [a] ;
+            stateless_new_hyps = []
+          }
         else
           None
     | And(left, right) ->

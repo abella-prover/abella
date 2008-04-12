@@ -156,7 +156,7 @@ let rec recursive_metaterm_case ~used term =
     | True -> Some empty_case
     | False -> None
     | Eq(a, b) ->
-        if try_left_unify a b then
+        if try_left_unify ~used a b then
           Some empty_case
         else
           None
@@ -237,15 +237,14 @@ let case ~used ~clauses ~defs ~global_support term =
         freshen_def ~support ~used head body
       in
         if try_left_unify ~used:(fresh_used @ used) head term then
-          let bind_state = get_bind_state () in
-            (* Names created perhaps by unificiation *)
+          (* Names created perhaps by unificiation *)
           let used_head = term_vars_alist Eigen [head] in
           let used_body = metaterm_vars_alist Eigen body in
           let used = List.unique (used_head @ used_body @ used) in
             match recursive_metaterm_case ~used body with
               | None -> []
               | Some case ->
-                  [{ bind_state = bind_state ;
+                  [{ bind_state = get_bind_state () ;
                      new_vars = case.stateless_new_vars @ used ;
                      new_hyps = List.map wrapper case.stateless_new_hyps }]
         else

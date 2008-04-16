@@ -144,7 +144,7 @@ induction on 2. intros. case H2.
 Define of_ctx nil.
 Define nabla x, of_ctx (of x A :: L) := {type A} /\ of_ctx L.
 
-% A term is closed if it it can be typed in the empty context
+% A term is closed if it can be typed in the empty context
 Define closed M := exists A, {of M A}.
 
 Define nabla x, fresh x M.

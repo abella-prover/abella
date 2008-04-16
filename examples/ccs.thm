@@ -7,19 +7,10 @@ Theorem mu_id_step_absurd : forall A Q,
 induction on 1. intros. case H1.
   apply IH to H2.
 
-Define one p0 a p0.
-Define one p0 b p1.
-Define one q0 a q0.
-
-Define foo X := false.
-
-Theorem exists Q, one p0 a Q /\ foo Q.
-  right.
-..  
+  
 CoDefine sim P Q :=
   forall A P1, {step P A P1} -> exists Q1, {step Q A Q1} /\ sim P1 Q1.
 
-  
 Theorem sim_mu_par_ext : forall P Q Q1,
   {step Q a (par Q Q1)} -> sim (mu x\ out a x) Q.
 coinduction. intros. unfold. intros.

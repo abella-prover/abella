@@ -34,7 +34,7 @@ html: $(ABELLA)
 
         echo $(name) > name
         head -1 $(name).thm > title-line
-        cp $(name).mod specification
+        ruby html-files/annotate_mod.rb $(name).mod > specification
         ruby html-files/annotate_thm.rb $(name).thm > reasoning
         $(ABELLA) -a $(name).mod -f $(name).thm > details
 

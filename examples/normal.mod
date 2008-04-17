@@ -21,10 +21,6 @@ non_normal (app M N) :- non_normal M.
 non_normal (app M N) :- non_normal N.
 non_normal (abs R) :- pi x\ non_normal (R x).
 
-
-normal (abs R) :- pi x\ var x => normal (R x).
-normal (app M N) :- normal_head M, normal N.
-normal X :- var X.
-
-normal_head (app M N) :- normal_head M, normal N.
-normal_head X :- var X.
+normal (abs R) :- pi x\ neutral x => normal (R x).
+normal M :- neutral M.
+neutral (app M N) :- neutral M, normal N.

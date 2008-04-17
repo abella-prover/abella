@@ -6,13 +6,13 @@
 Define nabla x, name x.
 
 Define ctxs nil nil.
-Define nabla x, ctxs (term x :: L) (var x :: K) := ctxs L K.
+Define nabla x, ctxs (term x :: L) (neutral x :: K) := ctxs L K.
 
 
 %% Lemmas about contexts
 
 Theorem ctxs_member_term : forall X L K,
-  ctxs L K -> member (term X) L -> member (var X) K.
+  ctxs L K -> member (term X) L -> member (neutral X) K.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -21,7 +21,7 @@ induction on 1. intros. case H1.
       search.
 
 Theorem ctxs_var : forall E L K,
-  ctxs L K -> member E K -> exists X, E = var X /\ name X.
+  ctxs L K -> member E K -> exists X, E = neutral X /\ name X.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -41,7 +41,6 @@ induction on 2. intros. case H2.
         apply ctxs_var to H1 H9.
         search.
         search.
-        search.
       search.
     search.
   apply IH to _ H3. case H4.
@@ -55,26 +54,21 @@ intros. apply total_ext to _ H1. search.
 
 %% Partitioning is disjoint
 
-Theorem normal_head_normal : forall L K T,
-  ctxs L K -> {K |- normal_head T} -> {K |- normal T}.
-intros. case H2.
-  apply ctxs_var to H1 H3.
-  search.
-  search.
+Theorem neutral_abs_absurd : forall L K R,
+  ctxs L K -> {K |- neutral (abs R)} -> false.
+intros. case H2. apply ctxs_var to H1 H3. case H4.
 
 Theorem disjoint_ext : forall L K T,
   ctxs L K -> {K |- normal T} -> {non_normal T} -> false.
 induction on 3. intros. case H2.
   apply ctxs_var to H1 H4.
   case H3. apply IH to _ H4 H5.
-  case H3.
-    case H4.
-      apply ctxs_var to H1 H6.
-      case H6. apply ctxs_var to H1 H7. case H8.
-    apply normal_head_normal to H1 H4.
-      apply IH to H1 H7 H6.
-    apply IH to H1 H5 H6.
-  case H4. apply ctxs_var to H1 H5. case H6. case H3.
+  case H4.
+    apply ctxs_var to H1 H5. case H6. case H3.
+    case H3.
+      apply neutral_abs_absurd to H1 H5.
+      apply IH to H1 _ H7.
+      apply IH to H1 H6 H7.
 
 Theorem disjoint : forall T,
   {normal T} -> {non_normal T} -> false.

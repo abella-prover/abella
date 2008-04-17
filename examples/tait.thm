@@ -11,7 +11,7 @@
 %% Contexts: L, K
 
 
-Define halts M := exists V, {nstep M V} /\ {value V}.
+Define halts M := exists V, {steps M V} /\ {value V}.
 
 %% Reduce is the logical relation used to prove normalization.
 %%
@@ -60,22 +60,22 @@ induction on 1. intros. case H1.
     apply absurd_step_value to H5 H3.
     search.
 
-Theorem step_follows_nstep : forall M N V,
-  {step M N} -> {nstep M V} -> {value V} -> {nstep N V}.
+Theorem step_follows_steps : forall M N V,
+  {step M N} -> {steps M V} -> {value V} -> {steps N V}.
 intros. case H2.
   apply absurd_step_value to H1 H3.
   apply step_det to H1 H4. search.
 
-% nstep is defined by left recursion on step, so this lemma tells us
+% steps is defined by left recursion on step, so this lemma tells us
 % that it acts right recursively as well
-Theorem nstep_right : forall M N R,
-  {nstep M N} -> {step N R} -> {nstep M R}.
+Theorem steps_right : forall M N R,
+  {steps M N} -> {step N R} -> {steps M R}.
 induction on 1. intros. case H1.
   search.
   apply IH to H4 H2. search.
 
-Theorem nstep_app_value : forall M N R,
-  {value M} -> {nstep N R} -> {nstep (app M N) (app M R)}.
+Theorem steps_app_value : forall M N R,
+  {value M} -> {steps N R} -> {steps (app M N) (app M R)}.
 induction on 2. intros. case H2.
   search.
   apply IH to H1 H4. search.
@@ -83,7 +83,7 @@ induction on 2. intros. case H2.
 Theorem halt_step_forward : forall M N,
   halts M -> {step M N} -> halts N.
 intros. case H1.
-  apply step_follows_nstep to H2 H3 H4. search.
+  apply step_follows_steps to H2 H3 H4. search.
 
 Theorem halt_step_backward : forall M N,
   halts N -> {step M N} -> halts M.
@@ -110,8 +110,8 @@ induction on 1. intros. case H1.
     intros. apply H5 to H6.
       apply IH to H7 _. search.
 
-Theorem reduce_nstep_forward : forall M N A,
-  reduce M A -> {nstep M N} -> reduce N A.
+Theorem reduce_steps_forward : forall M N A,
+  reduce M A -> {steps M N} -> reduce N A.
 induction on 2. intros. case H2.
   search.
   apply reduce_step_forward to H1 H3. apply IH to H5 H4. search.
@@ -127,8 +127,8 @@ induction on 1. intros. case H1.
       apply reduce_of to H7.
         apply IH to H8 _ _. search.
 
-Theorem reduce_nstep_backward : forall M N A,
-  reduce N A -> {nstep M N} -> {of M A} -> reduce M A.
+Theorem reduce_steps_backward : forall M N A,
+  reduce N A -> {steps M N} -> {of M A} -> reduce M A.
 induction on 2. intros. case H2.
   search.
   apply of_step_forward to H3 H4. apply IH to H1 H5 H6.
@@ -298,13 +298,13 @@ induction on 2. intros. case H2 (keep).
         search.
         intros. % The rest is one single case
           apply reduce_halts to H9. case H10.
-          apply reduce_nstep_forward to H9 H11.
+          apply reduce_steps_forward to H9 H11.
           apply H7 to H13 H12.
           apply IH to _ H5 H14.
-          apply nstep_app_value to _ H11 with M = abs A1 MR.
-          apply nstep_right to H16 _ with R = MR V.
+          apply steps_app_value to _ H11 with M = abs A1 MR.
+          apply steps_right to H16 _ with R = MR V.
           apply reduce_of to H9.
-          apply reduce_nstep_backward to H15 H17 _.
+          apply reduce_steps_backward to H15 H17 _.
           search.
 
 

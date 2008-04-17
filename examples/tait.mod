@@ -14,5 +14,5 @@ step (app M N) (app M' N) :- step M M'.
 step (app M N) (app M N') :- value M, step N N'.
 step (app (abs A R) M) (R M) :- value M.
 
-nstep M M.
-nstep M N :- step M P, nstep P N.
+steps M M.
+steps M N :- step M P, steps P N.

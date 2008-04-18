@@ -8,7 +8,7 @@
 %% Types: A, B, C
 %% Terms: M, N, P, R
 %% Values (Terms): V
-%% Contexts: L, K
+%% Contexts: L
 
 
 Define halts M := exists V, {steps M V} /\ {value V}.
@@ -208,7 +208,7 @@ induction on 1. intros. case H1.
     search.
     apply IH to H4 H5. search.
   
-Theorem of_type : forall L K M A,
+Theorem of_type : forall L M A,
   of_ctx L -> {L |- of M A} -> {type A}.
 induction on 2. intros. case H2.
   apply of_ctx_type to H1 H3. search.

@@ -4,6 +4,10 @@ ignored?
 
 What about induction followed by coinduction?
 
+Change seq to inspect context directly, instead of calling member?
+
+Change the representation of contexts to have explicit tail variable?
+
 
 Future
 ======

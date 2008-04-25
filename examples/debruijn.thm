@@ -1,6 +1,6 @@
 %% Translation between higher-order and debruijn lambda terms
 %%
-%% Can we do this in Twelf and prove it is deterministic?
+%% Can we define this translation in Twelf and prove it deterministic?
 
 %% General property of member
 
@@ -72,6 +72,12 @@ Define nabla x, ctx (store x H :: L) (s H) := nat H /\ ctx L H.
 
 Define nabla x, name x.
 
+Theorem ctx_nat : forall L H,
+  ctx L H -> nat H.
+intros. case H1.
+  search.
+  search.
+
 Theorem ctx_world : forall E L H,
   ctx L H -> member E L -> exists X HX, E = store X HX /\ name X.
 induction on 1. intros. case H1.
@@ -130,49 +136,49 @@ induction on 2. intros. case H2.
 %% ho2db is deterministic in its third argument
 %% ie, higher-order --> debruijn is unique
 Theorem ho2db_det3 : forall L M D1 D2 H,
-  nat H -> ctx L H -> {L |- ho2db M H D1} -> {L |- ho2db M H D2} -> D1 = D2.
-induction on 3. intros. case H3.
-  apply ctx_world to H2 H5.
-  case H4.
-    apply ctx_world to H2 H7.
-    apply IH to H1 H2 H5 H7. apply IH to H1 H2 H6 H8. search.
-    apply store_name to H2 H7. case H9.
-  case H4.
-    apply ctx_world to H2 H6.
-    apply IH to _ _ H5 H6. search.
-    apply store_name to H2 H6. case H8.
-  case H4.
-    apply ctx_world to H2 H7.
-    apply store_name to H2 H5. case H9.
-    apply store_name to H2 H5. case H8.
-    apply store_det2 to H2 H5 H7.
-      apply add_ignores_ctx to H2 H6. apply add_ignores_ctx to H2 H8.
-        apply add_det2 to H9 H10. search.
+  ctx L H -> {L |- ho2db M H D1} -> {L |- ho2db M H D2} -> D1 = D2.
+induction on 2. intros. case H2.
+  apply ctx_world to H1 H4.
+  case H3.
+    apply ctx_world to H1 H6.
+    apply IH to H1 H4 H6. apply IH to H1 H5 H7. search.
+    apply store_name to H1 H6. case H8.
+  case H3.
+    apply ctx_world to H1 H5.
+    apply ctx_nat to H1. apply IH to _ H4 H5. search.
+    apply store_name to H1 H5. case H7.
+  case H3.
+    apply ctx_world to H1 H6.
+    apply store_name to H1 H4. case H8.
+    apply store_name to H1 H4. case H7.
+    apply store_det2 to H1 H4 H6.
+      apply add_ignores_ctx to H1 H5. apply add_ignores_ctx to H1 H7.
+        apply add_det2 to H8 H9. search.
 
 Theorem ho2db_det3_simple : forall M D1 D2,
   {ho2db M z D1} -> {ho2db M z D2} -> D1 = D2.
-intros. apply ho2db_det3 to _ _ H1 H2. search.
+intros. apply ho2db_det3 to _ H1 H2. search.
 
-
+  
 %% ho2db is deterministic in its first argument
 %% ie, debruijn --> higher-order is unique
 %% proof is mostly the same as ho2db_det3 except with fewer cases
 Theorem ho2db_det1 : forall L M1 M2 D H,
-  nat H -> ctx L H -> {L |- ho2db M1 H D} -> {L |- ho2db M2 H D} -> M1 = M2.
-induction on 3. intros. case H3.
-  apply ctx_world to H2 H5.
-  case H4.
-    apply ctx_world to H2 H7.
-    apply IH to H1 H2 H5 H7. apply IH to H1 H2 H6 H8. search.
-  case H4.
-    apply ctx_world to H2 H6.
-    apply IH to _ _ H5 H6. search.
-  case H4.
-    apply ctx_world to H2 H7.
-    apply add_ignores_ctx to H2 H6. apply add_ignores_ctx to H2 H8.
-      apply add_det1 to H1 H9 H10.
-        apply store_det1 to H2 H5 H7. search.
+  ctx L H -> {L |- ho2db M1 H D} -> {L |- ho2db M2 H D} -> M1 = M2.
+induction on 2. intros. case H2.
+  apply ctx_world to H1 H4.
+  case H3.
+    apply ctx_world to H1 H6.
+    apply IH to H1 H4 H6. apply IH to H1 H5 H7. search.
+  case H3.
+    apply ctx_world to H1 H5.
+    apply ctx_nat to H1. apply IH to _ H4 H5. search.
+  case H3.
+    apply ctx_world to H1 H6.
+    apply add_ignores_ctx to H1 H5. apply add_ignores_ctx to H1 H7.
+      apply ctx_nat to H1. apply add_det1 to H10 H8 H9.
+        apply store_det1 to H1 H4 H6. search.
 
 Theorem ho2db_det1_simple : forall M1 M2 D,
   {ho2db M1 z D} -> {ho2db M2 z D} -> M1 = M2.
-intros. apply ho2db_det1 to _ _ H1 H2. search.
+intros. apply ho2db_det1 to _ H1 H2. search.

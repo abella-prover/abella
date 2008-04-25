@@ -24,6 +24,7 @@ BuildDist() =
     rm -f dist/src/lexer.ml
 
     mkdir dist/examples
+    cp examples/*.sig dist/examples
     cp examples/*.mod dist/examples
     cp examples/*.thm dist/examples
 

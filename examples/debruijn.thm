@@ -1,6 +1,7 @@
 %% Translation between higher-order and debruijn lambda terms
 %%
-%% Can we define this translation in Twelf and prove it deterministic?
+%% A similar result is shown for Twelf at
+%%   http://twelf.plparty.org/wiki/Concrete_representation
 
 %% General property of member
 

@@ -5,7 +5,11 @@
 %% They seem to need many contorsions which are unrelated to the
 %% actual task of the translation. They also define both a forward
 %% and backward translation, whereas we use a single translation and
-%% prove it deterministic in both directions.
+%% prove it deterministic in both directions. Their key difficulty
+%% is that they cannot use hypothetical assumptions like our (store X N)
+%% since regular worlds are not powerful enough to specify the
+%% form of contexts which are created (e.g. they cannot show the
+%% natural number N must be unique).
 
 
 %% General property of member

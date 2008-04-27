@@ -23,4 +23,10 @@ type      dvar      nat -> dterm.
 
 type      ho2db     hterm -> nat -> dterm -> o.
 type      store     hterm -> nat -> o.
+
 type      beta      hterm -> hterm -> o.
+
+type      eta       hterm -> hterm -> o.
+type      deta      dterm -> dterm -> o.
+type      free      nat -> dterm -> o.
+type      neq       nat -> nat -> o.

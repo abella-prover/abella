@@ -78,15 +78,15 @@ induction on 1. intros. case H1.
 %% Theorems specific to our translation
 
 Define ctx nil z.
-Define nabla x, ctx (store x H :: L) (s H) := nat H /\ ctx L H.
+Define nabla x, ctx (store x H :: L) (s H) := ctx L H.
 
 Define nabla x, name x.
 
 Theorem ctx_nat : forall L H,
   ctx L H -> nat H.
-intros. case H1.
+induction on 1. intros. case H1.
   search.
-  search.
+  apply IH to H2. search.
 
 Theorem ctx_world : forall E L H,
   ctx L H -> member E L -> exists X HX, E = store X HX /\ name X.
@@ -94,7 +94,7 @@ induction on 1. intros. case H1.
   case H2.
   case H2.
     search.
-    apply member_prune to H5. apply IH to H4 H5. search.
+    apply member_prune to H4. apply IH to H3 H4. search.
 
 Theorem store_name : forall L H X HX,
   ctx L H -> {L |- store X HX} -> name X.
@@ -108,7 +108,7 @@ induction on 2. intros. case H2.
     case H1. apply member_prune to H4.
   case H3.
     case H1. apply member_prune to H4.
-    case H1. apply IH to H7 H4 H5. search.
+    case H1. apply IH to H6 H4 H5. search.
   
 Theorem store_det2 : forall L H X H1 H2,
   ctx L H -> {L |- store X H1} -> {L |- store X H2} -> H1 = H2.
@@ -117,19 +117,19 @@ intros. case H2. case H3. apply member_store_det2 to H1 H4 H5. search.
 Theorem ctx_member_absurd : forall X H1 H2 L,
   ctx L H1 -> member (store X H2) L -> le H1 H2 -> false.
 induction on 2. intros. case H2.
-  case H1. apply le_absurd to H4 H3.
+  case H1. apply ctx_nat to H4. apply le_absurd to H5 H3.
   case H1. apply member_prune to H4.
-    apply le_dec to H3. apply IH to H6 H4 H7.
+    apply le_dec to H3. apply IH to H5 H4 H6.
 
 Theorem member_store_det1 : forall L H X1 X2 HX,
   ctx L H -> member (store X1 HX) L -> member (store X2 HX) L -> X1 = X2.
 induction on 2. intros. case H2.
   case H3.
     search.
-    case H1. apply ctx_member_absurd to H6 H4 _.
+    case H1. apply ctx_member_absurd to H5 H4 _.
   case H3.
-    case H1. apply ctx_member_absurd to H6 H4 _.
-    case H1. apply IH to H7 H4 H5. search.
+    case H1. apply ctx_member_absurd to H5 H4 _.
+    case H1. apply IH to H6 H4 H5. search.
   
 Theorem store_det1 : forall L H X1 X2 HX,
   ctx L H -> {L |- store X1 HX} -> {L |- store X2 HX} -> X1 = X2.

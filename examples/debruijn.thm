@@ -35,7 +35,6 @@ induction on 1. intros. case H1.
   search.
   apply IH to H2. search.
 
-% We introduced 'nat' specifically for this lemma
 Theorem le_absurd : forall X,
   nat X -> le (s X) X -> false.
 induction on 1. intros. case H1.

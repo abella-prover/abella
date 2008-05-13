@@ -1,3 +1,5 @@
+Change the handling of contexts so that we don't need "with A = A" in ded
+
 Coinduction followed by induction would allow hypotheses with @ on
 them. What does these mean? Should they be allowed? prevented?
 ignored?

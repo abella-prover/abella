@@ -6,7 +6,7 @@
 %% actual task of the translation. They also define both a forward
 %% and backward translation, whereas we use a single translation and
 %% prove it deterministic in both directions. Their key difficulty
-%% is that they cannot use hypothetical assumptions like our (store X N)
+%% is that they cannot use hypothetical assumptions like our (depth X N)
 %% since regular worlds are not powerful enough to specify the
 %% form of contexts which are created (e.g. they cannot show the
 %% natural number N must be unique).
@@ -77,7 +77,7 @@ induction on 1. intros. case H1.
 %% Theorems specific to our translation
 
 Define ctx nil z.
-Define nabla x, ctx (store x H :: L) (s H) := ctx L H.
+Define nabla x, ctx (depth x H :: L) (s H) := ctx L H.
 
 Define nabla x, name x.
 
@@ -88,19 +88,19 @@ induction on 1. intros. case H1.
   apply IH to H2. search.
 
 Theorem ctx_world : forall E L H,
-  ctx L H -> member E L -> exists X HX, E = store X HX /\ name X.
+  ctx L H -> member E L -> exists X HX, E = depth X HX /\ name X.
 induction on 1. intros. case H1.
   case H2.
   case H2.
     search.
     apply member_prune to H4. apply IH to H3 H4. search.
 
-Theorem store_name : forall L H X HX,
-  ctx L H -> {L |- store X HX} -> name X.
+Theorem depth_name : forall L H X HX,
+  ctx L H -> {L |- depth X HX} -> name X.
 intros. case H2. apply ctx_world to H1 H3. search.
 
-Theorem member_store_det2 : forall L H X H1 H2,
-  ctx L H -> member (store X H1) L -> member (store X H2) L -> H1 = H2.
+Theorem member_depth_det2 : forall L H X H1 H2,
+  ctx L H -> member (depth X H1) L -> member (depth X H2) L -> H1 = H2.
 induction on 2. intros. case H2.
   case H3.
     search.
@@ -109,19 +109,19 @@ induction on 2. intros. case H2.
     case H1. apply member_prune to H4.
     case H1. apply IH to H6 H4 H5. search.
   
-Theorem store_det2 : forall L H X H1 H2,
-  ctx L H -> {L |- store X H1} -> {L |- store X H2} -> H1 = H2.
-intros. case H2. case H3. apply member_store_det2 to H1 H4 H5. search.
+Theorem depth_det2 : forall L H X H1 H2,
+  ctx L H -> {L |- depth X H1} -> {L |- depth X H2} -> H1 = H2.
+intros. case H2. case H3. apply member_depth_det2 to H1 H4 H5. search.
 
 Theorem ctx_member_absurd : forall X H1 H2 L,
-  ctx L H1 -> member (store X H2) L -> le H1 H2 -> false.
+  ctx L H1 -> member (depth X H2) L -> le H1 H2 -> false.
 induction on 2. intros. case H2.
   case H1. apply ctx_nat to H4. apply le_absurd to H5 H3.
   case H1. apply member_prune to H4.
     apply le_dec to H3. apply IH to H5 H4 H6.
 
-Theorem member_store_det1 : forall L H X1 X2 HX,
-  ctx L H -> member (store X1 HX) L -> member (store X2 HX) L -> X1 = X2.
+Theorem member_depth_det1 : forall L H X1 X2 HX,
+  ctx L H -> member (depth X1 HX) L -> member (depth X2 HX) L -> X1 = X2.
 induction on 2. intros. case H2.
   case H3.
     search.
@@ -130,9 +130,9 @@ induction on 2. intros. case H2.
     case H1. apply ctx_member_absurd to H5 H4 _.
     case H1. apply IH to H6 H4 H5. search.
   
-Theorem store_det1 : forall L H X1 X2 HX,
-  ctx L H -> {L |- store X1 HX} -> {L |- store X2 HX} -> X1 = X2.
-intros. case H2. case H3. apply member_store_det1 to H1 H4 H5. search.
+Theorem depth_det1 : forall L H X1 X2 HX,
+  ctx L H -> {L |- depth X1 HX} -> {L |- depth X2 HX} -> X1 = X2.
+intros. case H2. case H3. apply member_depth_det1 to H1 H4 H5. search.
 
 Theorem add_ignores_ctx : forall L H A B C,
   ctx L H -> {L |- add A B C} -> {add A B C}.
@@ -151,16 +151,16 @@ induction on 2. intros. case H2.
   case H3.
     apply ctx_world to H1 H6.
     apply IH to H1 H4 H6. apply IH to H1 H5 H7. search.
-    apply store_name to H1 H6. case H8.
+    apply depth_name to H1 H6. case H8.
   case H3.
     apply ctx_world to H1 H5.
     apply ctx_nat to H1. apply IH to _ H4 H5. search.
-    apply store_name to H1 H5. case H7.
+    apply depth_name to H1 H5. case H7.
   case H3.
     apply ctx_world to H1 H6.
-    apply store_name to H1 H4. case H8.
-    apply store_name to H1 H4. case H7.
-    apply store_det2 to H1 H4 H6.
+    apply depth_name to H1 H4. case H8.
+    apply depth_name to H1 H4. case H7.
+    apply depth_det2 to H1 H4 H6.
       apply add_ignores_ctx to H1 H5. apply add_ignores_ctx to H1 H7.
         apply add_det2 to H8 H9. search.
 
@@ -186,7 +186,7 @@ induction on 2. intros. case H2.
     apply ctx_world to H1 H6.
     apply add_ignores_ctx to H1 H5. apply add_ignores_ctx to H1 H7.
       apply ctx_nat to H1. apply add_det1 to H10 H8 H9.
-        apply store_det1 to H1 H4 H6. search.
+        apply depth_det1 to H1 H4 H6. search.
 
 Theorem ho2db_det1_simple : forall M1 M2 D,
   {ho2db M1 z D} -> {ho2db M2 z D} -> M1 = M2.

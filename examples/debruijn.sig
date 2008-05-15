@@ -22,4 +22,4 @@ type      dlam      dterm -> dterm.
 type      dvar      nat -> dterm.
 
 type      ho2db     hterm -> nat -> dterm -> o.
-type      store     hterm -> nat -> o.
+type      depth     hterm -> nat -> o.

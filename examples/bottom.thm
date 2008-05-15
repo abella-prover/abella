@@ -1,0 +1,42 @@
+Define one L (hil (imp A (imp B A))).
+Define one L (hil (imp (imp A (imp B C)) (imp (imp A B) (imp A C)))).
+Define one L (hil B) := exists A, member (hil (imp A B)) L /\ member (hil A) L.
+
+Define seq L A := exists B, one L B /\ seq (B :: L) A.
+Define seq L A := member A L.
+
+Define ctx A nil.
+Define ctx A (hil B :: L) := seq L (hil (imp A B)) /\ ctx A L.
+
+Theorem one_weaken : forall A L K,
+  one L A -> (forall X, member X L -> member X K) -> one K A.
+induction on 1. intros. case H1.
+  search.
+  search.
+  apply H2 to H3. apply H2 to H4. search.
+
+Theorem member_cons : forall L K H,
+  (forall X, member X L -> member X K) -> (forall X, member X (H :: L) -> member X (H :: K)).
+intros. case H2.
+  search.
+  apply H1 to H3. search.
+
+Theorem seq_weaken : forall A L K,
+  seq L A -> (forall X, member X L -> member X K) -> seq K A.
+induction on 1. intros. case H1.
+  apply one_weaken to H3 H2.
+    apply member_cons to H2 with H = B.
+      apply IH to H4 H6. search.
+  apply H2 to H3. search.
+
+Theorem ctx_member : forall A B L,
+  ctx A L -> member (hil B) L -> seq L (hil (imp A B)).
+..
+
+Theorem forall L A B,
+  ctx A L -> seq (hil A :: L) (hil B) -> seq L (hil (imp A B)).
+induction on 2. intros. case H2.
+  skip.
+  case H3.
+    search.
+    

@@ -471,9 +471,9 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
           (fun (head, body) ->
              match try_right_unify_cpairs head goal with
                | None -> ()
-               | Some [] -> obj_aux_conj (n-1) (wrap body) ~sc
                | Some cpairs ->
-                   failwith "oh noes")
+                   obj_aux_conj (n-1) (wrap body)
+                     ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
           
   and obj_aux n goal ~sc =
     let goal = normalize_obj goal in

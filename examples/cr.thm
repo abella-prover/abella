@@ -1,5 +1,5 @@
 %% Takahashi's proof of Church-Rosser using complete developments
-%% Masako Takahashi, "Parallel reduction in lambds-calculus",
+%% Masako Takahashi, "Parallel reduction in lambda-calculus",
 %%   Information and Computation 118(1), April 1995.
 %%
 %% Abella proof contributed by Randy Pollack

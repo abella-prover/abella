@@ -13,3 +13,8 @@ focus (imp B C) A :- unfocus B, hyp C => focus C A.
 
 unfocus (imp B C) :- hyp B => unfocus C.
 unfocus (atom A) :- hyp B, focus B A.
+
+% The full logic restricted to initial cuts
+conc-i (atom A) :- hyp (atom A).
+conc-i (imp B C) :- hyp B => conc-i C.
+conc-i D :- hyp (imp B C), conc-i B, hyp C => conc-i D.

@@ -287,7 +287,7 @@ let remove_coinductive_hypotheses hyps =
 let defs_to_list defs =
   H.fold (fun _ (_, dcs) acc -> dcs @ acc) defs []
           
-let search_goal goal =
+let search_goal ?(depth=5) goal =
   let hyps = sequent.hyps
     |> remove_inductive_hypotheses
     |> remove_coinductive_hypotheses
@@ -301,10 +301,14 @@ let search_goal goal =
       ~defs:(defs_to_list defs)
       goal
   in
-    List.exists search_depth (List.range 1 10)
+    List.exists search_depth (List.range 1 depth)
 
-let search ?(interactive=true) () =
-  if search_goal sequent.goal then
+let search ?(limit=None) ?(interactive=true) () =
+  if
+    match limit with
+      | None -> search_goal sequent.goal
+      | Some depth -> search_goal ~depth sequent.goal
+  then
     next_subgoal ()
   else if not interactive then
     failwith "Search failed"

@@ -46,7 +46,7 @@ type command =
   | Assert of metaterm
   | Exists of term
   | Clear of id list
-  | Search
+  | Search of int option
   | Split
   | SplitStar
   | Left
@@ -109,7 +109,8 @@ let command_to_string c =
         sprintf "exists %s" (term_to_string t)
     | Clear hs ->
         sprintf "clear %s" (String.concat " " hs)
-    | Search -> "search"
+    | Search(None) -> "search"
+    | Search(Some d) -> sprintf "search %d" d
     | Split -> "split"
     | SplitStar -> "split*"
     | Left -> "left"

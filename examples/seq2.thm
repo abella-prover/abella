@@ -56,4 +56,4 @@ Define prog (and (pi N\ (atom (add z N N)))
 
 Theorem add_test : forall P,
   prog P -> seq P nil (atom (add (s (s z)) (s z) (s (s (s z))))).
-intros. case H1. search.
+intros. case H1. search 10.

@@ -115,7 +115,8 @@ command:
   | CASE ID LPAREN KEEP RPAREN DOT      { Types.Case($2, true) }
   | ASSERT metaterm DOT                 { Types.Assert($2) }
   | EXISTS term DOT                     { Types.Exists($2) }
-  | SEARCH DOT                          { Types.Search }
+  | SEARCH DOT                          { Types.Search(None) }
+  | SEARCH NUM DOT                      { Types.Search(Some $2) }
   | SPLIT DOT                           { Types.Split }
   | SPLITSTAR DOT                       { Types.SplitStar }
   | LEFT DOT                            { Types.Left }

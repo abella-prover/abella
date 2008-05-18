@@ -124,7 +124,7 @@ let rec process_proof name lexbuf =
               assert_hyp t
           | Exists(t) -> exists t
           | Clear(hs) -> clear hs
-          | Search -> search ~interactive:!interactive ()
+          | Search(limit) -> search ~limit ~interactive:!interactive ()
           | Split -> split false
           | SplitStar -> split true
           | Left -> left ()

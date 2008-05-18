@@ -1,5 +1,3 @@
-Change search to default depth 5. Customize to allow other depths.
-
 Change the handling of contexts so that we don't need "with A = A" in
 ded
 
@@ -12,6 +10,13 @@ What about induction followed by coinduction?
 Change seq to inspect context directly, instead of calling member?
 
 Change the representation of contexts to have explicit tail variable?
+
+
+Release
+=======
+Document focus example
+Document mutual induction
+Document search depth option
 
 
 Future

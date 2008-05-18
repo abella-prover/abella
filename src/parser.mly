@@ -103,11 +103,12 @@ def:
 
 
 command:
-  | IND ON NUM DOT                      { Types.Induction($3) }
+  | IND ON num_list DOT                 { Types.Induction($3) }
   | COIND DOT                           { Types.CoInduction }
   | APPLY ID TO id_list DOT             { Types.Apply($2, $4, []) }
   | APPLY ID TO id_list WITH withs DOT  { Types.Apply($2, $4, $6) }
   | APPLY ID WITH withs DOT             { Types.Apply($2, [], $4) }
+  | APPLY ID DOT                        { Types.Apply($2, [], []) }
   | CUT ID WITH ID DOT                  { Types.Cut($2, $4) }
   | INST ID WITH ID EQ term DOT         { Types.Inst($2, $4, $6) }
   | CASE ID DOT                         { Types.Case($2, false) }
@@ -130,6 +131,10 @@ command:
 id_list:
   | ID id_list                          { $1::$2 }
   | ID                                  { [$1] }
+
+num_list:
+  | NUM num_list                        { $1::$2 }
+  | NUM                                 { [$1] }
 
 withs:
   | ID EQ term COMMA withs              { ($1, $3) :: $5 }

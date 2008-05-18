@@ -467,12 +467,16 @@ let ensure_is_inductive term =
           end
     | _ -> failwith "Can only induct on predicates and judgments"
 
-let induction ind_arg =
-  ensure_is_inductive (nth_product ind_arg sequent.goal) ;
+let add_ih h =
+  add_hyp ~name:(fresh_name "IH" sequent.hyps) h
+
+let induction ind_args =
+  List.iter
+    (fun (arg, goal) -> ensure_is_inductive (nth_product arg goal))
+    (List.combine ind_args (and_to_list sequent.goal)) ;
   let res_num = next_restriction () in
-  let (ih, new_goal) = Tactics.induction ind_arg res_num sequent.goal in
-  let name = fresh_name "IH" sequent.hyps in
-    add_hyp ~name ih ;
+  let (ihs, new_goal) = Tactics.induction ind_args res_num sequent.goal in
+    List.iter (fun h -> add_hyp ~name:(fresh_name "IH" sequent.hyps) h) ihs ;
     sequent.goal <- new_goal
 
       

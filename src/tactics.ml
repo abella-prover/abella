@@ -207,6 +207,9 @@ let rec and_to_list term =
     | And(left, right) -> (and_to_list left) @ (and_to_list right)
     | _ -> [term]
 
+let rec list_to_and terms =
+  List.fold_left1 meta_and terms
+
 let predicate_wrapper r psig t =
   let rec aux t =
     match t with
@@ -346,7 +349,7 @@ let rec set_restriction_at res stmt arg =
           Arrow(left, set_restriction_at res right (arg-1))
     | _ -> failwith "Not enough implications in induction"
 
-let induction ind_arg ind_num stmt =
+let single_induction ind_arg ind_num stmt =
   let rec aux stmt =
     match stmt with
       | Binding(Forall, bindings, body) ->
@@ -361,6 +364,12 @@ let induction ind_arg ind_num stmt =
             (ih, goal)
   in
     aux stmt
+
+let induction ind_args ind_num stmt =
+  List.combine ind_args (and_to_list stmt)
+  |> List.map (fun (arg, goal) -> single_induction arg ind_num goal)
+  |> List.split
+  |> fun (ihs, goals) -> (ihs, list_to_and goals)
 
 let coinduction res_num stmt =
   let rec aux stmt =

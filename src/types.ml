@@ -37,7 +37,7 @@ type top_command =
   | CoDefine of def
 
 type command =
-  | Induction of int
+  | Induction of int list
   | CoInduction
   | Apply of id * id list * (id * term) list
   | Cut of id * id
@@ -84,9 +84,12 @@ let withs_to_string ws =
 
 let command_to_string c =
   match c with
-    | Induction i ->
-        sprintf "induction on %d" i
+    | Induction is ->
+        sprintf "induction on %s"
+          (String.concat " " (List.map string_of_int is))
     | CoInduction -> "coinduction"
+    | Apply(h, [], []) ->
+        sprintf "apply %s" h
     | Apply(h, hs, []) ->
         sprintf "apply %s to %s" h (String.concat " " hs)
     | Apply(h, [], ws) ->

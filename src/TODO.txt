@@ -1,8 +1,7 @@
+Change search to default depth 5. Customize to allow other depths.
+
 Change the handling of contexts so that we don't need "with A = A" in
 ded
-
-How to deal with mutual induction on specification judgments like in
-focus examples
 
 Coinduction followed by induction would allow hypotheses with @ on
 them. What does these mean? Should they be allowed? prevented?

@@ -185,6 +185,11 @@ module List = struct
     else
       a :: range (a+1) b
 
+  let fold_left1 f list =
+    match list with
+      | x::xs -> fold_left f x xs
+      | _ -> invalid_arg "Empty list"
+
 end
 
 module Hashtbl = struct

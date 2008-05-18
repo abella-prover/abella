@@ -108,7 +108,7 @@ let rec process_proof name lexbuf =
         end ;
         save_undo_state () ;
         begin match input with
-          | Induction(arg) -> induction arg
+          | Induction(args) -> induction args
           | CoInduction -> coinduction ()
           | Apply(h, args, ws) -> apply h args ws
           | Cut(h, arg) -> cut h arg

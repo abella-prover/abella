@@ -199,7 +199,7 @@ let tests =
 
              assert_proof
                (fun () ->
-                  induction 2 ;
+                  induction [2] ;
                   intros () ;
                   case "H2" ;
                   assert_n_subgoals 2 ;
@@ -220,7 +220,7 @@ let tests =
              ~clauses:eval_clauses
              ~goal:"forall P V T, {eval P V} -> {typeof P T} -> {typeof V T}" ;
 
-           induction 1 ;
+           induction [1] ;
            intros () ;
            assert_n_subgoals 1 ;
 
@@ -245,7 +245,7 @@ let tests =
              
              assert_proof
                (fun () ->
-                  induction 1 ;
+                  induction [1] ;
                   intros () ;
                   
                   case "H1" ;
@@ -293,7 +293,7 @@ let tests =
              
              assert_proof
                (fun () ->
-                  induction 1 ;
+                  induction [1] ;
                   intros () ;
                   
                   case "H1" ;
@@ -347,7 +347,7 @@ let tests =
            setup_prover ()
              ~goal:"forall X, {foo X} -> {bar X}" ;
 
-           induction 1 ;
+           induction [1] ;
            search () ;
            (* This may throw Failure("Proof completed") which
               indicates test failure *)
@@ -390,7 +390,7 @@ let tests =
            List.iter (add_def Types.Inductive)
              (parse_defs "foo X := foo X.") ;
 
-           induction 1 ;
+           induction [1] ;
            assert_raises_any (fun () -> apply "lem" ["IH"] []) ;
         );
 

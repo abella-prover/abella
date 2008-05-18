@@ -9,46 +9,28 @@ induction on 1. intros. case H1.
     search.
     apply IH to H3 H4. search.
 
-%% These two need to be mutually recursive somehow. I do not see a
-%% good way, however, since we do not expose the height of { |- }
+% This requires mutual induction
+Theorem sound :
+  (forall L A B, ctx L -> {L |- focus B A} -> {L, hyp B |- conc (atom A)}) /\
+  (forall L B, ctx L -> {L |- unfocus B} -> {L |- conc B}).
+induction on 2 2. split.
+
+  % focus -> conc
+  intros. case H2.
+    apply ctx_member to H1 H3.
+    search.
+    apply IH1 to _ H3. apply IH to _ H4. search.
+
+  % unfocus -> conc
+  intros. case H2.
+    apply ctx_member to H1 H3.
+    apply IH1 to _ H3. search.
+    apply IH to H1 H4. cut H5 with H3. search.
+
 Theorem sound_focus : forall L A B,
   ctx L -> {L |- focus B A} -> {L, hyp B |- conc (atom A)}.
-induction on 2. intros. case H2.
-  apply ctx_member to H1 H3.
-  search.
-  apply IH to _ H4.
-    assert {L |- conc B1}. skip.
-    search.
+apply sound. search.
 
 Theorem sound_unfocus : forall L B,
   ctx L -> {L |- unfocus B} -> {L |- conc B}.
-induction on 2. intros. case H2.
-  apply ctx_member to H1 H3.
-  apply IH to _ H3. search.
-  apply sound_focus to H1 H4. cut H5 with H3. search.
-
-
-Theorem lemma: forall L B C D,
-  ctx L -> {L |- hyp (imp B C)} -> {L |- unfocus B} -> {L, hyp C |- unfocus D} ->
-    {L |- unfocus D}.
-induction on 4. intros. case H4.
-  apply ctx_member to _ H5.
-  apply IH to _ H2 H3 H5. search.
-  case H5. case H7.
-    search.
-    skip.
-
-Theorem init : forall L B,
-  ctx L -> {form B} -> {L |- hyp B} -> {L |- unfocus B}.
-induction on 2. intros. case H2.
-  search.
-  apply IH to _ H4 _ with L = hyp B1 :: L.
-    search.
-
-Theorem complete : forall L B,
-  ctx L -> {L |- conc B} -> {L |- unfocus B}.
-induction on 2. intros. case H2.
-  apply ctx_member to H1 H3.
-   ..
-  apply IH to _ H3. search.
-  apply IH to H1 H4. apply IH to _ H5. apply lemma to H1 H3 H6 H7. search.
+apply sound. search.

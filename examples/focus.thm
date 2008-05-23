@@ -13,13 +13,6 @@ induction on 1. intros. case H1.
     search.
     apply IH to H4 H5. search.
 
-Theorem form_ignores_ctx : forall B L,
-  ctx L -> {L |- form B} -> {form B}.
-induction on 2. intros. case H2.
-  apply ctx_member to H1 H3.
-  search.
-  apply IH to H1 H3. apply IH to H1 H4. search.
-
 Theorem hyp_form : forall L B,
   ctx L -> {L |- hyp B} -> {form B}.
 intros. case H2. apply ctx_member to H1 H3. search.
@@ -36,23 +29,24 @@ Theorem sound :
   (forall L A B, ctx L -> {form B} -> {L |- focus B A} ->
      {L, hyp B |- conc (atom A)})
     /\
-  (forall L B, ctx L -> {L |- unfocus B} -> {L |- conc B}).
-induction on 3 2. split.
+  (forall L B, ctx L -> {form B} -> {L |- unfocus B} -> {L |- conc B}).
+induction on 3 3. split.
 
   % focus -> conc
   intros. case H3.
     apply ctx_member to H1 H4.
     search.
-    apply IH1 to _ H4. case H2. apply IH to _ H8 H5. search.
+    case H2. apply IH1 to H1 H6 H4. apply IH to _ H7 H5. search.
 
   % unfocus -> conc
-  intros. case H2.
-    apply ctx_member to H1 H3.
-    apply form_ignores_ctx to H1 H3. apply IH1 to _ H4. search.
-    apply hyp_form to H1 H3. apply IH to H1 H5 H4. cut H6 with H3. search.
+  intros. case H3.
+    apply ctx_member to H1 H4.
+    case H2. apply IH1 to _ H6 H4. search.
+    apply hyp_form to H1 H4. apply IH to H1 H6 H5.
+      cut H7 with H4. search.
 
-Theorem sound_unfocus : forall L B,
-  ctx L -> {L |- unfocus B} -> {L |- conc B}.
+Theorem soundness : forall L B,
+  ctx L -> {form B} -> {L |- unfocus B} -> {L |- conc B}.
 apply sound. search.
 
 
@@ -67,21 +61,21 @@ induction on 1. intros. case H1.
       search.
 
 Theorem restrict_init : forall L B,
-  ctx L -> {L |- conc B} -> {L |- conc-i B}.
-induction on 2. intros. case H2.
-  apply ctx_member to H1 H3.
-  case H3. apply ctx_member to H1 H4.
-  apply init_form to H5 H4. search.
-  apply form_ignores_ctx to H1 H3. apply IH to _ H4. search.
-  apply hyp_imp_form to H1 H3.
-    apply IH to H1 H4. apply IH to _ H5. search.
+  ctx L -> {form B} -> {L |- conc B} -> {L |- conc-i B}.
+induction on 3. intros. case H3.
+  apply ctx_member to H1 H4.
+  case H4. apply ctx_member to H1 H5.
+  apply init_form to H6 H5. search.
+  case H2. apply IH to _ H6 H4. search.
+  apply hyp_imp_form to H1 H4.
+    apply IH to H1 H7 H5. apply IH to _ H2 H6. search.
 
 
 %% The focused logic is complete
 
 Theorem lemma :
   (forall L B1 B2 C,
-     ctx L -> {L |- hyp (imp B1 B2)} -> {form B2} ->
+     ctx L -> {L |- hyp (imp B1 B2)} -> {form C} ->
        {L |- unfocus B1} -> {L, hyp B2 |- unfocus C} -> {L |- unfocus C})
     /\
   (forall L B1 B2 A B,
@@ -91,8 +85,7 @@ induction on 5 5. split.
 
   intros. case H5.
     case H6. apply ctx_member to H1 H7.
-    apply form_ignores_ctx to _ H6.
-      apply IH to _ _ H3 _ H7. search.
+    case H3. apply IH to _ _ H8 _ H6 with B2 = B2. search.
     case H6. case H8.
       search.
       apply ctx_member to H1 H9.
@@ -102,16 +95,22 @@ induction on 5 5. split.
     case H6. apply ctx_member to H1 H7.
     search.
     case H3. apply hyp_imp_form to H1 H2.
-      apply IH to _ _ H11 _ H6.
+      apply IH to _ _ H8 _ H6 with B2 = B2.
         apply IH1 to _ _ H9 _ H7 with B2 = B2.
           search.
     
 Theorem conc-i_complete : forall L B,
-  ctx L -> {L |- conc-i B} -> {L |- unfocus B}.
-induction on 2. intros. case H2.
-  apply ctx_member to H1 H3.
+  ctx L -> {form B} -> {L |- conc-i B} -> {L |- unfocus B}.
+induction on 3. intros. case H3.
+  apply ctx_member to H1 H4.
   search.
-  apply form_ignores_ctx to H1 H3. apply IH to _ H4. search.
-  apply hyp_imp_form to H1 H3.
-    apply IH to H1 H4. apply IH to _ H5.
-      apply lemma. apply H10 to H1 _ H7 H8 H9. search.
+  case H2. apply IH to _ H6 H4. search.
+  apply hyp_imp_form to H1 H4.
+    apply IH to H1 H7 H5. apply IH to _ H2 H6.
+      apply lemma. apply H11 to H1 H4 H2 H9 H10. search.
+
+Theorem completeness : forall L B,
+  ctx L -> {form B} -> {L |- conc B} -> {L |- unfocus B}.
+intros. apply restrict_init to H1 H2 H3.
+  apply conc-i_complete to H1 H2 H4. search.
+      

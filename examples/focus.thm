@@ -73,31 +73,31 @@ induction on 3. intros. case H3.
 
 %% The focused logic is complete
 
-Theorem lemma :
-  (forall L B1 B2 C,
+Theorem lemma : forall B2,
+  (forall L B1 C,
      ctx L -> {L |- hyp (imp B1 B2)} -> {form C} ->
        {L |- unfocus B1} -> {L, hyp B2 |- unfocus C} -> {L |- unfocus C})
     /\
-  (forall L B1 B2 A B,
+  (forall L B1 A B,
      ctx L -> {L |- hyp (imp B1 B2)} -> {form B} ->
        {L |- unfocus B1} -> {L, hyp B2 |- focus B A} -> {L |- focus B A}).
-induction on 5 5. split.
+intros. induction on 5 5. split.
 
+  % {L, hyp B2 |- unfocus C} -> {L |- unfocus C}
   intros. case H5.
     case H6. apply ctx_member to H1 H7.
-    case H3. apply IH to _ _ H8 _ H6 with B2 = B2. search.
+    case H3. apply IH to _ _ H8 _ H6. search.
     case H6. case H8.
       search.
       apply ctx_member to H1 H9.
         apply IH1 to H1 H2 H10 H4 H7. search.
 
+  % {L, hyp B2 |- focus B A} -> {L |- focus B A}
   intros. case H5.
     case H6. apply ctx_member to H1 H7.
     search.
     case H3. apply hyp_imp_form to H1 H2.
-      apply IH to _ _ H8 _ H6 with B2 = B2.
-        apply IH1 to _ _ H9 _ H7 with B2 = B2.
-          search.
+      apply IH to _ _ H8 _ H6. apply IH1 to _ _ H9 _ H7. search.
     
 Theorem conc-i_complete : forall L B,
   ctx L -> {form B} -> {L |- conc-i B} -> {L |- unfocus B}.
@@ -107,7 +107,7 @@ induction on 3. intros. case H3.
   case H2. apply IH to _ H6 H4. search.
   apply hyp_imp_form to H1 H4.
     apply IH to H1 H7 H5. apply IH to _ H2 H6.
-      apply lemma. apply H11 to H1 H4 H2 H9 H10. search.
+      apply lemma with B2 = C. apply H11 to H1 H4 H2 H9 H10. search.
 
 Theorem completeness : forall L B,
   ctx L -> {form B} -> {L |- conc B} -> {L |- unfocus B}.

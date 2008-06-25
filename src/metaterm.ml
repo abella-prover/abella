@@ -309,7 +309,7 @@ let replace_term_vars ?tag alist t =
     aux (deep_norm t)
 
 let replace_metaterm_vars ?tag alist t =
-  let term_aux =
+  let term_aux alist =
     match tag with
     | None -> replace_term_vars alist
     | Some tag -> replace_term_vars ~tag alist
@@ -317,8 +317,8 @@ let replace_metaterm_vars ?tag alist t =
   let rec aux alist t =
     match t with
       | True | False -> t
-      | Eq(a, b) -> Eq(term_aux a, term_aux b)
-      | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
+      | Eq(a, b) -> Eq(term_aux alist a, term_aux alist b)
+      | Obj(obj, r) -> Obj(map_obj (term_aux alist) obj, r)
       | Arrow(a, b) -> Arrow(aux alist a, aux alist b)
       | Binding(binder, bindings, body) ->
           let alist = List.remove_assocs bindings alist in
@@ -329,7 +329,7 @@ let replace_metaterm_vars ?tag alist t =
                     aux (alist @ bindings_alist) body)
       | Or(a, b) -> Or(aux alist a, aux alist b)
       | And(a, b) -> And(aux alist a, aux alist b)
-      | Pred(p, r) -> Pred(term_aux p, r)
+      | Pred(p, r) -> Pred(term_aux alist p, r)
   in
     aux alist t
 

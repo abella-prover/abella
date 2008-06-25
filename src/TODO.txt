@@ -11,12 +11,15 @@ Change seq to inspect context directly, instead of calling member?
 
 Change the representation of contexts to have explicit tail variable?
 
+Put warning in for stratification when needed
+
 
 Release
 =======
 Document focus example
 Document mutual induction
 Document search depth option
+Announce db2ho example
 
 
 Future

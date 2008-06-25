@@ -103,7 +103,7 @@ let freshen_nameless_def ?(support=[]) head body =
     (fresh_head, fresh_body)
 
 let freshen_nameless_bindings ?(support=[]) bindings term =
-  replace_metaterm_vars (fresh_nameless_alist ~support bindings) term
+  replace_metaterm_vars ~tag:Constant (fresh_nameless_alist ~support bindings) term
 
 (* Object level cut *)
 

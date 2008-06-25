@@ -308,24 +308,30 @@ let replace_term_vars ?tag alist t =
   in
     aux (deep_norm t)
 
-let rec replace_metaterm_vars alist t =
-  let term_aux t = replace_term_vars alist t in
-  let aux t = replace_metaterm_vars alist t in
+let replace_metaterm_vars ?tag alist t =
+  let term_aux =
+    match tag with
+    | None -> replace_term_vars alist
+    | Some tag -> replace_term_vars ~tag alist
+  in
+  let rec aux alist t =
     match t with
       | True | False -> t
       | Eq(a, b) -> Eq(term_aux a, term_aux b)
       | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
-      | Arrow(a, b) -> Arrow(aux a, aux b)
+      | Arrow(a, b) -> Arrow(aux alist a, aux alist b)
       | Binding(binder, bindings, body) ->
           let alist = List.remove_assocs bindings alist in
           let used = get_used (List.map snd alist) in
           let bindings_alist = fresh_alist ~tag:Constant ~used bindings in
             Binding(binder,
                     List.map term_to_name (List.map snd bindings_alist),
-                    replace_metaterm_vars (alist @ bindings_alist) body)
-      | Or(a, b) -> Or(aux a, aux b)
-      | And(a, b) -> And(aux a, aux b)
+                    aux (alist @ bindings_alist) body)
+      | Or(a, b) -> Or(aux alist a, aux alist b)
+      | And(a, b) -> And(aux alist a, aux alist b)
       | Pred(p, r) -> Pred(term_aux p, r)
+  in
+    aux alist t
 
 let rec collect_terms t =
   match t with

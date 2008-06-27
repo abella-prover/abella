@@ -60,6 +60,21 @@ let ensure_defs_exist ?(ignore=[]) term =
                                 \ Perhaps it is mispelt or you meant {%s}."
                          (sig_to_string psig) (Term.term_to_string pred)))
 
+let warn_stratify dsig term =
+  let rec aux term =
+    match term with
+      | Arrow(left, right) ->
+          (List.exists (fun s -> s = dsig) (map_preds Term.term_sig left))
+          || aux right
+      | Binding(_, _, body) -> aux body
+      | Or(left, right) -> aux left || aux right
+      | And(left, right) -> aux left || aux right
+      | _ -> false
+  in
+    if aux term then begin
+      printf "Warning: %s might not be stratified" (sig_to_string dsig)
+    end
+
 let check_theorem thm =
   ensure_no_restrictions thm ;
   ensure_defs_exist thm ;
@@ -86,7 +101,8 @@ let check_def (head, body) =
     ensure_not_capital dsig ;
     ensure_new_or_last_sig dsig ;
     ensure_no_free_vars free_vars ;
-    ensure_defs_exist ~ignore:[dsig] body
+    ensure_defs_exist ~ignore:[dsig] body ;
+    warn_stratify dsig body
 
 let rec process_proof name lexbuf =
   let finished = ref false in

@@ -20,7 +20,7 @@ Document focus example
 Document mutual induction
 Document search depth option
 Announce db2ho example
-
+Will now warn if definition might not be stratified
 
 Future
 ======

@@ -1,18 +1,7 @@
 Change the handling of contexts so that we don't need "with A = A" in
 ded
 
-Coinduction followed by induction would allow hypotheses with @ on
-them. What does these mean? Should they be allowed? prevented?
-ignored?
-
-What about induction followed by coinduction?
-
-Change seq to inspect context directly, instead of calling member?
-
 Change the representation of contexts to have explicit tail variable?
-
-Put warning in for stratification when needed
-
 
 Release
 =======
@@ -32,6 +21,12 @@ New syntax for inductive and coinductive definitions?
 Get definitions to work with multiple nablas?
 
 Search and case should be smart about looking up definitions
+
+Coinduction followed by induction would allow hypotheses with @ on
+them. What does these mean? Should they be allowed? prevented?
+ignored?
+
+What about induction followed by coinduction?
 
 split should work on n-ary conjunctions
 
@@ -67,20 +62,6 @@ Use type information from sig files?
 
 Change OMakefile so exceptions print full stack trace? Is there a way
   to integrate this with OUnit?
-
-Add a show_lemmas command
-
-Can we represent /\ and \/ using,
-  a \/ b := a.
-  a \/ b := b.
-
-  a /\ b := a, b.
-
-  What would this mean in the logic?
-    Here a and b range over predicates insetad of terms
-
-What is the relationship between meta-level predicates without
-implication and object-level predicates without implication?
 
 How to deal with logic variables at the top level
   We need to remember their bindings

@@ -33,21 +33,31 @@ induction on 1. intros. case H1.
 % such a generalization: for every nd assumption there is a
 % corresponding comb assumption.
 Define ctxs nil nil.
-Define ctxs (nd A :: L) (comb A :: K) := ctxs L K.
+Define ctxs (nd D :: L) (comb D :: K) := ctxs L K.
 
-Theorem ctxs_world : forall L K A,
-  ctxs L K -> member (nd A) L -> member (comb A) K.
+Theorem ctxs_world : forall L K D,
+  ctxs L K -> member (nd D) L -> member (comb D) K.
 induction on 2. intros. case H2.
   case H1. search.
   case H1. apply IH to H4 H3. search.
 
-Theorem nd_implies_comb_generalize : forall L K A,
-  ctxs L K -> {L |- nd A} -> {K |- comb A}.
+Theorem nd_implies_comb_generalize : forall L K D,
+  ctxs L K -> {L |- nd D} -> {K |- comb D}.
 induction on 2. intros. case H2.
   apply ctxs_world to H1 H3. search.
   apply IH to _ H3. apply deduction to H4. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
 
-Theorem nd_implies_comb : forall A,
-  {nd A} -> {comb A}.
+Theorem nd_implies_comb : forall D,
+  {nd D} -> {comb D}.
 intros. apply nd_implies_comb_generalize to _ H1. search.
+
+
+Theorem comb_implies_nd : forall D,
+  {comb D} -> {nd D}.
+induction on 1. intros. case H1.
+  search.
+  % This hint/assertion speeds up search considerably
+  assert {nd (imp A (imp B C)), nd (imp A B), nd A |- nd C}.
+    search.
+  apply IH to H2. apply IH to H3. search.

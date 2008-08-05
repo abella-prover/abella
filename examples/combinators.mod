@@ -1,6 +1,6 @@
 % Natural deduction
 nd (imp A B) :- nd A => nd B.      % implies introduction
-nd B :- nd A, nd (imp A B).        % implies eliminator
+nd B :- nd (imp A B), nd A.        % implies eliminator
 
 % Combinator reasoning
 comb (imp A (imp B A)).                                   % K combinator

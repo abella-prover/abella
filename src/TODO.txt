@@ -2,11 +2,13 @@ Change the representation of contexts to have explicit tail variable?
 
 Release
 =======
-Document focus example
-Document mutual induction
-Document search depth option
-Announce/document combinators example
-Announce db2ho example
+Announce/document
+ - focus example
+ - combinators example
+ - db2ho example
+
+ - mutual induction
+ - search depth option
 
 Will now warn if definition might not be stratified
 Better handling of specification logic contexts

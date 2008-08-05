@@ -1,0 +1,53 @@
+%% Correspondence between natural deduction and combinators
+
+Theorem deduction : forall L A B,
+  {L, comb A |- comb B} -> {L |- comb (imp A B)}.
+induction on 1. intros. case H1.
+  case H2.
+    search.
+    search.
+  search.
+  search.
+  apply IH to H2. apply IH to H3. search.
+
+  
+% The general form of the deduction theorem:
+%   if   {comb A1, comb A2, ..., comb An |- comb B}
+%   then {comb (imp A1 (imp A2 (imp ... (imp An B)...)))}
+%
+% This result is not neccessary, but it is nice to see how we can
+% encode and prove it
+
+Define fold nil B B.
+Define fold (comb A :: L) B B' := fold L (imp A B) B'.
+
+Theorem deduction_generalized : forall L B B',
+  fold L B B' -> {L |- comb B} -> {comb B'}.
+induction on 1. intros. case H1.
+  search.
+  apply deduction to H2. apply IH to H3 H4. search.
+
+  
+% We need to generalize the final theorem of correspondence between
+% natural deduction and combinators. This describes the contexts for
+% such a generalization: for every nd assumption there is a
+% corresponding comb assumption.
+Define ctxs nil nil.
+Define ctxs (nd A :: L) (comb A :: K) := ctxs L K.
+
+Theorem ctxs_world : forall L K A,
+  ctxs L K -> member (nd A) L -> member (comb A) K.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. apply IH to H4 H3. search.
+
+Theorem nd_implies_comb_generalize : forall L K A,
+  ctxs L K -> {L |- nd A} -> {K |- comb A}.
+induction on 2. intros. case H2.
+  apply ctxs_world to H1 H3. search.
+  apply IH to _ H3. apply deduction to H4. search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+
+Theorem nd_implies_comb : forall A,
+  {nd A} -> {comb A}.
+intros. apply nd_implies_comb_generalize to _ H1. search.

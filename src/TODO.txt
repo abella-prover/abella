@@ -5,10 +5,12 @@ Release
 Document focus example
 Document mutual induction
 Document search depth option
+Announce/document combinators example
 Announce db2ho example
+
 Will now warn if definition might not be stratified
 Better handling of specification logic contexts
-Merge in adam's example with hilbert stuff?
+
 
 Future
 ======

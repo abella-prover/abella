@@ -1,6 +1,3 @@
-Change the handling of contexts so that we don't need "with A = A" in
-ded
-
 Change the representation of contexts to have explicit tail variable?
 
 Release
@@ -10,6 +7,8 @@ Document mutual induction
 Document search depth option
 Announce db2ho example
 Will now warn if definition might not be stratified
+Better handling of specification logic contexts
+Merge in adam's example with hilbert stuff?
 
 Future
 ======

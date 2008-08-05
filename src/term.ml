@@ -255,6 +255,12 @@ let rec has_eigen_head t =
     | App(h, _) -> has_eigen_head h
     | _ -> false
 
+let rec has_logic_head t =
+  match observe t with
+    | Var v -> v.tag = Logic
+    | App(h, _) -> has_logic_head h
+    | _ -> false
+        
 (* Normalization *)
 
 (** Make an environment appropriate to [n] lambda abstractions applied to

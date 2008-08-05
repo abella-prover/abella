@@ -8,8 +8,7 @@ induction on 1. intros. case H1.
     search.
   search.
   search.
-  apply IH to H2 with A = A. apply IH to H3 with A = A.
-    search.
+  apply IH to H2. apply IH to H3. search.
 
 Define fold nil B B.
 Define fold (hil A :: L) B B' := fold L (imp A B) B'.
@@ -18,5 +17,4 @@ Theorem relieve_full : forall L B B',
   fold L B B' -> {L |- hil B} -> {hil B'}.
 induction on 1. intros. case H1.
   search.
-  apply relieve to H2 with A = A.
-    apply IH to H3 H4. search.
+  apply relieve to H2. apply IH to H3 H4. search.

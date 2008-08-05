@@ -37,7 +37,8 @@ let rec xor ctx1 ctx2 =
   match ctx1 with
     | [] -> ([], ctx2)
     | head::tail ->
-        if mem head ctx2
+        if not (has_logic_head head) &&
+          (List.mem ~cmp:Unify.try_right_unify head ctx2)
         then xor tail (remove head ctx2)
         else let ctx1', ctx2' = xor tail ctx2 in
           (head::ctx1', ctx2')

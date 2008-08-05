@@ -115,6 +115,7 @@ val term_to_name : term -> string
 val term_to_pair : term -> string * term
 
 val has_eigen_head : term -> bool
+val has_logic_head : term -> bool
 
 val hnorm : term -> term
 val deep_norm : term -> term

@@ -1,19 +1,5 @@
 Change the representation of contexts to have explicit tail variable?
 
-Release
-=======
-Announce/document
- - focus example
- - combinators example
- - db2ho example
-
- - mutual induction
- - search depth option
-
-Will now warn if definition might not be stratified
-Better handling of specification logic contexts
-
-
 Future
 ======
 New syntax for inductive and coinductive definitions?

@@ -17,8 +17,8 @@ induction on 1. intros. case H1.
   case H2.
   case H2. apply IH to H3 H4.
     
-Theorem and_left_inv :
-  forall L C1 C2, ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C1}.
+Theorem and_left_inv : forall L C1 C2,
+  ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C1}.
 induction on 2. intros. case H2.
   apply ctx_lemma to H1 H3.
   search.
@@ -26,8 +26,8 @@ induction on 2. intros. case H2.
   apply IH to _ H4. search.
   apply IH to _ H5. search.
 
-Theorem and_right_inv :
-  forall L C1 C2, ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C2}.
+Theorem and_right_inv : forall L C1 C2,
+  ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C2}.
 induction on 2. intros. case H2.
   apply ctx_lemma to H1 H3.
   search.
@@ -35,8 +35,8 @@ induction on 2. intros. case H2.
   apply IH to _ H4. search.
   apply IH to _ H5. search.
   
-Theorem imp_inv :
-  forall L C1 C2, ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
+Theorem imp_inv : forall L C1 C2,
+  ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
 induction on 2. intros. case H2.
   apply ctx_lemma to H1 H3.
   search.
@@ -46,8 +46,8 @@ induction on 2. intros. case H2.
   
   
 Theorem cut_admissibility : forall L K C,
-    {prop K} -> ctx L ->
-      {L |- conc K} -> {L, hyp K |- conc C} -> {L |- conc C}.
+  {prop K} -> ctx L ->
+    {L |- conc K} -> {L, hyp K |- conc C} -> {L |- conc C}.
 
 % The proof is by nested induction on
 %  1) The size of the cut formula K

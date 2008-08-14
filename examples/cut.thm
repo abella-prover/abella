@@ -25,6 +25,7 @@ induction on 2. intros. case H2.
   search.
   apply IH to _ H4. search.
   apply IH to _ H5. search.
+  apply IH to _ H4. search.
 
 Theorem and_right_inv : forall L C1 C2,
   ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C2}.
@@ -34,6 +35,7 @@ induction on 2. intros. case H2.
   search.
   apply IH to _ H4. search.
   apply IH to _ H5. search.
+  apply IH to _ H4. search.
   
 Theorem imp_inv : forall L C1 C2,
   ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
@@ -43,7 +45,17 @@ induction on 2. intros. case H2.
   apply IH to _ H4. search.
   search.
   apply IH to _ H5. search.
-  
+  apply IH to _ H4. search.
+
+Theorem all_inv : forall L C,
+  ctx L -> {L |- conc (all C)} -> nabla x, {L |- conc (C x)}.
+induction on 2. intros. case H2.
+  apply ctx_lemma to H1 H3.
+  search.
+  apply IH to _ H4. search.
+  apply IH to _ H5. search.
+  search.
+  apply IH to _ H4. search.
   
 Theorem cut_admissibility : forall L K C,
   {prop K} -> ctx L ->
@@ -91,4 +103,16 @@ induction on 1. induction on 4. intros. case H4.
 
     % commutative case
     search.
+
+  % allR - C = all A
+  apply IH1 to H1 _ H3 H5. search.
     
+  % allL
+  apply IH1 to H1 _ H3 H6. case H5. case H8.
+    % essential case - K = all A
+    apply all_inv to _ H3. case H1.
+      inst H9 with n1 = T. inst H10 with n1 = T.
+        apply IH to H12 _ H11 H7. search.
+
+    % commutative case
+    search.

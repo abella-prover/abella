@@ -29,7 +29,12 @@ let empty : t = []
 
 let size ctx = List.length ctx
 
-let mem elt ctx = List.mem ~cmp:full_eq elt ctx
+let mem elt ctx =
+  if has_logic_head elt then
+    (* The tail variable - do not unify yet *)
+    List.mem ~cmp:full_eq elt ctx
+  else
+    List.mem ~cmp:Unify.try_right_unify elt ctx
   
 let remove elt ctx = List.remove ~cmp:full_eq elt ctx
 
@@ -37,8 +42,7 @@ let rec xor ctx1 ctx2 =
   match ctx1 with
     | [] -> ([], ctx2)
     | head::tail ->
-        if not (has_logic_head head) &&
-          (List.mem ~cmp:Unify.try_right_unify head ctx2)
+        if mem head ctx2
         then xor tail (remove head ctx2)
         else let ctx1', ctx2' = xor tail ctx2 in
           (head::ctx1', ctx2')

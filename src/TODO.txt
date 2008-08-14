@@ -7,8 +7,6 @@ New syntax for inductive and coinductive definitions?
   Require used definitions to be defined
   Allow mutual recursion between coinductive and inductive but not both
 
-Get definitions to work with multiple nablas?
-
 Search and case should be smart about looking up definitions
 
 Coinduction followed by induction would allow hypotheses with @ on
@@ -39,7 +37,8 @@ Larger or longer term issues
 ============================
 Implement a robust auto tactic which uses search but also goes
 underneath implies and forall. Should backchain on hyps and lemmas
-too.
+too. To make it faster, perhaps you could specify the hyps and lemmas
+that are relevant (like Isabelle's Isar mode).
 
 Allow apply with hyps like
   forall X T, member (of X T) L -> forall T', {L |- of X T'} -> T =

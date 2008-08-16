@@ -1,5 +1,11 @@
 Change the representation of contexts to have explicit tail variable?
 
+Strong normalization for STLC
+
+Weak normalization for System F
+
+Strong normalization for System F
+
 Future
 ======
 New syntax for inductive and coinductive definitions?
@@ -57,3 +63,8 @@ How to deal with logic variables at the top level
   This might be best to leave unsupported
   Fix timestamp bug in unify that David has a test for
   Would also search underneath forall
+
+In STLC, this theorem shows a real pain in not having types
+  Theorem str : forall L E T A, nabla x,
+    ctx L -> {L, of x A |- of E T} -> {L |- of E T}.
+  

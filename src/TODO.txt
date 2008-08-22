@@ -1,3 +1,9 @@
+Get rid of bad unification: ?M c = ?N c is not solved
+Then clean up strong-norm
+
+Then make abella release?
+Email people about the proof if there is something relevant to them
+
 Change the representation of contexts to have explicit tail variable?
 
 Strong normalization for STLC

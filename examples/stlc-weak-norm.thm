@@ -1,8 +1,7 @@
-%% Tait's logical relations argument
+%% Tait's logical relations argument for weak normalization of the simply-typed lambda-calculus
 %%
-%% Tait's logical relations argument for proving normalization for the
-%% simply typed lambda calculus. This is based on the presentation in
-%% Types and Programming Languages by Pierce.
+%% This is based on the presentation in Types and Programming
+%% Languages by Pierce.
 
 %% Conventions:
 %% Types: A, B, C

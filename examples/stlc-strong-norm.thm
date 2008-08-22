@@ -1,8 +1,6 @@
-%% Tait's logical relations argument for Strong Normalization
+%% Girard's proof of strong normalization of the simply-typed lambda-calculus
 %%
-%% Tait's logical relations argument for proving strong normalization
-%% for the simply typed lambda calculus. This is based on the
-%% presentation in Girard's Proofs and Types.
+%% This is based on the presentation in Girard's Proofs and Types.
 
 %% Conventions:
 %% Types: A, B, C

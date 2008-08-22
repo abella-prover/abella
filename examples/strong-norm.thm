@@ -84,11 +84,11 @@ Theorem of_step : forall M N A,
   {of M A} -> {step M N} -> {of N A}.
 intros. apply of_step_ext to _ H1 H2. search.
     
-% CR2
 Theorem sn_step : forall M N,
   sn M -> {step M N} -> sn N.
 intros. case H1. apply H3 to H2. search.
 
+% CR2
 Theorem reduce_step : forall M N A,
   reduce M A -> {step M N} -> reduce N A.
 induction on 1. intros. case H1.
@@ -108,7 +108,7 @@ induction on 1. intros. case H1.
 Theorem cr1_cr3 :
   (forall A M, {type A} -> reduce M A -> sn M)
   /\
-  (forall M A, neutral M -> {of M A} -> {type A} ->
+  (forall A M, neutral M -> {of M A} -> {type A} ->
                  (forall P, {step M P} -> reduce P A) ->
                    reduce M A).
 induction on 1 3. split*.
@@ -169,7 +169,7 @@ Theorem reduce_sn : forall A M,
 apply cr1_cr3. search.
 
 % CR3 
-Theorem neutral_step_reduce : forall M A,
+Theorem neutral_step_reduce : forall A M,
   neutral M -> {of M A} -> {type A} ->
     (forall P, {step M P} -> reduce P A) ->
     reduce M A.
@@ -197,41 +197,40 @@ intros.
   apply neutral_step_reduce to H2 _ H1 H3. search.
 
 Theorem abs_step_reduce_lemma : forall U M A B,
-  sn U -> sn (M c) -> reduce U A -> reduce (M c) B ->
+  sn U -> sn (M c) -> reduce U A ->
      (forall V, reduce V A -> reduce (M V) B) ->
      {of (abs A M) (arrow A B)} -> 
        reduce (app (abs A M) U) B.
 induction on 1. induction on 2. intros.
   assert (forall P, {step (app (abs A M) U) P} -> reduce P B).
-    intros. case H7.
+    intros. case H6.
 
       % Case 1: (app (abs A M) U) -> (app M' U)
-      case H8. inst H9 with n1 = c.
-      case H2. apply H11 to H10.
-      apply reduce_step to H4 H10.
-      apply IH1 to H1 H12 H3 H13 _ _ with M = R'.
-        apply of_step to H6 _. search.
-        intros. apply H5 to H14.
-          inst H9 with n1 = V.
-            apply reduce_step to H15 H16. search.
+      case H7. inst H8 with n1 = c.
+      case H2. apply H10 to H9.
+      apply IH1 to H1 H11 H3 _ _ with M = R', B = B.
+        apply of_step to H5 _. search.
+        intros. apply H4 to H12.
+          inst H8 with n1 = V.
+            apply reduce_step to H13 H14. search.
       search.
 
       % Case 2: (app (abs A M) U) -> (app (abs A M) N')
-      case H1. apply H9 to H8.
-      apply reduce_step to H3 H8.
-      apply IH to H10 H2 H11 H4 H5 H6 with M = M. search.
+      case H1. apply H8 to H7.
+      apply reduce_step to H3 H7.
+      apply IH to H9 H2 H10 H4 H5 with M = M. search.
 
       % Case 3: (app (abs A M) U) -> (M U)
-      apply H5 to H3. search.
+      apply H4 to H3. search.
 
   assert neutral (app (abs A M) U).
-    unfold. intros. case H8.
+    unfold. intros. case H7.
 
   assert {of (app (abs A M) U) B}.
     apply reduce_of to H3. search.
 
-  apply of_type to H9.
-  apply neutral_step_reduce to H8 H9 H10 H7. search.
+  apply of_type to H8.
+  apply neutral_step_reduce to H7 H8 H9 H6. search.
 
 
 Theorem abs_step_reduce : forall M A B,
@@ -246,7 +245,7 @@ intros. unfold.
     apply H2 to H7.
     apply reduce_sn to H5 H3.
     apply reduce_sn to H6 H8.
-    apply abs_step_reduce_lemma to H9 H10 H3 H8 H2 H1 with M = M.
+    apply abs_step_reduce_lemma to H9 H10 H3 H2 H1 with M = M.
     search.
 
 %% Properties about nominal constants, e.g. where they can and cannot occur.

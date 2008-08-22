@@ -1,4 +1,4 @@
-%% Tait's logical relations argument for weak normalization of the simply-typed lambda-calculus
+%% Tait's logical relations argument for weak normalization of STLC
 %%
 %% This is based on the presentation in Types and Programming
 %% Languages by Pierce.

@@ -1,8 +1,10 @@
 Change the representation of contexts to have explicit tail variable?
 
-Weak normalization for System F
 
-Strong normalization for System F
+Next Release
+============
+Document 'cut' now including all operators of sequent calculus
+
 
 Future
 ======

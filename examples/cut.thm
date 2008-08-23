@@ -24,6 +24,7 @@ induction on 2. intros. case H2.
   search.
   search.
   apply IH to _ H4. search.
+  apply IH to _ H4. apply IH to _ H5. search.
   apply IH to _ H5. search.
   apply IH to _ H4. search.
 
@@ -34,6 +35,7 @@ induction on 2. intros. case H2.
   search.
   search.
   apply IH to _ H4. search.
+  apply IH to _ H4. apply IH to _ H5. search.  
   apply IH to _ H5. search.
   apply IH to _ H4. search.
   
@@ -43,6 +45,7 @@ induction on 2. intros. case H2.
   apply ctx_lemma to H1 H3.
   search.
   apply IH to _ H4. search.
+  apply IH to _ H4. apply IH to _ H5. search.
   search.
   apply IH to _ H5. search.
   apply IH to _ H4. search.
@@ -53,10 +56,11 @@ induction on 2. intros. case H2.
   apply ctx_lemma to H1 H3.
   search.
   apply IH to _ H4. search.
+  apply IH to _ H4. apply IH to _ H5. search.
   apply IH to _ H5. search.
   search.
   apply IH to _ H4. search.
-  
+
 Theorem cut_admissibility : forall L K C,
   {prop K} -> ctx L ->
     {L |- conc K} -> {L, hyp K |- conc C} -> {L |- conc C}.
@@ -92,6 +96,34 @@ induction on 1. induction on 4. intros. case H4.
     % commutative case
     search.
 
+    % orR_1
+  apply IH1 to H1 H2 H3 H5. search.
+
+  % orR_2
+  apply IH1 to H1 H2 H3 H5. search.
+  
+  % orL
+  apply IH1 to H1 _ H3 H6. apply IH1 to H1 _ H3 H7. case H5. case H10.
+  
+    % essential case - K = or A B
+    assert (forall L D, ctx L -> {L |- conc (or A B)} ->
+                          {L, hyp A |- conc D} -> {L, hyp B |- conc D} ->
+                          {L |- conc D}).
+      induction on 2. intros. case H12.
+        apply ctx_lemma to H11 H15.
+        search.
+        apply IH2 to _ H16 H13 H14. search.
+        case H1. apply IH to H16 H11 H15 H13. search.
+        case H1. apply IH to H17 H11 H15 H14. search.
+        apply IH2 to _ H16 H13 H14. apply IH2 to _ H17 H13 H14. search.
+        apply IH2 to _ H17 H13 H14. search.
+        apply IH2 to _ H16 H13 H14. search.
+    
+    apply H11 to H2 H3 H8 H9. search.
+
+    % commutative case
+    search.
+    
   % impR - C = imp A B.
   apply IH1 to H1 _ H3 H5. search.
 

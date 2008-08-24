@@ -11,3 +11,5 @@ src/lexer.ml
 src/parser.ml
 src/parser.mli
 src/version.ml
+src/abella
+src/unit_test

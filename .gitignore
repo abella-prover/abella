@@ -1,0 +1,13 @@
+*.cmi
+*.cmo
+*.cmx
+*.o
+*.exe
+*.opt
+*.run
+.omakedb*
+*.omc
+src/lexer.ml
+src/parser.ml
+src/parser.mli
+src/version.ml

@@ -1,7 +1,7 @@
 %% Natural deduction
 
 nd (imp A B) :- nd A => nd B.
-nd B :- nd (imp A B), nd B.
+nd B :- nd (imp A B), nd A.
 
 
 %% Sequent calculus

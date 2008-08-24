@@ -7,6 +7,8 @@
 *.run
 .omakedb*
 *.omc
+*.lp
+*.lpo
 src/lexer.ml
 src/parser.ml
 src/parser.mli

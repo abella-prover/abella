@@ -1,10 +1,7 @@
-Change the representation of contexts to have explicit tail variable?
-
-
 Next Release
 ============
 Document 'cut' now including all operators of sequent calculus
-
+split now works on n-ary conjunctions
 
 Future
 ======
@@ -20,8 +17,6 @@ them. What does these mean? Should they be allowed? prevented?
 ignored?
 
 What about induction followed by coinduction?
-
-split should work on n-ary conjunctions
 
 Clean up case-analysis tests so they are easy to read and write like
 the search tests?

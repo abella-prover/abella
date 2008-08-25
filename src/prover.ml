@@ -558,17 +558,21 @@ let intros () =
 (* Split *)
 
 let split propogate_result =
-  match sequent.goal with
-    | And(left, right) ->
-        let saved = goal_to_subgoal right in
-        let right_subgoal () =
-          saved () ;
-          if propogate_result then add_hyp left
-        in
-        subgoals := right_subgoal :: !subgoals ;
-        sequent.goal <- left
-    | _ -> ()
-
+  let rec accum_goals conjs prev =
+    match conjs with
+      | [] -> []
+      | g::rest ->
+          let saved = goal_to_subgoal g in
+          let subgoal () =
+            saved () ;
+            if propogate_result then List.iter add_hyp (List.rev prev)
+          in
+            subgoal :: (accum_goals rest (g :: prev))
+  in
+  let conjs = and_to_list sequent.goal in
+    if List.length conjs = 1 then failwith "Needless use of split" ;
+    subgoals := (accum_goals (and_to_list sequent.goal) []) @ !subgoals ;
+    next_subgoal ()
 
 (* Left and right side of disjunction *)
 

@@ -89,7 +89,8 @@ let tests =
            skip () ;
            match sequent.hyps with
              | [] -> assert_pprint_equal "{B}" sequent.goal
-             | _ -> assert_failure "Expected no hypotheses" ) ;
+             | _ -> assert_failure "Expected no hypotheses"
+        ) ;
 
       "SplitStar test" >::
         (fun () ->
@@ -106,8 +107,63 @@ let tests =
              | [(_, t)] ->
                  assert_pprint_equal "{A}" t ;
                  assert_pprint_equal "{B}" sequent.goal
-             | _ -> assert_failure "Expected one hypothesis" ) ;
+             | _ -> assert_failure "Expected one hypothesis"
+        ) ;
 
+      "Split many test" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"({A} /\\ {B}) /\\ ({C} /\\ {D})" ;
+
+           split false ;
+           assert_n_subgoals 4 ;
+
+           assert_pprint_equal "{A}" sequent.goal ;
+           skip () ;
+           assert_pprint_equal "{B}" sequent.goal ;
+           skip () ;
+           assert_pprint_equal "{C}" sequent.goal ;
+           skip () ;
+           assert_pprint_equal "{D}" sequent.goal
+        ) ;
+      
+      "SplitStar many test" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"{A} /\\ {B} /\\ {C}" ;
+
+           split true ;
+           assert_n_subgoals 3 ;
+
+           assert_pprint_equal "{A}" sequent.goal ;
+
+           skip () ;
+           begin match sequent.hyps with
+             | [(_, t)] ->
+                 assert_pprint_equal "{A}" t ;
+                 assert_pprint_equal "{B}" sequent.goal
+             | _ -> assert_failure "Expected one hypothesis"
+           end ;
+
+           skip () ;
+           begin match sequent.hyps with
+             | [(_, t1); (_, t2)] ->
+                 assert_pprint_equal "{A}" t1 ;
+                 assert_pprint_equal "{B}" t2 ;
+                 assert_pprint_equal "{C}" sequent.goal
+             | _ -> assert_failure "Expected two hypotheses"
+           end
+        ) ;
+
+      "Needless split" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"{A}" ;
+
+           assert_raises (Failure "Needless use of split")
+             (fun () -> split false)
+        ) ;
+      
       "Exists test" >::
         (fun () ->
            setup_prover ()

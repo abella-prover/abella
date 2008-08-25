@@ -1,3 +1,12 @@
+Tacticals through success (failure) continuations?
+  What about hyps?
+
+Robust auto tactical which is like search but goes under implies and
+forall.
+  - Applies hypotheses in a backwards directed way.
+  - Does case analysis sometimes (when hyps have @ or have just a
+    single case? This is getting towards proof planning like in Twelf)
+
 Next Release
 ============
 Document 'cut' now including all operators of sequent calculus

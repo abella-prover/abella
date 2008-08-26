@@ -1,0 +1,24 @@
+Define ctxs nil nil.
+Define nabla x p, ctx (tm x :: L) (path x p :: K) := ctxs L K.
+
+Define nabla x y, neq x y.
+Define nabla x y, ctx (pair x y :: L) := ctx L.
+Theorem forall L, ctx L -> ctx (pair n3 n2 :: L).
+intros. search.
+..
+Theorem neq n1 n2. search.
+
+Theorem exists_path : forall L K X,
+  ctxs L K -> {L |- tm X} -> exists P, {K |- path X P}.
+induction on 2. intros. case H2.
+  skip.
+  apply IH to H1 H3. search.
+  assert ctxs (tm n1 :: L) (path n1 n2 :: K).
+    search.
+  ..
+  apply IH to _ H3.
+
+Theorem path_equal : forall X Y,
+  {tm X} -> (forall P, {path X P} -> {path Y P}) -> X = Y.
+induction on 1. intros. case H1.
+  

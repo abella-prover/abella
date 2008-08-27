@@ -1,3 +1,8 @@
+%% Paths through lambda terms
+%%
+%% Here we prove: if all the paths in the lambda term X also exist in
+%% the lambda term Y then X = Y.
+
 Define ctxs nil nil.
 Define nabla x, ctxs (tm x :: L) (path x x :: K) := ctxs L K.
 

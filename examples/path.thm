@@ -40,6 +40,17 @@ apply exists_path to H1 H2. apply H3 to H4. case H4.
     apply member_ctxs2 to H1 H7. case H8.
     search.
 
+Theorem path_abs : forall L K R Y,
+  ctxs L K -> {L |- tm (abs R)} ->
+    (forall P, {K |- path (abs R) P} -> {K |- path Y P}) ->
+    exists YR, Y = abs YR.
+intros.
+apply exists_path to H1 H2. apply H3 to H4. case H4.
+  apply member_ctxs2 to H1 H6. case H7.
+  case H5.
+    apply member_ctxs2 to H1 H7. case H8.
+    search.
+
 Theorem path_equal : forall L K X Y,
   ctxs L K -> {L |- tm X} ->
     (forall P, {K |- path X P} -> {K |- path Y P}) -> X = Y.
@@ -53,40 +64,42 @@ induction on 2. intros. case H2 (keep).
   apply member_ctxs2 to H1 H9. search.
 
   % X = app M N
-  apply path_app to H1 H2 _ with Y = Y.
+  apply path_app to H1 H2 H3.
 
-  ..
+    % Apply the IH to M
+    assert forall P, {K |- path M P} -> {K |- path YM P}.
+      intros.
+      assert {K |- path (app M N) (fst P)}.
+      apply H3 to H7. case H8.
+        apply member_ctxs2 to H1 H9.
+        search.
+    apply IH to H1 H4 H6.
+      
+    % Apply the IH to M
+    assert forall P, {K |- path N P} -> {K |- path YN P}.
+      intros.
+      assert {K |- path (app M N) (snd P)}.
+      apply H3 to H8. case H9.
+        apply member_ctxs2 to H1 H10.
+        search.
+    apply IH to H1 H5 H7.
 
-  % X = app M N
-  % first show Y must be an app
-  apply exists_path to _ H1. apply H2 to H5. case H5.
-
-  case H6.
-  assert forall P, {path M P} -> {path M1 P}.
-    intros.
-    assert {path (app M N) (fst P2)}.
-    apply H2 to H10. case H11. search.
-  apply IH to H3 H9.
-  assert forall P, {path N P} -> {path N1 P}.
-    intros.
-    assert {path (app M N) (snd P2)}.
-    apply H2 to H11. case H12. search.
-  apply IH to H4 H10.
-  search.
-
-  case H6.
-  assert forall P, {path M P} -> {path M1 P}.
-    intros.
-    assert {path (app M N) (fst P2)}.
-    apply H2 to H10. case H11. search.
-  apply IH to H3 H9.
-  assert forall P, {path N P} -> {path N1 P}.
-    intros.
-    assert {path (app M N) (snd P2)}.
-    apply H2 to H11. case H12. search.
-  apply IH to H4 H10.
-  search.
+    % Finish this case
+    search.
 
   % X = abs R
-  apply exists_path to _ H3.
-  skip.
+  apply path_abs to H1 H2 H3.
+
+    % Apply the IH to (R n1)
+    assert forall P, {K, path n1 n1 |- path (R n1) P} ->
+                     {K, path n1 n1 |- path (YR n1) P}.
+      intros.
+      assert {K |- path (abs R) (bnd P)}.
+      apply H3 to H6. case H7.
+        apply member_ctxs2 to H1 H8.
+        search.
+    assert ctxs (tm n1 :: L) (path n1 n1 :: K).
+    apply IH to H6 H4 H5.
+
+    % Finish this case
+    search.

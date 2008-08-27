@@ -63,41 +63,7 @@ let context_to_string ctx =
   in
     aux ctx
 
-let subcontext ctx1 ctx2 =
-  List.for_all (fun elt -> mem elt ctx2) ctx1
-
-let equiv ctx1 ctx2 = subcontext ctx1 ctx2 && subcontext ctx2 ctx1
-
-let union ctx1 ctx2 =
-  ctx1 @ ctx2
-
-let union_list ctx_list =
-  List.fold_left union empty ctx_list
-
-let exists f ctx = List.exists f ctx
-
-let map f ctx = List.map f ctx
-
-let rec group pair_list =
-  match pair_list with
-    | [] -> []
-    | (a, b)::_ ->
-        let pairings = List.assoc_all ~cmp:eq a pair_list in
-        let pair_list' = List.remove_all_assoc ~cmp:eq a pair_list in
-          (a, pairings)::(group pair_list')
-
-let context_to_list ctx = ctx
-            
 let cons = const "::"
-            
-let context_to_term ctx =
-  let rec aux ctx =
-    match ctx with
-      | [] -> const "nil"
-      | [last] when has_eigen_head last -> last
-      | head::tail -> app cons [head; aux tail]
-  in
-    aux (List.rev ctx)
 
 let is_nil t =
   match observe t with
@@ -127,6 +93,42 @@ let normalize ctx =
       | head::tail -> head::(remove_cons tail)
   in
     remove_dups (remove_cons (List.map deep_norm ctx))
+
+let subcontext ctx1 ctx2 =
+  let ctx1 = normalize ctx1 in
+  let ctx2 = normalize ctx2 in
+    List.for_all (fun elt -> mem elt ctx2) ctx1
+
+let equiv ctx1 ctx2 = subcontext ctx1 ctx2 && subcontext ctx2 ctx1
+
+let union ctx1 ctx2 =
+  ctx1 @ ctx2
+
+let union_list ctx_list =
+  List.fold_left union empty ctx_list
+
+let exists f ctx = List.exists f ctx
+
+let map f ctx = List.map f ctx
+
+let rec group pair_list =
+  match pair_list with
+    | [] -> []
+    | (a, b)::_ ->
+        let pairings = List.assoc_all ~cmp:eq a pair_list in
+        let pair_list' = List.remove_all_assoc ~cmp:eq a pair_list in
+          (a, pairings)::(group pair_list')
+
+let context_to_list ctx = ctx
+            
+let context_to_term ctx =
+  let rec aux ctx =
+    match ctx with
+      | [] -> const "nil"
+      | [last] when has_eigen_head last -> last
+      | head::tail -> app cons [head; aux tail]
+  in
+    aux (List.rev ctx)
 
 let extract_singleton ctx =
   match ctx with

@@ -1,24 +1,57 @@
 Define ctxs nil nil.
-Define nabla x p, ctx (tm x :: L) (path x p :: K) := ctxs L K.
+Define nabla x, ctxs (tm x :: L) (path x x :: K) := ctxs L K.
 
-Define nabla x y, neq x y.
-Define nabla x y, ctx (pair x y :: L) := ctx L.
-Theorem forall L, ctx L -> ctx (pair n3 n2 :: L).
-intros. search.
-..
-Theorem neq n1 n2. search.
+Define nabla x, name x.
+
+Theorem member_ctxs1 : forall E L K,
+  ctxs L K -> member (tm E) L -> name E /\ member (path E E) K.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H3 H4. search.
 
 Theorem exists_path : forall L K X,
   ctxs L K -> {L |- tm X} -> exists P, {K |- path X P}.
 induction on 2. intros. case H2.
-  skip.
+  apply member_ctxs1 to H1 H3. search.
   apply IH to H1 H3. search.
-  assert ctxs (tm n1 :: L) (path n1 n2 :: K).
-    search.
-  ..
-  apply IH to _ H3.
+  apply IH to _ H3. search.
 
 Theorem path_equal : forall X Y,
   {tm X} -> (forall P, {path X P} -> {path Y P}) -> X = Y.
-induction on 1. intros. case H1.
-  
+induction on 1. intros. case H1 (keep).
+
+  % X = app M N
+  % first show Y must be an app
+  apply exists_path to _ H1. apply H2 to H5. case H5.
+
+  case H6.
+  assert forall P, {path M P} -> {path M1 P}.
+    intros.
+    assert {path (app M N) (fst P2)}.
+    apply H2 to H10. case H11. search.
+  apply IH to H3 H9.
+  assert forall P, {path N P} -> {path N1 P}.
+    intros.
+    assert {path (app M N) (snd P2)}.
+    apply H2 to H11. case H12. search.
+  apply IH to H4 H10.
+  search.
+
+  case H6.
+  assert forall P, {path M P} -> {path M1 P}.
+    intros.
+    assert {path (app M N) (fst P2)}.
+    apply H2 to H10. case H11. search.
+  apply IH to H3 H9.
+  assert forall P, {path N P} -> {path N1 P}.
+    intros.
+    assert {path (app M N) (snd P2)}.
+    apply H2 to H11. case H12. search.
+  apply IH to H4 H10.
+  search.
+
+  % X = abs R
+  apply exists_path to _ H3.
+  skip.

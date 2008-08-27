@@ -24,37 +24,25 @@ induction on 1. intros. case H1.
     search.
     apply IH to H3 H4. search.
 
-Theorem exists_path : forall L K X,
-  ctxs L K -> {L |- tm X} -> exists P, {K |- path X P}.
-induction on 2. intros. case H2.
-  apply member_ctxs1 to H1 H3. search.
-  apply IH to H1 H3. search.
-  apply IH to _ H3. search.
-
 Theorem path_app : forall L K M N Y,
-  ctxs L K -> {L |- tm (app M N)} ->
-    (forall P, {K |- path (app M N) P} -> {K |- path Y P}) ->
+  ctxs L K -> (forall P, {K |- path (app M N) P} -> {K |- path Y P}) ->
     exists YM YN, Y = app YM YN.
 intros.
-apply exists_path to H1 H2. apply H3 to H4. case H4.
-  apply member_ctxs2 to H1 H6. case H7.
-  case H5.
-    apply member_ctxs2 to H1 H7. case H8.
-    search.
-  case H5.
-    apply member_ctxs2 to H1 H7. case H8.
-    search.
-
+assert {K |- path (app M N) (fst done)}.
+apply H2 to H3.
+case H4.
+  apply member_ctxs2 to H1 H5. case H6.
+  search.
+  
 Theorem path_abs : forall L K R Y,
-  ctxs L K -> {L |- tm (abs R)} ->
-    (forall P, {K |- path (abs R) P} -> {K |- path Y P}) ->
+  ctxs L K -> (forall P, {K |- path (abs R) P} -> {K |- path Y P}) ->
     exists YR, Y = abs YR.
 intros.
-apply exists_path to H1 H2. apply H3 to H4. case H4.
-  apply member_ctxs2 to H1 H6. case H7.
-  case H5.
-    apply member_ctxs2 to H1 H7. case H8.
-    search.
+assert {K |- path (abs R) (bnd x\ done)}.
+apply H2 to H3.
+case H4.
+  apply member_ctxs2 to H1 H5. case H6.
+  search.
 
 Theorem path_equal : forall L K X Y,
   ctxs L K -> {L |- tm X} ->
@@ -69,7 +57,7 @@ induction on 2. intros. case H2 (keep).
   apply member_ctxs2 to H1 H9. search.
 
   % X = app M N
-  apply path_app to H1 H2 H3.
+  apply path_app to H1 H3.
 
     % Apply the IH to M
     assert forall P, {K |- path M P} -> {K |- path YM P}.
@@ -93,7 +81,7 @@ induction on 2. intros. case H2 (keep).
     search.
 
   % X = abs R
-  apply path_abs to H1 H2 H3.
+  apply path_abs to H1 H3.
 
     % Apply the IH to (R n1)
     assert forall P, {K, path n1 n1 |- path (R n1) P} ->

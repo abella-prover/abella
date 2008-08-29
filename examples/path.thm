@@ -47,7 +47,7 @@ case H4.
 Theorem path_equal : forall L K X Y,
   ctxs L K -> {L |- tm X} ->
     (forall P, {K |- path X P} -> {K |- path Y P}) -> X = Y.
-induction on 2. intros. case H2 (keep).
+induction on 2. intros. case H2.
 
   % X is a variable
   apply member_ctxs1 to H1 H4.

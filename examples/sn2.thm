@@ -1,0 +1,820 @@
+% Strong normalisation proof for simply typed lambda calculus.
+% 
+
+Define extend L K := forall X, member X L -> member X K.
+
+Define closed M := exists A, {of M A}.
+
+Define nabla x, fresh x M.
+
+Define ctx nil.
+Define nabla x, ctx (of x A :: L) := {type A} /\ ctx L.
+
+Define nabla x, name x.
+
+Define sn M := forall N, {step M N} -> sn N.
+
+Define neutral M := forall A R, M = abs A R -> false.
+
+Define reduce L M top := ctx L /\ {L |- of M top} /\ sn M.
+
+Define reduce L M (arrow A B) :=
+  ctx L /\ {L |- of M (arrow A B)} /\
+  (forall K U, ctx K -> extend L K -> reduce K U A -> reduce K (app M U) B).
+
+% Definition of substitutions:
+% subst L K S : substitution S with domain L. Its range is a set of 
+%               reducible K-terms of appropriate types.
+
+Define subst nil K nil.
+Define nabla x, subst (of x A :: L) (K x) (cp x (M x) :: R x) := 
+       nabla x, reduce (K x) (M x) A /\ subst L (K x) (R x).
+
+% Identity substitution
+Define id_subst nil nil.
+Define nabla x, id_subst (of x A :: L) (cp x x :: K) := id_subst L K.
+
+
+Theorem member_fresh : forall X L E,
+  member E L -> fresh X L -> fresh X E.
+induction on 1. intros. case H1.
+  case H2. search.
+  assert fresh X L1.
+    case H2. search.
+    apply IH to H3 H4. search.
+
+
+Theorem extend_cons2 : forall X L K,
+extend L K -> extend (X::L) (X::K).
+intros.
+unfold. 
+intros.
+case H2. search.
+case H1.
+apply H4 to H3. search.
+
+Theorem extend_refl :
+forall L, extend L L.
+intros. unfold. intros. search.
+ 
+
+Theorem extend_trans :
+forall L K R, extend L K -> extend K R -> extend L R.
+intros.
+unfold.
+intros.
+case H1.
+apply H4 to H3.
+case H2.
+apply H6 to H5. search.
+
+
+Theorem weakening1 :
+forall L K P, extend L K -> {L |- P} -> {K |- P}.
+induction on 2.
+intros.
+case H2.
+case H1.
+apply H4 to H3. search.
+
+search.
+apply IH to H1 H3.
+apply IH to H1 H4.
+search.
+
+apply IH to H1 H3.
+apply IH to H1 H4.
+search.
+
+apply IH to H1 H3.
+apply extend_cons2 to H1 with X = of n1 A.
+apply IH to H6 H4.
+search.
+
+apply IH to H1 H3.
+search.
+
+apply IH to H1 H3.
+search.
+search.
+apply IH to H1 H3.
+search.
+apply IH to H1 H3.
+apply IH to H1 H4.
+search.
+
+apply IH to H1 H3.
+apply extend_cons2 to H1 with X = cp n1 n2.
+apply IH to H6 H4.
+search.
+
+Theorem weakening : 
+forall L K, extend L K -> forall P, {L |- P} -> {K |- P}.
+intros.
+apply weakening1 to H1 H2.
+search.
+
+% reducibility is preserved under weakening of contexts
+Theorem reduce_ctx_weak : forall L K M A,
+  ctx L -> ctx K -> extend L K -> reduce L M A -> reduce K M A.
+intros.
+case H4. 
+unfold. search. apply weakening to H3. apply H8 to H6. search. search.
+unfold. search. apply weakening to H3. apply H8 to H6. search. 
+intros. 
+apply extend_trans to H3 H9.
+apply H7 to H8 H11 H10. search.
+
+
+Theorem reduce_of : forall A M L, ctx L -> reduce L M A -> {L |- of M A}.
+intros. case H2.
+  search.
+  search.
+
+Theorem ctx_member : forall E L,
+  ctx L -> member E L -> exists X A, E = of X A /\ name X /\ {type A}.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H4 H5. search.
+    
+Theorem type_ignores_ctx : forall L A,
+  ctx L -> {L |- type A} -> {type A}.
+induction on 2. intros. case H2.
+  apply ctx_member to H1 H3.
+  search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+
+
+Theorem step_ignores_ctx : forall L M N, ctx L -> {L |- step M N} -> {step M N}.
+induction on 2.
+intros. case H2. 
+apply ctx_member to H1 H3.
+apply IH to H1 H3. search.
+apply IH to H1 H3. search.
+search.
+apply IH to H1 H3. search.
+
+
+% Some nice inversion lemmas for typing judgements in a non-empty context
+
+Theorem case_of_app : forall L M N B,
+  ctx L -> {L |- of (app M N) B} ->
+    exists A, {L |- of M (arrow A B)} /\ {L |- of N A}.
+intros. case H2.
+  apply ctx_member to H1 H3. case H4.
+  search.
+
+Theorem case_of_abs : forall L M A B,
+  ctx L -> {L |- of (abs A M) B} ->
+    exists C, B = arrow A C /\ {type A} /\ nabla x, {L, of x A  |- of (M x) C}.
+intros. case H2.
+  apply ctx_member to H1 H3. case H4.
+    apply type_ignores_ctx to H1 H3. search.
+
+
+% Subject reduction - generalized version  
+Theorem of_step_ext : forall L M N A,
+  ctx L -> {L |- of M A} -> {step M N} -> {L |- of N A}.
+induction on 3. intros. case H3.
+  apply case_of_app to H1 H2. apply IH to H1 H5 H4. search.
+  apply case_of_app to H1 H2. apply IH to H1 H6 H4. search.
+  apply case_of_app to H1 H2. apply case_of_abs to H1 H4.
+    inst H7 with n1 = M1. cut H8 with H5. search.
+  apply case_of_abs to H1 H2. apply IH to _ H6 H4. search.
+
+Theorem of_step : forall M N A L,
+  ctx L -> {L |- of M A} -> {L |- step M N} -> {L |- of N A}.
+intros. apply step_ignores_ctx to H1 H3.
+apply of_step_ext to H1 H2 H4. search.
+    
+Theorem sn_step : forall M N,
+  sn M -> {step M N} -> sn N.
+intros. case H1. apply H3 to H2. search.
+
+% CR2
+Theorem reduce_step : forall M N A L,
+  ctx L -> reduce L M A -> {step M N} -> reduce L N A.
+induction on 2. intros. case H2.
+  apply of_step to H1 H5 H3. apply sn_step to H6 H3. search.
+  unfold. search.
+    apply of_step to H1 H5 H3. search.
+    intros. apply H6 to H7 H8 H9. apply IH to H7 H10 _. search.
+
+
+Theorem sn_app_var : forall M, nabla c,
+sn (app M c) -> sn M.
+induction on 1. intros. case H1. 
+unfold. intros.
+assert {step (app M n1) (app N n1)}.
+apply H2 to H4. apply IH to H5. search.
+
+
+Theorem cr1_cr3 :
+  (forall A M L, ctx L -> {type A} -> reduce L M A -> sn M)
+  /\
+  (forall A M L, ctx L -> neutral M -> {L |- of M A} -> {type A} ->
+                 (forall P, {step M P} -> reduce L P A) ->
+                   reduce L M A).
+induction on 2 4. split*.
+
+% CR1
+intros. case H2.
+	% atomic
+	case H3. search.
+
+	% arrow case
+	
+	% add a neutral element, which is a variable.
+	assert nabla n, neutral n.
+	intros. unfold. intros. case H6.
+	case H6.
+	
+	% add assertion for the typing of the new variable, in a bigger context.
+	assert ctx (of n1 A1 :: L).
+	assert {of n1 A1 :: L |- of n1 A1}.
+	assert forall P, {step n1 P} -> reduce (of n1 A1 :: L) P A1.
+		intros. case H10.
+
+	apply IH1 to H8 H7 H9 H4 H10.
+	case H3.
+	assert extend L (of n1 A1 ::L).
+	       unfold.
+	       intros. search.
+
+	apply H14 to H8 H15 H11.
+
+	apply IH to H8 H5 H16.
+	apply sn_app_var to H17. search.
+
+% CR3
+intros.
+case H5 (keep).
+
+unfold. search. search.
+
+unfold. intros.
+apply H6 to H7.
+apply H1 to H2 H5 H8. search.
+
+unfold. search. search.
+intros.
+apply IH to H9 H7 H11.
+assert forall U, sn U -> reduce K U A1 -> reduce K (app M U) B.
+       induction on 1.	
+       intros.
+       case H13.
+       assert forall P, {step (app M U1) P} -> reduce K P B.
+       intros.
+       case H16.
+       apply H6 to H17.
+       case H18.
+       apply H21 to H9 H10 H14. search.
+       apply H15 to H17.
+       apply reduce_step to H9 H14 H17.
+       apply IH2 to H18 H19. search.
+       case H3. apply H17 to _.
+
+       assert neutral (app M U1).
+       unfold. intros. case H17.
+
+       assert {K |- of (app M U1) B}.
+       apply weakening to H10. apply H18 to H4. 
+       apply reduce_of to H9 H14.
+       search.
+
+       apply IH1 to H9 H17 H18 H8 H16. 
+       search.
+       apply H13 to H12 H11.
+       search.
+
+
+  
+% CR1  
+Theorem reduce_sn : forall A M L,
+ ctx L -> {type A} -> reduce L M A -> sn M.
+apply cr1_cr3. search.
+
+% CR3 
+Theorem neutral_step_reduce : forall A M L,
+ ctx L ->  neutral M -> {L |- of M A} -> {type A} ->
+    (forall P, {step M P} -> reduce L P A) ->
+    reduce L M A.
+apply cr1_cr3. search.
+
+
+Theorem of_type_ext : forall L M A,
+  ctx L -> {L |- of M A} -> {type A}.
+induction on 2. intros. case H2.
+  apply ctx_member to H1 H3. search.
+  apply IH to H1 H3. case H5. search.
+  apply type_ignores_ctx to H1 H3. apply IH to _ H4. search.
+
+  
+Theorem reduce_vars : forall X A L,
+ctx L -> member (of X A) L -> reduce L X A.
+intros.
+apply ctx_member to H1 H2.
+case H3.
+assert neutral n1.
+unfold. intros. case H5.
+assert forall P, {step n1 P} -> reduce (L n1) P (A1 n1).
+intros. case H6. 
+assert {L n1 |- of n1 (A1 n1)}.
+apply neutral_step_reduce to H1 H5 H7 H4 H6.
+search.
+
+
+Theorem abs_step_reduce_lemma : forall U M A B L, nabla c,
+ ctx L -> sn U -> sn (M c) -> reduce L U A ->
+     (forall V K, ctx K -> extend L K -> reduce K V A -> reduce K (M V) B) ->
+     {L |- of (abs A M) (arrow A B)} -> 
+       reduce L (app (abs A M) U) B.
+induction on 2. induction on 3. intros.
+  assert (forall P, {step (app (abs A M) U) P} -> reduce L P B).
+    intros. case H7.
+
+      % Case 1: (app (abs A M) U) -> (app M' U)
+      case H8. 
+      case H3. apply H10 to H9.
+      apply IH1 to H1 H2 H11 H4 _ _ with M = R', B = B.
+        apply of_step to H1 H6 _. search.
+        intros. 
+	apply H5 to H12 H13 H14.
+          inst H9 with n1 = V.
+            apply reduce_step to H12 H15 H16. search.
+      search.
+
+      % Case 2: (app (abs A M) U) -> (app (abs A M) N')
+      case H2. apply H9 to H8.
+      apply reduce_step to H1 H4 H8.
+      apply IH to H1 H10 H3 H11 H5 H6 with M = M. search.
+
+      % Case 3: (app (abs A M) U) -> (M U)
+      assert extend L L.
+         apply extend_refl with L = L. search.
+      apply H5 to H1 H8 H4. search.
+
+  assert neutral (app (abs A M) U).
+    unfold. intros. case H8.
+
+  assert {L |- of (app (abs A M) U) B}.
+    apply reduce_of to H1 H4. search.
+
+  apply of_type_ext to H1 H9.
+  apply neutral_step_reduce to H1 H8 H9 H10 H7. search.
+
+
+Theorem abs_step_reduce : forall M A B L,
+  ctx L -> {L |- of (abs A M) (arrow A B)} ->
+  (forall V K, ctx K -> extend L K -> reduce K V A -> reduce K (M V) B) ->
+    reduce L (abs A M) (arrow A B).
+intros. unfold.
+  search.
+  search.
+  intros.
+    apply of_type_ext to H1 H2. case H7.
+    assert nabla n, ctx (of n A :: L).
+    case H10.
+    apply reduce_vars to H11 _.
+    assert extend L (of n1 A :: L).
+      unfold. intros. search.
+
+    apply H3 to H11 H13 H12 with V = n1.
+    apply reduce_sn to H11 H8 H12.
+    apply reduce_sn to H11 H9 H14.
+    apply reduce_sn to H4 H8 H6.
+    apply weakening to H5. apply H18 to  H2.
+
+    assert forall V K1, ctx K1 -> extend K K1 -> reduce K1 V A -> reduce K1 (M V) B.
+    	   intros. apply extend_trans to H5 H21. apply H3 to H20 H23 H22. search.
+    	    
+    apply abs_step_reduce_lemma to H4 H17 H16 H6 H20 H19 with U = U, M = M, A = A, B = B, L = K, c = n1.
+    search.
+
+
+
+% Types do not contain nominal constants, thus any dependencies on
+% nominal constants can be pruned
+Theorem prune_type : forall A, nabla x,
+  {type (A x)} -> exists B, A = (x\ B).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. apply IH to H3. search.
+
+
+%%% Properties of substitutions
+
+Theorem subst_member : forall L K S M, nabla x,
+subst L (K x) (S x) -> member (cp x (M x)) (S x) -> false.
+induction on 1.
+intros.
+case H1.
+case H2.
+case H2.
+apply IH to H4 H5.
+
+Theorem subst_member2 : forall L K S X M,
+subst L K S -> member (cp X M) S -> name X.
+induction on 1.
+intros.
+case H1. case H2.
+case H2. search.
+apply IH to H4 H5. search.
+
+
+Theorem subst_extend : forall L K S R,
+ctx L -> ctx K -> ctx R -> subst L K S -> extend K R -> subst L R S.
+induction on 4.
+intros.
+case H4. search.
+unfold.
+intros.
+split.
+apply reduce_ctx_weak to H2 H3 H5 H6. search.
+case H1.
+apply IH to H9 H2 H3 H7 H5. search.
+
+Theorem subst_cons : forall L K S A, 
+ctx L -> ctx K -> {type A} -> subst L K S -> nabla x, subst (of x A :: L) (of x A :: K) (cp x x :: S).
+intros.
+unfold.
+intros.
+split.
+assert ctx (of n1 A :: K).
+assert member (of n1 A) (of n1 A :: K).
+apply reduce_vars to H5 H6. search.
+assert ctx (of n1 A :: K).
+assert extend K (of n1 A :: K).
+   unfold. intros. search.
+
+apply subst_extend to H1 H2 H5 H4 H6. search.
+
+
+Theorem identity_subst : forall L K S,
+ctx L -> ctx K -> extend L K -> id_subst L S -> subst L K S.
+induction on 1.
+intros.
+case H1.
+case H4. search.
+
+assert extend L1 (K n1).
+       unfold.
+       intros.
+       case H3.
+       apply H8 to _ with X = (X n1).
+       search.
+
+case H4.
+apply IH to H6 H2 H7 H8.
+case H3 (keep).
+
+apply H10 to _ with X = of n1 A.
+apply reduce_vars to H2 H11.
+search.
+
+Theorem id_subst_member : forall L S M A X,
+id_subst L S -> member (of X A) L -> member (cp X X) S.
+induction on 1.
+intros. case H1.
+case H2.
+case H2. search.
+apply IH to H3 H4.
+search.
+
+Theorem id_subst_cons : forall L A S,
+id_subst L S -> nabla x, id_subst (of x A :: L) (cp x x :: S).
+induction on 1.
+intros. case H1. search.
+apply IH to H2 with A = A n2. search.
+
+Theorem member_nabla : forall L E, nabla x,
+  member (E x) L -> exists E1, E = (y\E1).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Define cp_ctx nil.
+Define nabla x, cp_ctx (cp x (M x) :: (L x)) := nabla x, cp_ctx (L x).
+
+Theorem cp_ctx_member : forall L M,
+cp_ctx L -> member M L -> exists X N, name X /\ M = (cp X N).
+induction on 1.
+intros. case H1. case H2.
+case H2. search.
+apply IH to H3 H4. search.
+
+
+Theorem type_ignores_cp_ctx : forall L A,
+cp_ctx L -> {L |- type A} -> {type A}.
+induction on 2.
+intros.
+case H2. apply cp_ctx_member to H1 H3.
+search.
+apply IH to H1 H3.
+apply IH to H1 H4.
+search.
+
+
+Theorem cp_align : forall S M N, nabla x,
+cp_ctx S -> {S, cp x x |- cp (M x) (N x)} -> nabla y z, {S, cp y z |- cp (M y) (N z)}.
+induction on 2. 
+intros. case H2.
+  case H3.
+    search.
+    apply member_nabla to H4. search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+  apply type_ignores_cp_ctx to _ H3.
+  apply prune_type to H5.
+  apply IH to _ H4.
+  search.
+
+Theorem subst_cp_ctx : forall L K S,
+subst L K S -> cp_ctx S.
+induction on 1.
+intros.
+case H1.
+search.
+apply IH to H3. search.
+
+
+Theorem apply_id_subst : forall L S M A,
+ctx L -> {L |- of M A} -> id_subst L S -> {S |- cp M M}.
+induction on 2.
+intros.
+case H2.
+apply id_subst_member to H3 H4.
+search.
+
+apply IH to H1 H4 H3.
+apply IH to H1 H5 H3.
+search.
+
+apply id_subst_cons to H3 with A = A1.
+apply type_ignores_ctx to H1 H4.
+apply IH to _ H5 H6.
+
+assert subst L L S.
+       apply extend_refl with L = L.
+       apply identity_subst to _ _ H9 H3.
+       search.
+apply subst_cp_ctx to H9.
+apply cp_align to H10 H8.
+search.
+
+
+Theorem id_subst_exists : forall L,
+ctx L -> exists S, id_subst L S.
+induction on 1.
+intros.
+case H1.
+search.
+apply IH to H3.
+search.
+
+
+Theorem reduce_subst : forall L K S X M A,
+subst L K S -> member (of X A) L -> member (cp X M) S -> reduce K M A.
+induction on 1.
+intros.
+case H1. case H2.
+case H2. case H3. search.
+apply subst_member to H5 H6.
+case H3. 
+assert fresh n1 L1. 
+apply member_fresh to H6 H7. case H8.
+apply IH to H5 H6 H7. search.
+
+% substitution preserves types.
+
+Theorem of_subst : forall L K S M N A,
+ctx L -> ctx K -> extend L K -> subst L K S -> {L |- of M A} 
+-> {S |- cp M N} -> {K |- of N A}.
+induction on 5.
+intros.
+case H5.
+apply ctx_member to H1 H7.
+case H8.
+case H6.
+apply reduce_subst to H4 H7 H10. 
+apply reduce_of to H2 H11. search.
+
+case H6.
+apply subst_member2 to H4 H9. case H10.
+ 
+apply IH to H1 H2 H3 H4 H7 H9.
+apply IH to H1 H2 H3 H4 H8 H10.
+search.
+
+case H6.
+apply subst_member2 to H4 H9. case H10.
+apply type_ignores_ctx to _ H7.
+
+assert ctx (of n1 A1 :: L). 
+assert ctx (of n1 A1 :: K).
+assert extend (of n1 A1 :: L) (of n1 A1 :: K).
+       unfold.
+       intros.
+       case H14.
+       search.
+       case H3.
+       apply H16 to H15.
+       search.
+
+apply subst_cons to H1 H2 H11 H4.
+inst H10 with n2 = n1.
+apply IH to H12 H13 H14 H15 H8 H16. 
+assert {K, of n1 A1 |- type A1}.
+search.
+
+% Term structures
+Define nabla x, term x.
+Define term (app M N) := term M /\ term N.
+Define term (abs A M) := {type A} /\ nabla x, term (M x).
+
+Theorem of_term : forall L M A,
+ctx L -> {L |- of M A} -> term M.
+induction on 2.
+intros.
+case H2.
+apply ctx_member to H1 H3.
+case H4. search.
+apply IH to H1 H3.
+apply IH to H1 H4.
+search.
+apply type_ignores_ctx to H1 H3.
+apply IH to _ H4.
+search.
+
+
+Theorem of_ctx_strength_lemma : forall L M A B, nabla x,
+ctx L -> term M -> {type A} -> {L, of x A |- of M B} -> {L |- of M B}.
+induction on 2.
+intros.
+case H2. 
+case H4. case H5. search.
+case H4.
+case H7. apply ctx_member to H1 H8. case H9.
+apply of_type_ext to _ H7.
+apply prune_type to H9.
+apply IH to H1 H5 H3 H7.
+apply IH to H1 H6 H3 H8. search.
+
+case H4.
+case H7. apply ctx_member to H1 H8. case H9.
+assert {L, of n1 A1, of n2 A |- of (M1 n1) B2}.
+apply IH to _ H6 H3 H9.
+search.
+
+Theorem of_ctx_strengthening : forall L M A B, nabla x,
+ctx L -> {type A} -> {L, of x A |- of M B} -> {L |- of M B}.
+intros.
+apply of_term to _ H3.
+apply of_ctx_strength_lemma to H1 H4 H2 H3.
+search.
+
+
+Theorem reduce_ctx_strengthening : forall A B L M, nabla x,
+ctx L -> {type A} -> {type B} -> reduce (of x A :: L) M B -> reduce L M B.
+induction on 3.
+intros.
+case H3.
+case H4.
+unfold. search. 
+apply of_ctx_strengthening to H1 H2 H6.
+search.
+search.
+
+case H4.
+unfold.
+search. 
+apply of_ctx_strengthening to H1 H2 H8. search. 
+
+intros.
+assert extend (of n1 A :: L) (of n1 A :: K).
+       unfold.
+       intros.
+       case H13. search.
+       case H11.
+       apply H15 to H14.
+       search.
+
+assert reduce (of n1 A :: K) U A1.
+       assert extend K (of n1 A :: K).
+       	      unfold.
+	      intros.
+	      search.
+       apply reduce_ctx_weak to _ _ H14 H12.
+       search.
+
+apply H9 to _ H13 H14.
+apply IH to H10 H2 H6 H15. search.
+
+
+
+
+Theorem reducibility_lemma : forall L K S A M N,
+ctx L -> ctx K -> extend L K -> subst L K S -> {L |- of M A} -> {S |- cp M N} -> reduce K N A.
+induction on 5.
+intros.
+case H5.
+case H6.
+apply reduce_subst to H4 H7 H8. search.
+
+apply ctx_member to H1 H7.
+case H10.
+apply ctx_member to H1 H7.
+case H10.
+
+
+% app case
+case H6.
+apply subst_member2 to H4 H9. case H10.
+
+apply IH to H1 H2 H3 H4 H7 H9.
+apply IH to H1 H2 H3 H4 H8 H10.
+case H11.
+apply extend_refl with L = K.
+apply H15 to H2 H16 H12. search.
+
+% abs case
+
+case H6 (keep).
+apply subst_member2 to H4 H9. case H10.
+apply type_ignores_ctx to H1 H7.
+
+assert {K |- of (abs A1 R1) (arrow A1 B)}.
+       apply extend_cons2 to H3 with X = of n1 A1.
+       apply weakening to H12.
+       apply H13 to H8.
+       inst H10 with n2 = n1.
+       apply of_subst to _ _ H12 _ H8 H15. 
+       apply subst_cons to _ _ _ H4 with A = A1. search.
+       search.
+
+apply abs_step_reduce to H2 H12 _.
+intros.
+inst H10 with n2 = V.
+assert ctx (of n1 A1 :: L).
+assert ctx (of n1 A1 :: K1).
+assert extend (of n1 A1 :: L) (of n1 A1 :: K1).
+       apply extend_trans to H3 H14.
+       apply extend_cons2 to H19 with X = of n1 A1.
+       search.
+
+assert subst (of n1 A1 :: L) (of n1 A1 :: K1) (cp n1 V :: S). 
+       unfold.
+       intros.
+       split.
+       assert extend K1 (of n1 A1 :: K1).
+       	      unfold.
+	      intros.
+	      search.
+
+       apply reduce_ctx_weak to _ _ H20 H15.
+       search.
+
+       assert extend K (of n1 A1 :: K1).
+       	      unfold.
+	      intros.
+	      case H14. apply H21 to H20. search.	      
+
+       apply subst_extend to _ _ _ H4 H20. search. 
+
+apply IH to H17 H18 H19 H20 H8 H16. 
+apply reduce_ctx_strengthening to H13 _ _ H21.
+apply of_type_ext to _ H8. search.
+search.
+search.
+
+
+Theorem reducibility : forall L M A,
+ctx L -> {L |- of M A} -> reduce L M A.
+intros.
+apply extend_refl with L = L.
+apply id_subst_exists to H1.
+apply identity_subst to H1 H1 H3 H4.
+apply apply_id_subst to H1 H2 H4.
+apply reducibility_lemma to H1 H1 H3 H5 H2 H6.
+search.
+
+
+Theorem strong_normalisation : forall L M A,
+ctx L -> {L |- of M A} -> sn M.
+intros.
+apply reducibility to H1 H2.
+apply of_type_ext to H1 H2.
+apply reduce_sn to H1 H4 H3.
+search.
+
+Theorem red_closed : forall M A, {of M A} -> reduce nil M A.
+intros.
+apply reducibility to _ H1. search.
+
+Theorem sn_closed : forall M, closed M -> sn M.
+intros.
+case H1.
+apply strong_normalisation to _ H2. search.
+
+

@@ -1,5 +1,5 @@
 % Strong normalisation proof for simply typed lambda calculus.
-% 
+%
 
 Define extend L K := forall X, member X L -> member X K.
 
@@ -628,51 +628,14 @@ apply IH to H12 H13 H14 H15 H8 H16.
 assert {K, of n1 A1 |- type A1}.
 search.
 
-% Term structures
-Define nabla x, term x.
-Define term (app M N) := term M /\ term N.
-Define term (abs A M) := {type A} /\ nabla x, term (M x).
-
-Theorem of_term : forall L M A,
-ctx L -> {L |- of M A} -> term M.
-induction on 2.
-intros.
-case H2.
-apply ctx_member to H1 H3.
-case H4. search.
-apply IH to H1 H3.
-apply IH to H1 H4.
-search.
-apply type_ignores_ctx to H1 H3.
-apply IH to _ H4.
-search.
-
-
-Theorem of_ctx_strength_lemma : forall L M A B, nabla x,
-ctx L -> term M -> {type A} -> {L, of x A |- of M B} -> {L |- of M B}.
-induction on 2.
-intros.
-case H2. 
-case H4. case H5. search.
-case H4.
-case H7. apply ctx_member to H1 H8. case H9.
-apply of_type_ext to _ H7.
-apply prune_type to H9.
-apply IH to H1 H5 H3 H7.
-apply IH to H1 H6 H3 H8. search.
-
-case H4.
-case H7. apply ctx_member to H1 H8. case H9.
-assert {L, of n1 A1, of n2 A |- of (M1 n1) B2}.
-apply IH to _ H6 H3 H9.
-search.
-
 Theorem of_ctx_strengthening : forall L M A B, nabla x,
-ctx L -> {type A} -> {L, of x A |- of M B} -> {L |- of M B}.
-intros.
-apply of_term to _ H3.
-apply of_ctx_strength_lemma to H1 H4 H2 H3.
-search.
+  ctx L -> {type A} -> {L, of x A |- of M B} -> {L |- of M B}.
+induction on 3. intros. case H3.
+  case H4. search.
+  apply of_type_ext to _ H5. apply prune_type to H6.
+    apply IH to H1 H2 H4. apply IH to H1 H2 H5. search.
+  apply type_ignores_ctx to _ H4. apply IH to _ H2 H5.
+    search.
 
 
 Theorem reduce_ctx_strengthening : forall A B L M, nabla x,

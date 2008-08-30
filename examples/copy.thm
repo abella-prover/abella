@@ -1,9 +1,4 @@
 %% Equivalence of single and double eigenvariable definitions of copy
-%%
-%% This is currently impossible to do directly in Twelf since the
-%% reasoning with regular worlds is not fine-grained enough. See the
-%% discussion of the cp predicate at the following link for details.
-%%   http://www.cs.cmu.edu/~twelf/guide-1-4/twelf_9.html#SEC55
 
 Theorem member_nabla : forall L E, nabla x,
   member (E x) L -> exists E1, E = (y\E1).

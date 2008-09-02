@@ -1,16 +1,12 @@
-Tacticals through success (failure) continuations?
-  What about hyps?
 
-Robust auto tactical which is like search but goes under implies and
-forall.
-  - Applies hypotheses in a backwards directed way.
-  - Does case analysis sometimes (when hyps have @ or have just a
-    single case? This is getting towards proof planning like in Twelf)
 
 Next Release
 ============
 Document 'cut' now including all operators of sequent calculus
 split now works on n-ary conjunctions
+Document 'path' example
+What to do about alwen's sn example?
+
 
 Future
 ======
@@ -35,13 +31,18 @@ Clean up similarities between replace_metaterm_vars and normalize_binders
 Find a way of handling undo state so that I don't have to remember to
   call it each time I start a tactic
 
-Change tactics to be first class and implement tacticals?
-  Allow naming of hypotheses
-  Support tac1;tac2 where tac2 applies to all subgoals of tac1
 
-Add an apply tactic that works backwards like in coq?
+Automation
+==========
+Tacticals through success (failure) continuations?
+  What about hyps?
 
-Do we have to consider logic variables in the context during search?
+Robust auto tactical which is like search but goes under implies and
+forall.
+  - Applies hypotheses in a backwards directed way.
+  - Does case analysis sometimes (when hyps have @ or have just a
+    single case? This is getting towards proof planning like in Twelf)
+
 
 Larger or longer term issues
 ============================
@@ -71,4 +72,4 @@ How to deal with logic variables at the top level
 In STLC, this theorem shows a real pain in not having types
   Theorem str : forall L E T A, nabla x,
     ctx L -> {L, of x A |- of E T} -> {L |- of E T}.
-  
+

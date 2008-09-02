@@ -1,4 +1,4 @@
-%% The specification in debrjuin.(sig|mod) can be executed by Teyjus
+%% The specification in debruijn.(sig|mod) can be executed by Teyjus
 %%   http://teyjus.googlecode.com/
 %% After installing Teyjus you can compile and run this as follows,
 %%   tjcc debruijn

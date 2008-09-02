@@ -34,7 +34,7 @@ type binder =
   | Forall
   | Nabla
   | Exists
-    
+
 type metaterm =
   | True
   | False
@@ -61,7 +61,7 @@ let meta_and a b = And(a, b)
 let pred p = Pred(p, Irrelevant)
 
 let member e ctx = pred (app (Term.const "member") [e; ctx])
-  
+
 (* Pretty printing *)
 
 let restriction_to_string r =
@@ -96,7 +96,7 @@ let binder_to_string b =
     | Forall -> "forall"
     | Nabla -> "nabla"
     | Exists -> "exists"
-    
+
 let format_metaterm fmt t =
   let rec aux pr_above t =
     let pr_curr = priority t in
@@ -152,7 +152,7 @@ let metaterm_to_formatted_string t =
     format_metaterm fmt t ;
     pp_print_flush fmt () ;
     Buffer.contents b
-      
+
 (* Manipulations *)
 
 let map_on_objs f t =
@@ -197,7 +197,7 @@ let iter_preds f term =
       | Pred(pred, _) -> f pred
   in
     aux term
-    
+
 let map_preds f term =
   let rec aux term =
     match term with
@@ -209,7 +209,7 @@ let map_preds f term =
       | Pred(pred, _) -> [f pred]
   in
     aux term
-    
+
 let is_imp t =
   match observe t with
     | App(t, _) -> eq t (const "=>")
@@ -219,7 +219,7 @@ let extract_imp t =
   match observe t with
     | App(t, [a; b]) -> (a, b)
     | _ -> failwith "Check is_imp before calling extract_imp"
-          
+
 let move_imp_to_context obj =
   let a, b = extract_imp obj.term in
     {context = Context.add a obj.context ; term = b}
@@ -257,7 +257,7 @@ let term_to_restriction t =
     | Obj(_, r) -> r
     | Pred(_, r) -> r
     | _ -> Irrelevant
-        
+
 let set_restriction r t =
   match t with
     | Obj(obj, _) -> Obj(obj, r)
@@ -268,12 +268,12 @@ let reduce_inductive_restriction r =
   match r with
     | Equal i -> Smaller i
     | _ -> r
-        
+
 let reduce_coinductive_restriction r =
   match r with
     | Equal i -> CoSmaller i
     | _ -> r
-        
+
 let add_to_context elt obj =
   {obj with context = Context.add elt obj.context}
 
@@ -288,9 +288,9 @@ let def_sig (term, _) =
       | _ -> failwith "Bad head in definition"
   in
     aux term
-    
+
 let sig_to_string (name, arity) = name ^ "/" ^ (string_of_int arity)
-      
+
 (* Variable Renaming *)
 
 let fresh_alist ~used ~tag ids =
@@ -384,7 +384,7 @@ let get_metaterm_used t =
 let get_metaterm_used_nominals t =
   t |> metaterm_support
     |> List.map term_to_pair
-  
+
 let fresh_nominals n t =
   let used_vars = find_vars Nominal (collect_terms t) in
   let used_names = List.map (fun v -> v.name) used_vars in
@@ -406,7 +406,7 @@ let fresh_nominal t =
   match fresh_nominals 1 t with
     | [n] -> n
     | _ -> assert false
-  
+
 let n_var_names terms =
   terms
   |> map_vars_list (fun v -> v.name)
@@ -434,7 +434,7 @@ let replace_pi_abs_with_nominal obj =
   let abs = extract_pi_abs obj.term in
   let nominal = fresh_nominal (Obj(obj, Irrelevant)) in
     {obj with term = deep_norm (app abs [nominal])}
-  
+
 let rec normalize_obj obj =
   if is_imp obj.term then
     normalize_obj (move_imp_to_context obj)
@@ -475,7 +475,7 @@ and freshen_used_bindings bindings used body =
   let bindings' = List.map term_to_name (List.map snd bindings_alist) in
   let body' = normalize_binders bindings_alist body in
     (bindings', body')
-  
+
 let normalize term =
   term
   |> map_on_objs normalize_obj
@@ -494,7 +494,7 @@ let invalid_metaterm_arg t =
 (* Unification *)
 
 open Unify
-    
+
 let rec meta_right_unify t1 t2 =
   match t1, t2 with
     | Obj(o1, _), Obj(o2, _) when Context.equiv o1.context o2.context ->

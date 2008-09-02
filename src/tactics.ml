@@ -26,7 +26,7 @@ open Extensions
 
 let is_question str =
   str.[0] = '?'
-        
+
 let question_var_names terms =
   terms
   |> map_vars_list (fun v -> v.name)
@@ -37,7 +37,7 @@ let is_capital str =
   match str.[0] with
     | 'A'..'Z' -> true
     | _ -> false
-        
+
 let capital_var_names terms =
   terms
   |> map_vars_list (fun v -> v.name)
@@ -79,15 +79,15 @@ let freshen_def ~used ?(support=[]) head body =
 
 let term_vars_alist tag terms =
   List.map term_to_pair (find_var_refs tag terms)
-    
+
 let metaterm_vars_alist tag metaterm =
   term_vars_alist tag (collect_terms metaterm)
-      
+
 (* Freshening for Logic variables uses anonymous names *)
-      
+
 let fresh_nameless_alist ~support ids =
   List.map (fun x -> (x, app (fresh ~tag:Logic 0) support)) ids
-      
+
 let freshen_nameless_clause ?(support=[]) head body =
   let var_names = capital_var_names (head::body) in
   let fresh_names = fresh_nameless_alist ~support var_names in
@@ -116,7 +116,7 @@ let object_cut obj1 obj2 =
       obj1.context
       |> Context.remove obj2.term
       |> Context.union obj2.context
-      |> Context.normalize 
+      |> Context.normalize
     in
       Obj(context_obj ctx obj1.term, Irrelevant)
   else
@@ -225,19 +225,19 @@ let predicate_wrapper r psig t =
       | Arrow(t1, t2) -> Arrow(t1, aux t2)
   in
     aux t
-    
+
 let lift_all ~used nominals =
   used |> List.iter
       (fun (id, term) ->
          if is_free term then
            let new_term = var Eigen id 0 in
              bind term (app new_term nominals))
-      
+
 let case ~used ~clauses ~defs ~global_support term =
 
   let support = metaterm_support term in
   let initial_bind_state = get_bind_state () in
-  
+
   let def_case ~wrapper term =
     let make_case ~support ~used (head, body) term =
       let fresh_used, head, body =
@@ -285,11 +285,11 @@ let case ~used ~clauses ~defs ~global_support term =
                                             make_case ~support ~used (head, body) term)))
              | _ -> failwith "Bad head in definition")
   in
-          
+
   let clause_case ~wrapper term =
     clauses |> List.filter_map
         (fun (head, body) ->
-           set_bind_state initial_bind_state ;           
+           set_bind_state initial_bind_state ;
            let fresh_used, fresh_head, fresh_body =
              freshen_clause ~support ~used head body
            in
@@ -304,7 +304,7 @@ let case ~used ~clauses ~defs ~global_support term =
              else
                None)
   in
-    
+
   let obj_case obj r =
     let wrapper t =
       Obj(context_obj obj.context t, reduce_inductive_restriction r)
@@ -320,7 +320,7 @@ let case ~used ~clauses ~defs ~global_support term =
         in
           member_case :: clause_cases
   in
-    
+
     match term with
       | Obj(obj, r) -> obj_case obj r
       | Pred(_, CoSmaller _) -> failwith "Cannot case analyze hypothesis\
@@ -335,7 +335,7 @@ let case ~used ~clauses ~defs ~global_support term =
           Option.map_default (fun sc -> [stateless_case_to_case sc]) []
             (recursive_metaterm_case ~used term)
       | _ -> invalid_metaterm_arg term
-          
+
 
 
 (* Induction *)
@@ -409,7 +409,7 @@ let coinductive_wrapper r psig t =
       | Arrow(t1, t2) -> Arrow(t1, aux t2)
   in
     aux t
-    
+
 let unfold_defs ~defs goal r =
   let initial_bind_state = get_bind_state () in
   let support = term_support goal in
@@ -450,7 +450,7 @@ let unfold ~defs goal =
         in
           select_non_cpair (unfold_defs ~defs goal r)
     | _ -> failwith "Can only unfold definitions"
-      
+
 
 (* Search *)
 
@@ -470,7 +470,7 @@ let try_unify_cpairs cpairs =
    allows for effective backtracking. sc means success continuation. *)
 
 let search ~depth:n ~hyps ~clauses ~defs goal =
-  
+
   let rec clause_aux n context goal ~sc =
     let support = term_support goal in
     let freshen_clause = curry (freshen_nameless_clause ~support) in
@@ -483,7 +483,7 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
                | Some cpairs ->
                    obj_aux_conj (n-1) (wrap body)
                      ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
-          
+
   and obj_aux n goal ~sc =
     let goal = normalize_obj goal in
       (* Check hyps for derivability *)
@@ -510,7 +510,7 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
                  if try_meta_right_permute_unify goal hyp then sc ()
              | Pred(_, CoSmaller i), _ -> ()
              | _ -> if try_meta_right_permute_unify goal hyp then sc ()) ;
-      
+
     match goal with
       | True -> sc ()
       | Eq(left, right) -> if try_right_unify left right then sc ()
@@ -535,13 +535,13 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
            set_bind_state state ;
            metaterm_aux (n-1) body
              ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
-        
+
   in
     try
       metaterm_aux n goal ~sc:(fun () -> raise SearchSuccess) ;
       false
     with SearchSuccess -> true
-      
+
 (* Apply one statement to a list of other statements *)
 
 let check_restrictions formal actual =
@@ -558,7 +558,7 @@ let rec map_args f t =
     | Arrow(left, right) ->
         (f left) :: (map_args f right)
     | _ -> []
-        
+
 let some_term_to_restriction t =
   match t with
     | None -> Irrelevant
@@ -591,7 +591,7 @@ let apply_arrow term args =
   in
     Context.reconcile !context_pairs ;
     (normalize result, !obligations)
-      
+
 let apply ?(used_nominals=[]) term args =
   let support =
     args
@@ -615,20 +615,20 @@ let apply ?(used_nominals=[]) term args =
                           replace_metaterm_vars alist raised_body
                         in
                           Some (apply_arrow permuted_body args)))
-                    
+
       | Binding(Forall, bindings, body) ->
           apply_arrow (freshen_nameless_bindings ~support bindings body) args
-            
+
       | Arrow _ ->
           apply_arrow term args
 
       | term when List.length args = 0 -> (term, [])
-            
+
       | _ -> failwith
           ("Structure of applied term must be a " ^
              "substructure of the following.\n" ^
              "forall A1 ... Ai, nabla z1 ... zj, H1 -> ... -> Hk -> C")
-            
+
 let rec ensure_unique_nominals lst =
   match lst with
     | [] -> ()
@@ -642,7 +642,7 @@ let take_from_binders binders withs =
   let withs' = List.find_all (fun (x,t) -> List.mem x binders) withs in
   let binders' = List.remove_all (fun x -> List.mem_assoc x withs) binders in
     (binders', withs')
-            
+
 let rec instantiate_withs term withs =
   match term with
     | Binding(Forall, binders, body) ->
@@ -667,4 +667,4 @@ let rec instantiate_withs term withs =
 let apply_with term args withs =
   let term, used_nominals = instantiate_withs term withs in
     apply term args ~used_nominals
-  
+

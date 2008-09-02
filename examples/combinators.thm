@@ -10,7 +10,7 @@ induction on 1. intros. case H1.
   search.
   apply IH to H2. apply IH to H3. search.
 
-  
+
 % The general form of the deduction theorem:
 %   if   {comb A1, comb A2, ..., comb An |- comb B}
 %   then {comb (imp A1 (imp A2 (imp ... (imp An B)...)))}
@@ -27,7 +27,7 @@ induction on 1. intros. case H1.
   search.
   apply deduction to H2. apply IH to H3 H4. search.
 
-  
+
 % We need to generalize the final theorem of correspondence between
 % natural deduction and combinators. This describes the contexts for
 % such a generalization: for every nd assumption there is a

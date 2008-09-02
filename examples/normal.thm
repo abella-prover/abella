@@ -30,7 +30,7 @@ induction on 1. intros. case H1.
 
 
 %% Partitioning is total
-      
+
 Theorem total_ext : forall T L K,
   ctxs L K -> {L |- term T} -> {K |- normal T} \/ {non_normal T}.
 induction on 2. intros. case H2.

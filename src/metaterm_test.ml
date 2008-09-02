@@ -3,7 +3,7 @@ open Test_helper
 open Term
 open Term.Notations
 open Metaterm
-  
+
 let var_a = var Eigen "A" 0
 let var_b = var Eigen "B" 0
 let var_c = var Eigen "C" 0
@@ -11,7 +11,7 @@ let var_c = var Eigen "C" 0
 let a = termobj var_a
 let b = termobj var_b
 let c = termobj var_c
-    
+
 let tests =
   "Metaterm" >:::
     [
@@ -19,37 +19,37 @@ let tests =
         (fun () ->
            let t = Eq(var_a, var_b) in
              assert_pprint_equal "A = B" t) ;
-             
+
       "Print object" >::
         (fun () ->
            let t = termobj (app (const "eval") [var_a; var_b]) in
              assert_pprint_equal "{eval A B}" t) ;
-      
+
       "Print arrow" >::
         (fun () ->
            let t = arrow a b  in
              assert_pprint_equal "{A} -> {B}" t) ;
-      
+
       "Print multiple arrows" >::
         (fun () ->
            let t = arrow a (arrow b c)  in
              assert_pprint_equal "{A} -> {B} -> {C}" t) ;
-      
+
       "Print forall" >::
         (fun () ->
            let t = forall ["A"] b in
              assert_pprint_equal "forall A, {B}" t) ;
-      
+
       "Print exists" >::
         (fun () ->
            let t = exists ["A"] b in
              assert_pprint_equal "exists A, {B}" t) ;
-      
+
       "Print smaller restricted object" >::
         (fun () ->
            let t = set_restriction (Smaller 1) a in
              assert_pprint_equal "{A}*" t) ;
-      
+
       "Print equal restricted object" >::
         (fun () ->
            let t = set_restriction (Equal 1) a in
@@ -59,32 +59,32 @@ let tests =
         (fun () ->
            let t = set_restriction (CoSmaller 1) a in
              assert_pprint_equal "{A}+" t) ;
-      
+
       "Print second smaller restricted object" >::
         (fun () ->
            let t = set_restriction (Smaller 2) a in
              assert_pprint_equal "{A}**" t) ;
-      
+
       "Print OR" >::
         (fun () ->
            let t = meta_or a b in
              assert_pprint_equal "{A} \\/ {B}" t) ;
-           
+
       "Print AND" >::
         (fun () ->
            let t = meta_and a b in
              assert_pprint_equal "{A} /\\ {B}" t) ;
-           
+
       "Print multiple \\/" >::
         (fun () ->
            let t = meta_or (meta_or a b) c in
              assert_pprint_equal "{A} \\/ {B} \\/ {C}" t) ;
-           
+
       "Print multiple OR (right assoc)" >::
         (fun () ->
            let t = meta_or a (meta_or b c) in
              assert_pprint_equal "{A} \\/ ({B} \\/ {C})" t) ;
-           
+
       "Print OR within arrow" >::
         (fun () ->
            let t = arrow a (meta_or b c) in
@@ -136,7 +136,7 @@ let tests =
            let t' = replace_metaterm_vars [("E", var Eigen "E1" 0)] t in
              assert_pprint_equal
                "forall E2, E2 = E1 -> (exists E3, E3 = E2)" t');
-      
+
       "Print non-empty context" >::
         (fun () ->
            let ctx = Context.add (const "L") Context.empty in
@@ -154,7 +154,7 @@ let tests =
            let p = app (const "head") [const "A"; const "B"] in
            let t = Pred(p, Smaller 1) in
              assert_pprint_equal "head A B *" t) ;
-      
+
       "Print object quantifier inside of predicate" >::
         (fun () ->
            let t = pred (app (const "prove")

@@ -9,7 +9,7 @@ let parse_clauses str =
 
 let assert_pprint_equal_parse str =
   assert_pprint_equal str (parse_metaterm str)
-    
+
 let tests =
   "Parser" >:::
     [
@@ -17,7 +17,7 @@ let tests =
         (fun () ->
            let str = "eval (abs R) (abs R)." in
              match parse_clauses str with
-               | [(t, [])] -> 
+               | [(t, [])] ->
                    assert_term_pprint_equal "eval (abs R) (abs R)" t
                | _ -> assert_failure "Pattern mismatch" ) ;
 
@@ -25,7 +25,7 @@ let tests =
         (fun () ->
            let str = "eval (app M N) V :- eval M (abs R), eval (R N) V." in
              match parse_clauses str with
-               | [(head, [b1; b2])] -> 
+               | [(head, [b1; b2])] ->
                    assert_term_pprint_equal "eval (app M N) V" head ;
                    assert_term_pprint_equal "eval M (abs R)" b1 ;
                    assert_term_pprint_equal "eval (R N) V" b2 ;
@@ -38,27 +38,27 @@ let tests =
       "Simple object statement" >::
         (fun () ->
            assert_pprint_equal_parse "{eval A B}") ;
-      
+
       "Compound object statement" >::
         (fun () ->
            assert_pprint_equal_parse "{eval (abs R) (abs R)}") ;
-      
+
       "Implication object statement" >::
         (fun () ->
            assert_pprint_equal_parse "{eval A B => typeof C D}") ;
-      
+
       "Lambda object statement" >::
         (fun () ->
            assert_pprint_equal_parse "{x1\\typeof x1 A}") ;
-      
+
       "Pi lambda object statement" >::
         (fun () ->
            assert_pprint_equal_parse "{pi x1\\typeof x1 A}") ;
-      
+
       "Pi lambda implies object statement" >::
         (fun () ->
            assert_pprint_equal_parse "{pi x1\\eval x1 A => typeof x1 B}") ;
-      
+
       "Smaller restriction" >::
         (fun () ->
            assert_pprint_equal_parse "{A}*") ;
@@ -78,15 +78,15 @@ let tests =
       "Smaller restriction on predicate" >::
         (fun () ->
            assert_pprint_equal_parse "pred A B *") ;
-      
+
       "Implies statement" >::
         (fun () ->
            assert_pprint_equal_parse "{A} -> {B}") ;
-      
+
       "OR statement" >::
         (fun () ->
            assert_pprint_equal_parse "{A} \\/ {B}") ;
-      
+
       "AND statement" >::
         (fun () ->
            assert_pprint_equal_parse "{A} /\\ {B}") ;
@@ -98,7 +98,7 @@ let tests =
       "OR statement on right side of arrow" >::
         (fun () ->
            assert_pprint_equal_parse "{A} -> {B} \\/ {C}") ;
-      
+
       "OR statement on left side of arrow" >::
         (fun () ->
            assert_pprint_equal_parse "{A} \\/ {B} -> {C}") ;
@@ -114,19 +114,19 @@ let tests =
       "Arrow underneath OR" >::
         (fun () ->
            assert_pprint_equal_parse "{A} \\/ ({B} -> {C})") ;
-      
+
       "Forall" >::
         (fun () ->
            assert_pprint_equal_parse "forall A B, {C}") ;
-      
+
       "Exists" >::
         (fun () ->
            assert_pprint_equal_parse "exists A B, {C}") ;
-      
+
       "Exists on left of OR" >::
         (fun () ->
            assert_pprint_equal_parse "(exists A, {B}) \\/ {C}") ;
-      
+
       "OR underneath exists" >::
         (fun () ->
            assert_pprint_equal_parse "exists A, {B} \\/ {C}") ;
@@ -142,5 +142,5 @@ let tests =
       "Complex predicate" >::
         (fun () ->
            assert_pprint_equal_parse "head (hyp A) (conc B)") ;
-      
+
      ]

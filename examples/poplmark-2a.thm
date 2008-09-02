@@ -44,7 +44,7 @@ induction on 1. intros. case H1.
       assert {sub n1 T1 |- sub n1 S3}.
         cut H5 with H8. search.
   search.
-  
+
 %% Typing inversions
 
 Theorem absurd_ota : forall E T1 T2 T3,
@@ -120,9 +120,9 @@ induction on 1. intros. case H1 (keep).
   apply IH to H2. apply tapp_progresses to H1 H4. search.
   apply IH to H2. search.
 
-  
+
 %% Preservation
-  
+
 Theorem preservation : forall E E' T,
   {of E T} -> {step E E'} -> {of E' T}.
 induction on 1. intros. case H1.

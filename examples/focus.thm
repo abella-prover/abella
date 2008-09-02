@@ -98,7 +98,7 @@ intros. induction on 5 5. split.
     search.
     case H3. apply hyp_imp_form to H1 H2.
       apply IH to _ _ H8 _ H6. apply IH1 to _ _ H9 _ H7. search.
-    
+
 Theorem conc-i_complete : forall L B,
   ctx L -> {form B} -> {L |- conc-i B} -> {L |- unfocus B}.
 induction on 3. intros. case H3.
@@ -113,4 +113,3 @@ Theorem completeness : forall L B,
   ctx L -> {form B} -> {L |- conc B} -> {L |- unfocus B}.
 intros. apply restrict_init to H1 H2 H3.
   apply conc-i_complete to H1 H2 H4. search.
-      

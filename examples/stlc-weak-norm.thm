@@ -206,7 +206,7 @@ induction on 1. intros. case H1.
   case H2.
     search.
     apply IH to H4 H5. search.
-  
+
 Theorem of_type : forall L M A,
   of_ctx L -> {L |- of M A} -> {type A}.
 induction on 2. intros. case H2.
@@ -282,7 +282,7 @@ induction on 1. intros. case H1.
       apply of_type to _ H3. apply prune_type to H12.
         apply IH to H5 H8 H11. search.
 
-Theorem tait_ext : forall L M R A,
+Theorem weak_norm_ext : forall L M R A,
   of_ctx L -> {L |- of M A} -> subst L M R -> reduce R A.
 induction on 2. intros. case H2 (keep).
   apply subst_var to H1 H4 H3. search.
@@ -307,6 +307,6 @@ induction on 2. intros. case H2 (keep).
           search.
 
 
-Theorem tait : forall M A, {of M A} -> halts M.
-intros. apply tait_ext to _ H1 _.
+Theorem weak_norm : forall M A, {of M A} -> halts M.
+intros. apply weak_norm_ext to _ H1 _.
   apply reduce_halts to H2. search.

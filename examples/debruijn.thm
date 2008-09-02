@@ -20,7 +20,7 @@ induction on 1. intros. case H1.
   search.
   apply IH to H2. search.
 
-  
+
 %% Properties of addition
 
 Define nat z.
@@ -108,7 +108,7 @@ induction on 2. intros. case H2.
   case H3.
     case H1. apply member_prune to H4.
     case H1. apply IH to H6 H4 H5. search.
-  
+
 Theorem depth_det2 : forall L H X H1 H2,
   ctx L H -> {L |- depth X H1} -> {L |- depth X H2} -> H1 = H2.
 intros. case H2. case H3. apply member_depth_det2 to H1 H4 H5. search.
@@ -129,7 +129,7 @@ induction on 2. intros. case H2.
   case H3.
     case H1. apply ctx_member_absurd to H5 H4 _.
     case H1. apply IH to H6 H4 H5. search.
-  
+
 Theorem depth_det1 : forall L H X1 X2 HX,
   ctx L H -> {L |- depth X1 HX} -> {L |- depth X2 HX} -> X1 = X2.
 intros. case H2. case H3. apply member_depth_det1 to H1 H4 H5. search.
@@ -168,7 +168,7 @@ Theorem ho2db_det3_simple : forall M D1 D2,
   {ho2db M z D1} -> {ho2db M z D2} -> D1 = D2.
 intros. apply ho2db_det3 to _ H1 H2. search.
 
-  
+
 %% ho2db is deterministic in its first argument
 %% ie, debruijn --> higher-order is unique
 %% proof is mostly the same as ho2db_det3 except with fewer cases

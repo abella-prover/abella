@@ -31,7 +31,7 @@ let lemmas : lemmas ref = ref []
 
 type subgoal = unit -> unit
 let subgoals : subgoal list ref = ref []
-  
+
 type sequent = {
   mutable vars : (id * term) list ;
   mutable hyps : (id * metaterm) list ;
@@ -55,8 +55,8 @@ let localize_term term =
   term
   |> replace_term_vars sequent.vars
   |> replace_term_nominal_vars
-      
-  
+
+
 (* The vars = sequent.vars is superfluous, but forces the copy *)
 let copy_sequent () =
   {sequent with vars = sequent.vars}
@@ -74,7 +74,7 @@ let fresh_hyp_name () =
 let normalize_sequent () =
   sequent.goal <- normalize sequent.goal ;
   sequent.hyps <- sequent.hyps |> List.map (fun (n, h) -> (n, normalize h))
-    
+
 (* Clauses *)
 
 let parse_clauses str =
@@ -84,7 +84,7 @@ let clauses : clauses ref = ref []
 
 let add_clauses new_clauses =
   clauses := !clauses @ new_clauses
-  
+
 let parse_defs str =
   Parser.defs Lexer.token (Lexing.from_string str)
 
@@ -104,16 +104,16 @@ let add_def dtype new_def =
                       (sig_to_string head) (def_type_to_string ty))
     with Not_found -> H.add defs head (dtype, [new_def])
 
-      
+
 (* Undo support *)
-  
+
 type undo_stack = (sequent * subgoal list * Term.bind_state) list
 let undo_stack : undo_stack ref = ref []
-  
+
 let save_undo_state () =
   undo_stack := (copy_sequent (), !subgoals, Term.get_bind_state ())::
     !undo_stack
-    
+
 let undo () =
   match !undo_stack with
     | (saved_sequent, saved_subgoals, bind_state)::rest ->
@@ -123,7 +123,7 @@ let undo () =
         undo_stack := rest
     | [] -> failwith "Nothing left to undo"
 
-        
+
 (* Proof state manipulation utilities *)
 
 let reset_prover =
@@ -177,9 +177,9 @@ let next_subgoal () =
         normalize_sequent () ;
         subgoals := rest
 
-          
+
 (* Pretty print *)
-          
+
 let vars_to_string () =
   match sequent.vars with
     | [] -> ""
@@ -189,10 +189,10 @@ let format_hyp fmt (id, t) =
   fprintf fmt "%s : " id ;
   format_metaterm fmt t ;
   pp_force_newline fmt ()
-    
+
 let format_hyps fmt =
   List.iter (format_hyp fmt) sequent.hyps
-   
+
 let format_other_subgoals fmt =
   let n = ref 1 in
     save_undo_state () ;
@@ -211,7 +211,7 @@ let format_sequent fmt =
   fprintf fmt "============================@\n" ;
   fprintf fmt " %a" format_metaterm sequent.goal ;
   pp_close_box fmt ()
-      
+
 let format_display fmt =
   pp_open_box fmt 0 ;
   fprintf fmt "%d subgoal(s).@\n@\n" (1 + List.length !subgoals) ;
@@ -220,7 +220,7 @@ let format_display fmt =
   format_other_subgoals fmt ;
   pp_close_box fmt () ;
   pp_print_flush fmt ()
-    
+
 let display () =
   format_display std_formatter
 
@@ -228,7 +228,7 @@ let get_display () =
   let b = Buffer.create 100 in
     format_display (formatter_of_buffer b) ;
     Buffer.contents b
-    
+
 
 (* Object level instantiation *)
 
@@ -243,7 +243,7 @@ let inst h n t =
 
 
 (* Object level cut *)
-    
+
 let cut h arg =
   let h = get_hyp h in
   let arg = get_hyp arg in
@@ -280,13 +280,13 @@ let has_coinductive_result (name, term) =
       | _ -> false
   in
     aux term false
-    
+
 let remove_coinductive_hypotheses hyps =
   List.remove_all has_coinductive_result hyps
 
 let defs_to_list defs =
   H.fold (fun _ (_, dcs) acc -> dcs @ acc) defs []
-          
+
 let search_goal ?(depth=5) goal =
   let hyps = sequent.hyps
     |> remove_inductive_hypotheses
@@ -312,7 +312,7 @@ let search ?(limit=None) ?(interactive=true) () =
     next_subgoal ()
   else if not interactive then
     failwith "Search failed"
-      
+
 (* Apply *)
 
 let get_some_hyp name =
@@ -328,7 +328,7 @@ let goal_to_subgoal g =
       set_sequent saved_sequent ;
       Term.set_bind_state bind_state ;
       sequent.goal <- g
-      
+
 let ensure_no_logic_variable terms =
   let logic_vars = List.flatten_map (metaterm_vars_alist Logic) terms in
   if List.length logic_vars > 0 then
@@ -340,7 +340,7 @@ let ensure_no_restrictions term =
       | Binding(Forall, _, body) -> aux body true
       | Binding(Nabla, _, body) -> aux body true
       | Arrow(left, right) -> aux left true; aux right true
-      | Obj(_, Smaller i) | Obj(_, Equal i) 
+      | Obj(_, Smaller i) | Obj(_, Equal i)
       | Pred(_, Smaller i) | Pred(_, Equal i) ->
           if nested then invalid_metaterm_arg term
       | Pred(_, CoSmaller i) ->
@@ -376,7 +376,7 @@ let apply h args ws =
       subgoals := obligation_subgoals @ (resulting_subgoal :: !subgoals ) ;
     next_subgoal ()
 
-    
+
 (* Case analysis *)
 
 (* Lifting during case analysis may cause some variables to be bound to
@@ -416,7 +416,7 @@ let case ?(keep=false) str =
     add_cases_to_subgoals cases ;
     next_subgoal ()
 
-      
+
 (* Induction *)
 
 let get_restriction r =
@@ -425,7 +425,7 @@ let get_restriction r =
     | CoSmaller n -> n
     | Equal n -> n
     | Irrelevant -> 0
-        
+
 let get_max_restriction t =
   let rec aux t =
     match t with
@@ -483,7 +483,7 @@ let induction ind_args =
     List.iter (fun h -> add_hyp ~name:(fresh_name "IH" sequent.hyps) h) ihs ;
     sequent.goal <- new_goal
 
-      
+
 (* CoInduction *)
 
 let rec conclusion term =
@@ -514,7 +514,7 @@ let coinduction () =
     add_hyp ~name ch ;
     sequent.goal <- new_goal
 
-      
+
 (* Assert *)
 
 let assert_hyp term =
@@ -532,7 +532,7 @@ let assert_hyp term =
 let theorem thm =
   sequent.goal <- thm
 
-    
+
 (* Introduction of forall variables *)
 
 let intros () =
@@ -554,7 +554,7 @@ let intros () =
       | _ -> term
   in
     sequent.goal <- aux sequent.goal
-            
+
 (* Split *)
 
 let split propogate_result =
@@ -585,7 +585,7 @@ let right () =
   match sequent.goal with
     | Or(_, right) -> sequent.goal <- right
     | _ -> ()
-        
+
 
 (* Unfold *)
 
@@ -604,7 +604,7 @@ let exists t =
         let goal = exists ids (replace_metaterm_vars [(id, t)] body) in
           sequent.goal <- goal
     | _ -> ()
-        
+
 (* Skip *)
 
 let skip () =

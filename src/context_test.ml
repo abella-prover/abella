@@ -48,7 +48,7 @@ let tests =
       (fun () ->
          let ctx = add evalAB empty in
            assert_true (subcontext ctx ctx)) ;
-         
+
     "Singleton context should not be subcontext of empty context" >::
       (fun () ->
          let ctx = add evalAB empty in
@@ -98,7 +98,7 @@ let tests =
          let ctx = add a (add b empty) in
            assert_term_pprint_equal
              "A :: B :: nil" (context_to_term ctx)) ;
-    
+
     "Context to term with context variable" >::
       (fun () ->
          let a = Term.const "A" in

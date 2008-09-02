@@ -63,7 +63,7 @@ induction on 1. intros. case H1.
     search.
     apply IH to H3 H4.
       search.
-      
+
 Theorem copy2_copy : forall L K M N,
   ctxs L K -> {K |- copy2 M N} -> {L |- copy M N}.
 induction on 2. intros. case H2.

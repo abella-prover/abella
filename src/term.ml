@@ -105,7 +105,7 @@ let prefix = function
   | Nominal -> "n"
 
 type bind_state = (term * term) list
-    
+
 let get_bind_state () =
   let state = ref [] in
     Stack.iter
@@ -123,7 +123,7 @@ let set_bind_state state =
   List.iter (fun (v, value) -> bind v value) state
 
 (* Raise the substitution *)
-let rec add_dummies env n m = 
+let rec add_dummies env n m =
   match n with
     | 0 -> env
     | _ -> let n'= n-1 in ((Dum (m+n'))::(add_dummies env n' m))
@@ -160,7 +160,7 @@ let abstract id t = lambda 1 (abstract (fun t id' -> id' = id) 1 t)
   * Easy creation of constants and variables, with sharing. *)
 
 let nominal_var name = Ptr (ref (V {name=name; ts=max_int; tag=Nominal}))
-  
+
 let var tag name ts =
   if tag = Nominal then
     nominal_var name
@@ -184,14 +184,14 @@ end
 (** Abella specific changes *)
 
 let const ?(ts=0) s = Ptr (ref (V { name=s ; ts=ts ; tag=Constant }))
-  
+
 let fresh =
   let varcount = ref 1 in
     fun () ->
       let i = !varcount in
         incr varcount ;
         i
-      
+
 let fresh ?(tag=Logic) ts =
   let i = fresh () in
   let name = (prefix tag) ^ (string_of_int i) in
@@ -199,7 +199,7 @@ let fresh ?(tag=Logic) ts =
 
 let remove_trailing_numbers s =
   Str.global_replace (Str.regexp "[0-9]*$") "" s
-      
+
 let fresh_name name used =
   let basename = remove_trailing_numbers name in
   let rec aux i =
@@ -214,14 +214,14 @@ let fresh_name name used =
       aux 1
     else
       name
-      
+
 let fresh_wrt ?(ts=0) tag name used =
   let name = fresh_name name used in
   let v = var tag name ts in
     (v, (name, v)::used)
 
 let binop s a b = App ((const s),[a;b])
-            
+
 let find_vars tag ts =
   let rec fv l t = match observe t with
     | Var v ->
@@ -260,7 +260,7 @@ let rec has_logic_head t =
     | Var v -> v.tag = Logic
     | App(h, _) -> has_logic_head h
     | _ -> false
-        
+
 (* Normalization *)
 
 (** Make an environment appropriate to [n] lambda abstractions applied to
@@ -273,7 +273,7 @@ let make_env n args =
     then (e, n, args)
     else aux (n-1) (List.tl args) (Binding(List.hd args, 0)::e)
   in aux n args []
-        
+
 (** Head normalization function.*)
 let rec hnorm term =
   match observe term with
@@ -328,13 +328,13 @@ let rec deep_norm t =
               | _ -> deep_norm (app (deep_norm a) (List.map deep_norm b))
             end
       | Ptr _ | Susp _ -> assert false
-          
+
 (* Pretty printing *)
 
 exception Found of int
 
 type assoc = Left | Right | Both | No
-  
+
 (* List of infix operators sorted by priority, low to high. *)
 let infix : (string * assoc) list =
   [("=>", Right); ("::", Right)]
@@ -352,7 +352,7 @@ let priority x =
 let get_max_priority () = List.length infix
 
 let is_obj_quantifier x = x = "pi" || x = "sigma"
-  
+
 let is_lam t =
   match observe t with
     | Lam _ -> true
@@ -370,7 +370,7 @@ let rec list_range a b =
   if a > b then [] else a::(list_range (a+1) b)
 
 let abs_name = "x"
-    
+
 let term_to_string term =
   let term = deep_norm term in
   let high_pr = 2 + get_max_priority () in
@@ -485,4 +485,4 @@ let term_head_var t =
       | _ -> None
   in
     aux t
-      
+

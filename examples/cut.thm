@@ -35,7 +35,7 @@ induction on 2. intros. case H2.
   apply IH to _ H5 with C = C. search.
   apply IH to _ H4 with C = C. search.
   apply IH to _ H4 with C = C. search.
-    
+
 Theorem and_left_inv : forall L C1 C2,
   ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C1}.
 induction on 2. intros. case H2.
@@ -57,11 +57,11 @@ induction on 2. intros. case H2.
   search.
   search.
   apply IH to _ H4. search.
-  apply IH to _ H4. apply IH to _ H5. search.  
+  apply IH to _ H4. apply IH to _ H5. search.
   apply IH to _ H5. search.
   apply IH to _ H4. search.
   apply IH to _ H4. search.
-  
+
 Theorem imp_inv : forall L C1 C2,
   ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
 induction on 2. intros. case H2.
@@ -99,7 +99,7 @@ Theorem cut_admissibility : forall L K C,
 
 induction on 1. induction on 4. intros. case H4.
   % Case analysis on {L, hyp K |- conc C}
-  
+
   % conc C in context - impossible
   apply ctx_lemma to _ H5.
 
@@ -128,7 +128,7 @@ induction on 1. induction on 4. intros. case H4.
     % essential case - K = and A B
     apply and_left_inv to _ H3. apply and_right_inv to _ H3. case H1.
       apply IH to H11 _ H9 H7. apply IH to H12 _ H10 H13. search.
-      
+
     % commutative case
     search.
 
@@ -137,10 +137,10 @@ induction on 1. induction on 4. intros. case H4.
 
   % orR_2 - C = or A B
   apply IH1 to H1 H2 H3 H5. search.
-  
+
   % orL
   apply IH1 to H1 _ H3 H6. apply IH1 to H1 _ H3 H7. case H5. case H10.
-  
+
     % essential case - K = or A B
     % A nested inversion lemma for 'or'
     assert (forall L D, ctx L -> {L |- conc (or A B)} ->
@@ -157,12 +157,12 @@ induction on 1. induction on 4. intros. case H4.
         apply IH2 to _ H17 H13 H14. search.
         apply IH2 to _ H16 H13 H14. search.
         apply IH2 to _ H16 H13 H14. search.
-    
+
     apply H11 to H2 H3 H8 H9. search.
 
     % commutative case
     search.
-    
+
   % impR - C = imp A B.
   apply IH1 to H1 _ H3 H5. search.
 
@@ -177,7 +177,7 @@ induction on 1. induction on 4. intros. case H4.
 
   % allR - C = all A
   apply IH1 to H1 _ H3 H5. search.
-    
+
   % allL
   apply IH1 to H1 _ H3 H6. case H5. case H8.
     % essential case - K = all A

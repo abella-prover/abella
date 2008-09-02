@@ -29,12 +29,12 @@
 %token EOF
 
 /* Lower */
-  
+
 %nonassoc COMMA
 %right RARROW
 %left OR
 %left AND
-  
+
 %right CONS
 
 %nonassoc BSLASH
@@ -64,7 +64,7 @@ contexted_term:
 context:
   | context COMMA term                  { Context.add $3 $1 }
   | term                                { Context.add $1 Context.empty }
-      
+
 term:
   | term IMP term                       { Term.binop "=>" $1 $3 }
   | term CONS term                      { Term.binop "::" $1 $3 }
@@ -75,7 +75,7 @@ term:
 exp:
   | LPAREN term RPAREN                  { $2 }
   | ID                                  { Term.const $1 }
-      
+
 exp_list:
   | exp exp_list                        { $1::$2 }
   | exp                                 { [$1] }
@@ -168,19 +168,19 @@ restriction:
   | stars                               { Metaterm.Smaller $1 }
   | pluses                              { Metaterm.CoSmaller $1 }
   | ats                                 { Metaterm.Equal $1 }
-      
+
 stars:
   | STAR stars                          { 1 + $2 }
   | STAR                                { 1 }
-      
+
 ats:
   | AT ats                              { 1 + $2 }
   | AT                                  { 1 }
-      
+
 pluses:
   | PLUS pluses                         { 1 + $2 }
   | PLUS                                { 1 }
-      
+
 top_command :
   | THEOREM ID COLON metaterm DOT       { Types.Theorem($2, $4) }
   | THEOREM metaterm DOT                { Types.Theorem("Goal", $2) }

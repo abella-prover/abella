@@ -17,4 +17,3 @@ step (abs A R) (abs A R') :- pi x\ step (R x) (R' x).
 % use this clause to define substitutions.
 cp (app M N) (app M' N') :- cp M M', cp N N'.
 cp (abs A M) (abs A R)   :- type A, pi x\ pi y\ (cp x y => cp (M x) (R y)).
- 

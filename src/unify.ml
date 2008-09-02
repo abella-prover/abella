@@ -22,7 +22,7 @@
 
 open Term
 open Extensions
-  
+
 type unify_failure =
   | OccursCheck
   | TypesMismatch
@@ -31,7 +31,7 @@ type unify_failure =
 exception UnifyFailure of unify_failure
 
 let fail f = raise (UnifyFailure f)
-      
+
 type unify_error =
   | NotLLambda
 
@@ -139,7 +139,7 @@ let rec cindex c l n = match l with
         | _ -> cindex c q (n-1)
       end
 
-(** Given a flexible term [v1 a11 ... a1n] and another term of the form 
+(** Given a flexible term [v1 a11 ... a1n] and another term of the form
   * [... (v2 a21 ... a2m) ...] where [v1] and [v2] are distinct variables,
   * [ts1] and [ts2] being the timestamps associated with [v1] and [v2],
   * and [lev] being the number of abstractions under which [v2] appears
@@ -150,9 +150,9 @@ let rec cindex c l n = match l with
   * {ul
   * {li a truth value indicating whether a pruning or raising
   * substitution is needed for [v2],}
-  * {li a list of terms [b1 ... bk] such that the term 
-  * [Lam ... Lam (... (v2' b1 ... bk) ...] 
-  * represents a unifying substitution for [v1] -- these terms 
+  * {li a list of terms [b1 ... bk] such that the term
+  * [Lam ... Lam (... (v2' b1 ... bk) ...]
+  * represents a unifying substitution for [v1] -- these terms
   * consist of constants from [a11 ... a1n] over which [v2] is
   * possibly raised and inversions of a pruned [a21 ... a2m], and}
   * {li the arguments [c1 ... ck] of a possible "raising" and pruning
@@ -164,10 +164,10 @@ let rec cindex c l n = match l with
   *
   * If [ts1 < ts2] then {ul{li the initial part of
   * [b1 ... bk] is the indices of constants from [a11 ... a1n] that do
-  * not appear in [a21 ... a2m] and that have a timestamp less than or 
-  * equal to [ts2] (this corresponds to raising [v2]) and} {li the rest of 
-  * [b1 ... bk] are the indices (relative to the list a11 ... a1n) of 
-  * the constants in [a21 ... a2m] that appear in [a11 ... a1n] (these are 
+  * not appear in [a21 ... a2m] and that have a timestamp less than or
+  * equal to [ts2] (this corresponds to raising [v2]) and} {li the rest of
+  * [b1 ... bk] are the indices (relative to the list a11 ... a1n) of
+  * the constants in [a21 ... a2m] that appear in [a11 ... a1n] (these are
   * the arguments that must not be pruned).}} Correspondingly, the first
   * part of the list [c1 ... ck] are the constants from [a11 ... a1n] over
   * which [v2] is "raised" and the second part are the indices relative
@@ -177,15 +177,15 @@ let rec cindex c l n = match l with
   * then each of [b1 ... bk] is either {ul{li a constant in [a21 ... a2m] that
   * does not appear in [a11 ... a1n] and which has a timestamp less than
   * [ts1] (this corresponds to first raising [v1] and then reducing the
-  * substitution generated for [v1])} {li or it is the index, relative to 
-  * [a11 ... a1n], of the terms in [a21 ... a2m] that are in 
+  * substitution generated for [v1])} {li or it is the index, relative to
+  * [a11 ... a1n], of the terms in [a21 ... a2m] that are in
   * [a11 ... a1n].}}
   * The list [c1 ... ck] in this case are simply the indices
   * relative to [a21 ... a2m] of the terms in [a21 ... a2m] that are
   * preserved (i.e. not pruned) in [b1 ... bk].
-  * 
+  *
   * This definition assumes that the [aij] are in
-  * head-normal form and that [a1] satisfies the LLambda 
+  * head-normal form and that [a1] satisfies the LLambda
   * requirements. If [a2] does not satisfy these requirements, an
   * exception will be raised. *)
 let raise_and_invert ts1 ts2 a1 a2 lev =
@@ -227,12 +227,12 @@ let raise_and_invert ts1 ts2 a1 a2 lev =
     | [],0 -> false,[],[]
     | t::q,n ->
         begin match observe t with
-          | DB i -> 
+          | DB i ->
               let pruned,inds1,inds2 = prune q (n-1) in
                 if i > lev then
                   let j = bvindex (i-lev) a1 l1 in
                     if j = 0 then
-                      (true,inds1,inds2) 
+                      (true,inds1,inds2)
                     else
                       (pruned,
                        (db (j+lev))::inds1,
@@ -266,7 +266,7 @@ let raise_and_invert ts1 ts2 a1 a2 lev =
     | [],0 -> false,[],[]
     | a::q,n ->
         begin match observe a with
-          | DB i -> 
+          | DB i ->
               let (pruned,inds1,inds2) = prune_and_raise q (n-1) in
                 if i > lev then
                   let j = bvindex (i-lev) a1 l1 in
@@ -277,7 +277,7 @@ let raise_and_invert ts1 ts2 a1 a2 lev =
                        (db (j+lev))::inds1,
                        (db n)::inds2)
                 else (pruned,a::inds1,(db n)::inds2)
-          | Var v when constant v.tag -> 
+          | Var v when constant v.tag ->
               let pruned,inds1,inds2 = prune_and_raise q (n-1) in
                 if v.ts <= ts1 then
                   (pruned,a::inds1,(db n)::inds2)
@@ -303,7 +303,7 @@ let raise_and_invert ts1 ts2 a1 a2 lev =
 
 (* Generating the arguments of a pruning substitution for the case
  * when trying to unify two flexible terms of the form (v t1 ... tn)
- * and lam ... lam (v s1 ... sm) where there are j abstractions at the 
+ * and lam ... lam (v s1 ... sm) where there are j abstractions at the
  * head of the second term. The first two arguments to prune_same_var
  * are the two lists of arguments, the third argument is j (i.e. the
  * number of abstractions at the head) and the last argument is n+j. It
@@ -335,13 +335,13 @@ let rec prune_same_var l1 l2 j bl = match l1,l2 with
 
 (** [makesubst h1 t2 a1 n] unifies [App (h1,a1) = t2].
   * Given a term of the form [App (h1,a1)] where [h1] is a variable and
-  * another term [t2], generate an LLambda substitution for [h1] if this is 
+  * another term [t2], generate an LLambda substitution for [h1] if this is
   * possible, making whatever pruning and raising substitution that are
   * necessary to variables appearing within [t2].
   *
   * [t2] is assumed to be in head normal form, [h1] and [a1] are assumed to be
   * dereferenced, and [n] is supposed to be the length of [a1].
-  * 
+  *
   * Exceptions can be
   * raised from this code if a non LLambda situation is discovered or
   * there is failure in unification or a type mismatch (possible if an
@@ -402,7 +402,7 @@ let makesubst h1 t2 a1 n =
                 app
                   (nested_subst h2 lev)
                   (List.map (fun x -> nested_subst x lev) a2)
-            | DB _ -> 
+            | DB _ ->
                 let a2 = List.map hnorm a2 in
                 app
                   (nested_subst h2 lev)
@@ -427,7 +427,7 @@ let makesubst h1 t2 a1 n =
                       let h' = named_fresh hv1.name ts1 in
                         bind h2 h' ;
                         app h' a1'
-                    else 
+                    else
                       app h2 a1'
             | Var _ -> failwith "logic variable on the left (1)"
             | _ -> assert false
@@ -605,7 +605,7 @@ and not_llambda_bind h1 ts1 a1 t2 =
 (* Assuming t2 is a variable which we want to bind to t1, we try here to
  * instead bind some pruned version of t1 to t2. Doing this allows us to
  * avoid generating a new name.
- * 
+ *
  * Example: Instead of binding X^0 to Y^0 c^1, we bind Y^0 to z\ X^0
  *)
 and reverse_bind t1 t2 =
@@ -633,7 +633,7 @@ and reverse_bind t1 t2 =
   * it is necessary to catch this and at least undo bindings for
   * variables made in the attempt to unify. This has not been included
   * in the code at present.
-  * 
+  *
   * This procedure assumes that the two terms it gets are in
   * head normal form and that there are no iterated
   * lambdas or applications at the top level. Any necessary adjustment
@@ -668,7 +668,7 @@ and unify t1 t2 =
               | false, true -> not_llambda_bind h2 v2.ts a2 t1
               | _ -> unify_app_term h1 a1 t1 t2
             end
-              
+
         | Var v1, Var v2 when variable v1.tag || variable v2.tag ->
             if (variable v1.tag &&
               check_flex_args (List.map hnorm a1) v1.ts) ||
@@ -678,10 +678,10 @@ and unify t1 t2 =
             else
               (* Not LLambda *)
               handler t1 t2
-                
+
         | _ -> unify_app_term h1 a1 t1 t2
       end
-        
+
   | App (h1,a1),_                 -> unify_app_term h1 a1 t1 t2
   | _,App (h2,a2)                 -> unify_app_term h2 a2 t2 t1
   | Var {tag=t},_ when constant t -> unify_const_term t1 t2
@@ -709,7 +709,7 @@ module Right =
           let constant_like = Eigen
           let handler = standard_handler
         end)
-    
+
 module Left =
   Make (struct
           let instantiatable = Eigen
@@ -722,7 +722,7 @@ let right_unify ?used:(used=[]) t1 t2 =
 
 let left_unify ?used:(used=[]) t1 t2 =
   Left.pattern_unify used t1 t2
-      
+
 let try_with_state ~fail f =
   let state = get_bind_state () in
     try

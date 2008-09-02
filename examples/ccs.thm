@@ -7,7 +7,7 @@ Theorem mu_id_step_absurd : forall A Q,
 induction on 1. intros. case H1.
   apply IH to H2.
 
-  
+
 CoDefine sim P Q :=
   forall A P1, {step P A P1} -> exists Q1, {step Q A Q1} /\ sim P1 Q1.
 

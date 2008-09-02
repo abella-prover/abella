@@ -25,7 +25,7 @@ type clause = term * term list
 type clauses = clause list
 
 type def_type = Inductive | CoInductive
-    
+
 type def = metaterm * metaterm
 type defs = (string * int, def_type * def list) Hashtbl.t
 
@@ -120,4 +120,4 @@ let command_to_string c =
     | Skip -> "skip"
     | Abort -> "abort"
     | Undo -> "undo"
-      
+

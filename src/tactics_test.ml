@@ -21,7 +21,7 @@ let object_cut_tests =
              ~using:  "one"
              ~expect: "{two}"
         );
-      
+
       "Compound" >::
         (fun () ->
            assert_object_cut
@@ -55,7 +55,7 @@ let object_cut_tests =
         );
     ]
 
-    
+
 let assert_object_inst ~on ~inst ~using ~expect =
   let on = freshen on in
   let using = var Eigen using 0 in
@@ -73,7 +73,7 @@ let object_instantiation_tests =
              ~using:"A"
              ~expect:"{eval A B}"
         );
-      
+
       "Should fail if nominal is not found" >::
         (fun () ->
            assert_raises (Failure "Did not find n2")
@@ -124,7 +124,7 @@ let apply_tests =
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
            let t, _ = apply h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
-      
+
       "Improperly restricted" >::
         (fun () ->
            let h0 = freshen
@@ -316,7 +316,7 @@ let case ?used ?(clauses=[]) ?(defs=[]) ?(global_support=[]) metaterm =
       | Some used -> used
   in
     case ~used ~clauses ~defs ~global_support metaterm
-    
+
 let case_tests =
   "Case" >:::
     [
@@ -329,7 +329,7 @@ let case_tests =
                    assert_pprint_equal "{eval (abs R) (abs R)}" term ;
                    assert_bool "R should be flagged as used"
                      (List.mem "R" (List.map fst case1.new_vars)) ;
-                   
+
                    set_bind_state case2.bind_state ;
                    assert_pprint_equal "{eval (app M N) B}" term ;
                    begin match case2.new_hyps with
@@ -345,7 +345,7 @@ let case_tests =
                    assert_bool "N should be flagged as used"
                      (List.mem "N" (List.map fst case2.new_vars))
                | cases -> assert_expected_cases 2 cases) ;
-      
+
       "Restriction should become smaller" >::
         (fun () ->
            let term = freshen "{foo A}@" in
@@ -550,7 +550,7 @@ let case_tests =
              match case ~clauses term with
                | [case1; case2] ->
                    (* case1 is the member case *)
-                   
+
                    set_bind_state case2.bind_state ;
                    begin match case2.new_hyps with
                      | [hyp] ->
@@ -595,7 +595,7 @@ let case_tests =
              match case ~defs term with
                | [case1] -> ()
                | cases -> assert_expected_cases 1 cases) ;
-             
+
       "Should raise over nominal variables in clauses" >::
         (fun () ->
            let clauses = parse_clauses "pred M N." in
@@ -614,7 +614,7 @@ let case_tests =
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "ctx (var n1 :: L)" term
                | cases -> assert_expected_cases 1 cases) ;
-             
+
       "Should permute when nabla is in the head" >::
         (fun () ->
            let defs =
@@ -643,11 +643,11 @@ let case_tests =
 
                    set_bind_state case2.bind_state ;
                    assert_pprint_equal "ctx (pair n1 n2 :: L)" term ;
-                     
+
                    set_bind_state case3.bind_state ;
                    assert_pprint_equal "ctx (pair n2 n1 :: L)" term ;
                | cases -> assert_expected_cases 3 cases) ;
-      
+
       "Should not use existing nabla variables as fresh" >::
         (fun () ->
            let defs = parse_defs "nabla x, name x." in
@@ -683,7 +683,7 @@ let induction_tests =
              assert_pprint_equal
                "forall A, {first A}@ -> {second A} -> {third A}"
                goal) ;
-      
+
       "Nested" >::
         (fun () ->
            let stmt = freshen
@@ -698,7 +698,7 @@ let induction_tests =
                  "forall A, {first A}@ -> {second A}** -> {third A}" ih ;
                assert_pprint_equal
                  "forall A, {first A}@ -> {second A}@@ -> {third A}" goal) ;
-      
+
       "With OR on left of arrow" >::
         (fun () ->
            let stmt = freshen "forall X, {A} \\/ {B} -> {C} -> {D}" in
@@ -709,7 +709,7 @@ let induction_tests =
              assert_pprint_equal
                "forall X, {A} \\/ {B} -> {C}@ -> {D}"
                goal) ;
-      
+
       "On predicate" >::
         (fun () ->
            let stmt = freshen
@@ -721,7 +721,7 @@ let induction_tests =
              assert_pprint_equal
                "forall A, first A @ -> second A -> third A"
                goal) ;
-      
+
       "Mutual on objects" >::
         (fun () ->
            let stmt = freshen
@@ -755,7 +755,7 @@ let coinduction_tests =
              assert_pprint_equal
                "forall A, first A -> second A -> third A @"
                goal) ;
-      
+
     ]
 
 
@@ -782,7 +782,7 @@ let search_tests =
              ~goal:"{eval A B}"
              ~expect: true
         );
-      
+
       "Should should succeed if clause matches" >::
         (fun () ->
            assert_search ()
@@ -790,7 +790,7 @@ let search_tests =
              ~goal:"{eval (abs R) (abs R)}"
              ~expect: true
         );
-      
+
       "Should backchain on clauses" >::
         (fun () ->
            assert_search ()
@@ -807,7 +807,7 @@ let search_tests =
              ~goal:"{eval A B} \\/ false"
              ~expect: true
         );
-      
+
       "On right of OR" >::
         (fun () ->
            assert_search ()
@@ -863,7 +863,7 @@ let search_tests =
              ~goal:"{A} /\\ {B}"
              ~expect: true
         );
-      
+
       "Should fail if there is no proof" >::
         (fun () ->
            assert_search ()
@@ -871,7 +871,7 @@ let search_tests =
              ~goal:"{eval A B}"
              ~expect: false
         );
-      
+
       "Should fail if hypothesis has non-subcontext" >::
         (fun () ->
            assert_search ()
@@ -988,7 +988,7 @@ let search_tests =
              ~goal:"ctx (pair n3 n2 :: L)"
              ~expect: true
         );
-      
+
       "Should permute nominal constants" >::
         (fun () ->
            assert_search ()
@@ -1059,7 +1059,7 @@ let search_tests =
 
     ]
 
-    
+
 let unfold_tests =
   "Unfold" >:::
     [
@@ -1109,7 +1109,7 @@ let unfold_tests =
 
     ]
 
-    
+
 let tests =
   "Tactics" >:::
     [
@@ -1122,4 +1122,4 @@ let tests =
       search_tests ;
       unfold_tests ;
     ]
-    
+

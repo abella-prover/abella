@@ -35,7 +35,7 @@ let mem elt ctx =
     List.mem ~cmp:full_eq elt ctx
   else
     List.mem ~cmp:Unify.try_right_unify elt ctx
-  
+
 let remove elt ctx = List.remove ~cmp:full_eq elt ctx
 
 let rec xor ctx1 ctx2 =
@@ -46,7 +46,7 @@ let rec xor ctx1 ctx2 =
         then xor tail (remove head ctx2)
         else let ctx1', ctx2' = xor tail ctx2 in
           (head::ctx1', ctx2')
-        
+
 let add elt ctx = ctx @ [elt]
 
 let is_empty ctx = ctx = []
@@ -69,7 +69,7 @@ let is_nil t =
   match observe t with
     | Var {name=n} when n = "nil" -> true
     | _ -> false
-      
+
 let is_cons t =
   match observe t with
     | App(c, [_; _]) when c = cons -> true
@@ -79,7 +79,7 @@ let extract_cons t =
   match observe t with
     | App(_, [a; b]) -> (a, b)
     | _ -> assert false
-      
+
 let normalize ctx =
   let remove_dups ctx = List.unique ~cmp:eq ctx in
   let rec remove_cons ctx =
@@ -120,7 +120,7 @@ let rec group pair_list =
           (a, pairings)::(group pair_list')
 
 let context_to_list ctx = ctx
-            
+
 let context_to_term ctx =
   let rec aux ctx =
     match ctx with

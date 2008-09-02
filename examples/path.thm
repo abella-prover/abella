@@ -15,7 +15,7 @@ induction on 1. intros. case H1.
     case H2. search.
     apply IH to H3 H4. search.
 
-    
+
 Define ctxs nil nil.
 Define nabla x p, ctxs (tm x :: L) (path x p :: K) := ctxs L K.
 
@@ -66,7 +66,7 @@ apply H2 to H3.
 case H4.
   apply ctxs_member2 to H1 H5. case H7.
   search.
-  
+
 Theorem path_abs : forall L K R Y,
   ctxs L K -> (forall P, {K |- path (abs R) P} -> {K |- path Y P}) ->
     exists YR, Y = abs YR.
@@ -100,7 +100,7 @@ induction on 2. intros. case H2.
         apply ctxs_member2 to H1 H9. case H10.
         search.
     apply IH to H1 H4 H6.
-      
+
     % Apply the IH to M
     assert forall P, {K |- path N P} -> {K |- path YN P}.
       intros.

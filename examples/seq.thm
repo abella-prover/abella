@@ -98,7 +98,7 @@ induction on 1. intros. case H1.
   apply IH to H2. search.
   apply IH to H3. search.
 
-  
+
 %% Not only do permutations not effect provability, but they also
 %% preserve proof height.
 
@@ -122,7 +122,7 @@ induction on 1. intros. case H1.
 %% the height of one of the derivations, but note that the induction
 %% cannot be structural since we must at one point permute the context
 %% before the inductive hypothesis can be applied.
-    
+
 Define nat z.
 Define nat (s X) := nat X.
 
@@ -168,16 +168,14 @@ intros. case H1.
   search.
   search.
   search.
-  
+
 Theorem seq_inst : forall N L G T, nabla x,
   seq N (L x) (G x) -> seq N (L T) (G T).
 induction on 1. intros. case H1.
   search.
   apply member_inst to H2 with T = T. search.
   apply IH to H2 with T = T. apply IH to H3 with T = T. search.
-  apply IH to H2 with T = T. search.  
+  apply IH to H2 with T = T. search.
   apply IH to H2 with T = T. search.
   apply IH to H2 with T = T. search.
   apply prog_inst to H2 with T = T. apply IH to H3 with T = T. search.
-
-  

@@ -44,7 +44,7 @@ induction on 1. intros. case H1.
   case H2.
     search.
     apply IH to H4 H5. search.
-    
+
 Theorem type_ignores_ctx : forall L A,
   ctx L -> {L |- type A} -> {type A}.
 induction on 2. intros. case H2.
@@ -68,7 +68,7 @@ intros. case H2.
   apply ctx_member to H1 H3. case H4.
     apply type_ignores_ctx to H1 H3. search.
 
-% Subject reduction - generalized version  
+% Subject reduction - generalized version
 Theorem of_step_ext : forall L M N A,
   ctx L -> {L |- of M A} -> {step M N} -> {L |- of N A}.
 induction on 3. intros. case H3.
@@ -81,7 +81,7 @@ induction on 3. intros. case H3.
 Theorem of_step : forall M N A,
   {of M A} -> {step M N} -> {of N A}.
 intros. apply of_step_ext to _ H1 H2. search.
-    
+
 Theorem sn_step : forall M N,
   sn M -> {step M N} -> sn N.
 intros. case H1. apply H3 to H2. search.
@@ -383,7 +383,7 @@ induction on 2. intros. case H2 (keep).
   apply subst_const to H3.
     apply type_ignores_ctx to H1 H4.
       apply reduce_const to H5. search.
-        
+
 Theorem strong_norm : forall M A, {of M A} -> sn M.
 intros. apply strong_norm_ext to _ H1 _.
   apply of_type to H1.

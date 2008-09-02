@@ -13,7 +13,7 @@ Define tk (s N) (X :: L) (X :: R) := tk N L R.
 Define eqf L R := (forall N S, tk N L S -> tk N R S) /\
                   (forall N S, tk N R S -> tk N L S).
 
-                                   
+
 %% First we show eqi implies eqf
 
 Theorem eqi_take : forall L R S N,
@@ -37,7 +37,7 @@ intros. unfold.
 
 
 %% Second we show eqf implies eqi
-  
+
 Theorem eqf_nil : forall L,
   eqf nil L -> L = nil.
 intros. case H1.
@@ -73,7 +73,7 @@ coinduction. intros. case H1.
 CoDefine coapp (X :: A) B (X :: C) := coapp A B C.
 CoDefine coapp nil (X :: B) (X :: C) := coapp nil B C.
 CoDefine coapp nil nil nil.
-  
+
 Theorem coapp_assoc : forall A B C AB ABC BC,
   coapp A B AB -> coapp AB C ABC -> coapp B C BC -> coapp A BC ABC.
 coinduction. intros. case H1.

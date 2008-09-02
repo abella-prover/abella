@@ -57,12 +57,12 @@ let tests =
            intros () ;
            assert_goal "n1 = n2"
         ) ;
-      
+
       "Assert test" >::
         (fun () ->
            setup_prover ()
              ~goal:"{pred A}" ;
-           
+
            assert_hyp (freshen "{pred B}") ;
            assert_n_subgoals 2 ;
 
@@ -126,7 +126,7 @@ let tests =
            skip () ;
            assert_pprint_equal "{D}" sequent.goal
         ) ;
-      
+
       "SplitStar many test" >::
         (fun () ->
            setup_prover ()
@@ -163,7 +163,7 @@ let tests =
            assert_raises (Failure "Needless use of split")
              (fun () -> split false)
         ) ;
-      
+
       "Exists test" >::
         (fun () ->
            setup_prover ()
@@ -184,11 +184,11 @@ let tests =
               ("H2", freshen "{first B}")] ;
 
            assert_n_subgoals 1 ;
-           
+
            apply "H1" ["H2"; "_"] [] ;
            assert_n_subgoals 2 ;
            assert_pprint_equal "{second B}" sequent.goal ;
-           
+
            skip () ;
            assert_n_subgoals 1 ;
            assert_pprint_equal "{third B}" sequent.goal ;
@@ -205,7 +205,7 @@ let tests =
            assert_pprint_equal "bar B" (List.assoc "H3" sequent.hyps) ;
            assert_pprint_equal "baz B" (List.assoc "H4" sequent.hyps)
         );
-      
+
       "Cases should not consume fresh hyp names" >::
         (fun () ->
            setup_prover ()
@@ -216,12 +216,12 @@ let tests =
            case ~keep:true "H1" ;
            assert_n_subgoals 2 ;
            assert_string_list_equal ["H1"; "H2"] (List.map fst sequent.hyps) ;
-           
+
            search () ;
            assert_n_subgoals 1 ;
 
            assert_string_list_equal
-             ["H1"; "H2"; "H3"] (List.map fst sequent.hyps)           
+             ["H1"; "H2"; "H3"] (List.map fst sequent.hyps)
         ) ;
 
       "Skip should remove current subcase" >::
@@ -233,7 +233,7 @@ let tests =
            intros () ;
            case "H1" ;
            assert_n_subgoals 2 ;
-           
+
            skip () ;
            assert_n_subgoals 1 ;
         ) ;
@@ -259,11 +259,11 @@ let tests =
                   intros () ;
                   case "H2" ;
                   assert_n_subgoals 2 ;
-                  
+
                   apply "base" ["H1"] [] ;
                   search () ;
                   assert_n_subgoals 1 ;
-                  
+
                   apply "IH" ["H1"; "H3"] [] ;
                   apply "step" ["H4"] [] ;
                   search () ;
@@ -283,33 +283,33 @@ let tests =
            save_undo_state () ;
            case "H1" ;
            assert_n_subgoals 2 ;
-           
+
            undo () ;
            assert_n_subgoals 1 ;
 
            case "H1" ;
            assert_n_subgoals 2 ;
         ) ;
-      
+
       "Proving OR" >::
         (fun () ->
            let clauses = parse_clauses "foo a. foo b. eq X X." in
-             
+
              setup_prover ()
                ~clauses:clauses
                ~goal:"forall X, {foo X} -> {eq X a} \\/ {eq X b}" ;
-             
+
              assert_proof
                (fun () ->
                   induction [1] ;
                   intros () ;
-                  
+
                   case "H1" ;
                   assert_n_subgoals 2 ;
-                  
+
                   search () ;
                   assert_n_subgoals 1 ;
-                  
+
                   search () ;
                )
         ) ;
@@ -317,11 +317,11 @@ let tests =
       "OR on left side of arrow" >::
         (fun () ->
            let clauses = parse_clauses "foo a. foo b. eq X X." in
-             
+
              setup_prover ()
                ~clauses:clauses
                ~goal:"forall X, {eq X a} \\/ {eq X b} -> {foo X}" ;
-             
+
              assert_proof
                (fun () ->
                   intros () ;
@@ -335,23 +335,23 @@ let tests =
                   search () ;
                )
         ) ;
-      
+
       "Using IH with OR" >::
         (fun () ->
            let clauses = parse_clauses
              ("nat z. nat (s X) :- nat X." ^
                 "even z. even (s X) :- odd X." ^
                 "odd (s z). odd (s X) :- even X.") in
-             
+
              setup_prover ()
                ~clauses:clauses
                ~goal:"forall X, {nat X} -> {even X} \\/ {odd X}" ;
-             
+
              assert_proof
                (fun () ->
                   induction [1] ;
                   intros () ;
-                  
+
                   case "H1" ;
                   assert_n_subgoals 2 ;
 
@@ -408,7 +408,7 @@ let tests =
            (* This may throw Failure("Proof completed") which
               indicates test failure *)
         );
-      
+
       "Search should not find complex co-inductive hypothesis" >::
         (fun () ->
            setup_prover ()
@@ -462,7 +462,7 @@ let tests =
            coinduction () ;
            assert_raises_any (fun () -> apply "lem" ["CH"] []) ;
         );
-          
+
       "Apply should not work with coinductively restricted argument" >::
         (fun () ->
            setup_prover ()
@@ -487,7 +487,7 @@ let tests =
                 intros () ;
                 case "H1" ;
                 assert_n_subgoals 1 ;
-                
+
                 case "H2" ;
                 assert_n_subgoals 2 ;
 
@@ -499,6 +499,6 @@ let tests =
                 search ()
              )
         ) ;
-      
-          
+
+
     ]

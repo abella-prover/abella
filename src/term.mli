@@ -34,7 +34,7 @@ type ptr
 type envitem = Dum of int | Binding of term * int
 type env = envitem list
 
-type rawterm = 
+type rawterm =
   | Var of var
   | DB of int
   | Lam of int * term
@@ -80,7 +80,7 @@ val full_eq : term -> term -> bool
  * work differently. *)
 
 val bind : term -> term -> unit
-  
+
 type bind_state
 val get_bind_state : unit -> bind_state
 val set_bind_state : bind_state -> unit
@@ -104,7 +104,7 @@ val fresh_wrt : ?ts:int -> tag -> id ->
                   (id * term) list -> term * (id * term) list
 
 val nominal_var : string -> term
-  
+
 val find_vars : tag -> term list -> var list
 val find_var_refs : tag -> term list -> term list
 val map_vars : (var -> 'a) -> term -> 'a list

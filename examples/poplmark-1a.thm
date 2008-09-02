@@ -21,7 +21,7 @@ Define ty top.
 Define nabla x, ty x.
 Define ty (arrow T1 T2) := ty T1 /\ ty T2.
 Define ty (all T1 T2) := ty T1 /\ nabla x, ty (T2 x).
-  
+
 Theorem sub_refl : forall L T,
   cty L T -> {L |- sub T T}.
 induction on 1. intros. case H1.
@@ -89,7 +89,7 @@ induction on 1. intros. split*.
 
     % SA-Arrow, S = arrow S1 S2, Q = arrow T1 T2
     % Case analysis on (arrow T1 T2) <: T
-    case H4. 
+    case H4.
       apply ctx_sub_absurd to H2 H7.
 
       % SA-Top, T = top
@@ -115,7 +115,7 @@ induction on 1. intros. split*.
 
       % SA-Top, T = top
       search.
-      
+
       % SA-Refl-TVar, absurd since (arrow T1 T2) is not a type variable
       apply bound_name to H2 H7. case H8.
 

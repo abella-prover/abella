@@ -7,7 +7,7 @@
 Define ctxs nil nil nil.
 Define nabla x, ctxs (trm x :: L) (pr1 x x :: K) (cd1 x x :: notabs x :: J)
       := ctxs L K J.
-      
+
 Define nabla x, name x.
 
 %% properties of correct contexts
@@ -21,7 +21,7 @@ induction on 2. intros. case H2.
 
 Theorem pr1_worlds : forall A B L K J,
   ctxs L K J -> member (pr1 A B) K ->
-    name A /\ A = B /\ member (trm A) L /\ 
+    name A /\ A = B /\ member (trm A) L /\
      member (cd1 A B) J /\ member (notabs A) J.
 induction on 2. intros. case H2.
   case H1. search.
@@ -133,13 +133,13 @@ induction on 2. intros. case H2.
 
   % variable
   apply trm_worlds to H1 H3. search.
-  
+
   % app
   apply IH to H1 H3. apply IH to H1 H4. case H3.
     apply trm_worlds to H1 H7. search.
     search.
     apply IH to _ H7. search.
-             
+
   % abs
   apply IH to _ H3. search.
 
@@ -184,18 +184,18 @@ induction on 3. intros. case H3.
 
   % cd1 var
   apply cd1_worlds to H1 H4. apply pr1_name to H1 H2 H5. search.
-  
+
   % cd1 app
   case H2.
     apply pr1_worlds to H1 H7. case H8.
     apply IH to H1 H7 H5. apply IH to H1 H8 H6. search.
     apply notabs_abs_absurd to H1 H4.
 
-  % cd1 abs    
+  % cd1 abs
   case H2.
     apply pr1_worlds to H1 H5. case H6.
     apply IH to _ H5 H4. search.
-    
+
   % cd1 contract
   case H2.
     apply pr1_worlds to H1 H6. case H7.

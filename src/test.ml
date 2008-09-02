@@ -10,5 +10,5 @@ let tests = "Abella" >:::
     Prover_test.tests ;
     Context_test.tests ;
   ]
-  
+
 let _ = run_test_tt_main tests

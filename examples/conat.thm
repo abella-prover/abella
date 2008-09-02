@@ -23,7 +23,7 @@ Theorem coeq_sym : forall A B,
 coinduction. intros. case H1.
   search.
   apply CH to H2. search.
-  
+
 Theorem coeq_trans : forall A B C,
   coeq A B -> coeq B C -> coeq A C.
 coinduction. intros. case H1.

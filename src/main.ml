@@ -39,13 +39,13 @@ let position lexbuf =
   let char = curr.Lexing.pos_cnum - curr.Lexing.pos_bol in
     if file = "" then
       "" (* lexbuf information is rarely accurate at the toplevel *)
-    else 
+    else
       Format.sprintf ": file %s, line %d, character %d" file line char
 
 let ensure_no_restrictions term =
   if get_max_restriction term > 0 then
     failwith "Cannot use restrictions: *, @ or +"
-      
+
 let ensure_no_free_vars free_vars =
   if free_vars <> [] then
     failwith (sprintf "Unbound variables: %s"
@@ -90,7 +90,7 @@ let ensure_not_capital (name, _) =
   if Tactics.is_capital name then
     failwith (sprintf "Defined predicates may not begin with \
                        a capital letter.")
-    
+
 let check_def (head, body) =
   ensure_no_restrictions head ;
   ensure_no_restrictions body ;
@@ -184,7 +184,7 @@ let rec process lexbuf =
     if !annotate then begin
       incr count ;
       printf "<a name=\"%d\"></a>\n" !count ;
-      printf "<pre class=\"code\">\n"      
+      printf "<pre class=\"code\">\n"
     end ;
     printf "Abella < %!" ;
     let input = Parser.top_command Lexer.token lexbuf in
@@ -274,4 +274,4 @@ let _ =
     | name ->
         interactive := false ;
         process (lexbuf_from_file !command_input)
-        
+

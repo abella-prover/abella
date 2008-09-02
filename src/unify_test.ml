@@ -29,7 +29,7 @@ let assert_raises_unify_failure f =
     assert_failure "Expected UnifyFailure"
   with
     | UnifyFailure _ -> ()
-  
+
 (* Tests from Nadathur's SML implementation *)
 let tests =
   "Unify" >:::
@@ -330,13 +330,13 @@ let tests =
            let evalapp = app ceval [app capp [m; n]; v] in
              right_unify evalAB evalapp ;
              assert_term_pprint_equal "eval (app M N) V" evalAB) ;
-      
+
       "[X = X]" >::
         (fun () ->
            let x = var Logic "X" 0 in
              right_unify x x ;
              assert_term_pprint_equal "X" x) ;
-      
+
       "Loosening of LLambda restriction" >::
         (fun () ->
            let a = var Logic "A" 0 in
@@ -358,7 +358,7 @@ let tests =
       (** This bug was pointed out by David. We should address it once we
           start dealing more with timestamps. But there are also other
           changes we made to unify which neglect timestamps
-          
+
       "[X^0 = Y^1]" >::
         (fun () ->
            let x = var Logic "X" 0 in
@@ -377,7 +377,7 @@ let tests =
              assert_raises_unify_failure
                (fun () ->
                   right_unify ~used x (app (const "f") [a]))) ;
-             
+
       "Logic variables on right should not unify with nominal variables" >::
         (fun () ->
            let a = var Logic "A" 0 in
@@ -421,7 +421,7 @@ let tests =
              assert_term_pprint_equal "x1\\x2\\Y Z x2" x ;
              assert_term_pprint_equal "Y" y ;
              assert_term_pprint_equal "Z" z) ;
-             
+
       "X^0 a^1 = Y^0 (Z^0 a^1)" >::
         (fun () ->
            let a = const ~ts:1 "a" in

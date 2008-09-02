@@ -47,7 +47,7 @@ let eval_clauses_string = "
 let eval_clauses = parse_clauses eval_clauses_string
 
 (* Custom asserts *)
-    
+
 let assert_string_equal =
   assert_equal ~printer:(fun s -> s)
 

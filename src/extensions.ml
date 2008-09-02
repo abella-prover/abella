@@ -21,7 +21,7 @@ let (>>) f g x = g (f x)
 let (|>) x f = f x
 
 let curry f (x,y) = f x y
-let uncurry f x y = f (x,y)  
+let uncurry f x y = f (x,y)
 
 module Option = struct
   let is_some x =
@@ -47,7 +47,7 @@ end
 
 module List = struct
   include List
-    
+
   let mem ?(cmp=(=)) elt list =
     let rec aux list =
       match list with
@@ -81,7 +81,7 @@ module List = struct
         | _::tail -> aux tail
     in
       aux list
-        
+
   let find_all f list =
     filter f list
 
@@ -198,5 +198,5 @@ module Hashtbl = struct
   let assign dest src =
     clear dest ;
     iter (fun a b -> add dest a b) src
-      
+
 end

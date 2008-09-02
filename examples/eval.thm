@@ -62,7 +62,7 @@ induction on 1. intros. case H1.
   search.
   apply IH to H3. apply step_eval_lemma to H2 H4. search.
 
-  
+
 %%
 %% Subject reduction
 %%

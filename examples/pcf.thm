@@ -9,7 +9,7 @@ induction on 1. intros. case H1.
   search.
   search.
   case H2. apply IH to H3 H4. search.
-  case H2. apply IH to H3 H4. search.
+  case H2. search.
   case H2. apply IH to H3 H4. case H5. search.
   case H2. search.
   case H2. search.

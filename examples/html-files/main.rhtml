@@ -19,6 +19,14 @@ function toggle(id, show) {
     document.getElementById(id + "-show").className = (show ? "folded" : "fold-link");
     document.getElementById(id + "-hide").className = (show ? "fold-link" : "folded");
 }
+
+function toggle_all(show) {
+    var i = 1
+    while (document.getElementById("proof" + i)) {
+        toggle("proof" + i, show);
+        i++;
+    }
+}
 </script>
 </head>
 
@@ -36,7 +44,7 @@ function toggle(id, show) {
 
 <div class="section">
 <h2 class="title">Executable Specification</h2>
-<a class="view" href="<%= name %>.mod">[view <%= name %>.mod]</a>
+<a class="view" href="<%= name %>.mod">[View <%= name %>.mod]</a>
 <pre class="command">
 <%= specification %>
 </pre>
@@ -44,7 +52,9 @@ function toggle(id, show) {
 
 <div class="section">
 <h2 class="title">Reasoning</h2>
-<a class="view" href="<%= name %>.thm">[view <%= name %>.thm]</a>
+<a class="view" href="<%= name %>.thm">[View <%= name %>.thm]</a>
+<a class="fold-link" href="javascript:toggle_all(true);">[Show All Proofs]</a>
+<a class="fold-link" href="javascript:toggle_all(false);">[Hide All Proofs]</a>
 <p class="body">
 Click on a command or tactic to see a detailed view of its use.
 </p>

@@ -23,13 +23,12 @@ class Element
     when :comment
       "<span class=\"comment\">#{@text}</span>"
     when :proof_start
-      " <span class=\"fold-link\" id=\"proof#{@ref}-show\">" +
-        "<a href=\"javascript:toggle('proof#{@ref}', true);\">[Show Proof]</a>" +
-        "</span>" +
-        "<span class=\"folded\" id=\"proof#{@ref}-hide\">" +
-        "<a href=\"javascript:toggle('proof#{@ref}', false);\">[Hide Proof]</a>" +
-        "</span>" +
-        "<span class=\"folded\" id=\"proof#{@ref}\">"
+      " " +
+      "<a class=\"fold-link\" id=\"proof#{@ref}-show\"" +
+      " href=\"javascript:toggle('proof#{@ref}', true);\">[Show Proof]</a>" +
+      "<a class=\"folded\" id=\"proof#{@ref}-hide\"" +
+      " href=\"javascript:toggle('proof#{@ref}', false);\">[Hide Proof]</a>" +
+      "<span class=\"folded\" id=\"proof#{@ref}\">"
     when :proof_end
       "</span>"
     else

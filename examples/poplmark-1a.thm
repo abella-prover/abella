@@ -1,5 +1,4 @@
-%% POPLmark 1a
-%% Reflexivity and transitivity for Fsub
+%% POPLmark 1a: Reflexivity and transitivity for Fsub
 
 % We use nominal constants to represent type variable names. This predicate
 % recognizes such nominal constants.

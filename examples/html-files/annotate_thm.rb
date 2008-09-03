@@ -2,12 +2,18 @@ $details = ARGV[0].chomp(".thm")  + "-details.html"
 
 class Element
   attr_accessor :text, :ref, :tag
-  @@count = 0
+  @@input_count = 0
+  @@proof_count = 0
 
-  def initialize(text, tag, counted)
+  def initialize(text, tag)
     @text = text
     @tag = tag
-    @ref = (@@count += 1) if counted
+    
+    if tag == :tactic || tag == :theorem || tag == :definition then
+      @ref = (@@input_count += 1)
+    elsif tag == :proof_start
+      @ref = (@@proof_count += 1)
+    end
   end
 
   def to_s
@@ -16,6 +22,10 @@ class Element
       @text
     when :comment
       "<span class=\"comment\">#{@text}</span>"
+    when :proof_start
+      "\n<div class=\"proof\" id=\"proof#{@ref}\">"
+    when :proof_end
+      "</div>"
     else
       type = (tag == :tactic ? "tactic" : "command")
       "<a href=\"#{$details}##{@ref}\" class=\"#{type}\">#{@text}</a>"
@@ -29,19 +39,43 @@ def convert(string)
   string.split(regex).map do |s|
     case s
     when /^\s*$/m
-      Element.new(s, :whitespace, false)
+      Element.new(s, :whitespace)
     when /^%/
-      Element.new(s, :comment, false)
+      Element.new(s, :comment)
     when /^Theorem/
-      Element.new(s, :theorem, true)
+      Element.new(s, :theorem)
     when /^(Define|CoDefine)/
-      Element.new(s, :definition, true)
+      Element.new(s, :definition)
     else
-      Element.new(s, :tactic, true)
+      Element.new(s, :tactic)
     end
   end
 end
 
+def mark_proofs(array)
+  result = []
+  possible_end = nil
+  
+  array.each do |e|
+    result << e
+    
+    if e.tag == :theorem then
+      result << Element.new("", :proof_start)
+      possible_end = nil
+    elsif e.tag == :tactic then
+      # The old possible end was not really the end of the proof
+      possible_end.tag = :whitespace if possible_end
+
+      # Maybe this is the end of the proof
+      possible_end = Element.new("", :proof_end)
+      result << possible_end
+    end
+  end
+
+  result
+end
+
 file_contents = File.open(ARGV[0]).read
 elements = convert(file_contents)
+elements = mark_proofs(elements)
 print elements.join('')

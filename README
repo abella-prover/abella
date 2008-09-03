@@ -8,10 +8,10 @@ Quick Start
 ===========
 
   1. Compile the program by running "make" from the root directory.
-  
+
   2. Start Abella, passing in the name of the specification file to
      reason about. For example, ./abella examples/eval.mod
-     
+
   3. Consult with the corresponding thm files (e.g. examples/eval.thm)
      for examples of theorems and their proofs. Type in the examples
      by hand or use the included emacs mode to step through the

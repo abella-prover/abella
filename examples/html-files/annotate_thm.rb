@@ -8,7 +8,7 @@ class Element
   def initialize(text, tag)
     @text = text
     @tag = tag
-    
+
     if tag == :tactic || tag == :theorem || tag == :definition then
       @ref = (@@input_count += 1)
     elsif tag == :proof_start
@@ -26,7 +26,7 @@ class Element
       " <span class=\"fold-link\" id=\"proof#{@ref}-show\">" +
         "<a href=\"javascript:toggle('proof#{@ref}', true);\">[Show Proof]</a>" +
         "</span>" +
-        "<span class=\"folded\" id=\"proof#{@ref}-hide\">" + 
+        "<span class=\"folded\" id=\"proof#{@ref}-hide\">" +
         "<a href=\"javascript:toggle('proof#{@ref}', false);\">[Hide Proof]</a>" +
         "</span>" +
         "<span class=\"folded\" id=\"proof#{@ref}\">"
@@ -41,7 +41,7 @@ end
 
 def convert(string)
   regex = /(%.*?\n|(?:Theorem|CoDefine|Define|coinduction|induction|apply|cut|inst|case|assert|exists|clear|search|split|split\*|unfold|intros|skip|abort|undo).*?\.)/m
-  
+
   string.split(regex).map do |s|
     case s
     when /^\s*$/m
@@ -61,10 +61,10 @@ end
 def mark_proofs(array)
   result = []
   possible_end = nil
-  
+
   array.each do |e|
     result << e
-    
+
     if e.tag == :theorem then
       result << Element.new("", :proof_start)
       possible_end = nil

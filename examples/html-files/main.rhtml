@@ -13,6 +13,13 @@
 <link rel="icon" href="../images/favicon.ico" type="image/x-icon" />
 <link rel="shortcut icon" href="../images/favicon.ico"
         type="image/x-icon" />
+<script type="text/javascript">
+function toggle(id, show) {
+    document.getElementById(id).className = (show ? "proof" : "folded");
+    document.getElementById(id + "-show").className = (show ? "folded" : "fold-link");
+    document.getElementById(id + "-hide").className = (show ? "fold-link" : "folded");
+}
+</script>
 </head>
 
 <body>

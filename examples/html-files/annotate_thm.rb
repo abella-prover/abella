@@ -23,9 +23,15 @@ class Element
     when :comment
       "<span class=\"comment\">#{@text}</span>"
     when :proof_start
-      "\n<div class=\"proof\" id=\"proof#{@ref}\">"
+      " <span class=\"fold-link\" id=\"proof#{@ref}-show\">" +
+        "<a href=\"javascript:toggle('proof#{@ref}', true);\">[Show Proof]</a>" +
+        "</span>" +
+        "<span class=\"folded\" id=\"proof#{@ref}-hide\">" + 
+        "<a href=\"javascript:toggle('proof#{@ref}', false);\">[Hide Proof]</a>" +
+        "</span>" +
+        "<span class=\"folded\" id=\"proof#{@ref}\">"
     when :proof_end
-      "</div>"
+      "</span>"
     else
       type = (tag == :tactic ? "tactic" : "command")
       "<a href=\"#{$details}##{@ref}\" class=\"#{type}\">#{@text}</a>"

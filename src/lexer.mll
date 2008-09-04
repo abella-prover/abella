@@ -89,6 +89,7 @@ rule token = parse
 | "assert"           { ASSERT }
 | "keep"             { KEEP }
 | "clear"            { CLEAR }
+| "monotone"         { MONOTONE }
 
 | number as n        { NUM (int_of_string n) }
 | name as n          { ID n }

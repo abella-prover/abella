@@ -13,6 +13,7 @@ Document 'cut' now including all operators of sequent calculus
 split now works on n-ary conjunctions
 Document 'path' example
 What to do about alwen's sn example?
+Document 'monotone' tactic
 
 
 Future

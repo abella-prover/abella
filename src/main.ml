@@ -139,6 +139,7 @@ let rec process_proof name lexbuf =
                    (List.map fst sequent.vars)) ;
               assert_hyp t
           | Exists(t) -> exists t
+          | Monotone(h, t) -> monotone h t
           | Clear(hs) -> clear hs
           | Search(limit) -> search ~limit ~interactive:!interactive ()
           | Split -> split false

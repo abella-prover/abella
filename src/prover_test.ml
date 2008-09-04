@@ -76,6 +76,27 @@ let tests =
              | _ -> assert_failure "Expected one hypothesis"
         ) ;
 
+      "Monotone test" >::
+        (fun () ->
+           setup_prover () ;
+
+           sequent.hyps <- [("H1", freshen "{L, E |- pred A}*")] ;
+
+           monotone "H1" (parse_term "E :: K") ;
+
+           assert_n_subgoals 2 ;
+           assert_pprint_equal
+             "forall X, member X (E :: L) -> member X (E :: K)"
+             sequent.goal ;
+
+           skip () ;
+           assert_n_subgoals 1 ;
+           match sequent.hyps with
+             | [(_, _); (_, hyp)] ->
+                 assert_pprint_equal "{K, E |- pred A}*" hyp
+             | _ -> assert_failure "Expected two hypotheses"
+        ) ;
+
       "Split test" >::
         (fun () ->
            setup_prover ()

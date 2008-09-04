@@ -527,6 +527,29 @@ let assert_hyp term =
     if search_goal sequent.goal then next_subgoal ()
 
 
+(* Object logic monotone *)
+
+let monotone h t =
+  let ht = get_hyp h in
+    match ht with
+      | Obj(obj, r) ->
+          let t = localize_term t in
+          let new_obj = { obj with context = Context.normalize [t] } in
+            add_cases_to_subgoals
+              [{ bind_state = get_bind_state () ;
+                 new_vars = [] ;
+                 new_hyps = [Obj(new_obj, r)] }] ;
+            sequent.goal <-
+              Binding(Forall, ["X"],
+                      Arrow(member (Term.const "X")
+                              (Context.context_to_term obj.context),
+                            member (Term.const "X")
+                              t)) ;
+            if search_goal sequent.goal then next_subgoal ()
+      | _ -> failwith
+          "Monotone can only be used on hypotheses of the form {...}"
+
+
 (* Theorem *)
 
 let theorem thm =

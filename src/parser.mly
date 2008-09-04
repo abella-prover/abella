@@ -19,7 +19,7 @@
 
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
-%token SKIP UNDO ABORT COIND LEFT RIGHT
+%token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR
 %token THEOREM DEFINE PLUS CODEFINE
 %token COLON RARROW FORALL NABLA EXISTS STAR AT OR AND LBRACK RBRACK
@@ -127,6 +127,7 @@ command:
   | UNDO DOT                            { Types.Undo }
   | UNFOLD DOT                          { Types.Unfold }
   | CLEAR id_list DOT                   { Types.Clear($2) }
+  | MONOTONE ID WITH term DOT           { Types.Monotone($2, $4) }
   | EOF                                 { raise End_of_file }
 
 id_list:

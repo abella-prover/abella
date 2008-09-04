@@ -69,45 +69,16 @@ intros. unfold. intros.
 case H1. case H2.
 apply H4 to H3. apply H5 to H6. search.
 
-Theorem weakening1 : forall L K P,
-  extend L K -> {L |- P} -> {K |- P}.
-induction on 2. intros. case H2.
-  case H1. apply H4 to H3. search.
-
-  % type
-  search.
-  apply IH to H1 H3. apply IH to H1 H4. search.
-
-  % of
-  apply IH to H1 H3. apply IH to H1 H4. search.
-  apply IH to H1 H3.
-    apply extend_cons2 to H1 with X = of n1 A. apply IH to H6 H4.
-      search.
-
-  % step
-  apply IH to H1 H3. search.
-  apply IH to H1 H3. search.
-  search.
-  apply IH to H1 H3. search.
-
-  % cp
-  apply IH to H1 H3. apply IH to H1 H4. search.
-  apply IH to H1 H3.
-    apply extend_cons2 to H1 with X = cp n1 n2. apply IH to H6 H4.
-      search.
-
-Theorem weakening : forall L K,
-  extend L K -> forall P, {L |- P} -> {K |- P}.
-intros. apply weakening1 to H1 H2. search.
-
 % reducibility is preserved under weakening of contexts
 Theorem reduce_ctx_weak : forall L K M A,
   ctx L -> ctx K -> extend L K -> reduce L M A -> reduce K M A.
 intros. case H4.
-  apply weakening1 to H3 H6. search.
+  monotone H6 with K. case H3. search.
+    search.
   unfold.
     search.
-    apply weakening1 to H3 H6. search.
+    monotone H6 with K. case H3. search.
+      search.
     intros.
       apply extend_trans to H3 H9. apply H7 to H8 H11 H10. search.
 
@@ -261,7 +232,7 @@ intros. case H5 (keep).
           assert neutral (app M U1).
             unfold. intros. case H17.
             assert {K |- of (app M U1) B}.
-              apply weakening to H10. apply H18 to H4.
+              monotone H4 with K. case H10. search.
                 apply reduce_of to H14. search.
               apply IH1 to H9 H17 H18 H8 H16. search.
         apply H13 to H12 H11. search.
@@ -362,12 +333,11 @@ intros. unfold.
     apply reduce_sn to H8 H12.
     apply reduce_sn to H9 H14.
     apply reduce_sn to H8 H6.
-    apply weakening to H5. apply H18 to  H2.
-
+    monotone H2 with K. case H5. search.
     assert forall V K1, ctx K1 -> extend K K1 -> reduce K1 V A -> reduce K1 (M V) B.
-           intros. apply extend_trans to H5 H21. apply H3 to H20 H23 H22. search.
+           intros. apply extend_trans to H5 H20. apply H3 to H19 H22 H21. search.
 
-    apply abs_step_reduce_lemma to H4 H17 H16 H6 H20 H19 with U = U, M = M, A = A, B = B, L = K, c = n1.
+    apply abs_step_reduce_lemma to H4 H17 H16 H6 H19 H18 with L = K.
     search.
 
 
@@ -600,10 +570,9 @@ induction on 5. intros. case H5 (keep).
 
   assert {K |- of (abs A1 R1) (arrow A1 B)}.
     apply extend_cons2 to H3 with X = of n1 A1.
-    apply weakening to H12.
-    apply H13 to H8.
+    monotone H8 with (of n1 A1 :: K). case H12. search.
     inst H10 with n2 = n1.
-    apply of_subst to _ _ H12 _ H8 H15.
+    apply of_subst to _ _ H12 _ H8 H14.
     apply subst_cons to _ _ _ H4 with A = A1. search.
     search.
 

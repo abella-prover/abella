@@ -151,6 +151,7 @@ let stateless_case_to_case case =
     new_vars = case.stateless_new_vars ;
     new_hyps = case.stateless_new_hyps }
 
+(* This handles asyncrony on the left *)
 let rec recursive_metaterm_case ~used term =
   match normalize term with
     | True -> Some empty_case
@@ -326,8 +327,14 @@ let case ~used ~clauses ~defs ~global_support term =
       | Pred(_, CoSmaller _) -> failwith "Cannot case analyze hypothesis\
                                           \ with coinductive restriction"
       | Pred(p, r) -> def_case ~wrapper:(predicate_wrapper r (term_sig p)) p
-      | Or _ -> List.map stateless_case_to_case
-          (List.filter_map (recursive_metaterm_case ~used) (or_to_list term))
+      | Or _ ->
+          List.filter_map
+            (fun g ->
+               set_bind_state initial_bind_state ;
+               match recursive_metaterm_case ~used g with
+                 | None -> None
+                 | Some c -> Some (stateless_case_to_case c))
+            (or_to_list term)
       | Eq _
       | And _
       | Binding(Exists, _, _)

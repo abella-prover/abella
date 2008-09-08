@@ -435,6 +435,14 @@ let case_tests =
                    assert_pprint_equal "{C}" hyp3 ;
                | _ -> assert_failure "Pattern mismatch") ;
 
+      "OR branches should not share unifiers" >::
+        (fun () ->
+           let term = freshen "A = B \\/ pred A B" in
+             match case term with
+               | [{new_hyps=[]} ; {new_hyps=[hyp]}] ->
+                   assert_pprint_equal "pred A B" hyp ;
+               | _ -> assert_failure "Pattern mismatch") ;
+
       "On AND" >::
         (fun () ->
            let term = freshen "{A} /\\ {B}" in

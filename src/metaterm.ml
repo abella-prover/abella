@@ -277,9 +277,6 @@ let reduce_coinductive_restriction r =
 let add_to_context elt obj =
   {obj with context = Context.add elt obj.context}
 
-let add_context ctx obj =
-  {obj with context = Context.union ctx obj.context}
-
 let def_sig (term, _) =
   let rec aux term =
     match term with

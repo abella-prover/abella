@@ -14,8 +14,8 @@ type      app       tm -> tm -> tm.
 type      abs       (tm -> tm) -> tm.
 
 type      done      path.
-type      fst       path -> path.
-type      snd       path -> path.
+type      left      path -> path.
+type      right     path -> path.
 type      bnd       (path -> path) -> path.
 
 type      tm        tm -> o.

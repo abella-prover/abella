@@ -61,7 +61,7 @@ Theorem path_app : forall L K M N Y,
   ctxs L K -> (forall P, {K |- path (app M N) P} -> {K |- path Y P}) ->
     exists YM YN, Y = app YM YN.
 intros.
-assert {K |- path (app M N) (fst done)}.
+assert {K |- path (app M N) (left done)}.
 apply H2 to H3.
 case H4.
   apply ctxs_member2 to H1 H5. case H7.
@@ -95,7 +95,7 @@ induction on 2. intros. case H2.
     % Apply the IH to M
     assert forall P, {K |- path M P} -> {K |- path YM P}.
       intros.
-      assert {K |- path (app M N) (fst P)}.
+      assert {K |- path (app M N) (left P)}.
       apply H3 to H7. case H8.
         apply ctxs_member2 to H1 H9. case H10.
         search.
@@ -104,7 +104,7 @@ induction on 2. intros. case H2.
     % Apply the IH to M
     assert forall P, {K |- path N P} -> {K |- path YN P}.
       intros.
-      assert {K |- path (app M N) (snd P)}.
+      assert {K |- path (app M N) (right P)}.
       apply H3 to H8. case H9.
         apply ctxs_member2 to H1 H10. case H11.
         search.

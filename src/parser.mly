@@ -25,7 +25,7 @@
 %token COLON RARROW FORALL NABLA EXISTS STAR AT OR AND LBRACK RBRACK
 
 %token <int> NUM
-%token <string> ID
+%token <string> STRINGID
 %token EOF
 
 /* Lower */
@@ -57,6 +57,42 @@
 
 %%
 
+hyp:
+  | STRINGID                            { $1 }
+
+id:
+  | STRINGID                            { $1 }
+  | IND                                 { "induction" }
+  | INST                                { "inst" }
+  | APPLY                               { "apply" }
+  | CASE                                { "case" }
+  | SEARCH                              { "search" }
+  | TO                                  { "to" }
+  | ON                                  { "on" }
+  | WITH                                { "with" }
+  | INTROS                              { "intros" }
+  | CUT                                 { "cut" }
+  | ASSERT                              { "assert" }
+  | SKIP                                { "skip" }
+  | UNDO                                { "undo" }
+  | ABORT                               { "abort" }
+  | COIND                               { "coinduction" }
+  | LEFT                                { "left" }
+  | RIGHT                               { "right" }
+  | MONOTONE                            { "monotone" }
+  | SPLIT                               { "split" }
+  | UNFOLD                              { "unfold" }
+  | KEEP                                { "keep" }
+  | CLEAR                               { "clear" }
+  | THEOREM                             { "Theorem" }
+  | DEFINE                              { "Define" }
+  | CODEFINE                            { "CoDefine" }
+
+/* These would cause significant shift/reduce conflicts */
+/*  | FORALL                              { "forall" }  */
+/*  | NABLA                               { "nabla" }   */
+/*  | EXISTS                              { "exists" }  */
+
 contexted_term:
   | context TURN term                   { Metaterm.context_obj $1 $3 }
   | term                                { Metaterm.obj $1 }
@@ -68,18 +104,18 @@ context:
 term:
   | term IMP term                       { Term.binop "=>" $1 $3 }
   | term CONS term                      { Term.binop "::" $1 $3 }
-  | ID BSLASH term                      { Term.abstract $1 $3 }
+  | id BSLASH term                      { Term.abstract $1 $3 }
   | exp exp_list                        { Term.app $1 $2 }
   | exp                                 { $1 }
 
 exp:
   | LPAREN term RPAREN                  { $2 }
-  | ID                                  { Term.const $1 }
+  | id                                  { Term.const $1 }
 
 exp_list:
   | exp exp_list                        { $1::$2 }
   | exp                                 { [$1] }
-  | ID BSLASH term                      { [Term.abstract $1 $3] }
+  | id BSLASH term                      { [Term.abstract $1 $3] }
 
 clauses:
   | clause clauses                      { $1::$2 }
@@ -105,14 +141,14 @@ def:
 command:
   | IND ON num_list DOT                 { Types.Induction($3) }
   | COIND DOT                           { Types.CoInduction }
-  | APPLY ID TO id_list DOT             { Types.Apply($2, $4, []) }
-  | APPLY ID TO id_list WITH withs DOT  { Types.Apply($2, $4, $6) }
-  | APPLY ID WITH withs DOT             { Types.Apply($2, [], $4) }
-  | APPLY ID DOT                        { Types.Apply($2, [], []) }
-  | CUT ID WITH ID DOT                  { Types.Cut($2, $4) }
-  | INST ID WITH ID EQ term DOT         { Types.Inst($2, $4, $6) }
-  | CASE ID DOT                         { Types.Case($2, false) }
-  | CASE ID LPAREN KEEP RPAREN DOT      { Types.Case($2, true) }
+  | APPLY id TO hyp_list DOT            { Types.Apply($2, $4, []) }
+  | APPLY id TO hyp_list WITH withs DOT { Types.Apply($2, $4, $6) }
+  | APPLY id WITH withs DOT             { Types.Apply($2, [], $4) }
+  | APPLY id DOT                        { Types.Apply($2, [], []) }
+  | CUT hyp WITH hyp DOT                { Types.Cut($2, $4) }
+  | INST hyp WITH id EQ term DOT        { Types.Inst($2, $4, $6) }
+  | CASE hyp DOT                        { Types.Case($2, false) }
+  | CASE hyp LPAREN KEEP RPAREN DOT     { Types.Case($2, true) }
   | ASSERT metaterm DOT                 { Types.Assert($2) }
   | EXISTS term DOT                     { Types.Exists($2) }
   | SEARCH DOT                          { Types.Search(None) }
@@ -126,21 +162,21 @@ command:
   | ABORT DOT                           { Types.Abort }
   | UNDO DOT                            { Types.Undo }
   | UNFOLD DOT                          { Types.Unfold }
-  | CLEAR id_list DOT                   { Types.Clear($2) }
-  | MONOTONE ID WITH term DOT           { Types.Monotone($2, $4) }
+  | CLEAR hyp_list DOT                  { Types.Clear($2) }
+  | MONOTONE hyp WITH term DOT          { Types.Monotone($2, $4) }
   | EOF                                 { raise End_of_file }
 
-id_list:
-  | ID id_list                          { $1::$2 }
-  | ID                                  { [$1] }
+hyp_list:
+  | hyp hyp_list                        { $1::$2 }
+  | hyp                                 { [$1] }
 
 num_list:
   | NUM num_list                        { $1::$2 }
   | NUM                                 { [$1] }
 
 withs:
-  | ID EQ term COMMA withs              { ($1, $3) :: $5 }
-  | ID EQ term                          { [($1, $3)] }
+  | id EQ term COMMA withs              { ($1, $3) :: $5 }
+  | id EQ term                          { [($1, $3)] }
 
 metaterm:
   | TRUE                                { Metaterm.True }
@@ -162,7 +198,7 @@ binding_list:
   | binding                             { [$1] }
 
 binding:
-  | ID                                  { $1 }
+  | id                                  { $1 }
 
 restriction:
   |                                     { Metaterm.Irrelevant }
@@ -183,7 +219,7 @@ pluses:
   | PLUS                                { 1 }
 
 top_command :
-  | THEOREM ID COLON metaterm DOT       { Types.Theorem($2, $4) }
+  | THEOREM id COLON metaterm DOT       { Types.Theorem($2, $4) }
   | THEOREM metaterm DOT                { Types.Theorem("Goal", $2) }
   | DEFINE def                          { Types.Define($2) }
   | CODEFINE def                        { Types.CoDefine($2) }

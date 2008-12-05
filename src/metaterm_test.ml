@@ -207,6 +207,13 @@ let tests =
              assert_pprint_equal "forall A1, A -> (forall A2, A1 = A2)"
                (normalize t) );
 
+      "Meta right unify - equality" >::
+        (fun () ->
+           let t1 = freshen "A = B" in
+           let t2 = freshen "?1 = ?2" in
+             meta_right_unify t1 t2 ;
+             assert_pprint_equal "A = B" t2) ;
+
       "Meta right unify - pred" >::
         (fun () ->
            let t1 = freshen "foo A" in

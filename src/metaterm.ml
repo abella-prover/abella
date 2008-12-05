@@ -494,6 +494,11 @@ open Unify
 
 let rec meta_right_unify t1 t2 =
   match t1, t2 with
+    | True, True -> ()
+    | False, False -> ()
+    | Eq(l1, r1), Eq(l2, r2) ->
+        right_unify l1 l2 ;
+        right_unify r1 r2
     | Obj(o1, _), Obj(o2, _) when Context.equiv o1.context o2.context ->
         right_unify o1.term o2.term
     | Pred(t1, _), Pred(t2, _) ->

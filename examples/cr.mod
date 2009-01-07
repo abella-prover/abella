@@ -1,3 +1,9 @@
+%% Takahashi's proof of Church-Rosser using complete developments
+%% Masako Takahashi, "Parallel reduction in lambda-calculus",
+%%   Information and Computation 118(1), April 1995.
+%%
+%% Abella proof contributed by Randy Pollack
+
 % pure lambda terms
 trm (app M N) :- trm M, trm N.
 trm (abs R) :- pi x\ trm x => trm (R x).

@@ -3,9 +3,6 @@
 CoDefine conat z.
 CoDefine conat (s A) := conat A.
 
-Define nat z.
-Define nat (s A) := nat A.
-
 CoDefine coeq z z.
 CoDefine coeq (s A) (s B) := coeq A B.
 
@@ -14,18 +11,6 @@ CoDefine inf (s A) := inf A.
 CoDefine coadd (s A) B (s C) := coadd A B C.
 CoDefine coadd z (s B) (s C) := coadd z B C.
 CoDefine coadd z z z.
-
-Theorem conat_nat_or_inf : forall B,
-  conat B -> (nat B -> false) -> inf B.
-coinduction. intros. case H1.
-  apply H2 to _.
-  assert (nat A -> false).
-    intros. apply H2 to _.
-    apply CH to H3 H4.
-
-
-
-...
 
 Theorem coeq_refl : forall A,
   conat A -> coeq A A.

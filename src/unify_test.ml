@@ -434,4 +434,13 @@ let tests =
              assert_term_pprint_equal "Y" y ;
              assert_term_pprint_equal "Z" z) ;
 
+      "f\\x\\f x = f\\x\\f (Z f x)" >::
+        (fun () ->
+           let z = var Eigen "Z" 0 in
+           let used = [("Z", z)] in
+             left_unify ~used
+               (2 // app (db 1) [db 2])
+               (2 // app (db 1) [app z [db 1; db 2]]) ;
+             assert_term_pprint_equal "x1\\x2\\x2" z) ;
+
     ]

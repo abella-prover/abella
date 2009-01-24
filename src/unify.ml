@@ -542,6 +542,15 @@ and unify_app_term h1 a1 t1 t2 = match observe h1,observe t2 with
             failwith "logic variable on the left (5)"
         | _ -> assert false
       end
+  | DB n1, App (h2,a2) ->
+      begin match observe h2 with
+        | DB n2 when n1 == n1 ->
+            unify_list a1 a2
+        | Var v when variable v.tag ->
+            let m = List.length a2 in
+              bind h2 (makesubst h2 t1 a2 m)
+        | _ -> fail (ConstClash (h1,h2))
+      end
   | _, Lam (n,t2) ->
       let h1' = lift h1 n in
       let a1' = lift_args a1 n in

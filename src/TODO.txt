@@ -6,18 +6,9 @@ Separation theorems from Barendregt
 Lustre equation reordering
 Lazy lambda calculus by Abramsky
 
-
-Next Release
-============
-Document 'cut' now including all operators of sequent calculus
-split now works on n-ary conjunctions
-Document 'path' example
+Later
+=====
 What to do about alwen's sn example?
-Document 'monotone' tactic
-Tactic names no longer conflict with term names during parsing
-Fixed a unification bug when case splitting on an disjunction.
-Document 'pi' example
-
 
 Future
 ======

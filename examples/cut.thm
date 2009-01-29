@@ -1,4 +1,4 @@
-%% Cut elimination for sequent calculus
+%% Cut admissibility for sequent calculus
 %%
 %% An object level sequent A_1, ..., A_n |- C is encoded as
 %% {hyp A_1, ..., hyp A_n |- conc C}. We use the ctx meta-level

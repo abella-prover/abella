@@ -1,0 +1,38 @@
+%% Type uniqueness for the simply-typed lambda-calculus
+%% A single logic approach
+
+Theorem member_prune : forall L E, nabla x,
+  member (E x) L -> exists F, E = x\F.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+
+Define ctx nil.
+Define nabla x, ctx (bind x A :: L) := ctx L.
+
+Define nabla x, of (L x) x A := nabla x, member (bind x A) (L x).
+Define of L (app M N) B := exists A, of L M (arr A B) /\ of L N A.
+Define of L (abs A R) (arr A B) := nabla x, of (bind x A :: L) (R x) B.
+
+Theorem ctx_uniq : forall L E T1 T2,
+  ctx L -> member (bind E T1) L -> member (bind E T2) L -> T1 = T2.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    case H3.
+      search.
+      apply member_prune to H5.
+    case H3.
+      apply member_prune to H5.
+      apply IH to H4 H5 H6. search.
+
+Theorem type_uniq : forall L E T1 T2,
+  ctx L -> of L E T1 -> of L E T2 -> T1 = T2.
+induction on 2. intros. case H2.
+  case H3.
+    apply ctx_uniq to H1 H4 H5. search.
+  case H3.
+    apply IH to H1 H4 H6. search.
+  case H3.
+    apply IH to _ H4 H5. search.

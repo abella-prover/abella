@@ -70,7 +70,8 @@ induction on 1. induction on 2. intros.
   case H2 (keep). case H4. search.
 
   % A = s N, B = s N1
-  apply IH to H7 H2. apply IH1 to H1 H8. clear IH IH1.
+  apply IH to H7 H2. apply IH1 to H1 H8.
+  clear IH IH1 H1 H2 H7 H8.
 
     % X = z
     case H3. search.

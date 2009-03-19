@@ -1,7 +1,7 @@
 %% Equivalence of single and double eigenvariable definitions of copy
 
-Theorem member_nabla : forall L E, nabla x,
-  member (E x) L -> exists E1, E = (y\E1).
+Theorem member_fresh : forall L E, nabla x,
+  member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
   search.
   apply IH to H2. search.
@@ -20,7 +20,7 @@ Theorem copy2_align : forall M N L, nabla z,
 induction on 1. intros. case H1.
   case H2.
     search.
-    apply member_nabla to H3. search.
+    apply member_fresh to H3. search.
   apply IH to H2. apply IH to H3. search.
   apply IH to H2. search.
 
@@ -48,12 +48,7 @@ induction on 2. intros. case H2.
 Theorem copy_align : forall M N L, nabla x y,
   {L, copy x y |- copy (M x) (N y)} ->
     nabla z, {L, copy z z |- copy (M z) (N z)}.
-induction on 1. intros. case H1.
-  case H2.
-    search.
-    apply member_nabla to H3. apply member_nabla to H3. search.
-  apply IH to H2. apply IH to H3. search.
-  apply IH to H2. search.
+intros. inst H1 with n2 = n1. search.
 
 Theorem ctxs_member2 : forall X Y L K,
   ctxs L K -> member (copy2 X Y) K -> member (copy X Y) L.

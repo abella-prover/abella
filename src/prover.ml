@@ -37,6 +37,7 @@ type sequent = {
   mutable hyps : (id * metaterm) list ;
   mutable goal : metaterm ;
   mutable count : int ;
+  mutable name : string ;
 }
 
 let sequent = {
@@ -44,7 +45,30 @@ let sequent = {
   hyps = [] ;
   goal = termobj (const "placeholder") ;
   count = 0 ;
+  name = "" ;
 }
+
+let extend_name i =
+  if sequent.name = "" then
+    sequent.name <- string_of_int i
+  else
+    sequent.name <- sequent.name ^ "." ^ (string_of_int i)
+
+let annotate gs =
+  let rec aux i gs =
+    match gs with
+      | [] -> []
+      | g::rest ->
+          (fun () -> g (); extend_name i) :: aux (i+1) rest
+  in
+  let n = List.length gs in
+    if n < 2 then
+      gs
+    else
+      aux 1 gs
+
+let add_subgoals new_subgoals =
+  subgoals := annotate new_subgoals @ !subgoals
 
 let localize_metaterm term =
   term
@@ -65,7 +89,8 @@ let set_sequent other =
   sequent.vars <- other.vars ;
   sequent.hyps <- other.hyps ;
   sequent.goal <- other.goal ;
-  sequent.count <- other.count
+  sequent.count <- other.count ;
+  sequent.name <- other.name
 
 let fresh_hyp_name () =
   sequent.count <- sequent.count + 1 ;
@@ -194,15 +219,13 @@ let format_hyps fmt =
   List.iter (format_hyp fmt) sequent.hyps
 
 let format_other_subgoals fmt =
-  let n = ref 1 in
-    save_undo_state () ;
-    List.iter (fun set_state ->
-                 set_state () ;
-                 incr n ;
-                 fprintf fmt "@[<1>subgoal %d is:@\n%a@]@\n@\n"
-                   !n format_metaterm (normalize sequent.goal))
-      !subgoals ;
-    undo ()
+  save_undo_state () ;
+  List.iter (fun set_state ->
+               set_state () ;
+               fprintf fmt "@[<1>Subgoal %s is:@\n%a@]@\n@\n"
+                 sequent.name format_metaterm (normalize sequent.goal))
+    !subgoals ;
+  undo ()
 
 let format_sequent fmt =
   pp_open_box fmt 2 ;
@@ -214,7 +237,10 @@ let format_sequent fmt =
 
 let format_display fmt =
   pp_open_box fmt 0 ;
-  fprintf fmt "%d subgoal(s).@\n@\n" (1 + List.length !subgoals) ;
+  if sequent.name = "" then
+    fprintf fmt "@\n"
+  else
+    fprintf fmt "Subgoal %s:@\n@\n" sequent.name;
   format_sequent fmt ;
   fprintf fmt "@\n@\n" ;
   format_other_subgoals fmt ;
@@ -371,9 +397,9 @@ let apply h args ws =
               List.iter add_hyp case.stateless_new_hyps
   in
     if resulting_case = None then
-      subgoals := obligation_subgoals @ !subgoals
+      add_subgoals obligation_subgoals
     else
-      subgoals := obligation_subgoals @ (resulting_subgoal :: !subgoals ) ;
+      add_subgoals (obligation_subgoals @ [resulting_subgoal]) ;
     next_subgoal ()
 
 
@@ -400,7 +426,7 @@ let add_cases_to_subgoals cases =
         Term.set_bind_state case.bind_state ;
         update_self_bound_vars () ;
   in
-    subgoals := List.append (List.map case_to_subgoal cases) !subgoals
+    add_subgoals (List.map case_to_subgoal cases)
 
 let case ?(keep=false) str =
   let term = get_hyp str in
@@ -594,7 +620,7 @@ let split propogate_result =
   in
   let conjs = and_to_list sequent.goal in
     if List.length conjs = 1 then failwith "Needless use of split" ;
-    subgoals := (accum_goals (and_to_list sequent.goal) []) @ !subgoals ;
+    add_subgoals (accum_goals (and_to_list sequent.goal) []) ;
     next_subgoal ()
 
 (* Left and right side of disjunction *)
@@ -615,7 +641,7 @@ let right () =
 let unfold () =
   let goal = unfold ~defs:(defs_to_list defs) sequent.goal in
   let goals = and_to_list goal in
-    subgoals := (List.map goal_to_subgoal goals) @ !subgoals;
+    add_subgoals (List.map goal_to_subgoal goals) ;
     next_subgoal ()
 
 (* Exists *)

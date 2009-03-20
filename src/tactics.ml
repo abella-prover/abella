@@ -137,6 +137,7 @@ type case = {
   bind_state : bind_state ;
   new_vars : (id * term) list ;
   new_hyps : metaterm list ;
+  new_goal : metaterm option ;
 }
 
 type stateless_case = {
@@ -149,7 +150,8 @@ let empty_case = { stateless_new_vars = [] ; stateless_new_hyps = [] }
 let stateless_case_to_case case =
   { bind_state = get_bind_state () ;
     new_vars = case.stateless_new_vars ;
-    new_hyps = case.stateless_new_hyps }
+    new_hyps = case.stateless_new_hyps ;
+    new_goal = None }
 
 (* This handles asyncrony on the left *)
 let rec recursive_metaterm_case ~used term =
@@ -254,7 +256,8 @@ let case ~used ~clauses ~defs ~global_support term =
               | Some case ->
                   [{ bind_state = get_bind_state () ;
                      new_vars = case.stateless_new_vars @ used ;
-                     new_hyps = List.map wrapper case.stateless_new_hyps }]
+                     new_hyps = List.map wrapper case.stateless_new_hyps ;
+                     new_goal = None }]
         else
           []
     in
@@ -301,7 +304,8 @@ let case ~used ~clauses ~defs ~global_support term =
                  set_bind_state initial_bind_state ;
                  Some { bind_state = bind_state ;
                         new_vars = new_vars ;
-                        new_hyps = wrapped_body }
+                        new_hyps = wrapped_body ;
+                        new_goal = None }
              else
                None)
   in
@@ -317,7 +321,8 @@ let case ~used ~clauses ~defs ~global_support term =
         let member_case =
           { bind_state = get_bind_state () ;
             new_vars = [] ;
-            new_hyps = [obj_to_member obj] }
+            new_hyps = [obj_to_member obj] ;
+            new_goal = None }
         in
           member_case :: clause_cases
   in

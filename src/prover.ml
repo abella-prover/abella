@@ -423,6 +423,10 @@ let add_cases_to_subgoals cases =
         set_sequent saved_sequent ;
         List.iter add_if_new_var case.new_vars ;
         List.iter add_hyp case.new_hyps ;
+        begin match case.new_goal with
+          | None -> ()
+          | Some g -> sequent.goal <- g
+        end ;
         Term.set_bind_state case.bind_state ;
         update_self_bound_vars () ;
   in
@@ -545,13 +549,25 @@ let coinduction () =
 
 let assert_hyp term =
   let term = localize_metaterm term in
-    add_cases_to_subgoals
-      [{ bind_state = get_bind_state () ;
-         new_vars = [] ;
-         new_hyps = [term] }] ;
+  let delayed_subgoal =
+    { bind_state = get_bind_state () ;
+      new_vars = [] ;
+      new_hyps = [term] ;
+      new_goal = Some sequent.goal }
+  in
     sequent.goal <- term ;
-    if search_goal sequent.goal then next_subgoal ()
-
+    if search_goal sequent.goal then
+      add_cases_to_subgoals [delayed_subgoal]
+    else begin
+      let new_subgoal =
+        { bind_state = get_bind_state () ;
+          new_vars = [] ;
+          new_hyps = [] ;
+          new_goal = None }
+      in
+        add_cases_to_subgoals [new_subgoal; delayed_subgoal]
+    end ;
+    next_subgoal ()
 
 (* Object logic monotone *)
 
@@ -561,17 +577,30 @@ let monotone h t =
       | Obj(obj, r) ->
           let t = localize_term t in
           let new_obj = { obj with context = Context.normalize [t] } in
-            add_cases_to_subgoals
-              [{ bind_state = get_bind_state () ;
-                 new_vars = [] ;
-                 new_hyps = [Obj(new_obj, r)] }] ;
+          let delayed_subgoal =
+            { bind_state = get_bind_state () ;
+              new_vars = [] ;
+              new_hyps = [Obj(new_obj, r)] ;
+              new_goal = Some sequent.goal }
+          in
             sequent.goal <-
               Binding(Forall, ["X"],
                       Arrow(member (Term.const "X")
                               (Context.context_to_term obj.context),
                             member (Term.const "X")
                               t)) ;
-            if search_goal sequent.goal then next_subgoal ()
+            if search_goal sequent.goal then
+              add_cases_to_subgoals [delayed_subgoal]
+            else begin
+              let new_subgoal =
+                { bind_state = get_bind_state () ;
+                  new_vars = [] ;
+                  new_hyps = [] ;
+                  new_goal = None }
+              in
+                add_cases_to_subgoals [new_subgoal; delayed_subgoal]
+            end ;
+            next_subgoal ()
       | _ -> failwith
           "Monotone can only be used on hypotheses of the form {...}"
 

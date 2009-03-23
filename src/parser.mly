@@ -87,6 +87,7 @@ id:
   | THEOREM                             { "Theorem" }
   | DEFINE                              { "Define" }
   | CODEFINE                            { "CoDefine" }
+  | SET                                 { "Set" }
 
 /* These would cause significant shift/reduce conflicts */
 /*  | FORALL                              { "forall" }  */

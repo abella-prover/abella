@@ -24,11 +24,14 @@ open Extensions
 open Printf
 
 let quiet = ref false
-let interactive = ref false
+let interactive = ref true
+let switch_to_stdin = ref false
 
 let annotate = ref false
 let count = ref 0
 let last_sig = ref ("", 0)
+
+let lexbuf = ref (Lexing.from_channel stdin)
 
 exception AbortProof
 
@@ -113,7 +116,7 @@ let set k v =
                     " Valid options are 'on' or 'off'.")
     | _, _ -> failwith ("Unknown key '" ^ k ^ "'.")
 
-let rec process_proof name lexbuf =
+let rec process_proof name =
   let finished = ref false in
     try while not !finished do try
       if not !quiet then begin
@@ -126,7 +129,7 @@ let rec process_proof name lexbuf =
         display () ;
         printf "%s < %!" name
       end ;
-      let input = Parser.command Lexer.token lexbuf in
+      let input = Parser.command Lexer.token !lexbuf in
         if not !interactive && not !quiet then begin
           let pre, post = if !annotate then "<b>", "</b>" else "", "" in
             printf "%s%s.%s\n" pre (command_to_string input) post
@@ -174,15 +177,24 @@ let rec process_proof name lexbuf =
           printf "Error: %s\n" s ;
           if not !interactive then exit 1
       | End_of_file ->
-          print_endline "Proof NOT completed." ;
-          exit 1
+          if !switch_to_stdin then begin
+            switch_to_stdin := false ;
+            print_endline "Switching to interactive mode." ;
+            interactive := true ;
+            lexbuf := Lexing.from_channel stdin ;
+            process_proof name ;
+            finished := true
+          end else begin
+            print_endline "Proof NOT completed." ;
+            exit 1
+          end
       | AbortProof ->
           print_endline "Proof aborted." ;
           reset_prover () ;
           raise AbortProof
       | Parsing.Parse_error ->
-          Format.printf "Syntax error%s.\n%!" (position lexbuf) ;
-          Lexing.flush_input lexbuf ;
+          Format.printf "Syntax error%s.\n%!" (position !lexbuf) ;
+          Lexing.flush_input !lexbuf ;
           if not !interactive then exit 1
       | e ->
           printf "Error: %s\n%!" (Printexc.to_string e) ;
@@ -190,7 +202,7 @@ let rec process_proof name lexbuf =
     done with
       | Failure "eof" -> ()
 
-let rec process lexbuf =
+let rec process () =
   try while true do try
     if !annotate then begin
       incr count ;
@@ -198,7 +210,7 @@ let rec process lexbuf =
       printf "<pre class=\"code\">\n"
     end ;
     printf "Abella < %!" ;
-    let input = Parser.top_command Lexer.token lexbuf in
+    let input = Parser.top_command Lexer.token !lexbuf in
       if not !interactive then begin
           let pre, post = if !annotate then "<b>", "</b>" else "", "" in
             printf "%s%s.%s\n" pre (top_command_to_string input) post
@@ -208,7 +220,7 @@ let rec process lexbuf =
             check_theorem thm ;
             theorem thm ;
             begin try
-              process_proof name lexbuf ;
+              process_proof name ;
               add_lemma name thm ;
               last_sig := ("", 0)
             with AbortProof -> () end
@@ -231,12 +243,20 @@ let rec process lexbuf =
         printf "Error: %s\n" s ;
         if not !interactive then exit 1
     | End_of_file ->
-        print_endline "Goodbye." ;
-        if !annotate then printf "</pre>\n" ;
-        exit 0
+        if !switch_to_stdin then begin
+          switch_to_stdin := false ;
+          print_endline "Switching to interactive mode." ;
+          interactive := true ;
+          lexbuf := Lexing.from_channel stdin ;
+          process ()
+        end else begin
+          print_endline "Goodbye." ;
+          if !annotate then printf "</pre>\n" ;
+          exit 0
+        end
     | Parsing.Parse_error ->
-        Format.printf "Syntax error%s.\n%!" (position lexbuf) ;
-        Lexing.flush_input lexbuf ;
+        Format.printf "Syntax error%s.\n%!" (position !lexbuf) ;
+        Lexing.flush_input !lexbuf ;
         if not !interactive then exit 1
     | e ->
         printf "Unknown error: %s\n%!" (Printexc.to_string e) ;
@@ -248,23 +268,32 @@ let welcome_msg = sprintf "Welcome to Abella %s\n" Version.version
 
 let usage_message = "abella [options] <module-file>"
 
-let command_input = ref ""
-
-let options =
-  Arg.align
-    [
-      ("-f", Arg.Set_string command_input,
-       "<theorem-file> Read command input from file") ;
-      ("-q", Arg.Set quiet, " Quiet mode") ;
-      ("-a", Arg.Set annotate, " Annotate mode") ;
-    ]
-
 let lexbuf_from_file filename =
   let lexbuf = Lexing.from_channel (open_in filename) in
     lexbuf.Lexing.lex_curr_p <- {
       lexbuf.Lexing.lex_curr_p with
         Lexing.pos_fname = filename } ;
     lexbuf
+
+let set_read_from_file filename =
+  interactive := false ;
+  lexbuf := lexbuf_from_file filename
+
+let set_read_from_file_then_stdin filename =
+  interactive := false ;
+  lexbuf := lexbuf_from_file filename ;
+  switch_to_stdin := true
+
+let options =
+  Arg.align
+    [
+      ("-f", Arg.String set_read_from_file,
+       "<theorem-file> Read command input from file") ;
+      ("-F", Arg.String set_read_from_file_then_stdin,
+       "<theorem-file> Read command input from file and then from user") ;
+      ("-q", Arg.Set quiet, " Quiet mode") ;
+      ("-a", Arg.Set annotate, " Annotate mode") ;
+    ]
 
 let parse_mod_file name =
   if not !quiet then
@@ -280,11 +309,4 @@ let parse_mod_file name =
 let _ =
   printf "%s%!" welcome_msg ;
   Arg.parse options parse_mod_file usage_message ;
-  match !command_input with
-    | "" ->
-        interactive := true ;
-        process (Lexing.from_channel stdin)
-    | name ->
-        interactive := false ;
-        process (lexbuf_from_file !command_input)
-
+  process ()

@@ -138,4 +138,3 @@ induction on 1. intros. case H1.
   case H2.
     apply IH to H3 H5.
     apply eval_det to H3 H5. apply IH to H4 H6.
-

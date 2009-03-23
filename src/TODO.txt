@@ -9,7 +9,9 @@ Lazy lambda calculus by Abramsky
 Document in next release
 ========================
 Hierarchical numbering for subgoals
-Set command (usable in proofs) and the subgoal option
+Document command-line and run-time options
+  Set command (usable in proofs) and the subgoal option
+  Document new -F flag?
 
 Future
 ======

@@ -1,11 +1,3 @@
-Examples
-========
-System F - can we quantify over logical relations?
-Bohm's theorem from Barendregt
-Separation theorems from Barendregt
-Lustre equation reordering
-Lazy lambda calculus by Abramsky
-
 Document in next release
 ========================
 Hierarchical numbering for subgoals
@@ -15,12 +7,18 @@ Document command-line and run-time options
 
 Future
 ======
+Allow for tacticals
+  This requires reworking many things.
+  How is tactic failure propogated through tacticals?
+  A proper treatment would fix the 'undo' issue mentioned below.
+
 New syntax for inductive and coinductive definitions?
   Allow for empty predicate definitions? (can define :- false)
   Require used definitions to be defined
   Allow mutual recursion between coinductive and inductive but not both
 
 Search and case should be smart about looking up definitions
+  Does this give a performance increase?
 
 Coinduction followed by induction would allow hypotheses with @ on
 them. What does these mean? Should they be allowed? prevented?
@@ -35,6 +33,15 @@ Clean up similarities between replace_metaterm_vars and normalize_binders
 
 Find a way of handling undo state so that I don't have to remember to
   call it each time I start a tactic
+
+
+Examples
+========
+System F - can we quantify over logical relations?
+Bohm's theorem from Barendregt
+Separation theorems from Barendregt
+Lustre equation reordering
+Lazy lambda calculus by Abramsky
 
 
 Larger or longer term issues

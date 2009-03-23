@@ -91,6 +91,8 @@ rule token = parse
 | "clear"            { CLEAR }
 | "monotone"         { MONOTONE }
 
+| "Set"              { SET }
+
 | number as n        { NUM (int_of_string n) }
 | name as n          { STRINGID n }
 

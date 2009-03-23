@@ -218,7 +218,13 @@ let format_hyp fmt (id, t) =
 let format_hyps fmt =
   List.iter (format_hyp fmt) sequent.hyps
 
-let format_other_subgoals fmt =
+let format_count_subgoals fmt =
+  match List.length !subgoals with
+    | 0 -> ()
+    | 1 -> fprintf fmt "1 other subgoal.@\n@\n"
+    | n -> fprintf fmt "%d other subgoals.@\n@\n" n
+
+let format_display_subgoals fmt =
   save_undo_state () ;
   List.iter (fun set_state ->
                set_state () ;
@@ -226,6 +232,14 @@ let format_other_subgoals fmt =
                  sequent.name format_metaterm (normalize sequent.goal))
     !subgoals ;
   undo ()
+
+let subgoals_off = ref false
+
+let format_other_subgoals fmt =
+  if !subgoals_off then
+    format_count_subgoals fmt
+  else
+    format_display_subgoals fmt
 
 let format_sequent fmt =
   pp_open_box fmt 2 ;

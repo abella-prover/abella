@@ -21,7 +21,7 @@
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR
-%token THEOREM DEFINE PLUS CODEFINE
+%token THEOREM DEFINE PLUS CODEFINE SET
 %token COLON RARROW FORALL NABLA EXISTS STAR AT OR AND LBRACK RBRACK
 
 %token <int> NUM
@@ -164,6 +164,7 @@ command:
   | UNFOLD DOT                          { Types.Unfold }
   | CLEAR hyp_list DOT                  { Types.Clear($2) }
   | MONOTONE hyp WITH term DOT          { Types.Monotone($2, $4) }
+  | SET id id DOT                       { Types.Set($2, $3) }
   | EOF                                 { raise End_of_file }
 
 hyp_list:
@@ -223,4 +224,5 @@ top_command :
   | THEOREM metaterm DOT                { Types.Theorem("Goal", $2) }
   | DEFINE def                          { Types.Define($2) }
   | CODEFINE def                        { Types.CoDefine($2) }
+  | SET id id DOT                       { Types.TopSet($2, $3) }
   | EOF                                 { raise End_of_file }

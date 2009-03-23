@@ -9,7 +9,7 @@ class Element
     @text = text
     @tag = tag
 
-    if tag == :tactic || tag == :theorem || tag == :definition then
+    if tag == :tactic || tag == :theorem || tag == :command then
       @ref = (@@input_count += 1)
     elsif tag == :proof_start
       @ref = (@@proof_count += 1)
@@ -39,7 +39,7 @@ class Element
 end
 
 def convert(string)
-  regex = /(%.*?\n|(?:Theorem|CoDefine|Define|coinduction|induction|apply|cut|inst|monotone|case|assert|exists|clear|search|split|split\*|unfold|intros|skip|abort|undo).*?\.)/m
+  regex = /(%.*?\n|(?:Theorem|CoDefine|Define|Set|coinduction|induction|apply|cut|inst|monotone|case|assert|exists|clear|search|split|split\*|unfold|intros|skip|abort|undo).*?\.)/m
 
   string.split(regex).map do |s|
     case s
@@ -49,8 +49,8 @@ def convert(string)
       Element.new(s, :comment)
     when /^Theorem/
       Element.new(s, :theorem)
-    when /^(Define|CoDefine)/
-      Element.new(s, :definition)
+    when /^(Define|CoDefine|Set)/
+      Element.new(s, :command)
     else
       Element.new(s, :tactic)
     end

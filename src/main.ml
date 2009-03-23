@@ -104,6 +104,15 @@ let check_def (head, body) =
     ensure_defs_exist ~ignore:[dsig] body ;
     warn_stratify dsig body
 
+let set k v =
+  match k, v with
+    | "subgoals", "off" -> subgoals_off := true
+    | "subgoals", "on" -> subgoals_off := false
+    | "subgoals", _ ->
+        failwith ("Unknown value '" ^ v ^ "' for key 'subgoals'." ^
+                    " Valid options are 'on' or 'off'.")
+    | _, _ -> failwith ("Unknown key '" ^ k ^ "'.")
+
 let rec process_proof name lexbuf =
   let finished = ref false in
     try while not !finished do try
@@ -151,6 +160,7 @@ let rec process_proof name lexbuf =
           | Skip -> skip ()
           | Abort -> raise AbortProof
           | Undo -> undo () ; undo () (* undo recent save, and previous save *)
+          | Set(k, v) -> set k v
         end ;
         if !interactive then flush stdout ;
     with
@@ -208,6 +218,8 @@ let rec process lexbuf =
         | CoDefine(def) ->
             check_def def ;
             add_def CoInductive def
+        | TopSet(k, v) ->
+            set k v
       end ;
       if !interactive then flush stdout ;
       if !annotate then printf "</pre>" ;

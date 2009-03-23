@@ -35,6 +35,7 @@ type top_command =
   | Theorem of id * metaterm
   | Define of def
   | CoDefine of def
+  | TopSet of string * string
 
 type command =
   | Induction of int list
@@ -57,6 +58,7 @@ type command =
   | Skip
   | Abort
   | Undo
+  | Set of string * string
 
 let def_to_string (head, body) =
   if body = True then
@@ -78,6 +80,8 @@ let top_command_to_string tc =
         sprintf "Define %s" (def_to_string def)
     | CoDefine def ->
         sprintf "CoDefine %s" (def_to_string def)
+    | TopSet(k, v) ->
+        sprintf "Set %s %s" k v
 
 let withs_to_string ws =
   String.concat ", "
@@ -123,4 +127,4 @@ let command_to_string c =
     | Skip -> "skip"
     | Abort -> "abort"
     | Undo -> "undo"
-
+    | Set(k, v) -> sprintf "Set %s %s" k v

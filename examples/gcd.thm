@@ -27,47 +27,49 @@ induction on 1. intros. case H1.
     search.
     apply IH to H3 H4. search.
 
-Theorem le_trans : forall X Y Z,
-  {le X Y} -> {le Y Z} -> {le X Z}.
+Theorem lt_trans : forall X Y Z,
+  {lt X (s Y)} -> {lt Y Z} -> {lt X Z}.
 induction on 1. intros. case H1.
-  search.
-  case H2. apply IH to H3 H4. search.
+  case H2.
+    search.
+    search.
+  case H2.
+    case H3.
+    apply IH to H3 H4. search.
 
-Theorem le_nat : forall X Y,
-  {le X Y} -> {nat X}.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
-
-Theorem le_refl : forall X,
-  {nat X} -> {le X X}.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
-
-Theorem le_s : forall X Y,
-  {le X Y} -> {le X (s Y)}.
+Theorem lt_nat : forall X Y,
+  {lt X Y} -> {nat X}.
 induction on 1. intros. case H1.
   search.
   apply IH to H2. search.
 
-Theorem sub_le : forall X Y Z,
-  {nat X} -> {sub X Y Z} -> {le Z X}.
+Theorem lt_x_sx : forall X,
+  {nat X} -> {lt X (s X)}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem lt_s : forall X Y,
+  {lt X Y} -> {lt X (s Y)}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem sub_lt : forall X Y Z,
+  {nat X} -> {sub X Y Z} -> {lt Z (s X)}.
 induction on 2. intros. case H2.
-  apply le_refl to H1. search.
-  case H1. apply IH to H4 H3. apply le_s to H5. search.
+  apply lt_x_sx to H1. search.
+  case H1. apply IH to H4 H3. apply lt_s to H5. search.
 
 Theorem gcd_total_strong : forall A B,
   {nat A} -> {nat B} ->
-    (forall X Y, {le X A} -> {le Y B} -> exists Z, {nat Z} /\ {gcd X Y Z}).
+    (forall X Y, {lt X A} -> {lt Y B} -> exists Z, {nat Z} /\ {gcd X Y Z}).
 induction on 1. induction on 2. intros.
-  apply le_nat to H3. apply le_nat to H4. case H1 (keep).
+  apply lt_nat to H3. apply lt_nat to H4.
 
-  % A = z
-  case H3. search.
-
-  % B = z
-  case H2 (keep). case H4. search.
+  % Trivial base cases
+  case H1 (keep). case H3.
+  case H2 (keep). case H4.
 
   % A = s N, B = s N1
   apply IH to H7 H2. apply IH1 to H1 H8.
@@ -85,19 +87,20 @@ induction on 1. induction on 2. intros.
 
       % X1 < X2
       apply sub_total_tt to H16.
-      apply sub_le to H14 H17.
-      apply le_trans to H18 H12.
+      apply sub_lt to H14 H17.
+      apply lt_trans to H18 H12.
       apply H10 to _ H19 with X = s X1. search.
 
       % X1 >= X2
       apply sub_total_ff to H16.
-      apply sub_le to H13 H17.
-      apply le_trans to H18 H11.
+      apply sub_lt to H13 H17.
+      apply lt_trans to H18 H11.
       apply H9 to H19 _ with Y = s X2. search.
 
 
 Theorem gcd_total : forall X Y,
    {nat X} -> {nat Y} -> exists Z, {nat Z} /\ {gcd X Y Z}.
-intros. apply gcd_total_strong to H1 H2.
-  apply le_refl to H1. apply le_refl to H2.
-    apply H3 to H4 H5. search.
+intros. assert {nat (s X)}. assert {nat (s Y)}.
+  apply gcd_total_strong to H3 H4.
+    apply lt_x_sx to H1. apply lt_x_sx to H2.
+      apply H5 to H6 H7. search.

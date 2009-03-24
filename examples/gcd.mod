@@ -16,8 +16,8 @@ less z (s X) tt.
 less X z ff.
 less (s X) (s Y) B :- less X Y B.
 
-le z Y.
-le (s X) (s Y) :- le X Y.
+lt z (s Y).
+lt (s X) (s Y) :- lt X Y.
 
 gcd z Y Y.
 gcd X z X.

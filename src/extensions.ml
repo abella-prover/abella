@@ -45,6 +45,15 @@ module Option = struct
       | None -> default
 end
 
+module String = struct
+  include String
+
+  let count str char =
+    let count = ref 0 in
+      String.iter (fun c -> if c = char then incr count) str ;
+      !count
+end
+
 module List = struct
   include List
 

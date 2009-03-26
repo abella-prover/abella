@@ -140,7 +140,6 @@ def:
   | metaterm DOT                        { ($1, Metaterm.True) }
   | metaterm DEFEQ metaterm DOT         { ($1, $3) }
 
-
 command:
   | IND ON num_list DOT                 { Types.Induction($3) }
   | COIND DOT                           { Types.CoInduction }
@@ -169,7 +168,8 @@ command:
   | ABBREV hyp QSTRING DOT              { Types.Abbrev($2, $3) }
   | UNABBREV hyp_list DOT               { Types.Unabbrev($2) }
   | MONOTONE hyp WITH term DOT          { Types.Monotone($2, $4) }
-  | SET id id DOT                       { Types.Set($2, $3) }
+  | SET id id DOT                       { Types.Set($2, Types.Str $3) }
+  | SET id NUM DOT                      { Types.Set($2, Types.Int $3) }
   | EOF                                 { raise End_of_file }
 
 hyp_list:
@@ -229,5 +229,6 @@ top_command :
   | THEOREM metaterm DOT                { Types.Theorem("Goal", $2) }
   | DEFINE def                          { Types.Define($2) }
   | CODEFINE def                        { Types.CoDefine($2) }
-  | SET id id DOT                       { Types.TopSet($2, $3) }
+  | SET id id DOT                       { Types.TopSet($2, Types.Str $3) }
+  | SET id NUM DOT                      { Types.TopSet($2, Types.Int $3) }
   | EOF                                 { raise End_of_file }

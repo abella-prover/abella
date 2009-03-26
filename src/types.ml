@@ -31,11 +31,15 @@ type defs = (string * int, def_type * def list) Hashtbl.t
 
 type id = string
 
+type set_value =
+  | Str of string
+  | Int of int
+
 type top_command =
   | Theorem of id * metaterm
   | Define of def
   | CoDefine of def
-  | TopSet of string * string
+  | TopSet of string * set_value
 
 type command =
   | Induction of int list
@@ -60,7 +64,7 @@ type command =
   | Skip
   | Abort
   | Undo
-  | Set of string * string
+  | Set of string * set_value
 
 let def_to_string (head, body) =
   if body = True then
@@ -74,6 +78,11 @@ let def_type_to_string dtype =
     | Inductive -> "inductive"
     | CoInductive -> "coinductive"
 
+let set_value_to_string v =
+  match v with
+    | Str s -> s
+    | Int d -> string_of_int d
+
 let top_command_to_string tc =
   match tc with
     | Theorem(name, body) ->
@@ -83,7 +92,7 @@ let top_command_to_string tc =
     | CoDefine def ->
         sprintf "CoDefine %s" (def_to_string def)
     | TopSet(k, v) ->
-        sprintf "Set %s %s" k v
+        sprintf "Set %s %s" k (set_value_to_string v)
 
 let withs_to_string ws =
   String.concat ", "
@@ -133,4 +142,4 @@ let command_to_string c =
     | Skip -> "skip"
     | Abort -> "abort"
     | Undo -> "undo"
-    | Set(k, v) -> sprintf "Set %s %s" k v
+    | Set(k, v) -> sprintf "Set %s %s" k (set_value_to_string v)

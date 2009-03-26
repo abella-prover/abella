@@ -233,28 +233,30 @@ let format_hyp fmt hyp =
 let format_hyps fmt =
   List.iter (format_hyp fmt) sequent.hyps
 
-let format_count_subgoals fmt =
-  match List.length !subgoals with
+let format_count_subgoals fmt n =
+  match n with
     | 0 -> ()
     | 1 -> fprintf fmt "1 other subgoal.@\n@\n"
     | n -> fprintf fmt "%d other subgoals.@\n@\n" n
 
-let format_display_subgoals fmt =
+let format_display_subgoals fmt n =
   save_undo_state () ;
-  List.iter (fun set_state ->
-               set_state () ;
-               fprintf fmt "@[<1>Subgoal %s is:@\n%a@]@\n@\n"
-                 sequent.name format_metaterm (normalize sequent.goal))
-    !subgoals ;
-  undo ()
+  let count = ref 0 in
+    List.iter (fun set_state ->
+                 set_state () ;
+                 if String.count sequent.name '.' > n then
+                   fprintf fmt "@[<1>Subgoal %s is:@\n%a@]@\n@\n"
+                     sequent.name format_metaterm (normalize sequent.goal)
+                 else
+                   incr count)
+      !subgoals ;
+    format_count_subgoals fmt !count ;
+    undo ()
 
-let subgoals_off = ref false
+let subgoal_depth = ref 1000
 
 let format_other_subgoals fmt =
-  if !subgoals_off then
-    format_count_subgoals fmt
-  else
-    format_display_subgoals fmt
+  format_display_subgoals fmt (String.count sequent.name '.' - !subgoal_depth)
 
 let format_sequent fmt =
   pp_open_box fmt 2 ;

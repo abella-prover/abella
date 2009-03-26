@@ -153,6 +153,8 @@ let rec process_proof name =
           | Exists(t) -> exists t
           | Monotone(h, t) -> monotone h t
           | Clear(hs) -> clear hs
+          | Abbrev(h, s) -> abbrev h s
+          | Unabbrev(hs) -> unabbrev hs
           | Search(limit) -> search ~limit ~interactive:!interactive ()
           | Split -> split false
           | SplitStar -> split true

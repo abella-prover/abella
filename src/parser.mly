@@ -21,11 +21,11 @@
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR
-%token THEOREM DEFINE PLUS CODEFINE SET
+%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV
 %token COLON RARROW FORALL NABLA EXISTS STAR AT OR AND LBRACK RBRACK
 
 %token <int> NUM
-%token <string> STRINGID
+%token <string> STRINGID QSTRING
 %token EOF
 
 /* Lower */
@@ -84,6 +84,8 @@ id:
   | UNFOLD                              { "unfold" }
   | KEEP                                { "keep" }
   | CLEAR                               { "clear" }
+  | ABBREV                              { "abbrev" }
+  | UNABBREV                            { "unabbrev" }
   | THEOREM                             { "Theorem" }
   | DEFINE                              { "Define" }
   | CODEFINE                            { "CoDefine" }
@@ -164,6 +166,8 @@ command:
   | UNDO DOT                            { Types.Undo }
   | UNFOLD DOT                          { Types.Unfold }
   | CLEAR hyp_list DOT                  { Types.Clear($2) }
+  | ABBREV hyp QSTRING DOT              { Types.Abbrev($2, $3) }
+  | UNABBREV hyp_list DOT               { Types.Unabbrev($2) }
   | MONOTONE hyp WITH term DOT          { Types.Monotone($2, $4) }
   | SET id id DOT                       { Types.Set($2, $3) }
   | EOF                                 { raise End_of_file }

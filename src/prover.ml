@@ -32,9 +32,15 @@ let lemmas : lemmas ref = ref []
 type subgoal = unit -> unit
 let subgoals : subgoal list ref = ref []
 
+type hyp = {
+  id : id ;
+  term : metaterm ;
+  mutable abbrev : string option ;
+}
+
 type sequent = {
   mutable vars : (id * term) list ;
-  mutable hyps : (id * metaterm) list ;
+  mutable hyps : hyp list ;
   mutable goal : metaterm ;
   mutable count : int ;
   mutable name : string ;
@@ -92,13 +98,17 @@ let set_sequent other =
   sequent.count <- other.count ;
   sequent.name <- other.name
 
-let fresh_hyp_name () =
-  sequent.count <- sequent.count + 1 ;
-  "H" ^ (string_of_int sequent.count)
+let fresh_hyp_name base =
+  if base = "" then begin
+    sequent.count <- sequent.count + 1 ;
+    "H" ^ (string_of_int sequent.count)
+  end else
+    fresh_name base (List.map (fun h -> (h.id, ())) sequent.hyps)
 
 let normalize_sequent () =
   sequent.goal <- normalize sequent.goal ;
-  sequent.hyps <- sequent.hyps |> List.map (fun (n, h) -> (n, normalize h))
+  sequent.hyps <-
+    sequent.hyps |> List.map (fun h -> { h with term = normalize h.term })
 
 (* Clauses *)
 
@@ -166,11 +176,12 @@ let full_reset_prover =
       clauses := original_clauses ;
       H.assign defs original_defs
 
-let add_hyp ?(name=fresh_hyp_name ()) term =
-  sequent.hyps <- List.append sequent.hyps [(name, term)]
+let add_hyp ?(name=fresh_hyp_name "") term =
+  sequent.hyps <- List.append sequent.hyps
+    [{ id = name ; term = term ; abbrev = None }]
 
 let remove_hyp name =
-  sequent.hyps <- List.remove_assoc name sequent.hyps
+  sequent.hyps <- List.remove_all (fun h -> h.id = name) sequent.hyps
 
 let add_var v =
   sequent.vars <- List.append sequent.vars [v]
@@ -183,16 +194,17 @@ let add_lemma name lemma =
   lemmas := (name, lemma)::!lemmas
 
 let get_hyp name =
-  List.assoc name sequent.hyps
+  let hyp = List.find (fun h -> h.id = name) sequent.hyps in
+    hyp.term
 
 let get_lemma name =
   List.assoc name !lemmas
 
 let get_hyp_or_lemma name =
-  if List.mem_assoc name sequent.hyps then
+  try
     get_hyp name
-  else
-    get_lemma name
+  with
+      Not_found -> get_lemma name
 
 let next_subgoal () =
   match !subgoals with
@@ -210,9 +222,12 @@ let vars_to_string () =
     | [] -> ""
     | _ -> "Variables: " ^ (String.concat ", " (List.map fst sequent.vars))
 
-let format_hyp fmt (id, t) =
-  fprintf fmt "%s : " id ;
-  format_metaterm fmt t ;
+let format_hyp fmt hyp =
+  fprintf fmt "%s : " hyp.id ;
+  begin match hyp.abbrev with
+    | None -> format_metaterm fmt hyp.term
+    | Some s -> fprintf fmt "%s" s
+  end;
   pp_force_newline fmt ()
 
 let format_hyps fmt =
@@ -295,7 +310,7 @@ let cut h arg =
 
 (* Search *)
 
-let has_inductive_hyps (name, term) =
+let has_inductive_hyps hyp =
   let rec aux term =
     match term with
       | Binding(Forall, _, body) -> aux body
@@ -305,12 +320,12 @@ let has_inductive_hyps (name, term) =
       | Arrow(left, right) -> aux right
       | _ -> false
   in
-    aux term
+    aux hyp.term
 
 let remove_inductive_hypotheses hyps =
   List.remove_all has_inductive_hyps hyps
 
-let has_coinductive_result (name, term) =
+let has_coinductive_result hyp =
   let rec aux term nested =
     match term with
       | Binding(Forall, _, body) -> aux body true
@@ -319,7 +334,7 @@ let has_coinductive_result (name, term) =
       | Pred(_, CoSmaller _) -> nested
       | _ -> false
   in
-    aux term false
+    aux hyp.term false
 
 let remove_coinductive_hypotheses hyps =
   List.remove_all has_coinductive_result hyps
@@ -331,7 +346,7 @@ let search_goal ?(depth=5) goal =
   let hyps = sequent.hyps
     |> remove_inductive_hypotheses
     |> remove_coinductive_hypotheses
-    |> List.map snd
+    |> List.map (fun h -> h.term)
   in
   let search_depth n =
     Tactics.search
@@ -449,7 +464,8 @@ let add_cases_to_subgoals cases =
 let case ?(keep=false) str =
   let term = get_hyp str in
   let global_support =
-    (List.flatten_map metaterm_support (List.map snd sequent.hyps)) @
+    (List.flatten_map metaterm_support
+       (List.map (fun h -> h.term) sequent.hyps)) @
       (metaterm_support sequent.goal)
   in
   let cases =
@@ -484,7 +500,7 @@ let get_max_restriction t =
     aux t
 
 let next_restriction () =
-  1 + (sequent.hyps |> List.map snd |>
+  1 + (sequent.hyps |> List.map (fun h -> h.term) |>
            List.map get_max_restriction |> List.max)
 
 let rec nth_product n term =
@@ -516,7 +532,7 @@ let ensure_is_inductive term =
     | _ -> failwith "Can only induct on predicates and judgments"
 
 let add_ih h =
-  add_hyp ~name:(fresh_name "IH" sequent.hyps) h
+  add_hyp ~name:(fresh_hyp_name "IH") h
 
 let induction ind_args =
   List.iter
@@ -524,7 +540,7 @@ let induction ind_args =
     (List.combine ind_args (and_to_list sequent.goal)) ;
   let res_num = next_restriction () in
   let (ihs, new_goal) = Tactics.induction ind_args res_num sequent.goal in
-    List.iter (fun h -> add_hyp ~name:(fresh_name "IH" sequent.hyps) h) ihs ;
+    List.iter (fun h -> add_hyp ~name:(fresh_hyp_name "IH") h) ihs ;
     sequent.goal <- new_goal
 
 
@@ -554,7 +570,7 @@ let coinduction () =
   ensure_is_coinductive (conclusion sequent.goal) ;
   let res_num = next_restriction () in
   let (ch, new_goal) = Tactics.coinduction res_num sequent.goal in
-  let name = fresh_name "CH" sequent.hyps in
+  let name = fresh_hyp_name "CH" in
     add_hyp ~name ch ;
     sequent.goal <- new_goal
 
@@ -706,3 +722,11 @@ let skip () =
 
 let clear hs =
   List.iter remove_hyp hs
+
+(* Abbrev *)
+
+let abbrev id str =
+  List.iter (fun h -> if h.id = id then h.abbrev <- Some str) sequent.hyps
+
+let unabbrev ids =
+  List.iter (fun h -> if List.mem h.id ids then h.abbrev <- None) sequent.hyps

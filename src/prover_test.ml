@@ -34,7 +34,7 @@ let tests =
            setup_prover ()
              ~clauses:eval_clauses ;
 
-           sequent.hyps <- [("H1", freshen "{eval A B}")] ;
+           add_hyp (freshen "{eval A B}") ;
            case "H1" ;
            assert_bool "R should be added to variable list"
              (List.mem_assoc "R" sequent.vars)
@@ -72,7 +72,7 @@ let tests =
 
            assert_pprint_equal "{pred A}" sequent.goal ;
            match sequent.hyps with
-             | [(_, hyp)] -> assert_pprint_equal "{pred B}" hyp
+             | [h] -> assert_pprint_equal "{pred B}" h.term
              | _ -> assert_failure "Expected one hypothesis"
         ) ;
 
@@ -80,7 +80,7 @@ let tests =
         (fun () ->
            setup_prover () ;
 
-           sequent.hyps <- [("H1", freshen "{L, E |- pred A}*")] ;
+           add_hyp (freshen "{L, E |- pred A}*") ;
 
            monotone "H1" (parse_term "E :: K") ;
 
@@ -92,8 +92,8 @@ let tests =
            skip () ;
            assert_n_subgoals 1 ;
            match sequent.hyps with
-             | [(_, _); (_, hyp)] ->
-                 assert_pprint_equal "{K, E |- pred A}*" hyp
+             | [_; h] ->
+                 assert_pprint_equal "{K, E |- pred A}*" h.term
              | _ -> assert_failure "Expected two hypotheses"
         ) ;
 
@@ -125,8 +125,8 @@ let tests =
 
            skip () ;
            match sequent.hyps with
-             | [(_, t)] ->
-                 assert_pprint_equal "{A}" t ;
+             | [h] ->
+                 assert_pprint_equal "{A}" h.term ;
                  assert_pprint_equal "{B}" sequent.goal
              | _ -> assert_failure "Expected one hypothesis"
         ) ;
@@ -160,17 +160,17 @@ let tests =
 
            skip () ;
            begin match sequent.hyps with
-             | [(_, t)] ->
-                 assert_pprint_equal "{A}" t ;
+             | [h] ->
+                 assert_pprint_equal "{A}" h.term ;
                  assert_pprint_equal "{B}" sequent.goal
              | _ -> assert_failure "Expected one hypothesis"
            end ;
 
            skip () ;
            begin match sequent.hyps with
-             | [(_, t1); (_, t2)] ->
-                 assert_pprint_equal "{A}" t1 ;
-                 assert_pprint_equal "{B}" t2 ;
+             | [h1; h2] ->
+                 assert_pprint_equal "{A}" h1.term ;
+                 assert_pprint_equal "{B}" h2.term ;
                  assert_pprint_equal "{C}" sequent.goal
              | _ -> assert_failure "Expected two hypotheses"
            end
@@ -199,10 +199,9 @@ let tests =
            setup_prover ()
              ~goal:"{third B}" ;
 
-           sequent.hyps <-
-             [("H1", freshen ("forall A," ^
-                                "{first A} -> {second A} -> {third A}")) ;
-              ("H2", freshen "{first B}")] ;
+           add_hyp
+             (freshen ("forall A, {first A} -> {second A} -> {third A}")) ;
+           add_hyp (freshen "{first B}") ;
 
            assert_n_subgoals 1 ;
 
@@ -223,8 +222,8 @@ let tests =
            add_hyp (freshen "foo B") ;
 
            apply "H1" ["H2"] [] ;
-           assert_pprint_equal "bar B" (List.assoc "H3" sequent.hyps) ;
-           assert_pprint_equal "baz B" (List.assoc "H4" sequent.hyps)
+           assert_pprint_equal "bar B" (get_hyp "H3") ;
+           assert_pprint_equal "baz B" (get_hyp "H4") ;
         );
 
       "Cases should not consume fresh hyp names" >::
@@ -236,13 +235,14 @@ let tests =
            intros () ;
            case ~keep:true "H1" ;
            assert_n_subgoals 2 ;
-           assert_string_list_equal ["H1"; "H2"] (List.map fst sequent.hyps) ;
+           assert_string_list_equal ["H1"; "H2"]
+             (List.map (fun h -> h.id) sequent.hyps) ;
 
            search () ;
            assert_n_subgoals 1 ;
 
            assert_string_list_equal
-             ["H1"; "H2"; "H3"] (List.map fst sequent.hyps)
+             ["H1"; "H2"; "H3"] (List.map (fun h -> h.id) sequent.hyps)
         ) ;
 
       "Skip should remove current subcase" >::
@@ -395,7 +395,7 @@ let tests =
            setup_prover ()
              ~clauses:(parse_clauses "pred (X Y).") ;
 
-           sequent.hyps <- [("H1", freshen "{pred (A B)}")] ;
+           add_hyp (freshen "{pred (A B)}") ;
            try
              case "H1" ;
              assert_failure "Case analysis did not fail"

@@ -5,6 +5,7 @@ Document command-line and run-time options
   Set command (usable in proofs) and the subgoal option
   Document new -F flag?
 Nested comments
+'abbrev' and 'unabbrev' commands
 
 Future
 ======

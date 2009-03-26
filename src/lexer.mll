@@ -41,6 +41,9 @@ rule token = parse
 | blank              { token lexbuf }
 | '\n'               { incrline lexbuf; token lexbuf }
 
+| '"' ([^ '"']* as s) '"'
+                     { QSTRING s }
+
 | "=>"               { IMP }
 | ":-"               { CLAUSEEQ }
 | ":="               { DEFEQ }
@@ -93,6 +96,8 @@ rule token = parse
 | "assert"           { ASSERT }
 | "keep"             { KEEP }
 | "clear"            { CLEAR }
+| "abbrev"           { ABBREV }
+| "unabbrev"         { UNABBREV }
 | "monotone"         { MONOTONE }
 
 | "Set"              { SET }

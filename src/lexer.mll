@@ -26,6 +26,8 @@
         lexbuf.lex_curr_p with
           pos_bol = lexbuf.lex_curr_p.pos_cnum ;
           pos_lnum = 1 + lexbuf.lex_curr_p.pos_lnum }
+
+  let comment_level = ref 0
 }
 
 let number = ['0'-'9'] +
@@ -33,7 +35,9 @@ let name = ['A' - 'Z' 'a'-'z' '_' '/' '0'-'9' '\'' '?' '-' '`' '#' '$' '&' '!' '
 let blank = ' ' | '\t' | '\r'
 
 rule token = parse
-| '%' [^'\n'] * '\n' { incrline lexbuf; token lexbuf }
+| "/*"               { incr comment_level; comment lexbuf }
+| '%' [^'\n']* '\n'  { incrline lexbuf; token lexbuf }
+
 | blank              { token lexbuf }
 | '\n'               { incrline lexbuf; token lexbuf }
 
@@ -97,3 +101,18 @@ rule token = parse
 | name as n          { STRINGID n }
 
 | eof                { EOF }
+
+and comment = parse
+| [^ '*' '/' '\n']+  { comment lexbuf }
+| "/*"               { incr comment_level; comment lexbuf }
+| "*/"               { decr comment_level ;
+                       if !comment_level = 0 then
+                         token lexbuf
+                       else
+                         comment lexbuf }
+| "*"                { comment lexbuf }
+| "/"                { comment lexbuf }
+| "\n"               { incrline lexbuf; comment lexbuf }
+| eof                { print_endline
+                         "Warning: comment not closed at end of file" ;
+                       token lexbuf }

@@ -1,3 +1,6 @@
+# This does not handle nesting of comments or interactions between
+# different styles of comments.
+
 $details = ARGV[0].chomp(".thm")  + "-details.html"
 
 class Element
@@ -39,13 +42,16 @@ class Element
 end
 
 def convert(string)
-  regex = /(%.*?\n|(?:Theorem|CoDefine|Define|Set|coinduction|induction|apply|cut|inst|monotone|case|assert|exists|clear|search|split|split\*|unfold|intros|skip|abort|undo).*?\.)/m
+  regex = /(\/\*.*?\*\/|%.*?\n|(?:Theorem|CoDefine|Define|Set|coinduction|induction|apply|cut|inst|monotone|case|assert|exists|clear|search|split|split\*|unfold|intros|skip|abort|undo).*?\.)/m
 
   string.split(regex).map do |s|
     case s
-    when /^\s*$/m
+    when /\A\s*\Z/m
+      # \A and \Z correspond to ^ and $ for multiline regex matching
       Element.new(s, :whitespace)
     when /^%/
+      Element.new(s, :comment)
+    when /^\/\*/
       Element.new(s, :comment)
     when /^Theorem/
       Element.new(s, :theorem)

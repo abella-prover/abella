@@ -110,10 +110,12 @@ let check_def (head, body) =
 let set k v =
   match k, v with
     | "subgoals", Int d when d >= 0 -> subgoal_depth := d
+    | "subgoals", Str "on" -> subgoal_depth := 1000
+    | "subgoals", Str "off" -> subgoal_depth := 0
     | "subgoals", _ ->
         failwith ("Unknown value '" ^ (set_value_to_string v) ^
                     "' for key 'subgoals'." ^
-                    " Expected non-negative integer.")
+                    " Expected 'on', 'off', or non-negative integer.")
     | _, _ -> failwith ("Unknown key '" ^ k ^ "'.")
 
 let rec process_proof name =

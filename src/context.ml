@@ -19,6 +19,7 @@
 
 open Term
 open Extensions
+open Debug
 
 (* Basic operations *)
 
@@ -148,4 +149,7 @@ let reconcile pair_list =
   let groups = List.map (fun (x,y) -> (x, union_list y)) groups in
   let groups = List.map (fun (x,y) -> (x, normalize y)) groups in
     List.iter (fun (var, ctx) ->
+                 debug (Printf.sprintf "Trying to unify %s and %s"
+                          (term_to_string var)
+                          (term_to_string (context_to_term ctx))) ;
                  Unify.right_unify var (context_to_term ctx)) groups

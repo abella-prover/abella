@@ -58,177 +58,178 @@
 %%
 
 hyp:
-  | STRINGID                            { $1 }
+  | STRINGID                             { $1 }
 
 id:
-  | STRINGID                            { $1 }
-  | IND                                 { "induction" }
-  | INST                                { "inst" }
-  | APPLY                               { "apply" }
-  | CASE                                { "case" }
-  | SEARCH                              { "search" }
-  | TO                                  { "to" }
-  | ON                                  { "on" }
-  | WITH                                { "with" }
-  | INTROS                              { "intros" }
-  | CUT                                 { "cut" }
-  | ASSERT                              { "assert" }
-  | SKIP                                { "skip" }
-  | UNDO                                { "undo" }
-  | ABORT                               { "abort" }
-  | COIND                               { "coinduction" }
-  | LEFT                                { "left" }
-  | RIGHT                               { "right" }
-  | MONOTONE                            { "monotone" }
-  | SPLIT                               { "split" }
-  | UNFOLD                              { "unfold" }
-  | KEEP                                { "keep" }
-  | CLEAR                               { "clear" }
-  | ABBREV                              { "abbrev" }
-  | UNABBREV                            { "unabbrev" }
-  | THEOREM                             { "Theorem" }
-  | DEFINE                              { "Define" }
-  | CODEFINE                            { "CoDefine" }
-  | SET                                 { "Set" }
+  | STRINGID                             { $1 }
+  | IND                                  { "induction" }
+  | INST                                 { "inst" }
+  | APPLY                                { "apply" }
+  | CASE                                 { "case" }
+  | SEARCH                               { "search" }
+  | TO                                   { "to" }
+  | ON                                   { "on" }
+  | WITH                                 { "with" }
+  | INTROS                               { "intros" }
+  | CUT                                  { "cut" }
+  | ASSERT                               { "assert" }
+  | SKIP                                 { "skip" }
+  | UNDO                                 { "undo" }
+  | ABORT                                { "abort" }
+  | COIND                                { "coinduction" }
+  | LEFT                                 { "left" }
+  | RIGHT                                { "right" }
+  | MONOTONE                             { "monotone" }
+  | SPLIT                                { "split" }
+  | UNFOLD                               { "unfold" }
+  | KEEP                                 { "keep" }
+  | CLEAR                                { "clear" }
+  | ABBREV                               { "abbrev" }
+  | UNABBREV                             { "unabbrev" }
+  | THEOREM                              { "Theorem" }
+  | DEFINE                               { "Define" }
+  | CODEFINE                             { "CoDefine" }
+  | SET                                  { "Set" }
 
 /* These would cause significant shift/reduce conflicts */
-/*  | FORALL                              { "forall" }  */
-/*  | NABLA                               { "nabla" }   */
-/*  | EXISTS                              { "exists" }  */
+/*  | FORALL                               { "forall" }  */
+/*  | NABLA                                { "nabla" }   */
+/*  | EXISTS                               { "exists" }  */
 
 contexted_term:
-  | context TURN term                   { Metaterm.context_obj $1 $3 }
-  | term                                { Metaterm.obj $1 }
+  | context TURN term                    { Metaterm.context_obj $1 $3 }
+  | term                                 { Metaterm.obj $1 }
 
 context:
-  | context COMMA term                  { Context.add $3 $1 }
-  | term                                { Context.add $1 Context.empty }
+  | context COMMA term                   { Context.add $3 $1 }
+  | term                                 { Context.add $1 Context.empty }
 
 term:
-  | term IMP term                       { Term.binop "=>" $1 $3 }
-  | term CONS term                      { Term.binop "::" $1 $3 }
-  | id BSLASH term                      { Term.abstract $1 $3 }
-  | exp exp_list                        { Term.app $1 $2 }
-  | exp                                 { $1 }
+  | term IMP term                        { Term.binop "=>" $1 $3 }
+  | term CONS term                       { Term.binop "::" $1 $3 }
+  | id BSLASH term                       { Term.abstract $1 $3 }
+  | exp exp_list                         { Term.app $1 $2 }
+  | exp                                  { $1 }
 
 exp:
-  | LPAREN term RPAREN                  { $2 }
-  | id                                  { Term.const $1 }
+  | LPAREN term RPAREN                   { $2 }
+  | id                                   { Term.const $1 }
 
 exp_list:
-  | exp exp_list                        { $1::$2 }
-  | exp                                 { [$1] }
-  | id BSLASH term                      { [Term.abstract $1 $3] }
+  | exp exp_list                         { $1::$2 }
+  | exp                                  { [$1] }
+  | id BSLASH term                       { [Term.abstract $1 $3] }
 
 clauses:
-  | clause clauses                      { $1::$2 }
-  |                                     { [] }
+  | clause clauses                       { $1::$2 }
+  |                                      { [] }
 
 clause:
-  | term DOT                            { ($1, []) }
-  | term CLAUSEEQ clause_body DOT       { ($1, $3) }
+  | term DOT                             { ($1, []) }
+  | term CLAUSEEQ clause_body DOT        { ($1, $3) }
 
 clause_body:
-  | term COMMA clause_body              { $1::$3 }
-  | term                                { [$1] }
+  | term COMMA clause_body               { $1::$3 }
+  | LPAREN term COMMA clause_body RPAREN { $2::$4 }
+  | term                                 { [$1] }
 
 defs:
-  | def defs                            { $1::$2 }
-  |                                     { [] }
+  | def defs                             { $1::$2 }
+  |                                      { [] }
 
 def:
-  | metaterm DOT                        { ($1, Metaterm.True) }
-  | metaterm DEFEQ metaterm DOT         { ($1, $3) }
+  | metaterm DOT                         { ($1, Metaterm.True) }
+  | metaterm DEFEQ metaterm DOT          { ($1, $3) }
 
 command:
-  | IND ON num_list DOT                 { Types.Induction($3) }
-  | COIND DOT                           { Types.CoInduction }
-  | APPLY id TO hyp_list DOT            { Types.Apply($2, $4, []) }
-  | APPLY id TO hyp_list WITH withs DOT { Types.Apply($2, $4, $6) }
-  | APPLY id WITH withs DOT             { Types.Apply($2, [], $4) }
-  | APPLY id DOT                        { Types.Apply($2, [], []) }
-  | CUT hyp WITH hyp DOT                { Types.Cut($2, $4) }
-  | INST hyp WITH id EQ term DOT        { Types.Inst($2, $4, $6) }
-  | CASE hyp DOT                        { Types.Case($2, false) }
-  | CASE hyp LPAREN KEEP RPAREN DOT     { Types.Case($2, true) }
-  | ASSERT metaterm DOT                 { Types.Assert($2) }
-  | EXISTS term DOT                     { Types.Exists($2) }
-  | SEARCH DOT                          { Types.Search(None) }
-  | SEARCH NUM DOT                      { Types.Search(Some $2) }
-  | SPLIT DOT                           { Types.Split }
-  | SPLITSTAR DOT                       { Types.SplitStar }
-  | LEFT DOT                            { Types.Left }
-  | RIGHT DOT                           { Types.Right }
-  | INTROS DOT                          { Types.Intros }
-  | SKIP DOT                            { Types.Skip }
-  | ABORT DOT                           { Types.Abort }
-  | UNDO DOT                            { Types.Undo }
-  | UNFOLD DOT                          { Types.Unfold }
-  | CLEAR hyp_list DOT                  { Types.Clear($2) }
-  | ABBREV hyp QSTRING DOT              { Types.Abbrev($2, $3) }
-  | UNABBREV hyp_list DOT               { Types.Unabbrev($2) }
-  | MONOTONE hyp WITH term DOT          { Types.Monotone($2, $4) }
-  | SET id id DOT                       { Types.Set($2, Types.Str $3) }
-  | SET id NUM DOT                      { Types.Set($2, Types.Int $3) }
-  | EOF                                 { raise End_of_file }
+  | IND ON num_list DOT                  { Types.Induction($3) }
+  | COIND DOT                            { Types.CoInduction }
+  | APPLY id TO hyp_list DOT             { Types.Apply($2, $4, []) }
+  | APPLY id TO hyp_list WITH withs DOT  { Types.Apply($2, $4, $6) }
+  | APPLY id WITH withs DOT              { Types.Apply($2, [], $4) }
+  | APPLY id DOT                         { Types.Apply($2, [], []) }
+  | CUT hyp WITH hyp DOT                 { Types.Cut($2, $4) }
+  | INST hyp WITH id EQ term DOT         { Types.Inst($2, $4, $6) }
+  | CASE hyp DOT                         { Types.Case($2, false) }
+  | CASE hyp LPAREN KEEP RPAREN DOT      { Types.Case($2, true) }
+  | ASSERT metaterm DOT                  { Types.Assert($2) }
+  | EXISTS term DOT                      { Types.Exists($2) }
+  | SEARCH DOT                           { Types.Search(None) }
+  | SEARCH NUM DOT                       { Types.Search(Some $2) }
+  | SPLIT DOT                            { Types.Split }
+  | SPLITSTAR DOT                        { Types.SplitStar }
+  | LEFT DOT                             { Types.Left }
+  | RIGHT DOT                            { Types.Right }
+  | INTROS DOT                           { Types.Intros }
+  | SKIP DOT                             { Types.Skip }
+  | ABORT DOT                            { Types.Abort }
+  | UNDO DOT                             { Types.Undo }
+  | UNFOLD DOT                           { Types.Unfold }
+  | CLEAR hyp_list DOT                   { Types.Clear($2) }
+  | ABBREV hyp QSTRING DOT               { Types.Abbrev($2, $3) }
+  | UNABBREV hyp_list DOT                { Types.Unabbrev($2) }
+  | MONOTONE hyp WITH term DOT           { Types.Monotone($2, $4) }
+  | SET id id DOT                        { Types.Set($2, Types.Str $3) }
+  | SET id NUM DOT                       { Types.Set($2, Types.Int $3) }
+  | EOF                                  { raise End_of_file }
 
 hyp_list:
-  | hyp hyp_list                        { $1::$2 }
-  | hyp                                 { [$1] }
+  | hyp hyp_list                         { $1::$2 }
+  | hyp                                  { [$1] }
 
 num_list:
-  | NUM num_list                        { $1::$2 }
-  | NUM                                 { [$1] }
+  | NUM num_list                         { $1::$2 }
+  | NUM                                  { [$1] }
 
 withs:
-  | id EQ term COMMA withs              { ($1, $3) :: $5 }
-  | id EQ term                          { [($1, $3)] }
+  | id EQ term COMMA withs               { ($1, $3) :: $5 }
+  | id EQ term                           { [($1, $3)] }
 
 metaterm:
-  | TRUE                                { Metaterm.True }
-  | FALSE                               { Metaterm.False }
-  | term EQ term                        { Metaterm.Eq($1, $3) }
-  | FORALL binding_list COMMA metaterm  { Metaterm.forall $2 $4 }
-  | EXISTS binding_list COMMA metaterm  { Metaterm.exists $2 $4 }
-  | NABLA binding_list COMMA metaterm   { Metaterm.nabla $2 $4 }
-  | metaterm RARROW metaterm            { Metaterm.arrow $1 $3 }
-  | metaterm OR metaterm                { Metaterm.meta_or $1 $3 }
-  | metaterm AND metaterm               { Metaterm.meta_and $1 $3 }
-  | LPAREN metaterm RPAREN              { $2 }
+  | TRUE                                 { Metaterm.True }
+  | FALSE                                { Metaterm.False }
+  | term EQ term                         { Metaterm.Eq($1, $3) }
+  | FORALL binding_list COMMA metaterm   { Metaterm.forall $2 $4 }
+  | EXISTS binding_list COMMA metaterm   { Metaterm.exists $2 $4 }
+  | NABLA binding_list COMMA metaterm    { Metaterm.nabla $2 $4 }
+  | metaterm RARROW metaterm             { Metaterm.arrow $1 $3 }
+  | metaterm OR metaterm                 { Metaterm.meta_or $1 $3 }
+  | metaterm AND metaterm                { Metaterm.meta_and $1 $3 }
+  | LPAREN metaterm RPAREN               { $2 }
   | LBRACK contexted_term RBRACK restriction
-                                        { Metaterm.Obj($2, $4) }
-  | term restriction                    { Metaterm.Pred($1, $2) }
+                                         { Metaterm.Obj($2, $4) }
+  | term restriction                     { Metaterm.Pred($1, $2) }
 
 binding_list:
-  | binding binding_list                { $1::$2 }
-  | binding                             { [$1] }
+  | binding binding_list                 { $1::$2 }
+  | binding                              { [$1] }
 
 binding:
-  | id                                  { $1 }
+  | id                                   { $1 }
 
 restriction:
-  |                                     { Metaterm.Irrelevant }
-  | stars                               { Metaterm.Smaller $1 }
-  | pluses                              { Metaterm.CoSmaller $1 }
-  | ats                                 { Metaterm.Equal $1 }
+  |                                      { Metaterm.Irrelevant }
+  | stars                                { Metaterm.Smaller $1 }
+  | pluses                               { Metaterm.CoSmaller $1 }
+  | ats                                  { Metaterm.Equal $1 }
 
 stars:
-  | STAR stars                          { 1 + $2 }
-  | STAR                                { 1 }
+  | STAR stars                           { 1 + $2 }
+  | STAR                                 { 1 }
 
 ats:
-  | AT ats                              { 1 + $2 }
-  | AT                                  { 1 }
+  | AT ats                               { 1 + $2 }
+  | AT                                   { 1 }
 
 pluses:
-  | PLUS pluses                         { 1 + $2 }
-  | PLUS                                { 1 }
+  | PLUS pluses                          { 1 + $2 }
+  | PLUS                                 { 1 }
 
 top_command :
-  | THEOREM id COLON metaterm DOT       { Types.Theorem($2, $4) }
-  | THEOREM metaterm DOT                { Types.Theorem("Goal", $2) }
-  | DEFINE def                          { Types.Define($2) }
-  | CODEFINE def                        { Types.CoDefine($2) }
-  | SET id id DOT                       { Types.TopSet($2, Types.Str $3) }
-  | SET id NUM DOT                      { Types.TopSet($2, Types.Int $3) }
-  | EOF                                 { raise End_of_file }
+  | THEOREM id COLON metaterm DOT        { Types.Theorem($2, $4) }
+  | THEOREM metaterm DOT                 { Types.Theorem("Goal", $2) }
+  | DEFINE def                           { Types.Define($2) }
+  | CODEFINE def                         { Types.CoDefine($2) }
+  | SET id id DOT                        { Types.TopSet($2, Types.Str $3) }
+  | SET id NUM DOT                       { Types.TopSet($2, Types.Int $3) }
+  | EOF                                  { raise End_of_file }

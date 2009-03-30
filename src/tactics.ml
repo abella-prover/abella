@@ -606,6 +606,7 @@ let apply_arrow term args =
       term
       args
   in
+    debug "Trying to reconcile specification logic contexts." ;
     Context.reconcile !context_pairs ;
     (normalize result, !obligations)
 
@@ -619,25 +620,30 @@ let apply ?(used_nominals=[]) term args =
     match term with
       | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->
           let n = List.length nablas in
-            support |> List.rev |> List.permute n |> List.find_some
-                (fun nominals ->
-                   try_with_state ~fail:None
-                     (fun () ->
-                        let support = List.minus support nominals in
-                        let raised_body =
-                          freshen_nameless_bindings ~support bindings body
-                        in
-                        let alist = List.combine nablas nominals in
-                        let permuted_body =
-                          replace_metaterm_vars alist raised_body
-                        in
-                          debug (Printf.sprintf "Trying apply with %s."
-                                   (String.concat ", "
-                                      (List.map
-                                         (fun (x,n) ->
-                                            x ^ " = " ^ (term_to_string n))
-                                         alist))) ;
-                          Some (apply_arrow permuted_body args)))
+            begin try
+              support |> List.rev |> List.permute n |> List.find_some
+                  (fun nominals ->
+                     try_with_state ~fail:None
+                       (fun () ->
+                          let support = List.minus support nominals in
+                          let raised_body =
+                            freshen_nameless_bindings ~support bindings body
+                          in
+                          let alist = List.combine nablas nominals in
+                          let permuted_body =
+                            replace_metaterm_vars alist raised_body
+                          in
+                            debug (Printf.sprintf "Trying apply with %s."
+                                     (String.concat ", "
+                                        (List.map
+                                           (fun (x,n) ->
+                                              x ^ " = " ^ (term_to_string n))
+                                           alist))) ;
+                            Some (apply_arrow permuted_body args)))
+            with
+              | Failure "Found none" ->
+                  failwith "Failed to find instantiations for nabla quantified variables"
+            end
 
       | Binding(Forall, bindings, body) ->
           apply_arrow (freshen_nameless_bindings ~support bindings body) args

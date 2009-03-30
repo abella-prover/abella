@@ -2,7 +2,9 @@ Document in next release
 ========================
 Hierarchical numbering for subgoals
 Document command-line and run-time options
-  Set command (usable in proofs) and the subgoal option (numeric)
+  Set command (usable in proofs)
+    subgoal option (numeric - on/off)
+    debug option (on/off)
   Document new -F flag?
 Nested comments
 'abbrev' and 'unabbrev' commands

@@ -21,6 +21,7 @@ open Term
 open Metaterm
 open Unify
 open Extensions
+open Debug
 
 (* Variable naming utilities *)
 
@@ -589,9 +590,13 @@ let apply_arrow term args =
          match term, arg with
            | Arrow(Obj(left, _), right), Some Obj(arg, _) ->
                context_pairs := (left.context, arg.context)::!context_pairs ;
+               debug (Printf.sprintf "Trying to unify %s and %s."
+                        (term_to_string left.term) (term_to_string arg.term)) ;
                right_unify left.term arg.term ;
                right
            | Arrow(left, right), Some arg ->
+               debug (Printf.sprintf "Trying to unify %s and %s."
+                        (metaterm_to_string left) (metaterm_to_string arg)) ;
                meta_right_unify left arg ;
                right
            | Arrow(left, right), None ->
@@ -626,6 +631,12 @@ let apply ?(used_nominals=[]) term args =
                         let permuted_body =
                           replace_metaterm_vars alist raised_body
                         in
+                          debug (Printf.sprintf "Trying apply with %s."
+                                   (String.concat ", "
+                                      (List.map
+                                         (fun (x,n) ->
+                                            x ^ " = " ^ (term_to_string n))
+                                         alist))) ;
                           Some (apply_arrow permuted_body args)))
 
       | Binding(Forall, bindings, body) ->

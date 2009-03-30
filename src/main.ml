@@ -22,6 +22,7 @@ open Prover
 open Types
 open Extensions
 open Printf
+open Debug
 
 let quiet = ref false
 let interactive = ref true
@@ -116,6 +117,14 @@ let set k v =
         failwith ("Unknown value '" ^ (set_value_to_string v) ^
                     "' for key 'subgoals'." ^
                     " Expected 'on', 'off', or non-negative integer.")
+
+    | "debug", Str "on" -> debug_level := 1
+    | "debug", Str "off" -> debug_level := 0
+    | "debug", _ ->
+        failwith ("Unknown value '" ^ (set_value_to_string v) ^
+                    "' for key 'debug'." ^
+                    " Expected 'on' or 'off'.")
+
     | _, _ -> failwith ("Unknown key '" ^ k ^ "'.")
 
 let rec process_proof name =

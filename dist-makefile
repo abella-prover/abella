@@ -2,6 +2,7 @@ abella: src/*.ml src/*.mly src/*.mll
 	ocamllex src/lexer.mll
 	ocamlyacc src/parser.mly
 	ocamlopt -c -I src src/version.ml
+	ocamlopt -c -I src src/debug.ml
 	ocamlopt -c -I src src/extensions.ml
 	ocamlopt -c -I src src/term.mli
 	ocamlopt -c -I src src/term.ml

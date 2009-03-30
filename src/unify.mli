@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* An implemention of Higher-Order Pattern Unification                      *)
-(* Copyright (C) 2006-2008 Nadathur, Linnell, Baelde, Ziegler, Gacek        *)
+(* Copyright (C) 2006-2009 Nadathur, Linnell, Baelde, Ziegler, Gacek        *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
 (*                                                                          *)

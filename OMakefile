@@ -5,6 +5,15 @@ VERSION = 1.1.4-dev6
 .SUBDIRS: src examples
 
 ################################################
+# Default target builds abella and moves it to the toplevel
+#
+
+.PHONY: all
+.DEFAULT: all
+OCamlProgramCopy(all, ., src/abella)
+
+
+################################################
 # Distribution
 #
 

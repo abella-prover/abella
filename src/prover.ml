@@ -222,6 +222,18 @@ let vars_to_string () =
     | [] -> ""
     | _ -> "Variables: " ^ (String.concat ", " (List.map fst sequent.vars))
 
+let format_vars fmt =
+  let rec aux fmt xs =
+    match xs with
+      | x::y::ys -> fprintf fmt "%s,@ " (fst x) ; aux fmt (y::ys)
+      | [x] -> fprintf fmt "%s" (fst x)
+      | [] -> assert false
+  in
+    if sequent.vars = [] then
+      fprintf fmt "@\n"
+    else
+      fprintf fmt "  Variables: @[%a@]@\n" aux sequent.vars
+
 let format_hyp fmt hyp =
   fprintf fmt "%s : " hyp.id ;
   begin match hyp.abbrev with
@@ -260,7 +272,7 @@ let format_other_subgoals fmt =
 
 let format_sequent fmt =
   pp_open_box fmt 2 ;
-  fprintf fmt "  %s@\n" (vars_to_string ()) ;
+  format_vars fmt ;
   format_hyps fmt ;
   fprintf fmt "============================@\n" ;
   fprintf fmt " %a" format_metaterm sequent.goal ;

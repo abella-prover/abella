@@ -45,12 +45,16 @@
                   (setq cur-indent (1+ (- (point) start))))))))))
     (indent-line-to cur-indent)))
 
+(setq xemacsp (and (boundp 'xemacsp) xemacsp))
+
 (defvar lprolog-mod-mode-syntax-table
   (let ((lprolog-mod-mode-syntax-table (make-syntax-table)))
     (modify-syntax-entry ?_ "w"     lprolog-mod-mode-syntax-table)
     (modify-syntax-entry ?' "w"     lprolog-mod-mode-syntax-table)
-    (modify-syntax-entry ?/ "w 14n" lprolog-mod-mode-syntax-table)
-    (modify-syntax-entry ?* ". 23n" lprolog-mod-mode-syntax-table)
+    (modify-syntax-entry ?/ (if xemacsp "w 14" "w 14n")
+                         lprolog-mod-mode-syntax-table)
+    (modify-syntax-entry ?* (if xemacsp ". 23" ". 23n")
+                         lprolog-mod-mode-syntax-table)
     (modify-syntax-entry ?% "< b"   lprolog-mod-mode-syntax-table)
     (modify-syntax-entry ?\n "> b"  lprolog-mod-mode-syntax-table)
     (modify-syntax-entry ?. "."     lprolog-mod-mode-syntax-table)

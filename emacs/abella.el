@@ -22,12 +22,16 @@
     (cons (make-regex "skip") font-lock-warning-face))
   "Default highlighting for Abella major mode")
 
+(setq xemacsp (and (boundp 'xemacsp) xemacsp))
+
 (defvar abella-mode-syntax-table
   (let ((abella-mode-syntax-table (make-syntax-table)))
     (modify-syntax-entry ?_ "w"     abella-mode-syntax-table)
     (modify-syntax-entry ?' "w"     abella-mode-syntax-table)
-    (modify-syntax-entry ?/ "w 14n" abella-mode-syntax-table)
-    (modify-syntax-entry ?* ". 23n" abella-mode-syntax-table)
+    (modify-syntax-entry ?/ (if xemacsp "w 14" "w 14n")
+                         abella-mode-syntax-table)
+    (modify-syntax-entry ?* (if xemacsp ". 23" ". 23n")
+                         abella-mode-syntax-table)
     (modify-syntax-entry ?% "< b"   abella-mode-syntax-table)
     (modify-syntax-entry ?\n "> b"  abella-mode-syntax-table)
     (modify-syntax-entry ?. "."     abella-mode-syntax-table)

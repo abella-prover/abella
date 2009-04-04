@@ -1,0 +1,206 @@
+%% Seq proofs used in Gacek's PhD thesis
+
+Define nat z.
+Define nat (s N) := nat N.
+
+Define lt z (s N).
+Define lt (s M) (s N) := lt M N.
+
+Define prog (eval (abs R) (abs R)) t.
+Define prog (eval (app P Q) V)
+            (and (atom (eval P (abs R)))
+                 (atom (eval (R Q) V))).
+
+Define prog (of (abs R) (arrow A B))
+            (pi x\ of x A => atom (of (R x) B)).
+Define prog (of (app P Q) B)
+            (and (atom (of P (arrow A B)))
+                 (atom (of Q A))).
+
+Define seq (s N) L tt.
+Define seq (s N) L (atom A) := member A L.
+Define seq (s N) L (or A B) := seq N L A.
+Define seq (s N) L (or A B) := seq N L B.
+Define seq (s N) L (and A B) := seq N L A /\ seq N L B.
+Define seq (s N) L (A => B) := seq N (A :: L) B.
+Define seq (s N) L (pi G) := nabla x, seq N L (G x).
+Define seq (s N) L (sigma G) := exists X, seq N L (G X).
+Define seq (s N) L (atom A) := exists B, prog A B /\ seq N L B.
+
+Theorem seq_subset : forall L1 L2 G N,
+  seq N L1 G -> (forall X, member X L1 -> member X L2) -> seq N L2 G.
+induction on 1. intros. case H1.
+  search.
+  apply H2 to H3. search.
+  apply IH to H3 H2. search.
+  apply IH to H3 H2. search.
+  apply IH to H3 H2. apply IH to H4 H2. search.
+  assert forall X, member X (A :: L1) -> member X (A :: L2).
+    intros. case H4.
+      search.
+      apply H2 to H5. search.
+    apply IH to H3 H4. search.
+  apply IH to H3 H2. search.
+  apply IH to H3 H2. search.
+  apply IH to H4 H2. search.
+
+Theorem seq_lt : forall L G N M,
+  lt M N -> seq M L G -> seq N L G.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    search.
+    apply IH to H3 H4. search.
+    apply IH to H3 H4. search.
+    apply IH to H3 H4. apply IH to H3 H5. search.
+    apply IH to H3 H4. search.
+    apply IH to H3 H4. search.
+    apply IH to H3 H4. search.
+    apply IH to H3 H5. search.
+
+Theorem nat_lt : forall A B,
+  nat A -> nat B -> lt A B \/ A = B \/ lt B A.
+induction on 1. intros. case H1.
+  case H2.
+    search.
+    search.
+  case H2.
+    search.
+    apply IH to H3 H4. case H5.
+      search.
+      search.
+      search.
+
+Theorem nat_prune : forall N, nabla x,
+  nat (N x) -> exists M, N = x\M.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem seq_cut : forall K L G N M,
+  nat N -> seq N (K :: L) G -> nat M -> seq M L (atom K) ->
+    exists P, nat P /\ seq P L G.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    case H6.
+      search.  % Key case: G=K
+      search.
+    apply IH to H5 H6 H3 H4. search.
+    apply IH to H5 H6 H3 H4. search.
+    apply IH to H5 H6 H3 H4. apply IH to H5 H7 H3 H4.
+      apply nat_lt to H8 H10. case H12.
+        apply seq_lt to H13 H9. search.
+        search.
+        apply seq_lt to H13 H11. search.
+    assert forall X, member X (A :: K :: L) -> member X (K :: A :: L).
+      intros. case H7.
+        search.
+        case H8.
+          search.
+          search.
+      apply seq_subset to H6 H7.
+        assert forall X, member X L -> member X (A :: L).
+          intros. search.
+        apply seq_subset to H4 H9.
+          apply IH to H5 H8 H3 H10. search.
+    apply IH to H5 H6 H3 H4. apply nat_prune to H7. search.
+    apply IH to H5 H6 H3 H4. search.
+    apply IH to H5 H7 H3 H4. search.
+
+%% Another important result is that nabla variablts can be treated as
+%% universally quantified inside of seq. That is, we can always
+%% instantiate them. Furthermore, this instantiation does not increase
+%% the proof height.
+
+Theorem member_inst : forall L A T, nabla x,
+  member (A x) (L x) -> member (A T) (L T).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2 with T = T. search.
+
+Theorem prog_inst : forall A B T, nabla x,
+  prog (A x) (B x) -> prog (A T) (B T).
+skip.
+% This is true but falls outside of pattern unification. If we comment
+% out the prog clause for the app case of eval, then the following
+% proof will work:
+%   intros. case H1.
+%     search.
+%     search.
+%     search.
+
+
+Theorem seq_inst : forall N L G T, nabla x,
+  seq N (L x) (G x) -> seq N (L T) (G T).
+induction on 1. intros. case H1.
+  search.
+  apply member_inst to H2 with T = T. search.
+  apply IH to H2 with T = T. search.
+  apply IH to H2 with T = T. search.
+  apply IH to H2 with T = T. apply IH to H3 with T = T. search.
+  apply IH to H2 with T = T. search.
+  apply IH to H2 with T = T. search.
+  apply IH to H2 with T = T. search.
+  apply prog_inst to H2 with T = T. apply IH to H3 with T = T. search.
+
+Theorem lt_s : forall A B,
+  lt A B -> lt A (s B).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem sr : forall E M V A M N N',
+  nat N' -> lt N N' -> seq N nil (atom (eval E V)) ->
+  nat M -> seq M nil (atom (of E A)) ->
+  exists P, nat P /\ seq P nil (atom (of V A)).
+induction on 1. intros. case H1.
+case H2.
+case H3. case H7. case H7.
+search.
+case H8. case H5. case H11. case H11. case H12.
+case H2. apply lt_s to H15. case H16.
+case H4. case H18.
+apply IH to H6 H17 H9 H19 H13. case H21. case H22. case H22. case H23.
+case H24. apply seq_inst to H25 with T = Q. case H20. case H27. case H28.
+apply seq_cut to H29 H26 H19 H14.
+apply IH to H6 H17 H10 H30 H31.
+search.
+
+Define tridot L G := exists N, nat N /\ seq N L G.
+
+% lem:deriv-forward
+Theorem lem1 :
+  forall L, tridot L tt.
+intros. search.
+
+Theorem lem2 :
+  forall L G1 G2, tridot L G1 -> tridot L (or G1 G2).
+intros. case H1. search.
+
+Theorem lem3 :
+  forall L G1 G2, tridot L G2 -> tridot L (or G1 G2).
+intros. case H1. search.
+
+Theorem lem4 :
+  forall L G1 G2, tridot L G1 -> tridot L G2 -> tridot L (and G1 G2).
+intros. case H1. case H2.
+  apply nat_lt to H3 H5. case H7.
+    apply seq_lt to H8 H4. search.
+    search.
+    apply seq_lt to H8 H6. search.
+
+Theorem lem5 :
+  forall L A G, tridot (A::L) G -> tridot L (A => G).
+intros. case H1. search.
+
+Theorem lem6 :
+  forall L G, (nabla x, tridot L (G x)) -> tridot L (pi G).
+intros. case H1. case H2.
+  apply nat_prune to H3. search.
+
+Theorem lem7 :
+  forall L G T, tridot L (G T) -> tridot L (sigma G).
+intros. case H1. search.

@@ -59,6 +59,14 @@ let tests =
         (fun () ->
            assert_pprint_equal_parse "{pi x1\\eval x1 A => typeof x1 B}") ;
 
+      "Lambda cons" >::
+        (fun () ->
+           assert_pprint_equal_parse "x1\\a :: b") ;
+
+      "Cons equality" >::
+        (fun () ->
+           assert_pprint_equal_parse "a :: b = a :: b") ;
+
       "Smaller restriction" >::
         (fun () ->
            assert_pprint_equal_parse "{A}*") ;

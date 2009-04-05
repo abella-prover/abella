@@ -35,11 +35,11 @@
 %left OR
 %left AND
 
-%right CONS
-
 %nonassoc BSLASH
 %right IMP
 %nonassoc EQ
+
+%right CONS
 
 /* Higher */
 

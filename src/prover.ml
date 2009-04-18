@@ -73,8 +73,12 @@ let annotate gs =
     else
       aux 1 gs
 
-let add_subgoals new_subgoals =
-  subgoals := annotate new_subgoals @ !subgoals
+let add_subgoals ?(mainline) new_subgoals =
+  match mainline with
+    | None ->
+        subgoals := annotate new_subgoals @ !subgoals
+    | Some mainline ->
+        subgoals := annotate new_subgoals @ [mainline] @ !subgoals
 
 let localize_metaterm term =
   term
@@ -257,8 +261,10 @@ let format_display_subgoals fmt n =
     List.iter (fun set_state ->
                  set_state () ;
                  if String.count sequent.name '.' > n then
-                   fprintf fmt "@[<1>Subgoal %s is:@\n%a@]@\n@\n"
-                     sequent.name format_metaterm (normalize sequent.goal)
+                   fprintf fmt "@[<1>Subgoal %s%sis:@\n%a@]@\n@\n"
+                     sequent.name
+                     (if sequent.name = "" then "" else " ")
+                     format_metaterm (normalize sequent.goal)
                  else
                    incr count)
       !subgoals ;
@@ -429,20 +435,18 @@ let apply h args ws =
   let () = ensure_no_logic_variable (result :: remaining_obligations) in
   let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
   let resulting_case = recursive_metaterm_case ~used:sequent.vars result in
-  let resulting_subgoal =
-    let restore = goal_to_subgoal sequent.goal in
-      fun () ->
-        restore () ;
-        match resulting_case with
-          | None -> assert false
-          | Some case ->
-              List.iter add_if_new_var case.stateless_new_vars ;
-              List.iter add_hyp case.stateless_new_hyps
-  in
-    if resulting_case = None then
-      add_subgoals obligation_subgoals
-    else
-      add_subgoals (obligation_subgoals @ [resulting_subgoal]) ;
+    begin match resulting_case with
+      | None -> add_subgoals obligation_subgoals
+      | Some case ->
+          let resulting_subgoal =
+            let restore = goal_to_subgoal sequent.goal in
+              fun () ->
+                restore () ;
+                List.iter add_if_new_var case.stateless_new_vars ;
+                List.iter add_hyp case.stateless_new_hyps
+          in
+            add_subgoals ~mainline:resulting_subgoal obligation_subgoals
+    end ;
     next_subgoal ()
 
 
@@ -459,21 +463,14 @@ let update_self_bound_vars () =
                  (id, v)
              | _ -> (id, term))
 
-let add_cases_to_subgoals cases =
-  let case_to_subgoal case =
-    let saved_sequent = copy_sequent () in
-      fun () ->
-        set_sequent saved_sequent ;
-        List.iter add_if_new_var case.new_vars ;
-        List.iter add_hyp case.new_hyps ;
-        begin match case.new_goal with
-          | None -> ()
-          | Some g -> sequent.goal <- g
-        end ;
-        Term.set_bind_state case.bind_state ;
-        update_self_bound_vars () ;
-  in
-    add_subgoals (List.map case_to_subgoal cases)
+let case_to_subgoal case =
+  let saved_sequent = copy_sequent () in
+    fun () ->
+      set_sequent saved_sequent ;
+      List.iter add_if_new_var case.new_vars ;
+      List.iter add_hyp case.new_hyps ;
+      Term.set_bind_state case.bind_state ;
+      update_self_bound_vars ()
 
 let case ?(keep=false) str =
   let term = get_hyp str in
@@ -487,7 +484,7 @@ let case ?(keep=false) str =
       ~defs:(defs_to_list defs) ~global_support term
   in
     if not keep then remove_hyp str ;
-    add_cases_to_subgoals cases ;
+    add_subgoals (List.map case_to_subgoal cases) ;
     next_subgoal ()
 
 
@@ -593,25 +590,13 @@ let coinduction () =
 
 let assert_hyp term =
   let term = localize_metaterm term in
-  let delayed_subgoal =
-    { bind_state = get_bind_state () ;
-      new_vars = [] ;
-      new_hyps = [term] ;
-      new_goal = Some sequent.goal }
-  in
+    add_subgoals ~mainline:(case_to_subgoal { bind_state = get_bind_state () ;
+                                              new_vars = [] ;
+                                              new_hyps = [term] }) [] ;
+    extend_name 1 ;
     sequent.goal <- term ;
-    if search_goal sequent.goal then
-      add_cases_to_subgoals [delayed_subgoal]
-    else begin
-      let new_subgoal =
-        { bind_state = get_bind_state () ;
-          new_vars = [] ;
-          new_hyps = [] ;
-          new_goal = None }
-      in
-        add_cases_to_subgoals [new_subgoal; delayed_subgoal]
-    end ;
-    next_subgoal ()
+    if search_goal sequent.goal then next_subgoal ()
+
 
 (* Object logic monotone *)
 
@@ -621,30 +606,18 @@ let monotone h t =
       | Obj(obj, r) ->
           let t = localize_term t in
           let new_obj = { obj with context = Context.normalize [t] } in
-          let delayed_subgoal =
-            { bind_state = get_bind_state () ;
-              new_vars = [] ;
-              new_hyps = [Obj(new_obj, r)] ;
-              new_goal = Some sequent.goal }
-          in
+            add_subgoals ~mainline:
+              (case_to_subgoal { bind_state = get_bind_state () ;
+                                 new_vars = [] ;
+                                 new_hyps = [Obj(new_obj, r)] }) [] ;
+            extend_name 1 ;
             sequent.goal <-
               Binding(Forall, ["X"],
                       Arrow(member (Term.const "X")
                               (Context.context_to_term obj.context),
                             member (Term.const "X")
                               t)) ;
-            if search_goal sequent.goal then
-              add_cases_to_subgoals [delayed_subgoal]
-            else begin
-              let new_subgoal =
-                { bind_state = get_bind_state () ;
-                  new_vars = [] ;
-                  new_hyps = [] ;
-                  new_goal = None }
-              in
-                add_cases_to_subgoals [new_subgoal; delayed_subgoal]
-            end ;
-            next_subgoal ()
+            if search_goal sequent.goal then next_subgoal ()
       | _ -> failwith
           "Monotone can only be used on hypotheses of the form {...}"
 

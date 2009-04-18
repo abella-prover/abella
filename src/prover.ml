@@ -296,8 +296,8 @@ let format_display fmt =
   pp_close_box fmt () ;
   pp_print_flush fmt ()
 
-let display () =
-  format_display std_formatter
+let display out =
+  format_display (formatter_of_out_channel out)
 
 let get_display () =
   let b = Buffer.create 100 in

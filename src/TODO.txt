@@ -5,7 +5,9 @@ Document command-line and run-time options
   Set command (usable in proofs)
     subgoal option (numeric - on/off)
     debug option (on/off)
-  Document new -F flag?
+  Command line flags
+    -F
+    -o
 Nested comments
 'abbrev' and 'unabbrev' commands
 

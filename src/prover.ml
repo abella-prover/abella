@@ -44,6 +44,7 @@ type sequent = {
   mutable goal : metaterm ;
   mutable count : int ;
   mutable name : string ;
+  mutable next_subgoal_id : int ;
 }
 
 let sequent = {
@@ -52,6 +53,7 @@ let sequent = {
   goal = termobj (const "placeholder") ;
   count = 0 ;
   name = "" ;
+  next_subgoal_id = 1 ;
 }
 
 let extend_name i =
@@ -71,7 +73,7 @@ let annotate gs =
     if n < 2 then
       gs
     else
-      aux 1 gs
+      aux sequent.next_subgoal_id gs
 
 let add_subgoals ?(mainline) new_subgoals =
   match mainline with
@@ -100,7 +102,8 @@ let set_sequent other =
   sequent.hyps <- other.hyps ;
   sequent.goal <- other.goal ;
   sequent.count <- other.count ;
-  sequent.name <- other.name
+  sequent.name <- other.name ;
+  sequent.next_subgoal_id <- other.next_subgoal_id
 
 let fresh_hyp_name base =
   if base = "" then begin
@@ -588,15 +591,18 @@ let coinduction () =
 
 (* Assert *)
 
+let delay_mainline new_hyp detour_goal =
+  add_subgoals ~mainline:(case_to_subgoal { bind_state = get_bind_state () ;
+                                            new_vars = [] ;
+                                            new_hyps = [new_hyp] }) [] ;
+  extend_name sequent.next_subgoal_id ;
+  sequent.next_subgoal_id <- sequent.next_subgoal_id + 1 ;
+  sequent.goal <- detour_goal ;
+  if search_goal sequent.goal then next_subgoal ()
+
 let assert_hyp term =
   let term = localize_metaterm term in
-    add_subgoals ~mainline:(case_to_subgoal { bind_state = get_bind_state () ;
-                                              new_vars = [] ;
-                                              new_hyps = [term] }) [] ;
-    extend_name 1 ;
-    sequent.goal <- term ;
-    if search_goal sequent.goal then next_subgoal ()
-
+    delay_mainline term term
 
 (* Object logic monotone *)
 
@@ -606,18 +612,13 @@ let monotone h t =
       | Obj(obj, r) ->
           let t = localize_term t in
           let new_obj = { obj with context = Context.normalize [t] } in
-            add_subgoals ~mainline:
-              (case_to_subgoal { bind_state = get_bind_state () ;
-                                 new_vars = [] ;
-                                 new_hyps = [Obj(new_obj, r)] }) [] ;
-            extend_name 1 ;
-            sequent.goal <-
-              Binding(Forall, ["X"],
-                      Arrow(member (Term.const "X")
-                              (Context.context_to_term obj.context),
-                            member (Term.const "X")
-                              t)) ;
-            if search_goal sequent.goal then next_subgoal ()
+            delay_mainline
+              (Obj(new_obj, r))
+              (Binding(Forall, ["X"],
+                       Arrow(member (Term.const "X")
+                               (Context.context_to_term obj.context),
+                             member (Term.const "X")
+                               t))) ;
       | _ -> failwith
           "Monotone can only be used on hypotheses of the form {...}"
 

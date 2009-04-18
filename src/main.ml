@@ -53,7 +53,7 @@ let switch () =
   interactive := true ;
   lexbuf := Lexing.from_channel stdin ;
   out := stdout ;
-  fprintf !out "Switching to interactive mode.\n"
+  fprintf !out "Switching to interactive mode.\n%!"
 
 let ensure_no_restrictions term =
   if get_max_restriction term > 0 then
@@ -61,7 +61,7 @@ let ensure_no_restrictions term =
 
 let ensure_no_free_vars free_vars =
   if free_vars <> [] then
-    failwith (sprintf "Unbound variables: %s"
+    failwith (sprintf "Unbound variables: %s%!"
                 (String.concat ", " free_vars))
 
 let ensure_defs_exist ?(ignore=[]) term =
@@ -85,7 +85,7 @@ let warn_stratify dsig term =
       | _ -> false
   in
     if aux term then begin
-      fprintf !out "Warning: %s might not be stratified" (sig_to_string dsig)
+      fprintf !out "Warning: %s might not be stratified%!" (sig_to_string dsig)
     end
 
 let check_theorem thm =
@@ -141,10 +141,10 @@ let rec process_proof name =
     try while not !finished do try
       if not !quiet then begin
         if !annotate then begin
-          fprintf !out "</pre>\n" ;
+          fprintf !out "</pre>\n%!" ;
           incr count ;
-          fprintf !out "<a name=\"%d\"></a>\n" !count ;
-          fprintf !out "<pre>\n"
+          fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
+          fprintf !out "<pre>\n%!"
         end ;
         display !out ;
         fprintf !out "%s < %!" name
@@ -152,7 +152,7 @@ let rec process_proof name =
       let input = Parser.command Lexer.token !lexbuf in
         if not !interactive && not !quiet then begin
           let pre, post = if !annotate then "<b>", "</b>" else "", "" in
-            fprintf !out "%s%s.%s\n" pre (command_to_string input) post
+            fprintf !out "%s%s.%s\n%!" pre (command_to_string input) post
         end ;
         save_undo_state () ;
         begin match input with
@@ -192,11 +192,11 @@ let rec process_proof name =
       | Failure "lexing: empty token" ->
           exit (if !interactive then 0 else 1)
       | Failure "Proof completed." ->
-          fprintf !out "Proof completed.\n" ;
+          fprintf !out "Proof completed.\n%!" ;
           reset_prover () ;
           finished := true
       | Failure s ->
-          eprintf "Error: %s\n" s ;
+          eprintf "Error: %s\n%!" s ;
           if not !interactive then exit 1
       | End_of_file ->
           if !switch_to_stdin then begin
@@ -204,11 +204,11 @@ let rec process_proof name =
             process_proof name ;
             finished := true
           end else begin
-            fprintf !out "Proof NOT completed.\n" ;
+            fprintf !out "Proof NOT completed.\n%!" ;
             exit 1
           end
       | AbortProof ->
-          fprintf !out "Proof aborted.\n" ;
+          fprintf !out "Proof aborted.\n%!" ;
           reset_prover () ;
           raise AbortProof
       | Parsing.Parse_error ->
@@ -225,14 +225,14 @@ let rec process () =
   try while true do try
     if !annotate then begin
       incr count ;
-      fprintf !out "<a name=\"%d\"></a>\n" !count ;
-      fprintf !out "<pre class=\"code\">\n"
+      fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
+      fprintf !out "<pre class=\"code\">\n%!"
     end ;
     fprintf !out "Abella < %!" ;
     let input = Parser.top_command Lexer.token !lexbuf in
       if not !interactive then begin
           let pre, post = if !annotate then "<b>", "</b>" else "", "" in
-            fprintf !out "%s%s.%s\n" pre (top_command_to_string input) post
+            fprintf !out "%s%s.%s\n%!" pre (top_command_to_string input) post
       end ;
       begin match input with
         | Theorem(name, thm) ->
@@ -253,21 +253,21 @@ let rec process () =
             set k v
       end ;
       if !interactive then flush stdout ;
-      if !annotate then fprintf !out "</pre>" ;
-      fprintf !out "\n" ;
+      if !annotate then fprintf !out "</pre>%!" ;
+      fprintf !out "\n%!" ;
   with
     | Failure "lexing: empty token" ->
         exit (if !interactive then 0 else 1)
     | Failure s ->
-        eprintf "Error: %s\n" s ;
+        eprintf "Error: %s\n%!" s ;
         if not !interactive then exit 1
     | End_of_file ->
         if !switch_to_stdin then begin
           switch () ;
           process ()
         end else begin
-          fprintf !out "Goodbye.\n" ;
-          if !annotate then fprintf !out "</pre>\n" ;
+          fprintf !out "Goodbye.\n%!" ;
+          if !annotate then fprintf !out "</pre>\n%!" ;
           exit 0
         end
     | Parsing.Parse_error ->

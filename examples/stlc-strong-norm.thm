@@ -133,7 +133,7 @@ induction on 1. intros. split*.
     apply sn_app_c to H16. search.
 
   % CR3
-  intros. case H1 (keep).
+  intros. case H1.
 
     % Atomic type
     unfold.

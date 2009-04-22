@@ -103,13 +103,14 @@ induction on 1. intros. case H1.
     apply H2 to H4. apply IH to H5. search.
 
 % CR1 and CR3 are mutually recursive,
-Theorem cr1_cr3 :
-  (forall A M, {type A} -> reduce M A -> sn M)
-  /\
-  (forall A M, neutral M -> {of M A} -> {type A} ->
+Theorem cr1_cr3 : forall A,
+  {type A} ->
+    (forall M, reduce M A -> sn M)
+    /\
+    (forall M, neutral M -> {of M A} ->
                  (forall P, {step M P} -> reduce P A) ->
                    reduce M A).
-induction on 1 3. split*.
+induction on 1. intros. split*.
 
   % CR1
   intros. case H2.
@@ -124,54 +125,58 @@ induction on 1 3. split*.
     assert {of c A1}.
     assert (forall P, {step c P} -> reduce P A1).
       intros. case H9.
-    apply IH1 to H7 H8 H5 H9.
-    apply H4 to H10.
-    apply IH to H6 H11.
-    apply sn_app_c to H12. search.
+    apply IH to H5.
+    apply H11 to H7 H8 H9.
+    apply H4 to H12.
+    apply IH to H6.
+    apply H14 to H13.
+    apply sn_app_c to H16. search.
 
   % CR3
-  intros. case H4 (keep).
+  intros. case H1 (keep).
 
     % Atomic type
     unfold.
       search.
       unfold. intros.
-        apply H5 to H6. apply H1 to H4 H7. search.
+        apply H5 to H6. apply H2 to H7. search.
 
     % Arrow type
     unfold.
       search.
       intros.
-        apply IH to H6 H8.
+        apply IH to H6.
+        apply H9 to H8.
           % We want to induct on (sn U) so we have to abstract the
           % variable U out entirely.
           assert forall U, sn U -> reduce U A1 -> reduce (app M U) B.
-            induction on 1. intros. case H10.
+            induction on 1. intros. case H12.
               assert forall P, {step (app M U1) P} -> reduce P B.
-                intros. case H13.
-                  apply H5 to H14. case H15.
-                    apply H17 to H11. search.
-                  apply H12 to H14. apply reduce_step to H11 H14.
-                    apply IH2 to H15 H16. search.
-                  case H2. apply H14 to _.
+                intros. case H15.
+                  apply H5 to H16. case H17.
+                    apply H19 to H13. search.
+                  apply H14 to H16. apply reduce_step to H13 H16.
+                    apply IH1 to H17 H18. search.
+                  case H3. apply H16 to _.
               assert neutral (app M U1).
-                unfold. intros. case H14.
+                unfold. intros. case H16.
               assert {of (app M U1) B}.
-                apply reduce_of to H11. search.
-              apply IH1 to H14 H15 H7 H13. search.
-          apply H10 to H9 H8. search.
+                apply reduce_of to H13. search.
+              apply IH to H7.
+              apply H19 to H16 H17 H15. search.
+          apply H12 to H11 H8. search.
 
 % CR1
 Theorem reduce_sn : forall A M,
   {type A} -> reduce M A -> sn M.
-apply cr1_cr3. search.
+intros. apply cr1_cr3 to H1. apply H3 to H2. search.
 
 % CR3
 Theorem neutral_step_reduce : forall A M,
   neutral M -> {of M A} -> {type A} ->
     (forall P, {step M P} -> reduce P A) ->
     reduce M A.
-apply cr1_cr3. search.
+intros. apply cr1_cr3 to H3. apply H6 to H1 H2 H4. search.
 
 Theorem of_type_ext : forall L M A,
   ctx L -> {L |- of M A} -> {type A}.

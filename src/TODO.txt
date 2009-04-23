@@ -4,7 +4,7 @@ Import in emacs highlight
 Import in web display
 Set in web display?
 Set in emacs highlight
-How to deal with specification during import?
+How to web display the spec/thm when using import?
 
 Document in next release
 ========================

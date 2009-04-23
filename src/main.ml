@@ -57,6 +57,9 @@ let switch () =
   out := stdout ;
   fprintf !out "Switching to interactive mode.\n%!"
 
+
+(* Checks *)
+
 let ensure_no_restrictions term =
   if get_max_restriction term > 0 then
     failwith "Cannot use restrictions: *, @ or +"
@@ -120,6 +123,16 @@ let check_def (head, body) =
     warn_stratify dsig body
 
 
+(* Compilation and importing *)
+
+let compile citem =
+  match !compile_out with
+    | Some cout -> Marshal.to_channel cout citem []
+    | None -> ()
+
+let verify_signature file =
+  let imported_clauses = (Marshal.from_channel file : clauses) in
+    !clauses = imported_clauses
 
 let imported = ref []
 
@@ -129,22 +142,29 @@ let rec import filename =
       let file = open_in_bin filename in
         imported := filename :: !imported ;
         try
-          while true do
-            match (Marshal.from_channel file : compiled) with
-              | CTheorem(name, thm) ->
-                  check_theorem thm ;
-                  add_lemma name thm ;
-                  last_sig := ("", 0)
-              | CDefine(def) ->
-                  check_def def ;
-                  add_def Inductive def
-              | CCoDefine(def) ->
-                  check_def def ;
-                  add_def CoInductive def
-              | CImport(filename) ->
-                  import filename
-          done
+          if verify_signature file then
+            while true do
+              match (Marshal.from_channel file : compiled) with
+                | CTheorem(name, thm) ->
+                    check_theorem thm ;
+                    add_lemma name thm ;
+                    last_sig := ("", 0)
+                | CDefine(def) ->
+                    check_def def ;
+                    add_def Inductive def
+                | CCoDefine(def) ->
+                    check_def def ;
+                    add_def CoInductive def
+                | CImport(filename) ->
+                    import filename
+            done
+          else
+            failwith ("Import failed: " ^ filename ^
+                        " was compiled with a different specification" )
         with End_of_file -> ()
+
+
+(* Proof processing *)
 
 let set k v =
   match k, v with
@@ -250,11 +270,6 @@ let rec process_proof name =
     done with
       | Failure "eof" -> ()
 
-let compile citem =
-  match !compile_out with
-    | Some cout -> Marshal.to_channel cout citem []
-    | None -> ()
-
 let rec process () =
   try while true do try
     if !annotate then begin
@@ -322,6 +337,9 @@ let rec process () =
   done with
   | Failure "eof" -> ()
 
+
+(* Command line and startup *)
+
 let welcome_msg = sprintf "Welcome to Abella %s\n" Version.version
 
 let usage_message = "abella [options] <module-file>"
@@ -380,4 +398,5 @@ let _ =
   Arg.parse options add_mod_file usage_message ;
   fprintf !out "%s%!" welcome_msg ;
   List.iter parse_mod_file !mod_files ;
+  compile !clauses ;
   process ()

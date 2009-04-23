@@ -29,29 +29,20 @@ induction on 1. intros. case H1.
   apply IH to H2. apply IH to H3. search.
   apply IH to H2. apply IH to H3. search.
 
-Theorem ctx_sub_absurd : forall S T L,
-  ctx L -> member (sub S T) L -> false.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    apply IH to H4 H5.
-
-Theorem ctx_name : forall L X U,
-  ctx L -> member (bound X U) L -> name X.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    case H3. search.
-    apply IH to H4 H5. search.
+Theorem ctx_member : forall E L,
+  ctx L -> member E L -> exists X U, E = bound X U /\ name X.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. apply IH to H5 H3. search.
 
 Theorem bound_name : forall L X U,
   ctx L -> {L |- bound X U} -> name X.
-intros. case H2. apply ctx_name to H1 H3. search.
+intros. case H2. apply ctx_member to H1 H3. search.
 
 Theorem sub_top : forall L T,
   ctx L -> {L |- sub top T} -> T = top.
 intros. case H2.
-  apply ctx_sub_absurd to H1 H3.
+  apply ctx_member to H1 H3.
   search.
   search.
   apply bound_name to H1 H3. case H5.
@@ -75,7 +66,7 @@ induction on 1. intros. split*.
   % Proof of transitivity
   % Induction and case analysis on {L |- S <: Q}
   induction on 2. intros. case H3.
-    apply ctx_sub_absurd to H2 H5.
+    apply ctx_member to H2 H5.
 
     % SA-Top, Q = top
     apply sub_top to H2 H4. search.
@@ -89,7 +80,7 @@ induction on 1. intros. split*.
     % SA-Arrow, S = arrow S1 S2, Q = arrow T1 T2
     % Case analysis on (arrow T1 T2) <: T
     case H4.
-      apply ctx_sub_absurd to H2 H7.
+      apply ctx_member to H2 H7.
 
       % SA-Top, T = top
       search.
@@ -110,7 +101,7 @@ induction on 1. intros. split*.
 
     % SA-All, S = all S1 (x\ S2 x), Q = all T1 (x\ T2 x)
     case H4.
-      apply ctx_sub_absurd to H2 H7.
+      apply ctx_member to H2 H7.
 
       % SA-Top, T = top
       search.
@@ -135,7 +126,7 @@ induction on 1. intros. split*.
   % Proof of narrowing
   % Induction and case analysis on {L, X:Q |- TM <: TN}
   induction on 3. intros. case H5 (keep).
-    apply ctx_sub_absurd to H3 H6.
+    apply ctx_member to H3 H6.
 
     % SA-Top, TN = top
     search.

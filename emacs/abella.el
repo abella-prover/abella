@@ -18,7 +18,7 @@
 (defvar abella-font-lock-keywords
   (list
     (cons (make-command-regex "Define" "CoDefine") font-lock-keyword-face)
-    (cons (make-command-regex "Theorem" "Axiom") font-lock-function-name-face)
+    (cons (make-command-regex "Theorem") font-lock-function-name-face)
     (cons (make-regex "skip") font-lock-warning-face))
   "Default highlighting for Abella major mode")
 

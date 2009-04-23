@@ -40,6 +40,13 @@ type top_command =
   | Define of def
   | CoDefine of def
   | TopSet of string * set_value
+  | Import of string
+
+type compiled =
+  | CTheorem of id * metaterm
+  | CDefine of def
+  | CCoDefine of def
+  | CImport of string
 
 type command =
   | Induction of int list
@@ -93,6 +100,8 @@ let top_command_to_string tc =
         sprintf "CoDefine %s" (def_to_string def)
     | TopSet(k, v) ->
         sprintf "Set %s %s" k (set_value_to_string v)
+    | Import filename ->
+        sprintf "Import %s" filename
 
 let withs_to_string ws =
   String.concat ", "

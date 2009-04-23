@@ -24,6 +24,8 @@ open Extensions
 open Printf
 open Debug
 
+let compile_out = ref None
+
 let quiet = ref false
 let interactive = ref true
 let switch_to_stdin = ref false
@@ -116,6 +118,33 @@ let check_def (head, body) =
     ensure_no_free_vars free_vars ;
     ensure_defs_exist ~ignore:[dsig] body ;
     warn_stratify dsig body
+
+
+
+let imported = ref []
+
+let rec import filename =
+  let filename = filename ^ ".thc" in
+    if not (List.mem filename !imported) then
+      let file = open_in_bin filename in
+        imported := filename :: !imported ;
+        try
+          while true do
+            match (Marshal.from_channel file : compiled) with
+              | CTheorem(name, thm) ->
+                  check_theorem thm ;
+                  add_lemma name thm ;
+                  last_sig := ("", 0)
+              | CDefine(def) ->
+                  check_def def ;
+                  add_def Inductive def
+              | CCoDefine(def) ->
+                  check_def def ;
+                  add_def CoInductive def
+              | CImport(filename) ->
+                  import filename
+          done
+        with End_of_file -> ()
 
 let set k v =
   match k, v with
@@ -221,6 +250,11 @@ let rec process_proof name =
     done with
       | Failure "eof" -> ()
 
+let compile citem =
+  match !compile_out with
+    | Some cout -> Marshal.to_channel cout citem []
+    | None -> ()
+
 let rec process () =
   try while true do try
     if !annotate then begin
@@ -240,17 +274,25 @@ let rec process () =
             theorem thm ;
             begin try
               process_proof name ;
+              compile (CTheorem(name, thm)) ;
               add_lemma name thm ;
               last_sig := ("", 0)
             with AbortProof -> () end
         | Define(def) ->
             check_def def ;
+            compile (CDefine def) ;
             add_def Inductive def
         | CoDefine(def) ->
             check_def def ;
+            compile (CCoDefine def) ;
             add_def CoInductive def
         | TopSet(k, v) ->
             set k v
+        | Import(filename) ->
+            compile (CImport filename) ;
+            last_sig := ("", 0) ;
+            import filename ;
+            last_sig := ("", 0)
       end ;
       if !interactive then flush stdout ;
       if !annotate then fprintf !out "</pre>%!" ;
@@ -303,6 +345,9 @@ let set_read_from_file_then_stdin filename =
 let set_output filename =
   out := open_out filename
 
+let set_compile_out filename =
+  compile_out := Some (open_out_bin filename)
+
 let options =
   Arg.align
     [
@@ -311,6 +356,7 @@ let options =
       ("-F", Arg.String set_read_from_file_then_stdin,
        "<theorem-file> Read command input from file and then from user") ;
       ("-o", Arg.String set_output, "<file-name> Output to file") ;
+      ("-c", Arg.String set_compile_out, "<file-name> Compile definitions and theorems in an importable format") ;
       ("-q", Arg.Set quiet, " Quiet mode") ;
       ("-a", Arg.Set annotate, " Annotate mode") ;
     ]

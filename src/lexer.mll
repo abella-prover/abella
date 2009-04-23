@@ -67,6 +67,7 @@ rule token = parse
 | "Theorem"          { THEOREM }
 | "Define"           { DEFINE }
 | "CoDefine"         { CODEFINE }
+| "Import"           { IMPORT }
 | "\\/"              { OR }
 | "/\\"              { AND }
 | "{"                { LBRACK }

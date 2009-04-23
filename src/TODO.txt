@@ -1,3 +1,11 @@
+Before next release
+===================
+Import in emacs highlight
+Import in web display
+Set in web display?
+Set in emacs highlight
+How to deal with specification during import?
+
 Document in next release
 ========================
 Hierarchical numbering for subgoals
@@ -10,6 +18,7 @@ Document command-line and run-time options
     -o
 Nested comments
 'abbrev' and 'unabbrev' commands
+Import
 
 Future
 ======

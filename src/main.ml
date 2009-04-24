@@ -201,6 +201,9 @@ let rec import filename =
             failwith ("Import failed: " ^ filename ^
                         " was compiled with a different specification" )
         with End_of_file -> ()
+    else
+      fprintf !out "Ignoring import: %s has already been imported.\n%!"
+        filename
 
 
 (* Proof processing *)

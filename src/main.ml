@@ -24,21 +24,24 @@ open Extensions
 open Printf
 open Debug
 
-let compile_out = ref None
 let can_read_specification = ref true
+let last_sig = ref ("", 0)
 
-let quiet = ref false
 let interactive = ref true
-let switch_to_stdin = ref false
 let out = ref stdout
+let compile_out = ref None
+
+type source = File of string | Stdin
+let sources = Queue.create ()
+let lexbuf = ref (Lexing.from_channel stdin)
 
 let annotate = ref false
 let count = ref 0
-let last_sig = ref ("", 0)
-
-let lexbuf = ref (Lexing.from_channel stdin)
 
 exception AbortProof
+
+
+(* Input *)
 
 let position lexbuf =
   let curr = lexbuf.Lexing.lex_curr_p in
@@ -50,13 +53,36 @@ let position lexbuf =
     else
       sprintf ": file %s, line %d, character %d" file line char
 
-let switch () =
-  assert !switch_to_stdin ;
-  switch_to_stdin := false ;
-  interactive := true ;
-  lexbuf := Lexing.from_channel stdin ;
-  out := stdout ;
-  fprintf !out "Switching to interactive mode.\n%!"
+let lexbuf_from_file filename =
+  let lexbuf = Lexing.from_channel (open_in filename) in
+    lexbuf.Lexing.lex_curr_p <- {
+      lexbuf.Lexing.lex_curr_p with
+        Lexing.pos_fname = filename } ;
+    lexbuf
+
+let is_next_source () =
+  not (Queue.is_empty sources)
+
+let next_source () =
+  match Queue.take sources with
+    | File filename ->
+        lexbuf := lexbuf_from_file filename ;
+        interactive := false
+    | Stdin ->
+        lexbuf := Lexing.from_channel stdin ;
+        interactive := true ;
+        out := stdout ;
+        fprintf !out "Switching to interactive mode.\n%!"
+
+let parse_mod_file name =
+  fprintf !out "Reading clauses from %s\n%!" name ;
+  let lexbuf = lexbuf_from_file name in
+    try
+      add_clauses (Parser.clauses Lexer.token lexbuf)
+    with
+      | Parsing.Parse_error ->
+          eprintf "Syntax error%s.\n%!" (position lexbuf) ;
+          exit 1
 
 
 (* Checks *)
@@ -126,10 +152,20 @@ let check_def (head, body) =
 
 (* Compilation and importing *)
 
-let compile citem =
+let marshal citem =
   match !compile_out with
     | Some cout -> Marshal.to_channel cout citem []
     | None -> ()
+
+let ensure_finalized_specification () =
+  if !can_read_specification then begin
+    can_read_specification := false ;
+    marshal !clauses
+  end
+
+let compile citem =
+  ensure_finalized_specification () ;
+  marshal citem
 
 let verify_signature file =
   let imported_clauses = (Marshal.from_channel file : clauses) in
@@ -169,24 +205,6 @@ let rec import filename =
 
 (* Proof processing *)
 
-let lexbuf_from_file filename =
-  let lexbuf = Lexing.from_channel (open_in filename) in
-    lexbuf.Lexing.lex_curr_p <- {
-      lexbuf.Lexing.lex_curr_p with
-        Lexing.pos_fname = filename } ;
-    lexbuf
-
-let parse_mod_file name =
-  if not !quiet then
-    fprintf !out "Reading clauses from %s\n%!" name ;
-  let lexbuf = lexbuf_from_file name in
-    try
-      add_clauses (Parser.clauses Lexer.token lexbuf)
-    with
-      | Parsing.Parse_error ->
-          eprintf "Syntax error%s.\n%!" (position lexbuf) ;
-          exit 1
-
 let set k v =
   match k, v with
     | "subgoals", Int d when d >= 0 -> subgoal_depth := d
@@ -209,18 +227,16 @@ let set k v =
 let rec process_proof name =
   let finished = ref false in
     try while not !finished do try
-      if not !quiet then begin
-        if !annotate then begin
-          fprintf !out "</pre>\n%!" ;
-          incr count ;
-          fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
-          fprintf !out "<pre>\n%!"
-        end ;
-        display !out ;
-        fprintf !out "%s < %!" name
+      if !annotate then begin
+        fprintf !out "</pre>\n%!" ;
+        incr count ;
+        fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
+        fprintf !out "<pre>\n%!"
       end ;
+      display !out ;
+      fprintf !out "%s < %!" name ;
       let input = Parser.command Lexer.token !lexbuf in
-        if not !interactive && not !quiet then begin
+        if not !interactive then begin
           let pre, post = if !annotate then "<b>", "</b>" else "", "" in
             fprintf !out "%s%s.%s\n%!" pre (command_to_string input) post
         end ;
@@ -269,8 +285,8 @@ let rec process_proof name =
           eprintf "Error: %s\n%!" s ;
           if not !interactive then exit 1
       | End_of_file ->
-          if !switch_to_stdin then begin
-            switch () ;
+          if is_next_source () then begin
+            next_source () ;
             process_proof name ;
             finished := true
           end else begin
@@ -291,12 +307,6 @@ let rec process_proof name =
     done with
       | Failure "eof" -> ()
 
-let ensure_finalized_specification () =
-  if !can_read_specification then begin
-    can_read_specification := false ;
-    compile !clauses
-  end
-
 let rec process () =
   try while true do try
     if !annotate then begin
@@ -316,7 +326,6 @@ let rec process () =
             theorem thm ;
             begin try
               process_proof name ;
-              ensure_finalized_specification () ;
               compile (CTheorem(name, thm)) ;
               add_lemma name thm ;
               last_sig := ("", 0)
@@ -332,7 +341,6 @@ let rec process () =
         | TopSet(k, v) ->
             set k v
         | Import(filename) ->
-            ensure_finalized_specification () ;
             compile (CImport filename) ;
             last_sig := ("", 0) ;
             import filename ;
@@ -355,8 +363,8 @@ let rec process () =
         eprintf "Error: %s\n%!" s ;
         if not !interactive then exit 1
     | End_of_file ->
-        if !switch_to_stdin then begin
-          switch () ;
+        if is_next_source () then begin
+          next_source () ;
           process ()
         end else begin
           fprintf !out "Goodbye.\n%!" ;
@@ -379,16 +387,7 @@ let rec process () =
 
 let welcome_msg = sprintf "Welcome to Abella %s\n" Version.version
 
-let usage_message = "abella [options]"
-
-let set_read_from_file filename =
-  interactive := false ;
-  lexbuf := lexbuf_from_file filename
-
-let set_read_from_file_then_stdin filename =
-  interactive := false ;
-  lexbuf := lexbuf_from_file filename ;
-  switch_to_stdin := true
+let usage_message = "abella [options] <theorem-file>"
 
 let set_output filename =
   out := open_out filename
@@ -396,23 +395,27 @@ let set_output filename =
 let set_compile_out filename =
   compile_out := Some (open_out_bin filename)
 
+let switch_to_interactive = ref false
+
 let options =
   Arg.align
     [
-      ("-f", Arg.String set_read_from_file,
-       "<theorem-file> Read command input from file") ;
-      ("-F", Arg.String set_read_from_file_then_stdin,
-       "<theorem-file> Read command input from file and then from user") ;
-      ("-o", Arg.String set_output, "<file-name> Output to file") ;
-      ("-c", Arg.String set_compile_out, "<file-name> Compile definitions and theorems in an importable format") ;
-      ("-q", Arg.Set quiet, " Quiet mode") ;
+      ("-i", Arg.Set switch_to_interactive,
+       " Switch to interactive mode after reading inputs") ;
+      ("-o", Arg.String set_output,
+       "<file-name> Output to file") ;
+      ("-c", Arg.String set_compile_out,
+       "<file-name> Compile definitions and theorems in an importable format") ;
       ("-a", Arg.Set annotate, " Annotate mode") ;
     ]
 
-let excess_args s =
-  raise (Arg.Bad ("Unknown option '" ^ s ^ "'"))
+let add_input filename =
+  Queue.add (File filename) sources
 
 let _ =
-  Arg.parse options excess_args usage_message ;
+  Arg.parse options add_input usage_message ;
+  if !switch_to_interactive or Queue.is_empty sources then
+    Queue.add Stdin sources ;
+  next_source () ;
   fprintf !out "%s%!" welcome_msg ;
   process ()

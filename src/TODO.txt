@@ -3,6 +3,9 @@ Before next release
 Emacs highlight
   Import, Set, Specification
 
+omake add.thc does not seem to depend on add.thm?
+omake theorems does not depend on *.thm either
+
 Document in next release
 ========================
 Hierarchical numbering for subgoals
@@ -10,10 +13,7 @@ Document command-line and run-time options
   Set command (usable in proofs)
     subgoal option (numeric - on/off)
     debug option (on/off)
-  Command line flags
-    -F
-    -o
-    -c
+  Command line flags (some added, some removed)
 Nested comments
 'abbrev' and 'unabbrev' commands
 Compilation & Import

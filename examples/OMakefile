@@ -24,15 +24,16 @@ foreach(name, $(FILE_NAMES))
 
 foreach(name, $(FILE_NAMES))
     $(name).thc: $(name).dep $(ABELLA)
-        $(ABELLA) -q -f $*.thm -c $@
+        $(ABELLA) $*.thm -c $@ -o $(name).out
+        rm -f $(name).out
 
     .PHONY: $(name)
     $(name): $(name).dep $(ABELLA)
-        $(ABELLA) -f $(name).thm
+        $(ABELLA) $(name).thm
 
     .PHONY: $(name)-tail
     $(name)-tail: $(name).dep $(ABELLA)
-        $(ABELLA) -f $(name).thm | tail -100
+        $(ABELLA) $(name).thm | tail -100
 
 .PHONY: theorems
 theorems: $(ABELLA) $(addsuffix .thc, $(FILE_NAMES))
@@ -59,7 +60,7 @@ foreach(name, $(FILE_NAMES))
         if $(defined spec)
             ruby html-files/annotate_mod.rb $(spec).mod > specification
         ruby html-files/annotate_thm.rb $(name).thm > reasoning
-        $(ABELLA) -a -f $(name).thm > details
+        $(ABELLA) -a $(name).thm > details
 
         erb html-files/main.rhtml > html/$(name).html
         erb html-files/details.rhtml > html/$(name)-details.html

@@ -11,6 +11,7 @@
 *.lpo
 *.thc
 *.dep
+*.out
 *.output
 src/lexer.ml
 src/parser.ml

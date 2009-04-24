@@ -5,35 +5,36 @@
 ABELLA = ../src/abella$(EXE)
 FILE_NAMES[] = $(rootname $(find . -name *.thm))
 
-# This is a bit expensive (0.5 sec).
-# It would be nice to do this on the fly.
-foreach(name, $(FILE_NAMES))
-    # Compute dependencies
-    deps[] =
-    awk($(name).thm)
-    case $'Import "\(.*\)"\.'
-        deps[] += $(addsuffix .thc, $1)
-        export
-    case $'Specification "\(.*\)"\.'
-        deps[] += $(addsuffix .mod, $1)
-        export
+.SCANNER: %.thc %.out: %.thm
+    section
+        # Compute dependencies
+        deps[] =
+        awk($<)
+        case $'Import "\(.*\)"\.'
+            deps[] += $(addsuffix .thc, $1)
+            export
+        case $'Specification "\(.*\)"\.'
+            deps[] += $(addsuffix .mod, $1)
+            export
 
-    section rule
-        .PHONY: $(name).dep
-        $(name).dep: $(name).thm $(deps)
+        println($"$@: $< $(deps)")
+
+%.out: %.thm $(ABELLA)
+    $(ABELLA) $*.thm >& $*.out || true
+
+%.thc: %.thm $(ABELLA)
+    $(ABELLA) $*.thm -c $@ -o $*.out
 
 foreach(name, $(FILE_NAMES))
-    $(name).thc: $(name).dep $(ABELLA)
-        $(ABELLA) $*.thm -c $@ -o $(name).out
+    .PHONY: $(name)
+    $(name): $(name).out
+        cat $(name).out
         rm -f $(name).out
 
-    .PHONY: $(name)
-    $(name): $(name).dep $(ABELLA)
-        $(ABELLA) $(name).thm
-
     .PHONY: $(name)-tail
-    $(name)-tail: $(name).dep $(ABELLA)
-        $(ABELLA) $(name).thm | tail -100
+    $(name)-tail: $(name).out
+        tail -100 $(name).out
+        rm -f $(name).out
 
 .PHONY: theorems
 theorems: $(ABELLA) $(addsuffix .thc, $(FILE_NAMES))
@@ -46,7 +47,7 @@ theorems: $(ABELLA) $(addsuffix .thc, $(FILE_NAMES))
 html: $(addprefix html/, $(addsuffix .html, $(FILE_NAMES)))
 
 foreach(name, $(FILE_NAMES))
-    html/$(name).html html/$(name)-details.html: $(name).dep $(ABELLA)
+    html/$(name).html html/$(name)-details.html: $(name).thc $(ABELLA)
         mkdir -p html
         echo Processing $(name)
 

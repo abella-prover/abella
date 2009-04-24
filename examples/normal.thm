@@ -3,6 +3,8 @@
 %% The ctxs predicate encodes the relationship between the context
 %% of the judgements (term T) and (normal T).
 
+Specification "normal".
+
 Define nabla x, name x.
 
 Define ctxs nil nil.

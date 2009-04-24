@@ -5,6 +5,8 @@
 %% Adapted from the %reduces example in the Twelf User's Guide:
 %% http://www.cs.cmu.edu/~twelf/guide-1-4/twelf_8.html#SEC47
 
+Specification "gcd".
+
 Theorem sub_total_tt : forall X Y,
   {less X Y tt} -> exists Z, {sub Y X Z}.
 induction on 1. intros. case H1.

@@ -2,6 +2,8 @@
 %%
 %% We turn the type nat into a predicate so that we can induct on it.
 
+Specification "add".
+
 % Add is commutative
 
 Theorem add_base : forall N, {nat N} -> {add N z N}.

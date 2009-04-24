@@ -4,6 +4,8 @@
 %%
 %% Abella proof contributed by Randy Pollack
 
+Specification "cr".
+
 Define ctxs nil nil nil.
 Define nabla x, ctxs (trm x :: L) (pr1 x x :: K) (cd1 x x :: notabs x :: J)
       := ctxs L K J.

@@ -3,51 +3,73 @@
 #
 
 ABELLA = ../src/abella$(EXE)
-
 FILE_NAMES[] = $(rootname $(find . -name *.thm))
 
+# This is a bit expensive (0.5 sec).
+# It would be nice to do this on the fly.
 foreach(name, $(FILE_NAMES))
-    .PHONY: $(name)
-    $(name): $(name).mod $(name).thm $(ABELLA)
-        $(ABELLA) $(name).mod -f $(name).thm
+    # Compute dependencies
+    deps[] =
+    awk($(name).thm)
+    case $'Import "\(.*\)"\.'
+        deps[] += $(addsuffix .thc, $1)
+        export
+    case $'Specification "\(.*\)"\.'
+        deps[] += $(addsuffix .mod, $1)
+        export
+
+    section rule
+        .PHONY: $(name).dep
+        $(name).dep: $(name).thm $(deps)
 
 foreach(name, $(FILE_NAMES))
+    $(name).thc: $(name).dep $(ABELLA)
+        $(ABELLA) -q -f $*.thm -c $@
+
+    .PHONY: $(name)
+    $(name): $(name).dep $(ABELLA)
+        $(ABELLA) -f $(name).thm
+
     .PHONY: $(name)-tail
-    $(name)-tail: $(name).mod $(name).thm $(ABELLA)
-        $(ABELLA) $(name).mod -f $(name).thm | tail -100
+    $(name)-tail: $(name).dep $(ABELLA)
+        $(ABELLA) -f $(name).thm | tail -100
 
 .PHONY: theorems
-theorems: $(ABELLA) $(addsuffix .thm, $(FILE_NAMES)) \
-                    $(addsuffix .mod, $(FILE_NAMES))
-    foreach(name, $(FILE_NAMES))
-        $(ABELLA) $(name).mod -q -f $(name).thm
-
+theorems: $(ABELLA) $(addsuffix .thc, $(FILE_NAMES))
 
 ################################################
 # HTML Output
 #
+
 .PHONY: html
-html: $(ABELLA)
-    mkdir -p html
-    foreach(name, $(FILE_NAMES))
+html: $(addprefix html/, $(addsuffix .html, $(FILE_NAMES)))
+
+foreach(name, $(FILE_NAMES))
+    html/$(name).html html/$(name)-details.html: $(name).dep $(ABELLA)
+        mkdir -p html
         echo Processing $(name)
+
+        awk($(name).thm)
+        case $'Specification "\(.*\)"\.'
+            spec = $1
+            export
 
         echo $(name) > name
         head -1 $(name).thm > title-line
-        ruby html-files/annotate_mod.rb $(name).mod > specification
+        if $(defined spec)
+            ruby html-files/annotate_mod.rb $(spec).mod > specification
         ruby html-files/annotate_thm.rb $(name).thm > reasoning
-        $(ABELLA) -a $(name).mod -f $(name).thm > details
+        $(ABELLA) -a -f $(name).thm > details
 
         erb html-files/main.rhtml > html/$(name).html
         erb html-files/details.rhtml > html/$(name)-details.html
 
-        rm name title-line specification reasoning details
+        rm -f name title-line specification reasoning details
+
 
 .PHONY: upload-html
 upload-html: html
     bash -c "chmod 664 html/* *.thm *.mod"
-    scp $(addprefix html/, $(basename $(ls html))) \
-        $(addsuffix .mod, $(FILE_NAMES)) \
-        $(addsuffix .thm, $(FILE_NAMES)) \
+    scp $(addprefix html/, $(basename $(ls html))) *.mod *.thm \
       $(UPLOAD_SITE)/examples
     rm -rf html

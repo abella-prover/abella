@@ -1,5 +1,7 @@
 %% Type uniqueness for simply typed lambda calculus using only LG-omega
 
+Specification "type-uniq-lg".
+
 Theorem member_prune : forall E L, nabla x,
   member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.

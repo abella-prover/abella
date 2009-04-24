@@ -4,6 +4,8 @@
 %% to define a meta-level context predicate because all contexts are
 %% empty in the inductions.
 
+Specification "eval".
+
 %%
 %% Determinancy
 %%

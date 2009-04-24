@@ -12,7 +12,8 @@ class Element
     @text = text
     @tag = tag
 
-    if tag == :tactic || tag == :theorem || tag == :command then
+    if tag == :tactic || tag == :theorem ||
+       tag == :command || tag == :import then
       @ref = (@@input_count += 1)
     elsif tag == :proof_start
       @ref = (@@proof_count += 1)
@@ -37,13 +38,19 @@ class Element
     else
       type = (tag == :tactic ? "tactic" : "command")
       @text.gsub!(/(%.*)/, '<span class="comment">\1</span>')
-      "<a href=\"#{$details}##{@ref}\" class=\"#{type}\">#{@text}</a>"
+      "<a href=\"#{$details}##{@ref}\" class=\"#{type}\">#{@text}</a>" +
+      if tag == :import then
+        @text =~ /\"(.*)\"/
+        " <a class=\"import-link\" href=\"#{$1}.html\">[View #{$1}]</a>"
+      else
+        ""
+      end
     end
   end
 end
 
 def convert(string)
-  regex = /(\/\*.*?\*\/|%.*?\n|(?:Theorem|CoDefine|Define|Set|coinduction|induction|apply|cut|inst|monotone|case|assert|exists|clear|abbrev|unabbrev|search|split|split\*|unfold|intros|skip|abort|undo)(?:[^%]|%.*?\n)*?\.)/m
+  regex = /(\/\*.*?\*\/|%.*?\n|(?:Theorem|CoDefine|Define|Import|Specification|coinduction|induction|apply|cut|inst|monotone|case|assert|exists|clear|abbrev|unabbrev|search|split|split\*|unfold|intros|skip|abort|undo)(?:[^%]|%.*?\n)*?\.)/m
 
   string.split(regex).map do |s|
     case s
@@ -56,8 +63,10 @@ def convert(string)
       Element.new(s, :comment)
     when /^Theorem/
       Element.new(s, :theorem)
-    when /^(Define|CoDefine|Set)/
+    when /^(Define|CoDefine|Set|Specification)/
       Element.new(s, :command)
+    when /^Import/
+      Element.new(s, :import)
     else
       Element.new(s, :tactic)
     end

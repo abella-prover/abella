@@ -2,6 +2,8 @@
 %%
 %% This is based on the presentation in Girard's Proofs and Types.
 
+Specification "stlc-strong-norm".
+
 %% Conventions:
 %% Types: A, B, C
 %% Terms: M, N, P, R, U, V

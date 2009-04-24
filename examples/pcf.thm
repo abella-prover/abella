@@ -1,5 +1,7 @@
 %% Subject reduction for PCF
 
+Specification "pcf".
+
 % Most cases are trivial consequences of the inductive hypothesis
 
 Theorem subject_reduction :

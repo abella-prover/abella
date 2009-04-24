@@ -3,6 +3,8 @@
 %% This is based on the presentation in Types and Programming
 %% Languages by Pierce.
 
+Specification "stlc-weak-norm".
+
 %% Conventions:
 %% Types: A, B, C
 %% Terms: M, N, P, R

@@ -1,5 +1,7 @@
 %% Soundness and completeness for a focused logic
 
+Specification "focus".
+
 %% All logics have the same structure for contexts
 
 Define ctx nil.

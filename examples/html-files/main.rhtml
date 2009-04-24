@@ -1,7 +1,8 @@
 <%
   title = File.open('title-line').read.gsub(/^%* */, "").chomp
   name = File.open('name').read.chomp
-  specification = File.open('specification').read.chomp
+  have_spec = File.exist?('specification')
+  specification = File.open('specification').read.chomp if have_spec
   reasoning = File.open('reasoning').read.chomp
 %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
@@ -42,6 +43,7 @@ function toggle_all(show) {
 <h1 class="title"><%= title %></h1>
 </div>
 
+<% if have_spec %>
 <div class="section">
 <h2 class="title">Executable Specification</h2>
 <a class="view" href="<%= name %>.mod">[View <%= name %>.mod]</a>
@@ -49,6 +51,7 @@ function toggle_all(show) {
 <%= specification %>
 </pre>
 </div>
+<% end %>
 
 <div class="section">
 <h2 class="title">Reasoning</h2>

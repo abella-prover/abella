@@ -41,6 +41,7 @@ type top_command =
   | CoDefine of def
   | TopSet of string * set_value
   | Import of string
+  | Specification of string
 
 type compiled =
   | CTheorem of id * metaterm
@@ -101,7 +102,9 @@ let top_command_to_string tc =
     | TopSet(k, v) ->
         sprintf "Set %s %s" k (set_value_to_string v)
     | Import filename ->
-        sprintf "Import %s" filename
+        sprintf "Import \"%s\"" filename
+    | Specification filename ->
+        sprintf "Specification \"%s\"" filename
 
 let withs_to_string ws =
   String.concat ", "

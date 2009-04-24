@@ -25,6 +25,7 @@ open Printf
 open Debug
 
 let compile_out = ref None
+let can_read_specification = ref true
 
 let quiet = ref false
 let interactive = ref true
@@ -142,6 +143,8 @@ let rec import filename =
       let file = open_in_bin filename in
         imported := filename :: !imported ;
         try
+          fprintf !out "Importing definitions and theorems from %s\n%!"
+            filename ;
           if verify_signature file then
             while true do
               match (Marshal.from_channel file : compiled) with
@@ -165,6 +168,24 @@ let rec import filename =
 
 
 (* Proof processing *)
+
+let lexbuf_from_file filename =
+  let lexbuf = Lexing.from_channel (open_in filename) in
+    lexbuf.Lexing.lex_curr_p <- {
+      lexbuf.Lexing.lex_curr_p with
+        Lexing.pos_fname = filename } ;
+    lexbuf
+
+let parse_mod_file name =
+  if not !quiet then
+    fprintf !out "Reading clauses from %s\n%!" name ;
+  let lexbuf = lexbuf_from_file name in
+    try
+      add_clauses (Parser.clauses Lexer.token lexbuf)
+    with
+      | Parsing.Parse_error ->
+          eprintf "Syntax error%s.\n%!" (position lexbuf) ;
+          exit 1
 
 let set k v =
   match k, v with
@@ -270,6 +291,12 @@ let rec process_proof name =
     done with
       | Failure "eof" -> ()
 
+let ensure_finalized_specification () =
+  if !can_read_specification then begin
+    can_read_specification := false ;
+    compile !clauses
+  end
+
 let rec process () =
   try while true do try
     if !annotate then begin
@@ -289,6 +316,7 @@ let rec process () =
             theorem thm ;
             begin try
               process_proof name ;
+              ensure_finalized_specification () ;
               compile (CTheorem(name, thm)) ;
               add_lemma name thm ;
               last_sig := ("", 0)
@@ -304,10 +332,18 @@ let rec process () =
         | TopSet(k, v) ->
             set k v
         | Import(filename) ->
+            ensure_finalized_specification () ;
             compile (CImport filename) ;
             last_sig := ("", 0) ;
             import filename ;
             last_sig := ("", 0)
+        | Specification(filename) ->
+            if !can_read_specification then begin
+              parse_mod_file (filename ^ ".mod") ;
+              ensure_finalized_specification ()
+            end else
+              failwith ("Specification can only be read " ^
+                          "at the begining of a development.")
       end ;
       if !interactive then flush stdout ;
       if !annotate then fprintf !out "</pre>%!" ;
@@ -324,6 +360,7 @@ let rec process () =
           process ()
         end else begin
           fprintf !out "Goodbye.\n%!" ;
+          ensure_finalized_specification () ;
           if !annotate then fprintf !out "</pre>\n%!" ;
           exit 0
         end
@@ -342,14 +379,7 @@ let rec process () =
 
 let welcome_msg = sprintf "Welcome to Abella %s\n" Version.version
 
-let usage_message = "abella [options] <module-file>"
-
-let lexbuf_from_file filename =
-  let lexbuf = Lexing.from_channel (open_in filename) in
-    lexbuf.Lexing.lex_curr_p <- {
-      lexbuf.Lexing.lex_curr_p with
-        Lexing.pos_fname = filename } ;
-    lexbuf
+let usage_message = "abella [options]"
 
 let set_read_from_file filename =
   interactive := false ;
@@ -379,24 +409,10 @@ let options =
       ("-a", Arg.Set annotate, " Annotate mode") ;
     ]
 
-let mod_files = ref []
-let add_mod_file name =
-  mod_files := !mod_files @ [name]
-
-let parse_mod_file name =
-  if not !quiet then
-    fprintf !out "Reading clauses from %s\n%!" name ;
-  let lexbuf = lexbuf_from_file name in
-    try
-      add_clauses (Parser.clauses Lexer.token lexbuf)
-    with
-      | Parsing.Parse_error ->
-          eprintf "Syntax error%s.\n%!" (position lexbuf) ;
-          exit 1
+let excess_args s =
+  raise (Arg.Bad ("Unknown option '" ^ s ^ "'"))
 
 let _ =
-  Arg.parse options add_mod_file usage_message ;
+  Arg.parse options excess_args usage_message ;
   fprintf !out "%s%!" welcome_msg ;
-  List.iter parse_mod_file !mod_files ;
-  compile !clauses ;
   process ()

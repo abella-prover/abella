@@ -10,6 +10,7 @@
 *.lp
 *.lpo
 *.thc
+*.dep
 *.output
 src/lexer.ml
 src/parser.ml

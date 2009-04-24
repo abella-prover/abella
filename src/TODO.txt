@@ -1,10 +1,7 @@
 Before next release
 ===================
-Import in emacs highlight
-Import in web display
-Set in web display?
-Set in emacs highlight
-How to web display the spec/thm when using import?
+Emacs highlight
+  Import, Set, Specification
 
 Document in next release
 ========================
@@ -16,9 +13,11 @@ Document command-line and run-time options
   Command line flags
     -F
     -o
+    -c
 Nested comments
 'abbrev' and 'unabbrev' commands
-Import
+Compilation & Import
+Specification
 
 Future
 ======

@@ -3,6 +3,8 @@
 %% Here we prove: if all the paths in the lambda term X also exist in
 %% the lambda term Y then X = Y.
 
+Specification "path".
+
 Define nabla x, name x.
 
 Define nabla x, fresh x M.

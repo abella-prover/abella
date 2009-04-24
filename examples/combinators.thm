@@ -1,5 +1,7 @@
 %% Correspondence between natural deduction and combinators
 
+Specification "combinators".
+
 Theorem deduction : forall L A B,
   {L, comb A |- comb B} -> {L |- comb (imp A B)}.
 induction on 1. intros. case H1.

@@ -2,6 +2,8 @@
 %%
 %% Many of these are taken from Alwen Tiu's PhD thesis
 
+Specification "ccs".
+
 Theorem mu_id_step_absurd : forall A Q,
   {step (mu x\ x) A Q} -> false.
 induction on 1. intros. case H1.

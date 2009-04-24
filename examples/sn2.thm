@@ -1,6 +1,8 @@
 % Strong normalisation proof for simply typed lambda calculus.
 %
 
+Specification "sn2".
+
 Define extend L K := forall X, member X L -> member X K.
 
 Define closed M := exists A, {of M A}.

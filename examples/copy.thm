@@ -1,5 +1,7 @@
 %% Equivalence of single and double eigenvariable definitions of copy
 
+Specification "copy".
+
 Theorem member_fresh : forall L E, nabla x,
   member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.

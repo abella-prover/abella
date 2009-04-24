@@ -1,5 +1,7 @@
 %% Correctness for LLambda subst predicate
 
+Specification "subst".
+
 Define ctx nil nil.
 Define ctx (term X :: L1) (copy X X :: L2) := ctx L1 L2.
 

@@ -1,5 +1,7 @@
 %% Type uniqueness for the simply-typed lambda-calculus
 
+Specification "type-uniq".
+
 %% There are some results about nominal variables, freshness, and lists
 %% that we can prove in general.
 

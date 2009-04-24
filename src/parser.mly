@@ -20,7 +20,7 @@
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT
-%token SPLIT SPLITSTAR UNFOLD KEEP CLEAR
+%token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV
 %token COLON RARROW FORALL NABLA EXISTS STAR AT OR AND LBRACK RBRACK
 
@@ -88,6 +88,7 @@ id:
   | UNABBREV                             { "unabbrev" }
   | THEOREM                              { "Theorem" }
   | IMPORT                               { "Import" }
+  | SPECIFICATION                        { "Specification" }
   | DEFINE                               { "Define" }
   | CODEFINE                             { "CoDefine" }
   | SET                                  { "Set" }
@@ -234,4 +235,5 @@ top_command :
   | SET id id DOT                        { Types.TopSet($2, Types.Str $3) }
   | SET id NUM DOT                       { Types.TopSet($2, Types.Int $3) }
   | IMPORT QSTRING DOT                   { Types.Import($2) }
+  | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
   | EOF                                  { raise End_of_file }

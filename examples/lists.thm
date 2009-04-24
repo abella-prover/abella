@@ -1,6 +1,8 @@
 %% Various results about lists
 %% (append, reverse, perm)
 
+Specification "lists".
+
 % Append is total
 Theorem app_total : forall A B,
   {list A} -> {list B} -> exists C, {append A B C}.

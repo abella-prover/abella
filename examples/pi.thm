@@ -1,5 +1,7 @@
 %% Specification of late pi-calculus and strong bisimulation
 
+Specification "pi".
+
 % Simulation
 
 CoDefine sim P Q :=

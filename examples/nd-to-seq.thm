@@ -2,6 +2,8 @@
 %%
 %% We consider a logic with just impliciation
 
+Specification "nd-to-seq".
+
 Define convert nil nil.
 Define convert (nd G :: L) (hyp G :: K) := convert L K.
 

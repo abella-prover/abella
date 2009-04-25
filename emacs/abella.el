@@ -9,15 +9,16 @@
 (add-to-list 'auto-mode-alist '("\\.thm\\'" . abella-mode))
 
 (defun make-regex (&rest args)
-  (concat "\\<" (regexp-opt args) "\\>"))
+  (concat "\\<\\(" (regexp-opt args) "\\)\\>"))
 
 (defun make-command-regex (&rest args)
-  (concat "\\<" (regexp-opt args) "[^.]*."))
+  (concat "\\<\\(" (regexp-opt args) "\\)[^.]*."))
 
 (require 'font-lock)
 (defvar abella-font-lock-keywords
   (list
-    (cons (make-command-regex "Define" "CoDefine") font-lock-keyword-face)
+    (cons (make-command-regex "Define" "CoDefine" "Set") font-lock-keyword-face)
+    (cons (make-regex "Import" "Specification") font-lock-keyword-face)
     (cons (make-command-regex "Theorem") font-lock-function-name-face)
     (cons (make-regex "skip") font-lock-warning-face))
   "Default highlighting for Abella major mode")

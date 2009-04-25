@@ -3,9 +3,6 @@ Before next release
 Emacs highlight
   Import, Set, Specification
 
-omake add.thc does not seem to depend on add.thm?
-omake theorems does not depend on *.thm either
-
 Document in next release
 ========================
 Hierarchical numbering for subgoals

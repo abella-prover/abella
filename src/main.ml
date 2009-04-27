@@ -31,8 +31,7 @@ let interactive = ref true
 let out = ref stdout
 let compile_out = ref None
 
-type source = File of string | Stdin
-let sources = Queue.create ()
+let switch_to_interactive = ref false
 let lexbuf = ref (Lexing.from_channel stdin)
 
 let annotate = ref false
@@ -60,19 +59,20 @@ let lexbuf_from_file filename =
         Lexing.pos_fname = filename } ;
     lexbuf
 
-let is_next_source () =
-  not (Queue.is_empty sources)
+let perform_switch_to_interactive () =
+  assert !switch_to_interactive ;
+  switch_to_interactive := false ;
+  lexbuf := Lexing.from_channel stdin ;
+  interactive := true ;
+  out := stdout ;
+  fprintf !out "Switching to interactive mode.\n%!"
 
-let next_source () =
-  match Queue.take sources with
-    | File filename ->
-        lexbuf := lexbuf_from_file filename ;
-        interactive := false
-    | Stdin ->
-        lexbuf := Lexing.from_channel stdin ;
-        interactive := true ;
-        out := stdout ;
-        fprintf !out "Switching to interactive mode.\n%!"
+let interactive_or_exit () =
+  if not !interactive then
+    if !switch_to_interactive then
+      perform_switch_to_interactive ()
+    else
+      exit 1
 
 let parse_mod_file name =
   fprintf !out "Reading clauses from %s\n%!" name ;
@@ -286,13 +286,11 @@ let rec process_proof name =
           finished := true
       | Failure s ->
           eprintf "Error: %s\n%!" s ;
-          if not !interactive then exit 1
+          interactive_or_exit ()
       | End_of_file ->
-          if is_next_source () then begin
-            next_source () ;
-            process_proof name ;
-            finished := true
-          end else begin
+          if !switch_to_interactive then
+            perform_switch_to_interactive ()
+          else begin
             fprintf !out "Proof NOT completed.\n%!" ;
             exit 1
           end
@@ -303,10 +301,10 @@ let rec process_proof name =
       | Parsing.Parse_error ->
           eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
           Lexing.flush_input !lexbuf ;
-          if not !interactive then exit 1
+          interactive_or_exit () ;
       | e ->
           eprintf "Error: %s\n%!" (Printexc.to_string e) ;
-          if not !interactive then exit 1
+          interactive_or_exit ()
     done with
       | Failure "eof" -> ()
 
@@ -364,12 +362,11 @@ let rec process () =
         exit (if !interactive then 0 else 1)
     | Failure s ->
         eprintf "Error: %s\n%!" s ;
-        if not !interactive then exit 1
+        interactive_or_exit ()
     | End_of_file ->
-        if is_next_source () then begin
-          next_source () ;
-          process ()
-        end else begin
+        if !switch_to_interactive then
+          perform_switch_to_interactive ()
+        else begin
           fprintf !out "Goodbye.\n%!" ;
           ensure_finalized_specification () ;
           if !annotate then fprintf !out "</pre>\n%!" ;
@@ -378,10 +375,10 @@ let rec process () =
     | Parsing.Parse_error ->
         eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
         Lexing.flush_input !lexbuf ;
-        if not !interactive then exit 1
+        interactive_or_exit ()
     | e ->
         eprintf "Unknown error: %s\n%!" (Printexc.to_string e) ;
-        if not !interactive then exit 1
+        interactive_or_exit ()
   done with
   | Failure "eof" -> ()
 
@@ -398,8 +395,6 @@ let set_output filename =
 let set_compile_out filename =
   compile_out := Some (open_out_bin filename)
 
-let switch_to_interactive = ref false
-
 let options =
   Arg.align
     [
@@ -412,13 +407,18 @@ let options =
       ("-a", Arg.Set annotate, " Annotate mode") ;
     ]
 
-let add_input filename =
-  Queue.add (File filename) sources
+let set_input filename =
+  if !interactive then begin
+    interactive := false ;
+    lexbuf := lexbuf_from_file filename
+  end else begin
+    let file = !lexbuf.Lexing.lex_curr_p.Lexing.pos_fname in
+      eprintf "Error: Input set to %s, but found additional input %s."
+        file filename ;
+      exit 1
+  end
 
 let _ =
-  Arg.parse options add_input usage_message ;
-  if !switch_to_interactive or Queue.is_empty sources then
-    Queue.add Stdin sources ;
-  next_source () ;
+  Arg.parse options set_input usage_message ;
   fprintf !out "%s%!" welcome_msg ;
   process ()

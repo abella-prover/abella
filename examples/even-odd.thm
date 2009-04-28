@@ -1,0 +1,22 @@
+%% Proof that every natural number is even or odd
+%%
+%% This is a simple example where induction is needed at a nested rather
+%% than immediate recursive call.
+
+Define nat z.
+Define nat (s N) := nat N.
+
+Define even z.
+Define even (s (s N)) := even N.
+
+Define odd (s z).
+Define odd (s (s N)) := odd N.
+
+Theorem forall N, nat N -> even N \/ odd N.
+induction on 1. intros. case H1.
+  search.
+  case H2.
+    search.
+    apply IH to H3. case H4.
+      search.
+      search.

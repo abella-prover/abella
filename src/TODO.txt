@@ -15,6 +15,7 @@ Nested comments
 'abbrev' and 'unabbrev' commands
 Compilation & Import
 Specification
+Changing @ to # for coinduction
 
 Future
 ======

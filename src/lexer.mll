@@ -63,6 +63,7 @@ rule token = parse
 | "exists"           { EXISTS }
 | "*"                { STAR }
 | "@"                { AT }
+| "#"                { HASH }
 | "+"                { PLUS }
 | "Theorem"          { THEOREM }
 | "Define"           { DEFINE }

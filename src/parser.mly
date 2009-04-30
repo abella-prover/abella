@@ -22,7 +22,7 @@
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV
-%token COLON RARROW FORALL NABLA EXISTS STAR AT OR AND LBRACK RBRACK
+%token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND LBRACK RBRACK
 
 %token <int> NUM
 %token <string> STRINGID QSTRING
@@ -214,6 +214,7 @@ restriction:
   | stars                                { Metaterm.Smaller $1 }
   | pluses                               { Metaterm.CoSmaller $1 }
   | ats                                  { Metaterm.Equal $1 }
+  | hashes                               { Metaterm.CoEqual $1 }
 
 stars:
   | STAR stars                           { 1 + $2 }
@@ -226,6 +227,10 @@ ats:
 pluses:
   | PLUS pluses                          { 1 + $2 }
   | PLUS                                 { 1 }
+
+hashes:
+  | HASH hashes                          { 1 + $2 }
+  | HASH                                 { 1 }
 
 top_command :
   | THEOREM id COLON metaterm DOT        { Types.Theorem($2, $4) }

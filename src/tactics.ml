@@ -393,7 +393,7 @@ let coinduction res_num stmt =
             (arrow left ch, arrow left goal)
       | Pred(p, _) ->
           let ch = Pred(p, CoSmaller res_num) in
-          let goal = Pred(p, Equal res_num) in
+          let goal = Pred(p, CoEqual res_num) in
             (ch, goal)
       | _ -> invalid_metaterm_arg stmt
   in

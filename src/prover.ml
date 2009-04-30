@@ -355,6 +355,7 @@ let has_coinductive_result hyp =
       | Binding(Nabla, _, body) -> aux body true
       | Arrow(left, right) -> aux right true
       | Pred(_, CoSmaller _) -> nested
+      | Pred(_, CoEqual _) -> nested
       | _ -> false
   in
     aux hyp.term false
@@ -421,7 +422,7 @@ let ensure_no_restrictions term =
       | Obj(_, Smaller i) | Obj(_, Equal i)
       | Pred(_, Smaller i) | Pred(_, Equal i) ->
           if nested then invalid_metaterm_arg term
-      | Pred(_, CoSmaller i) ->
+      | Pred(_, CoSmaller i) | Pred(_, CoEqual i) ->
           invalid_metaterm_arg term
       | _ -> ()
   in
@@ -498,6 +499,7 @@ let get_restriction r =
     | Smaller n -> n
     | CoSmaller n -> n
     | Equal n -> n
+    | CoEqual n -> n
     | Irrelevant -> 0
 
 let get_max_restriction t =

@@ -761,7 +761,7 @@ let coinduction_tests =
                "forall A, first A -> second A -> third A +"
                ch ;
              assert_pprint_equal
-               "forall A, first A -> second A -> third A @"
+               "forall A, first A -> second A -> third A #"
                goal) ;
 
     ]
@@ -1060,7 +1060,7 @@ let search_tests =
         (fun () ->
            assert_search ()
              ~hyps:["foo A +"]
-             ~goal:"foo (s A) @"
+             ~goal:"foo (s A) #"
              ~defs:"foo (s X) := foo X."
              ~expect:true
         );
@@ -1104,7 +1104,7 @@ let unfold_tests =
       "Should reduce coinductive restriction" >::
         (fun () ->
            let defs = parse_defs "foo X := foo X." in
-           let goal = freshen "foo D @" in
+           let goal = freshen "foo D #" in
            let result = unfold ~defs goal in
              assert_pprint_equal "foo D +" result) ;
 

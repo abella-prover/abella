@@ -25,6 +25,7 @@ type restriction =
   | Smaller of int
   | Equal of int
   | CoSmaller of int
+  | CoEqual of int
   | Irrelevant
 
 type obj = { context : Context.t ;
@@ -69,6 +70,7 @@ let restriction_to_string r =
     | Smaller i -> String.make i '*'
     | CoSmaller i -> String.make i '+'
     | Equal i -> String.make i '@'
+    | CoEqual i -> String.make i '#'
     | Irrelevant -> ""
 
 let bindings_to_string ts =
@@ -271,7 +273,7 @@ let reduce_inductive_restriction r =
 
 let reduce_coinductive_restriction r =
   match r with
-    | Equal i -> CoSmaller i
+    | CoEqual i -> CoSmaller i
     | _ -> r
 
 let add_to_context elt obj =

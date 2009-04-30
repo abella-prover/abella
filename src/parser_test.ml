@@ -75,6 +75,10 @@ let tests =
         (fun () ->
            assert_pprint_equal_parse "foo +") ;
 
+      "CoEqual restriction" >::
+        (fun () ->
+           assert_pprint_equal_parse "foo #") ;
+
       "Equal restriction" >::
         (fun () ->
            assert_pprint_equal_parse "{A}@") ;

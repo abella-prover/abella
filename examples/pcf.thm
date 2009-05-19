@@ -1,11 +1,11 @@
-%% Subject reduction for PCF
+%% Properties of PCF
 
 Specification "pcf".
 
-% Most cases are trivial consequences of the inductive hypothesis
+%% Subject reduction
 
-Theorem subject_reduction :
-  forall P V T, {eval P V} -> {of P T} -> {of V T}.
+Theorem subject_reduction : forall E V T,
+  {eval E V} -> {of E T} -> {of V T}.
 induction on 1. intros. case H1.
   search.
   search.
@@ -29,3 +29,96 @@ induction on 1. intros. case H1.
     inst H4 with n1 = rec T R.
       cut H5 with H2.
         apply IH to H3 H6. search.
+
+
+%% Type uniqueness
+
+Theorem member_prune : forall L E, nabla x,
+  member (E x) L -> exists F, E = x\F.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Define ctx nil.
+Define nabla x, ctx (of x A :: L) := ctx L.
+
+Define nabla x, name x.
+
+Theorem ctx_member : forall E L,
+  ctx L -> member E L -> exists X A, E = of X A /\ name X.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H3 H4. search.
+
+Theorem ctx_uniq : forall L E T1 T2,
+  ctx L -> member (of E T1) L -> member (of E T2) L -> T1 = T2.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    case H3.
+      search.
+      apply member_prune to H5.
+    case H3.
+      apply member_prune to H5.
+      apply IH to H4 H5 H6. search.
+
+% Some basic automation with regards to ctx_member would be great here
+
+Theorem type_uniq : forall L E T1 T2,
+  ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
+induction on 2. intros. case H2.
+  % E is variable
+  apply ctx_member to H1 H4. case H5.
+    case H3. apply ctx_uniq to H1 H4 H6. search.
+
+  % E = zero
+  case H3.
+    apply ctx_member to H1 H4. case H5.
+    search.
+
+  % E = tt
+  case H3.
+    apply ctx_member to H1 H4. case H5.
+    search.
+
+  % E = ff
+  case H3.
+    apply ctx_member to H1 H4. case H5.
+    search.
+
+  % E = succ M
+  case H3.
+    apply ctx_member to H1 H5. case H6.
+    search.
+
+  % E = pred M
+  case H3.
+    apply ctx_member to H1 H5. case H6.
+    search.
+
+  % E = is_zero M
+  case H3.
+    apply ctx_member to H1 H5. case H6.
+    search.
+
+  % E = if M N1 N2
+  case H3.
+    apply ctx_member to H1 H7. case H8.
+    apply IH to H1 H5 H8. search.
+
+  % E = abs T R
+  case H3.
+    apply ctx_member to H1 H5. case H6.
+    apply IH to _ H4 H5. search.
+
+  % E = app M N
+  case H3.
+    apply ctx_member to H1 H6. case H7.
+    apply IH to H1 H4 H6. search.
+
+  % E = rec T1 R
+  case H3.
+    apply ctx_member to H1 H5. case H6.
+    search.

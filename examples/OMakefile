@@ -51,15 +51,13 @@ foreach(name, $(FILE_NAMES))
         mkdir -p html
         echo Processing $(name)
 
-        awk($(name).thm)
-        case $'Specification "\(.*\)"\.'
-            spec = $1
-            export
-
         echo $(name) > name
         head -1 $(name).thm > title-line
-        if $(defined spec)
-            ruby html-files/annotate_mod.rb $(spec).mod > specification
+
+        awk($(name).thm)
+        case $'Specification "\(.*\)"\.'
+            ruby html-files/annotate_mod.rb $1.mod > specification
+
         ruby html-files/annotate_thm.rb $(name).thm > reasoning
         $(ABELLA) -a $(name).thm > details
 

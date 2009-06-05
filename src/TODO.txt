@@ -1,3 +1,8 @@
+Before next release
+===================
+Emacs highlight
+  Import, Set, Specification
+
 Document in next release
 ========================
 Hierarchical numbering for subgoals

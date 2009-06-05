@@ -134,8 +134,8 @@ let context_to_term ctx =
 let extract_singleton ctx =
   match ctx with
     | [e] -> e
-    | [] -> failwith "Context is empty"
-    | _ -> failwith ("Non-singleton context encountered: " ^
+    | [] -> failwith "Contexts did not match"
+    | _ -> failwith ("Contexts did not match:" ^
                        (context_to_string ctx))
 
 (* For each context pair (ctx1, ctx2), make ctx2 a subcontext of ctx1 *)

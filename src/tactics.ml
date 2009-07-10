@@ -477,7 +477,8 @@ let try_unify_cpairs cpairs =
 (* Each aux search returns () on failure and calls sc () on success. This
    allows for effective backtracking. sc means success continuation. *)
 
-let search ~depth:n ~hyps ~clauses ~defs goal =
+let search ~depth:n ~hyps ~clauses ~defs
+    ?(sc=(fun () -> raise SearchSuccess)) goal =
 
   let rec clause_aux n context goal ~sc =
     let support = term_support goal in
@@ -546,7 +547,7 @@ let search ~depth:n ~hyps ~clauses ~defs goal =
 
   in
     try
-      metaterm_aux n goal ~sc:(fun () -> raise SearchSuccess) ;
+      metaterm_aux n goal ~sc ;
       false
     with SearchSuccess -> true
 

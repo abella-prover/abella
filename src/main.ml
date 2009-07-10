@@ -208,6 +208,26 @@ let rec import filename =
 
 (* Proof processing *)
 
+let query q =
+  let fv = Tactics.free_capital_var_names q in
+  let alist = fresh_alist ~tag:Term.Logic ~used:[] fv in
+  let q' = replace_metaterm_vars alist q in
+  let _ = Tactics.search
+    ~depth:max_int
+    ~hyps:[]
+    ~clauses:!clauses
+    ~defs:(defs_to_list defs)
+    ~sc:(fun () ->
+           fprintf !out "Found solution:\n" ;
+           List.iter
+             (fun (n, v) ->
+                fprintf !out "%s = %s\n" n (Term.term_to_string v))
+             alist ;
+           fprintf !out "\n%!")
+    q'
+  in
+    fprintf !out "No more solutions.\n%!"
+
 let set k v =
   match k, v with
     | "subgoals", Int d when d >= 0 -> subgoal_depth := d
@@ -353,6 +373,8 @@ let rec process () =
             end else
               failwith ("Specification can only be read " ^
                           "at the begining of a development.")
+        | Query(q) ->
+            query q
       end ;
       if !interactive then flush stdout ;
       if !annotate then fprintf !out "</pre>%!" ;

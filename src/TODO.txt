@@ -11,6 +11,8 @@ Nested comments
 Compilation & Import
 Specification
 Changing @ to # for coinduction
+Document Query command
+  Incompleteness relative to weakening
 
 Future
 ======

@@ -21,7 +21,7 @@
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION
-%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV
+%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND LBRACK RBRACK
 
 %token <int> NUM
@@ -92,6 +92,7 @@ id:
   | DEFINE                               { "Define" }
   | CODEFINE                             { "CoDefine" }
   | SET                                  { "Set" }
+  | QUERY                                { "Query" }
 
 /* These would cause significant shift/reduce conflicts */
 /*  | FORALL                               { "forall" }  */
@@ -237,6 +238,7 @@ top_command :
   | THEOREM metaterm DOT                 { Types.Theorem("Goal", $2) }
   | DEFINE def                           { Types.Define($2) }
   | CODEFINE def                         { Types.CoDefine($2) }
+  | QUERY metaterm DOT                   { Types.Query($2) }
   | SET id id DOT                        { Types.TopSet($2, Types.Str $3) }
   | SET id NUM DOT                       { Types.TopSet($2, Types.Int $3) }
   | IMPORT QSTRING DOT                   { Types.Import($2) }

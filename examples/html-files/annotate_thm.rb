@@ -63,7 +63,7 @@ def convert(string)
       Element.new(s, :comment)
     when /^Theorem/
       Element.new(s, :theorem)
-    when /^(Define|CoDefine|Set|Specification)/
+    when /^(Define|CoDefine|Set|Query|Specification)/
       Element.new(s, :command)
     when /^Import/
       Element.new(s, :import)

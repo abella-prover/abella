@@ -68,6 +68,7 @@ rule token = parse
 | "Theorem"          { THEOREM }
 | "Define"           { DEFINE }
 | "CoDefine"         { CODEFINE }
+| "Query"            { QUERY }
 | "Import"           { IMPORT }
 | "Specification"    { SPECIFICATION }
 | "\\/"              { OR }

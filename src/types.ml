@@ -42,6 +42,7 @@ type top_command =
   | TopSet of string * set_value
   | Import of string
   | Specification of string
+  | Query of metaterm
 
 type compiled =
   | CTheorem of id * metaterm
@@ -105,6 +106,8 @@ let top_command_to_string tc =
         sprintf "Import \"%s\"" filename
     | Specification filename ->
         sprintf "Specification \"%s\"" filename
+    | Query q ->
+        sprintf "Query %s" (metaterm_to_formatted_string q)
 
 let withs_to_string ws =
   String.concat ", "

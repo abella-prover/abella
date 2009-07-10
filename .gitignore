@@ -19,3 +19,4 @@ src/parser.mli
 src/version.ml
 src/abella
 src/unit_test
+abella

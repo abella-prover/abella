@@ -29,12 +29,12 @@ foreach(name, $(FILE_NAMES))
     .PHONY: $(name)
     $(name): $(name).out
         cat $(name).out
-        rm -f $(name).out
+#        rm -f $(name).out
 
     .PHONY: $(name)-tail
     $(name)-tail: $(name).out
         tail -100 $(name).out
-        rm -f $(name).out
+#        rm -f $(name).out
 
 .PHONY: theorems
 theorems: $(ABELLA) $(addsuffix .thc, $(FILE_NAMES))

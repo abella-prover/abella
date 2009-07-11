@@ -5,8 +5,6 @@
 %% number of substitutions for the nominal constants in the term.
 %% Here we prove that this form of substitution acts compositionally.
 
-Specification "cascade".
-
 Define subst nil T T.
 Define nabla x, subst (pair x K :: L) (T x) S := subst L (T K) S.
 

@@ -594,11 +594,14 @@ let coinduction () =
 (* Assert *)
 
 let delay_mainline new_hyp detour_goal =
+  (* save mainline *)
+  sequent.next_subgoal_id <- sequent.next_subgoal_id + 1 ;
   add_subgoals ~mainline:(case_to_subgoal { bind_state = get_bind_state () ;
                                             new_vars = [] ;
                                             new_hyps = [new_hyp] }) [] ;
-  extend_name sequent.next_subgoal_id ;
-  sequent.next_subgoal_id <- sequent.next_subgoal_id + 1 ;
+  (* prepare detour *)
+  extend_name (sequent.next_subgoal_id - 1);
+  sequent.next_subgoal_id <- 1 ;
   sequent.goal <- detour_goal ;
   if search_goal sequent.goal then next_subgoal ()
 

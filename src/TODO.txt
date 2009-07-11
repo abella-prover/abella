@@ -10,9 +10,13 @@ Nested comments
 'abbrev' and 'unabbrev' commands
 Compilation & Import
 Specification
-Changing @ to # for coinduction
 Document Query command
   Incompleteness relative to weakening
+
+Documented, ready for changelog
+===============================
+Changing @ to # for coinduction
+
 
 Future
 ======

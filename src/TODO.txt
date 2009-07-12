@@ -1,22 +1,15 @@
-Document in next release
-========================
-Hierarchical numbering for subgoals
-Document command-line and run-time options
-  Set command (usable in proofs)
-    subgoal option (numeric - on/off)
-    debug option (on/off)
-  Command line flags (some added, some removed)
-Nested comments
-'abbrev' and 'unabbrev' commands
-Compilation & Import
-Specification
-Document Query command
-  Incompleteness relative to weakening
-
 Documented, ready for changelog
 ===============================
 Changing @ to # for coinduction
-
+Hierarchical numbering for subgoals
+Set command for configuring some options at runtime
+Command line flags have been changed, see here
+Query command
+Specification command
+Nested comments
+'abbrev' and 'unabbrev' commands
+Compilation & Import
+Reorganization of command line arguments
 
 Future
 ======

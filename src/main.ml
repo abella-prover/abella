@@ -374,6 +374,7 @@ let rec process () =
               failwith ("Specification can only be read " ^
                           "at the begining of a development.")
         | Query(q) ->
+            ensure_defs_exist q ;
             query q
       end ;
       if !interactive then flush stdout ;

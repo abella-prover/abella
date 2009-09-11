@@ -443,4 +443,42 @@ let tests =
                (2 // app (db 1) [app z [db 1; db 2]]) ;
              assert_term_pprint_equal "x1\\x2\\x2" z) ;
 
+      "p^0 (X^0 Y^0) = p^0 (Z^0 W^0)" >::
+        (fun () ->
+           let p = const ~ts:0 "p" in
+           let x = var Logic "X" 0 in
+           let y = var Logic "Y" 0 in
+           let z = var Logic "Z" 0 in
+           let w = var Logic "W" 0 in
+             match try_right_unify_cpairs
+               (app p [app x [y]])
+               (app p [app z [w]
+                      ])
+             with
+               | Some [(a,b)] ->
+                   assert_term_pprint_equal "X Y" a ;
+                   assert_term_pprint_equal "Z W" b
+               | _ ->
+                   assert_failure "Expected one conflict pair" );
+
+      "p^0 (X^0 Y^0) = p^0 (z^0 w^0)" >::
+        (fun () ->
+           let p = const ~ts:0 "p" in
+           let x = var Logic "X" 0 in
+           let y = var Logic "Y" 0 in
+           let z = var Eigen "z" 0 in
+           let w = var Eigen "w" 0 in
+             match try_right_unify_cpairs
+               (app p [app x [y]])
+               (app p [app z [w]
+                      ])
+             with
+               | Some [(a,b)] ->
+                   assert_term_pprint_equal "X Y" a ;
+                   assert_term_pprint_equal "z w" b
+               | Some l -> assert_failure
+                   (Printf.sprintf "Expected one conflict pair, but found %d"
+                      (List.length l))
+               | None -> assert_failure "Unification failed" );
+
     ]

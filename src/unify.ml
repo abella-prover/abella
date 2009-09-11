@@ -333,26 +333,54 @@ let rec prune_same_var l1 l2 j bl = match l1,l2 with
       end
   | _ -> assert false
 
+(* Given a variable [v1] with timestamp [ts1] which has access to the
+ * terms [a11 ... a1n] via de Bruijn indices,
+ *   [make_non_llambda_subst ts1 a1 t2]
+ * returns a substitution for [v1] which unifies it with
+ * [t2]. Here it is assumed that [a1] satisfies the LLambda
+ * restriction, but [t2] might not. If a substitution cannot be found
+ * due to non-LLambda issues, an error exception is thrown. *)
+let make_non_llambda_subst ts1 a1 t2 =
+  let a1 = List.map hnorm a1 in
+  let n = List.length a1 in
+  let rec aux lev t =
+    match observe t with
+      | Var v when constant v.tag && ts1 < v.ts ->
+          let i = cindex v a1 n in
+            if i = 0 then
+              raise (UnifyError NotLLambda)
+            else
+              db (i+lev)
+      | Var v when variable v.tag && v.ts <= ts1 ->
+          t
+      | App(h2,a2) ->
+          app (aux lev h2) (List.map (aux lev) a2)
+      | Lam(n2,b2) ->
+          lambda n2 (aux (lev+n2) b2)
+      | _ -> raise (UnifyError NotLLambda)
+  in
+    aux 0 t2
+
 (** [makesubst h1 t2 a1 n] unifies [App (h1,a1) = t2].
-  * Given a term of the form [App (h1,a1)] where [h1] is a variable and
-  * another term [t2], generate an LLambda substitution for [h1] if this is
-  * possible, making whatever pruning and raising substitution that are
-  * necessary to variables appearing within [t2].
-  *
-  * [t2] is assumed to be in head normal form, [h1] and [a1] are assumed to be
-  * dereferenced, and [n] is supposed to be the length of [a1].
-  *
-  * Exceptions can be
-  * raised from this code if a non LLambda situation is discovered or
-  * there is failure in unification or a type mismatch (possible if an
-  * a priori type checking has not been done) is encountered.
-  *
-  * The unification computation is split into two parts, one that
-  * examines the top level structure of [t2] and the other that descends
-  * into its nested subparts. This organization is useful primarily
-  * because [h1], the variable head of the first term can appear at the
-  * toplevel in t2 without sacrificing unifiability but not in a nested
-  * part. *)
+    * Given a term of the form [App (h1,a1)] where [h1] is a variable and
+    * another term [t2], generate an LLambda substitution for [h1] if this is
+    * possible, making whatever pruning and raising substitution that are
+    * necessary to variables appearing within [t2].
+    *
+    * [t2] is assumed to be in head normal form, [h1] and [a1] are assumed to be
+    * dereferenced, and [n] is supposed to be the length of [a1].
+    *
+    * Exceptions can be
+    * raised from this code if a non LLambda situation is discovered or
+    * there is failure in unification or a type mismatch (possible if an
+    * a priori type checking has not been done) is encountered.
+    *
+    * The unification computation is split into two parts, one that
+    * examines the top level structure of [t2] and the other that descends
+    * into its nested subparts. This organization is useful primarily
+    * because [h1], the variable head of the first term can appear at the
+    * toplevel in t2 without sacrificing unifiability but not in a nested
+    * part. *)
 let makesubst h1 t2 a1 n =
   (* Check that h1 is a variable, get its timestamp *)
   let hv1 = match observe h1 with
@@ -410,25 +438,27 @@ let makesubst h1 t2 a1 n =
             | Var {ts=ts2;tag=tag} when tag=instantiatable ->
                 if eq h2 h1 then fail OccursCheck ;
                 let a2 = List.map hnorm a2 in
-                ensure_flex_args a2 ts2 ;
-                let changed,a1',a2' =
-                  raise_and_invert ts1 ts2 a1 a2 lev
-                in
-                  if changed then
-                    let h' =
-                      named_fresh hv1.name (min ts1 ts2)
+                  if check_flex_args a2 ts2 then
+                    let changed,a1',a2' =
+                      raise_and_invert ts1 ts2 a1 a2 lev
                     in
-                      bind h2
-                        (lambda (List.length a2)
-                           (app h' a2')) ;
-                      app h' a1'
+                      if changed then
+                        let h' =
+                          named_fresh hv1.name (min ts1 ts2)
+                        in
+                          bind h2
+                            (lambda (List.length a2)
+                               (app h' a2')) ;
+                          app h' a1'
+                      else
+                        if ts1<ts2 then
+                          let h' = named_fresh hv1.name ts1 in
+                            bind h2 h' ;
+                            app h' a1'
+                        else
+                          app h2 a1'
                   else
-                    if ts1<ts2 then
-                      let h' = named_fresh hv1.name ts1 in
-                        bind h2 h' ;
-                        app h' a1'
-                    else
-                      app h2 a1'
+                    make_non_llambda_subst ts1 a1 c
             | Var _ -> failwith "logic variable on the left (1)"
             | _ -> assert false
           end
@@ -462,14 +492,16 @@ let makesubst h1 t2 a1 n =
             | Var {ts=ts2} when eq h1 h2 ->
                 (* [h1] being instantiatable, no need to check it for [h2] *)
                 let a2 = List.map hnorm a2 in
-                ensure_flex_args a2 ts2 ;
-                let bindlen = n+lev in
-                  if bindlen = List.length a2 then
-                    let h1' = named_fresh hv1.name ts1 in
-                    let args = prune_same_var a1 a2 lev bindlen in
-                      lambda bindlen (app h1' args)
+                  if check_flex_args a2 ts2 then
+                    let bindlen = n+lev in
+                      if bindlen = List.length a2 then
+                        let h1' = named_fresh hv1.name ts1 in
+                        let args = prune_same_var a1 a2 lev bindlen in
+                          lambda bindlen (app h1' args)
+                      else
+                        fail TypesMismatch
                   else
-                    fail TypesMismatch
+                    make_non_llambda_subst ts1 a1 t2
             | App _ | Lam _
             | Var _ | DB _ ->
                 lambda (n+lev) (nested_subst t2 lev)
@@ -499,7 +531,7 @@ and unify_const_term cst t2 = if eq cst t2 then () else
   match observe cst, observe t2 with
     | _, Lam (n,t2) ->
         let a1 = lift_args [] n in
-          unify_app_term cst a1 (app cst a1) t2
+          unify (app cst a1) t2
     | _, Var {tag=t} when not (variable t || constant t) ->
         failwith "logic variable on the left (3)"
     | _ -> fail (ConstClash (cst,t2))
@@ -514,7 +546,7 @@ and unify_bv_term n1 t1 t2 = match observe t2 with
   | Lam (n,t2)  ->
       let t1' = lift t1 n in
       let a1 = lift_args [] n in
-        unify_app_term t1' a1 (app t1' a1) t2
+        unify (app t1' a1) t2
   | Var {tag=t} when not (variable t || constant t) ->
       failwith "logic variable on the left (4)"
   | _ -> assert false
@@ -587,30 +619,6 @@ and rigid_path_check v1 t2 =
   in
     aux 0 t2
 
-(* We want to unify App(h1,a1) = t2 where h1 is a variable, the a1 are
- * LLambda, and t2 is not LLambda. Here we try to find a most general unifier
- * for h1 and throw NotLLambda if we fail. *)
-and not_llambda_bind h1 ts1 a1 t2 =
-  let a1 = List.map hnorm a1 in
-  let n = List.length a1 in
-  let rec aux lev t =
-    match observe t with
-      | Var v when constant v.tag && ts1 < v.ts ->
-          let i = cindex v a1 n in
-            if i = 0 then
-              raise (UnifyError NotLLambda)
-            else
-              db (i+lev)
-      | Var v when variable v.tag && v.ts <= ts1 ->
-          t
-      | App(h2,a2) ->
-          app (aux lev h2) (List.map (aux lev) a2)
-      | Lam(n2,b2) ->
-          lambda n2 (aux (lev+n2) b2)
-      | _ -> raise (UnifyError NotLLambda)
-  in
-    bind h1 (lambda n (aux 0 t2))
-
 (* Assuming t2 is a variable which we want to bind to t1, we try here to
  * instead bind some pruned version of t1 to t2. Doing this allows us to
  * avoid generating a new name.
@@ -668,25 +676,16 @@ and unify t1 t2 =
   (* Check for a special case of asymmetric unification outside of LLambda *)
   | App(h1,a1), App(h2,a2) ->
       begin match observe h1, observe h2 with
-        | Var v1, Var v2 when variable v1.tag && variable v2.tag ->
-            begin match
-              check_flex_args (List.map hnorm a1) v1.ts,
-              check_flex_args (List.map hnorm a2) v2.ts
-            with
-              | true, false -> not_llambda_bind h1 v1.ts a1 t2
-              | false, true -> not_llambda_bind h2 v2.ts a2 t1
-              | _ -> unify_app_term h1 a1 t1 t2
-            end
+        | Var v1, _ when variable v1.tag &&
+            check_flex_args (List.map hnorm a1) v1.ts ->
+            unify_app_term h1 a1 t1 t2
+
+        | _, Var v2 when variable v2.tag &&
+            check_flex_args (List.map hnorm a2) v2.ts ->
+            unify_app_term h2 a2 t2 t1
 
         | Var v1, Var v2 when variable v1.tag || variable v2.tag ->
-            if (variable v1.tag &&
-              check_flex_args (List.map hnorm a1) v1.ts) ||
-              (variable v2.tag &&
-                 check_flex_args (List.map hnorm a2) v2.ts) then
-                unify_app_term h1 a1 t1 t2
-            else
-              (* Not LLambda *)
-              handler t1 t2
+            handler t1 t2
 
         | _ -> unify_app_term h1 a1 t1 t2
       end

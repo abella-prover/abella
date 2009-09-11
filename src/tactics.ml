@@ -488,7 +488,8 @@ let search ~depth:n ~hyps ~clauses ~defs
       fresh_clauses |> iter_keep_state
           (fun (head, body) ->
              match try_right_unify_cpairs head goal with
-               | None -> ()
+               | None ->
+                   ()
                | Some cpairs ->
                    obj_aux_conj (n-1) (wrap body)
                      ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))

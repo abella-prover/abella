@@ -344,7 +344,7 @@ let make_non_llambda_subst ts1 a1 t2 =
   let a1 = List.map hnorm a1 in
   let n = List.length a1 in
   let rec aux lev t =
-    match observe t with
+    match observe (hnorm t) with
       | Var v when constant v.tag && ts1 < v.ts ->
           let i = cindex v a1 n in
             if i = 0 then
@@ -744,15 +744,22 @@ let try_right_unify ?used:(used=[]) t1 t2 =
        right_unify ~used t1 t2 ;
        true)
 
-(* Errors on during unification on the left represent an inability to
-   perform case analsysis. This should be propogated to the toplevel. *)
-let try_left_unify ~used t1 t2 =
+let try_left_unify_cpairs ~used t1 t2 =
   let state = get_bind_state () in
+  let cpairs = ref [] in
+  let cpairs_handler x y = cpairs := (x,y)::!cpairs in
+  let module LeftCpairs =
+    Make (struct
+            let instantiatable = Eigen
+            let constant_like = Logic
+            let handler = cpairs_handler
+          end)
+  in
     try
-      left_unify ~used t1 t2 ;
-      true
+      LeftCpairs.pattern_unify used t1 t2 ;
+      Some !cpairs
     with
-      | UnifyFailure _ -> set_bind_state state ; false
+      | UnifyFailure _ -> set_bind_state state ; None
       | UnifyError _ -> set_bind_state state ;
           failwith "Unification error during case analysis"
 

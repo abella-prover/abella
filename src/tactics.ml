@@ -152,20 +152,23 @@ let stateless_case_to_case case =
     new_vars = case.stateless_new_vars ;
     new_hyps = case.stateless_new_hyps }
 
+let cpairs_to_eqs cpairs = List.map (fun (x,y) -> Eq(x,y)) cpairs
+
 (* This handles asyncrony on the left *)
 let rec recursive_metaterm_case ~used term =
   match normalize term with
     | True -> Some empty_case
     | False -> None
     | Eq(a, b) ->
-        if try_left_unify ~used a b then
-          Some {
-            (* Names created perhaps by unification *)
-            stateless_new_vars = term_vars_alist Eigen [a] ;
-            stateless_new_hyps = []
-          }
-        else
-          None
+        begin match try_left_unify_cpairs ~used a b with
+          | Some cpairs ->
+              Some {
+                (* Names created perhaps by unification *)
+                stateless_new_vars = term_vars_alist Eigen [a;b] ;
+                stateless_new_hyps = cpairs_to_eqs cpairs
+              }
+          | None -> None
+        end
     | And(left, right) ->
         begin match recursive_metaterm_case ~used left with
           | None -> None
@@ -245,19 +248,22 @@ let case ~used ~clauses ~defs ~global_support term =
       let fresh_used, head, body =
         freshen_def ~support ~used head body
       in
-        if try_left_unify ~used:(fresh_used @ used) head term then
-          (* Names created perhaps by unificiation *)
-          let used_head = term_vars_alist Eigen [head] in
-          let used_body = metaterm_vars_alist Eigen body in
-          let used = List.unique (used_head @ used_body @ used) in
-            match recursive_metaterm_case ~used body with
-              | None -> []
-              | Some case ->
-                  [{ bind_state = get_bind_state () ;
-                     new_vars = case.stateless_new_vars @ used ;
-                     new_hyps = List.map wrapper case.stateless_new_hyps }]
-        else
-          []
+        match try_left_unify_cpairs ~used:(fresh_used @ used) head term with
+          | Some cpairs ->
+              (* Names created perhaps by unificiation *)
+              let used_head = term_vars_alist Eigen [head; term] in
+              let used_body = metaterm_vars_alist Eigen body in
+              let used = List.unique (used_head @ used_body @ used) in
+                begin match recursive_metaterm_case ~used body with
+                  | None -> []
+                  | Some case ->
+                      [{ bind_state = get_bind_state () ;
+                         new_vars = case.stateless_new_vars @ used ;
+                         new_hyps =
+                           cpairs_to_eqs cpairs @
+                           List.map wrapper case.stateless_new_hyps }]
+                end
+          | None -> []
     in
       defs |> List.flatten_map
           (function
@@ -295,16 +301,20 @@ let case ~used ~clauses ~defs ~global_support term =
            let fresh_used, fresh_head, fresh_body =
              freshen_clause ~support ~used head body
            in
-             if try_left_unify ~used:(fresh_used @ used) fresh_head term then
-               let new_vars = term_vars_alist Eigen (fresh_head::fresh_body) in
-               let bind_state = get_bind_state () in
-               let wrapped_body = List.map wrapper fresh_body in
-                 set_bind_state initial_bind_state ;
-                 Some { bind_state = bind_state ;
-                        new_vars = new_vars ;
-                        new_hyps = wrapped_body }
-             else
-               None)
+             match try_left_unify_cpairs ~used:(fresh_used @ used)
+               fresh_head term
+             with
+               | Some cpairs ->
+                   let new_vars =
+                     term_vars_alist Eigen (fresh_head::term::fresh_body)
+                   in
+                   let bind_state = get_bind_state () in
+                   let wrapped_body = List.map wrapper fresh_body in
+                     set_bind_state initial_bind_state ;
+                     Some { bind_state = bind_state ;
+                            new_vars = new_vars ;
+                            new_hyps = cpairs_to_eqs cpairs @ wrapped_body }
+               | None -> None)
   in
 
   let obj_case obj r =

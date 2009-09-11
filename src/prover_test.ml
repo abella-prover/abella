@@ -390,20 +390,6 @@ let tests =
                )
         ) ;
 
-      "Unification error during case analysis should propogate to toplevel" >::
-        (fun () ->
-           setup_prover ()
-             ~clauses:(parse_clauses "pred (X Y).") ;
-
-           add_hyp (freshen "{pred (A B)}") ;
-           try
-             case "H1" ;
-             assert_failure "Case analysis did not fail"
-           with
-             | Failure("Unification error during case analysis") -> ()
-             | _ -> assert_failure "Case analysis did not fail"
-        ) ;
-
       "Toplevel logic variable should produce error in apply" >::
         (fun () ->
            setup_prover () ;

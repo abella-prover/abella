@@ -675,6 +675,53 @@ let case_tests =
                          \ with coinductive restriction")
                (fun () -> case term)) ;
 
+      "Non-llambda equality should result in equalities" >::
+        (fun () ->
+           let term = freshen "p (t1 t2) = p (A B)" in
+             match case term with
+               | [case1] ->
+                   set_bind_state case1.bind_state ;
+                   begin match case1.new_hyps with
+                     | [hyp] ->
+                         assert_pprint_equal "t1 t2 = A B" hyp ;
+                     | _ -> assert_failure "Expected 1 new hypothesis"
+                   end
+               | cases -> assert_expected_cases 1 cases) ;
+
+      "Non-llambda definition should result in equalities" >::
+        (fun () ->
+           let term = freshen "p (A B)" in
+           let defs = parse_defs "p (t1 t2)."
+           in
+             match case ~defs term with
+               | [case1] ->
+                   set_bind_state case1.bind_state ;
+                   assert_pprint_equal "p (A B)" term ;
+
+                   begin match case1.new_hyps with
+                     | [hyp] ->
+                         assert_pprint_equal "t1 t2 = A B" hyp ;
+                     | _ -> assert_failure "Expected 1 new hypothesis"
+                   end
+               | cases -> assert_expected_cases 1 cases) ;
+
+      "Non-llambda clause should result in equalities" >::
+        (fun () ->
+           let term = freshen "{p (A B)}" in
+           let clauses = parse_clauses "p (t1 t2)."
+           in
+             match case ~clauses term with
+               | [case1] ->
+                   set_bind_state case1.bind_state ;
+                   assert_pprint_equal "{p (A B)}" term ;
+
+                   begin match case1.new_hyps with
+                     | [hyp] ->
+                         assert_pprint_equal "t1 t2 = A B" hyp ;
+                     | _ -> assert_failure "Expected 1 new hypothesis"
+                   end
+               | cases -> assert_expected_cases 1 cases) ;
+
     ]
 
 let induction_tests =

@@ -1,6 +1,6 @@
 % From Dale Miller:
 %
-% It is easy to write code that determines if a given lambda-terms (type
+% It is easy to write code that determines if a given lambda-term (type
 % tm) is in beta-normal form (using the fact that a term in normal form
 % is of the form (lambda x1 ... lambda xn. h t1 ... tn) where t1, ...,
 % tn are in beta-normal form and h is a variable (one of the x1, ...,

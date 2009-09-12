@@ -434,6 +434,23 @@ let tests =
              assert_term_pprint_equal "Y" y ;
              assert_term_pprint_equal "Z" z) ;
 
+      "X^0 a^1 = app (Y^0 W^0 a^1) (Z^0 a^1)" >::
+        (fun () ->
+           let a = const ~ts:1 "a" in
+           let x = var Eigen "X" 0 in
+           let y = var Eigen "Y" 0 in
+           let z = var Eigen "Z" 0 in
+           let w = var Eigen "W" 0 in
+           let capp = const "app" in
+           let used = [("X", x); ("Y", y); ("Z", z); ("W", w)] in
+             left_unify ~used
+               (app x [a])
+               (app capp [app y [w;a]; app z [a]]) ;
+             assert_term_pprint_equal "x1\\app (Y W x1) (Z x1)" x ;
+             assert_term_pprint_equal "W" w ;
+             assert_term_pprint_equal "Y" y ;
+             assert_term_pprint_equal "Z" z) ;
+
       "f\\x\\f x = f\\x\\f (Z f x)" >::
         (fun () ->
            let z = var Eigen "Z" 0 in

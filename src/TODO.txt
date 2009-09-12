@@ -1,3 +1,8 @@
+Document in next release
+========================
+Better handling of unification erors during case analysis
+Added some additional handling of non-LLambda unification problems
+
 Future
 ======
 Allow for tacticals

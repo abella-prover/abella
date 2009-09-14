@@ -76,16 +76,18 @@ let closing_depth t =
     aux t
 
 (* Transforming a term to represent substitutions under abstractions *)
-let rec lift t n = match observe t with
-  | Var _ -> t
-  | DB i -> db (i+n)
-  | _ -> susp t 0 n []
+let rec lift t n =
+  match observe t with
+    | Var _ -> t
+    | DB i -> db (i+n)
+    | _ -> susp t 0 n []
 
 (* Transforming a list of arguments to represent eta fluffing *)
-let rec lift_args l n = match l,n with
-  | [],0 -> []
-  | [],n -> (db n)::lift_args [] (n-1)
-  | (a::rargs),n -> (lift a n)::lift_args rargs n
+let rec lift_args l n =
+  match l,n with
+    | [],0 -> []
+    | [],n -> (db n)::lift_args [] (n-1)
+    | (a::rargs),n -> (lift a n)::lift_args rargs n
 
 (* Check wether a Var appears in a list of terms *)
 let rec unique_var v = function
@@ -540,11 +542,11 @@ let rec unify_list l1 l2 =
  * If it is a lambda, binders need to be equalized and so this becomes
  * an application-term unification problem. *)
 and unify_const_term cst t2 = if eq cst t2 then () else
-  match observe cst, observe t2 with
-    | _, Lam (n,t2) ->
+  match observe t2 with
+    | Lam (n,t2) ->
         let a1 = lift_args [] n in
           unify (app cst a1) t2
-    | _, Var {tag=t} when not (variable t || constant t) ->
+    | Var {tag=t} when not (variable t || constant t) ->
         failwith "logic variable on the left (3)"
     | _ -> fail (ConstClash (cst,t2))
 

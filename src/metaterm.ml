@@ -213,12 +213,12 @@ let map_preds f term =
     aux term
 
 let is_imp t =
-  match observe t with
+  match observe (hnorm t) with
     | App(t, _) -> eq t (const "=>")
     | _ -> false
 
 let extract_imp t =
-  match observe t with
+  match observe (hnorm t) with
     | App(t, [a; b]) -> (a, b)
     | _ -> failwith "Check is_imp before calling extract_imp"
 
@@ -227,16 +227,16 @@ let move_imp_to_context obj =
     {context = Context.add a obj.context ; term = b}
 
 let is_pi_abs t =
-  match observe t with
+  match observe (hnorm t) with
     | App(t, [abs]) -> eq t (const "pi") &&
-        begin match observe abs with
+        begin match observe (hnorm abs) with
           | Lam(1, _) -> true
           | _ -> false
         end
     | _ -> false
 
 let extract_pi_abs t =
-  match observe t with
+  match observe (hnorm t) with
     | App(t, [abs]) -> abs
     | _ -> failwith "Check is_pi_abs before calling extract_pi_abs"
 
@@ -305,7 +305,7 @@ let raise_alist ~support alist =
 
 let replace_term_vars ?tag alist t =
   let rec aux t =
-    match observe t with
+    match observe (hnorm t) with
       | Var v when List.mem_assoc v.name alist &&
           (tag = None || tag = Some v.tag)
           ->
@@ -317,7 +317,7 @@ let replace_term_vars ?tag alist t =
       | Susp _ -> assert false
       | Ptr _ -> assert false
   in
-    aux (deep_norm t)
+    aux t
 
 let replace_metaterm_vars ?tag alist t =
   let term_aux alist =
@@ -408,7 +408,7 @@ let fresh_nominal t =
 
 let n_var_names terms =
   terms
-  |> map_vars_list (fun v -> v.name)
+  |> map_vars (fun v -> v.name)
   |> List.find_all (fun str -> Str.string_match (Str.regexp "^n[0-9]+$") str 0)
   |> List.unique
 
@@ -432,7 +432,7 @@ let replace_term_nominal_vars term =
 let replace_pi_abs_with_nominal obj =
   let abs = extract_pi_abs obj.term in
   let nominal = fresh_nominal (Obj(obj, Irrelevant)) in
-    {obj with term = deep_norm (app abs [nominal])}
+    {obj with term = app abs [nominal]}
 
 let rec normalize_obj obj =
   if is_imp obj.term then

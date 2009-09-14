@@ -58,20 +58,12 @@ val db : int -> term
 
 module Notations :
 sig
-  val (%=) : term -> term -> bool
-  val (!!) : term -> rawterm
   val (//) : int -> term -> term
   val (^^) : term -> term list -> term
 end
 
 
-(* Fast structural equality modulo Ptr.
- * Fast: try to use physical equality first.
- * Structural: no normalization peformed. *)
 val eq : term -> term -> bool
-
-(* Equality after normalization *)
-val full_eq : term -> term -> bool
 
 (* Binding a variable to a term. The *contents* of the cell representing the
  * variable is a reference which must be updated. Also the variable must
@@ -91,9 +83,6 @@ val add_dummies : env -> int -> int -> env
 (* Add [n] abstractions. *)
 val lambda : int -> term -> term
 
-(** Abstract [t] over term [v]. *)
-val abstract_var : term -> term -> term
-
 (** Abstract [t] over constant or variable named [id]. *)
 val abstract : string -> term -> term
 
@@ -107,8 +96,7 @@ val nominal_var : string -> term
 
 val find_vars : tag -> term list -> var list
 val find_var_refs : tag -> term list -> term list
-val map_vars : (var -> 'a) -> term -> 'a list
-val map_vars_list : (var -> 'a) -> term list -> 'a list
+val map_vars : (var -> 'a) -> term list -> 'a list
 
 val term_to_var : term -> var
 val term_to_name : term -> string
@@ -118,7 +106,6 @@ val has_eigen_head : term -> bool
 val has_logic_head : term -> bool
 
 val hnorm : term -> term
-val deep_norm : term -> term
 
 val term_to_string : term -> string
 val prefix : tag -> string

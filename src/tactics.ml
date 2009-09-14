@@ -30,7 +30,7 @@ let is_question str =
 
 let question_var_names terms =
   terms
-  |> map_vars_list (fun v -> v.name)
+  |> map_vars (fun v -> v.name)
   |> List.find_all is_question
   |> List.unique
 
@@ -41,7 +41,7 @@ let is_capital str =
 
 let capital_var_names terms =
   terms
-  |> map_vars_list (fun v -> v.name)
+  |> map_vars (fun v -> v.name)
   |> List.find_all is_capital
   |> List.unique
 

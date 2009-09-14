@@ -10,10 +10,10 @@ open Unify
 type path = L | A | H
 let rec extract path t =
   let hd,tl = match path with h::t -> h,t | [] -> assert false in
-    match !!t with
+    match observe t with
       | Lam (_,t) when hd = L -> extract tl t
       | App (_,l) when hd = A -> extract tl (List.nth l 0)
-      | App (t,_) when hd = H -> !!t
+      | App (t,_) when hd = H -> observe t
       | _ -> assert false
 
 let assert_raises_occurs_check f =
@@ -326,8 +326,8 @@ let tests =
            let v = var Logic "V" 0 in
            let ceval = const "eval" in
            let capp = const "app" in
-           let evalAB = app ceval [a; b] in
-           let evalapp = app ceval [app capp [m; n]; v] in
+           let evalAB = ceval ^^ [a; b] in
+           let evalapp = ceval ^^ [capp ^^ [m; n]; v] in
              right_unify evalAB evalapp ;
              assert_term_pprint_equal "eval (app M N) V" evalAB) ;
 
@@ -342,7 +342,7 @@ let tests =
            let a = var Logic "A" 0 in
            let b = var Logic "B" 0 in
            let c = var Logic "C" 0 in
-             right_unify a (app b [c]) ;
+             right_unify a (b ^^ [c]) ;
              assert_term_pprint_equal "B C" a) ;
 
       "Loosening of LLambda restriction inside of constructor" >::
@@ -351,7 +351,7 @@ let tests =
            let b = var Logic "B" 0 in
            let c = var Logic "C" 0 in
            let d = var Logic "D" 0 in
-           let term = app (const "cons") [app b [c]; d] in
+           let term = const "cons" ^^ [app b [c]; d] in
              right_unify a term ;
              assert_term_pprint_equal "cons (B C) D" a) ;
 
@@ -364,7 +364,7 @@ let tests =
            let x = var Logic "X" 0 in
            let y = var Logic "Y" 1 in
              right_unify x y ;
-             match !!x,!!y with
+             match observe x, observe y with
                | Var {ts=0}, Var {ts=0} -> ()
                | _ -> assert_failure "Timestamps should be lowered to match") ;
       *)
@@ -376,7 +376,7 @@ let tests =
            let used = [("X", x)] in
              assert_raises_unify_failure
                (fun () ->
-                  right_unify ~used x (app (const "f") [a]))) ;
+                  right_unify ~used x (const "f" ^^ [a]))) ;
 
       "Logic variables on right should not unify with nominal variables" >::
         (fun () ->
@@ -396,7 +396,7 @@ let tests =
         (fun () ->
            let a = var Eigen "a" 0 in
            let n = nominal_var "n" in
-             left_unify (app a [n]) n ;
+             left_unify (a ^^ [n]) n ;
              assert_term_equal (1 // db 1) a) ;
 
       "Pruning should not generate a needless new name" >::
@@ -405,7 +405,7 @@ let tests =
            let a = var Eigen "A" 0 in
            let b = var Eigen "B" 0 in
            let used = [("A", a); ("B", b)] in
-             left_unify ~used (app a [n]) b ;
+             left_unify ~used (a ^^ [n]) b ;
              assert_term_pprint_equal "x1\\B" a ;
              assert_term_pprint_equal "B" b) ;
 
@@ -417,7 +417,7 @@ let tests =
            let y = var Eigen "Y" 0 in
            let z = var Eigen "Z" 0 in
            let used = [("X", x); ("Y", y); ("Z", z)] in
-             left_unify ~used (app x [a;b]) (app y [z;b]) ;
+             left_unify ~used (x ^^ [a;b]) (y ^^ [z;b]) ;
              assert_term_pprint_equal "x1\\x2\\Y Z x2" x ;
              assert_term_pprint_equal "Y" y ;
              assert_term_pprint_equal "Z" z) ;
@@ -429,7 +429,7 @@ let tests =
            let y = var Eigen "Y" 0 in
            let z = var Eigen "Z" 0 in
            let used = [("X", x); ("Y", y); ("Z", z)] in
-             left_unify ~used (app x [a]) (app y [app z [a]]) ;
+             left_unify ~used (x ^^ [a]) (y ^^ [z ^^ [a]]) ;
              assert_term_pprint_equal "x1\\Y (Z x1)" x ;
              assert_term_pprint_equal "Y" y ;
              assert_term_pprint_equal "Z" z) ;
@@ -444,8 +444,8 @@ let tests =
            let capp = const "app" in
            let used = [("X", x); ("Y", y); ("Z", z); ("W", w)] in
              left_unify ~used
-               (app x [a])
-               (app capp [app y [w;a]; app z [a]]) ;
+               (x ^^ [a])
+               (capp ^^ [y ^^ [w;a]; z ^^ [a]]) ;
              assert_term_pprint_equal "x1\\app (Y W x1) (Z x1)" x ;
              assert_term_pprint_equal "W" w ;
              assert_term_pprint_equal "Y" y ;
@@ -457,7 +457,7 @@ let tests =
            let used = [("Z", z)] in
              left_unify ~used
                (2 // app (db 1) [db 2])
-               (2 // app (db 1) [app z [db 1; db 2]]) ;
+               (2 // app (db 1) [z ^^ [db 1; db 2]]) ;
              assert_term_pprint_equal "x1\\x2\\x2" z) ;
 
       "p^0 (X^0 Y^0) = p^0 (Z^0 W^0)" >::
@@ -468,8 +468,8 @@ let tests =
            let z = var Logic "Z" 0 in
            let w = var Logic "W" 0 in
              match try_right_unify_cpairs
-               (app p [app x [y]])
-               (app p [app z [w]])
+               (p ^^ [x ^^ [y]])
+               (p ^^ [z ^^ [w]])
              with
                | Some [(a,b)] ->
                    assert_term_pprint_equal "X Y" a ;
@@ -485,8 +485,8 @@ let tests =
            let z = var Eigen "z" 0 in
            let w = var Eigen "w" 0 in
              match try_right_unify_cpairs
-               (app p [app x [y]])
-               (app p [app z [w]])
+               (p ^^ [x ^^ [y]])
+               (p ^^ [z ^^ [w]])
              with
                | Some [(a,b)] ->
                    assert_term_pprint_equal "X Y" a ;
@@ -503,7 +503,7 @@ let tests =
            let z = var Logic "Z" 0 in
            let a = var Eigen "a" 1 in
              match try_right_unify_cpairs
-               (app x [a; app y [a]]) z
+               (x ^^ [a; y ^^ [a]]) z
              with
                | Some [(a,b)] ->
                    assert_term_pprint_equal "X a (Y a)" a ;
@@ -520,8 +520,8 @@ let tests =
            let y = var Logic "Y" 0 in
            let z = var Logic "Z" 0 in
              match try_right_unify_cpairs
-               (1 // app p [app x [db 1; app y [db 1]]])
-               (1 // app p [z])
+               (1 // (p ^^ [x ^^ [db 1; y ^^ [db 1]]]))
+               (1 // (p ^^ [z]))
              with
                | Some [(a,b)] ->
                    assert_term_pprint_equal "x1\\X x1 (Y x1)" a ;

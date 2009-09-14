@@ -33,11 +33,11 @@ let size ctx = List.length ctx
 let mem elt ctx =
   if has_logic_head elt then
     (* The tail variable - do not unify yet *)
-    List.mem ~cmp:full_eq elt ctx
+    List.mem ~cmp:eq elt ctx
   else
     List.mem ~cmp:Unify.try_right_unify elt ctx
 
-let remove elt ctx = List.remove ~cmp:full_eq elt ctx
+let remove elt ctx = List.remove ~cmp:eq elt ctx
 
 let rec xor ctx1 ctx2 =
   match ctx1 with
@@ -67,17 +67,17 @@ let context_to_string ctx =
 let cons = const "::"
 
 let is_nil t =
-  match observe t with
+  match observe (hnorm t) with
     | Var {name=n} when n = "nil" -> true
     | _ -> false
 
 let is_cons t =
-  match observe t with
+  match observe (hnorm t) with
     | App(c, [_; _]) when c = cons -> true
     | _ -> false
 
 let extract_cons t =
-  match observe t with
+  match observe (hnorm t) with
     | App(_, [a; b]) -> (a, b)
     | _ -> assert false
 
@@ -93,7 +93,7 @@ let normalize ctx =
           remove_cons tail
       | head::tail -> head::(remove_cons tail)
   in
-    remove_dups (remove_cons (List.map deep_norm ctx))
+    remove_dups (remove_cons ctx)
 
 let subcontext ctx1 ctx2 =
   let ctx1 = normalize ctx1 in

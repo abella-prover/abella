@@ -58,7 +58,7 @@ let assert_term_pprint_equal s t =
   assert_string_equal s (Term.term_to_string t)
 
 let assert_term_equal =
-  assert_equal ~cmp:Term.full_eq ~printer:Term.term_to_string
+  assert_equal ~cmp:Term.eq ~printer:Term.term_to_string
 
 let assert_int_equal =
   assert_equal ~printer:string_of_int

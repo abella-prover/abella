@@ -63,6 +63,18 @@ let constant tag =
 let variable tag =
   tag = instantiatable
 
+let closed t =
+  let rec aux n t =
+    match observe (hnorm t) with
+      | Var _ -> true
+      | DB i -> i <= n
+      | Lam(n', t) -> aux (n+n') t
+      | App(h, ts) ->
+          List.for_all (aux n) (h :: ts)
+      | _ -> assert false
+  in
+    aux 0 t
+
 (* Transforming a term to represent substitutions under abstractions *)
 let rec lift t n = match observe t with
   | Var _ -> t
@@ -656,52 +668,52 @@ and reverse_bind t1 t2 =
   * lambdas or applications at the top level. Any necessary adjustment
   * of binders through the eta rule is done on the fly. *)
 and unify t1 t2 =
-  match observe t1,observe t2 with
-  | Var v1, Var v2 when v1 = v2 -> ()
-  | Var v1,_ when variable v1.tag ->
-     if reverse_bind t2 t1 then
-        ()
-      else if rigid_path_check v1 t2 then
-        bind t1 t2
-      else
-        bind t1 (makesubst t1 t2 [] 0)
-  | _,Var v2 when variable v2.tag ->
-      if reverse_bind t1 t2 then
-        ()
-      else if rigid_path_check v2 t1 then
-        bind t2 t1
-      else
-        bind t2 (makesubst t2 t1 [] 0)
+  try match observe t1,observe t2 with
+    | Var v1, Var v2 when v1 = v2 -> ()
+    | Var v1,_ when variable v1.tag ->
+        if reverse_bind t2 t1 then
+          ()
+        else if rigid_path_check v1 t2 then
+          bind t1 t2
+        else
+          bind t1 (makesubst t1 t2 [] 0)
+    | _,Var v2 when variable v2.tag ->
+        if reverse_bind t1 t2 then
+          ()
+        else if rigid_path_check v2 t1 then
+          bind t2 t1
+        else
+          bind t2 (makesubst t2 t1 [] 0)
 
-  (* Check for a special case of asymmetric unification outside of LLambda *)
-  | App(h1,a1), App(h2,a2) ->
-      begin match observe h1, observe h2 with
-        | Var v1, _ when variable v1.tag &&
-            check_flex_args (List.map hnorm a1) v1.ts ->
-            unify_app_term h1 a1 t1 t2
+    (* Check for a special case of asymmetric unification outside of LLambda *)
+    | App(h1,a1), App(h2,a2) ->
+        begin match observe h1, observe h2 with
+          | Var v1, _ when variable v1.tag &&
+              check_flex_args (List.map hnorm a1) v1.ts ->
+              unify_app_term h1 a1 t1 t2
 
-        | _, Var v2 when variable v2.tag &&
-            check_flex_args (List.map hnorm a2) v2.ts ->
-            unify_app_term h2 a2 t2 t1
+          | _, Var v2 when variable v2.tag &&
+              check_flex_args (List.map hnorm a2) v2.ts ->
+              unify_app_term h2 a2 t2 t1
 
-        | Var v1, Var v2 when variable v1.tag || variable v2.tag ->
-            handler t1 t2
+          | _ -> unify_app_term h1 a1 t1 t2
+        end
 
-        | _ -> unify_app_term h1 a1 t1 t2
-      end
-
-  | App (h1,a1),_                 -> unify_app_term h1 a1 t1 t2
-  | _,App (h2,a2)                 -> unify_app_term h2 a2 t2 t1
-  | Var {tag=t},_ when constant t -> unify_const_term t1 t2
-  | _,Var {tag=t} when constant t -> unify_const_term t2 t1
-  | DB n,_                        -> unify_bv_term n t1 t2
-  | _,DB n                        -> unify_bv_term n t2 t1
-  | Lam (n1,t1),Lam(n2,t2)   ->
-      if n1>n2 then
-        unify (lambda (n1-n2) t1) t2
-      else
-        unify t1 (lambda (n2-n1) t2)
-  | _ -> failwith "logic variable on the left (7)"
+    | App (h1,a1),_                 -> unify_app_term h1 a1 t1 t2
+    | _,App (h2,a2)                 -> unify_app_term h2 a2 t2 t1
+    | Var {tag=t},_ when constant t -> unify_const_term t1 t2
+    | _,Var {tag=t} when constant t -> unify_const_term t2 t1
+    | DB n,_                        -> unify_bv_term n t1 t2
+    | _,DB n                        -> unify_bv_term n t2 t1
+    | Lam (n1,t1),Lam(n2,t2)   ->
+        if n1>n2 then
+          unify (lambda (n1-n2) t1) t2
+        else
+          unify t1 (lambda (n2-n1) t2)
+    | _ -> failwith "logic variable on the left (7)"
+  with
+    | UnifyError NotLLambda when closed t1 && closed t2 ->
+        handler t1 t2
 
 let pattern_unify used_names t1 t2 =
   used := used_names ;

@@ -469,8 +469,7 @@ let tests =
            let w = var Logic "W" 0 in
              match try_right_unify_cpairs
                (app p [app x [y]])
-               (app p [app z [w]
-                      ])
+               (app p [app z [w]])
              with
                | Some [(a,b)] ->
                    assert_term_pprint_equal "X Y" a ;
@@ -487,12 +486,44 @@ let tests =
            let w = var Eigen "w" 0 in
              match try_right_unify_cpairs
                (app p [app x [y]])
-               (app p [app z [w]
-                      ])
+               (app p [app z [w]])
              with
                | Some [(a,b)] ->
                    assert_term_pprint_equal "X Y" a ;
                    assert_term_pprint_equal "z w" b
+               | Some l -> assert_failure
+                   (Printf.sprintf "Expected one conflict pair, but found %d"
+                      (List.length l))
+               | None -> assert_failure "Unification failed" );
+
+      "X^0 a^1 (Y^0 a^1) = Z^0" >::
+        (fun () ->
+           let x = var Logic "X" 0 in
+           let y = var Logic "Y" 0 in
+           let z = var Logic "Z" 0 in
+           let a = var Eigen "a" 1 in
+             match try_right_unify_cpairs
+               (app x [a; app y [a]]) z
+             with
+               | Some [(a,b)] ->
+                   assert_term_pprint_equal "X a (Y a)" a ;
+                   assert_term_pprint_equal "Z" b
+               | Some l -> assert_failure
+                   (Printf.sprintf "Expected one conflict pair, but found %d"
+                      (List.length l))
+               | None -> assert_failure "Unification failed" );
+
+      "x1\\X^0 x1 (Y^0 x1) = x1\\Z^0" >::
+        (fun () ->
+           let x = var Logic "X" 0 in
+           let y = var Logic "Y" 0 in
+           let z = var Logic "Z" 0 in
+             match try_right_unify_cpairs
+               (1 // app x [db 1; app y [db 1]]) (1 // z)
+             with
+               | Some [(a,b)] ->
+                   assert_term_pprint_equal "x1\\X x1 (Y x1)" a ;
+                   assert_term_pprint_equal "x1\\Z" b
                | Some l -> assert_failure
                    (Printf.sprintf "Expected one conflict pair, but found %d"
                       (List.length l))

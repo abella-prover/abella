@@ -513,13 +513,15 @@ let tests =
                       (List.length l))
                | None -> assert_failure "Unification failed" );
 
-      "x1\\X^0 x1 (Y^0 x1) = x1\\Z^0" >::
+      "x1\\p^0 (X^0 x1 (Y^0 x1)) = x1\\p^0 Z^0" >::
         (fun () ->
+           let p = const ~ts:0 "p" in
            let x = var Logic "X" 0 in
            let y = var Logic "Y" 0 in
            let z = var Logic "Z" 0 in
              match try_right_unify_cpairs
-               (1 // app x [db 1; app y [db 1]]) (1 // z)
+               (1 // app p [app x [db 1; app y [db 1]]])
+               (1 // app p [z])
              with
                | Some [(a,b)] ->
                    assert_term_pprint_equal "x1\\X x1 (Y x1)" a ;

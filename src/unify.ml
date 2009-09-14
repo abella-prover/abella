@@ -63,17 +63,17 @@ let constant tag =
 let variable tag =
   tag = instantiatable
 
-let closed t =
-  let rec aux n t =
+(* Return the number of abstractions need to make a term closed *)
+let closing_depth t =
+  let rec aux t =
     match observe (hnorm t) with
-      | Var _ -> true
-      | DB i -> i <= n
-      | Lam(n', t) -> aux (n+n') t
-      | App(h, ts) ->
-          List.for_all (aux n) (h :: ts)
+      | Var _ -> 0
+      | DB i -> i
+      | Lam(n, t) -> max (aux t - n) 0
+      | App(h, ts) -> List.max (List.map aux (h :: ts))
       | _ -> assert false
   in
-    aux 0 t
+    aux t
 
 (* Transforming a term to represent substitutions under abstractions *)
 let rec lift t n = match observe t with
@@ -712,8 +712,9 @@ and unify t1 t2 =
           unify t1 (lambda (n2-n1) t2)
     | _ -> failwith "logic variable on the left (7)"
   with
-    | UnifyError NotLLambda when closed t1 && closed t2 ->
-        handler t1 t2
+    | UnifyError NotLLambda ->
+        let n = max (closing_depth t1) (closing_depth t2) in
+          handler (lambda n t1) (lambda n t2)
 
 let pattern_unify used_names t1 t2 =
   used := used_names ;

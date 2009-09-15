@@ -12,6 +12,13 @@ let a = termobj var_a
 let b = termobj var_b
 let c = termobj var_c
 
+let assert_raises_unify_failure f =
+  try
+    f () ;
+    assert_failure "Expected UnifyFailure"
+  with
+    | Unify.UnifyFailure _ -> ()
+
 let tests =
   "Metaterm" >:::
     [
@@ -246,5 +253,25 @@ let tests =
            let t2 = freshen "{L |- foo ?1}" in
              meta_right_unify t1 t2 ;
              assert_pprint_equal "{L |- foo A}" t2) ;
+
+      "Meta right unify - variable capture" >::
+        (fun () ->
+           let t1 = freshen "forall A, foo A A" in
+           let t2 = freshen "forall A, foo A ?1" in
+             assert_raises_unify_failure
+               (fun () -> meta_right_unify t1 t2)) ;
+
+      "Meta right unify - variable renaming" >::
+        (fun () ->
+           let t1 = freshen "forall A, foo A" in
+           let t2 = freshen "forall B, foo B" in
+             meta_right_unify t1 t2) ;
+
+      "Meta right unify - variable renaming (2)" >::
+        (fun () ->
+           let t1 = freshen "forall A, foo (p A)" in
+           let t2 = freshen "forall B, foo (?1 B)" in
+             meta_right_unify t1 t2 ;
+             assert_pprint_equal "forall B, foo (p B)" t2) ;
 
     ]

@@ -511,7 +511,15 @@ let rec meta_right_unify t1 t2 =
         meta_right_unify l1 l2 ;
         meta_right_unify r1 r2
     | Binding(b1, ids1, t1), Binding(b2, ids2, t2)
-        when b1 = b2 && ids1 = ids2 -> meta_right_unify t1 t2
+        when b1 = b2 && List.length ids1 = List.length ids2 ->
+        (* Replace bound variables with constants with non-zero
+           timestamp. This prevents illegal variable capture *)
+        let new_bindings = List.map (fun _ -> fresh ~tag:Constant 1) ids1 in
+        let alist1 = List.combine ids1 new_bindings in
+        let alist2 = List.combine ids2 new_bindings in
+          meta_right_unify
+            (replace_metaterm_vars alist1 t1)
+            (replace_metaterm_vars alist2 t2)
     | _, _ -> raise (UnifyFailure TypesMismatch)
 
 let try_meta_right_unify t1 t2 =

@@ -531,4 +531,30 @@ let tests =
                       (List.length l))
                | None -> assert_failure "Unification failed" );
 
+      (* This is a case where unification has no most general
+         solution, but it would be nice of a partial solution was at
+         least generated. Perhaps more generally we could eventually
+         treat all higher-order unification problems (perhaps with a
+         special tactic to invoke such solution finding)
+
+      "X^0 = Y^0 a^1 (Z^0 a^1)" >::
+        (fun () ->
+           let a = const ~ts:1 "a" in
+           let x = var Eigen "X" 0 in
+           let y = var Eigen "Y" 0 in
+           let z = var Eigen "Z" 0 in
+             match try_right_unify_cpairs
+               x
+               (y ^^ [a; z ^^ [a]])
+             with
+               | Some [(t1,t2)] ->
+                   assert_term_pprint_equal "X" t1 ;
+                   assert_term_pprint_equal "Y1 (Z a)" t2
+               | Some l -> assert_failure
+                   (Printf.sprintf "Expected one conflict pair, but found %d"
+                      (List.length l))
+               | None -> assert_failure "Unification failed" );
+
+      *)
+
     ]

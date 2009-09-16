@@ -375,6 +375,45 @@ let make_non_llambda_subst ts1 a1 t2 =
   in
     aux 0 t2
 
+(* Here we assume v1 is a variable we want to bind to t2. We must check that
+ * there is no-cyclic substitution and that nothing with a timestamp higher
+ * than t1 is allowed. A more general check is possible here, but this
+ * should suffice. *)
+let rigid_path_check v1 t2 =
+  let rec aux n t =
+    match observe (hnorm t) with
+      | Var v -> (v1 != v) && (v.ts <= v1.ts)
+      | DB i -> i <= n
+      | Lam(n', t) -> aux (n+n') t
+      | App(h, ts) -> List.for_all (aux n) (h::ts)
+      | _ -> assert false
+  in
+    aux 0 t2
+
+(* Assuming t2 is a variable which we want to bind to t1, we try here to
+ * instead bind some pruned version of t1 to t2. Doing this allows us to
+ * avoid generating a new name.
+ *
+ * Example: Instead of binding X^0 to Y^0 c^1, we bind Y^0 to z\ X^0
+ *)
+let reverse_bind t1 t2 =
+  match observe t1, observe t2 with
+    | App(h, ts), Var v2 ->
+        let pruneable t =
+          begin match observe (hnorm t) with
+            | Var c when constant c.tag && v2.ts < c.ts -> true
+            | DB _ -> true
+            | _ -> false
+          end
+        in
+          begin match observe h with
+            | Var v1 when variable v1.tag && v2.ts <= v1.ts &&
+                List.for_all pruneable ts ->
+                bind h (lambda (List.length ts) t2) ; true
+            | _ -> false
+          end
+    | _ -> false
+
 (** [makesubst h1 t2 a1 n] unifies [App (h1,a1) = t2].
     * Given a term of the form [App (h1,a1)] where [h1] is a variable and
     * another term [t2], generate an LLambda substitution for [h1] if this is
@@ -607,55 +646,6 @@ and unify_app_term h1 a1 t1 t2 = match observe h1,observe t2 with
   | Var {tag=t}, _ when not (variable t || constant t) ->
       failwith "logic variable on the left (6)"
   | _ -> fail (ConstClash (h1,t2))
-
-(* Here we assume v1 is a variable we want to bind to t2. We must check that
- * there is no-cyclic substitution and that nothing with a timestamp higher
- * than t1 is allowed. A more general check is possible here, but this
- * should suffice. This function assumes t2 is head-normalized. *)
-and rigid_path_check v1 t2 =
-  let rec aux n t =
-    match observe t with
-      | Var v when v1 = v -> false
-      | Var v when v.ts <= v1.ts -> true
-      | DB i when i <= n -> true
-      | Lam(n', t) -> aux (n+n') t
-      | App(h, ts) ->
-          begin match observe h with
-            | Var v when v.ts <= v1.ts ->
-                List.for_all (aux n) (List.map hnorm ts)
-            | DB i when i <= n ->
-                List.for_all (aux n) (List.map hnorm ts)
-            | Var _ | DB _ -> false
-            | _ -> assert false
-          end
-      | Var _ | DB _ -> false
-      | _ -> assert false
-  in
-    aux 0 t2
-
-(* Assuming t2 is a variable which we want to bind to t1, we try here to
- * instead bind some pruned version of t1 to t2. Doing this allows us to
- * avoid generating a new name.
- *
- * Example: Instead of binding X^0 to Y^0 c^1, we bind Y^0 to z\ X^0
- *)
-and reverse_bind t1 t2 =
-  match observe t1, observe t2 with
-    | App(h, ts), Var v2 ->
-        let pruneable t =
-          begin match observe t with
-            | Var c when constant c.tag && v2.ts < c.ts -> true
-            | DB _ -> true
-            | _ -> false
-          end
-        in
-          begin match observe h with
-            | Var v1 when variable v1.tag && v2.ts <= v1.ts &&
-                List.for_all pruneable (List.map hnorm ts) ->
-                bind h (lambda (List.length ts) t2) ; true
-            | _ -> false
-          end
-    | _ -> false
 
 (** The main unification procedure.
   * Either succeeds and realizes the unification substitutions as side effects

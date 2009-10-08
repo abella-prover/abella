@@ -519,6 +519,23 @@ let next_restriction () =
   1 + (sequent.hyps |> List.map (fun h -> h.term) |>
            List.map get_max_restriction |> List.max)
 
+let has_restriction test t =
+  let rec aux t =
+    match t with
+      | True | False | Eq _ -> false
+      | Obj(_, r) -> test r
+      | Arrow(a, b) | Or(a, b) | And(a, b) -> aux a || aux b
+      | Binding(_, _, body) -> aux body
+      | Pred(_, r) -> test r
+  in
+    aux t
+
+let has_inductive_restriction t =
+  has_restriction (function | Smaller _ | Equal _ -> true | _ -> false) t
+
+let has_coinductive_restriction t =
+  has_restriction (function | CoSmaller _ | CoEqual _ -> true | _ -> false) t
+
 let rec nth_product n term =
   match term with
     | Binding(Forall, _, body) -> nth_product n body
@@ -551,13 +568,15 @@ let add_ih h =
   add_hyp ~name:(fresh_hyp_name "IH") h
 
 let induction ind_args =
+  if has_coinductive_restriction sequent.goal then
+    failwith "Induction within coinduction is not allowed" ;
   List.iter
     (fun (arg, goal) -> ensure_is_inductive (nth_product arg goal))
     (List.combine ind_args (and_to_list sequent.goal)) ;
   let res_num = next_restriction () in
-  let (ihs, new_goal) = Tactics.induction ind_args res_num sequent.goal in
-    List.iter (fun h -> add_hyp ~name:(fresh_hyp_name "IH") h) ihs ;
-    sequent.goal <- new_goal
+    let (ihs, new_goal) = Tactics.induction ind_args res_num sequent.goal in
+      List.iter (fun h -> add_hyp ~name:(fresh_hyp_name "IH") h) ihs ;
+      sequent.goal <- new_goal
 
 
 (* CoInduction *)
@@ -584,6 +603,8 @@ let ensure_is_coinductive p =
 
 let coinduction () =
   ensure_is_coinductive (conclusion sequent.goal) ;
+  if has_inductive_restriction sequent.goal then
+    failwith "Coinduction within induction is not allowed" ;
   let res_num = next_restriction () in
   let (ch, new_goal) = Tactics.coinduction res_num sequent.goal in
   let name = fresh_hyp_name "CH" in

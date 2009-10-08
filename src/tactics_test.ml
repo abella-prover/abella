@@ -794,7 +794,8 @@ let induction_tests =
                      ("(forall A, {one A} -> {two A}@ -> {three A}) /\\ " ^
                         "(forall B, {four B}@ -> {five B})")
                      goal
-               | _ -> failwith "Expected 2 inductive hypotheses")
+               | _ -> failwith "Expected 2 inductive hypotheses") ;
+
     ]
 
 let coinduction_tests =

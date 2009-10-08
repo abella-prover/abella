@@ -507,5 +507,35 @@ let tests =
              )
         ) ;
 
+      "Induction within coinduction should fail" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall X, foo X -> bar X" ;
+
+           List.iter (add_def Types.Inductive)
+             (parse_defs "foo X := foo X.") ;
+           List.iter (add_def Types.CoInductive)
+             (parse_defs "bar X := bar X.") ;
+
+           coinduction () ;
+           assert_raises (Failure "Induction within coinduction is not allowed")
+             (fun () -> induction [1]) ;
+        ) ;
+
+
+      "Coinduction within induction should fail" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall X, foo X -> bar X" ;
+
+           List.iter (add_def Types.Inductive)
+             (parse_defs "foo X := foo X.") ;
+           List.iter (add_def Types.CoInductive)
+             (parse_defs "bar X := bar X.") ;
+
+           induction [1] ;
+           assert_raises (Failure "Coinduction within induction is not allowed")
+             coinduction ;
+        ) ;
 
     ]

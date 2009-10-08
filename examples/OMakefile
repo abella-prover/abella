@@ -56,6 +56,7 @@ foreach(name, $(FILE_NAMES))
 
         awk($(name).thm)
         case $'Specification "\(.*\)"\.'
+            echo $1.mod > specification-name
             ruby html-files/annotate_mod.rb $1.mod > specification
 
         ruby html-files/annotate_thm.rb $(name).thm > reasoning
@@ -64,7 +65,8 @@ foreach(name, $(FILE_NAMES))
         erb html-files/main.rhtml > html/$(name).html
         erb html-files/details.rhtml > html/$(name)-details.html
 
-        rm -f name title-line specification reasoning details
+        rm -f name title-line specification specification-name \
+              reasoning details
 
 
 .PHONY: upload-html

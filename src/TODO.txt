@@ -15,20 +15,12 @@ New syntax for inductive and coinductive definitions?
   Require used definitions to be defined
   Allow mutual recursion between coinductive and inductive but not
   both
+  This might be good to do when we finally add typing to Abella
 
 From Todd Wilson: Every time I've used "apply .. with .." so far, the
   with clause has been an identity substitution, e.g., "with T0=T0,
   M0=M0". Would it be reasonable to default to this instead of giving
   an error message for missing variables?
-
-Search and case should be smart about looking up definitions
-  Does this give a performance increase?
-
-Coinduction followed by induction would allow hypotheses with @ on
-them. What does these mean? Should they be allowed? prevented?
-ignored?
-
-What about induction followed by coinduction?
 
 Clean up case-analysis tests so they are easy to read and write like
 the search tests?

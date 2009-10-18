@@ -788,6 +788,7 @@ let unabbrev ids =
 (* Permute *)
 
 let permute_nominals ids form =
+  if not (List.is_unique ids) then failwith "Not a permutation" ;
   let term =
     match form with
       | None -> sequent.goal

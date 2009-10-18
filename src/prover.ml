@@ -177,6 +177,15 @@ let add_hyp ?(name=fresh_hyp_name "") term =
 let remove_hyp name =
   sequent.hyps <- List.remove_all (fun h -> h.id = name) sequent.hyps
 
+let replace_hyp name t =
+  let rec aux hyplist =
+    match hyplist with
+      | [] -> []
+      | hyp::rest when hyp.id = name -> {hyp with term = t} :: rest
+      | hyp::rest -> hyp :: (aux rest)
+  in
+    sequent.hyps <- aux sequent.hyps
+
 let add_var v =
   sequent.vars <- List.append sequent.vars [v]
 
@@ -815,4 +824,4 @@ let permute_nominals ids form =
   let result = Tactics.permute_nominals perm term in
     match form with
       | None -> sequent.goal <- result
-      | Some _ -> add_hyp result
+      | Some hyp -> replace_hyp hyp result

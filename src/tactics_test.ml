@@ -312,6 +312,126 @@ let apply_tests =
                (List.length logic_vars > 0));
     ]
 
+let backchain_tests =
+  "Backchain" >:::
+    [
+      (* Test co-inductive restriction *)
+      (* Test context reconcile *)
+
+      "Normal" >::
+        (fun () ->
+           let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B" in
+           let g = freshen "rel3 t3 t4" in
+             match backchain h g with
+               | [h1; h2] ->
+                   assert_pprint_equal "rel1 t3 t1" h1 ;
+                   assert_pprint_equal "rel2 t4 t2" h2
+               | hs ->
+                   assert_failure
+                     ("Expected 2 obligations but found " ^
+                        (string_of_int (List.length hs)))) ;
+
+      "Properly restricted" >::
+        (fun () ->
+           let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B +" in
+           let g = freshen "rel3 t3 t4 +" in
+             match backchain h g with
+               | [h1; h2] ->
+                   assert_pprint_equal "rel1 t3 t1" h1 ;
+                   assert_pprint_equal "rel2 t4 t2" h2
+               | hs ->
+                   assert_failure
+                     ("Expected 2 obligations but found " ^
+                        (string_of_int (List.length hs)))) ;
+
+      "Needlessly restricted" >::
+        (fun () ->
+           let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B" in
+           let g = freshen "rel3 t3 t4 +" in
+             match backchain h g with
+               | [h1; h2] ->
+                   assert_pprint_equal "rel1 t3 t1" h1 ;
+                   assert_pprint_equal "rel2 t4 t2" h2
+               | hs ->
+                   assert_failure
+                     ("Expected 2 obligations but found " ^
+                        (string_of_int (List.length hs)))) ;
+
+      "Inductively restricted" >::
+        (fun () ->
+           let h = freshen
+             "forall A B, rel1 A t1 * -> rel2 B t2 @ -> rel3 A B"
+           in
+           let g = freshen "rel3 t3 t4" in
+             match backchain h g with
+               | [h1; h2] ->
+                   assert_pprint_equal "rel1 t3 t1 *" h1 ;
+                   assert_pprint_equal "rel2 t4 t2 @" h2
+               | hs ->
+                   assert_failure
+                     ("Expected 2 obligations but found " ^
+                        (string_of_int (List.length hs)))) ;
+
+      "Improperly restricted" >::
+        (fun () ->
+           let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B +" in
+           let g = freshen "rel3 t3 t4" in
+             assert_raises (Failure "Coinductive restriction violated")
+               (fun () -> backchain h g)) ;
+
+      "Improperly restricted (2)" >::
+        (fun () ->
+           let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B +" in
+           let g = freshen "rel3 t3 t4 #" in
+             assert_raises (Failure "Coinductive restriction violated")
+               (fun () -> backchain h g)) ;
+
+      "Improperly restricted (3)" >::
+        (fun () ->
+           let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B +" in
+           let g = freshen "rel3 t3 t4 ++" in
+             assert_raises (Failure "Coinductive restriction violated")
+               (fun () -> backchain h g)) ;
+
+      "With contexts" >::
+        (fun () ->
+           let h = freshen
+             "forall A B L, ctx L -> {L |- eq A B}"
+           in
+           let g = freshen "{L, eq t1 t2 |- eq t3 t4}" in
+             match backchain h g with
+               | [h1] ->
+                   assert_pprint_equal "ctx (eq t1 t2 :: L)" h1 ;
+               | hs ->
+                   assert_failure
+                     ("Expected 1 obligation but found " ^
+                        (string_of_int (List.length hs)))) ;
+
+      "With empty contexts" >::
+        (fun () ->
+           let h = freshen
+             "forall A B, {pr A B} -> {eq A B}"
+           in
+           let g = freshen "{eq t1 t2}" in
+             match backchain h g with
+               | [h1] ->
+                   assert_pprint_equal "{pr t1 t2}" h1 ;
+               | hs ->
+                   assert_failure
+                     ("Expected 1 obligation but found " ^
+                        (string_of_int (List.length hs)))) ;
+
+      "With bad contexts" >::
+        (fun () ->
+           let h = freshen
+             "forall A B L, ctx L -> {L, eq t1 t2 |- eq A B}"
+           in
+           let g = freshen "{L |- eq t3 t4}" in
+             assert_raises_any
+               (fun () -> backchain h g)) ;
+
+    ]
+
 let assert_expected_cases n cases =
   assert_failure (Printf.sprintf "Expected %d case(s) but found %d case(s)"
                     n (List.length cases))
@@ -823,6 +943,13 @@ let coinduction_tests =
              assert_pprint_equal
                "forall A, foo A -> bar A -> baz A #"
                goal) ;
+
+      "Should fail on inductively restricted" >::
+        (fun () ->
+           let stmt = freshen "foo A *" in
+             assert_raises
+               (Failure "Cannot coinduct on inductively restricted goal")
+               (fun () -> coinduction 1 stmt)) ;
     ]
 
 let assert_search ?(clauses="") ?(defs="")
@@ -1125,6 +1252,64 @@ let search_tests =
              ~expect:true
         );
 
+      "Should match restricted hypothesis" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["foo A *"]
+             ~goal:"foo A *"
+             ~expect:true
+        );
+
+      "Should match restricted hypothesis (2)" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["foo A @"]
+             ~goal:"foo A @"
+             ~expect:true
+        );
+
+      "Should match restricted hypothesis (3)" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["foo A *"]
+             ~goal:"foo A @"
+             ~expect:true
+        );
+
+      "Should not match different restricted hypothesis" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["foo A **"]
+             ~goal:"foo A *"
+             ~expect:false
+        );
+
+      "Should not match different restricted hypothesis (2)" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["foo A @"]
+             ~goal:"foo A *"
+             ~expect:false
+        );
+
+      "Should not unfold definition in restricted goal" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["bar A *"]
+             ~goal:"foo A *"
+             ~defs:"foo X := bar X."
+             ~expect:false
+        );
+
+      "Should not unfold clause in restricted goal" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{hyp A}*"]
+             ~goal:"{conc A}*"
+             ~clauses:"conc X :- hyp X."
+             ~expect:false
+        );
+
     ]
 
 let unfold ~defs goal =
@@ -1172,12 +1357,13 @@ let unfold_tests =
            let result = unfold ~defs goal in
              assert_pprint_equal "foo D +" result) ;
 
-      "Should not reduce restriction for different signature" >::
+      "Should not work on inductively restricted definition" >::
         (fun () ->
            let defs = parse_defs "foo X := bar X." in
-           let goal = freshen "foo D @" in
-           let result = unfold ~defs goal in
-             assert_pprint_equal "bar D" result) ;
+           let goal = freshen "foo A @" in
+             assert_raises
+               (Failure "Cannot unfold inductively restricted predicate")
+               (fun () -> unfold ~defs goal)) ;
     ]
 
 let permute_tests =
@@ -1208,6 +1394,7 @@ let tests =
       object_cut_tests ;
       object_instantiation_tests ;
       apply_tests ;
+      backchain_tests ;
       case_tests ;
       induction_tests ;
       coinduction_tests ;

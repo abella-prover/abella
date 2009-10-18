@@ -89,6 +89,7 @@ rule token = parse
 | "induction"        { IND }
 | "coinduction"      { COIND }
 | "apply"            { APPLY }
+| "backchain"        { BACKCHAIN }
 | "inst"             { INST }
 | "cut"              { CUT }
 | "case"             { CASE }

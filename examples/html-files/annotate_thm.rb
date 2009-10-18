@@ -50,7 +50,7 @@ class Element
 end
 
 def convert(string)
-  regex = /(\/\*.*?\*\/|%.*?\n|(?:Theorem|CoDefine|Define|Import|Specification|Type|Kind|coinduction|induction|apply|cut|inst|monotone|permute|case|assert|exists|clear|abbrev|unabbrev|search|split|split\*|unfold|intros|skip|abort|undo)(?:[^%]|%.*?\n)*?\.)/m
+  regex = /(\/\*.*?\*\/|%.*?\n|(?:Theorem|CoDefine|Define|Import|Specification|Type|Kind|coinduction|induction|apply|backchain|cut|inst|monotone|permute|case|assert|exists|clear|abbrev|unabbrev|search|split|split\*|unfold|intros|skip|abort|undo)(?:[^%]|%.*?\n)*?\.)/m
 
   string.split(regex).map do |s|
     case s

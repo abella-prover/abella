@@ -9,20 +9,20 @@ we auto generate an index from the thm files?
 Update walkthroughs and references to use new typing and defining
 mechanisms
 
-Add backchain tactic
-
-Larger
-======
-
+Later
+=====
 Allow delcarations about which types are nominal?
   But which ones are automatically nominal?
+
 Polymorphism? Type constructors?
   Issues when using 'apply' and metavariables
+
 Move examples into their own subdirs where they can have index.html ?
 
 
 Document in next release
 ========================
+Backchain (and how annotations work on rhs)
 Permute
 Better handling of unification erors during case analysis
 Added some additional handling of non-LLambda unification problems

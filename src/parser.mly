@@ -45,7 +45,7 @@
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY
-%token PERMUTE
+%token PERMUTE BACKCHAIN
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND LBRACK RBRACK
 %token KIND TYPE KKIND TTYPE SIG MODULE
 
@@ -88,6 +88,7 @@ id:
   | IND                                  { "induction" }
   | INST                                 { "inst" }
   | APPLY                                { "apply" }
+  | BACKCHAIN                            { "backchain" }
   | CASE                                 { "case" }
   | SEARCH                               { "search" }
   | TO                                   { "to" }
@@ -233,6 +234,8 @@ command:
   | APPLY id TO hyp_list WITH withs DOT  { Types.Apply($2, $4, $6) }
   | APPLY id WITH withs DOT              { Types.Apply($2, [], $4) }
   | APPLY id DOT                         { Types.Apply($2, [], []) }
+  | BACKCHAIN id DOT                     { Types.Backchain($2, []) }
+  | BACKCHAIN id WITH withs DOT          { Types.Backchain($2, $4) }
   | CUT hyp WITH hyp DOT                 { Types.Cut($2, $4) }
   | INST hyp WITH id EQ term DOT         { Types.Inst($2, $4, $6) }
   | CASE hyp DOT                         { Types.Case($2, false) }

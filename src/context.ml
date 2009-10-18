@@ -135,7 +135,7 @@ let extract_singleton ctx =
   match ctx with
     | [e] -> e
     | [] -> failwith "Contexts did not match"
-    | _ -> failwith ("Contexts did not match:" ^
+    | _ -> failwith ("Contexts did not match: " ^
                        (context_to_string ctx))
 
 (* For each context pair (ctx1, ctx2), make ctx2 a subcontext of ctx1 *)
@@ -153,3 +153,11 @@ let reconcile pair_list =
                           (term_to_string var)
                           (term_to_string (context_to_term ctx))) ;
                  Unify.right_unify var (context_to_term ctx)) groups
+
+(* Want to make hctx as large as possible but remain a subcontext of gctx *)
+let backchain_reconcile hctx gctx =
+  let hctx, gctx = xor hctx gctx in
+    match hctx with
+      | [hv] -> Unify.right_unify hv (context_to_term gctx)
+      | [] -> ()
+      | _ -> failwith ("Contexts did not match: " ^ (context_to_string hctx))

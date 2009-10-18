@@ -299,6 +299,7 @@ let rec process_proof name =
           | Induction(args) -> induction args
           | CoInduction -> coinduction ()
           | Apply(h, args, ws) -> apply h args ws
+          | Backchain(h, ws) -> backchain h ws
           | Cut(h, arg) -> cut h arg
           | Inst(h, n, t) -> inst h n t
           | Case(str, keep) -> case ~keep str

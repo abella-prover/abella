@@ -65,6 +65,7 @@ type command =
   | Induction of int list
   | CoInduction
   | Apply of id * id list * (id * uterm) list
+  | Backchain of id * (id * uterm) list
   | Cut of id * id
   | Inst of id * id * uterm
   | Case of id * bool
@@ -156,6 +157,10 @@ let command_to_string c =
     | Apply(h, hs, ws) ->
         sprintf "apply %s to %s with %s" h (String.concat " " hs)
           (withs_to_string ws)
+    | Backchain(h, []) ->
+        sprintf "backchain %s" h
+    | Backchain(h, ws) ->
+        sprintf "backchain %s with %s" h (withs_to_string ws)
     | Cut(h1, h2) ->
         sprintf "cut %s with %s" h1 h2
     | Inst(h, n, t) ->

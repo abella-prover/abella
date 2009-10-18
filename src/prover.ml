@@ -434,7 +434,7 @@ let toplevel_bindings stmt =
     aux stmt
 
 (* TODO: Typing the nominals in a 'with' is still a quesiton *)
-let type_withs stmt ws =
+let type_apply_withs stmt ws =
   let bindings = toplevel_bindings stmt in
     List.map
       (fun (id, t) ->
@@ -449,7 +449,7 @@ let apply h args ws =
   let stmt = get_hyp_or_lemma h in
   let args = List.map get_some_hyp args in
   let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
-  let ws = type_withs stmt ws in
+  let ws = type_apply_withs stmt ws in
   let result, obligations = Tactics.apply_with stmt args ws in
   let remaining_obligations =
     List.remove_all (fun g -> search_goal (normalize g)) obligations in
@@ -470,6 +470,30 @@ let apply h args ws =
     end ;
     next_subgoal ()
 
+(* Bachchain *)
+
+let type_backchain_withs stmt ws =
+  let bindings = toplevel_bindings stmt in
+  let nctx = List.map term_to_pair (metaterm_support sequent.goal) in
+    List.map
+      (fun (id, t) ->
+         try
+           let ty = List.assoc id bindings in
+             (id, type_uterm ~ctx:(nctx @ sequent.vars) t ty)
+         with
+           | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
+      ws
+
+let backchain h ws =
+  let stmt = get_hyp_or_lemma h in
+  let ws = type_backchain_withs stmt ws in
+  let obligations = Tactics.backchain_with stmt ws sequent.goal in
+  let remaining_obligations =
+    List.remove_all (fun g -> search_goal (normalize g)) obligations in
+  let () = ensure_no_logic_variable remaining_obligations in
+  let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
+    add_subgoals obligation_subgoals ;
+    next_subgoal ()
 
 (* Case analysis *)
 
@@ -547,23 +571,6 @@ let get_max_restriction t =
 let next_restriction () =
   1 + (sequent.hyps |> List.map (fun h -> h.term) |>
            List.map get_max_restriction |> List.max)
-
-let has_restriction test t =
-  let rec aux t =
-    match t with
-      | True | False | Eq _ -> false
-      | Obj(_, r) -> test r
-      | Arrow(a, b) | Or(a, b) | And(a, b) -> aux a || aux b
-      | Binding(_, _, body) -> aux body
-      | Pred(_, r) -> test r
-  in
-    aux t
-
-let has_inductive_restriction t =
-  has_restriction (function | Smaller _ | Equal _ -> true | _ -> false) t
-
-let has_coinductive_restriction t =
-  has_restriction (function | CoSmaller _ | CoEqual _ -> true | _ -> false) t
 
 let rec nth_product n term =
   match term with

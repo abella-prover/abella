@@ -375,6 +375,8 @@ let coinduction res_num stmt =
       | Arrow(left, right) ->
           let (ch, goal) = aux right in
             (arrow left ch, arrow left goal)
+      | Pred(p, Smaller _) | Pred(p, Equal _) ->
+          failwith "Cannot coinduct on inductively restricted goal"
       | Pred(p, _) ->
           let ch = Pred(p, CoSmaller res_num) in
           let goal = Pred(p, CoEqual res_num) in
@@ -385,6 +387,23 @@ let coinduction res_num stmt =
 
 
 (* Unfold the current goal *)
+
+let has_restriction test t =
+  let rec aux t =
+    match t with
+      | True | False | Eq _ -> false
+      | Obj(_, r) -> test r
+      | Arrow(a, b) | Or(a, b) | And(a, b) -> aux a || aux b
+      | Binding(_, _, body) -> aux body
+      | Pred(_, r) -> test r
+  in
+    aux t
+
+let has_inductive_restriction t =
+  has_restriction (function | Smaller _ | Equal _ -> true | _ -> false) t
+
+let has_coinductive_restriction t =
+  has_restriction (function | CoSmaller _ | CoEqual _ -> true | _ -> false) t
 
 let coinductive_wrapper r names t =
   let rec aux t =
@@ -437,6 +456,8 @@ let unfold_defs ~mdefs goal r =
 
 let unfold ~mdefs goal =
   match goal with
+    | Pred(_, Smaller _) | Pred(_, Equal _) ->
+        failwith "Cannot unfold inductively restricted predicate"
     | Pred(goal, r) ->
         (* Find the first body without lingering conflict pairs *)
         let rec select_non_cpair list =
@@ -446,7 +467,7 @@ let unfold ~mdefs goal =
             | [] -> failwith "No matching definitions"
         in
           select_non_cpair (unfold_defs ~mdefs goal r)
-    | _ -> failwith "Can only unfold definitions"
+    | _ -> failwith "Can only unfold defined predicates"
 
 
 (* Search *)
@@ -475,7 +496,7 @@ let assoc_mdefs name alldefs =
 let search ~depth:n ~hyps ~clauses ~alldefs
     ?(sc=(fun () -> raise SearchSuccess)) goal =
 
-  let rec clause_aux n context goal ~sc =
+  let rec clause_aux n context goal r ~sc =
     let support = term_support goal in
     let freshen_clause = curry (freshen_nameless_clause ~support) in
     let fresh_clauses = List.map freshen_clause clauses in
@@ -486,26 +507,29 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                | None ->
                    ()
                | Some cpairs ->
-                   obj_aux_conj (n-1) (wrap body)
+                   obj_aux_conj (n-1) (wrap body) r
                      ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
 
-  and obj_aux n goal ~sc =
+  and obj_aux n goal r ~sc =
     let goal = normalize_obj goal in
       (* Check hyps for derivability *)
       hyps |> filter_objs |>
           iter_keep_state (fun obj -> if derivable goal obj then sc ()) ;
 
-      (* Check context *)
-      if not (Context.is_empty goal.context) then
-        metaterm_aux n (obj_to_member goal) ~sc ;
+      match r with
+        | Smaller _ | Equal _ -> ()
+        | _ ->
+            (* Check context *)
+            if not (Context.is_empty goal.context) then
+              metaterm_aux n (obj_to_member goal) ~sc ;
 
-      (* Backchain *)
-      if n > 0 then clause_aux n goal.context goal.term ~sc
+            (* Backchain *)
+            if n > 0 then clause_aux n goal.context goal.term r ~sc
 
-  and obj_aux_conj n goals ~sc =
+  and obj_aux_conj n goals r ~sc =
     match goals with
       | [] -> sc ()
-      | g::gs -> obj_aux n g ~sc:(fun () -> obj_aux_conj n gs ~sc)
+      | g::gs -> obj_aux n g r ~sc:(fun () -> obj_aux_conj n gs r ~sc)
 
   and metaterm_aux n goal ~sc =
     hyps |> iter_keep_state
@@ -513,7 +537,16 @@ let search ~depth:n ~hyps ~clauses ~alldefs
            match hyp, goal with
              | Pred(_, CoSmaller i), Pred(_, CoSmaller j) when i = j ->
                  if try_meta_right_permute_unify goal hyp then sc ()
-             | Pred(_, CoSmaller i), _ -> ()
+             | Pred(_, CoSmaller _), _ -> ()
+
+             | Pred(_, Smaller i), Pred(_, Smaller j)
+             | Pred(_, Smaller i), Pred(_, Equal j)
+             | Pred(_, Equal i), Pred(_, Equal j)
+                 when i = j ->
+                 if try_meta_right_permute_unify goal hyp then sc ()
+             | _, Pred(_, Smaller _) -> ()
+             | _, Pred(_, Equal _) -> ()
+
              | _ -> if try_meta_right_permute_unify goal hyp then sc ()) ;
 
     match goal with
@@ -530,7 +563,8 @@ let search ~depth:n ~hyps ~clauses ~alldefs
       | Binding(Nabla, ids, body) ->
           let body = instantiate_nablas ids body in
             metaterm_aux n body ~sc
-      | Obj(obj, _) -> obj_aux n obj ~sc
+      | Obj(obj, r) -> obj_aux n obj r ~sc
+      | Pred(_, Smaller _) | Pred(_, Equal _) -> ()
       | Pred(p, r) -> if n > 0 then def_aux n p r ~sc
       | _ -> ()
 
@@ -691,6 +725,86 @@ let rec instantiate_withs term withs =
 let apply_with term args withs =
   let term, used_nominals = instantiate_withs term withs in
     apply term args ~used_nominals
+
+(* Backchain *)
+
+let decompose_arrow term =
+  let rec aux acc term =
+    match term with
+      | Arrow(a, b) -> aux (a::acc) b
+      | _ -> (List.rev acc, term)
+  in
+    aux [] term
+
+let check_restrictions formal actual =
+  List.iter2 (fun fr ar -> match fr, ar with
+                | Smaller i, Smaller j when i = j -> ()
+                | Equal i, Smaller j when i = j -> ()
+                | Equal i, Equal j when i = j -> ()
+                | Irrelevant, _ -> ()
+                | _ -> failwith "Inductive restriction violated")
+    formal actual
+
+let backchain_arrow term goal =
+  let obligations, head = decompose_arrow term in
+  let () =
+    match term_to_restriction head, term_to_restriction goal with
+      | CoSmaller i, CoSmaller j when i = j -> ()
+      | CoSmaller _, _ -> failwith "Coinductive restriction violated"
+      | _, _ -> ()
+  in
+    begin match head, goal with
+      | Obj(hobj, _), Obj(gobj, _) ->
+          right_unify hobj.term gobj.term ;
+          Context.backchain_reconcile hobj.context gobj.context
+      | _, _ ->
+          meta_right_unify head goal
+    end ;
+    obligations
+
+let backchain ?(used_nominals=[]) term goal =
+  let support = List.minus (metaterm_support goal) used_nominals in
+    match term with
+      | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->
+          let n = List.length nablas in
+          let (nabla_ids, nabla_tys) = List.split nablas in
+            begin try
+              support |> List.rev |> List.permute n
+                |> List.find_all
+                    (fun nominals -> nabla_tys = List.map (tc []) nominals)
+                |> List.find_some
+                  (fun nominals ->
+                     try_with_state ~fail:None
+                       (fun () ->
+                          let support = List.minus support nominals in
+                          let raised_body =
+                            freshen_nameless_bindings ~support bindings body
+                          in
+                          let alist = List.combine nabla_ids nominals in
+                          let permuted_body =
+                            replace_metaterm_vars alist raised_body
+                          in
+                            Some (backchain_arrow permuted_body goal)))
+            with
+              | Failure "Found none" ->
+                  failwith "Failed to find instantiations for nabla quantified variables"
+            end
+
+      | Binding(Forall, bindings, body) ->
+          backchain_arrow (freshen_nameless_bindings ~support bindings body) goal
+
+      | Arrow _ ->
+          backchain_arrow term goal
+
+      | _ -> failwith
+          ("Structure of backchained term must be a " ^
+             "substructure of the following.\n" ^
+             "forall A1 ... Ai, nabla z1 ... zj, H1 -> ... -> Hk -> C")
+
+
+let backchain_with term withs goal =
+  let term, used_nominals = instantiate_withs term withs in
+    backchain term goal ~used_nominals
 
 (* Permute nominals *)
 

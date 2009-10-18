@@ -45,6 +45,7 @@
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY
+%token PERMUTE
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND LBRACK RBRACK
 %token KIND TYPE KKIND TTYPE SIG MODULE
 
@@ -109,6 +110,7 @@ id:
   | CLEAR                                { "clear" }
   | ABBREV                               { "abbrev" }
   | UNABBREV                             { "unabbrev" }
+  | PERMUTE                              { "permute" }
   | THEOREM                              { "Theorem" }
   | IMPORT                               { "Import" }
   | SPECIFICATION                        { "Specification" }
@@ -217,6 +219,13 @@ def:
   | metaterm                             { ($1, UTrue) }
   | metaterm DEFEQ metaterm              { ($1, $3) }
 
+perm:
+  | LPAREN perm_ids RPAREN               { $2 }
+
+perm_ids:
+  | id perm_ids                          { $1 :: $2 }
+  | id                                   { [$1] }
+
 command:
   | IND ON num_list DOT                  { Types.Induction($3) }
   | COIND DOT                            { Types.CoInduction }
@@ -245,6 +254,8 @@ command:
   | ABBREV hyp QSTRING DOT               { Types.Abbrev($2, $3) }
   | UNABBREV hyp_list DOT                { Types.Unabbrev($2) }
   | MONOTONE hyp WITH term DOT           { Types.Monotone($2, $4) }
+  | PERMUTE perm DOT                     { Types.Permute($2, None) }
+  | PERMUTE perm hyp DOT                 { Types.Permute($2, Some $3) }
   | SET id id DOT                        { Types.Set($2, Types.Str $3) }
   | SET id NUM DOT                       { Types.Set($2, Types.Int $3) }
   | EOF                                  { raise End_of_file }

@@ -1,5 +1,3 @@
-break permute by adding constants of names n1 n2...
-
 Add reference section on typing (annotations, type, kind, o, olist,
 prop)
 
@@ -12,11 +10,6 @@ Update walkthroughs and references to use new typing and defining
 mechanisms
 
 Add backchain tactic
-Add permute tactic
-  permute (n1 n2 n3) in H3
-  Ensure they are all fresh nominals
-  Get their types from H3 if they have them
-  Then unify all their types
 
 Larger
 ======
@@ -30,6 +23,7 @@ Move examples into their own subdirs where they can have index.html ?
 
 Document in next release
 ========================
+Permute
 Better handling of unification erors during case analysis
 Added some additional handling of non-LLambda unification problems
 

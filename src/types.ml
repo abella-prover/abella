@@ -74,6 +74,7 @@ type command =
   | Abbrev of id * string
   | Unabbrev of id list
   | Monotone of id * uterm
+  | Permute of id list * id option
   | Search of int option
   | Split
   | SplitStar
@@ -173,6 +174,10 @@ let command_to_string c =
         sprintf "unabbrev %s" (String.concat " " hs)
     | Monotone(h, t) ->
         sprintf "monotone %s with %s" h (uterm_to_string t)
+    | Permute(ids, t) ->
+        sprintf "permute (%s)%s"
+          (String.concat " " ids)
+          (match t with None -> "" | Some h -> " " ^ h)
     | Search(None) -> "search"
     | Search(Some d) -> sprintf "search %d" d
     | Split -> "split"

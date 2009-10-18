@@ -112,6 +112,7 @@ rule token = parse
 | "abbrev"           { ABBREV }
 | "unabbrev"         { UNABBREV }
 | "monotone"         { MONOTONE }
+| "permute"          { PERMUTE }
 
 | "Set"              { SET }
 

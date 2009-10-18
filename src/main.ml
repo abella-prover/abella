@@ -311,6 +311,7 @@ let rec process_proof name =
           | Abbrev(h, s) -> abbrev h s
           | Unabbrev(hs) -> unabbrev hs
           | Search(limit) -> search ~limit ~interactive:!interactive ()
+          | Permute(ids, h) -> permute_nominals ids h
           | Split -> split false
           | SplitStar -> split true
           | Left -> left ()

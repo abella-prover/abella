@@ -5,10 +5,12 @@
 
 Specification "normal".
 
-Define nabla x, name x.
+Define name : tm -> prop by
+  nabla x, name x.
 
-Define ctxs nil nil.
-Define nabla x, ctxs (term x :: L) (neutral x :: K) := ctxs L K.
+Define ctxs : olist -> olist -> prop by
+  ctxs nil nil ;
+  nabla x, ctxs (term x :: L) (neutral x :: K) := ctxs L K.
 
 
 %% Lemmas about contexts

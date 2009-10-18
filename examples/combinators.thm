@@ -20,8 +20,9 @@ induction on 1. intros. case H1.
 % This result is not neccessary, but it is nice to see how we can
 % encode and prove it
 
-Define fold nil B B.
-Define fold (comb A :: L) B B' := fold L (imp A B) B'.
+Define fold : olist -> formula -> formula -> prop by
+  fold nil B B ;
+  fold (comb A :: L) B B' := fold L (imp A B) B'.
 
 Theorem deduction_generalized : forall L B B',
   fold L B B' -> {L |- comb B} -> {comb B'}.
@@ -34,8 +35,9 @@ induction on 1. intros. case H1.
 % natural deduction and combinators. This describes the contexts for
 % such a generalization: for every nd assumption there is a
 % corresponding comb assumption.
-Define ctxs nil nil.
-Define ctxs (nd D :: L) (comb D :: K) := ctxs L K.
+Define ctxs : olist -> olist -> prop by
+  ctxs nil nil ;
+  ctxs (nd D :: L) (comb D :: K) := ctxs L K.
 
 Theorem ctxs_world : forall L K D,
   ctxs L K -> member (nd D) L -> member (comb D) K.

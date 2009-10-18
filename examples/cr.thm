@@ -6,11 +6,13 @@
 
 Specification "cr".
 
-Define ctxs nil nil nil.
-Define nabla x, ctxs (trm x :: L) (pr1 x x :: K) (cd1 x x :: notabs x :: J)
-      := ctxs L K J.
+Define ctxs : olist -> olist -> olist -> prop by
+  ctxs nil nil nil ;
+  nabla x, ctxs (trm x :: L) (pr1 x x :: K) (cd1 x x :: notabs x :: J) :=
+    ctxs L K J.
 
-Define nabla x, name x.
+Define name : tm -> prop by
+  nabla x, name x.
 
 %% properties of correct contexts
 Theorem trm_worlds : forall A L K J,
@@ -151,7 +153,7 @@ Theorem pr1_name: forall A B L K J,
 intros. case H3. case H2.
   apply pr1_worlds to H1 H4. search.
 
-Theorem pr1_abs: forall A R B L K J,
+Theorem pr1_abs: forall R B L K J,
   ctxs L K J -> {K |- pr1 (abs R) B} -> exists S, B = (abs S).
 intros. case H2.
   apply pr1_worlds to H1 H3. case H4.
@@ -207,7 +209,7 @@ induction on 3. intros. case H3.
       apply pr1_subst_lem to H1 H9 H8. search.
 
 %% The main result
-Theorem pr1_diamond : forall A B1 B2 C L K J,
+Theorem pr1_diamond : forall A B1 B2 L K J,
    ctxs L K J -> {K |- pr1 A B1} -> {K |- pr1 A B2} ->
         exists C, {K |- pr1 B1 C} /\ {K |- pr1 B2 C}.
 intros.

@@ -3,10 +3,11 @@ open Test_helper
 open Term
 open Term.Notations
 open Metaterm
+open Typing
 
-let var_a = var Eigen "A" 0
-let var_b = var Eigen "B" 0
-let var_c = var Eigen "C" 0
+let var_a = uvar Eigen "A" 0
+let var_b = uvar Eigen "B" 0
+let var_c = uvar Eigen "C" 0
 
 let a = termobj var_a
 let b = termobj var_b
@@ -19,6 +20,13 @@ let assert_raises_unify_failure f =
   with
     | Unify.UnifyFailure _ -> ()
 
+let assert_metaterm_unify s1 s2 =
+  let ctx = List.map (fun id -> (id, var Logic id 0 ity)) ["?1"; "?2"; "?3"] in
+  let t1 = parse_metaterm ~ctx s1 in
+  let t2 = parse_metaterm ~ctx s2 in
+    meta_right_unify t1 t2 ;
+    assert_metaterm_equal t1 t2
+
 let tests =
   "Metaterm" >:::
     [
@@ -29,7 +37,8 @@ let tests =
 
       "Print object" >::
         (fun () ->
-           let t = termobj (app (const "eval") [var_a; var_b]) in
+           let eval = uconst "eval" in
+           let t = termobj (eval ^^ [var_a; var_b]) in
              assert_pprint_equal "{eval A B}" t) ;
 
       "Print arrow" >::
@@ -44,12 +53,12 @@ let tests =
 
       "Print forall" >::
         (fun () ->
-           let t = forall ["A"] b in
+           let t = forall [("A", emptyty)] b in
              assert_pprint_equal "forall A, {B}" t) ;
 
       "Print exists" >::
         (fun () ->
-           let t = exists ["A"] b in
+           let t = exists [("A", emptyty)] b in
              assert_pprint_equal "exists A, {B}" t) ;
 
       "Print smaller restricted object" >::
@@ -119,92 +128,94 @@ let tests =
 
       "Print exists left of OR" >::
         (fun () ->
-           let t = meta_or (exists ["A"] b) c in
+           let t = meta_or (exists [("A", emptyty)] b) c in
              assert_pprint_equal "(exists A, {B}) \\/ {C}" t) ;
 
       "Replace should descend underneath exists" >::
         (fun () ->
-           let t = exists ["A"] b in
+           let t = exists [("A", emptyty)] b in
            let t' = replace_metaterm_vars [("B", var_c)] t in
              assert_pprint_equal "exists A, {C}" t') ;
 
       "Replace should not descend underneath exists if names are equal" >::
         (fun () ->
-           let t = exists ["A"] a in
+           let t = exists [("A", emptyty)] a in
            let t' = replace_metaterm_vars [("A", var_b)] t in
              assert_pprint_equal "exists A, {A}" t') ;
 
       "Replace should not capture exists variables" >::
         (fun () ->
-           let t = exists ["A"] b in
+           let t = exists [("A", emptyty)] b in
            let t' = replace_metaterm_vars [("B", var_a)] t in
              assert_pprint_equal "exists A1, {A}" t') ;
 
       "Cascading capture" >::
         (fun () ->
-           let t = forall ["E2"]
-             (arrow (Eq(const "E2", var Eigen "E" 0))
-                (exists ["E1"] (Eq(const "E1", const "E2")))) in
-           let t' = replace_metaterm_vars [("E", var Eigen "E1" 0)] t in
+           let t = forall [("E2", emptyty)]
+             (arrow (Eq(uconst "E2", uvar Eigen "E" 0))
+                (exists [("E1", emptyty)] (Eq(uconst "E1", uconst "E2")))) in
+           let t' = replace_metaterm_vars [("E", uvar Eigen "E1" 0)] t in
              assert_pprint_equal
                "forall E2, E2 = E1 -> (exists E3, E3 = E2)" t');
 
       "Print non-empty context" >::
         (fun () ->
-           let ctx = Context.add (const "L") Context.empty in
+           let ctx = Context.add (uconst "L") Context.empty in
            let t = Obj(context_obj ctx var_a, Irrelevant) in
              assert_pprint_equal "{L |- A}" t) ;
 
       "Print predicate" >::
         (fun () ->
-           let p = app (const "head") [const "A"; const "B"] in
+           let p = uconst "head" ^^ [var_a; var_b] in
            let t = Pred(p, Irrelevant) in
              assert_pprint_equal "head A B" t) ;
 
       "Print restricted predicate" >::
         (fun () ->
-           let p = app (const "head") [const "A"; const "B"] in
+           let p = uconst "head" ^^ [var_a; var_b] in
            let t = Pred(p, Smaller 1) in
              assert_pprint_equal "head A B *" t) ;
 
       "Print object quantifier inside of predicate" >::
         (fun () ->
-           let t = pred (app (const "prove")
-                           [app (const "pi") [const "G"]]) in
+           let t = pred (uconst "prove" ^^
+                           [uconst "pi" ^^ [uconst "G"]]) in
              assert_pprint_equal "prove (pi G)" t) ;
 
       "Normalize should move all implications to the context" >::
         (fun () ->
-           let ctx = Context.add (const "L") Context.empty in
-           let bc = app (const "=>") [const "B"; const "C"] in
-           let abc = app (const "=>") [const "A"; bc] in
+           let ctx = Context.add (uconst "L") Context.empty in
+           let bc = uconst "=>" ^^ [uconst "B"; uconst "C"] in
+           let abc = uconst "=>" ^^ [uconst "A"; bc] in
            let t = Obj(context_obj ctx abc, Irrelevant) in
              assert_pprint_equal "{L |- A => B => C}" t ;
              assert_pprint_equal "{L, A, B |- C}" (normalize t)) ;
 
       "Normalize should instantiate pi x\\ with nominal constant" >::
         (fun () ->
-           let t = app (const "pi") [1 // app (const "pred") [db 1; db 1]] in
+           let pi = const "pi" iiity in
+           let pred = const "pred" iiity in
+           let t = pi ^^ [[ity] // (pred ^^ [db 1; db 1])] in
            let t = termobj t in
              assert_pprint_equal "{pi x1\\pred x1 x1}" t ;
              assert_pprint_equal "{pred n1 n1}" (normalize t)) ;
 
       "Normalize should rename bound variables if needed" >::
         (fun () ->
-           let const_a = const "A" in
-           let p = const "p" in
-           let t = forall ["A"]
-             (arrow (pred (app p [var_a])) (pred (app p [const_a])))
+           let const_a = uconst "A" in
+           let p = uconst "p" in
+           let t = forall [("A", emptyty)]
+             (arrow (pred (p ^^ [var_a])) (pred (p ^^ [const_a])))
            in
              assert_pprint_equal "forall A1, p A -> p A1" (normalize t)) ;
 
       "Normalize should rename bound nabla variables if needed" >::
         (fun () ->
-           let const_n1 = const "n1" in
-           let nom_n1 = nominal_var "n1" in
-           let p = const "p" in
-           let t = forall ["n1"]
-             (arrow (pred (app p [nom_n1])) (pred (app p [const_n1])))
+           let const_n1 = uconst "n1" in
+           let nom_n1 = nominal_var "n1" emptyty in
+           let p = uconst "p" in
+           let t = forall [("n1", emptyty)]
+             (arrow (pred (p ^^ [nom_n1])) (pred (p ^^ [const_n1])))
            in
              assert_pprint_equal "forall n2, p n1 -> p n2" (normalize t)) ;
 
@@ -212,66 +223,64 @@ let tests =
         (fun () ->
            (* The var_a should force renaming of the A which should
               cascade and force renaming of A1 *)
-           let eq = Eq(const "A", const "A1") in
-           let t = Binding(Forall, ["A"],
-                           Arrow(pred var_a, Binding(Forall, ["A1"], eq)))
+           let eq = Eq(uconst "A", uconst "A1") in
+           let t = Binding(Forall, [("A", emptyty)],
+                           Arrow(pred var_a,
+                                 Binding(Forall, [("A1", emptyty)], eq)))
            in
              assert_pprint_equal "forall A1, A -> (forall A2, A1 = A2)"
                (normalize t) );
 
       "Meta right unify - equality" >::
         (fun () ->
-           let t1 = freshen "A = B" in
-           let t2 = freshen "?1 = ?2" in
-             meta_right_unify t1 t2 ;
-             assert_pprint_equal "A = B" t2) ;
+           assert_metaterm_unify
+             "t1 = t2"
+             "?1 = ?2") ;
 
       "Meta right unify - pred" >::
         (fun () ->
-           let t1 = freshen "foo A" in
-           let t2 = freshen "foo ?1" in
-             meta_right_unify t1 t2 ;
-             assert_pprint_equal "foo A" t2) ;
+           assert_metaterm_unify
+             "foo t1"
+             "foo ?1") ;
 
       "Meta right unify - arrow" >::
         (fun () ->
-           let t1 = freshen "foo A -> foo B" in
-           let t2 = freshen "foo ?1 -> foo ?2" in
-             meta_right_unify t1 t2 ;
-             assert_pprint_equal "foo A -> foo B" t2) ;
+           assert_metaterm_unify
+             "foo t1 -> bar t2"
+             "foo ?1 -> bar ?2") ;
 
       "Meta right unify - forall" >::
         (fun () ->
-           let t1 = freshen "forall A B, foo C" in
-           let t2 = freshen "forall A B, foo ?1" in
-             meta_right_unify t1 t2 ;
-             assert_pprint_equal "forall A B, foo C" t2) ;
+           assert_metaterm_unify
+             "forall A, rel1 t1 A"
+             "forall A, rel1 ?1 A") ;
 
       "Meta right unify - obj" >::
         (fun () ->
-           let t1 = freshen "{L |- foo A}" in
-           let t2 = freshen "{L |- foo ?1}" in
-             meta_right_unify t1 t2 ;
-             assert_pprint_equal "{L |- foo A}" t2) ;
+           assert_metaterm_unify
+             "{p2 t2 |- p1 t1}"
+             "{p2 t2 |- p1 ?1}") ;
 
       "Meta right unify - variable capture" >::
         (fun () ->
-           let t1 = freshen "forall A, foo A A" in
-           let t2 = freshen "forall A, foo A ?1" in
-             assert_raises_unify_failure
-               (fun () -> meta_right_unify t1 t2)) ;
+           assert_raises_unify_failure
+             (fun () ->
+                assert_metaterm_unify
+                  "forall A, rel1 A A"
+                  "forall A, rel1 A ?1")) ;
 
       "Meta right unify - variable renaming" >::
         (fun () ->
-           let t1 = freshen "forall A, foo A" in
-           let t2 = freshen "forall B, foo B" in
+           let t1 = parse_metaterm "forall A, foo A" in
+           let t2 = parse_metaterm "forall B, foo B" in
              meta_right_unify t1 t2) ;
 
       "Meta right unify - variable renaming (2)" >::
         (fun () ->
-           let t1 = freshen "forall A, foo (p A)" in
-           let t2 = freshen "forall B, foo (?1 B)" in
+           let ctx = [("?1", var Logic "?1" 0 (tyarrow [iity] ity))] in
+           let t1 = parse_metaterm ~ctx "forall A, foo (iabs A)" in
+           let t2 = parse_metaterm ~ctx "forall B, foo (?1 B)" in
              meta_right_unify t1 t2 ;
-             assert_pprint_equal "forall B, foo (p B)" t2) ;
+             assert_pprint_equal "forall B, foo (iabs B)" t2) ;
 
     ]

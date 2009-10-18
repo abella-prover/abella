@@ -12,6 +12,8 @@
 % This one should have a simple proof if the right induction invariant
 % can be stated.
 
+module normal.
+
 term (app M N) :- term M, term N.
 term (abs R) :- pi x\ term x => term (R x).
 

@@ -1,0 +1,100 @@
+%% Simulation and bisimulation for the pi-calculus.
+%%
+%% Given that the meta-logic of Abella is intuitionistic, the
+%% specification of bisimulation here corresponds to open bisimulation.
+%%
+%% Here we prove here that simulation is preorder and bisimulation is an
+%% equivalence relation.
+
+Specification "finite-pic".
+
+% Simulation defined
+
+CoDefine sim : proc -> proc -> prop by
+  sim P Q :=
+    (forall A P1, {one P A P1} -> exists Q1, {one Q A Q1} /\ sim P1 Q1) /\
+    (forall X M, {oneb P (dn X) M} -> exists N, {oneb Q (dn X) N} /\
+                                                forall W, sim (M W) (N W)) /\
+    (forall X M, {oneb P (up X) M} -> exists N, {oneb Q (up X) N} /\
+                                                nabla w, sim (M w) (N w)).
+
+% Simulation is a preorder
+
+Theorem sim_refl : forall P, sim P P.
+coinduction. intros. unfold.
+  intros. apply CH with P = P1. search.
+  intros. exists M. split. search.
+    intros. apply CH with P = M W. search.
+  intros. exists M. split. search.
+    intros. apply CH with P = M n1. search.
+
+Theorem sim_trans : forall P Q R, sim P Q -> sim Q R -> sim P R.
+coinduction. intros. case H1. case H2. unfold.
+  intros. apply H3 to H9. apply H6 to H10. apply CH to H11 H13. search.
+  intros. apply H4 to H9. apply H7 to H10.
+  exists N1. split. search.
+    intros. apply H11 with W = W. apply H13 with W = W.
+    apply CH to H14 H15. search.
+  intros. apply H5 to H9. apply H8 to H10.
+  apply CH to H11 H13. search.
+
+% Bisimulation defined
+
+CoDefine bisim : proc -> proc -> prop by
+  bisim P Q :=
+    (forall A P1, {one P A P1} -> exists Q1, {one Q A Q1} /\ bisim P1 Q1) /\
+    (forall X M, {oneb P (dn X) M} -> exists N, {oneb Q (dn X) N} /\
+                                                forall W, bisim (M W) (N W)) /\
+    (forall X M, {oneb P (up X) M} -> exists N, {oneb Q (up X) N} /\
+                                                nabla w, bisim (M w) (N w)) /\
+    (forall A Q1, {one Q A Q1} -> exists P1, {one P A P1} /\ bisim Q1 P1) /\
+    (forall X N, {oneb Q (dn X) N} -> exists M, {oneb P (dn X) M} /\
+                                                forall W, bisim (N W) (M W)) /\
+    (forall X N, {oneb Q (up X) N} -> exists M, {oneb P (up X) M} /\
+                                                nabla w, bisim (N w) (M w)).
+
+% Bisimulation is an equivalence
+
+Theorem bisim_refl : forall P, bisim P P.
+coinduction. intros. unfold.
+  intros. apply CH with P = P1. search.
+  intros. exists M. split. search.
+    intros. apply CH with P = M W. search.
+  intros. exists M. split. search.
+    intros. apply CH with P = M n1. search.
+  intros. apply CH with P = Q1. search.
+  intros. exists N. split. search.
+    intros. apply CH with P = N W. search.
+  intros. exists N. split. search.
+    intros. apply CH with P = N n1. search.
+
+Theorem bisim_sym : forall P Q, bisim P Q -> bisim Q P.
+intros. case H1. unfold.
+  intros. apply H5 to H8. search.
+  intros. apply H6 to H8. search.
+  intros. apply H7 to H8. search.
+  intros. apply H2 to H8. search.
+  intros. apply H3 to H8. search.
+  intros. apply H4 to H8. search.
+
+Theorem bisim_trans : forall P Q R, bisim P Q -> bisim Q R -> bisim P R.
+coinduction. intros. case H1. case H2. unfold.
+  intros. apply H3 to H15. apply H9 to H16. apply CH to H17 H19. search.
+
+  intros. apply H4 to H15. apply H10 to H16.
+  exists N1. split. search.
+  intros. apply H17 with W = W. apply H19 with W = W.
+  apply CH to H20 H21. search.
+
+  intros. apply H5 to H15. apply H11 to H16.
+  apply CH to H17 H19. search.
+
+  intros. apply H12 to H15. apply H6 to H16. apply CH to H17 H19. search.
+
+  intros. apply H13 to H15. apply H7 to H16.
+  exists M1. split. search.
+  intros. apply H17 with W = W. apply H19 with W = W.
+  apply CH to H20 H21. search.
+
+  intros. apply H14 to H15. apply H8 to H16.
+  apply CH to H17 H19. search.

@@ -1,3 +1,5 @@
+module nd-to-seq.
+
 %% Natural deduction
 
 nd (imp A B) :- nd A => nd B.

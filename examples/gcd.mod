@@ -3,6 +3,8 @@
 %% Adapted from the %reduces example in the Twelf User's Guide:
 %% http://www.cs.cmu.edu/~twelf/guide-1-4/twelf_8.html#SEC47
 
+module gcd.
+
 nat z.
 nat (s N) :- nat N.
 

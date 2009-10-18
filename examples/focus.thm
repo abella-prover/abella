@@ -4,8 +4,9 @@ Specification "focus".
 
 %% All logics have the same structure for contexts
 
-Define ctx nil.
-Define ctx (hyp B :: L) := {form B} /\ ctx L.
+Define ctx : olist -> prop by
+  ctx nil ;
+  ctx (hyp B :: L) := {form B} /\ ctx L.
 
 Theorem ctx_member : forall E L,
   ctx L -> member E L -> exists B, E = hyp B /\ {form B}.

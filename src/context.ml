@@ -64,17 +64,15 @@ let context_to_string ctx =
   in
     aux ctx
 
-let cons = const "::"
+let cons = const "::" (tyarrow [oty; olistty] olistty)
+let nil = const "nil" olistty
+let imp = const "=>" (tyarrow [oty; oty] oty)
 
 let is_nil t =
-  match observe (hnorm t) with
-    | Var {name=n} when n = "nil" -> true
-    | _ -> false
+  Term.is_head_name "nil" t
 
 let is_cons t =
-  match observe (hnorm t) with
-    | App(c, [_; _]) when c = cons -> true
-    | _ -> false
+  Term.is_head_name "::" t
 
 let extract_cons t =
   match observe (hnorm t) with
@@ -112,6 +110,8 @@ let exists f ctx = List.exists f ctx
 
 let map f ctx = List.map f ctx
 
+let iter f ctx = List.iter f ctx
+
 let rec group pair_list =
   match pair_list with
     | [] -> []
@@ -125,8 +125,8 @@ let context_to_list ctx = ctx
 let context_to_term ctx =
   let rec aux ctx =
     match ctx with
-      | [] -> const "nil"
-      | [last] when has_eigen_head last || has_logic_head last -> last
+      | [] -> nil
+      | [last] when tc [] last = olistty -> last
       | head::tail -> app cons [head; aux tail]
   in
     aux (List.rev ctx)

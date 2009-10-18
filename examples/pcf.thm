@@ -33,16 +33,18 @@ induction on 1. intros. case H1.
 
 %% Type uniqueness
 
-Theorem member_prune : forall L E, nabla x,
+Theorem member_prune : forall L E, nabla (x:tm),
   member (E x) L -> exists F, E = x\F.
 induction on 1. intros. case H1.
   search.
   apply IH to H2. search.
 
-Define ctx nil.
-Define nabla x, ctx (of x A :: L) := ctx L.
+Define ctx : olist -> prop by
+  ctx nil ;
+  nabla x, ctx (of x A :: L) := ctx L.
 
-Define nabla x, name x.
+Define name : tm -> prop by
+  nabla x, name x.
 
 Theorem ctx_member : forall E L,
   ctx L -> member E L -> exists X A, E = of X A /\ name X.

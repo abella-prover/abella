@@ -1,3 +1,5 @@
+module focus.
+
 % Formulas
 form (atom A).
 form (imp B C) :- form B, form C.

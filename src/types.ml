@@ -19,15 +19,22 @@
 
 open Metaterm
 open Term
+open Typing
 open Printf
+
+type uclause = uterm * uterm list
+type uclauses = uclause list
 
 type clause = term * term list
 type clauses = clause list
 
 type def_type = Inductive | CoInductive
 
+type udef = umetaterm * umetaterm
+type udefs = udef list
 type def = metaterm * metaterm
-type defs = (string * int, def_type * def list) Hashtbl.t
+type defs = def list
+type defs_table = (string, def_type * string list * def list) Hashtbl.t
 
 type id = string
 
@@ -36,33 +43,37 @@ type set_value =
   | Int of int
 
 type top_command =
-  | Theorem of id * metaterm
-  | Define of def
-  | CoDefine of def
+  | Theorem of id * umetaterm
+  | Define of (id * ty) list * udefs
+  | CoDefine of (id * ty) list * udefs
   | TopSet of string * set_value
   | Import of string
   | Specification of string
-  | Query of metaterm
+  | Query of umetaterm
+  | Kind of id list
+  | Type of id list * ty
 
 type compiled =
   | CTheorem of id * metaterm
-  | CDefine of def
-  | CCoDefine of def
+  | CDefine of (id * ty) list * defs
+  | CCoDefine of (id * ty) list * defs
   | CImport of string
+  | CKind of id list
+  | CType of id list * ty
 
 type command =
   | Induction of int list
   | CoInduction
-  | Apply of id * id list * (id * term) list
+  | Apply of id * id list * (id * uterm) list
   | Cut of id * id
-  | Inst of id * id * term
+  | Inst of id * id * uterm
   | Case of id * bool
-  | Assert of metaterm
-  | Exists of term
+  | Assert of umetaterm
+  | Exists of uterm
   | Clear of id list
   | Abbrev of id * string
   | Unabbrev of id list
-  | Monotone of id * term
+  | Monotone of id * uterm
   | Search of int option
   | Split
   | SplitStar
@@ -75,12 +86,15 @@ type command =
   | Undo
   | Set of string * set_value
 
-let def_to_string (head, body) =
-  if body = True then
-    metaterm_to_string head
+let udef_to_string (head, body) =
+  if body = UTrue then
+    umetaterm_to_string head
   else
-    sprintf "%s := %s" (metaterm_to_string head)
-      (metaterm_to_formatted_string body)
+    sprintf "%s := %s" (umetaterm_to_string head)
+      (umetaterm_to_formatted_string body)
+
+let udefs_to_string udefs =
+  String.concat ";\n" (List.map udef_to_string udefs)
 
 let def_type_to_string dtype =
   match dtype with
@@ -92,14 +106,23 @@ let set_value_to_string v =
     | Str s -> s
     | Int d -> string_of_int d
 
+let id_list_to_string ids =
+  String.concat ", " ids
+
+let idtys_to_string idtys =
+  String.concat ",\t\n"
+    (List.map (fun (id, ty) -> id ^ " : " ^ (ty_to_string ty)) idtys)
+
 let top_command_to_string tc =
   match tc with
     | Theorem(name, body) ->
-        sprintf "Theorem %s : \n%s" name (metaterm_to_formatted_string body)
-    | Define def ->
-        sprintf "Define %s" (def_to_string def)
-    | CoDefine def ->
-        sprintf "CoDefine %s" (def_to_string def)
+        sprintf "Theorem %s : \n%s" name (umetaterm_to_formatted_string body)
+    | Define(idtys, udefs) ->
+        sprintf "Define %s by \n%s"
+          (idtys_to_string idtys) (udefs_to_string udefs) ;
+    | CoDefine(idtys, udefs) ->
+        sprintf "CoDefine %s by \n%s"
+          (idtys_to_string idtys) (udefs_to_string udefs) ;
     | TopSet(k, v) ->
         sprintf "Set %s %s" k (set_value_to_string v)
     | Import filename ->
@@ -107,11 +130,15 @@ let top_command_to_string tc =
     | Specification filename ->
         sprintf "Specification \"%s\"" filename
     | Query q ->
-        sprintf "Query %s" (metaterm_to_formatted_string q)
+        sprintf "Query %s" (umetaterm_to_formatted_string q)
+    | Kind ids ->
+        sprintf "Kind %s type" (id_list_to_string ids)
+    | Type(ids, ty) ->
+        sprintf "Type %s %s" (id_list_to_string ids) (ty_to_string ty)
 
 let withs_to_string ws =
   String.concat ", "
-    (List.map (fun (x,t) -> x ^ " = " ^ (term_to_string t)) ws)
+    (List.map (fun (x,t) -> x ^ " = " ^ (uterm_to_string t)) ws)
 
 let command_to_string c =
   match c with
@@ -131,13 +158,13 @@ let command_to_string c =
     | Cut(h1, h2) ->
         sprintf "cut %s with %s" h1 h2
     | Inst(h, n, t) ->
-        sprintf "inst %s with %s = %s" h n (term_to_string t)
+        sprintf "inst %s with %s = %s" h n (uterm_to_string t)
     | Case(h, k) ->
         sprintf "case %s" h ^ if k then " (keep)" else ""
     | Assert t ->
-        sprintf "assert %s" (metaterm_to_formatted_string t)
+        sprintf "assert %s" (umetaterm_to_formatted_string t)
     | Exists t ->
-        sprintf "exists %s" (term_to_string t)
+        sprintf "exists %s" (uterm_to_string t)
     | Clear hs ->
         sprintf "clear %s" (String.concat " " hs)
     | Abbrev(h, s) ->
@@ -145,7 +172,7 @@ let command_to_string c =
     | Unabbrev hs ->
         sprintf "unabbrev %s" (String.concat " " hs)
     | Monotone(h, t) ->
-        sprintf "monotone %s with %s" h (term_to_string t)
+        sprintf "monotone %s with %s" h (uterm_to_string t)
     | Search(None) -> "search"
     | Search(Some d) -> sprintf "search %d" d
     | Split -> "split"

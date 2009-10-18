@@ -19,6 +19,7 @@
   (list
     (cons (make-command-regex "Set" "Query") font-lock-type-face)
     (cons (make-regex "Import" "Specification") font-lock-variable-name-face)
+    (cons (make-command-regex "Type" "Kind") font-lock-keyword-face)
     (cons (make-command-regex "Define" "CoDefine") font-lock-keyword-face)
     (cons (make-command-regex "Theorem") font-lock-function-name-face)
     (cons (make-regex "skip") font-lock-warning-face))

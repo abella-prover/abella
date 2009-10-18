@@ -1,3 +1,5 @@
+module subst.
+
 term (app M N) :- term M, term N.
 term (abs R) :- pi x\ term x => term (R x).
 

@@ -18,6 +18,7 @@
 (****************************************************************************)
 
 open Term
+open Typing
 open Metaterm
 open Format
 open Tactics
@@ -50,7 +51,7 @@ type sequent = {
 let sequent = {
   vars = [] ;
   hyps = [] ;
-  goal = termobj (const "placeholder") ;
+  goal = termobj (const "placeholder" propty) ;
   count = 0 ;
   name = "" ;
   next_subgoal_id = 1 ;
@@ -82,17 +83,6 @@ let add_subgoals ?(mainline) new_subgoals =
     | Some mainline ->
         subgoals := annotate new_subgoals @ [mainline] @ !subgoals
 
-let localize_metaterm term =
-  term
-  |> replace_metaterm_vars sequent.vars
-  |> replace_metaterm_nominal_vars
-
-let localize_term term =
-  term
-  |> replace_term_vars sequent.vars
-  |> replace_term_nominal_vars
-
-
 (* The vars = sequent.vars is superfluous, but forces the copy *)
 let copy_sequent () =
   {sequent with vars = sequent.vars}
@@ -119,32 +109,29 @@ let normalize_sequent () =
 
 (* Clauses *)
 
-let parse_clauses str =
-  Parser.clauses Lexer.token (Lexing.from_string str)
-
 let clauses : clauses ref = ref []
 
 let add_clauses new_clauses =
   clauses := !clauses @ new_clauses
 
 let parse_defs str =
-  Parser.defs Lexer.token (Lexing.from_string str)
+  type_udefs (Parser.defs Lexer.token (Lexing.from_string str))
 
-let defs : defs = H.create 10
-let () = H.add defs ("member", 2)
-  (Inductive, parse_defs ("member A (A :: L). \
-                         \ member A (B :: L) := member A L."))
+let defs_table : defs_table = H.create 10
+let () = H.add defs_table "member"
+  (Inductive,
+   ["member"],
+   parse_defs ("member A (A :: L) ; \
+              \ member A (B :: L) := member A L."))
 
-let add_def dtype new_def =
-  let head = def_sig new_def in
-    try
-      let (ty, dcs) = H.find defs head in
-        if ty = dtype then
-          H.replace defs head (ty, dcs @ [new_def])
-        else
-          failwith (sprintf "%s has already been defined as %s"
-                      (sig_to_string head) (def_type_to_string ty))
-    with Not_found -> H.add defs head (dtype, [new_def])
+let add_defs ids ty defs =
+  List.iter
+    (fun id -> if H.mem defs_table id then
+       failwith (id ^ " has already been defined"))
+    ids ;
+  List.iter
+    (fun id -> H.add defs_table id (ty, ids, defs))
+    ids
 
 
 (* Undo support *)
@@ -177,11 +164,11 @@ let reset_prover =
 
 let full_reset_prover =
   let original_clauses = !clauses in
-  let original_defs = H.copy defs in
+  let original_defs_table = H.copy defs_table in
     fun () ->
       reset_prover () ;
       clauses := original_clauses ;
-      H.assign defs original_defs
+      H.assign defs_table original_defs_table
 
 let add_hyp ?(name=fresh_hyp_name "") term =
   sequent.hyps <- List.append sequent.hyps
@@ -313,9 +300,19 @@ let get_display () =
 let inst h n t =
   let ht = get_hyp h in
     match ht with
-      | Obj _ -> t |> localize_term
-                   |> object_inst ht n
-                   |> add_hyp
+      | Obj _ ->
+          begin try
+            let ntids = metaterm_nominal_tids ht in
+            let nty = List.assoc n ntids in
+            let ctx = sequent.vars @
+              (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
+            in
+            let t = type_uterm ~ctx t nty in
+              add_hyp (object_inst ht n t)
+          with
+            | Not_found ->
+                failwith "Vacuous instantiation"
+          end
       | _ -> failwith
           "Instantiation can only be used on hypotheses of the form {...}"
 
@@ -363,8 +360,8 @@ let has_coinductive_result hyp =
 let remove_coinductive_hypotheses hyps =
   List.remove_all has_coinductive_result hyps
 
-let defs_to_list defs =
-  H.fold (fun _ (_, dcs) acc -> dcs @ acc) defs []
+let defs_table_to_list () =
+  H.fold (fun _ (_, mutual, dcs) acc -> (mutual, dcs) :: acc) defs_table []
 
 let search_goal ?(depth=5) goal =
   let hyps = sequent.hyps
@@ -377,7 +374,7 @@ let search_goal ?(depth=5) goal =
       ~depth:n
       ~hyps
       ~clauses:!clauses
-      ~defs:(defs_to_list defs)
+      ~alldefs:(defs_table_to_list ())
       goal
   in
     List.exists search_depth (List.range 1 depth)
@@ -428,11 +425,31 @@ let ensure_no_restrictions term =
   in
     aux term false
 
+let toplevel_bindings stmt =
+  let rec aux = function
+    | Binding(Forall, tids, t) -> tids @ (aux t)
+    | Binding(Nabla, tids, t) -> tids @ (aux t)
+    | _ -> []
+  in
+    aux stmt
+
+(* TODO: Typing the nominals in a 'with' is still a quesiton *)
+let type_withs stmt ws =
+  let bindings = toplevel_bindings stmt in
+    List.map
+      (fun (id, t) ->
+         try
+           let ty = List.assoc id bindings in
+             (id, type_uterm ~ctx:sequent.vars t ty)
+         with
+           | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
+      ws
+
 let apply h args ws =
   let stmt = get_hyp_or_lemma h in
   let args = List.map get_some_hyp args in
   let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
-  let ws = List.map (fun (x,t) -> x, localize_term t) ws in
+  let ws = type_withs stmt ws in
   let result, obligations = Tactics.apply_with stmt args ws in
   let remaining_obligations =
     List.remove_all (fun g -> search_goal (normalize g)) obligations in
@@ -476,6 +493,17 @@ let case_to_subgoal case =
       Term.set_bind_state case.bind_state ;
       update_self_bound_vars ()
 
+let get_defs term =
+  match term with
+    | Pred(p, _) ->
+        begin try
+          let (_, mutual, defs) = H.find defs_table (term_head_name p) in
+            (mutual, defs)
+        with Not_found ->
+          failwith "Cannot perform case-analysis on undefined atom"
+        end
+    | _ -> ([], [])
+
 let case ?(keep=false) str =
   let term = get_hyp str in
   let global_support =
@@ -483,9 +511,10 @@ let case ?(keep=false) str =
        (List.map (fun h -> h.term) sequent.hyps)) @
       (metaterm_support sequent.goal)
   in
+  let (mutual, defs) = get_defs term in
   let cases =
     Tactics.case ~used:sequent.vars ~clauses:!clauses
-      ~defs:(defs_to_list defs) ~global_support term
+      ~mutual ~defs ~global_support term
   in
     if not keep then remove_hyp str ;
     add_subgoals (List.map case_to_subgoal cases) ;
@@ -551,16 +580,16 @@ let ensure_is_inductive term =
   match term with
     | Obj _ -> ()
     | Pred(p, _) ->
-        let psig = term_sig p in
+        let pname = term_head_name p in
           begin try
-            match H.find defs psig with
-              | Inductive, _ -> ()
-              | CoInductive, _ -> failwith
+            match H.find defs_table pname with
+              | Inductive, _, _ -> ()
+              | CoInductive, _, _ -> failwith
                   (sprintf "Cannot induct on %s since it has\
-                          \ been coinductively defined" (sig_to_string psig))
+                          \ been coinductively defined" pname)
           with Not_found ->
             failwith (sprintf "Cannot induct on %s since it has\
-                             \ not been defined" (sig_to_string psig))
+                             \ not been defined" pname)
           end
     | _ -> failwith "Can only induct on predicates and judgments"
 
@@ -590,16 +619,16 @@ let rec conclusion term =
     | _ -> failwith "Cannot coinduct on a goal of this form"
 
 let ensure_is_coinductive p =
-  let psig = term_sig p in
+  let pname = term_head_name p in
     try
-      match H.find defs psig with
-        | CoInductive, _ -> ()
-        | Inductive, _ -> failwith
+      match H.find defs_table pname with
+        | CoInductive, _, _ -> ()
+        | Inductive, _, _ -> failwith
             (sprintf "Cannot coinduct on %s since it has\
-                    \ been inductively defined" (sig_to_string psig))
+                    \ been inductively defined" pname)
     with Not_found ->
       failwith (sprintf "Cannot coinduct on %s since it has\
-                       \ not been defined" (sig_to_string psig))
+                       \ not been defined" pname)
 
 let coinduction () =
   ensure_is_coinductive (conclusion sequent.goal) ;
@@ -627,7 +656,7 @@ let delay_mainline new_hyp detour_goal =
   if search_goal sequent.goal then next_subgoal ()
 
 let assert_hyp term =
-  let term = localize_metaterm term in
+  let term = type_umetaterm ~ctx:sequent.vars term in
     delay_mainline term term
 
 (* Object logic monotone *)
@@ -636,14 +665,18 @@ let monotone h t =
   let ht = get_hyp h in
     match ht with
       | Obj(obj, r) ->
-          let t = localize_term t in
+          let ntids = metaterm_nominal_tids ht in
+          let ctx = sequent.vars @
+            (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
+          in
+          let t = type_uterm ~ctx t olistty in
           let new_obj = { obj with context = Context.normalize [t] } in
             delay_mainline
               (Obj(new_obj, r))
-              (Binding(Forall, ["X"],
-                       Arrow(member (Term.const "X")
+              (Binding(Forall, [("X", oty)],
+                       Arrow(member (Term.const "X" oty)
                                (Context.context_to_term obj.context),
-                             member (Term.const "X")
+                             member (Term.const "X" oty)
                                t))) ;
       | _ -> failwith
           "Monotone can only be used on hypotheses of the form {...}"
@@ -661,15 +694,17 @@ let intros () =
   let rec aux term =
     match term with
       | Binding(Forall, bindings, body) ->
-          let alist = fresh_alist ~tag:Eigen ~used:sequent.vars bindings in
-            List.iter add_var (List.map alist_to_used alist) ;
-            let alist = raise_alist ~support:(metaterm_support body) alist in
+          let support = metaterm_support body in
+          let (alist, vars) =
+            fresh_raised_alist ~tag:Eigen ~used:sequent.vars ~support bindings
+          in
+            List.iter add_var (List.map term_to_pair vars) ;
               aux (replace_metaterm_vars alist body)
       | Binding(Nabla, bindings, body) ->
-          aux (replace_metaterm_vars
-                 (List.combine bindings
-                    (fresh_nominals (List.length bindings) body))
-                 body)
+          let (ids, tys) = List.split bindings in
+            aux (replace_metaterm_vars
+                   (List.combine ids (fresh_nominals tys body))
+                   body)
       | Arrow(left, right) ->
           add_hyp (normalize left) ;
           aux right
@@ -712,7 +747,8 @@ let right () =
 (* Unfold *)
 
 let unfold () =
-  let goal = unfold ~defs:(defs_to_list defs) sequent.goal in
+  let mdefs = get_defs sequent.goal in
+  let goal = unfold ~mdefs sequent.goal in
   let goals = and_to_list goal in
     add_subgoals (List.map goal_to_subgoal goals) ;
     next_subgoal ()
@@ -721,9 +757,13 @@ let unfold () =
 
 let exists t =
   match sequent.goal with
-    | Binding(Metaterm.Exists, id::ids, body) ->
-        let t = localize_term t in
-        let goal = exists ids (replace_metaterm_vars [(id, t)] body) in
+    | Binding(Metaterm.Exists, (id, ty)::tids, body) ->
+        let ntids = metaterm_nominal_tids body in
+        let ctx = sequent.vars @
+          (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
+        in
+        let t = type_uterm ~ctx t ty in
+        let goal = exists tids (replace_metaterm_vars [(id, t)] body) in
           sequent.goal <- goal
     | _ -> ()
 
@@ -744,3 +784,27 @@ let abbrev id str =
 
 let unabbrev ids =
   List.iter (fun h -> if List.mem h.id ids then h.abbrev <- None) sequent.hyps
+
+(* Permute *)
+
+let permute_nominals ids form =
+  let term =
+    match form with
+      | None -> sequent.goal
+      | Some h -> get_hyp h
+  in
+  let support_alist =
+    List.map (fun t -> (term_to_name t, t)) (metaterm_support term)
+  in
+  let perm =
+    List.map
+      (fun id ->
+         try
+           List.assoc id support_alist
+         with Not_found -> nominal_var id (tybase ""))
+      ids
+  in
+  let result = Tactics.permute_nominals perm term in
+    match form with
+      | None -> sequent.goal <- result
+      | Some _ -> add_hyp result

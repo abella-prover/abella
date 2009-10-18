@@ -44,11 +44,19 @@ rule token = parse
 | '"' ([^ '"']* as s) '"'
                      { QSTRING s }
 
+| "kind"             { KIND }
+| "type"             { TYPE }
+| "Kind"             { KKIND }
+| "Type"             { TTYPE }
+| "sig"              { SIG }
+| "module"           { MODULE }
+
 | "=>"               { IMP }
 | ":-"               { CLAUSEEQ }
 | ":="               { DEFEQ }
 | ","                { COMMA }
 | "."                { DOT }
+| ";"                { SEMICOLON }
 | "\\"               { BSLASH }
 | "("                { LPAREN }
 | ")"                { RPAREN }
@@ -88,6 +96,7 @@ rule token = parse
 | "to"               { TO }
 | "with"             { WITH }
 | "on"               { ON }
+| "by"               { BY }
 | "split"            { SPLIT }
 | "split*"           { SPLITSTAR }
 | "left"             { LEFT }
@@ -110,6 +119,11 @@ rule token = parse
 | name as n          { STRINGID n }
 
 | eof                { EOF }
+
+| '\x04'             { EOF }   (* ctrl-D *)
+
+| _                  { failwith ("Illegal character " ^
+                                   (Lexing.lexeme lexbuf) ^ " in input") }
 
 and comment = parse
 | [^ '*' '/' '\n']+  { comment lexbuf }

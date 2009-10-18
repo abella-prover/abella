@@ -17,15 +17,16 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Term
 open Metaterm
 open Prover
 open Types
+open Typing
 open Extensions
 open Printf
 open Debug
 
 let can_read_specification = ref true
-let last_sig = ref ("", 0)
 
 let interactive = ref true
 let out = ref stdout
@@ -52,6 +53,17 @@ let position lexbuf =
     else
       sprintf ": file %s, line %d, character %d" file line char
 
+let position_range (p1, p2) =
+  let file = p1.Lexing.pos_fname in
+  let line = p1.Lexing.pos_lnum in
+  let char1 = p1.Lexing.pos_cnum - p1.Lexing.pos_bol in
+  let char2 = p2.Lexing.pos_cnum - p1.Lexing.pos_bol in
+    if file = "" then
+      ""
+    else
+      sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
+
+
 let lexbuf_from_file filename =
   let lexbuf = Lexing.from_channel (open_in filename) in
     lexbuf.Lexing.lex_curr_p <- {
@@ -74,14 +86,37 @@ let interactive_or_exit () =
     else
       exit 1
 
-let parse_mod_file name =
-  fprintf !out "Reading clauses from %s\n%!" name ;
-  let lexbuf = lexbuf_from_file name in
+let type_inference_error (pos, ct) exp act =
+  eprintf "Typing error%s.\n%!" (position_range pos) ;
+  match ct with
+    | CArg ->
+        eprintf "Expression has type %s but is used here with type %s\n%!"
+          (ty_to_string act) (ty_to_string exp)
+    | CFun ->
+        eprintf "Expression is applied to too many arguments\n%!"
+
+
+let read_specification name =
+  fprintf !out "Reading specification %s\n%!" name ;
+  let lexbuf_sig = lexbuf_from_file (name ^ ".sig") in
+  let lexbuf_mod = lexbuf_from_file (name ^ ".mod") in
+  let curr_lexbuf = ref lexbuf_sig in
     try
-      add_clauses (Parser.clauses Lexer.token lexbuf)
+      Parser.lpsig Lexer.token lexbuf_sig ;
+      curr_lexbuf := lexbuf_mod ;
+      add_clauses (List.map type_uclause (Parser.lpmod Lexer.token lexbuf_mod))
     with
       | Parsing.Parse_error ->
-          eprintf "Syntax error%s.\n%!" (position lexbuf) ;
+          eprintf "Syntax error%s.\n%!" (position !curr_lexbuf) ;
+          exit 1
+      | TypeInferenceFailure(ci, exp, act) ->
+          type_inference_error ci exp act ;
+          exit 1
+      | Failure s ->
+          eprintf "Error: %s\n%!" s ;
+          exit 1
+      | e ->
+          eprintf "Unknown error: %s\n%!" (Printexc.to_string e) ;
           exit 1
 
 
@@ -91,63 +126,43 @@ let ensure_no_restrictions term =
   if get_max_restriction term > 0 then
     failwith "Cannot use restrictions: *, @ or +"
 
-let ensure_no_free_vars free_vars =
-  if free_vars <> [] then
-    failwith (sprintf "Unbound variables: %s%!"
-                (String.concat ", " free_vars))
+let untyped_ensure_no_restrictions term =
+  ensure_no_restrictions (umetaterm_to_metaterm [] term)
 
-let ensure_defs_exist ?(ignore=[]) term =
-  term |> iter_preds
-      (fun pred ->
-         let psig = Term.term_sig pred in
-           if not (Hashtbl.mem defs psig) && not (List.mem psig ignore) then
-             failwith (sprintf "%s is not defined.\
-                                \ Perhaps it is mispelt or you meant {%s}."
-                         (sig_to_string psig) (Term.term_to_string pred)))
-
-let warn_stratify dsig term =
-  let rec aux term =
+let warn_stratify names term =
+  let rec aux nested term =
     match term with
-      | Arrow(left, right) ->
-          (List.exists (fun s -> s = dsig) (map_preds Term.term_sig left))
-          || aux right
-      | Binding(_, _, body) -> aux body
-      | Or(left, right) -> aux left || aux right
-      | And(left, right) -> aux left || aux right
+      | Pred(p, _) when nested && List.mem (term_head_name p) names -> true
+      | Arrow(left, right) -> aux true left || aux nested right
+      | Binding(_, _, body) -> aux nested body
+      | Or(left, right) -> aux nested left || aux nested right
+      | And(left, right) -> aux nested left || aux nested right
       | _ -> false
   in
-    if aux term then begin
-      fprintf !out "Warning: %s might not be stratified%!" (sig_to_string dsig)
-    end
+    if aux false term then
+      fprintf !out "Warning: Definition might not be stratified%!"
 
 let check_theorem thm =
-  ensure_no_restrictions thm ;
-  ensure_defs_exist thm ;
-  ensure_no_free_vars (Tactics.free_capital_var_names thm)
+  ensure_no_restrictions thm
 
-let ensure_new_or_last_sig dsig =
-  if Hashtbl.mem defs dsig then
-    if dsig <> !last_sig then
-      failwith (sprintf "%s has already been defined" (sig_to_string dsig)) ;
-  last_sig := dsig
-
-let ensure_not_capital (name, _) =
-  if Tactics.is_capital name then
+let ensure_not_capital name =
+  if is_capital_name name then
     failwith (sprintf "Defined predicates may not begin with \
                        a capital letter.")
 
-let check_def (head, body) =
-  ensure_no_restrictions head ;
-  ensure_no_restrictions body ;
-  let head_vars = Tactics.free_capital_var_names head in
-  let body_vars = Tactics.free_capital_var_names body in
-  let free_vars = List.minus body_vars head_vars in
-  let dsig = def_sig (head, body) in
-    ensure_not_capital dsig ;
-    ensure_new_or_last_sig dsig ;
-    ensure_no_free_vars free_vars ;
-    ensure_defs_exist ~ignore:[dsig] body ;
-    warn_stratify dsig body
+let ensure_name_contained id ids =
+  if not (List.mem id ids) then
+    failwith ("Found stray clause for " ^ id)
+
+let check_defs names defs =
+  List.iter ensure_not_capital names ;
+  List.iter
+    (fun (head, body) ->
+       ensure_name_contained (def_head_name head) names ;
+       ensure_no_restrictions head ;
+       ensure_no_restrictions body ;
+       warn_stratify names body)
+    defs
 
 
 (* Compilation and importing *)
@@ -160,6 +175,8 @@ let marshal citem =
 let ensure_finalized_specification () =
   if !can_read_specification then begin
     can_read_specification := false ;
+    marshal ktable ;
+    marshal ctable ;
     marshal !clauses
   end
 
@@ -168,8 +185,12 @@ let compile citem =
   marshal citem
 
 let verify_signature file =
+  let imported_ktable = (Marshal.from_channel file : ktable) in
+  let imported_ctable = (Marshal.from_channel file : ctable) in
   let imported_clauses = (Marshal.from_channel file : clauses) in
-    !clauses = imported_clauses
+    ktable = imported_ktable &&
+      ctable = imported_ctable &&
+      !clauses = imported_clauses
 
 let imported = ref []
 
@@ -185,17 +206,23 @@ let rec import filename =
             while true do
               match (Marshal.from_channel file : compiled) with
                 | CTheorem(name, thm) ->
-                    check_theorem thm ;
                     add_lemma name thm ;
-                    last_sig := ("", 0)
-                | CDefine(def) ->
-                    check_def def ;
-                    add_def Inductive def
-                | CCoDefine(def) ->
-                    check_def def ;
-                    add_def CoInductive def
+                | CDefine(idtys, defs) ->
+                    add_consts idtys ;
+                    let ids = List.map fst idtys in
+                      check_defs ids defs ;
+                      add_defs ids Inductive defs ;
+                | CCoDefine(idtys, defs) ->
+                    add_consts idtys ;
+                    let ids = List.map fst idtys in
+                      check_defs ids defs ;
+                      add_defs ids CoInductive defs
                 | CImport(filename) ->
                     import filename
+                | CKind(ids) ->
+                    add_types ids
+                | CType(ids, ty) ->
+                    add_consts (List.map (fun id -> (id, ty)) ids)
             done
           else
             failwith ("Import failed: " ^ filename ^
@@ -209,24 +236,28 @@ let rec import filename =
 (* Proof processing *)
 
 let query q =
-  let fv = Tactics.free_capital_var_names q in
-  let alist = fresh_alist ~tag:Term.Logic ~used:[] fv in
-  let q' = replace_metaterm_vars alist q in
-  let _ = Tactics.search
-    ~depth:max_int
-    ~hyps:[]
-    ~clauses:!clauses
-    ~defs:(defs_to_list defs)
-    ~sc:(fun () ->
-           fprintf !out "Found solution:\n" ;
-           List.iter
-             (fun (n, v) ->
-                fprintf !out "%s = %s\n" n (Term.term_to_string v))
-             alist ;
-           fprintf !out "\n%!")
-    q'
-  in
-    fprintf !out "No more solutions.\n%!"
+  let fv = ids_to_fresh_tyctx (umetaterm_extract_if is_capital_name q) in
+  let ctx = fresh_alist ~tag:Logic ~used:[] fv in
+  match type_umetaterm ~ctx (UBinding(Metaterm.Exists, fv, q)) with
+    | Binding(Metaterm.Exists, fv, q) ->
+        let ctx = fresh_alist ~tag:Logic ~used:[] fv in
+        let q = replace_metaterm_vars ctx q in
+        let _ = Tactics.search
+          ~depth:max_int
+          ~hyps:[]
+          ~clauses:!clauses
+          ~alldefs:(defs_table_to_list ())
+          ~sc:(fun () ->
+                 fprintf !out "Found solution:\n" ;
+                 List.iter
+                   (fun (n, v) ->
+                      fprintf !out "%s = %s\n" n (term_to_string v))
+                   ctx ;
+                 fprintf !out "\n%!")
+          q
+        in
+          fprintf !out "No more solutions.\n%!"
+    | _ -> assert false
 
 let set k v =
   match k, v with
@@ -272,12 +303,7 @@ let rec process_proof name =
           | Inst(h, n, t) -> inst h n t
           | Case(str, keep) -> case ~keep str
           | Assert(t) ->
-              ensure_no_restrictions t ;
-              ensure_defs_exist t ;
-              ensure_no_free_vars
-                (List.minus
-                   (Tactics.free_capital_var_names t)
-                   (List.map fst sequent.vars)) ;
+              untyped_ensure_no_restrictions t ;
               assert_hyp t
           | Exists(t) -> exists t
           | Monotone(h, t) -> monotone h t
@@ -322,6 +348,9 @@ let rec process_proof name =
           eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
           Lexing.flush_input !lexbuf ;
           interactive_or_exit () ;
+      | TypeInferenceFailure(ci, exp, act) ->
+          type_inference_error ci exp act ;
+          interactive_or_exit ()
       | e ->
           eprintf "Error: %s\n%!" (Printexc.to_string e) ;
           interactive_or_exit ()
@@ -343,45 +372,52 @@ let rec process () =
       end ;
       begin match input with
         | Theorem(name, thm) ->
-            check_theorem thm ;
-            theorem thm ;
-            begin try
-              process_proof name ;
-              compile (CTheorem(name, thm)) ;
-              add_lemma name thm ;
-              last_sig := ("", 0)
-            with AbortProof -> () end
-        | Define(def) ->
-            check_def def ;
-            compile (CDefine def) ;
-            add_def Inductive def
-        | CoDefine(def) ->
-            check_def def ;
-            compile (CCoDefine def) ;
-            add_def CoInductive def
+            let thm = type_umetaterm thm in
+              check_theorem thm ;
+              theorem thm ;
+              begin try
+                process_proof name ;
+                compile (CTheorem(name, thm)) ;
+                add_lemma name thm ;
+              with AbortProof -> () end
+        | Define(idtys, udefs) ->
+            add_consts idtys ;
+            let defs = type_udefs udefs in
+            let ids = List.map fst idtys in
+              check_defs ids defs ;
+              compile (CDefine(idtys, defs)) ;
+              add_defs ids Inductive defs
+        | CoDefine(idtys, udefs) ->
+            add_consts idtys ;
+            let defs = type_udefs udefs in
+            let ids = List.map fst idtys in
+              check_defs ids defs ;
+              compile (CCoDefine(idtys, defs)) ;
+              add_defs ids CoInductive defs
         | TopSet(k, v) ->
             set k v
         | Import(filename) ->
             compile (CImport filename) ;
-            last_sig := ("", 0) ;
             import filename ;
-            last_sig := ("", 0)
         | Specification(filename) ->
             if !can_read_specification then begin
-              parse_mod_file (filename ^ ".mod") ;
+              read_specification filename ;
               ensure_finalized_specification ()
             end else
               failwith ("Specification can only be read " ^
                           "at the begining of a development.")
-        | Query(q) ->
-            ensure_defs_exist q ;
-            query q
+        | Query(q) -> query q
+        | Kind(ids) ->
+            compile (CKind ids)
+        | Type(ids, ty) ->
+            compile (CType(ids, ty))
       end ;
       if !interactive then flush stdout ;
       if !annotate then fprintf !out "</pre>%!" ;
       fprintf !out "\n%!" ;
   with
     | Failure "lexing: empty token" ->
+        eprintf "Unknown symbol" ;
         exit (if !interactive then 0 else 1)
     | Failure s ->
         eprintf "Error: %s\n%!" s ;
@@ -398,6 +434,9 @@ let rec process () =
     | Parsing.Parse_error ->
         eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
         Lexing.flush_input !lexbuf ;
+        interactive_or_exit ()
+    | TypeInferenceFailure(ci, exp, act) ->
+        type_inference_error ci exp act ;
         interactive_or_exit ()
     | e ->
         eprintf "Unknown error: %s\n%!" (Printexc.to_string e) ;

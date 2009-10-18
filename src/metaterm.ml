@@ -42,7 +42,7 @@ type metaterm =
   | Eq of term * term
   | Obj of obj * restriction
   | Arrow of metaterm * metaterm
-  | Binding of binder * id list * metaterm
+  | Binding of binder * (id * ty) list * metaterm
   | Or of metaterm * metaterm
   | And of metaterm * metaterm
   | Pred of term * restriction
@@ -54,14 +54,19 @@ let obj t = { context = Context.empty ; term = t }
 
 let termobj t = Obj(obj t, Irrelevant)
 let arrow a b = Arrow(a, b)
-let forall ids t = if ids = [] then t else Binding(Forall, ids, t)
-let nabla ids t = if ids = [] then t else Binding(Nabla, ids, t)
-let exists ids t = if ids = [] then t else Binding(Exists, ids, t)
+let forall tids t = if tids = [] then t else Binding(Forall, tids, t)
+let nabla tids t = if tids = [] then t else Binding(Nabla, tids, t)
+let exists tids t = if tids = [] then t else Binding(Exists, tids, t)
 let meta_or a b = Or(a, b)
 let meta_and a b = And(a, b)
 let pred p = Pred(p, Irrelevant)
 
-let member e ctx = pred (app (Term.const "member") [e; ctx])
+let propty = tybase "prop"
+
+let member_const = Term.const "member" (tyarrow [oty; olistty] propty)
+
+let member e ctx =
+  pred (app member_const [e; ctx])
 
 (* Pretty printing *)
 
@@ -74,7 +79,7 @@ let restriction_to_string r =
     | Irrelevant -> ""
 
 let bindings_to_string ts =
-  String.concat " " ts
+  String.concat " " (List.map fst ts)
 
 let priority t =
   match t with
@@ -116,9 +121,9 @@ let format_metaterm fmt t =
             aux (pr_curr + 1) a ;
             fprintf fmt " ->@ " ;
             aux pr_curr b
-        | Binding(b, ids, t) ->
+        | Binding(b, tids, t) ->
             fprintf fmt "%s %s,@ "
-              (binder_to_string b) (bindings_to_string ids) ;
+              (binder_to_string b) (bindings_to_string tids) ;
             aux pr_curr t
         | Or(a, b) ->
             aux pr_curr a ;
@@ -212,10 +217,7 @@ let map_preds f term =
   in
     aux term
 
-let is_imp t =
-  match observe (hnorm t) with
-    | App(t, _) -> eq t (const "=>")
-    | _ -> false
+let is_imp t = is_head_name "=>" t
 
 let extract_imp t =
   match observe (hnorm t) with
@@ -226,19 +228,12 @@ let move_imp_to_context obj =
   let a, b = extract_imp obj.term in
     {context = Context.add a obj.context ; term = b}
 
-let is_pi_abs t =
-  match observe (hnorm t) with
-    | App(t, [abs]) -> eq t (const "pi") &&
-        begin match observe (hnorm abs) with
-          | Lam(1, _) -> true
-          | _ -> false
-        end
-    | _ -> false
+let is_pi t = is_head_name "pi" t
 
-let extract_pi_abs t =
+let extract_pi t =
   match observe (hnorm t) with
     | App(t, [abs]) -> abs
-    | _ -> failwith "Check is_pi_abs before calling extract_pi_abs"
+    | _ -> failwith "Check is_pi before calling extract_pi"
 
 let obj_to_member obj =
   member obj.term (Context.context_to_term obj.context)
@@ -279,29 +274,24 @@ let reduce_coinductive_restriction r =
 let add_to_context elt obj =
   {obj with context = Context.add elt obj.context}
 
-let def_sig (term, _) =
-  let rec aux term =
-    match term with
-      | Pred(p, _) -> term_sig p
-      | Binding(_, _, body) -> aux body
-      | _ -> failwith "Bad head in definition"
-  in
-    aux term
-
 let sig_to_string (name, arity) = name ^ "/" ^ (string_of_int arity)
 
 (* Variable Renaming *)
 
-let fresh_alist ~used ~tag ids =
+let fresh_alist ~used ~tag tids =
   let used = ref used in
-    List.map (fun x ->
-                let (fresh, curr_used) = fresh_wrt tag x !used in
+    List.map (fun (x, ty) ->
+                let (fresh, curr_used) = fresh_wrt tag x ty !used in
                   used := curr_used ;
                   (x, fresh))
-      ids
+      tids
 
-let raise_alist ~support alist =
-  List.map (fun (id, t) -> (id, app t support)) alist
+let fresh_raised_alist ~used ~tag ~support tids =
+  let ntys = List.map (tc []) support in
+  let rtids = List.map (fun (id, ty) -> (id, tyarrow ntys ty)) tids in
+  let alist = fresh_alist ~used ~tag rtids in
+    (List.map (fun (id, t) -> (id, app t support)) alist,
+     List.map snd alist)
 
 let replace_term_vars ?tag alist t =
   let rec aux t =
@@ -319,12 +309,8 @@ let replace_term_vars ?tag alist t =
   in
     aux t
 
-let replace_metaterm_vars ?tag alist t =
-  let term_aux alist =
-    match tag with
-    | None -> replace_term_vars alist
-    | Some tag -> replace_term_vars ~tag alist
-  in
+let rec replace_metaterm_vars alist t =
+  let term_aux alist = replace_term_vars alist in
   let rec aux alist t =
     match t with
       | True | False -> t
@@ -332,11 +318,15 @@ let replace_metaterm_vars ?tag alist t =
       | Obj(obj, r) -> Obj(map_obj (term_aux alist) obj, r)
       | Arrow(a, b) -> Arrow(aux alist a, aux alist b)
       | Binding(binder, bindings, body) ->
-          let alist = List.remove_assocs bindings alist in
+          let alist = List.remove_assocs (List.map fst bindings) alist in
           let used = get_used (List.map snd alist) in
           let bindings_alist = fresh_alist ~tag:Constant ~used bindings in
+          let bindings' =
+            List.map (fun (_, t) -> let v = term_to_var t in (v.name, v.ty))
+              bindings_alist
+          in
             Binding(binder,
-                    List.map term_to_name (List.map snd bindings_alist),
+                    bindings',
                     aux (alist @ bindings_alist) body)
       | Or(a, b) -> Or(aux alist a, aux alist b)
       | And(a, b) -> And(aux alist a, aux alist b)
@@ -368,7 +358,7 @@ let metaterm_support t =
       | Eq(t1, t2) -> term_support t1 @ term_support t2
       | Obj(obj, _) -> obj_support obj
       | Arrow(t1, t2) -> aux t1 @ aux t2
-      | Binding(_, ids, t) -> aux t
+      | Binding(_, _, t) -> aux t
       | Or(t1, t2) -> aux t1 @ aux t2
       | And(t1, t2) -> aux t1 @ aux t2
       | Pred(t, _) -> term_support t
@@ -384,7 +374,7 @@ let get_metaterm_used_nominals t =
   t |> metaterm_support
     |> List.map term_to_pair
 
-let fresh_nominals n t =
+let fresh_nominals tys t =
   let used_vars = find_vars Nominal (collect_terms t) in
   let used_names = List.map (fun v -> v.name) used_vars in
   let p = prefix Nominal in
@@ -396,49 +386,29 @@ let fresh_nominals n t =
       done ;
       p ^ (string_of_int !n)
   in
-    for i = 1 to n do
+    for i = 1 to List.length tys do
       result := !result @ [get_name()] ;
     done ;
-    List.map nominal_var !result
+    List.map2 nominal_var !result tys
 
-let fresh_nominal t =
-  match fresh_nominals 1 t with
+let fresh_nominal ty t =
+  match fresh_nominals [ty] t with
     | [n] -> n
     | _ -> assert false
 
-let n_var_names terms =
-  terms
-  |> map_vars (fun v -> v.name)
-  |> List.find_all (fun str -> Str.string_match (Str.regexp "^n[0-9]+$") str 0)
-  |> List.unique
-
-let replace_metaterm_nominal_vars term =
-  let fresh_nominal_names =
-    term
-    |> collect_terms
-    |> n_var_names
-    |> fresh_alist ~tag:Nominal ~used:[]
-  in
-    replace_metaterm_vars fresh_nominal_names term
-
-let replace_term_nominal_vars term =
-  let fresh_nominal_names =
-    [term]
-    |> n_var_names
-    |> fresh_alist ~tag:Nominal ~used:[]
-  in
-    replace_term_vars fresh_nominal_names term
-
-let replace_pi_abs_with_nominal obj =
-  let abs = extract_pi_abs obj.term in
-  let nominal = fresh_nominal (Obj(obj, Irrelevant)) in
-    {obj with term = app abs [nominal]}
+let replace_pi_with_nominal obj =
+  let abs = extract_pi obj.term in
+    match tc [] abs with
+      | Ty(ty::_, _) ->
+          let nominal = fresh_nominal ty (Obj(obj, Irrelevant)) in
+            {obj with term = app abs [nominal]}
+      | _ -> assert false
 
 let rec normalize_obj obj =
   if is_imp obj.term then
     normalize_obj (move_imp_to_context obj)
-  else if is_pi_abs obj.term then
-    normalize_obj (replace_pi_abs_with_nominal obj)
+  else if is_pi obj.term then
+    normalize_obj (replace_pi_with_nominal obj)
   else
     {obj with context = Context.normalize obj.context}
 
@@ -451,11 +421,7 @@ let rec normalize_binders alist t =
       | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) ->
-          let alist_used =
-            alist
-            |> List.map snd
-            |> List.map term_to_pair
-          in
+          let alist_used = List.map term_to_pair (List.map snd alist) in
           let body_used = get_metaterm_used body in
           let nominal_used = get_metaterm_used_nominals body in
           let used = alist_used @ body_used @ nominal_used in
@@ -471,7 +437,10 @@ let rec normalize_binders alist t =
 
 and freshen_used_bindings bindings used body =
   let bindings_alist = fresh_alist ~tag:Constant ~used bindings in
-  let bindings' = List.map term_to_name (List.map snd bindings_alist) in
+  let bindings' =
+    List.map2 (fun (_, v) (_, ty) -> (term_to_name v, ty))
+      bindings_alist bindings
+  in
   let body' = normalize_binders bindings_alist body in
     (bindings', body')
 
@@ -480,9 +449,10 @@ let normalize term =
   |> map_on_objs normalize_obj
   |> normalize_binders []
 
-let instantiate_nablas ids body =
-  let nominals = fresh_nominals (List.length ids) body in
-  let alist = List.combine ids nominals in
+let instantiate_nablas tids body =
+  let (id_names, id_tys) = List.split tids in
+  let nominals = fresh_nominals id_tys body in
+  let alist = List.combine id_names nominals in
     replace_metaterm_vars alist body
 
 (* Error reporting *)
@@ -510,17 +480,19 @@ let rec meta_right_unify t1 t2 =
     | Arrow(l1, r1), Arrow(l2, r2) ->
         meta_right_unify l1 l2 ;
         meta_right_unify r1 r2
-    | Binding(b1, ids1, t1), Binding(b2, ids2, t2)
-        when b1 = b2 && List.length ids1 = List.length ids2 ->
+    | Binding(b1, tids1, t1), Binding(b2, tids2, t2)
+        when b1 = b2 && List.map snd tids1 = List.map snd tids2 ->
         (* Replace bound variables with constants with non-zero
            timestamp. This prevents illegal variable capture *)
-        let new_bindings = List.map (fun _ -> fresh ~tag:Constant 1) ids1 in
-        let alist1 = List.combine ids1 new_bindings in
-        let alist2 = List.combine ids2 new_bindings in
+        let new_bindings =
+          List.map (fun (_, ty) -> fresh ~tag:Constant 1 ty) tids1
+        in
+        let alist1 = List.combine (List.map fst tids1) new_bindings in
+        let alist2 = List.combine (List.map fst tids2) new_bindings in
           meta_right_unify
             (replace_metaterm_vars alist1 t1)
             (replace_metaterm_vars alist2 t2)
-    | _, _ -> raise (UnifyFailure TypesMismatch)
+    | _, _ -> raise (UnifyFailure Generic)
 
 let try_meta_right_unify t1 t2 =
   try_with_state ~fail:false
@@ -563,3 +535,33 @@ let derivable goal hyp =
                      (Context.subcontext
                         (Context.map (replace_term_vars alist) hyp.context)
                         goal.context))
+
+let metaterm_extract_tids aux_term t =
+  let aux_obj obj = aux_term obj.context @ aux_term [obj.term] in
+  let rec aux = function
+    | True | False -> []
+    | Eq(a, b) -> aux_term [a; b]
+    | Obj(obj, r) -> aux_obj obj
+    | Arrow(a, b) -> aux a @ aux b
+    | Binding(binder, bindings, body) ->
+        List.remove_all (fun (id, ty) -> List.mem_assoc id bindings) (aux body)
+    | Or(a, b) -> aux a @ aux b
+    | And(a, b) -> aux a @ aux b
+    | Pred(p, r) -> aux_term [p]
+  in
+    List.unique (aux t)
+
+let metaterm_capital_tids t =
+  metaterm_extract_tids capital_tids t
+
+let metaterm_nominal_tids t =
+  metaterm_extract_tids nominal_tids t
+
+let def_head_name head =
+  let rec aux t =
+    match t with
+      | Pred(p, _) -> term_head_name p
+      | Binding(_, _, t) -> aux t
+      | _ -> assert false
+  in
+    aux head

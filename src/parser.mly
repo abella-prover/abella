@@ -17,12 +17,36 @@
 /* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          */
 /****************************************************************************/
 
+%{
+
+  open Typing
+
+  let pos i =
+    if i = 0 then
+      (Parsing.symbol_start_pos (), Parsing.symbol_end_pos ())
+    else
+      (Parsing.rhs_start_pos i, Parsing.rhs_end_pos i)
+
+  let predefined id =
+    UCon(pos 0, id, lookup_const id)
+
+  let binop id t1 t2 =
+    UApp(pos 0, UApp(pos 0, predefined id, t1), t2)
+
+  let nested_app head args =
+    List.fold_left
+      (fun h a -> UApp((fst (get_pos h), snd (get_pos a)), h, a))
+      head args
+
+%}
+
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
-%token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT
-%token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION
+%token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
+%token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND LBRACK RBRACK
+%token KIND TYPE KKIND TTYPE SIG MODULE
 
 %token <int> NUM
 %token <string> STRINGID QSTRING
@@ -44,15 +68,13 @@
 /* Higher */
 
 
-%start metaterm term clauses top_command command contexted_term def
-%start defs
-%type <Term.term> term
-%type <Types.clauses> clauses
-%type <Types.def> def
-%type <Types.def list> defs
+%start term metaterm lpmod lpsig defs top_command command
+%type <Typing.uterm> term
+%type <Typing.umetaterm> metaterm
+%type <unit> lpsig
+%type <Types.uclauses> lpmod
+%type <Types.udef list> defs
 %type <Types.command> command
-%type <Metaterm.obj> contexted_term
-%type <Metaterm.metaterm> metaterm
 %type <Types.top_command> top_command
 
 %%
@@ -69,6 +91,7 @@ id:
   | SEARCH                               { "search" }
   | TO                                   { "to" }
   | ON                                   { "on" }
+  | BY                                   { "by" }
   | WITH                                 { "with" }
   | INTROS                               { "intros" }
   | CUT                                  { "cut" }
@@ -94,38 +117,88 @@ id:
   | SET                                  { "Set" }
   | QUERY                                { "Query" }
 
-/* These would cause significant shift/reduce conflicts */
-/*  | FORALL                               { "forall" }  */
-/*  | NABLA                                { "nabla" }   */
-/*  | EXISTS                               { "exists" }  */
+/* Annotated ID */
+aid :
+  | id                                   { ($1, Term.fresh_tyvar ()) }
+  | id COLON ty                          { ($1, $3) }
+
+/* Parenthesized annotated ID */
+paid :
+  | id                                   { ($1, Term.fresh_tyvar ()) }
+  | LPAREN id COLON ty RPAREN            { ($2, $4) }
 
 contexted_term:
-  | context TURN term                    { Metaterm.context_obj $1 $3 }
-  | term                                 { Metaterm.obj $1 }
+  | context TURN term                    { ($1, $3) }
+  | term                                 { (predefined "nil", $1) }
 
 context:
-  | context COMMA term                   { Context.add $3 $1 }
-  | term                                 { Context.add $1 Context.empty }
+  | context COMMA term                   { binop "::" $3 $1 }
+  | term                                 { if has_capital_head $1 then
+                                             $1
+                                           else
+                                             binop "::" $1
+                                               (predefined "nil") }
 
 term:
-  | term IMP term                        { Term.binop "=>" $1 $3 }
-  | term CONS term                       { Term.binop "::" $1 $3 }
-  | id BSLASH term                       { Term.abstract $1 $3 }
-  | exp exp_list                         { Term.app $1 $2 }
+  | term IMP term                        { binop "=>" $1 $3 }
+  | term CONS term                       { binop "::" $1 $3 }
+  | aid BSLASH term                      { let (id, ty) = $1 in
+                                             ULam(pos 0, id, ty, $3) }
+  | exp exp_list                         { nested_app $1 $2 }
   | exp                                  { $1 }
 
 exp:
-  | LPAREN term RPAREN                   { $2 }
-  | id                                   { Term.const $1 }
+  | LPAREN term RPAREN                   { let left = fst (pos 1) in
+                                           let right = snd (pos 3) in
+                                             change_pos (left, right) $2 }
+  | paid                                 { let (id, ty) = $1 in
+                                             UCon(pos 0, id, ty) }
 
 exp_list:
   | exp exp_list                         { $1::$2 }
   | exp                                  { [$1] }
-  | id BSLASH term                       { [Term.abstract $1 $3] }
+  | aid BSLASH term                      { let (id, ty) = $1 in
+                                             [ULam(pos 0, id, ty, $3)] }
+
+lpsig:
+  | lpsig_header decls                   { }
+
+lpsig_header:
+  | SIG id DOT                           { }
+  |                                      { }
+
+decls:
+  | kind_decl decls                      { }
+  | type_decl decls                      { }
+  |                                      { }
+
+lpmod:
+  | lpmod_header clauses                 { $2 }
+
+lpmod_header:
+  | MODULE id DOT                        { }
+  |                                      { }
 
 clauses:
   | clause clauses                       { $1::$2 }
   |                                      { [] }
+
+id_list:
+  | id                                   { [$1] }
+  | id COMMA id_list                     { $1::$3}
+
+kind_decl:
+  | KIND id_list TYPE DOT               { add_types $2 }
+
+type_decl:
+  | TYPE id_list ty DOT                 { check_spec_logic_type $3 ;
+                                          add_consts
+                                            (List.map (fun id -> (id, $3)) $2) }
+
+ty:
+  | id                                   { Term.tybase $1 }
+  | ty RARROW ty                         { Term.tyarrow [$1] $3 }
+  | LPAREN ty RPAREN                     { $2 }
 
 clause:
   | term DOT                             { ($1, []) }
@@ -137,12 +210,12 @@ clause_body:
   | term                                 { [$1] }
 
 defs:
-  | def defs                             { $1::$2 }
-  |                                      { [] }
+  | def SEMICOLON defs                   { $1::$3 }
+  | def                                  { [$1] }
 
 def:
-  | metaterm DOT                         { ($1, Metaterm.True) }
-  | metaterm DEFEQ metaterm DOT          { ($1, $3) }
+  | metaterm                             { ($1, UTrue) }
+  | metaterm DEFEQ metaterm              { ($1, $3) }
 
 command:
   | IND ON num_list DOT                  { Types.Induction($3) }
@@ -189,26 +262,27 @@ withs:
   | id EQ term                           { [($1, $3)] }
 
 metaterm:
-  | TRUE                                 { Metaterm.True }
-  | FALSE                                { Metaterm.False }
-  | term EQ term                         { Metaterm.Eq($1, $3) }
-  | FORALL binding_list COMMA metaterm   { Metaterm.forall $2 $4 }
-  | EXISTS binding_list COMMA metaterm   { Metaterm.exists $2 $4 }
-  | NABLA binding_list COMMA metaterm    { Metaterm.nabla $2 $4 }
-  | metaterm RARROW metaterm             { Metaterm.arrow $1 $3 }
-  | metaterm OR metaterm                 { Metaterm.meta_or $1 $3 }
-  | metaterm AND metaterm                { Metaterm.meta_and $1 $3 }
+  | TRUE                                 { UTrue }
+  | FALSE                                { UFalse }
+  | term EQ term                         { UEq($1, $3) }
+  | binder binding_list COMMA metaterm   { UBinding($1, $2, $4) }
+  | metaterm RARROW metaterm             { UArrow($1, $3) }
+  | metaterm OR metaterm                 { UOr($1, $3) }
+  | metaterm AND metaterm                { UAnd($1, $3) }
   | LPAREN metaterm RPAREN               { $2 }
   | LBRACK contexted_term RBRACK restriction
-                                         { Metaterm.Obj($2, $4) }
-  | term restriction                     { Metaterm.Pred($1, $2) }
+                                         { let l, g = $2 in
+                                             UObj(l, g, $4) }
+  | term restriction                     { UPred($1, $2) }
+
+binder:
+  | FORALL                               { Metaterm.Forall }
+  | EXISTS                               { Metaterm.Exists }
+  | NABLA                                { Metaterm.Nabla }
 
 binding_list:
-  | binding binding_list                 { $1::$2 }
-  | binding                              { [$1] }
-
-binding:
-  | id                                   { $1 }
+  | paid binding_list                    { $1::$2 }
+  | paid                                 { [$1] }
 
 restriction:
   |                                      { Metaterm.Irrelevant }
@@ -233,14 +307,27 @@ hashes:
   | HASH hashes                          { 1 + $2 }
   | HASH                                 { 1 }
 
+id_ty:
+  | id COLON ty                          { check_meta_logic_type $3 ;
+                                           ($1, $3) }
+
+id_tys:
+  | id_ty COMMA id_tys                   { $1::$3 }
+  | id_ty                                { [$1] }
+
 top_command :
   | THEOREM id COLON metaterm DOT        { Types.Theorem($2, $4) }
-  | THEOREM metaterm DOT                 { Types.Theorem("Goal", $2) }
-  | DEFINE def                           { Types.Define($2) }
-  | CODEFINE def                         { Types.CoDefine($2) }
+  | DEFINE id_tys BY defs DOT            { Types.Define($2, $4) }
+  | CODEFINE id_tys BY defs DOT          { Types.CoDefine($2, $4) }
   | QUERY metaterm DOT                   { Types.Query($2) }
   | SET id id DOT                        { Types.TopSet($2, Types.Str $3) }
   | SET id NUM DOT                       { Types.TopSet($2, Types.Int $3) }
   | IMPORT QSTRING DOT                   { Types.Import($2) }
   | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
+  | KKIND id_list TYPE DOT               { add_types $2 ;
+                                           Types.Kind($2) }
+  | TTYPE id_list ty DOT                 { check_meta_logic_type $3 ;
+                                           add_consts
+                                             (List.map (fun id -> (id, $3)) $2) ;
+                                           Types.Type($2, $3) }
   | EOF                                  { raise End_of_file }

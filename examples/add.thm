@@ -35,3 +35,9 @@ Theorem add_assoc : forall A B C AB BC ABC,
 induction on 1. intros. case H1.
   apply add_det to H2 H3. search.
   case H2. apply IH to H4 H5 H3. search.
+
+% We can use Query to "run add in reverse"
+
+Query {add A B (s (s (s (s z))))}.
+
+Query {add A A (s (s (s (s z))))}.

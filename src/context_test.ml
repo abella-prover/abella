@@ -1,14 +1,16 @@
 open OUnit
 open Test_helper
 open Context
-open Metaterm
 open Unify
+open Term
+open Term.Notations
 
 let assert_true b = assert_bool "" b
 let assert_false b = assert_bool "" (not b)
 
-let evalAB = Term.app (Term.const "eval") [Term.const "A"; Term.const "B"]
-let varL = Term.var Term.Logic "L" 0
+let tmty = tybase "tm"
+let eval = const "eval" (tyarrow [tmty; tmty] oty)
+let evalAB = eval ^^ [const "A" tmty; const "B" tmty]
 
 let tests =
   "Context" >::: [
@@ -32,7 +34,8 @@ let tests =
 
     "Print context" >::
       (fun () ->
-         let ctx = add evalAB (add varL empty) in
+         let l = var Logic "L" 0 olistty in
+         let ctx = add evalAB (add l empty) in
            assert_string_equal "L, eval A B" (context_to_string ctx)) ;
 
     "Empty context should be subcontext of empty context" >::
@@ -57,24 +60,24 @@ let tests =
     "Context membership should be based on equality modulo pointers" >::
       (fun () ->
          let ctx = add evalAB empty in
-         let var = Term.var Term.Logic "X" 0 in
+         let var = var Logic "X" 0 oty in
            right_unify var evalAB ;
            assert_true (mem var ctx)) ;
 
     "Remove should be based on equality modulo pointers" >::
       (fun () ->
          let ctx = add evalAB empty in
-         let var = Term.var Term.Logic "X" 0 in
+         let var = var Logic "X" 0 oty in
            right_unify var evalAB ;
            let ctx' = remove var ctx in
              assert_true (is_empty ctx')) ;
 
     "Xor should remove matching elements" >::
       (fun () ->
-         let a = Term.const "A" in
-         let b = Term.const "B" in
-         let c = Term.const "C" in
-         let d = Term.const "D" in
+         let a = const "A" oty in
+         let b = const "B" oty in
+         let c = const "C" oty in
+         let d = const "D" oty in
          let ctx1 = add a (add b (add c empty)) in
          let ctx2 = add b (add d empty) in
          let ctx1', ctx2' = xor ctx1 ctx2 in
@@ -86,68 +89,68 @@ let tests =
 
     "Group utility" >::
       (fun () ->
-         let a = Term.const "A" in
-         let b = Term.const "B" in
+         let a = const "A" oty in
+         let b = const "B" oty in
          let result = group [(a, 1); (b, 2); (a, 3); (a, 4)] in
            assert_equal [(a, [1; 3; 4]); (b, [2])] result) ;
 
     "Context to term without context variable" >::
       (fun () ->
-         let a = Term.const "A" in
-         let b = Term.const "B" in
+         let a = const "a" oty in
+         let b = const "b" oty in
          let ctx = add a (add b empty) in
            assert_term_pprint_equal
-             "A :: B :: nil" (context_to_term ctx)) ;
+             "a :: b :: nil" (context_to_term ctx)) ;
 
     "Context to term with context variable" >::
       (fun () ->
-         let a = Term.const "A" in
-         let b = Term.const "B" in
-         let l = Term.var Term.Eigen "L" 0 in
+         let a = const "a" oty in
+         let b = const "b" oty in
+         let l = var Eigen "L" 0 olistty in
          let ctx = add a (add b (add l empty)) in
            assert_term_pprint_equal
-             "A :: B :: L" (context_to_term ctx)) ;
+             "a :: b :: L" (context_to_term ctx)) ;
 
     "Context to term with context variable raised" >::
       (fun () ->
-         let l = Term.var Term.Eigen "L" 0 in
-         let n = Term.nominal_var "n" in
-         let ctx = add (Term.app l [n]) empty in
+         let l = var Eigen "L" 0 (tyarrow [ity] olistty) in
+         let n = nominal_var "n" ity in
+         let ctx = add (l ^^ [n]) empty in
            assert_term_pprint_equal
              "L n" (context_to_term ctx)) ;
 
     "Normalize should remove duplicates" >::
       (fun () ->
-         let a = Term.const "A" in
-         let b = Term.const "B" in
+         let a = const "A" oty in
+         let b = const "B" oty in
          let ctx = add a (add b (add a empty)) in
          let ctx = Context.normalize ctx in
            assert_equal 2 (size ctx));
 
     "Normalize should replace cons with seperate elements" >::
       (fun () ->
-         let a = Term.const "A" in
-         let l = Term.var Term.Eigen "L" 0 in
-         let term = Term.app cons [a; l] in
+         let a = const "A" oty in
+         let l = var Eigen "L" 0 olistty in
+         let term = cons ^^ [a; l] in
          let ctx = Context.normalize (add term empty) in
            assert_true (mem a ctx) ;
            assert_true (mem l ctx)) ;
 
     "Normalize should replace nil with nothing" >::
       (fun () ->
-         let l = Term.var Term.Eigen "L" 0 in
+         let l = var Eigen "L" 0 olistty in
          let ctx = add l empty in
-           left_unify l (Term.const "nil") ;
+           left_unify l nil ;
            assert_true (is_empty (Context.normalize ctx))) ;
 
     "Reconcile should produce subcontexts" >::
       (fun () ->
-         let a = Term.const "A" in
-         let b = Term.const "B" in
-         let c = Term.const "C" in
-         let d = Term.const "D" in
-         let l = Term.var Term.Eigen "L" 0 in
-         let e = Term.var Term.Logic "E" 0 in
+         let a = const "A" oty in
+         let b = const "B" oty in
+         let c = const "C" oty in
+         let d = const "D" oty in
+         let l = var Eigen "L" 0 olistty in
+         let e = var Logic "E" 0 olistty in
          let ctx1 = add a (add e empty) in
          let ctx2 = add c (add b (add a (add l empty))) in
          let ctx3 = add e empty in
@@ -159,4 +162,5 @@ let tests =
              assert_true (mem b ctx3') ;
              assert_true (mem c ctx3') ;
              assert_true (mem d ctx3')) ;
+
   ]

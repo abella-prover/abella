@@ -1,3 +1,5 @@
+module poplmark-2a.
+
 % Subtyping (Declarative version)
 
 sub S top.

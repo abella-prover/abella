@@ -2,28 +2,36 @@
 %%
 %% Here we prove: if all the paths in the lambda term X also exist in
 %% the lambda term Y then X = Y.
+%%
+%% This example would really benefit from some polymorphism
 
 Specification "path".
 
-Define nabla x, name x.
+Define tm_var : tm -> prop by
+  nabla x, tm_var x.
 
-Define nabla x, fresh x M.
+Define path_var : path -> prop by
+  nabla x, path_var x.
 
-Theorem member_fresh : forall X L E,
-  member E L -> fresh X L -> fresh X E.
+Theorem member_prune_tm : forall E L, nabla (x:tm),
+  member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
-  case H2. search.
-  assert fresh X L1.
-    case H2. search.
-    apply IH to H3 H4. search.
+  search.
+  apply IH to H2. search.
 
+Theorem member_prune_path : forall E L, nabla (x:path),
+  member (E x) L -> exists F, E = y\F.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
 
-Define ctxs nil nil.
-Define nabla x p, ctxs (tm x :: L) (path x p :: K) := ctxs L K.
+Define ctxs : olist -> olist -> prop by
+  ctxs nil nil ;
+  nabla x p, ctxs (tm x :: L) (path x p :: K) := ctxs L K.
 
 Theorem ctxs_member1 : forall E L K,
   ctxs L K -> member (tm E) L ->
-    name E /\ exists F, member (path E F) K /\ name F.
+    tm_var E /\ exists F, member (path E F) K /\ path_var F.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -31,7 +39,7 @@ induction on 1. intros. case H1.
     apply IH to H3 H4. search.
 
 Theorem ctxs_member2 : forall E F L K,
-  ctxs L K -> member (path E F) K -> name E /\ name F.
+  ctxs L K -> member (path E F) K -> tm_var E /\ path_var F.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -43,9 +51,9 @@ Theorem member_path_unique : forall L K X Y F,
 induction on 2. intros. case H2.
   case H3.
     search.
-    case H1. apply member_fresh to H4 _ with X = n2. case H6.
+    case H1. apply member_prune_path to H4.
   case H3.
-    case H1. apply member_fresh to H4 _ with X = n2. case H6.
+    case H1. apply member_prune_path to H4.
     case H1. apply IH to H6 H4 H5. search.
 
 Theorem path_prune : forall K M N, nabla x y,
@@ -53,7 +61,7 @@ Theorem path_prune : forall K M N, nabla x y,
 induction on 1. intros. case H1.
   case H2.
     search.
-    apply member_fresh to H3 _. case H4. search.
+    apply member_prune_tm to H3. search.
   apply IH to H2. search.
   apply IH to H2. search.
   apply IH to H2. search.

@@ -1,0 +1,158 @@
+%% Simulation in the finite pi-calculus is a "pre-congruence"
+%%
+%% (a "pre-congruence" is a congruence without the symmetric relation
+%%  requirement).
+%%
+%% It should be straightforward to extend this script to prove that
+%%  (open) bisimulation is a congruence.
+%%
+%% Eventually, the adjective "finite" should be removed by allowing
+%%  the bang operator in pi-calculus expressions.
+
+Specification "finite-pic".
+Import "finite-pic".
+
+Theorem sim_cong_null :
+      sim null null.
+  unfold.
+   intros. case H1.
+   intros. case H1.
+   intros. case H1.
+
+Theorem sim_cong_taup :
+  forall P Q, sim P Q -> sim (taup P) (taup Q).
+intros. unfold.
+  intros. case H2. search.
+  intros. case H2.
+  intros. case H2.
+
+Theorem sim_cong_plus :
+  forall P Q R S, sim P Q -> sim R S -> sim (plus P R) (plus Q S).
+intros. unfold.
+  % Case 1: free action case and then two subcases: left and right of plus
+  intros. case H3.
+    case H1. apply H5 to H4. search.
+    case H2. apply H5 to H4. search.
+  % Case 2: bound input action case and then two subcases: left and right of plus
+  intros. case H3.
+    case H1. apply H6 to H4. search.
+    case H2. apply H6 to H4. search.
+  % Case 3: bound output action case and then two subcases: left and right of plus
+  intros. case H3.
+    case H1. apply H7 to H4. search.
+    case H2. apply H7 to H4. search.
+
+Theorem sim_cong_match :
+  forall P Q X Y, sim P Q -> sim (match X Y P) (match X Y Q).
+intros. unfold.
+  intros. case H2. case H1. apply H4 to H3. search.
+  intros. case H2. case H1. apply H5 to H3. search.
+  intros. case H2. case H1. apply H6 to H3. search.
+
+Theorem sim_cong_out :
+  forall P Q X Y, sim P Q -> sim (out X Y P) (out X Y Q).
+intros. unfold.
+  intros. case H2. search.
+  intros. case H2.
+  intros. case H2.
+
+Theorem sim_cong_in :
+  forall P Q X, (forall W, sim (P W) (Q W)) -> sim (in X P) (in X Q).
+intros. unfold.
+  intros. case H2.
+  intros. case H2. exists Q. split.
+    search.
+    intros. apply H1 with W = W. search.
+  intros. case H2.
+
+% Now define an invariant inductively
+
+Define inv : proc -> proc -> prop by
+  inv P Q := sim P Q ;
+  inv (par P1 P2) (par Q1 Q2) := inv P1 Q1 /\ inv P2 Q2 ;
+  inv (nu P) (nu Q) := nabla x, inv (P x) (Q x).
+
+% We could inline this since it only appears once.  That is, the
+% simInv predicate is the result of applying the body of `sim' once
+% to inv.
+
+Define simInv : proc -> proc -> prop by
+  simInv P Q :=
+    (forall A P1, {one P A P1} -> exists Q1, {one Q A Q1} /\ inv P1 Q1) /\
+    (forall X M, {oneb P (dn X) M} -> exists N, {oneb Q (dn X) N} /\
+                                                forall W, inv (M W) (N W)) /\
+    (forall X M, {oneb P (up X) M} -> exists N, {oneb Q (up X) N} /\
+                                                nabla w, inv (M w) (N w)).
+
+% We now show that 'inv' is a post-fixed point of simulation.
+
+Theorem inv_simInv :
+  forall P Q, inv P Q -> simInv P Q.
+induction on 1. intros. case H1.
+
+  % Subgoal 1: sim P Q
+  case H2. unfold.
+    intros. apply H3 to H6. search.
+    intros. apply H4 to H6. exists N. split.
+      search.
+      intros. apply H8 with W = W. search.
+    intros. apply H5 to H6. search.
+
+  % Subgoal 2: P = P1|P2, Q = Q1|Q2, inv P1 Q1, inv P2 Q2
+  apply IH to H2. apply IH to H3. case H4. case H5. unfold.
+    intros. case H12.
+      apply  H6 to H13. search.
+      apply  H9 to H13. search.
+      apply H11 to H14. apply H7 to H13.  exists (nu x\ par (N2 x) (N1 x)).
+        split.  search.
+        apply H18 with W = n1. search.
+      apply H8 to H13.  apply H10 to H14. exists (nu x\ par (N1 x) (N2 x)).
+        split.  search.
+        apply H18 with W = n1.  search.
+      apply H7 to H13. apply H9 to H14. exists (par (N Y) Q3).
+        split. search.
+        apply H16 with W = Y. search.
+      apply H6 to H14.  apply H10 to H13. exists (par Q3 (N Y)).
+         apply H18 with W = Y. search.
+    intros. case H12.
+      apply H7 to H13. exists (x\ par (N x) Q2). split.
+        search.
+        intros. apply H15 with W = W. search.
+      apply H10 to H13. exists (x\ par Q1 (N1 x)). split.
+        search.
+        intros. apply H15 with W = W. search.
+    intros. case H12.
+      apply H8 to H13. search.
+      apply H11 to H13. search.
+
+  % Subgoal 3: P = nu P1, Q = nu Q1, inv (P1 n1), inv (Q1 n1)
+  apply IH to H2. case H3. unfold.
+    intros. case H7. apply H4 to H8. search.
+    intros. case H7. apply H5 to H8. exists (x\ nu y\ N y x). split.
+      search.
+      intros. apply H10 with W = W. search.
+    intros. case H7.
+      apply H6 to H8. search.
+      apply H4 to H8. search.
+
+% We can now conclude that inv is a simulation.
+
+Theorem inv_sim :
+  forall P Q, inv P Q -> sim P Q.
+coinduction. intros. apply inv_simInv to H1. case H2. unfold.
+  intros. apply H3 to H6. apply CH to H8. search.
+  intros. apply H4 to H6. exists N. split.
+    search.
+    intros. apply H8 with W = W. apply CH to H9. search.
+  intros. apply H5 to H6. apply CH to H8. search.
+
+% The fact that inv is a post-fixed point is used to prove the final
+% two theorems regarding the pre-congruence of sim.
+
+Theorem sim_cong_par :
+  forall P Q R S, sim P Q -> sim R S -> sim (par P R) (par Q S).
+intros. assert inv (par P R) (par Q S). apply inv_sim to H3. search.
+
+Theorem sim_cong_nu :
+  forall P Q, nabla w, sim (P w) (Q w) -> sim (nu P) (nu Q).
+intros. assert inv (nu P) (nu Q). apply inv_sim to H2. search.

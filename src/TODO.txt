@@ -1,3 +1,33 @@
+break permute by adding constants of names n1 n2...
+
+Add reference section on typing (annotations, type, kind, o, olist,
+prop)
+
+Reference guide section on examples should forward to some index. Can
+we auto generate an index from the thm files?
+  Recheck all examples and links from reference guide as names have
+  changed
+
+Update walkthroughs and references to use new typing and defining
+mechanisms
+
+Add backchain tactic
+Add permute tactic
+  permute (n1 n2 n3) in H3
+  Ensure they are all fresh nominals
+  Get their types from H3 if they have them
+  Then unify all their types
+
+Larger
+======
+
+Allow delcarations about which types are nominal?
+  But which ones are automatically nominal?
+Polymorphism? Type constructors?
+  Issues when using 'apply' and metavariables
+Move examples into their own subdirs where they can have index.html ?
+
+
 Document in next release
 ========================
 Better handling of unification erors during case analysis
@@ -5,10 +35,13 @@ Added some additional handling of non-LLambda unification problems
 
 Future
 ======
+Write some tests for untyping module?
+
+Change context handling to use explicit tail variable
+
 Allow for tacticals
   This requires reworking many things.
   How is tactic failure propogated through tacticals?
-  A proper treatment would fix the 'undo' issue mentioned below.
 
 New syntax for inductive and coinductive definitions?
   Allow for empty predicate definitions? (can define :- false)
@@ -26,9 +59,6 @@ Clean up case-analysis tests so they are easy to read and write like
 the search tests?
 
 Clean up similarities between replace_metaterm_vars and normalize_binders
-
-Find a way of handling undo state so that I don't have to remember to
-  call it each time I start a tactic
 
 
 Examples

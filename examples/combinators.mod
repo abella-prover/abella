@@ -1,3 +1,5 @@
+module combinators.
+
 % Natural deduction
 nd (imp A B) :- nd A => nd B.      % implies introduction
 nd B :- nd (imp A B), nd A.        % implies eliminator

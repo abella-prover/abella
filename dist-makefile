@@ -10,6 +10,7 @@ abella: src/*.ml src/*.mly src/*.mll
 	ocamlopt -c -I src src/unify.ml
 	ocamlopt -c -I src src/context.ml
 	ocamlopt -c -I src src/metaterm.ml
+	ocamlopt -c -I src src/typing.ml
 	ocamlopt -c -I src src/types.ml
 	ocamlopt -c -I src src/parser.mli
 	ocamlopt -c -I src src/parser.ml
@@ -21,6 +22,7 @@ abella: src/*.ml src/*.mly src/*.mll
                        src/version.cmx src/debug.cmx \
                        src/extensions.cmx src/term.cmx \
                        src/unify.cmx src/context.cmx src/metaterm.cmx \
+	                   src/typing.cmx \
                        src/types.cmx src/parser.cmx src/lexer.cmx \
                        src/tactics.cmx src/prover.cmx src/main.cmx
 

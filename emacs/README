@@ -1,8 +1,8 @@
-The files lprolog-mod.el and abella.el provide editing modes for .mod
+The files lprolog.el and abella.el provide editing modes for .sig/.mod
 and .thm files respectively. To use these, add the following to your
 .emacs file.
 
-  (load "/path/to/abella/emacs/lprolog-mod.el")
+  (load "/path/to/abella/emacs/lprolog.el")
   (load "/path/to/abella/emacs/abella.el")
 
 Where /path/to/abella is replaced with the actual location you have

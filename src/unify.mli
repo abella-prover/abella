@@ -22,8 +22,8 @@ open Term
 
 type unify_failure =
   | OccursCheck
-  | TypesMismatch
   | ConstClash of (term * term)
+  | Generic
 
 exception UnifyFailure of unify_failure
 

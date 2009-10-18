@@ -15,6 +15,7 @@ FILE_NAMES[] = $(rootname $(find . -name *.thm))
             export
         case $'Specification "\(.*\)"\.'
             deps[] += $(addsuffix .mod, $1)
+            deps[] += $(addsuffix .sig, $1)
             export
 
         println($"$@: $< $(deps)")
@@ -56,8 +57,9 @@ foreach(name, $(FILE_NAMES))
 
         awk($(name).thm)
         case $'Specification "\(.*\)"\.'
-            echo $1.mod > specification-name
-            ruby html-files/annotate_mod.rb $1.mod > specification
+            echo $1 > spec-name
+            ruby html-files/annotate_lprolog.rb $1.sig > spec-sig
+            ruby html-files/annotate_lprolog.rb $1.mod > spec-mod
 
         ruby html-files/annotate_thm.rb $(name).thm > reasoning
         $(ABELLA) -a $(name).thm > details
@@ -65,13 +67,13 @@ foreach(name, $(FILE_NAMES))
         erb html-files/main.rhtml > html/$(name).html
         erb html-files/details.rhtml > html/$(name)-details.html
 
-        rm -f name title-line specification specification-name \
+        rm -f name title-line spec-name spec-sig spec-mod \
               reasoning details
 
 
 .PHONY: upload-html
 upload-html: html
-    bash -c "chmod 664 html/* *.thm *.mod"
-    scp $(addprefix html/, $(basename $(ls html))) *.mod *.thm \
+    bash -c "chmod 664 html/* *.sig *.thm *.mod"
+    scp $(addprefix html/, $(basename $(ls html))) *.sig *.mod *.thm \
       $(UPLOAD_SITE)/examples
     rm -rf html

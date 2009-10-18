@@ -1,10 +1,11 @@
 <%
   title = File.open('title-line').read.gsub(/^%* */, "").chomp
   name = File.open('name').read.chomp
-  have_spec = File.exist?('specification')
+  have_spec = File.exist?('spec-name')
   if have_spec then
-    specification = File.open('specification').read.chomp
-    specification_name = File.open('specification-name').read.chomp
+    spec_name = File.open('spec-name').read.chomp
+    spec_sig = File.open('spec-sig').read.chomp
+    spec_mod = File.open('spec-mod').read.chomp
   end
   reasoning = File.open('reasoning').read.chomp
 %>
@@ -48,16 +49,22 @@ function toggle_all(show) {
 
 <% if have_spec %>
 <div class="section">
-<h2 class="title">Executable Specification</h2>
-<a class="view" href="<%= specification_name %>">[View <%= specification_name %>]</a>
+<h1 class="title">Executable Specification</h1>
+
+<a class="view" href="<%= spec_name %>.sig">[View <%= spec_name %>.sig]</a>
+<a class="view" href="<%= spec_name %>.mod">[View <%= spec_name %>.mod]</a>
 <pre class="command">
-<%= specification %>
+<%= spec_sig %>
 </pre>
+<pre class="command">
+<%= spec_mod %>
+</pre>
+
 </div>
 <% end %>
 
 <div class="section">
-<h2 class="title">Reasoning</h2>
+<h1 class="title">Reasoning</h1>
 <a class="view" href="<%= name %>.thm">[View <%= name %>.thm]</a>
 <a class="fold-link" href="javascript:toggle_all(true);">[Show All Proofs]</a>
 <a class="fold-link" href="javascript:toggle_all(false);">[Hide All Proofs]</a>

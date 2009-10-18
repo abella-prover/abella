@@ -9,9 +9,11 @@ Specification "stlc-strong-norm".
 %% Terms: M, N, P, R, U, V
 %% Contexts: L, K
 
-Define sn M := forall N, {step M N} -> sn N.
+Define sn : tm -> prop by
+  sn M := forall N, {step M N} -> sn N.
 
-Define neutral M := forall A R, M = abs A R -> false.
+Define neutral : tm -> prop by
+  neutral M := forall A R, M = abs A R -> false.
 
 %% Reduce is the logical relation used to prove normalization.
 %%
@@ -21,34 +23,37 @@ Define neutral M := forall A R, M = abs A R -> false.
 %% second argument to reduce is strictly smaller in the (negative)
 %% recursive occurrence, thus the definition is indeed stratified.
 
-Define reduce M top := {of M top} /\ sn M.
-Define reduce M (arrow A B) :=
-  {of M (arrow A B)} /\
-  (forall U, reduce U A -> reduce (app M U) B).
+Define reduce : tm -> ty -> prop by
+  reduce M top := {of M top} /\ sn M ;
+  reduce M (arrow A B) :=
+    {of M (arrow A B)} /\
+    (forall U, reduce U A -> reduce (app M U) B).
 
 Theorem reduce_of : forall A M, reduce M A -> {of M A}.
 intros. case H1.
   search.
   search.
 
-% ctx defines the context of "of M A" judgments. The judgment {type A}
+% ctx defines the context of "of M A" judgments. The judgment {ty A}
 % ensures that all types in the context are well-formed, e.g. they do
 % not contain nominal constants.
-Define ctx nil.
-Define nabla x, ctx (of x A :: L) := {type A} /\ ctx L.
+Define ctx : olist -> prop by
+  ctx nil ;
+  nabla x, ctx (of x A :: L) := {ty A} /\ ctx L.
 
-Define nabla x, name x.
+Define name : tm -> prop by
+  nabla x, name x.
 
 Theorem ctx_member : forall E L,
-  ctx L -> member E L -> exists X A, E = of X A /\ name X /\ {type A}.
+  ctx L -> member E L -> exists X A, E = of X A /\ name X /\ {ty A}.
 induction on 1. intros. case H1.
   case H2.
   case H2.
     search.
     apply IH to H4 H5. search.
 
-Theorem type_ignores_ctx : forall L A,
-  ctx L -> {L |- type A} -> {type A}.
+Theorem ty_ignores_ctx : forall L A,
+  ctx L -> {L |- ty A} -> {ty A}.
 induction on 2. intros. case H2.
   apply ctx_member to H1 H3.
   search.
@@ -65,10 +70,10 @@ intros. case H2.
 
 Theorem case_of_abs : forall L M A B,
   ctx L -> {L |- of (abs A M) B} ->
-    exists C, B = arrow A C /\ {type A} /\ nabla x, {L, of x A  |- of (M x) C}.
+    exists C, B = arrow A C /\ {ty A} /\ nabla x, {L, of x A  |- of (M x) C}.
 intros. case H2.
   apply ctx_member to H1 H3. case H4.
-    apply type_ignores_ctx to H1 H3. search.
+    apply ty_ignores_ctx to H1 H3. search.
 
 % Subject reduction - generalized version
 Theorem of_step_ext : forall L M N A,
@@ -106,7 +111,7 @@ induction on 1. intros. case H1.
 
 % CR1 and CR3 are mutually recursive,
 Theorem cr1_cr3 : forall A,
-  {type A} ->
+  {ty A} ->
     (forall M, reduce M A -> sn M)
     /\
     (forall M, neutral M -> {of M A} ->
@@ -170,30 +175,30 @@ induction on 1. intros. split*.
 
 % CR1
 Theorem reduce_sn : forall A M,
-  {type A} -> reduce M A -> sn M.
+  {ty A} -> reduce M A -> sn M.
 intros. apply cr1_cr3 to H1. apply H3 to H2. search.
 
 % CR3
 Theorem neutral_step_reduce : forall A M,
-  neutral M -> {of M A} -> {type A} ->
+  neutral M -> {of M A} -> {ty A} ->
     (forall P, {step M P} -> reduce P A) ->
     reduce M A.
 intros. apply cr1_cr3 to H3. apply H6 to H1 H2 H4. search.
 
-Theorem of_type_ext : forall L M A,
-  ctx L -> {L |- of M A} -> {type A}.
+Theorem of_ty_ext : forall L M A,
+  ctx L -> {L |- of M A} -> {ty A}.
 induction on 2. intros. case H2.
   apply ctx_member to H1 H3. search.
   apply IH to H1 H3. case H5. search.
-  apply type_ignores_ctx to H1 H3. apply IH to _ H4. search.
-  apply type_ignores_ctx to H1 H3. search.
+  apply ty_ignores_ctx to H1 H3. apply IH to _ H4. search.
+  apply ty_ignores_ctx to H1 H3. search.
 
-Theorem of_type : forall M A,
-  {of M A} -> {type A}.
-intros. apply of_type_ext to _ H1. search.
+Theorem of_ty : forall M A,
+  {of M A} -> {ty A}.
+intros. apply of_ty_ext to _ H1. search.
 
 Theorem reduce_const : forall C,
-  {type C} -> reduce c C.
+  {ty C} -> reduce c C.
 intros.
   assert (neutral c).
     unfold. intros. case H2.
@@ -234,7 +239,7 @@ induction on 1. induction on 2. intros.
   assert {of (app (abs A M) U) B}.
     apply reduce_of to H3. search.
 
-  apply of_type to H8.
+  apply of_ty to H8.
   apply neutral_step_reduce to H7 H8 H9 H6. search.
 
 
@@ -245,7 +250,7 @@ Theorem abs_step_reduce : forall M A B,
 intros. unfold.
   search.
   intros.
-    apply of_type to H1. case H4.
+    apply of_ty to H1. case H4.
     apply reduce_const to H5.
     apply H2 to H7.
     apply reduce_sn to H5 H3.
@@ -256,47 +261,44 @@ intros. unfold.
 %% Properties about nominal constants, e.g. where they can and cannot occur.
 
 % A term is closed if it can be typed in the empty context
-Define closed M := exists A, {of M A}.
+Define closed : tm -> prop by
+  closed M := exists A, {of M A}.
 
-Define nabla x, fresh x M.
-
-Theorem member_fresh : forall X L E,
-  member E L -> fresh X L -> fresh X E.
+Theorem member_prune : forall L E, nabla (x:tm),
+  member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
-  case H2. search.
-  assert fresh X L1.
-    case H2. search.
-    apply IH to H3 H4. search.
+  search.
+  apply IH to H2. search.
 
 % Types do not contain nominal constants, thus any dependencies on
 % nominal constants can be pruned
-Theorem prune_type : forall A, nabla x,
-  {type (A x)} -> exists B, A = (x\ B).
+Theorem prune_ty : forall A, nabla (x:tm),
+  {ty (A x)} -> exists B, A = y\B.
 induction on 1. intros. case H1.
   search.
   apply IH to H2. apply IH to H3. search.
 
 % A term cannot contain a nominal variable which does not appear in
 % its typing context L.
-Theorem prune_of : forall L R A, nabla x,
-  ctx L -> {L |- of (R x) (A x)} -> exists M, R = (x\ M).
+Theorem prune_of : forall L R A, nabla (x:tm),
+  ctx L -> {L |- of (R x) (A x)} -> exists M, R = y\M.
 induction on 2. intros. case H2.
-  apply member_fresh to H3 _. case H4. search.
+  apply member_prune to H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
-  apply type_ignores_ctx to H1 H3. apply prune_type to H5.
+  apply ty_ignores_ctx to H1 H3. apply prune_ty to H5.
     apply IH to _ H4. search.
   search.
 
 % Closed terms cannot contain any nominal constants
-Theorem prune_closed : forall R, nabla x,
-  closed (R x) -> exists M, R = (x\ M).
+Theorem prune_closed : forall R, nabla (x:tm),
+  closed (R x) -> exists M, R = y\M.
 intros. case H1. apply prune_of to _ H2. search.
 
 Theorem reduce_closed : forall M A, reduce M A -> closed M.
 intros. apply reduce_of to H1. search.
 
-Theorem prune_reduce : forall R A, nabla x,
-  reduce (R x) A -> exists M, R = (x\ M).
+Theorem prune_reduce : forall R A, nabla (x:tm),
+  reduce (R x) A -> exists M, R = y\M.
 intros. apply reduce_closed to H1. apply prune_closed to H2. search.
 
 %% Now we need to state the generalize theorem. This will require reasoning
@@ -309,9 +311,10 @@ intros. apply reduce_closed to H1. apply prune_closed to H2. search.
 % judgment is the use of nabla in the head of a definition which extracts
 % a nominal constant from L and M. The definition of subst then substitutes
 % for this nominal constant and continues processing the list L.
-Define subst nil M M.
-Define nabla x, subst (of x A :: L) (R x) M :=
-  exists U, reduce U A /\ subst L (R U) M.
+Define subst : olist -> tm -> tm -> prop by
+  subst nil M M ;
+  nabla x, subst (of x A :: L) (R x) M :=
+    exists U, reduce U A /\ subst L (R U) M.
 
 % Subst on a closed term has no effect
 Theorem closed_subst : forall L M N,
@@ -334,7 +337,7 @@ induction on 1. intros. case H1.
   case H2.
     case H3. apply reduce_closed to H6.
       apply closed_subst to H8 H7. search.
-    case H3. apply member_fresh to H6 _. case H9.
+    case H3. apply member_prune to H6.
       apply IH to H5 H6 H8. search.
 
 Theorem subst_app : forall L M N R,
@@ -344,10 +347,10 @@ induction on 1. intros. case H1.
   case H2. search.
   case H2. apply IH to H4 H6. search.
 
-% This theorem has a {type A} hypothesis to ensure that no nominal variables
+% This theorem has a {ty A} hypothesis to ensure that no nominal variables
 % can appear in A and thus substitutions do not affect A
 Theorem subst_abs : forall L M R A,
-  ctx L -> subst L (abs A M) R -> {type A} ->
+  ctx L -> subst L (abs A M) R -> {ty A} ->
       exists MR, R = abs A MR /\
         (forall U, reduce U A ->
                      nabla x, subst (of x A :: L) (M x) (MR U)).
@@ -355,20 +358,20 @@ induction on 1. intros. case H1.
   case H2. exists M. split.
     search.
     intros. search.
-  case H2. apply prune_type to H3.
+  case H2. apply prune_ty to H3.
     apply IH to H5 H7 H3.
       exists MR. split.
         search.
         intros. apply prune_reduce to H9.
           apply H8 to H9. case H10. search.
 
-Theorem subst_preserves_type : forall L M N A,
+Theorem subst_preserves_ty : forall L M N A,
   ctx L -> subst L M N -> {L |- of M A} -> {of N A}.
 induction on 1. intros. case H1.
   case H2. search.
   case H2.
     apply reduce_of to H6. inst H3 with n1 = U. cut H9 with H8.
-      apply of_type_ext to _ H3. apply prune_type to H11.
+      apply of_ty_ext to _ H3. apply prune_ty to H11.
         apply IH to H5 H7 H10. search.
 
 Theorem strong_norm_ext : forall L M R A,
@@ -379,19 +382,19 @@ induction on 2. intros. case H2 (keep).
     apply IH to H1 H4 H6.
       apply IH to H1 H5 H7.
         case H8. apply H11 to H9. search.
-  apply type_ignores_ctx to H1 H4.
+  apply ty_ignores_ctx to H1 H4.
     apply subst_abs to H1 H3 H6.
-      apply subst_preserves_type to H1 H3 H2.
+      apply subst_preserves_ty to H1 H3 H2.
         apply abs_step_reduce to H8 _. intros.
-          apply type_ignores_ctx to H1 H4.
+          apply ty_ignores_ctx to H1 H4.
           apply H7 to H9.
           apply IH to _ H5 H11. search.
         search.
   apply subst_const to H3.
-    apply type_ignores_ctx to H1 H4.
+    apply ty_ignores_ctx to H1 H4.
       apply reduce_const to H5. search.
 
 Theorem strong_norm : forall M A, {of M A} -> sn M.
 intros. apply strong_norm_ext to _ H1 _.
-  apply of_type to H1.
+  apply of_ty to H1.
     apply reduce_sn to _ H2. search.

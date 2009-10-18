@@ -43,16 +43,16 @@ let tests =
       "Intros should raise over support" >::
         (fun () ->
            setup_prover ()
-             ~goal:"forall L, foo n1 L" ;
+             ~goal:"forall L, rel1 n1 L" ;
 
            intros () ;
-           assert_goal "foo n1 (L n1)"
+           assert_goal "rel1 n1 (L n1)"
         ) ;
 
       "Intros on multiple nabla variables" >::
         (fun () ->
            setup_prover ()
-             ~goal:"nabla x y, x = y" ;
+             ~goal:"nabla (x:i) y, x = y" ;
 
            intros () ;
            assert_goal "n1 = n2"
@@ -61,18 +61,18 @@ let tests =
       "Assert test" >::
         (fun () ->
            setup_prover ()
-             ~goal:"{pred A}" ;
+             ~goal:"{a}" ;
 
-           assert_hyp (freshen "{pred B}") ;
+           assert_hyp (parse_umetaterm "{b}") ;
            assert_n_subgoals 2 ;
 
-           assert_pprint_equal "{pred B}" sequent.goal ;
+           assert_pprint_equal "{b}" sequent.goal ;
            skip () ;
            assert_n_subgoals 1 ;
 
-           assert_pprint_equal "{pred A}" sequent.goal ;
+           assert_pprint_equal "{a}" sequent.goal ;
            match sequent.hyps with
-             | [h] -> assert_pprint_equal "{pred B}" h.term
+             | [h] -> assert_pprint_equal "{b}" h.term
              | _ -> assert_failure "Expected one hypothesis"
         ) ;
 
@@ -80,20 +80,20 @@ let tests =
         (fun () ->
            setup_prover () ;
 
-           add_hyp (freshen "{L, E |- pred A}*") ;
+           add_hyp (freshen "{L, E |- conc A}*") ;
 
-           monotone "H1" (parse_term "E :: K") ;
+           monotone "H1" (parse_uterm "a :: b :: nil") ;
 
            assert_n_subgoals 2 ;
            assert_pprint_equal
-             "forall X, member X (E :: L) -> member X (E :: K)"
+             "forall X, member X (E :: L) -> member X (a :: b :: nil)"
              sequent.goal ;
 
            skip () ;
            assert_n_subgoals 1 ;
            match sequent.hyps with
              | [_; h] ->
-                 assert_pprint_equal "{K, E |- pred A}*" h.term
+                 assert_pprint_equal "{b, a |- conc A}*" h.term
              | _ -> assert_failure "Expected two hypotheses"
         ) ;
 
@@ -188,30 +188,30 @@ let tests =
       "Exists test" >::
         (fun () ->
            setup_prover ()
-             ~goal:"exists A, {foo A}" ;
+             ~goal:"exists A, foo A" ;
 
-           exists (parse_term "X") ;
+           exists (parse_uterm "t1") ;
 
-           assert_pprint_equal "{foo X}" sequent.goal) ;
+           assert_pprint_equal "foo t1" sequent.goal) ;
 
       "Obligations from apply should be added as subgoals" >::
         (fun () ->
            setup_prover ()
-             ~goal:"{third B}" ;
+             ~goal:"baz B" ;
 
            add_hyp
-             (freshen ("forall A, {first A} -> {second A} -> {third A}")) ;
-           add_hyp (freshen "{first B}") ;
+             (freshen ("forall A, foo A -> bar A -> baz A")) ;
+           add_hyp (freshen "foo B") ;
 
            assert_n_subgoals 1 ;
 
            apply "H1" ["H2"; "_"] [] ;
            assert_n_subgoals 2 ;
-           assert_pprint_equal "{second B}" sequent.goal ;
+           assert_pprint_equal "bar B" sequent.goal ;
 
            skip () ;
            assert_n_subgoals 1 ;
-           assert_pprint_equal "{third B}" sequent.goal ;
+           assert_pprint_equal "baz B" sequent.goal ;
         );
 
       "Apply should trigger case analysis" >::
@@ -261,7 +261,7 @@ let tests =
 
       "Add example (lemmas)" >::
         (fun () ->
-           let addition_clauses = parse_clauses "
+           let addition_clauses = parse_lpmod "
              add z N N.
              add (s A) B (s C) :- add A B C.
              nat z.
@@ -312,13 +312,23 @@ let tests =
            assert_n_subgoals 2 ;
         ) ;
 
+      "Inst should error on vacuous" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"{b}" ;
+
+           add_hyp (freshen "{a}") ;
+           assert_raises (Failure("Vacuous instantiation"))
+             (fun () -> inst "H1" "n1" (parse_uterm "t1"))
+        ) ;
+
       "Proving OR" >::
         (fun () ->
-           let clauses = parse_clauses "foo a. foo b. eq X X." in
+           let clauses = parse_lpmod "p1 t1. p1 t2. eq X X." in
 
              setup_prover ()
                ~clauses:clauses
-               ~goal:"forall X, {foo X} -> {eq X a} \\/ {eq X b}" ;
+               ~goal:"forall X, {p1 X} -> {eq X t1} \\/ {eq X t2}" ;
 
              assert_proof
                (fun () ->
@@ -337,11 +347,11 @@ let tests =
 
       "OR on left side of arrow" >::
         (fun () ->
-           let clauses = parse_clauses "foo a. foo b. eq X X." in
+           let clauses = parse_lpmod "p1 t1. p1 t2. eq X X." in
 
              setup_prover ()
                ~clauses:clauses
-               ~goal:"forall X, {eq X a} \\/ {eq X b} -> {foo X}" ;
+               ~goal:"forall X, {eq X t1} \\/ {eq X t2} -> {p1 X}" ;
 
              assert_proof
                (fun () ->
@@ -351,6 +361,7 @@ let tests =
 
                   case "H2" ;
                   search () ;
+                  assert_n_subgoals 1 ;
 
                   case "H2" ;
                   search () ;
@@ -359,7 +370,7 @@ let tests =
 
       "Using IH with OR" >::
         (fun () ->
-           let clauses = parse_clauses
+           let clauses = parse_lpmod
              ("nat z. nat (s X) :- nat X." ^
                 "even z. even (s X) :- odd X." ^
                 "odd (s z). odd (s X) :- even X.") in
@@ -394,8 +405,8 @@ let tests =
         (fun () ->
            setup_prover () ;
 
-           add_hyp (freshen "forall A, {foo} -> {bar A}") ;
-           add_hyp (freshen "{foo}") ;
+           add_hyp (freshen "forall A, {a} -> bar A") ;
+           add_hyp (freshen "{a}") ;
 
            try
              apply "H1" ["H2"] [] ;
@@ -408,7 +419,7 @@ let tests =
       "Search should not find the inductive hypothesis" >::
         (fun () ->
            setup_prover ()
-             ~goal:"forall X, {foo X} -> {bar X}" ;
+             ~goal:"forall X, {p1 X} -> {p2 X}" ;
 
            induction [1] ;
            search () ;
@@ -421,7 +432,7 @@ let tests =
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
 
-           List.iter (add_def Types.CoInductive)
+           add_defs ["bar"] Types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
@@ -435,7 +446,7 @@ let tests =
            setup_prover ()
              ~goal:"bar X" ;
 
-           List.iter (add_def Types.CoInductive)
+           add_defs ["bar"] Types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            assert_proof
@@ -447,10 +458,10 @@ let tests =
       "Apply should not work with IH as argument" >::
         (fun () ->
            setup_prover ()
-             ~lemmas:[("lem", "(forall X, foo X -> bar X) -> baz")]
+             ~lemmas:[("lem", "(forall X, foo X -> bar X) -> {a}")]
              ~goal:"forall X, foo X -> bar X" ;
 
-           List.iter (add_def Types.Inductive)
+           add_defs ["foo"] Types.Inductive
              (parse_defs "foo X := foo X.") ;
 
            induction [1] ;
@@ -460,10 +471,10 @@ let tests =
       "Apply should not work with CH as argument" >::
         (fun () ->
            setup_prover ()
-             ~lemmas:[("lem", "(forall X, foo X -> bar X) -> baz")]
+             ~lemmas:[("lem", "(forall X, foo X -> bar X) -> {a}")]
              ~goal:"forall X, foo X -> bar X" ;
 
-           List.iter (add_def Types.CoInductive)
+           add_defs ["bar"] Types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
@@ -483,11 +494,11 @@ let tests =
       "Case-analysis with nabla in the head, two in a row" >::
         (fun () ->
            setup_prover ()
-             ~goal:"forall X Y, name X -> name Y -> \
+             ~goal:"forall X Y, foo X -> foo Y -> \
                           (X = Y \\/ (X = Y -> false))" ;
 
-           List.iter (add_def Types.Inductive)
-             (parse_defs "nabla x, name x.") ;
+           add_defs ["foo"] Types.Inductive
+             (parse_defs "nabla x, foo x.") ;
 
            assert_proof
              (fun () ->
@@ -512,9 +523,9 @@ let tests =
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
 
-           List.iter (add_def Types.Inductive)
+           add_defs ["foo"] Types.Inductive
              (parse_defs "foo X := foo X.") ;
-           List.iter (add_def Types.CoInductive)
+           add_defs ["bar"] Types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
@@ -528,9 +539,9 @@ let tests =
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
 
-           List.iter (add_def Types.Inductive)
+           add_defs ["foo"] Types.Inductive
              (parse_defs "foo X := foo X.") ;
-           List.iter (add_def Types.CoInductive)
+           add_defs ["bar"] Types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            induction [1] ;
@@ -539,3 +550,4 @@ let tests =
         ) ;
 
     ]
+

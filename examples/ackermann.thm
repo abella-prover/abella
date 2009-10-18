@@ -2,12 +2,20 @@
 %%
 %% This is a very small example that requires nested inductions.
 
-Define nat z.
-Define nat (s X) := nat X.
+Kind     nat     type.
 
-Define ack z N (s N).
-Define ack (s M) z R := ack M (s z) R.
-Define ack (s M) (s N) R := exists R', ack (s M) N R' /\ ack M R' R.
+Type     z       nat.
+Type     s       nat -> nat.
+
+
+Define nat : nat -> prop by
+  nat z ;
+  nat (s X) := nat X.
+
+Define ack : nat -> nat -> nat -> prop by
+  ack z N (s N) ;
+  ack (s M) z R := ack M (s z) R ;
+  ack (s M) (s N) R := exists R', ack (s M) N R' /\ ack M R' R.
 
 Theorem ack_total : forall M N,
   nat M -> nat N -> exists R, nat R /\ ack M N R.

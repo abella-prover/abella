@@ -1,114 +1,71 @@
-%% Comparison between internal and external definition of seq
+%% Seq proofs used in Gacek's PhD thesis
 
-% prog holds the object level program which is addition in this case
-Define prog (nat z) t.
-Define prog (nat (s N)) (atom (nat N)).
+Kind   nat, tm, ty       type.
+Kind   atm, atmlist      type.
 
-Define prog (add z N N) t.
-Define prog (add (s A) B (s C)) (atom (add A B C)).
+Type   z                 nat.
+Type   s                 nat -> nat.
+Type   app               tm -> tm -> tm.
+Type   abs               (tm -> tm) -> tm.
+Type   arrow             ty -> ty -> ty.
+Type   nl                atmlist.
+Type   cons              atm -> atmlist -> atmlist.
 
-Define seq L t.
-Define seq L (atom A) := member A L.
-Define seq L (and A B) := seq L A /\ seq L B.
-Define seq L (A => B) := seq (A :: L) B.
-Define seq L (pi G) := nabla x, seq L (G x).
-Define seq L (sigma G) := exists X, seq L (G X).
-Define seq L (atom A) := exists B, prog A B /\ seq L B.
+Type   eval              tm -> tm -> atm.
+Type   of                tm -> ty -> atm.
 
-Theorem external : forall S T,
-  seq nil (pi x\ p x S => pi y\ p y T => atom (p x T)) -> S = T.
-intros.
-case H1.
-case H2.
-case H3.
-case H4.
-case H5.
-case H6.
-  case H7.
-    search.
-    case H8.
-  case H6.
-
-Theorem internal : forall S T,
-  {pi x\ p x S => pi y\ p y T => p x T} -> S = T.
-intros.
-case H1.
-case H2.
-case H3.
-  search.
-  case H4.
-
-%% An external version of add.mod/thm
-%%
-%% The primary difference (besides the extra syntax of "atom") is that
-%% for (seq nil P) we have to consider both (member P nil) and
-%% (prog P B, seq nil B). Then we have to do case analysis on (prog P B)
-%% to unfold the body of P. In the internal version, all of this is
-%% contained in one case analysis.
-
-Theorem add_base : forall N,
-  seq nil (atom (nat N)) -> seq nil (atom (add N z N)).
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    search.
-    apply IH to H3. search.
-
-Theorem add_step : forall A B C,
-  seq nil (atom (add A B C)) -> seq nil (atom (add A (s B) (s C))).
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    search.
-    apply IH to H3. search.
-
-Theorem add_comm : forall A B C, seq nil (atom (nat B)) ->
-  seq nil (atom (add A B C)) -> seq nil (atom (add B A C)).
-induction on 2. intros. case H2.
-  case H3.
-  case H3.
-    apply add_base to H1. search.
-    apply IH to H1 H4. apply add_step to H5. search.
+Type   tt                o.
+Type   atom              atm -> o.
+Type   or, and           o -> o -> o.
+Type   imp               atm -> o -> o.
+Type   all               (tm -> o) -> o.
+Type   ex                (tm -> o) -> o.
 
 
-%% A benefit of the external definition of seq is that it allows us to prove
-%% meta-theoremas about lambda prolog. Since these proofs require more than
-%% just structural induction on seq, we define seq/3 which is annotated
-%% with an explicit measure.
+Define nat : nat -> prop by
+  nat z ;
+  nat (s N) := nat N.
 
-Define seq N L t.
-Define seq N L (atom A) := member A L.
-Define seq (s N) L (and A B) := seq N L A /\ seq N L B.
-Define seq (s N) L (A => B) := seq N (A :: L) B.
-Define seq (s N) L (pi G) := nabla x, seq N L (G x).
-Define seq (s N) L (sigma G) := exists X, seq N L (G X).
-Define seq (s N) L (atom A) := exists B, prog A B /\ seq N L B.
+Define lt : nat -> nat -> prop by
+  lt z (s N) ;
+  lt (s M) (s N) := lt M N.
 
+Define prog : atm -> o -> prop by
+  prog (eval (abs R) (abs R)) tt ;
+  prog (eval (app P Q) V)
+       (and (atom (eval P (abs R)))
+            (atom (eval (R Q) V))) ;
 
-%% We show that seq/3 is no more powerful than seq/2
+  prog (of (abs R) (arrow A B))
+       (all x\ imp (of x A) (atom (of (R x) B))) ;
+  prog (of (app P Q) B)
+       (and (atom (of P (arrow A B)))
+            (atom (of Q A))).
 
-Theorem seq3_seq2 : forall N L G,
-  seq N L G -> seq L G.
-induction on 1. intros. case H1.
-  search.
-  search.
-  apply IH to H2. apply IH to H3. search.
-  apply IH to H2. search.
-  apply IH to H2. search.
-  apply IH to H2. search.
-  apply IH to H3. search.
+Define mem : atm -> atmlist -> prop by
+  mem A (cons A L) ;
+  mem A (cons B L) := mem A L.
 
-
-%% Not only do permutations not effect provability, but they also
-%% preserve proof height.
+Define seq : nat -> atmlist -> o -> prop by
+  seq (s N) L tt ;
+  seq (s N) L (atom A) := mem A L ;
+  seq (s N) L (or A B) := seq N L A ;
+  seq (s N) L (or A B) := seq N L B ;
+  seq (s N) L (and A B) := seq N L A /\ seq N L B ;
+  seq (s N) L (imp A B) := seq N (cons A L) B ;
+  seq (s N) L (all G) := nabla x, seq N L (G x) ;
+  seq (s N) L (ex G) := exists X, seq N L (G X) ;
+  seq (s N) L (atom A) := exists B, prog A B /\ seq N L B.
 
 Theorem seq_subset : forall L1 L2 G N,
-  seq N L1 G -> (forall X, member X L1 -> member X L2) -> seq N L2 G.
+  seq N L1 G -> (forall X, mem X L1 -> mem X L2) -> seq N L2 G.
 induction on 1. intros. case H1.
   search.
   apply H2 to H3. search.
+  apply IH to H3 H2. search.
+  apply IH to H3 H2. search.
   apply IH to H3 H2. apply IH to H4 H2. search.
-  assert forall X, member X (A :: L1) -> member X (A :: L2).
+  assert forall X, mem X (cons A L1) -> mem X (cons A L2).
     intros. case H4.
       search.
       apply H2 to H5. search.
@@ -117,65 +74,164 @@ induction on 1. intros. case H1.
   apply IH to H3 H2. search.
   apply IH to H4 H2. search.
 
-
-%% The main result is that seq/3 admits a cut property. The proof is on
-%% the height of one of the derivations, but note that the induction
-%% cannot be structural since we must at one point permute the context
-%% before the inductive hypothesis can be applied.
-
-Define nat z.
-Define nat (s X) := nat X.
-
-Theorem seq3_cut : forall K L G N M,
-  nat N -> seq N (K :: L) G -> seq M L (atom K) -> seq L G.
-induction on 1. intros. case H2.
-  search.
-  case H4.
-    apply seq3_seq2 to H3. search.  % Key case: G=K
+Theorem seq_lt : forall L G N M,
+  lt M N -> seq M L G -> seq N L G.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
     search.
-  case H1. apply IH to H6 H4 H3. apply IH to H6 H5 H3. search.
-  assert forall X, member X (A :: K :: L) -> member X (K :: A :: L).
-    intros. case H5.
+    search.
+    apply IH to H3 H4. search.
+    apply IH to H3 H4. search.
+    apply IH to H3 H4. apply IH to H3 H5. search.
+    apply IH to H3 H4. search.
+    apply IH to H3 H4. search.
+    apply IH to H3 H4. search.
+    apply IH to H3 H5. search.
+
+Theorem nat_lt : forall A B,
+  nat A -> nat B -> lt A B \/ A = B \/ lt B A.
+induction on 1. intros. case H1.
+  case H2.
+    search.
+    search.
+  case H2.
+    search.
+    apply IH to H3 H4. case H5.
       search.
-      case H6.
-        search.
-        search.
-    apply seq_subset to H4 H5.
-      assert forall X, member X L -> member X (A :: L).
-        intros. search.
-      apply seq_subset to H3 H7.
-        case H1. apply IH to H9 H6 H8. search.
-  case H1. apply IH to H5 H4 H3. search.
-  case H1. apply IH to H5 H4 H3. search.
-  case H1. apply IH to H6 H5 H3. search.
+      search.
+      search.
 
+Theorem nat_prune : forall N, nabla (x:tm),
+  nat (N x) -> exists M, N = x\M.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
 
-%% Another important result is that nabla variables can be treated as
+Theorem seq_cut : forall K L G N M,
+  nat N -> seq N (cons K L) G -> nat M -> seq M L (atom K) ->
+    exists P, nat P /\ seq P L G.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    case H6.
+      search.  % Key case: G=K
+      search.
+    apply IH to H5 H6 H3 H4. search.
+    apply IH to H5 H6 H3 H4. search.
+    apply IH to H5 H6 H3 H4. apply IH to H5 H7 H3 H4.
+      apply nat_lt to H8 H10. case H12.
+        apply seq_lt to H13 H9. search.
+        search.
+        apply seq_lt to H13 H11. search.
+    assert forall X, mem X (cons A (cons K L)) -> mem X (cons K (cons A L)).
+      intros. case H7.
+        search.
+        case H8.
+          search.
+          search.
+      apply seq_subset to H6 H7.
+        assert forall X, mem X L -> mem X (cons A L).
+          intros. search.
+        apply seq_subset to H4 H9.
+          apply IH to H5 H8 H3 H10. search.
+    apply IH to H5 H6 H3 H4. apply nat_prune to H7. search.
+    apply IH to H5 H6 H3 H4. search.
+    apply IH to H5 H7 H3 H4. search.
+
+%% Another important result is that nabla variablts can be treated as
 %% universally quantified inside of seq. That is, we can always
 %% instantiate them. Furthermore, this instantiation does not increase
 %% the proof height.
 
-Theorem member_inst : forall L A T, nabla x,
-  member (A x) (L x) -> member (A T) (L T).
+Theorem mem_inst : forall L A T, nabla (x:tm),
+  mem (A x) (L x) -> mem (A T) (L T).
 induction on 1. intros. case H1.
   search.
   apply IH to H2 with T = T. search.
 
-Theorem prog_inst : forall A B T, nabla x,
+Theorem prog_inst : forall A B T, nabla (x:tm),
   prog (A x) (B x) -> prog (A T) (B T).
-intros. case H1.
-  search.
-  search.
-  search.
-  search.
+skip.
+% This is true but falls outside of pattern unification. If we comment
+% out the prog clause for the app case of eval, then the following
+% proof will work:
+%   intros. case H1.
+%     search.
+%     search.
+%     search.
 
-Theorem seq_inst : forall N L G T, nabla x,
+
+Theorem seq_inst : forall N L G T, nabla (x:tm),
   seq N (L x) (G x) -> seq N (L T) (G T).
 induction on 1. intros. case H1.
   search.
-  apply member_inst to H2 with T = T. search.
+  apply mem_inst to H2 with T = T. search.
+  apply IH to H2 with T = T. search.
+  apply IH to H2 with T = T. search.
   apply IH to H2 with T = T. apply IH to H3 with T = T. search.
   apply IH to H2 with T = T. search.
   apply IH to H2 with T = T. search.
   apply IH to H2 with T = T. search.
   apply prog_inst to H2 with T = T. apply IH to H3 with T = T. search.
+
+Theorem lt_s : forall A B,
+  lt A B -> lt A (s B).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem sr : forall E V A M N N',
+  nat N' -> lt N N' -> seq N nl (atom (eval E V)) ->
+  nat M -> seq M nl (atom (of E A)) ->
+  exists P, nat P /\ seq P nl (atom (of V A)).
+induction on 1. intros. case H1.
+case H2.
+case H3. case H7. case H7.
+search.
+case H8. case H5. case H11. case H11. case H12.
+case H2. apply lt_s to H15. case H16.
+case H4. case H18.
+apply IH to H6 H17 H9 H19 H13. case H21. case H22. case H22. case H23.
+case H24. apply seq_inst to H25 with T = Q. case H20. case H27. case H28.
+apply seq_cut to H29 H26 H19 H14.
+apply IH to H6 H17 H10 H30 H31.
+search.
+
+Define tridot : atmlist -> o -> prop by
+  tridot L G := exists N, nat N /\ seq N L G.
+
+% lem:deriv-forward
+Theorem lem1 :
+  forall L, tridot L tt.
+intros. search.
+
+Theorem lem2 :
+  forall L G1 G2, tridot L G1 -> tridot L (or G1 G2).
+intros. case H1. search.
+
+Theorem lem3 :
+  forall L G1 G2, tridot L G2 -> tridot L (or G1 G2).
+intros. case H1. search.
+
+Theorem lem4 :
+  forall L G1 G2, tridot L G1 -> tridot L G2 -> tridot L (and G1 G2).
+intros. case H1. case H2.
+  apply nat_lt to H3 H5. case H7.
+    apply seq_lt to H8 H4. search.
+    search.
+    apply seq_lt to H8 H6. search.
+
+Theorem lem5 :
+  forall L A G, tridot (cons A L) G -> tridot L (imp A G).
+intros. case H1. search.
+
+Theorem lem6 :
+  forall L G, (nabla x, tridot L (G x)) -> tridot L (all G).
+intros. case H1. case H2.
+  apply nat_prune to H3. search.
+
+Theorem lem7 :
+  forall L G T, tridot L (G T) -> tridot L (ex G).
+intros. case H1. search.

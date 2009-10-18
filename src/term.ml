@@ -20,19 +20,22 @@
 
 open Extensions
 
+type ty = Ty of ty list * string
+
 type tag = Eigen | Constant | Logic | Nominal
 type id = string
 type var = {
   name : id ;
-  tag  : tag    ;
-  ts   : int
+  tag  : tag ;
+  ts   : int ;
+  ty   : ty ;
 }
 
 type term = rawterm
 and rawterm =
   | Var  of var
   | DB   of int
-  | Lam  of int * term
+  | Lam  of ty list * term
   | App  of term * term list
   | Susp of term * int * int * env
   | Ptr  of ptr
@@ -58,12 +61,12 @@ let rec observe = function
 
 let db n = DB n
 
-let rec lambda n t =
+let rec lambda tys t =
   let t = deref t in
-    if n = 0 then t else
+    if tys = [] then t else
       match t with
-        | Lam (n',t') -> lambda (n+n') t'
-        | _ -> Lam (n,t)
+        | Lam (tys',t') -> lambda (tys' @ tys) t'
+        | _ -> Lam (tys,t)
 
 let app a b =
   if b = [] then
@@ -100,15 +103,16 @@ let rec hnorm term =
   match observe term with
     | Var _
     | DB _ -> term
-    | Lam(n,t) -> lambda n (hnorm t)
+    | Lam(tys,t) -> lambda tys (hnorm t)
     | App(t,args) ->
         let t = hnorm t in
           begin match observe t with
-            | Lam(n,t) ->
+            | Lam(tys,t) ->
+                let n = List.length tys in
                 let e, n', args' = make_env n args in
                 let ol = List.length e in
                   if n' > 0
-                  then hnorm (susp (lambda n' t) ol 0 e)
+                  then hnorm (susp (lambda (List.drop_last (n-n') tys) t) ol 0 e)
                   else hnorm (app (susp t ol 0 e) args')
             | _ -> app t args
           end
@@ -126,9 +130,9 @@ let rec hnorm term =
                     | Dum l -> db (nl - l)
                     | Binding (t,l) -> hnorm (susp t 0 (nl-l) [])
                   end
-            | Lam(n,t) ->
-                lambda n (hnorm (susp t (ol+n) (nl+n)
-                                       (add_dummies e n nl)))
+            | Lam(tys,t) ->
+                let n = List.length tys in
+                  lambda tys (hnorm (susp t (ol+n) (nl+n) (add_dummies e n nl)))
             | App(t,args) ->
                 let wrap x = susp x ol nl e in
                   hnorm (app (wrap t) (List.map wrap args))
@@ -143,10 +147,10 @@ let rec eq t1 t2 =
     | DB i1, DB i2 -> i1 = i2
     | Var v1, Var v2 -> v1 = v2
       (* Propagation *)
-    | App (h1,l1), App (h2,l2) ->
+    | App(h1,l1), App(h2,l2) ->
         List.length l1 = List.length l2 &&
         List.for_all2 eq (h1::l1) (h2::l2)
-    | Lam (n,t1), Lam (m,t2) -> n = m && eq t1 t2
+    | Lam(tys1,t1), Lam(tys2,t2) -> tys1 = tys2 && eq t1 t2
     | _ -> false
 
 (* Binding a variable to a term. The *contents* of the cell representing the
@@ -194,9 +198,8 @@ let set_bind_state state =
 let abstract test =
   let rec aux n t = match t with
     | DB i -> t
-    | App (h,ts) ->
-        App ((aux n h), (List.map (aux n) ts))
-    | Lam (m,s) -> Lam (m, aux (n+m) s)
+    | App(h,ts) -> App(aux n h, List.map (aux n) ts)
+    | Lam(tys,s) -> Lam (tys, aux (n + List.length tys) s)
     | Ptr {contents=T t} -> Ptr (ref (T (aux n t)))
     | Ptr {contents=V v} -> if test t v.name then DB n else t
     | Var _ -> assert false
@@ -204,18 +207,18 @@ let abstract test =
   in aux
 
 (** Abstract [t] over constant or variable named [id]. *)
-let abstract id t = lambda 1 (abstract (fun t id' -> id' = id) 1 t)
+let abstract id ty t = lambda [ty] (abstract (fun t id' -> id' = id) 1 t)
 
 (** Utilities.
   * Easy creation of constants and variables, with sharing. *)
 
-let nominal_var name = Ptr (ref (V {name=name; ts=max_int; tag=Nominal}))
+let nominal_var name ty = Ptr (ref (V {name=name; ts=max_int; tag=Nominal; ty=ty}))
 
-let var tag name ts =
+let var tag name ts ty =
   if tag = Nominal then
-    nominal_var name
+    nominal_var name ty
   else
-    Ptr (ref (V { name=name ; ts=ts ; tag=tag }))
+    Ptr (ref (V { name=name ; ts=ts ; tag=tag ; ty = ty }))
 
 module Notations =
 struct
@@ -224,7 +227,7 @@ struct
 end
 
 
-let const ?(ts=0) s = Ptr (ref (V { name=s ; ts=ts ; tag=Constant }))
+let const ?(ts=0) s ty = Ptr (ref (V { name=s ; ts=ts ; tag=Constant ; ty=ty}))
 
 let fresh =
   let varcount = ref 1 in
@@ -233,10 +236,10 @@ let fresh =
         incr varcount ;
         i
 
-let fresh ?(tag=Logic) ts =
+let fresh ?(tag=Logic) ts ty =
   let i = fresh () in
   let name = (prefix tag) ^ (string_of_int i) in
-    var tag name ts
+    var tag name ts ty
 
 let remove_trailing_numbers s =
   Str.global_replace (Str.regexp "[0-9]*$") "" s
@@ -256,12 +259,10 @@ let fresh_name name used =
     else
       name
 
-let fresh_wrt ?(ts=0) tag name used =
+let fresh_wrt ?(ts=0) tag name ty used =
   let name = fresh_name name used in
-  let v = var tag name ts in
+  let v = var tag name ts ty in
     (v, (name, v)::used)
-
-let binop s a b = App ((const s),[a;b])
 
 let term_to_var t =
   match observe (hnorm t) with
@@ -275,7 +276,7 @@ let select_var_refs f ts =
       match observe t with
         | Var v -> if f v then t::acc else acc
         | App (h, ts) -> List.fold_left fv (fv acc h) ts
-        | Lam (n, t') -> fv acc t'
+        | Lam (tys, t') -> fv acc t'
         | DB _ -> acc
         | Susp _ -> assert false
         | Ptr _ -> assert false
@@ -300,12 +301,6 @@ let get_used ts =
   |> List.rev
   |> List.unique
   |> List.map (fun t -> ((term_to_var t).name, t))
-
-let rec has_eigen_head t =
-  match observe (hnorm t) with
-    | Var v -> v.tag = Eigen
-    | App(h, _) -> has_eigen_head h
-    | _ -> false
 
 let rec has_logic_head t =
   match observe (hnorm t) with
@@ -355,14 +350,26 @@ let rec list_range a b =
 
 let abs_name = "x"
 
+let ty_to_string ty =
+  let rec aux nested ty =
+    match ty with
+      | Ty([], bty) -> bty
+      | Ty(tys, bty) ->
+          let res = String.concat " -> "(List.map (aux true) tys @ [bty]) in
+            if nested then parenthesis res else res
+  in
+    aux false ty
+
 let term_to_string term =
   let high_pr = 2 + get_max_priority () in
   let pp_var x = abs_name ^ (string_of_int x) in
+(*   let pp_var_ty x ty = (pp_var x) ^ ":" ^ (ty_to_string ty) in *)
   let rec pp pr n term =
     match observe (hnorm term) with
       | Var v -> v.name
           (* ^ ":" ^ (tag2str v.tag) *)
           (* ^ ":" ^ (string_of_int v.ts) *)
+          (* ^ ":" ^ (ty_to_string v.ty) *)
       | DB i -> pp_var (n-i+1)
       | App (t,ts) ->
           begin match observe (hnorm t), ts with
@@ -388,8 +395,9 @@ let term_to_string term =
                 in
                   if pr < high_pr then res else parenthesis res
           end
-      | Lam (0,t) -> assert false
-      | Lam (i,t) ->
+      | Lam ([],t) -> assert false
+      | Lam (tys,t) ->
+          let i = List.length tys in
           let res = ((String.concat "\\"
                        (List.map pp_var (list_range (n+1) (n+i)))) ^ "\\" ^
                       (pp 0 (n+i) t)) in
@@ -416,24 +424,90 @@ let is_nominal t =
     | Var {tag=Nominal} -> true
     | _ -> false
 
-let term_sig t =
-  let rec aux t =
-    match observe (hnorm t) with
-      | Var(v) -> (v.name, 0)
-      | App(t, ts) ->
-          let (head, nargs) = aux t in
-            (head, nargs + List.length ts)
-      | _ -> assert false
-  in
-    aux t
-
 let term_head_var t =
   let rec aux t =
-    match hnorm t with
-      | Ptr {contents=T t} -> aux t
-      | Ptr {contents=V v} -> Some t
-      | App(t, ts) -> aux t
-      | _ -> None
+    let t = hnorm t in
+      match t with
+        | Ptr {contents=T t} -> aux t
+        | Ptr {contents=V v} -> Some t
+        | App(t, ts) -> aux t
+        | _ -> None
   in
     aux t
 
+let term_head_name t =
+  match term_head_var t with
+    | Some t -> term_to_name t
+    | None -> assert false
+
+let is_head_name name t =
+  match term_head_var t with
+    | Some (Ptr {contents=V v}) when v.name = name -> true
+    | _ -> false
+
+let extract_tids test terms =
+  terms
+  |> map_vars (fun v -> (v.name, v.ty))
+  |> List.find_all (fun (id, ty) -> test id)
+  |> List.unique
+
+let is_question_name str =
+  str.[0] = '?'
+
+let question_tids terms =
+  extract_tids is_question_name terms
+
+let is_capital_name str =
+  match str.[0] with
+    | 'A'..'Z' -> true
+    | _ -> false
+
+let capital_tids terms =
+  extract_tids is_capital_name terms
+
+let is_nominal_name str =
+  Str.string_match (Str.regexp "^n[0-9]+$") str 0
+
+let nominal_tids terms =
+  extract_tids is_nominal_name terms
+
+let all_tids terms =
+  extract_tids (fun _ -> true) terms
+
+(* Typing *)
+
+let tyarrow tys ty =
+  match ty with
+    | Ty(tys', bty) -> Ty(tys @ tys', bty)
+
+let tybase bty =
+  Ty([], bty)
+
+let oty = tybase "o"
+let olistty = tybase "olist"
+
+let rec tc tyctx t =
+  match observe (hnorm t) with
+    | DB i -> List.nth tyctx (i-1)
+    | Var v -> v.ty
+    | App(h,args) ->
+        let arg_tys = List.map (tc tyctx) args in
+        let Ty(tys, bty) = tc tyctx h in
+        let n = List.length arg_tys in
+          assert (List.take n tys = arg_tys) ;
+          Ty(List.drop n tys, bty)
+    | Lam(tys,t) ->
+        tyarrow (List.rev tys) (tc (tys @ tyctx) t)
+    | _ -> assert false
+
+let is_tyvar str =
+  str.[0] = '?'
+
+let tyvar str =
+  tybase ("?" ^ str)
+
+let fresh_tyvar =
+  let count = ref 0 in
+    fun () ->
+      incr count ;
+      tyvar (string_of_int !count)

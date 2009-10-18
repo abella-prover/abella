@@ -3,12 +3,16 @@ open Test_helper
 open Metaterm
 open Lexer
 open Parser
+open Typing
 
-let parse_clauses str =
-  clauses token (Lexing.from_string str)
+let assert_uterm_pprint_equal s t =
+  assert_string_equal s (uterm_to_string t)
+
+let assert_umetaterm_pprint_equal s t =
+  assert_string_equal s (umetaterm_to_string t)
 
 let assert_pprint_equal_parse str =
-  assert_pprint_equal str (parse_metaterm str)
+  assert_umetaterm_pprint_equal str (parse_umetaterm str)
 
 let tests =
   "Parser" >:::
@@ -16,19 +20,19 @@ let tests =
       "Empty bodied clause" >::
         (fun () ->
            let str = "eval (abs R) (abs R)." in
-             match parse_clauses str with
+             match parse_ulpmod str with
                | [(t, [])] ->
-                   assert_term_pprint_equal "eval (abs R) (abs R)" t
+                   assert_uterm_pprint_equal "eval (abs R) (abs R)" t
                | _ -> assert_failure "Pattern mismatch" ) ;
 
       "Typical clause" >::
         (fun () ->
            let str = "eval (app M N) V :- eval M (abs R), eval (R N) V." in
-             match parse_clauses str with
+             match parse_ulpmod str with
                | [(head, [b1; b2])] ->
-                   assert_term_pprint_equal "eval (app M N) V" head ;
-                   assert_term_pprint_equal "eval M (abs R)" b1 ;
-                   assert_term_pprint_equal "eval (R N) V" b2 ;
+                   assert_uterm_pprint_equal "eval (app M N) V" head ;
+                   assert_uterm_pprint_equal "eval M (abs R)" b1 ;
+                   assert_uterm_pprint_equal "eval (R N) V" b2 ;
                | _ -> assert_failure "Pattern mismatch" ) ;
 
       "Infix cons" >::
@@ -155,4 +159,4 @@ let tests =
         (fun () ->
            assert_pprint_equal_parse "head (hyp A) (conc B)") ;
 
-     ]
+    ]

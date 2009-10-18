@@ -1,3 +1,5 @@
+module ccs.
+
 comp A (bar A).
 comp (bar A) A.
 

@@ -1,17 +1,25 @@
 %% Results on (potentially) infinite lists
 
-CoDefine colist nil.
-CoDefine colist (X :: L) := colist L.
+Kind     nat          type.
+Type     z            nat.
+Type     s            nat -> nat.
 
-CoDefine eqi nil nil.
-CoDefine eqi (X :: L) (X :: R) := eqi L R.
+CoDefine colist : olist -> prop by
+  colist nil ;
+  colist (X :: L) := colist L.
 
-Define tk z L nil.
-Define tk N nil nil.
-Define tk (s N) (X :: L) (X :: R) := tk N L R.
+CoDefine eqi : olist -> olist -> prop by
+  eqi nil nil ;
+  eqi (X :: L) (X :: R) := eqi L R.
 
-Define eqf L R := (forall N S, tk N L S -> tk N R S) /\
-                  (forall N S, tk N R S -> tk N L S).
+Define tk : nat -> olist -> olist -> prop by
+  tk z L nil ;
+  tk N nil nil ;
+  tk (s N) (X :: L) (X :: R) := tk N L R.
+
+Define eqf : olist -> olist -> prop by
+  eqf L R := (forall N S, tk N L S -> tk N R S) /\
+             (forall N S, tk N R S -> tk N L S).
 
 
 %% First we show eqi implies eqf
@@ -70,9 +78,10 @@ coinduction. intros. case H1.
 
 % We define co-inductive append and show it is associative
 
-CoDefine coapp (X :: A) B (X :: C) := coapp A B C.
-CoDefine coapp nil (X :: B) (X :: C) := coapp nil B C.
-CoDefine coapp nil nil nil.
+CoDefine coapp : olist -> olist -> olist -> prop by
+  coapp (X :: A) B (X :: C) := coapp A B C ;
+  coapp nil (X :: B) (X :: C) := coapp nil B C ;
+  coapp nil nil nil.
 
 Theorem coapp_assoc : forall A B C AB ABC BC,
   coapp A B AB -> coapp AB C ABC -> coapp B C BC -> coapp A BC ABC.

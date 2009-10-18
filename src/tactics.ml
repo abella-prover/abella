@@ -25,58 +25,21 @@ open Debug
 
 (* Variable naming utilities *)
 
-let is_question str =
-  str.[0] = '?'
-
-let question_var_names terms =
-  terms
-  |> map_vars (fun v -> v.name)
-  |> List.find_all is_question
-  |> List.unique
-
-let is_capital str =
-  match str.[0] with
-    | 'A'..'Z' -> true
-    | _ -> false
-
-let capital_var_names terms =
-  terms
-  |> map_vars (fun v -> v.name)
-  |> List.find_all is_capital
-  |> List.unique
-
-let free_capital_var_names metaterm =
-  let aux_term = capital_var_names in
-  let aux_obj obj = aux_term obj.context @ aux_term [obj.term] in
-  let rec aux = function
-    | True | False -> []
-    | Eq(a, b) -> aux_term [a; b]
-    | Obj(obj, r) -> aux_obj obj
-    | Arrow(a, b) -> aux a @ aux b
-    | Binding(binder, bindings, body) -> List.minus (aux body) bindings
-    | Or(a, b) -> aux a @ aux b
-    | And(a, b) -> aux a @ aux b
-    | Pred(p, r) -> aux_term [p]
-  in
-    List.unique (aux metaterm)
-
 let alist_to_used (_, t) = term_to_pair t
 
 let freshen_clause ~used ?(support=[]) head body =
-  let var_names = capital_var_names (head::body) in
-  let fresh_names = fresh_alist ~tag:Eigen ~used var_names in
-  let raised_names = raise_alist ~support fresh_names in
-    (List.map alist_to_used fresh_names @ used,
-     replace_term_vars raised_names head,
-     List.map (replace_term_vars raised_names) body)
+  let tids = capital_tids (head::body) in
+  let (alist, vars) = fresh_raised_alist ~tag:Eigen ~used ~support tids in
+    (List.map term_to_pair vars @ used,
+     replace_term_vars alist head,
+     List.map (replace_term_vars alist) body)
 
 let freshen_def ~used ?(support=[]) head body =
-  let var_names = capital_var_names [head] in
-  let fresh_names = fresh_alist ~tag:Eigen ~used var_names in
-  let raised_names = raise_alist ~support fresh_names in
-    (List.map alist_to_used fresh_names,
-     replace_term_vars raised_names head,
-     replace_metaterm_vars raised_names body)
+  let tids = capital_tids [head] in
+  let (alist, vars) = fresh_raised_alist ~tag:Eigen ~used ~support tids in
+    (List.map term_to_pair vars,
+     replace_term_vars alist head,
+     replace_metaterm_vars alist body)
 
 let term_vars_alist tag terms =
   List.map term_to_pair (find_var_refs tag terms)
@@ -86,25 +49,29 @@ let metaterm_vars_alist tag metaterm =
 
 (* Freshening for Logic variables uses anonymous names *)
 
-let fresh_nameless_alist ~support ids =
-  List.map (fun x -> (x, app (fresh ~tag:Logic 0) support)) ids
+let fresh_nameless_alist ~support tids =
+  let ntys = List.map (tc []) support in
+    List.map
+      (fun (x, ty) ->
+         (x, app (fresh ~tag:Logic 0 (tyarrow ntys ty)) support))
+      tids
 
 let freshen_nameless_clause ?(support=[]) head body =
-  let var_names = capital_var_names (head::body) in
-  let fresh_names = fresh_nameless_alist ~support var_names in
+  let tids = capital_tids (head::body) in
+  let fresh_names = fresh_nameless_alist ~support tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
 
 let freshen_nameless_def ?(support=[]) head body =
-  let var_names = capital_var_names [head] in
-  let fresh_names = fresh_nameless_alist ~support var_names in
+  let tids = capital_tids [head] in
+  let fresh_names = fresh_nameless_alist ~support tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = replace_metaterm_vars fresh_names body in
     (fresh_head, fresh_body)
 
 let freshen_nameless_bindings ?(support=[]) bindings term =
-  replace_metaterm_vars ~tag:Constant (fresh_nameless_alist ~support bindings) term
+  replace_metaterm_vars (fresh_nameless_alist ~support bindings) term
 
 (* Object level cut *)
 
@@ -181,12 +148,11 @@ let rec recursive_metaterm_case ~used term =
                     Some { stateless_new_vars = vars_left @ vars_right ;
                            stateless_new_hyps = hyps_left @ hyps_right }
         end
-    | Binding(Exists, ids, body) ->
-        let fresh_ids = fresh_alist ~used ~tag:Eigen ids in
+    | Binding(Exists, tids, body) ->
         let support = metaterm_support term in
-        let raised_ids = raise_alist ~support fresh_ids in
-        let fresh_body = replace_metaterm_vars raised_ids body in
-        let new_vars = List.map alist_to_used fresh_ids in
+        let (alist, vars) = fresh_raised_alist ~tag:Eigen ~used ~support tids in
+        let fresh_body = replace_metaterm_vars alist body in
+        let new_vars = List.map term_to_pair vars in
         let nested =
           recursive_metaterm_case ~used:(new_vars @ used) fresh_body
         in
@@ -215,12 +181,12 @@ let rec and_to_list term =
 let rec list_to_and terms =
   List.fold_left1 meta_and terms
 
-let predicate_wrapper r psig t =
+let predicate_wrapper r names t =
   let rec aux t =
     match t with
       | True | False | Eq _ | Obj _ -> t
       | Pred(p, _) ->
-          if term_sig p = psig then
+          if List.mem (term_head_name p) names then
             Pred(p, reduce_inductive_restriction r)
           else
             t
@@ -232,13 +198,15 @@ let predicate_wrapper r psig t =
     aux t
 
 let lift_all ~used nominals =
-  used |> List.iter
-      (fun (id, term) ->
-         if is_free term then
-           let new_term = var Eigen id 0 in
-             bind term (app new_term nominals))
+  let ntys = List.map (tc []) nominals in
+    used |> List.iter
+        (fun (id, term) ->
+           if is_free term then
+             let old_ty = tc [] term in
+             let new_term = var Eigen id 0 (tyarrow ntys old_ty) in
+               bind term (app new_term nominals))
 
-let case ~used ~clauses ~defs ~global_support term =
+let case ~used ~clauses ~mutual ~defs ~global_support term =
 
   let support = metaterm_support term in
   let initial_bind_state = get_bind_state () in
@@ -270,27 +238,32 @@ let case ~used ~clauses ~defs ~global_support term =
              | Pred(head, _), body ->
                  set_bind_state initial_bind_state ;
                  make_case ~support ~used (head, body) term
-             | Binding(Nabla, ids, Pred(head, _)), body ->
-                 List.range 0 (List.length ids) |> List.rev |> List.flatten_map
-                     (fun n ->
-                        (* n is the number of nablas to be raised *)
-                        (* They should be fresh with respect to global_support *)
-                        let nominals = fresh_nominals n (pred (app head global_support)) in
-                          List.choose n ids |> List.flatten_map
-                              (fun raised ->
-                                 set_bind_state initial_bind_state ;
-                                 let alist = List.combine raised nominals in
-                                 let () = lift_all ~used nominals in
-                                 let head = replace_term_vars alist head in
-                                 let ids = List.minus ids raised in
-                                 let inner_bind_state = get_bind_state () in
-                                   List.permute (List.length ids) support |> List.flatten_map
-                                       (fun permuted ->
-                                          set_bind_state inner_bind_state ;
-                                          let support = List.minus support permuted in
-                                          let alist = List.combine ids permuted in
-                                          let head = replace_term_vars alist head in
-                                            make_case ~support ~used (head, body) term)))
+             | Binding(Nabla, tids, Pred(head, _)), body ->
+                 List.range 0 (List.length tids) |> List.rev |> List.flatten_map
+                     (fun n -> (* n is the number of nablas to be raised *)
+                        List.choose n tids |> List.flatten_map
+                            (fun raised ->
+                               set_bind_state initial_bind_state ;
+                               let (rids, rtys) = List.split raised in
+                               let nominals =
+                                 (* Want freshness with respect to global support *)
+                                 fresh_nominals rtys (pred (app head global_support))
+                               in
+                               let () = lift_all ~used nominals in
+                               let head = replace_term_vars (List.combine rids nominals) head in
+                               let (pids, ptys) = List.split (List.minus tids raised) in
+                               let inner_bind_state = get_bind_state () in
+                                 List.permute (List.length pids) support
+                                 |> List.find_all
+                                     (fun permuted -> ptys = List.map (tc []) permuted)
+                                 |> List.flatten_map
+                                     (fun permuted ->
+                                        set_bind_state inner_bind_state ;
+                                        let support = List.minus support permuted in
+                                        let head =
+                                          replace_term_vars (List.combine pids permuted) head
+                                        in
+                                          make_case ~support ~used (head, body) term)))
              | _ -> failwith "Bad head in definition")
   in
 
@@ -337,7 +310,8 @@ let case ~used ~clauses ~defs ~global_support term =
       | Obj(obj, r) -> obj_case obj r
       | Pred(_, CoSmaller _) -> failwith "Cannot case analyze hypothesis\
                                           \ with coinductive restriction"
-      | Pred(p, r) -> def_case ~wrapper:(predicate_wrapper r (term_sig p)) p
+      | Pred(p, r) ->
+          def_case ~wrapper:(predicate_wrapper r mutual) p
       | Or _ ->
           List.filter_map
             (fun g ->
@@ -412,12 +386,12 @@ let coinduction res_num stmt =
 
 (* Unfold the current goal *)
 
-let coinductive_wrapper r psig t =
+let coinductive_wrapper r names t =
   let rec aux t =
     match t with
       | True | False | Eq _ | Obj _ -> t
       | Pred(p, _) ->
-          if term_sig p = psig then
+          if List.mem (term_head_name p) names then
             Pred(p, reduce_coinductive_restriction r)
           else
             t
@@ -428,35 +402,40 @@ let coinductive_wrapper r psig t =
   in
     aux t
 
-let unfold_defs ~defs goal r =
+let unfold_defs ~mdefs goal r =
   let initial_bind_state = get_bind_state () in
+  let (mutual, defs) = mdefs in
   let support = term_support goal in
-  let wrapper = coinductive_wrapper r (term_sig goal) in
-  let unfold_def ids head body =
-    support |> List.permute (List.length ids) |> List.flatten_map
-        (fun nominals ->
-           let () = set_bind_state initial_bind_state in
-           let support = List.minus support nominals in
-           let alist = List.combine ids nominals in
-           let head = replace_term_vars alist head in
-           let head, body = freshen_nameless_def ~support head body in
-             match try_right_unify_cpairs head goal with
-               | None -> []
-               | Some cpairs ->
-                   [(get_bind_state (), cpairs, normalize (wrapper body))])
+  let wrapper = coinductive_wrapper r mutual in
+  let unfold_def tids head body =
+    let (ids, tys) = List.split tids in
+      support
+      |> List.permute (List.length tids)
+      |> List.find_all (fun nominals -> tys = List.map (tc []) nominals)
+      |> List.flatten_map
+          (fun nominals ->
+             let () = set_bind_state initial_bind_state in
+             let support = List.minus support nominals in
+             let alist = List.combine ids nominals in
+             let head = replace_term_vars alist head in
+             let head, body = freshen_nameless_def ~support head body in
+               match try_right_unify_cpairs head goal with
+                 | None -> []
+                 | Some cpairs ->
+                     [(get_bind_state (), cpairs, normalize (wrapper body))])
   in
   let result =
     defs |> List.flatten_map
         (fun (head, body) ->
            match head with
              | Pred(head, _) -> unfold_def [] head body
-             | Binding(Nabla, ids, Pred(head, _)) -> unfold_def ids head body
+             | Binding(Nabla, tids, Pred(head, _)) -> unfold_def tids head body
              | _ -> failwith "Bad head in definition")
   in
     set_bind_state initial_bind_state ;
     result
 
-let unfold ~defs goal =
+let unfold ~mdefs goal =
   match goal with
     | Pred(goal, r) ->
         (* Find the first body without lingering conflict pairs *)
@@ -466,7 +445,7 @@ let unfold ~defs goal =
             | _::rest -> select_non_cpair rest
             | [] -> failwith "No matching definitions"
         in
-          select_non_cpair (unfold_defs ~defs goal r)
+          select_non_cpair (unfold_defs ~mdefs goal r)
     | _ -> failwith "Can only unfold definitions"
 
 
@@ -481,13 +460,19 @@ let iter_keep_state f list =
 let try_unify_cpairs cpairs =
   List.for_all (curry try_right_unify) cpairs
 
+let assoc_mdefs name alldefs =
+  try
+    List.find (fun (ids, defs) -> List.mem name ids) alldefs
+  with Not_found ->
+    ([], [])
+
 
 (* Depth is decremented only when unfolding clauses and definitions since
    only these can cause infinite search *)
 (* Each aux search returns () on failure and calls sc () on success. This
    allows for effective backtracking. sc means success continuation. *)
 
-let search ~depth:n ~hyps ~clauses ~defs
+let search ~depth:n ~hyps ~clauses ~alldefs
     ?(sc=(fun () -> raise SearchSuccess)) goal =
 
   let rec clause_aux n context goal ~sc =
@@ -550,11 +535,12 @@ let search ~depth:n ~hyps ~clauses ~defs
       | _ -> ()
 
   and def_aux n goal r ~sc =
-    unfold_defs ~defs goal r |> iter_keep_state
-        (fun (state, cpairs, body) ->
-           set_bind_state state ;
-           metaterm_aux (n-1) body
-             ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
+    let mdefs = assoc_mdefs (term_head_name goal) alldefs in
+      unfold_defs ~mdefs goal r |> iter_keep_state
+          (fun (state, cpairs, body) ->
+             set_bind_state state ;
+             metaterm_aux (n-1) body
+               ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
 
   in
     try
@@ -627,8 +613,11 @@ let apply ?(used_nominals=[]) term args =
     match term with
       | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->
           let n = List.length nablas in
+          let (nabla_ids, nabla_tys) = List.split nablas in
             begin try
-              support |> List.rev |> List.permute n |> List.find_some
+              support |> List.rev |> List.permute n
+                |> List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals)
+                |> List.find_some
                   (fun nominals ->
                      try_with_state ~fail:None
                        (fun () ->
@@ -636,7 +625,7 @@ let apply ?(used_nominals=[]) term args =
                           let raised_body =
                             freshen_nameless_bindings ~support bindings body
                           in
-                          let alist = List.combine nablas nominals in
+                          let alist = List.combine nabla_ids nominals in
                           let permuted_body =
                             replace_metaterm_vars alist raised_body
                           in
@@ -666,17 +655,16 @@ let apply ?(used_nominals=[]) term args =
              "forall A1 ... Ai, nabla z1 ... zj, H1 -> ... -> Hk -> C")
 
 let rec ensure_unique_nominals lst =
-  match lst with
-    | [] -> ()
-    | x::xs ->
-        if is_nominal x && not (List.mem x xs) then
-          ensure_unique_nominals xs
-        else
-          failwith "Invalid instantiation for nabla variable"
+  if not (List.is_unique lst) || not (List.for_all Term.is_nominal lst) then
+    failwith "Invalid instantiation for nabla variable"
 
 let take_from_binders binders withs =
-  let withs' = List.find_all (fun (x,t) -> List.mem x binders) withs in
-  let binders' = List.remove_all (fun x -> List.mem_assoc x withs) binders in
+  let withs' =
+    List.find_all (fun (x,t) -> List.mem_assoc x binders) withs
+  in
+  let binders' = List.remove_all
+    (fun (x, ty) -> List.mem_assoc x withs) binders
+  in
     (binders', withs')
 
 let rec instantiate_withs term withs =
@@ -704,3 +692,18 @@ let apply_with term args withs =
   let term, used_nominals = instantiate_withs term withs in
     apply term args ~used_nominals
 
+(* Permute nominals *)
+
+let permute_nominals perm term =
+  match perm with
+    | h::t ->
+        let perm' = t @ [h] in
+        let alist =
+          List.map2
+            (fun src dest ->
+               let v = term_to_var src in
+                 (v.name, nominal_var (term_to_name dest) v.ty))
+            perm perm'
+        in
+          replace_metaterm_vars alist term
+    | _ -> assert false

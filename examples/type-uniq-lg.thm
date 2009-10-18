@@ -1,8 +1,8 @@
 %% Type uniqueness for simply typed lambda calculus using only LG-omega
 
-Specification "type-uniq-lg".
+Specification "type-uniq".
 
-Theorem member_prune : forall E L, nabla x,
+Theorem member_prune : forall E L, nabla (x:tm),
   member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
   search.
@@ -10,11 +10,12 @@ induction on 1. intros. case H1.
 
 % Since LG-omega does not allow nabla in the head of a definition, we must
 % explicitly restrict structure and occurences of the variable X
-Define ctx nil.
-Define ctx (of X T :: L) := (forall M N, X = app M N -> false) /\
-                            (forall T R, X = abs T R -> false) /\
-                            (forall T', member (of X T') L -> false) /\
-                            ctx L.
+Define ctx : olist -> prop by
+  ctx nil ;
+  ctx (of X T :: L) := (forall M N, X = app M N -> false) /\
+                       (forall T R, X = abs T R -> false) /\
+                       (forall T', member (of X T') L -> false) /\
+                       ctx L.
 
 Theorem ctx_app_absurd : forall L M N T,
   ctx L -> member (of (app M N) T) L -> false.

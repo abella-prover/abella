@@ -15,7 +15,7 @@ Specification "debruijn".
 
 %% General property of member
 
-Theorem member_prune : forall E L, nabla x,
+Theorem member_prune : forall E L, nabla (x:hterm),
   member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
   search.
@@ -24,11 +24,13 @@ induction on 1. intros. case H1.
 
 %% Properties of addition
 
-Define nat z.
-Define nat (s X) := nat X.
+Define nat : nat -> prop by
+  nat z ;
+  nat (s X) := nat X.
 
-Define le X X.
-Define le X (s Y) := le X Y.
+Define le : nat -> nat -> prop by
+  le X X ;
+  le X (s Y) := le X Y.
 
 Theorem le_dec : forall X Y,
   le (s X) Y -> le X Y.
@@ -77,10 +79,12 @@ induction on 1. intros. case H1.
 
 %% Theorems specific to our translation
 
-Define ctx nil z.
-Define nabla x, ctx (depth x H :: L) (s H) := ctx L H.
+Define ctx : olist -> nat -> prop by
+  ctx nil z ;
+  nabla x, ctx (depth x H :: L) (s H) := ctx L H.
 
-Define nabla x, name x.
+Define name : hterm -> prop by
+  nabla x, name x.
 
 Theorem ctx_nat : forall L H,
   ctx L H -> nat H.

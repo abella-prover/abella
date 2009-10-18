@@ -1,13 +1,15 @@
-% The actual structure of propositions does not matter, but
-% we use this predicate as a measure for induction.
-prop top.
-prop bot.
-prop (p X).                             % an arbitrary unary predicate P
-prop (and A B) :- prop A, prop B.
-prop (or A B) :- prop A, prop B.
-prop (imp A B) :- prop A, prop B.
-prop (all A) :- pi x\ prop (A x).
-prop (ex A) :- pi x\ prop (A x).
+module cut.
+
+% The actual structure of formulas does not matter, but
+% we use this predicate as a target for induction.
+form top.
+form bot.
+form (p X).                             % an arbitrary unary predicate P
+form (and A B) :- form A, form B.
+form (or A B) :- form A, form B.
+form (imp A B) :- form A, form B.
+form (all A) :- pi x\ form (A x).
+form (ex A) :- pi x\ form (A x).
 
 
 conc A :- hyp A.                                             % init

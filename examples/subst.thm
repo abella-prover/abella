@@ -2,11 +2,20 @@
 
 Specification "subst".
 
-Define ctx nil nil.
-Define ctx (term X :: L1) (copy X X :: L2) := ctx L1 L2.
+Define ctx : olist -> olist -> prop by
+  ctx nil nil ;
+  ctx (term X :: L) (copy X X :: K) := ctx L K.
 
-Theorem ctx_lemma : forall L1 L2 T,
-  ctx L1 L2 -> member (term T) L1 -> member (copy T T) L2.
+Theorem ctx_member1 : forall L K T,
+  ctx L K -> member (term T) L -> member (copy T T) K.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H3 H4. search.
+
+Theorem ctx_member2 : forall L K S T,
+  ctx L K -> member (copy S T) K -> S = T.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -14,26 +23,16 @@ induction on 1. intros. case H1.
     apply IH to H3 H4. search.
 
 Theorem copy_id :
-  forall L1 L2 T, ctx L1 L2 -> {L1 |- term T} -> {L2 |- copy T T}.
+  forall L K T, ctx L K -> {L |- term T} -> {K |- copy T T}.
 induction on 2. intros. case H2.
-  apply ctx_lemma to H1 H3. search.
+  apply ctx_member1 to H1 H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
   apply IH to _ H3.
     search.
 
-Define ctx2 nil.
-Define ctx2 (copy X X :: L) := ctx2 L.
-
-Theorem ctx2_eq : forall L T S, ctx2 L -> member (copy T S) L -> T = S.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    search.
-    apply IH to H3 H4. search.
-
-Theorem copy_eq : forall L T S, ctx2 L -> {L |- copy T S} -> T = S.
+Theorem copy_eq : forall L K T S, ctx L K -> {K |- copy T S} -> T = S.
 induction on 2. intros. case H2.
-  apply ctx2_eq to H1 H3. search.
+  apply ctx_member2 to H1 H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
   apply IH to _ H3. search.
 

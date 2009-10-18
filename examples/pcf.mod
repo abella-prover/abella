@@ -1,3 +1,5 @@
+module pcf.
+
 eval zero zero.
 eval tt tt.
 eval ff ff.

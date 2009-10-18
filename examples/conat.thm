@@ -1,16 +1,25 @@
 %% Results on co-natural numbers (natural numbers with infinity)
 
-CoDefine conat z.
-CoDefine conat (s A) := conat A.
+Kind    conat          type.
 
-CoDefine coeq z z.
-CoDefine coeq (s A) (s B) := coeq A B.
+Type    z              conat.
+Type    s              conat -> conat.
 
-CoDefine inf (s A) := inf A.
+CoDefine conat : conat -> prop by
+  conat z ;
+  conat (s A) := conat A.
 
-CoDefine coadd (s A) B (s C) := coadd A B C.
-CoDefine coadd z (s B) (s C) := coadd z B C.
-CoDefine coadd z z z.
+CoDefine coeq : conat -> conat -> prop by
+  coeq z z ;
+  coeq (s A) (s B) := coeq A B.
+
+CoDefine inf : conat -> prop by
+  inf (s A) := inf A.
+
+CoDefine coadd : conat -> conat -> conat -> prop by
+  coadd (s A) B (s C) := coadd A B C ;
+  coadd z (s B) (s C) := coadd z B C ;
+  coadd z z z.
 
 Theorem coeq_refl : forall A,
   conat A -> coeq A A.

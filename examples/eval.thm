@@ -124,8 +124,9 @@ induction on 1. intros. case H1.
 % We can also define divergence coinductivly to prove that
 % (lambda x . x x) (lambda x . x x) diverges
 
-CoDefine diverge (app M N) := diverge M.
-CoDefine diverge (app M N) := exists R, {eval M (abs R)} /\ diverge (R N).
+CoDefine diverge : tm -> prop by
+  diverge (app M N) := diverge M ;
+  diverge (app M N) := exists R, {eval M (abs R)} /\ diverge (R N).
 
 Theorem omega_diverge :
   diverge (app (abs x\ app x x) (abs x\ app x x)).

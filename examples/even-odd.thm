@@ -3,16 +3,24 @@
 %% This is a simple example where induction is needed at a nested rather
 %% than immediate recursive call.
 
-Define nat z.
-Define nat (s N) := nat N.
+Kind      nat                 type.
 
-Define even z.
-Define even (s (s N)) := even N.
+Type      z                   nat.
+Type      s                   nat -> nat.
 
-Define odd (s z).
-Define odd (s (s N)) := odd N.
+Define nat : nat -> prop by
+  nat z ;
+  nat (s N) := nat N.
 
-Theorem forall N, nat N -> even N \/ odd N.
+Define even : nat -> prop by
+  even z ;
+  even (s (s N)) := even N.
+
+Define odd : nat -> prop by
+  odd (s z) ;
+  odd (s (s N)) := odd N.
+
+Theorem even_or_odd : forall N, nat N -> even N \/ odd N.
 induction on 1. intros. case H1.
   search.
   case H2.
@@ -20,3 +28,26 @@ induction on 1. intros. case H1.
     apply IH to H3. case H4.
       search.
       search.
+
+
+%% An example of mutual induction
+
+Define
+  even' : nat -> prop,
+  odd' : nat -> prop
+by
+  even' z ;
+  odd' (s N) := even' N ;
+  even' (s N) := odd' N.
+
+Theorem even'_nat : forall N, even' N -> nat N.
+induction on 1. intros. case H1.
+  search.
+  case H2. apply IH to H3. search.
+
+Theorem odd'_nat : forall N, odd' N -> nat N.
+induction on 1. intros. case H1.
+  case H2.
+    search.
+    apply IH to H3. search.
+

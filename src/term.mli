@@ -18,12 +18,24 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+(* Types *)
+
+type ty = Ty of ty list * string
+
+val tyarrow : ty list -> ty -> ty
+val tybase : string -> ty
+val oty : ty
+val olistty : ty
+
+(* Variables *)
+
 type tag = Eigen | Constant | Logic | Nominal
 type id = string
 type var = private {
   name : id ;
-  tag  : tag    ;
-  ts   : int
+  tag  : tag ;
+  ts   : int ;
+  ty   : ty ;
 }
 
 (* Terms. The use of references allow in-place normalization,
@@ -37,7 +49,7 @@ type env = envitem list
 type rawterm =
   | Var of var
   | DB of int
-  | Lam of int * term
+  | Lam of ty list * term
   | App of term * term list
   | Susp of term * int * int * env
   | Ptr of ptr (* Sorry about this one, hiding it is costly.. *)
@@ -48,9 +60,7 @@ val observe : term -> rawterm
 (** Creation of terms.
   * There is probably more to come here. *)
 
-val var : tag -> string -> int -> term
-
-val binop : string -> term -> term -> term
+val var : tag -> string -> int -> ty -> term
 
 val app : term -> term list -> term
 val susp : term -> int -> int -> env -> term
@@ -58,7 +68,7 @@ val db : int -> term
 
 module Notations :
 sig
-  val (//) : int -> term -> term
+  val (//) : ty list -> term -> term
   val (^^) : term -> term list -> term
 end
 
@@ -80,19 +90,19 @@ val set_bind_state : bind_state -> unit
 (* Raise the substitution *)
 val add_dummies : env -> int -> int -> env
 
-(* Add [n] abstractions. *)
-val lambda : int -> term -> term
+(* Add abstractions. *)
+val lambda : ty list -> term -> term
 
 (** Abstract [t] over constant or variable named [id]. *)
-val abstract : string -> term -> term
+val abstract : string -> ty -> term -> term
 
 (** Abella specific additions and changes *)
-val const : ?ts:int -> string -> term
-val fresh : ?tag:tag -> int -> term
-val fresh_wrt : ?ts:int -> tag -> id ->
+val const : ?ts:int -> string -> ty -> term
+val fresh : ?tag:tag -> int -> ty -> term
+val fresh_wrt : ?ts:int -> tag -> id -> ty ->
                   (id * term) list -> term * (id * term) list
 
-val nominal_var : string -> term
+val nominal_var : string -> ty -> term
 
 val find_vars : tag -> term list -> var list
 val find_var_refs : tag -> term list -> term list
@@ -102,19 +112,32 @@ val term_to_var : term -> var
 val term_to_name : term -> string
 val term_to_pair : term -> string * term
 
-val has_eigen_head : term -> bool
 val has_logic_head : term -> bool
 
 val hnorm : term -> term
 
+val ty_to_string : ty -> string
 val term_to_string : term -> string
 val prefix : tag -> string
 
 val get_used : term list -> (id * term) list
 val is_free : term -> bool
 
-val term_sig : term -> string * int
-
+val is_nominal_name : string -> bool
 val is_nominal : term -> bool
 val fresh_name : string -> (string * 'a) list -> string
 val term_head_var : term -> term option
+val is_head_name : string -> term -> bool
+val term_head_name : term -> string
+
+val is_capital_name : string -> bool
+val capital_tids : term list -> (id * ty) list
+val question_tids : term list -> (id * ty) list
+val nominal_tids : term list -> (id * ty) list
+val all_tids : term list -> (id * ty) list
+
+val tc : ty list -> term -> ty
+
+val tyvar : string -> ty
+val is_tyvar : string -> bool
+val fresh_tyvar : unit -> ty

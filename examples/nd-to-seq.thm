@@ -4,8 +4,9 @@
 
 Specification "nd-to-seq".
 
-Define convert nil nil.
-Define convert (nd G :: L) (hyp G :: K) := convert L K.
+Define convert : olist -> olist -> prop by
+  convert nil nil ;
+  convert (nd G :: L) (hyp G :: K) := convert L K.
 
 Theorem convert_member : forall L K H,
   convert L K -> member (nd H) L -> member (hyp H) K.

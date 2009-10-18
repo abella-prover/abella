@@ -2,14 +2,16 @@
 
 Specification "copy".
 
-Theorem member_fresh : forall L E, nabla x,
+Theorem member_fresh : forall L E, nabla (x:tm),
   member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
   search.
   apply IH to H2. search.
 
-Define ctxs nil nil.
-Define ctxs (copy X Y :: L1) (copy2 X Y :: L2) := ctxs L1 L2.
+
+Define ctxs : olist -> olist -> prop by
+  ctxs nil nil ;
+  ctxs (copy X Y :: L1) (copy2 X Y :: L2) := ctxs L1 L2.
 
 
 %% copy implies copy2

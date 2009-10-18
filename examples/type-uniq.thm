@@ -7,9 +7,10 @@ Specification "type-uniq".
 
 %% Start generic section
 
-Define nabla x, name x.
+Define name : tm -> prop by
+  nabla x, name x.
 
-Theorem member_prune : forall G E, nabla n,
+Theorem member_prune : forall G E, nabla (n:tm),
  member (E n) G -> (exists E', E = x\E').
 induction on 1. intros. case H1.
  search.
@@ -17,8 +18,9 @@ induction on 1. intros. case H1.
 
 %% End generic section
 
-Define ctx nil.
-Define nabla n, ctx (of n T :: L) := ctx L.
+Define ctx : olist -> prop by
+  ctx nil ;
+  nabla n, ctx (of n T :: L) := ctx L.
 
 Theorem of_name : forall L E T,
  ctx L -> member (of E T) L -> name E.

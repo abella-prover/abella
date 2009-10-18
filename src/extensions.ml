@@ -82,6 +82,14 @@ module List = struct
     in
       aux list
 
+  let is_unique ?(cmp=(=)) list =
+    let rec aux list =
+      match list with
+        | [] -> true
+        | head::tail -> not (mem ~cmp head tail) && aux tail
+    in
+      aux list
+
   let find_duplicate list =
     let rec aux list =
       match list with
@@ -199,6 +207,34 @@ module List = struct
       | x::xs -> fold_left f x xs
       | _ -> invalid_arg "Empty list"
 
+  let rec drop n list =
+    match list with
+      | x::xs when n > 0 -> drop (n-1) xs
+      | _ -> list
+
+  let drop_last n list = rev (drop n (rev list))
+  let take_last n list = rev (take n (rev list))
+
+  let rev_map f list =
+    let rec aux list acc =
+      match list with
+        | [] -> acc
+        | x::xs -> aux xs (f x :: acc)
+    in
+      aux list []
+
+  let replicate n x =
+    let rec aux = function
+      | 0 -> []
+      | i -> x :: aux (i-1)
+    in
+      aux n
+
+  let map_fst f list =
+    map (fun (x,y) -> (f x, y)) list
+
+  let map_snd f list =
+    map (fun (x,y) -> (x, f y)) list
 end
 
 module Hashtbl = struct

@@ -4,6 +4,8 @@
 %%
 %% Abella proof contributed by Randy Pollack
 
+module cr.
+
 % pure lambda terms
 trm (app M N) :- trm M, trm N.
 trm (abs R) :- pi x\ trm x => trm (R x).

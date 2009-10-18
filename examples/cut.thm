@@ -10,8 +10,9 @@
 
 Specification "cut".
 
-Define ctx nil.
-Define ctx (hyp A :: L) := ctx L.
+Define ctx : olist -> prop by
+  ctx nil ;
+  ctx (hyp A :: L) := ctx L.
 
 Theorem ctx_lemma :
   forall A L, ctx L -> member (conc A) L -> false.
@@ -92,7 +93,7 @@ induction on 2. intros. case H2.
 
 
 Theorem cut_admissibility : forall L K C,
-  {prop K} -> ctx L ->
+  {form K} -> ctx L ->
     {L |- conc K} -> {L, hyp K |- conc C} -> {L |- conc C}.
 
 % The proof is by nested induction on

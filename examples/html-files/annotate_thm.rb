@@ -50,7 +50,7 @@ class Element
 end
 
 def convert(string)
-  regex = /(\/\*.*?\*\/|%.*?\n|(?:Theorem|CoDefine|Define|Import|Specification|coinduction|induction|apply|cut|inst|monotone|case|assert|exists|clear|abbrev|unabbrev|search|split|split\*|unfold|intros|skip|abort|undo)(?:[^%]|%.*?\n)*?\.)/m
+  regex = /(\/\*.*?\*\/|%.*?\n|(?:Theorem|CoDefine|Define|Import|Specification|Type|Kind|coinduction|induction|apply|cut|inst|monotone|case|assert|exists|clear|abbrev|unabbrev|search|split|split\*|unfold|intros|skip|abort|undo)(?:[^%]|%.*?\n)*?\.)/m
 
   string.split(regex).map do |s|
     case s
@@ -63,7 +63,7 @@ def convert(string)
       Element.new(s, :comment)
     when /^Theorem/
       Element.new(s, :theorem)
-    when /^(Define|CoDefine|Set|Query|Specification)/
+    when /^(Define|CoDefine|Set|Query|Specification|Type|Kind)/
       Element.new(s, :command)
     when /^Import/
       Element.new(s, :import)

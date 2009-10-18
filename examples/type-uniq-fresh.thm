@@ -3,29 +3,28 @@
 %% This development uses an explicit freshness predicate which may be
 %% easier to understand for new users to Abella.
 
-Specification "type-uniq-fresh".
+Specification "type-uniq".
 
-%% There are some results about nominal variables, freshness, and lists
-%% that we can prove in general.
+Define name : tm -> prop by
+  nabla x, name x.
 
-%% Start generic section
+Define fresh : tm -> o -> prop by
+  nabla x, fresh x E.
 
-Define nabla x, name x.
-
-Define nabla x, fresh x E.
+Define freshlist : tm -> olist -> prop by
+  nabla x, freshlist x E.
 
 Theorem member_fresh : forall X L E,
-  member E L -> fresh X L -> fresh X E.
+  member E L -> freshlist X L -> fresh X E.
 induction on 1. intros. case H1.
   case H2. search.
-  assert fresh X L1.
+  assert freshlist X L1.
     case H2. search.
     apply IH to H3 H4. search.
 
-%% End generic section
-
-Define ctx nil.
-Define ctx (of X T :: L) := fresh X L /\ ctx L.
+Define ctx : olist -> prop by
+  ctx nil ;
+  ctx (of X T :: L) := freshlist X L /\ ctx L.
 
 % We could define this second clause as simply
 %   Define nabla x, ctx (of x T :: L) := ctx L.

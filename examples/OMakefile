@@ -73,7 +73,7 @@ foreach(name, $(FILE_NAMES))
 
 .PHONY: upload-html
 upload-html: html
-    bash -c "chmod 664 html/* *.sig *.thm *.mod"
-    scp $(addprefix html/, $(basename $(ls html))) *.sig *.mod *.thm \
+    bash -c "chmod 664 html/* *.html *.sig *.thm *.mod"
+    scp $(addprefix html/, $(basename $(ls html))) *.html *.sig *.mod *.thm \
       $(UPLOAD_SITE)/examples
     rm -rf html

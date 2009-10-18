@@ -1,0 +1,93 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<title>Abella: Some &pi;-calculus meta-theory</title>
+<link href="../style.css" rel="stylesheet" type="text/css" />
+<link rel="icon" href="../images/favicon.ico" type="image/x-icon" />
+<link rel="shortcut icon" href="../images/favicon.ico"
+        type="image/x-icon" />
+</head>
+
+<body>
+
+<div id="logo-small">
+<a href="../index.html">
+<img src="../images/logo-small.png"/>
+</a>
+</div>
+
+<div class="section">
+<center>
+<h1 class="title">
+  Some &pi;-calculus meta-theory
+</h1>
+</center>
+<br>
+<p>
+The &pi;-calculus provides an appealing example of using Abella in
+meta-theory reasoning. The following two papers describe in detail how
+the &pi;-calculus and its meta-theory can be encoded in logic using
+fixed points and the &nabla;-quantifier.
+</p>
+<br>
+<p style="margin-left: 30px;">
+<b>Proof Search Specifications of Bisimulation and Modal Logics
+    for the &pi;-calculus</b>, by
+<a href="http://users.rsise.anu.edu.au/%7Etiu/">Alwen Tiu</a> and
+<a href="http://www.lix.polytechnique.fr/Labo/Dale.Miller/">Dale
+Miller</a>. Accepted (February 2009) to the ACM Transactions on
+Computational Logic. Draft dated 16 February 2009:
+(<a href="http://www.lix.polytechnique.fr/Labo/Dale.Miller/papers/tiu09tocl.pdf">pdf</a>,
+<a href="http://arxiv.org/abs/0805.2785">arXiv</a>)
+</p>
+<p style="margin-left: 30px;">
+<b>A Proof Theory for Generic Judgments,</b> by <a href="http://www.lix.polytechnique.fr/Labo/Dale.Miller/">Dale
+Miller</a> and <a href="http://users.rsise.anu.edu.au/%7Etiu/">Alwen Tiu</a>. ACM
+Transactions on Computational Logic, 6(4), pp. 749-783, October
+2005. (<a href="http://www.lix.polytechnique.fr/Labo/Dale.Miller/papers/tocl-nabla.pdf">pdf</a>).
+</p>
+<br>
+<p>
+Some of the examples in these papers can be directly represented in
+Abella.  We consider here the "finite &pi;-calculus": that is, the
+&pi;-calculus without the "bang" (!) constructor and without recursive
+definitions.  This example is useful for focusing on the
+treatment of bindings within the &pi;-calculus.</p>
+<ol>
+<li>
+The files
+<a href="finite-pic.sig">finite-pic.sig</a> and
+<a href="finite-pic.mod">finite-pic.mod</a>
+are <a href="http://www.lix.polytechnique.fr/Labo/Dale.Miller/lProlog/">&lambda;Prolog</a>
+specification files.
+</li>
+<li>
+The <a href="finite-pic.thm">finite-pic.thm</a>
+(<a href="finite-pic.html">HTML version</a>) contains an Abella
+theory file that defines simulation and bisimulation coinductively and
+then proves that simulation is preorder and bisimulation is an
+equivalence relation.
+</li>
+<li>
+The <a href="finite-pic-cong.thm">finite-pic-cong.thm</a>
+(<a href="finite-pic-cong.html">HTML version</a>)
+contains an Abella theory file that proves that simulation is a
+pre-congruence.  Following the proof in that file, it should be
+straightforward to show that bisimulation is a congruence.  Notice
+that the bisimulation defined using the intuitionistic theory in
+Abella corresponds to <i>open</i> bisimulation (see D. Sangiorgi,
+``<a href="http://www.lfcs.inf.ed.ac.uk/reports/93/ECS-LFCS-93-270/index.html">A
+Theory of Bisimulation for the &pi;-Calculus</a>'', Acta Informatica
+33(1), pp. 69-97, 1996).
+</li>
+</ol>
+<p>
+In all cases, the proofs of the theorems are rather natural and
+high-level although they are completely formal.  All issues
+involving bindings, names, and substitutions are handled declaratively
+without explicit side-conditions.
+</p>
+</div>
+
+<? include '../footer.html' ?>

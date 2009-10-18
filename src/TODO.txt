@@ -23,7 +23,7 @@ Move examples into their own subdirs where they can have index.html ?
 Document in next release
 ========================
 Backchain (and how annotations work on rhs)
-Permute
+Permute (works in place)
 Better handling of unification erors during case analysis
 Added some additional handling of non-LLambda unification problems
 

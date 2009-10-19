@@ -1,10 +1,6 @@
-Document in next release
-========================
-Typing
-Backchain (and how annotations work on rhs)
-Permute (works in place)
-Better handling of unification erors during case analysis
-Added some additional handling of non-LLambda unification problems
+Before release
+  Look at with-typing
+  Look at permute variable capture
 
 Later
 =====

@@ -10,6 +10,8 @@ Later
 =====
 Think about specification modularity
 
+Flag lambda prolog keywords when reading sig and mod files
+
 Allow delcarations about which types are nominal?
   But which ones are automatically nominal?
 

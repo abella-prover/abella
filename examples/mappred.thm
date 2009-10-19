@@ -1,0 +1,25 @@
+%% Proofs about 'mappred'
+%%
+%% This development is limited by the lack of polymorphism
+
+
+Specification "mappred".
+
+Theorem split :
+  forall R S L K,
+    {mappred (x\ y\ exist z\ and (R x z) (S z y)) L K} ->
+      exists J, {mappred R L J} /\ {mappred S J K}.
+
+induction on 1. intros. case H1.
+  search.
+  case H2. case H4. apply IH to H3. search.
+
+
+Theorem combine :
+  forall R S L K J,
+    {mappred R L J} -> {mappred S J K} ->
+      {mappred (x\ y\ exist z\ and (R x z) (S z y)) L K}.
+
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H4 H6. search.

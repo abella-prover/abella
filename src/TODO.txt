@@ -1,13 +1,6 @@
 Add reference section on typing (annotations, type, kind, o, olist,
 prop)
 
-Reference guide section on examples should forward to some index. Can
-we auto generate an index from the thm files?
-  Recheck all examples and links from reference guide as names have
-  changed
-
-Update walkthroughs and references to use new typing and defining
-mechanisms
 
 Later
 =====
@@ -18,6 +11,7 @@ Polymorphism? Type constructors?
   Issues when using 'apply' and metavariables
 
 Move examples into their own subdirs where they can have index.html ?
+  Reference guide automatically generated?
 
 
 Document in next release

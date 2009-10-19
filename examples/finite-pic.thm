@@ -1,4 +1,4 @@
-%% Simulation and bisimulation for the pi-calculus.
+%% Simulation and bisimulation for the pi-calculus
 %%
 %% Given that the meta-logic of Abella is intuitionistic, the
 %% specification of bisimulation here corresponds to open bisimulation.

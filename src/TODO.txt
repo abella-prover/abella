@@ -1,9 +1,15 @@
-Add reference section on typing (annotations, type, kind, o, olist,
-prop)
-
+Document in next release
+========================
+Typing
+Backchain (and how annotations work on rhs)
+Permute (works in place)
+Better handling of unification erors during case analysis
+Added some additional handling of non-LLambda unification problems
 
 Later
 =====
+Think about specification modularity
+
 Allow delcarations about which types are nominal?
   But which ones are automatically nominal?
 
@@ -12,14 +18,6 @@ Polymorphism? Type constructors?
 
 Move examples into their own subdirs where they can have index.html ?
   Reference guide automatically generated?
-
-
-Document in next release
-========================
-Backchain (and how annotations work on rhs)
-Permute (works in place)
-Better handling of unification erors during case analysis
-Added some additional handling of non-LLambda unification problems
 
 Future
 ======

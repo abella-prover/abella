@@ -7,6 +7,7 @@ let tests = "Abella" >:::
     Term_test.tests ;
     Context_test.tests ;
     Metaterm_test.tests ;
+    Typing_test.tests ;
     Parser_test.tests ;
     Tactics_test.tests ;
     Prover_test.tests ;

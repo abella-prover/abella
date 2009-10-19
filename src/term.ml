@@ -302,12 +302,6 @@ let get_used ts =
   |> List.unique
   |> List.map (fun t -> ((term_to_var t).name, t))
 
-let rec has_logic_head t =
-  match observe (hnorm t) with
-    | Var v -> v.tag = Logic
-    | App(h, _) -> has_logic_head h
-    | _ -> false
-
 (* Pretty printing *)
 
 exception Found of int
@@ -474,6 +468,21 @@ let nominal_tids terms =
 let all_tids terms =
   extract_tids (fun _ -> true) terms
 
+let has_head test t =
+  let rec aux t =
+    match observe (hnorm t) with
+      | Var v -> test v
+      | App(h, _) -> aux h
+      | _ -> false
+  in
+    aux t
+
+let has_logic_head t =
+  has_head (fun v -> v.tag = Logic) t
+
+let has_eigen_head t =
+  has_head (fun v -> v.tag = Eigen) t
+    
 (* Typing *)
 
 let tyarrow tys ty =

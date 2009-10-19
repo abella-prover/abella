@@ -99,30 +99,6 @@ let rec kind_check = function
       else
         failwith ("Unknown type: " ^ bty)
 
-let check_spec_logic_type ty =
-  let rec aux nested = function
-    | Ty(tys, bty) ->
-        if nested && bty = "o" then
-          failwith "Cannot quantify over type o in the specification logic"
-        else if bty = "prop" then
-          failwith "Cannot mention type prop in the specification logic"
-        else if bty = "olist" then
-          failwith "Cannot mention type olist in the specification logic"
-        else
-          List.iter (aux true) tys
-  in
-    aux false ty
-
-let check_meta_logic_type ty =
-  let rec aux nested = function
-    | Ty(tys, bty) ->
-        if nested && bty = "prop" then
-          failwith "Cannot quantify over type prop"
-        else
-          List.iter (aux true) tys
-  in
-    aux false ty
-
 let check_const (id, ty) =
   if H.mem ctable id then
     failwith (id ^ " has already been declared as a constant")
@@ -338,7 +314,49 @@ let type_uterm ~ctx t expected_ty =
     term_ensure_fully_inferred result ;
     result
 
+let rec has_capital_head t =
+  match t with
+    | UCon(_, v, _) -> is_capital_name v
+    | UApp(_, h, _) -> has_capital_head h
+    | _ -> false
+
+let iter_ty f ty =
+  let rec aux = function
+    | Ty(tys, bty) -> f bty; List.iter aux tys
+  in
+    aux ty
+
+let check_spec_logic_type ty =
+  iter_ty
+    (fun bty ->
+       if bty = "prop" then
+         failwith "Cannot mention type prop in the specification logic" ;
+       if bty = "olist" then
+         failwith "Cannot mention type olist in the specification logic")
+    ty
+
+let check_spec_logic_quantification_type ty =
+  check_spec_logic_type ty ;
+  iter_ty
+    (fun bty  ->
+        if bty = "o" then
+          failwith "Cannot quantify over type o in the specification logic")
+    ty
+      
+let check_pi_quantification ts =
+  ignore
+    (map_vars
+       (fun v ->
+          if v.name = "pi" then
+            match v.ty with
+              | Ty([Ty([tau], _)], _) ->
+                  check_spec_logic_quantification_type tau
+              | _ -> assert false)
+       ts)
+
 let type_uclause (head, body) =
+  if has_capital_head head then
+    failwith "Clause has flexible head" ;
   let cids = uterms_extract_if is_capital_name (head::body) in
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns =
@@ -352,6 +370,7 @@ let type_uclause (head, body) =
   let convert p = replace_term_vars ctx (uterm_to_term sub p) in
   let (rhead, rbody) = (convert head, List.map convert body) in
     List.iter term_ensure_fully_inferred (rhead::rbody) ;
+    check_pi_quantification (rhead::rbody) ;
     (rhead, rbody)
 
 
@@ -426,6 +445,25 @@ let umetaterm_to_string t =
 let umetaterm_to_formatted_string t =
   metaterm_to_formatted_string (umetaterm_to_metaterm [] t)
 
+let check_meta_logic_quantification_type ty =
+  iter_ty
+    (fun bty ->
+       if bty = "prop" then
+         failwith "Cannot quantify over type prop")
+    ty
+    
+let check_meta_quantification t =
+  let rec aux t =
+    match t with
+      | True | False | Eq _ | Obj _ | Pred _ -> ()
+      | And(a, b) | Or(a, b) | Arrow(a, b) -> aux a; aux b
+      | Binding(_, tids, body) ->
+          List.iter
+            check_meta_logic_quantification_type
+            (List.map snd tids) ;
+          aux body
+  in
+    aux t
 
 let type_umetaterm ?(ctx=[]) t =
   let nominal_tyctx = umetaterm_nominals_to_tyctx t in
@@ -439,6 +477,7 @@ let type_umetaterm ?(ctx=[]) t =
   in
   let result = replace_metaterm_vars ctx (umetaterm_to_metaterm sub t) in
     metaterm_ensure_fully_inferred result ;
+    check_meta_quantification result ;
     result
 
 
@@ -455,6 +494,7 @@ let type_udef (head, body) =
   in
     metaterm_ensure_fully_inferred rhead ;
     metaterm_ensure_fully_inferred rbody ;
+    check_meta_quantification rbody ;
     (rhead, rbody)
 
 let type_udefs udefs =

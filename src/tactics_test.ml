@@ -854,6 +854,15 @@ let case_tests =
                    end
                | cases -> assert_expected_cases 1 cases) ;
 
+      "Should not work on flexible clause head" >::
+        (fun () ->
+           let term = freshen "{P}" in
+           let clauses = parse_lpmod "p1 t1."
+           in
+             assert_raises
+               (Failure "Cannot perform case-analysis on flexible head")
+               (fun () -> case ~clauses term)) ;
+
     ]
 
 let induction_tests =

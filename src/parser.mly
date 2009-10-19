@@ -322,8 +322,7 @@ hashes:
   | HASH                                 { 1 }
 
 id_ty:
-  | id COLON ty                          { check_meta_logic_type $3 ;
-                                           ($1, $3) }
+  | id COLON ty                          { ($1, $3) }
 
 id_tys:
   | id_ty COMMA id_tys                   { $1::$3 }
@@ -340,8 +339,7 @@ top_command :
   | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
   | KKIND id_list TYPE DOT               { add_types $2 ;
                                            Types.Kind($2) }
-  | TTYPE id_list ty DOT                 { check_meta_logic_type $3 ;
-                                           add_consts
+  | TTYPE id_list ty DOT                 { add_consts
                                              (List.map (fun id -> (id, $3)) $2) ;
                                            Types.Type($2, $3) }
   | EOF                                  { raise End_of_file }

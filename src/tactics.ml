@@ -268,6 +268,8 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
   in
 
   let clause_case ~wrapper term =
+    if has_eigen_head term then
+      failwith "Cannot perform case-analysis on flexible head" ;
     clauses |> List.filter_map
         (fun (head, body) ->
            set_bind_state initial_bind_state ;

@@ -1,0 +1,59 @@
+open OUnit
+open Test_helper
+open Typing
+open Term
+open Metaterm
+
+let dummy_pos = (Lexing.dummy_pos, Lexing.dummy_pos)
+
+let ucon ?(ty=fresh_tyvar ()) v =
+  UCon(dummy_pos, v, ty)
+
+let ulam v ?(ty=fresh_tyvar ()) t =
+  ULam(dummy_pos, v, ty, t)
+
+let uapp t1 t2 =
+  UApp(dummy_pos, t1, t2)
+
+let upred t =
+  UPred(t, Irrelevant)
+    
+type uterm =
+  | UCon of pos * string * ty
+  | ULam of pos * string * ty * uterm
+  | UApp of pos * uterm * uterm
+
+
+let tests =
+  "Typing" >:::
+    [
+      "Should not allow pi quantification over o in clause" >::
+        (fun () ->
+           let uclause =
+             (ucon "a", [uapp (ucon "pi") (ulam "x" ~ty:oty (ucon "x"))])
+           in
+             assert_raises
+               (Failure "Cannot quantify over type o in the specification logic")
+               (fun () -> type_uclause uclause)
+        );
+      
+      "Should not allow quantification over prop in definition" >::
+        (fun () ->
+           let udef =
+             (UTrue, UBinding(Forall, [("x", propty)], upred (ucon "x")))
+           in
+             assert_raises
+               (Failure "Cannot quantify over type prop")
+               (fun () -> type_udef udef)
+        );
+
+      "Should not allow quantification over prop in metaterm" >::
+        (fun () ->
+           let umetaterm =
+             UBinding(Forall, [("x", propty)], upred (ucon "x"))
+           in
+             assert_raises
+               (Failure "Cannot quantify over type prop")
+               (fun () -> type_umetaterm umetaterm)
+        );
+    ]

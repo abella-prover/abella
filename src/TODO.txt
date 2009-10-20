@@ -1,9 +1,13 @@
 Before release
   Look at with-typing
-  Look at permute variable capture
 
 Later
 =====
+Add a C-c C-a command to emacs mode which aborts the current proof and
+goes back to the start of the theorem.
+
+Disallow constants with name n[0-9]+
+
 Think about specification modularity
 
 Flag lambda prolog keywords when reading sig and mod files

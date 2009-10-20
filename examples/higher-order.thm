@@ -1,0 +1,94 @@
+%% Higher-order Logic Programming
+%%
+%% This development is currently limited by the lack of polymorphism
+
+Specification "higher-order".
+
+Theorem split :
+  forall R S L K,
+    {mappred (x\ y\ exist z\ and (R x z) (S z y)) L K} ->
+      exists J, {mappred R L J} /\ {mappred S J K}.
+induction on 1. intros. case H1.
+  search.
+  case H2. case H4. apply IH to H3. search.
+
+Theorem combine :
+  forall R S L K J,
+    {mappred R L J} -> {mappred S J K} ->
+      {mappred (x\ y\ exist z\ and (R x z) (S z y)) L K}.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H4 H6. search.
+
+
+Theorem deterministic :
+  forall R L K1 K2,
+    (forall X Y1 Y2, {R X Y1} -> {R X Y2} -> Y1 = Y2) ->
+      {mappred R L K1} -> {mappred R L K2} -> K1 = K2.
+induction on 2. intros. case H2.
+  case H3. search.
+  case H3. apply H1 to H4 H6. apply IH to H1 H5 H7. search.
+
+
+Theorem swap1 :
+  forall R L K,
+    {mappred (swap R) L K} -> {mappred R K L}.
+induction on 1. intros. case H1.
+  search.
+  case H2. apply IH to H3. search.
+
+Theorem swap2 :
+  forall R L K,
+    {mappred R K L} -> {mappred (swap R) L K}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H3. search.
+
+
+Define reflexive : (a -> a -> o) -> prop by
+  reflexive P := forall X, {P X X}.
+
+Define transitive : (a -> a -> o) -> prop by
+  transitive P := forall X Y Z, {P X Y} -> {P Y Z} -> {P X Z}.
+
+
+Theorem star_reflexive :
+  forall P, reflexive (star P).
+intros. unfold. intros. search.
+
+Theorem star_transitive :
+  forall P, transitive (star P).
+intros. unfold. induction on 1. intros. case H1.
+  search.
+  apply IH to H4 H2. search.
+
+Define contained_in : (a -> a -> o) -> (a -> a -> o) -> prop by
+  contained_in P S := forall X Y, {P X Y} -> {S X Y}.
+
+% Theorem: star is minimal -- any reflexive and transitive relation
+%  which contains P must contain (star P).
+Theorem star_minimal :
+  forall P S, contained_in P S -> reflexive S -> transitive S ->
+    contained_in (star P) S.
+intros. unfold. induction on 1. intros. case H4.
+  case H2. backchain H5.
+  apply IH to H6. case H1. apply H8 to H5.
+    case H3. apply H10 to H9 H7. search.
+
+% Corollary: if P is reflexive and transitive then (star P) equals P.
+%  The easy direction is that (star P) contains P. The harder
+%  direction is showing that P contains (star P). We do this harder
+%  direction here.
+Theorem star_vacuous :
+  forall P, reflexive P -> transitive P -> contained_in (star P) P.
+intros. assert contained_in P P.
+  unfold. intros. search.
+  apply star_minimal to H3 H1 H2. search.
+
+% Corollary: star is idempotent
+Theorem star_idempotent :
+  forall P, contained_in (star (star P)) (star P).
+intros.
+  apply star_reflexive with P = P.
+  apply star_transitive with P = P.
+  apply star_vacuous to H1 H2. search.

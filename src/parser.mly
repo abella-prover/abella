@@ -45,7 +45,7 @@
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY
-%token PERMUTE BACKCHAIN
+%token PERMUTE BACKCHAIN QUIT
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND LBRACK RBRACK
 %token KIND TYPE KKIND TTYPE SIG MODULE
 
@@ -118,6 +118,7 @@ id:
   | DEFINE                               { "Define" }
   | CODEFINE                             { "CoDefine" }
   | SET                                  { "Set" }
+  | QUIT                                 { "Quit" }
   | QUERY                                { "Query" }
 
 /* Annotated ID */
@@ -261,6 +262,7 @@ command:
   | PERMUTE perm hyp DOT                 { Types.Permute($2, Some $3) }
   | SET id id DOT                        { Types.Set($2, Types.Str $3) }
   | SET id NUM DOT                       { Types.Set($2, Types.Int $3) }
+  | QUIT                                 { Types.Quit }
   | EOF                                  { raise End_of_file }
 
 hyp_list:
@@ -335,6 +337,7 @@ top_command :
   | QUERY metaterm DOT                   { Types.Query($2) }
   | SET id id DOT                        { Types.TopSet($2, Types.Str $3) }
   | SET id NUM DOT                       { Types.TopSet($2, Types.Int $3) }
+  | QUIT                                 { Types.TopQuit }
   | IMPORT QSTRING DOT                   { Types.Import($2) }
   | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
   | KKIND id_list TYPE DOT               { add_types $2 ;

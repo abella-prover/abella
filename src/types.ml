@@ -52,6 +52,7 @@ type top_command =
   | Query of umetaterm
   | Kind of id list
   | Type of id list * ty
+  | TopQuit
 
 type compiled =
   | CTheorem of id * metaterm
@@ -86,6 +87,7 @@ type command =
   | Skip
   | Abort
   | Undo
+  | Quit
   | Set of string * set_value
 
 let udef_to_string (head, body) =
@@ -127,6 +129,8 @@ let top_command_to_string tc =
           (idtys_to_string idtys) (udefs_to_string udefs) ;
     | TopSet(k, v) ->
         sprintf "Set %s %s" k (set_value_to_string v)
+    | TopQuit ->
+        sprintf "Quit"
     | Import filename ->
         sprintf "Import \"%s\"" filename
     | Specification filename ->
@@ -195,3 +199,4 @@ let command_to_string c =
     | Abort -> "abort"
     | Undo -> "undo"
     | Set(k, v) -> sprintf "Set %s %s" k (set_value_to_string v)
+    | Quit -> "Quit"

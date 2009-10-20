@@ -116,6 +116,7 @@ rule token = parse
 | "permute"          { PERMUTE }
 
 | "Set"              { SET }
+| "Quit"             { QUIT }
 
 | number as n        { NUM (int_of_string n) }
 | name as n          { STRINGID n }

@@ -19,8 +19,6 @@ Move examples into their own subdirs where they can have index.html ?
 
 Future
 ======
-Write some tests for untyping module?
-
 Change context handling to use explicit tail variable
 
 Allow for tacticals

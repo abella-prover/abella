@@ -323,6 +323,7 @@ let rec process_proof name =
           | Abort -> raise AbortProof
           | Undo -> undo () ; undo () (* undo recent save, and previous save *)
           | Set(k, v) -> set k v
+          | Quit -> raise End_of_file
         end ;
         if !interactive then flush stdout ;
     with
@@ -398,6 +399,8 @@ let rec process () =
               add_defs ids CoInductive defs
         | TopSet(k, v) ->
             set k v
+        | TopQuit ->
+            raise End_of_file
         | Import(filename) ->
             compile (CImport filename) ;
             import filename ;

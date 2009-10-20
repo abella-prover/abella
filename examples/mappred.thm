@@ -35,10 +35,20 @@ induction on 2. intros. case H2.
   case H3. apply H1 to H4 H6. apply IH to H1 H5 H7. search.
 
 
-Theorem swap :
+Theorem swap1 :
   forall R L K,
     {mappred (swap R) L K} -> {mappred R K L}.
 
 induction on 1. intros. case H1.
   search.
   case H2. apply IH to H3. search.
+
+
+Theorem swap2 :
+  forall R L K,
+    {mappred R K L} -> {mappred (swap R) L K}.
+
+induction on 1. intros. case H1.
+  search.
+  apply IH to H3. search.
+

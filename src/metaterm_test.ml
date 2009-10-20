@@ -231,6 +231,14 @@ let tests =
              assert_pprint_equal "forall A1, A -> (forall A2, A1 = A2)"
                (normalize t) );
 
+      "Normalize should rename nominals of different types" >::
+        (fun () ->
+           let t = pred ((uconst "foo") ^^ [nominal_var "n1" aty;
+                                            nominal_var "n1" bty;
+                                            nominal_var "n2" aty])
+           in
+             assert_pprint_equal "foo n3 n1 n2" (normalize t)) ;
+
       "Meta right unify - equality" >::
         (fun () ->
            assert_metaterm_unify

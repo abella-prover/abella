@@ -374,9 +374,7 @@ let get_metaterm_used_nominals t =
   t |> metaterm_support
     |> List.map term_to_pair
 
-let fresh_nominals tys t =
-  let used_vars = find_vars Nominal (collect_terms t) in
-  let used_names = List.map (fun v -> v.name) used_vars in
+let fresh_nominals_by_list tys used_names =
   let p = prefix Nominal in
   let result = ref [] in
   let get_name () =
@@ -390,6 +388,11 @@ let fresh_nominals tys t =
       result := !result @ [get_name()] ;
     done ;
     List.map2 nominal_var !result tys
+
+let fresh_nominals tys t =
+  let used_vars = find_vars Nominal (collect_terms t) in
+  let used_names = List.map (fun v -> v.name) used_vars in
+    fresh_nominals_by_list tys used_names
 
 let fresh_nominal ty t =
   match fresh_nominals [ty] t with
@@ -444,9 +447,58 @@ and freshen_used_bindings bindings used body =
   let body' = normalize_binders bindings_alist body in
     (bindings', body')
 
+let replace_term_typed_nominals alist t =
+  let rec aux t =
+    match observe (hnorm t) with
+      | Var v when v.tag = Nominal && List.mem_assoc (v.name, v.ty) alist ->
+          List.assoc (v.name, v.ty) alist
+      | Var _
+      | DB _ -> t
+      | Lam(i, t) -> lambda i (aux t)
+      | App(t, ts) -> app (aux t) (List.map aux ts)
+      | Susp _ -> assert false
+      | Ptr _ -> assert false
+  in
+    aux t
+
+let rec replace_metaterm_typed_nominals alist t =
+  let term_aux = replace_term_typed_nominals alist in
+  let rec aux t =
+    match t with
+      | True | False -> t
+      | Eq(a, b) -> Eq(term_aux a, term_aux b)
+      | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
+      | Arrow(a, b) -> Arrow(aux a, aux b)
+      | Binding(binder, bindings, body) ->
+          Binding(binder, bindings, aux body)
+      | Or(a, b) -> Or(aux a, aux b)
+      | And(a, b) -> And(aux a, aux b)
+      | Pred(p, r) -> Pred(term_aux p, r)
+  in
+    aux t
+
+let normalize_nominals t =
+  let used_names = ref [] in
+  let shadowed =
+    List.filter_map
+      (fun t ->
+         let v = term_to_var t in
+           if List.mem v.name !used_names then
+             Some (v.name, v.ty)
+           else begin
+             used_names := v.name :: !used_names;
+             None
+           end)
+      (metaterm_support t)
+  in
+  let nominals = fresh_nominals_by_list (List.map snd shadowed) !used_names in
+  let nominal_alist = List.combine shadowed nominals in
+    replace_metaterm_typed_nominals nominal_alist t
+
 let normalize term =
   term
   |> map_on_objs normalize_obj
+  |> normalize_nominals
   |> normalize_binders []
 
 let instantiate_nablas tids body =

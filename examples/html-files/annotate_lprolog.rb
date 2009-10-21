@@ -11,5 +11,10 @@ file.gsub!(/%.*?\n/) do |match|
   "<span class=\"comment\">#{match.chop}</span>\n"
 end
 
-print file
+file.gsub!(/accum_sig ([^.]*)\./,
+           'accum_sig \1. <a class="view" href="\1.sig">[View \1.sig]</a>')
 
+file.gsub!(/accumulate ([^.]*)\./,
+           'accumulate \1. <a class="view" href="\1.mod">[View \1.mod]</a>')
+
+print file

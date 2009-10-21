@@ -5,8 +5,6 @@ goes back to the start of the theorem.
 
 Disallow constants with name n[0-9]+
 
-Think about specification modularity
-
 Flag lambda prolog keywords when reading sig and mod files
 
 Allow delcarations about which types are nominal?

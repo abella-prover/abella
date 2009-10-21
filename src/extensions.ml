@@ -122,8 +122,8 @@ module List = struct
   let remove_all f list =
     find_all (fun x -> not (f x)) list
 
-  let minus list1 list2 =
-    remove_all (fun e -> mem e list2) list1
+  let minus ?(cmp=(=)) list1 list2 =
+    remove_all (fun e -> mem ~cmp e list2) list1
 
   let rec take n list =
     match list, n with

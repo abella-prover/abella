@@ -57,6 +57,14 @@ let sequent = {
   next_subgoal_id = 1 ;
 }
 
+let sign = ref pervasive_sign
+
+let add_global_types tys =
+  sign := add_types !sign tys
+
+let add_global_consts cs =
+  sign := add_consts !sign cs
+
 let extend_name i =
   if sequent.name = "" then
     sequent.name <- string_of_int i
@@ -115,14 +123,13 @@ let add_clauses new_clauses =
   clauses := !clauses @ new_clauses
 
 let parse_defs str =
-  type_udefs (Parser.defs Lexer.token (Lexing.from_string str))
+  type_udefs ~sign:!sign (Parser.defs Lexer.token (Lexing.from_string str))
 
 let defs_table : defs_table = H.create 10
 let () = H.add defs_table "member"
   (Inductive,
    ["member"],
-   parse_defs ("member A (A :: L) ; \
-              \ member A (B :: L) := member A L."))
+   parse_defs "member A (A :: L) ; member A (B :: L) := member A L.")
 
 let add_defs ids ty defs =
   List.iter
@@ -316,7 +323,7 @@ let inst h n t =
             let ctx = sequent.vars @
               (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
             in
-            let t = type_uterm ~ctx t nty in
+            let t = type_uterm ~sign:!sign ~ctx t nty in
               add_hyp (object_inst ht n t)
           with
             | Not_found ->
@@ -449,7 +456,7 @@ let type_apply_withs stmt ws =
       (fun (id, t) ->
          try
            let ty = List.assoc id bindings in
-             (id, type_uterm ~ctx:sequent.vars t ty)
+             (id, type_uterm ~sign:!sign ~ctx:sequent.vars t ty)
          with
            | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
       ws
@@ -488,7 +495,7 @@ let type_backchain_withs stmt ws =
       (fun (id, t) ->
          try
            let ty = List.assoc id bindings in
-             (id, type_uterm ~ctx:(nctx @ sequent.vars) t ty)
+             (id, type_uterm ~sign:!sign ~ctx:(nctx @ sequent.vars) t ty)
          with
            | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
       ws
@@ -672,7 +679,7 @@ let delay_mainline new_hyp detour_goal =
   if search_goal sequent.goal then next_subgoal ()
 
 let assert_hyp term =
-  let term = type_umetaterm ~ctx:sequent.vars term in
+  let term = type_umetaterm ~sign:!sign ~ctx:sequent.vars term in
     delay_mainline term term
 
 (* Object logic monotone *)
@@ -685,7 +692,7 @@ let monotone h t =
           let ctx = sequent.vars @
             (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
           in
-          let t = type_uterm ~ctx t olistty in
+          let t = type_uterm ~sign:!sign ~ctx t olistty in
           let new_obj = { obj with context = Context.normalize [t] } in
             delay_mainline
               (Obj(new_obj, r))
@@ -778,7 +785,7 @@ let exists t =
         let ctx = sequent.vars @
           (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
         in
-        let t = type_uterm ~ctx t ty in
+        let t = type_uterm ~sign:!sign ~ctx t ty in
         let goal = exists tids (replace_metaterm_vars [(id, t)] body) in
           sequent.goal <- goal
     | _ -> ()

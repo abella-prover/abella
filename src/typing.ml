@@ -2,8 +2,6 @@ open Term
 open Metaterm
 open Extensions
 
-module H = Hashtbl
-
 
 (** Untyped terms *)
 
@@ -66,71 +64,74 @@ let tyctx_to_nominal_ctx tyctx =
   List.map (fun (id, ty) -> (id, nominal_var id ty)) tyctx
 
 
-(** Kind table *)
+(** Tables / Signatures *)
 
-type ktable = (string, unit) H.t
-let ktable : ktable = H.create 10
+type ktable = string list
+type pty = Poly of string list * ty
+type ctable = (string * pty) list
+type sign = ktable * ctable
 
-let check_type id =
-  if H.mem ktable id then
-    failwith (id ^ " has already been declared as a type")
+(** Kinds *)
 
-let add_types ids =
-  List.iter check_type ids ;
-  List.iter (fun id -> H.add ktable id ()) ids
+let add_types (ktable, ctable) ids =
+  (ids @ ktable, ctable)
 
-let lookup_type id =
-  H.mem ktable id
-
-let () =
-  add_types ["o"; "olist"; "prop"]
-
+let lookup_type (ktable, _) id =
+  List.mem id ktable
 
 (** Constants *)
 
-type pty = Poly of string list * ty
-type ctable = (string, pty) H.t
-let ctable : ctable = H.create 10
+let kind_check sign (Poly(ids, ty)) =
+  let rec aux = function
+    | Ty(tys, bty) ->
+        if List.mem bty ids || lookup_type sign bty then
+          List.iter aux tys
+        else
+          failwith ("Unknown type: " ^ bty)
+  in
+    aux ty
 
-let rec kind_check = function
-  | Ty(tys, bty) ->
-      if lookup_type bty then
-        List.iter kind_check tys
-      else
-        failwith ("Unknown type: " ^ bty)
+let check_const (ktable, ctable) (id, pty) =
+  begin try
+    let pty' = List.assoc id ctable in
+      if pty <> pty' then
+        failwith ("Constant " ^ id ^ " has inconsistent type declarations")
+  with
+    | Not_found -> ()
+  end ;
 
-let check_const (id, ty) =
-  if H.mem ctable id then
-    failwith (id ^ " has already been declared as a constant")
-  else if is_capital_name id then
-    failwith ("Constants may not begin with a capital letter: " ^ id)
-  else
-    kind_check ty
+  if is_capital_name id then
+    failwith ("Constants may not begin with a capital letter: " ^ id) ;
 
-let add_consts idtys =
-  match List.find_duplicate (List.map fst idtys) with
-    | Some id -> failwith (id ^ " is defined mutiple times")
-    | None ->
-        List.iter check_const idtys ;
-        List.iter (fun (id, ty) -> H.add ctable id (Poly([], ty))) idtys
+  kind_check (ktable, ctable) pty
 
-let () =
-  H.add ctable "pi" (Poly(["A"], (tyarrow [tyarrow [tybase "A"] oty] oty))) ;
-  add_consts [("=>", tyarrow [oty; oty] oty) ;
-              ("member", tyarrow [oty; olistty] propty) ;
-              ("::", tyarrow [oty; olistty] olistty) ;
-              ("nil", olistty)]
+let add_poly_consts (ktable, ctable) idptys =
+  List.iter (check_const (ktable, ctable)) idptys ;
+  (ktable, idptys @ ctable)
+
+let add_consts sign idtys =
+  let idptys = List.map (fun (id, ty) -> (id, Poly([], ty))) idtys in
+    add_poly_consts sign idptys
 
 let freshen_ty (Poly(ids, ty)) =
   let sub = ids_to_fresh_tyctx ids in
     apply_sub_ty sub ty
 
-let lookup_const id =
+let lookup_const (_, ctable) id =
   try
-    freshen_ty (H.find ctable id)
+    freshen_ty (List.assoc id ctable)
   with
     | Not_found -> failwith ("Unknown constant: " ^ id)
 
+(** Pervasive signature *)
+
+let pervasive_sign =
+  (["o"; "olist"; "prop"],
+   [("pi",     Poly(["A"], tyarrow [tyarrow [tybase "A"] oty] oty)) ;
+    ("=>",     Poly([],    tyarrow [oty; oty] oty)) ;
+    ("member", Poly([],    tyarrow [oty; olistty] propty)) ;
+    ("::",     Poly([],    tyarrow [oty; olistty] olistty)) ;
+    ("nil",    Poly([],    olistty))])
 
 (** Typing for terms *)
 
@@ -142,7 +143,7 @@ type constraint_info = pos * constraint_type
 type constraints = (expected * actual * constraint_info) list
 exception TypeInferenceFailure of constraint_info * expected * actual
 
-let infer_type_and_constraints tyctx t =
+let infer_type_and_constraints ~sign tyctx t =
   let eqns = ref [] in
   let add_constraint expected actual pos =
     eqns := (expected, actual, pos) :: !eqns
@@ -155,7 +156,7 @@ let infer_type_and_constraints tyctx t =
             begin try
               List.assoc id tyctx
             with
-              | Not_found -> lookup_const id
+              | Not_found -> lookup_const sign id
             end
           in
             add_constraint ty ty' (p, CArg) ;
@@ -300,13 +301,13 @@ let uterm_to_string t =
   term_to_string (uterm_to_term [] t)
 
 
-let type_uterm ~ctx t expected_ty =
+let type_uterm ~sign ~ctx t expected_ty =
   let nominal_tyctx = uterm_nominals_to_tyctx t in
   let tyctx =
     (List.map (fun (id, t) -> (id, tc [] t)) ctx)
       @ nominal_tyctx
   in
-  let (ty, eqns) = infer_type_and_constraints tyctx t in
+  let (ty, eqns) = infer_type_and_constraints ~sign tyctx t in
   let eqns = (expected_ty, ty, (get_pos t, CArg)) :: eqns in
   let sub = unify_constraints eqns in
   let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx)) in
@@ -342,7 +343,7 @@ let check_spec_logic_quantification_type ty =
         if bty = "o" then
           failwith "Cannot quantify over type o in the specification logic")
     ty
-      
+
 let check_pi_quantification ts =
   ignore
     (map_vars
@@ -354,14 +355,14 @@ let check_pi_quantification ts =
               | _ -> assert false)
        ts)
 
-let type_uclause (head, body) =
+let type_uclause ~sign (head, body) =
   if has_capital_head head then
     failwith "Clause has flexible head" ;
   let cids = uterms_extract_if is_capital_name (head::body) in
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns =
     List.fold_left (fun acc p ->
-                      let (pty, peqns) = infer_type_and_constraints tyctx p in
+                      let (pty, peqns) = infer_type_and_constraints ~sign tyctx p in
                         acc @ peqns @ [(oty, pty, (get_pos p, CArg))])
       [] (head::body)
   in
@@ -376,17 +377,17 @@ let type_uclause (head, body) =
 
 (** Typing for metaterms *)
 
-let infer_constraints ~tyctx t =
+let infer_constraints ~sign ~tyctx t =
   let rec aux tyctx t =
     match t with
       | UTrue | UFalse -> []
       | UEq(a, b) ->
-          let (aty, aeqns) = infer_type_and_constraints tyctx a in
-          let (bty, beqns) = infer_type_and_constraints tyctx b in
+          let (aty, aeqns) = infer_type_and_constraints ~sign tyctx a in
+          let (bty, beqns) = infer_type_and_constraints ~sign tyctx b in
             aeqns @ beqns @ [(aty, bty, (get_pos b, CArg))]
       | UObj(l, g, _) ->
-          let (lty, leqns) = infer_type_and_constraints tyctx l in
-          let (gty, geqns) = infer_type_and_constraints tyctx g in
+          let (lty, leqns) = infer_type_and_constraints ~sign tyctx l in
+          let (gty, geqns) = infer_type_and_constraints ~sign tyctx g in
             leqns @ geqns @ [(olistty, lty, (get_pos l, CArg));
                              (oty, gty, (get_pos g, CArg))]
       | UArrow(a, b) | UOr(a, b) | UAnd(a, b) ->
@@ -394,7 +395,7 @@ let infer_constraints ~tyctx t =
       | UBinding(_, tids, body) ->
           aux ((List.rev tids) @ tyctx) body
       | UPred(p, _) ->
-          let (pty, peqns) = infer_type_and_constraints tyctx p in
+          let (pty, peqns) = infer_type_and_constraints ~sign tyctx p in
             peqns @ [(propty, pty, (get_pos p, CArg))]
   in
     aux tyctx t
@@ -451,7 +452,7 @@ let check_meta_logic_quantification_type ty =
        if bty = "prop" then
          failwith "Cannot quantify over type prop")
     ty
-    
+
 let check_meta_quantification t =
   let rec aux t =
     match t with
@@ -465,13 +466,13 @@ let check_meta_quantification t =
   in
     aux t
 
-let type_umetaterm ?(ctx=[]) t =
+let type_umetaterm ~sign ?(ctx=[]) t =
   let nominal_tyctx = umetaterm_nominals_to_tyctx t in
   let tyctx =
     (List.map (fun (id, t) -> (id, tc [] t)) ctx)
       @ nominal_tyctx
   in
-  let eqns = infer_constraints ~tyctx t in
+  let eqns = infer_constraints ~sign ~tyctx t in
   let sub = unify_constraints eqns in
   let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx))
   in
@@ -481,11 +482,11 @@ let type_umetaterm ?(ctx=[]) t =
     result
 
 
-let type_udef (head, body) =
+let type_udef ~sign (head, body) =
   let cids = umetaterm_extract_if is_capital_name head in
   let tyctx = ids_to_fresh_tyctx cids in
-  let eqns1 = infer_constraints ~tyctx head in
-  let eqns2 = infer_constraints ~tyctx body in
+  let eqns1 = infer_constraints ~sign ~tyctx head in
+  let eqns2 = infer_constraints ~sign ~tyctx body in
   let sub = unify_constraints (eqns1 @ eqns2) in
   let ctx = tyctx_to_ctx (apply_sub_tyctx sub tyctx) in
   let (rhead, rbody) =
@@ -497,8 +498,8 @@ let type_udef (head, body) =
     check_meta_quantification rbody ;
     (rhead, rbody)
 
-let type_udefs udefs =
-  List.map type_udef udefs
+let type_udefs ~sign udefs =
+  List.map (type_udef ~sign) udefs
 
 (** Utilities *)
 

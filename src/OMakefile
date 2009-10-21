@@ -30,6 +30,7 @@ FILES[] =
     metaterm
     parser
     lexer
+    accumulate
     typing
     tactics
     prover

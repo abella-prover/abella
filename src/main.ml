@@ -25,6 +25,7 @@ open Typing
 open Extensions
 open Printf
 open Debug
+open Accumulate
 
 let can_read_specification = ref true
 
@@ -43,34 +44,6 @@ exception AbortProof
 
 (* Input *)
 
-let position lexbuf =
-  let curr = lexbuf.Lexing.lex_curr_p in
-  let file = curr.Lexing.pos_fname in
-  let line = curr.Lexing.pos_lnum in
-  let char = curr.Lexing.pos_cnum - curr.Lexing.pos_bol in
-    if file = "" then
-      "" (* lexbuf information is rarely accurate at the toplevel *)
-    else
-      sprintf ": file %s, line %d, character %d" file line char
-
-let position_range (p1, p2) =
-  let file = p1.Lexing.pos_fname in
-  let line = p1.Lexing.pos_lnum in
-  let char1 = p1.Lexing.pos_cnum - p1.Lexing.pos_bol in
-  let char2 = p2.Lexing.pos_cnum - p1.Lexing.pos_bol in
-    if file = "" then
-      ""
-    else
-      sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
-
-
-let lexbuf_from_file filename =
-  let lexbuf = Lexing.from_channel (open_in filename) in
-    lexbuf.Lexing.lex_curr_p <- {
-      lexbuf.Lexing.lex_curr_p with
-        Lexing.pos_fname = filename } ;
-    lexbuf
-
 let perform_switch_to_interactive () =
   assert !switch_to_interactive ;
   switch_to_interactive := false ;
@@ -86,6 +59,17 @@ let interactive_or_exit () =
     else
       exit 1
 
+
+let position_range (p1, p2) =
+  let file = p1.Lexing.pos_fname in
+  let line = p1.Lexing.pos_lnum in
+  let char1 = p1.Lexing.pos_cnum - p1.Lexing.pos_bol in
+  let char2 = p2.Lexing.pos_cnum - p1.Lexing.pos_bol in
+    if file = "" then
+      ""
+    else
+      sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
+
 let type_inference_error (pos, ct) exp act =
   eprintf "Typing error%s.\n%!" (position_range pos) ;
   match ct with
@@ -97,28 +81,13 @@ let type_inference_error (pos, ct) exp act =
 
 
 let read_specification name =
+  clear_specification_cache () ;
   fprintf !out "Reading specification %s\n%!" name ;
-  let lexbuf_sig = lexbuf_from_file (name ^ ".sig") in
-  let lexbuf_mod = lexbuf_from_file (name ^ ".mod") in
-  let curr_lexbuf = ref lexbuf_sig in
-    try
-      Parser.lpsig Lexer.token lexbuf_sig ;
-      curr_lexbuf := lexbuf_mod ;
-      add_clauses (List.map type_uclause (Parser.lpmod Lexer.token lexbuf_mod))
-    with
-      | Parsing.Parse_error ->
-          eprintf "Syntax error%s.\n%!" (position !curr_lexbuf) ;
-          exit 1
-      | TypeInferenceFailure(ci, exp, act) ->
-          type_inference_error ci exp act ;
-          exit 1
-      | Failure s ->
-          eprintf "Error: %s\n%!" s ;
-          exit 1
-      | e ->
-          eprintf "Unknown error: %s\n%!" (Printexc.to_string e) ;
-          exit 1
-
+  let sign' = merge_signs [!sign; get_sign name] in
+  let clauses' = get_clauses name in
+    (* Any exceptions must have been thrown by now - do actual assignments *)
+    sign := sign' ;
+    add_clauses clauses'
 
 (* Checks *)
 
@@ -167,6 +136,10 @@ let check_defs names defs =
 
 (* Compilation and importing *)
 
+let comp_spec_sign = ref ([], [])
+let comp_spec_clauses = ref []
+let comp_content = ref []
+
 let marshal citem =
   match !compile_out with
     | Some cout -> Marshal.to_channel cout citem []
@@ -175,62 +148,112 @@ let marshal citem =
 let ensure_finalized_specification () =
   if !can_read_specification then begin
     can_read_specification := false ;
-    marshal ktable ;
-    marshal ctable ;
-    marshal !clauses
+    comp_spec_sign := !sign ;
+    comp_spec_clauses := !clauses
   end
 
 let compile citem =
   ensure_finalized_specification () ;
-  marshal citem
+  comp_content := citem :: !comp_content
 
-let verify_signature file =
-  let imported_ktable = (Marshal.from_channel file : ktable) in
-  let imported_ctable = (Marshal.from_channel file : ctable) in
-  let imported_clauses = (Marshal.from_channel file : clauses) in
-    ktable = imported_ktable &&
-      ctable = imported_ctable &&
-      !clauses = imported_clauses
+let predicates (ktable, ctable) =
+  List.map fst (List.find_all (fun (_, Poly(_, Ty(_, ty))) -> ty = "o") ctable)
+
+let write_compilation () =
+  marshal !comp_spec_sign ;
+  marshal !comp_spec_clauses ;
+  marshal (predicates !sign) ;
+  marshal (List.rev !comp_content)
+
+let clause_eq (head1, body1) (head2, body2) =
+  eq head1 head2 && List.for_all2 eq body1 body2
+
+let clauses_to_predicates clauses =
+  List.unique (List.map term_head_name (List.map fst clauses))
+
+let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
+  let (ktable, ctable) = !sign in
+  let (imp_ktable, imp_ctable) = imp_spec_sign in
+    
+  (* 1. Imported ktable must be a subset of ktable *)
+  let missing_types = List.minus imp_ktable ktable in
+  let () = if missing_types <> [] then
+    failwith (sprintf "Imported file makes reference to unknown type(s): %s"
+                (String.concat ", " missing_types))
+  in
+
+  (* 2. Imported ctable must be a subset of ctable *)
+  let missing_consts = List.minus imp_ctable ctable in
+  let () = if missing_consts <> [] then
+    failwith (sprintf "Imported file makes reference to unknown constant(s): %s"
+                (String.concat ", " (List.map fst missing_consts)))
+  in
+
+  (* 3. Imported clauses must be a subset of clauses *)
+  let missing_clauses =
+    List.minus ~cmp:clause_eq imp_spec_clauses !clauses
+  in
+  let () = if missing_clauses <> [] then
+    failwith (sprintf "Imported file makes reference to unknown clause(s) for: %s"
+                (String.concat ", " (clauses_to_predicates missing_clauses)))
+  in
+
+  (* 4. Clauses for imported predicates must be subset of imported clauses *)
+  let extended_clauses =
+    List.minus ~cmp:clause_eq
+      (List.find_all (fun (h, _) -> List.mem (term_head_name h) imp_predicates)
+         !clauses)
+      imp_spec_clauses
+  in
+  let () = if extended_clauses <> [] then
+    failwith (sprintf "Cannot import file since clauses have been extended for: %s"
+                (String.concat ", " (clauses_to_predicates extended_clauses)))
+  in
+
+    ()
+
 
 let imported = ref []
 
-let rec import filename =
-  let filename = filename ^ ".thc" in
-    if not (List.mem filename !imported) then
-      let file = open_in_bin filename in
-        imported := filename :: !imported ;
-        try
-          fprintf !out "Importing definitions and theorems from %s\n%!"
-            filename ;
-          if verify_signature file then
-            while true do
-              match (Marshal.from_channel file : compiled) with
-                | CTheorem(name, thm) ->
-                    add_lemma name thm ;
-                | CDefine(idtys, defs) ->
-                    add_consts idtys ;
-                    let ids = List.map fst idtys in
-                      check_defs ids defs ;
-                      add_defs ids Inductive defs ;
-                | CCoDefine(idtys, defs) ->
-                    add_consts idtys ;
-                    let ids = List.map fst idtys in
-                      check_defs ids defs ;
-                      add_defs ids CoInductive defs
-                | CImport(filename) ->
-                    import filename
-                | CKind(ids) ->
-                    add_types ids
-                | CType(ids, ty) ->
-                    add_consts (List.map (fun id -> (id, ty)) ids)
-            done
-          else
-            failwith ("Import failed: " ^ filename ^
-                        " was compiled with a different specification" )
-        with End_of_file -> ()
-    else
-      fprintf !out "Ignoring import: %s has already been imported.\n%!"
-        filename
+let import filename =
+  let rec aux filename =
+    if not (List.mem filename !imported) then begin
+      imported := filename :: !imported ;
+      let file = open_in_bin (filename ^ ".thc") in
+      let imp_spec_sign = (Marshal.from_channel file : sign) in
+      let imp_spec_clauses = (Marshal.from_channel file : clauses) in
+      let imp_predicates = (Marshal.from_channel file : string list) in
+      let imp_content = (Marshal.from_channel file : compiled list) in
+        ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates ;
+        List.iter
+          (function
+             | CTheorem(name, thm) ->
+                 add_lemma name thm ;
+             | CDefine(idtys, defs) ->
+                 add_global_consts idtys ;
+                 let ids = List.map fst idtys in
+                   check_defs ids defs ;
+                   add_defs ids Inductive defs ;
+             | CCoDefine(idtys, defs) ->
+                 add_global_consts idtys ;
+                 let ids = List.map fst idtys in
+                   check_defs ids defs ;
+                   add_defs ids CoInductive defs
+             | CImport(filename) ->
+                 aux filename
+             | CKind(ids) ->
+                 add_global_types ids
+             | CType(ids, ty) ->
+                 add_global_consts (List.map (fun id -> (id, ty)) ids))
+          imp_content
+    end
+  in
+    if List.mem filename !imported then
+      fprintf !out "Ignoring import: %s has already been imported.\n%!" filename
+    else begin
+      fprintf !out "Importing from %s\n%!" filename ;
+      aux filename
+    end
 
 
 (* Proof processing *)
@@ -238,7 +261,7 @@ let rec import filename =
 let query q =
   let fv = ids_to_fresh_tyctx (umetaterm_extract_if is_capital_name q) in
   let ctx = fresh_alist ~tag:Logic ~used:[] fv in
-  match type_umetaterm ~ctx (UBinding(Metaterm.Exists, fv, q)) with
+  match type_umetaterm ~sign:!sign ~ctx (UBinding(Metaterm.Exists, fv, q)) with
     | Binding(Metaterm.Exists, fv, q) ->
         let ctx = fresh_alist ~tag:Logic ~used:[] fv in
         let q = replace_metaterm_vars ctx q in
@@ -375,7 +398,7 @@ let rec process () =
       end ;
       begin match input with
         | Theorem(name, thm) ->
-            let thm = type_umetaterm thm in
+            let thm = type_umetaterm ~sign:!sign thm in
               check_theorem thm ;
               theorem thm ;
               begin try
@@ -384,15 +407,15 @@ let rec process () =
                 add_lemma name thm ;
               with AbortProof -> () end
         | Define(idtys, udefs) ->
-            add_consts idtys ;
-            let defs = type_udefs udefs in
+            add_global_consts idtys ;
+            let defs = type_udefs ~sign:!sign udefs in
             let ids = List.map fst idtys in
               check_defs ids defs ;
               compile (CDefine(idtys, defs)) ;
               add_defs ids Inductive defs
         | CoDefine(idtys, udefs) ->
-            add_consts idtys ;
-            let defs = type_udefs udefs in
+            add_global_consts idtys ;
+            let defs = type_udefs ~sign:!sign udefs in
             let ids = List.map fst idtys in
               check_defs ids defs ;
               compile (CCoDefine(idtys, defs)) ;
@@ -413,8 +436,10 @@ let rec process () =
                           "at the begining of a development.")
         | Query(q) -> query q
         | Kind(ids) ->
+            add_global_types ids ;
             compile (CKind ids)
         | Type(ids, ty) ->
+            add_global_consts (List.map (fun id -> (id, ty)) ids) ;
             compile (CType(ids, ty))
       end ;
       if !interactive then flush stdout ;
@@ -433,6 +458,7 @@ let rec process () =
         else begin
           fprintf !out "Goodbye.\n%!" ;
           ensure_finalized_specification () ;
+          write_compilation () ;
           if !annotate then fprintf !out "</pre>\n%!" ;
           exit 0
         end

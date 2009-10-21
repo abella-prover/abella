@@ -28,7 +28,7 @@
       (Parsing.rhs_start_pos i, Parsing.rhs_end_pos i)
 
   let predefined id =
-    UCon(pos 0, id, lookup_const id)
+    UCon(pos 0, id, Term.fresh_tyvar ())
 
   let binop id t1 t2 =
     UApp(pos 0, UApp(pos 0, predefined id, t1), t2)
@@ -47,7 +47,7 @@
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY
 %token PERMUTE BACKCHAIN QUIT
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND LBRACK RBRACK
-%token KIND TYPE KKIND TTYPE SIG MODULE
+%token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM
 
 %token <int> NUM
 %token <string> STRINGID QSTRING
@@ -69,11 +69,13 @@
 /* Higher */
 
 
-%start term metaterm lpmod lpsig defs top_command command
+%start term metaterm lpmod lpsig defs top_command command sig_body mod_body
 %type <Typing.uterm> term
 %type <Typing.umetaterm> metaterm
-%type <unit> lpsig
-%type <Types.uclauses> lpmod
+%type <Types.lpsig> lpsig
+%type <Types.lpmod> lpmod
+%type <Types.sig_decl list> sig_body
+%type <Types.uclause list> mod_body
 %type <Types.udef list> defs
 %type <Types.command> command
 %type <Types.top_command> top_command
@@ -165,39 +167,37 @@ exp_list:
                                              [ULam(pos 0, id, ty, $3)] }
 
 lpsig:
-  | lpsig_header decls                   { }
+  | sig_header sig_preamble sig_body     { Types.Sig($1, $2, $3) }
 
-lpsig_header:
-  | SIG id DOT                           { }
-  |                                      { }
+sig_header:
+  | SIG id DOT                           { $2 }
 
-decls:
-  | kind_decl decls                      { }
-  | type_decl decls                      { }
-  |                                      { }
+sig_preamble:
+  | ACCUMSIG id_list DOT sig_preamble    { $2 @ $4 }
+  |                                      { [] }
+
+sig_body:
+  | KIND id_list TYPE DOT sig_body       { Types.SKind($2) :: $5 }
+  | TYPE id_list ty DOT sig_body         { Types.SType($2, $3) :: $5 }
+  |                                      { [] }
 
 lpmod:
-  | lpmod_header clauses                 { $2 }
+  | mod_header mod_preamble mod_body     { Types.Mod($1, $2, $3) }
 
-lpmod_header:
-  | MODULE id DOT                        { }
-  |                                      { }
+mod_header:
+  | MODULE id DOT                        { $2 }
 
-clauses:
-  | clause clauses                       { $1::$2 }
+mod_preamble:
+  | ACCUM id_list DOT mod_preamble       { $2 @ $4 }
+  |                                      { [] }
+
+mod_body:
+  | clause mod_body                      { $1::$2 }
   |                                      { [] }
 
 id_list:
   | id                                   { [$1] }
   | id COMMA id_list                     { $1::$3}
-
-kind_decl:
-  | KIND id_list TYPE DOT               { add_types $2 }
-
-type_decl:
-  | TYPE id_list ty DOT                 { check_spec_logic_type $3 ;
-                                          add_consts
-                                            (List.map (fun id -> (id, $3)) $2) }
 
 ty:
   | id                                   { Term.tybase $1 }
@@ -340,9 +340,6 @@ top_command :
   | QUIT                                 { Types.TopQuit }
   | IMPORT QSTRING DOT                   { Types.Import($2) }
   | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
-  | KKIND id_list TYPE DOT               { add_types $2 ;
-                                           Types.Kind($2) }
-  | TTYPE id_list ty DOT                 { add_consts
-                                             (List.map (fun id -> (id, $3)) $2) ;
-                                           Types.Type($2, $3) }
+  | KKIND id_list TYPE DOT               { Types.Kind($2) }
+  | TTYPE id_list ty DOT                 { Types.Type($2, $3) }
   | EOF                                  { raise End_of_file }

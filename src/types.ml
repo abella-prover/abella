@@ -23,7 +23,6 @@ open Typing
 open Printf
 
 type uclause = uterm * uterm list
-type uclauses = uclause list
 
 type clause = term * term list
 type clauses = clause list
@@ -89,6 +88,16 @@ type command =
   | Undo
   | Quit
   | Set of string * set_value
+
+type sig_decl =
+  | SKind of string list
+  | SType of string list * ty
+
+type lpsig =
+  | Sig of string * string list * sig_decl list
+
+type lpmod =
+  | Mod of string * string list * uclause list
 
 let udef_to_string (head, body) =
   if body = UTrue then

@@ -13,10 +13,10 @@ FILE_NAMES[] = $(rootname $(find . -name *.thm))
         case $'Import "\(.*\)"\.'
             deps[] += $(addsuffix .thc, $1)
             export
-        case $'Specification "\(.*\)"\.'
-            deps[] += $(addsuffix .mod, $1)
-            deps[] += $(addsuffix .sig, $1)
-            export
+
+        # Easier to depend on all specs rather than trace through accumulates
+        deps[] += $(find . -name *.sig)
+        deps[] += $(find . -name *.mod)
 
         println($"$@: $< $(deps)")
 
@@ -30,12 +30,10 @@ foreach(name, $(FILE_NAMES))
     .PHONY: $(name)
     $(name): $(name).out
         cat $(name).out
-#        rm -f $(name).out
 
     .PHONY: $(name)-tail
     $(name)-tail: $(name).out
         tail -100 $(name).out
-#        rm -f $(name).out
 
 .PHONY: theorems
 theorems: $(ABELLA) $(addsuffix .thc, $(FILE_NAMES))

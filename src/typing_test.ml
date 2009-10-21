@@ -3,6 +3,7 @@ open Test_helper
 open Typing
 open Term
 open Metaterm
+open Prover (* Need global signature *)
 
 let dummy_pos = (Lexing.dummy_pos, Lexing.dummy_pos)
 
@@ -34,7 +35,7 @@ let tests =
            in
              assert_raises
                (Failure "Cannot quantify over type o in the specification logic")
-               (fun () -> type_uclause uclause)
+               (fun () -> type_uclause ~sign:!sign uclause)
         );
       
       "Should not allow quantification over prop in definition" >::
@@ -44,7 +45,7 @@ let tests =
            in
              assert_raises
                (Failure "Cannot quantify over type prop")
-               (fun () -> type_udef udef)
+               (fun () -> type_udef ~sign:!sign udef)
         );
 
       "Should not allow quantification over prop in metaterm" >::
@@ -54,6 +55,6 @@ let tests =
            in
              assert_raises
                (Failure "Cannot quantify over type prop")
-               (fun () -> type_umetaterm umetaterm)
+               (fun () -> type_umetaterm ~sign:!sign umetaterm)
         );
     ]

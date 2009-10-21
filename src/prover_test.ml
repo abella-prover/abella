@@ -261,7 +261,7 @@ let tests =
 
       "Add example (lemmas)" >::
         (fun () ->
-           let addition_clauses = parse_lpmod "
+           let addition_clauses = parse_clauses "
              add z N N.
              add (s A) B (s C) :- add A B C.
              nat z.
@@ -324,7 +324,7 @@ let tests =
 
       "Proving OR" >::
         (fun () ->
-           let clauses = parse_lpmod "p1 t1. p1 t2. eq X X." in
+           let clauses = parse_clauses "p1 t1. p1 t2. eq X X." in
 
              setup_prover ()
                ~clauses:clauses
@@ -347,7 +347,7 @@ let tests =
 
       "OR on left side of arrow" >::
         (fun () ->
-           let clauses = parse_lpmod "p1 t1. p1 t2. eq X X." in
+           let clauses = parse_clauses "p1 t1. p1 t2. eq X X." in
 
              setup_prover ()
                ~clauses:clauses
@@ -370,7 +370,7 @@ let tests =
 
       "Using IH with OR" >::
         (fun () ->
-           let clauses = parse_lpmod
+           let clauses = parse_clauses
              ("nat z. nat (s X) :- nat X." ^
                 "even z. even (s X) :- odd X." ^
                 "odd (s z). odd (s X) :- even X.") in

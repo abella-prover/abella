@@ -1,4 +1,4 @@
-sig type-uniqe.
+sig type-uniq.
 
 kind    tm, ty    type.
 

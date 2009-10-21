@@ -477,7 +477,7 @@ let case_tests =
       "Restriction should become smaller" >::
         (fun () ->
            let term = freshen "{p1 A}@" in
-           let clauses = parse_lpmod "p1 X :- p2 X." in
+           let clauses = parse_clauses "p1 X :- p2 X." in
              match case ~clauses term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
@@ -686,7 +686,7 @@ let case_tests =
       "Should pass along context" >::
         (fun () ->
            let term = freshen "{L |- p1 A}" in
-           let clauses = parse_lpmod "p1 X :- p2 X." in
+           let clauses = parse_clauses "p1 X :- p2 X." in
              match case ~clauses term with
                | [case1; case2] ->
                    (* case1 is the member case *)
@@ -738,7 +738,7 @@ let case_tests =
 
       "Should raise over nominal variables in clauses" >::
         (fun () ->
-           let clauses = parse_lpmod "eq M N." in
+           let clauses = parse_clauses "eq M N." in
            let term = freshen "{eq (A (n1:i)) B}" in
              match case ~clauses term with
                | [case1] -> ()
@@ -840,7 +840,7 @@ let case_tests =
       "Non-llambda clause should result in equalities" >::
         (fun () ->
            let term = freshen "{p1 (A (B:i))}" in
-           let clauses = parse_lpmod "p1 (r1 t1)."
+           let clauses = parse_clauses "p1 (r1 t1)."
            in
              match case ~clauses term with
                | [case1] ->
@@ -857,7 +857,7 @@ let case_tests =
       "Should not work on flexible clause head" >::
         (fun () ->
            let term = freshen "{P}" in
-           let clauses = parse_lpmod "p1 t1."
+           let clauses = parse_clauses "p1 t1."
            in
              assert_raises
                (Failure "Cannot perform case-analysis on flexible head")
@@ -964,7 +964,7 @@ let coinduction_tests =
 let assert_search ?(clauses="") ?(defs="")
     ?(hyps=[]) ~goal ~expect () =
   let depth = 5 in
-  let clauses = parse_lpmod clauses in
+  let clauses = parse_clauses clauses in
   let defs = if defs = "" then [] else parse_defs defs in
   let mutual = List.map (fun (head, _) -> def_head_name head) defs in
   let alldefs = [(mutual, defs)] in

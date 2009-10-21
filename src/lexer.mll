@@ -50,6 +50,8 @@ rule token = parse
 | "Type"             { TTYPE }
 | "sig"              { SIG }
 | "module"           { MODULE }
+| "accum_sig"        { ACCUMSIG }
+| "accumulate"       { ACCUM }
 
 | "=>"               { IMP }
 | ":-"               { CLAUSEEQ }

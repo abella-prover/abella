@@ -2,6 +2,10 @@ open OUnit
 open Metaterm
 open Extensions
 open Typing
+open Accumulate
+
+(* We make use of the global prover signature 'sign' to simply testing *)
+open Prover
 
 (* Parsing functions *)
 
@@ -15,22 +19,22 @@ let parse_top_command str =
   Parser.top_command Lexer.token (Lexing.from_string str)
 
 let parse_metaterm ?(ctx=[]) str =
-  type_umetaterm ~ctx (parse_umetaterm str)
+  type_umetaterm ~sign:!sign ~ctx (parse_umetaterm str)
 
-let parse_ulpmod str =
-  Parser.lpmod Lexer.token (Lexing.from_string str)
+let parse_uclauses str =
+  Parser.mod_body Lexer.token (Lexing.from_string str)
 
-let parse_lpmod str =
-  List.map type_uclause (parse_ulpmod str)
+let parse_clauses str =
+  List.map (type_uclause ~sign:!sign) (parse_uclauses str)
 
-let parse_lpsig str =
-  Parser.lpsig Lexer.token (Lexing.from_string str)
+let parse_decls str =
+  Parser.sig_body Lexer.token (Lexing.from_string str)
 
 let parse_udefs str =
    Parser.defs Lexer.token (Lexing.from_string str)
 
 let parse_defs str =
-  type_udefs (parse_udefs str)
+  type_udefs ~sign:!sign (parse_udefs str)
 
 let eval_sig_string = "
   kind      tm        type.
@@ -49,9 +53,12 @@ let eval_clauses_string = "
   eval (abs R) (abs R).
   eval (app M N) V :- eval M (abs R), eval (R N) V."
 
-let eval_clauses =
-  parse_lpsig eval_sig_string ;
-  parse_lpmod eval_clauses_string
+let process_decls decls =
+  sign := List.fold_left add_decl !sign decls
+
+let () = process_decls (parse_decls eval_sig_string)
+
+let eval_clauses = parse_clauses eval_clauses_string
 
 let extra_sig_string = "
   kind       i                     type.
@@ -68,7 +75,7 @@ let extra_sig_string = "
 
   type       eq, pr                i -> i -> o."
 
-let _ = parse_lpsig extra_sig_string
+let () = process_decls (parse_decls extra_sig_string)
 
 let nat_sig_string = "
   kind       nat                  type.
@@ -79,11 +86,19 @@ let nat_sig_string = "
   type       nat, even, odd       nat -> o.
   type       add                  nat -> nat -> nat -> o."
 
-let _ = parse_lpsig nat_sig_string
+let () = process_decls (parse_decls nat_sig_string)
 
-let _ = parse_top_command "Type   foo, bar, baz         i -> prop."
-let _ = parse_top_command "Type   rel1, rel2, rel3      i -> i -> prop."
-let _ = parse_top_command "Type   ctx                   olist -> prop."
+let process_top_command str =
+  match parse_top_command str with
+    | Types.Kind(ids) ->
+        add_global_types ids ;
+    | Types.Type(ids, ty) ->
+        add_global_consts (List.map (fun id -> (id, ty)) ids)
+    | _ -> assert false
+
+let () = process_top_command "Type   foo, bar, baz         i -> prop."
+let () = process_top_command "Type   rel1, rel2, rel3      i -> i -> prop."
+let () = process_top_command "Type   ctx                   olist -> prop."
 
 let freshen str =
   let uterm = parse_umetaterm str in
@@ -91,7 +106,7 @@ let freshen str =
     ids_to_fresh_tyctx (umetaterm_extract_if Term.is_capital_name uterm)
   in
   let ctx = fresh_alist ~tag:Term.Eigen ~used:[] fv in
-  match type_umetaterm ~ctx (UBinding(Metaterm.Forall, fv, uterm)) with
+  match type_umetaterm ~sign:!sign ~ctx (UBinding(Metaterm.Forall, fv, uterm)) with
     | Binding(Metaterm.Forall, fv, body) ->
         let ctx = fresh_alist ~tag:Term.Eigen ~used:[] fv in
           replace_metaterm_vars ctx body

@@ -26,12 +26,14 @@
 <br>
 <p>
 The &pi;-calculus provides an appealing example of using Abella in
-meta-theory reasoning. The following two papers describe in detail how
-the &pi;-calculus and its meta-theory can be encoded in logic using
-fixed points and the &nabla;-quantifier.
+meta-theory reasoning. The following paper describe in detail how
+the &pi;-calculus and some of its meta-theory can be encoded in a
+logic using fixed points and the &nabla;-quantifier.
 </p>
 <br>
+
 <p style="margin-left: 30px;">
+[TM09]
 <b>Proof Search Specifications of Bisimulation and Modal Logics
     for the &pi;-calculus</b>, by
 <a href="http://users.rsise.anu.edu.au/%7Etiu/">Alwen Tiu</a> and
@@ -41,25 +43,36 @@ Computational Logic. Draft dated 16 February 2009:
 (<a href="http://www.lix.polytechnique.fr/Labo/Dale.Miller/papers/tiu09tocl.pdf">pdf</a>,
 <a href="http://arxiv.org/abs/0805.2785">arXiv</a>)
 </p>
-<p style="margin-left: 30px;">
-<b>A Proof Theory for Generic Judgments,</b> by <a href="http://www.lix.polytechnique.fr/Labo/Dale.Miller/">Dale
-Miller</a> and <a href="http://users.rsise.anu.edu.au/%7Etiu/">Alwen Tiu</a>. ACM
-Transactions on Computational Logic, 6(4), pp. 749-783, October
-2005. (<a href="http://www.lix.polytechnique.fr/Labo/Dale.Miller/papers/tocl-nabla.pdf">pdf</a>).
-</p>
 <br>
 <p>
 Some of the examples in these papers can be directly represented in
-Abella.  We consider here the "finite &pi;-calculus": that is, the
+Abella.  In particular, Figures 2 and 5 in [TM09] contain a
+specification of the &pi;-calculus containing the bang operators.
+That specification can be found in the
+two <a href="http://www.lix.polytechnique.fr/Labo/Dale.Miller/lProlog/">&lambda;Prolog</a>
+files 
+<a href="pic.sig">pic.sig</a> and
+<a href="pic.mod">pic.mod</a>.
+In Example 28 of [TM09], two &pi;-calculus expressions are claimed to
+be bisimilar.  A complete proof of this bisimulation is given in the
+Abella theorem file <a href="pic.thm">pic.thm</a>
+(<a href="pic.html">HTML version</a>).  This theorem file also
+includes proofs that bisimulation is reflexive and symmetric.
+</p>
+
+<p>
+The following specification and results focus on the "finite
+&pi;-calculus": that is, the 
 &pi;-calculus without the "bang" (!) constructor and without recursive
-definitions.  This example is useful for focusing on the
-treatment of bindings within the &pi;-calculus.</p>
+definitions.  This sub-calculus is useful for focusing on the
+treatment of bindings when dealing with the &pi;-calculus.</p>
 <ol>
 <li>
 The files
 <a href="finite-pic.sig">finite-pic.sig</a> and
 <a href="finite-pic.mod">finite-pic.mod</a>
 are <a href="http://www.lix.polytechnique.fr/Labo/Dale.Miller/lProlog/">&lambda;Prolog</a>
+
 specification files.
 </li>
 <li>
@@ -80,6 +93,7 @@ Abella corresponds to <i>open</i> bisimulation (see D. Sangiorgi,
 ``<a href="http://www.lfcs.inf.ed.ac.uk/reports/93/ECS-LFCS-93-270/index.html">A
 Theory of Bisimulation for the &pi;-Calculus</a>'', Acta Informatica
 33(1), pp. 69-97, 1996).
+
 </li>
 </ol>
 <p>

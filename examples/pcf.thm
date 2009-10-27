@@ -124,3 +124,13 @@ induction on 2. intros. case H2.
   case H3.
     apply ctx_member to H1 H5. case H6.
     search.
+
+
+Query
+  Add = (rec (arr num (arr num num))
+             (add\ abs num x\ abs num y\
+                     if (is_zero x) y (succ (app (app add (pred x)) y))))
+    /\
+  Two = succ (succ zero) /\
+  Three = succ (succ (succ zero)) /\
+  {eval (app (app Add Two) Three) V}.

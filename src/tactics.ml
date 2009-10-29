@@ -726,7 +726,7 @@ let rec instantiate_withs term withs =
 
 let apply_with term args withs =
   let term, used_nominals = instantiate_withs term withs in
-    apply term args ~used_nominals
+    apply (normalize term) args ~used_nominals
 
 (* Backchain *)
 

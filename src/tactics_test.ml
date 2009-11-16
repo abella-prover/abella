@@ -1060,6 +1060,52 @@ let search_tests =
              ~expect: false
         );
 
+      "On forall" >::
+        (fun () ->
+           assert_search ()
+             ~clauses:"eq X X."
+             ~goal:"forall X, {eq X X}"
+             ~expect:true
+        );
+
+      "On forall (2)" >::
+        (fun () ->
+           assert_search ()
+             ~clauses:"eq X X."
+             ~goal:"forall X, exists Y, {eq X Y}"
+             ~expect:true
+        );
+
+      "On forall (failure)" >::
+        (fun () ->
+           assert_search ()
+             ~clauses:"eq X X."
+             ~goal:"exists Y, forall X, {eq X Y}"
+             ~expect:false
+        );
+
+      "On arrow" >::
+        (fun () ->
+           assert_search ()
+             ~goal:"{a} -> {a}"
+             ~expect:true
+        );
+
+      "On arrow (failure)" >::
+        (fun () ->
+           assert_search ()
+             ~goal:"{a} -> {b}"
+             ~expect:false
+        );
+
+      "On forall, arrow, unfold" >::
+        (fun () ->
+           assert_search ()
+             ~defs:"foo X := bar X"
+             ~goal:"forall Z, bar Z -> foo Z"
+             ~expect:true
+        );
+
       "Should use meta unification" >::
         (fun () ->
            assert_search ()

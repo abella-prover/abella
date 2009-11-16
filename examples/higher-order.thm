@@ -54,7 +54,7 @@ Define transitive : (a -> a -> o) -> prop by
 
 Theorem star_reflexive :
   forall P, reflexive (star P).
-intros. unfold. intros. search.
+search.
 
 Theorem star_transitive :
   forall P, transitive (star P).
@@ -82,7 +82,6 @@ intros. unfold. induction on 1. intros. case H4.
 Theorem star_vacuous :
   forall P, reflexive P -> transitive P -> contained_in (star P) P.
 intros. assert contained_in P P.
-  unfold. intros. search.
   apply star_minimal to H3 H1 H2. search.
 
 % Corollary: star is idempotent

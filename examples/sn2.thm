@@ -65,10 +65,6 @@ Theorem extend_add_cons : forall X L K,
 intros. unfold. intros. case H1.
   apply H3 to H2. search.
 
-Theorem extend_refl : forall L,
-  extend L L.
-intros. unfold. intros. search.
-
 Theorem extend_trans : forall L K R,
   extend L K -> extend K R -> extend L R.
 intros. unfold. intros.
@@ -204,7 +200,6 @@ intros. case H1.
     apply IH1 to _ H5 _ H3 H6.
     case H2.
     assert extend L (of n1 A1 :: L).
-      unfold. intros. search.
 
     apply H11 to _ H12 H8.
     apply IH to H4 H13.
@@ -307,7 +302,6 @@ induction on 2. induction on 3. intros.
 
       % Case 3: (app (abs A M) U) -> (M U)
       assert extend L L.
-         apply extend_refl with L = L. search.
       apply H5 to H1 H8 H4. search.
 
   assert neutral (app (abs A M) U).
@@ -333,7 +327,6 @@ intros. unfold.
     case H10.
     apply reduce_vars to H11 _.
     assert extend L (of n1 A :: L).
-      unfold. intros. search.
 
     apply H3 to H11 H13 H12 with V = n1.
     apply reduce_sn to H8 H12.
@@ -380,7 +373,6 @@ intros. unfold. intros.
   assert ctx (of n1 A :: K). split.
     apply reduce_vars to H5 _. search.
     assert extend K (of n1 A :: K).
-      unfold. intros. search.
       apply subst_extend to H1 H2 H5 H4 H6. search.
 
 Theorem identity_subst : forall L K S,
@@ -458,7 +450,7 @@ induction on 2. intros. case H2.
   apply id_subst_cons to H3 with A = A1. apply ty_ignores_ctx to H1 H4.
     apply IH to _ H5 H6.
     assert subst L L S.
-       apply extend_refl with L = L.
+       assert extend L L.
        apply identity_subst to _ _ H9 H3.
        search.
     apply subst_cp_ctx to H9.
@@ -541,8 +533,7 @@ induction on 3. intros. case H3.
       apply extend_cons2 to H11 with X = of n1 A.
 
       assert reduce (of n1 A :: K) U A1.
-        assert extend K (of n1 A :: K).
-          unfold. intros. search.
+       assert extend K (of n1 A :: K).
        apply reduce_ctx_weak to _ _ H14 H12.
        search.
 
@@ -566,7 +557,7 @@ induction on 5. intros. case H5 (keep).
   apply IH to H1 H2 H3 H4 H7 H9.
   apply IH to H1 H2 H3 H4 H8 H10.
   case H11.
-  apply extend_refl with L = K.
+  assert extend K K.
   apply H15 to H2 H16 H12. search.
 
   % abs case
@@ -596,7 +587,6 @@ induction on 5. intros. case H5 (keep).
   assert subst (of n1 A1 :: L) (of n1 A1 :: K1) (cp n1 V :: S).
      unfold. intros. split.
        assert extend K1 (of n1 A1 :: K1).
-         unfold. intros. search.
 
        apply reduce_ctx_weak to _ _ H20 H15.
        search.
@@ -617,7 +607,7 @@ induction on 5. intros. case H5 (keep).
 Theorem reducibility : forall L M A,
 ctx L -> {L |- of M A} -> reduce L M A.
 intros.
-apply extend_refl with L = L.
+assert extend L L.
 apply id_subst_exists to H1.
 apply identity_subst to H1 H1 H3 H4.
 apply apply_id_subst to H1 H2 H4.

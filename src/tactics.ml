@@ -49,29 +49,29 @@ let metaterm_vars_alist tag metaterm =
 
 (* Freshening for Logic variables uses anonymous names *)
 
-let fresh_nameless_alist ~support tids =
+let fresh_nameless_alist ~support ?(tag=Logic) ~ts tids =
   let ntys = List.map (tc []) support in
     List.map
       (fun (x, ty) ->
-         (x, app (fresh ~tag:Logic 0 (tyarrow ntys ty)) support))
+         (x, app (fresh ~tag ts (tyarrow ntys ty)) support))
       tids
 
-let freshen_nameless_clause ?(support=[]) head body =
+let freshen_nameless_clause ?(support=[]) ~ts head body =
   let tids = capital_tids (head::body) in
-  let fresh_names = fresh_nameless_alist ~support tids in
+  let fresh_names = fresh_nameless_alist ~support ~ts tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
 
-let freshen_nameless_def ?(support=[]) head body =
+let freshen_nameless_def ?(support=[]) ~ts head body =
   let tids = capital_tids [head] in
-  let fresh_names = fresh_nameless_alist ~support tids in
+  let fresh_names = fresh_nameless_alist ~support ~ts tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = replace_metaterm_vars fresh_names body in
     (fresh_head, fresh_body)
 
-let freshen_nameless_bindings ?(support=[]) bindings term =
-  replace_metaterm_vars (fresh_nameless_alist ~support bindings) term
+let freshen_nameless_bindings ?(support=[]) ?(tag=Logic) ~ts bindings term =
+  replace_metaterm_vars (fresh_nameless_alist ~support ~tag ~ts bindings) term
 
 (* Object level cut *)
 
@@ -202,8 +202,8 @@ let lift_all ~used nominals =
     used |> List.iter
         (fun (id, term) ->
            if is_free term then
-             let old_ty = tc [] term in
-             let new_term = var Eigen id 0 (tyarrow ntys old_ty) in
+             let v = term_to_var term in
+             let new_term = var Eigen id v.ts (tyarrow ntys v.ty) in
                bind term (app new_term nominals))
 
 let case ~used ~clauses ~mutual ~defs ~global_support term =
@@ -423,7 +423,7 @@ let coinductive_wrapper r names t =
   in
     aux t
 
-let unfold_defs ~mdefs goal r =
+let unfold_defs ~mdefs ~ts goal r =
   let initial_bind_state = get_bind_state () in
   let (mutual, defs) = mdefs in
   let support = term_support goal in
@@ -439,7 +439,7 @@ let unfold_defs ~mdefs goal r =
              let support = List.minus support nominals in
              let alist = List.combine ids nominals in
              let head = replace_term_vars alist head in
-             let head, body = freshen_nameless_def ~support head body in
+             let head, body = freshen_nameless_def ~support ~ts head body in
                match try_right_unify_cpairs head goal with
                  | None -> []
                  | Some cpairs ->
@@ -468,7 +468,7 @@ let unfold ~mdefs goal =
             | _::rest -> select_non_cpair rest
             | [] -> failwith "No matching definitions"
         in
-          select_non_cpair (unfold_defs ~mdefs goal r)
+          select_non_cpair (unfold_defs ~mdefs ~ts:0 goal r)
     | _ -> failwith "Can only unfold defined predicates"
 
 
@@ -498,9 +498,9 @@ let assoc_mdefs name alldefs =
 let search ~depth:n ~hyps ~clauses ~alldefs
     ?(sc=(fun () -> raise SearchSuccess)) goal =
 
-  let rec clause_aux n context goal r ~sc =
+  let rec clause_aux n hyps context goal r ts ~sc =
     let support = term_support goal in
-    let freshen_clause = curry (freshen_nameless_clause ~support) in
+    let freshen_clause = curry (freshen_nameless_clause ~support ~ts) in
     let fresh_clauses = List.map freshen_clause clauses in
     let wrap body = List.map (fun t -> {context=context; term=t}) body in
       fresh_clauses |> iter_keep_state
@@ -509,10 +509,10 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                | None ->
                    ()
                | Some cpairs ->
-                   obj_aux_conj (n-1) (wrap body) r
+                   obj_aux_conj (n-1) (wrap body) r ts
                      ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
 
-  and obj_aux n goal r ~sc =
+  and obj_aux n hyps goal r ts ~sc =
     let goal = normalize_obj goal in
       (* Check hyps for derivability *)
       hyps |> filter_objs |>
@@ -523,17 +523,18 @@ let search ~depth:n ~hyps ~clauses ~alldefs
         | _ ->
             (* Check context *)
             if not (Context.is_empty goal.context) then
-              metaterm_aux n (obj_to_member goal) ~sc ;
+              metaterm_aux n hyps (obj_to_member goal) ts ~sc ;
 
             (* Backchain *)
-            if n > 0 then clause_aux n goal.context goal.term r ~sc
+            if n > 0 then clause_aux n hyps goal.context goal.term r ts ~sc
 
-  and obj_aux_conj n goals r ~sc =
+  and obj_aux_conj n goals r ts ~sc =
     match goals with
       | [] -> sc ()
-      | g::gs -> obj_aux n g r ~sc:(fun () -> obj_aux_conj n gs r ~sc)
+      | g::gs -> obj_aux n hyps g r ts
+          ~sc:(fun () -> obj_aux_conj n gs r ts ~sc)
 
-  and metaterm_aux n goal ~sc =
+  and metaterm_aux n hyps goal ts ~sc =
     hyps |> iter_keep_state
         (fun hyp ->
            match hyp, goal with
@@ -553,34 +554,42 @@ let search ~depth:n ~hyps ~clauses ~alldefs
 
     match goal with
       | True -> sc ()
+      | False -> ()
       | Eq(left, right) -> if try_right_unify left right then sc ()
       | Or(left, right) ->
-          metaterm_aux n left ~sc ; metaterm_aux n right ~sc
+          metaterm_aux n hyps left ts ~sc ;
+          metaterm_aux n hyps right ts ~sc
       | And(left, right) ->
-          metaterm_aux n left ~sc:(fun () -> metaterm_aux n right ~sc)
-      | Binding(Exists, bindings, body) ->
+          metaterm_aux n hyps left ts
+            ~sc:(fun () -> metaterm_aux n hyps right ts ~sc)
+      | Arrow(hyp, body) ->
+          metaterm_aux n (hyp::hyps) body ts ~sc
+      | Binding(Exists, tids, body) ->
           let support = metaterm_support goal in
-          let term = freshen_nameless_bindings ~support bindings body in
-            metaterm_aux n term ~sc
-      | Binding(Nabla, ids, body) ->
-          let body = instantiate_nablas ids body in
-            metaterm_aux n body ~sc
-      | Obj(obj, r) -> obj_aux n obj r ~sc
+          let body = freshen_nameless_bindings ~support ~ts tids body in
+            metaterm_aux n hyps body ts ~sc
+      | Binding(Nabla, tids, body) ->
+          let body = instantiate_nablas tids body in
+            metaterm_aux n hyps body ts ~sc
+      | Binding(Forall, tids, body) ->
+          let ts = ts + 1 in
+          let body = freshen_nameless_bindings ~tag:Eigen ~ts tids body in
+            metaterm_aux n hyps body ts ~sc
+      | Obj(obj, r) -> obj_aux n hyps obj r ts ~sc
       | Pred(_, Smaller _) | Pred(_, Equal _) -> ()
-      | Pred(p, r) -> if n > 0 then def_aux n p r ~sc
-      | _ -> ()
+      | Pred(p, r) -> if n > 0 then def_aux n hyps p r ts ~sc
 
-  and def_aux n goal r ~sc =
+  and def_aux n hyps goal r ts ~sc =
     let mdefs = assoc_mdefs (term_head_name goal) alldefs in
-      unfold_defs ~mdefs goal r |> iter_keep_state
+      unfold_defs ~mdefs ~ts goal r |> iter_keep_state
           (fun (state, cpairs, body) ->
              set_bind_state state ;
-             metaterm_aux (n-1) body
+             metaterm_aux (n-1) hyps body ts
                ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
 
   in
     try
-      metaterm_aux n goal ~sc ;
+      metaterm_aux n hyps goal 0 ~sc ;
       false
     with SearchSuccess -> true
 
@@ -659,7 +668,7 @@ let apply ?(used_nominals=[]) term args =
                        (fun () ->
                           let support = List.minus support nominals in
                           let raised_body =
-                            freshen_nameless_bindings ~support bindings body
+                            freshen_nameless_bindings ~support ~ts:0 bindings body
                           in
                           let alist = List.combine nabla_ids nominals in
                           let permuted_body =
@@ -678,7 +687,7 @@ let apply ?(used_nominals=[]) term args =
             end
 
       | Binding(Forall, bindings, body) ->
-          apply_arrow (freshen_nameless_bindings ~support bindings body) args
+          apply_arrow (freshen_nameless_bindings ~support ~ts:0 bindings body) args
 
       | Arrow _ ->
           apply_arrow term args
@@ -780,7 +789,7 @@ let backchain ?(used_nominals=[]) term goal =
                        (fun () ->
                           let support = List.minus support nominals in
                           let raised_body =
-                            freshen_nameless_bindings ~support bindings body
+                            freshen_nameless_bindings ~support ~ts:0 bindings body
                           in
                           let alist = List.combine nabla_ids nominals in
                           let permuted_body =
@@ -793,7 +802,7 @@ let backchain ?(used_nominals=[]) term goal =
             end
 
       | Binding(Forall, bindings, body) ->
-          backchain_arrow (freshen_nameless_bindings ~support bindings body) goal
+          backchain_arrow (freshen_nameless_bindings ~support ~ts:0 bindings body) goal
 
       | Arrow _ ->
           backchain_arrow term goal

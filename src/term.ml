@@ -259,7 +259,7 @@ let fresh_name name used =
     else
       name
 
-let fresh_wrt ?(ts=0) tag name ty used =
+let fresh_wrt ~ts tag name ty used =
   let name = fresh_name name used in
   let v = var tag name ts ty in
     (v, (name, v)::used)
@@ -482,7 +482,7 @@ let has_logic_head t =
 
 let has_eigen_head t =
   has_head (fun v -> v.tag = Eigen) t
-    
+
 (* Typing *)
 
 let tyarrow tys ty =

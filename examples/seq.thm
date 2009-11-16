@@ -133,7 +133,6 @@ induction on 1. intros. case H1.
           search.
       apply seq_subset to H6 H7.
         assert forall X, mem X L -> mem X (cons A L).
-          intros. search.
         apply seq_subset to H4 H9.
           apply IH to H5 H8 H3 H10. search.
     apply IH to H5 H6 H3 H4. apply nat_prune to H7. search.

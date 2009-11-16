@@ -281,7 +281,8 @@ let sig_to_string (name, arity) = name ^ "/" ^ (string_of_int arity)
 let fresh_alist ~used ~tag tids =
   let used = ref used in
     List.map (fun (x, ty) ->
-                let (fresh, curr_used) = fresh_wrt tag x ty !used in
+                (* Timestamps should always be 0 for user visible variables *)
+                let (fresh, curr_used) = fresh_wrt ~ts:0 tag x ty !used in
                   used := curr_used ;
                   (x, fresh))
       tids
@@ -534,10 +535,11 @@ let rec meta_right_unify t1 t2 =
         meta_right_unify r1 r2
     | Binding(b1, tids1, t1), Binding(b2, tids2, t2)
         when b1 = b2 && List.map snd tids1 = List.map snd tids2 ->
-        (* Replace bound variables with constants with non-zero
-           timestamp. This prevents illegal variable capture *)
+        (* Replace bound variables with constants with "infinite"
+           timestamp. This prevents illegal variable capture.
+           We use max_int-1 since max_int is for nominal constants. *)
         let new_bindings =
-          List.map (fun (_, ty) -> fresh ~tag:Constant 1 ty) tids1
+          List.map (fun (_, ty) -> fresh ~tag:Constant (max_int-1) ty) tids1
         in
         let alist1 = List.combine (List.map fst tids1) new_bindings in
         let alist2 = List.combine (List.map fst tids2) new_bindings in

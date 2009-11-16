@@ -412,6 +412,9 @@ let reverse_bind tyctx t1 t2 =
                 bind h (lambda (List.rev_map (tc tyctx) ts) t2) ; true
             | _ -> false
           end
+    | Var v1, Var v2 when variable v1.tag && v1.ts > v2.ts ->
+        bind t1 t2 ;
+        true
     | _ -> false
 
 (** [makesubst h1 t2 a1 n] unifies [App (h1,a1) = t2].
@@ -543,11 +546,16 @@ let makesubst tyctx h1 t2 a1 n =
     match observe t2 with
       | Lam (tys,t2) ->
           lambda tys (toplevel_subst (tys @ tyctx) t2 (lev + List.length tys))
-      | Var {tag=t} when variable t ->
+      | Var v2 when variable v2.tag ->
           if h1=t2 then
             if n=0 && lev=0 then h1 else assert false (* fail TypesMismatch *)
-          else
+          else begin
+            (*
+            if ts1 < v2.ts then
+              Term.bind t2 (named_fresh hv1.name ts1 (tc tyctx t2)) ;
+            *)
             t2
+          end
       | App (h2,a2) ->
           begin match observe h2 with
             | Var {ts=ts2} when eq h1 h2 ->

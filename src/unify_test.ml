@@ -369,18 +369,30 @@ let tests =
              right_unify a term ;
              assert_term_pprint_equal "cons (B C) D" a) ;
 
-      (** This bug was pointed out by David. We should address it once we
-          start dealing more with timestamps.
-
       "[X^0 = Y^1]" >::
         (fun () ->
-           let x = var Logic "X" 0 in
-           let y = var Logic "Y" 1 in
-             right_unify x y ;
+           let x = var Logic "X" 0 ity in
+           let y = var Logic "Y" 1 ity in
+           let used = [("X", x); ("Y", y)] in
+             right_unify ~used x y ;
+             assert_term_pprint_equal "X" x ;
+             assert_term_pprint_equal "X" y ;
              match observe x, observe y with
                | Var {ts=0}, Var {ts=0} -> ()
                | _ -> assert_failure "Timestamps should be lowered to match") ;
-      *)
+
+      "[X^0 = p^0 Y^1 Z^1]" >::
+        (fun () ->
+           let x = var Logic "X" 0 ity in
+           let y = var Logic "Y" 1 ity in
+           let z = var Logic "Z" 1 ity in
+           let p = const "p" iiity in
+           let used = [("X", x); ("Y", y); ("Z", z)] in
+             right_unify ~used x (p ^^ [y; z]) ;
+             assert_term_pprint_equal "p X1 X2" x ;
+             match observe y, observe z with
+               | Var {ts=0}, Var {ts=0} -> ()
+               | _ -> assert_failure "Timestamps should be lowered to match") ;
 
       "X^0 = f^0 a^1" >::
         (fun () ->

@@ -131,6 +131,15 @@ let context_to_term ctx =
   in
     aux (List.rev ctx)
 
+let wellformed ctx =
+  let rec aux = function
+    | [] -> true
+    | head::tail ->
+        let ty = tc [] head in
+          (ty = oty && aux tail) || (ty = olistty && tail = [])
+  in
+    aux ctx
+
 let extract_singleton ctx =
   match ctx with
     | [e] -> e

@@ -7,7 +7,7 @@ open Tactics
 open Unify
 
 let assert_object_cut ~cut ~using ~expect =
-  match parse_metaterm cut, parse_metaterm using with
+  match freshen cut, freshen using with
     | Obj(cut, _), Obj(using, _) ->
         let actual = object_cut cut using in
           assert_pprint_equal expect actual
@@ -47,6 +47,17 @@ let object_cut_tests =
                 assert_object_cut
                   ~cut:    "{a |- b}"
                   ~using:  "{c}"
+                  ~expect: ""
+             )
+        );
+
+      "Should fail if tails don't match" >::
+        (fun () ->
+           assert_raises (Failure "Cannot merge contexts")
+             (fun () ->
+                assert_object_cut
+                  ~cut:    "{L, a |- b}"
+                  ~using:  "{K |- a}"
                   ~expect: ""
              )
         );

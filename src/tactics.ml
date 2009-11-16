@@ -86,7 +86,10 @@ let object_cut obj1 obj2 =
       |> Context.union obj2.context
       |> Context.normalize
     in
-      Obj(context_obj ctx obj1.term, Irrelevant)
+      if Context.wellformed ctx then
+        Obj(context_obj ctx obj1.term, Irrelevant)
+      else
+        failwith "Cannot merge contexts"
   else
     failwith "Needless use of cut"
 

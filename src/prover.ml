@@ -423,7 +423,7 @@ let goal_to_subgoal g =
 
 let ensure_no_logic_variable terms =
   let logic_vars = List.flatten_map (metaterm_vars_alist Logic) terms in
-  if List.length logic_vars > 0 then
+  if logic_vars <> [] then
     failwith "Found logic variable at toplevel"
 
 let ensure_no_restrictions term =

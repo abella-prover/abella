@@ -379,11 +379,11 @@ let remove_coinductive_hypotheses hyps =
 let defs_table_to_list () =
   H.fold (fun _ (_, mutual, dcs) acc -> (mutual, dcs) :: acc) defs_table []
 
-let search_goal ?(depth=5) goal =
+let search_goal_witness ?(depth=5) goal =
   let hyps = sequent.hyps
     |> remove_inductive_hypotheses
     |> remove_coinductive_hypotheses
-    |> List.map (fun h -> h.term)
+    |> List.map (fun h -> (h.id, h.term))
   in
   let search_depth n =
     Tactics.search
@@ -393,17 +393,19 @@ let search_goal ?(depth=5) goal =
       ~alldefs:(defs_table_to_list ())
       goal
   in
-    List.exists search_depth (List.range 1 depth)
+    List.find_some search_depth (List.range 1 depth)
 
-let search ?(limit=None) ?(interactive=true) () =
-  if
-    match limit with
-      | None -> search_goal sequent.goal
-      | Some depth -> search_goal ~depth sequent.goal
-  then
-    next_subgoal ()
-  else if not interactive then
-    failwith "Search failed"
+let search_goal goal =
+  Option.is_some (search_goal_witness goal)
+
+let search ?(limit=None) ?(interactive=true) ?(witness=ignore) () =
+  let search_result = match limit with
+    | None -> search_goal_witness sequent.goal
+    | Some depth -> search_goal_witness ~depth sequent.goal
+  in
+    match search_result with
+      | None -> if not interactive then failwith "Search failed"
+      | Some w -> witness w ; next_subgoal ()
 
 (* Apply *)
 

@@ -238,11 +238,10 @@ let extract_pi t =
 let obj_to_member obj =
   member obj.term (Context.context_to_term obj.context)
 
-let rec filter_objs ts =
-  match ts with
-    | [] -> []
-    | Obj(obj, _)::rest -> obj::(filter_objs rest)
-    | _::rest -> filter_objs rest
+let is_obj t =
+  match t with
+    | Obj _ -> true
+    | _ -> false
 
 let term_to_obj t =
   match t with
@@ -502,11 +501,10 @@ let normalize term =
   |> normalize_nominals
   |> normalize_binders []
 
-let instantiate_nablas tids body =
+let make_nabla_alist tids body =
   let (id_names, id_tys) = List.split tids in
   let nominals = fresh_nominals id_tys body in
-  let alist = List.combine id_names nominals in
-    replace_metaterm_vars alist body
+    List.combine id_names nominals
 
 (* Error reporting *)
 

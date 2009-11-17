@@ -39,6 +39,8 @@ let lexbuf = ref (Lexing.from_channel stdin)
 let annotate = ref false
 let count = ref 0
 
+let witnesses = ref false
+
 exception AbortProof
 
 
@@ -270,7 +272,7 @@ let query q =
           ~hyps:[]
           ~clauses:!clauses
           ~alldefs:(defs_table_to_list ())
-          ~sc:(fun () ->
+          ~sc:(fun w ->
                  fprintf !out "Found solution:\n" ;
                  List.iter
                    (fun (n, v) ->
@@ -299,7 +301,18 @@ let set k v =
                     "' for key 'debug'." ^
                     " Expected 'on' or 'off'.")
 
+    | "witnesses", Str "on" -> witnesses := true
+    | "witnesses", Str "off" -> witnesses := false
+    | "witnesses", _ ->
+        failwith ("Unknown value '" ^ (set_value_to_string v) ^
+                    "' for key 'witnesses'." ^
+                    " Expected 'on' or 'off'.")
+
     | _, _ -> failwith ("Unknown key '" ^ k ^ "'.")
+
+let witness w =
+  if !witnesses then
+    fprintf !out "Witness: %s\n%!" (Tactics.witness_to_string w)
 
 let rec process_proof name =
   let finished = ref false in
@@ -334,7 +347,8 @@ let rec process_proof name =
           | Clear(hs) -> clear hs
           | Abbrev(h, s) -> abbrev h s
           | Unabbrev(hs) -> unabbrev hs
-          | Search(limit) -> search ~limit ~interactive:!interactive ()
+          | Search(limit) ->
+              search ~limit ~interactive:!interactive ~witness ()
           | Permute(ids, h) -> permute_nominals ids h
           | Split -> split false
           | SplitStar -> split true

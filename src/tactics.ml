@@ -49,7 +49,7 @@ let metaterm_vars_alist tag metaterm =
 
 (* Freshening for Logic variables uses anonymous names *)
 
-let fresh_nameless_alist ~support ?(tag=Logic) ~ts tids =
+let fresh_nameless_alist ~support ~tag ~ts tids =
   let ntys = List.map (tc []) support in
     List.map
       (fun (x, ty) ->
@@ -58,20 +58,21 @@ let fresh_nameless_alist ~support ?(tag=Logic) ~ts tids =
 
 let freshen_nameless_clause ?(support=[]) ~ts head body =
   let tids = capital_tids (head::body) in
-  let fresh_names = fresh_nameless_alist ~support ~ts tids in
+  let fresh_names = fresh_nameless_alist ~support ~tag:Logic ~ts tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
     (fresh_head, fresh_body)
 
 let freshen_nameless_def ?(support=[]) ~ts head body =
   let tids = capital_tids [head] in
-  let fresh_names = fresh_nameless_alist ~support ~ts tids in
+  let fresh_names = fresh_nameless_alist ~support ~tag:Logic ~ts tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = replace_metaterm_vars fresh_names body in
     (fresh_head, fresh_body)
 
-let freshen_nameless_bindings ?(support=[]) ?(tag=Logic) ~ts bindings term =
-  replace_metaterm_vars (fresh_nameless_alist ~support ~tag ~ts bindings) term
+let freshen_nameless_bindings ~support ~ts bindings term =
+  let alist = fresh_nameless_alist ~support ~tag:Logic ~ts bindings in
+    replace_metaterm_vars alist term
 
 (* Object level cut *)
 
@@ -167,8 +168,9 @@ let rec recursive_metaterm_case ~used term =
                        stateless_new_hyps = nested_hyps }
           end
     | Binding(Nabla, ids, body) ->
-        let fresh_body = instantiate_nablas ids body in
-        recursive_metaterm_case ~used fresh_body
+        let alist = make_nabla_alist ids body in
+        let fresh_body = replace_metaterm_vars alist body in
+          recursive_metaterm_case ~used fresh_body
     | _ -> Some {stateless_new_vars = [] ; stateless_new_hyps = [term]}
 
 let rec or_to_list term =
@@ -428,10 +430,11 @@ let coinductive_wrapper r names t =
 
 let unfold_defs ~mdefs ~ts goal r =
   let initial_bind_state = get_bind_state () in
+  let p = term_head_name goal in
   let (mutual, defs) = mdefs in
   let support = term_support goal in
   let wrapper = coinductive_wrapper r mutual in
-  let unfold_def tids head body =
+  let unfold_def tids head body i =
     let (ids, tys) = List.split tids in
       support
       |> List.permute (List.length tids)
@@ -446,15 +449,20 @@ let unfold_defs ~mdefs ~ts goal r =
                match try_right_unify_cpairs head goal with
                  | None -> []
                  | Some cpairs ->
-                     [(get_bind_state (), cpairs, normalize (wrapper body))])
+                     [(get_bind_state (), cpairs, normalize (wrapper body), i)])
   in
   let result =
-    defs |> List.flatten_map
+    defs
+    |> List.map
         (fun (head, body) ->
            match head with
-             | Pred(head, _) -> unfold_def [] head body
-             | Binding(Nabla, tids, Pred(head, _)) -> unfold_def tids head body
-             | _ -> failwith "Bad head in definition")
+             | Pred(h, _) -> ([], h, body)
+             | Binding(Nabla, tids, Pred(h, _)) -> (tids, h, body)
+             | _ -> assert false)
+    |> List.find_all (fun (_, h, _) -> term_head_name h = p)
+    |> List.number
+    |> List.flatten_map
+        (fun (i, (tids, head, body)) -> unfold_def tids head body i)
   in
     set_bind_state initial_bind_state ;
     result
@@ -467,7 +475,7 @@ let unfold ~mdefs goal =
         (* Find the first body without lingering conflict pairs *)
         let rec select_non_cpair list =
           match list with
-            | (bind_state, [], body)::_ -> set_bind_state bind_state; body
+            | (bind_state, [], body, _)::_ -> set_bind_state bind_state; body
             | _::rest -> select_non_cpair rest
             | [] -> failwith "No matching definitions"
         in
@@ -477,7 +485,52 @@ let unfold ~mdefs goal =
 
 (* Search *)
 
-exception SearchSuccess
+type witness =
+  | WTrue
+  | WHyp of id
+  | WLeft of witness
+  | WRight of witness
+  | WSplit of witness * witness
+  | WIntros of id list * witness
+  | WExists of (id * term) list * witness
+  | WReflexive
+  | WUnfold of id * int * witness list
+
+let witness_to_string =
+  let bind_to_string (id, t) =
+    id ^ " = " ^ (term_to_string t)
+  in
+
+  let rec aux = function
+    | WTrue -> "true"
+    | WHyp id -> id
+    | WLeft w -> "left(" ^ aux w ^ ")"
+    | WRight w -> "right(" ^ aux w ^ ")"
+    | WSplit(w1, w2) -> "split(" ^ aux w1 ^ ", " ^ aux w2 ^ ")"
+    | WIntros(ids, w) ->
+        "intros[" ^ (String.concat ", " ids) ^ "](" ^ aux w ^ ")"
+    | WExists(binds, w) ->
+        "exists[" ^ (String.concat ", " (List.map bind_to_string binds)) ^
+          "](" ^ aux w ^ ")"
+    | WReflexive -> "reflexive"
+    | WUnfold(id, n, ws) ->
+        let body = if ws = [] then "" else "(" ^ aux_list ws ^ ")" in
+          id ^ "[" ^ (string_of_int n) ^ "]" ^ body
+
+  and aux_list ws =
+    String.concat ", " (List.map aux ws)
+  in
+    aux
+
+exception SearchSuccess of witness
+
+let decompose_arrow term =
+  let rec aux acc term =
+    match term with
+      | Arrow(a, b) -> aux (a::acc) b
+      | _ -> (List.rev acc, term)
+  in
+    aux [] term
 
 let iter_keep_state f list =
   let state = get_bind_state () in
@@ -492,109 +545,143 @@ let assoc_mdefs name alldefs =
   with Not_found ->
     ([], [])
 
+let alist_to_ids alist =
+  List.map term_to_string (List.map snd alist)
 
-(* Depth is decremented only when unfolding clauses and definitions since
-   only these can cause infinite search *)
-(* Each aux search returns () on failure and calls sc () on success. This
-   allows for effective backtracking. sc means success continuation. *)
+(** Search
+
+  - Depth is decremented only when unfolding clauses and definitions since
+    only these can cause infinite search
+
+  - Each aux search returns () on failure and calls (sc w) on success where
+    w is a witness. This allows for effective backtracking.
+    sc means success continuation.
+*)
 
 let search ~depth:n ~hyps ~clauses ~alldefs
-    ?(sc=(fun () -> raise SearchSuccess)) goal =
+    ?(sc=fun w -> raise (SearchSuccess w)) goal =
+
+  let temporary_hyp_name =
+    let count = ref 0 in
+      fun () ->
+        incr count ;
+        "h" ^ (string_of_int !count)
+  in
 
   let rec clause_aux n hyps context goal r ts ~sc =
     let support = term_support goal in
     let freshen_clause = curry (freshen_nameless_clause ~support ~ts) in
-    let fresh_clauses = List.map freshen_clause clauses in
+    let p = term_head_name goal in
     let wrap body = List.map (fun t -> {context=context; term=t}) body in
-      fresh_clauses |> iter_keep_state
-          (fun (head, body) ->
+      clauses
+      |> List.find_all (fun (h, _) -> term_head_name h = p)
+      |> List.map freshen_clause
+      |> List.number
+      |> iter_keep_state
+          (fun (i, (head, body)) ->
              match try_right_unify_cpairs head goal with
                | None ->
                    ()
                | Some cpairs ->
                    obj_aux_conj (n-1) (wrap body) r ts
-                     ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
+                     ~sc:(fun ws -> if try_unify_cpairs cpairs then
+                            sc (WUnfold(p, i, ws))))
 
   and obj_aux n hyps goal r ts ~sc =
     let goal = normalize_obj goal in
       (* Check hyps for derivability *)
-      hyps |> filter_objs |>
-          iter_keep_state (fun obj -> if derivable goal obj then sc ()) ;
+      hyps
+      |> List.find_all (fun (id, h) -> is_obj h)
+      |> List.map (fun (id, h) -> (id, term_to_obj h))
+      |> iter_keep_state
+          (fun (id, obj) -> if derivable goal obj then sc (WHyp id)) ;
 
       match r with
         | Smaller _ | Equal _ -> ()
         | _ ->
             (* Check context *)
             if not (Context.is_empty goal.context) then
-              metaterm_aux n hyps (obj_to_member goal) ts ~sc ;
+              metaterm_aux n hyps (obj_to_member goal) ts
+                ~sc:(fun w -> sc (WUnfold(term_head_name goal.term, 0, [w]))) ;
 
             (* Backchain *)
             if n > 0 then clause_aux n hyps goal.context goal.term r ts ~sc
 
   and obj_aux_conj n goals r ts ~sc =
     match goals with
-      | [] -> sc ()
+      | [] -> sc []
       | g::gs -> obj_aux n hyps g r ts
-          ~sc:(fun () -> obj_aux_conj n gs r ts ~sc)
+          ~sc:(fun w -> obj_aux_conj n gs r ts ~sc:(fun ws -> sc (w::ws)))
 
   and metaterm_aux n hyps goal ts ~sc =
     hyps |> iter_keep_state
-        (fun hyp ->
+        (fun (id, hyp) ->
            match hyp, goal with
              | Pred(_, CoSmaller i), Pred(_, CoSmaller j) when i = j ->
-                 if try_meta_right_permute_unify goal hyp then sc ()
+                 if try_meta_right_permute_unify goal hyp then sc (WHyp id)
              | Pred(_, CoSmaller _), _ -> ()
 
              | Pred(_, Smaller i), Pred(_, Smaller j)
              | Pred(_, Smaller i), Pred(_, Equal j)
              | Pred(_, Equal i), Pred(_, Equal j)
                  when i = j ->
-                 if try_meta_right_permute_unify goal hyp then sc ()
+                 if try_meta_right_permute_unify goal hyp then sc (WHyp id)
              | _, Pred(_, Smaller _) -> ()
              | _, Pred(_, Equal _) -> ()
 
-             | _ -> if try_meta_right_permute_unify goal hyp then sc ()) ;
+             | _ -> if try_meta_right_permute_unify goal hyp then sc (WHyp id)) ;
 
     match goal with
-      | True -> sc ()
+      | True -> sc WTrue
       | False -> ()
-      | Eq(left, right) -> if try_right_unify left right then sc ()
+      | Eq(left, right) -> if try_right_unify left right then sc WReflexive
       | Or(left, right) ->
-          metaterm_aux n hyps left ts ~sc ;
-          metaterm_aux n hyps right ts ~sc
+          metaterm_aux n hyps left ts ~sc:(fun w -> sc (WLeft w)) ;
+          metaterm_aux n hyps right ts ~sc:(fun w -> sc (WRight w))
       | And(left, right) ->
           metaterm_aux n hyps left ts
-            ~sc:(fun () -> metaterm_aux n hyps right ts ~sc)
-      | Arrow(hyp, body) ->
-          metaterm_aux n (hyp::hyps) body ts ~sc
+            ~sc:(fun w1 -> metaterm_aux n hyps right ts
+                   ~sc:(fun w2 -> sc (WSplit(w1,w2))))
+      | Arrow _ ->
+          let (args, body) = decompose_arrow goal in
+          let args = List.map (fun h -> (temporary_hyp_name (), h)) args in
+          metaterm_aux n (args @ hyps) body ts
+            ~sc:(fun w -> sc (WIntros(List.map fst args, w)))
       | Binding(Exists, tids, body) ->
           let support = metaterm_support goal in
-          let body = freshen_nameless_bindings ~support ~ts tids body in
-            metaterm_aux n hyps body ts ~sc
+          let alist = fresh_nameless_alist ~support ~tag:Logic ~ts tids in
+          let body = replace_metaterm_vars alist body in
+            metaterm_aux n hyps body ts ~sc:(fun w -> sc (WExists(alist, w)))
       | Binding(Nabla, tids, body) ->
-          let body = instantiate_nablas tids body in
-            metaterm_aux n hyps body ts ~sc
+          let alist = make_nabla_alist tids body in
+          let body = replace_metaterm_vars alist body in
+            metaterm_aux n hyps body ts
+              ~sc:(fun w -> sc (WIntros(alist_to_ids alist, w)))
       | Binding(Forall, tids, body) ->
           let ts = ts + 1 in
-          let body = freshen_nameless_bindings ~tag:Eigen ~ts tids body in
-            metaterm_aux n hyps body ts ~sc
+          let alist = fresh_nameless_alist ~support:[] ~tag:Eigen ~ts tids in
+          let body = replace_metaterm_vars alist body in
+            metaterm_aux n hyps body ts
+              ~sc:(fun w -> sc (WIntros(alist_to_ids alist, w)))
       | Obj(obj, r) -> obj_aux n hyps obj r ts ~sc
       | Pred(_, Smaller _) | Pred(_, Equal _) -> ()
       | Pred(p, r) -> if n > 0 then def_aux n hyps p r ts ~sc
 
   and def_aux n hyps goal r ts ~sc =
-    let mdefs = assoc_mdefs (term_head_name goal) alldefs in
+    let p = term_head_name goal in
+    let mdefs = assoc_mdefs p alldefs in
       unfold_defs ~mdefs ~ts goal r |> iter_keep_state
-          (fun (state, cpairs, body) ->
+          (fun (state, cpairs, body, i) ->
              set_bind_state state ;
              metaterm_aux (n-1) hyps body ts
-               ~sc:(fun () -> if try_unify_cpairs cpairs then sc ()))
+               ~sc:(fun w -> if try_unify_cpairs cpairs then
+                      sc (WUnfold(p, i, [w]))))
 
   in
     try
       metaterm_aux n hyps goal 0 ~sc ;
-      false
-    with SearchSuccess -> true
+      None
+    with SearchSuccess(w) -> Some w
 
 (* Apply one statement to a list of other statements *)
 
@@ -662,32 +749,31 @@ let apply ?(used_nominals=[]) term args =
       | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->
           let n = List.length nablas in
           let (nabla_ids, nabla_tys) = List.split nablas in
-            begin try
-              support |> List.rev |> List.permute n
-                |> List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals)
-                |> List.find_some
-                  (fun nominals ->
-                     try_with_state ~fail:None
-                       (fun () ->
-                          let support = List.minus support nominals in
-                          let raised_body =
-                            freshen_nameless_bindings ~support ~ts:0 bindings body
-                          in
-                          let alist = List.combine nabla_ids nominals in
-                          let permuted_body =
-                            replace_metaterm_vars alist raised_body
-                          in
-                            debug (Printf.sprintf "Trying apply with %s."
-                                     (String.concat ", "
-                                        (List.map
-                                           (fun (x,n) ->
-                                              x ^ " = " ^ (term_to_string n))
-                                           alist))) ;
-                            Some (apply_arrow permuted_body args)))
-            with
-              | Failure "Found none" ->
-                  failwith "Failed to find instantiations for nabla quantified variables"
-            end
+            support |> List.rev |> List.permute n
+              |> List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals)
+              |> List.find_some
+                (fun nominals ->
+                   try_with_state ~fail:None
+                     (fun () ->
+                        let support = List.minus support nominals in
+                        let raised_body =
+                          freshen_nameless_bindings ~support ~ts:0 bindings body
+                        in
+                        let alist = List.combine nabla_ids nominals in
+                        let permuted_body =
+                          replace_metaterm_vars alist raised_body
+                        in
+                          debug (Printf.sprintf "Trying apply with %s."
+                                   (String.concat ", "
+                                      (List.map
+                                         (fun (x,n) ->
+                                            x ^ " = " ^ (term_to_string n))
+                                         alist))) ;
+                          Some (apply_arrow permuted_body args)))
+              |> (function
+                    | Some v -> v
+                    | None ->
+                        failwith "Failed to find instantiations for nabla quantified variables")
 
       | Binding(Forall, bindings, body) ->
           apply_arrow (freshen_nameless_bindings ~support ~ts:0 bindings body) args
@@ -742,14 +828,6 @@ let apply_with term args withs =
 
 (* Backchain *)
 
-let decompose_arrow term =
-  let rec aux acc term =
-    match term with
-      | Arrow(a, b) -> aux (a::acc) b
-      | _ -> (List.rev acc, term)
-  in
-    aux [] term
-
 let check_restrictions formal actual =
   List.iter2 (fun fr ar -> match fr, ar with
                 | Smaller i, Smaller j when i = j -> ()
@@ -782,27 +860,26 @@ let backchain ?(used_nominals=[]) term goal =
       | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->
           let n = List.length nablas in
           let (nabla_ids, nabla_tys) = List.split nablas in
-            begin try
-              support |> List.rev |> List.permute n
-                |> List.find_all
-                    (fun nominals -> nabla_tys = List.map (tc []) nominals)
-                |> List.find_some
-                  (fun nominals ->
-                     try_with_state ~fail:None
-                       (fun () ->
-                          let support = List.minus support nominals in
-                          let raised_body =
-                            freshen_nameless_bindings ~support ~ts:0 bindings body
-                          in
-                          let alist = List.combine nabla_ids nominals in
-                          let permuted_body =
-                            replace_metaterm_vars alist raised_body
-                          in
-                            Some (backchain_arrow permuted_body goal)))
-            with
-              | Failure "Found none" ->
-                  failwith "Failed to find instantiations for nabla quantified variables"
-            end
+            support |> List.rev |> List.permute n
+              |> List.find_all
+                  (fun nominals -> nabla_tys = List.map (tc []) nominals)
+              |> List.find_some
+                (fun nominals ->
+                   try_with_state ~fail:None
+                     (fun () ->
+                        let support = List.minus support nominals in
+                        let raised_body =
+                          freshen_nameless_bindings ~support ~ts:0 bindings body
+                        in
+                        let alist = List.combine nabla_ids nominals in
+                        let permuted_body =
+                          replace_metaterm_vars alist raised_body
+                        in
+                          Some (backchain_arrow permuted_body goal)))
+              |> (function
+                    | Some v -> v
+                    | None ->
+                        failwith "Failed to find instantiations for nabla quantified variables")
 
       | Binding(Forall, bindings, body) ->
           backchain_arrow (freshen_nameless_bindings ~support ~ts:0 bindings body) goal

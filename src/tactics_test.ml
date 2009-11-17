@@ -5,6 +5,7 @@ open Term.Notations
 open Metaterm
 open Tactics
 open Unify
+open Extensions
 
 let assert_object_cut ~cut ~using ~expect =
   match freshen cut, freshen using with
@@ -979,9 +980,9 @@ let assert_search ?(clauses="") ?(defs="")
   let defs = if defs = "" then [] else parse_defs defs in
   let mutual = List.map (fun (head, _) -> def_head_name head) defs in
   let alldefs = [(mutual, defs)] in
-  let hyps = List.map freshen hyps in
+  let hyps = List.map (fun h -> ("", h)) (List.map freshen hyps) in
   let goal = freshen goal in
-  let actual = search ~depth ~hyps ~clauses ~alldefs goal in
+  let actual = Option.is_some (search ~depth ~hyps ~clauses ~alldefs goal) in
     if expect then
       assert_bool "Search should succeed" actual
     else

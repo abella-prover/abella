@@ -105,10 +105,10 @@ module List = struct
   let find_some f list =
     let rec aux list =
       match list with
-        | [] -> failwith "Found none"
+        | [] -> None
         | head::tail ->
             match f head with
-              | Some v -> v
+              | Some v -> Some v
               | None -> aux tail
     in
       aux list
@@ -201,6 +201,14 @@ module List = struct
       []
     else
       a :: range (a+1) b
+
+  let number list =
+    let rec aux i list =
+      match list with
+        | [] -> []
+        | head::tail -> (i, head) :: (aux (i+1) tail)
+    in
+      aux 1 list
 
   let fold_left1 f list =
     match list with

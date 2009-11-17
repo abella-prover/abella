@@ -1,10 +1,5 @@
 Later
 =====
-Allow search to return a witness on success. Perhaps this witness
-could be a string of tactics which could replace the search.
-
-Allow 'search with ...' and use backchain on the provided arguments.
-
 Add a C-c C-a command to emacs mode which aborts the current proof and
 goes back to the start of the theorem.
 
@@ -24,6 +19,9 @@ Move examples into their own subdirs where they can have index.html ?
 Future
 ======
 Change context handling to use explicit tail variable
+
+Allow 'search with ...' and use backchain on the provided arguments.
+  Perhaps a full-fledged auto tactic which would do some limited left rules?
 
 Allow for tacticals
   This requires reworking many things.

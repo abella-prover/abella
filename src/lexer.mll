@@ -52,6 +52,7 @@ rule token = parse
 | "module"           { MODULE }
 | "accum_sig"        { ACCUMSIG }
 | "accumulate"       { ACCUM }
+| "end"              { END }
 
 | "=>"               { IMP }
 | ":-"               { CLAUSEEQ }

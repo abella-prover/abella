@@ -47,7 +47,7 @@
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY
 %token PERMUTE BACKCHAIN QUIT
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND LBRACK RBRACK
-%token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM
+%token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END
 
 %token <int> NUM
 %token <string> STRINGID QSTRING
@@ -167,7 +167,8 @@ exp_list:
                                              [ULam(pos 0, id, ty, $3)] }
 
 lpsig:
-  | sig_header sig_preamble sig_body     { Types.Sig($1, $2, $3) }
+  | sig_header sig_preamble sig_body lpend
+                                         { Types.Sig($1, $2, $3) }
 
 sig_header:
   | SIG id DOT                           { $2 }
@@ -182,7 +183,8 @@ sig_body:
   |                                      { [] }
 
 lpmod:
-  | mod_header mod_preamble mod_body     { Types.Mod($1, $2, $3) }
+  | mod_header mod_preamble mod_body lpend
+                                         { Types.Mod($1, $2, $3) }
 
 mod_header:
   | MODULE id DOT                        { $2 }
@@ -194,6 +196,10 @@ mod_preamble:
 mod_body:
   | clause mod_body                      { $1::$2 }
   |                                      { [] }
+
+lpend:
+  | END                                  { }
+  |                                      { }
 
 id_list:
   | id                                   { [$1] }

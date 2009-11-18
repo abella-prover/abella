@@ -94,6 +94,15 @@ let merge_named_clauses ncs =
   let cmp (x, _) (y, _) = (x=y) in
     List.unique ~cmp ncs
 
+let ensure_no_redefine_keywords name uclauses =
+  List.iter
+    (fun (head, _) ->
+       let id = uterm_head_name head in
+         if id = "pi" || id = "=>" then
+           failwith (sprintf "Module %s attempts to re-define keyword %s"
+                       name id))
+    uclauses
+
 let rec get_named_clauses filename =
   try match H.find mod_cache filename with
     | None -> failwith ("Cyclic dependency in module " ^ filename)
@@ -105,6 +114,7 @@ let rec get_named_clauses filename =
           if name <> filename then
             failwith (sprintf "Expected 'module %s.' but found 'module %s.'"
                         filename name) ;
+          ensure_no_redefine_keywords name uclauses ;
           let (sign, accum_sigs) = get_sign_accum_sigs filename in
           let non_accum = List.minus accumulate accum_sigs in
           let () = if non_accum <> [] then

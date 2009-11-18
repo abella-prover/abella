@@ -31,7 +31,15 @@
 }
 
 let number = ['0'-'9'] +
-let name = ['A' - 'Z' 'a'-'z' '_' '/' '0'-'9' '\'' '?' '-' '`' '#' '$' '&' '!' '~'] +
+
+(* Initial characters for variables *)
+let ichar = ['A'-'Z' 'a'-'z' '-' '/' '^' '>' '<' '=' '`' '\'' '?'
+             '$' '&' '!' '~']
+  
+(* Characters allowed only in the body of variables. *)
+let bchar = ['0'-'9' '_' '*' '@' '+' '#']
+
+let name = ichar (ichar|bchar)*
 let blank = ' ' | '\t' | '\r'
 
 rule token = parse
@@ -121,6 +129,7 @@ rule token = parse
 | "Set"              { SET }
 | "Quit"             { QUIT }
 
+| "_"                { UNDERSCORE }
 | number as n        { NUM (int_of_string n) }
 | name as n          { STRINGID n }
 

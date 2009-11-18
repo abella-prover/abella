@@ -43,6 +43,14 @@ let change_pos p t =
     | ULam(_, id, ty, body) -> ULam(p, id, ty, body)
     | UApp(_, t1, t2) -> UApp(p, t1, t2)
 
+let uterm_head_name t =
+  let rec aux = function
+    | UCon(_, id, _) -> id
+    | UApp(_, h, _) -> aux h
+    | ULam _ -> assert false
+  in
+    aux t
+
 (** Untyped metaterm *)
 
 type umetaterm =

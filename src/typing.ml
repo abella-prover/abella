@@ -101,6 +101,10 @@ type sign = ktable * ctable
 (** Kinds *)
 
 let add_types (ktable, ctable) ids =
+  List.iter
+    (fun id -> if is_capital_name id then
+       failwith ("Types may not begin with a capital letter: " ^ id))
+    ids ;
   (ids @ ktable, ctable)
 
 let lookup_type (ktable, _) id =

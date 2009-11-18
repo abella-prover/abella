@@ -90,7 +90,8 @@ let warn_on_teyjus_only_keywords (ktable, ctable) =
   let tokens = List.unique (ktable @ List.map fst ctable) in
   let used_keywords = List.intersect tokens teyjus_only_keywords in
     if used_keywords <> [] then
-      fprintf !out "Warning: The following tokens are keywords in Teyjus: %s\n%!"
+      fprintf !out
+        "Warning: The following tokens are keywords in Teyjus: %s\n%!"
         (String.concat ", " used_keywords)
 
 let read_specification name =

@@ -81,11 +81,24 @@ let type_inference_error (pos, ct) exp act =
     | CFun ->
         eprintf "Expression is applied to too many arguments\n%!"
 
+let teyjus_only_keywords =
+  ["closed"; "exportdef"; "import"; "infix"; "infixl"; "infixr"; "local";
+   "localkind"; "postfix"; "posfixl"; "prefix"; "prefixr"; "typeabbrev";
+   "use_sig"; "useonly"; "sigma"]
+
+let warn_on_teyjus_only_keywords (ktable, ctable) =
+  let tokens = List.unique (ktable @ List.map fst ctable) in
+  let used_keywords = List.intersect tokens teyjus_only_keywords in
+    if used_keywords <> [] then
+      fprintf !out "Warning: The following tokens are keywords in Teyjus: %s\n%!"
+        (String.concat ", " used_keywords)
 
 let read_specification name =
   clear_specification_cache () ;
   fprintf !out "Reading specification %s\n%!" name ;
-  let sign' = merge_signs [!sign; get_sign name] in
+  let read_sign = get_sign name in
+  let () = warn_on_teyjus_only_keywords read_sign in
+  let sign' = merge_signs [!sign; read_sign] in
   let clauses' = get_clauses name in
     (* Any exceptions must have been thrown by now - do actual assignments *)
     sign := sign' ;
@@ -111,7 +124,7 @@ let warn_stratify names term =
       | _ -> false
   in
     if aux false term then
-      fprintf !out "Warning: Definition might not be stratified%!"
+      fprintf !out "Warning: Definition might not be stratified\n%!"
 
 let check_theorem thm =
   ensure_no_restrictions thm
@@ -176,18 +189,18 @@ let clauses_to_predicates clauses =
 let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   let (ktable, ctable) = !sign in
   let (imp_ktable, imp_ctable) = imp_spec_sign in
-    
+
   (* 1. Imported ktable must be a subset of ktable *)
   let missing_types = List.minus imp_ktable ktable in
   let () = if missing_types <> [] then
-    failwith (sprintf "Imported file makes reference to unknown type(s): %s"
+    failwith (sprintf "Imported file makes reference to unknown types: %s"
                 (String.concat ", " missing_types))
   in
 
   (* 2. Imported ctable must be a subset of ctable *)
   let missing_consts = List.minus imp_ctable ctable in
   let () = if missing_consts <> [] then
-    failwith (sprintf "Imported file makes reference to unknown constant(s): %s"
+    failwith (sprintf "Imported file makes reference to unknown constants: %s"
                 (String.concat ", " (List.map fst missing_consts)))
   in
 
@@ -196,7 +209,7 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
     List.minus ~cmp:clause_eq imp_spec_clauses !clauses
   in
   let () = if missing_clauses <> [] then
-    failwith (sprintf "Imported file makes reference to unknown clause(s) for: %s"
+    failwith (sprintf "Imported file makes reference to unknown clauses for: %s"
                 (String.concat ", " (clauses_to_predicates missing_clauses)))
   in
 

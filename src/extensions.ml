@@ -125,6 +125,9 @@ module List = struct
   let minus ?(cmp=(=)) list1 list2 =
     remove_all (fun e -> mem ~cmp e list2) list1
 
+  let intersect ?(cmp=(=)) list1 list2 =
+    find_all (fun e -> mem ~cmp e list2) list1
+
   let rec take n list =
     match list, n with
       | [], _ -> []

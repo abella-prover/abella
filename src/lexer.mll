@@ -33,11 +33,10 @@
 let number = ['0'-'9'] +
 
 (* Initial characters for variables *)
-let ichar = ['A'-'Z' 'a'-'z' '-' '/' '^' '>' '<' '=' '`' '\'' '?'
-             '$' '&' '!' '~']
+let ichar = ['A'-'Z' 'a'-'z' '-' '/' '^' '>' '<' '=' '`' '\'' '?' '$' '~']
   
 (* Characters allowed only in the body of variables. *)
-let bchar = ['0'-'9' '_' '*' '@' '+' '#']
+let bchar = ['0'-'9' '_' '*' '@' '+' '#' '!' '&']
 
 let name = ichar (ichar|bchar)*
 let blank = ' ' | '\t' | '\r'

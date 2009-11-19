@@ -69,7 +69,7 @@
 /* Higher */
 
 
-%start term metaterm lpmod lpsig defs top_command command sig_body mod_body
+%start term metaterm lpmod lpsig defs top_command command any_command sig_body mod_body
 %type <Typing.uterm> term
 %type <Typing.umetaterm> metaterm
 %type <Types.lpsig> lpsig
@@ -79,6 +79,7 @@
 %type <Types.udef list> defs
 %type <Types.command> command
 %type <Types.top_command> top_command
+%type <Types.any_command> any_command
 
 %%
 
@@ -235,7 +236,16 @@ perm_ids:
   | id perm_ids                          { $1 :: $2 }
   | id                                   { [$1] }
 
+any_command:
+  | pure_top_command                     { Types.ATopCommand($1) }
+  | pure_command                         { Types.ACommand($1) }
+  | common_command                       { Types.ACommon($1) }
+
 command:
+  | pure_command                         { $1 }
+  | common_command                       { Types.Common($1) }
+
+pure_command:
   | IND ON num_list DOT                  { Types.Induction($3) }
   | COIND DOT                            { Types.CoInduction }
   | APPLY id TO hyp_list DOT             { Types.Apply($2, $4, []) }
@@ -267,10 +277,6 @@ command:
   | MONOTONE hyp WITH term DOT           { Types.Monotone($2, $4) }
   | PERMUTE perm DOT                     { Types.Permute($2, None) }
   | PERMUTE perm hyp DOT                 { Types.Permute($2, Some $3) }
-  | SET id id DOT                        { Types.Set($2, Types.Str $3) }
-  | SET id NUM DOT                       { Types.Set($2, Types.Int $3) }
-  | QUIT                                 { Types.Quit }
-  | EOF                                  { raise End_of_file }
 
 hyp_list:
   | hyp hyp_list                         { $1::$2 }
@@ -337,16 +343,22 @@ id_tys:
   | id_ty COMMA id_tys                   { $1::$3 }
   | id_ty                                { [$1] }
 
-top_command :
+top_command:
+  | pure_top_command                     { $1 }
+  | common_command                       { Types.TopCommon($1) }
+
+pure_top_command:
   | THEOREM id COLON metaterm DOT        { Types.Theorem($2, $4) }
   | DEFINE id_tys BY defs DOT            { Types.Define($2, $4) }
   | CODEFINE id_tys BY defs DOT          { Types.CoDefine($2, $4) }
   | QUERY metaterm DOT                   { Types.Query($2) }
-  | SET id id DOT                        { Types.TopSet($2, Types.Str $3) }
-  | SET id NUM DOT                       { Types.TopSet($2, Types.Int $3) }
-  | QUIT                                 { Types.TopQuit }
   | IMPORT QSTRING DOT                   { Types.Import($2) }
   | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
   | KKIND id_list TYPE DOT               { Types.Kind($2) }
   | TTYPE id_list ty DOT                 { Types.Type($2, $3) }
+
+common_command:
+  | SET id id DOT                        { Types.Set($2, Types.Str $3) }
+  | SET id NUM DOT                       { Types.Set($2, Types.Int $3) }
+  | QUIT                                 { Types.Quit }
   | EOF                                  { raise End_of_file }

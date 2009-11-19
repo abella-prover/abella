@@ -25,6 +25,7 @@ version.ml:
 FILES[] =
     version
     debug
+    depend
     term
     unify
     metaterm

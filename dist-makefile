@@ -17,14 +17,26 @@ abella: src/*.ml src/*.mly src/*.mll
 	ocamlopt -c -I src src/lexer.ml
 	ocamlopt -c -I src src/tactics.ml
 	ocamlopt -c -I src src/prover.ml
+	ocamlopt -c -I src src/accumulate.ml
+	ocamlopt -c -I src src/depend.ml
 	ocamlopt -c -I src src/main.ml
 	ocamlopt -o abella str.cmxa \
-                       src/version.cmx src/debug.cmx \
-                       src/extensions.cmx src/term.cmx \
-                       src/unify.cmx src/context.cmx src/metaterm.cmx \
+                       src/version.cmx \
+                       src/debug.cmx \
+                       src/extensions.cmx \
+                       src/term.cmx \
+                       src/unify.cmx \
+                       src/context.cmx \
+                       src/metaterm.cmx \
 	                   src/typing.cmx \
-                       src/types.cmx src/parser.cmx src/lexer.cmx \
-                       src/tactics.cmx src/prover.cmx src/main.cmx
+                       src/types.cmx \
+                       src/parser.cmx \
+                       src/lexer.cmx \
+                       src/tactics.cmx \
+                       src/prover.cmx \
+                       src/accumulate.cmx \
+                       src/depend.cmx \
+                       src/main.cmx
 
 .PHONY: clean
 clean:

@@ -1,6 +1,8 @@
 UPLOAD_SITE = "agacek@bhoop.cs.umn.edu:/web/research03/abella.cs.umn.edu/development"
 
-VERSION = 1.3.1
+VERSION = 1.3.2-dev1
+ABELLA = $(CWD)/abella$(EXE)
+
 
 .SUBDIRS: src examples
 
@@ -32,10 +34,10 @@ BuildDist() =
     rm -f dist/src/parser.ml
     rm -f dist/src/lexer.ml
 
-    mkdir dist/examples
-    cp examples/*.sig dist/examples
-    cp examples/*.mod dist/examples
-    cp examples/*.thm dist/examples
+    cp -r examples dist/
+    rm -r dist/examples/html-files
+    rm -f $(addsuffixes .html -details.html, $(rootname $(find . -name *.thm)))
+    rm $(set-diff $(filter-out %makefile %.html %.thm %.mod %.sig, $(ls R, dist/examples)), $(subdirs dist/examples))
 
     mkdir dist/emacs
     cp emacs/* dist/emacs

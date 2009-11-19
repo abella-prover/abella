@@ -41,17 +41,20 @@ type set_value =
   | Str of string
   | Int of int
 
+type common_command =
+  | Set of string * set_value
+  | Quit
+
 type top_command =
   | Theorem of id * umetaterm
   | Define of (id * ty) list * udefs
   | CoDefine of (id * ty) list * udefs
-  | TopSet of string * set_value
   | Import of string
   | Specification of string
   | Query of umetaterm
   | Kind of id list
   | Type of id list * ty
-  | TopQuit
+  | TopCommon of common_command
 
 type compiled =
   | CTheorem of id * metaterm
@@ -86,8 +89,12 @@ type command =
   | Skip
   | Abort
   | Undo
-  | Quit
-  | Set of string * set_value
+  | Common of common_command
+
+type any_command =
+  | ATopCommand of top_command
+  | ACommand of command
+  | ACommon of common_command
 
 type sig_decl =
   | SKind of string list
@@ -126,6 +133,13 @@ let idtys_to_string idtys =
   String.concat ",\t\n"
     (List.map (fun (id, ty) -> id ^ " : " ^ (ty_to_string ty)) idtys)
 
+let common_command_to_string cc =
+  match cc with
+    | Set(k, v) ->
+        sprintf "Set %s %s" k (set_value_to_string v)
+    | Quit ->
+        sprintf "Quit"
+
 let top_command_to_string tc =
   match tc with
     | Theorem(name, body) ->
@@ -136,10 +150,6 @@ let top_command_to_string tc =
     | CoDefine(idtys, udefs) ->
         sprintf "CoDefine %s by \n%s"
           (idtys_to_string idtys) (udefs_to_string udefs) ;
-    | TopSet(k, v) ->
-        sprintf "Set %s %s" k (set_value_to_string v)
-    | TopQuit ->
-        sprintf "Quit"
     | Import filename ->
         sprintf "Import \"%s\"" filename
     | Specification filename ->
@@ -150,6 +160,8 @@ let top_command_to_string tc =
         sprintf "Kind %s type" (id_list_to_string ids)
     | Type(ids, ty) ->
         sprintf "Type %s %s" (id_list_to_string ids) (ty_to_string ty)
+    | TopCommon(cc) ->
+        common_command_to_string cc
 
 let withs_to_string ws =
   String.concat ", "
@@ -207,5 +219,5 @@ let command_to_string c =
     | Skip -> "skip"
     | Abort -> "abort"
     | Undo -> "undo"
-    | Set(k, v) -> sprintf "Set %s %s" k (set_value_to_string v)
-    | Quit -> "Quit"
+    | Common(cc) -> common_command_to_string cc
+

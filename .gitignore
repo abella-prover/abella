@@ -13,6 +13,7 @@
 *.dep
 *.out
 *.output
+*.html
 src/lexer.ml
 src/parser.ml
 src/parser.mli

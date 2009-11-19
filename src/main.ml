@@ -373,8 +373,8 @@ let rec process_proof name =
           | Skip -> skip ()
           | Abort -> raise AbortProof
           | Undo -> undo () ; undo () (* undo recent save, and previous save *)
-          | Set(k, v) -> set k v
-          | Quit -> raise End_of_file
+          | Common(Set(k, v)) -> set k v
+          | Common(Quit) -> raise End_of_file
         end ;
         if !interactive then flush stdout ;
     with
@@ -448,9 +448,9 @@ let rec process () =
               check_defs ids defs ;
               compile (CCoDefine(idtys, defs)) ;
               add_defs ids CoInductive defs
-        | TopSet(k, v) ->
+        | TopCommon(Set(k, v)) ->
             set k v
-        | TopQuit ->
+        | TopCommon(Quit) ->
             raise End_of_file
         | Import(filename) ->
             compile (CImport filename) ;
@@ -516,6 +516,8 @@ let set_output filename =
 let set_compile_out filename =
   compile_out := Some (open_out_bin filename)
 
+let makefile = ref false
+
 let options =
   Arg.align
     [
@@ -526,20 +528,32 @@ let options =
       ("-c", Arg.String set_compile_out,
        "<file-name> Compile definitions and theorems in an importable format") ;
       ("-a", Arg.Set annotate, " Annotate mode") ;
+      ("-M", Arg.Set makefile, " Output dependencies in Makefile format")
     ]
 
-let set_input filename =
-  if !interactive then begin
-    interactive := false ;
-    lexbuf := lexbuf_from_file filename
-  end else begin
-    let file = !lexbuf.Lexing.lex_curr_p.Lexing.pos_fname in
-      eprintf "Error: Input set to %s, but found additional input %s."
-        file filename ;
-      exit 1
-  end
+let input_files = ref []
+
+let set_input () =
+  match !input_files with
+    | [] -> ()
+    | [filename] ->
+        interactive := false ;
+        lexbuf := lexbuf_from_file filename
+    | fs ->
+        eprintf "Error: Multiple files specified as input: %s\n%!"
+          (String.concat ", " fs) ;
+        exit 1
+
+let add_input filename =
+  input_files := !input_files @ [filename]
 
 let _ =
-  Arg.parse options set_input usage_message ;
-  fprintf !out "%s%!" welcome_msg ;
-  process ()
+  Arg.parse options add_input usage_message ;
+  
+  if !makefile then begin
+    List.iter Depend.print_deps !input_files ;
+  end else begin
+    set_input () ;
+    fprintf !out "%s%!" welcome_msg ;
+    process ()
+  end

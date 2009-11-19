@@ -1,8 +1,11 @@
-# Modify the path to the Abella executables as needed
-ABELLA= ..
+# Generic Abella makefile
+#  1. Ensure abella is in your PATH
+#  2. Change 'example' below to the name of your root development
+#  3. Run 'make'
+
 
 .PHONY: all
-all: eval.out
+all: example.out
 
 
 # Everything after this point is generic and should be duplicated
@@ -10,14 +13,14 @@ all: eval.out
 
 .PHONY: *.out
 %.out :
-	$(ABELLA)/abella $*.thm
+	abella $*.thm
 
 %.thc :
-	$(ABELLA)/abella $*.thm -c $*.thc
+	abella $*.thm -c $*.thc
 
 -include depend
 depend: *.thm *.sig *.mod
-	$(ABELLA)/abella -M *.thm > depend-stage
+	abella -M *.thm > depend-stage
 	mv depend-stage depend
 
 .PHONY: clean

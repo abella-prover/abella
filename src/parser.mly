@@ -360,5 +360,5 @@ pure_top_command:
 common_command:
   | SET id id DOT                        { Types.Set($2, Types.Str $3) }
   | SET id NUM DOT                       { Types.Set($2, Types.Int $3) }
-  | QUIT                                 { Types.Quit }
+  | QUIT DOT                             { Types.Quit }
   | EOF                                  { raise End_of_file }

@@ -1,0 +1,109 @@
+%% Equivalence of natural deduction, hilbert calculus, and sequent calculus
+
+Specification "equiv".
+
+
+%% Contexts
+
+Define ctxs : olist -> olist -> olist -> prop by
+  ctxs nil nil nil ;
+  ctxs (nd G :: L) (hyp G :: J) (hil G :: K) := ctxs L J K.
+
+Theorem ctxs_member1 : forall L J K E,
+  ctxs L J K -> member E L ->
+    exists F, E = nd F /\ member (hyp F) J /\ member (hil F) K.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. apply IH to H4 H3. search.
+
+Theorem ctxs_member2 : forall L J K E,
+  ctxs L J K -> member E J ->
+    exists F, E = hyp F /\ member (nd F) L /\ member (hil F) K.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. apply IH to H4 H3. search.
+
+Theorem ctxs_member3 : forall L J K E,
+  ctxs L J K -> member E K ->
+    exists F, E = hil F /\ member (nd F) L /\ member (hyp F) J.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. apply IH to H4 H3. search.
+
+
+%% Natural deduction -> sequent calculus
+
+Theorem nd_to_seq_ext : forall L J K G,
+  ctxs L J K -> {L |- nd G} -> {J |- conc G}.
+induction on 2. intros. case H2.
+  apply ctxs_member1 to H1 H3. search.
+  apply IH to _ H3. search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+
+Theorem nd_to_seq : forall G,
+  {nd G} -> {conc G}.
+intros. apply nd_to_seq_ext to _ H1. search.
+
+
+%% Sequent calculus -> hilbert calculus
+
+Set witnesses on.
+Theorem hil_deduction : forall L A B,
+  {L, hil A |- hil B} -> {L |- hil (imp A B)}.
+induction on 1. intros. case H1.
+  case H2.
+    search. % SKK
+    search. % K(H3)
+  search. % KK
+  search. % KS
+  apply IH to H2. apply IH to H3. search. % S(H4)(H5)
+Set witnesses off.
+
+Theorem seq_to_hil_ext : forall L J K G,
+  ctxs L J K -> {J |- conc G} -> {K |- hil G}.
+induction on 2. intros. case H2.
+  apply ctxs_member2 to H1 H3.
+  case H3. apply ctxs_member2 to H1 H4. search.
+  apply IH to _ H3. apply IH to H1 H4.
+    apply hil_deduction to H5. search.
+  apply IH to _ H3. apply hil_deduction to H4. search.
+  case H3. apply ctxs_member2 to H1 H6.
+    apply IH to H1 H4. apply IH to _ H5.
+      apply hil_deduction to H10. search.
+
+Theorem seq_to_hil : forall G,
+  {conc G} -> {hil G}.
+intros. apply seq_to_hil_ext to _ H1. search.
+
+
+%% Hilbert calculus -> natural deduction
+
+Theorem hil_to_nd_ext : forall L J K G,
+  ctxs L J K -> {K |- hil G} -> {L |- nd G}.
+induction on 2. intros. case H2.
+  apply ctxs_member3 to H1 H3. search.
+  search.
+  % This hint/assertion speeds up search considerably
+  assert {nd (imp A (imp B C)), nd (imp A B), nd A |- nd C}.
+    search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+
+Theorem hil_to_nd : forall G,
+  {hil G} -> {nd G}.
+intros. apply hil_to_nd_ext to _ H1. search.
+
+
+
+%% The general form of the Hilbert deduction theorem:
+%%   if   {hil A1, hil A2, ..., hil An |- hil B}
+%%   then {hil (imp A1 (imp A2 (imp ... (imp An B)...)))}
+
+Define fold : olist -> form -> form -> prop by
+  fold nil B B ;
+  fold (hil A :: L) B B' := fold L (imp A B) B'.
+
+Theorem hil_deduction_generalized : forall L B B',
+  fold L B B' -> {L |- hil B} -> {hil B'}.
+induction on 1. intros. case H1.
+  search.
+  apply hil_deduction to H2. apply IH to H3 H4. search.

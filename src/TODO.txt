@@ -1,11 +1,8 @@
-Change computation of dependencies so that files don't have to parse
-Check out web display of equiv for witnesses on/off
-
 Reference guide / index of examples
   Check for broken links on whole site
 Run hierarchy by Dale
 
-Document -M flag in changelog
+Document -M flag and generic makefile in changelog
 Document restructing of examples in changelog
 
 Later

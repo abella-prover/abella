@@ -6,7 +6,17 @@ FILE_NAMES[] = $(rootname $(find . -name *.thm))
 
 .SCANNER: %.out %.thc: %.thm
     section
-        $(ABELLA) -M $<
+        # Compute dependencies
+        deps[] =
+        awk($<)
+        case $'Import "\(.*\)"\.'
+            deps[] += $(addsuffix .thc, $1)
+            export
+
+        # Easier to depend on all specs rather than trace through accumulates
+        deps[] += $(glob i, *.sig *.mod)
+
+        println($"$@: $< $(deps)")
 
 %.out: $(ABELLA)
     $(ABELLA) $*.thm >& $*.out || true

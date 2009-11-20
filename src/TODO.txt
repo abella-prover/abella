@@ -1,10 +1,3 @@
-Reference guide / index of examples
-  Check for broken links on whole site
-Run hierarchy by Dale
-
-Document -M flag and generic makefile in changelog
-Document restructing of examples in changelog
-
 Later
 =====
 Add a C-c C-a command to emacs mode which aborts the current proof and
@@ -17,9 +10,6 @@ Allow delcarations about which types are nominal?
 
 Polymorphism? Type constructors?
   Issues when using 'apply' and metavariables
-
-Move examples into their own subdirs where they can have index.html ?
-  Reference guide automatically generated?
 
 Future
 ======

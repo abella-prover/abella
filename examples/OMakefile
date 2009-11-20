@@ -34,8 +34,9 @@ FILE_NAMES[] = $(rootname $(find . -name *.thm))
         $(name)-tail: $(name).out
             tail -100 $(name).out
 
-.PHONY: theorems
-theorems: $(addsuffix .thc, $(FILE_NAMES))
+section
+    .PHONY: theorems
+    theorems: $(addsuffix .thc, $(FILE_NAMES))
 
 ################################################
 # HTML Output
@@ -69,8 +70,9 @@ DETAILS_RHTML = $(CWD)/html-files/details.rhtml
             rm -f name title-line spec-name spec-sig spec-mod \
                   reasoning details
 
-.PHONY: html
-html: $(addsuffix .html, $(FILE_NAMES))
+section
+    .PHONY: html
+    html: $(addsuffix .html, $(FILE_NAMES))
 
 .PHONY: upload-html
 upload-html: html

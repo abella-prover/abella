@@ -18,6 +18,18 @@
     margin-bottom: 10px;
     border-bottom: 1px dotted gray;
 }
+
+.navlist ul
+{
+    padding: 0.25em 1em;
+    margin: 0.25em 0em 0.5em 0.5em;
+}
+
+.navlist ul li
+{
+    border-bottom: none;
+    margin-bottom: 0;
+}
 </style>
 <link href="http://abella.cs.umn.edu/style.css" rel="stylesheet" type="text/css" />
 <link rel="icon" href="http://abella.cs.umn.edu/images/favicon.ico" type="image/x-icon" />
@@ -94,19 +106,52 @@ Programming languages
 </h2>
 <ul class="navlist">
 <li>
-<a href="">Type Uniqueness (TODO -- four under this)</a>
-</li>
-<li>
-<a href="">Normalization (TODO)</a>
-</li>
-<li>
-<a href="">Term Structure (TODO)</a>
+Normalization for simply-typed terms
+<ul>
+  <li>
+  <a href="">Strong normalization</a>
+  </li>
+  <li>
+  <a href="">Weak normalization</a>
+  </li>
+</ul>
 </li>
 <li>
 <a href="">Church-Rosser</a>
 </li>
 <li>
 <a href="">Evaluation and typing</a>
+</li>
+<li>
+Type uniqueness for simply-typed terms
+<ul>
+  <li>
+  <a href="">using standard techniques</a>
+  </li>
+  <li>
+  <a href="">using explicit freshness predicate</a>
+  </li>
+  <li>
+  <a href="">using only the reasoning logic</a>
+  </li>
+  <li>
+  <a href="">without using nominal abstraction</a>
+  </li>
+</ul>
+</li>
+<li>
+Term structure
+<ul>
+  <li>
+  <a href="">Equivalence of terms based on paths</a>
+  </li>
+  <li>
+  <a href="">Partitioning into normal and non-normal form</a>
+  </li>
+  <li>
+  <a href="">Determinism of translation between HOAS and de Bruijn representations</a>
+  </li>
+</ul>
 </li>
 </ul>
 

@@ -1,0 +1,122 @@
+%% Ralph Loader's proof of standardization
+%% See his Lecture Notes on Typed Lambda Calculus
+%%
+%% Abella proof by Andreas Abel (October 2009)
+
+Specification "sred".
+
+%% Technical lemma about fresh variables.
+Theorem member_prune : forall E L, nabla (x:tm),
+  member (E x) L -> exists F, E = y\F.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+%% Matching contexts of term variables x and x -->s x.
+Define ctx : olist -> olist -> prop by
+  ctx nil nil ;
+  nabla x, ctx (tm x :: C) (sred x x :: D) := ctx C D.
+
+Theorem ctx_member1 : forall C D H,
+  ctx C D -> member H C -> exists X, H = tm X /\ member (sred X X) D.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. apply IH to H4 H3. search.
+
+Theorem ctx_member2 : forall C D H,
+  ctx C D -> member H D -> exists X, H = sred X X /\ member (tm X) C.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. apply IH to H4 H3. search.
+
+%% Technical lemma: weak head reduction is independent of context.
+Theorem wh_ctx : forall C D T T',
+  ctx C D -> {D |- wh T T'} -> {wh T T'}.
+induction on 2. intros. case H2.
+  apply ctx_member2 to H1 H3.
+  search.
+  apply IH to H1 H3. search.
+
+%% Standard reduction is reflexive.
+Theorem srefl : forall C D T,
+  ctx C D -> {C |- tm T} -> {D |- sred T T}.
+induction on 2. intros. case H2.
+  apply ctx_member1 to H1 H3. search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+  apply IH to _ H3. search.
+
+%% Standard reduction is closed under substitution.
+Theorem ssubst : forall C D T T' S S', nabla x, ctx C D ->
+  {D, sred x x |- sred (T x) (T' x)} -> {D |- sred S S'} -> 
+  {D |- sred (T S) (T' S')}.
+induction on 2. intros. case H2.
+  %% case hypothesis
+  case H4.
+    search.
+    apply member_prune to H5. search.
+
+  %% case weak head step
+  apply IH to H1 H5 H3.
+  apply wh_ctx to _ H4. inst H7 with n1 = S. search.
+
+  %% case: application
+  apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
+
+  %% case: abstraction
+  apply IH to _ H4 H3. search.
+
+%% Variables do not beta reduce.
+Theorem name_not_beta : forall T, nabla x, {beta x T} -> false.
+intros. case H1.
+
+Theorem var_not_beta : forall C D T T', ctx C D -> 
+  member (tm T) C -> {beta T T'} -> false.
+induction on 2. intros. case H2.
+  case H1. case H3.
+  case H1. apply IH to H5 H4 H3.
+
+%% Variables are not abstractions.
+Theorem var_not_abs : forall C D R, ctx C D ->
+  member (tm (abs R)) C -> false.
+induction on 2. intros. case H2.
+  case H1.
+  case H1. apply IH to H4 H3.
+
+%% Applying a sred which ends in a lambda, removing the resulting redex.
+Theorem sred_beta : forall C D M N N' R, ctx C D ->
+  {D |- sred M (abs R)} -> {D |- sred N N'} -> {D |- sred (app M N) (R N')}.
+induction on 2. intros. case H2.
+  % variable case (impossible)
+  apply ctx_member2 to H1 H4. apply var_not_abs to H1 H5.
+  % weak head reduction case
+  apply IH to H1 H5 H3. search.
+  % abstraction case
+  apply ssubst to H1 H4 H3. search.
+
+%% Main Lemma:
+%% Standard reduction is closed under appending a beta step.
+Theorem sappend : forall C D T T' T'', ctx C D ->
+  {D |- sred T T'} -> {beta T' T''} -> {D |- sred T T''}.
+induction on 2. intros. case H2.
+  % variable case
+  apply ctx_member2 to H1 H4. apply var_not_beta to H1 H5 H3.
+  % weak head step case
+  apply IH to H1 H5 H3. search.
+  % application case
+  case H3. % cases on beta step.
+    % subcase reduction in function part
+    apply IH to H1 H4 H6. search.
+    % subcase reduction in argument part
+    apply IH to H1 H5 H6. search.
+    % subcase beta-contraction
+    apply sred_beta to H1 H4 H5. search.
+  % abstraction case
+  case H3. apply IH to _ H4 H5. search. %% QED !
+
+%% Theorem: Each beta reduction sequence can be standardized.
+Theorem standardization: forall T T',
+  {tm T} -> {betas T T'} -> {sred T T'}.
+induction on 2. intros. case H2.
+  apply srefl to _ H1. search.
+  apply IH to H1 H3. apply sappend to _ H5 H4. search.
+ 

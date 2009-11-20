@@ -52,25 +52,27 @@ end
 def convert(string)
   regex = /(\/\*.*?\*\/|%.*?\n|(?:Theorem|CoDefine|Define|Import|Specification|Type|Kind|coinduction|induction|apply|backchain|cut|inst|monotone|permute|case|assert|exists|clear|abbrev|unabbrev|search|split|split\*|unfold|intros|skip|abort|undo)(?:[^%]|%.*?\n)*?\.)/m
 
-  string.split(regex).map do |s|
+  list = string.split(regex).map do |s|
     case s
     when /\A\s*\Z/m
       # \A and \Z correspond to ^ and $ for multiline regex matching
-      Element.new(s, :whitespace)
+      [Element.new(s, :whitespace)]
     when /^%/
-      Element.new(s, :comment)
+      [Element.new(s.chop, :comment), Element.new("\n", :whitespace)]
     when /^\/\*/
-      Element.new(s, :comment)
+      [Element.new(s, :comment)]
     when /^Theorem/
-      Element.new(s, :theorem)
+      [Element.new(s, :theorem)]
     when /^(Define|CoDefine|Set|Query|Specification|Type|Kind)/
-      Element.new(s, :command)
+      [Element.new(s, :command)]
     when /^Import/
-      Element.new(s, :import)
+      [Element.new(s, :import)]
     else
-      Element.new(s, :tactic)
+      [Element.new(s, :tactic)]
     end
   end
+
+  list.flatten
 end
 
 def mark_proofs(array)
@@ -96,7 +98,37 @@ def mark_proofs(array)
   result
 end
 
+# Slide the end of proofs over comments and non-newline whitespace
+def slide_proof_ends(array)
+  result = []
+  sliding = nil
+
+  array.each do |e|
+    if sliding then
+      if e.tag == :comment then
+        result << e
+      elsif e.tag == :whitespace && !(e.text.include? "\n") then
+        result << e
+      else
+        result << sliding
+        sliding = nil
+        result << e
+      end
+    elsif
+      if e.tag == :proof_end then
+        sliding = e
+      elsif
+        result << e
+      end
+    end
+  end
+
+  result << sliding if sliding
+  result
+end
+
 file_contents = File.open(ARGV[0]).read
 elements = convert(file_contents)
 elements = mark_proofs(elements)
+elements = slide_proof_ends(elements)
 print elements.join('')

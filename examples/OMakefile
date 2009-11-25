@@ -24,7 +24,7 @@ FILE_NAMES[] = $(rootname $(find . -name *.thm))
 %.thc: $(ABELLA)
     $(ABELLA) $*.thm -c $@ -o $*.out
 
-.SUBDIRS: $(subdirs P, .)
+.SUBDIRS: $(subdirs .)
     foreach(name, $(rootname $(glob i, *.thm)))
         .PHONY: $(name)
         $(name): $(name).out

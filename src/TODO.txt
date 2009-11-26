@@ -22,13 +22,6 @@ Allow for tacticals
   This requires reworking many things.
   How is tactic failure propogated through tacticals?
 
-New syntax for inductive and coinductive definitions?
-  Allow for empty predicate definitions? (can define :- false)
-  Require used definitions to be defined
-  Allow mutual recursion between coinductive and inductive but not
-  both
-  This might be good to do when we finally add typing to Abella
-
 From Todd Wilson: Every time I've used "apply .. with .." so far, the
   with clause has been an identity substitution, e.g., "with T0=T0,
   M0=M0". Would it be reasonable to default to this instead of giving

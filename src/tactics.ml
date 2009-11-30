@@ -749,6 +749,12 @@ let apply ?(used_nominals=[]) term args =
       | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->
           let n = List.length nablas in
           let (nabla_ids, nabla_tys) = List.split nablas in
+          (* Add dummy nominals in case nabla bound variables aren't used *)
+          let support =
+            (fresh_nominals_by_list nabla_tys
+               (List.map term_to_name (support @ used_nominals))) @
+              support
+          in
             support |> List.rev |> List.permute n
               |> List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals)
               |> List.find_some

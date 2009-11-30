@@ -254,6 +254,13 @@ let apply_tests =
                "rel2 (iabs (x1\\C x1)) (iabs (x1\\D x1))"
                t) ;
 
+      "With vacuous nabla" >::
+        (fun () ->
+           let h0 = freshen "forall A B, nabla x, rel1 (A x) (B x) -> rel2 (iabs A) (iabs B)" in
+           let h1 = freshen "rel1 C D" in
+           let t, _ = apply h0 [Some h1] in
+             assert_pprint_equal "rel2 (iabs (x1\\C)) (iabs (x1\\D))" t) ;
+
       "Absent argument should produce corresponding obligation" >::
         (fun () ->
            let h0 = freshen "forall L, foo L -> bar L -> false" in

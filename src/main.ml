@@ -139,10 +139,18 @@ let ensure_name_contained id ids =
   if not (List.mem id ids) then
     failwith ("Found stray clause for " ^ id)
 
+let ensure_wellformed_head t =
+  match t with
+    | Pred _ -> ()
+    | Binding(Nabla, _, Pred _) -> ()
+    | _ -> failwith
+        (sprintf "Bad head in definition: %s" (metaterm_to_string t))
+
 let check_defs names defs =
   List.iter ensure_not_capital names ;
   List.iter
     (fun (head, body) ->
+       ensure_wellformed_head head ;
        ensure_name_contained (def_head_name head) names ;
        ensure_no_restrictions head ;
        ensure_no_restrictions body ;

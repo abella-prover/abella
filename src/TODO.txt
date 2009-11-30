@@ -20,6 +20,9 @@ Future
 ======
 Change context handling to use explicit tail variable
 
+Change def to use (nabla_bindings, head_term, body_metaterm) rather
+  than two metaterms
+
 Allow 'search with ...' and use backchain on the provided arguments.
   Perhaps a full-fledged auto tactic which would do some limited left rules?
 

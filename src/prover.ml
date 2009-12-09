@@ -71,25 +71,30 @@ let extend_name i =
   else
     sequent.name <- sequent.name ^ "." ^ (string_of_int i)
 
-let annotate gs =
-  let rec aux i gs =
+let add_subgoals ?(mainline) new_subgoals =
+  let rec annotate i gs =
     match gs with
       | [] -> []
       | g::rest ->
-          (fun () -> g (); extend_name i) :: aux (i+1) rest
+          (fun () -> g (); extend_name i; sequent.next_subgoal_id <- 1) ::
+            annotate (i+1) rest
   in
-  let n = List.length gs in
-    if n < 2 then
-      gs
-    else
-      aux sequent.next_subgoal_id gs
-
-let add_subgoals ?(mainline) new_subgoals =
-  match mainline with
-    | None ->
-        subgoals := annotate new_subgoals @ !subgoals
-    | Some mainline ->
-        subgoals := annotate new_subgoals @ [mainline] @ !subgoals
+  let n = List.length new_subgoals in
+  let annotated_subgoals =
+    match mainline with
+      | None ->
+          if n > 1 then
+            annotate sequent.next_subgoal_id new_subgoals
+          else
+            new_subgoals
+      | Some mainline ->
+          let new_mainline () =
+            mainline () ;
+            sequent.next_subgoal_id <- sequent.next_subgoal_id + n
+          in
+            annotate sequent.next_subgoal_id new_subgoals @ [new_mainline]
+  in
+    subgoals := annotated_subgoals @ !subgoals
 
 (* The vars = sequent.vars is superfluous, but forces the copy *)
 let copy_sequent () =
@@ -669,16 +674,18 @@ let coinduction () =
 (* Assert *)
 
 let delay_mainline new_hyp detour_goal =
-  (* save mainline *)
-  sequent.next_subgoal_id <- sequent.next_subgoal_id + 1 ;
-  add_subgoals ~mainline:(case_to_subgoal { bind_state = get_bind_state () ;
-                                            new_vars = [] ;
-                                            new_hyps = [new_hyp] }) [] ;
-  (* prepare detour *)
-  extend_name (sequent.next_subgoal_id - 1);
-  sequent.next_subgoal_id <- 1 ;
-  sequent.goal <- detour_goal ;
-  if search_goal sequent.goal then next_subgoal ()
+  if search_goal detour_goal then
+    add_hyp new_hyp
+  else
+    let mainline =
+      case_to_subgoal { bind_state = get_bind_state () ;
+                        new_vars = [] ;
+                        new_hyps = [new_hyp] }
+    in
+    let detour = goal_to_subgoal detour_goal in
+      (* Using add_subgoals to take care of annotations *)
+      add_subgoals ~mainline [detour] ;
+      next_subgoal ()
 
 let assert_hyp term =
   let term = type_umetaterm ~sign:!sign ~ctx:sequent.vars term in

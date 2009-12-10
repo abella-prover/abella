@@ -65,13 +65,13 @@ let add_global_types tys =
 let add_global_consts cs =
   sign := add_consts !sign cs
 
-let extend_name i =
-  if sequent.name = "" then
-    sequent.name <- string_of_int i
-  else
-    sequent.name <- sequent.name ^ "." ^ (string_of_int i)
-
 let add_subgoals ?(mainline) new_subgoals =
+  let extend_name i =
+    if sequent.name = "" then
+      sequent.name <- string_of_int i
+    else
+      sequent.name <- sequent.name ^ "." ^ (string_of_int i)
+  in
   let rec annotate i gs =
     match gs with
       | [] -> []

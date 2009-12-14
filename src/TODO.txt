@@ -1,3 +1,5 @@
+Look at all uses of Seq in the code. Can we also add a case for Bc?
+
 Document in next release
 ========================
 apply should no longer require "dummy nominals" when nabla bound

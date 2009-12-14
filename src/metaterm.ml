@@ -28,13 +28,14 @@ type restriction =
   | CoEqual of int
   | Irrelevant
 
-type obj = { context : Context.t ;
-             term : term }
-
 type binder =
   | Forall
   | Nabla
   | Exists
+
+type obj =
+  | Seq of Context.t * term
+  | Bc of Context.t * term * term
 
 type metaterm =
   | True
@@ -49,10 +50,10 @@ type metaterm =
 
 (* Constructions *)
 
-let context_obj ctx t = { context = ctx ; term = t }
-let obj t = { context = Context.empty ; term = t }
+let context_seq ctx t = Seq(ctx, t)
+let seq t = Seq(Context.empty, t)
 
-let termobj t = Obj(obj t, Irrelevant)
+let termseq t = Obj(seq t, Irrelevant)
 let arrow a b = Arrow(a, b)
 let forall tids t = if tids = [] then t else Binding(Forall, tids, t)
 let nabla tids t = if tids = [] then t else Binding(Nabla, tids, t)
@@ -89,14 +90,25 @@ let priority t =
     | Arrow _ -> 1
     | Binding _ -> 0
 
+let seq_to_string ctx t =
+  (if Context.is_empty ctx
+   then ""
+   else Context.context_to_string ctx ^ " |- ") ^
+    (term_to_string t)
+
+let bc_to_string ctx t a =
+  (if Context.is_empty ctx
+   then ""
+   else Context.context_to_string ctx) ^
+    " | " ^ (term_to_string t) ^
+    " |- " ^ (term_to_string a)
+        
 let obj_to_string obj =
-  let context =
-    if Context.is_empty obj.context
-    then ""
-    else (Context.context_to_string obj.context ^ " |- ")
-  in
-  let term = term_to_string obj.term in
-    "{" ^ context ^ term ^ "}"
+  let bracket x = "{" ^ x ^ "}" in
+    bracket
+      (match obj with
+         | Seq(ctx, t) -> seq_to_string ctx t
+         | Bc(ctx, t, a) -> bc_to_string ctx t a)
 
 let binder_to_string b =
   match b with
@@ -175,8 +187,9 @@ let map_on_objs f t =
     aux t
 
 let map_obj f obj =
-  { context = Context.map f obj.context ;
-    term = f obj.term }
+  match obj with
+    | Seq(ctx, t) -> Seq(Context.map f ctx, f t)
+    | Bc(ctx, t, a) -> Bc(Context.map f ctx, f t, f a)
 
 let map_terms f t =
   let rec aux t =
@@ -217,26 +230,8 @@ let map_preds f term =
   in
     aux term
 
-let is_imp t = is_head_name "=>" t
-
-let extract_imp t =
-  match observe (hnorm t) with
-    | App(t, [a; b]) -> (a, b)
-    | _ -> failwith "Check is_imp before calling extract_imp"
-
-let move_imp_to_context obj =
-  let a, b = extract_imp obj.term in
-    {context = Context.add a obj.context ; term = b}
-
-let is_pi t = is_head_name "pi" t
-
-let extract_pi t =
-  match observe (hnorm t) with
-    | App(t, [abs]) -> abs
-    | _ -> failwith "Check is_pi before calling extract_pi"
-
-let obj_to_member obj =
-  member obj.term (Context.context_to_term obj.context)
+let seq_to_member ctx t =
+  member t (Context.context_to_term ctx)
 
 let is_obj t =
   match t with
@@ -246,7 +241,7 @@ let is_obj t =
 let term_to_obj t =
   match t with
     | Obj(obj, _) -> obj
-    | _ -> failwith "term_to_obj called on non-object"
+    | _ -> assert false
 
 let term_to_restriction t =
   match t with
@@ -258,7 +253,7 @@ let set_restriction r t =
   match t with
     | Obj(obj, _) -> Obj(obj, r)
     | Pred(p, _) -> Pred(p, r)
-    | _ -> failwith "Attempting to set restriction to non-object"
+    | _ -> assert false
 
 let reduce_inductive_restriction r =
   match r with
@@ -269,9 +264,6 @@ let reduce_coinductive_restriction r =
   match r with
     | CoEqual i -> CoSmaller i
     | _ -> r
-
-let add_to_context elt obj =
-  {obj with context = Context.add elt obj.context}
 
 let sig_to_string (name, arity) = name ^ "/" ^ (string_of_int arity)
 
@@ -338,7 +330,8 @@ let rec collect_terms t =
   match t with
     | True | False -> []
     | Eq(a, b) -> [a; b]
-    | Obj(obj, _) -> (Context.context_to_list obj.context) @ [obj.term]
+    | Obj(Seq(ctx, t), _) -> (Context.context_to_list ctx) @ [t]
+    | Obj(Bc(ctx, t, a), _) -> (Context.context_to_list ctx) @ [t; a]
     | Arrow(a, b) -> (collect_terms a) @ (collect_terms b)
     | Binding(_, _, body) -> collect_terms body
     | Or(a, b) -> (collect_terms a) @ (collect_terms b)
@@ -349,7 +342,10 @@ let map_term_list f t = List.map f (collect_terms t)
 
 let term_support t = find_var_refs Nominal [t]
 
-let obj_support obj = find_var_refs Nominal (obj.term :: obj.context)
+let obj_support obj =
+  match obj with
+    | Seq(ctx, t) -> find_var_refs Nominal (t :: ctx)
+    | Bc(ctx, t, a) -> find_var_refs Nominal (a :: t :: ctx)
 
 let metaterm_support t =
   let rec aux t =
@@ -399,22 +395,45 @@ let fresh_nominal ty t =
     | [n] -> n
     | _ -> assert false
 
-let replace_pi_with_nominal obj =
-  let abs = extract_pi obj.term in
-    match tc [] abs with
-      | Ty(ty::_, _) ->
-          let nominal = fresh_nominal ty (Obj(obj, Irrelevant)) in
-            {obj with term = app abs [nominal]}
-      | _ -> assert false
 
-let rec normalize_obj obj =
-  if is_imp obj.term then
-    normalize_obj (move_imp_to_context obj)
-  else if is_pi obj.term then
-    normalize_obj (replace_pi_with_nominal obj)
-  else
-    {obj with context = Context.normalize obj.context}
+(* Term structure and normalization *)
 
+type clause_view =
+  | Imp of term * term
+  | Pi of ty * term
+  | Raw of term
+
+let clause_view_term t =
+  match observe (hnorm t) with
+    | App(h, args) ->
+        begin match observe (hnorm h), args with
+          | Var {name="=>"}, [a; b] ->
+              Imp(a, b)
+          | Var {name="pi"}, [abs] ->
+              begin match observe (hnorm abs) with
+                | Lam([ty], _) -> Pi(ty, abs)
+                | _ -> assert false
+              end
+          | _ -> Raw(t)
+        end
+    | _ -> Raw(t)
+
+let normalize_obj obj =
+  let rec aux (ctx, t) =
+    match clause_view_term t with
+      | Imp(a, b) -> aux (Context.add a ctx, b)
+      | Pi(ty, abs) ->
+          let n = fresh_nominal ty (Obj(Seq(ctx, t), Irrelevant)) in
+            aux (ctx, app abs [n])
+      | Raw _ -> (ctx, t)
+  in
+  match obj with
+    | Seq(ctx, t) ->
+        let ctx, t = aux (ctx, t) in
+          Seq(Context.normalize ctx, t)
+    | Bc(ctx, t, a) ->
+        Bc(Context.normalize ctx, t, a)
+              
 let rec normalize_binders alist t =
   let term_aux t = replace_term_vars ~tag:Constant alist t in
   let rec aux t =
@@ -522,8 +541,11 @@ let rec meta_right_unify t1 t2 =
     | Eq(l1, r1), Eq(l2, r2) ->
         right_unify l1 l2 ;
         right_unify r1 r2
-    | Obj(o1, _), Obj(o2, _) when Context.equiv o1.context o2.context ->
-        right_unify o1.term o2.term
+    | Obj(Seq(ctx1, t1), _), Obj(Seq(ctx2, t2), _) when Context.equiv ctx1 ctx2 ->
+        right_unify t1 t2
+    | Obj(Bc(ctx1, t1, a1), _), Obj(Bc(ctx2, t2, a2), _) when Context.equiv ctx1 ctx2 ->
+        right_unify t1 t2 ;
+        right_unify a1 a2
     | Pred(t1, _), Pred(t2, _) ->
         right_unify t1 t2
     | And(l1, r1), And(l2, r2)
@@ -569,27 +591,26 @@ let try_meta_right_permute_unify t1 t2 =
                    try_meta_right_unify t1 (replace_metaterm_vars alist t2))
 
 (* Check for derivability between objects under permutations. Need
-   goal.term to unify with hyp.term and also hyp.context subcontext
-   of goal.context. Can assume hyp is ground *)
-let derivable goal hyp =
-  let support_g = obj_support goal in
-  let support_h = obj_support hyp in
-    if List.length support_g < List.length support_h then
-      false
-    else
-      let support_h_names = List.map term_to_name support_h in
-        support_g |> List.permute (List.length support_h)
-          |> List.exists
-              (fun perm_support_g ->
-                 let alist = List.combine support_h_names perm_support_g in
-                   try_right_unify goal.term
-                     (replace_term_vars alist hyp.term) &&
-                     (Context.subcontext
-                        (Context.map (replace_term_vars alist) hyp.context)
-                        goal.context))
+   gt to unify with ht and also hctx subcontext of gctx.
+   Can assume hyp is ground *)
+let derivable (gctx, gt) (hctx, ht) =
+  let support_g = obj_support (Seq(gctx, gt)) in
+  let support_h = obj_support (Seq(hctx, ht)) in
+  let support_h_names = List.map term_to_name support_h in
+    support_g |> List.permute (List.length support_h)
+      |> List.exists
+          (fun perm_support_g ->
+             let alist = List.combine support_h_names perm_support_g in
+               try_right_unify gt (replace_term_vars alist ht) &&
+                 (Context.subcontext
+                    (Context.map (replace_term_vars alist) hctx)
+                    gctx))
 
 let metaterm_extract_tids aux_term t =
-  let aux_obj obj = aux_term obj.context @ aux_term [obj.term] in
+  let aux_obj = function
+    | Seq(ctx, t) -> aux_term ctx @ aux_term [t]
+    | Bc(ctx, t, a) -> aux_term ctx @ aux_term [t; a]
+  in
   let rec aux = function
     | True | False -> []
     | Eq(a, b) -> aux_term [a; b]

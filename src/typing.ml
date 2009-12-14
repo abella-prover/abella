@@ -57,7 +57,8 @@ type umetaterm =
   | UTrue
   | UFalse
   | UEq of uterm * uterm
-  | UObj of uterm * uterm * restriction
+  | USeq of uterm * uterm * restriction
+  | UBc of uterm * uterm * uterm * restriction
   | UArrow of umetaterm * umetaterm
   | UBinding of binder * (id * ty) list * umetaterm
   | UOr of umetaterm * umetaterm
@@ -248,21 +249,28 @@ let term_ensure_fully_inferred t =
     aux t
 
 let metaterm_ensure_fully_inferred t =
-  let rec aux t =
-    match t with
-      | True | False -> ()
-      | And(a, b) | Or(a, b) | Arrow(a, b) -> aux a; aux b
-      | Binding(_, tids, body) ->
-          List.iter tid_ensure_fully_inferred tids ;
-          aux body
-      | Eq(a, b) ->
-          term_ensure_fully_inferred a ;
-          term_ensure_fully_inferred b
-      | Obj(obj, _) ->
-          Context.iter term_ensure_fully_inferred obj.context ;
-          term_ensure_fully_inferred obj.term
-      | Pred(p, _) ->
-          term_ensure_fully_inferred p
+  let obj_aux = function
+    | Seq(ctx, t) ->
+        Context.iter term_ensure_fully_inferred ctx ;
+        term_ensure_fully_inferred t
+    | Bc(ctx, t, a) ->
+        Context.iter term_ensure_fully_inferred ctx ;
+        term_ensure_fully_inferred t ;
+        term_ensure_fully_inferred a
+  in
+  let rec aux = function
+    | True | False -> ()
+    | And(a, b) | Or(a, b) | Arrow(a, b) -> aux a; aux b
+    | Binding(_, tids, body) ->
+        List.iter tid_ensure_fully_inferred tids ;
+        aux body
+    | Eq(a, b) ->
+        term_ensure_fully_inferred a ;
+        term_ensure_fully_inferred b
+    | Obj(obj, _) ->
+        obj_aux obj
+    | Pred(p, _) ->
+        term_ensure_fully_inferred p
   in
     aux t
 
@@ -416,11 +424,19 @@ let infer_constraints ~sign ~tyctx t =
           let (aty, aeqns) = infer_type_and_constraints ~sign tyctx a in
           let (bty, beqns) = infer_type_and_constraints ~sign tyctx b in
             aeqns @ beqns @ [(aty, bty, (get_pos b, CArg))]
-      | UObj(l, g, _) ->
+      | USeq(l, g, _) ->
           let (lty, leqns) = infer_type_and_constraints ~sign tyctx l in
           let (gty, geqns) = infer_type_and_constraints ~sign tyctx g in
             leqns @ geqns @ [(olistty, lty, (get_pos l, CArg));
                              (oty, gty, (get_pos g, CArg))]
+      | UBc(l, c, a, _) ->
+          let (lty, leqns) = infer_type_and_constraints ~sign tyctx l in
+          let (cty, ceqns) = infer_type_and_constraints ~sign tyctx c in
+          let (aty, aeqns) = infer_type_and_constraints ~sign tyctx a in
+            leqns @ ceqns @ aeqns @
+              [(olistty, lty, (get_pos l, CArg));
+               (oty, cty, (get_pos c, CArg));
+               (oty, aty, (get_pos a, CArg))]
       | UArrow(a, b) | UOr(a, b) | UAnd(a, b) ->
           (aux tyctx a) @ (aux tyctx b)
       | UBinding(_, tids, body) ->
@@ -439,8 +455,10 @@ let umetaterm_extract_if test t =
           uterms_extract_if test [a; b]
       | UPred(p, _) ->
           uterms_extract_if test [p]
-      | UObj(l, g, _) ->
+      | USeq(l, g, _) ->
           uterms_extract_if test [l; g]
+      | UBc(l, c, a, _) ->
+          uterms_extract_if test [l; c; a]
       | UArrow(a, b) | UOr(a, b) | UAnd(a, b) ->
           (aux a) @ (aux b)
       | UBinding(_, tids, body) ->
@@ -457,9 +475,13 @@ let umetaterm_to_metaterm sub t =
       | UTrue -> True
       | UFalse -> False
       | UEq(a, b) -> Eq(uterm_to_term sub a, uterm_to_term sub b)
-      | UObj(l, g, r) ->
-          Obj({context = Context.normalize [uterm_to_term sub l] ;
-               term = uterm_to_term sub g}, r)
+      | USeq(l, g, r) ->
+          Obj(Seq(Context.normalize [uterm_to_term sub l],
+                  uterm_to_term sub g), r)
+      | UBc(l, c, a, r) ->
+          Obj(Bc(Context.normalize [uterm_to_term sub l],
+                 uterm_to_term sub c,
+                 uterm_to_term sub a), r)
       | UArrow(a, b) -> Arrow(aux a, aux b)
       | UBinding(binder, tids, body) ->
           Binding(binder,

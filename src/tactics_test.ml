@@ -9,8 +9,9 @@ open Extensions
 
 let assert_object_cut ~cut ~using ~expect =
   match freshen cut, freshen using with
-    | Obj(cut, _), Obj(using, _) ->
-        let actual = object_cut cut using in
+    | Obj(Seq(ctx1, g1), _), Obj(Seq(ctx2, g2), _) ->
+        let actx, ag = object_cut (ctx1, g1) (ctx2, g2) in
+        let actual = Obj(Seq(actx, ag), Irrelevant) in
           assert_pprint_equal expect actual
     | _ -> assert false
 

@@ -51,7 +51,7 @@ type sequent = {
 let sequent = {
   vars = [] ;
   hyps = [] ;
-  goal = termobj (const "placeholder" propty) ;
+  goal = pred (const "placeholder" propty) ;
   count = 0 ;
   name = "" ;
   next_subgoal_id = 1 ;
@@ -344,9 +344,10 @@ let cut h arg =
   let h = get_hyp h in
   let arg = get_hyp arg in
     match h, arg with
-      | Obj(obj_h, _), Obj(obj_arg, _) ->
-          add_hyp (object_cut obj_h obj_arg)
-      | _ -> failwith "Cut can only be used on hypotheses of the form {...}"
+      | Obj(Seq(ctx1, t1), _), Obj(Seq(ctx2, t2), _) ->
+          let rctx, rt = object_cut (ctx1, t1) (ctx2, t2) in
+            add_hyp (Obj(Seq(rctx, rt), Irrelevant))
+      | _ -> failwith "Cut can only be used on hypotheses of the form {... |- ...}"
 
 
 (* Search *)
@@ -696,22 +697,22 @@ let assert_hyp term =
 let monotone h t =
   let ht = get_hyp h in
     match ht with
-      | Obj(obj, r) ->
+      | Obj(Seq(octx, og), r) ->
           let ntids = metaterm_nominal_tids ht in
           let ctx = sequent.vars @
             (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
           in
           let t = type_uterm ~sign:!sign ~ctx t olistty in
-          let new_obj = { obj with context = Context.normalize [t] } in
+          let new_obj = Seq(Context.normalize [t], og) in
             delay_mainline
               (Obj(new_obj, r))
               (Binding(Forall, [("X", oty)],
                        Arrow(member (Term.const "X" oty)
-                               (Context.context_to_term obj.context),
+                               (Context.context_to_term octx),
                              member (Term.const "X" oty)
                                t))) ;
       | _ -> failwith
-          "Monotone can only be used on hypotheses of the form {...}"
+          "Monotone can only be used on hypotheses of the form {... |- ...}"
 
 
 (* Theorem *)

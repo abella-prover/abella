@@ -301,7 +301,7 @@ metaterm:
   | LPAREN metaterm RPAREN               { $2 }
   | LBRACK contexted_term RBRACK restriction
                                          { let l, g = $2 in
-                                             UObj(l, g, $4) }
+                                             USeq(l, g, $4) }
   | term restriction                     { UPred($1, $2) }
 
 binder:

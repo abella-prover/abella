@@ -76,19 +76,19 @@ let freshen_nameless_bindings ~support ~ts bindings term =
 
 (* Object level cut *)
 
-(* obj1 = L2, A |- C
-   obj2 = L1 |- A
-   result = L2, L1 |- C *)
-let object_cut obj1 obj2 =
-  if Context.mem obj2.term obj1.context then
-    let ctx =
-      obj1.context
-      |> Context.remove obj2.term
-      |> Context.union obj2.context
+(* ctx1 |- t1  ==  L, ..., A |- C
+   ctx2 |- t2  ==  L, ...    |- A
+   result      ==  L, ...    |- C *)
+let object_cut (ctx1, t1) (ctx2, t2) =
+  if Context.mem t2 ctx1 then
+    let rctx =
+      ctx1
+      |> Context.remove t2
+      |> Context.union ctx2
       |> Context.normalize
     in
-      if Context.wellformed ctx then
-        Obj(context_obj ctx obj1.term, Irrelevant)
+      if Context.wellformed rctx then
+        (rctx, t1)
       else
         failwith "Cannot merge contexts"
   else
@@ -298,19 +298,22 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
   in
 
   let obj_case obj r =
-    let wrapper t =
-      Obj(context_obj obj.context t, reduce_inductive_restriction r)
-    in
-    let clause_cases = clause_case ~wrapper obj.term in
-      if Context.is_empty obj.context then
-        clause_cases
-      else
-        let member_case =
-          { bind_state = get_bind_state () ;
-            new_vars = [] ;
-            new_hyps = [obj_to_member obj] }
-        in
-          member_case :: clause_cases
+    match obj with
+      | Seq(ctx, g) ->
+          let wrapper t =
+            Obj(context_seq ctx t, reduce_inductive_restriction r)
+          in
+          let clause_cases = clause_case ~wrapper g in
+            if Context.is_empty ctx then
+              clause_cases
+            else
+              let member_case =
+                { bind_state = get_bind_state () ;
+                  new_vars = [] ;
+                  new_hyps = [seq_to_member ctx g] }
+              in
+                member_case :: clause_cases
+      | Bc _ -> assert false
   in
 
     match term with
@@ -572,7 +575,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     let support = term_support goal in
     let freshen_clause = curry (freshen_nameless_clause ~support ~ts) in
     let p = term_head_name goal in
-    let wrap body = List.map (fun t -> {context=context; term=t}) body in
+    let wrap body = List.map (context_seq context) body in
       clauses
       |> List.find_all (fun (h, _) -> term_head_name h = p)
       |> List.map freshen_clause
@@ -588,24 +591,30 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                             sc (WUnfold(p, i, ws))))
 
   and obj_aux n hyps goal r ts ~sc =
-    let goal = normalize_obj goal in
-      (* Check hyps for derivability *)
-      hyps
-      |> List.find_all (fun (id, h) -> is_obj h)
-      |> List.map (fun (id, h) -> (id, term_to_obj h))
-      |> iter_keep_state
-          (fun (id, obj) -> if derivable goal obj then sc (WHyp id)) ;
-
-      match r with
-        | Smaller _ | Equal _ -> ()
-        | _ ->
-            (* Check context *)
-            if not (Context.is_empty goal.context) then
-              metaterm_aux n hyps (obj_to_member goal) ts
-                ~sc:(fun w -> sc (WUnfold(term_head_name goal.term, 0, [w]))) ;
-
-            (* Backchain *)
-            if n > 0 then clause_aux n hyps goal.context goal.term r ts ~sc
+    match normalize_obj goal with
+      | Seq(ctx, g) ->
+          (* Check hyps for derivability *)
+          hyps
+          |> List.filter_map
+              (fun (id, h) ->
+                 match h with
+                   | Obj(Seq(hctx, hg), _) -> Some (id, hctx, hg)
+                   | _ -> None)
+          |> iter_keep_state
+              (fun (id, hctx, hg) -> if derivable (ctx, g) (hctx, hg) then sc (WHyp id)) ;
+          
+          begin match r with
+            | Smaller _ | Equal _ -> ()
+            | _ ->
+                (* Check context *)
+                if not (Context.is_empty ctx) then
+                  metaterm_aux n hyps (seq_to_member ctx g) ts
+                    ~sc:(fun w -> sc (WUnfold(term_head_name g, 0, [w]))) ;
+                
+                (* Backchain *)
+                if n > 0 then clause_aux n hyps ctx g r ts ~sc
+          end
+     | Bc _ -> assert false
 
   and obj_aux_conj n goals r ts ~sc =
     match goals with
@@ -716,11 +725,11 @@ let apply_arrow term args =
     List.fold_left
       (fun term arg ->
          match term, arg with
-           | Arrow(Obj(left, _), right), Some Obj(arg, _) ->
-               context_pairs := (left.context, arg.context)::!context_pairs ;
+           | Arrow(Obj(Seq(lctx, lg), _), right), Some Obj(Seq(actx, ag), _) ->
+               context_pairs := (lctx, actx)::!context_pairs ;
                debug (Printf.sprintf "Trying to unify %s and %s."
-                        (term_to_string left.term) (term_to_string arg.term)) ;
-               right_unify left.term arg.term ;
+                        (term_to_string lg) (term_to_string ag)) ;
+               right_unify lg ag ;
                right
            | Arrow(left, right), Some arg ->
                debug (Printf.sprintf "Trying to unify %s and %s."
@@ -852,9 +861,9 @@ let backchain_arrow term goal =
       | _, _ -> ()
   in
     begin match head, goal with
-      | Obj(hobj, _), Obj(gobj, _) ->
-          right_unify hobj.term gobj.term ;
-          Context.backchain_reconcile hobj.context gobj.context
+      | Obj(Seq(hctx, hg), _), Obj(Seq(gctx, gg), _) ->
+          right_unify hg gg ;
+          Context.backchain_reconcile hctx gctx
       | _, _ ->
           meta_right_unify head goal
     end ;

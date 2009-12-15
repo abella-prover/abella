@@ -1057,7 +1057,33 @@ let search_tests =
              ~expect: true
         );
 
-      "On left of OR" >::
+      "Should succeed on matching atomic backchain" >::
+        (fun () ->
+           assert_search ()
+             ~goal:"{L | p1 A |- p1 A}"
+             ~expect: true) ;
+
+      "Should fail on non-matching atomic backchain" >::
+        (fun () ->
+           assert_search ()
+             ~goal:"{L | p1 A |- p1 B}"
+             ~expect: false) ;
+
+      "Should succeed on matching simple backchain" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{L |- p1 A}"]
+             ~goal:"{L | pi x\\ p1 x => p2 x |- p2 A}"
+             ~expect: true) ;
+
+      "Should fail on non-matching simple backchain" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{L |- p1 A}"]
+             ~goal:"{L | pi x\\ p1 x => p1 x |- p2 A}"
+             ~expect: false) ;
+
+       "On left of OR" >::
         (fun () ->
            assert_search ()
              ~hyps:["{eval A B}"]

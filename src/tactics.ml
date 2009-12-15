@@ -609,7 +609,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     let support = term_support goal in
     let freshen_clause = curry (freshen_nameless_clause ~support ~ts) in
     let p = term_head_name goal in
-    let wrap body = List.map (context_seq context) body in
+    let wrap body = List.map (fun b -> Seq(context, b)) body in
       clauses
       |> List.find_all (fun (h, _) -> term_head_name h = p)
       |> List.map freshen_clause
@@ -642,13 +642,42 @@ let search ~depth:n ~hyps ~clauses ~alldefs
             | _ ->
                 (* Check context *)
                 if not (Context.is_empty ctx) then
-                  metaterm_aux n hyps (seq_to_member ctx g) ts
-                    ~sc:(fun w -> sc (WUnfold(term_head_name g, 0, [w]))) ;
+                  metaterm_aux n hyps (seq_to_member ctx g) ts ~sc ;
                 
                 (* Backchain *)
                 if n > 0 then clause_aux n hyps ctx g r ts ~sc
           end
-     | Bc _ -> assert false
+            (* TODO: Do the search witnesses look right? *)
+     | Bc(ctx, c, a) ->
+         (* TODO: Check hyps for derivability *)
+
+         begin match r with
+           | Smaller _ | Equal _ -> ()
+           | _ ->
+               (* Backchain *)
+               let support = obj_support goal in
+               let ntys = List.map (tc []) support in
+               let rec decompose head body =
+                 match clause_view head with
+                   | Imp(left, right) ->
+                       decompose right (left::body)
+                   | Pi(ty, abs) ->
+                       let x = fresh ts (tyarrow ntys ty) in
+                       let rx = app x support in
+                         decompose (app abs [rx]) body
+                   | Raw _ ->
+                       (head, body)
+               in
+               let head, body = decompose c [] in
+                 match try_right_unify_cpairs head a with
+                   | None -> ()
+                   | Some cpairs ->
+                       let wrapped_body = List.map (fun b -> Seq(ctx, b)) body in
+                         obj_aux_conj (n-1) wrapped_body
+                           (reduce_inductive_restriction r) ts
+                           ~sc:(fun ws -> if try_unify_cpairs cpairs then
+                                  sc (WUnfold(term_head_name a, 0, ws)))
+         end
 
   and obj_aux_conj n goals r ts ~sc =
     match goals with

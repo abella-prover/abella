@@ -50,7 +50,6 @@ type metaterm =
 
 (* Constructions *)
 
-let context_seq ctx t = Seq(ctx, t)
 let seq t = Seq(Context.empty, t)
 
 let termseq t = Obj(seq t, Irrelevant)

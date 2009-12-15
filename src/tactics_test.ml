@@ -719,6 +719,39 @@ let case_tests =
                    end ;
                | cases -> assert_expected_cases 3 cases) ;
 
+      "On atomic backchain" >::
+        (fun () ->
+           let term = freshen "{L | p1 A |- p1 B}" in
+             match case term with
+               | [case1] ->
+                   set_bind_state case1.bind_state ;
+                   begin match case1.new_hyps with
+                     | [] ->
+                         assert_pprint_equal "{L |- p1 A |- p1 A}" term ;
+                     | _ -> assert_failure "Expected no new hypotheses"
+                   end ;
+               | cases -> assert_expected_cases 1 cases) ;
+
+      "On simple backchain" >::
+        (fun () ->
+           let term = freshen "{L | pi x\\ p1 x => p2 x |- p2 A}" in
+             match case term with
+               | [case1] ->
+                   set_bind_state case1.bind_state ;
+                   begin match case1.new_hyps with
+                     | [hyp] ->
+                         assert_pprint_equal "{L |- p A}" hyp ;
+                     | _ -> assert_failure "Expected 1 new hypothesis"
+                   end ;
+               | cases -> assert_expected_cases 1 cases) ;
+
+      "On invalid backchain" >::
+        (fun () ->
+           let term = freshen "{L | pi x\\ p1 x => D |- p2 A}" in
+             assert_raises
+               (Failure "Cannot perform case-analysis on flexible clause")
+               (fun () -> case term)) ;
+
       "On member" >::
         (fun () ->
            let term = freshen "member (hyp A) (hyp C :: L)" in

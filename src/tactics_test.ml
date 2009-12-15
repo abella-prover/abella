@@ -727,7 +727,7 @@ let case_tests =
                    set_bind_state case1.bind_state ;
                    begin match case1.new_hyps with
                      | [] ->
-                         assert_pprint_equal "{L |- p1 A |- p1 A}" term ;
+                         assert_pprint_equal "{L | p1 B |- p1 B}" term ;
                      | _ -> assert_failure "Expected no new hypotheses"
                    end ;
                | cases -> assert_expected_cases 1 cases) ;
@@ -740,7 +740,7 @@ let case_tests =
                    set_bind_state case1.bind_state ;
                    begin match case1.new_hyps with
                      | [hyp] ->
-                         assert_pprint_equal "{L |- p A}" hyp ;
+                         assert_pprint_equal "{L |- p1 A}" hyp ;
                      | _ -> assert_failure "Expected 1 new hypothesis"
                    end ;
                | cases -> assert_expected_cases 1 cases) ;

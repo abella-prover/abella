@@ -403,7 +403,7 @@ type clause_view =
   | Pi of ty * term
   | Raw of term
 
-let clause_view_term t =
+let clause_view t =
   match observe (hnorm t) with
     | App(h, args) ->
         begin match observe (hnorm h), args with
@@ -420,7 +420,7 @@ let clause_view_term t =
 
 let normalize_obj obj =
   let rec aux (ctx, t) =
-    match clause_view_term t with
+    match clause_view t with
       | Imp(a, b) -> aux (Context.add a ctx, b)
       | Pi(ty, abs) ->
           let n = fresh_nominal ty (Obj(Seq(ctx, t), Irrelevant)) in

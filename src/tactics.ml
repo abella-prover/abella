@@ -301,7 +301,7 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
     match obj with
       | Seq(ctx, g) ->
           let wrapper t =
-            Obj(context_seq ctx t, reduce_inductive_restriction r)
+            Obj(Seq(ctx, t), reduce_inductive_restriction r)
           in
           let clause_cases = clause_case ~wrapper g in
             if Context.is_empty ctx then
@@ -313,7 +313,41 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
                   new_hyps = [seq_to_member ctx g] }
               in
                 member_case :: clause_cases
-      | Bc _ -> assert false
+
+      | Bc(ctx, c, a) ->
+          let ntys = List.map (tc []) support in
+          let rec decompose ~used head body =
+            match clause_view head with
+              | Imp(left, right) ->
+                  decompose ~used right (left::body)
+              | Pi(ty, abs) ->
+                  let x, used =
+                    fresh_wrt ~ts:0 Eigen "X" (tyarrow ntys ty) used
+                  in
+                  let rx = app x support in
+                    decompose ~used (app abs [rx]) body
+              | Raw _ ->
+                  if has_eigen_head head then
+                    failwith "Cannot perform case-analysis on flexible clause" ;
+                  (used, head, body)
+          in
+          let used, head, body = decompose ~used c [] in
+            match try_left_unify_cpairs ~used head a with
+              | Some cpairs ->
+                  let new_vars =
+                    term_vars_alist Eigen (head::a::body)
+                  in
+                  let bind_state = get_bind_state () in
+                  let wrapped_body =
+                    List.map
+                      (fun t -> Obj(Seq(ctx, t), reduce_inductive_restriction r))
+                      body
+                  in
+                    set_bind_state initial_bind_state ;
+                    [{ bind_state = bind_state ;
+                       new_vars = new_vars ;
+                       new_hyps = cpairs_to_eqs cpairs @ wrapped_body}]
+              | None -> []
   in
 
     match term with

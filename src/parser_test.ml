@@ -63,6 +63,14 @@ let tests =
         (fun () ->
            assert_pprint_equal_parse "{pi x1\\eval x1 A => typeof x1 B}") ;
 
+      "Backchain statement" >::
+        (fun () ->
+           assert_pprint_equal_parse "{L | D |- A}") ;
+
+      "Backchain statement, empty context" >::
+        (fun () ->
+           assert_pprint_equal_parse "{ | D |- A}") ;
+
       "Lambda cons" >::
         (fun () ->
            assert_pprint_equal_parse "x1\\a :: b") ;

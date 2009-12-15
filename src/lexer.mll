@@ -71,6 +71,7 @@ rule token = parse
 | "("                { LPAREN }
 | ")"                { RPAREN }
 | "|-"               { TURN }
+| "|"                { BAR }
 | "::"               { CONS }
 | "="                { EQ }
 

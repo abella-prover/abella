@@ -158,11 +158,17 @@ let tests =
              assert_pprint_equal
                "forall E2, E2 = E1 -> (exists E3, E3 = E2)" t');
 
-      "Print non-empty context" >::
+      "Print seq" >::
         (fun () ->
            let ctx = Context.add (uconst "L") Context.empty in
            let t = Obj(Seq(ctx, var_a), Irrelevant) in
              assert_pprint_equal "{L |- A}" t) ;
+
+      "Print bc" >::
+        (fun () ->
+           let ctx = Context.add (uconst "L") Context.empty in
+           let t = Obj(Bc(ctx, var_b, var_a), Irrelevant) in
+             assert_pprint_equal "{L | B |- A}" t) ;
 
       "Print predicate" >::
         (fun () ->

@@ -42,7 +42,7 @@
 
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
-%token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
+%token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY BAR
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE
@@ -135,9 +135,13 @@ paid :
   | id                                   { ($1, Term.fresh_tyvar ()) }
   | LPAREN id COLON ty RPAREN            { ($2, $4) }
 
-contexted_term:
+seq:
   | context TURN term                    { ($1, $3) }
   | term                                 { (predefined "nil", $1) }
+
+bc:
+  | context BAR term TURN term           { ($1, $3, $5) }
+  | BAR term TURN term                   { (predefined "nil", $2, $4) }
 
 context:
   | context COMMA term                   { binop "::" $3 $1 }
@@ -299,9 +303,10 @@ metaterm:
   | metaterm OR metaterm                 { UOr($1, $3) }
   | metaterm AND metaterm                { UAnd($1, $3) }
   | LPAREN metaterm RPAREN               { $2 }
-  | LBRACK contexted_term RBRACK restriction
-                                         { let l, g = $2 in
+  | LBRACK seq RBRACK restriction        { let (l, g) = $2 in
                                              USeq(l, g, $4) }
+  | LBRACK bc RBRACK restriction         { let (l, g, a) = $2 in
+                                             UBc(l, g, a, $4) }
   | term restriction                     { UPred($1, $2) }
 
 binder:

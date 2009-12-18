@@ -18,7 +18,7 @@ induction on 1. intros. case H1.
 
 Theorem hyp_form : forall L B,
   ctx L -> {L |- hyp B} -> {form B}.
-intros. case H2. apply ctx_member to H1 H3. search.
+intros. case H2. apply ctx_member to H1 H3. case H4. search.
 
 Theorem hyp_imp_form : forall L B1 B2,
   ctx L -> {L |- hyp (imp B1 B2)} -> {form B1} /\ {form B2}.
@@ -37,13 +37,13 @@ induction on 3 3. split.
 
   % focus -> conc
   intros. case H3.
-    apply ctx_member to H1 H4.
+    apply ctx_member to H1 H4. case H5.
     search.
     case H2. apply IH1 to H1 H6 H4. apply IH to _ H7 H5. search.
 
   % unfocus -> conc
   intros. case H3.
-    apply ctx_member to H1 H4.
+    apply ctx_member to H1 H4. case H5.
     case H2. apply IH1 to _ H6 H4. search.
     apply hyp_form to H1 H4. apply IH to H1 H6 H5.
       cut H7 with H4. search.
@@ -66,9 +66,9 @@ induction on 1. intros. case H1.
 Theorem restrict_init : forall L B,
   ctx L -> {form B} -> {L |- conc B} -> {L |- conc-i B}.
 induction on 3. intros. case H3.
-  apply ctx_member to H1 H4.
-  case H4. apply ctx_member to H1 H5.
-  apply init_form to H6 H5. search.
+  apply ctx_member to H1 H4. case H5.
+  case H4. apply ctx_member to H1 H5. case H6.
+    apply init_form to H2 H5. search.
   case H2. apply IH to _ H6 H4. search.
   apply hyp_imp_form to H1 H4.
     apply IH to H1 H7 H5. apply IH to _ H2 H6. search.
@@ -88,16 +88,20 @@ intros. induction on 5 5. split.
 
   % {L, hyp B2 |- unfocus C} -> {L |- unfocus C}
   intros. case H5.
-    case H6. apply ctx_member to H1 H7.
+    case H6.
+      case H7.
+      apply ctx_member to H1 H8. case H7.
     case H3. apply IH to _ _ H8 _ H6. search.
     case H6. case H8.
-      search.
-      apply ctx_member to H1 H9.
-        apply IH1 to H1 H2 H10 H4 H7. search.
+      case H9. search.
+      apply ctx_member to H1 H10. case H9.
+        apply IH1 to H1 H2 H11 H4 H7. search.
 
   % {L, hyp B2 |- focus B A} -> {L |- focus B A}
   intros. case H5.
-    case H6. apply ctx_member to H1 H7.
+    case H6.
+      case H7.
+      apply ctx_member to H1 H8. case H7.
     search.
     case H3. apply hyp_imp_form to H1 H2.
       apply IH to _ _ H8 _ H6. apply IH1 to _ _ H9 _ H7. search.
@@ -105,7 +109,7 @@ intros. induction on 5 5. split.
 Theorem conc-i_complete : forall L B,
   ctx L -> {form B} -> {L |- conc-i B} -> {L |- unfocus B}.
 induction on 3. intros. case H3.
-  apply ctx_member to H1 H4.
+  apply ctx_member to H1 H4. case H5.
   search.
   case H2. apply IH to _ H6 H4. search.
   apply hyp_imp_form to H1 H4.

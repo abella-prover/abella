@@ -1059,33 +1059,61 @@ let search_tests =
              ~expect: true
         );
 
-      "Should succeed on matching atomic backchain" >::
+      "On matching atomic backchain" >::
         (fun () ->
            assert_search ()
              ~goal:"{L | p1 A |- p1 A}"
              ~expect: true) ;
 
-      "Should fail on non-matching atomic backchain" >::
+      "On non-matching atomic backchain" >::
         (fun () ->
            assert_search ()
              ~goal:"{L | p1 A |- p1 B}"
              ~expect: false) ;
 
-      "Should succeed on matching simple backchain" >::
+      "On matching simple backchain" >::
         (fun () ->
            assert_search ()
              ~hyps:["{L |- p1 A}"]
              ~goal:"{L | pi x\\ p1 x => p2 x |- p2 A}"
              ~expect: true) ;
 
-      "Should fail on non-matching simple backchain" >::
+      "On non-matching simple backchain" >::
         (fun () ->
            assert_search ()
              ~hyps:["{L |- p1 A}"]
              ~goal:"{L | pi x\\ p1 x => p1 x |- p2 A}"
              ~expect: false) ;
 
-       "On left of OR" >::
+      "On matching direct seq" >::
+        (fun () ->
+           assert_search ()
+             ~defs:"member A (A :: L); member A (B :: L) := member A L."
+             ~goal:"{p1 A |- p1 A}"
+             ~expect: true) ;
+
+      "On non-matching direct seq" >::
+        (fun () ->
+           assert_search ()
+             ~defs:"member A (A :: L); member A (B :: L) := member A L."
+             ~goal:"{p2 A |- p1 A}"
+             ~expect: false) ;
+
+      "On matching advanced seq" >::
+        (fun () ->
+           assert_search ()
+             ~defs:"member A (A :: L); member A (B :: L) := member A L."
+             ~goal:"{p1 A, pi x\\ p1 x => p2 x |- p2 A}"
+             ~expect: true) ;
+
+      "On non-matching advanced seq" >::
+        (fun () ->
+           assert_search ()
+             ~defs:"member A (A :: L); member A (B :: L) := member A L."
+             ~goal:"{p1 A, pi x\\ p2 x => p2 x |- p2 A}"
+             ~expect: false) ;
+
+      "On left of OR" >::
         (fun () ->
            assert_search ()
              ~hyps:["{eval A B}"]

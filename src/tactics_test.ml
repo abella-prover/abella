@@ -687,20 +687,22 @@ let case_tests =
                    assert_pprint_equal "rel1 n1 n2" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
-      "Should look in context for member" >::
+      "Should backchain using context" >::
         (fun () ->
            let term = freshen "{L, hyp A |- hyp B}" in
              match case term with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
-                   assert_pprint_equal "member (hyp B) (hyp A :: L)" hyp
+                   assert_pprint_equal
+                     "exists D, member D (hyp A :: L) /\\ {L, hyp A | D |- hyp B}" hyp
                | _ -> assert_failure "Pattern mismatch") ;
 
-      "Member case should not get restriction from object" >::
+      "Backchain case should get restriction from object" >::
         (fun () ->
            let term = freshen "{L |- p1 A}@" in
              match case term with
                | [{new_vars=[] ; new_hyps=[hyp]}] ->
-                   assert_pprint_equal "member (p1 A) L" hyp
+                   assert_pprint_equal
+                     "exists D, member D L /\\ {L | D |- p1 A}*" hyp
                | _ -> assert_failure "Pattern mismatch") ;
 
       "Should pass along context" >::

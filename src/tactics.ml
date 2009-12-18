@@ -310,7 +310,8 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
               let member_case =
                 { bind_state = get_bind_state () ;
                   new_vars = [] ;
-                  new_hyps = [seq_to_member ctx g] }
+                  new_hyps =
+                    [seq_to_bc ctx g (reduce_inductive_restriction r)] }
               in
                 member_case :: clause_cases
 
@@ -636,14 +637,16 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                    | _ -> None)
           |> iter_keep_state
               (fun (id, hctx, hg) -> if derivable (ctx, g) (hctx, hg) then sc (WHyp id)) ;
-          
+
           begin match r with
             | Smaller _ | Equal _ -> ()
             | _ ->
                 (* Check context *)
                 if not (Context.is_empty ctx) then
-                  metaterm_aux n hyps (seq_to_member ctx g) ts ~sc ;
-                
+                  metaterm_aux n hyps
+                    (seq_to_bc ctx g (reduce_inductive_restriction r))
+                    ts ~sc ;
+
                 (* Backchain *)
                 if n > 0 then clause_aux n hyps ctx g r ts ~sc
           end

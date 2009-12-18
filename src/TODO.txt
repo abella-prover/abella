@@ -1,5 +1,6 @@
 Look at all uses of Seq in the code. Can we also add a case for Bc?
 TODOs
+Variable capture in seq to member?
 
 Document in next release
 ========================

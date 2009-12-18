@@ -101,7 +101,7 @@ let bc_to_string ctx t a =
    else Context.context_to_string ctx) ^
     " | " ^ (term_to_string t) ^
     " |- " ^ (term_to_string a)
-        
+
 let obj_to_string obj =
   let bracket x = "{" ^ x ^ "}" in
     bracket
@@ -229,8 +229,13 @@ let map_preds f term =
   in
     aux term
 
-let seq_to_member ctx t =
-  member t (Context.context_to_term ctx)
+(* TODO -- variable capture *)
+let seq_to_bc ctx a r =
+  let d = const "D" oty in
+    exists [("D", oty)]
+      (meta_and
+         (member d (Context.context_to_term ctx))
+         (Obj(Bc(ctx, d, a), r)))
 
 let is_obj t =
   match t with
@@ -432,7 +437,7 @@ let normalize_obj obj =
           Seq(Context.normalize ctx, t)
     | Bc(ctx, t, a) ->
         Bc(Context.normalize ctx, t, a)
-              
+
 let rec normalize_binders alist t =
   let term_aux t = replace_term_vars ~tag:Constant alist t in
   let rec aux t =

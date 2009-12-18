@@ -229,14 +229,6 @@ let map_preds f term =
   in
     aux term
 
-(* TODO -- variable capture *)
-let seq_to_bc ctx a r =
-  let d = const "D" oty in
-    exists [("D", oty)]
-      (meta_and
-         (member d (Context.context_to_term ctx))
-         (Obj(Bc(ctx, d, a), r)))
-
 let is_obj t =
   match t with
     | Obj _ -> true
@@ -528,6 +520,14 @@ let make_nabla_alist tids body =
   let (id_names, id_tys) = List.split tids in
   let nominals = fresh_nominals id_tys body in
     List.combine id_names nominals
+
+let seq_to_bc ctx a r =
+  let d = const "D" oty in
+    normalize_binders []
+      (exists [("D", oty)]
+         (meta_and
+            (member d (Context.context_to_term ctx))
+            (Obj(Bc(ctx, d, a), r))))
 
 (* Error reporting *)
 

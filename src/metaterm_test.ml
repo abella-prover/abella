@@ -297,4 +297,12 @@ let tests =
              meta_right_unify t1 t2 ;
              assert_pprint_equal "forall B, foo (iabs B)" t2) ;
 
+      "Seq to backchain should avoid variable capture" >::
+        (fun () ->
+           let l = Context.add (var Eigen "L" 0 olistty) Context.empty in
+           let d = var Eigen "D" 0 oty in
+           let bc = seq_to_bc l d Irrelevant in
+             assert_pprint_equal
+               "exists D1, member D1 L /\\ {L | D1 |- D}" bc) ;
+
     ]

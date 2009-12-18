@@ -538,6 +538,7 @@ type witness =
   | WExists of (id * term) list * witness
   | WReflexive
   | WUnfold of id * int * witness list
+  | WBc of witness list
 
 let witness_to_string =
   let bind_to_string (id, t) =
@@ -557,11 +558,13 @@ let witness_to_string =
           "](" ^ aux w ^ ")"
     | WReflexive -> "reflexive"
     | WUnfold(id, n, ws) ->
-        let body = if ws = [] then "" else "(" ^ aux_list ws ^ ")" in
-          id ^ "[" ^ (string_of_int n) ^ "]" ^ body
+          id ^ "[" ^ (string_of_int n) ^ "]" ^ aux_list ws
+    | WBc(ws) ->
+          "bc" ^ aux_list ws
 
-  and aux_list ws =
-    String.concat ", " (List.map aux ws)
+  and aux_list = function
+    | [] -> ""
+    | ws -> "(" ^ String.concat ", " (List.map aux ws) ^ ")"
   in
     aux
 
@@ -650,12 +653,12 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                 if not (Context.is_empty ctx) then
                   metaterm_aux n hyps
                     (seq_to_bc ctx g (reduce_inductive_restriction r))
-                    ts ~sc ;
+                    ts ~sc:(fun w -> sc (WUnfold(term_head_name g, 0, [w]))) ;
 
                 (* Backchain *)
                 if n > 0 then clause_aux n hyps ctx g r ts ~sc
           end
-            (* TODO: Do the search witnesses look right? *)
+
      | Bc(ctx, c, a) ->
          (* TODO: Check hyps for derivability *)
 
@@ -684,7 +687,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                          obj_aux_conj (n-1) wrapped_body
                            (reduce_inductive_restriction r) ts
                            ~sc:(fun ws -> if try_unify_cpairs cpairs then
-                                  sc (WUnfold(term_head_name a, 0, ws)))
+                                  sc (WBc ws))
          end
 
   and obj_aux_conj n goals r ts ~sc =

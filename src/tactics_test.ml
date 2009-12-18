@@ -1364,6 +1364,14 @@ let search_tests =
              ~expect:true
         );
 
+      "Should match derivable backchain" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{L, hyp n1 | D |- conc n2}"]
+             ~goal:"{L, hyp n2, hyp n3 | D |- conc n2}"
+             ~expect:true
+        );
+
       "Should delay non-llambda pairs for clauses - simple" >::
         (fun () ->
            assert_search ()

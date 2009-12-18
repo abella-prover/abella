@@ -644,7 +644,8 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                    | Obj(Seq(hctx, hg), _) -> Some (id, hctx, hg)
                    | _ -> None)
           |> iter_keep_state
-              (fun (id, hctx, hg) -> if derivable (ctx, g) (hctx, hg) then sc (WHyp id)) ;
+              (fun (id, hctx, hg) ->
+                 if derivable (ctx, [g]) (hctx, [hg]) then sc (WHyp id)) ;
 
           begin match r with
             | Smaller _ | Equal _ -> ()
@@ -659,8 +660,18 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                 if n > 0 then clause_aux n hyps ctx g r ts ~sc
           end
 
-     | Bc(ctx, c, a) ->
-         (* TODO: Check hyps for derivability *)
+     | Bc(ctx, d, a) ->
+         (* Check hyps for derivability *)
+         hyps
+         |> List.filter_map
+             (fun (id, h) ->
+                match h with
+                  | Obj(Bc(hctx, hd, ha), _) -> Some (id, hctx, hd, ha)
+                  | _ -> None)
+         |> iter_keep_state
+             (fun (id, hctx, hd, ha) ->
+                if derivable (ctx, [d; a]) (hctx, [hd; ha]) then
+                  sc (WHyp id)) ;
 
          begin match r with
            | Smaller _ | Equal _ -> ()
@@ -679,7 +690,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                    | Raw _ ->
                        (head, body)
                in
-               let head, body = decompose c [] in
+               let head, body = decompose d [] in
                  match try_right_unify_cpairs head a with
                    | None -> ()
                    | Some cpairs ->

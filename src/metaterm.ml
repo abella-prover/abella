@@ -595,17 +595,20 @@ let try_meta_right_permute_unify t1 t2 =
                    try_meta_right_unify t1 (replace_metaterm_vars alist t2))
 
 (* Check for derivability between objects under permutations. Need
-   gt to unify with ht and also hctx subcontext of gctx.
-   Can assume hyp is ground *)
-let derivable (gctx, gt) (hctx, ht) =
-  let support_g = obj_support (Seq(gctx, gt)) in
-  let support_h = obj_support (Seq(hctx, ht)) in
+   terms and also hctx subcontext of gctx.
+   Can assume h... variables are ground *)
+let derivable (gctx, gts) (hctx, hts) =
+  let support_g = find_var_refs Nominal (gctx @ gts) in
+  let support_h = find_var_refs Nominal (hctx @ hts) in
   let support_h_names = List.map term_to_name support_h in
     support_g |> List.permute (List.length support_h)
       |> List.exists
           (fun perm_support_g ->
              let alist = List.combine support_h_names perm_support_g in
-               try_right_unify gt (replace_term_vars alist ht) &&
+               List.for_all2
+                 (fun gt ht -> try_right_unify gt (replace_term_vars alist ht))
+                 gts hts
+               &
                  (Context.subcontext
                     (Context.map (replace_term_vars alist) hctx)
                     gctx))

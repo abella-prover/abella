@@ -691,18 +691,18 @@ let case_tests =
         (fun () ->
            let term = freshen "{L, hyp A |- hyp B}" in
              match case term with
-               | [{new_vars=[] ; new_hyps=[hyp]}] ->
-                   assert_pprint_equal
-                     "exists D, member D (hyp A :: L) /\\ {L, hyp A | D |- hyp B}" hyp
+               | [{new_vars=[d] ; new_hyps=[hyp1; hyp2]}] ->
+                   assert_pprint_equal "member D (hyp A :: L)" hyp1 ;
+                   assert_pprint_equal "{L, hyp A | D |- hyp B}" hyp2
                | _ -> assert_failure "Pattern mismatch") ;
 
       "Backchain case should get restriction from object" >::
         (fun () ->
            let term = freshen "{L |- p1 A}@" in
              match case term with
-               | [{new_vars=[] ; new_hyps=[hyp]}] ->
-                   assert_pprint_equal
-                     "exists D, member D L /\\ {L | D |- p1 A}*" hyp
+               | [{new_vars=[d] ; new_hyps=[hyp1; hyp2]}] ->
+                   assert_pprint_equal "member D L" hyp1 ;
+                   assert_pprint_equal "{L | D |- p1 A}*" hyp2
                | _ -> assert_failure "Pattern mismatch") ;
 
       "Should pass along context" >::

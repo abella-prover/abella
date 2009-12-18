@@ -307,13 +307,18 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
             if Context.is_empty ctx then
               clause_cases
             else
-              let member_case =
-                { bind_state = get_bind_state () ;
-                  new_vars = [] ;
-                  new_hyps =
-                    [seq_to_bc ctx g (reduce_inductive_restriction r)] }
+              let bc_case =
+                match
+                  recursive_metaterm_case ~used
+                    (seq_to_bc ctx g (reduce_inductive_restriction r))
+                with
+                  | None -> assert false
+                  | Some case ->
+                      { bind_state = get_bind_state () ;
+                        new_vars = case.stateless_new_vars ;
+                        new_hyps = case.stateless_new_hyps }
               in
-                member_case :: clause_cases
+                bc_case :: clause_cases
 
       | Bc(ctx, c, a) ->
           let ntys = List.map (tc []) support in

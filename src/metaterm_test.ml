@@ -168,7 +168,7 @@ let tests =
         (fun () ->
            let ctx = Context.add (uconst "L") Context.empty in
            let t = Obj(Bc(ctx, var_b, var_a), Irrelevant) in
-             assert_pprint_equal "{L | B |- A}" t) ;
+             assert_pprint_equal "{L >> B |- A}" t) ;
 
       "Print predicate" >::
         (fun () ->
@@ -303,6 +303,6 @@ let tests =
            let d = var Eigen "D" 0 oty in
            let bc = seq_to_bc l d Irrelevant in
              assert_pprint_equal
-               "exists D1, member D1 L /\\ {L | D1 |- D}" bc) ;
+               "exists D1, member D1 L /\\ {L >> D1 |- D}" bc) ;
 
     ]

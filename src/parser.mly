@@ -42,7 +42,7 @@
 
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
-%token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY BAR
+%token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY FOCUS
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE
@@ -140,8 +140,8 @@ seq:
   | term                                 { (predefined "nil", $1) }
 
 bc:
-  | context BAR term TURN term           { ($1, $3, $5) }
-  | BAR term TURN term                   { (predefined "nil", $2, $4) }
+  | context FOCUS term TURN term         { ($1, $3, $5) }
+  | FOCUS term TURN term                 { (predefined "nil", $2, $4) }
 
 context:
   | context COMMA term                   { binop "::" $3 $1 }

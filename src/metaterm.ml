@@ -99,7 +99,7 @@ let bc_to_string ctx t a =
   (if Context.is_empty ctx
    then ""
    else Context.context_to_string ctx) ^
-    " | " ^ (term_to_string t) ^
+    " >> " ^ (term_to_string t) ^
     " |- " ^ (term_to_string a)
 
 let obj_to_string obj =

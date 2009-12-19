@@ -693,7 +693,7 @@ let case_tests =
              match case term with
                | [{new_vars=[d] ; new_hyps=[hyp1; hyp2]}] ->
                    assert_pprint_equal "member D (hyp A :: L)" hyp1 ;
-                   assert_pprint_equal "{L, hyp A | D |- hyp B}" hyp2
+                   assert_pprint_equal "{L, hyp A >> D |- hyp B}" hyp2
                | _ -> assert_failure "Pattern mismatch") ;
 
       "Backchain case should get restriction from object" >::
@@ -702,7 +702,7 @@ let case_tests =
              match case term with
                | [{new_vars=[d] ; new_hyps=[hyp1; hyp2]}] ->
                    assert_pprint_equal "member D L" hyp1 ;
-                   assert_pprint_equal "{L | D |- p1 A}*" hyp2
+                   assert_pprint_equal "{L >> D |- p1 A}*" hyp2
                | _ -> assert_failure "Pattern mismatch") ;
 
       "Should pass along context" >::
@@ -723,20 +723,20 @@ let case_tests =
 
       "On atomic backchain" >::
         (fun () ->
-           let term = freshen "{L | p1 A |- p1 B}" in
+           let term = freshen "{L >> p1 A |- p1 B}" in
              match case term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
                    begin match case1.new_hyps with
                      | [] ->
-                         assert_pprint_equal "{L | p1 B |- p1 B}" term ;
+                         assert_pprint_equal "{L >> p1 B |- p1 B}" term ;
                      | _ -> assert_failure "Expected no new hypotheses"
                    end ;
                | cases -> assert_expected_cases 1 cases) ;
 
       "On simple backchain" >::
         (fun () ->
-           let term = freshen "{L | pi x\\ p1 x => p2 x |- p2 A}" in
+           let term = freshen "{L >> pi x\\ p1 x => p2 x |- p2 A}" in
              match case term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
@@ -749,7 +749,7 @@ let case_tests =
 
       "On invalid backchain" >::
         (fun () ->
-           let term = freshen "{L | pi x\\ p1 x => D |- p2 A}" in
+           let term = freshen "{L >> pi x\\ p1 x => D |- p2 A}" in
              assert_raises
                (Failure "Cannot perform case-analysis on flexible clause")
                (fun () -> case term)) ;
@@ -1062,27 +1062,27 @@ let search_tests =
       "On matching atomic backchain" >::
         (fun () ->
            assert_search ()
-             ~goal:"{L | p1 A |- p1 A}"
+             ~goal:"{L >> p1 A |- p1 A}"
              ~expect: true) ;
 
       "On non-matching atomic backchain" >::
         (fun () ->
            assert_search ()
-             ~goal:"{L | p1 A |- p1 B}"
+             ~goal:"{L >> p1 A |- p1 B}"
              ~expect: false) ;
 
       "On matching simple backchain" >::
         (fun () ->
            assert_search ()
              ~hyps:["{L |- p1 A}"]
-             ~goal:"{L | pi x\\ p1 x => p2 x |- p2 A}"
+             ~goal:"{L >> pi x\\ p1 x => p2 x |- p2 A}"
              ~expect: true) ;
 
       "On non-matching simple backchain" >::
         (fun () ->
            assert_search ()
              ~hyps:["{L |- p1 A}"]
-             ~goal:"{L | pi x\\ p1 x => p1 x |- p2 A}"
+             ~goal:"{L >> pi x\\ p1 x => p1 x |- p2 A}"
              ~expect: false) ;
 
       "On matching direct seq" >::
@@ -1367,8 +1367,8 @@ let search_tests =
       "Should match derivable backchain" >::
         (fun () ->
            assert_search ()
-             ~hyps:["{L, hyp n1 | D |- conc n2}"]
-             ~goal:"{L, hyp n2, hyp n3 | D |- conc n2}"
+             ~hyps:["{L, hyp n1 >> D |- conc n2}"]
+             ~goal:"{L, hyp n2, hyp n3 >> D |- conc n2}"
              ~expect:true
         );
 

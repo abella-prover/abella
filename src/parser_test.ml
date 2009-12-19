@@ -65,11 +65,11 @@ let tests =
 
       "Backchain statement" >::
         (fun () ->
-           assert_pprint_equal_parse "{L | D |- A}") ;
+           assert_pprint_equal_parse "{L >> D |- A}") ;
 
       "Backchain statement, empty context" >::
         (fun () ->
-           assert_pprint_equal_parse "{ | D |- A}") ;
+           assert_pprint_equal_parse "{ >> D |- A}") ;
 
       "Lambda cons" >::
         (fun () ->

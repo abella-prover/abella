@@ -13,36 +13,32 @@ Define ctxs : olist -> olist -> prop by
   nabla x, ctxs (term x :: L) (neutral x :: K) := ctxs L K.
 
 
-%% Lemmas about contexts
+%% Context inversion lemmas
 
-Theorem ctxs_member_term : forall X L K,
-  ctxs L K -> member (term X) L -> member (neutral X) K.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    search.
-    apply IH to H3 H4.
-      search.
+Theorem ctxs_inv1 : forall D L K,
+  ctxs L K -> member D L ->
+    exists X, D = term X /\ name X /\ member (neutral X) K.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. apply IH to H4 H3. search.
 
-Theorem ctxs_var : forall E L K,
-  ctxs L K -> member E K -> exists X, E = neutral X /\ name X.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    search.
-    apply IH to H3 H4. search.
-
+Theorem ctxs_inv2 : forall D L K,
+  ctxs L K -> member D K ->
+    exists X, D = neutral X /\ name X /\ member (term X) L.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. apply IH to H4 H3. search.
 
 %% Partitioning is total
 
 Theorem total_ext : forall T L K,
   ctxs L K -> {L |- term T} -> {K |- normal T} \/ {non_normal T}.
 induction on 2. intros. case H2.
-  apply ctxs_member_term to H1 H3. search.
+  apply ctxs_inv1 to H1 H3. case H4. search.
   apply IH to H1 H3. apply IH to H1 H4. case H5.
     case H6.
       case H7.
-        apply ctxs_var to H1 H9.
+        apply ctxs_inv2 to H1 H9. case H10.
         search.
         search.
       search.
@@ -60,15 +56,15 @@ intros. apply total_ext to _ H1. search.
 
 Theorem neutral_abs_absurd : forall L K R,
   ctxs L K -> {K |- neutral (abs R)} -> false.
-intros. case H2. apply ctxs_var to H1 H3. case H4.
+intros. case H2. apply ctxs_inv2 to H1 H3. case H4. case H5.
 
 Theorem disjoint_ext : forall L K T,
   ctxs L K -> {K |- normal T} -> {non_normal T} -> false.
 induction on 3. intros. case H2.
-  apply ctxs_var to H1 H4.
+  apply ctxs_inv2 to H1 H4. case H5.
   case H3. apply IH to _ H4 H5.
   case H4.
-    apply ctxs_var to H1 H5. case H6. case H3.
+    apply ctxs_inv2 to H1 H5. case H6. case H7. case H3.
     case H3.
       apply neutral_abs_absurd to H1 H5.
       apply IH to H1 _ H7.

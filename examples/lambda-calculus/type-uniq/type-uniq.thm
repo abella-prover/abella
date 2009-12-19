@@ -22,8 +22,8 @@ Define ctx : olist -> prop by
   ctx nil ;
   nabla n, ctx (of n T :: L) := ctx L.
 
-Theorem of_name : forall L E T,
- ctx L -> member (of E T) L -> name E.
+Theorem ctx_inv : forall L D,
+  ctx L -> member D L -> exists X T, D = of X T /\ name X.
 induction on 1. intros. case H1.
  case H2.
  case H2.
@@ -46,11 +46,11 @@ induction on 1. intros. case H1.
 Theorem type_uniq : forall L E T1 T2,
  ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
 induction on 2. intros. case H2.
- apply of_name to H1 H4. case H5. case H3.
-   apply ctx_uniq to H1 H4 H6. search.
- case H3.
-   apply of_name to H1 H5. case H6.
-   apply IH to _ H4 H5. search.
- case H3.
-   apply of_name to H1 H6. case H7.
-   apply IH to H1 H4 H6. search.
+  apply ctx_inv to H1 H4. case H5. case H6. case H3.
+    apply ctx_inv to H1 H7. case H8. apply ctx_uniq to H1 H4 H7. search.
+  case H3.
+    apply ctx_inv to H1 H5. case H6. case H7.
+    apply IH to _ H4 H5. search.
+  case H3.
+    apply ctx_inv to H1 H6. case H7. case H8.
+    apply IH to H1 H4 H6. search.

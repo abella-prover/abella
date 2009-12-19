@@ -26,15 +26,9 @@ Define ctx : olist -> prop by
   ctx nil ;
   ctx (of X T :: L) := freshlist X L /\ ctx L.
 
-% We could define this second clause as simply
-%   Define nabla x, ctx (of x T :: L) := ctx L.
-% but it turns out that the version with fresh is much easier to reason with
-% since it does not require introducting nominal variables in most cases.
-% Moreover, we can use lemmas based on fresh rather than on nominal variables.
-
-Theorem of_name : forall L E T,
-  ctx L -> member (of E T) L -> name E.
-induction on 2. intros. case H1.
+Theorem ctx_inv : forall L D,
+  ctx L -> member D L -> exists E T, D = of E T /\ name E.
+induction on 1. intros. case H1.
   case H2.
   case H2.
     case H3. search.
@@ -55,13 +49,14 @@ induction on 1. intros. case H1.
 Theorem type_uniq : forall L E T1 T2,
   ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
 induction on 2. intros. case H2.
+  apply ctx_inv to H1 H4. case H5. case H3.
+    apply ctx_inv to H1 H7. case H8.
+      apply ctx_uniq to H1 H4 H7. search.
+    case H6.
+    case H6.
   case H3.
-    apply ctx_uniq to H1 H4 H5. search.
-    apply of_name to H1 H4. case H6.
-    apply of_name to H1 H4. case H7.
-  case H3.
-    apply of_name to H1 H5. case H6.
+    apply ctx_inv to H1 H5. case H6. case H7.
     apply IH to _ H4 H5. search.
   case H3.
-    apply of_name to H1 H6. case H7.
+    apply ctx_inv to H1 H6. case H7. case H8.
     apply IH to H1 H4 H6. search.

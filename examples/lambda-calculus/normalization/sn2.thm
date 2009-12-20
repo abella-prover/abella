@@ -108,14 +108,14 @@ induction on 1. intros. case H1.
 Theorem ty_ignores_ctx : forall L A,
   ctx L -> {L |- ty A} -> {ty A}.
 induction on 2. intros. case H2.
-  apply ctx_member to H1 H3.
+  apply ctx_member to H1 H3. case H4.
   search.
   apply IH to H1 H3. apply IH to H1 H4. search.
 
 Theorem step_ignores_ctx : forall L M N,
   ctx L -> {L |- step M N} -> {step M N}.
 induction on 2. intros. case H2.
-  apply ctx_member to H1 H3.
+  apply ctx_member to H1 H3. case H4.
   apply IH to H1 H3. search.
   apply IH to H1 H3. search.
   search.
@@ -128,14 +128,14 @@ Theorem case_of_app : forall L M N B,
   ctx L -> {L |- of (app M N) B} ->
     exists A, {L |- of M (arrow A B)} /\ {L |- of N A}.
 intros. case H2.
-  apply ctx_member to H1 H3. case H4.
+  apply ctx_member to H1 H3. case H4. case H5.
   search.
 
 Theorem case_of_abs : forall L M A B,
   ctx L -> {L |- of (abs A M) B} ->
     exists C, B = arrow A C /\ {ty A} /\ nabla x, {L, of x A  |- of (M x) C}.
 intros. case H2.
-  apply ctx_member to H1 H3. case H4.
+  apply ctx_member to H1 H3. case H4. case H5.
     apply ty_ignores_ctx to H1 H3. search.
 
 
@@ -254,7 +254,7 @@ apply cr1_cr3. search.
 Theorem of_ty_ext : forall L M A,
   ctx L -> {L |- of M A} -> {ty A}.
 induction on 2. intros. case H2.
-  apply ctx_member to H1 H3. search.
+  apply ctx_member to H1 H3. case H4. search.
   apply IH to H1 H3. case H5. search.
   apply ty_ignores_ctx to H1 H3. apply IH to _ H4. search.
 
@@ -350,14 +350,6 @@ induction on 1. intros. case H1.
   case H2.
     apply IH to H4 H5.
 
-Theorem subst_member2 : forall L K S X M,
-  subst L K S -> member (cp X M) S -> name X.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    search.
-    apply IH to H4 H5. search.
-
 Theorem subst_extend : forall L K S R,
   ctx L -> ctx K -> ctx R -> subst L K S -> extend K R -> subst L R S.
 induction on 4. intros. case H4.
@@ -419,7 +411,7 @@ induction on 1. intros. case H1.
 Theorem ty_ignores_cp_ctx : forall L A,
   cp_ctx L -> {L |- ty A} -> {ty A}.
 induction on 2. intros. case H2.
-  apply cp_ctx_member to H1 H3.
+  apply cp_ctx_member to H1 H3. case H4.
   search.
   apply IH to H1 H3. apply IH to H1 H4. search.
 
@@ -428,8 +420,8 @@ Theorem cp_align : forall S M N, nabla x,
     nabla y z, {S, cp y z |- cp (M y) (N z)}.
 induction on 2. intros. case H2.
   case H3.
-    search.
-    apply member_nabla to H4. search.
+    case H4. search.
+    apply member_nabla to H5. apply cp_ctx_member to H1 H5. case H4. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
   apply ty_ignores_cp_ctx to _ H3. apply prune_ty to H5.
     apply IH to _ H4. search.
@@ -443,7 +435,7 @@ induction on 1. intros. case H1.
 Theorem apply_id_subst : forall L S M A,
   ctx L -> {L |- of M A} -> id_subst L S -> {S |- cp M M}.
 induction on 2. intros. case H2.
-  apply id_subst_member to H3 H4. search.
+  apply ctx_member to H1 H4. case H5. apply id_subst_member to H3 H4. search.
 
   apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
 
@@ -482,14 +474,18 @@ Theorem of_subst : forall L K S M N A,
 induction on 5. intros. case H5.
 
   % Var
-  apply ctx_member to H1 H7.
-  case H8. case H6.
-  apply reduce_subst to H4 H7 H10.
-  apply reduce_of to H11. search.
+  apply ctx_member to H1 H7. case H8.
+  case H9. case H6.
+  apply subst_cp_ctx to H4.
+  apply cp_ctx_member to H13 H11. case H12.
+  apply reduce_subst to H4 H7 H11.
+  apply reduce_of to H15. search.
 
   % App
   case H6.
-  apply subst_member2 to H4 H9. case H10.
+
+  apply subst_cp_ctx to H4.
+  apply cp_ctx_member to H11 H9. case H10. case H12.
 
   apply IH to H1 H2 H3 H4 H7 H9.
   apply IH to H1 H2 H3 H4 H8 H10.
@@ -497,9 +493,11 @@ induction on 5. intros. case H5.
 
   % Abs
   case H6.
-  apply subst_member2 to H4 H9. case H10.
-  apply ty_ignores_ctx to _ H7.
 
+  apply subst_cp_ctx to H4.
+  apply cp_ctx_member to H11 H9. case H10. case H12.
+
+  apply ty_ignores_ctx to _ H7.
   assert ctx (of n1 A1 :: L).
   assert ctx (of n1 A1 :: K).
   apply extend_cons2 to H3 with X = of n1 A1.
@@ -511,7 +509,9 @@ induction on 5. intros. case H5.
 Theorem of_ctx_strengthening : forall L M A B, nabla x,
   ctx L -> {ty A} -> {L, of x A |- of M B} -> {L |- of M B}.
 induction on 3. intros. case H3.
-  case H4. search.
+  case H4.
+    case H5.
+    apply ctx_member to H1 H6. case H5. search.
   apply of_ty_ext to _ H5. apply prune_ty to H6.
     apply IH to H1 H2 H4. apply IH to H1 H2 H5. search.
   apply ty_ignores_ctx to _ H4. apply IH to _ H2 H5.
@@ -547,12 +547,14 @@ Theorem reducibility_lemma : forall L K S A M N,
 induction on 5. intros. case H5 (keep).
 
   % var case
-  apply ctx_member to H1 H7. case H8. case H6.
-    apply reduce_subst to H4 H7 H10. search.
+  apply ctx_member to H1 H7. case H8. case H9. case H6.
+  apply subst_cp_ctx to H4. apply cp_ctx_member to H13 H11. case H12.
+  apply reduce_subst to H4 H7 H11. search.
 
   % app case
   case H6.
-  apply subst_member2 to H4 H9. case H10.
+
+  apply subst_cp_ctx to H4. apply cp_ctx_member to H11 H9. case H10. case H12.
 
   apply IH to H1 H2 H3 H4 H7 H9.
   apply IH to H1 H2 H3 H4 H8 H10.
@@ -563,9 +565,10 @@ induction on 5. intros. case H5 (keep).
   % abs case
 
   case H6.
-  apply subst_member2 to H4 H9. case H10.
-  apply ty_ignores_ctx to H1 H7.
 
+  apply subst_cp_ctx to H4. apply cp_ctx_member to H11 H9. case H10. case H12.
+
+  apply ty_ignores_ctx to H1 H7.
   assert {K |- of (abs A1 R1) (arrow A1 B)}.
     apply extend_cons2 to H3 with X = of n1 A1.
     monotone H8 with (of n1 A1 :: K). case H12. search.

@@ -44,7 +44,7 @@ Define ctx : olist -> prop by
 Define name : tm -> prop by
   nabla x, name x.
 
-Theorem ctx_member : forall E L,
+Theorem ctx_inv : forall E L,
   ctx L -> member E L -> exists X A, E = of X A /\ name X /\ {ty A}.
 induction on 1. intros. case H1.
   case H2.
@@ -55,7 +55,7 @@ induction on 1. intros. case H1.
 Theorem ty_ignores_ctx : forall L A,
   ctx L -> {L |- ty A} -> {ty A}.
 induction on 2. intros. case H2.
-  apply ctx_member to H1 H3.
+  apply ctx_inv to H1 H3. case H4.
   search.
   apply IH to H1 H3. apply IH to H1 H4. search.
 
@@ -65,14 +65,14 @@ Theorem case_of_app : forall L M N B,
   ctx L -> {L |- of (app M N) B} ->
     exists A, {L |- of M (arrow A B)} /\ {L |- of N A}.
 intros. case H2.
-  apply ctx_member to H1 H3. case H4.
+  apply ctx_inv to H1 H3. case H4. case H5.
   search.
 
 Theorem case_of_abs : forall L M A B,
   ctx L -> {L |- of (abs A M) B} ->
     exists C, B = arrow A C /\ {ty A} /\ nabla x, {L, of x A  |- of (M x) C}.
 intros. case H2.
-  apply ctx_member to H1 H3. case H4.
+  apply ctx_inv to H1 H3. case H4. case H5.
     apply ty_ignores_ctx to H1 H3. search.
 
 % Subject reduction - generalized version
@@ -188,7 +188,7 @@ intros. apply cr1_cr3 to H3. apply H6 to H1 H2 H4. search.
 Theorem of_ty_ext : forall L M A,
   ctx L -> {L |- of M A} -> {ty A}.
 induction on 2. intros. case H2.
-  apply ctx_member to H1 H3. search.
+  apply ctx_inv to H1 H3. case H4. search.
   apply IH to H1 H3. case H5. search.
   apply ty_ignores_ctx to H1 H3. apply IH to _ H4. search.
   apply ty_ignores_ctx to H1 H3. search.
@@ -283,7 +283,7 @@ induction on 1. intros. case H1.
 Theorem prune_of : forall L R A, nabla (x:tm),
   ctx L -> {L |- of (R x) (A x)} -> exists M, R = y\M.
 induction on 2. intros. case H2.
-  apply member_prune to H3. search.
+  apply member_prune to H3. apply ctx_inv to H1 H3. case H4. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
   apply ty_ignores_ctx to H1 H3. apply prune_ty to H5.
     apply IH to _ H4. search.
@@ -377,7 +377,7 @@ induction on 1. intros. case H1.
 Theorem strong_norm_ext : forall L M R A,
   ctx L -> {L |- of M A} -> subst L M R -> reduce R A.
 induction on 2. intros. case H2 (keep).
-  apply subst_var to H1 H4 H3. search.
+  apply ctx_inv to H1 H4. case H5. apply subst_var to H1 H4 H3. search.
   apply subst_app to H1 H3.
     apply IH to H1 H4 H6.
       apply IH to H1 H5 H7.

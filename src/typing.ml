@@ -375,25 +375,6 @@ let check_spec_logic_type ty =
          failwith "Cannot mention type olist in the specification logic")
     ty
 
-let check_spec_logic_quantification_type ty =
-  check_spec_logic_type ty ;
-  iter_ty
-    (fun bty  ->
-        if bty = "o" then
-          failwith "Cannot quantify over type o in the specification logic")
-    ty
-
-let check_pi_quantification ts =
-  ignore
-    (map_vars
-       (fun v ->
-          if v.name = "pi" then
-            match v.ty with
-              | Ty([Ty([tau], _)], _) ->
-                  check_spec_logic_quantification_type tau
-              | _ -> assert false)
-       ts)
-
 let type_uclause ~sign (head, body) =
   if has_capital_head head then
     failwith "Clause has flexible head" ;
@@ -410,7 +391,6 @@ let type_uclause ~sign (head, body) =
   let convert p = replace_term_vars ctx (uterm_to_term sub p) in
   let (rhead, rbody) = (convert head, List.map convert body) in
     List.iter term_ensure_fully_inferred (rhead::rbody) ;
-    check_pi_quantification (rhead::rbody) ;
     (rhead, rbody)
 
 

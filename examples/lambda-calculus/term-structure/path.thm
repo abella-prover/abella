@@ -13,12 +13,6 @@ Define tm_var : tm -> prop by
 Define path_var : path -> prop by
   nabla x, path_var x.
 
-Theorem member_prune_tm : forall E L, nabla (x:tm),
-  member (E x) L -> exists F, E = y\F.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
-
 Theorem member_prune_path : forall E L, nabla (x:path),
   member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
@@ -29,17 +23,19 @@ Define ctxs : olist -> olist -> prop by
   ctxs nil nil ;
   nabla x p, ctxs (tm x :: L) (path x p :: K) := ctxs L K.
 
-Theorem ctxs_member1 : forall E L K,
-  ctxs L K -> member (tm E) L ->
-    tm_var E /\ exists F, member (path E F) K /\ path_var F.
+Theorem ctxs_inv1 : forall D L K,
+  ctxs L K -> member D L ->
+    exists X, D = tm X /\ tm_var X /\
+      exists P, member (path X P) K /\ path_var P.
 induction on 1. intros. case H1.
   case H2.
   case H2.
     search.
     apply IH to H3 H4. search.
 
-Theorem ctxs_member2 : forall E F L K,
-  ctxs L K -> member (path E F) K -> tm_var E /\ path_var F.
+Theorem ctxs_inv2 : forall D L K,
+  ctxs L K -> member D K ->
+    exists X P, D = path X P /\ tm_var X /\ path_var P.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -56,15 +52,15 @@ induction on 2. intros. case H2.
     case H1. apply member_prune_path to H4.
     case H1. apply IH to H6 H4 H5. search.
 
-Theorem path_prune : forall K M N, nabla x y,
-  {K, path x y |- path (M x) (N x y)} -> exists P, N = x\P.
-induction on 1. intros. case H1.
-  case H2.
+Theorem path_prune : forall L K M N, nabla x y,
+  ctxs L K -> {K, path x y |- path (M x) (N x y)} -> exists P, N = x\P.
+induction on 2. intros. case H2.
+  apply ctxs_inv2 to _ H3. case H4. case H6.
     search.
-    apply member_prune_tm to H3. search.
-  apply IH to H2. search.
-  apply IH to H2. search.
-  apply IH to H2. search.
+    search.
+  apply IH to H1 H3. search.
+  apply IH to H1 H3. search.
+  apply IH to _ H3. search.
   search.
 
 Theorem path_app : forall L K M N Y,
@@ -74,7 +70,7 @@ intros.
 assert {K |- path (app M N) (left done)}.
 apply H2 to H3.
 case H4.
-  apply ctxs_member2 to H1 H5. case H7.
+  apply ctxs_inv2 to H1 H5. case H6. case H8.
   search.
 
 Theorem path_abs : forall L K R Y,
@@ -84,7 +80,7 @@ intros.
 assert {K |- path (abs R) (bnd x\ done)}.
 apply H2 to H3.
 case H4.
-  apply ctxs_member2 to H1 H5. case H7.
+  apply ctxs_inv2 to H1 H5. case H6. case H8.
   search.
 
 Theorem path_equal : forall L K X Y,
@@ -93,11 +89,12 @@ Theorem path_equal : forall L K X Y,
 induction on 2. intros. case H2.
 
   % X is a variable
-  apply ctxs_member1 to H1 H4.
-  assert {K |- path X F}.
-  apply H3 to H8.
-  case H7. case H9.
-  apply member_path_unique to H1 H6 H10. search.
+  apply ctxs_inv1 to H1 H4. case H5.
+  assert {K |- path X P}.
+  apply H3 to H9.
+  case H8. case H10.
+  apply ctxs_inv2 to H1 H11. case H12.
+  apply member_path_unique to H1 H7 H11. search.
 
   % X = app M N
   apply path_app to H1 H3.
@@ -107,7 +104,7 @@ induction on 2. intros. case H2.
       intros.
       assert {K |- path (app M N) (left P)}.
       apply H3 to H7. case H8.
-        apply ctxs_member2 to H1 H9. case H10.
+        apply ctxs_inv2 to H1 H9. case H10. case H11.
         search.
     apply IH to H1 H4 H6.
 
@@ -116,7 +113,7 @@ induction on 2. intros. case H2.
       intros.
       assert {K |- path (app M N) (right P)}.
       apply H3 to H8. case H9.
-        apply ctxs_member2 to H1 H10. case H11.
+        apply ctxs_inv2 to H1 H10. case H11. case H12.
         search.
     apply IH to H1 H5 H7.
 
@@ -130,10 +127,10 @@ induction on 2. intros. case H2.
     assert forall P, {K, path n1 n2 |- path (R n1) P} ->
                      {K, path n1 n2 |- path (YR n1) P}.
       intros.
-      apply path_prune to H5.
+      apply path_prune to H1 H5.
       assert {K |- path (abs R) (bnd P2)}.
       apply H3 to H6. case H7.
-        apply ctxs_member2 to H1 H8. case H9.
+        apply ctxs_inv2 to H1 H8. case H9. case H10.
         search.
     assert ctxs (tm n1 :: L) (path n1 n2 :: K).
     apply IH to H6 H4 H5.

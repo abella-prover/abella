@@ -134,6 +134,18 @@ let pprint_tests =
         (fun () ->
            let t = app (uconst "pi") [app (uconst "A") [uconst "B"]] in
              assert_term_pprint_equal "pi (A B)" t) ;
+
+      "pi x\\A :: L" >::
+        (fun () ->
+           let t = app (uconst "::")
+             [app (uconst "pi") [1 /// uconst "A"] ;
+                   uconst "L"] in
+             assert_term_pprint_equal "(pi x1\\A) :: L" t) ;
+
+      "p (x\\A)" >::
+        (fun () ->
+           let t = app (uconst "p") [1 /// uconst "A"] in
+             assert_term_pprint_equal "p (x1\\A)" t) ;
     ]
 
 let typing_tests =

@@ -324,8 +324,6 @@ let priority x =
     | Found i -> i
 let get_max_priority () = List.length infix
 
-let is_obj_quantifier x = x = "pi" || x = "sigma"
-
 let is_lam t =
   match observe (hnorm t) with
     | Lam _ -> true
@@ -379,10 +377,9 @@ let term_to_string term =
                   (pp pr_left n a) ^ " " ^ op ^ " " ^ (pp pr_right n b)
                 in
                   if op_p >= pr then res else parenthesis res
-            | Var {name=op; tag=Constant}, [a] when
-                is_obj_quantifier op && is_lam a ->
-                let res = op ^ " " ^ (pp 0 n a) in
-                  if pr < high_pr then res else parenthesis res
+            | Var {name="pi"; tag=Constant}, [a] when is_lam a ->
+                let res = "pi " ^ (pp 0 n a) in
+                  if pr = 0 then res else parenthesis res
             | _ ->
                 let res =
                   String.concat " " (List.map (pp high_pr n) (t::ts))

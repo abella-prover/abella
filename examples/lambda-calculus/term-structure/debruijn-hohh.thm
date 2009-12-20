@@ -96,9 +96,9 @@ induction on 1. intros. case H1.
 
 Theorem ctx_inv : forall D L H,
   ctx L H -> member D L ->
-    exists X H'',
-      D = pi H'\ pi DX\ add H'' DX H' => ho2db X H' (dvar DX) /\
-      name X /\ le (s H'') H.
+    exists X HX,
+      D = pi H'\ pi DX\ add HX DX H' => ho2db X H' (dvar DX) /\
+      name X /\ le (s HX) H.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -118,10 +118,10 @@ induction on 2. intros. case H2.
     case H1. apply member_prune to H4.
     case H1. apply IH to H6 H4 H5. search.
 
-Theorem ctx_unique2 : forall L H X1 X2 H'',
+Theorem ctx_unique2 : forall L H X1 X2 HX,
   ctx L H ->
-    member (pi H'\ pi DX\ add H'' DX H' => ho2db X1 H' (dvar DX)) L ->
-    member (pi H'\ pi DX\ add H'' DX H' => ho2db X2 H' (dvar DX)) L ->
+    member (pi H'\ pi DX\ add HX DX H' => ho2db X1 H' (dvar DX)) L ->
+    member (pi H'\ pi DX\ add HX DX H' => ho2db X2 H' (dvar DX)) L ->
       X1 = X2.
 induction on 2. intros. case H2.
   case H3.

@@ -1,6 +1,5 @@
 Look at all uses of Seq in the code. Can we also add a case for Bc?
 Examples:
-  debruijn with higher-order
   bpath
   poplmark by Pientka
   something with hidden predicate (append using tail recursion?)

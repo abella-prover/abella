@@ -8,10 +8,9 @@ Query {rev2 (cons n1 (cons n2 (cons n3 nill))) (R n1 n2 n3)}.
 Theorem sound :
   forall A B, {rev2 A B} -> {rev1 A B}.
 intros. case H1. inst H2 with n1 = aux1.
-assert {pi x1\aux1 nill x1 x1}.
+assert {pi C\ aux1 nill C C}.
 cut H3 with H4.
-assert {pi x1\pi x2\ pi x3\ pi x4\aux1 x2 (cons x1 x3) x4 =>
-                                  aux1 (cons x1 x2) x3 x4}.
+assert {pi X\ pi A\ pi B\ pi C\ aux1 A (cons X B) C => aux1 (cons X A) B C}.
 cut H5 with H6.
 search.
 

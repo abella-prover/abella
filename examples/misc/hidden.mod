@@ -1,8 +1,5 @@
 module hidden.
 
-list nill.
-list (cons X A) :- list A.
-
 aux1 nill C C.
 aux1 (cons X A) B C :- aux1 A (cons X B) C.
 

@@ -18,7 +18,7 @@ let uapp t1 t2 =
 
 let upred t =
   UPred(t, Irrelevant)
-    
+
 type uterm =
   | UCon of pos * string * ty
   | ULam of pos * string * ty * uterm
@@ -28,16 +28,6 @@ type uterm =
 let tests =
   "Typing" >:::
     [
-      "Should not allow pi quantification over o in clause" >::
-        (fun () ->
-           let uclause =
-             (ucon "a", [uapp (ucon "pi") (ulam "x" ~ty:oty (ucon "x"))])
-           in
-             assert_raises
-               (Failure "Cannot quantify over type o in the specification logic")
-               (fun () -> type_uclause ~sign:!sign uclause)
-        );
-      
       "Should not allow quantification over prop in definition" >::
         (fun () ->
            let udef =

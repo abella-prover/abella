@@ -34,9 +34,8 @@ induction on 2. intros. case H2.
 Theorem ctxs_inv3 : forall D L K J,
   ctxs L K J -> member D J ->
     (exists X, (D = cd1 X X \/ D = notabs X) /\ name X /\
-       member (trm X) L /\ member (pr1 X X) K /\ member (notabs X) J).
-induction on 2. intros. case H2.
-  case H1. search.
+       member (trm X) L /\ member (pr1 X X) K).
+induction on 2. intros. case H2.  case H1. search.
   case H1. case H3.
     search.
     apply IH to H4 H5. search.
@@ -111,9 +110,9 @@ Theorem cd1_unique: forall A B C L K J,
 induction on 2. intros. case H2.
 
   apply ctxs_inv3 to H1 H4. case H6.
-    case H5. case H7. case H3. apply ctxs_inv3 to H1 H11. case H13.
-      case H12. search.
-      case H12.
+    case H5. case H7. case H3. apply ctxs_inv3 to H1 H10. case H12.
+      case H11. search.
+      case H11.
     case H5.
 
   case H3.

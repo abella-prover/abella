@@ -40,6 +40,13 @@ induction on 2. intros. case H2.  case H1. search.
     search.
     apply IH to H4 H5. search.
 
+Theorem ctxs_inv3' : forall D L K J X Y,
+  ctxs L K J -> member D J -> {J >> D |- cd1 X Y} ->
+    D = cd1 X X /\ X = Y /\ name X /\ member (trm X) L /\ member (pr1 X X) K.
+intros. apply ctxs_inv3 to H1 H2. case H4.
+  case H3. search.
+  case H3.
+
 %% The meaning of "notabs" is as expected
 Theorem notabs_abs_absurd: forall A L K J,
    ctxs L K J -> {J |- notabs (abs A)} -> false.
@@ -51,9 +58,7 @@ intros. case H2. apply ctxs_inv3 to H1 H3. case H5.
 Theorem cd1_trm : forall A B L K J,
   ctxs L K J -> {J |- cd1 A B} -> {L |- trm A}.
 induction on 2. intros. case H2.
-  apply ctxs_inv3 to H1 H3. case H5.
-    case H4. search.
-    case H4.
+  apply ctxs_inv3' to H1 H3 H4. search.
   apply IH to H1 H4. apply IH to H1 H5. search.
   apply IH to _ H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
@@ -75,21 +80,15 @@ Theorem pre_cd1_pr1 : forall A B L K J,
 induction on 2. intros. case H2.
 % 1) membre D L, {L >> D |- trm A}. Then A = B and we know pr1 is reflexive.
   apply ctxs_inv1 to H1 H4. case H5. case H6.
-    case H3. apply ctxs_inv3 to H1 H10. case H12.
-      case H11. search.
-      case H11.
+    case H3. apply ctxs_inv3' to H1 H10 H11. search.
 % 2) {J |- cd1 (app M N) B}.  Should work by IH.
   case H3.
-    apply ctxs_inv3 to H1 H6. case H8.
-      case H7. case H9.
-      case H7.
+    apply ctxs_inv3' to H1 H6 H7. case H8.
     apply IH to H1 H4 H7. apply IH to H1 H5 H8. search.
     apply IH to H1 H4 H6. apply IH to H1 H5 H7. search.
 % 3) {J |- cd1 (abs M) B}.  Should work by IH.
   case H3.
-    apply ctxs_inv3 to H1 H5. case H7.
-      case H6. case H8.
-      case H6.
+    apply ctxs_inv3' to H1 H5 H6. case H7.
     apply IH to _ H4 H5. search.
 
 Theorem cd1_pr1 : forall A B L K J,
@@ -109,29 +108,20 @@ Theorem cd1_unique: forall A B C L K J,
   ctxs L K J -> {J |- cd1 A B} -> {J |- cd1 A C} -> B = C.
 induction on 2. intros. case H2.
 
-  apply ctxs_inv3 to H1 H4. case H6.
-    case H5. case H7. case H3. apply ctxs_inv3 to H1 H10. case H12.
-      case H11. search.
-      case H11.
-    case H5.
+  apply ctxs_inv3' to H1 H4 H5. case H6. case H3.
+    apply ctxs_inv3' to H1 H9 H10. search.
 
   case H3.
-    apply ctxs_inv3 to H1 H7. case H9.
-      case H8. case H10.
-      case H8.
+    apply ctxs_inv3' to H1 H7 H8. case H9.
     apply IH to H1 H5 H8. apply IH to H1 H6 H9. search.
       apply notabs_abs_absurd to H1 H4.
 
   case H3.
-    apply ctxs_inv3 to H1 H5. case H7.
-      case H6. case H8.
-      case H6.
+    apply ctxs_inv3' to H1 H5 H6. case H7.
     apply IH to _ H4 H5. search.
 
   case H3.
-    apply ctxs_inv3 to H1 H6. case H8.
-      case H7. case H9.
-      case H7.
+    apply ctxs_inv3' to H1 H6 H7. case H8.
     apply notabs_abs_absurd to H1 H6.
       apply IH to H1 H4 H6. apply IH to H1 H5 H7. search.
 
@@ -194,9 +184,7 @@ Theorem cd1_pr1_triangle : forall A B C L K J,
 induction on 3. intros. case H3.
 
   % cd1 var
-  apply ctxs_inv3 to H1 H4. case H6.
-    case H5. apply pr1_name to H1 H2 H7. search.
-    case H5.
+  apply ctxs_inv3' to H1 H4 H5. apply pr1_name to H1 H2 H6. search.
 
   % cd1 app
   case H2.

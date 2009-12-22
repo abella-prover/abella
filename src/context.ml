@@ -100,8 +100,15 @@ let subcontext ctx1 ctx2 =
 
 let equiv ctx1 ctx2 = subcontext ctx1 ctx2 && subcontext ctx2 ctx1
 
+(* Be sure to move any tail variables to the front *)
 let union ctx1 ctx2 =
-  ctx1 @ ctx2
+  match ctx2 with
+    | [] -> ctx1
+    | c::cs ->
+        if tc [] c = olistty then
+          c :: ctx1 @ cs
+        else
+          ctx1 @ ctx2
 
 let union_list ctx_list =
   List.fold_left union empty ctx_list
@@ -138,7 +145,7 @@ let wellformed ctx =
         let ty = tc [] head in
           (ty = oty && aux tail) || (ty = olistty && tail = [])
   in
-    aux ctx
+    aux (List.rev ctx)
 
 let extract_singleton ctx =
   match ctx with

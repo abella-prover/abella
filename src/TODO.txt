@@ -1,7 +1,6 @@
 Look at all uses of Seq in the code. Can we also add a case for Bc?
 Examples:
   bpath
-  poplmark by Pientka
 
 Document in next release
 ========================

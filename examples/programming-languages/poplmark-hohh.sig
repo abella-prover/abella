@@ -1,0 +1,9 @@
+sig poplmark-hohh.
+
+kind     ty              type.
+
+type     top             ty.
+type     arrow           ty -> ty -> ty.
+type     all             ty -> (ty -> ty) -> ty.
+
+type     sub             ty -> ty -> o.

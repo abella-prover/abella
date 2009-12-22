@@ -1,0 +1,83 @@
+%% POPLmark 1a: Reflexivity and transitivity for Fsub
+
+Specification "poplmark-hohh".
+
+% We use nominal constants to represent type variable names. This predicate
+% recognizes such nominal constants.
+Define name : ty -> prop by
+  nabla x, name x.
+
+% ctx defines the context in which subtyping judgements are made
+Define ctx : olist -> prop by
+  ctx nil ;
+  nabla a, ctx ((sub a a) :: (sub a T1) ::
+                (pi U\ pi V\ sub U V => sub a U => sub a V) :: L) := ctx L.
+
+% ty defines valid open types (used for transitivity)
+Define ty : ty -> prop by
+  ty top ;
+  nabla x, ty x ;
+  ty (arrow T1 T2) := ty T1 /\ ty T2 ;
+  ty (all T1 T2) := ty T1 /\ nabla x, ty (T2 x).
+
+Theorem ctx_inv : forall D L,
+  ctx L -> member D L -> exists A, name A /\
+    ((D = pi U\ pi V\ sub U V => sub A U => sub A V) \/
+     (exists T1, D = sub A T1) \/
+     (D = sub A A)).
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. case H3.
+    search.
+    case H5.
+      search.
+      apply IH to H4 H6. search.
+
+Theorem ctx_sub_name : forall L D G,
+  ctx L -> member D L -> {L >> D |- G} -> exists A T, G = sub A T /\ name A.
+intros. apply ctx_inv to H1 H2. case H5.
+  case H3. search.
+  case H3. search.
+  case H3. search.
+
+Theorem ctx_inv_tr : forall L A T,
+  ctx L -> member (sub A T) L ->
+    member (pi U\ pi V\ sub U V => sub A U => sub A V) L.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. case H3.
+    search.
+    case H5. apply IH to H4 H6. search.
+
+Theorem trans : forall L S Q T,
+  ctx L -> ty Q -> {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T}.
+induction on 2. intros. case H3.
+
+  % {L >> D |- sub S Q}, then S is a variable with transitivity in the context
+  apply ctx_inv to H1 H5. case H8.
+    case H6. search.
+    case H6. apply ctx_inv_tr to H1 H5. search.
+    case H6. search.
+
+  % Q = top
+  case H4.
+    apply ctx_sub_name to H1 H5 H6. case H7.
+    search.
+
+  % S = arrow and Q = arrow
+  case H4.
+    apply ctx_sub_name to H1 H7 H8. case H9.
+    search.
+    case H2. apply IH to H1 H9 H7 H5. apply IH to H1 H10 H6 H8. search.
+
+  % S = all and Q = all
+  case H4.
+    apply ctx_sub_name to H1 H7 H8. case H9.
+    search.
+    case H2. apply IH to H1 H9 H7 H5.
+      assert {pi U\ pi V\ sub U V => sub n1 U => sub n1 V,
+              sub T3 T1, sub n1 T3 |- sub n1 T1}.
+        cut H12 with H7. cut H6 with H13.
+          apply IH to _ H10 H14 H8. search.
+
+% Question: Why does Pientka uses an inner induction on {L |- sub S Q}?

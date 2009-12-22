@@ -259,6 +259,7 @@ pure_command:
   | BACKCHAIN id DOT                     { Types.Backchain($2, []) }
   | BACKCHAIN id WITH withs DOT          { Types.Backchain($2, $4) }
   | CUT hyp WITH hyp DOT                 { Types.Cut($2, $4) }
+  | CUT hyp DOT                          { Types.SearchCut($2) }
   | INST hyp WITH id EQ term DOT         { Types.Inst($2, $4, $6) }
   | CASE hyp DOT                         { Types.Case($2, false) }
   | CASE hyp LPAREN KEEP RPAREN DOT      { Types.Case($2, true) }

@@ -1560,6 +1560,29 @@ let permute_tests =
 
     ]
 
+let assert_search_cut ~cut ~provable ~expect =
+  let search_goal g = match g with
+    | Obj(Seq(_, t), _) -> List.mem (term_to_string t) provable
+    | _ -> false
+  in
+  match freshen cut with
+    | Obj(Seq(ctx, t), _) ->
+        let actual = Obj(Seq(search_cut ~search_goal ctx, t), Irrelevant) in
+          assert_pprint_equal expect actual
+    | _ -> assert false
+
+let search_cut_tests =
+  "Search Cut" >:::
+    [
+      "Simple" >::
+        (fun () ->
+           assert_search_cut
+             ~cut:      "{a, b, c |- d}"
+             ~provable: ["a"; "c"]
+             ~expect:   "{b |- d}"
+        );
+    ]
+
 let tests =
   "Tactics" >:::
     [
@@ -1573,5 +1596,6 @@ let tests =
       search_tests ;
       unfold_tests ;
       permute_tests ;
+      search_cut_tests ;
     ]
 

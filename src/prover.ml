@@ -349,7 +349,6 @@ let cut h arg =
             add_hyp (Obj(Seq(rctx, rt), Irrelevant))
       | _ -> failwith "Cut can only be used on hypotheses of the form {... |- ...}"
 
-
 (* Search *)
 
 let has_inductive_hyps hyp =
@@ -412,6 +411,15 @@ let search ?(limit=None) ?(interactive=true) ?(witness=ignore) () =
     match search_result with
       | None -> if not interactive then failwith "Search failed"
       | Some w -> witness w ; next_subgoal ()
+
+(* Search cut *)
+
+let search_cut h =
+  match get_hyp h with
+    | Obj(Seq(ctx, t), _) ->
+        add_hyp (Obj(Seq(search_cut ~search_goal ctx, t), Irrelevant))
+    | _ ->
+        failwith "Cut can only be used on hypotheses of the form {... |- ...}"
 
 (* Apply *)
 

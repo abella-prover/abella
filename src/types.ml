@@ -70,6 +70,7 @@ type command =
   | Apply of id * id list * (id * uterm) list
   | Backchain of id * (id * uterm) list
   | Cut of id * id
+  | SearchCut of id
   | Inst of id * id * uterm
   | Case of id * bool
   | Assert of umetaterm
@@ -188,6 +189,8 @@ let command_to_string c =
         sprintf "backchain %s with %s" h (withs_to_string ws)
     | Cut(h1, h2) ->
         sprintf "cut %s with %s" h1 h2
+    | SearchCut(h) ->
+        sprintf "cut %s" h
     | Inst(h, n, t) ->
         sprintf "inst %s with %s = %s" h n (uterm_to_string t)
     | Case(h, k) ->

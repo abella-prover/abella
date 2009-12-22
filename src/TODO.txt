@@ -3,6 +3,7 @@ Document in next release
 apply should no longer require "dummy nominals" when nabla bound
   variables in a lemma are not used
 Fixed some issues with subgoal numbering
+Added search cut tactic
 
 Later
 =====

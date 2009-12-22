@@ -94,6 +94,22 @@ let object_cut obj1 obj2 =
   else
     failwith "Needless use of cut"
 
+
+(* Search cut *)
+
+let search_cut ~search_goal obj =
+  (* Process the context from head to tail looking for goals to remove *)
+  let rec aux left right =
+    match right with
+      | d::ds ->
+          if search_goal (Obj(context_obj (left @ ds) d, Irrelevant)) then
+            aux left ds
+          else
+            aux (d::left) ds
+      | [] -> left
+  in
+    context_obj (aux [] (List.rev obj.context)) obj.term
+
 (* Object level instantiation *)
 
 (* inst t1 with n = t2 *)

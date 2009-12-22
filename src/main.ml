@@ -359,6 +359,7 @@ let rec process_proof name =
           | Apply(h, args, ws) -> apply h args ws
           | Backchain(h, ws) -> backchain h ws
           | Cut(h, arg) -> cut h arg
+          | SearchCut(h) -> search_cut h
           | Inst(h, n, t) -> inst h n t
           | Case(str, keep) -> case ~keep str
           | Assert(t) ->

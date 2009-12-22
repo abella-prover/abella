@@ -348,7 +348,6 @@ let cut h arg =
           add_hyp (object_cut obj_h obj_arg)
       | _ -> failwith "Cut can only be used on hypotheses of the form {...}"
 
-
 (* Search *)
 
 let has_inductive_hyps hyp =
@@ -411,6 +410,15 @@ let search ?(limit=None) ?(interactive=true) ?(witness=ignore) () =
     match search_result with
       | None -> if not interactive then failwith "Search failed"
       | Some w -> witness w ; next_subgoal ()
+
+(* Search cut *)
+
+let search_cut h =
+  match get_hyp h with
+    | Obj(obj, _) ->
+        add_hyp (Obj(search_cut ~search_goal obj, Irrelevant))
+    | _ ->
+        failwith "Cut can only be used on hypotheses of the form {... |- ...}"
 
 (* Apply *)
 

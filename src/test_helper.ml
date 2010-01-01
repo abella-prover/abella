@@ -12,6 +12,9 @@ open Prover
 let parse_uterm str =
   Parser.term Lexer.token (Lexing.from_string str)
 
+let parse_term ?(ctx=[]) str expected_ty =
+  type_uterm ~sign:!sign ~ctx (parse_uterm str) expected_ty
+
 let parse_umetaterm str =
   Parser.metaterm Lexer.token (Lexing.from_string str)
 

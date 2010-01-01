@@ -108,6 +108,14 @@ let object_instantiation_tests =
              )
         );
 
+      "Can increase proof height when target type is o" >::
+        (fun () ->
+           let on = parse_metaterm "{n1 t1}*" in
+           let using = parse_term "x\\ p1 x => p2 x" (tyarrow [ity] oty) in
+           let actual = object_inst on "n1" using in
+             assert_pprint_equal "{p1 t1 => p2 t1}" actual
+        ) ;
+
     ]
 
 let apply_tests =

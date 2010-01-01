@@ -115,7 +115,15 @@ let search_cut ~search_goal ctx =
 (* inst t1 with n = t2 *)
 let object_inst t1 n t2 =
   if List.mem n (List.map term_to_name (metaterm_support t1)) then
-    map_on_objs (map_obj (replace_term_vars ~tag:Nominal [(n, t2)])) t1
+    match t1 with
+      | Obj(obj, r) ->
+          let r =
+            match tc [] t2 with
+              | Ty(_, "o") -> Irrelevant
+              | _ -> r
+          in
+            Obj(map_obj (replace_term_vars ~tag:Nominal [(n, t2)]) obj, r)
+      | _ -> assert false
   else
     failwith ("Did not find " ^ n)
 

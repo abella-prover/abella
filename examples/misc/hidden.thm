@@ -1,20 +1,20 @@
-%% Prove the equivalence of two predicates where one uses a hidden auxillary
+%% Results about hidden predicates in higher-order hereditary Harrop logic
 
 Specification "hidden".
 
 Query {rev1 (cons n1 (cons n2 (cons n3 nill))) (R n1 n2 n3)}.
 Query {rev2 (cons n1 (cons n2 (cons n3 nill))) (R n1 n2 n3)}.
+Query {rev3 (cons n1 (cons n2 (cons n3 nill))) (R n1 n2 n3)}.
 
-Theorem sound :
+%% rev2 -> rev1
+
+Theorem rev2-rev1 :
   forall A B, {rev2 A B} -> {rev1 A B}.
-intros. case H1. inst H2 with n1 = aux1.
-assert {pi C\ aux1 nill C C}.
-cut H3 with H4.
-assert {pi X\ pi A\ pi B\ pi C\ aux1 A (cons X B) C => aux1 (cons X A) B C}.
-cut H5 with H6.
-search.
+intros. case H1. inst H2 with n1 = aux1. cut H3. search.
 
-Theorem lemma :
+%% rev1 -> rev2
+
+Theorem aux1-aux2 :
   forall AA BB CC, {aux1 AA BB CC} ->
     {pi aux2\
       (pi C\ aux2 nill C C) =>
@@ -24,6 +24,28 @@ induction on 1. intros. case H1.
   search.
   apply IH to H2. search.
 
-Theorem complete :
+Theorem rev1-rev2 :
   forall A B, {rev1 A B} -> {rev2 A B}.
-intros. case H1. apply lemma to H2. search.
+intros. case H1. apply aux1-aux2 to H2. search.
+
+%% rev3 -> rev1
+
+Theorem rev3-rev1 :
+  forall A B, {rev3 A B} -> {rev1 A B}.
+intros. case H1. inst H2 with n1 = (x\ y\ aux1 x y B). cut H3. search.
+
+%% rev1 -> rev3
+
+Theorem aux1-aux3 :
+  forall AA BB CC, {aux1 AA BB CC} ->
+    {pi aux3\
+      (aux3 nill CC) =>
+      (pi X\ pi A\ pi B\ aux3 A (cons X B) => aux3 (cons X A) B) =>
+        aux3 AA BB}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem rev1-rev3 :
+  forall A B, {rev1 A B} -> {rev3 A B}.
+intros. case H1. apply aux1-aux3 to H2. search.

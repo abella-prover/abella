@@ -22,9 +22,9 @@ Define ty : ty -> prop by
 
 Theorem ctx_inv : forall D L,
   ctx L -> member D L -> exists A, name A /\
-    ((D = pi U\ pi V\ sub U V => sub A U => sub A V) \/
+    ((D = sub A A) \/
      (exists T1, D = sub A T1) \/
-     (D = sub A A)).
+     (D = pi U\ pi V\ sub U V => sub A U => sub A V)).
 induction on 2. intros. case H2.
   case H1. search.
   case H1. case H3.

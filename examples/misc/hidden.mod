@@ -16,3 +16,7 @@ rev3 A B :-
     (aux3 nill B) =>
     (pi X\ pi A\ pi B\ aux3 A (cons X B) => aux3 (cons X A) B) =>
       aux3 A nill.
+
+aux4 (cons X A) B :- aux4 A (cons X B).
+
+rev4 A B :- aux4 nill B => aux4 A nill.

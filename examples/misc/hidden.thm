@@ -5,6 +5,7 @@ Specification "hidden".
 Query {rev1 (cons n1 (cons n2 (cons n3 nill))) (R n1 n2 n3)}.
 Query {rev2 (cons n1 (cons n2 (cons n3 nill))) (R n1 n2 n3)}.
 Query {rev3 (cons n1 (cons n2 (cons n3 nill))) (R n1 n2 n3)}.
+Query {rev4 (cons n1 (cons n2 (cons n3 nill))) (R n1 n2 n3)}.
 
 %% rev2 -> rev1
 
@@ -49,3 +50,27 @@ induction on 1. intros. case H1.
 Theorem rev1-rev3 :
   forall A B, {rev1 A B} -> {rev3 A B}.
 intros. case H1. apply aux1-aux3 to H2. search.
+
+%% rev3 -> rev4
+
+Theorem rev3-rev4 :
+  forall A B, {rev3 A B} -> {rev4 A B}.
+intros. case H1. inst H2 with n1 = aux4. cut H3. search.
+
+%% rev4 -> rev3
+
+Theorem aux4-aux3 :
+  forall AA BB CC, {aux4 nill CC |- aux4 AA BB} ->
+    {pi aux3\
+      (aux3 nill CC) =>
+      (pi X\ pi A\ pi B\ aux3 A (cons X B) => aux3 (cons X A) B) =>
+        aux3 AA BB}.
+induction on 1. intros. case H1.
+  case H2.
+    case H3. search.
+    case H4.
+  apply IH to H2. search.
+
+Theorem rev4-rev3 :
+  forall A B, {rev4 A B} -> {rev3 A B}.
+intros. case H1. apply aux4-aux3 to H2. search.

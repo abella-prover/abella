@@ -1,22 +1,10 @@
-README for Abella
-=================
-Please report all bugs, feature request, and comments to Andrew Gacek
-(andrew.gacek@gmail.com).
-
-
 Quick Start
 ===========
 
-  1. Compile the program by running "make" from the root directory.
+Compile Abella by running "make" from the root directory. Use the
+following walkthrough for an introduction to using Abella:
 
-  2. Start Abella, passing in the name of the specification file to
-     reason about. For example, ./abella examples/eval.mod
-
-  3. Consult with the corresponding thm files (e.g. examples/eval.thm)
-     for examples of theorems and their proofs. Type in the examples
-     by hand or use the included emacs mode to step through the
-     proofs. Most thm files also have a short description of what is
-     being proven.
+  http://abella.cs.umn.edu/walkthrough.html
 
 
 More Information
@@ -25,3 +13,7 @@ More Information
 More information on Abella is available at
 
   http://abella.cs.umn.edu/
+
+
+Please report all bugs, feature request, and comments to Andrew Gacek
+(andrew.gacek@gmail.com).

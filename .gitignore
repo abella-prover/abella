@@ -1,6 +1,7 @@
 *.cmi
 *.cmo
 *.cmx
+*.annot
 *.o
 *.exe
 *.opt

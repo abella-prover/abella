@@ -3,6 +3,7 @@
 #
 
 OCAML_OTHER_LIBS = unix str
+OCAMLFLAGS += -dtypes
 OCAMLINCLUDES += $(dir ext)
 BYTE_ENABLED = true
 

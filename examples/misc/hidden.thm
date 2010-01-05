@@ -98,3 +98,19 @@ induction on 1. intros. case H1.
 Theorem rev4-sym : forall A B,
   {rev4 A B} -> {rev4 B A}.
 intros. case H1. apply aux4-sym to H2. search.
+
+
+%% rev1 is symmetric
+
+Theorem aux1-sym : forall A B C D E F,
+  {aux1 A B E} -> {aux1 C D E} -> {aux1 D C F} -> {aux1 B A F}.
+induction on 1. induction on 2. intros. case H1 (keep).
+  case H2.
+    search.
+    assert {aux1 (cons X D) A1 F}. apply IH1 to H1 H4 H5. search.
+  apply IH to H4 H2 H3. case H5. search.
+
+Theorem rev1-sym : forall A B,
+  {rev1 A B} -> {rev1 B A}.
+intros. case H1. assert {aux1 nill B B}. assert {aux1 nill A A}.
+  apply aux1-sym to H3 H2 H4. search.

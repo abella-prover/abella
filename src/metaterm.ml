@@ -553,20 +553,26 @@ let try_meta_right_unify t1 t2 =
        true)
 
 (* Try to unify t1 and t2 under permutations of nominal constants.
+   For each successful unification, call sc.
    t1 may contain logic variables, t2 is ground                    *)
-let try_meta_right_permute_unify t1 t2 =
+let all_meta_right_permute_unify ~sc t1 t2 =
   let support_t1 = metaterm_support t1 in
   let support_t2 = metaterm_support t2 in
     if List.length support_t1 < List.length support_t2 then
       (* Ground term cannot have more nominals than logic term *)
-      false
+      ()
     else
+      let state = get_bind_state () in
       let support_t2_names = List.map term_to_name support_t2 in
-        support_t1 |> List.permute (List.length support_t2)
-          |> List.exists
-              (fun perm_support_t1 ->
-                 let alist = List.combine support_t2_names perm_support_t1 in
-                   try_meta_right_unify t1 (replace_metaterm_vars alist t2))
+        support_t1
+        |> List.permute (List.length support_t2)
+        |> List.iter
+            (fun perm_support_t1 ->
+               let alist = List.combine support_t2_names perm_support_t1 in
+                 if try_meta_right_unify t1 (replace_metaterm_vars alist t2) then begin
+                   sc () ;
+                   set_bind_state state ;
+                 end)
 
 (* Check for derivability between objects under permutations. Need
    goal.term to unify with hyp.term and also hyp.context subcontext

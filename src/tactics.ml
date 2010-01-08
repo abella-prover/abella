@@ -632,20 +632,19 @@ let search ~depth:n ~hyps ~clauses ~alldefs
   and metaterm_aux n hyps goal ts ~sc =
     hyps |> iter_keep_state
         (fun (id, hyp) ->
-           match hyp, goal with
-             | Pred(_, CoSmaller i), Pred(_, CoSmaller j) when i = j ->
-                 if try_meta_right_permute_unify goal hyp then sc (WHyp id)
-             | Pred(_, CoSmaller _), _ -> ()
+           if (match hyp, goal with
+                 | Pred(_, CoSmaller i), Pred(_, CoSmaller j) when i = j -> true
+                 | Pred(_, CoSmaller _), _ -> false
 
-             | Pred(_, Smaller i), Pred(_, Smaller j)
-             | Pred(_, Smaller i), Pred(_, Equal j)
-             | Pred(_, Equal i), Pred(_, Equal j)
-                 when i = j ->
-                 if try_meta_right_permute_unify goal hyp then sc (WHyp id)
-             | _, Pred(_, Smaller _) -> ()
-             | _, Pred(_, Equal _) -> ()
+                 | Pred(_, Smaller i), Pred(_, Smaller j)
+                 | Pred(_, Smaller i), Pred(_, Equal j)
+                 | Pred(_, Equal i), Pred(_, Equal j) when i = j -> true
 
-             | _ -> if try_meta_right_permute_unify goal hyp then sc (WHyp id)) ;
+                 | _, Pred(_, Smaller _) -> false
+                 | _, Pred(_, Equal _) -> false
+
+                 | _ -> true) then
+             all_meta_right_permute_unify ~sc:(fun () -> sc (WHyp id)) goal hyp) ;
 
     match goal with
       | True -> sc WTrue

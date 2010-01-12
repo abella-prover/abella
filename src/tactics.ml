@@ -548,7 +548,7 @@ let decompose_arrow term =
   in
     aux [] term
 
-let iter_keep_state f list =
+let iter_unwind_state f list =
   let state = get_bind_state () in
     List.iter (fun x -> f x ; set_bind_state state) list
 
@@ -593,7 +593,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
       |> List.find_all (fun (h, _) -> term_head_name h = p)
       |> List.map freshen_clause
       |> List.number
-      |> iter_keep_state
+      |> iter_unwind_state
           (fun (i, (head, body)) ->
              match try_right_unify_cpairs head goal with
                | None ->
@@ -609,7 +609,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
       hyps
       |> List.find_all (fun (id, h) -> is_obj h)
       |> List.map (fun (id, h) -> (id, term_to_obj h))
-      |> iter_keep_state
+      |> iter_unwind_state
           (fun (id, obj) -> if derivable goal obj then sc (WHyp id)) ;
 
       match r with
@@ -630,7 +630,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
           ~sc:(fun w -> obj_aux_conj n gs r ts ~sc:(fun ws -> sc (w::ws)))
 
   and metaterm_aux n hyps goal ts ~sc =
-    hyps |> iter_keep_state
+    hyps |> iter_unwind_state
         (fun (id, hyp) ->
            if (match hyp, goal with
                  | Pred(_, CoSmaller i), Pred(_, CoSmaller j) when i = j -> true
@@ -649,7 +649,9 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     match goal with
       | True -> sc WTrue
       | False -> ()
-      | Eq(left, right) -> if try_right_unify left right then sc WReflexive
+      | Eq(left, right) ->
+          unwind_state
+            (fun () -> if try_right_unify left right then sc WReflexive)
       | Or(left, right) ->
           metaterm_aux n hyps left ts ~sc:(fun w -> sc (WLeft w)) ;
           metaterm_aux n hyps right ts ~sc:(fun w -> sc (WRight w))
@@ -685,7 +687,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
   and def_aux n hyps goal r ts ~sc =
     let p = term_head_name goal in
     let mdefs = assoc_mdefs p alldefs in
-      unfold_defs ~mdefs ~ts goal r |> iter_keep_state
+      unfold_defs ~mdefs ~ts goal r |> iter_unwind_state
           (fun (state, cpairs, body, i) ->
              set_bind_state state ;
              metaterm_aux (n-1) hyps body ts

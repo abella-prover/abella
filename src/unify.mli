@@ -36,6 +36,7 @@ val right_unify : ?used:(id * term) list -> term -> term -> unit
 val left_unify : ?used:(id * term) list -> term -> term -> unit
 
 val try_with_state : fail:'a -> (unit -> 'a) -> 'a
+val unwind_state : (unit -> 'a) -> unit
 
 val try_right_unify : ?used:(id * term) list -> term -> term -> bool
 

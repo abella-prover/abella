@@ -4,6 +4,8 @@ apply should no longer require "dummy nominals" when nabla bound
   variables in a lemma are not used
 Fixed some issues with subgoal numbering
 Added search cut tactic
+Optimized handling of state, roughly 70% speed increase on examples
+  (test again before release with direct version to version comparison)
 
 Later
 =====

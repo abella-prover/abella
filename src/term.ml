@@ -159,39 +159,27 @@ let rec eq t1 t2 =
  * Prolog representation of bound variables but then deref will have to
  * work differently. This is the place to introduce trailing. *)
 
-let bind_stack = Stack.create ()
+(* bind_state is a list of (var, old_value, new_value) *)
+type bind_state = (ptr * in_ptr * term) list
+let bind_state : bind_state ref = ref []
 
 let bind v t =
   let dv = getref (deref v) in
   let dt = deref t in
     if match dt with Ptr r when r==dv -> false | _ -> true then begin
-      Stack.push (dv,!dv) bind_stack ;
+      bind_state := (dv, !dv, dt) :: !bind_state ;
       dv := T dt
     end
 
-let prefix = function
-  | Constant -> "c"
-  | Logic -> "?"
-  | Eigen -> "_"
-  | Nominal -> "n"
-
-type bind_state = (term * term) list
-
-let get_bind_state () =
-  let state = ref [] in
-    Stack.iter
-      (fun (v, _) ->
-         state := (Ptr v, Ptr (ref !v))::!state)
-      bind_stack ;
-    !state
+let get_bind_state () = !bind_state
 
 let clear_bind_state () =
-  Stack.iter (fun (v, value) -> v := value) bind_stack ;
-  Stack.clear bind_stack
+  List.iter (fun (v, ov, nv) -> v := ov) !bind_state ;
+  bind_state := []
 
 let set_bind_state state =
   clear_bind_state () ;
-  List.iter (fun (v, value) -> bind v value) state
+  List.iter (fun (v, ov, nv) -> bind (Ptr v) nv) state
 
 (* Recursively raise dB indices and abstract over variables
  * selected by [test]. *)
@@ -226,6 +214,12 @@ struct
   let (^^) = app
 end
 
+
+let prefix = function
+  | Constant -> "c"
+  | Logic -> "?"
+  | Eigen -> "_"
+  | Nominal -> "n"
 
 let const ?(ts=0) s ty = Ptr (ref (V { name=s ; ts=ts ; tag=Constant ; ty=ty}))
 

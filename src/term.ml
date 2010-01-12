@@ -179,7 +179,7 @@ let clear_bind_state () =
 
 let set_bind_state state =
   clear_bind_state () ;
-  List.iter (fun (v, ov, nv) -> bind (Ptr v) nv) state
+  List.iter (fun (v, ov, nv) -> bind (Ptr v) nv) (List.rev state)
 
 (* Recursively raise dB indices and abstract over variables
  * selected by [test]. *)

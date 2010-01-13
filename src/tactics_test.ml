@@ -1223,6 +1223,14 @@ let search_tests =
              ~expect:true
         );
 
+      "Should unbind on backtracking over equality" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{p2 t2}"]
+             ~goal:"exists X, (X = t1 \\/ X = t2) /\\ {p2 X}"
+             ~expect:true
+        );
+
       "Should use meta unification" >::
         (fun () ->
            assert_search ()

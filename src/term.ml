@@ -46,14 +46,6 @@ and envitem = Dum of int | Binding of term * int
 
 (* Utilities for constructing and deconstructing terms *)
 
-let rec deref = function
-  | Ptr {contents=T t} -> deref t
-  | t -> t
-
-let getref = function
-  | Ptr t -> t
-  | _ -> assert false
-
 let rec observe = function
   | Ptr {contents=T d} -> observe d
   | Ptr {contents=V v} -> Var v
@@ -62,11 +54,10 @@ let rec observe = function
 let db n = DB n
 
 let rec lambda tys t =
-  let t = deref t in
-    if tys = [] then t else
-      match t with
-        | Lam (tys',t') -> lambda (tys' @ tys) t'
-        | _ -> Lam (tys,t)
+  if tys = [] then t else
+    match t with
+      | Lam (tys',t') -> lambda (tys' @ tys) t'
+      | _ -> Lam (tys,t)
 
 let app a b =
   if b = [] then
@@ -143,10 +134,8 @@ let rec hnorm term =
 
 let rec eq t1 t2 =
   match observe (hnorm t1), observe (hnorm t2) with
-      (* Compare leafs *)
     | DB i1, DB i2 -> i1 = i2
     | Var v1, Var v2 -> v1 = v2
-      (* Propagation *)
     | App(h1,l1), App(h2,l2) ->
         List.length l1 = List.length l2 &&
         List.for_all2 eq (h1::l1) (h2::l2)
@@ -155,43 +144,36 @@ let rec eq t1 t2 =
 
 (* Binding a variable to a term. The *contents* of the cell representing the
  * variable is a reference which must be updated. Also the variable must
- * not be made a reference to itself. This can be changed to mimic the
- * Prolog representation of bound variables but then deref will have to
- * work differently. This is the place to introduce trailing. *)
+ * not be made a reference to itself. *)
 
-let bind_stack = Stack.create ()
+(* bind_state is a list of (var, old_value, new_value) *)
+type bind_state = (ptr * in_ptr * term) list
+let bind_state : bind_state ref = ref []
+
+let rec deref = function
+  | Ptr {contents=T t} -> deref t
+  | t -> t
+
+let getref = function
+  | Ptr t -> t
+  | _ -> assert false
 
 let bind v t =
   let dv = getref (deref v) in
   let dt = deref t in
-    if match dt with Ptr r when r==dv -> false | _ -> true then begin
-      Stack.push (dv,!dv) bind_stack ;
-      dv := T dt
-    end
+    assert (match dt with Ptr r -> dv != r | _ -> true) ;
+    bind_state := (dv, !dv, dt) :: !bind_state ;
+    dv := T dt
 
-let prefix = function
-  | Constant -> "c"
-  | Logic -> "?"
-  | Eigen -> "_"
-  | Nominal -> "n"
-
-type bind_state = (term * term) list
-
-let get_bind_state () =
-  let state = ref [] in
-    Stack.iter
-      (fun (v, _) ->
-         state := (Ptr v, Ptr (ref !v))::!state)
-      bind_stack ;
-    !state
+let get_bind_state () = !bind_state
 
 let clear_bind_state () =
-  Stack.iter (fun (v, value) -> v := value) bind_stack ;
-  Stack.clear bind_stack
+  List.iter (fun (v, ov, nv) -> v := ov) !bind_state ;
+  bind_state := []
 
 let set_bind_state state =
   clear_bind_state () ;
-  List.iter (fun (v, value) -> bind v value) state
+  List.iter (fun (v, ov, nv) -> bind (Ptr v) nv) (List.rev state)
 
 (* Recursively raise dB indices and abstract over variables
  * selected by [test]. *)
@@ -212,13 +194,17 @@ let abstract id ty t = lambda [ty] (abstract (fun t id' -> id' = id) 1 t)
 (** Utilities.
   * Easy creation of constants and variables, with sharing. *)
 
-let nominal_var name ty = Ptr (ref (V {name=name; ts=max_int; tag=Nominal; ty=ty}))
+let nominal_var name ty =
+  Ptr (ref (V {name=name; ts=max_int; tag=Nominal; ty=ty}))
 
 let var tag name ts ty =
   if tag = Nominal then
     nominal_var name ty
   else
     Ptr (ref (V { name=name ; ts=ts ; tag=tag ; ty = ty }))
+
+let const ?(ts=0) s ty =
+  Ptr (ref (V { name=s ; ts=ts ; tag=Constant ; ty=ty}))
 
 module Notations =
 struct
@@ -227,7 +213,11 @@ struct
 end
 
 
-let const ?(ts=0) s ty = Ptr (ref (V { name=s ; ts=ts ; tag=Constant ; ty=ty}))
+let prefix = function
+  | Constant -> "c"
+  | Logic -> "?"
+  | Eigen -> "_"
+  | Nominal -> "n"
 
 let fresh =
   let varcount = ref 1 in

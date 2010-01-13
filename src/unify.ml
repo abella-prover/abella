@@ -774,6 +774,11 @@ let try_with_state ~fail f =
     with
       | UnifyFailure _ | UnifyError _ -> set_bind_state state ; fail
 
+let unwind_state f =
+  let state = get_bind_state () in
+    f () ;
+    set_bind_state state
+
 let try_right_unify ?used:(used=[]) t1 t2 =
   try_with_state ~fail:false
     (fun () ->

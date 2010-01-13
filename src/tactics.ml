@@ -602,7 +602,7 @@ let decompose_arrow term =
   in
     aux [] term
 
-let iter_keep_state f list =
+let iter_unwind_state f list =
   let state = get_bind_state () in
     List.iter (fun x -> f x ; set_bind_state state) list
 
@@ -647,7 +647,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
       |> List.find_all (fun (h, _) -> term_head_name h = p)
       |> List.map freshen_clause
       |> List.number
-      |> iter_keep_state
+      |> iter_unwind_state
           (fun (i, (head, body)) ->
              match try_right_unify_cpairs head goal with
                | None ->
@@ -667,7 +667,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                  match h with
                    | Obj(Seq(hctx, hg), _) -> Some (id, hctx, hg)
                    | _ -> None)
-          |> iter_keep_state
+          |> iter_unwind_state
               (fun (id, hctx, hg) ->
                  if derivable (ctx, [g]) (hctx, [hg]) then sc (WHyp id)) ;
 
@@ -692,7 +692,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                 match h with
                   | Obj(Bc(hctx, hd, ha), _) -> Some (id, hctx, hd, ha)
                   | _ -> None)
-         |> iter_keep_state
+         |> iter_unwind_state
              (fun (id, hctx, hd, ha) ->
                 if derivable (ctx, [d; a]) (hctx, [hd; ha]) then
                   sc (WHyp id)) ;
@@ -732,7 +732,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
           ~sc:(fun w -> obj_aux_conj n gs r ts ~sc:(fun ws -> sc (w::ws)))
 
   and metaterm_aux n hyps goal ts ~sc =
-    hyps |> iter_keep_state
+    hyps |> iter_unwind_state
         (fun (id, hyp) ->
            if (match hyp, goal with
                  | Pred(_, CoSmaller i), Pred(_, CoSmaller j) when i = j -> true
@@ -751,7 +751,9 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     match goal with
       | True -> sc WTrue
       | False -> ()
-      | Eq(left, right) -> if try_right_unify left right then sc WReflexive
+      | Eq(left, right) ->
+          unwind_state
+            (fun () -> if try_right_unify left right then sc WReflexive)
       | Or(left, right) ->
           metaterm_aux n hyps left ts ~sc:(fun w -> sc (WLeft w)) ;
           metaterm_aux n hyps right ts ~sc:(fun w -> sc (WRight w))
@@ -787,7 +789,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
   and def_aux n hyps goal r ts ~sc =
     let p = term_head_name goal in
     let mdefs = assoc_mdefs p alldefs in
-      unfold_defs ~mdefs ~ts goal r |> iter_keep_state
+      unfold_defs ~mdefs ~ts goal r |> iter_unwind_state
           (fun (state, cpairs, body, i) ->
              set_bind_state state ;
              metaterm_aux (n-1) hyps body ts

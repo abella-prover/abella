@@ -168,8 +168,10 @@ let undo () =
 (* Proof state manipulation utilities *)
 
 let reset_prover =
+  let original_state = get_bind_state () in
   let original_sequent = copy_sequent () in
     fun () ->
+      set_bind_state original_state ;
       set_sequent original_sequent ;
       subgoals := [] ;
       undo_stack := []

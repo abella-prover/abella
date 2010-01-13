@@ -149,6 +149,7 @@ let rec eq t1 t2 =
 (* bind_state is a list of (var, old_value, new_value) *)
 type bind_state = (ptr * in_ptr * term) list
 let bind_state : bind_state ref = ref []
+let bind_len = ref 0
 
 let rec deref = function
   | Ptr {contents=T t} -> deref t
@@ -163,17 +164,44 @@ let bind v t =
   let dt = deref t in
     assert (match dt with Ptr r -> dv != r | _ -> true) ;
     bind_state := (dv, !dv, dt) :: !bind_state ;
+    incr bind_len ;
     dv := T dt
 
 let get_bind_state () = !bind_state
 
 let clear_bind_state () =
   List.iter (fun (v, ov, nv) -> v := ov) !bind_state ;
-  bind_state := []
+  bind_state := [] ;
+  bind_len := 0
 
 let set_bind_state state =
   clear_bind_state () ;
   List.iter (fun (v, ov, nv) -> bind (Ptr v) nv) (List.rev state)
+
+
+(* Scoped bind state is more efficient than regular bind state, but it
+   must always be used in a lexically scoped fashion. The unwind_state
+   wraps a function with a scoped get and set. *)
+
+type scoped_bind_state = int
+
+let get_scoped_bind_state () = !bind_len
+
+let set_scoped_bind_state state =
+  while !bind_len > state do
+    match !bind_state with
+      | (v, ov, nv)::rest ->
+          v := ov ;
+          bind_state := rest ;
+          decr bind_len
+      | [] -> assert false
+  done
+
+let unwind_state f x =
+  let state = get_scoped_bind_state () in
+  let result = f x in
+    set_scoped_bind_state state ;
+    result
 
 (* Recursively raise dB indices and abstract over variables
  * selected by [test]. *)

@@ -77,15 +77,23 @@ val eq : term -> term -> bool
 
 (* Binding a variable to a term. The *contents* of the cell representing the
  * variable is a reference which must be updated. Also the variable must
- * not be made a reference to itself. This can be changed to mimic the
- * Prolog representation of bound variables but then deref will have to
- * work differently. *)
+ * not be made a reference to itself. *)
 
 val bind : term -> term -> unit
 
 type bind_state
 val get_bind_state : unit -> bind_state
 val set_bind_state : bind_state -> unit
+
+(* Scoped bind state is more efficient than regular bind state, but it
+   must always be used in a lexically scoped fashion. The unwind_state
+   wraps a function with a scoped get and set. *)
+
+type scoped_bind_state
+val get_scoped_bind_state : unit -> scoped_bind_state
+val set_scoped_bind_state : scoped_bind_state -> unit
+
+val unwind_state : ('a -> 'b) -> ('a -> 'b)
 
 (* Raise the substitution *)
 val add_dummies : env -> int -> int -> env

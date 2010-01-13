@@ -230,7 +230,6 @@ let lift_all ~used nominals =
 let case ~used ~clauses ~mutual ~defs ~global_support term =
 
   let support = metaterm_support term in
-  let initial_bind_state = get_bind_state () in
 
   let def_case ~wrapper term =
     let make_case ~support ~used (head, body) term =
@@ -255,62 +254,59 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
           | None -> []
     in
       defs |> List.flatten_map
-          (function
-             | Pred(head, _), body ->
-                 set_bind_state initial_bind_state ;
-                 make_case ~support ~used (head, body) term
-             | Binding(Nabla, tids, Pred(head, _)), body ->
-                 List.range 0 (List.length tids) |> List.rev |> List.flatten_map
-                     (fun n -> (* n is the number of nablas to be raised *)
-                        List.choose n tids |> List.flatten_map
-                            (fun raised ->
-                               set_bind_state initial_bind_state ;
-                               let (rids, rtys) = List.split raised in
-                               let nominals =
-                                 (* Want freshness with respect to global support *)
-                                 fresh_nominals rtys (pred (app head global_support))
-                               in
-                               let () = lift_all ~used nominals in
-                               let head = replace_term_vars (List.combine rids nominals) head in
-                               let (pids, ptys) = List.split (List.minus tids raised) in
-                               let inner_bind_state = get_bind_state () in
-                                 List.permute (List.length pids) support
-                                 |> List.find_all
-                                     (fun permuted -> ptys = List.map (tc []) permuted)
-                                 |> List.flatten_map
-                                     (fun permuted ->
-                                        set_bind_state inner_bind_state ;
-                                        let support = List.minus support permuted in
-                                        let head =
-                                          replace_term_vars (List.combine pids permuted) head
-                                        in
-                                          make_case ~support ~used (head, body) term)))
-             | _ -> failwith "Bad head in definition")
+          (unwind_state
+             (function
+                | Pred(head, _), body ->
+                    make_case ~support ~used (head, body) term
+                | Binding(Nabla, tids, Pred(head, _)), body ->
+                    List.range 0 (List.length tids) |> List.rev |> List.flatten_map
+                        (fun n -> (* n is the number of nablas to be raised *)
+                           List.choose n tids |> List.flatten_map
+                               (unwind_state
+                                  (fun raised ->
+                                     let (rids, rtys) = List.split raised in
+                                     let nominals =
+                                       (* Want freshness with respect to global support *)
+                                       fresh_nominals rtys (pred (app head global_support))
+                                     in
+                                     let () = lift_all ~used nominals in
+                                     let head = replace_term_vars (List.combine rids nominals) head in
+                                     let (pids, ptys) = List.split (List.minus tids raised) in
+                                       List.permute (List.length pids) support
+                                   |> List.find_all
+                                       (fun permuted -> ptys = List.map (tc []) permuted)
+                                   |> List.flatten_map
+                                       (unwind_state
+                                          (fun permuted ->
+                                             let support = List.minus support permuted in
+                                             let head =
+                                               replace_term_vars (List.combine pids permuted) head
+                                             in
+                                               make_case ~support ~used (head, body) term)))))
+                | _ -> failwith "Bad head in definition"))
   in
 
   let clause_case ~wrapper term =
     if has_eigen_head term then
       failwith "Cannot perform case-analysis on flexible head" ;
     clauses |> List.filter_map
-        (fun (head, body) ->
-           set_bind_state initial_bind_state ;
-           let fresh_used, fresh_head, fresh_body =
-             freshen_clause ~support ~used head body
-           in
-             match try_left_unify_cpairs ~used:(fresh_used @ used)
-               fresh_head term
-             with
-               | Some cpairs ->
-                   let new_vars =
-                     term_vars_alist Eigen (fresh_head::term::fresh_body)
-                   in
-                   let bind_state = get_bind_state () in
-                   let wrapped_body = List.map wrapper fresh_body in
-                     set_bind_state initial_bind_state ;
-                     Some { bind_state = bind_state ;
-                            new_vars = new_vars ;
-                            new_hyps = cpairs_to_eqs cpairs @ wrapped_body }
-               | None -> None)
+        (unwind_state
+           (fun (head, body) ->
+              let fresh_used, fresh_head, fresh_body =
+                freshen_clause ~support ~used head body
+              in
+                match try_left_unify_cpairs ~used:(fresh_used @ used)
+                  fresh_head term
+                with
+                  | Some cpairs ->
+                      let new_vars =
+                        term_vars_alist Eigen (fresh_head::term::fresh_body)
+                      in
+                      let wrapped_body = List.map wrapper fresh_body in
+                        Some { bind_state = get_bind_state () ;
+                               new_vars = new_vars ;
+                               new_hyps = cpairs_to_eqs cpairs @ wrapped_body }
+                  | None -> None))
   in
 
   let obj_case obj r =
@@ -337,11 +333,11 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
           def_case ~wrapper:(predicate_wrapper r mutual) p
       | Or _ ->
           List.filter_map
-            (fun g ->
-               set_bind_state initial_bind_state ;
-               match recursive_metaterm_case ~used g with
-                 | None -> None
-                 | Some c -> Some (stateless_case_to_case c))
+            (unwind_state
+               (fun g ->
+                  match recursive_metaterm_case ~used g with
+                    | None -> None
+                    | Some c -> Some (stateless_case_to_case c)))
             (or_to_list term)
       | Eq _
       | And _
@@ -445,7 +441,6 @@ let coinductive_wrapper r names t =
     aux t
 
 let unfold_defs ~mdefs ~ts goal r =
-  let initial_bind_state = get_bind_state () in
   let p = term_head_name goal in
   let (mutual, defs) = mdefs in
   let support = term_support goal in
@@ -456,18 +451,17 @@ let unfold_defs ~mdefs ~ts goal r =
       |> List.permute (List.length tids)
       |> List.find_all (fun nominals -> tys = List.map (tc []) nominals)
       |> List.flatten_map
-          (fun nominals ->
-             let () = set_bind_state initial_bind_state in
-             let support = List.minus support nominals in
-             let alist = List.combine ids nominals in
-             let head = replace_term_vars alist head in
-             let head, body = freshen_nameless_def ~support ~ts head body in
-               match try_right_unify_cpairs head goal with
-                 | None -> []
-                 | Some cpairs ->
-                     [(get_bind_state (), cpairs, normalize (wrapper body), i)])
+          (unwind_state
+             (fun nominals ->
+                let support = List.minus support nominals in
+                let alist = List.combine ids nominals in
+                let head = replace_term_vars alist head in
+                let head, body = freshen_nameless_def ~support ~ts head body in
+                  match try_right_unify_cpairs head goal with
+                    | None -> []
+                    | Some cpairs ->
+                        [(get_bind_state (), cpairs, normalize (wrapper body), i)]))
   in
-  let result =
     defs
     |> List.map
         (fun (head, body) ->
@@ -479,9 +473,6 @@ let unfold_defs ~mdefs ~ts goal r =
     |> List.number
     |> List.flatten_map
         (fun (i, (tids, head, body)) -> unfold_def tids head body i)
-  in
-    set_bind_state initial_bind_state ;
-    result
 
 let unfold ~mdefs goal =
   match goal with
@@ -491,7 +482,7 @@ let unfold ~mdefs goal =
         (* Find the first body without lingering conflict pairs *)
         let rec select_non_cpair list =
           match list with
-            | (bind_state, [], body, _)::_ -> set_bind_state bind_state; body
+            | (state, [], body, _)::_ -> set_bind_state state; body
             | _::rest -> select_non_cpair rest
             | [] -> failwith "No matching definitions"
         in
@@ -548,10 +539,6 @@ let decompose_arrow term =
   in
     aux [] term
 
-let iter_unwind_state f list =
-  let state = get_bind_state () in
-    List.iter (fun x -> f x ; set_bind_state state) list
-
 let try_unify_cpairs cpairs =
   List.for_all (curry try_right_unify) cpairs
 
@@ -593,15 +580,16 @@ let search ~depth:n ~hyps ~clauses ~alldefs
       |> List.find_all (fun (h, _) -> term_head_name h = p)
       |> List.map freshen_clause
       |> List.number
-      |> iter_unwind_state
-          (fun (i, (head, body)) ->
-             match try_right_unify_cpairs head goal with
-               | None ->
-                   ()
-               | Some cpairs ->
-                   obj_aux_conj (n-1) (wrap body) r ts
-                     ~sc:(fun ws -> if try_unify_cpairs cpairs then
-                            sc (WUnfold(p, i, ws))))
+      |> List.iter
+          (unwind_state
+             (fun (i, (head, body)) ->
+                match try_right_unify_cpairs head goal with
+                  | None ->
+                      ()
+                  | Some cpairs ->
+                      obj_aux_conj (n-1) (wrap body) r ts
+                        ~sc:(fun ws -> if try_unify_cpairs cpairs then
+                               sc (WUnfold(p, i, ws)))))
 
   and obj_aux n hyps goal r ts ~sc =
     let goal = normalize_obj goal in
@@ -609,8 +597,9 @@ let search ~depth:n ~hyps ~clauses ~alldefs
       hyps
       |> List.find_all (fun (id, h) -> is_obj h)
       |> List.map (fun (id, h) -> (id, term_to_obj h))
-      |> iter_unwind_state
-          (fun (id, obj) -> if derivable goal obj then sc (WHyp id)) ;
+      |> List.iter
+          (unwind_state
+             (fun (id, obj) -> if derivable goal obj then sc (WHyp id))) ;
 
       match r with
         | Smaller _ | Equal _ -> ()
@@ -630,21 +619,22 @@ let search ~depth:n ~hyps ~clauses ~alldefs
           ~sc:(fun w -> obj_aux_conj n gs r ts ~sc:(fun ws -> sc (w::ws)))
 
   and metaterm_aux n hyps goal ts ~sc =
-    hyps |> iter_unwind_state
-        (fun (id, hyp) ->
-           if (match hyp, goal with
-                 | Pred(_, CoSmaller i), Pred(_, CoSmaller j) when i = j -> true
-                 | Pred(_, CoSmaller _), _ -> false
+    hyps |> List.iter
+        (unwind_state
+           (fun (id, hyp) ->
+              if (match hyp, goal with
+                    | Pred(_, CoSmaller i), Pred(_, CoSmaller j) when i = j -> true
+                    | Pred(_, CoSmaller _), _ -> false
 
-                 | Pred(_, Smaller i), Pred(_, Smaller j)
-                 | Pred(_, Smaller i), Pred(_, Equal j)
-                 | Pred(_, Equal i), Pred(_, Equal j) when i = j -> true
+                    | Pred(_, Smaller i), Pred(_, Smaller j)
+                    | Pred(_, Smaller i), Pred(_, Equal j)
+                    | Pred(_, Equal i), Pred(_, Equal j) when i = j -> true
 
-                 | _, Pred(_, Smaller _) -> false
-                 | _, Pred(_, Equal _) -> false
+                    | _, Pred(_, Smaller _) -> false
+                    | _, Pred(_, Equal _) -> false
 
-                 | _ -> true) then
-             all_meta_right_permute_unify ~sc:(fun () -> sc (WHyp id)) goal hyp) ;
+                    | _ -> true) then
+                all_meta_right_permute_unify ~sc:(fun () -> sc (WHyp id)) goal hyp)) ;
 
     match goal with
       | True -> sc WTrue
@@ -652,6 +642,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
       | Eq(left, right) ->
           unwind_state
             (fun () -> if try_right_unify left right then sc WReflexive)
+            ()
       | Or(left, right) ->
           metaterm_aux n hyps left ts ~sc:(fun w -> sc (WLeft w)) ;
           metaterm_aux n hyps right ts ~sc:(fun w -> sc (WRight w))
@@ -687,12 +678,15 @@ let search ~depth:n ~hyps ~clauses ~alldefs
   and def_aux n hyps goal r ts ~sc =
     let p = term_head_name goal in
     let mdefs = assoc_mdefs p alldefs in
-      unfold_defs ~mdefs ~ts goal r |> iter_unwind_state
-          (fun (state, cpairs, body, i) ->
-             set_bind_state state ;
-             metaterm_aux (n-1) hyps body ts
-               ~sc:(fun w -> if try_unify_cpairs cpairs then
-                      sc (WUnfold(p, i, [w]))))
+      unwind_state
+        (fun () ->
+           unfold_defs ~mdefs ~ts goal r |> List.iter
+               (fun (state, cpairs, body, i) ->
+                  set_bind_state state ;
+                  metaterm_aux (n-1) hyps body ts
+                    ~sc:(fun w -> if try_unify_cpairs cpairs then
+                           sc (WUnfold(p, i, [w])))))
+        ()
 
   in
     try

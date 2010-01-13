@@ -566,11 +566,10 @@ let all_meta_right_permute_unify ~sc t1 t2 =
         support_t1
         |> List.permute (List.length support_t2)
         |> List.iter
-            (fun perm_support_t1 ->
-               let alist = List.combine support_t2_names perm_support_t1 in
-                 unwind_state
-                   (fun () ->
-                      if try_meta_right_unify t1 (replace_metaterm_vars alist t2) then sc ()))
+            (unwind_state
+               (fun perm_support_t1 ->
+                  let alist = List.combine support_t2_names perm_support_t1 in
+                    if try_meta_right_unify t1 (replace_metaterm_vars alist t2) then sc ()))
 
 (* Check for derivability between objects under permutations. Need
    goal.term to unify with hyp.term and also hyp.context subcontext

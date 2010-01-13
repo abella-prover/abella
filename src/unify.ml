@@ -768,16 +768,11 @@ let left_unify ?used:(used=[]) t1 t2 =
   Left.pattern_unify used t1 t2
 
 let try_with_state ~fail f =
-  let state = get_bind_state () in
+  let state = get_scoped_bind_state () in
     try
       f ()
     with
-      | UnifyFailure _ | UnifyError _ -> set_bind_state state ; fail
-
-let unwind_state f =
-  let state = get_bind_state () in
-    f () ;
-    set_bind_state state
+      | UnifyFailure _ | UnifyError _ -> set_scoped_bind_state state ; fail
 
 let try_right_unify ?used:(used=[]) t1 t2 =
   try_with_state ~fail:false
@@ -786,7 +781,7 @@ let try_right_unify ?used:(used=[]) t1 t2 =
        true)
 
 let try_left_unify_cpairs ~used t1 t2 =
-  let state = get_bind_state () in
+  let state = get_scoped_bind_state () in
   let cpairs = ref [] in
   let cpairs_handler x y = cpairs := (x,y)::!cpairs in
   let module LeftCpairs =
@@ -800,8 +795,8 @@ let try_left_unify_cpairs ~used t1 t2 =
       LeftCpairs.pattern_unify used t1 t2 ;
       Some !cpairs
     with
-      | UnifyFailure _ -> set_bind_state state ; None
-      | UnifyError _ -> set_bind_state state ;
+      | UnifyFailure _ -> set_scoped_bind_state state ; None
+      | UnifyError _ -> set_scoped_bind_state state ;
           failwith "Unification error during case analysis"
 
 let try_right_unify_cpairs t1 t2 =

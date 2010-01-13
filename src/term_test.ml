@@ -153,5 +153,23 @@ let typing_tests =
              (tc [] ([bty; aty] // db 2))) ;
     ]
 
+let binding_tests =
+  "Binding" >:::
+    [
+      "Should not bind variable to itself" >::
+        (fun () ->
+           let v1 = uvar Logic "v1" 0 in
+             assert_raises_any
+               (fun () -> bind v1 v1)) ;
+
+      "Should not bind variable to itself (2)" >::
+        (fun () ->
+           let v1 = uvar Logic "v1" 0 in
+           let v2 = uvar Logic "v2" 0 in
+             bind v1 v2 ;
+             assert_raises_any
+               (fun () -> bind v2 v1)) ;
+    ]
+
 let tests =
-  "Term" >::: [norm_tests; pprint_tests; typing_tests]
+  "Term" >::: [norm_tests; pprint_tests; typing_tests; binding_tests]

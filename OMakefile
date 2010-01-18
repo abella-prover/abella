@@ -68,7 +68,7 @@ abella-$(VERSION).zip: test theorems
 
 version.html:
     fprint(version.html, $(VERSION))
-
+    bash -c "chmod 644 version.html"
 
 .PHONY: upload real-upload
 upload:

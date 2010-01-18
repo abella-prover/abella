@@ -5,7 +5,10 @@ apply should no longer require "dummy nominals" when nabla bound
 Fixed some issues with subgoal numbering
 Added search cut tactic
 Optimized handling of state, roughly 70% speed increase on examples
-  (test again before release with direct version to version comparison)
+  (test again before release with direct version to version
+  comparison)
+Search on goals with "exists" now make use of all nominals in a proof
+  rather than just those in the goal.
 
 Later
 =====

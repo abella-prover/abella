@@ -656,8 +656,14 @@ let search ~depth:n ~hyps ~clauses ~alldefs
           metaterm_aux n (args @ hyps) body ts
             ~sc:(fun w -> sc (WIntros(List.map fst args, w)))
       | Binding(Exists, tids, body) ->
-          let support = metaterm_support goal in
-          let alist = fresh_nameless_alist ~support ~tag:Logic ~ts tids in
+          let global_support =
+            List.unique
+              ((List.flatten_map (fun (_, h) -> metaterm_support h) hyps) @
+                 (metaterm_support goal))
+          in
+          let alist = fresh_nameless_alist
+            ~support:global_support ~tag:Logic ~ts tids
+          in
           let body = replace_metaterm_vars alist body in
             metaterm_aux n hyps body ts ~sc:(fun w -> sc (WExists(alist, w)))
       | Binding(Nabla, tids, body) ->

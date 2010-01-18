@@ -1239,6 +1239,14 @@ let search_tests =
              ~expect: true
         );
 
+      "Should raise exists over global support" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["rel1 n1 n1"]
+             ~goal:"exists X, rel1 X X"
+             ~expect: true
+        );
+
       "Should work with nabla in the head" >::
         (fun () ->
            assert_search ()

@@ -775,22 +775,7 @@ let split propogate_result =
 
 (* Split theorem *)
 
-let split_forall_arrow t =
-  let rec aux = function
-    | Arrow(left, right) ->
-        let arrows, body = aux right in
-          left :: arrows, body
-    | body -> [], body
-  in
-    match t with
-      | Binding(Forall, foralls, t') ->
-          let arrows, body = aux t' in
-            (foralls, arrows, body)
-      | _ ->
-          let arrows, body = aux t in
-            ([], arrows, body)
-
-let split_forall_nabla t =
+let decompose_forall_nabla t =
   match t with
     | Binding(Forall, foralls, Binding(Nabla, nablas, body)) ->
         (foralls, nablas, body)
@@ -818,13 +803,26 @@ let ensure_no_renaming vars terms =
       failwith "Variable renaming required"
 
 let split_theorem thm =
-  let foralls, arrows, body = split_forall_arrow thm in
+  let foralls, nablas, body = decompose_forall_nabla thm in
+  let arrows, conj = decompose_arrow body in
+  let nabla_consts = List.map (fun (x, ty) -> const x ty) nablas in
+  let nabla_tys = List.map snd nablas in
   let lift t =
-    let iforalls, inablas, ibody = split_forall_nabla t in
+    let iforalls, inablas, ibody = decompose_forall_nabla t in
+      (* Raise iforalls over nablas *)
+    let iforalls =
+      List.map (fun (x, ty) -> (x, tyarrow nabla_tys ty)) iforalls
+    in
+    let alist =
+      List.map (fun (x, ty) -> (x, app (const x ty) nabla_consts)) iforalls
+    in
+    let ibody = replace_metaterm_vars alist ibody in
       ensure_no_renaming (List.map fst (iforalls @ inablas)) arrows ;
-      forall (foralls @ iforalls) (nabla inablas (multiarrow arrows ibody))
+      forall (foralls @ iforalls)
+        (nabla (nablas @ inablas)
+           (multiarrow arrows ibody))
   in
-    List.map lift (and_to_list body)
+    List.map lift (and_to_list conj)
 
 let create_split_theorems name names =
   let thms = split_theorem (get_lemma name) in
@@ -835,6 +833,8 @@ let create_split_theorems name names =
         (name ^ (string_of_int count), t) :: (loop ([], ts, count+1))
     | _ -> []
   in
+    if List.length thms = 1 then
+      failwith "Cannot split this type of theorem" ;
     loop (names, thms, 1)
 
 (* Left and right side of disjunction *)

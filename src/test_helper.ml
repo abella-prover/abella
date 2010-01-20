@@ -126,6 +126,9 @@ let assert_metaterm_equal s t =
 let assert_term_pprint_equal s t =
   assert_string_equal s (Term.term_to_string t)
 
+let assert_ty_pprint_equal s t =
+  assert_string_equal s (Term.ty_to_string t)
+
 let assert_term_equal =
   assert_equal ~cmp:Term.eq ~printer:Term.term_to_string
 

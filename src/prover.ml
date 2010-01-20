@@ -773,6 +773,70 @@ let split propogate_result =
     add_subgoals (accum_goals (and_to_list sequent.goal) []) ;
     next_subgoal ()
 
+(* Split theorem *)
+
+let split_forall_arrow t =
+  let rec aux = function
+    | Arrow(left, right) ->
+        let arrows, body = aux right in
+          left :: arrows, body
+    | body -> [], body
+  in
+    match t with
+      | Binding(Forall, foralls, t') ->
+          let arrows, body = aux t' in
+            (foralls, arrows, body)
+      | _ ->
+          let arrows, body = aux t in
+            ([], arrows, body)
+
+let split_forall_nabla t =
+  match t with
+    | Binding(Forall, foralls, Binding(Nabla, nablas, body)) ->
+        (foralls, nablas, body)
+    | Binding(Forall, foralls, body) ->
+        (foralls, [], body)
+    | Binding(Nabla, nablas, body) ->
+        ([], nablas, body)
+    | _ ->
+        ([], [], t)
+
+let rec multiarrow arrows body =
+  let rec aux = function
+    | h::hs -> Arrow(h, aux hs)
+    | [] -> body
+  in
+    aux arrows
+
+let ensure_no_renaming vars terms =
+  let conflicts =
+    List.intersect
+      vars
+      (List.map fst (all_tids (List.flatten_map collect_terms terms)))
+  in
+    if conflicts <> [] then
+      failwith "Variable renaming required"
+
+let split_theorem thm =
+  let foralls, arrows, body = split_forall_arrow thm in
+  let lift t =
+    let iforalls, inablas, ibody = split_forall_nabla t in
+      ensure_no_renaming (List.map fst (iforalls @ inablas)) arrows ;
+      forall (foralls @ iforalls) (nabla inablas (multiarrow arrows ibody))
+  in
+    List.map lift (and_to_list body)
+
+let create_split_theorems name names =
+  let thms = split_theorem (get_lemma name) in
+  let rec loop = function
+    | n::ns, t::ts, count ->
+        (n, t) :: (loop (ns, ts, count))
+    | [], t::ts, count ->
+        (name ^ (string_of_int count), t) :: (loop ([], ts, count+1))
+    | _ -> []
+  in
+    loop (names, thms, 1)
+
 (* Left and right side of disjunction *)
 
 let left () =

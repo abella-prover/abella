@@ -34,7 +34,7 @@ let number = ['0'-'9'] +
 
 (* Initial characters for variables *)
 let ichar = ['A'-'Z' 'a'-'z' '-' '/' '^' '>' '<' '=' '`' '\'' '?' '$' '~']
-  
+
 (* Characters allowed only in the body of variables. *)
 let bchar = ['0'-'9' '_' '*' '@' '+' '#' '!' '&']
 
@@ -89,6 +89,7 @@ rule token = parse
 | "Query"            { QUERY }
 | "Import"           { IMPORT }
 | "Specification"    { SPECIFICATION }
+| "Split"            { SSPLIT }
 | "\\/"              { OR }
 | "/\\"              { AND }
 | "{"                { LBRACK }
@@ -108,6 +109,7 @@ rule token = parse
 | "with"             { WITH }
 | "on"               { ON }
 | "by"               { BY }
+| "as"               { AS }
 | "split"            { SPLIT }
 | "split*"           { SPLITSTAR }
 | "left"             { LEFT }

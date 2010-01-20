@@ -443,6 +443,15 @@ let rec process () =
                 compile (CTheorem(name, thm)) ;
                 add_lemma name thm ;
               with AbortProof -> () end
+        | SSplit(name, names) ->
+            let thms = create_split_theorems name names in
+              List.iter
+                (fun (n, t) ->
+                   fprintf !out "\nTheorem %s : \n%s.\n%!"
+                     n (metaterm_to_formatted_string t) ;
+                   add_lemma n t ;
+                   compile (CTheorem(n, t)))
+                thms ;
         | Define(idtys, udefs) ->
             add_global_consts idtys ;
             let defs = type_udefs ~sign:!sign udefs in
@@ -558,7 +567,7 @@ let add_input filename =
 
 let _ =
   Arg.parse options add_input usage_message ;
-  
+
   if !makefile then begin
     List.iter Depend.print_deps !input_files ;
   end else begin

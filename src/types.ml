@@ -54,6 +54,7 @@ type top_command =
   | Query of umetaterm
   | Kind of id list
   | Type of id list * ty
+  | SSplit of id * id list
   | TopCommon of common_command
 
 type compiled =
@@ -161,6 +162,11 @@ let top_command_to_string tc =
         sprintf "Kind %s type" (id_list_to_string ids)
     | Type(ids, ty) ->
         sprintf "Type %s %s" (id_list_to_string ids) (ty_to_string ty)
+    | SSplit(id, ids) ->
+        if ids <> [] then
+          sprintf "Split %s as %s" id (id_list_to_string ids)
+        else
+          sprintf "Split %s" id
     | TopCommon(cc) ->
         common_command_to_string cc
 

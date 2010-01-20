@@ -44,7 +44,7 @@
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
-%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY
+%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND LBRACK RBRACK
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END
@@ -123,6 +123,7 @@ id:
   | DEFINE                               { "Define" }
   | CODEFINE                             { "CoDefine" }
   | SET                                  { "Set" }
+  | SHOW                                 { "Show" }
   | QUIT                                 { "Quit" }
   | QUERY                                { "Query" }
   | SSPLIT                               { "Split" }
@@ -365,5 +366,6 @@ pure_top_command:
 common_command:
   | SET id id DOT                        { Types.Set($2, Types.Str $3) }
   | SET id NUM DOT                       { Types.Set($2, Types.Int $3) }
+  | SHOW id DOT                          { Types.Show($2) }
   | QUIT DOT                             { Types.Quit }
   | EOF                                  { raise End_of_file }

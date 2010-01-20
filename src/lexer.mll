@@ -128,6 +128,7 @@ rule token = parse
 | "permute"          { PERMUTE }
 
 | "Set"              { SET }
+| "Show"             { SHOW }
 | "Quit"             { QUIT }
 
 | "_"                { UNDERSCORE }

@@ -11,6 +11,7 @@ Search on goals with "exists" now make use of all nominals in a proof
   rather than just those in the goal.
 EES example
 Split command
+Show command
 
 Later
 =====

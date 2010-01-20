@@ -43,6 +43,7 @@ type set_value =
 
 type common_command =
   | Set of string * set_value
+  | Show of string
   | Quit
 
 type top_command =
@@ -139,6 +140,8 @@ let common_command_to_string cc =
   match cc with
     | Set(k, v) ->
         sprintf "Set %s %s" k (set_value_to_string v)
+    | Show(t) ->
+        sprintf "Show %s" t
     | Quit ->
         sprintf "Quit"
 

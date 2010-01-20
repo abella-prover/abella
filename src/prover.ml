@@ -830,7 +830,7 @@ let create_split_theorems name names =
   let thms = split_theorem (get_lemma name) in
   let rec loop = function
     | n::ns, t::ts, count ->
-        (n, t) :: (loop (ns, ts, count))
+        (n, t) :: (loop (ns, ts, count+1))
     | [], t::ts, count ->
         (name ^ (string_of_int count), t) :: (loop ([], ts, count+1))
     | _ -> []

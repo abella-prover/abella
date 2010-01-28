@@ -550,10 +550,8 @@ let makesubst tyctx h1 t2 a1 n =
           if h1=t2 then
             if n=0 && lev=0 then h1 else assert false (* fail TypesMismatch *)
           else begin
-            (*
             if ts1 < v2.ts then
-              Term.bind t2 (named_fresh hv1.name ts1 (tc tyctx t2)) ;
-            *)
+              Term.bind t2 (named_fresh v2.name ts1 v2.ty) ;
             t2
           end
       | App (h2,a2) ->

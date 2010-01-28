@@ -774,6 +774,70 @@ let split propogate_result =
     add_subgoals (accum_goals (and_to_list sequent.goal) []) ;
     next_subgoal ()
 
+(* Split theorem *)
+
+let decompose_forall_nabla t =
+  match t with
+    | Binding(Forall, foralls, Binding(Nabla, nablas, body)) ->
+        (foralls, nablas, body)
+    | Binding(Forall, foralls, body) ->
+        (foralls, [], body)
+    | Binding(Nabla, nablas, body) ->
+        ([], nablas, body)
+    | _ ->
+        ([], [], t)
+
+let rec multiarrow arrows body =
+  let rec aux = function
+    | h::hs -> Arrow(h, aux hs)
+    | [] -> body
+  in
+    aux arrows
+
+let ensure_no_renaming vars terms =
+  let conflicts =
+    List.intersect
+      vars
+      (List.map fst (all_tids (List.flatten_map collect_terms terms)))
+  in
+    if conflicts <> [] then
+      failwith "Variable renaming required"
+
+let split_theorem thm =
+  let foralls, nablas, body = decompose_forall_nabla thm in
+  let arrows, conj = decompose_arrow body in
+  let nabla_consts = List.map (fun (x, ty) -> const x ty) nablas in
+  let nabla_tys = List.map snd nablas in
+  let lift t =
+    let iforalls, inablas, ibody = decompose_forall_nabla t in
+      (* Raise iforalls over nablas *)
+    let iforalls =
+      List.map (fun (x, ty) -> (x, tyarrow nabla_tys ty)) iforalls
+    in
+    let alist =
+      List.map (fun (x, ty) -> (x, app (const x ty) nabla_consts)) iforalls
+    in
+    let ibody = replace_metaterm_vars alist ibody in
+      ensure_no_renaming (List.map fst (iforalls @ inablas)) arrows ;
+      forall (foralls @ iforalls)
+        (nabla (nablas @ inablas)
+           (multiarrow arrows ibody))
+  in
+    List.map lift (and_to_list conj)
+
+let create_split_theorems name names =
+  let thms = split_theorem (get_lemma name) in
+  let rec loop = function
+    | n::ns, t::ts, count ->
+        (n, t) :: (loop (ns, ts, count+1))
+    | [], t::ts, count ->
+        (name ^ (string_of_int count), t) :: (loop ([], ts, count+1))
+    | _ -> []
+  in
+    if List.length thms = 1 then
+      failwith "Cannot split this type of theorem" ;
+    loop (names, thms, 1)
+
 (* Left and right side of disjunction *)
 
 let left () =

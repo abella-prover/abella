@@ -5,9 +5,6 @@ open Unify
 open Term
 open Term.Notations
 
-let assert_true b = assert_bool "" b
-let assert_false b = assert_bool "" (not b)
-
 let tmty = tybase "tm"
 let eval = const "eval" (tyarrow [tmty; tmty] oty)
 let evalAB = eval ^^ [const "A" tmty; const "B" tmty]

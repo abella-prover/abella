@@ -1,8 +1,8 @@
 open OUnit
 open Test_helper
+open Term
 open Metaterm
 open Prover
-open Term
 
 let assert_n_subgoals n =
   if n <> 1 + List.length !subgoals then
@@ -549,5 +549,67 @@ let tests =
              coinduction ;
         ) ;
 
-    ]
+      "Split theorem" >::
+        (fun () ->
+           let t =
+             parse_metaterm
+               ("forall X, foo X -> " ^
+                  "(forall Y, nabla Z, bar Y -> bar Z) /\\" ^
+                  "(forall W, baz W)")
+           in
+             match split_theorem t with
+               | [t1; t2] ->
+                   assert_pprint_equal
+                     "forall X Y, nabla Z, foo X -> bar Y -> bar Z" t1 ;
+                   assert_pprint_equal
+                     "forall X W, foo X -> baz W" t2 ;
+               | ts -> assert_int_equal 2 (List.length ts)
+        );
 
+      "Split theorem (variable capture)" >::
+        (fun () ->
+           let t = parse_metaterm "forall X, foo X -> (forall X, bar X)" in
+             assert_raises (Failure "Variable renaming required")
+               (fun () -> split_theorem t)
+        );
+
+      "Split theorem (variable/constant capture)" >::
+        (fun () ->
+           let t = parse_metaterm "foo t1 -> (forall t1, bar t1)" in
+             assert_raises (Failure "Variable renaming required")
+               (fun () -> split_theorem t)
+        );
+
+      "Split with raising" >::
+        (fun () ->
+           let t =
+             parse_metaterm
+               ("forall X, nabla Z, rel1 X Z -> " ^
+                  "(forall Y, nabla Z', rel2 Y Z') /\\" ^
+                  "(forall W, foo W)")
+           in
+             match split_theorem t with
+               | [t1; t2] ->
+                   assert_pprint_equal
+                     "forall X Y, nabla Z Z', rel1 X Z -> rel2 (Y Z) Z'" t1 ;
+                   assert_pprint_equal
+                     "forall X W, nabla Z, rel1 X Z -> foo (W Z)" t2 ;
+               | ts -> assert_int_equal 2 (List.length ts)
+        );
+
+      "Split with raising (types test)" >::
+        (fun () ->
+           let t = parse_metaterm "nabla (Z1:tm) (Z2:ty), forall Y, foo Y" in
+             match split_theorem t with
+               | [t1] ->
+                   assert_pprint_equal
+                     "forall Y, nabla Z1 Z2, foo (Y Z1 Z2)" t1 ;
+                   begin match t1 with
+                     | Binding(Forall, [(y, ty)], _) ->
+                         assert_ty_pprint_equal "tm -> ty -> i" ty ;
+                     | _ -> assert false
+                   end
+               | ts -> assert_int_equal 1 (List.length ts)
+        );
+
+    ]

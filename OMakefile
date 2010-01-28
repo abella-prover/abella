@@ -1,6 +1,6 @@
 UPLOAD_SITE = "agacek@bhoop.cs.umn.edu:/web/research03/abella.cs.umn.edu/hohh"
 
-VERSION = 1.3.3-hohh1
+VERSION = 1.3.4-hohh1
 ABELLA = $(CWD)/abella$(EXE)
 
 
@@ -66,9 +66,12 @@ abella-$(VERSION).zip: test theorems
     bash -c "chmod 664 abella-$(VERSION).zip"   # Set cygwin modes
     rm -rf abella
 
+.PHONY: dist
+dist: abella-$(VERSION).tar.gz abella-$(VERSION).zip
+
 version.html:
     fprint(version.html, $(VERSION))
-
+    bash -c "chmod 644 version.html"
 
 .PHONY: upload real-upload
 upload:

@@ -332,11 +332,19 @@ let set k v =
 
     | _, _ -> failwith ("Unknown key '" ^ k ^ "'.")
 
+let print_theorem name thm =
+  fprintf !out "\nTheorem %s : \n%s.\n%!"
+    name (metaterm_to_formatted_string thm)
+
+let show name =
+  print_theorem name (get_lemma name)
+
 let witness w =
   if !witnesses then
     fprintf !out "Witness: %s\n%!" (Tactics.witness_to_string w)
 
 let rec process_proof name =
+  let suppress_display = ref false in
   let finished = ref false in
     try while not !finished do try
       if !annotate then begin
@@ -345,7 +353,10 @@ let rec process_proof name =
         fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
         fprintf !out "<pre>\n%!"
       end ;
-      display !out ;
+      if not !suppress_display then
+        display !out
+      else
+        suppress_display := false ;
       fprintf !out "%s < %!" name ;
       let input = Parser.command Lexer.token !lexbuf in
         if not !interactive then begin
@@ -383,6 +394,11 @@ let rec process_proof name =
           | Abort -> raise AbortProof
           | Undo -> undo () ; undo () (* undo recent save, and previous save *)
           | Common(Set(k, v)) -> set k v
+          | Common(Show(n)) ->
+              undo () ; (* Do not save an undo point here *)
+              show n ;
+              fprintf !out "\n%!" ;
+              suppress_display := true
           | Common(Quit) -> raise End_of_file
         end ;
         if !interactive then flush stdout ;
@@ -443,6 +459,14 @@ let rec process () =
                 compile (CTheorem(name, thm)) ;
                 add_lemma name thm ;
               with AbortProof -> () end
+        | SSplit(name, names) ->
+            let thms = create_split_theorems name names in
+              List.iter
+                (fun (n, t) ->
+                   print_theorem n t ;
+                   add_lemma n t ;
+                   compile (CTheorem(n, t)))
+                thms ;
         | Define(idtys, udefs) ->
             add_global_consts idtys ;
             let defs = type_udefs ~sign:!sign udefs in
@@ -459,6 +483,8 @@ let rec process () =
               add_defs ids CoInductive defs
         | TopCommon(Set(k, v)) ->
             set k v
+        | TopCommon(Show(n)) ->
+            show n
         | TopCommon(Quit) ->
             raise End_of_file
         | Import(filename) ->
@@ -558,7 +584,7 @@ let add_input filename =
 
 let _ =
   Arg.parse options add_input usage_message ;
-  
+
   if !makefile then begin
     List.iter Depend.print_deps !input_files ;
   end else begin

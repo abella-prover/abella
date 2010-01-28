@@ -90,6 +90,7 @@ rule token = parse
 | "Query"            { QUERY }
 | "Import"           { IMPORT }
 | "Specification"    { SPECIFICATION }
+| "Split"            { SSPLIT }
 | "\\/"              { OR }
 | "/\\"              { AND }
 | "{"                { LBRACK }
@@ -109,6 +110,7 @@ rule token = parse
 | "with"             { WITH }
 | "on"               { ON }
 | "by"               { BY }
+| "as"               { AS }
 | "split"            { SPLIT }
 | "split*"           { SPLITSTAR }
 | "left"             { LEFT }
@@ -127,6 +129,7 @@ rule token = parse
 | "permute"          { PERMUTE }
 
 | "Set"              { SET }
+| "Show"             { SHOW }
 | "Quit"             { QUIT }
 
 | "_"                { UNDERSCORE }

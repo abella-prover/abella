@@ -343,9 +343,6 @@ let apply_tests =
 let backchain_tests =
   "Backchain" >:::
     [
-      (* Test co-inductive restriction *)
-      (* Test context reconcile *)
-
       "Normal" >::
         (fun () ->
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B" in
@@ -1337,6 +1334,14 @@ let search_tests =
              ~expect: true
         );
 
+      "Should raise exists over global support" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["rel1 n1 n1"]
+             ~goal:"exists X, rel1 X X"
+             ~expect: true
+        );
+
       "Should work with nabla in the head" >::
         (fun () ->
            assert_search ()
@@ -1614,4 +1619,3 @@ let tests =
       permute_tests ;
       search_cut_tests ;
     ]
-

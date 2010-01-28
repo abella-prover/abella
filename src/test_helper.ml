@@ -117,6 +117,9 @@ let freshen str =
 
 (* Custom asserts *)
 
+let assert_true b = assert_bool "Expected true" b
+let assert_false b = assert_bool "Expected false" (not b)
+
 let assert_string_equal =
   assert_equal ~printer:(fun s -> s)
 
@@ -128,6 +131,9 @@ let assert_metaterm_equal s t =
 
 let assert_term_pprint_equal s t =
   assert_string_equal s (Term.term_to_string t)
+
+let assert_ty_pprint_equal s t =
+  assert_string_equal s (Term.ty_to_string t)
 
 let assert_term_equal =
   assert_equal ~cmp:Term.eq ~printer:Term.term_to_string

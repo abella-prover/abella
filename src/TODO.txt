@@ -4,12 +4,6 @@ Examples:
 
 Document in next release
 ========================
-apply should no longer require "dummy nominals" when nabla bound
-  variables in a lemma are not used
-Fixed some issues with subgoal numbering
-Added search cut tactic
-Optimized handling of state, roughly 70% speed increase on examples
-  (test again before release with direct version to version comparison)
 
 Later
 =====
@@ -24,16 +18,6 @@ Allow delcarations about which types are nominal?
 Polymorphism? Type constructors?
   Issues when using 'apply' and metavariables
 
-Future
-======
-Change context handling to use explicit tail variable
-
-Change def to use (nabla_bindings, head_term, body_metaterm) rather
-  than two metaterms
-
-Allow 'search with ...' and use backchain on the provided arguments.
-  Perhaps a full-fledged auto tactic which would do some limited left rules?
-
 Allow for tacticals
   This requires reworking many things.
   How is tactic failure propogated through tacticals?
@@ -42,9 +26,6 @@ From Todd Wilson: Every time I've used "apply .. with .." so far, the
   with clause has been an identity substitution, e.g., "with T0=T0,
   M0=M0". Would it be reasonable to default to this instead of giving
   an error message for missing variables?
-
-Clean up case-analysis tests so they are easy to read and write like
-the search tests?
 
 Clean up similarities between replace_metaterm_vars and normalize_binders
 
@@ -60,18 +41,8 @@ Lazy lambda calculus by Abramsky
 
 Larger or longer term issues
 ============================
-Implement a robust auto tactic which uses search but also goes
-underneath implies and forall. Should backchain on hyps and lemmas
-too. To make it faster, perhaps you could specify the hyps and lemmas
-that are relevant (like Isabelle's Isar mode).
-
-Allow apply with hyps like
-  forall X T, member (of X T) L -> forall T', {L |- of X T'} -> T =
-  T'.
-  How to handle nested nablas then?
-  Get David's proof to go through properly
-
-Use type information from sig files?
+Implement a robust auto tactic which uses search but also uses
+  backchain on hyps and lemmas.
 
 Change OMakefile so exceptions print full stack trace? Is there a way
   to integrate this with OUnit?

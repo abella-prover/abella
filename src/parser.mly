@@ -44,8 +44,8 @@
 %token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY FOCUS
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
-%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY
-%token PERMUTE BACKCHAIN QUIT UNDERSCORE
+%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
+%token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND LBRACK RBRACK
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END
 
@@ -98,6 +98,7 @@ id:
   | TO                                   { "to" }
   | ON                                   { "on" }
   | BY                                   { "by" }
+  | AS                                   { "as" }
   | WITH                                 { "with" }
   | INTROS                               { "intros" }
   | CUT                                  { "cut" }
@@ -122,8 +123,12 @@ id:
   | DEFINE                               { "Define" }
   | CODEFINE                             { "CoDefine" }
   | SET                                  { "Set" }
+  | SHOW                                 { "Show" }
   | QUIT                                 { "Quit" }
   | QUERY                                { "Query" }
+  | SSPLIT                               { "Split" }
+  | TTYPE                                { "Type" }
+  | KKIND                                { "Kind" }
 
 /* Annotated ID */
 aid :
@@ -362,9 +367,12 @@ pure_top_command:
   | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
   | KKIND id_list TYPE DOT               { Types.Kind($2) }
   | TTYPE id_list ty DOT                 { Types.Type($2, $3) }
+  | SSPLIT id DOT                        { Types.SSplit($2, []) }
+  | SSPLIT id AS id_list DOT             { Types.SSplit($2, $4) }
 
 common_command:
   | SET id id DOT                        { Types.Set($2, Types.Str $3) }
   | SET id NUM DOT                       { Types.Set($2, Types.Int $3) }
+  | SHOW id DOT                          { Types.Show($2) }
   | QUIT DOT                             { Types.Quit }
   | EOF                                  { raise End_of_file }

@@ -229,7 +229,7 @@ let var tag name ts ty =
   if tag = Nominal then
     nominal_var name ty
   else
-    Ptr (ref (V { name=name ; ts=ts ; tag=tag ; ty = ty }))
+    Ptr (ref (V { name=name ; ts=ts ; tag=tag ; ty=ty }))
 
 let const ?(ts=0) s ty =
   Ptr (ref (V { name=s ; ts=ts ; tag=Constant ; ty=ty}))

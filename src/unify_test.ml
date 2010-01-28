@@ -557,6 +557,17 @@ let tests =
                       (List.length l))
                | None -> assert_failure "Unification failed" );
 
+      "X^0 = x1\\Y^1" >::
+        (fun () ->
+           let x = var Logic "X" 0 iity in
+           let y = var Logic "Y" 1 ity in
+           let used = [("X", x); ("Y", y)] in
+             right_unify ~used x ([ity] // y) ;
+             assert_term_pprint_equal "x1\\Y1" x ;
+             match observe y with
+               | Var {ts=0} -> ()
+               | _ -> assert_failure "Timestamp should be lowered to match") ;
+ 
       (* This is a case where unification has no most general
          solution, but it would be nice of a partial solution was at
          least generated. Perhaps more generally we could eventually

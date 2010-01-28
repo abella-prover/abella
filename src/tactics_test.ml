@@ -334,9 +334,6 @@ let apply_tests =
 let backchain_tests =
   "Backchain" >:::
     [
-      (* Test co-inductive restriction *)
-      (* Test context reconcile *)
-
       "Normal" >::
         (fun () ->
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B" in
@@ -1516,4 +1513,3 @@ let tests =
       permute_tests ;
       search_cut_tests ;
     ]
-

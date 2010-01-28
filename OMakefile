@@ -66,6 +66,9 @@ abella-$(VERSION).zip: test theorems
     bash -c "chmod 664 abella-$(VERSION).zip"   # Set cygwin modes
     rm -rf abella
 
+.PHONY: dist
+dist: abella-$(VERSION).tar.gz abella-$(VERSION).zip
+
 version.html:
     fprint(version.html, $(VERSION))
     bash -c "chmod 644 version.html"

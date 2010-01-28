@@ -599,10 +599,7 @@ let tests =
 
       "Split with raising (types test)" >::
         (fun () ->
-           let t =
-             parse_metaterm
-               ("nabla (Z1:tm) (Z2:ty), forall Y, foo Y")
-           in
+           let t = parse_metaterm "nabla (Z1:tm) (Z2:ty), forall Y, foo Y" in
              match split_theorem t with
                | [t1] ->
                    assert_pprint_equal

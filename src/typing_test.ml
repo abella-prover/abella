@@ -18,7 +18,7 @@ let uapp t1 t2 =
 
 let upred t =
   UPred(t, Irrelevant)
-    
+
 type uterm =
   | UCon of pos * string * ty
   | ULam of pos * string * ty * uterm

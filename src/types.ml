@@ -232,4 +232,3 @@ let command_to_string c =
     | Abort -> "abort"
     | Undo -> "undo"
     | Common(cc) -> common_command_to_string cc
-

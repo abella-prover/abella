@@ -114,6 +114,9 @@ let freshen str =
 
 (* Custom asserts *)
 
+let assert_true b = assert_bool "Expected true" b
+let assert_false b = assert_bool "Expected false" (not b)
+
 let assert_string_equal =
   assert_equal ~printer:(fun s -> s)
 

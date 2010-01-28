@@ -127,6 +127,8 @@ id:
   | QUIT                                 { "Quit" }
   | QUERY                                { "Query" }
   | SSPLIT                               { "Split" }
+  | TTYPE                                { "Type" }
+  | KKIND                                { "Kind" }
 
 /* Annotated ID */
 aid :

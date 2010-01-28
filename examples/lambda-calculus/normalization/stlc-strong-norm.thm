@@ -3,6 +3,7 @@
 %% This is based on the presentation in Girard's Proofs and Types.
 
 Specification "stlc-strong-norm".
+Close tm, ty.
 
 %% Conventions:
 %% Types: A, B, C
@@ -270,22 +271,14 @@ induction on 1. intros. case H1.
   search.
   apply IH to H2. search.
 
-% Types do not contain nominal constants, thus any dependencies on
-% nominal constants can be pruned
-Theorem prune_ty : forall A, nabla (x:tm),
-  {ty (A x)} -> exists B, A = y\B.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. apply IH to H3. search.
-
 % A term cannot contain a nominal variable which does not appear in
 % its typing context L.
 Theorem prune_of : forall L R A, nabla (x:tm),
-  ctx L -> {L |- of (R x) (A x)} -> exists M, R = y\M.
+  ctx L -> {L |- of (R x) A} -> exists M, R = y\M.
 induction on 2. intros. case H2.
   apply member_prune to H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
-  apply ty_ignores_ctx to H1 H3. apply prune_ty to H5.
+  apply ty_ignores_ctx to H1 H3.
     apply IH to _ H4. search.
   search.
 
@@ -358,7 +351,7 @@ induction on 1. intros. case H1.
   case H2. exists M. split.
     search.
     intros. search.
-  case H2. apply prune_ty to H3.
+  case H2.
     apply IH to H5 H7 H3.
       exists MR. split.
         search.
@@ -371,7 +364,7 @@ induction on 1. intros. case H1.
   case H2. search.
   case H2.
     apply reduce_of to H6. inst H3 with n1 = U. cut H9 with H8.
-      apply of_ty_ext to _ H3. apply prune_ty to H11.
+      apply of_ty_ext to _ H3.
         apply IH to H5 H7 H10. search.
 
 Theorem strong_norm_ext : forall L M R A,

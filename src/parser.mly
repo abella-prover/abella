@@ -47,7 +47,7 @@
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND LBRACK RBRACK
-%token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END
+%token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
 
 %token <int> NUM
 %token <string> STRINGID QSTRING
@@ -127,6 +127,7 @@ id:
   | QUIT                                 { "Quit" }
   | QUERY                                { "Query" }
   | SSPLIT                               { "Split" }
+  | CLOSE                                { "Close" }
   | TTYPE                                { "Type" }
   | KKIND                                { "Kind" }
 
@@ -362,6 +363,7 @@ pure_top_command:
   | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
   | KKIND id_list TYPE DOT               { Types.Kind($2) }
   | TTYPE id_list ty DOT                 { Types.Type($2, $3) }
+  | CLOSE id_list DOT                    { Types.Close($2) }
   | SSPLIT id DOT                        { Types.SSplit($2, []) }
   | SSPLIT id AS id_list DOT             { Types.SSplit($2, $4) }
 

@@ -291,4 +291,22 @@ let tests =
              meta_right_unify t1 t2 ;
              assert_pprint_equal "forall B, foo (iabs B)" t2) ;
 
+      "Fresh raised alist with subordination" >::
+        (fun () ->
+           let tm = tybase "tm" in
+           let tp = tybase "tp" in
+           let t_lam = tyarrow [tp; tyarrow [tm] tm] tm in
+           let sr = Subordination.update Subordination.empty t_lam in
+           let sr = Subordination.close sr ["tp"; "tm"] in
+           let support = [nominal_var "n1" tm; nominal_var "n2" tp] in
+           let tids = [("X", tm); ("Y", tp)] in
+             match
+               fresh_raised_alist ~used:[] ~sr ~tag:Eigen ~support tids
+             with
+               | ([(x, rx); (y, ry)], [x'; y']) ->
+                   assert_term_pprint_equal ((term_to_string x') ^ " n1 n2") rx ;
+                   assert_term_pprint_equal ((term_to_string y') ^ " n2") ry ;
+               | _ -> assert false
+        ) ;
+
     ]

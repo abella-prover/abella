@@ -35,9 +35,9 @@ let tests =
            in
              assert_raises
                (Failure "Cannot quantify over type o in the specification logic")
-               (fun () -> type_uclause ~sign:!sign uclause)
+               (fun () -> type_uclause ~sr:!sr ~sign:!sign uclause)
         );
-      
+
       "Should not allow quantification over prop in definition" >::
         (fun () ->
            let udef =
@@ -45,7 +45,7 @@ let tests =
            in
              assert_raises
                (Failure "Cannot quantify over type prop")
-               (fun () -> type_udef ~sign:!sign udef)
+               (fun () -> type_udef ~sr:!sr ~sign:!sign udef)
         );
 
       "Should not allow quantification over prop in metaterm" >::
@@ -55,6 +55,6 @@ let tests =
            in
              assert_raises
                (Failure "Cannot quantify over type prop")
-               (fun () -> type_umetaterm ~sign:!sign umetaterm)
+               (fun () -> type_umetaterm ~sr:!sr ~sign:!sign umetaterm)
         );
     ]

@@ -64,4 +64,3 @@ coinduction. intros. case H1. case H2. unfold.
     apply CH to H9 H11. search.
   intros. apply H6 to H7. apply H4 to H8.
     apply CH to H11 H9. search.
-

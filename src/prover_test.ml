@@ -612,4 +612,36 @@ let tests =
                | ts -> assert_int_equal 1 (List.length ts)
         );
 
+      "Split with raising and subordination" >::
+        (fun () ->
+           let t =
+             parse_metaterm "nabla (x:sr_a) (y:sr_b), forall A B, sr_a_b A B"
+           in
+             match split_theorem t with
+               | [t1] ->
+                   assert_pprint_equal
+                     "forall A B, nabla x y, sr_a_b (A x) (B x y)" t1 ;
+               | ts -> assert_int_equal 1 (List.length ts)
+        );
+
+      "Intros should use subordination information" >::
+        (fun () ->
+             setup_prover ()
+               ~goal:"nabla x y, forall X Y, sr_a_b x y -> sr_a_b X Y" ;
+
+             intros () ;
+             assert_goal "sr_a_b (X n1) (Y n2 n1)" ;
+        );
+
+      "Should not be able to close built-in types" >::
+        (fun () ->
+           let should_not_close id =
+             assert_raises (Failure ("Cannot close " ^ id))
+               (fun () -> close_types [id])
+           in
+             should_not_close "o" ;
+             should_not_close "olist" ;
+             should_not_close "prop" ;
+        );
+
     ]

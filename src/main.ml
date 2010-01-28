@@ -94,14 +94,19 @@ let warn_on_teyjus_only_keywords (ktable, ctable) =
         "Warning: The following tokens are keywords in Teyjus: %s\n%!"
         (String.concat ", " used_keywords)
 
+let update_subordination_sign sr sign =
+  List.fold_left Subordination.update sr (sign_to_tys sign)
+
 let read_specification name =
   clear_specification_cache () ;
   fprintf !out "Reading specification %s\n%!" name ;
   let read_sign = get_sign name in
   let () = warn_on_teyjus_only_keywords read_sign in
   let sign' = merge_signs [!sign; read_sign] in
-  let clauses' = get_clauses name in
+  let sr' = update_subordination_sign !sr read_sign in
+  let clauses' = get_clauses ~sr:sr' name in
     (* Any exceptions must have been thrown by now - do actual assignments *)
+    sr := sr' ;
     sign := sign' ;
     add_clauses clauses'
 
@@ -268,7 +273,20 @@ let import filename =
              | CKind(ids) ->
                  add_global_types ids
              | CType(ids, ty) ->
-                 add_global_consts (List.map (fun id -> (id, ty)) ids))
+                 add_global_consts (List.map (fun id -> (id, ty)) ids)
+             | CClose(ty_subords) ->
+                 List.iter
+                   (fun (ty, prev) ->
+                      let curr = Subordination.subordinates !sr ty in
+                        match List.minus curr prev with
+                          | [] -> ()
+                          | xs ->
+                              failwith
+                                (Printf.sprintf
+                                   "Cannot close %s since it is now subordinate to %s"
+                                   ty (String.concat ", " xs)))
+                   ty_subords ;
+                 close_types (List.map fst ty_subords))
           imp_content
     end
   in
@@ -285,7 +303,7 @@ let import filename =
 let query q =
   let fv = ids_to_fresh_tyctx (umetaterm_extract_if is_capital_name q) in
   let ctx = fresh_alist ~tag:Logic ~used:[] fv in
-  match type_umetaterm ~sign:!sign ~ctx (UBinding(Metaterm.Exists, fv, q)) with
+  match type_umetaterm ~sr:!sr ~sign:!sign ~ctx (UBinding(Metaterm.Exists, fv, q)) with
     | Binding(Metaterm.Exists, fv, q) ->
         let ctx = fresh_alist ~tag:Logic ~used:[] fv in
         let q = replace_metaterm_vars ctx q in
@@ -451,7 +469,7 @@ let rec process () =
       end ;
       begin match input with
         | Theorem(name, thm) ->
-            let thm = type_umetaterm ~sign:!sign thm in
+            let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
               check_theorem thm ;
               theorem thm ;
               begin try
@@ -469,14 +487,14 @@ let rec process () =
                 thms ;
         | Define(idtys, udefs) ->
             add_global_consts idtys ;
-            let defs = type_udefs ~sign:!sign udefs in
+            let defs = type_udefs ~sr:!sr ~sign:!sign udefs in
             let ids = List.map fst idtys in
               check_defs ids defs ;
               compile (CDefine(idtys, defs)) ;
               add_defs ids Inductive defs
         | CoDefine(idtys, udefs) ->
             add_global_consts idtys ;
-            let defs = type_udefs ~sign:!sign udefs in
+            let defs = type_udefs ~sr:!sr ~sign:!sign udefs in
             let ids = List.map fst idtys in
               check_defs ids defs ;
               compile (CCoDefine(idtys, defs)) ;
@@ -504,6 +522,12 @@ let rec process () =
         | Type(ids, ty) ->
             add_global_consts (List.map (fun id -> (id, ty)) ids) ;
             compile (CType(ids, ty))
+        | Close(ids) ->
+            close_types ids ;
+            compile
+              (CClose(List.map
+                        (fun id -> (id, Subordination.subordinates !sr id))
+                        ids)) ;
       end ;
       if !interactive then flush stdout ;
       if !annotate then fprintf !out "</pre>%!" ;

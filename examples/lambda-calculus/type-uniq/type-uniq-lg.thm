@@ -67,4 +67,3 @@ induction on 2. intros. case H2.
   case H3.
     apply ctx_app_absurd to H1 H6.
     apply IH to H1 H4 H6. search.
-

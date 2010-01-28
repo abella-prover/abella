@@ -1,8 +1,9 @@
 Document in next release
 ========================
+Subordination and "Close" command
 
-Later
-=====
+Future
+======
 Add a C-c C-a command to emacs mode which aborts the current proof and
 goes back to the start of the theorem.
 
@@ -49,8 +50,3 @@ How to deal with logic variables at the top level
   This might be best to leave unsupported
   Fix timestamp bug in unify that David has a test for
   Would also search underneath forall
-
-In STLC, this theorem shows a real pain in not having types
-  Theorem str : forall L E T A, nabla x,
-    ctx L -> {L, of x A |- of E T} -> {L |- of E T}.
-

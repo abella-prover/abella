@@ -21,6 +21,8 @@ Type   imp               atm -> o -> o.
 Type   all               (tm -> o) -> o.
 Type   ex                (tm -> o) -> o.
 
+Close nat, tm, ty.
+
 
 Define nat : nat -> prop by
   nat z ;
@@ -102,12 +104,6 @@ induction on 1. intros. case H1.
       search.
       search.
 
-Theorem nat_prune : forall N, nabla (x:tm),
-  nat (N x) -> exists M, N = x\M.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
-
 Theorem seq_cut : forall K L G N M,
   nat N -> seq N (cons K L) G -> nat M -> seq M L (atom K) ->
     exists P, nat P /\ seq P L G.
@@ -135,7 +131,7 @@ induction on 1. intros. case H1.
         assert forall X, mem X L -> mem X (cons A L).
         apply seq_subset to H4 H9.
           apply IH to H5 H8 H3 H10. search.
-    apply IH to H5 H6 H3 H4. apply nat_prune to H7. search.
+    apply IH to H5 H6 H3 H4. search.
     apply IH to H5 H6 H3 H4. search.
     apply IH to H5 H7 H3 H4. search.
 
@@ -228,8 +224,7 @@ intros. case H1. search.
 
 Theorem lem6 :
   forall L G, (nabla x, tridot L (G x)) -> tridot L (all G).
-intros. case H1. case H2.
-  apply nat_prune to H3. search.
+intros. case H1. case H2. search.
 
 Theorem lem7 :
   forall L G T, tridot L (G T) -> tridot L (ex G).

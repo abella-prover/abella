@@ -20,11 +20,10 @@ betas M M.
 betas M N :- betas M P, beta P N.
 
 % one-step weak head reduction
-wh (app (abs R) M) (R M). 
+wh (app (abs R) M) (R M).
 wh (app M N) (app M' N) :- wh M M'.
 
 % Plotkin's standard reduction
 sred M1 M3 :- wh M1 M2, sred M2 M3.
 sred (app M1 N1) (app M2 N2) :- sred M1 M2, sred N1 N2.
 sred (abs R1) (abs R2) :- pi x\ sred x x => sred (R1 x) (R2 x).
-

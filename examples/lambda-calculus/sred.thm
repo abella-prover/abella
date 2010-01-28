@@ -47,7 +47,7 @@ induction on 2. intros. case H2.
 
 %% Standard reduction is closed under substitution.
 Theorem ssubst : forall C D T T' S S', nabla x, ctx C D ->
-  {D, sred x x |- sred (T x) (T' x)} -> {D |- sred S S'} -> 
+  {D, sred x x |- sred (T x) (T' x)} -> {D |- sred S S'} ->
   {D |- sred (T S) (T' S')}.
 induction on 2. intros. case H2.
   %% case hypothesis
@@ -69,7 +69,7 @@ induction on 2. intros. case H2.
 Theorem name_not_beta : forall T, nabla x, {beta x T} -> false.
 intros. case H1.
 
-Theorem var_not_beta : forall C D T T', ctx C D -> 
+Theorem var_not_beta : forall C D T T', ctx C D ->
   member (tm T) C -> {beta T T'} -> false.
 induction on 2. intros. case H2.
   case H1. case H3.
@@ -119,4 +119,3 @@ Theorem standardization: forall T T',
 induction on 2. intros. case H2.
   apply srefl to _ H1. search.
   apply IH to H1 H3. apply sappend to _ H5 H4. search.
- 

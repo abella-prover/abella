@@ -19,22 +19,22 @@ let parse_top_command str =
   Parser.top_command Lexer.token (Lexing.from_string str)
 
 let parse_metaterm ?(ctx=[]) str =
-  type_umetaterm ~sign:!sign ~ctx (parse_umetaterm str)
+  type_umetaterm ~sr:!sr ~sign:!sign ~ctx (parse_umetaterm str)
 
 let parse_uclauses str =
   Parser.mod_body Lexer.token (Lexing.from_string str)
 
 let parse_clauses str =
-  List.map (type_uclause ~sign:!sign) (parse_uclauses str)
+  List.map (type_uclause ~sr:!sr ~sign:!sign) (parse_uclauses str)
 
 let parse_decls str =
   Parser.sig_body Lexer.token (Lexing.from_string str)
 
 let parse_udefs str =
-   Parser.defs Lexer.token (Lexing.from_string str)
+  Parser.defs Lexer.token (Lexing.from_string str)
 
 let parse_defs str =
-  type_udefs ~sign:!sign (parse_udefs str)
+  type_udefs ~sr:!sr ~sign:!sign (parse_udefs str)
 
 let eval_sig_string = "
   kind      tm        type.
@@ -54,7 +54,11 @@ let eval_clauses_string = "
   eval (app M N) V :- eval M (abs R), eval (R N) V."
 
 let process_decls decls =
-  sign := List.fold_left add_decl !sign decls
+  sign := List.fold_left add_decl !sign decls ;
+  sr := List.fold_left Subordination.update !sr
+    (List.filter_map
+       (function Types.SType(ids, ty) -> Some ty | _ -> None)
+       decls)
 
 let () = process_decls (parse_decls eval_sig_string)
 
@@ -94,11 +98,25 @@ let process_top_command str =
         add_global_types ids ;
     | Types.Type(ids, ty) ->
         add_global_consts (List.map (fun id -> (id, ty)) ids)
+    | Types.Close(ids) ->
+        close_types ids
     | _ -> assert false
 
 let () = process_top_command "Type   foo, bar, baz         i -> prop."
 let () = process_top_command "Type   rel1, rel2, rel3      i -> i -> prop."
 let () = process_top_command "Type   ctx                   olist -> prop."
+
+(* For subordination tests *)
+let () = process_top_command "Kind     sr_a, sr_b     type."
+let () = process_top_command "Type     a_to_b   sr_a -> sr_b."
+let () = process_top_command "Type     sr_a_b   sr_a -> sr_b -> prop."
+let () = process_top_command "Close    sr_a, sr_b."
+let sr_a = Term.tybase "sr_a"
+let sr_b = Term.tybase "sr_b"
+let sr_sr =
+  Subordination.close
+    (Subordination.update Subordination.empty (Term.tyarrow [sr_a] sr_b))
+    ["sr_a"; "sr_b"]
 
 let freshen str =
   let uterm = parse_umetaterm str in
@@ -106,7 +124,10 @@ let freshen str =
     ids_to_fresh_tyctx (umetaterm_extract_if Term.is_capital_name uterm)
   in
   let ctx = fresh_alist ~tag:Term.Eigen ~used:[] fv in
-  match type_umetaterm ~sign:!sign ~ctx (UBinding(Metaterm.Forall, fv, uterm)) with
+  match
+    type_umetaterm ~sr:!sr ~sign:!sign ~ctx
+      (UBinding(Metaterm.Forall, fv, uterm))
+  with
     | Binding(Metaterm.Forall, fv, body) ->
         let ctx = fresh_alist ~tag:Term.Eigen ~used:[] fv in
           replace_metaterm_vars ctx body

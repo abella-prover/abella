@@ -4,6 +4,7 @@
 %% Languages by Pierce.
 
 Specification "stlc-weak-norm".
+Close tm, ty.
 
 %% Conventions:
 %% Types: A, B, C
@@ -96,8 +97,8 @@ induction on 2. intros. case H2.
   case H1. apply IH to H4 H3. search.
   case H1. apply IH to H6 H4. search.
   case H1. case H4.
-    inst H7 with n1 = M1.
-      cut H8 with H5. search.
+    inst H6 with n1 = M1.
+      cut H7 with H5. search.
 
 Theorem reduce_step_forward : forall M N A,
   reduce M A -> {step M N} -> reduce N A.
@@ -139,18 +140,15 @@ induction on 2. intros. case H2.
 %% Properties about nominal constants, e.g. where they can and cannot occur.
 %% Also properties about the contexts of judgments.
 
-% ctx defines the context of "of M A" judgments. The judgment {ty A}
-% ensures that all types in the context are well-formed, e.g. they do
-% not contain nominal constants.
 Define ctx : olist -> prop by
   ctx nil ;
-  nabla x, ctx (of x A :: L) := {ty A} /\ ctx L.
+  nabla x, ctx (of x A :: L) := ctx L.
 
 Theorem ctx_inv : forall L D,
-  ctx L -> member D L -> exists X A, D = of X A /\ {ty A}.
+  ctx L -> member D L -> exists X A, D = of X A.
 induction on 2. intros. case H2.
   case H1. search.
-  case H1. apply IH to H5 H3. search.
+  case H1. apply IH to H4 H3. search.
 
 % A term is closed if it can be typed in the empty context
 Define closed : tm -> prop by
@@ -162,30 +160,14 @@ induction on 1. intros. case H1.
   search.
   apply IH to H2. search.
 
-% Types do not contain nominal constants, thus any dependencies on
-% nominal constants can be pruned
-Theorem prune_ty : forall A, nabla (x:tm),
-  {ty (A x)} -> exists B, A = y\B.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. apply IH to H3. search.
-
-Theorem ty_ignores_ctx : forall L A,
-  ctx L -> {L |- ty A} -> {ty A}.
-induction on 2. intros. case H2.
-  apply ctx_inv to H1 H3. case H4.
-  search.
-  apply IH to H1 H3. apply IH to H1 H4. search.
-
 % A term cannot contain a nominal variable which does not appear in
 % its typing context L.
 Theorem prune_of : forall L R A, nabla (x:tm),
-  ctx L -> {L |- of (R x) (A x)} -> exists M, R = y\M.
+  ctx L -> {L |- of (R x) A} -> exists M, R = y\M.
 induction on 2. intros. case H2.
   apply ctx_inv to H1 H3. case H4. apply member_prune to H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
-  apply ty_ignores_ctx to H1 H3. apply prune_ty to H5.
-    apply IH to _ H4. search.
+  apply IH to _ H3. search.
 
 % Closed terms cannot contain any nominal constants
 Theorem prune_closed : forall R, nabla (x:tm),
@@ -198,14 +180,6 @@ intros. apply reduce_of to H1. search.
 Theorem prune_reduce : forall R A, nabla (x:tm),
   reduce (R x) A -> exists M, R = y\M.
 intros. apply reduce_closed to H1. apply prune_closed to H2. search.
-
-Theorem of_ty : forall L M A,
-  ctx L -> {L |- of M A} -> {ty A}.
-induction on 2. intros. case H2.
-  apply ctx_inv to H1 H3. case H4. search.
-  apply IH to H1 H3. case H5. search.
-  apply ty_ignores_ctx to H1 H3.
-    apply IH to _ H4. search.
 
 
 %% Now we need to state the generalize theorem. This will require reasoning
@@ -236,22 +210,20 @@ Theorem subst_var : forall L M N A,
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    case H3. apply reduce_closed to H6.
-      apply closed_subst to H9 H8. search.
-    case H3. apply member_prune to H6.
-      apply IH to H5 H6 H9. search.
+    case H3. apply reduce_closed to H5.
+      apply closed_subst to H8 H7. search.
+    case H3. apply member_prune to H5.
+      apply IH to H4 H5 H8. search.
 
 Theorem subst_app : forall L M N R,
   ctx L -> subst L (app M N) R ->
     exists MR NR, R = app MR NR /\ subst L M MR /\ subst L N NR.
 induction on 1. intros. case H1.
   case H2. search.
-  case H2. apply IH to H4 H7. search.
+  case H2. apply IH to H3 H6. search.
 
-% This theorem has a {ty A} hypothesis to ensure that no nominal variables
-% can appear in A and thus substitutions do not affect A
 Theorem subst_abs : forall L M R A,
-  ctx L -> subst L (abs A M) R -> {ty A} ->
+  ctx L -> subst L (abs A M) R ->
       exists MR, R = abs A MR /\
         (forall V, reduce V A -> {value V} ->
                      nabla x, subst (of x A :: L) (M x) (MR V)).
@@ -259,21 +231,20 @@ induction on 1. intros. case H1.
   case H2. exists M. split.
     search.
     intros. search.
-  case H2. apply prune_ty to H3.
-    apply IH to H5 H8 H3.
+  case H2.
+    apply IH to H3 H6.
       exists MR. split.
         search.
-        intros. apply prune_reduce to H10.
-          apply H9 to H10 H11. case H12. search.
+        intros. apply prune_reduce to H8.
+          apply H7 to H8 H9. case H10. search.
 
 Theorem subst_preserves_ty : forall L M N A,
   ctx L -> subst L M N -> {L |- of M A} -> {of N A}.
 induction on 1. intros. case H1.
   case H2. search.
   case H2.
-    apply reduce_of to H6. inst H3 with n1 = V. cut H10 with H9.
-      apply of_ty to _ H3. apply prune_ty to H12.
-        apply IH to H5 H8 H11. search.
+    apply reduce_of to H5. inst H3 with n1 = V. cut H9 with H8.
+      apply IH to H4 H7 H10. search.
 
 Theorem weak_norm_ext : forall L M R A,
   ctx L -> {L |- of M A} -> subst L M R -> reduce R A.
@@ -283,22 +254,20 @@ induction on 2. intros. case H2 (keep).
     apply IH to H1 H4 H6.
       apply IH to H1 H5 H7.
         case H8. apply H12 to H9. search.
-  apply ty_ignores_ctx to H1 H4.
-    apply subst_abs to H1 H3 H6.
-      apply subst_preserves_ty to H1 H3 H2. unfold.
+  apply subst_abs to H1 H3.
+    apply subst_preserves_ty to H1 H3 H2. unfold.
+      search.
+      search.
+      intros. % The rest is one single case
+        apply reduce_halts to H7. case H8.
+        apply reduce_steps_forward to H7 H9.
+        apply H5 to H11 H10.
+        apply IH to _ H4 H12.
+        apply steps_app_value to _ H9 with M = abs A1 MR.
+        apply steps_right to H14 _ with R = MR V.
+        apply reduce_of to H7.
+        apply reduce_steps_backward to H13 H15 _.
         search.
-        search.
-        intros. % The rest is one single case
-          apply reduce_halts to H9. case H10.
-          apply reduce_steps_forward to H9 H11.
-          apply H7 to H13 H12.
-          apply IH to _ H5 H14.
-          apply steps_app_value to _ H11 with M = abs A1 MR.
-          apply steps_right to H16 _ with R = MR V.
-          apply reduce_of to H9.
-          apply reduce_steps_backward to H15 H17 _.
-          search.
-
 
 Theorem weak_norm : forall M A, {of M A} -> halts M.
 intros. apply weak_norm_ext to _ H1 _.

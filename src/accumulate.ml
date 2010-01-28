@@ -103,7 +103,7 @@ let ensure_no_redefine_keywords name uclauses =
                        name id))
     uclauses
 
-let rec get_named_clauses filename =
+let rec get_named_clauses ~sr filename =
   try match H.find mod_cache filename with
     | None -> failwith ("Cyclic dependency in module " ^ filename)
     | Some nclauses -> nclauses
@@ -121,12 +121,12 @@ let rec get_named_clauses filename =
             failwith (sprintf "Signature %s must accum_sig %s."
                         filename (String.concat ", " non_accum))
           in
-          let accum_clauses = List.flatten_map get_named_clauses accumulate in
+          let accum_clauses = List.flatten_map (get_named_clauses ~sr) accumulate in
           let nclauses = (merge_named_clauses accum_clauses) @
-            [filename, List.map (type_uclause ~sign) uclauses]
+            [filename, List.map (type_uclause ~sr ~sign) uclauses]
           in
             H.replace mod_cache filename (Some nclauses) ;
             nclauses
 
-let get_clauses filename =
-  List.flatten_map snd (get_named_clauses filename)
+let get_clauses ~sr filename =
+  List.flatten_map snd (get_named_clauses ~sr filename)

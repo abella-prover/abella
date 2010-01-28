@@ -461,14 +461,14 @@ let assert_expected_cases n cases =
   assert_failure (Printf.sprintf "Expected %d case(s) but found %d case(s)"
                     n (List.length cases))
 
-let case ?used ?(clauses=[]) ?(defs=[]) ?(mutual=[])
+let case ?used ?(sr=Subordination.empty) ?(clauses=[]) ?(defs=[]) ?(mutual=[])
     ?(global_support=[]) metaterm =
   let used =
     match used with
       | None -> metaterm_vars_alist Eigen metaterm
       | Some used -> used
   in
-    case ~used ~clauses ~defs ~mutual ~global_support metaterm
+    case ~used ~sr ~clauses ~defs ~mutual ~global_support metaterm
 
 let case_tests =
   "Case" >:::
@@ -922,6 +922,33 @@ let case_tests =
              assert_raises
                (Failure "Cannot perform case-analysis on flexible head")
                (fun () -> case ~clauses term)) ;
+
+      "Should use subordination information for existentials" >::
+        (fun () ->
+           let term = freshen "exists X Y, sr_a_b n1 n2 /\\ sr_a_b X Y" in
+             match case ~sr:sr_sr term with
+               | [case1] ->
+                   set_bind_state case1.bind_state ;
+                   begin match case1.new_hyps with
+                     | [hyp1; hyp2] ->
+                         assert_pprint_equal "sr_a_b (X n1) (Y n2 n1)" hyp2 ;
+                     | _ -> assert_failure "Expected 2 new hypotheses"
+                   end
+               | cases -> assert_expected_cases 1 cases) ;
+
+      "Should use subordination information for nabla in the head of definitions" >::
+        (fun () ->
+           let defs = parse_defs "nabla x y, sr_a_b x y." in
+           let a = var Eigen "A" 0 sr_a in
+           let b = var Eigen "B" 0 sr_b in
+           let term = freshen "sr_a_b X Y" in
+           let used = ("A", a) :: ("B", b) ::(metaterm_vars_alist Eigen term) in
+             match case ~used ~sr:sr_sr ~defs term with
+               | [case1] ->
+                   set_bind_state case1.bind_state ;
+                   assert_term_pprint_equal "A n1" a ;
+                   assert_term_pprint_equal "B n1 n2" b ;
+               | cases -> assert_expected_cases 1 cases) ;
 
     ]
 

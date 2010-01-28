@@ -9,6 +9,7 @@
 % Author: J. Todd Wilson
 
 Specification "ees".
+Close natural, typ, exp.
 
 % Nominals
 
@@ -48,18 +49,6 @@ induction on 1. intros. case H1.
 
 
 % Basic lemmas for L_{+,->}
-
-Theorem natural_prune : forall N, nabla (x:exp),
-  {natural (N x)} ->
-    exists N', N = x\N'.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
-
-Theorem typ_prune : forall T, nabla (x:exp), {typ (T x)} -> exists T', T = x\T'.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. apply IH to H3. search.
 
 Theorem sum_type : forall N1 N2 N,
   {sum N1 N2 N} ->
@@ -137,7 +126,7 @@ induction on 2. intros. case H2.
   apply member_prune to H6.
   apply insert_vals to H1 H4. search.
   apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
-  apply typ_prune to H4. apply IH to _ H5 H3. search.
+  apply IH to _ H5 H3. search.
   apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
 
 Theorem sub_xval : forall S X V, sub S -> member (rep X V) S -> xval V.
@@ -226,9 +215,9 @@ induction on 3. intros. case H3.
   search.
   apply member_prune to H6. apply force_prune to H7. search.
   search.
-  case H2. apply natural_prune to H8. search.
+  case H2. search.
   case H2. apply IH to H1 H8 H6 H4 H5. apply IH to H1 H9 H7 H4 H5. search.
-  case H2. apply typ_prune to H7. apply IH to _ H8 H6 H4 H5. search.
+  case H2. apply IH to _ H8 H6 H4 H5. search.
   case H2. apply IH to H1 H8 H6 H4 H5. apply IH to H1 H9 H7 H4 H5. search.
 
 Theorem force_inv : forall V V',

@@ -55,6 +55,7 @@ type top_command =
   | Query of umetaterm
   | Kind of id list
   | Type of id list * ty
+  | Close of id list
   | SSplit of id * id list
   | TopCommon of common_command
 
@@ -65,6 +66,7 @@ type compiled =
   | CImport of string
   | CKind of id list
   | CType of id list * ty
+  | CClose of (id * id list) list
 
 type command =
   | Induction of int list
@@ -165,6 +167,8 @@ let top_command_to_string tc =
         sprintf "Kind %s type" (id_list_to_string ids)
     | Type(ids, ty) ->
         sprintf "Type %s %s" (id_list_to_string ids) (ty_to_string ty)
+    | Close ids ->
+        sprintf "Close %s" (id_list_to_string ids)
     | SSplit(id, ids) ->
         if ids <> [] then
           sprintf "Split %s as %s" id (id_list_to_string ids)

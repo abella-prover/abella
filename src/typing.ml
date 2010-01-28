@@ -165,6 +165,15 @@ let pervasive_sign =
     ("::",     Poly([],    tyarrow [oty; olistty] olistty)) ;
     ("nil",    Poly([],    olistty))])
 
+let sign_to_tys sign =
+  List.filter_map
+    (function (_, Poly([], ty)) -> Some ty | _ -> None)
+    (snd sign)
+
+let pervasive_sr =
+  List.fold_left Subordination.update Subordination.empty
+    (sign_to_tys pervasive_sign)
+
 (** Typing for terms *)
 
 type expected = ty
@@ -339,8 +348,20 @@ let uterm_to_term sub t =
 let uterm_to_string t =
   term_to_string (uterm_to_term [] t)
 
+let term_ensure_subordination sr t =
+  let rec aux ctx t =
+    match observe (hnorm t) with
+      | Var v -> Subordination.ensure sr v.ty
+      | DB i -> ()
+      | App(h, ts) -> aux ctx h ; List.iter (aux ctx) ts
+      | Lam(tys, b) ->
+          Subordination.ensure sr (tc ctx t) ;
+          aux (tys @ ctx) b
+      | _ -> assert false
+  in
+    aux [] t
 
-let type_uterm ~sign ~ctx t expected_ty =
+let type_uterm ~sr ~sign ~ctx t expected_ty =
   let nominal_tyctx = uterm_nominals_to_tyctx t in
   let tyctx =
     (List.map (fun (id, t) -> (id, tc [] t)) ctx)
@@ -352,6 +373,7 @@ let type_uterm ~sign ~ctx t expected_ty =
   let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx)) in
   let result = replace_term_vars ctx (uterm_to_term sub t) in
     term_ensure_fully_inferred result ;
+    term_ensure_subordination sr result ;
     result
 
 let rec has_capital_head t =
@@ -375,7 +397,7 @@ let check_spec_logic_type ty =
          failwith "Cannot mention type olist in the specification logic")
     ty
 
-let type_uclause ~sign (head, body) =
+let type_uclause ~sr ~sign (head, body) =
   if has_capital_head head then
     failwith "Clause has flexible head" ;
   let cids = uterms_extract_if is_capital_name (head::body) in
@@ -391,6 +413,7 @@ let type_uclause ~sign (head, body) =
   let convert p = replace_term_vars ctx (uterm_to_term sub p) in
   let (rhead, rbody) = (convert head, List.map convert body) in
     List.iter term_ensure_fully_inferred (rhead::rbody) ;
+    List.iter (term_ensure_subordination sr) (rhead::rbody) ;
     (rhead, rbody)
 
 
@@ -499,7 +522,40 @@ let check_meta_quantification t =
   in
     aux t
 
-let type_umetaterm ~sign ?(ctx=[]) t =
+let ctx_ensure_subordination sr ctx =
+  Context.iter (term_ensure_subordination sr) ctx
+
+let obj_ensure_subordination sr obj =
+  match obj with
+    | Seq(ctx, g) ->
+        ctx_ensure_subordination sr ctx ;
+        term_ensure_subordination sr g
+    | Bc(ctx, d, a) ->
+        ctx_ensure_subordination sr ctx ;
+        term_ensure_subordination sr d ;
+        term_ensure_subordination sr a
+
+let metaterm_ensure_subordination sr t =
+  let rec aux t =
+    match t with
+      | True | False -> ()
+      | Eq(a, b) ->
+          term_ensure_subordination sr a ;
+          term_ensure_subordination sr b
+      | Obj(obj, _) ->
+          obj_ensure_subordination sr obj
+      | Arrow(a, b) | Or(a, b) | And(a, b) ->
+          aux a ;
+          aux b
+      | Binding(_, tids, body) ->
+          List.iter (Subordination.ensure sr) (List.map snd tids) ;
+          aux body
+      | Pred(p, _) ->
+          term_ensure_subordination sr p
+  in
+    aux t
+
+let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   let nominal_tyctx = umetaterm_nominals_to_tyctx t in
   let tyctx =
     (List.map (fun (id, t) -> (id, tc [] t)) ctx)
@@ -511,11 +567,12 @@ let type_umetaterm ~sign ?(ctx=[]) t =
   in
   let result = replace_metaterm_vars ctx (umetaterm_to_metaterm sub t) in
     metaterm_ensure_fully_inferred result ;
+    metaterm_ensure_subordination sr result ;
     check_meta_quantification result ;
     result
 
 
-let type_udef ~sign (head, body) =
+let type_udef ~sr ~sign (head, body) =
   let cids = umetaterm_extract_if is_capital_name head in
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns1 = infer_constraints ~sign ~tyctx head in
@@ -528,11 +585,13 @@ let type_udef ~sign (head, body) =
   in
     metaterm_ensure_fully_inferred rhead ;
     metaterm_ensure_fully_inferred rbody ;
+    metaterm_ensure_subordination sr rhead ;
+    metaterm_ensure_subordination sr rbody ;
     check_meta_quantification rbody ;
     (rhead, rbody)
 
-let type_udefs ~sign udefs =
-  List.map (type_udef ~sign) udefs
+let type_udefs ~sr ~sign udefs =
+  List.map (type_udef ~sr ~sign) udefs
 
 (** Utilities *)
 

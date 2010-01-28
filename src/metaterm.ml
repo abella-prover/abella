@@ -274,11 +274,18 @@ let fresh_alist ~used ~tag tids =
                   (x, fresh))
       tids
 
-let fresh_raised_alist ~used ~tag ~support tids =
-  let ntys = List.map (tc []) support in
-  let rtids = List.map (fun (id, ty) -> (id, tyarrow ntys ty)) tids in
-  let alist = fresh_alist ~used ~tag rtids in
-    (List.map (fun (id, t) -> (id, app t support)) alist,
+let raise_type ~sr support ty =
+  let rsupport =
+    List.filter (fun x -> Subordination.query sr (tc [] x) ty) support
+  in
+  let rtys = List.map (tc []) rsupport in
+    (tyarrow rtys ty, rsupport)
+
+let fresh_raised_alist ~used ~sr ~tag ~support tids =
+  let ids, tys = List.split tids in
+  let rtys, rsupports = List.split (List.map (raise_type ~sr support) tys) in
+  let alist = fresh_alist ~used ~tag (List.combine ids rtys) in
+    (List.map2 (fun (id, t) support -> (id, app t support)) alist rsupports,
      List.map snd alist)
 
 let replace_term_vars ?tag alist t =

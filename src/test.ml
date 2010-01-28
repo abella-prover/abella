@@ -6,6 +6,8 @@ let tests = "Abella" >:::
     Unify_test.tests ;
     Term_test.tests ;
     Context_test.tests ;
+    Graph_test.tests ;
+    Subordination_test.tests ;
     Metaterm_test.tests ;
     Typing_test.tests ;
     Parser_test.tests ;

@@ -8,7 +8,6 @@ type    abs            ty -> (tm -> tm) -> tm.
 type    top            ty.
 type    arrow          ty -> ty -> ty.
 
-type    ty             ty -> o.
 type    value          tm -> o.
 type    of             tm -> ty -> o.
 type    step, steps    tm -> tm -> o.

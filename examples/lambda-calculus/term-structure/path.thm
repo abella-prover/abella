@@ -6,6 +6,7 @@
 %% This example would really benefit from some polymorphism
 
 Specification "path".
+Close tm, path.
 
 Define tm_var : tm -> prop by
   nabla x, tm_var x.
@@ -51,17 +52,6 @@ induction on 2. intros. case H2.
   case H3.
     case H1. apply member_prune_path to H4.
     case H1. apply IH to H6 H4 H5. search.
-
-Theorem path_prune : forall L K M N, nabla x y,
-  ctxs L K -> {K, path x y |- path (M x) (N x y)} -> exists P, N = x\P.
-induction on 2. intros. case H2.
-  apply ctxs_inv2 to _ H3. case H4. case H6.
-    search.
-    search.
-  apply IH to H1 H3. search.
-  apply IH to H1 H3. search.
-  apply IH to _ H3. search.
-  search.
 
 Theorem path_app : forall L K M N Y,
   ctxs L K -> (forall P, {K |- path (app M N) P} -> {K |- path Y P}) ->
@@ -127,8 +117,7 @@ induction on 2. intros. case H2.
     assert forall P, {K, path n1 n2 |- path (R n1) P} ->
                      {K, path n1 n2 |- path (YR n1) P}.
       intros.
-      apply path_prune to H1 H5.
-      assert {K |- path (abs R) (bnd P2)}.
+      assert {K |- path (abs R) (bnd P)}.
       apply H3 to H6. case H7.
         apply ctxs_inv2 to H1 H8. case H9. case H10.
         search.

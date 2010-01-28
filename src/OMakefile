@@ -29,6 +29,8 @@ FILES[] =
     depend
     term
     unify
+    graph
+    subordination
     metaterm
     parser
     lexer

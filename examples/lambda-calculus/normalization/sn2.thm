@@ -1,7 +1,9 @@
-% Strong normalisation proof for simply typed lambda calculus.
-%
+%% Strong normalisation proof for simply typed lambda calculus.
+%%
+%% Abella formalization by Alwen Tiu
 
 Specification "sn2".
+Close tm, ty.
 
 Define extend : olist -> olist -> prop by
   extend L K := forall X, member X L -> member X K.
@@ -258,14 +260,6 @@ induction on 2. intros. case H2.
   apply IH to H1 H3. case H5. search.
   apply ty_ignores_ctx to H1 H3. apply IH to _ H4. search.
 
-% Types do not contain nominal constants, thus any dependencies on
-% nominal constants can be pruned
-Theorem prune_ty : forall A, nabla (x:tm),
-  {ty (A x)} -> exists B, A = y\B.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. apply IH to H3. search.
-
 Theorem reduce_vars : forall X A L,
   ctx L -> member (of X A) L -> reduce L X A.
 intros. apply ctx_member to H1 H2.
@@ -388,7 +382,7 @@ Theorem id_subst_cons : forall L A S,
   id_subst L S -> nabla x, id_subst (of x A :: L) (cp x x :: S).
 induction on 1. intros. case H1.
   search.
-  apply IH to H2 with A = A n2. search.
+  apply IH to H2 with A = A. search.
 
 Theorem member_nabla : forall L E, nabla (x:tm),
   member (E x) L -> exists E1, E = (y\E1).
@@ -423,7 +417,7 @@ induction on 2. intros. case H2.
     case H4. search.
     apply member_nabla to H5. apply cp_ctx_member to H1 H5. case H4. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
-  apply ty_ignores_cp_ctx to _ H3. apply prune_ty to H5.
+  apply ty_ignores_cp_ctx to _ H3.
     apply IH to _ H4. search.
 
 Theorem subst_cp_ctx : forall L K S,
@@ -512,7 +506,7 @@ induction on 3. intros. case H3.
   case H4.
     case H5.
     apply ctx_member to H1 H6. case H5. search.
-  apply of_ty_ext to _ H5. apply prune_ty to H6.
+  apply of_ty_ext to _ H5.
     apply IH to H1 H2 H4. apply IH to H1 H2 H5. search.
   apply ty_ignores_ctx to _ H4. apply IH to _ H2 H5.
     search.
@@ -634,5 +628,3 @@ Theorem sn_closed : forall M, closed M -> sn M.
 intros.
 case H1.
 apply strong_normalisation to _ H2. search.
-
-

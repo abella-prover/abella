@@ -55,6 +55,7 @@ rule token = parse
 | "type"             { TYPE }
 | "Kind"             { KKIND }
 | "Type"             { TTYPE }
+| "Close"            { CLOSE }
 | "sig"              { SIG }
 | "module"           { MODULE }
 | "accum_sig"        { ACCUMSIG }

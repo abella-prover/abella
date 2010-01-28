@@ -27,16 +27,16 @@ open Debug
 
 let alist_to_used (_, t) = term_to_pair t
 
-let freshen_clause ~used ?(support=[]) head body =
+let freshen_clause ~used ~sr ?(support=[]) head body =
   let tids = capital_tids (head::body) in
-  let (alist, vars) = fresh_raised_alist ~tag:Eigen ~used ~support tids in
+  let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
     (List.map term_to_pair vars @ used,
      replace_term_vars alist head,
      List.map (replace_term_vars alist) body)
 
-let freshen_def ~used ?(support=[]) head body =
+let freshen_def ~used ~sr ?(support=[]) head body =
   let tids = capital_tids [head] in
-  let (alist, vars) = fresh_raised_alist ~tag:Eigen ~used ~support tids in
+  let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
     (List.map term_to_pair vars,
      replace_term_vars alist head,
      replace_metaterm_vars alist body)
@@ -150,7 +150,7 @@ let stateless_case_to_case case =
 let cpairs_to_eqs cpairs = List.map (fun (x,y) -> Eq(x,y)) cpairs
 
 (* This handles asyncrony on the left *)
-let rec recursive_metaterm_case ~used term =
+let rec recursive_metaterm_case ~used ~sr term =
   match normalize term with
     | True -> Some empty_case
     | False -> None
@@ -165,11 +165,11 @@ let rec recursive_metaterm_case ~used term =
           | None -> None
         end
     | And(left, right) ->
-        begin match recursive_metaterm_case ~used left with
+        begin match recursive_metaterm_case ~used ~sr left with
           | None -> None
           | Some {stateless_new_vars = vars_left ;
                   stateless_new_hyps = hyps_left } ->
-              match recursive_metaterm_case ~used:(vars_left @ used) right with
+              match recursive_metaterm_case ~used:(vars_left @ used) ~sr right with
                 | None -> None
                 | Some {stateless_new_vars = vars_right ;
                         stateless_new_hyps = hyps_right } ->
@@ -178,11 +178,11 @@ let rec recursive_metaterm_case ~used term =
         end
     | Binding(Exists, tids, body) ->
         let support = metaterm_support term in
-        let (alist, vars) = fresh_raised_alist ~tag:Eigen ~used ~support tids in
+        let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
         let fresh_body = replace_metaterm_vars alist body in
         let new_vars = List.map term_to_pair vars in
         let nested =
-          recursive_metaterm_case ~used:(new_vars @ used) fresh_body
+          recursive_metaterm_case ~used:(new_vars @ used) ~sr fresh_body
         in
           begin match nested with
             | None -> None
@@ -194,7 +194,7 @@ let rec recursive_metaterm_case ~used term =
     | Binding(Nabla, ids, body) ->
         let alist = make_nabla_alist ids body in
         let fresh_body = replace_metaterm_vars alist body in
-          recursive_metaterm_case ~used fresh_body
+          recursive_metaterm_case ~used ~sr fresh_body
     | _ -> Some {stateless_new_vars = [] ; stateless_new_hyps = [term]}
 
 let rec or_to_list term =
@@ -226,23 +226,23 @@ let predicate_wrapper r names t =
   in
     aux t
 
-let lift_all ~used nominals =
-  let ntys = List.map (tc []) nominals in
-    used |> List.iter
-        (fun (id, term) ->
-           if is_free term then
-             let v = term_to_var term in
-             let new_term = var Eigen id v.ts (tyarrow ntys v.ty) in
-               bind term (app new_term nominals))
+let lift_all ~used ~sr nominals =
+  used |> List.iter
+      (fun (id, term) ->
+         if is_free term then
+           let v = term_to_var term in
+           let rty, rvars = raise_type ~sr nominals v.ty in
+           let new_term = var Eigen id v.ts rty in
+             bind term (app new_term rvars))
 
-let case ~used ~clauses ~mutual ~defs ~global_support term =
+let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
 
   let support = metaterm_support term in
 
   let def_case ~wrapper term =
     let make_case ~support ~used (head, body) term =
       let fresh_used, head, body =
-        freshen_def ~support ~used head body
+        freshen_def ~sr ~support ~used head body
       in
         match try_left_unify_cpairs ~used:(fresh_used @ used) head term with
           | Some cpairs ->
@@ -250,7 +250,7 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
               let used_head = term_vars_alist Eigen [head; term] in
               let used_body = metaterm_vars_alist Eigen body in
               let used = List.unique (used_head @ used_body @ used) in
-                begin match recursive_metaterm_case ~used body with
+                begin match recursive_metaterm_case ~used ~sr body with
                   | None -> []
                   | Some case ->
                       [{ bind_state = get_bind_state () ;
@@ -277,7 +277,7 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
                                        (* Want freshness with respect to global support *)
                                        fresh_nominals rtys (pred (app head global_support))
                                      in
-                                     let () = lift_all ~used nominals in
+                                     let () = lift_all ~used ~sr nominals in
                                      let head = replace_term_vars (List.combine rids nominals) head in
                                      let (pids, ptys) = List.split (List.minus tids raised) in
                                        List.permute (List.length pids) support
@@ -301,7 +301,7 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
         (unwind_state
            (fun (head, body) ->
               let fresh_used, fresh_head, fresh_body =
-                freshen_clause ~support ~used head body
+                freshen_clause ~sr ~support ~used head body
               in
                 match try_left_unify_cpairs ~used:(fresh_used @ used)
                   fresh_head term
@@ -329,7 +329,7 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
             else
               let bc_case =
                 match
-                  recursive_metaterm_case ~used
+                  recursive_metaterm_case ~sr ~used
                     (seq_to_bc ctx g (reduce_inductive_restriction r))
                 with
                   | None -> assert false
@@ -388,7 +388,7 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
           List.filter_map
             (unwind_state
                (fun g ->
-                  match recursive_metaterm_case ~used g with
+                  match recursive_metaterm_case ~used ~sr g with
                     | None -> None
                     | Some c -> Some (stateless_case_to_case c)))
             (or_to_list term)
@@ -397,7 +397,7 @@ let case ~used ~clauses ~mutual ~defs ~global_support term =
       | Binding(Exists, _, _)
       | Binding(Nabla, _, _) ->
           Option.map_default (fun sc -> [stateless_case_to_case sc]) []
-            (recursive_metaterm_case ~used term)
+            (recursive_metaterm_case ~used ~sr term)
       | _ -> invalid_metaterm_arg term
 
 

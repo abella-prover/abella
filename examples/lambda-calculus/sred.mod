@@ -1,5 +1,9 @@
 %% Ralph Loader's proof of standardization
-%% See his Lecture Notes on Typed Lambda Calculus
+%%   (Notes on Simply Typed Lambda Calculus, ECS-LFCS-98-381)
+%% an adaption of Hongwei Xi's arithmetical proof
+%%   (Upper bounds for standardizations and an application, JSL 1999)
+%% to Gordon Plotkin's inductive formulation of standard reduction.
+%%   (Call-by-name, Call-by-value and the Lambda-Calculus, TCS 1975)
 %%
 %% Abella proof by Andreas Abel (October 2009)
 

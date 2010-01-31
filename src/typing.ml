@@ -341,14 +341,14 @@ let uterm_to_string t =
   term_to_string (uterm_to_term [] t)
 
 let term_ensure_subordination sr t =
-  let rec aux ctx t =
+  let rec aux tyctx t =
     match observe (hnorm t) with
       | Var v -> Subordination.ensure sr v.ty
       | DB i -> ()
-      | App(h, ts) -> aux ctx h ; List.iter (aux ctx) ts
+      | App(h, ts) -> aux tyctx h ; List.iter (aux tyctx) ts
       | Lam(tys, b) ->
-          Subordination.ensure sr (tc ctx t) ;
-          aux (tys @ ctx) b
+          Subordination.ensure sr (tc tyctx t) ;
+          aux (List.rev_app tys tyctx) b
       | _ -> assert false
   in
     aux [] t
@@ -447,7 +447,7 @@ let infer_constraints ~sign ~tyctx t =
       | UArrow(a, b) | UOr(a, b) | UAnd(a, b) ->
           (aux tyctx a) @ (aux tyctx b)
       | UBinding(_, tids, body) ->
-          aux ((List.rev tids) @ tyctx) body
+          aux (List.rev_app tids tyctx) body
       | UPred(p, _) ->
           let (pty, peqns) = infer_type_and_constraints ~sign tyctx p in
             peqns @ [(propty, pty, (get_pos p, CArg))]

@@ -97,8 +97,8 @@ let tests =
                  | Var {name=h;ts=1;tag=Logic;ty=ty} -> var Logic h 1 ty
                  | _ -> assert_failure "X should match x\\y\\ H ..."
              in
-               assert_term_equal ([bty; aty] // (h ^^ [ db 2 ; db 1 ])) x ;
-               assert_term_equal ([cty; bty] // (h ^^ [ a ; db 2 ])) y) ;
+               assert_term_equal ([aty; bty] // (h ^^ [ db 2 ; db 1 ])) x ;
+               assert_term_equal ([bty; cty] // (h ^^ [ a ; db 2 ])) y) ;
 
       (* Example 6, flex-rigid case involving raise & prune relative to an
        * embedded flex term. *)
@@ -204,8 +204,8 @@ let tests =
                      (Printf.sprintf "X=%s should match Lam (_,(App H _))"
                         (term_to_string x))
              in
-               assert_term_equal ([bty; aty] // (h ^^ [db 1])) x ;
-               assert_term_equal ([cty; bty] // (h ^^ [db 2])) y) ;
+               assert_term_equal ([aty; bty] // (h ^^ [db 1])) x ;
+               assert_term_equal ([bty; cty] // (h ^^ [db 2])) y) ;
 
       (* Example 12, flex-flex with raising on one var, pruning on the other *)
       "[X1 a2 b3 c3 = Y2 c3]" >::
@@ -221,7 +221,7 @@ let tests =
                  | Var {name=h;ts=1;tag=Logic;ty=ty} -> var Logic h 1 ty
                  | _ -> failwith "X should match x\\y\\z\\ H ..."
              in
-               assert_term_equal ([cty; bty; aty] // (h ^^ [db 3;db 1])) x ;
+               assert_term_equal ([aty; bty; cty] // (h ^^ [db 3;db 1])) x ;
                assert_term_equal ([cty] // (h ^^ [a;db 1])) y) ;
 
       (* Example 13, flex-rigid where rigid has to be abstracted *)
@@ -239,9 +239,9 @@ let tests =
                  | _ -> failwith "X should match x\\y\\ _ (H ..) .."
              in
                assert_term_equal
-                 ([bty; iity] // (db 2 ^^ [h ^^ [db 2 ; db 1]])) x ;
+                 ([iity; bty] // (db 2 ^^ [h ^^ [db 2 ; db 1]])) x ;
                assert_term_equal
-                 ([cty; bty] // (h ^^ [a ; db 2])) y) ;
+                 ([bty; cty] // (h ^^ [a ; db 2])) y) ;
 
       (* Example 14, OccursCheck *)
       "[X1 a2 b3 != d3 (Y2 b3 c3)]" >::
@@ -280,9 +280,9 @@ let tests =
            let p = var Logic "P" 1 (tyarrow [aty] ity) in
            let q = var Logic "Q" 1 (tyarrow [aty; bty] ity) in
              right_unify
-               ([bty; aty] // (p ^^ [db 2]))
+               ([aty; bty] // (p ^^ [db 2]))
                ([aty] // (q ^^ [db 1])) ;
-             assert_term_equal ([bty; aty] // (p ^^ [db 2])) q) ;
+             assert_term_equal ([aty; bty] // (p ^^ [db 2])) q) ;
 
       "[T = a X, T = a Y, Y = T]" >::
         (fun () ->
@@ -302,8 +302,8 @@ let tests =
            let g = var Logic "G" 2 (tyarrow [aty] ity) in
              (* Different timestamps matter *)
              right_unify
-               ([bty; aty] // (h ^^ [db 2]))
-               ([bty; aty] // (g ^^ [db 2])) ;
+               ([aty; bty] // (h ^^ [db 2]))
+               ([aty; bty] // (g ^^ [db 2])) ;
              assert_term_equal (g^^[db 2]) (h^^[db 2])) ;
 
       "[X1 = y2]" >::
@@ -482,8 +482,8 @@ let tests =
            let z = var Eigen "Z" 0 (tyarrow [iity; ity] ity) in
            let used = [("Z", z)] in
              left_unify ~used
-               ([ity; iity] // (db 2 ^^ [db 1]))
-               ([ity; iity] // (db 2 ^^ [z ^^ [db 2; db 1]])) ;
+               ([iity; ity] // (db 2 ^^ [db 1]))
+               ([iity; ity] // (db 2 ^^ [z ^^ [db 2; db 1]])) ;
              assert_term_pprint_equal "x1\\x2\\x2" z) ;
 
       "p^0 (X^0 Y^0) = p^0 (Z^0 W^0)" >::
@@ -567,7 +567,7 @@ let tests =
              match observe y with
                | Var {ts=0} -> ()
                | _ -> assert_failure "Timestamp should be lowered to match") ;
- 
+
       (* This is a case where unification has no most general
          solution, but it would be nice of a partial solution was at
          least generated. Perhaps more generally we could eventually

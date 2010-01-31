@@ -409,7 +409,7 @@ let reverse_bind tyctx t1 t2 =
           begin match observe h with
             | Var v1 when variable v1.tag && v2.ts <= v1.ts &&
                 List.for_all pruneable ts ->
-                bind h (lambda (List.rev_map (tc tyctx) ts) t2) ; true
+                bind h (lambda (List.map (tc tyctx) ts) t2) ; true
             | _ -> false
           end
     | Var v1, Var v2 when variable v1.tag && v1.ts > v2.ts ->
@@ -472,14 +472,15 @@ let makesubst tyctx h1 t2 a1 n =
           if eq c h1 then fail OccursCheck ;
           let (changed,a1',a2') = raise_and_invert ts1 v.ts a1 [] lev in
             if changed || ts1 < v.ts then
-              let ty = tyarrow (List.rev_map (tc tyctx) a2') (tc tyctx c) in
+              let ty = tyarrow (List.map (tc tyctx) a2') (tc tyctx c) in
               let h' = named_fresh hv1.name (min ts1 v.ts) ty in
                 bind c (app h' a2') ;
                 app h' a1'
             else
               app c a1'
       | Lam (tys,t) ->
-          lambda tys (nested_subst (tys @ tyctx) t (lev + List.length tys))
+          lambda tys
+            (nested_subst (List.rev_app tys tyctx) t (lev + List.length tys))
       | App (h2,a2) ->
           begin match observe h2 with
             | Var {tag=tag} when constant tag ->
@@ -500,9 +501,9 @@ let makesubst tyctx h1 t2 a1 n =
                       raise_and_invert ts1 ts2 a1 a2 lev
                     in
                       if changed then
-                        let a2binds = List.rev_map (tc tyctx) a2 in
+                        let a2binds = List.map (tc tyctx) a2 in
                         let a2'tys =
-                          List.map (tc (a2binds @ tyctx)) a2' in
+                          List.map (tc (List.rev_app a2binds tyctx)) a2' in
                         let Ty(h2tys, bty) = tc tyctx h2 in
                         let ty = Ty(a2'tys @ List.drop (List.length a2) h2tys,
                                     bty) in
@@ -545,7 +546,8 @@ let makesubst tyctx h1 t2 a1 n =
   let rec toplevel_subst tyctx t2 lev =
     match observe t2 with
       | Lam (tys,t2) ->
-          lambda tys (toplevel_subst (tys @ tyctx) t2 (lev + List.length tys))
+          lambda tys
+            (toplevel_subst (List.rev_app tys tyctx) t2 (lev + List.length tys))
       | Var v2 when variable v2.tag ->
           if h1=t2 then
             if n=0 && lev=0 then h1 else assert false (* fail TypesMismatch *)
@@ -563,8 +565,10 @@ let makesubst tyctx h1 t2 a1 n =
                     let bindlen = n+lev in
                       if bindlen = List.length a2 then
                         let args = prune_same_var a1 a2 lev bindlen in
-                        let a2binds = List.rev_map (tc tyctx) a2 in
-                        let args_ty = List.map (tc (a2binds @ tyctx)) args in
+                        let a2binds = List.map (tc tyctx) a2 in
+                        let args_ty =
+                          List.map (tc (List.rev_app a2binds tyctx)) args
+                        in
                         let Ty(h1tys, bty) = tc tyctx h1 in
                         let ty = Ty(args_ty @ List.drop bindlen h1tys, bty) in
                         let h1' = named_fresh hv1.name ts1 ty in
@@ -583,7 +587,7 @@ let makesubst tyctx h1 t2 a1 n =
           nested_subst tyctx t2 lev
   in
     ensure_flex_args a1 ts1 ;
-    lambda (List.rev_map (tc tyctx) a1) (toplevel_subst tyctx t2 0)
+    lambda (List.map (tc tyctx) a1) (toplevel_subst tyctx t2 0)
 
 (** Unifying the arguments of two rigid terms with the same head, these
   * arguments being given as lists. Exceptions are raised if
@@ -603,7 +607,7 @@ and unify_const_term tyctx cst t2 = if eq cst t2 then () else
   match observe t2 with
     | Lam (tys,t2) ->
         let a1 = lift_args [] (List.length tys) in
-          unify (tys @ tyctx) (app cst a1) t2
+          unify (List.rev_app tys tyctx) (app cst a1) t2
     | Var {tag=t} when not (variable t || constant t) ->
         failwith "logic variable on the left (3)"
     | _ -> fail (ConstClash (cst,t2))
@@ -662,7 +666,7 @@ and unify_app_term tyctx h1 a1 t1 t2 =
       let h1' = lift h1 n in
       let a1' = lift_args a1 n in
       let t1' = app h1' a1' in
-        unify_app_term (tys @ tyctx) h1' a1' t1' t2
+        unify_app_term (List.rev_app tys tyctx) h1' a1' t1' t2
   | Ptr _, _ | _, Ptr _
   | Susp _, _ | _, Susp _ -> assert false
   | Var {tag=t}, _ when not (variable t || constant t) ->
@@ -723,18 +727,18 @@ and unify tyctx t1 t2 =
         let n1 = List.length tys1 in
         let n2 = List.length tys2 in
         let n = min n1 n2 in
-          if List.take_last n tys1 = List.take_last n tys2 then
+          if List.take n tys1 = List.take n tys2 then
             unify
-              (List.take_last n tys1 @ tyctx)
-              (lambda (List.drop_last n tys1) t1)
-              (lambda (List.drop_last n tys2) t2)
+              (List.rev_app (List.take n tys1) tyctx)
+              (lambda (List.drop n tys1) t1)
+              (lambda (List.drop n tys2) t2)
           else
             assert false (* fail TypesMismatch *)
     | _ -> failwith "logic variable on the left (7)"
   with
     | UnifyError NotLLambda ->
         let n = max (closing_depth t1) (closing_depth t2) in
-        let tys = List.take n tyctx in
+        let tys = List.rev (List.take n tyctx) in
           handler (lambda tys t1) (lambda tys t2)
 
 let pattern_unify used_names t1 t2 =

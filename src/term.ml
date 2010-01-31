@@ -56,7 +56,7 @@ let db n = DB n
 let rec lambda tys t =
   if tys = [] then t else
     match t with
-      | Lam (tys',t') -> lambda (tys' @ tys) t'
+      | Lam (tys',t') -> lambda (tys @ tys') t'
       | _ -> Lam (tys,t)
 
 let app a b =
@@ -103,7 +103,7 @@ let rec hnorm term =
                 let e, n', args' = make_env n args in
                 let ol = List.length e in
                   if n' > 0
-                  then hnorm (susp (lambda (List.drop_last (n-n') tys) t) ol 0 e)
+                  then hnorm (susp (lambda (List.drop (n-n') tys) t) ol 0 e)
                   else hnorm (app (susp t ol 0 e) args')
             | _ -> app t args
           end
@@ -521,7 +521,7 @@ let rec tc tyctx t =
           assert (List.take n tys = arg_tys) ;
           Ty(List.drop n tys, bty)
     | Lam(tys,t) ->
-        tyarrow (List.rev tys) (tc (tys @ tyctx) t)
+        tyarrow tys (tc (List.rev_app tys tyctx) t)
     | _ -> assert false
 
 let is_tyvar str =

@@ -162,7 +162,7 @@ let typing_tests =
         (fun () ->
            assert_ty_equal
              (tyarrow [aty; bty] aty)
-             (tc [] ([bty; aty] // db 2))) ;
+             (tc [] ([aty; bty] // db 2))) ;
     ]
 
 let binding_tests =

@@ -234,6 +234,11 @@ module List = struct
     in
       aux list []
 
+  let rec rev_app xs ys =
+    match xs with
+      | [] -> ys
+      | x::xs -> rev_app xs (x::ys)
+
   let replicate n x =
     let rec aux = function
       | 0 -> []

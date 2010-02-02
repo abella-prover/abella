@@ -179,7 +179,7 @@ let tests =
                (fun () -> right_unify (x ^^ [a;b]) (d ^^ [x ^^ [b;c]]))) ;
 
       (* 10bis: quantifier dependency violation -- raise OccursCheck too *)
-      "[X1 a2 b3 != c3 (X b3 c3)]" >::
+      "[X1 a2 b3 != c3 (X1 b3 c3)]" >::
         (fun () ->
            let x = var Logic "x" 1 (tyarrow [iity; iity] ity) in
            let a = const ~ts:2 "a" iity in
@@ -243,7 +243,7 @@ let tests =
                assert_term_equal
                  ([bty; cty] // (h ^^ [a ; db 2])) y) ;
 
-      (* Example 14, OccursCheck *)
+      (* Example 14, rigid-path failure *)
       "[X1 a2 b3 != d3 (Y2 b3 c3)]" >::
         (fun () ->
            let x = var Logic "x" 1 (tyarrow [aty; bty] ity) in
@@ -252,7 +252,7 @@ let tests =
            let b = const ~ts:3 "b" bty in
            let c = const ~ts:3 "c" cty in
            let d = const ~ts:3 "d" (tyarrow [dty] ity) in
-             assert_raises_occurs_check
+             assert_raises_unify_failure
                (fun () -> right_unify (x ^^ [a;b]) (d ^^ [y ^^ [b;c]]))) ;
 
       "[a = a]" >::

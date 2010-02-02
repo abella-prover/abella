@@ -220,9 +220,9 @@ let raise_and_invert ts1 ts2 a1 a2 lev =
     | t::tl ->
         begin match observe t with
           | DB _ -> raise_var tl (n-1)
-          | Var {ts=cts;tag=tag} when constant tag ->
+          | Var c when constant c.tag ->
               let raised,inds,consts = raise_var tl (n-1) in
-                if cts<=ts2
+                if c.ts<=ts2
                 then (true,(db (n+lev))::inds,t::consts)
                 else (raised,inds,consts)
           | _ -> assert false
@@ -338,8 +338,8 @@ let rec prune_same_var l1 l2 j bl = match l1,l2 with
       end
   | t1::a1,t2::a2 ->
       begin match observe t1,observe t2 with
-        | Var {tag=tag1},Var {tag=tag2}
-          when tag1=tag2 && constant tag1 && eq t1 t2 ->
+        | Var v1,Var v2
+          when v1 = v2 && constant v1.tag ->
             (db bl)::(prune_same_var a1 a2 j (bl-1))
         | DB i1,DB i2     when i1+j = i2 ->
             (db bl)::(prune_same_var a1 a2 j (bl-1))
@@ -382,7 +382,7 @@ let make_non_llambda_subst v1 ts1 a1 t2 =
 let rigid_path_check v1 t2 =
   let rec aux n t =
     match observe (hnorm t) with
-      | Var v -> (v1 != v) && (v.ts <= v1.ts)
+      | Var v -> (v1 <> v) && (v.ts <= v1.ts)
       | DB i -> i <= n
       | Lam(tys, t) -> aux (n + List.length tys) t
       | App(h, ts) -> List.for_all (aux n) (h::ts)
@@ -440,7 +440,7 @@ let reverse_bind tyctx t1 t2 =
 let makesubst tyctx h1 t2 a1 n =
   (* Check that h1 is a variable, get its timestamp *)
   let hv1 = match observe h1 with
-    | Var v -> assert (v.tag=instantiatable) ; v
+    | Var v -> assert (variable v.tag) ; v
     | _ -> assert false
   in
   let ts1 = hv1.ts in
@@ -461,12 +461,12 @@ let makesubst tyctx h1 t2 a1 n =
            * If not, [c] must belong to the argument list. *)
           if v.ts <= ts1 then c else
             let j = cindex v a1 n in
-              if j = 0 then fail OccursCheck ;
+              if j = 0 then fail Generic ;
               db (j+lev)
       | DB i ->
           if i<=lev then c else
             let j = bvindex (i-lev) a1 n in
-              if j = 0 then fail OccursCheck ;
+              if j = 0 then fail Generic ;
               db (j+lev)
       | Var v when variable v.tag ->
           if eq c h1 then fail OccursCheck ;
@@ -483,7 +483,7 @@ let makesubst tyctx h1 t2 a1 n =
             (nested_subst (List.rev_app tys tyctx) t (lev + List.length tys))
       | App (h2,a2) ->
           begin match observe h2 with
-            | Var {tag=tag} when constant tag ->
+            | Var hv2 when constant hv2.tag ->
                 let a2 = List.map hnorm a2 in
                 app
                   (nested_subst tyctx h2 lev)
@@ -493,12 +493,12 @@ let makesubst tyctx h1 t2 a1 n =
                 app
                   (nested_subst tyctx h2 lev)
                   (List.map (fun x -> nested_subst tyctx x lev) a2)
-            | Var {ts=ts2;tag=tag} when tag=instantiatable ->
+            | Var hv2 when variable hv2.tag ->
                 if eq h2 h1 then fail OccursCheck ;
                 let a2 = List.map hnorm a2 in
-                  if check_flex_args a2 ts2 then
+                  if check_flex_args a2 hv2.ts then
                     let changed,a1',a2' =
-                      raise_and_invert ts1 ts2 a1 a2 lev
+                      raise_and_invert ts1 hv2.ts a1 a2 lev
                     in
                       if changed then
                         let a2binds = List.map (tc tyctx) a2 in
@@ -508,13 +508,13 @@ let makesubst tyctx h1 t2 a1 n =
                         let ty = Ty(a2'tys @ List.drop (List.length a2) h2tys,
                                     bty) in
                         let h' =
-                          named_fresh hv1.name (min ts1 ts2) ty
+                          named_fresh hv1.name (min ts1 hv2.ts) ty
                         in
                           bind h2
                             (lambda a2binds (app h' a2')) ;
                           app h' a1'
                       else
-                        if ts1<ts2 then
+                        if ts1<hv2.ts then
                           let ty = tc tyctx h2 in
                           let h' = named_fresh hv1.name ts1 ty in
                             bind h2 h' ;
@@ -558,10 +558,10 @@ let makesubst tyctx h1 t2 a1 n =
           end
       | App (h2,a2) ->
           begin match observe h2 with
-            | Var {ts=ts2} when eq h1 h2 ->
+            | Var hv2 when eq h1 h2 ->
                 (* [h1] being instantiatable, no need to check it for [h2] *)
                 let a2 = List.map hnorm a2 in
-                  if check_flex_args a2 ts2 then
+                  if check_flex_args a2 hv2.ts then
                     let bindlen = n+lev in
                       if bindlen = List.length a2 then
                         let args = prune_same_var a1 a2 lev bindlen in
@@ -608,7 +608,7 @@ and unify_const_term tyctx cst t2 = if eq cst t2 then () else
     | Lam (tys,t2) ->
         let a1 = lift_args [] (List.length tys) in
           unify (List.rev_app tys tyctx) (app cst a1) t2
-    | Var {tag=t} when not (variable t || constant t) ->
+    | Var v when not (variable v.tag || constant v.tag) ->
         failwith "logic variable on the left (3)"
     | _ -> fail (ConstClash (cst,t2))
 
@@ -624,7 +624,7 @@ and unify_bv_term tyctx n1 t1 t2 = match observe t2 with
       let t1' = lift t1 n in
       let a1 = lift_args [] n in
         unify tyctx (app t1' a1) t2
-  | Var {tag=t} when not (variable t || constant t) ->
+  | Var v when not (variable v.tag || constant v.tag) ->
       failwith "logic variable on the left (4)"
   | _ -> assert false
 
@@ -633,7 +633,7 @@ and unify_bv_term tyctx n1 t1 t2 = match observe t2 with
  * [t2] should be dereferenced and head-normalized, different from a var. *)
 and unify_app_term tyctx h1 a1 t1 t2 =
   match observe h1,observe t2 with
-  | Var {tag=tag}, _ when variable tag ->
+  | Var hv1, _ when variable hv1.tag ->
       let n = List.length a1 in
         bind h1 (makesubst tyctx h1 t2 a1 n)
   | Var v1, App (h2,a2) when constant v1.tag ->
@@ -645,10 +645,10 @@ and unify_app_term tyctx h1 a1 t1 t2 =
               fail (ConstClash (h1,h2))
         | DB _ ->
             fail (ConstClash (h1,h2))
-        | Var {tag=tag} when variable tag ->
+        | Var hv2 when variable hv2.tag ->
             let m = List.length a2 in
               bind h2 (makesubst tyctx h2 t1 a2 m)
-        | Var {tag=t} when not (variable t || constant t) ->
+        | Var v when not (variable v.tag || constant v.tag) ->
             failwith "logic variable on the left (5)"
         | _ -> assert false
       end
@@ -669,9 +669,22 @@ and unify_app_term tyctx h1 a1 t1 t2 =
         unify_app_term (List.rev_app tys tyctx) h1' a1' t1' t2
   | Ptr _, _ | _, Ptr _
   | Susp _, _ | _, Susp _ -> assert false
-  | Var {tag=t}, _ when not (variable t || constant t) ->
+  | Var v, _ when not (variable v.tag || constant v.tag) ->
       failwith "logic variable on the left (6)"
   | _ -> fail (ConstClash (h1,t2))
+
+and unify_var_term tyctx t1 t2 =
+  let v1 =
+    match observe t1 with
+      | Var v -> v
+      | _ -> assert false
+  in
+    if reverse_bind tyctx t2 t1 then
+      ()
+    else if rigid_path_check v1 t2 then
+      bind t1 t2
+    else
+      bind t1 (makesubst tyctx t1 t2 [] 0)
 
 (** The main unification procedure.
   * Either succeeds and realizes the unification substitutions as side effects
@@ -688,20 +701,8 @@ and unify_app_term tyctx h1 a1 t1 t2 =
 and unify tyctx t1 t2 =
   try match observe t1,observe t2 with
     | Var v1, Var v2 when v1 = v2 -> ()
-    | Var v1,_ when variable v1.tag ->
-        if reverse_bind tyctx t2 t1 then
-          ()
-        else if rigid_path_check v1 t2 then
-          bind t1 t2
-        else
-          bind t1 (makesubst tyctx t1 t2 [] 0)
-    | _,Var v2 when variable v2.tag ->
-        if reverse_bind tyctx t1 t2 then
-          ()
-        else if rigid_path_check v2 t1 then
-          bind t2 t1
-        else
-          bind t2 (makesubst tyctx t2 t1 [] 0)
+    | Var v1,_ when variable v1.tag -> unify_var_term tyctx t1 t2
+    | _,Var v2 when variable v2.tag -> unify_var_term tyctx t2 t1
 
     (* Check for a special case of asymmetric unification outside of LLambda *)
     | App(h1,a1), App(h2,a2) ->
@@ -719,8 +720,8 @@ and unify tyctx t1 t2 =
 
     | App (h1,a1),_                 -> unify_app_term tyctx h1 a1 t1 t2
     | _,App (h2,a2)                 -> unify_app_term tyctx h2 a2 t2 t1
-    | Var {tag=t},_ when constant t -> unify_const_term tyctx t1 t2
-    | _,Var {tag=t} when constant t -> unify_const_term tyctx t2 t1
+    | Var c1,_ when constant c1.tag -> unify_const_term tyctx t1 t2
+    | _,Var c2 when constant c2.tag -> unify_const_term tyctx t2 t1
     | DB n,_                        -> unify_bv_term tyctx n t1 t2
     | _,DB n                        -> unify_bv_term tyctx n t2 t1
     | Lam (tys1,t1),Lam(tys2,t2)   ->

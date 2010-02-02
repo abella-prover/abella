@@ -51,11 +51,11 @@ struct
 
 open P
 
-let used = ref []
+let local_used = ref []
 
 let named_fresh name ts ty =
-  let (v, new_used) = fresh_wrt ~ts instantiatable name ty !used in
-    used := new_used ;
+  let (v, new_used) = fresh_wrt ~ts instantiatable name ty !local_used in
+    local_used := new_used ;
     v
 
 let constant tag =
@@ -741,9 +741,82 @@ and unify tyctx t1 t2 =
         let tys = List.rev (List.take n tyctx) in
           handler (lambda tys t1) (lambda tys t2)
 
-let pattern_unify used_names t1 t2 =
-  used := used_names ;
+let pattern_unify ~used t1 t2 =
+  local_used := used ;
   unify [] (hnorm t1) (hnorm t2)
+
+(* Given Lam(tys1, App(h1, a1)) and Lam(tys2, App(h2, a2))
+   where h1 is flexible, h2 is rigid, and len(tys1) <= len(tys2),
+   return a complete list of possible bindings for h1 *)
+let flexible_heads ~used ~sr (tys1, h1, a1) (tys2, h2, a2) =
+  assert (tc [] (lambda tys1 (app h1 a1)) = tc [] (lambda tys2 (app h2 a2))) ;
+  let n1 = List.length tys1 in
+  let n2 = List.length tys2 in
+  let () = assert (n2 >= n1) in
+  let tys2' = List.drop n1 tys2 in
+  let a1tys = List.map (tc (List.rev tys1)) a1 in
+  let a2tys = List.map (tc (List.rev tys2)) a2 in
+  let a1n = List.length a1 in
+  let hv1 = term_to_var h1 in
+  let () = assert (variable hv1.tag) in
+
+  let create_raised_vars arg_tys target_tys =
+    local_used := used ;
+    let dbs = List.rev_map db (List.range 1 (List.length arg_tys)) in
+      List.map
+        (fun ty ->
+           let arg_tys, dbs =
+             List.split
+               (List.filter
+                  (fun (aty, _) -> Subordination.query sr aty ty)
+                  (List.combine arg_tys dbs))
+           in
+             app (named_fresh hv1.name hv1.ts (tyarrow arg_tys ty)) dbs)
+        target_tys
+  in
+
+  (* Imitation *)
+  let imitable =
+    match observe (hnorm h2) with
+      | Var v when constant v.tag -> true
+      | DB i -> i <= n2 - n1
+      | _ -> assert false
+  in
+  let imitation =
+    if imitable then
+      [lambda (a1tys @ tys2')
+         (app h2 (create_raised_vars (a1tys @ tys2') a2tys))]
+    else
+      []
+  in
+
+  (* Projection *)
+  let projections =
+    let n = a1n + (n2 - n1) in
+    let bty = match hv1.ty with Ty(tys, ty) -> Ty(List.drop n tys, ty) in
+    let bn = match bty with Ty(tys, _) -> List.length tys in
+      List.filter_map
+        (fun (a, aty, i) ->
+           let Ty(tys, ty) = aty in
+           let use = List.drop_last bn tys in
+           let leave = List.take_last bn tys in
+             if Ty(leave, ty) = bty then
+               Some
+                 (lambda (a1tys @ tys2')
+                    (app (db (n-i))
+                       (create_raised_vars (a1tys @ tys2') use)))
+             else
+               None)
+        (List.combine3 a1 a1tys (List.range 0 (a1n - 1)))
+  in
+
+  (* Final results *)
+  let results = imitation @ projections in
+  let () =
+    let tyctx = List.rev tys1 in
+      List.iter (fun r -> assert (hv1.ty = tc tyctx r)) results
+  in
+    results
 
 end
 
@@ -764,10 +837,10 @@ module Left =
         end)
 
 let right_unify ?used:(used=[]) t1 t2 =
-  Right.pattern_unify used t1 t2
+  Right.pattern_unify ~used t1 t2
 
 let left_unify ?used:(used=[]) t1 t2 =
-  Left.pattern_unify used t1 t2
+  Left.pattern_unify ~used t1 t2
 
 let try_with_state ~fail f =
   let state = get_scoped_bind_state () in
@@ -782,6 +855,12 @@ let try_right_unify ?used:(used=[]) t1 t2 =
        right_unify ~used t1 t2 ;
        true)
 
+let try_left_unify ?used:(used=[]) t1 t2 =
+  try_with_state ~fail:false
+    (fun () ->
+       left_unify ~used t1 t2 ;
+       true)
+
 let try_left_unify_cpairs ~used t1 t2 =
   let state = get_scoped_bind_state () in
   let cpairs = ref [] in
@@ -794,7 +873,7 @@ let try_left_unify_cpairs ~used t1 t2 =
           end)
   in
     try
-      LeftCpairs.pattern_unify used t1 t2 ;
+      LeftCpairs.pattern_unify ~used t1 t2 ;
       Some !cpairs
     with
       | UnifyFailure _ -> set_scoped_bind_state state ; None
@@ -813,5 +892,7 @@ let try_right_unify_cpairs t1 t2 =
                  let handler = cpairs_handler
                end)
        in
-         RightCpairs.pattern_unify [] t1 t2 ;
+         RightCpairs.pattern_unify ~used:[] t1 t2 ;
          Some !cpairs)
+
+let left_flexible_heads = Left.flexible_heads

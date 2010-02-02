@@ -906,6 +906,69 @@ let case_tests =
                    assert_term_pprint_equal "B n1 n2" b ;
                | cases -> assert_expected_cases 1 cases) ;
 
+      "On flex-rigid: R N = plus A B" >::
+        (fun () ->
+           let tm = tybase "tm" in
+           let r = var Eigen "R" 0 (tyarrow [tm] tm) in
+           let n = var Eigen "N" 0 tm in
+           let a = var Eigen "A" 0 tm in
+           let b = var Eigen "B" 0 tm in
+           let plus = var Constant "plus" 0 (tyarrow [tm; tm] tm) in
+           let term = Eq(r ^^ [n], plus ^^ [a; b]) in
+             match case term with
+               | [case1; case2] ->
+                   set_bind_state case1.bind_state ;
+                   assert_term_pprint_equal "x1\\plus (R1 x1) (R2 x1)" r ;
+                   assert_term_pprint_equal "N" n ;
+                   assert_term_pprint_equal "R1 N" a ;
+                   assert_term_pprint_equal "R2 N" b ;
+
+                   set_bind_state case2.bind_state ;
+                   assert_term_pprint_equal "x1\\x1" r ;
+                   assert_term_pprint_equal "plus A B" n ;
+                   assert_term_pprint_equal "A" a ;
+                   assert_term_pprint_equal "B" b ;
+               | cases -> assert_expected_cases 2 cases) ;
+
+      "On flex-rigid: X^0 Y^0 a^1 = a^1" >::
+        (fun () ->
+           let x = var Eigen "X" 0 iiity in
+           let y = var Eigen "Y" 0 ity in
+           let a = var Constant "a" 1 ity in
+           let term = Eq(x ^^ [y; a], a) in
+             match case term with
+               | [case1] ->
+                   set_bind_state case1.bind_state ;
+                   assert_term_pprint_equal "x1\\x2\\x2" x ;
+               | cases -> assert_expected_cases 1 cases) ;
+
+      "On flex-rigid: R X b = a b" >::
+        (fun () ->
+           let r = var Eigen "R" 0 (tyarrow [iiity; ity] ity) in
+           let x = var Eigen "X" 0 iiity in
+           let a = var Constant "a" 0 iity in
+           let b = var Constant "b" 0 ity in
+           let term = Eq(r ^^ [x; b], a ^^ [b]) in
+             match case term with
+               | [case1; case2] ->
+                   set_bind_state case1.bind_state ;
+                   assert_term_pprint_equal "x1\\x2\\a (R1 x1 x2)" r ;
+                   begin match case1.new_hyps with
+                     | [hyp1] -> assert_pprint_equal "R1 X b = b" hyp1 ;
+                     | hs -> assert_int_equal 1 (List.length hs)
+                   end ;
+
+                   set_bind_state case2.bind_state ;
+                   assert_term_pprint_equal
+                     "x1\\x2\\x1 (R1 x1 x2) (R2 x1 x2)" r ;
+                   begin match case2.new_hyps with
+                     | [hyp1] -> assert_pprint_equal
+                         "X (R1 X b) (R2 X b) = a b" hyp1 ;
+                     | hs -> assert_int_equal 1 (List.length hs)
+                   end ;
+               | cases -> assert_expected_cases 2 cases
+        );
+
     ]
 
 let induction_tests =

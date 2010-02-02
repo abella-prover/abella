@@ -1,6 +1,7 @@
 Document in next release
 ========================
 Subordination and "Close" command
+Case analysis handles flex-rigid pairs
 
 Future
 ======

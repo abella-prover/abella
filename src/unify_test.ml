@@ -581,6 +581,106 @@ let tests =
                | Var {ts=0} -> ()
                | _ -> assert_failure "Timestamp should be lowered to match") ;
 
+      "R^0 N^0 = plus A^0 B^0" >::
+        (fun () ->
+           let r = var Eigen "R" 0 iity in
+           let n = var Eigen "N" 0 ity in
+           let a = var Eigen "A" 0 ity in
+           let b = var Eigen "B" 0 ity in
+           let plus = var Constant "plus" 0 iiity in
+           let used = [("R", r); ("N", n); ("A", a); ("B", b)] in
+             match
+               left_flexible_heads ~used ~sr:Subordination.empty
+                 ([], r, [n]) ([], plus, [a; b])
+             with
+               | [t1; t2] ->
+                   assert_term_pprint_equal "x1\\plus (R1 x1) (R2 x1)" t1 ;
+                   assert_term_pprint_equal "x1\\x1" t2 ;
+               | ts ->
+                   assert_int_equal 2 (List.length ts)
+        );
+
+      "R^0 N^0 = x1\\x1 A^0 B^0" >::
+        (fun () ->
+           let r = var Eigen "R" 0 (tyarrow [ity; iiity] ity) in
+           let n = var Eigen "N" 0 ity in
+           let a = var Eigen "A" 0 ity in
+           let b = var Eigen "B" 0 ity in
+           let used = [("R", r); ("N", n); ("A", a); ("B", b)] in
+             match
+               left_flexible_heads ~used ~sr:Subordination.empty
+                 ([], r, [n]) ([iiity], db 1, [a; b])
+             with
+               | [t1; t2] ->
+                   assert_term_pprint_equal
+                     "x1\\x2\\x2 (R1 x1 x2) (R2 x1 x2)" t1 ;
+                   assert_term_pprint_equal
+                     "x1\\x2\\x1" t2 ;
+               | ts ->
+                   assert_int_equal 2 (List.length ts)
+        );
+
+      "x1\\R^0 N^0 = x1\\x1 A^0 B^0" >::
+        (fun () ->
+           let r = var Eigen "R" 0 iity in
+           let n = var Eigen "N" 0 ity in
+           let a = var Eigen "A" 0 ity in
+           let b = var Eigen "B" 0 ity in
+           let used = [("R", r); ("N", n); ("A", a); ("B", b)] in
+             match
+               left_flexible_heads ~used ~sr:Subordination.empty
+                 ([iiity], r, [n]) ([iiity], db 1, [a; b])
+             with
+               | [t1] ->
+                   assert_term_pprint_equal "x1\\x1" t1 ;
+               | ts ->
+                   assert_int_equal 1 (List.length ts)
+        );
+
+      "R^0 X^0 b^0 = a^0 b^0" >::
+        (fun () ->
+           let r = var Eigen "R" 0 (tyarrow [iiity; ity] ity) in
+           let x = var Eigen "X" 0 iiity in
+           let a = var Constant "a" 0 iity in
+           let b = var Constant "b" 0 ity in
+           let used = [("R", r); ("X", x); ("A", a); ("B", b)] in
+             match
+               left_flexible_heads ~used ~sr:Subordination.empty
+                 ([], r, [x; b]) ([], a, [b])
+             with
+               | [t1; t2; t3] ->
+                   assert_term_pprint_equal
+                     "x1\\x2\\a (R1 x1 x2)" t1 ;
+                   assert_term_pprint_equal
+                     "x1\\x2\\x1 (R1 x1 x2) (R2 x1 x2)" t2 ;
+                   assert_term_pprint_equal
+                     "x1\\x2\\x2" t3 ;
+               | ts ->
+                   assert_int_equal 3 (List.length ts)
+        );
+
+      "Flex-rigid subordination: R A1 B1 = sr_a_b A2 B2" >::
+        (fun () ->
+           let r = var Eigen "R" 0 (tyarrow [sr_a; sr_b] oty) in
+           let a1 = var Eigen "A1" 0 sr_a in
+           let a2 = var Eigen "A2" 0 sr_a in
+           let b1 = var Eigen "B1" 0 sr_b in
+           let b2 = var Eigen "B2" 0 sr_b in
+           let sr_a_b = var Constant "sr_a_b" 0 (tyarrow [sr_a; sr_b] oty) in
+           let used =
+             [("R", r); ("A1", a1); ("A2", a2); ("B1", b1); ("B2", b2)]
+           in
+             match
+               left_flexible_heads ~used ~sr:sr_sr
+                 ([], r, [a1; b1]) ([], sr_a_b, [a2; b2])
+             with
+               | [t1] ->
+                   assert_term_pprint_equal
+                     "x1\\x2\\sr_a_b (R1 x1) (R2 x1 x2)" t1 ;
+               | ts ->
+                   assert_int_equal 1 (List.length ts)
+        );
+
       (* This is a case where unification has no most general
          solution, but it would be nice of a partial solution was at
          least generated. Perhaps more generally we could eventually

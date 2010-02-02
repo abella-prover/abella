@@ -1,0 +1,32 @@
+%% Case analysis on flexible-rigid equalities outside of LLambda
+
+Kind    exp     type.
+
+Type    plus    exp -> exp -> exp.
+
+Theorem subst_plus : forall R N A B,
+  R N = plus A B ->
+    (exists R1 R2, R = x\plus (R1 x) (R2 x) /\ A = R1 N /\ B = R2 N) \/
+    (R = x\x /\ N = plus A B).
+intros. case H1.
+  search.
+  search.
+
+
+Kind    i           type.
+
+Type    a           i -> i.
+Type    b           i.
+
+% This example is taken from Huet, "A Unification Algorithm for Typed
+% lambda-Calculus", 1975 TCS
+Theorem huet1 : forall F X,
+  F (F X) = a (a b) ->
+    (F = x\a (a b)) \/
+    (F = a /\ X = b) \/
+    (F = x\x /\ X = a (a b)).
+intros. case H1.
+  case H2.
+    case H3. search.
+    search.
+  search.

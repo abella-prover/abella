@@ -557,6 +557,19 @@ let tests =
                       (List.length l))
                | None -> assert_failure "Unification failed" );
 
+      "X^0 = F^0 X^0" >::
+        (fun () ->
+           let x = var Logic "X" 0 ity in
+           let f = var Logic "F" 0 iity in
+             match try_right_unify_cpairs x (f ^^ [x]) with
+               | Some [(a, b)] ->
+                   assert_term_pprint_equal "X" a ;
+                   assert_term_pprint_equal "F X" b ;
+               | Some l -> assert_failure
+                   (Printf.sprintf "Expected one conflict pair, but found %d"
+                      (List.length l))
+               | None -> assert_failure "Unification failed" );
+
       "X^0 = x1\\Y^1" >::
         (fun () ->
            let x = var Logic "X" 0 iity in

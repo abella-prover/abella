@@ -354,7 +354,7 @@ let rec prune_same_var l1 l2 j bl = match l1,l2 with
  * [t2]. Here it is assumed that [a1] satisfies the LLambda
  * restriction, but [t2] might not. If a substitution cannot be found
  * due to non-LLambda issues, an error exception is thrown. *)
-let make_non_llambda_subst ts1 a1 t2 =
+let make_non_llambda_subst v1 ts1 a1 t2 =
   let a1 = List.map hnorm a1 in
   let n = List.length a1 in
   let rec aux lev t =
@@ -365,7 +365,7 @@ let make_non_llambda_subst ts1 a1 t2 =
               raise (UnifyError NotLLambda)
             else
               db (i+lev)
-      | Var v when variable v.tag && v.ts <= ts1 ->
+      | Var v when v <> v1 && variable v.tag && v.ts <= ts1 ->
           t
       | App(h2,a2) ->
           app (aux lev h2) (List.map (aux lev) a2)
@@ -522,7 +522,7 @@ let makesubst tyctx h1 t2 a1 n =
                         else
                           app h2 a1'
                   else
-                    make_non_llambda_subst ts1 a1 c
+                    make_non_llambda_subst hv1 ts1 a1 c
             | Var _ -> failwith "logic variable on the left (1)"
             | _ -> assert false
           end
@@ -576,7 +576,7 @@ let makesubst tyctx h1 t2 a1 n =
                       else
                         assert false (* fail TypesMismatch *)
                   else
-                    make_non_llambda_subst ts1 a1 t2
+                    make_non_llambda_subst hv1 ts1 a1 t2
             | App _ | Lam _
             | Var _ | DB _ ->
                 nested_subst tyctx t2 lev

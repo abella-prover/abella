@@ -168,25 +168,21 @@ let tests =
                assert_term_equal ([aty; bty; aty] // (h^^[db 2])) x) ;
 
       (* Example 10, failure due to OccursCheck *)
-      "[X1 a2 b3 != d1 (X1 b3 c3)]" >::
+      "[X1 != d1 X1]" >::
         (fun () ->
-           let x = var Logic "x" 1 iiity in
-           let a = const ~ts:2 "a" ity in
-           let b = const ~ts:3 "b" ity in
-           let c = const ~ts:3 "c" ity in
+           let x = var Logic "X" 1 ity in
            let d = const ~ts:1 "d" iity in
              assert_raises_occurs_check
-               (fun () -> right_unify (x ^^ [a;b]) (d ^^ [x ^^ [b;c]]))) ;
+               (fun () -> right_unify x (d ^^ [x]))) ;
 
-      (* 10bis: quantifier dependency violation -- raise OccursCheck too *)
-      "[X1 a2 b3 != c3 (X1 b3 c3)]" >::
+      (* 10bis: quantifier dependency violation *)
+      "[X1 a2 != d3 (X1 a2)]" >::
         (fun () ->
-           let x = var Logic "x" 1 (tyarrow [iity; iity] ity) in
-           let a = const ~ts:2 "a" iity in
-           let b = const ~ts:3 "b" iity in
-           let c = const ~ts:3 "c" iity in
-             assert_raises_occurs_check
-               (fun () -> right_unify (x ^^ [a;b]) (c ^^ [x ^^ [b;c]]))) ;
+           let x = var Logic "X" 1 iity in
+           let a = const ~ts:2 "a" ity in
+           let d = const ~ts:3 "d" iity in
+             assert_raises_unify_failure
+               (fun () -> right_unify (x ^^ [a]) (d ^^ [x ^^ [a]]))) ;
 
       (* Example 11, flex-flex without raising *)
       "[X1 a2 b3 = Y1 b3 c3]" >::
@@ -679,6 +675,27 @@ let tests =
                      "x1\\x2\\sr_a_b (R1 x1) (R2 x1 x2)" t1 ;
                | ts ->
                    assert_int_equal 1 (List.length ts)
+        );
+
+      "X = f\\f (X (y\\e))" >::
+        (fun () ->
+           let xty = tyarrow [iity] ity in
+           let x = var Logic "X" 0 xty in
+           let e = var Constant "e" 0 ity in
+             match
+               try_right_unify_cpairs
+                 x
+                 ([iity] // (db 1 ^^ [x ^^ [[ity] // e]]))
+             with
+               | Some [(a, b)] ->
+                   assert_term_pprint_equal "X" a ;
+                   assert_term_pprint_equal "x1\\x1 (X (x2\\e))" b ;
+               | Some l -> assert_failure
+                   (Printf.sprintf "Expected one conflict pair, but found %d"
+                      (List.length l))
+               | None ->
+                   (* X = f\ f e is one solution *)
+                   assert_failure "Unification failed"
         );
 
       (* This is a case where unification has no most general

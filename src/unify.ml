@@ -484,17 +484,19 @@ let makesubst tyctx h1 t2 a1 n =
       | App (h2,a2) ->
           begin match observe h2 with
             | Var hv2 when constant hv2.tag ->
-                let a2 = List.map hnorm a2 in
-                app
-                  (nested_subst tyctx h2 lev)
-                  (List.map (fun x -> nested_subst tyctx x lev) a2)
+                let h2' = nested_subst tyctx h2 lev in
+                let a2' =
+                  List.map (fun x -> nested_subst tyctx (hnorm x) lev) a2
+                in
+                  app h2' a2'
             | DB _ ->
-                let a2 = List.map hnorm a2 in
-                app
-                  (nested_subst tyctx h2 lev)
-                  (List.map (fun x -> nested_subst tyctx x lev) a2)
+                let h2' = nested_subst tyctx h2 lev in
+                let a2' =
+                  List.map (fun x -> nested_subst tyctx (hnorm x) lev) a2
+                in
+                  app h2' a2'
             | Var hv2 when variable hv2.tag ->
-                if eq h2 h1 then fail OccursCheck ;
+                if eq h2 h1 then raise (UnifyError NotLLambda) ;
                 let a2 = List.map hnorm a2 in
                   if check_flex_args a2 hv2.ts then
                     let changed,a1',a2' =

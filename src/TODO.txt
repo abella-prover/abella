@@ -2,6 +2,7 @@ Document in next release
 ========================
 Subordination and "Close" command
 Case analysis handles flex-rigid pairs
+Fixed unification issue involving occurs check
 
 Future
 ======

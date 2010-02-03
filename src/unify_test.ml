@@ -456,6 +456,17 @@ let tests =
              assert_term_pprint_equal "Y" y ;
              assert_term_pprint_equal "Z" z) ;
 
+      "w\\X^0 w = Y^0 Z^0" >::
+        (fun () ->
+           let x = var Eigen "X" 0 iity in
+           let y = var Eigen "Y" 0 iiity in
+           let z = var Eigen "Z" 0 ity in
+           let used = [("X", x); ("Y", y); ("Z", z)] in
+             left_unify ~used ([ity] // (x ^^ [db 1])) (y ^^ [z]) ;
+             assert_term_pprint_equal "x1\\Y Z x1" x ;
+             assert_term_pprint_equal "Y" y ;
+             assert_term_pprint_equal "Z" z) ;
+
       "X^0 a^1 = app (Y^0 W^0 a^1) (Z^0 a^1)" >::
         (fun () ->
            let a = const ~ts:1 "a" aty in

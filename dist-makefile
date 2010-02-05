@@ -6,12 +6,12 @@ abella: src/*.ml src/*.mly src/*.mll
 	ocamlopt -c -I src src/extensions.ml
 	ocamlopt -c -I src src/term.mli
 	ocamlopt -c -I src src/term.ml
-	ocamlopt -c -I src src/unify.mli
-	ocamlopt -c -I src src/unify.ml
 	ocamlopt -c -I src src/graph.mli
 	ocamlopt -c -I src src/graph.ml
 	ocamlopt -c -I src src/subordination.mli
 	ocamlopt -c -I src src/subordination.ml
+	ocamlopt -c -I src src/unify.mli
+	ocamlopt -c -I src src/unify.ml
 	ocamlopt -c -I src src/context.ml
 	ocamlopt -c -I src src/metaterm.ml
 	ocamlopt -c -I src src/typing.ml
@@ -29,9 +29,9 @@ abella: src/*.ml src/*.mly src/*.mll
                        src/debug.cmx \
                        src/extensions.cmx \
                        src/term.cmx \
-                       src/unify.cmx \
                        src/graph.cmx \
                        src/subordination.cmx \
+                       src/unify.cmx \
                        src/context.cmx \
                        src/metaterm.cmx \
                        src/typing.cmx \

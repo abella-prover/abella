@@ -251,6 +251,13 @@ module List = struct
 
   let map_snd f list =
     map (fun (x,y) -> (x, f y)) list
+
+  let rec combine3 l1 l2 l3 =
+    match l1, l2, l3 with
+      | [], [], [] -> []
+      | x::xs, y::ys, z::zs -> (x, y, z) :: (combine3 xs ys zs)
+      | _ -> raise (Invalid_argument "List.combine3")
+
 end
 
 module Hashtbl = struct

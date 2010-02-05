@@ -168,25 +168,21 @@ let tests =
                assert_term_equal ([aty; bty; aty] // (h^^[db 2])) x) ;
 
       (* Example 10, failure due to OccursCheck *)
-      "[X1 a2 b3 != d1 (X1 b3 c3)]" >::
+      "[X1 != d1 X1]" >::
         (fun () ->
-           let x = var Logic "x" 1 iiity in
-           let a = const ~ts:2 "a" ity in
-           let b = const ~ts:3 "b" ity in
-           let c = const ~ts:3 "c" ity in
+           let x = var Logic "X" 1 ity in
            let d = const ~ts:1 "d" iity in
              assert_raises_occurs_check
-               (fun () -> right_unify (x ^^ [a;b]) (d ^^ [x ^^ [b;c]]))) ;
+               (fun () -> right_unify x (d ^^ [x]))) ;
 
-      (* 10bis: quantifier dependency violation -- raise OccursCheck too *)
-      "[X1 a2 b3 != c3 (X b3 c3)]" >::
+      (* 10bis: quantifier dependency violation *)
+      "[X1 a2 != d3 (X1 a2)]" >::
         (fun () ->
-           let x = var Logic "x" 1 (tyarrow [iity; iity] ity) in
-           let a = const ~ts:2 "a" iity in
-           let b = const ~ts:3 "b" iity in
-           let c = const ~ts:3 "c" iity in
-             assert_raises_occurs_check
-               (fun () -> right_unify (x ^^ [a;b]) (c ^^ [x ^^ [b;c]]))) ;
+           let x = var Logic "X" 1 iity in
+           let a = const ~ts:2 "a" ity in
+           let d = const ~ts:3 "d" iity in
+             assert_raises_unify_failure
+               (fun () -> right_unify (x ^^ [a]) (d ^^ [x ^^ [a]]))) ;
 
       (* Example 11, flex-flex without raising *)
       "[X1 a2 b3 = Y1 b3 c3]" >::
@@ -243,7 +239,7 @@ let tests =
                assert_term_equal
                  ([bty; cty] // (h ^^ [a ; db 2])) y) ;
 
-      (* Example 14, OccursCheck *)
+      (* Example 14, rigid-path failure *)
       "[X1 a2 b3 != d3 (Y2 b3 c3)]" >::
         (fun () ->
            let x = var Logic "x" 1 (tyarrow [aty; bty] ity) in
@@ -252,7 +248,7 @@ let tests =
            let b = const ~ts:3 "b" bty in
            let c = const ~ts:3 "c" cty in
            let d = const ~ts:3 "d" (tyarrow [dty] ity) in
-             assert_raises_occurs_check
+             assert_raises_unify_failure
                (fun () -> right_unify (x ^^ [a;b]) (d ^^ [y ^^ [b;c]]))) ;
 
       "[a = a]" >::
@@ -460,6 +456,17 @@ let tests =
              assert_term_pprint_equal "Y" y ;
              assert_term_pprint_equal "Z" z) ;
 
+      "w\\X^0 w = Y^0 Z^0" >::
+        (fun () ->
+           let x = var Eigen "X" 0 iity in
+           let y = var Eigen "Y" 0 iiity in
+           let z = var Eigen "Z" 0 ity in
+           let used = [("X", x); ("Y", y); ("Z", z)] in
+             left_unify ~used ([ity] // (x ^^ [db 1])) (y ^^ [z]) ;
+             assert_term_pprint_equal "x1\\Y Z x1" x ;
+             assert_term_pprint_equal "Y" y ;
+             assert_term_pprint_equal "Z" z) ;
+
       "X^0 a^1 = app (Y^0 W^0 a^1) (Z^0 a^1)" >::
         (fun () ->
            let a = const ~ts:1 "a" aty in
@@ -557,6 +564,19 @@ let tests =
                       (List.length l))
                | None -> assert_failure "Unification failed" );
 
+      "X^0 = F^0 X^0" >::
+        (fun () ->
+           let x = var Logic "X" 0 ity in
+           let f = var Logic "F" 0 iity in
+             match try_right_unify_cpairs x (f ^^ [x]) with
+               | Some [(a, b)] ->
+                   assert_term_pprint_equal "X" a ;
+                   assert_term_pprint_equal "F X" b ;
+               | Some l -> assert_failure
+                   (Printf.sprintf "Expected one conflict pair, but found %d"
+                      (List.length l))
+               | None -> assert_failure "Unification failed" );
+
       "X^0 = x1\\Y^1" >::
         (fun () ->
            let x = var Logic "X" 0 iity in
@@ -567,6 +587,127 @@ let tests =
              match observe y with
                | Var {ts=0} -> ()
                | _ -> assert_failure "Timestamp should be lowered to match") ;
+
+      "R^0 N^0 = plus A^0 B^0" >::
+        (fun () ->
+           let r = var Eigen "R" 0 iity in
+           let n = var Eigen "N" 0 ity in
+           let a = var Eigen "A" 0 ity in
+           let b = var Eigen "B" 0 ity in
+           let plus = var Constant "plus" 0 iiity in
+           let used = [("R", r); ("N", n); ("A", a); ("B", b)] in
+             match
+               left_flexible_heads ~used ~sr:Subordination.empty
+                 ([], r, [n]) ([], plus, [a; b])
+             with
+               | [t1; t2] ->
+                   assert_term_pprint_equal "x1\\plus (R1 x1) (R2 x1)" t1 ;
+                   assert_term_pprint_equal "x1\\x1" t2 ;
+               | ts ->
+                   assert_int_equal 2 (List.length ts)
+        );
+
+      "R^0 N^0 = x1\\x1 A^0 B^0" >::
+        (fun () ->
+           let r = var Eigen "R" 0 (tyarrow [ity; iiity] ity) in
+           let n = var Eigen "N" 0 ity in
+           let a = var Eigen "A" 0 ity in
+           let b = var Eigen "B" 0 ity in
+           let used = [("R", r); ("N", n); ("A", a); ("B", b)] in
+             match
+               left_flexible_heads ~used ~sr:Subordination.empty
+                 ([], r, [n]) ([iiity], db 1, [a; b])
+             with
+               | [t1; t2] ->
+                   assert_term_pprint_equal
+                     "x1\\x2\\x2 (R1 x1 x2) (R2 x1 x2)" t1 ;
+                   assert_term_pprint_equal
+                     "x1\\x2\\x1" t2 ;
+               | ts ->
+                   assert_int_equal 2 (List.length ts)
+        );
+
+      "x1\\R^0 N^0 = x1\\x1 A^0 B^0" >::
+        (fun () ->
+           let r = var Eigen "R" 0 iity in
+           let n = var Eigen "N" 0 ity in
+           let a = var Eigen "A" 0 ity in
+           let b = var Eigen "B" 0 ity in
+           let used = [("R", r); ("N", n); ("A", a); ("B", b)] in
+             match
+               left_flexible_heads ~used ~sr:Subordination.empty
+                 ([iiity], r, [n]) ([iiity], db 1, [a; b])
+             with
+               | [t1] ->
+                   assert_term_pprint_equal "x1\\x1" t1 ;
+               | ts ->
+                   assert_int_equal 1 (List.length ts)
+        );
+
+      "R^0 X^0 b^0 = a^0 b^0" >::
+        (fun () ->
+           let r = var Eigen "R" 0 (tyarrow [iiity; ity] ity) in
+           let x = var Eigen "X" 0 iiity in
+           let a = var Constant "a" 0 iity in
+           let b = var Constant "b" 0 ity in
+           let used = [("R", r); ("X", x); ("A", a); ("B", b)] in
+             match
+               left_flexible_heads ~used ~sr:Subordination.empty
+                 ([], r, [x; b]) ([], a, [b])
+             with
+               | [t1; t2; t3] ->
+                   assert_term_pprint_equal
+                     "x1\\x2\\a (R1 x1 x2)" t1 ;
+                   assert_term_pprint_equal
+                     "x1\\x2\\x1 (R1 x1 x2) (R2 x1 x2)" t2 ;
+                   assert_term_pprint_equal
+                     "x1\\x2\\x2" t3 ;
+               | ts ->
+                   assert_int_equal 3 (List.length ts)
+        );
+
+      "Flex-rigid subordination: R A1 B1 = sr_a_b A2 B2" >::
+        (fun () ->
+           let r = var Eigen "R" 0 (tyarrow [sr_a; sr_b] oty) in
+           let a1 = var Eigen "A1" 0 sr_a in
+           let a2 = var Eigen "A2" 0 sr_a in
+           let b1 = var Eigen "B1" 0 sr_b in
+           let b2 = var Eigen "B2" 0 sr_b in
+           let sr_a_b = var Constant "sr_a_b" 0 (tyarrow [sr_a; sr_b] oty) in
+           let used =
+             [("R", r); ("A1", a1); ("A2", a2); ("B1", b1); ("B2", b2)]
+           in
+             match
+               left_flexible_heads ~used ~sr:sr_sr
+                 ([], r, [a1; b1]) ([], sr_a_b, [a2; b2])
+             with
+               | [t1] ->
+                   assert_term_pprint_equal
+                     "x1\\x2\\sr_a_b (R1 x1) (R2 x1 x2)" t1 ;
+               | ts ->
+                   assert_int_equal 1 (List.length ts)
+        );
+
+      "X = f\\f (X (y\\e))" >::
+        (fun () ->
+           let xty = tyarrow [iity] ity in
+           let x = var Logic "X" 0 xty in
+           let e = var Constant "e" 0 ity in
+             match
+               try_right_unify_cpairs
+                 x
+                 ([iity] // (db 1 ^^ [x ^^ [[ity] // e]]))
+             with
+               | Some [(a, b)] ->
+                   assert_term_pprint_equal "X" a ;
+                   assert_term_pprint_equal "x1\\x1 (X (x2\\e))" b ;
+               | Some l -> assert_failure
+                   (Printf.sprintf "Expected one conflict pair, but found %d"
+                      (List.length l))
+               | None ->
+                   (* X = f\ f e is one solution *)
+                   assert_failure "Unification failed"
+        );
 
       (* This is a case where unification has no most general
          solution, but it would be nice of a partial solution was at

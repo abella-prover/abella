@@ -549,6 +549,35 @@ let tests =
              coinduction ;
         ) ;
 
+      "Huet's unification example" >::
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall F X, F (F X) = r1 (r1 t1) ->
+                      (F = x1\\r1 (r1 t1)) \\/
+                      (F = x1\\r1 x1 /\\ X = t1) \\/
+                      (F = x1\\x1 /\\ X = r1 (r1 t1))" ;
+
+           assert_proof
+             (fun () ->
+                intros () ;
+                case "H1" ;
+                assert_n_subgoals 2 ;
+
+                case "H2" ;
+                assert_n_subgoals 3 ;
+
+                case "H3" ;
+                assert_n_subgoals 3 ;
+                search () ;
+                assert_n_subgoals 2 ;
+
+                search () ;
+                assert_n_subgoals 1 ;
+
+                search () ;
+             );
+        ) ;
+
       "Split theorem" >::
         (fun () ->
            let t =

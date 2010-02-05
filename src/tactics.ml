@@ -197,6 +197,68 @@ let rec recursive_metaterm_case ~used ~sr term =
           recursive_metaterm_case ~used ~sr fresh_body
     | _ -> Some {stateless_new_vars = [] ; stateless_new_hyps = [term]}
 
+let spine_view t =
+  let tys, t =
+    let t = hnorm t in
+      match observe t with
+        | Lam(tys, t) -> (tys, t)
+        | _ -> ([], t)
+  in
+  let head, args =
+    let t = hnorm t in
+      match observe t with
+        | App(head, args) -> (head, args)
+        | _ -> (t, [])
+  in
+    (tys, head, args)
+
+let rec is_left_flexible t =
+  match observe (hnorm t) with
+    | Var v -> v.tag = Eigen
+    | DB _ -> false
+    | Lam(_, b) -> is_left_flexible b
+    | App(h, _) -> is_left_flexible h
+    | _ -> assert false
+
+let rec is_left_rigid t =
+  match observe (hnorm t) with
+    | Var v -> v.tag = Constant || v.tag = Nominal
+    | DB _ -> true
+    | Lam(_, b) -> is_left_rigid b
+    | App(h, _) -> is_left_rigid h
+    | _ -> assert false
+
+let one_step_huet ~used ~sr a b =
+  let flex_rigid flex rigid =
+    let ftys, fhead, fargs = spine_view flex in
+    let rtys, rhead, rargs = spine_view rigid in
+      if List.length ftys > List.length rtys then
+        []
+      else
+        List.filter_map
+          (unwind_state
+             (fun x ->
+                let used = (term_vars_alist Eigen [x]) @ used in
+                  if try_left_unify ~used fhead x then
+                    match
+                      recursive_metaterm_case ~used ~sr (Eq(flex, rigid))
+                    with
+                      | None -> None
+                      | Some sc -> Some (stateless_case_to_case sc)
+                  else
+                    None))
+          (left_flexible_heads ~used ~sr
+             (ftys, fhead, fargs) (rtys, rhead, rargs))
+  in
+    if is_left_flexible a && is_left_rigid b then
+      flex_rigid a b
+    else if is_left_rigid a && is_left_flexible b then
+      flex_rigid b a
+    else
+      [{ bind_state = get_bind_state () ;
+         new_vars = [] ;
+         new_hyps = [Eq(a, b)] }]
+
 let rec or_to_list term =
   match term with
     | Or(left, right) -> (or_to_list left) @ (or_to_list right)
@@ -392,7 +454,15 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
                     | None -> None
                     | Some c -> Some (stateless_case_to_case c)))
             (or_to_list term)
-      | Eq _
+      | Eq(a, b) ->
+          begin match recursive_metaterm_case ~used ~sr term with
+            | None -> []
+            | Some sc ->
+                match sc.stateless_new_hyps with
+                  | [Eq(a', b')] when eq a a' && eq b b' ->
+                      one_step_huet ~used ~sr a b
+                  | _ -> [stateless_case_to_case sc]
+          end
       | And _
       | Binding(Exists, _, _)
       | Binding(Nabla, _, _) ->

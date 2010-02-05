@@ -1,0 +1,84 @@
+%% Case analysis on flexible-rigid equalities outside of LLambda
+
+
+Kind    exp     type.
+
+Type    plus    exp -> exp -> exp.
+
+Theorem subst_plus : forall R N A B,
+  R N = plus A B ->
+    (exists R1 R2, R = x\plus (R1 x) (R2 x) /\ A = R1 N /\ B = R2 N) \/
+    (R = x\x /\ N = plus A B).
+intros. case H1.
+  search.
+  search.
+
+
+Kind    i           type.
+
+Type    a           i -> i.
+Type    b           i.
+
+
+% This example is taken from Huet, "A Unification Algorithm for Typed
+% lambda-Calculus", 1975 TCS
+Theorem huet1 : forall F X,
+  F (F X) = a (a b) ->
+    (F = x\a (a b)) \/
+    (F = a /\ X = b) \/
+    (F = x\x /\ X = a (a b)).
+intros. case H1.
+  case H2.
+    case H3. search.
+    search.
+  search.
+
+
+% Functional difference list example from Dale Miller
+Define fdlist : (olist -> olist) -> olist -> prop by
+  fdlist (l\l) nil ;
+  fdlist (l\ X::(F l)) (X::L) := fdlist F L.
+
+Define append : olist -> olist -> olist -> prop by
+  append nil C C ;
+  append (X::A) B (X::C) := append A B C.
+
+Theorem fdlist_det1 : forall F L1 L2,
+  fdlist F L1 -> fdlist F L2 -> L1 = L2.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H3 H4. search.
+
+% The proof does not actually require examining flex-rigid equalities
+Theorem fdlist_append : forall F G FL GL HL,
+  fdlist (l\ F (G l)) HL -> fdlist F FL -> fdlist G GL ->
+    append FL GL HL.
+induction on 2. intros. case H2.
+  apply fdlist_det1 to H1 H3. search.
+  case H1. apply IH to H5 H4 H3 with F = F1. search.
+
+% Here's a version of the proof that examines flex-rigid equalities anyway
+Theorem fdlist_append : forall F G FL GL HL,
+  fdlist (l\ F (G l)) HL -> fdlist F FL -> fdlist G GL ->
+    append FL GL HL.
+induction on 1. intros. case H1.
+  case H4. case H2. case H3. search.
+  case H4.
+    case H2. case H6. apply IH to H5 H7 H3 with F = F3. search.
+    case H2. case H3. apply fdlist_det1 to H5 H6. search.
+
+Type    p1, p2, p3      o.
+
+Theorem manual_example : forall F G,
+  fdlist (l\ F (G l)) (p1::p2::p3::nil) ->
+    (F = l\ p1::p2::p3::l /\ G = l\ l) \/
+    (F = l\ p1::p2::l /\ G = l\ p3::l) \/
+    (F = l\ p1::l /\ G = l\ p2::p3::l) \/
+    (F = l\ l /\ G = l\ p1::p2::p3::l).
+intros. case H1. case H3. case H4. case H5. case H2.
+  case H7. case H6.
+    case H9. case H8.
+      case H11. case H10. search.
+      search.
+    search.
+  search.

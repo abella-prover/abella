@@ -51,11 +51,11 @@ struct
 
 open P
 
-let used = ref []
+let local_used = ref []
 
 let named_fresh name ts ty =
-  let (v, new_used) = fresh_wrt ~ts instantiatable name ty !used in
-    used := new_used ;
+  let (v, new_used) = fresh_wrt ~ts instantiatable name ty !local_used in
+    local_used := new_used ;
     v
 
 let constant tag =
@@ -220,9 +220,9 @@ let raise_and_invert ts1 ts2 a1 a2 lev =
     | t::tl ->
         begin match observe t with
           | DB _ -> raise_var tl (n-1)
-          | Var {ts=cts;tag=tag} when constant tag ->
+          | Var c when constant c.tag ->
               let raised,inds,consts = raise_var tl (n-1) in
-                if cts<=ts2
+                if c.ts<=ts2
                 then (true,(db (n+lev))::inds,t::consts)
                 else (raised,inds,consts)
           | _ -> assert false
@@ -338,8 +338,8 @@ let rec prune_same_var l1 l2 j bl = match l1,l2 with
       end
   | t1::a1,t2::a2 ->
       begin match observe t1,observe t2 with
-        | Var {tag=tag1},Var {tag=tag2}
-          when tag1=tag2 && constant tag1 && eq t1 t2 ->
+        | Var v1,Var v2
+          when v1 = v2 && constant v1.tag ->
             (db bl)::(prune_same_var a1 a2 j (bl-1))
         | DB i1,DB i2     when i1+j = i2 ->
             (db bl)::(prune_same_var a1 a2 j (bl-1))
@@ -347,26 +347,33 @@ let rec prune_same_var l1 l2 j bl = match l1,l2 with
       end
   | _ -> assert false
 
-(* Given a variable [v1] with timestamp [ts1] which has access to the
- * terms [a11 ... a1n] via de Bruijn indices,
- *   [make_non_llambda_subst ts1 a1 t2]
- * returns a substitution for [v1] which unifies it with
- * [t2]. Here it is assumed that [a1] satisfies the LLambda
- * restriction, but [t2] might not. If a substitution cannot be found
- * due to non-LLambda issues, an error exception is thrown. *)
-let make_non_llambda_subst ts1 a1 t2 =
+(* Given a variable [v1] which has access to the terms [a11 ... a1n] via
+ * de Bruijn indices,
+ *   [make_non_llambda_subst v1 a1 t2]
+ * returns a substitution for [v1] which unifies it with [t2]. Here it is
+ * assumed that [a1] satisfies the LLambda restriction, but [t2] might not. If
+ * a substitution cannot be found due to non-LLambda issues, an error exception
+ * is thrown. *)
+let make_non_llambda_subst v1 a1 t2 =
   let a1 = List.map hnorm a1 in
   let n = List.length a1 in
   let rec aux lev t =
     match observe (hnorm t) with
-      | Var v when constant v.tag && ts1 < v.ts ->
+      | Var v when variable v.tag && v <> v1 && v.ts <= v1.ts ->
+          t
+      | Var v when constant v.tag && v1.ts < v.ts ->
           let i = cindex v a1 n in
             if i = 0 then
               raise (UnifyError NotLLambda)
             else
               db (i+lev)
-      | Var v when variable v.tag && v.ts <= ts1 ->
-          t
+      | DB i ->
+          if i <= lev then t else
+            let j = bvindex (i-lev) a1 n in
+              if j = 0 then
+                raise (UnifyError NotLLambda)
+              else
+                db (j+lev)
       | App(h2,a2) ->
           app (aux lev h2) (List.map (aux lev) a2)
       | Lam(tys2,b2) ->
@@ -382,7 +389,7 @@ let make_non_llambda_subst ts1 a1 t2 =
 let rigid_path_check v1 t2 =
   let rec aux n t =
     match observe (hnorm t) with
-      | Var v -> (v1 != v) && (v.ts <= v1.ts)
+      | Var v -> (v1 <> v) && (v.ts <= v1.ts)
       | DB i -> i <= n
       | Lam(tys, t) -> aux (n + List.length tys) t
       | App(h, ts) -> List.for_all (aux n) (h::ts)
@@ -417,7 +424,7 @@ let reverse_bind tyctx t1 t2 =
         true
     | _ -> false
 
-(** [makesubst h1 t2 a1 n] unifies [App (h1,a1) = t2].
+(** [makesubst tyctx h1 t2 a1 n] unifies [App (h1,a1) = t2].
     * Given a term of the form [App (h1,a1)] where [h1] is a variable and
     * another term [t2], generate an LLambda substitution for [h1] if this is
     * possible, making whatever pruning and raising substitution that are
@@ -440,7 +447,7 @@ let reverse_bind tyctx t1 t2 =
 let makesubst tyctx h1 t2 a1 n =
   (* Check that h1 is a variable, get its timestamp *)
   let hv1 = match observe h1 with
-    | Var v -> assert (v.tag=instantiatable) ; v
+    | Var v -> assert (variable v.tag) ; v
     | _ -> assert false
   in
   let ts1 = hv1.ts in
@@ -461,12 +468,12 @@ let makesubst tyctx h1 t2 a1 n =
            * If not, [c] must belong to the argument list. *)
           if v.ts <= ts1 then c else
             let j = cindex v a1 n in
-              if j = 0 then fail OccursCheck ;
+              if j = 0 then fail Generic ;
               db (j+lev)
       | DB i ->
           if i<=lev then c else
             let j = bvindex (i-lev) a1 n in
-              if j = 0 then fail OccursCheck ;
+              if j = 0 then fail Generic ;
               db (j+lev)
       | Var v when variable v.tag ->
           if eq c h1 then fail OccursCheck ;
@@ -483,22 +490,24 @@ let makesubst tyctx h1 t2 a1 n =
             (nested_subst (List.rev_app tys tyctx) t (lev + List.length tys))
       | App (h2,a2) ->
           begin match observe h2 with
-            | Var {tag=tag} when constant tag ->
-                let a2 = List.map hnorm a2 in
-                app
-                  (nested_subst tyctx h2 lev)
-                  (List.map (fun x -> nested_subst tyctx x lev) a2)
+            | Var hv2 when constant hv2.tag ->
+                let h2' = nested_subst tyctx h2 lev in
+                let a2' =
+                  List.map (fun x -> nested_subst tyctx (hnorm x) lev) a2
+                in
+                  app h2' a2'
             | DB _ ->
+                let h2' = nested_subst tyctx h2 lev in
+                let a2' =
+                  List.map (fun x -> nested_subst tyctx (hnorm x) lev) a2
+                in
+                  app h2' a2'
+            | Var hv2 when variable hv2.tag ->
+                if eq h2 h1 then raise (UnifyError NotLLambda) ;
                 let a2 = List.map hnorm a2 in
-                app
-                  (nested_subst tyctx h2 lev)
-                  (List.map (fun x -> nested_subst tyctx x lev) a2)
-            | Var {ts=ts2;tag=tag} when tag=instantiatable ->
-                if eq h2 h1 then fail OccursCheck ;
-                let a2 = List.map hnorm a2 in
-                  if check_flex_args a2 ts2 then
+                  if check_flex_args a2 hv2.ts then
                     let changed,a1',a2' =
-                      raise_and_invert ts1 ts2 a1 a2 lev
+                      raise_and_invert ts1 hv2.ts a1 a2 lev
                     in
                       if changed then
                         let a2binds = List.map (tc tyctx) a2 in
@@ -508,13 +517,13 @@ let makesubst tyctx h1 t2 a1 n =
                         let ty = Ty(a2'tys @ List.drop (List.length a2) h2tys,
                                     bty) in
                         let h' =
-                          named_fresh hv1.name (min ts1 ts2) ty
+                          named_fresh hv1.name (min ts1 hv2.ts) ty
                         in
                           bind h2
                             (lambda a2binds (app h' a2')) ;
                           app h' a1'
                       else
-                        if ts1<ts2 then
+                        if ts1<hv2.ts then
                           let ty = tc tyctx h2 in
                           let h' = named_fresh hv1.name ts1 ty in
                             bind h2 h' ;
@@ -522,7 +531,7 @@ let makesubst tyctx h1 t2 a1 n =
                         else
                           app h2 a1'
                   else
-                    make_non_llambda_subst ts1 a1 c
+                    make_non_llambda_subst hv1 a1 c
             | Var _ -> failwith "logic variable on the left (1)"
             | _ -> assert false
           end
@@ -558,10 +567,10 @@ let makesubst tyctx h1 t2 a1 n =
           end
       | App (h2,a2) ->
           begin match observe h2 with
-            | Var {ts=ts2} when eq h1 h2 ->
+            | Var hv2 when eq h1 h2 ->
                 (* [h1] being instantiatable, no need to check it for [h2] *)
                 let a2 = List.map hnorm a2 in
-                  if check_flex_args a2 ts2 then
+                  if check_flex_args a2 hv2.ts then
                     let bindlen = n+lev in
                       if bindlen = List.length a2 then
                         let args = prune_same_var a1 a2 lev bindlen in
@@ -576,7 +585,7 @@ let makesubst tyctx h1 t2 a1 n =
                       else
                         assert false (* fail TypesMismatch *)
                   else
-                    make_non_llambda_subst ts1 a1 t2
+                    make_non_llambda_subst hv1 a1 t2
             | App _ | Lam _
             | Var _ | DB _ ->
                 nested_subst tyctx t2 lev
@@ -599,7 +608,7 @@ let rec unify_list tyctx l1 l2 =
   with
     | Invalid_argument _ -> assert false (* fail TypesMismatch *)
 
-(* [unify_const_term cst t2] unify [cst=t2], assuming that [cst] is a constant.
+(* Unify [cst=t2], assuming [cst] is a constant.
  * Fail if [t2] is a variable or an application.
  * If it is a lambda, binders need to be equalized and so this becomes
  * an application-term unification problem. *)
@@ -608,70 +617,65 @@ and unify_const_term tyctx cst t2 = if eq cst t2 then () else
     | Lam (tys,t2) ->
         let a1 = lift_args [] (List.length tys) in
           unify (List.rev_app tys tyctx) (app cst a1) t2
-    | Var {tag=t} when not (variable t || constant t) ->
+    | Var v when not (variable v.tag || constant v.tag) ->
         failwith "logic variable on the left (3)"
     | _ -> fail (ConstClash (cst,t2))
 
-(* Unifying the bound variable [t1] with [t2].
- * Fail if [t2] is a variable, an application or a constant.
- * If it is a lambda, binders need to be
- * equalized and this becomes an application-term unification problem. *)
-and unify_bv_term tyctx n1 t1 t2 = match observe t2 with
-  | DB n2 ->
-      if n1<>n2 then fail (ConstClash (t1,t2))
-  | Lam (tys,t2)  ->
-      let n = List.length tys in
-      let t1' = lift t1 n in
-      let a1 = lift_args [] n in
-        unify tyctx (app t1' a1) t2
-  | Var {tag=t} when not (variable t || constant t) ->
-      failwith "logic variable on the left (4)"
-  | _ -> assert false
-
-(* [unify_app_term h1 a1 t1 t2] unify [App h1 a1 = t2].
+(* Unify [App h1 a1 = t2].
  * [t1] should be the term decomposed as [App h1 a1].
- * [t2] should be dereferenced and head-normalized, different from a var. *)
+ * [t2] should be dereferenced and head-normalized, not a var or lambda *)
 and unify_app_term tyctx h1 a1 t1 t2 =
   match observe h1,observe t2 with
-  | Var {tag=tag}, _ when variable tag ->
-      let n = List.length a1 in
-        bind h1 (makesubst tyctx h1 t2 a1 n)
-  | Var v1, App (h2,a2) when constant v1.tag ->
-      begin match observe h2 with
-        | Var v2 when constant v2.tag ->
-            if eq h1 h2 then
-              unify_list tyctx a1 a2
-            else
+    | Var hv1, _ when variable hv1.tag ->
+        let n = List.length a1 in
+          bind h1 (makesubst tyctx h1 t2 a1 n)
+    | Var v1, App (h2,a2) when constant v1.tag ->
+        begin match observe h2 with
+          | Var v2 when constant v2.tag ->
+              if eq h1 h2 then
+                unify_list tyctx a1 a2
+              else
+                fail (ConstClash (h1,h2))
+          | DB _ ->
               fail (ConstClash (h1,h2))
-        | DB _ ->
-            fail (ConstClash (h1,h2))
-        | Var {tag=tag} when variable tag ->
-            let m = List.length a2 in
-              bind h2 (makesubst tyctx h2 t1 a2 m)
-        | Var {tag=t} when not (variable t || constant t) ->
-            failwith "logic variable on the left (5)"
-        | _ -> assert false
-      end
-  | DB n1, App (h2,a2) ->
-      begin match observe h2 with
-        | DB n2 when n1 == n1 ->
-            unify_list tyctx a1 a2
-        | Var v when variable v.tag ->
-            let m = List.length a2 in
-              bind h2 (makesubst tyctx h2 t1 a2 m)
-        | _ -> fail (ConstClash (h1,h2))
-      end
-  | _, Lam (tys,t2) ->
-      let n = List.length tys in
-      let h1' = lift h1 n in
-      let a1' = lift_args a1 n in
-      let t1' = app h1' a1' in
-        unify_app_term (List.rev_app tys tyctx) h1' a1' t1' t2
-  | Ptr _, _ | _, Ptr _
-  | Susp _, _ | _, Susp _ -> assert false
-  | Var {tag=t}, _ when not (variable t || constant t) ->
-      failwith "logic variable on the left (6)"
-  | _ -> fail (ConstClash (h1,t2))
+          | Var hv2 when variable hv2.tag ->
+              let m = List.length a2 in
+                bind h2 (makesubst tyctx h2 t1 a2 m)
+          | Var v when not (variable v.tag || constant v.tag) ->
+              failwith "logic variable on the left (5)"
+          | _ -> assert false
+        end
+    | DB n1, App (h2,a2) ->
+        begin match observe h2 with
+          | DB n2 when n1 == n1 ->
+              unify_list tyctx a1 a2
+          | Var v when variable v.tag ->
+              let m = List.length a2 in
+                bind h2 (makesubst tyctx h2 t1 a2 m)
+          | _ -> fail (ConstClash (h1,h2))
+        end
+    | Lam _, _ | _, Lam _
+    | Ptr _, _ | _, Ptr _
+    | Susp _, _ | _, Susp _ -> assert false
+    | Var v, _ when not (variable v.tag || constant v.tag) ->
+        failwith "logic variable on the left (6)"
+    | _ -> fail (ConstClash (h1,t2))
+
+(* Unify [v1 = t2].
+ * [t1] should be the term decomposed as [Var v1]. *)
+and unify_var_term tyctx v1 t1 t2 =
+  if reverse_bind tyctx t2 t1 then
+    ()
+  else if rigid_path_check v1 t2 then
+    bind t1 t2
+  else
+    bind t1 (makesubst tyctx t1 t2 [] 0)
+
+(* Unify [Lam(tys1,t1) = t2]. *)
+and unify_lam_term tyctx tys1 t1 t2 =
+  let n = List.length tys1 in
+    unify (List.rev_app tys1 tyctx)
+      t1 (hnorm (app (lift t2 n) (lift_args [] n)))
 
 (** The main unification procedure.
   * Either succeeds and realizes the unification substitutions as side effects
@@ -688,20 +692,11 @@ and unify_app_term tyctx h1 a1 t1 t2 =
 and unify tyctx t1 t2 =
   try match observe t1,observe t2 with
     | Var v1, Var v2 when v1 = v2 -> ()
-    | Var v1,_ when variable v1.tag ->
-        if reverse_bind tyctx t2 t1 then
-          ()
-        else if rigid_path_check v1 t2 then
-          bind t1 t2
-        else
-          bind t1 (makesubst tyctx t1 t2 [] 0)
-    | _,Var v2 when variable v2.tag ->
-        if reverse_bind tyctx t1 t2 then
-          ()
-        else if rigid_path_check v2 t1 then
-          bind t2 t1
-        else
-          bind t2 (makesubst tyctx t2 t1 [] 0)
+    | Var v1,_ when variable v1.tag -> unify_var_term tyctx v1 t1 t2
+    | _,Var v2 when variable v2.tag -> unify_var_term tyctx v2 t2 t1
+
+    | Lam(tys1,t1),_                -> unify_lam_term tyctx tys1 t1 t2
+    | _,Lam(tys2,t2)                -> unify_lam_term tyctx tys2 t2 t1
 
     (* Check for a special case of asymmetric unification outside of LLambda *)
     | App(h1,a1), App(h2,a2) ->
@@ -719,21 +714,10 @@ and unify tyctx t1 t2 =
 
     | App (h1,a1),_                 -> unify_app_term tyctx h1 a1 t1 t2
     | _,App (h2,a2)                 -> unify_app_term tyctx h2 a2 t2 t1
-    | Var {tag=t},_ when constant t -> unify_const_term tyctx t1 t2
-    | _,Var {tag=t} when constant t -> unify_const_term tyctx t2 t1
-    | DB n,_                        -> unify_bv_term tyctx n t1 t2
-    | _,DB n                        -> unify_bv_term tyctx n t2 t1
-    | Lam (tys1,t1),Lam(tys2,t2)   ->
-        let n1 = List.length tys1 in
-        let n2 = List.length tys2 in
-        let n = min n1 n2 in
-          if List.take n tys1 = List.take n tys2 then
-            unify
-              (List.rev_app (List.take n tys1) tyctx)
-              (lambda (List.drop n tys1) t1)
-              (lambda (List.drop n tys2) t2)
-          else
-            assert false (* fail TypesMismatch *)
+    | Var c1,_ when constant c1.tag -> unify_const_term tyctx t1 t2
+    | _,Var c2 when constant c2.tag -> unify_const_term tyctx t2 t1
+    | DB i1,DB i2                   -> if i1 <> i2 then fail (ConstClash(t1, t2))
+
     | _ -> failwith "logic variable on the left (7)"
   with
     | UnifyError NotLLambda ->
@@ -741,9 +725,82 @@ and unify tyctx t1 t2 =
         let tys = List.rev (List.take n tyctx) in
           handler (lambda tys t1) (lambda tys t2)
 
-let pattern_unify used_names t1 t2 =
-  used := used_names ;
+let pattern_unify ~used t1 t2 =
+  local_used := used ;
   unify [] (hnorm t1) (hnorm t2)
+
+(* Given Lam(tys1, App(h1, a1)) and Lam(tys2, App(h2, a2))
+   where h1 is flexible, h2 is rigid, and len(tys1) <= len(tys2),
+   return a complete list of possible bindings for h1 *)
+let flexible_heads ~used ~sr (tys1, h1, a1) (tys2, h2, a2) =
+  assert (tc [] (lambda tys1 (app h1 a1)) = tc [] (lambda tys2 (app h2 a2))) ;
+  let n1 = List.length tys1 in
+  let n2 = List.length tys2 in
+  let () = assert (n2 >= n1) in
+  let tys2' = List.drop n1 tys2 in
+  let a1tys = List.map (tc (List.rev tys1)) a1 in
+  let a2tys = List.map (tc (List.rev tys2)) a2 in
+  let a1n = List.length a1 in
+  let hv1 = term_to_var h1 in
+  let () = assert (variable hv1.tag) in
+
+  let create_raised_vars arg_tys target_tys =
+    local_used := used ;
+    let dbs = List.rev_map db (List.range 1 (List.length arg_tys)) in
+      List.map
+        (fun ty ->
+           let arg_tys, dbs =
+             List.split
+               (List.filter
+                  (fun (aty, _) -> Subordination.query sr aty ty)
+                  (List.combine arg_tys dbs))
+           in
+             app (named_fresh hv1.name hv1.ts (tyarrow arg_tys ty)) dbs)
+        target_tys
+  in
+
+  (* Imitation *)
+  let imitable =
+    match observe (hnorm h2) with
+      | Var v when constant v.tag -> true
+      | DB i -> i <= n2 - n1
+      | _ -> assert false
+  in
+  let imitation =
+    if imitable then
+      [lambda (a1tys @ tys2')
+         (app h2 (create_raised_vars (a1tys @ tys2') a2tys))]
+    else
+      []
+  in
+
+  (* Projection *)
+  let projections =
+    let n = a1n + (n2 - n1) in
+    let bty = match hv1.ty with Ty(tys, ty) -> Ty(List.drop n tys, ty) in
+    let bn = match bty with Ty(tys, _) -> List.length tys in
+      List.filter_map
+        (fun (a, aty, i) ->
+           let Ty(tys, ty) = aty in
+           let use = List.drop_last bn tys in
+           let leave = List.take_last bn tys in
+             if Ty(leave, ty) = bty then
+               Some
+                 (lambda (a1tys @ tys2')
+                    (app (db (n-i))
+                       (create_raised_vars (a1tys @ tys2') use)))
+             else
+               None)
+        (List.combine3 a1 a1tys (List.range 0 (a1n - 1)))
+  in
+
+  (* Final results *)
+  let results = imitation @ projections in
+  let () =
+    let tyctx = List.rev tys1 in
+      List.iter (fun r -> assert (hv1.ty = tc tyctx r)) results
+  in
+    results
 
 end
 
@@ -764,10 +821,10 @@ module Left =
         end)
 
 let right_unify ?used:(used=[]) t1 t2 =
-  Right.pattern_unify used t1 t2
+  Right.pattern_unify ~used t1 t2
 
 let left_unify ?used:(used=[]) t1 t2 =
-  Left.pattern_unify used t1 t2
+  Left.pattern_unify ~used t1 t2
 
 let try_with_state ~fail f =
   let state = get_scoped_bind_state () in
@@ -782,6 +839,12 @@ let try_right_unify ?used:(used=[]) t1 t2 =
        right_unify ~used t1 t2 ;
        true)
 
+let try_left_unify ?used:(used=[]) t1 t2 =
+  try_with_state ~fail:false
+    (fun () ->
+       left_unify ~used t1 t2 ;
+       true)
+
 let try_left_unify_cpairs ~used t1 t2 =
   let state = get_scoped_bind_state () in
   let cpairs = ref [] in
@@ -794,7 +857,7 @@ let try_left_unify_cpairs ~used t1 t2 =
           end)
   in
     try
-      LeftCpairs.pattern_unify used t1 t2 ;
+      LeftCpairs.pattern_unify ~used t1 t2 ;
       Some !cpairs
     with
       | UnifyFailure _ -> set_scoped_bind_state state ; None
@@ -813,5 +876,7 @@ let try_right_unify_cpairs t1 t2 =
                  let handler = cpairs_handler
                end)
        in
-         RightCpairs.pattern_unify [] t1 t2 ;
+         RightCpairs.pattern_unify ~used:[] t1 t2 ;
          Some !cpairs)
+
+let left_flexible_heads = Left.flexible_heads

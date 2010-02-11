@@ -827,7 +827,7 @@ let apply_arrow term args =
 
 let apply ?(used_nominals=[]) term args =
   let support =
-    args
+    Some term :: args
     |> List.flatten_map (Option.map_default metaterm_support [])
     |> List.unique
     |> fun s -> List.minus s used_nominals

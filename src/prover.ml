@@ -479,7 +479,6 @@ let toplevel_bindings stmt =
   in
     aux stmt
 
-(* TODO: Typing the nominals in a 'with' is still a quesiton *)
 let type_apply_withs stmt ws =
   let bindings = toplevel_bindings stmt in
     List.map

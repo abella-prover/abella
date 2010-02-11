@@ -329,6 +329,22 @@ let apply_tests =
            let logic_vars = metaterm_vars_alist Logic t in
              assert_bool "Should contain logic variable(s)"
                (List.length logic_vars > 0));
+
+      "Should raise over nominals in applied term" >::
+        (fun () ->
+           let h = freshen "forall (X:i) Y, X = Y -> true" in
+           let _, obligations =
+             apply_with h [None] [("X", nominal_var "n1" ity)]
+           in
+             match obligations with
+               | [Eq(t1, t2)] ->
+                   begin match observe (hnorm t2) with
+                     | App(h, [n]) ->
+                         assert_term_pprint_equal "n1" n ;
+                     | _ -> assert_failure "Unexpected term"
+                   end
+               | _ -> assert_failure "Unexpected pattern"
+        );
     ]
 
 let backchain_tests =

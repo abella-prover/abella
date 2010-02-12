@@ -30,11 +30,12 @@ induction on 1. intros. case H1.
 
 % Add is associative
 
-Theorem add_assoc : forall A B C AB BC ABC,
-  {add A B AB} -> {add AB C ABC} -> {add B C BC} -> {add A BC ABC}.
+Theorem add_assoc : forall A B C AB ABC,
+  {add A B AB} -> {add AB C ABC} ->
+    exists BC, {add B C BC} /\ {add A BC ABC}.
 induction on 1. intros. case H1.
-  apply add_det to H2 H3. search.
-  case H2. apply IH to H4 H5 H3. search.
+  search.
+  case H2. apply IH to H3 H4. search.
 
 % We can use Query to "run add in reverse"
 

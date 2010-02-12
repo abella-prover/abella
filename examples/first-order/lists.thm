@@ -18,11 +18,12 @@ induction on 1. intros. case H1.
   case H2. apply IH to H3 H4. search.
 
 % Append is associative
-Theorem app_assoc : forall A B C AB BC ABC,
- {append A B AB} -> {append AB C ABC} -> {append B C BC} -> {append A BC ABC}.
+Theorem app_assoc : forall A B C AB ABC,
+ {append A B AB} -> {append AB C ABC} ->
+   exists BC, {append B C BC} /\ {append A BC ABC}.
 induction on 1. intros. case H1.
-  apply app_det to H2 H3. search.
-  case H2. apply IH to H4 H5 H3. search.
+  search.
+  case H2. apply IH to H3 H4. search.
 
 Theorem rev_lemma : forall A A' B X,
  {rev A A'} -> {append A (cons X nl) B} -> {rev B (cons X A')}.

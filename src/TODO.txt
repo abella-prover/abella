@@ -1,9 +1,3 @@
-Document in next release
-========================
-Subordination and "Close" command
-Case analysis handles flex-rigid pairs
-Fixed unification issue involving occurs check
-
 Future
 ======
 Add a C-c C-a command to emacs mode which aborts the current proof and

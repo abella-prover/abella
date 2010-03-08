@@ -363,9 +363,9 @@ let witness w =
 
 let term_witness (t, w) =
   if !witnesses then
-    fprintf !out "Found: %s\nWitness: %s\n%!"
-      (metaterm_to_string t)
+    fprintf !out "Witness: %s : %s\n%!"
       (Tactics.witness_to_string w)
+      (metaterm_to_string t)
 
 let rec process_proof name =
   let suppress_display = ref false in

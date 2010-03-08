@@ -1,3 +1,9 @@
+Document for next release
+=========================
+Apply and backchain now produce witnesses when the witnesses option is
+  enabled
+
+
 Future
 ======
 Add a C-c C-a command to emacs mode which aborts the current proof and

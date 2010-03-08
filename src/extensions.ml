@@ -268,3 +268,17 @@ module Hashtbl = struct
     iter (fun a b -> add dest a b) src
 
 end
+
+module Either = struct
+  type ('a, 'b) either = Left of 'a | Right of 'b
+
+  let either left right e =
+    match e with
+      | Left x -> left x
+      | Right x -> right x
+
+  let rec partition_eithers eithers =
+    let left x (l, r) = (x::l, r) in
+    let right x (l, r) = (l, x::r) in
+      List.fold_right (either left right) eithers ([], [])
+end

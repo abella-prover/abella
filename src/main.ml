@@ -361,6 +361,12 @@ let witness w =
   if !witnesses then
     fprintf !out "Witness: %s\n%!" (Tactics.witness_to_string w)
 
+let term_witness (t, w) =
+  if !witnesses then
+    fprintf !out "Found: %s\nWitness: %s\n%!"
+      (metaterm_to_string t)
+      (Tactics.witness_to_string w)
+
 let rec process_proof name =
   let suppress_display = ref false in
   let finished = ref false in
@@ -385,8 +391,8 @@ let rec process_proof name =
         begin match input with
           | Induction(args) -> induction args
           | CoInduction -> coinduction ()
-          | Apply(h, args, ws) -> apply h args ws
-          | Backchain(h, ws) -> backchain h ws
+          | Apply(h, args, ws) -> apply h args ws ~term_witness
+          | Backchain(h, ws) -> backchain h ws ~term_witness
           | Cut(h, arg) -> cut h arg
           | SearchCut(h) -> search_cut h
           | Inst(h, n, t) -> inst h n t

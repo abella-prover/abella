@@ -490,15 +490,25 @@ let type_apply_withs stmt ws =
            | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
       ws
 
-let apply h args ws =
+let partition_obligations obligations =
+  Either.partition_eithers
+    (List.map
+       (fun g -> match search_goal_witness g with
+          | None -> Either.Left g
+          | Some w -> Either.Right (g, w))
+       obligations)
+
+let apply ?(term_witness=ignore) h args ws =
   let stmt = get_hyp_or_lemma h in
   let args = List.map get_some_hyp args in
   let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
   let ws = type_apply_withs stmt ws in
   let result, obligations = Tactics.apply_with stmt args ws in
-  let remaining_obligations =
-    List.remove_all (fun g -> search_goal (normalize g)) obligations in
+  let remaining_obligations, term_witnesses =
+    partition_obligations obligations
+  in
   let () = ensure_no_logic_variable (result :: remaining_obligations) in
+  let () = List.iter term_witness term_witnesses in
   let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
   let resulting_case = recursive_metaterm_case ~used:sequent.vars ~sr:!sr result in
     begin match resulting_case with
@@ -529,13 +539,15 @@ let type_backchain_withs stmt ws =
            | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
       ws
 
-let backchain h ws =
+let backchain ?(term_witness=ignore) h ws =
   let stmt = get_hyp_or_lemma h in
   let ws = type_backchain_withs stmt ws in
   let obligations = Tactics.backchain_with stmt ws sequent.goal in
-  let remaining_obligations =
-    List.remove_all (fun g -> search_goal (normalize g)) obligations in
+  let remaining_obligations, term_witnesses =
+    partition_obligations obligations
+  in
   let () = ensure_no_logic_variable remaining_obligations in
+  let () = List.iter term_witness term_witnesses in
   let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
     add_subgoals obligation_subgoals ;
     next_subgoal ()

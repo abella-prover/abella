@@ -1377,6 +1377,14 @@ let search_tests =
              ~expect: true
         );
 
+      "Should try dummy nominals with nabla in the head" >::
+        (fun () ->
+           assert_search ()
+             ~defs:"nabla (x:i), foo (E x)."
+             ~goal:"foo t1"
+             ~expect: true
+        );
+
       "Should permute nominal constants" >::
         (fun () ->
            assert_search ()

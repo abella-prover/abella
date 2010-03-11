@@ -2,7 +2,8 @@ Document for next release
 =========================
 Apply and backchain now produce witnesses when the witnesses option is
   enabled
-
+Unfolding a goal using a definition with nabla in the head now uses
+  "dummy nominals" in case the nabla bound variables are not used
 
 Future
 ======

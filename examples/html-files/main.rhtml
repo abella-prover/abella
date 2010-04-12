@@ -18,19 +18,45 @@
 <link rel="icon" href="http://abella.cs.umn.edu/images/favicon.ico" type="image/x-icon" />
 <link rel="shortcut icon" href="http://abella.cs.umn.edu/images/favicon.ico"
         type="image/x-icon" />
+<script src="http://abella.cs.umn.edu/jquery.js"></script>
 <script type="text/javascript">
-function toggle(id, show) {
-    document.getElementById(id).className = (show ? "proof" : "folded");
-    document.getElementById(id + "-show").className = (show ? "folded" : "fold-link");
-    document.getElementById(id + "-hide").className = (show ? "fold-link" : "folded");
+$(function() {
+  $('.fold-link').click(function() {
+    toggle($(this));
+    return false;
+  });
+});
+
+function toggle(link) {
+  if (link.hasClass('shown')) {
+    hide(link);
+  } else {
+    show(link);
+  }
 }
 
-function toggle_all(show) {
-    var i = 1
-    while (document.getElementById("proof" + i)) {
-        toggle("proof" + i, show);
-        i++;
-    }
+function show(link) {
+  link.addClass('shown');
+  link.next().show('fast');
+  link.text('[Hide Proof]');
+}
+
+function hide(link) {
+  link.removeClass('shown');
+  link.next().hide('slow');
+  link.text('[Show Proof]');
+}
+
+function show_all() {
+  $('.fold-link').each(function() {
+    show($(this));
+  });
+}
+
+function hide_all() {
+  $('.fold-link').each(function() {
+    hide($(this));
+  });
 }
 </script>
 </head>
@@ -66,8 +92,8 @@ function toggle_all(show) {
 <div class="section">
 <h1 class="title">Reasoning</h1>
 <a class="view" href="<%= name %>.thm">[View <%= name %>.thm]</a>
-<a class="fold-link" href="javascript:toggle_all(true);">[Show All Proofs]</a>
-<a class="fold-link" href="javascript:toggle_all(false);">[Hide All Proofs]</a>
+<a class="fold-all-link" href="javascript:show_all();">[Show All Proofs]</a>
+<a class="fold-all-link" href="javascript:hide_all();">[Hide All Proofs]</a>
 <p class="body">
 Click on a command or tactic to see a detailed view of its use.
 </p>

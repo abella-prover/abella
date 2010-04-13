@@ -49,7 +49,8 @@ DETAILS_RHTML = $(CWD)/html-files/details.rhtml
 
 .SUBDIRS: $(subdirs P, .)
     foreach(name, $(rootname $(glob i, *.thm)))
-        $(name).html $(name)-details.html: $(name).thc $(name).out
+        $(name).html $(name)-details.html: $(name).thc $(name).out \
+          $(ANNOTATE_LP) $(ANNOTATE_THM) $(MAIN_RHTML) $(DETAILS_RHTML)
             echo Processing $(name)
 
             echo $(name) > name

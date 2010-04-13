@@ -1,6 +1,6 @@
 UPLOAD_SITE = "agacek@bhoop.cs.umn.edu:/web/research03/abella.cs.umn.edu/hohh"
 
-VERSION = 1.3.4-hohh1
+VERSION = 1.3.5-hohh1
 ABELLA = $(CWD)/abella$(EXE)
 
 

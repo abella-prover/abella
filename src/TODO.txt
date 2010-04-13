@@ -2,11 +2,12 @@ Look at all uses of Seq in the code. Can we also add a case for Bc?
 Examples:
   bpath
 
-Document in next release
-========================
-Subordination and "Close" command
-Case analysis handles flex-rigid pairs
-Fixed unification issue involving occurs check
+Document for next release
+=========================
+Apply and backchain now produce witnesses when the witnesses option is
+  enabled
+Unfolding a goal using a definition with nabla in the head now uses
+  "dummy nominals" in case the nabla bound variables are not used
 
 Future
 ======

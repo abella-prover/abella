@@ -28,13 +28,10 @@ class Element
       "<span class=\"comment\">#{@text}</span>"
     when :proof_start
       " " +
-      "<a class=\"fold-link\" id=\"proof#{@ref}-show\"" +
-      " href=\"javascript:toggle('proof#{@ref}', true);\">[Show Proof]</a>" +
-      "<a class=\"folded\" id=\"proof#{@ref}-hide\"" +
-      " href=\"javascript:toggle('proof#{@ref}', false);\">[Hide Proof]</a>" +
-      "<span class=\"folded\" id=\"proof#{@ref}\">"
+      "<a class=\"fold-link\" href=\"\#\">[Show Proof]</a>\n" +
+      "<div class=\"proof\" style=\"display: none;\">"
     when :proof_end
-      "</span>"
+      "</div>"
     else
       type = (tag == :tactic ? "tactic" : "command")
       @text.gsub!(/(%.*)/, '<span class="comment">\1</span>')
@@ -98,6 +95,18 @@ def mark_proofs(array)
   result
 end
 
+def remove_div_newlines(array)
+  div = false
+  array.each do |e|
+    if e.tag == :proof_start || e.tag == :proof_end then
+      div = true
+    elsif div && e.tag == :whitespace then
+      e.text.sub!(/^\n/,"")
+      div = false
+    end
+  end
+end
+
 # Slide the end of proofs over comments and non-newline whitespace
 def slide_proof_ends(array)
   result = []
@@ -131,4 +140,5 @@ file_contents = File.open(ARGV[0]).read
 elements = convert(file_contents)
 elements = mark_proofs(elements)
 elements = slide_proof_ends(elements)
+elements = remove_div_newlines(elements)
 print elements.join('')

@@ -570,6 +570,11 @@ let unfold_defs ~mdefs ~ts goal r =
   let wrapper = coinductive_wrapper r mutual in
   let unfold_def tids head body i =
     let (ids, tys) = List.split tids in
+      (* Add dummy nominals in case nabla bound variables aren't used *)
+    let support =
+      (fresh_nominals_by_list tys (List.map term_to_name support)) @
+        support
+    in
       support
       |> List.permute (List.length tids)
       |> List.find_all (fun nominals -> tys = List.map (tc []) nominals)
@@ -932,7 +937,7 @@ let apply_arrow term args =
 
 let apply ?(used_nominals=[]) term args =
   let support =
-    args
+    Some term :: args
     |> List.flatten_map (Option.map_default metaterm_support [])
     |> List.unique
     |> fun s -> List.minus s used_nominals

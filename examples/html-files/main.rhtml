@@ -21,42 +21,21 @@
 <script src="http://abella.cs.umn.edu/jquery.js"></script>
 <script type="text/javascript">
 $(function() {
-  $('.fold-link').click(function() {
-    toggle($(this));
-    return false;
+  $('.fold-link').toggle(function() {
+    $(this).next().show('fast');
+    $(this).text('[Hide Proof]');
+  }, function() {
+    $(this).next().hide('slow');
+    $(this).text('[Show Proof]');
   });
 });
 
-function toggle(link) {
-  if (link.hasClass('shown')) {
-    hide(link);
-  } else {
-    show(link);
-  }
-}
-
-function show(link) {
-  link.addClass('shown');
-  link.next().show('fast');
-  link.text('[Hide Proof]');
-}
-
-function hide(link) {
-  link.removeClass('shown');
-  link.next().hide('slow');
-  link.text('[Show Proof]');
-}
-
 function show_all() {
-  $('.fold-link').each(function() {
-    show($(this));
-  });
+  $('.proof:hidden').prev().click();
 }
 
 function hide_all() {
-  $('.fold-link').each(function() {
-    hide($(this));
-  });
+  $('.proof:visible').prev().click();
 }
 </script>
 </head>

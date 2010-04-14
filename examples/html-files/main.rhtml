@@ -21,22 +21,32 @@
 <script src="http://abella.cs.umn.edu/jquery.js"></script>
 <script type="text/javascript">
 $(function() {
-  $('.fold-link').toggle(function() {
-    $(this).next().show('fast');
-    $(this).text('[Hide Proof]');
-  }, function() {
-    $(this).next().hide('slow');
-    $(this).text('[Show Proof]');
+  $('.proof').hide();
+
+  $('<span> </span><a class="fold-link" href="#">[Show Proof]</a>')
+    .insertAfter($('.proof').prev())
+    .toggle(function() {
+      $(this).next().show('fast');
+      $(this).text('[Hide Proof]');
+    }, function() {
+      $(this).next().hide('slow');
+      $(this).text('[Show Proof]');
+    });
+
+  $('<span> </span><a class="fold-link" href="#">[Show All Proofs]</a>')
+    .insertBefore($('#reasoning p'))
+    .click(function() {
+      $('.proof:hidden').prev().click();
+      return false;
+  });
+
+  $('<span> </span><a class="fold-link" href="#">[Hide All Proofs]</a>')
+    .insertBefore($('#reasoning p'))
+    .click(function() {
+      $('.proof:visible').prev().click();
+      return false;
   });
 });
-
-function show_all() {
-  $('.proof:hidden').prev().click();
-}
-
-function hide_all() {
-  $('.proof:visible').prev().click();
-}
 </script>
 </head>
 
@@ -53,7 +63,7 @@ function hide_all() {
 </div>
 
 <% if have_spec %>
-<div class="section">
+<div class="section" id="specification">
 <h1 class="title">Executable Specification</h1>
 
 <a class="view" href="<%= spec_name %>.sig">[View <%= spec_name %>.sig]</a>
@@ -68,11 +78,9 @@ function hide_all() {
 </div>
 <% end %>
 
-<div class="section">
+<div class="section" id="reasoning">
 <h1 class="title">Reasoning</h1>
 <a class="view" href="<%= name %>.thm">[View <%= name %>.thm]</a>
-<a class="fold-all-link" href="javascript:show_all();">[Show All Proofs]</a>
-<a class="fold-all-link" href="javascript:hide_all();">[Hide All Proofs]</a>
 <p class="body">
 Click on a command or tactic to see a detailed view of its use.
 </p>

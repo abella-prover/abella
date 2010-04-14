@@ -27,9 +27,7 @@ class Element
     when :comment
       "<span class=\"comment\">#{@text}</span>"
     when :proof_start
-      " " +
-      "<a class=\"fold-link\" href=\"\#\">[Show Proof]</a>\n" +
-      "<div class=\"proof\" style=\"display: none;\">"
+      "\n<div class=\"proof\">"
     when :proof_end
       "</div>"
     else

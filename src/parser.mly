@@ -132,14 +132,16 @@ id:
   | KKIND                                { "Kind" }
 
 /* Annotated ID */
-aid :
+aid:
   | id                                   { ($1, Term.fresh_tyvar ()) }
   | id COLON ty                          { ($1, $3) }
 
 /* Parenthesized annotated ID */
-paid :
+paid:
   | id                                   { ($1, Term.fresh_tyvar ()) }
   | LPAREN id COLON ty RPAREN            { ($2, $4) }
+  | UNDERSCORE                           { ("_", Term.fresh_tyvar ()) }
+  | LPAREN UNDERSCORE COLON ty RPAREN    { ("_", $4) }
 
 contexted_term:
   | context TURN term                    { ($1, $3) }

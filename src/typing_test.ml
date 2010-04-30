@@ -57,4 +57,16 @@ let tests =
                (Failure "Cannot quantify over type prop")
                (fun () -> type_umetaterm ~sr:!sr ~sign:!sign umetaterm)
         );
+
+      "Should replace underscores in clauses with fresh names" >::
+        (fun () ->
+           let uclause =
+             (uapp (ucon "p1") (ucon "X"),
+              [uapp (uapp (ucon "pr") (ucon "_")) (ucon "_")])
+           in
+             match type_uclause ~sr:!sr ~sign:!sign uclause with
+               | _, p::_ ->
+                   assert_term_pprint_equal "pr X1 X2" p
+               | _ -> assert false
+        );
     ]

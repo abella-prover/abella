@@ -408,9 +408,32 @@ let check_pi_quantification ts =
               | _ -> assert false)
        ts)
 
+let replace_underscores head body =
+  let names = uterms_extract_if is_capital_name (head::body) in
+  let used = ref (List.map (fun x -> (x, ())) names) in
+  let rec aux t =
+    match t with
+      | UCon(p, id, ty) when id = "_" ->
+          let id' = fresh_name "X" !used in
+            used := (id', ()) :: !used ;
+            UCon(p, id', ty)
+      | UCon _ -> t
+      | ULam(p, id, ty, t) ->
+          used := (id, ()) :: !used ;
+          ULam(p, id, ty, aux t)
+      | UApp(p, t1, t2) ->
+          let t1' = aux t1 in
+          let t2' = aux t2 in
+            UApp(p, t1', t2')
+  in
+    match List.map aux (head::body) with
+      | h::b -> (h, b)
+      | [] -> assert false
+
 let type_uclause ~sr ~sign (head, body) =
   if has_capital_head head then
     failwith "Clause has flexible head" ;
+  let head, body = replace_underscores head body in
   let cids = uterms_extract_if is_capital_name (head::body) in
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns =

@@ -5,6 +5,8 @@ Apply and backchain now produce witnesses when the witnesses option is
 Unfolding a goal using a definition with nabla in the head now uses
   "dummy nominals" in case the nabla bound variables are not used
 / can no longer begin a name
+Allow underscore for anonymous variables in lambdaProlog
+  specifications
 
 Future
 ======

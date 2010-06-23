@@ -879,7 +879,7 @@ let apply ?(used_nominals=[]) term args =
       | Arrow _ ->
           apply_arrow term args
 
-      | term when List.length args = 0 -> (term, [])
+      | term when args = [] -> (term, [])
 
       | _ -> failwith
           ("Structure of applied term must be a " ^
@@ -921,8 +921,11 @@ let rec instantiate_withs term withs =
     | _ -> (term, [])
 
 let apply_with term args withs =
-  let term, used_nominals = instantiate_withs term withs in
-    apply (normalize term) args ~used_nominals
+  if args = [] && withs = [] then
+    (term, [])
+  else
+    let term, used_nominals = instantiate_withs term withs in
+      apply (normalize term) args ~used_nominals
 
 (* Backchain *)
 

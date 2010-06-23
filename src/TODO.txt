@@ -7,6 +7,7 @@ Unfolding a goal using a definition with nabla in the head now uses
 / can no longer begin a name
 Allow underscore for anonymous variables in lambdaProlog
   specifications
+Fixed bug when using apply with no arguments
 
 Future
 ======

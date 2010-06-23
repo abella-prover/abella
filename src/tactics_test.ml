@@ -330,6 +330,13 @@ let apply_tests =
              assert_bool "Should contain logic variable(s)"
                (List.length logic_vars > 0));
 
+      "Apply with no arguments or withs" >::
+        (fun () ->
+           let h = freshen "forall A B, rel1 A B -> rel2 A B" in
+           let (t, obs) = apply_with h [] [] in
+             assert_bool "Should have no obligations" (obs = []) ;
+             assert_metaterm_equal h t);
+
       "Should raise over nominals in applied term" >::
         (fun () ->
            let h = freshen "forall (X:i) Y, X = Y -> true" in

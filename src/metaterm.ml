@@ -431,6 +431,9 @@ let rec normalize_binders alist t =
       | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) ->
+          let alist =
+            List.remove_all (fun (x, t) -> List.mem_assoc x bindings) alist
+          in
           let alist_used = List.map term_to_pair (List.map snd alist) in
           let body_used = get_metaterm_used body in
           let nominal_used = get_metaterm_used_nominals body in

@@ -341,6 +341,12 @@ let set k v =
                     "' for key 'debug'." ^
                     " Expected 'on' or 'off'.")
 
+    | "search_depth", Int d when d >= 0 -> search_depth := d
+    | "search_depth", _ ->
+        failwith ("Unknown value '" ^ (set_value_to_string v) ^
+                    "' for key 'search_depth'." ^
+                    " Expected non-negative integer.")
+
     | "witnesses", Str "on" -> witnesses := true
     | "witnesses", Str "off" -> witnesses := false
     | "witnesses", _ ->

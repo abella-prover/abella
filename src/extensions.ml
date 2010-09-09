@@ -43,6 +43,11 @@ module Option = struct
     match x with
       | Some v -> f v
       | None -> default
+
+  let default default x =
+    match x with
+      | Some v -> v
+      | None -> default
 end
 
 module String = struct

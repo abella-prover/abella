@@ -398,12 +398,15 @@ let remove_coinductive_hypotheses hyps =
 let defs_table_to_list () =
   H.fold (fun _ (_, mutual, dcs) acc -> (mutual, dcs) :: acc) defs_table []
 
-let search_goal_witness ?(depth=5) goal =
+let search_depth = ref 5
+
+let search_goal_witness ?depth goal =
   let hyps = sequent.hyps
     |> remove_inductive_hypotheses
     |> remove_coinductive_hypotheses
     |> List.map (fun h -> (h.id, h.term))
   in
+  let depth = Option.default !search_depth depth in
   let search_depth n =
     Tactics.search
       ~depth:n

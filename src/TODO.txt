@@ -1,15 +1,3 @@
-Document for next release
-=========================
-Apply and backchain now produce witnesses when the witnesses option is
-  enabled
-Unfolding a goal using a definition with nabla in the head now uses
-  "dummy nominals" in case the nabla bound variables are not used
-/ can no longer begin a name
-Allow underscore for anonymous variables in lambdaProlog
-  specifications
-Fixed bug when using apply with no arguments
-Fixed bug in the normalization of binder names
-
 Future
 ======
 Add a C-c C-a command to emacs mode which aborts the current proof and

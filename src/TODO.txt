@@ -1,6 +1,7 @@
 Document in next release
 ========================
 Fixed a variable capture issue when using 'with' clauses
+Ctrl-C now interrupts the current command (e.g. search)
 
 Future
 ======

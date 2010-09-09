@@ -613,6 +613,9 @@ let add_input filename =
   input_files := !input_files @ [filename]
 
 let _ =
+  Sys.set_signal Sys.sigint
+    (Sys.Signal_handle (fun _ -> failwith "Interrupted (use ctrl-D to quit)")) ;
+
   Arg.parse options add_input usage_message ;
 
   if !makefile then begin

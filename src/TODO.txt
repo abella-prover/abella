@@ -1,3 +1,7 @@
+Document in next release
+========================
+Fixed a variable capture issue when using 'with' clauses
+
 Future
 ======
 Add a C-c C-a command to emacs mode which aborts the current proof and

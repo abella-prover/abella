@@ -906,7 +906,7 @@ let rec instantiate_withs term withs =
         let body, used_nominals =
           instantiate_withs (replace_metaterm_vars withs' body) withs
         in
-          (forall binders' body, used_nominals)
+          (normalize (forall binders' body), used_nominals)
     | Binding(Nabla, binders, body) ->
         let binders', withs' = take_from_binders binders withs in
         let nominals = List.map snd withs' in
@@ -917,7 +917,7 @@ let rec instantiate_withs term withs =
           let body, used_nominals =
             instantiate_withs (replace_metaterm_vars withs' body) withs
           in
-            (nabla binders' body, nominals @ used_nominals)
+            (normalize (nabla binders' body), nominals @ used_nominals)
     | _ -> (term, [])
 
 let apply_with term args withs =

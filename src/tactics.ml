@@ -694,6 +694,8 @@ let search ~depth:n ~hyps ~clauses ~alldefs
           ~sc:(fun w -> obj_aux_conj n gs r ts ~sc:(fun ws -> sc (w::ws)))
 
   and metaterm_aux n hyps goal ts ~sc =
+    let goal = normalize goal in
+
     hyps |> List.iter
         (unwind_state
            (fun (id, hyp) ->

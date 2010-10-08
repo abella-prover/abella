@@ -1,0 +1,413 @@
+Specification "sigma-strong".
+
+Import "add".
+
+% We define both a strong normalization predicate and a hereditary strong
+% normalization predicate for expressions.  The theorems esn2esn_ext_sub and
+% esn_ext2esn below prove them equivalent.  Inducting on the hereditary strong
+% normalization predicate allows us to also call the induction hypothesis on
+% subexpressions.
+
+% Strong normalization of expressions
+Define esn : exp -> prop by
+  esn S := forall S', {estep S S'} -> esn S'.
+
+% Hereditary strong normalization of expressions
+Define esn_ext : exp -> prop,
+    esn_struct : exp -> prop by
+  esn_ext S := esn_struct S /\ forall S', {estep S S'} -> esn_ext S' ;
+  esn_struct ec ;
+  esn_struct (evar N) ;
+  esn_struct (eshift N) ;
+  esn_struct (eclos S1 S2) := esn_ext S1 /\ esn_ext S2 ;
+  esn_struct (edot S1 S2) := esn_ext S1 /\ esn_ext S2 ;
+  esn_struct (elam S) := esn_ext S.
+
+Theorem subexp_join : forall S1 S2 S3,
+  {subexp S1 S2} -> {subexp S2 S3} -> {subexp S1 S3}.
+induction on 2. intros. case H2.
+  search.
+  apply IH to H1 H3. search.
+  apply IH to H1 H3. search.
+  apply IH to H1 H3. search.
+  apply IH to H1 H3. search.
+  apply IH to H1 H3. search.
+
+Theorem subexp_step : forall S1 S2 S1',
+  {subexp S1 S2} -> {estep S1 S1'} -> exists S2', {subexp S1' S2'} /\ {estep S2 S2'}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H3 H2. search.
+  apply IH to H3 H2. search.
+  apply IH to H3 H2. search.
+  apply IH to H3 H2. search.
+  apply IH to H3 H2. search.
+
+Theorem exp_step : forall S1 S2, {exp S1} -> {estep S1 S2} -> {exp S2}.
+induction on 2. intros. case H2.
+  case H1. apply IH to H4 H3. search.
+  case H1. apply IH to H5 H3. search.
+  case H1. apply IH to H4 H3. search.
+  case H1. apply IH to H5 H3. search.
+  case H1. apply IH to H4 H3. search.
+  search.
+  case H1. case H4. search.
+  case H1. case H3. case H4. case H5. search.
+  case H1. case H5. apply add_isnat2 to H3 H6. search.
+  case H1. case H3. search.
+  case H1. case H3. search.
+  case H1. case H3. search 10.
+  case H1. case H3. search.
+  case H1. search.
+  case H1. case H3. case H4. case H5. search.
+  case H1. case H5. apply add_isnat2 to H3 H6. search.
+
+Theorem esn2esn_ext_sub : forall S1 S2,
+  {exp S1} -> {subexp S1 S2} -> esn S2 -> esn_ext S1.
+induction on 3. induction on 1. intros. unfold.
+  case H1.
+    search.
+    search.
+    unfold.
+      apply subexp_join to _ H2 with S1 = M.
+        backchain IH1 with S2 = S2.
+      apply subexp_join to _ H2 with S1 = S.
+        backchain IH1 with S2 = S2.
+    unfold.
+      apply subexp_join to _ H2 with S1 = M1.
+        backchain IH1 with S2 = S2.
+      apply subexp_join to _ H2 with S1 = M2.
+        backchain IH1 with S2 = S2.
+    unfold.
+      apply subexp_join to _ H2 with S1 = M.
+        backchain IH1 with S2 = S2.
+    search.
+  intros. apply subexp_step to H2 H4. case H3.
+    apply H7 to H6. apply exp_step to H1 H4. backchain IH.
+
+% Strong normalization and hereditary strong normalization are equivalent
+Theorem esn2esn_ext : forall S, {exp S} -> esn S -> esn_ext S.
+intros. backchain esn2esn_ext_sub.
+
+Theorem esn_ext2esn : forall S, esn_ext S -> esn S.
+induction on 1. intros. unfold. intros.
+case H1. apply H4 to H2. apply IH to H5. search.
+
+% The predicate nolam E specifies that E contains no lambdas.  It also excludes
+% constants even though it doesn't really matter, but it reduces the number of
+% cases we need to consider in the proofs.
+Define nolam : exp -> prop by
+  nolam (evar N) := {nat N} ;
+  nolam (eshift N) := {nat N} ;
+  nolam (eclos V VS) := nolam V /\ nolam VS ;
+  nolam (edot V S) := nolam V /\ nolam S.
+
+Theorem nolam2exp : forall S, nolam S -> {exp S}.
+induction on 1. intros. case H1.
+  search.
+  search.
+  apply IH to H2. apply IH to H3. search.
+  apply IH to H2. apply IH to H3. search.
+
+Theorem nolam_step : forall S1 S2, nolam S1 -> {estep S1 S2} -> nolam S2.
+induction on 2. intros. case H2.
+  case H1. apply IH to H4 H3. search.
+  case H1. apply IH to H5 H3. search.
+  case H1. apply IH to H4 H3. search.
+  case H1. apply IH to H5 H3. search.
+  case H1.
+  case H1. case H3.
+  case H1. case H4. search.
+  case H1. case H3. case H4. case H5. search.
+  case H1. case H5. apply add_isnat2 to H3 _. search.
+  case H1. case H3. search.
+  case H1. case H3. search.
+  case H1. case H3.
+  case H1. case H3. search.
+  case H1. search.
+  case H1. case H3. case H4. case H5. search.
+  case H1. case H5. apply add_isnat2 to H3 _. search.
+
+Theorem esn_dot : forall S1 S2, esn S1 -> esn S2 -> esn (edot S1 S2).
+induction on 1. induction on 2. intros. unfold. intros. case H3.
+  case H1. apply H5 to H4. backchain IH.
+  case H2. apply H5 to H4. backchain IH1.
+  unfold. intros. case H4.
+
+Theorem esn_dot_inv : forall S1 S2, esn (edot S1 S2) -> esn S1 /\ esn S2.
+induction on 1. intros. case H1. split.
+unfold. intros. assert {estep (edot S1 S2) (edot S' S2)}. apply H2 to H4. apply IH to H5. search.
+unfold. intros. assert {estep (edot S1 S2) (edot S1 S')}. apply H2 to H4. apply IH to H5. search.
+
+Theorem esn_clos_var : forall N S, {nat N} -> esn S -> esn (eclos (evar N) S).
+induction on 1. induction on 2. intros. unfold. intros. case H3.
+  case H4.
+  case H2. apply H5 to H4. backchain IH1.
+  apply esn_dot_inv to H2. search.
+  case H1. apply esn_dot_inv to H2. backchain IH.
+  unfold. intros. case H5.
+
+Theorem esn_clos_shift : forall N S, {nat N} -> esn S -> esn (eclos (eshift N) S).
+induction on 1. induction on 2. intros. unfold. intros. case H3.
+  case H4.
+  case H2. apply H5 to H4. backchain IH1.
+  search.
+  case H1. apply esn_dot_inv to H2. backchain IH.
+  unfold. intros. case H5.
+
+Theorem esn_lam : forall S, esn S -> esn (elam S).
+induction on 1. intros. case H1. unfold. intros.
+case H3. apply H2 to H4. backchain IH.
+
+% Strong normalization of lambda-free closures
+Theorem esn_clos_nolam : forall S1 S2,
+  esn_ext S1 -> nolam S1 -> esn S2 -> esn (eclos S1 S2).
+induction on 1. induction on 3. intros. unfold. intros. case H4.
+  case H1. apply H7 to H5. apply nolam_step to H2 H5. backchain IH.
+  case H3. apply H6 to H5. backchain IH1.
+  unfold. intros. case H5.
+  apply esn_dot_inv to H3. search.
+  apply esn_dot_inv to H3. case H2. case H7. backchain esn_clos_var.
+  unfold. intros. case H6.
+  case H1. case H2. case H5.
+    apply IH to H10 H8 H3. apply IH to H9 H7 H11. search.
+  case H1. case H2. case H5.
+    apply IH to H9 H7 H3. apply IH to H10 H8 H3. backchain esn_dot.
+  case H2.
+  search.
+  apply esn_dot_inv to H3. case H2. case H7. backchain esn_clos_shift.
+  unfold. intros. case H6.
+
+% Strong normalization of lambda-free expressions
+Theorem nolam_esn : forall S, nolam S -> esn S.
+induction on 1. intros. case H1.
+  unfold. intros. case H3.
+  unfold. intros. case H3.
+  apply IH to H2. apply IH to H3.
+    backchain esn_clos_nolam. backchain esn2esn_ext. backchain nolam2exp.
+  apply IH to H2. apply IH to H3.
+    backchain esn_dot.
+
+% Simulation relation containing M ~ M and S ~ (eclos S (eshift (s z)))
+% such that whenever M1 ~ M2 and M2 --> M2' then
+% either there exists M1' with M1 --> M1' and M1' ~ M2' (a sync step)
+% or M1 ~ M2' (a zero-step)
+Define exp_under_shift : exp -> exp -> prop by
+  exp_under_shift ec ec ;
+  exp_under_shift V1 V2 := nolam V1 /\ nolam V2 ;
+  exp_under_shift (eclos M S) (eclos M S') := exp_under_shift S S' ;
+  exp_under_shift (edot M1 M2) (edot M1' M2') := exp_under_shift M1 M1' /\ exp_under_shift M2 M2' ;
+  exp_under_shift (elam M) (elam M') := exp_under_shift M M' ;
+  exp_under_shift M (eclos M S) := nolam S ;
+  exp_under_shift (eclos M S) (eclos M' S) := exp_under_shift M M' /\ nolam S.
+
+Theorem exp_exp_under_shift : forall S1 S2,
+  {exp S1} -> exp_under_shift S1 S2 -> {exp S2}.
+induction on 2. intros. case H2.
+  search.
+  backchain nolam2exp.
+  case H1. apply IH to _ H3. search.
+  case H1. apply IH to _ H3. apply IH to _ H4. search.
+  case H1. apply IH to _ H3. search.
+  apply nolam2exp to H3. search.
+  case H1. apply IH to _ H3. search.
+
+Theorem under_shift_refl : forall M, {exp M} -> exp_under_shift M M.
+induction on 1. intros. case H1.
+  search.
+  search.
+  apply IH to H2. apply IH to H3. search.
+  apply IH to H2. apply IH to H3. search.
+  apply IH to H2. search.
+  search.
+
+% An inductive characterization of
+% (1) that M1 ~ M2 is a simulation (as described above) and
+% (2) that sequences of zero-steps are strongly normalizing
+% (see Theorem is_esn_rel_under_shift below)
+% This means that when M1 ~ M2 and M1 is strongly normalizing then M2
+% is also strongly normalizing (Theorem exp_under_shift_esn below)
+Define esn_rel_under_shift : exp -> exp -> prop by
+  esn_rel_under_shift M' M := exp_under_shift M' M /\
+      forall M2, {estep M M2} ->
+        (exists M'2, {estep M' M'2} /\ exp_under_shift M'2 M2) \/
+        esn_rel_under_shift M' M2.
+
+Theorem nolam2esn_rel_under_shift' : forall M M',
+  nolam M -> nolam M' -> esn M' -> esn_rel_under_shift M M'.
+induction on 3. intros. unfold. search. intros.
+case H3. apply H5 to H4. apply nolam_step to _ H4. right. backchain IH.
+
+Theorem nolam2esn_rel_under_shift : forall M M',
+  nolam M -> nolam M' -> esn_rel_under_shift M M'.
+intros. apply nolam_esn to H2. backchain nolam2esn_rel_under_shift'.
+
+Theorem lemma_esn_rel_cong_clos_right : forall M S S',
+  {exp S} -> {exp S'} -> {exp M} -> esn_rel_under_shift S S'
+    -> esn_rel_under_shift (eclos M S) (eclos M S').
+induction on 4. intros. case H4. unfold. search. intros. case H7.
+  left. search.
+  apply H6 to H8. case H9. left. search. right. apply exp_step to _ H8. backchain IH.
+  left. search.
+  case H5.
+    right. case H2. case H9. backchain nolam2esn_rel_under_shift.
+    left. search.
+  case H5.
+    right. case H2. case H9. case H3. case H14. backchain nolam2esn_rel_under_shift.
+    left. search.
+  case H2. apply add_isnat2 to H8 _. right. case H5. case H3. backchain nolam2esn_rel_under_shift.
+  left. search.
+  left. search.
+  left. exists elam (eclos M1 (edot (evar z) (eclos S (eshift (s z))))). search 10.
+  left. search.
+  case H5.
+    right. case H2. case H9. case H3. case H14. backchain nolam2esn_rel_under_shift.
+    left. search.
+  case H2. apply add_isnat2 to H8 _. right. case H5. case H3. backchain nolam2esn_rel_under_shift.
+
+Theorem lemma_esn_rel_cong_dot : forall M1 M2 M1' M2',
+  esn_rel_under_shift M1 M1' -> esn_rel_under_shift M2 M2' ->
+    esn_rel_under_shift (edot M1 M2) (edot M1' M2').
+induction on 1. induction on 2. intros.
+case H1 (keep). case H2 (keep).
+unfold. search. intros. case H7.
+  apply H4 to H8. case H9.
+    left. search. right. apply IH to H10 H2. search.
+  apply H6 to H8. case H9.
+    left. search. right. apply IH1 to H1 H10. search.
+  case H3. case H5. case H9. right. backchain nolam2esn_rel_under_shift.
+
+Theorem lemma_esn_rel_cong_lam : forall M M',
+  esn_rel_under_shift M M' -> esn_rel_under_shift (elam M) (elam M').
+induction on 1. intros. case H1.
+unfold. search. intros. case H4.
+apply H3 to H5. case H6.
+  left. search.
+  right. apply IH to H7. search.
+
+Theorem lemma_esn_rel_cong_clos_left : forall M1 M2 S,
+  {exp M1} -> nolam S -> esn_rel_under_shift M1 M2 -> esn_rel_under_shift (eclos M1 S) (eclos M2 S).
+induction on 3. intros. case H3. unfold. search. intros. case H6.
+  apply H5 to H7. case H8.
+    left. search.
+    right. backchain IH.
+  left. apply nolam_step to _ H7. search.
+  case H4. left. search. case H8.
+  right. case H2. case H4. backchain nolam2esn_rel_under_shift.
+  right. case H2. case H4. case H10. case H11. backchain nolam2esn_rel_under_shift.
+  right. case H2. case H4. apply add_isnat2 to H7 _. backchain nolam2esn_rel_under_shift.
+  case H4.
+    right. case H8. backchain nolam2esn_rel_under_shift.
+    left. search.
+    right. apply nolam2exp to H2. apply nolam2exp to H7.
+      apply nolam2esn_rel_under_shift to H2 _ with M' = eclos S1 S.
+      backchain lemma_esn_rel_cong_clos_right.
+    left. search.
+  case H4.
+    right. case H8. backchain nolam2esn_rel_under_shift.
+    left. search.
+  case H4. case H8. left.
+    exists elam (eclos M4 (edot (evar z) (eclos S (eshift (s z))))).
+    search 10.
+  right. case H4. backchain nolam2esn_rel_under_shift.
+  right. case H2. case H4. case H10. case H11. backchain nolam2esn_rel_under_shift.
+  right. case H2. case H4. apply add_isnat2 to H7 _. backchain nolam2esn_rel_under_shift.
+
+Theorem is_esn_rel_under_shift : forall M' M,
+  {exp M'} -> exp_under_shift M' M -> esn_rel_under_shift M' M.
+induction on 1. intros. case H2.
+  % c
+  unfold. search. intros. case H3.
+  % n
+  backchain nolam2esn_rel_under_shift.
+  % M[S]
+  case H1. apply IH to H5 H3.
+  apply exp_exp_under_shift to _ H3.
+  backchain lemma_esn_rel_cong_clos_right.
+  % dot M1 M2
+  case H1. apply IH to H5 H3. apply IH to H6 H4.
+  apply lemma_esn_rel_cong_dot to H7 H8. search.
+  % lam M
+  case H1. apply IH to H4 H3.
+  apply lemma_esn_rel_cong_lam to H5. search.
+  % M ~ M[S]
+  assert forall S, esn S -> nolam S -> esn_rel_under_shift M' (eclos M' S).
+    induction on 1. intros. unfold. search. intros. case H6.
+      left. search.
+      case H4. apply H8 to H7.
+        apply nolam_step to _ H7. right. backchain IH1.
+      right. unfold. search. intros. case H7.
+      right. case H5. backchain nolam2esn_rel_under_shift.
+      right. case H5. case H1. case H9. backchain nolam2esn_rel_under_shift.
+      right. case H5. case H1. apply add_isnat2 to H7 _. backchain nolam2esn_rel_under_shift.
+      case H1. right. apply nolam2exp to H5.
+        apply IH to H8 _ with M = (eclos S2 S1).
+        backchain lemma_esn_rel_cong_clos_right.
+      right. case H1.
+        apply IH to H7 _ with M = (eclos M1 S1).
+        apply IH to H8 _ with M = (eclos N S1).
+        backchain lemma_esn_rel_cong_dot.
+      right. case H1.
+        backchain lemma_esn_rel_cong_lam.
+        backchain IH.
+        search 10.
+      right. backchain nolam2esn_rel_under_shift.
+      right. case H1. case H5. case H7. backchain nolam2esn_rel_under_shift.
+      right. case H1. case H5. apply add_isnat2 to H7 _. backchain nolam2esn_rel_under_shift.
+  apply nolam_esn to H3. apply H4 to H5 H3. search.
+  % M[V] ~ M'[V]
+  case H1.
+  apply IH to H5 H3.
+  backchain lemma_esn_rel_cong_clos_left.
+
+Theorem exp_under_shift_esn : forall M' M,
+  {exp M'} -> esn M' -> exp_under_shift M' M -> esn M.
+induction on 2. intros. apply is_esn_rel_under_shift to H1 H3.
+assert forall M, esn_rel_under_shift M' M -> esn M.
+  induction on 1. intros. case H5.
+  unfold. intros. apply H7 to H8. case H9.
+    % sync step
+    case H2. apply H12 to H10.
+    apply exp_step to _ H10.
+    apply IH to H14 H13 H11.
+    search.
+    % 0 step
+    apply IH1 to H10. search.
+apply H5 to H4. search.
+
+% As a corollary to the above theorem we get
+% esn S ==> esn (eclos S (eshift (s z)))
+% which in turn gives
+% esn S1 /\ esn S2 ==> esn (eclos S1 S2)
+Theorem esn_clos : forall S1 S2,
+  esn_ext S1 -> {exp S1} -> esn S2 -> {exp S2} -> esn (eclos S1 S2).
+induction on 1. induction on 3. intros. unfold. intros. case H5.
+  case H1. apply H8 to H6. apply exp_step to H2 H6. backchain IH.
+  case H3. apply H7 to H6. apply exp_step to _ H6. backchain IH1.
+  unfold. intros. case H6.
+  apply esn_dot_inv to H3. search.
+  apply esn_dot_inv to H3. case H2. case H8. backchain esn_clos_var.
+  unfold. intros. case H7.
+  case H1. case H2. case H6.
+    apply IH to H11 H9 H3 _. apply IH to H10 H8 H12 _. search.
+  case H1. case H2. case H6.
+    apply IH to H10 H8 H3 _. apply IH to H11 H9 H3 _. backchain esn_dot.
+  case H1. case H2. case H6.
+    backchain esn_lam. backchain IH. backchain esn_dot.
+      unfold. intros. case H10.
+      assert exp_under_shift S2 (eclos S2 (eshift (s z))).
+        apply exp_under_shift_esn to _ _ H10. search.
+  search.
+  apply esn_dot_inv to H3. case H2. case H8. backchain esn_clos_shift.
+  unfold. intros. case H7.
+
+% Strong normalization of all expressions
+Theorem exp_esn : forall S, {exp S} -> esn S.
+induction on 1. intros. case H1.
+  unfold. intros. case H2.
+  unfold. intros. case H3.
+  apply IH to H2. apply IH to H3. backchain esn_clos. backchain esn2esn_ext.
+  apply IH to H2. apply IH to H3. backchain esn_dot.
+  apply IH to H2. backchain esn_lam.
+  unfold. intros. case H3.
+

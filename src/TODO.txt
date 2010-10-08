@@ -3,6 +3,7 @@ Document in next release
 Fixed a variable capture issue when using 'with' clauses
 Ctrl-C now interrupts the current command (e.g. search)
 Can now set 'search_depth' to configure default search depth
+PSN for lambda-sigma
 
 Future
 ======

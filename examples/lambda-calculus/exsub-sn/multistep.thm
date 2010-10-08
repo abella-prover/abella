@@ -1,0 +1,241 @@
+Specification "multistep".
+
+Import "lambda-sigma".
+
+Theorem mstep0_cong_closl : forall M M' S,
+  {mstep0 M M'} -> {mstep0 (clos M S) (clos M' S)}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with S = S. search.
+
+Theorem mstep0_cong_closr : forall M S S',
+  {msteps_su0 S S'} -> {mstep0 (clos M S) (clos M S')}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with M = M. search.
+
+Theorem mstep0_cong_appl : forall M M' N,
+  {mstep0 M M'} -> {mstep0 (app M N) (app M' N)}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with N = N. search.
+
+Theorem mstep0_cong_appr : forall M N N',
+  {mstep0 N N'} -> {mstep0 (app M N) (app M N')}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with M = M. search.
+
+Theorem mstep0_cong_lam : forall M M',
+  {mstep0 M M'} -> {mstep0 (lam M) (lam M')}.
+induction on 1. intros. case H1. search.
+apply IH to H3. search.
+
+Theorem msteps0_cong_dotl : forall M M' S,
+  {mstep0 M M'} -> {msteps0 (dot M S) (dot M' S)}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with S = S. search.
+
+Theorem msteps0_cong_dotr : forall M S S',
+  {msteps0 S S'} -> {msteps0 (dot M S) (dot M S')}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with M = M. search.
+
+Theorem msteps0_cong_compl : forall S1 S1' S2,
+  {msteps0 S1 S1'} -> {msteps0 (comp S1 S2) (comp S1' S2)}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with S2 = S2. search.
+
+Theorem msteps0_cong_compr : forall S1 S2 S2',
+  {msteps0 S2 S2'} -> {msteps0 (comp S1 S2) (comp S1 S2')}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with S1 = S1. search.
+
+Theorem mstep_cong_closl : forall M M' S,
+  {mstep M M'} -> {mstep (clos M S) (clos M' S)}.
+intros. case H1. apply mstep0_cong_closl to H3 with S = S. search.
+
+Theorem mstep_cong_appl : forall M M' N,
+  {mstep M M'} -> {mstep (app M N) (app M' N)}.
+intros. case H1. apply mstep0_cong_appl to H3 with N = N. search.
+
+Theorem mstep_cong_appr : forall M N N',
+  {mstep N N'} -> {mstep (app M N) (app M N')}.
+intros. case H1. apply mstep0_cong_appr to H3 with M = M. search.
+
+Theorem mstep_cong_lam : forall M M',
+  {mstep M M'} -> {mstep (lam M) (lam M')}.
+intros. case H1. apply mstep0_cong_lam to H3. search.
+
+Theorem msteps_cong_dotl : forall M M' S,
+  {mstep M M'} -> {msteps (dot M S) (dot M' S)}.
+intros. case H1. apply msteps0_cong_dotl to H3 with S = S. search.
+
+Theorem msteps_cong_dotr : forall M S S',
+  {msteps S S'} -> {msteps (dot M S) (dot M S')}.
+intros. case H1. apply msteps0_cong_dotr to H3 with M = M. search.
+
+Theorem msteps_cong_compl : forall S1 S1' S2,
+  {msteps S1 S1'} -> {msteps (comp S1 S2) (comp S1' S2)}.
+intros. case H1. apply msteps0_cong_compl to H3 with S2 = S2. search.
+
+Theorem msteps_cong_compr : forall S1 S2 S2',
+  {msteps S2 S2'} -> {msteps (comp S1 S2) (comp S1 S2')}.
+intros. case H1. apply msteps0_cong_compr to H3 with S1 = S1. search.
+
+Theorem mstep0_case : forall M1 M2,
+  {mstep0 M1 M2} -> {mstep M1 M2} \/ M1 = M2.
+intros. case H1. right. search. left. search.
+
+Theorem msteps0_case : forall S1 S2,
+  {msteps0 S1 S2} -> {msteps S1 S2} \/ S1 = S2.
+intros. case H1. right. search. left. search.
+
+Theorem mstep0_trans : forall M1 M2 M3,
+  {mstep0 M1 M2} -> {mstep0 M2 M3} -> {mstep0 M1 M3}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H4 H2. search.
+
+Theorem msteps0_trans : forall S1 S2 S3,
+  {msteps0 S1 S2} -> {msteps0 S2 S3} -> {msteps0 S1 S3}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H4 H2. search.
+
+
+Theorem mstep_su0_cong_closl : forall M M' S,
+  {mstep_su0 M M'} -> {mstep_su0 (clos M S) (clos M' S)}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with S = S. search.
+
+Theorem mstep_su0_cong_closr : forall M S S',
+  {msteps_su0 S S'} -> {mstep_su0 (clos M S) (clos M S')}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with M = M. search.
+
+Theorem mstep_su0_cong_appl : forall M M' N,
+  {mstep_su0 M M'} -> {mstep_su0 (app M N) (app M' N)}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with N = N. search.
+
+Theorem mstep_su0_cong_appr : forall M N N',
+  {mstep_su0 N N'} -> {mstep_su0 (app M N) (app M N')}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with M = M. search.
+
+Theorem mstep_su0_cong_lam : forall M M',
+  {mstep_su0 M M'} -> {mstep_su0 (lam M) (lam M')}.
+induction on 1. intros. case H1. search.
+apply IH to H3. search.
+
+Theorem msteps_su0_cong_dotl : forall M M' S,
+  {mstep_su0 M M'} -> {msteps_su0 (dot M S) (dot M' S)}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with S = S. search.
+
+Theorem msteps_su0_cong_dotr : forall M S S',
+  {msteps_su0 S S'} -> {msteps_su0 (dot M S) (dot M S')}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with M = M. search.
+
+Theorem msteps_su0_cong_compl : forall S1 S1' S2,
+  {msteps_su0 S1 S1'} -> {msteps_su0 (comp S1 S2) (comp S1' S2)}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with S2 = S2. search.
+
+Theorem msteps_su0_cong_compr : forall S1 S2 S2',
+  {msteps_su0 S2 S2'} -> {msteps_su0 (comp S1 S2) (comp S1 S2')}.
+induction on 1. intros. case H1. search.
+apply IH to H3 with S1 = S1. search.
+
+Theorem mstep_su_cong_closl : forall M M' S,
+  {mstep_su M M'} -> {mstep_su (clos M S) (clos M' S)}.
+intros. case H1. apply mstep_su0_cong_closl to H3 with S = S. search.
+
+Theorem mstep_su_cong_closr : forall M S S',
+  {msteps_su S S'} -> {mstep_su (clos M S) (clos M S')}.
+intros. case H1. apply mstep_su0_cong_closr to H3 with M = M. search.
+
+Theorem mstep_su_cong_appl : forall M M' N,
+  {mstep_su M M'} -> {mstep_su (app M N) (app M' N)}.
+intros. case H1. apply mstep_su0_cong_appl to H3 with N = N. search.
+
+Theorem mstep_su_cong_appr : forall M N N',
+  {mstep_su N N'} -> {mstep_su (app M N) (app M N')}.
+intros. case H1. apply mstep_su0_cong_appr to H3 with M = M. search.
+
+Theorem mstep_su_cong_lam : forall M M',
+  {mstep_su M M'} -> {mstep_su (lam M) (lam M')}.
+intros. case H1. apply mstep_su0_cong_lam to H3. search.
+
+Theorem msteps_su_cong_dotl : forall M M' S,
+  {mstep_su M M'} -> {msteps_su (dot M S) (dot M' S)}.
+intros. case H1. apply msteps_su0_cong_dotl to H3 with S = S. search.
+
+Theorem msteps_su_cong_dotr : forall M S S',
+  {msteps_su S S'} -> {msteps_su (dot M S) (dot M S')}.
+intros. case H1. apply msteps_su0_cong_dotr to H3 with M = M. search.
+
+Theorem msteps_su_cong_compl : forall S1 S1' S2,
+  {msteps_su S1 S1'} -> {msteps_su (comp S1 S2) (comp S1' S2)}.
+intros. case H1. apply msteps_su0_cong_compl to H3 with S2 = S2. search.
+
+Theorem msteps_su_cong_compr : forall S1 S2 S2',
+  {msteps_su S2 S2'} -> {msteps_su (comp S1 S2) (comp S1 S2')}.
+intros. case H1. apply msteps_su0_cong_compr to H3 with S1 = S1. search.
+
+Theorem mstep_su0_case : forall M1 M2,
+  {mstep_su0 M1 M2} -> {mstep_su M1 M2} \/ M1 = M2.
+intros. case H1. right. search. left. search.
+
+Theorem msteps_su0_case : forall S1 S2,
+  {msteps_su0 S1 S2} -> {msteps_su S1 S2} \/ S1 = S2.
+intros. case H1. right. search. left. search.
+
+Theorem mstep_su0_trans : forall M1 M2 M3,
+  {mstep_su0 M1 M2} -> {mstep_su0 M2 M3} -> {mstep_su0 M1 M3}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H4 H2. search.
+
+Theorem msteps_su0_trans : forall S1 S2 S3,
+  {msteps_su0 S1 S2} -> {msteps_su0 S2 S3} -> {msteps_su0 S1 S3}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H4 H2. search.
+
+Theorem mstep_su02mstep0 : forall M1 M2, {mstep_su0 M1 M2} -> {mstep0 M1 M2}.
+induction on 1. intros. case H1. search. apply IH to H3. search.
+
+Theorem msteps_su02msteps0 : forall S1 S2, {msteps_su0 S1 S2} -> {msteps0 S1 S2}.
+induction on 1. intros. case H1. search. apply IH to H3. search.
+
+Theorem mstep_su2mstep : forall M1 M2, {mstep_su M1 M2} -> {mstep M1 M2}.
+intros. case H1. apply mstep_su02mstep0 to H3. search.
+
+Theorem msteps_su2msteps : forall S1 S2, {msteps_su S1 S2} -> {msteps S1 S2}.
+intros. case H1. apply msteps_su02msteps0 to H3. search.
+
+
+Theorem tm_mstep_su0 : forall M M', {tm M} -> {mstep_su0 M M'} -> {tm M'}.
+induction on 2. intros. case H2. search.
+apply tm_step to _ H3. apply IH to _ H4. search.
+
+Theorem sub_msteps_su0 : forall S S', {sub S} -> {msteps_su0 S S'} -> {sub S'}.
+induction on 2. intros. case H2. search.
+apply sub_step to _ H3. apply IH to _ H4. search.
+
+
+Theorem mstep_su0_inv_app : forall M1 M2 M,
+  {mstep_su0 (app M1 M2) M} ->
+    exists M1' M2', M = app M1' M2' /\ {mstep_su0 M1 M1'} /\ {mstep_su0 M2 M2'}.
+induction on 1. intros. case H1.
+  search.
+  case H2.
+    apply IH to H3. search.
+    apply IH to H3. search.
+
+Theorem mstep_su0_inv_lam : forall M1 M,
+  {mstep_su0 (lam M1) M} -> exists M2, M = lam M2 /\ {mstep_su0 M1 M2}.
+induction on 1. intros. case H1.
+  search.
+  case H2.
+    apply IH to H3. search.
+

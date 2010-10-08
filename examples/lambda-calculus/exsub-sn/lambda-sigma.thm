@@ -1,0 +1,106 @@
+Specification "lambda-sigma".
+
+% Strong sigma-normalization of terms and substitutions by conversion to expressions
+% Expressions correspond to collapsing app and dot to edot, and clos and comp to eclos
+
+Import "sigma-strong".
+
+Theorem tm_step_ext :
+  (forall T M M', {tm M} -> {step T M M'} -> {tm M'}) /\
+  (forall T S S', {sub S} -> {steps T S S'} -> {sub S'}).
+induction on 2 2. split. intros. case H2.
+  case H1. apply IH to _ H3. search.
+  case H1. apply IH1 to _ H3. search.
+  case H1. apply IH to _ H3. search.
+  case H1. apply IH to _ H3. search.
+  case H1. apply IH to _ H3. search.
+  case H1. case H3. search.
+  search.
+  case H1. case H4. search.
+  case H1. case H3. case H4. case H5. search.
+  case H1. case H5. apply add_isnat2 to H3 _. search.
+  case H1. case H3. search.
+  case H1. case H3. search.
+  case H1. case H3. search 10.
+intros. case H2.
+  case H1. apply IH to _ H3. search.
+  case H1. apply IH1 to _ H3. search.
+  case H1. case H3. search.
+  case H1. apply IH1 to _ H3. search.
+  case H1. apply IH1 to _ H3. search.
+  case H1. search.
+  case H1. case H3. search.
+  case H1. case H3. case H4. case H5. search.
+  case H1. case H5. apply add_isnat2 to H3 _. search.
+  case H1. case H3. search.
+
+Split tm_step_ext as tm_step, sub_step.
+
+Theorem conv_exists :
+  (forall M, {tm M} -> exists E, {convtm M E} /\ {exp E}) /\
+  (forall S, {sub S} -> exists E, {convsub S E} /\ {exp E}).
+induction on 1 1. split. intros. case H1.
+  search.
+  search.
+  apply IH to H2. apply IH1 to H3. search.
+  apply IH to H2. apply IH to H3. search.
+  apply IH to H2. search.
+intros. case H1.
+  search.
+  apply IH to H2. apply IH1 to H3. search.
+  apply IH1 to H2. apply IH1 to H3. search.
+
+Split conv_exists as convtm_exists, convsub_exists.
+
+Theorem conv_step :
+  (forall M1 M2 E1, {step su M1 M2} -> {convtm M1 E1} ->
+    exists E2, {estep E1 E2} /\ {convtm M2 E2}) /\
+  (forall S1 S2 E1, {steps su S1 S2} -> {convsub S1 E1} ->
+    exists E2, {estep E1 E2} /\ {convsub S2 E2}).
+induction on 1 1. split. intros. case H1.
+  case H2. apply IH to H3 H4. search.
+  case H2. apply IH1 to H3 H5. search.
+  case H2. apply IH to H3 H4. search.
+  case H2. apply IH to H3 H5. search.
+  case H2. apply IH to H3 H4. search.
+  case H2. case H3. search.
+  case H2. case H3. case H4. search.
+  case H2. case H3. case H4. search.
+  case H2. case H4. case H5. search.
+  case H2. case H3. search.
+  case H2. case H3. search.
+  case H2. case H3. search.
+intros. case H1.
+  case H2. apply IH to H3 H4. search.
+  case H2. apply IH1 to H3 H5. search.
+  case H2. case H3. case H4. search.
+  case H2. apply IH1 to H3 H4. search.
+  case H2. apply IH1 to H3 H5. search.
+  case H2. case H3. search.
+  case H2. case H3. search.
+  case H2. case H3. case H4. search.
+  case H2. case H4. case H5. search.
+  case H2. case H3. search.
+
+Split conv_step as convtm_step, convsub_step.
+
+Define sn_su : tm -> prop by
+  sn_su M := forall N, {step su M N} -> sn_su N.
+
+Define sns_su : sub -> prop by
+  sns_su S := forall S', {steps su S S'} -> sns_su S'.
+
+Theorem tm_sn_su : forall M, {tm M} -> sn_su M.
+assert forall M E, esn E -> {convtm M E} -> sn_su M.
+  induction on 1. intros. unfold. intros. case H1.
+  apply convtm_step to H3 H2. apply H4 to H5. backchain IH.
+intros. apply convtm_exists to H2.
+backchain H1. backchain exp_esn.
+
+Theorem sub_sns_su : forall S, {sub S} -> sns_su S.
+assert forall S E, esn E -> {convsub S E} -> sns_su S.
+  induction on 1. intros. unfold. intros. case H1.
+  apply convsub_step to H3 H2. apply H4 to H5. backchain IH.
+intros. apply convsub_exists to H2.
+backchain H1. backchain exp_esn.
+

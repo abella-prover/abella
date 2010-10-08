@@ -1,0 +1,170 @@
+Specification "beta-sn".
+
+Import "beta-sn".
+
+Define sn : tm -> prop by
+  sn M := forall T N, {step T M N} -> sn N.
+
+Define sns : sub -> prop by
+  sns S := forall T S', {steps T S S'} -> sns S'.
+
+Theorem sns_dot : forall M S,
+  sn M -> sns S -> sns (dot M S).
+induction on 1. induction on 2. intros. unfold. intros.
+case H3.
+  case H1. apply H5 to H4. backchain IH.
+  case H2. apply H5 to H4. backchain IH1.
+  unfold. intros. case H4.
+
+Theorem sns_dot_inv : forall M S2, sns (dot M S2) -> sn M /\ sns S2.
+induction on 1. intros. case H1. split.
+unfold. intros. assert {steps T (dot M S2) (dot N S2)}. apply H2 to H4. apply IH to H5. search.
+unfold. intros. assert {steps T (dot M S2) (dot M S')}. apply H2 to H4. apply IH to H5. search.
+
+Theorem step_case : forall T M M', {step T M M'} -> T = be \/ T = su.
+induction on 1. intros. case H1.
+apply IH to H2. search.
+search.
+apply IH to H2. search.
+apply IH to H2. search.
+apply IH to H2. search.
+search. search. search. search.
+search. search. search. search.
+
+Theorem steps_case : forall T S S', {steps T S S'} -> T = be \/ T = su.
+induction on 1. intros. case H1.
+apply step_case to H2. search.
+apply IH to H2. search.
+search.
+apply IH to H2. search.
+apply IH to H2. search.
+search. search. search. search.
+search.
+
+Theorem strong_rel : forall M M',
+  {tm M} -> {mstep_su0 M M'} -> {wsnf M'} -> sn_be M' -> sn_su M -> sn M.
+induction on 4. induction on 5. intros. unfold. intros.
+apply tm_step to _ H6.
+apply step_case to H6. case H8.
+  % beta
+  apply project_beta to _ H6 H2 H3.
+  case H4.
+  apply H11 to H10.
+  apply beta2wsnf to H10.
+  apply tm_sn_su to H7.
+  apply IH to _ H9 _ H12 _.
+  search.
+  % sigma
+  case H5.
+  apply H9 to H6.
+  apply conf_tm to _ H2 _ with M2 = N.
+  apply wsnf_step_eq to _ H11.
+  apply IH1 to _ H12 _ H4 H10.
+  search.
+
+% PSN : Preservation of Strong Normalization
+Theorem psn : forall M M',
+  {tm M} -> {mstep_su0 M M'} -> {wsnf M'} -> sn_be M' -> sn M.
+intros. apply tm_sn_su to H1. backchain strong_rel.
+
+Theorem strong_tm : forall G M A, {ctx G} -> {of G M A} -> sn M.
+intros.
+apply of_tm to H2.
+apply wsnf_exists to H3.
+apply of_mstep_su0 to H2 H4.
+apply strong_beta to H1 H6.
+backchain psn.
+
+
+Define sns_ext : sub -> prop,
+    sns_struct : sub -> prop by
+  sns_ext S := sns_struct S /\ forall T S', {steps T S S'} -> sns_ext S' ;
+  sns_struct (shift N) ;
+  sns_struct (comp S1 S2) := sns_ext S1 /\ sns_ext S2 ;
+  sns_struct (dot M S) := sn M /\ sns_ext S.
+
+Define subsub : sub -> sub -> prop by
+  subsub S S ;
+  subsub S (comp S1 S2) := subsub S S1 ;
+  subsub S (comp S1 S2) := subsub S S2 ;
+  subsub S (dot M S2) := subsub S S2.
+
+Theorem subsub_join : forall S1 S2 S3,
+  subsub S1 S2 -> subsub S2 S3 -> subsub S1 S3.
+induction on 2. intros. case H2.
+  search.
+  apply IH to H1 H3. search.
+  apply IH to H1 H3. search.
+  apply IH to H1 H3. search.
+
+Theorem subsub_step : forall T S1 S2 S1',
+  subsub S1 S2 -> {steps T S1 S1'} -> exists S2', subsub S1' S2' /\ {steps T S2 S2'}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H3 H2. search.
+  apply IH to H3 H2. search.
+  apply IH to H3 H2. search.
+
+Theorem sns2sns_ext_sub : forall S1 S2,
+  {sub S1} -> subsub S1 S2 -> sns S2 ->
+    (forall T S', {steps T S1 S'} -> sns_ext S') /\ sns_struct S1.
+induction on 3. induction on 1. intros. split*.
+  intros. apply subsub_step to H2 H4. case H3.
+    apply H7 to H6. apply sub_step to H1 H4. apply IH to H9 H5 H8. search.
+  case H1.
+    search.
+    unfold.
+      unfold. intros. apply H4 to _.     
+        case H8. case H9. search.
+      apply subsub_join to _ H2 with S1 = S.
+        apply IH1 to H6 H7 H3. search.
+    unfold.
+      apply subsub_join to _ H2 with S1 = S3.
+        apply IH1 to H5 H7 H3. search.
+      apply subsub_join to _ H2 with S1 = S4.
+        apply IH1 to H6 H7 H3. search.
+
+Theorem sns2sns_ext : forall S, {sub S} -> sns S -> sns_ext S.
+intros. apply sns2sns_ext_sub to H1 _ H2. search.
+
+Theorem sns_comp_shift : forall N S, {nat N} -> sns S -> sns (comp (shift N) S).
+induction on 1. induction on 2. intros. unfold. intros. case H3.
+  case H4.
+  case H2. apply H5 to H4. backchain IH1.
+  search.
+  case H1. apply sns_dot_inv to H2. backchain IH.
+  unfold. intros. case H5.
+
+Theorem sns_comp : forall S1 S2 G1 G2 G3,
+  {ctx G1} -> sns_ext S1 -> {ofs G3 S1 G2} -> sns S2 -> {ofs G1 S2 G3} -> sns (comp S1 S2).
+induction on 2. induction on 4. intros. unfold. intros. case H6.
+  case H2. apply H9 to H7. apply ofs_steps to H3 H7. backchain IH.
+  case H4. apply H8 to H7. apply ofs_steps to _ H7. backchain IH1.
+  search.
+  case H2. case H3. case H7.
+    apply IH to _ H12 H10 H4 _. backchain sns_dot. backchain strong_tm.
+  apply sns_dot_inv to H4. case H3. backchain sns_comp_shift.
+    apply ofs_sub to H9. case H10. search.
+  unfold. intros. case H8.
+  case H2. case H3. case H7.
+    apply IH to _ H12 H9 H4 _. apply IH to _ H11 H10 H13 _. search.
+
+Theorem strong_sub : forall G S G',
+  {ctx G} -> {ofs G S G'} -> sns S.
+induction on 2. intros. case H2.
+  % shift z
+  unfold. intros. case H3.
+  % shift (s N)
+  unfold. intros. case H4.
+  % dot
+  apply strong_tm to _ H3.
+  apply IH to _ H4.
+  backchain sns_dot.
+  % comp
+  apply ofs_ctx to _ H3.
+  apply IH to _ H3.
+  apply IH to _ H4.
+  backchain sns_comp.
+  backchain sns2sns_ext.
+  backchain ofs_sub.
+

@@ -148,15 +148,11 @@ induction on 1. intros. case H1.
 
 Theorem prog_inst : forall A B T, nabla (x:tm),
   prog (A x) (B x) -> prog (A T) (B T).
-skip.
-% This is true but falls outside of pattern unification. If we comment
-% out the prog clause for the app case of eval, then the following
-% proof will work:
-%   intros. case H1.
-%     search.
-%     search.
-%     search.
-
+intros. case H1.
+  search.
+  search.
+  search.
+  search.
 
 Theorem seq_inst : forall N L G T, nabla (x:tm),
   seq N (L x) (G x) -> seq N (L T) (G T).

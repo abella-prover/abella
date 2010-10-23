@@ -1,0 +1,97 @@
+%% Co-Induction in Relational Semantics
+%% Author: Alberto Momigliano, http://homepages.inf.ed.ac.uk/amomigl1/
+%%
+%% An encoding of:
+%%
+%%  Robin Milner, Mads Tofte: Co-Induction in Relational
+%%   Semantics. Theor. Comput. Sci. 87(1): 209-220 (1991)
+%% http://www.lfcs.inf.ed.ac.uk/reports/88/ECS-LFCS-88-65/ECS-LFCS-88-65.pdf
+%%
+%% based on:
+%%
+%% Alberto Momigliano, Simon Ambler: Multi-level Meta-reasoning with
+%%  Higher-Order Abstract Syntax. FoSSaCS 2003: 375-391
+%% http://link.springer.de/link/service/series/0558/bibs/2620/26200375.htm
+%%
+%% see also:
+%%
+%% A Case Study of Co-induction in Isabelle HOL (1993)
+%% by Jacob Frost
+%% http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.38.8304
+%%
+
+Kind tm,tp,val,venv,tenv	type.
+
+%% Terms
+Type app 		tm -> tm -> tm.
+Type abs		tm -> tm.
+Type fix		tm -> tm.
+Type one		tm.
+Type shift		tm -> tm.
+
+%% Types
+Type arrow		tp -> tp -> tp.
+Type ground		tp.
+
+%% Environment <-> list of closure and types
+Type empty		venv.
+Type cons		val -> venv -> venv.
+
+Type tempty		tenv.
+Type tcons		tp -> tenv -> tenv.
+
+%% Values <-> closure,...
+Type closure		venv -> tm -> val.
+%% representing infinte closures
+Type clo 		(val -> val) -> val.
+
+
+Define reval: venv -> tm -> val -> prop by
+reval (cons W K )     one	W;
+reval       K         (fix (abs M))  (clo c\ (closure (cons c K) (abs M)));
+reval (cons W' K ) ( shift M )   W :=
+      	    reval K M W;
+reval       K 	    (abs M) 	( closure K (abs M) );
+reval       K 	   (app M N) 	W :=
+	    exists M' W', reval K M ( closure K (abs M') ) /\
+	    	    	   	     reval K N W' /\
+				     reval (cons W' K) M' W.
+
+Define has: tenv -> tm -> tp -> prop by
+has (tcons A TE )     one	A;
+has       TE 	    (fix M) A := has (tcons A TE) M A;
+has (tcons A' TE ) ( shift M )   A :=
+    	   has TE M A;
+has       TE 	    (abs M) (arrow A1 A2) :=
+	   has (tcons A1 TE) M A2 ;
+has       TE 	   (app M N) 	A :=
+	   exists A', has TE M ( arrow A' A) /\
+	    	    	   	     has TE N A'.
+
+CoDefine hasty:  val -> tp -> prop, hasty_env : venv -> tenv -> prop by
+hasty_env empty tempty;
+hasty_env (cons W K) (tcons T TE ):=
+	  hasty_env K TE /\ hasty W T;
+
+hasty (closure K (abs F)) A :=
+       exists TE, has TE (abs F) A /\ hasty_env K TE;
+hasty  (clo c\ (closure (cons c K) (abs M))) T:=
+       hasty  (closure (cons
+       	       	       	 (clo c\ (closure (cons c K) (abs M)))
+	                  K)  (abs M)) T.
+
+
+Theorem consistency: forall Ks M W TE T,
+  reval Ks M W -> hasty_env Ks TE -> has TE M T -> hasty W T.
+induction on 1. intros. case H1.
+  % one
+  case H3. case H2. search.
+  % fix
+  coinduction. case H3. search.
+  % shift
+  case H3. case H2. apply IH to H4 H6 H5. search.
+  % lam
+  case H3. unfold. search.
+  % app
+  case H3. apply IH to H4 H2 H7. apply IH to H5 H2 H8.
+    case H9. case H11. apply IH to H6 _ H13. search.

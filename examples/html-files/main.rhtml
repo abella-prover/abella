@@ -34,14 +34,14 @@ $(function() {
     });
 
   $('<span> </span><a class="fold-link" href="#">[Show All Proofs]</a>')
-    .insertBefore($('#reasoning p'))
+    .insertBefore($('#reasoning #menubar'))
     .click(function() {
       $('.proof:hidden').prev().click();
       return false;
   });
 
   $('<span> </span><a class="fold-link" href="#">[Hide All Proofs]</a>')
-    .insertBefore($('#reasoning p'))
+    .insertBefore($('#reasoning #menubar'))
     .click(function() {
       $('.proof:visible').prev().click();
       return false;
@@ -81,6 +81,7 @@ $(function() {
 <div class="section" id="reasoning">
 <h1 class="title">Reasoning</h1>
 <a class="view" href="<%= name %>.thm">[View <%= name %>.thm]</a>
+<span id="menubar" />
 <p class="body">
 Click on a command or tactic to see a detailed view of its use.
 </p>

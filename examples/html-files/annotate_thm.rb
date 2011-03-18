@@ -26,10 +26,16 @@ class Element
       @text
     when :comment
       "<span class=\"comment\">#{@text}</span>"
+    when :heading
+      "</pre><h1>#{@text}</h1><pre>"
     when :proof_start
       "\n<div class=\"proof\">"
     when :proof_end
       "</div>"
+    when :pre_start
+      "<pre>"
+    when :pre_end
+      "</pre>"
     else
       type = (tag == :tactic ? "tactic" : "command")
       @text.gsub!(/(%.*)/, '<span class="comment">\1</span>')
@@ -44,6 +50,30 @@ class Element
   end
 end
 
+class Heading < Element
+  def initialize(text)
+    text =~ /^%(=+) (.*) (=+) *$/
+    @size = $1.length
+    super($2, :heading)
+  end
+
+  def to_s
+    "<h#{@size}>#{@text}</h#{@size}>"
+  end
+end
+
+class HTMLComment < Element
+  def initialize(text)
+    text =~ /\/\*@(.*)\*\//m
+    super($1, :html_comment)
+  end
+
+  def to_s
+    coded = @text.gsub(/`([^`]*)`/, '<code>\1</code>')
+    "<p class='body'>#{coded}</p>"
+  end
+end
+
 def convert(string)
   regex = /(\/\*.*?\*\/|%.*?\n|(?:Theorem|CoDefine|Define|Import|Specification|Type|Kind|Close|Split|Query|Set|Show|coinduction|induction|apply|backchain|cut|inst|monotone|permute|case|assert|exists|clear|abbrev|unabbrev|search|split|split\*|unfold|intros|skip|abort|undo)(?:[^%]|%.*?\n)*?\.)/m
 
@@ -52,8 +82,16 @@ def convert(string)
     when /\A\s*\Z/m
       # \A and \Z correspond to ^ and $ for multiline regex matching
       [Element.new(s, :whitespace)]
+    when /^%=/
+      [Element.new("", :pre_end),
+       Heading.new(s),
+       Element.new("", :pre_start)]
     when /^%/
       [Element.new(s.chop, :comment), Element.new("\n", :whitespace)]
+    when /^\/\*@/
+      [Element.new("", :pre_end),
+       HTMLComment.new(s),
+       Element.new("", :pre_start)]
     when /^\/\*/
       [Element.new(s, :comment)]
     when /^Theorem/
@@ -134,9 +172,88 @@ def slide_proof_ends(array)
   result
 end
 
+def remove_empty_pre(array)
+  result = []
+  maybe_empty_pre = []
+
+  array.each do |e|
+    if maybe_empty_pre.empty? then
+      if e.tag == :pre_start then
+        maybe_empty_pre = [e]
+      else
+        result << e
+      end
+    else
+      if e.tag == :whitespace then
+        maybe_empty_pre << e
+      elsif e.tag == :pre_end then
+        maybe_empty_pre = []
+      else
+        result += maybe_empty_pre
+        result << e
+        maybe_empty_pre = []
+      end
+    end
+  end
+
+  result
+end
+
+def remove_initial_pre_space(array)
+  result = []
+  initial = true
+
+  array.each do |e|
+    if initial then
+      if e.tag != :whitespace then
+        result << e
+        initial = false
+      end
+    else
+      if e.tag == :pre_start then
+        initial = true
+      end
+      result << e
+    end
+  end
+
+  result
+end
+
+def remove_final_pre_space(array)
+  result = []
+  maybe_final_space = []
+
+  array.each do |e|
+    if maybe_final_space.empty? then
+      if e.tag == :whitespace then
+        maybe_final_space << e
+      else
+        result << e
+      end
+    else
+      if e.tag == :whitespace then
+        maybe_final_space << e
+      elsif e.tag == :pre_end then
+        maybe_final_space = []
+        result << e
+      else
+        result += maybe_final_space
+        result << e
+        maybe_final_space = []
+      end
+    end
+  end
+
+  result
+end
+
 file_contents = File.open(ARGV[0]).read
 elements = convert(file_contents)
 elements = mark_proofs(elements)
 elements = slide_proof_ends(elements)
 elements = remove_div_newlines(elements)
+elements = remove_empty_pre(elements)
+elements = remove_initial_pre_space(elements)
+elements = remove_final_pre_space(elements)
 print elements.join('')

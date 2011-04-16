@@ -26,8 +26,6 @@ class Element
       @text
     when :comment
       "<span class=\"comment\">#{@text}</span>"
-    when :heading
-      "</pre><h1>#{@text}</h1><pre>"
     when :proof_start
       "\n<div class=\"proof\">"
     when :proof_end
@@ -53,7 +51,7 @@ end
 class Heading < Element
   def initialize(text)
     text =~ /^%(=+) (.*) (=+) *$/
-    @size = $1.length
+    @size = $1.length + 2
     super($2, :heading)
   end
 

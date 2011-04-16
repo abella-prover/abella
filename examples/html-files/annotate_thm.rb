@@ -248,6 +248,143 @@ def remove_final_pre_space(array)
   result
 end
 
+def read_lp(name)
+  file = File.open(name).read
+
+  file.gsub!(/\/\*.*?\*\//m) do |match|
+    "<span class=\"comment\">#{match}</span>"
+  end
+
+  file.gsub!(/%.*?\n/) do |match|
+    "<span class=\"comment\">#{match.chop}</span>\n"
+  end
+
+  file.gsub!(/accum_sig ([^.]*)\./,
+             'accum_sig \1. <a class="view" href="\1.sig">[View \1.sig]</a>')
+
+  file.gsub!(/accumulate ([^.]*)\./,
+             'accumulate \1. <a class="view" href="\1.mod">[View \1.mod]</a>')
+
+  return file
+end
+
+
+def contents(elements)
+  title = ""
+  if (elements[0].tag == :comment) then
+    first, *elements = *elements
+    title = first.text.gsub(/^%* */, "")
+  end
+
+  title_comment = ""
+  if (elements[0].tag == :pre_end &&
+      elements[1].tag == :html_comment &&
+      elements[2].tag == :pre_start) then
+    pre_end, title_comment, pre_start, *elements = *elements
+  end
+
+  while (elements[0].tag == :whitespace) do
+    first, *elements = *elements
+  end
+
+  name = ARGV[0]
+
+  specification_section = ""
+  elements.each do |e|
+    if e.text =~ /^Specification "(.*)"/ then
+      specification_section = <<-eos
+<div class="section" id="specification">
+<h1 class="title">Executable Specification</h1>
+
+<a class="view" href="#{$1}.sig">[View #{$1}.sig]</a>
+<a class="view" href="#{$1}.mod">[View #{$1}.mod]</a>
+<pre class="command">
+#{read_lp($1 + ".sig")}
+</pre>
+<pre class="command">
+#{read_lp($1 + ".mod")}
+</pre>
+
+</div>
+        eos
+      break
+    end
+  end
+
+  <<-eos
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<title>Abella: #{title}</title>
+<link href="http://abella.cs.umn.edu/style.css" rel="stylesheet" type="text/css" />
+<link rel="icon" href="http://abella.cs.umn.edu/images/favicon.ico" type="image/x-icon" />
+<link rel="shortcut icon" href="http://abella.cs.umn.edu/images/favicon.ico"
+        type="image/x-icon" />
+<script src="http://abella.cs.umn.edu/jquery.js"></script>
+<script type="text/javascript">
+$(function() {
+  $('.proof').hide();
+
+  $('<span> </span><a class="fold-link" href="#">[Show Proof]</a>')
+    .insertAfter($('.proof').prev())
+    .toggle(function() {
+      $(this).next().show('fast');
+      $(this).text('[Hide Proof]');
+    }, function() {
+      $(this).next().hide('slow');
+      $(this).text('[Show Proof]');
+    });
+
+  $('<span> </span><a class="fold-link" href="#">[Show All Proofs]</a>')
+    .insertBefore($('#reasoning #menubar'))
+    .click(function() {
+      $('.proof:hidden').prev().click();
+      return false;
+  });
+
+  $('<span> </span><a class="fold-link" href="#">[Hide All Proofs]</a>')
+    .insertBefore($('#reasoning #menubar'))
+    .click(function() {
+      $('.proof:visible').prev().click();
+      return false;
+  });
+});
+</script>
+</head>
+
+<body>
+
+<div id="logo-small">
+<a href="http://abella.cs.umn.edu/index.html">
+<img src="http://abella.cs.umn.edu/images/logo-small.png"/>
+</a>
+</div>
+
+<div class="section">
+<h1 class="title">#{title}</h1>
+#{title_comment}
+</div>
+
+#{specification_section}
+
+<div class="section" id="reasoning">
+<h1 class="title">Reasoning</h1>
+<a class="view" href="#{name}">[View #{name}]</a>
+<span id="menubar" />
+<p class="body">
+Click on a command or tactic to see a detailed view of its use.
+</p>
+<pre>
+#{elements.join('')}
+</pre>
+</div>
+
+</body>
+</html>
+eos
+end
+
 file_contents = File.open(ARGV[0]).read
 elements = convert(file_contents)
 elements = mark_proofs(elements)
@@ -256,4 +393,4 @@ elements = remove_div_newlines(elements)
 elements = remove_empty_pre(elements)
 elements = remove_initial_pre_space(elements)
 elements = remove_final_pre_space(elements)
-print elements.join('')
+print contents(elements)

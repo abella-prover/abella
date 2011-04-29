@@ -31,9 +31,9 @@ class Element
     when :proof_end
       "</div>"
     when :pre_start
-      "<pre>"
+      "\n<pre>"
     when :pre_end
-      "</pre>"
+      "</pre>\n"
     else
       type = (tag == :tactic ? "tactic" : "command")
       @text.gsub!(/(%.*)/, '<span class="comment">\1</span>')
@@ -50,13 +50,13 @@ end
 
 class Heading < Element
   def initialize(text)
-    text =~ /^%(=+) (.*) (=+) *$/
+    text =~ /^%(=+) (.*?) *=* *$/
     @size = $1.length + 2
     super($2, :heading)
   end
 
   def to_s
-    "<h#{@size}>#{@text}</h#{@size}>"
+    "\n<h#{@size}>#{@text}</h#{@size}>\n"
   end
 end
 
@@ -68,7 +68,7 @@ class HTMLComment < Element
 
   def to_s
     coded = @text.gsub(/`([^`]*)`/, '<code>\1</code>')
-    "<p class='body'>#{coded}</p>"
+    "<p class='body'>\n#{coded}\n</p>"
   end
 end
 

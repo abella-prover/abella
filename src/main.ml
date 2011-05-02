@@ -162,6 +162,12 @@ let check_defs names defs =
        warn_stratify names body)
     defs
 
+let check_noredef ids =
+  let (_, ctable) = !sign in
+    List.iter (
+      fun id -> if List.mem id (List.map fst ctable) then
+        failwith (sprintf "%s is already defined" id)
+    ) ids
 
 (* Compilation and importing *)
 
@@ -259,20 +265,24 @@ let import filename =
              | CTheorem(name, thm) ->
                  add_lemma name thm ;
              | CDefine(idtys, defs) ->
-                 add_global_consts idtys ;
                  let ids = List.map fst idtys in
+                   check_noredef ids;
+                   add_global_consts idtys ;
                    check_defs ids defs ;
                    add_defs ids Inductive defs ;
              | CCoDefine(idtys, defs) ->
-                 add_global_consts idtys ;
                  let ids = List.map fst idtys in
+                   check_noredef ids;
+                   add_global_consts idtys ;
                    check_defs ids defs ;
                    add_defs ids CoInductive defs
              | CImport(filename) ->
                  aux filename
              | CKind(ids) ->
+                 check_noredef ids;
                  add_global_types ids
              | CType(ids, ty) ->
+                 check_noredef ids;
                  add_global_consts (List.map (fun id -> (id, ty)) ids)
              | CClose(ty_subords) ->
                  List.iter
@@ -498,19 +508,21 @@ let rec process () =
                    compile (CTheorem(n, t)))
                 thms ;
         | Define(idtys, udefs) ->
-            add_global_consts idtys ;
-            let defs = type_udefs ~sr:!sr ~sign:!sign udefs in
             let ids = List.map fst idtys in
-              check_defs ids defs ;
-              compile (CDefine(idtys, defs)) ;
-              add_defs ids Inductive defs
+              check_noredef ids;
+              add_global_consts idtys ;
+              let defs = type_udefs ~sr:!sr ~sign:!sign udefs in
+                check_defs ids defs ;
+                compile (CDefine(idtys, defs)) ;
+                add_defs ids Inductive defs
         | CoDefine(idtys, udefs) ->
-            add_global_consts idtys ;
-            let defs = type_udefs ~sr:!sr ~sign:!sign udefs in
             let ids = List.map fst idtys in
-              check_defs ids defs ;
-              compile (CCoDefine(idtys, defs)) ;
-              add_defs ids CoInductive defs
+              check_noredef ids;
+              add_global_consts idtys ;
+              let defs = type_udefs ~sr:!sr ~sign:!sign udefs in
+                check_defs ids defs ;
+                compile (CCoDefine(idtys, defs)) ;
+                add_defs ids CoInductive defs
         | TopCommon(Set(k, v)) ->
             set k v
         | TopCommon(Show(n)) ->
@@ -529,9 +541,11 @@ let rec process () =
                           "at the begining of a development.")
         | Query(q) -> query q
         | Kind(ids) ->
+            check_noredef ids;
             add_global_types ids ;
             compile (CKind ids)
         | Type(ids, ty) ->
+            check_noredef ids;
             add_global_consts (List.map (fun id -> (id, ty)) ids) ;
             compile (CType(ids, ty))
         | Close(ids) ->

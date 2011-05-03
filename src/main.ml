@@ -267,14 +267,14 @@ let import filename =
              | CDefine(idtys, defs) ->
                  let ids = List.map fst idtys in
                    check_noredef ids;
-                   add_global_consts idtys ;
                    check_defs ids defs ;
+                   add_global_consts idtys ;
                    add_defs ids Inductive defs ;
              | CCoDefine(idtys, defs) ->
                  let ids = List.map fst idtys in
                    check_noredef ids;
-                   add_global_consts idtys ;
                    check_defs ids defs ;
+                   add_global_consts idtys ;
                    add_defs ids CoInductive defs
              | CImport(filename) ->
                  aux filename
@@ -510,17 +510,19 @@ let rec process () =
         | Define(idtys, udefs) ->
             let ids = List.map fst idtys in
               check_noredef ids;
-              add_global_consts idtys ;
-              let defs = type_udefs ~sr:!sr ~sign:!sign udefs in
+              let (local_sr, local_sign) = locally_add_global_consts idtys in
+              let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs in
                 check_defs ids defs ;
+                commit_global_consts local_sr local_sign ;
                 compile (CDefine(idtys, defs)) ;
                 add_defs ids Inductive defs
         | CoDefine(idtys, udefs) ->
             let ids = List.map fst idtys in
               check_noredef ids;
-              add_global_consts idtys ;
-              let defs = type_udefs ~sr:!sr ~sign:!sign udefs in
+              let (local_sr, local_sign) = locally_add_global_consts idtys in
+              let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs in
                 check_defs ids defs ;
+                commit_global_consts local_sr local_sign ;
                 compile (CCoDefine(idtys, defs)) ;
                 add_defs ids CoInductive defs
         | TopCommon(Set(k, v)) ->

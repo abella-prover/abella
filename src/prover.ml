@@ -63,6 +63,15 @@ let sr = ref pervasive_sr
 let add_global_types tys =
   sign := add_types !sign tys
 
+let locally_add_global_consts cs =
+  let local_sr = List.fold_left Subordination.update !sr (List.map snd cs)
+  and local_sign = add_consts !sign cs
+  in (local_sr, local_sign)
+
+let commit_global_consts local_sr local_sign =
+  sr := local_sr ;
+  sign := local_sign
+
 let add_global_consts cs =
   sr := List.fold_left Subordination.update !sr (List.map snd cs) ;
   sign := add_consts !sign cs

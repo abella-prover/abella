@@ -50,13 +50,12 @@ end
 
 class Heading < Element
   def initialize(text)
-    text =~ /^%(=+) (.*?) *=* *$/
-    @size = $1.length + 2
-    super($2, :heading)
+    text =~ /^%=+ (.*?) *=*$/
+    super($1, :heading)
   end
 
   def to_s
-    "\n<h#{@size}>#{@text}</h#{@size}>\n"
+    "\n<h2>#{@text}</h2>\n"
   end
 end
 

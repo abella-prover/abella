@@ -9,6 +9,11 @@ Examples
 
 Future
 ======
+Errors during import should restore the prover to its state prior
+to import.
+
+Allow the prover to be restarted so that new Specifications can be given?
+
 Add a C-c C-a command to emacs mode which aborts the current proof and
 goes back to the start of the theorem.
 

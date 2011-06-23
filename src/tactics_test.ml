@@ -1500,6 +1500,62 @@ let search_tests =
              ~expect:false
         );
 
+      "Should not match different restricted hypothesis (3)" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["foo A"]
+             ~goal:"foo A *"
+             ~expect:false
+        );
+
+      "Should match restricted object hypothesis" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{hyp A}*"]
+             ~goal:"{hyp A}*"
+             ~expect:true
+        );
+
+      "Should match restricted object hypothesis (2)" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{hyp A}@"]
+             ~goal:"{hyp A}@"
+             ~expect:true
+        );
+
+      "Should match restricted object hypothesis (3)" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{hyp A}*"]
+             ~goal:"{hyp A}@"
+             ~expect:true
+        );
+
+      "Should not match different restricted object hypothesis" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{hyp A}**"]
+             ~goal:"{hyp A}*"
+             ~expect:false
+        );
+
+      "Should not match different restricted object hypothesis (2)" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{hyp A}@"]
+             ~goal:"{hyp A}*"
+             ~expect:false
+        );
+
+      "Should not match different restricted object hypothesis (3)" >::
+        (fun () ->
+           assert_search ()
+             ~hyps:["{hyp A}"]
+             ~goal:"{hyp A}*"
+             ~expect:false
+        );
+
       "Should not unfold definition in restricted goal" >::
         (fun () ->
            assert_search ()

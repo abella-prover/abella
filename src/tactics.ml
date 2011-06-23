@@ -626,6 +626,21 @@ let assoc_mdefs name alldefs =
 let alist_to_ids alist =
   List.map term_to_string (List.map snd alist)
 
+let satisfies r1 r2 =
+  match r1, r2 with
+    | CoSmaller i, CoSmaller j when i = j -> true
+    | CoSmaller _, _ -> false
+
+    | Smaller i, Smaller j
+    | Smaller i, Equal j
+    | Equal i, Equal j when i = j -> true
+
+    | _, Smaller _ -> false
+    | _, Equal _ -> false
+
+    | _ -> true
+
+
 (** Search
 
   - Depth is decremented only when unfolding clauses and definitions since
@@ -671,6 +686,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
       (* Check hyps for derivability *)
       hyps
       |> List.find_all (fun (id, h) -> is_obj h)
+      |> List.find_all (fun (id, h) -> satisfies (term_to_restriction h) r)
       |> List.map (fun (id, h) -> (id, term_to_obj h))
       |> List.iter
           (unwind_state
@@ -700,16 +716,8 @@ let search ~depth:n ~hyps ~clauses ~alldefs
         (unwind_state
            (fun (id, hyp) ->
               if (match hyp, goal with
-                    | Pred(_, CoSmaller i), Pred(_, CoSmaller j) when i = j -> true
-                    | Pred(_, CoSmaller _), _ -> false
-
-                    | Pred(_, Smaller i), Pred(_, Smaller j)
-                    | Pred(_, Smaller i), Pred(_, Equal j)
-                    | Pred(_, Equal i), Pred(_, Equal j) when i = j -> true
-
-                    | _, Pred(_, Smaller _) -> false
-                    | _, Pred(_, Equal _) -> false
-
+                    | Pred(_, rh), Pred(_, rg)
+                    | Obj(_, rh), Obj(_, rg) -> satisfies rh rg
                     | _ -> true) then
                 all_meta_right_permute_unify ~sc:(fun () -> sc (WHyp id)) goal hyp)) ;
 

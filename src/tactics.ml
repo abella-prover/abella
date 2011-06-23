@@ -667,10 +667,23 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                                sc (WUnfold(p, i, ws)))))
 
   and obj_aux n hyps goal r ts ~sc =
+    let compatible =
+      (fun r_h -> 
+        match r_h, r with
+          | CoSmaller i, CoSmaller j when i = j -> true
+          | CoSmaller i, _ -> false
+          | Smaller i, Smaller j
+          | Smaller i, Equal j
+          | Equal i, Equal j when i = j -> true
+          | _, Smaller _ -> false
+          |_, Equal _ -> false
+          |_, _ -> true) in
+        
     let goal = normalize_obj goal in
       (* Check hyps for derivability *)
       hyps
-      |> List.find_all (fun (id, h) -> is_obj h)
+      |> List.find_all 
+          (fun (id, h) -> is_obj h && compatible (term_to_restriction h))
       |> List.map (fun (id, h) -> (id, term_to_obj h))
       |> List.iter
           (unwind_state
@@ -710,6 +723,16 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                     | _, Pred(_, Smaller _) -> false
                     | _, Pred(_, Equal _) -> false
 
+                    | Obj(_, CoSmaller i), Obj(_, CoSmaller j) when i = j -> true
+                    | Obj(_, CoSmaller _), _ -> false
+
+                    | Obj(_, Smaller i), Obj(_, Smaller j)
+                    | Obj(_, Smaller i), Obj(_, Equal j)
+                    | Obj(_, Equal i), Obj(_, Equal j) when i = j -> true
+
+                    | _, Obj(_, Smaller _) -> false
+                    | _, Obj(_, Equal _) -> false
+                    
                     | _ -> true) then
                 all_meta_right_permute_unify ~sc:(fun () -> sc (WHyp id)) goal hyp)) ;
 

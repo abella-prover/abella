@@ -22,7 +22,7 @@ open Typing
 open Metaterm
 open Format
 open Tactics
-open Types
+open Abella_types
 open Extensions
 
 module H = Hashtbl

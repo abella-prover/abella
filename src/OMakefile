@@ -39,10 +39,10 @@ FILES[] =
     tactics
     prover
     context
-    types
+    abella_types
     extensions
 
-MAIN = main
+MAIN = abella
 
 OCamlProgram(abella, $(FILES) $(MAIN))
 

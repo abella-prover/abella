@@ -20,7 +20,7 @@
 open Term
 open Metaterm
 open Prover
-open Types
+open Abella_types
 open Typing
 open Extensions
 open Printf
@@ -640,10 +640,12 @@ let _ =
 
   Arg.parse options add_input usage_message ;
 
-  if !makefile then begin
-    List.iter Depend.print_deps !input_files ;
-  end else begin
-    set_input () ;
-    fprintf !out "%s%!" welcome_msg ;
-    process ()
-  end
+  if not !Sys.interactive then
+    if !makefile then begin
+      List.iter Depend.print_deps !input_files ;
+    end else begin
+      set_input () ;
+      fprintf !out "%s%!" welcome_msg ;
+      process ()
+    end
+;;

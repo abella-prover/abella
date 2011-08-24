@@ -15,6 +15,7 @@
 *.out
 *.output
 *.html
+*.native
 !index.html
 src/lexer.ml
 src/parser.ml
@@ -23,3 +24,4 @@ src/version.ml
 src/abella
 src/unit_test
 abella
+_build

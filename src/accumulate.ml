@@ -17,7 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
-open Types
+open Abella_types
 open Typing
 open Extensions
 open Format

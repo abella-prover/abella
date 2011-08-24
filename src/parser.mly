@@ -21,6 +21,8 @@
 
   open Typing
 
+  module Types = Abella_types
+
   let pos i =
     if i = 0 then
       (Parsing.symbol_start_pos (), Parsing.symbol_end_pos ())
@@ -72,14 +74,14 @@
 %start term metaterm lpmod lpsig defs top_command command any_command sig_body mod_body
 %type <Typing.uterm> term
 %type <Typing.umetaterm> metaterm
-%type <Types.lpsig> lpsig
-%type <Types.lpmod> lpmod
-%type <Types.sig_decl list> sig_body
-%type <Types.uclause list> mod_body
-%type <Types.udef list> defs
-%type <Types.command> command
-%type <Types.top_command> top_command
-%type <Types.any_command> any_command
+%type <Abella_types.lpsig> lpsig
+%type <Abella_types.lpmod> lpmod
+%type <Abella_types.sig_decl list> sig_body
+%type <Abella_types.uclause list> mod_body
+%type <Abella_types.udef list> defs
+%type <Abella_types.command> command
+%type <Abella_types.top_command> top_command
+%type <Abella_types.any_command> any_command
 
 %%
 

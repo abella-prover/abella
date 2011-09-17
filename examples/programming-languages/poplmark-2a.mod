@@ -37,7 +37,7 @@ of E T :- of E S, sub S T.
 value (abs T E).
 value (tabs T E).
 
-step (app (abs T E1) E2) (E1 E2).
+step (app (abs T E1) V2) (E1 V2) :- value V2.
 
 step (tapp (tabs T1 E) T2) (E T2).
 

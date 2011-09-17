@@ -131,9 +131,9 @@ induction on 1. intros. case H1.
   case H2.
   case H2.
     apply invert_of_abs to H3.
-      inst H5 with n1 = E2.
+      inst H6 with n1 = E2.
       assert {of E2 T1}.
-      cut H8 with H9. search.
+      cut H9 with H10. search.
     apply IH to H3 H5. search.
   apply IH to H4 H6. search.
   case H2.

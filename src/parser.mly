@@ -381,6 +381,7 @@ pure_top_command:
 common_command:
   | SET id id DOT                        { Types.Set($2, Types.Str $3) }
   | SET id NUM DOT                       { Types.Set($2, Types.Int $3) }
+  | SET id QSTRING DOT                   { Types.Set($2, Types.QStr $3) }
   | SHOW id DOT                          { Types.Show($2) }
   | QUIT DOT                             { Types.Quit }
   | EOF                                  { raise End_of_file }

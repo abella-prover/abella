@@ -256,38 +256,43 @@ command:
   | common_command                       { Types.Common($1) }
 
 pure_command:
-  | IND ON num_list DOT                  { Types.Induction($3) }
-  | COIND DOT                            { Types.CoInduction }
-  | APPLY id TO hyp_list DOT             { Types.Apply($2, $4, []) }
-  | APPLY id TO hyp_list WITH withs DOT  { Types.Apply($2, $4, $6) }
-  | APPLY id WITH withs DOT              { Types.Apply($2, [], $4) }
-  | APPLY id DOT                         { Types.Apply($2, [], []) }
-  | BACKCHAIN id DOT                     { Types.Backchain($2, []) }
-  | BACKCHAIN id WITH withs DOT          { Types.Backchain($2, $4) }
-  | CUT hyp WITH hyp DOT                 { Types.Cut($2, $4) }
-  | CUT hyp DOT                          { Types.SearchCut($2) }
-  | INST hyp WITH id EQ term DOT         { Types.Inst($2, $4, $6) }
-  | CASE hyp DOT                         { Types.Case($2, false) }
-  | CASE hyp LPAREN KEEP RPAREN DOT      { Types.Case($2, true) }
-  | ASSERT metaterm DOT                  { Types.Assert($2) }
-  | EXISTS term DOT                      { Types.Exists($2) }
-  | SEARCH DOT                           { Types.Search(None) }
-  | SEARCH NUM DOT                       { Types.Search(Some $2) }
-  | SPLIT DOT                            { Types.Split }
-  | SPLITSTAR DOT                        { Types.SplitStar }
-  | LEFT DOT                             { Types.Left }
-  | RIGHT DOT                            { Types.Right }
-  | INTROS DOT                           { Types.Intros }
-  | SKIP DOT                             { Types.Skip }
-  | ABORT DOT                            { Types.Abort }
-  | UNDO DOT                             { Types.Undo }
-  | UNFOLD DOT                           { Types.Unfold }
-  | CLEAR hyp_list DOT                   { Types.Clear($2) }
-  | ABBREV hyp QSTRING DOT               { Types.Abbrev($2, $3) }
-  | UNABBREV hyp_list DOT                { Types.Unabbrev($2) }
-  | MONOTONE hyp WITH term DOT           { Types.Monotone($2, $4) }
-  | PERMUTE perm DOT                     { Types.Permute($2, None) }
-  | PERMUTE perm hyp DOT                 { Types.Permute($2, Some $3) }
+  | hhint IND ON num_list DOT                 { Types.Induction($4, $1) }
+  | hhint COIND DOT                           { Types.CoInduction($1) }
+  | hhint APPLY id TO hyp_list DOT            { Types.Apply($3, $5, [], $1) }
+  | hhint APPLY id TO hyp_list WITH withs DOT { Types.Apply($3, $5, $7, $1) }
+  | hhint APPLY id WITH withs DOT             { Types.Apply($3, [], $5, $1) }
+  | hhint APPLY id DOT                        { Types.Apply($3, [], [], $1) }
+  | BACKCHAIN id DOT                          { Types.Backchain($2, []) }
+  | BACKCHAIN id WITH withs DOT               { Types.Backchain($2, $4) }
+  | hhint CUT hyp WITH hyp DOT                { Types.Cut($3, $5, $1) }
+  | hhint CUT hyp DOT                         { Types.SearchCut($3, $1) }
+  | hhint INST hyp WITH withs DOT             { Types.Inst($3, $5, $1) }
+  | hhint CASE hyp DOT                        { Types.Case($3, false, $1) }
+  | hhint CASE hyp LPAREN KEEP RPAREN DOT     { Types.Case($3, true, $1) }
+  | hhint ASSERT metaterm DOT                 { Types.Assert($3, $1) }
+  | EXISTS term DOT                           { Types.Exists($2) }
+  | SEARCH DOT                                { Types.Search(None) }
+  | SEARCH NUM DOT                            { Types.Search(Some $2) }
+  | SPLIT DOT                                 { Types.Split }
+  | SPLITSTAR DOT                             { Types.SplitStar }
+  | LEFT DOT                                  { Types.Left }
+  | RIGHT DOT                                 { Types.Right }
+  | INTROS DOT                                { Types.Intros [] }
+  | INTROS hyp_list DOT                       { Types.Intros($2) }
+  | SKIP DOT                                  { Types.Skip }
+  | ABORT DOT                                 { Types.Abort }
+  | UNDO DOT                                  { Types.Undo }
+  | UNFOLD DOT                                { Types.Unfold }
+  | CLEAR hyp_list DOT                        { Types.Clear($2) }
+  | ABBREV hyp QSTRING DOT                    { Types.Abbrev($2, $3) }
+  | UNABBREV hyp_list DOT                     { Types.Unabbrev($2) }
+  | MONOTONE hyp WITH term DOT                { Types.Monotone($2, $4) }
+  | PERMUTE perm DOT                          { Types.Permute($2, None) }
+  | PERMUTE perm hyp DOT                      { Types.Permute($2, Some $3) }
+
+hhint:
+  | STRINGID COLON                       { Some $1 }
+  |                                      { None }
 
 hyp_list:
   | hyp hyp_list                         { $1::$2 }

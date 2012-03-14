@@ -952,6 +952,21 @@ let abbrev id str =
 let unabbrev ids =
   List.iter (fun h -> if List.mem h.id ids then h.abbrev <- None) sequent.hyps
 
+(* Rename *)
+
+let rename hfr hto =
+  try begin
+    ignore (get_hyp_or_lemma hto) ;
+    failwith (sprintf "%S already refers to a hypothesis or lemma" hto)
+  end with Not_found ->
+    let hyps = List.map begin
+      fun h ->
+        if h.id = hfr then
+          { h with id = hto }
+        else h
+    end sequent.hyps in
+    sequent.hyps <- hyps
+
 (* Permute *)
 
 let permute_nominals ids form =

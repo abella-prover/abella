@@ -421,6 +421,7 @@ let rec process_proof name =
           | Clear(hs) -> clear hs
           | Abbrev(h, s) -> abbrev h s
           | Unabbrev(hs) -> unabbrev hs
+          | Rename(hfr, hto) -> rename hfr hto
           | Search(limit) ->
               search ~limit ~interactive:!interactive ~witness ()
           | Permute(ids, h) -> permute_nominals ids h

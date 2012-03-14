@@ -47,7 +47,7 @@
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
-%token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT
+%token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND LBRACK RBRACK
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
 
@@ -118,6 +118,7 @@ id:
   | CLEAR                                { "clear" }
   | ABBREV                               { "abbrev" }
   | UNABBREV                             { "unabbrev" }
+  | RENAME                               { "rename" }
   | PERMUTE                              { "permute" }
   | THEOREM                              { "Theorem" }
   | IMPORT                               { "Import" }
@@ -286,6 +287,7 @@ pure_command:
   | CLEAR hyp_list DOT                        { Types.Clear($2) }
   | ABBREV hyp QSTRING DOT                    { Types.Abbrev($2, $3) }
   | UNABBREV hyp_list DOT                     { Types.Unabbrev($2) }
+  | RENAME STRINGID TO STRINGID DOT           { Types.Rename($2, $4) }
   | MONOTONE hyp WITH term DOT                { Types.Monotone($2, $4) }
   | PERMUTE perm DOT                          { Types.Permute($2, None) }
   | PERMUTE perm hyp DOT                      { Types.Permute($2, Some $3) }

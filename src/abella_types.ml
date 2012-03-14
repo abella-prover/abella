@@ -82,6 +82,7 @@ type command =
   | Clear of id list
   | Abbrev of id * string
   | Unabbrev of id list
+  | Rename of id * id
   | Monotone of id * uterm
   | Permute of id list * id option
   | Search of int option
@@ -233,6 +234,8 @@ let command_to_string c =
         sprintf "abbrev %s \"%s\"" h s
     | Unabbrev hs ->
         sprintf "unabbrev %s" (String.concat " " hs)
+    | Rename(hfrom, hto) ->
+        sprintf "rename %s to %s" hfrom hto
     | Monotone(h, t) ->
         sprintf "monotone %s with %s" h (uterm_to_string t)
     | Permute(ids, t) ->

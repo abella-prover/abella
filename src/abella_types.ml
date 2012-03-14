@@ -69,15 +69,15 @@ type compiled =
   | CClose of (id * id list) list
 
 type command =
-  | Induction of int list
-  | CoInduction
-  | Apply of id * id list * (id * uterm) list
+  | Induction of int list * id option
+  | CoInduction of id option
+  | Apply of id * id list * (id * uterm) list * id option
   | Backchain of id * (id * uterm) list
-  | Cut of id * id
-  | SearchCut of id
-  | Inst of id * id * uterm
-  | Case of id * bool
-  | Assert of umetaterm
+  | Cut of id * id * id option
+  | SearchCut of id * id option
+  | Inst of id * (id * uterm) list * id option
+  | Case of id * bool * id option
+  | Assert of umetaterm * id option
   | Exists of uterm
   | Clear of id list
   | Abbrev of id * string
@@ -89,7 +89,7 @@ type command =
   | SplitStar
   | Left
   | Right
-  | Intros
+  | Intros of id list
   | Unfold
   | Skip
   | Abort
@@ -181,35 +181,50 @@ let withs_to_string ws =
   String.concat ", "
     (List.map (fun (x,t) -> x ^ " = " ^ (uterm_to_string t)) ws)
 
+let hn_to_string = function
+  | None -> ""
+  | Some hn -> sprintf "%s : " hn
+
 let command_to_string c =
   match c with
-    | Induction is ->
-        sprintf "induction on %s"
+    | Induction(is, hn) ->
+        sprintf "induction %son %s" (hn_to_string hn)
           (String.concat " " (List.map string_of_int is))
-    | CoInduction -> "coinduction"
-    | Apply(h, [], []) ->
+    | CoInduction None -> "coinduction"
+    | CoInduction (Some hn) -> "coinduction " ^ hn
+    | Apply(h, [], [], hn) ->
         sprintf "apply %s" h
-    | Apply(h, hs, []) ->
-        sprintf "apply %s to %s" h (String.concat " " hs)
-    | Apply(h, [], ws) ->
-        sprintf "apply %s with %s" h (withs_to_string ws)
-    | Apply(h, hs, ws) ->
-        sprintf "apply %s to %s with %s" h (String.concat " " hs)
+    | Apply(h, hs, [], hn) ->
+        sprintf "apply %s%s to %s"
+          (hn_to_string hn)
+          h (String.concat " " hs)
+    | Apply(h, [], ws, hn) ->
+        sprintf "apply %s%s with %s"
+          (hn_to_string hn)
+          h (withs_to_string ws)
+    | Apply(h, hs, ws, hn) ->
+        sprintf "apply %s%s to %s with %s"
+          (hn_to_string hn)
+          h (String.concat " " hs)
           (withs_to_string ws)
     | Backchain(h, []) ->
         sprintf "backchain %s" h
     | Backchain(h, ws) ->
         sprintf "backchain %s with %s" h (withs_to_string ws)
-    | Cut(h1, h2) ->
-        sprintf "cut %s with %s" h1 h2
-    | SearchCut(h) ->
-        sprintf "cut %s" h
-    | Inst(h, n, t) ->
-        sprintf "inst %s with %s = %s" h n (uterm_to_string t)
-    | Case(h, k) ->
-        sprintf "case %s" h ^ if k then " (keep)" else ""
-    | Assert t ->
-        sprintf "assert %s" (umetaterm_to_formatted_string t)
+    | Cut(h1, h2, hn) ->
+        sprintf "cut %s%s with %s"
+          (hn_to_string hn) h1 h2
+    | SearchCut(h, hn) ->
+        sprintf "cut %s%s" (hn_to_string hn) h
+    | Inst(h, ws, hn) ->
+        sprintf "inst %s%s with %s" (hn_to_string hn) h (withs_to_string ws)
+    | Case(h, k, hn) ->
+        sprintf "case %s%s" (hn_to_string hn) h
+        ^ if k then " (keep)" else ""
+    | Assert(t, hn) ->
+        sprintf "assert %s%s"
+          (hn_to_string hn)
+          (umetaterm_to_formatted_string t)
     | Exists t ->
         sprintf "exists %s" (uterm_to_string t)
     | Clear hs ->
@@ -231,7 +246,8 @@ let command_to_string c =
     | Left -> "left"
     | Right -> "right"
     | Unfold -> "unfold"
-    | Intros -> "intros"
+    | Intros [] -> "intros"
+    | Intros ids -> sprintf "intros %s" (String.concat " " ids)
     | Skip -> "skip"
     | Abort -> "abort"
     | Undo -> "undo"

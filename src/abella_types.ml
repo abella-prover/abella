@@ -40,6 +40,7 @@ type id = string
 type set_value =
   | Str of string
   | Int of int
+  | QStr of string
 
 type common_command =
   | Set of string * set_value
@@ -131,6 +132,7 @@ let set_value_to_string v =
   match v with
     | Str s -> s
     | Int d -> string_of_int d
+    | QStr s -> sprintf "%S" s
 
 let id_list_to_string ids =
   String.concat ", " ids

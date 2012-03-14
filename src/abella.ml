@@ -43,7 +43,6 @@ let witnesses = ref false
 
 exception AbortProof
 
-
 (* Input *)
 
 let perform_switch_to_interactive () =
@@ -99,7 +98,10 @@ let update_subordination_sign sr sign =
 
 let read_specification name =
   clear_specification_cache () ;
-  fprintf !out "Reading specification %s\n%!" name ;
+  fprintf !out "Reading specification %S%s\n%!" name
+    (if !load_path <> "." then
+       sprintf " (from %S)" !load_path
+     else "") ;
   let read_sign = get_sign name in
   let () = warn_on_teyjus_only_keywords read_sign in
   let sign' = merge_signs [!sign; read_sign] in
@@ -363,6 +365,8 @@ let set k v =
         failwith ("Unknown value '" ^ (set_value_to_string v) ^
                     "' for key 'witnesses'." ^
                     " Expected 'on' or 'off'.")
+
+    | "load_path", QStr s -> load_path := s
 
     | _, _ -> failwith ("Unknown key '" ^ k ^ "'.")
 

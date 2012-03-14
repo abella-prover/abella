@@ -23,6 +23,8 @@ open Extensions
 open Format
 open Prover
 
+let load_path = ref "."
+
 module H = Hashtbl
 
 let mod_cache = H.create 10
@@ -50,7 +52,7 @@ let position lexbuf =
       sprintf ": file %s, line %d, character %d" file line char
 
 let read_lp ext parser name =
-  let lexbuf = lexbuf_from_file (name ^ ext) in
+  let lexbuf = lexbuf_from_file (Filename.concat !load_path (name ^ ext)) in
     try
       parser Lexer.token lexbuf
     with

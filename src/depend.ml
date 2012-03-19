@@ -19,7 +19,7 @@
 
 open Accumulate
 open Extensions
-open Types
+open Abella_types
 open Format
 
 module H = Hashtbl

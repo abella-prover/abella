@@ -22,7 +22,7 @@ open Typing
 open Metaterm
 open Format
 open Tactics
-open Types
+open Abella_types
 open Extensions
 
 module H = Hashtbl
@@ -206,7 +206,12 @@ let full_reset_prover =
       clauses := original_clauses ;
       H.assign defs_table original_defs_table
 
-let add_hyp ?(name=fresh_hyp_name "") term =
+let add_hyp ?name term =
+  let name = fresh_hyp_name begin
+    match name with
+      | None -> ""
+      | Some name -> name
+  end in
   sequent.hyps <- List.append sequent.hyps
     [{ id = name ; term = term ; abbrev = None }]
 
@@ -342,34 +347,40 @@ let get_display () =
 
 (* Object level instantiation *)
 
-let inst h n t =
+let inst ?name h ws =
   let ht = get_hyp h in
     match ht with
       | Obj _ ->
-          begin try
-            let ntids = metaterm_nominal_tids ht in
-            let nty = List.assoc n ntids in
-            let ctx = sequent.vars @
-              (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
-            in
-            let t = type_uterm ~sr:!sr ~sign:!sign ~ctx t nty in
-              add_hyp (object_inst ht n t)
-          with
-            | Not_found ->
-                failwith "Vacuous instantiation"
-          end
+          let rec aux ws ht = match ws with
+            | [] -> add_hyp ?name ht
+            | (n, t) :: ws ->
+                let ht = begin try
+                  let ntids = metaterm_nominal_tids ht in
+                  let nty = List.assoc n ntids in
+                  let ctx = sequent.vars @
+                    (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
+                  in
+                  let t = type_uterm ~sr:!sr ~sign:!sign ~ctx t nty in
+                  object_inst ht n t
+                with
+                  | Not_found ->
+                      failwith "Vacuous instantiation"
+                end in
+                  aux ws ht
+          in
+            aux ws ht
       | _ -> failwith
           "Instantiation can only be used on hypotheses of the form {...}"
 
 
 (* Object level cut *)
 
-let cut h arg =
+let cut ?name h arg =
   let h = get_hyp h in
   let arg = get_hyp arg in
     match h, arg with
       | Obj(obj_h, _), Obj(obj_arg, _) ->
-          add_hyp (object_cut obj_h obj_arg)
+          add_hyp ?name (object_cut obj_h obj_arg)
       | _ -> failwith "Cut can only be used on hypotheses of the form {...}"
 
 (* Search *)
@@ -440,10 +451,10 @@ let search ?(limit=None) ?(interactive=true) ?(witness=ignore) () =
 
 (* Search cut *)
 
-let search_cut h =
+let search_cut ?name h =
   match get_hyp h with
     | Obj(obj, _) ->
-        add_hyp (Obj(search_cut ~search_goal obj, Irrelevant))
+        add_hyp ?name (Obj(search_cut ~search_goal obj, Irrelevant))
     | _ ->
         failwith "Cut can only be used on hypotheses of the form {... |- ...}"
 
@@ -510,7 +521,7 @@ let partition_obligations obligations =
           | Some w -> Either.Right (g, w))
        obligations)
 
-let apply ?(term_witness=ignore) h args ws =
+let apply ?name ?(term_witness=ignore) h args ws =
   let stmt = get_hyp_or_lemma h in
   let args = List.map get_some_hyp args in
   let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
@@ -531,7 +542,7 @@ let apply ?(term_witness=ignore) h args ws =
               fun () ->
                 restore () ;
                 List.iter add_if_new_var case.stateless_new_vars ;
-                List.iter add_hyp case.stateless_new_hyps
+                List.iter (add_hyp ?name) case.stateless_new_hyps
           in
             add_subgoals ~mainline:resulting_subgoal obligation_subgoals
     end ;
@@ -577,12 +588,12 @@ let update_self_bound_vars () =
                  (id, v)
              | _ -> (id, term))
 
-let case_to_subgoal case =
+let case_to_subgoal ?name case =
   let saved_sequent = copy_sequent () in
     fun () ->
       set_sequent saved_sequent ;
       List.iter add_if_new_var case.new_vars ;
-      List.iter add_hyp case.new_hyps ;
+      List.iter (add_hyp ?name) case.new_hyps ;
       Term.set_bind_state case.bind_state ;
       update_self_bound_vars ()
 
@@ -597,7 +608,7 @@ let get_defs term =
         end
     | _ -> ([], [])
 
-let case ?(keep=false) str =
+let case ?name ?(keep=false) str =
   let term = get_hyp str in
   let global_support =
     (List.flatten_map metaterm_support
@@ -610,7 +621,7 @@ let case ?(keep=false) str =
       ~mutual ~defs ~global_support term
   in
     if not keep then remove_hyp str ;
-    add_subgoals (List.map case_to_subgoal cases) ;
+    add_subgoals (List.map (case_to_subgoal ?name) cases) ;
     next_subgoal ()
 
 
@@ -672,7 +683,7 @@ let ensure_is_inductive term =
 let add_ih h =
   add_hyp ~name:(fresh_hyp_name "IH") h
 
-let induction ind_args =
+let induction ?name ind_args =
   if has_coinductive_restriction sequent.goal then
     failwith "Induction within coinduction is not allowed" ;
   List.iter
@@ -680,7 +691,11 @@ let induction ind_args =
     (List.combine ind_args (and_to_list sequent.goal)) ;
   let res_num = next_restriction () in
     let (ihs, new_goal) = Tactics.induction ind_args res_num sequent.goal in
-      List.iter (fun h -> add_hyp ~name:(fresh_hyp_name "IH") h) ihs ;
+    let name = match name with
+      | None -> fresh_hyp_name "IH"
+      | Some name -> name
+    in
+      List.iter (add_hyp ~name) ihs ;
       sequent.goal <- new_goal
 
 
@@ -706,36 +721,40 @@ let ensure_is_coinductive p =
       failwith (sprintf "Cannot coinduct on %s since it has\
                        \ not been defined" pname)
 
-let coinduction () =
+let coinduction ?name () =
   ensure_is_coinductive (conclusion sequent.goal) ;
   if has_inductive_restriction sequent.goal then
     failwith "Coinduction within induction is not allowed" ;
   let res_num = next_restriction () in
   let (ch, new_goal) = Tactics.coinduction res_num sequent.goal in
-  let name = fresh_hyp_name "CH" in
+  let name = match name with
+    | None -> fresh_hyp_name "CH"
+    | Some name -> name
+  in
     add_hyp ~name ch ;
     sequent.goal <- new_goal
 
 
 (* Assert *)
 
-let delay_mainline new_hyp detour_goal =
+let delay_mainline ?name new_hyp detour_goal =
   if search_goal detour_goal then
-    add_hyp new_hyp
+    add_hyp ?name new_hyp
   else
     let mainline =
-      case_to_subgoal { bind_state = get_bind_state () ;
-                        new_vars = [] ;
-                        new_hyps = [new_hyp] }
+      case_to_subgoal ?name
+        { bind_state = get_bind_state () ;
+          new_vars = [] ;
+          new_hyps = [new_hyp] }
     in
     let detour = goal_to_subgoal detour_goal in
       (* Using add_subgoals to take care of annotations *)
       add_subgoals ~mainline [detour] ;
       next_subgoal ()
 
-let assert_hyp term =
+let assert_hyp ?name term =
   let term = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
-    delay_mainline term term
+    delay_mainline ?name term term
 
 (* Object logic monotone *)
 
@@ -768,8 +787,8 @@ let theorem thm =
 
 (* Introduction of forall variables *)
 
-let intros () =
-  let rec aux term =
+let intros hs =
+  let rec aux hs term =
     match term with
       | Binding(Forall, bindings, body) ->
           let support = metaterm_support body in
@@ -778,22 +797,28 @@ let intros () =
               ~support bindings
           in
             List.iter add_var (List.map term_to_pair vars) ;
-              aux (replace_metaterm_vars alist body)
+              aux hs (replace_metaterm_vars alist body)
       | Binding(Nabla, bindings, body) ->
           let (ids, tys) = List.split bindings in
-            aux (replace_metaterm_vars
-                   (List.combine ids (fresh_nominals tys body))
-                   body)
-      | Arrow(left, right) ->
-          add_hyp (normalize left) ;
-          aux right
+            aux hs (replace_metaterm_vars
+                      (List.combine ids (fresh_nominals tys body))
+                      body)
+      | Arrow(left, right) -> begin
+          let (name, hs) = match hs with
+            | [] -> (None, [])
+            | "_" :: hs -> (None, hs)
+            | h :: hs -> (Some h, hs)
+          in
+          add_hyp ?name (normalize left) ;
+          aux hs right
+        end
       | _ -> term
   in
-    sequent.goal <- aux sequent.goal
+    sequent.goal <- aux hs sequent.goal
 
 (* Split *)
 
-let split propogate_result =
+let split ?name propogate_result =
   let rec accum_goals conjs prev =
     match conjs with
       | [] -> []
@@ -801,7 +826,8 @@ let split propogate_result =
           let saved = goal_to_subgoal g in
           let subgoal () =
             saved () ;
-            if propogate_result then List.iter add_hyp (List.rev prev)
+            if propogate_result then
+              List.iter (add_hyp ?name) (List.rev prev)
           in
             subgoal :: (accum_goals rest (g :: prev))
   in
@@ -925,6 +951,21 @@ let abbrev id str =
 
 let unabbrev ids =
   List.iter (fun h -> if List.mem h.id ids then h.abbrev <- None) sequent.hyps
+
+(* Rename *)
+
+let rename hfr hto =
+  try begin
+    ignore (get_hyp_or_lemma hto) ;
+    failwith (sprintf "%S already refers to a hypothesis or lemma" hto)
+  end with Not_found ->
+    let hyps = List.map begin
+      fun h ->
+        if h.id = hfr then
+          { h with id = hto }
+        else h
+    end sequent.hyps in
+    sequent.hyps <- hyps
 
 (* Permute *)
 

@@ -45,7 +45,7 @@ let tests =
            setup_prover ()
              ~goal:"forall L, rel1 n1 L" ;
 
-           intros () ;
+           intros [] ;
            assert_goal "rel1 n1 (L n1)"
         ) ;
 
@@ -54,7 +54,7 @@ let tests =
            setup_prover ()
              ~goal:"nabla (x:i) y, x = y" ;
 
-           intros () ;
+           intros [] ;
            assert_goal "n1 = n2"
         ) ;
 
@@ -232,7 +232,7 @@ let tests =
              ~clauses:eval_clauses
              ~goal:"forall P V, {typeof P V} -> {typeof P V}" ;
 
-           intros () ;
+           intros [] ;
            case ~keep:true "H1" ;
            assert_n_subgoals 2 ;
            assert_string_list_equal ["H1"; "H2"]
@@ -251,7 +251,7 @@ let tests =
              ~clauses:eval_clauses
              ~goal:"forall P V, {typeof P V} -> {typeof P V}" ;
 
-           intros () ;
+           intros [] ;
            case "H1" ;
            assert_n_subgoals 2 ;
 
@@ -277,7 +277,7 @@ let tests =
              assert_proof
                (fun () ->
                   induction [2] ;
-                  intros () ;
+                  intros [] ;
                   case "H2" ;
                   assert_n_subgoals 2 ;
 
@@ -298,7 +298,7 @@ let tests =
              ~goal:"forall P V T, {eval P V} -> {typeof P T} -> {typeof V T}" ;
 
            induction [1] ;
-           intros () ;
+           intros [] ;
            assert_n_subgoals 1 ;
 
            save_undo_state () ;
@@ -319,7 +319,7 @@ let tests =
 
            add_hyp (freshen "{a}") ;
            assert_raises (Failure("Vacuous instantiation"))
-             (fun () -> inst "H1" "n1" (parse_uterm "t1"))
+             (fun () -> inst "H1" [("n1", (parse_uterm "t1"))])
         ) ;
 
       "Proving OR" >::
@@ -333,7 +333,7 @@ let tests =
              assert_proof
                (fun () ->
                   induction [1] ;
-                  intros () ;
+                  intros [] ;
 
                   case "H1" ;
                   assert_n_subgoals 2 ;
@@ -355,7 +355,7 @@ let tests =
 
              assert_proof
                (fun () ->
-                  intros () ;
+                  intros [] ;
                   case "H1" ;
                   assert_n_subgoals 2 ;
 
@@ -382,7 +382,7 @@ let tests =
              assert_proof
                (fun () ->
                   induction [1] ;
-                  intros () ;
+                  intros [] ;
 
                   case "H1" ;
                   assert_n_subgoals 2 ;
@@ -432,7 +432,7 @@ let tests =
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs ["bar"] Types.CoInductive
+           add_defs ["bar"] Abella_types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
@@ -446,7 +446,7 @@ let tests =
            setup_prover ()
              ~goal:"bar X" ;
 
-           add_defs ["bar"] Types.CoInductive
+           add_defs ["bar"] Abella_types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            assert_proof
@@ -461,7 +461,7 @@ let tests =
              ~lemmas:[("lem", "(forall X, foo X -> bar X) -> {a}")]
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs ["foo"] Types.Inductive
+           add_defs ["foo"] Abella_types.Inductive
              (parse_defs "foo X := foo X.") ;
 
            induction [1] ;
@@ -474,7 +474,7 @@ let tests =
              ~lemmas:[("lem", "(forall X, foo X -> bar X) -> {a}")]
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs ["bar"] Types.CoInductive
+           add_defs ["bar"] Abella_types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
@@ -487,7 +487,7 @@ let tests =
              ~lemmas:[("lem", "forall X, foo X -> bar X")]
              ~goal:"forall X, foo X + -> bar X" ;
 
-           intros () ;
+           intros [] ;
            assert_raises_any (fun () -> apply "lem" ["H1"] []) ;
         );
 
@@ -497,12 +497,12 @@ let tests =
              ~goal:"forall X Y, foo X -> foo Y -> \
                           (X = Y \\/ (X = Y -> false))" ;
 
-           add_defs ["foo"] Types.Inductive
+           add_defs ["foo"] Abella_types.Inductive
              (parse_defs "nabla x, foo x.") ;
 
            assert_proof
              (fun () ->
-                intros () ;
+                intros [] ;
                 case "H1" ;
                 assert_n_subgoals 1 ;
 
@@ -510,7 +510,7 @@ let tests =
                 assert_n_subgoals 2 ;
 
                 right () ;
-                intros () ;
+                intros [] ;
                 case "H3" ;
                 assert_n_subgoals 1 ;
 
@@ -523,9 +523,9 @@ let tests =
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs ["foo"] Types.Inductive
+           add_defs ["foo"] Abella_types.Inductive
              (parse_defs "foo X := foo X.") ;
-           add_defs ["bar"] Types.CoInductive
+           add_defs ["bar"] Abella_types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
@@ -539,9 +539,9 @@ let tests =
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs ["foo"] Types.Inductive
+           add_defs ["foo"] Abella_types.Inductive
              (parse_defs "foo X := foo X.") ;
-           add_defs ["bar"] Types.CoInductive
+           add_defs ["bar"] Abella_types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            induction [1] ;
@@ -559,7 +559,7 @@ let tests =
 
            assert_proof
              (fun () ->
-                intros () ;
+                intros [] ;
                 case "H1" ;
                 assert_n_subgoals 2 ;
 
@@ -658,7 +658,7 @@ let tests =
              setup_prover ()
                ~goal:"nabla x y, forall X Y, sr_a_b x y -> sr_a_b X Y" ;
 
-             intros () ;
+             intros [] ;
              assert_goal "sr_a_b (X n1) (Y n2 n1)" ;
         );
 

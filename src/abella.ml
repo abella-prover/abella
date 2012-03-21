@@ -20,7 +20,7 @@
 open Term
 open Metaterm
 open Prover
-open Types
+open Abella_types
 open Typing
 open Extensions
 open Printf
@@ -42,7 +42,6 @@ let count = ref 0
 let witnesses = ref false
 
 exception AbortProof
-
 
 (* Input *)
 
@@ -99,7 +98,10 @@ let update_subordination_sign sr sign =
 
 let read_specification name =
   clear_specification_cache () ;
-  fprintf !out "Reading specification %s\n%!" name ;
+  fprintf !out "Reading specification %S%s\n%!" name
+    (if !load_path <> "." then
+       sprintf " (from %S)" !load_path
+     else "") ;
   let read_sign = get_sign name in
   let () = warn_on_teyjus_only_keywords read_sign in
   let sign' = merge_signs [!sign; read_sign] in
@@ -364,6 +366,8 @@ let set k v =
                     "' for key 'witnesses'." ^
                     " Expected 'on' or 'off'.")
 
+    | "load_path", QStr s -> load_path := s
+
     | _, _ -> failwith ("Unknown key '" ^ k ^ "'.")
 
 let print_theorem name thm =
@@ -405,22 +409,23 @@ let rec process_proof name =
         end ;
         save_undo_state () ;
         begin match input with
-          | Induction(args) -> induction args
-          | CoInduction -> coinduction ()
-          | Apply(h, args, ws) -> apply h args ws ~term_witness
+          | Induction(args, hn) -> induction ?name:hn args
+          | CoInduction hn -> coinduction ?name:hn ()
+          | Apply(h, args, ws, hn) -> apply ?name:hn h args ws ~term_witness
           | Backchain(h, ws) -> backchain h ws ~term_witness
-          | Cut(h, arg) -> cut h arg
-          | SearchCut(h) -> search_cut h
-          | Inst(h, n, t) -> inst h n t
-          | Case(str, keep) -> case ~keep str
-          | Assert(t) ->
+          | Cut(h, arg, hn) -> cut ?name:hn h arg
+          | SearchCut(h, hn) -> search_cut ?name:hn h
+          | Inst(h, ws, hn) -> inst ?name:hn h ws
+          | Case(str, keep, hn) -> case ?name:hn ~keep str
+          | Assert(t, hn) ->
               untyped_ensure_no_restrictions t ;
-              assert_hyp t
+              assert_hyp ?name:hn t
           | Exists(t) -> exists t
           | Monotone(h, t) -> monotone h t
           | Clear(hs) -> clear hs
           | Abbrev(h, s) -> abbrev h s
           | Unabbrev(hs) -> unabbrev hs
+          | Rename(hfr, hto) -> rename hfr hto
           | Search(limit) ->
               search ~limit ~interactive:!interactive ~witness ()
           | Permute(ids, h) -> permute_nominals ids h
@@ -429,7 +434,7 @@ let rec process_proof name =
           | Left -> left ()
           | Right -> right ()
           | Unfold -> unfold ()
-          | Intros -> intros ()
+          | Intros hs -> intros hs
           | Skip -> skip ()
           | Abort -> raise AbortProof
           | Undo -> undo () ; undo () (* undo recent save, and previous save *)
@@ -640,10 +645,12 @@ let _ =
 
   Arg.parse options add_input usage_message ;
 
-  if !makefile then begin
-    List.iter Depend.print_deps !input_files ;
-  end else begin
-    set_input () ;
-    fprintf !out "%s%!" welcome_msg ;
-    process ()
-  end
+  if not !Sys.interactive then
+    if !makefile then begin
+      List.iter Depend.print_deps !input_files ;
+    end else begin
+      set_input () ;
+      fprintf !out "%s%!" welcome_msg ;
+      process ()
+    end
+;;

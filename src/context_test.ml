@@ -69,6 +69,16 @@ let tests =
            let ctx' = remove var ctx in
              assert_true (is_empty ctx')) ;
 
+    "Remove should be based on unification" >::
+      (fun () ->
+         let e = var Eigen "E" 0 (tyarrow [tmty] tmty) in
+         let abs = const "abs" (tyarrow [tmty] tmty) in
+         let eval_abs1 = eval ^^ [abs ^^ [1 /// (e ^^ [db 1])]] in
+         let eval_abs2 = eval ^^ [abs ^^ [e]] in
+         let ctx = add eval_abs1 empty in
+           let ctx' = remove eval_abs2 ctx in
+             assert_true (is_empty ctx')) ;
+
     "Xor should remove matching elements" >::
       (fun () ->
          let a = const "A" oty in

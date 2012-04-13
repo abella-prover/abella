@@ -37,7 +37,7 @@ let mem elt ctx =
   else
     List.mem ~cmp:Unify.try_right_unify elt ctx
 
-let remove elt ctx = List.remove ~cmp:eq elt ctx
+let remove elt ctx = List.remove ~cmp:Unify.try_right_unify elt ctx
 
 let rec xor ctx1 ctx2 =
   match ctx1 with

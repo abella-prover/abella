@@ -2,7 +2,7 @@ ifndef $(VERSION)
 VERSION := 1.4.0b1
 endif
 
-OCB = ocamlbuild -use-ocamlfind -classic-display -no-links
+OCB = ocamlbuild -classic-display -no-links
 
 .PHONY: all
 all: src/version.ml src/abella.ml src/abella.cma src/abella.native

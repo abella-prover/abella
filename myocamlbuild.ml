@@ -13,6 +13,6 @@ let _ = dispatch begin function
        flag ["ocaml" ; "compile"] (A "-annot") ;
        flag ["ocaml" ; "compile"] (S [A "-warn-error" ; A "A"]) ;
        flag ["ocaml" ; "native" ; "compile"] (A "-nodynlink") ;
-       flag ["ocaml" ; "link" ; "program"] (A "-linkpkg") ;
+       (* flag ["ocaml" ; "link" ; "program"] (A "-linkpkg") ; *)
    | _ -> ()
 end

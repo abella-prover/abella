@@ -47,6 +47,6 @@ val try_right_unify_cpairs : term -> term -> (term * term) list option
 val left_flexible_heads :
   used:(id * term) list ->
   sr:Subordination.sr ->
-  (ty list * term * term list) ->
-  (ty list * term * term list) ->
+  ((id*ty) list * term * term list) ->
+  ((id*ty) list * term * term list) ->
     term list

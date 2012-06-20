@@ -346,9 +346,9 @@ let term_ensure_subordination sr t =
       | Var v -> Subordination.ensure sr v.ty
       | DB i -> ()
       | App(h, ts) -> aux tyctx h ; List.iter (aux tyctx) ts
-      | Lam(tys, b) ->
+      | Lam(idtys, b) ->
           Subordination.ensure sr (tc tyctx t) ;
-          aux (List.rev_app tys tyctx) b
+          aux (List.rev_app idtys tyctx) b
       | _ -> assert false
   in
     aux [] t

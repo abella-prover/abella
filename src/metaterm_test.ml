@@ -195,7 +195,7 @@ let tests =
         (fun () ->
            let pi = const "pi" iiity in
            let pred = const "pred" iiity in
-           let t = pi ^^ [[ity] // (pred ^^ [db 1; db 1])] in
+           let t = pi ^^ [[("x",ity)] // (pred ^^ [db 1; db 1])] in
            let t = termobj t in
              assert_pprint_equal "{pi x1\\pred x1 x1}" t ;
              assert_pprint_equal "{pred n1 n1}" (normalize t)) ;

@@ -49,7 +49,7 @@ type env = envitem list
 type rawterm =
   | Var of var
   | DB of int
-  | Lam of ty list * term
+  | Lam of (id*ty) list * term
   | App of term * term list
   | Susp of term * int * int * env
   | Ptr of ptr (* Sorry about this one, hiding it is costly.. *)
@@ -68,10 +68,12 @@ val db : int -> term
 
 module Notations :
 sig
-  val (//) : ty list -> term -> term
+  val (//) : (id*ty) list -> term -> term
   val (^^) : term -> term list -> term
 end
 
+(* get a list of tys from a type context *)
+val get_ctx_tys : (id*ty) list -> ty list
 
 val eq : term -> term -> bool
 
@@ -99,7 +101,7 @@ val unwind_state : ('a -> 'b) -> ('a -> 'b)
 val add_dummies : env -> int -> int -> env
 
 (* Add abstractions. *)
-val lambda : ty list -> term -> term
+val lambda : (id*ty) list -> term -> term
 
 (** Abstract [t] over constant or variable named [id]. *)
 val abstract : string -> ty -> term -> term
@@ -145,7 +147,7 @@ val question_tids : term list -> (id * ty) list
 val nominal_tids : term list -> (id * ty) list
 val all_tids : term list -> (id * ty) list
 
-val tc : ty list -> term -> ty
+val tc : (id*ty) list -> term -> ty
 
 val tyvar : string -> ty
 val is_tyvar : string -> bool

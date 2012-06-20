@@ -201,4 +201,4 @@ let emptyty = Term.tybase ""
 let uconst name = Term.const name emptyty
 let uvar tag name ts = Term.var tag name ts emptyty
 let unominal_var name = Term.nominal_var name emptyty
-let (///) n t = Term.lambda (List.replicate n emptyty) t
+let (///) n t = Term.lambda (List.replicate n ("x",emptyty)) t

@@ -31,6 +31,7 @@ type uterm =
   | ULam of pos * string * ty * uterm
   | UApp of pos * uterm * uterm
 
+
 let get_pos t =
   match t with
     | UCon(p, _, _) -> p
@@ -42,6 +43,15 @@ let change_pos p t =
     | UCon(_, id, ty) -> UCon(p, id, ty)
     | ULam(_, id, ty, body) -> ULam(p, id, ty, body)
     | UApp(_, t1, t2) -> UApp(p, t1, t2)
+
+
+let predefined id pos =
+  UCon(pos, id, Term.fresh_tyvar ())
+
+let binop id t1 t2 =
+  let pos = (fst (get_pos t1), snd (get_pos t2)) in
+  UApp(pos, UApp(pos, predefined id pos, t1), t2)
+
 
 let uterm_head_name t =
   let rec aux = function
@@ -353,27 +363,6 @@ let term_ensure_subordination sr t =
   in
     aux [] t
 
-let type_uterm ~sr ~sign ~ctx t expected_ty =
-  let nominal_tyctx = uterm_nominals_to_tyctx t in
-  let tyctx =
-    (List.map (fun (id, t) -> (id, tc [] t)) ctx)
-      @ nominal_tyctx
-  in
-  let (ty, eqns) = infer_type_and_constraints ~sign tyctx t in
-  let eqns = (expected_ty, ty, (get_pos t, CArg)) :: eqns in
-  let sub = unify_constraints eqns in
-  let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx)) in
-  let result = replace_term_vars ctx (uterm_to_term sub t) in
-    term_ensure_fully_inferred result ;
-    term_ensure_subordination sr result ;
-    result
-
-let rec has_capital_head t =
-  match t with
-    | UCon(_, v, _) -> is_capital_name v
-    | UApp(_, h, _) -> has_capital_head h
-    | _ -> false
-
 let iter_ty f ty =
   let rec aux = function
     | Ty(tys, bty) -> f bty; List.iter aux tys
@@ -408,6 +397,33 @@ let check_pi_quantification ts =
               | _ -> assert false)
        ts)
 
+let type_uterm ?expected_ty ~sr ~sign ~ctx t =
+  let nominal_tyctx = uterm_nominals_to_tyctx t in
+  let tyctx =
+    (List.map (fun (id, t) -> (id, tc [] t)) ctx)
+      @ nominal_tyctx
+  in
+  let (ty, eqns) = infer_type_and_constraints ~sign tyctx t in
+  let eqns =
+    match expected_ty with
+    | None -> eqns
+    | Some exp_ty -> (exp_ty, ty, (get_pos t, CArg)) :: eqns
+  in
+  let sub = unify_constraints eqns in
+  let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx)) in
+  let result = replace_term_vars ctx (uterm_to_term sub t) in
+    term_ensure_fully_inferred result ;
+    term_ensure_subordination sr result ;
+    check_pi_quantification [result];
+    result
+
+let rec has_capital_head t =
+  match t with
+    | UCon(_, v, _) -> is_capital_name v
+    | UApp(_, h, _) -> has_capital_head h
+    | _ -> false
+
+
 let replace_underscores head body =
   let names = uterms_extract_if is_capital_name (head::body) in
   let used = ref (List.map (fun x -> (x, ())) names) in
@@ -435,6 +451,22 @@ let type_uclause ~sr ~sign (head, body) =
     failwith "Clause has flexible head" ;
   let head, body = replace_underscores head body in
   let cids = uterms_extract_if is_capital_name (head::body) in
+  let get_imp_form head body =
+    (let impfy imp f = (binop "=>" f imp) in
+    List.fold_left impfy head (List.rev body))
+  in
+  let imp_form = get_imp_form head body in
+  let get_pi_form ids body =
+    (let pify id pi =
+      let pos = get_pos pi in
+      let abs = ULam (pos, id, Term.fresh_tyvar (), pi) in
+      UApp (pos, predefined "pi" pos, abs)
+    in
+    List.fold_right pify ids body)
+  in
+  let pi_form = get_pi_form cids imp_form in
+  type_uterm ~sr ~sign ~ctx:[] pi_form
+(*
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns =
     List.fold_left (fun acc p ->
@@ -450,6 +482,7 @@ let type_uclause ~sr ~sign (head, body) =
     List.iter (term_ensure_subordination sr) (rhead::rbody) ;
     check_pi_quantification (rhead::rbody) ;
     (rhead, rbody)
+*)
 
 
 (** Typing for metaterms *)

@@ -149,6 +149,8 @@ let clauses : clauses ref = ref []
 let add_clauses new_clauses =
   clauses := !clauses @ new_clauses
 
+
+
 let parse_defs str =
   type_udefs ~sr:!sr ~sign:!sign (Parser.defs Lexer.token (Lexing.from_string str))
 
@@ -360,7 +362,7 @@ let inst ?name h ws =
                   let ctx = sequent.vars @
                     (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
                   in
-                  let t = type_uterm ~sr:!sr ~sign:!sign ~ctx t nty in
+                  let t = type_uterm ~expected_ty:nty ~sr:!sr ~sign:!sign ~ctx t in
                   object_inst ht n t
                 with
                   | Not_found ->
@@ -508,7 +510,7 @@ let type_apply_withs stmt ws =
       (fun (id, t) ->
          try
            let ty = List.assoc id bindings in
-             (id, type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars t ty)
+             (id, type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx:sequent.vars t)
          with
            | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
       ws
@@ -557,7 +559,7 @@ let type_backchain_withs stmt ws =
       (fun (id, t) ->
          try
            let ty = List.assoc id bindings in
-             (id, type_uterm ~sr:!sr ~sign:!sign ~ctx:(nctx @ sequent.vars) t ty)
+             (id, type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx:(nctx @ sequent.vars) t)
          with
            | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
       ws
@@ -766,7 +768,7 @@ let monotone h t =
           let ctx = sequent.vars @
             (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
           in
-          let t = type_uterm ~sr:!sr ~sign:!sign ~ctx t olistty in
+          let t = type_uterm ~expected_ty:olistty ~sr:!sr ~sign:!sign ~ctx t in
           let new_obj = { obj with context = Context.normalize [t] } in
             delay_mainline
               (Obj(new_obj, r))
@@ -929,7 +931,7 @@ let exists t =
         let ctx = sequent.vars @
           (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
         in
-        let t = type_uterm ~sr:!sr ~sign:!sign ~ctx t ty in
+        let t = type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx t in
         let goal = exists tids (replace_metaterm_vars [(id, t)] body) in
           sequent.goal <- goal
     | _ -> ()

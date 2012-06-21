@@ -24,7 +24,7 @@ open Printf
 
 type uclause = uterm * uterm list
 
-type clause = term * term list
+type clause = term
 type clauses = clause list
 
 type def_type = Inductive | CoInductive

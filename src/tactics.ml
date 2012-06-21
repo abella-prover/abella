@@ -29,20 +29,19 @@ open Debug
    is required for unification. It is also
    used in some test cases.
 *)
-let rec replace_pi_with_const term ~used =
+let rec replace_pi_with_const term =
   if is_pi term then
     let abs = extract_pi term in
     match observe (hnorm abs) with
     | Lam((id,ty)::_, _) ->
-        let (c, used') =
-          fresh_wrt ~ts:0 Constant id ty used in
-        replace_pi_with_const (app abs [c]) ~used:used'
+        let c = const id ty in
+        replace_pi_with_const (app abs [c])
     | _ -> assert false
   else
     term
 
-let clausify term ~used =
-  let term' = replace_pi_with_const term ~used in
+let clausify term =
+  let term' = replace_pi_with_const term in
   let rec move_imps obj =
     if is_imp obj.term then
       move_imps (move_imp_to_context obj)
@@ -51,15 +50,6 @@ let clausify term ~used =
   let {context=body;term=head} = move_imps (obj term')
   in
   (head,body)
-
-let clausify_list terms ~used =
-  let accum_cls_used (clauses,used) term =
-    let cls = clausify term ~used in
-    let new_consts = find_var_refs Constant ((fst cls)::(snd cls)) in
-    (cls::clauses, (List.map term_to_pair new_consts)@used)
-  in
-  let (clauses, _) = List.fold_left accum_cls_used ([],used) terms
-  in clauses
 
 (* Variable naming utilities *)
 
@@ -389,7 +379,8 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   let clause_case ~wrapper term =
     if has_eigen_head term then
       failwith "Cannot perform case-analysis on flexible head" ;
-    (clausify_list clauses ~used) |> List.filter_map
+    clauses |> List.map clausify
+            |> List.filter_map
         (unwind_state
            (fun (head, body) ->
               let fresh_used, fresh_head, fresh_body =
@@ -704,7 +695,8 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     let freshen_clause = curry (freshen_nameless_clause ~support ~ts) in
     let p = term_head_name goal in
     let wrap body = List.map (fun t -> {context=context; term=t}) body in
-      (clausify_list clauses ~used:[])
+      clauses
+      |> List.map clausify
       |> List.find_all (fun (h, _) -> term_head_name h = p)
       |> List.map freshen_clause
       |> List.number

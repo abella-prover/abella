@@ -31,11 +31,13 @@ type var = {
   ty   : ty ;
 }
 
+type tyctx = (id * ty) list
+
 type term = rawterm
 and rawterm =
   | Var  of var
   | DB   of int
-  | Lam  of (id*ty) list * term
+  | Lam  of tyctx * term
   | App  of term * term list
   | Susp of term * int * int * env
   | Ptr  of ptr
@@ -53,7 +55,7 @@ let rec observe = function
 
 let db n = DB n
 
-let get_ctx_tys tyctx = snd (List.split tyctx)
+let get_ctx_tys tyctx = List.map snd tyctx
 
 let rec lambda idtys t =
   if idtys = [] then t else
@@ -380,13 +382,14 @@ let term_to_string term =
   let high_pr = 2 + get_max_priority () in
   let pp_var x = abs_name ^ (string_of_int x) in
 (*   let pp_var_ty x ty = (pp_var x) ^ ":" ^ (ty_to_string ty) in *)
-  let rec pp pr n term =
+  let rec pp cx pr n term =
     match observe (hnorm term) with
       | Var v -> v.name
           (* ^ ":" ^ (tag2str v.tag) *)
           (* ^ ":" ^ (string_of_int v.ts) *)
           (* ^ ":" ^ (ty_to_string v.ty) *)
-      | DB i -> pp_var (n-i+1)
+      | DB i -> 
+          (try List.nth cx (i - 1) with _ -> pp_var (n - i + 1))
       | App (t,ts) ->
           begin match observe (hnorm t), ts with
             | Var {name=op; tag=Constant}, [a; b] when is_infix op ->
@@ -398,30 +401,36 @@ let term_to_string term =
                   | _ -> op_p, op_p
                   end in
                 let res =
-                  (pp pr_left n a) ^ " " ^ op ^ " " ^ (pp pr_right n b)
+                  (pp cx pr_left n a) ^ " " ^ op ^ " " ^ (pp cx pr_right n b)
                 in
                   if op_p >= pr then res else parenthesis res
             | Var {name=op; tag=Constant}, [a] when
                 is_obj_quantifier op && is_lam a ->
-                let res = op ^ " " ^ (pp 0 n a) in
+                let res = op ^ " " ^ (pp cx 0 n a) in
                   if pr < high_pr then res else parenthesis res
             | _ ->
                 let res =
-                  String.concat " " (List.map (pp high_pr n) (t::ts))
+                  String.concat " " (List.map (pp cx high_pr n) (t::ts))
                 in
                   if pr < high_pr then res else parenthesis res
           end
       | Lam ([],t) -> assert false
-      | Lam (idtys,t) ->
-          let i = List.length idtys in
-          let res = ((String.concat "\\"
-                       (List.map pp_var (list_range (n+1) (n+i)))) ^ "\\" ^
-                      (pp 0 (n+i) t)) in
-            if pr == 0 then res else parenthesis res
+      | Lam (tycx,t) ->
+          let i = List.length tycx in
+          let default_vars = List.map pp_var (list_range (n + 1) (n + i)) in
+          let vars = List.map2 begin
+            fun (hv, _) dv -> match hv with
+            | "_" -> dv
+            | _ -> hv
+          end tycx default_vars in
+          let tcx = List.rev_append vars cx in
+          let res = ((String.concat "\\" vars) ^ "\\" ^
+                      (pp tcx 0 (n+i) t)) in
+          if pr == 0 then res else parenthesis res
       | Ptr t -> assert false (* observe *)
       | Susp _ -> assert false (* hnorm *)
   in
-    pp 0 0 term
+    pp [] 0 0 term
 
 let term_to_name t =
   (term_to_var t).name
@@ -517,7 +526,7 @@ let tybase bty =
 let oty = tybase "o"
 let olistty = tybase "olist"
 
-let rec tc (tyctx:(id*ty) list) t =
+let rec tc (tyctx:tyctx) t =
   match observe (hnorm t) with
     | DB i -> snd (List.nth tyctx (i-1))
     | Var v -> v.ty

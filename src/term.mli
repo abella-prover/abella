@@ -46,10 +46,12 @@ type ptr
 type envitem = Dum of int | Binding of term * int
 type env = envitem list
 
+type tyctx = (id * ty) list
+
 type rawterm =
   | Var of var
   | DB of int
-  | Lam of (id*ty) list * term
+  | Lam of tyctx * term
   | App of term * term list
   | Susp of term * int * int * env
   | Ptr of ptr (* Sorry about this one, hiding it is costly.. *)
@@ -68,12 +70,12 @@ val db : int -> term
 
 module Notations :
 sig
-  val (//) : (id*ty) list -> term -> term
+  val (//) : tyctx -> term -> term
   val (^^) : term -> term list -> term
 end
 
 (* get a list of tys from a type context *)
-val get_ctx_tys : (id*ty) list -> ty list
+val get_ctx_tys : tyctx -> ty list
 
 val eq : term -> term -> bool
 
@@ -101,7 +103,7 @@ val unwind_state : ('a -> 'b) -> ('a -> 'b)
 val add_dummies : env -> int -> int -> env
 
 (* Add abstractions. *)
-val lambda : (id*ty) list -> term -> term
+val lambda : tyctx -> term -> term
 
 (** Abstract [t] over constant or variable named [id]. *)
 val abstract : string -> ty -> term -> term
@@ -147,7 +149,7 @@ val question_tids : term list -> (id * ty) list
 val nominal_tids : term list -> (id * ty) list
 val all_tids : term list -> (id * ty) list
 
-val tc : (id*ty) list -> term -> ty
+val tc : tyctx -> term -> ty
 
 val tyvar : string -> ty
 val is_tyvar : string -> bool

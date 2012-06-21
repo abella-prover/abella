@@ -66,7 +66,7 @@ let tests =
            in
              let clause = type_uclause ~sr:!sr ~sign:!sign uclause in
              match Tactics.clausify clause with
-               | _, p::_ ->
+               | _, _, p::_ ->
                    assert_term_pprint_equal "pr X1 X2" p
                | _ -> assert false
         );

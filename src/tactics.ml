@@ -30,18 +30,21 @@ open Debug
    used in some test cases.
 *)
 let rec replace_pi_with_const term =
-  if is_pi term then
-    let abs = extract_pi term in
-    match observe (hnorm abs) with
-    | Lam((id,ty)::_, _) ->
-        let c = const id ty in
-        replace_pi_with_const (app abs [c])
-    | _ -> assert false
-  else
-    term
+  let rec aux tyctx term =
+    if is_pi term then
+      let abs = extract_pi term in
+      match observe (hnorm abs) with
+      | Lam((id,ty)::_, _) ->
+          let c = const id ty in
+          aux ((id,ty)::tyctx) (app abs [c])
+      | _ -> assert false
+    else
+      (tyctx, term)
+  in
+  aux [] term
 
 let clausify term =
-  let term' = replace_pi_with_const term in
+  let (tyctx, term') = replace_pi_with_const term in
   let rec move_imps obj =
     if is_imp obj.term then
       move_imps (move_imp_to_context obj)
@@ -49,14 +52,14 @@ let clausify term =
       {obj with context = Context.normalize obj.context} in
   let {context=body;term=head} = move_imps (obj term')
   in
-  (head,body)
+  (tyctx,head,body)
 
 (* Variable naming utilities *)
 
 let alist_to_used (_, t) = term_to_pair t
 
-let freshen_clause ~used ~sr ?(support=[]) head body =
-  let tids = capital_tids (head::body) in
+let freshen_clause ~used ~sr ?(support=[]) clause =
+  let (tids,head,body) = clause in
   let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
     (List.map term_to_pair vars @ used,
      replace_term_vars alist head,
@@ -84,8 +87,8 @@ let fresh_nameless_alist ~support ~tag ~ts tids =
          (x, app (fresh ~tag ts (tyarrow ntys ty)) support))
       tids
 
-let freshen_nameless_clause ?(support=[]) ~ts head body =
-  let tids = capital_tids (head::body) in
+let freshen_nameless_clause ?(support=[]) ~ts clause =
+  let (tids,head,body) = clause in
   let fresh_names = fresh_nameless_alist ~support ~tag:Logic ~ts tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
@@ -382,9 +385,9 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
     clauses |> List.map clausify
             |> List.filter_map
         (unwind_state
-           (fun (head, body) ->
+           (fun clause ->
               let fresh_used, fresh_head, fresh_body =
-                freshen_clause ~sr ~support ~used head body
+                freshen_clause ~sr ~support ~used clause
               in
                 match try_left_unify_cpairs ~used:(fresh_used @ used)
                   fresh_head term
@@ -692,12 +695,12 @@ let search ~depth:n ~hyps ~clauses ~alldefs
 
   let rec clause_aux n hyps context goal r ts ~sc =
     let support = term_support goal in
-    let freshen_clause = curry (freshen_nameless_clause ~support ~ts) in
+    let freshen_clause = freshen_nameless_clause ~support ~ts in
     let p = term_head_name goal in
     let wrap body = List.map (fun t -> {context=context; term=t}) body in
       clauses
       |> List.map clausify
-      |> List.find_all (fun (h, _) -> term_head_name h = p)
+      |> List.find_all (fun (_, h, _) -> term_head_name h = p)
       |> List.map freshen_clause
       |> List.number
       |> List.iter

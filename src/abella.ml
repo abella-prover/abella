@@ -205,8 +205,8 @@ let write_compilation () =
 let clause_eq c1 c2 = eq c1 c2
 
 let clauses_to_predicates clauses =
-  let clause_heads = fst (List.split
-        (List.map Tactics.clausify clauses)) in
+  let clause_heads =
+    List.map (fun c -> let (_,h,_) = Tactics.clausify c in h) clauses in
   List.unique (List.map term_head_name clause_heads)
 
 let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
@@ -241,7 +241,7 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
     List.minus ~cmp:clause_eq
       (List.find_all
          (fun clause ->
-           let clause_head = fst (Tactics.clausify clause) in
+           let (_,clause_head,_) = Tactics.clausify clause in
            List.mem (term_head_name clause_head) imp_predicates)
          !clauses)
       imp_spec_clauses

@@ -67,7 +67,8 @@ type umetaterm =
   | UTrue
   | UFalse
   | UEq of uterm * uterm
-  | UObj of uterm * uterm * restriction
+  | UAsyncObj of uterm * uterm * restriction
+  | USyncObj of uterm * uterm * uterm * restriction
   | UArrow of umetaterm * umetaterm
   | UBinding of binder * (id * ty) list * umetaterm
   | UOr of umetaterm * umetaterm
@@ -277,9 +278,15 @@ let metaterm_ensure_fully_inferred t =
       | Eq(a, b) ->
           term_ensure_fully_inferred a ;
           term_ensure_fully_inferred b
-      | Obj(obj, _) ->
-          Context.iter term_ensure_fully_inferred obj.context ;
-          term_ensure_fully_inferred obj.term
+      | Obj(Async obj, _) ->
+          let ctx,term = Async.get obj in
+          Context.iter term_ensure_fully_inferred ctx ;
+          term_ensure_fully_inferred term
+      | Obj(Sync obj, _) ->
+          let ctx,focus,term = Sync.get obj in
+          Context.iter term_ensure_fully_inferred ctx ;
+          term_ensure_fully_inferred focus;
+          term_ensure_fully_inferred term;
       | Pred(p, _) ->
           term_ensure_fully_inferred p
   in
@@ -495,11 +502,19 @@ let infer_constraints ~sign ~tyctx t =
           let (aty, aeqns) = infer_type_and_constraints ~sign tyctx a in
           let (bty, beqns) = infer_type_and_constraints ~sign tyctx b in
             aeqns @ beqns @ [(aty, bty, (get_pos b, CArg))]
-      | UObj(l, g, _) ->
+      | UAsyncObj(l, g, _) ->
           let (lty, leqns) = infer_type_and_constraints ~sign tyctx l in
           let (gty, geqns) = infer_type_and_constraints ~sign tyctx g in
             leqns @ geqns @ [(olistty, lty, (get_pos l, CArg));
                              (oty, gty, (get_pos g, CArg))]
+      | USyncObj(l, f, g, _) ->
+          let (lty, leqns) = infer_type_and_constraints ~sign tyctx l in
+          let (fty, feqns) = infer_type_and_constraints ~sign tyctx f in
+          let (gty, geqns) = infer_type_and_constraints ~sign tyctx g in
+            leqns @ feqns @ geqns @
+          [(olistty, lty, (get_pos l, CArg));
+           (oty, fty, (get_pos f, CArg));
+           (oty, gty, (get_pos g, CArg))]
       | UArrow(a, b) | UOr(a, b) | UAnd(a, b) ->
           (aux tyctx a) @ (aux tyctx b)
       | UBinding(_, tids, body) ->
@@ -518,8 +533,10 @@ let umetaterm_extract_if test t =
           uterms_extract_if test [a; b]
       | UPred(p, _) ->
           uterms_extract_if test [p]
-      | UObj(l, g, _) ->
+      | UAsyncObj(l, g, _) ->
           uterms_extract_if test [l; g]
+      | USyncObj(l, f, g, _) ->
+          uterms_extract_if test [l;f;g]
       | UArrow(a, b) | UOr(a, b) | UAnd(a, b) ->
           (aux a) @ (aux b)
       | UBinding(_, tids, body) ->
@@ -536,9 +553,12 @@ let umetaterm_to_metaterm sub t =
       | UTrue -> True
       | UFalse -> False
       | UEq(a, b) -> Eq(uterm_to_term sub a, uterm_to_term sub b)
-      | UObj(l, g, r) ->
-          Obj({context = Context.normalize [uterm_to_term sub l] ;
-               term = uterm_to_term sub g}, r)
+      | UAsyncObj(l, g, r) ->
+          Obj(Async (Async.obj (Context.normalize [uterm_to_term sub l])
+                (uterm_to_term sub g)), r)
+      | USyncObj(l, f, g, r) ->
+          Obj(Sync (Sync.obj (Context.normalize [uterm_to_term sub l])
+                (uterm_to_term sub f) (uterm_to_term sub g)), r)
       | UArrow(a, b) -> Arrow(aux a, aux b)
       | UBinding(binder, tids, body) ->
           Binding(binder,
@@ -583,8 +603,12 @@ let metaterm_ensure_subordination sr t =
       | Eq(a, b) ->
           term_ensure_subordination sr a ;
           term_ensure_subordination sr b
-      | Obj(obj, _) ->
-          aux (obj_to_member obj)
+      | Obj(Async obj, _) ->
+          aux (async_to_member obj)
+      (* what about the sync object ? I have no idea.
+         -- Yuting *)
+      | Obj(Sync obj, _) ->
+        failwith "Un implemented: subordination of sync objects"
       | Arrow(a, b) | Or(a, b) | And(a, b) ->
           aux a ;
           aux b

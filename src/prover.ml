@@ -763,18 +763,19 @@ let assert_hyp ?name term =
 let monotone h t =
   let ht = get_hyp h in
     match ht with
-      | Obj(obj, r) ->
+      | Obj(Async obj, r) ->
+          let obj_context, obj_term = Async.get obj in
           let ntids = metaterm_nominal_tids ht in
           let ctx = sequent.vars @
             (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
           in
           let t = type_uterm ~expected_ty:olistty ~sr:!sr ~sign:!sign ~ctx t in
-          let new_obj = { obj with context = Context.normalize [t] } in
+          let new_obj = Async.obj (Context.normalize [t]) obj_term in
             delay_mainline
-              (Obj(new_obj, r))
+              (Obj(Async new_obj, r))
               (Binding(Forall, [("X", oty)],
                        Arrow(member (Term.const "X" oty)
-                               (Context.context_to_term obj.context),
+                               (Context.context_to_term obj_context),
                              member (Term.const "X" oty)
                                t))) ;
       | _ -> failwith

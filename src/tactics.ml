@@ -46,11 +46,12 @@ let rec replace_pi_with_const term =
 let clausify term =
   let (tyctx, term') = replace_pi_with_const term in
   let rec move_imps obj =
-    if is_imp obj.term then
+    let ctx,term = Async.get obj in
+    if is_imp term then
       move_imps (move_imp_to_context obj)
     else
-      {obj with context = Context.normalize obj.context} in
-  let {context=body;term=head} = move_imps (obj term')
+      Async.obj (Context.normalize ctx) term in
+  let body,head = Async.get (move_imps (Async.obj Context.empty term'))
   in
   (tyctx,head,body)
 
@@ -111,19 +112,25 @@ let freshen_nameless_bindings ~support ~ts bindings term =
    obj2 = L1 |- A
    result = L2, L1 |- C *)
 let object_cut obj1 obj2 =
-  if Context.mem obj2.term obj1.context then
+  match obj1, obj2 with
+  | Async obj1, Async obj2 ->
+  let ctx1,term1 = Async.get obj1 in
+  let ctx2,term2 = Async.get obj2 in
+  if Context.mem term2 ctx1 then
     let ctx =
-      obj1.context
-      |> Context.remove obj2.term
-      |> Context.union obj2.context
+      ctx1
+      |> Context.remove term2
+      |> Context.union ctx2
       |> Context.normalize
     in
       if Context.wellformed ctx then
-        Obj(context_obj ctx obj1.term, Irrelevant)
+        Obj(Async (Async.obj ctx term1), Irrelevant)
       else
         failwith "Cannot merge contexts"
   else
     failwith "Needless use of cut"
+  | _, _ ->
+      failwith "Cannot use cut on sync objects"
 
 
 (* Search cut *)
@@ -133,13 +140,18 @@ let search_cut ~search_goal obj =
   let rec aux left right =
     match right with
       | d::ds ->
-          if search_goal (Obj(context_obj (left @ ds) d, Irrelevant)) then
+          if search_goal (Obj(Async (Async.obj (left @ ds) d), Irrelevant)) then
             aux left ds
           else
             aux (d::left) ds
       | [] -> left
   in
-    context_obj (aux [] (List.rev obj.context)) obj.term
+  match obj with
+  | Async obj ->
+      let ctx,term = Async.get obj in
+      Async (Async.obj (aux [] (List.rev ctx)) term)
+  | Sync _ ->
+      failwith "Search cut on sync objects"
 
 (* Object level instantiation *)
 
@@ -320,6 +332,8 @@ let lift_all ~used ~sr nominals =
            let new_term = var Eigen id v.ts rty in
              bind term (app new_term rvars))
 
+
+
 let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
 
   let support = metaterm_support term in
@@ -379,48 +393,74 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
                 | _ -> failwith "Bad head in definition"))
   in
 
-  let clause_case ~wrapper term =
-    if has_eigen_head term then
+  let focus sync_obj r =
+    let ctx,f,term = Sync.get sync_obj in
+    if has_eigen_head term or has_eigen_head f then
       failwith "Cannot perform case-analysis on flexible head" ;
-    clauses |> List.map clausify
-            |> List.filter_map
-        (unwind_state
-           (fun clause ->
-              let fresh_used, fresh_head, fresh_body =
-                freshen_clause ~sr ~support ~used clause
-              in
-                match try_left_unify_cpairs ~used:(fresh_used @ used)
-                  fresh_head term
-                with
-                  | Some cpairs ->
-                      let new_vars =
-                        term_vars_alist Eigen (fresh_head::term::fresh_body)
-                      in
-                      let wrapped_body = List.map wrapper fresh_body in
-                        Some { bind_state = get_bind_state () ;
-                               new_vars = new_vars ;
-                               new_hyps = cpairs_to_eqs cpairs @ wrapped_body }
-                  | None -> None))
+    let wrapper t =
+      Obj (Async (Async.obj ctx t), reduce_inductive_restriction r)
+    in
+    (unwind_state
+       (fun clause ->
+         let fresh_used, fresh_head, fresh_body =
+           freshen_clause ~sr ~support ~used clause
+         in
+         match try_left_unify_cpairs ~used:(fresh_used @ used)
+             fresh_head term
+         with
+         | Some cpairs ->
+             let new_vars =
+               term_vars_alist Eigen (fresh_head::term::fresh_body)
+             in
+             let wrapped_body = List.map wrapper fresh_body in
+             Some { bind_state = get_bind_state () ;
+                    new_vars = new_vars ;
+                    new_hyps = cpairs_to_eqs cpairs @ wrapped_body }
+         | None -> None))
+      (clausify f)
   in
 
-  let obj_case obj r =
-    let wrapper t =
-      Obj(context_obj obj.context t, reduce_inductive_restriction r)
+  let clause_case async_obj r =
+    let ctx,term = Async.get async_obj in
+    let get_sync_obj clause = Sync.obj ctx clause term in
+    List.filter_map (fun clause -> focus (get_sync_obj clause) r) clauses
+  in
+
+  (* create a sync sequent focusing on a formula
+     in the context *)
+  let create_sync ~used ~sr ~support async_obj r =
+    let ctx,t = Async.get async_obj in
+    let raise_result =
+      fresh_raised_alist ~sr ~tag:Eigen ~used ~support [("F", oty)] in
+    let f,fvar =
+      match raise_result with
+      | ([(_, f)], [fvar]) -> f,fvar
+      | _ -> assert false
     in
-    let clause_cases = clause_case ~wrapper obj.term in
-      if Context.is_empty obj.context then
-        clause_cases
-      else
-        let member_case =
-          { bind_state = get_bind_state () ;
-            new_vars = [] ;
-            new_hyps = [obj_to_member obj] }
-        in
-          member_case :: clause_cases
+    let sync = Sync.obj ctx f t in
+    let mem = member f (Context.context_to_term ctx) in
+    { bind_state = get_bind_state () ;
+      new_vars = [term_to_pair fvar];
+      new_hyps = [Obj (Sync sync, reduce_inductive_restriction r) ; mem] }
+  in
+
+  let async_case obj r =
+    let clause_cases = clause_case obj r in
+    let ctx,_ = Async.get obj in
+        clause_cases @
+          (if Context.is_empty ctx then []
+           else [create_sync ~used ~sr ~support obj r])
+  in
+
+  let sync_case obj r =
+    match focus obj r with
+    | Some case -> [case]
+    | None -> []
   in
 
     match term with
-      | Obj(obj, r) -> obj_case obj r
+      | Obj(Async obj, r) -> async_case obj r
+      | Obj(Sync obj, r)  -> sync_case obj r
       | Pred(_, CoSmaller _) -> failwith "Cannot case analyze hypothesis\
                                           \ with coinductive restriction"
       | Pred(p, r) ->
@@ -697,8 +737,10 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     let support = term_support goal in
     let freshen_clause = freshen_nameless_clause ~support ~ts in
     let p = term_head_name goal in
-    let wrap body = List.map (fun t -> {context=context; term=t}) body in
-      clauses
+    let wrap body = List.map (fun t -> Async.obj context t) body in
+      (context @ clauses)
+      (* ignore the elements in the context of type olist *)
+      |> List.find_all (fun cls -> not (tc [] cls = olistty))
       |> List.map clausify
       |> List.find_all (fun (_, h, _) -> term_head_name h = p)
       |> List.map freshen_clause
@@ -710,17 +752,22 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                   | None ->
                       ()
                   | Some cpairs ->
-                      obj_aux_conj (n-1) (wrap body) r ts
+                      async_obj_aux_conj (n-1) (wrap body) r ts
                         ~sc:(fun ws -> if try_unify_cpairs cpairs then
                                sc (WUnfold(p, i, ws)))))
 
-  and obj_aux n hyps goal r ts ~sc =
-    let goal = normalize_obj goal in
+  and async_obj_aux n hyps goal r ts ~sc =
+    let gresult = normalize_obj (Async goal) in
+    let goal =
+      match gresult with
+      | (Async goal) -> goal
+      | _ -> assert false
+    in
       (* Check hyps for derivability *)
       hyps
-      |> List.find_all (fun (id, h) -> is_obj h)
+      |> List.find_all (fun (id, h) -> is_async_obj h)
       |> List.find_all (fun (id, h) -> satisfies (term_to_restriction h) r)
-      |> List.map (fun (id, h) -> (id, term_to_obj h))
+      |> List.map (fun (id, h) -> (id, term_to_async_obj h))
       |> List.iter
           (unwind_state
              (fun (id, obj) -> if derivable goal obj then sc (WHyp id))) ;
@@ -729,18 +776,20 @@ let search ~depth:n ~hyps ~clauses ~alldefs
         | Smaller _ | Equal _ -> ()
         | _ ->
             (* Check context *)
+            (*
             if not (Context.is_empty goal.context) then
               metaterm_aux n hyps (obj_to_member goal) ts
                 ~sc:(fun w -> sc (WUnfold(term_head_name goal.term, 0, [w]))) ;
-
+            *)
             (* Backchain *)
-            if n > 0 then clause_aux n hyps goal.context goal.term r ts ~sc
+            let ctx,term = Async.get goal in
+            if n > 0 then clause_aux n hyps ctx term r ts ~sc
 
-  and obj_aux_conj n goals r ts ~sc =
+  and async_obj_aux_conj n goals r ts ~sc =
     match goals with
       | [] -> sc []
-      | g::gs -> obj_aux n hyps g r ts
-          ~sc:(fun w -> obj_aux_conj n gs r ts ~sc:(fun ws -> sc (w::ws)))
+      | g::gs -> async_obj_aux n hyps g r ts
+          ~sc:(fun w -> async_obj_aux_conj n gs r ts ~sc:(fun ws -> sc (w::ws)))
 
   and metaterm_aux n hyps goal ts ~sc =
     let goal = normalize goal in
@@ -795,7 +844,8 @@ let search ~depth:n ~hyps ~clauses ~alldefs
           let body = replace_metaterm_vars alist body in
             metaterm_aux n hyps body ts
               ~sc:(fun w -> sc (WIntros(alist_to_ids alist, w)))
-      | Obj(obj, r) -> obj_aux n hyps obj r ts ~sc
+      | Obj(Async obj, r) -> async_obj_aux n hyps obj r ts ~sc
+      | Obj(Sync obj, r) -> ()
       | Pred(_, Smaller _) | Pred(_, Equal _) -> ()
       | Pred(p, r) -> if n > 0 then def_aux n hyps p r ts ~sc
 
@@ -851,11 +901,13 @@ let apply_arrow term args =
     List.fold_left
       (fun term arg ->
          match term, arg with
-           | Arrow(Obj(left, _), right), Some Obj(arg, _) ->
-               context_pairs := (left.context, arg.context)::!context_pairs ;
+           | Arrow(Obj(Async left, _), right), Some Obj(Async arg, _) ->
+               let lft_ctx,lft_term = Async.get left in
+               let arg_ctx,arg_term = Async.get arg in
+               context_pairs := (lft_ctx, arg_ctx)::!context_pairs ;
                debug (Printf.sprintf "Trying to unify %s and %s."
-                        (term_to_string left.term) (term_to_string arg.term)) ;
-               right_unify left.term arg.term ;
+                        (term_to_string lft_term) (term_to_string arg_term)) ;
+               right_unify lft_term arg_term ;
                right
            | Arrow(left, right), Some arg ->
                debug (Printf.sprintf "Trying to unify %s and %s."
@@ -990,9 +1042,11 @@ let backchain_arrow term goal =
       | _, _ -> ()
   in
     begin match head, goal with
-      | Obj(hobj, _), Obj(gobj, _) ->
-          right_unify hobj.term gobj.term ;
-          Context.backchain_reconcile hobj.context gobj.context
+      | Obj(Async hobj, _), Obj(Async gobj, _) ->
+          let hctx,hterm = Async.get hobj in
+          let gctx,gterm = Async.get gobj in
+          right_unify hterm gterm ;
+          Context.backchain_reconcile hctx gctx
       | _, _ ->
           meta_right_unify head goal
     end ;

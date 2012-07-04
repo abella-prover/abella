@@ -788,6 +788,9 @@ let search ~depth:n ~hyps ~clauses ~alldefs
 (* Apply one statement to a list of other statements *)
 
 let check_restrictions formal actual =
+  if (List.length formal <> List.length actual) then
+    failwith ("Wrong number of arguments, expected " ^
+                (string_of_int (List.length formal)));
   List.iter2 (fun fr ar -> match fr, ar with
                 | Smaller i, Smaller j when i = j -> ()
                 | Equal i, Smaller j when i = j -> ()
@@ -938,15 +941,6 @@ let apply_with term args withs =
       apply (normalize term) args ~used_nominals
 
 (* Backchain *)
-
-let check_restrictions formal actual =
-  List.iter2 (fun fr ar -> match fr, ar with
-                | Smaller i, Smaller j when i = j -> ()
-                | Equal i, Smaller j when i = j -> ()
-                | Equal i, Equal j when i = j -> ()
-                | Irrelevant, _ -> ()
-                | _ -> failwith "Inductive restriction violated")
-    formal actual
 
 let backchain_arrow term goal =
   let obligations, head = decompose_arrow term in

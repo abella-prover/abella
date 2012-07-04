@@ -54,9 +54,19 @@ let obj t = { context = Context.empty ; term = t }
 
 let termobj t = Obj(obj t, Irrelevant)
 let arrow a b = Arrow(a, b)
-let forall tids t = if tids = [] then t else Binding(Forall, tids, t)
-let nabla tids t = if tids = [] then t else Binding(Nabla, tids, t)
-let exists tids t = if tids = [] then t else Binding(Exists, tids, t)
+
+let binding binder tids t =
+  if tids = [] then
+    t
+  else
+    match t with
+      | Binding(binder', tids', t') when binder = binder' ->
+          Binding(binder, tids @ tids', t')
+      | _ -> Binding(binder, tids, t)
+
+let forall tids t = binding Forall tids t
+let nabla tids t = binding Nabla tids t
+let exists tids t = binding Exists tids t
 let meta_or a b = Or(a, b)
 let meta_and a b = And(a, b)
 let pred p = Pred(p, Irrelevant)
@@ -441,7 +451,7 @@ let rec normalize_binders alist t =
           let bindings', body' =
             freshen_used_bindings bindings used body
           in
-            Binding(binder, bindings', normalize_binders alist body')
+            binding binder bindings' (normalize_binders alist body')
       | Or(a, b) -> Or(aux a, aux b)
       | And(a, b) -> And(aux a, aux b)
       | Pred(p, r) -> Pred(term_aux p, r)

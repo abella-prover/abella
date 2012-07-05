@@ -385,6 +385,7 @@ let cut ?name h arg =
           add_hyp ?name (object_cut obj_h obj_arg)
       | _ -> failwith "Cut can only be used on hypotheses of the form {...}"
 
+
 (* Search *)
 
 let has_inductive_hyps hyp =
@@ -994,3 +995,22 @@ let permute_nominals ids form =
     match form with
       | None -> sequent.goal <- result
       | Some hyp -> replace_hyp hyp result
+
+(* Object level cut with explicit cut formula*)
+
+let cut_from ?name h obj =
+  let obj = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars obj in
+  let h = get_hyp h in
+    match h, obj with
+      | Obj(obj_h1, _),Obj(obj_h2, _) ->
+          let new_hyp = object_cut obj_h1 obj_h2 in
+          let mainline =
+            case_to_subgoal ?name
+              { bind_state = get_bind_state () ;
+                new_vars = [] ;
+                new_hyps = [new_hyp] }
+          in
+          let detour = goal_to_subgoal obj in
+          add_subgoals ~mainline [detour] ;
+          next_subgoal ()
+      | _,_ -> failwith "Cut can only be used on hypotheses of the form {...}"

@@ -43,7 +43,7 @@
 %}
 
 %token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
-%token IND INST APPLY CASE SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
+%token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
@@ -104,6 +104,7 @@ id:
   | WITH                                 { "with" }
   | INTROS                               { "intros" }
   | CUT                                  { "cut" }
+  | FROM                                 { "from" }
   | ASSERT                               { "assert" }
   | SKIP                                 { "skip" }
   | UNDO                                 { "undo" }
@@ -265,6 +266,7 @@ pure_command:
   | hhint APPLY id DOT                        { Types.Apply($3, [], [], $1) }
   | BACKCHAIN id DOT                          { Types.Backchain($2, []) }
   | BACKCHAIN id WITH withs DOT               { Types.Backchain($2, $4) }
+  | hhint CUT hyp WITH asyncobj DOT           { Types.CutFrom($3,$5,$1) }
   | hhint CUT hyp WITH hyp DOT                { Types.Cut($3, $5, $1) }
   | hhint CUT hyp DOT                         { Types.SearchCut($3, $1) }
   | hhint INST hyp WITH withs DOT             { Types.Inst($3, $5, $1) }
@@ -317,10 +319,13 @@ metaterm:
   | metaterm OR metaterm                 { UOr($1, $3) }
   | metaterm AND metaterm                { UAnd($1, $3) }
   | LPAREN metaterm RPAREN               { $2 }
+  | asyncobj                             { $1 }
+  | term restriction                     { UPred($1, $2) }
+
+asyncobj:
   | LBRACK contexted_term RBRACK restriction
                                          { let l, g = $2 in
                                              UAsyncObj(l, g, $4) }
-  | term restriction                     { UPred($1, $2) }
 
 binder:
   | FORALL                               { Metaterm.Forall }

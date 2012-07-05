@@ -74,6 +74,7 @@ type command =
   | CoInduction of id option
   | Apply of id * id list * (id * uterm) list * id option
   | Backchain of id * (id * uterm) list
+  | CutFrom of id * umetaterm * id option
   | Cut of id * id * id option
   | SearchCut of id * id option
   | Inst of id * (id * uterm) list * id option
@@ -217,6 +218,9 @@ let command_to_string c =
     | Cut(h1, h2, hn) ->
         sprintf "cut %s%s with %s"
           (hn_to_string hn) h1 h2
+    | CutFrom(h, obj, hn) ->
+        sprintf "cut %s%s with %s"
+          (hn_to_string hn) h (umetaterm_to_formatted_string obj)
     | SearchCut(h, hn) ->
         sprintf "cut %s%s" (hn_to_string hn) h
     | Inst(h, ws, hn) ->

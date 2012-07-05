@@ -104,6 +104,7 @@ rule token = parse
 | "backchain"        { BACKCHAIN }
 | "inst"             { INST }
 | "cut"              { CUT }
+| "from"             { FROM }
 | "case"             { CASE }
 | "search"           { SEARCH }
 | "to"               { TO }

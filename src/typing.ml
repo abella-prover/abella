@@ -596,6 +596,10 @@ let check_meta_quantification t =
   in
     aux t
 
+let sync_to_async obj =
+  { Async.context = obj.Sync.focus :: obj.Sync.context ;
+    Async.term  = obj.Sync.term }
+
 let metaterm_ensure_subordination sr t =
   let rec aux t =
     match t with
@@ -608,7 +612,9 @@ let metaterm_ensure_subordination sr t =
       (* what about the sync object ? I have no idea.
          -- Yuting *)
       | Obj(Sync obj, _) ->
-        failwith "Un implemented: subordination of sync objects"
+          aux (async_to_member (sync_to_async obj))
+
+        (* failwith "Un implemented: subordination of sync objects" *)
       | Arrow(a, b) | Or(a, b) | And(a, b) ->
           aux a ;
           aux b

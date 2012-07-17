@@ -93,8 +93,10 @@ rule token = parse
 | "Split"            { SSPLIT }
 | "\\/"              { OR }
 | "/\\"              { AND }
-| "{"                { LBRACK }
-| "}"                { RBRACK }
+| "{"                { LBRACE }
+| "}"                { RBRACE }
+| "["                { LBRACK }
+| "]"                { RBRACK }
 | "true"             { TRUE }
 | "false"            { FALSE }
 

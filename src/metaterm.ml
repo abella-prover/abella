@@ -124,7 +124,7 @@ let sync_obj_to_string obj =
   let context =
     if Context.is_empty ctx
     then ""
-    else (Context.context_to_string ctx) ^ " ; "
+    else (Context.context_to_string ctx) ^ ", "
   in
   let fcs = "[" ^ term_to_string focus ^ "] |- " in
   let term = term_to_string term in

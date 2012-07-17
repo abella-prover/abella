@@ -48,7 +48,8 @@
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
-%token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND LBRACK RBRACK
+%token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND 
+%token LBRACE RBRACE LBRACK RBRACK
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
 
 %token <int> NUM
@@ -150,6 +151,10 @@ paid:
 contexted_term:
   | context TURN term                    { ($1, $3) }
   | term                                 { (predefined "nil", $1) }
+
+focused_term:
+  | context COMMA LBRACK term RBRACK TURN term { ($1, $4, $7) }
+  | LBRACK term RBRACK TURN term               { (predefined "nil", $2, $5) }
 
 context:
   | context COMMA term                   { binop "::" $3 $1 }
@@ -266,7 +271,7 @@ pure_command:
   | hhint APPLY id DOT                        { Types.Apply($3, [], [], $1) }
   | BACKCHAIN id DOT                          { Types.Backchain($2, []) }
   | BACKCHAIN id WITH withs DOT               { Types.Backchain($2, $4) }
-  | hhint CUT hyp WITH asyncobj DOT           { Types.CutFrom($3,$5,$1) }
+  | hhint CUT hyp WITH objseq DOT             { Types.CutFrom($3,$5,$1) }
   | hhint CUT hyp WITH hyp DOT                { Types.Cut($3, $5, $1) }
   | hhint CUT hyp DOT                         { Types.SearchCut($3, $1) }
   | hhint INST hyp WITH withs DOT             { Types.Inst($3, $5, $1) }
@@ -319,13 +324,16 @@ metaterm:
   | metaterm OR metaterm                 { UOr($1, $3) }
   | metaterm AND metaterm                { UAnd($1, $3) }
   | LPAREN metaterm RPAREN               { $2 }
-  | asyncobj                             { $1 }
+  | objseq                               { $1 }
   | term restriction                     { UPred($1, $2) }
 
-asyncobj:
-  | LBRACK contexted_term RBRACK restriction
+objseq:
+  | LBRACE contexted_term RBRACE restriction
                                          { let l, g = $2 in
                                              UAsyncObj(l, g, $4) }
+  | LBRACE focused_term RBRACE restriction
+                                         { let l, f, g = $2 in
+                                             USyncObj(l, f, g, $4) }
 
 binder:
   | FORALL                               { Metaterm.Forall }

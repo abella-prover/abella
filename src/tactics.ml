@@ -770,20 +770,30 @@ let search ~depth:n ~hyps ~clauses ~alldefs
       |> List.map (fun (id, h) -> (id, term_to_async_obj h))
       |> List.iter
           (unwind_state
-             (fun (id, obj) -> if derivable goal obj then sc (WHyp id))) ;
+             (fun (id, obj) ->
+               if derivable_async goal obj then sc (WHyp id))) ;
 
       match r with
         | Smaller _ | Equal _ -> ()
         | _ ->
-            (* Check context *)
-            (*
-            if not (Context.is_empty goal.context) then
-              metaterm_aux n hyps (obj_to_member goal) ts
-                ~sc:(fun w -> sc (WUnfold(term_head_name goal.term, 0, [w]))) ;
-            *)
             (* Backchain *)
             let ctx,term = Async.get goal in
-            if n > 0 then clause_aux n hyps ctx (ctx @ clauses) term r ts ~sc
+            if n > 0 then clause_aux n hyps ctx (ctx @ clauses) term r ts ~sc;
+            (* Focus on formulas in the olist contexts *)
+            let ctxs = List.find_all (fun cls -> tc [] cls = olistty)
+                goal.Async.context in
+            let get_member_foci hyp =
+              if is_member hyp then
+                let e,ctx = extact_member hyp in
+                if Context.mem ctx ctxs then Some e else None
+              else
+                None
+            in
+            let ctx_focis = List.filter_map get_member_foci
+                (List.map (fun (id,h) -> h) hyps) in
+            let focus_goals = List.map
+                (fun fc -> Sync.obj ctx fc term) ctx_focis in
+            List.iter (fun fg -> sync_obj_aux n hyps fg r ts ~sc) focus_goals
 
   and sync_obj_aux n hyps goal r ts ~sc =
     let gresult = normalize_obj (Sync goal) in
@@ -792,10 +802,21 @@ let search ~depth:n ~hyps ~clauses ~alldefs
       | (Sync goal) -> goal
       | _ -> assert false
     in
-    let ctx = goal.Sync.context in
-    let focus = goal.Sync.focus in
-    let term = goal.Sync.term in
-    if n > 0 then clause_aux n hyps ctx [focus] term r ts ~sc
+    (* Check hyps for derivability *)
+    hyps
+      |> List.find_all (fun (id, h) -> is_sync_obj h)
+      |> List.find_all (fun (id, h) -> satisfies (term_to_restriction h) r)
+      |> List.map (fun (id, h) -> (id, term_to_sync_obj h))
+      |> List.iter
+          (unwind_state
+             (fun (id, obj) ->
+               if derivable_sync goal obj then sc (WHyp id))) ;
+
+      match r with
+        | Smaller _ | Equal _ -> ()
+        | _ ->
+            let ctx,focus,term = Sync.get goal in
+            if n > 0 then clause_aux n hyps ctx [focus] term r ts ~sc
 
   and async_obj_aux_conj n goals r ts ~sc =
     match goals with

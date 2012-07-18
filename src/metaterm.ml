@@ -258,6 +258,18 @@ let map_preds f term =
   in
     aux term
 
+let is_member = function
+  | Pred (t,_) -> is_head_name "member" t
+  | _ -> false
+
+let extact_member = function
+  | Pred (t,_) -> (
+      match observe (hnorm t) with
+      | App (t, [a;b]) -> (a,b)
+      | _ -> failwith "Check is_member before calling extact_member")
+  | _ -> failwith "Check is_member before calling extact_member"
+
+
 let is_imp t = is_head_name "=>" t
 
 let extract_imp t =
@@ -660,7 +672,26 @@ let all_meta_right_permute_unify ~sc t1 t2 =
 (* Check for derivability between objects under permutations. Need
    goal.term to unify with hyp.term and also hyp.context subcontext
    of goal.context. Can assume hyp is ground *)
-let derivable goal hyp =
+let derivable_sync goal hyp =
+  let gctx,gfocus,gterm = Sync.get goal in
+  let hctx,hfocus,hterm = Sync.get hyp in
+  let support_g = obj_support (Sync goal) in
+  let support_h = obj_support (Sync hyp) in
+    if List.length support_g < List.length support_h then
+      false
+    else
+      let support_h_names = List.map term_to_name support_h in
+        support_g |> List.permute (List.length support_h)
+          |> List.exists
+              (fun perm_support_g ->
+                 let alist = List.combine support_h_names perm_support_g in
+                   try_right_unify gterm
+                     (replace_term_vars alist hterm) &&
+                 (Context.subcontext
+                    (Context.map (replace_term_vars alist) (hfocus::hctx))
+                    (gfocus::gctx)))
+
+let derivable_async goal hyp =
   let gctx,gterm = Async.get goal in
   let hctx,hterm = Async.get hyp in
   let support_g = obj_support (Async goal) in

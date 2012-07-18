@@ -184,7 +184,7 @@ let stateless_case_to_case case =
 
 let cpairs_to_eqs cpairs = List.map (fun (x,y) -> Eq(x,y)) cpairs
 
-(* This handles asyncrony on the left *)
+(* This handles asynchrony on the left *)
 let rec recursive_metaterm_case ~used ~sr term =
   match normalize term with
     | True -> Some empty_case
@@ -733,12 +733,12 @@ let search ~depth:n ~hyps ~clauses ~alldefs
         "h" ^ (string_of_int !count)
   in
 
-  let rec clause_aux n hyps context goal r ts ~sc =
+  let rec clause_aux n hyps context foci goal r ts ~sc =
     let support = term_support goal in
     let freshen_clause = freshen_nameless_clause ~support ~ts in
     let p = term_head_name goal in
     let wrap body = List.map (fun t -> Async.obj context t) body in
-      (context @ clauses)
+      foci
       (* ignore the elements in the context of type olist *)
       |> List.find_all (fun cls -> not (tc [] cls = olistty))
       |> List.map clausify
@@ -783,7 +783,19 @@ let search ~depth:n ~hyps ~clauses ~alldefs
             *)
             (* Backchain *)
             let ctx,term = Async.get goal in
-            if n > 0 then clause_aux n hyps ctx term r ts ~sc
+            if n > 0 then clause_aux n hyps ctx (ctx @ clauses) term r ts ~sc
+
+  and sync_obj_aux n hyps goal r ts ~sc =
+    let gresult = normalize_obj (Sync goal) in
+    let goal =
+      match gresult with
+      | (Sync goal) -> goal
+      | _ -> assert false
+    in
+    let ctx = goal.Sync.context in
+    let focus = goal.Sync.focus in
+    let term = goal.Sync.term in
+    if n > 0 then clause_aux n hyps ctx [focus] term r ts ~sc
 
   and async_obj_aux_conj n goals r ts ~sc =
     match goals with
@@ -845,7 +857,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
             metaterm_aux n hyps body ts
               ~sc:(fun w -> sc (WIntros(alist_to_ids alist, w)))
       | Obj(Async obj, r) -> async_obj_aux n hyps obj r ts ~sc
-      | Obj(Sync obj, r) -> ()
+      | Obj(Sync obj, r) -> sync_obj_aux n hyps obj r ts ~sc
       | Pred(_, Smaller _) | Pred(_, Equal _) -> ()
       | Pred(p, r) -> if n > 0 then def_aux n hyps p r ts ~sc
 

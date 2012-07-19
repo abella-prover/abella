@@ -501,9 +501,13 @@ let rec normalize_obj obj =
     else
       Async.obj (Context.normalize ctx) term
   in
+  let norm_ctx sync_obj =
+    let ctx,focus,term = Sync.get sync_obj in
+    Sync.obj (Context.normalize ctx) focus term
+  in
   match obj with
   | Async obj -> Async (aux obj)
-  | Sync obj -> Sync obj
+  | Sync obj -> Sync (norm_ctx obj)
 
 let rec normalize_binders alist t =
   let term_aux t = replace_term_vars ~tag:Constant alist t in

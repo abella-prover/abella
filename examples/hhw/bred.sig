@@ -17,4 +17,4 @@ type bred tm -> tm -> o.
 
 type path tm -> p -> o.
 
-type indx tm -> p -> tm -> o.
+type bfree tm -> o.

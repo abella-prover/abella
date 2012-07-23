@@ -998,19 +998,11 @@ let permute_nominals ids form =
 
 (* Object level cut with explicit cut formula*)
 
-let cut_from ?name h obj =
-  let obj = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars obj in
+let cut_from ?name h arg term =
+  let term = type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
   let h = get_hyp h in
-    match h, obj with
+  let arg = get_hyp arg in
+    match h, arg with
       | Obj(obj_h1, _),Obj(obj_h2, _) ->
-          let new_hyp = object_cut obj_h1 obj_h2 in
-          let mainline =
-            case_to_subgoal ?name
-              { bind_state = get_bind_state () ;
-                new_vars = [] ;
-                new_hyps = [new_hyp] }
-          in
-          let detour = goal_to_subgoal obj in
-          add_subgoals ~mainline [detour] ;
-          next_subgoal ()
+          add_hyp ?name (object_cut_from obj_h1 obj_h2 term)
       | _,_ -> failwith "Cut can only be used on hypotheses of the form {...}"

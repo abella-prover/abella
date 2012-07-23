@@ -132,6 +132,61 @@ let object_cut obj1 obj2 =
   | _, _ ->
       failwith "Cannot use cut on sync objects"
 
+let object_cut_from obj1 obj2 term =
+  match obj1, obj2 with
+  | Async obj1, Async obj2 ->
+  let ctx1,term1 = Async.get obj1 in
+  let cuttable tobj cut_obj =
+    let tctx,tterm = Async.get tobj in
+    let cctx,cterm = Async.get cut_obj in
+    eq tterm cterm && Context.subcontext tctx cctx
+  in
+  let get_cut_ctx tobj cut_obj =
+    let tctx = tobj.Async.context in
+    let cctx = cut_obj.Async.context in
+    List.filter_map
+      (fun t -> if Context.mem t tctx then None else Some t) cctx
+  in
+  if Context.mem term ctx1 then
+    let tobj = normalize_obj (Async (Async.obj Context.empty term)) in
+    let norms = obj_support tobj in
+    let nids,ntys = List.split (nominal_tids norms) in
+    let cut_objs =
+    List.permute (List.length norms) (obj_support (Async obj2))
+      |> List.find_all
+          (fun permuted -> ntys = List.map (tc []) permuted)
+      |> List.filter_map
+          (fun permuted ->
+            let tobj =
+              replace_metaterm_vars (List.combine nids permuted)
+                (Obj (tobj, Irrelevant))
+            in
+            match tobj with
+            | Obj (Async tobj,_) ->
+              if cuttable tobj obj2 then
+                let ctx2 = get_cut_ctx tobj obj2 in
+                let ctx =
+                  ctx1
+                  |> Context.remove term
+                  |> Context.union ctx2
+                  |> Context.normalize
+                in
+                if Context.wellformed ctx then
+                  Some (Obj(Async (Async.obj ctx term1), Irrelevant))
+                else
+                  None
+              else
+                None
+            | _ -> assert false)
+    in
+    match cut_objs with
+    | [] -> failwith "Cannot merge contexts"
+    | (obj::_) -> obj
+  else
+    failwith "Needless use of cut"
+  | _, _ ->
+      failwith "Cannot use cut on sync objects"
+
 
 (* Search cut *)
 

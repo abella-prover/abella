@@ -418,7 +418,7 @@ let rec process_proof name =
           | Apply(h, args, ws, hn) -> apply ?name:hn h args ws ~term_witness
           | Backchain(h, ws) -> backchain h ws ~term_witness
           | Cut(h, arg, hn) -> cut ?name:hn h arg
-          | CutFrom(h, obj, hn) -> cut_from ?name:hn h obj
+          | CutFrom(h, arg, t, hn) -> cut_from ?name:hn h arg t
           | SearchCut(h, hn) -> search_cut ?name:hn h
           | Inst(h, ws, hn) -> inst ?name:hn h ws
           | Case(str, keep, hn) -> case ?name:hn ~keep str

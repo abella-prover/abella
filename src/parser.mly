@@ -271,7 +271,8 @@ pure_command:
   | hhint APPLY id DOT                        { Types.Apply($3, [], [], $1) }
   | BACKCHAIN id DOT                          { Types.Backchain($2, []) }
   | BACKCHAIN id WITH withs DOT               { Types.Backchain($2, $4) }
-  | hhint CUT hyp WITH objseq DOT             { Types.CutFrom($3,$5,$1) }
+  | hhint CUT LPAREN term RPAREN FROM hyp WITH hyp DOT
+                                              { Types.CutFrom($7,$9,$4,$1) }
   | hhint CUT hyp WITH hyp DOT                { Types.Cut($3, $5, $1) }
   | hhint CUT hyp DOT                         { Types.SearchCut($3, $1) }
   | hhint INST hyp WITH withs DOT             { Types.Inst($3, $5, $1) }

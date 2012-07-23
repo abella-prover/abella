@@ -148,6 +148,19 @@ Define ctx : olist -> prop by
 Define closed : tm -> prop by
   closed M := exists A, {of M A}.
 
+Define name : tm -> prop by
+  nabla x, name x.
+
+Theorem ctx_member :
+  forall L E,
+  ctx L -> member E L ->
+  exists X A, E = of X A /\ name X.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H3 H4. search.
+
 Theorem member_prune : forall L E, nabla (x:tm),
   member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
@@ -159,9 +172,10 @@ induction on 1. intros. case H1.
 Theorem prune_of : forall L R A, nabla (x:tm),
   ctx L -> {L |- of (R x) A} -> exists M, R = y\M.
 induction on 2. intros. case H2.
-  apply member_prune to H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
   apply IH to _ H3. search.
+  apply ctx_member to H1 H4. case H3.
+   apply member_prune to H4. search.
 
 % Closed terms cannot contain any nominal constants
 Theorem prune_closed : forall R, nabla (x:tm),
@@ -243,7 +257,6 @@ induction on 1. intros. case H1.
 Theorem weak_norm_ext : forall L M R A,
   ctx L -> {L |- of M A} -> subst L M R -> reduce R A.
 induction on 2. intros. case H2 (keep).
-  apply subst_var to H1 H4 H3. search.
   apply subst_app to H1 H3.
     apply IH to H1 H4 H6.
       apply IH to H1 H5 H7.
@@ -262,6 +275,8 @@ induction on 2. intros. case H2 (keep).
         apply reduce_of to H7.
         apply reduce_steps_backward to H13 H15 _.
         search.
+  apply ctx_member to H1 H5. case H6. case H4.
+   apply subst_var to H1 H5 H3. search.
 
 Theorem weak_norm : forall M A, {of M A} -> halts M.
 intros. apply weak_norm_ext to _ H1 _.

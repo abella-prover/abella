@@ -56,9 +56,9 @@ induction on 1. intros. case H1.
 Theorem ty_ignores_ctx : forall L A,
   ctx L -> {L |- ty A} -> {ty A}.
 induction on 2. intros. case H2.
-  apply ctx_member to H1 H3.
   search.
   apply IH to H1 H3. apply IH to H1 H4. search.
+  apply ctx_member to H1 H4. case H3.
 
 % Some nice inversion lemmas for typing judgements in a non-empty context
 
@@ -66,15 +66,15 @@ Theorem case_of_app : forall L M N B,
   ctx L -> {L |- of (app M N) B} ->
     exists A, {L |- of M (arrow A B)} /\ {L |- of N A}.
 intros. case H2.
-  apply ctx_member to H1 H3. case H4.
   search.
+  apply ctx_member to H1 H4. case H5. case H3.
 
 Theorem case_of_abs : forall L M A B,
   ctx L -> {L |- of (abs A M) B} ->
     exists C, B = arrow A C /\ {ty A} /\ nabla x, {L, of x A  |- of (M x) C}.
 intros. case H2.
-  apply ctx_member to H1 H3. case H4.
-    apply ty_ignores_ctx to H1 H3. search.
+  apply ty_ignores_ctx to H1 H3. search.
+  apply ctx_member to H1 H4. case H5. case H3.
 
 % Subject reduction - generalized version
 Theorem of_step_ext : forall L M N A,
@@ -189,10 +189,10 @@ intros. apply cr1_cr3 to H3. apply H6 to H1 H2 H4. search.
 Theorem of_ty_ext : forall L M A,
   ctx L -> {L |- of M A} -> {ty A}.
 induction on 2. intros. case H2.
-  apply ctx_member to H1 H3. search.
   apply IH to H1 H3. case H5. search.
   apply ty_ignores_ctx to H1 H3. apply IH to _ H4. search.
   apply ty_ignores_ctx to H1 H3. search.
+  apply ctx_member to H1 H4. case H5. case H3. search.
 
 Theorem of_ty : forall M A,
   {of M A} -> {ty A}.
@@ -276,11 +276,12 @@ induction on 1. intros. case H1.
 Theorem prune_of : forall L R A, nabla (x:tm),
   ctx L -> {L |- of (R x) A} -> exists M, R = y\M.
 induction on 2. intros. case H2.
-  apply member_prune to H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
   apply ty_ignores_ctx to H1 H3.
     apply IH to _ H4. search.
   search.
+  apply member_prune to H4.
+   apply ctx_member to H1 H4. case H5. case H3. search.
 
 % Closed terms cannot contain any nominal constants
 Theorem prune_closed : forall R, nabla (x:tm),
@@ -370,7 +371,6 @@ induction on 1. intros. case H1.
 Theorem strong_norm_ext : forall L M R A,
   ctx L -> {L |- of M A} -> subst L M R -> reduce R A.
 induction on 2. intros. case H2 (keep).
-  apply subst_var to H1 H4 H3. search.
   apply subst_app to H1 H3.
     apply IH to H1 H4 H6.
       apply IH to H1 H5 H7.
@@ -386,6 +386,8 @@ induction on 2. intros. case H2 (keep).
   apply subst_const to H3.
     apply ty_ignores_ctx to H1 H4.
       apply reduce_const to H5. search.
+  apply ctx_member to H1 H5. case H6. case H4.
+   apply subst_var to H1 H5 H3. search.
 
 Theorem strong_norm : forall M A, {of M A} -> sn M.
 intros. apply strong_norm_ext to _ H1 _.

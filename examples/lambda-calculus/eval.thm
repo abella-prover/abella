@@ -110,10 +110,12 @@ search.
 Theorem of_self_app_absurd : forall T,
   {of (abs (x\ app x x)) T} -> false.
 intros. case H1. case H2.
-  case H3. case H4.
-  case H4. case H5.
-    case H3. case H6. case H7.
-    case H6.
+  case H3. case H6. 
+    case H5. case H4. case H8. 
+      case H7.
+      case H9.
+    case H7.
+  case H4. case H3. case H5.
 
 % The term (lambda x . x x) (lambda x . x x) does not evaluate to a value
 Theorem no_eval : forall V,

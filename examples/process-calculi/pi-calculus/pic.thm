@@ -100,6 +100,7 @@ intros. apply H6 to H9. exists Q2. search.
 intros. apply H7 to H9. exists N1. search.
 intros. apply H8 to H9. exists N1. search.
 
+Set subgoals off.
 
 Theorem inv-sim:
 forall P Q, inv P Q -> simInv P Q.
@@ -148,7 +149,7 @@ case H6. case H6. case H6. case H6.
 apply IH to H2.
 case H5.
 apply H6 to H4.
-exists (par null Q1).
+exists (par null Q2).
 search.
 
 case H4. case H6. case H7. case H7.
@@ -181,7 +182,7 @@ unfold.
 intros. case H3. case H4.
 apply IH to H2. case H5.
 apply H6 to H4.
-exists (par (nu z\ par null null) Q1).
+exists (par (nu z\ par null null) Q2).
 search.
 case H4. case H4. case H4. case H5.
 
@@ -208,7 +209,7 @@ case H7. case H7. case H7. case H8.
 
 case H3.
 apply H6 to H5.
-exists (par (out x a null) Q1).
+exists (par (out x a null) Q2).
 search.
 case H5. case H7. case H8. case H8.
 case H5. case H7. case H8. case H8.
@@ -244,7 +245,7 @@ exists (par (nu z\ par null null) M). search.
 
 apply IH to H2. case H5.
 apply H6 to H4.
-exists (par (nu z\ par null (out x a null)) Q1). search.
+exists (par (nu z\ par null (out x a null)) Q2). search.
 case H4. case H4. case H4. case H5. case H6.
 apply IH to H2.
 case H7. apply H9 to H4.

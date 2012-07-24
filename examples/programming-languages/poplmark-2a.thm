@@ -135,11 +135,11 @@ induction on 1. intros. case H1.
       assert {of E2 T1}.
       cut H9 with H10. search.
     apply IH to H3 H5. search.
-  apply IH to H4 H6. search.
+    apply IH to H4 H6. search.
   case H2.
   case H2.
     apply invert_of_tabs to H3.
-      assert {sub T2 T1}.
+      assert {sub T2 T3}.
       inst H5 with n1 = T2.
       cut H9 with H8.
       inst H7 with n1 = T2.

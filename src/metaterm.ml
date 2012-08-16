@@ -270,24 +270,10 @@ let extact_member = function
   | _ -> failwith "Check is_member before calling extact_member"
 
 
-let is_imp t = is_head_name "=>" t
-
-let extract_imp t =
-  match observe (hnorm t) with
-    | App(t, [a; b]) -> (a, b)
-    | _ -> failwith "Check is_imp before calling extract_imp"
-
 let move_imp_to_context async_obj =
   let (ctx, term) = Async.get async_obj in
   let a, b = extract_imp term in
     Async.obj (Context.add a ctx) b
-
-let is_pi t = is_head_name "pi" t
-
-let extract_pi t =
-  match observe (hnorm t) with
-    | App(t, [abs]) -> abs
-    | _ -> failwith "Check is_pi before calling extract_pi"
 
 
 let is_async_obj t =
@@ -750,3 +736,22 @@ let def_head_name head =
       | _ -> assert false
   in
     aux head
+
+
+(* Make (head,body) tuples from clauses.
+   The conversion from a term clause to a
+   (head, body) pair without prefixe binders
+   is required for unification. It is also
+   used in some test cases.
+*)
+let clausify term =
+  let (tyctx, term') = replace_pi_with_const term in
+  let rec move_imps obj =
+    let ctx,term = Async.get obj in
+    if is_imp term then
+      move_imps (move_imp_to_context obj)
+    else
+      Async.obj (Context.normalize ctx) term in
+  let body,head = Async.get (move_imps (Async.obj Context.empty term'))
+  in
+  (tyctx,head,body)

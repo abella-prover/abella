@@ -551,3 +551,32 @@ let fresh_tyvar =
     fun () ->
       incr count ;
       tyvar (string_of_int !count)
+
+
+let is_imp t = is_head_name "=>" t
+
+let extract_imp t =
+  match observe (hnorm t) with
+    | App(t, [a; b]) -> (a, b)
+    | _ -> failwith "Check is_imp before calling extract_imp"
+
+let is_pi t = is_head_name "pi" t
+
+let extract_pi t =
+  match observe (hnorm t) with
+    | App(t, [abs]) -> abs
+    | _ -> failwith "Check is_pi before calling extract_pi"
+
+let rec replace_pi_with_const term =
+  let rec aux tyctx term =
+    if is_pi term then
+      let abs = extract_pi term in
+      match observe (hnorm abs) with
+      | Lam((id,ty)::_, _) ->
+          let c = const id ty in
+          aux ((id,ty)::tyctx) (app abs [c])
+      | _ -> assert false
+    else
+      (tyctx, term)
+  in
+  aux [] term

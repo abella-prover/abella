@@ -421,7 +421,6 @@ let type_uterm ?expected_ty ~sr ~sign ~ctx t =
   let result = replace_term_vars ctx (uterm_to_term sub t) in
     term_ensure_fully_inferred result ;
     term_ensure_subordination sr result ;
-    check_pi_quantification [result];
     result
 
 let rec has_capital_head t =
@@ -472,7 +471,11 @@ let type_uclause ~sr ~sign (head, body) =
     List.fold_right pify ids body)
   in
   let pi_form = get_pi_form cids imp_form in
-  type_uterm ~sr ~sign ~ctx:[] pi_form
+  let result = type_uterm ~sr ~sign ~ctx:[] pi_form in
+  let _,cls = replace_pi_with_const result in
+  let _ = check_pi_quantification [cls] in
+  result
+
 (*
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns =

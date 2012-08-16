@@ -154,3 +154,9 @@ val tc : tyctx -> term -> ty
 val tyvar : string -> ty
 val is_tyvar : string -> bool
 val fresh_tyvar : unit -> ty
+
+val is_imp : term -> bool
+val extract_imp : term -> term * term
+val is_pi : term -> bool
+val extract_pi : term -> term
+val replace_pi_with_const : term -> tyctx * term

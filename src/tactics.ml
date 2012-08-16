@@ -23,37 +23,6 @@ open Unify
 open Extensions
 open Debug
 
-(* Make (head,body) tuples from clauses.
-   The conversion from a term clause to a
-   (head, body) pair without prefixe binders
-   is required for unification. It is also
-   used in some test cases.
-*)
-let rec replace_pi_with_const term =
-  let rec aux tyctx term =
-    if is_pi term then
-      let abs = extract_pi term in
-      match observe (hnorm abs) with
-      | Lam((id,ty)::_, _) ->
-          let c = const id ty in
-          aux ((id,ty)::tyctx) (app abs [c])
-      | _ -> assert false
-    else
-      (tyctx, term)
-  in
-  aux [] term
-
-let clausify term =
-  let (tyctx, term') = replace_pi_with_const term in
-  let rec move_imps obj =
-    let ctx,term = Async.get obj in
-    if is_imp term then
-      move_imps (move_imp_to_context obj)
-    else
-      Async.obj (Context.normalize ctx) term in
-  let body,head = Async.get (move_imps (Async.obj Context.empty term'))
-  in
-  (tyctx,head,body)
 
 (* Variable naming utilities *)
 

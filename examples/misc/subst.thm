@@ -6,16 +6,16 @@ Define ctx : olist -> olist -> prop by
   ctx nil nil ;
   ctx (term X :: L) (copy X X :: K) := ctx L K.
 
-Theorem ctx_member1 : forall L K T,
-  ctx L K -> member (term T) L -> member (copy T T) K.
+Theorem ctx_member1 : forall L K E,
+  ctx L K -> member E L -> exists T, E = term T /\ member (copy T T) K.
 induction on 1. intros. case H1.
   case H2.
   case H2.
     search.
     apply IH to H3 H4. search.
 
-Theorem ctx_member2 : forall L K S T,
-  ctx L K -> member (copy S T) K -> S = T.
+Theorem ctx_member2 : forall L K E,
+  ctx L K -> member E K -> exists T, E = copy T T.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -25,16 +25,16 @@ induction on 1. intros. case H1.
 Theorem copy_id :
   forall L K T, ctx L K -> {L |- term T} -> {K |- copy T T}.
 induction on 2. intros. case H2.
-  apply ctx_member1 to H1 H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
   apply IH to _ H3.
     search.
+  apply ctx_member1 to H1 H4. case H3. search.
 
 Theorem copy_eq : forall L K T S, ctx L K -> {K |- copy T S} -> T = S.
 induction on 2. intros. case H2.
-  apply ctx_member2 to H1 H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
   apply IH to _ H3. search.
+  apply ctx_member2 to H1 H4. case H3. search.
 
 Theorem subst : forall R T S, {term T} -> {subst R T S} -> R T = S.
 intros.

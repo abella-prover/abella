@@ -132,14 +132,14 @@ induction on 2.
 intros. case H2 (keep).
   case H3.
     apply IH to _ H4 H5. search.
-    search.
+    %search.
     apply ctx2_mem_D to H1 H6. case H7.
       case H8. case H5.
       case H8. case H5.
   case H3.
     apply IH to _ H4 H6. search.
     apply IH to _ H5 H6. search.
-    search.
+    %search.
     apply ctx2_mem_D to H1 H7. case H8.
       case H9. case H6.
       case H9. case H6.
@@ -169,14 +169,14 @@ induction on 2.
 intros. case H2 (keep).
   case H3.
     apply IH to _ H4 H5. search.
-    search.
+    %search.
     apply ctx2_mem_D to H1 H6. case H7.
       case H8. case H5.
       case H8. case H5.
   case H3.
     apply IH to _ H4 H6. search.
     apply IH to _ H5 H6. search.
-    search.
+    %search.
     apply ctx2_mem_D to H1 H7. case H8.
       case H9. case H6.
       case H9. case H6.
@@ -196,9 +196,9 @@ assert ctx2 nil nil. intros. split.
   intros. apply bred_ltr to H1 H2 H3. search.
   intros. apply bred_rtl to H1 H2 H3. search.
 
-Define bpcx : olist -> olist -> prop by
-  bpcx nil nil
-; nabla n p, bpcx (bfree n :: G) (path n p :: D) := bpcx G D.
+Define bfctx : olist -> olist -> prop by
+  bfctx nil nil
+; nabla n p, bfctx (bfree n :: G) (path n p :: D) := bfctx G D.
 
 Theorem bfree_sames :
   forall G D M N,

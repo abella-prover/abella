@@ -106,11 +106,9 @@ Theorem member_D_discrim :
 induction on 1. intros. case H1.
   case H2.
   case H2. case H3. apply IH to H4 H5 H6.
-  case H2. case H3. apply member_prune_D to H4 H5.
-    apply IH to H4 H5 H6.
+  case H2. apply member_prune_D to H4 H5.
   case H2. case H3. apply IH to H4 H5 H6.
-  case H2. case H3. apply member_prune_D to H4 H5.
-    apply member_prune_D to H4 H5.
+  case H3. apply member_prune_D to H4 H5.
 
 Theorem jump_D_invert :
    forall G D X P, nabla n,
@@ -118,7 +116,6 @@ Theorem jump_D_invert :
    member (pi q\ path X q => path n q) (D n) ->
    { D n |- path n P } -> { D n |- path X P }.
 intros. case H3.
-search.
 apply ctx2_mem_D to H1 H5. case H6.
   case H4. apply member_D_discrim to H1 H2 H5.
   case H4. case H7. apply member_D_determinate to H1 H2 H5. search.
@@ -184,9 +181,9 @@ intros. case H2 (keep).
      apply ctx2_uniform to H1 H5. search.
 
 Theorem closed_breduce_paths :
-   forall M U P,
-   {breduce M U} -> (   ({path M P} -> {path U P})
-                  /\ ({path U P} -> {path M P})).
+   forall M N P,
+   {breduce M N} -> (   ({path M P} -> {path N P})
+                  /\ ({path N P} -> {path M P})).
 assert ctx2 nil nil. intros. split.
   intros. apply breduce_ltr to H1 H2 H3. search.
   intros. apply breduce_rtl to H1 H2 H3. search.

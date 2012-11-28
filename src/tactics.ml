@@ -388,6 +388,8 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   in
 
     match term with
+      | True -> [stateless_case_to_case empty_case]
+      | False -> []
       | Obj(obj, r) -> obj_case obj r
       | Pred(_, CoSmaller _) -> failwith "Cannot case analyze hypothesis\
                                           \ with coinductive restriction"

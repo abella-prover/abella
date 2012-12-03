@@ -419,7 +419,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
 
   let focus sync_obj r =
     let ctx,f,term = Sync.get sync_obj in
-    if has_eigen_head term or has_eigen_head f then
+    if (*has_eigen_head term or*) has_eigen_head f then
       failwith "Cannot perform case-analysis on flexible head" ;
     let wrapper t =
       Obj (Async (Async.obj ctx t), reduce_inductive_restriction r)
@@ -964,6 +964,15 @@ let apply_arrow term args =
                context_pairs := (lft_ctx, arg_ctx)::!context_pairs ;
                debug (Printf.sprintf "Trying to unify %s and %s."
                         (term_to_string lft_term) (term_to_string arg_term)) ;
+               right_unify lft_term arg_term ;
+               right
+           | Arrow(Obj(Sync left, _), right), Some Obj(Sync arg, _) ->
+               let lft_ctx,lft_f,lft_term = Sync.get left in
+               let arg_ctx,arg_f,arg_term = Sync.get arg in
+               context_pairs := (lft_ctx, arg_ctx)::!context_pairs ;
+               debug (Printf.sprintf "Trying to unify %s and %s."
+                        (term_to_string lft_term) (term_to_string arg_term)) ;
+               right_unify lft_f arg_f ;
                right_unify lft_term arg_term ;
                right
            | Arrow(left, right), Some arg ->

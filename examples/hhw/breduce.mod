@@ -1,4 +1,4 @@
-module breduce_bn.
+module breduce.
 
 breduce (lam M) (lam U) :-
   pi x\ breduce x x => breduce (M x) (U x).

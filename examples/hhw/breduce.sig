@@ -1,4 +1,4 @@
-sig breduce_bn.
+sig breduce.
 
 kind tm   type.
 type lam  (tm -> tm) -> tm.

@@ -1,3 +1,5 @@
+% Beta reduction preserves paths
+
 Specification "breduce".
 
 Close tm, path.

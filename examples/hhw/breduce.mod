@@ -1,5 +1,7 @@
 module breduce.
 
+%Beta reduction and path in lambda calculus
+
 breduce (lam M) (lam U) :-
   pi x\ breduce x x => breduce (M x) (U x).
 breduce (app M N) (app U V) :-

@@ -1,0 +1,78 @@
+Specification "fsub".
+
+% Proof of the transitivity of subtyping in Fsub
+
+Define name : tp -> prop by
+  nabla n, name n.
+
+Define ctx : olist -> prop by
+  ctx nil;
+  nabla a, ctx ((sub a a) :: (sub a T) ::
+       (pi U\ pi V\ sub a U => sub U V => sub a V) :: L) := ctx L.
+
+Define tp : tp -> prop by
+  tp top ;
+  nabla x, tp x ;
+  tp (arr T1 T2) := tp T1 /\ tp T2 ;
+  tp (all T1 T2) := tp T1 /\ nabla x, tp (T2 x).
+
+Theorem ctx_mem : forall L F,
+  ctx L -> member F L -> exists A, name A /\
+        ((F = sub A A) \/
+         (exists T, F = sub A T) \/
+         (F = pi U\ pi V\ sub A U => sub U V => sub A V)).
+induction on 1. intros. case H1.
+  case H2. 
+  case H2. search. case H4. search. case H5. search.
+  apply IH to H3 H6. search.
+
+Theorem ctx_sync : forall A L T,
+  ctx L -> member (sub A T) L -> 
+    member (pi U\ pi V\ sub A U => sub U V => sub A V) L.
+induction on 1. intros. case H1. case H2.
+  case H2. search. case H4. search. case H5.
+  apply IH to H3 H6. search.          
+ 
+Theorem ctx_sub_name : forall L D G,
+  ctx L -> member D L -> {L, [D] |- G} -> exists A T, G = sub A T /\ name A.
+intros. apply ctx_mem to H1 H2. case H5.
+  case H3. search.
+  case H3. search.
+  case H3. search.
+
+Theorem transitivity :
+  forall L S Q T,
+    ctx L -> tp Q -> {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T}.
+induction on 2.
+intros. case H3.
+
+  % sub S top.
+  case H4. search.
+    apply ctx_sub_name to H1 H6 H5. case H7.
+
+  % sub (arr S1 S2) (arr T1 T2) 
+  case H4. search.
+    case H2. apply IH to H1 H9 H7 H5. apply IH to H1 H10 H6 H8. search.
+
+    apply ctx_sub_name to H1 H8 H7. case H9.
+
+  % sub (all S1 S2) (all T1 T2)
+  case H4. search.
+    case H2. apply IH to H1 H9 H7 H5.
+    assert({pi U\pi V\sub n1 U => sub U V => sub n1 V, sub T4 T1, sub n1 T4 |- sub n1 T1}).
+    cut H12 with H7. cut H6 with H13.
+    apply IH to _ H10 H14 H8. search.
+
+    apply ctx_sub_name to H1 H8 H7. case H9.
+      
+  % backchain on the context
+  apply ctx_mem to H1 H6. case H8.
+    
+    % sub a a 
+    case H5. search.
+
+    % sub a T1      
+    case H5. apply ctx_sync to H1 H6. search.
+
+    % pi U\pi V\sub a U => sub U V => sub a V
+    case H5. search.

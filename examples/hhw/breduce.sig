@@ -1,5 +1,7 @@
 sig breduce.
 
+%Beta reduction and path in lambda calculus
+
 kind tm   type.
 type lam  (tm -> tm) -> tm.
 type app  tm -> tm -> tm.

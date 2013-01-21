@@ -15,4 +15,4 @@ type breduce tm -> tm -> o.
 
 type path tm -> path -> o.
 
-%type bfree tm -> o.
+type bfree tm -> o.

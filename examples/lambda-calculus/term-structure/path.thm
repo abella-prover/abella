@@ -57,35 +57,49 @@ induction on 2. intros. case H2.
     case H1. apply member_prune_path to H4.
     case H1. apply IH to H6 H4 H5. search.
 
-Theorem path_app : forall L K M N Y,
-  ctxs L K -> (forall P, {K |- path (app M N) P} -> {K |- path Y P}) ->
-    exists YM YN, Y = app YM YN.
-intros.
-assert {K |- path (app M N) (left done)}.
-apply H2 to H3.
-case H4.
-  search.
-  apply ctxs_member2 to H1 H6. case H8. case H5.
+Theorem path_exists : forall L K M,
+  ctxs L K -> {L |- tm M} -> exists P, {K |- path M P}.
+induction on 2. intros. case H2.
+  apply IH to H1 H3. search.
+  assert ctxs (tm n1 :: L) (path n1 n2 :: K).
+    apply IH to H4 H3. search.
+  apply ctxs_member1 to H1 H4. case H3. search.
+  
 
+Theorem path_app : forall L K M N Y,
+  ctxs L K -> {L |- tm (app M N)} -> 
+    (forall P, {K |- path (app M N) P} -> {K |- path Y P}) ->
+      exists YM YN, Y = app YM YN.
+intros. case H2. 
+  apply path_exists to H1 H4.
+    assert {K |- path (app M N) (left P)}.
+    apply H3 to H7.
+    case H8.
+      search.
+      apply ctxs_member2 to H1 H10. case H12. case H9.
+  apply ctxs_member1 to H1 H5. case H4. case H6.
 
 Theorem path_abs : forall L K R Y,
-  ctxs L K -> (forall P, {K |- path (abs R) P} -> {K |- path Y P}) ->
-    exists YR, Y = abs YR.
-intros.
-assert {K |- path (abs R) (bnd x\ done)}.
-apply H2 to H3.
-case H4.
-  search.
-  apply ctxs_member2 to H1 H6. case H8. case H5.
-
+  ctxs L K -> {L |- tm (abs R)} ->
+    (forall P, {K |- path (abs R) P} -> {K |- path Y P}) ->
+      exists YR, Y = abs YR.
+intros. case H2.
+  assert ctxs (tm n1 :: L) (path n1 n2 :: K).
+    apply path_exists to H5 H4.
+    assert {K |- path (abs R) (bnd P)}.
+    apply H3 to H7. 
+    case H8. 
+      search.
+      apply ctxs_member2 to H1 H10. case H9. case H12.
+  apply ctxs_member1 to H1 H5. case H4. case H6.
 
 Theorem path_equal : forall L K X Y,
   ctxs L K -> {L |- tm X} ->
     (forall P, {K |- path X P} -> {K |- path Y P}) -> X = Y.
-induction on 2. intros. case H2.
+induction on 2. intros. case H2 (keep).
 
   % X = app M N
-  apply path_app to H1 H3.
+  apply path_app to H1 H2 H3.
 
     % Apply the IH to M
     assert forall P, {K |- path M P} -> {K |- path YM P}.
@@ -110,7 +124,7 @@ induction on 2. intros. case H2.
     search.
 
   % X = abs R
-  apply path_abs to H1 H3.
+  apply path_abs to H1 H2 H3.
 
     % Apply the IH to (R n1)
     assert forall P, {K, path n1 n2 |- path (R n1) P} ->

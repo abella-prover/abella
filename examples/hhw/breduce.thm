@@ -22,6 +22,10 @@ Define fresh : tm -> tm -> prop by
 Define pname : path -> prop by
   nabla p, pname p.
 
+Define pfresh : tm -> tm -> prop by
+  nabla n, pfresh n X.
+
+
 Theorem ctx2_mem_G :
     forall G D F,
     ctx2 G D -> member F G ->
@@ -190,15 +194,151 @@ assert ctx2 nil nil. intros. split.
   intros. apply breduce_ltr to H1 H2 H3. search.
   intros. apply breduce_rtl to H1 H2 H3. search.
 
-%Define bfctx : olist -> olist -> prop by
-%  bfctx nil nil
-%; nabla n p, bfctx (bfree n :: G) (path n p :: D) := bfctx G D.
-%
-%Theorem bfree_sames :
-%  forall G D M N,
-%  bpcx G D ->
-%  {G |- bfree M} -> {G |- bfree N} ->
-%  (forall p, {D |- path M p} -> {D |- path N p}) ->
-%  M = N.
-%induction on 2.
-%skip. %% exercise
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% Two beta redex free terms are the same if they have the same paths
+%%%%%%%%%%%%%%%%%%%%%%%
+
+Define bfctx : olist -> olist -> prop by
+  bfctx nil nil
+; nabla n p, bfctx (bfree n :: L) (path n p :: K) := bfctx L K.
+
+
+Theorem member_prune_path : forall E L, nabla (x:path),
+  member (E x) L -> exists F, E = y\F.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem bfctx_member1 : forall X L K,
+  bfctx L K -> member X L ->
+    exists E F, X = bfree E /\ name E /\ member (path E F) K /\ pname F.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H3 H4. search.
+
+Theorem bfctx_member2 : forall X L K,
+  bfctx L K -> member X K -> exists E F, X = path E F /\ name E /\ pname F.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H3 H4. search.
+
+Theorem member_path_unique : forall L K X Y F,
+  bfctx L K -> member (path X F) K -> member (path Y F) K -> X = Y.
+induction on 2. intros. case H2.
+  case H3.
+    search.
+    case H1. apply member_prune_path to H4.
+  case H3.
+    case H1. apply member_prune_path to H4.
+    case H1. apply IH to H6 H4 H5. search.
+
+Theorem path_exists : forall L K M,
+  bfctx L K -> {L |- bfree M} -> exists P, {K |- path M P}.
+induction on 2. intros. case H2.
+  assert bfctx (bfree n1 :: L) (path n1 n2 :: K).
+    apply IH to H4 H3. search.
+  apply IH to H1 H3. search.
+  apply bfctx_member1 to H1 H4. case H3. search.
+
+Theorem bfree_beta_absurd : forall L K R N,
+  bfctx L K -> {L |- bfree (beta R N)} -> false.
+intros. case H2.
+apply bfctx_member1 to H1 H4. case H5. case H3.
+
+Theorem path_app : forall L K M N Y,
+  bfctx L K -> {L |- bfree (app M N)} -> {L |- bfree Y} ->
+    (forall P, {K |- path (app M N) P} -> {K |- path Y P}) ->
+      exists YM YN, Y = app YM YN.
+intros. case H2. 
+  apply path_exists to H1 H5.
+    assert {K |- path (app M N) (left P)}.
+    apply H4 to H8.
+    case H9.
+      search.
+      apply bfree_beta_absurd to H1 H3.
+      apply bfctx_member2 to H1 H11. case H13. case H10.
+  apply bfctx_member1 to H1 H6. case H5. case H7.
+
+Theorem path_lam : forall L K R Y,
+  bfctx L K -> {L |- bfree (lam R)} -> {L |- bfree Y} ->
+    (forall P, {K |- path (lam R) P} -> {K |- path Y P}) ->
+      exists YR, Y = lam YR.
+intros. case H2.
+  assert bfctx (bfree n1 :: L) (path n1 n2 :: K).
+    apply path_exists to H6 H5.
+    assert {K |- path (lam R) (bnd P)}.
+    apply H4 to H8. 
+    case H9. 
+      search.
+      apply bfree_beta_absurd to H1 H3.
+      apply bfctx_member2 to H1 H11. case H10. case H13.
+  apply bfctx_member1 to H1 H6. case H5. case H7.
+
+ 
+Theorem bfree_sames :
+  forall L K M N,
+  bfctx L K ->
+  {L |- bfree M} -> {L |- bfree N} ->
+  (forall p, {K |- path M p} -> {K |- path N p}) ->
+  M = N.
+induction on 2.
+intros. case H2 (keep).
+
+  % M = (lam M1) 
+  apply path_lam to H1 H2 H3 H4. case H3.
+    
+    assert forall p, {K, path n1 n2 |- path (M1 n1) p} ->
+                     {K, path n1 n2 |- path (YR n1) p}.
+      intros.
+      assert {K |- path (lam M1) (bnd p)}.
+      apply H4 to H8. 
+      case H9.
+        search.
+        apply bfctx_member2 to H1 H11. case H13. case H10.
+    
+      assert bfctx (bfree n1 :: L) (path n1 n2 :: K).
+        apply IH to H8 H5 H6 H7. search.
+      
+    apply bfctx_member1 to H1 H7. case H8. case H6.
+  
+  % M = (app M1 N1)
+  apply path_app to H1 H2 H3 H4. case H3.
+    
+    % Prove M1 = YM 
+    assert forall p, {K |- path M1 p} -> {K |- path YM p}.
+      intros.
+      assert {K |- path (app M1 N1) (left p)}.
+      apply H4 to H10.
+      case H11.
+        search.
+        apply bfctx_member2 to H1 H13. case H15. case H12.
+    apply IH to H1 H5 H7 H9.
+
+    % Prove N1 = YN
+    assert forall p, {K |- path N1 p} -> {K |- path YN p}.
+      intros.
+      assert {K |- path (app M1 N1) (right p)}.
+      apply H4 to H11.
+      case H12.
+        search.
+        apply bfctx_member2 to H1 H14. case H16. case H13.
+    apply IH to H1 H6 H8 H10.
+
+    % Finish this case
+    search.
+
+    apply bfctx_member1 to H1 H8. case H9. case H7.
+
+  % M is a variable
+  apply bfctx_member1 to H1 H6. case H5.
+  assert {K |- path M F1}.
+  apply H4 to H10. case H9.
+  case H11.
+    apply bfree_beta_absurd to H1 H3.
+    apply bfctx_member2 to H1 H13.
+      case H12. apply member_path_unique to H1 H8 H13. search.

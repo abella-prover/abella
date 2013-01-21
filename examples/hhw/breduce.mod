@@ -21,5 +21,5 @@ path (beta R N) P :-
     (pi q\ path N q => path x q) =>
     path (R x) P.
 
-%bfree (lam M) :- pi x\ bfree x => bfree (M x).
-%bfree (app M N) :- bfree M, bfree N.
+bfree (lam M) :- pi x\ bfree x => bfree (M x).
+bfree (app M N) :- bfree M, bfree N.

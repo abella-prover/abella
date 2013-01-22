@@ -1,16 +1,14 @@
 module breduce.
 
-%Beta reduction and path in lambda calculus
+bred (abs M) (abs U) :-
+  pi x\ bred x x => bred (M x) (U x).
+bred (app M N) (app U V) :-
+  bred M U, bred N V.
+bred (beta R N) V :-
+  pi x\ (pi u\ bred N u => bred x u)
+    => bred (R x) V.
 
-breduce (lam M) (lam U) :-
-  pi x\ breduce x x => breduce (M x) (U x).
-breduce (app M N) (app U V) :-
-  breduce M U, breduce N V.
-breduce (beta R N) V :-
-  pi x\ (pi u\ breduce N u => breduce x u)
-    => breduce (R x) V.
-
-path (lam M) (bnd P) :-
+path (abs M) (bnd P) :-
   pi x\ pi p\ path x p => path (M x) (P p).
 path (app M N) (left P) :-
   path M P.
@@ -21,5 +19,9 @@ path (beta R N) P :-
     (pi q\ path N q => path x q) =>
     path (R x) P.
 
-bfree (lam M) :- pi x\ bfree x => bfree (M x).
+bfree (abs M) :- pi x\ bfree x => bfree (M x).
 bfree (app M N) :- bfree M, bfree N.
+
+%tm (abs M) :- pi x\ tm x => tm (M x).
+%tm (app M N) :- tm M, tm N.
+%tm (beta R N) :- tm N, pi x\ tm x => tm (R x).

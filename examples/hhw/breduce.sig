@@ -1,18 +1,17 @@
 sig breduce.
 
-%Beta reduction and path in lambda calculus
-
 kind tm   type.
-type lam  (tm -> tm) -> tm.
+type abs  (tm -> tm) -> tm.
 type app  tm -> tm -> tm.
 type beta (tm -> tm) -> tm -> tm.
 
-kind path type.
-type left,right path -> path.
-type bnd  (path -> path) -> path.
+kind p type.
+type left,right p -> p.
+type bnd  (p -> p) -> p.
 
-type breduce tm -> tm -> o.
+type bred tm -> tm -> o.
 
-type path tm -> path -> o.
+type path tm -> p -> o.
 
 type bfree tm -> o.
+%type tm    tm -> o.

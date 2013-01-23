@@ -22,6 +22,6 @@ path (beta R N) P :-
 bfree (abs M) :- pi x\ bfree x => bfree (M x).
 bfree (app M N) :- bfree M, bfree N.
 
-%tm (abs M) :- pi x\ tm x => tm (M x).
-%tm (app M N) :- tm M, tm N.
-%tm (beta R N) :- tm N, pi x\ tm x => tm (R x).
+tm (abs M) :- pi x\ tm x => tm (M x).
+tm (app M N) :- tm M, tm N.
+tm (beta R N) :- tm N, pi x\ tm x => tm (R x).

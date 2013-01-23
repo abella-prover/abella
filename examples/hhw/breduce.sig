@@ -14,4 +14,4 @@ type bred tm -> tm -> o.
 type path tm -> p -> o.
 
 type bfree tm -> o.
-%type tm    tm -> o.
+type tm    tm -> o.

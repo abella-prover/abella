@@ -372,7 +372,7 @@ Define btctx : olist -> olist -> prop by
       btctx L K
 ; nabla x,
     btctx ((pi u\ bred N u => bred x u) :: L) (tm x :: K) :=
-      btctx L K.
+      exists U, {L |- bred N U} /\ btctx L K.
 
 Theorem btctx_mem1 : forall L K F,
   btctx L K -> member F K -> exists X, F = tm X /\ name X.
@@ -383,26 +383,28 @@ induction on 1. intros. case H1.
     apply IH to H3 H4. search.
   case H2.
     search.
-    apply IH to H3 H4. search.
+    apply IH to H4 H5. search.
 
 Theorem btctx_mem2 : forall L K F,
   btctx L K -> member F L -> 
     (exists x, (F = bred x x /\ name x)) \/
-    (exists x N, F = (pi u\ bred N u => bred x u) /\ fresh x N).
+    (exists x N, F = (pi u\ bred N u => bred x u) 
+                  /\ fresh x N /\ exists U, {L |- bred N U}).
 induction on 1. intros. case H1.
   case H2.
-  case H2. search. apply IH to H3 H4. search.
-  case H2. search. apply IH to H3 H4. search.
+  case H2. search. apply IH to H3 H4. case H5. search. search.
+  case H2. search. apply IH to H4 H5. case H6. search. search.
 
 Theorem btctx_sync : forall L K x,
   btctx L K ->
   member (tm x) K -> 
-  (exists N, member (pi u\ bred N u => bred x u) L) \/
+  (exists N, member (pi u\ bred N u => bred x u) L 
+      /\ exists U, {L |- bred N U}) \/
   member (bred x x) L.
 induction on 1. intros. case H1.
   case H2.
   case H2. search. apply IH to H3 H4. case H5. search. search.
-  case H2. search. apply IH to H3 H4. case H5. search. search.
+  case H2. search. apply IH to H4 H5. case H6. search. search.
 
 Theorem btctx_mem_prune : forall L K E, nabla (n:tm),
    btctx L K ->
@@ -410,7 +412,7 @@ Theorem btctx_mem_prune : forall L K E, nabla (n:tm),
 induction on 1. intros. case H1.
   case H2.
   case H2. search. apply IH to H3 H4. apply IH to H3 H4. search.
-  case H2. search. apply IH to H3 H4. apply IH to H3 H4. search.
+  case H2. search. apply IH to H4 H5. apply IH to H4 H5. search.
 
 %Theorem btctx_mem_discrim : forall L K N x,
 %  btctx L K ->
@@ -427,28 +429,32 @@ induction on 1. intros. case H1.
 %    case H3. apply IH to H4 H5 H6.
 
 
-Theorem bred_subst : forall L K N R U V, nabla n,
-  btctx L K ->
-  {L, pi u\bred N u => bred n u |- bred (R n) (U n)} ->
-  {L |- bred N V} ->
-  {L, pi u\bred N u => bred n u |- bred (R n) (U V)}.
-induction on 2. intros. case H2 (keep).
-  apply IH to _ H4 H3. search.
-  apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
-    assert exists N1', N1 = x\ N1'. skip. case H5.
-    apply IH to _ H4 H3. search.
-  case H5.
-    case H4. apply IH to H1 H6 H3. search.
-    apply btctx_mem2 to H1 H6. case H7.
-      case H4. 
-        case H8. search. 
-        apply btctx_mem_prune to H1 H6.
-      case H4. 
-        apply IH to _ H9 H3. search.
-        % or alternatively:
-        %case H8. 
-        %  apply IH to _ H9 H3. search.
-        %  apply btctx_mem_prune to H1 H6.
+%Theorem bred_subst : forall L K N R U V, nabla n,
+%  btctx L K ->
+%  {L, pi u\bred N u => bred n u |- bred (R n) (U n)} ->
+%  {L |- bred N V} ->
+%  {L, pi u\bred N u => bred n u |- bred (R n) (U V)}.
+%induction on 2. intros. case H2 (keep).
+%  apply IH to _ H4 H3. search.
+%  apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
+%    assert exists N1', N1 = x\ N1'. skip. case H5.
+%    apply IH to _ H4 H3. search.
+%  case H5.
+%    case H4. apply IH to H1 H6 H3. search.
+%    apply btctx_mem2 to H1 H6. case H7.
+%      case H4. 
+%        case H8. search. 
+%        apply btctx_mem_prune to H1 H6.
+%      case H4. 
+%        apply IH to _ H9 H3. search.
+%        % or alternatively:
+%        %case H8. 
+%        %  apply IH to _ H9 H3. search.
+%        %  apply btctx_mem_prune to H1 H6.
+
+Theorem bred_beta_inv : forall L K R N V,
+  btctx L K -> {L |- bred (R N) V} -> {L |- bred (beta R N) V}.
+skip.
 
   
 Theorem bred_terminate :  forall L K M,
@@ -456,22 +462,13 @@ Theorem bred_terminate :  forall L K M,
 induction on 2. intros. case H2.
   apply IH to _ H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
-  assert btctx ((pi u\ bred N u => bred n1 u) :: L) (tm n1 :: K).
-    apply IH to H5 H4.
-    apply IH to H1 H3.
-    apply bred_subst to H1 H6 H7. search.
+  apply IH to H1 H3.
+    assert btctx ((pi u\ bred N u => bred n1 u) :: L) (tm n1 :: K).
+    apply IH to H6 H4.
+    inst H7 with n1 = N. cut H8.
+    apply bred_beta_inv to H1 H9 with R = R. search.
   apply btctx_mem1 to H1 H4. case H3.
-    apply btctx_sync to H1 H4. case H6. 
-      assert (exists U, {L |- bred N U}).
-      % Given a context L = L1 @ [member (pi u\bred N u => bred x u)] @ L2,
-      % the "member" formula can only be introduced by case analyzing
-      % {L2 |- bred (beta R N) U}, at that point (exists U, {L2 |- bred N U})
-      % was proved by induction. Thus (exists U {L |- bred N U}) should also be provable. 
-      % This is a meta-property about the proof of the current 
-      % theorem, which Abella cannot derive.
-        skip.
-        case H8. search.
-      search.
+    apply btctx_sync to H1 H4. case H6. search. search.
 
 Theorem same_paths_joinable : forall M N,
   {tm M} -> {tm N} -> 

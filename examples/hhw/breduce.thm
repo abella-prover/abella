@@ -435,13 +435,8 @@ Theorem bred_subst : forall L K N R U V, nabla n,
 induction on 2. intros. case H2 (keep).
   apply IH to _ H4 H3. search.
   apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
-  assert {L, pi u\bred (N1 n1) u => bred n2 u, pi u\bred N u => bred n1 u |- bred (R1 n1 n2) (U V)}.
-  % This assertion should be proved by applying the inductive hypothesis.
-  % But two formulas in the context need to be swapped to match the form
-  % of contexts in the arguments. Need a meta-theorem about the exchange
-  % property of HH.
-    skip.
-    search.
+    assert exists N1', N1 = x\ N1'. skip. case H5.
+    apply IH to _ H4 H3. search.
   case H5.
     case H4. apply IH to H1 H6 H3. search.
     apply btctx_mem2 to H1 H6. case H7.

@@ -918,19 +918,21 @@ let rec instantiate_withs term withs =
   match term with
     | Binding(Forall, binders, body) ->
         let binders', withs' = take_from_binders binders withs in
+        let binders_as_withs = List.map (fun (x, t) -> (x, const x t)) binders' in
         let body, used_nominals =
-          instantiate_withs (replace_metaterm_vars withs' body) withs
+          instantiate_withs (replace_metaterm_vars (withs' @ binders_as_withs) body) withs
         in
           (normalize (forall binders' body), used_nominals)
     | Binding(Nabla, binders, body) ->
         let binders', withs' = take_from_binders binders withs in
+        let binders_as_withs = List.map (fun (x, t) -> (x, const x t)) binders' in
         let nominals = List.map snd withs' in
         let support = metaterm_support body in
           ensure_unique_nominals nominals ;
           if List.exists (fun x -> List.mem x support) nominals then
             failwith "Invalid instantiation for nabla variable" ;
           let body, used_nominals =
-            instantiate_withs (replace_metaterm_vars withs' body) withs
+            instantiate_withs (replace_metaterm_vars (withs' @ binders_as_withs) body) withs
           in
             (normalize (nabla binders' body), nominals @ used_nominals)
     | _ -> (term, [])

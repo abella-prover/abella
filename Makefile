@@ -1,5 +1,5 @@
 ifndef $(VERSION)
-VERSION := 1.4.0b1
+VERSION := 2.0.0
 endif
 
 OCB = ocamlbuild -classic-display -no-links

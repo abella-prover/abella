@@ -1,7 +1,7 @@
-Specification "debrujin_hohh".
+Specification "debruijn_hohh".
 
 %% Proof of the determinism of the translation of lambda terms into
-%% the debrujin form
+%% the debruijn form
 
 %% General property of member
 

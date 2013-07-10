@@ -1,6 +1,6 @@
-sig debrujin_hohh.
+sig debruijn_hohh.
 
-% Translating lambda terms into the debrujin form
+% Translating lambda terms into the debruijn form
 
 kind nat type.
 type z nat.

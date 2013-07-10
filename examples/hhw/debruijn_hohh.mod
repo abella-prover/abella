@@ -1,6 +1,6 @@
-module debrujin_hohh.
+module debruijn_hohh.
 
-% Translating lambda terms into the debrujin form
+% Translating lambda terms into the debruijn form
 
 add z C C.
 add (s A) B (s C) :- add A B C.

@@ -10,49 +10,53 @@ Specification "type-uniq".
 Define name : tm -> prop by
   nabla x, name x.
 
-Theorem member_prune : forall G E, nabla (n:tm),
- member (E n) G -> (exists E', E = x\E').
-induction on 1. intros. case H1.
- search.
- apply IH to H2. search.
+% Theorem member_prune : forall G E, nabla (n:tm),
+%  member (E n) G -> (exists E', E = x\E').
+% induction on 1. intros. case H1.
+%  search.
+%  apply IH to H2. search.
+
+Theorem member_nominal_absurd : forall L T, nabla x,
+  member (of x T) L -> false.
+induction on 1. intros. case H1. apply IH to H2.
 
 %% End generic section
 
+Close tm, ty.
+
 Define ctx : olist -> prop by
   ctx nil ;
-  nabla n, ctx (of n T :: L) := ctx L.
-
-Theorem of_name :
-   forall L E,
-   ctx L -> member E L ->
-   exists N X, E = of X N /\ name X.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    search.
-    apply IH to H3 H4. search.
+  nabla x, ctx (of x T :: L) := ctx L.    
 
 Theorem ctx_uniq : forall L E T1 T2,
  ctx L -> member (of E T1) L -> member (of E T2) L -> T1 = T2.
-induction on 1. intros. case H1.
- case H2.
- case H2.
-   case H3.
-     search.
-     apply member_prune to H5.
-   case H3.
-     apply member_prune to H5.
-     apply IH to H4 H5 H6. search.
+induction on 2. intros. case H2.
+ case H3.
+   search.
+   case H1. apply member_nominal_absurd to H4.
+ case H3.
+   case H1. apply member_nominal_absurd to H4.
+   case H1. apply IH to H6 H4 H5. search.
+
+Theorem ctx_mem :
+   forall L E,
+   ctx L -> member E L ->
+   exists N X, E = of X N /\ name X.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1.
+    apply IH to H4 H3. search.
+
 
 Theorem type_uniq : forall L E T1 T2,
  ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
 induction on 2. intros. case H2.
  case H3.
    apply IH to _ H4 H5. search.
-   apply of_name to H1 H6. case H7. case H5.
+   apply ctx_mem to H1 H6. case H7. case H5.
  case H3.
    apply IH to _ H4 H6. search.
-   apply of_name to H1 H7. case H8. case H6.
- apply of_name to H1 H5. case H4. case H6.
-  case H3. apply of_name to H1 H8. case H7.
-  apply ctx_uniq to H1 H5 H8. search.
+   apply ctx_mem to H1 H7. case H8. case H6.
+ apply ctx_mem to H1 H5. case H4. case H6.
+   case H3. apply ctx_mem to H1 H8. case H7.
+   apply ctx_uniq to H1 H5 H8. search.

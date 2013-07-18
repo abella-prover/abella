@@ -392,7 +392,7 @@ let term_to_string term =
           (try List.nth cx (i - 1) with _ -> pp_var (n - i + 1))
       | App (t,ts) ->
           begin match observe (hnorm t), ts with
-            | Var {name=op; tag=Constant; _}, [a; b] when is_infix op ->
+            | Var {name=op; tag=Constant; ts=ts; ty=ty}, [a; b] when is_infix op ->
                 let op_p = priority op in
                 let assoc = get_assoc op in
                 let pr_left, pr_right = begin match assoc with
@@ -404,7 +404,7 @@ let term_to_string term =
                   (pp cx pr_left n a) ^ " " ^ op ^ " " ^ (pp cx pr_right n b)
                 in
                   if op_p >= pr then res else parenthesis res
-            | Var {name=op; tag=Constant; _}, [a] when
+            | Var {name=op; tag=Constant; ts=ts; ty=ty}, [a] when
                 is_obj_quantifier op && is_lam a ->
                 let res = op ^ " " ^ (pp cx 0 n a) in
                   if pr < high_pr then res else parenthesis res
@@ -446,7 +446,7 @@ let is_free t =
 
 let is_nominal t =
   match observe (hnorm t) with
-    | Var {tag=Nominal; _} -> true
+    | Var {tag=Nominal; name=name; ts=ts; ty=ty} -> true
     | _ -> false
 
 let term_head_var t =

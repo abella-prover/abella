@@ -3,8 +3,8 @@
 (* BEGIN VERSION *)
 let major_version  : int           = 2
 let minor_version  : int           = 0
-let patch_version  : int           = 0
-let flavor_version : string option = None
+let patch_version  : int           = 1
+let flavor_version : string option = Some "dev"
 (* END VERSION *)
 
 let version_string =
@@ -24,7 +24,7 @@ let version_file_contents =
   printf "let flavor : string option = %s;;" begin
     match flavor_version with
     | None -> "None"
-    | Some v -> "Some " ^ v
+    | Some v -> "Some \"" ^ String.escaped v ^ "\""
   end ;
   printf "let version = %S;;" version_string ;
   Buffer.contents buf

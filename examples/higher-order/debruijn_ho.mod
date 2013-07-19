@@ -1,4 +1,4 @@
-module debruijn_hohh.
+module debruijn_ho.
 
 % Translating lambda terms into the debruijn form
 

@@ -1,4 +1,4 @@
-sig debruijn_hohh.
+sig debruijn_ho.
 
 % Translating lambda terms into the debruijn form
 

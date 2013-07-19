@@ -1,4 +1,4 @@
-Specification "debruijn_hohh".
+Specification "debruijn_ho".
 
 %% Proof of the determinism of the translation of lambda terms into
 %% the debruijn form

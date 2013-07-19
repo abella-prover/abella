@@ -2,6 +2,12 @@
 # File Testing
 #
 
+ABELLA = $(if $(equal $(OSTYPE), Win32),$(CWD)/../abella.exe,$(CWD)/../abella)
+export
+
+if $(not $(file-exists $(ABELLA)))
+    eprintln(Need to first build $(ABELLA))
+
 FILE_NAMES[] = $(rootname $(find . -name *.thm))
 
 .SCANNER: %.out %.thc: %.thm
@@ -69,11 +75,13 @@ section
 upload-html: html
     section
         # Create an examples subdir within examples
-        rm -rf examples
+        rm -rf examples examples.tar.gz
         cp -r . examples
-        rm $(set-diff $(filter-out %.html %.thm %.mod %.sig, $(ls R, examples)), $(subdirs examples))
-        rm -r examples/html-files
-        bash -c "/usr/bin/find examples -type d | xargs chmod 775"
-        bash -c "/usr/bin/find examples -type f | xargs chmod 664"
-        scp -r examples $(UPLOAD_SITE)
+        # rm $(set-diff $(filter-out %.html %.thm %.mod %.sig, $(ls R, examples)), $(subdirs examples))
+        rm -r examples/html-files examples/OMakefile
+        bash -c "/usr/bin/find examples -maxdepth 1 -type f -exec rm -f '{}' ';'"
+        cp index.html examples/
+        bash -c "/usr/bin/find examples -type d -exec chmod 775 '{}' ';'"
+        bash -c "/usr/bin/find examples -type f -exec chmod 664 '{}' ';'"
+        tar -czf examples.tar.gz examples
         rm -rf examples

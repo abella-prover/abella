@@ -141,13 +141,40 @@ let assert_false b = assert_bool "Expected false" (not b)
 let assert_string_equal =
   assert_equal ~printer:(fun s -> s)
 
+let renumber_term t =
+  let rec spin dep t =
+    match Term.observe (Term.hnorm t) with
+    | Term.Var _ | Term.DB _ -> t
+    | Term.Lam (tycx, t) ->
+        let (dep, tycx) = List.fold_left begin
+          fun (dep, tycx) (v, ty) ->
+            let xv = "x" ^ string_of_int dep in
+            let dep = dep + 1 in
+            let tycx = (xv, ty) :: tycx in
+            (dep, tycx)
+        end (dep, []) tycx in
+        let tycx = List.rev tycx in
+        let t = spin dep t in
+        Term.lambda tycx t
+    | Term.App (f, ts) ->
+        let f = spin dep f in
+        let ts = List.map (spin dep) ts in
+        Term.app f ts
+    | Term.Susp _ | Term.Ptr _ -> assert false
+  in
+  spin 1 t
+
 let assert_pprint_equal s t =
+  let t = map_terms renumber_term t in
   assert_string_equal s (metaterm_to_string t)
 
 let assert_metaterm_equal s t =
+  let s = map_terms renumber_term s in
+  let t = map_terms renumber_term t in
   assert_string_equal (metaterm_to_string s) (metaterm_to_string t)
 
 let assert_term_pprint_equal s t =
+  let t = renumber_term t in
   assert_string_equal s (Term.term_to_string t)
 
 let assert_ty_pprint_equal s t =
@@ -201,4 +228,4 @@ let emptyty = Term.tybase ""
 let uconst name = Term.const name emptyty
 let uvar tag name ts = Term.var tag name ts emptyty
 let unominal_var name = Term.nominal_var name emptyty
-let (///) n t = Term.lambda (List.replicate n emptyty) t
+let (///) n t = Term.lambda (List.replicate n ("x",emptyty)) t

@@ -149,6 +149,8 @@ let clauses : clauses ref = ref []
 let add_clauses new_clauses =
   clauses := !clauses @ new_clauses
 
+
+
 let parse_defs str =
   type_udefs ~sr:!sr ~sign:!sign (Parser.defs Lexer.token (Lexing.from_string str))
 
@@ -360,7 +362,7 @@ let inst ?name h ws =
                   let ctx = sequent.vars @
                     (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
                   in
-                  let t = type_uterm ~sr:!sr ~sign:!sign ~ctx t nty in
+                  let t = type_uterm ~expected_ty:nty ~sr:!sr ~sign:!sign ~ctx t in
                   object_inst ht n t
                 with
                   | Not_found ->
@@ -382,6 +384,7 @@ let cut ?name h arg =
       | Obj(obj_h, _), Obj(obj_arg, _) ->
           add_hyp ?name (object_cut obj_h obj_arg)
       | _ -> failwith "Cut can only be used on hypotheses of the form {...}"
+
 
 (* Search *)
 
@@ -508,7 +511,7 @@ let type_apply_withs stmt ws =
       (fun (id, t) ->
          try
            let ty = List.assoc id bindings in
-             (id, type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars t ty)
+             (id, type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx:sequent.vars t)
          with
            | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
       ws
@@ -557,7 +560,7 @@ let type_backchain_withs stmt ws =
       (fun (id, t) ->
          try
            let ty = List.assoc id bindings in
-             (id, type_uterm ~sr:!sr ~sign:!sign ~ctx:(nctx @ sequent.vars) t ty)
+             (id, type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx:(nctx @ sequent.vars) t)
          with
            | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
       ws
@@ -761,18 +764,19 @@ let assert_hyp ?name term =
 let monotone h t =
   let ht = get_hyp h in
     match ht with
-      | Obj(obj, r) ->
+      | Obj(Async obj, r) ->
+          let obj_context, obj_term = Async.get obj in
           let ntids = metaterm_nominal_tids ht in
           let ctx = sequent.vars @
             (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
           in
-          let t = type_uterm ~sr:!sr ~sign:!sign ~ctx t olistty in
-          let new_obj = { obj with context = Context.normalize [t] } in
+          let t = type_uterm ~expected_ty:olistty ~sr:!sr ~sign:!sign ~ctx t in
+          let new_obj = Async.obj (Context.normalize [t]) obj_term in
             delay_mainline
-              (Obj(new_obj, r))
+              (Obj(Async new_obj, r))
               (Binding(Forall, [("X", oty)],
                        Arrow(member (Term.const "X" oty)
-                               (Context.context_to_term obj.context),
+                               (Context.context_to_term obj_context),
                              member (Term.const "X" oty)
                                t))) ;
       | _ -> failwith
@@ -929,7 +933,7 @@ let exists t =
         let ctx = sequent.vars @
           (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
         in
-        let t = type_uterm ~sr:!sr ~sign:!sign ~ctx t ty in
+        let t = type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx t in
         let goal = exists tids (replace_metaterm_vars [(id, t)] body) in
           sequent.goal <- goal
     | _ -> ()
@@ -991,3 +995,14 @@ let permute_nominals ids form =
     match form with
       | None -> sequent.goal <- result
       | Some hyp -> replace_hyp hyp result
+
+(* Object level cut with explicit cut formula*)
+
+let cut_from ?name h arg term =
+  let term = type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
+  let h = get_hyp h in
+  let arg = get_hyp arg in
+    match h, arg with
+      | Obj(obj_h1, _),Obj(obj_h2, _) ->
+          add_hyp ?name (object_cut_from obj_h1 obj_h2 term)
+      | _,_ -> failwith "Cut can only be used on hypotheses of the form {...}"

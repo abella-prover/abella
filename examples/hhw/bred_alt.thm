@@ -1,0 +1,76 @@
+Specification "bred_alt".
+
+Close tm, p.
+ 
+Define ctx2 : olist -> olist -> prop by
+  ctx2 nil nil
+; nabla x p,
+    ctx2 (bred x x :: G) (path x p :: D) := ctx2 G D
+; nabla x,
+    ctx2 ((pi u\ bred N u => bred x u) :: G)
+         ((pi q\ path N q => path x q) :: D) :=
+      ctx2 G D.
+
+Define name : tm -> prop by
+  nabla n, name n.
+
+Define fresh : tm -> tm -> prop by
+  nabla n, fresh n X.
+
+Define pname : p -> prop by
+  nabla p, pname p.
+
+
+Define btctx : olist -> olist -> prop by
+  btctx nil nil
+; nabla x,
+    btctx (bred x x :: L) (tm x :: K) :=
+      btctx L K.
+
+Theorem btctx_mem1 : forall L K F,
+  btctx L K -> member F K -> exists X, F = tm X /\ name X.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H3 H4. search.
+
+Theorem btctx_mem2 : forall L K F,
+  btctx L K -> member F L -> 
+    exists x, (F = bred x x /\ name x).
+induction on 1. intros. case H1.
+  case H2.
+  case H2. search. apply IH to H3 H4. case H5. search. search.
+
+Theorem btctx_sync : forall L K x,
+  btctx L K ->
+  member (tm x) K -> 
+  member (bred x x) L.
+induction on 1. intros. case H1.
+  case H2.
+  case H2. search. apply IH to H3 H4. search.
+
+Theorem bred_subst : forall L K R U N V, nabla x,
+  btctx L K ->
+  {L, bred x x |- bred (R x) (U x)} ->
+  {L |- bred N V} ->
+  {L |- bred (R N) (U V)}.
+induction on 2. intros. case H2.
+  apply IH to _ H4 H3. search.
+  apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
+  apply IH to H1 H4 H3. search.
+  case H5.
+    case H4. search.
+    apply btctx_mem2 to H1 H6.
+      case H4. case H7. search. search.
+           
+
+Theorem bred_terminate :  forall L K M,
+  btctx L K -> {K |- tm M} -> exists U, {L |- bred M U}.
+induction on 2. intros. case H2.
+  apply IH to _ H3. search.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+  apply IH to _ H3. apply IH to _ H4.
+    apply bred_subst to H1 H6 H5. search.
+  apply btctx_mem1 to H1 H4. case H3.
+  apply btctx_sync to H1 H4. search.

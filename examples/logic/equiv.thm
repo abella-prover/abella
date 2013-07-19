@@ -36,9 +36,9 @@ induction on 2. intros. case H2.
 Theorem nd_to_seq_ext : forall L J K G,
   ctxs L J K -> {L |- nd G} -> {J |- conc G}.
 induction on 2. intros. case H2.
-  apply ctxs_member1 to H1 H3. search.
   apply IH to _ H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
+  apply ctxs_member1 to H1 H4. case H3. search.
 
 Theorem nd_to_seq : forall G,
   {nd G} -> {conc G}.
@@ -48,28 +48,29 @@ intros. apply nd_to_seq_ext to _ H1. search.
 %% Sequent calculus -> hilbert calculus
 
 Set witnesses on.
-Theorem hil_deduction : forall L A B,
-  {L, hil A |- hil B} -> {L |- hil (imp A B)}.
-induction on 1. intros. case H1.
-  case H2.
-    search. % SKK
-    search. % K(H3)
+Theorem hil_deduction : forall L J K A B,
+  ctxs L J K ->
+  {K, hil A |- hil B} -> {K |- hil (imp A B)}.
+induction on 2. intros. case H2.
   search. % KK
   search. % KS
-  apply IH to H2. apply IH to H3. search. % S(H4)(H5)
+  apply IH to _ H3. apply IH to _ H4. search. % S(H4)(H5)
+  case H4.
+    case H3. search. % SKK
+    apply ctxs_member3 to H1 H5. case H3. search. % K(H3)
 Set witnesses off.
 
 Theorem seq_to_hil_ext : forall L J K G,
   ctxs L J K -> {J |- conc G} -> {K |- hil G}.
 induction on 2. intros. case H2.
-  apply ctxs_member2 to H1 H3.
-  case H3. apply ctxs_member2 to H1 H4. search.
+  case H3. apply ctxs_member2 to H1 H5. case H4. search.
   apply IH to _ H3. apply IH to H1 H4.
-    apply hil_deduction to H5. search.
-  apply IH to _ H3. apply hil_deduction to H4. search.
-  case H3. apply ctxs_member2 to H1 H6.
+    apply hil_deduction to _ H5. search.
+  apply IH to _ H3. apply hil_deduction to _ H4. search.
+  case H3. apply ctxs_member2 to H1 H7. case H6.
     apply IH to H1 H4. apply IH to _ H5.
-      apply hil_deduction to H10. search.
+      apply hil_deduction to _ H11. search.
+  apply ctxs_member2 to H1 H4. case H3.
 
 Theorem seq_to_hil : forall G,
   {conc G} -> {hil G}.
@@ -81,12 +82,12 @@ intros. apply seq_to_hil_ext to _ H1. search.
 Theorem hil_to_nd_ext : forall L J K G,
   ctxs L J K -> {K |- hil G} -> {L |- nd G}.
 induction on 2. intros. case H2.
-  apply ctxs_member3 to H1 H3. search.
   search.
   % This hint/assertion speeds up search considerably
   assert {nd (imp A (imp B C)), nd (imp A B), nd A |- nd C}.
     search.
   apply IH to H1 H3. apply IH to H1 H4. search.
+  apply ctxs_member3 to H1 H4. case H3. search.
 
 Theorem hil_to_nd : forall G,
   {hil G} -> {nd G}.
@@ -102,8 +103,11 @@ Define fold : olist -> form -> form -> prop by
   fold nil B B ;
   fold (hil A :: L) B B' := fold L (imp A B) B'.
 
-Theorem hil_deduction_generalized : forall L B B',
-  fold L B B' -> {L |- hil B} -> {hil B'}.
-induction on 1. intros. case H1.
+Theorem hil_deduction_generalized : forall L J K B B',
+  ctxs L J K ->
+  fold K B B' -> {K |- hil B} -> {hil B'}.
+induction on 2. intros. case H2.
   search.
-  apply hil_deduction to H2. apply IH to H3 H4. search.
+  case H1.
+   apply hil_deduction to _ H3.
+   apply IH to _ H4 H6. search.

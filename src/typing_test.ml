@@ -64,8 +64,9 @@ let tests =
              (uapp (ucon "p1") (ucon "X"),
               [uapp (uapp (ucon "pr") (ucon "_")) (ucon "_")])
            in
-             match type_uclause ~sr:!sr ~sign:!sign uclause with
-               | _, p::_ ->
+             let clause = type_uclause ~sr:!sr ~sign:!sign uclause in
+             match Tactics.clausify clause with
+               | _, _, p::_ ->
                    assert_term_pprint_equal "pr X1 X2" p
                | _ -> assert false
         );

@@ -202,11 +202,12 @@ let write_compilation () =
   marshal (predicates !sign) ;
   marshal (List.rev !comp_content)
 
-let clause_eq (head1, body1) (head2, body2) =
-  eq head1 head2 && List.for_all2 eq body1 body2
+let clause_eq c1 c2 = eq c1 c2
 
 let clauses_to_predicates clauses =
-  List.unique (List.map term_head_name (List.map fst clauses))
+  let clause_heads =
+    List.map (fun c -> let (_,h,_) = clausify c in h) clauses in
+  List.unique (List.map term_head_name clause_heads)
 
 let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   let (ktable, ctable) = !sign in
@@ -238,7 +239,10 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   (* 4. Clauses for imported predicates must be subset of imported clauses *)
   let extended_clauses =
     List.minus ~cmp:clause_eq
-      (List.find_all (fun (h, _) -> List.mem (term_head_name h) imp_predicates)
+      (List.find_all
+         (fun clause ->
+           let (_,clause_head,_) = clausify clause in
+           List.mem (term_head_name clause_head) imp_predicates)
          !clauses)
       imp_spec_clauses
   in
@@ -414,6 +418,7 @@ let rec process_proof name =
           | Apply(h, args, ws, hn) -> apply ?name:hn h args ws ~term_witness
           | Backchain(h, ws) -> backchain h ws ~term_witness
           | Cut(h, arg, hn) -> cut ?name:hn h arg
+          | CutFrom(h, arg, t, hn) -> cut_from ?name:hn h arg t
           | SearchCut(h, hn) -> search_cut ?name:hn h
           | Inst(h, ws, hn) -> inst ?name:hn h ws
           | Case(str, keep, hn) -> case ?name:hn ~keep str

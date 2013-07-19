@@ -15,8 +15,9 @@ Define ctxs : olist -> olist -> prop by
 
 %% Lemmas about contexts
 
-Theorem ctxs_member_term : forall X L K,
-  ctxs L K -> member (term X) L -> member (neutral X) K.
+Theorem ctxs_member_term : forall L K E,
+  ctxs L K -> member E L ->
+  exists X, E = term X /\ member (neutral X) K /\ name X.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -25,7 +26,8 @@ induction on 1. intros. case H1.
       search.
 
 Theorem ctxs_var : forall E L K,
-  ctxs L K -> member E K -> exists X, E = neutral X /\ name X.
+  ctxs L K -> member E K -> 
+  exists X, E = neutral X /\ name X.
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -38,18 +40,18 @@ induction on 1. intros. case H1.
 Theorem total_ext : forall T L K,
   ctxs L K -> {L |- term T} -> {K |- normal T} \/ {non_normal T}.
 induction on 2. intros. case H2.
-  apply ctxs_member_term to H1 H3. search.
   apply IH to H1 H3. apply IH to H1 H4. case H5.
     case H6.
       case H7.
-        apply ctxs_var to H1 H9.
         search.
         search.
+        apply ctxs_var to H1 H10. case H9.
       search.
     search.
   apply IH to _ H3. case H4.
     search.
     search.
+  apply ctxs_member_term to H1 H4. case H3. search.
 
 Theorem total : forall T,
   {term T} -> {normal T} \/ {non_normal T}.
@@ -60,19 +62,20 @@ intros. apply total_ext to _ H1. search.
 
 Theorem neutral_abs_absurd : forall L K R,
   ctxs L K -> {K |- neutral (abs R)} -> false.
-intros. case H2. apply ctxs_var to H1 H3. case H4.
+intros. case H2. 
+ apply ctxs_var to H1 H4. case H3. case H5.
 
 Theorem disjoint_ext : forall L K T,
   ctxs L K -> {K |- normal T} -> {non_normal T} -> false.
 induction on 3. intros. case H2.
-  apply ctxs_var to H1 H4.
   case H3. apply IH to _ H4 H5.
   case H4.
-    apply ctxs_var to H1 H5. case H6. case H3.
     case H3.
       apply neutral_abs_absurd to H1 H5.
       apply IH to H1 _ H7.
       apply IH to H1 H6 H7.
+    apply ctxs_var to H1 H6. case H5. case H7. case H3.
+  apply ctxs_var to H1 H5. case H4.
 
 Theorem disjoint : forall T,
   {normal T} -> {non_normal T} -> false.

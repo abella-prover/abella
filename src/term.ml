@@ -31,11 +31,13 @@ type var = {
   ty   : ty ;
 }
 
+type tyctx = (id * ty) list
+
 type term = rawterm
 and rawterm =
   | Var  of var
   | DB   of int
-  | Lam  of ty list * term
+  | Lam  of tyctx * term
   | App  of term * term list
   | Susp of term * int * int * env
   | Ptr  of ptr
@@ -53,11 +55,13 @@ let rec observe = function
 
 let db n = DB n
 
-let rec lambda tys t =
-  if tys = [] then t else
+let get_ctx_tys tyctx = List.map snd tyctx
+
+let rec lambda idtys t =
+  if idtys = [] then t else
     match t with
-      | Lam (tys',t') -> lambda (tys @ tys') t'
-      | _ -> Lam (tys,t)
+      | Lam (idtys',t') -> lambda (idtys @ idtys') t'
+      | _ -> Lam (idtys,t)
 
 let app a b =
   if b = [] then
@@ -94,16 +98,16 @@ let rec hnorm term =
   match observe term with
     | Var _
     | DB _ -> term
-    | Lam(tys,t) -> lambda tys (hnorm t)
+    | Lam(idtys,t) -> lambda idtys (hnorm t)
     | App(t,args) ->
         let t = hnorm t in
           begin match observe t with
-            | Lam(tys,t) ->
-                let n = List.length tys in
+            | Lam(idtys,t) ->
+                let n = List.length idtys in
                 let e, n', args' = make_env n args in
                 let ol = List.length e in
                   if n' > 0
-                  then hnorm (susp (lambda (List.drop (n-n') tys) t) ol 0 e)
+                  then hnorm (susp (lambda (List.drop (n-n') idtys) t) ol 0 e)
                   else hnorm (app (susp t ol 0 e) args')
             | _ -> app t args
           end
@@ -121,9 +125,9 @@ let rec hnorm term =
                     | Dum l -> db (nl - l)
                     | Binding (t,l) -> hnorm (susp t 0 (nl-l) [])
                   end
-            | Lam(tys,t) ->
-                let n = List.length tys in
-                  lambda tys (hnorm (susp t (ol+n) (nl+n) (add_dummies e n nl)))
+            | Lam(idtys,t) ->
+                let n = List.length idtys in
+                  lambda idtys (hnorm (susp t (ol+n) (nl+n) (add_dummies e n nl)))
             | App(t,args) ->
                 let wrap x = susp x ol nl e in
                   hnorm (app (wrap t) (List.map wrap args))
@@ -139,7 +143,8 @@ let rec eq t1 t2 =
     | App(h1,l1), App(h2,l2) ->
         List.length l1 = List.length l2 &&
         List.for_all2 eq (h1::l1) (h2::l2)
-    | Lam(tys1,t1), Lam(tys2,t2) -> tys1 = tys2 && eq t1 t2
+    | Lam(idtys1,t1), Lam(idtys2,t2) ->
+        (get_ctx_tys idtys1) = (get_ctx_tys idtys2) && eq t1 t2
     | _ -> false
 
 (* Binding a variable to a term. The *contents* of the cell representing the
@@ -209,7 +214,7 @@ let abstract test =
   let rec aux n t = match t with
     | DB i -> t
     | App(h,ts) -> App(aux n h, List.map (aux n) ts)
-    | Lam(tys,s) -> Lam (tys, aux (n + List.length tys) s)
+    | Lam(idtys,s) -> Lam (idtys, aux (n + List.length idtys) s)
     | Ptr {contents=T t} -> Ptr (ref (T (aux n t)))
     | Ptr {contents=V v} -> if test t v.name then DB n else t
     | Var _ -> assert false
@@ -217,7 +222,8 @@ let abstract test =
   in aux
 
 (** Abstract [t] over constant or variable named [id]. *)
-let abstract id ty t = lambda [ty] (abstract (fun t id' -> id' = id) 1 t)
+let abstract id ty t =
+  lambda [(id,ty)] (abstract (fun t id' -> id' = id) 1 t)
 
 (** Utilities.
   * Easy creation of constants and variables, with sharing. *)
@@ -294,7 +300,7 @@ let select_var_refs f ts =
       match observe t with
         | Var v -> if f v then t::acc else acc
         | App (h, ts) -> List.fold_left fv (fv acc h) ts
-        | Lam (tys, t') -> fv acc t'
+        | Lam (idtys, t') -> fv acc t'
         | DB _ -> acc
         | Susp _ -> assert false
         | Ptr _ -> assert false
@@ -376,16 +382,17 @@ let term_to_string term =
   let high_pr = 2 + get_max_priority () in
   let pp_var x = abs_name ^ (string_of_int x) in
 (*   let pp_var_ty x ty = (pp_var x) ^ ":" ^ (ty_to_string ty) in *)
-  let rec pp pr n term =
+  let rec pp cx pr n term =
     match observe (hnorm term) with
       | Var v -> v.name
           (* ^ ":" ^ (tag2str v.tag) *)
           (* ^ ":" ^ (string_of_int v.ts) *)
           (* ^ ":" ^ (ty_to_string v.ty) *)
-      | DB i -> pp_var (n-i+1)
+      | DB i -> 
+          (try List.nth cx (i - 1) with _ -> pp_var (n - i + 1))
       | App (t,ts) ->
           begin match observe (hnorm t), ts with
-            | Var {name=op; tag=Constant}, [a; b] when is_infix op ->
+            | Var {name=op; tag=Constant; ts=ts; ty=ty}, [a; b] when is_infix op ->
                 let op_p = priority op in
                 let assoc = get_assoc op in
                 let pr_left, pr_right = begin match assoc with
@@ -394,30 +401,36 @@ let term_to_string term =
                   | _ -> op_p, op_p
                   end in
                 let res =
-                  (pp pr_left n a) ^ " " ^ op ^ " " ^ (pp pr_right n b)
+                  (pp cx pr_left n a) ^ " " ^ op ^ " " ^ (pp cx pr_right n b)
                 in
                   if op_p >= pr then res else parenthesis res
-            | Var {name=op; tag=Constant}, [a] when
+            | Var {name=op; tag=Constant; ts=ts; ty=ty}, [a] when
                 is_obj_quantifier op && is_lam a ->
-                let res = op ^ " " ^ (pp 0 n a) in
+                let res = op ^ " " ^ (pp cx 0 n a) in
                   if pr < high_pr then res else parenthesis res
             | _ ->
                 let res =
-                  String.concat " " (List.map (pp high_pr n) (t::ts))
+                  String.concat " " (List.map (pp cx high_pr n) (t::ts))
                 in
                   if pr < high_pr then res else parenthesis res
           end
       | Lam ([],t) -> assert false
-      | Lam (tys,t) ->
-          let i = List.length tys in
-          let res = ((String.concat "\\"
-                       (List.map pp_var (list_range (n+1) (n+i)))) ^ "\\" ^
-                      (pp 0 (n+i) t)) in
-            if pr == 0 then res else parenthesis res
+      | Lam (tycx,t) ->
+          let i = List.length tycx in
+          let default_vars = List.map pp_var (list_range (n + 1) (n + i)) in
+          let vars = List.map2 begin
+            fun (hv, _) dv -> match hv with
+            | "_" -> dv
+            | _ -> hv
+          end tycx default_vars in
+          let tcx = List.rev_append vars cx in
+          let res = ((String.concat "\\" vars) ^ "\\" ^
+                      (pp tcx 0 (n+i) t)) in
+          if pr == 0 then res else parenthesis res
       | Ptr t -> assert false (* observe *)
       | Susp _ -> assert false (* hnorm *)
   in
-    pp 0 0 term
+    pp [] 0 0 term
 
 let term_to_name t =
   (term_to_var t).name
@@ -433,7 +446,7 @@ let is_free t =
 
 let is_nominal t =
   match observe (hnorm t) with
-    | Var {tag=Nominal} -> true
+    | Var {tag=Nominal; name=name; ts=ts; ty=ty} -> true
     | _ -> false
 
 let term_head_var t =
@@ -513,9 +526,9 @@ let tybase bty =
 let oty = tybase "o"
 let olistty = tybase "olist"
 
-let rec tc tyctx t =
+let rec tc (tyctx:tyctx) t =
   match observe (hnorm t) with
-    | DB i -> List.nth tyctx (i-1)
+    | DB i -> snd (List.nth tyctx (i-1))
     | Var v -> v.ty
     | App(h,args) ->
         let arg_tys = List.map (tc tyctx) args in
@@ -523,8 +536,8 @@ let rec tc tyctx t =
         let n = List.length arg_tys in
           assert (List.take n tys = arg_tys) ;
           Ty(List.drop n tys, bty)
-    | Lam(tys,t) ->
-        tyarrow tys (tc (List.rev_app tys tyctx) t)
+    | Lam(idtys,t) ->
+        tyarrow (get_ctx_tys idtys) (tc (List.rev_app idtys tyctx) t)
     | _ -> assert false
 
 let is_tyvar str =
@@ -538,3 +551,32 @@ let fresh_tyvar =
     fun () ->
       incr count ;
       tyvar (string_of_int !count)
+
+
+let is_imp t = is_head_name "=>" t
+
+let extract_imp t =
+  match observe (hnorm t) with
+    | App(t, [a; b]) -> (a, b)
+    | _ -> failwith "Check is_imp before calling extract_imp"
+
+let is_pi t = is_head_name "pi" t
+
+let extract_pi t =
+  match observe (hnorm t) with
+    | App(t, [abs]) -> abs
+    | _ -> failwith "Check is_pi before calling extract_pi"
+
+let rec replace_pi_with_const term =
+  let rec aux tyctx term =
+    if is_pi term then
+      let abs = extract_pi term in
+      match observe (hnorm abs) with
+      | Lam((id,ty)::_, _) ->
+          let c = const id ty in
+          aux ((id,ty)::tyctx) (app abs [c])
+      | _ -> assert false
+    else
+      (tyctx, term)
+  in
+  aux [] term

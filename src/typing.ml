@@ -31,6 +31,7 @@ type uterm =
   | ULam of pos * string * ty * uterm
   | UApp of pos * uterm * uterm
 
+
 let get_pos t =
   match t with
     | UCon(p, _, _) -> p
@@ -42,6 +43,15 @@ let change_pos p t =
     | UCon(_, id, ty) -> UCon(p, id, ty)
     | ULam(_, id, ty, body) -> ULam(p, id, ty, body)
     | UApp(_, t1, t2) -> UApp(p, t1, t2)
+
+
+let predefined id pos =
+  UCon(pos, id, Term.fresh_tyvar ())
+
+let binop id t1 t2 =
+  let pos = (fst (get_pos t1), snd (get_pos t2)) in
+  UApp(pos, UApp(pos, predefined id pos, t1), t2)
+
 
 let uterm_head_name t =
   let rec aux = function
@@ -57,7 +67,8 @@ type umetaterm =
   | UTrue
   | UFalse
   | UEq of uterm * uterm
-  | UObj of uterm * uterm * restriction
+  | UAsyncObj of uterm * uterm * restriction
+  | USyncObj of uterm * uterm * uterm * restriction
   | UArrow of umetaterm * umetaterm
   | UBinding of binder * (id * ty) list * umetaterm
   | UOr of umetaterm * umetaterm
@@ -267,9 +278,15 @@ let metaterm_ensure_fully_inferred t =
       | Eq(a, b) ->
           term_ensure_fully_inferred a ;
           term_ensure_fully_inferred b
-      | Obj(obj, _) ->
-          Context.iter term_ensure_fully_inferred obj.context ;
-          term_ensure_fully_inferred obj.term
+      | Obj(Async obj, _) ->
+          let ctx,term = Async.get obj in
+          Context.iter term_ensure_fully_inferred ctx ;
+          term_ensure_fully_inferred term
+      | Obj(Sync obj, _) ->
+          let ctx,focus,term = Sync.get obj in
+          Context.iter term_ensure_fully_inferred ctx ;
+          term_ensure_fully_inferred focus;
+          term_ensure_fully_inferred term;
       | Pred(p, _) ->
           term_ensure_fully_inferred p
   in
@@ -346,33 +363,12 @@ let term_ensure_subordination sr t =
       | Var v -> Subordination.ensure sr v.ty
       | DB i -> ()
       | App(h, ts) -> aux tyctx h ; List.iter (aux tyctx) ts
-      | Lam(tys, b) ->
+      | Lam(idtys, b) ->
           Subordination.ensure sr (tc tyctx t) ;
-          aux (List.rev_app tys tyctx) b
+          aux (List.rev_app idtys tyctx) b
       | _ -> assert false
   in
     aux [] t
-
-let type_uterm ~sr ~sign ~ctx t expected_ty =
-  let nominal_tyctx = uterm_nominals_to_tyctx t in
-  let tyctx =
-    (List.map (fun (id, t) -> (id, tc [] t)) ctx)
-      @ nominal_tyctx
-  in
-  let (ty, eqns) = infer_type_and_constraints ~sign tyctx t in
-  let eqns = (expected_ty, ty, (get_pos t, CArg)) :: eqns in
-  let sub = unify_constraints eqns in
-  let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx)) in
-  let result = replace_term_vars ctx (uterm_to_term sub t) in
-    term_ensure_fully_inferred result ;
-    term_ensure_subordination sr result ;
-    result
-
-let rec has_capital_head t =
-  match t with
-    | UCon(_, v, _) -> is_capital_name v
-    | UApp(_, h, _) -> has_capital_head h
-    | _ -> false
 
 let iter_ty f ty =
   let rec aux = function
@@ -408,6 +404,32 @@ let check_pi_quantification ts =
               | _ -> assert false)
        ts)
 
+let type_uterm ?expected_ty ~sr ~sign ~ctx t =
+  let nominal_tyctx = uterm_nominals_to_tyctx t in
+  let tyctx =
+    (List.map (fun (id, t) -> (id, tc [] t)) ctx)
+      @ nominal_tyctx
+  in
+  let (ty, eqns) = infer_type_and_constraints ~sign tyctx t in
+  let eqns =
+    match expected_ty with
+    | None -> eqns
+    | Some exp_ty -> (exp_ty, ty, (get_pos t, CArg)) :: eqns
+  in
+  let sub = unify_constraints eqns in
+  let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx)) in
+  let result = replace_term_vars ctx (uterm_to_term sub t) in
+    term_ensure_fully_inferred result ;
+    term_ensure_subordination sr result ;
+    result
+
+let rec has_capital_head t =
+  match t with
+    | UCon(_, v, _) -> is_capital_name v
+    | UApp(_, h, _) -> has_capital_head h
+    | _ -> false
+
+
 let replace_underscores head body =
   let names = uterms_extract_if is_capital_name (head::body) in
   let used = ref (List.map (fun x -> (x, ())) names) in
@@ -435,6 +457,26 @@ let type_uclause ~sr ~sign (head, body) =
     failwith "Clause has flexible head" ;
   let head, body = replace_underscores head body in
   let cids = uterms_extract_if is_capital_name (head::body) in
+  let get_imp_form head body =
+    (let impfy imp f = (binop "=>" f imp) in
+    List.fold_left impfy head (List.rev body))
+  in
+  let imp_form = get_imp_form head body in
+  let get_pi_form ids body =
+    (let pify id pi =
+      let pos = get_pos pi in
+      let abs = ULam (pos, id, Term.fresh_tyvar (), pi) in
+      UApp (pos, predefined "pi" pos, abs)
+    in
+    List.fold_right pify ids body)
+  in
+  let pi_form = get_pi_form cids imp_form in
+  let result = type_uterm ~sr ~sign ~ctx:[] pi_form in
+  let _,cls = replace_pi_with_const result in
+  let _ = check_pi_quantification [cls] in
+  result
+
+(*
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns =
     List.fold_left (fun acc p ->
@@ -450,6 +492,7 @@ let type_uclause ~sr ~sign (head, body) =
     List.iter (term_ensure_subordination sr) (rhead::rbody) ;
     check_pi_quantification (rhead::rbody) ;
     (rhead, rbody)
+*)
 
 
 (** Typing for metaterms *)
@@ -462,11 +505,19 @@ let infer_constraints ~sign ~tyctx t =
           let (aty, aeqns) = infer_type_and_constraints ~sign tyctx a in
           let (bty, beqns) = infer_type_and_constraints ~sign tyctx b in
             aeqns @ beqns @ [(aty, bty, (get_pos b, CArg))]
-      | UObj(l, g, _) ->
+      | UAsyncObj(l, g, _) ->
           let (lty, leqns) = infer_type_and_constraints ~sign tyctx l in
           let (gty, geqns) = infer_type_and_constraints ~sign tyctx g in
             leqns @ geqns @ [(olistty, lty, (get_pos l, CArg));
                              (oty, gty, (get_pos g, CArg))]
+      | USyncObj(l, f, g, _) ->
+          let (lty, leqns) = infer_type_and_constraints ~sign tyctx l in
+          let (fty, feqns) = infer_type_and_constraints ~sign tyctx f in
+          let (gty, geqns) = infer_type_and_constraints ~sign tyctx g in
+            leqns @ feqns @ geqns @
+          [(olistty, lty, (get_pos l, CArg));
+           (oty, fty, (get_pos f, CArg));
+           (oty, gty, (get_pos g, CArg))]
       | UArrow(a, b) | UOr(a, b) | UAnd(a, b) ->
           (aux tyctx a) @ (aux tyctx b)
       | UBinding(_, tids, body) ->
@@ -485,8 +536,10 @@ let umetaterm_extract_if test t =
           uterms_extract_if test [a; b]
       | UPred(p, _) ->
           uterms_extract_if test [p]
-      | UObj(l, g, _) ->
+      | UAsyncObj(l, g, _) ->
           uterms_extract_if test [l; g]
+      | USyncObj(l, f, g, _) ->
+          uterms_extract_if test [l;f;g]
       | UArrow(a, b) | UOr(a, b) | UAnd(a, b) ->
           (aux a) @ (aux b)
       | UBinding(_, tids, body) ->
@@ -503,9 +556,12 @@ let umetaterm_to_metaterm sub t =
       | UTrue -> True
       | UFalse -> False
       | UEq(a, b) -> Eq(uterm_to_term sub a, uterm_to_term sub b)
-      | UObj(l, g, r) ->
-          Obj({context = Context.normalize [uterm_to_term sub l] ;
-               term = uterm_to_term sub g}, r)
+      | UAsyncObj(l, g, r) ->
+          Obj(Async (Async.obj (Context.normalize [uterm_to_term sub l])
+                (uterm_to_term sub g)), r)
+      | USyncObj(l, f, g, r) ->
+          Obj(Sync (Sync.obj (Context.normalize [uterm_to_term sub l])
+                (uterm_to_term sub f) (uterm_to_term sub g)), r)
       | UArrow(a, b) -> Arrow(aux a, aux b)
       | UBinding(binder, tids, body) ->
           Binding(binder,
@@ -543,6 +599,10 @@ let check_meta_quantification t =
   in
     aux t
 
+let sync_to_async obj =
+  { Async.context = obj.Sync.focus :: obj.Sync.context ;
+    Async.term  = obj.Sync.term }
+
 let metaterm_ensure_subordination sr t =
   let rec aux t =
     match t with
@@ -550,8 +610,14 @@ let metaterm_ensure_subordination sr t =
       | Eq(a, b) ->
           term_ensure_subordination sr a ;
           term_ensure_subordination sr b
-      | Obj(obj, _) ->
-          aux (obj_to_member obj)
+      | Obj(Async obj, _) ->
+          aux (async_to_member obj)
+      (* what about the sync object ? I have no idea.
+         -- Yuting *)
+      | Obj(Sync obj, _) ->
+          aux (async_to_member (sync_to_async obj))
+
+        (* failwith "Un implemented: subordination of sync objects" *)
       | Arrow(a, b) | Or(a, b) | And(a, b) ->
           aux a ;
           aux b

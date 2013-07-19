@@ -161,7 +161,7 @@ let tests =
       "Print non-empty context" >::
         (fun () ->
            let ctx = Context.add (uconst "L") Context.empty in
-           let t = Obj(context_obj ctx var_a, Irrelevant) in
+           let t = Obj(Async (Async.obj ctx var_a), Irrelevant) in
              assert_pprint_equal "{L |- A}" t) ;
 
       "Print predicate" >::
@@ -187,7 +187,7 @@ let tests =
            let ctx = Context.add (uconst "L") Context.empty in
            let bc = uconst "=>" ^^ [uconst "B"; uconst "C"] in
            let abc = uconst "=>" ^^ [uconst "A"; bc] in
-           let t = Obj(context_obj ctx abc, Irrelevant) in
+           let t = Obj(Async (Async.obj ctx abc), Irrelevant) in
              assert_pprint_equal "{L |- A => B => C}" t ;
              assert_pprint_equal "{L, A, B |- C}" (normalize t)) ;
 
@@ -195,7 +195,7 @@ let tests =
         (fun () ->
            let pi = const "pi" iiity in
            let pred = const "pred" iiity in
-           let t = pi ^^ [[ity] // (pred ^^ [db 1; db 1])] in
+           let t = pi ^^ [[("x",ity)] // (pred ^^ [db 1; db 1])] in
            let t = termobj t in
              assert_pprint_equal "{pi x1\\pred x1 x1}" t ;
              assert_pprint_equal "{pred n1 n1}" (normalize t)) ;

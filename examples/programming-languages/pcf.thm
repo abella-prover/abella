@@ -71,60 +71,61 @@ induction on 1. intros. case H1.
 Theorem type_uniq : forall L E T1 T2,
   ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
 induction on 2. intros. case H2.
-  % E is variable
-  apply ctx_member to H1 H4. case H5.
-    case H3. apply ctx_uniq to H1 H4 H6. search.
-
   % E = zero
   case H3.
-    apply ctx_member to H1 H4. case H5.
     search.
+    apply ctx_member to H1 H5. case H4. case H6.
 
   % E = tt
   case H3.
-    apply ctx_member to H1 H4. case H5.
     search.
+    apply ctx_member to H1 H5. case H4. case H6.
 
   % E = ff
   case H3.
-    apply ctx_member to H1 H4. case H5.
     search.
+    apply ctx_member to H1 H5. case H4. case H6.
 
   % E = succ M
   case H3.
-    apply ctx_member to H1 H5. case H6.
     search.
+    apply ctx_member to H1 H6. case H5. case H7.
 
   % E = pred M
   case H3.
-    apply ctx_member to H1 H5. case H6.
     search.
+    apply ctx_member to H1 H6. case H5. case H7.
 
   % E = is_zero M
   case H3.
-    apply ctx_member to H1 H5. case H6.
     search.
+    apply ctx_member to H1 H6. case H5. case H7.
 
   % E = if M N1 N2
   case H3.
-    apply ctx_member to H1 H7. case H8.
     apply IH to H1 H5 H8. search.
+    apply ctx_member to H1 H8. case H7. case H9.
 
   % E = abs T R
   case H3.
-    apply ctx_member to H1 H5. case H6.
     apply IH to _ H4 H5. search.
+    apply ctx_member to H1 H6. case H5. case H7.
 
   % E = app M N
   case H3.
-    apply ctx_member to H1 H6. case H7.
     apply IH to H1 H4 H6. search.
+    apply ctx_member to H1 H7. case H6. case H8.
 
   % E = rec T1 R
   case H3.
-    apply ctx_member to H1 H5. case H6.
     search.
+    apply ctx_member to H1 H6. case H5. case H7.
 
+  % E is variable
+  apply ctx_member to H1 H5. case H4. case H6.
+   case H3.
+   apply ctx_member to H1 H8. case H7.
+   apply ctx_uniq to H1 H5 H8. search.
 
 Query
   Add = (rec (arr num (arr num num))

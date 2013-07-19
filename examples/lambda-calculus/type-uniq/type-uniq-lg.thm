@@ -17,6 +17,18 @@ Define ctx : olist -> prop by
                        (forall T', member (of X T') L -> false) /\
                        ctx L.
 
+Theorem ctx_member :
+  forall E L,
+  ctx L -> member E L ->
+  exists X T, (E = of X T)
+           /\ (forall M N, X = app M N -> false)
+           /\ (forall T R, X = abs T R -> false).
+induction on 1.  intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H6 H7. search.
+
 Theorem ctx_app_absurd : forall L M N T,
   ctx L -> member (of (app M N) T) L -> false.
 induction on 1. intros. case H1.
@@ -57,13 +69,16 @@ Theorem det_of : forall L E T1 T2,
   ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
 induction on 2. intros. case H2.
   case H3.
-    apply uniq to H1 H4 H5. search.
-    apply ctx_abs_absurd to H1 H4.
-    apply ctx_app_absurd to H1 H4.
+    apply IH to _ H4 H5. backchain ctx_extend. search.
+    apply ctx_member to H1 H6. case H5.
+     apply H8 to _ with T1 = T, R1 = R.
   case H3.
-    apply ctx_abs_absurd to H1 H5.
-    apply ctx_extend to H1 with x = n1, T = T.
-      apply IH to H6 H4 H5. search.
-  case H3.
-    apply ctx_app_absurd to H1 H6.
-    apply IH to H1 H4 H6. search.
+    apply IH to _ H4 H6. search.
+    apply ctx_member to H1 H7. case H6.
+     apply H8 to _ with M1 = M, N1 = N.
+  apply ctx_member to H1 H5. case H4.
+   case H3.
+     apply H7 to _ with T = T3, R1 = R.
+     apply H6 to _ with M1 = M, N1 = N.
+     apply ctx_member to H1 H9. case H8.
+     apply uniq to H1 H5 H9. search.

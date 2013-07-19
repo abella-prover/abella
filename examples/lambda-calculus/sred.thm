@@ -37,28 +37,23 @@ induction on 2. intros. case H2.
 Theorem wh_ctx : forall C D T T',
   ctx C D -> {D |- wh T T'} -> {wh T T'}.
 induction on 2. intros. case H2.
-  apply ctx_member2 to H1 H3.
   search.
   apply IH to H1 H3. search.
+  apply ctx_member2 to H1 H4. case H3.
 
 %% Standard reduction is reflexive.
 Theorem srefl : forall C D T,
   ctx C D -> {C |- tm T} -> {D |- sred T T}.
 induction on 2. intros. case H2.
-  apply ctx_member1 to H1 H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
   apply IH to _ H3. search.
+  apply ctx_member1 to H1 H4. case H3. search.
 
 %% Standard reduction is closed under substitution.
 Theorem ssubst : forall C D T T' S S', nabla x, ctx C D ->
   {D, sred x x |- sred (T x) (T' x)} -> {D |- sred S S'} ->
   {D |- sred (T S) (T' S')}.
 induction on 2. intros. case H2.
-  %% case hypothesis
-  case H4.
-    search.
-    apply member_prune to H5. search.
-
   %% case weak head step
   apply IH to H1 H5 H3.
   apply wh_ctx to _ H4. inst H7 with n1 = S. search.
@@ -68,6 +63,12 @@ induction on 2. intros. case H2.
 
   %% case: abstraction
   apply IH to _ H4 H3. search.
+
+  %% case hypothesis
+  case H5. 
+    case H4. search. 
+    apply ctx_member2 to H1 H6. case H4.
+    apply member_prune to H6. search.
 
 %% Variables do not beta reduce.
 Theorem name_not_beta : forall T, nabla x, {beta x T} -> false.
@@ -90,20 +91,18 @@ induction on 2. intros. case H2.
 Theorem sred_beta : forall C D M N N' R, ctx C D ->
   {D |- sred M (abs R)} -> {D |- sred N N'} -> {D |- sred (app M N) (R N')}.
 induction on 2. intros. case H2.
-  % variable case (impossible)
-  apply ctx_member2 to H1 H4. apply var_not_abs to H1 H5.
   % weak head reduction case
   apply IH to H1 H5 H3. search.
   % abstraction case
   apply ssubst to H1 H4 H3. search.
+  % variable case (impossible)
+  apply ctx_member2 to H1 H5. case H4. apply var_not_abs to H1 H6.
 
 %% Main Lemma:
 %% Standard reduction is closed under appending a beta step.
 Theorem sappend : forall C D T T' T'', ctx C D ->
   {D |- sred T T'} -> {beta T' T''} -> {D |- sred T T''}.
 induction on 2. intros. case H2.
-  % variable case
-  apply ctx_member2 to H1 H4. apply var_not_beta to H1 H5 H3.
   % weak head step case
   apply IH to H1 H5 H3. search.
   % application case
@@ -115,7 +114,10 @@ induction on 2. intros. case H2.
     % subcase beta-contraction
     apply sred_beta to H1 H4 H5. search.
   % abstraction case
-  case H3. apply IH to _ H4 H5. search. %% QED !
+  case H3. apply IH to _ H4 H5. search.
+  % variable case
+  apply ctx_member2 to H1 H5. case H4. apply var_not_beta to H1 H6 H3.
+   %% QED !
 
 %% Theorem: Each beta reduction sequence can be standardized.
 Theorem standardization: forall T T',

@@ -23,6 +23,11 @@
 open Term
 open Extensions
 
+(* generate ids for n binders *)
+let gen_binder_ids n =
+  List.map (fun i -> "z"^(string_of_int i)) (List.range 1 n)
+
+
 type unify_failure =
   | OccursCheck
   | ConstClash of (term * term)
@@ -69,7 +74,7 @@ let closing_depth t =
     match observe (hnorm t) with
       | Var _ -> 0
       | DB i -> i
-      | Lam(tys, t) -> max (aux t - List.length tys) 0
+      | Lam(idtys, t) -> max (aux t - List.length idtys) 0
       | App(h, ts) -> List.max (List.map aux (h :: ts))
       | _ -> assert false
   in
@@ -376,8 +381,8 @@ let make_non_llambda_subst v1 a1 t2 =
                 db (j+lev)
       | App(h2,a2) ->
           app (aux lev h2) (List.map (aux lev) a2)
-      | Lam(tys2,b2) ->
-          lambda tys2 (aux (lev + List.length tys2) b2)
+      | Lam(idtys2,b2) ->
+          lambda idtys2 (aux (lev + List.length idtys2) b2)
       | _ -> raise (UnifyError NotLLambda)
   in
     aux 0 t2
@@ -391,7 +396,7 @@ let rigid_path_check v1 t2 =
     match observe (hnorm t) with
       | Var v -> (v1 <> v) && (v.ts <= v1.ts)
       | DB i -> i <= n
-      | Lam(tys, t) -> aux (n + List.length tys) t
+      | Lam(idtys, t) -> aux (n + List.length idtys) t
       | App(h, ts) -> List.for_all (aux n) (h::ts)
       | _ -> assert false
   in
@@ -403,7 +408,7 @@ let rigid_path_check v1 t2 =
  *
  * Example: Instead of binding X^0 to Y^0 c^1, we bind Y^0 to z\ X^0
  *)
-let reverse_bind tyctx t1 t2 =
+let reverse_bind (tyctx:(Term.id*Term.ty) list) t1 t2 =
   match observe t1, observe t2 with
     | App(h, ts), Var v2 ->
         let pruneable t =
@@ -416,7 +421,9 @@ let reverse_bind tyctx t1 t2 =
           begin match observe h with
             | Var v1 when variable v1.tag && v2.ts <= v1.ts &&
                 List.for_all pruneable ts ->
-                bind h (lambda (List.map (tc tyctx) ts) t2) ; true
+                  let ids = gen_binder_ids (List.length ts) in
+                  let tys = List.map (tc tyctx) ts in
+                  (bind h (lambda (List.combine ids tys) t2); true)
             | _ -> false
           end
     | Var v1, Var v2 when variable v1.tag && v1.ts > v2.ts ->
@@ -485,9 +492,9 @@ let makesubst tyctx h1 t2 a1 n =
                 app h' a1'
             else
               app c a1'
-      | Lam (tys,t) ->
-          lambda tys
-            (nested_subst (List.rev_app tys tyctx) t (lev + List.length tys))
+      | Lam (idtys,t) ->
+          lambda idtys
+            (nested_subst (List.rev_app idtys tyctx) t (lev + List.length idtys))
       | App (h2,a2) ->
           begin match observe h2 with
             | Var hv2 when constant hv2.tag ->
@@ -510,9 +517,11 @@ let makesubst tyctx h1 t2 a1 n =
                       raise_and_invert ts1 hv2.ts a1 a2 lev
                     in
                       if changed then
+                        let a2ids = gen_binder_ids (List.length a2) in
                         let a2binds = List.map (tc tyctx) a2 in
+                        let a2ctx = List.combine a2ids a2binds in
                         let a2'tys =
-                          List.map (tc (List.rev_app a2binds tyctx)) a2' in
+                          List.map (tc (List.rev_app a2ctx tyctx)) a2' in
                         let Ty(h2tys, bty) = tc tyctx h2 in
                         let ty = Ty(a2'tys @ List.drop (List.length a2) h2tys,
                                     bty) in
@@ -520,7 +529,7 @@ let makesubst tyctx h1 t2 a1 n =
                           named_fresh hv1.name (min ts1 hv2.ts) ty
                         in
                           bind h2
-                            (lambda a2binds (app h' a2')) ;
+                            (lambda a2ctx (app h' a2')) ;
                           app h' a1'
                       else
                         if ts1<hv2.ts then
@@ -554,9 +563,9 @@ let makesubst tyctx h1 t2 a1 n =
     * The incoming term is assumed to be head normalized. *)
   let rec toplevel_subst tyctx t2 lev =
     match observe t2 with
-      | Lam (tys,t2) ->
-          lambda tys
-            (toplevel_subst (List.rev_app tys tyctx) t2 (lev + List.length tys))
+      | Lam (idtys,t2) ->
+          lambda idtys
+            (toplevel_subst (List.rev_app idtys tyctx) t2 (lev + List.length idtys))
       | Var v2 when variable v2.tag ->
           if h1=t2 then
             if n=0 && lev=0 then h1 else assert false (* fail TypesMismatch *)
@@ -574,9 +583,11 @@ let makesubst tyctx h1 t2 a1 n =
                     let bindlen = n+lev in
                       if bindlen = List.length a2 then
                         let args = prune_same_var a1 a2 lev bindlen in
+                        let a2ids = gen_binder_ids bindlen in
                         let a2binds = List.map (tc tyctx) a2 in
+                        let a2ctx = List.combine a2ids a2binds in
                         let args_ty =
-                          List.map (tc (List.rev_app a2binds tyctx)) args
+                          List.map (tc (List.rev_app a2ctx tyctx)) args
                         in
                         let Ty(h1tys, bty) = tc tyctx h1 in
                         let ty = Ty(args_ty @ List.drop bindlen h1tys, bty) in
@@ -595,14 +606,16 @@ let makesubst tyctx h1 t2 a1 n =
       | _ ->
           nested_subst tyctx t2 lev
   in
+  let a1ids = gen_binder_ids (List.length a1) in
+  let a1tys = List.map (tc tyctx) a1 in
     ensure_flex_args a1 ts1 ;
-    lambda (List.map (tc tyctx) a1) (toplevel_subst tyctx t2 0)
+    lambda (List.combine a1ids a1tys) (toplevel_subst tyctx t2 0)
 
 (** Unifying the arguments of two rigid terms with the same head, these
   * arguments being given as lists. Exceptions are raised if
   * unification fails or if there are unequal numbers of arguments; the
   * latter will not arise if type checking has been done. *)
-let rec unify_list tyctx l1 l2 =
+let rec unify_list (tyctx:(Term.id*Term.ty) list) l1 l2 =
   try
     List.iter2 (fun a1 a2 -> unify tyctx (hnorm a1) (hnorm a2)) l1 l2
   with
@@ -614,9 +627,9 @@ let rec unify_list tyctx l1 l2 =
  * an application-term unification problem. *)
 and unify_const_term tyctx cst t2 = if eq cst t2 then () else
   match observe t2 with
-    | Lam (tys,t2) ->
-        let a1 = lift_args [] (List.length tys) in
-          unify (List.rev_app tys tyctx) (app cst a1) t2
+    | Lam (idtys,t2) ->
+        let a1 = lift_args [] (List.length idtys) in
+          unify (List.rev_app idtys tyctx) (app cst a1) t2
     | Var v when not (variable v.tag || constant v.tag) ->
         failwith "logic variable on the left (3)"
     | _ -> fail (ConstClash (cst,t2))
@@ -695,8 +708,8 @@ and unify tyctx t1 t2 =
     | Var v1,_ when variable v1.tag -> unify_var_term tyctx v1 t1 t2
     | _,Var v2 when variable v2.tag -> unify_var_term tyctx v2 t2 t1
 
-    | Lam(tys1,t1),_                -> unify_lam_term tyctx tys1 t1 t2
-    | _,Lam(tys2,t2)                -> unify_lam_term tyctx tys2 t2 t1
+    | Lam(idtys1,t1),_    -> unify_lam_term tyctx idtys1 t1 t2
+    | _,Lam(idtys2,t2)    -> unify_lam_term tyctx idtys2 t2 t1
 
     (* Check for a special case of asymmetric unification outside of LLambda *)
     | App(h1,a1), App(h2,a2) ->
@@ -739,6 +752,8 @@ let flexible_heads ~used ~sr (tys1, h1, a1) (tys2, h2, a2) =
   let () = assert (n2 >= n1) in
   let tys2' = List.drop n1 tys2 in
   let a1tys = List.map (tc (List.rev tys1)) a1 in
+  let a1ids = gen_binder_ids (List.length a1) in
+  let a1ctx = List.combine a1ids a1tys in
   let a2tys = List.map (tc (List.rev tys2)) a2 in
   let a1n = List.length a1 in
   let hv1 = term_to_var h1 in
@@ -768,8 +783,8 @@ let flexible_heads ~used ~sr (tys1, h1, a1) (tys2, h2, a2) =
   in
   let imitation =
     if imitable then
-      [lambda (a1tys @ tys2')
-         (app h2 (create_raised_vars (a1tys @ tys2') a2tys))]
+      [lambda (a1ctx @ tys2')
+         (app h2 (create_raised_vars (a1tys @ (get_ctx_tys tys2')) a2tys))]
     else
       []
   in
@@ -786,9 +801,9 @@ let flexible_heads ~used ~sr (tys1, h1, a1) (tys2, h2, a2) =
            let leave = List.take_last bn tys in
              if Ty(leave, ty) = bty then
                Some
-                 (lambda (a1tys @ tys2')
+                 (lambda (a1ctx @ tys2')
                     (app (db (n-i))
-                       (create_raised_vars (a1tys @ tys2') use)))
+                       (create_raised_vars (a1tys @ (get_ctx_tys tys2')) use)))
              else
                None)
         (List.combine3 a1 a1tys (List.range 0 (a1n - 1)))

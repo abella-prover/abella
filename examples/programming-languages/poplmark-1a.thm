@@ -43,15 +43,16 @@ induction on 2. intros. case H2.
 
 Theorem bound_name : forall L X U,
   ctx L -> {L |- bound X U} -> name X.
-intros. case H2. apply ctx_member to H1 H3. search.
+intros. case H2.
+ apply ctx_member to H1 H4. case H3. search.
 
 Theorem sub_top : forall L T,
   ctx L -> {L |- sub top T} -> T = top.
 intros. case H2.
-  apply ctx_member to H1 H3.
   search.
   search.
   apply bound_name to H1 H3. case H5.
+  apply ctx_member to H1 H4. case H3.
 
 Theorem dual_theorem : forall Q, ty Q ->
   (forall L S T, ctx L ->
@@ -72,8 +73,6 @@ induction on 1. intros. split*.
   % Proof of transitivity
   % Induction and case analysis on {L |- S <: Q}
   induction on 2. intros. case H3.
-    apply ctx_member to H2 H5.
-
     % SA-Top, Q = top
     apply sub_top to H2 H4. search.
 
@@ -86,8 +85,6 @@ induction on 1. intros. split*.
     % SA-Arrow, S = arrow S1 S2, Q = arrow T1 T2
     % Case analysis on (arrow T1 T2) <: T
     case H4.
-      apply ctx_member to H2 H7.
-
       % SA-Top, T = top
       search.
 
@@ -105,10 +102,10 @@ induction on 1. intros. split*.
             apply H13 to H2 H6 H8.
               search.
 
+      apply ctx_member to H2 H8. case H7.
+
     % SA-All, S = all S1 (x\ S2 x), Q = all T1 (x\ T2 x)
     case H4.
-      apply ctx_member to H2 H7.
-
       % SA-Top, T = top
       search.
 
@@ -128,32 +125,34 @@ induction on 1. intros. split*.
               apply H13 to _ H16 H8.
                 search.
 
+      apply ctx_member to H2 H8. case H7.
+
+    apply ctx_member to H2 H6. case H5.
 
   % Proof of narrowing
   % Induction and case analysis on {L, X:Q |- TM <: TN}
   induction on 3. intros. case H5 (keep).
-    apply ctx_member to H3 H6.
-
     % SA-Top, TN = top
     search.
 
     % SA-Refl-TVar, TM = TN, either TM = X or TM is bound in L
-    case H6. case H7.
-      search.
-      search.
+    case H6. case H8.
+      case H7. search.
+      case H3. apply ctx_member to H11 H9. case H7. search.
 
     % SA-Trans-TVar
-    case H6. case H8.
+    case H6. case H9. case H8.
 
       % TM = X
       % Use transitivity result established for Q
       apply IH1 to H3 H4 H7.
         case H3.
-          apply H2 to _ H4 H9. search.
+          apply H2 to _ H4 H10. search.
 
       % TM is bound in L
       % Use inner inductive hypothesis
-      apply IH1 to H3 H4 H7. search.
+      apply IH1 to H3 H4 H7. 
+       case H3. apply ctx_member to H13 H10. case H8. search.
 
     % SA-Arrow, TM = arrow S1 S2, TN = arrow T1 T2
     % Use inner inductive hypothesis
@@ -164,6 +163,8 @@ induction on 1. intros. split*.
     apply IH1 to H3 H4 H6.
       assert ctx (bound X Q :: bound n1 T1 :: L). case H3. search.
         apply IH1 to H9 H4 H7. search.
+
+    apply ctx_member to H3 H7. case H6.
 
 % We can extract the transitivity result from the generalized theorem
 Theorem transitivity : forall L Q S T,

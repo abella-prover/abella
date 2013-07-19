@@ -28,8 +28,27 @@ type restriction =
   | CoEqual of int
   | Irrelevant
 
-type obj = { context : Context.t ;
-             term : term }
+module Async =
+struct
+  type seq = { context : Context.t ;
+                  term : term }
+  let obj ctx t = { context = ctx ; term = t }
+  let get obj = (obj.context, obj.term)
+end
+
+module Sync =
+struct
+  type seq = { context : Context.t ;
+               focus   : term ;
+               term    : term }
+  let obj ctx f t = { context = ctx; focus = f; term = t }
+  let get obj = (obj.context, obj.focus, obj.term)
+end
+
+
+type obj =
+  | Async of Async.seq
+  | Sync of Sync.seq
 
 type binder =
   | Forall
@@ -49,10 +68,7 @@ type metaterm =
 
 (* Constructions *)
 
-let context_obj ctx t = { context = ctx ; term = t }
-let obj t = { context = Context.empty ; term = t }
-
-let termobj t = Obj(obj t, Irrelevant)
+let termobj t = Obj(Async(Async.obj Context.empty t), Irrelevant)
 let arrow a b = Arrow(a, b)
 let forall tids t = if tids = [] then t else Binding(Forall, tids, t)
 let nabla tids t = if tids = [] then t else Binding(Nabla, tids, t)
@@ -67,6 +83,10 @@ let member_const = Term.const "member" (tyarrow [oty; olistty] propty)
 
 let member e ctx =
   pred (app member_const [e; ctx])
+
+let async_to_member obj =
+  let (context, term) = Async.get obj in
+  member term (Context.context_to_term context)
 
 (* Pretty printing *)
 
@@ -89,14 +109,31 @@ let priority t =
     | Arrow _ -> 1
     | Binding _ -> 0
 
-let obj_to_string obj =
+let async_obj_to_string obj =
+  let (ctx, term) = Async.get obj in
   let context =
-    if Context.is_empty obj.context
+    if Context.is_empty ctx
     then ""
-    else (Context.context_to_string obj.context ^ " |- ")
+    else (Context.context_to_string ctx ^ " |- ")
   in
-  let term = term_to_string obj.term in
+  let term = term_to_string term in
     "{" ^ context ^ term ^ "}"
+
+let sync_obj_to_string obj =
+  let (ctx, focus, term) = Sync.get obj in
+  let context =
+    if Context.is_empty ctx
+    then ""
+    else (Context.context_to_string ctx) ^ ", "
+  in
+  let fcs = "[" ^ term_to_string focus ^ "] |- " in
+  let term = term_to_string term in
+    "{" ^ context ^ fcs ^ term ^ "}"
+
+
+let obj_to_string = function
+  | Async obj -> async_obj_to_string obj
+  | Sync obj  -> sync_obj_to_string obj
 
 let binder_to_string b =
   match b with
@@ -174,9 +211,13 @@ let map_on_objs f t =
   in
     aux t
 
-let map_obj f obj =
-  { context = Context.map f obj.context ;
-    term = f obj.term }
+let map_obj f = function
+  | Async obj ->
+      let (ctx, term) = Async.get obj in
+      Async (Async.obj (Context.map f ctx) (f term))
+  | Sync obj ->
+      let (ctx, focus, term) = Sync.get obj in
+      Sync (Sync.obj (Context.map f ctx) (f focus) (f term))
 
 let map_terms f t =
   let rec aux t =
@@ -217,36 +258,45 @@ let map_preds f term =
   in
     aux term
 
-let is_imp t = is_head_name "=>" t
+let is_member = function
+  | Pred (t,_) -> is_head_name "member" t
+  | _ -> false
 
-let extract_imp t =
-  match observe (hnorm t) with
-    | App(t, [a; b]) -> (a, b)
-    | _ -> failwith "Check is_imp before calling extract_imp"
+let extact_member = function
+  | Pred (t,_) -> (
+      match observe (hnorm t) with
+      | App (t, [a;b]) -> (a,b)
+      | _ -> failwith "Check is_member before calling extact_member")
+  | _ -> failwith "Check is_member before calling extact_member"
 
-let move_imp_to_context obj =
-  let a, b = extract_imp obj.term in
-    {context = Context.add a obj.context ; term = b}
 
-let is_pi t = is_head_name "pi" t
+let move_imp_to_context async_obj =
+  let (ctx, term) = Async.get async_obj in
+  let a, b = extract_imp term in
+    Async.obj (Context.add a ctx) b
 
-let extract_pi t =
-  match observe (hnorm t) with
-    | App(t, [abs]) -> abs
-    | _ -> failwith "Check is_pi before calling extract_pi"
 
-let obj_to_member obj =
-  member obj.term (Context.context_to_term obj.context)
-
-let is_obj t =
+let is_async_obj t =
   match t with
-    | Obj _ -> true
+  | Obj (Async _, _) -> true
+  | _ -> false
+
+let term_to_async_obj t =
+  match t with
+  | Obj (Async obj, _) -> obj
+  | _ -> failwith "term_to_obj called on non-async-object"
+
+let is_sync_obj t =
+  match t with
+    | Obj (Sync _,_) -> true
     | _ -> false
 
-let term_to_obj t =
+
+let term_to_sync_obj t =
   match t with
-    | Obj(obj, _) -> obj
-    | _ -> failwith "term_to_obj called on non-object"
+    | Obj(Sync obj, _) -> obj
+    | _ -> failwith "term_to_obj called on non-sync-object"
+
 
 let term_to_restriction t =
   match t with
@@ -270,8 +320,9 @@ let reduce_coinductive_restriction r =
     | CoEqual i -> CoSmaller i
     | _ -> r
 
-let add_to_context elt obj =
-  {obj with context = Context.add elt obj.context}
+let add_to_context elt async_obj =
+  let (ctx, term) = Async.get async_obj in
+  Async.obj (Context.add elt ctx) term
 
 let sig_to_string (name, arity) = name ^ "/" ^ (string_of_int arity)
 
@@ -345,7 +396,12 @@ let rec collect_terms t =
   match t with
     | True | False -> []
     | Eq(a, b) -> [a; b]
-    | Obj(obj, _) -> (Context.context_to_list obj.context) @ [obj.term]
+    | Obj(Async obj, _) ->
+        let (ctx,term) = Async.get obj in
+        (Context.context_to_list ctx) @ [term]
+    | Obj(Sync obj, _) ->
+        let (ctx,focus,term) = Sync.get obj in
+        (Context.context_to_list ctx) @ [focus;term]
     | Arrow(a, b) -> (collect_terms a) @ (collect_terms b)
     | Binding(_, _, body) -> collect_terms body
     | Or(a, b) -> (collect_terms a) @ (collect_terms b)
@@ -356,7 +412,13 @@ let map_term_list f t = List.map f (collect_terms t)
 
 let term_support t = find_var_refs Nominal [t]
 
-let obj_support obj = find_var_refs Nominal (obj.term :: obj.context)
+let obj_support = function
+  | Async obj ->
+      let ctx,term = Async.get obj in
+      find_var_refs Nominal (term :: ctx)
+  | Sync obj ->
+      let ctx,focus,term = Sync.get obj in
+      find_var_refs Nominal (term::focus::ctx)
 
 let metaterm_support t =
   let rec aux t =
@@ -406,21 +468,32 @@ let fresh_nominal ty t =
     | [n] -> n
     | _ -> assert false
 
-let replace_pi_with_nominal obj =
-  let abs = extract_pi obj.term in
+let replace_pi_with_nominal async_obj =
+  let ctx,term = Async.get async_obj in
+  let abs = extract_pi term in
     match tc [] abs with
       | Ty(ty::_, _) ->
-          let nominal = fresh_nominal ty (Obj(obj, Irrelevant)) in
-            {obj with term = app abs [nominal]}
+          let nominal = fresh_nominal ty (Obj(Async async_obj, Irrelevant)) in
+          Async.obj ctx (app abs [nominal])
       | _ -> assert false
 
 let rec normalize_obj obj =
-  if is_imp obj.term then
-    normalize_obj (move_imp_to_context obj)
-  else if is_pi obj.term then
-    normalize_obj (replace_pi_with_nominal obj)
-  else
-    {obj with context = Context.normalize obj.context}
+  let rec aux async_obj =
+    let ctx,term = Async.get async_obj in
+    if is_imp term then
+      aux (move_imp_to_context async_obj)
+    else if is_pi term then
+      aux (replace_pi_with_nominal async_obj)
+    else
+      Async.obj (Context.normalize ctx) term
+  in
+  let norm_ctx sync_obj =
+    let ctx,focus,term = Sync.get sync_obj in
+    Sync.obj (Context.normalize ctx) focus term
+  in
+  match obj with
+  | Async obj -> Async (aux obj)
+  | Sync obj -> Sync (norm_ctx obj)
 
 let rec normalize_binders alist t =
   let term_aux t = replace_term_vars ~tag:Constant alist t in
@@ -532,8 +605,13 @@ let rec meta_right_unify t1 t2 =
     | Eq(l1, r1), Eq(l2, r2) ->
         right_unify l1 l2 ;
         right_unify r1 r2
-    | Obj(o1, _), Obj(o2, _) when Context.equiv o1.context o2.context ->
-        right_unify o1.term o2.term
+    | Obj(Async o1, _), Obj(Async o2, _) when
+        (let ctx1,_ = Async.get o1 in
+        let ctx2,_ = Async.get o2 in
+        Context.equiv ctx1 ctx2) ->
+          let _,term1 = Async.get o1 in
+          let _,term2 = Async.get o2 in
+          right_unify term1 term2
     | Pred(t1, _), Pred(t2, _) ->
         right_unify t1 t2
     | And(l1, r1), And(l2, r2)
@@ -584,9 +662,11 @@ let all_meta_right_permute_unify ~sc t1 t2 =
 (* Check for derivability between objects under permutations. Need
    goal.term to unify with hyp.term and also hyp.context subcontext
    of goal.context. Can assume hyp is ground *)
-let derivable goal hyp =
-  let support_g = obj_support goal in
-  let support_h = obj_support hyp in
+let derivable_sync goal hyp =
+  let gctx,gfocus,gterm = Sync.get goal in
+  let hctx,hfocus,hterm = Sync.get hyp in
+  let support_g = obj_support (Sync goal) in
+  let support_h = obj_support (Sync hyp) in
     if List.length support_g < List.length support_h then
       false
     else
@@ -595,14 +675,40 @@ let derivable goal hyp =
           |> List.exists
               (fun perm_support_g ->
                  let alist = List.combine support_h_names perm_support_g in
-                   try_right_unify goal.term
-                     (replace_term_vars alist hyp.term) &&
+                   try_right_unify gterm
+                     (replace_term_vars alist hterm) &&
+                 (Context.subcontext
+                    (Context.map (replace_term_vars alist) (hfocus::hctx))
+                    (gfocus::gctx)))
+
+let derivable_async goal hyp =
+  let gctx,gterm = Async.get goal in
+  let hctx,hterm = Async.get hyp in
+  let support_g = obj_support (Async goal) in
+  let support_h = obj_support (Async hyp) in
+    if List.length support_g < List.length support_h then
+      false
+    else
+      let support_h_names = List.map term_to_name support_h in
+        support_g |> List.permute (List.length support_h)
+          |> List.exists
+              (fun perm_support_g ->
+                 let alist = List.combine support_h_names perm_support_g in
+                   try_right_unify gterm
+                     (replace_term_vars alist hterm) &&
                      (Context.subcontext
-                        (Context.map (replace_term_vars alist) hyp.context)
-                        goal.context))
+                        (Context.map (replace_term_vars alist) hctx)
+                        gctx))
 
 let metaterm_extract_tids aux_term t =
-  let aux_obj obj = aux_term obj.context @ aux_term [obj.term] in
+  let aux_obj = function
+    | Async obj ->
+        let ctx,term = Async.get obj in
+        aux_term ctx @ aux_term [term]
+    | Sync obj ->
+        let ctx,focus,term = Sync.get obj in
+        aux_term ctx @ aux_term [focus;term]
+  in
   let rec aux = function
     | True | False -> []
     | Eq(a, b) -> aux_term [a; b]
@@ -630,3 +736,22 @@ let def_head_name head =
       | _ -> assert false
   in
     aux head
+
+
+(* Make (head,body) tuples from clauses.
+   The conversion from a term clause to a
+   (head, body) pair without prefixe binders
+   is required for unification. It is also
+   used in some test cases.
+*)
+let clausify term =
+  let (tyctx, term') = replace_pi_with_const term in
+  let rec move_imps obj =
+    let ctx,term = Async.get obj in
+    if is_imp term then
+      move_imps (move_imp_to_context obj)
+    else
+      Async.obj (Context.normalize ctx) term in
+  let body,head = Async.get (move_imps (Async.obj Context.empty term'))
+  in
+  (tyctx,head,body)

@@ -24,7 +24,7 @@ open Printf
 
 type uclause = uterm * uterm list
 
-type clause = term * term list
+type clause = term
 type clauses = clause list
 
 type def_type = Inductive | CoInductive
@@ -74,6 +74,7 @@ type command =
   | CoInduction of id option
   | Apply of id * id list * (id * uterm) list * id option
   | Backchain of id * (id * uterm) list
+  | CutFrom of id * id * uterm * id option
   | Cut of id * id * id option
   | SearchCut of id * id option
   | Inst of id * (id * uterm) list * id option
@@ -217,6 +218,9 @@ let command_to_string c =
     | Cut(h1, h2, hn) ->
         sprintf "cut %s%s with %s"
           (hn_to_string hn) h1 h2
+    | CutFrom(h, arg, t, hn) ->
+        sprintf "cut %s from %s%s with %s"
+          (uterm_to_string t) (hn_to_string hn) h arg
     | SearchCut(h, hn) ->
         sprintf "cut %s%s" (hn_to_string hn) h
     | Inst(h, ws, hn) ->

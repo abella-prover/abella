@@ -13,20 +13,38 @@ Define ctxs : olist -> olist -> prop by
   ctxs nil nil ;
   ctxs (copy X Y :: L1) (copy2 X Y :: L2) := ctxs L1 L2.
 
+Define name : tm -> prop by
+  nabla x, name x.
+
+Theorem ctx_mem1 : forall F L1 L2,
+  ctxs L1 L2 -> member F L1 -> exists X Y, F = copy X Y.
+induction on 1. intros.
+case H1.
+  case H2.
+  case H2. search. apply IH to H3 H4. search.
+
+Theorem ctx_mem2 : forall F L1 L2,
+  ctxs L1 L2 -> member F L2 -> exists X Y, F = copy2 X Y.
+induction on 1. intros.
+case H1.
+  case H2.
+  case H2. search. apply IH to H3 H4. search.
+
 
 %% copy implies copy2
 
 % show that copy2 could descend under abstractions like copy
 
-Theorem copy2_align : forall M N L, nabla z,
+Theorem copy2_align : forall M N K L, nabla z,
+  ctxs K L ->
   {L, copy2 z z |- copy2 (M z) (N z)} ->
     nabla x y, {L, copy2 x y |- copy2 (M x) (N y)}.
-induction on 1. intros. case H1.
-  case H2.
-    search.
-    apply member_fresh to H3. search.
-  apply IH to H2. apply IH to H3. search.
-  apply IH to H2. search.
+induction on 2. intros. case H2.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+  apply IH to _ H3. search.
+  case H4.
+    case H3. search.
+    apply member_fresh to H5. apply ctx_mem2 to H1 H5. case H3. search.
 
 Theorem ctxs_member1 : forall X Y L K,
   ctxs L K -> member (copy X Y) L -> member (copy2 X Y) K.
@@ -40,9 +58,9 @@ induction on 1. intros. case H1.
 Theorem copy_copy2 : forall L K M N,
   ctxs L K -> {L |- copy M N} -> {K |- copy2 M N}.
 induction on 2. intros. case H2.
-  apply ctxs_member1 to H1 H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
-  apply IH to _ H3. apply copy2_align to H4. search.
+  apply IH to _ H3. apply copy2_align to H1 H4. search.
+  apply ctx_mem1 to H1 H4. case H3. apply ctxs_member1 to H1 H4. search.
 
 
 %% copy2 implies copy
@@ -66,6 +84,6 @@ induction on 1. intros. case H1.
 Theorem copy2_copy : forall L K M N,
   ctxs L K -> {K |- copy2 M N} -> {L |- copy M N}.
 induction on 2. intros. case H2.
-  apply ctxs_member2 to H1 H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
   apply IH to _ H3. apply copy_align to H4. search.
+  apply ctx_mem2 to H1 H4. case H3. apply ctxs_member2 to H1 H4. search.

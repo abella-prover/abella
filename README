@@ -1,10 +1,14 @@
 Quick Start
 ===========
 
-Compile Abella by running "make" from the root directory. Use the
-following walkthrough for an introduction to using Abella:
+Compile Abella by running "make" from the root directory. This will
+create the binary "abella" (on Unix-like systems, including Mac OS X),
+or "abella.exe" (on Windows). This binary can be freely copied
+anywhere.
 
-  http://abella.cs.umn.edu/walkthrough.html
+Use the following walkthrough for an introduction to using Abella:
+
+  http://abella-prover.org/walkthrough.html
 
 
 More Information
@@ -12,8 +16,18 @@ More Information
 
 More information on Abella is available at
 
-  http://abella.cs.umn.edu/
+  http://abella-prover.org/
 
 
-Please report all bugs, feature request, and comments to Andrew Gacek
-(andrew.gacek@gmail.com).
+Bugs, Feature Requests, and Issues
+==================================
+
+Please report all bugs, feature requests, and issues on the GitHub
+issue tracker for Abella, available from:
+
+  https://github.com/abella-prover/abella/issues
+
+
+Discussion of Abella and its uses happens on this mailing list.
+
+  http://groups.google.com/group/abella-theorem-prover

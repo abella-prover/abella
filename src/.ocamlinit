@@ -1,0 +1,10 @@
+(* -*- mode: typerex; -*- *)
+let __interactive = !Sys.interactive ;;
+Sys.interactive := false ;;
+#use "topfind" ;;
+Sys.interactive := __interactive ;;
+#require "str" ;;
+#directory "../_build" ;;
+#directory "../_build/src" ;;
+#load "abella.cma" ;;
+Printf.printf "Abella version %s loaded.\n%!" Version.version ;;

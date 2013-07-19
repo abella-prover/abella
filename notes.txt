@@ -1,8 +1,0 @@
-* The term uses De Brujin index for bounded varaibles (both in term and metaterm). That is 'DB' constructor is for bounded variables. 'Var' constructor is for free variables. The abstraction 'Lam' does not refer to bounded variables because there is no need to have them in De Brujin form 
-* 'Susp' constructor for term is a suspended substitution. 
-* 'hnorm' normalize a lambda term into head normal form (that is
-the head is always a 'Var' or 'DB' term).
-* environment is only used in substitution.
-* 'observe' and 'hnorm' take care of the all the pointers and suspended substitution. No need to worry about them once these
-functions are applied on terms.
-* Constant 'Var's include all the logical constants ("=>", "pi", "sigma", etc) and the constants in the signatures files('.sig' files).

@@ -15,7 +15,7 @@
 % but the proof below uses only features of LINC.
 %
 % The Abella prover and documentation can be downloaded from
-%  http://abella.cs.umn.edu/
+%  http://abella-prover.org/
 
 Specification "pic".
 

@@ -314,11 +314,11 @@ def contents(elements)
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
 <head>
 <title>Abella: #{title}</title>
-<link href="http://abella.cs.umn.edu/style.css" rel="stylesheet" type="text/css" />
-<link rel="icon" href="http://abella.cs.umn.edu/images/favicon.ico" type="image/x-icon" />
-<link rel="shortcut icon" href="http://abella.cs.umn.edu/images/favicon.ico"
+<link href="http://abella-prover.org/style.css" rel="stylesheet" type="text/css" />
+<link rel="icon" href="http://abella-prover.org/images/favicon.ico" type="image/x-icon" />
+<link rel="shortcut icon" href="http://abella-prover.org/images/favicon.ico"
         type="image/x-icon" />
-<script src="http://abella.cs.umn.edu/jquery.js"></script>
+<script src="http://abella-prover.org/jquery.js"></script>
 <script type="text/javascript">
 $(function() {
   $('.proof').hide();
@@ -353,8 +353,8 @@ $(function() {
 <body>
 
 <div id="logo-small">
-<a href="http://abella.cs.umn.edu/index.html">
-<img src="http://abella.cs.umn.edu/images/logo-small.png"/>
+<a href="http://abella-prover.org/index.html">
+<img src="http://abella-prover.org/images/logo-small.png"/>
 </a>
 </div>
 

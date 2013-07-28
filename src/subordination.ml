@@ -46,8 +46,7 @@ let add (graph, closed) a b =
     if Graph.is_path graph a b then
       (graph, closed)
     else
-      failwith (Printf.sprintf
-                  "Type %s is closed and cannot be subordinated by %s" b a)
+      failwithf "Type %s is closed and cannot be subordinated by %s" b a
   else
     (Graph.add_arc graph a b, closed)
 

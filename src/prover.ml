@@ -678,8 +678,7 @@ let ensure_is_inductive term =
                   (sprintf "Cannot induct on %s since it has\
                           \ been coinductively defined" pname)
           with Not_found ->
-            failwith (sprintf "Cannot induct on %s since it has\
-                             \ not been defined" pname)
+            failwithf "Cannot induct on %s since it has not been defined" pname
           end
     | _ -> failwith "Can only induct on predicates and judgments"
 
@@ -721,8 +720,7 @@ let ensure_is_coinductive p =
             (sprintf "Cannot coinduct on %s since it has\
                     \ been inductively defined" pname)
     with Not_found ->
-      failwith (sprintf "Cannot coinduct on %s since it has\
-                       \ not been defined" pname)
+      failwithf "Cannot coinduct on %s since it has not been defined" pname
 
 let coinduction ?name () =
   ensure_is_coinductive (conclusion sequent.goal) ;
@@ -961,7 +959,7 @@ let unabbrev ids =
 let rename hfr hto =
   try begin
     ignore (get_hyp_or_lemma hto) ;
-    failwith (sprintf "%S already refers to a hypothesis or lemma" hto)
+    failwithf "%S already refers to a hypothesis or lemma" hto
   end with Not_found ->
     let hyps = List.map begin
       fun h ->

@@ -139,8 +139,7 @@ let check_theorem thm =
 
 let ensure_not_capital name =
   if is_capital_name name then
-    failwith (sprintf "Defined predicates may not begin with \
-                       a capital letter.")
+    failwith "Defined predicates may not begin with a capital letter."
 
 let ensure_name_contained id ids =
   if not (List.mem id ids) then
@@ -168,7 +167,7 @@ let check_noredef ids =
   let (_, ctable) = !sign in
     List.iter (
       fun id -> if List.mem id (List.map fst ctable) then
-        failwith (sprintf "%s is already defined" id)
+        failwithf "%s is already defined" id
     ) ids
 
 (* Compilation and importing *)
@@ -216,15 +215,15 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   (* 1. Imported ktable must be a subset of ktable *)
   let missing_types = List.minus imp_ktable ktable in
   let () = if missing_types <> [] then
-    failwith (sprintf "Imported file makes reference to unknown types: %s"
-                (String.concat ", " missing_types))
+    failwithf "Imported file makes reference to unknown types: %s"
+      (String.concat ", " missing_types)
   in
 
   (* 2. Imported ctable must be a subset of ctable *)
   let missing_consts = List.minus imp_ctable ctable in
   let () = if missing_consts <> [] then
-    failwith (sprintf "Imported file makes reference to unknown constants: %s"
-                (String.concat ", " (List.map fst missing_consts)))
+    failwithf "Imported file makes reference to unknown constants: %s"
+      (String.concat ", " (List.map fst missing_consts))
   in
 
   (* 3. Imported clauses must be a subset of clauses *)
@@ -232,8 +231,8 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
     List.minus ~cmp:clause_eq imp_spec_clauses !clauses
   in
   let () = if missing_clauses <> [] then
-    failwith (sprintf "Imported file makes reference to unknown clauses for: %s"
-                (String.concat ", " (clauses_to_predicates missing_clauses)))
+    failwithf "Imported file makes reference to unknown clauses for: %s"
+      (String.concat ", " (clauses_to_predicates missing_clauses))
   in
 
   (* 4. Clauses for imported predicates must be subset of imported clauses *)
@@ -247,8 +246,8 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
       imp_spec_clauses
   in
   let () = if extended_clauses <> [] then
-    failwith (sprintf "Cannot import file since clauses have been extended for: %s"
-                (String.concat ", " (clauses_to_predicates extended_clauses)))
+    failwithf "Cannot import file since clauses have been extended for: %s"
+      (String.concat ", " (clauses_to_predicates extended_clauses))
   in
 
     ()

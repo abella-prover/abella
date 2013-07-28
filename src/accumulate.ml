@@ -83,8 +83,8 @@ let rec get_sign_accum_sigs filename =
         H.add sig_cache filename None ;
         let Sig(name, accums, decls) = read_lpsig filename in
           if name <> filename then
-            failwith (sprintf "Expected 'sig %s.' but found 'sig %s.'"
-                        filename name) ;
+            failwithf "Expected 'sig %s.' but found 'sig %s.'"
+              filename name ;
           let accum_signs = List.map get_sign accums in
           let sign = merge_signs (pervasive_sign :: accum_signs) in
           let sign = List.fold_left add_decl sign decls in
@@ -100,9 +100,9 @@ let ensure_no_redefine_keywords name uclauses =
   List.iter
     (fun (head, _) ->
        let id = uterm_head_name head in
-         if id = "pi" || id = "=>" then
-           failwith (sprintf "Module %s attempts to re-define keyword %s"
-                       name id))
+         if id = "pi" || id = "=>" || id = "&" then
+           failwithf "Module %s attempts to re-define keyword %s"
+             name id)
     uclauses
 
 let rec get_named_clauses ~sr filename =
@@ -114,14 +114,14 @@ let rec get_named_clauses ~sr filename =
         H.add mod_cache filename None ;
         let Mod(name, accumulate, uclauses) = read_lpmod filename in
           if name <> filename then
-            failwith (sprintf "Expected 'module %s.' but found 'module %s.'"
-                        filename name) ;
+            failwithf "Expected 'module %s.' but found 'module %s.'"
+              filename name ;
           ensure_no_redefine_keywords name uclauses ;
           let (sign, accum_sigs) = get_sign_accum_sigs filename in
           let non_accum = List.minus accumulate accum_sigs in
           let () = if non_accum <> [] then
-            failwith (sprintf "Signature %s must accum_sig %s."
-                        filename (String.concat ", " non_accum))
+            failwithf "Signature %s must accum_sig %s."
+              filename (String.concat ", " non_accum)
           in
           let accum_clauses = List.flatten_map (get_named_clauses ~sr) accumulate in
           let nclauses = (merge_named_clauses accum_clauses) @

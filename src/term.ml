@@ -202,15 +202,11 @@ let set_scoped_bind_state state =
       | [] -> assert false
   done
 
-type 'a result = Success of 'a | Error of exn
-
 let unwind_state f x =
   let state = get_scoped_bind_state () in
-  let result = try Success (f x) with e -> Error e in
+  let result = f x in
   set_scoped_bind_state state ;
-  match result with
-  | Success res -> res
-  | Error e -> raise e
+  result
 
 (* Recursively raise dB indices and abstract over variables
  * selected by [test]. *)

@@ -131,7 +131,7 @@ let freshen str =
     | Binding(Metaterm.Forall, fv, body) ->
         let ctx = fresh_alist ~tag:Term.Eigen ~used:[] fv in
           replace_metaterm_vars ctx body
-    | _ -> assert false
+    | t -> t
 
 (* Custom asserts *)
 

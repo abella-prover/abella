@@ -485,6 +485,8 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
     match term with
       | Obj(Async obj, r) -> async_case obj r
       | Obj(Sync obj, r)  -> sync_case obj r
+      | True -> [stateless_case_to_case empty_case]
+      | False -> []
       | Pred(_, CoSmaller _) -> failwith "Cannot case analyze hypothesis\
                                           \ with coinductive restriction"
       | Pred(p, r) ->
@@ -928,20 +930,18 @@ let search ~depth:n ~hyps ~clauses ~alldefs
 (* Apply one statement to a list of other statements *)
 
 let check_restrictions formal actual =
-  try
-    List.iter2 (fun fr ar -> match fr, ar with
-        | Smaller i, Smaller j when i = j -> ()
-        | Equal i, Smaller j when i = j -> ()
-        | Equal i, Equal j when i = j -> ()
-        | Irrelevant, _ -> ()
-        | _ -> failwith "Inductive restriction violated")
-      formal actual
-  with
-  | Invalid_argument "List.iter2" ->
+  if (List.length formal <> List.length actual) then
     failwithf "%s arguments to apply" begin
       let diff = compare (List.length formal) (List.length actual) in
       if diff > 0 then "Not enough" else "Too many"
-    end
+    end ;
+  List.iter2 (fun fr ar -> match fr, ar with
+                | Smaller i, Smaller j when i = j -> ()
+                | Equal i, Smaller j when i = j -> ()
+                | Equal i, Equal j when i = j -> ()
+                | Irrelevant, _ -> ()
+                | _ -> failwith "Inductive restriction violated")
+    formal actual
 
 let rec map_args f t =
   match t with
@@ -1071,19 +1071,21 @@ let rec instantiate_withs term withs =
   match term with
     | Binding(Forall, binders, body) ->
         let binders', withs' = take_from_binders binders withs in
+        let binders_as_withs = List.map (fun (x, t) -> (x, const x t)) binders' in
         let body, used_nominals =
-          instantiate_withs (replace_metaterm_vars withs' body) withs
+          instantiate_withs (replace_metaterm_vars (withs' @ binders_as_withs) body) withs
         in
           (normalize (forall binders' body), used_nominals)
     | Binding(Nabla, binders, body) ->
         let binders', withs' = take_from_binders binders withs in
+        let binders_as_withs = List.map (fun (x, t) -> (x, const x t)) binders' in
         let nominals = List.map snd withs' in
         let support = metaterm_support body in
           ensure_unique_nominals nominals ;
           if List.exists (fun x -> List.mem x support) nominals then
             failwith "Invalid instantiation for nabla variable" ;
           let body, used_nominals =
-            instantiate_withs (replace_metaterm_vars withs' body) withs
+            instantiate_withs (replace_metaterm_vars (withs' @ binders_as_withs) body) withs
           in
             (normalize (nabla binders' body), nominals @ used_nominals)
     | _ -> (term, [])

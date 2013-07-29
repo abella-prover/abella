@@ -72,7 +72,7 @@
 
 %}
 
-%token IMP IF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
+%token IMP IF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ BANG
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
@@ -84,6 +84,7 @@
 
 %token <int> NUM
 %token <string> STRINGID QSTRING
+%token <string> STRINGID BSTRING
 %token EOF
 
 /* Lower */
@@ -252,6 +253,20 @@ lpend:
   | END                                  { }
   |                                      { }
 
+
+sclause_list:
+  | existsopt nablaopt term_tup                { [($1,$2,$3)] }
+  | existsopt nablaopt term_tup SEMICOLON sclause_list  { ($1,$2,$3)::$5}
+
+
+term_tup:
+  | term                                 { [$1] }
+  | LPAREN term_list RPAREN              { $2   }
+
+term_list:
+  | term                                 { [$1] }
+  | term COMMA term_list                 { $1::$3}
+
 id_list:
   | id                                   { [$1] }
   | id COMMA id_list                     { $1::$3}
@@ -283,6 +298,18 @@ defs:
 def:
   | metaterm                             { ($1, UTrue) }
   | metaterm DEFEQ metaterm              { ($1, $3) }
+
+existsopt:
+  | EXISTS utbinding_list COMMA            { $2 }
+  |                                      { [] }
+
+nablaopt:
+  | NABLA utbinding_list COMMA            { $2 }
+  |                                      { [] }
+
+opt_perm:
+|  LPAREN perm_ids RPAREN                {Some $2}
+|                                        { None}
 
 perm:
   | LPAREN perm_ids RPAREN               { $2 }
@@ -338,6 +365,7 @@ pure_command:
   | MONOTONE hyp WITH term DOT                { Types.Monotone($2, $4) }
   | PERMUTE perm DOT                          { Types.Permute($2, None) }
   | PERMUTE perm hyp DOT                      { Types.Permute($2, Some $3) }
+  | STRINGID BSTRING                          { Types.TacPlugin($1,$2)}
 
 hhint:
   | STRINGID COLON                       { Some $1 }
@@ -380,9 +408,14 @@ binder:
   | EXISTS                               { Metaterm.Exists }
   | NABLA                                { Metaterm.Nabla }
 
+utbinding_list:
+  | id utbinding_list                    { $1::$2 }
+  | id                                 { [$1] }
+
 binding_list:
   | paid binding_list                    { $1::$2 }
   | paid                                 { [$1] }
+
 
 restriction:
   |                                      { Metaterm.Irrelevant }
@@ -430,6 +463,7 @@ pure_top_command:
   | CLOSE id_list DOT                    { Types.Close($2) }
   | SSPLIT id DOT                        { Types.SSplit($2, []) }
   | SSPLIT id AS id_list DOT             { Types.SSplit($2, $4) }
+  | STRINGID BSTRING            { Types.TopPlugin($1,$2)}
 
 common_command:
   | SET id id DOT                        { Types.Set($2, Types.Str $3) }

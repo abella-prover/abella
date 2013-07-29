@@ -59,6 +59,8 @@ type top_command =
   | Close of id list
   | SSplit of id * id list
   | TopCommon of common_command
+  | TopPlugin of id * string
+(*  | Schema of id * (id list * id list * uterm list) list *)
 
 type compiled =
   | CTheorem of id * metaterm
@@ -73,6 +75,7 @@ type command =
   | Induction of int list * id option
   | CoInduction of id option
   | Apply of id * id list * (id * uterm) list * id option
+  | TacPlugin of id * string
   | Backchain of id * (id * uterm) list
   | CutFrom of id * id * uterm * id option
   | Cut of id * id * id option
@@ -157,7 +160,9 @@ let top_command_to_string tc =
         sprintf "Theorem %s : \n%s" name (umetaterm_to_formatted_string body)
     | Define(idtys, udefs) ->
         sprintf "Define %s by \n%s"
-          (idtys_to_string idtys) (udefs_to_string udefs) ;
+          (idtys_to_string idtys)  (udefs_to_string udefs) ;
+    | TopPlugin(pn,st) ->
+	pn^"!"^st^"!"
     | CoDefine(idtys, udefs) ->
         sprintf "CoDefine %s by \n%s"
           (idtys_to_string idtys) (udefs_to_string udefs) ;
@@ -181,6 +186,11 @@ let top_command_to_string tc =
     | TopCommon(cc) ->
         common_command_to_string cc
 
+let rec str_repeat n s = 
+  match n with
+  |  0 -> ""
+  |  n -> s^(str_repeat (n-1) s)
+
 let withs_to_string ws =
   String.concat ", "
     (List.map (fun (x,t) -> x ^ " = " ^ (uterm_to_string t)) ws)
@@ -196,6 +206,8 @@ let command_to_string c =
           (String.concat " " (List.map string_of_int is))
     | CoInduction None -> "coinduction"
     | CoInduction (Some hn) -> "coinduction " ^ hn
+    | TacPlugin(pn,st) ->
+	pn^"!"^st^"!"
     | Apply(h, [], [], hn) ->
         sprintf "apply %s" h
     | Apply(h, hs, [], hn) ->

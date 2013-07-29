@@ -27,6 +27,8 @@ open Printf
 open Debug
 open Accumulate
 
+
+
 let can_read_specification = ref true
 
 let interactive = ref true
@@ -42,6 +44,18 @@ let count = ref 0
 let witnesses = ref false
 
 exception AbortProof
+
+(* Plugins *)
+
+
+module type PLUGIN = sig 
+  val process_tactic : (string -> Prover.sequent) -> string -> Prover.sequent -> unit
+  val process_top : (string -> unit) -> string -> unit
+end
+
+let plugins : (string, (module PLUGIN)) Hashtbl.t = Hashtbl.create 2
+
+
 
 (* Input *)
 
@@ -139,7 +153,8 @@ let check_theorem thm =
 
 let ensure_not_capital name =
   if is_capital_name name then
-    failwith "Defined predicates may not begin with a capital letter."
+    failwith (sprintf "Defined predicates may not begin with \
+                       a capital letter.")
 
 let ensure_name_contained id ids =
   if not (List.mem id ids) then
@@ -167,7 +182,7 @@ let check_noredef ids =
   let (_, ctable) = !sign in
     List.iter (
       fun id -> if List.mem id (List.map fst ctable) then
-        failwithf "%s is already defined" id
+        failwith (sprintf "%s is already defined" id)
     ) ids
 
 (* Compilation and importing *)
@@ -215,15 +230,15 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   (* 1. Imported ktable must be a subset of ktable *)
   let missing_types = List.minus imp_ktable ktable in
   let () = if missing_types <> [] then
-    failwithf "Imported file makes reference to unknown types: %s"
-      (String.concat ", " missing_types)
+    failwith (sprintf "Imported file makes reference to unknown types: %s"
+                (String.concat ", " missing_types))
   in
 
   (* 2. Imported ctable must be a subset of ctable *)
   let missing_consts = List.minus imp_ctable ctable in
   let () = if missing_consts <> [] then
-    failwithf "Imported file makes reference to unknown constants: %s"
-      (String.concat ", " (List.map fst missing_consts))
+    failwith (sprintf "Imported file makes reference to unknown constants: %s"
+                (String.concat ", " (List.map fst missing_consts)))
   in
 
   (* 3. Imported clauses must be a subset of clauses *)
@@ -231,8 +246,8 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
     List.minus ~cmp:clause_eq imp_spec_clauses !clauses
   in
   let () = if missing_clauses <> [] then
-    failwithf "Imported file makes reference to unknown clauses for: %s"
-      (String.concat ", " (clauses_to_predicates missing_clauses))
+    failwith (sprintf "Imported file makes reference to unknown clauses for: %s"
+                (String.concat ", " (clauses_to_predicates missing_clauses)))
   in
 
   (* 4. Clauses for imported predicates must be subset of imported clauses *)
@@ -246,8 +261,8 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
       imp_spec_clauses
   in
   let () = if extended_clauses <> [] then
-    failwithf "Cannot import file since clauses have been extended for: %s"
-      (String.concat ", " (clauses_to_predicates extended_clauses))
+    failwith (sprintf "Cannot import file since clauses have been extended for: %s"
+                (String.concat ", " (clauses_to_predicates extended_clauses)))
   in
 
     ()
@@ -311,6 +326,11 @@ let import filename =
       fprintf !out "Importing from %s\n%!" filename ;
       aux filename
     end
+
+
+
+
+
 
 
 (* Proof processing *)
@@ -411,12 +431,17 @@ let rec process_proof name =
             fprintf !out "%s%s.%s\n%!" pre (command_to_string input) post
         end ;
         save_undo_state () ;
-        begin match input with
-          | Induction(args, hn) -> induction ?name:hn args
-          | CoInduction hn -> coinduction ?name:hn ()
-          | Apply(h, args, ws, hn) -> apply ?name:hn h args ws ~term_witness
-          | Backchain(h, ws) -> backchain h ws ~term_witness
-          | Cut(h, arg, hn) -> cut ?name:hn h arg
+      begin match input with
+      | Induction(args, hn) -> induction ?name:hn args
+      | CoInduction hn -> coinduction ?name:hn ()
+      |	TacPlugin (pn, st) -> 
+	  let (module Plug) = (try Hashtbl.find plugins pn
+                with Not_found -> failwith (sprintf "Unknown plugin %s.\n" pn)) in 
+	  Plug.process_tactic (recursePPOn) st (copy_sequent())
+   | Apply(h, args, ws, hn) ->  
+     apply ?name:hn h args ws ~term_witness;
+      | Backchain(h, ws) -> backchain h ws ~term_witness
+      | Cut(h, arg, hn) -> cut ?name:hn h arg
           | CutFrom(h, arg, t, hn) -> cut_from ?name:hn h arg t
           | SearchCut(h, hn) -> search_cut ?name:hn h
           | Inst(h, ws, hn) -> inst ?name:hn h ws
@@ -449,7 +474,7 @@ let rec process_proof name =
               fprintf !out "\n%!" ;
               suppress_display := true
           | Common(Quit) -> raise End_of_file
-        end ;
+      end ;
         if !interactive then flush stdout ;
     with
       | Failure "lexing: empty token" ->
@@ -466,7 +491,7 @@ let rec process_proof name =
             perform_switch_to_interactive ()
           else begin
             fprintf !out "Proof NOT completed.\n%!" ;
-            exit 1
+            failwith "eof"
           end
       | AbortProof ->
           fprintf !out "Proof aborted.\n%!" ;
@@ -484,6 +509,25 @@ let rec process_proof name =
           interactive_or_exit ()
     done with
       | Failure "eof" -> ()
+(* plugin entry point *)
+and recursePPOn ?quiet:(q=true) aStr = 
+  if aStr = "" then () else 
+  if not q then printf "/* %s */" aStr;
+   let holdout = ref !out in
+   let holdbuf = ref !lexbuf in
+   lexbuf := Lexing.from_string aStr;
+   if q then out := open_out "/dev/null";
+   begin try 
+   process_proof "";
+   out := !holdout;
+   lexbuf := !holdbuf;
+   copy_sequent()
+   with AbortProof ->
+     out := !holdout; lexbuf := !holdbuf; failwith  (sprintf "error while recursePPOn %s" aStr)
+   |  e -> out := !holdout; lexbuf := !holdbuf; printf "Error while recursePPOn %s \n" aStr; raise e  end
+
+
+
 
 let rec process () =
   try while true do try
@@ -495,8 +539,8 @@ let rec process () =
     fprintf !out "Abella < %!" ;
     let input = Parser.top_command Lexer.token !lexbuf in
       if not !interactive then begin
-          let pre, post = if !annotate then "<b>", "</b>" else "", "" in
-            fprintf !out "%s%s.%s\n%!" pre (top_command_to_string input) post
+          let pre, post = if !annotate then "<b>", "</b>" else "", "" in 
+	    fprintf !out "%s%s.%s\n%!" pre (top_command_to_string input) post 
       end ;
       begin match input with
         | Theorem(name, thm) ->
@@ -525,6 +569,10 @@ let rec process () =
                 commit_global_consts local_sr local_sign ;
                 compile (CDefine(idtys, defs)) ;
                 add_defs ids Inductive defs
+	| TopPlugin(pn, st) ->	  
+	    let (module Plug) = (try Hashtbl.find plugins pn
+            with Not_found -> failwith (sprintf "Unknown plugin %s.\n" pn)) in 
+	    Plug.process_top recursePOn st
         | CoDefine(idtys, udefs) ->
             let ids = List.map fst idtys in
               check_noredef ids;
@@ -580,11 +628,12 @@ let rec process () =
         if !switch_to_interactive then
           perform_switch_to_interactive ()
         else begin
-          fprintf !out "Goodbye.\n%!" ;
+	  fprintf !out "Goodbye.\n%!" ;
           ensure_finalized_specification () ;
           write_compilation () ;
           if !annotate then fprintf !out "</pre>\n%!" ;
-          exit 0
+	  failwith "eof"
+         (*  exit 0 *)
         end
     | Parsing.Parse_error ->
         eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
@@ -598,6 +647,22 @@ let rec process () =
         interactive_or_exit ()
   done with
   | Failure "eof" -> ()
+(* plugin entry point *)
+and recursePOn ?quiet:(q=true) aStr = 
+  if aStr = "" then () else 
+  if not q then printf "/* %s */" aStr;
+   let holdout = ref !out in
+   let holdbuf = ref !lexbuf in
+   lexbuf := Lexing.from_string aStr;
+   if q then out := open_out "/dev/null";
+   begin try 
+   process ();
+   out := !holdout;
+   lexbuf := !holdbuf;
+   ()
+   with   e -> out := !holdout; lexbuf := !holdbuf; printf "Error while recursePOn %s \n" aStr; raise e  end 
+
+
 
 
 (* Command line and startup *)

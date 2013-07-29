@@ -36,7 +36,7 @@ let number = ['0'-'9'] +
 let ichar = ['A'-'Z' 'a'-'z' '-' '^' '>' '<' '=' '`' '\'' '?' '$' '~']
 
 (* Characters allowed only in the body of variables. *)
-let bchar = ['0'-'9' '_' '/' '*' '@' '+' '#' '!' '&']
+let bchar = ['0'-'9' '_' '/' '*' '@' '+' '#' '&']
 
 let name = ichar (ichar|bchar)*
 let blank = ' ' | '\t' | '\r'
@@ -50,6 +50,8 @@ rule token = parse
 
 | '"' ([^ '"']* as s) '"'
                      { QSTRING s }
+| '!' ([^ '!']* as s) '!'
+                    { BSTRING s}
 
 | "kind"             { KIND }
 | "type"             { TYPE }
@@ -61,7 +63,6 @@ rule token = parse
 | "accum_sig"        { ACCUMSIG }
 | "accumulate"       { ACCUM }
 | "end"              { END }
-
 | "=>"               { IMP }
 | "<="               { IF }
 | ":-"               { CLAUSEEQ }
@@ -88,6 +89,7 @@ rule token = parse
 | "Theorem"          { THEOREM }
 | "Define"           { DEFINE }
 | "CoDefine"         { CODEFINE }
+
 | "Query"            { QUERY }
 | "Import"           { IMPORT }
 | "Specification"    { SPECIFICATION }

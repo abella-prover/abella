@@ -14,6 +14,10 @@ clean:
 	$(RM) src/version.ml
 	$(RM) abella abella.exe
 
+.PHONY: byte
+byte:
+	$(OCB) src/abella.byte
+
 .PHONY: gitclean
 gitclean:
 	git clean -xfd -e examples

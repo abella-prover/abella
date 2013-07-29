@@ -480,7 +480,7 @@ let rec process_proof name =
           type_inference_error ci exp act ;
           interactive_or_exit ()
       | e ->
-          eprintf "Error: %s\n%!" (Printexc.to_string e) ;
+          eprintf "Error: %s\n%s%!" (Printexc.to_string e) (Printexc.get_backtrace ()) ;
           interactive_or_exit ()
     done with
       | Failure "eof" -> ()

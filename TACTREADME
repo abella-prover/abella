@@ -20,11 +20,11 @@ COMMAND :=
   | unique    <HYP-NAME> <HYP-NAME> <HYP-NAME>
   | projas ( <TERM> )  <HYP-NAME>
 
-MAYEXISTS :=
+OPTEXISTS :=
   | exists <ID LIST>, 
   |
 
-MAYNABLAS :=
+OPTNABLAS :=
   | nabla <ID LIST>,
   |
 

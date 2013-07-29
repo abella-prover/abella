@@ -54,7 +54,7 @@ module type PLUGIN = sig
 end
 
 let plugins : (string, (module PLUGIN)) Hashtbl.t = Hashtbl.create 2
-
+let _ = Hashtbl.add plugins "Ctx" (module Schema : PLUGIN )
 
 
 (* Input *)

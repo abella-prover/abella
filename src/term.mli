@@ -63,10 +63,11 @@ val observe : term -> rawterm
   * There is probably more to come here. *)
 
 val var : tag -> string -> int -> ty -> term
-
+val lam : tyctx -> term -> term
 val app : term -> term list -> term
 val susp : term -> int -> int -> env -> term
 val db : int -> term
+
 
 module Notations :
 sig

@@ -55,6 +55,8 @@ let rec observe = function
 
 let db n = DB n
 
+let lam tyctx t = Lam (tyctx, t)
+
 let get_ctx_tys tyctx = List.map snd tyctx
 
 let rec lambda idtys t =

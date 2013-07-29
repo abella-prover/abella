@@ -1,0 +1,128 @@
+Specification "breduce".
+
+Close tm, p.
+
+
+Ctx !
+Schema ctx2 := nabla x p, (bred x x, path x p);
+               exists N, nabla x, ((pi u\ bred N u => bred x u), (pi q\ path N q => path x q)). !
+
+
+
+Theorem ctx2_mem_G :
+    forall G D F,
+    ctx2 G D -> member F G ->
+    (   (exists p x, member (path x p) D /\ F = bred x x /\  name_p p /\ name_tm x)
+     \/ (exists N x, member (pi q\ path N q => path x q) D /\ F = (pi u\ bred N u => bred x u) /\  fresh_tm_in_tm x N)).
+intros Hctx  Hmem. Ctx ! inversion Hctx Hmem.! search.
+
+
+Theorem ctx2_uniform :
+  forall G D X, nabla n,
+  ctx2 G D ->
+  member (pi u\ bred X u => bred n u) G ->
+  (member (pi q\ path X q => path n q) D /\ fresh_tm_in_tm n X).
+intros Hctx Hmem. Ctx ! sync Hctx Hmem. ! search.
+
+
+Theorem member_D_determinate :
+   forall G D X Y, nabla n,
+   ctx2 G D ->
+   member (pi q\ path X q => path n q) D ->
+   member (pi q\ path Y q => path n q) D ->
+   X = Y.
+intros Hctx Hmem1 Hmem2. Ctx ! unique Hctx Hmem1 Hmem2. ! search.
+
+
+
+
+
+
+Theorem member_D_discrim :
+   forall G D X P, nabla n,
+   ctx2 (G n) (D n) ->
+   member (pi q\ path X q => path n q) (D n) ->
+   member (path n P) (D n) ->
+   false.
+induction on 1. intros. case H1.
+  case H2.
+  case H2. case H3. apply IH to H4 H5 H6.
+  case H2. apply member_prune_tm to H5.
+  case H2. case H3. apply IH to H4 H5 H6.
+  case H3. apply member_prune_tm to H5.
+
+Theorem jump_D_invert :
+   forall G D X P, nabla n,
+   ctx2 (G n) (D n) ->
+   member (pi q\ path X q => path n q) (D n) ->
+   { D n |- path n P } -> { D n |- path X P }.
+intros. case H3.
+Ctx ! inversion H1 H5. ! case H6.
+  case H4. apply member_D_discrim to H1 H2 H5.
+  case H4. Ctx ! unique H1 H2 H5.! search.
+
+
+Theorem bred_ltr :
+  forall G D M N P,
+  ctx2 G D ->
+  { G |- bred M N } ->
+  { D |- path M P } -> { D |- path N P }.
+induction on 2.
+intros. case H2 (keep).
+  case H3.
+    apply IH to _ H4 H5. search.
+    Ctx ! inversion H1 H6.! case H7.
+      case H10. case H5. case H9. case H5.
+  case H3.
+    apply IH to _ H4 H6. search.
+    apply IH to _ H5 H6. search.
+    Ctx ! inversion H1 H7.! case H8.
+      case H11. case H6. case H10. case H6.
+  case H3.
+    apply IH to _ H4 H5.
+     inst H6 with n1 = N1.
+     assert {D |- pi q\ path N1 q => path N1 q}.
+     cut H7 with H8. search.
+    Ctx ! inversion H1 H6.! case H7.
+     case H10. case H5. case H9. case H5.
+    Ctx ! inversion H1 H5.! case H6.
+    case H8. case H4. search.
+    case H8. case H4.
+     assert {D n1 |- path X P}.
+       Ctx ! sync H1 H5.! 
+       apply jump_D_invert to H1 H10 H3. search.
+     apply IH to H1 H9 H10. search.
+
+Theorem bred_rtl :
+  forall G D M N P,
+  ctx2 G D ->
+  { G |- bred M N } ->
+  { D |- path N P } -> { D |- path M P }.
+induction on 2.
+intros. case H2 (keep).
+  case H3.
+    apply IH to _ H4 H5. search.
+    Ctx ! inversion H1 H6.! case H7.
+      case H10. case H5. case H9. case H5.
+  case H3.
+    apply IH to _ H4 H6. search.
+    apply IH to _ H5 H6. search.
+    Ctx ! inversion H1 H7.! case H8.
+      case H11. case H6. case H10. case H6.
+  assert {D, (pi q\ path N1 q => path n1 q) |- path N P}.
+   apply IH to _ H4 H5. search.
+   Ctx ! inversion H1 H5.! case H6.
+    case H9. case H4. search.
+    case H8. case H4.
+     apply IH to H1 H9 H3. search.
+
+
+/* end of the first section of breduce */
+
+
+Ctx!
+Schema bfctx := nabla n p, (bfree n, path n p). !
+
+
+Theorem bfctxToCtx2: forall G D, bfctx G D -> (exists E, ctx2 E D).
+intros. Ctx ! projas (ctx2 E D) H1. ! search.

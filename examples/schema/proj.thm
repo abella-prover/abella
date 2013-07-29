@@ -1,0 +1,34 @@
+Specification "unit".
+
+
+Ctx !
+Schema ctxo := exists B, nabla x, of x (foo B). 
+Schema ctxoo := exists B A, nabla x, (of x A, of x (foo B)). !
+
+
+/* this should not be generated, as it is a special case of ctx_proj2. on ctxoo G1 G1, we should see that the first projection doesn't match ctxo's projection, but that the second one does, and generate ctx_proj2. */
+Theorem ctx_proj1: forall G1, ctxoo G1 G1 -> ctxo G1.
+intros. Ctx ! projas (ctxo G1) H1.! search. 
+
+Theorem ctx_proj2: forall G1 G2, ctxoo G1 G2 -> ctxo G2.
+intros. Ctx ! projas (ctxo G2) H1. ! search.
+
+Theorem ctx_inj1: forall G1, ctxo G1 -> (exists G2, ctxoo G1 G2).
+intros. Ctx ! projas (ctxoo G1 G2) H1. ! search.
+
+Theorem ctx_inj2: forall G1, ctxo G1 -> (exists G2, ctxoo G2 G1).
+intros. Ctx ! projas (ctxoo G2 G1) H1. ! search.
+
+Theorem ctx_inj3: forall G1, ctxo G1 -> ctxoo G1 G1.
+intros. Ctx ! projas (ctxoo G1 G1) H1. ! search.
+
+
+Ctx !
+Schema ctxi := i;
+              exists B,nabla n, of n B. !
+
+Theorem ctxi_inj1: forall G1, ctxo G1 -> ctxi G1.
+intros. Ctx ! projas (ctxi G1) H1. ! search.
+
+
+

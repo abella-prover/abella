@@ -63,6 +63,7 @@ rule token = parse
 | "end"              { END }
 
 | "=>"               { IMP }
+| "<="               { IF }
 | ":-"               { CLAUSEEQ }
 | ":="               { DEFEQ }
 | ","                { COMMA }

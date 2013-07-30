@@ -42,7 +42,7 @@
 
 %}
 
-%token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
+%token IMP IF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
@@ -64,6 +64,7 @@
 %left AND
 
 %nonassoc BSLASH
+%left IF
 %right IMP
 %nonassoc EQ
 
@@ -166,6 +167,7 @@ context:
 
 term:
   | term IMP term                        { binop "=>" $1 $3 }
+  | term IF term                         { binop "=>" $3 $1 }
   | term CONS term                       { binop "::" $1 $3 }
   | aid BSLASH term                      { let (id, ty) = $1 in
                                              ULam(pos 0, id, ty, $3) }
@@ -230,8 +232,14 @@ ty:
   | LPAREN ty RPAREN                     { $2 }
 
 clause:
-  | term DOT                             { ($1, []) }
-  | term CLAUSEEQ clause_body DOT        { ($1, $3) }
+  | clause_head DOT                      { ($1, []) }
+  | clause_head CLAUSEEQ clause_body DOT { ($1, $3) }
+  | clause_head IF clause_body DOT       { ($1, $3) }
+
+clause_head:
+  | LPAREN clause_head RPAREN            { $2 }
+  | paid exp_list                        { let (id, ty) = $1 in
+                                           nested_app (UCon(pos 0, id, ty)) $2 }
 
 clause_body:
   | term COMMA clause_body               { $1::$3 }

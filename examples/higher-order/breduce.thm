@@ -1,14 +1,14 @@
 Specification "breduce".
 
 Close tm, p.
- 
+
 Define ctx2 : olist -> olist -> prop by
   ctx2 nil nil
 ; nabla x p,
     ctx2 (bred x x :: G) (path x p :: D) := ctx2 G D
 ; nabla x,
-    ctx2 ((pi u\ bred N u => bred x u) :: G)
-         ((pi q\ path N q => path x q) :: D) :=
+    ctx2 ((pi u\ bred x u <= bred N u) :: G)
+         ((pi q\ path x q <= path N q) :: D) :=
       ctx2 G D.
 
 Define name : tm -> prop by
@@ -24,7 +24,7 @@ Theorem ctx2_mem_G :
     forall G D F,
     ctx2 G D -> member F G ->
     (   (exists x, F = bred x x /\ name x)
-     \/ (exists x N, F = (pi u\ bred N u => bred x u) /\ fresh x N)).
+     \/ (exists x N, F = (pi u\ bred x u <= bred N u) /\ fresh x N)).
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -36,7 +36,7 @@ Theorem ctx2_mem_D :
   forall G D F,
   ctx2 G D -> member F D ->
   (   (exists x p, F = path x p /\ name x /\ pname p)
-   \/ (exists x N, F = (pi q\ path N q => path x q) /\ fresh x N) ).
+   \/ (exists x N, F = (pi q\ path x q <= path N q) /\ fresh x N) ).
 induction on 1. intros. case H1.
   case H2.
   case H2.
@@ -47,8 +47,8 @@ induction on 1. intros. case H1.
 Theorem ctx2_uniform :
   forall G D X, nabla n,
   ctx2 (G n) (D n) ->
-  member (pi u\ bred X u => bred n u) (G n) ->
-  member (pi q\ path X q => path n q) (D n).
+  member (pi u\ bred n u <= bred X u) (G n) ->
+  member (pi q\ path n q <= path X q) (D n).
 induction on 1. intros. case H1.
   case H2.
   case H2. apply IH to H3 H4. search.
@@ -68,8 +68,8 @@ induction on 1. intros. case H1.
 Theorem member_D_determinate :
    forall G D X Y, nabla n,
    ctx2 (G n) (D n) ->
-   member (pi q\ path X q => path n q) (D n) ->
-   member (pi q\ path Y q => path n q) (D n) ->
+   member (pi q\ path n q <= path X q) (D n) ->
+   member (pi q\ path n q <= path Y q) (D n) ->
    X = Y.
 induction on 1. intros. case H1.
   case H2.
@@ -82,7 +82,7 @@ induction on 1. intros. case H1.
 Theorem member_D_discrim :
    forall G D X P, nabla n,
    ctx2 (G n) (D n) ->
-   member (pi q\ path X q => path n q) (D n) ->
+   member (pi q\ path n q <= path X q) (D n) ->
    member (path n P) (D n) ->
    false.
 induction on 1. intros. case H1.
@@ -95,7 +95,7 @@ induction on 1. intros. case H1.
 Theorem jump_D_invert :
    forall G D X P, nabla n,
    ctx2 (G n) (D n) ->
-   member (pi q\ path X q => path n q) (D n) ->
+   member (pi q\ path n q <= path X q) (D n) ->
    { D n |- path n P } -> { D n |- path X P }.
 intros. case H3.
 apply ctx2_mem_D to H1 H5. case H6.
@@ -121,7 +121,7 @@ intros. case H2 (keep).
   case H3.
     apply IH to _ H4 H5.
      inst H6 with n1 = N1.
-     assert {D |- pi q\ path N1 q => path N1 q}.
+     assert {D |- pi q\ path N1 q <= path N1 q}.
      cut H7 with H8. search.
     apply ctx2_mem_D to H1 H6. case H7.
       case H8. case H5. case H8. case H5.
@@ -149,7 +149,7 @@ intros. case H2 (keep).
     apply IH to _ H5 H6. search.
     apply ctx2_mem_D to H1 H7. case H8.
       case H9. case H6. case H9. case H6.
-  assert {D, (pi q\ path N1 q => path n1 q) |- path N P}.
+  assert {D, (pi q\ path n1 q <= path N1 q) |- path N P}.
    apply IH to _ H4 H5. search.
   apply ctx2_mem_G to H1 H5. case H6.
     case H7. case H4. search.
@@ -159,7 +159,7 @@ intros. case H2 (keep).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%
-% Two lambda terms must beta-reduce to a common term 
+% Two lambda terms must beta-reduce to a common term
 % if they have the same paths
 %%%%%%%%%%%%%%%%%%%%%%%
 
@@ -205,7 +205,7 @@ Theorem path_exists : forall L K M,
   bfctx L K -> {L |- bfree M} -> exists P, {K |- path M P}.
 induction on 2. intros. case H2.
   assert bfctx (bfree n1 :: L) (path n1 n2 :: K).
-    apply IH to H4 H3. search.
+    apply IH to H4 H3. exists (bnd P).  search.
   apply IH to H1 H3. search.
   apply bfctx_member1 to H1 H4. case H3. search.
 
@@ -218,7 +218,7 @@ Theorem path_app : forall L K M N Y,
   bfctx L K -> {L |- bfree (app M N)} -> {L |- bfree Y} ->
     (forall P, {K |- path (app M N) P} -> {K |- path Y P}) ->
       exists YM YN, Y = app YM YN.
-intros. case H2. 
+intros. case H2.
   apply path_exists to H1 H5.
     assert {K |- path (app M N) (left P)}.
     apply H4 to H8.
@@ -236,14 +236,14 @@ intros. case H2.
   assert bfctx (bfree n1 :: L) (path n1 n2 :: K).
     apply path_exists to H6 H5.
     assert {K |- path (abs R) (bnd P)}.
-    apply H4 to H8. 
-    case H9. 
+    apply H4 to H8.
+    case H9.
       search.
       apply bfree_beta_absurd to H1 H3.
       apply bfctx_member2 to H1 H11. case H10. case H13.
   apply bfctx_member1 to H1 H6. case H5. case H7.
 
- 
+
 Theorem bfree_sames :
   forall L K M N,
   bfctx L K ->
@@ -253,27 +253,27 @@ Theorem bfree_sames :
 induction on 2.
 intros. case H2 (keep).
 
-  % M = (abs M1) 
+  % M = (abs M1)
   apply path_abs to H1 H2 H3 H4. case H3.
-    
+
     assert forall p, {K, path n1 n2 |- path (M1 n1) p} ->
                      {K, path n1 n2 |- path (YR n1) p}.
       intros.
       assert {K |- path (abs M1) (bnd p)}.
-      apply H4 to H8. 
+      apply H4 to H8.
       case H9.
         search.
         apply bfctx_member2 to H1 H11. case H13. case H10.
-    
+
       assert bfctx (bfree n1 :: L) (path n1 n2 :: K).
         apply IH to H8 H5 H6 H7. search.
-      
+
     apply bfctx_member1 to H1 H7. case H8. case H6.
-  
+
   % M = (app M1 N1)
   apply path_app to H1 H2 H3 H4. case H3.
-    
-    % Prove M1 = YM 
+
+    % Prove M1 = YM
     assert forall p, {K |- path M1 p} -> {K |- path YM p}.
       intros.
       assert {K |- path (app M1 N1) (left p)}.
@@ -313,13 +313,13 @@ Define brctx : olist -> olist -> prop by
     brctx (bred x x :: L) (bfree x :: K) :=
       brctx L K
 ; nabla x,
-    brctx ((pi u\ bred N u => bred x u) :: L) K :=
+    brctx ((pi u\ bred x u <= bred N u) :: L) K :=
       brctx L K.
 
 Theorem brctx_mem_1 :
    forall L K E, brctx L K -> member E L ->
    (   (exists x, E = bred x x /\ name x)
-    \/ (exists x N, E = (pi u\ bred N u => bred x u) /\ fresh x N)).
+    \/ (exists x N, E = (pi u\ bred x u <= bred N u) /\ fresh x N)).
 induction on 1. intros. case H1 (keep).
   case H2.
   case H2. search.
@@ -338,7 +338,7 @@ induction on 1. intros. case H1.
   case H2. apply IH to H3 H4. search.
   case H2. search. apply IH to H3 H4. search.
   case H2. apply IH to H3 H4. search.
-  case H2. apply IH to H3 H4. search. 
+  case H2. apply IH to H3 H4. search.
 
 Theorem bred_makes_bfree :
    forall L K M U,
@@ -371,9 +371,9 @@ backchain bfree_sames. intros.
 %     btctx (bred x x :: L) (tm x :: K) :=
 %       btctx L K
 % ; nabla x,
-%     btctx ((pi u\ bred N u => bred x u) :: L) (tm x :: K) :=
+%     btctx ((pi u\ bred x u <= bred N u) :: L) (tm x :: K) :=
 %       exists U, {L |- bred N U} /\ btctx L K.
-% 
+%
 % Theorem btctx_mem1 : forall L K F,
 %   btctx L K -> member F K -> exists X, F = tm X /\ name X.
 % induction on 1. intros. case H1.
@@ -384,28 +384,28 @@ backchain bfree_sames. intros.
 %   case H2.
 %     search.
 %     apply IH to H4 H5. search.
-% 
+%
 % Theorem btctx_mem2 : forall L K F,
-%   btctx L K -> member F L -> 
+%   btctx L K -> member F L ->
 %     (exists x, (F = bred x x /\ name x)) \/
-%     (exists x N, F = (pi u\ bred N u => bred x u) 
+%     (exists x N, F = (pi u\ bred x u <= bred N u)
 %                   /\ fresh x N /\ exists U, {L |- bred N U}).
 % induction on 1. intros. case H1.
 %   case H2.
 %   case H2. search. apply IH to H3 H4. case H5. search. search.
 %   case H2. search. apply IH to H4 H5. case H6. search. search.
-% 
+%
 % Theorem btctx_sync : forall L K x,
 %   btctx L K ->
-%   member (tm x) K -> 
-%   (exists N, member (pi u\ bred N u => bred x u) L 
+%   member (tm x) K ->
+%   (exists N, member (pi u\ bred x u <= bred N u) L
 %       /\ exists U, {L |- bred N U}) \/
 %   member (bred x x) L.
 % induction on 1. intros. case H1.
 %   case H2.
 %   case H2. search. apply IH to H3 H4. case H5. search. search.
 %   case H2. search. apply IH to H4 H5. case H6. search. search.
-% 
+%
 % Theorem btctx_mem_prune : forall L K E, nabla (n:tm),
 %    btctx L K ->
 %    member (E n) L -> exists F, E = x\ F.
@@ -413,10 +413,10 @@ backchain bfree_sames. intros.
 %   case H2.
 %   case H2. search. apply IH to H3 H4. apply IH to H3 H4. search.
 %   case H2. search. apply IH to H4 H5. apply IH to H4 H5. search.
-% 
+%
 % %Theorem btctx_mem_discrim : forall L K N x,
 % %  btctx L K ->
-% %  member (pi u\ bred N u => bred x u) L ->
+% %  member (pi u\ bred x u <= bred N u) L ->
 % %  member (bred x x) L ->
 % %  false.
 % %induction on 1. intros. case H1.
@@ -427,13 +427,13 @@ backchain bfree_sames. intros.
 % %  case H2.
 % %    case H3. apply btctx_mem_prune to H4 H5.
 % %    case H3. apply IH to H4 H5 H6.
-% 
-% 
+%
+%
 % %Theorem bred_subst : forall L K N R U V, nabla n,
 % %  btctx L K ->
-% %  {L, pi u\bred N u => bred n u |- bred (R n) (U n)} ->
+% %  {L, pi u\bred n u <= bred N u |- bred (R n) (U n)} ->
 % %  {L |- bred N V} ->
-% %  {L, pi u\bred N u => bred n u |- bred (R n) (U V)}.
+% %  {L, pi u\bred n u <= bred N u |- bred (R n) (U V)}.
 % %induction on 2. intros. case H2 (keep).
 % %  apply IH to _ H4 H3. search.
 % %  apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
@@ -442,36 +442,36 @@ backchain bfree_sames. intros.
 % %  case H5.
 % %    case H4. apply IH to H1 H6 H3. search.
 % %    apply btctx_mem2 to H1 H6. case H7.
-% %      case H4. 
-% %        case H8. search. 
+% %      case H4.
+% %        case H8. search.
 % %        apply btctx_mem_prune to H1 H6.
-% %      case H4. 
+% %      case H4.
 % %        apply IH to _ H9 H3. search.
 % %        % or alternatively:
-% %        %case H8. 
+% %        %case H8.
 % %        %  apply IH to _ H9 H3. search.
 % %        %  apply btctx_mem_prune to H1 H6.
-% 
+%
 % Theorem bred_beta_inv : forall L K R N V,
 %   btctx L K -> {L |- bred (R N) V} -> {L |- bred (beta R N) V}.
 % skip.
-% 
-%   
+%
+%
 % Theorem bred_terminate :  forall L K M,
 %   btctx L K -> {K |- tm M} -> exists U, {L |- bred M U}.
 % induction on 2. intros. case H2.
 %   apply IH to _ H3. search.
 %   apply IH to H1 H3. apply IH to H1 H4. search.
 %   apply IH to H1 H3.
-%     assert btctx ((pi u\ bred N u => bred n1 u) :: L) (tm n1 :: K).
+%     assert btctx ((pi u\ bred n1 u <= bred N u) :: L) (tm n1 :: K).
 %     apply IH to H6 H4.
 %     inst H7 with n1 = N. cut H8.
 %     apply bred_beta_inv to H1 H9 with R = R. search.
 %   apply btctx_mem1 to H1 H4. case H3.
 %     apply btctx_sync to H1 H4. case H6. search. search.
-% 
+%
 % Theorem same_paths_joinable : forall M N,
-%   {tm M} -> {tm N} -> 
+%   {tm M} -> {tm N} ->
 %   (forall P, {path M P} -> {path N P}) ->
 %     exists U, {bred M U} /\ {bred N U}.
 % intros.

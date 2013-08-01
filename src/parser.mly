@@ -19,6 +19,7 @@
 
 %{
 
+  open Extensions
   open Typing
 
   module Types = Abella_types
@@ -39,6 +40,35 @@
     List.fold_left
       (fun h a -> UApp((fst (get_pos h), snd (get_pos a)), h, a))
       head args
+
+  exception Illegal
+  let is_illegal_constant k =
+    k.[0] = 'n' &&
+    try for i = 1 to String.length k - 1 do
+        if k.[i] >= '0' && k.[i] <= '9' then
+          raise Illegal
+      done ; false
+    with Illegal -> true
+
+  let make_sig sigid sigpre sigdecls =
+    let badconsts = ref [] in
+    let collect_bad_decl = function
+      | Types.SKind _ -> ()
+      | Types.SType (ids, _) ->
+          List.iter begin fun k ->
+            if is_illegal_constant k then
+              badconsts := k :: !badconsts
+          end ids
+    in
+    List.iter collect_bad_decl sigdecls ;
+    match List.rev !badconsts with
+    | [] -> Types.Sig (sigid, sigpre, sigdecls)
+    | (k :: _) as ks ->
+      let ks = List.map (fun k -> "'" ^ k ^ "'") ks in
+      let ks = String.concat ", " ks in
+      failwithf "The following signature constants overlap with \
+                 nominal constants: %s\nPlease rename '%s' \
+                 to e.g. 'e%s', etc." ks k k
 
 %}
 
@@ -189,7 +219,7 @@ exp_list:
 
 lpsig:
   | sig_header sig_preamble sig_body lpend
-                                         { Types.Sig($1, $2, $3) }
+                                         { make_sig $1 $2 $3 }
 
 sig_header:
   | SIG id DOT                           { $2 }

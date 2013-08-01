@@ -122,17 +122,22 @@ exp_list:
 
 
 sclause_list:
-  | existsopt nablaopt term_tup                { [($1,$2,$3)] }
-  | existsopt nablaopt term_tup SEMICOLON sclause_list  { ($1,$2,$3)::$5}
+  | existsopt nablaopt termopt_tup                { [($1,$2,$3)] }
+  | existsopt nablaopt termopt_tup SEMICOLON sclause_list  { ($1,$2,$3)::$5}
 
 
-term_tup:
-  | term                                 { [$1] }
-  | LPAREN term_list RPAREN              { $2   }
 
-term_list:
-  | term                                 { [$1] }
-  | term COMMA term_list                 { $1::$3}
+termopt:
+  | term                                 { Some $1 }
+  |                                      { None}
+
+termopt_tup:
+  | termopt                              { [$1] }
+  | LPAREN termopt_list RPAREN           { $2   }
+
+termopt_list:
+  | termopt                                 { [$1] }
+  | termopt COMMA termopt_list                 { $1::$3}
 
 id_list:
   | id                                   { [$1] }

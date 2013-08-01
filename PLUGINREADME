@@ -5,11 +5,11 @@ The generic plugin extension to Abella allows users to create syntax extensions,
 
 TOP_COMMAND :=
  | ...
- | <PLUGIN-NAME> ! <STRING> !
+ | <PLUGIN-NAME> ! <STRING> !.
 
 COMMAND :=
  | ...
- | <PLUGIN-NAME> ! <STRING> !
+ | <PLUGIN-NAME> ! <STRING> !.
 
 
   Plugins are module implementing

@@ -1,24 +1,12 @@
 Documentation for the Ctx Abella plugin 
 by Olivier Savary-B
 
-More details are given in the experience report which will be hosted soon at
-http://www.cs.mcgill.ca/~osavary/bilan.pdf
-
 ********************************************
 Presentation of the Ctx plugin.
 ********************************************
 
-
 Syntax:
 
-TOP_COMMAND :=
-  | Schema <SCH-NAME> := <CLAUSE>
-
-COMMAND :=
-  | inversion <HYP-NAME> <HYP-NAME>
-  | sync      <HYP-NAME> <HYP-NAME>
-  | unique    <HYP-NAME> <HYP-NAME> <HYP-NAME>
-  | projas ( <TERM> )  <HYP-NAME>
 
 OPTEXISTS :=
   | exists <ID LIST>, 
@@ -28,19 +16,37 @@ OPTNABLAS :=
   | nabla <ID LIST>,
   |
 
+OPTTERM :=
+ | <TERM>
+ | 
+
 CBODY :=
-  | <TERM>, <CBODY>
-  | <TERM>
+  | <OPTTERM>, <CBODY>
+  | <OPTTERM>
 
 CLAUSE :=
   | <OPTEXISTS> <OPTNABLAS> ( <CBODY> )
-  | <OPTEXISTS> <OPTNABLAS> <TERM>
+  | <OPTEXISTS> <OPTNABLAS> <OPTTERM>
+
+CLAUSES :=
+  | <CLAUSE>
+  | <CLAUSE>; <CLAUSES>
+
+TOP_COMMAND :=
+  | Schema <SCH-NAME> := <CLAUSES>.
+
+
+COMMAND :=
+  | inversion <HYP-NAME> <HYP-NAME>.
+  | sync      <HYP-NAME> <HYP-NAME>.
+  | unique    <HYP-NAME> <HYP-NAME> <HYP-NAME>.
+  | projas ( <TERM> )  <HYP-NAME>.
 
 
 
 
 ********************************************
-Tactics introduced in Ctx plugin.
+Tacticals introduced in Ctx plugin.
 ********************************************
 
   -----------
@@ -189,7 +195,7 @@ pro.2 > verify if a block mapping the same projections in ctxName to the same pr
 pro.3 > verify that, for each clause C of ctxName, (Gi1, ..., Gim) in C matches a clause in ctxNameD. To do this,
       a) for each clauses in the origin context, construct a list of constraints of type (id, tm), where the tm corresponds to the unification of all projections of that clauses, which are refered to as id.
       b) for each created list of constraints, check that there exists a clause in the destination context which matches all of them.
-pro.4 > make statement and proof that \forall G1 ... Gn,ctxName G1 ... Gn -> (exists ..., ctxNameD Gi1 ... Gim)
+pro.4 > (rewrit ewith inj) make statement and proof that \forall G1 ... Gn,ctxName G1 ... Gn -> ctxNameD Gi1 ... Gim
 
 Naming: "Hpro"^[name of the schema of origin]^[ map of the position in the destination context for each projection of the origin schema]^[name of the destination schema]
 

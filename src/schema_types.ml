@@ -7,7 +7,7 @@ type id = string
 
 (* type definition *)
 type top_command = 
-  | SchemaDef of id * (id list * id list * uterm list) list
+  | SchemaDef of id * (id list * id list * (uterm option) list) list
 
 type command = 
   | Inversion of id list

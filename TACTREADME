@@ -182,7 +182,7 @@ By structural induction on the schema definition.
 Description: The projas tactical verifies and proves relations between context schemas. It can be used both to project and inject projections of a schema to another schema.
 
 Syntax: 
-	"projas (ctxNameD D1 ... Dn) H"
+	projas (ctxNameD D1 ... Dn) H
 	
 	where H:ctxNameO G1 ... Gm
 

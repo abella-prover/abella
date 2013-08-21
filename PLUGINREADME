@@ -18,9 +18,9 @@ COMMAND :=
   Plugin names must be linked with their implementation by adding an entry in the Abella.plugins hashtbl.
 
 e.g. For the Ctx plugin, schema are defined as
-     Ctx ! Schema schName := ... . !
+     Ctx ! Schema schName := ... . !.
 and tactics are applied, from within a proof environment, as 
-    Ctx! inversion H1 H2. !
+    Ctx! inversion H1 H2. !.
 
 
 

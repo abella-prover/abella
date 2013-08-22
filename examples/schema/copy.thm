@@ -1,0 +1,57 @@
+%% Equivalence of single and double eigenvariable definitions of copy
+
+Specification "copy".
+
+Theorem member_fresh : forall L E, nabla (x:tm),
+  member (E x) L -> exists F, E = y\F.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Ctx ! 
+Schema ctxs := 
+       exists X Y, (copy X Y, copy2 X Y). !.
+
+
+Define name : tm -> prop by
+  nabla x, name x.
+
+%% copy implies copy2
+
+% show that copy2 could descend under abstractions like copy
+
+Theorem copy2_align : forall M N K L, nabla z,
+  ctxs K L ->
+  {L, copy2 z z |- copy2 (M z) (N z)} ->
+    nabla x y, {L, copy2 x y |- copy2 (M x) (N y)}.
+induction on 2. intros. case H2.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+  apply IH to _ H3. search.
+  case H4.
+    case H3. search.
+    apply member_fresh to H5. Ctx ! inversion H1 H5. !. case H3. search.
+
+Theorem copy_copy2 : forall L K M N,
+  ctxs L K -> {L |- copy M N} -> {K |- copy2 M N}.
+induction on 2. intros. case H2.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+  apply IH to _ H3. apply copy2_align to H1 H4. search.
+  Ctx ! inversion H1 H4. !. case H3. Ctx ! sync H1 H4. !. search.
+
+
+%% copy2 implies copy
+
+% show that copy could descend under abstractions like copy2
+
+Theorem copy_align : forall M N L, nabla x y,
+  {L, copy x y |- copy (M x) (N y)} ->
+    nabla z, {L, copy z z |- copy (M z) (N z)}.
+intros. inst H1 with n2 = n1. search.
+
+
+Theorem copy2_copy : forall L K M N,
+  ctxs L K -> {K |- copy2 M N} -> {L |- copy M N}.
+induction on 2. intros. case H2.
+  apply IH to H1 H3. apply IH to H1 H4. search.
+  apply IH to _ H3. apply copy_align to H4. search.
+  Ctx ! inversion H1 H4. !. case H3. Ctx ! sync H1 H4. !. search.

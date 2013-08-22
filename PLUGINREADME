@@ -3,6 +3,8 @@ by Olivier Savary-B
 
 The generic plugin extension to Abella allows users to create syntax extensions, macros and other tacticals without modifying the source file of the prover. Expressions are dispatched to plugins by writing the name of the plugin, followed by the expression enclosed between exclamation marks ("!"). The expression is parsed as a string, and dispatched either to process_top, if it appears at the top level of an abella file, or to process_tactic if it appears as a command (i.e. inside a theorem). process_top and process_tactic also receive a function which, given a string,  parses and process it using respectively Abella.process and Abella.process_proof. process_tactic also receives a copy of the current goal and hypothesis, which is updated after recursing on process_proof with the given function. 
 
+NOTE: due to change in the module syntax, users of Ocaml 3.12 should replace, in the src directory, the file abella.ml by the file abella.OCAML312.
+
 TOP_COMMAND :=
  | ...
  | <PLUGIN-NAME> ! <STRING> !.

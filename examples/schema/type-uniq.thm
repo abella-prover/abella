@@ -1,0 +1,18 @@
+%% Type uniqueness for the simply-typed lambda-calculus
+
+Specification "type-uniq".
+
+Ctx ! Schema ctx := exists T, nabla n, of n T. !.
+
+Theorem type_uniq : forall L E T1 T2,
+ ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
+induction on 2. intros. case H2.
+ case H3.
+   apply IH to _ H4 H5. search.
+   Ctx ! inversion H1 H6. !. case H7. case H5.
+ case H3.
+   apply IH to _ H4 H6. search.
+   Ctx ! inversion H1 H7. !. case H8. case H6.
+ Ctx ! inversion H1 H5. !. case H4. case H6.
+  case H3. Ctx ! inversion H1 H8. !. case H7.
+  Ctx ! unique H1 H5 H8. !. search.

@@ -4,22 +4,22 @@ Specification "unit".
 
 
 
-Ctx ! Schema ctxi := i. !
+Ctx ! Schema ctxi := i. !.
 
 
 Theorem ctxi_inv: forall E G, ctxi G -> member E G -> (E = i).
-intros. Ctx ! inversion H1 H2. ! search.
+intros. Ctx ! inversion H1 H2. !. search.
 
 
-Ctx ! Schema ctxof := exists B, nabla x, of x B. !
+Ctx ! Schema ctxof := exists B, nabla x, of x B. !.
 
  Theorem ctxof_inv: forall E G, ctxof G -> member E G -> (exists A X, E = of X A /\ fresh_tm_in_ty X A).
-intros. Ctx ! inversion H1 H2. ! search.
+intros. Ctx ! inversion H1 H2. !. search.
 
 
 
  Theorem ctxof_of_uniq : forall G X A B,  ctxof G -> member (of X A) G -> member (of X B) G -> A = B.
- intros. Ctx ! unique H1 H2 H3. ! search.
+ intros. Ctx ! unique H1 H2 H3. !. search.
 
 
 
@@ -28,46 +28,46 @@ Type bar ty -> ty.
 
 % Block ofb2 := exists A, nabla x, of x (foo A).
  
-Ctx ! Schema ctxuo := exists A B, nabla x, (of x A, of x B). !
+Ctx ! Schema ctxuo := exists A B, nabla x, (of x A, of x B). !.
 
 Theorem ctxuo_sync: forall X C G1 G2, ctxuo G1 G2 -> member (of X (bar C)) G1 -> (exists D, member (of X D) G2).
-intros. Ctx ! sync H1 H2. ! search.
+intros. Ctx ! sync H1 H2. !. search.
 
 
-Ctx ! Schema ctxoio := exists Z B, nabla n, (of n Z, i, of n B). !
+Ctx ! Schema ctxoio := exists Z B, nabla n, (of n Z, i, of n B). !.
 
 Theorem ctxoio_inv: forall E G D P, ctxoio G D P -> member E G -> (exists B Z X, E = of X B /\ member i D /\ member (of X Z) P /\ fresh_tm_in_ty X Z /\ fresh_tm_in_ty X B).
-intros. Ctx ! inversion H1 H2. ! search.
+intros. Ctx ! inversion H1 H2. !. search.
 
 Theorem ctxoio_of_uniq : forall G1 G2 G3 X A B,  ctxoio G1 G2 G3 -> member (of X A) G1 -> member (of X B) G1 -> A = B.
-intros. Ctx ! unique H1 H2 H3. ! search.
+intros. Ctx ! unique H1 H2 H3. !. search.
 
 
 Ctx ! Schema ctx'' := exists Z, nabla n, (of n Z, i, of n Z);
-               (i, i, i). !
+               (i, i, i). !.
 
 
 Theorem ctx''_sync: forall X A G1 G2 G3, ctx'' G1 G2 G3 -> member (of X A) G3 -> (member (i) G2 /\ member (of X A) G1).
-intros. Ctx ! sync H1 H2. ! search.
+intros. Ctx ! sync H1 H2. !. search.
 
 
 
 Ctx ! Schema ctx' := exists Z B, nabla n, (of n Z, i, of n B);
-               (i, i, i). !
+               (i, i, i). !.
 
 
 
 Theorem ctx'_inv: forall E G1 G2 G3, ctx' G1 G2 G3 -> member E G3 -> (exists B Z n, E = (of n B) /\ member (i) G2 /\ member (of n Z) G1 /\  fresh_tm_in_ty n Z  /\  fresh_tm_in_ty n B ) \/  (E = (i) /\ member (i) G2 /\ member (i) G1).
-intros. Ctx ! inversion H1 H2. ! case H3. search. search.
+intros. Ctx ! inversion H1 H2. !. case H3. search. search.
 
 Theorem ctx'_sync: forall X A G1 G2 G3, ctx' G1 G2 G3 -> member (of X A) G3 -> (exists Z,  member (i) G2 /\ member (of X Z) G1 /\  fresh_tm_in_ty X Z).
-intros. Ctx ! sync H1 H2. ! search.
+intros. Ctx ! sync H1 H2. !. search.
 
 Theorem ctx'_of_uniq : forall G1 G2 G3 X A B,  ctx' G1 G2 G3 -> member (of X A) G1 -> member (of X B) G1 -> A = B.
-intros. Ctx ! unique H1 H2 H3. ! search.
+intros. Ctx ! unique H1 H2 H3. !. search.
 
 
 
-Ctx! Schema ctxlam := exists N, nabla x, (pi u\ bred N u => bred x u). !
+Ctx! Schema ctxlam := exists N, nabla x, (pi u\ bred N u => bred x u). !.
 
 

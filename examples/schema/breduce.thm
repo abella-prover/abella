@@ -1,29 +1,11 @@
+% Characterizing (marked) beta-reduction via lambda-paths
 Specification "breduce".
 
 Close tm, p.
 
-
 Ctx !
 Schema ctx2 := nabla x p, (bred x x, path x p);
-               exists N, nabla x, ((pi u\ bred N u => bred x u), (pi q\ path N q => path x q)). !
-
-
-
-Theorem ctx2_mem_G :
-    forall G D F,
-    ctx2 G D -> member F G ->
-    (   (exists p x, member (path x p) D /\ F = bred x x /\  name_p p /\ name_tm x)
-     \/ (exists N x, member (pi q\ path N q => path x q) D /\ F = (pi u\ bred N u => bred x u) /\  fresh_tm_in_tm x N)).
-intros Hctx  Hmem. Ctx ! inversion Hctx Hmem.! search.
-
-
-Theorem ctx2_uniform :
-  forall G D X, nabla n,
-  ctx2 G D ->
-  member (pi u\ bred X u => bred n u) G ->
-  (member (pi q\ path X q => path n q) D /\ fresh_tm_in_tm n X).
-intros Hctx Hmem. Ctx ! sync Hctx Hmem. ! search.
-
+               exists N, nabla x, ((pi u\ bred N u => bred x u), (pi q\ path N q => path x q)). !.
 
 Theorem member_D_determinate :
    forall G D X Y, nabla n,
@@ -31,10 +13,7 @@ Theorem member_D_determinate :
    member (pi q\ path X q => path n q) D ->
    member (pi q\ path Y q => path n q) D ->
    X = Y.
-intros Hctx Hmem1 Hmem2. Ctx ! unique Hctx Hmem1 Hmem2. ! search.
-
-
-
+intros Hctx Hmem1 Hmem2. Ctx ! unique Hctx Hmem1 Hmem2. !. search.
 
 
 
@@ -57,9 +36,9 @@ Theorem jump_D_invert :
    member (pi q\ path X q => path n q) (D n) ->
    { D n |- path n P } -> { D n |- path X P }.
 intros. case H3.
-Ctx ! inversion H1 H5. ! case H6.
+Ctx ! inversion H1 H5. !. case H6.
   case H4. apply member_D_discrim to H1 H2 H5.
-  case H4. Ctx ! unique H1 H2 H5.! search.
+  case H4. Ctx ! unique H1 H2 H5.!. search.
 
 
 Theorem bred_ltr :
@@ -71,25 +50,25 @@ induction on 2.
 intros. case H2 (keep).
   case H3.
     apply IH to _ H4 H5. search.
-    Ctx ! inversion H1 H6.! case H7.
+    Ctx ! inversion H1 H6.!. case H7.
       case H10. case H5. case H9. case H5.
   case H3.
     apply IH to _ H4 H6. search.
     apply IH to _ H5 H6. search.
-    Ctx ! inversion H1 H7.! case H8.
+    Ctx ! inversion H1 H7.!. case H8.
       case H11. case H6. case H10. case H6.
   case H3.
     apply IH to _ H4 H5.
      inst H6 with n1 = N1.
      assert {D |- pi q\ path N1 q => path N1 q}.
      cut H7 with H8. search.
-    Ctx ! inversion H1 H6.! case H7.
+    Ctx ! inversion H1 H6.!. case H7.
      case H10. case H5. case H9. case H5.
-    Ctx ! inversion H1 H5.! case H6.
+    Ctx ! inversion H1 H5.!. case H6.
     case H8. case H4. search.
     case H8. case H4.
      assert {D n1 |- path X P}.
-       Ctx ! sync H1 H5.! 
+       Ctx ! sync H1 H5.!. 
        apply jump_D_invert to H1 H10 H3. search.
      apply IH to H1 H9 H10. search.
 
@@ -102,27 +81,166 @@ induction on 2.
 intros. case H2 (keep).
   case H3.
     apply IH to _ H4 H5. search.
-    Ctx ! inversion H1 H6.! case H7.
+    Ctx ! inversion H1 H6.!. case H7.
       case H10. case H5. case H9. case H5.
   case H3.
     apply IH to _ H4 H6. search.
     apply IH to _ H5 H6. search.
-    Ctx ! inversion H1 H7.! case H8.
+    Ctx ! inversion H1 H7.!. case H8.
       case H11. case H6. case H10. case H6.
   assert {D, (pi q\ path N1 q => path n1 q) |- path N P}.
    apply IH to _ H4 H5. search.
-   Ctx ! inversion H1 H5.! case H6.
+   Ctx ! inversion H1 H5.!. case H6.
     case H9. case H4. search.
     case H8. case H4.
      apply IH to H1 H9 H3. search.
 
 
-/* end of the first section of breduce */
-
+%%%%%%%%%%%%%%%%%%%%%%%
+% Two lambda terms must beta-reduce to a common term 
+% if they have the same paths
+%%%%%%%%%%%%%%%%%%%%%%%
 
 Ctx!
-Schema bfctx := nabla n p, (bfree n, path n p). !
+Schema bfctx := nabla n p, (bfree n, path n p). !.
+
+Theorem path_exists : forall L K M,
+  bfctx L K -> {L |- bfree M} -> exists P, {K |- path M P}.
+induction on 2. intros. case H2.
+  assert bfctx (bfree n1 :: L) (path n1 n2 :: K).
+    apply IH to H4 H3. search.
+  apply IH to H1 H3. search.
+  Ctx ! inversion H1 H4. !. case H3. search.
 
 
-Theorem bfctxToCtx2: forall G D, bfctx G D -> (exists E, ctx2 E D).
-intros. Ctx ! projas (ctx2 E D) H1. ! search.
+Theorem bfree_beta_absurd : forall L K R N,
+  bfctx L K -> {L |- bfree (beta R N)} -> false.
+intros. case H2.
+ Ctx ! inversion H1 H4. !. case H7. case H3.
+
+Theorem path_app : forall L K M N Y,
+  bfctx L K -> {L |- bfree (app M N)} -> {L |- bfree Y} ->
+    (forall P, {K |- path (app M N) P} -> {K |- path Y P}) ->
+      exists YM YN, Y = app YM YN.
+intros. case H2. 
+  apply path_exists to H1 H5.
+    assert {K |- path (app M N) (left P)}.
+    apply H4 to H8.
+    case H9.
+      search.
+      apply bfree_beta_absurd to H1 H3.
+      Ctx ! inversion H1 H11. !. case H13. case H10.
+   Ctx ! inversion H1 H6.!. case H5. case H9.   
+
+
+Theorem path_abs : forall L K R Y,
+  bfctx L K -> {L |- bfree (abs R)} -> {L |- bfree Y} ->
+    (forall P, {K |- path (abs R) P} -> {K |- path Y P}) ->
+      exists YR, Y = abs YR.
+intros. case H2.
+  assert bfctx (bfree n1 :: L) (path n1 n2 :: K).
+    apply path_exists to H6 H5.
+    assert {K |- path (abs R) (bnd P)}.
+    apply H4 to H8. 
+    case H9. 
+      search.
+      apply bfree_beta_absurd to H1 H3.
+      Ctx ! inversion H1 H11. !. case H13. case H10.	
+  Ctx ! inversion H1 H6.!. case H5. case H9.   
+ 
+
+
+Theorem bfree_sames :
+  forall L K M N,
+  bfctx L K ->
+  {L |- bfree M} -> {L |- bfree N} ->
+  (forall p, {K |- path M p} -> {K |- path N p}) ->
+  M = N.
+induction on 2.
+intros. case H2 (keep).
+
+  % M = (abs M1) 
+  apply path_abs to H1 H2 H3 H4. case H3.
+    
+    assert forall p, {K, path n1 n2 |- path (M1 n1) p} ->
+                     {K, path n1 n2 |- path (YR n1) p}.
+      intros.
+      assert {K |- path (abs M1) (bnd p)}.
+      apply H4 to H8. 
+      case H9.
+        search.
+        Ctx ! inversion H1 H11. !. case H13. case H10.
+    
+      assert bfctx (bfree n1 :: L) (path n1 n2 :: K).
+        apply IH to H8 H5 H6 H7. search.
+ 
+     Ctx ! inversion H1 H7. !. case H10. case H6.
+  
+  % M = (app M1 N1)
+  apply path_app to H1 H2 H3 H4. case H3.
+    
+    % Prove M1 = YM 
+    assert forall p, {K |- path M1 p} -> {K |- path YM p}.
+      intros.
+      assert {K |- path (app M1 N1) (left p)}.
+      apply H4 to H10.
+      case H11.
+        search.
+         Ctx ! inversion H1 H13. !. case H15. case H12.
+    apply IH to H1 H5 H7 H9.
+
+    % Prove N1 = YN
+    assert forall p, {K |- path N1 p} -> {K |- path YN p}.
+      intros.
+      assert {K |- path (app M1 N1) (right p)}.
+      apply H4 to H11.
+      case H12.
+        search.
+        Ctx ! inversion H1 H14. !. case H16. case H13.
+    apply IH to H1 H6 H8 H10.
+
+    % Finish this case
+    search.
+
+    Ctx ! inversion H1 H8. !. case H11. case H7. 
+
+  % M is a variable
+  Ctx ! inversion H1 H6. !. case H5.
+  assert {K |- path M p}. 
+  apply H4 to H10. case H8. 
+  case H11.
+    apply bfree_beta_absurd to H1 H3. 
+    Ctx ! inversion H1 H13. !.
+      case H12. Ctx ! unique H1 H7 H13. !. search.
+
+
+
+
+Ctx !
+Schema brctx := nabla x p, (bred x x, bfree x);
+               exists N, nabla x, ((pi u\ bred N u => bred x u), ). !.
+
+
+Theorem bred_makes_bfree :
+   forall L K M U,
+   brctx L K -> {L |- bred M U} -> {K |- bfree U}.
+induction on 2. intros. case H2 (keep).
+  apply IH to _ H3. search.
+  apply IH to _ H3. apply IH to _ H4. search.
+  apply IH to _ H3. search.
+   Ctx ! inversion H1 H4. !. case H5. 
+     case H3. case H7. 
+      Ctx ! sync H1 H4. !. search. 
+     case H3. case H6. apply IH to H1 H7. search.
+
+Theorem same_paths_joinable :
+  forall M N U V,
+  (forall P, {path M P} -> {path N P}) ->
+  {bred M U} -> {bred N V} -> U = V.
+intros.
+apply bred_makes_bfree to _ H2.
+apply bred_makes_bfree to _ H3.
+backchain bfree_sames. intros.
+  apply bred_rtl to _ H2 H6.
+  apply H1 to H7.
+  apply bred_ltr to _ H3 H8. search.

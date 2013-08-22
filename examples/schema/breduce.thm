@@ -7,16 +7,6 @@ Ctx !
 Schema ctx2 := nabla x p, (bred x x, path x p);
                exists N, nabla x, ((pi u\ bred N u => bred x u), (pi q\ path N q => path x q)). !.
 
-Theorem member_D_determinate :
-   forall G D X Y, nabla n,
-   ctx2 G D ->
-   member (pi q\ path X q => path n q) D ->
-   member (pi q\ path Y q => path n q) D ->
-   X = Y.
-intros Hctx Hmem1 Hmem2. Ctx ! unique Hctx Hmem1 Hmem2. !. search.
-
-
-
 Theorem member_D_discrim :
    forall G D X P, nabla n,
    ctx2 (G n) (D n) ->

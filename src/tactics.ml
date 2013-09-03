@@ -452,7 +452,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
 
   (* create a sync sequent focusing on a formula
      in the context *)
-  let _create_sync_only_member ~used ~sr ~support async_obj r =
+  let create_sync ~used ~sr ~support async_obj r =
     let ctx,t = Async.get async_obj in
     let raise_result =
       fresh_raised_alist ~sr ~tag:Eigen ~used ~support [("F", oty)] in
@@ -468,48 +468,12 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
       new_hyps = [Obj (Sync sync, reduce_inductive_restriction r) ; mem] }
   in
 
-  let create_sync ~used ~sr ~support async_obj r =
-    let process_member cxe =
-      if has_eigen_head cxe then begin
-        let cxvar = cxe in
-        let ty = tc [] cxvar in
-        if ty = olistty then begin
-          let f, fvar =
-            match fresh_raised_alist ~sr ~tag:Eigen ~used ~support
-                    [("F", oty)]
-            with
-            | [(_, f)], [fvar] -> f, fvar
-            | _ -> assert false
-          in
-          let sync = Sync.obj async_obj.Async.context f async_obj.Async.term in
-          let mem = member f cxvar in
-          Some {
-            bind_state = get_bind_state () ;
-            new_vars = [term_to_pair fvar] ;
-            new_hyps = [Obj (Sync sync, reduce_inductive_restriction r) ; mem]
-          }
-        end else if ty = oty then begin
-          let sync = Sync.obj async_obj.Async.context cxvar async_obj.Async.term in
-          Some { bind_state = get_bind_state () ;
-                 new_vars = [] ;
-                 new_hyps = [Obj (Sync sync, reduce_inductive_restriction r)] }
-        end else assert false
-      end else begin
-        let cl = cxe in
-        let ctx, term = Async.get async_obj in
-        let sync_obj = Sync.obj ctx cl term in
-        focus sync_obj r
-      end
-    in
-    List.filter_map process_member async_obj.Async.context
-  in
-
   let async_case obj r =
     let clause_cases = clause_case obj r in
     let ctx,_ = Async.get obj in
         clause_cases @
           (if Context.is_empty ctx then []
-           else create_sync ~used ~sr ~support obj r)
+           else [create_sync ~used ~sr ~support obj r])
   in
 
   let sync_case obj r =

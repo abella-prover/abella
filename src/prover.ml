@@ -932,7 +932,7 @@ let exists t =
           (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
         in
         let t = type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx t in
-        let goal = exists tids (replace_metaterm_vars [(id, t)] body) in
+        let goal = replace_metaterm_vars [(id, t)] (exists tids body) in
           sequent.goal <- goal
     | _ -> ()
 

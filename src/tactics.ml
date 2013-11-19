@@ -756,7 +756,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
   in
 
   let rec clause_aux n hyps context foci goal r ts ~sc =
-    let support = term_support goal in
+    let support = term_list_support (goal :: context) in
     let freshen_clause = freshen_nameless_clause ~support ~ts in
     let p = term_head_name goal in
     let wrap body = List.map (fun t -> Async.obj context t) body in

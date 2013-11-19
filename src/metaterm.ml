@@ -421,6 +421,7 @@ let rec collect_terms t =
 let map_term_list f t = List.map f (collect_terms t)
 
 let term_support t = find_var_refs Nominal [t]
+let term_list_support l = find_var_refs Nominal l
 
 let obj_support = function
   | Async obj ->

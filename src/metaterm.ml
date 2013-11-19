@@ -505,40 +505,33 @@ let rec normalize_obj obj =
   | Async obj -> Async (aux obj)
   | Sync obj -> Sync (norm_ctx obj)
 
-let rec normalize_binders alist t =
-  let term_aux t = replace_term_vars ~tag:Constant alist t in
-  let rec aux t =
-    match t with
-      | True | False -> t
-      | Eq(a, b) -> Eq(term_aux a, term_aux b)
-      | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
-      | Arrow(a, b) -> Arrow(aux a, aux b)
-      | Binding(binder, bindings, body) ->
-          let alist =
-            List.remove_all (fun (x, t) -> List.mem_assoc x bindings) alist
-          in
-          let alist_used = List.map term_to_pair (List.map snd alist) in
-          let body_used = get_metaterm_used body in
-          let nominal_used = get_metaterm_used_nominals body in
-          let used = alist_used @ body_used @ nominal_used in
-          let bindings', body' =
-            freshen_used_bindings bindings used body
-          in
-            binding binder bindings' (normalize_binders alist body')
-      | Or(a, b) -> Or(aux a, aux b)
-      | And(a, b) -> And(aux a, aux b)
-      | Pred(p, r) -> Pred(term_aux p, r)
-  in
-    aux t
+let rename_term rens t = replace_term_vars ~tag:Constant rens t
 
-and freshen_used_bindings bindings used body =
-  let bindings_alist = fresh_alist ~tag:Constant ~used bindings in
-  let bindings' =
-    List.map2 (fun (_, v) (_, ty) -> (term_to_name v, ty))
-      bindings_alist bindings
+let normalize_binders t =
+  let eigens = get_metaterm_used t @ get_metaterm_used_nominals t in
+  let rec aux rens used t =
+    match t with
+    | True | False -> t
+    | Eq (a, b) -> Eq (rename_term rens a, rename_term rens b)
+    | Obj (obj, r) -> Obj (map_obj (rename_term rens) obj, r)
+    | Arrow (a, b) -> Arrow (aux rens used a, aux rens used b)
+    | Or (a, b) -> Or (aux rens used a, aux rens used b)
+    | And (a, b) -> And (aux rens used a, aux rens used b)
+    | Pred (p, r) -> Pred (rename_term rens p, r)
+    | Binding (binder, bvars, body) ->
+      let (rens, used, rev_bvars) = List.fold_left begin
+          fun (rens, used, bvars) (v, ty) ->
+            if List.mem_assoc v used then begin
+              let (fv, used) = fresh_wrt ~ts:0 Constant v ty used in
+              ((v, fv) :: rens, used, (term_to_name fv, ty) :: bvars)
+            end else begin
+              (rens, used, (v, ty) :: bvars)
+            end
+        end (rens, used, []) bvars in
+      let bvars = List.rev rev_bvars in
+      binding binder bvars (aux rens used body)
   in
-  let body' = normalize_binders bindings_alist body in
-    (bindings', body')
+  aux [] eigens t
 
 let replace_term_typed_nominals alist t =
   let rec aux t =
@@ -592,7 +585,7 @@ let normalize term =
   term
   |> map_on_objs normalize_obj
   |> normalize_nominals
-  |> normalize_binders []
+  |> normalize_binders
 
 let make_nabla_alist tids body =
   let (id_names, id_tys) = List.split tids in

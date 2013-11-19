@@ -78,7 +78,7 @@ induction on 2. intros. case H2.
      apply H8 to _ with M1 = M, N1 = N.
   apply ctx_member to H1 H5. case H4.
    case H3.
-     apply H7 to _ with T = T3, R1 = R.
+     apply H7 to _ with T1 = T3, R1 = R.
      apply H6 to _ with M1 = M, N1 = N.
      apply ctx_member to H1 H9. case H8.
      apply uniq to H1 H5 H9. search.

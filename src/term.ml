@@ -384,10 +384,13 @@ let term_to_string term =
 (*   let pp_var_ty x ty = (pp_var x) ^ ":" ^ (ty_to_string ty) in *)
   let rec pp cx pr n term =
     match observe (hnorm term) with
-      | Var v -> v.name
+      | Var v ->
+        (* "$(" ^ *)
+          v.name
           (* ^ ":" ^ (tag2str v.tag) *)
           (* ^ ":" ^ (string_of_int v.ts) *)
           (* ^ ":" ^ (ty_to_string v.ty) *)
+          (* ^ ")" *)
       | DB i -> 
           (try List.nth cx (i - 1) with _ -> pp_var (n - i + 1))
       | App (t,ts) ->

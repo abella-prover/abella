@@ -356,65 +356,61 @@ let lift_all ~used ~sr nominals =
            let new_term = var Eigen id v.ts rty in
              bind term (app new_term rvars))
 
-
-
 let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
-
   let support = metaterm_support term in
-
   let def_case ~wrapper term =
     let make_case ~support ~used (head, body) term =
       let fresh_used, head, body =
         freshen_def ~sr ~support ~used head body
       in
-        match try_left_unify_cpairs ~used:(fresh_used @ used) head term with
-          | Some cpairs ->
-              (* Names created perhaps by unificiation *)
-              let used_head = term_vars_alist Eigen [head; term] in
-              let used_body = metaterm_vars_alist Eigen body in
-              let used = List.unique (used_head @ used_body @ used) in
-                begin match recursive_metaterm_case ~used ~sr body with
-                  | None -> []
-                  | Some case ->
-                      [{ bind_state = get_bind_state () ;
-                         new_vars = case.stateless_new_vars @ used ;
-                         new_hyps =
-                           cpairs_to_eqs cpairs @
-                           List.map wrapper case.stateless_new_hyps }]
-                end
+      match try_left_unify_cpairs ~used:(fresh_used @ used) head term with
+      | Some cpairs ->
+        let used_head = term_vars_alist Eigen [head; term] in
+        let used_body = metaterm_vars_alist Eigen body in
+        let used = List.unique (used_head @ used_body @ used) in
+        let body = Metaterm.normalize body in
+        begin match recursive_metaterm_case ~used ~sr body with
           | None -> []
+          | Some case ->
+            [{ bind_state = get_bind_state () ;
+               new_vars = case.stateless_new_vars @ used ;
+               new_hyps =
+                 cpairs_to_eqs cpairs @
+                   List.map wrapper case.stateless_new_hyps }]
+        end
+      | None -> []
     in
-      defs |> List.flatten_map
-          (unwind_state
-             (function
-                | Pred(head, _), body ->
-                    make_case ~support ~used (head, body) term
-                | Binding(Nabla, tids, Pred(head, _)), body ->
-                    List.range 0 (List.length tids) |> List.rev |> List.flatten_map
-                        (fun n -> (* n is the number of nablas to be raised *)
-                           List.choose n tids |> List.flatten_map
-                               (unwind_state
-                                  (fun raised ->
-                                     let (rids, rtys) = List.split raised in
-                                     let nominals =
-                                       (* Want freshness with respect to global support *)
-                                       fresh_nominals rtys (pred (app head global_support))
-                                     in
-                                     let () = lift_all ~used ~sr nominals in
-                                     let head = replace_term_vars (List.combine rids nominals) head in
-                                     let (pids, ptys) = List.split (List.minus tids raised) in
-                                       List.permute (List.length pids) support
-                                   |> List.find_all
-                                       (fun permuted -> ptys = List.map (tc []) permuted)
-                                   |> List.flatten_map
-                                       (unwind_state
-                                          (fun permuted ->
-                                             let support = List.minus support permuted in
-                                             let head =
-                                               replace_term_vars (List.combine pids permuted) head
-                                             in
-                                               make_case ~support ~used (head, body) term)))))
-                | _ -> failwith "Bad head in definition"))
+    defs |> List.flatten_map
+      (unwind_state
+         (function
+           | Pred(head, _), body ->
+             make_case ~support ~used (head, body) term
+           | Binding(Nabla, tids, Pred(head, _)), body ->
+             List.range 0 (List.length tids) |> List.rev |> List.flatten_map
+               (fun n -> (* n is the number of nablas to be raised *)
+                  List.choose n tids |> List.flatten_map
+                    (unwind_state
+                       (fun raised ->
+                          let (rids, rtys) = List.split raised in
+                          let nominals =
+                            (* Want freshness with respect to global support *)
+                            fresh_nominals rtys (pred (app head global_support))
+                          in
+                          let () = lift_all ~used ~sr nominals in
+                          let head = replace_term_vars (List.combine rids nominals) head in
+                          let (pids, ptys) = List.split (List.minus tids raised) in
+                          List.permute (List.length pids) support
+                          |> List.find_all
+                            (fun permuted -> ptys = List.map (tc []) permuted)
+                          |> List.flatten_map
+                            (unwind_state
+                               (fun permuted ->
+                                  let support = List.minus support permuted in
+                                  let head =
+                                    replace_term_vars (List.combine pids permuted) head
+                                  in
+                                  make_case ~support ~used (head, body) term)))))
+           | _ -> failwith "Bad head in definition"))
   in
 
   let focus sync_obj r =

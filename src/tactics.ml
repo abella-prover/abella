@@ -755,7 +755,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
         "h" ^ (string_of_int !count)
   in
 
-  let rec clause_aux n hyps context foci goal r ts ~sc =
+  let rec clause_aux n context foci goal r ts ~sc =
     let support = term_list_support (goal :: context) in
     let freshen_clause = freshen_nameless_clause ~support ~ts in
     let p = term_head_name goal in
@@ -800,7 +800,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
         | _ ->
             (* Backchain *)
             let ctx,term = Async.get goal in
-            if n > 0 then clause_aux n hyps ctx (ctx @ clauses) term r ts ~sc;
+            if n > 0 then clause_aux n ctx (ctx @ clauses) term r ts ~sc;
             (* Also backchain the goal G in '{.. L ..|- G}' on clauses F 
                occurring in hypotheses of the form 'member F L' *)
             let ctxs = List.find_all (fun cls -> tc [] cls = olistty)
@@ -839,7 +839,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
         | Smaller _ | Equal _ -> ()
         | _ ->
             let ctx,focus,term = Sync.get goal in
-            if n > 0 then clause_aux n hyps ctx [focus] term r ts ~sc
+            if n > 0 then clause_aux n ctx [focus] term r ts ~sc
 
   and async_obj_aux_conj n goals r ts ~sc =
     match goals with

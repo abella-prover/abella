@@ -801,7 +801,8 @@ let search ~depth:n ~hyps ~clauses ~alldefs
             (* Backchain *)
             let ctx,term = Async.get goal in
             if n > 0 then clause_aux n hyps ctx (ctx @ clauses) term r ts ~sc;
-            (* Focus on formulas in the olist contexts *)
+            (* Also backchain the goal G in '{.. L ..|- G}' on clauses F 
+               occurring in hypotheses of the form 'member F L' *)
             let ctxs = List.find_all (fun cls -> tc [] cls = olistty)
                 goal.Async.context in
             let get_member_foci hyp =

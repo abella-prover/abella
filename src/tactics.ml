@@ -604,7 +604,15 @@ let coinductive_wrapper r names t =
   in
     aux t
 
-let unfold_defs ~mdefs ~ts goal r =
+let maybe_select sel l = match sel with
+  | None -> l
+  | Some n ->
+      if n > List.length l then
+        failwithf "Cannot select clause #%d; there are only %d clauses" n
+          (List.length l) ;
+      [List.nth l (n - 1)]
+
+let unfold_defs ~mdefs clause_sel ~ts goal r =
   let p = term_head_name goal in
   let (mutual, defs) = mdefs in
   let support = term_support goal in
@@ -632,6 +640,7 @@ let unfold_defs ~mdefs ~ts goal r =
                         [(get_bind_state (), cpairs, normalize (wrapper body), i)]))
   in
     defs
+    |> maybe_select clause_sel
     |> List.map
         (fun (head, body) ->
            match head with
@@ -643,20 +652,20 @@ let unfold_defs ~mdefs ~ts goal r =
     |> List.flatten_map
         (fun (i, (tids, head, body)) -> unfold_def tids head body i)
 
-let unfold ~mdefs goal =
+let unfold ~mdefs clause_sel goal =
   match goal with
-    | Pred(_, Smaller _) | Pred(_, Equal _) ->
-        failwith "Cannot unfold inductively restricted predicate"
-    | Pred(goal, r) ->
-        (* Find the first body without lingering conflict pairs *)
-        let rec select_non_cpair list =
-          match list with
-            | (state, [], body, _)::_ -> set_bind_state state; body
-            | _::rest -> select_non_cpair rest
-            | [] -> failwith "No matching definitions"
-        in
-          select_non_cpair (unfold_defs ~mdefs ~ts:0 goal r)
-    | _ -> failwith "Can only unfold defined predicates"
+  | Pred(_, Smaller _) | Pred(_, Equal _) ->
+      failwith "Cannot unfold inductively restricted predicate"
+  | Pred(goal, r) ->
+      (* Find the first body without lingering conflict pairs *)
+      let rec select_non_cpair list =
+        match list with
+        | (state, [], body, _)::_ -> set_bind_state state; body
+        | _::rest -> select_non_cpair rest
+        | [] -> failwith "No matching clause(s)"
+      in
+      select_non_cpair (unfold_defs ~mdefs clause_sel ~ts:0 goal r)
+  | _ -> failwith "Can only unfold defined predicates"
 
 
 (* Search *)
@@ -910,7 +919,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     let mdefs = assoc_mdefs p alldefs in
       unwind_state
         (fun () ->
-           unfold_defs ~mdefs ~ts goal r |> List.iter
+           unfold_defs ~mdefs None ~ts goal r |> List.iter
                (fun (state, cpairs, body, i) ->
                   set_bind_state state ;
                   metaterm_aux (n-1) hyps body ts

@@ -506,33 +506,33 @@ let rec normalize_obj obj =
   | Async obj -> Async (aux obj)
   | Sync obj -> Sync (norm_ctx obj)
 
-let rename_term rens t = replace_term_vars ~tag:Constant rens t
-
-let normalize_binders t =
-  let eigens = get_metaterm_used t @ get_metaterm_used_nominals t in
-  let rec aux rens used t =
-    match t with
-    | True | False -> t
-    | Eq (a, b) -> Eq (rename_term rens a, rename_term rens b)
-    | Obj (obj, r) -> Obj (map_obj (rename_term rens) obj, r)
+let normalize_binders =
+  let aux_term rens t = replace_term_vars ~tag:Constant rens t in
+  let rec aux rens used form = match form with
+    | True | False -> form
+    | Eq (a, b)    -> Eq (aux_term rens a, aux_term rens b)
+    | Obj (obj, r) -> Obj (map_obj (aux_term rens) obj, r)
     | Arrow (a, b) -> Arrow (aux rens used a, aux rens used b)
-    | Or (a, b) -> Or (aux rens used a, aux rens used b)
-    | And (a, b) -> And (aux rens used a, aux rens used b)
-    | Pred (p, r) -> Pred (rename_term rens p, r)
+    | Or (a, b)    -> Or (aux rens used a, aux rens used b)
+    | And (a, b)   -> And (aux rens used a, aux rens used b)
+    | Pred (p, r)  -> Pred (aux_term rens p, r)
     | Binding (binder, bvars, body) ->
-      let (rens, used, rev_bvars) = List.fold_left begin
-          fun (rens, used, bvars) (v, ty) ->
-            if List.mem_assoc v used then begin
-              let (fv, used) = fresh_wrt ~ts:0 Constant v ty used in
-              ((v, fv) :: rens, used, (term_to_name fv, ty) :: bvars)
-            end else begin
-              (rens, used, (v, ty) :: bvars)
-            end
-        end (rens, used, []) bvars in
-      let bvars = List.rev rev_bvars in
-      binding binder bvars (aux rens used body)
+        let (rens, used, rev_bvars) = List.fold_left begin
+            fun (rens, used, bvars) (v, ty) ->
+              if List.mem_assoc v used then begin
+                let (fv, used) = fresh_wrt ~ts:0 Constant v ty used in
+                ((v, fv) :: rens, used, (term_to_name fv, ty) :: bvars)
+              end else begin
+                (rens, used, (v, ty) :: bvars)
+              end
+          end (rens, used, []) bvars
+        in
+        let bvars = List.rev rev_bvars in
+        binding binder bvars (aux rens used body)
   in
-  aux [] eigens t
+  fun form ->
+    let used = get_metaterm_used form @ get_metaterm_used_nominals form in
+    aux [] used form
 
 let replace_term_typed_nominals alist t =
   let rec aux t =

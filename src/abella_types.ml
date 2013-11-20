@@ -93,7 +93,7 @@ type command =
   | Left
   | Right
   | Intros of id list
-  | Unfold
+  | Unfold of int option
   | Skip
   | Abort
   | Undo
@@ -254,7 +254,8 @@ let command_to_string c =
     | SplitStar -> "split*"
     | Left -> "left"
     | Right -> "right"
-    | Unfold -> "unfold"
+    | Unfold None -> "unfold"
+    | Unfold (Some n) -> "unfold " ^ string_of_int n
     | Intros [] -> "intros"
     | Intros ids -> sprintf "intros %s" (String.concat " " ids)
     | Skip -> "skip"

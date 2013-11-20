@@ -329,7 +329,8 @@ pure_command:
   | SKIP DOT                                  { Types.Skip }
   | ABORT DOT                                 { Types.Abort }
   | UNDO DOT                                  { Types.Undo }
-  | UNFOLD DOT                                { Types.Unfold }
+  | UNFOLD DOT                                { Types.Unfold None }
+  | UNFOLD NUM DOT                            { Types.Unfold (Some $2) }
   | CLEAR hyp_list DOT                        { Types.Clear($2) }
   | ABBREV hyp QSTRING DOT                    { Types.Abbrev($2, $3) }
   | UNABBREV hyp_list DOT                     { Types.Unabbrev($2) }

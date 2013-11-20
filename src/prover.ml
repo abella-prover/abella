@@ -933,7 +933,8 @@ let exists t =
         in
         let t = type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx t in
         let goal = replace_metaterm_vars [(id, t)] (exists tids body) in
-          sequent.goal <- goal
+        let goal = normalize goal in
+        sequent.goal <- goal
     | _ -> ()
 
 (* Skip *)

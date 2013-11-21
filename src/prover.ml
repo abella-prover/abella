@@ -137,7 +137,16 @@ let fresh_hyp_name base =
   end else
     fresh_name base (List.map (fun h -> (h.id, ())) sequent.hyps)
 
+(* let normalize mt = *)
+(*   let before = metaterm_to_string mt in *)
+(*   Printf.fprintf stderr "normalizing\n%s\n%!" before ; *)
+(*   let mt = normalize mt in *)
+(*   let after = metaterm_to_string mt in *)
+(*   Printf.fprintf stderr "normalized form\n%s\n%!" after ; *)
+(*   mt *)
+
 let normalize_sequent () =
+  (* Printf.fprintf stderr "Normalizing Sequent %s\n%!" sequent.name ; *)
   sequent.goal <- normalize sequent.goal ;
   sequent.hyps <-
     sequent.hyps |> List.map (fun h -> { h with term = normalize h.term })
@@ -187,79 +196,6 @@ let undo () =
         Term.set_bind_state bind_state ;
         undo_stack := rest
     | [] -> failwith "Nothing left to undo"
-
-
-(* Proof state manipulation utilities *)
-
-let reset_prover =
-  let original_state = get_bind_state () in
-  let original_sequent = copy_sequent () in
-    fun () ->
-      set_bind_state original_state ;
-      set_sequent original_sequent ;
-      subgoals := [] ;
-      undo_stack := []
-
-let full_reset_prover =
-  let original_clauses = !clauses in
-  let original_defs_table = H.copy defs_table in
-    fun () ->
-      reset_prover () ;
-      clauses := original_clauses ;
-      H.assign defs_table original_defs_table
-
-let add_hyp ?name term =
-  let name = fresh_hyp_name begin
-    match name with
-      | None -> ""
-      | Some name -> name
-  end in
-  sequent.hyps <- List.append sequent.hyps
-    [{ id = name ; term = term ; abbrev = None }]
-
-let remove_hyp name =
-  sequent.hyps <- List.remove_all (fun h -> h.id = name) sequent.hyps
-
-let replace_hyp name t =
-  let rec aux hyplist =
-    match hyplist with
-      | [] -> []
-      | hyp::rest when hyp.id = name -> {hyp with term = t} :: rest
-      | hyp::rest -> hyp :: (aux rest)
-  in
-    sequent.hyps <- aux sequent.hyps
-
-let add_var v =
-  sequent.vars <- List.append sequent.vars [v]
-
-let add_if_new_var (name, v) =
-  if not (List.mem_assoc name sequent.vars) then
-    add_var (name, v)
-
-let add_lemma name lemma =
-  lemmas := (name, lemma)::!lemmas
-
-let get_hyp name =
-  let hyp = List.find (fun h -> h.id = name) sequent.hyps in
-    hyp.term
-
-let get_lemma name =
-  List.assoc name !lemmas
-
-let get_hyp_or_lemma name =
-  try
-    get_hyp name
-  with
-      Not_found -> get_lemma name
-
-let next_subgoal () =
-  match !subgoals with
-    | [] -> failwith "Proof completed."
-    | set_subgoal::rest ->
-        set_subgoal () ;
-        normalize_sequent () ;
-        subgoals := rest
-
 
 (* Pretty print *)
 
@@ -345,6 +281,81 @@ let get_display () =
   let b = Buffer.create 100 in
     format_display (formatter_of_buffer b) ;
     Buffer.contents b
+
+
+(* Proof state manipulation utilities *)
+
+let reset_prover =
+  let original_state = get_bind_state () in
+  let original_sequent = copy_sequent () in
+    fun () ->
+      set_bind_state original_state ;
+      set_sequent original_sequent ;
+      subgoals := [] ;
+      undo_stack := []
+
+let full_reset_prover =
+  let original_clauses = !clauses in
+  let original_defs_table = H.copy defs_table in
+    fun () ->
+      reset_prover () ;
+      clauses := original_clauses ;
+      H.assign defs_table original_defs_table
+
+let add_hyp ?name term =
+  let name = fresh_hyp_name begin
+    match name with
+      | None -> ""
+      | Some name -> name
+  end in
+  sequent.hyps <- List.append sequent.hyps
+    [{ id = name ; term = term ; abbrev = None }]
+
+let remove_hyp name =
+  sequent.hyps <- List.remove_all (fun h -> h.id = name) sequent.hyps
+
+let replace_hyp name t =
+  let rec aux hyplist =
+    match hyplist with
+      | [] -> []
+      | hyp::rest when hyp.id = name -> {hyp with term = t} :: rest
+      | hyp::rest -> hyp :: (aux rest)
+  in
+    sequent.hyps <- aux sequent.hyps
+
+let add_var v =
+  sequent.vars <- List.append sequent.vars [v]
+
+let add_if_new_var (name, v) =
+  if not (List.mem_assoc name sequent.vars) then
+    add_var (name, v)
+
+let add_lemma name lemma =
+  lemmas := (name, lemma)::!lemmas
+
+let get_hyp name =
+  let hyp = List.find (fun h -> h.id = name) sequent.hyps in
+    hyp.term
+
+let get_lemma name =
+  List.assoc name !lemmas
+
+let get_hyp_or_lemma name =
+  try
+    get_hyp name
+  with
+      Not_found -> get_lemma name
+
+let next_subgoal () =
+  match !subgoals with
+    | [] -> failwith "Proof completed."
+    | set_subgoal::rest ->
+        set_subgoal () ;
+        subgoals := rest ;
+        let before = get_display () in
+        normalize_sequent () ;
+        let after = get_display () in
+        Printf.ifprintf stderr "Normalizing\n%s\nproduces\n%s\n%!" before after
 
 
 (* Object level instantiation *)
@@ -933,8 +944,8 @@ let exists t =
         in
         let t = type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx t in
         let goal = replace_metaterm_vars [(id, t)] (exists tids body) in
-        let goal = normalize goal in
-        sequent.goal <- goal
+        sequent.goal <- goal ;
+        normalize_sequent ()
     | _ -> ()
 
 (* Skip *)

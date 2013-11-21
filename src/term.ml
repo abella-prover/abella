@@ -378,20 +378,25 @@ let ty_to_string ty =
   in
     aux false ty
 
+let var_to_string ?(tag=false) ?(ts=false) ?(ty=false) v =
+  let (bef, aft) = if tag || ts || ty then ("$(", ")") else ("", "") in
+  bef ^ begin
+    v.name
+    ^ (if tag then "!" ^ tag2str v.tag else "")
+    ^ (if ts then "/" ^ string_of_int v.ts else "")
+    ^ (if ty then ":" ^ ty_to_string v.ty else "")
+  end ^ aft
+
 let term_to_string term =
   let high_pr = 2 + get_max_priority () in
   let pp_var x = abs_name ^ (string_of_int x) in
-(*   let pp_var_ty x ty = (pp_var x) ^ ":" ^ (ty_to_string ty) in *)
   let rec pp cx pr n term =
     match observe (hnorm term) with
-      | Var v ->
-        (* "$(" ^ *)
-          v.name
-          (* ^ ":" ^ (tag2str v.tag) *)
-          (* ^ ":" ^ (string_of_int v.ts) *)
-          (* ^ ":" ^ (ty_to_string v.ty) *)
-          (* ^ ")" *)
-      | DB i -> 
+      | Var v -> var_to_string v
+                   (* ~tag:true *)
+                   (* ~ts:true *)
+                   (* ~ty:true *)
+      | DB i ->
           (try List.nth cx (i - 1) with _ -> pp_var (n - i + 1))
       | App (t,ts) ->
           begin match observe (hnorm t), ts with

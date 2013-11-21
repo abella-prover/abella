@@ -368,7 +368,6 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
         let used_head = term_vars_alist Eigen [head; term] in
         let used_body = metaterm_vars_alist Eigen body in
         let used = List.unique (used_head @ used_body @ used) in
-        let body = Metaterm.normalize body in
         begin match recursive_metaterm_case ~used ~sr body with
           | None -> []
           | Some case ->

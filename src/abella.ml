@@ -423,6 +423,8 @@ let recurseOn p ?quiet:(q=true) aStr =
    let holdbuf = ref !lexbuf in
    let holdint = ref !interactive in
    let holdsi = ref !switch_to_interactive in
+   interactive := false;
+   switch_to_interactive := false;
    lexbuf := Lexing.from_string aStr;
    if q then out := open_out "/dev/null";
    begin try 

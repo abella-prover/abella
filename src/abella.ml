@@ -410,6 +410,36 @@ let term_witness (t, w) =
       (Tactics.witness_to_string w)
       (metaterm_to_string t)
 
+(* recurseOn p ?q aStr: 'a
+   recurses on p with the interactive mode off and using aStr as input
+p: unit -> 'a
+?quiet: bool, true suppreses the output of the recursive call
+aStr: String
+*)
+let recurseOn p ?quiet:(q=true) aStr = 
+  if aStr = "" then () else 
+  if not q then printf "/* %s */" aStr;
+   let holdout = ref !out in
+   let holdbuf = ref !lexbuf in
+   let holdint = ref !interactive in
+   let holdsi = ref !switch_to_interactive in
+   lexbuf := Lexing.from_string aStr;
+   if q then out := open_out "/dev/null";
+   begin try 
+   let output = p () in
+   interactive := !holdint;
+   switch_to_interactive := !holdsi;
+   out := !holdout;
+   lexbuf := !holdbuf;
+   output
+   with AbortProof ->
+     out := !holdout; lexbuf := !holdbuf;    interactive := !holdint; switch_to_interactive := !holdsi; failwith  (sprintf "error while recursePOn %s: proof aborted" aStr)
+   |  e -> out := !holdout; lexbuf := !holdbuf;interactive := !holdint; switch_to_interactive := !holdsi; printf "Error while recursePOn %s \n" aStr; raise e  end
+
+
+
+
+
 let rec process_proof name =
   let suppress_display = ref false in
   let finished = ref false in
@@ -437,7 +467,7 @@ let rec process_proof name =
       |	TacPlugin (pn, st) -> 
 	  let (module Plug) = (try Hashtbl.find plugins pn
                 with Not_found -> failwith (sprintf "Unknown plugin %s.\n" pn)) in 
-	  Plug.process_tactic (recursePPOn) st (copy_sequent())
+	  Plug.process_tactic (recurseOn (fun () -> process_proof name; copy_sequent())) st (copy_sequent())
    | Apply(h, args, ws, hn) ->  
      apply ?name:hn h args ws ~term_witness;
       | Backchain(h, ws) -> backchain h ws ~term_witness
@@ -509,23 +539,6 @@ let rec process_proof name =
           interactive_or_exit ()
     done with
       | Failure "eof" -> ()
-(* plugin entry point *)
-and recursePPOn ?quiet:(q=true) aStr = 
-  if aStr = "" then () else 
-  if not q then printf "/* %s */" aStr;
-   let holdout = ref !out in
-   let holdbuf = ref !lexbuf in
-   lexbuf := Lexing.from_string aStr;
-   if q then out := open_out "/dev/null";
-   begin try 
-   process_proof "";
-   out := !holdout;
-   lexbuf := !holdbuf;
-   copy_sequent()
-   with AbortProof ->
-     out := !holdout; lexbuf := !holdbuf; failwith  (sprintf "error while recursePPOn %s" aStr)
-   |  e -> out := !holdout; lexbuf := !holdbuf; printf "Error while recursePPOn %s \n" aStr; raise e  end
-
 
 
 
@@ -572,7 +585,7 @@ let rec process () =
 	| TopPlugin(pn, st) ->	  
 	    let (module Plug) = (try Hashtbl.find plugins pn
             with Not_found -> failwith (sprintf "Unknown plugin %s.\n" pn)) in 
-	    Plug.process_top recursePOn st
+	    Plug.process_top (recurseOn process) st
         | CoDefine(idtys, udefs) ->
             let ids = List.map fst idtys in
               check_noredef ids;
@@ -647,21 +660,6 @@ let rec process () =
         interactive_or_exit ()
   done with
   | Failure "eof" -> ()
-(* plugin entry point *)
-and recursePOn ?quiet:(q=true) aStr = 
-  if aStr = "" then () else 
-  if not q then printf "/* %s */" aStr;
-   let holdout = ref !out in
-   let holdbuf = ref !lexbuf in
-   lexbuf := Lexing.from_string aStr;
-   if q then out := open_out "/dev/null";
-   begin try 
-   process ();
-   out := !holdout;
-   lexbuf := !holdbuf;
-   ()
-   with   e -> out := !holdout; lexbuf := !holdbuf; printf "Error while recursePOn %s \n" aStr; raise e  end 
-
 
 
 

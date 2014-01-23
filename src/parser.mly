@@ -365,7 +365,7 @@ pure_command:
   | MONOTONE hyp WITH term DOT                { Types.Monotone($2, $4) }
   | PERMUTE perm DOT                          { Types.Permute($2, None) }
   | PERMUTE perm hyp DOT                      { Types.Permute($2, Some $3) }
-  | STRINGID BSTRING                          { Types.TacPlugin($1,$2)}
+  | STRINGID BSTRING DOT                          { Types.TacPlugin($1,$2)}
 
 hhint:
   | STRINGID COLON                       { Some $1 }
@@ -463,7 +463,7 @@ pure_top_command:
   | CLOSE id_list DOT                    { Types.Close($2) }
   | SSPLIT id DOT                        { Types.SSplit($2, []) }
   | SSPLIT id AS id_list DOT             { Types.SSplit($2, $4) }
-  | STRINGID BSTRING            { Types.TopPlugin($1,$2)}
+  | STRINGID BSTRING DOT            { Types.TopPlugin($1,$2)}
 
 common_command:
   | SET id id DOT                        { Types.Set($2, Types.Str $3) }

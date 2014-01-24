@@ -47,12 +47,22 @@ let schemas : schemas ref = ref []
 let add_schema name schema =
  schemas := (name, schema)::!schemas
 
+
 let get_schema name =
  try List.assoc name !schemas 
  with Not_found -> failwith (sprintf "Block %s undefined." name)
 
+(* May contain the name of the schema currently being defined *)
+let saveSchema = ref None
 
-
+let try_del_schema () =
+begin 
+  match (!saveSchema) with
+  | None -> ()
+  | Some id -> 
+      let ts = List.remove_assoc id (!schemas) in
+      schemas := ts
+end
 
 (* General Toolbox *)
 
@@ -60,6 +70,11 @@ let get_schema name =
 let rec all_none l =
   let bl = List.map Option.is_none l in 
   List.fold_left (fun b cb -> b && cb) true bl
+
+
+
+let fail_if_false b =
+if b then () else raise (Failure "false") 
 
 
 let rec remove_nones l =
@@ -509,7 +524,7 @@ begin match idtm with
 | (id, Some tm)::idtm' ->
     if List.mem_assoc id const then
       let tm' = List.assoc id const in
-      Unify.right_unify tm tm';
+      fail_if_false (Unify.try_right_unify tm tm');
       makeClauseConstrain idtm' const
     else
       makeClauseConstrain idtm' ((id,tm)::const)
@@ -866,7 +881,7 @@ let process_tactic rPPO st _ =
    if vvts = [] then failwith (sprintf "Schema: in sync, no clauses of %s can introduce a formula of the form %s. \n" schName (term_to_string st));
    let (tlup,pads) = List.split vvts in
    let hdtlup = List.hd tlup in
-   List.iter (Unify.left_unify hdtlup) (List.tl tlup);
+   List.iter (fun x -> fail_if_false (Unify.try_left_unify hdtlup x)) (List.tl tlup);
    let ads = instOfPats hdtlup mts in
 (* syn.5 *)
    let syncThmStr = make_sync_stmt gi schName arr bids ads hdtlup in
@@ -890,7 +905,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		  let mts  = remove_nones mts' in
 (* uni.2 *)       let varl = pairwiseEqual te1 te2 in
 
-(* uni.3 *)       Unify.left_unify te1 te2; 
+(* uni.3 *)       fail_if_false (Unify.try_left_unify te1 te2);
 
 (* uni.4 *)       let ads = instOfPats te1 mts in
 (* uni.5 *)       let (groundVar, rel) = safeUniqueGrounds mts ads varl in
@@ -910,7 +925,7 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
 		     let gvSwap = ((groundVar,oldid)::[(oldid,groundVar)]) in
 		     (rename_ids_in_term gvSwap tm)) (List.combine pmts rel) in
 		  let hdtlup = List.hd tlup in
-		  List.iter (Unify.left_unify hdtlup) (List.tl tlup);
+		  List.iter (fun x -> fail_if_false (Unify.try_left_unify hdtlup x)) (List.tl tlup);
 (* uni.8 *)       let (nl,tu1,tu2) = uniteTerms hdtlup groundVar in
 		  let (bads,_) = List.split ads in
 		  let uniThmStr = make_uni_stmt schName tu1 tu2 nl arr gi groundVar in
@@ -971,10 +986,10 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
     with 
     | End_of_file -> failwith "eof"
     | Parsing.Parse_error ->
-        eprintf "Syntax error in Schema plugin (process_tactic) %s.\n%!" st;
-        Lexing.flush_input !slexbuf ;
-	exit 0
-    | e -> (eprintf "Error %s while processing command %s in Schema plugin. \n" (Printexc.to_string e) st); exit 0
+        eprintf "Failure to apply Ctx tactic. \n Syntax error in Schema plugin (process_tactic) %s.\n%!" st;
+        Lexing.flush_input !slexbuf;
+	failwith "eof"
+    | e -> (eprintf "Failure to apply Ctx tactic. \n Error %s while processing command %s in Schema plugin. \n" (Printexc.to_string e) st); failwith "eof"
     done with
       | Failure "eof" -> ()
     end
@@ -1023,6 +1038,7 @@ let process_top rPO st =
 		if cll'' = [] then failwith "Schema: Trying to define an empty schema. \n";
 		let genStr = String.concat " \n" genl in
 		add_schema id (arr, cll'');
+		saveSchema := Some id;
 		let cdef = make_schema_def id arr cll'' in
 		rPO  (cdef^" \n "^genStr);
       end
@@ -1031,8 +1047,9 @@ let process_top rPO st =
     | Parsing.Parse_error ->
         eprintf "Syntax error in Schema plugin (process_top) %s.\n%!" st;
         Lexing.flush_input !slexbuf ;
-	exit 0
-    | e -> (eprintf "Error %s while processing top command %s in Schema plugin. \n" (Printexc.to_string e) st); exit 0
+	try_del_schema ();
+	failwith "eof"
+    | e -> (eprintf "Error %s while processing top command %s in Schema plugin. \n" (Printexc.to_string e) st); try_del_schema (); failwith "eof"
     done with
       | Failure "eof" -> ()
     end

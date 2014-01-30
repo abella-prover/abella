@@ -72,7 +72,7 @@
 
 %}
 
-%token IMP IF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
+%token IMP IF AMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
@@ -96,6 +96,7 @@
 %nonassoc BSLASH
 %left IF
 %right IMP
+%left AMP
 %nonassoc EQ
 
 %right CONS
@@ -199,6 +200,7 @@ term:
   | term IMP term                        { binop "=>" $1 $3 }
   | term IF term                         { binop "=>" $3 $1 }
   | term CONS term                       { binop "::" $1 $3 }
+  | term AMP term                        { binop "&" $1 $3 }
   | aid BSLASH term                      { let (id, ty) = $1 in
                                              ULam(pos 0, id, ty, $3) }
   | exp exp_list                         { nested_app $1 $2 }

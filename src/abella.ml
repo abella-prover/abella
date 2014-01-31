@@ -434,8 +434,9 @@ let recurseOn p ?quiet:(q=true) aStr =
    out := !holdout;
    lexbuf := !holdbuf;
    output
-   with (* AbortProof -> out := !holdout; lexbuf := !holdbuf;    interactive := !holdint; switch_to_interactive := !holdsi; failwith  (sprintf "error while recursePOn %s: proof aborted" aStr) *)
-   |  e -> out := !holdout; lexbuf := !holdbuf;interactive := !holdint; switch_to_interactive := !holdsi; printf "Error while recursePOn %s, please report this bug to https://github.com/abella-prover/abella/issues \n" aStr; exit 0  end
+   with 
+   |  e -> (* out := !holdout; lexbuf := !holdbuf;interactive := !holdint; switch_to_interactive := !holdsi; *) 
+       printf "Error while recursePOn %s, please report this bug to https://github.com/abella-prover/abella/issues \n" aStr; exit 0  end
 
 
 

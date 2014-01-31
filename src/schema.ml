@@ -988,8 +988,9 @@ with _ -> failwith "Schema: 3 arguments expected for 'unique' tactical" ) in
     | Parsing.Parse_error ->
         eprintf "Failure to apply Ctx tactic. \n Syntax error in Schema plugin (process_tactic) %s.\n%!" st;
         Lexing.flush_input !slexbuf;
+	flush stderr;
 	failwith "eof"
-    | e -> (eprintf "Failure to apply Ctx tactic. \n Error %s while processing command %s in Schema plugin. \n" (Printexc.to_string e) st); failwith "eof"
+    | e -> (eprintf "Failure to apply Ctx tactic. \n Error %s while processing command %s in Schema plugin. \n" (Printexc.to_string e) st); Lexing.flush_input !slexbuf; flush stderr; failwith "eof"
     done with
       | Failure "eof" -> ()
     end
@@ -1046,10 +1047,11 @@ let process_top rPO st =
     | End_of_file -> failwith "eof"
     | Parsing.Parse_error ->
         eprintf "Syntax error in Schema plugin (process_top) %s.\n%!" st;
+	flush stderr;
         Lexing.flush_input !slexbuf ;
 	try_del_schema ();
 	failwith "eof"
-    | e -> (eprintf "Error %s while processing top command %s in Schema plugin. \n" (Printexc.to_string e) st); try_del_schema (); failwith "eof"
+    | e -> (eprintf "Error %s while processing top command %s in Schema plugin. \n" (Printexc.to_string e) st); flush stderr; Lexing.flush_input !slexbuf ; try_del_schema (); failwith "eof"
     done with
       | Failure "eof" -> ()
     end

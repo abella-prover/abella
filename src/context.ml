@@ -79,6 +79,18 @@ let extract_cons t =
     | App(_, [a; b]) -> (a, b)
     | _ -> assert false
 
+let rec destruct_amp t =
+  if is_amp t then begin
+    match observe (hnorm t) with
+    | App (_, [a; b]) ->
+      destruct_amp a @ destruct_amp b
+    | _ -> assert false
+  end else [t]
+
+let rec destruct_amps = function
+  | [] -> []
+  | t :: ts -> destruct_amp t @ destruct_amps ts
+
 let normalize ctx =
   let remove_dups ctx = List.unique ~cmp:eq ctx in
   let rec remove_cons ctx =
@@ -91,7 +103,10 @@ let normalize ctx =
           remove_cons tail
       | head::tail -> head::(remove_cons tail)
   in
-    remove_dups (remove_cons ctx)
+  ctx
+  |> remove_cons
+  |> destruct_amps
+  |> remove_dups
 
 let subcontext ctx1 ctx2 =
   let ctx1 = normalize ctx1 in

@@ -23,7 +23,6 @@ open Unify
 open Extensions
 open Debug
 
-
 (* Variable naming utilities *)
 
 let alist_to_used (_, t) = term_to_pair t

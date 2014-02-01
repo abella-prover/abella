@@ -171,6 +171,7 @@ let pervasive_sign =
   (["o"; "olist"; "prop"],
    [("pi",     Poly(["A"], tyarrow [tyarrow [tybase "A"] oty] oty)) ;
     ("=>",     Poly([],    tyarrow [oty; oty] oty)) ;
+    ("&",      Poly([],    tyarrow [oty; oty] oty)) ;
     ("member", Poly([],    tyarrow [oty; olistty] propty)) ;
     ("::",     Poly([],    tyarrow [oty; olistty] olistty)) ;
     ("nil",    Poly([],    olistty))])

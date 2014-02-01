@@ -42,8 +42,8 @@
 
 %}
 
-%token IMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ BANG
-%token SCHEMA INVERSION PROJECTION SYNC UNIQUE
+%token IMP IF AMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ BANG
+%token SCHEMA INVERSION PROJECTION SYNC UNIQUE CLAUSEEQ
 %token SEMICOLON UNDERSCORE
 %token COLON RARROW FORALL NABLA EXISTS 
 %token LBRACE RBRACE LBRACK RBRACK
@@ -57,7 +57,9 @@
 %right RARROW
 
 %nonassoc BSLASH
+%left IF
 %right IMP
+%left AMP
 %nonassoc EQ
 
 %right CONS
@@ -99,7 +101,9 @@ paid:
 
 term:
   | term IMP term                        { binop "=>" $1 $3 }
+  | term IF term                         { binop "=>" $3 $1 }
   | term CONS term                       { binop "::" $1 $3 }
+  | term AMP term                        { binop "&" $1 $3 }
   | aid BSLASH term                      { let (id, ty) = $1 in
                                              ULam(pos 0, id, ty, $3) }
   | exp exp_list                         { nested_app $1 $2 }
@@ -120,6 +124,21 @@ exp_list:
                                              [ULam(pos 0, id, ty, $3)] }
 
 
+clause:
+  | clause_head DOT                      { ($1, []) }
+  | clause_head CLAUSEEQ clause_body DOT { ($1, $3) }
+  | clause_head IF clause_body DOT       { ($1, $3) }
+
+clause_head:
+  | LPAREN clause_head RPAREN            { $2 }
+  | paid exp_list                        { let (id, ty) = $1 in
+                                           nested_app (UCon(pos 0, id, ty)) $2 }
+
+
+clause_body:
+  | term COMMA clause_body               { $1::$3 }
+  | LPAREN term COMMA clause_body RPAREN { $2::$4 }
+  | term                                 { [$1] }
 
 sclause_list:
   | existsopt nablaopt termopt_tup                { [($1,$2,$3)] }

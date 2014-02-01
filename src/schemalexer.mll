@@ -36,7 +36,7 @@ let number = ['0'-'9'] +
 let ichar = ['A'-'Z' 'a'-'z' '-' '^' '>' '<' '=' '`' '\'' '?' '$' '~']
 
 (* Characters allowed only in the body of variables. *)
-let bchar = ['0'-'9' '_' '/' '*' '@' '+' '#' '&']
+let bchar = ['0'-'9' '_' '/' '*' '@' '+' '#']
 
 let name = ichar (ichar|bchar)*
 let blank = ' ' | '\t' | '\r'
@@ -53,6 +53,9 @@ rule token = parse
 
 | "!"                { BANG}
 | "=>"               { IMP }
+| "<="               { IF}
+| "&"                { AMP }
+| ":-"               { CLAUSEEQ }
 | ":="               { DEFEQ }
 | ","                { COMMA }
 | "."                { DOT }

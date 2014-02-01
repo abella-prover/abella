@@ -66,6 +66,11 @@ type metaterm =
   | And of metaterm * metaterm
   | Pred of term * restriction
 
+(* Refactored errors *)
+
+let failwith_positive_amp () =
+  failwithf "Abella does not support '&' in clause heads or goals"
+
 (* Constructions *)
 
 let termobj t = Obj(Async(Async.obj Context.empty t), Irrelevant)
@@ -495,6 +500,8 @@ let rec normalize_obj obj =
       aux (move_imp_to_context async_obj)
     else if is_pi term then
       aux (replace_pi_with_nominal async_obj)
+    else if Term.is_amp term then
+      failwith_positive_amp ()
     else
       Async.obj (Context.normalize ctx) term
   in
@@ -764,6 +771,8 @@ let clausify term =
     let ctx,term = Async.get obj in
     if is_imp term then
       move_imps (move_imp_to_context obj)
+    else if is_amp term then
+      failwith_positive_amp ()
     else
       Async.obj (Context.normalize ctx) term in
   let body,head = Async.get (move_imps (Async.obj Context.empty term'))

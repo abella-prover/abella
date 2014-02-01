@@ -334,7 +334,7 @@ type assoc = Left | Right | Both | No
 
 (* List of infix operators sorted by priority, low to high. *)
 let infix : (string * assoc) list =
-  [("=>", Right); ("&", Left); ("::", Right)]
+  [("=>", Right); ("::", Right); ("&", Left)]
 
 let is_infix x = List.mem_assoc x infix
 let get_assoc op = List.assoc op infix
@@ -588,3 +588,5 @@ let rec replace_pi_with_const term =
       (tyctx, term)
   in
   aux [] term
+
+let is_amp t = is_head_name "&" t

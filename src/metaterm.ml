@@ -60,6 +60,7 @@ type metaterm =
   | False
   | Eq of term * term
   | Obj of obj * restriction
+  | LFObj of obj * restriction
   | Arrow of metaterm * metaterm
   | Binding of binder * (id * ty) list * metaterm
   | Or of metaterm * metaterm
@@ -113,7 +114,7 @@ let bindings_to_string ts =
 
 let priority t =
   match t with
-    | True | False | Eq _ | Pred _ | Obj _ -> 4
+    | True | False | Eq _ | Pred _ | Obj _ | LFObj _-> 4
     | And _ -> 3
     | Or _ -> 2
     | Arrow _ -> 1
@@ -164,6 +165,7 @@ let format_metaterm fmt t =
             fprintf fmt "%s = %s" (term_to_string a) (term_to_string b)
         | Obj(obj, r) ->
             fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
+(*        | LFObj(obj, r)  *)
         | Arrow(a, b) ->
             aux (pr_curr + 1) a ;
             fprintf fmt " ->@ " ;
@@ -213,6 +215,7 @@ let map_on_objs f t =
   let rec aux t =
     match t with
       | Obj(obj, r) -> Obj(f obj, r)
+      | LFObj(obj, r) -> Obj(f obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) -> Binding(binder, bindings, aux body)
       | Or(a, b) -> Or(aux a, aux b)
@@ -235,6 +238,7 @@ let map_terms f t =
       | True | False -> t
       | Eq(a, b) -> Eq(f a, f b)
       | Obj(obj, r) -> Obj(map_obj f obj, r)
+      | LFObj(obj, r) -> LFObj(map_obj f obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) ->
           Binding(binder, bindings, aux body)
@@ -247,7 +251,7 @@ let map_terms f t =
 let iter_preds f term =
   let rec aux term =
     match term with
-      | True | False | Eq _ | Obj _ -> ()
+      | True | False | Eq _ | Obj _ | LFObj _ -> ()
       | Arrow(a, b) -> aux a; aux b
       | Binding(_, _, body) -> aux body
       | Or(a, b) -> aux a; aux b
@@ -259,7 +263,7 @@ let iter_preds f term =
 let map_preds f term =
   let rec aux term =
     match term with
-      | True | False | Eq _ | Obj _ -> []
+      | True | False | Eq _ | Obj _ | LFObj _ -> []
       | Arrow(a, b) -> aux a @ aux b
       | Binding(_, _, body) -> aux body
       | Or(a, b) -> aux a @ aux b
@@ -288,35 +292,39 @@ let move_imp_to_context async_obj =
 
 let is_async_obj t =
   match t with
-  | Obj (Async _, _) -> true
+  | Obj (Async _, _) | LFObj (Async _, _) -> true
   | _ -> false
 
 let term_to_async_obj t =
   match t with
   | Obj (Async obj, _) -> obj
+  | LFObj(Async obj, _) -> obj
   | _ -> failwith "term_to_obj called on non-async-object"
 
 let is_sync_obj t =
   match t with
-    | Obj (Sync _,_) -> true
+    | Obj (Sync _,_) | LFObj(Sync _, _) -> true
     | _ -> false
 
 
 let term_to_sync_obj t =
   match t with
     | Obj(Sync obj, _) -> obj
+    | LFObj(Sync obj, _) -> obj
     | _ -> failwith "term_to_obj called on non-sync-object"
 
 
 let term_to_restriction t =
   match t with
     | Obj(_, r) -> r
+    | LFObj(_, r) -> r
     | Pred(_, r) -> r
     | _ -> Irrelevant
 
 let set_restriction r t =
   match t with
     | Obj(obj, _) -> Obj(obj, r)
+    | LFObj(obj, _) -> LFObj(obj, r)
     | Pred(p, _) -> Pred(p, r)
     | _ -> failwith "Attempting to set restriction to non-object"
 
@@ -384,6 +392,7 @@ let rec replace_metaterm_vars alist t =
       | True | False -> t
       | Eq(a, b) -> Eq(term_aux alist a, term_aux alist b)
       | Obj(obj, r) -> Obj(map_obj (term_aux alist) obj, r)
+(*      | LFObj(obj, r)  *)
       | Arrow(a, b) -> Arrow(aux alist a, aux alist b)
       | Binding(binder, bindings, body) ->
           let alist = List.remove_assocs (List.map fst bindings) alist in
@@ -412,6 +421,9 @@ let rec collect_terms t =
     | Obj(Sync obj, _) ->
         let (ctx,focus,term) = Sync.get obj in
         (Context.context_to_list ctx) @ [focus;term]
+    | LFObj(Async obj, _) ->
+        let (ctx,term) = Async.get obj in
+        (Context.context_to_list ctx) @[term]
     | Arrow(a, b) -> (collect_terms a) @ (collect_terms b)
     | Binding(_, _, body) -> collect_terms body
     | Or(a, b) -> (collect_terms a) @ (collect_terms b)
@@ -437,6 +449,7 @@ let metaterm_support t =
       | True | False -> []
       | Eq(t1, t2) -> term_support t1 @ term_support t2
       | Obj(obj, _) -> obj_support obj
+      | LFObj(obj, _) -> obj_support obj
       | Arrow(t1, t2) -> aux t1 @ aux t2
       | Binding(_, _, t) -> aux t
       | Or(t1, t2) -> aux t1 @ aux t2
@@ -512,6 +525,7 @@ let normalize_binders =
     | True | False -> form
     | Eq (a, b)    -> Eq (aux_term rens a, aux_term rens b)
     | Obj (obj, r) -> Obj (map_obj (aux_term rens) obj, r)
+(*    | LFObj(obj, r)  *)
     | Arrow (a, b) -> Arrow (aux rens used a, aux rens used b)
     | Or (a, b)    -> Or (aux rens used a, aux rens used b)
     | And (a, b)   -> And (aux rens used a, aux rens used b)
@@ -565,6 +579,7 @@ let rec replace_metaterm_typed_nominals alist t =
       | True | False -> t
       | Eq(a, b) -> Eq(term_aux a, term_aux b)
       | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
+      | LFObj(obj, r) -> LFObj(map_obj term_aux obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) ->
           Binding(binder, bindings, aux body)
@@ -727,6 +742,7 @@ let metaterm_extract_tids aux_term t =
     | True | False -> []
     | Eq(a, b) -> aux_term [a; b]
     | Obj(obj, r) -> aux_obj obj
+    | LFObj(obj, r) -> aux_obj obj
     | Arrow(a, b) -> aux a @ aux b
     | Binding(binder, bindings, body) ->
         List.remove_all (fun (id, ty) -> List.mem_assoc id bindings) (aux body)

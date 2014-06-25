@@ -30,19 +30,33 @@ type uterm =
   | UCon of pos * string * ty
   | ULam of pos * string * ty * uterm
   | UApp of pos * uterm * uterm
-
+  | UJudge of pos * uterm * uterm 
+  | UPi  of pos * string * uterm * uterm
+  | UAbs of pos * string * uterm * uterm
+  | UImp of pos * uterm * uterm
+  | UType of pos
 
 let get_pos t =
   match t with
     | UCon(p, _, _) -> p
     | ULam(p, _, _, _) -> p
     | UApp(p, _, _) -> p
+    | UJudge(p, _, _) -> p
+    | UPi(p, _, _, _) -> p
+    | UAbs(p, _, _, _) -> p
+    | UImp(p, _, _) -> p
+    | UType(p) -> p
 
 let change_pos p t =
   match t with
     | UCon(_, id, ty) -> UCon(p, id, ty)
     | ULam(_, id, ty, body) -> ULam(p, id, ty, body)
     | UApp(_, t1, t2) -> UApp(p, t1, t2)
+    | UJudge(_, t1, t2) -> UJudge(p, t1, t2)
+    | UPi(_, id, ty, body) -> UPi(p, id, ty, body)
+    | UAbs(_, id, ty, body) -> UAbs(p, id, ty, body)
+    | UImp(_, t1, t2) -> UImp(p, t1, t2)
+    | UType(_) -> UType(p)
 
 
 let predefined id pos =
@@ -57,7 +71,7 @@ let uterm_head_name t =
   let rec aux = function
     | UCon(_, id, _) -> id
     | UApp(_, h, _) -> aux h
-    | ULam _ -> assert false
+    | _ -> assert false(* MKS: not sure here... *)
   in
     aux t
 
@@ -69,6 +83,7 @@ type umetaterm =
   | UEq of uterm * uterm
   | UAsyncObj of uterm * uterm * restriction
   | USyncObj of uterm * uterm * uterm * restriction
+  | ULFObj of uterm * uterm * restriction
   | UArrow of umetaterm * umetaterm
   | UBinding of binder * (id * ty) list * umetaterm
   | UOr of umetaterm * umetaterm
@@ -168,12 +183,16 @@ let lookup_const (_, ctable) id =
 (** Pervasive signature *)
 
 let pervasive_sign =
-  (["o"; "olist"; "prop"],
+  (["o"; "olist"; "prop"; "lftype"; "lfobj"; "lfjudge"; "lfjudgelist"],
    [("pi",     Poly(["A"], tyarrow [tyarrow [tybase "A"] oty] oty)) ;
     ("=>",     Poly([],    tyarrow [oty; oty] oty)) ;
     ("member", Poly([],    tyarrow [oty; olistty] propty)) ;
     ("::",     Poly([],    tyarrow [oty; olistty] olistty)) ;
-    ("nil",    Poly([],    olistty))])
+    ("nil",    Poly([],    olistty)) ;
+    ("lf::",   Poly([], tyarrow [lfjudgety; lfjudgelistty] lfjudgelistty)) ;
+    ("lfnil",  Poly([], lfjudgelistty)) ;
+    ("lfhas",  Poly([], tyarrow [lfobjty; lftypety] oty));
+    ("lfisty", Poly([], tyarrow [lftypety] oty))])
 
 let sign_to_tys sign =
   List.filter_map
@@ -229,6 +248,20 @@ let infer_type_and_constraints ~sign tyctx t =
           in
             add_constraint aty ty2 (get_pos t2, CArg) ;
             rty
+      | UJudge(_, t1, t2) ->
+          let ty1 = aux tyctx t1 in
+          let ty2 = aux tyctx t2 in
+            lfjudgety
+      | UPi(_, id, ty, body) ->
+          let ty1 = aux tyctx ty in
+          tyarrow [ty1] (aux ((id, ty1) :: tyctx) body)
+      | UAbs(_, id, ty, body) ->
+          let ty1 = aux tyctx ty in
+          tyarrow [ty1] (aux ((id, ty1) :: tyctx) body)
+      | UImp(_, t1, t2) ->
+          let ty1 = aux tyctx t1 in
+          tyarrow [ty1] (aux tyctx t2)
+      | UType(p) -> lftypety
   in
 
   let ty = aux tyctx t in
@@ -339,6 +372,11 @@ let uterms_extract_if test ts =
       | UCon(_, id, _) -> if test id then [id] else []
       | ULam(_, id, _, t) -> List.remove id (aux t)
       | UApp(_, t1, t2) -> (aux t1) @ (aux t2)
+      | UJudge(_, t1, t2) -> (aux t1) @ (aux t2)
+      | UPi(_, id, ty, body) -> List.remove id (aux body)
+      | UAbs(_, id, ty, body) -> List.remove id (aux body)
+      | UImp(_, t1, t2) -> aux t2
+      | UType(_) -> []  (* MKS: really not sure about this function *)
   in
     List.unique (List.flatten_map aux ts)
 
@@ -351,6 +389,8 @@ let uterm_to_term sub t =
       | UCon(_, id, ty) -> const id (apply_sub_ty sub ty)
       | ULam(_, id, ty, t) -> abstract id (apply_sub_ty sub ty) (aux t)
       | UApp(_, t1, t2) -> app (aux t1) [aux t2]
+      | _ -> (* error, should only use this with non-LF terms *)
+              failwith "Should use the translation to type LF terms."
   in
     aux t
 
@@ -447,6 +487,21 @@ let replace_underscores head body =
           let t1' = aux t1 in
           let t2' = aux t2 in
             UApp(p, t1', t2')
+      | UJudge(p, t1, t2) ->
+          let t1' = aux t1 in
+          let t2' = aux t2 in
+            UJudge(p, t1', t2')
+      | UPi(p, id, ty, body) ->
+          used := (id, ()) :: !used ;
+          UPi(p, id, ty, aux body)
+      | UAbs(p, id, ty, body) ->
+          used := (id, ()) :: !used ;
+          UAbs(p, id, ty, aux body)
+      | UImp(p, t1, t2) ->
+          let t1' = aux t1 in
+          let t2' = aux t2 in
+            UImp(p, t1', t2')
+      | UType(p) -> t
   in
     match List.map aux (head::body) with
       | h::b -> (h, b)
@@ -518,6 +573,12 @@ let infer_constraints ~sign ~tyctx t =
           [(olistty, lty, (get_pos l, CArg));
            (oty, fty, (get_pos f, CArg));
            (oty, gty, (get_pos g, CArg))]
+      | ULFObj(l, g, _) ->
+         let (lty, leqns) = infer_type_and_constraints ~sign tyctx l in
+         let (gty, geqns) = infer_type_and_constraints ~sign tyctx g in
+           leqns @ geqns @
+                   [(lfjudgelistty, lty, (get_pos l, CArg));
+                    (lfjudgety, gty, (get_pos g, CArg))]  
       | UArrow(a, b) | UOr(a, b) | UAnd(a, b) ->
           (aux tyctx a) @ (aux tyctx b)
       | UBinding(_, tids, body) ->
@@ -540,6 +601,8 @@ let umetaterm_extract_if test t =
           uterms_extract_if test [l; g]
       | USyncObj(l, f, g, _) ->
           uterms_extract_if test [l;f;g]
+      | ULFObj(l, g, _) ->
+          uterms_extract_if test [l; g]
       | UArrow(a, b) | UOr(a, b) | UAnd(a, b) ->
           (aux a) @ (aux b)
       | UBinding(_, tids, body) ->
@@ -562,6 +625,9 @@ let umetaterm_to_metaterm sub t =
       | USyncObj(l, f, g, r) ->
           Obj(Sync (Sync.obj (Context.normalize [uterm_to_term sub l])
                 (uterm_to_term sub f) (uterm_to_term sub g)), r)
+      | ULFObj(l, g, r) ->
+          LFObj(Async (Async.obj (Context.normalize [Translation.translate l]) 
+                                 (Translation.translate g)), r) 
       | UArrow(a, b) -> Arrow(aux a, aux b)
       | UBinding(binder, tids, body) ->
           Binding(binder,
@@ -672,5 +738,5 @@ let type_udefs ~sr ~sign udefs =
 let rec has_capital_head t =
   match t with
     | UCon(_, id, _) -> is_capital_name id
-    | ULam _ -> false
     | UApp(_, t, _) -> has_capital_head t
+    | _ -> false

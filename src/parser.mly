@@ -79,7 +79,7 @@
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND 
-%token LBRACE RBRACE LBRACK RBRACK
+%token LBRACE RBRACE LBRACK RBRACK LANGLE RANGLE
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
 
 %token <int> NUM
@@ -183,6 +183,10 @@ contexted_term:
   | context TURN term                    { ($1, $3) }
   | term                                 { (predefined "nil", $1) }
 
+lf_contexted_term:                       
+  | lf_context TURN lfjudge              { ($1, $3) }
+  | lfjudge                              { (predefined "lfnil", $1) }
+
 focused_term:
   | context COMMA LBRACK term RBRACK TURN term { ($1, $4, $7) }
   | LBRACK term RBRACK TURN term               { (predefined "nil", $2, $5) }
@@ -195,6 +199,15 @@ context:
                                              binop "::" $1
                                                (predefined "nil") }
 
+lf_context:
+  | lf_context COMMA lfjudge             { binop "lf::" $3 $1 }
+  | lfjudge                              { binop "lf::" $1 (predefined "lfnil") } 
+  | lfterm                               { $1 } /* if has_capital_head ? 
+                                                   this should be the case of a variable context */
+
+lfjudge:
+  | lfterm COLON lfterm                  { UJudge(pos 1, $1, $3) }
+
 term:
   | term IMP term                        { binop "=>" $1 $3 }
   | term IF term                         { binop "=>" $3 $1 }
@@ -204,12 +217,33 @@ term:
   | exp exp_list                         { nested_app $1 $2 }
   | exp                                  { $1 }
 
+lfground:
+  | STRINGID                             { UCon(pos 1, $1, Term.fresh_tyvar ()) }
+  | TYPE                                 { UType(pos 1) }
+  | LPAREN lfterm RPAREN                 { $2 }
+
+lfapp:
+  | lfapp lfground                       { UApp(pos 1, $1, $2) }
+  | lfground                             { $1 }
+
+lfarrow:
+  | lfapp RARROW lfarrow                 { UImp(pos 1, $1, $3) }
+
+lfterm:
+  | LBRACK STRINGID COLON lfterm RBRACK lfterm  
+                                         { UAbs(pos 2, $2, $4, $6) }
+  | LBRACE STRINGID COLON lfterm RBRACE lfterm
+                                         { UPi(pos 2, $2, $4, $6) }
+  | lfarrow                              { $1 }
+
+
 exp:
   | LPAREN term RPAREN                   { let left = fst (pos 1) in
                                            let right = snd (pos 3) in
                                              change_pos (left, right) $2 }
   | paid                                 { let (id, ty) = $1 in
                                              UCon(pos 0, id, ty) }
+                       
 
 exp_list:
   | exp exp_list                         { $1::$2 }
@@ -365,6 +399,7 @@ metaterm:
   | metaterm AND metaterm                { UAnd($1, $3) }
   | LPAREN metaterm RPAREN               { $2 }
   | objseq                               { $1 }
+  | lfseq                                { $1 }
   | term restriction                     { UPred($1, $2) }
 
 objseq:
@@ -374,6 +409,10 @@ objseq:
   | LBRACE focused_term RBRACE restriction
                                          { let l, f, g = $2 in
                                              USyncObj(l, f, g, $4) }
+lfseq:
+  | LANGLE lf_contexted_term RANGLE restriction    
+                                         { let l, g  = $2 in
+                                             ULFObj(l, g, $4) }
 
 binder:
   | FORALL                               { Metaterm.Forall }

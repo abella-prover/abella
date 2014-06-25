@@ -26,6 +26,10 @@ val tyarrow : ty list -> ty -> ty
 val tybase : string -> ty
 val oty : ty
 val olistty : ty
+val lftypety : ty
+val lfobjty : ty
+val lfjudgety : ty
+val lfjudgelistty : ty
 
 (* Variables *)
 

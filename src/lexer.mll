@@ -98,6 +98,8 @@ rule token = parse
 | "}"                { RBRACE }
 | "["                { LBRACK }
 | "]"                { RBRACK }
+| "<"                { LANGLE }
+| ">"                { RANGLE }
 | "true"             { TRUE }
 | "false"            { FALSE }
 

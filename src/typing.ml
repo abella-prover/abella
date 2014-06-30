@@ -21,20 +21,7 @@ open Term
 open Metaterm
 open Extensions
 
-
-(** Untyped terms *)
-
-type pos = Lexing.position * Lexing.position
-
-type uterm =
-  | UCon of pos * string * ty
-  | ULam of pos * string * ty * uterm
-  | UApp of pos * uterm * uterm
-  | UJudge of pos * uterm * uterm 
-  | UPi  of pos * string * uterm * uterm
-  | UAbs of pos * string * uterm * uterm
-  | UImp of pos * uterm * uterm
-  | UType of pos
+open Uterm
 
 let get_pos t =
   match t with
@@ -249,8 +236,8 @@ let infer_type_and_constraints ~sign tyctx t =
             add_constraint aty ty2 (get_pos t2, CArg) ;
             rty
       | UJudge(_, t1, t2) ->
-          let ty1 = aux tyctx t1 in
-          let ty2 = aux tyctx t2 in
+          let _ty1 = aux tyctx t1 in
+          let _ty2 = aux tyctx t2 in
             lfjudgety
       | UPi(_, id, ty, body) ->
           let ty1 = aux tyctx ty in
@@ -626,8 +613,8 @@ let umetaterm_to_metaterm sub t =
           Obj(Sync (Sync.obj (Context.normalize [uterm_to_term sub l])
                 (uterm_to_term sub f) (uterm_to_term sub g)), r)
       | ULFObj(l, g, r) ->
-          LFObj(Async (Async.obj (Context.normalize [Translation.translate l]) 
-                                 (Translation.translate g)), r) 
+          LFObj(Async (Async.obj (Context.normalize [Translation.translate l])
+                                 (Translation.translate g)), r)
       | UArrow(a, b) -> Arrow(aux a, aux b)
       | UBinding(binder, tids, body) ->
           Binding(binder,

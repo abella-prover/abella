@@ -22,7 +22,7 @@ open Term
 open Typing
 open Printf
 
-type uclause = uterm * uterm list
+type uclause = Uterm.uterm * Uterm.uterm list
 
 type clause = term
 type clauses = clause list
@@ -72,20 +72,20 @@ type compiled =
 type command =
   | Induction of int list * id option
   | CoInduction of id option
-  | Apply of id * id list * (id * uterm) list * id option
-  | Backchain of id * (id * uterm) list
-  | CutFrom of id * id * uterm * id option
+  | Apply of id * id list * (id * Uterm.uterm) list * id option
+  | Backchain of id * (id * Uterm.uterm) list
+  | CutFrom of id * id * Uterm.uterm * id option
   | Cut of id * id * id option
   | SearchCut of id * id option
-  | Inst of id * (id * uterm) list * id option
+  | Inst of id * (id * Uterm.uterm) list * id option
   | Case of id * bool * id option
   | Assert of umetaterm * id option
-  | Exists of uterm
+  | Exists of Uterm.uterm
   | Clear of id list
   | Abbrev of id * string
   | Unabbrev of id list
   | Rename of id * id
-  | Monotone of id * uterm
+  | Monotone of id * Uterm.uterm
   | Permute of id list * id option
   | Search of int option
   | Split

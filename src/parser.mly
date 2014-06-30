@@ -21,6 +21,7 @@
 
   open Extensions
   open Typing
+  open Uterm
 
   module Types = Abella_types
 
@@ -104,7 +105,7 @@
 
 
 %start term metaterm lpmod lpsig defs top_command command any_command sig_body mod_body
-%type <Typing.uterm> term
+%type <Uterm.uterm> term
 %type <Typing.umetaterm> metaterm
 %type <Abella_types.lpsig> lpsig
 %type <Abella_types.lpmod> lpmod

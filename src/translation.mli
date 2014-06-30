@@ -1,6 +1,6 @@
 open Term
-open Typing
+(* open Typing *)
 
 exception TranslationError of string
 
-val translate : uterm -> term
+val translate : Uterm.uterm -> term

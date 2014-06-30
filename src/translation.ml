@@ -1,5 +1,6 @@
 open Term
-open Typing
+open Uterm
+(* open Typing *)
 
 exception TranslationError of string 
 

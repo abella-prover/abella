@@ -1,4 +1,5 @@
 open Term
+open Metaterm
 open Uterm
 (* open Typing *)
 
@@ -56,3 +57,42 @@ let rec translate t =
     | UJudge(p, tm, UType(q)) -> is_type (trans_term tm)
     | UJudge(p, t1, t2) -> has_type (trans_term t1) (trans_term t2) p
     | _ -> raise (TranslationError "Only LF judgements may be translated")
+
+
+let lfterm_to_string t =
+
+let lfcontext_to_string ctx =
+  let rec aux lst =
+    match lst with
+      | [] -> ""
+      | [last] -> lfterm_to_string last
+      | head::tail -> (lfterm_to_string head) ^ ", " ^ (aux tail)
+  in
+    aux ctx
+
+let async_to_string obj =
+  let (ctx, term) = Async.get obj in
+  let context =
+    if Context.is_empty ctx
+    then ""
+    else (lfcontext_to_string ctx ^ " |- ")
+  in
+  let term = lfterm_to_string term in
+    "{" ^ context ^ term ^ "}"
+
+let sync_to_string obj =
+  let (ctx, focus, term) = Sync.get obj in
+  let context =
+    if Context.is_empty ctx
+    then ""
+    else (lfcontext_to_string ctx) ^ ", "
+  in
+  let fcs = "[" ^ lfterm_to_string focus ^ "] |- " in
+  let term = lfterm_to_string term in
+    "{" ^ context ^ fcs ^ term ^ "}"
+
+let lfobj_to_string t =
+  match t with
+  | Async obj -> async_to_string obj
+  | Sync obj -> sync_to_string obj
+

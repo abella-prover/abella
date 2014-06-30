@@ -654,6 +654,7 @@ let get_max_restriction t =
     match t with
       | True | False | Eq _ -> 0
       | Obj(_, r) -> get_restriction r
+      | LFObj(_, r) -> get_restriction r
       | Arrow(a, b) -> max (aux a) (aux b)
       | Binding(_, _, body) -> aux body
       | Or(a, b) -> max (aux a) (aux b)

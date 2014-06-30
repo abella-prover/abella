@@ -334,7 +334,7 @@ let rec list_to_and terms =
 let predicate_wrapper r names t =
   let rec aux t =
     match t with
-      | True | False | Eq _ | Obj _ -> t
+      | True | False | Eq _ | Obj _ | LFObj _ -> t
       | Pred(p, _) ->
           if List.mem (term_head_name p) names then
             Pred(p, reduce_inductive_restriction r)
@@ -574,7 +574,7 @@ let has_restriction test t =
   let rec aux t =
     match t with
       | True | False | Eq _ -> false
-      | Obj(_, r) -> test r
+      | Obj(_, r) | LFObj(_, r) -> test r
       | Arrow(a, b) | Or(a, b) | And(a, b) -> aux a || aux b
       | Binding(_, _, body) -> aux body
       | Pred(_, r) -> test r
@@ -590,7 +590,7 @@ let has_coinductive_restriction t =
 let coinductive_wrapper r names t =
   let rec aux t =
     match t with
-      | True | False | Eq _ | Obj _ -> t
+      | True | False | Eq _ | Obj _ | LFObj _ -> t
       | Pred(p, _) ->
           if List.mem (term_head_name p) names then
             Pred(p, reduce_coinductive_restriction r)
@@ -910,6 +910,8 @@ let search ~depth:n ~hyps ~clauses ~alldefs
               ~sc:(fun w -> sc (WIntros(alist_to_ids alist, w)))
       | Obj(Async obj, r) -> async_obj_aux n hyps obj r ts ~sc
       | Obj(Sync obj, r) -> sync_obj_aux n hyps obj r ts ~sc
+      | LFObj(Async obj, r) -> async_obj_aux n hyps obj r ts ~sc
+      | LFObj(Sync obj, r) -> sync_obj_aux n hyps obj r ts ~sc
       | Pred(_, Smaller _) | Pred(_, Equal _) -> ()
       | Pred(p, r) -> if n > 0 then def_aux n hyps p r ts ~sc
 

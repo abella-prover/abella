@@ -307,6 +307,15 @@ let metaterm_ensure_fully_inferred t =
           Context.iter term_ensure_fully_inferred ctx ;
           term_ensure_fully_inferred focus;
           term_ensure_fully_inferred term;
+      | LFObj(Async obj, _) ->
+         let ctx, term = Async.get obj in
+         Context.iter term_ensure_fully_inferred ctx ;
+         term_ensure_fully_inferred term
+      | LFObj(Sync obj, _) ->
+         let ctx,focus,term = Sync.get obj in
+         Context.iter term_ensure_fully_inferred ctx ;
+         term_ensure_fully_inferred focus;
+         term_ensure_fully_inferred term;
       | Pred(p, _) ->
           term_ensure_fully_inferred p
   in
@@ -642,7 +651,7 @@ let check_meta_logic_quantification_type ty =
 let check_meta_quantification t =
   let rec aux t =
     match t with
-      | True | False | Eq _ | Obj _ | Pred _ -> ()
+      | True | False | Eq _ | Obj _ | LFObj _ | Pred _ -> ()
       | And(a, b) | Or(a, b) | Arrow(a, b) -> aux a; aux b
       | Binding(_, tids, body) ->
           List.iter
@@ -671,6 +680,10 @@ let metaterm_ensure_subordination sr t =
           aux (async_to_member (sync_to_async obj))
 
         (* failwith "Un implemented: subordination of sync objects" *)
+      | LFObj(Async obj, _) ->
+          aux (async_to_member obj)
+      | LFObj(Sync obj, _) ->
+          aux (async_to_member (sync_to_async obj))
       | Arrow(a, b) | Or(a, b) | And(a, b) ->
           aux a ;
           aux b

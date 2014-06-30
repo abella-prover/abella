@@ -165,7 +165,10 @@ let format_metaterm fmt t =
             fprintf fmt "%s = %s" (term_to_string a) (term_to_string b)
         | Obj(obj, r) ->
             fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
-(*        | LFObj(obj, r)  *)
+        | LFObj(obj, r)  ->
+            fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
+(*            fprintf fmt "%s%s" (Translation.lfobj_to_string obj) 
+                               (restriction_to_string r) *)
         | Arrow(a, b) ->
             aux (pr_curr + 1) a ;
             fprintf fmt " ->@ " ;
@@ -392,7 +395,7 @@ let rec replace_metaterm_vars alist t =
       | True | False -> t
       | Eq(a, b) -> Eq(term_aux alist a, term_aux alist b)
       | Obj(obj, r) -> Obj(map_obj (term_aux alist) obj, r)
-(*      | LFObj(obj, r)  *)
+      | LFObj(obj, r) -> LFObj(map_obj (term_aux alist) obj, r)
       | Arrow(a, b) -> Arrow(aux alist a, aux alist b)
       | Binding(binder, bindings, body) ->
           let alist = List.remove_assocs (List.map fst bindings) alist in
@@ -424,6 +427,9 @@ let rec collect_terms t =
     | LFObj(Async obj, _) ->
         let (ctx,term) = Async.get obj in
         (Context.context_to_list ctx) @[term]
+    | LFObj(Sync obj, _) ->
+        let (ctx,focus,term) = Sync.get obj in
+        (Context.context_to_list ctx) @ [term]
     | Arrow(a, b) -> (collect_terms a) @ (collect_terms b)
     | Binding(_, _, body) -> collect_terms body
     | Or(a, b) -> (collect_terms a) @ (collect_terms b)
@@ -525,7 +531,7 @@ let normalize_binders =
     | True | False -> form
     | Eq (a, b)    -> Eq (aux_term rens a, aux_term rens b)
     | Obj (obj, r) -> Obj (map_obj (aux_term rens) obj, r)
-(*    | LFObj(obj, r)  *)
+    | LFObj(obj, r) -> LFObj (map_obj (aux_term rens) obj, r)
     | Arrow (a, b) -> Arrow (aux rens used a, aux rens used b)
     | Or (a, b)    -> Or (aux rens used a, aux rens used b)
     | And (a, b)   -> And (aux rens used a, aux rens used b)

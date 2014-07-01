@@ -1,9 +1,9 @@
 (* -*- mode: typerex; -*- *)
 let __interactive = !Sys.interactive ;;
 Sys.interactive := false ;;
-#use "topfind" ;;
+(* #use "topfind" ;; *)
 Sys.interactive := __interactive ;;
-#require "str" ;;
+(* #require "str" ;; *)
 #directory "../_build" ;;
 #directory "../_build/src" ;;
 #load "abella.cma" ;;

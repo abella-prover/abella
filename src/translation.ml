@@ -3,11 +3,11 @@ open Metaterm
 open Uterm
 (* open Typing *)
 
-exception TranslationError of string 
+exception TranslationError of string
 
- let generate_name =
+let generate_name =
   let counter = ref 0 in
-  fun () -> (incr counter; "V" ^ (string_of_int (!counter))) 
+  fun () -> (incr counter; "V" ^ (string_of_int (!counter)))
 
 let is_type t = app (const "lfisty" (tyarrow [lftypety] oty)) [t]
 
@@ -30,7 +30,7 @@ let rec trans_term t =
   | UAbs(p, x, a, b) -> abstract x (trans_type a) (trans_term b)
   | _ -> raise (TranslationError "invalid term")
 
-let rec translate t = 
+let rec translate t =
   let translate_abstraction_type x a t1 t2 pos =
     let r = UJudge(pos, t1, t2) in
     let r' = translate r in
@@ -40,7 +40,7 @@ let rec translate t =
     let tya = trans_type a in
     app (const "pi" (tyarrow [tyarrow [tya] oty] oty))
         [abstract x tya (app (const "=>" (tyarrow [oty; oty] oty)) [l'; r'])]
-  in 
+  in
   match t with
     | UJudge(p, UAbs(q, x, a, b), UPi(q', x', a', b')) ->
        if x=x' && a= a' then (* MKS: shouldn't this be alpha equiv rather than eq? *)
@@ -94,4 +94,3 @@ let lfobj_to_string t =
   match t with
   | Async obj -> async_to_string obj
   | Sync obj -> sync_to_string obj
-

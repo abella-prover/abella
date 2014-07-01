@@ -107,10 +107,10 @@ let read_specification name =
   let sign' = merge_signs [!sign; read_sign] in
   let sr' = update_subordination_sign !sr read_sign in
   let clauses' = get_clauses ~sr:sr' name in
-    (* Any exceptions must have been thrown by now - do actual assignments *)
-    sr := sr' ;
-    sign := sign' ;
-    add_clauses clauses'
+  (* Any exceptions must have been thrown by now - do actual assignments *)
+  sr := sr' ;
+  sign := sign' ;
+  add_clauses clauses'
 
 (* Checks *)
 

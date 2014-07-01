@@ -163,9 +163,8 @@ let format_metaterm fmt t =
             fprintf fmt "false"
         | Eq(a, b) ->
             fprintf fmt "%s = %s" (term_to_string a) (term_to_string b)
-        | Obj(obj, r) ->
-            fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
-        | LFObj(obj, r)  ->
+        | Obj(obj, r)
+        | LFObj(obj, r) ->
             fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
 (*            fprintf fmt "%s%s" (Translation.lfobj_to_string obj) 
                                (restriction_to_string r) *)
@@ -429,7 +428,7 @@ let rec collect_terms t =
         (Context.context_to_list ctx) @[term]
     | LFObj(Sync obj, _) ->
         let (ctx,focus,term) = Sync.get obj in
-        (Context.context_to_list ctx) @ [term]
+        (Context.context_to_list ctx) @ [focus;term]
     | Arrow(a, b) -> (collect_terms a) @ (collect_terms b)
     | Binding(_, _, body) -> collect_terms body
     | Or(a, b) -> (collect_terms a) @ (collect_terms b)

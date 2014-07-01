@@ -79,7 +79,7 @@
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
-%token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND 
+%token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND
 %token LBRACE RBRACE LBRACK RBRACK LANGLE RANGLE
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
 
@@ -184,9 +184,9 @@ contexted_term:
   | context TURN term                    { ($1, $3) }
   | term                                 { (predefined "nil", $1) }
 
-lf_contexted_term:                       
+lf_contexted_term:
   | lf_context TURN lfjudge              { ($1, $3) }
-  | lfjudge                              { (predefined "lfnil", $1) }
+  | lfjudge                              { (predefined "nil", $1) }
 
 focused_term:
   | context COMMA LBRACK term RBRACK TURN term { ($1, $4, $7) }
@@ -201,9 +201,9 @@ context:
                                                (predefined "nil") }
 
 lf_context:
-  | lf_context COMMA lfjudge             { binop "lf::" $3 $1 }
-  | lfjudge                              { binop "lf::" $1 (predefined "lfnil") } 
-  | lfterm                               { $1 } /* if has_capital_head ? 
+  | lf_context COMMA lfjudge             { binop "::" $3 $1 }
+  | lfjudge                              { binop "::" $1 (predefined "nil") }
+  | lfterm                               { $1 } /* if has_capital_head ?
                                                    this should be the case of a variable context */
 
 lfjudge:
@@ -231,7 +231,7 @@ lfarrow:
   | lfapp RARROW lfarrow                 { UImp(pos 1, $1, $3) }
 
 lfterm:
-  | LBRACK STRINGID COLON lfterm RBRACK lfterm  
+  | LBRACK STRINGID COLON lfterm RBRACK lfterm
                                          { UAbs(pos 2, $2, $4, $6) }
   | LBRACE STRINGID COLON lfterm RBRACE lfterm
                                          { UPi(pos 2, $2, $4, $6) }
@@ -244,7 +244,7 @@ exp:
                                              change_pos (left, right) $2 }
   | paid                                 { let (id, ty) = $1 in
                                              UCon(pos 0, id, ty) }
-                       
+
 
 exp_list:
   | exp exp_list                         { $1::$2 }
@@ -411,7 +411,7 @@ objseq:
                                          { let l, f, g = $2 in
                                              USyncObj(l, f, g, $4) }
 lfseq:
-  | LANGLE lf_contexted_term RANGLE restriction    
+  | LANGLE lf_contexted_term RANGLE restriction
                                          { let l, g  = $2 in
                                              ULFObj(l, g, $4) }
 

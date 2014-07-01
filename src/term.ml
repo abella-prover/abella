@@ -387,6 +387,15 @@ let var_to_string ?(tag=false) ?(ts=false) ?(ty=false) v =
     ^ (if ty then ":" ^ ty_to_string v.ty else "")
   end ^ aft
 
+let is_quant a =
+  match observe (hnorm a) with
+  | App (h, [_]) ->
+     begin match observe (hnorm h) with
+           | Var {name=q; _} when is_obj_quantifier q -> true
+           | _ -> false
+     end
+  | _ -> false
+
 let term_to_string term =
   let high_pr = 2 + get_max_priority () in
   let pp_var x = abs_name ^ (string_of_int x) in
@@ -408,8 +417,14 @@ let term_to_string term =
                   | Right -> op_p+1, op_p
                   | _ -> op_p, op_p
                   end in
+                let left =
+                  if is_quant a then parenthesis (pp cx 0 n a)
+                  else pp cx pr_left n a
+                in
                 let res =
-                  (pp cx pr_left n a) ^ " " ^ op ^ " " ^ (pp cx pr_right n b)
+                  left ^ " " ^ op ^ " " ^ (pp cx pr_right n b)
+                (* let res = *)
+                (*   pp cx pr_left n a  ^ " " ^ op ^ " " ^ (pp cx pr_right n b) *)
                 in
                   if op_p >= pr then res else parenthesis res
             | Var {name=op; tag=Constant; ts=ts; ty=ty}, [a] when

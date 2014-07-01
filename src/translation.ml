@@ -58,8 +58,7 @@ let rec translate t =
     | UJudge(p, t1, t2) -> has_type (trans_term t1) (trans_term t2) p
     | _ -> raise (TranslationError "Only LF judgements may be translated")
 
-
-let lfterm_to_string t =
+let lfterm_to_string t = Term.term_to_string t
 
 let lfcontext_to_string ctx =
   let rec aux lst =

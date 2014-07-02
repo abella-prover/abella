@@ -66,19 +66,19 @@ let position_range (p1, p2) =
   let line = p1.Lexing.pos_lnum in
   let char1 = p1.Lexing.pos_cnum - p1.Lexing.pos_bol in
   let char2 = p2.Lexing.pos_cnum - p1.Lexing.pos_bol in
-    if file = "" then
-      ""
-    else
-      sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
+  if file = "" then
+    ""
+  else
+    sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
 
 let type_inference_error (pos, ct) exp act =
   eprintf "Typing error%s.\n%!" (position_range pos) ;
   match ct with
-    | CArg ->
-        eprintf "Expression has type %s but is used here with type %s\n%!"
-          (ty_to_string act) (ty_to_string exp)
-    | CFun ->
-        eprintf "Expression is applied to too many arguments\n%!"
+  | CArg ->
+      eprintf "Expression has type %s but is used here with type %s\n%!"
+        (ty_to_string act) (ty_to_string exp)
+  | CFun ->
+      eprintf "Expression is applied to too many arguments\n%!"
 
 let teyjus_only_keywords =
   ["closed"; "exportdef"; "import"; "infix"; "infixl"; "infixr"; "local";
@@ -88,13 +88,61 @@ let teyjus_only_keywords =
 let warn_on_teyjus_only_keywords (ktable, ctable) =
   let tokens = List.unique (ktable @ List.map fst ctable) in
   let used_keywords = List.intersect tokens teyjus_only_keywords in
-    if used_keywords <> [] then
-      fprintf !out
-        "Warning: The following tokens are keywords in Teyjus: %s\n%!"
-        (String.concat ", " used_keywords)
+  if used_keywords <> [] then
+    fprintf !out
+      "Warning: The following tokens are keywords in Teyjus: %s\n%!"
+      (String.concat ", " used_keywords)
 
 let update_subordination_sign sr sign =
   List.fold_left Subordination.update sr (sign_to_tys sign)
+
+let read_lprolog_specification name =
+  let read_sign = get_sign name in
+  let () = warn_on_teyjus_only_keywords read_sign in
+  let sign' = merge_signs [!sign; read_sign] in
+  let sr' = update_subordination_sign !sr read_sign in
+  let clauses' = get_clauses ~sr:sr' name in
+  (sr', sign', clauses')
+
+let elf_debug = true
+
+let dummy : Uterm.pos = (Lexing.dummy_pos, Lexing.dummy_pos)
+
+let read_elf_specification name =
+  try begin
+    let open Lexing in
+    let lexbuf = lexbuf_from_file (Filename.concat !load_path name) in
+    let name = Filename.chop_suffix name ".elf" in
+    let lfsig = Parser.lfsig Lexer.token lexbuf in
+    let cooked_lfsig = List.map begin
+        fun (x, utm) ->
+          let ty = Translation.trans_type utm in
+          let uj = Uterm.(UJudge (dummy, UCon (dummy, x, ty), utm)) in
+          let tm = Translation.translate uj in
+          let pty = Typing.Poly ([], ty) in
+          ((x, pty), tm)
+      end lfsig in
+    let (sign, clauses) = List.split cooked_lfsig in
+    let sign = Accumulate.merge_signs [pervasive_sign; ([name], sign)] in
+    if elf_debug then begin
+      Printf.printf "sig %s.\n" name ;
+      List.iter begin
+        fun (x, ty) ->
+          Printf.printf "  type %s %s.\n" x (Typing.pty_to_string ty)
+      end (snd sign) ;
+      Printf.printf "end.\n\n" ;
+      Printf.printf "module %s.\n" name ;
+      List.iter begin
+        fun tm -> Printf.printf "  %s.\n" (Term.term_to_string tm)
+      end clauses ;
+      Printf.printf "end.\n" ;
+    end ;
+    (!sr, sign, clauses)
+  end with
+  | Parsing.Parse_error ->
+      failwithf "Parse error for the LF specification %S" name
+  | Translation.TranslationError msg ->
+      failwithf "Translation error: %s" msg
 
 let read_specification name =
   clear_specification_cache () ;
@@ -102,15 +150,16 @@ let read_specification name =
     (if !load_path <> "." then
        sprintf " (from %S)" !load_path
      else "") ;
-  let read_sign = get_sign name in
-  let () = warn_on_teyjus_only_keywords read_sign in
-  let sign' = merge_signs [!sign; read_sign] in
-  let sr' = update_subordination_sign !sr read_sign in
-  let clauses' = get_clauses ~sr:sr' name in
+  let (new_sr, new_sign, new_clauses) =
+    if Filename.check_suffix name ".elf" then
+      read_elf_specification name
+    else
+      read_lprolog_specification name
+  in
   (* Any exceptions must have been thrown by now - do actual assignments *)
-  sr := sr' ;
-  sign := sign' ;
-  add_clauses clauses'
+  sr := new_sr ;
+  sign := new_sign ;
+  add_clauses new_clauses
 
 (* Checks *)
 
@@ -124,15 +173,15 @@ let untyped_ensure_no_restrictions term =
 let warn_stratify names term =
   let rec aux nested term =
     match term with
-      | Pred(p, _) when nested && List.mem (term_head_name p) names -> true
-      | Arrow(left, right) -> aux true left || aux nested right
-      | Binding(_, _, body) -> aux nested body
-      | Or(left, right) -> aux nested left || aux nested right
-      | And(left, right) -> aux nested left || aux nested right
-      | _ -> false
+    | Pred(p, _) when nested && List.mem (term_head_name p) names -> true
+    | Arrow(left, right) -> aux true left || aux nested right
+    | Binding(_, _, body) -> aux nested body
+    | Or(left, right) -> aux nested left || aux nested right
+    | And(left, right) -> aux nested left || aux nested right
+    | _ -> false
   in
-    if aux false term then
-      fprintf !out "Warning: Definition might not be stratified\n%!"
+  if aux false term then
+    fprintf !out "Warning: Definition might not be stratified\n%!"
 
 let check_theorem thm =
   ensure_no_restrictions thm
@@ -147,10 +196,10 @@ let ensure_name_contained id ids =
 
 let ensure_wellformed_head t =
   match t with
-    | Pred _ -> ()
-    | Binding(Nabla, _, Pred _) -> ()
-    | _ -> failwith
-        (sprintf "Bad head in definition: %s" (metaterm_to_string t))
+  | Pred _ -> ()
+  | Binding(Nabla, _, Pred _) -> ()
+  | _ -> failwith
+           (sprintf "Bad head in definition: %s" (metaterm_to_string t))
 
 let check_defs names defs =
   List.iter ensure_not_capital names ;
@@ -165,10 +214,10 @@ let check_defs names defs =
 
 let check_noredef ids =
   let (_, ctable) = !sign in
-    List.iter (
-      fun id -> if List.mem id (List.map fst ctable) then
+  List.iter (
+    fun id -> if List.mem id (List.map fst ctable) then
         failwithf "%s is already defined" id
-    ) ids
+  ) ids
 
 (* Compilation and importing *)
 
@@ -178,8 +227,8 @@ let comp_content = ref []
 
 let marshal citem =
   match !compile_out with
-    | Some cout -> Marshal.to_channel cout citem []
-    | None -> ()
+  | Some cout -> Marshal.to_channel cout citem []
+  | None -> ()
 
 let ensure_finalized_specification () =
   if !can_read_specification then begin
@@ -215,15 +264,15 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   (* 1. Imported ktable must be a subset of ktable *)
   let missing_types = List.minus imp_ktable ktable in
   let () = if missing_types <> [] then
-    failwithf "Imported file makes reference to unknown types: %s"
-      (String.concat ", " missing_types)
+      failwithf "Imported file makes reference to unknown types: %s"
+        (String.concat ", " missing_types)
   in
 
   (* 2. Imported ctable must be a subset of ctable *)
   let missing_consts = List.minus imp_ctable ctable in
   let () = if missing_consts <> [] then
-    failwithf "Imported file makes reference to unknown constants: %s"
-      (String.concat ", " (List.map fst missing_consts))
+      failwithf "Imported file makes reference to unknown constants: %s"
+        (String.concat ", " (List.map fst missing_consts))
   in
 
   (* 3. Imported clauses must be a subset of clauses *)
@@ -231,8 +280,8 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
     List.minus ~cmp:clause_eq imp_spec_clauses !clauses
   in
   let () = if missing_clauses <> [] then
-    failwithf "Imported file makes reference to unknown clauses for: %s"
-      (String.concat ", " (clauses_to_predicates missing_clauses))
+      failwithf "Imported file makes reference to unknown clauses for: %s"
+        (String.concat ", " (clauses_to_predicates missing_clauses))
   in
 
   (* 4. Clauses for imported predicates must be subset of imported clauses *)
@@ -240,17 +289,17 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
     List.minus ~cmp:clause_eq
       (List.find_all
          (fun clause ->
-           let (_,clause_head,_) = clausify clause in
-           List.mem (term_head_name clause_head) imp_predicates)
+            let (_,clause_head,_) = clausify clause in
+            List.mem (term_head_name clause_head) imp_predicates)
          !clauses)
       imp_spec_clauses
   in
   let () = if extended_clauses <> [] then
-    failwithf "Cannot import file since clauses have been extended for: %s"
-      (String.concat ", " (clauses_to_predicates extended_clauses))
+      failwithf "Cannot import file since clauses have been extended for: %s"
+        (String.concat ", " (clauses_to_predicates extended_clauses))
   in
 
-    ()
+  ()
 
 
 let imported = ref []
@@ -264,53 +313,53 @@ let import filename =
       let imp_spec_clauses = (Marshal.from_channel file : clauses) in
       let imp_predicates = (Marshal.from_channel file : string list) in
       let imp_content = (Marshal.from_channel file : compiled list) in
-        ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates ;
-        List.iter
-          (function
-             | CTheorem(name, thm) ->
-                 add_lemma name thm ;
-             | CDefine(idtys, defs) ->
-                 let ids = List.map fst idtys in
-                   check_noredef ids;
-                   check_defs ids defs ;
-                   add_global_consts idtys ;
-                   add_defs ids Inductive defs ;
-             | CCoDefine(idtys, defs) ->
-                 let ids = List.map fst idtys in
-                   check_noredef ids;
-                   check_defs ids defs ;
-                   add_global_consts idtys ;
-                   add_defs ids CoInductive defs
-             | CImport(filename) ->
-                 aux filename
-             | CKind(ids) ->
-                 check_noredef ids;
-                 add_global_types ids
-             | CType(ids, ty) ->
-                 check_noredef ids;
-                 add_global_consts (List.map (fun id -> (id, ty)) ids)
-             | CClose(ty_subords) ->
-                 List.iter
-                   (fun (ty, prev) ->
-                      let curr = Subordination.subordinates !sr ty in
-                        match List.minus curr prev with
-                          | [] -> ()
-                          | xs ->
-                              failwith
-                                (Printf.sprintf
-                                   "Cannot close %s since it is now subordinate to %s"
-                                   ty (String.concat ", " xs)))
-                   ty_subords ;
-                 close_types (List.map fst ty_subords))
-          imp_content
+      ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates ;
+      List.iter
+        (function
+          | CTheorem(name, thm) ->
+              add_lemma name thm ;
+          | CDefine(idtys, defs) ->
+              let ids = List.map fst idtys in
+              check_noredef ids;
+              check_defs ids defs ;
+              add_global_consts idtys ;
+              add_defs ids Inductive defs ;
+          | CCoDefine(idtys, defs) ->
+              let ids = List.map fst idtys in
+              check_noredef ids;
+              check_defs ids defs ;
+              add_global_consts idtys ;
+              add_defs ids CoInductive defs
+          | CImport(filename) ->
+              aux filename
+          | CKind(ids) ->
+              check_noredef ids;
+              add_global_types ids
+          | CType(ids, ty) ->
+              check_noredef ids;
+              add_global_consts (List.map (fun id -> (id, ty)) ids)
+          | CClose(ty_subords) ->
+              List.iter
+                (fun (ty, prev) ->
+                   let curr = Subordination.subordinates !sr ty in
+                   match List.minus curr prev with
+                   | [] -> ()
+                   | xs ->
+                       failwith
+                         (Printf.sprintf
+                            "Cannot close %s since it is now subordinate to %s"
+                            ty (String.concat ", " xs)))
+                ty_subords ;
+              close_types (List.map fst ty_subords))
+        imp_content
     end
   in
-    if List.mem filename !imported then
-      fprintf !out "Ignoring import: %s has already been imported.\n%!" filename
-    else begin
-      fprintf !out "Importing from %s\n%!" filename ;
-      aux filename
-    end
+  if List.mem filename !imported then
+    fprintf !out "Ignoring import: %s has already been imported.\n%!" filename
+  else begin
+    fprintf !out "Importing from %s\n%!" filename ;
+    aux filename
+  end
 
 
 (* Proof processing *)
@@ -319,59 +368,59 @@ let query q =
   let fv = ids_to_fresh_tyctx (umetaterm_extract_if is_capital_name q) in
   let ctx = fresh_alist ~tag:Logic ~used:[] fv in
   match type_umetaterm ~sr:!sr ~sign:!sign ~ctx (UBinding(Metaterm.Exists, fv, q)) with
-    | Binding(Metaterm.Exists, fv, q) ->
-        let ctx = fresh_alist ~tag:Logic ~used:[] fv in
-        let q = replace_metaterm_vars ctx q in
-        let _ = Tactics.search
+  | Binding(Metaterm.Exists, fv, q) ->
+      let ctx = fresh_alist ~tag:Logic ~used:[] fv in
+      let q = replace_metaterm_vars ctx q in
+      let _ = Tactics.search
           ~depth:max_int
           ~hyps:[]
           ~clauses:!clauses
           ~alldefs:(defs_table_to_list ())
           ~sc:(fun w ->
-                 fprintf !out "Found solution:\n" ;
-                 List.iter
-                   (fun (n, v) ->
-                      fprintf !out "%s = %s\n" n (term_to_string v))
-                   ctx ;
-                 fprintf !out "\n%!")
+              fprintf !out "Found solution:\n" ;
+              List.iter
+                (fun (n, v) ->
+                   fprintf !out "%s = %s\n" n (term_to_string v))
+                ctx ;
+              fprintf !out "\n%!")
           q
-        in
-          fprintf !out "No more solutions.\n%!"
-    | _ -> assert false
+      in
+      fprintf !out "No more solutions.\n%!"
+  | _ -> assert false
 
 let set k v =
   match k, v with
-    | "subgoals", Int d when d >= 0 -> subgoal_depth := d
-    | "subgoals", Str "on" -> subgoal_depth := 1000
-    | "subgoals", Str "off" -> subgoal_depth := 0
-    | "subgoals", _ ->
-        failwith ("Unknown value '" ^ (set_value_to_string v) ^
-                    "' for key 'subgoals'." ^
-                    " Expected 'on', 'off', or non-negative integer.")
+  | "subgoals", Int d when d >= 0 -> subgoal_depth := d
+  | "subgoals", Str "on" -> subgoal_depth := 1000
+  | "subgoals", Str "off" -> subgoal_depth := 0
+  | "subgoals", _ ->
+      failwith ("Unknown value '" ^ (set_value_to_string v) ^
+                "' for key 'subgoals'." ^
+                " Expected 'on', 'off', or non-negative integer.")
 
-    | "debug", Str "on" -> debug_level := 1
-    | "debug", Str "off" -> debug_level := 0
-    | "debug", _ ->
-        failwith ("Unknown value '" ^ (set_value_to_string v) ^
-                    "' for key 'debug'." ^
-                    " Expected 'on' or 'off'.")
+  | "debug", Str "on" -> debug_level := 1
+  | "debug", Str "off" -> debug_level := 0
+  | "debug", _ ->
+      failwith ("Unknown value '" ^ (set_value_to_string v) ^
+                "' for key 'debug'." ^
+                " Expected 'on' or 'off'.")
 
-    | "search_depth", Int d when d >= 0 -> search_depth := d
-    | "search_depth", _ ->
-        failwith ("Unknown value '" ^ (set_value_to_string v) ^
-                    "' for key 'search_depth'." ^
-                    " Expected non-negative integer.")
+  | "search_depth", Int d when d >= 0 -> search_depth := d
+  | "search_depth", _ ->
+      failwith ("Unknown value '" ^ (set_value_to_string v) ^
+                "' for key 'search_depth'." ^
+                " Expected non-negative integer.")
 
-    | "witnesses", Str "on" -> witnesses := true
-    | "witnesses", Str "off" -> witnesses := false
-    | "witnesses", _ ->
-        failwith ("Unknown value '" ^ (set_value_to_string v) ^
-                    "' for key 'witnesses'." ^
-                    " Expected 'on' or 'off'.")
+  | "witnesses", Str "on" -> witnesses := true
+  | "witnesses", Str "off" -> witnesses := false
+  | "witnesses", _ ->
+      failwith ("Unknown value '" ^ (set_value_to_string v) ^
+                "' for key 'witnesses'." ^
+                " Expected 'on' or 'off'.")
 
-    | "load_path", QStr s -> load_path := s
+  | "load_path", QStr s -> load_path := s
 
-    | _, _ -> failwith ("Unknown key '" ^ k ^ "'.")
+  | _, _ -> failwith ("Unknown key '" ^ k ^ "'.")
 
 let print_theorem name thm =
   fprintf !out "\nTheorem %s : \n%s.\n%!"
@@ -393,65 +442,65 @@ let term_witness (t, w) =
 let rec process_proof name =
   let suppress_display = ref false in
   let finished = ref false in
-    try while not !finished do try
-      if !annotate then begin
-        fprintf !out "</pre>\n%!" ;
-        incr count ;
-        fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
-        fprintf !out "<pre>\n%!"
-      end ;
-      if not !suppress_display then
-        display !out
-      else
-        suppress_display := false ;
-      fprintf !out "%s < %!" name ;
-      let input = Parser.command Lexer.token !lexbuf in
+  try while not !finished do try
+        if !annotate then begin
+          fprintf !out "</pre>\n%!" ;
+          incr count ;
+          fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
+          fprintf !out "<pre>\n%!"
+        end ;
+        if not !suppress_display then
+          display !out
+        else
+          suppress_display := false ;
+        fprintf !out "%s < %!" name ;
+        let input = Parser.command Lexer.token !lexbuf in
         if not !interactive then begin
           let pre, post = if !annotate then "<b>", "</b>" else "", "" in
-            fprintf !out "%s%s.%s\n%!" pre (command_to_string input) post
+          fprintf !out "%s%s.%s\n%!" pre (command_to_string input) post
         end ;
         save_undo_state () ;
         begin match input with
-          | Induction(args, hn) -> induction ?name:hn args
-          | CoInduction hn -> coinduction ?name:hn ()
-          | Apply(h, args, ws, hn) -> apply ?name:hn h args ws ~term_witness
-          | Backchain(h, ws) -> backchain h ws ~term_witness
-          | Cut(h, arg, hn) -> cut ?name:hn h arg
-          | CutFrom(h, arg, t, hn) -> cut_from ?name:hn h arg t
-          | SearchCut(h, hn) -> search_cut ?name:hn h
-          | Inst(h, ws, hn) -> inst ?name:hn h ws
-          | Case(str, keep, hn) -> case ?name:hn ~keep str
-          | Assert(t, hn) ->
-              untyped_ensure_no_restrictions t ;
-              assert_hyp ?name:hn t
-          | Exists(t) -> exists t
-          | Monotone(h, t) -> monotone h t
-          | Clear(hs) -> clear hs
-          | Abbrev(h, s) -> abbrev h s
-          | Unabbrev(hs) -> unabbrev hs
-          | Rename(hfr, hto) -> rename hfr hto
-          | Search(limit) ->
-              search ~limit ~interactive:!interactive ~witness ()
-          | Permute(ids, h) -> permute_nominals ids h
-          | Split -> split false
-          | SplitStar -> split true
-          | Left -> left ()
-          | Right -> right ()
-          | Unfold u -> unfold u
-          | Intros hs -> intros hs
-          | Skip -> skip ()
-          | Abort -> raise AbortProof
-          | Undo -> undo () ; undo () (* undo recent save, and previous save *)
-          | Common(Set(k, v)) -> set k v
-          | Common(Show(n)) ->
-              undo () ; (* Do not save an undo point here *)
-              show n ;
-              fprintf !out "\n%!" ;
-              suppress_display := true
-          | Common(Quit) -> raise End_of_file
+        | Induction(args, hn) -> induction ?name:hn args
+        | CoInduction hn -> coinduction ?name:hn ()
+        | Apply(h, args, ws, hn) -> apply ?name:hn h args ws ~term_witness
+        | Backchain(h, ws) -> backchain h ws ~term_witness
+        | Cut(h, arg, hn) -> cut ?name:hn h arg
+        | CutFrom(h, arg, t, hn) -> cut_from ?name:hn h arg t
+        | SearchCut(h, hn) -> search_cut ?name:hn h
+        | Inst(h, ws, hn) -> inst ?name:hn h ws
+        | Case(str, keep, hn) -> case ?name:hn ~keep str
+        | Assert(t, hn) ->
+            untyped_ensure_no_restrictions t ;
+            assert_hyp ?name:hn t
+        | Exists(t) -> exists t
+        | Monotone(h, t) -> monotone h t
+        | Clear(hs) -> clear hs
+        | Abbrev(h, s) -> abbrev h s
+        | Unabbrev(hs) -> unabbrev hs
+        | Rename(hfr, hto) -> rename hfr hto
+        | Search(limit) ->
+            search ~limit ~interactive:!interactive ~witness ()
+        | Permute(ids, h) -> permute_nominals ids h
+        | Split -> split false
+        | SplitStar -> split true
+        | Left -> left ()
+        | Right -> right ()
+        | Unfold u -> unfold u
+        | Intros hs -> intros hs
+        | Skip -> skip ()
+        | Abort -> raise AbortProof
+        | Undo -> undo () ; undo () (* undo recent save, and previous save *)
+        | Common(Set(k, v)) -> set k v
+        | Common(Show(n)) ->
+            undo () ; (* Do not save an undo point here *)
+            show n ;
+            fprintf !out "\n%!" ;
+            suppress_display := true
+        | Common(Quit) -> raise End_of_file
         end ;
         if !interactive then flush stdout ;
-    with
+      with
       | Failure "lexing: empty token" ->
           exit (if !interactive then 0 else 1)
       | Failure "Proof completed." ->
@@ -483,57 +532,57 @@ let rec process_proof name =
           eprintf "Error: %s\n%s%!" (Printexc.to_string e) (Printexc.get_backtrace ()) ;
           interactive_or_exit ()
     done with
-      | Failure "eof" -> ()
+  | Failure "eof" -> ()
 
 let rec process () =
   try while true do try
-    if !annotate then begin
-      incr count ;
-      fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
-      fprintf !out "<pre class=\"code\">\n%!"
-    end ;
-    fprintf !out "Abella < %!" ;
-    let input = Parser.top_command Lexer.token !lexbuf in
-      if not !interactive then begin
+        if !annotate then begin
+          incr count ;
+          fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
+          fprintf !out "<pre class=\"code\">\n%!"
+        end ;
+        fprintf !out "Abella < %!" ;
+        let input = Parser.top_command Lexer.token !lexbuf in
+        if not !interactive then begin
           let pre, post = if !annotate then "<b>", "</b>" else "", "" in
-            fprintf !out "%s%s.%s\n%!" pre (top_command_to_string input) post
-      end ;
-      begin match input with
+          fprintf !out "%s%s.%s\n%!" pre (top_command_to_string input) post
+        end ;
+        begin match input with
         | Theorem(name, thm) ->
             let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
-              check_theorem thm ;
-              theorem thm ;
-              begin try
-                process_proof name ;
-                compile (CTheorem(name, thm)) ;
-                add_lemma name thm ;
-              with AbortProof -> () end
+            check_theorem thm ;
+            theorem thm ;
+            begin try
+              process_proof name ;
+              compile (CTheorem(name, thm)) ;
+              add_lemma name thm ;
+            with AbortProof -> () end
         | SSplit(name, names) ->
             let thms = create_split_theorems name names in
-              List.iter
-                (fun (n, t) ->
-                   print_theorem n t ;
-                   add_lemma n t ;
-                   compile (CTheorem(n, t)))
-                thms ;
+            List.iter
+              (fun (n, t) ->
+                 print_theorem n t ;
+                 add_lemma n t ;
+                 compile (CTheorem(n, t)))
+              thms ;
         | Define(idtys, udefs) ->
             let ids = List.map fst idtys in
-              check_noredef ids;
-              let (local_sr, local_sign) = locally_add_global_consts idtys in
-              let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs in
-                check_defs ids defs ;
-                commit_global_consts local_sr local_sign ;
-                compile (CDefine(idtys, defs)) ;
-                add_defs ids Inductive defs
+            check_noredef ids;
+            let (local_sr, local_sign) = locally_add_global_consts idtys in
+            let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs in
+            check_defs ids defs ;
+            commit_global_consts local_sr local_sign ;
+            compile (CDefine(idtys, defs)) ;
+            add_defs ids Inductive defs
         | CoDefine(idtys, udefs) ->
             let ids = List.map fst idtys in
-              check_noredef ids;
-              let (local_sr, local_sign) = locally_add_global_consts idtys in
-              let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs in
-                check_defs ids defs ;
-                commit_global_consts local_sr local_sign ;
-                compile (CCoDefine(idtys, defs)) ;
-                add_defs ids CoInductive defs
+            check_noredef ids;
+            let (local_sr, local_sign) = locally_add_global_consts idtys in
+            let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs in
+            check_defs ids defs ;
+            commit_global_consts local_sr local_sign ;
+            compile (CCoDefine(idtys, defs)) ;
+            add_defs ids CoInductive defs
         | TopCommon(Set(k, v)) ->
             set k v
         | TopCommon(Show(n)) ->
@@ -549,7 +598,7 @@ let rec process () =
               ensure_finalized_specification ()
             end else
               failwith ("Specification can only be read " ^
-                          "at the begining of a development.")
+                        "at the begining of a development.")
         | Query(q) -> query q
         | Kind(ids) ->
             check_noredef ids;
@@ -565,38 +614,38 @@ let rec process () =
               (CClose(List.map
                         (fun id -> (id, Subordination.subordinates !sr id))
                         ids)) ;
-      end ;
-      if !interactive then flush stdout ;
-      if !annotate then fprintf !out "</pre>%!" ;
-      fprintf !out "\n%!" ;
-  with
-    | Failure "lexing: empty token" ->
-        eprintf "Unknown symbol" ;
-        exit (if !interactive then 0 else 1)
-    | Failure s ->
-        eprintf "Error: %s\n%!" s ;
-        interactive_or_exit ()
-    | End_of_file ->
-        if !switch_to_interactive then
-          perform_switch_to_interactive ()
-        else begin
-          fprintf !out "Goodbye.\n%!" ;
-          ensure_finalized_specification () ;
-          write_compilation () ;
-          if !annotate then fprintf !out "</pre>\n%!" ;
-          exit 0
-        end
-    | Parsing.Parse_error ->
-        eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
-        Lexing.flush_input !lexbuf ;
-        interactive_or_exit ()
-    | TypeInferenceFailure(ci, exp, act) ->
-        type_inference_error ci exp act ;
-        interactive_or_exit ()
-    | e ->
-        eprintf "Unknown error: %s\n%!" (Printexc.to_string e) ;
-        interactive_or_exit ()
-  done with
+        end ;
+        if !interactive then flush stdout ;
+        if !annotate then fprintf !out "</pre>%!" ;
+        fprintf !out "\n%!" ;
+      with
+      | Failure "lexing: empty token" ->
+          eprintf "Unknown symbol" ;
+          exit (if !interactive then 0 else 1)
+      | Failure s ->
+          eprintf "Error: %s\n%!" s ;
+          interactive_or_exit ()
+      | End_of_file ->
+          if !switch_to_interactive then
+            perform_switch_to_interactive ()
+          else begin
+            fprintf !out "Goodbye.\n%!" ;
+            ensure_finalized_specification () ;
+            write_compilation () ;
+            if !annotate then fprintf !out "</pre>\n%!" ;
+            exit 0
+          end
+      | Parsing.Parse_error ->
+          eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
+          Lexing.flush_input !lexbuf ;
+          interactive_or_exit ()
+      | TypeInferenceFailure(ci, exp, act) ->
+          type_inference_error ci exp act ;
+          interactive_or_exit ()
+      | e ->
+          eprintf "Unknown error: %s\n%!" (Printexc.to_string e) ;
+          interactive_or_exit ()
+    done with
   | Failure "eof" -> ()
 
 
@@ -631,14 +680,14 @@ let input_files = ref []
 
 let set_input () =
   match !input_files with
-    | [] -> ()
-    | [filename] ->
-        interactive := false ;
-        lexbuf := lexbuf_from_file filename
-    | fs ->
-        eprintf "Error: Multiple files specified as input: %s\n%!"
-          (String.concat ", " fs) ;
-        exit 1
+  | [] -> ()
+  | [filename] ->
+      interactive := false ;
+      lexbuf := lexbuf_from_file filename
+  | fs ->
+      eprintf "Error: Multiple files specified as input: %s\n%!"
+        (String.concat ", " fs) ;
+      exit 1
 
 let add_input filename =
   input_files := !input_files @ [filename]

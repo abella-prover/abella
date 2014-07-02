@@ -414,6 +414,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
 
   let focus sync_obj r =
     let ctx,f,term = Sync.get sync_obj in
+    Printf.printf "DEBUG: trying %s\n%!" (Term.term_to_string f) ;
     if (*has_eigen_head term or*) has_eigen_head f then
       failwith "Cannot perform case-analysis on flexible head" ;
     let wrapper t =
@@ -428,6 +429,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
              fresh_head term
          with
          | Some cpairs ->
+             Printf.printf "   >>> SUCCESS!\n%!" ;
              let new_vars =
                term_vars_alist Eigen (fresh_head::term::fresh_body)
              in

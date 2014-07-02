@@ -82,12 +82,15 @@
 %token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND
 %token LBRACE RBRACE LBRACK RBRACK LANGLE RANGLE
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
+%token LOW_PREC HIGH_PREC
 
 %token <int> NUM
 %token <string> STRINGID QSTRING
 %token EOF
 
 /* Lower */
+
+%nonassoc LOW_PREC
 
 %nonassoc COMMA
 %right RARROW
@@ -101,14 +104,17 @@
 
 %right CONS
 
+%nonassoc HIGH_PREC
+
 /* Higher */
 
 
-%start term metaterm lpmod lpsig defs top_command command any_command sig_body mod_body
+%start term metaterm lpmod lpsig lfsig defs top_command command any_command sig_body mod_body
 %type <Uterm.uterm> term
 %type <Typing.umetaterm> metaterm
 %type <Abella_types.lpsig> lpsig
 %type <Abella_types.lpmod> lpmod
+%type <Abella_types.lfsig> lfsig
 %type <Abella_types.sig_decl list> sig_body
 %type <Abella_types.uclause list> mod_body
 %type <Abella_types.udef list> defs
@@ -186,7 +192,7 @@ contexted_term:
 
 lf_contexted_term:
   | lf_context TURN lfjudge              { ($1, $3) }
-  | lfjudge                              { (predefined "nil", $1) }
+  | lfjudge                              { (predefined "lfnil", $1) }
 
 focused_term:
   | context COMMA LBRACK term RBRACK TURN term { ($1, $4, $7) }
@@ -201,8 +207,8 @@ context:
                                                (predefined "nil") }
 
 lf_context:
-  | lf_context COMMA lfjudge             { binop "::" $3 $1 }
-  | lfjudge                              { binop "::" $1 (predefined "nil") }
+  | lf_context COMMA lfjudge             { binop "lf::" $3 $1 }
+  | lfjudge                              { binop "lf::" $1 (predefined "lfnil") }
   | lfterm                               { $1 } /* if has_capital_head ?
                                                    this should be the case of a variable context */
 
@@ -228,6 +234,7 @@ lfapp:
   | lfground                             { $1 }
 
 lfarrow:
+  | lfapp                                { $1 }
   | lfapp RARROW lfarrow                 { UImp(pos 1, $1, $3) }
 
 lfterm:
@@ -236,7 +243,6 @@ lfterm:
   | LBRACE STRINGID COLON lfterm RBRACE lfterm
                                          { UPi(pos 2, $2, $4, $6) }
   | lfarrow                              { $1 }
-
 
 exp:
   | LPAREN term RPAREN                   { let left = fst (pos 1) in
@@ -255,6 +261,10 @@ exp_list:
 lpsig:
   | sig_header sig_preamble sig_body lpend
                                          { make_sig $1 $2 $3 }
+
+lfsig:
+  |                                      { [] }
+  | STRINGID COLON lfterm DOT lfsig      { ($1, $3) :: $5 }
 
 sig_header:
   | SIG id DOT                           { $2 }

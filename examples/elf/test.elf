@@ -1,0 +1,43 @@
+%% Explicitly typed intrinsic encoding (aka "Church style")
+%% of simply typed lambda terms.
+%%
+%% Author: Kaustuv Chaudhuri <kaustuv.chaudhuri@inriafr>
+%% Created: 2014-07-02 12:08:12+0200
+
+nat : type.                                    %name nat I.
+z : nat.
+s : nat -> nat.
+
+ty : type.                                     %name ty A.
+i : ty.
+arr : ty -> ty -> ty.
+
+tm : ty -> type.                               %name tm M.
+app : {A:ty} {B:ty}
+      tm (arr A B) -> tm A -> tm B.
+lam : {A:ty} {B:ty}
+      (tm A -> tm B) -> tm (arr A B).
+
+of : {A:ty}
+     tm A -> ty -> type.                       %name of Dof.
+of/app : {A:ty} {B:ty} {M:tm (arr A B)} {N:tm A}
+         of (arr A B) M (arr A B) ->
+         of A N A ->
+         of B (app A B M N) B.
+of/lam : {A:ty} {B:ty} {R:tm A -> tm B}
+         ({x:tm A} of A x A -> of B (R x) B) ->
+         of (arr A B) (lam A B ([x:tm A] R x)) (arr A B).
+
+%mode of +A +M -A1.
+
+%block of/block : some {A:ty} block {x:tm A} {_ : of A x A}.
+%worlds (of/block) (of _ _ _).
+
+%covers of +A +M -A1.
+%terminates M (of A M _).
+
+%query 1 * of (arr i i) (lam i i ([x] x)) A.
+
+%theorem of/main : forall {A:ty} {M:tm A} exists {D:of A M A} true.
+% establish 9999 M (of/main A M D).
+%% This fails because M2 is not smart enough to do local backchaining

@@ -114,6 +114,8 @@ type lpsig =
 type lpmod =
   | Mod of string * string list * uclause list
 
+type lfsig = (string * Uterm.uterm) list
+
 let udef_to_string (head, body) =
   if body = UTrue then
     umetaterm_to_string head

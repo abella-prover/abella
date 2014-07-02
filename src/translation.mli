@@ -1,7 +1,8 @@
 open Term
-(* open Typing *)
 
 exception TranslationError of string
+
+val trans_type : Uterm.uterm -> Term.ty
 
 val translate : Uterm.uterm -> term
 

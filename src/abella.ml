@@ -123,7 +123,7 @@ let read_elf_specification name =
           ((x, pty), tm)
       end lfsig in
     let (sign, clauses) = List.split cooked_lfsig in
-    let sign = Accumulate.merge_signs [pervasive_sign; ([name], sign)] in
+    let sign = ([(* no new types *)], sign) in
     if elf_debug then begin
       Printf.printf "sig %s.\n" name ;
       List.iter begin
@@ -137,6 +137,7 @@ let read_elf_specification name =
       end clauses ;
       Printf.printf "end.\n" ;
     end ;
+    let sign = Accumulate.merge_signs [pervasive_sign; sign] in
     (!sr, sign, clauses)
   end with
   | Parsing.Parse_error ->

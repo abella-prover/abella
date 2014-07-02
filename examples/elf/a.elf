@@ -1,1 +1,4 @@
 nat : type.
+s : nat -> nat.
+foo : (nat -> nat) -> type.
+foo/1 : foo ([lfx1:nat] lfx1) -> foo ([pt2:nat] s pt2).

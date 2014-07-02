@@ -99,6 +99,44 @@ let async_to_member obj =
   let (context, term) = Async.get obj in
   member term (Context.context_to_term context)
 
+(* Pretty printing LF *)
+let lfcontext_to_string ctx =
+  let rec aux lst ctx =
+    match lst with
+      | [] -> ""
+      | [last] -> Translation.lfterm_to_string last [] 0
+      | head::tail -> 
+          (Translation.lfterm_to_string head [] 0) ^ ", " ^ (aux tail (ctx @ [head]))
+  in
+    aux ctx []
+
+let lfasync_to_string obj =
+  let (ctx, term) = Async.get obj in
+  let context =
+    if Context.is_empty ctx
+    then ""
+    else (lfcontext_to_string ctx ^ " |- ")
+  in
+  let term = Translation.lfterm_to_string term [] 0 in
+    "{" ^ context ^ term ^ "}"
+
+let lfsync_to_string obj =
+  let (ctx, focus, term) = Sync.get obj in
+  let context =
+    if Context.is_empty ctx
+    then ""
+    else (lfcontext_to_string ctx) ^ ", "
+  in
+  let fcs = "[" ^ Translation.lfterm_to_string focus [] 0^ "] |- " in
+  let term = Translation.lfterm_to_string term [] 0 in
+    "{" ^ context ^ fcs ^ term ^ "}"
+
+let lfobj_to_string t =
+  match t with
+  | Async obj -> lfasync_to_string obj
+  | Sync obj -> lfsync_to_string obj
+
+
 (* Pretty printing *)
 
 let restriction_to_string r =
@@ -163,11 +201,12 @@ let format_metaterm fmt t =
             fprintf fmt "false"
         | Eq(a, b) ->
             fprintf fmt "%s = %s" (term_to_string a) (term_to_string b)
-        | Obj(obj, r)
-        | LFObj(obj, r) ->
+        | Obj(obj, r) ->
             fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
-(*            fprintf fmt "%s%s" (Translation.lfobj_to_string obj) 
-                               (restriction_to_string r) *)
+        | LFObj(obj, r) ->
+(*            fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r) *)
+            fprintf fmt "%s%s" (lfobj_to_string obj) 
+                               (restriction_to_string r) 
         | Arrow(a, b) ->
             aux (pr_curr + 1) a ;
             fprintf fmt " ->@ " ;

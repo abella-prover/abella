@@ -1,13 +1,8 @@
 open Term
-open Metaterm
 open Uterm
 (* open Typing *)
 
 exception TranslationError of string
-
-let generate_name =
-  let counter = ref 0 in
-  fun () -> (incr counter; "V" ^ (string_of_int (!counter)))
 
 let is_type t = app (const "lfisty" (tyarrow [lftypety] oty)) [t]
 
@@ -51,46 +46,45 @@ let rec translate t =
        let tm' = UApp(p, tm, UCon(p, x, (trans_type a))) in
        translate_abstraction_type x a tm' b p
     | UJudge(p, tm, UImp(q, t1, t2)) ->
-       let x = (generate_name ()) in
-       let tm' = UApp(p, tm, UCon(p, x, (trans_type t1))) in
-       translate_abstraction_type x t1 tm' t2 p
+       (* fresh_wrt ts tag name ty used *)
+       let x = fst (Term.fresh_wrt 0 Nominal "x" (trans_type t1) []) in
+       let tm' = UApp(p, tm, UCon(p, Term.term_to_name x, (trans_type t1))) in
+       translate_abstraction_type (Term.term_to_name x) t1 tm' t2 p
     | UJudge(p, tm, UType(q)) -> is_type (trans_term tm)
     | UJudge(p, t1, t2) -> has_type (trans_term t1) (trans_term t2) p
     | _ -> raise (TranslationError "Only LF judgements may be translated")
 
-let lfterm_to_string t = Term.term_to_string t
+let lookup_ty x = x (*MKS: still need to implement this *)
 
-let lfcontext_to_string ctx =
-  let rec aux lst =
-    match lst with
-      | [] -> ""
-      | [last] -> lfterm_to_string last
-      | head::tail -> (lfterm_to_string head) ^ ", " ^ (aux tail)
-  in
-    aux ctx
+let rec lfterm_to_string t cx n = 
+  let t' = Term.observe t in
+  let rec aux tm =
+    match tm with
+    | Var(v) -> v.name
+    | Lam(tyctx, body) -> 
+        let (vars, tys) = List.split tyctx in
+        List.fold_right (fun (v, t) x -> "["^v^":"^(lookup_ty v)^"] ("^x^")") 
+                        tyctx
+                        (lfterm_to_string body (List.rev_append vars cx) (n+List.length vars))
+    | App(h, args) ->
+      (match (Term.observe h), args with
+       | Var(v), [t1;t2] when v.name="=>" ->
+           "("^(aux (Term.observe t1))^")=>("^(aux (Term.observe t2))^")"
+       | Var(v), [t1;t2] when v.name="lfhas" ->
+           "<("^(aux (Term.observe t1))^"):("^(aux (Term.observe t2))^")>"
+       | Var(v), [t] when v.name="lfisty" ->
+           "<("^(aux (Term.observe t))^"):type>"
+       | Var(v), [t] when v.name="pi" ->
+          (match Term.observe t with
+           | Lam([(x,ty)], body) -> 
+               "forall "^x^":"^(Term.ty_to_string ty)^".("^
+                         (lfterm_to_string body (cx @ [x]) (n+1))^")"
+           | _ -> raise (TranslationError "LF terms should not be of this form."))
+       | h', _ ->
+           List.fold_left (fun x y -> x^" "^y)
+                          (aux h')
+                          (List.map (fun x -> aux (Term.observe x)) args))
+    | DB i -> (try List.nth cx (i - 1) with _ -> ("x"^string_of_int (n - i + 1)))
+    | _ -> raise (TranslationError "terms of this form cannot be inverted.")
+  in aux t'
 
-let async_to_string obj =
-  let (ctx, term) = Async.get obj in
-  let context =
-    if Context.is_empty ctx
-    then ""
-    else (lfcontext_to_string ctx ^ " |- ")
-  in
-  let term = lfterm_to_string term in
-    "{" ^ context ^ term ^ "}"
-
-let sync_to_string obj =
-  let (ctx, focus, term) = Sync.get obj in
-  let context =
-    if Context.is_empty ctx
-    then ""
-    else (lfcontext_to_string ctx) ^ ", "
-  in
-  let fcs = "[" ^ lfterm_to_string focus ^ "] |- " in
-  let term = lfterm_to_string term in
-    "{" ^ context ^ fcs ^ term ^ "}"
-
-let lfobj_to_string t =
-  match t with
-  | Async obj -> async_to_string obj
-  | Sync obj -> sync_to_string obj

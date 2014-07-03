@@ -1,8 +1,8 @@
 %% Explicitly typed intrinsic encoding (aka "Church style")
 %% of simply typed lambda terms.
 %%
-%% Author: Kaustuv Chaudhuri <kaustuv.chaudhuri@inriafr>
-%% Created: 2014-07-02 12:08:12+0200
+%% Author: Kaustuv Chaudhuri <kaustuv.chaudhuri@inria.fr>
+%% Created: 2014-07-02 16:43:30+0200
 
 nat : type.                                    %name nat I.
 z : nat.
@@ -38,6 +38,5 @@ of/lam : {A:ty} {B:ty} {R:tm A -> tm B}
 
 %query 1 * of (arr i i) (lam i i ([x] x)) A.
 
-%theorem of/main : forall {A:ty} {M:tm A} exists {D:of A M A} true.
-% establish 9999 M (of/main A M D).
-%% This fails because M2 is not smart enough to do local backchaining
+%theorem of/main : forallG (some {B:ty} pi {x:tm B} {_:of B x B}) forall {A:ty} {M:tm A} exists {D:of A M A} true.
+%establish 9999 M (of/main A M D).

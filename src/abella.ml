@@ -114,6 +114,7 @@ let read_elf_specification name =
     let lexbuf = lexbuf_from_file (Filename.concat !load_path name) in
     let name = Filename.chop_suffix name ".elf" in
     let lfsig = Parser.lfsig Lexer.token lexbuf in
+    Prover.lf_sign := lfsig ;
     let cooked_lfsig = List.map begin
         fun (x, utm) ->
           let ty = Translation.trans_type utm in

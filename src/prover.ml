@@ -60,6 +60,8 @@ let sequent = {
 let sign = ref pervasive_sign
 let sr = ref pervasive_sr
 
+let lf_sign : (id * Uterm.uterm) list ref = ref []
+
 let add_global_types tys =
   sign := add_types !sign tys
 

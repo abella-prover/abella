@@ -42,23 +42,21 @@ type var = private {
 (* Terms. The use of references allow in-place normalization,
  * but is completely hidden by the interface. *)
 
-type term
 type ptr
-type envitem = Dum of int | Binding of term * int
-type env = envitem list
-
 type tyctx = (id * ty) list
 
-type rawterm =
+type term = private
   | Var of var
   | DB of int
   | Lam of tyctx * term
   | App of term * term list
   | Susp of term * int * int * env
   | Ptr of ptr (* Sorry about this one, hiding it is costly.. *)
+and envitem = Dum of int | Binding of term * int
+and env = envitem list
 
 (* [observe t] is the way to analyze the structure of a term. *)
-val observe : term -> rawterm
+val observe : term -> term
 
 (** Creation of terms.
   * There is probably more to come here. *)
@@ -129,9 +127,19 @@ val has_logic_head : term -> bool
 val has_eigen_head : term -> bool
 
 val hnorm : term -> term
+val norm : term -> term
 
 val ty_to_string : ty -> string
-val term_to_string : term -> string
+
+class type term_printer = object
+  method print : tyctx -> term -> Pretty.expr
+end
+val core_printer : term_printer
+val default_printer : term_printer ref
+
+val term_to_string : ?printer:term_printer ->  ?cx:tyctx ->
+  term -> string
+
 val prefix : tag -> string
 
 val get_used : term list -> (id * term) list

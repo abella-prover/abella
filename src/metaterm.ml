@@ -100,11 +100,11 @@ let async_to_member obj =
 
 let restriction_to_string r =
   match r with
-    | Smaller i -> String.make i '*'
-    | CoSmaller i -> String.make i '+'
-    | Equal i -> String.make i '@'
-    | CoEqual i -> String.make i '#'
-    | Irrelevant -> ""
+  | Smaller i -> String.make i '*'
+  | CoSmaller i -> String.make i '+'
+  | Equal i -> String.make i '@'
+  | CoEqual i -> String.make i '#'
+  | Irrelevant -> ""
 
 let bindings_to_string ts =
   String.concat " " (List.map fst ts)
@@ -125,7 +125,7 @@ let async_obj_to_string obj =
     else (Context.context_to_string ctx ^ " |- ")
   in
   let term = term_to_string term in
-    "{" ^ context ^ term ^ "}"
+  "{" ^ context ^ term ^ "}"
 
 let sync_obj_to_string obj =
   let (ctx, focus, term) = Sync.get obj in
@@ -136,7 +136,7 @@ let sync_obj_to_string obj =
   in
   let fcs = "[" ^ term_to_string focus ^ "] |- " in
   let term = term_to_string term in
-    "{" ^ context ^ fcs ^ term ^ "}"
+  "{" ^ context ^ fcs ^ term ^ "}"
 
 
 let obj_to_string = function
@@ -145,9 +145,9 @@ let obj_to_string = function
 
 let binder_to_string b =
   match b with
-    | Forall -> "forall"
-    | Nabla -> "nabla"
-    | Exists -> "exists"
+  | Forall -> "forall"
+  | Nabla -> "nabla"
+  | Exists -> "exists"
 
 let format_metaterm fmt t =
   let rec aux pr_above t =

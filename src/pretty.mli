@@ -12,28 +12,31 @@
 
 open Format
 
-type fmt = (unit, formatter, unit) format
 type prec   = int
 type trans  = OPAQUE | TRANSP
 type assoc  = LEFT | RIGHT | NON
 
+type atom =
+  | FMT of (unit, formatter, unit) format
+  | FUN of (formatter -> unit)
+  | STR of string
+
 type expr =
-  | Atom    of fmt
+  | Atom    of atom
   | Bracket of bracketing
   | Opapp   of prec * opapp
 
 and bracketing = {
-  left  : fmt ;
-  right : fmt ;
+  left  : atom ;
+  right : atom ;
   inner : expr ;
   trans : trans ;
 }
 
 and opapp =
-  | Prefix  of fmt * expr
-  | Postfix of expr * fmt
-  | Infix   of assoc * expr * (fmt * expr) list
+  | Prefix  of atom * expr
+  | Postfix of expr * atom
+  | Infix   of assoc * expr * atom * expr
 
-val bracket : ?left:fmt -> ?right:fmt -> ?trans:trans -> expr -> expr
-
-val print : ?left:fmt -> ?right:fmt -> formatter -> expr -> unit
+val bracket : ?left:atom -> ?right:atom -> ?trans:trans -> expr -> expr
+val print : ?left:atom -> ?right:atom -> formatter -> expr -> unit

@@ -126,17 +126,24 @@ let read_elf_specification name =
     let (sign, clauses) = List.split cooked_lfsig in
     let sign = ([(* no new types *)], sign) in
     if elf_debug then begin
-      Printf.printf "sig %s.\n" name ;
-      List.iter begin
-        fun (x, ty) ->
-          Printf.printf "  type %s %s.\n" x (Typing.pty_to_string ty)
-      end (snd sign) ;
-      Printf.printf "end.\n\n" ;
-      Printf.printf "module %s.\n" name ;
-      List.iter begin
-        fun tm -> Printf.printf "  %s.\n" (Term.term_to_string tm)
-      end clauses ;
-      Printf.printf "end.\n" ;
+      let open Format in
+      let ff = std_formatter in
+      Format.fprintf ff "@[<v0>sig %s.@\n%tend.@]@." name begin
+        fun _ ->
+          List.iter begin fun (x, ty) ->
+            pp_print_string ff ("  type " ^ x ^ " " ^ (Typing.pty_to_string ty) ^ ".") ;
+            pp_print_cut ff () ;
+          end (snd sign) ;
+      end ;
+      Format.fprintf ff "@[<v0>module %s.@\n%tend.@]@." name begin
+        fun ff ->
+          List.iter begin fun tm ->
+            pp_print_string ff "  " ;
+            Pretty.print ff (Term.default_printer#print [] tm) ;
+            pp_print_string ff "." ;
+            pp_print_cut ff () ;
+          end clauses
+      end ;
     end ;
     let sign = Accumulate.merge_signs [pervasive_sign; sign] in
     (!sr, sign, clauses)

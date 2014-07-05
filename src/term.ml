@@ -387,73 +387,82 @@ let var_to_string ?(tag=false) ?(ts=false) ?(ty=false) v =
     ^ (if ty then ":" ^ ty_to_string v.ty else "")
   end ^ aft
 
-let is_quant a =
-  match observe (hnorm a) with
-  | App (h, [_]) ->
-     begin match observe (hnorm h) with
-           | Var {name=q; _} when is_obj_quantifier q -> true
-           | _ -> false
-     end
-  | _ -> false
+let infix_ops : (id * (Pretty.atom * Pretty.assoc * Pretty.prec)) list =
+  let open Pretty in
+  [ "=>" , (FMT " =>@ " , RIGHT , 1) ;
+    "&"  , (FMT " &@ "  , LEFT  , 2) ;
+    "::" , (FMT " ::@ " , LEFT  , 3) ]
+let is_infix op = List.exists (fun (o, _) -> o = op) infix_ops
+let prefix_ops = [ "pi" ; "sigma" ]
+let is_prefix op = List.mem op prefix_ops
 
-let term_to_string term =
-  let high_pr = 2 + get_max_priority () in
-  let pp_var x = abs_name ^ (string_of_int x) in
-  let rec pp cx pr n term =
-    match observe (hnorm term) with
-      | Var v -> var_to_string v
-                   (* ~tag:true *)
-                   (* ~ts:true *)
-                   (* ~ty:true *)
-      | DB i ->
-          (try List.nth cx (i - 1) with _ -> pp_var (n - i + 1))
-      | App (t,ts) ->
-          begin match observe (hnorm t), ts with
-            | Var {name=op; tag=Constant; ts=ts; ty=ty}, [a; b] when is_infix op ->
-                let op_p = priority op in
-                let assoc = get_assoc op in
-                let pr_left, pr_right = begin match assoc with
-                  | Left -> op_p, op_p+1
-                  | Right -> op_p+1, op_p
-                  | _ -> op_p, op_p
-                  end in
-                let left =
-                  if is_quant a then parenthesis (pp cx 0 n a)
-                  else pp cx pr_left n a
-                in
-                let res =
-                  left ^ " " ^ op ^ " " ^ (pp cx pr_right n b)
-                (* let res = *)
-                (*   pp cx pr_left n a  ^ " " ^ op ^ " " ^ (pp cx pr_right n b) *)
-                in
-                  if op_p >= pr then res else parenthesis res
-            | Var {name=op; tag=Constant; ts=ts; ty=ty}, [a] when
-                is_obj_quantifier op && is_lam a ->
-                let res = op ^ " " ^ (pp cx 0 n a) in
-                  if pr < high_pr then res else parenthesis res
-            | _ ->
-                let res =
-                  String.concat " " (List.map (pp cx high_pr n) (t::ts))
-                in
-                  if pr < high_pr then res else parenthesis res
-          end
-      | Lam ([],t) -> assert false
-      | Lam (tycx,t) ->
-          let i = List.length tycx in
-          let default_vars = List.map pp_var (list_range (n + 1) (n + i)) in
-          let vars = List.map2 begin
-            fun (hv, _) dv -> match hv with
-            | "_" -> dv
-            | _ -> hv
-          end tycx default_vars in
-          let tcx = List.rev_append vars cx in
-          let res = ((String.concat "\\" vars) ^ "\\" ^
-                      (pp tcx 0 (n+i) t)) in
-          if pr == 0 then res else parenthesis res
-      | Ptr t -> assert false (* observe *)
-      | Susp _ -> assert false (* hnorm *)
+let atomic s = Pretty.(Atom (STR s))
+
+let db_to_string cx0 i0 =
+  let rec spin cx i =
+    match cx, i with
+    | [], _ -> abs_name ^ string_of_int (List.length cx0 - i0 + 1)
+    | (x, _) :: _, 1 -> x
+    | _ :: cx, _ -> spin cx (i - 1)
   in
-    pp [] 0 0 term
+  spin cx0 i0
+
+let adjoin cx (x, ty) =
+  let x' = fresh_name x cx in
+  (x', ty) :: cx
+
+class term_printer = object (self)
+  method print (cx : tyctx) (t0 : term) =
+    match observe (hnorm t0) with
+    | Var v -> atomic (var_to_string v)
+    | DB i -> atomic (db_to_string cx i)
+    | Lam ([x, ty], t) ->
+        let op = Pretty.FUN Format.(fun ff ->
+            pp_print_string ff x ;
+            pp_print_string ff "\\" ;
+            pp_print_space ff ()
+          ) in
+        Pretty.(Opapp (0, Prefix (op, self#print (adjoin cx (x, ty)) t)))
+    | Lam ([], _) -> assert false
+    | Lam (v :: tycx, t) -> self#print cx (Lam ([v], Lam (tycx, t)))
+    | App (t, ts) -> begin
+        match observe (hnorm t), ts with
+        | Var {name="=>"; _}, [a; b] ->
+            Pretty.(Opapp (1, Infix (RIGHT, self#print cx a,
+                                     FMT " =>@ ", self#print cx b)))
+        | Var {name="&"; _}, [a; b] ->
+            Pretty.(Opapp (2, Infix (LEFT, self#print cx a,
+                                     FMT " =>@ ", self#print cx b)))
+        | Var {name="::"; _}, [a; b] ->
+            Pretty.(Opapp (3, Infix (LEFT, self#print cx a,
+                                     FMT " =>@ ", self#print cx b)))
+        | Var {name=("pi"|"sigma" as q); _}, [a] -> begin
+            match observe (hnorm a) with
+            | Lam ([x, ty], t) ->
+                Pretty.(Opapp (1, Infix (RIGHT, Atom (STR (q ^ " " ^ x)),
+                                         FMT "\\@,", self#print (adjoin cx (x, ty)) t)))
+            | _ -> assert false
+          end
+        | _ ->
+            List.fold_left begin fun f t ->
+              Pretty.(Opapp (10, Infix (LEFT, f, FMT "@ ", self#print cx t)))
+            end (self#print cx t) ts
+      end
+    | _ -> assert false
+end
+let default_printer = new term_printer
+
+let some_printer : term_printer = object (self)
+  inherit term_printer as super
+  method print cx t0 = super#print cx t0
+end
+
+let term_to_string ?(printer=default_printer) ?(cx=[]) t =
+  let buf = Buffer.create 19 in
+  let ff = Format.formatter_of_buffer buf in
+  Pretty.print ff (printer#print cx t) ;
+  Format.pp_print_flush ff () ;
+  Buffer.contents buf
 
 let term_to_name t =
   (term_to_var t).name

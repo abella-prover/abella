@@ -134,7 +134,15 @@ val has_eigen_head : term -> bool
 val hnorm : term -> term
 
 val ty_to_string : ty -> string
-val term_to_string : term -> string
+
+class type term_printer = object
+  method print : tyctx -> term -> Pretty.expr
+end
+val default_printer : term_printer
+
+val term_to_string : ?printer:term_printer ->  ?cx:tyctx ->
+  term -> string
+
 val prefix : tag -> string
 
 val get_used : term list -> (id * term) list
@@ -164,5 +172,3 @@ val extract_imp : term -> term * term
 val is_pi : term -> bool
 val extract_pi : term -> term
 val replace_pi_with_const : term -> tyctx * term
-
-val is_quant : term -> bool

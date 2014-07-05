@@ -12,30 +12,34 @@
 
 open Format
 
-type fmt = (unit, formatter, unit) format
 type prec   = int
 type trans  = OPAQUE | TRANSP
 type assoc  = LEFT | RIGHT | NON
 
+type atom =
+  | FMT of (unit, formatter, unit) format
+  | FUN of (formatter -> unit)
+  | STR of string
+
 type expr =
-  | Atom    of fmt
+  | Atom    of atom
   | Bracket of bracketing
   | Opapp   of prec * opapp
 
 and bracketing = {
-  left  : fmt ;
-  right : fmt ;
+  left  : atom ;
+  right : atom ;
   inner : expr ;
   trans : trans ;
 }
 
 and opapp =
-  | Prefix  of fmt * expr
-  | Postfix of expr * fmt
-  | Infix   of assoc * expr * (fmt * expr) list
+  | Prefix  of atom * expr
+  | Postfix of expr * atom
+  | Infix   of assoc * expr * atom * expr
 
-let lparen : fmt = format_of_string "("
-let rparen : fmt = format_of_string ")"
+let lparen = FUN (fun ff -> pp_print_string ff "(")
+let rparen = FUN (fun ff -> pp_print_string ff ")")
 
 let bracket ?(left=lparen) ?(right=rparen) ?(trans=OPAQUE) inner =
   Bracket {left; right; inner; trans}
@@ -44,10 +48,10 @@ type dom_op = PRE of prec |POST of prec | NOP
 
 let rec reprec de = match de with
   | Atom _ -> (de, NOP)
-  | Opapp (prec, Infix (asc, arg1, args)) ->
+  | Opapp (prec, Infix (asc, arg1, op, arg2)) ->
       let arg1 = fst (reprec arg1) in
-      let args = List.map (fun (op, arg) -> (op, fst (reprec arg))) args in
-      (Opapp (prec, Infix (asc, arg1, args)), NOP)
+      let arg2 = fst (reprec arg2) in
+      (Opapp (prec, Infix (asc, arg1, op, arg2)), NOP)
   | Opapp (prec, Prefix (op, arg)) ->
       let (arg, dom) = reprec arg in
       let prec = match dom with
@@ -82,7 +86,7 @@ let rec is_infix_incompat gpasc myprec myasc = function
   | Opapp (subprec, (Prefix _ | Postfix _))
       when myprec >= subprec ->
       true
-  | Opapp (subprec, Infix (subasc, _, _))
+  | Opapp (subprec, Infix (subasc, _, _, _))
       when myprec = subprec && not (gpasc = myasc && subasc = myasc) ->
       true
   | Bracket {trans=TRANSP; inner; _} ->
@@ -94,17 +98,22 @@ let rec ( >? ) prec ex = match ex with
   | Bracket {trans = TRANSP; inner; _} -> prec >? inner
   | _ -> false
 
+let print_atom ff atm =
+  match atm with
+  | FMT fmt -> fprintf ff fmt
+  | FUN fmt -> fmt ff
+  | STR s -> pp_print_string ff s
+
 let rec print ?(left=lparen) ?(right=rparen) ff ex =
   match ex with
-  | Atom d -> fprintf ff d
+  | Atom atm -> print_atom ff atm
   | Bracket br ->
       kprint_bracket ~left ~right ff br
   | Opapp (prec, appl) -> begin
       match appl with
       | Prefix (op, arg) ->
           pp_open_box ff 2 ; begin
-            fprintf ff op ;
-            pp_print_space ff () ;
+            print_atom ff op ;
             maybe_enclose
               ~cond:(prec >? arg && not (is_prefix arg))
               ~left ~right ff arg
@@ -114,42 +123,47 @@ let rec print ?(left=lparen) ?(right=rparen) ff ex =
             maybe_enclose
               ~cond:(prec >? arg && not (is_postfix arg))
               ~left ~right ff arg ;
-            pp_print_space ff () ;
-            fprintf ff op ;
+            print_atom ff op ;
           end ; pp_close_box ff ()
-      | Infix (asc, arg1, args) ->
-          let (args, (opN, argN)) = match List.rev args with
-            | argN :: args -> (List.rev args, argN)
-            | _ -> failwith "Pretty.print: Infix needs at least two operands"
-          in
+      | Infix (asc, arg1, op, arg2) ->
           pp_open_box ff 2 ; begin
             maybe_enclose
               ~cond:(prec >? arg1
-                    || is_infix_incompat LEFT prec asc arg1)
+                     || is_infix_incompat LEFT prec asc arg1)
               ~left ~right ff arg1 ;
-            List.iter begin fun (op, arg) ->
-              fprintf ff op ; pp_print_cut ff () ;
-              maybe_enclose
-                ~cond:(prec >? arg)
-                ~left ~right ff arg ;
-            end args ;
-            fprintf ff opN ; pp_print_cut ff () ;
+            print_atom  ff op ;
             maybe_enclose
-              ~cond:(prec >? argN
-                    || is_infix_incompat RIGHT prec asc argN)
-              ~left ~right ff argN
+              ~cond:(prec >? arg2
+                     || is_infix_incompat RIGHT prec asc arg2)
+              ~left ~right ff arg2
           end ; pp_close_box ff ()
     end
 
 and maybe_enclose ~cond ~left ~right ff ex =
   if cond then begin
-    fprintf ff left ;
+    print_atom ff left ;
     print ~left ~right ff ex ;
-    fprintf ff right ;
+    print_atom ff right ;
   end else
     print ~left ~right ff ex
 
 and kprint_bracket ~left ~right ff br =
-  fprintf ff br.left ;
+  print_atom ff br.left ;
   print ~left ~right ff br.inner ;
-  fprintf ff br.right
+  print_atom ff br.right
+
+
+(*
+let test () =
+  let ff = std_formatter in
+  let ei = Opapp (10, Infix (LEFT, Atom (STR "pi"),
+                             [STR " ", Opapp (0, Prefix (STR "x\\ ", Atom (STR "x")))])) in
+  print ff ei ; pp_print_newline ff () ;
+  let ep = Opapp (10, Prefix (STR "pi ", Opapp (0, Prefix (STR "x\\ ", Atom (STR "x"))))) in
+  print ff ep ; pp_print_newline ff () ;
+  let fi = Opapp (2, Infix (LEFT, ei, [STR " + ", ei])) in
+  print ff fi ; pp_print_newline ff () ;
+  let fp = Opapp (2, Infix (LEFT, ep, [STR " + ", ep])) in
+  print ff fp ; pp_print_newline ff () ;
+  pp_print_flush ff ()
+*)

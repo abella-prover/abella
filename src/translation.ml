@@ -61,7 +61,6 @@ and translate_abstraction_type ~used x a t1 t2 pos =
   app (const "pi" (tyarrow [tyarrow [tya] oty] oty))
     [abstract x tya (app (const "=>" (tyarrow [oty; oty] oty)) [l'; r'])]
 
-
 let lookup_ty x = x (*MKS: still need to implement this *)
 
 let rec lfterm_to_string t cx n =
@@ -95,3 +94,43 @@ let rec lfterm_to_string t cx n =
     | DB i -> (try List.nth cx (i - 1) with _ -> ("x"^string_of_int (n - i + 1)))
     | _ -> raise (TranslationError "terms of this form cannot be inverted.")
   in aux t'
+
+let rec is_vacuous n t =
+  match observe (hnorm t) with
+  | DB m -> n <> m
+  | Var _ -> true
+  | App (t, ts) ->
+      is_vacuous n t && List.for_all (is_vacuous n) ts
+  | Lam (tcx, t) ->
+      is_vacuous (n + List.length tcx) t
+  | _ -> assert false
+
+let dummy_type = Ty ([], "__dummy")
+let dummy_value = const "__dummy" dummy_type
+let lfpi = var Constant "__lfpi" 0 dummy_type
+let lfarr = var Constant "__lfarr" 0 dummy_type
+let make_lfpi a0 b0 =
+  if is_vacuous 1 b0
+  then app lfarr [a0 ; app b0 [dummy_value]]
+  else app lfpi [a0 ; b0]
+
+let elf_bracket u j =
+  Pretty.(Bracket { left = STR "<" ;
+                    right = STR ">" ;
+                    inner = Opapp (0, Infix (NON, u, FMT " :@ ", j)) ;
+                    trans = OPAQUE })
+
+let elf_printer = object (self)
+  inherit term_printer as super
+  method print cx t0 =
+    match observe (hnorm t0) with
+    | App (f, ts) -> begin
+        match observe (hnorm f), ts with
+        | Var {name="lfisty"; _}, [lfty] ->
+            elf_bracket (self#print cx lfty) Pretty.(Atom (STR "type"))
+        | Var {name="lfhas"; _}, [lfobj ; lfty] ->
+            elf_bracket (self#print cx lfobj) (self#print cx lfty)
+        | _ -> super#print cx t0
+      end
+    | _ -> super#print cx t0
+end

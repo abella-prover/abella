@@ -135,10 +135,10 @@ val hnorm : term -> term
 
 val ty_to_string : ty -> string
 
-class type term_printer = object
+class term_printer : object
   method print : tyctx -> term -> Pretty.expr
 end
-val default_printer : term_printer
+val default_printer : term_printer ref
 
 val term_to_string : ?printer:term_printer ->  ?cx:tyctx ->
   term -> string

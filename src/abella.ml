@@ -139,7 +139,7 @@ let read_elf_specification name =
         fun ff ->
           List.iter begin fun tm ->
             pp_print_string ff "  " ;
-            Pretty.print ff (Term.default_printer#print [] tm) ;
+            Pretty.print ff (Translation.elf_printer#print [] tm) ;
             pp_print_string ff "." ;
             pp_print_cut ff () ;
           end clauses

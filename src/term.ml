@@ -450,14 +450,9 @@ class term_printer = object (self)
       end
     | _ -> assert false
 end
-let default_printer = new term_printer
+let default_printer : term_printer ref = ref (new term_printer)
 
-let some_printer : term_printer = object (self)
-  inherit term_printer as super
-  method print cx t0 = super#print cx t0
-end
-
-let term_to_string ?(printer=default_printer) ?(cx=[]) t =
+let term_to_string ?(printer=(!default_printer)) ?(cx=[]) t =
   let buf = Buffer.create 19 in
   let ff = Format.formatter_of_buffer buf in
   Pretty.print ff (printer#print cx t) ;

@@ -183,9 +183,16 @@ let pervasive_sign =
     ("lfhas",  Poly([], tyarrow [lfobjty; lftypety] oty));
     ("lfisty", Poly([], tyarrow [lftypety] oty))])
 
+let global_sign = ref pervasive_sign
+
 let sign_to_tys sign =
   List.filter_map
     (function (_, Poly([], ty)) -> Some ty | _ -> None)
+    (snd sign)
+
+let sign_to_lfsign sign =
+  List.filter_map
+    (function (v, Poly([], ty)) -> Some (v, ty) | _ -> None)
     (snd sign)
 
 let pervasive_sr =
@@ -624,8 +631,9 @@ let umetaterm_to_metaterm sub t =
           Obj(Sync (Sync.obj (Context.normalize [uterm_to_term sub l])
                 (uterm_to_term sub f) (uterm_to_term sub g)), r)
       | ULFObj(l, g, r) ->
-          LFObj(Async (Async.obj (Context.normalize [Translation.translate l])
-                                 (Translation.translate g)), r)
+          let sign = sign_to_lfsign !global_sign in
+          LFObj(Async (Async.obj (Context.normalize [Translation.translate ~sign l])
+                                 (Translation.translate ~sign g)), r)
       | UArrow(a, b) -> Arrow(aux a, aux b)
       | UBinding(binder, tids, body) ->
           Binding(binder,

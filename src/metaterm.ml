@@ -118,7 +118,7 @@ let lfasync_to_string obj =
     else (lfcontext_to_string ctx ^ " |- ")
   in
   let term = Translation.lfterm_to_string term [] 0 in
-  "{" ^ context ^ term ^ "}"
+  "<" ^ context ^ term ^ ">"
 
 let lfsync_to_string obj =
   let (ctx, focus, term) = Sync.get obj in
@@ -129,7 +129,7 @@ let lfsync_to_string obj =
   in
   let fcs = "[" ^ Translation.lfterm_to_string focus [] 0^ "] |- " in
   let term = Translation.lfterm_to_string term [] 0 in
-  "{" ^ context ^ fcs ^ term ^ "}"
+  "<" ^ context ^ fcs ^ term ^ ">"
 
 let lfobj_to_string t =
   match t with
@@ -204,36 +204,34 @@ let format_metaterm fmt t =
     | Obj(obj, r) ->
         fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
     | LFObj(obj, r) ->
-        (*            fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r) *)
-        fprintf fmt "%s%s" (lfobj_to_string obj)
-                               (restriction_to_string r)
-        | Arrow(a, b) ->
-            aux (pr_curr + 1) a ;
-            fprintf fmt " ->@ " ;
-            aux pr_curr b
-        | Binding(b, tids, t) ->
-            fprintf fmt "%s %s,@ "
-              (binder_to_string b) (bindings_to_string tids) ;
-            aux pr_curr t
-        | Or(a, b) ->
-            aux pr_curr a ;
-            fprintf fmt " \\/@ " ;
-            aux (pr_curr + 1) b ;
-        | And(a, b) ->
-            aux pr_curr a ;
-            fprintf fmt " /\\@ " ;
-            aux (pr_curr + 1) b ;
-        | Pred(p, r) ->
-            if r = Irrelevant then
-              fprintf fmt "%s" (term_to_string p)
-            else
-              fprintf fmt "%s %s" (term_to_string p) (restriction_to_string r)
-      end ;
-      if pr_curr < pr_above then fprintf fmt ")" ;
+        fprintf fmt "%s%s" (lfobj_to_string obj) (restriction_to_string r)
+    | Arrow(a, b) ->
+        aux (pr_curr + 1) a ;
+        fprintf fmt " ->@ " ;
+        aux pr_curr b
+    | Binding(b, tids, t) ->
+        fprintf fmt "%s %s,@ "
+          (binder_to_string b) (bindings_to_string tids) ;
+        aux pr_curr t
+    | Or(a, b) ->
+        aux pr_curr a ;
+        fprintf fmt " \\/@ " ;
+        aux (pr_curr + 1) b ;
+    | And(a, b) ->
+        aux pr_curr a ;
+        fprintf fmt " /\\@ " ;
+        aux (pr_curr + 1) b ;
+    | Pred(p, r) ->
+        if r = Irrelevant then
+          fprintf fmt "%s" (term_to_string p)
+        else
+          fprintf fmt "%s %s" (term_to_string p) (restriction_to_string r)
+    end ;
+    if pr_curr < pr_above then fprintf fmt ")" ;
   in
-    pp_open_box fmt 2 ;
-    aux 0 t ;
-    pp_close_box fmt ()
+  pp_open_box fmt 2 ;
+  aux 0 t ;
+  pp_close_box fmt ()
 
 let metaterm_to_string t =
   let b = Buffer.create 50 in

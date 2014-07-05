@@ -57,7 +57,7 @@ let sequent = {
   next_subgoal_id = 1 ;
 }
 
-let sign = ref pervasive_sign
+let sign = Typing.global_sign
 let sr = ref pervasive_sr
 
 let lf_sign : (id * Uterm.uterm) list ref = ref []

@@ -115,15 +115,19 @@ let read_elf_specification name =
     let name = Filename.chop_suffix name ".elf" in
     let lfsig = Parser.lfsig Lexer.token lexbuf in
     Prover.lf_sign := lfsig ;
-    let cooked_lfsig = List.map begin
-        fun (x, utm) ->
+    let (_, sign, clauses) = List.fold_left begin
+        fun (types, sign, clauses) (x, utm) ->
           let ty = Translation.trans_type utm in
           let uj = Uterm.(UJudge (dummy, UCon (dummy, x, ty), utm)) in
-          let tm = Translation.translate uj in
+          let types = (x, ty) :: types in
           let pty = Typing.Poly ([], ty) in
-          ((x, pty), tm)
-      end lfsig in
-    let (sign, clauses) = List.split cooked_lfsig in
+          let sign = (x, pty) :: sign in
+          let tm = Translation.translate ~sign:types uj in
+          let clauses = tm :: clauses in
+          (types, sign, clauses)
+      end ([], [], []) lfsig in
+    let sign = List.rev sign in
+    let clauses = List.rev clauses in
     let sign = ([(* no new types *)], sign) in
     if elf_debug then begin
       let open Format in
@@ -139,7 +143,14 @@ let read_elf_specification name =
         fun ff ->
           List.iter begin fun tm ->
             pp_print_string ff "  " ;
-            Pretty.print ff (Translation.elf_printer#print [] tm) ;
+            pp_print_string ff "(* " ;
+            pp_open_hbox ff () ; begin
+              Pretty.print ff (Translation.elf_printer#print [] tm) ;
+            end ; pp_close_box ff () ;
+            pp_print_string ff " *)" ;
+            pp_print_cut ff () ;
+            pp_print_string ff "  " ;
+            Pretty.print ff (core_printer#print [] tm) ;
             pp_print_string ff "." ;
             pp_print_cut ff () ;
           end clauses

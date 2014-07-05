@@ -18,51 +18,63 @@ let rec trans_type t =
   | UApp(p, t1, t2) -> trans_type t1
   | _ -> raise (TranslationError "invalid type")
 
-let rec trans_term t =
+let signature_lookup sign x =
+  try Some (List.assoc x sign)
+  with _ -> None
+
+let rec trans_term sign t =
   match t with
-  | UCon(p, x, ty) -> const x ty
-  | UApp(p, t1, t2) -> app (trans_term t1) [(trans_term t2)]
-  | UAbs(p, x, a, b) -> abstract x (trans_type a) (trans_term b)
+  | UCon(p, x, ty0) ->
+      let ty = match signature_lookup sign x with
+        | None -> ty0
+        | Some ty -> ty
+      in
+      const x ty
+  | UApp(p, t1, t2) -> app (trans_term sign t1) [(trans_term sign t2)]
+  | UAbs(p, x, a, b) ->
+      let xty = trans_type a in
+      let sign = (x, xty) :: sign in
+      abstract x xty (trans_term sign b)
   | _ -> raise (TranslationError "invalid term")
 
 let lfproof_var = "lfx"
 let defaultused : (id * term) list =
   [lfproof_var, Term.var Constant lfproof_var 0 lfobjty]
 
-let rec translate ?(used=defaultused) t =
+let rec translate ?(used=defaultused) ~sign t =
   match t with
   | UCon(p, "lfnil", _) -> Context.nil
   | UApp(_, UApp(_, UCon (_, "lf::", _), uj), ujs) ->
-      let t = translate ~used uj in
-      let ts = translate ~used ujs in
+      let t = translate ~used ~sign uj in
+      let ts = translate ~used ~sign ujs in
       app Context.cons [t; ts]
   | UJudge(p, UAbs(q, x, a, b), UPi(q', x', a', b')) ->
     if x=x' && a= a' then (* MKS: shouldn't this be alpha equiv rather than eq? *)
-      translate_abstraction_type ~used x a b b' p
+      translate_abstraction_type ~used ~sign x a b b' p
     else
       raise (TranslationError "invalid quantification")
   | UJudge(p, tm, UPi(q, x, a, b)) ->
     let tm' = UApp(p, tm, UCon(p, x, (trans_type a))) in
-    translate_abstraction_type ~used x a tm' b p
+    translate_abstraction_type ~used ~sign x a tm' b p
   | UJudge(p, tm, UImp(q, t1, t2)) ->
     (* fresh_wrt ts tag name ty used *)
     let (x, used) = Term.fresh_wrt
         ~ts:0 Constant lfproof_var (trans_type t1) used in
     let tm' = UApp(p, tm, UCon(p, Term.term_to_name x, (trans_type t1))) in
-    translate_abstraction_type ~used (Term.term_to_name x) t1 tm' t2 p
-  | UJudge(p, tm, UType(q)) -> is_type (trans_term tm)
-  | UJudge(p, t1, t2) -> has_type (trans_term t1) (trans_term t2) p
+    translate_abstraction_type ~used ~sign (Term.term_to_name x) t1 tm' t2 p
+  | UJudge(p, tm, UType(q)) -> is_type (trans_term sign tm)
+  | UJudge(p, t1, t2) -> has_type (trans_term sign t1) (trans_term sign t2) p
   | _ ->
       Format.eprintf "ERROR: Could not translate: %a\n@." Uterm.pp_uterm t ;
       raise (TranslationError "Only LF judgements may be translated")
 
-and translate_abstraction_type ~used x a t1 t2 pos =
+and translate_abstraction_type ~used ~sign x a t1 t2 pos =
   let aty = trans_type a in
   let l = UJudge(pos, UCon(pos, x, aty), a) in
-  let l' = translate ~used l in
+  let l' = translate ~used ~sign l in
   let used = (x, Term.var Constant x 0 aty) :: used in
   let r = UJudge(pos, t1, t2) in
-  let r' = translate ~used r in
+  let r' = translate ~used ~sign r in
   (* "forall x, l' => r'" *)
   let tya = trans_type a in
   app (const "pi" (tyarrow [tyarrow [tya] oty] oty))
@@ -85,10 +97,10 @@ let lfpi = var Constant "__lfpi" 0 dummy_type
 let make_lfpi a0 b0 = app lfpi [a0 ; b0]
 
 let elf_bracket u j =
-  Pretty.(Bracket { left = STR "<" ;
-                    right = STR ">" ;
-                    inner = Opapp (-1, Infix (NON, u, FMT " :@ ", j)) ;
-                    trans = OPAQUE })
+  let open Pretty in
+  let inner = Opapp (-1, Infix (NON, u, FMT ":@,", j)) in
+  (* Bracket { left = STR "(" ; right = STR ")" ; inner ; trans = OPAQUE }) *)
+  inner
 
 exception Not_invertible of string
 let not_invertible msg = raise (Not_invertible msg)

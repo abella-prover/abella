@@ -4,5 +4,5 @@ Define is_nat : lfobj -> prop by
   is_nat z
 ; is_nat (s N) := is_nat N.
 
-Theorem foo : < z : nat >.
+Theorem foo : forall n, <n : nat> -> is_nat n.
 induction on 1. intros. case H1 (keep).

@@ -8,4 +8,4 @@ val translate : ?used:(id * term) list -> Uterm.uterm -> term
 
 val elf_printer : term_printer
 
-val lfterm_to_string : Term.term -> Term.id list -> int -> string
+val lfterm_to_string : Term.term -> Term.tyctx -> int -> string

@@ -33,8 +33,7 @@ type var = {
 
 type tyctx = (id * ty) list
 
-type term = rawterm
-and rawterm =
+type term =
   | Var  of var
   | DB   of int
   | Lam  of tyctx * term
@@ -135,6 +134,13 @@ let rec hnorm term =
             | Ptr _ -> assert false
           end
     | Ptr _ -> assert false
+
+let rec norm t =
+  match observe (hnorm t) with
+  | (Var _ | DB _) as t -> t
+  | App (f, ts) -> App (norm f, List.map norm ts)
+  | Lam (cx, t) -> Lam (cx, norm t)
+  | _ -> assert false
 
 let rec eq t1 t2 =
   match observe (hnorm t1), observe (hnorm t2) with
@@ -401,7 +407,7 @@ let atomic s = Pretty.(Atom (STR s))
 let db_to_string cx0 i0 =
   let rec spin cx i =
     match cx, i with
-    | [], _ -> abs_name ^ string_of_int (List.length cx0 - i0 + 1)
+    | [], _ -> abs_name ^ string_of_int (i0 - List.length cx0 + 1)
     | (x, _) :: _, 1 -> x
     | _ :: cx, _ -> spin cx (i - 1)
   in
@@ -413,9 +419,9 @@ let adjoin cx (x, ty) =
 
 class term_printer = object (self)
   method print (cx : tyctx) (t0 : term) =
-    match observe (hnorm t0) with
+    match observe t0 with
     | Var v -> atomic (var_to_string v)
-    | DB i -> atomic (db_to_string cx i)
+    | DB i -> atomic (db_to_string cx i)  (* ^ "$" ^ string_of_int i ^ "$") *)
     | Lam ([x, ty], t) ->
         let op = Pretty.FUN Format.(fun ff ->
             pp_print_string ff x ;
@@ -448,9 +454,10 @@ class term_printer = object (self)
               Pretty.(Opapp (10, Infix (LEFT, f, FMT "@ ", self#print cx t)))
             end (self#print cx t) ts
       end
-    | _ -> assert false
+    | _ -> self#print cx (hnorm t0)
 end
-let default_printer : term_printer ref = ref (new term_printer)
+let core_printer = new term_printer
+let default_printer : term_printer ref = ref core_printer
 
 let term_to_string ?(printer=(!default_printer)) ?(cx=[]) t =
   let buf = Buffer.create 19 in

@@ -31,6 +31,11 @@ let defaultused : (id * term) list =
 
 let rec translate ?(used=defaultused) t =
   match t with
+  | UCon(p, "lfnil", _) -> Context.nil
+  | UApp(_, UApp(_, UCon (_, "lf::", _), uj), ujs) ->
+      let t = translate ~used uj in
+      let ts = translate ~used ujs in
+      app Context.cons [t; ts]
   | UJudge(p, UAbs(q, x, a, b), UPi(q', x', a', b')) ->
     if x=x' && a= a' then (* MKS: shouldn't this be alpha equiv rather than eq? *)
       translate_abstraction_type ~used x a b b' p
@@ -47,7 +52,9 @@ let rec translate ?(used=defaultused) t =
     translate_abstraction_type ~used (Term.term_to_name x) t1 tm' t2 p
   | UJudge(p, tm, UType(q)) -> is_type (trans_term tm)
   | UJudge(p, t1, t2) -> has_type (trans_term t1) (trans_term t2) p
-  | _ -> raise (TranslationError "Only LF judgements may be translated")
+  | _ ->
+      Format.eprintf "ERROR: Could not translate: %a\n@." Uterm.pp_uterm t ;
+      raise (TranslationError "Only LF judgements may be translated")
 
 and translate_abstraction_type ~used x a t1 t2 pos =
   let aty = trans_type a in
@@ -61,40 +68,6 @@ and translate_abstraction_type ~used x a t1 t2 pos =
   app (const "pi" (tyarrow [tyarrow [tya] oty] oty))
     [abstract x tya (app (const "=>" (tyarrow [oty; oty] oty)) [l'; r'])]
 
-let lookup_ty x = x (*MKS: still need to implement this *)
-
-let rec lfterm_to_string t cx n =
-  let t' = Term.observe t in
-  let rec aux tm =
-    match tm with
-    | Var(v) -> v.name
-    | Lam(tyctx, body) ->
-      let (vars, tys) = List.split tyctx in
-      List.fold_right (fun (v, t) x -> "["^v^":"^(lookup_ty v)^"] ("^x^")")
-        tyctx
-        (lfterm_to_string body (List.rev_append vars cx) (n+List.length vars))
-    | App(h, args) ->
-      (match (Term.observe h), args with
-       | Var(v), [t1;t2] when v.name="=>" ->
-         "("^(aux (Term.observe t1))^")=>("^(aux (Term.observe t2))^")"
-       | Var(v), [t1;t2] when v.name="lfhas" ->
-         "<("^(aux (Term.observe t1))^"):("^(aux (Term.observe t2))^")>"
-       | Var(v), [t] when v.name="lfisty" ->
-         "<("^(aux (Term.observe t))^"):type>"
-       | Var(v), [t] when v.name="pi" ->
-         (match Term.observe t with
-          | Lam([(x,ty)], body) ->
-            "forall "^x^":"^(Term.ty_to_string ty)^".("^
-            (lfterm_to_string body (cx @ [x]) (n+1))^")"
-          | _ -> raise (TranslationError "LF terms should not be of this form."))
-       | h', _ ->
-         List.fold_left (fun x y -> x^" "^y)
-           (aux h')
-           (List.map (fun x -> aux (Term.observe x)) args))
-    | DB i -> (try List.nth cx (i - 1) with _ -> ("x"^string_of_int (n - i + 1)))
-    | _ -> raise (TranslationError "terms of this form cannot be inverted.")
-  in aux t'
-
 let rec is_vacuous n t =
   match observe (hnorm t) with
   | DB m -> n <> m
@@ -107,30 +80,89 @@ let rec is_vacuous n t =
 
 let dummy_type = Ty ([], "__dummy")
 let dummy_value = const "__dummy" dummy_type
+let lftype = const "type" dummy_type
 let lfpi = var Constant "__lfpi" 0 dummy_type
-let lfarr = var Constant "__lfarr" 0 dummy_type
-let make_lfpi a0 b0 =
-  if is_vacuous 1 b0
-  then app lfarr [a0 ; app b0 [dummy_value]]
-  else app lfpi [a0 ; b0]
+let make_lfpi a0 b0 = app lfpi [a0 ; b0]
 
 let elf_bracket u j =
   Pretty.(Bracket { left = STR "<" ;
                     right = STR ">" ;
-                    inner = Opapp (0, Infix (NON, u, FMT " :@ ", j)) ;
+                    inner = Opapp (-1, Infix (NON, u, FMT " :@ ", j)) ;
                     trans = OPAQUE })
+
+exception Not_invertible of string
+let not_invertible msg = raise (Not_invertible msg)
+
+let unapp t =
+  match observe (hnorm t) with
+  | App (h, ts) ->
+      let (ts, tn) = match List.rev ts with
+        | tn :: ts -> (List.rev ts, tn)
+        | _ -> assert false
+      in
+      (app h ts, tn)
+  | _ -> not_invertible "unapply"
+
+let lf_printer = object (self)
+  inherit term_printer as super
+  method print cx t =
+    match norm t with
+    | App (Var {name="__lfpi"; _}, [a; (Lam ([x, xty], b) as b0)]) ->
+        if is_vacuous 1 b then begin
+          let b = norm (app b0 [dummy_value]) in
+          Pretty.(Opapp (2, Infix (RIGHT, self#print cx a, FMT " ->@ ", self#print cx b)))
+        end else begin
+          let op = Pretty.(
+              Bracket { left = STR "{" ;
+                        right = STR "}" ;
+                        trans = OPAQUE ;
+                        inner = Opapp (-1, Infix (NON, Atom (STR x), FMT ":",
+                                                  self#print cx a)) })
+          in
+          Pretty.(Opapp (0, Infix (RIGHT, op, FMT "@ ", self#print ((x, xty) :: cx) b)))
+        end
+    | Lam ([x, xty], t) ->
+        Pretty.(Opapp (1, Prefix (STR ("[" ^ x ^ "]"), self#print ((x, xty) :: cx) t)))
+    | _ -> super#print cx t
+end
+
+let fresh_x =
+  let last = ref 0 in
+  fun ty -> incr last ; const ("__lf" ^ string_of_int !last) ty
+
+let rec invert t =
+  match t with
+    | App (Var {name="lfisty"; _}, [lfty]) ->
+        (lfty, lftype)
+    | App (Var {name="lfhas"; _}, [lfobj ; lfty]) ->
+        (lfobj, lfty)
+    | App (Var {name="pi"; _}, [
+        Lam ([x, xty], App (Var {name="=>"; _}, [arg; bod]))
+      ]) -> begin
+        let (arg0, argclass) = invert arg in
+        let argclass = norm (app (lambda [x, xty] argclass) [dummy_value]) in
+        let (bod0, _bodclass) = invert bod in
+        let (_bod, last) = unapp bod0 in
+        if eq arg0 last then
+          (norm (app (lambda [x, xty] _bod) [dummy_value]),
+           make_lfpi argclass (lambda [x, xty] _bodclass))
+        else not_invertible "invert 1"
+      end
+    | _ -> not_invertible "invert 2"
 
 let elf_printer = object (self)
   inherit term_printer as super
   method print cx t0 =
-    match observe (hnorm t0) with
-    | App (f, ts) -> begin
-        match observe (hnorm f), ts with
-        | Var {name="lfisty"; _}, [lfty] ->
-            elf_bracket (self#print cx lfty) Pretty.(Atom (STR "type"))
-        | Var {name="lfhas"; _}, [lfobj ; lfty] ->
-            elf_bracket (self#print cx lfobj) (self#print cx lfty)
-        | _ -> super#print cx t0
-      end
-    | _ -> super#print cx t0
+    let t0 = norm t0 in
+    try begin
+      let (u, j) = invert t0 in
+      elf_bracket (lf_printer#print cx u) (lf_printer#print cx j)
+    end with
+    | Not_invertible msg ->
+        Printf.eprintf "Could not invert [%s]: %s\n%!" msg
+          (term_to_string ~printer:core_printer ~cx t0) ;
+        super#print cx t0
 end
+
+let lfterm_to_string t cx n =
+  term_to_string ~printer:elf_printer ~cx t

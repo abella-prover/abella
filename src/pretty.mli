@@ -40,3 +40,4 @@ and opapp =
 
 val bracket : ?left:atom -> ?right:atom -> ?trans:trans -> expr -> expr
 val print : ?left:atom -> ?right:atom -> formatter -> expr -> unit
+val print_string : ?left:atom -> ?right:atom -> expr -> string

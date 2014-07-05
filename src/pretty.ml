@@ -152,6 +152,13 @@ and kprint_bracket ~left ~right ff br =
   print ~left ~right ff br.inner ;
   print_atom ff br.right
 
+let print_string ?(left=lparen) ?(right=rparen) ex =
+  let buf = Buffer.create 19 in
+  let ff = formatter_of_buffer buf in
+  print ~left ~right ff ex ;
+  pp_print_flush ff () ;
+  Buffer.contents buf
+
 
 (*
 let test () =

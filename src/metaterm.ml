@@ -105,10 +105,10 @@ let lfcontext_to_string ctx =
     match lst with
       | [] -> ""
       | [last] -> Translation.lfterm_to_string last [] 0
-      | head::tail -> 
+      | head::tail ->
           (Translation.lfterm_to_string head [] 0) ^ ", " ^ (aux tail (ctx @ [head]))
   in
-    aux ctx []
+  aux ctx []
 
 let lfasync_to_string obj =
   let (ctx, term) = Async.get obj in
@@ -118,7 +118,7 @@ let lfasync_to_string obj =
     else (lfcontext_to_string ctx ^ " |- ")
   in
   let term = Translation.lfterm_to_string term [] 0 in
-    "{" ^ context ^ term ^ "}"
+  "{" ^ context ^ term ^ "}"
 
 let lfsync_to_string obj =
   let (ctx, focus, term) = Sync.get obj in
@@ -129,7 +129,7 @@ let lfsync_to_string obj =
   in
   let fcs = "[" ^ Translation.lfterm_to_string focus [] 0^ "] |- " in
   let term = Translation.lfterm_to_string term [] 0 in
-    "{" ^ context ^ fcs ^ term ^ "}"
+  "{" ^ context ^ fcs ^ term ^ "}"
 
 let lfobj_to_string t =
   match t with
@@ -141,22 +141,22 @@ let lfobj_to_string t =
 
 let restriction_to_string r =
   match r with
-    | Smaller i -> String.make i '*'
-    | CoSmaller i -> String.make i '+'
-    | Equal i -> String.make i '@'
-    | CoEqual i -> String.make i '#'
-    | Irrelevant -> ""
+  | Smaller i -> String.make i '*'
+  | CoSmaller i -> String.make i '+'
+  | Equal i -> String.make i '@'
+  | CoEqual i -> String.make i '#'
+  | Irrelevant -> ""
 
 let bindings_to_string ts =
   String.concat " " (List.map fst ts)
 
 let priority t =
   match t with
-    | True | False | Eq _ | Pred _ | Obj _ | LFObj _-> 4
-    | And _ -> 3
-    | Or _ -> 2
-    | Arrow _ -> 1
-    | Binding _ -> 0
+  | True | False | Eq _ | Pred _ | Obj _ | LFObj _-> 4
+  | And _ -> 3
+  | Or _ -> 2
+  | Arrow _ -> 1
+  | Binding _ -> 0
 
 let async_obj_to_string obj =
   let (ctx, term) = Async.get obj in
@@ -166,7 +166,7 @@ let async_obj_to_string obj =
     else (Context.context_to_string ctx ^ " |- ")
   in
   let term = term_to_string term in
-    "{" ^ context ^ term ^ "}"
+  "{" ^ context ^ term ^ "}"
 
 let sync_obj_to_string obj =
   let (ctx, focus, term) = Sync.get obj in
@@ -177,7 +177,7 @@ let sync_obj_to_string obj =
   in
   let fcs = "[" ^ term_to_string focus ^ "] |- " in
   let term = term_to_string term in
-    "{" ^ context ^ fcs ^ term ^ "}"
+  "{" ^ context ^ fcs ^ term ^ "}"
 
 
 let obj_to_string = function
@@ -186,27 +186,27 @@ let obj_to_string = function
 
 let binder_to_string b =
   match b with
-    | Forall -> "forall"
-    | Nabla -> "nabla"
-    | Exists -> "exists"
+  | Forall -> "forall"
+  | Nabla -> "nabla"
+  | Exists -> "exists"
 
 let format_metaterm fmt t =
   let rec aux pr_above t =
     let pr_curr = priority t in
-      if pr_curr < pr_above then fprintf fmt "(" ;
-      begin match t with
-        | True ->
-            fprintf fmt "true"
-        | False ->
-            fprintf fmt "false"
-        | Eq(a, b) ->
-            fprintf fmt "%s = %s" (term_to_string a) (term_to_string b)
-        | Obj(obj, r) ->
-            fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
-        | LFObj(obj, r) ->
-(*            fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r) *)
-            fprintf fmt "%s%s" (lfobj_to_string obj) 
-                               (restriction_to_string r) 
+    if pr_curr < pr_above then fprintf fmt "(" ;
+    begin match t with
+    | True ->
+        fprintf fmt "true"
+    | False ->
+        fprintf fmt "false"
+    | Eq(a, b) ->
+        fprintf fmt "%s = %s" (term_to_string a) (term_to_string b)
+    | Obj(obj, r) ->
+        fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
+    | LFObj(obj, r) ->
+        (*            fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r) *)
+        fprintf fmt "%s%s" (lfobj_to_string obj)
+                               (restriction_to_string r)
         | Arrow(a, b) ->
             aux (pr_curr + 1) a ;
             fprintf fmt " ->@ " ;

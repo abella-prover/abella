@@ -55,12 +55,13 @@ type binder =
   | Nabla
   | Exists
 
+type obj_logic = HHW | LF
+
 type metaterm =
   | True
   | False
   | Eq of term * term
-  | Obj of obj * restriction
-  | LFObj of obj * restriction
+  | Obj of obj_logic * obj * restriction
   | Arrow of metaterm * metaterm
   | Binding of binder * (id * ty) list * metaterm
   | Or of metaterm * metaterm
@@ -69,7 +70,7 @@ type metaterm =
 
 (* Constructions *)
 
-let termobj t = Obj(Async(Async.obj Context.empty t), Irrelevant)
+let termobj t = Obj(HHW, Async(Async.obj Context.empty t), Irrelevant)
 let arrow a b = Arrow(a, b)
 
 let binding binder tids t =
@@ -152,7 +153,7 @@ let bindings_to_string ts =
 
 let priority t =
   match t with
-  | True | False | Eq _ | Pred _ | Obj _ | LFObj _-> 4
+  | True | False | Eq _ | Pred _ | Obj _ -> 4
   | And _ -> 3
   | Or _ -> 2
   | Arrow _ -> 1
@@ -201,9 +202,9 @@ let format_metaterm fmt t =
         fprintf fmt "false"
     | Eq(a, b) ->
         fprintf fmt "%s = %s" (term_to_string a) (term_to_string b)
-    | Obj(obj, r) ->
+    | Obj(HHW, obj, r) ->
         fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
-    | LFObj(obj, r) ->
+    | Obj(LF, obj, r) ->
         fprintf fmt "%s%s" (lfobj_to_string obj) (restriction_to_string r)
     | Arrow(a, b) ->
         aux (pr_curr + 1) a ;
@@ -253,8 +254,7 @@ let metaterm_to_formatted_string t =
 let map_on_objs f t =
   let rec aux t =
     match t with
-      | Obj(obj, r) -> Obj(f obj, r)
-      | LFObj(obj, r) -> Obj(f obj, r)
+      | Obj(log, obj, r) -> Obj(log, f log obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) -> Binding(binder, bindings, aux body)
       | Or(a, b) -> Or(aux a, aux b)
@@ -276,8 +276,7 @@ let map_terms f t =
     match t with
       | True | False -> t
       | Eq(a, b) -> Eq(f a, f b)
-      | Obj(obj, r) -> Obj(map_obj f obj, r)
-      | LFObj(obj, r) -> LFObj(map_obj f obj, r)
+      | Obj(log, obj, r) -> Obj(log, map_obj f obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) ->
           Binding(binder, bindings, aux body)
@@ -290,7 +289,7 @@ let map_terms f t =
 let iter_preds f term =
   let rec aux term =
     match term with
-      | True | False | Eq _ | Obj _ | LFObj _ -> ()
+      | True | False | Eq _ | Obj _ -> ()
       | Arrow(a, b) -> aux a; aux b
       | Binding(_, _, body) -> aux body
       | Or(a, b) -> aux a; aux b
@@ -302,7 +301,7 @@ let iter_preds f term =
 let map_preds f term =
   let rec aux term =
     match term with
-      | True | False | Eq _ | Obj _ | LFObj _ -> []
+      | True | False | Eq _ | Obj _ -> []
       | Arrow(a, b) -> aux a @ aux b
       | Binding(_, _, body) -> aux body
       | Or(a, b) -> aux a @ aux b
@@ -331,39 +330,35 @@ let move_imp_to_context async_obj =
 
 let is_async_obj t =
   match t with
-  | Obj (Async _, _) | LFObj (Async _, _) -> true
+  | Obj (_, Async _, _) -> true
   | _ -> false
 
 let term_to_async_obj t =
   match t with
-  | Obj (Async obj, _) -> obj
-  | LFObj(Async obj, _) -> obj
+  | Obj (_, Async obj, _) -> obj
   | _ -> failwith "term_to_obj called on non-async-object"
 
 let is_sync_obj t =
   match t with
-    | Obj (Sync _,_) | LFObj(Sync _, _) -> true
+    | Obj (_, Sync _,_) -> true
     | _ -> false
 
 
 let term_to_sync_obj t =
   match t with
-    | Obj(Sync obj, _) -> obj
-    | LFObj(Sync obj, _) -> obj
+    | Obj(_, Sync obj, _) -> obj
     | _ -> failwith "term_to_obj called on non-sync-object"
 
 
 let term_to_restriction t =
   match t with
-    | Obj(_, r) -> r
-    | LFObj(_, r) -> r
+    | Obj(_, _, r) -> r
     | Pred(_, r) -> r
     | _ -> Irrelevant
 
 let set_restriction r t =
   match t with
-    | Obj(obj, _) -> Obj(obj, r)
-    | LFObj(obj, _) -> LFObj(obj, r)
+    | Obj(log, obj, _) -> Obj(log, obj, r)
     | Pred(p, _) -> Pred(p, r)
     | _ -> failwith "Attempting to set restriction to non-object"
 
@@ -430,8 +425,7 @@ let rec replace_metaterm_vars alist t =
     match t with
       | True | False -> t
       | Eq(a, b) -> Eq(term_aux alist a, term_aux alist b)
-      | Obj(obj, r) -> Obj(map_obj (term_aux alist) obj, r)
-      | LFObj(obj, r) -> LFObj(map_obj (term_aux alist) obj, r)
+      | Obj(log, obj, r) -> Obj(log, map_obj (term_aux alist) obj, r)
       | Arrow(a, b) -> Arrow(aux alist a, aux alist b)
       | Binding(binder, bindings, body) ->
           let alist = List.remove_assocs (List.map fst bindings) alist in
@@ -454,16 +448,10 @@ let rec collect_terms t =
   match t with
     | True | False -> []
     | Eq(a, b) -> [a; b]
-    | Obj(Async obj, _) ->
+    | Obj(_, Async obj, _) ->
         let (ctx,term) = Async.get obj in
         (Context.context_to_list ctx) @ [term]
-    | Obj(Sync obj, _) ->
-        let (ctx,focus,term) = Sync.get obj in
-        (Context.context_to_list ctx) @ [focus;term]
-    | LFObj(Async obj, _) ->
-        let (ctx,term) = Async.get obj in
-        (Context.context_to_list ctx) @[term]
-    | LFObj(Sync obj, _) ->
+    | Obj(_, Sync obj, _) ->
         let (ctx,focus,term) = Sync.get obj in
         (Context.context_to_list ctx) @ [focus;term]
     | Arrow(a, b) -> (collect_terms a) @ (collect_terms b)
@@ -490,8 +478,7 @@ let metaterm_support t =
     match t with
       | True | False -> []
       | Eq(t1, t2) -> term_support t1 @ term_support t2
-      | Obj(obj, _) -> obj_support obj
-      | LFObj(obj, _) -> obj_support obj
+      | Obj(_, obj, _) -> obj_support obj
       | Arrow(t1, t2) -> aux t1 @ aux t2
       | Binding(_, _, t) -> aux t
       | Or(t1, t2) -> aux t1 @ aux t2
@@ -534,22 +521,22 @@ let fresh_nominal ty t =
     | [n] -> n
     | _ -> assert false
 
-let replace_pi_with_nominal async_obj =
+let replace_pi_with_nominal log async_obj =
   let ctx,term = Async.get async_obj in
   let abs = extract_pi term in
     match tc [] abs with
       | Ty(ty::_, _) ->
-          let nominal = fresh_nominal ty (Obj(Async async_obj, Irrelevant)) in
+          let nominal = fresh_nominal ty (Obj(log, Async async_obj, Irrelevant)) in
           Async.obj ctx (app abs [nominal])
       | _ -> assert false
 
-let rec normalize_obj obj =
+let rec normalize_obj log obj =
   let rec aux async_obj =
     let ctx,term = Async.get async_obj in
     if is_imp term then
       aux (move_imp_to_context async_obj)
     else if is_pi term then
-      aux (replace_pi_with_nominal async_obj)
+      aux (replace_pi_with_nominal log async_obj)
     else
       Async.obj (Context.normalize ctx) term
   in
@@ -566,8 +553,7 @@ let normalize_binders =
   let rec aux rens used form = match form with
     | True | False -> form
     | Eq (a, b)    -> Eq (aux_term rens a, aux_term rens b)
-    | Obj (obj, r) -> Obj (map_obj (aux_term rens) obj, r)
-    | LFObj(obj, r) -> LFObj (map_obj (aux_term rens) obj, r)
+    | Obj (log, obj, r) -> Obj (log, map_obj (aux_term rens) obj, r)
     | Arrow (a, b) -> Arrow (aux rens used a, aux rens used b)
     | Or (a, b)    -> Or (aux rens used a, aux rens used b)
     | And (a, b)   -> And (aux rens used a, aux rens used b)
@@ -620,8 +606,7 @@ let rec replace_metaterm_typed_nominals alist t =
     match t with
       | True | False -> t
       | Eq(a, b) -> Eq(term_aux a, term_aux b)
-      | Obj(obj, r) -> Obj(map_obj term_aux obj, r)
-      | LFObj(obj, r) -> LFObj(map_obj term_aux obj, r)
+      | Obj(log, obj, r) -> Obj(log, map_obj term_aux obj, r)
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) ->
           Binding(binder, bindings, aux body)
@@ -676,13 +661,11 @@ let rec meta_right_unify t1 t2 =
     | Eq(l1, r1), Eq(l2, r2) ->
         right_unify l1 l2 ;
         right_unify r1 r2
-    | Obj(Async o1, _), Obj(Async o2, _) when
-        (let ctx1,_ = Async.get o1 in
-        let ctx2,_ = Async.get o2 in
-        Context.equiv ctx1 ctx2) ->
-          let _,term1 = Async.get o1 in
-          let _,term2 = Async.get o2 in
-          right_unify term1 term2
+    | Obj(log1, Async o1, _), Obj(log2, Async o2, _)
+      when log1 = log2 && Context.equiv o1.Async.context o2.Async.context ->
+        let _,term1 = Async.get o1 in
+        let _,term2 = Async.get o2 in
+        right_unify term1 term2
     | Pred(t1, _), Pred(t2, _) ->
         right_unify t1 t2
     | And(l1, r1), And(l2, r2)
@@ -783,8 +766,7 @@ let metaterm_extract_tids aux_term t =
   let rec aux = function
     | True | False -> []
     | Eq(a, b) -> aux_term [a; b]
-    | Obj(obj, r) -> aux_obj obj
-    | LFObj(obj, r) -> aux_obj obj
+    | Obj(log, obj, r) -> aux_obj obj
     | Arrow(a, b) -> aux a @ aux b
     | Binding(binder, bindings, body) ->
         List.remove_all (fun (id, ty) -> List.mem_assoc id bindings) (aux body)

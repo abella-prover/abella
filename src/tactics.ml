@@ -80,7 +80,7 @@ let freshen_nameless_bindings ~support ~ts bindings term =
 (* obj1 = L2, A |- C
    obj2 = L1 |- A
    result = L2, L1 |- C *)
-let object_cut obj1 obj2 =
+let object_cut log obj1 obj2 =
   match obj1, obj2 with
   | Async obj1, Async obj2 ->
   let ctx1,term1 = Async.get obj1 in
@@ -93,7 +93,7 @@ let object_cut obj1 obj2 =
       |> Context.normalize
     in
       if Context.wellformed ctx then
-        Obj(Async (Async.obj ctx term1), Irrelevant)
+        Obj(log, Async (Async.obj ctx term1), Irrelevant)
       else
         failwith "Cannot merge contexts"
   else
@@ -101,74 +101,74 @@ let object_cut obj1 obj2 =
   | _, _ ->
       failwith "Cannot use cut on sync objects"
 
-let object_cut_from obj1 obj2 term =
+let object_cut_from log obj1 obj2 term =
   match obj1, obj2 with
   | Async obj1, Async obj2 ->
-  let ctx1,term1 = Async.get obj1 in
-  let cuttable tobj cut_obj =
-    let tctx,tterm = Async.get tobj in
-    let cctx,cterm = Async.get cut_obj in
-    eq tterm cterm && Context.subcontext tctx cctx
-  in
-  let get_cut_ctx tobj cut_obj =
-    let tctx = tobj.Async.context in
-    let cctx = cut_obj.Async.context in
-    List.filter_map
-      (fun t -> if Context.mem t tctx then None else Some t) cctx
-  in
-  if Context.mem term ctx1 then
-    let tobj = normalize_obj (Async (Async.obj Context.empty term)) in
-    let norms = obj_support tobj in
-    let nids,ntys = List.split (nominal_tids norms) in
-    let cut_objs =
-    List.permute (List.length norms) (obj_support (Async obj2))
-      |> List.find_all
-          (fun permuted -> ntys = List.map (tc []) permuted)
-      |> List.filter_map
-          (fun permuted ->
-            let tobj =
-              replace_metaterm_vars (List.combine nids permuted)
-                (Obj (tobj, Irrelevant))
-            in
-            match tobj with
-            | Obj (Async tobj,_) ->
-              if cuttable tobj obj2 then
-                let ctx2 = get_cut_ctx tobj obj2 in
-                let ctx =
-                  ctx1
-                  |> Context.remove term
-                  |> Context.union ctx2
-                  |> Context.normalize
-                in
-                if Context.wellformed ctx then
-                  Some (Obj(Async (Async.obj ctx term1), Irrelevant))
-                else
-                  None
-              else
-                None
-            | _ -> assert false)
-    in
-    match cut_objs with
-    | [] -> failwith "Cannot merge contexts"
-    | (obj::_) -> obj
-  else
-    failwith "Needless use of cut"
+      let ctx1,term1 = Async.get obj1 in
+      let cuttable tobj cut_obj =
+        let tctx,tterm = Async.get tobj in
+        let cctx,cterm = Async.get cut_obj in
+        eq tterm cterm && Context.subcontext tctx cctx
+      in
+      let get_cut_ctx tobj cut_obj =
+        let tctx = tobj.Async.context in
+        let cctx = cut_obj.Async.context in
+        List.filter_map
+          (fun t -> if Context.mem t tctx then None else Some t) cctx
+      in
+      if Context.mem term ctx1 then
+        let tobj = normalize_obj log (Async (Async.obj Context.empty term)) in
+        let norms = obj_support tobj in
+        let nids,ntys = List.split (nominal_tids norms) in
+        let cut_objs =
+          List.permute (List.length norms) (obj_support (Async obj2))
+          |> List.find_all
+            (fun permuted -> ntys = List.map (tc []) permuted)
+          |> List.filter_map
+            (fun permuted ->
+               let tobj =
+                 replace_metaterm_vars (List.combine nids permuted)
+                   (Obj (log, tobj, Irrelevant))
+               in
+               match tobj with
+               | Obj (log, Async tobj,_) ->
+                   if cuttable tobj obj2 then
+                     let ctx2 = get_cut_ctx tobj obj2 in
+                     let ctx =
+                       ctx1
+                       |> Context.remove term
+                       |> Context.union ctx2
+                       |> Context.normalize
+                     in
+                     if Context.wellformed ctx then
+                       Some (Obj(log, Async (Async.obj ctx term1), Irrelevant))
+                     else
+                       None
+                   else
+                     None
+               | _ -> assert false)
+        in
+        match cut_objs with
+        | [] -> failwith "Cannot merge contexts"
+        | (obj::_) -> obj
+      else
+        failwith "Needless use of cut"
   | _, _ ->
       failwith "Cannot use cut on sync objects"
 
 
 (* Search cut *)
 
-let search_cut ~search_goal obj =
+let search_cut ~search_goal log obj =
   (* Process the context from head to tail looking for goals to remove *)
   let rec aux left right =
     match right with
-      | d::ds ->
-          if search_goal (Obj(Async (Async.obj (left @ ds) d), Irrelevant)) then
-            aux left ds
-          else
-            aux (d::left) ds
-      | [] -> left
+    | d::ds ->
+        if search_goal (Obj(log, Async (Async.obj (left @ ds) d), Irrelevant)) then
+          aux left ds
+        else
+          aux (d::left) ds
+    | [] -> left
   in
   match obj with
   | Async obj ->
@@ -182,7 +182,7 @@ let search_cut ~search_goal obj =
 (* inst t1 with n = t2 *)
 let object_inst t1 n t2 =
   if List.mem n (List.map term_to_name (metaterm_support t1)) then
-    map_on_objs (map_obj (replace_term_vars ~tag:Nominal [(n, t2)])) t1
+    map_on_objs (fun log -> map_obj (replace_term_vars ~tag:Nominal [(n, t2)])) t1
   else
     failwith ("Did not find " ^ n)
 
@@ -334,7 +334,7 @@ let rec list_to_and terms =
 let predicate_wrapper r names t =
   let rec aux t =
     match t with
-      | True | False | Eq _ | Obj _ | LFObj _ -> t
+      | True | False | Eq _ | Obj _ -> t
       | Pred(p, _) ->
           if List.mem (term_head_name p) names then
             Pred(p, reduce_inductive_restriction r)
@@ -412,13 +412,13 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
            | _ -> failwith "Bad head in definition"))
   in
 
-  let focus sync_obj r =
+  let focus log sync_obj r =
     let ctx,f,term = Sync.get sync_obj in
-    Printf.printf "DEBUG: trying %s\n%!" (Term.term_to_string f) ;
+    (* Printf.printf "DEBUG: trying %s\n%!" (Term.term_to_string f) ; *)
     if (*has_eigen_head term or*) has_eigen_head f then
       failwith "Cannot perform case-analysis on flexible head" ;
     let wrapper t =
-      Obj (Async (Async.obj ctx t), reduce_inductive_restriction r)
+      Obj (log, Async (Async.obj ctx t), reduce_inductive_restriction r)
     in
     (unwind_state
        (fun clause ->
@@ -429,7 +429,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
              fresh_head term
          with
          | Some cpairs ->
-             Printf.printf "   >>> SUCCESS!\n%!" ;
+             (* Printf.printf "   >>> SUCCESS!\n%!" ; *)
              let new_vars =
                term_vars_alist Eigen (fresh_head::term::fresh_body)
              in
@@ -441,15 +441,15 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
       (clausify f)
   in
 
-  let clause_case async_obj r =
+  let clause_case log async_obj r =
     let ctx,term = Async.get async_obj in
     let get_sync_obj clause = Sync.obj ctx clause term in
-    List.filter_map (fun clause -> focus (get_sync_obj clause) r) clauses
+    List.filter_map (fun clause -> focus log (get_sync_obj clause) r) clauses
   in
 
   (* create a sync sequent focusing on a formula
      in the context *)
-  let create_sync ~used ~sr ~support async_obj r =
+  let create_sync ~used ~sr ~support log async_obj r =
     let ctx,t = Async.get async_obj in
     let raise_result =
       fresh_raised_alist ~sr ~tag:Eigen ~used ~support [("F", oty)] in
@@ -462,26 +462,26 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
     let mem = member f (Context.context_to_term ctx) in
     { bind_state = get_bind_state () ;
       new_vars = [term_to_pair fvar];
-      new_hyps = [Obj (Sync sync, reduce_inductive_restriction r) ; mem] }
+      new_hyps = [Obj (log, Sync sync, reduce_inductive_restriction r) ; mem] }
   in
 
-  let async_case obj r =
-    let clause_cases = clause_case obj r in
+  let async_case log obj r =
+    let clause_cases = clause_case log obj r in
     let ctx,_ = Async.get obj in
         clause_cases @
           (if Context.is_empty ctx then []
-           else [create_sync ~used ~sr ~support obj r])
+           else [create_sync ~used ~sr ~support log obj r])
   in
 
-  let sync_case obj r =
-    match focus obj r with
+  let sync_case log obj r =
+    match focus log obj r with
     | Some case -> [case]
     | None -> []
   in
 
     match term with
-      | Obj(Async obj, r) -> async_case obj r
-      | Obj(Sync obj, r)  -> sync_case obj r
+      | Obj(log, Async obj, r) -> async_case log obj r
+      | Obj(log, Sync obj, r)  -> sync_case log obj r
       | True -> [stateless_case_to_case empty_case]
       | False -> []
       | Pred(_, CoSmaller _) -> failwith "Cannot case analyze hypothesis\
@@ -576,7 +576,7 @@ let has_restriction test t =
   let rec aux t =
     match t with
       | True | False | Eq _ -> false
-      | Obj(_, r) | LFObj(_, r) -> test r
+      | Obj(_, _, r) -> test r
       | Arrow(a, b) | Or(a, b) | And(a, b) -> aux a || aux b
       | Binding(_, _, body) -> aux body
       | Pred(_, r) -> test r
@@ -592,7 +592,7 @@ let has_coinductive_restriction t =
 let coinductive_wrapper r names t =
   let rec aux t =
     match t with
-      | True | False | Eq _ | Obj _ | LFObj _ -> t
+      | True | False | Eq _ | Obj _ -> t
       | Pred(p, _) ->
           if List.mem (term_head_name p) names then
             Pred(p, reduce_coinductive_restriction r)
@@ -765,7 +765,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
         "h" ^ (string_of_int !count)
   in
 
-  let rec clause_aux n context foci goal r ts ~sc =
+  let rec clause_aux log n context foci goal r ts ~sc =
     let support = term_list_support (goal :: context) in
     let freshen_clause = freshen_nameless_clause ~support ~ts in
     let p = term_head_name goal in
@@ -784,12 +784,12 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                   | None ->
                       ()
                   | Some cpairs ->
-                      async_obj_aux_conj (n-1) (wrap body) r ts
+                      async_obj_aux_conj log (n-1) (wrap body) r ts
                         ~sc:(fun ws -> if try_unify_cpairs cpairs then
                                sc (WUnfold(p, i, ws)))))
 
-  and async_obj_aux n hyps goal r ts ~sc =
-    let gresult = normalize_obj (Async goal) in
+  and async_obj_aux log n hyps goal r ts ~sc =
+    let gresult = normalize_obj log (Async goal) in
     let goal =
       match gresult with
       | (Async goal) -> goal
@@ -810,7 +810,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
         | _ ->
             (* Backchain *)
             let ctx,term = Async.get goal in
-            if n > 0 then clause_aux n ctx (ctx @ clauses) term r ts ~sc;
+            if n > 0 then clause_aux log n ctx (ctx @ clauses) term r ts ~sc;
             (* Also backchain the goal G in '{.. L ..|- G}' on clauses F 
                occurring in hypotheses of the form 'member F L' *)
             let ctxs = List.find_all (fun cls -> tc [] cls = olistty)
@@ -826,10 +826,10 @@ let search ~depth:n ~hyps ~clauses ~alldefs
                 (List.map (fun (id,h) -> h) hyps) in
             let focus_goals = List.map
                 (fun fc -> Sync.obj ctx fc term) ctx_focis in
-            List.iter (fun fg -> sync_obj_aux n hyps fg r ts ~sc) focus_goals
+            List.iter (fun fg -> sync_obj_aux log n hyps fg r ts ~sc) focus_goals
 
-  and sync_obj_aux n hyps goal r ts ~sc =
-    let gresult = normalize_obj (Sync goal) in
+  and sync_obj_aux log n hyps goal r ts ~sc =
+    let gresult = normalize_obj log (Sync goal) in
     let goal =
       match gresult with
       | (Sync goal) -> goal
@@ -849,13 +849,13 @@ let search ~depth:n ~hyps ~clauses ~alldefs
         | Smaller _ | Equal _ -> ()
         | _ ->
             let ctx,focus,term = Sync.get goal in
-            if n > 0 then clause_aux n ctx [focus] term r ts ~sc
+            if n > 0 then clause_aux log n ctx [focus] term r ts ~sc
 
-  and async_obj_aux_conj n goals r ts ~sc =
+  and async_obj_aux_conj log n goals r ts ~sc =
     match goals with
       | [] -> sc []
-      | g::gs -> async_obj_aux n hyps g r ts
-          ~sc:(fun w -> async_obj_aux_conj n gs r ts ~sc:(fun ws -> sc (w::ws)))
+      | g::gs -> async_obj_aux log n hyps g r ts
+          ~sc:(fun w -> async_obj_aux_conj log n gs r ts ~sc:(fun ws -> sc (w::ws)))
 
   and metaterm_aux n hyps goal ts ~sc =
     let goal = normalize goal in
@@ -865,7 +865,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
            (fun (id, hyp) ->
               if (match hyp, goal with
                     | Pred(_, rh), Pred(_, rg)
-                    | Obj(_, rh), Obj(_, rg) -> satisfies rh rg
+                    | Obj(_, _, rh), Obj(_, _, rg) -> satisfies rh rg
                     | _ -> true) then
                 all_meta_right_permute_unify ~sc:(fun () -> sc (WHyp id)) goal hyp)) ;
 
@@ -910,10 +910,8 @@ let search ~depth:n ~hyps ~clauses ~alldefs
           let body = replace_metaterm_vars alist body in
             metaterm_aux n hyps body ts
               ~sc:(fun w -> sc (WIntros(alist_to_ids alist, w)))
-      | Obj(Async obj, r) -> async_obj_aux n hyps obj r ts ~sc
-      | Obj(Sync obj, r) -> sync_obj_aux n hyps obj r ts ~sc
-      | LFObj(Async obj, r) -> async_obj_aux n hyps obj r ts ~sc
-      | LFObj(Sync obj, r) -> sync_obj_aux n hyps obj r ts ~sc
+      | Obj(log, Async obj, r) -> async_obj_aux log n hyps obj r ts ~sc
+      | Obj(log, Sync obj, r) -> sync_obj_aux log n hyps obj r ts ~sc
       | Pred(_, Smaller _) | Pred(_, Equal _) -> ()
       | Pred(p, r) -> if n > 0 then def_aux n hyps p r ts ~sc
 
@@ -974,7 +972,8 @@ let apply_arrow term args =
     List.fold_left
       (fun term arg ->
          match term, arg with
-           | Arrow(Obj(Async left, _), right), Some Obj(Async arg, _) ->
+           | Arrow(Obj(log1, Async left, _), right), Some Obj(log2, Async arg, _)
+             when log1 = log2 ->
                let lft_ctx,lft_term = Async.get left in
                let arg_ctx,arg_term = Async.get arg in
                context_pairs := (lft_ctx, arg_ctx)::!context_pairs ;
@@ -982,7 +981,8 @@ let apply_arrow term args =
                         (term_to_string lft_term) (term_to_string arg_term)) ;
                right_unify lft_term arg_term ;
                right
-           | Arrow(Obj(Sync left, _), right), Some Obj(Sync arg, _) ->
+           | Arrow(Obj(log1, Sync left, _), right), Some Obj(log2, Sync arg, _)
+             when log1 = log2 ->
                let lft_ctx,lft_f,lft_term = Sync.get left in
                let arg_ctx,arg_f,arg_term = Sync.get arg in
                context_pairs := (lft_ctx, arg_ctx)::!context_pairs ;
@@ -1117,7 +1117,8 @@ let backchain_arrow term goal =
       | _, _ -> ()
   in
     begin match head, goal with
-      | Obj(Async hobj, _), Obj(Async gobj, _) ->
+      | Obj(log1, Async hobj, _), Obj(log2, Async gobj, _)
+        when log1 = log2 ->
           let hctx,hterm = Async.get hobj in
           let gctx,gterm = Async.get gobj in
           right_unify hterm gterm ;

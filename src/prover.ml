@@ -80,12 +80,12 @@ let add_global_consts cs =
 
 let close_types ids =
   begin match List.minus ids (fst !sign) with
-    | [] -> ()
-    | xs -> failwith ("Unknown type(s): " ^ (String.concat ", " xs))
+  | [] -> ()
+  | xs -> failwith ("Unknown type(s): " ^ (String.concat ", " xs))
   end ;
   begin match List.intersect ["o"; "olist"; "prop"] ids with
-    | [] -> ()
-    | xs -> failwith ("Cannot close " ^ (String.concat ", " xs))
+  | [] -> ()
+  | xs -> failwith ("Cannot close " ^ (String.concat ", " xs))
   end ;
   sr := Subordination.close !sr ids
 
@@ -98,27 +98,27 @@ let add_subgoals ?(mainline) new_subgoals =
   in
   let rec annotate i gs =
     match gs with
-      | [] -> []
-      | g::rest ->
-          (fun () -> g (); extend_name i; sequent.next_subgoal_id <- 1) ::
-            annotate (i+1) rest
+    | [] -> []
+    | g::rest ->
+        (fun () -> g (); extend_name i; sequent.next_subgoal_id <- 1) ::
+        annotate (i+1) rest
   in
   let n = List.length new_subgoals in
   let annotated_subgoals =
     match mainline with
-      | None ->
-          if n > 1 then
-            annotate sequent.next_subgoal_id new_subgoals
-          else
-            new_subgoals
-      | Some mainline ->
-          let new_mainline () =
-            mainline () ;
-            sequent.next_subgoal_id <- sequent.next_subgoal_id + n
-          in
-            annotate sequent.next_subgoal_id new_subgoals @ [new_mainline]
+    | None ->
+        if n > 1 then
+          annotate sequent.next_subgoal_id new_subgoals
+        else
+          new_subgoals
+    | Some mainline ->
+        let new_mainline () =
+          mainline () ;
+          sequent.next_subgoal_id <- sequent.next_subgoal_id + n
+        in
+        annotate sequent.next_subgoal_id new_subgoals @ [new_mainline]
   in
-    subgoals := annotated_subgoals @ !subgoals
+  subgoals := annotated_subgoals @ !subgoals
 
 (* The vars = sequent.vars is superfluous, but forces the copy *)
 let copy_sequent () =
@@ -167,14 +167,14 @@ let parse_defs str =
 
 let defs_table : defs_table = H.create 10
 let () = H.add defs_table "member"
-  (Inductive,
-   ["member"],
-   parse_defs "member A (A :: L) ; member A (B :: L) := member A L.")
+    (Inductive,
+     ["member"],
+     parse_defs "member A (A :: L) ; member A (B :: L) := member A L.")
 
 let add_defs ids ty defs =
   List.iter
     (fun id -> if H.mem defs_table id then
-       failwith (id ^ " has already been defined"))
+        failwith (id ^ " has already been defined"))
     ids ;
   List.iter
     (fun id -> H.add defs_table id (ty, ids, defs))
@@ -188,41 +188,41 @@ let undo_stack : undo_stack ref = ref []
 
 let save_undo_state () =
   undo_stack := (copy_sequent (), !subgoals, Term.get_bind_state ())::
-    !undo_stack
+                !undo_stack
 
 let undo () =
   match !undo_stack with
-    | (saved_sequent, saved_subgoals, bind_state)::rest ->
-        set_sequent saved_sequent ;
-        subgoals := saved_subgoals ;
-        Term.set_bind_state bind_state ;
-        undo_stack := rest
-    | [] -> failwith "Nothing left to undo"
+  | (saved_sequent, saved_subgoals, bind_state)::rest ->
+      set_sequent saved_sequent ;
+      subgoals := saved_subgoals ;
+      Term.set_bind_state bind_state ;
+      undo_stack := rest
+  | [] -> failwith "Nothing left to undo"
 
 (* Pretty print *)
 
 let vars_to_string () =
   match sequent.vars with
-    | [] -> ""
-    | _ -> "Variables: " ^ (String.concat ", " (List.map fst sequent.vars))
+  | [] -> ""
+  | _ -> "Variables: " ^ (String.concat ", " (List.map fst sequent.vars))
 
 let format_vars fmt =
   let rec aux fmt xs =
     match xs with
-      | x::y::ys -> fprintf fmt "%s,@ " (fst x) ; aux fmt (y::ys)
-      | [x] -> fprintf fmt "%s" (fst x)
-      | [] -> assert false
+    | x::y::ys -> fprintf fmt "%s,@ " (fst x) ; aux fmt (y::ys)
+    | [x] -> fprintf fmt "%s" (fst x)
+    | [] -> assert false
   in
-    if sequent.vars = [] then
-      fprintf fmt "@\n"
-    else
-      fprintf fmt "  Variables: @[%a@]@\n" aux sequent.vars
+  if sequent.vars = [] then
+    fprintf fmt "@\n"
+  else
+    fprintf fmt "  Variables: @[%a@]@\n" aux sequent.vars
 
 let format_hyp fmt hyp =
   fprintf fmt "%s : " hyp.id ;
   begin match hyp.abbrev with
-    | None -> format_metaterm fmt hyp.term
-    | Some s -> fprintf fmt "%s" s
+  | None -> format_metaterm fmt hyp.term
+  | Some s -> fprintf fmt "%s" s
   end;
   pp_force_newline fmt ()
 
@@ -231,25 +231,25 @@ let format_hyps fmt =
 
 let format_count_subgoals fmt n =
   match n with
-    | 0 -> ()
-    | 1 -> fprintf fmt "1 other subgoal.@\n@\n"
-    | n -> fprintf fmt "%d other subgoals.@\n@\n" n
+  | 0 -> ()
+  | 1 -> fprintf fmt "1 other subgoal.@\n@\n"
+  | n -> fprintf fmt "%d other subgoals.@\n@\n" n
 
 let format_display_subgoals fmt n =
   save_undo_state () ;
   let count = ref 0 in
-    List.iter (fun set_state ->
-                 set_state () ;
-                 if String.count sequent.name '.' > n then
-                   fprintf fmt "@[<1>Subgoal %s%sis:@\n%a@]@\n@\n"
-                     sequent.name
-                     (if sequent.name = "" then "" else " ")
-                     format_metaterm (normalize sequent.goal)
-                 else
-                   incr count)
-      !subgoals ;
-    format_count_subgoals fmt !count ;
-    undo ()
+  List.iter (fun set_state ->
+      set_state () ;
+      if String.count sequent.name '.' > n then
+        fprintf fmt "@[<1>Subgoal %s%sis:@\n%a@]@\n@\n"
+          sequent.name
+          (if sequent.name = "" then "" else " ")
+          format_metaterm (normalize sequent.goal)
+      else
+        incr count)
+    !subgoals ;
+  format_count_subgoals fmt !count ;
+  undo ()
 
 let subgoal_depth = ref 1000
 
@@ -281,8 +281,8 @@ let display out =
 
 let get_display () =
   let b = Buffer.create 100 in
-    format_display (formatter_of_buffer b) ;
-    Buffer.contents b
+  format_display (formatter_of_buffer b) ;
+  Buffer.contents b
 
 
 (* Proof state manipulation utilities *)
@@ -290,28 +290,28 @@ let get_display () =
 let reset_prover =
   let original_state = get_bind_state () in
   let original_sequent = copy_sequent () in
-    fun () ->
-      set_bind_state original_state ;
-      set_sequent original_sequent ;
-      subgoals := [] ;
-      undo_stack := []
+  fun () ->
+    set_bind_state original_state ;
+    set_sequent original_sequent ;
+    subgoals := [] ;
+    undo_stack := []
 
 let full_reset_prover =
   let original_clauses = !clauses in
   let original_defs_table = H.copy defs_table in
-    fun () ->
-      reset_prover () ;
-      clauses := original_clauses ;
-      H.assign defs_table original_defs_table
+  fun () ->
+    reset_prover () ;
+    clauses := original_clauses ;
+    H.assign defs_table original_defs_table
 
 let add_hyp ?name term =
   let name = fresh_hyp_name begin
-    match name with
+      match name with
       | None -> ""
       | Some name -> name
-  end in
+    end in
   sequent.hyps <- List.append sequent.hyps
-    [{ id = name ; term = term ; abbrev = None }]
+      [{ id = name ; term = term ; abbrev = None }]
 
 let remove_hyp name =
   sequent.hyps <- List.remove_all (fun h -> h.id = name) sequent.hyps
@@ -319,11 +319,11 @@ let remove_hyp name =
 let replace_hyp name t =
   let rec aux hyplist =
     match hyplist with
-      | [] -> []
-      | hyp::rest when hyp.id = name -> {hyp with term = t} :: rest
-      | hyp::rest -> hyp :: (aux rest)
+    | [] -> []
+    | hyp::rest when hyp.id = name -> {hyp with term = t} :: rest
+    | hyp::rest -> hyp :: (aux rest)
   in
-    sequent.hyps <- aux sequent.hyps
+  sequent.hyps <- aux sequent.hyps
 
 let add_var v =
   sequent.vars <- List.append sequent.vars [v]
@@ -337,7 +337,7 @@ let add_lemma name lemma =
 
 let get_hyp name =
   let hyp = List.find (fun h -> h.id = name) sequent.hyps in
-    hyp.term
+  hyp.term
 
 let get_lemma name =
   List.assoc name !lemmas
@@ -346,42 +346,42 @@ let get_hyp_or_lemma name =
   try
     get_hyp name
   with
-      Not_found -> get_lemma name
+    Not_found -> get_lemma name
 
 let next_subgoal () =
   match !subgoals with
-    | [] -> failwith "Proof completed."
-    | set_subgoal::rest ->
-        set_subgoal () ;
-        subgoals := rest ;
-        let before = get_display () in
-        normalize_sequent () ;
-        let after = get_display () in
-        Printf.ifprintf stderr "Normalizing\n%s\nproduces\n%s\n%!" before after
+  | [] -> failwith "Proof completed."
+  | set_subgoal::rest ->
+      set_subgoal () ;
+      subgoals := rest ;
+      let before = get_display () in
+      normalize_sequent () ;
+      let after = get_display () in
+      Printf.ifprintf stderr "Normalizing\n%s\nproduces\n%s\n%!" before after
 
 
 (* Object level instantiation *)
 
 let inst ?name h ws =
   let ht = get_hyp h in
-    match ht with
-      | Obj _ ->
-          let rec aux ws ht = match ws with
-            | [] -> add_hyp ?name ht
-            | (n, t) :: ws ->
-                let ht = begin try
-                  let ntids = metaterm_nominal_tids ht in
-                  let nty = List.assoc n ntids in
-                  let ctx = sequent.vars @
-                    (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
-                  in
-                  let t = type_uterm ~expected_ty:nty ~sr:!sr ~sign:!sign ~ctx t in
-                  object_inst ht n t
-                with
-                  | Not_found ->
-                      failwith "Vacuous instantiation"
-                end in
-                  aux ws ht
+  match ht with
+  | Obj _ ->
+      let rec aux ws ht = match ws with
+        | [] -> add_hyp ?name ht
+        | (n, t) :: ws ->
+            let ht = begin try
+                let ntids = metaterm_nominal_tids ht in
+                let nty = List.assoc n ntids in
+                let ctx = sequent.vars @
+                          (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
+                in
+                let t = type_uterm ~expected_ty:nty ~sr:!sr ~sign:!sign ~ctx t in
+                object_inst ht n t
+              with
+              | Not_found ->
+                  failwith "Vacuous instantiation"
+            end in
+            aux ws ht
           in
             aux ws ht
       | _ -> failwith
@@ -394,8 +394,9 @@ let cut ?name h arg =
   let h = get_hyp h in
   let arg = get_hyp arg in
     match h, arg with
-      | Obj(obj_h, _), Obj(obj_arg, _) ->
-          add_hyp ?name (object_cut obj_h obj_arg)
+      | Obj(log1, obj_h, _), Obj(log2, obj_arg, _)
+        when log1 = log2 ->
+          add_hyp ?name (object_cut log1 obj_h obj_arg)
       | _ -> failwith "Cut can only be used on hypotheses of the form {...}"
 
 
@@ -406,7 +407,7 @@ let has_inductive_hyps hyp =
     match term with
       | Binding(Forall, _, body) -> aux body
       | Binding(Nabla, _, body) -> aux body
-      | Arrow(Obj(_, Smaller i), _) -> true
+      | Arrow(Obj(_, _, Smaller i), _) -> true
       | Arrow(Pred(_, Smaller i), _) -> true
       | Arrow(left, right) -> aux right
       | _ -> false
@@ -469,8 +470,8 @@ let search ?(limit=None) ?(interactive=true) ?(witness=ignore) () =
 
 let search_cut ?name h =
   match get_hyp h with
-    | Obj(obj, _) ->
-        add_hyp ?name (Obj(search_cut ~search_goal obj, Irrelevant))
+    | Obj(log, obj, _) ->
+        add_hyp ?name (Obj(log, search_cut log ~search_goal obj, Irrelevant))
     | _ ->
         failwith "Cut can only be used on hypotheses of the form {... |- ...}"
 
@@ -501,7 +502,7 @@ let ensure_no_restrictions term =
       | Binding(Forall, _, body) -> aux body true
       | Binding(Nabla, _, body) -> aux body true
       | Arrow(left, right) -> aux left true; aux right true
-      | Obj(_, Smaller i) | Obj(_, Equal i)
+      | Obj(_, _, Smaller i) | Obj(_, _, Equal i)
       | Pred(_, Smaller i) | Pred(_, Equal i) ->
           if nested then invalid_metaterm_arg term
       | Pred(_, CoSmaller i) | Pred(_, CoEqual i) ->
@@ -655,8 +656,7 @@ let get_max_restriction t =
   let rec aux t =
     match t with
       | True | False | Eq _ -> 0
-      | Obj(_, r) -> get_restriction r
-      | LFObj(_, r) -> get_restriction r
+      | Obj(_, _, r) -> get_restriction r
       | Arrow(a, b) -> max (aux a) (aux b)
       | Binding(_, _, body) -> aux body
       | Or(a, b) -> max (aux a) (aux b)
@@ -776,7 +776,7 @@ let assert_hyp ?name term =
 let monotone h t =
   let ht = get_hyp h in
     match ht with
-      | Obj(Async obj, r) ->
+      | Obj(log, Async obj, r) ->
           let obj_context, obj_term = Async.get obj in
           let ntids = metaterm_nominal_tids ht in
           let ctx = sequent.vars @
@@ -785,7 +785,7 @@ let monotone h t =
           let t = type_uterm ~expected_ty:olistty ~sr:!sr ~sign:!sign ~ctx t in
           let new_obj = Async.obj (Context.normalize [t]) obj_term in
             delay_mainline
-              (Obj(Async new_obj, r))
+              (Obj(log, Async new_obj, r))
               (Binding(Forall, [("X", oty)],
                        Arrow(member (Term.const "X" oty)
                                (Context.context_to_term obj_context),
@@ -1016,6 +1016,7 @@ let cut_from ?name h arg term =
   let h = get_hyp h in
   let arg = get_hyp arg in
     match h, arg with
-      | Obj(obj_h1, _),Obj(obj_h2, _) ->
-          add_hyp ?name (object_cut_from obj_h1 obj_h2 term)
+      | Obj(log1, obj_h1, _),Obj(log2, obj_h2, _)
+        when log1 = log2 ->
+          add_hyp ?name (object_cut_from log1 obj_h1 obj_h2 term)
       | _,_ -> failwith "Cut can only be used on hypotheses of the form {...}"

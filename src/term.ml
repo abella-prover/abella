@@ -419,7 +419,7 @@ let adjoin cx (x, ty) =
 
 class term_printer = object (self)
   method print (cx : tyctx) (t0 : term) =
-    match observe t0 with
+    match observe (hnorm t0) with
     | Var v -> atomic (var_to_string v)
     | DB i -> atomic (db_to_string cx i)  (* ^ "$" ^ string_of_int i ^ "$") *)
     | Lam ([x, ty], t) ->
@@ -438,10 +438,10 @@ class term_printer = object (self)
                                      FMT " =>@ ", self#print cx b)))
         | Var {name="&"; _}, [a; b] ->
             Pretty.(Opapp (2, Infix (LEFT, self#print cx a,
-                                     FMT " =>@ ", self#print cx b)))
+                                     FMT " &@ ", self#print cx b)))
         | Var {name="::"; _}, [a; b] ->
             Pretty.(Opapp (3, Infix (LEFT, self#print cx a,
-                                     FMT " =>@ ", self#print cx b)))
+                                     FMT " ::@ ", self#print cx b)))
         | Var {name=("pi"|"sigma" as q); _}, [a] -> begin
             match observe (hnorm a) with
             | Lam ([x, ty], t) ->

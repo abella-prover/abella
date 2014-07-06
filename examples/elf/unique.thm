@@ -5,6 +5,12 @@ Define ctx : olist -> prop by
 ; nabla x p,
     ctx ( lfhas p (of x A) :: lfhas x tm :: G ) := ctx G.
 
+Theorem member_prune : forall G E, nabla (n:lfobj),
+  member (E n) G -> exists F, E = x\ F.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
 Define fresh : lfobj -> lfobj -> prop by
   nabla x, fresh x A.
 
@@ -22,6 +28,18 @@ induction on 1. intros. case H1.
     apply IH to H3 H5. case H6.
       search. search.
 
+Theorem ctx_unique : forall G P Q X A B,
+  ctx G -> member (lfhas P (of X A)) G -> member (lfhas Q (of X B)) G -> A = B.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    case H3.
+      search.
+      case H5. apply member_prune to H6.
+    case H3.
+      case H5. apply member_prune to H6.
+      case H5. case H6. apply IH to H4 H7 H8. search.
+
 Theorem unique : forall G M A B (P1:lfobj) (P2:lfobj),
   ctx G ->
   < G |- P1 : of M A > -> < G |- P2 : of M B > -> A = B.
@@ -34,4 +52,5 @@ induction on 2. intros. case H2 (keep).
       case H7. case H4.
       case H4. case H3. case H7.
       apply ctx_mem to H1 H10. case H11.
-        case H12. case H9. case H9. skip.
+        case H12. case H9. case H9.
+        apply ctx_unique to H1 H5 H10. search.

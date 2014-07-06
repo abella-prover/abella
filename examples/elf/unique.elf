@@ -1,0 +1,14 @@
+ty : type.
+i : ty.
+arr : ty -> ty -> ty.
+
+tm : type.
+u : tm.
+lam : ty -> (tm -> tm) -> tm.
+app : tm -> tm -> tm.
+
+of : tm -> ty -> type.
+
+of/u : of u i.
+of/app : {A:ty} {B:ty} {M:tm} {N:tm} of M (arr A B) -> of N A -> of (app M N) B.
+of/lam : {A:ty} {B:ty} {R:tm -> tm} ({x:tm} of x A -> of (R x) B) -> of (lam A ([x:tm] R x)) (arr A B).

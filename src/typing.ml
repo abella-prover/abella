@@ -247,7 +247,7 @@ let infer_type_and_constraints ~sign tyctx t =
       | UJudge(_, t1, t2) ->
           let _ty1 = aux tyctx t1 in
           let _ty2 = aux tyctx t2 in
-            lfjudgety
+          oty
       | UPi(_, id, ty, body) ->
           let ty1 = aux tyctx ty in
           tyarrow [ty1] (aux ((id, ty1) :: tyctx) body)
@@ -573,8 +573,8 @@ let infer_constraints ~sign ~tyctx t =
         let (lty, leqns) = infer_type_and_constraints ~sign tyctx l in
         let (gty, geqns) = infer_type_and_constraints ~sign tyctx g in
         leqns @ geqns @
-        [(lfjudgelistty, lty, (get_pos l, CArg));
-         (lfjudgety, gty, (get_pos g, CArg))]  
+        [(olistty, lty, (get_pos l, CArg));
+         (oty, gty, (get_pos g, CArg))]
     | UArrow(a, b) | UOr(a, b) | UAnd(a, b) ->
         (aux tyctx a) @ (aux tyctx b)
     | UBinding(_, tids, body) ->
@@ -623,7 +623,7 @@ let umetaterm_to_metaterm sub t =
                          (uterm_to_term sub f) (uterm_to_term sub g)), r)
     | ULFObj(l, g, r) ->
         let sign = sign_to_lfsign !global_sign in
-        Obj(LF, Async (Async.obj (Context.normalize [Translation.translate ~sign l])
+        Obj(LF, Async (Async.obj (Context.normalize [Translation.translate_context ~sign l])
                          (Translation.translate ~sign g)), r)
     | UArrow(a, b) -> Arrow(aux a, aux b)
     | UBinding(binder, tids, body) ->

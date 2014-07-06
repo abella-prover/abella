@@ -118,6 +118,7 @@ let read_elf_specification name =
     let (_, sign, clauses) = List.fold_left begin
         fun (types, sign, clauses) (x, utm) ->
           let ty = Translation.trans_type utm in
+          sr := Subordination.update !sr ty ;
           let uj = Uterm.(UJudge (dummy, UCon (dummy, x, ty), utm)) in
           let types = (x, ty) :: types in
           let pty = Typing.Poly ([], ty) in
@@ -157,7 +158,8 @@ let read_elf_specification name =
       end ;
     end ;
     let sign = Accumulate.merge_signs [pervasive_sign; sign] in
-    (!sr, sign, clauses)
+    let sr = Subordination.close !sr ["lfobj"; "lftype"] in
+    (sr, sign, clauses)
   end with
   | Parsing.Parse_error ->
       failwithf "Parse error for the LF specification %S" name

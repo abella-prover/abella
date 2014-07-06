@@ -43,11 +43,6 @@ let defaultused : (id * term) list =
 
 let rec translate ?(used=defaultused) ~sign t =
   match t with
-  | UCon(p, "lfnil", _) -> Context.nil
-  | UApp(_, UApp(_, UCon (_, "lf::", _), uj), ujs) ->
-      let t = translate ~used ~sign uj in
-      let ts = translate ~used ~sign ujs in
-      app Context.cons [t; ts]
   | UJudge(p, UAbs(q, x, a, b), UPi(q', x', a', b')) ->
     if x=x' && a= a' then (* MKS: shouldn't this be alpha equiv rather than eq? *)
       translate_abstraction_type ~used ~sign x a b b' p
@@ -79,6 +74,18 @@ and translate_abstraction_type ~used ~sign x a t1 t2 pos =
   let tya = trans_type a in
   app (const "pi" (tyarrow [tyarrow [tya] oty] oty))
     [abstract x tya (app (const "=>" (tyarrow [oty; oty] oty)) [l'; r'])]
+
+and translate_context ?(used=defaultused) ~sign l =
+  match l with
+  | UCon(p, "nil", _) -> Context.nil
+  | UCon(p, g, _) -> const g oty
+  | UApp(_, UApp(_, UCon (_, "::", _), uj), ujs) ->
+      let t = translate ~used ~sign uj in
+      let ts = translate ~used ~sign ujs in
+      app Context.cons [t; ts]
+  | _ ->
+      Format.eprintf "ERROR: Could not translate: %a\n@." Uterm.pp_uterm l ;
+      raise (TranslationError "Only LF contexts may be translated")
 
 let rec is_vacuous n t =
   match observe (hnorm t) with
@@ -171,8 +178,8 @@ let elf_printer = object (self)
       elf_bracket (lf_printer#print cx u) (lf_printer#print cx j)
     end with
     | Not_invertible msg ->
-        Printf.eprintf "Could not invert [%s]: %s\n%!" msg
-          (term_to_string ~printer:core_printer ~cx t0) ;
+        (* Printf.eprintf "Could not invert [%s]: %s\n%!" msg *)
+        (*   (term_to_string ~printer:core_printer ~cx t0) ; *)
         super#print cx t0
 end
 

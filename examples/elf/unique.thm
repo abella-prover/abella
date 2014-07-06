@@ -1,0 +1,37 @@
+Specification "unique.elf".
+
+Define ctx : olist -> prop by
+  ctx nil
+; nabla x p,
+    ctx ( lfhas p (of x A) :: lfhas x tm :: G ) := ctx G.
+
+Define fresh : lfobj -> lfobj -> prop by
+  nabla x, fresh x A.
+
+Define name : lfobj -> prop by
+  nabla x, name x.
+
+Theorem ctx_mem : forall G E,
+  ctx G -> member E G ->
+     (exists X, E = lfhas X tm /\ name X)
+  \/ (exists P X A, E = lfhas P (of X A) /\ fresh X A /\ fresh P A).
+induction on 1. intros. case H1.
+  case H2.
+  case H2. search.
+    case H4. search.
+    apply IH to H3 H5. case H6.
+      search. search.
+
+Theorem unique : forall G M A B (P1:lfobj) (P2:lfobj),
+  ctx G ->
+  < G |- P1 : of M A > -> < G |- P2 : of M B > -> A = B.
+induction on 2. intros. case H2 (keep).
+  case H3. search.
+    apply ctx_mem to H1 H5. case H6.
+      case H7. case H4.
+      case H7. case H4.
+    apply ctx_mem to H1 H5. case H6.
+      case H7. case H4.
+      case H4. case H3. case H7.
+      apply ctx_mem to H1 H10. case H11.
+        case H12. case H9. case H9. skip.

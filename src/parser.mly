@@ -192,7 +192,7 @@ contexted_term:
 
 lf_contexted_term:
   | lf_context TURN lfjudge              { ($1, $3) }
-  | lfjudge                              { (predefined "lfnil", $1) }
+  | lfjudge                              { (predefined "nil", $1) }
 
 focused_term:
   | context COMMA LBRACK term RBRACK TURN term { ($1, $4, $7) }
@@ -207,8 +207,8 @@ context:
                                                (predefined "nil") }
 
 lf_context:
-  | lf_context COMMA lfjudge             { binop "lf::" $3 $1 }
-  | lfjudge                              { binop "lf::" $1 (predefined "lfnil") }
+  | lf_context COMMA lfjudge             { binop "::" $3 $1 }
+  | lfjudge                              { binop "::" $1 (predefined "nil") }
   | lfterm                               { $1 } /* if has_capital_head ?
                                                    this should be the case of a variable context */
 

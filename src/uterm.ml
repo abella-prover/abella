@@ -24,7 +24,7 @@ type uterm =
 let rec pp_uterm ff ut =
   let open Format in
   match ut with
-  | UCon (_, s, _) -> fprintf ff "%s" s
+  | UCon (_, s, ty) -> fprintf ff "%s^{%s}" s (Term.ty_to_string ty)
   | ULam (_, x, _, ut) ->
       fprintf ff "(@[<b2>%s\\@ %a@])" x pp_uterm ut
   | UApp (_, utf, utx) ->

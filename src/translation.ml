@@ -44,19 +44,19 @@ let defaultused : (id * term) list =
 let rec translate ?(used=defaultused) ~sign t =
   match t with
   | UJudge(p, UAbs(q, x, a, b), UPi(q', x', a', b')) ->
-    if x=x' && a= a' then (* MKS: shouldn't this be alpha equiv rather than eq? *)
-      translate_abstraction_type ~used ~sign x a b b' p
-    else
-      raise (TranslationError "invalid quantification")
+      if x=x' && a= a' then (* MKS: shouldn't this be alpha equiv rather than eq? *)
+        translate_abstraction_type ~used ~sign x a b b' p
+      else
+        raise (TranslationError "invalid quantification")
   | UJudge(p, tm, UPi(q, x, a, b)) ->
-    let tm' = UApp(p, tm, UCon(p, x, (trans_type a))) in
-    translate_abstraction_type ~used ~sign x a tm' b p
+      let tm' = UApp(p, tm, UCon(p, x, (trans_type a))) in
+      translate_abstraction_type ~used ~sign x a tm' b p
   | UJudge(p, tm, UImp(q, t1, t2)) ->
-    (* fresh_wrt ts tag name ty used *)
-    let (x, used) = Term.fresh_wrt
-        ~ts:0 Constant lfproof_var (trans_type t1) used in
-    let tm' = UApp(p, tm, UCon(p, Term.term_to_name x, (trans_type t1))) in
-    translate_abstraction_type ~used ~sign (Term.term_to_name x) t1 tm' t2 p
+      (* fresh_wrt ts tag name ty used *)
+      let (x, used) = Term.fresh_wrt
+          ~ts:0 Constant lfproof_var (trans_type t1) used in
+      let tm' = UApp(p, tm, UCon(p, Term.term_to_name x, (trans_type t1))) in
+      translate_abstraction_type ~used ~sign (Term.term_to_name x) t1 tm' t2 p
   | UJudge(p, tm, UType(q)) -> is_type (trans_term sign tm)
   | UJudge(p, t1, t2) -> has_type (trans_term sign t1) (trans_term sign t2) p
   | _ ->
@@ -141,7 +141,7 @@ let lf_printer = object (self)
           Pretty.(Opapp (0, Infix (RIGHT, op, FMT "@ ", self#print ((x, xty) :: cx) b)))
         end
     | Lam ([x, xty], t) ->
-        Pretty.(Opapp (1, Prefix (STR ("[" ^ x ^ "]"), self#print ((x, xty) :: cx) t)))
+        Pretty.(Opapp (1, Prefix (STR ("[" ^ x ^ "] "), self#print ((x, xty) :: cx) t)))
     | _ -> super#print cx t
 end
 
@@ -151,23 +151,23 @@ let fresh_x =
 
 let rec invert t =
   match t with
-    | App (Var {name="lfisty"; _}, [lfty]) ->
-        (lfty, lftype)
-    | App (Var {name="lfhas"; _}, [lfobj ; lfty]) ->
-        (lfobj, lfty)
-    | App (Var {name="pi"; _}, [
-        Lam ([x, xty], App (Var {name="=>"; _}, [arg; bod]))
-      ]) -> begin
-        let (arg0, argclass) = invert arg in
-        let argclass = norm (app (lambda [x, xty] argclass) [dummy_value]) in
-        let (bod0, _bodclass) = invert bod in
-        let (_bod, last) = unapp bod0 in
-        if eq arg0 last then
-          (norm (app (lambda [x, xty] _bod) [dummy_value]),
-           make_lfpi argclass (lambda [x, xty] _bodclass))
-        else not_invertible "invert 1"
-      end
-    | _ -> not_invertible "invert 2"
+  | App (Var {name="lfisty"; _}, [lfty]) ->
+      (lfty, lftype)
+  | App (Var {name="lfhas"; _}, [lfobj ; lfty]) ->
+      (lfobj, lfty)
+  | App (Var {name="pi"; _}, [
+      Lam ([x, xty], App (Var {name="=>"; _}, [arg; bod]))
+    ]) -> begin
+      let (arg0, argclass) = invert arg in
+      let argclass = norm (app (lambda [x, xty] argclass) [dummy_value]) in
+      let (bod0, _bodclass) = invert bod in
+      let (_bod, last) = unapp bod0 in
+      if eq arg0 last then
+        (norm (app (lambda [x, xty] _bod) [dummy_value]),
+         make_lfpi argclass (lambda [x, xty] _bodclass))
+      else not_invertible "invert 1"
+    end
+  | _ -> not_invertible "invert 2"
 
 let elf_printer = object (self)
   inherit term_printer as super

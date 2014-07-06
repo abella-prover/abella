@@ -13,7 +13,7 @@
 open Format
 
 type prec   = int
-type trans  = OPAQUE | TRANSP
+type trans  = OPAQUE | TRANSPARENT
 type assoc  = LEFT | RIGHT | NON
 
 type atom =
@@ -39,5 +39,8 @@ and opapp =
   | Infix   of assoc * expr * atom * expr
 
 val bracket : ?left:atom -> ?right:atom -> ?trans:trans -> expr -> expr
-val print : ?left:atom -> ?right:atom -> formatter -> expr -> unit
-val print_string : ?left:atom -> ?right:atom -> expr -> string
+
+type 'a printer = ?left:atom -> ?right:atom -> expr -> 'a
+
+val print        : formatter -> unit printer
+val print_string : string printer

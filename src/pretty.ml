@@ -13,7 +13,7 @@
 open Format
 
 type prec   = int
-type trans  = OPAQUE | TRANSP
+type trans  = OPAQUE | TRANSPARENT
 type assoc  = LEFT | RIGHT | NON
 
 type atom =
@@ -37,6 +37,8 @@ and opapp =
   | Prefix  of atom * expr
   | Postfix of expr * atom
   | Infix   of assoc * expr * atom * expr
+
+type 'a printer = ?left:atom -> ?right:atom -> expr -> 'a
 
 let lparen = FUN (fun ff -> pp_print_string ff "(")
 let rparen = FUN (fun ff -> pp_print_string ff ")")
@@ -69,7 +71,7 @@ let rec reprec de = match de with
   | Bracket br ->
       let (inner, dom) = reprec br.inner in
       let dom = match br.trans with
-        | TRANSP -> dom
+        | TRANSPARENT -> dom
         | OPAQUE -> NOP
       in
       (Bracket {br with inner}, dom)
@@ -89,13 +91,13 @@ let rec is_infix_incompat gpasc myprec myasc = function
   | Opapp (subprec, Infix (subasc, _, _, _))
       when myprec = subprec && not (gpasc = myasc && subasc = myasc) ->
       true
-  | Bracket {trans=TRANSP; inner; _} ->
+  | Bracket {trans=TRANSPARENT; inner; _} ->
       is_infix_incompat gpasc myprec myasc inner
   | _ -> false
 
 let rec ( >? ) prec ex = match ex with
   | Opapp (subprec, _) when prec > subprec -> true
-  | Bracket {trans = TRANSP; inner; _} -> prec >? inner
+  | Bracket {trans = TRANSPARENT; inner; _} -> prec >? inner
   | _ -> false
 
 let print_atom ff atm =
@@ -104,7 +106,7 @@ let print_atom ff atm =
   | FUN fmt -> fmt ff
   | STR s -> pp_print_string ff s
 
-let rec print ?(left=lparen) ?(right=rparen) ff ex =
+let rec print ff ?(left=lparen) ?(right=rparen) ex =
   match ex with
   | Atom atm -> print_atom ff atm
   | Bracket br ->

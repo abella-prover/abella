@@ -1,4 +1,6 @@
 S src
 B _build/src
+B _build/libs/ounit
+B _build/libs/pprint
 PKG str
 PKG unix

@@ -161,7 +161,7 @@ let tests =
       "Print non-empty context" >::
         (fun () ->
            let ctx = Context.add (uconst "L") Context.empty in
-           let t = Obj(Async (Async.obj ctx var_a), Irrelevant) in
+           let t = Obj(HHW, Async (Async.obj ctx var_a), Irrelevant) in
              assert_pprint_equal "{L |- A}" t) ;
 
       "Print predicate" >::
@@ -187,7 +187,7 @@ let tests =
            let ctx = Context.add (uconst "L") Context.empty in
            let bc = uconst "=>" ^^ [uconst "B"; uconst "C"] in
            let abc = uconst "=>" ^^ [uconst "A"; bc] in
-           let t = Obj(Async (Async.obj ctx abc), Irrelevant) in
+           let t = Obj(HHW, Async (Async.obj ctx abc), Irrelevant) in
              assert_pprint_equal "{L |- A => B => C}" t ;
              assert_pprint_equal "{L, A, B |- C}" (normalize t)) ;
 
@@ -238,7 +238,7 @@ let tests =
                            Arrow(Eq(var_a, uvar Eigen "A1" 0),
                                  Binding(Forall, [("A1", emptyty)], eq)))
            in
-             assert_pprint_equal "forall A2, A = A1 -> (forall A1, A1 = A1)"
+             assert_pprint_equal "forall A2, A = A1 -> (forall A3, A3 = A3)"
                (normalize t) );
 
       "Normalize should rename nominals of different types" >::

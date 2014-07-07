@@ -42,7 +42,7 @@ let tests =
   "Unify" >:::
     [
       (* Example 1, simple test involving abstractions *)
-      "[x\\ x = x\\ M x]" >::
+      "[x\\x = x\\M x]" >::
         (fun () ->
            let t1 = [("x",ity)] // db 1 in
            let m = var Logic "m" 1 iity in
@@ -51,7 +51,7 @@ let tests =
              assert_term_equal ([("x",ity)] // db 1) m) ;
 
       (* Example 2, adds descending into constructors *)
-      "[x\\ c x = x\\ c (N x)]" >::
+      "[x\\c x = x\\c (N x)]" >::
         (fun () ->
            let n = var Logic "n" 1 iity in
            let c = const ~ts:1 "c" iity in
@@ -61,7 +61,7 @@ let tests =
              assert_term_equal ([("x",ity)] // db 1) n) ;
 
       (* Example 3, needs eta expanding on the fly *)
-      "[x\\y\\ c y x = N]" >::
+      "[x\\y\\c y x = N]" >::
         (fun () ->
            let n = var Logic "n" 1 iiity in
            let c = const ~ts:1 "c" iiity in
@@ -71,7 +71,7 @@ let tests =
 
 
       (* Example 4, on-the-fly eta, constructors at top-level *)
-      "[x\\y\\ c x y = x\\ c (N x)]" >::
+      "[x\\y\\c x y = x\\c (N x)]" >::
         (fun () ->
            let n = var Logic "n" 1 iity in
            let c = const ~ts:1 "c" iiity in
@@ -95,7 +95,7 @@ let tests =
              let h =
                match extract [L;H] x with
                  | Var {name=h;ts=1;tag=Logic;ty=ty} -> var Logic h 1 ty
-                 | _ -> assert_failure "X should match x\\y\\ H ..."
+                 | _ -> assert_failure "X should match x\\y\\H ..."
              in
                assert_term_equal ([("a",aty); ("b",bty)] // (h ^^ [ db 2 ; db 1 ])) x ;
                assert_term_equal ([("b",bty); ("c",cty)] // (h ^^ [ a ; db 2 ])) y) ;
@@ -114,7 +114,7 @@ let tests =
              let h =
                match extract [L;A;H] x with
                  | Var {name=h;ts=1;tag=Logic;ty=ty} -> var Logic h 1 ty
-                 | _ -> assert_failure "X should match x\\y\\ _ H .."
+                 | _ -> assert_failure "X should match x\\y\\_ H .."
              in
                assert_term_equal ([("y",ity); ("x",ity)] // (c ^^ [h^^[db 2;db 1]])) x ;
                assert_term_equal ([("y",ity); ("x",ity)] // (h ^^ [a;db 2])) y) ;
@@ -137,7 +137,7 @@ let tests =
 
       (* Example 8, multiple occurences with a bound var as the rigid part
        * instead of a constant *)
-      "[x\\ e0 (X1 a2 b3) (X x d2) = x\\ e0 (Y2 b3 c3) (e0 x d2)]" >::
+      "[x\\e0 (X1 a2 b3) (X x d2) = x\\e0 (Y2 b3 c3) (e0 x d2)]" >::
         (fun () ->
            let x = var Logic "x" 1 iiity in
            let y = var Logic "y" 2 iiity in
@@ -163,7 +163,7 @@ let tests =
              let h =
                match extract [L;H] x with
                  | Var {name=h;ts=1;tag=Logic;ty=ty} -> var Logic h 1 ty
-                 | _ -> assert_failure "X should match x\\y\\z\\ H ..."
+                 | _ -> assert_failure "X should match x\\y\\z\\H ..."
              in
                assert_term_equal ([("a",aty); ("a",bty); ("c",aty)] // (h^^[db 2])) x) ;
 
@@ -215,7 +215,7 @@ let tests =
              let h =
                match extract [L;H] x with
                  | Var {name=h;ts=1;tag=Logic;ty=ty} -> var Logic h 1 ty
-                 | _ -> failwith "X should match x\\y\\z\\ H ..."
+                 | _ -> failwith "X should match x\\y\\z\\H ..."
              in
                assert_term_equal ([("a",aty); ("b",bty); ("c",cty)] // (h ^^ [db 3;db 1])) x ;
                assert_term_equal ([("c",cty)] // (h ^^ [a;db 1])) y) ;
@@ -232,7 +232,7 @@ let tests =
              let h =
                match extract [L;A;H] x with
                  | Var {name=h;ts=1;tag=Logic;ty=ty} -> var Logic h 1 ty
-                 | _ -> failwith "X should match x\\y\\ _ (H ..) .."
+                 | _ -> failwith "X should match x\\y\\_ (H ..) .."
              in
                assert_term_equal
                  ([("a",iity); ("b",bty)] // (db 2 ^^ [h ^^ [db 2 ; db 1]])) x ;
@@ -255,7 +255,7 @@ let tests =
         (fun () ->
            right_unify (const ~ts:1 "a" aty) (const ~ts:1 "a" aty)) ;
 
-      "[x\\ a x b = x\\ a x b]" >::
+      "[x\\a x b = x\\a x b]" >::
         (fun () ->
            let a = const ~ts:1 "a" (tyarrow [aty; bty] ity) in
            let b = const ~ts:1 "b" bty in
@@ -271,7 +271,7 @@ let tests =
            let x = var Logic "x" 3 aty in
              right_unify (f ^^ [x;x]) (f ^^ [a;a])) ;
 
-      "[x\\y\\ P x = x\\ Q x]" >::
+      "[x\\y\\P x = x\\Q x]" >::
         (fun () ->
            let p = var Logic "P" 1 (tyarrow [aty] ity) in
            let q = var Logic "Q" 1 (tyarrow [aty; bty] ity) in
@@ -292,7 +292,7 @@ let tests =
              assert_raises_unify_failure
                (fun () -> right_unify y t)) ;
 
-      "[x\\y\\ H1 x = x\\y\\ G2 x]" >::
+      "[x\\y\\H1 x = x\\y\\G2 x]" >::
         (fun () ->
            let h = var Logic "H" 1 (tyarrow [aty] ity) in
            let g = var Logic "G" 2 (tyarrow [aty] ity) in
@@ -374,7 +374,7 @@ let tests =
              assert_term_pprint_equal "X" x ;
              assert_term_pprint_equal "X" y ;
              match observe x, observe y with
-               | Var {ts=0}, Var {ts=0} -> ()
+               | Var {ts=0; _}, Var {ts=0; _} -> ()
                | _ -> assert_failure "Timestamps should be lowered to match") ;
 
       "[X^0 = p^0 Y^1 Z^1]" >::
@@ -387,7 +387,7 @@ let tests =
              right_unify ~used x (p ^^ [y; z]) ;
              assert_term_pprint_equal "p X1 X2" x ;
              match observe y, observe z with
-               | Var {ts=0}, Var {ts=0} -> ()
+               | Var {ts=0; _}, Var {ts=0; _} -> ()
                | _ -> assert_failure "Timestamps should be lowered to match") ;
 
       "X^0 = f^0 a^1" >::
@@ -585,7 +585,7 @@ let tests =
              right_unify ~used x ([("x1",ity)] // y) ;
              assert_term_pprint_equal "x1\\Y1" x ;
              match observe y with
-               | Var {ts=0} -> ()
+               | Var {ts=0; _} -> ()
                | _ -> assert_failure "Timestamp should be lowered to match") ;
 
       "R^0 N^0 = plus A^0 B^0" >::

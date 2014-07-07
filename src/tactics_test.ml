@@ -9,8 +9,8 @@ open Extensions
 
 let assert_object_cut ~cut ~using ~expect =
   match freshen cut, freshen using with
-    | Obj(cut, _), Obj(using, _) ->
-        let actual = object_cut cut using in
+    | Obj(log, cut, _), Obj(_, using, _) ->
+        let actual = object_cut log cut using in
           assert_pprint_equal expect actual
     | _ -> assert false
 
@@ -244,8 +244,8 @@ let apply_tests =
       "With multiple nablas" >::
         (fun () ->
            let h0 =
-             freshen "forall A B, nabla x y,
-                        rel1 (iapp x y) (iapp (A x) (B y)) ->
+             freshen "forall A B, nabla x y,\n\
+                        rel1 (iapp x y) (iapp (A x) (B y)) ->\n\
                           rel2 (iabs A) (iabs B)"
            in
            let h1 = freshen "rel1 (iapp n1 n2) (iapp (C n1) (D n2))" in
@@ -591,7 +591,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{a} \\/ {b}" in
              match case term with
-               | [{new_hyps=[hyp1]} ; {new_hyps=[hyp2]}] ->
+               | [{new_hyps=[hyp1]; _} ; {new_hyps=[hyp2]; _}] ->
                    assert_pprint_equal "{a}" hyp1 ;
                    assert_pprint_equal "{b}" hyp2 ;
                | _ -> assert_failure "Pattern mismatch") ;
@@ -600,7 +600,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{a} \\/ {b} \\/ {c}" in
              match case term with
-               | [{new_hyps=[hyp1]} ; {new_hyps=[hyp2]} ; {new_hyps=[hyp3]}] ->
+               | [{new_hyps=[hyp1]; _} ; {new_hyps=[hyp2]; _} ; {new_hyps=[hyp3]; _}] ->
                    assert_pprint_equal "{a}" hyp1 ;
                    assert_pprint_equal "{b}" hyp2 ;
                    assert_pprint_equal "{c}" hyp3 ;
@@ -610,7 +610,7 @@ let case_tests =
         (fun () ->
            let term = freshen "A = B \\/ rel1 A B" in
              match case term with
-               | [{new_hyps=[]} ; {new_hyps=[hyp]}] ->
+               | [{new_hyps=[]; _} ; {new_hyps=[hyp]; _}] ->
                    assert_pprint_equal "rel1 A B" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
@@ -618,7 +618,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{a} /\\ {b}" in
              match case term with
-               | [{new_hyps=[hyp1;hyp2]}] ->
+               | [{new_hyps=[hyp1;hyp2]; _}] ->
                    assert_pprint_equal "{a}" hyp1 ;
                    assert_pprint_equal "{b}" hyp2 ;
                | _ -> assert_failure "Pattern mismatch") ;
@@ -627,7 +627,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{a} /\\ {b} /\\ {c}" in
              match case term with
-               | [{new_hyps=[hyp1;hyp2;hyp3]}] ->
+               | [{new_hyps=[hyp1;hyp2;hyp3]; _}] ->
                    assert_pprint_equal "{a}" hyp1 ;
                    assert_pprint_equal "{b}" hyp2 ;
                    assert_pprint_equal "{c}" hyp3 ;
@@ -638,7 +638,7 @@ let case_tests =
            let term = freshen "exists A B, rel1 A B" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=new_vars ; new_hyps=[hyp]}] ->
+               | [{new_vars=new_vars ; new_hyps=[hyp]; _}] ->
                    let var_names = List.map fst new_vars in
                      assert_string_list_equal ["A"; "B"] var_names ;
                      assert_pprint_equal "rel1 A B" hyp ;
@@ -649,7 +649,7 @@ let case_tests =
            let term = freshen "exists A B, foo A /\\ bar B" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=new_vars ; new_hyps=[hyp1; hyp2]}] ->
+               | [{new_vars=new_vars ; new_hyps=[hyp1; hyp2]; _}] ->
                    let var_names = List.map fst new_vars in
                      assert_string_list_equal ["A"; "B"] var_names ;
                      assert_pprint_equal "foo A" hyp1 ;
@@ -661,7 +661,7 @@ let case_tests =
            let term = freshen "{a} /\\ exists B, bar B" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=new_vars ; new_hyps=[hyp1; hyp2]}] ->
+               | [{new_vars=new_vars ; new_hyps=[hyp1; hyp2]; _}] ->
                    let var_names = List.map fst new_vars in
                      assert_string_list_equal ["B"] var_names ;
                      assert_pprint_equal "{a}" hyp1 ;
@@ -673,7 +673,7 @@ let case_tests =
            let term = freshen "nabla x, foo x" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+               | [{new_vars=[] ; new_hyps=[hyp]; _}] ->
                    assert_pprint_equal "foo n1" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
@@ -682,7 +682,7 @@ let case_tests =
            let term = freshen "nabla x y, rel1 x y" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+               | [{new_vars=[] ; new_hyps=[hyp]; _}] ->
                    assert_pprint_equal "rel1 n1 n2" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
@@ -691,7 +691,7 @@ let case_tests =
            let term = freshen "nabla x, exists A, rel1 x A" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=new_vars ; new_hyps=[hyp]}] ->
+               | [{new_vars=new_vars ; new_hyps=[hyp]; _}] ->
                    let var_names = List.map fst new_vars in
                      assert_string_list_equal ["A"] var_names ;
                      assert_pprint_equal "rel1 n1 (A n1)" hyp ;
@@ -702,7 +702,7 @@ let case_tests =
            let term = freshen "nabla x, rel1 n1 x" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+               | [{new_vars=[] ; new_hyps=[hyp]; _}] ->
                    assert_pprint_equal "rel1 n1 n2" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
@@ -710,7 +710,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{L, hyp A |- hyp B}" in
              match case term with
-               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+               | [{new_vars=[] ; new_hyps=[hyp]; _}] ->
                    assert_pprint_equal "member (hyp B) (hyp A :: L)" hyp
                | _ -> assert_failure "Pattern mismatch") ;
 
@@ -718,7 +718,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{L |- p1 A}@" in
              match case term with
-               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+               | [{new_vars=[] ; new_hyps=[hyp]; _}] ->
                    assert_pprint_equal "member (p1 A) L" hyp
                | _ -> assert_failure "Pattern mismatch") ;
 
@@ -763,7 +763,7 @@ let case_tests =
            let term = freshen "exists A, rel1 A n1" in
            let used = [] in
              match case ~used term with
-               | [{new_hyps=[hyp]}] ->
+               | [{new_hyps=[hyp]; _}] ->
                    assert_pprint_equal "rel1 (A n1) n1" hyp
                | _ -> assert_failure "Pattern mismatch") ;
 
@@ -1050,7 +1050,7 @@ let induction_tests =
       "Mutual on objects" >::
         (fun () ->
            let stmt = freshen
-             "(forall A, {hyp A} -> {conc A} -> {form A}) /\\
+             "(forall A, {hyp A} -> {conc A} -> {form A}) /\\\n\
               (forall B, {form B} -> {conc B})" in
              match induction [2; 1] 1 stmt with
                | [ih1; ih2], goal ->
@@ -1590,35 +1590,35 @@ let unfold_tests =
              parse_defs "foo (r1 X) := bar X; foo (r2 X) := baz X."
            in
            let goal = freshen "foo (r2 t1)" in
-           let result = unfold ~defs goal in
+           let result = unfold ~defs None goal in
              assert_pprint_equal "baz t1" result) ;
 
       "Should work with nominals" >::
         (fun () ->
            let defs = parse_defs "foo X := bar X." in
            let goal = freshen "foo (r1 n1)" in
-           let result = unfold ~defs goal in
+           let result = unfold ~defs None goal in
              assert_pprint_equal "bar (r1 n1)" result) ;
 
       "Should avoid variable capture" >::
         (fun () ->
            let defs = parse_defs "foo X := forall A, rel1 X A." in
            let goal = freshen "foo A" in
-           let result = unfold ~defs goal in
+           let result = unfold ~defs None goal in
              assert_pprint_equal "forall A1, rel1 A A1" result) ;
 
       "Should work on nabla in the head (permute)" >::
         (fun () ->
            let defs = parse_defs "nabla x, rel1 x Z := bar Z." in
            let goal = freshen "rel1 n1 D" in
-           let result = unfold ~defs goal in
+           let result = unfold ~defs None goal in
              assert_pprint_equal "bar D" result) ;
 
       "Should reduce coinductive restriction" >::
         (fun () ->
            let defs = parse_defs "foo X := foo X." in
            let goal = freshen "foo D #" in
-           let result = unfold ~defs goal in
+           let result = unfold ~defs None goal in
              assert_pprint_equal "foo D +" result) ;
 
       "Should not work on inductively restricted definition" >::
@@ -1627,7 +1627,7 @@ let unfold_tests =
            let goal = freshen "foo A @" in
              assert_raises
                (Failure "Cannot unfold inductively restricted predicate")
-               (fun () -> unfold ~defs goal)) ;
+               (fun () -> unfold ~defs None goal)) ;
     ]
 
 let permute_tests =
@@ -1654,14 +1654,14 @@ let permute_tests =
 
 let assert_search_cut ~cut ~provable ~expect =
   let search_goal g = match g with
-    | Obj(Async obj, _) ->
+    | Obj(_, Async obj, _) ->
         let _,term = Async.get obj in
         List.mem (term_to_string term) provable
     | _ -> false
   in
   match freshen cut with
-    | Obj(obj, _) ->
-        let actual = Obj(search_cut ~search_goal obj, Irrelevant) in
+    | Obj(log, obj, _) ->
+        let actual = Obj(log, search_cut ~search_goal log obj, Irrelevant) in
           assert_pprint_equal expect actual
     | _ -> assert false
 

@@ -417,20 +417,22 @@ let adjoin cx (x, ty) =
   let x' = fresh_name x cx in
   (x', ty) :: cx
 
+let print_app t1 t2 =
+  Pretty.(Opapp (10, Infix (LEFT, t1, FMT "@ ", t2)))
+
 class term_printer = object (self)
   method print (cx : tyctx) (t0 : term) =
     match observe (hnorm t0) with
     | Var v -> atomic (var_to_string v)
     | DB i -> atomic (db_to_string cx i)  (* ^ "$" ^ string_of_int i ^ "$") *)
-    | Lam ([x, ty], t) ->
+    | Lam ((x, ty) :: tycx, t) ->
         let op = Pretty.FUN Format.(fun ff ->
             pp_print_string ff x ;
             pp_print_string ff "\\" ;
-            pp_print_space ff ()
+            pp_print_cut ff ()
           ) in
-        Pretty.(Opapp (0, Prefix (op, self#print (adjoin cx (x, ty)) t)))
-    | Lam ([], _) -> assert false
-    | Lam (v :: tycx, t) -> self#print cx (Lam ([v], Lam (tycx, t)))
+        Pretty.(Opapp (0, Prefix (op, self#print (adjoin cx (x, ty)) (Lam (tycx, t)))))
+    | Lam ([], t) -> self#print cx t
     | App (t, ts) -> begin
         match observe (hnorm t), ts with
         | Var {name="=>"; _}, [a; b] ->
@@ -440,21 +442,22 @@ class term_printer = object (self)
             Pretty.(Opapp (2, Infix (LEFT, self#print cx a,
                                      FMT " &@ ", self#print cx b)))
         | Var {name="::"; _}, [a; b] ->
-            Pretty.(Opapp (3, Infix (LEFT, self#print cx a,
+            Pretty.(Opapp (3, Infix (RIGHT, self#print cx a,
                                      FMT " ::@ ", self#print cx b)))
         | Var {name=("pi"|"sigma" as q); _}, [a] -> begin
             match observe (hnorm a) with
             | Lam ([x, ty], t) ->
                 Pretty.(Opapp (1, Infix (RIGHT, Atom (STR (q ^ " " ^ x)),
                                          FMT "\\@,", self#print (adjoin cx (x, ty)) t)))
-            | _ -> assert false
+            | a ->
+                print_app Pretty.(Atom (STR "pi")) (self#print cx a)
           end
         | _ ->
             List.fold_left begin fun f t ->
-              Pretty.(Opapp (10, Infix (LEFT, f, FMT "@ ", self#print cx t)))
+              print_app f (self#print cx t)
             end (self#print cx t) ts
       end
-    | _ -> self#print cx (hnorm t0)
+    | _ -> assert false
 end
 let core_printer = new term_printer
 let default_printer : term_printer ref = ref core_printer

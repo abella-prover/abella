@@ -261,10 +261,10 @@ let tests =
 
       "Add example (lemmas)" >::
         (fun () ->
-           let addition_clauses = parse_clauses "
-             add z N N.
-             add (s A) B (s C) :- add A B C.
-             nat z.
+           let addition_clauses = parse_clauses "\n\
+             add z N N.\n\
+             add (s A) B (s C) :- add A B C.\n\
+             nat z.\n\
              nat (s N) :- nat N."
            in
              setup_prover ()
@@ -552,9 +552,9 @@ let tests =
       "Huet's unification example" >::
         (fun () ->
            setup_prover ()
-             ~goal:"forall F X, F (F X) = r1 (r1 t1) ->
-                      (F = x1\\r1 (r1 t1)) \\/
-                      (F = x1\\r1 x1 /\\ X = t1) \\/
+             ~goal:"forall F X, F (F X) = r1 (r1 t1) ->\n\
+                      (F = x1\\r1 (r1 t1)) \\/\n\
+                      (F = x1\\r1 x1 /\\ X = t1) \\/\n\
                       (F = x1\\x1 /\\ X = r1 (r1 t1))" ;
 
            assert_proof

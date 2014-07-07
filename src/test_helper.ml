@@ -36,22 +36,24 @@ let parse_udefs str =
 let parse_defs str =
   type_udefs ~sr:!sr ~sign:!sign (parse_udefs str)
 
-let eval_sig_string = "
-  kind      tm        type.
-  type      app       tm -> tm -> tm.
-  type      abs       (tm -> tm) -> tm.
+let eval_sig_string = "\n\
+  kind      tm        type.\n\
+  type      app       tm -> tm -> tm.\n\
+  type      abs       (tm -> tm) -> tm.\n\
+\n\
+  kind      ty        type.\n\
+  type      arrow     ty -> ty -> ty.\n\
+\n\
+  type      typeof    tm -> ty -> o.\n\
+  type      eval      tm -> tm -> o.\n\
+"
 
-  kind      ty        type.
-  type      arrow     ty -> ty -> ty.
-
-  type      typeof    tm -> ty -> o.
-  type      eval      tm -> tm -> o."
-
-let eval_clauses_string = "
-  typeof (abs R) (arrow T U) :- pi x\\ (typeof x T => typeof (R x) U).
-  typeof (app M N) T :- typeof M (arrow U T), typeof N U.
-  eval (abs R) (abs R).
-  eval (app M N) V :- eval M (abs R), eval (R N) V."
+let eval_clauses_string = "\n\
+  typeof (abs R) (arrow T U) :- pi x\\ (typeof x T => typeof (R x) U).\n\
+  typeof (app M N) T :- typeof M (arrow U T), typeof N U.\n\
+  eval (abs R) (abs R).\n\
+  eval (app M N) V :- eval M (abs R), eval (R N) V.\n\
+"
 
 let process_decls decls =
   sign := List.fold_left add_decl !sign decls ;
@@ -64,31 +66,33 @@ let () = process_decls (parse_decls eval_sig_string)
 
 let eval_clauses = parse_clauses eval_clauses_string
 
-let extra_sig_string = "
-  kind       i                     type.
-
-  type       t1, t2, t3, t4        i.
-  type       r1, r2                i -> i.
-
-  type       iabs                  (i -> i) -> i.
-  type       iapp                  i -> i -> i.
-
-  type       a, b, c, d            o.
-  type       p1, p2, p3            i -> o.
-  type       hyp, conc, form       i -> o.
-
-  type       eq, pr                i -> i -> o."
+let extra_sig_string = "\n\
+  kind       i                     type.\n\
+\n\
+  type       t1, t2, t3, t4        i.\n\
+  type       r1, r2                i -> i.\n\
+\n\
+  type       iabs                  (i -> i) -> i.\n\
+  type       iapp                  i -> i -> i.\n\
+\n\
+  type       a, b, c, d            o.\n\
+  type       p1, p2, p3            i -> o.\n\
+  type       hyp, conc, form       i -> o.\n\
+\n\
+  type       eq, pr                i -> i -> o.\n\
+"
 
 let () = process_decls (parse_decls extra_sig_string)
 
-let nat_sig_string = "
-  kind       nat                  type.
-
-  type       z                    nat.
-  type       s                    nat -> nat.
-
-  type       nat, even, odd       nat -> o.
-  type       add                  nat -> nat -> nat -> o."
+let nat_sig_string = "\n\
+  kind       nat                  type.\n\
+\n\
+  type       z                    nat.\n\
+  type       s                    nat -> nat.\n\
+\n\
+  type       nat, even, odd       nat -> o.\n\
+  type       add                  nat -> nat -> nat -> o.\n\
+"
 
 let () = process_decls (parse_decls nat_sig_string)
 

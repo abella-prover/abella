@@ -33,9 +33,9 @@ let version_file = "src/version.ml"
 
 let maybe_make_version_file () =
   if not begin
-    Sys.file_exists version_file
-    && Digest.file version_file = Digest.string version_file_contents
-  end then begin
+      Sys.file_exists version_file
+      && Digest.file version_file = Digest.string version_file_contents
+    end then begin
     Printf.printf "Recreating %S\n" version_file ;
     let oc = open_out version_file in
     output_string oc version_file_contents ;
@@ -47,11 +47,13 @@ open Ocamlbuild_plugin ;;
 let () =
   maybe_make_version_file () ;
   dispatch begin function
-    | After_rules ->
+  | After_rules ->
+      ocaml_lib "libs/pprint/PPrint" ;
+      ocaml_lib "libs/ounit/OUnit" ;
       flag ["ocaml" ; "compile"] (S [A "-annot" ; A "-g"]) ;
       flag ["ocaml" ; "link"] (A "-g") ;
       if Sys.os_type = "Unix" then
         flag ["ocaml" ; "compile"] (S [A "-w" ; A "@3@5@6@8..12@14@20@26@28@29"]) ;
       flag ["ocaml" ; "native" ; "compile"] (A "-nodynlink") ;
-    | _ -> ()
+  | _ -> ()
   end

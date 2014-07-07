@@ -583,9 +583,6 @@ let oty = tybase "o"
 let olistty = tybase "olist"
 let lftypety = tybase "lftype"
 let lfobjty = tybase "lfobj"
-let lfjudgety = tybase "lfjudge" 
-     (* MKS: how can I define this to be a pair of (lfobj * lftype)? *) 
-let lfjudgelistty = tybase "lfjudgelist"
 
 let rec tc (tyctx:tyctx) t =
   match observe (hnorm t) with

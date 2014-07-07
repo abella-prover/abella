@@ -172,14 +172,12 @@ let lookup_const (_, ctable) id =
 (** Pervasive signature *)
 
 let pervasive_sign =
-  (["o"; "olist"; "prop"; "lftype"; "lfobj"; "lfjudge"; "lfjudgelist"],
+  (["o"; "olist"; "prop"; "lftype"; "lfobj"],
    [("pi",     Poly(["A"], tyarrow [tyarrow [tybase "A"] oty] oty)) ;
-    ("=>",     Poly([],    tyarrow [oty; oty] oty)) ;
-    ("member", Poly([],    tyarrow [oty; olistty] propty)) ;
-    ("::",     Poly([],    tyarrow [oty; olistty] olistty)) ;
-    ("nil",    Poly([],    olistty)) ;
-    ("lf::",   Poly([], tyarrow [lfjudgety; lfjudgelistty] lfjudgelistty)) ;
-    ("lfnil",  Poly([], lfjudgelistty)) ;
+    ("=>",     Poly([], tyarrow [oty; oty] oty)) ;
+    ("member", Poly([], tyarrow [oty; olistty] propty)) ;
+    ("::",     Poly([], tyarrow [oty; olistty] olistty)) ;
+    ("nil",    Poly([], olistty)) ;
     ("lfhas",  Poly([], tyarrow [lfobjty; lftypety] oty));
     ("lfisty", Poly([], tyarrow [lftypety] oty))])
 

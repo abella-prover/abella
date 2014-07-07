@@ -204,22 +204,35 @@ let undo () =
 let sequent_var_to_string (x, xt) =
   x (* ^ "(=" ^ term_to_string xt ^ ")" *)
 
-let vars_to_string () =
-  match sequent.vars with
-  | [] -> ""
-  | _ -> "Variables: " ^ (String.concat ", " (List.map sequent_var_to_string sequent.vars))
+let show_instantiations = ref false
 
-let format_vars fmt =
-  let rec aux fmt xs =
-    match xs with
-    | x::y::ys -> fprintf fmt "%s,@ " (sequent_var_to_string x) ; aux fmt (y::ys)
-    | [x] -> fprintf fmt "%s" (sequent_var_to_string x)
-    | [] -> assert false
-  in
-  if sequent.vars = [] then
-    fprintf fmt "@\n"
-  else
-    fprintf fmt "  Variables: @[%a@]@\n" aux sequent.vars
+let format_vars ff =
+  let open Format in
+  let (eigen_vars, inst_vars) =
+    List.partition begin fun (v, vtm) ->
+      match observe (hnorm vtm) with
+      | Var {name=n; tag=Eigen; _} when n = v -> true
+      | _ -> false
+    end sequent.vars in
+  if eigen_vars <> [] then begin
+    pp_print_string ff "Variables: " ;
+    pp_open_hovbox ff 0 ; begin
+      pp_print_string ff (sequent_var_to_string (List.hd eigen_vars)) ;
+      List.iter begin
+        fun v ->
+          pp_print_space ff () ;
+          pp_print_string ff (sequent_var_to_string v)
+      end (List.tl eigen_vars) ;
+    end ; pp_close_box ff () ;
+    pp_print_newline ff ()
+  end ;
+  if !show_instantiations then
+    List.iter begin fun (v, vtm) ->
+      pp_print_string ff v ;
+      pp_print_string ff " <-- " ;
+      Term.format_term ff vtm ;
+      pp_print_newline ff () ;
+    end inst_vars
 
 let format_hyp fmt hyp =
   fprintf fmt "%s : " hyp.id ;
@@ -260,12 +273,12 @@ let format_other_subgoals fmt =
   format_display_subgoals fmt (String.count sequent.name '.' - !subgoal_depth)
 
 let format_sequent fmt =
-  pp_open_box fmt 2 ;
-  format_vars fmt ;
-  format_hyps fmt ;
-  fprintf fmt "============================@\n" ;
-  fprintf fmt " %a" format_metaterm sequent.goal ;
-  pp_close_box fmt ()
+  pp_open_vbox fmt 0 ; begin
+    format_vars fmt ;
+    format_hyps fmt ;
+    fprintf fmt "============================@\n " ;
+    format_metaterm fmt sequent.goal
+  end ; pp_close_box fmt ()
 
 let format_display fmt =
   pp_open_box fmt 0 ;

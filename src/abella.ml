@@ -410,39 +410,45 @@ let query q =
       fprintf !out "No more solutions.\n%!"
   | _ -> assert false
 
+let set_fail ~key ~expected v =
+  failwithf "Unknown value '%s' for key %S; expected %s"
+    (set_value_to_string v) key expected
+
 let set k v =
   match k, v with
   | "subgoals", Int d when d >= 0 -> subgoal_depth := d
   | "subgoals", Str "on" -> subgoal_depth := 1000
   | "subgoals", Str "off" -> subgoal_depth := 0
-  | "subgoals", _ ->
-      failwith ("Unknown value '" ^ (set_value_to_string v) ^
-                "' for key 'subgoals'." ^
-                " Expected 'on', 'off', or non-negative integer.")
+  | "subgoals", _ -> set_fail v
+                       ~key:"subgoals"
+                       ~expected:"'on', 'off', or non-negative integer"
 
   | "debug", Str "on" -> debug_level := 1
   | "debug", Str "off" -> debug_level := 0
-  | "debug", _ ->
-      failwith ("Unknown value '" ^ (set_value_to_string v) ^
-                "' for key 'debug'." ^
-                " Expected 'on' or 'off'.")
+  | "debug", _ -> set_fail v
+                    ~key:"debug"
+                    ~expected:"'on' or 'off'"
+
+  | "instantiations", Str "on" -> Prover.show_instantiations := true
+  | "instantiations", Str "off" -> Prover.show_instantiations := false
+  | "instantiations", _ -> set_fail v
+                             ~key:"instantiations"
+                             ~expected:"'on' or 'off'"
 
   | "search_depth", Int d when d >= 0 -> search_depth := d
-  | "search_depth", _ ->
-      failwith ("Unknown value '" ^ (set_value_to_string v) ^
-                "' for key 'search_depth'." ^
-                " Expected non-negative integer.")
+  | "search_depth", _ -> set_fail v
+                           ~key:"search_depth"
+                           ~expected:"non-negative integer"
 
   | "witnesses", Str "on" -> witnesses := true
   | "witnesses", Str "off" -> witnesses := false
-  | "witnesses", _ ->
-      failwith ("Unknown value '" ^ (set_value_to_string v) ^
-                "' for key 'witnesses'." ^
-                " Expected 'on' or 'off'.")
+  | "witnesses", _ -> set_fail v
+                        ~key:"witnesses"
+                        ~expected:"'on' or 'off'"
 
   | "load_path", QStr s -> load_path := s
 
-  | _, _ -> failwith ("Unknown key '" ^ k ^ "'.")
+  | _, _ -> failwithf "Unknown key '%s'" k
 
 let print_theorem name thm =
   fprintf !out "\nTheorem %s : \n%s.\n%!"

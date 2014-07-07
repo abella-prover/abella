@@ -103,12 +103,6 @@ let lftype = const "type" dummy_type
 let lfpi = var Constant "__lfpi" 0 dummy_type
 let make_lfpi a0 b0 = app lfpi [a0 ; b0]
 
-let elf_bracket u j =
-  let open Pretty in
-  let inner = Opapp (-1, Infix (NON, u, FMT ":@,", j)) in
-  (* Bracket { left = STR "(" ; right = STR ")" ; inner ; trans = OPAQUE }) *)
-  inner
-
 exception Not_invertible of string
 let not_invertible msg = raise (Not_invertible msg)
 
@@ -170,13 +164,18 @@ let rec invert t =
     end
   | _ -> not_invertible "invert 2"
 
-let elf_printer = object (self)
+let lf_judge u j =
+  let open Pretty in
+  let inner = Opapp (0, Infix (LEFT, u, FMT ":@,", j)) in
+  Atom (FUN (fun ff -> print ff inner))
+
+let lfjudge_printer = object (self)
   inherit term_printer as super
   method print cx t0 =
     let t0 = norm t0 in
     try begin
       let (u, j) = invert t0 in
-      elf_bracket (lf_printer#print cx u) (lf_printer#print cx j)
+      lf_judge (lf_printer#print cx u) (lf_printer#print cx j)
     end with
     | Not_invertible msg ->
         (* Printf.eprintf "Could not invert [%s]: %s\n%!" msg *)
@@ -185,4 +184,4 @@ let elf_printer = object (self)
 end
 
 let lfterm_to_string t cx n =
-  term_to_string ~printer:elf_printer ~cx t
+  term_to_string ~printer:lfjudge_printer ~cx t

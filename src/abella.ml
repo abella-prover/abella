@@ -146,7 +146,7 @@ let read_elf_specification name =
             pp_print_string ff "  " ;
             pp_print_string ff "(* " ;
             Term.format_term ff tm
-              ~printer:Translation.elf_printer ;
+              ~printer:Translation.lfjudge_printer ;
             pp_print_string ff " *)" ;
             pp_print_cut ff () ;
             pp_print_string ff "  " ;

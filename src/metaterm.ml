@@ -100,44 +100,6 @@ let async_to_member obj =
   let (context, term) = Async.get obj in
   member term (Context.context_to_term context)
 
-(* Pretty printing LF *)
-let lfcontext_to_string ctx =
-  let rec aux lst ctx =
-    match lst with
-      | [] -> ""
-      | [last] -> Translation.lfterm_to_string last [] 0
-      | head::tail ->
-          (Translation.lfterm_to_string head [] 0) ^ ", " ^ (aux tail (ctx @ [head]))
-  in
-  aux ctx []
-
-let lfasync_to_string obj =
-  let (ctx, term) = Async.get obj in
-  let context =
-    if Context.is_empty ctx
-    then ""
-    else (lfcontext_to_string ctx ^ " |- ")
-  in
-  let term = Translation.lfterm_to_string term [] 0 in
-  "<" ^ context ^ term ^ ">"
-
-let lfsync_to_string obj =
-  let (ctx, focus, term) = Sync.get obj in
-  let context =
-    if Context.is_empty ctx
-    then ""
-    else (lfcontext_to_string ctx) ^ ", "
-  in
-  let fcs = "[" ^ Translation.lfterm_to_string focus [] 0^ "] |- " in
-  let term = Translation.lfterm_to_string term [] 0 in
-  "<" ^ context ^ fcs ^ term ^ ">"
-
-let lfobj_to_string t =
-  match t with
-  | Async obj -> lfasync_to_string obj
-  | Sync obj -> lfsync_to_string obj
-
-
 (* Pretty printing *)
 
 let restriction_to_string r =
@@ -151,88 +113,116 @@ let restriction_to_string r =
 let bindings_to_string ts =
   String.concat " " (List.map fst ts)
 
-let priority t =
-  match t with
-  | True | False | Eq _ | Pred _ | Obj _ -> 4
-  | And _ -> 3
-  | Or _ -> 2
-  | Arrow _ -> 1
-  | Binding _ -> 0
-
-let async_obj_to_string obj =
-  let (ctx, term) = Async.get obj in
-  let context =
-    if Context.is_empty ctx
-    then ""
-    else (Context.context_to_string ctx ^ " |- ")
-  in
-  let term = term_to_string term in
-  "{" ^ context ^ term ^ "}"
-
-let sync_obj_to_string obj =
-  let (ctx, focus, term) = Sync.get obj in
-  let context =
-    if Context.is_empty ctx
-    then ""
-    else (Context.context_to_string ctx) ^ ", "
-  in
-  let fcs = "[" ^ term_to_string focus ^ "] |- " in
-  let term = term_to_string term in
-  "{" ^ context ^ fcs ^ term ^ "}"
-
-
-let obj_to_string = function
-  | Async obj -> async_obj_to_string obj
-  | Sync obj  -> sync_obj_to_string obj
-
 let binder_to_string b =
   match b with
   | Forall -> "forall"
   | Nabla -> "nabla"
   | Exists -> "exists"
 
-let format_metaterm fmt t =
-  let rec aux pr_above t =
-    let pr_curr = priority t in
-    if pr_curr < pr_above then fprintf fmt "(" ;
-    begin match t with
-    | True ->
-        fprintf fmt "true"
-    | False ->
-        fprintf fmt "false"
-    | Eq(a, b) ->
-        fprintf fmt "%s = %s" (term_to_string a) (term_to_string b)
-    | Obj(HHW, obj, r) ->
-        fprintf fmt "%s%s" (obj_to_string obj) (restriction_to_string r)
-    | Obj(LF, obj, r) ->
-        fprintf fmt "%s%s" (lfobj_to_string obj) (restriction_to_string r)
-    | Arrow(a, b) ->
-        aux (pr_curr + 1) a ;
-        fprintf fmt " ->@ " ;
-        aux pr_curr b
-    | Binding(b, tids, t) ->
-        fprintf fmt "%s %s,@ "
-          (binder_to_string b) (bindings_to_string tids) ;
-        aux pr_curr t
-    | Or(a, b) ->
-        aux pr_curr a ;
-        fprintf fmt " \\/@ " ;
-        aux (pr_curr + 1) b ;
-    | And(a, b) ->
-        aux pr_curr a ;
-        fprintf fmt " /\\@ " ;
-        aux (pr_curr + 1) b ;
-    | Pred(p, r) ->
-        if r = Irrelevant then
-          fprintf fmt "%s" (term_to_string p)
-        else
-          fprintf fmt "%s %s" (term_to_string p) (restriction_to_string r)
-    end ;
-    if pr_curr < pr_above then fprintf fmt ")" ;
+let pretty_context ~printer cx =
+  let open Pretty in
+  let open Format in
+  let format ff =
+    pp_open_box ff 0 ; begin
+      Term.format_term ~printer ff (List.hd cx) ;
+      List.iter begin fun t ->
+        pp_print_string ff "," ;
+        pp_print_space ff () ;
+        Term.format_term ~printer ff t
+      end (List.tl cx) ;
+    end ; pp_close_box ff ()
   in
-  pp_open_box fmt 2 ;
-  aux 0 t ;
-  pp_close_box fmt ()
+  Atom (FUN format)
+
+let pretty_obj ~left ~right ~printer obj =
+  let open Pretty in
+  match obj with
+  | Async {Async.context; Async.term} ->
+      let concl = printer#print [] term in
+      let inner = match context with
+        | [] -> concl
+        | _ -> Opapp (10, Infix (LEFT, pretty_context ~printer context,
+                                 FMT " |-@ ", concl))
+      in
+      Bracket {
+        left ; right ; indent = 3 ; trans = OPAQUE ; inner
+      }
+  | Sync {Sync.context; Sync.focus; Sync.term} ->
+      let concl = printer#print [] term in
+      let focus = Bracket {
+          left = STR "[" ; right = STR "]" ; trans = OPAQUE ; indent = 3 ;
+          inner = printer#print [] focus
+        } in
+      let hyps = match context with
+        | [] -> focus
+        | _ -> Opapp (10, Infix (LEFT, pretty_context ~printer context,
+                                 FMT ",@ ", focus))
+      in
+      let inner = Opapp (10, Infix (LEFT, hyps, FMT " |-@ ", concl)) in
+      Bracket {
+        left ; right ; indent = 3 ; trans = OPAQUE ; inner
+      }
+
+let pretty_obj log obj =
+  let open Pretty in
+  match log with
+  | HHW -> pretty_obj obj
+             ~left:(STR "{") ~right:(STR "}")
+             ~printer:Term.core_printer
+  | LF -> pretty_obj obj
+            ~left:(STR "<") ~right:(STR ">")
+            ~printer:Translation.lfjudge_printer
+
+let rec pretty_metaterm mt =
+  let open Format in
+  match mt with
+  | True ->
+      Pretty.(Atom (STR "true"))
+  | False ->
+      Pretty.(Atom (STR "true"))
+  | Eq(a, b) ->
+      Pretty.(Opapp (30, Infix (NON, core_printer#print [] a,
+                                FMT " =@ ", core_printer#print [] b)))
+  | Arrow(Eq(a, b), False) ->
+      Pretty.(Opapp (30, Infix (NON, core_printer#print [] a,
+                                FMT " !=@ ", core_printer#print [] b)))
+  | Obj(log, obj, r) ->
+      Pretty.(Opapp (50, Postfix (pretty_obj log obj,
+                                  STR (restriction_to_string r))))
+  | Arrow(a, False) ->
+      Pretty.(Opapp (40, Prefix (STR "~ ", pretty_metaterm a)))
+  | Arrow(a, b) ->
+      Pretty.(Opapp (20, Infix (RIGHT, pretty_metaterm a,
+                                FMT " ->@ ", pretty_metaterm b)))
+  | Or(a, b) ->
+      Pretty.(Opapp (23, Infix (LEFT, pretty_metaterm a,
+                                FMT " \\/@ ", pretty_metaterm b)))
+  | And(a, b) ->
+      Pretty.(Opapp (27, Infix (LEFT, pretty_metaterm a,
+                                FMT " /\\@ ", pretty_metaterm b)))
+  | Binding(q, tids, a) ->
+      let binds = Pretty.(Atom (FUN begin
+          fun ff ->
+            pp_print_string ff (fst (List.hd tids)) ;
+            List.iter begin fun tid ->
+              pp_print_space ff () ;
+              pp_print_string ff (fst tid)
+            end (List.tl tids)
+        end)) in
+      let bod = pretty_metaterm a in
+      let qbod = Pretty.(Opapp (2, Infix (NON, binds, FMT ",@ ", bod))) in
+      Pretty.(Opapp (1, Prefix (STR (binder_to_string q ^ " "), qbod)))
+  | Pred(p, Irrelevant) ->
+      Term.core_printer#print [] p
+  | Pred(p, r) ->
+      Pretty.(Opapp (60, Postfix (Term.core_printer#print [] p,
+                                  STR (" " ^ restriction_to_string r))))
+
+let format_metaterm ff mt =
+  let open Format in
+  pp_open_box ff 2 ; begin
+    pretty_metaterm mt |> Pretty.print ff ;
+  end ; pp_close_box ff ()
 
 let metaterm_to_string t =
   let b = Buffer.create 50 in

@@ -43,7 +43,7 @@ induction on 1. intros. case H1.
 Theorem unique : forall G M A B P1 P2,
   ctx G ->
   < G |- P1 : of M A > -> < G |- P2 : of M B > -> A = B.
-induction on 2. intros. case H2 (keep).
+induction on 2. intros. case H2.
   case H3. search.
     apply ctx_mem to H1 H5. case H6.
       case H4.

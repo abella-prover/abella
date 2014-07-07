@@ -1,3 +1,2 @@
-<*.ml*> or <*.cm*> or <*.native> or <*.byte> : use_str, use_unix, use_PPrint
+<*.ml*> or <*.cm*> or <*.native> or <*.byte> : use_str, use_unix
 <*_test.ml*> or <*_test.cm*> or <*_test.native> or <*_test.byte> : use_OUnit
-<ext> : include

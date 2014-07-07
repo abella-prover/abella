@@ -48,7 +48,6 @@ let () =
   maybe_make_version_file () ;
   dispatch begin function
   | After_rules ->
-      ocaml_lib "libs/pprint/PPrint" ;
       ocaml_lib "libs/ounit/OUnit" ;
       flag ["ocaml" ; "compile"] (S [A "-annot" ; A "-g"]) ;
       flag ["ocaml" ; "link"] (A "-g") ;

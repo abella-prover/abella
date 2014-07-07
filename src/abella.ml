@@ -158,7 +158,8 @@ let read_elf_specification name =
       end ;
     end ;
     let sign = Accumulate.merge_signs [pervasive_sign; sign] in
-    let sr = Subordination.close !sr ["lfobj"; "lftype"] in
+    (* let sr = Subordination.close !sr ["lfobj"; "lftype"] in *)
+    let sr = !sr in
     (sr, sign, clauses)
   end with
   | Parsing.Parse_error ->

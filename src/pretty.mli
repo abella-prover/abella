@@ -29,6 +29,7 @@ type expr =
 and bracketing = {
   left  : atom ;
   right : atom ;
+  indent : int ;
   inner : expr ;
   trans : trans ;
 }
@@ -38,7 +39,7 @@ and opapp =
   | Postfix of expr * atom
   | Infix   of assoc * expr * atom * expr
 
-val bracket : ?left:atom -> ?right:atom -> ?trans:trans -> expr -> expr
+val bracket : ?left:atom -> ?right:atom -> ?trans:trans -> ?indent:int -> expr -> expr
 
 type 'a printer = ?left:atom -> ?right:atom -> expr -> 'a
 

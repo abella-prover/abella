@@ -140,7 +140,9 @@ end
 val core_printer : term_printer
 val default_printer : term_printer ref
 
-val term_to_string : ?printer:term_printer ->  ?cx:tyctx ->
+val format_term :  ?printer:term_printer -> ?cx:tyctx ->
+  Format.formatter -> term -> unit
+val term_to_string : ?printer:term_printer -> ?cx:tyctx ->
   term -> string
 
 val prefix : tag -> string

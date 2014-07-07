@@ -29,6 +29,7 @@ type expr =
 and bracketing = {
   left  : atom ;
   right : atom ;
+  indent : int ;
   inner : expr ;
   trans : trans ;
 }
@@ -43,8 +44,8 @@ type 'a printer = ?left:atom -> ?right:atom -> expr -> 'a
 let lparen = FUN (fun ff -> pp_print_string ff "(")
 let rparen = FUN (fun ff -> pp_print_string ff ")")
 
-let bracket ?(left=lparen) ?(right=rparen) ?(trans=OPAQUE) inner =
-  Bracket {left; right; inner; trans}
+let bracket ?(left=lparen) ?(right=rparen) ?(trans=OPAQUE) ?(indent=2) inner =
+  Bracket {left; right; indent; inner; trans}
 
 type dom_op = PRE of prec |POST of prec | NOP
 
@@ -110,25 +111,25 @@ let rec print ff ?(left=lparen) ?(right=rparen) ex =
   match ex with
   | Atom atm -> print_atom ff atm
   | Bracket br ->
-      kprint_bracket ~left ~right ff br
+      print_bracket ~left ~right ff br
   | Opapp (prec, appl) -> begin
       match appl with
       | Prefix (op, arg) ->
-          pp_open_box ff 2 ; begin
+          (* pp_open_box ff 2 ; begin *)
             print_atom ff op ;
             maybe_enclose
               ~cond:(prec >? arg && not (is_prefix arg))
               ~left ~right ff arg
-          end ; pp_close_box ff ()
+          (* end ; pp_close_box ff () *)
       | Postfix (arg, op) ->
-          pp_open_box ff 2 ; begin
+          (* pp_open_box ff 2 ; begin *)
             maybe_enclose
               ~cond:(prec >? arg && not (is_postfix arg))
               ~left ~right ff arg ;
             print_atom ff op ;
-          end ; pp_close_box ff ()
+          (* end ; pp_close_box ff () *)
       | Infix (asc, arg1, op, arg2) ->
-          pp_open_box ff 2 ; begin
+          (* pp_open_box ff 2 ; begin *)
             maybe_enclose
               ~cond:(prec >? arg1
                      || is_infix_incompat LEFT prec asc arg1)
@@ -138,21 +139,25 @@ let rec print ff ?(left=lparen) ?(right=rparen) ex =
               ~cond:(prec >? arg2
                      || is_infix_incompat RIGHT prec asc arg2)
               ~left ~right ff arg2
-          end ; pp_close_box ff ()
+          (* end ; pp_close_box ff () *)
     end
 
 and maybe_enclose ~cond ~left ~right ff ex =
   if cond then begin
-    print_atom ff left ;
-    print ~left ~right ff ex ;
-    print_atom ff right ;
+    pp_open_box ff 3 ; begin
+      print_atom ff left ;
+      print ~left ~right ff ex ;
+      print_atom ff right ;
+    end ; pp_close_box ff () ;
   end else
     print ~left ~right ff ex
 
-and kprint_bracket ~left ~right ff br =
-  print_atom ff br.left ;
-  print ~left ~right ff br.inner ;
-  print_atom ff br.right
+and print_bracket ~left ~right ff br =
+  pp_open_box ff br.indent ; begin
+    print_atom ff br.left ;
+    print ~left ~right ff br.inner ;
+    print_atom ff br.right ;
+  end ; pp_close_box ff ()
 
 let print_string ?(left=lparen) ?(right=rparen) ex =
   let buf = Buffer.create 19 in

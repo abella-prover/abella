@@ -145,13 +145,13 @@ let read_elf_specification name =
           List.iter begin fun tm ->
             pp_print_string ff "  " ;
             pp_print_string ff "(* " ;
-            pp_open_hbox ff () ; begin
-              Pretty.print ff (Translation.elf_printer#print [] tm) ;
-            end ; pp_close_box ff () ;
+            Term.format_term ff tm
+              ~printer:Translation.elf_printer ;
             pp_print_string ff " *)" ;
             pp_print_cut ff () ;
             pp_print_string ff "  " ;
-            Pretty.print ff (core_printer#print [] tm) ;
+            Term.format_term ff tm
+              ~printer:core_printer ;
             pp_print_string ff "." ;
             pp_print_cut ff () ;
           end clauses

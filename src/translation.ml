@@ -37,7 +37,7 @@ let rec trans_term sign t =
       abstract x xty (trans_term sign b)
   | _ -> raise (TranslationError "invalid term")
 
-let lfproof_var = "lfx"
+let lfproof_var = "lf_"
 let defaultused : (id * term) list =
   [lfproof_var, Term.var Constant lfproof_var 0 lfobjty]
 
@@ -135,6 +135,7 @@ let lf_printer = object (self)
               Bracket { left = STR "{" ;
                         right = STR "}" ;
                         trans = OPAQUE ;
+                        indent = 3 ;
                         inner = Opapp (-1, Infix (NON, Atom (STR x), FMT ":",
                                                   self#print cx a)) })
           in

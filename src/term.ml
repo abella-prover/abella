@@ -417,8 +417,16 @@ let adjoin cx (x, ty) =
   let x' = fresh_name x cx in
   (x', ty) :: cx
 
-let print_app t1 t2 =
-  Pretty.(Opapp (10, Infix (LEFT, t1, FMT "@ ", t2)))
+let print_app f ts =
+  let open Pretty in
+  Bracket {
+    left = STR "" ;
+    right = STR "" ;
+    trans = TRANSPARENT ;
+    indent = 2 ;
+    inner = List.fold_left begin fun f t ->
+        Opapp (10, Infix (LEFT, f, FMT "@ ", t))
+      end f ts }
 
 class term_printer = object (self)
   method print (cx : tyctx) (t0 : term) =
@@ -426,12 +434,11 @@ class term_printer = object (self)
     | Var v -> atomic (var_to_string v)
     | DB i -> atomic (db_to_string cx i)  (* ^ "$" ^ string_of_int i ^ "$") *)
     | Lam ((x, ty) :: tycx, t) ->
-        let op = Pretty.FUN Format.(fun ff ->
-            pp_print_string ff x ;
-            pp_print_string ff "\\" ;
-            pp_print_cut ff ()
-          ) in
-        Pretty.(Opapp (0, Prefix (op, self#print (adjoin cx (x, ty)) (Lam (tycx, t)))))
+        Pretty.(Bracket { left = STR (x ^ "\\") ;
+                          right = STR "" ;
+                          indent = 2 ;
+                          inner = self#print (adjoin cx (x, ty)) (Lam (tycx, t)) ;
+                          trans = TRANSPARENT })
     | Lam ([], t) -> self#print cx t
     | App (t, ts) -> begin
         match observe (hnorm t), ts with
@@ -447,25 +454,31 @@ class term_printer = object (self)
         | Var {name=("pi"|"sigma" as q); _}, [a] -> begin
             match observe (hnorm a) with
             | Lam ([x, ty], t) ->
-                Pretty.(Opapp (1, Infix (RIGHT, Atom (STR (q ^ " " ^ x)),
-                                         FMT "\\@,", self#print (adjoin cx (x, ty)) t)))
+                Pretty.(Bracket { left = STR (q ^ " " ^ x ^ "\\") ;
+                                  right = STR "" ;
+                                  indent = 2 ;
+                                  inner = self#print (adjoin cx (x, ty)) t ;
+                                  trans = TRANSPARENT })
             | a ->
-                print_app Pretty.(Atom (STR "pi")) (self#print cx a)
+                print_app Pretty.(Atom (STR "pi")) [self#print cx a]
           end
         | _ ->
-            List.fold_left begin fun f t ->
-              print_app f (self#print cx t)
-            end (self#print cx t) ts
+            print_app (self#print cx t) (List.map (self#print cx) ts)
       end
     | _ -> assert false
 end
 let core_printer = new term_printer
 let default_printer : term_printer ref = ref core_printer
 
+let format_term ?(printer=(!default_printer)) ?(cx=[]) ff t =
+  Format.pp_open_box ff 2 ; begin
+    Pretty.print ff (printer#print cx t) ;
+  end ; Format.pp_close_box ff ()
+
 let term_to_string ?(printer=(!default_printer)) ?(cx=[]) t =
   let buf = Buffer.create 19 in
   let ff = Format.formatter_of_buffer buf in
-  Pretty.print ff (printer#print cx t) ;
+  format_term ~printer ~cx ff t ;
   Format.pp_print_flush ff () ;
   Buffer.contents buf
 

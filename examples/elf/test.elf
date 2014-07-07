@@ -13,20 +13,25 @@ i : ty.
 arr : ty -> ty -> ty.
 
 tm : ty -> type.                               %name tm M.
-app : {A:ty} {B:ty}
-      tm (arr A B) -> tm A -> tm B.
-lam : {A:ty} {B:ty}
-      (tm A -> tm B) -> tm (arr A B).
+u : tm i.
+f : tm i -> tm i.
+g : {A:ty} tm A.
+h : {A:ty} {B:ty} tm A -> tm B.
+% app : {A:ty} {B:ty}
+%       tm (arr A B) -> tm A -> tm B.
+% lam : {A:ty} {B:ty}
+%       (tm A -> tm B) -> tm (arr A B).
 
-of : {A:ty}
-     tm A -> ty -> type.                       %name of Dof.
-of/app : {A:ty} {B:ty} {M:tm (arr A B)} {N:tm A}
-         of (arr A B) M (arr A B) ->
-         of A N A ->
-         of B (app A B M N) B.
-of/lam : {A:ty} {B:ty} {R:tm A -> tm B}
-         ({x:tm A} of A x A -> of B (R x) B) ->
-         of (arr A B) (lam A B ([x:tm A] R x)) (arr A B).
+% of : {A:ty}
+%      tm A -> ty -> type.                       %name of Dof.
+% of/u : of i u i.
+% of/app : {A:ty} {B:ty} {M:tm (arr A B)} {N:tm A}
+%          of (arr A B) M (arr A B) ->
+%          of A N A ->
+%          of B (app A B M N) B.
+% of/lam : {A:ty} {B:ty} {R:tm A -> tm B}
+%          ({x:tm A} of A x A -> of B (R x) B) ->
+%          of (arr A B) (lam A B ([x:tm A] R x)) (arr A B).
 
 %mode of +A +M -A1.
 

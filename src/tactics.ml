@@ -429,7 +429,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
              fresh_head term
          with
          | Some cpairs ->
-             (* Printf.printf "   >>> SUCCESS!\n%!" ; *)
+             (* Printf.printf "SUCCESS!\n%!" ; *)
              let new_vars =
                term_vars_alist Eigen (fresh_head::term::fresh_body)
              in

@@ -428,13 +428,19 @@ let print_app f ts =
         Opapp (10, Infix (LEFT, f, FMT "@ ", t))
       end f ts }
 
+
+let bv_to_string ?(ty=false) x xty =
+  if ty then
+    "(" ^ x ^ ":" ^ ty_to_string xty ^ ")"
+  else x
+
 class term_printer = object (self)
   method print (cx : tyctx) (t0 : term) =
     match observe (hnorm t0) with
     | Var v -> atomic (var_to_string v)
     | DB i -> atomic (db_to_string cx i)  (* ^ "$" ^ string_of_int i ^ "$") *)
     | Lam ((x, ty) :: tycx, t) ->
-        Pretty.(Bracket { left = STR (x ^ "\\") ;
+        Pretty.(Bracket { left = STR (bv_to_string x ty ^ "\\") ;
                           right = STR "" ;
                           indent = 2 ;
                           inner = self#print (adjoin cx (x, ty)) (Lam (tycx, t)) ;
@@ -454,7 +460,7 @@ class term_printer = object (self)
         | Var {name=("pi"|"sigma" as q); _}, [a] -> begin
             match observe (hnorm a) with
             | Lam ([x, ty], t) ->
-                Pretty.(Bracket { left = STR (q ^ " " ^ x ^ "\\") ;
+                Pretty.(Bracket { left = STR (q ^ " " ^ bv_to_string x ty ^ "\\") ;
                                   right = STR "" ;
                                   indent = 2 ;
                                   inner = self#print (adjoin cx (x, ty)) t ;

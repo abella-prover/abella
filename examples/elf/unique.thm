@@ -40,17 +40,31 @@ induction on 1. intros. case H1.
       case H5. apply member_prune to H6.
       case H5. case H6. apply IH to H4 H7 H8. search.
 
-Theorem unique : forall G M A B (P1:lfobj) (P2:lfobj),
+Theorem unique : forall G M A B P1 P2,
   ctx G ->
   < G |- P1 : of M A > -> < G |- P2 : of M B > -> A = B.
 induction on 2. intros. case H2 (keep).
   case H3. search.
     apply ctx_mem to H1 H5. case H6.
+      case H4.
+      case H7. case H4.
+  case H3.
+    apply IH to H1 H8 H14. search.
+    apply ctx_mem to H1 H11. case H12.
+      case H10.
+      case H13. case H10.
+  case H3.
+    apply IH to _ H7 H11. search.
+    apply ctx_mem to H1 H9. case H10.
+      case H8.
+      case H11. case H8.
+  apply ctx_mem to H1 H5. case H6.
+    case H4.
+    case H3.
       case H7. case H4.
       case H7. case H4.
-    apply ctx_mem to H1 H5. case H6.
       case H7. case H4.
-      case H4. case H3. case H7.
       apply ctx_mem to H1 H10. case H11.
-        case H12. case H9. case H9.
-        apply ctx_unique to H1 H5 H10. search.
+        case H9.
+        case H4. case H9.
+         apply ctx_unique to H1 H5 H10. search.

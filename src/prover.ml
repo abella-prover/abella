@@ -201,16 +201,19 @@ let undo () =
 
 (* Pretty print *)
 
+let sequent_var_to_string (x, xt) =
+  x (* ^ "(=" ^ term_to_string xt ^ ")" *)
+
 let vars_to_string () =
   match sequent.vars with
   | [] -> ""
-  | _ -> "Variables: " ^ (String.concat ", " (List.map fst sequent.vars))
+  | _ -> "Variables: " ^ (String.concat ", " (List.map sequent_var_to_string sequent.vars))
 
 let format_vars fmt =
   let rec aux fmt xs =
     match xs with
-    | x::y::ys -> fprintf fmt "%s,@ " (fst x) ; aux fmt (y::ys)
-    | [x] -> fprintf fmt "%s" (fst x)
+    | x::y::ys -> fprintf fmt "%s,@ " (sequent_var_to_string x) ; aux fmt (y::ys)
+    | [x] -> fprintf fmt "%s" (sequent_var_to_string x)
     | [] -> assert false
   in
   if sequent.vars = [] then

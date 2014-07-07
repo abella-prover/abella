@@ -245,8 +245,10 @@ let infer_type_and_constraints ~sign tyctx t =
             add_constraint aty ty2 (get_pos t2, CArg) ;
             rty
       | UJudge(_, t1, t2) ->
-          let _ty1 = aux tyctx t1 in
-          let _ty2 = aux tyctx t2 in
+          let ty1 = aux tyctx t1 in
+          let ty2 = aux tyctx t2 in
+          add_constraint lfobjty ty1 (get_pos t1, CArg) ;
+          add_constraint lftypety ty2 (get_pos t2, CArg) ;
           oty
       | UPi(_, id, ty, body) ->
           let ty1 = aux tyctx ty in

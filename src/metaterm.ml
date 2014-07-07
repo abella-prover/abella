@@ -798,7 +798,7 @@ let def_head_name head =
    is required for unification. It is also
    used in some test cases.
 *)
-let clausify term =
+let bad_clausify term =
   let (tyctx, term') = replace_pi_with_const term in
   let rec move_imps obj =
     let ctx,term = Async.get obj in
@@ -809,3 +809,22 @@ let clausify term =
   let body,head = Async.get (move_imps (Async.obj Context.empty term'))
   in
   (tyctx,head,body)
+
+exception Unclausifiable
+let clausify term =
+  let rec spin cx bod head =
+    match observe (hnorm head) with
+    | App (pi, [head]) when is_head_name "pi" pi -> begin
+        match observe (hnorm head) with
+        | Lam ((x, xty)::vars, _) as head ->
+            let xtm = const x xty in
+            let head = app head [xtm] in
+            spin ((x, xty) :: cx) bod head
+        | _ -> raise Unclausifiable
+      end
+    | App (imp, [a; head]) when is_head_name "=>" imp ->
+        spin cx (a :: bod) head
+    | t -> (List.rev cx, head, List.rev bod)
+  in
+  try spin [] [] term with
+  | Unclausifiable -> ([], term, [])

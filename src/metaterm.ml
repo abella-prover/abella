@@ -179,7 +179,7 @@ let rec pretty_metaterm mt =
   | True ->
       Pretty.(Atom (STR "true"))
   | False ->
-      Pretty.(Atom (STR "true"))
+      Pretty.(Atom (STR "false"))
   | Eq(a, b) ->
       Pretty.(Opapp (30, Infix (NON, core_printer#print [] a,
                                 FMT " =@ ", core_printer#print [] b)))

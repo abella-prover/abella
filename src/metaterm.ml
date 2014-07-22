@@ -173,6 +173,8 @@ let pretty_obj log obj =
             ~left:(STR "<") ~right:(STR ">")
             ~printer:Translation.lfjudge_printer
 
+let default_print cx a = !Term.default_printer#print cx a
+
 let rec pretty_metaterm mt =
   let open Format in
   match mt with
@@ -181,11 +183,11 @@ let rec pretty_metaterm mt =
   | False ->
       Pretty.(Atom (STR "false"))
   | Eq(a, b) ->
-      Pretty.(Opapp (30, Infix (NON, core_printer#print [] a,
-                                FMT " =@ ", core_printer#print [] b)))
+      Pretty.(Opapp (30, Infix (NON, !Term.default_printer#print [] a,
+                                FMT " =@ ", default_print [] b)))
   | Arrow(Eq(a, b), False) ->
-      Pretty.(Opapp (30, Infix (NON, core_printer#print [] a,
-                                FMT " !=@ ", core_printer#print [] b)))
+      Pretty.(Opapp (30, Infix (NON, default_print [] a,
+                                FMT " !=@ ", default_print [] b)))
   | Obj(log, obj, r) ->
       Pretty.(Opapp (50, Postfix (pretty_obj log obj,
                                   STR (restriction_to_string r))))
@@ -213,9 +215,9 @@ let rec pretty_metaterm mt =
       let qbod = Pretty.(Opapp (2, Infix (NON, binds, FMT ",@ ", bod))) in
       Pretty.(Opapp (1, Prefix (STR (binder_to_string q ^ " "), qbod)))
   | Pred(p, Irrelevant) ->
-      Term.core_printer#print [] p
+      default_print [] p
   | Pred(p, r) ->
-      Pretty.(Opapp (60, Postfix (Term.core_printer#print [] p,
+      Pretty.(Opapp (60, Postfix (default_print [] p,
                                   STR (" " ^ restriction_to_string r))))
 
 let format_metaterm ff mt =

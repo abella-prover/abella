@@ -164,18 +164,25 @@ let rec invert t =
     end
   | _ -> not_invertible "invert 2"
 
-let lf_judge u j =
+let lf_judge encl u j =
   let open Pretty in
   let inner = Opapp (0, Infix (LEFT, u, FMT ":@,", j)) in
-  Atom (FUN (fun ff -> print ff inner))
+  if encl then
+    Bracket {
+      left = STR "<" ; right = STR ">" ;
+      indent = 3 ; trans = OPAQUE ;
+      inner ;
+    }
+  else
+    Atom (FUN (fun ff -> print ff inner))
 
-let lfjudge_printer = object (self)
+let make_lfjudge_printer encl = object (self)
   inherit term_printer as super
   method print cx t0 =
     let t0 = norm t0 in
     try begin
       let (u, j) = invert t0 in
-      lf_judge (lf_printer#print cx u) (lf_printer#print cx j)
+      lf_judge encl (lf_printer#print cx u) (lf_printer#print cx j)
     end with
     | Not_invertible msg ->
         (* Printf.eprintf "Could not invert [%s]: %s\n%!" msg *)
@@ -183,5 +190,9 @@ let lfjudge_printer = object (self)
         super#print cx t0
 end
 
+let lfjudge_printer = make_lfjudge_printer false
+
 let lfterm_to_string t cx n =
   term_to_string ~printer:lfjudge_printer ~cx t
+
+let () = Term.default_printer := make_lfjudge_printer true

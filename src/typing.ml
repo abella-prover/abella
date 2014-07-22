@@ -33,6 +33,7 @@ let get_pos t =
     | UAbs(p, _, _, _) -> p
     | UImp(p, _, _) -> p
     | UType(p) -> p
+    | ULFSeq (p, _, _) -> p
 
 let change_pos p t =
   match t with
@@ -44,6 +45,7 @@ let change_pos p t =
     | UAbs(_, id, ty, body) -> UAbs(p, id, ty, body)
     | UImp(_, t1, t2) -> UImp(p, t1, t2)
     | UType(_) -> UType(p)
+    | ULFSeq (_, l, g) -> ULFSeq (p, l, g)
 
 
 let predefined id pos =
@@ -258,6 +260,10 @@ let infer_type_and_constraints ~sign tyctx t =
           let ty1 = aux tyctx t1 in
           tyarrow [ty1] (aux tyctx t2)
       | UType(p) -> lftypety
+      | ULFSeq (p, UCon (_, "nil", _), UJudge (_, tm, ty)) ->
+          aux tyctx (UJudge (p, tm, ty))
+      | ULFSeq _ ->
+          failwith "Cannot allow this kind of LF sequent"
   in
 
   let ty = aux tyctx t in
@@ -373,6 +379,7 @@ let uterms_extract_if test ts =
     | UAbs(_, id, ty, body) -> List.remove id (aux body)
     | UImp(_, t1, t2) -> aux t2
     | UType(_) -> []  (* MKS: really not sure about this function *)
+    | ULFSeq (_, l, g) -> aux l @ aux g
   in
   List.unique (List.flatten_map aux ts)
 
@@ -385,6 +392,10 @@ let uterm_to_term sub t =
     | UCon(_, id, ty) -> const id (apply_sub_ty sub ty)
     | ULam(_, id, ty, t) -> abstract id (apply_sub_ty sub ty) (aux t)
     | UApp(_, t1, t2) -> app (aux t1) [aux t2]
+    | (UJudge (_, tm, ty) as g)
+    | ULFSeq (_, UCon (_, "nil", _), (UJudge (_, tm, ty) as g)) ->
+        let sign = sign_to_lfsign !global_sign in
+        Translation.translate ~sign g
     | _ -> (* error, should only use this with non-LF terms *)
         failwith "Should use the translation to type LF terms."
   in
@@ -498,6 +509,10 @@ let replace_underscores head body =
         let t2' = aux t2 in
         UImp(p, t1', t2')
     | UType(p) -> t
+    | ULFSeq (p, UCon (_, "nil", _), UJudge (_, tm, ty)) ->
+        aux (UJudge (p, tm, ty))
+    | ULFSeq _ ->
+        failwith "Cannot handle this kind of LF sequent"
   in
   match List.map aux (head::body) with
   | h::b -> (h, b)

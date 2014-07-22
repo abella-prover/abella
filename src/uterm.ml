@@ -19,7 +19,7 @@ type uterm =
   | UAbs of pos * string * uterm * uterm
   | UImp of pos * uterm * uterm
   | UType of pos
-
+  | ULFSeq of pos * uterm * uterm
 
 let rec pp_uterm ff ut =
   let open Format in
@@ -39,3 +39,5 @@ let rec pp_uterm ff ut =
       fprintf ff "(@[<b2>%a ->@ %a@])" pp_uterm a pp_uterm b
   | UType _ ->
       fprintf ff "type"
+  | ULFSeq (_, l, g) ->
+      fprintf ff "<@[<b2>%a |- %a@]>" pp_uterm l pp_uterm g

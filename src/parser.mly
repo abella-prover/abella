@@ -224,6 +224,7 @@ term:
   | exp exp_list                         { nested_app $1 $2 }
   | exp                                  { $1 }
 
+
 lfground:
   | STRINGID                             { UCon(pos 1, $1, Term.fresh_tyvar ()) }
   | TYPE                                 { UType(pos 1) }
@@ -248,6 +249,7 @@ exp:
   | LPAREN term RPAREN                   { let left = fst (pos 1) in
                                            let right = snd (pos 3) in
                                              change_pos (left, right) $2 }
+  | LANGLE lf_contexted_term RANGLE      { let (l, g) = $2 in ULFSeq (pos 0, l, g) }
   | paid                                 { let (id, ty) = $1 in
                                              UCon(pos 0, id, ty) }
 
@@ -410,8 +412,9 @@ metaterm:
   | metaterm AND metaterm                { UAnd($1, $3) }
   | LPAREN metaterm RPAREN               { $2 }
   | objseq                               { $1 }
-  | lfseq                                { $1 }
-  | term restriction                     { UPred($1, $2) }
+  | term restriction                     { match $1 with
+                                           | ULFSeq (_, l, g) -> ULFObj (l, g, $2)
+                                           | _ -> UPred ($1, $2) }
 
 objseq:
   | LBRACE contexted_term RBRACE restriction
@@ -420,11 +423,6 @@ objseq:
   | LBRACE focused_term RBRACE restriction
                                          { let l, f, g = $2 in
                                              USyncObj(l, f, g, $4) }
-lfseq:
-  | LANGLE lf_contexted_term RANGLE restriction
-                                         { let l, g  = $2 in
-                                             ULFObj(l, g, $4) }
-
 binder:
   | FORALL                               { Metaterm.Forall }
   | EXISTS                               { Metaterm.Exists }

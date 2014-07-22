@@ -3,7 +3,7 @@ Specification "unique.elf".
 Define ctx : olist -> prop by
   ctx nil
 ; nabla x p,
-    ctx ( lfhas p (of x A) :: lfhas x tm :: G ) := ctx G.
+    ctx ( < p : of x A > :: < x : tm > :: G ) := ctx G.
 
 Theorem member_prune : forall G E, nabla (n:lfobj),
   member (E n) G -> exists F, E = x\ F.
@@ -19,8 +19,8 @@ Define name : lfobj -> prop by
 
 Theorem ctx_mem : forall G E,
   ctx G -> member E G ->
-     (exists X, E = lfhas X tm /\ name X)
-  \/ (exists P X A, E = lfhas P (of X A) /\ fresh X A /\ fresh P A).
+     (exists X, E = <X : tm> /\ name X)
+  \/ (exists P X A, E = < P : of X A > /\ fresh X A /\ fresh P A).
 induction on 1. intros. case H1.
   case H2.
   case H2. search.
@@ -29,7 +29,7 @@ induction on 1. intros. case H1.
       search. search.
 
 Theorem ctx_unique : forall G P Q X A B,
-  ctx G -> member (lfhas P (of X A)) G -> member (lfhas Q (of X B)) G ->
+  ctx G -> member < P : of X A > G -> member < Q : of X B > G ->
   A = B /\ P = Q.
 induction on 1. intros. case H1.
   case H2.

@@ -1,0 +1,70 @@
+%%formulas.elf
+%%%Had to change 'o' to 'form' (for formula)
+%%%Had to chane 'true' to 'truef', 'false' to 'falsef', 
+%%% 'forall' to 'forallf' and 'exists' to 'existsf' (meaning a *-formula)
+i : type.
+form : type.
+and : form -> form -> form.
+imp : form -> form -> form.
+or : form -> form -> form.
+not : form -> form.
+truef : form.
+falsef : form.
+forallf : (i -> form) -> form.
+existsf : (i -> form) -> form.
+
+%%int.elf
+hyp : form -> type.
+conc : form -> type.
+axiom : {A:form} hyp A -> conc A.
+andr : {A:form} {B:form} conc A -> conc B -> conc (and A B).
+andl1 : {A:form} {C:form} {B:form} (hyp A -> conc C) -> hyp (and A B) -> conc C.
+andl2 : {B:form} {C:form} {A:form} (hyp B -> conc C) -> hyp (and A B) -> conc C.
+impr : {A:form} {B:form} (hyp A -> conc B) -> conc (imp A B).
+impl : {A:form} {B:form} {C:form} conc A -> (hyp B -> conc C) -> hyp (imp A B) -> conc C.
+
+orr1 : {A:form} {B:form} conc A -> conc (or A B).
+orr2 : {B:form} {A:form} conc B -> conc (or A B).
+orl :
+   {A:form} {C:form} {B:form}
+      (hyp A -> conc C) -> (hyp B -> conc C) -> hyp (or A B) -> conc C.
+notr : {A:form} ({p:form} hyp A -> conc p) -> conc (not A).
+notl : {A:form} {C:form} conc A -> hyp (not A) -> conc C.
+truer : conc truef.
+falsel : {C:form} hyp falsef -> conc C.
+forallr : {A:i -> form} ({a:i} conc (A a)) -> conc (forallf ([x:i] A x)).
+foralll :
+   {A:i -> form} {C:form} {T:i}
+      (hyp (A T) -> conc C) -> hyp (forallf ([x:i] A x)) -> conc C.
+existsr : {A:i -> form} {T:i} conc (A T) -> conc (existsf ([x:i] A x)).
+existsl :
+   {A:i -> form} {C:form}
+      ({a:i} hyp (A a) -> conc C) -> hyp (existsf ([x:i] A x)) -> conc C.
+
+%%int-cut.elf
+conc* : form -> type.
+cut* : {C:form} {A:form} conc* A -> (hyp A -> conc* C) -> conc* C.
+axiom* : {A:form} hyp A -> conc* A.
+andr* : {A:form} {B:form} conc* A -> conc* B -> conc* (and A B).
+andl1* : {A:form} {C:form} {B:form} (hyp A -> conc* C) -> hyp (and A B) -> conc* C.
+andl2* : {B:form} {C:form} {A:form} (hyp B -> conc* C) -> hyp (and A B) -> conc* C.
+impr* : {A:form} {B:form} (hyp A -> conc* B) -> conc* (imp A B).
+impl* :
+   {A:form} {B:form} {C:form} conc* A -> (hyp B -> conc* C) -> hyp (imp A B) -> conc* C.
+orr1* : {A:form} {B:form} conc* A -> conc* (or A B).
+orr2* : {B:form} {A:form} conc* B -> conc* (or A B).
+orl* :
+   {A:form} {C:form} {B:form}
+      (hyp A -> conc* C) -> (hyp B -> conc* C) -> hyp (or A B) -> conc* C.
+notr* : {A:form} ({p:form} hyp A -> conc* p) -> conc* (not A).
+notl* : {A:form} {C:form} conc* A -> hyp (not A) -> conc* C.
+truer* : conc* truef.
+falsel* : {C:form} hyp falsef -> conc* C.
+forallr* : {A:i -> form} ({a:i} conc* (A a)) -> conc* (forallf ([x:i] A x)).
+foralll* :
+   {A:i -> form} {C:form} {T:i}
+      (hyp (A T) -> conc* C) -> hyp (forallf ([x:i] A x)) -> conc* C.
+existsr* : {A:i -> form} {T:i} conc* (A T) -> conc* (existsf ([x:i] A x)).
+existsl* :
+   {A:i -> form} {C:form}
+      ({a:i} hyp (A a) -> conc* C) -> hyp (existsf ([x:i] A x)) -> conc* C.

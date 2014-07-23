@@ -1,0 +1,131 @@
+Specification "cutelim.elf".
+
+Define ctx : olist -> prop by
+  ctx nil ;
+  nabla n1 n2, ctx ( <n1:form> :: <n2:hyp A> :: G ) := ctx G ;
+  nabla n1, ctx ( <n1:i> :: G ) := ctx G ;
+  nabla n1 n2, ctx ( <n1:i> :: <n2:hyp (A n1)> :: G ) := ctx G ;
+  nabla n1, ctx ( <n1: hyp A> :: G ) := ctx G.
+
+Define fresh : lfobj -> lfobj -> prop by nabla x, fresh x A.
+
+Define name : lfobj -> prop by nabla x, name x.
+
+Theorem ctx_mem : forall E G,
+  ctx G -> member E G -> 
+    (exists X, E = <X:form> /\ name X) \/
+    (exists X, E = <X:i> /\ name X) \/
+    (exists X A, E = <X: hyp A> /\ name X /\ fresh X A) \/
+    (exists X A, E = <X: hyp A> /\ name X).
+induction on 1. intros. case H1.
+%%case 1
+  case H2. 
+%%case 2
+  case H2. search. case H4. search. apply IH to H3 H5. search.
+%% case 3
+  case H2. search. apply IH to H3 H4. search.
+%% case 4
+  case H2. search. case H4. search. apply IH to H3 H5. search.
+%% case 5
+  case H2. search. apply IH to H3 H4. search.
+
+
+Theorem cut-admit :  
+    (forall G C A D1 D2 P, 
+  ctx G -> < G |- D1 : conc A >  -> < G, P:hyp A |- D2 : conc C >  -> 
+        exists D, < G |- D : conc C >) /\
+    (forall G C A D1 P, 
+  ctx G -> < G |- D1 : conc A >  -> < G, P:hyp A |- C:form > -> <G |- C:form >) /\
+    (forall G C A D1 D2 P, 
+  ctx G -> < G |- D1 : conc A >  -> < G, P:hyp A |- D2 : hyp C > -> 
+        exists D, <G |- D : hyp C>) /\
+    (forall G C A D1 P,
+  ctx G -> < G |- D1 : conc A > -> < G, P:hyp A |- C:i > -> <G |- C:i>).
+ 
+induction on 3 3 3 3. split.
+%%% part 1
+intros. case H3.
+  %axiom
+  apply IH1 to H1 H2 H4. apply IH2 to H1 H2 H5. exists (axiom C D). search.
+  %andr
+  apply IH1 to H1 H2 H4. apply IH1 to H1 H2 H5. 
+    apply IH to H1 H2 H6. apply IH to H1 H2 H7. 
+    exists (andr A1 B D D3). search.
+  %andl1
+  apply IH1 to H1 H2 H4. apply IH1 to H1 H2 H5. apply IH1 to H1 H2 H6.
+    apply IH2 to H1 H2 H8. skip.
+  %andl2
+  apply IH1 to H1 H2 H4. apply IH1 to H1 H2 H5. apply IH1 to H1 H2 H6.
+    apply IH2 to H1 H2 H8. skip.
+  %impr
+  apply IH1 to H1 H2 H4. apply IH1 to H1 H2 H5. skip.
+  %impl
+  apply IH1 to H1 H2 H4. apply IH1 to H1 H2 H5. apply IH1 to H1 H2 H6.
+    apply IH to H1 H2 H7. apply IH2 to H1 H2 H9. skip.
+  %orr1
+  apply IH1 to H1 H2 H4. apply IH1 to H1 H2 H5. 
+    apply IH to H1 H2 H6. exists (orr1 A1 B D). search.
+  %orr2
+  apply IH1 to H1 H2 H4. apply IH1 to H1 H2 H5. 
+    apply IH to H1 H2 H6. exists (orr2 B A1 D). search.
+  %orl
+  apply IH1 to H1 H2 H4. apply IH1 to H1 H2 H5. apply IH1 to H1 H2 H6.
+    apply IH2 to H1 H2 H9. skip.
+  %notr
+  apply IH1 to H1 H2 H4. skip.
+  %notl
+  apply IH1 to H1 H2 H4. apply IH1 to H1 H2 H5. 
+    apply IH to H1 H2 H6. apply IH2 to H1 H2 H7.
+    exists (notl A1 C D D3). search.
+  %truer
+  exists truer. search.
+  %falsel
+  apply IH1 to H1 H2 H4. apply IH2 to H1 H2 H5.
+    exists (truef C D). search.
+  %forallr
+  skip.
+  %foralll
+  apply IH1 to H1 H2 H5. apply IH3 to H1 H2 H6. apply IH2 to H1 H2 H8. skip.
+  %existsr
+  apply IH3 to H1 H2 H5. apply IH to H1 H2 H6. skip.
+  %existsl
+  apply IH1 to H1 H2 H5. apply IH2 to H1 H2 H7. skip.
+  %backchain
+  case H5. case H4. apply ctx_mem to H1 H6. case H7. 
+    case H4. case H4. case H4. case H4.
+%%% part 2
+intros. case H3.
+  %and
+  apply IH1 to H1 H2 H4. apply IH1 to H1 H2 H5. search.
+  %imp
+  apply IH1 to H1 H2 H4. apply IH1 to H1 H2 H5. search.
+  %or
+  apply IH1 to H1 H2 H4. apply IH1 to H1 H2 H5. search.
+  %not
+  apply IH1 to H1 H2 H4. search.
+  %truef
+  search.
+  %falsef
+  search.
+  %forallf
+  skip.
+  %existsf
+  skip.
+  %backchain
+  case H5. case H4. apply ctx_mem to H1 H6. case H7.
+    case H4. search. case H4. case H4. case H4.
+%%% part 3
+intros. case H3.
+  %backchain
+  case H5. case H4 (keep). exists D2. skip. apply ctx_mem to H1 H6. case H7.
+    case H4. case H4. case H4. exists D2. search. case H4. exists D2. search.
+%%% part 4
+intros. case H3.
+  %backchain
+  case H5. case H4. apply ctx_mem to H1 H6. case H7.
+    case H4. case H4. search. case H4. case H4. 
+
+
+
+Theorem cut_admit2 : forall A C D1 D2 P, <D1:conc A> -> <P:hyp A |- D2:conc C> -> exists D, <D: conc C>.
+  intros. apply cut-admit. apply H3 to _ H1 H2. exists D. search.

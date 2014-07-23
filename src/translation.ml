@@ -81,7 +81,7 @@ and translate_context ?(used=defaultused) ~sign l =
   | UCon(p, g, _) -> const g oty
   | UApp(_, UApp(_, UCon (_, "::", _), uj), ujs) ->
       let t = translate ~used ~sign uj in
-      let ts = translate ~used ~sign ujs in
+      let ts = translate_context ~used ~sign ujs in
       app Context.cons [t; ts]
   | _ ->
       Format.eprintf "ERROR: Could not translate: %a\n@." Uterm.pp_uterm l ;

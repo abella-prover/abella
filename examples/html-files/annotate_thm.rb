@@ -72,6 +72,9 @@ class HTMLComment < Element
 end
 
 def convert(string)
+  string.gsub!(/</, "&lt;")
+  string.gsub!(/>/, "&gt;")
+
   regex = /(\/\*.*?\*\/|%.*?\n|(?:Specification "[^"]+"\.)|(?:Theorem|CoDefine|Define|Import|Type|Kind|Close|Split|Query|Set|Show|coinduction|induction|apply|backchain|cut|inst|monotone|permute|case|assert|exists|clear|abbrev|unabbrev|search|split|split\*|unfold|intros|skip|abort|undo)(?:[^%]|%.*?\n)*?\.)/m
 
   list = string.split(regex).map do |s|

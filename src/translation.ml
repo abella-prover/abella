@@ -1,3 +1,9 @@
+(*
+ * Copyright (C) 2014  Inria (Institut National de Recherche
+ *                     en Informatique et en Automatique)
+ * See COPYING for licensing details.
+ *)
+
 open Term
 open Uterm
 (* open Typing *)
@@ -167,7 +173,7 @@ let rec invert t =
 let lf_judge encl u j =
   let open Pretty in
   let inner = Opapp (0, Infix (LEFT, u, FMT ":@,", j)) in
-  let (left, right) = if !Flags.annotate then
+  let (left, right) = if !Globals.annotate then
       (STR_AS (1, "&lt;"), STR_AS (1, "&gt;"))
     else
       (STR "<", STR ">")

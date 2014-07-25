@@ -17,7 +17,6 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
-open Flags
 open Term
 open Metaterm
 open Prover
@@ -38,8 +37,6 @@ let switch_to_interactive = ref false
 let lexbuf = ref (Lexing.from_channel stdin)
 
 let count = ref 0
-
-let witnesses = ref false
 
 exception AbortProof
 
@@ -441,8 +438,8 @@ let set k v =
                            ~key:"search_depth"
                            ~expected:"non-negative integer"
 
-  | "witnesses", Str "on" -> witnesses := true
-  | "witnesses", Str "off" -> witnesses := false
+  | "witnesses", Str "on" -> Globals.witnesses := true
+  | "witnesses", Str "off" -> Globals.witnesses := false
   | "witnesses", _ -> set_fail v
                         ~key:"witnesses"
                         ~expected:"'on' or 'off'"
@@ -459,11 +456,11 @@ let show name =
   print_theorem name (get_lemma name)
 
 let witness w =
-  if !witnesses then
+  if !Globals.witnesses then
     fprintf !out "Witness: %s\n%!" (Tactics.witness_to_string w)
 
 let term_witness (t, w) =
-  if !witnesses then
+  if !Globals.witnesses then
     fprintf !out "Witness: %s : %s\n%!"
       (Tactics.witness_to_string w)
       (metaterm_to_string t)
@@ -472,7 +469,7 @@ let rec process_proof name =
   let suppress_display = ref false in
   let finished = ref false in
   try while not !finished do try
-        if !annotate then begin
+        if !Globals.annotate then begin
           fprintf !out "</pre>\n%!" ;
           incr count ;
           fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
@@ -485,7 +482,7 @@ let rec process_proof name =
         fprintf !out "%s < %!" name ;
         let input = Parser.command Lexer.token !lexbuf in
         if not !interactive then begin
-          let pre, post = if !annotate then "<b>", "</b>" else "", "" in
+          let pre, post = if !Globals.annotate then "<b>", "</b>" else "", "" in
           fprintf !out "%s%s.%s\n%!" pre (command_to_string input) post
         end ;
         save_undo_state () ;
@@ -565,7 +562,7 @@ let rec process_proof name =
 
 let rec process () =
   try while true do try
-        if !annotate then begin
+        if !Globals.annotate then begin
           incr count ;
           fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
           fprintf !out "<pre class=\"code\">\n%!"
@@ -573,7 +570,7 @@ let rec process () =
         fprintf !out "Abella < %!" ;
         let input = Parser.top_command Lexer.token !lexbuf in
         if not !interactive then begin
-          let pre, post = if !annotate then "<b>", "</b>" else "", "" in
+          let pre, post = if !Globals.annotate then "<b>", "</b>" else "", "" in
           fprintf !out "%s%s.%s\n%!" pre (top_command_to_string input) post
         end ;
         begin match input with
@@ -645,7 +642,7 @@ let rec process () =
                         ids)) ;
         end ;
         if !interactive then flush stdout ;
-        if !annotate then fprintf !out "</pre>%!" ;
+        if !Globals.annotate then fprintf !out "</pre>%!" ;
         fprintf !out "\n%!" ;
       with
       | Failure "lexing: empty token" ->
@@ -661,7 +658,7 @@ let rec process () =
             fprintf !out "Goodbye.\n%!" ;
             ensure_finalized_specification () ;
             write_compilation () ;
-            if !annotate then fprintf !out "</pre>\n%!" ;
+            if !Globals.annotate then fprintf !out "</pre>\n%!" ;
             exit 0
           end
       | Parsing.Parse_error ->
@@ -701,7 +698,7 @@ let options =
        "<file-name> Output to file") ;
       ("-c", Arg.String set_compile_out,
        "<file-name> Compile definitions and theorems in an importable format") ;
-      ("-a", Arg.Set annotate, " Annotate mode") ;
+      ("-a", Arg.Set Globals.annotate, " Annotate mode") ;
       ("-M", Arg.Set makefile, " Output dependencies in Makefile format")
     ]
 

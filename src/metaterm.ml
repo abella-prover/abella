@@ -170,7 +170,7 @@ let pretty_obj log obj =
              ~left:(STR "{") ~right:(STR "}")
              ~printer:Term.core_printer
   | LF ->
-      let (left, right) = if !Flags.annotate then
+      let (left, right) = if !Globals.annotate then
           (STR_AS (1, "&lt;"), STR_AS (1, "&gt;"))
         else
           (STR "<", STR ">")

@@ -17,6 +17,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Flags
 open Term
 open Metaterm
 open Prover
@@ -36,7 +37,6 @@ let compile_out = ref None
 let switch_to_interactive = ref false
 let lexbuf = ref (Lexing.from_channel stdin)
 
-let annotate = ref false
 let count = ref 0
 
 let witnesses = ref false

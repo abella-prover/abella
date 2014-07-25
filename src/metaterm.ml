@@ -169,9 +169,14 @@ let pretty_obj log obj =
   | HHW -> pretty_obj obj
              ~left:(STR "{") ~right:(STR "}")
              ~printer:Term.core_printer
-  | LF -> pretty_obj obj
-            ~left:(STR "<") ~right:(STR ">")
-            ~printer:Translation.lfjudge_printer
+  | LF ->
+      let (left, right) = if !Flags.annotate then
+          (STR_AS (1, "&lt;"), STR_AS (1, "&gt;"))
+        else
+          (STR "<", STR ">")
+      in
+      pretty_obj obj ~left ~right
+        ~printer:Translation.lfjudge_printer
 
 let default_print cx a = !Term.default_printer#print cx a
 

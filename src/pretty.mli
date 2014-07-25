@@ -17,9 +17,10 @@ type trans  = OPAQUE | TRANSPARENT
 type assoc  = LEFT | RIGHT | NON
 
 type atom =
-  | FMT of (unit, formatter, unit) format
-  | FUN of (formatter -> unit)
-  | STR of string
+  | FMT    of (unit, formatter, unit) format
+  | FUN    of (formatter -> unit)
+  | STR    of string
+  | STR_AS of int * string
 
 type expr =
   | Atom    of atom

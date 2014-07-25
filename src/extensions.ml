@@ -25,6 +25,18 @@ let uncurry f x y = f (x,y)
 
 let failwithf fmt = Printf.ksprintf failwith fmt
 
+let sanitize s =
+  let buf = Buffer.create (String.length s) in
+  for i = 0 to String.length s - 1 do
+    if s.[i] = '<' then
+      Buffer.add_string buf "&lt;"
+    else if s.[i] = '>' then
+      Buffer.add_string buf "&gt;"
+    else
+      Buffer.add_char buf s.[i]
+  done ;
+  Buffer.contents buf
+
 module Option = struct
   let is_some x =
     match x with

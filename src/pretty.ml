@@ -17,9 +17,10 @@ type trans  = OPAQUE | TRANSPARENT
 type assoc  = LEFT | RIGHT | NON
 
 type atom =
-  | FMT of (unit, formatter, unit) format
-  | FUN of (formatter -> unit)
-  | STR of string
+  | FMT    of (unit, formatter, unit) format
+  | FUN    of (formatter -> unit)
+  | STR    of string
+  | STR_AS of int * string
 
 type expr =
   | Atom    of atom
@@ -106,6 +107,7 @@ let print_atom ff atm =
   | FMT fmt -> fprintf ff fmt
   | FUN fmt -> fmt ff
   | STR s -> pp_print_string ff s
+  | STR_AS (n, s) -> pp_print_as ff n s
 
 let rec print ff ?(left=lparen) ?(right=rparen) ex =
   match ex with

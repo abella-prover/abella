@@ -167,9 +167,14 @@ let rec invert t =
 let lf_judge encl u j =
   let open Pretty in
   let inner = Opapp (0, Infix (LEFT, u, FMT ":@,", j)) in
+  let (left, right) = if !Flags.annotate then
+      (STR_AS (1, "&lt;"), STR_AS (1, "&gt;"))
+    else
+      (STR "<", STR ">")
+  in
   if encl then
     Bracket {
-      left = STR "<" ; right = STR ">" ;
+      left ; right ;
       indent = 3 ; trans = OPAQUE ;
       inner ;
     }

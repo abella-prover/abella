@@ -1,6 +1,6 @@
-Specification "impcut.elf".
+%%% Cut-elimination for minimal intuitionistic logic.
 
-Set subgoals off.
+Specification "impcut.elf".
 
 Define ctx : olist -> prop by
   ctx nil

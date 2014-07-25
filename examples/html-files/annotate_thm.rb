@@ -72,7 +72,7 @@ class HTMLComment < Element
 end
 
 def convert(string)
-  regex = /(\/\*.*?\*\/|%.*?\n|(?:Theorem|CoDefine|Define|Import|Specification|Type|Kind|Close|Split|Query|Set|Show|coinduction|induction|apply|backchain|cut|inst|monotone|permute|case|assert|exists|clear|abbrev|unabbrev|search|split|split\*|unfold|intros|skip|abort|undo)(?:[^%]|%.*?\n)*?\.)/m
+  regex = /(\/\*.*?\*\/|%.*?\n|(?:Specification "[^"]+"\.)|(?:Theorem|CoDefine|Define|Import|Type|Kind|Close|Split|Query|Set|Show|coinduction|induction|apply|backchain|cut|inst|monotone|permute|case|assert|exists|clear|abbrev|unabbrev|search|split|split\*|unfold|intros|skip|abort|undo)(?:[^%]|%.*?\n)*?\.)/m
 
   list = string.split(regex).map do |s|
     case s
@@ -265,6 +265,15 @@ def read_lp(name)
   return file
 end
 
+def read_elf(name)
+  file = File.open(name).read
+
+  file.gsub!(/%.*?\n/) do |match|
+    "<span class=\"comment\">#{match.chop}</span>\n"
+  end
+
+  return file
+end
 
 def contents(elements)
   title = ""
@@ -288,6 +297,19 @@ def contents(elements)
 
   specification_section = ""
   elements.each do |e|
+    if e.text =~ /^Specification "(.*.elf)"/ then
+      specification_section = <<-eos
+<div class="section" id="specification">
+<h1>LF Specification</h1>
+
+<a class="view" href="#{$1}">[View #{$1}]</a>
+<pre class="command">
+#{read_elf($1)}
+</pre>
+</div>
+      eos
+      break
+    end
     if e.text =~ /^Specification "(.*)"/ then
       specification_section = <<-eos
 <div class="section" id="specification">

@@ -652,10 +652,10 @@ let umetaterm_to_metaterm sub t =
   aux t
 
 let umetaterm_to_string t =
-  metaterm_to_string (umetaterm_to_metaterm [] t)
+  metaterm_to_string (umetaterm_to_metaterm [] t) |> sanitize
 
 let umetaterm_to_formatted_string t =
-  metaterm_to_formatted_string (umetaterm_to_metaterm [] t)
+  metaterm_to_formatted_string (umetaterm_to_metaterm [] t) |> sanitize
 
 let check_meta_logic_quantification_type ty =
   iter_ty

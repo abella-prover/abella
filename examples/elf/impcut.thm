@@ -67,7 +67,8 @@ induction on 2. induction on 4. intros. case H4 (keep).
     apply prune to H9. apply ctx_mem to H1 H9. case H10.
      case H7. apply strength_i to _ H5. search.
   % impR
-  skip.
+  apply strength_form to _ H5. apply strength_form to _ H6.
+  apply IH1 to _ H2 H3 H7. exists (impR C1 C2 D3). search.
   % impL
   apply strength_form to _ H5. apply prune_form to H11.
    apply IH1 to H1 H2 H3 H8.

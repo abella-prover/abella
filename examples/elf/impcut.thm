@@ -1,0 +1,85 @@
+Specification "impcut.elf".
+
+Set subgoals off.
+
+Define ctx : olist -> prop by
+  ctx nil
+; nabla p, ctx (<p:hyp A> :: G) := ctx G.
+
+Define name : lfobj -> prop by
+  nabla x, name x.
+
+Define fresh : lfobj -> lfobj -> prop by
+  nabla x, fresh x A.
+
+Theorem prune : forall G E, nabla (n:lfobj), member (E n) G ->
+  exists F, E = x\ F.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem ctx_mem : forall G E, ctx G -> member E G ->
+                    exists A P, E = <P:hyp A> /\ fresh P A.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H3 H4. search.
+
+Theorem strength_i : forall G U, ctx G ->
+  <G |- U:i> -> <U:i>.
+induction on 2. intros. case H2.
+  apply ctx_mem to H1 H4. case H3.
+
+Theorem strength_form : forall G F, ctx G ->
+  <G |- F:form> -> <F:form>.
+induction on 2. intros. case H2 (keep).
+  apply IH to H1 H3. apply IH to H1 H4. search.
+  apply strength_i to H1 H3. search.
+  apply ctx_mem to H1 H4. case H3.
+
+Theorem prune_form : forall F, nabla (x:lfobj), <F x:form> ->
+  exists FF, F = x\ FF.
+induction on 1. intros. case H1.
+  apply IH to H2. apply IH to H3. search.
+  case H2.
+
+Theorem imp_invert :
+  forall G A B DD, ctx G -> <G |- DD:conc (imp A B)> ->
+  nabla x, exists EE, <G, x:hyp A |- EE:conc B>.
+induction on 2. intros. case H2 (keep).
+  search.
+  apply IH to _ H7.
+   case H5.
+     assert <G, n2:hyp A, n1:hyp (imp A1 B1) |- impL A1 B1 B lf_1 (EE n2) lf_3:conc B>.
+     inst H12 with n1 = lf_3. cut H13 with H8.
+     search.
+   apply ctx_mem to H1 H11. case H10.
+ apply ctx_mem to H1 H4. case H3.
+
+Theorem cut_admit :
+  forall G A C D1 D2, nabla x, ctx G ->
+    <A:form> -> <G |- D1:conc A> -> <G, x:hyp A |- D2 x:conc C> -> exists D3, <G |- D3:conc C>.
+induction on 2. induction on 4. intros. case H4 (keep).
+  % init
+  case H6. case H8.
+    case H7. search.
+    apply prune to H9. apply ctx_mem to H1 H9. case H10.
+     case H7. apply strength_i to _ H5. search.
+  % impR
+  skip.
+  % impL
+  apply strength_form to _ H5. apply prune_form to H11.
+   apply IH1 to H1 H2 H3 H8.
+   apply strength_form to _ H6. apply prune_form to H13.
+   apply IH1 to _ H2 H3 H9.
+   case H10. 
+    case H16.
+      case H15. apply imp_invert to H1 H3.
+       case H2. apply IH to H1 H18 H12 H17. apply IH to H1 H19 H20 H14. search.
+      apply prune to H17. apply ctx_mem to H1 H17. case H15.
+       apply strength_form to _ H7.
+       assert <G |- impL FF FF1 C D3 D4 P : conc C>. search.
+  %% base
+  case H6. case H5.
+  apply prune to H7. apply ctx_mem to H1 H7. case H5.

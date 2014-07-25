@@ -1,0 +1,12 @@
+i : type.
+
+form : type.
+imp : form -> form -> form.
+atom : i -> form.
+
+hyp : form -> type.
+conc : form -> type.
+
+init : {P:i} hyp (atom P) -> conc (atom P).
+impR : {A:form} {B:form} (hyp A -> conc B) -> conc (imp A B).
+impL : {A:form} {B:form} {C:form} conc A -> (hyp B -> conc C) -> hyp (imp A B) -> conc C.

@@ -78,7 +78,7 @@
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
-%token COLON RARROW FORALL NABLA EXISTS STAR AT HASH OR AND 
+%token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND 
 %token LBRACE RBRACE LBRACK RBRACK
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
 
@@ -139,6 +139,7 @@ id:
   | FROM                                 { "from" }
   | ASSERT                               { "assert" }
   | SKIP                                 { "skip" }
+  | WITNESS                              { "witness" }
   | UNDO                                 { "undo" }
   | ABORT                                { "abort" }
   | COIND                                { "coinduction" }
@@ -317,7 +318,8 @@ pure_command:
   | hhint CASE hyp DOT                        { Types.Case($3, false, $1) }
   | hhint CASE hyp LPAREN KEEP RPAREN DOT     { Types.Case($3, true, $1) }
   | hhint ASSERT metaterm DOT                 { Types.Assert($3, $1) }
-  | EXISTS term DOT                           { Types.Exists($2) }
+  | EXISTS term DOT                           { Types.Exists(`EXISTS, $2) }
+  | WITNESS term DOT                          { Types.Exists(`WITNESS, $2) }
   | SEARCH DOT                                { Types.Search(None) }
   | SEARCH NUM DOT                            { Types.Search(Some $2) }
   | SPLIT DOT                                 { Types.Split }

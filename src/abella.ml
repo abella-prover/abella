@@ -424,7 +424,7 @@ let rec process_proof name =
           | Assert(t, hn) ->
               untyped_ensure_no_restrictions t ;
               assert_hyp ?name:hn t
-          | Exists(t) -> exists t
+          | Exists(_, t) -> exists t
           | Monotone(h, t) -> monotone h t
           | Clear(hs) -> clear hs
           | Abbrev(h, s) -> abbrev h s

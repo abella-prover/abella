@@ -115,6 +115,7 @@ rule token = parse
 | "on"               { ON }
 | "by"               { BY }
 | "as"               { AS }
+| "witness"          { WITNESS }
 | "split"            { SPLIT }
 | "split*"           { SPLITSTAR }
 | "left"             { LEFT }

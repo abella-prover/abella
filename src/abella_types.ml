@@ -80,7 +80,7 @@ type command =
   | Inst of id * (id * uterm) list * id option
   | Case of id * bool * id option
   | Assert of umetaterm * id option
-  | Exists of uterm
+  | Exists of [`EXISTS | `WITNESS] * uterm
   | Clear of id list
   | Abbrev of id * string
   | Unabbrev of id list
@@ -232,8 +232,12 @@ let command_to_string c =
         sprintf "assert %s%s"
           (hn_to_string hn)
           (umetaterm_to_formatted_string t)
-    | Exists t ->
-        sprintf "exists %s" (uterm_to_string t)
+    | Exists (how, t) ->
+        let hows = match how with
+          | `EXISTS -> "exists"
+          | `WITNESS -> "witness"
+        in
+        sprintf "%s %s" hows (uterm_to_string t)
     | Clear hs ->
         sprintf "clear %s" (String.concat " " hs)
     | Abbrev(h, s) ->

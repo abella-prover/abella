@@ -199,8 +199,13 @@ let undo () =
 
 (* Pretty print *)
 
+let is_uninstantiated (x, vtm) =
+  match observe (hnorm vtm) with
+  | Var {name=n; tag=Eigen; _} when n = x -> true
+  | _ -> false
+
 let vars_to_string () =
-  match sequent.vars with
+  match List.filter is_uninstantiated sequent.vars with
     | [] -> ""
     | _ -> "Variables: " ^ (String.concat ", " (List.map fst sequent.vars))
 
@@ -211,10 +216,11 @@ let format_vars fmt =
       | [x] -> fprintf fmt "%s" (fst x)
       | [] -> assert false
   in
-    if sequent.vars = [] then
-      fprintf fmt "@\n"
-    else
-      fprintf fmt "  Variables: @[%a@]@\n" aux sequent.vars
+  let vars = List.filter is_uninstantiated sequent.vars in
+  if vars = [] then
+    fprintf fmt "@\n"
+  else
+    fprintf fmt "  Variables: @[%a@]@\n" aux vars
 
 let format_hyp fmt hyp =
   fprintf fmt "%s : " hyp.id ;

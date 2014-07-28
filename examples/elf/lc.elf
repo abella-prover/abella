@@ -1,0 +1,10 @@
+%% Lambda terms
+
+tm : type.
+
+app : tm -> tm -> tm.
+abs : (tm -> tm) -> tm.
+
+eval : tm -> tm -> type.
+eval/app : {M:tm} {N:tm} {R:tm -> tm} {V:tm} eval M (abs R) -> eval (R N) V -> eval (app M N) V.
+eval/abs : {R:tm -> tm} eval (abs R) (abs R).

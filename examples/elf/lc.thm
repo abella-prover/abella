@@ -1,0 +1,16 @@
+Specification "lc.elf".
+
+% Theorem foo : forall R, <R:tm -> tm> -> false.
+
+CoDefine diverge : lfobj -> prop by
+  nabla <x:tm> diverge (app M N) :=
+    (diverge M \/ exists R P, <P:eval M (abs R)> /\ diverge (R N))).
+
+Theorem omega_diverge :
+  diverge (app (abs x\ app x x) (abs x\ app x x)).
+coinduction. unfold.
+  search. search.
+  right.
+  exists x\ app x x. exists eval/abs (x\ app x x). split.
+    search.
+    search.

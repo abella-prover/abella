@@ -247,8 +247,9 @@ let infer_type_and_constraints ~sign tyctx t =
       | UJudge(_, t1, t2) ->
           let ty1 = aux tyctx t1 in
           let ty2 = aux tyctx t2 in
-          add_constraint lfobjty ty1 (get_pos t1, CArg) ;
-          add_constraint lftypety ty2 (get_pos t2, CArg) ;
+(*          add_constraint lfobjty ty1 (get_pos t1, CArg) ;
+          add_constraint lftypety ty2 (get_pos t2, CArg) ; *)
+          add_constraint ty1 (Translation.trans_type t2) (get_pos t1, CArg) ;
           oty
       | UPi(_, id, ty, body) ->
           let ty1 = aux tyctx ty in
@@ -719,7 +720,8 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   in
   let result = replace_metaterm_vars ctx (umetaterm_to_metaterm sub t) in
     metaterm_ensure_fully_inferred result ;
-    metaterm_ensure_subordination sr result ;
+(* this is the problem *)
+    metaterm_ensure_subordination sr result ; 
     check_meta_quantification result ;
     result
 

@@ -28,6 +28,7 @@ val oty : ty
 val olistty : ty
 val lftypety : ty
 val lfobjty : ty
+val lfkindty : ty
 
 (* Variables *)
 

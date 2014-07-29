@@ -209,6 +209,12 @@ type constraint_info = pos * constraint_type
 type constraints = (expected * actual * constraint_info) list
 exception TypeInferenceFailure of constraint_info * expected * actual
 
+let constraints_to_string eqns =
+  let aux (ty1, ty2, _) =
+    (ty_to_string ty1) ^ " = " ^ (ty_to_string ty2)
+  in
+    String.concat "\n" (List.map aux eqns)
+
 let infer_type_and_constraints ~sign tyctx t =
   let eqns = ref [] in
   let add_constraint expected actual pos =
@@ -255,30 +261,28 @@ let infer_type_and_constraints ~sign tyctx t =
           add_constraint ty1 (Translation.trans_type t2) (get_pos t1, CArg) ;
           oty
       | UPi(_, id, ty, body) ->
-          let ty1 = aux tyctx ty in
-          tyarrow [ty1] (aux ((id, ty1) :: tyctx) body)
+          let _ty1 = aux tyctx ty in
+          let ty2 = aux ((id, Translation.trans_type ty) :: tyctx) body in
+          if ty2 <> lfkindty then
+            add_constraint ty2 lftypety (get_pos ty, CArg) ;
+          ty2
       | UAbs(_, id, ty, body) ->
           let ty1 = aux tyctx ty in
-          tyarrow [ty1] (aux ((id, ty1) :: tyctx) body)
+          tyarrow [ty1] (aux ((id, Translation.trans_type ty) :: tyctx) body)
       | UImp(_, t1, t2) ->
-          let ty1 = aux tyctx t1 in
-          tyarrow [ty1] (aux tyctx t2)
-      | UType(p) -> lftypety
+          let _ty1 = aux tyctx t1 in
+          let ty2 = aux tyctx t2 in
+          if ty2 <> lfkindty then
+            add_constraint ty2 lftypety (get_pos t1, CFun) ;
+          ty2
+      | UType(p) -> lfkindty
       | ULFSeq (p, UCon (_, "nil", _), UJudge (_, tm, ty)) ->
           aux tyctx (UJudge (p, tm, ty))
       | ULFSeq _ ->
           failwith "Cannot allow this kind of LF sequent"
   in
-
   let ty = aux tyctx t in
-    (ty, List.rev !eqns)
-
-
-let constraints_to_string eqns =
-  let aux (ty1, ty2, _) =
-    (ty_to_string ty1) ^ " = " ^ (ty_to_string ty2)
-  in
-    String.concat "\n" (List.map aux eqns)
+  (ty, List.rev !eqns)
 
 let occurs v ty =
   let rec aux = function

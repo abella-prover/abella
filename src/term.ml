@@ -438,7 +438,7 @@ class term_printer = object (self)
   method print (cx : tyctx) (t0 : term) =
     match observe (hnorm t0) with
     | Var v -> atomic (var_to_string v)
-    | DB i -> atomic (db_to_string cx i)  (* ^ "$" ^ string_of_int i ^ "$") *)
+    | DB i -> atomic (db_to_string cx i)
     | Lam ((x, ty) :: tycx, t) ->
         Pretty.(Bracket { left = STR (bv_to_string x ty ^ "\\") ;
                           right = STR "" ;
@@ -583,6 +583,7 @@ let oty = tybase "o"
 let olistty = tybase "olist"
 let lftypety = tybase "lftype"
 let lfobjty = tybase "lfobj"
+let lfkindty = tybase "###if_you_see_this_please_file_a_bug_report###"
 
 let rec tc (tyctx:tyctx) t =
   match observe (hnorm t) with
@@ -592,8 +593,13 @@ let rec tc (tyctx:tyctx) t =
         let arg_tys = List.map (tc tyctx) args in
         let Ty(tys, bty) = tc tyctx h in
         let n = List.length arg_tys in
-          assert (List.take n tys = arg_tys) ;
-          Ty(List.drop n tys, bty)
+        (* if (List.take n tys <> arg_tys) then *)
+        (*   Printf.eprintf "Tc: %s; Expecting: %s; got %s\n%!" *)
+        (*     (term_to_string ~printer:core_printer ~cx:tyctx h) *)
+        (*     (ty_to_string (Ty (tys, bty))) *)
+        (*     (ty_to_string (Ty (arg_tys, bty))) ; *)
+        assert (List.take n tys = arg_tys) ;
+        Ty(List.drop n tys, bty)
     | Lam(idtys,t) ->
         tyarrow (get_ctx_tys idtys) (tc (List.rev_app idtys tyctx) t)
     | _ -> assert false

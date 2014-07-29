@@ -26,6 +26,7 @@ let uncurry f x y = f (x,y)
 let failwithf fmt = Printf.ksprintf failwith fmt
 
 let sanitize s =
+  if not !Globals.annotate then s else
   let buf = Buffer.create (String.length s) in
   for i = 0 to String.length s - 1 do
     if s.[i] = '<' then

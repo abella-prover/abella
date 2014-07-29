@@ -63,8 +63,10 @@ let rec translate ?(used=defaultused) ~sign t =
           ~ts:0 Constant lfproof_var (trans_type t1) used in
       let tm' = UApp(p, tm, UCon(p, Term.term_to_name x, (trans_type t1))) in
       translate_abstraction_type ~used ~sign (Term.term_to_name x) t1 tm' t2 p
-  | UJudge(p, tm, UType(q)) -> is_type (trans_term sign tm)
-  | UJudge(p, t1, t2) -> has_type (trans_term sign t1) (trans_term sign t2) p
+  | UJudge(p, tm, UType(q)) ->
+      is_type (trans_term sign tm)
+  | UJudge(p, t1, t2) ->
+      has_type (trans_term sign t1) (trans_term sign t2) p
   | _ ->
       Format.eprintf "ERROR: Could not translate: %a\n@." Uterm.pp_uterm t ;
       raise (TranslationError "Only LF judgements may be translated")
@@ -136,13 +138,13 @@ let lf_printer = object (self)
                         right = STR "}" ;
                         trans = OPAQUE ;
                         indent = 3 ;
-                        inner = Opapp (-1, Infix (NON, Atom (STR x), FMT ":",
+                        inner = Opapp (0, Infix (NON, Atom (STR x), FMT ":",
                                                   self#print cx a)) })
           in
-          Pretty.(Opapp (0, Infix (RIGHT, op, FMT "@ ", self#print ((x, xty) :: cx) b)))
+          Pretty.(Opapp (1, Infix (RIGHT, op, FMT "@ ", self#print ((x, xty) :: cx) b)))
         end
     | Lam ([x, xty], t) ->
-        Pretty.(Opapp (1, Prefix (STR ("[" ^ x ^ "] "), self#print ((x, xty) :: cx) t)))
+        Pretty.(Opapp (2, Prefix (STR ("[" ^ x ^ "] "), self#print ((x, xty) :: cx) t)))
     | _ -> super#print cx t
 end
 

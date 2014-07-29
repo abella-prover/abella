@@ -246,9 +246,12 @@ let infer_type_and_constraints ~sign tyctx t =
             rty
       | UJudge(_, t1, t2) ->
           let ty1 = aux tyctx t1 in
-          let ty2 = aux tyctx t2 in
-(*          add_constraint lfobjty ty1 (get_pos t1, CArg) ;
-          add_constraint lftypety ty2 (get_pos t2, CArg) ; *)
+          let _ty2 = aux tyctx t2 in
+          (* Note: the constraint on ty2 is that it is equal to
+             trans_type(t2), which cannot have type variables; hence,
+             all the constraints it generates are part of the
+             traversal of t2 itself. This is why ty2 is being
+             explicitly ignored as _ty2. *)
           add_constraint ty1 (Translation.trans_type t2) (get_pos t1, CArg) ;
           oty
       | UPi(_, id, ty, body) ->
@@ -720,8 +723,7 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   in
   let result = replace_metaterm_vars ctx (umetaterm_to_metaterm sub t) in
     metaterm_ensure_fully_inferred result ;
-(* this is the problem *)
-    metaterm_ensure_subordination sr result ; 
+    metaterm_ensure_subordination sr result ;
     check_meta_quantification result ;
     result
 

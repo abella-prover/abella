@@ -1,0 +1,28 @@
+%% Translating De Bruijn representation into HOAS representation
+%%
+%% Based on examples/higher-order/debruijn_ho.{sig,mod,thm}
+
+nat : type.
+z : nat.
+s : nat -> nat.
+
+add : nat -> nat -> nat -> type.
+add/z : {C:nat} add z C C.
+add/s : {A:nat} {B:nat} {C:nat} add A B C -> add (s A) B (s C).
+
+hterm : type.
+happ : hterm -> hterm -> hterm.
+hlam : (hterm -> hterm) -> hterm.
+
+dterm : type.
+dapp : dterm -> dterm -> dterm.
+dlam : dterm -> dterm.
+dvar : nat -> dterm.
+
+ho2db : hterm -> nat -> dterm -> type.
+ho2db/app : {M:hterm} {N:hterm} {H:nat} {DM:dterm} {DN:dterm}
+  ho2db M H DM -> ho2db N H DN -> ho2db (happ M N) H (dapp DM DN).
+ho2db/lam : {R:hterm -> hterm} {H:nat} {DR:dterm}
+  ({x:hterm} ({hh:nat} {dx:nat} add H dx hh -> ho2db x hh (dvar dx)) ->
+    ho2db (R x) (s H) DR) ->
+      ho2db (hlam R) H (dlam DR).

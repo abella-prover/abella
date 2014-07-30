@@ -1,0 +1,209 @@
+Specification "debruijn.elf".
+
+Theorem member_prune : forall E L, nabla (x:lfobj),
+  member (E x) L -> exists F, E = y\F.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem member_prune3 : forall E L, nabla (x:lfobj -> lfobj -> lfobj -> lfobj),
+  member (E x) L -> exists F, E = y\F.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Define le : lfobj -> lfobj -> prop by
+  le X X ;
+  le X (s Y) := le X Y.
+
+Theorem le_decr : forall X Y,
+  <X:nat> -> <Y:nat> -> le (s X) Y -> le X Y.
+induction on 3. intros. case H3.
+  search.
+  case H2. apply IH to _ _ H4. search.
+
+Theorem le_absurd : forall X,
+  <X:nat> -> le (s X) X -> false.
+induction on 1. intros. case H1.
+  case H2.
+  case H2. apply le_decr to _ _ H4.
+   apply IH to H3 H5.
+
+Theorem add_le : forall A B C P,
+  <A:nat> -> <B:nat> -> <C:nat> ->
+  <P:add A B C> -> le B C.
+induction on 4. intros. case H4.
+  search.
+  case H3. apply IH to _ _ _ H8. search.
+
+Theorem add_absurd : forall A C P,
+  <A:nat> -> <C:nat> -> <P:add A (s C) C> -> false.
+intros. apply add_le to _ _ _ H3.
+  apply le_absurd to _ H4.
+
+Theorem add_zero : forall A C P,
+  <A:nat> -> <C:nat> ->
+  <P:add A C C> -> A = z.
+intros. case H3.
+  search.
+  case H2. apply add_absurd to _ _ H7.
+
+Theorem add_det1 : forall A1 A2 B C P1 P2,
+  <A1:nat> -> <A2:nat> -> <B:nat> -> <C:nat> ->
+  <P1:add A1 B C> -> <P2:add A2 B C> -> A1 = A2.
+induction on 5. intros. case H5.
+  apply add_zero to _ _ H6. search.
+  case H6.
+    case H4. apply add_absurd to _ _ H10.
+    case H4. apply IH to _ _ _ _ H10 H14. search.
+
+Theorem add_det2 : forall A B1 B2 C P1 P2,
+  <A:nat> -> <B1:nat> -> <B2:nat> -> <C:nat> ->
+  <P1:add A B1 C> -> <P2:add A B2 C> -> B1 = B2.
+induction on 5. intros. case H5.
+  case H6. search.
+  case H6. apply IH to _ _ _ _ H10 H14. search.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Define ctx : olist -> lfobj -> prop by
+  ctx nil z
+; nabla x p,
+    ctx ( <p:{hh:nat} {dx:nat} add H dx hh -> ho2db x hh (dvar dx)> ::
+          <x:hterm> :: L ) (s H) :=
+    ctx L H.
+
+Define name : lfobj -> prop by
+  nabla x, name x.
+
+Define fresh : lfobj -> lfobj -> prop by
+  nabla x, fresh x O.
+
+Theorem ctx_nat : forall L H,
+  ctx L H -> <H:nat>.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem ctx_inv : forall E L H,
+  ctx L H -> member E L ->
+     (exists X, E = <X:hterm> /\ name X)
+  \/ (exists X P HX,
+         E = < P:{hh:nat} {dx:nat} add HX dx hh -> ho2db X hh (dvar dx) >
+      /\ <HX:nat> /\ fresh X H /\ le (s HX) H).
+induction on 1. intros. case H1 (keep).
+  case H2.
+  case H2. apply ctx_nat to H3. search.
+    case H4. left. search.
+    apply member_prune to H5. apply member_prune3 to H5.
+     apply IH to H3 H5. case H6. search. case H8. search.
+
+Theorem ctx_unique1 : forall L H X P1 P2 H1 H2,
+  ctx L H ->
+    member <P1:{hh:nat} {dx:nat} add H1 dx hh -> ho2db X hh (dvar dx)> L ->
+    member <P2:{hh:nat} {dx:nat} add H2 dx hh -> ho2db X hh (dvar dx)> L ->
+    H1 = H2 /\ P1 = P2.
+induction on 2. intros. case H2.
+  case H3.
+    search.
+    case H1. case H4. apply member_prune to H6.
+  case H3.
+    case H1. case H4. apply member_prune to H6.
+    case H1. case H4. case H5. apply IH to H6 H7 H8. search.
+
+Theorem ctx_unique2 : forall L H X1 X2 HX P1 P2,
+  ctx L H ->
+    member <P1:{hh:nat} {dx:nat} add HX dx hh -> ho2db X1 hh (dvar dx)> L ->
+    member <P2:{hh:nat} {dx:nat} add HX dx hh -> ho2db X2 hh (dvar dx)> L ->
+    X1 = X2 /\ P1 = P2.
+induction on 2. intros. case H2.
+  case H3.
+    search.
+    case H1. case H4.
+     apply ctx_inv to H5 H6. case H7.
+       apply le_absurd to _ H10.
+  case H3.
+    case H1. case H4. apply ctx_inv to H5 H6. case H7.
+      apply le_absurd to _ H10.
+    case H1. case H4. case H5. apply IH to _ H7 H8. search.
+
+Theorem nat_ignores_ctx : forall L H N,
+  ctx L H -> <L |- N : nat> -> <N : nat>.
+induction on 2. intros. case H2.
+  search.
+  apply IH to H1 H3. search.
+  apply ctx_inv to H1 H4. case H5.
+    case H3. case H3.
+
+Theorem add_ignores_ctx : forall L H A B C P,
+  ctx L H -> <L |- P : add A B C> ->
+  exists Q, <Q : add A B C>.
+induction on 2. intros. case H2.
+  apply nat_ignores_ctx to H1 H3. search.
+  apply IH to H1 H6.
+    apply nat_ignores_ctx to _ H3.
+     apply nat_ignores_ctx to _ H4.
+     apply nat_ignores_ctx to _ H5.
+     search.
+  apply ctx_inv to H1 H4. case H5.
+    case H3. case H3.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Theorem ho2db_det3 : forall L M D1 D2 H P1 P2,
+  ctx L H ->
+  <L |- P1:ho2db M H D1> ->
+  <L |- P2:ho2db M H D2> -> D1 = D2.
+induction on 2. intros. case H2.
+  case H3.
+    apply IH to _ H9 H16. apply IH to _ H10 H17. search.
+    apply ctx_inv to H1 H12. case H13.
+      case H11.
+      case H15. case H11.
+  case H3.
+    apply IH to _ H7 H11. search.
+    apply ctx_inv to H1 H9. case H10. case H8.
+      case H12. case H8.
+  apply ctx_inv to H1 H5. case H6.
+    case H4.
+    case H4. case H3. case H8. case H8.
+      apply ctx_inv to H1 H14. case H15.
+        case H13.
+        case H13.
+         apply ctx_unique1 to H1 H5 H14.
+         apply add_ignores_ctx to _ H12.
+         apply add_ignores_ctx to _ H21.
+         apply add_det2 to _ _ _ _ H22 H23.
+           backchain nat_ignores_ctx.
+           backchain nat_ignores_ctx.
+           backchain nat_ignores_ctx.
+         search.
+
+Theorem ho2db_det3_simple : forall M D1 D2 P1 P2,
+  <P1:ho2db M z D1> -> <P2:ho2db M z D2> -> D1 = D2.
+intros. apply ho2db_det3 to _ H1 H2. search.
+
+Theorem ho2db_det1 : forall L M1 M2 D H P1 P2,
+  ctx L H ->
+  <L |- P1:ho2db M1 H D> ->
+  <L |- P2:ho2db M2 H D> -> M1 = M2.
+induction on 2. intros. case H2.
+  case H3. apply IH to _ H9 H16. apply IH to _ H10 H17. search.
+    apply ctx_inv to _ H12. case H13. case H11. case H11.
+  case H3. apply IH to _ H7 H11. search.
+    apply ctx_inv to _ H9. case H10.
+      case H8. case H8.
+  apply ctx_inv to _ H5. case H6. case H4.
+    case H4. case H3.
+     apply ctx_inv to _ H14. case H15. case H13.
+       case H17. case H13.
+       apply ctx_nat to H1.
+       apply add_ignores_ctx to _ H12.
+       apply add_ignores_ctx to _ H21.
+       apply add_det1 to _ _ _ _ H23 H24.
+         backchain nat_ignores_ctx.
+       apply ctx_unique2 to _ H5 H14. search.
+
+Theorem ho2db_det1_simple : forall M1 M2 D P1 P2,
+  <P1:ho2db M1 z D> -> <P2:ho2db M2 z D> -> M1 = M2.
+intros. apply ho2db_det1 to _ H1 H2. search.

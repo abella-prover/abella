@@ -57,18 +57,19 @@ let update sr ty =
   in
     aux sr ty
 
-let ensure (graph, _) ty =
+let ensure (graph, closed) ty =
   let rec aux (Ty(args, target)) =
     List.iter aux args ;
-    let target_preds = Graph.predecessors graph target in
+    if List.mem target closed then
+      let target_preds = Graph.predecessors graph target in
       List.iter
         (fun aty ->
-           if not (List.mem (head aty) target_preds) then
-             failwith
-               (Printf.sprintf
-                  "Type %s cannot be made subordinate to %s without explicit declaration"
-                  (head aty) target))
-        args ;
+         if not (List.mem (head aty) target_preds) then
+           failwith
+             (Printf.sprintf
+                "Type %s cannot be made subordinate to %s without explicit declaration"
+                (head aty) target))
+        args
   in
     aux  ty
 

@@ -26,6 +26,7 @@ val tyarrow : ty list -> ty -> ty
 val tybase : string -> ty
 val oty : ty
 val olistty : ty
+val propty : ty
 
 (* Variables *)
 
@@ -139,7 +140,7 @@ val is_free : term -> bool
 val is_nominal_name : string -> bool
 val is_nominal : term -> bool
 val fresh_name : string -> (string * 'a) list -> string
-val term_head_var : term -> term option
+val term_head : term -> (term * term list) option
 val is_head_name : string -> term -> bool
 val term_head_name : term -> string
 

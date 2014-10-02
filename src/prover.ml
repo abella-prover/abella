@@ -603,8 +603,8 @@ let update_self_bound_vars () =
   sequent.vars <-
     sequent.vars |> List.map
         (fun (id, term) ->
-           match term_head_var term with
-             | Some v when term_to_name v = id ->
+           match term_head term with
+             | Some (v, _) when term_to_name v = id ->
                  (id, v)
              | _ -> (id, term))
 

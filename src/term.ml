@@ -457,25 +457,24 @@ let is_nominal t =
     | Var {tag=Nominal; name=name; ts=ts; ty=ty} -> true
     | _ -> false
 
-let term_head_var t =
-  let rec aux t =
-    let t = hnorm t in
-      match t with
-        | Ptr {contents=T t} -> aux t
-        | Ptr {contents=V v} -> Some t
-        | App(t, ts) -> aux t
-        | _ -> None
+let term_head t =
+  let rec aux t args =
+    match hnorm t with
+    | Ptr {contents = T t; _} -> aux t args
+    | Ptr {contents = V _; _} as t -> Some (t, args)
+    | App (t, targs) -> aux t (targs @ args)
+    | _ -> None
   in
-    aux t
+  aux t []
 
 let term_head_name t =
-  match term_head_var t with
-    | Some t -> term_to_name t
+  match term_head t with
+    | Some (t, _) -> term_to_name t
     | None -> assert false
 
 let is_head_name name t =
-  match term_head_var t with
-    | Some (Ptr {contents=V v}) when v.name = name -> true
+  match term_head t with
+    | Some (Ptr {contents=V v}, _) when v.name = name -> true
     | _ -> false
 
 let extract_tids test terms =
@@ -533,6 +532,7 @@ let tybase bty =
 
 let oty = tybase "o"
 let olistty = tybase "olist"
+let propty = tybase "prop"
 
 let rec tc (tyctx:tyctx) t =
   match observe (hnorm t) with

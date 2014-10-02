@@ -87,8 +87,6 @@ let meta_or a b = Or(a, b)
 let meta_and a b = And(a, b)
 let pred p = Pred(p, Irrelevant)
 
-let propty = tybase "prop"
-
 let member_const = Term.const "member" (tyarrow [oty; olistty] propty)
 
 let member e ctx =
@@ -244,29 +242,49 @@ let map_terms f t =
   in
     aux t
 
-let iter_preds f term =
-  let rec aux term =
+type parity = EVEN | ODD
+type posity = POS | NONPOS
+let change_parity = function EVEN -> ODD | ODD -> EVEN
+let relax_posity = function _ -> NONPOS
+
+let iter_preds ?(parity=EVEN) ?(posity=POS) f term =
+  let rec aux parity posity term =
     match term with
       | True | False | Eq _ | Obj _ -> ()
-      | Arrow(a, b) -> aux a; aux b
-      | Binding(_, _, body) -> aux body
-      | Or(a, b) -> aux a; aux b
-      | And(a, b) -> aux a; aux b
-      | Pred(pred, _) -> f pred
+      | Arrow(a, b) ->
+          aux (change_parity parity) (relax_posity posity) a ;
+          aux parity posity b
+      | Binding(_, _, body) ->
+          aux parity posity body
+      | Or(a, b) ->
+          aux parity posity a ;
+          aux parity posity b
+      | And(a, b) ->
+          aux parity posity a ;
+          aux parity posity b
+      | Pred(pred, _) ->
+          f ~parity ~posity pred
   in
-    aux term
+  aux parity posity term
 
-let map_preds f term =
-  let rec aux term =
+let map_preds ?(parity=EVEN) ?(posity=POS) f term =
+  let rec aux parity posity term =
     match term with
-      | True | False | Eq _ | Obj _ -> []
-      | Arrow(a, b) -> aux a @ aux b
-      | Binding(_, _, body) -> aux body
-      | Or(a, b) -> aux a @ aux b
-      | And(a, b) -> aux a @ aux b
-      | Pred(pred, _) -> [f pred]
+    | True | False | Eq _ | Obj _ -> []
+    | Arrow(a, b) ->
+        aux (change_parity parity) (relax_posity posity) a @
+        aux parity posity b
+    | Binding(_, _, body) ->
+        aux parity posity body
+    | Or(a, b) ->
+        aux parity posity a @
+        aux parity posity b
+    | And(a, b) ->
+        aux parity posity a @
+        aux parity posity b
+    | Pred(pred, _) -> [f ~parity ~posity pred]
   in
-    aux term
+  aux parity posity term
 
 let is_member = function
   | Pred (t,_) -> is_head_name "member" t
@@ -751,6 +769,17 @@ let def_head_name head =
   in
     aux head
 
+let def_head_args head =
+  let rec aux = function
+    | Pred (p, _) -> begin
+        match term_head p with
+        | Some (_, args) -> args
+        | None -> failwith "Cannot find arguments!"
+      end
+    | Binding (_, _, t) -> aux t
+    | _ -> assert false
+  in
+  aux head
 
 (* Make (head,body) tuples from clauses.
    The conversion from a term clause to a

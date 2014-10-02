@@ -17,6 +17,13 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+(* BEGIN global Abella configuration *)
+
+let stratification_warnings_are_errors = false
+  (** Any stratification violation warnings are treated as errors *)
+
+(* END global Abella configuration *)
+
 open Term
 open Metaterm
 open Prover
@@ -121,18 +128,76 @@ let ensure_no_restrictions term =
 let untyped_ensure_no_restrictions term =
   ensure_no_restrictions (umetaterm_to_metaterm [] term)
 
-let warn_stratify names term =
-  let rec aux nested term =
-    match term with
-      | Pred(p, _) when nested && List.mem (term_head_name p) names -> true
-      | Arrow(left, right) -> aux true left || aux nested right
-      | Binding(_, _, body) -> aux nested body
-      | Or(left, right) -> aux nested left || aux nested right
-      | And(left, right) -> aux nested left || aux nested right
-      | _ -> false
+let rec contains_prop ty =
+  match ty with
+  | Ty (argtys, targty) ->
+      targty = "prop" || List.exists contains_prop argtys
+
+type nonstrat_reason =
+  | Negative_head of string
+  | Negative_ho_arg of string
+exception Nonstrat of nonstrat_reason
+
+let add_sgn preds p posity =
+  let old_posity =
+    try String.Map.find p preds with Not_found -> posity in
+  let posity =
+    if old_posity = posity then posity
+    else NONPOS
   in
-    if aux false term then
-      fprintf !out "Warning: Definition might not be stratified\n%!"
+  String.Map.add p posity preds
+
+let get_pred_occurrences mt =
+  let preds = ref String.Set.empty in
+  let rec aux_term t =
+    match observe (hnorm t) with
+    | Var v when contains_prop v.ty ->
+        preds := String.Set.add v.name !preds
+    | App (t, ts) ->
+        aux_term t ; List.iter aux_term ts
+    | Lam (_, t) ->
+        aux_term t
+    | Var _ | DB _ -> ()
+    | _ -> assert false
+  in
+  iter_preds begin fun ~parity ~posity t ->
+    if posity = NONPOS then aux_term t
+  end mt ;
+  !preds
+
+let warn_stratify names head term =
+  let nonposities = get_pred_occurrences term in
+  let is_ho_var arg =
+    match observe (hnorm arg) with
+    | Var { ty = ty; name = v; _ } when contains_prop ty -> Some v
+    | _ -> None
+  in
+  let ho_names =
+    def_head_args head |>
+    List.filter_map is_ho_var in
+  let doit () =
+    String.Set.iter begin fun pname ->
+      if List.mem pname names then
+        raise (Nonstrat (Negative_head pname)) ;
+      if List.mem pname ho_names then
+        raise (Nonstrat (Negative_ho_arg pname)) ;
+    end nonposities
+  in
+  try doit () with
+  | Nonstrat reason ->
+      let msg = match reason with
+        | Negative_head name ->
+            Printf.sprintf
+              "Definition might not be stratified\n  (%S occurs to the left of ->)"
+              name
+        | Negative_ho_arg name ->
+            Printf.sprintf
+              "Definition can be used to defeat stratification\n  (higher-order argument %S occurs to the left of ->)"
+              name
+      in
+      if stratification_warnings_are_errors
+      then failwith msg
+      else Printf.fprintf !out "Warning: %s\n%!" msg
 
 let check_theorem thm =
   ensure_no_restrictions thm
@@ -160,7 +225,7 @@ let check_defs names defs =
        ensure_name_contained (def_head_name head) names ;
        ensure_no_restrictions head ;
        ensure_no_restrictions body ;
-       warn_stratify names body)
+       warn_stratify names head body)
     defs
 
 let check_noredef ids =

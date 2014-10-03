@@ -935,9 +935,9 @@ let right () =
 let unfold clause_sel =
   let mdefs = get_defs sequent.goal in
   let goal = unfold ~mdefs clause_sel sequent.goal in
-  let goals = and_to_list goal in
-    add_subgoals (List.map goal_to_subgoal goals) ;
-    next_subgoal ()
+  let goals = List.concat (List.map and_to_list goal) in
+  add_subgoals (List.map goal_to_subgoal goals) ;
+  next_subgoal ()
 
 (* Exists *)
 

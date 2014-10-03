@@ -567,7 +567,6 @@ let coinduction res_num stmt =
   in
     aux stmt
 
-
 (* Unfold the current goal *)
 
 let has_restriction test t =
@@ -604,12 +603,14 @@ let coinductive_wrapper r names t =
     aux t
 
 let maybe_select sel l = match sel with
-  | None -> l
-  | Some n ->
+  | Abella_types.Unfold_none -> l
+  | Abella_types.Unfold_num n ->
       if n > List.length l then
         failwithf "Cannot select clause #%d; there are only %d clauses" n
           (List.length l) ;
       [List.nth l (n - 1)]
+  | Abella_types.Unfold_named n ->
+      failwith "Cannot select named clauses for inductive predicates"
 
 let unfold_defs ~mdefs clause_sel ~ts goal r =
   let p = term_head_name goal in
@@ -651,6 +652,9 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
     |> List.flatten_map
         (fun (i, (tids, head, body)) -> unfold_def tids head body i)
 
+let try_unify_cpairs cpairs =
+  List.for_all (curry try_right_unify) cpairs
+
 let unfold ~mdefs clause_sel goal =
   match goal with
   | Pred(_, Smaller _) | Pred(_, Equal _) ->
@@ -663,9 +667,36 @@ let unfold ~mdefs clause_sel goal =
         | _::rest -> select_non_cpair rest
         | [] -> failwith "No matching clause(s)"
       in
-      select_non_cpair (unfold_defs ~mdefs clause_sel ~ts:0 goal r)
-  | _ -> failwith "Can only unfold defined predicates"
-
+      [select_non_cpair (unfold_defs ~mdefs clause_sel ~ts:0 goal r)]
+  | Obj (Async goal, sr) -> begin
+      match clause_sel with
+      | Abella_types.Unfold_named nm -> begin
+          match Typing.lookup_clause nm with
+          | Some cl -> begin
+              let goal = match normalize_obj (Async goal) with
+                | Async goal -> goal
+                | _ -> assert false
+              in
+              let (head, body) as cl = freshen_nameless_clause ~support:[] ~ts:0 (clausify cl) in
+              match try_right_unify_cpairs head goal.Async.term with
+              | None -> []
+              | Some cpairs ->
+                  if try_unify_cpairs cpairs then begin
+                    List.map begin fun g ->
+                      let goal = Obj (Async (Async.obj goal.Async.context g) |> normalize_obj, sr) in
+                      goal
+                    end body
+                  end else []
+            end
+          | None -> failwithf "Program clause named %S not found" nm
+        end
+      | _ ->
+          failwith "Can only unfold named program clauses for object sequents"
+    end
+  | Obj (Sync _, _) ->
+      failwith "Cannot unfold backchaining sequents"
+  | _ ->
+      failwith "Cannot unfold this kind of goal"
 
 (* Search *)
 
@@ -715,9 +746,6 @@ let decompose_arrow term =
       | _ -> (List.rev acc, term)
   in
     aux [] term
-
-let try_unify_cpairs cpairs =
-  List.for_all (curry try_right_unify) cpairs
 
 let assoc_mdefs name alldefs =
   try
@@ -918,7 +946,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     let mdefs = assoc_mdefs p alldefs in
       unwind_state
         (fun () ->
-           unfold_defs ~mdefs None ~ts goal r |> List.iter
+           unfold_defs ~mdefs Abella_types.Unfold_none ~ts goal r |> List.iter
                (fun (state, cpairs, body, i) ->
                   set_bind_state state ;
                   metaterm_aux (n-1) hyps body ts

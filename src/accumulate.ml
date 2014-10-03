@@ -98,7 +98,7 @@ let merge_named_clauses ncs =
 
 let ensure_no_redefine_keywords name uclauses =
   List.iter
-    (fun (head, _) ->
+    (fun (_, head, _) ->
        let id = uterm_head_name head in
          if id = "pi" || id = "=>" || id = "&" then
            failwithf "Module %s attempts to re-define keyword %s"

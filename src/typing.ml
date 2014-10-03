@@ -452,7 +452,18 @@ let replace_underscores head body =
       | h::b -> (h, b)
       | [] -> assert false
 
-let type_uclause ~sr ~sign (head, body) =
+let clause_map : term String.Map.t ref = ref String.Map.empty
+let seen_name cname = String.Map.mem cname !clause_map
+let register_clause name clause =
+  Printf.printf "Note: registered %S : %s\n%!" name
+    (Term.term_to_string clause) ;
+  clause_map := String.Map.add name clause !clause_map
+let lookup_clause cname =
+  if seen_name cname
+  then Some (String.Map.find cname !clause_map)
+  else None
+
+let type_uclause ~sr ~sign (cname, head, body) =
   if has_capital_head head then
     failwith "Clause has flexible head" ;
   let head, body = replace_underscores head body in
@@ -474,6 +485,13 @@ let type_uclause ~sr ~sign (head, body) =
   let result = type_uterm ~sr ~sign ~ctx:[] pi_form in
   let _,cls = replace_pi_with_const result in
   let _ = check_pi_quantification [cls] in
+  begin match cname with
+  | None -> ()
+  | Some cname ->
+      if seen_name cname then
+        failwithf "Clause named %S already seeen" cname ;
+      register_clause cname result ;
+  end ;
   result
 
 (*

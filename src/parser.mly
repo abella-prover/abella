@@ -83,7 +83,7 @@
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
 
 %token <int> NUM
-%token <string> STRINGID QSTRING
+%token <string> STRINGID QSTRING CLAUSENAME
 %token EOF
 
 /* Lower */
@@ -246,7 +246,7 @@ mod_preamble:
   |                                      { [] }
 
 mod_body:
-  | clause mod_body                      { $1::$2 }
+  | clause_name clause mod_body         { let (h, b) = $2 in ($1, h, b) :: $3 }
   |                                      { [] }
 
 lpend:
@@ -261,6 +261,10 @@ ty:
   | id                                   { Term.tybase $1 }
   | ty RARROW ty                         { Term.tyarrow [$1] $3 }
   | LPAREN ty RPAREN                     { $2 }
+
+clause_name:
+  | CLAUSENAME                           { Some $1 }
+  |                                      { None }
 
 clause:
   | clause_head DOT                      { ($1, []) }
@@ -331,8 +335,9 @@ pure_command:
   | SKIP DOT                                  { Types.Skip }
   | ABORT DOT                                 { Types.Abort }
   | UNDO DOT                                  { Types.Undo }
-  | UNFOLD DOT                                { Types.Unfold None }
-  | UNFOLD NUM DOT                            { Types.Unfold (Some $2) }
+  | UNFOLD DOT                                { Types.Unfold Types.Unfold_none }
+  | UNFOLD NUM DOT                            { Types.Unfold (Types.Unfold_num $2) }
+  | UNFOLD STRINGID DOT                       { Types.Unfold (Types.Unfold_named $2) }
   | CLEAR hyp_list DOT                        { Types.Clear($2) }
   | ABBREV hyp QSTRING DOT                    { Types.Abbrev($2, $3) }
   | UNABBREV hyp_list DOT                     { Types.Unabbrev($2) }

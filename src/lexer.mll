@@ -43,6 +43,8 @@ let blank = ' ' | '\t' | '\r'
 
 rule token = parse
 | "/*"               { incr comment_level; comment lexbuf }
+| "%:" (name as s) ":" [^'\n']* '\n'
+                     { incrline lexbuf; CLAUSENAME s }
 | '%' [^'\n']* '\n'? { incrline lexbuf; token lexbuf }
 
 | blank              { token lexbuf }

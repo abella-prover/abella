@@ -22,7 +22,7 @@ open Term
 open Typing
 open Printf
 
-type uclause = uterm * uterm list
+type uclause = string option * uterm * uterm list
 
 type clause = term
 type clauses = clause list
@@ -93,11 +93,16 @@ type command =
   | Left
   | Right
   | Intros of id list
-  | Unfold of int option
+  | Unfold of unfolding
   | Skip
   | Abort
   | Undo
   | Common of common_command
+
+and unfolding =
+  | Unfold_none
+  | Unfold_num of int
+  | Unfold_named of string
 
 type any_command =
   | ATopCommand of top_command
@@ -258,8 +263,9 @@ let command_to_string c =
     | SplitStar -> "split*"
     | Left -> "left"
     | Right -> "right"
-    | Unfold None -> "unfold"
-    | Unfold (Some n) -> "unfold " ^ string_of_int n
+    | Unfold Unfold_none -> "unfold"
+    | Unfold (Unfold_num n) -> "unfold " ^ string_of_int n
+    | Unfold (Unfold_named n) -> "unfold " ^ n
     | Intros [] -> "intros"
     | Intros ids -> sprintf "intros %s" (String.concat " " ids)
     | Skip -> "skip"

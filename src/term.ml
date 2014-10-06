@@ -425,7 +425,7 @@ let print_app f ts =
     trans = TRANSPARENT ;
     indent = 2 ;
     inner = List.fold_left begin fun f t ->
-        Opapp (10, Infix (LEFT, f, FMT "@ ", t))
+        Opapp (200, Infix (LEFT, f, FMT "@ ", t))
       end f ts }
 
 class term_printer = object (self)
@@ -451,14 +451,14 @@ class term_printer = object (self)
     | App (t, ts) -> begin
         match observe (hnorm t), ts with
         | Var {name="=>"; _}, [a; b] ->
-            Pretty.(Opapp (1, Infix (RIGHT, self#print cx a,
+            Pretty.(Opapp (100, Infix (RIGHT, self#print cx a,
                                      FMT " =>@ ", self#print cx b)))
         | Var {name="&"; _}, [a; b] ->
-            Pretty.(Opapp (2, Infix (LEFT, self#print cx a,
+            Pretty.(Opapp (120, Infix (LEFT, self#print cx a,
                                      FMT " &@ ", self#print cx b)))
         | Var {name="::"; _}, [a; b] ->
-            Pretty.(Opapp (3, Infix (LEFT, self#print cx a,
-                                     FMT " ::@ ", self#print cx b)))
+            Pretty.(Opapp (130, Infix (RIGHT, self#print cx a,
+                                       FMT " ::@ ", self#print cx b)))
         | Var {name=("pi"|"sigma" as q); _}, [a] -> begin
             match observe (hnorm a) with
             | Lam ([x, ty], t) ->

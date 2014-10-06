@@ -181,6 +181,8 @@ let rec pretty_metaterm mt =
   | Obj(obj, r) ->
       Pretty.(Opapp (50, Postfix (pretty_obj obj,
                                   STR (restriction_to_string r))))
+  | Arrow(a, False) ->
+      Pretty.(Opapp (40, Prefix (STR "~ ", pretty_metaterm a)))
   | Arrow(a, b) ->
       Pretty.(Opapp (20, Infix (RIGHT, pretty_metaterm a,
                                 FMT " ->@ ", pretty_metaterm b)))

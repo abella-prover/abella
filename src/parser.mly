@@ -78,7 +78,7 @@
 %token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
-%token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND 
+%token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND NOT
 %token LBRACE RBRACE LBRACK RBRACK
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
 
@@ -89,6 +89,7 @@
 /* Lower */
 
 %nonassoc COMMA
+%nonassoc NOT
 %right RARROW
 %left OR
 %left AND
@@ -370,6 +371,7 @@ metaterm:
   | metaterm RARROW metaterm             { UArrow($1, $3) }
   | metaterm OR metaterm                 { UOr($1, $3) }
   | metaterm AND metaterm                { UAnd($1, $3) }
+  | NOT metaterm                         { UArrow($2, UFalse) }
   | LPAREN metaterm RPAREN               { $2 }
   | objseq                               { $1 }
   | term restriction                     { UPred($1, $2) }

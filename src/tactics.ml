@@ -1181,6 +1181,9 @@ let backchain ?(used_nominals=[]) term goal =
       | Binding(Forall, bindings, body) ->
           backchain_arrow (freshen_nameless_bindings ~support ~ts:0 bindings body) goal
 
+      | _ -> backchain_arrow term goal
+
+(*
       | Arrow _ ->
           backchain_arrow term goal
 
@@ -1188,6 +1191,7 @@ let backchain ?(used_nominals=[]) term goal =
           ("Structure of backchained term must be a " ^
              "substructure of the following.\n" ^
              "forall A1 ... Ai, nabla z1 ... zj, H1 -> ... -> Hk -> C")
+*)
 
 
 let backchain_with term withs goal =

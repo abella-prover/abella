@@ -1,0 +1,56 @@
+Changes in 2.0.2 from 2.0.1
+---------------------------
+
+Potentially breaking changes.
+
+* Constants with names matching n[0-9]+ are forcibly treated as
+  nominal constants. This fixes a unsoundness due to ambiguous
+  parsing of such constants in proofs.
+* The tactic "exists" now has a synonym: "witness". This adds
+  "witness" to the list of keywords.
+
+Additions
+
+* Specification language now supports <= in addition to =>
+* Binders are printed using variable naming hints from the
+  source instead of in a normalized form (x1, x2, etc.)
+* Can unfold the nth clause of an inductive or co-inductive
+  definition block using "unfold n".
+* Can name clauses in the specification (in .mod files) using a
+  comment of the form %:nm: right before a clause. There must be a
+  single Abella identifier and no spaces between the two :s.
+* Can unfold a specific clause named "nm" of a specification using
+  "unfold nm".
+* New flag "instantiations" shows variable instantiations at the top
+  of a subgoal.
+* New notation "~ F" for "F -> false".
+* The backchain tactic now allows backchaining formulas that are
+  not prenex-quantified implications. The "head" of the backchained
+  formula is interpreted as any formula that is not an implication.
+* The rename tactic has been extended to also allow renaming
+  variables, with an identical syntax.
+
+Internal changes
+
+* Terms and meta-terms now have pretty-printer with a plugin
+  architecture for future extensions.
+
+Bug fixes
+
+* The exists/witness tactics now rename to avoid capture (#22)
+* Raising over nominal constants in spec. sequents raises over the
+  support of the whole sequent rather than just its conclusion.
+* Normalizing of binders now avoid capture (#23)
+* Instantiated variables are no longer printed in the variables list
+  of a sequent.
+* Higher-order definitions have a stricter stratification check that
+  complains both about actual and potential unsound definitions.
+* The subordination checker now does not complain about invalid
+  subterms for types that have not been explicitly Closed.
+* The rename tactic cannot rename lemmas (i.e., theorems proved
+  earlier)
+
+New examples
+
+* Formalization of the meta-theory of higher-order HH using only the
+  reasoning logic of Abella (examples/logic/hh_meta.thm).

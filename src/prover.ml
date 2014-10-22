@@ -985,18 +985,40 @@ let unabbrev ids =
 
 (* Rename *)
 
-let rename hfr hto =
-  try begin
-    ignore (get_hyp_or_lemma hto) ;
-    failwithf "%S already refers to a hypothesis or lemma" hto
-  end with Not_found ->
-    let hyps = List.map begin
+let rename_hyp hfr hto =
+  let hyps = List.map begin
       fun h ->
         if h.id = hfr then
           { h with id = hto }
         else h
-    end sequent.hyps in
-    sequent.hyps <- hyps
+    end sequent.hyps
+  in sequent.hyps <- hyps
+
+let rename_var vfr xto =
+  let ty = tc [] (List.assoc vfr sequent.vars) in
+  let vto = var Eigen xto 0 ty in
+  let repl = [vfr, vto] in
+  let rewrite mt = replace_metaterm_vars repl mt in
+  sequent.hyps <-
+    List.map (fun h -> { h with term = rewrite h.term }) sequent.hyps ;
+  sequent.vars <-
+    List.map (function (x, _) as v -> if x = vfr then (xto, vto) else v)
+      sequent.vars ;
+  sequent.goal <- rewrite sequent.goal
+
+let rename xfr xto =
+  if List.mem_assoc xto !lemmas then
+    failwithf "%S already refers to a lemma" xto ;
+  if List.exists (fun h -> h.id = xto) sequent.hyps then
+    failwithf "%S already refers to an existing hypothesis" xto ;
+  if List.mem_assoc xto sequent.vars then
+    failwithf "%S already refers to an existing variable" xto ;
+  if List.exists (fun h -> h.id = xfr) sequent.hyps then
+    rename_hyp xfr xto
+  else if List.mem_assoc xfr sequent.vars then
+    rename_var xfr xto
+  else
+    failwithf "Unknown variable or hypothesis label %S" xfr
 
 (* Permute *)
 

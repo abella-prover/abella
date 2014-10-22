@@ -197,11 +197,13 @@ let rec pretty_metaterm mt =
           fun ff ->
             pp_print_string ff (binder_to_string q) ;
             pp_print_string ff " " ;
-            pp_print_string ff (fst (List.hd tids)) ;
-            List.iter begin fun tid ->
-              pp_print_space ff () ;
-              pp_print_string ff (fst tid)
-            end (List.tl tids) ;
+            pp_open_box ff 0 ; begin
+              pp_print_string ff (fst (List.hd tids)) ;
+              List.iter begin fun tid ->
+                pp_print_space ff () ;
+                pp_print_string ff (fst tid)
+              end (List.tl tids) ;
+            end ; pp_close_box ff () ;
             pp_print_string ff ", " ;
         end) in
       let bod = pretty_metaterm a in

@@ -152,7 +152,7 @@ let get_pred_occurrences mt =
   let rec aux_term t =
     match observe (hnorm t) with
     | Var v when contains_prop v.ty ->
-        preds := String.Set.add v.name !preds
+        preds := String.Set.add v.Term.name !preds
     | App (t, ts) ->
         aux_term t ; List.iter aux_term ts
     | Lam (_, t) ->
@@ -169,7 +169,7 @@ let warn_stratify names head term =
   let nonposities = get_pred_occurrences term in
   let is_ho_var arg =
     match observe (hnorm arg) with
-    | Var { ty = ty; name = v; _ } when contains_prop ty -> Some v
+    | Var { Term.ty = ty; Term.name = v; _ } when contains_prop ty -> Some v
     | _ -> None
   in
   let ho_names =

@@ -3,8 +3,8 @@
 (* BEGIN VERSION *)
 let major_version  : int           = 2
 let minor_version  : int           = 0
-let patch_version  : int           = 2
-let flavor_version : string option = None
+let patch_version  : int           = 3
+let flavor_version : string option = Some "dev"
 (* END VERSION *)
 
 let version_string =
@@ -48,7 +48,11 @@ let () =
   maybe_make_version_file () ;
   dispatch begin function
     | After_rules ->
-      flag ["ocaml" ; "compile"] (S [A "-bin-annot" ; A "-g"]) ;
+      flag ["ocaml" ; "compile"] (A "-g") ;
+      Scanf.sscanf Sys.ocaml_version "%d."
+        (fun maj ->
+           if maj >= 4 then
+             flag ["ocaml" ; "compile"] (A "-bin-annot")) ;
       flag ["ocaml" ; "link"] (A "-g") ;
       if Sys.os_type = "Unix" then
            flag ["ocaml" ; "compile"] (S [A "-w" ; A "@3@5@6@8..12@14@20@26@28@29"]) ;

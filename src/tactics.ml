@@ -677,7 +677,7 @@ let unfold ~mdefs clause_sel goal =
                 | Async goal -> goal
                 | _ -> assert false
               in
-              let (head, body) as cl = freshen_nameless_clause ~support:[] ~ts:0 (clausify cl) in
+              let (head, body) = freshen_nameless_clause ~support:[] ~ts:0 (clausify cl) in
               match try_right_unify_cpairs head goal.Async.term with
               | None -> []
               | Some cpairs ->

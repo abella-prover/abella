@@ -204,7 +204,7 @@ let sequent_var_to_string (x, xt) =
 
 let is_uninstantiated (x, vtm) =
   match observe (hnorm vtm) with
-  | Var {name=n; tag=Eigen; _} when n = x -> true
+  | Var {Term.name=n; Term.tag=Eigen; _} when n = x -> true
   | _ -> false
 
 let show_instantiations = ref false

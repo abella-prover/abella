@@ -429,8 +429,8 @@ top_command:
 
 pure_top_command:
   | THEOREM id COLON metaterm DOT        { Types.Theorem($2, $4) }
-  | DEFINE id_tys BY defs DOT            { Types.Define($2, $4) }
-  | CODEFINE id_tys BY defs DOT          { Types.CoDefine($2, $4) }
+  | DEFINE id_tys BY optsemi defs DOT    { Types.Define($2, $5) }
+  | CODEFINE id_tys BY optsemi defs DOT  { Types.CoDefine($2, $5) }
   | QUERY metaterm DOT                   { Types.Query($2) }
   | IMPORT QSTRING DOT                   { Types.Import($2) }
   | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
@@ -447,3 +447,7 @@ common_command:
   | SHOW id DOT                          { Types.Show($2) }
   | QUIT DOT                             { Types.Quit }
   | EOF                                  { raise End_of_file }
+
+optsemi:
+  |                                      { () }
+  | SEMICOLON                            { () }

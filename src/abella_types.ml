@@ -197,22 +197,22 @@ let hn_to_string = function
 let command_to_string c =
   match c with
     | Induction(is, hn) ->
-        sprintf "induction %son %s" (hn_to_string hn)
+        sprintf "%sinduction on %s" (hn_to_string hn)
           (String.concat " " (List.map string_of_int is))
     | CoInduction None -> "coinduction"
     | CoInduction (Some hn) -> "coinduction " ^ hn
     | Apply(h, [], [], hn) ->
-        sprintf "apply %s" h
+        sprintf "%sapply %s" (hn_to_string hn) h
     | Apply(h, hs, [], hn) ->
-        sprintf "apply %s%s to %s"
+        sprintf "%sapply %s to %s"
           (hn_to_string hn)
           h (String.concat " " hs)
     | Apply(h, [], ws, hn) ->
-        sprintf "apply %s%s with %s"
+        sprintf "%sapply %s with %s"
           (hn_to_string hn)
           h (withs_to_string ws)
     | Apply(h, hs, ws, hn) ->
-        sprintf "apply %s%s to %s with %s"
+        sprintf "%sapply %s to %s with %s"
           (hn_to_string hn)
           h (String.concat " " hs)
           (withs_to_string ws)
@@ -221,20 +221,20 @@ let command_to_string c =
     | Backchain(h, ws) ->
         sprintf "backchain %s with %s" h (withs_to_string ws)
     | Cut(h1, h2, hn) ->
-        sprintf "cut %s%s with %s"
+        sprintf "%scut %s with %s"
           (hn_to_string hn) h1 h2
     | CutFrom(h, arg, t, hn) ->
-        sprintf "cut %s from %s%s with %s"
-          (uterm_to_string t) (hn_to_string hn) h arg
+        sprintf "%scut %s from %s with %s"
+          (hn_to_string hn) (uterm_to_string t) h arg
     | SearchCut(h, hn) ->
-        sprintf "cut %s%s" (hn_to_string hn) h
+        sprintf "%s cut %s" (hn_to_string hn) h
     | Inst(h, ws, hn) ->
-        sprintf "inst %s%s with %s" (hn_to_string hn) h (withs_to_string ws)
+        sprintf "%s inst %s with %s" (hn_to_string hn) h (withs_to_string ws)
     | Case(h, k, hn) ->
-        sprintf "case %s%s" (hn_to_string hn) h
+        sprintf "%scase %s" (hn_to_string hn) h
         ^ if k then " (keep)" else ""
     | Assert(t, hn) ->
-        sprintf "assert %s%s"
+        sprintf "%sassert %s"
           (hn_to_string hn)
           (umetaterm_to_formatted_string t)
     | Exists (how, t) ->

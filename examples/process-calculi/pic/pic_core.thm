@@ -180,23 +180,29 @@ Theorem bisim_symmetric : forall P Q,
   bisim_up_to refl_t P Q ->
   bisim_up_to refl_t Q P.
 coinduction. intros. Bis1 : case H1. unfold.
-  intros. apply Bis4 to H2. witness P2. split. search.
+  clear Bis1 Bis2 Bis3 Bis5 Bis6.
+  intros. apply *Bis4 to *H2. witness P2. split. search.
     witness P1. witness P2. case H4. split. search.
       backchain CH.
+  clear Bis1 Bis2 Bis3 Bis4 Bis6.
   intros. apply Bis5 to H2. witness P2. split. search.
-    witness P1. witness P2. intros. apply H4 with N = N. case H5.
+    witness P1. witness P2. intros. apply *H4 with N = N. case H5.
     split. search. backchain CH.
-      apply bisim_eq_1R to H6 H8. apply bisim_eq_2R to H9 H7. search.
+      apply bisim_eq_1R to *H6 *H8. apply bisim_eq_2R to *H9 *H7. search.
+  clear Bis1 Bis2 Bis3 Bis4 Bis5.
   intros. apply Bis6 to H2. witness P2. split. search.
     witness P1. witness P2. intros. case H4.
     split. search. backchain CH.
+  clear Bis2 Bis3 Bis4 Bis5 Bis6.
   intros. apply Bis1 to H2. witness Q2. split. search.
     witness Q2. witness Q1. case H4. split. search.
       backchain CH.
+  clear Bis1 Bis3 Bis4 Bis5 Bis6.
   intros. apply Bis2 to H2. witness Q2. split. search.
-    witness Q2. witness Q1. intros. apply H4 with N = N. case H5.
+    witness Q2. witness Q1. intros. apply *H4 with N = N. case H5.
     split. search. backchain CH.
-      apply bisim_eq_1R to H6 H8. apply bisim_eq_2R to H9 H7. search.
+      apply bisim_eq_1R to *H6 *H8. apply bisim_eq_2R to *H9 *H7. search.
+  clear Bis1 Bis2 BIs4 Bis5 Bis6.
   intros. apply Bis3 to H2. witness Q2. split. search.
     witness Q2. witness Q1. intros. case H4.
     split. search. backchain CH.
@@ -204,44 +210,44 @@ coinduction. intros. Bis1 : case H1. unfold.
 Theorem bisim_transitive : forall P Q R,
   bisim_up_to refl_t P Q -> bisim_up_to refl_t Q R -> bisim_up_to refl_t P R.
 coinduction. intros. Left1 : case H1. Right1 : case H2. unfold.
-  intros. apply Left1 to H3. apply Right1 to H4.
+  intros. apply Left1 to *H3. apply Right1 to *H4.
   witness Q1. split. search.
     witness P1. witness Q1. split. search.
       case H5. case H8. backchain CH.
 
-  intros. apply Left2 to H3. apply Right2 to H4.
+  intros. apply Left2 to *H3. apply Right2 to *H4.
   witness Q1. split. search.
     witness P1. witness Q1. intros. split. search.
-      apply H5 with N = N. apply H7 with N = N.
+      apply *H5 with N = N. apply *H7 with N = N.
       case H8. case H10.
-      apply bisim_eq_1R to H9 H13.
-      apply bisim_eq_2R to H16 H12.
-      apply bisim_eq_2L to H17 H15.
-      apply bisim_eq_2R to H11 H14.
-      clear H9 H11 H16 H17. backchain CH.
+      apply bisim_eq_1R to *H9 *H13.
+      apply bisim_eq_2R to *H16 *H12.
+      apply *bisim_eq_2L to *H17 *H15.
+      apply bisim_eq_2R to *H11 *H14.
+      backchain CH.
 
-   intros. apply Left3 to H3. apply Right3 to H4.
+   intros. apply Left3 to *H3. apply Right3 to *H4.
    witness Q1. split. search.
      witness P1. witness Q1. intros. split. search.
        case H5. case H8. backchain CH.
 
-   intros. apply Right4 to H3. apply Left4 to H4.
+   intros. apply Right4 to *H3. apply Left4 to *H4.
    witness P1. split. search.
      witness P1. witness Q1. split. search.
        case H5. case H8. backchain CH.
 
-   intros. apply Right5 to H3. apply Left5 to H4.
+   intros. apply Right5 to *H3. apply Left5 to *H4.
    witness P1. split. search.
      witness P1. witness Q1. intros. split. search.
-       apply H5 with N = N. apply H7 with N = N.
+       apply *H5 with N = N. apply *H7 with N = N.
        case H8. case H10.
-       apply bisim_eq_1R to H9 H13.
-       apply bisim_eq_2R to H16 H12.
-       apply bisim_eq_1R to H11 H15.
-       apply bisim_eq_2R to H18 H14.
-       clear H9 H11 H16 H18. backchain CH.
+       apply bisim_eq_1R to *H9 *H13.
+       apply bisim_eq_2R to *H16 *H12.
+       apply bisim_eq_1R to *H11 *H15.
+       apply bisim_eq_2R to *H18 *H14.
+       backchain CH.
 
-   intros. apply Right6 to H3. apply Left6 to H4.
+   intros. apply Right6 to *H3. apply Left6 to *H4.
    witness P1. split. search.
      witness P1. witness Q1. intros. split. search.
        case H5. case H8. backchain CH.

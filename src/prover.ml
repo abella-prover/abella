@@ -354,6 +354,9 @@ let get_hyp name =
   let hyp = List.find (fun h -> h.id = name) sequent.hyps in
     hyp.term
 
+let is_hyp name =
+  List.exists (fun h -> h.id = name) sequent.hyps
+
 let get_lemma name =
   List.assoc name !lemmas
 
@@ -362,6 +365,20 @@ let get_hyp_or_lemma name =
     get_hyp name
   with
       Not_found -> get_lemma name
+
+let get_stmt_clearly h =
+  match h with
+  | Default h ->
+      get_hyp_or_lemma h
+  | Clear h when is_hyp h ->
+      let stmt = get_hyp h in
+      remove_hyp h ; stmt
+  | Clear h ->
+      get_lemma h
+
+let get_arg_clearly = function
+  | Default "_" -> None
+  | arg -> Some (get_stmt_clearly arg)
 
 let next_subgoal () =
   match !subgoals with
@@ -378,7 +395,7 @@ let next_subgoal () =
 (* Object level instantiation *)
 
 let inst ?name h ws =
-  let ht = get_hyp h in
+  let ht = get_stmt_clearly h in
     match ht with
       | Obj _ ->
           let rec aux ws ht = match ws with
@@ -406,8 +423,8 @@ let inst ?name h ws =
 (* Object level cut *)
 
 let cut ?name h arg =
-  let h = get_hyp h in
-  let arg = get_hyp arg in
+  let h = get_stmt_clearly h in
+  let arg = get_stmt_clearly arg in
     match h, arg with
       | Obj(obj_h, _), Obj(obj_arg, _) ->
           add_hyp ?name (object_cut obj_h obj_arg)
@@ -483,19 +500,13 @@ let search ?(limit=None) ?(interactive=true) ?(witness=ignore) () =
 (* Search cut *)
 
 let search_cut ?name h =
-  match get_hyp h with
+  match get_stmt_clearly h with
     | Obj(obj, _) ->
         add_hyp ?name (Obj(search_cut ~search_goal obj, Irrelevant))
     | _ ->
         failwith "Cut can only be used on hypotheses of the form {... |- ...}"
 
 (* Apply *)
-
-let get_some_hyp name =
-  if name = "_" then
-    None
-  else
-    Some (get_hyp name)
 
 let goal_to_subgoal g =
   let saved_sequent = copy_sequent () in
@@ -553,8 +564,8 @@ let partition_obligations obligations =
        obligations)
 
 let apply ?name ?(term_witness=ignore) h args ws =
-  let stmt = get_hyp_or_lemma h in
-  let args = List.map get_some_hyp args in
+  let stmt = get_stmt_clearly h in
+  let args = List.map get_arg_clearly args in
   let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
   let ws = type_apply_withs stmt ws in
   let result, obligations = Tactics.apply_with stmt args ws in
@@ -639,21 +650,20 @@ let get_defs term =
         end
     | _ -> ([], [])
 
-let case ?name ?(keep=false) str =
-  let term = get_hyp str in
+let case ?name str =
   let global_support =
     (List.flatten_map metaterm_support
        (List.map (fun h -> h.term) sequent.hyps)) @
       (metaterm_support sequent.goal)
   in
+  let term = get_stmt_clearly str in
   let (mutual, defs) = get_defs term in
   let cases =
     Tactics.case ~used:sequent.vars ~sr:!sr ~clauses:!clauses
       ~mutual ~defs ~global_support term
   in
-    if not keep then remove_hyp str ;
-    add_subgoals (List.map (case_to_subgoal ?name) cases) ;
-    next_subgoal ()
+  add_subgoals (List.map (case_to_subgoal ?name) cases) ;
+  next_subgoal ()
 
 
 (* Induction *)
@@ -788,7 +798,7 @@ let assert_hyp ?name term =
 (* Object logic monotone *)
 
 let monotone h t =
-  let ht = get_hyp h in
+  let ht = get_stmt_clearly h in
     match ht with
       | Obj(Async obj, r) ->
           let obj_context, obj_term = Async.get obj in
@@ -1049,8 +1059,8 @@ let permute_nominals ids form =
 
 let cut_from ?name h arg term =
   let term = type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
-  let h = get_hyp h in
-  let arg = get_hyp arg in
+  let h = get_stmt_clearly h in
+  let arg = get_stmt_clearly arg in
     match h, arg with
       | Obj(obj_h1, _),Obj(obj_h2, _) ->
           add_hyp ?name (object_cut_from obj_h1 obj_h2 term)

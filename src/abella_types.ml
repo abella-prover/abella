@@ -69,23 +69,27 @@ type compiled =
   | CType of id list * ty
   | CClose of (id * id list) list
 
+type clearable =
+  | Default of id
+  | Clear of id
+
 type command =
   | Induction of int list * id option
   | CoInduction of id option
-  | Apply of id * id list * (id * uterm) list * id option
+  | Apply of clearable * clearable list * (id * uterm) list * id option
   | Backchain of id * (id * uterm) list
-  | CutFrom of id * id * uterm * id option
-  | Cut of id * id * id option
-  | SearchCut of id * id option
-  | Inst of id * (id * uterm) list * id option
-  | Case of id * bool * id option
+  | CutFrom of clearable * clearable * uterm * id option
+  | Cut of clearable * clearable * id option
+  | SearchCut of clearable * id option
+  | Inst of clearable * (id * uterm) list * id option
+  | Case of clearable * id option
   | Assert of umetaterm * id option
   | Exists of [`EXISTS | `WITNESS] * uterm
   | Clear of id list
   | Abbrev of id * string
   | Unabbrev of id list
   | Rename of id * id
-  | Monotone of id * uterm
+  | Monotone of clearable * uterm
   | Permute of id list * id option
   | Search of int option
   | Split
@@ -194,6 +198,14 @@ let hn_to_string = function
   | None -> ""
   | Some hn -> sprintf "%s : " hn
 
+let clearable_to_string cl =
+  match cl with
+  | Default h -> h
+  | Clear h -> "*" ^ h
+
+let clearables_to_string cls =
+  List.map clearable_to_string cls |> String.concat " "
+
 let command_to_string c =
   match c with
     | Induction(is, hn) ->
@@ -202,19 +214,23 @@ let command_to_string c =
     | CoInduction None -> "coinduction"
     | CoInduction (Some hn) -> "coinduction " ^ hn
     | Apply(h, [], [], hn) ->
-        sprintf "%sapply %s" (hn_to_string hn) h
+        sprintf "%sapply %s" (hn_to_string hn)
+          (clearable_to_string h)
     | Apply(h, hs, [], hn) ->
         sprintf "%sapply %s to %s"
           (hn_to_string hn)
-          h (String.concat " " hs)
+          (clearable_to_string h)
+          (clearables_to_string hs)
     | Apply(h, [], ws, hn) ->
         sprintf "%sapply %s with %s"
           (hn_to_string hn)
-          h (withs_to_string ws)
+          (clearable_to_string h)
+          (withs_to_string ws)
     | Apply(h, hs, ws, hn) ->
         sprintf "%sapply %s to %s with %s"
           (hn_to_string hn)
-          h (String.concat " " hs)
+          (clearable_to_string h)
+          (clearables_to_string hs)
           (withs_to_string ws)
     | Backchain(h, []) ->
         sprintf "backchain %s" h
@@ -222,17 +238,24 @@ let command_to_string c =
         sprintf "backchain %s with %s" h (withs_to_string ws)
     | Cut(h1, h2, hn) ->
         sprintf "%scut %s with %s"
-          (hn_to_string hn) h1 h2
+          (hn_to_string hn)
+          (clearable_to_string h1)
+          (clearable_to_string h2)
     | CutFrom(h, arg, t, hn) ->
         sprintf "%scut %s from %s with %s"
-          (hn_to_string hn) (uterm_to_string t) h arg
+          (hn_to_string hn) (uterm_to_string t)
+          (clearable_to_string h)
+          (clearable_to_string arg)
     | SearchCut(h, hn) ->
-        sprintf "%s cut %s" (hn_to_string hn) h
+        sprintf "%s cut %s" (hn_to_string hn)
+          (clearable_to_string h)
     | Inst(h, ws, hn) ->
-        sprintf "%s inst %s with %s" (hn_to_string hn) h (withs_to_string ws)
-    | Case(h, k, hn) ->
-        sprintf "%scase %s" (hn_to_string hn) h
-        ^ if k then " (keep)" else ""
+        sprintf "%s inst %s with %s" (hn_to_string hn)
+          (clearable_to_string h)
+          (withs_to_string ws)
+    | Case(h, hn) ->
+        sprintf "%scase %s" (hn_to_string hn)
+          (clearable_to_string h)
     | Assert(t, hn) ->
         sprintf "%sassert %s"
           (hn_to_string hn)
@@ -252,7 +275,9 @@ let command_to_string c =
     | Rename(hfrom, hto) ->
         sprintf "rename %s to %s" hfrom hto
     | Monotone(h, t) ->
-        sprintf "monotone %s with %s" h (uterm_to_string t)
+        sprintf "monotone %s with %s"
+          (clearable_to_string h)
+          (uterm_to_string t)
     | Permute(ids, t) ->
         sprintf "permute (%s)%s"
           (String.concat " " ids)

@@ -306,22 +306,34 @@ command:
   | pure_command                         { $1 }
   | common_command                       { Types.Common($1) }
 
+clearable:
+  | id                                   { Types.Default $1 }
+  | STAR hyp                             { Types.Clear $2 }
+
+applyables:
+  | hyp applyables                       { Types.Default $1 :: $2 }
+  | hyp                                  { [Types.Default $1] }
+  | STAR STRINGID applyables             { Types.Clear $2 :: $3 }
+  | STAR STRINGID                        { [Types.Clear $2] }
+
 pure_command:
   | hhint IND ON num_list DOT                 { Types.Induction($4, $1) }
   | hhint COIND DOT                           { Types.CoInduction($1) }
-  | hhint APPLY id TO hyp_list DOT            { Types.Apply($3, $5, [], $1) }
-  | hhint APPLY id TO hyp_list WITH withs DOT { Types.Apply($3, $5, $7, $1) }
-  | hhint APPLY id WITH withs DOT             { Types.Apply($3, [], $5, $1) }
-  | hhint APPLY id DOT                        { Types.Apply($3, [], [], $1) }
+  | hhint APPLY clearable TO applyables DOT
+                                              { Types.Apply($3, $5, [], $1) }
+  | hhint APPLY clearable TO applyables WITH withs DOT
+                                              { Types.Apply($3, $5, $7, $1) }
+  | hhint APPLY clearable WITH withs DOT      { Types.Apply($3, [], $5, $1) }
+  | hhint APPLY clearable DOT                 { Types.Apply($3, [], [], $1) }
   | BACKCHAIN id DOT                          { Types.Backchain($2, []) }
   | BACKCHAIN id WITH withs DOT               { Types.Backchain($2, $4) }
-  | hhint CUT LPAREN term RPAREN FROM hyp WITH hyp DOT
+  | hhint CUT LPAREN term RPAREN FROM clearable WITH clearable DOT
                                               { Types.CutFrom($7,$9,$4,$1) }
-  | hhint CUT hyp WITH hyp DOT                { Types.Cut($3, $5, $1) }
-  | hhint CUT hyp DOT                         { Types.SearchCut($3, $1) }
-  | hhint INST hyp WITH withs DOT             { Types.Inst($3, $5, $1) }
-  | hhint CASE hyp DOT                        { Types.Case($3, false, $1) }
-  | hhint CASE hyp LPAREN KEEP RPAREN DOT     { Types.Case($3, true, $1) }
+  | hhint CUT clearable WITH clearable DOT    { Types.Cut($3, $5, $1) }
+  | hhint CUT clearable DOT                   { Types.SearchCut($3, $1) }
+  | hhint INST clearable WITH withs DOT       { Types.Inst($3, $5, $1) }
+  | hhint CASE hyp DOT                        { Types.Case(Types.Clear $3, $1) }
+  | hhint CASE hyp LPAREN KEEP RPAREN DOT     { Types.Case(Types.Default $3, $1) }
   | hhint ASSERT metaterm DOT                 { Types.Assert($3, $1) }
   | EXISTS term DOT                           { Types.Exists(`EXISTS, $2) }
   | WITNESS term DOT                          { Types.Exists(`WITNESS, $2) }
@@ -343,7 +355,7 @@ pure_command:
   | ABBREV hyp QSTRING DOT                    { Types.Abbrev($2, $3) }
   | UNABBREV hyp_list DOT                     { Types.Unabbrev($2) }
   | RENAME STRINGID TO STRINGID DOT           { Types.Rename($2, $4) }
-  | MONOTONE hyp WITH term DOT                { Types.Monotone($2, $4) }
+  | MONOTONE clearable WITH term DOT          { Types.Monotone($2, $4) }
   | PERMUTE perm DOT                          { Types.Permute($2, None) }
   | PERMUTE perm hyp DOT                      { Types.Permute($2, Some $3) }
 

@@ -491,7 +491,7 @@ let rec process_proof name =
           | CutFrom(h, arg, t, hn) -> cut_from ?name:hn h arg t
           | SearchCut(h, hn) -> search_cut ?name:hn h
           | Inst(h, ws, hn) -> inst ?name:hn h ws
-          | Case(str, keep, hn) -> case ?name:hn ~keep str
+          | Case(str, hn) -> case ?name:hn str
           | Assert(t, hn) ->
               untyped_ensure_no_restrictions t ;
               assert_hyp ?name:hn t

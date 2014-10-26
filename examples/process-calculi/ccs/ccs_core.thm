@@ -1,0 +1,138 @@
+%%% Bisimilarity-up-to for CCS
+%%%
+%%%
+%%% For more details, please see the paper:
+%%%
+%%%   "A lightweight formalization of the meta-theory of
+%%%   bisimulation-up-to" by K. Chaudhuri, M. Cimini, and
+%%%   D. Miller, 2014
+
+%%% Action prefixes
+
+Kind name,action type.
+
+Type tau          action.
+Type up,dn        name -> action.
+
+%%% The following definition characterizes actions.
+
+Define is_action : action -> prop by
+  is_action tau
+; is_action (up N)
+; is_action (dn N).
+
+%%% Processes
+
+Kind proc type.
+
+Type null         proc.
+Type plus,par     proc -> proc -> proc.
+Type act          action -> proc -> proc.
+Type repl         proc -> proc.
+
+%%% The following definition allows us to reason by induction on the
+%%% structure of processes.
+
+Define is_proc : proc -> prop by
+  is_proc null
+; is_proc (plus P Q) := is_proc P /\ is_proc Q
+; is_proc (par P Q)  := is_proc P /\ is_proc Q
+; is_proc (act A P)  := is_action A /\ is_proc P
+; is_proc (repl P)   := is_proc P.
+
+%%% The steps of the labelled transition system for CCS
+
+Define one : proc -> action -> proc -> prop by
+  one (act A P) A P
+; one (plus P1 P2) A Q             := one P1 A Q
+; one (plus P1 P2) A Q             := one P2 A Q
+; one (par P Q) A (par P1 Q)       := one P A P1
+; one (par P Q) A (par P Q1)       := one Q A Q1
+; one (repl P) A (par (repl P) Q)  := one P A Q
+; one (par P Q) tau (par P1 Q1)    :=
+    exists X, one P (up X) P1 /\ one Q (dn X) Q1
+; one (par P Q) tau (par P1 Q1)    :=
+    exists X, one P (dn X) P1 /\ one Q (up X) Q1
+; one (repl P) tau (par (repl P) (par Q R)) :=
+    exists X, one P (up X) Q /\ one P (dn X) R.
+
+%%% The bisimulation-up-to relation.
+
+CoDefine bisim_up_to : (proc -> proc -> proc -> proc -> prop) ->
+                     proc -> proc -> prop
+by
+  bisim_up_to Tech P Q :=
+     (forall A P1, one P A P1 ->
+        exists Q1, one Q A Q1 /\
+          exists P2 Q2, Tech P1 P2 Q1 Q2 /\ bisim_up_to Tech P2 Q2)
+  /\ (forall A Q1, one Q A Q1 ->
+        exists P1, one P A P1 /\
+          exists P2 Q2, Tech P1 P2 Q1 Q2 /\ bisim_up_to Tech P2 Q2).
+
+%%% The reflexivity "technique"
+
+Define refl_t : proc -> proc -> proc -> proc -> prop by
+  refl_t P P Q Q.
+
+Define is_sound : (proc -> proc -> proc -> proc -> prop) -> prop by
+  is_sound Tech := forall P Q, bisim_up_to Tech P Q -> bisim_up_to refl_t P Q.
+
+%%% The ordinary bisimilarity
+
+CoDefine bisim : proc -> proc -> prop by
+  bisim P Q := bisim_up_to refl_t P Q.
+
+%%% Bisimilarity is an equivalence
+
+Define symmetric_rel : (proc -> proc -> prop) -> prop by
+  symmetric_rel Rel := forall P Q, Rel P Q -> Rel Q P.
+
+Theorem bisim_symmetric : symmetric_rel (bisim_up_to refl_t).
+unfold. coinduction. intros. case H1. unfold.
+  intros. apply H3 to H4. case H6. exists P3. split. search.
+    witness Q3. witness P3. split. search. backchain CH.
+  intros. apply H2 to H4. case H6. exists Q3. split. search.
+    witness Q3. witness P3. split. search. backchain CH.
+
+Theorem bisim_symmetric_ : forall P Q, bisim_up_to refl_t P Q -> bisim_up_to refl_t Q P.
+apply bisim_symmetric. case H1. search.
+
+Define transitive_rel : (proc -> proc -> prop) -> prop by
+  transitive_rel Rel := forall P Q R, Rel P Q -> Rel Q R -> Rel P R.
+
+Theorem bisim_transitive : transitive_rel (bisim_up_to refl_t).
+unfold. coinduction. intros. case H1. case H2. unfold.
+  intros. apply H3 to H7. apply H5 to H8. case H9. case H12.
+   exists Q4. split. search. witness P3. witness Q4. split. search.
+   backchain CH.
+  intros. apply H6 to H7. apply H4 to H8. case H9. case H12.
+   exists P4. split. search. witness P4. witness Q3. split. search.
+   backchain CH.
+
+Theorem bisim_transitive_ : forall P Q R,
+  bisim_up_to refl_t P Q ->
+  bisim_up_to refl_t Q R ->
+  bisim_up_to refl_t P R.
+apply bisim_transitive. case H1. search.
+
+Define reflexive_rel : (proc -> proc -> prop) -> prop by
+  reflexive_rel Rel := forall P, Rel P P.
+
+Theorem bisim_reflexive : reflexive_rel (bisim_up_to refl_t).
+unfold. coinduction. intros. unfold.
+  intros. witness P1. split. search.
+   witness P1. witness P1. split. search. backchain CH.
+  intros. witness Q1. split. search.
+   witness Q1. witness Q1. split. search. backchain CH.
+
+Theorem bisim_reflexive_ : forall P, bisim_up_to refl_t P P.
+apply bisim_reflexive. case H1. search.
+
+Define equiv_rel : (proc -> proc -> prop) -> prop by
+  equiv_rel R := reflexive_rel R /\ symmetric_rel R /\ transitive_rel R.
+
+Theorem bisim_equiv : equiv_rel (bisim_up_to refl_t).
+unfold.
+  backchain bisim_reflexive.
+  backchain bisim_symmetric.
+  backchain bisim_transitive.

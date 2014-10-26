@@ -1,0 +1,97 @@
+Kind name,action,proc type.
+
+Import "ccs_bisim".
+Import "ccs_ctx".
+
+Import "ccs_bisim_examples_helper".
+
+
+
+%%% !(a + b) ~ (!a | !b)
+
+Theorem ex_bang_plus :
+  bisim (repl (plus (act (dn a) null) (act (dn b) null)))
+        (par (repl (act (dn a) null)) (repl (act (dn b) null))).
+Sound : apply bisim_sound. Sound : case Sound.
+unfold. backchain Sound. clear Sound.
+coinduction. intros. unfold.
+  intros. case H1.
+    case H2.
+      case H3.
+      witness par (par (repl (act (dn a) null)) null) (repl (act (dn b) null)). split. search.
+        witness repl (plus (act (dn a) null) (act (dn b) null)).
+        witness par (repl (act (dn a) null)) (repl (act (dn b) null)). split.
+          unfold. backchain bisim_par_null.
+          backchain bisim_par_subst_1. backchain bisim_par_null.
+          backchain CH.
+      case H3.
+      witness par (repl (act (dn a) null)) (par (repl (act (dn b) null)) null). split. search.
+        witness repl (plus (act (dn a) null) (act (dn b) null)).
+        witness par (repl (act (dn a) null)) (repl (act (dn b) null)). split.
+          unfold. backchain bisim_par_null.
+          backchain bisim_par_subst_2. backchain bisim_par_null.
+          backchain CH.
+    case H2.
+      case H4.
+      case H4.
+  intros. case H1.
+    case H2.
+      case H3.
+      witness par (repl (plus (act (dn a) null) (act (dn b) null))) null. split. search.
+        witness repl (plus (act (dn a) null) (act (dn b) null)).
+        witness par (repl (act (dn a) null)) (repl (act (dn b) null)). split.
+          unfold. backchain bisim_par_null.
+          backchain bisim_par_subst_1. backchain bisim_par_null.
+          backchain CH.
+      case H3.
+    case H2.
+      case H3.
+      witness par (repl (plus (act (dn a) null) (act (dn b) null))) null. split. search.
+        witness repl (plus (act (dn a) null) (act (dn b) null)).
+        witness par (repl (act (dn a) null)) (repl (act (dn b) null)). split.
+          unfold. backchain bisim_par_null.
+          backchain bisim_par_subst_2. backchain bisim_par_null.
+          backchain CH.
+      case H3.
+    case H2. case H4.
+    case H3. case H4.
+
+
+%%% !!a ~ !a
+
+Import "ccs_bisim_context_examples".
+%%% This is needed for: bisim_repl_absorb : forall P, bisim_up_to refl_t (par (repl P) P) (repl P)
+
+Theorem ex_bang_bang :
+  bisim (repl (repl (act (dn a) null)))
+        (repl (act (dn a) null)).
+Sound : apply bisim_sound. Sound : case Sound.
+unfold. backchain Sound. clear Sound.
+coinduction. intros. unfold.
+  intros. case H1.
+    case H2.
+      case H3.
+      witness (par (repl (act (dn a) null)) null). split. search.
+        witness (repl (repl (act (dn a) null))).
+        witness (repl (act (dn a) null)). split. unfold.
+          apply bisim_par_null with P = (repl (act (dn a) null)).
+          apply bisim_par_subst_2 to H4 with R = (repl (repl (act (dn a) null))).
+          apply bisim_repl_absorb with P = (repl (act (dn a) null)).
+          backchain bisim_transitive_.
+          backchain bisim_par_null.
+          backchain CH.
+    case H3.
+      case H2.
+      case H4.
+  intros. case H1.
+    case H2.
+      witness (par (repl (repl (act (dn a) null))) (par (repl (act (dn a) null)) null)). split. search.
+        witness (repl (repl (act (dn a) null))).
+        witness (repl (act (dn a) null)). split. unfold.
+          apply bisim_par_null with P = (repl (act (dn a) null)).
+          apply bisim_par_subst_2 to H3 with R = (repl (repl (act (dn a) null))).
+          apply bisim_repl_absorb with P = (repl (act (dn a) null)).
+          backchain bisim_transitive_.
+          backchain bisim_par_null.
+          backchain CH.
+    case H2.

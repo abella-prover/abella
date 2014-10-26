@@ -1,0 +1,139 @@
+Kind name,action,proc type.
+
+Import "ccs_core".
+Import "ccs_ctx".
+
+%%% Define some actions
+Type a,b,c,d name.
+
+Theorem bisim_par_null : forall P, bisim_up_to refl_t (par P null) P.
+coinduction. intros. unfold.
+  intros. case H1.
+    witness P3. split. search.
+      witness par P3 null. witness P3. split. search. backchain CH.
+    case H2.
+    case H3.
+    case H3.
+  intros. witness par Q1 null. split. search.
+    witness par Q1 null. witness Q1. split. search. backchain CH.
+
+Theorem bisim_par_comm : forall P Q, bisim_up_to refl_t (par P Q) (par Q P).
+coinduction. intros. unfold.
+  intros. case H1.
+    witness (par Q P3). split. search.
+      witness (par P3 Q). witness (par Q P3). split. search. backchain CH.
+    witness (par Q2 P). split. search.
+      witness (par P Q2). witness (par Q2 P). split. search. backchain CH.
+    witness (par Q2 P3). split. search.
+      witness (par P3 Q2). witness (par Q2 P3). split. search. backchain CH.
+    witness (par Q2 P3). split. search.
+      witness (par P3 Q2). witness (par Q2 P3). split. search. backchain CH.
+  intros. case H1.
+    witness (par P P2). split. search.
+      witness (par P P2). witness (par P2 P). split. search. backchain CH.
+    witness (par Q3 Q). split. search.
+      witness (par Q3 Q). witness (par Q Q3). split. search. backchain CH.
+    witness (par Q3 P2). split. search.
+      witness (par Q3 P2). witness (par P2 Q3). split. search. backchain CH.
+    witness (par Q3 P2). split. search.
+      witness (par Q3 P2). witness (par P2 Q3). split. search. backchain CH.
+
+Theorem bisim_par_assoc : forall P Q R,
+  bisim_up_to refl_t (par (par P Q) R) (par P (par Q R)).
+coinduction. intros. unfold.
+  intros. case H1.
+    case H2.
+      witness par P4 (par Q R). split. search.
+        witness par (par P4 Q) R.
+        witness par P4 (par Q R). split. search.
+          backchain CH.
+      witness par P (par Q2 R). split. search.
+        witness par (par P Q2) R.
+        witness par P (par Q2 R). split. search.
+          backchain CH.
+      witness par P4 (par Q2 R). split. search.
+        witness par (par P4 Q2) R.
+        witness par P4 (par Q2 R). split. search.
+          backchain CH.
+      witness par P4 (par Q2 R). split. search.
+        witness par (par P4 Q2) R.
+        witness par P4 (par Q2 R). split. search.
+          backchain CH.
+    witness par P (par Q Q2). split. search.
+      witness par (par P Q) Q2.
+      witness par P (par Q Q2). split. search.
+        backchain CH.
+    case H2.
+      witness par P4 (par Q Q2). split. search.
+        witness par (par P4 Q) Q2.
+        witness par P4 (par Q Q2). split. search.
+          backchain CH.
+      witness par P (par Q3 Q2). split. search.
+        witness par (par P Q3) Q2.
+        witness par P (par Q3 Q2). split. search.
+          backchain CH.
+    case H2.
+      witness par P4 (par Q Q2). split. search.
+        witness par (par P4 Q) Q2.
+        witness par P4 (par Q Q2). split. search.
+          backchain CH.
+      witness par P (par Q3 Q2). split. search.
+        witness par (par P Q3) Q2.
+        witness par P (par Q3 Q2). split. search.
+          backchain CH.
+  intros. case H1.
+    witness par (par P2 Q) R. split. search.
+      witness par (par P2 Q) R.
+      witness par P2 (par Q R). split. search.
+        backchain CH.
+    case H2.
+      witness par (par P P2) R. split. search.
+        witness par (par P P2) R.
+        witness par P (par P2 R). split. search.
+          backchain CH.
+      witness par (par P Q) Q4. split. search.
+        witness par (par P Q) Q4.
+        witness par P (par Q Q4). split. search.
+          backchain CH.
+      witness par (par P P2) Q4. split. search.
+        witness par (par P P2) Q4.
+        witness par P (par P2 Q4). split. search.
+          backchain CH.
+      witness par (par P P2) Q4. split. search.
+        witness par (par P P2) Q4.
+        witness par P (par P2 Q4). split. search.
+          backchain CH.
+    case H3.
+      witness par (par P2 P3) R. split. search.
+        witness par (par P2 P3) R.
+        witness par P2 (par P3 R). split. search.
+          backchain CH.
+      witness par (par P2 Q) Q4. split. search.
+        witness par (par P2 Q) Q4.
+        witness par P2 (par Q Q4). split. search.
+          backchain CH.
+      case H3.
+      witness par (par P2 P3) R. split. search.
+        witness par (par P2 P3) R.
+        witness par P2 (par P3 R). split. search.
+          backchain CH.
+      witness par (par P2 Q) Q4. split. search.
+        witness par (par P2 Q) Q4.
+        witness par P2 (par Q Q4). split. search.
+          backchain CH.
+
+Theorem bisim_par_assoc_left : forall P Q R,
+  bisim_up_to refl_t (par (par P Q) R) (par (par P R) Q).
+intros. apply bisim_reflexive_ with P = par (par P Q) R.
+apply bisim_par_assoc with P = P, Q = Q, R = R.
+apply bisim_par_comm with P = P, Q = par Q R.
+apply bisim_par_assoc with P = Q, Q = R, R = P.
+apply bisim_par_comm with P = Q, Q = par R P.
+assert bisim_up_to refl_t (par R P) (par P R). backchain bisim_par_comm.
+apply bisim_par_subst_1 to H6 with R = Q.
+Acc : apply bisim_transitive_ to H1 H2.
+Acc : apply bisim_transitive_ to Acc H3.
+Acc : apply bisim_transitive_ to Acc1 H4.
+Acc : apply bisim_transitive_ to Acc2 H5.
+Acc : apply bisim_transitive_ to Acc3 H7.
+search.

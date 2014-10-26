@@ -1,0 +1,232 @@
+Kind name,action,proc type.
+
+Import "ccs_bisim_context".
+Import "ccs_ctx".
+Import "ccs_bisim_examples_helper".
+
+Theorem bisim_context_reflexive_ : forall P,
+  bisim_up_to bisim_context_t P P.
+coinduction. intros. unfold.
+  intros.
+  witness P1. split. search.
+    witness P1. witness P1. split.
+      unfold. witness P1. witness P1. split.
+        unfold.
+          backchain bisim_reflexive_.
+          backchain bisim_reflexive_.
+        search.
+      backchain CH.
+  intros.
+  witness Q1. split. search.
+    witness Q1. witness Q1. split.
+      unfold. witness Q1. witness Q1. split.
+        unfold.
+          backchain bisim_reflexive_.
+          backchain bisim_reflexive_.
+        search.
+      backchain CH.
+
+Theorem bisim_repl_absorb : forall P,
+  bisim_up_to refl_t (par (repl P) P) (repl P).
+Sound : apply bisim_context_sound. Sound : case Sound.
+intros. backchain Sound. clear Sound.
+coinduction. intros. unfold.
+  intros. case H1.
+    case H2.
+      witness (par (repl P) Q). split. search.
+      witness (par (repl P) P).
+      witness (repl P). split. unfold.
+      witness (par (par (repl P) P) Q).
+      witness (par (repl P) Q). split. unfold.
+      backchain bisim_par_assoc_left.
+      backchain bisim_reflexive_.
+      search.
+      backchain CH.
+      witness (par (repl P) (par Q R)). split. search.
+      witness (par (repl P) P).
+      witness (repl P). split. unfold.
+      witness (par (par (repl P) P) (par Q R)).
+      witness (par (repl P) (par Q R)). split. unfold.
+      backchain bisim_par_assoc_left.
+      backchain bisim_reflexive_.
+      search.
+      backchain CH.
+      witness (par (repl P) Q1). split. search.
+      witness (par (repl P) Q1).
+      witness (par (repl P) Q1). split. unfold.
+      witness (par (repl P) Q1).
+      witness (par (repl P) Q1). split. unfold.
+      backchain bisim_reflexive_.
+      backchain bisim_reflexive_.
+      search.
+      backchain bisim_context_reflexive_.
+    case H2.
+      witness (par (repl P) (par Q Q1)). split. search.
+      witness (par (repl P) (par Q Q1)).
+      witness (par (repl P) (par Q Q1)). split. unfold.
+      witness (par (repl P) (par Q Q1)).
+      witness (par (repl P) (par Q Q1)). split. unfold.
+      backchain bisim_par_assoc.
+      backchain bisim_reflexive_.
+      search.
+      backchain bisim_context_reflexive_.
+    case H2.
+      witness (par (repl P) (par Q1 Q)). split. search.
+      witness (par (repl P) (par Q1 Q)).
+      witness (par (repl P) (par Q1 Q)). split. unfold.
+      witness (par (repl P) (par Q1 Q)).
+      witness (par (repl P) (par Q1 Q)). split. unfold.
+      apply bisim_par_comm with P = Q, Q = Q1.
+      apply bisim_par_subst_2 to H5 with R = (repl P).
+      apply bisim_par_assoc with P = (repl P), Q = Q, R = Q1.
+      backchain bisim_transitive_.
+      backchain bisim_reflexive_.
+      search.
+      backchain bisim_context_reflexive_.
+  intros. case H1.
+      witness (par (par (repl P) Q) P). split. search.
+      witness (par (repl P) P).
+      witness (repl P). split. unfold.
+      witness (par (par (repl P) P) Q).
+      witness (par (repl P) Q). split. unfold.
+      backchain bisim_par_assoc_left.
+      backchain bisim_reflexive_.
+      search.
+      backchain CH.
+      witness (par (par (repl P) (par Q R)) P). split. search.
+      witness (par (repl P) P).
+      witness (repl P). split. unfold.
+      witness (par (par (repl P) P) (par Q R)).
+      witness (par (repl P) (par Q R)). split. unfold.
+      backchain bisim_par_assoc_left.
+      backchain bisim_reflexive_.
+      search.
+      backchain CH.
+
+
+%%% !(a.P + b.Q) ~ (!a.P | !b.Q)
+
+Theorem ex_bang_plus_ctx : forall P,
+  bisim (repl (plus (act (dn a) P) (act (dn b) P)))
+        (par (repl (act (dn a) P)) (repl (act (dn b) P))).
+Sound : apply bisim_context_sound. Sound : case Sound.
+intros. unfold. backchain Sound. clear Sound.
+coinduction. intros. unfold.
+  intros. case H1.
+    case H2.
+      case H3.
+      witness (par (par (repl (act (dn a) P)) P) (repl (act (dn b) P))). split. search.
+        witness (repl (plus (act (dn a) P) (act (dn b) P))).
+        witness (par (repl (act (dn a) P)) (repl (act (dn b) P))). split. unfold.
+        witness (par (repl (plus (act (dn a) P) (act (dn b) P))) P).
+        witness (par (par (repl (act (dn a) P)) (repl (act (dn b) P))) P). split. unfold.
+        backchain bisim_reflexive_.
+        apply bisim_par_comm with P = P, Q = (repl (act (dn b) Q)).
+        apply bisim_par_subst_2 to H4 with R = (repl (act (dn a) Q)).
+        apply bisim_par_assoc with P = (repl (act (dn a) Q)), Q = P, R = (repl (act (dn b) Q)).
+        apply bisim_par_assoc with P = (repl (act (dn a) Q)), Q = (repl (act (dn b) Q)), R = P.
+        apply bisim_transitive_ to H6 H5.
+        apply bisim_symmetric_ to H7.
+        apply bisim_transitive_ to H8 H9.
+        search.
+        search.
+        backchain CH.
+      case H3.
+      witness (par (repl (act (dn a) P)) (par (repl (act (dn b) P)) P)). split. search.
+        witness (repl (plus (act (dn a) P) (act (dn b) P))).
+        witness (par (repl (act (dn a) P)) (repl (act (dn b) P))). split. unfold.
+        witness (par (repl (plus (act (dn a) P) (act (dn b) P))) P).
+        witness (par (par (repl (act (dn a) P)) (repl (act (dn b) P))) P). split. unfold.
+        backchain bisim_reflexive_.
+        apply bisim_par_assoc with P = (repl (act (dn a) Q)), Q = (repl (act (dn b) Q)), R = Q.
+        backchain bisim_symmetric_.
+        search.
+        backchain CH.
+    case H2.
+      case H4.
+      case H4.
+  intros. case H1.
+    case H2.
+      case H3.
+      witness (par (repl (plus (act (dn a) P) (act (dn b) P))) P). split. search.
+        witness (repl (plus (act (dn a) P) (act (dn b) P))).
+        witness (par (repl (act (dn a) P)) (repl (act (dn b) P))). split. unfold.
+        witness (par (repl (plus (act (dn a) P) (act (dn b) P))) P).
+        witness (par (par (repl (act (dn a) P)) (repl (act (dn b) P))) P). split. unfold.
+        backchain bisim_reflexive_.
+        apply bisim_par_comm with P = Q, Q = (repl (act (dn b) Q)).
+        apply bisim_par_subst_2 to H4 with R = (repl (act (dn a) Q)).
+        apply bisim_par_assoc with P = (repl (act (dn a) Q)), Q = Q, R = (repl (act (dn b) Q)).
+        apply bisim_par_assoc with P = (repl (act (dn a) Q)), Q = (repl (act (dn b) Q)), R = Q.
+        apply bisim_transitive_ to H6 H5.
+        apply bisim_symmetric_ to H7.
+        apply bisim_transitive_ to H8 H9.
+        search.
+        search.
+        backchain CH.
+      case H3.
+    case H2.
+      case H3.
+      witness (par (repl (plus (act (dn a) P) (act (dn b) P))) P). split. search.
+        witness (repl (plus (act (dn a) P) (act (dn b) P))).
+        witness (par (repl (act (dn a) P)) (repl (act (dn b) P))). split. unfold.
+        witness par (repl (plus (act (dn a) P) (act (dn b) P))) Q.
+        witness par (par (repl (act (dn a) P)) (repl (act (dn b) P))) Q. split. unfold.
+        backchain bisim_reflexive_.
+        apply bisim_par_assoc with P = (repl (act (dn a) P)), Q = (repl (act (dn b) P)), R = Q.
+        backchain bisim_symmetric_.
+        search.
+        backchain CH.
+      case H3.
+    case H2.
+      case H4.
+    case H3.
+      case H4.
+
+
+%%% !!a.P ~ !a.P
+
+Theorem ex_bang_bang_ctx : forall P,
+  bisim (repl (repl (act (dn a) P)))
+        (repl (act (dn a) P)).
+Sound : apply bisim_context_sound. Sound : case Sound. intros.
+unfold. backchain Sound. clear Sound.
+coinduction. intros. unfold.
+  intros. case H1.
+    case H2.
+      case H3.
+      witness (par (repl (act (dn a) P)) P). split. search.
+      witness (repl (repl (act (dn a) P))).
+      witness (repl (act (dn a) P)). split. unfold.
+      witness (par (repl (repl (act (dn a) P))) P).
+      witness (par (repl (act (dn a) P)) P). split. unfold.
+      apply bisim_repl_absorb with P = (repl (act (dn a) P)).
+      apply bisim_par_subst_1 to H4 with R = P.
+      apply bisim_par_assoc with P = (repl (repl (act (dn a) P))), Q = (repl (act (dn a) P)), R = P.
+      apply bisim_symmetric_ to H6.
+      apply bisim_transitive_ to H7 H5.
+      search.
+      backchain bisim_reflexive_.
+      search.
+      backchain CH.
+      case H3.
+    case H2.
+      case H4.
+
+  intros. case H1.
+    case H2.
+      witness (par (repl (repl (act (dn a) P))) (par (repl (act (dn a) P)) P)). split. search.
+      witness (repl (repl (act (dn a) P))).
+      witness (repl (act (dn a) P)). split. unfold.
+      witness (par (repl (repl (act (dn a) P))) P).
+      witness (par (repl (act (dn a) P)) P). split. unfold.
+      apply bisim_repl_absorb with P = (repl (act (dn a) P)).
+      apply bisim_par_subst_1 to H3 with R = P.
+      apply bisim_par_assoc with P = (repl (repl (act (dn a) P))), Q = (repl (act (dn a) P)), R = P.
+      apply bisim_symmetric_ to H5.
+      apply bisim_transitive_ to H6 H4.
+      search.
+      backchain bisim_reflexive_.
+      search.
+      backchain CH.
+    case H2.

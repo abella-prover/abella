@@ -1,0 +1,139 @@
+Kind name,action,proc type.
+
+Import "ccs_core".
+Import "ccs_ctx".
+Import "ccs_bisim".
+Import "ccs_context".
+
+Define bisim_context_t : proc -> proc -> proc -> proc -> prop by
+  bisim_context_t P1 P3 Q1 Q3 :=
+    exists P2 Q2, bisim_t P1 P2 Q1 Q2 /\ context_t P2 P3 Q2 Q3.
+
+Theorem bisim_context_t_reflexive : forall P, bisim_context_t P P P P.
+intros. unfold. witness P. witness P. split.
+  backchain bisim_t_reflexive.
+  search.
+
+Theorem bisim_context_reflexive : forall P, bisim_up_to bisim_context_t P P.
+coinduction. intros. unfold.
+  intros. witness P1. split. search.
+    witness P1. witness P1. split.
+      unfold. witness P1. witness P1. split.
+        unfold. backchain bisim_reflexive_. backchain bisim_reflexive_.
+        search.
+      backchain CH.
+  intros. witness Q1. split. search.
+    witness Q1. witness Q1. split.
+      unfold. witness Q1. witness Q1. split.
+        unfold. backchain bisim_reflexive_. backchain bisim_reflexive_.
+        search.
+      backchain CH.
+
+Theorem bisim_context_t_contexts : forall C P1 P2 Q1 Q2,
+  at C P2 P1 -> at C Q2 Q1 ->
+  bisim_context_t P1 P2 Q1 Q2.
+intros. unfold. witness P1. witness Q1. split.
+  unfold. backchain bisim_reflexive_. backchain bisim_reflexive_.
+  search.
+
+Theorem bisim_substitutive_ : forall C P1 Q1 P2 Q2,
+  at C P1 Q1 -> at C P2 Q2 ->
+  bisim_up_to refl_t P1 P2 ->
+  bisim_up_to refl_t Q1 Q2.
+apply bisim_substitutive. case H1. intros. backchain H2.
+
+Theorem ctx_mirror : forall C P1 P2 Q1, at C P1 P2 -> exists Q2, at C Q1 Q2.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2 with Q1 = Q1. search.
+  apply IH to H2 with Q1 = Q1. search.
+  apply IH to H2 with Q1 = Q1. search.
+  apply IH to H2 with Q1 = Q1. search.
+  apply IH to H2 with Q1 = Q1. search.
+
+Theorem bisim_context_substitutive : substitutive_rel (bisim_up_to bisim_context_t).
+unfold. coinduction. intros. unfold.
+% from P
+intros. apply ctx_faithful to H1 H4. case H5.
+  apply H7 to H2. witness RR. split. search.
+   witness P1. witness P2. split. backchain bisim_context_t_contexts.
+   backchain CH.
+  case H3.
+   apply H9 to H6. apply H8 to H11. apply H14 to H2.
+   witness RR. split. search.
+   case H12. case H18. case H17.
+   apply ctx_mirror to H7 with Q1 = P5.
+   apply ctx_mirror to H16 with Q1 = Q5.
+   apply bisim_substitutive_ to H7 H23 H21.
+   apply bisim_substitutive_ to H16 H24 H22.
+   apply concat_ctx2 to H19 H23 H20 H24.
+   witness P4. witness Q4. split. search.
+   backchain CH.
+  apply H6 to H2. witness P3. split. search.
+   witness P3. witness P3. split.
+     backchain bisim_context_t_reflexive.
+     backchain CH. backchain bisim_context_reflexive.
+% from Q
+intros. apply ctx_faithful to H2 H4. case H5.
+  apply H7 to H1. witness RR. split. search.
+   witness P1. witness P2. split. backchain bisim_context_t_contexts.
+   backchain CH.
+  case H3.
+   apply H10 to H6. apply H8 to H11. apply H14 to H1.
+   witness RR. split. search.
+   case H12. case H18. case H17.
+   apply ctx_mirror to H7 with Q1 = P5.
+   apply ctx_mirror to H16 with Q1 = Q5.
+   apply bisim_substitutive_ to H7 H24 H22.
+   apply bisim_substitutive_ to H16 H23 H21.
+   apply concat_ctx2 to H19 H23 H20 H24.
+   witness P4. witness Q4. split. search.
+   backchain CH.
+  apply H6 to H1. witness Q3. split. search.
+   witness Q3. witness Q3. split. backchain bisim_context_t_reflexive.
+   backchain CH. backchain bisim_context_reflexive.
+
+Theorem bisim_context_sound_fst : is_sound_fst bisim_context_t.
+unfold. coinduction. intros. case H1. unfold.
+  % from P
+  intros.
+   case H2. clear H7. apply H6 to H5. clear H6. case H9.
+   case H3. clear H12. apply H11 to H8. clear H11.
+   case H4. clear H17. apply H16 to H13. clear H16. case H19.
+   witness Q6. split. search.
+   witness P3. witness Q6. split. search.
+   case H14. case H21.
+   assert bisim_up_to refl_t P3 P5. backchain bisim_transitive_.
+   assert bisim_up_to bisim_context_t P5 Q7.
+     Lem : apply bisim_context_substitutive. Lem : case Lem.
+     case H22. backchain Lem.
+   assert bisim_up_to refl_t Q7 Q6.
+     apply bisim_symmetric_ to H24. backchain bisim_transitive_.
+   backchain CH.
+  % from Q
+  intros.
+   case H4. apply H7 to H5. case H3. apply H12 to H8. case H2. apply H17 to H13.
+   clear H6 H7 H11 H12 H16 H17. case H9. case H19.
+   witness P6. split. search.
+   witness P6. witness Q3. split. search.
+   case H14. case H21.
+   assert bisim_up_to refl_t P6 P7. backchain bisim_transitive_.
+   assert bisim_up_to bisim_context_t P7 Q5.
+     Lem : apply bisim_context_substitutive. Lem : case Lem.
+     case H22. backchain Lem.
+   assert bisim_up_to refl_t Q5 Q3.
+     apply bisim_symmetric_ to H24. backchain bisim_transitive_.
+   backchain CH.
+
+Theorem bisim_context_sound_snd : is_sound_snd bisim_context_t.
+unfold. intros.
+witness P. witness Q. split.
+  backchain bisim_reflexive_.
+  search.
+  backchain bisim_reflexive_.
+
+Theorem bisim_context_sound : is_sound bisim_context_t.
+unfold. intros.
+  Snd : apply bisim_context_sound_snd. Snd : case Snd.
+  Fst : apply bisim_context_sound_fst. Fst : case Fst.
+  apply Snd to H1. backchain Fst.

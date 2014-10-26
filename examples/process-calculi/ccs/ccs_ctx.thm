@@ -1,0 +1,245 @@
+Kind name,action,proc type.
+
+Import "ccs_core".
+
+%%% Substitutivity
+
+Define inv : proc -> proc -> prop by
+  inv P Q := bisim_up_to refl_t P Q
+; inv (par P1 Q1) (par P2 Q2) := inv P1 P2 /\ inv Q1 Q2.
+
+Define bisim_inv : proc -> proc -> prop by
+   bisim_inv P Q :=
+      (forall A P1, one P A P1 ->
+         exists Q1, one Q A Q1 /\
+           inv P1 Q1)
+   /\ (forall A Q1, one Q A Q1 ->
+         exists P1, one P A P1 /\
+           inv P1 Q1).
+
+Theorem inv_bisim_inv : forall P Q, inv P Q -> bisim_inv P Q.
+induction on 1. intros. case H1.
+  case H2. unfold.
+    intros. apply H3 to H5. case H7. witness Q3. search.
+    intros. apply H4 to H5. case H7. witness P3. search.
+  apply IH to H2. apply IH to H3. case H4. case H5. unfold.
+    intros. case H10.
+      apply H6 to H11. search.
+      apply H8 to H11. search.
+      apply H6 to H11. apply H8 to H12. search.
+      apply H6 to H11. apply H8 to H12. search.
+    intros. case H10.
+      apply H7 to H11. search.
+      apply H9 to H11. search.
+      apply H7 to H11. apply H9 to H12. search.
+      apply H7 to H11. apply H9 to H12. search.
+
+Theorem bisim_inv_bisim : forall P Q, bisim_inv P Q -> bisim_up_to refl_t P Q.
+coinduction. intros. case H1. unfold.
+  intros. apply H2 to H4. witness Q2. split. search.
+    witness P1. witness Q2. split. search.
+    apply inv_bisim_inv to H6. backchain CH.
+  intros. apply H3 to H4. witness P2. split. search.
+    witness P2. witness Q1. split. search.
+    apply inv_bisim_inv to H6. backchain CH.
+
+Theorem bisim_par_subst_1 : forall P Q R,
+  bisim_up_to refl_t P Q -> bisim_up_to refl_t (par P R) (par Q R).
+intros. apply bisim_reflexive_ with P = R.
+ backchain bisim_inv_bisim.
+ backchain inv_bisim_inv.
+
+Theorem bisim_par_subst_2 : forall P Q R,
+  bisim_up_to refl_t P Q -> bisim_up_to refl_t (par R P) (par R Q).
+intros. apply bisim_reflexive_ with P = R.
+ backchain bisim_inv_bisim.
+ backchain inv_bisim_inv.
+
+Theorem bisim_plus_subst_1 : forall P Q R,
+  bisim_up_to refl_t P Q -> bisim_up_to refl_t (plus P R) (plus Q R).
+intros. case H1. unfold.
+  intros. case H4.
+    apply H2 to H5. case H7. witness Q3. split. search.
+      witness P3. witness Q3. search.
+    witness P1. split. search.
+      witness P1. witness P1. apply bisim_reflexive_ with P = P1.
+      search.
+  intros. case H4.
+    apply H3 to H5. case H7. witness P3. split. search.
+      witness P2. witness Q3. search.
+    witness Q1. split. search.
+      witness Q1. witness Q1. apply bisim_reflexive_ with P = Q1.
+      search.
+
+Theorem bisim_plus_subst_2 : forall P Q R,
+  bisim_up_to refl_t P Q -> bisim_up_to refl_t (plus R P) (plus R Q).
+intros. case H1. unfold.
+  intros. case H4.
+    witness P1. split. search.
+      witness P1. witness P1. apply bisim_reflexive_ with P = P1.
+      search.
+    apply H2 to H5. case H7. witness Q3. split. search.
+      witness P3. witness Q3. search.
+  intros. case H4.
+    witness Q1. split. search.
+      witness Q1. witness Q1. apply bisim_reflexive_ with P = Q1.
+      search.
+    apply H3 to H5. case H7. witness P3. split. search.
+      witness P2. witness Q3. search.
+
+Theorem bisim_act_subst : forall P Q A,
+  bisim_up_to refl_t P Q -> bisim_up_to refl_t (act A P) (act A Q).
+intros. unfold.
+  intros. case H2. witness Q. split. search.
+    witness P1. witness Q. search.
+  intros. case H2. witness P. split. search.
+    witness P. witness Q1. search.
+
+%%% Process contexts
+
+Kind ctx type.
+
+Type hole           ctx.
+Type plus_l,par_l   ctx -> proc -> ctx.
+Type plus_r,par_r   proc -> ctx -> ctx.
+Type act_d          action -> ctx -> ctx.
+
+%%% at C P Q   means  C[P] = Q.
+Define at : ctx -> proc -> proc -> prop by
+  at hole P P
+; at (plus_l C R) P (plus Q R) := at C P Q
+; at (plus_r R C) P (plus R Q) := at C P Q
+; at (par_l C R) P (par Q R) := at C P Q
+; at (par_r R C) P (par R Q) := at C P Q
+; at (act_d A C) P (act A Q) := at C P Q.
+
+Define substitutive_rel : (proc -> proc -> prop) -> prop by
+  substitutive_rel Rel :=
+    forall P1 P2 C Q1 Q2,
+      at C P1 Q1 -> at C P2 Q2 ->
+      Rel P1 P2 -> Rel Q1 Q2.
+
+Theorem bisim_substitutive : substitutive_rel (bisim_up_to refl_t).
+unfold. induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H4 H5 H3. backchain bisim_plus_subst_1.
+  case H2. apply IH to H4 H5 H3. backchain bisim_plus_subst_2.
+  case H2. apply IH to H4 H5 H3. backchain bisim_par_subst_1.
+  case H2. apply IH to H4 H5 H3. backchain bisim_par_subst_2.
+  case H2. apply IH to H4 H5 H3. backchain bisim_act_subst.
+
+Theorem at_det3 : forall C P Q1 Q2,
+  at C P Q1 -> at C P Q2 -> Q1 = Q2.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H3 H4. search.
+  case H2. apply IH to H3 H4. search.
+  case H2. apply IH to H3 H4. search.
+  case H2. apply IH to H3 H4. search.
+  case H2. apply IH to H3 H4. search.
+
+Theorem at_det2 : forall C P1 P2 Q,
+  at C P1 Q -> at C P2 Q -> P1 = P2.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H3 H4. search.
+  case H2. apply IH to H3 H4. search.
+  case H2. apply IH to H3 H4. search.
+  case H2. apply IH to H3 H4. search.
+  case H2. apply IH to H3 H4. search.
+
+%%% Context concatenation
+
+Theorem concat_ctx : forall C1 P1 C2 P2 P3,
+  at C1 P1 P2 -> at C2 P2 P3 -> exists C3, at C3 P1 P3.
+induction on 2. intros. case H2.
+  search.
+  apply IH to H1 H3. search.
+  apply IH to H1 H3. search.
+  apply IH to H1 H3. search.
+  apply IH to H1 H3. search.
+  apply IH to H1 H3. search.
+
+%%% Faithful contexts
+
+Theorem ctx_faithful : forall C P P0 A R,
+  at C P P0 -> one P0 A R ->
+     (exists CC, at CC P R /\
+        (forall Q Q0, at C Q Q0 -> exists RR, one Q0 A RR /\ at CC Q RR))
+  \/ (exists CC PBP B, one P B PBP /\ at CC PBP R /\
+        (forall Q QBQ, one Q B QBQ ->
+          (forall Q0, at C Q Q0 -> exists RR, one Q0 A RR /\ at CC QBQ RR)))
+  \/ (forall Q Q0, at C Q Q0 -> one Q0 A R).
+induction on 1. intros. case H1 (keep).
+% empty context
+left. right. witness hole. witness R. witness A. split. search. search.
+intros. case H4. witness QBQ. search.
+% plus_l
+case H2.
+  apply IH to H3 H4. case H5.
+    left. left. witness CC. split. search.
+     intros. case H8. apply H7 to H9. search.
+    left. right. witness CC. witness PBP. witness B. split. search. search.
+     intros. apply H8 to H9. case H10. apply H11 to H12. search.
+    right. intros. case H7. apply H6 to H8. search.
+  right. intros. case H5. search.
+% plus_r
+case H2.
+  right. intros. case H5. search.
+  apply IH to H3 H4. case H5.
+    left. left. witness CC. split. search.
+     intros. case H8. apply H7 to H9. search.
+    left. right. witness CC. witness PBP. witness B. split. search. search.
+     intros. apply H8 to H9. case H10. apply H11 to H12. search.
+    right. intros. case H7. apply H6 to H8. search.
+% par_l
+case H2.
+  apply IH to H3 H4. case H5.
+    left. left. witness par_l CC R1. split. search.
+     intros. case H8. apply H7 to H9. witness par RR R1. search.
+    left. right. witness par_l CC R1. witness PBP. witness B. split. search. search.
+     intros. case H10. apply H8 to H9. apply H12 to H11.
+     witness par RR R1. search.
+    right. intros. case H7. apply H6 to H8. search.
+  left. left. witness par_l C1 Q2. split. search.
+   intros. case H5. witness par Q3 Q2. search.
+  apply IH to H3 H4. case H6.
+    left. left. witness par_l CC Q2. split. search.
+     intros. case H9. apply H8 to H10. witness par RR Q2. search.
+    left. right. witness par_l CC Q2. witness PBP. witness B. split. search. search.
+     intros. case H11. apply H9 to H10. apply H13 to H12.
+     witness par RR Q2. search.
+    right. intros. case H8. apply H7 to H9. search.
+  apply IH to H3 H4. case H6.
+    left. left. witness par_l CC Q2. split. search.
+     intros. case H9. apply H8 to H10. witness par RR Q2. search.
+    left. right. witness par_l CC Q2. witness PBP. witness B. split. search. search.
+     intros. case H11. apply H9 to H10. apply H13 to H12.
+     witness par RR Q2. search.
+    right. intros. case H8. apply H7 to H9. search.
+% par_r
+case H2.
+  left. left. witness par_r P2 C1. split. search.
+   intros. case H5. witness par P2 Q2. search.
+  apply IH to H3 H4. case H5.
+    left. left. witness par_r R1 CC. split. search.
+     intros. case H8. apply H7 to H9. witness par R1 RR. search.
+    left. right. witness par_r R1 CC. witness PBP. witness B. split. search. search.
+     intros. case H10. apply H8 to H9. apply H12 to H11. search.
+    right. intros. case H7. apply H6 to H8. search.
+  apply IH to H3 H5. case H6.
+    left. left. witness par_r P2 CC. split. search.
+     intros. case H9. apply H8 to H10. search.
+    left. right. witness par_r P2 CC. witness PBP. witness B. split. search. search.
+     intros. case H11. apply H9 to H10. apply H13 to H12. search.
+    right. intros. case H8. apply H7 to H9. search.
+  apply IH to H3 H5. case H6.
+    left. left. witness par_r P2 CC. split. search.
+     intros. case H9. apply H8 to H10. search.
+    left. right. witness par_r P2 CC. witness PBP. witness B. split. search. search.
+     intros. case H11. apply H9 to H10. apply H13 to H12. search.
+    right. intros. case H8. apply H7 to H9. search.
+% act_d
+case H2. left. left. witness C1. split. search.
+ intros. case H4. search.
+

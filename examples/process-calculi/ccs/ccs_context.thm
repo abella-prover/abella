@@ -1,0 +1,73 @@
+Kind name,action,proc type.
+
+Import "ccs_core".
+Import "ccs_ctx".
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Up-to-context technique
+
+Define context_t : proc -> proc -> proc -> proc -> prop by
+  context_t P1 P2 Q1 Q2 :=
+    exists C, at C P2 P1 /\ at C Q2 Q1.
+
+Theorem concat_ctx2 : forall C1 C2 P1 P2 P3 Q1 Q2 Q3,
+  at C1 P1 P2 -> at C2 P2 P3 ->
+  at C1 Q1 Q2 -> at C2 Q2 Q3 ->
+  exists C3, at C3 P1 P3 /\ at C3 Q1 Q3.
+induction on 2. intros. case H2.
+  case H4. search.
+  case H4. apply IH to H1 H5 H3 H6. search.
+  case H4. apply IH to H1 H5 H3 H6. search.
+  case H4. apply IH to H1 H5 H3 H6. search.
+  case H4. apply IH to H1 H5 H3 H6. search.
+  case H4. apply IH to H1 H5 H3 H6. search.
+
+Theorem context_reflexive : forall P, bisim_up_to context_t P P.
+coinduction. intros. unfold.
+  intros. witness P1. split. search.
+   witness P1. witness P1. split. search. backchain CH.
+  intros. witness Q1. split. search.
+   witness Q1. witness Q1. split. search. backchain CH.
+
+Theorem context_substitutive : substitutive_rel (bisim_up_to context_t).
+unfold. coinduction. intros. unfold.
+% from P
+intros. apply ctx_faithful to H1 H4. case H5.
+  apply H7 to H2. witness RR. split. search.
+   witness P1. witness P2. split. search.
+   backchain CH.
+  case H3.
+   apply H9 to H6. apply H8 to H11. apply H14 to H2.
+   witness RR. split. search.
+   case H12.
+   apply concat_ctx2 to H17 H7 H18 H16.
+   witness P4. witness Q4. split. search. backchain CH.
+  apply H6 to H2. witness P3. split. search.
+   witness P3. witness P3. split. search.
+   backchain CH. backchain context_reflexive.
+% from Q
+intros. apply ctx_faithful to H2 H4. case H5.
+  apply H7 to H1. witness RR. split. search.
+   witness P1. witness P2. split. search.
+   backchain CH.
+  case H3.
+   apply H10 to H6. apply H8 to H11. apply H14 to H1.
+    witness RR. split. search.
+    case H12.
+    apply concat_ctx2 to H17 H16 H18 H7.
+    witness P4. witness Q4. split. search. backchain CH.
+  apply H6 to H1. witness Q3. split. search.
+   witness Q3. witness Q3. split. search.
+   backchain CH. backchain context_reflexive.
+
+Theorem context_sound : is_sound context_t.
+apply context_substitutive. case H1. rename H2 to cs_lemma.
+unfold. coinduction. intros. case H3. unfold.
+  % from P
+  intros. apply H4 to H6.
+   witness Q2. split. search. witness P1. witness Q2. split. search.
+   case H8. apply cs_lemma to H10 H11 H9. backchain CH.
+  % from Q
+  intros. apply H5 to H6.
+   witness P2. split. search. witness P2. witness Q1. split. search.
+   case H8. apply cs_lemma to H10 H11 H9. backchain CH.

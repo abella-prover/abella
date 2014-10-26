@@ -1,0 +1,247 @@
+%%% Bisimilarity-up-to for the synchronous pi-calculus
+%%%
+%%%
+%%% For more details, please see the paper:
+%%%
+%%%   "A lightweight formalization of the meta-theory of
+%%%   bisimulation-up-to" by K. Chaudhuri, M. Cimini, and
+%%%   D. Miller, 2014
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Processes
+
+Kind name,proc type.
+
+%% action prefixes
+Type taup         proc -> proc.
+Type inp          name -> (name -> proc) -> proc.
+Type oup          name -> name -> proc -> proc.
+
+%% name restriction
+Type nu           (name -> proc) -> proc.
+
+%% replication
+Type repl         proc -> proc.
+
+%% core process algebra
+Type plus, par    proc -> proc -> proc.
+Type null         proc.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Labels of the LTS
+
+Kind label type.
+
+Type tau          label.
+Type up, dn       name -> name -> label.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% The steps of the LTS
+
+% The steps are defined by a mutually inductive definition of a relation
+% one for closed steps and oneb for bound steps, i.e., steps that contain
+% a name that is restricted (nu) or bound (inp) in an outer scope.
+
+Define
+   one  : proc -> label -> proc -> prop,
+   oneb : proc -> (name -> label) -> (name -> proc) -> prop
+by
+   /* internal steps */
+;  one (taup P) tau P
+
+   /* closed output */
+;  one (oup X Y P) (up X Y) P
+
+   /* core process algebra */
+;  one (plus P Q) L R := one P L R
+;  one (plus P Q) L R := one Q L R
+;  one (par P Q) L (par R Q) := one P L R
+;  one (par P Q) L (par P R) := one Q L R
+;  one (repl P) L (par (repl P) R) := one P L R
+;  one (nu P) L (nu Q) := nabla x, one (P x) L (Q x)
+
+   /* closed communication */
+;  one (par P Q) tau (par PP QQ) :=
+      /* case of P getting input */
+      (exists X Y R, oneb P (dn X) R /\ one Q (up X Y) QQ /\ PP = R Y)
+      /* case of Q getting input */
+   \/ (exists X Y R, one P (up X Y) PP /\ oneb Q (dn X) R /\ QQ = R Y)
+
+   /* internal closed communication in a replicated process */
+;  one (repl P) tau (par (repl P) (par PP QQ)) :=
+      exists X Y R,
+         one P (up X Y) PP
+      /\ oneb P (dn X) R /\ QQ = R Y
+
+   /* bound communication */
+;  one (par P Q) tau (nu y\ par (PP y) (QQ y)) :=
+      /* case of P getting input */
+      (exists X, oneb P (dn X) PP /\ oneb Q (up X) QQ)
+      /* case of Q getting input */
+   \/ (exists X, oneb P (up X) PP /\ oneb Q (dn X) QQ)
+
+   /* internal bound communication in a replicated process */
+;  one (repl P) tau (par (repl P) (nu y\ par (PP y) (QQ y))) :=
+      exists X, oneb P (up X) PP /\ oneb P (dn X) QQ
+
+   /* bound output */
+;  oneb (nu P) (up X) R := nabla y, one (P y) (up X y) (R y)
+
+   /* bound input */
+;  oneb (inp X P) (dn X) P
+
+   /* core process algebra for bound labels */
+;  oneb (plus P Q) L R := oneb P L R
+;  oneb (plus P Q) L R := oneb Q L R
+;  oneb (par P Q) L (x\ par (R x) Q) := oneb P L R
+;  oneb (par P Q) L (x\ par P (R x)) := oneb Q L R
+;  oneb (repl P) L (x\ par (repl P) (R x)) := oneb P L R
+;  oneb (nu P) L (y\ nu x\ R x y) := nabla x, oneb (P x) L (R x).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Bisimilarity-up-to
+
+CoDefine bisim_up_to : (proc -> proc -> proc -> proc -> prop) ->
+                       proc -> proc -> prop by
+  bisim_up_to Tech P Q :=
+     (forall L P1, one P L P1 ->
+        exists Q1, one Q L Q1 /\
+          exists P2 Q2, Tech P1 P2 Q1 Q2 /\
+            bisim_up_to Tech P2 Q2)
+  /\ (forall X P1, oneb P (dn X) P1 ->
+        exists Q1, oneb Q (dn X) Q1 /\
+          exists P2 Q2, forall N,
+            Tech (P1 N) (P2 N) (Q1 N) (Q2 N) /\
+            bisim_up_to Tech (P2 N) (Q2 N))
+  /\ (forall X P1, oneb P (up X) P1 ->
+        exists Q1, oneb Q (up X) Q1 /\
+          exists P2 Q2, nabla x,
+            Tech (P1 x) (P2 x) (Q1 x) (Q2 x) /\
+            bisim_up_to Tech (P2 x) (Q2 x))
+  /\ (forall L Q1, one Q L Q1 ->
+        exists P1, one P L P1 /\
+          exists P2 Q2, Tech P1 P2 Q1 Q2 /\
+            bisim_up_to Tech P2 Q2)
+  /\ (forall X Q1, oneb Q (dn X) Q1 ->
+        exists P1, oneb P (dn X) P1 /\
+          exists P2 Q2, forall N,
+            Tech (P1 N) (P2 N) (Q1 N) (Q2 N) /\
+            bisim_up_to Tech (P2 N) (Q2 N))
+  /\ (forall X Q1, oneb Q (up X) Q1 ->
+        exists P1, oneb P (up X) P1 /\
+          exists P2 Q2, nabla x,
+            Tech (P1 x) (P2 x) (Q1 x) (Q2 x) /\
+            bisim_up_to Tech (P2 x) (Q2 x)).
+
+Define refl_t : proc -> proc -> proc -> proc -> prop by
+  refl_t P P Q Q.
+
+Define is_sound : (proc -> proc -> proc -> proc -> prop) -> prop by
+  is_sound Tech :=
+    forall P Q, bisim_up_to Tech P Q -> bisim_up_to refl_t P Q.
+
+Theorem bisim_reflexive : forall P, bisim_up_to refl_t P P.
+coinduction. intros. unfold.
+  intros. witness P1. split. search.
+    witness P1. witness P1. split. search.
+      backchain CH.
+  intros. witness P1. split. search.
+    witness P1. witness P1. intros. split. search.
+      backchain CH.
+  intros. witness P1. split. search.
+    witness P1. witness P1. intros. split. search.
+      backchain CH.
+  intros. witness Q1. split. search.
+    witness Q1. witness Q1. intros. split. search.
+      backchain CH.
+  intros. witness Q1. split. search.
+    witness Q1. witness Q1. intros. split. search.
+      backchain CH.
+  intros. witness Q1. split. search.
+    witness Q1. witness Q1. intros. split. search.
+      backchain CH.
+
+Theorem bisim_eq_1L : forall P1 P2 Q,
+  bisim_up_to refl_t P1 Q -> P1 = P2 -> bisim_up_to refl_t P2 Q.
+intros. case H2. search.
+Theorem bisim_eq_1R : forall P1 P2 Q,
+  bisim_up_to refl_t P2 Q -> P1 = P2 -> bisim_up_to refl_t P1 Q.
+intros. case H2. search.
+Theorem bisim_eq_2L : forall P Q1 Q2,
+  bisim_up_to refl_t P Q1 -> Q1 = Q2 -> bisim_up_to refl_t P Q2.
+intros. case H2. search.
+Theorem bisim_eq_2R : forall P Q1 Q2,
+  bisim_up_to refl_t P Q2 -> Q1 = Q2 -> bisim_up_to refl_t P Q1.
+intros. case H2. search.
+
+Theorem bisim_symmetric : forall P Q,
+  bisim_up_to refl_t P Q ->
+  bisim_up_to refl_t Q P.
+coinduction. intros. Bis1 : case H1. unfold.
+  intros. apply Bis4 to H2. witness P2. split. search.
+    witness P1. witness P2. case H4. split. search.
+      backchain CH.
+  intros. apply Bis5 to H2. witness P2. split. search.
+    witness P1. witness P2. intros. apply H4 with N = N. case H5.
+    split. search. backchain CH.
+      apply bisim_eq_1R to H6 H8. apply bisim_eq_2R to H9 H7. search.
+  intros. apply Bis6 to H2. witness P2. split. search.
+    witness P1. witness P2. intros. case H4.
+    split. search. backchain CH.
+  intros. apply Bis1 to H2. witness Q2. split. search.
+    witness Q2. witness Q1. case H4. split. search.
+      backchain CH.
+  intros. apply Bis2 to H2. witness Q2. split. search.
+    witness Q2. witness Q1. intros. apply H4 with N = N. case H5.
+    split. search. backchain CH.
+      apply bisim_eq_1R to H6 H8. apply bisim_eq_2R to H9 H7. search.
+  intros. apply Bis3 to H2. witness Q2. split. search.
+    witness Q2. witness Q1. intros. case H4.
+    split. search. backchain CH.
+
+Theorem bisim_transitive : forall P Q R,
+  bisim_up_to refl_t P Q -> bisim_up_to refl_t Q R -> bisim_up_to refl_t P R.
+coinduction. intros. Left1 : case H1. Right1 : case H2. unfold.
+  intros. apply Left1 to H3. apply Right1 to H4.
+  witness Q1. split. search.
+    witness P1. witness Q1. split. search.
+      case H5. case H8. backchain CH.
+
+  intros. apply Left2 to H3. apply Right2 to H4.
+  witness Q1. split. search.
+    witness P1. witness Q1. intros. split. search.
+      apply H5 with N = N. apply H7 with N = N.
+      case H8. case H10.
+      apply bisim_eq_1R to H9 H13.
+      apply bisim_eq_2R to H16 H12.
+      apply bisim_eq_2L to H17 H15.
+      apply bisim_eq_2R to H11 H14.
+      clear H9 H11 H16 H17. backchain CH.
+
+   intros. apply Left3 to H3. apply Right3 to H4.
+   witness Q1. split. search.
+     witness P1. witness Q1. intros. split. search.
+       case H5. case H8. backchain CH.
+
+   intros. apply Right4 to H3. apply Left4 to H4.
+   witness P1. split. search.
+     witness P1. witness Q1. split. search.
+       case H5. case H8. backchain CH.
+
+   intros. apply Right5 to H3. apply Left5 to H4.
+   witness P1. split. search.
+     witness P1. witness Q1. intros. split. search.
+       apply H5 with N = N. apply H7 with N = N.
+       case H8. case H10.
+       apply bisim_eq_1R to H9 H13.
+       apply bisim_eq_2R to H16 H12.
+       apply bisim_eq_1R to H11 H15.
+       apply bisim_eq_2R to H18 H14.
+       clear H9 H11 H16 H18. backchain CH.
+
+   intros. apply Right6 to H3. apply Left6 to H4.
+   witness P1. split. search.
+     witness P1. witness Q1. intros. split. search.
+       case H5. case H8. backchain CH.

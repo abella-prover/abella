@@ -307,14 +307,14 @@ command:
   | common_command                       { Types.Common($1) }
 
 clearable:
-  | id                                   { Types.Default $1 }
-  | STAR hyp                             { Types.Clear $2 }
+  | id                                   { Types.Keep $1 }
+  | STAR hyp                             { Types.Remove $2 }
 
 applyables:
-  | hyp applyables                       { Types.Default $1 :: $2 }
-  | hyp                                  { [Types.Default $1] }
-  | STAR STRINGID applyables             { Types.Clear $2 :: $3 }
-  | STAR STRINGID                        { [Types.Clear $2] }
+  | hyp applyables                       { Types.Keep $1 :: $2 }
+  | hyp                                  { [Types.Keep $1] }
+  | STAR STRINGID applyables             { Types.Remove $2 :: $3 }
+  | STAR STRINGID                        { [Types.Remove $2] }
 
 pure_command:
   | hhint IND ON num_list DOT                 { Types.Induction($4, $1) }
@@ -332,8 +332,8 @@ pure_command:
   | hhint CUT clearable WITH clearable DOT    { Types.Cut($3, $5, $1) }
   | hhint CUT clearable DOT                   { Types.SearchCut($3, $1) }
   | hhint INST clearable WITH withs DOT       { Types.Inst($3, $5, $1) }
-  | hhint CASE hyp DOT                        { Types.Case(Types.Clear $3, $1) }
-  | hhint CASE hyp LPAREN KEEP RPAREN DOT     { Types.Case(Types.Default $3, $1) }
+  | hhint CASE hyp DOT                        { Types.Case(Types.Remove $3, $1) }
+  | hhint CASE hyp LPAREN KEEP RPAREN DOT     { Types.Case(Types.Keep $3, $1) }
   | hhint ASSERT metaterm DOT                 { Types.Assert($3, $1) }
   | EXISTS term DOT                           { Types.Exists(`EXISTS, $2) }
   | WITNESS term DOT                          { Types.Exists(`WITNESS, $2) }

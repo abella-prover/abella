@@ -368,16 +368,16 @@ let get_hyp_or_lemma name =
 
 let get_stmt_clearly h =
   match h with
-  | Default h ->
+  | Keep h ->
       get_hyp_or_lemma h
-  | Clear h when is_hyp h ->
+  | Remove h when is_hyp h ->
       let stmt = get_hyp h in
       remove_hyp h ; stmt
-  | Clear h ->
+  | Remove h ->
       get_lemma h
 
 let get_arg_clearly = function
-  | Default "_" -> None
+  | Keep "_" -> None
   | arg -> Some (get_stmt_clearly arg)
 
 let next_subgoal () =

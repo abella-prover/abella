@@ -70,8 +70,8 @@ type compiled =
   | CClose of (id * id list) list
 
 type clearable =
-  | Default of id
-  | Clear of id
+  | Keep of id
+  | Remove of id
 
 type command =
   | Induction of int list * id option
@@ -200,8 +200,8 @@ let hn_to_string = function
 
 let clearable_to_string cl =
   match cl with
-  | Default h -> h
-  | Clear h -> "*" ^ h
+  | Keep h -> h
+  | Remove h -> "*" ^ h
 
 let clearables_to_string cls =
   List.map clearable_to_string cls |> String.concat " "
@@ -253,9 +253,10 @@ let command_to_string c =
         sprintf "%s inst %s with %s" (hn_to_string hn)
           (clearable_to_string h)
           (withs_to_string ws)
-    | Case(h, hn) ->
-        sprintf "%scase %s" (hn_to_string hn)
-          (clearable_to_string h)
+    | Case(Keep h, hn) ->
+        sprintf "%scase %s (keep)" (hn_to_string hn) h
+    | Case(Remove h, hn) ->
+        sprintf "%scase %s" (hn_to_string hn) h
     | Assert(t, hn) ->
         sprintf "%sassert %s"
           (hn_to_string hn)

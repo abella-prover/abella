@@ -1,0 +1,187 @@
+Kind name,action,proc type.
+
+Import "pic_core".
+Import "pic_bisim".
+Import "pic_ctx".
+
+%%% Define some actions
+Type a,b,c,d name.
+
+Theorem bisim_par_null : forall P, bisim_up_to refl_t (par P null) P.
+coinduction. intros. unfold.
+  intros. case H1.
+    witness R. split. search.
+      witness par R null. witness R. split. search.
+        backchain CH.
+    case H2.
+    case H2. case H4. case H4.
+    case H2. case H4. case H4.
+  intros. case H1.
+    witness R. split. search.
+      witness x\ par (R x) null. witness R. intros. split. search.
+        backchain CH.
+    case H2.
+  intros. case H1.
+    witness R. split. search.
+      witness x\ par (R x) null. witness R. intros. split. search.
+        backchain CH.
+    case H2.
+  intros. witness par Q1 null. split. search.
+    witness par Q1 null. witness Q1. split. search.
+      backchain CH.
+  intros. witness x\ par (Q1 x) null. split. search.
+    witness x\ par (Q1 x) null. witness Q1. intros. split. search.
+      backchain CH.
+  intros. witness x\ par (Q1 x) null. split. search.
+    witness x\ par (Q1 x) null. witness Q1. intros. split. search.
+      backchain CH.
+
+%%% !(a(x) + b(x)) ~ (!a(x) | !b(x))
+
+Theorem ex_bang_plus :
+  bisim_up_to bisim_t (repl (plus (inp a x\null) (inp b x\null)))
+        (par (repl (inp a x\null)) (repl (inp b x\null))).
+intros bisim_repl_absorb.
+coinduction. unfold.
+  intros. case H1.
+    case H2.
+    case H3.
+    case H3.
+    case H2.
+    case H4. case H4.
+    case H2. case H4. case H4.
+
+  intros. case H1.
+    case H2.
+      case H3.
+       witness x\par (par (repl (inp X (x\null))) ((x\null) x)) (repl (inp b (x\null))). split. search.
+       witness x\(repl (plus (inp X (x\null)) (inp b (x\null)))).
+       witness x\ (par (repl (inp X (x\null))) (repl (inp b (x\null)))). intros. split.
+        unfold. backchain bisim_par_null.
+        backchain bisim_par_subst_1. backchain bisim_par_null.
+        backchain CH.
+
+      case H3.
+       witness x\par (repl (inp a (x\null))) (par (repl (inp X (x\null))) ((x\null) x)). split. search.
+       witness x\(repl (plus (inp a (x\null)) (inp X (x\null)))).
+       witness x\ (par (repl (inp a (x\null))) (repl (inp X (x\null)))). intros. split.
+       unfold. backchain bisim_par_null.
+       backchain bisim_par_subst_2. backchain bisim_par_null.
+       backchain CH.
+
+  intros. case H1.
+    case H2.
+      case H3.
+      case H3.
+
+  intros. case H1.
+    case H2.
+      case H3.
+      case H3.
+      case H3.
+    case H2.
+      case H3.
+      case H3.
+      case H3.
+
+    case H2.
+      case H4.
+      case H5.
+      case H3.
+      case H5.
+
+    case H2.
+      case H4.
+      case H5.
+      case H3.
+      case H5.
+
+  intros. case H1.
+    case H2.
+      case H3.
+      witness x\par (repl (plus (inp X (x\null)) (inp b (x\null)))) ((x\null) x). split. search.
+      witness x\(repl (plus (inp X (x\null)) (inp b (x\null)))).
+      witness x\(par (repl (inp X (x\null))) (repl (inp b (x\null)))). intros. split.
+          unfold. backchain bisim_par_null.
+          backchain bisim_par_subst_1. backchain bisim_par_null.
+          backchain CH.
+    case H2.
+      case H3.
+      witness x\par (repl (plus (inp a (x\null)) (inp X (x\null)))) ((x\null) x). split. search.
+        witness x\(repl (plus (inp a (x\null)) (inp X (x\null)))).
+        witness x\ (par (repl (inp a (x\null))) (repl (inp X (x\null)))). intros. split.
+        unfold. backchain bisim_par_null.
+        backchain bisim_par_subst_2. backchain bisim_par_null.
+        backchain CH.
+
+  intros. case H1.
+    case H2.
+      case H3.
+    case H2.
+      case H3.
+
+
+%%% !!a(x) ~ !a(x)
+%%%
+%%%     ... assuming that !P | P ~ !P, which can only be shown using
+%%%         up-to-bisimilarity-and-context
+%%%
+%%%         (this is often assumed as a structural equivalence)
+
+Theorem ex_bang_bang :
+  (forall P, bisim_up_to refl_t (par (repl P) P) (repl P)) ->
+  bisim_up_to bisim_t (repl (repl (inp a x\null)))
+        (repl (inp a x\null)).
+intros bisim_repl_absorb.
+coinduction. unfold.
+  intros. case H1.
+    case H2.
+      case H3.
+      case H3.
+      case H3.
+
+    case H2.
+      case H3.
+      case H4.
+
+    case H2.
+      case H4.
+
+  intros. case H1.
+    case H2.
+      case H3.
+      witness (x\par (repl (inp X (x\null))) ((x\null) x)). split. search.
+        witness x\(repl (repl (inp X (x\null)))).
+        witness x\(repl (inp X (x\null))). intros. split.
+        unfold.
+        apply bisim_par_null with P = (repl (inp X (x\null))).
+        apply bisim_par_subst_2 to H4 with R = (repl (repl (inp X (x\null)))).
+        apply bisim_repl_absorb with P = (repl (inp X (x\null))).
+        backchain bisim_transitive.
+        backchain bisim_par_null.
+        backchain CH.
+
+  intros. case H1.
+    case H2.
+      case H3.
+
+  intros. case H1.
+    case H2.
+    case H2.
+    case H2.
+
+  intros. case H1.
+    case H2.
+      witness (x\(par (repl (repl (inp X (x\null)))) (par (repl (inp X (x\null))) ((x\null) x)))). split. search.
+        witness x\(repl (repl (inp X (x\null)))).
+        witness x\(repl (inp X (x\null))). intros. split.
+        unfold.
+        apply bisim_par_null with P = (repl (inp X (x\null))).
+        apply bisim_par_subst_2 to H3 with R = (repl (repl (inp X (x\null)))).
+        apply bisim_repl_absorb with P = (repl (inp X (x\null))).
+        backchain bisim_transitive.
+        backchain bisim_par_null.
+        backchain CH.
+
+  intros. case H1.
+    case H2.

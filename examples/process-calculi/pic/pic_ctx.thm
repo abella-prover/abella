@@ -1,0 +1,152 @@
+Kind name,label,proc type.
+
+Import "pic_core".
+
+Define inv : proc -> proc -> prop by
+  inv P Q := bisim_up_to refl_t P Q
+; inv (par P1 Q1) (par P2 Q2) := inv P1 P2 /\ inv Q1 Q2
+; inv (nu P) (nu Q) := nabla x, inv (P x) (Q x).
+
+Define bisim_inv : proc -> proc -> prop by
+  bisim_inv P Q :=
+     (forall L P1, one P L P1 ->
+        exists Q1, one Q L Q1 /\
+            inv P1 Q1)
+  /\ (forall X P1, oneb P (dn X) P1 ->
+        exists Q1, oneb Q (dn X) Q1 /\
+          forall N, inv (P1 N) (Q1 N))
+  /\ (forall X P1, oneb P (up X) P1 ->
+        exists Q1, oneb Q (up X) Q1 /\
+          nabla x, inv (P1 x) (Q1 x))
+  /\ (forall L Q1, one Q L Q1 ->
+        exists P1, one P L P1 /\
+            inv P1 Q1)
+  /\ (forall X Q1, oneb Q (dn X) Q1 ->
+        exists P1, oneb P (dn X) P1 /\
+          forall N, inv (P1 N) (Q1 N))
+  /\ (forall X Q1, oneb Q (up X) Q1 ->
+        exists P1, oneb P (up X) P1 /\
+          nabla x, inv (P1 x) (Q1 x)).
+
+Theorem inv_bisim_inv : forall P Q, inv P Q -> bisim_inv P Q.
+induction on 1. intros. case H1.
+  Bis1 : case H2. unfold.
+    intros. apply Bis1 to H3. case H5. search.
+    intros. apply Bis2 to H3. witness Q2. split. search.
+      intros. apply H5 with N = N. case H6.
+      apply bisim_eq_2R to H7 H8.
+      apply bisim_eq_1R to H10 H9. search.
+    intros. apply Bis3 to H3. witness Q2. split. search.
+      intros. case H5. search.
+    intros. apply Bis4 to H3. case H5. search.
+    intros. apply Bis5 to H3. witness P2. split. search.
+      intros. apply H5 with N = N. case H6.
+      apply bisim_eq_2R to H7 H8.
+      apply bisim_eq_1R to H10 H9. search.
+    intros. apply Bis6 to H3. witness P2. split. search.
+      intros. case H5. search.
+  apply IH to H2. apply IH to H3. PPInv1 : case H4. QQInv1 : case H5. unfold.
+    intros. case H6.
+      apply PPInv1 to H7. witness par Q3 Q2. split. search. search.
+      apply QQInv1 to H7. witness par P2 Q3. split. search. search.
+      case H7.
+        apply PPInv2 to H8. apply QQInv1 to H9.
+        witness par (Q3 Y) Q4. split. search.
+          apply H11 with N = Y. search.
+        apply PPInv1 to H8. apply QQInv2 to H9.
+        witness par Q3 (Q4 Y). split. search.
+          apply H13 with N = Y. search.
+      case H7.
+        apply PPInv2 to H8. apply QQInv3 to H9.
+          witness nu y\ par (Q3 y) (Q4 y). split. search.
+          apply H11 with N = n1. search.
+        apply PPInv3 to H8. apply QQInv2 to H9.
+          witness nu y\ par (Q3 y) (Q4 y). split. search.
+          apply H13 with N = n1. search.
+    intros. case H6.
+      apply PPInv2 to H7. witness y\ par (Q3 y) Q2. split. search.
+        intros. apply H9 with N = N. search.
+      apply QQInv2 to H7. witness y\ par P2 (Q3 y). split. search.
+        intros. apply H9 with N = N. search.
+    intros. case H6.
+      apply PPInv3 to H7. witness y\ par (Q3 y) Q2. split. search.
+        intros. search.
+      apply QQInv3 to H7. witness y\ par P2 (Q3 y). split. search.
+        intros. search.
+    intros. case H6.
+      apply PPInv4 to H7. search.
+      apply QQInv4 to H7. search.
+      case H7.
+        apply PPInv5 to H8. apply QQInv4 to H9.
+        witness par (P3 Y) P4. split. search.
+          apply H11 with N = Y. search.
+        apply PPInv4 to H8. apply QQInv5 to H9.
+        witness par P3 (P4 Y). split. search.
+          apply H13 with N = Y. search.
+      case H7.
+        apply PPInv5 to H8. apply QQInv6 to H9.
+        witness nu y\ par (P3 y) (P4 y). split. search.
+          apply H11 with N = n1. search.
+        apply PPInv6 to H8. apply QQInv5 to H9.
+        witness nu y\ par (P3 y) (P4 y). split. search.
+          apply H13 with N = n1. search.
+    intros. case H6.
+      apply PPInv5 to H7. witness y\ par (P3 y) Q1. split. search.
+        intros. apply H9 with N = N. search.
+      apply QQInv5 to H7. witness y\ par P1 (P3 y). split. search.
+        intros. apply H9 with N = N. search.
+    intros. case H6.
+      apply PPInv6 to H7. witness y\ par (P3 y) Q1. split. search. search.
+      apply QQInv6 to H7. witness y\ par P1 (P3 y). split. search. search.
+  apply IH to H2. Inv1 : case H3. unfold.
+    intros. case H4. apply Inv1 to H5. search.
+    intros. case H4. apply Inv2 to H5. witness y\ nu x\ Q2 x y. split. search.
+      intros. apply H7 with N = N. search.
+    intros. case H4.
+      apply Inv1 to H5. witness Q2. search.
+      apply Inv3 to H5. witness y\ nu x\ Q2 x y. split. search. search.
+    intros. case H4. apply Inv4 to H5. search.
+    intros. case H4. apply Inv5 to H5. witness y\ nu x\ P2 x y. split. search.
+      intros. apply H7 with N = N. search.
+    intros. case H4.
+      apply Inv4 to H5. witness P2. search.
+      apply Inv6 to H5. witness y\ nu x\ P2 x y. search.
+
+Theorem bisim_inv_bisim : forall P Q, bisim_inv P Q -> bisim_up_to refl_t P Q.
+coinduction. intros. BInv1 : case H1. unfold.
+  intros. apply BInv1 to H2. witness Q2. split. search.
+    witness P1. witness Q2. split. search.
+      backchain CH. backchain inv_bisim_inv.
+  intros. apply BInv2 to H2. witness Q2. split. search.
+    witness P1. witness Q2. intros. split. search.
+      backchain CH. backchain inv_bisim_inv. backchain H4.
+  intros. apply BInv3 to H2. witness Q2. split. search.
+    witness P1. witness Q2. intros. split. search.
+      backchain CH. backchain inv_bisim_inv.
+  intros. apply BInv4 to H2. witness P2. split. search.
+    witness P2. witness Q1. split. search.
+      backchain CH. backchain inv_bisim_inv.
+  intros. apply BInv5 to H2. witness P2. split. search.
+    witness P2. witness Q1. intros. split. search.
+      backchain CH. backchain inv_bisim_inv. backchain H4.
+  intros. apply BInv6 to H2. witness P2. split. search.
+    witness P2. witness Q1. intros. split. search.
+      backchain CH. backchain inv_bisim_inv.
+
+Theorem bisim_par_subst_1 : forall P Q R,
+  bisim_up_to refl_t P Q -> bisim_up_to refl_t (par P R) (par Q R).
+intros. apply bisim_reflexive with P = R.
+ backchain bisim_inv_bisim.
+ backchain inv_bisim_inv.
+
+Theorem bisim_par_subst_2 : forall P Q R,
+  bisim_up_to refl_t P Q -> bisim_up_to refl_t (par R P) (par R Q).
+intros. apply bisim_reflexive with P = R.
+ backchain bisim_inv_bisim.
+ backchain inv_bisim_inv.
+
+Theorem bisim_nu_subst : forall P Q,
+  (nabla x, bisim_up_to refl_t (P x) (Q x)) -> bisim_up_to refl_t (nu P) (nu Q).
+intros. apply H1 with x = n1.
+  backchain bisim_inv_bisim.
+  backchain inv_bisim_inv.

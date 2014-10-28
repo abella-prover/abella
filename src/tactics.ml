@@ -1038,54 +1038,60 @@ let apply ?(used_nominals=[]) term args =
     |> List.unique
     |> fun s -> List.minus s used_nominals
   in
-    match term with
-      | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->
-          let n = List.length nablas in
-          let (nabla_ids, nabla_tys) = List.split nablas in
-          (* Add dummy nominals in case nabla bound variables aren't used *)
-          let support =
-            (fresh_nominals_by_list nabla_tys
-               (List.map term_to_name (support @ used_nominals))) @
-              support
-          in
-            support |> List.rev |> List.permute n
-              |> List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals)
-              |> List.find_some
-                (fun nominals ->
-                   try_with_state ~fail:None
-                     (fun () ->
-                        let support = List.minus support nominals in
-                        let raised_body =
-                          freshen_nameless_bindings ~support ~ts:0 bindings body
-                        in
-                        let alist = List.combine nabla_ids nominals in
-                        let permuted_body =
-                          replace_metaterm_vars alist raised_body
-                        in
-                          debug (Printf.sprintf "Trying apply with %s."
-                                   (String.concat ", "
-                                      (List.map
-                                         (fun (x,n) ->
-                                            x ^ " = " ^ (term_to_string n))
-                                         alist))) ;
-                          Some (apply_arrow permuted_body args)))
-              |> (function
-                    | Some v -> v
-                    | None ->
-                        failwith "Failed to find instantiations for nabla quantified variables")
-
-      | Binding(Forall, bindings, body) ->
-          apply_arrow (freshen_nameless_bindings ~support ~ts:0 bindings body) args
-
-      | Arrow _ ->
-          apply_arrow term args
-
-      | term when args = [] -> (term, [])
-
-      | _ -> failwith
-          ("Structure of applied term must be a " ^
-             "substructure of the following.\n" ^
-             "forall A1 ... Ai, nabla z1 ... zj, H1 -> ... -> Hk -> C")
+  let process_bindings foralls nablas body =
+    match nablas with
+    | [] -> (* short circuit *)
+        apply_arrow (freshen_nameless_bindings ~support ~ts:0 foralls body) args
+    | _ ->
+        let n = List.length nablas in
+        let (nabla_ids, nabla_tys) = List.split nablas in
+        (* Add dummy nominals in case nabla bound variables aren't used *)
+        let support =
+          (fresh_nominals_by_list nabla_tys
+             (List.map term_to_name (support @ used_nominals))) @
+          support
+        in
+        support |> List.rev |> List.permute n
+        |> List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals)
+        |> List.find_some
+          (fun nominals ->
+             try_with_state ~fail:None
+               (fun () ->
+                  let support = List.minus support nominals in
+                  let raised_body =
+                    freshen_nameless_bindings ~support ~ts:0 foralls body
+                  in
+                  let alist = List.combine nabla_ids nominals in
+                  let permuted_body =
+                    replace_metaterm_vars alist raised_body
+                  in
+                  debug (Printf.sprintf "Trying apply with %s."
+                           (String.concat ", "
+                              (List.map
+                                 (fun (x,n) ->
+                                    x ^ " = " ^ (term_to_string n))
+                                 alist))) ;
+                  Some (apply_arrow permuted_body args)))
+        |> (function
+            | Some v -> v
+            | None ->
+                failwith "Failed to find instantiations for nabla quantified variables")
+  in
+  match term with
+  | Binding(Forall, foralls, Binding(Nabla, nablas, body)) ->
+      process_bindings foralls nablas body
+  | Binding(Forall, foralls, body) ->
+      process_bindings foralls [] body
+  | Binding(Nabla, nablas, body) ->
+      process_bindings [] nablas body
+  | Arrow _ ->
+      apply_arrow term args
+  | term when args = [] ->
+      (term, [])
+  | _ ->
+      [ "Structure of applied term must be a substructure of the following." ;
+        "forall A1 ... Ai, nabla z1 ... zj, H1 -> ... -> Hk -> C" ]
+      |> String.concat "\n" |> failwith
 
 let rec ensure_unique_nominals lst =
   if not (List.is_unique lst) || not (List.for_all Term.is_nominal lst) then

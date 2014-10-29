@@ -118,6 +118,11 @@ let add_subgoals ?(mainline) new_subgoals =
   in
     subgoals := annotated_subgoals @ !subgoals
 
+let is_uninstantiated (x, vtm) =
+  match observe (hnorm vtm) with
+  | Var {Term.name=n; Term.tag=Eigen; _} when n = x -> true
+  | _ -> false
+
 (* The vars = sequent.vars is superfluous, but forces the copy *)
 let copy_sequent () =
   {sequent with vars = sequent.vars}
@@ -201,11 +206,6 @@ let undo () =
 
 let sequent_var_to_string (x, xt) =
   x (* ^ "(=" ^ term_to_string xt ^ ")" *)
-
-let is_uninstantiated (x, vtm) =
-  match observe (hnorm vtm) with
-  | Var {Term.name=n; Term.tag=Eigen; _} when n = x -> true
-  | _ -> false
 
 let show_instantiations = ref false
 
@@ -1012,16 +1012,24 @@ let rename_var vfr xto =
   sequent.hyps <-
     List.map (fun h -> { h with term = rewrite h.term }) sequent.hyps ;
   sequent.vars <-
-    List.map (function (x, _) as v -> if x = vfr then (xto, vto) else v)
-      sequent.vars ;
+    List.filter_map begin fun v ->
+      let (x, _) = v in
+      if x = vfr then Some (xto, vto)
+      else if x = xto then None
+      else Some v
+    end sequent.vars ;
   sequent.goal <- rewrite sequent.goal
+
+let var_unavailable x =
+  try is_uninstantiated (x, List.assoc x sequent.vars)
+  with Not_found -> false
 
 let rename xfr xto =
   if List.mem_assoc xto !lemmas then
     failwithf "%S already refers to a lemma" xto ;
   if List.exists (fun h -> h.id = xto) sequent.hyps then
     failwithf "%S already refers to an existing hypothesis" xto ;
-  if List.mem_assoc xto sequent.vars then
+  if var_unavailable xto then
     failwithf "%S already refers to an existing variable" xto ;
   if List.exists (fun h -> h.id = xfr) sequent.hyps then
     rename_hyp xfr xto

@@ -593,8 +593,7 @@ let coinductive_wrapper r names t =
       | Pred(p, _) ->
           if List.mem (term_head_name p) names then
             Pred(p, reduce_coinductive_restriction r)
-          else
-            t
+          else t
       | Binding(binding, ids, body) -> Binding(binding, ids, aux body)
       | Or(t1, t2) -> Or(aux t1, aux t2)
       | And(t1, t2) -> And(aux t1, aux t2)

@@ -137,7 +137,7 @@
 %%
 
 hyp:
-  | STRINGID                             { $1 }
+  | STRINGID                             { check_legal_var $1 1 ; $1 }
   | UNDERSCORE                           { "_" }
 
 id:
@@ -190,8 +190,8 @@ id:
 
 /* Annotated ID */
 aid:
-  | id                                   { ($1, Term.fresh_tyvar ()) }
-  | id COLON ty                          { ($1, $3) }
+  | chkid                                { ($1, Term.fresh_tyvar ()) }
+  | chkid COLON ty                       { ($1, $3) }
 
 /* Parenthesized annotated ID */
 paid:
@@ -227,7 +227,6 @@ term:
   | term IF term                         { binop "=>" $3 $1 }
   | term CONS term                       { binop "::" $1 $3 }
   | aid BSLASH term                      { let (id, ty) = $1 in
-                                           check_legal_var id 1 ;
                                            ULam(pos 0, id, ty, $3) }
   | exp exp_list                         { nested_app $1 $2 }
   | exp                                  { $1 }
@@ -243,7 +242,6 @@ exp_list:
   | exp exp_list                         { $1::$2 }
   | exp                                  { [$1] }
   | aid BSLASH term                      { let (id, ty) = $1 in
-                                           check_legal_var id 1 ;
                                            [ULam(pos 0, id, ty, $3)] }
 
 lpsig:
@@ -293,12 +291,12 @@ chkid:
   | id                                   { check_legal_var $1 1 ; $1 }
 
 ty:
-  | id                                   { Term.tybase $1 }
+  | chkid                                { Term.tybase $1 }
   | ty RARROW ty                         { Term.tyarrow [$1] $3 }
   | LPAREN ty RPAREN                     { $2 }
 
 clause_name:
-  | CLAUSENAME                           { Some $1 }
+  | CLAUSENAME                           { check_legal_var $1 1 ; Some $1 }
   |                                      { None }
 
 clause:
@@ -341,14 +339,16 @@ command:
   | common_command                       { Types.Common($1) }
 
 clearable:
-  | id                                   { Types.Keep $1 }
+  | chkid                                { Types.Keep $1 }
   | STAR hyp                             { Types.Remove $2 }
 
 applyables:
   | hyp applyables                       { Types.Keep $1 :: $2 }
   | hyp                                  { [Types.Keep $1] }
-  | STAR STRINGID applyables             { Types.Remove $2 :: $3 }
-  | STAR STRINGID                        { [Types.Remove $2] }
+  | STAR STRINGID applyables             { check_legal_var $2 2 ;
+                                           Types.Remove $2 :: $3 }
+  | STAR STRINGID                        { check_legal_var $2 2 ;
+                                           [Types.Remove $2] }
 
 pure_command:
   | hhint IND ON num_list DOT                 { Types.Induction($4, $1) }
@@ -359,8 +359,8 @@ pure_command:
                                               { Types.Apply($3, $5, $7, $1) }
   | hhint APPLY clearable WITH withs DOT      { Types.Apply($3, [], $5, $1) }
   | hhint APPLY clearable DOT                 { Types.Apply($3, [], [], $1) }
-  | BACKCHAIN id DOT                          { Types.Backchain($2, []) }
-  | BACKCHAIN id WITH withs DOT               { Types.Backchain($2, $4) }
+  | BACKCHAIN chkid DOT                       { Types.Backchain($2, []) }
+  | BACKCHAIN chkid WITH withs DOT            { Types.Backchain($2, $4) }
   | hhint CUT LPAREN term RPAREN FROM clearable WITH clearable DOT
                                               { Types.CutFrom($7,$9,$4,$1) }
   | hhint CUT clearable WITH clearable DOT    { Types.Cut($3, $5, $1) }
@@ -386,13 +386,15 @@ pure_command:
   | CLEAR hyp_list DOT                        { Types.Clear($2) }
   | ABBREV hyp QSTRING DOT                    { Types.Abbrev($2, $3) }
   | UNABBREV hyp_list DOT                     { Types.Unabbrev($2) }
-  | RENAME STRINGID TO STRINGID DOT           { Types.Rename($2, $4) }
+  | RENAME STRINGID TO STRINGID DOT           { check_legal_var $2 2 ;
+                                                check_legal_var $4 4 ;
+                                                Types.Rename($2, $4) }
   | MONOTONE clearable WITH term DOT          { Types.Monotone($2, $4) }
   | PERMUTE perm DOT                          { Types.Permute($2, None) }
   | PERMUTE perm hyp DOT                      { Types.Permute($2, Some $3) }
 
 hhint:
-  | STRINGID COLON                       { Some $1 }
+  | STRINGID COLON                       { check_legal_var $1 1 ; Some $1 }
   |                                      { None }
 
 hyp_list:
@@ -410,7 +412,8 @@ withs:
 clause_sel:
   |                                      { Types.Select_any }
   | NUM                                  { Types.Select_num $1 }
-  | STRINGID                             { Types.Select_named $1 }
+  | STRINGID                             { check_legal_var $1 1 ;
+                                           Types.Select_named $1 }
 
 sol_sel:
   |                                      { Types.Solution_first }
@@ -470,7 +473,7 @@ hashes:
   | HASH                                 { 1 }
 
 id_ty:
-  | id COLON ty                          { ($1, $3) }
+  | chkid COLON ty                       { ($1, $3) }
 
 id_tys:
   | id_ty COMMA id_tys                   { $1::$3 }
@@ -481,7 +484,7 @@ top_command:
   | common_command                       { Types.TopCommon($1) }
 
 pure_top_command:
-  | THEOREM id COLON metaterm DOT        { Types.Theorem($2, $4) }
+  | THEOREM chkid COLON metaterm DOT     { Types.Theorem($2, $4) }
   | DEFINE id_tys BY optsemi defs DOT    { Types.Define($2, $5) }
   | CODEFINE id_tys BY optsemi defs DOT  { Types.CoDefine($2, $5) }
   | QUERY metaterm DOT                   { Types.Query($2) }
@@ -490,14 +493,14 @@ pure_top_command:
   | KKIND chkid_list TYPE DOT            { Types.Kind($2) }
   | TTYPE chkid_list ty DOT              { Types.Type($2, $3) }
   | CLOSE chkid_list DOT                 { Types.Close($2) }
-  | SSPLIT id DOT                        { Types.SSplit($2, []) }
-  | SSPLIT id AS chkid_list DOT          { Types.SSplit($2, $4) }
+  | SSPLIT chkid DOT                     { Types.SSplit($2, []) }
+  | SSPLIT chkid AS chkid_list DOT       { Types.SSplit($2, $4) }
 
 common_command:
   | SET id id DOT                        { Types.Set($2, Types.Str $3) }
   | SET id NUM DOT                       { Types.Set($2, Types.Int $3) }
   | SET id QSTRING DOT                   { Types.Set($2, Types.QStr $3) }
-  | SHOW id DOT                          { Types.Show($2) }
+  | SHOW chkid DOT                       { Types.Show($2) }
   | QUIT DOT                             { Types.Quit }
   | EOF                                  { raise End_of_file }
 

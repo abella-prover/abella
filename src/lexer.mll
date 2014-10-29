@@ -130,6 +130,7 @@ rule token = parse
 | "undo"             { UNDO }
 | "assert"           { ASSERT }
 | "keep"             { KEEP }
+| "all"              { ALL }
 | "clear"            { CLEAR }
 | "abbrev"           { ABBREV }
 | "unabbrev"         { UNABBREV }

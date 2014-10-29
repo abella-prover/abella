@@ -508,7 +508,7 @@ let rec process_proof name =
           | SplitStar -> split true
           | Left -> left ()
           | Right -> right ()
-          | Unfold u -> unfold u
+          | Unfold (cs, ss) -> unfold cs ss
           | Intros hs -> intros hs
           | Skip -> skip ()
           | Abort -> raise AbortProof

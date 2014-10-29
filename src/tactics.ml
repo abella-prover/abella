@@ -603,13 +603,13 @@ let coinductive_wrapper r names t =
     aux t
 
 let maybe_select sel l = match sel with
-  | Abella_types.Unfold_none -> l
-  | Abella_types.Unfold_num n ->
+  | Abella_types.Select_any -> l
+  | Abella_types.Select_num n ->
       if n > List.length l then
         failwithf "Cannot select clause #%d; there are only %d clauses" n
           (List.length l) ;
       [List.nth l (n - 1)]
-  | Abella_types.Unfold_named n ->
+  | Abella_types.Select_named n ->
       failwith "Cannot select named clauses for inductive predicates"
 
 let unfold_defs ~mdefs clause_sel ~ts goal r =
@@ -655,22 +655,33 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
 let try_unify_cpairs cpairs =
   List.for_all (curry try_right_unify) cpairs
 
-let unfold ~mdefs clause_sel goal =
+let unfold ~mdefs clause_sel sol_sel goal =
   match goal with
   | Pred(_, Smaller _) | Pred(_, Equal _) ->
       failwith "Cannot unfold inductively restricted predicate"
   | Pred(goal, r) ->
       (* Find the first body without lingering conflict pairs *)
-      let rec select_non_cpair list =
+      let rec select_non_cpairs emit list =
         match list with
-        | (state, [], body, _)::_ -> set_bind_state state; body
-        | _::rest -> select_non_cpair rest
-        | [] -> failwith "No matching clause(s)"
+        | (state, [], body, _)::rest ->
+            set_bind_state state;
+            select_non_cpairs (body :: emit) rest
+        | _::rest -> select_non_cpairs emit rest
+        | [] -> emit
       in
-      [select_non_cpair (unfold_defs ~mdefs clause_sel ~ts:0 goal r)]
+      let unfoldings = unfold_defs ~mdefs clause_sel ~ts:0 goal r in
+      begin match select_non_cpairs [] unfoldings with
+        | [] -> failwith "No matching clauses"
+        | case1 :: cases -> begin
+            match sol_sel with
+            | Abella_types.Solution_first -> [List.last cases]
+            | Abella_types.Solution_all ->
+                [List.fold_left (fun disj case -> Or (case, disj)) case1 cases]
+          end
+      end
   | Obj (Async goal, sr) -> begin
       match clause_sel with
-      | Abella_types.Unfold_named nm -> begin
+      | Abella_types.Select_named nm -> begin
           match Typing.lookup_clause nm with
           | Some cl -> begin
               let goal = match normalize_obj (Async goal) with
@@ -946,7 +957,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     let mdefs = assoc_mdefs p alldefs in
       unwind_state
         (fun () ->
-           unfold_defs ~mdefs Abella_types.Unfold_none ~ts goal r |> List.iter
+           unfold_defs ~mdefs Abella_types.Select_any ~ts goal r |> List.iter
                (fun (state, cpairs, body, i) ->
                   set_bind_state state ;
                   metaterm_aux (n-1) hyps body ts

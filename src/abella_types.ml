@@ -97,16 +97,20 @@ type command =
   | Left
   | Right
   | Intros of id list
-  | Unfold of unfolding
+  | Unfold of clause_selector * solution_selector
   | Skip
   | Abort
   | Undo
   | Common of common_command
 
-and unfolding =
-  | Unfold_none
-  | Unfold_num of int
-  | Unfold_named of string
+and clause_selector =
+  | Select_any
+  | Select_num of int
+  | Select_named of string
+
+and solution_selector =
+  | Solution_first
+  | Solution_all
 
 type any_command =
   | ATopCommand of top_command
@@ -289,9 +293,15 @@ let command_to_string c =
     | SplitStar -> "split*"
     | Left -> "left"
     | Right -> "right"
-    | Unfold Unfold_none -> "unfold"
-    | Unfold (Unfold_num n) -> "unfold " ^ string_of_int n
-    | Unfold (Unfold_named n) -> "unfold " ^ n
+    | Unfold (clause_sel, sol_sel) ->
+        sprintf "unfold%s%s"
+          (match clause_sel with
+           | Select_any -> ""
+           | Select_num n -> " " ^ string_of_int n
+           | Select_named n -> " " ^ n)
+          (match sol_sel with
+           | Solution_first -> ""
+           | Solution_all -> " (all)")
     | Intros [] -> "intros"
     | Intros ids -> sprintf "intros %s" (String.concat " " ids)
     | Skip -> "skip"

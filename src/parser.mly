@@ -75,7 +75,7 @@
 %token IMP IF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
-%token SPLIT SPLITSTAR UNFOLD KEEP CLEAR SPECIFICATION SEMICOLON
+%token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
 %token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND NOT
@@ -149,6 +149,7 @@ id:
   | MONOTONE                             { "monotone" }
   | SPLIT                                { "split" }
   | UNFOLD                               { "unfold" }
+  | ALL                                  { "all" }
   | KEEP                                 { "keep" }
   | CLEAR                                { "clear" }
   | ABBREV                               { "abbrev" }
@@ -348,9 +349,7 @@ pure_command:
   | SKIP DOT                                  { Types.Skip }
   | ABORT DOT                                 { Types.Abort }
   | UNDO DOT                                  { Types.Undo }
-  | UNFOLD DOT                                { Types.Unfold Types.Unfold_none }
-  | UNFOLD NUM DOT                            { Types.Unfold (Types.Unfold_num $2) }
-  | UNFOLD STRINGID DOT                       { Types.Unfold (Types.Unfold_named $2) }
+  | UNFOLD clause_sel sol_sel DOT             { Types.Unfold ($2, $3) }
   | CLEAR hyp_list DOT                        { Types.Clear($2) }
   | ABBREV hyp QSTRING DOT                    { Types.Abbrev($2, $3) }
   | UNABBREV hyp_list DOT                     { Types.Unabbrev($2) }
@@ -374,6 +373,15 @@ num_list:
 withs:
   | id EQ term COMMA withs               { ($1, $3) :: $5 }
   | id EQ term                           { [($1, $3)] }
+
+clause_sel:
+  |                                      { Types.Select_any }
+  | NUM                                  { Types.Select_num $1 }
+  | STRINGID                             { Types.Select_named $1 }
+
+sol_sel:
+  |                                      { Types.Solution_first }
+  | LPAREN ALL RPAREN                    { Types.Solution_all }
 
 metaterm:
   | TRUE                                 { UTrue }

@@ -239,6 +239,11 @@ module List = struct
   let drop_last n list = rev (drop n (rev list))
   let take_last n list = rev (take n (rev list))
 
+  let rec last = function
+    | [] -> invalid_arg "List.last"
+    | [x] -> x
+    | _ :: l -> last l
+
   let rev_map f list =
     let rec aux list acc =
       match list with

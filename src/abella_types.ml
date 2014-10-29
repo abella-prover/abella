@@ -37,6 +37,8 @@ type defs_table = (string, def_type * string list * def list) Hashtbl.t
 
 type id = string
 
+exception Reported_parse_error
+
 type set_value =
   | Str of string
   | Int of int
@@ -118,8 +120,8 @@ type any_command =
   | ACommon of common_command
 
 type sig_decl =
-  | SKind of string list
-  | SType of string list * ty
+  | SKind of id list
+  | SType of id list * ty
 
 type lpsig =
   | Sig of string * string list * sig_decl list

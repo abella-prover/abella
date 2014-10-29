@@ -543,6 +543,9 @@ let rec process_proof name =
           fprintf !out "Proof aborted.\n%!" ;
           reset_prover () ;
           raise AbortProof
+      | Abella_types.Reported_parse_error ->
+          Lexing.flush_input !lexbuf ;
+          interactive_or_exit ()
       | Parsing.Parse_error ->
           eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
           Lexing.flush_input !lexbuf ;
@@ -657,6 +660,9 @@ let rec process () =
           if !annotate then fprintf !out "</pre>\n%!" ;
           exit 0
         end
+    | Abella_types.Reported_parse_error ->
+        Lexing.flush_input !lexbuf ;
+        interactive_or_exit ()
     | Parsing.Parse_error ->
         eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
         Lexing.flush_input !lexbuf ;

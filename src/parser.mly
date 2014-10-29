@@ -24,6 +24,21 @@
 
   module Types = Abella_types
 
+  let error_report ?(pos=Parsing.symbol_start_pos ()) fmt =
+    let open Lexing in
+    let parse_fmt = "@.%s:@\nError: @[" ^^ fmt ^^ "@]@." in
+    let pos_string =
+      if pos == Lexing.dummy_pos then
+        "Unknown position"
+      else
+        Printf.sprintf "File %S, line %d, character %d"
+          pos.pos_fname pos.pos_lnum
+          (pos.pos_cnum - pos.pos_bol + 1)
+    in
+    Format.kfprintf
+      (fun _ -> raise Types.Reported_parse_error)
+      Format.err_formatter parse_fmt pos_string
+
   let pos i =
     if i = 0 then
       (Parsing.symbol_start_pos (), Parsing.symbol_end_pos ())
@@ -50,6 +65,11 @@
       done ; false
     with Illegal -> true
 
+  let check_legal_var vid vnum =
+    if is_illegal_constant vid then
+      error_report ~pos:(Parsing.rhs_start_pos vnum)
+        "Invalid bound variable %S.@\nIdentifiers matching n[0-9]+ are reserved for nominal constants." vid
+
   let make_sig sigid sigpre sigdecls =
     let badconsts = ref [] in
     let collect_bad_decl = function
@@ -64,11 +84,9 @@
     match List.rev !badconsts with
     | [] -> Types.Sig (sigid, sigpre, sigdecls)
     | (k :: _) as ks ->
-      let ks = List.map (fun k -> "'" ^ k ^ "'") ks in
       let ks = String.concat ", " ks in
-      failwithf "The following signature constants overlap with \
-                 nominal constants: %s\nPlease rename '%s' \
-                 to e.g. 'e%s', etc." ks k k
+      error_report "Invalid signature constants: %s@\n\
+                    Identifiers matching n[0-9]+ are reserved for nominal constants." ks
 
 %}
 
@@ -182,6 +200,12 @@ paid:
   | UNDERSCORE                           { ("_", Term.fresh_tyvar ()) }
   | LPAREN UNDERSCORE COLON ty RPAREN    { ("_", $4) }
 
+chkpaid:
+  | chkid                                { ($1, Term.fresh_tyvar ()) }
+  | LPAREN chkid COLON ty RPAREN         { ($2, $4) }
+  | UNDERSCORE                           { ("_", Term.fresh_tyvar ()) }
+  | LPAREN UNDERSCORE COLON ty RPAREN    { ("_", $4) }
+
 contexted_term:
   | context TURN term                    { ($1, $3) }
   | term                                 { (predefined "nil", $1) }
@@ -203,7 +227,8 @@ term:
   | term IF term                         { binop "=>" $3 $1 }
   | term CONS term                       { binop "::" $1 $3 }
   | aid BSLASH term                      { let (id, ty) = $1 in
-                                             ULam(pos 0, id, ty, $3) }
+                                           check_legal_var id 1 ;
+                                           ULam(pos 0, id, ty, $3) }
   | exp exp_list                         { nested_app $1 $2 }
   | exp                                  { $1 }
 
@@ -218,7 +243,8 @@ exp_list:
   | exp exp_list                         { $1::$2 }
   | exp                                  { [$1] }
   | aid BSLASH term                      { let (id, ty) = $1 in
-                                             [ULam(pos 0, id, ty, $3)] }
+                                           check_legal_var id 1 ;
+                                           [ULam(pos 0, id, ty, $3)] }
 
 lpsig:
   | sig_header sig_preamble sig_body lpend
@@ -232,8 +258,8 @@ sig_preamble:
   |                                      { [] }
 
 sig_body:
-  | KIND id_list TYPE DOT sig_body       { Types.SKind($2) :: $5 }
-  | TYPE id_list ty DOT sig_body         { Types.SType($2, $3) :: $5 }
+  | KIND chkid_list TYPE DOT sig_body    { Types.SKind($2) :: $5 }
+  | TYPE chkid_list ty DOT sig_body      { Types.SType($2, $3) :: $5 }
   |                                      { [] }
 
 lpmod:
@@ -258,6 +284,13 @@ lpend:
 id_list:
   | id                                   { [$1] }
   | id COMMA id_list                     { $1::$3}
+
+chkid_list:
+  | chkid                               { [$1] }
+  | chkid COMMA chkid_list              { $1 :: $3 }
+
+chkid:
+  | id                                   { check_legal_var $1 1 ; $1 }
 
 ty:
   | id                                   { Term.tybase $1 }
@@ -410,8 +443,8 @@ binder:
   | NABLA                                { Metaterm.Nabla }
 
 binding_list:
-  | paid binding_list                    { $1::$2 }
-  | paid                                 { [$1] }
+  | chkpaid binding_list                 { $1::$2 }
+  | chkpaid                              { [$1] }
 
 restriction:
   |                                      { Metaterm.Irrelevant }
@@ -454,11 +487,11 @@ pure_top_command:
   | QUERY metaterm DOT                   { Types.Query($2) }
   | IMPORT QSTRING DOT                   { Types.Import($2) }
   | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
-  | KKIND id_list TYPE DOT               { Types.Kind($2) }
-  | TTYPE id_list ty DOT                 { Types.Type($2, $3) }
-  | CLOSE id_list DOT                    { Types.Close($2) }
+  | KKIND chkid_list TYPE DOT            { Types.Kind($2) }
+  | TTYPE chkid_list ty DOT              { Types.Type($2, $3) }
+  | CLOSE chkid_list DOT                 { Types.Close($2) }
   | SSPLIT id DOT                        { Types.SSplit($2, []) }
-  | SSPLIT id AS id_list DOT             { Types.SSplit($2, $4) }
+  | SSPLIT id AS chkid_list DOT          { Types.SSplit($2, $4) }
 
 common_command:
   | SET id id DOT                        { Types.Set($2, Types.Str $3) }

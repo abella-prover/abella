@@ -112,10 +112,10 @@ type sign = ktable * ctable
 (** Kinds *)
 
 let add_types (ktable, ctable) ids =
-  List.iter
-    (fun id -> if is_capital_name id then
-       failwith ("Types may not begin with a capital letter: " ^ id))
-    ids ;
+  List.iter begin fun id ->
+    if is_capital_name id then
+      failwith ("Types may not begin with a capital letter: " ^ id)
+  end ids ;
   (ids @ ktable, ctable)
 
 let lookup_type (ktable, _) id =
@@ -455,8 +455,8 @@ let replace_underscores head body =
 let clause_map : term String.Map.t ref = ref String.Map.empty
 let seen_name cname = String.Map.mem cname !clause_map
 let register_clause name clause =
-  Printf.printf "Note: registered %S : %s\n%!" name
-    (Term.term_to_string clause) ;
+  (* Printf.printf "Note: registered %S : %s\n%!" name *)
+  (*   (Term.term_to_string clause) ; *)
   clause_map := String.Map.add name clause !clause_map
 let lookup_clause cname =
   if seen_name cname

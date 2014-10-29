@@ -672,6 +672,7 @@ let unfold ~mdefs clause_sel sol_sel goal =
       let unfoldings = unfold_defs ~mdefs clause_sel ~ts:0 goal r in
       begin match select_non_cpairs [] unfoldings with
         | [] -> failwith "No matching clauses"
+        | [case1] -> [case1]
         | case1 :: cases -> begin
             match sol_sel with
             | Abella_types.Solution_first -> [List.last cases]

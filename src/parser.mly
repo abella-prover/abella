@@ -70,6 +70,16 @@
       error_report ~pos:(Parsing.rhs_start_pos vnum)
         "Invalid bound variable %S.@\nIdentifiers matching n[0-9]+ are reserved for nominal constants." vid
 
+  let deloc_id (id, (pos, _)) =
+    if is_illegal_constant id then
+      error_report ~pos
+        "Invalid bound variable %S.@\n\
+         Identifiers matching n[0-9]+ are reserved for nominal constants."
+        id ;
+    id
+
+  let deloc_id_ty (lid, ty) = (deloc_id lid, ty)
+
   let make_sig sigid sigpre sigdecls =
     let badconsts = ref [] in
     let collect_bad_decl = function
@@ -115,14 +125,13 @@
 %nonassoc BSLASH
 %left IF
 %right IMP
-%nonassoc EQ
 
 %right CONS
 
 /* Higher */
 
 
-%start term metaterm lpmod lpsig defs top_command command any_command sig_body mod_body
+%start lpmod lpsig defs top_command command any_command sig_body mod_body
 %type <Typing.uterm> term
 %type <Typing.umetaterm> metaterm
 %type <Abella_types.lpsig> lpsig
@@ -139,6 +148,9 @@
 hyp:
   | STRINGID                             { check_legal_var $1 1 ; $1 }
   | UNDERSCORE                           { "_" }
+
+loc_id:
+  | id                                   { ($1, pos 0) }
 
 id:
   | STRINGID                             { $1 }
@@ -190,21 +202,15 @@ id:
 
 /* Annotated ID */
 aid:
-  | chkid                                { ($1, Term.fresh_tyvar ()) }
-  | chkid COLON ty                       { ($1, $3) }
+  | loc_id                               { ($1, Term.fresh_tyvar ()) }
+  | loc_id COLON ty                      { ($1, $3) }
 
 /* Parenthesized annotated ID */
 paid:
-  | id                                   { ($1, Term.fresh_tyvar ()) }
-  | LPAREN id COLON ty RPAREN            { ($2, $4) }
-  | UNDERSCORE                           { ("_", Term.fresh_tyvar ()) }
-  | LPAREN UNDERSCORE COLON ty RPAREN    { ("_", $4) }
-
-chkpaid:
-  | chkid                                { ($1, Term.fresh_tyvar ()) }
-  | LPAREN chkid COLON ty RPAREN         { ($2, $4) }
-  | UNDERSCORE                           { ("_", Term.fresh_tyvar ()) }
-  | LPAREN UNDERSCORE COLON ty RPAREN    { ("_", $4) }
+  | loc_id                               { ($1, Term.fresh_tyvar ()) }
+  | LPAREN loc_id COLON ty RPAREN        { ($2, $4) }
+  | UNDERSCORE                           { (("_", pos 0), Term.fresh_tyvar ()) }
+  | LPAREN UNDERSCORE COLON ty RPAREN    { (("_", pos 1), $4) }
 
 contexted_term:
   | context TURN term                    { ($1, $3) }
@@ -227,6 +233,7 @@ term:
   | term IF term                         { binop "=>" $3 $1 }
   | term CONS term                       { binop "::" $1 $3 }
   | aid BSLASH term                      { let (id, ty) = $1 in
+                                           let id = deloc_id id in
                                            ULam(pos 0, id, ty, $3) }
   | exp exp_list                         { nested_app $1 $2 }
   | exp                                  { $1 }
@@ -235,13 +242,14 @@ exp:
   | LPAREN term RPAREN                   { let left = fst (pos 1) in
                                            let right = snd (pos 3) in
                                              change_pos (left, right) $2 }
-  | paid                                 { let (id, ty) = $1 in
-                                             UCon(pos 0, id, ty) }
+  | paid                                 { let ((id, _), ty) = $1 in
+                                           UCon(pos 0, id, ty) }
 
 exp_list:
   | exp exp_list                         { $1::$2 }
   | exp                                  { [$1] }
   | aid BSLASH term                      { let (id, ty) = $1 in
+                                           let id = deloc_id id in
                                            [ULam(pos 0, id, ty, $3)] }
 
 lpsig:
@@ -252,12 +260,12 @@ sig_header:
   | SIG id DOT                           { $2 }
 
 sig_preamble:
-  | ACCUMSIG id_list DOT sig_preamble    { $2 @ $4 }
+  | ACCUMSIG id_list DOT sig_preamble    { List.map deloc_id $2 @ $4 }
   |                                      { [] }
 
 sig_body:
-  | KIND chkid_list TYPE DOT sig_body    { Types.SKind($2) :: $5 }
-  | TYPE chkid_list ty DOT sig_body      { Types.SType($2, $3) :: $5 }
+  | KIND id_list TYPE DOT sig_body       { Types.SKind(List.map deloc_id $2) :: $5 }
+  | TYPE id_list ty DOT sig_body         { Types.SType(List.map deloc_id $2, $3) :: $5 }
   |                                      { [] }
 
 lpmod:
@@ -268,11 +276,11 @@ mod_header:
   | MODULE id DOT                        { $2 }
 
 mod_preamble:
-  | ACCUM id_list DOT mod_preamble       { $2 @ $4 }
+  | ACCUM id_list DOT mod_preamble       { List.map deloc_id $2 @ $4 }
   |                                      { [] }
 
 mod_body:
-  | clause_name clause mod_body         { let (h, b) = $2 in ($1, h, b) :: $3 }
+  | clause_name clause mod_body          { let (h, b) = $2 in ($1, h, b) :: $3 }
   |                                      { [] }
 
 lpend:
@@ -280,18 +288,11 @@ lpend:
   |                                      { }
 
 id_list:
-  | id                                   { [$1] }
-  | id COMMA id_list                     { $1::$3}
-
-chkid_list:
-  | chkid                               { [$1] }
-  | chkid COMMA chkid_list              { $1 :: $3 }
-
-chkid:
-  | id                                   { check_legal_var $1 1 ; $1 }
+  | loc_id                               { [$1] }
+  | loc_id COMMA id_list                 { $1::$3}
 
 ty:
-  | chkid                                { Term.tybase $1 }
+  | id                                   { Term.tybase $1 }
   | ty RARROW ty                         { Term.tyarrow [$1] $3 }
   | LPAREN ty RPAREN                     { $2 }
 
@@ -306,7 +307,7 @@ clause:
 
 clause_head:
   | LPAREN clause_head RPAREN            { $2 }
-  | paid exp_list                        { let (id, ty) = $1 in
+  | paid exp_list                        { let ((id, _), ty) = $1 in
                                            nested_app (UCon(pos 0, id, ty)) $2 }
 
 clause_body:
@@ -339,7 +340,7 @@ command:
   | common_command                       { Types.Common($1) }
 
 clearable:
-  | chkid                                { Types.Keep $1 }
+  | id                                { Types.Keep $1 }
   | STAR hyp                             { Types.Remove $2 }
 
 applyables:
@@ -359,8 +360,8 @@ pure_command:
                                               { Types.Apply($3, $5, $7, $1) }
   | hhint APPLY clearable WITH withs DOT      { Types.Apply($3, [], $5, $1) }
   | hhint APPLY clearable DOT                 { Types.Apply($3, [], [], $1) }
-  | BACKCHAIN chkid DOT                       { Types.Backchain($2, []) }
-  | BACKCHAIN chkid WITH withs DOT            { Types.Backchain($2, $4) }
+  | BACKCHAIN id DOT                       { Types.Backchain($2, []) }
+  | BACKCHAIN id WITH withs DOT            { Types.Backchain($2, $4) }
   | hhint CUT LPAREN term RPAREN FROM clearable WITH clearable DOT
                                               { Types.CutFrom($7,$9,$4,$1) }
   | hhint CUT clearable WITH clearable DOT    { Types.Cut($3, $5, $1) }
@@ -446,8 +447,8 @@ binder:
   | NABLA                                { Metaterm.Nabla }
 
 binding_list:
-  | chkpaid binding_list                 { $1::$2 }
-  | chkpaid                              { [$1] }
+  | paid binding_list                    { deloc_id_ty $1 :: $2 }
+  | paid                                 { [deloc_id_ty $1] }
 
 restriction:
   |                                      { Metaterm.Irrelevant }
@@ -473,7 +474,7 @@ hashes:
   | HASH                                 { 1 }
 
 id_ty:
-  | chkid COLON ty                       { ($1, $3) }
+  | loc_id COLON ty                      { deloc_id_ty ($1, $3) }
 
 id_tys:
   | id_ty COMMA id_tys                   { $1::$3 }
@@ -484,23 +485,24 @@ top_command:
   | common_command                       { Types.TopCommon($1) }
 
 pure_top_command:
-  | THEOREM chkid COLON metaterm DOT     { Types.Theorem($2, $4) }
+  | THEOREM id COLON metaterm DOT        { check_legal_var $2 2 ;
+                                           Types.Theorem($2, $4) }
   | DEFINE id_tys BY optsemi defs DOT    { Types.Define($2, $5) }
   | CODEFINE id_tys BY optsemi defs DOT  { Types.CoDefine($2, $5) }
   | QUERY metaterm DOT                   { Types.Query($2) }
   | IMPORT QSTRING DOT                   { Types.Import($2) }
   | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
-  | KKIND chkid_list TYPE DOT            { Types.Kind($2) }
-  | TTYPE chkid_list ty DOT              { Types.Type($2, $3) }
-  | CLOSE chkid_list DOT                 { Types.Close($2) }
-  | SSPLIT chkid DOT                     { Types.SSplit($2, []) }
-  | SSPLIT chkid AS chkid_list DOT       { Types.SSplit($2, $4) }
+  | KKIND id_list TYPE DOT               { Types.Kind(List.map deloc_id $2) }
+  | TTYPE id_list ty DOT                 { Types.Type(List.map deloc_id $2, $3) }
+  | CLOSE id_list DOT                    { Types.Close(List.map deloc_id $2) }
+  | SSPLIT loc_id DOT                    { Types.SSplit(deloc_id $2, []) }
+  | SSPLIT loc_id AS id_list DOT         { Types.SSplit(deloc_id $2, List.map deloc_id $4) }
 
 common_command:
   | SET id id DOT                        { Types.Set($2, Types.Str $3) }
   | SET id NUM DOT                       { Types.Set($2, Types.Int $3) }
   | SET id QSTRING DOT                   { Types.Set($2, Types.QStr $3) }
-  | SHOW chkid DOT                       { Types.Show($2) }
+  | SHOW loc_id DOT                      { Types.Show(deloc_id $2) }
   | QUIT DOT                             { Types.Quit }
   | EOF                                  { raise End_of_file }
 

@@ -146,366 +146,526 @@
 %%
 
 hyp:
-  | STRINGID                             { check_legal_var $1 1 ; $1 }
-  | UNDERSCORE                           { "_" }
+  | STRINGID
+    { check_legal_var $1 1 ; $1 }
+  | UNDERSCORE
+    { "_" }
 
 loc_id:
-  | id                                   { ($1, pos 0) }
+  | id
+    { ($1, pos 0) }
 
 id:
-  | STRINGID                             { $1 }
-  | IND                                  { "induction" }
-  | INST                                 { "inst" }
-  | APPLY                                { "apply" }
-  | BACKCHAIN                            { "backchain" }
-  | CASE                                 { "case" }
-  | SEARCH                               { "search" }
-  | TO                                   { "to" }
-  | ON                                   { "on" }
-  | BY                                   { "by" }
-  | AS                                   { "as" }
-  | WITH                                 { "with" }
-  | INTROS                               { "intros" }
-  | CUT                                  { "cut" }
-  | FROM                                 { "from" }
-  | ASSERT                               { "assert" }
-  | SKIP                                 { "skip" }
-  | WITNESS                              { "witness" }
-  | UNDO                                 { "undo" }
-  | ABORT                                { "abort" }
-  | COIND                                { "coinduction" }
-  | LEFT                                 { "left" }
-  | RIGHT                                { "right" }
-  | MONOTONE                             { "monotone" }
-  | SPLIT                                { "split" }
-  | UNFOLD                               { "unfold" }
-  | ALL                                  { "all" }
-  | KEEP                                 { "keep" }
-  | CLEAR                                { "clear" }
-  | ABBREV                               { "abbrev" }
-  | UNABBREV                             { "unabbrev" }
-  | RENAME                               { "rename" }
-  | PERMUTE                              { "permute" }
-  | THEOREM                              { "Theorem" }
-  | IMPORT                               { "Import" }
-  | SPECIFICATION                        { "Specification" }
-  | DEFINE                               { "Define" }
-  | CODEFINE                             { "CoDefine" }
-  | SET                                  { "Set" }
-  | SHOW                                 { "Show" }
-  | QUIT                                 { "Quit" }
-  | QUERY                                { "Query" }
-  | SSPLIT                               { "Split" }
-  | CLOSE                                { "Close" }
-  | TTYPE                                { "Type" }
-  | KKIND                                { "Kind" }
+  | STRINGID      { $1 }
+  | IND           { "induction" }
+  | INST          { "inst" }
+  | APPLY         { "apply" }
+  | BACKCHAIN     { "backchain" }
+  | CASE          { "case" }
+  | SEARCH        { "search" }
+  | TO            { "to" }
+  | ON            { "on" }
+  | BY            { "by" }
+  | AS            { "as" }
+  | WITH          { "with" }
+  | INTROS        { "intros" }
+  | CUT           { "cut" }
+  | FROM          { "from" }
+  | ASSERT        { "assert" }
+  | SKIP          { "skip" }
+  | WITNESS       { "witness" }
+  | UNDO          { "undo" }
+  | ABORT         { "abort" }
+  | COIND         { "coinduction" }
+  | LEFT          { "left" }
+  | RIGHT         { "right" }
+  | MONOTONE      { "monotone" }
+  | SPLIT         { "split" }
+  | UNFOLD        { "unfold" }
+  | ALL           { "all" }
+  | KEEP          { "keep" }
+  | CLEAR         { "clear" }
+  | ABBREV        { "abbrev" }
+  | UNABBREV      { "unabbrev" }
+  | RENAME        { "rename" }
+  | PERMUTE       { "permute" }
+  | THEOREM       { "Theorem" }
+  | IMPORT        { "Import" }
+  | SPECIFICATION { "Specification" }
+  | DEFINE        { "Define" }
+  | CODEFINE      { "CoDefine" }
+  | SET           { "Set" }
+  | SHOW          { "Show" }
+  | QUIT          { "Quit" }
+  | QUERY         { "Query" }
+  | SSPLIT        { "Split" }
+  | CLOSE         { "Close" }
+  | TTYPE         { "Type" }
+  | KKIND         { "Kind" }
 
 /* Annotated ID */
 aid:
-  | loc_id                               { ($1, Term.fresh_tyvar ()) }
-  | loc_id COLON ty                      { ($1, $3) }
+  | loc_id
+    { ($1, Term.fresh_tyvar ()) }
+  | loc_id COLON ty
+    { ($1, $3) }
 
 /* Parenthesized annotated ID */
 paid:
-  | loc_id                               { ($1, Term.fresh_tyvar ()) }
-  | LPAREN loc_id COLON ty RPAREN        { ($2, $4) }
-  | UNDERSCORE                           { (("_", pos 0), Term.fresh_tyvar ()) }
-  | LPAREN UNDERSCORE COLON ty RPAREN    { (("_", pos 1), $4) }
+  | loc_id
+    { ($1, Term.fresh_tyvar ()) }
+  | LPAREN loc_id COLON ty RPAREN
+    { ($2, $4) }
+  | UNDERSCORE
+    { (("_", pos 0), Term.fresh_tyvar ()) }
+  | LPAREN UNDERSCORE COLON ty RPAREN
+    { (("_", pos 1), $4) }
 
 contexted_term:
-  | context TURN term                    { ($1, $3) }
-  | term                                 { (predefined "nil", $1) }
+  | context TURN term
+    { ($1, $3) }
+  | term
+    { (predefined "nil", $1) }
 
 focused_term:
-  | context COMMA LBRACK term RBRACK TURN term { ($1, $4, $7) }
-  | LBRACK term RBRACK TURN term               { (predefined "nil", $2, $5) }
+  | context COMMA LBRACK term RBRACK TURN term
+    { ($1, $4, $7) }
+  | LBRACK term RBRACK TURN term
+    { (predefined "nil", $2, $5) }
 
 context:
-  | context COMMA term                   { binop "::" $3 $1 }
-  | term                                 { if has_capital_head $1 then
-                                             $1
-                                           else
-                                             binop "::" $1
-                                               (predefined "nil") }
+  | context COMMA term
+    { binop "::" $3 $1 }
+  | term
+    { if has_capital_head $1 then $1
+      else binop "::" $1 (predefined "nil") }
 
 term:
-  | term IMP term                        { binop "=>" $1 $3 }
-  | term IF term                         { binop "=>" $3 $1 }
-  | term CONS term                       { binop "::" $1 $3 }
-  | aid BSLASH term                      { let (id, ty) = $1 in
-                                           let id = deloc_id id in
-                                           ULam(pos 0, id, ty, $3) }
-  | exp exp_list                         { nested_app $1 $2 }
-  | exp                                  { $1 }
+  | term IMP term
+    { binop "=>" $1 $3 }
+  | term IF term
+    { binop "=>" $3 $1 }
+  | term CONS term
+    { binop "::" $1 $3 }
+  | aid BSLASH term
+    { let (id, ty) = $1 in
+      let id = deloc_id id in
+      ULam(pos 0, id, ty, $3) }
+  | exp exp_list
+    { nested_app $1 $2 }
+  | exp
+    { $1 }
 
 exp:
-  | LPAREN term RPAREN                   { let left = fst (pos 1) in
-                                           let right = snd (pos 3) in
-                                             change_pos (left, right) $2 }
-  | paid                                 { let ((id, _), ty) = $1 in
-                                           UCon(pos 0, id, ty) }
+  | LPAREN term RPAREN
+    { let left = fst (pos 1) in
+      let right = snd (pos 3) in
+      change_pos (left, right) $2 }
+  | paid
+    { let ((id, _), ty) = $1 in
+      UCon(pos 0, id, ty) }
 
 exp_list:
-  | exp exp_list                         { $1::$2 }
-  | exp                                  { [$1] }
-  | aid BSLASH term                      { let (id, ty) = $1 in
-                                           let id = deloc_id id in
-                                           [ULam(pos 0, id, ty, $3)] }
+  | exp exp_list
+    { $1::$2 }
+  | exp
+    { [$1] }
+  | aid BSLASH term
+    { let (id, ty) = $1 in
+      let id = deloc_id id in
+      [ULam(pos 0, id, ty, $3)] }
 
 lpsig:
   | sig_header sig_preamble sig_body lpend
-                                         { make_sig $1 $2 $3 }
+    { make_sig $1 $2 $3 }
 
 sig_header:
-  | SIG id DOT                           { $2 }
+  | SIG id DOT
+    { $2 }
 
 sig_preamble:
-  | ACCUMSIG id_list DOT sig_preamble    { List.map deloc_id $2 @ $4 }
-  |                                      { [] }
+  | ACCUMSIG id_list DOT sig_preamble
+    { List.map deloc_id $2 @ $4 }
+  | { [] }
 
 sig_body:
-  | KIND id_list TYPE DOT sig_body       { Types.SKind(List.map deloc_id $2) :: $5 }
-  | TYPE id_list ty DOT sig_body         { Types.SType(List.map deloc_id $2, $3) :: $5 }
-  |                                      { [] }
+  | KIND id_list TYPE DOT sig_body
+    { Types.SKind(List.map deloc_id $2) :: $5 }
+  | TYPE id_list ty DOT sig_body
+    { Types.SType(List.map deloc_id $2, $3) :: $5 }
+  | { [] }
 
 lpmod:
   | mod_header mod_preamble mod_body lpend
-                                         { Types.Mod($1, $2, $3) }
+    { Types.Mod($1, $2, $3) }
 
 mod_header:
-  | MODULE id DOT                        { $2 }
+  | MODULE id DOT
+    { $2 }
 
 mod_preamble:
-  | ACCUM id_list DOT mod_preamble       { List.map deloc_id $2 @ $4 }
-  |                                      { [] }
+  | ACCUM id_list DOT mod_preamble
+    { List.map deloc_id $2 @ $4 }
+  | { [] }
 
 mod_body:
-  | clause_name clause mod_body          { let (h, b) = $2 in ($1, h, b) :: $3 }
-  |                                      { [] }
+  | clause_name clause mod_body
+    { let (h, b) = $2 in ($1, h, b) :: $3 }
+  | { [] }
 
 lpend:
-  | END                                  { }
-  |                                      { }
+  | END
+    { }
+  | { }
 
 id_list:
-  | loc_id                               { [$1] }
-  | loc_id COMMA id_list                 { $1::$3}
+  | loc_id
+    { [$1] }
+  | loc_id COMMA id_list
+    { $1::$3}
 
 ty:
-  | id                                   { Term.tybase $1 }
-  | ty RARROW ty                         { Term.tyarrow [$1] $3 }
-  | LPAREN ty RPAREN                     { $2 }
+  | id
+    { Term.tybase $1 }
+  | ty RARROW ty
+    { Term.tyarrow [$1] $3 }
+  | LPAREN ty RPAREN
+    { $2 }
 
 clause_name:
-  | CLAUSENAME                           { check_legal_var $1 1 ; Some $1 }
-  |                                      { None }
+  | CLAUSENAME
+    { check_legal_var $1 1 ; Some $1 }
+  |
+    { None }
 
 clause:
-  | clause_head DOT                      { ($1, []) }
-  | clause_head CLAUSEEQ clause_body DOT { ($1, $3) }
-  | clause_head IF clause_body DOT       { ($1, $3) }
+  | clause_head DOT
+    { ($1, []) }
+  | clause_head CLAUSEEQ clause_body DOT
+    { ($1, $3) }
+  | clause_head IF clause_body DOT
+    { ($1, $3) }
 
 clause_head:
-  | LPAREN clause_head RPAREN            { $2 }
-  | paid exp_list                        { let ((id, _), ty) = $1 in
-                                           nested_app (UCon(pos 0, id, ty)) $2 }
+  | LPAREN clause_head RPAREN
+    { $2 }
+  | paid exp_list
+    { let ((id, _), ty) = $1 in
+      nested_app (UCon(pos 0, id, ty)) $2 }
 
 clause_body:
-  | term COMMA clause_body               { $1::$3 }
-  | LPAREN term COMMA clause_body RPAREN { $2::$4 }
-  | term                                 { [$1] }
+  | term COMMA clause_body
+    { $1::$3 }
+  | LPAREN term COMMA clause_body RPAREN
+    { $2::$4 }
+  | term
+    { [$1] }
 
 defs:
-  | def SEMICOLON defs                   { $1::$3 }
-  | def                                  { [$1] }
+  | def SEMICOLON defs
+    { $1::$3 }
+  | def
+    { [$1] }
 
 def:
-  | metaterm                             { ($1, UTrue) }
-  | metaterm DEFEQ metaterm              { ($1, $3) }
+  | metaterm
+    { ($1, UTrue) }
+  | metaterm DEFEQ metaterm
+    { ($1, $3) }
 
 perm:
-  | LPAREN perm_ids RPAREN               { $2 }
+  | LPAREN perm_ids RPAREN
+    { $2 }
 
 perm_ids:
-  | id perm_ids                          { $1 :: $2 }
-  | id                                   { [$1] }
+  | id perm_ids
+    { $1 :: $2 }
+  | id
+    { [$1] }
 
 any_command:
-  | pure_top_command                     { Types.ATopCommand($1) }
-  | pure_command                         { Types.ACommand($1) }
-  | common_command                       { Types.ACommon($1) }
+  | pure_top_command
+    { Types.ATopCommand($1) }
+  | pure_command
+    { Types.ACommand($1) }
+  | common_command
+    { Types.ACommon($1) }
 
 command:
-  | pure_command                         { $1 }
-  | common_command                       { Types.Common($1) }
+  | pure_command
+    { $1 }
+  | common_command
+    { Types.Common($1) }
 
 clearable:
-  | id                                { Types.Keep $1 }
-  | STAR hyp                             { Types.Remove $2 }
+  | loc_id
+    { Types.Keep (deloc_id $1) }
+  | STAR hyp
+    { Types.Remove $2 }
 
 applyables:
-  | hyp applyables                       { Types.Keep $1 :: $2 }
-  | hyp                                  { [Types.Keep $1] }
-  | STAR STRINGID applyables             { check_legal_var $2 2 ;
-                                           Types.Remove $2 :: $3 }
-  | STAR STRINGID                        { check_legal_var $2 2 ;
-                                           [Types.Remove $2] }
+  | hyp applyables
+    { Types.Keep $1 :: $2 }
+  | hyp
+    { [Types.Keep $1] }
+  | STAR STRINGID applyables
+    { check_legal_var $2 2 ;
+      Types.Remove $2 :: $3 }
+  | STAR STRINGID
+    { check_legal_var $2 2 ;
+      [Types.Remove $2] }
 
 pure_command:
-  | hhint IND ON num_list DOT                 { Types.Induction($4, $1) }
-  | hhint COIND DOT                           { Types.CoInduction($1) }
+  | hhint IND ON num_list DOT
+    { Types.Induction($4, $1) }
+  | hhint COIND DOT
+    { Types.CoInduction($1) }
   | hhint APPLY clearable TO applyables DOT
-                                              { Types.Apply($3, $5, [], $1) }
+    { Types.Apply($3, $5, [], $1) }
   | hhint APPLY clearable TO applyables WITH withs DOT
-                                              { Types.Apply($3, $5, $7, $1) }
-  | hhint APPLY clearable WITH withs DOT      { Types.Apply($3, [], $5, $1) }
-  | hhint APPLY clearable DOT                 { Types.Apply($3, [], [], $1) }
-  | BACKCHAIN id DOT                       { Types.Backchain($2, []) }
-  | BACKCHAIN id WITH withs DOT            { Types.Backchain($2, $4) }
+    { Types.Apply($3, $5, $7, $1) }
+  | hhint APPLY clearable WITH withs DOT
+    { Types.Apply($3, [], $5, $1) }
+  | hhint APPLY clearable DOT
+    { Types.Apply($3, [], [], $1) }
+  | BACKCHAIN loc_id DOT
+    { Types.Backchain(deloc_id $2, []) }
+  | BACKCHAIN loc_id WITH withs DOT
+    { Types.Backchain(deloc_id $2, $4) }
   | hhint CUT LPAREN term RPAREN FROM clearable WITH clearable DOT
-                                              { Types.CutFrom($7,$9,$4,$1) }
-  | hhint CUT clearable WITH clearable DOT    { Types.Cut($3, $5, $1) }
-  | hhint CUT clearable DOT                   { Types.SearchCut($3, $1) }
-  | hhint INST clearable WITH withs DOT       { Types.Inst($3, $5, $1) }
-  | hhint CASE hyp DOT                        { Types.Case(Types.Remove $3, $1) }
-  | hhint CASE hyp LPAREN KEEP RPAREN DOT     { Types.Case(Types.Keep $3, $1) }
-  | hhint ASSERT metaterm DOT                 { Types.Assert($3, $1) }
-  | EXISTS term DOT                           { Types.Exists(`EXISTS, $2) }
-  | WITNESS term DOT                          { Types.Exists(`WITNESS, $2) }
-  | SEARCH DOT                                { Types.Search(None) }
-  | SEARCH NUM DOT                            { Types.Search(Some $2) }
-  | SPLIT DOT                                 { Types.Split }
-  | SPLITSTAR DOT                             { Types.SplitStar }
-  | LEFT DOT                                  { Types.Left }
-  | RIGHT DOT                                 { Types.Right }
-  | INTROS DOT                                { Types.Intros [] }
-  | INTROS hyp_list DOT                       { Types.Intros($2) }
-  | SKIP DOT                                  { Types.Skip }
-  | ABORT DOT                                 { Types.Abort }
-  | UNDO DOT                                  { Types.Undo }
-  | UNFOLD clause_sel sol_sel DOT             { Types.Unfold ($2, $3) }
-  | CLEAR hyp_list DOT                        { Types.Clear($2) }
-  | ABBREV hyp QSTRING DOT                    { Types.Abbrev($2, $3) }
-  | UNABBREV hyp_list DOT                     { Types.Unabbrev($2) }
-  | RENAME STRINGID TO STRINGID DOT           { check_legal_var $2 2 ;
-                                                check_legal_var $4 4 ;
-                                                Types.Rename($2, $4) }
-  | MONOTONE clearable WITH term DOT          { Types.Monotone($2, $4) }
-  | PERMUTE perm DOT                          { Types.Permute($2, None) }
-  | PERMUTE perm hyp DOT                      { Types.Permute($2, Some $3) }
+    { Types.CutFrom($7,$9,$4,$1) }
+  | hhint CUT clearable WITH clearable DOT
+    { Types.Cut($3, $5, $1) }
+  | hhint CUT clearable DOT
+    { Types.SearchCut($3, $1) }
+  | hhint INST clearable WITH withs DOT
+    { Types.Inst($3, $5, $1) }
+  | hhint CASE hyp DOT
+    { Types.Case(Types.Remove $3, $1) }
+  | hhint CASE hyp LPAREN KEEP RPAREN DOT
+    { Types.Case(Types.Keep $3, $1) }
+  | hhint ASSERT metaterm DOT
+    { Types.Assert($3, $1) }
+  | EXISTS term DOT
+    { Types.Exists(`EXISTS, $2) }
+  | WITNESS term DOT
+    { Types.Exists(`WITNESS, $2) }
+  | SEARCH DOT
+    { Types.Search(None) }
+  | SEARCH NUM DOT
+    { Types.Search(Some $2) }
+  | SPLIT DOT
+    { Types.Split }
+  | SPLITSTAR DOT
+    { Types.SplitStar }
+  | LEFT DOT
+    { Types.Left }
+  | RIGHT DOT
+    { Types.Right }
+  | INTROS DOT
+    { Types.Intros [] }
+  | INTROS hyp_list DOT
+    { Types.Intros($2) }
+  | SKIP DOT
+    { Types.Skip }
+  | ABORT DOT
+    { Types.Abort }
+  | UNDO DOT
+    { Types.Undo }
+  | UNFOLD clause_sel sol_sel DOT
+    { Types.Unfold ($2, $3) }
+  | CLEAR hyp_list DOT
+    { Types.Clear($2) }
+  | ABBREV hyp QSTRING DOT
+    { Types.Abbrev($2, $3) }
+  | UNABBREV hyp_list DOT
+    { Types.Unabbrev($2) }
+  | RENAME STRINGID TO STRINGID DOT
+    { check_legal_var $2 2 ;
+      check_legal_var $4 4 ;
+      Types.Rename($2, $4) }
+  | MONOTONE clearable WITH term DOT
+    { Types.Monotone($2, $4) }
+  | PERMUTE perm DOT
+    { Types.Permute($2, None) }
+  | PERMUTE perm hyp DOT
+    { Types.Permute($2, Some $3) }
 
 hhint:
-  | STRINGID COLON                       { check_legal_var $1 1 ; Some $1 }
-  |                                      { None }
+  | STRINGID COLON
+    { check_legal_var $1 1 ; Some $1 }
+  |
+    { None }
 
 hyp_list:
-  | hyp hyp_list                         { $1::$2 }
-  | hyp                                  { [$1] }
+  | hyp hyp_list
+    { $1::$2 }
+  | hyp
+    { [$1] }
 
 num_list:
-  | NUM num_list                         { $1::$2 }
-  | NUM                                  { [$1] }
+  | NUM num_list
+    { $1::$2 }
+  | NUM
+    { [$1] }
 
 withs:
-  | id EQ term COMMA withs               { ($1, $3) :: $5 }
-  | id EQ term                           { [($1, $3)] }
+  | id EQ term COMMA withs
+    { ($1, $3) :: $5 }
+  | id EQ term
+    { [($1, $3)] }
 
 clause_sel:
-  |                                      { Types.Select_any }
-  | NUM                                  { Types.Select_num $1 }
-  | STRINGID                             { check_legal_var $1 1 ;
-                                           Types.Select_named $1 }
+  |
+    { Types.Select_any }
+  | NUM
+    { Types.Select_num $1 }
+  | STRINGID
+    { check_legal_var $1 1 ;
+      Types.Select_named $1 }
 
 sol_sel:
-  |                                      { Types.Solution_first }
-  | LPAREN ALL RPAREN                    { Types.Solution_all }
+  |
+    { Types.Solution_first }
+  | LPAREN ALL RPAREN
+    { Types.Solution_all }
 
 metaterm:
-  | TRUE                                 { UTrue }
-  | FALSE                                { UFalse }
-  | term EQ term                         { UEq($1, $3) }
-  | binder binding_list COMMA metaterm   { UBinding($1, $2, $4) }
-  | metaterm RARROW metaterm             { UArrow($1, $3) }
-  | metaterm OR metaterm                 { UOr($1, $3) }
-  | metaterm AND metaterm                { UAnd($1, $3) }
-  | NOT metaterm                         { UArrow($2, UFalse) }
-  | LPAREN metaterm RPAREN               { $2 }
-  | objseq                               { $1 }
-  | term restriction                     { UPred($1, $2) }
+  | TRUE
+    { UTrue }
+  | FALSE
+    { UFalse }
+  | term EQ term
+    { UEq($1, $3) }
+  | binder binding_list COMMA metaterm
+    { UBinding($1, $2, $4) }
+  | metaterm RARROW metaterm
+    { UArrow($1, $3) }
+  | metaterm OR metaterm
+    { UOr($1, $3) }
+  | metaterm AND metaterm
+    { UAnd($1, $3) }
+  | NOT metaterm
+    { UArrow($2, UFalse) }
+  | LPAREN metaterm RPAREN
+    { $2 }
+  | objseq
+    { $1 }
+  | term restriction
+    { UPred($1, $2) }
 
 objseq:
   | LBRACE contexted_term RBRACE restriction
-                                         { let l, g = $2 in
-                                             UAsyncObj(l, g, $4) }
+    { let l, g = $2 in
+      UAsyncObj(l, g, $4) }
   | LBRACE focused_term RBRACE restriction
-                                         { let l, f, g = $2 in
-                                             USyncObj(l, f, g, $4) }
+    { let l, f, g = $2 in
+      USyncObj(l, f, g, $4) }
 
 binder:
-  | FORALL                               { Metaterm.Forall }
-  | EXISTS                               { Metaterm.Exists }
-  | NABLA                                { Metaterm.Nabla }
+  | FORALL
+    { Metaterm.Forall }
+  | EXISTS
+    { Metaterm.Exists }
+  | NABLA
+    { Metaterm.Nabla }
 
 binding_list:
-  | paid binding_list                    { deloc_id_ty $1 :: $2 }
-  | paid                                 { [deloc_id_ty $1] }
+  | paid binding_list
+    { deloc_id_ty $1 :: $2 }
+  | paid
+    { [deloc_id_ty $1] }
 
 restriction:
-  |                                      { Metaterm.Irrelevant }
-  | stars                                { Metaterm.Smaller $1 }
-  | pluses                               { Metaterm.CoSmaller $1 }
-  | ats                                  { Metaterm.Equal $1 }
-  | hashes                               { Metaterm.CoEqual $1 }
+  | { Metaterm.Irrelevant }
+  | stars
+    { Metaterm.Smaller $1 }
+  | pluses
+    { Metaterm.CoSmaller $1 }
+  | ats
+    { Metaterm.Equal $1 }
+  | hashes
+    { Metaterm.CoEqual $1 }
 
 stars:
-  | STAR stars                           { 1 + $2 }
-  | STAR                                 { 1 }
+  | STAR stars
+    { 1 + $2 }
+  | STAR
+    { 1 }
 
 ats:
-  | AT ats                               { 1 + $2 }
-  | AT                                   { 1 }
+  | AT ats
+    { 1 + $2 }
+  | AT
+    { 1 }
 
 pluses:
-  | PLUS pluses                          { 1 + $2 }
-  | PLUS                                 { 1 }
+  | PLUS pluses
+    { 1 + $2 }
+  | PLUS
+    { 1 }
 
 hashes:
-  | HASH hashes                          { 1 + $2 }
-  | HASH                                 { 1 }
+  | HASH hashes
+    { 1 + $2 }
+  | HASH
+    { 1 }
 
 id_ty:
-  | loc_id COLON ty                      { deloc_id_ty ($1, $3) }
+  | loc_id COLON ty
+    { deloc_id_ty ($1, $3) }
 
 id_tys:
-  | id_ty COMMA id_tys                   { $1::$3 }
-  | id_ty                                { [$1] }
+  | id_ty COMMA id_tys
+    { $1::$3 }
+  | id_ty
+    { [$1] }
 
 top_command:
-  | pure_top_command                     { $1 }
-  | common_command                       { Types.TopCommon($1) }
+  | pure_top_command
+    { $1 }
+  | common_command
+    { Types.TopCommon($1) }
 
 pure_top_command:
-  | THEOREM id COLON metaterm DOT        { check_legal_var $2 2 ;
-                                           Types.Theorem($2, $4) }
-  | DEFINE id_tys BY optsemi defs DOT    { Types.Define($2, $5) }
-  | CODEFINE id_tys BY optsemi defs DOT  { Types.CoDefine($2, $5) }
-  | QUERY metaterm DOT                   { Types.Query($2) }
-  | IMPORT QSTRING DOT                   { Types.Import($2) }
-  | SPECIFICATION QSTRING DOT            { Types.Specification($2) }
-  | KKIND id_list TYPE DOT               { Types.Kind(List.map deloc_id $2) }
-  | TTYPE id_list ty DOT                 { Types.Type(List.map deloc_id $2, $3) }
-  | CLOSE id_list DOT                    { Types.Close(List.map deloc_id $2) }
-  | SSPLIT loc_id DOT                    { Types.SSplit(deloc_id $2, []) }
-  | SSPLIT loc_id AS id_list DOT         { Types.SSplit(deloc_id $2, List.map deloc_id $4) }
+  | THEOREM loc_id COLON metaterm DOT
+    { Types.Theorem(deloc_id $2, $4) }
+  | DEFINE id_tys BY optsemi defs DOT
+    { Types.Define($2, $5) }
+  | CODEFINE id_tys BY optsemi defs DOT
+    { Types.CoDefine($2, $5) }
+  | QUERY metaterm DOT
+    { Types.Query($2) }
+  | IMPORT QSTRING DOT
+    { Types.Import($2) }
+  | SPECIFICATION QSTRING DOT
+    { Types.Specification($2) }
+  | KKIND id_list TYPE DOT
+    { Types.Kind(List.map deloc_id $2) }
+  | TTYPE id_list ty DOT
+    { Types.Type(List.map deloc_id $2, $3) }
+  | CLOSE id_list DOT
+    { Types.Close(List.map deloc_id $2) }
+  | SSPLIT loc_id DOT
+    { Types.SSplit(deloc_id $2, []) }
+  | SSPLIT loc_id AS id_list DOT
+    { Types.SSplit(deloc_id $2, List.map deloc_id $4) }
 
 common_command:
-  | SET id id DOT                        { Types.Set($2, Types.Str $3) }
-  | SET id NUM DOT                       { Types.Set($2, Types.Int $3) }
-  | SET id QSTRING DOT                   { Types.Set($2, Types.QStr $3) }
-  | SHOW loc_id DOT                      { Types.Show(deloc_id $2) }
-  | QUIT DOT                             { Types.Quit }
-  | EOF                                  { raise End_of_file }
+  | SET id id DOT
+    { Types.Set($2, Types.Str $3) }
+  | SET id NUM DOT
+    { Types.Set($2, Types.Int $3) }
+  | SET id QSTRING DOT
+    { Types.Set($2, Types.QStr $3) }
+  | SHOW loc_id DOT
+    { Types.Show(deloc_id $2) }
+  | QUIT DOT
+    { Types.Quit }
+  | EOF
+    { raise End_of_file }
 
 optsemi:
-  |                                      { () }
-  | SEMICOLON                            { () }
+  | { () }
+  | SEMICOLON
+    { () }

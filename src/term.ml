@@ -52,6 +52,21 @@ let rec observe = function
   | Ptr {contents=V v} -> Var v
   | t -> t
 
+let rec deep_copy t =
+  match t with
+  | Ptr {contents = T t} -> deep_copy t
+  | Lam (cx, t) -> Lam (cx, deep_copy t)
+  | App (t, ts) -> App (deep_copy t, List.map deep_copy ts)
+  | Susp (t, ol, nl, e) -> Susp (deep_copy t, ol, nl, deep_copy_env e)
+  | Ptr _ | DB _ | Var _ -> t
+
+and deep_copy_env e = List.map deep_copy_env_item e
+
+and deep_copy_env_item item =
+  match item with
+  | Binding (t, n) -> Binding (deep_copy t, n)
+  | Dum _ -> item
+
 let db n = DB n
 
 let get_ctx_tys tyctx = List.map snd tyctx
@@ -134,13 +149,6 @@ let rec hnorm term =
             | Ptr _ -> assert false
           end
     | Ptr _ -> assert false
-
-let rec deep_copy t =
-  match observe (hnorm t) with
-  | (Var _ | DB _) as t -> t
-  | Lam (cx, t) -> Lam (cx, deep_copy t)
-  | App (t, ts) -> App (deep_copy t, List.map deep_copy ts)
-  | Susp _ | Ptr _ -> assert false
 
 let rec norm t =
   match observe (hnorm t) with
@@ -519,7 +527,7 @@ let term_head t =
   let rec aux t args =
     match hnorm t with
     | Ptr {contents = T t; _} -> aux t args
-    | Ptr {contents = V _; _} as t -> Some (t, args)
+    | (Var _ | Ptr {contents = V _; _}) as t -> Some (t, args)
     | App (t, targs) -> aux t (targs @ args)
     | _ -> None
   in

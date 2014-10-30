@@ -135,6 +135,13 @@ let rec hnorm term =
           end
     | Ptr _ -> assert false
 
+let rec deep_copy t =
+  match observe (hnorm t) with
+  | (Var _ | DB _) as t -> t
+  | Lam (cx, t) -> Lam (cx, deep_copy t)
+  | App (t, ts) -> App (deep_copy t, List.map deep_copy ts)
+  | Susp _ | Ptr _ -> assert false
+
 let rec norm t =
   match observe (hnorm t) with
   | (Var _ | DB _) as t -> t

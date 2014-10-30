@@ -58,6 +58,9 @@ and env = envitem list
 (* [observe t] is the way to analyze the structure of a term. *)
 val observe : term -> term
 
+(** [deep_copy t] copies the term t by duplicating all variables *)
+val deep_copy : term -> term
+
 (** Creation of terms.
   * There is probably more to come here. *)
 

@@ -654,6 +654,11 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
 let try_unify_cpairs cpairs =
   List.for_all (curry try_right_unify) cpairs
 
+let rec disjoin = function
+  | [] -> False
+  | [f] -> f
+  | f1 :: f2 :: fs -> disjoin (Or (f1, f2) :: fs)
+
 let unfold ~mdefs clause_sel sol_sel goal =
   match goal with
   | Pred(_, Smaller _) | Pred(_, Equal _) ->
@@ -664,7 +669,7 @@ let unfold ~mdefs clause_sel sol_sel goal =
         match list with
         | (state, [], body, _)::rest ->
             set_bind_state state;
-            select_non_cpairs (body :: emit) rest
+            select_non_cpairs (Metaterm.map_terms Term.deep_copy body :: emit) rest
         | _::rest -> select_non_cpairs emit rest
         | [] -> emit
       in
@@ -672,11 +677,11 @@ let unfold ~mdefs clause_sel sol_sel goal =
       begin match select_non_cpairs [] unfoldings with
         | [] -> failwith "No matching clauses"
         | [case1] -> [case1]
-        | case1 :: cases -> begin
+        | cases -> begin
+            let cases = List.rev cases in
             match sol_sel with
-            | Abella_types.Solution_first -> [List.last cases]
-            | Abella_types.Solution_all ->
-                [List.fold_left (fun disj case -> Or (case, disj)) case1 cases]
+            | Abella_types.Solution_first -> [List.hd cases]
+            | Abella_types.Solution_all -> [disjoin cases]
           end
       end
   | Obj (Async goal, sr) -> begin

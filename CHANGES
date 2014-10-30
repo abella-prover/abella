@@ -1,56 +1,117 @@
+Changes in 2.0.3 from 2.0.2
+---------------------------
+
+Additions
+
+* The unfold tactic has an optional argument, "(all)", that produces a
+  disjunction of all solutions to the matching problem of the conclusion of
+  a subgoal and its relevant (co)definition. The disjuncts are produced in
+  the same order as the clauses, but if a single clause has multiple ways to
+  match the head then the disjuncts for that clause are in some unspecified
+  order (that depends on the details of the unification algorithm).
+* The following tactic forms have been added:
+
+      apply *H to ...
+      apply ... to ... *H ...
+      cut *H ...
+      cut ... with *H
+      inst *H with ...
+      monotone *H with ...
+
+  In each case, if H names a hypothesis, then the tactic consumes the
+  hypothesis (like the clear tactic). Note that if hypothesis hints are
+  given, then these hints are used *after* consuming the hypotheses. Thus,
+  if one writes:
+  
+      foo : apply lem to *foo bar baz.
+  
+  then the hypothesis named foo is effectively *replaced* with a new
+  hypothesis named foo that is the result of applying the lem to the old foo
+  and the other arguments.
+* Optional semi-colon allowed before the first clause in a definition or
+  co-definition block.
+* Variable renaming can overwrite old variables that have already been
+  instantiated.
+
+Internal changes
+
+* The parser has stronger checks to enforce the lexical convention that all
+  identifiers matching n[0-9]+ are nominal constants.
+
+Bugfixes
+
+* Abella now builds on versions of OCaml between 3.12.1 and 4.01.0
+  (inclusive) again.
+* Web-page generating scripts properly handle proof syntax changes since
+  version 1.3.5.
+* The toplevel now prints tactics using the same syntax as in proof scripts.
+* The apply tactic can now apply lemmas that do not have a forall prefix.
+
+New examples
+
+* The process calculus examples have been re-organized. There are now two
+  medium sized new developments of the meta-theory of bisimulation-up-to
+  techniques for CCS and the pi-calculus.
+
+
 Changes in 2.0.2 from 2.0.1
 ---------------------------
 
 Potentially breaking changes.
 
-* Constants with names matching n[0-9]+ are forcibly treated as
-  nominal constants. This fixes a unsoundness due to ambiguous
-  parsing of such constants in proofs.
-* The tactic "exists" now has a synonym: "witness". This adds
-  "witness" to the list of keywords.
+* Constants with names matching n[0-9]+ are forcibly treated as nominal
+  constants. This fixes a unsoundness due to ambiguous parsing of such
+  constants in proofs.
+* The tactic "exists" now has a synonym: "witness". This adds "witness" to
+  the list of keywords.
 
 Additions
 
 * Specification language now supports <= in addition to =>
-* Binders are printed using variable naming hints from the
-  source instead of in a normalized form (x1, x2, etc.)
+* Binders are printed using variable naming hints from the source instead of
+  in a normalized form (x1, x2, etc.)
 * Can unfold the nth clause of an inductive or co-inductive
   definition block using "unfold n".
-* Can name clauses in the specification (in .mod files) using a
-  comment of the form %:nm: right before a clause. There must be a
-  single Abella identifier and no spaces between the two :s.
-* Can unfold a specific clause named "nm" of a specification using
-  "unfold nm".
-* New flag "instantiations" shows variable instantiations at the top
-  of a subgoal.
+* Can name clauses in the specification (in .mod files) using a comment of
+  the form %:nm: right before a clause. There must be a single Abella
+  identifier and no spaces between the two :s.
+* Can unfold a specific clause named "nm" of a specification using "unfold
+  nm".
+* New flag "instantiations" shows variable instantiations at the top of a
+  subgoal.
 * New notation "~ F" for "F -> false".
-* The backchain tactic now allows backchaining formulas that are
-  not prenex-quantified implications. The "head" of the backchained
-  formula is interpreted as any formula that is not an implication.
-* The rename tactic has been extended to also allow renaming
-  variables, with an identical syntax.
+* The backchain tactic now allows backchaining formulas that are not
+  prenex-quantified implications. The "head" of the backchained formula is
+  interpreted as any formula that is not an implication.
+* The rename tactic has been extended to also allow renaming variables, with
+  an identical syntax.
 
 Internal changes
 
-* Terms and meta-terms now have pretty-printer with a plugin
-  architecture for future extensions.
+* Terms and meta-terms now have pretty-printer with a plugin architecture
+  for future extensions.
 
 Bug fixes
 
 * The exists/witness tactics now rename to avoid capture (#22)
-* Raising over nominal constants in spec. sequents raises over the
-  support of the whole sequent rather than just its conclusion.
+* Raising over nominal constants in spec. sequents raises over the support
+  of the whole sequent rather than just its conclusion.
 * Normalizing of binders now avoid capture (#23)
-* Instantiated variables are no longer printed in the variables list
-  of a sequent.
+* Instantiated variables are no longer printed in the variables list of a
+  sequent.
 * Higher-order definitions have a stricter stratification check that
   complains both about actual and potential unsound definitions.
-* The subordination checker now does not complain about invalid
-  subterms for types that have not been explicitly Closed.
-* The rename tactic cannot rename lemmas (i.e., theorems proved
-  earlier)
+* The subordination checker now does not complain about invalid subterms for
+  types that have not been explicitly Closed.
+* The rename tactic cannot rename lemmas (i.e., theorems proved earlier)
 
 New examples
 
 * Formalization of the meta-theory of higher-order HH using only the
   reasoning logic of Abella (examples/logic/hh_meta.thm).
+
+
+<!-- Local Variables: -->
+<!-- mode: markdown -->
+<!-- fill-column: 76 -->
+<!-- End: -->

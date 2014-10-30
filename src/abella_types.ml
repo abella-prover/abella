@@ -21,6 +21,7 @@ open Metaterm
 open Term
 open Typing
 open Printf
+open Extensions
 
 type uclause = string option * uterm * uterm list
 

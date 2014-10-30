@@ -13,6 +13,7 @@ Additions
 
       apply *H to ...
       apply ... to ... *H ...
+      backchain *H
       cut *H ...
       cut ... with *H
       inst *H with ...
@@ -22,9 +23,9 @@ Additions
   hypothesis (like the clear tactic). Note that if hypothesis hints are
   given, then these hints are used *after* consuming the hypotheses. Thus,
   if one writes:
-  
+
       foo : apply lem to *foo bar baz.
-  
+
   then the hypothesis named foo is effectively *replaced* with a new
   hypothesis named foo that is the result of applying the lem to the old foo
   and the other arguments.

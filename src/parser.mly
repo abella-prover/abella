@@ -398,40 +398,40 @@ command:
     { Types.Common($1) }
 
 clearable:
-  | loc_id
-    { Types.Keep (deloc_id $1) }
+  | hyp
+    { Types.Keep $1 }
   | STAR hyp
     { Types.Remove $2 }
 
-applyables:
-  | hyp applyables
-    { Types.Keep $1 :: $2 }
+apply_args:
+  | apply_arg apply_args
+    { $1 :: $2 }
+  | apply_arg
+    { [$1] }
+
+apply_arg:
   | hyp
-    { [Types.Keep $1] }
-  | STAR STRINGID applyables
-    { check_legal_var $2 2 ;
-      Types.Remove $2 :: $3 }
+    { Types.Keep $1 }
   | STAR STRINGID
-    { check_legal_var $2 2 ;
-      [Types.Remove $2] }
+    { check_legal_var $2 2 ; Types.Remove $2 }
 
 pure_command:
   | hhint IND ON num_list DOT
     { Types.Induction($4, $1) }
   | hhint COIND DOT
     { Types.CoInduction($1) }
-  | hhint APPLY clearable TO applyables DOT
+  | hhint APPLY clearable TO apply_args DOT
     { Types.Apply($3, $5, [], $1) }
-  | hhint APPLY clearable TO applyables WITH withs DOT
+  | hhint APPLY clearable TO apply_args WITH withs DOT
     { Types.Apply($3, $5, $7, $1) }
   | hhint APPLY clearable WITH withs DOT
     { Types.Apply($3, [], $5, $1) }
   | hhint APPLY clearable DOT
     { Types.Apply($3, [], [], $1) }
-  | BACKCHAIN loc_id DOT
-    { Types.Backchain(deloc_id $2, []) }
-  | BACKCHAIN loc_id WITH withs DOT
-    { Types.Backchain(deloc_id $2, $4) }
+  | BACKCHAIN clearable DOT
+    { Types.Backchain($2, []) }
+  | BACKCHAIN clearable WITH withs DOT
+    { Types.Backchain($2, $4) }
   | hhint CUT LPAREN term RPAREN FROM clearable WITH clearable DOT
     { Types.CutFrom($7,$9,$4,$1) }
   | hhint CUT clearable WITH clearable DOT

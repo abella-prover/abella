@@ -79,7 +79,7 @@ type command =
   | Induction of int list * id option
   | CoInduction of id option
   | Apply of clearable * clearable list * (id * uterm) list * id option
-  | Backchain of id * (id * uterm) list
+  | Backchain of clearable * (id * uterm) list
   | CutFrom of clearable * clearable * uterm * id option
   | Cut of clearable * clearable * id option
   | SearchCut of clearable * id option
@@ -239,9 +239,12 @@ let command_to_string c =
           (clearables_to_string hs)
           (withs_to_string ws)
     | Backchain(h, []) ->
-        sprintf "backchain %s" h
+        sprintf "backchain %s"
+          (clearable_to_string h)
     | Backchain(h, ws) ->
-        sprintf "backchain %s with %s" h (withs_to_string ws)
+        sprintf "backchain %s with %s"
+          (clearable_to_string h)
+          (withs_to_string ws)
     | Cut(h1, h2, hn) ->
         sprintf "%scut %s with %s"
           (hn_to_string hn)

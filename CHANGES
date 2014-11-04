@@ -33,6 +33,7 @@ Additions
   co-definition block.
 * Variable renaming can overwrite old variables that have already been
   instantiated.
+* The clear tactic can also remove instantiated variables.
 
 Internal changes
 

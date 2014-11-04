@@ -982,8 +982,22 @@ let skip () =
 
 (* Clear *)
 
+let remove_thing h =
+  if is_hyp h then remove_hyp h else
+  sequent.vars <-
+    List.filter (fun xv -> fst xv <> h) sequent.vars
+
+let check_removable h =
+  if not (is_hyp h) then
+    try
+      let v = List.assoc h sequent.vars in
+      if is_uninstantiated (h, v) then
+        failwithf "Cannot clear variable %S" h
+    with Not_found -> ()
+
 let clear hs =
-  List.iter remove_hyp hs
+  List.iter check_removable hs ;
+  List.iter remove_thing hs
 
 (* Abbrev *)
 

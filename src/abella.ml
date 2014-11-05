@@ -385,7 +385,11 @@ let query q =
   let ctx = fresh_alist ~tag:Logic ~used:[] fv in
   match type_umetaterm ~sr:!sr ~sign:!sign ~ctx (UBinding(Metaterm.Exists, fv, q)) with
     | Binding(Metaterm.Exists, fv, q) ->
-        let ctx = fresh_alist ~tag:Logic ~used:[] fv in
+        let used = List.map begin fun (x, ty) ->
+            let v = Term.var Constant x 0 ty in
+            (x, v)
+          end fv in
+        let ctx = fresh_alist ~tag:Logic ~used fv in
         let q = replace_metaterm_vars ctx q in
         let _ = Tactics.search
           ~depth:max_int

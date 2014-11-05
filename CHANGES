@@ -49,8 +49,8 @@ Bugfixes
 * The toplevel now prints tactics using the same syntax as in proof scripts.
 * The apply tactic can now apply lemmas that do not have a forall prefix.
 * In the Query command, fresh logic variables are allocated to be
-  non-conflicting with the existing capitalized identifiers in the query.
-  This prevents the generated solutions from appearing to be non-idempotent.
+  independent of existing capitalized identifiers in the query. This
+  prevents the generated solutions from appearing to be non-idempotent.
 
 New examples
 

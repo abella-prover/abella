@@ -132,6 +132,8 @@ val has_eigen_head : term -> bool
 val hnorm : term -> term
 val norm : term -> term
 
+val pretty_ty : ty -> Pretty.expr
+val format_ty : Format.formatter -> ty -> unit
 val ty_to_string : ty -> string
 
 class type term_printer = object

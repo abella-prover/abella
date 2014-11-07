@@ -389,15 +389,21 @@ let rec list_range a b =
 
 let abs_name = "x"
 
+let arrow_op = Pretty.FMT " ->@ "
+let rec pretty_ty (Ty (args, targ)) =
+  let open Pretty in
+  let args = List.map pretty_ty args in
+  let targ = Atom (STR targ) in
+  List.fold_right begin fun arg targ ->
+    Opapp (1, Infix (RIGHT, arg, arrow_op, targ))
+  end args targ
+let format_ty fmt ty = Pretty.print fmt (pretty_ty ty)
 let ty_to_string ty =
-  let rec aux nested ty =
-    match ty with
-      | Ty([], bty) -> bty
-      | Ty(tys, bty) ->
-          let res = String.concat " -> "(List.map (aux true) tys @ [bty]) in
-            if nested then parenthesis res else res
-  in
-    aux false ty
+  let buf = Buffer.create 19 in
+  let fmt = Format.formatter_of_buffer buf in
+  format_ty fmt ty ;
+  Format.pp_print_flush fmt () ;
+  Buffer.contents buf
 
 let var_to_string ?(tag=false) ?(ts=false) ?(ty=false) v =
   let (bef, aft) = if tag || ts || ty then ("$(", ")") else ("", "") in

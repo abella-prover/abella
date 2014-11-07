@@ -209,23 +209,63 @@ let sequent_var_to_string (x, xt) =
 
 let show_instantiations = ref false
 
+let show_types = ref false
+
+let separate_strings xs =
+  let __max_len = 30 in
+  let result = ref [] in
+  let emit xs = result := String.concat "," (List.rev xs) :: !result in
+  let rec spin nxs pos = function
+    | [] -> emit nxs
+    | x :: xs ->
+      if pos + String.length x + 1 < __max_len then
+        spin (x :: nxs) (pos + String.length x + 1) xs
+      else begin
+        emit nxs ;
+        spin [x] (String.length x) xs
+      end
+  in
+  spin [] 0 xs ;
+  List.rev !result
+
+let format_typed_vars ff (ty, xs) =
+  let open Format in
+  List.iter begin fun xs ->
+    pp_print_string ff "  " ;
+    pp_print_string ff xs ;
+    pp_print_string ff " : " ;
+    pp_open_box ff 0 ; Term.format_ty ff ty ; pp_close_box ff () ;
+    pp_print_newline ff () ;
+  end (separate_strings xs)
+
 let format_vars ff =
   let open Format in
   let (eigen_vars, inst_vars) =
     List.partition is_uninstantiated sequent.vars in
   if eigen_vars <> [] then begin
-    pp_print_string ff "Variables: " ;
-    pp_open_hovbox ff 0 ; begin
-      pp_print_string ff (sequent_var_to_string (List.hd eigen_vars)) ;
-      List.iter begin
-        fun v ->
-          pp_print_space ff () ;
-          pp_print_string ff (sequent_var_to_string v)
-      end (List.tl eigen_vars) ;
-    end ; pp_close_box ff () ;
-    pp_print_newline ff ()
+      pp_print_string ff "Variables: " ;
+    if !show_types then begin
+      pp_print_newline ff () ;
+      eigen_vars
+      |> List.map
+        (fun (x, xtm) -> (Term.tc [] xtm, x))
+      |> List.sort
+        (fun (ty1, _) (ty2, _) -> Pervasives.compare ty1 ty2)
+      |> List.collate_assoc
+      |> List.iter (format_typed_vars ff) ;
+    end else begin
+      pp_open_hovbox ff 0 ; begin
+        pp_print_string ff (sequent_var_to_string (List.hd eigen_vars)) ;
+        List.iter begin
+          fun v ->
+            pp_print_space ff () ;
+            pp_print_string ff (sequent_var_to_string v)
+        end (List.tl eigen_vars) ;
+      end ; pp_close_box ff () ;
+      pp_print_newline ff ()
+    end
   end ;
-  if !show_instantiations then
+  if inst_vars <> [] && !show_instantiations then
     List.iter begin fun (v, vtm) ->
       pp_print_string ff v ;
       pp_print_string ff " <-- " ;

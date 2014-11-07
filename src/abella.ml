@@ -431,6 +431,12 @@ let set k v =
                              ~key:"instantiations"
                              ~expected:"'on' or 'off'"
 
+  | "types", Str "on" -> Prover.show_types := true
+  | "types", Str "off" -> Prover.show_types := false
+  | "types", _ -> set_fail v
+                    ~key:"types"
+                    ~expected:"'on' or 'off'"
+
   | "search_depth", Int d when d >= 0 -> search_depth := d
   | "search_depth", _ -> set_fail v
                            ~key:"search_depth"

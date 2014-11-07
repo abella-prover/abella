@@ -176,6 +176,18 @@ module List = struct
     in
       aux list
 
+  let collate_assoc ?(cmp=(=)) alist =
+    let rec spin finished ck cv = function
+      | [] -> List.rev ((ck, List.rev cv) :: finished)
+      | (nk, nv) :: rest ->
+        if cmp ck nk
+        then spin finished ck (nv :: cv) rest
+        else spin ((ck, List.rev cv) :: finished) nk [nv] rest
+    in
+    match alist with
+    | [] -> []
+    | (nk, nv) :: rest -> spin [] nk [nv] rest
+
   let max list =
     let rec aux list m =
       match list with

@@ -21,6 +21,68 @@
   open Parser
   open Lexing
 
+  let keyword_table : (string, token) Hashtbl.t = Hashtbl.create 89 ;;
+  let () = List.iter (fun (k, t) -> Hashtbl.add keyword_table k t) [
+    "kind",          KIND ;
+    "type",          TYPE ;
+    "Kind",          KKIND ;
+    "Type",          TTYPE ;
+    "Close",         CLOSE ;
+    "sig",           SIG ;
+    "module",        MODULE ;
+    "accum_sig",     ACCUMSIG ;
+    "accumulate",    ACCUM ;
+    "end",           END ;
+    "forall",        FORALL ;
+    "nabla",         NABLA ;
+    "exists",        EXISTS ;
+    "Theorem",       THEOREM ;
+    "Define",        DEFINE ;
+    "CoDefine",      CODEFINE ;
+    "Query",         QUERY ;
+    "Import",        IMPORT ;
+    "Specification", SPECIFICATION ;
+    "Split",         SSPLIT ;
+    "true",          TRUE ;
+    "false",         FALSE ;
+    "induction",     IND ;
+    "coinduction",   COIND ;
+    "apply",         APPLY ;
+    "backchain",     BACKCHAIN ;
+    "inst",          INST ;
+    "cut",           CUT ;
+    "from",          FROM ;
+    "case",          CASE ;
+    "search",        SEARCH ;
+    "to",            TO ;
+    "with",          WITH ;
+    "on",            ON ;
+    "by",            BY ;
+    "as",            AS ;
+    "witness",       WITNESS ;
+    "split",         SPLIT ;
+    "split*",        SPLITSTAR ;
+    "left",          LEFT ;
+    "right",         RIGHT ;
+    "unfold",        UNFOLD ;
+    "intros",        INTROS ;
+    "skip",          SKIP ;
+    "abort",         ABORT ;
+    "undo",          UNDO ;
+    "assert",        ASSERT ;
+    "keep",          KEEP ;
+    "all",           ALL ;
+    "clear",         CLEAR ;
+    "abbrev",        ABBREV ;
+    "unabbrev",      UNABBREV ;
+    "monotone",      MONOTONE ;
+    "permute",       PERMUTE ;
+    "rename",        RENAME ;
+    "Set",           SET ;
+    "Show",          SHOW ;
+    "Quit",          QUIT ;
+  ] ;;
+
   let incrline lexbuf =
     lexbuf.lex_curr_p <- {
         lexbuf.lex_curr_p with
@@ -53,17 +115,6 @@ rule token = parse
 | '"' ([^ '"']* as s) '"'
                      { QSTRING s }
 
-| "kind"             { KIND }
-| "type"             { TYPE }
-| "Kind"             { KKIND }
-| "Type"             { TTYPE }
-| "Close"            { CLOSE }
-| "sig"              { SIG }
-| "module"           { MODULE }
-| "accum_sig"        { ACCUMSIG }
-| "accumulate"       { ACCUM }
-| "end"              { END }
-
 | "=>"               { IMP }
 | "<="               { IF }
 | ":-"               { CLAUSEEQ }
@@ -80,20 +131,10 @@ rule token = parse
 
 | ":"                { COLON }
 | "->"               { RARROW }
-| "forall"           { FORALL }
-| "nabla"            { NABLA }
-| "exists"           { EXISTS }
 | "*"                { STAR }
 | "@"                { AT }
 | "#"                { HASH }
 | "+"                { PLUS }
-| "Theorem"          { THEOREM }
-| "Define"           { DEFINE }
-| "CoDefine"         { CODEFINE }
-| "Query"            { QUERY }
-| "Import"           { IMPORT }
-| "Specification"    { SPECIFICATION }
-| "Split"            { SSPLIT }
 | "~"                { NOT }
 | "\\/"              { OR }
 | "/\\"              { AND }
@@ -101,50 +142,11 @@ rule token = parse
 | "}"                { RBRACE }
 | "["                { LBRACK }
 | "]"                { RBRACK }
-| "true"             { TRUE }
-| "false"            { FALSE }
-
-| "induction"        { IND }
-| "coinduction"      { COIND }
-| "apply"            { APPLY }
-| "backchain"        { BACKCHAIN }
-| "inst"             { INST }
-| "cut"              { CUT }
-| "from"             { FROM }
-| "case"             { CASE }
-| "search"           { SEARCH }
-| "to"               { TO }
-| "with"             { WITH }
-| "on"               { ON }
-| "by"               { BY }
-| "as"               { AS }
-| "witness"          { WITNESS }
-| "split"            { SPLIT }
-| "split*"           { SPLITSTAR }
-| "left"             { LEFT }
-| "right"            { RIGHT }
-| "unfold"           { UNFOLD }
-| "intros"           { INTROS }
-| "skip"             { SKIP }
-| "abort"            { ABORT }
-| "undo"             { UNDO }
-| "assert"           { ASSERT }
-| "keep"             { KEEP }
-| "all"              { ALL }
-| "clear"            { CLEAR }
-| "abbrev"           { ABBREV }
-| "unabbrev"         { UNABBREV }
-| "monotone"         { MONOTONE }
-| "permute"          { PERMUTE }
-| "rename"           { RENAME }
-
-| "Set"              { SET }
-| "Show"             { SHOW }
-| "Quit"             { QUIT }
 
 | "_"                { UNDERSCORE }
 | number as n        { NUM (int_of_string n) }
-| name as n          { STRINGID n }
+| name as id          { try Hashtbl.find keyword_table id
+                       with Not_found -> STRINGID id }
 
 | eof                { EOF }
 

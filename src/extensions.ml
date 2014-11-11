@@ -144,9 +144,6 @@ module List = struct
       | _, n when n <= 0 -> []
       | x::xs, n -> x::(take (n-1) xs)
 
-  let mem_assoc x l =
-    List.exists (fun (y, _) -> x = y) l
-
   let remove_assocs to_remove alist =
     let rec aux alist =
       match alist with

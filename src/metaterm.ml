@@ -80,6 +80,12 @@ let binding binder tids t =
           Binding(binder, tids @ tids', t')
       | _ -> Binding(binder, tids, t)
 
+let rec conjoin mts =
+  match mts with
+  | [] -> True
+  | [mt] -> mt
+  | mt1 :: mt2 :: mts -> conjoin (And (mt1, mt2) :: mts)
+
 let forall tids t = binding Forall tids t
 let nabla tids t = binding Nabla tids t
 let exists tids t = binding Exists tids t

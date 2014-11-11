@@ -26,6 +26,11 @@ open Debug
 
 (* Variable naming utilities *)
 
+let is_uninstantiated (x, vtm) =
+  match observe (hnorm vtm) with
+  | Var {Term.name=n; Term.tag=Eigen; _} when n = x -> true
+  | _ -> false
+
 let alist_to_used (_, t) = term_to_pair t
 
 let freshen_clause ~used ~sr ?(support=[]) clause =
@@ -62,7 +67,7 @@ let freshen_nameless_clause ?(support=[]) ~ts clause =
   let fresh_names = fresh_nameless_alist ~support ~tag:Logic ~ts tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
-    (fresh_head, fresh_body)
+  (fresh_names,fresh_head, fresh_body)
 
 let freshen_nameless_def ?(support=[]) ~ts head body =
   let tids = capital_tids [head] in
@@ -74,6 +79,32 @@ let freshen_nameless_def ?(support=[]) ~ts head body =
 let freshen_nameless_bindings ~support ~ts bindings term =
   let alist = fresh_nameless_alist ~support ~tag:Logic ~ts bindings in
     replace_metaterm_vars alist term
+
+
+let existentially_close ~used quant_vars body =
+  let bindings : (id * term) list ref = ref [] in
+  let emit x xv = bindings := (x, xv) :: !bindings in
+  let rec renumber_one stem cur v =
+    let candidate = stem ^ string_of_int cur in
+    if List.mem_assoc candidate used then
+      renumber_one stem (cur + 1) v
+    else begin
+      emit v.name (Term.var Constant candidate 0 v.ty) ;
+      cur
+    end
+  in
+  List.iter begin fun (x, nvs) ->
+    List.fold_left (renumber_one x) 1 nvs |> ignore
+  end quant_vars ;
+  match List.rev !bindings with
+  | [] -> body
+  | bindings ->
+    let body = replace_metaterm_vars bindings body in
+    let bindings =
+      List.map (fun (_, xv) -> (term_to_name xv, tc [] xv))
+        bindings in
+    Binding (Exists, bindings, body)
+
 
 (* Object level cut *)
 
@@ -659,7 +690,7 @@ let rec disjoin = function
   | [f] -> f
   | f1 :: f2 :: fs -> disjoin (Or (f1, f2) :: fs)
 
-let unfold ~mdefs clause_sel sol_sel goal =
+let unfold ~mdefs ~used clause_sel sol_sel goal =
   match goal with
   | Pred(_, Smaller _) | Pred(_, Equal _) ->
       failwith "Cannot unfold inductively restricted predicate"
@@ -693,15 +724,26 @@ let unfold ~mdefs clause_sel sol_sel goal =
                 | Async goal -> goal
                 | _ -> assert false
               in
-              let (head, body) = freshen_nameless_clause ~support:[] ~ts:0 (clausify cl) in
+              let (vars, head, body) = freshen_nameless_clause ~support:[] ~ts:0 (clausify cl) in
               match try_right_unify_cpairs head goal.Async.term with
               | None -> []
               | Some cpairs ->
                   if try_unify_cpairs cpairs then begin
-                    List.map begin fun g ->
-                      let goal = Obj (Async (Async.obj goal.Async.context g) |> normalize_obj, sr) in
-                      goal
-                    end body
+                    let new_vars = List.map (fun (x, xv) -> (x, find_vars Logic [xv])) vars in
+                    let quant_vars =
+                      List.fold_left
+                        (fun vs (x, nvs) -> if nvs = [] then vs else (x, nvs) :: vs)
+                        [] new_vars in
+                    let body =
+                      List.map (fun g -> Obj (Async (Async.obj goal.Async.context g) |> normalize_obj, sr))
+                        body in
+                    if quant_vars = [] then body
+                    else [existentially_close ~used quant_vars (conjoin body)]
+                    (* else begin *)
+                    (*   let mapping = List.map begin fun (x, nvs) -> *)
+                    (*     Printf.sprintf "\t%s := %s" x (List.map var_to_string nvs |> String.concat ",") *)
+                    (*   end quant_vars |> String.concat "\n" in *)
+                    (*   failwithf "unfold: residual logic variables\n%s" mapping *)
                   end else []
             end
           | None -> failwithf "Program clause named %S not found" nm
@@ -809,7 +851,10 @@ let search ~depth:n ~hyps ~clauses ~alldefs
 
   let rec clause_aux n context foci goal r ts ~sc =
     let support = term_list_support (goal :: context) in
-    let freshen_clause = freshen_nameless_clause ~support ~ts in
+    let freshen_clause cl =
+      let (_vars, head, body) = freshen_nameless_clause ~support ~ts cl in
+      (head, body)
+    in
     let p = term_head_name goal in
     let wrap body = List.map (fun t -> Async.obj context t) body in
       foci

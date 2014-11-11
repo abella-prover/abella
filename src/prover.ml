@@ -118,11 +118,6 @@ let add_subgoals ?(mainline) new_subgoals =
   in
   subgoals := annotated_subgoals @ !subgoals
 
-let is_uninstantiated (x, vtm) =
-  match observe (hnorm vtm) with
-  | Var {Term.name=n; Term.tag=Eigen; _} when n = x -> true
-  | _ -> false
-
 (* The vars = sequent.vars is superfluous, but forces the copy *)
 let copy_sequent () =
   {sequent with vars = sequent.vars}
@@ -995,7 +990,8 @@ let right () =
 
 let unfold clause_sel sol_sel =
   let mdefs = get_defs sequent.goal in
-  let goal = unfold ~mdefs clause_sel sol_sel sequent.goal in
+  let used = sequent.vars in
+  let goal = unfold ~used ~mdefs clause_sel sol_sel sequent.goal in
   let goals = List.concat (List.map and_to_list goal) in
   add_subgoals (List.map goal_to_subgoal goals) ;
   next_subgoal ()

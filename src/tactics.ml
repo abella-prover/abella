@@ -726,7 +726,7 @@ let unfold ~mdefs ~used clause_sel sol_sel goal =
               in
               let (vars, head, body) = freshen_nameless_clause ~support:[] ~ts:0 (clausify cl) in
               match try_right_unify_cpairs head goal.Async.term with
-              | None -> []
+              | None -> failwithf "Head of program clause named %S not unifiable with goal" nm
               | Some cpairs ->
                   if try_unify_cpairs cpairs then begin
                     let new_vars = List.map (fun (x, xv) -> (x, find_vars Logic [xv])) vars in
@@ -739,12 +739,8 @@ let unfold ~mdefs ~used clause_sel sol_sel goal =
                         body in
                     if quant_vars = [] then body
                     else [existentially_close ~used quant_vars (conjoin body)]
-                    (* else begin *)
-                    (*   let mapping = List.map begin fun (x, nvs) -> *)
-                    (*     Printf.sprintf "\t%s := %s" x (List.map var_to_string nvs |> String.concat ",") *)
-                    (*   end quant_vars |> String.concat "\n" in *)
-                    (*   failwithf "unfold: residual logic variables\n%s" mapping *)
-                  end else []
+                  end else
+                    failwithf "Unsolvable unification of head of program clause named %S with goal" nm
             end
           | None -> failwithf "Program clause named %S not found" nm
         end

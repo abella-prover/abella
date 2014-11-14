@@ -56,14 +56,10 @@
       (fun h a -> UApp((fst (get_pos h), snd (get_pos a)), h, a))
       head args
 
+  let nominal_constant_re = Str.regexp "n[0-9]+"
   exception Illegal
   let is_illegal_constant k =
-    k.[0] = 'n' &&
-    try for i = 1 to String.length k - 1 do
-        if k.[i] >= '0' && k.[i] <= '9' then
-          raise Illegal
-      done ; false
-    with Illegal -> true
+    Str.string_match nominal_constant_re k 0
 
   let check_legal_var vid vnum =
     if is_illegal_constant vid then

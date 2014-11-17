@@ -45,10 +45,11 @@ Bugfixes
 
 * Abella now builds on versions of OCaml between 3.12.1 and 4.01.0
   (inclusive) again.
-* Unfolding named clauses now existentially closes over residual logic
-  variables (soundness bug introduced in 2.0.2) (#33)
+* Unfolding named clauses now raises clauses over the support of the goal
+  and existentially closes over residual logic variables (soundness bug
+  introduced in 2.0.2) (#33)
 * Unfolding named clauses whose heads do not unify with goal now causes
-  failure instead of success.(soundness bug introduced in 2.0.2)
+  failure instead of success. (soundness bug introduced in 2.0.2)
 * Web-page generating scripts properly handle proof syntax changes since
   version 1.3.5.
 * The toplevel now prints tactics using the same syntax as in proof scripts.

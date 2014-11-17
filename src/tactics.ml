@@ -690,8 +690,8 @@ let rec disjoin = function
   | [f] -> f
   | f1 :: f2 :: fs -> disjoin (Or (f1, f2) :: fs)
 
-let unfold ~mdefs ~used clause_sel sol_sel goal =
-  match goal with
+let unfold ~mdefs ~used clause_sel sol_sel goal0 =
+  match goal0 with
   | Pred(_, Smaller _) | Pred(_, Equal _) ->
       failwith "Cannot unfold inductively restricted predicate"
   | Pred(goal, r) ->
@@ -724,7 +724,8 @@ let unfold ~mdefs ~used clause_sel sol_sel goal =
                 | Async goal -> goal
                 | _ -> assert false
               in
-              let (vars, head, body) = freshen_nameless_clause ~support:[] ~ts:0 (clausify cl) in
+              let support = metaterm_support goal0 in
+              let (vars, head, body) = freshen_nameless_clause ~support ~ts:0 (clausify cl) in
               match try_right_unify_cpairs head goal.Async.term with
               | None -> failwithf "Head of program clause named %S not unifiable with goal" nm
               | Some cpairs ->

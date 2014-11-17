@@ -1,6 +1,13 @@
 Changes in 2.0.3 from 2.0.2
 ---------------------------
 
+Potentially breaking changes
+
+* Removed ~ and != notations (introduced in 2.0.2, and unused by anyone as
+  far as I know). A general notation support may be considered for Abella
+  in the future. Meanwhile, we prefer simplicity and predictability.
+
+
 Additions
 
 * The unfold tactic has an optional argument, "(all)", that produces a

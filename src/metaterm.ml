@@ -181,14 +181,9 @@ let rec pretty_metaterm mt =
   | Eq(a, b) ->
       Pretty.(Opapp (30, Infix (NON, core_printer#print [] a,
                                 FMT " =@ ", core_printer#print [] b)))
-  | Arrow(Eq(a, b), False) ->
-      Pretty.(Opapp (30, Infix (NON, core_printer#print [] a,
-                                FMT " !=@ ", core_printer#print [] b)))
   | Obj(obj, r) ->
       Pretty.(Opapp (50, Postfix (pretty_obj obj,
                                   STR (restriction_to_string r))))
-  | Arrow(a, False) ->
-      Pretty.(Opapp (40, Prefix (STR "~ ", pretty_metaterm a)))
   | Arrow(a, b) ->
       Pretty.(Opapp (20, Infix (RIGHT, pretty_metaterm a,
                                 FMT " ->@ ", pretty_metaterm b)))

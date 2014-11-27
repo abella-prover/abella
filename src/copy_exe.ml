@@ -8,7 +8,7 @@
 if Array.length Sys.argv <> 3 then failwith "bad args" ;;
 
 Sys.command (
-  Printf.sprintf "cp %S %S"
+  Printf.sprintf "mv %S %S"
     Sys.argv.(1)
     (Sys.argv.(2) ^ (if Sys.os_type <> "Unix" then ".exe" else ""))
 ) ;;

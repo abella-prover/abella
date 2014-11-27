@@ -6,7 +6,8 @@ OCB = ocamlbuild -classic-display
 all:
 	$(OCB) -no-links src/abella.native
 	$(OCB) -no-links src/copy_exe.native
-	_build/src/copy_exe.native _build/src/abella.native abella
+	cp -a _build/src/abella.native _build/src/abella.native.target
+	_build/src/copy_exe.native _build/src/abella.native.target abella
 
 .PHONY: clean
 clean:

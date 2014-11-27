@@ -79,11 +79,11 @@ let add_global_consts cs =
 let close_types ids =
   begin match List.minus ids (fst !sign) with
   | [] -> ()
-  | xs -> failwith ("Unknown type(s): " ^ (String.concat ", " xs))
+  | xs -> failwithf "Unknown type(s): %s" (String.concat ", " xs)
   end ;
   begin match List.intersect ["o"; "olist"; "prop"] ids with
   | [] -> ()
-  | xs -> failwith ("Cannot close " ^ (String.concat ", " xs))
+  | xs -> failwithf "Cannot close %s" (String.concat ", " xs)
   end ;
   sr := Subordination.close !sr ids
 
@@ -172,7 +172,7 @@ let () = H.add defs_table "member"
 let add_defs ids ty defs =
   List.iter
     (fun id -> if H.mem defs_table id then
-        failwith (id ^ " has already been defined"))
+        failwithf "Predicate %s has already been defined" id)
     ids ;
   List.iter
     (fun id -> H.add defs_table id (ty, ids, defs))
@@ -415,16 +415,15 @@ let get_arg_clearly = function
   | Keep "_" -> None
   | arg -> Some (get_stmt_clearly arg)
 
+exception Proof_completed
+
 let next_subgoal () =
   match !subgoals with
-  | [] -> failwith "Proof completed."
+  | [] -> raise Proof_completed
   | set_subgoal::rest ->
       set_subgoal () ;
       subgoals := rest ;
-      let before = get_display () in
-      normalize_sequent () ;
-      let after = get_display () in
-      Printf.ifprintf stderr "Normalizing\n%s\nproduces\n%s\n%!" before after
+      normalize_sequent ()
 
 
 (* Object level instantiation *)
@@ -436,23 +435,19 @@ let inst ?name h ws =
       let rec aux ws ht = match ws with
         | [] -> add_hyp ?name ht
         | (n, t) :: ws ->
-            let ht = begin try
-                let ntids = metaterm_nominal_tids ht in
-                let nty = List.assoc n ntids in
-                let ctx = sequent.vars @
-                          (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
-                in
-                let t = type_uterm ~expected_ty:nty ~sr:!sr ~sign:!sign ~ctx t in
-                object_inst ht n t
-              with
-              | Not_found ->
-                  failwith "Vacuous instantiation"
-            end in
-            aux ws ht
+            let ntids = metaterm_nominal_tids ht in
+            let nty = try List.assoc n ntids with
+              | Not_found -> failwithf "Nominal constant %s not in support" n in
+            let ctx = sequent.vars @
+                      (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
+            in
+            let t = type_uterm ~expected_ty:nty ~sr:!sr ~sign:!sign ~ctx t in
+            aux ws (object_inst ht n t)
       in
       aux ws ht
-  | _ -> failwith
-           "Instantiation can only be used on hypotheses of the form {...}"
+  | _ ->
+      failwith "Cannot instantiate this hypothesis\n\
+              \ Instantiation can only be used on hypotheses of the form {...}"
 
 
 (* Object level cut *)
@@ -587,7 +582,7 @@ let type_apply_withs stmt ws =
          let ty = List.assoc id bindings in
          (id, type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx:sequent.vars t)
        with
-       | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
+       | Not_found -> failwithf "Unknown variable %s" id)
     ws
 
 let partition_obligations obligations =
@@ -634,9 +629,10 @@ let type_backchain_withs stmt ws =
     (fun (id, t) ->
        try
          let ty = List.assoc id bindings in
-         (id, type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx:(nctx @ sequent.vars) t)
+         (id, type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign
+            ~ctx:(nctx @ sequent.vars) t)
        with
-       | Not_found -> failwith ("Unknown variable " ^ id ^ "."))
+       | Not_found -> failwithf "Unknown variable %s" id)
     ws
 
 let backchain ?(term_witness=ignore) h ws =
@@ -747,9 +743,10 @@ let ensure_is_inductive term =
       begin try
         match H.find defs_table pname with
         | Inductive, _, _ -> ()
-        | CoInductive, _, _ -> failwith
-                                 (sprintf "Cannot induct on %s since it has\
-                                          \ been coinductively defined" pname)
+        | CoInductive, _, _ ->
+            failwithf "Cannot induct on %s since it has\
+                     \ been coinductively defined"
+              pname
       with Not_found ->
         failwithf "Cannot induct on %s since it has not been defined" pname
       end
@@ -789,9 +786,10 @@ let ensure_is_coinductive p =
   try
     match H.find defs_table pname with
     | CoInductive, _, _ -> ()
-    | Inductive, _, _ -> failwith
-                           (sprintf "Cannot coinduct on %s since it has\
-                                    \ been inductively defined" pname)
+    | Inductive, _, _ ->
+        failwithf "Cannot coinduct on %s since it has\
+                 \ been inductively defined"
+          pname
   with Not_found ->
     failwithf "Cannot coinduct on %s since it has not been defined" pname
 
@@ -850,8 +848,8 @@ let monotone h t =
                          (Context.context_to_term obj_context),
                        member (Term.const "X" oty)
                          t))) ;
-  | _ -> failwith
-           "Monotone can only be used on hypotheses of the form {...}"
+  | _ ->
+      failwith "The monotone command can only be used on hypotheses of the form {...}"
 
 
 (* Theorem *)
@@ -938,7 +936,7 @@ let ensure_no_renaming vars terms =
       (List.map fst (all_tids (List.flatten_map collect_terms terms)))
   in
   if conflicts <> [] then
-    failwith "Variable renaming required"
+    bugf "Variable renaming required"
 
 let split_theorem thm =
   let foralls, nablas, body = decompose_forall_nabla thm in
@@ -1028,7 +1026,7 @@ let check_removable h =
     try
       let v = List.assoc h sequent.vars in
       if is_uninstantiated (h, v) then
-        failwithf "Cannot clear variable %S" h
+        failwithf "Cannot clear uninstantiated variable %s" h
     with Not_found -> ()
 
 let clear hs =
@@ -1122,4 +1120,5 @@ let cut_from ?name h arg term =
   match h, arg with
   | Obj(obj_h1, _),Obj(obj_h2, _) ->
       add_hyp ?name (object_cut_from obj_h1 obj_h2 term)
-  | _,_ -> failwith "Cut can only be used on hypotheses of the form {...}"
+  | _,_ -> failwith "The cut command can only be used on \
+                   \ hypotheses of the form {...}"

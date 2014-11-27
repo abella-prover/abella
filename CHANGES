@@ -47,6 +47,8 @@ Internal changes
 
 * The parser has stronger checks to enforce the lexical convention that all
   identifiers matching n[0-9]+ are nominal constants.
+* Most user-visible error messages have been made a bit more precise and
+  informative.
 
 Bugfixes
 

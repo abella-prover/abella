@@ -24,6 +24,14 @@ let curry f (x,y) = f x y
 let uncurry f x y = f (x,y)
 
 let failwithf fmt = Printf.ksprintf failwith fmt
+let bugf      fmt = Printf.ksprintf failwith
+    ("[ABELLA BUG]\n" ^^ fmt ^^
+     "\nPlease report this at https://github.com/abella-prover/abella/issues")
+
+let maybe_guard ?guard f =
+  match guard with
+  | None -> f
+  | Some g -> g f
 
 module Option = struct
   let is_some x =
@@ -109,10 +117,15 @@ module List = struct
     in
       aux list
 
-  let find_all f list =
-    filter f list
+  let map ?guard f list = map (maybe_guard ?guard f) list
 
-  let find_some f list =
+  let iter ?guard f list = iter (maybe_guard ?guard f) list
+
+  let find_all ?guard f list =
+    filter (maybe_guard ?guard f) list
+
+  let find_some ?guard f list =
+    let f = maybe_guard ?guard f in
     let rec aux list =
       match list with
         | [] -> None
@@ -123,13 +136,16 @@ module List = struct
     in
       aux list
 
-  let filter_map f list =
+  let filter_map ?guard f list =
+    let f = maybe_guard ?guard f in
     map Option.get (find_all Option.is_some (map f list))
 
-  let flatten_map f list =
+  let flatten_map ?guard f list =
+    let f = maybe_guard ?guard f in
     flatten (map f list)
 
-  let remove_all f list =
+  let remove_all ?guard f list =
+    let f = maybe_guard ?guard f in
     find_all (fun x -> not (f x)) list
 
   let minus ?(cmp=(=)) list1 list2 =

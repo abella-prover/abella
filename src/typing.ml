@@ -114,7 +114,7 @@ type sign = ktable * ctable
 let add_types (ktable, ctable) ids =
   List.iter begin fun id ->
     if is_capital_name id then
-      failwith ("Types may not begin with a capital letter: " ^ id)
+      failwithf "Types may not begin with a capital letter: %s" id
   end ids ;
   (ids @ ktable, ctable)
 
@@ -129,7 +129,7 @@ let kind_check sign (Poly(ids, ty)) =
         if List.mem bty ids || lookup_type sign bty then
           List.iter aux tys
         else
-          failwith ("Unknown type: " ^ bty)
+          failwithf "Unknown type: %s" bty
   in
     aux ty
 
@@ -137,13 +137,13 @@ let check_const (ktable, ctable) (id, pty) =
   begin try
     let pty' = List.assoc id ctable in
       if pty <> pty' then
-        failwith ("Constant " ^ id ^ " has inconsistent type declarations")
+        failwithf "Constant %s has inconsistent type declarations" id
   with
     | Not_found -> ()
   end ;
 
   if is_capital_name id then
-    failwith ("Constants may not begin with a capital letter: " ^ id) ;
+    failwithf "Constants may not begin with a capital letter: %s" id ;
 
   kind_check (ktable, ctable) pty
 
@@ -163,7 +163,7 @@ let lookup_const (_, ctable) id =
   try
     freshen_ty (List.assoc id ctable)
   with
-    | Not_found -> failwith ("Unknown constant: " ^ id)
+    | Not_found -> failwithf "Unknown constant: %s" id
 
 (** Pervasive signature *)
 
@@ -254,7 +254,7 @@ let rec contains_tyvar = function
 
 let tid_ensure_fully_inferred (id, ty) =
   if contains_tyvar ty then
-    failwith ("Type not fully determined for " ^ id)
+    failwithf "Type not fully determined for %s" id
 
 let term_ensure_fully_inferred t =
   let rec aux t =
@@ -465,7 +465,7 @@ let lookup_clause cname =
 
 let type_uclause ~sr ~sign (cname, head, body) =
   if has_capital_head head then
-    failwith "Clause has flexible head" ;
+    failwith "Clause has flexible (i.e., non-atomic) head" ;
   let head, body = replace_underscores head body in
   let cids = uterms_extract_if is_capital_name (head::body) in
   let get_imp_form head body =
@@ -630,12 +630,8 @@ let metaterm_ensure_subordination sr t =
           term_ensure_subordination sr b
       | Obj(Async obj, _) ->
           aux (async_to_member obj)
-      (* what about the sync object ? I have no idea.
-         -- Yuting *)
       | Obj(Sync obj, _) ->
           aux (async_to_member (sync_to_async obj))
-
-        (* failwith "Un implemented: subordination of sync objects" *)
       | Arrow(a, b) | Or(a, b) | And(a, b) ->
           aux a ;
           aux b

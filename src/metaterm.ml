@@ -321,13 +321,12 @@ let is_member = function
   | Pred (t,_) -> is_head_name "member" t
   | _ -> false
 
-let extact_member = function
+let extract_member = function
   | Pred (t,_) -> (
       match observe (hnorm t) with
       | App (t, [a;b]) -> (a,b)
-      | _ -> failwith "Check is_member before calling extact_member")
-  | _ -> failwith "Check is_member before calling extact_member"
-
+      | _ -> bugf "Check is_member before calling extract_member")
+  | _ -> bugf "Check is_member before calling extract_member"
 
 let move_imp_to_context async_obj =
   let (ctx, term) = Async.get async_obj in
@@ -343,7 +342,7 @@ let is_async_obj t =
 let term_to_async_obj t =
   match t with
   | Obj (Async obj, _) -> obj
-  | _ -> failwith "term_to_obj called on non-async-object"
+  | _ -> bugf "term_to_obj called on non-async-object"
 
 let is_sync_obj t =
   match t with
@@ -354,7 +353,7 @@ let is_sync_obj t =
 let term_to_sync_obj t =
   match t with
     | Obj(Sync obj, _) -> obj
-    | _ -> failwith "term_to_obj called on non-sync-object"
+    | _ -> bugf "term_to_obj called on non-sync-object"
 
 
 let term_to_restriction t =
@@ -367,7 +366,7 @@ let set_restriction r t =
   match t with
     | Obj(obj, _) -> Obj(obj, r)
     | Pred(p, _) -> Pred(p, r)
-    | _ -> failwith "Attempting to set restriction to non-object"
+    | _ -> bugf "Attempting to set restriction to non-object"
 
 let reduce_inductive_restriction r =
   match r with
@@ -805,7 +804,7 @@ let def_head_args head =
     | Pred (p, _) -> begin
         match term_head p with
         | Some (_, args) -> args
-        | None -> failwith "Cannot find arguments!"
+        | None -> bugf "Cannot find arguments!"
       end
     | Binding (_, _, t) -> aux t
     | _ -> assert false

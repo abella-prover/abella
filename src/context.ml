@@ -150,21 +150,21 @@ let extract_singleton ctx =
   match ctx with
     | [e] -> e
     | [] -> failwith "Contexts did not match"
-    | _ -> failwith ("Contexts did not match: " ^
-                       (context_to_string ctx))
+    | _ -> failwithf "Contexts did not match: %s" (context_to_string ctx)
 
 (* For each context pair (ctx1, ctx2), make ctx2 a subcontext of ctx1 *)
 let reconcile pair_list =
   let pair_list = List.map (fun (x,y) -> xor x y) pair_list in
   let pair_list = List.remove_all (fun (x,y) -> is_empty y) pair_list in
-  let var_ctx_list = List.map
-    (fun (x,y) -> (extract_singleton x, y)) pair_list
+  let var_ctx_list =
+    List.map (fun (x,y) -> (extract_singleton x, y)) pair_list
   in
   let groups = group var_ctx_list in
   let groups = List.map (fun (x,y) -> (x, union_list y)) groups in
   let groups = List.map (fun (x,y) -> (x, normalize y)) groups in
-    List.iter (fun (var, ctx) ->
-                 Unify.right_unify var (context_to_term ctx)) groups
+  List.iter begin fun (var, ctx) ->
+    Unify.right_unify var (context_to_term ctx)
+  end groups
 
 (* Want to make hctx as large as possible but remain a subcontext of gctx *)
 let backchain_reconcile hctx gctx =

@@ -122,7 +122,9 @@ let read_specification name =
 
 let ensure_no_restrictions term =
   if get_max_restriction term > 0 then
-    failwith "Cannot use restrictions: *, @ or +"
+    failwithf "Invalid formula: %s\n\
+             \ Cannot use size restrictions (*, @, #, or +)"
+      (metaterm_to_string term)
 
 let untyped_ensure_no_restrictions term =
   ensure_no_restrictions (umetaterm_to_metaterm [] term)
@@ -203,18 +205,21 @@ let check_theorem thm =
 
 let ensure_not_capital name =
   if is_capital_name name then
-    failwith "Defined predicates may not begin with a capital letter."
+    failwithf "Invalid defined predicate name %S.\n\
+             \ Defined predicates may not begin with a capital letter."
+      name
 
 let ensure_name_contained id ids =
   if not (List.mem id ids) then
-    failwith ("Found stray clause for " ^ id)
+    failwithf "Found stray clause for %s" id
 
 let ensure_wellformed_head t =
   match t with
     | Pred _ -> ()
     | Binding(Nabla, _, Pred _) -> ()
-    | _ -> failwith
-        (sprintf "Bad head in definition: %s" (metaterm_to_string t))
+    | _ ->
+        failwithf "Invalid head in definition: %s"
+          (metaterm_to_string t)
 
 let check_defs names defs =
   List.iter ensure_not_capital names ;
@@ -231,7 +236,7 @@ let check_noredef ids =
   let (_, ctable) = !sign in
     List.iter (
       fun id -> if List.mem id (List.map fst ctable) then
-        failwithf "%s is already defined" id
+        failwithf "Predicate or constant %s already exists" id
     ) ids
 
 (* Compilation and importing *)
@@ -313,8 +318,7 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
     failwithf "Cannot import file since clauses have been extended for: %s"
       (String.concat ", " (clauses_to_predicates extended_clauses))
   in
-
-    ()
+  ()
 
 
 let imported = ref []
@@ -360,10 +364,9 @@ let import filename =
                         match List.minus curr prev with
                           | [] -> ()
                           | xs ->
-                              failwith
-                                (Printf.sprintf
-                                   "Cannot close %s since it is now subordinate to %s"
-                                   ty (String.concat ", " xs)))
+                              failwithf
+                                "Cannot close %s since it is now subordinate to %s"
+                                ty (String.concat ", " xs))
                    ty_subords ;
                  close_types (List.map fst ty_subords))
           imp_content
@@ -526,7 +529,7 @@ let rec process_proof name =
     with
       | Failure "lexing: empty token" ->
           exit (if !interactive then 0 else 1)
-      | Failure "Proof completed." ->
+      | Prover.Proof_completed ->
           fprintf !out "Proof completed.\n%!" ;
           reset_prover () ;
           finished := true
@@ -623,8 +626,8 @@ let rec process () =
               read_specification filename ;
               ensure_finalized_specification ()
             end else
-              failwith ("Specification can only be read " ^
-                          "at the begining of a development.")
+              failwith "Specification can only be read \
+                      \ at the begining of a development."
         | Query(q) -> query q
         | Kind(ids) ->
             check_noredef ids;

@@ -541,10 +541,10 @@ let makesubst tyctx h1 t2 a1 n =
                           app h2 a1'
                   else
                     make_non_llambda_subst hv1 a1 c
-            | Var _ -> failwith "logic variable on the left (1)"
+            | Var _ -> bugf "logic variable on the left (1)"
             | _ -> assert false
           end
-      | Var _ -> failwith "logic variable on the left (2)"
+      | Var _ -> bugf "logic variable on the left (2)"
       | _ -> assert false
   in
 
@@ -631,7 +631,7 @@ and unify_const_term tyctx cst t2 = if eq cst t2 then () else
         let a1 = lift_args [] (List.length idtys) in
           unify (List.rev_app idtys tyctx) (app cst a1) t2
     | Var v when not (variable v.tag || constant v.tag) ->
-        failwith "logic variable on the left (3)"
+        bugf "logic variable on the left (3)"
     | _ -> fail (ConstClash (cst,t2))
 
 (* Unify [App h1 a1 = t2].
@@ -655,7 +655,7 @@ and unify_app_term tyctx h1 a1 t1 t2 =
               let m = List.length a2 in
                 bind h2 (makesubst tyctx h2 t1 a2 m)
           | Var v when not (variable v.tag || constant v.tag) ->
-              failwith "logic variable on the left (5)"
+              bugf "logic variable on the left (5)"
           | _ -> assert false
         end
     | DB n1, App (h2,a2) ->
@@ -671,7 +671,7 @@ and unify_app_term tyctx h1 a1 t1 t2 =
     | Ptr _, _ | _, Ptr _
     | Susp _, _ | _, Susp _ -> assert false
     | Var v, _ when not (variable v.tag || constant v.tag) ->
-        failwith "logic variable on the left (6)"
+        bugf "logic variable on the left (6)"
     | _ -> fail (ConstClash (h1,t2))
 
 (* Unify [v1 = t2].
@@ -731,7 +731,7 @@ and unify tyctx t1 t2 =
     | _,Var c2 when constant c2.tag -> unify_const_term tyctx t2 t1
     | DB i1,DB i2                   -> if i1 <> i2 then fail (ConstClash(t1, t2))
 
-    | _ -> failwith "logic variable on the left (7)"
+    | _ -> bugf "logic variable on the left (7)"
   with
     | UnifyError NotLLambda ->
         let n = max (closing_depth t1) (closing_depth t2) in

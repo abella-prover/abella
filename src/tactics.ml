@@ -21,8 +21,6 @@ open Term
 open Metaterm
 open Unify
 open Extensions
-open Debug
-
 
 (* Variable naming utilities *)
 
@@ -1060,22 +1058,16 @@ let apply_arrow term args =
                let lft_ctx,lft_term = Async.get left in
                let arg_ctx,arg_term = Async.get arg in
                context_pairs := (lft_ctx, arg_ctx)::!context_pairs ;
-               debug (Printf.sprintf "Trying to unify %s and %s."
-                        (term_to_string lft_term) (term_to_string arg_term)) ;
                right_unify lft_term arg_term ;
                right
            | Arrow(Obj(Sync left, _), right), Some Obj(Sync arg, _) ->
                let lft_ctx,lft_f,lft_term = Sync.get left in
                let arg_ctx,arg_f,arg_term = Sync.get arg in
                context_pairs := (lft_ctx, arg_ctx)::!context_pairs ;
-               debug (Printf.sprintf "Trying to unify %s and %s."
-                        (term_to_string lft_term) (term_to_string arg_term)) ;
                right_unify lft_f arg_f ;
                right_unify lft_term arg_term ;
                right
            | Arrow(left, right), Some arg ->
-               debug (Printf.sprintf "Trying to unify %s and %s."
-                        (metaterm_to_string left) (metaterm_to_string arg)) ;
                meta_right_unify left arg ;
                right
            | Arrow(left, right), None ->
@@ -1085,7 +1077,6 @@ let apply_arrow term args =
       term
       args
   in
-    debug "Trying to reconcile specification logic contexts." ;
     Context.reconcile !context_pairs ;
     (normalize result, !obligations)
 
@@ -1123,12 +1114,6 @@ let apply ?(used_nominals=[]) term args =
                   let permuted_body =
                     replace_metaterm_vars alist raised_body
                   in
-                  debug (Printf.sprintf "Trying apply with %s."
-                           (String.concat ", "
-                              (List.map
-                                 (fun (x,n) ->
-                                    x ^ " = " ^ (term_to_string n))
-                                 alist))) ;
                   Some (apply_arrow permuted_body args)))
         |> (function
             | Some v -> v

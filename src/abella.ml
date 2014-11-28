@@ -31,7 +31,6 @@ open Abella_types
 open Typing
 open Extensions
 open Printf
-open Debug
 open Accumulate
 
 let can_read_specification = ref true
@@ -418,12 +417,6 @@ let set k v =
   | "subgoals", _ -> set_fail v
                        ~key:"subgoals"
                        ~expected:"'on', 'off', or non-negative integer"
-
-  | "debug", Str "on" -> debug_level := 1
-  | "debug", Str "off" -> debug_level := 0
-  | "debug", _ -> set_fail v
-                    ~key:"debug"
-                    ~expected:"'on' or 'off'"
 
   | "instantiations", Str "on" -> Prover.show_instantiations := true
   | "instantiations", Str "off" -> Prover.show_instantiations := false

@@ -347,6 +347,9 @@ clause_head:
   | paid exp_list
     { let ((id, _), ty) = $1 in
       nested_app (UCon(pos 0, id, ty)) $2 }
+  | paid
+    { let ((id, _), ty) = $1 in
+      UCon(pos 0, id, ty) }
 
 clause_body:
   | term COMMA clause_body

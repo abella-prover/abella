@@ -397,10 +397,14 @@ let rec pretty_ty (Ty (args, targ)) =
   List.fold_right begin fun arg targ ->
     Opapp (1, Infix (RIGHT, arg, arrow_op, targ))
   end args targ
-let format_ty fmt ty = Pretty.print fmt (pretty_ty ty)
+let format_ty fmt ty =
+  Format.pp_open_box fmt 2 ; begin
+    Pretty.print fmt (pretty_ty ty)
+  end ; Format.pp_close_box fmt ()
 let ty_to_string ty =
   let buf = Buffer.create 19 in
   let fmt = Format.formatter_of_buffer buf in
+  Format.pp_set_margin fmt max_int ;
   format_ty fmt ty ;
   Format.pp_print_flush fmt () ;
   Buffer.contents buf

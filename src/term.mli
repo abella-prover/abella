@@ -32,6 +32,10 @@ val propty : ty
 
 type tag = Eigen | Constant | Logic | Nominal
 type id = string
+
+module Itab : Map.S with type key := id
+module Iset : Set.S with type elt := id
+
 type var = private {
   name : id ;
   tag  : tag ;

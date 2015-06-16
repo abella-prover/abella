@@ -26,7 +26,6 @@ open Extensions
 type uclause = string option * uterm * uterm list
 
 type clause = term
-type clauses = clause list
 
 type def_type = Inductive | CoInductive
 
@@ -46,6 +45,7 @@ type set_value =
   | QStr of string
 
 type common_command =
+  | Back | Reset
   | Set of string * set_value
   | Show of string
   | Quit
@@ -160,12 +160,16 @@ let idtys_to_string idtys =
 
 let common_command_to_string cc =
   match cc with
-    | Set(k, v) ->
-        sprintf "Set %s %s" k (set_value_to_string v)
-    | Show(t) ->
-        sprintf "Show %s" t
-    | Quit ->
-        sprintf "Quit"
+  | Back ->
+      sprintf "#<back>"
+  | Reset ->
+      sprintf "#<reset>"
+  | Set(k, v) ->
+      sprintf "Set %s %s" k (set_value_to_string v)
+  | Show(t) ->
+      sprintf "Show %s" t
+  | Quit ->
+      sprintf "Quit"
 
 let top_command_to_string tc =
   match tc with

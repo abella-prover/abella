@@ -67,9 +67,6 @@ module String = struct
     let count = ref 0 in
       String.iter (fun c -> if c = char then incr count) str ;
       !count
-
-  module Map = Map.Make (String)
-  module Set = Set.Make (String)
 end
 
 module List = struct

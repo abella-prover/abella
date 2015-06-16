@@ -28,10 +28,10 @@ open Extensions
 module H = Hashtbl
 
 type lemmas = (id * metaterm) list
-let lemmas : lemmas ref = ref []
+let lemmas : lemmas ref = State.rref []
 
 type subgoal = unit -> unit
-let subgoals : subgoal list ref = ref []
+let subgoals : subgoal list ref = State.rref []
 
 type hyp = {
   id : id ;
@@ -48,17 +48,28 @@ type sequent = {
   mutable next_subgoal_id : int ;
 }
 
-let sequent = {
-  vars = [] ;
-  hyps = [] ;
-  goal = termobj (const "placeholder" propty) ;
-  count = 0 ;
-  name = "" ;
-  next_subgoal_id = 1 ;
-}
+(* The vars = sq.vars is superfluous, but forces the copy *)
+let cp_sequent sq = {sq with vars = sq.vars}
+let assign_sequent sq1 sq2 =
+  sq1.vars <- sq2.vars ;
+  sq1.hyps <- sq2.hyps ;
+  sq1.goal <- sq2.goal ;
+  sq1.count <- sq2.count ;
+  sq1.name <- sq2.name ;
+  sq1.next_subgoal_id <- sq2.next_subgoal_id
 
-let sign = ref pervasive_sign
-let sr = ref pervasive_sr
+let sequent =
+  State.primitive ~copy:cp_sequent ~assign:assign_sequent {
+    vars = [] ;
+    hyps = [] ;
+    goal = termobj (const "placeholder" propty) ;
+    count = 0 ;
+    name = "" ;
+    next_subgoal_id = 1 ;
+  }
+
+let sign = State.rref pervasive_sign
+let sr = State.rref pervasive_sr
 
 let add_global_types tys =
   sign := add_types !sign tys
@@ -118,17 +129,8 @@ let add_subgoals ?(mainline) new_subgoals =
   in
   subgoals := annotated_subgoals @ !subgoals
 
-(* The vars = sequent.vars is superfluous, but forces the copy *)
-let copy_sequent () =
-  {sequent with vars = sequent.vars}
-
-let set_sequent other =
-  sequent.vars <- other.vars ;
-  sequent.hyps <- other.hyps ;
-  sequent.goal <- other.goal ;
-  sequent.count <- other.count ;
-  sequent.name <- other.name ;
-  sequent.next_subgoal_id <- other.next_subgoal_id
+let copy_sequent () = cp_sequent sequent
+let set_sequent other = assign_sequent sequent other
 
 let fresh_hyp_name base =
   if base = "" then begin
@@ -153,17 +155,15 @@ let normalize_sequent () =
 
 (* Clauses *)
 
-let clauses : clauses ref = ref []
+let clauses : clause list ref = State.rref []
 
 let add_clauses new_clauses =
   clauses := !clauses @ new_clauses
 
-
-
 let parse_defs str =
   type_udefs ~sr:!sr ~sign:!sign (Parser.defs Lexer.token (Lexing.from_string str))
 
-let defs_table : defs_table = H.create 10
+let defs_table : defs_table = State.table ()
 let () = H.add defs_table "member"
     (Inductive,
      ["member"],
@@ -178,33 +178,18 @@ let add_defs ids ty defs =
     (fun id -> H.add defs_table id (ty, ids, defs))
     ids
 
-
 (* Undo support *)
 
-type undo_stack = (sequent * subgoal list * Term.bind_state) list
-let undo_stack : undo_stack ref = ref []
-
-let save_undo_state () =
-  undo_stack := (copy_sequent (), !subgoals, Term.get_bind_state ())::
-                !undo_stack
-
-let undo () =
-  match !undo_stack with
-  | (saved_sequent, saved_subgoals, bind_state)::rest ->
-      set_sequent saved_sequent ;
-      subgoals := saved_subgoals ;
-      Term.set_bind_state bind_state ;
-      undo_stack := rest
-  | [] -> failwith "Nothing left to undo"
+let () = State.primitive () ~copy:Term.get_bind_state ~assign:(fun () st -> Term.set_bind_state st)
 
 (* Pretty print *)
 
 let sequent_var_to_string (x, xt) =
   x (* ^ "(=" ^ term_to_string xt ^ ")" *)
 
-let show_instantiations = ref false
+let show_instantiations = State.rref false
 
-let show_types = ref false
+let show_types = State.rref false
 
 let separate_strings xs =
   let __max_len = 30 in
@@ -286,7 +271,7 @@ let format_count_subgoals fmt n =
   | n -> fprintf fmt "%d other subgoals.@\n@\n" n
 
 let format_display_subgoals fmt n =
-  save_undo_state () ;
+  State.Undo.push () ;
   let count = ref 0 in
   List.iter (fun set_state ->
       set_state () ;
@@ -299,9 +284,9 @@ let format_display_subgoals fmt n =
         incr count)
     !subgoals ;
   format_count_subgoals fmt !count ;
-  undo ()
+  State.Undo.undo ()
 
-let subgoal_depth = ref 1000
+let subgoal_depth = State.rref 1000
 
 let format_other_subgoals fmt =
   format_display_subgoals fmt (String.count sequent.name '.' - !subgoal_depth)
@@ -343,8 +328,7 @@ let reset_prover =
   fun () ->
     set_bind_state original_state ;
     set_sequent original_sequent ;
-    subgoals := [] ;
-    undo_stack := []
+    subgoals := []
 
 let full_reset_prover =
   let original_clauses = !clauses in
@@ -415,11 +399,11 @@ let get_arg_clearly = function
   | Keep "_" -> None
   | arg -> Some (get_stmt_clearly arg)
 
-exception Proof_completed
+exception End_proof of [`completed | `aborted]
 
 let next_subgoal () =
   match !subgoals with
-  | [] -> raise Proof_completed
+  | [] -> raise (End_proof `completed)
   | set_subgoal::rest ->
       set_subgoal () ;
       subgoals := rest ;
@@ -496,7 +480,7 @@ let remove_coinductive_hypotheses hyps =
 let defs_table_to_list () =
   H.fold (fun _ (_, mutual, dcs) acc -> (mutual, dcs) :: acc) defs_table []
 
-let search_depth = ref 5
+let search_depth = State.rref 5
 
 let search_goal_witness ?depth goal =
   let hyps = sequent.hyps
@@ -906,7 +890,7 @@ let split ?name propogate_result =
   in
   let conjs = and_to_list sequent.goal in
   if List.length conjs = 1 then failwith "Needless use of split" ;
-  add_subgoals (accum_goals (and_to_list sequent.goal) []) ;
+  add_subgoals (accum_goals conjs []) ;
   next_subgoal ()
 
 (* Split theorem *)

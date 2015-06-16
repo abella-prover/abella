@@ -24,6 +24,10 @@ type ty = Ty of ty list * string
 
 type tag = Eigen | Constant | Logic | Nominal
 type id = string
+
+module Itab = Map.Make (String)
+module Iset = Set.Make (String)
+
 type var = {
   name : id ;
   tag  : tag ;
@@ -203,7 +207,6 @@ let clear_bind_state () =
 let set_bind_state state =
   clear_bind_state () ;
   List.iter (fun (v, ov, nv) -> bind (Ptr v) nv) (List.rev state)
-
 
 (* Scoped bind state is more efficient than regular bind state, but it
    must always be used in a lexically scoped fashion. The unwind_state

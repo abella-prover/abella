@@ -33,7 +33,7 @@ open Extensions
 open Printf
 open Accumulate
 
-let can_read_specification = ref true
+let can_read_specification = State.rref true
 
 let interactive = ref true
 let out = ref stdout
@@ -65,7 +65,6 @@ let interactive_or_exit () =
       perform_switch_to_interactive ()
     else
       exit 1
-
 
 let position_range (p1, p2) =
   let file = p1.Lexing.pos_fname in
@@ -141,19 +140,19 @@ exception Nonstrat of nonstrat_reason
 
 let add_sgn preds p posity =
   let old_posity =
-    try String.Map.find p preds with Not_found -> posity in
+    try Itab.find p preds with Not_found -> posity in
   let posity =
     if old_posity = posity then posity
     else NONPOS
   in
-  String.Map.add p posity preds
+  Itab.add p posity preds
 
 let get_pred_occurrences mt =
-  let preds = ref String.Set.empty in
+  let preds = ref Iset.empty in
   let rec aux_term t =
     match observe (hnorm t) with
     | Var v when contains_prop v.ty ->
-        preds := String.Set.add v.Term.name !preds
+        preds := Iset.add v.Term.name !preds
     | App (t, ts) ->
         aux_term t ; List.iter aux_term ts
     | Lam (_, t) ->
@@ -177,7 +176,7 @@ let warn_stratify names head term =
     def_head_args head |>
     List.filter_map is_ho_var in
   let doit () =
-    String.Set.iter begin fun pname ->
+    Iset.iter begin fun pname ->
       if List.mem pname names then
         raise (Nonstrat (Negative_head pname)) ;
       if List.mem pname ho_names then
@@ -241,9 +240,9 @@ let check_noredef ids =
 
 (* Compilation and importing *)
 
-let comp_spec_sign = ref ([], [])
-let comp_spec_clauses = ref []
-let comp_content = ref []
+let comp_spec_sign = State.rref ([], [])
+let comp_spec_clauses = State.rref []
+let comp_content = State.rref []
 
 let marshal citem =
   match !compile_out with
@@ -329,7 +328,7 @@ let import filename =
       imported := filename :: !imported ;
       let file = open_in_bin (filename ^ ".thc") in
       let imp_spec_sign = (Marshal.from_channel file : sign) in
-      let imp_spec_clauses = (Marshal.from_channel file : clauses) in
+      let imp_spec_clauses = (Marshal.from_channel file : clause list) in
       let imp_predicates = (Marshal.from_channel file : string list) in
       let imp_content = (Marshal.from_channel file : compiled list) in
         ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates ;
@@ -465,221 +464,197 @@ let term_witness (t, w) =
       (Tactics.witness_to_string w)
       (metaterm_to_string t)
 
-let rec process_proof name =
-  let suppress_display = ref false in
-  let finished = ref false in
-    try while not !finished do try
-      if !annotate then begin
-        fprintf !out "</pre>\n%!" ;
-        incr count ;
-        fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
-        fprintf !out "<pre>\n%!"
-      end ;
-      if not !suppress_display then
-        display !out
-      else
-        suppress_display := false ;
-      fprintf !out "%s < %!" name ;
-      let input = Parser.command Lexer.token !lexbuf in
-        if not !interactive then begin
-          let pre, post = if !annotate then "<b>", "</b>" else "", "" in
-            fprintf !out "%s%s.%s\n%!" pre (command_to_string input) post
-        end ;
-        save_undo_state () ;
-        begin match input with
-          | Induction(args, hn) -> induction ?name:hn args
-          | CoInduction hn -> coinduction ?name:hn ()
-          | Apply(h, args, ws, hn) -> apply ?name:hn h args ws ~term_witness
-          | Backchain(h, ws) -> backchain h ws ~term_witness
-          | Cut(h, arg, hn) -> cut ?name:hn h arg
-          | CutFrom(h, arg, t, hn) -> cut_from ?name:hn h arg t
-          | SearchCut(h, hn) -> search_cut ?name:hn h
-          | Inst(h, ws, hn) -> inst ?name:hn h ws
-          | Case(str, hn) -> case ?name:hn str
-          | Assert(t, hn) ->
-              untyped_ensure_no_restrictions t ;
-              assert_hyp ?name:hn t
-          | Exists(_, t) -> exists t
-          | Monotone(h, t) -> monotone h t
-          | Clear(hs) -> clear hs
-          | Abbrev(h, s) -> abbrev h s
-          | Unabbrev(hs) -> unabbrev hs
-          | Rename(hfr, hto) -> rename hfr hto
-          | Search(limit) ->
-              search ~limit ~interactive:!interactive ~witness ()
-          | Permute(ids, h) -> permute_nominals ids h
-          | Split -> split false
-          | SplitStar -> split true
-          | Left -> left ()
-          | Right -> right ()
-          | Unfold (cs, ss) -> unfold cs ss
-          | Intros hs -> intros hs
-          | Skip -> skip ()
-          | Abort -> raise AbortProof
-          | Undo -> undo () ; undo () (* undo recent save, and previous save *)
-          | Common(Set(k, v)) -> set k v
-          | Common(Show(n)) ->
-              undo () ; (* Do not save an undo point here *)
-              show n ;
-              fprintf !out "\n%!" ;
-              suppress_display := true
-          | Common(Quit) -> raise End_of_file
-        end ;
-        if !interactive then flush stdout ;
-    with
-      | Failure "lexing: empty token" ->
-          exit (if !interactive then 0 else 1)
-      | Prover.Proof_completed ->
-          fprintf !out "Proof completed.\n%!" ;
-          reset_prover () ;
-          finished := true
-      | Failure s ->
-          eprintf "Error: %s\n%!" s ;
-          interactive_or_exit ()
-      | End_of_file ->
-          if !switch_to_interactive then
-            perform_switch_to_interactive ()
-          else begin
-            fprintf !out "Proof NOT completed.\n%!" ;
-            exit 1
+let suppress_proof_state_display = State.rref false
+
+type processing_state =
+  | Process_top
+  | Process_proof of string * (unit -> unit)
+
+let current_state = State.rref Process_top
+
+let rec process1 () =
+  State.Undo.push () ;
+  try begin match !current_state with
+    | Process_top -> process_top1 ()
+    | Process_proof (name, compile) -> begin
+        try process_proof1 name with
+        | Prover.End_proof reason -> begin
+            fprintf !out "Proof %s.\n%!" begin
+              match reason with
+              | `completed ->
+                  compile () ;
+                  "completed"
+              | `aborted -> "ABORTED"
+            end ;
+            reset_prover () ;
+            current_state := Process_top
           end
-      | AbortProof ->
-          fprintf !out "Proof aborted.\n%!" ;
-          reset_prover () ;
-          raise AbortProof
-      | Abella_types.Reported_parse_error ->
-          Lexing.flush_input !lexbuf ;
-          interactive_or_exit ()
-      | Parsing.Parse_error ->
-          eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
-          Lexing.flush_input !lexbuf ;
-          interactive_or_exit () ;
-      | TypeInferenceFailure(ci, exp, act) ->
-          type_inference_error ci exp act ;
-          interactive_or_exit ()
-      | e ->
-          eprintf "Error: %s\n%s%!" (Printexc.to_string e) (Printexc.get_backtrace ()) ;
-          interactive_or_exit ()
-    done with
-      | Failure "eof" -> ()
+      end
+  end with
+  | Failure "lexing: empty token" ->
+      if !annotate then fprintf !out "</pre>\n" ;
+      exit (if !interactive then 0 else 1)
+  | Abella_types.Reported_parse_error ->
+      State.Undo.undo () ;
+      Lexing.flush_input !lexbuf ;
+      interactive_or_exit ()
+  | Parsing.Parse_error ->
+      State.Undo.undo () ;
+      eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
+      Lexing.flush_input !lexbuf ;
+      interactive_or_exit ()
+  | TypeInferenceFailure(ci, exp, act) ->
+      State.Undo.undo () ;
+      type_inference_error ci exp act ;
+      interactive_or_exit ()
+  | End_of_file ->
+      write_compilation () ;
+      if !switch_to_interactive then begin
+        if !annotate then fprintf !out "\n</pre>\n" ;
+        perform_switch_to_interactive ()
+      end else begin
+        match !current_state with
+        | Process_top ->
+            fprintf !out "\n</pre>\n%!" ;
+            exit 0
+        | _ ->
+            fprintf !out "Proof NOT completed.\n</pre>\n%!" ;
+            exit 1
+      end
+  | e ->
+      State.Undo.undo () ;
+      eprintf "Error: %s\n%s%!" (Printexc.to_string e) (Printexc.get_backtrace ()) ;
+      interactive_or_exit ()
 
-let rec process () =
-  try while true do try
-    if !annotate then begin
-      incr count ;
-      fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
-      fprintf !out "<pre class=\"code\">\n%!"
-    end ;
-    fprintf !out "Abella < %!" ;
-    let input = Parser.top_command Lexer.token !lexbuf in
-      if not !interactive then begin
-          let pre, post = if !annotate then "<b>", "</b>" else "", "" in
-            fprintf !out "%s%s.%s\n%!" pre (top_command_to_string input) post
-      end ;
-      begin match input with
-        | Theorem(name, thm) ->
-            let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
-              check_theorem thm ;
-              theorem thm ;
-              begin try
-                process_proof name ;
-                compile (CTheorem(name, thm)) ;
-                add_lemma name thm ;
-              with AbortProof -> () end
-        | SSplit(name, names) ->
-            let thms = create_split_theorems name names in
-              List.iter
-                (fun (n, t) ->
-                   print_theorem n t ;
-                   add_lemma n t ;
-                   compile (CTheorem(n, t)))
-                thms ;
-        | Define(idtys, udefs) ->
-            let ids = List.map fst idtys in
-              check_noredef ids;
-              let (local_sr, local_sign) = locally_add_global_consts idtys in
-              let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs in
-                check_defs ids defs ;
-                commit_global_consts local_sr local_sign ;
-                compile (CDefine(idtys, defs)) ;
-                add_defs ids Inductive defs
-        | CoDefine(idtys, udefs) ->
-            let ids = List.map fst idtys in
-              check_noredef ids;
-              let (local_sr, local_sign) = locally_add_global_consts idtys in
-              let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs in
-                check_defs ids defs ;
-                commit_global_consts local_sr local_sign ;
-                compile (CCoDefine(idtys, defs)) ;
-                add_defs ids CoInductive defs
-        | TopCommon(Set(k, v)) ->
-            set k v
-        | TopCommon(Show(n)) ->
-            show n
-        | TopCommon(Quit) ->
-            raise End_of_file
-        | Import(filename) ->
-            compile (CImport filename) ;
-            import filename ;
-        | Specification(filename) ->
-            if !can_read_specification then begin
-              read_specification filename ;
-              ensure_finalized_specification ()
-            end else
-              failwith "Specification can only be read \
-                      \ at the begining of a development."
-        | Query(q) -> query q
-        | Kind(ids) ->
-            check_noredef ids;
-            add_global_types ids ;
-            compile (CKind ids)
-        | Type(ids, ty) ->
-            check_noredef ids;
-            add_global_consts (List.map (fun id -> (id, ty)) ids) ;
-            compile (CType(ids, ty))
-        | Close(ids) ->
-            close_types ids ;
-            compile
-              (CClose(List.map
-                        (fun id -> (id, Subordination.subordinates !sr id))
-                        ids)) ;
-      end ;
-      if !interactive then flush stdout ;
-      if !annotate then fprintf !out "</pre>%!" ;
+and process_proof1 name =
+  if not !suppress_proof_state_display then display !out ;
+  suppress_proof_state_display := false ;
+  fprintf !out "%s < %!" name ;
+  let input = Parser.command Lexer.token !lexbuf in
+  if not !interactive then begin
+    let pre, post = if !annotate then "<b>", "</b>" else "", "" in
+    fprintf !out "%s%s.%s\n%!" pre (command_to_string input) post
+  end ;
+  begin match input with
+  | Induction(args, hn)    -> induction ?name:hn args
+  | CoInduction hn         -> coinduction ?name:hn ()
+  | Apply(h, args, ws, hn) -> apply ?name:hn h args ws ~term_witness
+  | Backchain(h, ws)       -> backchain h ws ~term_witness
+  | Cut(h, arg, hn)        -> cut ?name:hn h arg
+  | CutFrom(h, arg, t, hn) -> cut_from ?name:hn h arg t
+  | SearchCut(h, hn)       -> search_cut ?name:hn h
+  | Inst(h, ws, hn)        -> inst ?name:hn h ws
+  | Case(str, hn)          -> case ?name:hn str
+  | Assert(t, hn)          ->
+      untyped_ensure_no_restrictions t ;
+      assert_hyp ?name:hn t
+  | Exists(_, t)           -> exists t
+  | Monotone(h, t)         -> monotone h t
+  | Clear(hs)              -> clear hs
+  | Abbrev(h, s)           -> abbrev h s
+  | Unabbrev(hs)           -> unabbrev hs
+  | Rename(hfr, hto)       -> rename hfr hto
+  | Search(limit)          ->
+      search ~limit ~interactive:!interactive ~witness ()
+  | Permute(ids, h)        -> permute_nominals ids h
+  | Split                  -> split false
+  | SplitStar              -> split true
+  | Left                   -> left ()
+  | Right                  -> right ()
+  | Unfold (cs, ss)        -> unfold cs ss
+  | Intros hs              -> intros hs
+  | Skip                   -> skip ()
+  | Abort                  -> raise (End_proof `aborted)
+  | Undo
+  | Common(Back)           ->
+      if !interactive then State.Undo.back 2
+      else failwith "Cannot use interactive commands in non-interactive mode"
+  | Common(Reset)          ->
+      if !interactive then State.Undo.reset ()
+      else failwith "Cannot use interactive commands in non-interactive mode"
+  | Common(Set(k, v))      -> set k v
+  | Common(Show(n))        ->
+      show n ;
       fprintf !out "\n%!" ;
-  with
-    | Failure "lexing: empty token" ->
-        eprintf "Unknown symbol" ;
-        exit (if !interactive then 0 else 1)
-    | Failure s ->
-        eprintf "Error: %s\n%!" s ;
-        interactive_or_exit ()
-    | End_of_file ->
-        if !switch_to_interactive then
-          perform_switch_to_interactive ()
-        else begin
-          fprintf !out "Goodbye.\n%!" ;
-          ensure_finalized_specification () ;
-          write_compilation () ;
-          if !annotate then fprintf !out "</pre>\n%!" ;
-          exit 0
-        end
-    | Abella_types.Reported_parse_error ->
-        Lexing.flush_input !lexbuf ;
-        interactive_or_exit ()
-    | Parsing.Parse_error ->
-        eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
-        Lexing.flush_input !lexbuf ;
-        interactive_or_exit ()
-    | TypeInferenceFailure(ci, exp, act) ->
-        type_inference_error ci exp act ;
-        interactive_or_exit ()
-    | e ->
-        eprintf "Unknown error: %s\n%!" (Printexc.to_string e) ;
-        interactive_or_exit ()
-  done with
-  | Failure "eof" -> ()
+      suppress_proof_state_display := true
+  | Common(Quit)           -> raise End_of_file
+  end ;
 
+and process_top1 () =
+  fprintf !out "Abella < %!" ;
+  let input = Parser.top_command Lexer.token !lexbuf in
+  if not !interactive then begin
+    let pre, post = if !annotate then "<b>", "</b>" else "", "" in
+    fprintf !out "%s%s.%s\n%!" pre (top_command_to_string input) post
+  end ;
+  begin match input with
+  | Theorem(name, thm) ->
+      let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
+      check_theorem thm ;
+      theorem thm ;
+      current_state := Process_proof (name, fun () ->
+          compile (CTheorem(name, thm)) ;
+          add_lemma name thm
+        ) ;
+  | SSplit(name, names) ->
+      let thms = create_split_theorems name names in
+      List.iter begin fun (n, t) ->
+        print_theorem n t ;
+        add_lemma n t ;
+        compile (CTheorem(n, t))
+      end thms ;
+  | Define(idtys, udefs) ->
+      let ids = List.map fst idtys in
+      check_noredef ids;
+      let (local_sr, local_sign) = locally_add_global_consts idtys in
+      let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs in
+      check_defs ids defs ;
+      commit_global_consts local_sr local_sign ;
+      compile (CDefine(idtys, defs)) ;
+      add_defs ids Inductive defs
+  | CoDefine(idtys, udefs) ->
+      let ids = List.map fst idtys in
+      check_noredef ids;
+      let (local_sr, local_sign) = locally_add_global_consts idtys in
+      let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs in
+      check_defs ids defs ;
+      commit_global_consts local_sr local_sign ;
+      compile (CCoDefine(idtys, defs)) ;
+      add_defs ids CoInductive defs
+  | TopCommon(Back) ->
+      if !interactive then State.Undo.back 2
+      else failwith "Cannot use interactive commands in non-interactive mode"
+  | TopCommon(Reset) ->
+      if !interactive then State.Undo.reset ()
+      else failwith "Cannot use interactive commands in non-interactive mode"
+  | TopCommon(Set(k, v)) -> set k v
+  | TopCommon(Show(n)) -> show n
+  | TopCommon(Quit) -> raise End_of_file
+  | Import(filename) ->
+      compile (CImport filename) ;
+      import filename ;
+  | Specification(filename) ->
+      if !can_read_specification then begin
+        read_specification filename ;
+        ensure_finalized_specification ()
+      end else
+        failwith "Specification can only be read \
+                 \ at the begining of a development."
+  | Query(q) -> query q
+  | Kind(ids) ->
+      check_noredef ids;
+      add_global_types ids ;
+      compile (CKind ids)
+  | Type(ids, ty) ->
+      check_noredef ids;
+      add_global_consts (List.map (fun id -> (id, ty)) ids) ;
+      compile (CType(ids, ty))
+  | Close(ids) ->
+      close_types ids ;
+      compile (CClose(List.map (fun id -> (id, Subordination.subordinates !sr id)) ids))
+  end ;
+  if !interactive then flush stdout ;
+  fprintf !out "\n%!"
 
 (* Command line and startup *)
 
@@ -724,6 +699,15 @@ let set_input () =
 let add_input filename =
   input_files := !input_files @ [filename]
 
+let number fn () =
+  if !annotate then begin
+    incr count ;
+    fprintf !out "<a name=\"%d\"></a>\n%!" !count ;
+    fprintf !out "<pre class=\"code\">\n%!" ;
+  end ;
+  fn () ;
+  if !annotate then fprintf !out "</pre>\n%!"
+
 let _ =
   Sys.set_signal Sys.sigint
     (Sys.Signal_handle (fun _ -> failwith "Interrupted (use ctrl-D to quit)")) ;
@@ -736,6 +720,6 @@ let _ =
     end else begin
       set_input () ;
       fprintf !out "%s%!" welcome_msg ;
-      process ()
+      while true do number process1 () done
     end
 ;;

@@ -115,6 +115,9 @@ rule token = parse
 | '"' ([^ '"']* as s) '"'
                      { QSTRING s }
 
+| "#back"          { BACK }
+| "#reset"         { RESET }
+
 | "=>"               { IMP }
 | "<="               { IF }
 | ":-"               { CLAUSEEQ }

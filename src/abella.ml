@@ -720,6 +720,7 @@ let _ =
     end else begin
       set_input () ;
       fprintf !out "%s%!" welcome_msg ;
+      State.Undo.set_enabled !interactive ;
       while true do number process1 () done
     end
 ;;

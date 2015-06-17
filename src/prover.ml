@@ -271,7 +271,7 @@ let format_count_subgoals fmt n =
   | n -> fprintf fmt "%d other subgoals.@\n@\n" n
 
 let format_display_subgoals fmt n =
-  State.Undo.push () ;
+  let pristine = State.snapshot () in
   let count = ref 0 in
   List.iter (fun set_state ->
       set_state () ;
@@ -284,7 +284,7 @@ let format_display_subgoals fmt n =
         incr count)
     !subgoals ;
   format_count_subgoals fmt !count ;
-  State.Undo.undo ()
+  State.reload pristine
 
 let subgoal_depth = State.rref 1000
 

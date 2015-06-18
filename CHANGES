@@ -1,3 +1,11 @@
+Changes in 2.0.4 from 2.0.3
+---------------------------
+
+Bugfixes
+
+* Annotation mode (-a) output is no longer printed in other modes
+
+
 Changes in 2.0.3 from 2.0.2
 ---------------------------
 

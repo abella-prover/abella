@@ -515,7 +515,7 @@ let rec process1 () =
       end else begin
         match !current_state with
         | Process_top ->
-            fprintf !out "\n</pre>\n%!" ;
+            if !annotate then fprintf !out "\n</pre>\n%!" ;
             exit 0
         | _ ->
             fprintf !out "Proof NOT completed.\n</pre>\n%!" ;

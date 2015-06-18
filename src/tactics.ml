@@ -20,6 +20,8 @@
 open Term
 open Metaterm
 open Unify
+open Abella_types
+
 open Extensions
 
 (* Variable naming utilities *)
@@ -670,15 +672,15 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
           [(get_bind_state (), cpairs, normalize (wrapper body), i)]
     end in
   defs |>
-  maybe_select clause_sel |>
   List.map begin fun (head, body) ->
     match head with
     | Pred(h, _) -> ([], h, body)
     | Binding(Nabla, tids, Pred(h, _)) -> (tids, h, body)
     | _ -> assert false
   end |>
-  List.find_all (fun (_, h, _) -> term_head_name h = p) |>
   List.number |>
+  maybe_select clause_sel |>
+  List.find_all (fun (i, (_, h, _)) -> term_head_name h = p) |>
   List.flatten_map
     (fun (i, (tids, head, body)) -> unfold_def tids head body i)
 
@@ -763,44 +765,7 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
 
 (* Search *)
 
-type witness =
-  | WTrue
-  | WHyp of id
-  | WLeft of witness
-  | WRight of witness
-  | WSplit of witness * witness
-  | WIntros of id list * witness
-  | WExists of (id * term) list * witness
-  | WReflexive
-  | WUnfold of id * int * witness list
-
-let witness_to_string =
-  let bind_to_string (id, t) =
-    id ^ " = " ^ (term_to_string t)
-  in
-
-  let rec aux = function
-    | WTrue -> "true"
-    | WHyp id -> id
-    | WLeft w -> "left (" ^ aux w ^ ")"
-    | WRight w -> "right (" ^ aux w ^ ")"
-    | WSplit(w1, w2) -> "split (" ^ aux w1 ^ ", " ^ aux w2 ^ ")"
-    | WIntros(ids, w) ->
-        "intros[" ^ (String.concat ", " ids) ^ "](" ^ aux w ^ ")"
-    | WExists(binds, w) ->
-        "exists[" ^ (String.concat ", " (List.map bind_to_string binds)) ^
-        "](" ^ aux w ^ ")"
-    | WReflexive -> "reflexive"
-    | WUnfold(id, n, ws) ->
-        let body = if ws = [] then "" else "(" ^ aux_list ws ^ ")" in
-        id ^ "[" ^ (string_of_int n) ^ "]" ^ body
-
-  and aux_list ws =
-    String.concat ", " (List.map aux ws)
-  in
-  aux
-
-exception SearchSuccess of witness
+exception SearchSuccess of Abella_types.witness
 
 let decompose_arrow term =
   let rec aux acc term =
@@ -836,16 +801,19 @@ let satisfies r1 r2 =
 
 (** Search
 
-  - Depth is decremented only when unfolding clauses and definitions since
+    - Depth is decremented only when unfolding clauses and definitions since
     only these can cause infinite search
 
-  - Each aux search returns () on failure and calls (sc w) on success where
+    - Each aux search returns () on failure and calls (sc w) on success where
     w is a witness. This allows for effective backtracking.
     sc means success continuation.
 *)
 
 let search ~depth:n ~hyps ~clauses ~alldefs
+    ?(witness=WMagic)
     ?(sc=fun w -> raise (SearchSuccess w)) goal =
+
+  let bad_witness () = failwithf "Bad search witness: %s" (witness_to_string witness) in
 
   let temporary_hyp_name =
     let count = ref 0 in
@@ -854,21 +822,30 @@ let search ~depth:n ~hyps ~clauses ~alldefs
       "h" ^ (string_of_int !count)
   in
 
-  let rec clause_aux n context foci goal r ts ~sc =
+  let rec clause_aux n context foci goal r ts ~sc ~witness =
+    (* Printf.eprintf "clause_aux: %s\n%!" (witness_to_string witness) ; *)
     let support = term_list_support (goal :: context) in
-    let freshen_clause cl =
+    let freshen_clause (i, cl) =
       let (_vars, head, body) = freshen_nameless_clause ~support ~ts cl in
-      (head, body)
+      (i, (head, body))
     in
     let p = term_head_name goal in
     let wrap body = List.map (fun t -> Async.obj context t) body in
+    let filter_by_witness = match witness with
+      | WUnfold (p, n, _) ->
+          (fun (i, (_, h, _)) -> term_head_name h = p && i = n)
+      | WMagic ->
+          (fun _ -> true)
+      | _ -> bad_witness ()
+    in
     foci |>
     (* ignore the elements in the context of type olist *)
     List.find_all (fun cls -> not (tc [] cls = olistty)) |>
     List.map clausify |>
     List.find_all (fun (_, h, _) -> term_head_name h = p) |>
-    List.map freshen_clause |>
     List.number |>
+    List.filter filter_by_witness |>
+    List.map freshen_clause |>
     List.iter ~guard:unwind_state begin fun (i, (head, body)) ->
       match try_right_unify_cpairs head goal with
       | None -> ()
@@ -876,10 +853,16 @@ let search ~depth:n ~hyps ~clauses ~alldefs
           let sc ws =
             if try_unify_cpairs cpairs then
               sc (WUnfold(p, i, ws)) in
-          async_obj_aux_conj (n-1) (wrap body) r ts ~sc
+          let witnesses = match witness with
+            | WUnfold (_, _, ws) when List.length ws = List.length body -> ws
+            | WMagic -> List.map (fun _ -> WMagic) body
+            | _ -> bad_witness ()
+          in
+          async_obj_aux_conj (n-1) (wrap body) r ts ~sc ~witnesses
     end
 
-  and async_obj_aux n hyps goal r ts ~sc =
+  and async_obj_aux n hyps goal r ts ~sc ~witness =
+    (* Printf.eprintf "axync_obj_aux: %s\n%!" (witness_to_string witness) ; *)
     let gresult = normalize_obj (Async goal) in
     let goal =
       match gresult with
@@ -900,7 +883,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     | _ ->
         (* Backchain *)
         let ctx, term = Async.get goal in
-        if n > 0 then clause_aux n ctx (ctx @ clauses) term r ts ~sc;
+        if n > 0 then clause_aux n ctx (ctx @ clauses) term r ts ~sc ~witness ;
         (* Also backchain the goal G in '{.. L ..|- G}' on clauses F
            occurring in hypotheses of the form 'member F L' *)
         let ctxs = List.find_all (fun cls -> tc [] cls = olistty)
@@ -916,18 +899,26 @@ let search ~depth:n ~hyps ~clauses ~alldefs
             (List.map (fun (id, h) -> h) hyps) in
         let focus_goals = List.map
             (fun fc -> Sync.obj ctx fc term) ctx_focis in
-        List.iter (fun fg -> sync_obj_aux n hyps fg r ts ~sc) focus_goals
+        List.iter (fun fg -> sync_obj_aux n hyps fg r ts ~sc ~witness) focus_goals
 
-  and sync_obj_aux n hyps goal r ts ~sc =
+  and sync_obj_aux n hyps goal r ts ~sc ~witness =
+    (* Printf.eprintf "sync_obj_aux: %s\n%!" (witness_to_string witness) ; *)
     let gresult = normalize_obj (Sync goal) in
     let goal =
       match gresult with
       | (Sync goal) -> goal
       | _ -> assert false
     in
+    let filter_by_witness =
+      match witness with
+      | WMagic -> (fun _ -> true)
+      | WHyp wid -> (fun (id, _) -> id = wid)
+      | _ -> (fun _ -> false)
+    in
     (* Check hyps for derivability *)
     let () =
       hyps |>
+      List.filter filter_by_witness |>
       List.find_all (fun (id, h) -> is_sync_obj h) |>
       List.find_all (fun (id, h) -> satisfies (term_to_restriction h) r) |>
       List.map (fun (id, h) -> (id, term_to_sync_obj h)) |>
@@ -938,15 +929,26 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     | Smaller _ | Equal _ -> ()
     | _ ->
         let ctx, focus, term = Sync.get goal in
-        if n > 0 then clause_aux n ctx [focus] term r ts ~sc
+        if n > 0 then begin
+          match witness with
+          | WMagic | WUnfold _ -> clause_aux n ctx [focus] term r ts ~sc ~witness
+          | _ -> bad_witness ()
+        end
 
-  and async_obj_aux_conj n goals r ts ~sc =
+  and async_obj_aux_conj n goals r ts ~sc ~witnesses =
     match goals with
     | [] -> sc []
-    | g::gs -> async_obj_aux n hyps g r ts
-                 ~sc:(fun w -> async_obj_aux_conj n gs r ts ~sc:(fun ws -> sc (w::ws)))
+    | g::gs -> begin
+        match witnesses with
+        | [] -> bad_witness ()  (* [TODO] this check is a bit redundant *)
+        | w :: ws ->
+            async_obj_aux n hyps g r ts
+                 ~witness:w
+                 ~sc:(fun w -> async_obj_aux_conj n gs r ts ~sc:(fun ws -> sc (w::ws)) ~witnesses:ws)
+      end
 
-  and metaterm_aux n hyps goal ts ~sc =
+  and metaterm_aux n hyps goal ts ~sc ~witness =
+    (* Printf.eprintf "metaterm_aux: %s\n%!" (witness_to_string witness) ; *)
     let goal = normalize goal in
     let () =
       hyps |>
@@ -958,23 +960,52 @@ let search ~depth:n ~hyps ~clauses ~alldefs
           all_meta_right_permute_unify ~sc:(fun () -> sc (WHyp id)) goal hyp
       end in
     match goal with
-    | True -> sc WTrue
+    | True -> begin
+        match witness with
+        | WTrue | WMagic -> sc WTrue
+        | _ -> bad_witness ()
+      end
     | False -> ()
-    | Eq(left, right) ->
-        unwind_state
-          (fun () -> if try_right_unify left right then sc WReflexive)
-          ()
-    | Or(left, right) ->
-        metaterm_aux n hyps left ts ~sc:(fun w -> sc (WLeft w)) ;
-        metaterm_aux n hyps right ts ~sc:(fun w -> sc (WRight w))
-    | And(left, right) ->
-        metaterm_aux n hyps left ts
-          ~sc:(fun w1 -> metaterm_aux n hyps right ts
-                  ~sc:(fun w2 -> sc (WSplit(w1, w2))))
+    | Eq(left, right) -> begin
+        match witness with
+        | WTrue | WReflexive ->
+            unwind_state
+              (fun () -> if try_right_unify left right then sc WReflexive)
+              ()
+        | _ -> bad_witness ()
+      end
+    | Or(left, right) -> begin
+        match witness with
+        | WMagic ->
+            metaterm_aux n hyps left ts ~sc:(fun w -> sc (WLeft w)) ~witness ;
+            metaterm_aux n hyps right ts ~sc:(fun w -> sc (WRight w)) ~witness
+        | WLeft w ->
+            metaterm_aux n hyps left ts ~sc:(fun w -> sc (WLeft w)) ~witness:w
+        | WRight w ->
+            metaterm_aux n hyps right ts ~sc:(fun w -> sc (WRight w)) ~witness:w
+        | _ -> bad_witness ()
+      end
+    | And(left, right) -> begin
+        match witness with
+        | WMagic ->
+            metaterm_aux n hyps left ts ~witness
+              ~sc:(fun w1 -> metaterm_aux n hyps right ts ~witness
+                      ~sc:(fun w2 -> sc (WSplit(w1, w2))))
+        | WSplit (w1, w2) ->
+            metaterm_aux n hyps left ts ~witness:w1
+              ~sc:(fun w1 -> metaterm_aux n hyps right ts ~witness:w2
+                      ~sc:(fun w2 -> sc (WSplit(w1, w2))))
+        | _ -> bad_witness ()
+      end
     | Arrow _ ->
         let (args, body) = decompose_arrow goal in
-        let args = List.map (fun h -> (temporary_hyp_name (), h)) args in
-        metaterm_aux n (args @ hyps) body ts
+        let hns, w = match witness with
+          | WIntros (hns, w) -> (hns, w)
+          | WMagic -> (List.map (fun _ -> temporary_hyp_name ()) args, WMagic)
+          | _ -> bad_witness ()
+        in
+        let args = List.combine hns args in
+        metaterm_aux n (args @ hyps) body ts ~witness:w
           ~sc:(fun w -> sc (WIntros(List.map fst args, w)))
     | Binding(Exists, tids, body) ->
         let global_support =
@@ -982,35 +1013,65 @@ let search ~depth:n ~hyps ~clauses ~alldefs
             ((List.flatten_map (fun (_, h) -> metaterm_support h) hyps) @
              (metaterm_support goal))
         in
-        let alist = fresh_nameless_alist
-            ~support:global_support ~tag:Logic ~ts tids
+        let (alist, w) = match witness with
+          | WExists (alist, w) -> (alist, w)
+          | WMagic ->
+              (fresh_nameless_alist
+                 ~support:global_support ~tag:Logic ~ts tids, WMagic)
+          | _ -> bad_witness ()
         in
         let body = replace_metaterm_vars alist body in
-        metaterm_aux n hyps body ts ~sc:(fun w -> sc (WExists(alist, w)))
+        metaterm_aux n hyps body ts ~sc:(fun w -> sc (WExists(alist, w))) ~witness:w
     | Binding(Nabla, tids, body) ->
-        let alist = make_nabla_alist tids body in
+        let (alist, w) = match witness with
+          | WIntros (ids, w) ->
+              let alist = List.map2 begin fun id (x, ty) ->
+                  (x, nominal_var id ty)
+                end ids tids in
+              (alist, w)
+          | WMagic -> (make_nabla_alist tids body, WMagic)
+          | _ -> bad_witness ()
+        in
         let body = replace_metaterm_vars alist body in
         metaterm_aux n hyps body ts
           ~sc:(fun w -> sc (WIntros(alist_to_ids alist, w)))
+          ~witness:w
     | Binding(Forall, tids, body) ->
         let ts = ts + 1 in
-        let alist = fresh_nameless_alist ~support:[] ~tag:Eigen ~ts tids in
+        let (alist, w) = match witness with
+          | WIntros (ids, w) ->
+              let alist = List.map2 begin fun id (x, ty) ->
+                  (x, var Eigen id ts ty)
+                end ids tids in
+              (alist, w)
+          | WMagic ->
+              (fresh_nameless_alist ~support:[] ~tag:Eigen ~ts tids, WMagic)
+          | _ -> bad_witness ()
+        in
         let body = replace_metaterm_vars alist body in
         metaterm_aux n hyps body ts
+          ~witness:w
           ~sc:(fun w -> sc (WIntros(alist_to_ids alist, w)))
-    | Obj(Async obj, r) -> async_obj_aux n hyps obj r ts ~sc
-    | Obj(Sync obj, r) -> sync_obj_aux n hyps obj r ts ~sc
+    | Obj(Async obj, r) -> async_obj_aux n hyps obj r ts ~sc ~witness
+    | Obj(Sync obj, r) -> sync_obj_aux n hyps obj r ts ~sc ~witness
     | Pred(_, Smaller _) | Pred(_, Equal _) -> ()
-    | Pred(p, r) -> if n > 0 then def_aux n hyps p r ts ~sc
+    | Pred(p, r) -> if n > 0 then def_aux n hyps p r ts ~sc ~witness
 
-  and def_aux n hyps goal r ts ~sc =
+  and def_aux n hyps goal r ts ~sc ~witness =
+    (* Printf.eprintf "def_aux: %s\n%!" (witness_to_string witness) ; *)
     let p = term_head_name goal in
     let mdefs = assoc_mdefs p alldefs in
+    let (csel, witness) = match witness with
+      | WMagic -> (Abella_types.Select_any, WMagic)
+      | WUnfold (wp, wn, [w]) when wp = p -> (Abella_types.Select_num wn, w)
+      | _ -> bad_witness ()
+    in
     let doit () =
-      unfold_defs ~mdefs Abella_types.Select_any ~ts goal r |>
+      unfold_defs ~mdefs csel ~ts goal r |>
       List.iter begin fun (state, cpairs, body, i) ->
         set_bind_state state ;
         metaterm_aux (n-1) hyps body ts
+          ~witness
           ~sc:(fun w -> if try_unify_cpairs cpairs then
                   sc (WUnfold(p, i, [w])))
       end in
@@ -1018,7 +1079,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
 
   in
   try
-    metaterm_aux n hyps goal 0 ~sc ;
+    metaterm_aux n hyps goal 0 ~sc ~witness ;
     None
   with SearchSuccess(w) -> Some w
 

@@ -454,14 +454,14 @@ let print_theorem name thm =
 let show name =
   print_theorem name (get_lemma name)
 
-let witness w =
+let handle_search_witness w =
   if !witnesses then
-    fprintf !out "Witness: %s\n%!" (Tactics.witness_to_string w)
+    fprintf !out "Witness: %s\n%!" (witness_to_string w)
 
 let term_witness (t, w) =
   if !witnesses then
     fprintf !out "Witness: %s : %s\n%!"
-      (Tactics.witness_to_string w)
+      (witness_to_string w)
       (metaterm_to_string t)
 
 let suppress_proof_state_display = State.rref false
@@ -554,8 +554,17 @@ and process_proof1 name =
   | Abbrev(h, s)           -> abbrev h s
   | Unabbrev(hs)           -> unabbrev hs
   | Rename(hfr, hto)       -> rename hfr hto
-  | Search(limit)          ->
-      search ~limit ~interactive:!interactive ~witness ()
+  | Search(bounds) -> begin
+      let limit = match bounds with
+        | `depth n -> Some n
+        | _ -> None
+      in
+      let witness = match bounds with
+        | `witness w -> w
+        | _ -> WMagic
+      in
+      search ~limit ~interactive:!interactive ~witness ~handle_witness:handle_search_witness ()
+    end
   | Permute(ids, h)        -> permute_nominals ids h
   | Split                  -> split false
   | SplitStar              -> split true

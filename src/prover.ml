@@ -482,7 +482,7 @@ let defs_table_to_list () =
 
 let search_depth = State.rref 5
 
-let search_goal_witness ?depth goal =
+let search_goal_witness ?depth goal witness =
   let hyps = sequent.hyps
              |> remove_inductive_hypotheses
              |> remove_coinductive_hypotheses
@@ -495,21 +495,20 @@ let search_goal_witness ?depth goal =
       ~hyps
       ~clauses:!clauses
       ~alldefs:(defs_table_to_list ())
+      ~witness
       goal
   in
   List.find_some search_depth (List.range 1 depth)
 
 let search_goal goal =
-  Option.is_some (search_goal_witness goal)
+  Option.is_some (search_goal_witness goal WMagic)
 
-let search ?(limit=None) ?(interactive=true) ?(witness=ignore) () =
-  let search_result = match limit with
-    | None -> search_goal_witness sequent.goal
-    | Some depth -> search_goal_witness ~depth sequent.goal
-  in
+let search ?(limit=None) ?(interactive=true) ~witness ~handle_witness () =
+  let depth = limit in
+  let search_result = search_goal_witness ?depth sequent.goal witness in
   match search_result with
   | None -> if not interactive then failwith "Search failed"
-  | Some w -> witness w ; next_subgoal ()
+  | Some w -> handle_witness w ; next_subgoal ()
 
 (* Search cut *)
 
@@ -572,7 +571,7 @@ let type_apply_withs stmt ws =
 let partition_obligations obligations =
   Either.partition_eithers
     (List.map
-       (fun g -> match search_goal_witness g with
+       (fun g -> match search_goal_witness g WMagic with
           | None -> Either.Left g
           | Some w -> Either.Right (g, w))
        obligations)

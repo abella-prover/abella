@@ -1,6 +1,43 @@
 Changes in 2.0.4 from 2.0.3
 ---------------------------
 
+Additions
+
+* Added a new tactic form:
+
+       search with <witness>.
+
+  This tactic runs the search command with a given search witness. To see
+  these witnesses, run any of the other search forms with:
+
+       Set witnesses on.
+
+  The witness string that is printed can then be used to replay the exact
+  same search. There is no backtracking involved with witness strings.
+  Hence, the replay will tend to be a lot faster.
+
+  Witnesses have the following grammar:
+
+       witness ::= true | left(witness) | right(witness)
+                 | splut(witness,witness)
+                 | apply(hyp)
+                 | intros[id1, ..., idn](witness)
+                 | exists[id1=term1, ..., idn=termn](witness)
+                 | unfold(id,n,witness1,...,witnessn)
+                 | (witness)
+                 | *
+
+  The last witness form stands for a place-holder so you can give partial
+  witnesses to search. In fact, the default search tactic is identical to:
+
+       search with *.
+
+  Please use this feature sparingly, and only when building proofs. After
+  you are done with the proof, delete the "with" statements. These witnesses
+  will NOT be portable across different versions of Abella, as they are very
+  particular to the "search" tactic implementation.
+
+
 Bugfixes
 
 * Annotation mode (-a) output is no longer printed in other modes

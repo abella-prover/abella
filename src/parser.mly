@@ -127,7 +127,7 @@
 /* Higher */
 
 
-%start lpmod lpsig defs top_command command any_command sig_body mod_body
+%start lpmod lpsig defs top_command command any_command sig_body mod_body search_witness
 %type <Typing.uterm> term
 %type <Typing.umetaterm> metaterm
 %type <Abella_types.lpsig> lpsig
@@ -138,6 +138,7 @@
 %type <Abella_types.command> command
 %type <Abella_types.top_command> top_command
 %type <Abella_types.any_command> any_command
+%type <Abella_types.witness> search_witness
 
 %%
 
@@ -450,9 +451,11 @@ pure_command:
   | WITNESS term DOT
     { Types.Exists(`WITNESS, $2) }
   | SEARCH DOT
-    { Types.Search(None) }
+    { Types.Search(`nobounds) }
   | SEARCH NUM DOT
-    { Types.Search(Some $2) }
+    { Types.Search(`depth $2) }
+  | SEARCH WITH search_witness DOT
+    { Types.Search(`witness $3) }
   | SPLIT DOT
     { Types.Split }
   | SPLITSTAR DOT
@@ -670,3 +673,31 @@ optsemi:
   | { () }
   | SEMICOLON
     { () }
+
+search_witness:
+  | TRUE { Types.WTrue }
+  | APPLY LPAREN id RPAREN { Types.WHyp $3 }
+  | LEFT LPAREN search_witness RPAREN { Types.WLeft $3 }
+  | RIGHT LPAREN search_witness RPAREN { Types.WRight $3 }
+  | SPLIT LPAREN search_witness COMMA search_witness RPAREN {
+      Types.WSplit ($3, $5)
+    }
+  | INTROS LBRACK id_list RBRACK LPAREN search_witness RPAREN {
+      Types.WIntros (List.map deloc_id $3, $6)
+    }
+  | EXISTS LBRACK exists_binds RBRACK LPAREN search_witness RPAREN {
+      Types.WExists ($3, $6)
+    }
+  | UNFOLD LPAREN id COMMA NUM search_witness_list RPAREN {
+      Types.WUnfold ($3, $5, $6)
+    }
+  | STAR { Types.WMagic }
+  | LPAREN search_witness RPAREN { $2 }
+
+search_witness_list:
+  | { [] }
+  | COMMA search_witness search_witness_list { $2 :: $3 }
+
+exists_binds:
+  | { [] }
+  | withs { List.map (fun (id, t) -> (id, uterm_to_term [] t)) $1 }

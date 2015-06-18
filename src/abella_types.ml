@@ -76,6 +76,42 @@ type clearable =
   | Keep of id
   | Remove of id
 
+type witness =
+  | WTrue
+  | WHyp of id
+  | WLeft of witness
+  | WRight of witness
+  | WSplit of witness * witness
+  | WIntros of id list * witness
+  | WExists of (id * term) list * witness
+  | WReflexive
+  | WUnfold of id * int * witness list
+  | WMagic
+
+let witness_to_string =
+  let bind_to_string (id, t) =
+    id ^ " = " ^ (term_to_string t)
+  in
+
+  let rec aux = function
+    | WTrue -> "true"
+    | WHyp id -> "apply(" ^ id ^ ")"
+    | WLeft w -> "left(" ^ aux w ^ ")"
+    | WRight w -> "right(" ^ aux w ^ ")"
+    | WSplit(w1,w2) -> "split(" ^ aux w1 ^ "," ^ aux w2 ^ ")"
+    | WIntros(ids,w) ->
+        "intros[" ^ (String.concat "," ids) ^ "](" ^ aux w ^ ")"
+    | WExists(binds,w) ->
+        "exists[" ^ (String.concat "," (List.map bind_to_string binds)) ^
+        "](" ^ aux w ^ ")"
+    | WReflexive -> "reflexive"
+    | WUnfold(id,n,ws) ->
+        let ws = List.map aux ws |> String.concat "," in
+        Printf.sprintf "unfold(%s,%d,%s)" id n ws
+    | WMagic -> "*"
+  in
+  aux
+
 type command =
   | Induction of int list * id option
   | CoInduction of id option
@@ -94,7 +130,7 @@ type command =
   | Rename of id * id
   | Monotone of clearable * uterm
   | Permute of id list * id option
-  | Search of int option
+  | Search of [`nobounds | `depth of int | `witness of witness]
   | Split
   | SplitStar
   | Left
@@ -297,8 +333,9 @@ let command_to_string c =
         sprintf "permute (%s)%s"
           (String.concat " " ids)
           (match t with None -> "" | Some h -> " " ^ h)
-    | Search(None) -> "search"
-    | Search(Some d) -> sprintf "search %d" d
+    | Search(`nobounds) -> "search"
+    | Search(`depth d) -> sprintf "search %d" d
+    | Search(`witness w) -> sprintf "search with %s" (witness_to_string w)
     | Split -> "split"
     | SplitStar -> "split*"
     | Left -> "left"

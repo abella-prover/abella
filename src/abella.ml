@@ -45,7 +45,7 @@ let lexbuf = ref (Lexing.from_channel stdin)
 let annotate = ref false
 let count = ref 0
 
-let witnesses = ref false
+let witnesses = State.rref false
 
 exception AbortProof
 

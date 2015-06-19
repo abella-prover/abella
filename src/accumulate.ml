@@ -23,7 +23,7 @@ open Extensions
 open Format
 open Prover
 
-let load_path = ref "."
+let load_path = State.rref "."
 
 module H = Hashtbl
 

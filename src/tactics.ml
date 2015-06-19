@@ -858,7 +858,11 @@ let search ~depth:n ~hyps ~clauses ~alldefs
             | WMagic -> List.map (fun _ -> WMagic) body
             | _ -> bad_witness ()
           in
-          async_obj_aux_conj (n-1) (wrap body) r ts ~sc ~witnesses
+          let n = match witness with
+            | WUnfold _ -> n
+            | _ -> n - 1
+          in
+          async_obj_aux_conj n (wrap body) r ts ~sc ~witnesses
     end
 
   and async_obj_aux n hyps goal r ts ~sc ~witness =
@@ -962,13 +966,13 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     match goal with
     | True -> begin
         match witness with
-        | WTrue | WMagic -> sc WTrue
+        | WMagic | WTrue -> sc WTrue
         | _ -> bad_witness ()
       end
     | False -> ()
     | Eq(left, right) -> begin
         match witness with
-        | WTrue | WReflexive ->
+        | WMagic | WReflexive ->
             unwind_state
               (fun () -> if try_right_unify left right then sc WReflexive)
               ()
@@ -1061,16 +1065,16 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     (* Printf.eprintf "def_aux: %s\n%!" (witness_to_string witness) ; *)
     let p = term_head_name goal in
     let mdefs = assoc_mdefs p alldefs in
-    let (csel, witness) = match witness with
-      | WMagic -> (Abella_types.Select_any, WMagic)
-      | WUnfold (wp, wn, [w]) when wp = p -> (Abella_types.Select_num wn, w)
+    let (csel, witness, subn) = match witness with
+      | WMagic -> (Abella_types.Select_any, WMagic, n - 1)
+      | WUnfold (wp, wn, [w]) when wp = p -> (Abella_types.Select_num wn, w, n)
       | _ -> bad_witness ()
     in
     let doit () =
       unfold_defs ~mdefs csel ~ts goal r |>
       List.iter begin fun (state, cpairs, body, i) ->
         set_bind_state state ;
-        metaterm_aux (n-1) hyps body ts
+        metaterm_aux subn hyps body ts
           ~witness
           ~sc:(fun w -> if try_unify_cpairs cpairs then
                   sc (WUnfold(p, i, [w])))

@@ -59,7 +59,7 @@ let assign_sequent sq1 sq2 =
   sq1.next_subgoal_id <- sq2.next_subgoal_id
 
 let sequent =
-  State.primitive ~copy:cp_sequent ~assign:assign_sequent {
+  State.make ~copy:cp_sequent ~assign:assign_sequent {
     vars = [] ;
     hyps = [] ;
     goal = termobj (const "placeholder" propty) ;
@@ -180,7 +180,7 @@ let add_defs ids ty defs =
 
 (* Undo support *)
 
-let () = State.primitive () ~copy:Term.get_bind_state ~assign:(fun () st -> Term.set_bind_state st)
+let () = State.make () ~copy:Term.get_bind_state ~assign:(fun () st -> Term.set_bind_state st)
 
 (* Pretty print *)
 

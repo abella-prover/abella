@@ -7,57 +7,68 @@
 
 open Extensions
 
-type cell = {
-  get : unit -> Obj.t ;
-  put : Obj.t -> unit ;
-  reset : unit -> unit ;
-}
+type cell = unit -> unit
+type snap = (unit -> unit) list
 
-let __state : cell list ref = ref []
+let __snappers : (unit -> unit -> unit) list ref = ref []
+
+exception Killme
 
 let rref x =
   let xr = ref x in
-  let put x = xr := Obj.obj x in
-  let get () = Obj.repr !xr in
-  let reset () = xr := x in
-  __state := {get ; put ; reset} :: !__state ;
-  xr
+  let wx = Weak.create 1 in
+  Weak.set wx 0 (Some xr) ;
+  let snap () =
+    match Weak.get wx 0 with
+    | None -> raise Killme
+    | Some xr ->
+        let y = !xr in
+        fun () -> xr := y
+  in
+  __snappers := snap :: !__snappers ; xr
 
 let table () =
   let ht = Hashtbl.create 19 in
-  let get () = Obj.repr (Hashtbl.copy ht) in
-  let put x = Hashtbl.assign ht (Obj.obj x) in
-  let reset () = Hashtbl.clear ht  in
-  __state := {get ; put ; reset} :: !__state ;
-  ht
+  let wx = Weak.create 1 in
+  Weak.set wx 0 (Some ht) ;
+  let snap () =
+    match Weak.get wx 0 with
+    | None -> raise Killme
+    | Some ht ->
+        let saved = Hashtbl.copy ht in
+        fun () -> Hashtbl.assign ht saved
+  in
+  __snappers := snap :: !__snappers ; ht
 
-let primitive ~copy ~assign x =
-  let orig = copy x in
-  let reset () = assign x orig in
-  let put y = assign x (Obj.obj y) in
-  let get () = Obj.repr (copy x) in
-  __state := {get ; put ; reset} :: !__state ;
+let make ~copy ~assign x =
+  let wx = Weak.create 1 in
+  Weak.set wx 0 (Some x) ;
+  let snap () =
+    match Weak.get wx 0 with
+    | None -> raise Killme
+    | Some x ->
+        let saved = copy x in
+        fun () -> assign x saved
+  in
+  __snappers := snap :: !__snappers ;
   x
 
-type state = Obj.t list
+let snapshot () : snap =
+  let (snap, snappers) = List.fold_left begin fun (snap, snappers) next ->
+    try ((next () :: snap), (next :: snappers)) with
+    | Killme -> (snap, snappers)
+  end ([], []) !__snappers in
+  __snappers := snappers ;
+  snap
 
-let snapshot () : state =
-  List.map (fun c -> c.get ()) !__state
-
-let reload (snap : state) =
-  try
-    List.iter2 (fun c v -> c.put v) !__state snap
-  with Invalid_argument _ -> bugf "Cannot reload snapshot!"
-
-let reset () =
-  List.iter (fun c -> c.reset ()) !__state
+let reload (snap : snap) = List.iter (fun f -> f ()) snap
 
 module Undo = struct
   let enabled = ref true
 
   let set_enabled en = enabled := en
 
-  let stack : state list ref = ref []
+  let stack : snap list ref = ref []
 
   let describe msg =
     ()

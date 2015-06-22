@@ -31,6 +31,25 @@ type uterm =
   | ULam of pos * string * ty * uterm
   | UApp of pos * uterm * uterm
 
+let ghost : pos = (Lexing.dummy_pos, Lexing.dummy_pos)
+let rec forget_term ?(cx=[]) t =
+  match observe (hnorm t) with
+  | Var v -> UCon (ghost, v.name, v.ty)
+  | Lam ([], t) -> forget_term ~cx t
+  | Lam ((x, xty) :: cx, t) ->
+      ULam (ghost, x, xty, forget_term ~cx:((x, xty) :: cx) t)
+  | App (f, ts) ->
+      List.fold_left begin fun f t ->
+        UApp (ghost, f, forget_term ~cx t)
+      end (forget_term ~cx f) ts
+  | DB n -> begin
+      try
+        let (x, xty) = List.nth cx (n - 1) in
+        UCon (ghost, x, xty)
+      with Failure "nth" -> bugf "forget_term called with too small a context"
+    end
+  | _ ->
+      bugf "forget_term called on: %s" (term_to_string t)
 
 let get_pos t =
   match t with

@@ -444,7 +444,6 @@ let cut ?name h arg =
       add_hyp ?name (object_cut obj_h obj_arg)
   | _ -> failwith "Cut can only be used on hypotheses of the form {...}"
 
-
 (* Search *)
 
 let has_inductive_hyps hyp =
@@ -489,12 +488,14 @@ let search_goal_witness ?depth goal witness =
              |> List.map (fun h -> (h.id, h.term))
   in
   let depth = Option.default !search_depth depth in
+  let retype t = type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars t in
   let search_depth n =
     Tactics.search
       ~depth:n
       ~hyps
       ~clauses:!clauses
       ~alldefs:(defs_table_to_list ())
+      ~retype
       ~witness
       goal
   in

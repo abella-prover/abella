@@ -18,7 +18,8 @@ Additions
 
   Witnesses have the following grammar:
 
-       witness ::= true | left(witness) | right(witness)
+       witness ::= true | =
+                 | left(witness) | right(witness)
                  | splut(witness,witness)
                  | apply(hyp)
                  | intros[id1, ..., idn](witness)

@@ -82,6 +82,7 @@ type witness =
   | WLeft of witness
   | WRight of witness
   | WSplit of witness * witness
+  | WForall of id list * witness
   | WIntros of id list * witness
   | WExists of (id * term) list * witness
   | WReflexive
@@ -90,24 +91,26 @@ type witness =
 
 let witness_to_string =
   let bind_to_string (id, t) =
-    id ^ " = " ^ (term_to_string t)
+    id ^ " = " ^ term_to_string t
   in
 
   let rec aux = function
     | WTrue -> "true"
-    | WHyp id -> "apply(" ^ id ^ ")"
-    | WLeft w -> "left(" ^ aux w ^ ")"
-    | WRight w -> "right(" ^ aux w ^ ")"
-    | WSplit(w1,w2) -> "split(" ^ aux w1 ^ "," ^ aux w2 ^ ")"
+    | WHyp id -> "apply " ^ id
+    | WLeft w -> "left " ^ aux w
+    | WRight w -> "right " ^ aux w
+    | WSplit(w1,w2) -> "split(" ^ aux w1 ^ ", " ^ aux w2 ^ ")"
+    | WForall(ids,w) ->
+        "forall[" ^ (String.concat ", " ids) ^ "] " ^ aux w
     | WIntros(ids,w) ->
-        "intros[" ^ (String.concat "," ids) ^ "](" ^ aux w ^ ")"
+        "intros[" ^ (String.concat ", " ids) ^ "] " ^ aux w
     | WExists(binds,w) ->
-        "exists[" ^ (String.concat "," (List.map bind_to_string binds)) ^
-        "](" ^ aux w ^ ")"
-    | WReflexive -> "reflexive"
+        "exists[" ^ (String.concat ", " (List.map bind_to_string binds)) ^
+        "] " ^ aux w
+    | WReflexive -> "="
     | WUnfold(id,n,ws) ->
-        let ws = List.map aux ws |> String.concat "," in
-        Printf.sprintf "unfold(%s,%d,%s)" id n ws
+        let ws = List.map aux ws |> String.concat ", " in
+        Printf.sprintf "unfold(%s, %d, %s)" id n ws
     | WMagic -> "*"
   in
   aux

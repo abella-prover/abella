@@ -676,22 +676,26 @@ optsemi:
 
 search_witness:
   | TRUE { Types.WTrue }
-  | APPLY LPAREN id RPAREN { Types.WHyp $3 }
-  | LEFT LPAREN search_witness RPAREN { Types.WLeft $3 }
-  | RIGHT LPAREN search_witness RPAREN { Types.WRight $3 }
+  | APPLY id { Types.WHyp $2 }
+  | LEFT search_witness { Types.WLeft $2 }
+  | RIGHT search_witness { Types.WRight $2 }
   | SPLIT LPAREN search_witness COMMA search_witness RPAREN {
       Types.WSplit ($3, $5)
     }
-  | INTROS LBRACK id_list RBRACK LPAREN search_witness RPAREN {
-      Types.WIntros (List.map deloc_id $3, $6)
+  | INTROS LBRACK id_list RBRACK search_witness {
+      Types.WIntros (List.map deloc_id $3, $5)
     }
-  | EXISTS LBRACK exists_binds RBRACK LPAREN search_witness RPAREN {
-      Types.WExists ($3, $6)
+  | FORALL LBRACK id_list RBRACK search_witness {
+      Types.WForall (List.map deloc_id $3, $5)
+    }
+  | EXISTS LBRACK exists_binds RBRACK search_witness {
+      Types.WExists ($3, $5)
     }
   | UNFOLD LPAREN id COMMA NUM search_witness_list RPAREN {
       Types.WUnfold ($3, $5, $6)
     }
   | STAR { Types.WMagic }
+  | EQ { Types.WReflexive }
   | LPAREN search_witness RPAREN { $2 }
 
 search_witness_list:

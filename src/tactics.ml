@@ -809,7 +809,7 @@ let satisfies r1 r2 =
     sc means success continuation.
 *)
 
-let search ~depth:n ~hyps ~clauses ~alldefs
+let search ~depth:n ~hyps ~clauses ~alldefs ~retype
     ?(witness=WMagic)
     ?(sc=fun w -> raise (SearchSuccess w)) goal =
 
@@ -952,15 +952,23 @@ let search ~depth:n ~hyps ~clauses ~alldefs
       end
 
   and metaterm_aux n hyps goal ts ~sc ~witness =
-    (* Printf.eprintf "metaterm_aux: %s\n%!" (witness_to_string witness) ; *)
+    (* Printf.eprintf "metaterm_aux: %s\n%!  -- %s\n%!" (witness_to_string witness) (metaterm_to_string goal) ; *)
     let goal = normalize goal in
     let () =
       hyps |>
       List.iter ~guard:unwind_state begin fun (id, hyp) ->
-        if (match hyp, goal with
-            | Pred(_, rh), Pred(_, rg)
-            | Obj(_, rh), Obj(_, rg) -> satisfies rh rg
-            | _ -> true) then
+        let wmatch = match witness with
+          | WMagic -> true
+          | WHyp h when h = id -> true
+          | _ -> false
+        in
+        if wmatch then
+        let pmatch = match hyp, goal with
+          | Pred(_, rh), Pred(_, rg)
+          | Obj(_, rh), Obj(_, rg) -> satisfies rh rg
+          | _ -> true
+        in
+        if pmatch then
           all_meta_right_permute_unify ~sc:(fun () -> sc (WHyp id)) goal hyp
       end in
     match goal with
@@ -1018,7 +1026,11 @@ let search ~depth:n ~hyps ~clauses ~alldefs
              (metaterm_support goal))
         in
         let (alist, w) = match witness with
-          | WExists (alist, w) -> (alist, w)
+          | WExists (alist, w) ->
+              let alist = List.map begin fun (x, t) ->
+                  (x, retype (Typing.forget_term t))
+                end alist in
+              (alist, w)
           | WMagic ->
               (fresh_nameless_alist
                  ~support:global_support ~tag:Logic ~ts tids, WMagic)
@@ -1043,7 +1055,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
     | Binding(Forall, tids, body) ->
         let ts = ts + 1 in
         let (alist, w) = match witness with
-          | WIntros (ids, w) ->
+          | WForall (ids, w) ->
               let alist = List.map2 begin fun id (x, ty) ->
                   (x, var Eigen id ts ty)
                 end ids tids in
@@ -1055,7 +1067,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs
         let body = replace_metaterm_vars alist body in
         metaterm_aux n hyps body ts
           ~witness:w
-          ~sc:(fun w -> sc (WIntros(alist_to_ids alist, w)))
+          ~sc:(fun w -> sc (WForall(alist_to_ids alist, w)))
     | Obj(Async obj, r) -> async_obj_aux n hyps obj r ts ~sc ~witness
     | Obj(Sync obj, r) -> sync_obj_aux n hyps obj r ts ~sc ~witness
     | Pred(_, Smaller _) | Pred(_, Equal _) -> ()

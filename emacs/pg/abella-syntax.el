@@ -10,10 +10,10 @@
 
 (defvar abella-script-font-lock-keywords
   '(;; (regexp-opt '("Set" "Query" "Show") 'words)
-    ("\\<\\(Query\\|S\\(?:et\\|how\\)\\)\\>"     . font-lock-type-face)
+    ("\\<\\(Query\\|S\\(?:et\\|how\\)\\)\\>"     . font-lock-builtin-face)
     ("\\<\\(Import\\|Specification\\)\\>"        . font-lock-builtin-face)
     ("\\<\\(Type\\|Kind\\|Close\\)\\>"           . font-lock-keyword-face)
-    ("\\<\\(\\(?:Co\\)?Define\\|Inductive\\)\\>" . font-lock-keyword-face)
+    ("\\<\\(\\(?:Co\\)?Define\\|Schema\\|Inductive\\)\\>" . font-lock-keyword-face)
     ("\\<\\(Theorem\\|Split\\)\\>"               . font-lock-keyword-face)
     ("\\<\\(skip\\|undo\\|abort\\)\\>"           . font-lock-warning-face)
     ;; (regexp-opt '("{" "}" "|-" "[" "]" "=>"))

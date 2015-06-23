@@ -208,6 +208,9 @@ let set_bind_state state =
   clear_bind_state () ;
   List.iter (fun (v, ov, nv) -> bind (Ptr v) nv) (List.rev state)
 
+(* make state undoable *)
+let () = State.make () ~copy:get_bind_state ~assign:(fun () st -> set_bind_state st)
+
 (* Scoped bind state is more efficient than regular bind state, but it
    must always be used in a lexically scoped fashion. The unwind_state
    wraps a function with a scoped get and set. *)

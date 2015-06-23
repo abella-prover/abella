@@ -178,9 +178,133 @@ let add_defs ids ty defs =
     (fun id -> H.add defs_table id (ty, ids, defs))
     ids
 
-(* Undo support *)
+(* Schemas *)
 
-let () = State.make () ~copy:Term.get_bind_state ~assign:(fun () st -> Term.set_bind_state st)
+let schemas : (string, term schema) Hashtbl.t = State.table ()
+
+let type_block bl =
+  let eqns = ref [] in
+  let tyctx = bl.bl_exists @ bl.bl_nabla in
+  List.iter begin fun rel ->
+    List.iter begin fun elem ->
+      eqns := snd (Typing.infer_type_and_constraints ~sign:!sign tyctx elem) @ !eqns
+    end rel
+  end bl.bl_rel ;
+  let sub = Typing.unify_constraints !eqns in
+  let bl_exists = Typing.apply_sub_tyctx sub bl.bl_exists in
+  let bl_nabla = Typing.apply_sub_tyctx sub bl.bl_nabla in
+  List.iter Typing.tid_ensure_fully_inferred bl_exists ;
+  List.iter Typing.tid_ensure_fully_inferred bl_nabla ;
+  let bl_rel = List.map begin fun rel ->
+      List.map begin fun elem ->
+        Typing.uterm_to_term sub elem
+      end rel
+    end bl.bl_rel in
+  {bl_exists ; bl_nabla ; bl_rel}
+
+let format_schema ff sch =
+  let open Format in
+  pp_open_vbox ff 2 ; begin
+    pp_print_string ff "Schema " ;
+    pp_print_string ff sch.sch_name ;
+    pp_print_string ff " := " ;
+    List.iter begin fun bl ->
+      pp_print_cut ff () ;
+      pp_open_box ff 2 ; begin
+        if bl.bl_exists <> [] then begin
+          pp_print_string ff "exists " ;
+          pp_open_box ff 0 ; begin
+            List.iter_sep ~sep:(pp_print_space ff) begin fun (v, ty) ->
+              fprintf ff "(%s:%s)" v (ty_to_string ty)
+            end bl.bl_exists ;
+          end ; pp_close_box ff () ;
+          pp_print_string ff "," ;
+          if bl.bl_nabla <> [] then pp_print_space ff () ;
+        end ;
+        if bl.bl_nabla <> [] then begin
+          pp_print_string ff "nabla " ;
+          pp_open_box ff 0 ; begin
+            List.iter_sep ~sep:(pp_print_space ff) begin fun (v, ty) ->
+              fprintf ff "(%s:%s)" v (ty_to_string ty)
+            end bl.bl_nabla ;
+          end ; pp_close_box ff () ;
+          pp_print_string ff "," ;
+        end ;
+        pp_print_space ff () ;
+        pp_print_string ff "(" ;
+        pp_open_box ff 2 ; begin
+          let cx = List.rev (bl.bl_exists @ bl.bl_nabla) in
+          List.iter_sep ~sep:(fun () -> fprintf ff ",@ ") begin fun rel ->
+            if rel = [] then pp_print_string ff "nil" else
+              List.iter_sep ~sep:(fun () -> fprintf ff " ::@ ") begin fun elem ->
+                format_term ~cx ff elem
+              end rel
+          end bl.bl_rel
+        end ; pp_close_box ff () ;
+        pp_print_string ff ")" ;
+      end ; pp_close_box ff ()
+    end sch.sch_blocks ;
+  end ; pp_close_box ff ()
+
+let def_string sch =
+  let buf = Buffer.create 19 in
+  let add s = Buffer.add_string buf s in
+  let cons = Term.var Term.Constant "::" 0 (tyarrow [oty ; olistty] olistty) in
+  let block_string bl =
+    let cx = List.rev (bl.bl_exists @ bl.bl_nabla) in
+    if bl.bl_nabla <> [] then begin
+      add "nabla" ;
+      List.iter (fun (v, ty) -> add " " ; add v) bl.bl_nabla ;
+      add ", " ;
+    end ;
+    add sch.sch_name ;
+    let rec name_gs gs used = function
+      | 0 -> List.rev gs
+      | n ->
+          let (g, used) = Term.fresh_wrt ~ts:0 Term.Constant "G" olistty used in
+          name_gs (g :: gs) used (n - 1)
+    in
+    let used = List.map begin fun (v, ty) ->
+        (v, Term.var Term.Constant v 0 ty)
+      end bl.bl_exists in
+    let gs = name_gs [] used sch.sch_arity in
+    let gbl = List.combine gs bl.bl_rel in
+    List.iter begin fun (g, rel) ->
+      add " (" ;
+      List.fold_right begin fun e l ->
+        Term.app cons [e ; l]
+      end rel g |>
+      term_to_string ~cx |> add ;
+      add ")" ;
+    end gbl ;
+    add " := " ;
+    add sch.sch_name ;
+    List.iter begin fun (g, _) ->
+      add " " ; add (term_to_string ~cx g)
+    end gbl ;
+  in
+  add sch.sch_name ;
+  for i = 1 to sch.sch_arity do add " nil" done ;
+  if sch.sch_blocks = [] then add "." else add ";\n" ;
+  List.iter_sep ~sep:(fun () -> add ";\n") block_string sch.sch_blocks ;
+  Buffer.contents buf
+
+
+let register_schema sch =
+  if Hashtbl.mem schemas sch.sch_name then
+    failwithf "Schema %S already defined" sch.sch_name ;
+  let sch = {sch with sch_blocks = List.map type_block sch.sch_blocks} in
+  Hashtbl.add schemas sch.sch_name sch ;
+  (* Format.printf "%a.@." format_schema sch ; *)
+  let rec mk_sch_ty args = function
+    | 0 -> tyarrow args propty
+    | n -> mk_sch_ty (olistty :: args) (n - 1)
+  in
+  let sch_ty = mk_sch_ty [] sch.sch_arity in
+  let sch_defs = def_string sch in
+  Format.printf "Define %s : %s by@.%s.@." sch.sch_name (ty_to_string sch_ty) sch_defs ;
+  add_global_consts [sch.sch_name, sch_ty] ;
+  H.add defs_table sch.sch_name (Inductive, [sch.sch_name], parse_defs sch_defs)
 
 (* Pretty print *)
 

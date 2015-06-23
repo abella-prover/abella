@@ -50,10 +50,23 @@ type common_command =
   | Show of string
   | Quit
 
+type 'term schema = {
+  sch_name    : id ;
+  sch_arity   : int ;
+  sch_blocks  : 'term block list ;
+}
+
+and 'term block = {
+  bl_exists : tyctx ;
+  bl_nabla  : tyctx ;
+  bl_rel    : 'term list list ;
+}
+
 type top_command =
   | Theorem of id * umetaterm
-  | Define of (id * ty) list * udefs
-  | CoDefine of (id * ty) list * udefs
+  | Define of tyctx * udefs
+  | Schema of uterm schema
+  | CoDefine of tyctx * udefs
   | Import of string
   | Specification of string
   | Query of umetaterm
@@ -65,8 +78,9 @@ type top_command =
 
 type compiled =
   | CTheorem of id * metaterm
-  | CDefine of (id * ty) list * defs
-  | CCoDefine of (id * ty) list * defs
+  | CDefine of tyctx * defs
+  | CSchema of term schema
+  | CCoDefine of tyctx * defs
   | CImport of string
   | CKind of id list
   | CType of id list * ty
@@ -210,6 +224,31 @@ let common_command_to_string cc =
   | Quit ->
       sprintf "Quit"
 
+let block_to_string t2s bl =
+  let buf = Buffer.create 19 in
+  let add s = Buffer.add_string buf s in
+  let space () = add " " in
+  if bl.bl_exists <> [] then begin
+    add "exists " ;
+    List.iter_sep ~sep:space (fun (v, ty) -> add v) bl.bl_exists ;
+    add "," ;
+    if bl.bl_nabla <> [] then add " " ;
+  end ;
+  if bl.bl_nabla <> [] then begin
+    add "nabla " ;
+    List.iter_sep ~sep:space (fun (v, ty) -> add v) bl.bl_nabla ;
+    add ","
+  end ;
+  add " (" ;
+  List.iter_sep ~sep:(fun () -> add ", ") begin fun ctx ->
+    if ctx = [] then add "nil" else
+    List.iter_sep ~sep:(fun () -> add " :: ") begin fun tm ->
+      add (t2s tm)
+    end ctx
+  end bl.bl_rel ;
+  add ")" ;
+  Buffer.contents buf
+
 let top_command_to_string tc =
   match tc with
     | Theorem(name, body) ->
@@ -217,6 +256,11 @@ let top_command_to_string tc =
     | Define(idtys, udefs) ->
         sprintf "Define %s by \n%s"
           (idtys_to_string idtys) (udefs_to_string udefs) ;
+    | Schema sch ->
+        sprintf "Schema %s := %s" sch.sch_name
+          (sch.sch_blocks |>
+           List.map (fun bl -> block_to_string uterm_to_string bl) |>
+           String.concat "; ")
     | CoDefine(idtys, udefs) ->
         sprintf "CoDefine %s by \n%s"
           (idtys_to_string idtys) (udefs_to_string udefs) ;

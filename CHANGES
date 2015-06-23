@@ -3,6 +3,32 @@ Changes in 2.0.4 from 2.0.3
 
 Additions
 
+* Added a new toplevel declarative form, Schemas. The general form of a
+  Schema declaration is:
+
+       Schema name := clause1 ; ... ; clauseN.
+
+  where each clause is of the form
+
+       exists X1 ... Xm, nabla x1 ... xn, (L1, L2, ..., Lk)
+
+  and each Li is nil or of the form
+
+       F1 :: F2 :: ... :: Fn
+
+  where each Fi is a spec-level formula, i.e., of type o. This is
+  internally turned into:
+
+       Define name : olist -> ... -> olist -> prop by
+          name nil ... nil;
+          nabla x1 ... xn, name (L1 :: G1) ... (Lk :: Gk) :=
+             name G1 ... Gk;
+          ... (N - 1 more clauses)
+
+  In other words, schemas are a way of declaring a certain "regular"
+  context structure. Several tactics specialized to reason about
+  schemas will be added in the near future.
+
 * Added a new tactic form:
 
        search with <witness>.

@@ -342,6 +342,8 @@ let import filename =
                    check_defs ids defs ;
                    add_global_consts idtys ;
                    add_defs ids Inductive defs ;
+             | CSchema sch ->
+                 bugf "Schemas not yet supported"
              | CCoDefine(idtys, defs) ->
                  let ids = List.map fst idtys in
                    check_noredef ids;
@@ -621,6 +623,8 @@ and process_top1 () =
       commit_global_consts local_sr local_sign ;
       compile (CDefine(idtys, defs)) ;
       add_defs ids Inductive defs
+  | Schema sch ->
+      ignore (register_schema sch)
   | CoDefine(idtys, udefs) ->
       let ids = List.map fst idtys in
       check_noredef ids;

@@ -24,7 +24,7 @@ let curry f (x,y) = f x y
 let uncurry f x y = f (x,y)
 
 let failwithf fmt = Printf.ksprintf failwith fmt
-let bugf      fmt = Printf.ksprintf failwith
+let bugf      fmt = Printf.ksprintf (fun s -> Printf.eprintf "%s\n%!" s ; failwith "Bug")
     ("[ABELLA BUG]\n" ^^ fmt ^^
      "\nPlease report this at https://github.com/abella-prover/abella/issues")
 
@@ -117,6 +117,17 @@ module List = struct
   let map ?guard f list = map (maybe_guard ?guard f) list
 
   let iter ?guard f list = iter (maybe_guard ?guard f) list
+
+  let iter_sep ~sep f list =
+    let rec spin0 = function
+      | [] -> ()
+      | [x] -> f x
+      | x :: xs -> f x ; spin1 xs
+    and spin1 = function
+      | [] -> ()
+      | x :: xs -> sep () ; f x ; spin1 xs
+    in
+    spin0 list
 
   let find_all ?guard f list =
     filter (maybe_guard ?guard f) list

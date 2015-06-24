@@ -313,8 +313,6 @@ let sequent_var_to_string (x, xt) =
 
 let show_instantiations = State.rref false
 
-let show_types = State.rref false
-
 let separate_strings xs =
   let __max_len = 30 in
   let result = ref [] in

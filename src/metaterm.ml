@@ -102,7 +102,36 @@ let async_to_member obj =
   let (context, term) = Async.get obj in
   member term (Context.context_to_term context)
 
+(* Support *)
+
+let term_support t = find_var_refs Nominal [t]
+let term_list_support l = find_var_refs Nominal l
+
+let obj_support = function
+  | Async obj ->
+      let ctx,term = Async.get obj in
+      find_var_refs Nominal (term :: ctx)
+  | Sync obj ->
+      let ctx,focus,term = Sync.get obj in
+      find_var_refs Nominal (term::focus::ctx)
+
+let metaterm_support t =
+  let rec aux t =
+    match t with
+      | True | False -> []
+      | Eq(t1, t2) -> term_support t1 @ term_support t2
+      | Obj(obj, _) -> obj_support obj
+      | Arrow(t1, t2) -> aux t1 @ aux t2
+      | Binding(_, _, t) -> aux t
+      | Or(t1, t2) -> aux t1 @ aux t2
+      | And(t1, t2) -> aux t1 @ aux t2
+      | Pred(t, _) -> term_support t
+  in
+    List.unique (aux t)
+
 (* Pretty printing *)
+
+let show_types = State.rref false
 
 let restriction_to_string r =
   match r with
@@ -217,8 +246,22 @@ let rec pretty_metaterm mt =
 
 let format_metaterm ff mt =
   let open Format in
-  pp_open_box ff 2 ; begin
-    pretty_metaterm mt |> Pretty.print ff ;
+  pp_open_vbox ff 0 ; begin
+    if !show_types then begin
+      let noms = metaterm_support mt in
+      List.iter_sep ~sep:(pp_print_cut ff) begin fun nom ->
+        pp_print_string ff (term_head_name nom) ;
+        pp_print_string ff " : " ;
+        pp_print_string ff (tc [] nom |> ty_to_string) ;
+      end noms ;
+      if noms <> [] then begin
+        pp_print_cut ff () ;
+        pp_print_string ff "|> " ;
+      end ;
+    end ;
+    pp_open_box ff 0 ; begin
+      pretty_metaterm mt |> Pretty.print ff ;
+    end ; pp_close_box ff () ;
   end ; pp_close_box ff ()
 
 let metaterm_to_string t =
@@ -467,31 +510,6 @@ let rec collect_terms t =
     | Pred(p, _) -> [p]
 
 let map_term_list f t = List.map f (collect_terms t)
-
-let term_support t = find_var_refs Nominal [t]
-let term_list_support l = find_var_refs Nominal l
-
-let obj_support = function
-  | Async obj ->
-      let ctx,term = Async.get obj in
-      find_var_refs Nominal (term :: ctx)
-  | Sync obj ->
-      let ctx,focus,term = Sync.get obj in
-      find_var_refs Nominal (term::focus::ctx)
-
-let metaterm_support t =
-  let rec aux t =
-    match t with
-      | True | False -> []
-      | Eq(t1, t2) -> term_support t1 @ term_support t2
-      | Obj(obj, _) -> obj_support obj
-      | Arrow(t1, t2) -> aux t1 @ aux t2
-      | Binding(_, _, t) -> aux t
-      | Or(t1, t2) -> aux t1 @ aux t2
-      | And(t1, t2) -> aux t1 @ aux t2
-      | Pred(t, _) -> term_support t
-  in
-    List.unique (aux t)
 
 let get_metaterm_used t =
   t |> collect_terms

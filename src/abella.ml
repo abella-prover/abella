@@ -428,8 +428,8 @@ let set k v =
                              ~key:"instantiations"
                              ~expected:"'on' or 'off'"
 
-  | "types", Str "on" -> Prover.show_types := true
-  | "types", Str "off" -> Prover.show_types := false
+  | "types", Str "on" -> Metaterm.show_types := true
+  | "types", Str "off" -> Metaterm.show_types := false
   | "types", _ -> set_fail v
                     ~key:"types"
                     ~expected:"'on' or 'off'"

@@ -170,40 +170,38 @@ let add_defs ids ty defs =
     (fun id -> if H.mem defs_table id then
         failwithf "Predicate %s has already been defined" id)
     ids ;
-  List.iter begin fun (head, body) ->
-    Format.eprintf "%a := %a@." format_metaterm head format_metaterm body
-  end defs ;
+  (* List.iter begin fun (head, body) -> *)
+  (*   Format.eprintf "%a := %a@." format_metaterm head format_metaterm body *)
+  (* end defs ; *)
   List.iter (fun id -> H.add defs_table id (ty, ids, defs)) ids
 
 let () = add_defs [k_member] Inductive (parse_defs "member A (A :: L) ; member A (B :: L) := member A L.")
-
-
 let special_defs_table = H.create 3
-let () = H.add special_defs_table k_fresh begin fun spine ->
+let () =
+  let gen spine =
     match spine with
-    | [u ; x] ->
-        let uty = tc [] u in
-        let xty = tc [] x in
+    | [uty ; xty] ->
         let head =
           nabla [("u", uty)] begin
             pred (app (const k_fresh (tyarrow [uty ; xty] propty)) [const "u" uty ; const "X" xty])
           end in
-        Format.eprintf "Generated %s: %a@." k_fresh format_metaterm head ;
         ([k_fresh], [head, True])
     | _ -> bugf "%s called without two args" k_fresh
-  end
-let () = H.add special_defs_table k_name begin fun spine ->
+  in
+  H.add special_defs_table k_fresh (memoize gen)
+
+let () =
+  let gen spine =
     match spine with
-    | [u] ->
-        let uty = tc [] u in
+    | [uty] ->
         let head =
           nabla [("u", uty)] begin
             pred (app (const k_name (tyarrow [uty] propty)) [const "u" uty])
           end in
-        Format.eprintf "Generated %s: %a@." k_name format_metaterm head ;
         ([k_name], [head, True])
     | _ -> bugf "%s called without one arg" k_name
-  end
+  in
+  H.add special_defs_table k_name (memoize gen)
 
 let term_spine t =
   match term_head t with
@@ -218,191 +216,11 @@ let get_defs term =
         let (_, mutual, defs) = H.find defs_table (term_head_name p) in
         (mutual, defs)
       end else if H.mem special_defs_table pn then
-        H.find special_defs_table pn (term_spine p)
+        H.find special_defs_table pn (term_spine p |> List.map (tc []))
       else
         failwith "Cannot perform case-analysis on undefined atom"
   | _ -> ([], [])
 
-
-(* Schemas *)
-
-let schemas : (string, term schema) Hashtbl.t = State.table ()
-
-let type_block bl =
-  let eqns = ref [] in
-  let tyctx = bl.bl_nabla in
-  let esign =
-    let basics, consts = !sign in
-    (basics, List.map (fun (v, ty) -> (v, Poly ([], ty))) bl.bl_exists @ consts) in
-  List.iter begin fun rel ->
-    List.iter begin fun elem ->
-      eqns := snd (Typing.infer_type_and_constraints ~sign:esign tyctx elem) @ !eqns
-    end rel
-  end bl.bl_rel ;
-  let sub = Typing.unify_constraints !eqns in
-  let bl_exists = Typing.apply_sub_tyctx sub bl.bl_exists in
-  let bl_nabla = Typing.apply_sub_tyctx sub bl.bl_nabla in
-  List.iter Typing.tid_ensure_fully_inferred bl_exists ;
-  List.iter Typing.tid_ensure_fully_inferred bl_nabla ;
-  let bl_rel = List.map begin fun rel ->
-      List.map begin fun elem ->
-        Typing.uterm_to_term sub elem
-      end rel
-    end bl.bl_rel in
-  {bl_exists ; bl_nabla ; bl_rel}
-
-let format_schema ff sch =
-  let open Format in
-  pp_open_vbox ff 2 ; begin
-    pp_print_string ff "Schema " ;
-    pp_print_string ff sch.sch_name ;
-    pp_print_string ff " := " ;
-    List.iter begin fun bl ->
-      pp_print_cut ff () ;
-      pp_open_box ff 2 ; begin
-        if bl.bl_exists <> [] then begin
-          pp_print_string ff "exists " ;
-          pp_open_box ff 0 ; begin
-            List.iter_sep ~sep:(pp_print_space ff) begin fun (v, ty) ->
-              fprintf ff "(%s:%s)" v (ty_to_string ty)
-            end bl.bl_exists ;
-          end ; pp_close_box ff () ;
-          pp_print_string ff "," ;
-          if bl.bl_nabla <> [] then pp_print_space ff () ;
-        end ;
-        if bl.bl_nabla <> [] then begin
-          pp_print_string ff "nabla " ;
-          pp_open_box ff 0 ; begin
-            List.iter_sep ~sep:(pp_print_space ff) begin fun (v, ty) ->
-              fprintf ff "(%s:%s)" v (ty_to_string ty)
-            end bl.bl_nabla ;
-          end ; pp_close_box ff () ;
-          pp_print_string ff "," ;
-        end ;
-        pp_print_space ff () ;
-        pp_print_string ff "(" ;
-        pp_open_box ff 2 ; begin
-          let cx = List.rev bl.bl_nabla in
-          List.iter_sep ~sep:(fun () -> fprintf ff ",@ ") begin fun rel ->
-            if rel = [] then pp_print_string ff k_nil else
-              List.iter_sep ~sep:(fun () -> fprintf ff " ::@ ") begin fun elem ->
-                format_term ~cx ff elem
-              end rel
-          end bl.bl_rel
-        end ; pp_close_box ff () ;
-        pp_print_string ff ")" ;
-      end ; pp_close_box ff ()
-    end sch.sch_blocks ;
-  end ; pp_close_box ff ()
-
-let schema_pred_type sch =
-  let rec mk args = function
-    | 0 -> tyarrow args propty
-    | n -> mk (olistty :: args) (n - 1)
-  in
-  mk [] sch.sch_arity
-
-let schema_to_defs ?ty sch =
-  let ty = schema_pred_type sch in
-  let pred = Term.const sch.sch_name ty in
-  let mk args = Metaterm.pred (Term.app pred args) in
-  let k_nil = Term.const k_nil olistty in
-  let nil_head = List.range 1 sch.sch_arity |>
-                   List.map (fun _ -> k_nil) |> mk in
-  let nil_clause = (nil_head, True) in
-  let k_cons = Term.const k_cons (tyarrow [oty ; olistty] olistty) in
-  let block_to_clause bl =
-    let rec name_gs gs used = function
-      | 0 -> List.rev gs
-      | n ->
-          let (g, used) = Term.fresh_wrt ~ts:0 Term.Constant "G" olistty used in
-          name_gs (g :: gs) used (n - 1)
-    in
-    let used = ("G", Term.const "G" olistty) :: List.map begin fun (v, ty) ->
-        (v, Term.const v ty)
-      end bl.bl_exists in
-    let gs = name_gs [] used sch.sch_arity in
-    let body = mk gs in
-    let cons s t = Term.app k_cons [s ; t] in
-    let grels = List.combine bl.bl_rel gs |>
-                List.map (fun (l, g) -> List.fold_right cons l g) in
-    let head = nabla bl.bl_nabla (mk grels) in
-    (head, body)
-  in
-  let clauses = nil_clause :: List.map block_to_clause sch.sch_blocks in
-  (ty, clauses)
-
-let k_member = Term.const k_member (tyarrow [oty ; olistty] propty)
-let member x l = pred (Term.app k_member [x ; l])
-
-let schema_desc gs e ~sch comp =
-  if comp < 0 || comp >= sch.sch_arity then failwith "schema_desc" ;
-  let bindings = (e, oty) :: List.map (fun g -> (g, olistty)) gs in
-  let e = Term.const e oty in
-  let gs = List.map (fun g -> Term.const g olistty) gs in
-  let used = List.map term_to_pair (e :: gs) in
-  let block_desc bl =
-    let l = List.nth bl.bl_rel comp in
-    let (xxs, used) = List.fold_left begin fun (xxs, used) (x, xty) ->
-        let (xx, used) = fresh_wrt ~ts:0 Constant x xty used in
-        (xx :: xxs, used)
-      end ([], used) bl.bl_exists in
-    let xxs = List.rev xxs in
-    let xxsub = List.map2 (fun (x, _) xx -> (x, xx)) bl.bl_exists xxs in
-    let (uus, _) = List.fold_left begin fun (uus, used) (u, uty) ->
-        let (uu, used) = fresh_wrt ~ts:0 Constant u uty used in
-        (uu :: uus, used)
-      end ([], used) bl.bl_nabla in
-    let uus = List.rev uus in
-    let elem_desc f =
-      let f = lambda bl.bl_nabla f in
-      let f = app f uus in
-      let f = replace_term_vars xxsub f in
-      Eq (e, f) in
-    let fresh = List.map begin fun u ->
-        let uty = tc [] u in
-        if xxs = [] then begin
-          [pred (Term.app (Term.const k_name (tyarrow [uty] propty)) [u])]
-        end else begin
-          List.map begin fun x ->
-            let xty = tc [] x in
-            let k_fresh = Term.const k_fresh (tyarrow [uty ; xty] propty) in
-            pred (Term.app k_fresh [u ; x])
-          end xxs
-        end
-      end uus |> List.flatten in
-    let ebindings =
-      List.map (fun v -> (term_to_name v, tc [] v)) (xxs @ uus)
-    in
-    exists ebindings begin
-      (List.map elem_desc l |> disjoin) :: fresh |> conjoin
-    end
-  in
-  forall bindings begin
-    Arrow (pred (Term.app (Term.const sch.sch_name (tyarrow [olistty] propty)) gs),
-           Arrow (member e (List.nth gs comp),
-                  List.map block_desc sch.sch_blocks |> disjoin))
-  end
-
-let register_schema sch =
-  if Hashtbl.mem schemas sch.sch_name then
-    failwithf "Schema %S already defined" sch.sch_name ;
-  let sch = {sch with sch_blocks = List.map type_block sch.sch_blocks} in
-  Hashtbl.add schemas sch.sch_name sch ;
-  Format.printf "%a.@." format_schema sch ;
-  let (ty, clauses) = schema_to_defs sch in
-  add_global_consts [sch.sch_name, ty] ;
-  add_defs [sch.sch_name] Inductive clauses ;
-  let gs = List.range 1 sch.sch_arity |>
-           List.map (fun n -> "G" ^ string_of_int n) in
-  List.range 0 (sch.sch_arity - 1) |>
-  List.map (schema_desc gs "E" ~sch) |>
-  List.number |>
-  List.iter begin fun (i, mt) ->
-    let name = sch.sch_name ^ "#" ^ string_of_int i in
-    add_global_consts [name, propty] ;
-    add_defs [name] Inductive [pred (const name propty), mt]
-  end
 
 (* Pretty print *)
 

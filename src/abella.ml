@@ -624,7 +624,7 @@ and process_top1 () =
       compile (CDefine(idtys, defs)) ;
       add_defs ids Inductive defs
   | Schema sch ->
-      ignore (register_schema sch)
+      ignore (Schemas.register_schema sch)
   | CoDefine(idtys, udefs) ->
       let ids = List.map fst idtys in
       check_noredef ids;

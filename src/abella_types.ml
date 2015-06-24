@@ -53,6 +53,7 @@ type common_command =
 type 'term schema = {
   sch_name    : id ;
   sch_arity   : int ;
+  sch_ty      : ty ;
   sch_blocks  : 'term block list ;
 }
 

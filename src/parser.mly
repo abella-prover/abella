@@ -655,8 +655,13 @@ pure_top_command:
         error_report ~pos:(Parsing.rhs_start_pos 3)
           "Schema cases not of the same arity" ;
       let arity = List.hd arities in
+      let ty = Term.tyarrow
+          (List.range 1 arity |> List.map (fun _ -> Term.olistty))
+          Term.propty
+      in
       Types.Schema { Types.sch_name = $2 ;
                      Types.sch_arity = arity ;
+                     Types.sch_ty = ty ;
                      Types.sch_blocks = blocks }
     }
   | QUERY metaterm DOT

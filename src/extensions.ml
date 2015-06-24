@@ -320,6 +320,15 @@ module Hashtbl = struct
 
 end
 
+let memoize fn =
+  let memo = Hashtbl.create 3 in
+  fun x ->
+    try Hashtbl.find memo x with Not_found ->
+      let res = fn x in
+      Hashtbl.add memo x res ;
+      res
+
+
 module Either = struct
   type ('a, 'b) either = Left of 'a | Right of 'b
 

@@ -33,6 +33,10 @@ let maybe_guard ?guard f =
   | None -> f
   | Some g -> g f
 
+let pp_print_commaspace ff () =
+    Format.pp_print_string ff "," ;
+    Format.pp_print_space ff ()
+
 module Option = struct
   let is_some x =
     match x with

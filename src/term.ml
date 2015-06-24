@@ -18,6 +18,10 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+let show_tag = false
+let show_ty  = false
+let show_ts  = false
+
 open Extensions
 
 type ty = Ty of ty list * string
@@ -415,13 +419,13 @@ let ty_to_string ty =
   Format.pp_print_flush fmt () ;
   Buffer.contents buf
 
-let var_to_string ?(tag=false) ?(ts=false) ?(ty=false) v =
-  let (bef, aft) = if tag || ts || ty then ("$(", ")") else ("", "") in
+let var_to_string v =
+  let (bef, aft) = if show_tag || show_ts || show_ty then ("$(", ")") else ("", "") in
   bef ^ begin
     v.name
-    ^ (if tag then "!" ^ tag2str v.tag else "")
-    ^ (if ts then "/" ^ string_of_int v.ts else "")
-    ^ (if ty then ":" ^ ty_to_string v.ty else "")
+    ^ (if show_tag then "!" ^ tag2str v.tag else "")
+    ^ (if show_ts then "/" ^ string_of_int v.ts else "")
+    ^ (if show_ty then ":" ^ ty_to_string v.ty else "")
   end ^ aft
 
 let infix_ops : (id * (Pretty.atom * Pretty.assoc * Pretty.prec)) list =
@@ -462,7 +466,7 @@ let print_app f ts =
 class term_printer = object (self)
   method print (cx : tyctx) (t0 : term) =
     match observe (hnorm t0) with
-    | Var v -> atomic (var_to_string ~tag:false ~ty:false v)
+    | Var v -> atomic (var_to_string v)
     | DB i -> atomic (db_to_string cx i)  (* ^ "$" ^ string_of_int i ^ "$") *)
     | Lam (vs, t) -> begin
         let rec spin cx vs =

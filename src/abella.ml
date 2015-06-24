@@ -334,8 +334,8 @@ let import filename =
         ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates ;
         List.iter
           (function
-             | CTheorem(name, thm) ->
-                 add_lemma name thm ;
+             | CTheorem(name, tys, thm) ->
+                 add_lemma name tys thm ;
              | CDefine(idtys, defs) ->
                  let ids = List.map fst idtys in
                    check_noredef ids;
@@ -449,12 +449,12 @@ let set k v =
 
   | _, _ -> failwithf "Unknown key '%s'" k
 
-let print_theorem name thm =
-  fprintf !out "\nTheorem %s : \n%s.\n%!"
-    name (metaterm_to_formatted_string thm)
+let print_theorem name (tys, thm) =
+  fprintf !out "\nTheorem %s%s : \n%s.\n%!"
+    name (gen_to_string tys) (metaterm_to_formatted_string thm)
 
 let show name =
-  print_theorem name (get_lemma name)
+  print_theorem name (get_generic_lemma name)
 
 let handle_search_witness w =
   if !witnesses then
@@ -462,9 +462,7 @@ let handle_search_witness w =
 
 let term_witness (t, w) =
   if !witnesses then
-    fprintf !out "Witness: %s : %s\n%!"
-      (witness_to_string w)
-      (metaterm_to_string t)
+    fprintf !out "Witness: %s\n%!" (witness_to_string w)
 
 let suppress_proof_state_display = State.rref false
 
@@ -584,8 +582,8 @@ and process_proof1 name =
       if !interactive then State.Undo.reset ()
       else failwith "Cannot use interactive commands in non-interactive mode"
   | Common(Set(k, v))      -> set k v
-  | Common(Show(n))        ->
-      show n ;
+  | Common(Show nm)        ->
+      show nm ;
       fprintf !out "\n%!" ;
       suppress_proof_state_display := true
   | Common(Quit)           -> raise End_of_file
@@ -599,21 +597,28 @@ and process_top1 () =
     fprintf !out "%s%s.%s\n%!" pre (top_command_to_string input) post
   end ;
   begin match input with
-  | Theorem(name, thm) ->
-      let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
+  | Theorem(name, tys, thm) ->
+      let tsign =
+        let (basics, consts) = !sign in
+        if List.exists (fun t -> List.mem t basics) tys then
+          failwithf "This basic type is already in scope: %s"
+            (List.find (fun t -> List.mem t basics) tys) ;
+        (tys @ basics, consts)
+      in
+      let thm = type_umetaterm ~sr:!sr ~sign:tsign thm in
       check_theorem thm ;
       theorem thm ;
       current_state := Process_proof (name, fun () ->
-          compile (CTheorem(name, thm)) ;
-          add_lemma name thm
+          compile (CTheorem(name, tys, thm)) ;
+          add_lemma name tys thm
         ) ;
   | SSplit(name, names) ->
-      let thms = create_split_theorems name names in
-      List.iter begin fun (n, t) ->
-        print_theorem n t ;
-        add_lemma n t ;
-        compile (CTheorem(n, t))
-      end thms ;
+      let gen_thms = create_split_theorems name names in
+      List.iter begin fun (n, (tys, t)) ->
+        print_theorem n (tys, t) ;
+        add_lemma n tys t ;
+        compile (CTheorem(n, tys, t))
+      end gen_thms ;
   | Define(idtys, udefs) ->
       let ids = List.map fst idtys in
       check_noredef ids;

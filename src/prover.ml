@@ -27,8 +27,7 @@ open Extensions
 
 module H = Hashtbl
 
-type lemmas = (id * metaterm) list
-let lemmas : lemmas ref = State.rref []
+let lemmas : (string, string list * metaterm) H.t = State.table ()
 
 type subgoal = unit -> unit
 let subgoals : subgoal list ref = State.rref []
@@ -404,8 +403,37 @@ let add_if_new_var (name, v) =
   if not (List.mem_assoc name sequent.vars) then
     add_var (name, v)
 
-let add_lemma name lemma =
-  lemmas := (name, lemma)::!lemmas
+let add_lemma name tys lemma =
+  if H.mem lemmas name then
+    failwithf "Lemma by the name of %S already exists" name ;
+  H.add lemmas name (tys, lemma)
+
+let () =
+  let a = "A" in
+  let prune_bod =
+    let l, lty = "L", olistty in
+    let e, ety = "E", tyarrow [tybase a] oty in
+    let x, xty = "x", tybase a in
+    forall [l, lty ; e, ety] begin
+      let l = const l lty in
+      let e = const e ety in
+      nabla [x, xty] begin
+        let x = const x xty in
+        let mem = pred (app (const k_member (tyarrow [oty ; olistty] propty))
+                          [app e [x] ; l]) in
+        let f, fty = "F", oty in
+        Arrow begin
+          mem,
+          exists [f, fty] begin
+            let f = const f fty in
+            let eq = Eq (e, lambda ["x", xty] f) in
+            eq
+          end
+        end
+      end
+    end in
+  (* Format.eprintf "prune_bod: %a@." format_metaterm prune_bod ; *)
+  add_lemma "prune_arg" [a] prune_bod
 
 let get_hyp name =
   let hyp = List.find (fun h -> h.id = name) sequent.hyps in
@@ -414,27 +442,41 @@ let get_hyp name =
 let is_hyp name =
   List.exists (fun h -> h.id = name) sequent.hyps
 
-let get_lemma name =
-  List.assoc name !lemmas
+let get_generic_lemma name = H.find lemmas name
 
-let get_hyp_or_lemma name =
-  try
-    get_hyp name
-  with
-    Not_found -> get_lemma name
+let get_lemma ?(tys:ty list = []) name =
+  let (argtys, bod) = H.find lemmas name in
+  if List.length tys <> List.length argtys then
+    failwithf "Need to provide mappings for %d types" (List.length argtys) ;
+  let tysub = List.fold_left2 begin
+      fun sub oldty newty ->
+        Itab.add oldty newty sub
+    end Itab.empty argtys tys
+  in
+  let rec app_ty = function
+    | Ty (args, res) ->
+        let args = List.map app_ty args in
+        let res = try Itab.find res tysub with Not_found -> tybase res in
+        tyarrow args res
+  in
+  map_on_tys app_ty bod
+
+let get_hyp_or_lemma ?tys name =
+  try get_hyp name with
+  | Not_found -> get_lemma ?tys name
 
 let get_stmt_clearly h =
   match h with
-  | Keep h ->
-      get_hyp_or_lemma h
-  | Remove h when is_hyp h ->
+  | Keep (h, tys) ->
+      get_hyp_or_lemma ~tys h
+  | Remove (h, []) when is_hyp h ->
       let stmt = get_hyp h in
       remove_hyp h ; stmt
-  | Remove h ->
-      get_lemma h
+  | Remove (h, tys) ->
+      get_lemma ~tys h
 
 let get_arg_clearly = function
-  | Keep "_" -> None
+  | Keep ("_", _) -> None
   | arg -> Some (get_stmt_clearly arg)
 
 exception End_proof of [`completed | `aborted]
@@ -949,7 +991,7 @@ let ensure_no_renaming vars terms =
   if conflicts <> [] then
     bugf "Variable renaming required"
 
-let split_theorem thm =
+let split_theorem (tys, thm) =
   let foralls, nablas, body = decompose_forall_nabla thm in
   let arrows, conj = decompose_arrow body in
   let nabla_consts = List.map (fun (x, ty) -> const x ty) nablas in
@@ -963,14 +1005,15 @@ let split_theorem thm =
     let iforalls = List.map (fun x -> (term_to_name x, tc [] x)) iforall_vars in
     let ibody = replace_metaterm_vars alist ibody in
     ensure_no_renaming (List.map fst (iforalls @ inablas)) arrows ;
-    forall (foralls @ iforalls)
-      (nabla (nablas @ inablas)
-         (multiarrow arrows ibody))
+    let thm = forall (foralls @ iforalls)
+        (nabla (nablas @ inablas)
+           (multiarrow arrows ibody)) in
+    (tys, thm)
   in
   List.map lift (and_to_list conj)
 
 let create_split_theorems name names =
-  let thms = split_theorem (get_lemma name) in
+  let thms = split_theorem (get_generic_lemma name) in
   let rec loop = function
     | n::ns, t::ts, count ->
         (n, t) :: (loop (ns, ts, count+1))
@@ -1084,7 +1127,7 @@ let var_unavailable x =
   with Not_found -> false
 
 let rename xfr xto =
-  if List.mem_assoc xto !lemmas then
+  if H.mem lemmas xto then
     failwithf "%S already refers to a lemma" xto ;
   if List.exists (fun h -> h.id = xto) sequent.hyps then
     failwithf "%S already refers to an existing hypothesis" xto ;

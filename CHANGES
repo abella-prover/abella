@@ -3,32 +3,54 @@ Changes in 2.0.4 from 2.0.3
 
 Possibly breaking changes
 
-* The identifiers "fresh\_for" and "is\_name" are added to the pervasive
-  signature. Thus, they can no longer be used by users in definitions.
+* The identifiers `fresh_for`, `is_name`, and `prune_arg` are added to
+  the pervasive signature. Thus, they can no longer be used by users in
+  definitions.
 
 Additions
+
+* Added support for (first-order) polymorphic theorems. A theorem such as:
+
+        Theorem prune_arg[A] : forall E L, nabla (x:A), member (E x) L ->
+           exists F, E = x\ F.
+
+  is now accepted. The `A` here is a type parameter, which must be distinct
+  from the other basic types in scope. To use such a theorem, you *must*
+  supply enough arguments. An example:
+
+        Theorem bar : forall E G, nabla (x:tm) (y:ty),
+           member (E x y) G -> exists F, E = x\ y\ F.
+        intros.
+        apply prune_arg[tm] to H1.
+        apply prune_arg[ty] to H1.
+        search.
+
+  Incidentally, the above `prune_arg` lemma is now part of the pervasive
+  environment.
 
 * Added a new toplevel declarative form, Schemas. The general form of a
   Schema declaration is:
 
-       Schema name := clause1 ; ... ; clauseN.
+        Schema name := clause1 ; ... ; clauseN.
 
   where each clause is of the form
 
-       exists X1 ... Xm, nabla x1 ... xn, (L1, L2, ..., Lk)
+        exists X1 ... Xm, nabla x1 ... xn, (L1, L2, ..., Lk)
 
-  and each Li is nil or of the form
+  and each `Li` is `nil` or of the form
 
-       F1 :: F2 :: ... :: Fn
+        F1 :: F2 :: ... :: Fn
 
-  where each Fi is a spec-level formula, i.e., of type o. This is
+  where each `Fi` is a spec-level formula, i.e., of type `o`. This is
   internally turned into:
 
-       Define name : olist -> ... -> olist -> prop by
-          name nil ... nil;
-          nabla x1 ... xn, name (L1 :: G1) ... (Lk :: Gk) :=
-             name G1 ... Gk;
-          ... (N - 1 more clauses)
+        Define name : olist -> ... -> olist -> prop by
+           name nil ... nil;
+           nabla x1 ... xn, name (L1 ++ G1) ... (Lk ++ Gk) :=
+              name G1 ... Gk;
+           ... (N - 1 more clauses)
+
+  (where `++` is a notation for append).
 
   In other words, schemas are a way of declaring a certain "regular"
   context structure. Several tactics specialized to reason about
@@ -36,12 +58,12 @@ Additions
 
 * Added a new tactic form:
 
-       search with <witness>.
+        search with <witness>.
 
   This tactic runs the search command with a given search witness. To see
   these witnesses, run any of the other search forms with:
 
-       Set witnesses on.
+        Set witnesses on.
 
   The witness string that is printed can then be used to replay the exact
   same search. There is no backtracking involved with witness strings.
@@ -49,20 +71,20 @@ Additions
 
   Witnesses have the following grammar:
 
-       witness ::= true | =
-                 | left(witness) | right(witness)
-                 | splut(witness,witness)
-                 | apply(hyp)
-                 | intros[id1, ..., idn](witness)
-                 | exists[id1=term1, ..., idn=termn](witness)
-                 | unfold(id,n,witness1,...,witnessn)
-                 | (witness)
-                 | *
+        witness ::= true | =
+                  | left witness | right witness
+                  | split(witness,witness)
+                  | apply hyp
+                  | intros[id1, ..., idn] witness
+                  | exists[id1=term1, ..., idn=termn] witness
+                  | unfold(id,n,witness1,...,witnessn)
+                  | (witness)
+                  | *
 
   The last witness form stands for a place-holder so you can give partial
   witnesses to search. In fact, the default search tactic is identical to:
 
-       search with *.
+        search with *.
 
   Please use this feature sparingly, and only when building proofs. After
   you are done with the proof, delete the "with" statements. These witnesses

@@ -254,13 +254,19 @@ let format_metaterm ff mt =
   let open Format in
   pp_open_vbox ff 0 ; begin
     if !show_types then begin
-      let noms = metaterm_support mt in
-      List.iter_sep ~sep:(pp_print_cut ff) begin fun nom ->
-        pp_print_string ff (term_head_name nom) ;
-        pp_print_string ff " : " ;
-        pp_print_string ff (tc [] nom |> ty_to_string) ;
-      end noms ;
+      let noms = metaterm_support mt |>
+                 List.fast_sort (fun n1 n2 -> Pervasives.compare (term_head_name n1) (term_head_name n2))
+      in
       if noms <> [] then begin
+        pp_open_hovbox ff 1 ; begin
+          pp_print_string ff "[" ;
+          List.iter_sep ~sep:(pp_print_commaspace ff) begin fun nom ->
+            pp_print_string ff (term_head_name nom) ;
+            pp_print_string ff " : " ;
+            pp_print_string ff (tc [] nom |> ty_to_string) ;
+          end noms ;
+          pp_print_string ff "]" ;
+        end ; pp_close_box ff () ;
         pp_print_cut ff () ;
         pp_print_string ff "|> " ;
       end ;
@@ -310,17 +316,47 @@ let map_obj f = function
 let map_terms f t =
   let rec aux t =
     match t with
-      | True | False -> t
-      | Eq(a, b) -> Eq(f a, f b)
-      | Obj(obj, r) -> Obj(map_obj f obj, r)
-      | Arrow(a, b) -> Arrow(aux a, aux b)
-      | Binding(binder, bindings, body) ->
-          Binding(binder, bindings, aux body)
-      | Or(a, b) -> Or(aux a, aux b)
-      | And(a, b) -> And(aux a, aux b)
-      | Pred(p, r) -> Pred(f p, r)
+    | True | False -> t
+    | Eq(a, b) -> Eq(f a, f b)
+    | Obj(obj, r) -> Obj(map_obj f obj, r)
+    | Arrow(a, b) -> Arrow(aux a, aux b)
+    | Binding(binder, bindings, body) ->
+        Binding(binder, bindings, aux body)
+    | Or(a, b) -> Or(aux a, aux b)
+    | And(a, b) -> And(aux a, aux b)
+    | Pred(p, r) -> Pred(f p, r)
   in
-    aux t
+  aux t
+
+let map_on_tys f mt =
+  let rec aux mt =
+    match mt with
+    | True | False -> mt
+    | Eq (a, b) -> Eq (taux a, taux b)
+    | Obj (o, r) -> Obj (oaux o, r)
+    | Arrow (f, g) -> Arrow (aux f, aux g)
+    | Binding (q, bs, bod) ->
+        Binding (q, List.map baux bs, aux bod)
+    | Or (f, g) -> Or (aux f, aux g)
+    | And (f, g) -> And (aux f, aux g)
+    | Pred (p, r) -> Pred (taux p, r)
+  and taux t =
+    match observe (hnorm t) with
+    | Var v -> var v.tag v.name v.ts (f v.ty)
+    | DB _ as t -> t
+    | Lam (cx, t) -> lambda (List.map baux cx) (taux t)
+    | App (f, ts) -> app (taux f) (List.map taux ts)
+    | Ptr _ | Susp _ -> assert false
+  and oaux o =
+    match o with
+    | Async ao ->
+        let (ctx, term) = Async.get ao in
+        Async (Async.obj (Context.map taux ctx) (taux term))
+    | Sync so ->
+        let (ctx, foc, term) = Sync.get so in
+        Sync (Sync.obj (Context.map taux ctx) (taux foc) (taux term))
+  and baux (v, ty) = (v, f ty)
+  in aux mt
 
 type parity = EVEN | ODD
 type posity = POS | NONPOS

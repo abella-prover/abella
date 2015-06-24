@@ -140,7 +140,7 @@ val pretty_ty : ty -> Pretty.expr
 val format_ty : Format.formatter -> ty -> unit
 val ty_to_string : ty -> string
 
-val var_to_string : ?tag:bool -> ?ts:bool -> ?ty:bool -> var -> string
+val var_to_string : var -> string
 
 class type term_printer = object
   method print : tyctx -> term -> Pretty.expr

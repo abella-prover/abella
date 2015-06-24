@@ -44,6 +44,10 @@ type set_value =
   | Int of int
   | QStr of string
 
+type clearable =
+  | Keep of id * ty list
+  | Remove of id * ty list
+
 type common_command =
   | Back | Reset
   | Set of string * set_value
@@ -64,7 +68,7 @@ and 'term block = {
 }
 
 type top_command =
-  | Theorem of id * umetaterm
+  | Theorem of id * string list * umetaterm
   | Define of tyctx * udefs
   | Schema of uterm schema
   | CoDefine of tyctx * udefs
@@ -78,7 +82,7 @@ type top_command =
   | TopCommon of common_command
 
 type compiled =
-  | CTheorem of id * metaterm
+  | CTheorem of id * string list * metaterm
   | CDefine of tyctx * defs
   | CSchema of term schema
   | CCoDefine of tyctx * defs
@@ -86,10 +90,6 @@ type compiled =
   | CKind of id list
   | CType of id list * ty
   | CClose of (id * id list) list
-
-type clearable =
-  | Keep of id
-  | Remove of id
 
 type witness =
   | WTrue
@@ -212,6 +212,16 @@ let idtys_to_string idtys =
   String.concat ",\t\n"
     (List.map (fun (id, ty) -> id ^ " : " ^ (ty_to_string ty)) idtys)
 
+let inst_to_string tys =
+  match tys with
+  | [] -> ""
+  | _ -> "[" ^ (List.map ty_to_string tys |> String.concat ",") ^ "]"
+
+let clearable_to_string cl =
+  match cl with
+  | Keep (h, tys) -> h ^ inst_to_string tys
+  | Remove (h, tys) -> "*" ^ h ^ inst_to_string tys
+
 let common_command_to_string cc =
   match cc with
   | Back ->
@@ -220,8 +230,8 @@ let common_command_to_string cc =
       sprintf "#<reset>"
   | Set(k, v) ->
       sprintf "Set %s %s" k (set_value_to_string v)
-  | Show(t) ->
-      sprintf "Show %s" t
+  | Show nm ->
+      sprintf "Show %s" nm
   | Quit ->
       sprintf "Quit"
 
@@ -250,10 +260,16 @@ let block_to_string t2s bl =
   add ")" ;
   Buffer.contents buf
 
+let gen_to_string tys =
+  match tys with
+  | [] -> ""
+  | _ -> "[" ^ String.concat "," tys ^ "]"
+
 let top_command_to_string tc =
   match tc with
-    | Theorem(name, body) ->
-        sprintf "Theorem %s : \n%s" name (umetaterm_to_formatted_string body)
+    | Theorem(name, tys, body) ->
+        sprintf "Theorem %s%s : \n%s" name (gen_to_string tys)
+          (umetaterm_to_formatted_string body)
     | Define(idtys, udefs) ->
         sprintf "Define %s by \n%s"
           (idtys_to_string idtys) (udefs_to_string udefs) ;
@@ -292,11 +308,6 @@ let withs_to_string ws =
 let hn_to_string = function
   | None -> ""
   | Some hn -> sprintf "%s : " hn
-
-let clearable_to_string cl =
-  match cl with
-  | Keep h -> h
-  | Remove h -> "*" ^ h
 
 let clearables_to_string cls =
   List.map clearable_to_string cls |> String.concat " "
@@ -351,9 +362,9 @@ let command_to_string c =
         sprintf "%s inst %s with %s" (hn_to_string hn)
           (clearable_to_string h)
           (withs_to_string ws)
-    | Case(Keep h, hn) ->
+    | Case(Keep (h, _), hn) ->
         sprintf "%scase %s (keep)" (hn_to_string hn) h
-    | Case(Remove h, hn) ->
+    | Case(Remove (h, _), hn) ->
         sprintf "%scase %s" (hn_to_string hn) h
     | Assert(t, hn) ->
         sprintf "%sassert %s"

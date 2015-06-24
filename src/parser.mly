@@ -411,10 +411,18 @@ command:
     { Types.Common($1) }
 
 clearable:
-  | hyp
-    { Types.Keep $1 }
-  | STAR hyp
-    { Types.Remove $2 }
+  | hyp maybe_inst
+    { Types.Keep ($1, $2) }
+  | STAR hyp maybe_inst
+    { Types.Remove ($2, $3) }
+
+maybe_inst:
+  | { [] }
+  | LBRACK ty_list RBRACK { $2 }
+
+ty_list:
+  | ty { [$1] }
+  | ty COMMA ty_list { $1 :: $3 }
 
 apply_args:
   | apply_arg apply_args
@@ -423,10 +431,10 @@ apply_args:
     { [$1] }
 
 apply_arg:
-  | hyp
-    { Types.Keep $1 }
-  | STAR STRINGID
-    { check_legal_var $2 2 ; Types.Remove $2 }
+  | hyp maybe_inst
+    { Types.Keep ($1, $2) }
+  | STAR STRINGID maybe_inst
+    { check_legal_var $2 2 ; Types.Remove ($2, $3) }
 
 pure_command:
   | hhint IND ON num_list DOT
@@ -454,9 +462,9 @@ pure_command:
   | hhint INST clearable WITH withs DOT
     { Types.Inst($3, $5, $1) }
   | hhint CASE hyp DOT
-    { Types.Case(Types.Remove $3, $1) }
+    { Types.Case(Types.Remove ($3, []), $1) }
   | hhint CASE hyp LPAREN KEEP RPAREN DOT
-    { Types.Case(Types.Keep $3, $1) }
+    { Types.Case(Types.Keep ($3, []), $1) }
   | hhint ASSERT metaterm DOT
     { Types.Assert($3, $1) }
   | EXISTS term DOT
@@ -640,9 +648,13 @@ top_command:
   | common_command
     { Types.TopCommon($1) }
 
+maybe_gen_tys:
+  | { [] }
+  | LBRACK id_list RBRACK { List.map deloc_id $2 }
+
 pure_top_command:
-  | THEOREM loc_id COLON metaterm DOT
-    { Types.Theorem(deloc_id $2, $4) }
+  | THEOREM loc_id maybe_gen_tys COLON metaterm DOT
+    { Types.Theorem(deloc_id $2, $3, $5) }
   | DEFINE id_tys BY optsemi defs DOT
     { Types.Define($2, $5) }
   | CODEFINE id_tys BY optsemi defs DOT

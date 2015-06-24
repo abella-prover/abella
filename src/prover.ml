@@ -405,8 +405,8 @@ let add_if_new_var (name, v) =
 
 let add_lemma name tys lemma =
   if H.mem lemmas name then
-    failwithf "Lemma by the name of %S already exists" name ;
-  H.add lemmas name (tys, lemma)
+    Format.eprintf "Warning: overriding existing lemma named %S@." name ;
+  H.replace lemmas name (tys, lemma)
 
 let () =
   let a = "A" in

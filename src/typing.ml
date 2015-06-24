@@ -142,7 +142,7 @@ let lookup_type (ktable, _) id =
 
 (** Constants *)
 
-let kind_check sign (Poly(ids, ty)) =
+let kind_check_poly sign ids ty =
   let rec aux = function
     | Ty(tys, bty) ->
         if List.mem bty ids || lookup_type sign bty then
@@ -151,6 +151,8 @@ let kind_check sign (Poly(ids, ty)) =
           failwithf "Unknown type: %s" bty
   in
   aux ty
+
+let kind_check sign (Poly(ids, ty)) = kind_check_poly sign ids ty
 
 let check_const (ktable, ctable) (id, pty) =
   begin try
@@ -280,14 +282,15 @@ let rec contains_tyvar = function
   | Ty(tys, bty) ->
       is_tyvar bty || List.exists contains_tyvar tys
 
-let tid_ensure_fully_inferred (id, ty) =
+let tid_ensure_fully_inferred ~sign (id, ty) =
   if contains_tyvar ty then
-    failwithf "Type not fully determined for %s" id
+    failwithf "Type not fully determined for %s" id ;
+  kind_check_poly sign [] ty
 
-let term_ensure_fully_inferred t =
+let term_ensure_fully_inferred ~sign t =
   let rec aux t =
     match observe (hnorm t) with
-    | Var v -> tid_ensure_fully_inferred (v.name, v.ty)
+    | Var v -> tid_ensure_fully_inferred ~sign (v.name, v.ty)
     | DB i -> ()
     | App(h, args) -> aux h ; List.iter aux args
     | Lam(tys, body) -> aux body
@@ -295,28 +298,28 @@ let term_ensure_fully_inferred t =
   in
   aux t
 
-let metaterm_ensure_fully_inferred t =
+let metaterm_ensure_fully_inferred ~sign t =
   let rec aux t =
     match t with
     | True | False -> ()
     | And(a, b) | Or(a, b) | Arrow(a, b) -> aux a; aux b
     | Binding(_, tids, body) ->
-        List.iter tid_ensure_fully_inferred tids ;
+        List.iter (tid_ensure_fully_inferred ~sign) tids ;
         aux body
     | Eq(a, b) ->
-        term_ensure_fully_inferred a ;
-        term_ensure_fully_inferred b
+        term_ensure_fully_inferred ~sign a ;
+        term_ensure_fully_inferred ~sign b
     | Obj(Async obj, _) ->
         let ctx,term = Async.get obj in
-        Context.iter term_ensure_fully_inferred ctx ;
-        term_ensure_fully_inferred term
+        Context.iter (term_ensure_fully_inferred ~sign) ctx ;
+        term_ensure_fully_inferred ~sign term
     | Obj(Sync obj, _) ->
         let ctx,focus,term = Sync.get obj in
-        Context.iter term_ensure_fully_inferred ctx ;
-        term_ensure_fully_inferred focus;
-        term_ensure_fully_inferred term;
+        Context.iter (term_ensure_fully_inferred ~sign) ctx ;
+        term_ensure_fully_inferred ~sign focus;
+        term_ensure_fully_inferred ~sign term;
     | Pred(p, _) ->
-        term_ensure_fully_inferred p
+        term_ensure_fully_inferred ~sign p
   in
   aux t
 
@@ -447,7 +450,7 @@ let type_uterm ?expected_ty ~sr ~sign ~ctx t =
   let sub = unify_constraints eqns in
   let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx)) in
   let result = replace_term_vars ctx (uterm_to_term sub t) in
-  term_ensure_fully_inferred result ;
+  term_ensure_fully_inferred ~sign result ;
   term_ensure_subordination sr result ;
   result
 
@@ -596,7 +599,7 @@ let umetaterm_extract_if test t =
 let umetaterm_nominals_to_tyctx t =
   ids_to_fresh_tyctx (umetaterm_extract_if is_nominal_name t)
 
-let umetaterm_to_metaterm sub t =
+let umetaterm_to_metaterm ?sign sub t =
   let rec aux t =
     match t with
     | UTrue -> True
@@ -610,6 +613,10 @@ let umetaterm_to_metaterm sub t =
                     (uterm_to_term sub f) (uterm_to_term sub g)), r)
     | UArrow(a, b) -> Arrow(aux a, aux b)
     | UBinding(binder, tids, body) ->
+        (* let () = match sign with *)
+        (*   | Some sign -> List.iter (fun (_, ty) -> kind_check_poly sign [] ty) tids *)
+        (*   | None -> () *)
+        (* in *)
         Binding(binder,
                 List.map_snd (apply_sub_ty sub) tids,
                 aux body)
@@ -619,11 +626,11 @@ let umetaterm_to_metaterm sub t =
   in
   aux t
 
-let umetaterm_to_string t =
-  metaterm_to_string (umetaterm_to_metaterm [] t)
+let umetaterm_to_string ?sign t =
+  metaterm_to_string (umetaterm_to_metaterm ?sign [] t)
 
-let umetaterm_to_formatted_string t =
-  metaterm_to_formatted_string (umetaterm_to_metaterm [] t)
+let umetaterm_to_formatted_string ?sign t =
+  metaterm_to_formatted_string (umetaterm_to_metaterm ?sign [] t)
 
 let check_meta_logic_quantification_type ty =
   iter_ty
@@ -679,8 +686,8 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   let eqns = infer_constraints ~sign ~tyctx t in
   let sub = unify_constraints eqns in
   let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx)) in
-  let result = replace_metaterm_vars ctx (umetaterm_to_metaterm sub t) in
-  metaterm_ensure_fully_inferred result ;
+  let result = replace_metaterm_vars ctx (umetaterm_to_metaterm ~sign sub t) in
+  metaterm_ensure_fully_inferred ~sign result ;
   metaterm_ensure_subordination sr result ;
   check_meta_quantification result ;
   result
@@ -694,11 +701,11 @@ let type_udef ~sr ~sign (head, body) =
   let sub = unify_constraints (eqns1 @ eqns2) in
   let ctx = tyctx_to_ctx (apply_sub_tyctx sub tyctx) in
   let (rhead, rbody) =
-    (replace_metaterm_vars ctx (umetaterm_to_metaterm sub head),
-     replace_metaterm_vars ctx (umetaterm_to_metaterm sub body))
+    (replace_metaterm_vars ctx (umetaterm_to_metaterm ~sign sub head),
+     replace_metaterm_vars ctx (umetaterm_to_metaterm ~sign sub body))
   in
-  metaterm_ensure_fully_inferred rhead ;
-  metaterm_ensure_fully_inferred rbody ;
+  metaterm_ensure_fully_inferred ~sign rhead ;
+  metaterm_ensure_fully_inferred ~sign rbody ;
   metaterm_ensure_subordination sr rhead ;
   metaterm_ensure_subordination sr rbody ;
   check_meta_quantification rbody ;

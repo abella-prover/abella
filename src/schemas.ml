@@ -33,8 +33,8 @@ let type_block bl =
   let sub = Typing.unify_constraints !eqns in
   let bl_exists = Typing.apply_sub_tyctx sub bl.bl_exists in
   let bl_nabla = Typing.apply_sub_tyctx sub bl.bl_nabla in
-  List.iter Typing.tid_ensure_fully_inferred bl_exists ;
-  List.iter Typing.tid_ensure_fully_inferred bl_nabla ;
+  List.iter (Typing.tid_ensure_fully_inferred ~sign:!sign) bl_exists ;
+  List.iter (Typing.tid_ensure_fully_inferred ~sign:!sign) bl_nabla ;
   let bl_rel = List.map begin fun rel ->
       List.map begin fun elem ->
         Typing.uterm_to_term sub elem

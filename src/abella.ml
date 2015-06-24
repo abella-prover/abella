@@ -396,7 +396,7 @@ let query q =
           ~depth:max_int
           ~hyps:[]
           ~clauses:!clauses
-          ~alldefs:(defs_table_to_list ())
+          ~get_defs:Prover.get_defs
           ~sc:(fun w ->
                  fprintf !out "Found solution:\n" ;
                  List.iter

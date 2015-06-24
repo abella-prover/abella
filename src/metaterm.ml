@@ -86,6 +86,12 @@ let rec conjoin mts =
   | [mt] -> mt
   | mt1 :: mt2 :: mts -> conjoin (And (mt1, mt2) :: mts)
 
+let rec disjoin mts =
+  match mts with
+  | [] -> False
+  | [mt] -> mt
+  | mt1 :: mt2 :: mts -> disjoin (Or (mt1, mt2) :: mts)
+
 let forall tids t = binding Forall tids t
 let nabla tids t = binding Nabla tids t
 let exists tids t = binding Exists tids t

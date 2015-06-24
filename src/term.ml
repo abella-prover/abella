@@ -462,7 +462,7 @@ let print_app f ts =
 class term_printer = object (self)
   method print (cx : tyctx) (t0 : term) =
     match observe (hnorm t0) with
-    | Var v -> atomic (var_to_string v)
+    | Var v -> atomic (var_to_string ~tag:false ~ty:false v)
     | DB i -> atomic (db_to_string cx i)  (* ^ "$" ^ string_of_int i ^ "$") *)
     | Lam (vs, t) -> begin
         let rec spin cx vs =

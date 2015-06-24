@@ -164,19 +164,65 @@ let parse_defs str =
   type_udefs ~sr:!sr ~sign:!sign (Parser.defs Lexer.token (Lexing.from_string str))
 
 let defs_table : defs_table = State.table ()
-let () = H.add defs_table "member"
-    (Inductive,
-     ["member"],
-     parse_defs "member A (A :: L) ; member A (B :: L) := member A L.")
 
 let add_defs ids ty defs =
   List.iter
     (fun id -> if H.mem defs_table id then
         failwithf "Predicate %s has already been defined" id)
     ids ;
-  List.iter
-    (fun id -> H.add defs_table id (ty, ids, defs))
-    ids
+  List.iter begin fun (head, body) ->
+    Format.eprintf "%a := %a@." format_metaterm head format_metaterm body
+  end defs ;
+  List.iter (fun id -> H.add defs_table id (ty, ids, defs)) ids
+
+let () = add_defs [k_member] Inductive (parse_defs "member A (A :: L) ; member A (B :: L) := member A L.")
+
+
+let special_defs_table = H.create 3
+let () = H.add special_defs_table k_fresh begin fun spine ->
+    match spine with
+    | [u ; x] ->
+        let uty = tc [] u in
+        let xty = tc [] x in
+        let head =
+          nabla [("u", uty)] begin
+            pred (app (const k_fresh (tyarrow [uty ; xty] propty)) [const "u" uty ; const "X" xty])
+          end in
+        Format.eprintf "Generated %s: %a@." k_fresh format_metaterm head ;
+        ([k_fresh], [head, True])
+    | _ -> bugf "%s called without two args" k_fresh
+  end
+let () = H.add special_defs_table k_name begin fun spine ->
+    match spine with
+    | [u] ->
+        let uty = tc [] u in
+        let head =
+          nabla [("u", uty)] begin
+            pred (app (const k_name (tyarrow [uty] propty)) [const "u" uty])
+          end in
+        Format.eprintf "Generated %s: %a@." k_name format_metaterm head ;
+        ([k_name], [head, True])
+    | _ -> bugf "%s called without one arg" k_name
+  end
+
+let term_spine t =
+  match term_head t with
+  | Some (_, spine) -> spine
+  | None -> assert false
+
+let get_defs term =
+  match term with
+  | Pred(p, _) ->
+      let pn = term_head_name p in
+      if H.mem defs_table pn then begin
+        let (_, mutual, defs) = H.find defs_table (term_head_name p) in
+        (mutual, defs)
+      end else if H.mem special_defs_table pn then
+        H.find special_defs_table pn (term_spine p)
+      else
+        failwith "Cannot perform case-analysis on undefined atom"
+  | _ -> ([], [])
+
 
 (* Schemas *)
 
@@ -616,7 +662,7 @@ let search_goal_witness ?depth goal witness =
       ~depth:n
       ~hyps
       ~clauses:!clauses
-      ~alldefs:(defs_table_to_list ())
+      ~get_defs
       ~retype
       ~witness
       goal
@@ -775,17 +821,6 @@ let case_to_subgoal ?name case =
     List.iter (add_hyp ?name) case.new_hyps ;
     Term.set_bind_state case.bind_state ;
     update_self_bound_vars ()
-
-let get_defs term =
-  match term with
-  | Pred(p, _) ->
-      begin try
-        let (_, mutual, defs) = H.find defs_table (term_head_name p) in
-        (mutual, defs)
-      with Not_found ->
-        failwith "Cannot perform case-analysis on undefined atom"
-      end
-  | _ -> ([], [])
 
 let case ?name str =
   let global_support =

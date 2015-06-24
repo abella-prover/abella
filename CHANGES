@@ -1,6 +1,11 @@
 Changes in 2.0.4 from 2.0.3
 ---------------------------
 
+Possibly breaking changes
+
+* The identifiers "fresh\_for" and "is\_name" are added to the pervasive
+  signature. Thus, they can no longer be used by users in definitions.
+
 Additions
 
 * Added a new toplevel declarative form, Schemas. The general form of a

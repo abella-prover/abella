@@ -80,7 +80,6 @@ let freshen_nameless_bindings ~support ~ts bindings term =
   let alist = fresh_nameless_alist ~support ~tag:Logic ~ts bindings in
   replace_metaterm_vars alist term
 
-
 let existentially_close ~used quant_vars body =
   let bindings : (id * term) list ref = ref [] in
   let emit x xv = bindings := (x, xv) :: !bindings in
@@ -775,12 +774,6 @@ let decompose_arrow term =
   in
   aux [] term
 
-let assoc_mdefs name alldefs =
-  try
-    List.find (fun (ids, defs) -> List.mem name ids) alldefs
-  with Not_found ->
-    ([], [])
-
 let alist_to_ids alist =
   List.map term_to_string (List.map snd alist)
 
@@ -809,7 +802,7 @@ let satisfies r1 r2 =
     sc means success continuation.
 *)
 
-let search ~depth:n ~hyps ~clauses ~alldefs ~retype
+let search ~depth:n ~hyps ~clauses ~get_defs ~retype
     ?(witness=WMagic)
     ?(sc=fun w -> raise (SearchSuccess w)) goal =
 
@@ -1076,7 +1069,7 @@ let search ~depth:n ~hyps ~clauses ~alldefs ~retype
   and def_aux n hyps goal r ts ~sc ~witness =
     (* Printf.eprintf "def_aux: %s\n%!" (witness_to_string witness) ; *)
     let p = term_head_name goal in
-    let mdefs = assoc_mdefs p alldefs in
+    let mdefs = get_defs (Pred (goal, r)) in
     let (csel, witness, subn) = match witness with
       | WMagic -> (Abella_types.Select_any, WMagic, n - 1)
       | WUnfold (wp, wn, [w]) when wp = p -> (Abella_types.Select_num wn, w, n)

@@ -160,21 +160,28 @@ let add_clauses new_clauses =
   clauses := !clauses @ new_clauses
 
 let parse_defs str =
-  type_udefs ~sr:!sr ~sign:!sign (Parser.defs Lexer.token (Lexing.from_string str))
+  Lexing.from_string str |>
+  Parser.defs Lexer.token |>
+  type_udefs ~sr:!sr ~sign:!sign |>
+  List.map (fun (head, body) -> {head ; body})
 
 let defs_table : defs_table = State.table ()
 
-let add_defs ids ty defs =
+let add_defs preds flavor clauses =
   List.iter
     (fun id -> if H.mem defs_table id then
         failwithf "Predicate %s has already been defined" id)
-    ids ;
+    preds ;
   (* List.iter begin fun (head, body) -> *)
   (*   Format.eprintf "%a := %a@." format_metaterm head format_metaterm body *)
   (* end defs ; *)
-  List.iter (fun id -> H.add defs_table id (ty, ids, defs)) ids
+  let mutual = List.fold_left begin fun mutual pred ->
+      Iset.add pred mutual
+    end Iset.empty preds in
+  List.iter (fun id -> H.add defs_table id {flavor ; mutual ; clauses}) preds
 
 let () = add_defs [k_member] Inductive (parse_defs "member A (A :: L) ; member A (B :: L) := member A L.")
+
 let special_defs_table = H.create 3
 let () =
   let gen spine =
@@ -184,7 +191,7 @@ let () =
           nabla [("u", uty)] begin
             pred (app (const k_fresh (tyarrow [uty ; xty] propty)) [const "u" uty ; const "X" xty])
           end in
-        ([k_fresh], [head, True])
+        (Iset.singleton k_fresh, [{head ; body = True}])
     | _ -> bugf "%s called without two args" k_fresh
   in
   H.add special_defs_table k_fresh (memoize gen)
@@ -197,7 +204,7 @@ let () =
           nabla [("u", uty)] begin
             pred (app (const k_name (tyarrow [uty] propty)) [const "u" uty])
           end in
-        ([k_name], [head, True])
+        (Iset.singleton k_name, [{head ; body = True}])
     | _ -> bugf "%s called without one arg" k_name
   in
   H.add special_defs_table k_name (memoize gen)
@@ -212,13 +219,13 @@ let get_defs term =
   | Pred(p, _) ->
       let pn = term_head_name p in
       if H.mem defs_table pn then begin
-        let (_, mutual, defs) = H.find defs_table (term_head_name p) in
-        (mutual, defs)
+        let def = H.find defs_table (term_head_name p) in
+        (def.mutual, def.clauses)
       end else if H.mem special_defs_table pn then
         H.find special_defs_table pn (term_spine p |> List.map (tc []))
       else
         failwith "Cannot perform case-analysis on undefined atom"
-  | _ -> ([], [])
+  | _ -> (Iset.empty, [])
 
 
 (* Pretty print *)
@@ -556,9 +563,6 @@ let has_coinductive_result hyp =
 let remove_coinductive_hypotheses hyps =
   List.remove_all has_coinductive_result hyps
 
-let defs_table_to_list () =
-  H.fold (fun _ (_, mutual, dcs) acc -> (mutual, dcs) :: acc) defs_table []
-
 let search_depth = State.rref 5
 
 let search_goal_witness ?depth goal witness =
@@ -794,9 +798,9 @@ let ensure_is_inductive term =
   | Pred(p, _) ->
       let pname = term_head_name p in
       begin try
-        match H.find defs_table pname with
-        | Inductive, _, _ -> ()
-        | CoInductive, _, _ ->
+        match (H.find defs_table pname).flavor with
+        | Inductive -> ()
+        | CoInductive ->
             failwithf "Cannot induct on %s since it has\
                      \ been coinductively defined"
               pname
@@ -837,9 +841,9 @@ let rec conclusion term =
 let ensure_is_coinductive p =
   let pname = term_head_name p in
   try
-    match H.find defs_table pname with
-    | CoInductive, _, _ -> ()
-    | Inductive, _, _ ->
+    match (H.find defs_table pname).flavor with
+    | CoInductive -> ()
+    | Inductive ->
         failwithf "Cannot coinduct on %s since it has\
                  \ been inductively defined"
           pname

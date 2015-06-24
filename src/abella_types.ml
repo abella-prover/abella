@@ -24,16 +24,21 @@ open Printf
 open Extensions
 
 type uclause = string option * uterm * uterm list
-
 type clause = term
 
-type def_type = Inductive | CoInductive
+type flavor = Inductive | CoInductive
 
-type udef = umetaterm * umetaterm
-type udefs = udef list
-type def = metaterm * metaterm
-type defs = def list
-type defs_table = (string, def_type * string list * def list) Hashtbl.t
+type udef_clause = umetaterm * umetaterm
+type def_clause = {
+  head : metaterm ;
+  body : metaterm ;
+}
+type def = {
+  flavor : flavor ;
+  mutual : Iset.t ;
+  clauses : def_clause list ;
+}
+type defs_table = (string, def) Hashtbl.t
 
 type id = string
 
@@ -69,9 +74,8 @@ and 'term block = {
 
 type top_command =
   | Theorem of id * string list * umetaterm
-  | Define of tyctx * udefs
+  | Define of flavor * tyctx * udef_clause list
   | Schema of uterm schema
-  | CoDefine of tyctx * udefs
   | Import of string
   | Specification of string
   | Query of umetaterm
@@ -83,9 +87,8 @@ type top_command =
 
 type compiled =
   | CTheorem of id * string list * metaterm
-  | CDefine of tyctx * defs
+  | CDefine of flavor * tyctx * def_clause list
   | CSchema of term schema
-  | CCoDefine of tyctx * defs
   | CImport of string
   | CKind of id list
   | CType of id list * ty
@@ -191,10 +194,10 @@ let udef_to_string (head, body) =
     sprintf "%s := %s" (umetaterm_to_string head)
       (umetaterm_to_formatted_string body)
 
-let udefs_to_string udefs =
-  String.concat ";\n" (List.map udef_to_string udefs)
+let udef_clauses_to_string cls =
+  String.concat ";\n" (List.map udef_to_string cls)
 
-let def_type_to_string dtype =
+let flavor_to_string dtype =
   match dtype with
     | Inductive -> "inductive"
     | CoInductive -> "coinductive"
@@ -270,17 +273,15 @@ let top_command_to_string tc =
     | Theorem(name, tys, body) ->
         sprintf "Theorem %s%s : \n%s" name (gen_to_string tys)
           (umetaterm_to_formatted_string body)
-    | Define(idtys, udefs) ->
-        sprintf "Define %s by \n%s"
-          (idtys_to_string idtys) (udefs_to_string udefs) ;
+    | Define(flavor, idtys, cls) ->
+        sprintf "%s %s by \n%s"
+          (match flavor with Inductive -> "Define" | _ -> "CoDefine")
+          (idtys_to_string idtys) (udef_clauses_to_string cls) ;
     | Schema sch ->
         sprintf "Schema %s := %s" sch.sch_name
           (sch.sch_blocks |>
            List.map (fun bl -> block_to_string uterm_to_string bl) |>
            String.concat "; ")
-    | CoDefine(idtys, udefs) ->
-        sprintf "CoDefine %s by \n%s"
-          (idtys_to_string idtys) (udefs_to_string udefs) ;
     | Import filename ->
         sprintf "Import \"%s\"" filename
     | Specification filename ->

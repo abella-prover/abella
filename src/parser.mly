@@ -146,7 +146,7 @@
 %type <Abella_types.lpmod> lpmod
 %type <Abella_types.sig_decl list> sig_body
 %type <Abella_types.uclause list> mod_body
-%type <Abella_types.udef list> defs
+%type <Abella_types.udef_clause list> defs
 %type <Abella_types.command> command
 %type <Abella_types.top_command> top_command
 %type <Abella_types.any_command> any_command
@@ -656,9 +656,9 @@ pure_top_command:
   | THEOREM loc_id maybe_gen_tys COLON metaterm DOT
     { Types.Theorem(deloc_id $2, $3, $5) }
   | DEFINE id_tys BY optsemi defs DOT
-    { Types.Define($2, $5) }
+    { Types.Define(Types.Inductive, $2, $5) }
   | CODEFINE id_tys BY optsemi defs DOT
-    { Types.CoDefine($2, $5) }
+    { Types.Define(Types.CoInductive, $2, $5) }
   | SCHEMA id DEFEQ schema_blocks DOT
     { let blocks = $4 in
       let arities = List.map (fun bl -> List.length bl.Types.bl_rel) blocks |>

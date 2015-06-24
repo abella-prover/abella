@@ -358,7 +358,7 @@ let predicate_wrapper r names t =
     match t with
     | True | False | Eq _ | Obj _ -> t
     | Pred(p, _) ->
-        if List.mem (term_head_name p) names then
+        if Iset.mem (term_head_name p) names then
           Pred(p, reduce_inductive_restriction r)
         else
           t
@@ -404,9 +404,9 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
     in
     defs |>
     List.flatten_map ~guard:unwind_state begin function
-    | Pred(head, _), body ->
+    | {head = Pred(head, _) ; body} ->
         make_case ~support ~used (head, body) term
-    | Binding(Nabla, tids, Pred(head, _)), body ->
+    | {head = Binding(Nabla, tids, Pred(head, _)) ; body} ->
         List.range 0 (List.length tids) |>
         List.rev |>
         List.flatten_map begin fun n ->
@@ -433,7 +433,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
             end
           end
         end
-    | head, body ->
+    | {head ; body} ->
         bugf "Bad head in definitional clause:\n%s := %s"
           (metaterm_to_string head)
           (metaterm_to_string body)
@@ -625,7 +625,7 @@ let coinductive_wrapper r names t =
     match t with
     | True | False | Eq _ | Obj _ -> t
     | Pred(p, _) ->
-        if List.mem (term_head_name p) names then
+        if Iset.mem (term_head_name p) names then
           Pred(p, reduce_coinductive_restriction r)
         else t
     | Binding(binding, ids, body) -> Binding(binding, ids, aux body)
@@ -671,7 +671,7 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
           [(get_bind_state (), cpairs, normalize (wrapper body), i)]
     end in
   defs |>
-  List.map begin fun (head, body) ->
+  List.map begin fun {head ; body} ->
     match head with
     | Pred(h, _) -> ([], h, body)
     | Binding(Nabla, tids, Pred(h, _)) -> (tids, h, body)

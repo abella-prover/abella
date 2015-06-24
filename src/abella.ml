@@ -220,10 +220,10 @@ let ensure_wellformed_head t =
         failwithf "Invalid head in definition: %s"
           (metaterm_to_string t)
 
-let check_defs names defs =
+let check_def_clauses names defs =
   List.iter ensure_not_capital names ;
   List.iter
-    (fun (head, body) ->
+    (fun {head ; body} ->
        ensure_wellformed_head head ;
        ensure_name_contained (def_head_name head) names ;
        ensure_no_restrictions head ;
@@ -336,20 +336,14 @@ let import filename =
           (function
              | CTheorem(name, tys, thm) ->
                  add_lemma name tys thm ;
-             | CDefine(idtys, defs) ->
+             | CDefine(flav, idtys, defs) ->
                  let ids = List.map fst idtys in
                    check_noredef ids;
-                   check_defs ids defs ;
+                   check_def_clauses ids defs ;
                    add_global_consts idtys ;
-                   add_defs ids Inductive defs ;
+                   add_defs ids flav defs ;
              | CSchema sch ->
                  bugf "Schemas not yet supported"
-             | CCoDefine(idtys, defs) ->
-                 let ids = List.map fst idtys in
-                   check_noredef ids;
-                   check_defs ids defs ;
-                   add_global_consts idtys ;
-                   add_defs ids CoInductive defs
              | CImport(filename) ->
                  aux filename
              | CKind(ids) ->
@@ -619,26 +613,18 @@ and process_top1 () =
         add_lemma n tys t ;
         compile (CTheorem(n, tys, t))
       end gen_thms ;
-  | Define(idtys, udefs) ->
+  | Define(flav, idtys, udefs) ->
       let ids = List.map fst idtys in
       check_noredef ids;
       let (local_sr, local_sign) = locally_add_global_consts idtys in
-      let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs in
-      check_defs ids defs ;
+      let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs |>
+                 List.map (fun (head, body) -> {head ; body}) in
+      check_def_clauses ids defs ;
       commit_global_consts local_sr local_sign ;
-      compile (CDefine(idtys, defs)) ;
-      add_defs ids Inductive defs
+      compile (CDefine(flav, idtys, defs)) ;
+      add_defs ids flav defs
   | Schema sch ->
       ignore (Schemas.register_schema sch)
-  | CoDefine(idtys, udefs) ->
-      let ids = List.map fst idtys in
-      check_noredef ids;
-      let (local_sr, local_sign) = locally_add_global_consts idtys in
-      let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs in
-      check_defs ids defs ;
-      commit_global_consts local_sr local_sign ;
-      compile (CCoDefine(idtys, defs)) ;
-      add_defs ids CoInductive defs
   | TopCommon(Back) ->
       if !interactive then State.Undo.back 2
       else failwith "Cannot use interactive commands in non-interactive mode"

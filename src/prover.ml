@@ -159,60 +159,83 @@ let clauses : clause list ref = State.rref []
 let add_clauses new_clauses =
   clauses := !clauses @ new_clauses
 
-let parse_defs str =
+let parse_defs ?(sign = !sign) str =
   Lexing.from_string str |>
   Parser.defs Lexer.token |>
-  type_udefs ~sr:!sr ~sign:!sign |>
+  type_udefs ~sr:!sr ~sign |>
   List.map (fun (head, body) -> {head ; body})
 
 let defs_table : defs_table = State.table ()
 
-let add_defs preds flavor clauses =
+let add_defs tyargs preds flavor clauses =
   List.iter
-    (fun id -> if H.mem defs_table id then
+    (fun (id, _) -> if H.mem defs_table id then
         failwithf "Predicate %s has already been defined" id)
     preds ;
   (* List.iter begin fun (head, body) -> *)
   (*   Format.eprintf "%a := %a@." format_metaterm head format_metaterm body *)
   (* end defs ; *)
-  let mutual = List.fold_left begin fun mutual pred ->
-      Iset.add pred mutual
-    end Iset.empty preds in
-  List.iter (fun id -> H.add defs_table id {flavor ; mutual ; clauses}) preds
+  let mutual = List.fold_left begin fun mutual (id, ty) ->
+      Itab.add id ty mutual
+    end Itab.empty preds in
+  List.iter (fun (id, _) -> H.add defs_table id {flavor ; tyargs ; mutual ; clauses}) preds
 
-let () = add_defs [k_member] Inductive (parse_defs "member A (A :: L) ; member A (B :: L) := member A L.")
-
-let special_defs_table = H.create 3
-let () =
-  let gen spine =
-    match spine with
-    | [uty ; xty] ->
-        let head =
-          nabla [("u", uty)] begin
-            pred (app (const k_fresh (tyarrow [uty ; xty] propty)) [const "u" uty ; const "X" xty])
-          end in
-        (Iset.singleton k_fresh, [{head ; body = True}])
-    | _ -> bugf "%s called without two args" k_fresh
-  in
-  H.add special_defs_table k_fresh (memoize gen)
+let lookup_poly_const k =
+  try let Poly (tyargs, ty) = List.assoc k (snd !sign) in (tyargs, ty) with
+  | Not_found -> failwithf "Unknown constant: %S" k
 
 let () =
-  let gen spine =
-    match spine with
-    | [uty] ->
-        let head =
-          nabla [("u", uty)] begin
-            pred (app (const k_name (tyarrow [uty] propty)) [const "u" uty])
-          end in
-        (Iset.singleton k_name, [{head ; body = True}])
-    | _ -> bugf "%s called without one arg" k_name
-  in
-  H.add special_defs_table k_name (memoize gen)
+  let (tyargs, ty) = lookup_poly_const k_member in
+  add_defs tyargs [k_member, ty] Inductive
+    (parse_defs "member A (A :: L) ; member A (B :: L) := member A L.")
+
+let () =
+  let (tyargs, ty) = lookup_poly_const k_fresh in
+  let (basics, consts) = !sign in
+  let basics = tyargs @ basics in
+  let consts = (k_fresh, Poly ([], ty)) :: consts in
+  let clauses = parse_defs ~sign:(basics, consts) ("nabla x, " ^ k_fresh ^ " x M.") in
+  add_defs tyargs [k_fresh, ty] Inductive clauses
+
+let () =
+  let (tyargs, ty) = lookup_poly_const k_name in
+  let (basics, consts) = !sign in
+  let basics = tyargs @ basics in
+  let consts = (k_name, Poly ([], ty)) :: consts in
+  let clauses = parse_defs ~sign:(basics, consts) ("nabla x, " ^ k_name ^ " x.") in
+  add_defs tyargs [k_name, ty] Inductive clauses
 
 let term_spine t =
   match term_head t with
   | Some (_, spine) -> spine
   | None -> assert false
+
+let clause_head_name cl =
+  match cl.head with
+  | Binding (Nabla, _, Pred (p, _)) | Pred (p, _) ->
+      term_head_name p
+  | _ -> bugf "Clause head name for invalid clause: %s" (metaterm_to_string cl.head)
+
+let instantiate_clauses pn def args =
+  let ty_acts = List.map (tc []) args in
+  let Ty (ty_exps, _) = Itab.find pn def.mutual in
+  let tymap = List.fold_left2 begin fun tymap ty_exp ty_act ->
+      match ty_exp with
+      | Ty ([], tv) when List.mem tv def.tyargs ->
+          Itab.add tv ty_act tymap
+      | _ -> tymap
+    end Itab.empty ty_exps ty_acts in
+  let rec app_ty = function
+    | Ty (args, res) ->
+        let args = List.map app_ty args in
+        let res = try Itab.find res tymap with Not_found -> tybase res in
+        tyarrow args res
+  in
+  List.map begin fun cl ->
+    if clause_head_name cl = pn then
+      {head = map_on_tys app_ty cl.head ; body = map_on_tys app_ty cl.body}
+    else cl
+  end def.clauses
 
 let get_defs term =
   match term with
@@ -220,12 +243,11 @@ let get_defs term =
       let pn = term_head_name p in
       if H.mem defs_table pn then begin
         let def = H.find defs_table (term_head_name p) in
-        (def.mutual, def.clauses)
-      end else if H.mem special_defs_table pn then
-        H.find special_defs_table pn (term_spine p |> List.map (tc []))
-      else
+        let clauses = instantiate_clauses pn def (term_spine p) in
+        (def.mutual, clauses)
+      end else
         failwith "Cannot perform case-analysis on undefined atom"
-  | _ -> (Iset.empty, [])
+  | _ -> (Itab.empty, [])
 
 
 (* Pretty print *)

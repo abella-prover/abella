@@ -336,12 +336,14 @@ let import filename =
           (function
              | CTheorem(name, tys, thm) ->
                  add_lemma name tys thm ;
-             | CDefine(flav, idtys, defs) ->
+             | CDefine(flav, tyargs, idtys, clauses) ->
                  let ids = List.map fst idtys in
-                   check_noredef ids;
-                   check_def_clauses ids defs ;
-                   add_global_consts idtys ;
-                   add_defs ids flav defs ;
+                 check_noredef ids;
+                 check_def_clauses ids clauses ;
+                 let (basics, consts) = !sign in
+                 let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
+                 sign := (basics, consts) ;
+                 add_defs tyargs idtys flav clauses ;
              | CSchema sch ->
                  bugf "Schemas not yet supported"
              | CImport(filename) ->
@@ -462,7 +464,13 @@ let suppress_proof_state_display = State.rref false
 
 type processing_state =
   | Process_top
-  | Process_proof of string * (unit -> unit)
+  | Process_proof of proof_processor
+
+and proof_processor = {
+  thm : string ;
+  compile : (unit -> unit) ;
+  reset : (unit -> unit) ;
+}
 
 let current_state = State.rref Process_top
 
@@ -470,17 +478,17 @@ let rec process1 () =
   State.Undo.push () ;
   try begin match !current_state with
     | Process_top -> process_top1 ()
-    | Process_proof (name, compile) -> begin
-        try process_proof1 name with
+    | Process_proof proc -> begin
+        try process_proof1 proc.thm with
         | Prover.End_proof reason -> begin
             fprintf !out "Proof %s.\n%!" begin
               match reason with
               | `completed ->
-                  compile () ;
+                  proc.compile () ;
                   "completed"
               | `aborted -> "ABORTED"
             end ;
-            reset_prover () ;
+            proc.reset () ;
             current_state := Process_top
           end
       end
@@ -517,7 +525,8 @@ let rec process1 () =
       end
   | e ->
       State.Undo.undo () ;
-      eprintf "Error: %s\n%s%!" (Printexc.to_string e) (Printexc.get_backtrace ()) ;
+      let msg = match e with Failure msg -> msg | _ -> Printexc.to_string e in
+      eprintf "Error: %s\n%!" msg ;
       interactive_or_exit ()
 
 and process_proof1 name =
@@ -581,7 +590,7 @@ and process_proof1 name =
       fprintf !out "\n%!" ;
       suppress_proof_state_display := true
   | Common(Quit)           -> raise End_of_file
-  end ;
+  end
 
 and process_top1 () =
   fprintf !out "Abella < %!" ;
@@ -602,10 +611,22 @@ and process_top1 () =
       let thm = type_umetaterm ~sr:!sr ~sign:tsign thm in
       check_theorem thm ;
       theorem thm ;
-      current_state := Process_proof (name, fun () ->
-          compile (CTheorem(name, tys, thm)) ;
-          add_lemma name tys thm
-        ) ;
+      let oldsign = !sign in
+      let thm_compile () =
+        sign := oldsign ;
+        compile (CTheorem(name, tys, thm)) ;
+        add_lemma name tys thm
+      in
+      let thm_reset () =
+        sign := oldsign ;
+        reset_prover ()
+      in
+      sign := tsign ;
+      current_state := Process_proof {
+          thm = name ;
+          compile = thm_compile ;
+          reset = thm_reset
+        } ;
   | SSplit(name, names) ->
       let gen_thms = create_split_theorems name names in
       List.iter begin fun (n, (tys, t)) ->
@@ -613,16 +634,20 @@ and process_top1 () =
         add_lemma n tys t ;
         compile (CTheorem(n, tys, t))
       end gen_thms ;
-  | Define(flav, idtys, udefs) ->
+  | Define(flav, tyargs, idtys, udefs) ->
       let ids = List.map fst idtys in
       check_noredef ids;
-      let (local_sr, local_sign) = locally_add_global_consts idtys in
-      let defs = type_udefs ~sr:local_sr ~sign:local_sign udefs |>
-                 List.map (fun (head, body) -> {head ; body}) in
-      check_def_clauses ids defs ;
-      commit_global_consts local_sr local_sign ;
-      compile (CDefine(flav, idtys, defs)) ;
-      add_defs ids flav defs
+      let (basics, consts) = !sign in
+      let basics = tyargs @ basics in
+      let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
+      let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
+                    List.map (fun (head, body) -> {head ; body}) in
+      check_def_clauses ids clauses ;
+      let (basics, consts) = !sign in
+      let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
+      sign := (basics, consts) ;
+      compile (CDefine(flav, tyargs, idtys, clauses)) ;
+      add_defs tyargs idtys flav clauses
   | Schema sch ->
       ignore (Schemas.register_schema sch)
   | TopCommon(Back) ->

@@ -9,14 +9,28 @@ Possibly breaking changes
 
 Additions
 
-* Added support for (first-order) polymorphic theorems. A theorem such as:
+* Added support for (first-order) polymorphic definitions. Definitions
+  such as the following are now accepted.
 
-        Theorem prune_arg[A] : forall E L, nabla (x:A), member (E x) L ->
+        Define[A,B] fresh : A -> B -> prop by
+          nabla x, fresh x M.
+
+  In every use of the definition, the type arguments are implicitly
+  instantiated. Note: these type arguments are not allowed to occur in any
+  position but the topmost argument types. Thus, the following is illegal.
+
+        Define[A,B] foo : (A -> B) -> prop by
+           ...
+
+* Added support for (first-order) polymorphic theorems. A theorem such as
+  the following is now accepted.
+
+        Theorem[A] prune_arg : forall E L, nabla (x:A), member (E x) L ->
            exists F, E = x\ F.
 
-  is now accepted. The `A` here is a type parameter, which must be distinct
-  from the other basic types in scope. To use such a theorem, you *must*
-  supply enough arguments. An example:
+  The `A` here is a type parameter, which must be distinct from the other
+  basic types in scope. To use such a theorem, you *must* supply enough
+  arguments. An example:
 
         Theorem bar : forall E G, nabla (x:tm) (y:ty),
            member (E x y) G -> exists F, E = x\ y\ F.

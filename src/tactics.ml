@@ -358,7 +358,7 @@ let predicate_wrapper r names t =
     match t with
     | True | False | Eq _ | Obj _ -> t
     | Pred(p, _) ->
-        if Iset.mem (term_head_name p) names then
+        if Itab.mem (term_head_name p) names then
           Pred(p, reduce_inductive_restriction r)
         else
           t
@@ -625,7 +625,7 @@ let coinductive_wrapper r names t =
     match t with
     | True | False | Eq _ | Obj _ -> t
     | Pred(p, _) ->
-        if Iset.mem (term_head_name p) names then
+        if Itab.mem (term_head_name p) names then
           Pred(p, reduce_coinductive_restriction r)
         else t
     | Binding(binding, ids, body) -> Binding(binding, ids, aux body)

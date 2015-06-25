@@ -173,7 +173,7 @@ let register_schema sch =
   (* Format.printf "%a.@." format_schema sch ; *)
   let (ty, clauses) = schema_to_defs sch in
   add_global_consts [sch.sch_name, sch.sch_ty] ;
-  add_defs [sch.sch_name] Inductive clauses ;
+  add_defs [] [sch.sch_name, sch.sch_ty] Inductive clauses ;
   let gs = List.range 1 sch.sch_arity |>
            List.map (fun n -> "G" ^ string_of_int n) in
   List.range 0 (sch.sch_arity - 1) |>
@@ -182,5 +182,5 @@ let register_schema sch =
   List.iter begin fun (i, mt) ->
     let name = sch.sch_name ^ "#" ^ string_of_int i in
     add_global_consts [name, propty] ;
-    add_defs [name] Inductive [{head = pred (const name propty) ; body = mt}]
+    add_defs [] [name, propty] Inductive [{head = pred (const name propty) ; body = mt}]
   end

@@ -35,7 +35,8 @@ type def_clause = {
 }
 type def = {
   flavor : flavor ;
-  mutual : Iset.t ;
+  tyargs : string list ;
+  mutual : ty Itab.t ;
   clauses : def_clause list ;
 }
 type defs_table = (string, def) Hashtbl.t
@@ -74,7 +75,7 @@ and 'term block = {
 
 type top_command =
   | Theorem of id * string list * umetaterm
-  | Define of flavor * tyctx * udef_clause list
+  | Define of flavor * string list * tyctx * udef_clause list
   | Schema of uterm schema
   | Import of string
   | Specification of string
@@ -87,7 +88,7 @@ type top_command =
 
 type compiled =
   | CTheorem of id * string list * metaterm
-  | CDefine of flavor * tyctx * def_clause list
+  | CDefine of flavor * string list * tyctx * def_clause list
   | CSchema of term schema
   | CImport of string
   | CKind of id list
@@ -271,11 +272,12 @@ let gen_to_string tys =
 let top_command_to_string tc =
   match tc with
     | Theorem(name, tys, body) ->
-        sprintf "Theorem %s%s : \n%s" name (gen_to_string tys)
+        sprintf "Theorem%s %s : \n%s" (gen_to_string tys) name
           (umetaterm_to_formatted_string body)
-    | Define(flavor, idtys, cls) ->
-        sprintf "%s %s by \n%s"
+    | Define(flavor, tyargs, idtys, cls) ->
+        sprintf "%s%s %s by \n%s"
           (match flavor with Inductive -> "Define" | _ -> "CoDefine")
+          (gen_to_string tyargs)
           (idtys_to_string idtys) (udef_clauses_to_string cls) ;
     | Schema sch ->
         sprintf "Schema %s := %s" sch.sch_name

@@ -265,9 +265,9 @@ let instantiate_clauses pn def args =
         Itab.add tyv (List.assoc tyf tysol) tymap
       end with Not_found -> tymap
     end Itab.empty def.tyargs in
-  Itab.iter begin fun v ty ->
-    Format.eprintf "instantiating: %s <- %s@." v (ty_to_string ty)
-  end tymap ;
+  (* Itab.iter begin fun v ty -> *)
+  (*   Format.eprintf "instantiating: %s <- %s@." v (ty_to_string ty) *)
+  (* end tymap ; *)
   List.map begin fun cl ->
     if clause_head_name cl = pn then
       {head = map_on_tys (app_ty tymap) cl.head ;

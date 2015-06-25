@@ -102,7 +102,7 @@ let existentially_close ~used quant_vars body =
       let bindings =
         List.map (fun (_, xv) -> (term_to_name xv, tc [] xv))
           bindings in
-      Binding(Exists, bindings, body)
+      Binding(Metaterm.Exists, bindings, body)
 
 
 (* Object level cut *)
@@ -258,7 +258,7 @@ let rec recursive_metaterm_case ~used ~sr term =
               Some { stateless_new_vars = vars_left @ vars_right ;
                      stateless_new_hyps = hyps_left @ hyps_right }
       end
-  | Binding(Exists, tids, body) ->
+  | Binding(Metaterm.Exists, tids, body) ->
       let support = metaterm_support term in
       let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
       let fresh_body = replace_metaterm_vars alist body in
@@ -531,7 +531,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
           | _ -> [stateless_case_to_case sc]
       end
   | And _
-  | Binding(Exists, _, _)
+  | Binding(Metaterm.Exists, _, _)
   | Binding(Nabla, _, _) ->
       Option.map_default (fun sc -> [stateless_case_to_case sc]) []
         (recursive_metaterm_case ~used ~sr term)
@@ -1012,7 +1012,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
         let args = List.combine hns args in
         metaterm_aux n (args @ hyps) body ts ~witness:w
           ~sc:(fun w -> sc (WIntros(List.map fst args, w)))
-    | Binding(Exists, tids, body) ->
+    | Binding(Metaterm.Exists, tids, body) ->
         let global_support =
           List.unique
             ((List.flatten_map (fun (_, h) -> metaterm_support h) hyps) @

@@ -717,3 +717,8 @@ let rec has_capital_head t =
   | UCon(_, id, _) -> is_capital_name id
   | ULam _ -> false
   | UApp(_, t, _) -> has_capital_head t
+
+(** globals *)
+
+let sign = State.rref pervasive_sign
+let sr = State.rref pervasive_sr

@@ -22,6 +22,7 @@ open Typing
 open Metaterm
 open Format
 open Tactics
+open Checks
 open Abella_types
 open Extensions
 
@@ -66,9 +67,6 @@ let sequent =
     name = "" ;
     next_subgoal_id = 1 ;
   }
-
-let sign = State.rref pervasive_sign
-let sr = State.rref pervasive_sr
 
 let add_global_types tys =
   sign := add_types !sign tys
@@ -184,9 +182,7 @@ let lookup_poly_const k =
   try let Poly (tyargs, ty) = List.assoc k (snd !sign) in (tyargs, ty) with
   | Not_found -> failwithf "Unknown constant: %S" k
 
-let register_definition
-    ?(check_noredef = fun _ -> ())
-    ?(check_def_clauses = fun _ _ -> ()) = function
+let register_definition = function
   | Define (flav, tyargs, idtys, udefs) ->
       let ids = List.map fst idtys in
       check_noredef ids;
@@ -818,27 +814,6 @@ let case ?name str =
 
 
 (* Induction *)
-
-let get_restriction r =
-  match r with
-  | Smaller n -> n
-  | CoSmaller n -> n
-  | Equal n -> n
-  | CoEqual n -> n
-  | Irrelevant -> 0
-
-let get_max_restriction t =
-  let rec aux t =
-    match t with
-    | True | False | Eq _ -> 0
-    | Obj(_, r) -> get_restriction r
-    | Arrow(a, b) -> max (aux a) (aux b)
-    | Binding(_, _, body) -> aux body
-    | Or(a, b) -> max (aux a) (aux b)
-    | And(a, b) -> max (aux a) (aux b)
-    | Pred(_, r) -> get_restriction r
-  in
-  aux t
 
 let next_restriction () =
   1 + (sequent.hyps |> List.map (fun h -> h.term) |>

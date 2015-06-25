@@ -198,12 +198,8 @@ let pervasive_sign =
   (["o"; "olist"; "prop"],
    [("pi",     Poly(["A"],       tyarrow [tyarrow [tybase "A"] oty] oty)) ;
     ("=>",     Poly([],          tyarrow [oty; oty] oty)) ;
-    (k_member, Poly([],          tyarrow [oty; olistty] propty)) ;
     (k_cons,   Poly([],          tyarrow [oty; olistty] olistty)) ;
-    (k_nil,    Poly([],          olistty)) ;
-    (k_fresh,  Poly(["A" ; "B"], tyarrow [tybase "A" ; tybase "B"] propty)) ;
-    (k_name,   Poly(["A" ; "B"], tyarrow [tybase "A"] propty)) ;
-   ])
+    (k_nil,    Poly([],          olistty)) ])
 
 let sign_to_tys sign =
   List.filter_map

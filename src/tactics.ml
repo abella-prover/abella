@@ -802,7 +802,7 @@ let satisfies r1 r2 =
     sc means success continuation.
 *)
 
-let search ~depth:n ~hyps ~clauses ~get_defs ~retype
+let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
     ?(witness=WMagic)
     ?(sc=fun w -> raise (SearchSuccess w)) goal =
 
@@ -1069,7 +1069,7 @@ let search ~depth:n ~hyps ~clauses ~get_defs ~retype
   and def_aux n hyps goal r ts ~sc ~witness =
     (* Printf.eprintf "def_aux: %s\n%!" (witness_to_string witness) ; *)
     let p = term_head_name goal in
-    let mdefs = get_defs (Pred (goal, r)) in
+    let mdefs = def_unfold (Pred (goal, r)) in
     let (csel, witness, subn) = match witness with
       | WMagic -> (Abella_types.Select_any, WMagic, n - 1)
       | WUnfold (wp, wn, [w]) when wp = p -> (Abella_types.Select_num wn, w, n)

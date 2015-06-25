@@ -383,27 +383,27 @@ let query q =
   let fv = ids_to_fresh_tyctx (umetaterm_extract_if is_capital_name q) in
   let ctx = fresh_alist ~tag:Logic ~used:[] fv in
   match type_umetaterm ~sr:!sr ~sign:!sign ~ctx (UBinding(Metaterm.Exists, fv, q)) with
-    | Binding(Metaterm.Exists, fv, q) ->
-        let ctx = List.map begin fun (x, ty) ->
-            (x, Term.fresh ~tag:Logic 0 ty)
-          end fv in
-        let q = replace_metaterm_vars ctx q in
-        let _ = Tactics.search
+  | Binding(Metaterm.Exists, fv, q) ->
+      let ctx = List.map begin fun (x, ty) ->
+          (x, Term.fresh ~tag:Logic 0 ty)
+        end fv in
+      let q = replace_metaterm_vars ctx q in
+      let _ = Tactics.search
           ~depth:max_int
           ~hyps:[]
           ~clauses:!clauses
-          ~get_defs:Prover.get_defs
+          ~def_unfold:Prover.def_unfold
           ~sc:(fun w ->
-                 fprintf !out "Found solution:\n" ;
-                 List.iter
-                   (fun (n, v) ->
-                      fprintf !out "%s = %s\n" n (term_to_string v))
-                   ctx ;
-                 fprintf !out "\n%!")
+              fprintf !out "Found solution:\n" ;
+              List.iter
+                (fun (n, v) ->
+                   fprintf !out "%s = %s\n" n (term_to_string v))
+                ctx ;
+              fprintf !out "\n%!")
           q
-        in
-          fprintf !out "No more solutions.\n%!"
-    | _ -> assert false
+      in
+      fprintf !out "No more solutions.\n%!"
+  | _ -> assert false
 
 let set_fail ~key ~expected v =
   failwithf "Unknown value '%s' for key %S; expected %s"
@@ -634,20 +634,11 @@ and process_top1 () =
         add_lemma n tys t ;
         compile (CTheorem(n, tys, t))
       end gen_thms ;
-  | Define(flav, tyargs, idtys, udefs) ->
-      let ids = List.map fst idtys in
-      check_noredef ids;
-      let (basics, consts) = !sign in
-      let basics = tyargs @ basics in
-      let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
-      let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
-                    List.map (fun (head, body) -> {head ; body}) in
-      check_def_clauses ids clauses ;
-      let (basics, consts) = !sign in
-      let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
-      sign := (basics, consts) ;
-      compile (CDefine(flav, tyargs, idtys, clauses)) ;
-      add_defs tyargs idtys flav clauses
+  | Define _ ->
+      register_definition input
+        ~check_noredef
+        ~check_def_clauses |>
+      compile
   | Schema sch ->
       ignore (Schemas.register_schema sch)
   | TopCommon(Back) ->

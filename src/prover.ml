@@ -184,26 +184,51 @@ let lookup_poly_const k =
   try let Poly (tyargs, ty) = List.assoc k (snd !sign) in (tyargs, ty) with
   | Not_found -> failwithf "Unknown constant: %S" k
 
-let () =
-  let (tyargs, ty) = lookup_poly_const k_member in
-  add_defs tyargs [k_member, ty] Inductive
-    (parse_defs "member A (A :: L) ; member A (B :: L) := member A L.")
+let register_definition
+    ?(check_noredef = fun _ -> ())
+    ?(check_def_clauses = fun _ _ -> ()) = function
+  | Define (flav, tyargs, idtys, udefs) ->
+      let ids = List.map fst idtys in
+      check_noredef ids;
+      let (basics, consts) = !sign in
+      let basics = tyargs @ basics in
+      let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
+      let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
+                    List.map (fun (head, body) -> {head ; body}) in
+      check_def_clauses ids clauses ;
+      let (basics, consts) = !sign in
+      let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
+      sign := (basics, consts) ;
+      add_defs tyargs idtys flav clauses ;
+      CDefine (flav, tyargs, idtys, clauses)
+  | _ -> bugf "Not a definition!"
 
-let () =
-  let (tyargs, ty) = lookup_poly_const k_fresh in
-  let (basics, consts) = !sign in
-  let basics = tyargs @ basics in
-  let consts = (k_fresh, Poly ([], ty)) :: consts in
-  let clauses = parse_defs ~sign:(basics, consts) ("nabla x, " ^ k_fresh ^ " x M.") in
-  add_defs tyargs [k_fresh, ty] Inductive clauses
+let parse_definition str =
+  Lexing.from_string str |>
+  Parser.top_command Lexer.token |>
+  register_definition
 
-let () =
-  let (tyargs, ty) = lookup_poly_const k_name in
-  let (basics, consts) = !sign in
-  let basics = tyargs @ basics in
-  let consts = (k_name, Poly ([], ty)) :: consts in
-  let clauses = parse_defs ~sign:(basics, consts) ("nabla x, " ^ k_name ^ " x.") in
-  add_defs tyargs [k_name, ty] Inductive clauses
+let k_member = "member"
+let member_def_compiled =
+  "Define MEM : o -> olist -> prop by\
+  \  MEM A (A :: L) ; \
+  \  MEM A (B :: L) := MEM A L." |>
+  Str.global_replace (Str.regexp_string "MEM") k_member |>
+  parse_definition
+
+let k_fresh = "fresh_for"
+let fresh_def_compiled =
+  "Define[A,B] FRESH : A -> B -> prop by\
+  \  nabla x, FRESH x M." |>
+  Str.global_replace (Str.regexp_string "FRESH") k_fresh |>
+  parse_definition
+
+let k_name = "is_name"
+let name_def_compiled =
+  "Define[A] NAME : A -> prop by\
+  \  nabla x, NAME x." |>
+  Str.global_replace (Str.regexp_string "NAME") k_name |>
+  parse_definition
 
 let term_spine t =
   match term_head t with
@@ -216,34 +241,50 @@ let clause_head_name cl =
       term_head_name p
   | _ -> bugf "Clause head name for invalid clause: %s" (metaterm_to_string cl.head)
 
+let rec app_ty tymap = function
+  | Ty (args, res) ->
+      let args = List.map (app_ty tymap) args in
+      let res = try Itab.find res tymap with Not_found -> tybase res in
+      tyarrow args res
+
 let instantiate_clauses pn def args =
   let ty_acts = List.map (tc []) args in
   let Ty (ty_exps, _) = Itab.find pn def.mutual in
-  let tymap = List.fold_left2 begin fun tymap ty_exp ty_act ->
-      match ty_exp with
-      | Ty ([], tv) when List.mem tv def.tyargs ->
-          Itab.add tv ty_act tymap
-      | _ -> tymap
-    end Itab.empty ty_exps ty_acts in
-  let rec app_ty = function
-    | Ty (args, res) ->
-        let args = List.map app_ty args in
-        let res = try Itab.find res tymap with Not_found -> tybase res in
-        tyarrow args res
-  in
+  let ty_fresh = List.fold_left begin fun fresh_sub tyvar ->
+      let tv = Term.fresh_tyvar () in
+      Itab.add tyvar tv fresh_sub
+    end Itab.empty def.tyargs in
+  let ty_exps = List.map (app_ty ty_fresh) ty_exps in
+  let eqns = List.map2 begin fun ty_exp ty_act ->
+      (ty_exp, ty_act, (ghost, CArg))
+    end ty_exps ty_acts in
+  let tysol = unify_constraints eqns in
+  let tymap = List.fold_left begin fun tymap tyv ->
+      try begin
+        let Ty (_, tyf) = Itab.find tyv ty_fresh in
+        Itab.add tyv (List.assoc tyf tysol) tymap
+      end with Not_found -> tymap
+    end Itab.empty def.tyargs in
+  Itab.iter begin fun v ty ->
+    Format.eprintf "instantiating: %s <- %s@." v (ty_to_string ty)
+  end tymap ;
   List.map begin fun cl ->
     if clause_head_name cl = pn then
-      {head = map_on_tys app_ty cl.head ; body = map_on_tys app_ty cl.body}
+      {head = map_on_tys (app_ty tymap) cl.head ;
+       body = map_on_tys (app_ty tymap) cl.body}
     else cl
   end def.clauses
 
-let get_defs term =
+let def_unfold term =
   match term with
   | Pred(p, _) ->
       let pn = term_head_name p in
       if H.mem defs_table pn then begin
         let def = H.find defs_table (term_head_name p) in
-        let clauses = instantiate_clauses pn def (term_spine p) in
+        let clauses =
+          if def.tyargs = [] then def.clauses
+          else instantiate_clauses pn def (term_spine p)
+        in
         (def.mutual, clauses)
       end else
         failwith "Cannot perform case-analysis on undefined atom"
@@ -600,7 +641,7 @@ let search_goal_witness ?depth goal witness =
       ~depth:n
       ~hyps
       ~clauses:!clauses
-      ~get_defs
+      ~def_unfold
       ~retype
       ~witness
       goal
@@ -767,7 +808,7 @@ let case ?name str =
     (metaterm_support sequent.goal)
   in
   let term = get_stmt_clearly str in
-  let (mutual, defs) = get_defs term in
+  let (mutual, defs) = def_unfold term in
   let cases =
     Tactics.case ~used:sequent.vars ~sr:!sr ~clauses:!clauses
       ~mutual ~defs ~global_support term
@@ -1067,7 +1108,7 @@ let right () =
 (* Unfold *)
 
 let unfold clause_sel sol_sel =
-  let mdefs = get_defs sequent.goal in
+  let mdefs = def_unfold sequent.goal in
   let used = sequent.vars in
   let goal = unfold ~used ~mdefs clause_sel sol_sel sequent.goal in
   let goals = List.concat (List.map and_to_list goal) in

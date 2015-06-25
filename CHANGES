@@ -16,11 +16,7 @@ Additions
           nabla x, fresh x M.
 
   In every use of the definition, the type arguments are implicitly
-  instantiated. Note: these type arguments are not allowed to occur in any
-  position but the topmost argument types. Thus, the following is illegal.
-
-        Define[A,B] foo : (A -> B) -> prop by
-           ...
+  instantiated.
 
 * Added support for (first-order) polymorphic theorems. A theorem such as
   the following is now accepted.

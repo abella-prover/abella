@@ -655,10 +655,10 @@ maybe_gen_tys:
 pure_top_command:
   | THEOREM maybe_gen_tys loc_id COLON metaterm DOT
     { Types.Theorem(deloc_id $3, $2, $5) }
-  | DEFINE maybe_gen_tys id_tys BY optsemi defs DOT
-    { Types.Define(Types.Inductive, $2, $3, $6) }
-  | CODEFINE maybe_gen_tys id_tys BY optsemi defs DOT
-    { Types.Define(Types.CoInductive, $2, $3, $6) }
+  | DEFINE id_tys BY optsemi defs DOT
+    { Types.Define(Types.Inductive, $2, $5) }
+  | CODEFINE id_tys BY optsemi defs DOT
+    { Types.Define(Types.CoInductive, $2, $5) }
   | SCHEMA id DEFEQ schema_blocks DOT
     { let blocks = $4 in
       let arities = List.map (fun bl -> List.length bl.Types.bl_rel) blocks |>

@@ -34,10 +34,10 @@ type def_clause = {
   body : metaterm ;
 }
 type def = {
-  flavor : flavor ;
-  tyargs : string list ;
-  mutual : ty Itab.t ;
-  clauses : def_clause list ;
+  flavor   : flavor ;
+  typarams : string list ;
+  mutual   : ty Itab.t ;
+  clauses  : def_clause list ;
 }
 type defs_table = (string, def) Hashtbl.t
 
@@ -75,7 +75,7 @@ and 'term block = {
 
 type top_command =
   | Theorem of id * string list * umetaterm
-  | Define of flavor * string list * tyctx * udef_clause list
+  | Define of flavor * tyctx * udef_clause list
   | Schema of uterm schema
   | Import of string
   | Specification of string
@@ -274,10 +274,9 @@ let top_command_to_string tc =
     | Theorem(name, tys, body) ->
         sprintf "Theorem%s %s : \n%s" (gen_to_string tys) name
           (umetaterm_to_formatted_string body)
-    | Define(flavor, tyargs, idtys, cls) ->
-        sprintf "%s%s %s by \n%s"
+    | Define(flavor, idtys, cls) ->
+        sprintf "%s %s by \n%s"
           (match flavor with Inductive -> "Define" | _ -> "CoDefine")
-          (gen_to_string tyargs)
           (idtys_to_string idtys) (udef_clauses_to_string cls) ;
     | Schema sch ->
         sprintf "Schema %s := %s" sch.sch_name

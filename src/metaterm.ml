@@ -110,28 +110,28 @@ let async_to_member obj =
 
 (* Support *)
 
-let term_support t = find_var_refs Nominal [t]
-let term_list_support l = find_var_refs Nominal l
+let term_support ?(tag=Nominal) t = find_var_refs tag [t]
+let term_list_support ?(tag=Nominal) l = find_var_refs tag l
 
-let obj_support = function
+let obj_support ?(tag=Nominal) = function
   | Async obj ->
       let ctx,term = Async.get obj in
-      find_var_refs Nominal (term :: ctx)
+      find_var_refs tag (term :: ctx)
   | Sync obj ->
       let ctx,focus,term = Sync.get obj in
-      find_var_refs Nominal (term::focus::ctx)
+      find_var_refs tag (term::focus::ctx)
 
-let metaterm_support t =
+let metaterm_support ?tag t =
   let rec aux t =
     match t with
       | True | False -> []
-      | Eq(t1, t2) -> term_support t1 @ term_support t2
-      | Obj(obj, _) -> obj_support obj
+      | Eq(t1, t2) -> term_support ?tag t1 @ term_support ?tag t2
+      | Obj(obj, _) -> obj_support ?tag obj
       | Arrow(t1, t2) -> aux t1 @ aux t2
       | Binding(_, _, t) -> aux t
       | Or(t1, t2) -> aux t1 @ aux t2
       | And(t1, t2) -> aux t1 @ aux t2
-      | Pred(t, _) -> term_support t
+      | Pred(t, _) -> term_support ?tag t
   in
     List.unique (aux t)
 
@@ -221,13 +221,13 @@ let rec pretty_metaterm mt =
                                   STR (restriction_to_string r))))
   | Arrow(a, b) ->
       Pretty.(Opapp (20, Infix (RIGHT, pretty_metaterm a,
-                                FMT " ->@ ", pretty_metaterm b)))
+                                FMT " ->@;<1 2>", pretty_metaterm b)))
   | Or(a, b) ->
       Pretty.(Opapp (23, Infix (LEFT, pretty_metaterm a,
-                                FMT " \\/@ ", pretty_metaterm b)))
+                                FMT " \\/@;<1 2>", pretty_metaterm b)))
   | And(a, b) ->
       Pretty.(Opapp (27, Infix (LEFT, pretty_metaterm a,
-                                FMT " /\\@ ", pretty_metaterm b)))
+                                FMT " /\\@;<1 2>", pretty_metaterm b)))
   | Binding(q, tids, a) ->
       let binds = Pretty.(FUN begin
           fun ff ->

@@ -117,41 +117,54 @@ let schema_to_defs ?ty sch =
 let k_member = Term.const k_member (tyarrow [oty ; olistty] propty)
 let member x l = pred (Term.app k_member [x ; l])
 
-let schema_desc gs e ~sch comp =
-  if comp < 0 || comp >= sch.sch_arity then failwith "schema_desc" ;
+let schema_invert gs e ~sch comp =
+  if comp < 0 || comp >= sch.sch_arity then failwith "schema_invert" ;
   let bindings = (e, oty) :: List.map (fun g -> (g, olistty)) gs in
   let e = Term.const e oty in
   let gs = List.map (fun g -> Term.const g olistty) gs in
   let used = List.map term_to_pair (e :: gs) in
   let block_desc bl =
     let l = List.nth bl.bl_rel comp in
+    let occ_vars = find_var_refs Constant l |>
+                   List.map term_to_name |>
+                   Iset.of_list in
+    let bl_exists = List.filter (fun (x, _) -> Iset.mem x occ_vars) bl.bl_exists in
+    let bl_nabla = List.filter (fun (x, _) -> Iset.mem x occ_vars) bl.bl_nabla in
     let (xxs, used) = List.fold_left begin fun (xxs, used) (x, xty) ->
         let (xx, used) = fresh_wrt ~ts:0 Constant x xty used in
         (xx :: xxs, used)
-      end ([], used) bl.bl_exists in
+      end ([], used) bl_exists in
     let xxs = List.rev xxs in
-    let xxsub = List.map2 (fun (x, _) xx -> (x, xx)) bl.bl_exists xxs in
+    let xxsub = List.map2 (fun (x, _) xx -> (x, xx)) bl_exists xxs in
     let (uus, uusub) = List.fold_left begin fun (uus, used) (u, uty) ->
         let (uu, used) = fresh_wrt ~ts:0 Constant u uty used in
         (uu :: uus, used)
-      end ([], used) bl.bl_nabla in
+      end ([], used) bl_nabla in
     let uus = List.rev uus in
     let sub = xxsub @ uusub in
     let elem_desc f =
       let f = replace_term_vars sub f in
       Eq (e, f) in
-    let fresh = List.map begin fun u ->
+    let fresh_evs = List.map (fun u -> List.map (fun x -> (u, x)) xxs) uus
+                    |> List.flatten in
+    let rec mk_fresh_uus seen = function
+      | [] -> List.rev seen
+      | u :: uus ->
+          let seen = List.rev_map (fun v -> (u, v)) uus @ seen in
+          mk_fresh_uus seen uus
+    in
+    let fresh_uus = mk_fresh_uus [] uus in
+    let fresh = List.map begin fun (u, x) ->
         let uty = tc [] u in
-        if xxs = [] then begin
-          [pred (Term.app (Term.const k_name (tyarrow [uty] propty)) [u])]
-        end else begin
-          List.map begin fun x ->
-            let xty = tc [] x in
-            let k_fresh = Term.const k_fresh (tyarrow [uty ; xty] propty) in
-            pred (Term.app k_fresh [u ; x])
-          end xxs
-        end
-      end uus |> List.flatten in
+        let xty = tc [] x in
+        app (const k_fresh (tyarrow [uty ; xty] propty)) [u ; x]
+        |> pred
+      end (fresh_evs @ fresh_uus) in
+    let fresh = match uus, xxs with
+      | (_ :: _), [] ->
+          let u = List.last uus in
+          fresh @ [pred (app (const k_name (tyarrow [tc [] u] propty)) [u])]
+      | _ -> fresh in
     let ebindings =
       List.map (fun v -> (term_to_name v, tc [] v)) (xxs @ uus)
     in
@@ -177,10 +190,9 @@ let register_schema sch =
   let gs = List.range 1 sch.sch_arity |>
            List.map (fun n -> "G" ^ string_of_int n) in
   List.range 0 (sch.sch_arity - 1) |>
-  List.map (schema_desc gs "E" ~sch) |>
-  List.number |>
-  List.iter begin fun (i, mt) ->
-    let name = sch.sch_name ^ "#" ^ string_of_int i in
-    add_global_consts [name, propty] ;
-    add_defs [] [name, propty] Inductive [{head = pred (const name propty) ; body = mt}]
+  List.map (schema_invert gs "E" ~sch) |>
+  List.iteri begin fun i mt ->
+    let name = sch.sch_name ^ "_invert" ^ string_of_int (i + 1) in
+    add_lemma name [] mt ;
+    print_theorem name ([], mt)
   end

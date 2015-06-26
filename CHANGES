@@ -12,11 +12,23 @@ Additions
 * Added support for (first-order) polymorphic definitions. Definitions
   such as the following are now accepted.
 
-        Define[A,B] fresh : A -> B -> prop by
+        Define fresh : A -> B -> prop by
           nabla x, fresh x M.
 
   In every use of the definition, the type arguments are implicitly
-  instantiated.
+  instantiated. The type-checking *for* such definitions is identical to
+  taking all the unbound variable names and quantifying them on the outside.
+  In other words, for the above definition, the behavior of type-checking is
+  the same as if there were:
+
+        Kind A,B  type
+        Define fresh : A -> B -> prop by
+          nabla x, fresh x M.
+
+  Once such a definition is type-checked, the defined symbols are added to
+  the signature as new polymorphic constants, in a vein similar to the `pi`
+  constant. Whenever it is used, the type arguments are implicitly
+  instantiated based on the types of the arguments.
 
 * Added support for (first-order) polymorphic theorems. A theorem such as
   the following is now accepted.

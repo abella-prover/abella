@@ -165,7 +165,7 @@ let parse_defs ?(sign = !sign) str =
 
 let defs_table : defs_table = State.table ()
 
-let add_defs tyargs preds flavor clauses =
+let add_defs typarams preds flavor clauses =
   List.iter
     (fun (id, _) -> if H.mem defs_table id then
         failwithf "Predicate %s has already been defined" id)
@@ -176,27 +176,38 @@ let add_defs tyargs preds flavor clauses =
   let mutual = List.fold_left begin fun mutual (id, ty) ->
       Itab.add id ty mutual
     end Itab.empty preds in
-  List.iter (fun (id, _) -> H.add defs_table id {flavor ; tyargs ; mutual ; clauses}) preds
+  List.iter (fun (id, _) -> H.add defs_table id {flavor ; typarams ; mutual ; clauses}) preds
 
 let lookup_poly_const k =
-  try let Poly (tyargs, ty) = List.assoc k (snd !sign) in (tyargs, ty) with
+  try let Poly (typarams, ty) = List.assoc k (snd !sign) in (typarams, ty) with
   | Not_found -> failwithf "Unknown constant: %S" k
 
+let get_typarams idtys =
+  let rec aux_ty tyvs ty =
+    match ty with
+    | Ty (argtys, targty) ->
+        let tyvs = aux_tys tyvs argtys in
+        if List.mem targty (fst !sign) then tyvs
+        else Iset.add targty tyvs
+  and aux_tys tyvs tys = List.fold_left aux_ty tyvs tys in
+  idtys |> List.map snd |> aux_tys Iset.empty |> Iset.elements
+
 let register_definition = function
-  | Define (flav, tyargs, idtys, udefs) ->
+  | Define (flav, idtys, udefs) ->
+      let typarams = get_typarams idtys in
       let ids = List.map fst idtys in
       check_noredef ids;
       let (basics, consts) = !sign in
-      let basics = tyargs @ basics in
+      let basics = typarams @ basics in
       let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
       let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
                     List.map (fun (head, body) -> {head ; body}) in
       check_def_clauses ids clauses ;
       let (basics, consts) = !sign in
-      let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
+      let consts = List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys @ consts in
       sign := (basics, consts) ;
-      add_defs tyargs idtys flav clauses ;
-      CDefine (flav, tyargs, idtys, clauses)
+      add_defs typarams idtys flav clauses ;
+      CDefine (flav, typarams, idtys, clauses)
   | _ -> bugf "Not a definition!"
 
 let parse_definition str =
@@ -214,14 +225,14 @@ let member_def_compiled =
 
 let k_fresh = "fresh_for"
 let fresh_def_compiled =
-  "Define[A,B] FRESH : A -> B -> prop by\
+  "Define FRESH : A -> B -> prop by\
   \  nabla x, FRESH x M." |>
   Str.global_replace (Str.regexp_string "FRESH") k_fresh |>
   parse_definition
 
 let k_name = "is_name"
 let name_def_compiled =
-  "Define[A] NAME : A -> prop by\
+  "Define NAME : A -> prop by\
   \  nabla x, NAME x." |>
   Str.global_replace (Str.regexp_string "NAME") k_name |>
   parse_definition
@@ -249,7 +260,7 @@ let instantiate_clauses pn def args =
   let ty_fresh = List.fold_left begin fun fresh_sub tyvar ->
       let tv = Term.fresh_tyvar () in
       Itab.add tyvar tv fresh_sub
-    end Itab.empty def.tyargs in
+    end Itab.empty def.typarams in
   let ty_exps = List.map (app_ty ty_fresh) ty_exps in
   let eqns = List.map2 begin fun ty_exp ty_act ->
       (ty_exp, ty_act, (ghost, CArg))
@@ -260,7 +271,7 @@ let instantiate_clauses pn def args =
         let Ty (_, tyf) = Itab.find tyv ty_fresh in
         Itab.add tyv (List.assoc tyf tysol) tymap
       end with Not_found -> tymap
-    end Itab.empty def.tyargs in
+    end Itab.empty def.typarams in
   (* Itab.iter begin fun v ty -> *)
   (*   Format.eprintf "instantiating: %s <- %s@." v (ty_to_string ty) *)
   (* end tymap ; *)
@@ -278,7 +289,7 @@ let def_unfold term =
       if H.mem defs_table pn then begin
         let def = H.find defs_table (term_head_name p) in
         let clauses =
-          if def.tyargs = [] then def.clauses
+          if def.typarams = [] then def.clauses
           else instantiate_clauses pn def (term_spine p)
         in
         (def.mutual, clauses)
@@ -555,6 +566,15 @@ let next_subgoal () =
       subgoals := rest ;
       normalize_sequent ()
 
+(* Show *)
+
+let print_theorem name (tys, thm) =
+  let ff = Format.formatter_of_out_channel !Checks.out in
+  Format.fprintf ff "@[<hv2>Theorem%s %s :@ %a@].@."
+    (gen_to_string tys) name format_metaterm thm
+
+let show name =
+  print_theorem name (get_generic_lemma name)
 
 (* Object level instantiation *)
 

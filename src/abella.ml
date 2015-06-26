@@ -318,13 +318,6 @@ let set k v =
 
   | _, _ -> failwithf "Unknown key '%s'" k
 
-let print_theorem name (tys, thm) =
-  fprintf !out "\nTheorem %s%s : \n%s.\n%!"
-    name (gen_to_string tys) (metaterm_to_formatted_string thm)
-
-let show name =
-  print_theorem name (get_generic_lemma name)
-
 let handle_search_witness w =
   if !witnesses then
     fprintf !out "Witness: %s\n%!" (witness_to_string w)

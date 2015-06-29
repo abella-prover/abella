@@ -110,7 +110,7 @@
 
 %token IMP IF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
-%token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
+%token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY PICK
 %token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE SCHEMA PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
@@ -181,6 +181,7 @@ id:
   | CUT           { "cut" }
   | FROM          { "from" }
   | ASSERT        { "assert" }
+  | PICK          { "pick" }
   | SKIP          { "skip" }
   | WITNESS       { "witness" }
   | UNDO          { "undo" }
@@ -467,6 +468,8 @@ pure_command:
     { Types.Case(Types.Keep ($3, []), $1) }
   | hhint ASSERT metaterm DOT
     { Types.Assert($3, $1) }
+  | PICK binding_list COMMA metaterm DOT
+    { Types.Pick ($2, $4) }
   | EXISTS term DOT
     { Types.Exists(`EXISTS, $2) }
   | WITNESS term DOT

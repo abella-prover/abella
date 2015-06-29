@@ -113,6 +113,13 @@ Additions
   will NOT be portable across different versions of Abella, as they are very
   particular to the "search" tactic implementation.
 
+* Added a new tactic, `pick`, that has this syntax:
+
+        pick x y (z:ty), F.
+
+  The tactic tries to solve `exists x y (z:ty), F` automaticall, and if
+  it succeeds it adds the bindings for `x`, `y`, etc. You can then use them
+  in the rest of the proof.
 
 Bugfixes
 

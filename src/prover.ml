@@ -618,6 +618,8 @@ let cut ?name h arg =
 
 (* Search *)
 
+let retype t = type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars t
+
 let has_inductive_hyps hyp =
   let rec aux term =
     match term with
@@ -657,7 +659,6 @@ let search_goal_witness ?depth goal witness =
              |> List.map (fun h -> (h.id, h.term))
   in
   let depth = Option.default !search_depth depth in
-  let retype t = type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars t in
   let search_depth n =
     Tactics.search
       ~depth:n
@@ -949,6 +950,34 @@ let delay_mainline ?name new_hyp detour_goal =
 let assert_hyp ?name term =
   let term = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
   delay_mainline ?name term term
+
+(* Pick *)
+
+let pick bs body : unit =
+  let ex = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars begin
+      UBinding (Metaterm.Exists, bs, body)
+    end in
+  match ex with
+  | Binding (_, bs, body) ->
+      let global_support =
+        List.unique
+          ((List.flatten_map (fun h -> metaterm_support h.term) sequent.hyps) @
+           (metaterm_support sequent.goal))
+      in
+      let alist = fresh_nameless_alist ~support:global_support ~tag:Logic ~ts:0 bs in
+      let fresh_body = replace_metaterm_vars alist body in
+      let succeed w =
+        let lvs = alist |> List.map snd |> find_var_refs Logic in
+        if lvs <> [] then failwithf "Could not find a ground proof" ;
+        let alist = List.map (fun (x, v) -> (x, deep_copy v)) alist in
+        sequent.vars <- alist @ sequent.vars
+      in
+      let hyps = List.map (fun h -> (h.id, h.term)) sequent.hyps in
+      ignore begin
+        Tactics.search fresh_body
+          ~depth:max_int ~hyps:hyps ~clauses:!clauses ~def_unfold ~sc:succeed ~retype
+      end
+  | _ -> bugf "pick: unexpected typing result: %s" (metaterm_to_string ex)
 
 (* Object logic monotone *)
 

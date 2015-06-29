@@ -145,6 +145,7 @@ type command =
   | Inst of clearable * (id * uterm) list * id option
   | Case of clearable * id option
   | Assert of umetaterm * id option
+  | Pick of (id * ty) list * umetaterm
   | Exists of [`EXISTS | `WITNESS] * uterm
   | Clear of id list
   | Abbrev of id * string
@@ -371,6 +372,10 @@ let command_to_string c =
     | Assert(t, hn) ->
         sprintf "%sassert %s"
           (hn_to_string hn)
+          (umetaterm_to_formatted_string t)
+    | Pick (bs, t) ->
+        sprintf "pick %s, %s"
+          (idtys_to_string bs)
           (umetaterm_to_formatted_string t)
     | Exists (how, t) ->
         let hows = match how with

@@ -261,11 +261,12 @@ let query q =
           (x, Term.fresh ~tag:Logic 0 ty)
         end fv in
       let q = replace_metaterm_vars ctx q in
-      let _ = Tactics.search
+      let _ = Tactics.search q
           ~depth:max_int
           ~hyps:[]
           ~clauses:!clauses
           ~def_unfold:Prover.def_unfold
+          ~retype
           ~sc:(fun w ->
               fprintf !out "Found solution:\n" ;
               List.iter
@@ -273,7 +274,6 @@ let query q =
                    fprintf !out "%s = %s\n" n (term_to_string v))
                 ctx ;
               fprintf !out "\n%!")
-          q
       in
       fprintf !out "No more solutions.\n%!"
   | _ -> assert false
@@ -418,6 +418,7 @@ and process_proof1 name =
   | Assert(t, hn)          ->
       untyped_ensure_no_restrictions t ;
       assert_hyp ?name:hn t
+  | Pick(bs, t)            -> pick bs t
   | Exists(_, t)           -> exists t
   | Monotone(h, t)         -> monotone h t
   | Clear(hs)              -> clear hs

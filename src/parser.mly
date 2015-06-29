@@ -648,13 +648,14 @@ top_command:
   | common_command
     { Types.TopCommon($1) }
 
-maybe_gen_tys:
-  | { [] }
-  | LBRACK id_list RBRACK { List.map deloc_id $2 }
+theorem_typarams:
+  | { [ ] }
+  | LBRACK id_list RBRACK
+    { List.map deloc_id $2 }
 
 pure_top_command:
-  | THEOREM maybe_gen_tys loc_id COLON metaterm DOT
-    { Types.Theorem(deloc_id $3, $2, $5) }
+  | THEOREM loc_id theorem_typarams COLON metaterm DOT
+    { Types.Theorem(deloc_id $2, $3, $5) }
   | DEFINE id_tys BY optsemi defs DOT
     { Types.Define(Types.Inductive, $2, $5) }
   | CODEFINE id_tys BY optsemi defs DOT

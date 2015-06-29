@@ -267,12 +267,12 @@ let block_to_string t2s bl =
 let gen_to_string tys =
   match tys with
   | [] -> ""
-  | _ -> "[" ^ String.concat "," tys ^ "]"
+  | _ -> " [" ^ String.concat "," tys ^ "]"
 
 let top_command_to_string tc =
   match tc with
     | Theorem(name, tys, body) ->
-        sprintf "Theorem%s %s : \n%s" (gen_to_string tys) name
+        sprintf "Theorem %s%s : \n%s" name (gen_to_string tys)
           (umetaterm_to_formatted_string body)
     | Define(flavor, idtys, cls) ->
         sprintf "%s %s by \n%s"

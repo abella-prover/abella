@@ -570,8 +570,8 @@ let next_subgoal () =
 
 let print_theorem name (tys, thm) =
   let ff = Format.formatter_of_out_channel !Checks.out in
-  Format.fprintf ff "@[<hv2>Theorem%s %s :@ %a@].@."
-    (gen_to_string tys) name format_metaterm thm
+  Format.fprintf ff "@[<hv2>Theorem %s%s :@ %a@].@."
+    name (gen_to_string tys) format_metaterm thm
 
 let show name =
   print_theorem name (get_generic_lemma name)

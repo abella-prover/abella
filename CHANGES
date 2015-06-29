@@ -33,7 +33,7 @@ Additions
 * Added support for (first-order) polymorphic theorems. A theorem such as
   the following is now accepted.
 
-        Theorem[A] prune_arg : forall E L, nabla (x:A), member (E x) L ->
+        Theorem prune_arg[A] : forall E L, nabla (x:A), member (E x) L ->
            exists F, E = x\ F.
 
   The `A` here is a type parameter, which must be distinct from the other

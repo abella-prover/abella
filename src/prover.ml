@@ -254,33 +254,39 @@ let rec app_ty tymap = function
       let res = try Itab.find res tymap with Not_found -> tybase res in
       tyarrow args res
 
+let instantiate_clauses_aux =
+  let fn (pn, ty_acts) def =
+    let Ty (ty_exps, _) = Itab.find pn def.mutual in
+    let ty_fresh = List.fold_left begin fun fresh_sub tyvar ->
+        let tv = Term.fresh_tyvar () in
+        Itab.add tyvar tv fresh_sub
+      end Itab.empty def.typarams in
+    let ty_exps = List.map (app_ty ty_fresh) ty_exps in
+    let eqns = List.map2 begin fun ty_exp ty_act ->
+        (ty_exp, ty_act, (ghost, CArg))
+      end ty_exps ty_acts in
+    let tysol = unify_constraints eqns in
+    let tymap = List.fold_left begin fun tymap tyv ->
+        try begin
+          let Ty (_, tyf) = Itab.find tyv ty_fresh in
+          Itab.add tyv (List.assoc tyf tysol) tymap
+        end with Not_found -> tymap
+      end Itab.empty def.typarams in
+    (* Itab.iter begin fun v ty -> *)
+    (*   Format.eprintf "instantiating: %s <- %s@." v (ty_to_string ty) *)
+    (* end tymap ; *)
+    List.map begin fun cl ->
+      if clause_head_name cl = pn then
+        {head = map_on_tys (app_ty tymap) cl.head ;
+         body = map_on_tys (app_ty tymap) cl.body}
+      else cl
+    end def.clauses
+  in
+  memoize fn
+
 let instantiate_clauses pn def args =
   let ty_acts = List.map (tc []) args in
-  let Ty (ty_exps, _) = Itab.find pn def.mutual in
-  let ty_fresh = List.fold_left begin fun fresh_sub tyvar ->
-      let tv = Term.fresh_tyvar () in
-      Itab.add tyvar tv fresh_sub
-    end Itab.empty def.typarams in
-  let ty_exps = List.map (app_ty ty_fresh) ty_exps in
-  let eqns = List.map2 begin fun ty_exp ty_act ->
-      (ty_exp, ty_act, (ghost, CArg))
-    end ty_exps ty_acts in
-  let tysol = unify_constraints eqns in
-  let tymap = List.fold_left begin fun tymap tyv ->
-      try begin
-        let Ty (_, tyf) = Itab.find tyv ty_fresh in
-        Itab.add tyv (List.assoc tyf tysol) tymap
-      end with Not_found -> tymap
-    end Itab.empty def.typarams in
-  (* Itab.iter begin fun v ty -> *)
-  (*   Format.eprintf "instantiating: %s <- %s@." v (ty_to_string ty) *)
-  (* end tymap ; *)
-  List.map begin fun cl ->
-    if clause_head_name cl = pn then
-      {head = map_on_tys (app_ty tymap) cl.head ;
-       body = map_on_tys (app_ty tymap) cl.body}
-    else cl
-  end def.clauses
+  instantiate_clauses_aux (pn, ty_acts) def
 
 let def_unfold term =
   match term with
@@ -665,7 +671,8 @@ let search_goal_witness ?depth goal witness =
   List.find_some search_depth (List.range 1 depth)
 
 let search_goal goal =
-  Option.is_some (search_goal_witness goal WMagic)
+  try Option.is_some (search_goal_witness goal WMagic)
+  with Failure _ -> false
 
 let search ?(limit=None) ?(interactive=true) ~witness ~handle_witness () =
   let depth = limit in

@@ -386,7 +386,8 @@ let rec process1 () =
             if !annotate then fprintf !out "\n</pre>\n%!" ;
             exit 0
         | _ ->
-            fprintf !out "Proof NOT completed.\n</pre>\n%!" ;
+            fprintf !out "Proof NOT completed.\n%!" ;
+            if !annotate then fprintf !out "</pre>\n%!" ;
             exit 1
       end
   | e ->

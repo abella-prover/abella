@@ -138,7 +138,7 @@ type command =
   | Induction of int list * id option
   | CoInduction of id option
   | Apply of clearable * clearable list * (id * uterm) list * id option
-  | Backchain of clearable * (id * uterm) list
+  | Backchain of clearable * (id * uterm) list * int
   | CutFrom of clearable * clearable * uterm * id option
   | Cut of clearable * clearable * id option
   | SearchCut of clearable * id option
@@ -315,6 +315,10 @@ let hn_to_string = function
 let clearables_to_string cls =
   List.map clearable_to_string cls |> String.concat " "
 
+let keep_to_string = function
+  | 0 -> ""
+  | n -> " " ^ string_of_int n
+
 let command_to_string c =
   match c with
     | Induction(is, hn) ->
@@ -341,11 +345,13 @@ let command_to_string c =
           (clearable_to_string h)
           (clearables_to_string hs)
           (withs_to_string ws)
-    | Backchain(h, []) ->
-        sprintf "backchain %s"
+    | Backchain(h, [], keep) ->
+        sprintf "backchain%s %s"
+          (keep_to_string keep)
           (clearable_to_string h)
-    | Backchain(h, ws) ->
-        sprintf "backchain %s with %s"
+    | Backchain(h, ws, keep) ->
+        sprintf "backchain%s %s with %s"
+          (keep_to_string keep)
           (clearable_to_string h)
           (withs_to_string ws)
     | Cut(h1, h2, hn) ->

@@ -134,7 +134,11 @@ let compile citem =
   comp_content := citem :: !comp_content
 
 let predicates (ktable, ctable) =
-  List.map fst (List.find_all (fun (_, Poly(_, Ty(_, ty))) -> ty = "o") ctable)
+  ctable |>
+  List.filter_map begin fun (id, Poly (_, Ty (_, targty))) ->
+    if List.mem id [k_member ; k_fresh ; k_name] || targty = "o" then None
+    else Some id
+  end
 
 let write_compilation () =
   marshal !comp_spec_sign ;
@@ -409,7 +413,7 @@ and process_proof1 name =
   | Induction(args, hn)    -> induction ?name:hn args
   | CoInduction hn         -> coinduction ?name:hn ()
   | Apply(h, args, ws, hn) -> apply ?name:hn h args ws ~term_witness
-  | Backchain(h, ws)       -> backchain h ws ~term_witness
+  | Backchain(h, ws, keep) -> backchain h ws keep ~term_witness
   | Cut(h, arg, hn)        -> cut ?name:hn h arg
   | CutFrom(h, arg, t, hn) -> cut_from ?name:hn h arg t
   | SearchCut(h, hn)       -> search_cut ?name:hn h

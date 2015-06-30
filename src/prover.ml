@@ -165,11 +165,16 @@ let parse_defs ?(sign = !sign) str =
 
 let defs_table : defs_table = State.table ()
 
+let built_ins_done = ref false
+
 let add_defs typarams preds flavor clauses =
-  List.iter
-    (fun (id, _) -> if H.mem defs_table id then
-        failwithf "Predicate %s has already been defined" id)
-    preds ;
+  List.iter begin fun (id, _) ->
+    if List.mem id [k_fresh ; k_name] && !built_ins_done then
+      Printf.eprintf "Warning: %s shadows a built-in definition. \
+                    \ Schemas may no longer work.\n%!" id
+    else if H.mem defs_table id then
+      failwithf "Predicate %s has already been defined" id ;
+  end preds ;
   (* List.iter begin fun (head, body) -> *)
   (*   Format.eprintf "%a := %a@." format_metaterm head format_metaterm body *)
   (* end defs ; *)
@@ -236,6 +241,8 @@ let name_def_compiled =
   \  nabla x, NAME x." |>
   Str.global_replace (Str.regexp_string "NAME") k_name |>
   parse_definition
+
+let () = built_ins_done := true
 
 let term_spine t =
   match term_head t with
@@ -740,10 +747,10 @@ let type_apply_withs stmt ws =
        | Not_found -> failwithf "Unknown variable %s" id)
     ws
 
-let partition_obligations obligations =
+let partition_obligations ?depth obligations =
   Either.partition_eithers
     (List.map
-       (fun g -> match search_goal_witness g WMagic with
+       (fun g -> match search_goal_witness ?depth g WMagic with
           | None -> Either.Left g
           | Some w -> Either.Right (g, w))
        obligations)
@@ -790,12 +797,13 @@ let type_backchain_withs stmt ws =
        | Not_found -> failwithf "Unknown variable %s" id)
     ws
 
-let backchain ?(term_witness=ignore) h ws =
+let backchain ?(term_witness=ignore) h ws depth =
   let stmt = get_stmt_clearly h in
   let ws = type_backchain_withs stmt ws in
   let obligations = Tactics.backchain_with stmt ws sequent.goal in
   let remaining_obligations, term_witnesses =
-    partition_obligations obligations
+    let depth = if depth < 0 then None else Some depth in
+    partition_obligations ?depth obligations
   in
   let () = ensure_no_logic_variable remaining_obligations in
   let () = List.iter term_witness term_witnesses in

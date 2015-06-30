@@ -437,6 +437,10 @@ apply_arg:
   | STAR STRINGID maybe_inst
     { check_legal_var $2 2 ; Types.Remove ($2, $3) }
 
+maybe_depth:
+  | NUM { $1 }
+  | { -1 }
+
 pure_command:
   | hhint IND ON num_list DOT
     { Types.Induction($4, $1) }
@@ -450,10 +454,10 @@ pure_command:
     { Types.Apply($3, [], $5, $1) }
   | hhint APPLY clearable DOT
     { Types.Apply($3, [], [], $1) }
-  | BACKCHAIN clearable DOT
-    { Types.Backchain($2, []) }
-  | BACKCHAIN clearable WITH withs DOT
-    { Types.Backchain($2, $4) }
+  | BACKCHAIN maybe_depth clearable DOT
+    { Types.Backchain($3, [], $2) }
+  | BACKCHAIN maybe_depth clearable WITH withs DOT
+    { Types.Backchain($3, $5, $2) }
   | hhint CUT LPAREN term RPAREN FROM clearable WITH clearable DOT
     { Types.CutFrom($7,$9,$4,$1) }
   | hhint CUT clearable WITH clearable DOT

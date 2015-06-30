@@ -121,6 +121,15 @@ Additions
   it succeeds it adds the bindings for `x`, `y`, etc. You can then use them
   in the rest of the proof.
 
+* Added a new tactic form for `backchain`:
+
+        backchain <num> <hyp_or_lemma>.
+
+  where the `<num>`, which is optional, can give a depth bound to the search
+  that is automatically attempted on generated goals. Give it a depth of 0
+  if you want to prevent searching. The default value is the value of the
+  search_depth flag.
+
 Bugfixes
 
 * Annotation mode (-a) output is no longer printed in other modes

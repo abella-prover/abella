@@ -410,27 +410,27 @@ and process_proof1 name =
     fprintf !out "%s%s.%s\n%!" pre (command_to_string input) post
   end ;
   begin match input with
-  | Induction(args, hn)    -> induction ?name:hn args
-  | CoInduction hn         -> coinduction ?name:hn ()
-  | Apply(h, args, ws, hn) -> apply ?name:hn h args ws ~term_witness
-  | Backchain(h, ws, keep) -> backchain h ws keep ~term_witness
-  | Cut(h, arg, hn)        -> cut ?name:hn h arg
-  | CutFrom(h, arg, t, hn) -> cut_from ?name:hn h arg t
-  | SearchCut(h, hn)       -> search_cut ?name:hn h
-  | Inst(h, ws, hn)        -> inst ?name:hn h ws
-  | Case(str, hn)          -> case ?name:hn str
-  | Assert(t, hn)          ->
+  | Induction(args, hn)      -> induction ?name:hn args
+  | CoInduction hn           -> coinduction ?name:hn ()
+  | Apply(h, args, ws, hn)   -> apply ?name:hn h args ws ~term_witness
+  | Backchain(depth, h, ws)  -> backchain ?depth h ws ~term_witness
+  | Cut(h, arg, hn)          -> cut ?name:hn h arg
+  | CutFrom(h, arg, t, hn)   -> cut_from ?name:hn h arg t
+  | SearchCut(h, hn)         -> search_cut ?name:hn h
+  | Inst(h, ws, hn)          -> inst ?name:hn h ws
+  | Case(str, hn)            -> case ?name:hn str
+  | Assert(t, hn)            ->
       untyped_ensure_no_restrictions t ;
       assert_hyp ?name:hn t
-  | Pick(bs, t)            -> pick bs t
-  | Exists(_, t)           -> exists t
-  | Monotone(h, t)         -> monotone h t
-  | Clear(hs)              -> clear hs
-  | Abbrev(h, s)           -> abbrev h s
-  | Unabbrev(hs)           -> unabbrev hs
-  | Rename(hfr, hto)       -> rename hfr hto
+  | Pick(depth, bs, t)      -> pick ?depth bs t
+  | Exists(_, t)             -> exists t
+  | Monotone(h, t)           -> monotone h t
+  | Clear(hs)                -> clear hs
+  | Abbrev(h, s)             -> abbrev h s
+  | Unabbrev(hs)             -> unabbrev hs
+  | Rename(hfr, hto)         -> rename hfr hto
   | Search(bounds) -> begin
-      let limit = match bounds with
+      let depth = match bounds with
         | `depth n -> Some n
         | _ -> None
       in
@@ -438,7 +438,7 @@ and process_proof1 name =
         | `witness w -> w
         | _ -> WMagic
       in
-      search ~limit ~interactive:!interactive ~witness ~handle_witness:handle_search_witness ()
+      search ?depth ~interactive:!interactive ~witness ~handle_witness:handle_search_witness ()
     end
   | Permute(ids, h)        -> permute_nominals ids h
   | Split                  -> split false

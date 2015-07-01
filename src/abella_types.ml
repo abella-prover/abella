@@ -134,18 +134,20 @@ let witness_to_string =
   in
   aux
 
+type depth_bound = int
+
 type command =
   | Induction of int list * id option
   | CoInduction of id option
   | Apply of clearable * clearable list * (id * uterm) list * id option
-  | Backchain of clearable * (id * uterm) list * int
+  | Backchain of depth_bound option * clearable * (id * uterm) list
   | CutFrom of clearable * clearable * uterm * id option
   | Cut of clearable * clearable * id option
   | SearchCut of clearable * id option
   | Inst of clearable * (id * uterm) list * id option
   | Case of clearable * id option
   | Assert of umetaterm * id option
-  | Pick of (id * ty) list * umetaterm
+  | Pick of depth_bound option * (id * ty) list * umetaterm
   | Exists of [`EXISTS | `WITNESS] * uterm
   | Clear of id list
   | Abbrev of id * string
@@ -153,7 +155,7 @@ type command =
   | Rename of id * id
   | Monotone of clearable * uterm
   | Permute of id list * id option
-  | Search of [`nobounds | `depth of int | `witness of witness]
+  | Search of [`nobounds | `depth of depth_bound | `witness of witness]
   | Split
   | SplitStar
   | Left
@@ -315,9 +317,9 @@ let hn_to_string = function
 let clearables_to_string cls =
   List.map clearable_to_string cls |> String.concat " "
 
-let keep_to_string = function
-  | 0 -> ""
-  | n -> " " ^ string_of_int n
+let dbound_to_string = function
+  | None -> ""
+  | Some n -> " " ^ string_of_int n
 
 let command_to_string c =
   match c with
@@ -345,13 +347,13 @@ let command_to_string c =
           (clearable_to_string h)
           (clearables_to_string hs)
           (withs_to_string ws)
-    | Backchain(h, [], keep) ->
+    | Backchain(dbound, h, []) ->
         sprintf "backchain%s %s"
-          (keep_to_string keep)
+          (dbound_to_string dbound)
           (clearable_to_string h)
-    | Backchain(h, ws, keep) ->
+    | Backchain(dbound, h, ws) ->
         sprintf "backchain%s %s with %s"
-          (keep_to_string keep)
+          (dbound_to_string dbound)
           (clearable_to_string h)
           (withs_to_string ws)
     | Cut(h1, h2, hn) ->
@@ -379,8 +381,9 @@ let command_to_string c =
         sprintf "%sassert %s"
           (hn_to_string hn)
           (umetaterm_to_formatted_string t)
-    | Pick (bs, t) ->
-        sprintf "pick %s, %s"
+    | Pick (dbound, bs, t) ->
+        sprintf "pick%s %s, %s"
+          (dbound_to_string dbound)
           (idtys_to_string bs)
           (umetaterm_to_formatted_string t)
     | Exists (how, t) ->

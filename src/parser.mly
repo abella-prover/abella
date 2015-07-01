@@ -438,8 +438,8 @@ apply_arg:
     { check_legal_var $2 2 ; Types.Remove ($2, $3) }
 
 maybe_depth:
-  | NUM { $1 }
-  | { -1 }
+  | NUM { Some $1 }
+  | { None }
 
 pure_command:
   | hhint IND ON num_list DOT
@@ -455,9 +455,9 @@ pure_command:
   | hhint APPLY clearable DOT
     { Types.Apply($3, [], [], $1) }
   | BACKCHAIN maybe_depth clearable DOT
-    { Types.Backchain($3, [], $2) }
+    { Types.Backchain($2, $3, []) }
   | BACKCHAIN maybe_depth clearable WITH withs DOT
-    { Types.Backchain($3, $5, $2) }
+    { Types.Backchain($2, $3, $5) }
   | hhint CUT LPAREN term RPAREN FROM clearable WITH clearable DOT
     { Types.CutFrom($7,$9,$4,$1) }
   | hhint CUT clearable WITH clearable DOT
@@ -472,8 +472,8 @@ pure_command:
     { Types.Case(Types.Keep ($3, []), $1) }
   | hhint ASSERT metaterm DOT
     { Types.Assert($3, $1) }
-  | PICK binding_list COMMA metaterm DOT
-    { Types.Pick ($2, $4) }
+  | PICK maybe_depth binding_list COMMA metaterm DOT
+    { Types.Pick ($2, $3, $5) }
   | EXISTS term DOT
     { Types.Exists(`EXISTS, $2) }
   | WITNESS term DOT

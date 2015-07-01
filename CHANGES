@@ -119,7 +119,10 @@ Additions
 
   The tactic tries to solve `exists x y (z:ty), F` automaticall, and if
   it succeeds it adds the bindings for `x`, `y`, etc. You can then use them
-  in the rest of the proof.
+  in the rest of the proof. To bound the automatic search, you can use the
+  form
+
+        pick <num> x y (z:ty), F.
 
 * Added a new tactic form for `backchain`:
 

@@ -678,12 +678,11 @@ let search_goal_witness ?depth goal witness =
   in
   List.find_some search_depth (List.range 1 depth)
 
-let search_goal goal =
-  try Option.is_some (search_goal_witness goal WMagic)
+let search_goal ?depth goal =
+  try Option.is_some (search_goal_witness ?depth goal WMagic)
   with Failure _ -> false
 
-let search ?(limit=None) ?(interactive=true) ~witness ~handle_witness () =
-  let depth = limit in
+let search ?depth ?(interactive=true) ~witness ~handle_witness () =
   let search_result = search_goal_witness ?depth sequent.goal witness in
   match search_result with
   | None -> if not interactive then failwith "Search failed"
@@ -797,12 +796,11 @@ let type_backchain_withs stmt ws =
        | Not_found -> failwithf "Unknown variable %s" id)
     ws
 
-let backchain ?(term_witness=ignore) h ws depth =
+let backchain ?depth ?(term_witness=ignore) h ws =
   let stmt = get_stmt_clearly h in
   let ws = type_backchain_withs stmt ws in
   let obligations = Tactics.backchain_with stmt ws sequent.goal in
   let remaining_obligations, term_witnesses =
-    let depth = if depth < 0 then None else Some depth in
     partition_obligations ?depth obligations
   in
   let () = ensure_no_logic_variable remaining_obligations in
@@ -961,7 +959,7 @@ let assert_hyp ?name term =
 
 (* Pick *)
 
-let pick bs body : unit =
+let pick ?depth bs body : unit =
   let ex = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars begin
       UBinding (Metaterm.Exists, bs, body)
     end in
@@ -981,9 +979,10 @@ let pick bs body : unit =
         sequent.vars <- alist @ sequent.vars
       in
       let hyps = List.map (fun h -> (h.id, h.term)) sequent.hyps in
+      let depth = Option.default !search_depth depth in
       ignore begin
         Tactics.search fresh_body
-          ~depth:max_int ~hyps:hyps ~clauses:!clauses ~def_unfold ~sc:succeed ~retype
+          ~depth ~hyps ~clauses:!clauses ~def_unfold ~sc:succeed ~retype
       end
   | _ -> bugf "pick: unexpected typing result: %s" (metaterm_to_string ex)
 

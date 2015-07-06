@@ -980,10 +980,9 @@ let pick ?depth bs body : unit =
       in
       let hyps = List.map (fun h -> (h.id, h.term)) sequent.hyps in
       let depth = Option.default !search_depth depth in
-      ignore begin
-        Tactics.search fresh_body
-          ~depth ~hyps ~clauses:!clauses ~def_unfold ~sc:succeed ~retype
-      end
+      if Option.is_none (Tactics.search fresh_body
+                           ~depth ~hyps ~clauses:!clauses ~def_unfold ~sc:succeed ~retype)
+      then failwithf "Could not solve: %s" (metaterm_to_formatted_string ex)
   | _ -> bugf "pick: unexpected typing result: %s" (metaterm_to_string ex)
 
 (* Object logic monotone *)

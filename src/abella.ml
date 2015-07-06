@@ -42,6 +42,8 @@ let witnesses = State.rref false
 
 exception AbortProof
 
+exception UserInterrupt
+
 (* Input *)
 
 let perform_switch_to_interactive () =
@@ -396,7 +398,11 @@ let rec process1 () =
       end
   | e ->
       State.Undo.undo () ;
-      let msg = match e with Failure msg -> msg | _ -> Printexc.to_string e in
+      let msg = match e with
+        | Failure msg -> msg
+        | UserInterrupt -> "Interrupted (use ctrl-D to quit)"
+        | _ -> Printexc.to_string e
+      in
       eprintf "Error: %s\n%!" msg ;
       interactive_or_exit ()
 
@@ -599,7 +605,7 @@ let number fn () =
 
 let _ =
   Sys.set_signal Sys.sigint
-    (Sys.Signal_handle (fun _ -> failwith "Interrupted (use ctrl-D to quit)")) ;
+    (Sys.Signal_handle (fun _ -> raise UserInterrupt)) ;
 
   Arg.parse options add_input usage_message ;
 

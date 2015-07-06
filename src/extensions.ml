@@ -354,3 +354,15 @@ module Either = struct
     let right x (l, r) = (l, x::r) in
       List.fold_right (either left right) eithers ([], [])
 end
+
+module Delim = struct
+  type 'a t = 'a -> exn
+
+  let shift label value =
+    raise (label value)
+
+  let reset (type u) (f : u t -> u) : u =
+    let module M = struct exception Return of u end in
+    try f (fun x -> M.Return x)
+    with M.Return u -> u
+end

@@ -34,7 +34,10 @@ type tag = Eigen | Constant | Logic | Nominal
 type id = string
 
 module Itab : Map.S with type key := id
-module Iset : Set.S with type elt := id
+module Iset : sig
+    include Set.S with type elt := id
+    val of_list : id list -> t
+  end
 
 type var = private {
   name : id ;

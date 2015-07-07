@@ -30,7 +30,11 @@ type tag = Eigen | Constant | Logic | Nominal
 type id = string
 
 module Itab = Map.Make (String)
-module Iset = Set.Make (String)
+module Iset = struct
+    include Set.Make (String)
+    let of_list l =
+      List.fold_left (fun s x -> add x s) empty l
+  end
 
 type var = {
   name : id ;

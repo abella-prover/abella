@@ -113,11 +113,13 @@ let warn_stratify names head term =
       let msg = match reason with
         | Negative_head name ->
             Printf.sprintf
-              "Definition might not be stratified\n  (%S occurs to the left of ->)"
+              "Clause might not be stratified\n\
+             \ (%S occurs to the left of ->)"
               name
         | Negative_ho_arg name ->
             Printf.sprintf
-              "Definition can be used to defeat stratification\n  (higher-order argument %S occurs to the left of ->)"
+              "Clause can be used to defeat stratification\n\
+             \ (higher-order argument %S occurs to the left of ->)"
               name
       in
       if stratification_warnings_are_errors
@@ -160,7 +162,7 @@ let check_basic_stratification ~def =
     let ho_names = def_head_args head |>
                    List.filter_map is_ho_var in
     let scan () = Iset.iter begin fun pname ->
-        if Itab.mem pname def.mutual then
+        if Itab.mem pname def.atoms then
           raise (Nonstrat (Negative_head pname)) ;
         if List.mem pname ho_names then
           raise (Nonstrat (Negative_ho_arg pname)) ;
@@ -188,11 +190,11 @@ let check_stratification ~def =
   check_basic_stratification ~def
 
 let check_def ~def =
-  Itab.iter (fun nm _ -> ensure_not_capital nm) def.mutual ;
+  Itab.iter (fun nm _ -> ensure_not_capital nm) def.atoms ;
   List.iter begin fun {head ; body} ->
     let head_pred = def_head_name head in
     ensure_wellformed_head head ;
-    if not (Itab.mem head_pred def.mutual) then
+    if not (Itab.mem head_pred def.atoms) then
       failwithf "Found stray clause for %s" head_pred ;
     ensure_no_restrictions head ;
     ensure_no_restrictions body ;

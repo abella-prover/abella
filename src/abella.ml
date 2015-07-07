@@ -247,41 +247,40 @@ let import filename =
       let imp_spec_clauses = (Marshal.from_channel file : clause list) in
       let imp_predicates = (Marshal.from_channel file : string list) in
       let imp_content = (Marshal.from_channel file : compiled list) in
-      ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates ;
-      List.iter
-        (function
-          | CTheorem(name, tys, thm) ->
-              add_lemma name tys thm ;
-          | CDefine(flav, tyargs, idtys, clauses) ->
-              let ids = List.map fst idtys in
-              check_noredef ids;
-              let (basics, consts) = !sign in
-              let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
-              sign := (basics, consts) ;
-              add_defs tyargs idtys flav clauses ;
-          | CSchema sch ->
-              bugf "Schemas not yet supported"
-          | CImport(filename) ->
-              aux filename
-          | CKind(ids) ->
-              check_noredef ids;
-              add_global_types ids
-          | CType(ids, ty) ->
-              check_noredef ids;
-              add_global_consts (List.map (fun id -> (id, ty)) ids)
-          | CClose(ty_subords) ->
-              List.iter
-                (fun (ty, prev) ->
-                   let curr = Subordination.subordinates !sr ty in
-                   match List.minus curr prev with
-                   | [] -> ()
-                   | xs ->
-                       failwithf
-                         "Cannot close %s since it is now subordinate to %s"
-                         ty (String.concat ", " xs))
-                ty_subords ;
-              close_types (List.map fst ty_subords))
-        imp_content
+        ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates ;
+        List.iter begin function
+        | CTheorem(name, tys, thm) ->
+            add_lemma name tys thm ;
+        | CDefine(flav, tyargs, idtys, clauses) ->
+            let ids = List.map (fun (id, _) -> id) idtys in
+            check_noredef ids;
+            let (basics, consts) = !sign in
+            let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys
+                         @ consts in
+            sign := (basics, consts) ;
+            add_defs tyargs idtys flav clauses ;
+        | CSchema sch ->
+            bugf "Schemas not yet supported"
+        | CImport(filename) ->
+            aux filename
+        | CKind(ids) ->
+            check_noredef ids;
+            add_global_types ids
+        | CType(ids, ty) ->
+            check_noredef ids;
+            add_global_consts (List.map (fun id -> (id, ty)) ids)
+        | CClose(ty_subords) ->
+            List.iter begin fun (ty, prev) ->
+              let curr = Subordination.subordinates !sr ty in
+              match List.minus curr prev with
+              | [] -> ()
+              | xs ->
+                  failwithf
+                    "Cannot close %s since it is now subordinate to %s"
+                    ty (String.concat ", " xs)
+            end ty_subords ;
+            close_types (List.map fst ty_subords)
+        end imp_content
     end
   in
   if List.mem filename !imported then

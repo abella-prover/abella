@@ -36,7 +36,7 @@ type def_clause = {
 type def = {
   flavor   : flavor ;
   typarams : string list ;
-  mutual   : ty Itab.t ;
+  atoms    : ty Itab.t ;
   clauses  : def_clause list ;
 }
 type defs_table = (string, def) Hashtbl.t

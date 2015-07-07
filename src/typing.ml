@@ -688,7 +688,6 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   check_meta_quantification result ;
   result
 
-
 let type_udef ~sr ~sign (head, body) =
   let cids = umetaterm_extract_if is_capital_name head in
   let tyctx = ids_to_fresh_tyctx cids in

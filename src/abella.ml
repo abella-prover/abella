@@ -142,7 +142,10 @@ let predicates (ktable, ctable) =
     else Some id
   end
 
+let self_digest = Digest.file Sys.executable_name
+
 let write_compilation () =
+  marshal self_digest ;
   marshal !comp_spec_sign ;
   marshal !comp_spec_clauses ;
   marshal (predicates !sign) ;
@@ -206,6 +209,10 @@ let import filename =
     if not (List.mem filename !imported) then begin
       imported := filename :: !imported ;
       let file = open_in_bin (filename ^ ".thc") in
+      let dig = (Marshal.from_channel file : Digest.t) in
+      if dig <> self_digest then
+        failwithf "Cannot import %S; was created with a different version of Abella"
+          filename ;
       let imp_spec_sign = (Marshal.from_channel file : sign) in
       let imp_spec_clauses = (Marshal.from_channel file : clause list) in
       let imp_predicates = (Marshal.from_channel file : string list) in

@@ -299,9 +299,8 @@ let query q =
   let ctx = fresh_alist ~tag:Logic ~used:[] fv in
   match type_umetaterm ~sr:!sr ~sign:!sign ~ctx (UBinding(Metaterm.Exists, fv, q)) with
   | Binding(Metaterm.Exists, fv, q) ->
-      let ctx = List.map begin fun (x, ty) ->
-          (x, Term.fresh ~tag:Logic 0 ty)
-        end fv in
+      let support = metaterm_support q in
+      let ctx = Tactics.fresh_nameless_alist ~support ~ts:0 ~tag:Logic fv in
       let q = replace_metaterm_vars ctx q in
       let _ = Tactics.search q
           ~depth:max_int
@@ -591,7 +590,9 @@ and process_top1 () =
 
 let welcome_msg = sprintf "Welcome to Abella %s\n" Version.version
 
-let usage_message = "abella [options] <theorem-file>"
+let usage_message = Printf.sprintf "%s [options] <theorem-file>" begin
+    if !Sys.interactive then "abella" else Filename.basename Sys.executable_name
+  end
 
 let set_output filename =
   out := open_out filename

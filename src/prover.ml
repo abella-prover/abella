@@ -181,7 +181,9 @@ let add_defs typarams preds flavor clauses =
   let mutual = List.fold_left begin fun mutual (id, ty) ->
       Itab.add id ty mutual
     end Itab.empty preds in
-  List.iter (fun (id, _) -> H.add defs_table id {flavor ; typarams ; mutual ; clauses}) preds
+  let def = {flavor ; typarams ; mutual ; clauses} in
+  Checks.check_def ~def ;
+  List.iter (fun (id, _) -> H.add defs_table id def) preds
 
 let lookup_poly_const k =
   try let Poly (typarams, ty) = List.assoc k (snd !sign) in (typarams, ty) with
@@ -207,7 +209,6 @@ let register_definition = function
       let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
       let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
                     List.map (fun (head, body) -> {head ; body}) in
-      check_def_clauses ids clauses ;
       let (basics, consts) = !sign in
       let consts = List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys @ consts in
       sign := (basics, consts) ;

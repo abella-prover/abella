@@ -141,25 +141,60 @@ let ensure_not_capital name =
              \ Defined predicates may not begin with a capital letter."
       name
 
-let ensure_name_contained id ids =
-  if not (List.mem id ids) then
-    failwithf "Found stray clause for %s" id
-
 let ensure_wellformed_head t =
   match t with
-    | Pred _ -> ()
-    | Binding(Nabla, _, Pred _) -> ()
-    | _ ->
-        failwithf "Invalid head in definition: %s"
-          (metaterm_to_string t)
+  | Pred _ -> ()
+  | Binding(Nabla, _, Pred _) -> ()
+  | _ ->
+      failwithf "Invalid head in definition: %s"
+        (metaterm_to_string t)
 
-let check_def_clauses names defs =
-  List.iter ensure_not_capital names ;
-  List.iter
-    (fun {head ; body} ->
-       ensure_wellformed_head head ;
-       ensure_name_contained (def_head_name head) names ;
-       ensure_no_restrictions head ;
-       ensure_no_restrictions body ;
-       warn_stratify names head body)
-    defs
+let check_basic_stratification ~def =
+  let check_clause {head ; body} =
+    let nonposities = get_pred_occurrences body in
+    let is_ho_var arg =
+      match observe (hnorm arg) with
+      | Var { Term.ty = ty; Term.name = v; _ } when contains_prop ty -> Some v
+      | _ -> None
+    in
+    let ho_names = def_head_args head |>
+                   List.filter_map is_ho_var in
+    let scan () = Iset.iter begin fun pname ->
+        if Itab.mem pname def.mutual then
+          raise (Nonstrat (Negative_head pname)) ;
+        if List.mem pname ho_names then
+          raise (Nonstrat (Negative_ho_arg pname)) ;
+      end nonposities in
+    try scan () with
+    | Nonstrat reason ->
+        let msg = match reason with
+          | Negative_head name ->
+              Printf.sprintf
+                "Definition might not be stratified\n\
+               \ (%S occurs to the left of ->)"
+                name
+          | Negative_ho_arg name ->
+              Printf.sprintf
+                "Definition can be used to defeat stratification\n\
+               \ (higher-order argument %S occurs to the left of ->)"
+                name
+        in
+        if stratification_warnings_are_errors then failwith msg
+        else Printf.fprintf !out "Warning: %s\n%!" msg
+  in
+  List.iter check_clause def.clauses
+
+let check_stratification ~def =
+  check_basic_stratification ~def
+
+let check_def ~def =
+  Itab.iter (fun nm _ -> ensure_not_capital nm) def.mutual ;
+  List.iter begin fun {head ; body} ->
+    let head_pred = def_head_name head in
+    ensure_wellformed_head head ;
+    if not (Itab.mem head_pred def.mutual) then
+      failwithf "Found stray clause for %s" head_pred ;
+    ensure_no_restrictions head ;
+    ensure_no_restrictions body ;
+  end def.clauses ;
+  check_stratification ~def

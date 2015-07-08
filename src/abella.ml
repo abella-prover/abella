@@ -226,7 +226,6 @@ let import filename =
              | CDefine(flav, tyargs, idtys, clauses) ->
                  let ids = List.map fst idtys in
                  check_noredef ids;
-                 check_def_clauses ids clauses ;
                  let (basics, consts) = !sign in
                  let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
                  sign := (basics, consts) ;

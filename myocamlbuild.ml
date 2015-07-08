@@ -27,6 +27,7 @@ let version_file_contents =
     | Some v -> "Some \"" ^ String.escaped v ^ "\""
   end ;
   printf "let version = %S;;" version_string ;
+  printf "let self_digest = Digest.file Sys.executable_name;;" ;
   Buffer.contents buf
 
 let version_file = "src/version.ml"

@@ -26,3 +26,4 @@ src/unit_test
 abella
 _build
 examples/examples.tar.gz
+/src/outtakes.ml

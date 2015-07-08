@@ -122,6 +122,14 @@ module List = struct
 
   let iter ?guard f list = iter (maybe_guard ?guard f) list
 
+  let iteri ?guard f list =
+    let f = maybe_guard ?guard f in
+    let rec spin n = function
+      | [] -> ()
+      | x :: xs -> f n x ; spin (n + 1) xs
+    in
+    spin 0 list
+
   let iter_sep ~sep f list =
     let rec spin0 = function
       | [] -> ()

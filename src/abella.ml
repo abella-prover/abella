@@ -66,19 +66,19 @@ let position_range (p1, p2) =
   let line = p1.Lexing.pos_lnum in
   let char1 = p1.Lexing.pos_cnum - p1.Lexing.pos_bol in
   let char2 = p2.Lexing.pos_cnum - p1.Lexing.pos_bol in
-    if file = "" then
-      ""
-    else
-      sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
+  if file = "" then
+    ""
+  else
+    sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
 
 let type_inference_error (pos, ct) exp act =
   eprintf "Typing error%s.\n%!" (position_range pos) ;
   match ct with
-    | CArg ->
-        eprintf "Expression has type %s but is used here with type %s\n%!"
-          (ty_to_string act) (ty_to_string exp)
-    | CFun ->
-        eprintf "Expression is applied to too many arguments\n%!"
+  | CArg ->
+      eprintf "Expression has type %s but is used here with type %s\n%!"
+        (ty_to_string act) (ty_to_string exp)
+  | CFun ->
+      eprintf "Expression is applied to too many arguments\n%!"
 
 let teyjus_only_keywords =
   ["closed"; "exportdef"; "import"; "infix"; "infixl"; "infixr"; "local";
@@ -88,10 +88,10 @@ let teyjus_only_keywords =
 let warn_on_teyjus_only_keywords (ktable, ctable) =
   let tokens = List.unique (ktable @ List.map fst ctable) in
   let used_keywords = List.intersect tokens teyjus_only_keywords in
-    if used_keywords <> [] then
-      fprintf !out
-        "Warning: The following tokens are keywords in Teyjus: %s\n%!"
-        (String.concat ", " used_keywords)
+  if used_keywords <> [] then
+    fprintf !out
+      "Warning: The following tokens are keywords in Teyjus: %s\n%!"
+      (String.concat ", " used_keywords)
 
 let update_subordination_sign sr sign =
   List.fold_left Subordination.update sr (sign_to_tys sign)
@@ -107,10 +107,10 @@ let read_specification name =
   let sign' = merge_signs [!sign; read_sign] in
   let sr' = update_subordination_sign !sr read_sign in
   let clauses' = get_clauses ~sr:sr' name in
-    (* Any exceptions must have been thrown by now - do actual assignments *)
-    sr := sr' ;
-    sign := sign' ;
-    add_clauses clauses'
+  (* Any exceptions must have been thrown by now - do actual assignments *)
+  sr := sr' ;
+  sign := sign' ;
+  add_clauses clauses'
 
 
 (* Compilation and importing *)
@@ -121,8 +121,8 @@ let comp_content = State.rref []
 
 let marshal citem =
   match !compile_out with
-    | Some cout -> Marshal.to_channel cout citem []
-    | None -> ()
+  | Some cout -> Marshal.to_channel cout citem []
+  | None -> ()
 
 let ensure_finalized_specification () =
   if !can_read_specification then begin
@@ -164,15 +164,15 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   (* 1. Imported ktable must be a subset of ktable *)
   let missing_types = List.minus imp_ktable ktable in
   let () = if missing_types <> [] then
-    failwithf "Imported file makes reference to unknown types: %s"
-      (String.concat ", " missing_types)
+      failwithf "Imported file makes reference to unknown types: %s"
+        (String.concat ", " missing_types)
   in
 
   (* 2. Imported ctable must be a subset of ctable *)
   let missing_consts = List.minus imp_ctable ctable in
   let () = if missing_consts <> [] then
-    failwithf "Imported file makes reference to unknown constants: %s"
-      (String.concat ", " (List.map fst missing_consts))
+      failwithf "Imported file makes reference to unknown constants: %s"
+        (String.concat ", " (List.map fst missing_consts))
   in
 
   (* 3. Imported clauses must be a subset of clauses *)
@@ -180,8 +180,8 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
     List.minus ~cmp:clause_eq imp_spec_clauses !clauses
   in
   let () = if missing_clauses <> [] then
-    failwithf "Imported file makes reference to unknown clauses for: %s"
-      (String.concat ", " (clauses_to_predicates missing_clauses))
+      failwithf "Imported file makes reference to unknown clauses for: %s"
+        (String.concat ", " (clauses_to_predicates missing_clauses))
   in
 
   (* 4. Clauses for imported predicates must be subset of imported clauses *)
@@ -189,78 +189,107 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
     List.minus ~cmp:clause_eq
       (List.find_all
          (fun clause ->
-           let (_,clause_head,_) = clausify clause in
-           List.mem (term_head_name clause_head) imp_predicates)
+            let (_,clause_head,_) = clausify clause in
+            List.mem (term_head_name clause_head) imp_predicates)
          !clauses)
       imp_spec_clauses
   in
   let () = if extended_clauses <> [] then
-    failwithf "Cannot import file since clauses have been extended for: %s"
-      (String.concat ", " (clauses_to_predicates extended_clauses))
+      failwithf "Cannot import file since clauses have been extended for: %s"
+        (String.concat ", " (clauses_to_predicates extended_clauses))
   in
   ()
 
 
 let imported = State.rref []
 
+let maybe_make_importable ?(force=false) root =
+  let thc = root ^ ".thc" in
+  let thm = root ^ ".thm" in
+  let force = force || begin
+      Sys.file_exists thm && begin
+        not (Sys.file_exists thc) || begin
+          let thmstat = Unix.stat thm in
+          let thcstat = Unix.stat thc in
+          thmstat.Unix.st_mtime > thcstat.Unix.st_mtime
+        end
+      end
+    end in
+  if not !Sys.interactive && force then
+    let cmd = Printf.sprintf "%s %s -o %s.out -c %s" Sys.executable_name thm root thc in
+    Printf.eprintf "Running: %S.\n%!" cmd ;
+    if Sys.command cmd <> 0 then
+      failwithf "Could not create %S" thc
+
 let import filename =
   let rec aux filename =
+    maybe_make_importable filename ;
     if not (List.mem filename !imported) then begin
       imported := filename :: !imported ;
-      let filename = filename ^ ".thc" in
-      let file = open_in_bin filename in
-      let dig = (Marshal.from_channel file : Digest.t) in
-      let ver = (Marshal.from_channel file : string) in
-      if dig <> Version.self_digest then
-        failwithf "Cannot import %S; was created with a different version (%s) of Abella"
-          filename ver ;
+      let thc = filename ^ ".thc" in
+      let file =
+        let ch = open_in_bin thc in
+        let dig = (Marshal.from_channel ch : Digest.t) in
+        let ver = (Marshal.from_channel ch : string) in
+        if dig <> Version.self_digest then begin
+          Printf.printf
+            "Warning: %S was compiled with a different version (%s) of Abella; recompiling...\n%!"
+            thc ver ;
+          close_in ch ;
+          maybe_make_importable ~force:true filename ;
+          let ch = open_in_bin thc in
+          ignore (Marshal.from_channel ch : Digest.t) ;
+          ignore (Marshal.from_channel ch : string) ;
+          ch
+        end else ch
+      in
       let imp_spec_sign = (Marshal.from_channel file : sign) in
       let imp_spec_clauses = (Marshal.from_channel file : clause list) in
       let imp_predicates = (Marshal.from_channel file : string list) in
       let imp_content = (Marshal.from_channel file : compiled list) in
-        ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates ;
-        List.iter
-          (function
-             | CTheorem(name, tys, thm) ->
-                 add_lemma name tys thm ;
-             | CDefine(flav, tyargs, idtys, clauses) ->
-                 let ids = List.map fst idtys in
-                 check_noredef ids;
-                 let (basics, consts) = !sign in
-                 let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
-                 sign := (basics, consts) ;
-                 add_defs tyargs idtys flav clauses ;
-             | CSchema sch ->
-                 bugf "Schemas not yet supported"
-             | CImport(filename) ->
-                 aux filename
-             | CKind(ids) ->
-                 check_noredef ids;
-                 add_global_types ids
-             | CType(ids, ty) ->
-                 check_noredef ids;
-                 add_global_consts (List.map (fun id -> (id, ty)) ids)
-             | CClose(ty_subords) ->
-                 List.iter
-                   (fun (ty, prev) ->
-                      let curr = Subordination.subordinates !sr ty in
-                        match List.minus curr prev with
-                          | [] -> ()
-                          | xs ->
-                              failwithf
-                                "Cannot close %s since it is now subordinate to %s"
-                                ty (String.concat ", " xs))
-                   ty_subords ;
-                 close_types (List.map fst ty_subords))
-          imp_content
+      ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates ;
+      List.iter
+        (function
+          | CTheorem(name, tys, thm) ->
+              add_lemma name tys thm ;
+          | CDefine(flav, tyargs, idtys, clauses) ->
+              let ids = List.map fst idtys in
+              check_noredef ids;
+              let (basics, consts) = !sign in
+              let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
+              sign := (basics, consts) ;
+              add_defs tyargs idtys flav clauses ;
+          | CSchema sch ->
+              bugf "Schemas not yet supported"
+          | CImport(filename) ->
+              aux filename
+          | CKind(ids) ->
+              check_noredef ids;
+              add_global_types ids
+          | CType(ids, ty) ->
+              check_noredef ids;
+              add_global_consts (List.map (fun id -> (id, ty)) ids)
+          | CClose(ty_subords) ->
+              List.iter
+                (fun (ty, prev) ->
+                   let curr = Subordination.subordinates !sr ty in
+                   match List.minus curr prev with
+                   | [] -> ()
+                   | xs ->
+                       failwithf
+                         "Cannot close %s since it is now subordinate to %s"
+                         ty (String.concat ", " xs))
+                ty_subords ;
+              close_types (List.map fst ty_subords))
+        imp_content
     end
   in
-    if List.mem filename !imported then
-      fprintf !out "Ignoring import: %s has already been imported.\n%!" filename
-    else begin
-      fprintf !out "Importing from %s\n%!" filename ;
-      aux filename
-    end
+  if List.mem filename !imported then
+    fprintf !out "Ignoring import: %s has already been imported.\n%!" filename
+  else begin
+    fprintf !out "Importing from %s\n%!" filename ;
+    aux filename
+  end
 
 
 (* Proof processing *)
@@ -522,7 +551,7 @@ and process_top1 () =
   | Define _ ->
       compile (register_definition input)
   | Schema sch ->
-      ignore (Schemas.register_schema sch)
+      Schemas.register_schema sch
   | TopCommon(Back) ->
       if !interactive then State.Undo.back 2
       else failwith "Cannot use interactive commands in non-interactive mode"

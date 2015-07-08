@@ -133,6 +133,12 @@ Additions
   if you want to prevent searching. The default value is the value of the
   search_depth flag.
 
+Tweaks to existing functionality
+
+* Import declarations automatically compile if needed. An explicit Makefile
+  is very rarely needed any more.
+
+
 Bugfixes
 
 * Annotation mode (-a) output is no longer printed in other modes

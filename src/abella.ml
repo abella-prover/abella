@@ -201,7 +201,7 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   ()
 
 
-let imported = ref []
+let imported = State.rref []
 
 let import filename =
   let rec aux filename =

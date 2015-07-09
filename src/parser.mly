@@ -112,9 +112,8 @@
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY PICK
 %token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON
-%token THEOREM DEFINE SCHEMA PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
-%token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
-%token BACK RESET
+%token THEOREM DEFINE CODEFINE RECURSIVE SCHEMA PLUS SET ABBREV UNABBREV QUERY
+%token SHOW PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME BACK RESET
 %token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND
 %token LBRACE RBRACE LBRACK RBRACK
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
@@ -660,13 +659,16 @@ theorem_typarams:
   | LBRACK id_list RBRACK
     { List.map deloc_id $2 }
 
+define_flavor:
+  | DEFINE { Types.Inductive }
+  | CODEFINE { Types.CoInductive }
+  | RECURSIVE { Types.Recursive }
+
 pure_top_command:
   | THEOREM loc_id theorem_typarams COLON metaterm DOT
     { Types.Theorem(deloc_id $2, $3, $5) }
-  | DEFINE id_tys BY optsemi defs DOT
-    { Types.Define(Types.Inductive, $2, $5) }
-  | CODEFINE id_tys BY optsemi defs DOT
-    { Types.Define(Types.CoInductive, $2, $5) }
+  | define_flavor id_tys BY optsemi defs DOT
+    { Types.Define($1, $2, $5) }
   | SCHEMA id DEFEQ schema_blocks DOT
     { let blocks = $4 in
       let arities = List.map (fun bl -> List.length bl.Types.bl_rel) blocks |>

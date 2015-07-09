@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2013 INRIA
 ;;
 ;; Authors: Clement Houtmann <Clement.Houtmann@inria.fr>
-;;          Kaustuv Chaudhuri <kaustuv.@chaudhuri.info>
+;;          Kaustuv Chaudhuri <kaustuv.chaudhuri@inria.fr>
 ;;
 
 (require 'font-lock)
@@ -13,7 +13,7 @@
     ("\\<\\(Query\\|S\\(?:et\\|how\\)\\)\\>"     . font-lock-builtin-face)
     ("\\<\\(Import\\|Specification\\)\\>"        . font-lock-builtin-face)
     ("\\<\\(Type\\|Kind\\|Close\\)\\>"           . font-lock-keyword-face)
-    ("\\<\\(\\(?:Co\\)?Define\\|Schema\\|Inductive\\)\\>" . font-lock-keyword-face)
+    ("\\<\\(\\(?:Co\\)?Define\\|Schema\\|Inductive\\|Recursive\\)\\>" . font-lock-keyword-face)
     ("\\<\\(Theorem\\|Split\\)\\>"               . font-lock-keyword-face)
     ("\\<\\(skip\\|undo\\|abort\\)\\>"           . font-lock-warning-face)
     ;; (regexp-opt '("{" "}" "|-" "[" "]" "=>"))

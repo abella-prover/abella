@@ -3,7 +3,7 @@
 ;; Copyright (C) 2011-2013 INRIA
 ;;
 ;; Authors: Clement Houtmann <Clement.Houtmann@inria.fr>
-;;          Kaustuv Chaudhuri <kaustuv@chaudhuri.fr>
+;;          Kaustuv Chaudhuri <kaustuv.chaudhuri@inria.fr>
 
 (eval-and-compile
   (require 'proof-site)                 ; compilation for abella

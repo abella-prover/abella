@@ -30,6 +30,7 @@
     "Kind",          KKIND ;
     "Query",         QUERY ;
     "Quit",          QUIT ;
+    "Recursive",     RECURSIVE ;
     "Schema",        SCHEMA ;
     "Set",           SET ;
     "Show",          SHOW ;

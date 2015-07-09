@@ -167,8 +167,6 @@ let defs_table : defs_table = State.table ()
 
 let built_ins_done = ref false
 
-let arity (Ty (args, _)) = List.length args
-
 let add_defs typarams preds flavor clauses =
   List.iter begin fun (id, _) ->
     if List.mem id [k_fresh ; k_name] && !built_ins_done then
@@ -185,31 +183,6 @@ let add_defs typarams preds flavor clauses =
     end Itab.empty preds in
   let def = {flavor ; typarams ; atoms ; clauses} in
   Checks.check_def ~def ;
-  if Itab.cardinal atoms = 1 then begin
-    let (p, ty) = List.hd preds in
-    let checks = Horpo.stratification_check ~def in
-    if checks <> [] then begin
-      let surv = ref (List.range 1 (arity ty)) in
-      List.iter begin fun ((_, lefts), body) ->
-        List.iter begin fun (_, rights) ->
-          List.iter2 begin fun (i, l) r ->
-            if List.mem i !surv then
-              let horpo = Horpo.horpo l r in
-              (* let (!!) pp ff x = pp ff x in *)
-              (* Format.eprintf "%d : %a ?> %a ? %b@." i *)
-              (*   !!format_term l *)
-              (*   !!format_term r *)
-              (*   horpo ; *)
-              if not horpo then surv := List.filter (fun k -> k <> i) !surv
-          end (List.number lefts) rights ;
-        end body
-      end checks ;
-      Format.printf "Global stratification analysis: %s@." begin
-        if !surv = [] then "not stratified on any argument"
-        else "\"" ^ p ^ "\" is stratified on argument(s): " ^ (String.concat ", " (List.map string_of_int !surv))
-      end
-    end ;
-  end ;
   List.iter (fun (id, ty) -> H.add defs_table id def) preds
 
 let lookup_poly_const k =
@@ -900,9 +873,9 @@ let ensure_is_inductive term =
       begin try
         match (H.find defs_table pname).flavor with
         | Inductive -> ()
-        | CoInductive ->
+        | CoInductive | Recursive ->
             failwithf "Cannot induct on %s since it has\
-                     \ been coinductively defined"
+                     \ not been inductively defined"
               pname
       with Not_found ->
         failwithf "Cannot induct on %s since it has not been defined" pname
@@ -943,9 +916,9 @@ let ensure_is_coinductive p =
   try
     match (H.find defs_table pname).flavor with
     | CoInductive -> ()
-    | Inductive ->
+    | Inductive | Recursive ->
         failwithf "Cannot coinduct on %s since it has\
-                 \ been inductively defined"
+                 \ not been coinductively defined"
           pname
   with Not_found ->
     failwithf "Cannot coinduct on %s since it has not been defined" pname

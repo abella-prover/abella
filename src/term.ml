@@ -301,7 +301,14 @@ let fresh ?(tag=Logic) ts ty =
     var tag name ts ty
 
 let remove_trailing_numbers s =
-  Str.global_replace (Str.regexp "[0-9]*$") "" s
+  let rec scan i =
+    if i < 0 then 0 else
+    match s.[i] with
+    | '0' .. '9' -> scan (i - 1)
+    | _ -> i + 1
+  in
+  let len = scan (String.length s - 1) in
+  String.sub s 0 len
 
 let fresh_name name used =
   let basename = remove_trailing_numbers name in
@@ -587,8 +594,14 @@ let is_capital_name str =
 let capital_tids terms =
   extract_tids is_capital_name terms
 
+let rec all_numbers s pos len =
+  pos >= len ||
+  (s.[pos] >= '0' && s.[pos] <= '9' && all_numbers s (pos + 1) len)
+
 let is_nominal_name str =
-  Str.string_match (Str.regexp "^n[0-9]+$") str 0
+  String.length str > 1 &&
+  str.[0] == 'n' &&
+  all_numbers str 1 (String.length str)
 
 let nominal_tids terms =
   extract_tids is_nominal_name terms

@@ -223,24 +223,21 @@ let parse_definition str =
 
 let k_member = "member"
 let member_def_compiled =
-  "Define MEM : o -> olist -> prop by\
-  \  MEM A (A :: L) ; \
-  \  MEM A (B :: L) := MEM A L." |>
-  Str.global_replace (Str.regexp_string "MEM") k_member |>
+  "Define " ^ k_member ^ " : o -> olist -> prop by\
+  \  " ^ k_member ^ " A (A :: L) ; \
+  \  " ^ k_member ^ " A (B :: L) := " ^ k_member ^ " A L." |>
   parse_definition
 
 let k_fresh = "fresh_for"
 let fresh_def_compiled =
-  "Define FRESH : A -> B -> prop by\
-  \  nabla x, FRESH x M." |>
-  Str.global_replace (Str.regexp_string "FRESH") k_fresh |>
+  "Define " ^ k_fresh ^ " : A -> B -> prop by\
+  \  nabla x, " ^ k_fresh ^ " x M." |>
   parse_definition
 
 let k_name = "is_name"
 let name_def_compiled =
-  "Define NAME : A -> prop by\
-  \  nabla x, NAME x." |>
-  Str.global_replace (Str.regexp_string "NAME") k_name |>
+  "Define " ^ k_name ^ " : A -> prop by\
+  \  nabla x, " ^ k_name ^ " x." |>
   parse_definition
 
 let () = built_ins_done := true

@@ -62,10 +62,8 @@
       (fun h a -> UApp((fst (get_pos h), snd (get_pos a)), h, a))
       head args
 
-  let nominal_constant_re = Str.regexp "n[0-9]+"
   exception Illegal
-  let is_illegal_constant k =
-    Str.string_match nominal_constant_re k 0
+  let is_illegal_constant k = Term.is_nominal_name k
 
   let check_legal_var vid vnum =
     if is_illegal_constant vid then

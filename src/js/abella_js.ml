@@ -18,6 +18,7 @@ let run_abella_internal spec_sig spec_mod thm =
   State.Undo.reset () ;
   let buf = Buffer.create 19 in
   Checks.out := Format.formatter_of_buffer buf ;
+  Checks.err := !Checks.out ;
   (try Abella_driver.main () with _ -> ()) ;
   State.reload snap ;
   Format.pp_print_flush !Checks.out () ;

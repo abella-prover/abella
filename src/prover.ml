@@ -170,13 +170,13 @@ let built_ins_done = ref false
 let add_defs typarams preds flavor clauses =
   List.iter begin fun (id, _) ->
     if List.mem id [k_fresh ; k_name] && !built_ins_done then
-      Printf.eprintf "Warning: %s shadows a built-in definition. \
-                    \ Schemas may no longer work.\n%!" id
+      Format.fprintf !err "Warning: %s shadows a built-in definition. \
+                          \ Schemas may no longer work.\n%!" id
     else if H.mem defs_table id then
       failwithf "Predicate %s has already been defined" id ;
   end preds ;
   (* List.iter begin fun (head, body) -> *)
-  (*   Format.eprintf "%a := %a@." format_metaterm head format_metaterm body *)
+  (*   Format.Format.fprintf !err "%a := %a@." format_metaterm head format_metaterm body *)
   (* end defs ; *)
   let mutual = List.fold_left begin fun mutual (id, ty) ->
       Itab.add id ty mutual
@@ -278,7 +278,7 @@ let instantiate_clauses_aux =
         end with Not_found -> tymap
       end Itab.empty def.typarams in
     (* Itab.iter begin fun v ty -> *)
-    (*   Format.eprintf "instantiating: %s <- %s@." v (ty_to_string ty) *)
+    (*   Format.Format.fprintf !err "instantiating: %s <- %s@." v (ty_to_string ty) *)
     (* end tymap ; *)
     List.map begin fun cl ->
       if clause_head_name cl = pn then
@@ -490,7 +490,7 @@ let add_if_new_var (name, v) =
 
 let add_lemma name tys lemma =
   if H.mem lemmas name then
-    Format.eprintf "Warning: overriding existing lemma named %S@." name ;
+    Format.fprintf !err "Warning: overriding existing lemma named %S@." name ;
   H.replace lemmas name (tys, lemma)
 
 let () =
@@ -517,7 +517,7 @@ let () =
         end
       end
     end in
-  (* Format.eprintf "prune_bod: %a@." format_metaterm prune_bod ; *)
+  (* Format.Format.fprintf !err "prune_bod: %a@." format_metaterm prune_bod ; *)
   add_lemma "prune_arg" [a] prune_bod
 
 let get_hyp name =
@@ -530,6 +530,8 @@ let is_hyp name =
 let get_generic_lemma name = H.find lemmas name
 
 let get_lemma ?(tys:ty list = []) name =
+  if not (H.mem lemmas name) then
+    failwithf "Cannot find lemma (or hypothesis) named %s" name ;
   let (argtys, bod) = H.find lemmas name in
   if List.length tys <> List.length argtys then
     failwithf "Need to provide mappings for %d types" (List.length argtys) ;

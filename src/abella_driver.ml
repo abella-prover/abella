@@ -72,13 +72,13 @@ let position_range (p1, p2) =
     sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
 
 let type_inference_error (pos, ct) exp act =
-  eprintf "Typing error%s.\n%!" (position_range pos) ;
+  Format.fprintf !err "Typing error%s.\n%!" (position_range pos) ;
   match ct with
   | CArg ->
-      eprintf "Expression has type %s but is used here with type %s\n%!"
+      Format.fprintf !err "Expression has type %s but is used here with type %s\n%!"
         (ty_to_string act) (ty_to_string exp)
   | CFun ->
-      eprintf "Expression is applied to too many arguments\n%!"
+      Format.fprintf !err "Expression is applied to too many arguments\n%!"
 
 let teyjus_only_keywords =
   ["closed"; "exportdef"; "import"; "infix"; "infixl"; "infixr"; "local";
@@ -217,7 +217,7 @@ let maybe_make_importable ?(force=false) root =
     end in
   if not !Sys.interactive && force then
     let cmd = Printf.sprintf "%s %s -o %s.out -c %s" Sys.executable_name thm root thc in
-    Printf.eprintf "Running: %S.\n%!" cmd ;
+    Format.fprintf !err "Running: %S.\n%!" cmd ;
     if Sys.command cmd <> 0 then
       failwithf "Could not create %S" thc
 
@@ -409,7 +409,7 @@ let rec process1 () =
       interactive_or_exit ()
   | Parsing.Parse_error ->
       State.Undo.undo () ;
-      eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
+      Format.fprintf !err "Syntax error%s.\n%!" (position !lexbuf) ;
       Lexing.flush_input !lexbuf ;
       interactive_or_exit ()
   | TypeInferenceFailure(ci, exp, act) ->
@@ -438,7 +438,7 @@ let rec process1 () =
         | UserInterrupt -> "Interrupted (use ctrl-D to quit)"
         | _ -> Printexc.to_string e
       in
-      eprintf "Error: %s\n%!" msg ;
+      Format.fprintf !err "Error: %s\n%!" msg ;
       interactive_or_exit ()
 
 and process_proof1 name =
@@ -624,7 +624,7 @@ let set_input () =
         interactive := false ;
         lexbuf := File_cache.lexbuf filename
     | fs ->
-        eprintf "Error: Multiple files specified as input: %s\n%!"
+        Format.fprintf !err "Error: Multiple files specified as input: %s\n%!"
           (String.concat ", " fs) ;
         exit 1
 

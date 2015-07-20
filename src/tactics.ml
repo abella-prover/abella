@@ -816,7 +816,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
   in
 
   let rec clause_aux n context foci goal r ts ~sc ~witness =
-    (* Printf.eprintf "clause_aux: %s\n%!" (witness_to_string witness) ; *)
+    (* Format.fprintf !err "clause_aux: %s\n%!" (witness_to_string witness) ; *)
     let support = term_list_support (goal :: context) in
     let freshen_clause (i, cl) =
       let (_vars, head, body) = freshen_nameless_clause ~support ~ts cl in
@@ -859,7 +859,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
     end
 
   and async_obj_aux n hyps goal r ts ~sc ~witness =
-    (* Printf.eprintf "axync_obj_aux: %s\n%!" (witness_to_string witness) ; *)
+    (* Format.fprintf !err "axync_obj_aux: %s\n%!" (witness_to_string witness) ; *)
     let gresult = normalize_obj (Async goal) in
     let goal =
       match gresult with
@@ -899,7 +899,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
         List.iter (fun fg -> sync_obj_aux n hyps fg r ts ~sc ~witness) focus_goals
 
   and sync_obj_aux n hyps goal r ts ~sc ~witness =
-    (* Printf.eprintf "sync_obj_aux: %s\n%!" (witness_to_string witness) ; *)
+    (* Format.fprintf !err "sync_obj_aux: %s\n%!" (witness_to_string witness) ; *)
     let gresult = normalize_obj (Sync goal) in
     let goal =
       match gresult with
@@ -945,7 +945,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
       end
 
   and metaterm_aux n hyps goal ts ~sc ~witness =
-    (* Printf.eprintf "metaterm_aux: %s\n%!  -- %s\n%!" (witness_to_string witness) (metaterm_to_string goal) ; *)
+    (* Format.fprintf !err "metaterm_aux: %s\n%!  -- %s\n%!" (witness_to_string witness) (metaterm_to_string goal) ; *)
     let goal = normalize goal in
     let () =
       hyps |>
@@ -1067,7 +1067,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
     | Pred(p, r)  -> if n > 0 then def_aux n hyps p r ts ~sc ~witness
 
   and def_aux n hyps goal r ts ~sc ~witness =
-    (* Printf.eprintf "def_aux: %s\n%!" (witness_to_string witness) ; *)
+    (* Format.fprintf !err "def_aux: %s\n%!" (witness_to_string witness) ; *)
     let p = term_head_name goal in
     try begin
       let mdefs = def_unfold (Pred (goal, r)) in

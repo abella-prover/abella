@@ -50,7 +50,7 @@ let read_lp ext parser name =
       parser Lexer.token lexbuf
     with
       | Parsing.Parse_error ->
-          eprintf "Syntax error%s.\n%!" (position lexbuf) ;
+          Format.fprintf !Checks.err "Syntax error%s.\n%!" (position lexbuf) ;
           failwith "Failed while reading specification"
 
 let read_lpsig = read_lp ".sig" Parser.lpsig

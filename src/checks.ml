@@ -20,6 +20,7 @@ open Typing
 open Extensions
 
 let out = ref Format.std_formatter
+let err = ref Format.err_formatter
 
 (* Checks *)
 

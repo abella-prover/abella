@@ -38,7 +38,7 @@ let get_thm_depend filename =
     with
       | End_of_file -> ()
       | Parsing.Parse_error ->
-          eprintf "Syntax error%s.\n%!" (position lexbuf) ;
+          Format.fprintf !Checks.err "Syntax error%s.\n%!" (position lexbuf) ;
           exit 1
     end ;
     (List.rev !specs, List.rev !imports)
@@ -50,7 +50,7 @@ let rec get_sig_depend filename =
   try
     match H.find sig_depend_cache filename with
       | None ->
-          eprintf "Error: Cyclic dependency in %s.sig\n%!" filename ;
+          Format.fprintf !Checks.err "Error: Cyclic dependency in %s.sig\n%!" filename ;
           exit 1
       | Some deps -> deps
   with
@@ -67,7 +67,7 @@ let rec get_mod_depend filename =
   try
     match H.find mod_depend_cache filename with
       | None ->
-          eprintf "Error: Cyclic dependency in %s.mod\n%!" filename ;
+          Format.fprintf !Checks.err "Error: Cyclic dependency in %s.mod\n%!" filename ;
           exit 1
       | Some deps -> deps
   with

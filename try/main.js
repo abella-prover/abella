@@ -2,7 +2,7 @@
     var app = angular.module('main', [ ]);
 
     app.controller('TabController', function(){
-        this.active = 3;
+        this.active = 1;
         this.isSet = function(t){ return this.active === t; };
         this.set = function(t){ this.active = t; };
     });

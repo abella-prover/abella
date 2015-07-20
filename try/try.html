@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- JQUERY -->
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <!-- ANGULAR -->
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.15/angular.min.js"></script>
+    <!-- BOOTSTRAP -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" type="text/css"></link>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <!-- LOCAL -->
+    <style type="text/css">
+      .tab-pane { padding: 5px 5px; height: 50em; overflow-y: auto; }
+      ore { white-space: pre-wrap; display: inline-block; }
+    </style>
+    <script type="text/javascript" src="main.js"></script>
+  </head>
+  <body ng-app="main">
+    <div id="container" class="container">
+      <div id="page-header" class="page-header">
+        <img class="pull-right"
+             src="http://abella-prover.org/images/logo-small.png"
+             alt="[ABELLA LOGO]">
+        <h1>Try Abella</h1>
+      </div>
+
+      <div id="files" ng-controller="TabController as tab">
+        <ul class="nav nav-tabs">
+          <li ng-class="{active:tab.isSet(1)}"><a href ng-click="tab.set(1)">Spec</a></li>
+          <li ng-class="{active:tab.isSet(2)}"><a href ng-click="tab.set(2)">Theorems</a></li>
+        </ul>
+        <div class="tab-content">
+          <div class="tab-pane" ng-class="{active:tab.isSet(1)}">
+            <pre>sig stlc.
+  kind    tm, ty    type.
+  type    app       tm -> tm -> tm.
+  type    abs       ty -> (tm -> tm) -> tm.
+  type    arrow     ty -> ty -> ty.
+  type    of        tm -> ty -> o.
+end.</pre><pre>
+module stlc.
+  of (abs T R) (arrow T U) :- pi x\ (of x T => of (R x) U).
+  of (app M N) T :- of M (arrow U T), of N U.
+end.</pre>
+          </div>
+          <div class="tab-pane" ng-class="{active:tab.isSet(2)}">
+            <pre>%% Type uniqueness for the simply-typed lambda-calculus
+
+Specification "stlc".
+
+%% There are some results about nominal variables, freshness,
+%% and lists that we can prove in general.
+
+%% Start generic section
+
+Define name : tm -> prop by
+  nabla x, name x.
+
+Theorem member_nominal_absurd : forall L T, nabla x,
+  member (of x T) L -> false.
+induction on 1. intros. case H1. apply IH to H2.
+
+%% End generic section
+
+Close tm, ty.
+
+Define ctx : olist -> prop by
+  ctx nil ;
+  nabla x, ctx (of x T :: L) := ctx L.
+
+Theorem ctx_uniq : forall L E T1 T2,
+ ctx L -> member (of E T1) L -> member (of E T2) L -> T1 = T2.
+induction on 2. intros. case H2.
+ case H3.
+   search.
+   case H1. apply member_nominal_absurd to H4.
+ case H3.
+   case H1. apply member_nominal_absurd to H4.
+   case H1. apply IH to H6 H4 H5. search.
+
+Theorem ctx_mem :
+   forall L E,
+   ctx L -> member E L ->
+   exists N X, E = of X N /\ name X.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1.
+    apply IH to H4 H3. search.
+
+
+Theorem type_uniq_ext : forall L E T1 T2,
+ ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
+induction on 2. intros. case H2.
+ case H3.
+   apply IH to _ H4 H5. search.
+   apply ctx_mem to H1 H6. case H7. case H5.
+ case H3.
+   apply IH to H1 H4 H6. search.
+   apply ctx_mem to H1 H7. case H8. case H6.
+ apply ctx_mem to H1 H5. case H4. case H6.
+   case H3. apply ctx_mem to H1 H8. case H7.
+   apply ctx_uniq to H1 H5 H8. search.
+
+Theorem type_uniq : forall E T1 T2,
+ {of E T1} -> {of E T2} -> T1 = T2.
+ intros. apply type_uniq_ext to _ H1 H2. search.
+</pre>
+          </div>
+        </div> <!-- tab-content -->
+      </div>   <!-- files -->
+    </div>       <!-- container -->
+  </body>
+</html>

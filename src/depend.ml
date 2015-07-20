@@ -25,7 +25,7 @@ open Format
 module H = Hashtbl
 
 let get_thm_depend filename =
-  let lexbuf = lexbuf_from_file (filename ^ ".thm") in
+  let lexbuf = File_cache.lexbuf (filename ^ ".thm") in
   let specs = ref [] in
   let imports = ref [] in
     begin try

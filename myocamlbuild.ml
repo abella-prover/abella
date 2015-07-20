@@ -4,7 +4,7 @@
 let major_version  : int           = 2
 let minor_version  : int           = 0
 let patch_version  : int           = 4
-let flavor_version : string option = Some "dev"
+let flavor_version : string option = Some "try"
 (* END VERSION *)
 
 let version_string =
@@ -49,7 +49,7 @@ let () =
   maybe_make_version_file () ;
   dispatch begin function
   | After_rules ->
-      (* flag ["ocaml" ; "compile"] (A "-g") ; *)
+      flag ["ocaml" ; "compile"] (A "-g") ;
       Scanf.sscanf Sys.ocaml_version "%d.%d."
         (fun major minor ->
            if major >= 4 then begin

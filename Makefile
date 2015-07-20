@@ -1,6 +1,6 @@
 # See COPYING for licensing details.
 
-OCB = ocamlbuild -classic-display -use-ocamlfind
+OCB = ocamlbuild -classic-display
 
 .PHONY: all
 all:
@@ -9,17 +9,16 @@ all:
 	cp -a _build/src/abella.native _build/src/abella.native.target
 	_build/src/copy_exe.native _build/src/abella.native.target abella
 
-%.js: %.byte
-	js_of_ocaml +weak.js $(notdir $(<))
+.PHONY: abella.js
+abella.js:
+	$(OCB) -use-ocamlfind src/abella.byte
+	js_of_ocaml +weak.js abella.byte
 
 .PHONY: clean
 clean:
 	$(OCB) -clean
 	$(RM) src/version.ml
 	$(RM) abella abella.exe abella.js abella.byte abella.native
-
-%.byte:
-	$(OCB) $@
 
 .PHONY: gitclean
 gitclean:

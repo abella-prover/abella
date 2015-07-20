@@ -34,13 +34,6 @@ let clear_specification_cache () =
   H.clear mod_cache ;
   H.clear sig_cache
 
-let lexbuf_from_file filename =
-  let lexbuf = Lexing.from_channel (open_in filename) in
-    lexbuf.Lexing.lex_curr_p <- {
-      lexbuf.Lexing.lex_curr_p with
-        Lexing.pos_fname = filename } ;
-    lexbuf
-
 let position lexbuf =
   let curr = lexbuf.Lexing.lex_curr_p in
   let file = curr.Lexing.pos_fname in
@@ -52,7 +45,7 @@ let position lexbuf =
       sprintf ": file %s, line %d, character %d" file line char
 
 let read_lp ext parser name =
-  let lexbuf = lexbuf_from_file (Filename.concat !load_path (name ^ ext)) in
+  let lexbuf = File_cache.lexbuf (Filename.concat !load_path (name ^ ext)) in
     try
       parser Lexer.token lexbuf
     with

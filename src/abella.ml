@@ -622,7 +622,7 @@ let set_input () =
     | [] -> ()
     | [filename] ->
         interactive := false ;
-        lexbuf := lexbuf_from_file filename
+        lexbuf := File_cache.lexbuf filename
     | fs ->
         eprintf "Error: Multiple files specified as input: %s\n%!"
           (String.concat ", " fs) ;

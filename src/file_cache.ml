@@ -90,20 +90,22 @@ Theorem type_uniq : forall E T1 T2,
 
 let cache : (string, string) Hashtbl.t = Hashtbl.create 19
 
-let init () =
-  List.iter begin fun (name, contents) ->
-    Hashtbl.add cache name contents
-  end [
-    "./stlc.sig", stlc_sig ;
-    "./stlc.mod", stlc_mod ;
-    "stlc.thm", stlc_thm ;
-  ]
+(* let init () = *)
+(*   List.iter begin fun (name, contents) -> *)
+(*     Hashtbl.add cache name contents *)
+(*   end [ *)
+(*     "./stlc.sig", stlc_sig ; *)
+(*     "./stlc.mod", stlc_mod ; *)
+(*     "stlc.thm", stlc_thm ; *)
+(*   ] *)
 
-let () = init ()
+(* let () = init () *)
+
+let add file contents = Hashtbl.add cache file contents
 
 let reset () =
-  Hashtbl.clear cache ;
-  init ()
+  Hashtbl.clear cache
+  (* init () *)
 
 let get nm =
   if Hashtbl.mem cache nm then Hashtbl.find cache nm else

@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Abella in your browser!</title>
     <!-- JQUERY -->
     <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
     <!-- ANGULAR -->
@@ -11,12 +12,37 @@
     <!-- BOOTSTRAP -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" type="text/css"></link>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    <!-- ACE -->
+    <script type="text/javascript" src="ace/ace.js"></script>
+    <!-- ABELLA -->
+    <script type="text/javascript" src="abella_js.js"></script>
     <!-- LOCAL -->
     <style type="text/css">
-      .tab-pane { padding: 5px 5px; height: 50em; overflow-y: auto; }
+      .tab-pane { padding: 5px 5px; }
       ore { white-space: pre-wrap; display: inline-block; }
+      .ace_editor { font: 14pt Inconsolata, monospace; width: 90%; height: 200px; margin:auto; }
+      .ace_abella { color: #2233FA !important; text-decoration: underline; }
+      .ace_proof  { color: #5544AA !important; }
     </style>
     <script type="text/javascript" src="main.js"></script>
+    <script type="text/javascript">
+      $(function(){
+        document.run_abella = run_abella;
+        var aceTheme = 'ace/theme/eclipse';
+        document.specSigEd = ace.edit("spec-sig");
+        document.specSigEd.setTheme(aceTheme);
+        document.specSigEd.session.setMode("ace/mode/lprolog");
+        document.specSigEd.setOptions({autoScrollEditorIntoView: true, minLines: 5, maxLines: 30});
+        document.specModEd = ace.edit("spec-mod");
+        document.specModEd.setTheme(aceTheme);
+        document.specModEd.session.setMode("ace/mode/lprolog");
+        document.specModEd.setOptions({autoScrollEditorIntoView: true, minLines: 5, maxLines: 30});
+        document.reasoningEd = ace.edit("reasoning");
+        document.reasoningEd.setTheme(aceTheme);
+        document.reasoningEd.session.setMode("ace/mode/abella");
+        document.reasoningEd.setOptions({autoScrollEditorIntoView: true, minLines: 5, maxLines: 50});
+      });
+    </script>
   </head>
   <body ng-app="main">
     <div id="container" class="container">
@@ -29,27 +55,28 @@
 
       <div id="files" ng-controller="TabController as tab">
         <ul class="nav nav-tabs">
-          <li ng-class="{active:tab.isSet(1)}"><a href ng-click="tab.set(1)">Spec</a></li>
-          <li ng-class="{active:tab.isSet(2)}"><a href ng-click="tab.set(2)">Theorems</a></li>
+          <li ng-class="{active:tab.isSet(1)}"><a href ng-click="tab.set(1)">Specification</a></li>
+          <li ng-class="{active:tab.isSet(2)}"><a href ng-click="tab.set(2)">Reasoning</a></li>
+          <li ng-class="{active:tab.isSet(3)}"><a href ng-click="tab.set(3)">Trace</a></li>
         </ul>
         <div class="tab-content">
           <div class="tab-pane" ng-class="{active:tab.isSet(1)}">
-            <pre>sig stlc.
-  kind    tm, ty    type.
-  type    app       tm -> tm -> tm.
-  type    abs       ty -> (tm -> tm) -> tm.
-  type    arrow     ty -> ty -> ty.
-  type    of        tm -> ty -> o.
-end.</pre><pre>
-module stlc.
-  of (abs T R) (arrow T U) :- pi x\ (of x T => of (R x) U).
-  of (app M N) T :- of M (arrow U T), of N U.
-end.</pre>
+            <code>sig spec.</code>
+            <pre id="spec-sig">kind    tm, ty    type.
+type    app       tm -> tm -> tm.
+type    abs       ty -> (tm -> tm) -> tm.
+type    arrow     ty -> ty -> ty.
+type    of        tm -> ty -> o.</pre>
+
+            <hr>
+
+            <code>module spec.</code>
+            <pre id="spec-mod">of (abs T R) (arrow T U) :- pi x\ (of x T => of (R x) U).
+of (app M N) T :- of M (arrow U T), of N U.</pre>
           </div>
           <div class="tab-pane" ng-class="{active:tab.isSet(2)}">
-            <pre>%% Type uniqueness for the simply-typed lambda-calculus
-
-Specification "stlc".
+            <code>Specification "spec".</code>
+            <pre id="reasoning">%% Type uniqueness for the simply-typed lambda-calculus
 
 %% There are some results about nominal variables, freshness,
 %% and lists that we can prove in general.
@@ -72,19 +99,18 @@ Define ctx : olist -> prop by
   nabla x, ctx (of x T :: L) := ctx L.
 
 Theorem ctx_uniq : forall L E T1 T2,
- ctx L -> member (of E T1) L -> member (of E T2) L -> T1 = T2.
+  ctx L -> member (of E T1) L -> member (of E T2) L -> T1 = T2.
 induction on 2. intros. case H2.
- case H3.
-   search.
-   case H1. apply member_nominal_absurd to H4.
- case H3.
-   case H1. apply member_nominal_absurd to H4.
-   case H1. apply IH to H6 H4 H5. search.
+  case H3.
+    search.
+    case H1. apply member_nominal_absurd to H4.
+  case H3.
+    case H1. apply member_nominal_absurd to H4.
+    case H1. apply IH to H6 H4 H5. search.
 
-Theorem ctx_mem :
-   forall L E,
-   ctx L -> member E L ->
-   exists N X, E = of X N /\ name X.
+Theorem ctx_mem : forall L E,
+  ctx L -> member E L ->
+  exists N X, E = of X N /\ name X.
 induction on 2. intros. case H2.
   case H1. search.
   case H1.
@@ -92,22 +118,29 @@ induction on 2. intros. case H2.
 
 
 Theorem type_uniq_ext : forall L E T1 T2,
- ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
+  ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
 induction on 2. intros. case H2.
- case H3.
-   apply IH to _ H4 H5. search.
-   apply ctx_mem to H1 H6. case H7. case H5.
- case H3.
-   apply IH to H1 H4 H6. search.
-   apply ctx_mem to H1 H7. case H8. case H6.
- apply ctx_mem to H1 H5. case H4. case H6.
-   case H3. apply ctx_mem to H1 H8. case H7.
-   apply ctx_uniq to H1 H5 H8. search.
+  case H3.
+    apply IH to _ H4 H5. search.
+    apply ctx_mem to H1 H6. case H7. case H5.
+  case H3.
+    apply IH to H1 H4 H6. search.
+    apply ctx_mem to H1 H7. case H8. case H6.
+  apply ctx_mem to H1 H5. case H4. case H6.
+    case H3. apply ctx_mem to H1 H8. case H7.
+    apply ctx_uniq to H1 H5 H8. search.
 
 Theorem type_uniq : forall E T1 T2,
- {of E T1} -> {of E T2} -> T1 = T2.
- intros. apply type_uniq_ext to _ H1 H2. search.
+  {of E T1} -> {of E T2} -> T1 = T2.
+intros. apply type_uniq_ext to _ H1 H2. search.
 </pre>
+          </div>
+
+          <div class="tab-pane" ng-class="{active:tab.isSet(3)}" ng-controller="TraceController as trace">
+            <input type="button"
+                   value="Run Abella!"
+                   ng-click="trace.redo()">
+            <pre id="trace" ng-show="trace.hasOutput()">{{trace.output}}</pre>
           </div>
         </div> <!-- tab-content -->
       </div>   <!-- files -->

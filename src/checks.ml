@@ -19,7 +19,7 @@ open Typing
 
 open Extensions
 
-let out = ref stdout
+let out = ref Format.std_formatter
 
 (* Checks *)
 
@@ -122,7 +122,7 @@ let warn_stratify names head term =
       in
       if stratification_warnings_are_errors
       then failwith msg
-      else Printf.fprintf !out "Warning: %s\n%!" msg
+      else Format.fprintf !out "Warning: %s\n%!" msg
 
 let check_theorem thm =
   ensure_no_restrictions thm
@@ -180,7 +180,7 @@ let check_basic_stratification ~def =
                 name
         in
         if stratification_warnings_are_errors then failwith msg
-        else Printf.fprintf !out "Warning: %s\n%!" msg
+        else Format.fprintf !out "Warning: %s\n%!" msg
   in
   List.iter check_clause def.clauses
 

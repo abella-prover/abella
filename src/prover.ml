@@ -424,7 +424,7 @@ let format_sequent fmt =
     format_metaterm fmt sequent.goal
   end ; pp_close_box fmt ()
 
-let format_display fmt =
+let display fmt =
   pp_open_box fmt 0 ;
   if sequent.name = "" then
     fprintf fmt "@\n"
@@ -436,12 +436,9 @@ let format_display fmt =
   pp_close_box fmt () ;
   pp_print_flush fmt ()
 
-let display out =
-  format_display (formatter_of_out_channel out)
-
 let get_display () =
   let b = Buffer.create 100 in
-  format_display (formatter_of_buffer b) ;
+  display (formatter_of_buffer b) ;
   Buffer.contents b
 
 
@@ -580,8 +577,7 @@ let next_subgoal () =
 (* Show *)
 
 let print_theorem name (tys, thm) =
-  let ff = Format.formatter_of_out_channel !Checks.out in
-  Format.fprintf ff "@[<hv2>Theorem %s%s :@ %a@].@."
+  Format.fprintf !Checks.out "@[<hv2>Theorem %s%s :@ %a@].@."
     name (gen_to_string tys) format_metaterm thm
 
 let show name =

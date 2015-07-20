@@ -1,0 +1,1 @@
+<*.ml*> or <*.byte> or <*.native> : package(js_of_ocaml), package(js_of_ocaml.syntax), package(lwt), use_unix

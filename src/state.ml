@@ -70,13 +70,8 @@ module Undo = struct
 
   let stack : snap list ref = ref []
 
-  let describe msg =
-    ()
-    (* Printf.eprintf "AFTER(%s) : %d\n%!" msg (List.length !stack) *)
-
   let reset () =
-    stack := [] ;
-    describe "reset"
+    stack := []
 
   let undo () =
     if !enabled then begin
@@ -84,14 +79,12 @@ module Undo = struct
       | [] -> failwith "Nothing left to undo"
       | prev :: older ->
           reload prev ;
-          stack := older ;
-          describe "undo"
+          stack := older
     end
 
   let push () =
     if !enabled then begin
-      stack := snapshot () :: !stack ;
-      describe "push"
+      stack := snapshot () :: !stack
     end
 
   let back n0 =
@@ -100,8 +93,7 @@ module Undo = struct
         match hist, n with
         | (here :: hist), 1 ->
             reload here ;
-            stack := hist ;
-            describe ("back " ^ string_of_int n0)
+            stack := hist
         | (_ :: hist), n ->
             spin hist (n - 1)
         | [], _ ->

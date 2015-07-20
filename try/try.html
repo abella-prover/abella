@@ -10,7 +10,7 @@
     <!-- ANGULAR -->
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.15/angular.min.js"></script>
     <!-- BOOTSTRAP -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" type="text/css"></link>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" type="text/css">
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <!-- ACE -->
     <script type="text/javascript" src="ace/ace.js"></script>
@@ -63,7 +63,7 @@
         </ul>
         <div class="tab-content">
           <div class="tab-pane" ng-class="{active:tab.isSet(1)}">
-            <code>sig spec.</code>
+            <code>sig spec.</code> (editable)
             <pre id="spec-sig">kind    tm, ty    type.
 type    app       tm -> tm -> tm.
 type    abs       ty -> (tm -> tm) -> tm.
@@ -72,12 +72,12 @@ type    of        tm -> ty -> o.</pre>
 
             <hr>
 
-            <code>module spec.</code>
+            <code>module spec.</code> (editable)
             <pre id="spec-mod">of (abs T R) (arrow T U) :- pi x\ (of x T => of (R x) U).
 of (app M N) T :- of M (arrow U T), of N U.</pre>
           </div>
           <div class="tab-pane" ng-class="{active:tab.isSet(2)}">
-            <code>Specification "spec".</code>
+            <code>Specification "spec".</code> (editable)
             <pre id="reasoning">%% Type uniqueness for the simply-typed lambda-calculus
 
 %% There are some results about nominal variables, freshness,

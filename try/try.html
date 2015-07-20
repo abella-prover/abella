@@ -8,7 +8,8 @@
     <!-- JQUERY -->
     <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
     <!-- ANGULAR -->
-    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.15/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.3/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.3/angular-cookies.min.js"></script>
     <!-- BOOTSTRAP -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" type="text/css">
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
@@ -19,30 +20,36 @@
     <!-- LOCAL -->
     <style type="text/css">
       .tab-pane { padding: 5px 5px; }
-      ore { white-space: pre-wrap; display: inline-block; }
-      .ace_editor { font: 14pt Inconsolata, monospace; width: 90%; height: 200px; margin:auto; }
+      .ace_editor { font: 12pt Inconsolata, monospace; width: 90%; height: 200px; margin:auto; }
       .ace_fake_editor { height: 2em; }
       .ace_abella { color: #2233FA !important; text-decoration: underline; }
       .ace_proof  { color: #5544AA !important; }
       .tab-pane code { color: inherit; }
+      #trace { height: 40em; overflow-y: auto; }
     </style>
     <script type="text/javascript" src="main.js"></script>
     <script type="text/javascript">
       $(function(){
         document.run_abella = run_abella;
         var aceTheme = 'ace/theme/eclipse';
-        document.specSigEd = ace.edit("spec-sig");
-        document.specSigEd.setTheme(aceTheme);
-        document.specSigEd.session.setMode("ace/mode/lprolog");
-        document.specSigEd.setOptions({autoScrollEditorIntoView: true, minLines: 5, maxLines: 30});
-        document.specModEd = ace.edit("spec-mod");
-        document.specModEd.setTheme(aceTheme);
-        document.specModEd.session.setMode("ace/mode/lprolog");
-        document.specModEd.setOptions({autoScrollEditorIntoView: true, minLines: 5, maxLines: 30});
-        document.reasoningEd = ace.edit("reasoning");
-        document.reasoningEd.setTheme(aceTheme);
-        document.reasoningEd.session.setMode("ace/mode/abella");
-        document.reasoningEd.setOptions({autoScrollEditorIntoView: true, minLines: 5, maxLines: 50});
+        var makeEditor = function(key,mode,minLines,maxLines,id){
+          var ed = ace.edit(id);
+          ed.setTheme(aceTheme);
+          ed.setOptions({autoScrollEditorIntoView: true, minLines: minLines, maxLines: maxLines});
+          ed.getSession().setMode(mode);
+          if(typeof(Storage) !== undefined){
+            ed.$blockScrolling = Infinity;
+            var cached = localStorage.getItem(key);
+            if(cached !== null) ed.setValue(cached, -1);
+            ed.on('input', function(){
+               localStorage.setItem(key, ed.getValue());
+            });
+          }
+          document[key] = ed;
+        };
+        makeEditor('specSigEd','ace/mode/lprolog',5,30,'spec-sig');
+        makeEditor('specModEd','ace/mode/lprolog',5,30,'spec-mod');
+        makeEditor('reasoningEd','ace/mode/abella',5,40,'reasoning');
       });
     </script>
   </head>
@@ -139,10 +146,8 @@ intros. apply type_uniq_ext to _ H1 H2. search.
           </div>
 
           <div class="tab-pane" ng-class="{active:tab.isSet(3)}" ng-controller="TraceController as trace">
-            <input type="button"
-                   value="Run Abella!"
-                   ng-click="trace.redo()">
-            <pre id="trace" ng-show="trace.hasOutput()">{{trace.output}}</pre>
+            <input type="button" value="Run Abella!" ng-click="trace.redo()">
+            <pre id="trace" ng-show="trace.hasOutput()" scroll="output">{{trace.output}}</pre>
           </div>
         </div> <!-- tab-content -->
       </div>   <!-- files -->

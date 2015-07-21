@@ -59,6 +59,7 @@
         this.clear = function(){
             $document[0].setEditorContents('sig empty.', 'module empty.', '');
             $document[0].refreshEditors();
+            $document[0].getElementById('load-list').selectedIndex = 0;
         };
     }]);
 

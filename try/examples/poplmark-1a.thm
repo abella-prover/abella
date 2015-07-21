@@ -1,0 +1,173 @@
+%% POPLmark 1a: Reflexivity and transitivity for Fsub
+
+Specification "poplmark-1a".
+
+% We use nominal constants to represent type variable names. This predicate
+% recognizes such nominal constants.
+Define name : ty -> prop by
+  nabla x, name x.
+
+% ctx defines the context in which subtyping judgements are made
+Define ctx : olist -> prop by
+  ctx nil ;
+  ctx (bound X U :: L) := name X /\ ctx L.
+
+% cty defines valid closed types (used for reflexivity)
+Define cty : olist -> ty -> prop by
+  cty L top ;
+  cty L X := exists U, member (bound X U) L ;
+  cty L (arrow T1 T2) := cty L T1 /\ cty L T2 ;
+  cty L (all T1 T2) :=
+    cty L T1 /\ nabla x, cty (bound x T1 :: L) (T2 x).
+
+% ty defines valid open types (used for transitivity)
+Define ty : ty -> prop by
+  ty top ;
+  nabla x, ty x ;
+  ty (arrow T1 T2) := ty T1 /\ ty T2 ;
+  ty (all T1 T2) := ty T1 /\ nabla x, ty (T2 x).
+
+Theorem sub_refl : forall L T,
+  cty L T -> {L |- sub T T}.
+induction on 1. intros. case H1.
+  search.
+  search.
+  apply IH to H2. apply IH to H3. search.
+  apply IH to H2. apply IH to H3. search.
+
+Theorem ctx_member : forall E L,
+  ctx L -> member E L -> exists X U, E = bound X U /\ name X.
+induction on 2. intros. case H2.
+  case H1. search.
+  case H1. apply IH to H5 H3. search.
+
+Theorem bound_name : forall L X U,
+  ctx L -> {L |- bound X U} -> name X.
+intros. case H2.
+ apply ctx_member to H1 H4. case H3. search.
+
+Theorem sub_top : forall L T,
+  ctx L -> {L |- sub top T} -> T = top.
+intros. case H2.
+  search.
+  search.
+  apply bound_name to H1 H3. case H5.
+  apply ctx_member to H1 H4. case H3.
+
+Theorem dual_theorem : forall Q, ty Q ->
+  (forall L S T, ctx L ->
+    {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T})
+  /\
+  (forall L P X TM TN,
+    ctx (bound X Q :: L) -> {L |- sub P Q} ->
+      {L, bound X Q |- sub TM TN} -> {L, bound X P |- sub TM TN}).
+
+% The proof is by induction on the type Q.
+%   For transitivity there is a nested induction on {L |- sub S Q}
+%   For narrowing there is a nested induction on {L, bound X Q |- sub TM TN}
+
+induction on 1. intros. split*.
+% split* lets us use the transitivity result for Q while proving narrowing
+
+
+  % Proof of transitivity
+  % Induction and case analysis on {L |- S <: Q}
+  induction on 2. intros. case H3.
+    % SA-Top, Q = top
+    apply sub_top to H2 H4. search.
+
+    % SA-Refl-TVar, S = Q
+    search.
+
+    % SA-Trans-TVar
+    apply IH1 to H2 H6 H4. search.
+
+    % SA-Arrow, S = arrow S1 S2, Q = arrow T1 T2
+    % Case analysis on (arrow T1 T2) <: T
+    case H4.
+      % SA-Top, T = top
+      search.
+
+      % SA-Refl-TVar, absurd since (arrow T1 T2) is not a type variable
+      apply bound_name to H2 H7. case H8.
+
+      % SA-Trans-TVar, absurd since (arrow T1 T2) is not a type variable
+      apply bound_name to H2 H7. case H9.
+
+      % SA-Arrow, T = arrow T3 T4
+      % Inductively use transitivity based on T1 and T2
+      case H1. apply IH to H9.
+        apply IH to H10.
+          apply H11 to H2 H7 H5.
+            apply H13 to H2 H6 H8.
+              search.
+
+      apply ctx_member to H2 H8. case H7.
+
+    % SA-All, S = all S1 (x\ S2 x), Q = all T1 (x\ T2 x)
+    case H4.
+      % SA-Top, T = top
+      search.
+
+      % SA-Refl-TVar, absurd since (arrow T1 T2) is not a type variable
+      apply bound_name to H2 H7. case H8.
+
+      % SA-Trans-TVar, absurd since (arrow T1 T2) is not a type variable
+      apply bound_name to H2 H7. case H9.
+
+      % SA-All, T = all T3 (x\ T4 x)
+      % Inductively use transitivity and narrowing based on T1
+      % Inductively use transitivity based on T2
+      case H1. apply IH to H9.
+        apply IH to H10.
+          apply H11 to H2 H7 H5.
+            apply H12 to _ H7 H6 with X = n1.
+              apply H13 to _ H16 H8.
+                search.
+
+      apply ctx_member to H2 H8. case H7.
+
+    apply ctx_member to H2 H6. case H5.
+
+  % Proof of narrowing
+  % Induction and case analysis on {L, X:Q |- TM <: TN}
+  induction on 3. intros. case H5 (keep).
+    % SA-Top, TN = top
+    search.
+
+    % SA-Refl-TVar, TM = TN, either TM = X or TM is bound in L
+    case H6. case H8.
+      case H7. search.
+      case H3. apply ctx_member to H11 H9. case H7. search.
+
+    % SA-Trans-TVar
+    case H6. case H9. case H8.
+
+      % TM = X
+      % Use transitivity result established for Q
+      apply IH1 to H3 H4 H7.
+        case H3.
+          apply H2 to _ H4 H10. search.
+
+      % TM is bound in L
+      % Use inner inductive hypothesis
+      apply IH1 to H3 H4 H7. 
+       case H3. apply ctx_member to H13 H10. case H8. search.
+
+    % SA-Arrow, TM = arrow S1 S2, TN = arrow T1 T2
+    % Use inner inductive hypothesis
+    apply IH1 to H3 H4 H6. apply IH1 to H3 H4 H7. search.
+
+    % SA-All, TM = all S1 (x\ S2 x), TN = all T1 (x\ T2 x)
+    % Use inner inductive hypothesis
+    apply IH1 to H3 H4 H6.
+      assert ctx (bound X Q :: bound n1 T1 :: L). case H3. search.
+        apply IH1 to H9 H4 H7. search.
+
+    apply ctx_member to H3 H7. case H6.
+
+% We can extract the transitivity result from the generalized theorem
+Theorem transitivity : forall L Q S T,
+  ctx L -> ty Q -> {L |- sub S Q} -> {L |- sub Q T} -> {L |- sub S T}.
+intros. apply dual_theorem to H2.
+  apply H5 to H1 H3 H4. search.

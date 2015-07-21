@@ -1,0 +1,149 @@
+%% POPLmark 2a: Progress and preservation for Fsub
+%%
+%% Most of this is derived from the Twelf solution by CMU
+
+Specification "poplmark-2a".
+
+%% Subtyping inversions
+
+Theorem sub_top : forall T,
+  {sub top T} -> T = top.
+induction on 1. intros. case H1.
+  search.
+  search.
+  apply IH to H2. apply IH to H3. search.
+
+Theorem sub_arrow : forall S T1 T2,
+  {sub S (arrow T1 T2)} -> exists S1 S2, S = arrow S1 S2.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H3. apply IH to H2. search.
+  search.
+
+Theorem sub_forall : forall S T1 T2,
+  {sub S (all T1 T2)} -> exists S1 S2, S = all S1 S2.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H3. apply IH to H2. search.
+  search.
+
+Theorem invert_sub_arrow : forall S1 S2 T1 T2,
+  {sub (arrow S1 S2) (arrow T1 T2)} -> {sub T1 S1} /\ {sub S2 T2}.
+induction on 1. intros. case H1.
+  search.
+  apply sub_arrow to H3.
+    apply IH to H2. apply IH to H3. search.
+  search.
+
+Theorem invert_sub_forall : forall S1 S2 T1 T2,
+  {sub (all S1 S2) (all T1 T2)} ->
+    {sub T1 S1} /\ nabla x, {sub x T1 |- sub (S2 x) (T2 x)}.
+induction on 1. intros. case H1.
+  search.
+  apply sub_forall to H3.
+    apply IH to H2. apply IH to H3.
+      assert {sub n1 T1 |- sub n1 S3}.
+        cut H5 with H8. search.
+  search.
+
+%% Typing inversions
+
+Theorem absurd_ota : forall E T1 T2 T3,
+  {of (tabs T1 E) (arrow T2 T3)} -> false.
+induction on 1. intros. case H1.
+  apply sub_arrow to H3.
+    apply IH to H2.
+
+Theorem absurd_oaf : forall E T1 T2 T3,
+  {of (abs T1 E) (all T2 T3)} -> false.
+induction on 1. intros. case H1.
+  apply sub_forall to H3.
+    apply IH to H2.
+
+Theorem invert_of_abs : forall S1 E T1 T2,
+  {of (abs S1 E) (arrow T1 T2)} ->
+    exists S2, nabla x,
+      {of x S1 |- of (E x) S2} /\ {sub T1 S1} /\ {sub S2 T2}.
+induction on 1. intros. case H1.
+  search.
+  apply sub_arrow to H3.
+    apply invert_sub_arrow to H3.
+      apply IH to H2. search.
+
+Theorem invert_of_tabs : forall S1 E T1 T2,
+  {of (tabs S1 E) (all T1 T2)} ->
+    exists S2, nabla x, {sub x S1 |- of (E x) (S2 x)} /\ {sub T1 S1} /\
+                        {sub x T1 |- sub (S2 x) (T2 x)}.
+induction on 1. intros. case H1.
+  search.
+  apply sub_forall to H3.
+    apply invert_sub_forall to H3.
+    apply IH to H2.
+    assert {sub n1 T1 |- sub n1 S2}.
+    cut H8 with H9.
+    search.
+
+
+%% Progress
+
+Define progresses : tm -> prop by
+  progresses E := {value E} ;
+  progresses E := exists E', {step E E'}.
+
+Theorem app_progresses : forall E1 E2 T,
+  {of (app E1 E2) T} -> progresses E1 -> progresses E2 ->
+    progresses (app E1 E2).
+induction on 1. intros. case H1.
+  case H2.
+    case H3.
+      case H6.
+        search.
+        apply absurd_ota to H4. search.
+    search.
+  apply IH to H4 H2 H3. search.
+
+Theorem tapp_progresses : forall E T T',
+  {of (tapp E T) T'} -> progresses E -> progresses (tapp E T).
+induction on 1. intros. case H1.
+  case H2.
+    case H5.
+      apply absurd_oaf to H3.
+      search.
+    search.
+  apply IH to H3 H2. search.
+
+Theorem progress : forall E T,
+  {of E T} -> progresses E.
+induction on 1. intros. case H1 (keep).
+  search.
+  apply IH to H2. apply IH to H3.
+    apply app_progresses to H1 H4 H5. search.
+  search.
+  apply IH to H2. apply tapp_progresses to H1 H4. search.
+  apply IH to H2. search.
+
+
+%% Preservation
+
+Theorem preservation : forall E E' T,
+  {of E T} -> {step E E'} -> {of E' T}.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    apply invert_of_abs to H3.
+      inst H6 with n1 = E2.
+      assert {of E2 T1}.
+      cut H9 with H10. search.
+    apply IH to H3 H5. search.
+    apply IH to H4 H6. search.
+  case H2.
+  case H2.
+    apply invert_of_tabs to H3.
+      assert {sub T2 T3}.
+      inst H5 with n1 = T2.
+      cut H9 with H8.
+      inst H7 with n1 = T2.
+      cut H11 with H4.
+      search.
+    apply IH to H3 H5. search.
+  apply IH to H3 H2. search.

@@ -1,0 +1,395 @@
+% An Example of Bisimilation Checking for the pi-calculus
+%
+% This is a machine-checked proof of Example 28 in the paper:
+%
+% `Proof Search Specifications of Bisimulation and Modal Logic for
+%  the pi-calculus' by Alwen Tiu and Dale Miller.
+%
+% Specifically, it shows that a certain pair of processes (defined by
+% p and q below) are bisimilar.
+% This is done by proving that a certain set containing p and q,
+% specified by the predicate inv below, encodes a bisimulation set.
+%
+% The proof is checked using the Abella interactive prover, which is an
+% implementation of a logic called G. G is an extension of the logic LINC,
+% but the proof below uses only features of LINC.
+%
+% The Abella prover and documentation can be downloaded from
+%  http://abella-prover.org/
+
+Specification "pic".
+
+% Co-inductive definition of bisimulation
+CoDefine bisim : p -> p -> prop by
+  bisim P Q :=
+	(forall A P1, {one P A P1} -> exists Q1, {one Q A Q1} /\ bisim P1 Q1) /\
+	(forall X M, {oneb P (dn X) M} -> exists N, {oneb Q (dn X) N} /\
+					(forall w, bisim (M w) (N w)) ) /\
+	(forall X M, {oneb P (up X) M} -> exists N, {oneb Q (up X) N} /\
+					nabla w, bisim (M w) (N w)) /\
+	(forall A Q1, {one Q A Q1} -> exists P1, {one P A P1} /\ bisim Q1 P1) /\
+	(forall X N, {oneb Q (dn X) N} -> exists M, {oneb P (dn X) M} /\
+					(forall w, bisim (N w) (M w))) /\
+	(forall X N, {oneb Q (up X) N} -> exists M,  {oneb P (up X) M} /\
+					nabla w, bisim (N w) (M w)).
+
+Type a   n.
+Type x   n.
+% Definition of two processes
+Define p : p -> prop by
+  p (bang (nu z\ par (out z a null) (in z (y\ out x y null)))).
+Define q : p -> prop by
+  q (bang (taup (out x a null))).
+
+% Inductive definition of the invariant set.
+Define inv : p -> p -> prop by
+   inv P Q := p P /\ q Q ;
+   inv Q P := q Q /\ p P ;
+   inv (par (nu z\ par null null) M) (par null N) := inv M N ;
+   inv (par null N) (par (nu z\ par null null) M) := inv N M ;
+   inv (par (nu z\ par null (out x a null)) M) (par (out x a null) N) := inv M N ;
+   inv (par (out x a null) N) (par (nu z\ par null (out x a null)) M) := inv N M.
+
+% Bisim substituted with inv:
+Define bisimInv : p -> p -> prop by
+ bisimInv P Q :=
+	(forall A P1, {one P A P1} -> exists Q1, {one Q A Q1} /\ inv P1 Q1) /\
+	(forall X M, {oneb P (dn X) M} -> exists N, {oneb Q (dn X) N} /\
+					(forall w, inv (M w) (N w)) ) /\
+	(forall X M, {oneb P (up X) M} -> exists N, {oneb Q (up X) N} /\
+					nabla w, inv (M w) (N w)) /\
+	(forall A Q1, {one Q A Q1} -> exists P1, {one P A P1} /\ inv Q1 P1) /\
+	(forall X N, {oneb Q (dn X) N} -> exists M, {oneb P (dn X) M} /\
+					(forall w, inv (N w) (M w))) /\
+	(forall X N, {oneb Q (up X) N} -> exists M,  {oneb P (up X) M} /\
+					nabla w, inv (N w) (M w)).
+
+% Half of bisimInv
+% We'll use this and the symmetry of inv to reduce case analysis in
+% the main theorem (inv-bisim) below.
+Define simInv : p -> p -> prop by
+  simInv P Q :=
+	(forall A P1, {one P A P1} -> exists Q1, {one Q A Q1} /\ inv P1 Q1) /\
+	(forall X M, {oneb P (dn X) M} -> exists N, {oneb Q (dn X) N} /\
+					(forall w, inv (M w) (N w)) ) /\
+	(forall X M, {oneb P (up X) M} -> exists N, {oneb Q (up X) N} /\
+					nabla w, inv (M w) (N w)).
+
+% The set encoded by inv is symmetric.
+Theorem inv-sym:
+forall P Q, inv P Q -> inv Q P.
+induction on 1.
+intros.
+case H1. search. search.
+apply IH to H2. search.
+apply IH to H2. search.
+apply IH to H2. search.
+apply IH to H2. search.
+
+
+% Two simInvs make a bisimInv.
+Theorem sim-bisim:
+forall P Q, simInv P Q -> simInv Q P -> bisimInv P Q.
+intros.
+case H1. case H2. unfold.
+intros. apply H3 to H9. exists Q2. search.
+intros. apply H4 to H9. exists N. search.
+intros. apply H5 to H9. exists (w\ N w). search.
+
+intros. apply H6 to H9. exists Q2. search.
+intros. apply H7 to H9. exists N1. search.
+intros. apply H8 to H9. exists N1. search.
+
+Set subgoals off.
+
+Theorem inv-sim:
+forall P Q, inv P Q -> simInv P Q.
+induction on 1.
+intros.
+case H1. case H2. case H3.
+unfold.
+intros.
+case H4. case H5. case H6. case H7. case H7. case H7. case H7. case H7.
+case H7. case H8. case H9.
+exists (par (out x a null) (bang (taup (out x a null)))). search.
+
+case H5. case H6. case H7. case H8. case H9.
+case H10. case H10. case H9. case H10. case H10.
+
+case H5. case H6. case H7. case H8. case H9.
+case H9. case H8. case H9. case H9. case H6.
+case H7. case H8. case H9. case H9. case H8.
+case H9. case H9.
+
+intros. case H4.
+case H5. case H6. case H7. case H7.
+
+intros. case H4.
+case H5. case H6. case H7. case H7.
+case H6. case H7. case H7.
+
+
+case H2. case H3.
+unfold.
+intros.
+case H4. case H5.
+exists (par (nu z\ par null (out x a null)) (bang (nu z\ par (out z a null) (in z (y\ out x y null))))).
+search.
+
+case H5. case H5.
+intros. case H4. case H5.
+intros. case H4. case H5.
+
+% inductive cases
+
+unfold.
+intros.
+case H3. case H4. case H5. case H6. case H6.
+case H6. case H6. case H6. case H6.
+apply IH to H2.
+case H5.
+apply H6 to H4.
+exists (par null Q2).
+search.
+
+case H4. case H6. case H7. case H7.
+case H4. case H6. case H7. case H7.
+case H6. case H7. case H7.
+case H4. case H7. case H8. case H8.
+case H5. case H7. case H8. case H8.
+
+
+intros.
+case H3. case H4. case H5. case H6. case H6.
+apply IH to H2.
+case H5.
+apply H7 to H4.
+exists (w\ par null (N2 w)).
+split. search.
+intros.
+apply H10 with w = w.
+search.
+
+intros.
+case H3.
+case H4. case H5. case H6. case H6. case H5. case H6. case H6.
+apply IH to H2. case H5.
+apply H8 to H4.
+exists (w\ par null (N2 w)).
+search.
+
+unfold.
+intros. case H3. case H4.
+apply IH to H2. case H5.
+apply H6 to H4.
+exists (par (nu z\ par null null) Q2).
+search.
+case H4. case H4. case H4. case H5.
+
+intros. case H3. case H4.
+apply IH to H2. case H5.
+apply H7 to H4.
+exists (w\ par (nu z\ par null null) (N2 w)).
+split. search. intros. apply H10 with w = w. search.
+
+intros.
+case H3. case H4.
+apply IH to H2. case H5.
+apply H8 to H4.
+exists (w\ par (nu z\ par null null) (N2 w)).
+search.
+
+apply IH to H2.
+unfold.
+intros.
+case H4. case H5. case H6. case H7.
+case H7.
+exists (par null N). search.
+case H7. case H7. case H7. case H8.
+
+case H3.
+apply H6 to H5.
+exists (par (out x a null) Q2).
+search.
+case H5. case H7. case H8. case H8.
+case H5. case H7. case H8. case H8.
+case H7. case H8. case H8.
+case H5. case H8. case H9.
+
+case H9. case H6. case H8. case H9.
+case H9. case H7.
+
+case H3.
+apply H11 to H5.
+exists (par null (N1 a)).
+split. search.
+apply H14 with w = a. search.
+
+intros.
+case H4. case H5. case H6. case H7. case H7.
+case H3.
+apply H7 to H5.
+exists (w\ par (out x a null) (N2 w)).
+split. search.
+intros. apply H10 with w = w. search.
+
+intros. case H4. case H5. case H6. case H7. case H7. case H6. case H7.
+case H7.
+case H3.
+apply H8 to H5.
+exists (w\ par (out x a null) (N2 w)). search.
+
+unfold.
+intros. case H3. case H4.
+exists (par (nu z\ par null null) M). search.
+
+apply IH to H2. case H5.
+apply H6 to H4.
+exists (par (nu z\ par null (out x a null)) Q2). search.
+case H4. case H4. case H4. case H5. case H6.
+apply IH to H2.
+case H7. apply H9 to H4.
+exists (par (nu z\ par null null) (N1 a)).
+apply H12 with w = a. search.
+
+
+intros. case H3. case H4.
+apply IH to H2.
+case H5.
+apply H7 to H4.
+exists (w\ par (nu z\ par null (out x a null)) (N2 w)).
+split. search. intros. apply H10 with w = w. search.
+
+
+intros. case H3. case H4.
+apply IH to H2. case H5.
+apply H8 to H4.
+exists (w\ par (nu z\ par null (out x a null)) (N2 w)).
+search.
+
+%%%%%
+
+
+
+% The set defined by inv is a post-fixed point of bisim.
+
+Theorem inv-bisim:
+forall R T, inv R T -> bisimInv R T.
+intros.
+assert simInv R T.
+  apply inv-sim to H1. search.
+assert simInv T R.
+  apply inv-sym to H1.
+  apply inv-sim to H3. search.
+apply sim-bisim to H2 H3. search.
+
+
+% The set defined by inv is included in the greatest bisimulation.
+
+Theorem inv-implies-bisim:
+forall P Q, inv P Q -> bisim P Q.
+coinduction.
+intros.
+apply inv-bisim to H1.
+unfold.
+intros.
+case H2.
+apply H4 to H3.
+exists Q2.
+apply CH to H11. search.
+
+intros.
+case H2. apply H5 to H3.
+exists N. split. search.
+intros. apply H11 with w = w.
+apply CH to H12. search.
+
+intros.
+case H2. apply H6 to H3.
+exists N.
+apply CH to H11. search.
+
+intros.
+case H2. apply H7 to H3.
+exists P2.
+apply CH to H11. search.
+
+intros.
+case H2. apply H8 to H3.
+exists M.
+split. search. intros.
+apply H11 with w = w.
+apply CH to H12. search.
+
+intros.
+case H2. apply H9 to H3.
+exists M.
+apply CH to H11.
+search.
+
+% p and q are bisimilar
+
+Theorem p-bisim-q:
+forall P Q, p P -> q Q -> bisim P Q.
+intros.
+assert inv P Q.
+apply inv-implies-bisim to H3. search.
+
+
+% bisim is symmetric
+Theorem bisim-sym:
+forall P Q, bisim P Q -> bisim Q P.
+intros.
+unfold.
+case H1.
+intros. apply H5 to H8. search.
+
+intros.
+case H1.
+apply H7 to H2.
+exists M1. split. search. search.
+
+intros.
+case H1.
+apply H8 to H2.
+search.
+
+case H1.
+intros.
+apply H2 to H8. search.
+
+case H1.
+intros.
+apply H3 to H8. search.
+
+case H1.
+intros.
+apply H4 to H8.
+search.
+
+% bisim is reflexive
+Theorem bisim-refl:
+forall P, bisim P P.
+coinduction.
+intros.
+unfold.
+intros.
+apply CH with P = P1. search.
+intros.
+exists M.
+split. search.
+intros.
+apply CH with P = (M w). search.
+
+intros.
+exists M. split. search.
+intros. apply CH with P = (M n1). search.
+
+intros. apply CH with P = Q1. search.
+
+intros. exists N. split. search.
+intros. apply CH with P = (N w). search.
+
+intros. exists N. split. search.
+intros. apply CH with P = (N n1).
+search.

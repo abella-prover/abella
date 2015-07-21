@@ -1,0 +1,227 @@
+% Meta-theory of HH in G (Abella's reasoning logic)
+
+% Reasoning on multisets -- this is needed in the statement
+% of the cut theorem.
+
+% The definition (remove G A D) asserts that G is D extended with A.
+Define remove : olist -> o -> olist -> prop by
+  remove (A :: G) A G
+; remove (B :: G) A (B :: D) := remove G A D.
+
+% If G is an extension of D, then all members of D are also members of G.
+Theorem remove_incl :
+  forall G D A B, remove G A D -> member B D -> member B G.
+induction on 1. intros. case H1.
+  search.
+  case H2.
+    search.
+    apply IH to H3 H4. search.
+
+% If G is D extended with A, then any member of G is either A or a
+% member of D.
+Theorem remove_charac :
+  forall G A D B, remove G A D -> member B G -> A = B \/ member B D.
+induction on 1. intros. case H1 (keep).
+  case H2.
+    search.
+    search.
+  case H2.
+    search.
+    apply IH to H3 H4. case H5.
+      search.
+      search.
+
+% Types of formulas and terms
+Kind fm, tm type.
+
+% Terms are left abstract, while formulas have the following constructors
+Type atm tm -> fm.
+Type and fm -> fm -> fm.
+Type top fm.
+Type imp fm -> fm -> fm.
+Type all (tm -> fm) -> fm.
+
+% Contexts are lists of formulas, but instead of defining a type of
+% formula lists, we just reuse the olist type and keep things of
+% the form ($fm A) in them.  In a polymorphically typed extension
+% of Abella, we can avoid this hack.
+Type $fm fm -> o.
+
+% We will need to induct on the structure of formulas, so we write
+% an inductive definition of all formulas.
+Define is_fm : fm -> prop by
+  is_fm (atm A)
+; is_fm (and A B) := is_fm A /\ is_fm B
+; is_fm top
+; is_fm (imp A B) := is_fm A /\ is_fm B
+; is_fm (all A) := forall x, is_fm (A x).
+
+% We keep the prog definition abstract.
+Type prog fm -> prop.
+
+% We have to assume that any prog clause is independent of nabla in
+% order for instantiation to be sound. Since there is no way to write
+% axioms in Abella, we state this as a theorem with an empty proof.
+Theorem prog_has_no_nablas :
+  forall F, nabla (n:tm), prog (F n) -> exists E, F = x\ E.
+skip.
+
+% The backchaining calculus consists of two phases: seq and bch
+%
+% bch L F A   stands for    L ; [F] |- A     (F backchainied)
+% seq L G      stands for    L |- G
+Define
+  seq   : olist       -> fm -> prop,
+  bch  : olist -> fm -> tm -> prop
+by
+  seq L (atm A) := exists F, member ($fm F) L /\ bch L F A
+; seq L (atm A) := exists F, prog F /\ bch L F A
+
+; seq L (and G1 G2) := seq L G1 /\ seq L G2
+; seq L top
+; seq L (imp F G) := seq ($fm F :: L) G
+; seq L (all A) := nabla x, seq L (A x)
+
+; bch L (atm A) A
+; bch L (and F1 F2) A := bch L F1 A \/ bch L F2 A
+; bch L (imp G F) A := seq L G /\ bch L F A
+; bch L (all F) A := exists t, bch L (F t) A.
+
+% Note: the third argument to bch always represents an atom.
+% This is because the atomic formula P(t1, ..., tn) is represented as
+% (atm (P t1 ... tn)), where P has type (tm -> ... -> tm -> tm).
+
+Theorem $monotone :
+    (forall L L' C, (forall E, member E L -> member E L') -> seq L C -> seq L' C)
+/\  (forall L L' F A, (forall E, member E L -> member E L') -> bch L F A -> bch L' F A).
+induction on 2 2. split.
+  intros. case H2 (keep).
+    apply IH1 to H1 H4. apply H1 to H3. search.
+    apply IH1 to H1 H4. search.
+    apply IH to H1 H3. apply IH to H1 H4. search.
+    search.
+    assert forall E, member E ($fm F :: L) -> member E ($fm F :: L').
+      intros. case H4. search. apply H1 to H5. search.
+     apply IH to H4 H3. search.
+    apply IH to H1 H3. search.
+  intros. case H2 (keep).
+    search.
+    case H3.
+      apply IH1 to H1 H4. search.
+      apply IH1 to H1 H4. search.
+    apply IH to H1 H3. apply IH1 to H1 H4. search.
+    apply IH1 to H1 H3. search.
+
+Split $monotone as monotone_seq, monotone_bch.
+
+Theorem $weakening :
+   (forall L L' B G, remove L' B L -> seq L G -> seq L' G)
+/\ (forall L L' B F A, remove L' B L -> bch L F A -> bch L' F A).
+split.
+  intros.
+   assert forall E, member E L -> member E L'. intros. backchain remove_incl.
+   backchain monotone_seq.
+  intros.
+   assert forall E, member E L -> member E L'. intros. backchain remove_incl.
+   backchain monotone_bch.
+
+Split $weakening as weakening_seq, weakening_bch.
+
+Theorem member_inst :
+   forall F L, nabla (n:tm), member (F n) (L n) -> forall t, member (F t) (L t).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. apply H3 with t = t. search.
+
+% The instantiation lemma
+Theorem $inst :
+   (forall L G, nabla (n:tm), seq (L n) (G n) -> forall t, seq (L t) (G t))
+/\ (forall L F A, nabla (n:tm), bch (L n) (F n) (A n) -> forall t, bch (L t) (F t) (A t)).
+induction on 1 1. split.
+  intros. case H1.
+    apply IH1 to H3. apply member_inst to H2.
+     apply H4 with t = t. apply H5 with t = t. search.
+    apply IH1 to H3. apply prog_has_no_nablas to H2. apply H4 with t = t. search.
+    apply IH to H2. apply IH to H3.
+     apply H4 with t = t. apply H5 with t = t. search.
+    search.
+    apply IH to H2. apply H3 with t = t. search.
+    apply IH to H2. apply H3 with t = t. search.
+  intros. case H1.
+    search.
+    case H2.
+      apply IH1 to H3. apply H4 with t = t. search.
+      apply IH1 to H3. apply H4 with t = t. search.
+    apply IH to H2. apply IH1 to H3.
+     apply H4 with t = t. apply H5 with t = t. search.
+    apply IH1 to H2. apply H3 with t = t. search.
+
+Split $inst as inst_seq, inst_bch.
+
+% The main cut-admissibility theorem.
+Theorem $cut :
+   (forall L K F G, is_fm F ->
+     seq K F -> remove L ($fm F) K -> seq L G  -> seq K G)
+/\ (forall L K F F' A, is_fm F ->
+     seq K F -> remove L ($fm F) K -> bch L F' A -> bch K F' A)
+/\ (forall L F A, is_fm F ->
+     seq L F ->                       bch L F A -> seq L (atm A)).
+% We proceed by nested induction on:
+%
+%  - the structure of the cut-formula, then
+%  - the structure of the container derivation (i.e., the derivation
+%     that contains the cut-formula as a hypothesis).
+induction on 1 1 1.
+induction on 4 4 3. split.
+  intros. case H4 (keep).
+    apply remove_charac to H3 H5. case H7.
+      case H1 (keep).
+        case H6. search.
+        case H6 (keep). case H10.
+          apply IH4 to H1 H2 H3 H11.
+           case H2. apply IH2 to H8 H13 H12. search.
+          apply IH4 to H1 H2 H3 H11.
+           case H2. apply IH2 to H9 H14 H12. search.
+        case H6.
+        case H6.
+         apply IH3 to H1 H2 H3 H10.
+         apply IH4 to H1 H2 H3 H11.
+         case H2 (keep).
+         apply IH to H8 H12 _ H14.
+         apply IH2 to H9 H15 H13. search.
+        case H6.
+         apply IH4 to H1 H2 H3 H9.
+         case H2. apply inst_seq to H11. apply H12 with t = t.
+          apply H8 with x = t.
+          apply IH2 to H14 H13 H10. search.
+      apply IH4 to H1 H2 H3 H6. search.
+    apply IH4 to H1 H2 H3 H6. search.
+    apply IH3 to H1 H2 H3 H5.
+     apply IH3 to H1 H2 H3 H6. search.
+    search.
+    assert remove ($fm F1 :: L) ($fm F) ($fm F1 :: K).
+     assert seq ($fm F1 :: K) F. backchain weakening_seq.
+     apply IH3 to H1 H7 H6 H5. search.
+    apply IH3 to H1 H2 H3 H5. search.
+  intros. case H4 (keep).
+    search.
+    case H5.
+      apply IH4 to H1 H2 H3 H6. search.
+      apply IH4 to H1 H2 H3 H6. search.
+    apply IH3 to H1 H2 H3 H5.
+     apply IH4 to H1 H2 H3 H6. search.
+    apply IH4 to H1 H2 H3 H5. search.
+  intros. case H3 (keep).
+    search.
+    case H4.
+      case H1 (keep). case H2 (keep). apply IH2 to H6 H8 H5. search.
+      case H1 (keep). case H2 (keep). apply IH2 to H7 H9 H5. search.
+    case H1 (keep). case H2 (keep).
+     apply IH to H6 H4 _ H8.
+     apply IH2 to H7 H9 H5. search.
+    case H1 (keep). case H2 (keep).
+     apply H5 with x = t.
+     apply inst_seq to H6. apply H8 with t = t.
+     apply IH2 to H7 H9 H4. search.
+
+Split $cut as cut, cut_commutative, cut_principal.

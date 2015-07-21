@@ -1,0 +1,229 @@
+%% Cut admissibility for sequent calculus
+%%
+%% An object level sequent A_1, ..., A_n |- C is encoded as
+%% {hyp A_1, ..., hyp A_n |- conc C}. We use the ctx meta-level
+%% predicate to describe the structure of contexts for the conc
+%% predicate. In this case, the important point is that the context
+%% contains only hypotheses (hyp A) and not conclusions (conc A).
+%%
+%% This is based on a similar development for Twelf
+
+Specification "cut".
+
+Define ctx : olist -> prop by
+  ctx nil ;
+  ctx (hyp A :: L) := ctx L.
+
+Theorem ctx_lemma :
+  forall E L, ctx L ->  member E L -> exists A, E = hyp A.
+induction on 1. intros. case H1.
+  case H2.
+  case H2. search. apply IH to H3 H4. search.
+
+%% We can independently prove inversion lemmas for 'bot', 'and', 'imp',
+%% and 'all'.
+%%
+%% For 'or' and 'ex' the inversion lemmas depend on the cut admissibility
+%% result and thus we prove those inversions during the cut proof.
+
+Theorem bot_inv : forall L C,
+  ctx L -> {L |- conc bot} -> {L |- conc C}.
+induction on 2. intros. case H2.
+  search.
+  search.
+  apply IH to _ H4 with C = C. search.
+  apply IH to _ H4 with C = C. apply IH to _ H5 with C = C. search.
+  apply IH to _ H5 with C = C. search.
+  apply IH to _ H4 with C = C. search.
+  apply IH to _ H4 with C = C. search.
+  apply ctx_lemma to H1 H4. case H3.
+
+Theorem and_left_inv : forall L C1 C2,
+  ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C1}.
+induction on 2. intros. case H2.
+  search.
+  search.
+  search.
+  apply IH to _ H4. search.
+  apply IH to _ H4. apply IH to _ H5. search.
+  apply IH to _ H5. search.
+  apply IH to _ H4. search.
+  apply IH to _ H4. search.
+  apply ctx_lemma to H1 H4. case H3.
+
+Theorem and_right_inv : forall L C1 C2,
+  ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C2}.
+induction on 2. intros. case H2.
+  search.
+  search.
+  search.
+  apply IH to _ H4. search.
+  apply IH to _ H4. apply IH to _ H5. search.
+  apply IH to _ H5. search.
+  apply IH to _ H4. search.
+  apply IH to _ H4. search.
+  apply ctx_lemma to H1 H4. case H3.
+
+Theorem imp_inv : forall L C1 C2,
+  ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
+induction on 2. intros. case H2.
+  search.
+  search.
+  apply IH to _ H4. search.
+  apply IH to _ H4. apply IH to _ H5. search.
+  search.
+  apply IH to _ H5. search.
+  apply IH to _ H4. search.
+  apply IH to _ H4. search.
+  apply ctx_lemma to H1 H4. case H3.
+
+Theorem all_inv : forall L C,
+  ctx L -> {L |- conc (all C)} -> nabla x, {L |- conc (C x)}.
+induction on 2. intros. case H2.
+  search.
+  search.
+  apply IH to _ H4. search.
+  apply IH to _ H4. apply IH to _ H5. search.
+  apply IH to _ H5. search.
+  search.
+  apply IH to _ H4. search.
+  apply IH to _ H4. search.
+  apply ctx_lemma to H1 H4. case H3.
+
+Theorem cut_admissibility : forall L K C,
+  {form K} -> ctx L ->
+    {L |- conc K} -> {L, hyp K |- conc C} -> {L |- conc C}.
+
+% The proof is by nested induction on
+%  1) The size of the cut formula K
+%  2) The height of {L, hyp K |- conc C}
+
+induction on 1. induction on 4. intros. case H4.
+  % Case analysis on {L, hyp K |- conc C}
+
+  % conc C in context - impossible
+  % apply ctx_lemma to _ H5.
+
+  % init rule
+  case H5. case H7.
+    case H6. search.
+    apply ctx_lemma to H2 H8. case H6. search.
+
+  % topR - C = top
+  search.
+
+  % botL
+  case H5. case H7.
+    % essential case - K = bot
+    case H6. apply bot_inv to H2 H3 with C = C. search.
+    % commutative case
+    apply ctx_lemma to H2 H8. case H6. search.
+
+  % andR - C = and A B
+  apply IH1 to H1 _ H3 H5. apply IH1 to H1 _ H3 H6.
+    search.
+
+  % andL
+  apply IH1 to H1 _ H3 H6. case H5. case H9.
+    case H8.
+    % essential case - K = and A B
+    apply and_left_inv to _ H3. apply and_right_inv to _ H3. case H1.
+      apply IH to H12 _ H10 H7. apply IH to H13 _ H11 H14. search.
+
+    % commutative case
+    apply ctx_lemma to H2 H10. case H8.
+    search.
+
+  % orR_1 - C = or A B
+  apply IH1 to H1 H2 H3 H5. search.
+
+  % orR_2 - C = or A B
+  apply IH1 to H1 H2 H3 H5. search.
+
+  % orL
+  apply IH1 to H1 _ H3 H6. apply IH1 to H1 _ H3 H7. case H5. case H11.
+    case H10.
+    % essential case - K = or A B
+    % A nested inversion lemma for 'or'
+    assert (forall L D, ctx L -> {L |- conc (or A B)} ->
+                          {L, hyp A |- conc D} -> {L, hyp B |- conc D} ->
+                          {L |- conc D}).
+      induction on 2. intros. case H13.
+        search.
+        search.
+        apply IH2 to _ H17 H14 H15. search.
+        case H1. apply IH to H17 H12 H16 H14. search.
+        case H1. apply IH to H18 H12 H16 H15. search.
+        apply IH2 to _ H17 H14 H15. apply IH2 to _ H18 H14 H15. search.
+        apply IH2 to _ H18 H14 H15. search.
+        apply IH2 to _ H17 H14 H15. search.
+        apply IH2 to _ H17 H14 H15. search.
+        apply ctx_lemma to H12 H17. case H16.
+
+    apply H12 to H2 H3 H8 H9. search.
+
+    % commutative case
+    apply ctx_lemma to H2 H12. case H10.
+    search.
+
+  % impR - C = imp A B.
+  apply IH1 to H1 _ H3 H5. search.
+
+  % impL
+  apply IH1 to H1 _ H3 H6. apply IH1 to H1 _ H3 H7. case H5. case H11.
+    case H10.
+    % essential case - K = imp A B
+    apply imp_inv to _ H3. case H1.
+      apply IH to H13 _ H8 H12. apply IH to H14 _ H15 H9. search.
+
+    % commutative case
+    apply ctx_lemma to H2 H12. case H10.
+    search.
+
+  % allR - C = all A
+  apply IH1 to H1 _ H3 H5. search.
+
+  % allL
+  apply IH1 to H1 _ H3 H6. case H5. case H9.
+    case H8.
+    % essential case - K = all A
+    apply all_inv to _ H3. case H1.
+      inst H10 with n1 = T. inst H11 with n1 = T.
+        apply IH to H13 _ H12 H7. search.
+
+    % commutative case
+    apply ctx_lemma to H2 H10. case H8.
+    search.
+
+  % exR - C = ex A
+  apply IH1 to H1 H2 H3 H5. search.
+
+  % exL
+  apply IH1 to H1 _ H3 H6. case H5. case H9. case H8.
+    % essential case - K = ex A
+    % A nested inversion lemma for 'ex'
+    assert (forall L D, nabla x, ctx L -> {L |- conc (ex A)} ->
+                                   {L, hyp (A x) |- conc D} ->
+                                   {L |- conc D}).
+      induction on 2. intros. case H11.
+        search.
+        search.
+        apply IH2 to _ H14 H12. search.
+        apply IH2 to _ H14 H12. apply IH2 to _ H15 H12. search.
+        apply IH2 to _ H15 H12. search.
+        apply IH2 to _ H14 H12. search.
+        case H1. inst H14 with n1 = T. inst H12 with n1 = T.
+          apply IH to H15 H10 H13 H16. search.
+        assert {L1, hyp (A n2) |- conc D}.
+          apply IH2 to _ H14 H15. search.
+        apply ctx_lemma to H10 H14. case H13.
+
+    apply H10 to H2 H3 H7. search.
+
+    % commutative case
+    apply ctx_lemma to H2 H10. case H8.
+    search.
+
+  case H6.
+    case H5.
+    apply ctx_lemma to H2 H7. case H5.

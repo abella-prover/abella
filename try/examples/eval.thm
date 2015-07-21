@@ -1,0 +1,145 @@
+%% Lambda calculus and various results on typing and evaluation
+%%
+%% Even though we use higher-order abstract syntax here, we do not need
+%% to define a meta-level context predicate because all contexts are
+%% empty in the inductions.
+
+Specification "eval".
+
+%%
+%% Determinancy
+%%
+
+Theorem eval_det :
+  forall E V1 V2, {eval E V1} -> {eval E V2} -> V1 = V2.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H3 H5. apply IH to H4 H6. search.
+
+Theorem step_det :
+  forall E1 E2 E3, {step E1 E2} -> {step E1 E3} -> E2 = E3.
+induction on 1. intros. case H1.
+  case H2.
+    search.
+    case H3.
+  case H2.
+    case H3.
+    apply IH to H3 H4. search.
+
+Theorem nstep_det :
+  forall E R1 R2, {nstep E (abs R1)} -> {nstep E (abs R2)} -> R1 = R2.
+induction on 1. intros. case H1.
+  case H2.
+    search.
+    case H3.
+  case H2.
+    case H3.
+    apply step_det to H3 H5. apply IH to H4 H6. search.
+
+%%
+%% Equivalence of semantics
+%%
+
+Theorem nstep_lemma :
+  forall M N R V, {nstep M (abs R)} -> {nstep (R N) V} -> {nstep (app M N) V}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H4 H2. search.
+
+Theorem eval_nstep :
+  forall E V, {eval E V} -> {nstep E V}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. apply IH to H3. apply nstep_lemma to H4 H5. search.
+
+Theorem step_eval_lemma :
+  forall A B C, {step A B} -> {eval B C} -> {eval A C}.
+induction on 1. intros. case H1.
+  search.
+  case H2. apply IH to H3 H4. search.
+
+Theorem nstep_eval :
+  forall E R, {nstep E (abs R)} -> {eval E (abs R)}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H3. apply step_eval_lemma to H2 H4. search.
+
+
+%%
+%% Subject reduction
+%%
+
+Theorem sr_eval :
+  forall E V T, {eval E V} -> {of E T} -> {of V T}.
+induction on 1. intros. case H1.
+  search.
+  case H2. apply IH to H3 H5. case H7. inst H8 with n1 = N.
+    cut H9 with H6. apply IH to H4 H10. search.
+
+Theorem sr_step :
+  forall E1 E2 T, {step E1 E2} -> {of E1 T} -> {of E2 T}.
+induction on 1. intros. case H1.
+  case H2. case H3.
+    inst H5 with n1 = M. cut H6 with H4.
+      search.
+  case H2.
+    apply IH to H3 H4. search.
+
+Theorem sr_nstep :
+  forall E1 E2 T, {nstep E1 E2} -> {of E1 T} -> {of E2 T}.
+induction on 1. intros. case H1.
+  search.
+  apply sr_step to H3 H2.
+    apply IH to H4 H5. search.
+
+
+%%
+%% Misc
+%%
+
+% A cut property for typing judgments
+Theorem type_subst : forall L E E' T T', nabla x,
+  {L, of x T' |- of (E x) T} -> {L |- of E' T'} ->
+    {L |- of (E E') T}.
+intros.
+inst H1 with n1 = E'.
+cut H3 with H2.
+search.
+
+% Self application cannot be simply-typed
+Theorem of_self_app_absurd : forall T,
+  {of (abs (x\ app x x)) T} -> false.
+intros. case H1. case H2.
+  case H3. case H6. 
+    case H5. case H4. case H8. 
+      case H7.
+      case H9.
+    case H7.
+  case H4. case H3. case H5.
+
+% The term (lambda x . x x) (lambda x . x x) does not evaluate to a value
+Theorem no_eval : forall V,
+  {eval (app (abs x\ app x x) (abs x\ app x x)) V} -> false.
+induction on 1. intros. case H1.
+  case H2. apply IH to H3.
+
+% We can also define divergence coinductivly to prove that
+% (lambda x . x x) (lambda x . x x) diverges
+
+CoDefine diverge : tm -> prop by
+  diverge (app M N) := diverge M ;
+  diverge (app M N) := exists R, {eval M (abs R)} /\ diverge (R N).
+
+Theorem omega_diverge :
+  diverge (app (abs x\ app x x) (abs x\ app x x)).
+coinduction. search.
+
+% More generally we can prove that evaluation and divergence are
+% mutually exclusive
+Theorem eval_diverge_absurd : forall M V,
+  {eval M V} -> diverge M -> false.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    apply IH to H3 H5.
+    apply eval_det to H3 H5. apply IH to H4 H6.

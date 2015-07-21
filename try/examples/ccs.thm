@@ -1,0 +1,66 @@
+%% Results on CCS
+%%
+%% Many of these are taken from Alwen Tiu's PhD thesis
+
+Specification "ccs".
+
+Theorem mu_id_step_absurd : forall A Q,
+  {step (mu x\ x) A Q} -> false.
+induction on 1. intros. case H1.
+  apply IH to H2.
+
+CoDefine sim : proc -> proc -> prop by
+  sim P Q :=
+    forall A P1, {step P A P1} -> exists Q1, {step Q A Q1} /\ sim P1 Q1.
+
+Theorem sim_mu_par_ext : forall Q Q1,
+  {step Q a (par Q Q1)} -> sim (mu x\ out a x) Q.
+coinduction. intros. unfold. intros.
+case H2. case H3.
+assert {step (par Q Q1) a (par (par Q Q1) Q1)}.
+apply CH to H4. search.
+
+Theorem sim_mu_par :
+  sim (mu x\ out a x) (mu x\ par (out a x) (out a x)).
+apply sim_mu_par_ext to _ with Q = (mu x\ par (out a x) (out a x)).
+search.
+
+Theorem sim_refl : forall P,
+  sim P P.
+coinduction. intros.
+unfold. intros.
+apply CH with P = P1. search.
+
+Theorem sim_trans : forall P Q R,
+  sim P Q -> sim Q R -> sim P R.
+coinduction. intros.
+unfold. intros.
+case H1. apply H4 to H3.
+case H2. apply H7 to H5.
+apply CH to H6 H9. search.
+
+CoDefine bisim : proc -> proc -> prop by
+  bisim P Q :=
+    (forall A P1, {step P A P1} -> exists Q1, {step Q A Q1} /\ bisim P1 Q1) /\
+    (forall A Q1, {step Q A Q1} -> exists P1, {step P A P1} /\ bisim P1 Q1).
+
+Theorem bisim_refl : forall P,
+  bisim P P.
+coinduction. intros.
+unfold.
+  intros. apply CH with P = P1. search.
+  intros. apply CH with P = Q1. search.
+
+Theorem bisim_sym : forall P Q,
+  bisim P Q -> bisim Q P.
+coinduction. intros. case H1. unfold.
+  intros. apply H3 to H4. apply CH to H6. search.
+  intros. apply H2 to H4. apply CH to H6. search.
+
+Theorem bisim_trans : forall P Q R,
+  bisim P Q -> bisim Q R -> bisim P R.
+coinduction. intros. case H1. case H2. unfold.
+  intros. apply H3 to H7. apply H5 to H8.
+    apply CH to H9 H11. search.
+  intros. apply H6 to H7. apply H4 to H8.
+    apply CH to H11 H9. search.

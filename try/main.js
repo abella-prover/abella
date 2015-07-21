@@ -58,7 +58,7 @@
         };
     }]);
 
-    app.controller('TabController', ['$cookies', '$document', function($cookies, $document){
+    app.controller('TabController', ['$cookies', '$document', '$scope', function($cookies, $document, $scope){
         this.active = parseInt($cookies.get('currentTab')) || 1;
         this.isSet = function(t){
             return this.active === t;
@@ -71,36 +71,27 @@
     }]);
 
     app.controller('TraceController', ['$scope', '$document', function($scope, $document){
-        this.output = '';
-        this.status = 'unknown';
-        $scope.output = this.output;
-        this.redo = function(){
+        $scope.output = '';
+        $scope.status = 'unknown';
+        this.reset = function(){
             var spec_sig = $document[0].specSigEd.getValue();
             var spec_mod = $document[0].specModEd.getValue();
             var thm = $document[0].reasoningEd.getValue();
+
             var res = abella.batch(spec_sig, spec_mod, thm);
-            this.status = res.status;
-            this.output = res.output;
-            $scope.output = this.output;
+            // var res = abella.reset();
+            // $scope.output = res.output ;
+            // res = abella.process1("Theorem foo : true.");
+            // $scope.output += res.output ;
+            // res = abella.process1("search.");
+            $scope.output = res.output ;
+            $scope.status = res.status;
         };
-        this.goOn = function(){
-            var res = abella.process1('Type pee,quu prop.');
-            this.output += res.output ;
-            res = abella.process1('Theorem foo : pee /\\ quu -> quu /\\ pee.');
-            this.output += res.output ;
-            res = abella.process1('intros.');
-            this.output += res.output ;
-            res = abella.process1('case H1.');
-            this.output += res.output ;
-            res = abella.process1('search.');
-            this.output += res.output ;
-            $scope.output = this.output ;
-        }
         this.hasOutput = function(){
-          return !(this.output === '');
+          return !($scope.output === '');
         };
         this.getBackground = function(){
-            switch(this.status){
+            switch($scope.status){
             case 'unknown': return 'text-muted';
             case 'good':    return 'bg-success';
             default:        return 'bg-danger';

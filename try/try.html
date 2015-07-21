@@ -52,9 +52,9 @@
           }
           document[key] = ed;
         };
-        makeEditor('specSigEd','ace/mode/lprolog',5,30,'spec-sig');
-        makeEditor('specModEd','ace/mode/lprolog',5,30,'spec-mod');
-        makeEditor('reasoningEd','ace/mode/abella',40,40,'reasoning');
+        makeEditor('specSigEd','ace/mode/lprolog',5,60,'spec-sig');
+        makeEditor('specModEd','ace/mode/lprolog',5,60,'spec-mod');
+        makeEditor('reasoningEd','ace/mode/abella',40,60,'reasoning');
         document.setValues = function(sig,mod,thm){
           if (sig !== null) document.specSigEd.setValue(sig, -1);
           if (mod !== null) document.specModEd.setValue(mod, -1);
@@ -112,10 +112,10 @@
               <pre id="reasoning">%% Reasoning file here</pre>
             </div> <!-- thm-column -->
             <div class="col-md-5" ng-controller="TraceController as trace" id="trace-column">
-              <pre ng-class="trace.getBackground()" id="trace" scroll="output">{{trace.output}}</pre>
+              <pre ng-class="trace.getBackground()" id="trace" scroll="output">{{output}}</pre>
               <div class="pull-right" id="trace-buttons">
-                <input type="button" value="(Re)Start Abella" ng-click="trace.redo()">
-                <input type="button" value="Go on!" ng-click="trace.goOn()">
+                <input type="button" value="Run!" ng-click="trace.reset()">
+                <!-- <input type="button" value="Go on!" ng-click="trace.goOn()"> -->
               </div> <!-- trace-buttons -->
             </div> <!-- trace-column -->
           </div> <!-- tab-pane -->

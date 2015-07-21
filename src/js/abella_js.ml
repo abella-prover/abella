@@ -15,7 +15,7 @@ let get_name re kind text =
   | None -> failwithf "Could not determing %s name" kind
   | Some res -> Option.default "unknown-spec" (Regexp.matched_group res 1)
 
-let abella_reset =
+let re_init =
   let reset_snap = State.snapshot () in
   fun () -> State.reload reset_snap
 
@@ -24,14 +24,32 @@ class type run_result = object
   method output : Js.js_string Js.t Js.writeonly_prop
 end
 
-let abella_batch spec_sig spec_mod thm =
-  abella_reset () ;
+let capture_everything fn : run_result Js.t =
   let buf = Buffer.create 19 in
   Checks.out := Format.formatter_of_buffer buf ;
   Checks.err := !Checks.out ;
   Extensions.really_exit := false ;
   let status = ref "good" in
-  begin try
+  begin try fn () with
+  | Exit n ->
+      status := (if n = 0 then "good" else "bad")
+  | e ->
+      let msg = match e with
+        | Failure msg -> msg
+        | _ -> Printexc.to_string e
+      in
+      Format.fprintf !Checks.out "Error: %s@." msg ;
+      status := "bad"
+  end ;
+  let return : run_result Js.t = Js.Unsafe.obj [| |] in
+  return##status <- Js.string !status ;
+  Format.pp_print_flush !Checks.out () ;
+  return##output <- Js.string (Buffer.contents buf) ;
+  return
+
+let abella_batch spec_sig spec_mod thm =
+  re_init () ;
+  capture_everything begin fun () ->
     let spec_sig = Js.to_string spec_sig in
     let sig_name = get_name sig_regexp "signature" spec_sig in
     let spec_mod = Js.to_string spec_mod in
@@ -47,62 +65,34 @@ let abella_batch spec_sig spec_mod thm =
     Abella_driver.input_files := ["reasoning.thm"] ;
     State.Undo.reset () ;
     Abella_driver.main () ;
-    Format.pp_print_flush !Checks.out ()
-  with
-  | Exit n ->
-      status := (if n = 0 then "good" else "bad")
-  | e ->
-      let msg = match e with
-        | Failure msg -> msg
-        | _ -> Printexc.to_string e
-      in
-      Format.fprintf !Checks.out "Error: %s@." msg ;
-      status := "bad"
-  end ;
-  let return : run_result Js.t = Js.Unsafe.obj [| |] in
-  return##status <- Js.string !status ;
-  return##output <- Js.string (Buffer.contents buf) ;
-  return
+  end
 
 let abella_process1 directive =
-  let buf = Buffer.create 19 in
-  Checks.out := Format.formatter_of_buffer buf ;
-  Checks.err := !Checks.out ;
-  Extensions.really_exit := false ;
-  let status = ref "good" in
-  begin try
+  capture_everything begin fun () ->
     let directive = Js.to_string directive in
     Abella_driver.lexbuf := Lexing.from_string directive ;
     Abella_driver.unprompt () ; (* suppress prompt *)
+    Format.fprintf !Checks.out "%s@." directive ;
     Abella_driver.process1 () ; (* actual *)
     Abella_driver.process1 () ; (* get next prompt *)
-    Format.pp_print_flush !Checks.out ()
-  with
-  | Exit n ->
-      status := (if n = 0 then "good" else "bad")
-  | e ->
-      let msg = match e with
-        | Failure msg -> msg
-        | _ -> Printexc.to_string e
-      in
-      Format.fprintf !Checks.out "Error: %s@." msg ;
-      status := "bad"
-  end ;
-  let return : run_result Js.t = Js.Unsafe.obj [| |] in
-  return##status <- Js.string !status ;
-  return##output <- Js.string (Buffer.contents buf) ;
-  return
+  end
+
+let abella_reset () =
+  capture_everything begin fun () ->
+    Format.fprintf !Checks.out "%s%!" Abella_driver.welcome_msg ;
+    Abella_driver.process1 () ; (* initial prompt *)
+  end
 
 class type abella_js = object
   method batch : (Js.js_string Js.t -> Js.js_string Js.t -> Js.js_string Js.t -> run_result Js.t) Js.callback Js.writeonly_prop
-  method reset : (unit -> unit) Js.callback Js.writeonly_prop
+  method reset : (unit -> run_result Js.t) Js.callback Js.writeonly_prop
   method process1 : (Js.js_string Js.t -> run_result Js.t) Js.callback Js.writeonly_prop
 end
 
 let make_abella_js () =
   let abella_js : abella_js Js.t = Js.Unsafe.obj [| |] in
-  abella_js##batch <- Js.wrap_callback abella_batch ;
-  abella_js##reset <- Js.wrap_callback abella_reset ;
+  abella_js##batch    <- Js.wrap_callback abella_batch ;
+  abella_js##reset    <- Js.wrap_callback abella_reset ;
   abella_js##process1 <- Js.wrap_callback abella_process1 ;
   abella_js
 

@@ -15,17 +15,21 @@ let get_name re kind text =
   | None -> failwithf "Could not determing %s name" kind
   | Some res -> Option.default "unknown-spec" (Regexp.matched_group res 1)
 
+let abella_reset =
+  let reset_snap = State.snapshot () in
+  fun () -> State.reload reset_snap
+
 class type run_result = object
   method status : Js.js_string Js.t Js.writeonly_prop
   method output : Js.js_string Js.t Js.writeonly_prop
 end
 
-let run_abella_internal spec_sig spec_mod thm =
+let abella_batch spec_sig spec_mod thm =
+  abella_reset () ;
   let buf = Buffer.create 19 in
   Checks.out := Format.formatter_of_buffer buf ;
   Checks.err := !Checks.out ;
   Extensions.really_exit := false ;
-  let snap = State.snapshot () in
   let status = ref "good" in
   begin try
     let spec_sig = Js.to_string spec_sig in
@@ -42,7 +46,8 @@ let run_abella_internal spec_sig spec_mod thm =
     File_cache.add "reasoning.thm" thm ;
     Abella_driver.input_files := ["reasoning.thm"] ;
     State.Undo.reset () ;
-    Abella_driver.main ()
+    Abella_driver.main () ;
+    Format.pp_print_flush !Checks.out ()
   with
   | Exit n ->
       status := (if n = 0 then "good" else "bad")
@@ -54,11 +59,53 @@ let run_abella_internal spec_sig spec_mod thm =
       Format.fprintf !Checks.out "Error: %s@." msg ;
       status := "bad"
   end ;
-  State.reload snap ;
   let return : run_result Js.t = Js.Unsafe.obj [| |] in
   return##status <- Js.string !status ;
   return##output <- Js.string (Buffer.contents buf) ;
   return
 
+let abella_process1 directive =
+  let buf = Buffer.create 19 in
+  Checks.out := Format.formatter_of_buffer buf ;
+  Checks.err := !Checks.out ;
+  Extensions.really_exit := false ;
+  let status = ref "good" in
+  begin try
+    let directive = Js.to_string directive in
+    Abella_driver.lexbuf := Lexing.from_string directive ;
+    Abella_driver.unprompt () ; (* suppress prompt *)
+    Abella_driver.process1 () ; (* actual *)
+    Abella_driver.process1 () ; (* get next prompt *)
+    Format.pp_print_flush !Checks.out ()
+  with
+  | Exit n ->
+      status := (if n = 0 then "good" else "bad")
+  | e ->
+      let msg = match e with
+        | Failure msg -> msg
+        | _ -> Printexc.to_string e
+      in
+      Format.fprintf !Checks.out "Error: %s@." msg ;
+      status := "bad"
+  end ;
+  let return : run_result Js.t = Js.Unsafe.obj [| |] in
+  return##status <- Js.string !status ;
+  return##output <- Js.string (Buffer.contents buf) ;
+  return
+
+class type abella_js = object
+  method batch : (Js.js_string Js.t -> Js.js_string Js.t -> Js.js_string Js.t -> run_result Js.t) Js.callback Js.writeonly_prop
+  method reset : (unit -> unit) Js.callback Js.writeonly_prop
+  method process1 : (Js.js_string Js.t -> run_result Js.t) Js.callback Js.writeonly_prop
+end
+
+let make_abella_js () =
+  let abella_js : abella_js Js.t = Js.Unsafe.obj [| |] in
+  abella_js##batch <- Js.wrap_callback abella_batch ;
+  abella_js##reset <- Js.wrap_callback abella_reset ;
+  abella_js##process1 <- Js.wrap_callback abella_process1 ;
+  abella_js
+
 let () =
-  Js.Unsafe.set Js.Unsafe.global "run_abella" (Js.wrap_callback run_abella_internal)
+  Js.Unsafe.global##abella <- make_abella_js ()
+  (* Js.Unsafe.set Js.Unsafe.global "run_abella" (Js.wrap_callback abella_batch) *)

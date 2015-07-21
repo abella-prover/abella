@@ -35,7 +35,6 @@
     <script type="text/javascript" src="main.js"></script>
     <script type="text/javascript">
       $(function(){
-        document.run_abella = run_abella;
         var aceTheme = 'ace/theme/eclipse';
         ace.config.set("modePath", "ace/");
         var makeEditor = function(key,mode,minLines,maxLines,id){
@@ -114,8 +113,9 @@
             </div> <!-- thm-column -->
             <div class="col-md-5" ng-controller="TraceController as trace" id="trace-column">
               <pre ng-class="trace.getBackground()" id="trace" scroll="output">{{trace.output}}</pre>
-              <div id="trace-buttons">
-                <input class="pull-right" type="button" value="(Re)Start Abella" ng-click="trace.redo()">
+              <div class="pull-right" id="trace-buttons">
+                <input type="button" value="(Re)Start Abella" ng-click="trace.redo()">
+                <input type="button" value="Go on!" ng-click="trace.goOn()">
               </div> <!-- trace-buttons -->
             </div> <!-- trace-column -->
           </div> <!-- tab-pane -->

@@ -78,11 +78,24 @@
             var spec_sig = $document[0].specSigEd.getValue();
             var spec_mod = $document[0].specModEd.getValue();
             var thm = $document[0].reasoningEd.getValue();
-            var res = $document[0].run_abella(spec_sig, spec_mod, thm);
+            var res = abella.batch(spec_sig, spec_mod, thm);
             this.status = res.status;
             this.output = res.output;
             $scope.output = this.output;
         };
+        this.goOn = function(){
+            var res = abella.process1('Type pee,quu prop.');
+            this.output += res.output ;
+            res = abella.process1('Theorem foo : pee /\\ quu -> quu /\\ pee.');
+            this.output += res.output ;
+            res = abella.process1('intros.');
+            this.output += res.output ;
+            res = abella.process1('case H1.');
+            this.output += res.output ;
+            res = abella.process1('search.');
+            this.output += res.output ;
+            $scope.output = this.output ;
+        }
         this.hasOutput = function(){
           return !(this.output === '');
         };

@@ -369,8 +369,10 @@ let term_witness (t, w) =
 let suppress_proof_state_display = State.rref false
 
 type processing_state =
-  | Process_top
-  | Process_proof of proof_processor
+  | Process_top of prompt_stage
+  | Process_proof of prompt_stage * proof_processor
+
+and prompt_stage = Prompting | Processing
 
 and proof_processor = {
   thm : string ;
@@ -378,13 +380,32 @@ and proof_processor = {
   reset : (unit -> unit) ;
 }
 
-let current_state = State.rref Process_top
+let current_state = State.rref (Process_top Prompting)
+
+let reprompt () =
+  current_state :=
+    match !current_state with
+    | Process_top _ -> Process_top Prompting
+    | Process_proof (_, proc) -> Process_proof (Prompting, proc)
+
+let unprompt () =
+  current_state :=
+    match !current_state with
+    | Process_top _ -> Process_top Processing
+    | Process_proof (_, proc) -> Process_proof (Processing, proc)
 
 let rec process1 () =
   State.Undo.push () ;
   try begin match !current_state with
-    | Process_top -> process_top1 ()
-    | Process_proof proc -> begin
+    | Process_top Prompting ->
+        prompt_top1 () ; State.Undo.undo () ;
+        current_state := Process_top Processing
+    | Process_top Processing ->
+        process_top1 ()
+    | Process_proof (Prompting, proc) ->
+        prompt_proof1 proc.thm ; State.Undo.undo () ;
+        current_state := Process_proof (Processing, proc)
+    | Process_proof (Processing, proc) -> begin
         try process_proof1 proc.thm with
         | Prover.End_proof reason -> begin
             Format.fprintf !out "Proof %s.\n%!" begin
@@ -395,7 +416,7 @@ let rec process1 () =
               | `aborted -> "ABORTED"
             end ;
             proc.reset () ;
-            current_state := Process_top
+            current_state := Process_top Prompting
           end
       end
   end with
@@ -422,7 +443,7 @@ let rec process1 () =
         perform_switch_to_interactive ()
       end else begin
         match !current_state with
-        | Process_top ->
+        | Process_top _ ->
             if !annotate then Format.fprintf !out "\n</pre>\n%!" ;
             exit 0
         | _ ->
@@ -440,10 +461,12 @@ let rec process1 () =
       Format.fprintf !err "Error: %s\n%!" msg ;
       interactive_or_exit ()
 
-and process_proof1 name =
+and prompt_proof1 name =
   if not !suppress_proof_state_display then display !out ;
   suppress_proof_state_display := false ;
-  Format.fprintf !out "%s < %!" name ;
+  Format.fprintf !out "%s < %!" name
+
+and process_proof1 name =
   let input = Parser.command Lexer.token !lexbuf in
   if not !interactive then begin
     let pre, post = if !annotate then "<b>", "</b>" else "", "" in
@@ -502,10 +525,12 @@ and process_proof1 name =
       Format.fprintf !out "\n%!" ;
       suppress_proof_state_display := true
   | Common(Quit)           -> raise End_of_file
-  end
+  end ; reprompt ()
+
+and prompt_top1 () =
+  Format.fprintf !out "Abella < %!"
 
 and process_top1 () =
-  Format.fprintf !out "Abella < %!" ;
   let input = Parser.top_command Lexer.token !lexbuf in
   if not !interactive then begin
     let pre, post = if !annotate then "<b>", "</b>" else "", "" in
@@ -534,11 +559,11 @@ and process_top1 () =
         reset_prover ()
       in
       sign := tsign ;
-      current_state := Process_proof {
+      current_state := Process_proof (Prompting, {
           thm = name ;
           compile = thm_compile ;
           reset = thm_reset
-        } ;
+        }) ;
   | SSplit(name, names) ->
       let gen_thms = create_split_theorems name names in
       List.iter begin fun (n, (tys, t)) ->

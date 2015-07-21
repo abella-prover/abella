@@ -12,8 +12,6 @@
         };
     }]);
 
-    var status_re = /--(good|bad)--$/;
-
     app.controller('TraceController', ['$scope', '$document', function($scope, $document){
         this.output = '';
         this.status = 'unknown';
@@ -22,10 +20,9 @@
             var spec_sig = $document[0].specSigEd.getValue();
             var spec_mod = $document[0].specModEd.getValue();
             var thm = $document[0].reasoningEd.getValue();
-            this.output = $document[0].run_abella(spec_sig, spec_mod, thm);
-            var res = status_re.exec(this.output);
-            this.status = res[1];
-            this.output = this.output.replace(status_re, '');
+            var res = $document[0].run_abella(spec_sig, spec_mod, thm);
+            this.status = res.status;
+            this.output = res.output;
             $scope.output = this.output;
         };
         this.hasOutput = function(){

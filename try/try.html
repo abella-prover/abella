@@ -7,6 +7,8 @@
     <title>Abella in your browser</title>
     <!-- JQUERY -->
     <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+    <script src="https://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
     <!-- ANGULAR -->
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.3/angular.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.3/angular-cookies.min.js"></script>
@@ -52,9 +54,12 @@
           }
           document[key] = ed;
         };
-        makeEditor('specSigEd','ace/mode/lprolog',5,60,'spec-sig');
-        makeEditor('specModEd','ace/mode/lprolog',5,60,'spec-mod');
-        makeEditor('reasoningEd','ace/mode/abella',40,60,'reasoning');
+        // [HACK] guess a good height
+        var windowHeight = $(window).height();
+        var maxLines = windowHeight > 1080 ? 60 : windowHeight > 800 ? 40 : 30;
+        makeEditor('specSigEd','ace/mode/lprolog',5,maxLines,'spec-sig');
+        makeEditor('specModEd','ace/mode/lprolog',5,maxLines,'spec-mod');
+        makeEditor('reasoningEd','ace/mode/abella',30,maxLines,'reasoning');
         document.setEditorContents = function(sig,mod,thm){
           if (sig !== null) document.specSigEd.setValue(sig, -1);
           if (mod !== null) document.specModEd.setValue(mod, -1);

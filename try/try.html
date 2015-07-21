@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Abella in your browser!</title>
+    <title>Abella in your browser</title>
     <!-- JQUERY -->
     <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
     <!-- ANGULAR -->
@@ -14,18 +14,24 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" type="text/css">
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <!-- ACE -->
-    <script type="text/javascript" src="ace/ace.js"></script>
+    <script src="ace/ace.js"></script>
+    <!-- JSZIP -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script> -->
     <!-- ABELLA -->
-    <script type="text/javascript" src="abella_js.js"></script>
+    <script src="abella_js.js"></script>
     <!-- LOCAL -->
+    <link href='http://fonts.googleapis.com/css?family=Lato:900' rel='stylesheet' type='text/css'>
+    <!-- <link href='http://fonts.googleapis.com/css?family=Vollkorn:700' rel='stylesheet' type='text/css'> -->
     <style type="text/css">
+      h1 { font-family: Lato, sans-serif; font-size: 36px; text-transform: uppercase; letter-spacing: .05ex;
+           color: maroon; }
       .tab-pane { padding: 5px 5px; }
-      .ace_editor { font: 12pt Inconsolata, monospace; width: 90%; height: 200px; margin:auto; }
+      .ace_editor { font: 12pt Inconsolata, monospace; width: 100%; height: 200px; margin:auto; }
       .ace_fake_editor { height: 2em; }
       .ace_abella { color: #2233FA !important; text-decoration: underline; }
       .ace_proof  { color: #5544AA !important; }
       .tab-pane code { color: inherit; }
-      #trace { height: 40em; overflow-y: auto; }
+      #trace { font: 12pt Inconsolata, monospace; height: 30em; overflow-y: auto; }
     </style>
     <script type="text/javascript" src="main.js"></script>
     <script type="text/javascript">
@@ -49,108 +55,51 @@
         };
         makeEditor('specSigEd','ace/mode/lprolog',5,30,'spec-sig');
         makeEditor('specModEd','ace/mode/lprolog',5,30,'spec-mod');
-        makeEditor('reasoningEd','ace/mode/abella',5,40,'reasoning');
+        makeEditor('reasoningEd','ace/mode/abella',40,40,'reasoning');
       });
     </script>
   </head>
   <body ng-app="main">
-    <div id="container" class="container">
+    <div id="container" class="container-fluid">
       <div id="page-header" class="page-header">
         <img class="pull-right"
-             src="http://abella-prover.org/images/logo-small.png"
-             alt="[ABELLA LOGO]">
-        <h1>Try Abella</h1>
+             src="http://abella-prover.org/images/logo.png"
+             height="100px" alt="[ABELLA LOGO]"><br>
+        <h1>Try It Out!</h1>
       </div>
 
       <div id="files" ng-controller="TabController as tab">
         <ul class="nav nav-tabs">
           <li ng-class="{active:tab.isSet(1)}"><a href ng-click="tab.set(1)">Specification</a></li>
           <li ng-class="{active:tab.isSet(2)}"><a href ng-click="tab.set(2)">Reasoning</a></li>
-          <li ng-class="{active:tab.isSet(3)}"><a href ng-click="tab.set(3)">Trace</a></li>
         </ul>
         <div class="tab-content">
-          <div class="tab-pane" ng-class="{active:tab.isSet(1)}">
-            <code>sig spec.</code> (editable)
-            <pre id="spec-sig">kind    tm, ty    type.
-type    app       tm -> tm -> tm.
-type    abs       ty -> (tm -> tm) -> tm.
-type    arrow     ty -> ty -> ty.
-type    of        tm -> ty -> o.</pre>
-
-            <hr>
-
-            <code>module spec.</code> (editable)
-            <pre id="spec-mod">of (abs T R) (arrow T U) :- pi x\ (of x T => of (R x) U).
-of (app M N) T :- of M (arrow U T), of N U.</pre>
-          </div>
-          <div class="tab-pane" ng-class="{active:tab.isSet(2)}">
-            <code>Specification "spec".</code> (editable)
-            <pre id="reasoning">%% Type uniqueness for the simply-typed lambda-calculus
-
-%% There are some results about nominal variables, freshness,
-%% and lists that we can prove in general.
-
-%% Start generic section
-
-Define name : tm -> prop by
-  nabla x, name x.
-
-Theorem member_nominal_absurd : forall L T, nabla x,
-  member (of x T) L -> false.
-induction on 1. intros. case H1. apply IH to H2.
-
-%% End generic section
-
-Close tm, ty.
-
-Define ctx : olist -> prop by
-  ctx nil ;
-  nabla x, ctx (of x T :: L) := ctx L.
-
-Theorem ctx_uniq : forall L E T1 T2,
-  ctx L -> member (of E T1) L -> member (of E T2) L -> T1 = T2.
-induction on 2. intros. case H2.
-  case H3.
-    search.
-    case H1. apply member_nominal_absurd to H4.
-  case H3.
-    case H1. apply member_nominal_absurd to H4.
-    case H1. apply IH to H6 H4 H5. search.
-
-Theorem ctx_mem : forall L E,
-  ctx L -> member E L ->
-  exists N X, E = of X N /\ name X.
-induction on 2. intros. case H2.
-  case H1. search.
-  case H1.
-    apply IH to H4 H3. search.
-
-
-Theorem type_uniq_ext : forall L E T1 T2,
-  ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
-induction on 2. intros. case H2.
-  case H3.
-    apply IH to _ H4 H5. search.
-    apply ctx_mem to H1 H6. case H7. case H5.
-  case H3.
-    apply IH to H1 H4 H6. search.
-    apply ctx_mem to H1 H7. case H8. case H6.
-  apply ctx_mem to H1 H5. case H4. case H6.
-    case H3. apply ctx_mem to H1 H8. case H7.
-    apply ctx_uniq to H1 H5 H8. search.
-
-Theorem type_uniq : forall E T1 T2,
-  {of E T1} -> {of E T2} -> T1 = T2.
-intros. apply type_uniq_ext to _ H1 H2. search.
-</pre>
+          <div class="tab-pane row" ng-class="{active:tab.isSet(1)}">
+            <div class="col-md-6" id="sig-column">
+              Signature (<code>.sig</code>)<br>
+              <pre id="spec-sig">sig spec.
+%% Signature here</pre>
+            </div> <!-- sig-column -->
+            <div class="col-md-6" id="mod-column">
+              Module (<code>.mod</code>)<br>
+              <pre id="spec-mod">module spec.
+%% Module here</pre>
+            </div> <!-- mod-column -->
           </div>
 
-          <div class="tab-pane" ng-class="{active:tab.isSet(3)}" ng-controller="TraceController as trace">
-            <input type="button" value="Run Abella!" ng-click="trace.redo()">
-            <pre id="trace" ng-show="trace.hasOutput()" scroll="output">{{trace.output}}</pre>
-          </div>
+          <div class="tab-pane row" ng-class="{active:tab.isSet(2)}">
+            <div class="col-md-7" id="thm-column">
+              <pre id="reasoning">%% Reasoning file here</pre>
+            </div> <!-- thm-column -->
+            <div class="col-md-5" ng-controller="TraceController as trace" id="trace-column">
+              <pre ng-class="trace.getBackground()" id="trace" scroll="output">{{trace.output}}</pre>
+              <div id="trace-buttons">
+                <input class="pull-right" type="button" value="(Re)Start Abella" ng-click="trace.redo()">
+              </div> <!-- trace-buttons -->
+            </div> <!-- trace-column -->
+          </div> <!-- tab-pane -->
         </div> <!-- tab-content -->
       </div>   <!-- files -->
-    </div>       <!-- container -->
+    </div>     <!-- container -->
   </body>
 </html>

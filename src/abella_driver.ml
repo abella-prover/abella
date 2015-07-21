@@ -58,8 +58,7 @@ let interactive_or_exit () =
   if not !interactive then
     if !switch_to_interactive then
       perform_switch_to_interactive ()
-    else
-      exit 1
+    else exit 1
 
 let position_range (p1, p2) =
   let file = p1.Lexing.pos_fname in

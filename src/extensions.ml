@@ -28,6 +28,11 @@ let bugf      fmt = Printf.ksprintf (fun s -> Printf.eprintf "%s\n%!" s ; failwi
     ("[ABELLA BUG]\n" ^^ fmt ^^
      "\nPlease report this at https://github.com/abella-prover/abella/issues")
 
+exception Exit of int
+let really_exit = ref true
+let exit num =
+  if !really_exit then Pervasives.exit num else raise (Exit num)
+
 let maybe_guard ?guard f =
   match guard with
   | None -> f

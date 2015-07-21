@@ -7,8 +7,8 @@
 
 open Extensions
 
-let sig_regexp = Regexp.regexp "sig\\s+([\\w\\d]+)\\."
-let mod_regexp = Regexp.regexp "module\\s+([\\w\\d]+)\\."
+let sig_regexp = Regexp.regexp "sig\\s+([^\\s]+)\\."
+let mod_regexp = Regexp.regexp "module\\s+([^\\s]+)\\."
 
 let get_name re kind text =
   match Regexp.string_match re text 0 with

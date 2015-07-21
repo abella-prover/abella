@@ -14,9 +14,8 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" type="text/css">
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <!-- ACE -->
-    <script src="ace/ace.js"></script>
-    <!-- JSZIP -->
-    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/2.5.0/jszip.min.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.1.9/ace.js"></script>
+    <!-- <script src="ace/ace.js"></script> -->
     <!-- ABELLA -->
     <script src="abella_js.js"></script>
     <!-- LOCAL -->
@@ -38,6 +37,7 @@
       $(function(){
         document.run_abella = run_abella;
         var aceTheme = 'ace/theme/eclipse';
+        ace.config.set("modePath", "ace/");
         var makeEditor = function(key,mode,minLines,maxLines,id){
           var ed = ace.edit(id);
           ed.setTheme(aceTheme);
@@ -56,6 +56,18 @@
         makeEditor('specSigEd','ace/mode/lprolog',5,30,'spec-sig');
         makeEditor('specModEd','ace/mode/lprolog',5,30,'spec-mod');
         makeEditor('reasoningEd','ace/mode/abella',40,40,'reasoning');
+        document.setValues = function(sig,mod,thm){
+          if (sig !== null) document.specSigEd.setValue(sig, -1);
+          if (mod !== null) document.specModEd.setValue(mod, -1);
+          if (thm !== null) document.reasoningEd.setValue(thm, -1);
+        }
+        document.refreshEditors = function(){
+          [document.specSigEd, document.specModEd, document.reasoningEd]
+          .forEach(function(ed){
+            ed.resize();
+            ed.renderer.updateFull();
+          });
+        };
       });
     </script>
   </head>
@@ -66,6 +78,15 @@
              src="http://abella-prover.org/images/logo.png"
              height="100px" alt="[ABELLA LOGO]"><br>
         <h1>Try It Out!</h1>
+      </div>
+
+      <div id="load" class="panel" ng-controller="LoadController as load">
+        <select ng-model="myDev"
+                ng-change="load.select(myDev)"
+                ng-options="dev.name disable when dev.disable for dev in devs"
+                id="load-list">
+          <option value="" disabled>-- select an existing example --</option>
+        </select>
       </div>
 
       <div id="files" ng-controller="TabController as tab">

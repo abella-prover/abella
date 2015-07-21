@@ -1,4 +1,4 @@
-ace.define("ace/mode/abella", ["require", "exports", "module", "ace/lib/oop", "ace/mode/text", "ace/mode/text_highlight_rules", "ace/mode/behaviour"], function(require, exports, module){
+define("ace/mode/abella", ["require", "exports", "module", "ace/lib/oop", "ace/mode/text", "ace/mode/text_highlight_rules", "ace/mode/behaviour"], function(require, exports, module){
 
 "use strict";
 

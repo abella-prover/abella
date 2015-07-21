@@ -47,7 +47,7 @@
                 $.get(dev.sig, function(sigData){
                     $.get(dev.mod, function(modData){
                         $.get(dev.thm, function(thmData){
-                            $document[0].setValues(sigData,modData,thmData);
+                            $document[0].setEditorContents(sigData,modData,thmData);
                             $document[0].refreshEditors();
                         });
                     });
@@ -55,6 +55,10 @@
             } catch(err){
                 console.log('Error loading ' + dev.name);
             }
+        };
+        this.clear = function(){
+            $document[0].setEditorContents('sig empty.', 'module empty.', '');
+            $document[0].refreshEditors();
         };
     }]);
 

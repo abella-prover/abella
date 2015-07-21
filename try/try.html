@@ -55,7 +55,7 @@
         makeEditor('specSigEd','ace/mode/lprolog',5,60,'spec-sig');
         makeEditor('specModEd','ace/mode/lprolog',5,60,'spec-mod');
         makeEditor('reasoningEd','ace/mode/abella',40,60,'reasoning');
-        document.setValues = function(sig,mod,thm){
+        document.setEditorContents = function(sig,mod,thm){
           if (sig !== null) document.specSigEd.setValue(sig, -1);
           if (mod !== null) document.specModEd.setValue(mod, -1);
           if (thm !== null) document.reasoningEd.setValue(thm, -1);
@@ -73,19 +73,24 @@
   <body ng-app="main">
     <div id="container" class="container-fluid">
       <div id="page-header" class="page-header">
-        <img class="pull-right"
-             src="http://abella-prover.org/images/logo.png"
-             height="100px" alt="[ABELLA LOGO]"><br>
+        <a href="http://abella-prover.org" target="_blank">
+          <img class="pull-right"
+               src="http://abella-prover.org/images/logo.png"
+               height="100px" alt="[ABELLA LOGO]"></a>
+        <br>
         <h1>Try It Out!</h1>
       </div>
 
       <div id="load" class="panel" ng-controller="LoadController as load">
+        Load
         <select ng-model="myDev"
                 ng-change="load.select(myDev)"
                 ng-options="dev.name disable when dev.disable for dev in devs"
                 id="load-list">
-          <option value="" disabled>-- select an existing example --</option>
+          <option value="" disabled>-- Example Development --</option>
         </select>
+        or
+        <input type="button" value="Clear everything" ng-click="load.clear()">
       </div>
 
       <div id="files" ng-controller="TabController as tab">

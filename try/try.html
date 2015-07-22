@@ -82,10 +82,11 @@
 
             <div class="tab-pane row" ng-class="{active:tab.isSet(2)}">
               <div class="col-md-7" id="thm-column">
-                (Useful key: <code>Ctrl-Enter</code> to process up to cursor.)
+                (Useful key: <code>Ctrl-Enter</code> to process up to cursor.)<br>
                 <pre id="reasoning">%% Reasoning file here</pre>
               </div> <!-- thm-column -->
               <div class="col-md-5" id="trace-column">
+                &nbsp;<br>
                 <pre ng-class="abellaCtrl.getBackground()" id="trace" scroll="output">{{output}}</pre>
                 <div class="pull-right" id="trace-buttons">
                   <input type="button" value="Process Full" ng-click="abellaCtrl.batch()">

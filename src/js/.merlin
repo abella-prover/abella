@@ -1,0 +1,7 @@
+S ..
+B ../../_build/src
+PKG str
+PKG unix
+PKG lwt
+PKG js_of_ocaml
+EXT js

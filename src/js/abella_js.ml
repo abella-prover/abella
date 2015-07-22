@@ -83,6 +83,7 @@ let abella_process1 directive =
   end
 
 let abella_reset spec_sig spec_mod =
+  re_init () ;
   capture_everything begin fun () ->
     let spec_sig = Js.to_string spec_sig in
     let sig_name = get_name sig_regexp "signature" spec_sig in

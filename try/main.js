@@ -7,7 +7,38 @@
         return { row: pos.row, column: pos.column };
     };
 
-    app.controller('AbellaController', ['$scope', '$document', function($scope, $document){
+    app.controller('AbellaController', ['$scope', function($scope){
+        var __save = this;
+
+        var aceTheme = 'ace/theme/eclipse';
+        ace.config.set("modePath", "ace/");
+        var makeEditor = function(key,mode,minLines,maxLines,id){
+            var ed = ace.edit(id);
+            ed.setTheme(aceTheme);
+            ed.setOptions({autoScrollEditorIntoView: true, minLines: minLines, maxLines: maxLines});
+            ed.getSession().setMode(mode);
+            if(typeof(Storage) !== undefined){
+                ed.$blockScrolling = Infinity;
+                var cached = localStorage.getItem(key);
+                if(cached !== null) ed.setValue(cached, -1);
+                ed.on('input', function(){
+                    localStorage.setItem(key, ed.getValue());
+                });
+            }
+            return ed;
+        };
+        var windowHeight = $(window).height();
+        var maxLines = windowHeight > 1080 ? 60 : windowHeight > 800 ? 40 : 30;
+        var sigEd = makeEditor('specSigEd','ace/mode/lprolog',5,maxLines,'spec-sig');
+        var modEd = makeEditor('specModEd','ace/mode/lprolog',5,maxLines,'spec-mod');
+        var thmEd = makeEditor('reasoningEd','ace/mode/abella',30,maxLines,'reasoning');
+        $scope.refreshEditors = function(){
+            [sigEd, modEd, thmEd].forEach(function(ed){
+                ed.resize();
+                ed.renderer.updateFull();
+            });
+        };
+
         $scope.devs = [
             { name: "--- λ-calculus Meta-Theory ---", disable: true },
             { name: "Type Uniqueness for STLC",
@@ -50,7 +81,7 @@
         $scope.output = '';
         $scope.status = 'unknown';
 
-        var reset = function(){
+        this.resetOutput = function(){
             $scope.output = '';
             $scope.status = 'unknown';
             $scope.processedTo = null;
@@ -75,9 +106,11 @@
                 $.get(dev.sig, function(sigData){
                     $.get(dev.mod, function(modData){
                         $.get(dev.thm, function(thmData){
-                            $document[0].setEditorContents(sigData,modData,thmData);
-                            $document[0].refreshEditors();
-                            reset();
+                            sigEd.setValue(sigData, -1);
+                            modEd.setValue(modData, -1);
+                            thmEd.setValue(thmData, -1);
+                            $scope.refreshEditors();
+                            __save.resetOutput();
                         });
                     });
                 });
@@ -87,20 +120,21 @@
         };
 
         this.clear = function(){
-            $document[0].setEditorContents('sig empty.', 'module empty.', '');
-            $document[0].refreshEditors();
-            $document[0].getElementById('load-list').selectedIndex = 0;
-            reset();
+            sigEd.setValue('sig empty.', -1);
+            modEd.setValue('module empty.', -1);
+            thmEd.setValue('', -1);
+            $scope.refreshEditors();
+            __save.resetOutput();
         };
 
         this.batch = function(){
-            console.log('Batch!');
+            // console.log('Batch!');
 
-            var spec_sig = $document[0].specSigEd.getValue();
-            var spec_mod = $document[0].specModEd.getValue();
-            var thm = $document[0].reasoningEd.getValue();
+            var spec_sig = sigEd.getValue();
+            var spec_mod = modEd.getValue();
+            var thm = thmEd.getValue();
 
-            console.log('Running abella.batch(' + spec_sig + ',' + spec_mod + ',' + thm + ')');
+            // console.log('Running abella.batch(' + spec_sig + ',' + spec_mod + ',' + thm + ')');
 
             var res = abella.batch(spec_sig, spec_mod, thm);
 
@@ -108,33 +142,88 @@
             $scope.status = res.status;
         };
 
-        this.step = function(){
+        var enableProcessing = function(){
             if(!$scope.processedTo) {
                 $scope.processedTo = { row: 0, column: 0 };
-                $scope.ti = new TokenIterator($document[0].reasoningEd.getSession(), 0, 0);
-                $scope.output = abella.reset($document[0].specSigEd.getValue(),
-                                             $document[0].specModEd.getValue()).output ;
+                $scope.ti = new TokenIterator(thmEd.getSession(), 0, 0);
+                $scope.output = abella.reset(sigEd.getValue(), modEd.getValue()).output ;
             }
-            console.log('Starting from: ' + $scope.processedTo.row + ':' + $scope.processedTo.column);
+        };
+
+        var updateProcessDisplay = function(){
+            thmEd.moveCursorToPosition($scope.processedTo);
+            thmEd.getSelection().clearSelection();
+            $scope.$digest();
+        };
+
+        thmEd.on('change', function(_obj){ $scope.processedTo = null; });
+
+        var endOfDocument = function(){
+            var doc = thmEd.getSession().getDocument();
+            var row = doc.getLength() - 1;
+            var column = doc.getLine(row).length;
+            return { row: row, column: column };
+        };
+
+        this.step = function(){
+            enableProcessing();
+            // console.log('Starting from: ' + $scope.processedTo.row + ':' + $scope.processedTo.column);
             var text = '';
             while(true){
                 if ($scope.ti.getCurrentToken() === undefined) {
-                    console.log('Cannot read current token!');
-                    return;
+                    // console.log('Cannot read current token. This probably means we are at the EOF.');
+                    return false;
                 }
                 var tok = $scope.ti.getCurrentToken();
-                console.log('Read: [' + tok.type + '] "' + tok.value + '"');
+                // console.log('Read: [' + tok.type + '] "' + tok.value + '"');
                 if (!tok.type.match(/comment/)) text += tok.value;
                 if ($scope.ti.stepForward() != null)
                     $scope.processedTo = clonePos($scope.ti.getCurrentTokenPosition());
+                else $scope.processedTo = endOfDocument();
                 if (tok.type === 'punctuation.dot') break;
             }
             text = text.replace(/\s+/g, ' ');
-            console.log('Trying to execute: ' + text);
+            // console.log('Trying to execute: ' + text);
             var res = abella.process1(text);
             $scope.output += res.output;
             $scope.status = res.status;
+            updateProcessDisplay();
+            return true;
         };
+
+        var follows = function(a, b){
+            return a.row > b.row || (a.row == b.row && a.column >= b.column);
+        };
+
+        var strictlyFollows = function(a, b){
+            return a.row > b.row || (a.row == b.row && a.column > b.column);
+        };
+
+        var showPos = function(pos){ return pos.row + ':' + pos.column; };
+
+        var processUptoHere = function(_editor){
+            enableProcessing();
+            var here = thmEd.getCursorPosition();
+            if (strictlyFollows($scope.processedTo, here)){
+                console.log('Rewinding because: ' + showPos($scope.processedTo) + ' is strictly after ' + showPos(here));
+                __save.resetOutput();
+                enableProcessing();
+            }
+            while (follows(here, $scope.processedTo))
+                if(!__save.step ()) break;
+        };
+
+        thmEd.commands.addCommand({
+            name: "processUptoHere",
+            bindKey: { win: "Ctrl-Enter", mac: "Command-Enter" },
+            exec: processUptoHere,
+        });
+
+        thmEd.commands.addCommand({
+            name: "processNext",
+            bindKey: { win: "Ctrl-Shift-N", mac: "Command-Shift-N" },
+            exec: __save.step,
+        });
     }]);
 
     app.controller('TabController', ['$cookies', '$document', '$scope', function($cookies, $document, $scope){
@@ -145,7 +234,7 @@
         this.set = function(t){
             this.active = t;
             $cookies.put('currentTab', '' + this.active);
-            $document[0].refreshEditors();
+            $scope.refreshEditors();
         };
     }]);
 

@@ -11,13 +11,15 @@ var AbellaHighlightRules = function(){
     this.$rules = {
         start: [ { include: '#comment' },
                  { include: '#dot' },
+                 { include: '#identifiers' },
                  { include: '#lprolog_keywords' },
+                 { include: '#abella_operators' },
                  { include: '#lprolog_operators' },
                  { include: '#abella_top_keywords' },
                  { include: '#abella_constants' },
                  { include: '#abella_proof_keywords' },
                  { include: '#abella_bad_proof_keywords' },
-                 { include: '#abella_operators' } ],
+               ],
         '#comment': [
             { token: ['punctuation.definition.comment', 'comment.line.percentage'],
               regex: /(%)(.*$)/ },
@@ -34,19 +36,23 @@ var AbellaHighlightRules = function(){
             { token: 'punctuation.dot',
               regex: /\./ },
         ],
+        '#identifiers': [
+            { token: 'text',
+              regex: /[=^`\\?$-][A-Za-z0-9^=`\\?$0-9_\/\*@+#!*~-]*/ },
+        ],
         '#lprolog_operators': [
             { token: 'keyword.operator', regex: /->|=>|:-|<=|\\|::/ }
         ],
         '#lprolog_keywords': [
-            { token: 'keyword.other.spec', regex: /\b(sig|module|end|kind|type|o)\b/ }
+            { token: 'keyword.other.spec', regex: /\b(sig|module|end|kind|type|o|olist)\b/ }
         ],
         '#abella_top_keywords': [
             { token: 'keyword.other.abella',
-              regex: /\b(Close|CoDefine|Define|Import|Kind|Query|Quit|Schema|Set|Show|Specification|Theorem|Type)\b/ }
+              regex: /\b(Close|CoDefine|Define|Import|Kind|Query|Quit|Schema|Set|Show|Specification|Split|Theorem|Type)\b/ }
         ],
         '#abella_constants': [
             { token: 'constant.buildin',
-              regex: /\b(forall|exists|nabla|true|false)\b/ }
+              regex: /\b(forall|exists|nabla|true|false|prop)\b/ }
         ],
         '#abella_proof_keywords': [
             { token: 'keyword.other.proof',

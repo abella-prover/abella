@@ -169,6 +169,7 @@
             enableProcessing();
             // console.log('Starting from: ' + $scope.processedTo.row + ':' + $scope.processedTo.column);
             var text = '';
+            var endPos = clonePos($scope.processedTo);
             while(true){
                 if ($scope.ti.getCurrentToken() === undefined) {
                     // console.log('Cannot read current token. This probably means we are at the EOF.');
@@ -176,10 +177,10 @@
                 }
                 var tok = $scope.ti.getCurrentToken();
                 // console.log('Read: [' + tok.type + '] "' + tok.value + '"');
-                if (!tok.type.match(/comment/)) text += tok.value;
+                if (!tok.type.match(/comment/)) text += ' ' + tok.value;
                 if ($scope.ti.stepForward() != null)
-                    $scope.processedTo = clonePos($scope.ti.getCurrentTokenPosition());
-                else $scope.processedTo = endOfDocument();
+                    endPos = clonePos($scope.ti.getCurrentTokenPosition());
+                else endPos = endOfDocument();
                 if (tok.type === 'punctuation.dot') break;
             }
             text = text.replace(/\s+/g, ' ');
@@ -187,8 +188,14 @@
             var res = abella.process1(text);
             $scope.output += res.output;
             $scope.status = res.status;
-            updateProcessDisplay();
-            return true;
+            if ($scope.status === 'good') {
+                $scope.processedTo = clonePos(endPos);
+                updateProcessDisplay();
+            } else {
+                $scope.processedTo = null;
+                $scope.$digest();
+            }
+            return $scope.status === 'good';
         };
 
         var follows = function(a, b){
@@ -205,7 +212,7 @@
             enableProcessing();
             var here = thmEd.getCursorPosition();
             if (strictlyFollows($scope.processedTo, here)){
-                console.log('Rewinding because: ' + showPos($scope.processedTo) + ' is strictly after ' + showPos(here));
+                // console.log('Rewinding because: ' + showPos($scope.processedTo) + ' is strictly after ' + showPos(here));
                 __save.resetOutput();
                 enableProcessing();
             }

@@ -1,4 +1,4 @@
-define("ace/mode/abella", ["require", "exports", "module", "ace/lib/oop", "ace/mode/text", "ace/mode/text_highlight_rules", "ace/mode/behaviour"], function(require, exports, module){
+ace.define("ace/mode/abella", ["require", "exports", "module", "ace/lib/oop", "ace/mode/text", "ace/mode/text_highlight_rules", "ace/mode/behaviour"], function(require, exports, module){
 
 "use strict";
 
@@ -10,6 +10,7 @@ var Behaviour = require("./behaviour").Behaviour;
 var AbellaHighlightRules = function(){
     this.$rules = {
         start: [ { include: '#comment' },
+                 { include: '#dot' },
                  { include: '#lprolog_keywords' },
                  { include: '#lprolog_operators' },
                  { include: '#abella_top_keywords' },
@@ -28,6 +29,10 @@ var AbellaHighlightRules = function(){
                     next: 'pop' },
                   { defaultToken: 'comment.block' }
               ] }
+        ],
+        '#dot': [
+            { token: 'punctuation.dot',
+              regex: /\./ },
         ],
         '#lprolog_operators': [
             { token: 'keyword.operator', regex: /->|=>|:-|<=|\\|::/ }

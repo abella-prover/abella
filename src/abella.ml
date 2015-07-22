@@ -1,3 +1,1 @@
-let () =
-  if Abella_driver.main_setup () then
-    Abella_driver.main ()
+let () = Abella_driver.main_setup Abella_driver.main

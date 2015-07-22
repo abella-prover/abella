@@ -24,6 +24,8 @@ class type run_result = object
   method output : Js.js_string Js.t Js.writeonly_prop
 end
 
+exception ProcessFailure
+
 let capture_everything fn : run_result Js.t =
   let buf = Buffer.create 19 in
   Checks.out := Format.formatter_of_buffer buf ;
@@ -33,6 +35,8 @@ let capture_everything fn : run_result Js.t =
   begin try fn () with
   | Exit n ->
       status := (if n = 0 then "good" else "bad")
+  | ProcessFailure ->
+      status := "bad"
   | e ->
       let msg = match e with
         | Failure msg -> msg
@@ -73,19 +77,30 @@ let abella_process1 directive =
     Abella_driver.lexbuf := Lexing.from_string directive ;
     Abella_driver.unprompt () ; (* suppress prompt *)
     Format.fprintf !Checks.out "%s@." directive ;
-    Abella_driver.process1 () ; (* actual *)
-    Abella_driver.process1 () ; (* get next prompt *)
+    let status = Abella_driver.process1 () in (* actual *)
+    Abella_driver.process1 () |> ignore ;     (* get next prompt *)
+    if status = Abella_driver.FAILURE then raise ProcessFailure
   end
 
-let abella_reset () =
+let abella_reset spec_sig spec_mod =
   capture_everything begin fun () ->
+    let spec_sig = Js.to_string spec_sig in
+    let sig_name = get_name sig_regexp "signature" spec_sig in
+    let spec_mod = Js.to_string spec_mod in
+    let mod_name = get_name mod_regexp "module" spec_mod in
+    if sig_name <> mod_name then
+      failwithf "Names of signature (%S) and module (%S) do not agree.\nCheck your Specification."
+        sig_name mod_name ;
+    File_cache.reset () ;
+    File_cache.add ("./" ^ sig_name ^ ".sig") spec_sig ;
+    File_cache.add ("./" ^ mod_name ^ ".mod") spec_mod ;
     Format.fprintf !Checks.out "%s%!" Abella_driver.welcome_msg ;
-    Abella_driver.process1 () ; (* initial prompt *)
+    Abella_driver.process1 () |> ignore ; (* initial prompt *)
   end
 
 class type abella_js = object
   method batch : (Js.js_string Js.t -> Js.js_string Js.t -> Js.js_string Js.t -> run_result Js.t) Js.callback Js.writeonly_prop
-  method reset : (unit -> run_result Js.t) Js.callback Js.writeonly_prop
+  method reset : (Js.js_string Js.t -> Js.js_string Js.t -> run_result Js.t) Js.callback Js.writeonly_prop
   method process1 : (Js.js_string Js.t -> run_result Js.t) Js.callback Js.writeonly_prop
 end
 

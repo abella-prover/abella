@@ -1,7 +1,13 @@
 (function(){
     var app = angular.module('main', ['ngCookies']);
 
-    app.controller('LoadController', ['$scope', '$document', function($scope, $document){
+    var TokenIterator = ace.require('ace/token_iterator').TokenIterator;
+
+    var clonePos = function(pos){
+        return { row: pos.row, column: pos.column };
+    };
+
+    app.controller('AbellaController', ['$scope', '$document', function($scope, $document){
         $scope.devs = [
             { name: "--- λ-calculus Meta-Theory ---", disable: true },
             { name: "Type Uniqueness for STLC",
@@ -40,6 +46,28 @@
               mod: "examples/pic.mod",
               thm: "examples/pic.thm" },
         ];
+
+        $scope.output = '';
+        $scope.status = 'unknown';
+
+        var reset = function(){
+            $scope.output = '';
+            $scope.status = 'unknown';
+            $scope.processedTo = null;
+        };
+
+        this.hasOutput = function(){
+          return !($scope.output === '');
+        };
+
+        this.getBackground = function(){
+            switch($scope.status){
+            case 'unknown': return 'text-muted';
+            case 'good':    return 'bg-success';
+            default:        return 'bg-danger';
+            }
+        };
+
         this.select = function(dev){
             if (dev == null) return;
             // console.log('Loading: ' + dev.name);
@@ -49,6 +77,7 @@
                         $.get(dev.thm, function(thmData){
                             $document[0].setEditorContents(sigData,modData,thmData);
                             $document[0].refreshEditors();
+                            reset();
                         });
                     });
                 });
@@ -56,10 +85,55 @@
                 console.log('Error loading ' + dev.name);
             }
         };
+
         this.clear = function(){
             $document[0].setEditorContents('sig empty.', 'module empty.', '');
             $document[0].refreshEditors();
             $document[0].getElementById('load-list').selectedIndex = 0;
+            reset();
+        };
+
+        this.batch = function(){
+            console.log('Batch!');
+
+            var spec_sig = $document[0].specSigEd.getValue();
+            var spec_mod = $document[0].specModEd.getValue();
+            var thm = $document[0].reasoningEd.getValue();
+
+            console.log('Running abella.batch(' + spec_sig + ',' + spec_mod + ',' + thm + ')');
+
+            var res = abella.batch(spec_sig, spec_mod, thm);
+
+            $scope.output = res.output ;
+            $scope.status = res.status;
+        };
+
+        this.step = function(){
+            if(!$scope.processedTo) {
+                $scope.processedTo = { row: 0, column: 0 };
+                $scope.ti = new TokenIterator($document[0].reasoningEd.getSession(), 0, 0);
+                $scope.output = abella.reset($document[0].specSigEd.getValue(),
+                                             $document[0].specModEd.getValue()).output ;
+            }
+            console.log('Starting from: ' + $scope.processedTo.row + ':' + $scope.processedTo.column);
+            var text = '';
+            while(true){
+                if ($scope.ti.getCurrentToken() === undefined) {
+                    console.log('Cannot read current token!');
+                    return;
+                }
+                var tok = $scope.ti.getCurrentToken();
+                console.log('Read: [' + tok.type + '] "' + tok.value + '"');
+                if (!tok.type.match(/comment/)) text += tok.value;
+                if ($scope.ti.stepForward() != null)
+                    $scope.processedTo = clonePos($scope.ti.getCurrentTokenPosition());
+                if (tok.type === 'punctuation.dot') break;
+            }
+            text = text.replace(/\s+/g, ' ');
+            console.log('Trying to execute: ' + text);
+            var res = abella.process1(text);
+            $scope.output += res.output;
+            $scope.status = res.status;
         };
     }]);
 
@@ -72,35 +146,6 @@
             this.active = t;
             $cookies.put('currentTab', '' + this.active);
             $document[0].refreshEditors();
-        };
-    }]);
-
-    app.controller('TraceController', ['$scope', '$document', function($scope, $document){
-        $scope.output = '';
-        $scope.status = 'unknown';
-        this.reset = function(){
-            var spec_sig = $document[0].specSigEd.getValue();
-            var spec_mod = $document[0].specModEd.getValue();
-            var thm = $document[0].reasoningEd.getValue();
-
-            var res = abella.batch(spec_sig, spec_mod, thm);
-            // var res = abella.reset();
-            // $scope.output = res.output ;
-            // res = abella.process1("Theorem foo : true.");
-            // $scope.output += res.output ;
-            // res = abella.process1("search.");
-            $scope.output = res.output ;
-            $scope.status = res.status;
-        };
-        this.hasOutput = function(){
-          return !($scope.output === '');
-        };
-        this.getBackground = function(){
-            switch($scope.status){
-            case 'unknown': return 'text-muted';
-            case 'good':    return 'bg-success';
-            default:        return 'bg-danger';
-            }
         };
     }]);
 

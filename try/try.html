@@ -16,8 +16,8 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" type="text/css">
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <!-- ACE -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.1.9/ace.js"></script>
-    <!-- <script src="ace/ace.js"></script> -->
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.0/ace.js"></script> -->
+    <script src="ace/ace.js"></script>
     <!-- ABELLA -->
     <script src="abella_js.js"></script>
     <!-- LOCAL -->
@@ -86,51 +86,53 @@
         <h1>Try It Out!</h1>
       </div>
 
-      <div id="load" class="panel" ng-controller="LoadController as load">
-        Load
-        <select ng-model="myDev"
-                ng-change="load.select(myDev)"
-                ng-options="dev.name disable when dev.disable for dev in devs"
-                id="load-list">
-          <option value="" disabled>-- Example Development --</option>
-        </select>
-        or
-        <input type="button" value="Clear everything" ng-click="load.clear()">
-      </div>
+      <div ng-controller="AbellaController as abellaCtrl">
+        <div id="load" class="panel">
+          Load
+          <select ng-model="myDev"
+                  ng-change="abellaCtrl.select(myDev)"
+                  ng-options="dev.name disable when dev.disable for dev in devs"
+                  id="load-list">
+            <option value="" disabled>-- an example development --</option>
+          </select>
+          or
+          <input type="button" value="clear everything" ng-click="abellaCtrl.clear()">
+        </div> <!-- load -->
 
-      <div id="files" ng-controller="TabController as tab">
-        <ul class="nav nav-tabs">
-          <li ng-class="{active:tab.isSet(1)}"><a href ng-click="tab.set(1)">Specification</a></li>
-          <li ng-class="{active:tab.isSet(2)}"><a href ng-click="tab.set(2)">Reasoning</a></li>
-        </ul>
-        <div class="tab-content">
-          <div class="tab-pane row" ng-class="{active:tab.isSet(1)}">
-            <div class="col-md-6" id="sig-column">
-              Signature (<code>.sig</code>)<br>
-              <pre id="spec-sig">sig spec.
-%% Signature here</pre>
-            </div> <!-- sig-column -->
-            <div class="col-md-6" id="mod-column">
-              Module (<code>.mod</code>)<br>
-              <pre id="spec-mod">module spec.
-%% Module here</pre>
-            </div> <!-- mod-column -->
-          </div>
+        <div id="files" ng-controller="TabController as tab">
+          <ul class="nav nav-tabs">
+            <li ng-class="{active:tab.isSet(1)}"><a href ng-click="tab.set(1)">Specification</a></li>
+            <li ng-class="{active:tab.isSet(2)}"><a href ng-click="tab.set(2)">Reasoning</a></li>
+          </ul>
+          <div class="tab-content">
+            <div class="tab-pane row" ng-class="{active:tab.isSet(1)}">
+              <div class="col-md-6" id="sig-column">
+                Signature (<code>.sig</code>)<br>
+                <pre id="spec-sig">sig spec.
+                  %% Signature here</pre>
+              </div> <!-- sig-column -->
+              <div class="col-md-6" id="mod-column">
+                Module (<code>.mod</code>)<br>
+                <pre id="spec-mod">module spec.
+                  %% Module here</pre>
+              </div> <!-- mod-column -->
+            </div>
 
-          <div class="tab-pane row" ng-class="{active:tab.isSet(2)}">
-            <div class="col-md-7" id="thm-column">
-              <pre id="reasoning">%% Reasoning file here</pre>
-            </div> <!-- thm-column -->
-            <div class="col-md-5" ng-controller="TraceController as trace" id="trace-column">
-              <pre ng-class="trace.getBackground()" id="trace" scroll="output">{{output}}</pre>
-              <div class="pull-right" id="trace-buttons">
-                <input type="button" value="Run!" ng-click="trace.reset()">
-                <!-- <input type="button" value="Go on!" ng-click="trace.goOn()"> -->
-              </div> <!-- trace-buttons -->
-            </div> <!-- trace-column -->
-          </div> <!-- tab-pane -->
-        </div> <!-- tab-content -->
-      </div>   <!-- files -->
-    </div>     <!-- container -->
+            <div class="tab-pane row" ng-class="{active:tab.isSet(2)}">
+              <div class="col-md-7" id="thm-column">
+                <pre id="reasoning">%% Reasoning file here</pre>
+              </div> <!-- thm-column -->
+              <div class="col-md-5" id="trace-column">
+                <pre ng-class="abellaCtrl.getBackground()" id="trace" scroll="output">{{output}}</pre>
+                <div class="pull-right" id="trace-buttons">
+                  <input type="button" value="Run!" ng-click="abellaCtrl.batch()">
+                  <input type="button" value="Step!" ng-click="abellaCtrl.step()">
+                </div> <!-- trace-buttons -->
+              </div>   <!-- trace-column -->
+            </div>     <!-- tab-pane -->
+          </div>       <!-- tab-content -->
+        </div>         <!-- files -->
+      </div>           <!-- abellaCtrl -->
+    </div>             <!-- container -->
   </body>
 </html>

@@ -394,19 +394,25 @@ let unprompt () =
     | Process_top _ -> Process_top Processing
     | Process_proof (_, proc) -> Process_proof (Processing, proc)
 
+type status = SUCCESS | FAILURE
+
 let rec process1 () =
-  State.Undo.push () ;
   try begin match !current_state with
     | Process_top Prompting ->
-        prompt_top1 () ; State.Undo.undo () ;
+        prompt_top1 () ;
         current_state := Process_top Processing
-    | Process_top Processing ->
-        process_top1 ()
+    | Process_top Processing -> begin
+        State.Undo.push () ;
+        process_top1 () ;
+        match !current_state with
+        | Process_proof _ -> ()
+        | Process_top _ -> current_state := Process_top Prompting
+      end
     | Process_proof (Prompting, proc) ->
-        prompt_proof1 proc.thm ; State.Undo.undo () ;
-        current_state := Process_proof (Processing, proc)
+        prompt_proof1 proc.thm ;
+        current_state := Process_proof (Processing, proc) ;
     | Process_proof (Processing, proc) -> begin
-        try process_proof1 proc.thm with
+        try State.Undo.push () ; process_proof1 proc.thm with
         | Prover.End_proof reason -> begin
             Format.fprintf !out "Proof %s.\n%!" begin
               match reason with
@@ -419,28 +425,28 @@ let rec process1 () =
             current_state := Process_top Prompting
           end
       end
-  end with
+  end ; SUCCESS with
   | Failure "lexing: empty token" ->
       if !annotate then Format.fprintf !out "</pre>\n" ;
       exit (if !interactive then 0 else 1)
   | Abella_types.Reported_parse_error ->
       State.Undo.undo () ;
       Lexing.flush_input !lexbuf ;
-      interactive_or_exit ()
+      reprompt () ; interactive_or_exit () ; FAILURE
   | Parsing.Parse_error ->
       State.Undo.undo () ;
       Format.fprintf !err "Syntax error%s.\n%!" (position !lexbuf) ;
       Lexing.flush_input !lexbuf ;
-      interactive_or_exit ()
+      reprompt () ; interactive_or_exit () ; FAILURE
   | TypeInferenceFailure(ci, exp, act) ->
       State.Undo.undo () ;
       type_inference_error ci exp act ;
-      interactive_or_exit ()
+      reprompt () ; interactive_or_exit () ; FAILURE
   | End_of_file ->
       write_compilation () ;
       if !switch_to_interactive then begin
         if !annotate then Format.fprintf !out "\n</pre>\n" ;
-        perform_switch_to_interactive ()
+        perform_switch_to_interactive () ; FAILURE
       end else begin
         match !current_state with
         | Process_top _ ->
@@ -459,7 +465,7 @@ let rec process1 () =
         | _ -> Printexc.to_string e
       in
       Format.fprintf !err "Error: %s\n%!" msg ;
-      interactive_or_exit ()
+      reprompt () ; interactive_or_exit () ; FAILURE
 
 and prompt_proof1 name =
   if not !suppress_proof_state_display then display !out ;
@@ -646,6 +652,7 @@ let set_input () =
     | [] -> ()
     | [filename] ->
         interactive := false ;
+        Format.fprintf !out "Setting input to: %S@." filename ;
         lexbuf := File_cache.lexbuf filename
     | fs ->
         Format.fprintf !err "Error: Multiple files specified as input: %s\n%!"
@@ -664,13 +671,11 @@ let number fn () =
   fn () ;
   if !annotate then Format.fprintf !out "</pre>\n%!"
 
-let main_setup () =
+let main_setup cont =
   Arg.parse options add_input usage_message ;
-  if not !Sys.interactive then
-    if !makefile then
-      (List.iter Depend.print_deps !input_files ; false)
-    else true
-  else false
+  if !makefile then List.iter Depend.print_deps !input_files
+  else if !Sys.interactive then ()
+  else cont ()
 
 let main () =
   Sys.set_signal Sys.sigint

@@ -222,16 +222,33 @@
             }
         });
 
+        var posAfter = function(pos){
+            var doc = thmEd.getSession().getDocument();
+            var row = doc.getLine(pos.row);
+            return row.length === pos.column ?
+                   { row: pos.row + 1, column: 0 } :
+                   { row: pos.row, column: pos.column + 1 };
+        };
+
         var stepForward = function(){
             enableProcessing();
             // console.log('Starting from: ' + processedTo.row + ':' + processedTo.column);
             var text = '';
             var endPos = clonePos(processedTo);
-            var tokIter = new TokenIterator(thmEd.getSession(), processedTo.row, processedTo.column + 1);
+            var nextPos = posAfter(processedTo);
+            var tokIter = new TokenIterator(thmEd.getSession(), nextPos.row, nextPos.column);
+            // var tokIter = new TokenIterator(thmEd.getSession(), processedTo.row, processedTo.column + 1);
             while(true){
-                if (tokIter.getCurrentToken() === undefined) {
-                    console.log('Cannot read current token. This probably means we are at the EOF.');
+                if (tokIter.getCurrentToken() === undefined &&
+                    tokIter.stepForward() == null){
                     return false;
+                    // console.log('Cannot read current token. This probably means we are at the EOF.');
+                    // console.log('Here is what remains');
+                    // var eod = endOfDocument();
+                    // console.log(thmEd.getSession().getTextRange(
+                    //     new Range(processedTo.row, processedTo.column,
+                    //               eod.row, eod.column)));
+                    // return false;
                 }
                 var tok = tokIter.getCurrentToken();
                 // console.log('Read: [' + tok.type + '] "' + tok.value + '"');
@@ -247,8 +264,10 @@
             // console.log('Got: "' + res.output + '" @ ' + res.status);
             $scope.output += res.output;
             status = res.status;
-            if (status === 'good')
+            if (status === 'good') {
                 processedTo = clonePos(endPos);
+                // console.log(thmEd.getSession().getTextRange(new Range(0, 0, endPos.row, endPos.column)));
+            }
             updateProcessDisplay();
             return status === 'good';
         };
@@ -268,6 +287,7 @@
             name: "processUptoHere",
             bindKey: { win: "Ctrl-Return", mac: "Command-Return" },
             exec: processUptoHere,
+            readOnly: true,
         });
     }]);
 

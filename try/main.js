@@ -27,6 +27,7 @@
                 });
             }
             ed.setHighlightActiveLine(false);
+            ed.setShowPrintMargin(false);
             return ed;
         };
         var windowHeight = $(window).height();
@@ -167,7 +168,7 @@
             clearMarkers();
             markers.current =
                 thmEd.getSession().addMarker(
-                    new Range(0, 0, processedTo.row, processedTo.column),
+                    new Range(0, 0, processedTo.row, processedTo.column + 1),
                     "processed", "text");
 
             thmEd.moveCursorToPosition(processedTo);
@@ -195,28 +196,39 @@
             updateProcessDisplay();
         };
 
-        var tokIter = null;
-
         var enableProcessing = function(){
             if(processedTo.row == 0 && processedTo.column == 0) {
-                tokIter = new TokenIterator(thmEd.getSession(), 0, 0);
                 $scope.output = abella.reset(sigEd.getValue(), modEd.getValue()).output ;
             }
         };
 
-        thmEd.on('change', function(_obj){
-            processedTo = { row: 0, column: 0 };
-            clearMarkers();
+        var follows = function(a, b){
+            return a.row > b.row || (a.row == b.row && a.column >= b.column);
+        };
+
+        var strictlyFollows = function(a, b){
+            return a.row > b.row || (a.row == b.row && a.column > b.column);
+        };
+
+        thmEd.getSession().getDocument().on('change', function(obj){
+            if(strictlyFollows(processedTo, obj.start)){
+                console.log('Change at ' + showPos(obj.start) + ' conflicts with ' + showPos(processedTo));
+                processedTo = { row: 0, column: 0 };
+                clearMarkers();
+            } else {
+                console.log('Change at ' + showPos(obj.start) + ' does not conflict with ' + showPos(processedTo));
+            }
         });
 
-        this.step = function(){
+        var stepForward = function(){
             enableProcessing();
             // console.log('Starting from: ' + processedTo.row + ':' + processedTo.column);
             var text = '';
             var endPos = clonePos(processedTo);
+            var tokIter = new TokenIterator(thmEd.getSession(), processedTo.row, processedTo.column + 1);
             while(true){
                 if (tokIter.getCurrentToken() === undefined) {
-                    // console.log('Cannot read current token. This probably means we are at the EOF.');
+                    console.log('Cannot read current token. This probably means we are at the EOF.');
                     return false;
                 }
                 var tok = tokIter.getCurrentToken();
@@ -230,48 +242,30 @@
             text = text.replace(/\s+/g, ' ');
             // console.log('Trying to execute: ' + text);
             var res = abella.process1(text);
+            // console.log('Got: "' + res.output + '" @ ' + res.status);
             $scope.output += res.output;
             status = res.status;
-            if (status === 'good') {
+            if (status === 'good')
                 processedTo = clonePos(endPos);
-                updateProcessDisplay();
-            } else {
-                processedTo = { row: 0, column: 0 };
-                $scope.$digest();
-            }
+            updateProcessDisplay();
             return status === 'good';
-        };
-
-        var follows = function(a, b){
-            return a.row > b.row || (a.row == b.row && a.column >= b.column);
-        };
-
-        var strictlyFollows = function(a, b){
-            return a.row > b.row || (a.row == b.row && a.column > b.column);
         };
 
         var processUptoHere = function(_editor){
             enableProcessing();
             var here = thmEd.getCursorPosition();
             if (strictlyFollows(processedTo, here)){
-                // console.log('Rewinding because: ' + showPos(processedTo) + ' is strictly after ' + showPos(here));
                 __self.resetOutput();
                 enableProcessing();
             }
             while (follows(here, processedTo))
-                if(!__self.step ()) break;
+                if(!stepForward ()) break;
         };
 
         thmEd.commands.addCommand({
             name: "processUptoHere",
-            bindKey: { win: "Ctrl-Enter", mac: "Command-Enter" },
+            bindKey: { win: "Ctrl-Return", mac: "Command-Return" },
             exec: processUptoHere,
-        });
-
-        thmEd.commands.addCommand({
-            name: "processNext",
-            bindKey: { win: "Ctrl-Shift-N", mac: "Command-Shift-N" },
-            exec: __self.step,
         });
     }]);
 

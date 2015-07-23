@@ -1,5 +1,5 @@
 (function(){
-    var app = angular.module('main', ['ngCookies']);
+    var app = angular.module('main', ['ngCookies', 'ngSanitize']);
 
     var TokenIterator = ace.require('ace/token_iterator').TokenIterator;
     var Range = ace.require('ace/range').Range;
@@ -118,11 +118,11 @@
           return !($scope.output === '');
         };
 
-        this.getBackground = function(){
+        this.getBackgroundClass = function(){
             switch(status){
-            case 'unknown': return 'text-muted';
-            case 'good':    return 'text-success';
-            default:        return 'text-danger';
+            case 'unknown': return 'trace-unknown';
+            case 'good':    return 'trace-success';
+            default:        return 'trace-failure';
             }
         };
 
@@ -163,14 +163,25 @@
 
         var showPos = function(pos){ return pos.row + ':' + pos.column; };
 
-        var updateProcessDisplay = function(){
-            // console.log('Creating mark from 0:0 to ' + showPos(processedTo));
+        var setProcessedTo = function(row, column){
+            if (row == 0 && column == 0) {
+                $scope.output = abella.reset(sigEd.getValue(), modEd.getValue()).output ;
+                $scope.$digest();
+            }
+            processedTo = { row: row, column: column };
             clearMarkers();
             markers.current =
                 thmEd.getSession().addMarker(
                     new Range(0, 0, processedTo.row, processedTo.column + 1),
                     "processed", "text");
+        };
 
+        var maybeResetAbella = function(){
+            setProcessedTo(processedTo.row, processedTo.column);
+        };
+
+        var scrollToProcessedMark = function(){
+            // console.log('Creating mark from 0:0 to ' + showPos(processedTo));
             thmEd.moveCursorToPosition(processedTo);
             thmEd.getSelection().clearSelection();
             // if (processedTo.row > thmEd.renderer.getScrollBottomRow())
@@ -191,14 +202,6 @@
 
             $scope.output = res.output ;
             status = res.status;
-            processedTo = endOfDocument();
-            updateProcessDisplay();
-        };
-
-        var enableProcessing = function(){
-            if(processedTo.row == 0 && processedTo.column == 0) {
-                $scope.output = abella.reset(sigEd.getValue(), modEd.getValue()).output ;
-            }
         };
 
         var follows = function(a, b){
@@ -246,22 +249,22 @@
                 if (tok.type === 'punctuation.dot') break;
             } while(tokIter.stepForward() !== null);
             text = text.replace(/\s+/g, ' ');
+            text = text.replace(/\s+\./, '.');
             var res = abella.process1(text);
             $scope.output += res.output;
             status = res.status;
             if (status === 'good')
-                processedTo = { row: endPos.row, column: endPos.column + 1 };
-            updateProcessDisplay();
+                setProcessedTo(endPos.row, endPos.column + 1);
+            scrollToProcessedMark();
             return status === 'good';
         };
 
         var processUptoHere = function(block){
-            enableProcessing();
-            console.log('processUptoHere(' + block + ')');
+            maybeResetAbella();
             var here = thmEd.getCursorPosition();
             if (strictlyFollows(processedTo, here)){
                 __self.resetOutput();
-                enableProcessing();
+                maybeResetAbella();
             }
             while (follows(here, processedTo))
                 if(!stepForward (block ? here : null)) break;

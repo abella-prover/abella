@@ -12,6 +12,7 @@
     <!-- ANGULAR -->
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.3/angular.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.3/angular-cookies.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.3/angular-sanitize.min.js"></script>
     <!-- BOOTSTRAP -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" type="text/css">
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
@@ -27,7 +28,8 @@
       body { font-family: Lato, sans-serif; }
       h1 { font-weight: bold; font-size: 36px; text-transform: uppercase; letter-spacing: .05ex;
            color: maroon; }
-      .processed { background-color: #CDF7DF; z-index: 3; }
+      .processed { background-color: #CDF7DF; }
+      .user-input { font-weight: bold; }
       .tab-pane { padding: 5px 5px; }
       .ace_editor { font: 12px 'Roboto Mono', monospace;
                     width: 100%; height: 200px; margin:auto; }
@@ -35,7 +37,11 @@
       .ace_abella { color: #2233FA !important; text-decoration: underline; }
       .ace_proof  { color: #5544AA !important; }
       .tab-pane code { color: inherit; }
-      #trace { font: 12pt Inconsolata, monospace; height: 30em; overflow-y: auto; }
+      #trace { font: 12pt Inconsolata, monospace; height: 30em;
+               overflow-y: auto; }
+      .trace-unknown { border: 2px solid #DDD; }
+      .trace-success { border: 2px solid green; }
+      .trace-failure { border: 2px solid red; }
       footer { margin-top: 1ex; }
       footer hr { margin-bottom: 0px; }
     </style>
@@ -91,8 +97,9 @@
               </div> <!-- thm-column -->
               <div class="col-md-5" id="trace-column">
                 &nbsp;<br>
-                <pre ng-class="abellaCtrl.getBackground()"
-                     id="trace" scroll="output">{{output}}</pre>
+                <pre ng-class="abellaCtrl.getBackgroundClass()"
+                     ng-bind-html="output"
+                     id="trace" scroll="output"></pre>
                 <div class="pull-right" id="trace-buttons">
                   <input type="button" value="Process Full" ng-click="abellaCtrl.batch()">
                   <!-- <input type="button" value="Step" ng-click="abellaCtrl.step()"> -->

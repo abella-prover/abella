@@ -76,7 +76,7 @@ let abella_process1 directive =
     let directive = Js.to_string directive in
     Abella_driver.lexbuf := Lexing.from_string directive ;
     Abella_driver.unprompt () ; (* suppress prompt *)
-    Format.fprintf !Checks.out "%s@." directive ;
+    Format.fprintf !Checks.out "<span class='user-input'>%s</span>@." directive ;
     let status = Abella_driver.process1 () in (* actual *)
     Abella_driver.process1 () |> ignore ;     (* get next prompt *)
     if status = Abella_driver.FAILURE then raise ProcessFailure
@@ -114,4 +114,3 @@ let make_abella_js () =
 
 let () =
   Js.Unsafe.global##abella <- make_abella_js ()
-  (* Js.Unsafe.set Js.Unsafe.global "run_abella" (Js.wrap_callback abella_batch) *)

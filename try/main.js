@@ -173,9 +173,8 @@
 
             thmEd.moveCursorToPosition(processedTo);
             thmEd.getSelection().clearSelection();
-            if (processedTo.row > thmEd.renderer.getScrollBottomRow())
-                thmEd.renderer.scrollCursorIntoView();
-
+            // if (processedTo.row > thmEd.renderer.getScrollBottomRow())
+            //     thmEd.renderer.scrollCursorIntoView();
             $scope.$digest();
         };
 
@@ -230,65 +229,58 @@
                    { row: pos.row, column: pos.column + 1 };
         };
 
-        var stepForward = function(){
-            enableProcessing();
-            // console.log('Starting from: ' + processedTo.row + ':' + processedTo.column);
+        var stepForward = function(barrier){
             var text = '';
             var endPos = clonePos(processedTo);
             var nextPos = posAfter(processedTo);
             var tokIter = new TokenIterator(thmEd.getSession(), nextPos.row, nextPos.column);
-            // var tokIter = new TokenIterator(thmEd.getSession(), processedTo.row, processedTo.column + 1);
-            while(true){
-                if (tokIter.getCurrentToken() === undefined &&
-                    tokIter.stepForward() == null){
-                    return false;
-                    // console.log('Cannot read current token. This probably means we are at the EOF.');
-                    // console.log('Here is what remains');
-                    // var eod = endOfDocument();
-                    // console.log(thmEd.getSession().getTextRange(
-                    //     new Range(processedTo.row, processedTo.column,
-                    //               eod.row, eod.column)));
-                    // return false;
-                }
+            if (tokIter.getCurrentToken() === undefined)
+                tokIter.stepForward();
+            do {
+                if (barrier !== null && strictlyFollows(endPos, barrier)) return null;
                 var tok = tokIter.getCurrentToken();
-                // console.log('Read: [' + tok.type + '] "' + tok.value + '"');
+                if (tok === undefined) return false;
+                // console.log('Read: ' + JSON.stringify(tok));
+                endPos = tokIter.getCurrentTokenPosition();
                 if (!tok.type.match(/comment/)) text += ' ' + tok.value;
-                if (tokIter.stepForward() != null)
-                    endPos = clonePos(tokIter.getCurrentTokenPosition());
-                else endPos = endOfDocument();
                 if (tok.type === 'punctuation.dot') break;
-            }
+            } while(tokIter.stepForward() !== null);
             text = text.replace(/\s+/g, ' ');
-            // console.log('Trying to execute: ' + text);
             var res = abella.process1(text);
-            // console.log('Got: "' + res.output + '" @ ' + res.status);
             $scope.output += res.output;
             status = res.status;
-            if (status === 'good') {
-                processedTo = clonePos(endPos);
-                // console.log(thmEd.getSession().getTextRange(new Range(0, 0, endPos.row, endPos.column)));
-            }
+            if (status === 'good')
+                processedTo = { row: endPos.row, column: endPos.column + 1 };
             updateProcessDisplay();
             return status === 'good';
         };
 
-        var processUptoHere = function(_editor){
+        var processUptoHere = function(block){
             enableProcessing();
+            console.log('processUptoHere(' + block + ')');
             var here = thmEd.getCursorPosition();
             if (strictlyFollows(processedTo, here)){
                 __self.resetOutput();
                 enableProcessing();
             }
             while (follows(here, processedTo))
-                if(!stepForward ()) break;
+                if(!stepForward (block ? here : null)) break;
         };
 
-        thmEd.commands.addCommand({
-            name: "processUptoHere",
-            bindKey: { win: "Ctrl-Return", mac: "Command-Return" },
-            exec: processUptoHere,
-            readOnly: true,
-        });
+        thmEd.commands.addCommands([
+            { name: "processUptoHere",
+              bindKey: { win: "Ctrl-Return", mac: "Command-Return" },
+              exec: function(_ed){ processUptoHere(false) },
+              readOnly: true,
+              scrollIntoView: "animate",
+            },
+            { name: "processUptoHereBlocking",
+              bindKey: { win: "Ctrl-Shift-Return", mac: "Command-Shift-Return" },
+              exec: function(_ed){ processUptoHere(true) },
+              readOnly: true,
+              scrollIntoView: "animate",
+            },
+        ]);
     }]);
 
     app.controller('TabController', ['$cookies', '$document', '$scope', function($cookies, $document, $scope){

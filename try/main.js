@@ -35,7 +35,7 @@
         var sigEd = makeEditor('specSigEd','ace/mode/lprolog',5,maxLines,'spec-sig');
         var modEd = makeEditor('specModEd','ace/mode/lprolog',5,maxLines,'spec-mod');
         var thmEd = makeEditor('reasoningEd','ace/mode/abella',30,maxLines,'reasoning');
-        var refreshEditors = function(){
+        $scope.refreshEditors = function(){
             [sigEd, modEd, thmEd].forEach(function(ed){
                 ed.resize();
                 ed.renderer.updateFull();
@@ -136,7 +136,7 @@
                             sigEd.setValue(sigData, -1);
                             modEd.setValue(modData, -1);
                             thmEd.setValue(thmData, -1);
-                            refreshEditors();
+                            $scope.refreshEditors();
                             __self.resetOutput();
                         });
                     });
@@ -150,7 +150,7 @@
             sigEd.setValue('sig empty.', -1);
             modEd.setValue('module empty.', -1);
             thmEd.setValue('', -1);
-            refreshEditors();
+            $scope.refreshEditors();
             __self.resetOutput();
         };
 
@@ -248,8 +248,7 @@
                 if (!tok.type.match(/comment/)) text += ' ' + tok.value;
                 if (tok.type === 'punctuation.dot') break;
             } while(tokIter.stepForward() !== null);
-            text = text.replace(/\s+/g, ' ');
-            text = text.replace(/\s+\./, '.');
+            text = text.replace(/\s+/g, ' ').replace(/\s+\./, '.').replace(/^\s+/, '');
             var res = abella.process1(text);
             $scope.output += res.output;
             status = res.status;
@@ -294,7 +293,7 @@
         this.set = function(t){
             this.active = t;
             $cookies.put('currentTab', '' + this.active);
-            refreshEditors();
+            $scope.refreshEditors();
         };
     }]);
 

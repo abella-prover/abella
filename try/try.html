@@ -7,22 +7,18 @@
     <title>Abella in your browser</title>
     <!-- JQUERY -->
     <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
-    <link rel="stylesheet" href="https://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
-    <script src="https://code.jquery.com/ui/1.11.4/jquery-ui.min.js"></script>
     <!-- ANGULAR -->
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.3/angular.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.3/angular-cookies.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.3/angular-sanitize.min.js"></script>
     <!-- BOOTSTRAP -->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" type="text/css">
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
     <!-- ACE -->
-    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.0/ace.js"></script> -->
     <script src="ace/ace.js"></script>
     <!-- ABELLA -->
     <script src="abella_js.js"></script>
     <!-- LOCAL -->
-    <link href='http://fonts.googleapis.com/css?family=Lato:400,700,900' rel='stylesheet' type='text/css'>
+    <link href='http://fonts.googleapis.com/css?family=Lato:400,900' rel='stylesheet' type='text/css'>
     <link href='http://fonts.googleapis.com/css?family=Roboto+Mono:400,400italic,700,700italic' rel='stylesheet' type='text/css'>
     <style type="text/css">
       body { font-family: Lato, sans-serif; }
@@ -60,15 +56,18 @@
 
       <div ng-controller="AbellaController as abellaCtrl">
         <div id="load" class="panel">
-          Load
-          <select ng-model="myDev"
-                  ng-change="abellaCtrl.select(myDev)"
-                  ng-options="dev.name disable when dev.disable for dev in devs"
-                  id="load-list">
-            <option value="" disabled>-- an example development --</option>
-          </select>
-          or
-          <input type="button" value="clear everything" ng-click="abellaCtrl.clear()">
+          <form class="form-inline">
+            <label>Load</label>
+            <select class="form-control"
+                    ng-model="myDev"
+                    ng-change="abellaCtrl.select(myDev)"
+                    ng-options="dev.name disable when dev.disable for dev in devs"
+                    id="load-list">
+              <option value="" disabled>-- an example development --</option>
+            </select>
+            <label>or</label>
+            <input type="button" class="btn" value="start from scratch" ng-click="abellaCtrl.clear()">
+          </form>
         </div> <!-- load -->
 
         <div id="files" ng-controller="TabController as tab">
@@ -100,10 +99,9 @@
                 <pre ng-class="abellaCtrl.getBackgroundClass()"
                      ng-bind-html="output"
                      id="trace" scroll="output"></pre>
-                <div class="pull-right" id="trace-buttons">
-                  <input type="button" value="Process Full" ng-click="abellaCtrl.batch()">
-                  <!-- <input type="button" value="Step" ng-click="abellaCtrl.step()"> -->
-                  <input type="button" value="Reset" ng-click="abellaCtrl.resetOutput()">
+                <div class="pull-left" id="trace-buttons">
+                  <input type="button" class="btn btn-xs" value="Process Full" ng-click="abellaCtrl.batch()">
+                  <input type="button" class="btn btn-xs" value="Reset" ng-click="abellaCtrl.resetOutput()">
                 </div> <!-- trace-buttons -->
               </div>   <!-- trace-column -->
             </div>     <!-- tab-pane -->
@@ -120,7 +118,7 @@
           <a href="http://getbootstrap.com">Bootstrap</a>,
           <a href="http://jquery.com">jQuery</a>,
           <a href="http://ocsigen.org/js_of_ocaml/"><tt>js_of_ocaml</tt></a>,
-          and, of course,
+          and
           <a href="http://ocaml.org">OCaml</a>.
           &copy; 2015, <a href="http://www.inria.fr/en/">Inria</a>
         </p>

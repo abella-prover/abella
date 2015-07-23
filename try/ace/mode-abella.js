@@ -11,6 +11,7 @@ var AbellaHighlightRules = function(){
     this.$rules = {
         start: [ { include: '#comment' },
                  { include: '#dot' },
+                 { include: '#qstring' },
                  { include: '#identifiers' },
                  { include: '#lprolog_keywords' },
                  { include: '#abella_operators' },
@@ -36,9 +37,13 @@ var AbellaHighlightRules = function(){
             { token: 'punctuation.dot',
               regex: /\./ },
         ],
+        '#qstring': [
+            { token: 'string',
+              regex: /"(?:(?:\\.)|[^"\\])*"/ },
+        ],
         '#identifiers': [
-            { token: 'text',
-              regex: /[=^`\\?$-][A-Za-z0-9^=`\\?$0-9_\/\*@+#!*~-]*/ },
+            { token: 'random_identifier',
+              regex: /[`\\?$^][A-Za-z0-9^=`\\?$0-9_\/\*@+#!*~-]*/ },
         ],
         '#lprolog_operators': [
             { token: 'keyword.operator', regex: /->|=>|:-|<=|\\|::/ }

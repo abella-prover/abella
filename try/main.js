@@ -2,16 +2,16 @@
     var app = angular.module('main', ['ngCookies']);
 
     var TokenIterator = ace.require('ace/token_iterator').TokenIterator;
+    var Range = ace.require('ace/range').Range;
 
     var clonePos = function(pos){
         return { row: pos.row, column: pos.column };
     };
 
     app.controller('AbellaController', ['$scope', function($scope){
-        var __save = this;
+        var __self = this;
 
         var aceTheme = 'ace/theme/eclipse';
-        ace.config.set("modePath", "ace/");
         var makeEditor = function(key,mode,minLines,maxLines,id){
             var ed = ace.edit(id);
             ed.setTheme(aceTheme);
@@ -21,10 +21,12 @@
                 ed.$blockScrolling = Infinity;
                 var cached = localStorage.getItem(key);
                 if(cached !== null) ed.setValue(cached, -1);
-                ed.on('input', function(){
+                ed.on('change', function(){
+                    // console.log(key + ' content saved');
                     localStorage.setItem(key, ed.getValue());
                 });
             }
+            ed.setHighlightActiveLine(false);
             return ed;
         };
         var windowHeight = $(window).height();
@@ -32,7 +34,7 @@
         var sigEd = makeEditor('specSigEd','ace/mode/lprolog',5,maxLines,'spec-sig');
         var modEd = makeEditor('specModEd','ace/mode/lprolog',5,maxLines,'spec-mod');
         var thmEd = makeEditor('reasoningEd','ace/mode/abella',30,maxLines,'reasoning');
-        $scope.refreshEditors = function(){
+        var refreshEditors = function(){
             [sigEd, modEd, thmEd].forEach(function(ed){
                 ed.resize();
                 ed.renderer.updateFull();
@@ -79,12 +81,36 @@
         ];
 
         $scope.output = '';
-        $scope.status = 'unknown';
+
+        var status;
+        var resetStatus = function(){
+            status = 'unknown';
+        };
+        resetStatus();
+
+        var processedTo;
+        var resetProcessedTo = function(){
+            processedTo = { row: 0, column: 0 };
+        };
+        resetProcessedTo();
+
+        var markers;
+        var resetMarkers = function(){
+            markers = { current: -1 };
+        };
+        resetMarkers();
+
+        var clearMarkers = function(){
+            if (markers.current > 0)
+                thmEd.getSession().removeMarker(markers.current);
+            resetMarkers();
+        }
 
         this.resetOutput = function(){
             $scope.output = '';
-            $scope.status = 'unknown';
-            $scope.processedTo = null;
+            resetStatus();
+            resetProcessedTo();
+            clearMarkers();
         };
 
         this.hasOutput = function(){
@@ -92,10 +118,10 @@
         };
 
         this.getBackground = function(){
-            switch($scope.status){
+            switch(status){
             case 'unknown': return 'text-muted';
-            case 'good':    return 'bg-success';
-            default:        return 'bg-danger';
+            case 'good':    return 'text-success';
+            default:        return 'text-danger';
             }
         };
 
@@ -109,8 +135,8 @@
                             sigEd.setValue(sigData, -1);
                             modEd.setValue(modData, -1);
                             thmEd.setValue(thmData, -1);
-                            $scope.refreshEditors();
-                            __save.resetOutput();
+                            refreshEditors();
+                            __self.resetOutput();
                         });
                     });
                 });
@@ -123,40 +149,9 @@
             sigEd.setValue('sig empty.', -1);
             modEd.setValue('module empty.', -1);
             thmEd.setValue('', -1);
-            $scope.refreshEditors();
-            __save.resetOutput();
+            refreshEditors();
+            __self.resetOutput();
         };
-
-        this.batch = function(){
-            // console.log('Batch!');
-
-            var spec_sig = sigEd.getValue();
-            var spec_mod = modEd.getValue();
-            var thm = thmEd.getValue();
-
-            // console.log('Running abella.batch(' + spec_sig + ',' + spec_mod + ',' + thm + ')');
-
-            var res = abella.batch(spec_sig, spec_mod, thm);
-
-            $scope.output = res.output ;
-            $scope.status = res.status;
-        };
-
-        var enableProcessing = function(){
-            if(!$scope.processedTo) {
-                $scope.processedTo = { row: 0, column: 0 };
-                $scope.ti = new TokenIterator(thmEd.getSession(), 0, 0);
-                $scope.output = abella.reset(sigEd.getValue(), modEd.getValue()).output ;
-            }
-        };
-
-        var updateProcessDisplay = function(){
-            thmEd.moveCursorToPosition($scope.processedTo);
-            thmEd.getSelection().clearSelection();
-            $scope.$digest();
-        };
-
-        thmEd.on('change', function(_obj){ $scope.processedTo = null; });
 
         var endOfDocument = function(){
             var doc = thmEd.getSession().getDocument();
@@ -165,21 +160,70 @@
             return { row: row, column: column };
         };
 
+        var showPos = function(pos){ return pos.row + ':' + pos.column; };
+
+        var updateProcessDisplay = function(){
+            // console.log('Creating mark from 0:0 to ' + showPos(processedTo));
+            clearMarkers();
+            markers.current =
+                thmEd.getSession().addMarker(
+                    new Range(0, 0, processedTo.row, processedTo.column),
+                    "processed", "text");
+
+            thmEd.moveCursorToPosition(processedTo);
+            thmEd.getSelection().clearSelection();
+            if (processedTo.row > thmEd.renderer.getScrollBottomRow())
+                thmEd.renderer.scrollCursorIntoView();
+
+            $scope.$digest();
+        };
+
+        this.batch = function(){
+            resetStatus();
+            resetProcessedTo();
+            clearMarkers();
+
+            var spec_sig = sigEd.getValue();
+            var spec_mod = modEd.getValue();
+            var thm = thmEd.getValue();
+
+            var res = abella.batch(spec_sig, spec_mod, thm);
+
+            $scope.output = res.output ;
+            status = res.status;
+            processedTo = endOfDocument();
+            updateProcessDisplay();
+        };
+
+        var tokIter = null;
+
+        var enableProcessing = function(){
+            if(processedTo.row == 0 && processedTo.column == 0) {
+                tokIter = new TokenIterator(thmEd.getSession(), 0, 0);
+                $scope.output = abella.reset(sigEd.getValue(), modEd.getValue()).output ;
+            }
+        };
+
+        thmEd.on('change', function(_obj){
+            processedTo = { row: 0, column: 0 };
+            clearMarkers();
+        });
+
         this.step = function(){
             enableProcessing();
-            // console.log('Starting from: ' + $scope.processedTo.row + ':' + $scope.processedTo.column);
+            // console.log('Starting from: ' + processedTo.row + ':' + processedTo.column);
             var text = '';
-            var endPos = clonePos($scope.processedTo);
+            var endPos = clonePos(processedTo);
             while(true){
-                if ($scope.ti.getCurrentToken() === undefined) {
+                if (tokIter.getCurrentToken() === undefined) {
                     // console.log('Cannot read current token. This probably means we are at the EOF.');
                     return false;
                 }
-                var tok = $scope.ti.getCurrentToken();
+                var tok = tokIter.getCurrentToken();
                 // console.log('Read: [' + tok.type + '] "' + tok.value + '"');
                 if (!tok.type.match(/comment/)) text += ' ' + tok.value;
-                if ($scope.ti.stepForward() != null)
-                    endPos = clonePos($scope.ti.getCurrentTokenPosition());
+                if (tokIter.stepForward() != null)
+                    endPos = clonePos(tokIter.getCurrentTokenPosition());
                 else endPos = endOfDocument();
                 if (tok.type === 'punctuation.dot') break;
             }
@@ -187,15 +231,15 @@
             // console.log('Trying to execute: ' + text);
             var res = abella.process1(text);
             $scope.output += res.output;
-            $scope.status = res.status;
-            if ($scope.status === 'good') {
-                $scope.processedTo = clonePos(endPos);
+            status = res.status;
+            if (status === 'good') {
+                processedTo = clonePos(endPos);
                 updateProcessDisplay();
             } else {
-                $scope.processedTo = null;
+                processedTo = { row: 0, column: 0 };
                 $scope.$digest();
             }
-            return $scope.status === 'good';
+            return status === 'good';
         };
 
         var follows = function(a, b){
@@ -206,18 +250,16 @@
             return a.row > b.row || (a.row == b.row && a.column > b.column);
         };
 
-        var showPos = function(pos){ return pos.row + ':' + pos.column; };
-
         var processUptoHere = function(_editor){
             enableProcessing();
             var here = thmEd.getCursorPosition();
-            if (strictlyFollows($scope.processedTo, here)){
-                // console.log('Rewinding because: ' + showPos($scope.processedTo) + ' is strictly after ' + showPos(here));
-                __save.resetOutput();
+            if (strictlyFollows(processedTo, here)){
+                // console.log('Rewinding because: ' + showPos(processedTo) + ' is strictly after ' + showPos(here));
+                __self.resetOutput();
                 enableProcessing();
             }
-            while (follows(here, $scope.processedTo))
-                if(!__save.step ()) break;
+            while (follows(here, processedTo))
+                if(!__self.step ()) break;
         };
 
         thmEd.commands.addCommand({
@@ -229,7 +271,7 @@
         thmEd.commands.addCommand({
             name: "processNext",
             bindKey: { win: "Ctrl-Shift-N", mac: "Command-Shift-N" },
-            exec: __save.step,
+            exec: __self.step,
         });
     }]);
 
@@ -241,7 +283,7 @@
         this.set = function(t){
             this.active = t;
             $cookies.put('currentTab', '' + this.active);
-            $scope.refreshEditors();
+            refreshEditors();
         };
     }]);
 

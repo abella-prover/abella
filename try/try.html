@@ -22,13 +22,14 @@
     <script src="abella_js.js"></script>
     <!-- LOCAL -->
     <link href='http://fonts.googleapis.com/css?family=Lato:900' rel='stylesheet' type='text/css'>
-    <!-- <link href='http://fonts.googleapis.com/css?family=Vollkorn:700' rel='stylesheet' type='text/css'> -->
+    <link href='http://fonts.googleapis.com/css?family=Roboto+Mono:400,400italic,700,700italic' rel='stylesheet' type='text/css'>
     <style type="text/css">
       h1 { font-family: Lato, sans-serif; font-size: 36px; text-transform: uppercase; letter-spacing: .05ex;
            color: maroon; }
-      .processed { background-color: #AA0033; }
+      .processed { background-color: #CDF7DF; z-index: 3; }
       .tab-pane { padding: 5px 5px; }
-      .ace_editor { font: 12pt Inconsolata, monospace; width: 100%; height: 200px; margin:auto; }
+      .ace_editor { font: 12px 'Roboto Mono', monospace;
+                    width: 100%; height: 200px; margin:auto; }
       .ace_fake_editor { height: 2em; }
       .ace_abella { color: #2233FA !important; text-decoration: underline; }
       .ace_proof  { color: #5544AA !important; }
@@ -87,7 +88,8 @@
               </div> <!-- thm-column -->
               <div class="col-md-5" id="trace-column">
                 &nbsp;<br>
-                <pre ng-class="abellaCtrl.getBackground()" id="trace" scroll="output">{{output}}</pre>
+                <pre ng-class="abellaCtrl.getBackground()"
+                     id="trace" scroll="output">{{output}}</pre>
                 <div class="pull-right" id="trace-buttons">
                   <input type="button" value="Process Full" ng-click="abellaCtrl.batch()">
                   <!-- <input type="button" value="Step" ng-click="abellaCtrl.step()"> -->

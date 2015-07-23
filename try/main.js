@@ -212,11 +212,13 @@
 
         thmEd.getSession().getDocument().on('change', function(obj){
             if(strictlyFollows(processedTo, obj.start)){
-                console.log('Change at ' + showPos(obj.start) + ' conflicts with ' + showPos(processedTo));
-                processedTo = { row: 0, column: 0 };
-                clearMarkers();
+                // console.log('Change at ' + showPos(obj.start) +
+                //             ' conflicts with ' + showPos(processedTo));
+                __self.resetOutput();
+                $scope.$digest();
             } else {
-                console.log('Change at ' + showPos(obj.start) + ' does not conflict with ' + showPos(processedTo));
+                // console.log('Change at ' + showPos(obj.start) +
+                //             ' does not conflict with ' + showPos(processedTo));
             }
         });
 

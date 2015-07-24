@@ -81,13 +81,21 @@
               thm: "examples/pic.thm" },
         ];
 
-        $scope.output = '';
+        $scope.output = '';     // good
 
         var status;
         var resetStatus = function(){
             status = 'unknown';
         };
         resetStatus();
+
+        var appendOutput = function(res, pristine){
+            var output = pristine ? res.output :
+                res.output.replace(/^([^\s]+ <)/gm,
+                                   '<span class="prompt">$1</span>');
+            $scope.output += output; // good
+            status = res.status;
+        };
 
         var processedTo;
         var resetProcessedTo = function(){
@@ -108,14 +116,14 @@
         }
 
         this.resetOutput = function(){
-            $scope.output = '';
+            $scope.output = ''; // good
             resetStatus();
             resetProcessedTo();
             clearMarkers();
         };
 
         this.hasOutput = function(){
-          return !($scope.output === '');
+          return !($scope.output === ''); // good
         };
 
         this.getBackgroundClass = function(){
@@ -165,7 +173,8 @@
 
         var setProcessedTo = function(row, column){
             if (row == 0 && column == 0) {
-                $scope.output = abella.reset(sigEd.getValue(), modEd.getValue()).output ;
+                $scope.output = ''; // good
+                appendOutput(abella.reset(sigEd.getValue(), modEd.getValue()));
                 $scope.$digest();
             }
             processedTo = { row: row, column: column };
@@ -198,10 +207,7 @@
             var spec_mod = modEd.getValue();
             var thm = thmEd.getValue();
 
-            var res = abella.batch(spec_sig, spec_mod, thm);
-
-            $scope.output = res.output ;
-            status = res.status;
+            appendOutput(abella.batch(spec_sig, spec_mod, thm), true);
         };
 
         var follows = function(a, b){
@@ -249,9 +255,7 @@
                 if (tok.type === 'punctuation.dot') break;
             } while(tokIter.stepForward() !== null);
             text = text.replace(/\s+/g, ' ').replace(/\s+\./, '.').replace(/^\s+/, '');
-            var res = abella.process1(text);
-            $scope.output += res.output;
-            status = res.status;
+            appendOutput(abella.process1(text));
             if (status === 'good')
                 setProcessedTo(endPos.row, endPos.column + 1);
             scrollToProcessedMark();

@@ -54,44 +54,7 @@
             });
         };
 
-        $scope.devs = [
-            { name: "--- λ-calculus Meta-Theory ---", disable: true },
-            { name: "Type Uniqueness for STLC",
-              sig: "examples/stlc.sig",
-              mod: "examples/stlc.mod",
-              thm: "examples/stlc-uniq.thm" },
-            { name: "Evaluation",
-              sig: "examples/eval.sig",
-              mod: "examples/eval.mod",
-              thm: "examples/eval.thm" },
-            { name: "--- Proof Theory ---", disable: true },
-            { name: "Cut-Admissibility",
-              sig: "examples/cut.sig",
-              mod: "examples/cut.mod",
-              thm: "examples/cut.thm" },
-            { name: "Meta-Theory of HH-ω",
-              sig: "examples/empty.sig",
-              mod: "examples/empty.mod",
-              thm: "examples/hh_meta.thm" },
-            { name: "--- POPLMark ---", disable: true },
-            { name: "Part 1(a)",
-              sig: "examples/poplmark-1a.sig",
-              mod: "examples/poplmark-1a.mod",
-              thm: "examples/poplmark-1a.thm" },
-            { name: "Part 2(a)",
-              sig: "examples/poplmark-2a.sig",
-              mod: "examples/poplmark-2a.mod",
-              thm: "examples/poplmark-2a.thm" },
-            { name: "--- Process Calculus Meta-Theory ---", disable: true },
-            { name: "Bisimulation for CCS",
-              sig: "examples/ccs.sig",
-              mod: "examples/ccs.mod",
-              thm: "examples/ccs.thm" },
-            { name: "Bisimulation for the π-Calculus",
-              sig: "examples/pic.sig",
-              mod: "examples/pic.mod",
-              thm: "examples/pic.thm" },
-        ];
+        $scope.devs = document.devs || [];
 
         $scope.output = '';     // good
 

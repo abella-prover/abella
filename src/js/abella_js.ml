@@ -95,6 +95,8 @@ let abella_reset spec_sig spec_mod =
     File_cache.reset () ;
     File_cache.add ("./" ^ sig_name ^ ".sig") spec_sig ;
     File_cache.add ("./" ^ mod_name ^ ".mod") spec_mod ;
+    Abella_driver.interactive := true ;
+    State.Undo.set_enabled true ;
     Format.fprintf !Checks.out "%s%!" Abella_driver.welcome_msg ;
     Abella_driver.process1 () |> ignore ; (* initial prompt *)
   end

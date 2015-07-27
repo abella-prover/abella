@@ -4,8 +4,20 @@
     var TokenIterator = ace.require('ace/token_iterator').TokenIterator;
     var Range = ace.require('ace/range').Range;
 
+    var showPos = function(pos){ return pos.row + ':' + pos.column; };
+
+    var follows = function(a, b){
+        return a.row > b.row || (a.row == b.row && a.column >= b.column);
+    };
+
+    var strictlyFollows = function(a, b){
+        return a.row > b.row || (a.row == b.row && a.column > b.column);
+    };
+
     var clonePos = function(pos){
-        return { row: pos.row, column: pos.column };
+        if (pos)
+            return { row: pos.row, column: pos.column };
+        return { row: 0, column: 0 };
     };
 
     app.controller('AbellaController', ['$scope', function($scope){
@@ -92,34 +104,76 @@
         var appendOutput = function(res, pristine){
             var output = pristine ? res.output :
                 res.output.replace(/^([^\s]+ <)/gm,
-                                   '<span class="prompt">$1</span>');
+                                   '<span class="prompt">$1</span>')
+                .replace(/#back\./g, '&lt;undo&gt;');
             $scope.output += output; // good
             status = res.status;
         };
 
-        var processedTo;
-        var resetProcessedTo = function(){
-            processedTo = { row: 0, column: 0 };
+        var posAfter = function(pos){
+            var doc = thmEd.getSession().getDocument();
+            var row = doc.getLine(pos.row);
+            return row.length === pos.column ?
+                { row: pos.row + 1, column: 0 } :
+            { row: pos.row, column: pos.column + 1 };
         };
-        resetProcessedTo();
 
-        var markers;
-        var resetMarkers = function(){
-            markers = { current: -1 };
-        };
-        resetMarkers();
-
-        var clearMarkers = function(){
-            if (markers.current > 0)
-                thmEd.getSession().removeMarker(markers.current);
-            resetMarkers();
+        function History(pos){
+            this.tip = clonePos(pos);
+            this.past = [];
+            this.marker = -1;
         }
+        (function(){
+            this.updateMarker = function(){
+                if (this.marker != -1)
+                    thmEd.getSession().removeMarker(this.marker);
+                if (this.tip.row > 0 || this.tip.column > 0)
+                    this.marker = thmEd.getSession().addMarker(
+                        new Range(0, 0, this.tip.row, this.tip.column),
+                        "processed", "text");
+                else this.marker = -1;
+            };
+            this.showTip = function(){
+                thmEd.moveCursorToPosition(this.tip);
+                thmEd.getSelection().clearSelection();
+                $scope.$digest();
+            };
+            this.reset = function(pos){
+                this.tip = clonePos(pos);
+                this.past = [];
+                this.updateMarker();
+            };
+            this.push = function(pos){
+                this.past.push(this.tip);
+                this.tip = posAfter(pos);
+                this.updateMarker();
+            };
+            this.pushCurrent = function(){
+                this.push(thmEd.getCursorPosition());
+            };
+            this.pop = function(){
+                if (this.past.length == 0) return undefined;
+                var oldTip = clonePos(this.tip);
+                this.tip = this.past.pop();
+                this.updateMarker();
+                return oldTip;
+            };
+            this.popTo = function(here){
+                var backs = 0
+                while(strictlyFollows(this.tip, here)){
+                    this.pop();
+                    backs ++;
+                }
+                return backs;
+            };
+        }).call(History.prototype);
+
+        var hist = new History();
 
         this.resetOutput = function(){
             $scope.output = ''; // good
             resetStatus();
-            resetProcessedTo();
-            clearMarkers();
+            hist.reset();
         };
 
         this.hasOutput = function(){
@@ -169,39 +223,16 @@
             return { row: row, column: column };
         };
 
-        var showPos = function(pos){ return pos.row + ':' + pos.column; };
-
-        var setProcessedTo = function(row, column){
-            if (row == 0 && column == 0) {
-                $scope.output = ''; // good
+        var maybeResetAbella = function(){
+            if(hist.tip.row == 0 && hist.tip.column == 0) {
+                $scope.output = '';
                 appendOutput(abella.reset(sigEd.getValue(), modEd.getValue()));
                 $scope.$digest();
             }
-            processedTo = { row: row, column: column };
-            clearMarkers();
-            markers.current =
-                thmEd.getSession().addMarker(
-                    new Range(0, 0, processedTo.row, processedTo.column + 1),
-                    "processed", "text");
-        };
-
-        var maybeResetAbella = function(){
-            setProcessedTo(processedTo.row, processedTo.column);
-        };
-
-        var scrollToProcessedMark = function(){
-            // console.log('Creating mark from 0:0 to ' + showPos(processedTo));
-            thmEd.moveCursorToPosition(processedTo);
-            thmEd.getSelection().clearSelection();
-            // if (processedTo.row > thmEd.renderer.getScrollBottomRow())
-            //     thmEd.renderer.scrollCursorIntoView();
-            $scope.$digest();
         };
 
         this.batch = function(){
-            resetStatus();
-            resetProcessedTo();
-            clearMarkers();
+            this.resetOutput();
 
             var spec_sig = sigEd.getValue();
             var spec_mod = modEd.getValue();
@@ -210,38 +241,23 @@
             appendOutput(abella.batch(spec_sig, spec_mod, thm), true);
         };
 
-        var follows = function(a, b){
-            return a.row > b.row || (a.row == b.row && a.column >= b.column);
-        };
-
-        var strictlyFollows = function(a, b){
-            return a.row > b.row || (a.row == b.row && a.column > b.column);
+        var stepBackTo = function(here){
+            var backs = hist.popTo(here);
+            while (backs --> 0)
+                appendOutput(abella.process1('#back.'));
         };
 
         thmEd.getSession().getDocument().on('change', function(obj){
-            if(strictlyFollows(processedTo, obj.start)){
-                // console.log('Change at ' + showPos(obj.start) +
-                //             ' conflicts with ' + showPos(processedTo));
-                __self.resetOutput();
+            if(strictlyFollows(hist.tip, obj.start)){
+                stepBackTo(obj.start);
                 $scope.$digest();
-            } else {
-                // console.log('Change at ' + showPos(obj.start) +
-                //             ' does not conflict with ' + showPos(processedTo));
             }
         });
 
-        var posAfter = function(pos){
-            var doc = thmEd.getSession().getDocument();
-            var row = doc.getLine(pos.row);
-            return row.length === pos.column ?
-                   { row: pos.row + 1, column: 0 } :
-                   { row: pos.row, column: pos.column + 1 };
-        };
-
         var stepForward = function(barrier){
             var text = '';
-            var endPos = clonePos(processedTo);
-            var nextPos = posAfter(processedTo);
+            var endPos = clonePos(hist.tip);
+            var nextPos = posAfter(hist.tip);
             var tokIter = new TokenIterator(thmEd.getSession(), nextPos.row, nextPos.column);
             if (tokIter.getCurrentToken() === undefined)
                 tokIter.stepForward();
@@ -257,20 +273,21 @@
             text = text.replace(/\s+/g, ' ').replace(/\s+\./, '.').replace(/^\s+/, '');
             appendOutput(abella.process1(text));
             if (status === 'good')
-                setProcessedTo(endPos.row, endPos.column + 1);
-            scrollToProcessedMark();
+                hist.push(endPos);
             return status === 'good';
         };
 
         var processUptoHere = function(block){
             maybeResetAbella();
             var here = thmEd.getCursorPosition();
-            if (strictlyFollows(processedTo, here)){
-                __self.resetOutput();
-                maybeResetAbella();
-            }
-            while (follows(here, processedTo))
-                if(!stepForward (block ? here : null)) break;
+            if (strictlyFollows(hist.tip, here))
+                stepBackTo(here);
+            else
+                while (follows(here, hist.tip))
+                    if(!stepForward (block ? here : null))
+                        break;
+            hist.showTip();
+            $scope.$digest();
         };
 
         thmEd.commands.addCommands([

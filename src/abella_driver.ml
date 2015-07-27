@@ -404,15 +404,13 @@ let rec process1 () =
     | Process_top Processing -> begin
         State.Undo.push () ;
         process_top1 () ;
-        match !current_state with
-        | Process_proof _ -> ()
-        | Process_top _ -> current_state := Process_top Prompting
+        reprompt ()
       end
     | Process_proof (Prompting, proc) ->
         prompt_proof1 proc.thm ;
         current_state := Process_proof (Processing, proc) ;
     | Process_proof (Processing, proc) -> begin
-        try State.Undo.push () ; process_proof1 proc.thm with
+        try State.Undo.push () ; process_proof1 proc.thm ; reprompt () with
         | Prover.End_proof reason -> begin
             Format.fprintf !out "Proof %s.\n%!" begin
               match reason with
@@ -531,7 +529,7 @@ and process_proof1 name =
       Format.fprintf !out "\n%!" ;
       suppress_proof_state_display := true
   | Common(Quit)           -> raise End_of_file
-  end ; reprompt ()
+  end
 
 and prompt_top1 () =
   Format.fprintf !out "Abella < %!"

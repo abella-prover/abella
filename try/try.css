@@ -1,0 +1,65 @@
+@import url(http://fonts.googleapis.com/css?family=Lato:400,900|Roboto+Mono:400,400italic,700);
+
+body {
+    font-family: Lato, sans-serif;
+}
+h1 {
+    font-weight: bold;
+    font-size: 36px;
+    text-transform: uppercase;
+    letter-spacing: .05ex;
+     color: maroon;
+}
+footer {
+    margin-top: 1ex;
+}
+footer hr {
+    margin-bottom: 0px;
+}
+
+.processed {
+    background-color: #CDF7DF;
+}
+.user-input {
+    font-weight: bold;
+}
+.prompt {
+    color: grey;
+    font-style: italic
+}
+
+.tab-pane {
+    padding: 5px 5px;
+}
+
+.ace_editor {
+    font: 12px 'Roboto Mono', monospace;
+    width: 100%; height: 200px; margin:auto;
+}
+.ace_fake_editor {
+    height: 2em;
+}
+.ace_abella {
+    color: #2233FA !important; text-decoration: underline;
+}
+.ace_proof  {
+    color: #5544AA !important;
+}
+
+.tab-pane code {
+    color: inherit;
+}
+
+#trace {
+    font: 12pt Inconsolata, monospace; height: 30em;
+    overflow-y: auto;
+}
+.trace-unknown {
+    border: 2px solid #DDD;
+}
+.trace-success {
+    border: 2px solid green;
+}
+.trace-failure {
+    border: 2px solid red;
+}

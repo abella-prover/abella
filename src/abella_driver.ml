@@ -650,7 +650,7 @@ let set_input () =
     | [] -> ()
     | [filename] ->
         interactive := false ;
-        Format.fprintf !out "Setting input to: %S@." filename ;
+        (* Format.fprintf !out "Setting input to: %S@." filename ; *)
         lexbuf := File_cache.lexbuf filename
     | fs ->
         Format.fprintf !err "Error: Multiple files specified as input: %s\n%!"

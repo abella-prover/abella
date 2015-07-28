@@ -215,7 +215,7 @@ let rec pretty_metaterm mt =
       Pretty.(Atom (STR "false"))
   | Eq(a, b) ->
       Pretty.(Opapp (30, Infix (NON, core_printer#print [] a,
-                                FMT " =@ ", core_printer#print [] b)))
+                                FMT " =@;<1 2>", core_printer#print [] b)))
   | Obj(obj, r) ->
       Pretty.(Opapp (50, Postfix (pretty_obj obj,
                                   STR (restriction_to_string r))))

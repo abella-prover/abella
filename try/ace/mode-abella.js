@@ -61,7 +61,7 @@ var AbellaHighlightRules = function(){
         ],
         '#abella_proof_keywords': [
             { token: 'keyword.other.proof',
-              regex: /\b(abbrev|accum|accumulate|all|apply|as|assert|backchain|by|case|clear|coinduction|cut|from|induction|inst|intros|keep|left|monotone|on|permute|pick|rename|right|search|split|to|unabbrev|unfold|with|witness)\b/ }
+              regex: /\b(abbrev|accum|accumulate|apply|as|assert|backchain|by|case|clear|coinduction|cut|from|induction|inst|intros|left|monotone|on|permute|pick|rename|right|search|split|to|unabbrev|unfold|with|witness)\b/ }
         ],
         '#abella_bad_proof_keywords': [
             { token: 'invalid.illegal',

@@ -12,9 +12,7 @@ h1 {
 }
 footer {
     margin-top: 1ex;
-}
-footer hr {
-    margin-bottom: 0px;
+    border-top: 1px solid grey;
 }
 
 .processed {

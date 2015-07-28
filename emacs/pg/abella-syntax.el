@@ -23,8 +23,8 @@
        . font-lock-builtin-face)
     ("\\<\\(by\\|kind\\|type\\|forall\\|exists\\|nabla\\|true\\|pi\\)\\>"
        . font-lock-keyword-face)
-    ;; (regexp-opt '("abbrev" "all" "apply" "assert" "backchain" "case" "clear" "coinduction" "cut" "induction" "inst" "intros" "keep" "left" "monotone" "on" "permute" "rename" "right" "search" "split" "split*" "to" "unabbrev" "unfold" "with" "witness") 'words)
-    ("\\<\\(a\\(?:bbrev\\|ll\\|pply\\|ssert\\)\\|backchain\\|c\\(?:ase\\|lear\\|oinduction\\|ut\\)\\|in\\(?:duction\\|st\\|tros\\)\\|keep\\|left\\|monotone\\|on\\|permute\\|r\\(?:ename\\|ight\\)\\|s\\(?:earch\\|plit\\*?\\)\\|to\\|un\\(?:abbrev\\|fold\\)\\|wit\\(?:h\\|ness\\)\\)\\>" . font-lock-function-name-face)
+    ;; (regexp-opt '("abbrev" "apply" "assert" "backchain" "case" "clear" "coinduction" "cut" "induction" "inst" "intros" "left" "monotone" "on" "permute" "rename" "right" "search" "split" "split*" "to" "unabbrev" "unfold" "with" "witness") 'words)
+    ("\\<\\(a\\(?:bbrev\\|pply\\|ssert\\)\\|backchain\\|c\\(?:ase\\|lear\\|oinduction\\|ut\\)\\|in\\(?:duction\\|st\\|tros\\)\\|left\\|monotone\\|on\\|permute\\|r\\(?:ename\\|ight\\)\\|s\\(?:earch\\|plit\\*?\\)\\|to\\|un\\(?:abbrev\\|fold\\)\\|wit\\(?:h\\|ness\\)\\)\\>" . font-lock-function-name-face)
     )
   "Default highlighting for Abella Script mode")
 

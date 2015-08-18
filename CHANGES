@@ -133,6 +133,12 @@ Additions
   if you want to prevent searching. The default value is the value of the
   search_depth flag.
 
+* Added a new command line flag `-f` that takes a comma-separated list of
+  key=value pairs and initializes the flags based on them. For flags that
+  can be set to `on`/`off`, you can just use the key and it means to set
+  them to `on`. For example, `-f subgoals=off,witnesses` sets `subgoals` to
+  `off` and `witnesses` to `on`.
+
 Tweaks to existing functionality
 
 * Import declarations automatically compile if needed. An explicit Makefile

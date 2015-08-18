@@ -117,8 +117,8 @@ rule token = parse
 | '"' ([^ '"']* as s) '"'
                      { QSTRING s }
 
-| "#back"          { BACK }
-| "#reset"         { RESET }
+| "#back"            { BACK }
+| "#reset"           { RESET }
 
 | "=>"               { IMP }
 | "<="               { IF }
@@ -156,8 +156,17 @@ rule token = parse
 
 | '\x04'             { EOF }   (* ctrl-D *)
 
-| _                  { failwith ("Illegal character " ^
-                                   (Lexing.lexeme lexbuf) ^ " in input") }
+| _                  {
+    let open Lexing in
+    let pos = lexeme_start_p lexbuf in
+    let msg = "Illegal character '" ^ String.escaped (lexeme lexbuf) ^ "' in input" in
+    let msg = match pos.pos_fname with
+      | "" -> msg
+      | fname -> Printf.sprintf "File %S, line %d, character %d: %s"
+                   fname pos.pos_lnum (pos.pos_cnum - pos.pos_bol) msg
+    in
+    failwith msg
+  }
 
 and comment = parse
 | [^ '*' '/' '\n']+  { comment lexbuf }

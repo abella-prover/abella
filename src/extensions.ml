@@ -23,11 +23,40 @@ let (|>) x f = f x
 let curry f (x,y) = f x y
 let uncurry f x y = f (x,y)
 
-let failwithf fmt = Printf.ksprintf failwith fmt
 let bugf      fmt = Printf.ksprintf (fun s -> Printf.eprintf "%s\n%!" s ; failwith "Bug")
     ("[ABELLA BUG]\n" ^^ fmt ^^
      "\nPlease report this at https://github.com/abella-prover/abella/issues")
 
+type provenance =
+  | Unknown
+  | Stdin
+  | Position of Lexing.position
+  | Range of Lexing.position * Lexing.position
+
+let provenance_to_string prov =
+  let open Lexing in
+  match prov with
+  | Unknown -> "Unknown provenance:\n"
+  | Stdin -> "Standard input:\n"
+  | Position pos ->
+      Printf.sprintf
+        "File %S, line %d, character %d:\n"
+        pos.pos_fname pos.pos_lnum (pos.pos_cnum - pos.pos_bol)
+  | Range (posl, posr) when posl.pos_fname = posr.pos_fname ->
+      if posl.pos_lnum <> posr.pos_lnum then
+        Printf.sprintf
+          "File %S, lines %d-%d:\n"
+          posl.pos_fname posl.pos_lnum posr.pos_lnum
+      else
+        Printf.sprintf
+          "File %S, line %d, characters %d-%d:\n"
+          posl.pos_fname posl.pos_lnum
+          (posl.pos_cnum - posl.pos_bol)
+          (posr.pos_cnum - posr.pos_bol)
+  | Range (posl, posr) ->
+      bugf "output_provenance: %S != %S" posl.pos_fname posr.pos_fname
+
+let failwithf fmt = Printf.ksprintf failwith fmt
 let maybe_guard ?guard f =
   match guard with
   | None -> f

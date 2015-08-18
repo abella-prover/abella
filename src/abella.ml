@@ -602,18 +602,46 @@ let set_compile_out filename =
 
 let makefile = ref false
 
+let parse_value v =
+  if String.length v < 1 then bugf "parse_value" ;
+  match v.[0] with
+  | '0' .. '9' -> Int (int_of_string v)
+  | '"' -> QStr (String.sub v 1 (String.length v - 2))
+  | _ -> Str v
+
+let set_flags flagstr =
+  try begin
+    flagstr |>
+    String.split ~test:(fun c -> c = ',') |>
+    List.map (String.split ~test:(fun c -> c = '=')) |>
+    List.iter begin function
+    | [k ; v] -> set k (parse_value v)
+    | [k]     -> set k (Str "on")
+    | _       -> bugf "set_flags: %S" flagstr
+    end
+  end with
+  | Invalid_argument msg | Failure msg ->
+      raise (Arg.Bad msg)
+  | e ->
+      raise (Arg.Bad (Printexc.to_string e))
+
 let options =
-  Arg.align
-    [
-      ("-i", Arg.Set switch_to_interactive,
-       " Switch to interactive mode after reading inputs") ;
-      ("-o", Arg.String set_output,
-       "<file-name> Output to file") ;
-      ("-c", Arg.String set_compile_out,
-       "<file-name> Compile definitions and theorems in an importable format") ;
-      ("-a", Arg.Set annotate, " Annotate mode") ;
-      ("-M", Arg.Set makefile, " Output dependencies in Makefile format")
-    ]
+  Arg.align [
+    "-f", Arg.String set_flags,
+    "<flags> Initialize flags based on a comma-separate list of key=value pairs" ;
+
+    "-i", Arg.Set switch_to_interactive,
+    " Switch to interactive mode after reading inputs" ;
+
+    "-o", Arg.String set_output, "<file-name> Output to file" ;
+
+    "-c", Arg.String set_compile_out,
+    "<file-name> Compile definitions and theorems in an importable format" ;
+
+    "-a", Arg.Set annotate, " Annotate mode" ;
+
+    "-M", Arg.Set makefile, " Output dependencies in Makefile format" ;
+  ]
 
 let input_files = ref []
 

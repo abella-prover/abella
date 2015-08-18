@@ -100,6 +100,37 @@ module String = struct
     let count = ref 0 in
       String.iter (fun c -> if c = char then incr count) str ;
       !count
+
+  let split ?test ?(start = 0) ?len str =
+    let test = match test with
+      | None -> begin function
+        | ' ' | '\t' | '\n' | '\r' -> true
+        | _ -> false
+        end
+      | Some test -> test
+    in
+    let strlen = String.length str in
+    let len = match len with
+      | None -> strlen
+      | Some len -> len
+    in
+    if start < 0 || len < 0 || (start + len) > String.length str then
+      invalid_arg "String.split" ;
+    let toks = ref [] in
+    let emit tstart tend =
+      let tok = String.sub str tstart (tend - tstart) in
+      if tok <> "" then toks := tok :: !toks
+    in
+    let rec spin tstart cur =
+      if cur >= start + len then emit tstart cur else
+      if test str.[cur] then begin
+        emit tstart cur ;
+        let cur = cur + 1 in
+        spin cur cur
+      end else spin tstart (cur + 1)
+    in
+    spin start start ;
+    List.rev !toks
 end
 
 module List = struct

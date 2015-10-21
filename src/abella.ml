@@ -260,7 +260,7 @@ let import filename =
               sign := (basics, consts) ;
               add_defs tyargs idtys flav clauses ;
           | CSchema sch ->
-              bugf "Schemas not yet supported"
+              Schemas.register_typed_schema sch
           | CImport(filename) ->
               aux filename
           | CKind(ids) ->

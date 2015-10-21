@@ -178,10 +178,9 @@ let schema_invert gs e ~sch comp =
                   List.map block_desc sch.sch_blocks |> disjoin))
   end
 
-let register_schema sch =
+let register_typed_schema sch =
   if Hashtbl.mem schemas sch.sch_name then
     failwithf "Schema %S already defined" sch.sch_name ;
-  let sch = {sch with sch_blocks = List.map type_block sch.sch_blocks} in
   Hashtbl.add schemas sch.sch_name sch ;
   (* Format.printf "%a.@." format_schema sch ; *)
   let (ty, clauses) = schema_to_defs sch in
@@ -196,3 +195,7 @@ let register_schema sch =
     add_lemma name [] mt ;
     print_theorem name ([], mt)
   end
+
+let register_schema sch =
+  let sch = {sch with sch_blocks = List.map type_block sch.sch_blocks} in
+  register_typed_schema sch

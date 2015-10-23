@@ -395,26 +395,48 @@ let format_count_subgoals fmt n =
   | 1 -> fprintf fmt "1 other subgoal.@\n@\n"
   | n -> fprintf fmt "%d other subgoals.@\n@\n" n
 
-let format_display_subgoals fmt n =
-  let pristine = State.snapshot () in
-  let count = ref 0 in
-  List.iter (fun set_state ->
-      set_state () ;
-      if String.count sequent.name '.' > n then
-        fprintf fmt "@[<1>Subgoal %s%sis:@\n%a@]@\n@\n"
-          sequent.name
-          (if sequent.name = "" then "" else " ")
-          format_metaterm (normalize sequent.goal)
-      else
-        incr count)
-    !subgoals ;
-  format_count_subgoals fmt !count ;
-  State.reload pristine
-
-let subgoal_depth = State.rref 1000
+type subgoal_max = {
+  smax_default : int ;
+  smax_map : int IntMap.t ;
+}
+let subgoal_max_init = { smax_default = max_int ;
+                         smax_map = IntMap.empty }
+let subgoal_max : subgoal_max ref = State.rref subgoal_max_init
+let reset_subgoal_max () =
+  subgoal_max := subgoal_max_init
+let set_subgoal_max_default smax_default =
+  let smax = !subgoal_max in
+  subgoal_max := { smax with smax_default }
+let set_subgoal_max ndps =
+  let smax = !subgoal_max in
+  let smax_map = List.fold_left begin
+      fun smax_map (dp, n) ->
+        let n = Option.default max_int n in
+        (* Printf.printf "Max subgoals at depth %d: %d\n%!" dp n ; *)
+        IntMap.add dp n smax_map
+    end smax.smax_map ndps in
+  subgoal_max := { smax with smax_map }
 
 let format_other_subgoals fmt =
-  format_display_subgoals fmt (String.count sequent.name '.' - !subgoal_depth)
+  let pristine = State.snapshot () in
+  let smax = !subgoal_max in
+  let smax_map = ref smax.smax_map in
+  let count = ref 0 in
+  List.iter begin fun set_state ->
+    set_state () ;
+    let goal_depth = String.count sequent.name '.' in
+    let max_goals =  try IntMap.find goal_depth !smax_map with Not_found -> smax.smax_default in
+    (* Printf.printf "Showing %d goals at depth %d\n%!" max_goals goal_depth ; *)
+    if max_goals > 0 then begin
+      smax_map := IntMap.add goal_depth (max_goals - 1) !smax_map ;
+      fprintf fmt "@[<1>Subgoal %s%sis:@\n%a@]@\n@\n"
+        sequent.name
+        (if sequent.name = "" then "" else " ")
+        format_metaterm (normalize sequent.goal)
+    end else incr count
+  end !subgoals ;
+  format_count_subgoals fmt !count ;
+  State.reload pristine
 
 let format_sequent fmt =
   pp_open_vbox fmt 0 ; begin

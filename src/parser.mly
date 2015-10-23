@@ -137,7 +137,7 @@
 /* Higher */
 
 
-%start lpmod lpsig defs top_command command any_command sig_body mod_body search_witness
+%start lpmod lpsig defs top_command command any_command sig_body mod_body search_witness depth_spec
 %type <Typing.uterm> term
 %type <Typing.umetaterm> metaterm
 %type <Abella_types.lpsig> lpsig
@@ -149,6 +149,7 @@
 %type <Abella_types.top_command> top_command
 %type <Abella_types.any_command> any_command
 %type <Abella_types.witness> search_witness
+%type <(int * int option) list> depth_spec
 
 %%
 
@@ -786,3 +787,11 @@ search_witness_list:
 exists_binds:
   | { [] }
   | withs { List.map (fun (id, t) -> (id, uterm_to_term [] t)) $1 }
+
+depth_spec:
+  | depth_spec_one { [$1] }
+  | depth_spec_one SEMICOLON depth_spec { $1 :: $3 }
+
+depth_spec_one:
+  | NUM LBRACK NUM RBRACK { ($1, Some $3) }
+  | NUM { ($1, None) }

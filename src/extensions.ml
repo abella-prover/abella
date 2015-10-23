@@ -414,3 +414,11 @@ module Either = struct
     let right x (l, r) = (l, x::r) in
       List.fold_right (either left right) eithers ([], [])
 end
+
+module IntMap : Map.S with type key := int =
+  Map.Make (struct
+    type t = int
+    let compare (x : int) y =
+      if x < y then -1 else
+      if x = y then 0 else 1
+  end)

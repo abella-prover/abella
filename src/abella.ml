@@ -323,14 +323,27 @@ let set_fail ~key ~expected v =
   failwithf "Unknown value '%s' for key %S; expected %s"
     (set_value_to_string v) key expected
 
+let set_subgoal_max_spec spec =
+  let buf = Lexing.from_string spec in
+  let spec = Parser.depth_spec Lexer.token buf in
+  set_subgoal_max spec
+
 let set k v =
   match k, v with
-  | "subgoals", Int d when d >= 0 -> subgoal_depth := d
-  | "subgoals", Str "on" -> subgoal_depth := 1000
-  | "subgoals", Str "off" -> subgoal_depth := 0
+  | "subgoals", Int d when d >= 0 ->
+      reset_subgoal_max () ;
+      set_subgoal_max [d, Some max_int]
+  | "subgoals", Str "on" ->
+      reset_subgoal_max () ;
+      set_subgoal_max_default max_int
+  | "subgoals", Str "off" ->
+      reset_subgoal_max () ;
+      set_subgoal_max_default 0
+  | "subgoals", QStr spec ->
+      set_subgoal_max_spec spec
   | "subgoals", _ -> set_fail v
                        ~key:"subgoals"
-                       ~expected:"'on', 'off', or non-negative integer"
+                       ~expected:"'on', 'off', non-negative integer, or depth specification"
 
   | "instantiations", Str "on" -> Prover.show_instantiations := true
   | "instantiations", Str "off" -> Prover.show_instantiations := false

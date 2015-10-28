@@ -379,6 +379,17 @@ let lift_all ~used ~sr nominals =
       bind term (app new_term rvars)
   end
 
+let rec clause_head_unknown f0 =
+  match observe (hnorm f0) with
+  | App (_, [f ; g]) when is_imp f0 ->
+      clause_head_unknown g
+  | App (_, [f]) when is_pi f0 -> begin
+      match observe (hnorm f) with
+      | Lam (_, t) -> clause_head_unknown t
+      | _ -> bugf "clause_head_unknown: pi not applied to lambda"
+    end
+  | _ -> has_eigen_head f0
+
 let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   let support = metaterm_support term in
   let def_case ~wrapper term =
@@ -442,8 +453,8 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
 
   let focus sync_obj r =
     let ctx, f, term = Sync.get sync_obj in
-    if has_eigen_head f then
-      failwithf "Head of backchained clause %s unknown\n\
+    if clause_head_unknown f then
+      failwithf "Head of backchained clause %s unknown or unsupported\n\
                \ The case command cannot determine the derivability of this hypothesis"
         (term_to_string f) ;
     let wrapper t =

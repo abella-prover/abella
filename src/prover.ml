@@ -575,15 +575,22 @@ let get_hyp_or_lemma ?tys name =
   try get_hyp name with
   | Not_found -> get_lemma ?tys name
 
+let stmt_name = function
+  | Keep (h, _) | Remove (h, _) -> h
+
 let get_stmt_clearly h =
-  match h with
-  | Keep (h, tys) ->
-      get_hyp_or_lemma ~tys h
-  | Remove (h, []) when is_hyp h ->
-      let stmt = get_hyp h in
-      remove_hyp h ; stmt
-  | Remove (h, tys) ->
-      get_lemma ~tys h
+  try begin
+    match h with
+    | Keep (h, tys) ->
+        get_hyp_or_lemma ~tys h
+    | Remove (h, []) when is_hyp h ->
+        let stmt = get_hyp h in
+        remove_hyp h ; stmt
+    | Remove (h, tys) ->
+        get_lemma ~tys h
+  end
+  with Not_found ->
+    failwithf "Could not find hypothesis or lemma %s" (stmt_name h)
 
 let get_arg_clearly = function
   | Keep ("_", _) -> None

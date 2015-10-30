@@ -379,17 +379,6 @@ let lift_all ~used ~sr nominals =
       bind term (app new_term rvars)
   end
 
-let rec clause_head_unknown f0 =
-  match observe (hnorm f0) with
-  | App (_, [f ; g]) when is_imp f0 ->
-      clause_head_unknown g
-  | App (_, [f]) when is_pi f0 -> begin
-      match observe (hnorm f) with
-      | Lam (_, t) -> clause_head_unknown t
-      | _ -> bugf "clause_head_unknown: pi not applied to lambda"
-    end
-  | _ -> has_eigen_head f0
-
 let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   let support = metaterm_support term in
   let def_case ~wrapper term =
@@ -453,28 +442,35 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
 
   let focus sync_obj r =
     let ctx, f, term = Sync.get sync_obj in
-    if clause_head_unknown f then
-      failwithf "Head of backchained clause %s unknown or unsupported\n\
+    if has_eigen_head f then
+      failwithf "Head of backchained clause, %s, is a variable.\n\
                \ The case command cannot determine the derivability of this hypothesis"
         (term_to_string f) ;
-    let wrapper t =
-      Obj(Async(Async.obj ctx t), reduce_inductive_restriction r)
-    in
+    let rewrap obj = Obj (obj, reduce_inductive_restriction r) in
+    let rewrap_antecedent g = rewrap (Async (Async.obj ctx g)) in
+    let rewrap_succedent f = rewrap (Sync (Sync.obj ctx f term)) in
     (clausify f) |>
     unwind_state begin fun clause ->
       let fresh_used, fresh_head, fresh_body =
         freshen_clause ~sr ~support ~used clause in
-      match try_left_unify_cpairs fresh_head term
-              ~used:(fresh_used @ used)
-      with
-      | Some cpairs ->
-          let new_vars =
-            term_vars_alist Eigen (fresh_head::term::fresh_body) in
-          let wrapped_body = List.map wrapper fresh_body in
-          Some { bind_state = get_bind_state () ;
-                 new_vars = new_vars ;
-                 new_hyps = cpairs_to_eqs cpairs @ wrapped_body }
-      | None -> None
+      if has_eigen_head fresh_head then begin
+        let new_vars = term_vars_alist Eigen (fresh_head :: term :: fresh_body) in
+        let body = List.map rewrap_antecedent fresh_body in
+        Some { bind_state = get_bind_state () ;
+               new_vars = new_vars ;
+               new_hyps = rewrap_succedent fresh_head :: body }
+      end else begin
+        match try_left_unify_cpairs fresh_head term
+                ~used:(fresh_used @ used) with
+        | Some cpairs ->
+            let new_vars =
+              term_vars_alist Eigen (fresh_head::term::fresh_body) in
+            let body = List.map rewrap_antecedent fresh_body in
+            Some { bind_state = get_bind_state () ;
+                   new_vars = new_vars ;
+                   new_hyps = cpairs_to_eqs cpairs @ body }
+        | None -> None
+      end
     end
   in
 

@@ -1,0 +1,37 @@
+Specification "processes_terms".
+
+% Definition of terms
+
+/*Define is_term :  pt -> prop by
+   nabla x, is_term x
+;  is_term (app U V) := is_term U /\ is_term V
+;  is_term (abs U) := nabla x, is_term (U x)
+;  is_term (subex U V) := (nabla x, is_term (U x)) /\ is_term V.*/
+
+%Definition of the reduction
+
+Define
+   red_db_ker  : pt -> pt -> pt -> prop
+,  red_db      : pt -> pt -> prop
+,  red_ls_ker  : pt -> (pt -> pt) -> (pt -> pt) -> prop
+,  red_ls      : pt -> pt -> prop  by
+
+;  red_db_ker (abs U) V (subex U V)
+;  red_db_ker (subex U V) W (subex U1 V) := nabla x, red_db_ker (U x) W (U1 x)
+
+;  red_db (app U V) W := red_db_ker U V W
+
+;  red_ls_ker W (x\x) (x\W)
+;  red_ls_ker W (x\app (U1 x) (V x)) (x\app (U2 x) (V x)) := red_ls_ker W U1 U2
+;  red_ls_ker W (x\subex (U1 x) (V x)) (x\subex (U2 x) (V x))
+      := nabla y, red_ls_ker W (x\U1 x y) (x\U2 x y)
+
+;  red_ls (subex U W) (subex V W) := red_ls_ker W U V.
+
+%Definition of evaluation context closure
+
+Define evc_cl : (pt -> pt -> prop) -> pt -> pt -> prop by
+   evc_cl R U V := R U V;
+   evc_cl R (app U W) (app V W) := evc_cl R U V;
+   evc_cl R (subex U W) (subex V W) := 
+      nabla x, evc_cl R (U x) (V x).

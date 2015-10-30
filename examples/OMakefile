@@ -83,5 +83,5 @@ upload-html: html
         cp index.html examples/
         bash -c "/usr/bin/find examples -type d -exec chmod 775 '{}' ';'"
         bash -c "/usr/bin/find examples -type f -exec chmod 664 '{}' ';'"
-        tar -czf examples.tar.gz examples
+        tar -czf examples.tar.gz --exclude='*.thc' --exclude='*.out' examples
         rm -rf examples

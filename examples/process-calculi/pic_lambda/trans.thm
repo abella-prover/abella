@@ -1,0 +1,18 @@
+Specification "processes_terms".
+
+Define trans : pt -> (pt -> pt) -> prop by
+   nabla x, trans x (out x)
+;  trans (app U V) a\nu b\nu x\par (P b) (par (out2 b x a) (in x Q))
+      := trans U P /\ trans V Q
+;  trans (abs U) a\in2 a P := nabla x, trans (U x) (P x)
+;  trans (subex U V) a\nu x\par (P x a) (in x Q)
+      := (nabla y, trans (U y) (P y)) /\ trans V Q.
+
+Theorem trans_fonc : forall U P Q,
+  trans U P -> trans U Q -> P = Q.
+
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H3 H5. apply IH to H4 H6. search.
+  case H2. apply IH to H3 H4. search.
+  case H2. apply IH to H3 H5. apply IH to H4 H6. search.

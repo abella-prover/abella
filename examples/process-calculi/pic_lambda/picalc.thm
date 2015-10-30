@@ -1,0 +1,324 @@
+Specification "processes_terms".
+
+% Definition of canals and processes
+
+/*Define is_canal : pt -> prop by
+   nabla x, is_canal x.
+
+Define is_proc : pt -> prop by
+   is_proc null
+;  is_proc (nu P) := nabla x, is_proc (P x)
+;  is_proc (par P Q) := is_proc P /\ is_proc Q
+;  nabla x y, is_proc (out x y)
+;  nabla x y z, is_proc (out2 x y z)
+;  nabla x, is_proc (in x (P x)) := nabla x y, is_proc (P x y)
+;  nabla x, is_proc (in2 x (P x)) := nabla x y z, is_proc (P x y z).*/
+
+
+% Definition of structural equivalence on processes
+
+Define
+   str_ker : pt -> pt -> prop
+,  str_eq : pt -> pt -> prop by
+
+   str_ker (par P null) P
+;  str_ker (par null P) P
+;  str_ker P (par P null)
+;  str_ker P (par null P)
+;  str_ker (nu (x\ null)) null
+;  str_ker null (nu (x\ null))
+
+;  str_ker (par P Q) (par Q P)
+;  str_ker (par (par P Q) R) (par P (par Q R))
+;  str_ker (par P (par Q R)) (par (par P Q) R)
+
+;  str_ker (nu (x\par P (Q x))) (par P (nu Q))
+;  str_ker (nu (x\par (P x) Q)) (par (nu P) Q)
+;  str_ker (par P (nu Q)) (nu (x\par P (Q x)))
+;  str_ker (par (nu P) Q) (nu (x\par (P x) Q))
+
+;  str_ker (nu (x\ nu (P x))) (nu (y\ nu (x\ (P x y))))
+
+;  str_eq P P
+;  str_eq P Q := str_ker P Q
+
+;  str_eq (nu P) (nu Q) := nabla x, str_eq (P x) (Q x)
+;  str_eq (par P R) (par Q R) := str_eq P Q
+;  str_eq (par P Q) (par P R) := str_eq Q R
+;  str_eq P R := exists Q, str_eq P Q /\ str_eq Q R.
+
+/* str_ker is symmetrical */
+
+Theorem str_ker_sym : forall P Q, str_ker P Q -> str_ker Q P.
+
+intros. case H1.
+   search. search. search. search.
+      search. search. search. search. search.
+      search. search. search. search. search.
+
+/* str_eq is symmetrical */
+
+Theorem str_eq_sym : forall P Q, str_eq P Q -> str_eq Q P.
+
+induction on 1. intros. case H1.
+   search.
+   apply str_ker_sym to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H3. apply IH to H2. search.
+
+/* P is equivalent to nu x P if x is not in P */
+
+Theorem nu_gen : forall P, str_eq P (nu x\P).
+
+intros.
+   unfold 20. exists nu x\par P null. search.
+
+%Definition of reduction
+
+Define
+   red_ker_tensor : pt -> pt -> pt -> prop
+,  red_tensor     : pt -> pt -> prop
+,  red_ker_exp    : pt -> pt -> pt -> prop
+,  red_exp        : pt -> pt -> prop
+,  red            : pt -> pt -> prop by
+
+   nabla x y z, red_ker_tensor (out2 x y z) (in2 x (P x y z)) (P x y z y z)
+;  nabla x y z, red_ker_tensor (in2 x (P x y z)) (out2 x y z) (P x y z y z)
+
+;  red_ker_tensor (par P Q) R (par S Q) := red_ker_tensor P R S
+;  red_ker_tensor (par P Q) R (par P S) := red_ker_tensor Q R S
+;  red_ker_tensor (nu P) Q (nu R)
+      := nabla x, red_ker_tensor (P x) Q (R x)
+
+;  red_ker_tensor P (par Q R) (par S R) := red_ker_tensor P Q S
+;  red_ker_tensor P (par Q R) (par Q S) := red_ker_tensor P R S
+;  red_ker_tensor P (nu Q) (nu R)
+      := nabla x, red_ker_tensor P (Q x) (R x)
+
+;  red_tensor (par P Q) R := red_ker_tensor P Q R
+
+;  red_tensor (par P1 Q) (par P2 Q) := red_tensor P1 P2
+;  red_tensor (par P Q1) (par P Q2) := red_tensor Q1 Q2
+;  red_tensor (nu P1) (nu P2) := nabla x, red_tensor (P1 x) (P2 x)
+
+;  nabla x y, red_ker_exp (out x y) (in x (P x y))
+      (par (P x y y) (in x (P x y)))
+;  nabla x y, red_ker_exp (in x (P x y)) (out x y)
+      (par (P x y y) (in x (P x y)))
+
+;  red_ker_exp (par P Q) R (par S Q) := red_ker_exp P R S
+;  red_ker_exp (par P Q) R (par P S) := red_ker_exp Q R S
+;  red_ker_exp (nu P) Q (nu R) := nabla x, red_ker_exp (P x) Q (R x)
+
+;  red_ker_exp P (par Q R) (par S R) := red_ker_exp P Q S
+;  red_ker_exp P (par Q R) (par Q S) := red_ker_exp P R S
+;  red_ker_exp P (nu Q) (nu R) := nabla x, red_ker_exp P (Q x) (R x)
+
+;  red_exp (par P Q) R := red_ker_exp P Q R
+
+;  red_exp (par P1 Q) (par P2 Q) := red_exp P1 P2
+;  red_exp (par P Q1) (par P Q2) := red_exp Q1 Q2
+;  red_exp (nu P1) (nu P2) := nabla x, red_exp (P1 x) (P2 x)
+
+;  red P Q := red_tensor P Q
+;  red P Q := red_exp P Q.
+
+/* null cannot communicate (tensor and exp)*/
+
+Theorem red_ker_tensor_null_cases : forall P Q,
+   red_ker_tensor null P Q -> false.
+
+induction on 1. intros. case H1.
+   apply IH to H2.
+   apply IH to H2.
+   apply IH to H2.
+
+Theorem red_ker_exp_null_cases : forall P Q,
+   red_ker_exp null P Q -> false.
+
+induction on 1. intros. case H1.
+   apply IH to H2.
+   apply IH to H2.
+   apply IH to H2.
+
+/*no new names appear in communication (red_ker_tensor red_tensor
+red_ker_exp and red_exp)*/
+
+Theorem red_ker_tensor_no_new_names : forall P Q (R : pt -> pt),
+   nabla x, red_ker_tensor P Q (R x) -> exists S, nabla x, S = R x.
+
+induction on 1. intros. case H1.
+   search. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+
+Theorem red_tensor_no_new_names : forall P (Q : pt -> pt),
+   nabla x, red_tensor P (Q x) -> exists R, nabla y, R = Q y.
+
+induction on 1. intros. case H1.
+   backchain red_ker_tensor_no_new_names with x = n1.
+   apply IH to H2 with x = n1. search.
+   apply IH to H2 with x = n1. search.
+   apply IH to H2 with x = n1. search.
+
+Theorem red_ker_exp_no_new_names : forall P Q (R : pt -> pt),
+   nabla x, red_ker_exp P Q (R x) -> exists S, nabla x, S = R x.
+
+induction on 1. intros. case H1.
+   search. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+
+Theorem red_exp_no_new_names : forall P (Q : pt -> pt),
+    nabla x, red_exp P (Q x) -> exists R, nabla y, R = Q y.
+
+induction on 1. intros. case H1.
+   backchain red_ker_exp_no_new_names with x = n1.
+   apply IH to H2 with x = n1. search.
+   apply IH to H2 with x = n1. search.
+   apply IH to H2 with x = n1. search.
+
+/*if P and Q communicate then also Q and P */
+
+Theorem red_ker_tensor_par_sym : forall P Q R, red_ker_tensor P Q R
+   -> red_ker_tensor Q P R.
+
+induction on 1. intros. case H1.
+   search. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+
+Theorem red_ker_exp_par_sym : forall P Q R, red_ker_exp P Q R
+   -> red_ker_exp Q P R.
+
+induction on 1. intros. case H1.
+   search. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+
+
+/* two possible cases if reduction with P|Q as left process */
+
+Theorem red_ker_tensor_par_cases : forall P Q R S,
+   red_ker_tensor (par P Q) R S
+   -> (exists T, red_ker_tensor P R T /\ str_eq S (par T Q))
+      \/ exists T, red_ker_tensor Q R T /\ str_eq S (par P T).
+
+induction on 1. intros. case H1.
+   search. search.
+   apply IH to H2. case H3.
+      left. exists par T R1. split.
+         search.
+         unfold 20. exists par (par R1 T) Q. search.
+      right. exists par T R1. split.
+         search.
+         unfold 20. exists par (par T R1) P. split. search.
+            unfold 20. exists par (par P T) R1. search.
+   apply IH to H2. case H3.
+      search.
+      right. exists par Q1 T. split. search.
+         unfold 20. exists par Q1 (par P T). search.
+   apply IH to H2. case H3.
+      left. exists nu T. split. search.
+         unfold 20. exists nu (x\par (T x) Q). search.
+      search.
+
+Theorem red_ker_exp_par_cases : forall P Q R S,
+   red_ker_exp (par P Q) R S
+   -> (exists T, red_ker_exp P R T /\ str_eq S (par T Q))
+      \/ exists T, red_ker_exp Q R T /\ str_eq S (par P T).
+
+induction on 1. intros. case H1.
+   search. search.
+   apply IH to H2. case H3.
+      left. exists par T R1. split.
+         search.
+         unfold 20. exists par (par R1 T) Q. search.
+      right. exists par T R1. split.
+         search.
+         unfold 20. exists par (par T R1) P. split. search.
+            unfold 20. exists par (par P T) R1. search.
+   apply IH to H2. case H3.
+      search.
+      right. exists par Q1 T. split. search.
+         unfold 20. exists par Q1 (par P T). search.
+   apply IH to H2. case H3.
+      left. exists nu T. split. search.
+         unfold 20. exists nu (x\par (T x) Q). search.
+      search.
+
+/* one possible case if reduction with nu P as left process */
+
+Theorem red_ker_tensor_nu_cases : forall P Q R,
+   red_ker_tensor (nu P) Q R
+   -> exists S, nabla x, red_ker_tensor (P x) Q (S x)
+      /\ str_eq R (nu S).
+
+induction on 1. intros. case H1.
+   search.
+   apply IH to H2. exists x\par (S1 x) R1. intros. split. search.
+      unfold 20. exists par (nu S1) R1. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+
+Theorem red_ker_exp_nu_cases : forall P Q R,
+   red_ker_exp (nu P) Q R
+   -> exists S, nabla x, red_ker_exp (P x) Q (S x)
+      /\ str_eq R (nu S).
+
+induction on 1. intros. case H1.
+   search.
+   apply IH to H2. exists x\par (S1 x) R1. intros. split. search.
+      unfold 20. exists par (nu S1) R1. search.
+   apply IH to H2. search.
+   apply IH to H2. search.
+
+/* no possible communication without the communicating channel name */
+
+Theorem red_ker_tensor_out2_no_com_case : forall P Q, nabla a b c,
+   red_ker_tensor (out2 a b c) (P b c) (Q a b c) -> false.
+
+induction on 1. intros. case H1.
+   apply IH to H2. apply IH to H2. apply IH to H2.
+
+Theorem red_ker_exp_out2_case : forall P Q, nabla a b c,
+   red_ker_exp (out2 a b c) (P a b c) (Q a b c) -> false.
+
+induction on 1. intros. case H1.
+   apply IH to H2. apply IH to H2. apply IH to H2.
+
+Theorem red_ker_exp_in2_case : forall P Q R, nabla a,
+   red_ker_exp (in2 a (P a)) (Q a) (R a) -> false.
+
+induction on 1. intros. case H1.
+   apply IH to H2. apply IH to H2. apply IH to H2.
+
+Theorem red_ker_exp_in_no_com_case : forall P Q R, nabla a,
+   red_ker_exp (in a (P a)) Q (R a) -> false.
+
+induction on 1. intros. case H1.
+   apply IH to H2. apply IH to H2. apply IH to H2.
+
+Theorem red_ker_tensor_in_case : forall P Q R, nabla a,
+   red_ker_tensor (in a (P a)) (Q a) (R a) -> false.
+
+induction on 1. intros. case H1.
+   apply IH to H2. apply IH to H2. apply IH to H2.

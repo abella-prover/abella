@@ -1,0 +1,247 @@
+Specification "processes_terms".
+
+Import "picalc".
+
+/*** structural equivalence is bisimulation in the tensor case */
+
+/*lemma */
+
+Theorem red_ker_tensor_str_eq_left_of_par : forall P1 P2 Q R2,
+      str_eq P2 P1 -> red_ker_tensor P2 Q R2
+      -> exists R1, red_ker_tensor P1 Q R1 /\ str_eq R2 R1.
+
+induction on 1. intros. case H1.
+   search.
+   case H3.
+      apply red_ker_tensor_par_cases to H2. case H4.
+         search.
+         apply red_ker_tensor_null_cases to H5.
+      apply red_ker_tensor_par_cases to H2. case H4.
+         apply red_ker_tensor_null_cases to H5.
+         search.
+      search. search.
+      apply red_ker_tensor_nu_cases to H2.
+         apply red_ker_tensor_null_cases to H4.
+      apply red_ker_tensor_null_cases to H2.
+      apply red_ker_tensor_par_cases to H2. case H4. search. search.
+      apply red_ker_tensor_par_cases to H2. case H4.
+         apply red_ker_tensor_par_cases to H5. case H7. search. search.
+         search.
+      apply red_ker_tensor_par_cases to H2. case H4.
+         search.
+         apply red_ker_tensor_par_cases to H5. case H7. search. search.
+      apply red_ker_tensor_nu_cases to H2.
+         apply red_ker_tensor_par_cases to H4. case H6.
+            apply red_ker_tensor_no_new_names to H7. search.
+            search.
+      apply red_ker_tensor_nu_cases to H2.
+         apply red_ker_tensor_par_cases to H4. case H6.
+            search.
+            apply red_ker_tensor_no_new_names to H7. search.
+      apply red_ker_tensor_par_cases to H2. case H4.
+         search.
+         apply red_ker_tensor_nu_cases to H5. search.
+      apply red_ker_tensor_par_cases to H2. case H4.
+         apply red_ker_tensor_nu_cases to H5. search.
+         search.
+      apply red_ker_tensor_nu_cases to H2.
+         apply red_ker_tensor_nu_cases to H4. search.
+   apply red_ker_tensor_nu_cases to H2.
+      apply IH to H3 H4. search.
+   apply red_ker_tensor_par_cases to H2. case H4.
+      apply IH to H3 H5. search.
+      search.
+   apply red_ker_tensor_par_cases to H2. case H4.
+      search.
+      apply IH to H3 H5. search.
+   apply IH to H3 H2. apply IH to H4 H5. search.
+
+/* proof */
+
+Theorem red_str_eq_delay_tensor : forall P1 P2 Q2,
+   str_eq P2 P1 -> red_tensor P2 Q2
+   -> exists Q1, red_tensor P1 Q1 /\ str_eq Q2 Q1.
+
+induction on 1. intros. case H1.
+   search.
+   case H3.
+      case H2.
+         apply red_ker_tensor_par_sym to H4.
+            apply red_ker_tensor_null_cases to H5.
+         search.
+         case H4.
+      case H2.
+         apply red_ker_tensor_null_cases to H4.
+         case H4.
+         search.
+      search. search.
+      case H2. case H4.
+      case H2.
+      case H2.
+         apply red_ker_tensor_par_sym to H4. search.
+         search.
+         search.
+      case H2.
+         apply red_ker_tensor_par_cases to H4. case H5. search. search.
+         case H4. search. search. search.
+         search.
+      case H2.
+         apply red_ker_tensor_par_sym to H4.
+            apply red_ker_tensor_par_cases to H5. case H6.
+               apply red_ker_tensor_par_sym to H7. search.
+               apply red_ker_tensor_par_sym to H7. search.
+         search.
+         case H4. search. search. search.
+      case H2. case H4.
+         search.
+         apply red_tensor_no_new_names to H5. search.
+         search.
+      case H2. case H4.
+         search.
+         search.
+         apply red_tensor_no_new_names to H5. search.
+      case H2.
+         apply red_ker_tensor_par_sym to H4.
+            apply red_ker_tensor_nu_cases to H5.
+               apply red_ker_tensor_par_sym to H6. search.
+         search.
+         case H4. search.
+      case H2.
+         apply red_ker_tensor_nu_cases to H4. search.
+         case H4. search.
+         search.
+         case H2. case H4. search.
+   case H2. apply IH to H3 H4. search.
+   case H2.
+      apply red_ker_tensor_str_eq_left_of_par to H3 H4. search.
+      apply IH to H3 H4. search.
+      search.
+   case H2.
+      apply red_ker_tensor_par_sym to H4.
+         apply red_ker_tensor_str_eq_left_of_par to H3 H5.
+            apply red_ker_tensor_par_sym to H6. search.
+      search.
+      apply IH to H3 H4. search.
+   apply IH to H3 H2. apply IH to H4 H5. search.
+
+/*** structural equivalence is bisimulation in the exponential case */
+
+/* lemma */
+
+Theorem red_ker_exp_str_eq_left_of_par : forall P1 P2 Q R2,
+      str_eq P2 P1 -> red_ker_exp P2 Q R2
+      -> exists R1, red_ker_exp P1 Q R1 /\ str_eq R2 R1.
+
+induction on 1. intros. case H1.
+   search.
+   case H3.
+      apply red_ker_exp_par_cases to H2. case H4.
+         search.
+         apply red_ker_exp_null_cases to H5.
+      apply red_ker_exp_par_cases to H2. case H4.
+         apply red_ker_exp_null_cases to H5.
+         search.
+      search. search.
+      apply red_ker_exp_nu_cases to H2.
+         apply red_ker_exp_null_cases to H4.
+      apply red_ker_exp_null_cases to H2.
+      apply red_ker_exp_par_cases to H2. case H4. search. search.
+      apply red_ker_exp_par_cases to H2. case H4.
+         apply red_ker_exp_par_cases to H5. case H7. search. search.
+         search.
+      apply red_ker_exp_par_cases to H2. case H4.
+         search.
+         apply red_ker_exp_par_cases to H5. case H7. search. search.
+      apply red_ker_exp_nu_cases to H2.
+         apply red_ker_exp_par_cases to H4. case H6.
+            apply red_ker_exp_no_new_names to H7. search.
+            search.
+      apply red_ker_exp_nu_cases to H2.
+         apply red_ker_exp_par_cases to H4. case H6.
+            search.
+            apply red_ker_exp_no_new_names to H7. search.
+      apply red_ker_exp_par_cases to H2. case H4.
+         search.
+         apply red_ker_exp_nu_cases to H5. search.
+      apply red_ker_exp_par_cases to H2. case H4.
+         apply red_ker_exp_nu_cases to H5. search.
+         search.
+      apply red_ker_exp_nu_cases to H2.
+         apply red_ker_exp_nu_cases to H4. search.
+   apply red_ker_exp_nu_cases to H2.
+      apply IH to H3 H4. search.
+   apply red_ker_exp_par_cases to H2. case H4.
+      apply IH to H3 H5. search.
+      search.
+   apply red_ker_exp_par_cases to H2. case H4.
+      search.
+      apply IH to H3 H5. search.
+   apply IH to H3 H2. apply IH to H4 H5. search.
+
+/* proof */
+
+Theorem red_str_eq_delay_exp : forall P1 P2 Q2,
+   str_eq P2 P1 ->  red_exp P2 Q2
+   -> exists Q1, red_exp P1 Q1 /\ str_eq Q2 Q1.
+
+induction on 1. intros. case H1.
+   search.
+   case H3.
+      case H2.
+         apply red_ker_exp_par_sym to H4.
+            apply red_ker_exp_null_cases to H5.
+         search.
+         case H4.
+      case H2.
+         apply red_ker_exp_null_cases to H4.
+         case H4.
+         search.
+      search. search.
+      case H2. case H4.
+      case H2.
+      case H2.
+         apply red_ker_exp_par_sym to H4. search.
+         search.
+         search.
+      case H2.
+         apply red_ker_exp_par_cases to H4. case H5. search. search.
+         case H4. search. search. search.
+         search.
+      case H2.
+         apply red_ker_exp_par_sym to H4.
+            apply red_ker_exp_par_cases to H5. case H6.
+               apply red_ker_exp_par_sym to H7. search.
+               apply red_ker_exp_par_sym to H7. search.
+         search.
+         case H4. search. search. search.
+      case H2. case H4.
+         search.
+         apply red_exp_no_new_names to H5. search.
+         search.
+      case H2. case H4.
+         search.
+         search.
+         apply red_exp_no_new_names to H5. search.
+      case H2.
+         apply red_ker_exp_par_sym to H4.
+            apply red_ker_exp_nu_cases to H5.
+               apply red_ker_exp_par_sym to H6. search.
+         search.
+         case H4. search.
+      case H2.
+         apply red_ker_exp_nu_cases to H4. search.
+         case H4. search.
+         search.
+         case H2. case H4. search.
+   case H2. apply IH to H3 H4. search.
+   case H2.
+      apply red_ker_exp_str_eq_left_of_par to H3 H4. search.
+      apply IH to H3 H4. search.
+      search.
+   case H2.
+      apply red_ker_exp_par_sym to H4.
+         apply red_ker_exp_str_eq_left_of_par to H3 H5.
+            apply red_ker_exp_par_sym to H6. search.
+      search.
+      apply IH to H3 H4. search.
+   apply IH to H3 H2. apply IH to H4 H5. search.

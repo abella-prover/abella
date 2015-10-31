@@ -711,11 +711,6 @@ let make_nabla_alist tids body =
   let nominals = fresh_nominals id_tys body in
     List.combine id_names nominals
 
-(* Error reporting *)
-
-let invalid_metaterm_arg t =
-  invalid_arg (metaterm_to_string t)
-
 (* Unification *)
 
 open Unify

@@ -542,9 +542,8 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   | Binding(Nabla, _, _) ->
       Option.map_default (fun sc -> [stateless_case_to_case sc]) []
         (recursive_metaterm_case ~used ~sr term)
-  | _ -> invalid_metaterm_arg term
-
-
+  | _ ->
+      failwith "Cannot perform case-analysis on this kind of formula"
 
 (* Induction *)
 
@@ -604,7 +603,10 @@ let coinduction res_num stmt =
         let ch = Pred(p, CoSmaller res_num) in
         let goal = Pred(p, CoEqual res_num) in
         (ch, goal)
-    | _ -> invalid_metaterm_arg stmt
+    | _ ->
+        failwithf
+          "Cannot perform coinduction on this kind of argument:\n\t%s"
+          (metaterm_to_string stmt)
   in
   aux stmt
 

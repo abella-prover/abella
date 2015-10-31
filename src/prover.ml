@@ -747,9 +747,12 @@ let ensure_no_restrictions term =
     | Arrow(left, right) -> aux left true; aux right true
     | Obj(_, Smaller i) | Obj(_, Equal i)
     | Pred(_, Smaller i) | Pred(_, Equal i) ->
-        if nested then invalid_metaterm_arg term
+        if nested then
+          failwithf "Inductive restrictions must not occur in strict subterms:\n%s"
+            (metaterm_to_string term)
     | Pred(_, CoSmaller i) | Pred(_, CoEqual i) ->
-        invalid_metaterm_arg term
+        failwithf "Co-Inductive restrictions must not be present:\n%s"
+          (metaterm_to_string term)
     | _ -> ()
   in
   aux term false

@@ -127,6 +127,8 @@ let witness_to_string =
         "exists[" ^ (String.concat ", " (List.map bind_to_string binds)) ^
         "] " ^ aux w
     | WReflexive -> "="
+    | WUnfold(id,n,[]) ->
+        Printf.sprintf "unfold(%s, %d)" id n
     | WUnfold(id,n,ws) ->
         let ws = List.map aux ws |> String.concat ", " in
         Printf.sprintf "unfold(%s, %d, %s)" id n ws

@@ -449,7 +449,12 @@ let rec process1 () =
       let msg = match e with
         | Failure msg -> msg
         | UserInterrupt -> "Interrupted (use ctrl-D to quit)"
-        | _ -> Printexc.to_string e
+        | _ ->
+            Printexc.to_string e ^ "\n\n\
+          \ Sorry for displaying a naked OCaml exception. An informative error message\n\
+          \ has not been designed for this situation.\n\n\
+          \ To help improve Abella's error messages, please file a bug report at\n\
+          \ <https://github.com/abella-prover/abella/issues>. Thanks!"
       in
       eprintf "Error: %s\n%!" msg ;
       interactive_or_exit ()

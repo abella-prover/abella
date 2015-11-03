@@ -682,11 +682,18 @@ let rec replace_pi_with_const term =
   let rec aux tyctx term =
     if is_pi term then
       let abs = extract_pi term in
-      match observe (hnorm abs) with
-      | Lam((id,ty)::_, _) ->
-          let c = const id ty in
-          aux ((id,ty)::tyctx) (app abs [c])
-      | _ -> assert false
+      let (c, ty) = match observe (hnorm abs) with
+        | Lam ((id, ty) :: _, _) -> (const id ty, ty)
+        | _ -> begin
+            match tc [] abs with
+            | Ty (ty :: tys, targy) ->
+                let x = fresh ~tag:Constant 0 ty in
+                (x, ty)
+            | _ ->
+                bugf "Cannot determine the type of a pi: %s" (term_to_string term)
+          end
+      in
+      aux ((term_to_name c, ty)::tyctx) (app abs [c])
     else
       (tyctx, term)
   in

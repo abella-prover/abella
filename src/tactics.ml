@@ -499,8 +499,11 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   in
 
   let async_case obj r =
+    let ctx, term = Async.get obj in
+    if has_eigen_head term then
+        failwithf "Cannot case-analyze an object sequent with a flexible goal.\n\
+                 \ The case command does not enumerate object logic formulas." ;
     let clause_cases = clause_case obj r in
-    let ctx, _ = Async.get obj in
     clause_cases @
     (if Context.is_empty ctx then []
      else [create_sync ~used ~sr ~support obj r])
@@ -514,7 +517,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
 
   match term with
   | Obj(Async obj, r) -> async_case obj r
-  | Obj(Sync obj, r)  -> sync_case obj r
+  | Obj(Sync obj, r) -> sync_case obj r
   | True -> [stateless_case_to_case empty_case]
   | False -> []
   | Pred(_, CoSmaller _) -> failwith "Cannot case-analyze hypothesis\

@@ -480,10 +480,12 @@ class term_printer = object (self)
     | Var v -> atomic (var_to_string v)
     | DB i -> atomic (db_to_string cx i)  (* ^ "$" ^ string_of_int i ^ "$") *)
     | Lam (vs, t) -> begin
+        let tcx = map_vars (fun v -> (v.name, v.ty)) [t] in
         let rec spin cx vs =
           match vs with
           | [] -> self#print cx t
           | (x, ty) :: vs ->
+              let x = fresh_name x tcx in
               let cx = adjoin cx (x, ty) in
               let x = fst (List.hd cx) in
               Pretty.(Bracket { left = STR (x ^ "\\") ;

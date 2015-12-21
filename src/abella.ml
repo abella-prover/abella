@@ -413,9 +413,6 @@ let rec process1 () =
           end
       end
   end with
-  | Failure "lexing: empty token" ->
-      if !annotate then fprintf !out "</pre>\n" ;
-      exit (if !interactive then 0 else 1)
   | Abella_types.Reported_parse_error ->
       State.Undo.undo () ;
       Lexing.flush_input !lexbuf ;

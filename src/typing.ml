@@ -46,7 +46,7 @@ let rec forget_term ?(cx=[]) t =
       try
         let (x, xty) = List.nth cx (n - 1) in
         UCon (ghost, x, xty)
-      with Failure "nth" -> bugf "forget_term called with too small a context"
+      with Failure _ -> bugf "forget_term called with too small a context"
     end
   | _ ->
       bugf "forget_term called on: %s" (term_to_string t)

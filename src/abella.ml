@@ -52,7 +52,8 @@ let perform_switch_to_interactive () =
   lexbuf := Lexing.from_channel stdin ;
   interactive := true ;
   out := stdout ;
-  fprintf !out "Switching to interactive mode.\n%!"
+  fprintf !out "Switching to interactive mode.\n%!" ;
+  State.Undo.undo ()
 
 let interactive_or_exit () =
   if not !interactive then

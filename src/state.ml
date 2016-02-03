@@ -66,13 +66,15 @@ let reload (snap : snap) = List.iter (fun f -> f ()) snap
 module Undo = struct
   let enabled = ref true
 
-  let set_enabled en = enabled := en
+  let set_enabled en =
+    (* Printf.eprintf "Undos are %senabled.\n%!" (if en then "" else "NOT ") ; *)
+    enabled := en
 
   let stack : snap list ref = ref []
 
   let describe msg =
+    (* Printf.eprintf "AFTER(%s) : %d\n%!" msg (List.length !stack) ; *)
     ()
-    (* Printf.eprintf "AFTER(%s) : %d\n%!" msg (List.length !stack) *)
 
   let reset () =
     stack := [] ;

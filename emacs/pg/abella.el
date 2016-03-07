@@ -23,6 +23,7 @@
 (proof-easy-config
  'abella "Abella"
  proof-prog-name                "abella"
+ abella-prog-args               (list "-pg")
  proof-terminal-string          "."
  proof-script-comment-start-regexp      "%"
  proof-script-fly-past-comments t
@@ -41,8 +42,8 @@
  proof-assistant-home-page       "http://abella-prover.org"
  proof-shell-annotated-prompt-regexp "^.* < $"
  proof-shell-quit-cmd            "Quit."
- proof-shell-start-goals-regexp  "<<"
- proof-shell-end-goals-regexp    ">>"
+ proof-shell-start-goals-regexp  "\\(<<<<<\\)"
+ proof-shell-end-goals-regexp    ">>>>>"
  proof-shell-restart-cmd         "#reset."
  proof-shell-error-regexp        "Error:.*\\|\\(Syntax\\|Typing\\|Unification\\|Unknown\\) error\."
  proof-shell-strip-crs-from-input nil

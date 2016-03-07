@@ -36,6 +36,8 @@ let switch_to_interactive = ref false
 let lexbuf = ref (Lexing.from_channel stdin)
 
 let annotate = ref false
+let proof_general = ref false
+
 let count = ref 0
 
 let witnesses = State.rref false
@@ -458,7 +460,11 @@ let rec process1 () =
       interactive_or_exit ()
 
 and process_proof1 name =
-  if not !suppress_proof_state_display then display !out ;
+  if not !suppress_proof_state_display then begin
+    if !proof_general then output_string !out "<<<<<" ;
+    display !out ;
+    if !proof_general then output_string !out ">>>>>" ;
+  end ;
   suppress_proof_state_display := false ;
   fprintf !out "%s < %!" name ;
   let input = Parser.command Lexer.token !lexbuf in
@@ -655,6 +661,7 @@ let options =
     "<file-name> Compile definitions and theorems in an importable format" ;
 
     "-a", Arg.Set annotate, " Annotate mode" ;
+    "-pg", Arg.Set proof_general, " Generate output for the ProofGeneral mode (not intended for human readers)" ;
 
     "-M", Arg.Set makefile, " Output dependencies in Makefile format" ;
   ]

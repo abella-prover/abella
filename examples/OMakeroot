@@ -4,7 +4,6 @@ if $(equal $(OSTYPE), Win32)
     GXX_FOUND = true
     export
 
-open build/C
 open build/OCaml
 
 .SUBDIRS: .

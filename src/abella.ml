@@ -164,6 +164,12 @@ let clauses_to_predicates clauses =
 let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   let (ktable, ctable) = !sign in
   let (imp_ktable, imp_ctable) = imp_spec_sign in
+  let imp_ctable = List.filter begin
+      fun (id, ty) ->
+        match ty with
+        | Typing.Poly (_, Ty (_, "prop")) -> false
+        | _ -> true
+    end imp_ctable in
 
   (* 1. Imported ktable must be a subset of ktable *)
   let missing_types = List.minus imp_ktable ktable in
@@ -225,8 +231,70 @@ let maybe_make_importable ?(force=false) root =
     if Sys.command cmd <> 0 then
       failwithf "Could not create %S" thc
 
-let import filename =
-  let rec aux filename =
+let replace_atom_term decl defn_name defn t =
+  let ty = tc [] defn in
+  let t = Term.abstract decl ty t in
+  let rt = Term.app t [defn] in
+  (* Printf.printf "Rewrote %s to %s\n%!" (term_to_string t) (term_to_string rt) ; *)
+  rt
+
+let replace_atom_metaterm decl defn_name defn mt =
+  let rmt = map_terms (replace_atom_term decl defn_name defn) mt in
+  (* Printf.printf "Rewrote %s to %s\n%!" (metaterm_to_string mt) (metaterm_to_string rmt) ; *)
+  rmt
+
+let replace_atom_clause decl defn_name defn cl =
+  let head = replace_atom_metaterm decl defn_name defn cl.head in
+  let body = replace_atom_metaterm decl defn_name defn cl.body in
+  { head ; body }
+
+let replace_atom_block decl defn_name defn bl =
+  { bl with
+    bl_rel =
+      List.map (fun ts -> List.map (replace_atom_term decl defn_name defn) ts)
+        bl.bl_rel }
+
+let replace_atom_schema decl defn_name defn sch =
+  { sch with
+    sch_blocks = List.map (replace_atom_block decl defn_name defn) sch.sch_blocks }
+
+let replace_atom_compiled decl defn_name defn comp=
+  match comp with
+  | CTheorem (nm, tyvars, bod) ->
+      (* Printf.printf "Trying to rewrite a CTheorem\n%!" ; *)
+      CTheorem (nm, tyvars, replace_atom_metaterm decl defn_name defn bod)
+  | CDefine (flav, tyvars, definiens, clauses) ->
+      if List.mem_assoc defn_name definiens then
+        failwithf "There is already a defined atom named %s in import" defn_name ;
+      (* Printf.printf "Trying to rewrite a CDefine\n%!" ; *)
+      CDefine (flav, tyvars, definiens,
+               List.map (replace_atom_clause decl defn_name defn) clauses)
+  | CSchema sch ->
+      (* Printf.printf "Trying to rewrite a CSchema\n%!" ; *)
+      CSchema (replace_atom_schema decl defn_name defn sch)
+  | CImport (fn, ws) ->
+      (* Printf.printf "Trying to rewrite a CImport\n%!" ; *)
+      let ws = List.map begin fun (wfrom, wto) ->
+          if wto = decl then (wfrom, defn_name)
+          else (wfrom, wto)
+        end ws in
+      CImport (fn, ws)
+  | CKind ids ->
+      (* Printf.printf "Trying to rewrite a CKind\n%!" ; *)
+      if List.mem defn_name ids then
+        failwithf "There are declared types named %s in import" defn_name ;
+      comp
+  | CType (ids, _) ->
+      (* Printf.printf "Trying to rewrite a CType\n%!" ; *)
+      if List.mem defn_name ids then
+        failwithf "There are declared constants named %s in import" defn_name ;
+      comp
+  | CClose _ ->
+      (* Printf.printf "Trying to rewrite a CClose\n%!" ; *)
+      comp
+
+let import filename withs =
+  let rec aux filename withs =
     maybe_make_importable filename ;
     if not (List.mem filename !imported) then begin
       imported := filename :: !imported ;
@@ -252,47 +320,80 @@ let import filename =
       let imp_predicates = (Marshal.from_channel file : string list) in
       let imp_content = (Marshal.from_channel file : compiled list) in
       ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates ;
-      List.iter
-        (function
-          | CTheorem(name, tys, thm) ->
-              add_lemma name tys thm ;
-          | CDefine(flav, tyargs, idtys, clauses) ->
-              let ids = List.map fst idtys in
-              check_noredef ids;
-              let (basics, consts) = !sign in
-              let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
-              sign := (basics, consts) ;
-              add_defs tyargs idtys flav clauses ;
-          | CSchema sch ->
-              Schemas.register_typed_schema sch
-          | CImport(filename) ->
-              aux filename
-          | CKind(ids) ->
-              check_noredef ids;
-              add_global_types ids
-          | CType(ids, ty) ->
-              check_noredef ids;
-              add_global_consts (List.map (fun id -> (id, ty)) ids)
-          | CClose(ty_subords) ->
-              List.iter
-                (fun (ty, prev) ->
-                   let curr = Subordination.subordinates !sr ty in
-                   match List.minus curr prev with
-                   | [] -> ()
-                   | xs ->
-                       failwithf
-                         "Cannot close %s since it is now subordinate to %s"
-                         ty (String.concat ", " xs))
-                ty_subords ;
-              close_types (List.map fst ty_subords))
-        imp_content
+      let rec process_decls decls =
+        match decls with
+        | [] -> ()
+        | decl :: decls -> begin
+            match decl with
+            | CTheorem(name, tys, thm) ->
+                add_lemma name tys thm ;
+                process_decls decls
+            | CDefine(flav, tyargs, idtys, clauses) ->
+                let ids = List.map fst idtys in
+                check_noredef ids;
+                let (basics, consts) = !sign in
+                let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
+                sign := (basics, consts) ;
+                add_defs tyargs idtys flav clauses ;
+                process_decls decls
+            | CSchema sch ->
+                Schemas.register_typed_schema sch ;
+                process_decls decls
+            | CImport(filename, withs) ->
+                aux filename withs ;
+                process_decls decls
+            | CKind(ids) ->
+                check_noredef ids ;
+                add_global_types ids ;
+                process_decls decls
+            | CType(ids, (Ty(_, "prop") as ty)) -> begin
+                (* Printf.printf "Need to instantiate: %s\n%!" (String.concat ", " ids) ; *)
+                let instantiate_id decls id =
+                  try begin
+                    let open Typing in
+                    let pred_name = List.assoc id withs in
+                    let pred = UCon (ghost, pred_name, Term.fresh_tyvar ()) in
+                    let pred = type_uterm ~sr:!sr ~sign:!sign ~ctx:[] pred in
+                    let pred_ty = tc [] pred in
+                    tid_ensure_fully_inferred ~sign:!sign (pred_name, pred_ty) ;
+                    if ty <> pred_ty then
+                      failwithf "Expected type %s:%s, got %s:%s"
+                        id (ty_to_string ty)
+                        pred_name (ty_to_string pred_ty) ;
+                    List.map (replace_atom_compiled id pred_name pred) decls
+                  end with Not_found ->
+                    failwithf "Missing instantiation for %s" id
+                in
+                List.fold_left instantiate_id decls ids |>
+                process_decls
+              end
+            | CType(ids,ty) ->
+                check_noredef ids ;
+                add_global_consts (List.map (fun id -> (id, ty)) ids) ;
+                process_decls decls
+            | CClose(ty_subords) ->
+                List.iter
+                  (fun (ty, prev) ->
+                     let curr = Subordination.subordinates !sr ty in
+                     match List.minus curr prev with
+                     | [] -> ()
+                     | xs ->
+                         failwithf
+                           "Cannot close %s since it is now subordinate to %s"
+                           ty (String.concat ", " xs))
+                  ty_subords ;
+                close_types (List.map fst ty_subords) ;
+                process_decls decls
+          end
+      in
+      process_decls imp_content
     end
   in
   if List.mem filename !imported then
     fprintf !out "Ignoring import: %s has already been imported.\n%!" filename
   else begin
     fprintf !out "Importing from %s\n%!" filename ;
-    aux filename
+    aux filename withs
   end
 
 
@@ -582,9 +683,9 @@ and process_top1 () =
   | TopCommon(Set(k, v)) -> set k v
   | TopCommon(Show(n)) -> show n
   | TopCommon(Quit) -> raise End_of_file
-  | Import(filename) ->
-      compile (CImport filename) ;
-      import filename ;
+  | Import(filename, withs) ->
+      compile (CImport (filename, withs)) ;
+      import filename withs;
   | Specification(filename) ->
       if !can_read_specification then begin
         read_specification filename ;

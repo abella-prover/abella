@@ -9,6 +9,19 @@ Possibly breaking changes
 
 Additions
 
+* Added limited support for predicate instantiation during import. The form
+
+        Import "mod" with id1 := defid1, ..., idn := defidn.
+
+  performs an import as usual, but any undefined predicates id in "mod" are
+  instantiated with defined predicates defid. An undefined predicate is
+  declared as usual with:
+
+        Type id  T1 -> T2 -> ... -> Tn -> prop.
+
+  It is now illegal to import a module with undefined predicates without
+  giving the predicate instantiations.
+
 * Added support for (first-order) polymorphic definitions. Definitions
   such as the following are now accepted.
 

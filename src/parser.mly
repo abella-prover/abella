@@ -686,7 +686,9 @@ pure_top_command:
   | QUERY metaterm DOT
     { Types.Query($2) }
   | IMPORT QSTRING DOT
-    { Types.Import($2) }
+    { Types.Import($2, []) }
+  | IMPORT QSTRING WITH import_withs DOT
+    { Types.Import($2, $4) }
   | SPECIFICATION QSTRING DOT
     { Types.Specification($2) }
   | KKIND id_list TYPE DOT
@@ -699,6 +701,12 @@ pure_top_command:
     { Types.SSplit(deloc_id $2, []) }
   | SSPLIT loc_id AS id_list DOT
     { Types.SSplit(deloc_id $2, List.map deloc_id $4) }
+
+import_withs:
+  | id DEFEQ id
+    { [$1, $3] }
+  | id DEFEQ id COMMA import_withs
+    { ($1, $3) :: $5 }
 
 common_command:
   | SET id id DOT

@@ -77,7 +77,7 @@ type top_command =
   | Theorem of id * string list * umetaterm
   | Define of flavor * tyctx * udef_clause list
   | Schema of uterm schema
-  | Import of string
+  | Import of string * (string * string) list
   | Specification of string
   | Query of umetaterm
   | Kind of id list
@@ -90,7 +90,7 @@ type compiled =
   | CTheorem of id * string list * metaterm
   | CDefine of flavor * string list * tyctx * def_clause list
   | CSchema of term schema
-  | CImport of string
+  | CImport of string * (string * string) list
   | CKind of id list
   | CType of id list * ty
   | CClose of (id * id list) list
@@ -288,8 +288,12 @@ let top_command_to_string tc =
           (sch.sch_blocks |>
            List.map (fun bl -> block_to_string uterm_to_string bl) |>
            String.concat "; ")
-    | Import filename ->
-        sprintf "Import \"%s\"" filename
+    | Import (filename, withs) ->
+        sprintf "Import \"%s\"%s" filename begin
+          withs |>
+          List.map (fun (a, b) -> a ^ " = " ^ b) |>
+          String.concat ", "
+        end
     | Specification filename ->
         sprintf "Specification \"%s\"" filename
     | Query q ->

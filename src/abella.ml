@@ -36,7 +36,6 @@ let switch_to_interactive = ref false
 let lexbuf = ref (Lexing.from_channel stdin)
 
 let annotate = ref false
-let proof_general = ref false
 
 let count = ref 0
 
@@ -45,6 +44,8 @@ let witnesses = State.rref false
 exception AbortProof
 
 exception UserInterrupt
+
+let eprintf fmt = fprintf !out fmt
 
 (* Input *)
 
@@ -75,7 +76,7 @@ let position_range (p1, p2) =
     sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
 
 let type_inference_error (pos, ct) exp act =
-  eprintf "Typing error%s.\n%!" (position_range pos) ;
+  fprintf !out "Typing error%s.\n%!" (position_range pos) ;
   match ct with
   | CArg ->
       eprintf "Expression has type %s but is used here with type %s\n%!"
@@ -400,7 +401,8 @@ let current_state = State.rref Process_top
 let rec process1 () =
   State.Undo.push () ;
   try begin match !current_state with
-    | Process_top -> process_top1 ()
+    | Process_top ->
+        process_top1 ()
     | Process_proof proc -> begin
         try process_proof1 proc.thm with
         | Prover.End_proof reason -> begin
@@ -451,19 +453,17 @@ let rec process1 () =
         | UserInterrupt -> "Interrupted (use ctrl-D to quit)"
         | _ ->
             Printexc.to_string e ^ "\n\n\
-          \ Sorry for displaying a naked OCaml exception. An informative error message\n\
-          \ has not been designed for this situation.\n\n\
-          \ To help improve Abella's error messages, please file a bug report at\n\
-          \ <https://github.com/abella-prover/abella/issues>. Thanks!"
+                                   \ Sorry for displaying a naked OCaml exception. An informative error message\n\
+                                   \ has not been designed for this situation.\n\n\
+                                   \ To help improve Abella's error messages, please file a bug report at\n\
+                                   \ <https://github.com/abella-prover/abella/issues>. Thanks!"
       in
       eprintf "Error: %s\n%!" msg ;
       interactive_or_exit ()
 
 and process_proof1 name =
   if not !suppress_proof_state_display then begin
-    if !proof_general then output_string !out "<<<<<" ;
     display !out ;
-    if !proof_general then output_string !out ">>>>>" ;
   end ;
   suppress_proof_state_display := false ;
   fprintf !out "%s < %!" name ;
@@ -661,7 +661,6 @@ let options =
     "<file-name> Compile definitions and theorems in an importable format" ;
 
     "-a", Arg.Set annotate, " Annotate mode" ;
-    "-pg", Arg.Set proof_general, " Generate output for the ProofGeneral mode (not intended for human readers)" ;
 
     "-M", Arg.Set makefile, " Output dependencies in Makefile format" ;
   ]

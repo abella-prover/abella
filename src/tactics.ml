@@ -1133,14 +1133,6 @@ let some_term_to_restriction t =
   | None -> Irrelevant
   | Some t -> term_to_restriction t
 
-let descriptive_meta_right_unify argno mt1 mt2 =
-  try meta_right_unify mt1 mt2 with
-  | UnifyError _ ->
-      failwithf "Argument #%d does not match. The formula:\n  %s\ndoes not unify with the formula:\n  %s"
-        argno
-        (metaterm_to_string mt1)
-        (metaterm_to_string mt2)
-
 let apply_arrow term args =
   let () = check_restrictions
       (map_args term_to_restriction term)
@@ -1167,9 +1159,10 @@ let apply_arrow term args =
              right_unify lft_f arg_f ;
              right_unify lft_term arg_term ;
              right
-         | Arrow(left, right), Some arg ->
-             descriptive_meta_right_unify !argno left arg ;
-             right
+         | Arrow(left, right), Some arg -> begin
+             try meta_right_unify left arg ; right with
+             | Unify.UnifyFailure fl -> raise (Unify.UnifyFailure (Unify.FailTrail (!argno, fl)))
+           end
          | Arrow(left, right), None ->
              obligations := left::!obligations ;
              right
@@ -1300,8 +1293,10 @@ let backchain_arrow term goal =
       let gctx, gterm = Async.get gobj in
       right_unify hterm gterm ;
       Context.backchain_reconcile hctx gctx
-  | _, _ ->
-      descriptive_meta_right_unify 1 head goal
+  | _, _ -> begin
+      try meta_right_unify head goal with
+      | Unify.UnifyFailure fl -> raise (Unify.UnifyFailure (Unify.FailTrail (1, fl)))
+    end
   end ;
   obligations
 

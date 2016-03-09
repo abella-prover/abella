@@ -32,6 +32,16 @@ type unify_failure =
   | OccursCheck
   | ConstClash of (term * term)
   | Generic
+  | FailTrail of int * unify_failure
+
+let rec explain_failure = function
+  | OccursCheck -> "Unification failure (occurs-check)"
+  | ConstClash (t1, t2) ->
+      Printf.sprintf "Unification failure (constant clash between %s and %s)"
+        (term_to_string t1) (term_to_string t2)
+  | Generic -> "Unification failure (nominal reasoning)"
+  | FailTrail (n, fl) ->
+      Printf.sprintf "While matching argument #%d:\n%s" n (explain_failure fl)
 
 exception UnifyFailure of unify_failure
 
@@ -39,6 +49,9 @@ let fail f = raise (UnifyFailure f)
 
 type unify_error =
   | NotLLambda
+
+let explain_error = function
+  | NotLLambda -> "Unification incompleteness (non-pattern unification problem)"
 
 exception UnifyError of unify_error
 

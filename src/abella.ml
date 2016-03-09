@@ -551,6 +551,8 @@ let rec process1 () =
       State.Undo.undo () ;
       let msg = match e with
         | Failure msg -> msg
+        | Unify.UnifyFailure fl -> Unify.explain_failure fl
+        | Unify.UnifyError err -> Unify.explain_error err
         | UserInterrupt -> "Interrupted (use ctrl-D to quit)"
         | _ ->
             Printexc.to_string e ^ "\n\n\

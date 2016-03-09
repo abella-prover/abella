@@ -24,11 +24,16 @@ type unify_failure =
   | OccursCheck
   | ConstClash of (term * term)
   | Generic
+  | FailTrail of int * unify_failure
+
+val explain_failure : unify_failure -> string
 
 exception UnifyFailure of unify_failure
 
 type unify_error =
   | NotLLambda
+
+val explain_error : unify_error -> string
 
 exception UnifyError of unify_error
 

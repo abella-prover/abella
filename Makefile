@@ -5,9 +5,15 @@ OCB = ocamlbuild -classic-display
 .PHONY: all
 all:
 	$(OCB) -no-links src/abella.native
-	$(OCB) -no-links src/copy_exe.native
-	cp -a _build/src/abella.native _build/src/abella.native.target
-	_build/src/copy_exe.native _build/src/abella.native.target abella
+	if file _build/src/abella.native | grep Windows >/dev/null 2>&1 ; then \
+	  cp _build/src/abella.native abella.exe ; \
+	else \
+	  cp -a _build/src/abella.native abella ; \
+	fi
+
+.PHONY: all-windows
+all-windows:
+	OCAMLFIND_TOOLCHAIN=windows $(MAKE) all
 
 .PHONY: clean
 clean:

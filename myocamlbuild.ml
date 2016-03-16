@@ -47,6 +47,7 @@ open Ocamlbuild_plugin ;;
 
 let () =
   maybe_make_version_file () ;
+  Options.use_ocamlfind := true ;
   dispatch begin function
   | After_rules ->
       (* flag ["ocaml" ; "compile"] (A "-g") ; *)

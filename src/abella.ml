@@ -27,6 +27,12 @@ open Extensions
 open Printf
 open Accumulate
 
+let load_path = State.rref ""
+let normalize_filename fn =
+  if Filename.is_relative fn
+  then Filename.concat !load_path fn
+  else fn
+
 let can_read_specification = State.rref true
 
 let interactive = ref true
@@ -298,6 +304,7 @@ let import filename withs =
     maybe_make_importable filename ;
     if not (List.mem filename !imported) then begin
       imported := filename :: !imported ;
+      let file_dir = Filename.dirname filename in
       let thc = filename ^ ".thc" in
       let file =
         let ch = open_in_bin thc in
@@ -340,7 +347,7 @@ let import filename withs =
                 Schemas.register_typed_schema sch ;
                 process_decls decls
             | CImport(filename, withs) ->
-                aux filename withs ;
+                aux (normalize_filename (Filename.concat file_dir filename)) withs ;
                 process_decls decls
             | CKind(ids) ->
                 check_noredef ids ;
@@ -687,10 +694,10 @@ and process_top1 () =
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, withs) ->
       compile (CImport (filename, withs)) ;
-      import filename withs;
+      import (normalize_filename filename) withs;
   | Specification(filename) ->
       if !can_read_specification then begin
-        read_specification filename ;
+        read_specification (normalize_filename filename) ;
         ensure_finalized_specification ()
       end else
         failwith "Specification can only be read \
@@ -775,7 +782,8 @@ let set_input () =
     | [] -> ()
     | [filename] ->
         interactive := false ;
-        lexbuf := lexbuf_from_file filename
+        lexbuf := lexbuf_from_file filename ;
+        load_path := Filename.dirname filename
     | fs ->
         eprintf "Error: Multiple files specified as input: %s\n%!"
           (String.concat ", " fs) ;

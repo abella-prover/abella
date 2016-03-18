@@ -11,15 +11,15 @@ Additions
 
 * Added limited support for predicate instantiation during import. The form
 
-        Import "mod" with id1 := defid1, ..., idn := defidn.
+        Import "thmfile" with id1 := defid1, ..., idn := defidn.
 
-  performs an import as usual, but any undefined predicates id in "mod" are
-  instantiated with defined predicates defid. An undefined predicate is
+  performs an import as usual, but any undefined predicates id in "thmfile"
+  are instantiated with defined predicates defid. An undefined predicate is
   declared as usual with:
 
         Type id  T1 -> T2 -> ... -> Tn -> prop.
 
-  It is now illegal to import a module with undefined predicates without
+  It is now illegal to import a thm with undefined predicates without
   giving the predicate instantiations.
 
 * Added support for (first-order) polymorphic definitions. Definitions
@@ -181,6 +181,7 @@ Bugfixes
 * Import statements can now be undone as well from ProofGeneral
 * Importing .thcs made with a different Abella binary will now print an
   error message instead of causing a segmentation fault (#39)
+* Importing from different directories now works correctly
 
 
 Changes in 2.0.3 from 2.0.2

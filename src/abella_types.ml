@@ -289,11 +289,11 @@ let top_command_to_string tc =
            List.map (fun bl -> block_to_string uterm_to_string bl) |>
            String.concat "; ")
     | Import (filename, withs) ->
-        sprintf "Import \"%s\"%s" filename begin
-          withs |>
-          List.map (fun (a, b) -> a ^ " = " ^ b) |>
-          String.concat ", "
-        end
+        sprintf "Import \"%s\"%s%s" filename
+          (if withs = [] then "" else " with ")
+          (withs |>
+           List.map (fun (a, b) -> a ^ " := " ^ b) |>
+           String.concat ", ")
     | Specification filename ->
         sprintf "Specification \"%s\"" filename
     | Query q ->

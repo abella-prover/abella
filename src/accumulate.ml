@@ -23,8 +23,6 @@ open Extensions
 open Format
 open Prover
 
-let load_path = State.rref "."
-
 module H = Hashtbl
 
 let mod_cache = H.create 10
@@ -52,7 +50,7 @@ let position lexbuf =
       sprintf ": file %s, line %d, character %d" file line char
 
 let read_lp ext parser name =
-  let lexbuf = lexbuf_from_file (Filename.concat !load_path (name ^ ext)) in
+  let lexbuf = lexbuf_from_file (name ^ ext) in
     try
       parser Lexer.token lexbuf
     with
@@ -82,9 +80,9 @@ let rec get_sign_accum_sigs filename =
     | Not_found ->
         H.add sig_cache filename None ;
         let Sig(name, accums, decls) = read_lpsig filename in
-          if name <> filename then
+          if name <> Filename.basename filename then
             failwithf "Expected 'sig %s.' but found 'sig %s.'"
-              filename name ;
+              (Filename.basename filename) name ;
           let accum_signs = List.map get_sign accums in
           let sign = merge_signs (pervasive_sign :: accum_signs) in
           let sign = List.fold_left add_decl sign decls in
@@ -113,9 +111,9 @@ let rec get_named_clauses ~sr filename =
     | Not_found ->
         H.add mod_cache filename None ;
         let Mod(name, accumulate, uclauses) = read_lpmod filename in
-          if name <> filename then
+          if name <> Filename.basename filename then
             failwithf "Expected 'module %s.' but found 'module %s.'"
-              filename name ;
+              (Filename.basename filename) name ;
           ensure_no_redefine_keywords name uclauses ;
           let (sign, accum_sigs) = get_sign_accum_sigs filename in
           let non_accum = List.minus accumulate accum_sigs in

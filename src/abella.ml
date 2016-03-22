@@ -27,10 +27,11 @@ open Extensions
 open Printf
 open Accumulate
 
-let load_path = State.rref ""
-let normalize_filename fn =
+let load_path = State.rref (Sys.getcwd ())
+
+let normalize_filename ?(wrt = !load_path) fn =
   if Filename.is_relative fn
-  then Filename.concat !load_path fn
+  then Filename.concat wrt fn
   else fn
 
 let can_read_specification = State.rref true
@@ -304,8 +305,8 @@ let import filename withs =
     maybe_make_importable filename ;
     if not (List.mem filename !imported) then begin
       imported := filename :: !imported ;
-      let file_dir = Filename.dirname filename in
-      let thc = filename ^ ".thc" in
+      let file_dir = Filename.dirname (filename :> string) in
+      let thc = (filename :> string) ^ ".thc" in
       let file =
         let ch = open_in_bin thc in
         let dig = (Marshal.from_channel ch : Digest.t) in
@@ -480,7 +481,7 @@ let set k v =
                         ~key:"witnesses"
                         ~expected:"'on' or 'off'"
 
-  | "load_path", QStr s -> load_path := s
+  | "load_path", QStr s -> load_path := normalize_filename ~wrt:(Sys.getcwd ()) s
 
   | _, _ -> failwithf "Unknown key '%s'" k
 
@@ -783,7 +784,7 @@ let set_input () =
     | [filename] ->
         interactive := false ;
         lexbuf := lexbuf_from_file filename ;
-        load_path := Filename.dirname filename
+        load_path := normalize_filename ~wrt:(Sys.getcwd ()) (Filename.dirname filename)
     | fs ->
         eprintf "Error: Multiple files specified as input: %s\n%!"
           (String.concat ", " fs) ;

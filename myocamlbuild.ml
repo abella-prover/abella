@@ -51,6 +51,7 @@ let () =
   dispatch begin function
   | After_rules ->
       (* flag ["ocaml" ; "compile"] (A "-g") ; *)
+      (* flag ["ocaml" ; "link"] (A "-g") ; *)
       Scanf.sscanf Sys.ocaml_version "%d.%d."
         (fun major minor ->
            if major >= 4 then begin
@@ -58,7 +59,6 @@ let () =
              if minor >= 2 then
                flag ["ocaml" ; "compile"] (A "-safe-string")
            end) ;
-      flag ["ocaml" ; "link"] (A "-g") ;
       if Sys.os_type = "Unix" then
         flag ["ocaml" ; "compile"] (S [A "-w" ; A "@3@5@6@8..12@14@20@26@28@29"]) ;
       flag ["ocaml" ; "native" ; "compile"] (A "-nodynlink") ;

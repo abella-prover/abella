@@ -148,7 +148,7 @@ type command =
   | SearchCut of clearable * id option
   | Inst of clearable * (id * uterm) list * id option
   | Case of clearable * id option
-  | Assert of umetaterm * id option
+  | Assert of umetaterm * int option * id option
   | Pick of depth_bound option * (id * ty) list * umetaterm
   | Exists of [`EXISTS | `WITNESS] * uterm
   | Clear of id list
@@ -383,9 +383,12 @@ let command_to_string c =
         sprintf "%scase %s (keep)" (hn_to_string hn) h
     | Case(Remove (h, _), hn) ->
         sprintf "%scase %s" (hn_to_string hn) h
-    | Assert(t, hn) ->
-        sprintf "%sassert %s"
+    | Assert(t, dp, hn) ->
+        sprintf "%sassert %s%s"
           (hn_to_string hn)
+          (match dp with
+           | Some dp -> string_of_int dp ^ " "
+           | None -> "")
           (umetaterm_to_formatted_string t)
     | Pick (dbound, bs, t) ->
         sprintf "pick%s %s, %s"

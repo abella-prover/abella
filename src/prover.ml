@@ -968,8 +968,8 @@ let coinduction ?name () =
 
 (* Assert *)
 
-let delay_mainline ?name new_hyp detour_goal =
-  if search_goal detour_goal then
+let delay_mainline ?name ?depth new_hyp detour_goal =
+  if search_goal ?depth detour_goal then
     add_hyp ?name new_hyp
   else
   let mainline =
@@ -983,9 +983,9 @@ let delay_mainline ?name new_hyp detour_goal =
   add_subgoals ~mainline [detour] ;
   next_subgoal ()
 
-let assert_hyp ?name term =
+let assert_hyp ?name ?depth term =
   let term = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
-  delay_mainline ?name term term
+  delay_mainline ?name ?depth term term
 
 (* Pick *)
 

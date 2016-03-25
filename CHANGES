@@ -137,9 +137,10 @@ Additions
 
         pick <num> x y (z:ty), F.
 
-* Added a new tactic form for `backchain`:
+* Added a new tactic form for `backchain` and `assert:
 
         backchain <num> <hyp_or_lemma>.
+        assert <num> <formula>.
 
   where the `<num>`, which is optional, can give a depth bound to the search
   that is automatically attempted on generated goals. Give it a depth of 0

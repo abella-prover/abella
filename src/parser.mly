@@ -469,8 +469,8 @@ pure_command:
     { Types.Case(Types.Remove ($3, []), $1) }
   | hhint CASE hyp LPAREN KEEP RPAREN DOT
     { Types.Case(Types.Keep ($3, []), $1) }
-  | hhint ASSERT metaterm DOT
-    { Types.Assert($3, $1) }
+  | hhint ASSERT maybe_depth metaterm DOT
+    { Types.Assert($4, $3, $1) }
   | PICK maybe_depth binding_list COMMA metaterm DOT
     { Types.Pick ($2, $3, $5) }
   | EXISTS term DOT

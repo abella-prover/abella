@@ -593,9 +593,9 @@ and process_proof1 name =
   | SearchCut(h, hn)         -> search_cut ?name:hn h
   | Inst(h, ws, hn)          -> inst ?name:hn h ws
   | Case(str, hn)            -> case ?name:hn str
-  | Assert(t, hn)            ->
+  | Assert(t, dp, hn)            ->
       untyped_ensure_no_restrictions t ;
-      assert_hyp ?name:hn t
+      assert_hyp ?name:hn ?depth:dp t
   | Pick(depth, bs, t)      -> pick ?depth bs t
   | Exists(_, t)             -> exists t
   | Monotone(h, t)           -> monotone h t

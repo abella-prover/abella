@@ -597,7 +597,7 @@ and process_proof1 name =
       untyped_ensure_no_restrictions t ;
       assert_hyp ?name:hn ?depth:dp t
   | Pick(depth, bs, t)      -> pick ?depth bs t
-  | Exists(_, t)             -> exists t
+  | Exists(_, ts)            -> List.iter exists ts
   | Monotone(h, t)           -> monotone h t
   | Clear(hs)                -> clear hs
   | Abbrev(h, s)             -> abbrev h s

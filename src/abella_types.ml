@@ -138,6 +138,10 @@ let witness_to_string =
 
 type depth_bound = int
 
+type ewitness =
+  | ETerm of uterm
+  | ESub of id * uterm
+
 type command =
   | Induction of int list * id option
   | CoInduction of id option
@@ -150,7 +154,7 @@ type command =
   | Case of clearable * id option
   | Assert of umetaterm * int option * id option
   | Pick of depth_bound option * (id * ty) list * umetaterm
-  | Exists of [`EXISTS | `WITNESS] * uterm
+  | Exists of [`EXISTS | `WITNESS] * ewitness list
   | Clear of id list
   | Abbrev of id * string
   | Unabbrev of id list
@@ -327,6 +331,10 @@ let dbound_to_string = function
   | None -> ""
   | Some n -> " " ^ string_of_int n
 
+let ewitness_to_string = function
+  | ETerm t -> uterm_to_string t
+  | ESub (x, t) -> x ^ " = " ^ uterm_to_string t
+
 let command_to_string c =
   match c with
     | Induction(is, hn) ->
@@ -395,12 +403,13 @@ let command_to_string c =
           (dbound_to_string dbound)
           (idtys_to_string bs)
           (umetaterm_to_formatted_string t)
-    | Exists (how, t) ->
+    | Exists (how, ews) ->
         let hows = match how with
           | `EXISTS -> "exists"
           | `WITNESS -> "witness"
         in
-        sprintf "%s %s" hows (uterm_to_string t)
+        sprintf "%s %s" hows
+          (List.map ewitness_to_string ews |> String.concat ", ")
     | Clear hs ->
         sprintf "clear %s" (String.concat " " hs)
     | Abbrev(h, s) ->

@@ -473,9 +473,9 @@ pure_command:
     { Types.Assert($4, $3, $1) }
   | PICK maybe_depth binding_list COMMA metaterm DOT
     { Types.Pick ($2, $3, $5) }
-  | EXISTS term DOT
+  | EXISTS ewitnesses DOT
     { Types.Exists(`EXISTS, $2) }
-  | WITNESS term DOT
+  | WITNESS ewitnesses DOT
     { Types.Exists(`WITNESS, $2) }
   | SEARCH DOT
     { Types.Search(`nobounds) }
@@ -537,6 +537,14 @@ num_list:
     { $1::$2 }
   | NUM
     { [$1] }
+
+ewitnesses:
+  | ewitness COMMA ewitnesses { $1 :: $3 }
+  | ewitness { [$1] }
+
+ewitness:
+  | id EQ term { Types.ESub ($1, $3) }
+  | term { Types.ETerm $1 }
 
 withs:
   | id EQ term COMMA withs

@@ -348,7 +348,7 @@ let format_vars ff =
   let (eigen_vars, inst_vars) =
     List.partition is_uninstantiated sequent.vars in
   if eigen_vars <> [] then begin
-      pp_print_string ff "Variables: " ;
+    pp_print_string ff "Variables: " ;
     if !show_types then begin
       pp_print_newline ff () ;
       eigen_vars
@@ -1184,9 +1184,21 @@ let unfold clause_sel sol_sel =
 
 (* Exists *)
 
-let exists t =
+let rec resolve_ewitness ew tids =
+  match ew, tids with
+  | ETerm t, ((id, ty) :: tids) ->
+      (id, ty, t, tids)
+  | ESub (x, t), ((id, ty) :: tids) ->
+      if x = id then (x, ty, t, tids) else
+      let (_, xty, _, tids) = resolve_ewitness ew tids in
+      (x, xty, t, (id, ty) :: tids)
+  | _, nil ->
+      failwithf "Could not resolve existential witness %s" (ewitness_to_string ew)
+
+let exists ew =
   match sequent.goal with
-  | Binding(Metaterm.Exists, (id, ty)::tids, body) ->
+  | Binding (Metaterm.Exists, tids, body) ->
+      let (id, ty, t, tids) = resolve_ewitness ew tids in
       let ntids = metaterm_nominal_tids body in
       let ctx = sequent.vars @
                 (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)

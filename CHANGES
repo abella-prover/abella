@@ -174,6 +174,10 @@ Tweaks to existing functionality
 
 * Import declarations automatically compile if needed. An explicit Makefile
   is very rarely needed any more.
+* The `exists` and `witness` tactics now take a comma-separated list of
+  existential witnesses. Each witness can also be of the form `<id> = <term>`
+  which selects a particular existential variable to instantiate. Without
+  the `<id> = ` part it always instantiates the first variables.
 
 
 Bugfixes

@@ -550,35 +550,30 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
 
 (* Induction *)
 
-let rec set_restriction_at res stmt arg =
-  match stmt with
-  | Arrow(left, right) ->
-      if arg = 1 then
-        Arrow(set_restriction res left, right)
-      else
-        Arrow(left, set_restriction_at res right (arg-1))
-  | _ ->
-      if arg < 1 then
-        failwith "Not enough implications in induction"
-      else
-        failwithf "Cannot determine further positions in:\n%s"
-          (metaterm_to_string stmt)
-
 let single_induction ind_arg ind_num stmt =
-  let rec aux stmt =
+  let rec aux ind_arg stmt =
     match stmt with
     | Binding(Forall, bindings, body) ->
-        let (ih, goal) = aux body in
+        let (ih, goal) = aux ind_arg body in
         (forall bindings ih, forall bindings goal)
     | Binding(Nabla, bindings, body) ->
-        let (ih, goal) = aux body in
+        let (ih, goal) = aux ind_arg body in
         (nabla bindings ih, nabla bindings goal)
-    | term ->
-        let ih = set_restriction_at (Smaller ind_num) term ind_arg in
-        let goal = set_restriction_at (Equal ind_num) term ind_arg in
+    | Arrow (left, right) when ind_arg = 1 ->
+        let ih = Arrow (set_restriction (Smaller ind_num) left, right) in
+        let goal = Arrow (set_restriction (Equal ind_num) left, right) in
         (ih, goal)
+    | Arrow (left, right) ->
+        let (ih, goal) = aux (ind_arg - 1) right in
+        (Arrow (left, ih), Arrow (left, goal))
+    | _ ->
+        if ind_arg < 1 then
+          failwith "Not enough implications in induction"
+        else
+          failwithf "Cannot determine further positions in:\n%s"
+            (metaterm_to_string stmt)
   in
-  aux stmt
+  aux ind_arg stmt
 
 let induction ind_args ind_num stmt =
   let ihs, goals =

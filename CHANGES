@@ -178,7 +178,8 @@ Tweaks to existing functionality
   existential witnesses. Each witness can also be of the form `<id> = <term>`
   which selects a particular existential variable to instantiate. Without
   the `<id> = ` part it always instantiates the first variables.
-
+* The `induction` tactic can now traverse an arbitrary sequence of `forall`,
+  `nabla`, and `->` connectives when finding the induction argument.
 
 Bugfixes
 

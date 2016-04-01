@@ -494,8 +494,21 @@ let add_hyp ?name term =
   sequent.hyps <- List.append sequent.hyps
       [{ id = name ; term = term ; abbrev = None }]
 
-let remove_hyp name =
-  sequent.hyps <- List.remove_all (fun h -> h.id = name) sequent.hyps
+let remove_hyp cm name =
+  let removed_h = ref None in
+  let hyps = List.filter begin fun h ->
+      h.id <> name || begin
+        removed_h := Some h ;
+        false
+      end
+    end sequent.hyps in
+  sequent.hyps <- hyps ;
+  match cm, !removed_h with
+  | Clear_extro, Some h ->
+      sequent.goal <- Arrow (h.term, sequent.goal)
+  | Clear_extro, None ->
+      failwithf "Cannot extrude unknown hypothesis %s" name
+  | _ -> ()
 
 let replace_hyp name t =
   let rec aux hyplist =
@@ -585,7 +598,7 @@ let get_stmt_clearly h =
         get_hyp_or_lemma ~tys h
     | Remove (h, []) when is_hyp h ->
         let stmt = get_hyp h in
-        remove_hyp h ; stmt
+        remove_hyp Clear_delete h ; stmt
     | Remove (h, tys) ->
         get_lemma ~tys h
   end
@@ -1216,22 +1229,41 @@ let skip () =
 
 (* Clear *)
 
-let remove_thing h =
-  if is_hyp h then remove_hyp h else
-  sequent.vars <-
-    List.filter (fun xv -> fst xv <> h) sequent.vars
+let remove_var cm h =
+  let v = List.assoc h sequent.vars in
+  sequent.vars <- List.filter (fun xv -> fst xv <> h) sequent.vars ;
+  match cm with
+  | Clear_extro ->
+      sequent.goal <- forall [term_to_name v, tc [] v] sequent.goal
+  | _ -> ()
+
+let remove_thing cm h =
+  if is_hyp h
+  then remove_hyp cm h
+  else remove_var cm h
+
+  (* sequent.vars <- *)
+  (*   List.filter (fun xv -> fst xv <> h) sequent.vars *)
+
+let is_used v =
+  List.exists begin fun h ->
+    get_metaterm_used h.term |>
+    List.exists (fun xv -> fst xv = v)
+  end sequent.hyps
 
 let check_removable h =
   if not (is_hyp h) then
     try
       let v = List.assoc h sequent.vars in
-      if is_uninstantiated (h, v) then
-        failwithf "Cannot clear uninstantiated variable %s" h
+      if is_uninstantiated (h, v) && is_used h then
+        failwithf "Cannot clear strict uninstantiated variable %s" h
     with Not_found -> ()
 
-let clear hs =
-  List.iter check_removable hs ;
-  List.iter remove_thing hs
+let clear cm hs =
+  List.iter begin fun h ->
+    check_removable h ;
+    remove_thing cm h ;
+  end hs
 
 (* Abbrev *)
 

@@ -599,7 +599,7 @@ and process_proof1 name =
   | Pick(depth, bs, t)      -> pick ?depth bs t
   | Exists(_, ts)            -> List.iter exists ts
   | Monotone(h, t)           -> monotone h t
-  | Clear(hs)                -> clear hs
+  | Clear(cm, hs)            -> clear cm hs
   | Abbrev(h, s)             -> abbrev h s
   | Unabbrev(hs)             -> unabbrev hs
   | Rename(hfr, hto)         -> rename hfr hto

@@ -504,7 +504,9 @@ pure_command:
   | UNFOLD clause_sel sol_sel DOT
     { Types.Unfold ($2, $3) }
   | CLEAR hyp_list DOT
-    { Types.Clear($2) }
+    { Types.Clear(Types.Clear_delete, $2) }
+  | CLEAR RARROW hyp_list DOT
+    { Types.Clear(Types.Clear_extro, $3) }
   | ABBREV hyp QSTRING DOT
     { Types.Abbrev($2, $3) }
   | UNABBREV hyp_list DOT

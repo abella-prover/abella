@@ -142,6 +142,10 @@ type ewitness =
   | ETerm of uterm
   | ESub of id * uterm
 
+type clear_mode =
+  | Clear_delete
+  | Clear_extro
+
 type command =
   | Induction of int list * id option
   | CoInduction of id option
@@ -155,7 +159,7 @@ type command =
   | Assert of umetaterm * int option * id option
   | Pick of depth_bound option * (id * ty) list * umetaterm
   | Exists of [`EXISTS | `WITNESS] * ewitness list
-  | Clear of id list
+  | Clear of clear_mode * id list
   | Abbrev of id * string
   | Unabbrev of id list
   | Rename of id * id
@@ -410,8 +414,12 @@ let command_to_string c =
         in
         sprintf "%s %s" hows
           (List.map ewitness_to_string ews |> String.concat ", ")
-    | Clear hs ->
-        sprintf "clear %s" (String.concat " " hs)
+    | Clear (cm, hs) ->
+        sprintf "clear %s%s"
+          (match cm with
+           | Clear_delete -> ""
+           | Clear_extro -> " -> ")
+          (String.concat " " hs)
     | Abbrev(h, s) ->
         sprintf "abbrev %s \"%s\"" h s
     | Unabbrev hs ->

@@ -9,19 +9,6 @@ Possibly breaking changes
 
 Additions
 
-* Added limited support for predicate instantiation during import. The form
-
-        Import "thmfile" with id1 := defid1, ..., idn := defidn.
-
-  performs an import as usual, but any undefined predicates id in "thmfile"
-  are instantiated with defined predicates defid. An undefined predicate is
-  declared as usual with:
-
-        Type id  T1 -> T2 -> ... -> Tn -> prop.
-
-  It is now illegal to import a thm with undefined predicates without
-  giving the predicate instantiations.
-
 * Added support for (first-order) polymorphic definitions. Definitions
   such as the following are now accepted.
 
@@ -153,6 +140,38 @@ Additions
   them to `on`. For example, `-f subgoals=off,witnesses` sets `subgoals` to
   `off` and `witnesses` to `on`.
 
+Tweaks to existing functionality
+
+* Import declarations automatically compile if needed. An explicit Makefile
+  is very rarely needed any more.
+* The `exists` and `witness` tactics now take a comma-separated list of
+  existential witnesses. Each witness can also be of the form `<id> = <term>`
+  which selects a particular existential variable to instantiate. Without
+  the `<id> = ` part it always instantiates the first variables.
+* The `induction` tactic can now traverse an arbitrary sequence of `forall`,
+  `nabla`, and `->` connectives when finding the induction argument.
+
+Experimental changes (may be changed or removed in the future)
+
+* Added limited support for predicate instantiation during import. The form
+
+        Import "thmfile" with id1 := defid1, ..., idn := defidn.
+
+  performs an import as usual, but any undefined predicates id in "thmfile"
+  are instantiated with defined predicates defid. An undefined predicate is
+  declared as usual with:
+
+        Type id  T1 -> T2 -> ... -> Tn -> prop.
+
+  It remains illegal to import a thm with undefined predicates without
+  giving the predicate instantiations.
+
+* Added a new "extrusive" tactic form `clear ->` that can be used to do the
+  opposite of the `intros` tactic, i.e., `intros H1 ... Hn` is opposite to
+  `clear -> Hn ... H1`. Variables can also be extruded in this form and they
+  universally close the goal with respect to the variable if the variable is
+  not free in any hypothesis.
+
 * Extended the `subgoals` flag to take a _subgoal specification string_
   argument that can be used to fine tune the subgoals to display. As an
   example, the invocation:
@@ -169,17 +188,6 @@ Additions
   * `on` : the same as `"0[∞];1[∞];…"`
   * `off` : the same as `"0[0];1[0];…"`
   * `n` : the same as `"0[0];̣…;n-1[0];n[∞];n+1[0];…"`
-
-Tweaks to existing functionality
-
-* Import declarations automatically compile if needed. An explicit Makefile
-  is very rarely needed any more.
-* The `exists` and `witness` tactics now take a comma-separated list of
-  existential witnesses. Each witness can also be of the form `<id> = <term>`
-  which selects a particular existential variable to instantiate. Without
-  the `<id> = ` part it always instantiates the first variables.
-* The `induction` tactic can now traverse an arbitrary sequence of `forall`,
-  `nabla`, and `->` connectives when finding the induction argument.
 
 Bugfixes
 

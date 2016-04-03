@@ -1230,11 +1230,12 @@ let skip () =
 (* Clear *)
 
 let remove_var cm h =
-  let v = List.assoc h sequent.vars in
+  let v = term_to_var (List.assoc h sequent.vars) in
   sequent.vars <- List.filter (fun xv -> fst xv <> h) sequent.vars ;
   match cm with
   | Clear_extro ->
-      sequent.goal <- forall [term_to_name v, tc [] v] sequent.goal
+      let goal = replace_metaterm_vars [h, var Constant v.name v.ts v.ty] sequent.goal in
+      sequent.goal <- forall [v.name, v.ty] goal
   | _ -> ()
 
 let remove_thing cm h =

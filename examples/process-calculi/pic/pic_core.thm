@@ -202,7 +202,7 @@ coinduction. intros. Bis1 : case H1. unfold.
     witness Q2. witness Q1. intros. apply *H4 with N = N. case H5.
     split. search. backchain CH.
       apply bisim_eq_1R to *H6 *H8. apply bisim_eq_2R to *H9 *H7. search.
-  clear Bis1 Bis2 BIs4 Bis5 Bis6.
+  clear Bis1 Bis2 Bis4 Bis5 Bis6.
   intros. apply Bis3 to H2. witness Q2. split. search.
     witness Q2. witness Q1. intros. case H4.
     split. search. backchain CH.

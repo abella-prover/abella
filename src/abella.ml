@@ -612,7 +612,7 @@ and process_proof1 name =
         | `witness w -> w
         | _ -> WMagic
       in
-      search ?depth ~interactive:!interactive ~witness ~handle_witness:handle_search_witness ()
+      search ?depth ~witness ~handle_witness:handle_search_witness ()
     end
   | Permute(ids, h)        -> permute_nominals ids h
   | Split                  -> split false

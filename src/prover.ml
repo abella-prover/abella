@@ -722,10 +722,10 @@ let search_goal ?depth goal =
   try Option.is_some (search_goal_witness ?depth goal WMagic)
   with Failure _ -> false
 
-let search ?depth ?(interactive=true) ~witness ~handle_witness () =
+let search ?depth ~witness ~handle_witness () =
   let search_result = search_goal_witness ?depth sequent.goal witness in
   match search_result with
-  | None -> if not interactive then failwith "Search failed"
+  | None -> failwith "Search failed"
   | Some w -> handle_witness w ; next_subgoal ()
 
 (* Search cut *)

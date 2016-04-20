@@ -199,6 +199,8 @@ Bugfixes
 * Importing .thcs made with a different Abella binary will now print an
   error message instead of causing a segmentation fault (#39)
 * Importing from different directories now works correctly
+* Multiple occurrences of a single variable in a binding list is now
+  correctly rejected. (#56)
 
 
 Changes in 2.0.3 from 2.0.2

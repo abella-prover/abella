@@ -65,6 +65,12 @@
   exception Illegal
   let is_illegal_constant k = Term.is_nominal_name k
 
+  let binding_cons (x, ty) tids =
+    if List.mem_assoc x tids then
+      error_report "Repeated bound variable %s" x
+    else
+      (x, ty) :: tids
+
   let check_legal_var vid vnum =
     if is_illegal_constant vid then
       error_report ~pos:(Parsing.rhs_start_pos vnum)
@@ -609,7 +615,7 @@ binder:
 
 binding_list:
   | paid binding_list
-    { deloc_id_ty $1 :: $2 }
+    { binding_cons (deloc_id_ty $1) $2 }
   | paid
     { [deloc_id_ty $1] }
 

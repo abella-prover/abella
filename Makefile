@@ -20,6 +20,7 @@ clean:
 	$(OCB) -clean
 	$(RM) src/version.ml
 	$(RM) abella abella.exe
+	$(RM) tester tester.exe
 
 .PHONY: byte
 byte:
@@ -33,3 +34,12 @@ gitclean:
 top: all
 	$(OCB) src/abella.cma
 	ocaml
+
+.PHONY: test
+test:
+	$(OCB) -no-links -Is src,test,test/ext -lib unix test/test.native
+	if file _build/test/test.native | grep Windows >/dev/null 2>&1 ; then \
+	  cp _build/test/test.native tester.exe ; \
+	else \
+	  cp -a _build/test/test.native tester ; \
+	fi

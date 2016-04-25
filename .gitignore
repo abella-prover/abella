@@ -24,5 +24,6 @@ src/version.ml
 src/abella
 src/unit_test
 abella
+tester
 _build
 examples/examples.tar.gz

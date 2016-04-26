@@ -374,7 +374,7 @@ let tests =
              assert_term_pprint_equal "X" x ;
              assert_term_pprint_equal "X" y ;
              match observe x, observe y with
-               | Var {ts=0}, Var {ts=0} -> ()
+               | Var {ts=0; _}, Var {ts=0; _} -> ()
                | _ -> assert_failure "Timestamps should be lowered to match") ;
 
       "[X^0 = p^0 Y^1 Z^1]" >::
@@ -387,7 +387,7 @@ let tests =
              right_unify ~used x (p ^^ [y; z]) ;
              assert_term_pprint_equal "p X1 X2" x ;
              match observe y, observe z with
-               | Var {ts=0}, Var {ts=0} -> ()
+               | Var {ts=0; _}, Var {ts=0; _} -> ()
                | _ -> assert_failure "Timestamps should be lowered to match") ;
 
       "X^0 = f^0 a^1" >::
@@ -585,7 +585,7 @@ let tests =
              right_unify ~used x ([("x1",ity)] // y) ;
              assert_term_pprint_equal "x1\\Y1" x ;
              match observe y with
-               | Var {ts=0} -> ()
+               | Var {ts=0; _} -> ()
                | _ -> assert_failure "Timestamp should be lowered to match") ;
 
       "R^0 N^0 = plus A^0 B^0" >::

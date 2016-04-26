@@ -3,16 +3,16 @@ open Test_helper
 
 let tests = "Abella" >:::
   [
-    (*Test_unify.tests ; other compiler errors *)
-    (*Test_term.tests ; Parser must define term as %start *)
+    (*TODO Test_unify.tests ;*)
+    Test_term.tests ;
     Test_context.tests ;
     Test_graph.tests ;
     Test_subordination.tests ;
-    (*Test_metaterm.tests ; Parser must define metaterm as %start *)
-    (*Test_typing.tests ; other compiler errors *)
-    (*Test_parser.tests ; other compiler errors *)
-    (*Test_tactics.tests ; other compiler errors *)
-    (*Test_prover.tests ; other compiler errors *)
+    Test_metaterm.tests ;
+    (*TODO Test_typing.tests ;*)
+    (*TODO Test_parser.tests ;*)
+    (*TODO Test_tactics.tests ;*)
+    (*TODO Test_prover.tests ;*)
   ]
 
 let tests = extract_tests [] tests

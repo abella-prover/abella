@@ -31,7 +31,7 @@ let tests =
       "Should not allow pi quantification over o in clause" >::
         (fun () ->
            let uclause =
-             (ucon "a", [uapp (ucon "pi") (ulam "x" ~ty:oty (ucon "x"))])
+             (None, ucon "a", [uapp (ucon "pi") (ulam "x" ~ty:oty (ucon "x"))])
            in
              assert_raises
                (Failure "Cannot quantify over type o in the specification logic")
@@ -61,11 +61,12 @@ let tests =
       "Should replace underscores in clauses with fresh names" >::
         (fun () ->
            let uclause =
-             (uapp (ucon "p1") (ucon "X"),
+             (None,
+              uapp (ucon "p1") (ucon "X"),
               [uapp (uapp (ucon "pr") (ucon "_")) (ucon "_")])
            in
              let clause = type_uclause ~sr:!sr ~sign:!sign uclause in
-             match Tactics.clausify clause with
+             match Metaterm.clausify clause with
                | _, _, p::_ ->
                    assert_term_pprint_equal "pr X1 X2" p
                | _ -> assert false

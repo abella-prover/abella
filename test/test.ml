@@ -10,7 +10,7 @@ let tests = "Abella" >:::
     Test_subordination.tests ;
     Test_metaterm.tests ;
     (*TODO Test_typing.tests ;*)
-    (*TODO Test_parser.tests ;*)
+    Test_parser.tests ;
     (*TODO Test_tactics.tests ;*)
     (*TODO Test_prover.tests ;*)
   ]

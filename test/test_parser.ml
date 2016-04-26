@@ -21,7 +21,7 @@ let tests =
         (fun () ->
            let str = "eval (abs R) (abs R)." in
              match parse_uclauses str with
-               | [(t, [])] ->
+               | [(None, t, [])] ->
                    assert_uterm_pprint_equal "eval (abs R) (abs R)" t
                | _ -> assert_failure "Pattern mismatch" ) ;
 
@@ -29,7 +29,7 @@ let tests =
         (fun () ->
            let str = "eval (app M N) V :- eval M (abs R), eval (R N) V." in
              match parse_uclauses str with
-               | [(head, [b1; b2])] ->
+               | [(None, head, [b1; b2])] ->
                    assert_uterm_pprint_equal "eval (app M N) V" head ;
                    assert_uterm_pprint_equal "eval M (abs R)" b1 ;
                    assert_uterm_pprint_equal "eval (R N) V" b2 ;

@@ -144,7 +144,7 @@
 
 
 %start lpmod lpsig defs top_command command any_command sig_body mod_body search_witness depth_spec
-%start term metaterm /*HACK To get the current test suites to compile! */
+%start term metaterm
 %type <Typing.uterm> term
 %type <Typing.umetaterm> metaterm
 %type <Abella_types.lpsig> lpsig

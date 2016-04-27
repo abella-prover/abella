@@ -11,7 +11,7 @@ let tests = "Abella" >:::
     Test_metaterm.tests ;
     Test_typing.tests ;
     Test_parser.tests ;
-    (*TODO Test_tactics.tests ;*)
+    Test_tactics.tests ;
     (*TODO Test_prover.tests ;*)
   ]
 

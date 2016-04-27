@@ -1596,9 +1596,18 @@ let unfold ~defs goal =
     List.map (fun {Abella_types.head; _} -> def_head_name head) defs |>
     List.fold_left add_to_itab Itab.empty in
   let mdefs = (mutual, defs) in
-    unfold ~mdefs goal
+    unfold ~mdefs ~used:[] Abella_types.Select_any Abella_types.Solution_first
+      goal (*TODO*)
 
 let unfold_tests =
+
+  (* This assert refines (and hides) the original. If the tests should be made
+   * aware of it, or once the distinction must be made explicit, it can be
+   * renamed together with the calls in each test. *)
+  let assert_pprint_equal str result =
+     assert_int_equal (List.length result) 1 ;
+     assert_pprint_equal str (List.nth result 0) in
+
   "Unfold" >:::
     [
       "Should pick matching clause" >::

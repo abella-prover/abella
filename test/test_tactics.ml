@@ -591,7 +591,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{a} \\/ {b}" in
              match case term with
-               | [{new_hyps=[hyp1]} ; {new_hyps=[hyp2]}] ->
+               | [{new_hyps=[hyp1] ; _} ; {new_hyps=[hyp2] ; _}] ->
                    assert_pprint_equal "{a}" hyp1 ;
                    assert_pprint_equal "{b}" hyp2 ;
                | _ -> assert_failure "Pattern mismatch") ;
@@ -600,7 +600,8 @@ let case_tests =
         (fun () ->
            let term = freshen "{a} \\/ {b} \\/ {c}" in
              match case term with
-               | [{new_hyps=[hyp1]} ; {new_hyps=[hyp2]} ; {new_hyps=[hyp3]}] ->
+               | [{new_hyps=[hyp1] ; _} ; {new_hyps=[hyp2] ; _} ;
+                  {new_hyps=[hyp3] ; _}] ->
                    assert_pprint_equal "{a}" hyp1 ;
                    assert_pprint_equal "{b}" hyp2 ;
                    assert_pprint_equal "{c}" hyp3 ;
@@ -610,7 +611,7 @@ let case_tests =
         (fun () ->
            let term = freshen "A = B \\/ rel1 A B" in
              match case term with
-               | [{new_hyps=[]} ; {new_hyps=[hyp]}] ->
+               | [{new_hyps=[] ; _} ; {new_hyps=[hyp] ; _}] ->
                    assert_pprint_equal "rel1 A B" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
@@ -618,7 +619,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{a} /\\ {b}" in
              match case term with
-               | [{new_hyps=[hyp1;hyp2]}] ->
+               | [{new_hyps=[hyp1;hyp2] ; _}] ->
                    assert_pprint_equal "{a}" hyp1 ;
                    assert_pprint_equal "{b}" hyp2 ;
                | _ -> assert_failure "Pattern mismatch") ;
@@ -627,7 +628,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{a} /\\ {b} /\\ {c}" in
              match case term with
-               | [{new_hyps=[hyp1;hyp2;hyp3]}] ->
+               | [{new_hyps=[hyp1;hyp2;hyp3] ; _}] ->
                    assert_pprint_equal "{a}" hyp1 ;
                    assert_pprint_equal "{b}" hyp2 ;
                    assert_pprint_equal "{c}" hyp3 ;
@@ -638,7 +639,7 @@ let case_tests =
            let term = freshen "exists A B, rel1 A B" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=new_vars ; new_hyps=[hyp]}] ->
+               | [{new_vars=new_vars ; new_hyps=[hyp] ; _}] ->
                    let var_names = List.map fst new_vars in
                      assert_string_list_equal ["A"; "B"] var_names ;
                      assert_pprint_equal "rel1 A B" hyp ;
@@ -649,7 +650,7 @@ let case_tests =
            let term = freshen "exists A B, foo A /\\ bar B" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=new_vars ; new_hyps=[hyp1; hyp2]}] ->
+               | [{new_vars=new_vars ; new_hyps=[hyp1; hyp2] ; _}] ->
                    let var_names = List.map fst new_vars in
                      assert_string_list_equal ["A"; "B"] var_names ;
                      assert_pprint_equal "foo A" hyp1 ;
@@ -661,7 +662,7 @@ let case_tests =
            let term = freshen "{a} /\\ exists B, bar B" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=new_vars ; new_hyps=[hyp1; hyp2]}] ->
+               | [{new_vars=new_vars ; new_hyps=[hyp1; hyp2] ; _}] ->
                    let var_names = List.map fst new_vars in
                      assert_string_list_equal ["B"] var_names ;
                      assert_pprint_equal "{a}" hyp1 ;
@@ -673,7 +674,7 @@ let case_tests =
            let term = freshen "nabla x, foo x" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+               | [{new_vars=[] ; new_hyps=[hyp] ; _}] ->
                    assert_pprint_equal "foo n1" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
@@ -682,7 +683,7 @@ let case_tests =
            let term = freshen "nabla x y, rel1 x y" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+               | [{new_vars=[] ; new_hyps=[hyp] ; _}] ->
                    assert_pprint_equal "rel1 n1 n2" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
@@ -691,7 +692,7 @@ let case_tests =
            let term = freshen "nabla x, exists A, rel1 x A" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=new_vars ; new_hyps=[hyp]}] ->
+               | [{new_vars=new_vars ; new_hyps=[hyp] ; _}] ->
                    let var_names = List.map fst new_vars in
                      assert_string_list_equal ["A"] var_names ;
                      assert_pprint_equal "rel1 n1 (A n1)" hyp ;
@@ -702,7 +703,7 @@ let case_tests =
            let term = freshen "nabla x, rel1 n1 x" in
            let used = [] in
              match case ~used term with
-               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+               | [{new_vars=[] ; new_hyps=[hyp] ; _}] ->
                    assert_pprint_equal "rel1 n1 n2" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
@@ -710,7 +711,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{L, hyp A |- hyp B}" in
              match case term with
-               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+               | [{new_vars=[] ; new_hyps=[hyp] ; _}] ->
                    assert_pprint_equal "member (hyp B) (hyp A :: L)" hyp
                | _ -> assert_failure "Pattern mismatch") ;
 
@@ -718,7 +719,7 @@ let case_tests =
         (fun () ->
            let term = freshen "{L |- p1 A}@" in
              match case term with
-               | [{new_vars=[] ; new_hyps=[hyp]}] ->
+               | [{new_vars=[] ; new_hyps=[hyp] ; _}] ->
                    assert_pprint_equal "member (p1 A) L" hyp
                | _ -> assert_failure "Pattern mismatch") ;
 
@@ -763,7 +764,7 @@ let case_tests =
            let term = freshen "exists A, rel1 A n1" in
            let used = [] in
              match case ~used term with
-               | [{new_hyps=[hyp]}] ->
+               | [{new_hyps=[hyp] ; _}] ->
                    assert_pprint_equal "rel1 (A n1) n1" hyp
                | _ -> assert_failure "Pattern mismatch") ;
 

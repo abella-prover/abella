@@ -1108,10 +1108,13 @@ let assert_search ?(clauses="") ?(defs="")
     List.map (fun {Abella_types.head; _} -> def_head_name head) defs |>
     List.fold_left add_to_itab Itab.empty
   in
-  let alldefs = [(mutual, defs)] in
+  let def_unfold _ = (mutual, defs) in (*TODO*)
   let hyps = List.map (fun h -> ("", h)) (List.map freshen hyps) in
+  let retype t = Typing.uterm_to_term [] t in (*TODO*)
   let goal = freshen goal in
-  let actual = Option.is_some (search ~depth ~hyps ~clauses ~alldefs goal) in
+  let actual = Option.is_some
+    (search ~depth ~hyps ~clauses ~def_unfold ~retype goal)
+  in
     if expect then
       assert_bool "Search should succeed" actual
     else

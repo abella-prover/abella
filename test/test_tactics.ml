@@ -244,8 +244,8 @@ let apply_tests =
       "With multiple nablas" >::
         (fun () ->
            let h0 =
-             freshen "forall A B, nabla x y,
-                        rel1 (iapp x y) (iapp (A x) (B y)) ->
+             freshen "forall A B, nabla x y,\
+                        rel1 (iapp x y) (iapp (A x) (B y)) ->\
                           rel2 (iabs A) (iabs B)"
            in
            let h1 = freshen "rel1 (iapp n1 n2) (iapp (C n1) (D n2))" in
@@ -1050,7 +1050,7 @@ let induction_tests =
       "Mutual on objects" >::
         (fun () ->
            let stmt = freshen
-             "(forall A, {hyp A} -> {conc A} -> {form A}) /\\
+             "(forall A, {hyp A} -> {conc A} -> {form A}) /\\\
               (forall B, {form B} -> {conc B})" in
              match induction [2; 1] 1 stmt with
                | [ih1; ih2], goal ->

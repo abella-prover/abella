@@ -475,8 +475,16 @@ let assert_expected_cases n cases =
   assert_failure (Printf.sprintf "Expected %d case(s) but found %d case(s)"
                     n (List.length cases))
 
-let case ?used ?(sr=Subordination.empty) ?(clauses=[]) ?(defs=[]) ?(mutual=[])
-    ?(global_support=[]) metaterm =
+let add_to_itab itab id =
+  let ty =
+    snd !Typing.sign |>
+    List.assoc id |>
+    (function Typing.Poly(_, ty) -> ty)
+  in
+  Itab.add id ty itab
+
+let case ?used ?(sr=Subordination.empty) ?(clauses=[]) ?(defs=[])
+    ?(mutual=Itab.empty) ?(global_support=[]) metaterm =
   let used =
     match used with
       | None -> metaterm_vars_alist Eigen metaterm
@@ -531,7 +539,7 @@ let case_tests =
         (fun () ->
            let term = freshen "foo A @" in
            let defs = parse_defs "foo X := foo X." in
-           let mutual = ["foo"] in
+           let mutual = add_to_itab Itab.empty "foo" in
              match case ~defs ~mutual term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
@@ -546,7 +554,7 @@ let case_tests =
         (fun () ->
            let term = freshen "foo A @" in
            let defs = parse_defs "foo X := forall (Y:i), foo X." in
-           let mutual = ["foo"] in
+           let mutual = add_to_itab Itab.empty "foo" in
              match case ~defs ~mutual term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
@@ -561,7 +569,7 @@ let case_tests =
         (fun () ->
            let term = freshen "foo A @" in
            let defs = parse_defs "foo X := foo X -> foo X." in
-           let mutual = ["foo"] in
+           let mutual = add_to_itab Itab.empty "foo" in
              match case ~defs ~mutual term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
@@ -576,7 +584,7 @@ let case_tests =
         (fun () ->
            let term = freshen "foo A @" in
            let defs = parse_defs "foo X := foo X \\/ bar X." in
-           let mutual = ["foo"] in
+           let mutual = add_to_itab Itab.empty "foo" in
              match case ~defs ~mutual term with
                | [case1] ->
                    set_bind_state case1.bind_state ;
@@ -1096,7 +1104,10 @@ let assert_search ?(clauses="") ?(defs="")
   let depth = 5 in
   let clauses = parse_clauses clauses in
   let defs = if defs = "" then [] else parse_defs defs in
-  let mutual = List.map (fun (head, _) -> def_head_name head) defs in
+  let mutual =
+    List.map (fun {Abella_types.head; _} -> def_head_name head) defs |>
+    List.fold_left add_to_itab Itab.empty
+  in
   let alldefs = [(mutual, defs)] in
   let hyps = List.map (fun h -> ("", h)) (List.map freshen hyps) in
   let goal = freshen goal in
@@ -1578,7 +1589,9 @@ let search_tests =
     ]
 
 let unfold ~defs goal =
-  let mutual = List.map (fun (head, _) -> def_head_name head) defs in
+  let mutual =
+    List.map (fun {Abella_types.head; _} -> def_head_name head) defs |>
+    List.fold_left add_to_itab Itab.empty in
   let mdefs = (mutual, defs) in
     unfold ~mdefs goal
 

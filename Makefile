@@ -37,7 +37,7 @@ top: all
 
 .PHONY: test
 test: all
-	$(OCB) -no-links -Is src,test,test/ext -lib unix test/test.native
+	$(OCB) -no-links test/test.native
 	if file _build/test/test.native | grep Windows >/dev/null 2>&1 ; then \
 	  cp _build/test/test.native tester.exe ; \
 	else \

@@ -1,4 +1,6 @@
 S src
 B _build/src
+B _build/test
+B _build/test/ext
 PKG str
 PKG unix

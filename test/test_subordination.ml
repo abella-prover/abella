@@ -71,6 +71,7 @@ let tests =
            assert_true (query sr a c) ;
       );
 
+(* [obsolete as of a7df40b7e45b845c3639bc28367ee50d81cf967a]
     "Ensure should error on implicit subordination" >::
       (fun () ->
          let sr = update empty t_lam in
@@ -78,5 +79,6 @@ let tests =
              (Failure "Type tm cannot be made subordinate to tp without explicit declaration")
              (fun () -> ensure sr (tyarrow [tm] tp))
       );
+*)
 
   ]

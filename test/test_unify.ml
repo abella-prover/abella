@@ -700,7 +700,7 @@ let tests =
              with
                | Some [(a, b)] ->
                    assert_term_pprint_equal "X" a ;
-                   assert_term_pprint_equal "x1\\x1 (X (x2\\e))" b ;
+                   assert_term_pprint_equal "x1\\x1 (X x2\\e)" b ;
                | Some l -> assert_failure
                    (Printf.sprintf "Expected one conflict pair, but found %d"
                       (List.length l))

@@ -238,7 +238,7 @@ let tests =
                            Arrow(Eq(var_a, uvar Eigen "A1" 0),
                                  Binding(Forall, [("A1", emptyty)], eq)))
            in
-             assert_pprint_equal "forall A2, A = A1 -> (forall A1, A1 = A1)"
+             assert_pprint_equal "forall A2, A = A1 -> (forall A3, A3 = A3)"
                (normalize t) );
 
       "Normalize should rename nominals of different types" >::

@@ -850,7 +850,9 @@ let def_head_name head =
     match t with
       | Pred(p, _) -> term_head_name p
       | Binding(_, _, t) -> aux t
-      | _ -> assert false
+      | _ ->
+          failwithf "Definitional clause head not atomic:\n%s"
+            (metaterm_to_string t)
   in
     aux head
 

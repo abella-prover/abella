@@ -66,6 +66,7 @@ let context_to_string ctx =
 let cons = const "::" (tyarrow [oty; olistty] olistty)
 let nil = const "nil" olistty
 let imp = const "=>" (tyarrow [oty; oty] oty)
+let amp = const "&" (tyarrow [oty; oty] oty)
 
 let is_nil t =
   Term.is_head_name "nil" t

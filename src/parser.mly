@@ -106,7 +106,7 @@
 
 %}
 
-%token IMP IF COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
+%token IMP IF AMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON
@@ -131,6 +131,7 @@
 %nonassoc BSLASH
 %left IF
 %right IMP
+%left AMP
 
 %right CONS
 
@@ -254,6 +255,8 @@ term:
     { binop "=>" $1 $3 }
   | term IF term
     { binop "=>" $3 $1 }
+  | term AMP term
+    { binop "&" $1 $3 }
   | term CONS term
     { binop "::" $1 $3 }
   | aid BSLASH term

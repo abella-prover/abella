@@ -376,7 +376,7 @@ type assoc = Left | Right | Both | No
 
 (* List of infix operators sorted by priority, low to high. *)
 let infix : (string * assoc) list =
-  [("=>", Right); ("::", Right)]
+  [("=>", Right); ("&", Left); ("::", Right)]
 
 let is_infix x = List.mem_assoc x infix
 let get_assoc op = List.assoc op infix
@@ -667,6 +667,7 @@ let fresh_tyvar =
 
 
 let is_imp t = is_head_name "=>" t
+let is_amp t = is_head_name "&" t
 
 let extract_imp t =
   match observe (hnorm t) with

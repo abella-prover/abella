@@ -196,10 +196,11 @@ let k_nil = "nil"
 
 let pervasive_sign =
   (["o"; "olist"; "prop"],
-   [("pi",     Poly(["A"],       tyarrow [tyarrow [tybase "A"] oty] oty)) ;
-    ("=>",     Poly([],          tyarrow [oty; oty] oty)) ;
-    (k_cons,   Poly([],          tyarrow [oty; olistty] olistty)) ;
-    (k_nil,    Poly([],          olistty)) ])
+   [("pi",     Poly(["A"], tyarrow [tyarrow [tybase "A"] oty] oty)) ;
+    ("=>",     Poly([],    tyarrow [oty; oty] oty)) ;
+    ("&",      Poly([],    tyarrow [oty; oty] oty)) ;
+    (k_cons,   Poly([],    tyarrow [oty; olistty] olistty)) ;
+    (k_nil,    Poly([],    olistty)) ])
 
 let sign_to_tys sign =
   List.filter_map

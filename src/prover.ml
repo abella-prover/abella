@@ -1033,19 +1033,18 @@ let pick ?depth bs body : unit =
 let monotone h t =
   let ht = get_stmt_clearly h in
   match ht with
-  | Obj(Async obj, r) ->
-      let obj_context, obj_term = Async.get obj in
+  | Obj (obj, r) ->
       let ntids = metaterm_nominal_tids ht in
       let ctx = sequent.vars @
                 (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
       in
       let t = type_uterm ~expected_ty:olistty ~sr:!sr ~sign:!sign ~ctx t in
-      let new_obj = Async.obj (Context.normalize [t]) obj_term in
+      let new_obj = {obj with mode = Async ; context = Context.normalize [t]} in
       delay_mainline
-        (Obj(Async new_obj, r))
+        (Obj (new_obj, r))
         (Binding(Forall, [("X", oty)],
                  Arrow(member (Term.const "X" oty)
-                         (Context.context_to_term obj_context),
+                         (Context.context_to_term obj.context),
                        member (Term.const "X" oty)
                          t))) ;
   | _ ->

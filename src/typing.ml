@@ -305,15 +305,14 @@ let metaterm_ensure_fully_inferred ~sign t =
     | Eq(a, b) ->
         term_ensure_fully_inferred ~sign a ;
         term_ensure_fully_inferred ~sign b
-    | Obj(Async obj, _) ->
-        let ctx,term = Async.get obj in
-        Context.iter (term_ensure_fully_inferred ~sign) ctx ;
-        term_ensure_fully_inferred ~sign term
-    | Obj(Sync obj, _) ->
-        let ctx,focus,term = Sync.get obj in
-        Context.iter (term_ensure_fully_inferred ~sign) ctx ;
-        term_ensure_fully_inferred ~sign focus;
-        term_ensure_fully_inferred ~sign term;
+    | Obj(obj, _) ->
+        Context.iter (term_ensure_fully_inferred ~sign) obj.context ;
+        begin match obj.mode with
+        | Async -> ()
+        | Sync focus ->
+            term_ensure_fully_inferred ~sign focus
+        end ;
+        term_ensure_fully_inferred ~sign obj.right
     | Pred(p, _) ->
         term_ensure_fully_inferred ~sign p
   in
@@ -602,11 +601,14 @@ let umetaterm_to_metaterm ?sign sub t =
     | UFalse -> False
     | UEq(a, b) -> Eq(uterm_to_term sub a, uterm_to_term sub b)
     | UAsyncObj(l, g, r) ->
-        Obj(Async (Async.obj (Context.normalize [uterm_to_term sub l])
-                     (uterm_to_term sub g)), r)
+        let context = Context.normalize [uterm_to_term sub l] in
+        let right = uterm_to_term sub g in
+        Obj({context ; right ; mode = Async}, r)
     | USyncObj(l, f, g, r) ->
-        Obj(Sync (Sync.obj (Context.normalize [uterm_to_term sub l])
-                    (uterm_to_term sub f) (uterm_to_term sub g)), r)
+        let context = Context.normalize [uterm_to_term sub l] in
+        let right = uterm_to_term sub g in
+        let mode = Sync (uterm_to_term sub f) in
+        Obj({context ; right ; mode}, r)
     | UArrow(a, b) -> Arrow(aux a, aux b)
     | UBinding(binder, tids, body) ->
         (* let () = match sign with *)
@@ -648,9 +650,13 @@ let check_meta_quantification t =
   in
   aux t
 
-let sync_to_async obj =
-  { Async.context = obj.Sync.focus :: obj.Sync.context ;
-    Async.term  = obj.Sync.term }
+let make_async obj =
+  match obj.mode with
+  | Async -> obj
+  | Sync focus ->
+      { obj with
+        mode = Async ;
+        context = focus :: obj.context }
 
 let metaterm_ensure_subordination sr t =
   let rec aux t =
@@ -659,10 +665,8 @@ let metaterm_ensure_subordination sr t =
     | Eq(a, b) ->
         term_ensure_subordination sr a ;
         term_ensure_subordination sr b
-    | Obj(Async obj, _) ->
-        aux (async_to_member obj)
-    | Obj(Sync obj, _) ->
-        aux (async_to_member (sync_to_async obj))
+    | Obj(obj, _) ->
+        aux (async_to_member (make_async obj))
     | Arrow(a, b) | Or(a, b) | And(a, b) ->
         aux a ;
         aux b

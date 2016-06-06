@@ -7,6 +7,20 @@ open Tactics
 open Unify
 open Extensions
 
+let assert_failure_begins exfl exn =
+  match exn with
+  | Failure gotfl ->
+      if String.length gotfl < String.length exfl
+         || String.sub gotfl 0 (String.length exfl) <> exfl
+      then
+        Printf.sprintf "Expected exception Failure(\"%s...\"); got %S"
+          exfl gotfl |>
+        assert_failure
+  | _ ->
+      Printf.sprintf "Expected exception Failure(\"%s...\"); got %S"
+        exfl (Printexc.to_string exn) |>
+      assert_failure
+
 let assert_object_cut ~cut ~using ~expect =
   match freshen cut, freshen using with
     | Obj(cut, _), Obj(using, _) ->
@@ -198,17 +212,23 @@ let apply_tests =
              assert_raises (Failure "Inductive restriction violated")
                (fun () -> apply h0 [Some h1])) ;
 
-      "Unification failure" >::
-        (fun () ->
-           let h0 = freshen
+      "Unification failure" >:: begin fun () ->
+         let h0 = freshen
              "forall A B C, {eval A B} -> {typeof A C} -> {typeof B C}" in
-           let h1 = freshen "{eval (abs R) (abs R)}" in
-           let h2 = freshen "{eval (abs S) (abs S)}" in
-             try
-               let _ = apply h0 [Some h1; Some h2] in
-                 assert_failure "Expected constant clash"
-             with
-               | UnifyFailure(ConstClash _) -> ());
+         let h1 = freshen "{eval (abs R) (abs R)}" in
+         let h2 = freshen "{eval (abs S) (abs S)}" in
+         let rec check_good_failure = function
+           | ConstClash _ -> ()
+           | FailTrail (_, uf) -> check_good_failure uf
+           | uf ->
+               assert_failure ("Expected constant clash; got " ^ Unify.explain_failure uf)
+         in
+         try
+           let _ = apply h0 [Some h1; Some h2] in
+           assert_failure "Expected constant clash"
+         with
+         | UnifyFailure uf -> check_good_failure uf
+      end ;
 
       "With contexts" >::
         (fun () ->
@@ -259,7 +279,7 @@ let apply_tests =
            let h0 = freshen "forall A B, nabla x, rel1 (A x) (B x) -> rel2 (iabs A) (iabs B)" in
            let h1 = freshen "rel1 C D" in
            let t, _ = apply h0 [Some h1] in
-             assert_pprint_equal "rel2 (iabs (x1\\C)) (iabs (x1\\D))" t) ;
+             assert_pprint_equal "rel2 (iabs x1\\C) (iabs x1\\D)" t) ;
 
       "Absent argument should produce corresponding obligation" >::
         (fun () ->
@@ -276,19 +296,20 @@ let apply_tests =
       "Instantiate should not allow existing nominal" >::
         (fun () ->
            let h = freshen "nabla x, rel1 x n1" in
-             assert_raises (Failure "Invalid instantiation for nabla variable")
-               (fun () ->
-                  instantiate_withs h [("x", nominal_var "n1" ity)]
-               ));
+           try begin
+             ignore (instantiate_withs h [("x", nominal_var "n1" ity)]) ;
+           end with
+           | exn -> assert_failure_begins "Invalid instantiation " exn);
 
       "Instantiate should not allow soon to be existing nominal" >::
         (fun () ->
            let h = freshen "forall E, nabla x, rel1 E x" in
-             assert_raises (Failure "Invalid instantiation for nabla variable")
-               (fun () ->
-                  instantiate_withs h [("x", nominal_var "n1" ity);
-                                       ("E", nominal_var "n1" ity)]
-               ));
+           try begin
+             instantiate_withs h [("x", nominal_var "n1" ity);
+                                  ("E", nominal_var "n1" ity)] |>
+             ignore
+           end with
+           | exn -> assert_failure_begins "Invalid instantiation " exn);
 
       "Instantiate should not allow two identical nominals" >::
         (fun () ->
@@ -715,36 +736,42 @@ let case_tests =
                    assert_pprint_equal "rel1 n1 n2" hyp ;
                | _ -> assert_failure "Pattern mismatch") ;
 
-      "Should look in context for member" >::
-        (fun () ->
-           let term = freshen "{L, hyp A |- hyp B}" in
-             match case term with
-               | [{new_vars=[] ; new_hyps=[hyp] ; _}] ->
-                   assert_pprint_equal "member (hyp B) (hyp A :: L)" hyp
-               | _ -> assert_failure "Pattern mismatch") ;
+      "Should look in context for member" >:: begin fun () ->
+        let term = freshen "{L, hyp A |- hyp B}" in
+        match case term with
+        | [{new_vars=[(x, _)] ; new_hyps=[_; hyp] ; _}] ->
+            let exp = Printf.sprintf "member %s (hyp A :: L)" x in
+            assert_pprint_equal exp hyp
+        | _ -> assert_failure "Pattern mismatch"
+      end ;
 
-      "Member case should not get restriction from object" >::
-        (fun () ->
-           let term = freshen "{L |- p1 A}@" in
-             match case term with
-               | [{new_vars=[] ; new_hyps=[hyp] ; _}] ->
-                   assert_pprint_equal "member (p1 A) L" hyp
-               | _ -> assert_failure "Pattern mismatch") ;
+      "Member case should not get restriction from object" >:: begin
+        fun () ->
+          let term = freshen "{L |- p1 A}@" in
+          match case term with
+          | [{new_vars=[(x, _)] ; new_hyps=[_; hyp] ; _}] ->
+              let exp = Printf.sprintf "member %s L" x in
+              assert_pprint_equal exp hyp
+          | _ ->
+              assert_failure "Pattern mismatch"
+      end ;
 
       "Should pass along context" >::
         (fun () ->
            let term = freshen "{L |- p1 A}" in
            let clauses = parse_clauses "p1 X :- p2 X." in
              match case ~clauses term with
-               | [case1; case2] ->
-                   (* case1 is the member case *)
-
-                   set_bind_state case2.bind_state ;
-                   begin match case2.new_hyps with
-                     | [hyp] ->
-                         assert_pprint_equal "{L |- p2 A}" hyp ;
-                     | _ -> assert_failure "Expected 1 new hypothesis"
-                   end ;
+               | [case1; case2] -> begin
+                   (* case2 is the member case *)
+                   set_bind_state case1.bind_state ;
+                   match case1.new_hyps with
+                   | [hyp] ->
+                       assert_pprint_equal "{L |- p2 A}" hyp ;
+                   | hyps ->
+                       Printf.sprintf "Expected 1 new hypothesis; got %d"
+                         (List.length hyps) |>
+                       assert_failure
+                 end
                | cases -> assert_expected_cases 3 cases) ;
 
       "On member" >::
@@ -851,7 +878,7 @@ let case_tests =
         (fun () ->
            let term = freshen "foo A +" in
              assert_raises
-               (Failure "Cannot case analyze hypothesis\
+               (Failure "Cannot case-analyze hypothesis\
                          \ with coinductive restriction")
                (fun () -> case term)) ;
 
@@ -905,11 +932,11 @@ let case_tests =
       "Should not work on flexible clause head" >::
         (fun () ->
            let term = freshen "{P}" in
-           let clauses = parse_clauses "p1 t1."
-           in
-             assert_raises
-               (Failure "Cannot perform case-analysis on flexible head")
-               (fun () -> case ~clauses term)) ;
+           let clauses = parse_clauses "p1 t1." in
+           try ignore (case ~clauses term) with
+           | exn ->
+               assert_failure_begins "Cannot case-analyze an object sequent with a flexible goal."
+                 exn);
 
       "Should use subordination information for existentials" >::
         (fun () ->
@@ -1668,13 +1695,16 @@ let permute_tests =
                "foo n2 -> bar n1"
                (permute_nominals perm h)) ;
 
+      (* following test is no longer relevant because n1 cannot be a bound
+         variable name any more *)
+      (*
       "Should avoid capture" >::
         (fun () ->
            let h = freshen "nabla n1, foo n1 -> bar n3" in
            let perm = [nominal_var "n1" ity; nominal_var "n3" ity] in
              assert_pprint_equal
                "nabla n2, foo n2 -> bar n1"
-               (permute_nominals perm h)) ;
+               (permute_nominals perm h)) ; *)
 
     ]
 

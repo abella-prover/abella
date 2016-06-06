@@ -1680,9 +1680,8 @@ let permute_tests =
 
 let assert_search_cut ~cut ~provable ~expect =
   let search_goal g = match g with
-    | Obj(Async obj, _) ->
-        let _,term = Async.get obj in
-        List.mem (term_to_string term) provable
+    | Obj ({mode = Async ; _} as obj, _) ->
+        List.mem (term_to_string obj.right) provable
     | _ -> false
   in
   match freshen cut with

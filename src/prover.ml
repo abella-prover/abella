@@ -1233,8 +1233,8 @@ let remove_var cm h =
   sequent.vars <- List.filter (fun xv -> fst xv <> h) sequent.vars ;
   match cm with
   | Clear_extro ->
-      let goal = replace_metaterm_vars [h, var Constant v.name v.ts v.ty] sequent.goal in
-      sequent.goal <- forall [v.name, v.ty] goal
+      let goal = replace_metaterm_vars [h, var Constant v.Term.name v.ts v.ty] sequent.goal in
+      sequent.goal <- forall [v.Term.name, v.ty] goal
   | _ -> ()
 
 let remove_thing cm h =

@@ -30,7 +30,6 @@
     "Kind",          KKIND ;
     "Query",         QUERY ;
     "Quit",          QUIT ;
-    "Schema",        SCHEMA ;
     "Set",           SET ;
     "Show",          SHOW ;
     "Specification", SPECIFICATION ;

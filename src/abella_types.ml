@@ -60,23 +60,9 @@ type common_command =
   | Show of string
   | Quit
 
-type 'term schema = {
-  sch_name    : id ;
-  sch_arity   : int ;
-  sch_ty      : ty ;
-  sch_blocks  : 'term block list ;
-}
-
-and 'term block = {
-  bl_exists : tyctx ;
-  bl_nabla  : tyctx ;
-  bl_rel    : 'term list list ;
-}
-
 type top_command =
   | Theorem of id * string list * umetaterm
   | Define of flavor * tyctx * udef_clause list
-  | Schema of uterm schema
   | Import of string * (string * string) list
   | Specification of string
   | Query of umetaterm
@@ -89,7 +75,6 @@ type top_command =
 type compiled =
   | CTheorem of id * string list * metaterm
   | CDefine of flavor * string list * tyctx * def_clause list
-  | CSchema of term schema
   | CImport of string * (string * string) list
   | CKind of id list
   | CType of id list * ty
@@ -252,31 +237,6 @@ let common_command_to_string cc =
   | Quit ->
       sprintf "Quit"
 
-let block_to_string t2s bl =
-  let buf = Buffer.create 19 in
-  let add s = Buffer.add_string buf s in
-  let space () = add " " in
-  if bl.bl_exists <> [] then begin
-    add "exists " ;
-    List.iter_sep ~sep:space (fun (v, ty) -> add v) bl.bl_exists ;
-    add "," ;
-    if bl.bl_nabla <> [] then add " " ;
-  end ;
-  if bl.bl_nabla <> [] then begin
-    add "nabla " ;
-    List.iter_sep ~sep:space (fun (v, ty) -> add v) bl.bl_nabla ;
-    add ","
-  end ;
-  add " (" ;
-  List.iter_sep ~sep:(fun () -> add ", ") begin fun ctx ->
-    if ctx = [] then add "nil" else
-    List.iter_sep ~sep:(fun () -> add " :: ") begin fun tm ->
-      add (t2s tm)
-    end ctx
-  end bl.bl_rel ;
-  add ")" ;
-  Buffer.contents buf
-
 let gen_to_string tys =
   match tys with
   | [] -> ""
@@ -291,11 +251,6 @@ let top_command_to_string tc =
         sprintf "%s %s by \n%s"
           (match flavor with Inductive -> "Define" | _ -> "CoDefine")
           (idtys_to_string idtys) (udef_clauses_to_string cls) ;
-    | Schema sch ->
-        sprintf "Schema %s := %s" sch.sch_name
-          (sch.sch_blocks |>
-           List.map (fun bl -> block_to_string uterm_to_string bl) |>
-           String.concat "; ")
     | Import (filename, withs) ->
         sprintf "Import \"%s\"%s%s" filename
           (if withs = [] then "" else " with ")

@@ -255,16 +255,6 @@ let replace_atom_clause decl defn_name defn cl =
   let body = replace_atom_metaterm decl defn_name defn cl.body in
   { head ; body }
 
-let replace_atom_block decl defn_name defn bl =
-  { bl with
-    bl_rel =
-      List.map (fun ts -> List.map (replace_atom_term decl defn_name defn) ts)
-        bl.bl_rel }
-
-let replace_atom_schema decl defn_name defn sch =
-  { sch with
-    sch_blocks = List.map (replace_atom_block decl defn_name defn) sch.sch_blocks }
-
 let replace_atom_compiled decl defn_name defn comp=
   match comp with
   | CTheorem (nm, tyvars, bod) ->
@@ -276,9 +266,6 @@ let replace_atom_compiled decl defn_name defn comp=
       (* Printf.printf "Trying to rewrite a CDefine\n%!" ; *)
       CDefine (flav, tyvars, definiens,
                List.map (replace_atom_clause decl defn_name defn) clauses)
-  | CSchema sch ->
-      (* Printf.printf "Trying to rewrite a CSchema\n%!" ; *)
-      CSchema (replace_atom_schema decl defn_name defn sch)
   | CImport (fn, ws) ->
       (* Printf.printf "Trying to rewrite a CImport\n%!" ; *)
       let ws = List.map begin fun (wfrom, wto) ->
@@ -343,9 +330,6 @@ let import filename withs =
                 let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
                 sign := (basics, consts) ;
                 add_defs tyargs idtys flav clauses ;
-                process_decls decls
-            | CSchema sch ->
-                Schemas.register_typed_schema sch ;
                 process_decls decls
             | CImport(filename, withs) ->
                 aux (normalize_filename (Filename.concat file_dir filename)) withs ;
@@ -682,8 +666,6 @@ and process_top1 () =
       end gen_thms ;
   | Define _ ->
       compile (register_definition input)
-  | Schema sch ->
-      Schemas.register_schema sch
   | TopCommon(Back) ->
       if !interactive then State.Undo.back 2
       else failwith "Cannot use interactive commands in non-interactive mode"

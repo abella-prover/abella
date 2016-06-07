@@ -66,7 +66,6 @@
     "nabla",         NABLA ;
     "on",            ON ;
     "permute",       PERMUTE ;
-    "pick",          PICK ;
     "rename",        RENAME ;
     "right",         RIGHT ;
     "search",        SEARCH ;

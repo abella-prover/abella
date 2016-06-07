@@ -961,34 +961,6 @@ let assert_hyp ?name ?depth term =
   let term = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
   delay_mainline ?name ?depth term term
 
-(* Pick *)
-
-let pick ?depth bs body : unit =
-  let ex = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars begin
-      UBinding (Metaterm.Exists, bs, body)
-    end in
-  match ex with
-  | Binding (_, bs, body) ->
-      let global_support =
-        List.unique
-          ((List.flatten_map (fun h -> metaterm_support h.term) sequent.hyps) @
-           (metaterm_support sequent.goal))
-      in
-      let alist = fresh_nameless_alist ~support:global_support ~tag:Logic ~ts:0 bs in
-      let fresh_body = replace_metaterm_vars alist body in
-      let succeed w =
-        let lvs = alist |> List.map snd |> find_var_refs Logic in
-        if lvs <> [] then failwithf "Could not find a ground proof" ;
-        let alist = List.map (fun (x, v) -> (x, deep_copy v)) alist in
-        sequent.vars <- alist @ sequent.vars
-      in
-      let hyps = List.map (fun h -> (h.id, h.term)) sequent.hyps in
-      let depth = Option.default !search_depth depth in
-      if Option.is_none (Tactics.search fresh_body
-                           ~depth ~hyps ~clauses:!clauses ~def_unfold ~sc:succeed ~retype)
-      then failwithf "Could not solve: %s" (metaterm_to_formatted_string ex)
-  | _ -> bugf "pick: unexpected typing result: %s" (metaterm_to_string ex)
-
 (* Object logic monotone *)
 
 let monotone h t =

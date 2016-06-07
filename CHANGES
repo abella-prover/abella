@@ -9,6 +9,70 @@ Possibly breaking changes
 
 Additions
 
+* Added a new tactic form:
+
+        search with <witness>.
+
+  This tactic runs the search command with a given search witness. To see
+  these witnesses, run any of the other search forms with:
+
+        Set witnesses on.
+
+  The witness string that is printed can then be used to replay the exact
+  same search. There is no backtracking involved with witness strings.
+  Hence, the replay will tend to be a lot faster.
+
+  Witnesses have the following grammar:
+
+        witness ::= true | =
+                  | left witness | right witness
+                  | split(witness,witness)
+                  | apply hyp
+                  | intros[id1, ..., idn] witness
+                  | exists[id1=term1, ..., idn=termn] witness
+                  | unfold(id,n,witness1,...,witnessn)
+                  | (witness)
+                  | *
+
+  The last witness form stands for a place-holder so you can give partial
+  witnesses to search. In fact, the default search tactic is identical to:
+
+        search with *.
+
+  Please use this feature sparingly, and only when building proofs. After
+  you are done with the proof, delete the "with" statements. These witnesses
+  will NOT be portable across different versions of Abella, as they are very
+  particular to the "search" tactic implementation.
+
+* Added a new tactic form for `backchain` and `assert:
+
+        backchain <num> <hyp_or_lemma>.
+        assert <num> <formula>.
+
+  where the `<num>`, which is optional, can give a depth bound to the search
+  that is automatically attempted on generated goals. Give it a depth of 0
+  if you want to prevent searching. The default value is the value of the
+  search_depth flag.
+
+* Added a new command line flag `-f` that takes a comma-separated list of
+  key=value pairs and initializes the flags based on them. For flags that
+  can be set to `on`/`off`, you can just use the key and it means to set
+  them to `on`. For example, `-f subgoals=off,witnesses` sets `subgoals` to
+  `off` and `witnesses` to `on`.
+
+Tweaks to existing functionality
+
+* Import declarations automatically compile if needed. An explicit Makefile
+  is very rarely needed any more.
+* The `exists` and `witness` tactics now take a comma-separated list of
+  existential witnesses. Each witness can also be of the form `<id> = <term>`
+  which selects a particular existential variable to instantiate. Without
+  the `<id> = ` part it always instantiates the first variables.
+* The `induction` tactic can now traverse an arbitrary sequence of `forall`,
+  `nabla`, and `->` connectives when finding the induction argument.
+
+Experimental changes (may be changed or removed in the future)
+
 * Added support for (first-order) polymorphic definitions. Definitions
   such as the following are now accepted.
 
@@ -46,81 +110,6 @@ Additions
         apply prune_arg[tm] to H1.
         apply prune_arg[ty] to H1.
         search.
-
-* Added a new tactic form:
-
-        search with <witness>.
-
-  This tactic runs the search command with a given search witness. To see
-  these witnesses, run any of the other search forms with:
-
-        Set witnesses on.
-
-  The witness string that is printed can then be used to replay the exact
-  same search. There is no backtracking involved with witness strings.
-  Hence, the replay will tend to be a lot faster.
-
-  Witnesses have the following grammar:
-
-        witness ::= true | =
-                  | left witness | right witness
-                  | split(witness,witness)
-                  | apply hyp
-                  | intros[id1, ..., idn] witness
-                  | exists[id1=term1, ..., idn=termn] witness
-                  | unfold(id,n,witness1,...,witnessn)
-                  | (witness)
-                  | *
-
-  The last witness form stands for a place-holder so you can give partial
-  witnesses to search. In fact, the default search tactic is identical to:
-
-        search with *.
-
-  Please use this feature sparingly, and only when building proofs. After
-  you are done with the proof, delete the "with" statements. These witnesses
-  will NOT be portable across different versions of Abella, as they are very
-  particular to the "search" tactic implementation.
-
-* Added a new tactic, `pick`, that has this syntax:
-
-        pick x y (z:ty), F.
-
-  The tactic tries to solve `exists x y (z:ty), F` automaticall, and if
-  it succeeds it adds the bindings for `x`, `y`, etc. You can then use them
-  in the rest of the proof. To bound the automatic search, you can use the
-  form
-
-        pick <num> x y (z:ty), F.
-
-* Added a new tactic form for `backchain` and `assert:
-
-        backchain <num> <hyp_or_lemma>.
-        assert <num> <formula>.
-
-  where the `<num>`, which is optional, can give a depth bound to the search
-  that is automatically attempted on generated goals. Give it a depth of 0
-  if you want to prevent searching. The default value is the value of the
-  search_depth flag.
-
-* Added a new command line flag `-f` that takes a comma-separated list of
-  key=value pairs and initializes the flags based on them. For flags that
-  can be set to `on`/`off`, you can just use the key and it means to set
-  them to `on`. For example, `-f subgoals=off,witnesses` sets `subgoals` to
-  `off` and `witnesses` to `on`.
-
-Tweaks to existing functionality
-
-* Import declarations automatically compile if needed. An explicit Makefile
-  is very rarely needed any more.
-* The `exists` and `witness` tactics now take a comma-separated list of
-  existential witnesses. Each witness can also be of the form `<id> = <term>`
-  which selects a particular existential variable to instantiate. Without
-  the `<id> = ` part it always instantiates the first variables.
-* The `induction` tactic can now traverse an arbitrary sequence of `forall`,
-  `nabla`, and `->` connectives when finding the induction argument.
-
-Experimental changes (may be changed or removed in the future)
 
 * Added limited support for predicate instantiation during import. The form
 

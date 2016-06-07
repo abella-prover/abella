@@ -142,7 +142,6 @@ type command =
   | Inst of clearable * (id * uterm) list * id option
   | Case of clearable * id option
   | Assert of umetaterm * int option * id option
-  | Pick of depth_bound option * (id * ty) list * umetaterm
   | Exists of [`EXISTS | `WITNESS] * ewitness list
   | Clear of clear_mode * id list
   | Abbrev of id * string
@@ -356,11 +355,6 @@ let command_to_string c =
           (match dp with
            | Some dp -> string_of_int dp ^ " "
            | None -> "")
-          (umetaterm_to_formatted_string t)
-    | Pick (dbound, bs, t) ->
-        sprintf "pick%s %s, %s"
-          (dbound_to_string dbound)
-          (idtys_to_string bs)
           (umetaterm_to_formatted_string t)
     | Exists (how, ews) ->
         let hows = match how with

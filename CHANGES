@@ -81,6 +81,22 @@ Additions
   context structure. Several tactics specialized to reason about
   schemas will be added in the near future.
 
+* Definitional clauses can now be named as well. For instance:
+
+        Define islist : olist -> prop by
+          %:islist/nil:
+          islist nil ;
+          %:islist/cons:
+          islist (X :: L) := islist L.
+
+  The `unfold` tactic can unfold named definitional clauses using the
+  invocation form `unfold <name>`. For example, if the goal is
+
+        islist (A :: B :: nil)
+
+  then `unfold islist/nil` will fail, while `unfold islist/cons` will change
+  the goal to `islist (B :: nil)`.
+
 * Added a new tactic form:
 
         search with <witness>.

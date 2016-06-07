@@ -34,8 +34,8 @@ let parse_udefs str =
   Parser.defs Lexer.token (Lexing.from_string str)
 
 let parse_defs str =
-  type_udefs ~sr:!sr ~sign:!sign (parse_udefs str) |>
-  List.map (fun (head, body) -> Abella_types.{head; body})
+  parse_udefs str |>
+  type_uclauses ~sr:!sr ~sign:!sign
 
 let eval_sig_string = "\
   kind      tm        type.\

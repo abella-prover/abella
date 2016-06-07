@@ -150,7 +150,7 @@ let ensure_wellformed_head t =
         (metaterm_to_string t)
 
 let check_basic_stratification ~def =
-  let check_clause {head ; body} =
+  let check_clause {head ; body ; _} =
     let nonposities = get_pred_occurrences body in
     let is_ho_var arg =
       match observe (hnorm arg) with
@@ -189,7 +189,7 @@ let check_stratification ~def =
 
 let check_def ~def =
   Itab.iter (fun nm _ -> ensure_not_capital nm) def.mutual ;
-  List.iter begin fun {head ; body} ->
+  List.iter begin fun {head ; body ; _} ->
     let head_pred = def_head_name head in
     ensure_wellformed_head head ;
     if not (Itab.mem head_pred def.mutual) then

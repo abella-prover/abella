@@ -253,7 +253,7 @@ let replace_atom_metaterm decl defn_name defn mt =
 let replace_atom_clause decl defn_name defn cl =
   let head = replace_atom_metaterm decl defn_name defn cl.head in
   let body = replace_atom_metaterm decl defn_name defn cl.body in
-  { head ; body }
+  {cl with head ; body}
 
 let replace_atom_block decl defn_name defn bl =
   { bl with

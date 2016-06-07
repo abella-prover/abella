@@ -391,9 +391,9 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
     in
     defs |>
     List.flatten_map ~guard:unwind_state begin function
-    | {head = Pred(head, _) ; body} ->
+    | {head = Pred(head, _) ; body ; _} ->
         make_case ~support ~used (head, body) term
-    | {head = Binding(Nabla, tids, Pred(head, _)) ; body} ->
+    | {head = Binding(Nabla, tids, Pred(head, _)) ; body ; _} ->
         List.range 0 (List.length tids) |>
         List.rev |>
         List.flatten_map begin fun n ->
@@ -420,7 +420,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
             end
           end
         end
-    | {head ; body} ->
+    | {head ; body ; _} ->
         bugf "Bad head in definitional clause:\n%s := %s"
           (metaterm_to_string head)
           (metaterm_to_string body)
@@ -628,21 +628,35 @@ let coinductive_wrapper r names t =
   aux t
 
 let maybe_select sel l = match sel with
-  | Abella_types.Select_any -> l
+  | Abella_types.Select_any -> begin
+      let rec spin seen ix l =
+        match l with
+        | [] -> List.rev seen
+        | cl :: l -> spin ((ix, cl) :: seen) (ix - 1) l
+      in
+      spin [] (List.length l) l
+    end
   | Abella_types.Select_num n ->
       if n > List.length l then
         failwithf "Cannot select clause #%d; there are only %d clauses" n
           (List.length l) ;
-      [List.nth l (n - 1)]
-  | Abella_types.Select_named n ->
-      failwith "Cannot select named clauses for inductive predicates"
+      [n, List.nth l (n - 1)]
+  | Abella_types.Select_named n -> begin
+      let rec spin ix l =
+        match l with
+        | ({clid = Some cln ; _} as cl) :: _ when cln = n -> [ix, cl]
+        | _ :: l -> spin (ix + 1) l
+        | [] -> failwithf "No definitional clause named %S" n
+      in
+      spin 1 l
+    end
 
 let unfold_defs ~mdefs clause_sel ~ts goal r =
   let p = term_head_name goal in
   let (mutual, defs) = mdefs in
   let support = term_support goal in
   let wrapper = coinductive_wrapper r mutual in
-  let unfold_def tids head body i =
+  let unfold_def tids head body ix =
     let (ids, tys) = List.split tids in
     (* Add dummy nominals in case nabla bound variables aren't used *)
     let support =
@@ -660,20 +674,19 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
       match try_right_unify_cpairs head goal with
       | None -> []
       | Some cpairs ->
-          [(get_bind_state (), cpairs, normalize (wrapper body), i)]
+          [(get_bind_state (), cpairs, normalize (wrapper body), ix)]
     end in
   defs |>
-  List.map begin fun {head ; body} ->
-    match head with
-    | Pred(h, _) -> ([], h, body)
-    | Binding(Nabla, tids, Pred(h, _)) -> (tids, h, body)
+  maybe_select clause_sel |>
+  List.map begin fun (ix, cl) ->
+    match cl.head with
+    | Pred(h, _) -> (ix, [], h, cl.body)
+    | Binding(Nabla, tids, Pred(h, _)) -> (ix, tids, h, cl.body)
     | _ -> assert false
   end |>
-  List.number |>
-  maybe_select clause_sel |>
-  List.find_all (fun (i, (_, h, _)) -> term_head_name h = p) |>
+  List.find_all (fun (ix, _, h, _) -> term_head_name h = p) |>
   List.flatten_map
-    (fun (i, (tids, head, body)) -> unfold_def tids head body i)
+    (fun (ix, tids, head, body) -> unfold_def tids head body ix)
 
 let try_unify_cpairs cpairs =
   List.for_all (curry try_right_unify) cpairs

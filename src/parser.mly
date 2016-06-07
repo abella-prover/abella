@@ -387,11 +387,15 @@ defs:
   | def
     { [$1] }
 
+clid:
+  | { None }
+  | CLAUSENAME { Some $1 }
+
 def:
-  | metaterm
-    { ($1, UTrue) }
-  | metaterm DEFEQ metaterm
-    { ($1, $3) }
+  | clid metaterm
+    { let open Abella_types in {clid = $1 ; head = $2 ; body = UTrue} }
+  | clid metaterm DEFEQ metaterm
+    { let open Abella_types in {clid = $1 ; head = $2 ; body = $4} }
 
 perm:
   | LPAREN perm_ids RPAREN

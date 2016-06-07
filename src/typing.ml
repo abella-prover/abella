@@ -21,7 +21,6 @@ open Term
 open Metaterm
 open Extensions
 
-
 (** Untyped terms *)
 
 type pos = Lexing.position * Lexing.position
@@ -691,7 +690,6 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   metaterm_ensure_subordination sr result ;
   check_meta_quantification result ;
   result
-
 
 let type_udef ~sr ~sign (head, body) =
   let cids = umetaterm_extract_if is_capital_name head in

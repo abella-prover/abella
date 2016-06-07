@@ -157,11 +157,17 @@ let clauses : clause list ref = State.rref []
 let add_clauses new_clauses =
   clauses := !clauses @ new_clauses
 
+let type_uclauses ~sr ~sign cls =
+  cls |>
+  List.map begin fun cl ->
+    let (head, body) = type_udef ~sr ~sign (cl.head, cl.body) in
+    {cl with head ; body}
+  end
+
 let parse_defs ?(sign = !sign) str =
   Lexing.from_string str |>
   Parser.defs Lexer.token |>
-  type_udefs ~sr:!sr ~sign |>
-  List.map (fun (head, body) -> {head ; body})
+  type_uclauses ~sr:!sr ~sign
 
 let defs_table : defs_table = State.table ()
 
@@ -207,8 +213,7 @@ let register_definition = function
       let (basics, consts) = !sign in
       let basics = typarams @ basics in
       let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
-      let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
-                    List.map (fun (head, body) -> {head ; body}) in
+      let clauses = type_uclauses ~sr:!sr ~sign:(basics, consts) udefs in
       let (basics, consts) = !sign in
       let consts = List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys @ consts in
       sign := (basics, consts) ;
@@ -282,7 +287,8 @@ let instantiate_clauses_aux =
     (* end tymap ; *)
     List.map begin fun cl ->
       if clause_head_name cl = pn then
-        {head = map_on_tys (app_ty tymap) cl.head ;
+        {cl with
+         head = map_on_tys (app_ty tymap) cl.head ;
          body = map_on_tys (app_ty tymap) cl.body}
       else cl
     end def.clauses

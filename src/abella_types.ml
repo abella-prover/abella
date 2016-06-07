@@ -28,11 +28,14 @@ type clause = term
 
 type flavor = Inductive | CoInductive
 
-type udef_clause = umetaterm * umetaterm
-type def_clause = {
-  head : metaterm ;
-  body : metaterm ;
+type 'a def_clause_ = {
+  clid : string option ;
+  head : 'a ;
+  body : 'a ;
 }
+type udef_clause = umetaterm def_clause_
+type def_clause = metaterm def_clause_
+
 type def = {
   flavor   : flavor ;
   typarams : string list ;
@@ -201,12 +204,17 @@ type lpsig =
 type lpmod =
   | Mod of string * string list * uclause list
 
-let udef_to_string (head, body) =
-  if body = UTrue then
-    umetaterm_to_string head
-  else
-    sprintf "%s := %s" (umetaterm_to_string head)
-      (umetaterm_to_formatted_string body)
+let udef_to_string cl =
+  let clname = match cl.clid with
+    | Some nm -> nm ^ " : "
+    | None -> ""
+  in
+  let clhead = umetaterm_to_string cl.head in
+  let clbody = match cl.body with
+    | UTrue -> ""
+    | body -> " := " ^ umetaterm_to_formatted_string body
+  in
+  clname ^ clhead ^ clbody
 
 let udef_clauses_to_string cls =
   String.concat ";\n" (List.map udef_to_string cls)

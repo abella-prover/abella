@@ -91,7 +91,7 @@ let schema_to_defs ?ty sch =
   let k_nil = Term.const k_nil olistty in
   let nil_head = List.range 1 sch.sch_arity |>
                    List.map (fun _ -> k_nil) |> mk in
-  let nil_clause = {head = nil_head ; body = True} in
+  let nil_clause = {clid = None ; head = nil_head ; body = True} in
   let k_cons = Term.const k_cons (tyarrow [oty ; olistty] olistty) in
   let block_to_clause bl =
     let rec name_gs gs used = function
@@ -109,7 +109,7 @@ let schema_to_defs ?ty sch =
     let grels = List.combine bl.bl_rel gs |>
                 List.map (fun (l, g) -> List.fold_right cons l g) in
     let head = nabla bl.bl_nabla (mk grels) in
-    {head ; body}
+    {clid = None ; head ; body}
   in
   let clauses = nil_clause :: List.map block_to_clause sch.sch_blocks in
   (ty, clauses)

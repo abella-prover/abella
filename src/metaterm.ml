@@ -166,20 +166,20 @@ let pretty_context ~printer cx =
   Atom (FUN format)
 
 let pretty_obj ~left ~right ~printer obj =
+  let concl = printer#print [] obj.right in
   let open Pretty in
   match obj.mode with
   | Async ->
-      let concl = printer#print [] obj.right in
       let inner = match obj.context with
         | [] -> concl
-        | _ -> Opapp (10, Infix (LEFT, pretty_context ~printer obj.context,
-                                 FMT " |-@ ", concl))
+        | _ ->
+            Opapp (10, Infix (LEFT, pretty_context ~printer obj.context,
+                              FMT " |-@ ", concl))
       in
       Bracket {
         left ; right ; indent = 3 ; trans = OPAQUE ; inner
       }
   | Sync focus ->
-      let concl = printer#print [] obj.right in
       let focus = Bracket {
           left = STR "[" ; right = STR "]" ; trans = OPAQUE ; indent = 3 ;
           inner = printer#print [] focus

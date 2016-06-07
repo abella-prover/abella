@@ -149,7 +149,7 @@ let compile citem =
 let predicates (ktable, ctable) =
   ctable |>
   List.filter_map begin fun (id, Poly (_, Ty (_, targty))) ->
-    if List.mem id [k_member ; k_fresh ; k_name] || targty = "o" then None
+    if List.mem id [k_member] || targty = "o" then None
     else Some id
   end
 

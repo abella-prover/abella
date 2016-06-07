@@ -3,9 +3,6 @@ Changes in 2.0.4 from 2.0.3
 
 Possibly breaking changes
 
-* The identifiers `fresh_for`, `is_name`, and `prune_arg` are added to
-  the pervasive signature. Thus, they can no longer be used by users in
-  definitions.
 * The `search` tactic has the same error handling behavior in interactive
   and non-interactive modes, functioning like a failed tactic in both cases
   if no subgoals were closed.
@@ -49,9 +46,6 @@ Additions
         apply prune_arg[tm] to H1.
         apply prune_arg[ty] to H1.
         search.
-
-  Incidentally, the above `prune_arg` lemma is now part of the pervasive
-  environment.
 
 * Added a new tactic form:
 

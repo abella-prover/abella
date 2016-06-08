@@ -290,7 +290,10 @@ let metaterm_to_formatted_string t =
 let map_on_objs f t =
   let rec aux t =
     match t with
-      | Obj(obj, r) -> Obj(f obj, r)
+      | Obj(obj, r) ->
+          f obj |>
+          List.map (fun obj -> Obj (obj, r)) |>
+          conjoin
       | Arrow(a, b) -> Arrow(aux a, aux b)
       | Binding(binder, bindings, body) -> Binding(binder, bindings, aux body)
       | Or(a, b) -> Or(aux a, aux b)
@@ -593,9 +596,13 @@ let rec normalize_obj obj =
   let rec aux obj =
     if is_imp obj.right then
       aux (move_imp_to_context obj)
-    else if is_pi obj.right then
+    else if is_amp obj.right then begin
+      let (a, b) = extract_amp obj.right in
+      aux {obj with right = a} @
+      aux {obj with right = b}
+    end else if is_pi obj.right then
       aux (replace_pi_with_nominal obj)
-    else { obj with context = Context.normalize obj.context }
+    else [{ obj with context = Context.normalize obj.context }]
   in
   aux obj
 
@@ -839,18 +846,21 @@ let def_head_args head =
   in
   aux head
 
-(* Make (head,body) tuples from clauses.
-   The conversion from a term clause to a
-   (head, body) pair without prefixe binders
-   is required for unification. It is also
-   used in some test cases.
-*)
-let clausify term =
-  let (tyctx, term) = replace_pi_with_const term in
-  let rec move_imps obj =
-    if is_imp obj.right then
-      move_imps (move_imp_to_context obj)
-    else { obj with context = Context.normalize obj.context }
-  in
-  let obj = move_imps { context = Context.empty ; mode = Async ; right = term } in
-  (tyctx, obj.right, obj.context)
+let rec clausify ?(vars=[]) ?(body=[]) head =
+  match observe (hnorm head) with
+  | App (pi, [abs]) when is_pi pi -> begin
+      match observe (hnorm abs) with
+      | Lam ([x, ty], _) ->
+          let xv = Term.const x ty in
+          let vars = (term_to_name xv, ty) :: vars in
+          clausify ~vars ~body (app abs [xv])
+      | tm ->
+          bugf "clausify: invalid pi: %s" (term_to_string tm)
+    end
+  | App (imp, [a; head]) when is_imp imp ->
+      let body = a :: body in
+      clausify ~vars ~body head
+  | App (amp, [head1; head2]) when is_amp amp ->
+      clausify ~vars ~body head1 @
+      clausify ~vars ~body head2
+  | head -> [vars, head, List.rev body]

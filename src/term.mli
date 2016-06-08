@@ -182,6 +182,10 @@ val fresh_tyvar : unit -> ty
 
 val is_imp : term -> bool
 val extract_imp : term -> term * term
+
+val is_amp : term -> bool
+val extract_amp : term -> term * term
+
 val is_pi : term -> bool
 val extract_pi : term -> term
 val replace_pi_with_const : term -> tyctx * term

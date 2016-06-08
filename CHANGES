@@ -9,6 +9,7 @@ Possibly breaking changes
 * The `search` tactic has the same error handling behavior in interactive
   and non-interactive modes, functioning like a failed tactic in both cases
   if no subgoals were closed.
+* The character `&` can no longer appear inside the names of identifiers.
 
 Additions
 
@@ -80,6 +81,8 @@ Additions
   In other words, schemas are a way of declaring a certain "regular"
   context structure. Several tactics specialized to reason about
   schemas will be added in the near future.
+
+* Added support for specification-level conjunction, written using `&`.
 
 * Added a new tactic form:
 

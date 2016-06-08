@@ -667,12 +667,17 @@ let fresh_tyvar =
 
 
 let is_imp t = is_head_name "=>" t
-let is_amp t = is_head_name "&" t
 
 let extract_imp t =
   match observe (hnorm t) with
     | App(t, [a; b]) -> (a, b)
     | _ -> bugf "Check is_imp before calling extract_imp"
+
+let is_amp t = is_head_name "&" t
+let extract_amp t =
+  match observe (hnorm t) with
+    | App(t, [a; b]) -> (a, b)
+    | _ -> bugf "Check is_amp before calling extract_amp"
 
 let is_pi t = is_head_name "pi" t
 

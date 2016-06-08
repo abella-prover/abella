@@ -141,6 +141,9 @@ let object_cut_from obj1 obj2 term =
   if not (Context.mem term obj1.context) then
     failwith "Needless use of cut" ;
   let tobj = normalize_obj {context = Context.empty ; right = term ; mode = Async} in
+  if List.length tobj > 1 then
+    failwith "Cannot cut conjunctive formulas" ;
+  let tobj = List.hd tobj in
   let norms = obj_support tobj in
   let nids, ntys = List.split (nominal_tids norms) in
   let cut_objs =
@@ -192,7 +195,7 @@ let search_cut ~search_goal obj =
 (* inst t1 with n = t2 *)
 let object_inst t1 n t2 =
   if List.mem n (List.map term_to_name (metaterm_support t1)) then
-    map_on_objs (map_obj (replace_term_vars ~tag:Nominal [(n, t2)])) t1
+    map_on_objs (fun obj -> [map_obj (replace_term_vars ~tag:Nominal [(n, t2)]) obj]) t1
   else
     failwithf "Did not find %s" n
 
@@ -366,6 +369,25 @@ let lift_all ~used ~sr nominals =
       bind term (app new_term rvars)
   end
 
+type spec_view =
+  | Spec_atom of term
+  | Spec_imp of term * term
+  | Spec_amp of term * term
+  | Spec_pi of id * ty * term
+
+let spec_view t =
+  match observe (hnorm t) with
+  | App (imp, [a; b]) when is_imp imp ->
+      Spec_imp (a, b)
+  | App (amp, [a; b]) when is_amp amp ->
+      Spec_amp (a, b)
+  | App (pi, [abs]) when is_pi pi -> begin
+      match observe (hnorm abs) with
+      | Lam ([x, ty], t) -> Spec_pi (x, ty, t)
+      | _ -> bugf "Cannot view pi body: %s" (term_to_string abs)
+    end
+  | t -> Spec_atom t
+
 let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   let support = metaterm_support term in
   let def_case ~wrapper term =
@@ -430,38 +452,42 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   let focus sync_obj f r =
     if has_eigen_head f then
       failwithf "Head of backchained clause, %s, is a variable.\n\
-                \ The case command cannot determine the derivability of this hypothesis"
+               \ The case command cannot determine the derivability of this hypothesis"
         (term_to_string f) ;
     let rewrap obj = Obj (obj, reduce_inductive_restriction r) in
     let rewrap_antecedent g = rewrap {sync_obj with mode = Async ; right = g} in
     let rewrap_succedent f = rewrap {sync_obj with mode = Sync f} in
     clausify f |>
-    unwind_state begin fun clause ->
-      let fresh_used, fresh_head, fresh_body =
-        freshen_clause ~sr ~support ~used clause in
-      if has_eigen_head fresh_head then begin
-        let new_vars = term_vars_alist Eigen (fresh_head :: sync_obj.right :: fresh_body) in
-        let body = List.map rewrap_antecedent fresh_body in
-        Some { bind_state = get_bind_state () ;
-               new_vars = new_vars ;
-               new_hyps = rewrap_succedent fresh_head :: body }
-      end else begin
-        match try_left_unify_cpairs fresh_head sync_obj.right
-                ~used:(fresh_used @ used) with
-        | Some cpairs ->
-            let new_vars =
-              term_vars_alist Eigen (fresh_head::sync_obj.right::fresh_body) in
-            let body = List.map rewrap_antecedent fresh_body in
-            Some { bind_state = get_bind_state () ;
-                   new_vars = new_vars ;
-                   new_hyps = cpairs_to_eqs cpairs @ body }
-        | None -> None
-      end
+    List.filter_map begin fun clause ->
+      unwind_state begin fun clause ->
+        let fresh_used, fresh_head, fresh_body =
+          freshen_clause ~sr ~support ~used clause in
+        if has_eigen_head fresh_head then begin
+          let new_vars = term_vars_alist Eigen (fresh_head :: sync_obj.right :: fresh_body) in
+          let body = List.map rewrap_antecedent fresh_body in
+          Some { bind_state = get_bind_state () ;
+                 new_vars = new_vars ;
+                 new_hyps = rewrap_succedent fresh_head :: body }
+        end else begin
+          match try_left_unify_cpairs fresh_head sync_obj.right
+                  ~used:(fresh_used @ used) with
+          | Some cpairs ->
+              let new_vars =
+                term_vars_alist Eigen (fresh_head::sync_obj.right::fresh_body) in
+              let body = List.map rewrap_antecedent fresh_body in
+              Some { bind_state = get_bind_state () ;
+                     new_vars = new_vars ;
+                     new_hyps = cpairs_to_eqs cpairs @ body }
+          | None -> None
+        end
+      end clause
     end
   in
 
   let clause_case async_obj r =
-    List.filter_map (fun clause -> focus async_obj clause r) clauses
+    clauses |>
+    List.map (fun clause -> focus async_obj clause r) |>
+    List.concat
   in
 
   (* create a sync sequent focusing on a formula
@@ -491,17 +517,11 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
      else [create_sync ~used ~sr ~support obj r])
   in
 
-  let sync_case obj f r =
-    match focus obj f r with
-    | Some case -> [case]
-    | None -> []
-  in
-
   match term with
   | Obj (obj, r) -> begin
       match obj.mode with
       | Async -> async_case obj r
-      | Sync f -> sync_case obj f r
+      | Sync f -> focus obj f r
     end
   | True -> [stateless_case_to_case empty_case]
   | False -> []
@@ -712,34 +732,39 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
       match clause_sel with
       | Abella_types.Select_named nm -> begin
           match Typing.lookup_clause nm with
-          | Some cl -> begin
-              let goal = normalize_obj goal in
-              let support = metaterm_support goal0 in
-              let (vars, head, body) = freshen_nameless_clause ~support ~ts:0 (clausify cl) in
-              match try_right_unify_cpairs head goal.right with
-              | None ->
-                  failwithf "Head of program clause named %S not\
-                           \ unifiable with goal"
-                    nm
-              | Some cpairs ->
-                  if try_unify_cpairs cpairs then begin
-                    let new_vars = List.map (fun (x, xv) -> (x, find_vars Logic [xv])) vars in
-                    let quant_vars =
-                      List.fold_left
-                        (fun vs (x, nvs) -> if nvs = [] then vs else (x, nvs) :: vs)
-                        [] new_vars in
-                    let body =
-                      List.map begin fun g ->
-                        let aobj = {goal with right = g} in
-                        Obj (normalize_obj aobj, sr)
-                      end body in
-                    if quant_vars = [] then body
-                    else [existentially_close ~used quant_vars (conjoin body)]
-                  end else
-                    failwithf "Unsolvable unification of head\
-                             \ of program clause named %S with goal"
+          | Some cl ->
+              normalize_obj goal |>
+              List.map begin fun goal ->
+                let support = metaterm_support goal0 in
+                let cl = clausify cl in
+                assert (List.length cl = 1) ;
+                let cl = List.hd cl in
+                let (vars, head, body) = freshen_nameless_clause ~support ~ts:0 cl in
+                match try_right_unify_cpairs head goal.right with
+                | None ->
+                    failwithf "Head of program clause named %S not\
+                              \ unifiable with goal"
                       nm
-            end
+                | Some cpairs ->
+                    if try_unify_cpairs cpairs then begin
+                      let new_vars = List.map (fun (x, xv) -> (x, find_vars Logic [xv])) vars in
+                      let quant_vars =
+                        List.fold_left
+                          (fun vs (x, nvs) -> if nvs = [] then vs else (x, nvs) :: vs)
+                          [] new_vars in
+                      let body =
+                        List.map begin fun g ->
+                          let aobj = {goal with right = g} in
+                          map_on_objs normalize_obj (Obj (aobj, sr))
+                        end body in
+                      if quant_vars = [] then body
+                      else [existentially_close ~used quant_vars (conjoin body)]
+                    end else
+                      failwithf "Unsolvable unification of head\
+                                \ of program clause named %S with goal"
+                        nm
+              end |>
+              List.concat
           | None ->
               failwithf "Program clause named %S not found" nm
         end
@@ -824,6 +849,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
     (* ignore the elements in the context of type olist *)
     List.find_all (fun cls -> not (tc [] cls = olistty)) |>
     List.map clausify |>
+    List.concat |>
     List.find_all (fun (_, h, _) -> term_head_name h = p) |>
     List.number |>
     List.filter filter_by_witness |>
@@ -849,68 +875,72 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
 
   and async_obj_aux n hyps goal r ts ~sc ~witness =
     (* Printf.eprintf "axync_obj_aux: %s\n%!" (witness_to_string witness) ; *)
-    let goal = normalize_obj goal in
-    (* Check hyps for derivability *)
-    let () =
-      hyps |>
-      List.find_all (fun (id, h) -> is_async_obj h) |>
-      List.find_all (fun (id, h) -> satisfies (term_to_restriction h) r) |>
-      List.map (fun (id, h) -> (id, term_to_async_obj h)) |>
-      List.iter ~guard:unwind_state begin fun (id, obj) ->
-        if derivable goal obj then sc (WHyp id)
-      end in
-    match r with
-    | Smaller _ | Equal _ -> ()
-    | _ ->
-        (* Backchain *)
-        if n > 0 then clause_aux n goal.context (goal.context @ clauses) goal.right r ts ~sc ~witness ;
-        (* Also backchain the goal G in '{.. L ..|- G}' on clauses F
-           occurring in hypotheses of the form 'member F L' *)
-        let ctxs = List.find_all (fun cls -> tc [] cls = olistty) goal.context in
-        let get_member_foci hyp =
-          if is_member hyp then
-            let e, ctx = extract_member hyp in
-            if Context.mem ctx ctxs then Some e else None
-          else
-            None
-        in
-        let ctx_foci = List.filter_map get_member_foci
-            (List.map (fun (id, h) -> h) hyps) in
-        let focus_goals = List.map (fun f -> {goal with mode = Sync f}) ctx_foci in
-        List.iter (fun fg -> sync_obj_aux n hyps fg r ts ~sc ~witness) focus_goals
+    normalize_obj goal |>
+    List.iter begin fun goal ->
+      (* Check hyps for derivability *)
+      let () =
+        hyps |>
+        List.find_all (fun (id, h) -> is_async_obj h) |>
+        List.find_all (fun (id, h) -> satisfies (term_to_restriction h) r) |>
+        List.map (fun (id, h) -> (id, term_to_async_obj h)) |>
+        List.iter ~guard:unwind_state begin fun (id, obj) ->
+          if derivable goal obj then sc (WHyp id)
+        end in
+      match r with
+      | Smaller _ | Equal _ -> ()
+      | _ ->
+          (* Backchain *)
+          if n > 0 then clause_aux n goal.context (goal.context @ clauses) goal.right r ts ~sc ~witness ;
+          (* Also backchain the goal G in '{.. L ..|- G}' on clauses F
+             occurring in hypotheses of the form 'member F L' *)
+          let ctxs = List.find_all (fun cls -> tc [] cls = olistty) goal.context in
+          let get_member_foci hyp =
+            if is_member hyp then
+              let e, ctx = extract_member hyp in
+              if Context.mem ctx ctxs then Some e else None
+            else
+              None
+          in
+          let ctx_foci = List.filter_map get_member_foci
+              (List.map (fun (id, h) -> h) hyps) in
+          let focus_goals = List.map (fun f -> {goal with mode = Sync f}) ctx_foci in
+          List.iter (fun fg -> sync_obj_aux n hyps fg r ts ~sc ~witness) focus_goals
+    end
 
   and sync_obj_aux n hyps goal r ts ~sc ~witness =
     (* Printf.eprintf "sync_obj_aux: %s\n%!" (witness_to_string witness) ; *)
-    let goal = normalize_obj goal in
-    let focus = match goal.mode with
-      | Sync focus -> focus
-      | _ -> bugf "search/sync_obj_aux: not a sync object"
-    in
-    let filter_by_witness =
-      match witness with
-      | WMagic -> (fun _ -> true)
-      | WHyp wid -> (fun (id, _) -> id = wid)
-      | _ -> (fun _ -> false)
-    in
-    (* Check hyps for derivability *)
-    let () =
-      hyps |>
-      List.filter filter_by_witness |>
-      List.find_all (fun (id, h) -> is_sync_obj h) |>
-      List.find_all (fun (id, h) -> satisfies (term_to_restriction h) r) |>
-      List.map (fun (id, h) -> (id, term_to_sync_obj h)) |>
-      List.iter ~guard:unwind_state begin fun (id, obj) ->
-        if derivable goal obj then sc (WHyp id)
-      end in
-    match r with
-    | Smaller _ | Equal _ -> ()
-    | _ ->
-        (* let ctx, focus, term = Sync.get goal in *)
-        if n > 0 then begin
-          match witness with
-          | WMagic | WUnfold _ -> clause_aux n goal.context [focus] goal.right r ts ~sc ~witness
-          | _ -> bad_witness ()
-        end
+    normalize_obj goal |>
+    List.iter begin fun goal ->
+      let focus = match goal.mode with
+        | Sync focus -> focus
+        | _ -> bugf "search/sync_obj_aux: not a sync object"
+      in
+      let filter_by_witness =
+        match witness with
+        | WMagic -> (fun _ -> true)
+        | WHyp wid -> (fun (id, _) -> id = wid)
+        | _ -> (fun _ -> false)
+      in
+      (* Check hyps for derivability *)
+      let () =
+        hyps |>
+        List.filter filter_by_witness |>
+        List.find_all (fun (id, h) -> is_sync_obj h) |>
+        List.find_all (fun (id, h) -> satisfies (term_to_restriction h) r) |>
+        List.map (fun (id, h) -> (id, term_to_sync_obj h)) |>
+        List.iter ~guard:unwind_state begin fun (id, obj) ->
+          if derivable goal obj then sc (WHyp id)
+        end in
+      match r with
+      | Smaller _ | Equal _ -> ()
+      | _ ->
+          (* let ctx, focus, term = Sync.get goal in *)
+          if n > 0 then begin
+            match witness with
+            | WMagic | WUnfold _ -> clause_aux n goal.context [focus] goal.right r ts ~sc ~witness
+            | _ -> bad_witness ()
+          end
+    end
 
   and async_obj_aux_conj n goals r ts ~sc ~witnesses =
     match goals with

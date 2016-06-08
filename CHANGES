@@ -6,8 +6,11 @@ Possibly breaking changes
 * The `search` tactic has the same error handling behavior in interactive
   and non-interactive modes, functioning like a failed tactic in both cases
   if no subgoals were closed.
+* The character `&` can no longer appear inside the names of identifiers.
 
 Additions
+
+* Added support for specification-level conjunction, written using `&`.
 
 * Added a new tactic form:
 

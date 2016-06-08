@@ -164,9 +164,11 @@ let write_compilation () =
 let clause_eq c1 c2 = eq c1 c2
 
 let clauses_to_predicates clauses =
-  let clause_heads =
-    List.map (fun c -> let (_,h,_) = clausify c in h) clauses in
-  List.unique (List.map term_head_name clause_heads)
+  clauses |>
+  List.map clausify |>
+  List.concat |>
+  List.map (fun (_, h, _) -> term_head_name h) |>
+  List.unique
 
 let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   let (ktable, ctable) = !sign in
@@ -206,8 +208,9 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
     List.minus ~cmp:clause_eq
       (List.find_all
          (fun clause ->
-            let (_,clause_head,_) = clausify clause in
-            List.mem (term_head_name clause_head) imp_predicates)
+            clausify clause |>
+            List.map (fun (_, h, _) -> term_head_name h) |>
+            List.exists (fun h -> List.mem h imp_predicates))
          !clauses)
       imp_spec_clauses
   in

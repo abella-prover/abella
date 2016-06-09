@@ -1,3 +1,13 @@
+*** OBSOLETE ***
+
+The files here are being kept for historical reasons only. Please
+use the following instructions for Abella/Emacs interactions
+
+  http://abella-prover.org/reference-guide.html#emacs
+
+--------------------------------------------------------------------------------
+*** OLD INSTRUCTIONS ***
+
 The files lprolog.el and abella.el provide editing modes for .sig/.mod
 and .thm files respectively. To use these, add the following to your
 .emacs file.
@@ -7,8 +17,3 @@ and .thm files respectively. To use these, add the following to your
 
 Where /path/to/abella is replaced with the actual location you have
 installed Abella.
-
-More information on what is provided by these file is available in the
-Abella Reference Guide.
-
-  http://abella-prover.org/reference-guide.html#emacs

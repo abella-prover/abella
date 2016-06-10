@@ -2,7 +2,7 @@
  * Author: Kaustuv Chaudhuri <kaustuv.chaudhuri@inria.fr>
  * Copyright (C) 2015  Inria (Institut National de Recherche
  *                     en Informatique et en Automatique)
- * See COPYING for licensing details.
+ * See LICENSE for licensing details.
  *)
 
 open Extensions

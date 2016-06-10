@@ -1,4 +1,4 @@
-# See COPYING for licensing details.
+# See LICENSE for licensing details.
 
 OCB = ocamlbuild -classic-display
 

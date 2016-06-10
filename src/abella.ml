@@ -761,6 +761,10 @@ let set_flags flagstr =
   | e ->
       raise (Arg.Bad (Printexc.to_string e))
 
+let print_version () =
+  print_endline Version.version ;
+  exit 0
+
 let options =
   Arg.align [
     "-f", Arg.String set_flags,
@@ -775,6 +779,8 @@ let options =
     "<file-name> Compile definitions and theorems in an importable format" ;
 
     "-a", Arg.Set annotate, " Annotate mode" ;
+
+    "-v", Arg.Unit print_version, " Show version and exit" ;
 
     "-M", Arg.Set makefile, " Output dependencies in Makefile format" ;
   ]

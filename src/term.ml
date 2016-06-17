@@ -26,7 +26,9 @@ let show_ts  = false
 
 open Extensions
 
-type ty = Ty of ty list * string
+type knd = Knd of int
+type aty = AtmTy of string * ty list
+and  ty = Ty of ty list * aty
 
 type tag = Eigen | Constant | Logic | Nominal
 type id = string
@@ -413,10 +415,17 @@ let rec list_range a b =
 let abs_name = "x"
 
 let arrow_op = Pretty.FMT " ->@ "
-let rec pretty_ty (Ty (args, targ)) =
+let space_op = Pretty.FMT " "
+let rec pretty_ty (Ty (args, AtmTy(cty,cargs))) =
   let open Pretty in
   let args = List.map pretty_ty args in
-  let targ = Atom (STR targ) in
+  let cargs = List.map pretty_ty cargs in
+  let cty = Atom (STR cty) in
+  let targ = 
+    List.fold_left begin fun aty arg ->
+      Opapp (1, Infix (LEFT, aty, space_op, arg))
+    end cty cargs
+  in
   List.fold_right begin fun arg targ ->
     Opapp (1, Infix (RIGHT, arg, arrow_op, targ))
   end args targ
@@ -441,6 +450,10 @@ let var_to_string v =
     ^ (if show_ty then ":" ^ ty_to_string v.ty else "")
   end ^ aft
 
+let rec knd_to_string = function
+  | Knd 0 -> "Type"
+  | Knd i -> "Type -> " ^ (knd_to_string (Knd (i-1)))
+    
 let infix_ops : (id * (Pretty.atom * Pretty.assoc * Pretty.prec)) list =
   let open Pretty in
   [ "=>" , (FMT " =>@ " , RIGHT , 1) ;
@@ -628,18 +641,27 @@ let has_logic_head t =
 let has_eigen_head t =
   has_head (fun v -> v.tag = Eigen) t
 
-(* Typing *)
+(* Kinding *)
+let kind i = Knd i
+let kincr = function Knd i -> Knd (i+1)
+let karity = function Knd i -> i
 
+(* Typing *)
+let atybase tyc = AtmTy(tyc,[]) 
+let atyapp aty ty =
+  match aty with
+  | AtmTy(tyc,tys) -> AtmTy(tyc,tys@[ty])
+ 
 let tyarrow tys ty =
   match ty with
     | Ty(tys', bty) -> Ty(tys @ tys', bty)
 
-let tybase bty =
-  Ty([], bty)
+let tybase aty =
+  Ty([], aty)
 
-let oty = tybase "o"
-let olistty = tybase "olist"
-let propty = tybase "prop"
+let oty = tybase (atybase "o")
+let olistty = tybase (atyapp (atybase "list") oty)
+let propty = tybase (atybase "prop")
 
 let rec tc (tyctx:tyctx) t =
   match observe (hnorm t) with
@@ -655,11 +677,11 @@ let rec tc (tyctx:tyctx) t =
         tyarrow (get_ctx_tys idtys) (tc (List.rev_app idtys tyctx) t)
     | _ -> assert false
 
-let is_tyvar str =
+let is_tyvar str = 
   str.[0] = '?'
 
 let tyvar str =
-  tybase ("?" ^ str)
+  tybase (atybase ("?" ^ str))
 
 let fresh_tyvar =
   let count = ref 0 in

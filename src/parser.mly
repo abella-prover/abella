@@ -223,6 +223,13 @@ id:
   | TTYPE         { "Type" }
   | KKIND         { "Kind" }
 
+/* Kind in Abella */
+kknd:
+  | TTYPE
+      {Term.kind 0}
+  | TTYPE RARROW kknd
+      {Term.kincr $3}
+
 /* Annotated ID */
 aid:
   | loc_id
@@ -346,8 +353,14 @@ id_list:
   | loc_id COMMA id_list
     { $1::$3}
 
-ty:
+aty:
   | id
+    { Term.atybase $1}
+  | aty ty
+    { Term.atyapp $1 $2 }
+
+ty:
+  | aty
     { Term.tybase $1 }
   | ty RARROW ty
     { Term.tyarrow [$1] $3 }
@@ -713,8 +726,8 @@ pure_top_command:
     { Types.Import($2, $4) }
   | SPECIFICATION QSTRING DOT
     { Types.Specification($2) }
-  | KKIND id_list TYPE DOT
-    { Types.Kind(List.map deloc_id $2) }
+  | KKIND id_list kknd DOT
+    { Types.Kind(List.map deloc_id $2, $3) }
   | TTYPE id_list ty DOT
     { Types.Type(List.map deloc_id $2, $3) }
   | CLOSE id_list DOT

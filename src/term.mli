@@ -20,12 +20,23 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+(* Kinds *)
+type knd = Knd of int
+
+val kind : int -> knd
+val kincr : knd -> knd
+val karity : knd -> int
+
 (* Types *)
 
-type ty = Ty of ty list * string
+type aty = AtmTy of string * ty list
+and  ty = Ty of ty list * aty
+
+val atybase : string -> aty
+val atyapp : aty -> ty -> aty
 
 val tyarrow : ty list -> ty -> ty
-val tybase : string -> ty
+val tybase : aty -> ty
 val oty : ty
 val olistty : ty
 val propty : ty
@@ -144,6 +155,7 @@ val norm : term -> term
 val pretty_ty : ty -> Pretty.expr
 val format_ty : Format.formatter -> ty -> unit
 val ty_to_string : ty -> string
+val knd_to_string : knd -> string
 
 val var_to_string : var -> string
 

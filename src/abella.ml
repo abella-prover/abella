@@ -291,7 +291,7 @@ let replace_atom_compiled decl defn_name defn comp=
           else (wfrom, wto)
         end ws in
       CImport (fn, ws)
-  | CKind ids ->
+  | CKind (ids, knd) ->
       (* Printf.printf "Trying to rewrite a CKind\n%!" ; *)
       if List.mem defn_name ids then
         failwithf "There are declared types named %s in import" defn_name ;
@@ -355,7 +355,7 @@ let import filename withs =
             | CImport(filename, withs) ->
                 aux (normalize_filename (Filename.concat file_dir filename)) withs ;
                 process_decls decls
-            | CKind(ids) ->
+            | CKind(ids, knd) ->
                 check_noredef ids ;
                 add_global_types ids ;
                 process_decls decls
@@ -709,7 +709,7 @@ and process_top1 () =
         failwith "Specification can only be read \
                  \ at the begining of a development."
   | Query(q) -> query q
-  | Kind(ids) ->
+  | Kind(ids, knd) ->
       check_noredef ids;
       add_global_types ids ;
       compile (CKind ids)

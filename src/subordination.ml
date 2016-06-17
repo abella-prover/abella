@@ -26,7 +26,7 @@ type sr = string Graph.t * string list
 
 let empty = (Graph.empty, [])
 
-let head (Ty(_, h)) = h
+let head (Ty(_, AtmTy(h,_))) = h
 
 let close (graph, closed) atys =
   let closed = atys @ closed in
@@ -53,14 +53,14 @@ let add (graph, closed) a b =
     (Graph.add_arc graph a b, closed)
 
 let update sr ty =
-  let rec aux sr (Ty(args, target)) =
+  let rec aux sr (Ty(args, AtmTy(target,_))) =
     let sr = List.fold_left aux sr args in
       List.fold_left (fun sr ty -> add sr (head ty) target) sr args
   in
     aux sr ty
 
 let ensure (graph, closed) ty =
-  let rec aux (Ty(args, target)) =
+  let rec aux (Ty(args, AtmTy(target,_))) =
     List.iter aux args ;
     if List.mem target closed then
       let target_preds = Graph.predecessors graph target in

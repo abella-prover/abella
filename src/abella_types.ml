@@ -82,7 +82,7 @@ type top_command =
   | Import of string * (string * string) list
   | Specification of string
   | Query of umetaterm
-  | Kind of id list
+  | Kind of id list * knd
   | Type of id list * ty
   | Close of id list
   | SSplit of id * id list
@@ -93,7 +93,7 @@ type compiled =
   | CDefine of flavor * string list * tyctx * def_clause list
   | CSchema of term schema
   | CImport of string * (string * string) list
-  | CKind of id list
+  | CKind of id list * knd
   | CType of id list * ty
   | CClose of (id * id list) list
 
@@ -308,8 +308,8 @@ let top_command_to_string tc =
         sprintf "Specification \"%s\"" filename
     | Query q ->
         sprintf "Query %s" (umetaterm_to_formatted_string q)
-    | Kind ids ->
-        sprintf "Kind %s type" (id_list_to_string ids)
+    | Kind (ids, knd) ->
+        sprintf "Kind %s %s" (id_list_to_string ids) (knd_to_string knd)
     | Type(ids, ty) ->
         sprintf "Type %s %s" (id_list_to_string ids) (ty_to_string ty)
     | Close ids ->

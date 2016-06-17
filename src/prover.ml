@@ -70,8 +70,8 @@ let sequent =
     next_subgoal_id = 1 ;
   }
 
-let add_global_types tys =
-  sign := add_types !sign tys
+let add_global_types tys knd =
+  sign := add_types !sign tys knd
 
 let locally_add_global_consts cs =
   let local_sr = List.fold_left Subordination.update !sr (List.map snd cs)
@@ -87,7 +87,7 @@ let add_global_consts cs =
   sign := add_consts !sign cs
 
 let close_types ids =
-  begin match List.minus ids (fst !sign) with
+  begin match List.minus ids (List.map fst (fst !sign)) with
   | [] -> ()
   | xs -> failwithf "Unknown type(s): %s" (String.concat ", " xs)
   end ;
@@ -194,10 +194,13 @@ let lookup_poly_const k =
 let get_typarams idtys =
   let rec aux_ty tyvs ty =
     match ty with
-    | Ty (argtys, targty) ->
+    | Ty (argtys, AtmTy(cty, ttys)) ->
         let tyvs = aux_tys tyvs argtys in
-        if List.mem targty (fst !sign) then tyvs
-        else Iset.add targty tyvs
+        let tyvs = aux_tys tyvs ttys in
+        if is_capital_name cty then 
+          Iset.add cty tyvs
+        else 
+          tyvs
   and aux_tys tyvs tys = List.fold_left aux_ty tyvs tys in
   idtys |> List.map snd |> aux_tys Iset.empty |> Iset.elements
 
@@ -207,7 +210,7 @@ let register_definition = function
       let ids = List.map fst idtys in
       check_noredef ids;
       let (basics, consts) = !sign in
-      let basics = typarams @ basics in
+      let basics = (List.map (fun id -> (id, Knd 0)) typarams) @ basics in
       let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
       let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
                     List.map (fun (head, body) -> {head ; body}) in
@@ -256,10 +259,12 @@ let clause_head_name cl =
   | _ -> bugf "Clause head name for invalid clause: %s" (metaterm_to_string cl.head)
 
 let rec app_ty tymap = function
-  | Ty (args, res) ->
-      let args = List.map (app_ty tymap) args in
-      let res = try Itab.find res tymap with Not_found -> tybase res in
-      tyarrow args res
+  | Ty(tys, (AtmTy(cty,args))) ->
+    let tys = (List.map (app_ty tymap) tys) in
+    let targ = 
+      try Itab.find cty tymap 
+      with Not_found -> tybase (AtmTy(cty, (List.map (app_ty tymap) args)))
+    in tyarrow tys targ
 
 let instantiate_clauses_aux =
   let fn (pn, ty_acts) def =

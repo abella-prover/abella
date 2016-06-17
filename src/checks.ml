@@ -55,8 +55,10 @@ let untyped_ensure_no_restrictions term =
 
 let rec contains_prop ty =
   match ty with
-  | Ty (argtys, targty) ->
-      targty = "prop" || List.exists contains_prop argtys
+  | Ty (argtys, AtmTy(targty, ttys)) ->
+      targty = "prop" || 
+      List.exists contains_prop argtys ||
+      List.exists contains_prop ttys
 
 type nonstrat_reason =
   | Negative_head of string

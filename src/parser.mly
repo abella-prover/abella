@@ -223,14 +223,7 @@ id:
   | TTYPE         { "Type" }
   | KKIND         { "Kind" }
 
-/* Kind in Abella */
-kknd:
-  | TTYPE
-      {Term.kind 0}
-  | TTYPE RARROW kknd
-      {Term.kincr $3}
-
-/* Kind in lambda Prolog */
+/* Kind */
 knd:
   | TYPE
       {Term.kind 0}
@@ -733,7 +726,7 @@ pure_top_command:
     { Types.Import($2, $4) }
   | SPECIFICATION QSTRING DOT
     { Types.Specification($2) }
-  | KKIND id_list kknd DOT
+  | KKIND id_list knd DOT
     { Types.Kind(List.map deloc_id $2, $3) }
   | TTYPE id_list ty DOT
     { Types.Type(List.map deloc_id $2, $3) }

@@ -852,10 +852,11 @@ let rec clausify ?(vars=[]) ?(body=[]) head =
   match observe (hnorm head) with
   | App (pi, [abs]) when is_pi pi -> begin
       match observe (hnorm abs) with
-      | Lam ([x, ty], _) ->
-          let xv = Term.const x ty in
-          let vars = (term_to_name xv, ty) :: vars in
-          clausify ~vars ~body (app abs [xv])
+      | Lam ([(x, ty)], _) ->
+         let x = fresh_name x vars in
+         let xv = const x ty in
+         let vars = (x, ty) :: vars in
+         clausify ~vars ~body (app abs [xv])
       | tm ->
           bugf "clausify: invalid pi: %s" (term_to_string tm)
     end

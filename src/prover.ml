@@ -208,31 +208,31 @@ let register_definition = function
       CDefine (flav, typarams, idtys, clauses)
   | _ -> bugf "Not a definition!"
 
-let parse_definition str =
-  Lexing.from_string str |>
-  Parser.top_command Lexer.token |>
-  register_definition
+(* let parse_definition str = *)
+(*   Lexing.from_string str |> *)
+(*   Parser.top_command Lexer.token |> *)
+(*   register_definition *)
 
-let k_member = "member"
-let member_def_compiled =
-  "Define " ^ k_member ^ " : o -> olist -> prop by\
-  \  " ^ k_member ^ " A (A :: L) ; \
-  \  " ^ k_member ^ " A (B :: L) := " ^ k_member ^ " A L." |>
-  parse_definition
+(* let k_member = "member" *)
+(* let member_def_compiled = *)
+(*   "Define " ^ k_member ^ " : o -> olist -> prop by\ *)
+(*   \  " ^ k_member ^ " A (A :: L) ; \ *)
+(*   \  " ^ k_member ^ " A (B :: L) := " ^ k_member ^ " A L." |> *)
+(*   parse_definition *)
 
-let k_fresh = "fresh_for"
-let fresh_def_compiled =
-  "Define " ^ k_fresh ^ " : A -> B -> prop by\
-  \  nabla x, " ^ k_fresh ^ " x M." |>
-  parse_definition
+(* let k_fresh = "fresh_for" *)
+(* let fresh_def_compiled = *)
+(*   "Define " ^ k_fresh ^ " : A -> B -> prop by\ *)
+(*   \  nabla x, " ^ k_fresh ^ " x M." |> *)
+(*   parse_definition *)
 
-let k_name = "is_name"
-let name_def_compiled =
-  "Define " ^ k_name ^ " : A -> prop by\
-  \  nabla x, " ^ k_name ^ " x." |>
-  parse_definition
+(* let k_name = "is_name" *)
+(* let name_def_compiled = *)
+(*   "Define " ^ k_name ^ " : A -> prop by\ *)
+(*   \  nabla x, " ^ k_name ^ " x." |> *)
+(*   parse_definition *)
 
-let () = built_ins_done := true
+(* let () = built_ins_done := true *)
 
 let term_spine t =
   match term_head t with

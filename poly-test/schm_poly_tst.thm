@@ -1,0 +1,24 @@
+Kind set type -> type.
+
+Type emp     set A.
+Type onem    A -> (set A) -> (set A).
+
+Define is_set : ((set A) -> prop) by
+  is_set emp;
+  is_set (onem X S) := is_set S.
+
+Define append : ((list A) -> (list A) -> (list A) -> prop) by
+  append nil L L;
+  append (X :: L1) L2 (X :: L3) := append L1 L2 L3.
+
+Theorem app_det[A] : forall (L1: (list A)) L2 L3 L3',
+  append L1 L2 L3 -> append L1 L2 L3' -> L3 = L3'.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H3 H4. search.
+
+
+Theorem tt : forall (L1: (list o)) L2 L3 L3',
+  append L1 L2 L3 -> append L1 L2 L3' -> false.
+intros. apply app_det[o] to H1 H2. search.
+

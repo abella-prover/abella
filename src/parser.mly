@@ -230,6 +230,13 @@ kknd:
   | TTYPE RARROW kknd
       {Term.kincr $3}
 
+/* Kind in lambda Prolog */
+knd:
+  | TYPE
+      {Term.kind 0}
+  | TYPE RARROW knd
+      {Term.kincr $3}
+
 /* Annotated ID */
 aid:
   | loc_id
@@ -318,8 +325,8 @@ sig_preamble:
   | { [] }
 
 sig_body:
-  | KIND id_list TYPE DOT sig_body
-    { Types.SKind(List.map deloc_id $2) :: $5 }
+  | KIND id_list knd DOT sig_body
+    { Types.SKind(List.map deloc_id $2, $3) :: $5 }
   | TYPE id_list ty DOT sig_body
     { Types.SType(List.map deloc_id $2, $3) :: $5 }
   | { [] }
@@ -361,7 +368,7 @@ aty:
 
 ty:
   | aty
-    { Term.tybase $1 }
+    { Term.tybase (Typing.desugar_aty $1) }
   | ty RARROW ty
     { Term.tyarrow [$1] $3 }
   | LPAREN ty RPAREN

@@ -199,8 +199,26 @@ let rec desugar_ty ty =
     let aty = desugar_aty aty in
     Ty (tys,aty)
 
+let get_typaram ty =
+  let rec aux_ty tyvs ty =
+    match ty with
+    | Ty (argtys, AtmTy(cty, ttys)) ->
+        let tyvs = aux_tys tyvs argtys in
+        let tyvs = aux_tys tyvs ttys in
+        if is_capital_name cty then 
+          Iset.add cty tyvs
+        else 
+          tyvs
+  and aux_tys tyvs tys = List.fold_left aux_ty tyvs tys in
+  Iset.elements (aux_ty Iset.empty ty)
+
+let get_typarams tys =
+  List.flatten_map get_typaram tys
+
 let add_consts sign idtys =
-  let idptys = List.map (fun (id, ty) -> (id, Poly([], desugar_ty ty))) idtys in
+  let typarams = idtys |> List.map snd |> List.map get_typaram in
+  let idptys = List.map2 
+    (fun (id, ty) params -> (id, Poly(params, ty))) idtys typarams in
   add_poly_consts sign idptys
 
 let freshen_ty (Poly(ids, ty)) =

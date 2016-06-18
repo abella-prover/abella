@@ -99,7 +99,7 @@ let teyjus_only_keywords =
    "use_sig"; "useonly"; "sigma"]
 
 let warn_on_teyjus_only_keywords (ktable, ctable) =
-  let tokens = List.unique (ktable @ List.map fst ctable) in
+  let tokens = List.unique (List.map fst ktable @ List.map fst ctable) in
   let used_keywords = List.intersect tokens teyjus_only_keywords in
   if used_keywords <> [] then
     fprintf !out
@@ -151,7 +151,7 @@ let compile citem =
 let predicates (ktable, ctable) =
   ctable |>
   List.filter_map begin fun (id, Poly (_, Ty (_, targty))) ->
-    if List.mem id [k_member ; k_fresh ; k_name] || targty = "o" then None
+    if List.mem id [k_member ; k_fresh ; k_name] || targty = AtmTy("o",[]) then None
     else Some id
   end
 
@@ -178,7 +178,7 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   let imp_ctable = List.filter begin
       fun (id, ty) ->
         match ty with
-        | Typing.Poly (_, Ty (_, "prop")) -> false
+        | Typing.Poly (_, Ty (_, AtmTy("prop",[]))) -> false
         | _ -> true
     end imp_ctable in
 
@@ -186,7 +186,7 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   let missing_types = List.minus imp_ktable ktable in
   let () = if missing_types <> [] then
       failwithf "Imported file makes reference to unknown types: %s"
-        (String.concat ", " missing_types)
+        (String.concat ", " (List.map fst missing_types))
   in
 
   (* 2. Imported ctable must be a subset of ctable *)
@@ -357,9 +357,9 @@ let import filename withs =
                 process_decls decls
             | CKind(ids, knd) ->
                 check_noredef ids ;
-                add_global_types ids ;
+                add_global_types ids knd;
                 process_decls decls
-            | CType(ids, (Ty(_, "prop") as ty)) -> begin
+            | CType(ids, (Ty(_, AtmTy("prop",[])) as ty)) -> begin
                 (* Printf.printf "Need to instantiate: %s\n%!" (String.concat ", " ids) ; *)
                 let instantiate_id decls id =
                   try begin
@@ -654,10 +654,10 @@ and process_top1 () =
   | Theorem(name, tys, thm) ->
       let tsign =
         let (basics, consts) = !sign in
-        if List.exists (fun t -> List.mem t basics) tys then
+        if List.exists (fun t -> List.mem t (List.map fst basics)) tys then
           failwithf "This basic type is already in scope: %s"
-            (List.find (fun t -> List.mem t basics) tys) ;
-        (tys @ basics, consts)
+            (List.find (fun t -> List.mem t (List.map fst basics)) tys) ;
+        (List.map (fun id -> (id,kind 0)) tys @ basics, consts)
       in
       let thm = type_umetaterm ~sr:!sr ~sign:tsign thm in
       check_theorem thm ;
@@ -711,8 +711,8 @@ and process_top1 () =
   | Query(q) -> query q
   | Kind(ids, knd) ->
       check_noredef ids;
-      add_global_types ids ;
-      compile (CKind ids)
+      add_global_types ids knd;
+      compile (CKind (ids,knd))
   | Type(ids, ty) ->
       check_noredef ids;
       add_global_consts (List.map (fun id -> (id, ty)) ids) ;

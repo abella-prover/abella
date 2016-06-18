@@ -191,22 +191,9 @@ let lookup_poly_const k =
   try let Poly (typarams, ty) = List.assoc k (snd !sign) in (typarams, ty) with
   | Not_found -> failwithf "Unknown constant: %S" k
 
-let get_typarams idtys =
-  let rec aux_ty tyvs ty =
-    match ty with
-    | Ty (argtys, AtmTy(cty, ttys)) ->
-        let tyvs = aux_tys tyvs argtys in
-        let tyvs = aux_tys tyvs ttys in
-        if is_capital_name cty then 
-          Iset.add cty tyvs
-        else 
-          tyvs
-  and aux_tys tyvs tys = List.fold_left aux_ty tyvs tys in
-  idtys |> List.map snd |> aux_tys Iset.empty |> Iset.elements
-
 let register_definition = function
   | Define (flav, idtys, udefs) ->
-      let typarams = get_typarams idtys in
+      let typarams = idtys |> List.map snd |> get_typarams in
       let ids = List.map fst idtys in
       check_noredef ids;
       let (basics, consts) = !sign in

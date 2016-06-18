@@ -191,6 +191,8 @@ let check_stratification ~def =
 
 let check_def ~def =
   Itab.iter (fun nm _ -> ensure_not_capital nm) def.mutual ;
+  if not (List.is_unique def.typarams) then
+    failwithf "Type parameters are not unique";
   List.iter begin fun {head ; body} ->
     let head_pred = def_head_name head in
     ensure_wellformed_head head ;

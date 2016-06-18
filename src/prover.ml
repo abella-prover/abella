@@ -269,29 +269,26 @@ let rec app_ty tymap = function
 let instantiate_clauses_aux =
   let fn (pn, ty_acts) def =
     let Ty (ty_exps, _) = Itab.find pn def.mutual in
-    let ty_fresh = List.fold_left begin fun fresh_sub tyvar ->
-        let tv = Term.fresh_tyvar () in
-        Itab.add tyvar tv fresh_sub
-      end Itab.empty def.typarams in
-    let ty_exps = List.map (app_ty ty_fresh) ty_exps in
+    let ty_fresh = 
+      List.map (fun id -> (id, Term.fresh_tyvar ())) def.typarams in
+    let ty_exps = List.map (apply_sub_ty ty_fresh) ty_exps in
     let eqns = List.map2 begin fun ty_exp ty_act ->
         (ty_exp, ty_act, (ghost, CArg))
       end ty_exps ty_acts in
     let tysol = unify_constraints eqns in
-    let tymap = List.fold_left begin fun tymap tyv ->
-        try begin
-          let Ty (_, tyf) = Itab.find tyv ty_fresh in
-          Itab.add tyv (List.assoc tyf tysol) tymap
-        end with Not_found -> tymap
-      end Itab.empty def.typarams in
-    (* Itab.iter begin fun v ty -> *)
-    (*   Format.eprintf "instantiating: %s <- %s@." v (ty_to_string ty) *)
-    (* end tymap ; *)
+    let tymap = List.map begin fun (id, ftyv) ->
+      match ftyv with
+      | Ty([], AtmTy (cty,[])) ->
+         let ity = 
+           try List.assoc cty tysol
+           with Not_found -> 
+             failwithf "The type parameter %s cannot be determined" id
+         in (id, ity)
+      | _ -> assert false
+    end ty_fresh in
     List.map begin fun cl ->
-      if clause_head_name cl = pn then
-        {head = map_on_tys (app_ty tymap) cl.head ;
-         body = map_on_tys (app_ty tymap) cl.body}
-      else cl
+        {head = map_on_tys (apply_sub_ty tymap) cl.head ;
+         body = map_on_tys (apply_sub_ty tymap) cl.body}
     end def.clauses
   in
   memoize fn
@@ -538,32 +535,32 @@ let add_lemma name tys lemma =
     Format.eprintf "Warning: overriding existing lemma named %S@." name ;
   H.replace lemmas name (tys, lemma)
 
-let () =
-  let a = "A" in
-  let prune_bod =
-    let l, lty = "L", olistty in
-    let e, ety = "E", tyarrow [tybase a] oty in
-    let x, xty = "x", tybase a in
-    forall [l, lty ; e, ety] begin
-      let l = const l lty in
-      let e = const e ety in
-      nabla [x, xty] begin
-        let x = const x xty in
-        let mem = pred (app (const k_member (tyarrow [oty ; olistty] propty))
-                          [app e [x] ; l]) in
-        let f, fty = "F", oty in
-        Arrow begin
-          mem,
-          exists [f, fty] begin
-            let f = const f fty in
-            let eq = Eq (e, lambda ["x", xty] f) in
-            eq
-          end
-        end
-      end
-    end in
-  (* Format.eprintf "prune_bod: %a@." format_metaterm prune_bod ; *)
-  add_lemma "prune_arg" [a] prune_bod
+(* let () = *)
+(*   let a = "A" in *)
+(*   let prune_bod = *)
+(*     let l, lty = "L", olistty in *)
+(*     let e, ety = "E", tyarrow [tybase a] oty in *)
+(*     let x, xty = "x", tybase a in *)
+(*     forall [l, lty ; e, ety] begin *)
+(*       let l = const l lty in *)
+(*       let e = const e ety in *)
+(*       nabla [x, xty] begin *)
+(*         let x = const x xty in *)
+(*         let mem = pred (app (const k_member (tyarrow [oty ; olistty] propty)) *)
+(*                           [app e [x] ; l]) in *)
+(*         let f, fty = "F", oty in *)
+(*         Arrow begin *)
+(*           mem, *)
+(*           exists [f, fty] begin *)
+(*             let f = const f fty in *)
+(*             let eq = Eq (e, lambda ["x", xty] f) in *)
+(*             eq *)
+(*           end *)
+(*         end *)
+(*       end *)
+(*     end in *)
+(*   (\* Format.eprintf "prune_bod: %a@." format_metaterm prune_bod ; *\) *)
+(*   add_lemma "prune_arg" [a] prune_bod *)
 
 let get_hyp name =
   let hyp = List.find (fun h -> h.id = name) sequent.hyps in
@@ -578,18 +575,8 @@ let get_lemma ?(tys:ty list = []) name =
   let (argtys, bod) = H.find lemmas name in
   if List.length tys <> List.length argtys then
     failwithf "Need to provide mappings for %d types" (List.length argtys) ;
-  let tysub = List.fold_left2 begin
-      fun sub oldty newty ->
-        Itab.add oldty newty sub
-    end Itab.empty argtys tys
-  in
-  let rec app_ty = function
-    | Ty (args, res) ->
-        let args = List.map app_ty args in
-        let res = try Itab.find res tysub with Not_found -> tybase res in
-        tyarrow args res
-  in
-  map_on_tys app_ty bod
+  let tysub = List.map2 (fun id ty -> (id, ty)) argtys tys in
+  map_on_tys (apply_sub_ty tysub) bod
 
 let get_hyp_or_lemma ?tys name =
   try get_hyp name with
@@ -1342,7 +1329,7 @@ let permute_nominals ids form =
       (fun id ->
          try
            List.assoc id support_alist
-         with Not_found -> nominal_var id (tybase ""))
+         with Not_found -> nominal_var id (tybase (atybase "")))
       ids
   in
   let result = Tactics.permute_nominals perm term in

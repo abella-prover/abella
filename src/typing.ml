@@ -240,12 +240,14 @@ let k_cons = "::"
 let k_nil = "nil"
 
 let pervasive_sign =
+  let aty = tybase (atybase "A") in
+  let alistty = tybase (atyapp (atybase "list") aty) in
   ([("o", Knd 0); ("list", Knd 1); ("prop", Knd 0)],
-   [("pi",     Poly(["A"], tyarrow [tyarrow [tybase (atybase "A")] oty] oty)) ;
+   [("pi",     Poly(["A"], tyarrow [tyarrow [aty] oty] oty)) ;
     ("=>",     Poly([],    tyarrow [oty; oty] oty)) ;
     ("&",      Poly([],    tyarrow [oty; oty] oty)) ;
-    (k_cons,   Poly([],    tyarrow [oty; olistty] olistty)) ;
-    (k_nil,    Poly([],    olistty)) ])
+    (k_cons,   Poly(["A"], tyarrow [aty; alistty] alistty)) ;
+    (k_nil,    Poly(["A"], alistty)) ])
 
 let sign_to_tys sign =
   List.filter_map

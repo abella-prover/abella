@@ -3,6 +3,7 @@ open Metaterm
 open Extensions
 open Typing
 open Accumulate
+open Abella_types
 
 (* We make use of the global prover signature 'sign' to simply testing *)
 open Prover
@@ -35,7 +36,7 @@ let parse_udefs str =
 
 let parse_defs str =
   type_udefs ~sr:!sr ~sign:!sign (parse_udefs str) |>
-  List.map (fun (head, body) -> Abella_types.{head; body})
+  List.map (fun (head, body) -> ({head = head; body = body}))
 
 let eval_sig_string = "\
   kind      tm        type.\

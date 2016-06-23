@@ -245,13 +245,13 @@ let clause_head_name cl =
       term_head_name p
   | _ -> bugf "Clause head name for invalid clause: %s" (metaterm_to_string cl.head)
 
-let rec app_ty tymap = function
-  | Ty(tys, (AtmTy(cty,args))) ->
-    let tys = (List.map (app_ty tymap) tys) in
-    let targ = 
-      try Itab.find cty tymap 
-      with Not_found -> tybase (AtmTy(cty, (List.map (app_ty tymap) args)))
-    in tyarrow tys targ
+(* let rec app_ty tymap = function *)
+(*   | Ty(tys, (AtmTy(cty,args))) -> *)
+(*     let tys = (List.map (app_ty tymap) tys) in *)
+(*     let targ =  *)
+(*       try Itab.find cty tymap  *)
+(*       with Not_found -> tybase (AtmTy(cty, (List.map (app_ty tymap) args))) *)
+(*     in tyarrow tys targ *)
 
 let instantiate_clauses_aux =
   let fn (pn, ty_acts) def =

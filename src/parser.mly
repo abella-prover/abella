@@ -175,53 +175,6 @@ loc_id:
 
 id:
   | STRINGID      { $1 }
-  | IND           { "induction" }
-  | INST          { "inst" }
-  | APPLY         { "apply" }
-  | BACKCHAIN     { "backchain" }
-  | CASE          { "case" }
-  | SEARCH        { "search" }
-  | TO            { "to" }
-  | ON            { "on" }
-  | BY            { "by" }
-  | AS            { "as" }
-  | WITH          { "with" }
-  | INTROS        { "intros" }
-  | CUT           { "cut" }
-  | FROM          { "from" }
-  | ASSERT        { "assert" }
-  | PICK          { "pick" }
-  | SKIP          { "skip" }
-  | WITNESS       { "witness" }
-  | UNDO          { "undo" }
-  | ABORT         { "abort" }
-  | COIND         { "coinduction" }
-  | LEFT          { "left" }
-  | RIGHT         { "right" }
-  | MONOTONE      { "monotone" }
-  | SPLIT         { "split" }
-  | UNFOLD        { "unfold" }
-  | ALL           { "all" }
-  | KEEP          { "keep" }
-  | CLEAR         { "clear" }
-  | ABBREV        { "abbrev" }
-  | UNABBREV      { "unabbrev" }
-  | RENAME        { "rename" }
-  | PERMUTE       { "permute" }
-  | THEOREM       { "Theorem" }
-  | IMPORT        { "Import" }
-  | SPECIFICATION { "Specification" }
-  | DEFINE        { "Define" }
-  | SCHEMA        { "Schema" }
-  | CODEFINE      { "CoDefine" }
-  | SET           { "Set" }
-  | SHOW          { "Show" }
-  | QUIT          { "Quit" }
-  | QUERY         { "Query" }
-  | SSPLIT        { "Split" }
-  | CLOSE         { "Close" }
-  | TTYPE         { "Type" }
-  | KKIND         { "Kind" }
 
 /* Kind */
 knd:
@@ -353,10 +306,16 @@ id_list:
   | loc_id COMMA id_list
     { $1::$3}
 
+pty:
+  | id
+    {Term.tybase (Term.atybase $1)}
+  | LPAREN ty RPAREN
+    {$2}
+
 aty:
   | id
     { Term.atybase $1}
-  | aty ty
+  | aty pty
     { Term.atyapp $1 $2 }
 
 ty:

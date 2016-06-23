@@ -967,7 +967,7 @@ let case_tests =
 
       "On flex-rigid: R N = plus A B" >::
         (fun () ->
-           let tm = tybase "tm" in
+           let tm = tybase (atybase "tm") in
            let r = var Eigen "R" 0 (tyarrow [tm] tm) in
            let n = var Eigen "N" 0 tm in
            let a = var Eigen "A" 0 tm in

@@ -190,4 +190,4 @@ val extract_amp : term -> term * term
 
 val is_pi : term -> bool
 val extract_pi : term -> term
-val replace_pi_with_const : term -> tyctx * term
+

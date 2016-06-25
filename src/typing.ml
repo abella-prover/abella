@@ -510,8 +510,7 @@ let type_uclause ~sr ~sign (cname, head, body) =
   in
   let pi_form = get_pi_form cids imp_form in
   let result = type_uterm ~sr ~sign ~ctx:[] pi_form in
-  let _,cls = replace_pi_with_const result in
-  let _ = check_pi_quantification [cls] in
+  let _ = check_pi_quantification [result] in
   begin match cname with
   | None -> ()
   | Some cname ->

@@ -675,12 +675,15 @@ and unify_app_term tyctx h1 a1 t1 t2 =
         end
     | DB n1, App (h2,a2) ->
         begin match observe h2 with
-          | DB n2 when n1 == n1 ->
+          | DB n2 when n1 == n2 ->
               unify_list tyctx a1 a2
           | Var v when variable v.tag ->
               let m = List.length a2 in
                 bind h2 (makesubst tyctx h2 t1 a2 m)
-          | _ -> fail (ConstClash (h1,h2))
+          | Var v when constant v.tag -> fail (ConstClash (h1,h2))
+          | Var v when not (variable v.tag || constant v.tag) ->
+              bugf "logic variable on the left (5)"
+          | _ -> assert false
         end
     | Lam _, _ | _, Lam _
     | Ptr _, _ | _, Ptr _

@@ -176,6 +176,10 @@ loc_id:
 id:
   | STRINGID      { $1 }
 
+flags:
+  | STRINGID {$1}
+  | ON {"on"}
+
 /* Kind */
 knd:
   | TYPE
@@ -703,7 +707,7 @@ import_withs:
     { ($1, $3) :: $5 }
 
 common_command:
-  | SET id id DOT
+  | SET id flags DOT
     { Types.Set($2, Types.Str $3) }
   | SET id NUM DOT
     { Types.Set($2, Types.Int $3) }

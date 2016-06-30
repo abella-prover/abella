@@ -175,10 +175,52 @@ loc_id:
 
 id:
   | STRINGID      { $1 }
-
-flags:
-  | STRINGID {$1}
-  | ON {"on"}
+  | IND           { "induction" }
+  | INST          { "inst" }
+  | APPLY         { "apply" }
+  | BACKCHAIN     { "backchain" }
+  | CASE          { "case" }
+  | SEARCH        { "search" }
+  | TO            { "to" }
+  | ON            { "on" }
+  | AS            { "as" }
+  | WITH          { "with" }
+  | INTROS        { "intros" }
+  | CUT           { "cut" }
+  | FROM          { "from" }
+  | ASSERT        { "assert" }
+  | PICK          { "pick" }
+  | SKIP          { "skip" }
+  | WITNESS       { "witness" }
+  | UNDO          { "undo" }
+  | ABORT         { "abort" }
+  | COIND         { "coinduction" }
+  | LEFT          { "left" }
+  | RIGHT         { "right" }
+  | MONOTONE      { "monotone" }
+  | SPLIT         { "split" }
+  | UNFOLD        { "unfold" }
+  | ALL           { "all" }
+  | KEEP          { "keep" }
+  | CLEAR         { "clear" }
+  | ABBREV        { "abbrev" }
+  | UNABBREV      { "unabbrev" }
+  | RENAME        { "rename" }
+  | PERMUTE       { "permute" }
+  | THEOREM       { "Theorem" }
+  | IMPORT        { "Import" }
+  | SPECIFICATION { "Specification" }
+  | DEFINE        { "Define" }
+  | SCHEMA        { "Schema" }
+  | CODEFINE      { "CoDefine" }
+  | SET           { "Set" }
+  | SHOW          { "Show" }
+  | QUIT          { "Quit" }
+  | QUERY         { "Query" }
+  | SSPLIT        { "Split" }
+  | CLOSE         { "Close" }
+  | TTYPE         { "Type" }
+  | KKIND         { "Kind" }
 
 /* Kind */
 knd:
@@ -707,7 +749,7 @@ import_withs:
     { ($1, $3) :: $5 }
 
 common_command:
-  | SET id flags DOT
+  | SET id id DOT
     { Types.Set($2, Types.Str $3) }
   | SET id NUM DOT
     { Types.Set($2, Types.Int $3) }

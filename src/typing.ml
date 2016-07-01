@@ -267,6 +267,8 @@ type constraint_type = CFun | CArg
 type constraint_info = pos * constraint_type
 type constraints = (expected * actual * constraint_info) list
 exception TypeInferenceFailure of constraint_info * expected * actual
+type error_info = InstGenericVar of string
+exception TypeInferenceError of error_info
 
 let infer_type_and_constraints ~sign tyctx t =
   let eqns = ref [] in
@@ -373,9 +375,14 @@ let apply_bind_constraints v ty eqns =
 let apply_bind_sub v ty sub =
   List.map (fun (x,y) -> (x, apply_bind_ty v ty y)) sub
 
-let unify_constraints eqns =
+let unify_constraints ?(gen_vars=[]) eqns =
   let add_sub v vty s =
     (v, vty) :: (apply_bind_sub v vty s)
+  in
+
+  (* check if the variable is a genric type variable
+     which cannot be instantiated *)
+  let is_gen_var v = List.mem v gen_vars
   in
 
   (* Unify a single constraint and call fail on failure *)
@@ -399,6 +406,16 @@ let unify_constraints eqns =
           fail s
         else
           add_sub cty ty1 s
+      )
+    | Ty([], AtmTy(cty,args)), _ when is_gen_var cty ->
+      (
+        assert (args = []);
+        raise (TypeInferenceError (InstGenericVar cty))
+      )
+    | _, Ty([], AtmTy(cty,args)) when is_gen_var cty ->
+      (
+        assert (args = []);
+        raise (TypeInferenceError (InstGenericVar cty))
       )
     | Ty([], AtmTy(cty1,args1)), Ty([], AtmTy(cty2,args2)) 
       when cty1 = cty2 && List.length args1 = List.length args2 ->

@@ -689,6 +689,21 @@ let fresh_tyvar =
       incr count ;
       tyvar (string_of_int !count)
 
+let rec contain_ty_vars gen_vars ty =
+  match ty with
+  | Ty (tys, (AtmTy (cty, args))) ->
+    is_tyvar cty || List.mem cty gen_vars ||
+    List.exists (contain_ty_vars gen_vars) tys ||
+    List.exists (contain_ty_vars gen_vars) args
+
+let is_poly_term gen_vars t =
+  let vars = 
+    select_var_refs (fun v -> true) [t]
+    |> List.unique
+    |> List.map term_to_var
+  in
+  List.exists (fun v -> contain_ty_vars gen_vars v.ty) vars
+
 
 let is_imp t = is_head_name "=>" t
 

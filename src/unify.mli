@@ -34,6 +34,7 @@ exception UnifyFailure of unify_failure
 
 type unify_error =
   | NotLLambda
+  | InstGenericVar of string
 
 val explain_error : unify_error -> string
 

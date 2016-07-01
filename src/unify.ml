@@ -51,9 +51,14 @@ let fail f = raise (UnifyFailure f)
 
 type unify_error =
   | NotLLambda
+  | InstGenericVar of string
 
 let explain_error = function
   | NotLLambda -> "Unification incompleteness (non-pattern unification problem)"
+  | InstGenericVar v -> 
+    Printf.sprintf 
+      "Unification incompleteness (generic type variable %s cannot be instantiated)"
+      v
 
 exception UnifyError of unify_error
 
@@ -72,6 +77,7 @@ struct
 open P
 
 let local_used = ref []
+let poly_unif = ref false  (* set to true when unifying polymorphic terms *) 
 
 let named_fresh name ts ty =
   let (v, new_used) = fresh_wrt ~ts instantiatable name ty !local_used in
@@ -749,12 +755,16 @@ and unify tyctx t1 t2 =
     | _ -> bugf "logic variable on the left (7)"
   with
     | UnifyError NotLLambda ->
-        let n = max (closing_depth t1) (closing_depth t2) in
-        let tys = List.rev (List.take n tyctx) in
+        if (!poly_unif) then
+          raise (UnifyError NotLLambda)
+        else 
+          let n = max (closing_depth t1) (closing_depth t2) in
+          let tys = List.rev (List.take n tyctx) in
           handler (lambda tys t1) (lambda tys t2)
 
 let pattern_unify ~used t1 t2 =
   local_used := used ;
+  poly_unif := is_poly_term [] t1 || is_poly_term [] t2 ;
   unify [] (hnorm t1) (hnorm t2)
 
 (* Given Lam(tys1, App(h1, a1)) and Lam(tys2, App(h2, a2))
@@ -875,7 +885,7 @@ let try_left_unify ?used:(used=[]) t1 t2 =
        left_unify ~used t1 t2 ;
        true)
 
-let try_left_unify_cpairs ~used t1 t2 =
+let try_left_unify_cpairs ~used ?(gen_vars=[]) t1 t2 =
   let state = get_scoped_bind_state () in
   let cpairs = ref [] in
   let cpairs_handler x y = cpairs := (x,y)::!cpairs in

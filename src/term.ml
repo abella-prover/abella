@@ -371,20 +371,31 @@ let get_used ts =
   |> List.rev
   |> List.unique
   |> List.map (fun t -> ((term_to_var t).name, t))
-
+       
 (* apply f to types in a term *)
-let fold_term_tys f t =
+let iter_term_tys f t =
   let rec aux t =
     match observe (hnorm t) with
     | Var v -> f v.ty
     | DB i -> ()
     | App(h, args) -> aux h ; List.iter aux args
     | Lam(tys, body) -> 
-       List.exists (fun (id,ty) -> f ty) tys ;
-         aux body
+       List.iter (fun (id,ty) -> f ty) tys ; aux body
     | _ -> assert false
   in
   aux t
+
+let map_on_term_tys f t =
+  let rec taux t = match observe (hnorm t) with
+  | Var v -> var v.tag v.name v.ts (f v.ty)
+  | DB _ as t -> t
+  | Lam (cx, t) -> lambda (List.map baux cx) (taux t)
+  | App (f, ts) -> app (taux f) (List.map taux ts)
+  | Ptr _ | Susp _ -> assert false
+  and baux (v, ty) = (v, f ty) 
+  in
+  taux t
+
 
 (* Pretty printing *)
 
@@ -694,6 +705,9 @@ let rec tc (tyctx:tyctx) t =
 let is_tyvar str = 
   str.[0] = '?'
 
+let is_gen_tyvar str =
+  str.[0] = '#'
+
 let tyvar str =
   tybase (atybase ("?" ^ str))
 
@@ -702,6 +716,18 @@ let fresh_tyvar =
     fun () ->
       incr count ;
       tyvar (string_of_int !count)
+
+let tag_gen_tyvar str = "#" ^ str
+
+let rec mark_gen_tyvar gen_tyvars ty =
+  let aux = mark_gen_tyvar gen_tyvars in
+  match ty with
+  | Ty (tys, AtmTy(cty, args)) ->
+     let tys' = List.map aux tys in
+     let args' = List.map aux args in
+     let cty' = if List.mem cty gen_tyvars 
+       then tag_gen_tyvar cty else cty in
+     Ty (tys', AtmTy(cty', args'))
 
 
 let is_imp t = is_head_name "=>" t

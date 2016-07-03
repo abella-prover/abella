@@ -23,7 +23,7 @@
 (** Higher Order Pattern Unification *)
 
 open Term
-open Typing
+(* open Typing *)
 open Extensions
 
 (* generate ids for n binders *)
@@ -61,6 +61,9 @@ let explain_error = function
     Printf.sprintf 
       "Unification incompleteness (generic type variable %s cannot be instantiated)"
       v
+  | TypesNotFullyInferred ->
+      "Types cannot be fully inferred by unification"
+
 
 exception UnifyError of unify_error
 
@@ -81,16 +84,14 @@ open P
 let local_used = ref []
 (* set to true when unifying polymorphic terms *) 
 let poly_unif = ref false 
-(* generic type variables that cannot be instantiated *)
-let gen_tyvars = ref []
 (* type substitutions accumulated during the unification *)
 let tysub = ref []
 
 let get_tysub = !tysub
 
 let unify_type ty1 ty2 =
-  let ty1 = apply_sub_ty (!tysub) ty1 in
-  let ty2 = apply_sub_ty (!tysub) ty2 in
+  let ty1 = Typing.apply_sub_ty (!tysub) ty1 in
+  let ty2 = Typing.apply_sub_ty (!tysub) ty2 in
   let add_tysub sub1 sub2 =
     let sub2' = 
       List.fold_left begin
@@ -100,8 +101,7 @@ let unify_type ty1 ty2 =
     sub1 @ sub2'
   in
   try
-    let sub = unify_constraints ~gen_tyvars:(!gen_tyvars) 
-      [(ty1, ty2, (ghost, CArg))] in
+    let sub = unify_constraints [(ty1, ty2, (ghost, CArg))] in
     tysub := add_tysub sub (!tysub);
     true
   with
@@ -712,7 +712,7 @@ and unify_app_term tyctx h1 a1 t1 t2 =
                      being unified are polymorphic then try to identify the two
                      constants by unifying their types *)
                   if not (unify_type v1.ty v2.ty) then
-                    fail (ConstClash (h1, h2);
+                    fail (ConstClash (h1, h2));
                 unify_list tyctx a1 a2
               end
               else
@@ -811,10 +811,9 @@ and unify tyctx t1 t2 =
           let tys = List.rev (List.take n tyctx) in
           handler (lambda tys t1) (lambda tys t2)
 
-let pattern_unify ~used ~gtyvars t1 t2 =
+let pattern_unify ~used t1 t2 =
   local_used := used ;
-  poly_unif := is_poly_term gen_tyvars t1 || is_poly_term gen_tyvars t2 ;
-  gen_tyvars := gtyvars ;
+  poly_unif := is_poly_term t1 || is_poly_term t2 ;
   tysub := [] ;
   unify [] (hnorm t1) (hnorm t2) ;
   if term_contains_tyvar t1 || term_contains_tyvar t2 then
@@ -919,11 +918,11 @@ module Left =
           let handler = standard_handler
         end)
 
-let right_unify ?used:(used=[]) ~gen_tyvars t1 t2 =
-  Right.pattern_unify ~used ~gtyvars:gen_tyvars t1 t2
+let right_unify ?used:(used=[]) t1 t2 =
+  Right.pattern_unify ~used t1 t2
 
-let left_unify ?used:(used=[]) ~gen_tyvars t1 t2 =
-  Left.pattern_unify ~used ~gtyvars:gen_tyvars t1 t2
+let left_unify ?used:(used=[]) t1 t2 =
+  Left.pattern_unify ~used t1 t2
 
 let try_with_state ~fail f =
   let state = get_scoped_bind_state () in
@@ -932,19 +931,19 @@ let try_with_state ~fail f =
     with
       | UnifyFailure _ | UnifyError _ -> set_scoped_bind_state state ; fail
 
-let try_right_unify ?used:(used=[]) ~gen_tyvars t1 t2 =
+let try_right_unify ?used:(used=[]) t1 t2 =
   try_with_state ~fail:false
     (fun () ->
-       right_unify ~used ~gen_tyvars t1 t2 ;
+       right_unify ~used  t1 t2 ;
        true)
 
-let try_left_unify ?used:(used=[]) ~gen_tyvars t1 t2 =
+let try_left_unify ?used:(used=[]) t1 t2 =
   try_with_state ~fail:false
     (fun () ->
-       left_unify ~used ~gen_tyvars t1 t2 ;
+       left_unify ~used  t1 t2 ;
        true)
 
-let try_left_unify_cpairs ~used ~gen_tyvars t1 t2 =
+let try_left_unify_cpairs ~used t1 t2 =
   let state = get_scoped_bind_state () in
   let cpairs = ref [] in
   let cpairs_handler x y = cpairs := (x,y)::!cpairs in
@@ -969,12 +968,12 @@ let try_left_unify_cpairs ~used ~gen_tyvars t1 t2 =
             | InstGenericVar v ->
                Printf.sprintf "the generic type variable %s cannot be instantiated" v
             | TypesNotFullyInferred ->
-               "Type variables cannot be fully determined by unification"
+               "Types cannot be fully determined by unification"
           end
         in
           failwith msg
 
-let try_right_unify_cpairs ~gen_tyvars t1 t2 =
+let try_right_unify_cpairs t1 t2 =
   try_with_state ~fail:None
     (fun () ->
        let cpairs = ref [] in

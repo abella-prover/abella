@@ -189,11 +189,17 @@ val nominal_tids : term list -> (id * ty) list
 val all_tids : term list -> (id * ty) list
 
 val iter_term_tys : (ty -> unit) -> term -> unit
+val map_on_term_tys : (ty -> ty) -> term -> term
+
 val tc : tyctx -> term -> ty
 
 val tyvar : string -> ty
 val is_tyvar : string -> bool
+val is_gen_tyvar : string -> bool
 val fresh_tyvar : unit -> ty
+
+val mark_gen_tyvar : string list -> ty -> ty
+val tag_gen_tyvar : string -> string
 
 val is_imp : term -> bool
 val extract_imp : term -> term * term

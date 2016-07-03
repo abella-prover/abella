@@ -1,6 +1,7 @@
 open Term
 
 type pos = Lexing.position * Lexing.position
+let ghost : pos = (Lexing.dummy_pos, Lexing.dummy_pos)
 
 type expected = ty
 type actual = ty
@@ -12,14 +13,24 @@ exception TypeInferenceFailure of constraint_info * expected * actual
 type error_info = InstGenericTyvar of string
 exception TypeInferenceError of error_info
 
+let position_range (p1, p2) =
+  let file = p1.Lexing.pos_fname in
+  let line = p1.Lexing.pos_lnum in
+  let char1 = p1.Lexing.pos_cnum - p1.Lexing.pos_bol in
+  let char2 = p2.Lexing.pos_cnum - p1.Lexing.pos_bol in
+  if file = "" then
+    ""
+  else
+    Printf.sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
+
 let type_inference_error (pos, ct) exp act =
-  Printf.fprintf !Printf.out "Typing error%s.\n%!" (position_range pos) ;
+  Printf.printf "Typing error%s.\n%!" (position_range pos) ;
   match ct with
   | CArg ->
-      eprintf "Expression has type %s but is used here with type %s\n%!"
+      Printf.eprintf "Expression has type %s but is used here with type %s\n%!"
         (ty_to_string act) (ty_to_string exp)
   | CFun ->
-      eprintf "Expression is applied to too many arguments\n%!"
+      Printf.eprintf "Expression is applied to too many arguments\n%!"
 
 let rec occurs v = function
   | Ty(tys, AtmTy(cty,args)) ->

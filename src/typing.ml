@@ -31,7 +31,6 @@ type uterm =
   | ULam of pos * string * ty * uterm
   | UApp of pos * uterm * uterm
 
-let ghost : pos = (Lexing.dummy_pos, Lexing.dummy_pos)
 let rec forget_term ?(cx=[]) t =
   match observe (hnorm t) with
   | Var v -> UCon (ghost, v.name, v.ty)
@@ -285,53 +284,6 @@ let constraints_to_string eqns =
     (ty_to_string ty1) ^ " = " ^ (ty_to_string ty2)
   in
   String.concat "\n" (List.map aux eqns)
-
-let rec contains_tyvar = function
-  | Ty(tys, AtmTy(cty, args)) ->
-      is_tyvar cty || 
-      List.exists contains_tyvar tys ||
-      List.exists contains_tyvar args
-
-let rec contains_gen_tyvar ty =
-  match ty with
-  | Ty (tys, (AtmTy (cty, args))) ->
-    is_gen_tyvar cty ||
-    List.exists contains_gen_tyvar tys ||
-    List.exists contains_gen_tyvar args
-
-let term_contains_tyvar t =
-  let has_tyvar = ref false in
-  let f ty = 
-    has_tyvar := !has_tyvar || contains_tyvar ty
-  in
-  iter_term_tys f t;
-  !has_tyvar
-
-let term_contains_gen_tyvar t =
-  let has_gen_tyvar = ref false in
-  let f ty = 
-    has_gen_tyvar := !has_gen_tyvar || 
-      contains_gen_tyvar ty
-  in
-  iter_term_tys f t;
-  !has_gen_tyvar
-  
-let is_poly_term t =
-  term_contains_tyvar t || term_contains_gen_tyvar t
-
-let is_ground_tysub sub =
-  not (List.exists (fun (id,ty) -> contains_tyvar ty) sub)
-
-let inst_poly_term sub t =
-  map_on_term_tys (apply_sub_ty sub) t
-    
-let term_fully_instantiated t =
-  let insted = ref true in
-  let f ty =
-    insted := !insted && not (contains_tyvar ty)
-  in
-  iter_term_tys f t;
-  !insted
   
 let tid_ensure_fully_inferred ~sign (id, ty) =
   if contains_tyvar ty then

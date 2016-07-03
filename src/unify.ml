@@ -90,12 +90,12 @@ let tysub = ref []
 let get_tysub = !tysub
 
 let unify_type ty1 ty2 =
-  let ty1 = Typing.apply_sub_ty (!tysub) ty1 in
-  let ty2 = Typing.apply_sub_ty (!tysub) ty2 in
+  let ty1 = apply_sub_ty (!tysub) ty1 in
+  let ty2 = apply_sub_ty (!tysub) ty2 in
   let add_tysub sub1 sub2 =
     let sub2' = 
       List.fold_left begin
-        fun s (v,ty) -> apply_bind_sub v vty s
+        fun s (v,ty) -> apply_bind_sub v ty s
       end sub2 sub1
     in
     sub1 @ sub2'
@@ -107,7 +107,7 @@ let unify_type ty1 ty2 =
   with
   | TypeInferenceFailure _ -> false
   | TypeInferenceError (InstGenericTyvar v) ->
-     raise UnifyError (InstGenericVar v)
+     raise (UnifyError (InstGenericVar v))
 
 let named_fresh name ts ty =
   let (v, new_used) = fresh_wrt ~ts instantiatable name ty !local_used in
@@ -955,7 +955,7 @@ let try_left_unify_cpairs ~used t1 t2 =
           end)
   in
     try
-      LeftCpairs.pattern_unify ~used ~gtyvars:gen_tyvars t1 t2 ;
+      LeftCpairs.pattern_unify ~used t1 t2 ;
       Some !cpairs
     with
       | UnifyFailure _ -> set_scoped_bind_state state ; None
@@ -985,7 +985,7 @@ let try_right_unify_cpairs t1 t2 =
                  let handler = cpairs_handler
                end)
        in
-         RightCpairs.pattern_unify ~used:[] ~gtyvars:gen_tyvars t1 t2 ;
+         RightCpairs.pattern_unify ~used:[] t1 t2 ;
          Some !cpairs)
 
 let left_flexible_heads = Left.flexible_heads

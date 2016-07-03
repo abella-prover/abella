@@ -20,6 +20,7 @@
 (****************************************************************************)
 
 open Term
+open Unifyty
 open Metaterm
 open Prover
 open Checks
@@ -28,7 +29,7 @@ open Typing
 open Extensions
 open Printf
 open Accumulate
-open Unifyty
+
 
 let load_path = State.rref (Sys.getcwd ())
 

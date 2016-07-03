@@ -20,6 +20,7 @@
 (****************************************************************************)
 
 open Term
+open Unifyty
 open Typing
 open Metaterm
 open Format

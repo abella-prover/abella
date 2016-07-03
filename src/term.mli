@@ -201,6 +201,12 @@ val fresh_tyvar : unit -> ty
 val mark_gen_tyvar : string list -> ty -> ty
 val tag_gen_tyvar : string -> string
 
+val contains_tyvar : ty -> bool 
+val contains_gen_tyvar : ty -> bool
+val term_contains_tyvar : term -> bool
+val term_contains_gen_tyvar : term -> bool
+val is_poly_term : term -> bool
+
 (* Type substitutions *)
 type tysub = (string * ty) list
 
@@ -208,6 +214,10 @@ val apply_bind_ty : string -> ty -> ty -> ty
 val apply_sub_ty : tysub -> ty -> ty
 val apply_bind_sub : string -> ty -> tysub -> tysub
 
+val is_ground_tysub : tysub -> bool
+val inst_poly_term : tysub -> term -> term
+val term_fully_instantiated : term -> bool
+    
 (* Manipulation of clauses *)
 val is_imp : term -> bool
 val extract_imp : term -> term * term

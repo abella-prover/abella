@@ -12,6 +12,8 @@ Theorem tt : forall (L1: list o) L2 L3 L3',
   append L1 L2 L3 -> append L1 L2 L3' -> L3 = L3'.
 intros. apply app_det[o] to H1 H2. search.
 
+%% Do not support types with a variable as its target
+% Type fst,snd   list A -> A.
 Type p   A -> o.
 
 Theorem inst_gen_var[A,B] : forall (X:A) (Y:B),

@@ -148,10 +148,22 @@ let kind_check (ktable,ctable) (Poly(ids, ty)) =
   kind_check_poly (vknds@ktable,ctable) ty
 
 let check_const (ktable, ctable) (id, pty) =
+  let targ_ty_not_var tyvars ty =
+    match ty with
+    | Ty(tys, AtmTy(cty, args)) ->
+       if List.mem cty tyvars then
+         let msg = 
+           Printf.sprintf "Invalid type %s: target type cannot be a type variable" 
+             (ty_to_string ty)
+         in
+         failwith msg
+  in
+  match pty with
+  | Poly(ids, ty) -> targ_ty_not_var ids ty;
   begin try
     let pty' = List.assoc id ctable in
     if pty <> pty' then
-      failwithf "Constant %s has inconsistent type declarations" id
+      failwithf "Constant %s has inconsistent type declarations" id;
   with
   | Not_found -> ()
   end ;

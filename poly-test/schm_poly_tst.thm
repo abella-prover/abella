@@ -1,19 +1,3 @@
-Kind set type -> type.
-
-Type emp     set A.
-Type onem    A -> set A -> set A.
-
-
-Type pp      set A -> ((set A) -> (set B)) -> set (A -> B).
-
-Define lol : set (A -> B) -> prop by
-  lol (pp X Y).
-
-
-Define is_set : set A -> prop by
-  is_set emp;
-  is_set (onem X S) := is_set S.
-
 Define append : list A -> list A -> list A -> prop by
   append nil L L;
   append (X :: L1) L2 (X :: L3) := append L1 L2 L3.
@@ -24,8 +8,26 @@ induction on 1. intros. case H1.
   case H2. search.
   case H2. apply IH to H3 H4. search.
 
-
 Theorem tt : forall (L1: list o) L2 L3 L3',
-  append L1 L2 L3 -> append L1 L2 L3' -> false.
+  append L1 L2 L3 -> append L1 L2 L3' -> L3 = L3'.
 intros. apply app_det[o] to H1 H2. search.
 
+Type p   A -> o.
+
+Theorem inst_gen_var[A,B] : forall (X:A) (Y:B),
+  p X = p Y -> false.
+intros. 
+  %% The following case analysis should report an error that
+  %% generic type variables cannot be instantiated
+  % case H1.
+  skip.
+
+Theorem member_prune[A,B] : forall M (L:list A), nabla (x:B),
+  member (M x) L -> exists M', M = y\M'.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem olist_mem_prune : forall M (L:list o), nabla (x:o),
+  member (M x) L -> exists M', M = y\M'.
+intros. apply member_prune[o,o] to H1. search.

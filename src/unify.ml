@@ -966,7 +966,8 @@ let try_left_unify_cpairs ~used t1 t2 =
             | NotLLambda -> 
                "encountered non-pattern unification problem"
             | InstGenericVar v ->
-               Printf.sprintf "the generic type variable %s cannot be instantiated" v
+               Printf.sprintf "the generic type variable %s cannot be instantiated" 
+                 (name_of_gen_tyvar v)
             | TypesNotFullyInferred ->
                "Types cannot be fully determined by unification"
           end

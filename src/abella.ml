@@ -541,7 +541,8 @@ let rec process1 () =
   | TypeInferenceError (InstGenericTyvar v) ->
       State.Undo.undo () ;
       eprintf "%s\n" 
-        (Printf.sprintf "The generic type variable %s cannot be instantiated" v) ;
+        (Printf.sprintf "The generic type variable %s cannot be instantiated" 
+           (name_of_gen_tyvar v)) ;
       interactive_or_exit ()      
   | End_of_file ->
       write_compilation () ;
@@ -660,9 +661,10 @@ and process_top1 () =
       let thm = type_umetaterm ~sr:!sr ~sign:tsign thm in
       (* mark the generic type variables in the theorem *)
       let thm = map_on_tys (mark_gen_tyvar tys) thm in
+      let tys = List.map tag_gen_tyvar tys in
       let tsign = 
         let (basics, consts) = !sign in
-        (List.map (fun id -> (tag_gen_tyvar id,kind 0)) tys @ basics, consts)
+        (List.map (fun id -> (id,kind 0)) tys @ basics, consts)
       in
       check_theorem thm ;
       theorem thm ;

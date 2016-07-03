@@ -197,6 +197,7 @@ val tyvar : string -> ty
 val is_tyvar : string -> bool
 val is_gen_tyvar : string -> bool
 val fresh_tyvar : unit -> ty
+val name_of_gen_tyvar : string -> string
 
 val mark_gen_tyvar : string list -> ty -> ty
 val tag_gen_tyvar : string -> string

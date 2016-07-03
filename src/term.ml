@@ -708,6 +708,11 @@ let is_tyvar str =
 let is_gen_tyvar str =
   str.[0] = '#'
 
+let name_of_gen_tyvar str = 
+  assert (is_gen_tyvar str);
+  let len = String.length str in
+  String.sub str 1 (len-1)
+
 let tyvar str =
   tybase (atybase ("?" ^ str))
 

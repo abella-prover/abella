@@ -730,6 +730,26 @@ let rec mark_gen_tyvar gen_tyvars ty =
      Ty (tys', AtmTy(cty', args'))
 
 
+(** Type substitutions *)
+type tysub = (string * ty) list
+
+let rec apply_bind_ty v ty = function
+  | Ty(tys, (AtmTy(cty,args))) ->
+    let tys = (List.map (apply_bind_ty v ty) tys) in
+    let targ = 
+      if v = cty then
+        (assert (args = []); ty)
+      else
+        tybase (AtmTy(cty, (List.map (apply_bind_ty v ty) args)))
+    in tyarrow tys targ
+
+let apply_sub_ty s ty =
+  List.fold_left (fun ty (v,vty) -> apply_bind_ty v vty ty) ty s
+
+let apply_bind_sub v ty sub =
+  List.map (fun (x,y) -> (x, apply_bind_ty v ty y)) sub
+
+(* Manipulation of clauses *)
 let is_imp t = is_head_name "=>" t
 
 let extract_imp t =

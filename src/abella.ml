@@ -28,6 +28,7 @@ open Typing
 open Extensions
 open Printf
 open Accumulate
+open Unifyty
 
 let load_path = State.rref (Sys.getcwd ())
 
@@ -83,15 +84,6 @@ let position_range (p1, p2) =
     ""
   else
     sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
-
-let type_inference_error (pos, ct) exp act =
-  fprintf !out "Typing error%s.\n%!" (position_range pos) ;
-  match ct with
-  | CArg ->
-      eprintf "Expression has type %s but is used here with type %s\n%!"
-        (ty_to_string act) (ty_to_string exp)
-  | CFun ->
-      eprintf "Expression is applied to too many arguments\n%!"
 
 let teyjus_only_keywords =
   ["closed"; "exportdef"; "import"; "infix"; "infixl"; "infixr"; "local";

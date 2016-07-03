@@ -30,7 +30,7 @@ let type_block bl =
       eqns := snd (Typing.infer_type_and_constraints ~sign:esign tyctx elem) @ !eqns
     end rel
   end bl.bl_rel ;
-  let sub = Typing.unify_constraints !eqns in
+  let sub = Unifyty.unify_constraints !eqns in
   let bl_exists = Typing.apply_sub_tyctx sub bl.bl_exists in
   let bl_nabla = Typing.apply_sub_tyctx sub bl.bl_nabla in
   List.iter (Typing.tid_ensure_fully_inferred ~sign:!sign) bl_exists ;

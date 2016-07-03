@@ -24,3 +24,4 @@ src/version.ml
 abella
 _build
 examples/examples.tar.gz
+*~

@@ -22,11 +22,9 @@
 open Term
 open Metaterm
 open Extensions
-
+open Unifyty
 
 (** Untyped terms *)
-
-type pos = Lexing.position * Lexing.position
 
 type uterm =
   | UCon of pos * string * ty
@@ -95,24 +93,6 @@ type umetaterm =
   | UOr of umetaterm * umetaterm
   | UAnd of umetaterm * umetaterm
   | UPred of uterm * restriction
-
-
-(** Type substitutions *)
-
-type tysub = (string * ty) list
-
-let rec apply_bind_ty v ty = function
-  | Ty(tys, (AtmTy(cty,args))) ->
-    let tys = (List.map (apply_bind_ty v ty) tys) in
-    let targ = 
-      if v = cty then
-        (assert (args = []); ty)
-      else
-        tybase (AtmTy(cty, (List.map (apply_bind_ty v ty) args)))
-    in tyarrow tys targ
-
-let apply_sub_ty s ty =
-  List.fold_left (fun ty (v,vty) -> apply_bind_ty v vty ty) ty s
 
 let apply_sub_tyctx s tyctx =
   List.map (fun (id, ty) -> (id, apply_sub_ty s ty)) tyctx
@@ -259,16 +239,6 @@ let pervasive_sr =
 
 (** Typing for terms *)
 
-type expected = ty
-type actual = ty
-(* A constraint contains the position of the 'actual' type *)
-type constraint_type = CFun | CArg
-type constraint_info = pos * constraint_type
-type constraints = (expected * actual * constraint_info) list
-exception TypeInferenceFailure of constraint_info * expected * actual
-type error_info = InstGenericTyvar of string
-exception TypeInferenceError of error_info
-
 let infer_type_and_constraints ~sign tyctx t =
   let eqns = ref [] in
   let add_constraint expected actual pos =
@@ -315,12 +285,6 @@ let constraints_to_string eqns =
     (ty_to_string ty1) ^ " = " ^ (ty_to_string ty2)
   in
   String.concat "\n" (List.map aux eqns)
-
-let rec occurs v = function
-  | Ty(tys, AtmTy(cty,args)) ->
-    cty = v ||
-    List.exists (fun ty -> occurs v ty) tys ||
-    List.exists (fun ty -> occurs v ty) args
 
 let rec contains_tyvar = function
   | Ty(tys, AtmTy(cty, args)) ->
@@ -369,7 +333,6 @@ let term_fully_instantiated t =
   iter_term_tys f t;
   !insted
   
-
 let tid_ensure_fully_inferred ~sign (id, ty) =
   if contains_tyvar ty then
     failwithf "Type not fully determined for %s" id ;
@@ -410,70 +373,6 @@ let metaterm_ensure_fully_inferred ~sign t =
         term_ensure_fully_inferred ~sign p
   in
   aux t
-
-let apply_bind_constraints v ty eqns =
-  List.map (fun (x,y) -> (apply_bind_ty v ty x, apply_bind_ty v ty y)) eqns
-
-let apply_bind_sub v ty sub =
-  List.map (fun (x,y) -> (x, apply_bind_ty v ty y)) sub
-
-let unify_constraints eqns =
-  let add_sub v vty s =
-    (v, vty) :: (apply_bind_sub v vty s)
-  in
-
-  (* Unify a single constraint and call fail on failure *)
-  let rec aux s (ty1, ty2) fail =
-    let ty1 = apply_sub_ty s ty1 in
-    let ty2 = apply_sub_ty s ty2 in
-    match ty1, ty2 with
-    | _, _ when ty1 = ty2 -> s
-    | Ty([], AtmTy(cty,args)), _ when is_tyvar cty ->
-      (
-        assert (args = []);
-        if occurs cty ty2 then
-          fail s
-        else
-          add_sub cty ty2 s
-      )
-    | _, Ty([], AtmTy(cty,args)) when is_tyvar cty ->
-      (
-        assert (args = []);
-        if occurs cty ty1 then
-          fail s
-        else
-          add_sub cty ty1 s
-      )
-    | Ty([], AtmTy(cty,args)), _ when is_gen_tyvar cty ->
-      (
-        assert (args = []);
-        raise (TypeInferenceError (InstGenericTyvar cty))
-      )
-    | _, Ty([], AtmTy(cty,args)) when is_gen_tyvar cty ->
-      (
-        assert (args = []);
-        raise (TypeInferenceError (InstGenericTyvar cty))
-      )
-    | Ty([], AtmTy(cty1,args1)), Ty([], AtmTy(cty2,args2)) 
-      when cty1 = cty2 && List.length args1 = List.length args2 ->
-      let eqns = List.map2 (fun ty1 ty2 -> (ty1,ty2)) args1 args2 
-      in
-      List.fold_left begin fun s (ty1, ty2) ->
-        aux s (ty1, ty2) fail
-      end s eqns
-    | Ty(ty1::tys1, bty1), Ty(ty2::tys2, bty2) ->
-        let s = aux s (ty1, ty2) fail in
-        aux s (Ty(tys1, bty1), Ty(tys2, bty2)) fail
-    | ty1, ty2 -> fail s
-  in
-
-  let unify_single_constraint s (ty1, ty2, p) =
-    aux s (ty1, ty2)
-      (fun s -> raise (TypeInferenceFailure(p, apply_sub_ty s ty1,
-                                            apply_sub_ty s ty2)))
-  in
-
-  List.fold_left unify_single_constraint [] eqns
 
 let uterms_extract_if test ts =
   let rec aux t =

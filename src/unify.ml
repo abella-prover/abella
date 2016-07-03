@@ -23,7 +23,7 @@
 (** Higher Order Pattern Unification *)
 
 open Term
-(* open Typing *)
+open Unifyty
 open Extensions
 
 (* generate ids for n binders *)

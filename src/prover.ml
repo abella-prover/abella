@@ -260,9 +260,9 @@ let instantiate_clauses_aux =
       List.map (fun id -> (id, Term.fresh_tyvar ())) def.typarams in
     let ty_exps = List.map (apply_sub_ty ty_fresh) ty_exps in
     let eqns = List.map2 begin fun ty_exp ty_act ->
-        (ty_exp, ty_act, (ghost, CArg))
+        (ty_exp, ty_act, (ghost, Unifyty.CArg))
       end ty_exps ty_acts in
-    let tysol = unify_constraints eqns in
+    let tysol = Unifyty.unify_constraints eqns in
     let tymap = List.map begin fun (id, ftyv) ->
       match ftyv with
       | Ty([], AtmTy (cty,[])) ->

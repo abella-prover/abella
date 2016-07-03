@@ -409,7 +409,7 @@ let check_pi_quantification ts =
             | _ -> assert false)
        ts)
 
-let type_uterm ?expected_ty ~sr ~sign ~ctx t =
+let type_uterm ?(full_infer=true) ?expected_ty ~sr ~sign ~ctx t =
   let nominal_tyctx = uterm_nominals_to_tyctx t in
   let tyctx =
     (List.map (fun (id, t) -> (id, tc [] t)) ctx)
@@ -424,7 +424,7 @@ let type_uterm ?expected_ty ~sr ~sign ~ctx t =
   let sub = unify_constraints eqns in
   let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx)) in
   let result = replace_term_vars ctx (uterm_to_term sub t) in
-  term_ensure_fully_inferred ~sign result ;
+  if full_infer then term_ensure_fully_inferred ~sign result ;
   term_ensure_subordination sr result ;
   result
 
@@ -487,7 +487,7 @@ let type_uclause ~sr ~sign (cname, head, body) =
      List.fold_right pify ids body)
   in
   let pi_form = get_pi_form cids imp_form in
-  let result = type_uterm ~sr ~sign ~ctx:[] pi_form in
+  let result = type_uterm ~full_infer:false ~sr ~sign ~ctx:[] pi_form in
   let _,cls = replace_pi_with_const result in
   let _ = check_pi_quantification [cls] in
   begin match cname with

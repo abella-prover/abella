@@ -188,14 +188,12 @@ val question_tids : term list -> (id * ty) list
 val nominal_tids : term list -> (id * ty) list
 val all_tids : term list -> (id * ty) list
 
+val iter_term_tys : (ty -> unit) -> term -> unit
 val tc : tyctx -> term -> ty
 
 val tyvar : string -> ty
 val is_tyvar : string -> bool
 val fresh_tyvar : unit -> ty
-
-val contain_ty_vars : string list -> ty -> bool
-val is_poly_term : string list -> term -> bool
 
 val is_imp : term -> bool
 val extract_imp : term -> term * term

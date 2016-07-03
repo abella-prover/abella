@@ -372,6 +372,20 @@ let get_used ts =
   |> List.unique
   |> List.map (fun t -> ((term_to_var t).name, t))
 
+(* apply f to types in a term *)
+let fold_term_tys f t =
+  let rec aux t =
+    match observe (hnorm t) with
+    | Var v -> f v.ty
+    | DB i -> ()
+    | App(h, args) -> aux h ; List.iter aux args
+    | Lam(tys, body) -> 
+       List.exists (fun (id,ty) -> f ty) tys ;
+         aux body
+    | _ -> assert false
+  in
+  aux t
+
 (* Pretty printing *)
 
 exception Found of int
@@ -688,21 +702,6 @@ let fresh_tyvar =
     fun () ->
       incr count ;
       tyvar (string_of_int !count)
-
-let rec contain_ty_vars gen_vars ty =
-  match ty with
-  | Ty (tys, (AtmTy (cty, args))) ->
-    is_tyvar cty || List.mem cty gen_vars ||
-    List.exists (contain_ty_vars gen_vars) tys ||
-    List.exists (contain_ty_vars gen_vars) args
-
-let is_poly_term gen_vars t =
-  let vars = 
-    select_var_refs (fun v -> true) [t]
-    |> List.unique
-    |> List.map term_to_var
-  in
-  List.exists (fun v -> contain_ty_vars gen_vars v.ty) vars
 
 
 let is_imp t = is_head_name "=>" t

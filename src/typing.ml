@@ -126,7 +126,6 @@ let tyctx_to_ctx tyctx =
 let tyctx_to_nominal_ctx tyctx =
   List.map (fun (id, ty) -> (id, nominal_var id ty)) tyctx
 
-
 (** Tables / Signatures *)
 
 type ktable = (string * knd) list
@@ -267,7 +266,7 @@ type constraint_type = CFun | CArg
 type constraint_info = pos * constraint_type
 type constraints = (expected * actual * constraint_info) list
 exception TypeInferenceFailure of constraint_info * expected * actual
-type error_info = InstGenericVar of string
+type error_info = InstGenericTyvar of string
 exception TypeInferenceError of error_info
 
 let infer_type_and_constraints ~sign tyctx t =
@@ -329,6 +328,59 @@ let rec contains_tyvar = function
       List.exists contains_tyvar tys ||
       List.exists contains_tyvar args
 
+let rec contains_gen_tyvar gen_tyvars ty =
+  match ty with
+  | Ty (tys, (AtmTy (cty, args))) ->
+    List.mem cty gen_vars ||
+    List.exists (contains_gen_tyvar gen_tyvars) tys ||
+    List.exists (contain_gen_tyvar gen_tyvars) args
+
+let term_contains_tyvar t =
+  let has_tyvar = ref false in
+  let f ty = 
+    has_tyvar := !has_tyvar || contains_tyvar ty
+  in
+  iter_term_tys f t;
+  !has_tyvar
+
+let term_contains_gen_tyvar gen_tyvars ty =
+  let has_gen_tyvar = ref false in
+  let f ty = 
+    has_gen_tyvar := !has_gen_tyvar || 
+      contains_gen_tyvar gen_tyvars ty
+  in
+  iter_term_tys f t;
+  !has_tyvar
+  
+let is_poly_term gen_vars t =
+  term_contains_tyvar t || term_contains_gen_tyvar gen_vars t
+
+let is_ground_tysub sub =
+  not (List.exists (fun (id,ty) -> contains_tyvar ty) sub)
+
+let inst_poly_term sub t =
+  let rec aux t =
+    match observe (hnorm t) with
+    | Var v -> let ty' = apply_sub_ty sub v.ty in
+               Var {v with ty = ty'}
+    | DB _ -> t
+    | App(h, args) -> app (aux h) (List.map aux args)
+    | Lam(tys, body) -> 
+       let tys' = List.map (apply_sub_ty sub) tys in
+       lambda tys' (aux body)
+    | _ -> assert false
+  in
+  aux t
+    
+let term_fully_instantiated t =
+  let insted = ref true in
+  let f ty =
+    insted := !insted && not (contains_tyvar v.ty)
+  in
+  iter_terms_ty f t;
+  !insted
+  
+
 let tid_ensure_fully_inferred ~sign (id, ty) =
   if contains_tyvar ty then
     failwithf "Type not fully determined for %s" id ;
@@ -340,7 +392,9 @@ let term_ensure_fully_inferred ~sign t =
     | Var v -> tid_ensure_fully_inferred ~sign (v.name, v.ty)
     | DB i -> ()
     | App(h, args) -> aux h ; List.iter aux args
-    | Lam(tys, body) -> aux body
+    | Lam(tys, body) -> 
+       List.map tid_ensure_fully_inferred ~sign tys &&
+         aux body
     | _ -> assert false
   in
   aux t
@@ -375,14 +429,14 @@ let apply_bind_constraints v ty eqns =
 let apply_bind_sub v ty sub =
   List.map (fun (x,y) -> (x, apply_bind_ty v ty y)) sub
 
-let unify_constraints ?(gen_vars=[]) eqns =
+let unify_constraints ?(gen_tyvars=[]) eqns =
   let add_sub v vty s =
     (v, vty) :: (apply_bind_sub v vty s)
   in
 
   (* check if the variable is a genric type variable
      which cannot be instantiated *)
-  let is_gen_var v = List.mem v gen_vars
+  let is_gen_tyvar v = List.mem v gen_tyvars
   in
 
   (* Unify a single constraint and call fail on failure *)
@@ -407,15 +461,15 @@ let unify_constraints ?(gen_vars=[]) eqns =
         else
           add_sub cty ty1 s
       )
-    | Ty([], AtmTy(cty,args)), _ when is_gen_var cty ->
+    | Ty([], AtmTy(cty,args)), _ when is_gen_tyvar cty ->
       (
         assert (args = []);
-        raise (TypeInferenceError (InstGenericVar cty))
+        raise (TypeInferenceError (InstGenericTyvar cty))
       )
-    | _, Ty([], AtmTy(cty,args)) when is_gen_var cty ->
+    | _, Ty([], AtmTy(cty,args)) when is_gen_tyvar cty ->
       (
         assert (args = []);
-        raise (TypeInferenceError (InstGenericVar cty))
+        raise (TypeInferenceError (InstGenericTyvar cty))
       )
     | Ty([], AtmTy(cty1,args1)), Ty([], AtmTy(cty2,args2)) 
       when cty1 = cty2 && List.length args1 = List.length args2 ->

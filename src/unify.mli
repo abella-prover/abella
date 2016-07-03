@@ -35,22 +35,28 @@ exception UnifyFailure of unify_failure
 type unify_error =
   | NotLLambda
   | InstGenericVar of string
+  | TypesNotFullyInferred
 
 val explain_error : unify_error -> string
 
 exception UnifyError of unify_error
 
-val right_unify : ?used:(id * term) list -> term -> term -> unit
-val left_unify : ?used:(id * term) list -> term -> term -> unit
+val right_unify : ?used:(id * term) list -> gen_tyvars:string list 
+                  -> term -> term -> unit
+val left_unify : ?used:(id * term) list -> gen_tyvars:(string list) 
+                  -> term -> term -> unit
 
 val try_with_state : fail:'a -> (unit -> 'a) -> 'a
 
-val try_right_unify : ?used:(id * term) list -> term -> term -> bool
-val try_left_unify : ?used:(id * term) list -> term -> term -> bool
+val try_right_unify : ?used:(id * term) list -> gen_tyvars:(string list) 
+                      -> term -> term -> bool
+val try_left_unify : ?used:(id * term) list -> gen_tyvars:(string list) 
+                     -> term -> term -> bool
 
-val try_left_unify_cpairs :
-  used:(id * term) list -> term -> term -> (term * term) list option
-val try_right_unify_cpairs : term -> term -> (term * term) list option
+val try_left_unify_cpairs : used:(id * term) list -> gen_tyvars:(string list) 
+                            -> term -> term -> (term * term) list option
+val try_right_unify_cpairs : gen_tyvars:(string list) -> 
+                             term -> term -> (term * term) list option
 
 val left_flexible_heads :
   used:(id * term) list ->

@@ -23,6 +23,7 @@
 (** Higher Order Pattern Unification *)
 
 open Term
+open Typing
 open Extensions
 
 (* generate ids for n binders *)
@@ -52,6 +53,7 @@ let fail f = raise (UnifyFailure f)
 type unify_error =
   | NotLLambda
   | InstGenericVar of string
+  | TypesNotFullyInferred
 
 let explain_error = function
   | NotLLambda -> "Unification incompleteness (non-pattern unification problem)"
@@ -77,7 +79,35 @@ struct
 open P
 
 let local_used = ref []
-let poly_unif = ref false  (* set to true when unifying polymorphic terms *) 
+(* set to true when unifying polymorphic terms *) 
+let poly_unif = ref false 
+(* generic type variables that cannot be instantiated *)
+let gen_tyvars = ref []
+(* type substitutions accumulated during the unification *)
+let tysub = ref []
+
+let get_tysub = !tysub
+
+let unify_type ty1 ty2 =
+  let ty1 = apply_sub_ty (!tysub) ty1 in
+  let ty2 = apply_sub_ty (!tysub) ty2 in
+  let add_tysub sub1 sub2 =
+    let sub2' = 
+      List.fold_left begin
+        fun s (v,ty) -> apply_bind_sub v vty s
+      end sub2 sub1
+    in
+    sub1 @ sub2'
+  in
+  try
+    let sub = unify_constraints ~gen_tyvars:(!gen_tyvars) 
+      [(ty1, ty2, (ghost, CArg))] in
+    tysub := add_tysub sub (!tysub);
+    true
+  with
+  | TypeInferenceFailure _ -> false
+  | TypeInferenceError (InstGenericTyvar v) ->
+     raise UnifyError (InstGenericVar v)
 
 let named_fresh name ts ty =
   let (v, new_used) = fresh_wrt ~ts instantiatable name ty !local_used in
@@ -646,14 +676,24 @@ let rec unify_list (tyctx:(Term.id*Term.ty) list) l1 l2 =
  * Fail if [t2] is a variable or an application.
  * If it is a lambda, binders need to be equalized and so this becomes
  * an application-term unification problem. *)
-and unify_const_term tyctx cst t2 = if eq cst t2 then () else
-  match observe t2 with
-    | Lam (idtys,t2) ->
-        let a1 = lift_args [] (List.length idtys) in
-          unify (List.rev_app idtys tyctx) (app cst a1) t2
-    | Var v when not (variable v.tag || constant v.tag) ->
-        bugf "logic variable on the left (3)"
-    | _ -> fail (ConstClash (cst,t2))
+and unify_const_term tyctx cst t2 = 
+  let v1 = term_to_var cst in
+  match (observe t2) with
+  | Var v2 when constant v2.tag ->
+     if v1.name = v2.name then
+       if not (!poly_unif) then ()
+       else
+         (* if the two constants have the same name and the terms
+            being unified are polymorphic then try to identify the two
+            constants by unifying their types *)
+         if not (unify_type v1.ty v2.ty) then
+           fail (ConstClash (cst, t2))
+  | Lam (idtys,t2) ->
+     let a1 = lift_args [] (List.length idtys) in
+     unify (List.rev_app idtys tyctx) (app cst a1) t2
+  | Var v when not (variable v.tag || constant v.tag) ->
+     bugf "logic variable on the left (3)"
+  | _ -> fail (ConstClash (cst,t2))
 
 (* Unify [App h1 a1 = t2].
  * [t1] should be the term decomposed as [App h1 a1].
@@ -666,8 +706,15 @@ and unify_app_term tyctx h1 a1 t1 t2 =
     | Var v1, App (h2,a2) when constant v1.tag ->
         begin match observe h2 with
           | Var v2 when constant v2.tag ->
-              if eq h1 h2 then
+              if v1.name = v2.name then begin
+                if !poly_unif then 
+                  (* if the two constants have the same name and the terms
+                     being unified are polymorphic then try to identify the two
+                     constants by unifying their types *)
+                  if not (unify_type v1.ty v2.ty) then
+                    fail (ConstClash (h1, h2);
                 unify_list tyctx a1 a2
+              end
               else
                 fail (ConstClash (h1,h2))
           | DB _ ->
@@ -756,16 +803,28 @@ and unify tyctx t1 t2 =
   with
     | UnifyError NotLLambda ->
         if (!poly_unif) then
+          (* Pattern unification must be fully performed 
+             for polymorphic terms *)
           raise (UnifyError NotLLambda)
         else 
           let n = max (closing_depth t1) (closing_depth t2) in
           let tys = List.rev (List.take n tyctx) in
           handler (lambda tys t1) (lambda tys t2)
 
-let pattern_unify ~used t1 t2 =
+let pattern_unify ~used ~gtyvars t1 t2 =
   local_used := used ;
-  poly_unif := is_poly_term [] t1 || is_poly_term [] t2 ;
-  unify [] (hnorm t1) (hnorm t2)
+  poly_unif := is_poly_term gen_tyvars t1 || is_poly_term gen_tyvars t2 ;
+  gen_tyvars := gtyvars ;
+  tysub := [] ;
+  unify [] (hnorm t1) (hnorm t2) ;
+  if term_contains_tyvar t1 || term_contains_tyvar t2 then
+    let t1' = inst_poly_term (!tysub) t1 in
+    let t2' = inst_poly_term (!tysub) t2 in
+      if not (is_ground_tysub (!tysub) 
+              && term_fully_instantiated t1'
+              && term_fully_instantiated t2') then
+        raise (UnifyError TypesNotFullyInferred)
+  
 
 (* Given Lam(tys1, App(h1, a1)) and Lam(tys2, App(h2, a2))
    where h1 is flexible, h2 is rigid, and len(tys1) <= len(tys2),
@@ -860,11 +919,11 @@ module Left =
           let handler = standard_handler
         end)
 
-let right_unify ?used:(used=[]) t1 t2 =
-  Right.pattern_unify ~used t1 t2
+let right_unify ?used:(used=[]) ~gen_tyvars t1 t2 =
+  Right.pattern_unify ~used ~gtyvars:gen_tyvars t1 t2
 
-let left_unify ?used:(used=[]) t1 t2 =
-  Left.pattern_unify ~used t1 t2
+let left_unify ?used:(used=[]) ~gen_tyvars t1 t2 =
+  Left.pattern_unify ~used ~gtyvars:gen_tyvars t1 t2
 
 let try_with_state ~fail f =
   let state = get_scoped_bind_state () in
@@ -873,19 +932,19 @@ let try_with_state ~fail f =
     with
       | UnifyFailure _ | UnifyError _ -> set_scoped_bind_state state ; fail
 
-let try_right_unify ?used:(used=[]) t1 t2 =
+let try_right_unify ?used:(used=[]) ~gen_tyvars t1 t2 =
   try_with_state ~fail:false
     (fun () ->
-       right_unify ~used t1 t2 ;
+       right_unify ~used ~gen_tyvars t1 t2 ;
        true)
 
-let try_left_unify ?used:(used=[]) t1 t2 =
+let try_left_unify ?used:(used=[]) ~gen_tyvars t1 t2 =
   try_with_state ~fail:false
     (fun () ->
-       left_unify ~used t1 t2 ;
+       left_unify ~used ~gen_tyvars t1 t2 ;
        true)
 
-let try_left_unify_cpairs ~used ?(gen_vars=[]) t1 t2 =
+let try_left_unify_cpairs ~used ~gen_tyvars t1 t2 =
   let state = get_scoped_bind_state () in
   let cpairs = ref [] in
   let cpairs_handler x y = cpairs := (x,y)::!cpairs in
@@ -897,14 +956,25 @@ let try_left_unify_cpairs ~used ?(gen_vars=[]) t1 t2 =
           end)
   in
     try
-      LeftCpairs.pattern_unify ~used t1 t2 ;
+      LeftCpairs.pattern_unify ~used ~gtyvars:gen_tyvars t1 t2 ;
       Some !cpairs
     with
       | UnifyFailure _ -> set_scoped_bind_state state ; None
-      | UnifyError _ -> set_scoped_bind_state state ;
-          failwith "Unification error during case analysis"
+      | UnifyError err -> set_scoped_bind_state state ;
+        let msg = 
+          "Unification error during case analysis: " ^ begin
+            match err with
+            | NotLLambda -> 
+               "encountered non-pattern unification problem"
+            | InstGenericVar v ->
+               Printf.sprintf "the generic type variable %s cannot be instantiated" v
+            | TypesNotFullyInferred ->
+               "Type variables cannot be fully determined by unification"
+          end
+        in
+          failwith msg
 
-let try_right_unify_cpairs t1 t2 =
+let try_right_unify_cpairs ~gen_tyvars t1 t2 =
   try_with_state ~fail:None
     (fun () ->
        let cpairs = ref [] in
@@ -916,7 +986,7 @@ let try_right_unify_cpairs t1 t2 =
                  let handler = cpairs_handler
                end)
        in
-         RightCpairs.pattern_unify ~used:[] t1 t2 ;
+         RightCpairs.pattern_unify ~used:[] ~gtyvars:gen_tyvars t1 t2 ;
          Some !cpairs)
 
 let left_flexible_heads = Left.flexible_heads

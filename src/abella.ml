@@ -545,6 +545,11 @@ let rec process1 () =
       State.Undo.undo () ;
       type_inference_error ci exp act ;
       interactive_or_exit ()
+  | TypeInferenceError (InstGenericTyvar v) ->
+      State.Undo.undo () ;
+      eprintf (Printf.sprintf 
+                 "The generic type variable %s cannot be instantiated" v) ;
+      interactive_or_exit ()      
   | End_of_file ->
       write_compilation () ;
       if !switch_to_interactive then begin

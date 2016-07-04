@@ -738,8 +738,11 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
               normalize_obj goal |>
               List.map begin fun goal ->
                 let support = metaterm_support goal0 in
+                let cl' = cl in
                 let cl = clausify cl in
-                assert (List.length cl = 1) ;
+                let _ = if not (List.length cl = 1) then
+                failwithf 
+                  "Failed to select a clause from '%s' which is normalized to more than one program clauses" (term_to_string cl') in
                 let cl = List.hd cl in
                 let (vars, head, body) = freshen_nameless_clause ~support ~ts:0 cl in
                 match try_right_unify_cpairs head goal.right with

@@ -468,6 +468,22 @@ let lookup_clause cname =
   then Some (Itab.find cname !clause_map)
   else None
 
+let check_clause t =
+  let pres_tyvars (tids, head, body) =
+    let htyvars = get_term_tyvars head in
+    let btyvars = 
+      List.fold_left begin fun vars t ->
+        get_term_tyvars t @ vars
+      end [] body 
+    in
+    List.for_all (fun v -> List.mem v htyvars) btyvars
+  in
+  let clauses = clausify t in
+  if not (List.for_all pres_tyvars clauses) then
+    failwithf 
+      "The following program clause is not well-formed because there are type variables in its body that do not occur in its head:\n %s"
+      (term_to_string t)
+
 let type_uclause ~sr ~sign (cname, head, body) =
   if has_capital_head head then
     failwith "Clause has flexible (i.e., non-atomic) head" ;
@@ -488,6 +504,7 @@ let type_uclause ~sr ~sign (cname, head, body) =
   in
   let pi_form = get_pi_form cids imp_form in
   let result = type_uterm ~full_infer:false ~sr ~sign ~ctx:[] pi_form in
+  let _ = check_clause result in
   let _,cls = replace_pi_with_const result in
   let _ = check_pi_quantification [cls] in
   begin match cname with

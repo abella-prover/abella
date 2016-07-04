@@ -724,6 +724,23 @@ let fresh_tyvar =
 
 let tag_gen_tyvar str = "#" ^ str
 
+let rec get_tyvars ty =
+  match ty with
+  | Ty (tys, AtmTy(cty, args)) ->
+     let acc vars ty = get_tyvars ty @ vars in
+     let tyvars = List.fold_left acc [] tys in
+     let tyvars = List.fold_left acc tyvars args in
+     let tyvars = if is_tyvar cty 
+       then (cty::tyvars) else tyvars in
+     List.unique tyvars
+
+let get_term_tyvars t =
+  let tyvars = ref [] in
+  let acc ty = 
+    tyvars := (get_tyvars ty @ !tyvars) in
+  iter_term_tys acc t;
+  List.unique (!tyvars)
+
 let rec mark_gen_tyvar gen_tyvars ty =
   let aux = mark_gen_tyvar gen_tyvars in
   match ty with

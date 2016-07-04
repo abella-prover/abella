@@ -859,3 +859,13 @@ let rec replace_pi_with_const term =
       (tyctx, term)
   in
   aux [] term
+
+let print_var_tys t =
+  let tids = map_vars (fun v -> v.name ^ " : " ^ (ty_to_string v.ty)) [t] in
+  let tids' = String.concat ", " tids in
+  Printf.printf "Variable types in '%s' : (%s)\n" (term_to_string t) tids'
+
+let print_ty_sub sub =
+  let substr = List.map (fun (id,ty) -> id ^ " -> " ^ (ty_to_string ty)) sub in
+  let substr' = String.concat ", " substr in
+  Printf.printf "Type substitution: [%s]\n" substr'

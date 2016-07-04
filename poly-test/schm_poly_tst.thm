@@ -1,10 +1,13 @@
 Specification "schm_poly_tst".
 
+Set types on. 
+Set instantiations on.
+
 Define append : list A -> list A -> list A -> prop by
   append nil L L;
   append (X :: L1) L2 (X :: L3) := append L1 L2 L3.
 
-Theorem app_det[A] : forall (L1: list A) L2 L3 L3',
+Theorem append_det[A] : forall (L1: list A) L2 L3 L3',
   append L1 L2 L3 -> append L1 L2 L3' -> L3 = L3'.
 induction on 1. intros. case H1.
   case H2. search.
@@ -12,7 +15,7 @@ induction on 1. intros. case H1.
 
 Theorem tt : forall (L1: list o) L2 L3 L3',
   append L1 L2 L3 -> append L1 L2 L3' -> L3 = L3'.
-intros. apply app_det[o] to H1 H2. search.
+intros. apply append_det[o] to H1 H2. search.
 
 %% Do not support types with a variable as its target
 % Type fst,snd   list A -> A.
@@ -35,3 +38,9 @@ induction on 1. intros. case H1.
 Theorem olist_mem_prune : forall M (L:list o), nabla (x:o),
   member (M x) L -> exists M', M = y\M'.
 intros. apply member_prune[o,o] to H1. search.
+
+Theorem app_det[A] : forall (L1: list A) L2 L3 L3',
+  {app L1 L2 L3} -> {app L1 L2 L3'} -> L3 = L3'.
+induction on 1. intros. case H1 (keep).
+  case H2. search.
+  case H2. apply IH to H3 H4.

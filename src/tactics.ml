@@ -471,11 +471,17 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
                  new_vars = new_vars ;
                  new_hyps = rewrap_succedent fresh_head :: body }
         end else begin
+          let tysub = ref [] in
           match try_left_unify_cpairs fresh_head sync_obj.right
-                  ~used:(fresh_used @ used) with
+                  ~used:(fresh_used @ used) ~sub:tysub with
           | Some cpairs ->
+              let _ = print_ty_sub !tysub in
+              let objright = inst_poly_term !tysub sync_obj.right in
+              let fresh_head = inst_poly_term !tysub fresh_head in
+              let fresh_head = inst_poly_term !tysub fresh_head in
+              let fresh_body = List.map (inst_poly_term (!tysub)) fresh_body in
               let new_vars =
-                term_vars_alist Eigen (fresh_head::sync_obj.right::fresh_body) in
+                term_vars_alist Eigen (fresh_head::objright::fresh_body) in
               let body = List.map rewrap_antecedent fresh_body in
               Some { bind_state = get_bind_state () ;
                      new_vars = new_vars ;
@@ -745,13 +751,17 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                   "Failed to select a clause from '%s' which is normalized to more than one program clauses" (term_to_string cl') in
                 let cl = List.hd cl in
                 let (vars, head, body) = freshen_nameless_clause ~support ~ts:0 cl in
-                match try_right_unify_cpairs head goal.right with
+                let tysub = ref [] in
+                match try_right_unify_cpairs ~sub:tysub head goal.right with
                 | None ->
                     failwithf "Head of program clause named %S not\
-                              \ unifiable with goal"
+                              \ unifiable with goal or type variables in the head\
+                              \ cannot be fully inferred by unification"
                       nm
                 | Some cpairs ->
                     if try_unify_cpairs cpairs then begin
+                      let vars = List.map (fun (id, t) -> (id, inst_poly_term !tysub t)) vars in
+                      let body = List.map (inst_poly_term (!tysub)) body in
                       let new_vars = List.map (fun (x, xv) -> (x, find_vars Logic [xv])) vars in
                       let quant_vars =
                         List.fold_left
@@ -860,9 +870,11 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
     List.filter filter_by_witness |>
     List.map freshen_clause |>
     List.iter ~guard:unwind_state begin fun (i, (head, body)) ->
-      match try_right_unify_cpairs head goal with
+      let tysub = ref [] in
+      match try_right_unify_cpairs ~sub:tysub head goal with
       | None -> ()
       | Some cpairs ->
+          let body = List.map (inst_poly_term !tysub) body in
           let sc ws =
             if try_unify_cpairs cpairs then
               sc (WUnfold(p, i, ws)) in

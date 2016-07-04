@@ -87,7 +87,7 @@ let poly_unif = ref false
 (* type substitutions accumulated during the unification *)
 let tysub = ref []
 
-let get_tysub = !tysub
+let get_tysub () = !tysub
 
 let unify_type ty1 ty2 =
   let ty1 = apply_sub_ty (!tysub) ty1 in
@@ -817,8 +817,11 @@ let pattern_unify ~used t1 t2 =
   tysub := [] ;
   unify [] (hnorm t1) (hnorm t2) ;
   if term_contains_tyvar t1 || term_contains_tyvar t2 then
+    print_ty_sub !tysub;
     let t1' = inst_poly_term (!tysub) t1 in
     let t2' = inst_poly_term (!tysub) t2 in
+      print_var_tys t1';
+      print_var_tys t2';    
       if not (is_ground_tysub (!tysub) 
               && term_fully_instantiated t1'
               && term_fully_instantiated t2') then
@@ -943,7 +946,7 @@ let try_left_unify ?used:(used=[]) t1 t2 =
        left_unify ~used  t1 t2 ;
        true)
 
-let try_left_unify_cpairs ~used t1 t2 =
+let try_left_unify_cpairs ?sub ~used t1 t2 =
   let state = get_scoped_bind_state () in
   let cpairs = ref [] in
   let cpairs_handler x y = cpairs := (x,y)::!cpairs in
@@ -956,6 +959,9 @@ let try_left_unify_cpairs ~used t1 t2 =
   in
     try
       LeftCpairs.pattern_unify ~used t1 t2 ;
+      (match sub with
+      | None -> ()
+      | Some s -> s := LeftCpairs.get_tysub ()) ;
       Some !cpairs
     with
       | UnifyFailure _ -> set_scoped_bind_state state ; None
@@ -974,7 +980,7 @@ let try_left_unify_cpairs ~used t1 t2 =
         in
           failwith msg
 
-let try_right_unify_cpairs t1 t2 =
+let try_right_unify_cpairs ?sub t1 t2 =
   try_with_state ~fail:None
     (fun () ->
        let cpairs = ref [] in
@@ -987,6 +993,9 @@ let try_right_unify_cpairs t1 t2 =
                end)
        in
          RightCpairs.pattern_unify ~used:[] t1 t2 ;
+         (match sub with
+         | None -> ()
+         | Some s -> s := RightCpairs.get_tysub ()) ;
          Some !cpairs)
 
 let left_flexible_heads = Left.flexible_heads

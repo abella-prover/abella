@@ -17,6 +17,11 @@ Theorem tt : forall (L1: list o) L2 L3 L3',
   append L1 L2 L3 -> append L1 L2 L3' -> L3 = L3'.
 intros. apply append_det[o] to H1 H2. search.
 
+Theorem append_det'[A] : forall (L1: list A) L2 L3 L3',
+  append L1 L2 L3 -> append L1 L2 L3' -> L3 = L3'.
+intros. apply append_det[$A] to H1 H2. search.
+
+
 %% Do not support types with a variable as its target
 % Type fst,snd   list A -> A.
 Type p   A -> o.
@@ -38,6 +43,10 @@ induction on 1. intros. case H1.
 Theorem olist_mem_prune : forall M (L:list o), nabla (x:o),
   member (M x) L -> exists M', M = y\M'.
 intros. apply member_prune[o,o] to H1. search.
+
+Theorem member_prune'[A,B] : forall M (L:list A), nabla (x:B),
+  member (M x) L -> exists M', M = y\M'.
+intros. apply member_prune[$A,$B] to H1. search.
 
 Theorem app_det[A] : forall (L1: list A) L2 L3 L3',
   {app L1 L2 L3} -> {app L1 L2 L3'} -> L3 = L3'.

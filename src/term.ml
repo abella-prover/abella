@@ -706,7 +706,7 @@ let is_tyvar str =
   not (String.length str = 0) && str.[0] = '?'
 
 let is_gen_tyvar str =
-  not (String.length str = 0) && str.[0] = '#'
+  not (String.length str = 0) && str.[0] = '$'
 
 let name_of_gen_tyvar str = 
   assert (is_gen_tyvar str);
@@ -722,7 +722,7 @@ let fresh_tyvar =
       incr count ;
       tyvar (string_of_int !count)
 
-let tag_gen_tyvar str = "#" ^ str
+let tag_gen_tyvar str = "$" ^ str
 
 let rec get_tyvars ty =
   match ty with

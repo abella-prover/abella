@@ -572,7 +572,10 @@ let get_lemma ?(tys:ty list = []) name =
   if List.length tys <> List.length argtys then
     failwithf "Need to provide mappings for %d types" (List.length argtys) ;
   let tysub = List.map2 (fun id ty -> (id, ty)) argtys tys in
-  map_on_tys (apply_sub_ty tysub) bod
+  let bod = map_on_tys (apply_sub_ty tysub) bod in
+  (* make sure that the variables with the same name are
+     bound by a unique binding variable *)
+  replace_metaterm_vars [] bod
 
 let get_hyp_or_lemma ?tys name =
   try get_hyp name with

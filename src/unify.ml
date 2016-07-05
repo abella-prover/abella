@@ -817,11 +817,8 @@ let pattern_unify ~used t1 t2 =
   tysub := [] ;
   unify [] (hnorm t1) (hnorm t2) ;
   if term_contains_tyvar t1 || term_contains_tyvar t2 then begin
-    print_ty_sub !tysub;
     let t1' = inst_poly_term (!tysub) t1 in
     let t2' = inst_poly_term (!tysub) t2 in
-      print_var_tys t1';
-      print_var_tys t2';
       if not (is_ground_tysub (!tysub) 
               && term_fully_instantiated t1'
               && term_fully_instantiated t2') then

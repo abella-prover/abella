@@ -1,6 +1,6 @@
 Specification "schm_poly_tst".
 
-% Set types on. 
+Set types on. 
 Set instantiations on.
 
 Define append : list A -> list A -> list A -> prop by
@@ -23,7 +23,7 @@ Type p   A -> o.
 
 Theorem inst_gen_var[A,B] : forall (X:A) (Y:B),
   p X = p Y -> false.
-intros.
+intros. 
   %% The following case analysis should report an error that
   %% generic type variables cannot be instantiated
   % case H1.

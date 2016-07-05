@@ -42,6 +42,14 @@ let freshen_clause ~used ~sr ?(support=[]) clause =
    replace_term_vars alist head,
    List.map (replace_term_vars alist) body)
 
+let freshen_poly_clause ~tysub ~used ~sr ?(support=[]) clause =
+  let (tids, head, body) = clause in
+  let tids' = List.map 
+    (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in
+  let head' = inst_poly_term tysub head in
+  let body' = List.map (inst_poly_term tysub) body in
+  freshen_clause ~sr ~support ~used (tids',head',body')
+
 let freshen_def ~used ~sr ?(support=[]) head body =
   let tids = capital_tids [head] in
   let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
@@ -70,6 +78,14 @@ let freshen_nameless_clause ?(support=[]) ~ts clause =
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
   (fresh_names, fresh_head, fresh_body)
+
+let freshen_nameless_poly_clause ?(support=[]) ~tysub ~ts clause =
+  let (tids, head, body) = clause in
+  let tids' = List.map 
+    (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in
+  let head' = inst_poly_term tysub head in
+  let body' = List.map (inst_poly_term tysub) body in
+  freshen_nameless_clause ~support ~ts (tids',head',body')
 
 let freshen_nameless_def ?(support=[]) ~ts head body =
   let tids = capital_tids [head] in
@@ -490,13 +506,8 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
                (* if type unification is involved then
                   construct the relevant ground instance of the clause
                   by using the resulting type subsitution *)
-               let (tids, head, body) = clause in
-               let tids' = List.map 
-                 (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in
-               let head' = inst_poly_term tysub head in
-               let body' = List.map (inst_poly_term tysub) body in
                let fresh_used, fresh_head, fresh_body =
-                 freshen_clause ~sr ~support ~used (tids',head',body') in
+                 freshen_poly_clause ~tysub ~sr ~support ~used clause in
                let result = try_left_unify_cpairs fresh_head sync_obj.right
                  ~used:(fresh_used @ used) in
                (result, fresh_used, fresh_head, fresh_body)
@@ -788,19 +799,14 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                     (result, vars, head, body)
                   with
                   | UnifyError (TypeInstantiation tysub) ->
-                     (* let _ = print_ty_sub tysub in *)
-                     (* if type unification is involved then
-                        construct the relevant ground instance of the clause
-                        by using the resulting type subsitution *)
-                     let (tids, head, body) = cl in
-                     let tids' = List.map 
-                       (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in
-                     let head' = inst_poly_term tysub head in
-                     let body' = List.map (inst_poly_term tysub) body in
-                     let vars, head, body =
-                       freshen_nameless_clause ~support ~ts:0 (tids',head',body') in
-                     let result = try_right_unify_cpairs head goal.right in
-                     (result, vars, head, body)
+                    (* let _ = print_ty_sub tysub in *)
+                    (* if type unification is involved then
+                       construct the relevant ground instance of the clause
+                       by using the resulting type subsitution *)
+                    let vars, head, body =
+                      freshen_nameless_poly_clause ~support ~tysub ~ts:0 cl in
+                    let result = try_right_unify_cpairs head goal.right in
+                    (result, vars, head, body)
                 in
                 match result with
                 | None ->
@@ -899,6 +905,10 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
       let (_vars, head, body) = freshen_nameless_clause ~support ~ts cl in
       (i, (head, body), cl)
     in
+    let freshen_poly_clause ~tysub (i, cl) =
+      let (_vars, head, body) = freshen_nameless_poly_clause ~tysub ~support ~ts cl in
+      (i, (head, body), cl)
+    in
     let p = term_head_name goal in
     let wrap body = List.map (fun t -> {context ; mode = Async ; right = t}) body in
     let filter_by_witness = match witness with
@@ -933,13 +943,8 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
         with
         | UnifyError (TypeInstantiation tysub) ->
            (* let _ = print_ty_sub tysub in *)
-           let (tids, head, body) = clause in
-           let tids' = List.map 
-             (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in
-           let head' = inst_poly_term tysub head in
-           let body' = List.map (inst_poly_term tysub) body in
            let (i, (head,body), _) = 
-             freshen_clause (i, (tids',head',body')) in
+             freshen_poly_clause ~tysub (i, clause) in
            let result = try_right_unify_cpairs head goal in
            (result, head, body)
       in

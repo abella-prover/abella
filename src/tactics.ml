@@ -486,7 +486,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
               (result, fresh_used, fresh_head, fresh_body)
             with
             | UnifyError (TypeInstantiation tysub) ->
-               let _ = print_ty_sub tysub in
+               (* let _ = print_ty_sub tysub in *)
                (* if type unification is involved then
                   construct the relevant ground instance of the clause
                   by using the resulting type subsitution *)
@@ -788,7 +788,7 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                     (result, vars, head, body)
                   with
                   | UnifyError (TypeInstantiation tysub) ->
-                     let _ = print_ty_sub tysub in
+                     (* let _ = print_ty_sub tysub in *)
                      (* if type unification is involved then
                         construct the relevant ground instance of the clause
                         by using the resulting type subsitution *)
@@ -932,7 +932,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
           (result, head, body)
         with
         | UnifyError (TypeInstantiation tysub) ->
-           let _ = print_ty_sub tysub in
+           (* let _ = print_ty_sub tysub in *)
            let (tids, head, body) = clause in
            let tids' = List.map 
              (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in

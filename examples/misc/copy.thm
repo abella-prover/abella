@@ -2,7 +2,7 @@
 
 Specification "copy".
 
-Theorem member_fresh : forall L E, nabla (x:tm),
+Theorem member_fresh : forall (L:olist) E, nabla (x:tm),
   member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
   search.

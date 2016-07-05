@@ -5,7 +5,7 @@ Specification "debruijn_ho".
 
 %% General property of member
 
-Theorem member_prune : forall E L, nabla (x:hterm),
+Theorem member_prune : forall E (L:olist), nabla (x:hterm),
   member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
   search.

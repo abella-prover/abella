@@ -2,7 +2,7 @@
 
 Specification "type-uniq".
 
-Theorem member_prune : forall E L, nabla (x:tm),
+Theorem member_prune : forall E (L:olist), nabla (x:tm),
   member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
   search.

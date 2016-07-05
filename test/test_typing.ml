@@ -1,6 +1,7 @@
 open OUnit
 open Test_helper
 open Typing
+open Unifyty
 open Term
 open Metaterm
 open Prover (* Need global signature *)

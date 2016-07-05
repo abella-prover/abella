@@ -44,3 +44,30 @@ Theorem app_det[A] : forall (L1: list A) L2 L3 L3',
 induction on 1. intros. case H1 (keep).
   case H2. search.
   case H2. apply IH to H3 H4. search.
+
+Theorem app_search[A] : forall (X:A) L,
+  {app (X :: nil) L (X :: L)}.
+search.
+
+Theorem ty_fdet_left[A] : forall (X:A),
+  {pred (cst X)} -> true.
+intros. case H1. search.
+
+Theorem ty_fdet_right[A] : forall (X:A),
+  {pred (cst X)}.
+search.
+
+Theorem ty_not_fdet_left : forall M,
+  {pred M} -> false.
+intros.
+  %% The following case analysis should report an error because the
+  %% type variable in the clause cannot be fully instantiated by unification
+  % case H1.
+  skip. 
+
+Theorem ty_not_fdet_right : forall M,
+  {pred M}.
+  %% The following search should fail because the type variable in the
+  %% clause cannot be fully instantiated by unification
+  %search.
+  skip.

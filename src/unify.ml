@@ -683,14 +683,15 @@ and unify_const_term tyctx cst t2 =
   let v1 = term_to_var cst in
   match (observe t2) with
   | Var v2 when constant v2.tag ->
-     if v1.name = v2.name then
-       if not (!poly_unif) then ()
-       else
-         (* if the two constants have the same name and the terms
-            being unified are polymorphic then try to identify the two
-            constants by unifying their types *)
-         if not (unify_type v1.ty v2.ty) then
-           fail (ConstClash (cst, t2))
+     if v1.name = v2.name then begin
+       (* if the two constants have the same name and the terms
+          being unified are polymorphic then try to identify the two
+          constants by unifying their types *)
+       if !poly_unif && not (unify_type v1.ty v2.ty) then
+         fail (ConstClash (cst, t2))
+     end
+     else
+       fail (ConstClash (cst, t2))
   | Lam (idtys,t2) ->
      let a1 = lift_args [] (List.length idtys) in
      unify (List.rev_app idtys tyctx) (app cst a1) t2
@@ -710,12 +711,8 @@ and unify_app_term tyctx h1 a1 t1 t2 =
         begin match observe h2 with
           | Var v2 when constant v2.tag ->
               if v1.name = v2.name then begin
-                if !poly_unif then 
-                  (* if the two constants have the same name and the terms
-                     being unified are polymorphic then try to identify the two
-                     constants by unifying their types *)
-                  if not (unify_type v1.ty v2.ty) then
-                    fail (ConstClash (h1, h2));
+                (if !poly_unif && not (unify_type v1.ty v2.ty) then
+                    fail (ConstClash (h1, h2)));
                 unify_list tyctx a1 a2
               end
               else
@@ -731,7 +728,7 @@ and unify_app_term tyctx h1 a1 t1 t2 =
         end
     | DB n1, App (h2,a2) ->
         begin match observe h2 with
-          | DB n2 when n1 == n1 ->
+          | DB n2 when n1 == n2 ->
               unify_list tyctx a1 a2
           | Var v when variable v.tag ->
               let m = List.length a2 in

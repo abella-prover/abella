@@ -703,10 +703,10 @@ let rec tc (tyctx:tyctx) t =
     | _ -> assert false
 
 let is_tyvar str = 
-  str.[0] = '?'
+  not (String.length str = 0) && str.[0] = '?'
 
 let is_gen_tyvar str =
-  str.[0] = '#'
+  not (String.length str = 0) && str.[0] = '#'
 
 let name_of_gen_tyvar str = 
   assert (is_gen_tyvar str);

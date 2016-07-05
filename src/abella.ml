@@ -661,6 +661,9 @@ and process_top1 () =
       let thm = type_umetaterm ~sr:!sr ~sign:tsign thm in
       (* mark the generic type variables in the theorem *)
       let thm = map_on_tys (mark_gen_tyvar tys) thm in
+      (* make sure that the variables with the same name are
+         bound by a unique binding variable *)
+      let thm = replace_metaterm_vars [] thm in
       let tys = List.map tag_gen_tyvar tys in
       let tsign = 
         let (basics, consts) = !sign in

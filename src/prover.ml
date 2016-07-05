@@ -256,6 +256,8 @@ let clause_head_name cl =
 
 let instantiate_clauses_aux =
   let fn (pn, ty_acts) def =
+    (* find the proper instantiation for 
+       the type variables of the definition *)
     let Ty (ty_exps, _) = Itab.find pn def.mutual in
     let ty_fresh = 
       List.map (fun id -> (id, Term.fresh_tyvar ())) def.typarams in
@@ -274,10 +276,16 @@ let instantiate_clauses_aux =
          in (id, ity)
       | _ -> assert false
     end ty_fresh in
-    List.map begin fun cl ->
-        {head = map_on_tys (apply_sub_ty tymap) cl.head ;
-         body = map_on_tys (apply_sub_ty tymap) cl.body}
-    end def.clauses
+    (* generate the instance of the definition under the type substitution *)
+    let inst_clause tysub cl =
+      let tyctx = metaterm_capital_tids cl.head in
+      let ctx = tyctx_to_ctx (apply_sub_tyctx tysub tyctx) in
+      let head = map_on_tys (apply_sub_ty tysub) cl.head in
+      let body = map_on_tys (apply_sub_ty tysub) cl.body in
+      {head = replace_metaterm_vars ctx head ;
+       body = replace_metaterm_vars ctx body}
+    in
+    List.map (inst_clause tymap) def.clauses
   in
   memoize fn
 

@@ -36,6 +36,7 @@ type unify_error =
   | NotLLambda
   | InstGenericVar of string
   | TypesNotFullyInferred
+  | TypeInstantiation of tysub
 
 val explain_error : unify_error -> string
 
@@ -49,9 +50,9 @@ val try_with_state : fail:'a -> (unit -> 'a) -> 'a
 val try_right_unify : ?used:(id * term) list -> term -> term -> bool
 val try_left_unify : ?used:(id * term) list -> term -> term -> bool
 
-val try_left_unify_cpairs : ?sub:tysub ref ->
+val try_left_unify_cpairs : 
   used:(id * term) list -> term -> term -> (term * term) list option
-val try_right_unify_cpairs : ?sub:tysub ref -> 
+val try_right_unify_cpairs : 
   term -> term -> (term * term) list option
 
 val left_flexible_heads :

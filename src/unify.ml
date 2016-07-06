@@ -70,6 +70,12 @@ let explain_error = function
 
 exception UnifyError of unify_error
 
+(* flag indicating if the unification collects type constraints
+   that must be satisifed for it to succeed *)
+let unif_collect_ty_constraints = ref false
+(* type constraints collected during unification *)
+let unif_ty_constraints = ref []
+
 (* An explicit handler is specified for how to deal with
    non-llambda conflict pairs *)
 module type Param =
@@ -90,7 +96,7 @@ let poly_unif = ref false
 (* type substitutions accumulated during the unification *)
 let tysub = ref []
 
-(* let get_tysub () = !tysub *)
+
 
 let unify_type ty1 ty2 =
   let ty1 = apply_sub_ty (!tysub) ty1 in
@@ -684,6 +690,9 @@ and unify_const_term tyctx cst t2 =
   match (observe t2) with
   | Var v2 when constant v2.tag ->
      if v1.name = v2.name then begin
+       (* collect type constraints *)
+       (if !poly_unif && !unif_collect_ty_constraints then
+         unif_ty_constraints := (v1.ty, v2.ty) :: (!unif_ty_constraints));
        (* if the two constants have the same name and the terms
           being unified are polymorphic then try to identify the two
           constants by unifying their types *)
@@ -711,6 +720,12 @@ and unify_app_term tyctx h1 a1 t1 t2 =
         begin match observe h2 with
           | Var v2 when constant v2.tag ->
               if v1.name = v2.name then begin
+                (* collect type constraints *)
+                (if !poly_unif && !unif_collect_ty_constraints then
+                    unif_ty_constraints := (v1.ty, v2.ty) :: (!unif_ty_constraints));
+                (* if the two constants have the same name and the terms
+                   being unified are polymorphic then try to identify the two
+                   constants by unifying their types *)
                 (if !poly_unif && not (unify_type v1.ty v2.ty) then
                     fail (ConstClash (h1, h2)));
                 unify_list tyctx a1 a2

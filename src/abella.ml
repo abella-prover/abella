@@ -542,7 +542,7 @@ let rec process1 () =
       State.Undo.undo () ;
       eprintf "%s\n" 
         (Printf.sprintf "The generic type variable %s cannot be instantiated" 
-           (name_of_gen_tyvar v)) ;
+           v) ;
       interactive_or_exit ()      
   | End_of_file ->
       write_compilation () ;

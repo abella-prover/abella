@@ -1,7 +1,7 @@
 Specification "schm_poly_tst".
 
-Set types on. 
-Set instantiations on.
+% Set types on. 
+% Set instantiations on.
 
 Define append : list A -> list A -> list A -> prop by
   append nil L L;
@@ -26,13 +26,24 @@ intros. apply append_det[$A] to H1 H2. search.
 % Type fst,snd   list A -> A.
 Type p   A -> o.
 
-Theorem inst_gen_var[A,B] : forall (X:A) (Y:B),
+Theorem inst_gen_var1[A,B] : forall (X:A) (Y:B),
   p X = p Y -> false.
 intros. 
   %% The following case analysis should report an error that
   %% generic type variables cannot be instantiated
   % case H1.
   skip.
+
+Theorem inst_gen_var2[A] : forall (X:A) (Y:o),
+  p X = p Y -> false.
+intros.
+  % case H1.
+  skip.
+
+Theorem inst_gen_var3[A] : forall (X:i) (Y:o),
+  p X = p Y -> false.
+intros. case H1.
+
 
 Theorem member_prune[A,B] : forall M (L:list A), nabla (x:B),
   member (M x) L -> exists M', M = y\M'.

@@ -218,7 +218,7 @@ val apply_sub_ty : tysub -> ty -> ty
 val apply_bind_sub : string -> ty -> tysub -> tysub
 
 val is_ground_tysub : tysub -> bool
-val inst_poly_term : tysub -> term -> term
+val inst_term_ty : tysub -> term -> term
 val term_fully_instantiated : term -> bool
     
 (* Manipulation of clauses *)

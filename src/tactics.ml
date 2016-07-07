@@ -46,8 +46,8 @@ let freshen_poly_clause ~tysub ~used ~sr ?(support=[]) clause =
   let (tids, head, body) = clause in
   let tids' = List.map 
     (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in
-  let head' = inst_poly_term tysub head in
-  let body' = List.map (inst_poly_term tysub) body in
+  let head' = inst_term_ty tysub head in
+  let body' = List.map (inst_term_ty tysub) body in
   freshen_clause ~sr ~support ~used (tids',head',body')
 
 let freshen_def ~used ~sr ?(support=[]) head body =
@@ -83,8 +83,8 @@ let freshen_nameless_poly_clause ?(support=[]) ~tysub ~ts clause =
   let (tids, head, body) = clause in
   let tids' = List.map 
     (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in
-  let head' = inst_poly_term tysub head in
-  let body' = List.map (inst_poly_term tysub) body in
+  let head' = inst_term_ty tysub head in
+  let body' = List.map (inst_term_ty tysub) body in
   freshen_nameless_clause ~support ~ts (tids',head',body')
 
 let freshen_nameless_def ?(support=[]) ~ts head body =

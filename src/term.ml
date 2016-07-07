@@ -807,7 +807,7 @@ let apply_bind_sub v ty sub =
 let is_ground_tysub sub =
   not (List.exists (fun (id,ty) -> contains_tyvar ty) sub)
 
-let inst_poly_term sub t =
+let inst_term_ty sub t =
   map_on_term_tys (apply_sub_ty sub) t
     
 let term_fully_instantiated t =

@@ -867,3 +867,4 @@ let rec clausify ?(vars=[]) ?(body=[]) head =
       clausify ~vars ~body head1 @
       clausify ~vars ~body head2
   | head -> [vars, head, List.rev body]
+

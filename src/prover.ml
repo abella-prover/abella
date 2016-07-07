@@ -280,10 +280,8 @@ let instantiate_clauses_aux =
     let inst_clause tysub cl =
       let tyctx = metaterm_capital_tids cl.head in
       let ctx = tyctx_to_ctx (apply_sub_tyctx tysub tyctx) in
-      let head = map_on_tys (apply_sub_ty tysub) cl.head in
-      let body = map_on_tys (apply_sub_ty tysub) cl.body in
-      {head = replace_metaterm_vars ctx head ;
-       body = replace_metaterm_vars ctx body}
+      {head = inst_poly_metaterm tysub ctx cl.head ;
+       body = inst_poly_metaterm tysub ctx cl.body}
     in
     List.map (inst_clause tymap) def.clauses
   in
@@ -572,10 +570,7 @@ let get_lemma ?(tys:ty list = []) name =
   if List.length tys <> List.length argtys then
     failwithf "Need to provide mappings for %d types" (List.length argtys) ;
   let tysub = List.map2 (fun id ty -> (id, ty)) argtys tys in
-  let bod = map_on_tys (apply_sub_ty tysub) bod in
-  (* make sure that the variables with the same name are
-     bound by a unique binding variable *)
-  replace_metaterm_vars [] bod
+  inst_poly_metaterm tysub [] bod
 
 let get_hyp_or_lemma ?tys name =
   try get_hyp name with
@@ -841,8 +836,7 @@ let apply ?name ?(term_witness=ignore) h args ws =
         | TypeInferenceFailure _ | TypeInferenceError _ ->
           failwith "Type variables in the lemma cannot be completely determined"
       in
-      let s = map_on_tys (apply_sub_ty tysub) stmt in
-      replace_metaterm_vars [] s
+      inst_poly_metaterm tysub [] stmt
     end
     else
       stmt

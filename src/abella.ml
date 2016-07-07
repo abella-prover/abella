@@ -659,23 +659,21 @@ and process_top1 () =
         (List.map (fun id -> (id,kind 0)) tys @ basics, consts)
       in
       let thm = type_umetaterm ~sr:!sr ~sign:tsign thm in
-      (* mark the generic type variables in the theorem *)
-      let thm = map_on_tys (mark_gen_tyvar tys) thm in
-      (* make sure that the variables with the same name are
-         bound by a unique binding variable *)
-      let thm = replace_metaterm_vars [] thm in
-      let tys = List.map tag_gen_tyvar tys in
+      let gtys = List.map tag_gen_tyvar tys in
+      let tysub = 
+        List.map2 (fun id gty -> (id, tybase (atybase gty))) tys gtys in
+      let thm = inst_poly_metaterm tysub [] thm in
       let tsign = 
         let (basics, consts) = !sign in
-        (List.map (fun id -> (id,kind 0)) tys @ basics, consts)
+        (List.map (fun id -> (id,kind 0)) gtys @ basics, consts)
       in
       check_theorem thm ;
       theorem thm ;
       let oldsign = !sign in
       let thm_compile () =
         sign := oldsign ;
-        compile (CTheorem(name, tys, thm)) ;
-        add_lemma name tys thm
+        compile (CTheorem(name, gtys, thm)) ;
+        add_lemma name gtys thm
       in
       let thm_reset () =
         sign := oldsign ;

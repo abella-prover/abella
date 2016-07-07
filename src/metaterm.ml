@@ -328,36 +328,6 @@ let map_terms f t =
   in
   aux t
 
-let map_on_tys f mt =
-  let rec aux mt =
-    match mt with
-    | True | False -> mt
-    | Eq (a, b) -> Eq (taux a, taux b)
-    | Obj (o, r) -> Obj (oaux o, r)
-    | Arrow (f, g) -> Arrow (aux f, aux g)
-    | Binding (q, bs, bod) ->
-        Binding (q, List.map baux bs, aux bod)
-    | Or (f, g) -> Or (aux f, aux g)
-    | And (f, g) -> And (aux f, aux g)
-    | Pred (p, r) -> Pred (taux p, r)
-  and taux t =
-    match observe (hnorm t) with
-    | Var v -> var v.tag v.name v.ts (f v.ty)
-    | DB _ as t -> t
-    | Lam (cx, t) -> lambda (List.map baux cx) (taux t)
-    | App (f, ts) -> app (taux f) (List.map taux ts)
-    | Ptr _ | Susp _ -> assert false
-  and oaux o =
-    let context = Context.map taux o.context in
-    let right = taux o.right in
-    let mode = match o.mode with
-      | Async -> Async
-      | Sync focus -> Sync (taux focus)
-    in
-    { context ; right ; mode }
-  and baux (v, ty) = (v, f ty)
-  in aux mt
-
 type parity = EVEN | ODD
 type posity = POS | NONPOS
 let change_parity = function EVEN -> ODD | ODD -> EVEN
@@ -868,3 +838,36 @@ let rec clausify ?(vars=[]) ?(body=[]) head =
       clausify ~vars ~body head2
   | head -> [vars, head, List.rev body]
 
+let inst_poly_metaterm tysub ctx t =
+  let map_on_tys f mt =
+    let rec aux mt =
+      match mt with
+      | True | False -> mt
+      | Eq (a, b) -> Eq (taux a, taux b)
+      | Obj (o, r) -> Obj (oaux o, r)
+      | Arrow (f, g) -> Arrow (aux f, aux g)
+      | Binding (q, bs, bod) ->
+        Binding (q, List.map baux bs, aux bod)
+      | Or (f, g) -> Or (aux f, aux g)
+      | And (f, g) -> And (aux f, aux g)
+      | Pred (p, r) -> Pred (taux p, r)
+    and taux t =
+      match observe (hnorm t) with
+      | Var v -> var v.tag v.name v.ts (f v.ty)
+      | DB _ as t -> t
+      | Lam (cx, t) -> lambda (List.map baux cx) (taux t)
+      | App (f, ts) -> app (taux f) (List.map taux ts)
+      | Ptr _ | Susp _ -> assert false
+    and oaux o =
+      let context = Context.map taux o.context in
+      let right = taux o.right in
+      let mode = match o.mode with
+        | Async -> Async
+        | Sync focus -> Sync (taux focus)
+      in
+      { context ; right ; mode }
+    and baux (v, ty) = (v, f ty)
+    in aux mt
+  in 
+  let t = map_on_tys (apply_sub_ty tysub) t in
+  replace_metaterm_vars ctx t

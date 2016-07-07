@@ -95,3 +95,13 @@ let unify_constraints eqns =
   in
 
   List.fold_left unify_single_constraint [] eqns
+
+
+let ty_compatible ty1 ty2 =
+  try
+    let _ = unify_constraints [(ty1, ty2, (ghost,CArg))] in
+    true
+  with
+  | TypeInferenceFailure _
+  | TypeInferenceError _ ->
+    false

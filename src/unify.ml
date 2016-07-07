@@ -82,6 +82,11 @@ let add_tysub_as_constraints tysub =
     (fun (id, ty) -> (tybase (atybase id) , ty, (ghost, CArg))) tysub
   in
   unif_ty_constraints := eqns @ (!unif_ty_constraints)
+let get_ty_constraints () =
+  let tycstrs = !unif_ty_constraints in
+  unif_ty_constraints := []; tycstrs
+let add_ty_constraint ty1 ty2 =
+  unif_ty_constraints := (ty1, ty2, (ghost, CArg)) :: !unif_ty_constraints
 
 (* An explicit handler is specified for how to deal with
    non-llambda conflict pairs *)

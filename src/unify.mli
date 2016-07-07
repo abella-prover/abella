@@ -21,6 +21,7 @@
 (****************************************************************************)
 
 open Term
+open Unifyty
 
 type unify_failure =
   | OccursCheck
@@ -61,3 +62,7 @@ val left_flexible_heads :
   ((id*ty) list * term * term list) ->
   ((id*ty) list * term * term list) ->
     term list
+
+val unif_collect_ty_constraints : bool ref
+val get_ty_constraints : unit -> (ty * ty * constraint_info) list
+val add_ty_constraint : ty -> ty -> unit

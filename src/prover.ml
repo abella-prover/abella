@@ -602,6 +602,36 @@ let get_arg_clearly = function
   | Keep ("_", _) -> None
   | arg -> Some (get_stmt_clearly arg)
 
+let clearable_contains_tyvar h =
+  match h with
+  | Keep (_, tys) ->
+    List.exists contains_tyvar tys
+  | Remove (_, tys) -> List.exists contains_tyvar tys
+
+(* fill in type variables for parameterizing types in lemmas if
+   explicit type assignments are not given *)
+let fill_in_tyvars_for_lemma hp =
+  let gen_tyvars h tys =
+    try 
+      let (argtys, body) = get_generic_lemma h in
+      if tys = [] && List.length argtys > 0 then
+        let tys' = List.map (fun t -> fresh_tyvar ()) argtys in
+        tys'
+      else
+        tys
+    with
+    | Not_found -> tys
+  in
+  match hp with
+  | Keep (h, tys) ->
+    let tys' = gen_tyvars h tys in
+    Keep (h, tys')
+  | Remove (h, []) when is_hyp h -> hp
+  | Remove (h, tys) ->
+    let tys' = gen_tyvars h tys in
+    Keep (h, tys')
+
+
 exception End_proof of [`completed | `aborted]
 
 let next_subgoal () =
@@ -791,10 +821,32 @@ let partition_obligations ?depth obligations =
        obligations)
 
 let apply ?name ?(term_witness=ignore) h args ws =
+  let h = fill_in_tyvars_for_lemma h in
+  let hcontains_tyvar = clearable_contains_tyvar h in
   let stmt = get_stmt_clearly h in
   let args = List.map get_arg_clearly args in
   let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
   let ws = type_apply_withs stmt ws in
+  let stmt = 
+    if hcontains_tyvar then begin
+      (* execute the apply tactics to collect the type constraints *)
+      Unify.unif_collect_ty_constraints := true;
+      let _ = Tactics.apply_with stmt args ws in
+      Unify.unif_collect_ty_constraints := false;      
+      (* use type constraints to infer types in the lemma *)
+      let tysub =
+        try
+          unify_constraints (Unify.get_ty_constraints ())
+        with
+        | TypeInferenceFailure _ | TypeInferenceError _ ->
+          failwith "Type variables in the lemma cannot be completely determined"
+      in
+      let s = map_on_tys (apply_sub_ty tysub) stmt in
+      replace_metaterm_vars [] s
+    end
+    else
+      stmt
+  in
   let result, obligations = Tactics.apply_with stmt args ws in
   let remaining_obligations, term_witnesses =
     partition_obligations obligations

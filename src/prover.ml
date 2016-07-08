@@ -597,11 +597,12 @@ let get_arg_clearly = function
   | Keep ("_", _) -> None
   | arg -> Some (get_stmt_clearly arg)
 
-let clearable_contains_tyvar h =
+let clearable_tyvars h =
   match h with
   | Keep (_, tys) ->
-    List.exists contains_tyvar tys
-  | Remove (_, tys) -> List.exists contains_tyvar tys
+    List.unique (List.flatten_map get_tyvars tys)
+  | Remove (_, tys) -> 
+    List.unique (List.flatten_map get_tyvars tys)
 
 (* fill in type variables for parameterizing types in lemmas if
    explicit type assignments are not given *)
@@ -815,7 +816,7 @@ let partition_obligations ?depth obligations =
           | Some w -> Either.Right (g, w))
        obligations)
 
-let try_infer_tysub f failmsg=
+let try_infer_tysub tyvars f failmsg=
   Unify.start_collecting_ty_constraints ();
   (try
     f ()
@@ -823,21 +824,26 @@ let try_infer_tysub f failmsg=
    | e -> ());
   Unify.end_collecting_ty_constraints ();
   try
-    unify_constraints (Unify.get_ty_constraints ())
+    let tysub = unify_constraints (Unify.get_ty_constraints ()) in
+    let subdom = List.map fst tysub in
+    if List.for_all (fun tv -> List.mem tv subdom) tyvars then
+      tysub
+    else
+      failwith failmsg
   with
   | TypeInferenceFailure _ | TypeInferenceError _ ->
     failwith failmsg
 
 let apply ?name ?(term_witness=ignore) h args ws =
   let h = fill_in_tyvars_for_lemma h in
-  let hcontains_tyvar = clearable_contains_tyvar h in
+  let htyvars = clearable_tyvars h in
   let stmt = get_stmt_clearly h in
   let args = List.map get_arg_clearly args in
   let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
   let ws = type_apply_withs stmt ws in
   let stmt = 
-    if hcontains_tyvar then begin
-      let tysub = try_infer_tysub 
+    if List.length htyvars > 0 then begin
+      let tysub = try_infer_tysub htyvars
         (fun _ -> let _ = Tactics.apply_with stmt args ws in ())
         "Type variables in the lemma cannot be completely determined"
       in
@@ -885,12 +891,12 @@ let type_backchain_withs stmt ws =
 
 let backchain ?depth ?(term_witness=ignore) h ws =
   let h = fill_in_tyvars_for_lemma h in
-  let hcontains_tyvar = clearable_contains_tyvar h in
+  let htyvars = clearable_tyvars h in
   let stmt = get_stmt_clearly h in
   let ws = type_backchain_withs stmt ws in
   let stmt = 
-    if hcontains_tyvar then begin
-      let tysub = try_infer_tysub 
+    if List.length htyvars > 0 then begin
+      let tysub = try_infer_tysub htyvars 
         (fun _ -> let _ = Tactics.backchain_with stmt ws sequent.goal in ())
         "Type variables in the lemma cannot be completely determined"
       in

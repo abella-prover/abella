@@ -80,6 +80,14 @@ Theorem member_prune4[A,B] : forall M (L:list A), nabla (x:i),
   member (M x) L -> exists M', M = y\M'.
 intros. apply member_prune to H1. search.
 
+Theorem olist_mem_prune_bc : forall M (L:list o), nabla (x:o),
+  member (M x) L -> exists M', M = y\M'.
+intros. backchain member_prune[o,o].
+
+Theorem member_prune1_bc[A,B] : forall M (L:list A), nabla (x:B),
+  member (M x) L -> exists M', M = y\M'.
+intros. backchain member_prune[$A,$B].
+
 
 Theorem app_det[A] : forall (L1: list A) L2 L3 L3',
   {app L1 L2 L3} -> {app L1 L2 L3'} -> L3 = L3'.

@@ -815,6 +815,19 @@ let partition_obligations ?depth obligations =
           | Some w -> Either.Right (g, w))
        obligations)
 
+let try_infer_tysub f failmsg=
+  Unify.start_collecting_ty_constraints ();
+  (try
+    f ()
+   with
+   | e -> ());
+  Unify.end_collecting_ty_constraints ();
+  try
+    unify_constraints (Unify.get_ty_constraints ())
+  with
+  | TypeInferenceFailure _ | TypeInferenceError _ ->
+    failwith failmsg
+
 let apply ?name ?(term_witness=ignore) h args ws =
   let h = fill_in_tyvars_for_lemma h in
   let hcontains_tyvar = clearable_contains_tyvar h in
@@ -824,17 +837,9 @@ let apply ?name ?(term_witness=ignore) h args ws =
   let ws = type_apply_withs stmt ws in
   let stmt = 
     if hcontains_tyvar then begin
-      (* execute the apply tactics to collect the type constraints *)
-      Unify.unif_collect_ty_constraints := true;
-      let _ = Tactics.apply_with stmt args ws in
-      Unify.unif_collect_ty_constraints := false;      
-      (* use type constraints to infer types in the lemma *)
-      let tysub =
-        try
-          unify_constraints (Unify.get_ty_constraints ())
-        with
-        | TypeInferenceFailure _ | TypeInferenceError _ ->
-          failwith "Type variables in the lemma cannot be completely determined"
+      let tysub = try_infer_tysub 
+        (fun _ -> let _ = Tactics.apply_with stmt args ws in ())
+        "Type variables in the lemma cannot be completely determined"
       in
       inst_poly_metaterm tysub [] stmt
     end
@@ -879,8 +884,21 @@ let type_backchain_withs stmt ws =
     ws
 
 let backchain ?depth ?(term_witness=ignore) h ws =
+  let h = fill_in_tyvars_for_lemma h in
+  let hcontains_tyvar = clearable_contains_tyvar h in
   let stmt = get_stmt_clearly h in
   let ws = type_backchain_withs stmt ws in
+  let stmt = 
+    if hcontains_tyvar then begin
+      let tysub = try_infer_tysub 
+        (fun _ -> let _ = Tactics.backchain_with stmt ws sequent.goal in ())
+        "Type variables in the lemma cannot be completely determined"
+      in
+      inst_poly_metaterm tysub [] stmt
+    end
+    else
+      stmt
+  in
   let obligations = Tactics.backchain_with stmt ws sequent.goal in
   let remaining_obligations, term_witnesses =
     partition_obligations ?depth obligations

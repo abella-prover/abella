@@ -1404,9 +1404,22 @@ let backchain ?(used_nominals=[]) term goal =
   | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->
       let n = List.length nablas in
       let (nabla_ids, nabla_tys) = List.split nablas in
+      (* Add dummy nominals in case nabla bound variables aren't used *)
+      let support =
+        (fresh_nominals_by_list nabla_tys
+           (List.map term_to_name (support @ used_nominals))) @
+          support
+      in
       support |> List.rev |> List.permute n |>
-      List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals) |>
+      List.find_all begin fun nominals -> 
+        let norm_tys = List.map (tc []) nominals in
+        let ty_pairs = List.map2 (fun ty1 ty2 -> (ty1, ty2)) norm_tys nabla_tys in
+        List.for_all (fun (ty1, ty2) -> Unifyty.ty_compatible ty1 ty2) ty_pairs
+      end |>
       List.find_some begin fun nominals ->
+        let norm_tys = List.map (tc []) nominals in
+        let ty_pairs = List.map2 (fun ty1 ty2 -> (ty1, ty2)) norm_tys nabla_tys in
+        List.iter (fun (ty1,ty2) -> add_ty_constraint ty1 ty2) ty_pairs;
         try_with_state ~fail:None
           (fun () ->
              let support = List.minus support nominals in

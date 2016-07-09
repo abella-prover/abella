@@ -688,6 +688,9 @@ let oty = tybase (atybase "o")
 let olistty = tybase (atyapp (atybase "list") oty)
 let propty = tybase (atybase "prop")
 
+let aty_to_string a =
+  ty_to_string (tybase a)
+
 let rec tc (tyctx:tyctx) t =
   match observe (hnorm t) with
     | DB i -> snd (List.nth tyctx (i-1))
@@ -783,6 +786,19 @@ let term_contains_gen_tyvar t =
   
 let is_poly_term t =
   term_contains_tyvar t || term_contains_gen_tyvar t
+
+let get_tycstr f ty =
+  let rec aux_ty tyvs ty =
+    match ty with
+    | Ty (argtys, AtmTy(cty, ttys)) ->
+        let tyvs = aux_tys tyvs argtys in
+        let tyvs = aux_tys tyvs ttys in
+        if f cty then 
+          Iset.add cty tyvs
+        else 
+          tyvs
+  and aux_tys tyvs tys = List.fold_left aux_ty tyvs tys in
+  Iset.elements (aux_ty Iset.empty ty)
 
 
 (** Type substitutions *)

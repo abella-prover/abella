@@ -25,7 +25,7 @@ type sr
 
 val empty : sr
 val query : sr -> ty -> ty -> bool
-val close : sr -> string list -> sr
+val close : sr -> aty list -> sr
 val update : sr -> ty -> sr
 val ensure : sr -> ty -> unit
-val subordinates : sr -> string -> string list
+val subordinates : sr -> aty -> aty list

@@ -386,7 +386,8 @@ let import filename withs =
                      | xs ->
                          failwithf
                            "Cannot close %s since it is now subordinate to %s"
-                           ty (String.concat ", " xs))
+                           (aty_to_string ty) 
+                           (String.concat ", " (List.map aty_to_string xs)))
                   ty_subords ;
                 close_types (List.map fst ty_subords) ;
                 process_decls decls
@@ -724,9 +725,9 @@ and process_top1 () =
       check_noredef ids;
       add_global_consts (List.map (fun id -> (id, ty)) ids) ;
       compile (CType(ids, ty))
-  | Close(ids) ->
-      close_types ids ;
-      compile (CClose(List.map (fun id -> (id, Subordination.subordinates !sr id)) ids))
+  | Close(atys) ->
+      close_types atys ;
+      compile (CClose(List.map (fun aty -> (aty, Subordination.subordinates !sr aty)) atys))
   end ;
   if !interactive then flush stdout ;
   fprintf !out "\n%!"

@@ -458,6 +458,10 @@ uty_list:
   | uty { [$1] }
   | uty COMMA uty_list { $1 :: $3 }
 
+aty_list:
+  | aty { [Typing.desugar_aty $1] }
+  | aty COMMA aty_list { (Typing.desugar_aty $1) :: $3 }
+
 apply_args:
   | apply_arg apply_args
     { $1 :: $2 }
@@ -739,8 +743,8 @@ pure_top_command:
     { Types.Kind(List.map deloc_id $2, $3) }
   | TTYPE id_list ty DOT
     { Types.Type(List.map deloc_id $2, $3) }
-  | CLOSE id_list DOT
-    { Types.Close(List.map deloc_id $2) }
+  | CLOSE aty_list DOT
+    { Types.Close($2) }
   | SSPLIT loc_id DOT
     { Types.SSplit(deloc_id $2, []) }
   | SSPLIT loc_id AS id_list DOT

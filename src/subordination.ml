@@ -22,13 +22,19 @@
 open Term
 open Extensions
 
-type sr = string Graph.t * string list
+type sr = Graph.t * aty list
 
 let empty = (Graph.empty, [])
 
-let head (Ty(_, AtmTy(h,_))) = h
+let check_non_poly a =
+  (if contains_tyvar (tybase a) then
+    failwithf "Subordination relation cannot be inferred for plymorphic types: %s"
+      (aty_to_string a))
+
+let head (Ty(_, a)) = a
 
 let close (graph, closed) atys =
+  List.iter check_non_poly atys;
   let closed = atys @ closed in
     List.iter
       (fun aty ->
@@ -36,44 +42,65 @@ let close (graph, closed) atys =
            | [] -> ()
            | xs -> failwith
                (Printf.sprintf "Cannot close %s without closing %s"
-                  aty (String.concat ", " xs)))
+                  (aty_to_string aty) 
+                  (String.concat ", " (List.map aty_to_string xs))))
       atys ;
     (graph, closed)
 
 let query (graph, closed) a b =
-  Graph.is_path graph (head a) (head b) || not (List.mem (head b) closed)
+  contains_tyvar b || contains_tyvar a || 
+  not (List.mem (head b) closed) || Graph.is_path graph (head a) (head b)
+
+let replace_tyvars_for_params ty =
+  let typarams = get_tycstr (fun s -> is_capital_name s || is_gen_tyvar s) ty in
+  let tysub = List.map (fun p -> (p, fresh_tyvar ())) typarams in
+  apply_sub_ty tysub ty
+
+let rec mark_gen_tyvar gen_tyvars ty =
+  let aux = mark_gen_tyvar gen_tyvars in
+  match ty with
+  | Ty (tys, AtmTy(cty, args)) ->
+     let tys' = List.map aux tys in
+     let args' = List.map aux args in
+     let cty' = if List.mem cty gen_tyvars 
+       then tag_gen_tyvar cty else cty in
+     Ty (tys', AtmTy(cty', args'))
+  
+(* check that the arc does not extend the existing subordination relation *)
+let check_no_sr_extension closed a b =
+  List.iter begin fun aty -> 
+    match Graph.arc_predecessor (a,b) aty with
+    | None -> ()
+    | Some t -> 
+       if not (List.mem t closed) then
+         failwithf "Type %s introduces new types \
+                   \ that are subordinate to the closed type %s."
+           (ty_to_string (Ty([tybase a], b))) 
+           (ty_to_string (tybase aty))
+  end closed
 
 let add (graph, closed) a b =
-  if List.mem b closed then
-    if Graph.is_path graph a b then
-      (graph, closed)
-    else
-      failwithf "Type %s is closed and cannot be subordinated by %s" b a
-  else
-    (Graph.add_arc graph a b, closed)
+  check_no_sr_extension closed a b;
+  (Graph.add_arc graph a b, closed)
 
 let update sr ty =
-  let rec aux sr (Ty(args, AtmTy(target,_))) =
+  let ty = replace_tyvars_for_params ty in
+  let rec aux sr (Ty(args, target)) =
     let sr = List.fold_left aux sr args in
       List.fold_left (fun sr ty -> add sr (head ty) target) sr args
   in
     aux sr ty
 
 let ensure (graph, closed) ty =
-  let rec aux (Ty(args, AtmTy(target,_))) =
-    List.iter aux args ;
-    if List.mem target closed then
-      let target_preds = Graph.predecessors graph target in
-      List.iter
-        (fun aty ->
-         if not (List.mem (head aty) target_preds) then
-           failwith
-             (Printf.sprintf
-                "Type %s cannot be made subordinate to %s without explicit declaration"
-                (head aty) target))
-        args
+  let ty = replace_tyvars_for_params ty in
+  let rec aux (Ty(args, target)) =
+    List.iter aux args;
+    List.iter begin fun arg -> 
+      check_no_sr_extension closed (head arg) target
+    end args
   in
-    aux  ty
+  aux ty
 
 let subordinates (graph, closed) a =
+  check_non_poly a;
   Graph.predecessors graph a

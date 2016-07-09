@@ -148,9 +148,11 @@ let kind_check (ktable,ctable) (Poly(ids, ty)) =
   kind_check_poly (vknds@ktable,ctable) ty
 
 let check_const (ktable, ctable) (id, pty) =
-  let targ_ty_not_var tyvars ty =
+  let rec targ_ty_not_var tyvars ty =
     match ty with
     | Ty(tys, AtmTy(cty, args)) ->
+       List.iter (targ_ty_not_var tyvars) tys;
+       List.iter (targ_ty_not_var tyvars) args;
        if List.mem cty tyvars then
          let msg = 
            Printf.sprintf "Invalid type %s: target type cannot be a type variable" 
@@ -189,21 +191,8 @@ let rec desugar_ty ty =
     let aty = desugar_aty aty in
     Ty (tys,aty)
 
-let get_typaram ty =
-  let rec aux_ty tyvs ty =
-    match ty with
-    | Ty (argtys, AtmTy(cty, ttys)) ->
-        let tyvs = aux_tys tyvs argtys in
-        let tyvs = aux_tys tyvs ttys in
-        if is_capital_name cty then 
-          Iset.add cty tyvs
-        else 
-          tyvs
-  and aux_tys tyvs tys = List.fold_left aux_ty tyvs tys in
-  Iset.elements (aux_ty Iset.empty ty)
-
-let get_typarams tys =
-  List.flatten_map get_typaram tys
+let get_typaram ty = get_tycstr is_capital_name ty
+let get_typarams tys = List.flatten_map get_typaram tys
 
 let add_consts sign idtys =
   let typarams = idtys |> List.map snd |> List.map get_typaram in

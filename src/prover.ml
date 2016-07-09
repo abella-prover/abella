@@ -74,10 +74,10 @@ let sequent =
 let add_global_types tys knd =
   sign := add_types !sign tys knd
 
-let locally_add_global_consts cs =
-  let local_sr = List.fold_left Subordination.update !sr (List.map snd cs)
-  and local_sign = add_consts !sign cs
-  in (local_sr, local_sign)
+(* let locally_add_global_consts cs = *)
+(*   let local_sr = List.fold_left Subordination.update !sr (List.map snd cs) *)
+(*   and local_sign = add_consts !sign cs *)
+(*   in (local_sr, local_sign) *)
 
 let commit_global_consts local_sr local_sign =
   sr := local_sr ;
@@ -87,16 +87,23 @@ let add_global_consts cs =
   sr := List.fold_left Subordination.update !sr (List.map snd cs) ;
   sign := add_consts !sign cs
 
-let close_types ids =
-  begin match List.minus ids (List.map fst (fst !sign)) with
+let close_types atys =
+  let tys = List.map tybase atys in
+  begin match List.intersect [oty; olistty; propty] tys with
   | [] -> ()
-  | xs -> failwithf "Unknown type(s): %s" (String.concat ", " xs)
+  | xs -> failwithf "Cannot close %s" 
+     (String.concat ", " (List.map ty_to_string xs))
   end ;
-  begin match List.intersect ["o"; "olist"; "prop"] ids with
-  | [] -> ()
-  | xs -> failwithf "Cannot close %s" (String.concat ", " xs)
-  end ;
-  sr := Subordination.close !sr ids
+  
+  (* begin match List.minus ids (List.map fst (fst !sign)) with *)
+  (* | [] -> () *)
+  (* | xs -> failwithf "Unknown type(s): %s" (String.concat ", " xs) *)
+  (* end ; *)
+  (* begin match List.intersect ["o"; "olist"; "prop"] ids with *)
+  (* | [] -> () *)
+  (* | xs -> failwithf "Cannot close %s" (String.concat ", " xs) *)
+  (* end ; *)
+  sr := Subordination.close !sr atys
 
 let add_subgoals ?(mainline) new_subgoals =
   let extend_name i =

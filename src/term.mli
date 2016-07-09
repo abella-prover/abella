@@ -155,7 +155,9 @@ val norm : term -> term
 val pretty_ty : ty -> Pretty.expr
 val format_ty : Format.formatter -> ty -> unit
 val ty_to_string : ty -> string
+val aty_to_string : aty -> string
 val knd_to_string : knd -> string
+
 
 val var_to_string : var -> string
 
@@ -203,6 +205,8 @@ val get_term_tyvars : term -> string list
 
 val mark_gen_tyvar : string list -> ty -> ty
 val tag_gen_tyvar : string -> string
+
+val get_tycstr : (string -> bool) -> ty -> string list
 
 val contains_tyvar : ty -> bool 
 val contains_gen_tyvar : ty -> bool

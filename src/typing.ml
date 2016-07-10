@@ -151,8 +151,6 @@ let check_const (ktable, ctable) (id, pty) =
   let rec targ_ty_not_var tyvars ty =
     match ty with
     | Ty(tys, AtmTy(cty, args)) ->
-       List.iter (targ_ty_not_var tyvars) tys;
-       List.iter (targ_ty_not_var tyvars) args;
        if List.mem cty tyvars then
          let msg = 
            Printf.sprintf "Invalid type %s: target type cannot be a type variable" 

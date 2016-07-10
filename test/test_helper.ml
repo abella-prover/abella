@@ -118,7 +118,7 @@ let sr_b = Term.tybase (Term.atybase "sr_b")
 let sr_sr =
   Subordination.close
     (Subordination.update Subordination.empty (Term.tyarrow [sr_a] sr_b))
-    ["sr_a"; "sr_b"]
+    [Term.atybase "sr_a"; Term.atybase "sr_b"]
 
 let freshen str =
   let uterm = parse_umetaterm str in

@@ -73,10 +73,8 @@ let check_no_sr_extension closed a b =
     | None -> ()
     | Some t -> 
        if not (List.mem t closed) then
-         failwithf "Type %s introduces new types \
-                   \ that are subordinate to the closed type %s."
-           (ty_to_string (Ty([tybase a], b))) 
-           (ty_to_string (tybase aty))
+         failwithf "Type %s is closed and cannot be subordinated by %s"
+           (aty_to_string aty) (aty_to_string t)
   end closed
 
 let add (graph, closed) a b =

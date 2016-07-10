@@ -32,6 +32,11 @@ let add_arc arcs a b =
 
 let arc_predecessor (s, t) a =
   assert (not (contains_tyvar (tybase a)));
+  (match t with
+  | AtmTy(cty, _) ->
+     if is_tyvar cty then
+       failwith "Pre-condition of subordination check is violated:\
+                 \ target type cannot be a variable\n");
   let a' = tybase a in
   let s' = tybase s in
   let t' = tybase t in

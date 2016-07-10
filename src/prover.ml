@@ -87,7 +87,8 @@ let add_global_consts cs =
   sr := List.fold_left Subordination.update !sr (List.map snd cs) ;
   sign := add_consts !sign cs
 
-let close_types atys =
+let close_types sign atys =
+  List.iter (kind_check sign) (List.map tybase atys);
   let tys = List.map tybase atys in
   begin match List.intersect [oty; olistty; propty] tys with
   | [] -> ()

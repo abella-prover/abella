@@ -78,6 +78,11 @@ let check_no_sr_extension closed a b =
   end closed
 
 let add (graph, closed) a b =
+  (match b with
+  | AtmTy(cty, _) ->
+     if is_tyvar cty then
+       failwith "Pre-condition of subordination check is violated by this type:\
+                 \ some target type in it is a variable\n");
   check_no_sr_extension closed a b;
   (Graph.add_arc graph a b, closed)
 

@@ -101,7 +101,7 @@ let process_top_command str =
     | Abella_types.Type(ids, ty) ->
         add_global_consts (List.map (fun id -> (id, ty)) ids)
     | Abella_types.Close(ids) ->
-        close_types ids
+        close_types !sign ids
     | _ -> assert false
 
 let () = process_top_command "Type   foo, bar, baz         i -> prop."

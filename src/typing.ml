@@ -126,7 +126,7 @@ let lookup_type (ktable, _) id =
 
 (** Constants *)
 
-let kind_check_poly sign ty =
+let kind_check sign ty =
   let rec aux = function
     | Ty(tys, AtmTy(cty,args)) ->
       List.iter aux args;
@@ -143,9 +143,9 @@ let kind_check_poly sign ty =
         failwithf "%s expects %i arguments but has %i" cty arity nargs
   in aux ty
 
-let kind_check (ktable,ctable) (Poly(ids, ty)) = 
+let kind_check_poly (ktable,ctable) (Poly(ids, ty)) = 
   let vknds = List.map (fun id -> (id, kind 0)) ids in
-  kind_check_poly (vknds@ktable,ctable) ty
+  kind_check (vknds@ktable,ctable) ty
 
 let check_const (ktable, ctable) (id, pty) =
   let rec targ_ty_not_var tyvars ty =
@@ -171,7 +171,7 @@ let check_const (ktable, ctable) (id, pty) =
   if is_capital_name id then
     failwithf "Constants may not begin with a capital letter: %s" id ;
 
-  kind_check (ktable, ctable) pty
+  kind_check_poly (ktable, ctable) pty
 
 let add_poly_consts (ktable, ctable) idptys =
   List.iter (check_const (ktable, ctable)) idptys ;
@@ -227,8 +227,8 @@ let pervasive_sign =
     (k_nil,    Poly(["A"], alistty)) ])
 
 let sign_to_tys sign =
-  List.filter_map
-    (function (_, Poly([], ty)) -> Some ty | _ -> None)
+  List.map
+    (function (_, Poly(ids, ty)) -> ty)
     (snd sign)
 
 let pervasive_sr =
@@ -287,7 +287,7 @@ let constraints_to_string eqns =
 let tid_ensure_fully_inferred ~sign (id, ty) =
   if contains_tyvar ty then
     failwithf "Type not fully determined for %s" id ;
-  kind_check_poly sign ty
+  kind_check sign ty
 
 let term_ensure_fully_inferred ~sign t =
   let rec aux t =

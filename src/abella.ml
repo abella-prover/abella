@@ -389,7 +389,7 @@ let import filename withs =
                            (aty_to_string ty) 
                            (String.concat ", " (List.map aty_to_string xs)))
                   ty_subords ;
-                close_types (List.map fst ty_subords) ;
+                close_types !sign (List.map fst ty_subords) ;
                 process_decls decls
           end
       in
@@ -726,7 +726,7 @@ and process_top1 () =
       add_global_consts (List.map (fun id -> (id, ty)) ids) ;
       compile (CType(ids, ty))
   | Close(atys) ->
-      close_types atys ;
+      close_types !sign atys ;
       compile (CClose(List.map (fun aty -> (aty, Subordination.subordinates !sr aty)) atys))
   end ;
   if !interactive then flush stdout ;

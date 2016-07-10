@@ -87,7 +87,7 @@ let add_global_consts cs =
   sr := List.fold_left Subordination.update !sr (List.map snd cs) ;
   sign := add_consts !sign cs
 
-let close_types sign atys =
+let close_types sign clauses atys =
   List.iter (kind_check sign) (List.map tybase atys);
   let tys = List.map tybase atys in
   begin match List.intersect [oty; olistty; propty] tys with
@@ -104,7 +104,9 @@ let close_types sign atys =
   (* | [] -> () *)
   (* | xs -> failwithf "Cannot close %s" (String.concat ", " xs) *)
   (* end ; *)
-  sr := Subordination.close !sr atys
+  sr := Subordination.close !sr atys;
+  List.iter (Typing.term_ensure_subordination !sr) clauses
+
 
 let add_subgoals ?(mainline) new_subgoals =
   let extend_name i =

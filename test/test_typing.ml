@@ -46,7 +46,7 @@ let tests =
            in
              assert_raises
                (Failure "Cannot quantify over type prop")
-               (fun () -> type_udef ~sr:!sr ~sign:!sign udef)
+               (fun () -> type_udef ~sign:!sign udef)
         );
 
       "Should not allow quantification over prop in metaterm" >::

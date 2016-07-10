@@ -302,6 +302,7 @@ let instantiate_clauses pn def args =
 let def_unfold term =
   match term with
   | Pred(p, _) ->
+     let (mutual,clauses) =
       let pn = term_head_name p in
       if H.mem defs_table pn then begin
         let def = H.find defs_table (term_head_name p) in
@@ -312,6 +313,12 @@ let def_unfold term =
         (def.mutual, clauses)
       end else
         failwith "Cannot perform case-analysis on undefined atom"
+     in
+     List.iter begin fun cl ->
+       metaterm_ensure_subordination !sr cl.head ;
+       metaterm_ensure_subordination !sr cl.body
+     end clauses;
+     (mutual,clauses)
   | _ -> (Itab.empty, [])
 
 

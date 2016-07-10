@@ -676,7 +676,7 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   result
 
 
-let type_udef ~sr ~sign (head, body) =
+let type_udef ~sign (head, body) =
   let cids = umetaterm_extract_if is_capital_name head in
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns1 = infer_constraints ~sign ~tyctx head in
@@ -689,13 +689,11 @@ let type_udef ~sr ~sign (head, body) =
   in
   metaterm_ensure_fully_inferred ~sign rhead ;
   metaterm_ensure_fully_inferred ~sign rbody ;
-  metaterm_ensure_subordination sr rhead ;
-  metaterm_ensure_subordination sr rbody ;
   check_meta_quantification rbody ;
   (rhead, rbody)
 
 let type_udefs ~sr ~sign udefs =
-  List.map (type_udef ~sr ~sign) udefs
+  List.map (type_udef ~sign) udefs
 
 (** Utilities *)
 

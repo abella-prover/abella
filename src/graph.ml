@@ -72,15 +72,9 @@ let predecessors arcs a =
       acc
     else
       let dpreds = (direct_predecessors arcs a) in
-      (* abandon the search if an arc is used more than once in any
-         search path. This is a conservative measure to make sure that
-         the search always termintates in presence of polymorphic types. *)
-      let check_no_arc_reused path arc =
-        if List.mem arc path then
-          failwith "Subordination check failure: \
-                    \ subordination relation may be infinite\n"
-      in
-      List.iter (check_no_arc_reused path) (List.map snd dpreds);
+      (* abandon the search if the search depth exceeds the limit *)
+      (if List.length path > 1000 then
+        failwith "Subordination check failure: reached the search limit\n");
       let dpreds = List.map (fun (a,e) -> (a, e::path)) dpreds in
       List.fold_left aux ((a,path)::acc) dpreds
   in

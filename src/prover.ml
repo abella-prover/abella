@@ -587,9 +587,7 @@ let get_lemma ?(tys:ty list = []) name =
   if List.length tys <> List.length argtys then
     failwithf "Need to provide mappings for %d types" (List.length argtys) ;
   let tysub = List.map2 (fun id ty -> (id, ty)) argtys tys in
-  let lemma = inst_poly_metaterm tysub [] bod in
-  metaterm_ensure_subordination !sr lemma;
-  lemma
+  inst_poly_metaterm tysub [] bod
 
 let get_hyp_or_lemma ?tys name =
   try get_hyp name with
@@ -871,6 +869,7 @@ let apply ?name ?(term_witness=ignore) h args ws =
     else
       stmt
   in
+  metaterm_ensure_subordination !sr stmt;
   let result, obligations = Tactics.apply_with stmt args ws in
   let remaining_obligations, term_witnesses =
     partition_obligations obligations
@@ -924,6 +923,7 @@ let backchain ?depth ?(term_witness=ignore) h ws =
     else
       stmt
   in
+  metaterm_ensure_subordination !sr stmt;
   let obligations = Tactics.backchain_with stmt ws sequent.goal in
   let remaining_obligations, term_witnesses =
     partition_obligations ?depth obligations

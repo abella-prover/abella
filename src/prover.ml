@@ -587,7 +587,9 @@ let get_lemma ?(tys:ty list = []) name =
   if List.length tys <> List.length argtys then
     failwithf "Need to provide mappings for %d types" (List.length argtys) ;
   let tysub = List.map2 (fun id ty -> (id, ty)) argtys tys in
-  inst_poly_metaterm tysub [] bod
+  let lemma = inst_poly_metaterm tysub [] bod in
+  metaterm_ensure_subordination !sr lemma;
+  lemma
 
 let get_hyp_or_lemma ?tys name =
   try get_hyp name with

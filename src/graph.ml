@@ -67,6 +67,8 @@ let direct_predecessors arcs a =
   in
   List.fold_left infer_pred [] arcs
 
+let max_search_depth = 400
+
 (* search the predecessors of a in the graph arcs.
    a must be a ground atomic type *)
 let predecessors arcs a =
@@ -78,7 +80,7 @@ let predecessors arcs a =
     else
       let dpreds = (direct_predecessors arcs a) in
       (* abandon the search if the search depth exceeds the limit *)
-      (if List.length path > 1000 then
+      (if List.length path > max_search_depth then
         failwith "Subordination check failure: reached the search limit\n");
       let dpreds = List.map (fun (a,e) -> (a, e::path)) dpreds in
       List.fold_left aux ((a,path)::acc) dpreds

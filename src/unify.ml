@@ -109,8 +109,6 @@ struct
 open P
 
 let local_used = ref []
-(* set to true when unifying polymorphic terms *) 
-let poly_unif = ref false 
 (* type substitutions accumulated during the unification *)
 let tysub = ref []
 
@@ -833,7 +831,6 @@ and unify tyctx t1 t2 =
 
 let pattern_unify ~used t1 t2 =
   local_used := used ;
-  poly_unif := is_poly_term t1 || is_poly_term t2 ;
   tysub := [] ;
   unify [] (hnorm t1) (hnorm t2) ;
   if (term_contains_tyvar t1 || term_contains_tyvar t2) then begin

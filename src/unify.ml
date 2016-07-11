@@ -827,14 +827,9 @@ and unify tyctx t1 t2 =
     | _ -> bugf "logic variable on the left (7)"
   with
     | UnifyError NotLLambda ->
-        if !poly_unif then
-          (* Pattern unification must be fully performed 
-             for polymorphic terms *)
-          raise (UnifyError NotLLambda)
-        else 
-          let n = max (closing_depth t1) (closing_depth t2) in
-          let tys = List.rev (List.take n tyctx) in
-          handler (lambda tys t1) (lambda tys t2)
+       let n = max (closing_depth t1) (closing_depth t2) in
+       let tys = List.rev (List.take n tyctx) in
+       handler (lambda tys t1) (lambda tys t2)
 
 let pattern_unify ~used t1 t2 =
   local_used := used ;

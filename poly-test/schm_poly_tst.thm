@@ -3,9 +3,6 @@ Specification "schm_poly_tst".
 % Set types on. 
 % Set instantiations on.
 
-Kind tm type.
-Close tm, list tm.
-
 Define append : list A -> list A -> list A -> prop by
   append nil L L;
   append (X :: L1) L2 (X :: L3) := append L1 L2 L3.

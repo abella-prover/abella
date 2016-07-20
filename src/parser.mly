@@ -271,6 +271,8 @@ term:
     { binop "=>" $1 $3 }
   | term IF term
     { binop "=>" $3 $1 }
+  | term CLAUSEEQ term
+    { binop "=>" $3 $1 }
   | term AMP term
     { binop "&" $1 $3 }
   | term CONS term

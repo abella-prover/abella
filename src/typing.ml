@@ -130,17 +130,19 @@ let kind_check sign ty =
   let rec aux = function
     | Ty(tys, AtmTy(cty,args)) ->
       List.iter aux args;
-      let knd = 
-        try lookup_type sign cty 
-        with
-        | Not_found -> failwithf "Unknown type constructor: %s" cty
-      in
-      let arity = karity knd in
-      let nargs = List.length args in
-      if nargs = arity then
-        List.iter aux tys
+      List.iter aux tys;
+      if is_tyvar cty then 
+        assert (List.length args = 0)
       else
-        failwithf "%s expects %i arguments but has %i" cty arity nargs
+        let knd = 
+          try lookup_type sign cty 
+          with
+          | Not_found -> failwithf "Unknown type constructor: %s" cty
+        in
+        let arity = karity knd in
+        let nargs = List.length args in
+        if not (nargs = arity) then
+          failwithf "%s expects %i arguments but has %i" cty arity nargs
   in aux ty
 
 let kind_check_poly (ktable,ctable) (Poly(ids, ty)) = 
@@ -301,6 +303,21 @@ let term_ensure_fully_inferred ~sign t =
   in
   aux t
 
+let tid_ensure_kind ~sign (id, ty) =
+  kind_check sign ty
+
+let term_ensure_kind ~sign t =
+  let rec aux t =
+    match observe (hnorm t) with
+    | Var v -> tid_ensure_kind ~sign (v.name, v.ty)
+    | DB i -> ()
+    | App(h, args) -> aux h ; List.iter aux args
+    | Lam(tys, body) -> 
+       List.iter (tid_ensure_kind ~sign) tys; aux body
+    | _ -> assert false
+  in
+  aux t
+
 let metaterm_ensure_fully_inferred ~sign t =
   let rec aux t =
     match t with
@@ -444,6 +461,44 @@ let replace_underscores head body =
   | h::b -> (h, b)
   | [] -> assert false
 
+let replace_uterm_tyvars tysub t =
+  let rec aux t = 
+    match t with
+    | UCon (p, id, ty) -> 
+       let ty' = apply_sub_ty tysub ty in
+       UCon (p, id, ty')
+    | ULam (p, id, ty, t) ->
+       let ty' = apply_sub_ty tysub ty in
+       ULam (p, id, ty', aux t)
+    | UApp (p, t1, t2) ->
+       UApp (p, aux t1, aux t2)
+  in
+  aux t
+
+let rec get_uterm_cap_tyvars t =
+  let rec get_cap_tyvars ty =
+    let acc_tyvars l ty = get_cap_tyvars ty @ l
+    in
+    match ty with
+    | Ty(tys, AtmTy(id, args)) ->
+       let tvs = List.fold_left acc_tyvars [] tys in
+       let tvs = List.fold_left acc_tyvars tvs args in
+       if is_capital_name id then 
+         id :: tvs
+       else
+         tvs
+  in
+  let cap_tyvars = 
+    match t with
+    | UCon (p, id, ty) ->
+       get_cap_tyvars ty
+    | ULam (p, id, ty, t) ->
+       (get_cap_tyvars ty) @ (get_uterm_cap_tyvars t)
+    | UApp (p, t1, t2) ->
+       (get_uterm_cap_tyvars t1) @ (get_uterm_cap_tyvars t2)
+  in
+  List.unique cap_tyvars
+
 let clause_map : term Itab.t ref = ref Itab.empty
 let seen_name cname = Itab.mem cname !clause_map
 let register_clause name clause =
@@ -455,7 +510,8 @@ let lookup_clause cname =
   then Some (Itab.find cname !clause_map)
   else None
 
-let check_clause t =
+let check_clause ~sign t =
+  term_ensure_kind ~sign t;
   let pres_tyvars (tids, head, body) =
     let htyvars = get_term_tyvars head in
     let btyvars = 
@@ -474,6 +530,16 @@ let check_clause t =
 let type_uclause ~sr ~sign (cname, head, body) =
   if has_capital_head head then
     failwith "Clause has flexible (i.e., non-atomic) head" ;
+  let get_cap_tids head body =
+    let cids = List.fold_left (fun l t ->
+      get_uterm_cap_tyvars t @ l) [] body in
+    let cids = get_uterm_cap_tyvars head @ cids in
+    List.unique cids
+  in
+  let cids = get_cap_tids head body in
+  let tysub = List.map (fun id -> (id, Term.fresh_tyvar ())) cids in
+  let head = replace_uterm_tyvars tysub head in
+  let body = List.map (replace_uterm_tyvars tysub) body in
   let head, body = replace_underscores head body in
   let cids = uterms_extract_if is_capital_name (head::body) in
   let get_imp_form head body =
@@ -491,7 +557,7 @@ let type_uclause ~sr ~sign (cname, head, body) =
   in
   let pi_form = get_pi_form cids imp_form in
   let result = type_uterm ~full_infer:false ~sr ~sign ~ctx:[] pi_form in
-  let _ = check_clause result in
+  let _ = check_clause ~sign result in
   let _,cls = replace_pi_with_const result in
   let _ = check_pi_quantification [cls] in
   begin match cname with

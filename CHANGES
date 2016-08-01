@@ -204,6 +204,7 @@ Bugfixes
 * Importing from different directories now works correctly
 * Multiple occurrences of a single variable in a binding list is now
   correctly rejected. (#56)
+* Better error messages. (#64)
 
 
 Changes in 2.0.3 from 2.0.2

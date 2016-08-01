@@ -567,7 +567,10 @@ let get_hyp name =
 let is_hyp name =
   List.exists (fun h -> h.id = name) sequent.hyps
 
-let get_generic_lemma name = H.find lemmas name
+let get_generic_lemma name =
+  try H.find lemmas name with
+  | Not_found ->
+      failwithf "Could not find theorem named %S" name
 
 let get_lemma ?(tys:ty list = []) name =
   let (argtys, bod) = H.find lemmas name in

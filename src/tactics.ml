@@ -818,7 +818,7 @@ let satisfies r1 r2 =
     sc means success continuation.
 *)
 
-let search ~depth:n ~hyps ~clauses ~def_unfold ~decompose_arrow ~retype
+let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     ?(witness=WMagic)
     ?(sc=fun w -> raise (SearchSuccess w)) goal =
 
@@ -1015,7 +1015,20 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~decompose_arrow ~retype
         | _ -> bad_witness ()
       end
     | Arrow _ ->
-        let (args, body) = decompose_arrow goal in
+        let rec walk_args ~vars ~hyps f =
+          match f with
+          | Arrow (f, g) -> begin
+              match recursive_metaterm_case ~used:vars ~sr f with
+              | Some case ->
+                  walk_args g
+                    ~vars:(case.stateless_new_vars @ vars)
+                    ~hyps:(List.rev_append case.stateless_new_hyps hyps)
+              | None ->
+                  walk_args ~vars ~hyps:(f :: hyps) g
+            end
+          | _ -> (List.rev hyps, f)
+        in
+        let (args, body) = walk_args ~vars:[] ~hyps:[] goal in
         let hns, w = match witness with
           | WIntros (hns, w) -> (hns, w)
           | WMagic -> (List.map (fun _ -> temporary_hyp_name ()) args, WMagic)

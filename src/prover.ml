@@ -671,22 +671,6 @@ let search_goal_witness ?depth goal witness =
              |> remove_coinductive_hypotheses
              |> List.map (fun h -> (h.id, h.term))
   in
-  let decompose_arrow f0 =
-    let rec walk ~vars ~hyps f =
-      match f with
-      | Arrow (f, g) -> begin
-          match recursive_metaterm_case ~used:vars ~sr:!sr f with
-          | Some case ->
-              walk g
-                ~vars:(case.stateless_new_vars @ vars)
-                ~hyps:(List.rev_append case.stateless_new_hyps hyps)
-          | None ->
-              walk ~vars ~hyps:(f :: hyps) g
-        end
-      | _ -> (List.rev hyps, f)
-    in
-    walk ~vars:[] ~hyps:[] f0
-  in
   let depth = Option.default !search_depth depth in
   let search_depth n =
     Tactics.search
@@ -694,7 +678,7 @@ let search_goal_witness ?depth goal witness =
       ~hyps
       ~clauses:!clauses
       ~def_unfold
-      ~decompose_arrow
+      ~sr:!sr
       ~retype
       ~witness
       goal

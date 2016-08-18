@@ -818,7 +818,7 @@ let satisfies r1 r2 =
     sc means success continuation.
 *)
 
-let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
+let search ~depth:n ~hyps ~clauses ~def_unfold ~decompose_arrow ~retype
     ?(witness=WMagic)
     ?(sc=fun w -> raise (SearchSuccess w)) goal =
 
@@ -1070,9 +1070,10 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
           | _ -> bad_witness ()
         in
         let body = replace_metaterm_vars alist body in
+        let ids = alist_to_ids alist in
         metaterm_aux n hyps body ts
           ~witness:w
-          ~sc:(fun w -> sc (WForall(alist_to_ids alist, w)))
+          ~sc:(fun w -> sc (WForall(ids, w)))
     | Obj (obj, r) -> begin
         match obj.mode with
         | Async -> async_obj_aux n hyps obj r ts ~sc ~witness

@@ -73,6 +73,8 @@ Tweaks to existing functionality
   the `<id> = ` part it always instantiates the first variables.
 * The `induction` tactic can now traverse an arbitrary sequence of `forall`,
   `nabla`, and `->` connectives when finding the induction argument.
+* The `search` tactic now does a small amount of asynchronous reasoning
+  for newly created hypotheses (e.g., reducing pattern equations).
 
 Experimental changes (may be changed or removed in the future)
 

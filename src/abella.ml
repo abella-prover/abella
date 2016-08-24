@@ -109,12 +109,24 @@ let warn_on_teyjus_only_keywords (ktable, ctable) =
 let update_subordination_sign sr sign =
   List.fold_left Subordination.update sr (sign_to_tys sign)
 
+let clean_path name =
+  let lp = !load_path in
+  if lp = "." then name else
+  let lp_len = String.length lp in
+  let name_len = String.length name in
+  let rec max_common_prefix n =
+    if ( n >= lp_len ||
+         n >= name_len ||
+         lp.[n] <> name.[n] ) then n
+    else max_common_prefix (n + 1)
+  in
+  let mcp = max_common_prefix 0 in
+  if mcp = 0 || mcp = name_len then name
+  else "+" ^ String.sub name mcp (name_len - mcp)
+
 let read_specification name =
   clear_specification_cache () ;
-  fprintf !out "Reading specification %S%s\n%!" name
-    (if !load_path <> "." then
-       sprintf " (from %S)" !load_path
-     else "") ;
+  fprintf !out "Reading specification %S\n%!" (clean_path name) ;
   let read_sign = get_sign name in
   let () = warn_on_teyjus_only_keywords read_sign in
   let sign' = merge_signs [!sign; read_sign] in
@@ -238,9 +250,13 @@ let maybe_make_importable ?(force=false) root =
       end
     end in
   if not !Sys.interactive && force then
-    let cmd = Printf.sprintf "%s %s -o %s.out -c %s" Sys.executable_name thm root thc in
-    Printf.eprintf "Running: %S.\n%!" cmd ;
-    if Sys.command cmd <> 0 then
+    let cmdify prog thm root thc =
+      Printf.sprintf "%s %s -o %s.out -c %s" prog thm root thc
+    in
+    let real_cmd = cmdify Sys.executable_name thm root thc in
+    let disp_cmd = cmdify "abella" (clean_path thm) (clean_path root) (clean_path thc) in
+    Printf.eprintf "Running: %S.\n%!" disp_cmd ;
+    if Sys.command real_cmd <> 0 then
       failwithf "Could not create %S" thc
 
 let replace_atom_term decl defn_name defn t =
@@ -305,8 +321,8 @@ let import filename withs =
         let ver = (Marshal.from_channel ch : string) in
         if dig <> Version.self_digest then begin
           Printf.printf
-            "Warning: %S was compiled with a different version (%s) of Abella; recompiling...\n%!"
-            thc ver ;
+            "Warning: %S was compiled with a different version/build (%s) of Abella; recompiling...\n%!"
+            (clean_path thc) ver ;
           close_in ch ;
           maybe_make_importable ~force:true filename ;
           let ch = open_in_bin thc in
@@ -387,9 +403,9 @@ let import filename withs =
     end
   in
   if List.mem filename !imported then
-    fprintf !out "Ignoring import: %s has already been imported.\n%!" filename
+    fprintf !out "Ignoring import: %s has already been imported.\n%!" (clean_path filename)
   else begin
-    fprintf !out "Importing from %s\n%!" filename ;
+    fprintf !out "Importing from %s\n%!" (clean_path filename) ;
     aux filename withs
   end
 

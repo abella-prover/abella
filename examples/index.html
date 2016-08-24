@@ -1,330 +1,285 @@
- <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<!DOCTYPE html>
+<html>
 <head>
-<title>Abella: Examples</title>
-<style type="text/css">
-.navlist
-{
+  <meta charset="utf-8">
+  <meta name="generator" content="HTML Tidy for HTML5 for Linux version 5.2.0">
+  <title>Abella: Examples</title>
+  <style type="text/css">
+  /*<![CDATA[*/
+  .navlist
+  {
     padding: 0em 1em;
     margin: 0.5em 1em 1.5em 1em;
-}
+  }
 
-.navlist li
-{
+  .navlist li
+  {
     list-style: none;
     margin: 0;
     padding: 0;
     margin-bottom: 10px;
     border-bottom: 1px dotted gray;
-}
+  }
 
-.navlist ul
-{
+  .navlist ul
+  {
     padding: 0em 1em;
     margin: 0;
-}
+  }
 
-.navlist ul li
-{
+  .navlist ul li
+  {
     border-bottom: none;
     margin-bottom: 0;
-}
-</style>
-<link href="http://abella-prover.org/style.css" rel="stylesheet" type="text/css" />
-<link rel="icon" href="http://abella-prover.org/images/favicon.ico" type="image/x-icon" />
-<link rel="shortcut icon" href="http://abella-prover.org/images/favicon.ico"
-        type="image/x-icon" />
+  }
+  /*]]>*/
+  </style>
+  <link href="http://abella-prover.org/style.css" rel="stylesheet" type="text/css">
+  <link rel="icon" href="http://abella-prover.org/images/favicon.ico" type="image/x-icon">
+  <link rel="shortcut icon" href="http://abella-prover.org/images/favicon.ico" type="image/x-icon">
 </head>
-
 <body>
-
-<div id="logo-small">
-<a href="http://abella-prover.org/index.html">
-  <img src="http://abella-prover.org/images/logo-small.png"/>
-</a>
-</div>
-
-<div class="section">
-<center>
-<h1 id="main">
-  Abella Examples
-</h1>
-</center>
-<br/>
-
-<h1>
-Process calculi
-</h1>
-<ul class="navlist">
- <li><em>The &pi;-calculus</em>  <ul>
-   <li><a href='process-calculi/pic_two_level/index.html'>Finite &pi;-calculus</a> overview    <ul>
-     <li><a href='process-calculi/pic_two_level/pic.html'>An example of bisimulation checking for the &pi;-calculus</a></li>
-     <li><a href='process-calculi/pic_two_level/finite-pic.html'>Simulation and bisimulation for the &pi;-calculus</a></li>
-     <li><a href='process-calculi/pic_two_level/finite-pic-cong.html'>Simulation in the finite &pi;-calculus is a &quot;pre-congruence&quot;</a></li>
+  <div id="logo-small">
+    <a href="http://abella-prover.org/index.html"><img src="http://abella-prover.org/images/logo-small.png" alt="Abella Logo"></a>
+  </div>
+  <div class="section">
+    <h1 id="main" style="text-align:center">Abella Examples</h1>
+    <br>
+    <h1>Process calculi</h1>
+    <ul class="navlist">
+      <li>
+        <em>The π-calculus</em>
+        <ul>
+          <li>
+            <a href='process-calculi/pic_two_level/index.html'>Finite π-calculus</a> overview
+            <ul>
+              <li>
+                <a href='process-calculi/pic_two_level/pic.html'>An example of bisimulation checking for the π-calculus</a>
+              </li>
+              <li>
+                <a href='process-calculi/pic_two_level/finite-pic.html'>Simulation and bisimulation for the π-calculus</a>
+              </li>
+              <li>
+                <a href='process-calculi/pic_two_level/finite-pic-cong.html'>Simulation in the finite π-calculus is a "pre-congruence"</a>
+              </li>
+            </ul>
+          </li>
+          <li>Bisimulation-up-to for the π-calculus with replication
+            <ul>
+              <li>
+                <a href='process-calculi/pic/pic_core.html'>Basic definitions</a>
+              </li>
+              <li>
+                <a href='process-calculi/pic/pic_bisim.html'>Bisimulation up to bisimilarity</a>
+              </li>
+            </ul>
+          </li>
+          <li>Relating the π-calculus and the λ-calculus (contributed by Horace Blanc)
+            <ul>
+              <li>
+                <a href='process-calculi/pic_lambda/lsc.html'>The linear substitution calculus</a>
+              </li>
+              <li>
+                <a href='process-calculi/pic_lambda/picalc.html'>Definition of the π-calculus</a>
+              </li>
+              <li>
+                <a href='process-calculi/pic_lambda/picalc_str_eq_is_bisimulation.html'>Proof that structural equivalence is a bisimulation</a>
+              </li>
+              <li>
+                <a href='process-calculi/pic_lambda/trans.html'>The translation from λ-calculus to the π-calculus</a>
+              </li>
+              <li>
+                <a href='process-calculi/pic_lambda/trans_is_bisimulation.html'>Proof that the translation is a bisimulation</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <em>The Calculus of Communicating Systems (CCS)</em>
+        <ul>
+          <li>Bisimulation-up-to
+            <ul>
+              <li>
+                <a href='process-calculi/ccs/ccs_core.html'>Basic definitions</a>
+              </li>
+              <li>
+                <a href='process-calculi/ccs/ccs_bisim.html'>Bisimulation up to bisimilarity</a> and <a href='process-calculi/ccs/ccs_bisim_examples.html'>some examples</a>
+              </li>
+              <li>
+                <a href='process-calculi/ccs/ccs_ctx.html'>CCS contexts are faithful</a>
+              </li>
+              <li>
+                <a href='process-calculi/ccs/ccs_context.html'>Bisimulation up to context</a>
+              </li>
+              <li>
+                <a href='process-calculi/ccs/ccs_bisim_context.html'>Bisimulation up to bisimilarity and context</a> and <a href='process-calculi/ccs/ccs_bisim_context_examples.html'>some examples</a>
+              </li>
+            </ul>
+          </li>
+          <li>A <a href='process-calculi/ccs_two_level/ccs.html'>two-level presentation</a>
+          </li>
+        </ul>
+      </li>
     </ul>
-   </li>
-   <li>Bisimulation-up-to for the &pi;-calculus with replication    <ul>
-     <li><a href='process-calculi/pic/pic_core.html'>Basic definitions</a></li>
-     <li><a href='process-calculi/pic/pic_bisim.html'>Bisimulation up to bisimilarity</a></li>
+    <h1>Programming languages</h1>
+    <ul class="navlist">
+      <li>POPLmark Challenge 1a: transitivity of subtyping for system F<sub>sub</sub>
+        <ul>
+          <li>
+            <a href="programming-languages/poplmark-1a.html">The exact challenge, in a first-order specification</a>
+          </li>
+          <li>
+            <a href="higher-order/fsub.html">A higher-order variant with considerably simpler proofs.</a>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <a href="programming-languages/poplmark-2a.html">POPLmark Challenge 2a: progress and preservation of system F<sub>sub</sub></a>
+      </li>
+      <li>
+        <a href="programming-languages/ees.html">Evaluation by explicit substitution</a>
+      </li>
+      <li>
+        <a href="programming-languages/pcf.html">PCF: Programming language for Computable Functions</a>
+      </li>
     </ul>
-   </li>
-   <li>Relating the &pi;-calculus and the &lambda;-calculus (contributed by Horace Blanc)
-     <ul>
-       <li><a href='process-calculi/pic_lambda/lsc.html'>The linear substitution calculus</a></li>
-       <li><a href='process-calculi/pic_lambda/picalc.html'>Definition of the &pi;-calculus</a></li>
-       <li><a href='process-calculi/pic_lambda/picalc_str_eq_is_bisimulation.html'>Proof that structural equivalence is a bisimulation</a></li>
-       <li><a href='process-calculi/pic_lambda/trans.html'>The translation from &lambda;-calculus to the &pi;-calculus</a></li>
-       <li><a href='process-calculi/pic_lambda/trans_is_bisimulation.html'>Proof that the translation is a bisimulation</a></li>
-     </ul>
-   </li>
-  </ul>
- </li>
- <li><em>The Calculus of Communicating Systems (CCS)</em>  <ul>
-   <li>Bisimulation-up-to    <ul>
-     <li><a href='process-calculi/ccs/ccs_core.html'>Basic definitions</a></li>
-     <li><a href='process-calculi/ccs/ccs_bisim.html'>Bisimulation up to bisimilarity</a> and <a href='process-calculi/ccs/ccs_bisim_examples.html'>some examples</a></li>
-     <li><a href='process-calculi/ccs/ccs_ctx.html'>CCS contexts are faithful</a></li>
-     <li><a href='process-calculi/ccs/ccs_context.html'>Bisimulation up to context</a></li>
-     <li><a href='process-calculi/ccs/ccs_bisim_context.html'>Bisimulation up to bisimilarity and context</a> and <a href='process-calculi/ccs/ccs_bisim_context_examples.html'>some examples</a></li>
+    <h1>Logic</h1>
+    <ul class="navlist">
+      <li>
+        <a href="logic/cut.html">Cut-admissibility for LJ</a>
+      </li>
+      <li>
+        <a href="logic/equiv.html">Equivalence of natural deduction, Hilbert calculus, and sequent calculus for the implication fragment of minimal logic</a>
+      </li>
+      <li>
+        <a href="logic/focus.html">Correctness and completeness of focusing for the implication fragment of minimal logic</a>
+      </li>
+      <li>Explicit two-level reasoning
+        <ul>
+          <li>
+            <a href="logic/seq.html">Meta-Theory of the restricted HH that allows only dynamically addition of atomic formulas</a>
+          </li>
+          <li>
+            <a href="logic/hh_meta.html">Meta-Theory of the full HH</a>
+          </li>
+        </ul>
+      </li>
     </ul>
-   </li>
-   <li>A <a href='process-calculi/ccs_two_level/ccs.html'>two-level presentation</a></li>
-  </ul>
- </li>
-</ul>
-
-<h1>
-Programming languages
-</h1>
-<ul class="navlist">
-<li>POPLmark Challenge 1a: transitivity of subtyping for system F<sub>sub</sub>
-  <ul>
-  <li><a href="programming-languages/poplmark-1a.html">The exact
-  challenge, in a first-order specification</a></li>
-  <li><a href="higher-order/fsub.html">A higher-order variant with
-  considerably simpler proofs.</a></li>
-  </ul>
-</li>
-<li>
-<a href="programming-languages/poplmark-2a.html">
-  POPLmark Challenge 2a: progress and preservation of system F<sub>sub</sub>
-</a>
-</li>
-<li>
-<a href="programming-languages/ees.html">
-  Evaluation by explicit substitution
-</a>
-</li>
-<li>
-<a href="programming-languages/pcf.html">
-  PCF: Programming language for Computable Functions
-</a>
-</li>
-</ul>
-
-<h1>
-Logic
-</h1>
-<ul class="navlist">
-<li>
-<a href="logic/cut.html">
-  Cut-admissibility for LJ
-</a>
-</li>
-<li>
-<a href="logic/equiv.html">
-  Equivalence of natural deduction, Hilbert calculus, and sequent
-  calculus for the implication fragment of minimal logic
-</a>
-</li>
-<li>
-<a href="logic/focus.html">
-  Correctness and completeness of focusing for the implication
-  fragment of minimal logic
-</a>
-</li>
-<li>
-  Explicit two-level reasoning
-  <ul>
-     <li>
-     <a href="logic/seq.html">
-       Meta-Theory of the restricted HH that allows only dynamically addition of atomic formulas
-     </a>
-     </li>
-     <li>
-     <a href="logic/hh_meta.html">
-       Meta-Theory of the full HH
-     </a>
-  </ul>
-</li>
-</ul>
-
-<h1>
-&lambda;-calculus
-</h1>
-<ul class="navlist">
-<li>
-Normalization for simply-typed terms
-<ul>
-  <li>
-  <a href="lambda-calculus/normalization/stlc-strong-norm.html">
-    Strong normalization
-  </a>
-  </li>
-  <li>
-  <a href="lambda-calculus/normalization/stlc-weak-norm.html">
-    Weak normalization
-  </a>
-  </li>
-</ul>
-</li>
-<li>
-<a href="lambda-calculus/exsub-sn/">
-  Preservation of strong normalization for a variant of the
-  &lambda;&sigma;-calculus
-</a>
-</li>
-<li>
-<a href="lambda-calculus/cr.html">
-  Church-Rosser
-</a>
-</li>
-<li>
-<a href="lambda-calculus/sred.html">
-  Standardization
-</a>
-</li>
-<li>
-<a href="lambda-calculus/eval.html">Evaluation and typing</a>
-</li>
-<li>
-Type uniqueness for simply-typed terms
-<ul>
-  <li>
-  <a href="lambda-calculus/type-uniq/type-uniq.html">
-    With standard techniques
-  </a>
-  </li>
-  <li>
-  <a href="lambda-calculus/type-uniq/type-uniq-fresh.html">
-    With explicit freshness predicate
-  </a>
-  </li>
-  <li>
-  <a href="lambda-calculus/type-uniq/type-uniq-single.html">
-     Without using the specification logic
-  </a>
-  </li>
-  <li>
-  <a href="lambda-calculus/type-uniq/type-uniq-lg.html">
-    Without using nominal abstraction
-  </a>
-  </li>
-</ul>
-</li>
-<li>
-Term structure
-<ul>
-  <li>
-    Equivalence on terms based on paths in lambda terms, available in
-    two versions:
-    <ul>
-      <li><a href="lambda-calculus/term-structure/path.html">Second-order
-      version for static terms</a></li>
-      <li><a href="higher-order/breduce.html">Higher-order version for
-      terms upto marked &beta;-reduction</a></li>
+    <h1>The λ-calculus</h1>
+    <ul class="navlist">
+      <li>Normalization for simply-typed terms
+        <ul>
+          <li>
+            <a href="lambda-calculus/normalization/stlc-strong-norm.html">Strong normalization</a>
+          </li>
+          <li>
+            <a href="lambda-calculus/normalization/stlc-weak-norm.html">Weak normalization</a>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <a href="lambda-calculus/exsub-sn/">Preservation of strong normalization for a variant of the λσ-calculus</a>
+      </li>
+      <li>
+        <a href="lambda-calculus/cr.html">Church-Rosser</a>
+      </li>
+      <li>
+        <a href="lambda-calculus/sred.html">Standardization</a>
+      </li>
+      <li>
+        <a href="lambda-calculus/eval.html">Evaluation and typing</a>
+      </li>
+      <li>Type uniqueness for simply-typed terms
+        <ul>
+          <li>
+            <a href="lambda-calculus/type-uniq/type-uniq.html">With standard techniques</a>
+          </li>
+          <li>
+            <a href="lambda-calculus/type-uniq/type-uniq-fresh.html">With explicit freshness predicate</a>
+          </li>
+          <li>
+            <a href="lambda-calculus/type-uniq/type-uniq-single.html">Without using the specification logic</a>
+          </li>
+          <li>
+            <a href="lambda-calculus/type-uniq/type-uniq-lg.html">Without using nominal abstraction</a>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <a href="lambda-calculus/fcurry/fcurry.html">Type-preservation for Curry-style System F</a>
+        (Contributed by <a href="http://kyagrd.github.io/">Ahn Ki Yung</a>)
+      </li>
+      <li>Term structure
+        <ul>
+          <li>Equivalence on terms based on paths in lambda terms, available in two versions:
+            <ul>
+              <li>
+                <a href="lambda-calculus/term-structure/path.html">Second-order version for static terms</a>
+              </li>
+              <li>
+                <a href="higher-order/breduce.html">Higher-order version for terms upto marked β-reduction</a>
+              </li>
+            </ul>
+          </li>
+          <li>
+            <a href="lambda-calculus/term-structure/normal.html">Partitioning into normal and non-normal form</a>
+          </li>
+          <li>Determinism of translation between HOAS and de Bruijn representations, available in two flavors of specifications.
+            <ul>
+              <li>
+                <a href="lambda-calculus/term-structure/debruijn.html">First-order version</a>
+              </li>
+              <li>
+                <a href="higher-order/debruijn_ho.html">Higher-order version</a>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </li>
     </ul>
-  </li>
-  <li>
-  <a href="lambda-calculus/term-structure/normal.html">
-    Partitioning into normal and non-normal form
-  </a>
-  </li>
-  <li>
-    Determinism of translation between HOAS and de Bruijn
-    representations, available in two flavors of specifications.
-    <ul>
-      <li><a href="lambda-calculus/term-structure/debruijn.html">First-order
-      version</a></li>
-      <li><a href="higher-order/debruijn_ho.html">Higher-order version</a></li>
+    <h1>First-order reasoning</h1>
+    <ul class="navlist">
+      <li>
+        <a href="first-order/lists.html">Properties of lists</a>
+      </li>
+      <li>
+        <a href="first-order/add.html">Addition is associative and commutative</a>
+      </li>
+      <li>
+        <a href="first-order/ackermann.html">Totality of the Ackermann function</a>
+      </li>
+      <li>
+        <a href="first-order/gcd.html">Totality of GCD relation</a>
+      </li>
+      <li>
+        <a href="first-order/even-odd.html">Every natural number is even or odd</a>
+      </li>
     </ul>
-  </li>
-</ul>
-</li>
-</ul>
-
-<h1>First-order reasoning</h1>
-<ul class="navlist">
-<li>
-<a href="first-order/lists.html">
-  Properties of lists
-</a>
-</li>
-<li>
-<a href="first-order/add.html">
-  Addition is associative and commutative
-</a>
-</li>
-<li>
-<a href="first-order/ackermann.html">
-  Totality of the Ackermann function
-</a>
-</li>
-<li>
-<a href="first-order/gcd.html">
-  Totality of GCD relation
-</a>
-</li>
-<li>
-<a href="first-order/even-odd.html">
-  Every natural number is even or odd
-</a>
-</li>
-</ul>
-
-<h1>
-Miscellaneous
-</h1>
-<ul class="navlist">
-<li>
-<a href="misc/higher-order.html">
-  Higher-order logic programming
-</a>
-</li>
-<li>
-<a href="misc/cascade.html">
-  Arbitrary cascading (simultaneous) substitutions
-</a>
-</li>
-<li>
-<a href="misc/copy.html">
-  Equivalence of single and double eigenvariable definitions of copy
-</a>
-</li>
-<li>
-<a href="misc/conat.html">
-  Results on possibly infinite natural numbers
-</a>
-</li>
-<li>
-<a href="misc/colist.html">
-  Results on possibly infinite lists
-</a>
-</li>
-<li>
-<a href="misc/subst.html">
-  Correctness of higher-order pattern unification based substitution
-</a>
-</li>
-<li>
-<a href="misc/umt.html">
-  Co-induction in relational semantics
-</a>
-</li>
-</ul>
-
-</div>
-
+    <h1>Miscellaneous</h1>
+    <ul class="navlist">
+      <li>
+        <a href="misc/higher-order.html">Higher-order logic programming</a>
+      </li>
+      <li>
+        <a href="misc/cascade.html">Arbitrary cascading (simultaneous) substitutions</a>
+      </li>
+      <li>
+        <a href="misc/copy.html">Equivalence of single and double eigenvariable definitions of copy</a>
+      </li>
+      <li>
+        <a href="misc/conat.html">Results on possibly infinite natural numbers</a>
+      </li>
+      <li>
+        <a href="misc/colist.html">Results on possibly infinite lists</a>
+      </li>
+      <li>
+        <a href="misc/subst.html">Correctness of higher-order pattern unification based substitution</a>
+      </li>
+      <li>
+        <a href="misc/umt.html">Co-induction in relational semantics</a>
+      </li>
+    </ul>
+  </div>
 </body>
 </html>

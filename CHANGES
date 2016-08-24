@@ -163,6 +163,13 @@ Bugfixes
   correctly rejected. (#56)
 * Better error messages. (#64)
 
+New examples
+
+* Bisimulations relating the π-calculus and the λ-calculus
+  (contributed by Horace Blanc and Beniamino Accattoli)
+* Type-preservation of Curry-style System F
+  (contributed by Ahn Ki Yung)
+
 
 Changes in 2.0.3 from 2.0.2
 ---------------------------

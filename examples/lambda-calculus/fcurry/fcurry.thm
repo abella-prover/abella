@@ -6,23 +6,22 @@ Specification "fcurry".
 
 Close ty, tm.
 
-Define name  : A -> prop        by  nabla x, name x.
-
-Define fresh : A -> B -> prop   by  nabla x, fresh x E.
-
-Theorem member_fresh : forall (X : tm) L E,
-  member E L -> fresh X L -> fresh X E.
+Theorem member_prune : forall L E, nabla (x : tm),
+  member (E x) L -> exists F, E = x\ F.
 % Proof:
 induction on 1. intros. case H1.
-  case H2. search.
-  assert fresh X L1.
-    case H2. search.
-    apply IH to H3 H4. search.
+  search.
+  apply IH to H2. search.
 % Q.E.D.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 Define ctx : olist -> prop by
   ctx nil ;
-  ctx (of X T :: L) := fresh X L /\ ctx L.
+  nabla x, ctx (of x T :: L) := ctx L.
+
+Define name : tm -> prop by
+  nabla x, name x.
 
 Theorem of_name :
   forall L E,
@@ -31,9 +30,9 @@ Theorem of_name :
 % Proof:
 induction on 1. intros. case H1.
   case H2.
-  case H3. case H2.
+  case H2.
     search.
-    apply IH to H4 H5. search.
+    apply member_prune to H4. apply IH to H3 H4. search.
 % Q.E.D.
 
 Theorem ctx_uniq : forall L E T1 T2,
@@ -44,10 +43,10 @@ induction on 1. intros. case H1.
   case H2.
     case H3.
       search.
-      apply member_fresh to H6 H4. case H7.
+      apply member_prune to H5.
     case H3.
-      apply member_fresh to H6 H4. case H7.
-      apply IH to H5 H6 H7. search.
+      apply member_prune to H5.
+      apply IH to H4 H5 H6. search.
 % Q.E.D.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

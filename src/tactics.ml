@@ -1015,28 +1015,58 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
         | _ -> bad_witness ()
       end
     | Arrow _ ->
-        let rec walk_args ~vars ~hyps f =
+        let rec peel_witness args witness =
+          match args with
+          | [] -> ([], witness)
+          | (a :: args) -> begin
+              let (h, witness) = match witness with
+                | WIntros (h :: hns, witness) ->
+                    let witness = match hns with
+                      | [] -> witness
+                      | _ -> WIntros (hns, witness)
+                    in (h, witness)
+                | WMagic ->
+                    (temporary_hyp_name (), WMagic)
+                | _ ->
+                    bad_witness ()
+              in
+              let (hargs, witness) = peel_witness args witness in
+              ((h, a) :: hargs, witness)
+            end
+        in
+        let rec walk_args ~vars ~hyps ~witness ~istriv f =
+          (* Printf.eprintf " walk_args:\n%!  -- %s |-- %s\n%!" *)
+          (*   (hyps |> *)
+          (*    List.map (fun (hn, f) -> Printf.sprintf "%s: %s" hn (metaterm_to_string f)) |> *)
+          (*    String.concat " ; ") *)
+          (*   (metaterm_to_string f) ; *)
           match f with
           | Arrow (f, g) -> begin
               match recursive_metaterm_case ~used:vars ~sr f with
               | Some case ->
+                  (* Printf.eprintf "   Some\n%!" ; *)
+                  let (hargs, witness) = peel_witness case.stateless_new_hyps witness in
                   walk_args g
                     ~vars:(case.stateless_new_vars @ vars)
-                    ~hyps:(List.rev_append case.stateless_new_hyps hyps)
+                    ~hyps:(List.rev_append hargs hyps)
+                    ~istriv ~witness
               | None ->
-                  walk_args ~vars ~hyps:(f :: hyps) g
+                  (* Printf.eprintf "   None\n%!" ; *)
+                  let (hargs, witness) = peel_witness [False] witness in
+                  walk_args g
+                    ~vars
+                    ~hyps:(List.rev_append hargs hyps)
+                    ~istriv:true ~witness
             end
-          | _ -> (List.rev hyps, f)
+          | _ ->
+              (istriv, witness, List.rev hyps, f)
         in
-        let (args, body) = walk_args ~vars:[] ~hyps:[] goal in
-        let hns, w = match witness with
-          | WIntros (hns, w) -> (hns, w)
-          | WMagic -> (List.map (fun _ -> temporary_hyp_name ()) args, WMagic)
-          | _ -> bad_witness ()
-        in
-        let args = List.combine hns args in
-        metaterm_aux n (args @ hyps) body ts ~witness:w
-          ~sc:(fun w -> sc (WIntros(List.map fst args, w)))
+        let (istriv, witness, hargs, body) = walk_args ~vars:[] ~hyps:[] ~witness ~istriv:false goal in
+        if istriv then
+          sc (WIntros (List.map fst hargs, witness))
+        else
+          metaterm_aux n (hargs @ hyps) body ts ~witness
+            ~sc:(fun w -> sc (WIntros(List.map fst hargs, w)))
     | Binding(Metaterm.Exists, tids, body) ->
         let global_support =
           List.unique

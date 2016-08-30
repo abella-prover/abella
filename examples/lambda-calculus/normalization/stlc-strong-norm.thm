@@ -128,10 +128,10 @@ induction on 1. intros. split*.
 
     % Arrow case
     case H1.
-    assert (neutral c).
+    assert 0 (neutral c).
       unfold. intros. case H7.
     assert {of c A1}.
-    assert (forall P, {step c P} -> reduce P A1).
+    assert 0 (forall P, {step c P} -> reduce P A1).
       intros. case H9.
     apply IH to H5.
     apply H11 to H7 H8 H9.
@@ -166,7 +166,7 @@ induction on 1. intros. split*.
                   apply H14 to H16. apply reduce_step to H13 H16.
                     apply IH1 to H17 H18. search.
                   case H3. apply H16 to _.
-              assert neutral (app M U1).
+              assert 0 neutral (app M U1).
                 unfold. intros. case H16.
               assert {of (app M U1) B}.
                 apply reduce_of to H13. search.
@@ -201,7 +201,7 @@ intros. apply of_ty_ext to _ H1. search.
 Theorem reduce_const : forall C,
   {ty C} -> reduce c C.
 intros.
-  assert (neutral c).
+  assert 0 (neutral c).
     unfold. intros. case H2.
   assert (forall P, {step c P} -> reduce P C).
     intros. case H3.
@@ -234,7 +234,7 @@ induction on 1. induction on 2. intros.
       % Case 3: (app (abs A M) U) -> (M U)
       apply H4 to H3. search.
 
-  assert neutral (app (abs A M) U).
+  assert 0 neutral (app (abs A M) U).
     unfold. intros. case H7.
 
   assert {of (app (abs A M) U) B}.

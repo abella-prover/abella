@@ -711,18 +711,15 @@ let search_goal_witness ?depth goal witness =
              |> List.map (fun h -> (h.id, h.term))
   in
   let depth = Option.default !search_depth depth in
-  let search_depth n =
-    Tactics.search
-      ~depth:n
-      ~hyps
-      ~clauses:!clauses
-      ~def_unfold
-      ~sr:!sr
-      ~retype
-      ~witness
-      goal
-  in
-  List.find_some search_depth (List.range 1 depth)
+  Tactics.search
+    ~depth
+    ~hyps
+    ~clauses:!clauses
+    ~def_unfold
+    ~sr:!sr
+    ~retype
+    ~witness
+    goal
 
 let search_goal ?depth goal =
   try Option.is_some (search_goal_witness ?depth goal WMagic)

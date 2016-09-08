@@ -1140,7 +1140,7 @@ let assert_search ?(clauses="") ?(defs="")
   let retype t = Typing.uterm_to_term [] t in (*TODO*)
   let goal = freshen goal in
   let actual = Option.is_some
-    (search ~depth ~hyps ~clauses ~def_unfold ~retype goal)
+    (search ~depth ~hyps ~clauses ~def_unfold ~retype ~sr:Subordination.empty goal)
   in
     if expect then
       assert_bool "Search should succeed" actual

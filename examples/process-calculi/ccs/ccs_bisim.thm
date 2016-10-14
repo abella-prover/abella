@@ -33,7 +33,7 @@ unfold.
     Link : apply bisim_transitive_ to Left3 Bisim.
     Link : apply bisim_symmetric_ to Bisim1.
     Link : apply bisim_transitive_ to Link1 Right3.
-    backchain CH.
+    backchain 1 CH.
 
   intros Qstep.
     Right : case Right. Right : apply Right1 to Qstep. clear Right Right1. rename Right2 to Pstep.
@@ -46,7 +46,7 @@ unfold.
     Link : apply bisim_transitive_ to Left4 Link.
     Link : apply bisim_symmetric_ to Link1.
     Link : apply bisim_transitive_ to Link3 Right4.
-    backchain CH.
+    backchain 1 CH.
 
 Theorem bisim_sound_snd : is_sound_snd bisim_t.
 unfold. intros.

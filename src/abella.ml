@@ -426,6 +426,7 @@ let query q =
           ~clauses:!clauses
           ~def_unfold:Prover.def_unfold
           ~retype
+          ~sr:!sr
           ~sc:(fun w ->
               fprintf !out "Found solution:\n" ;
               List.iter

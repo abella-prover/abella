@@ -1,15 +1,11 @@
-Changes in 2.0.4 from 2.0.3
----------------------------
+Changes in 2.0.5-dev from 2.0.4
+-------------------------------
 
 Possibly breaking changes
 
 * The identifiers `fresh_for`, `is_name`, and `prune_arg` are added to
   the pervasive signature. Thus, they can no longer be used by users in
   definitions.
-* The `search` tactic has the same error handling behavior in interactive
-  and non-interactive modes, functioning like a failed tactic in both cases
-  if no subgoals were closed.
-* The character `&` can no longer appear inside the names of identifiers.
 
 Additions
 
@@ -82,6 +78,30 @@ Additions
   context structure. Several tactics specialized to reason about
   schemas will be added in the near future.
 
+* Added a new tactic, `pick`, that has this syntax:
+
+        pick x y (z:ty), F.
+
+  The tactic tries to solve `exists x y (z:ty), F` automaticall, and if
+  it succeeds it adds the bindings for `x`, `y`, etc. You can then use them
+  in the rest of the proof. To bound the automatic search, you can use the
+  form
+
+        pick <num> x y (z:ty), F.
+
+
+Changes in 2.0.4 from 2.0.3
+---------------------------
+
+Possibly breaking changes
+
+* The `search` tactic has the same error handling behavior in interactive
+  and non-interactive modes, functioning like a failed tactic in both cases
+  if no subgoals were closed.
+* The character `&` can no longer appear inside the names of identifiers.
+
+Additions
+
 * Added support for specification-level conjunction, written using `&`.
 
 * Added a new tactic form:
@@ -118,17 +138,6 @@ Additions
   you are done with the proof, delete the "with" statements. These witnesses
   will NOT be portable across different versions of Abella, as they are very
   particular to the "search" tactic implementation.
-
-* Added a new tactic, `pick`, that has this syntax:
-
-        pick x y (z:ty), F.
-
-  The tactic tries to solve `exists x y (z:ty), F` automaticall, and if
-  it succeeds it adds the bindings for `x`, `y`, etc. You can then use them
-  in the rest of the proof. To bound the automatic search, you can use the
-  form
-
-        pick <num> x y (z:ty), F.
 
 * Added a new tactic form for `backchain` and `assert:
 

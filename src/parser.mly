@@ -78,12 +78,6 @@
       error_report ~pos:(Parsing.rhs_start_pos vnum)
         "Invalid bound variable %S.@\nIdentifiers matching n[0-9]+ are reserved for nominal constants." vid
 
-  let check_legal_evar vid vnum =
-    check_legal_var vid vnum ;
-    if not (Term.is_capital_name vid) then
-      error_report ~pos:(Parsing.rhs_start_pos vnum)
-        "Schema evar %S must begin with a capital letter." vid
-
   let deloc_id (id, (pos, _)) =
     if is_illegal_constant id then
       error_report ~pos
@@ -118,7 +112,7 @@
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY PICK
 %token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON
-%token THEOREM DEFINE SCHEMA PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
+%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
 %token BACK RESET
 %token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND
@@ -212,7 +206,6 @@ id:
   | IMPORT        { "Import" }
   | SPECIFICATION { "Specification" }
   | DEFINE        { "Define" }
-  | SCHEMA        { "Schema" }
   | CODEFINE      { "CoDefine" }
   | SET           { "Set" }
   | SHOW          { "Show" }
@@ -686,23 +679,6 @@ pure_top_command:
     { Types.Define(Types.Inductive, $2, $5) }
   | CODEFINE id_tys BY optsemi defs DOT
     { Types.Define(Types.CoInductive, $2, $5) }
-  | SCHEMA id DEFEQ schema_blocks DOT
-    { let blocks = $4 in
-      let arities = List.map (fun bl -> List.length bl.Types.bl_rel) blocks |>
-                    List.unique in
-      if List.length arities <> 1 then
-        error_report ~pos:(Parsing.rhs_start_pos 3)
-          "Schema cases not of the same arity" ;
-      let arity = List.hd arities in
-      let ty = Term.tyarrow
-          (List.range 1 arity |> List.map (fun _ -> Term.olistty))
-          Term.propty
-      in
-      Types.Schema { Types.sch_name = $2 ;
-                     Types.sch_arity = arity ;
-                     Types.sch_ty = ty ;
-                     Types.sch_blocks = blocks }
-    }
   | QUERY metaterm DOT
     { Types.Query($2) }
   | IMPORT QSTRING DOT
@@ -750,39 +726,6 @@ optsemi:
   | { () }
   | SEMICOLON
     { () }
-
-schema_blocks:
-  | schema_block { [$1] }
-  | schema_block SEMICOLON schema_blocks
-    { $1 :: $3 }
-
-schema_block:
-  | opt_exists opt_nabla LPAREN block_rel RPAREN
-    { { Types.bl_exists = $1 ;
-        Types.bl_nabla  = $2 ;
-        Types.bl_rel    = $4 } }
-
-opt_exists:
-  | { [] }
-  | EXISTS binding_list COMMA {
-      let bs = $2 in
-      List.iter begin fun (v, ty) ->
-        check_legal_evar v 2
-      end bs ; bs
-    }
-
-opt_nabla:
-  | { [] }
-  | NABLA binding_list COMMA {
-      let bs = $2 in
-      List.iter begin fun (v, ty) ->
-        check_legal_var v 2
-      end bs ; bs
-    }
-
-block_rel:
-  | term { [unlist $1] }
-  | term COMMA block_rel { unlist $1 :: $3 }
 
 search_witness:
   | TRUE { Types.WTrue }

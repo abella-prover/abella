@@ -41,34 +41,6 @@ Additions
         apply prune[ty] to H1.
         search.
 
-* Added a new toplevel declarative form, Schemas. The general form of a
-  Schema declaration is:
-
-        Schema name := clause1 ; ... ; clauseN.
-
-  where each clause is of the form
-
-        exists X1 ... Xm, nabla x1 ... xn, (L1, L2, ..., Lk)
-
-  and each `Li` is `nil` or of the form
-
-        F1 :: F2 :: ... :: Fn
-
-  where each `Fi` is a spec-level formula, i.e., of type `o`. This is
-  internally turned into:
-
-        Define name : olist -> ... -> olist -> prop by
-           name nil ... nil;
-           nabla x1 ... xn, name (L1 ++ G1) ... (Lk ++ Gk) :=
-              name G1 ... Gk;
-           ... (N - 1 more clauses)
-
-  (where `++` is a notation for append).
-
-  In other words, schemas are a way of declaring a certain "regular"
-  context structure. Several tactics specialized to reason about
-  schemas will be added in the near future.
-
 
 Changes in 2.0.4 from 2.0.3
 ---------------------------
@@ -175,7 +147,7 @@ Experimental changes (may be changed or removed in the future)
 
         Set subgoals "0[0];1[2];2[3];3;4[10]".
 
-  instructs Abella to show 0 additinoal subgoals at depth 0, max 2
+  instructs Abella to show 0 additional subgoals at depth 0, max 2
   additional subgoals at 1, max 3 additional subgoals at depth 2, all
   subgoals at depth 3, and max 10 subgoals at depth 4. The depths need not
   be given in order, and any omitted depths display the default number of

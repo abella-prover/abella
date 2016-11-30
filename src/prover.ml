@@ -230,18 +230,6 @@ let member_def_compiled =
   \  " ^ k_member ^ " A (B :: L) := " ^ k_member ^ " A L." |>
   parse_definition
 
-let k_fresh = "fresh_for"
-let fresh_def_compiled =
-  "Define " ^ k_fresh ^ " : A -> B -> prop by\
-  \  nabla x, " ^ k_fresh ^ " x M." |>
-  parse_definition
-
-let k_name = "is_name"
-let name_def_compiled =
-  "Define " ^ k_name ^ " : A -> prop by\
-  \  nabla x, " ^ k_name ^ " x." |>
-  parse_definition
-
 let () = built_ins_done := true
 
 let term_spine t =
@@ -532,33 +520,6 @@ let add_lemma name tys lemma =
   if H.mem lemmas name then
     Format.eprintf "Warning: overriding existing lemma named %S@." name ;
   H.replace lemmas name (tys, lemma)
-
-let () =
-  let a = "A" in
-  let prune_bod =
-    let l, lty = "L", olistty in
-    let e, ety = "E", tyarrow [tybase a] oty in
-    let x, xty = "x", tybase a in
-    forall [l, lty ; e, ety] begin
-      let l = const l lty in
-      let e = const e ety in
-      nabla [x, xty] begin
-        let x = const x xty in
-        let mem = pred (app (const k_member (tyarrow [oty ; olistty] propty))
-                          [app e [x] ; l]) in
-        let f, fty = "F", oty in
-        Arrow begin
-          mem,
-          exists [f, fty] begin
-            let f = const f fty in
-            let eq = Eq (e, lambda ["x", xty] f) in
-            eq
-          end
-        end
-      end
-    end in
-  (* Format.eprintf "prune_bod: %a@." format_metaterm prune_bod ; *)
-  add_lemma "prune_arg" [a] prune_bod
 
 let get_hyp name =
   let hyp = List.find (fun h -> h.id = name) sequent.hyps in

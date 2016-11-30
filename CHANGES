@@ -1,12 +1,6 @@
 Changes in 2.0.5-dev from 2.0.4
 -------------------------------
 
-Possibly breaking changes
-
-* The identifiers `fresh_for`, `is_name`, and `prune_arg` are added to
-  the pervasive signature. Thus, they can no longer be used by users in
-  definitions.
-
 Additions
 
 * Added support for (first-order) polymorphic definitions. Definitions
@@ -33,7 +27,7 @@ Additions
 * Added support for (first-order) polymorphic theorems. A theorem such as
   the following is now accepted.
 
-        Theorem prune_arg[A] : forall E L, nabla (x:A), member (E x) L ->
+        Theorem prune[A] : forall E L, nabla (x:A), member (E x) L ->
            exists F, E = x\ F.
 
   The `A` here is a type parameter, which must be distinct from the other
@@ -43,12 +37,9 @@ Additions
         Theorem bar : forall E G, nabla (x:tm) (y:ty),
            member (E x y) G -> exists F, E = x\ y\ F.
         intros.
-        apply prune_arg[tm] to H1.
-        apply prune_arg[ty] to H1.
+        apply prune[tm] to H1.
+        apply prune[ty] to H1.
         search.
-
-  Incidentally, the above `prune_arg` lemma is now part of the pervasive
-  environment.
 
 * Added a new toplevel declarative form, Schemas. The general form of a
   Schema declaration is:

@@ -483,8 +483,6 @@ pure_command:
     { Types.Case(Types.Keep ($3, []), $1) }
   | hhint ASSERT maybe_depth metaterm DOT
     { Types.Assert($4, $3, $1) }
-  | PICK maybe_depth binding_list COMMA metaterm DOT
-    { Types.Pick ($2, $3, $5) }
   | EXISTS ewitnesses DOT
     { Types.Exists(`EXISTS, $2) }
   | WITNESS ewitnesses DOT

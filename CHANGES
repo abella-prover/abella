@@ -69,17 +69,6 @@ Additions
   context structure. Several tactics specialized to reason about
   schemas will be added in the near future.
 
-* Added a new tactic, `pick`, that has this syntax:
-
-        pick x y (z:ty), F.
-
-  The tactic tries to solve `exists x y (z:ty), F` automaticall, and if
-  it succeeds it adds the bindings for `x`, `y`, etc. You can then use them
-  in the rest of the proof. To bound the automatic search, you can use the
-  form
-
-        pick <num> x y (z:ty), F.
-
 
 Changes in 2.0.4 from 2.0.3
 ---------------------------

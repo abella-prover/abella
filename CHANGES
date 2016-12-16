@@ -44,7 +44,12 @@ Additions
 
 Bugfixes
 
-* Search now correctly raises eigenvariables over support (#71)
+* Query was broken since 2.0.4-beta2.  
+  (#69; reported by Ahn Ki Yung)
+* Backchain now correctly takes into account inductive restrictions  
+  (#70; reported by Ahn Ki Yung)
+* Search now correctly raises eigenvariables over support  
+  (#71; reported by Morten Rhiger)
 
 
 Changes in 2.0.4 from 2.0.3

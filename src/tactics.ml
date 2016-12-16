@@ -1333,6 +1333,10 @@ let backchain_arrow term goal =
     match term_to_restriction head, term_to_restriction goal with
     | CoSmaller i, CoSmaller j when i = j -> ()
     | CoSmaller _, _ -> failwith "Coinductive restriction violated"
+    | _ as hr, Smaller i -> 
+      (match hr with
+      | Smaller j when i = j -> ()
+      | _ -> failwith "Inductive restriction violated")
     | _, _ -> ()
   in
   begin match head, goal with

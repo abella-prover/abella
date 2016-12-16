@@ -42,6 +42,11 @@ Additions
         search.
 
 
+Bugfixes
+
+* Search now correctly raises eigenvariables over support (#71)
+
+
 Changes in 2.0.4 from 2.0.3
 ---------------------------
 

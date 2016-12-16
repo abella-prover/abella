@@ -1102,14 +1102,16 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
           ~witness:w
     | Binding(Forall, tids, body) ->
         let ts = ts + 1 in
+        let support = metaterm_support body in
         let (alist, w) = match witness with
           | WForall (ids, w) ->
               let alist = List.map2 begin fun id (x, ty) ->
+                  let (ty, _) = raise_type ~sr support ty in
                   (x, var Eigen id ts ty)
                 end ids tids in
               (alist, w)
           | WMagic ->
-              (fresh_nameless_alist ~support:[] ~tag:Eigen ~ts tids, WMagic)
+              (fresh_nameless_alist ~support ~tag:Eigen ~ts tids, WMagic)
           | _ -> bad_witness ()
         in
         let body = replace_metaterm_vars alist body in

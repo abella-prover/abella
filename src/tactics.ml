@@ -1327,18 +1327,17 @@ let apply_with term args withs =
 
 (* Backchain *)
 
+let backchain_check_restrictions hr gr =
+  match hr, gr with
+  | ( Smaller i, Smaller j | CoSmaller i, CoSmaller j ) when i = j -> ()
+  | ( Smaller _ | CoSmaller _ ), _ ->
+      failwithf "%sinductive restriction violated"
+        (match hr with Smaller _ -> "" | _ -> "co")
+  | _ -> ()
+
 let backchain_arrow term goal =
   let obligations, head = decompose_arrow term in
-  let () =
-    match term_to_restriction head, term_to_restriction goal with
-    | CoSmaller i, CoSmaller j when i = j -> ()
-    | CoSmaller _, _ -> failwith "Coinductive restriction violated"
-    | _ as hr, Smaller i -> 
-      (match hr with
-      | Smaller j when i = j -> ()
-      | _ -> failwith "Inductive restriction violated")
-    | _, _ -> ()
-  in
+  backchain_check_restrictions (term_to_restriction head) (term_to_restriction goal) ;
   begin match head, goal with
   | Obj ({mode = Async ; _} as hobj, _), Obj ({mode = Async ; _} as gobj, _) ->
       right_unify hobj.right gobj.right ;

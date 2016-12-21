@@ -1331,8 +1331,8 @@ let backchain_check_restrictions hr gr =
   match hr, gr with
   | ( Smaller i, Smaller j | CoSmaller i, CoSmaller j ) when i = j -> ()
   | ( Smaller _ | CoSmaller _ ), _ ->
-      failwithf "%sinductive restriction violated"
-        (match hr with Smaller _ -> "" | _ -> "co")
+      failwithf "%snductive restriction violated"
+        (match hr with Smaller _ -> "I" | _ -> "Coi")
   | _ -> ()
 
 let backchain_arrow term goal =

@@ -574,24 +574,24 @@ and process_proof1 name =
     fprintf !out "%s%s.%s\n%!" pre (command_to_string input) post
   end ;
   begin match input with
-  | Induction(args, hn)      -> induction ?name:hn args
-  | CoInduction hn           -> coinduction ?name:hn ()
-  | Apply(h, args, ws, hn)   -> apply ?name:hn h args ws ~term_witness
-  | Backchain(depth, h, ws)  -> backchain ?depth h ws ~term_witness
-  | Cut(h, arg, hn)          -> cut ?name:hn h arg
-  | CutFrom(h, arg, t, hn)   -> cut_from ?name:hn h arg t
-  | SearchCut(h, hn)         -> search_cut ?name:hn h
-  | Inst(h, ws, hn)          -> inst ?name:hn h ws
-  | Case(str, hn)            -> case ?name:hn str
-  | Assert(t, dp, hn)            ->
+  | Induction(args, hn)           -> induction ?name:hn args
+  | CoInduction hn                -> coinduction ?name:hn ()
+  | Apply(depth, h, args, ws, hn) -> apply ?depth ?name:hn h args ws ~term_witness
+  | Backchain(depth, h, ws)       -> backchain ?depth h ws ~term_witness
+  | Cut(h, arg, hn)               -> cut ?name:hn h arg
+  | CutFrom(h, arg, t, hn)        -> cut_from ?name:hn h arg t
+  | SearchCut(h, hn)              -> search_cut ?name:hn h
+  | Inst(h, ws, hn)               -> inst ?name:hn h ws
+  | Case(str, hn)                 -> case ?name:hn str
+  | Assert(t, dp, hn)             ->
       untyped_ensure_no_restrictions t ;
       assert_hyp ?name:hn ?depth:dp t
-  | Exists(_, ts)            -> List.iter exists ts
-  | Monotone(h, t)           -> monotone h t
-  | Clear(cm, hs)            -> clear cm hs
-  | Abbrev(h, s)             -> abbrev h s
-  | Unabbrev(hs)             -> unabbrev hs
-  | Rename(hfr, hto)         -> rename hfr hto
+  | Exists(_, ts)                 -> List.iter exists ts
+  | Monotone(h, t)                -> monotone h t
+  | Clear(cm, hs)                 -> clear cm hs
+  | Abbrev(h, s)                  -> abbrev h s
+  | Unabbrev(hs)                  -> unabbrev hs
+  | Rename(hfr, hto)              -> rename hfr hto
   | Search(bounds) -> begin
       let depth = match bounds with
         | `depth n -> Some n

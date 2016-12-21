@@ -42,6 +42,13 @@ Additions
         search.
 
 
+Tweaks to existing functionality
+
+* The `apply` tactic now takes an optional numerical argument that defines
+  the search depth for automatic searches performed for omitted arguments. A
+  bound of 0 means that no searches are attempted.
+
+
 Bugfixes
 
 * Query was broken since 2.0.4-beta2.  

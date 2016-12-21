@@ -450,14 +450,14 @@ pure_command:
     { Types.Induction($4, $1) }
   | hhint COIND DOT
     { Types.CoInduction($1) }
-  | hhint APPLY clearable TO apply_args DOT
-    { Types.Apply($3, $5, [], $1) }
-  | hhint APPLY clearable TO apply_args WITH withs DOT
-    { Types.Apply($3, $5, $7, $1) }
-  | hhint APPLY clearable WITH withs DOT
-    { Types.Apply($3, [], $5, $1) }
-  | hhint APPLY clearable DOT
-    { Types.Apply($3, [], [], $1) }
+  | hhint APPLY maybe_depth clearable TO apply_args DOT
+    { Types.Apply($3, $4, $6, [], $1) }
+  | hhint APPLY maybe_depth clearable TO apply_args WITH withs DOT
+    { Types.Apply($3, $4, $6, $8, $1) }
+  | hhint APPLY maybe_depth clearable WITH withs DOT
+    { Types.Apply($3, $4, [], $6, $1) }
+  | hhint APPLY maybe_depth clearable DOT
+    { Types.Apply($3, $4, [], [], $1) }
   | BACKCHAIN maybe_depth clearable DOT
     { Types.Backchain($2, $3, []) }
   | BACKCHAIN maybe_depth clearable WITH withs DOT

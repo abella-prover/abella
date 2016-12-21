@@ -760,14 +760,14 @@ let partition_obligations ?depth obligations =
           | Some w -> Either.Right (g, w))
        obligations)
 
-let apply ?name ?(term_witness=ignore) h args ws =
+let apply ?depth ?name ?(term_witness=ignore) h args ws =
   let stmt = get_stmt_clearly h in
   let args = List.map get_arg_clearly args in
   let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
   let ws = type_apply_withs stmt ws in
   let result, obligations = Tactics.apply_with stmt args ws in
   let remaining_obligations, term_witnesses =
-    partition_obligations obligations
+    partition_obligations ?depth obligations
   in
   let () = ensure_no_logic_variable (result :: remaining_obligations) in
   let () = List.iter term_witness term_witnesses in

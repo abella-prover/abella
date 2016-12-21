@@ -136,7 +136,7 @@ type clear_mode =
 type command =
   | Induction of int list * id option
   | CoInduction of id option
-  | Apply of clearable * clearable list * (id * uterm) list * id option
+  | Apply of depth_bound option * clearable * clearable list * (id * uterm) list * id option
   | Backchain of depth_bound option * clearable * (id * uterm) list
   | CutFrom of clearable * clearable * uterm * id option
   | Cut of clearable * clearable * id option
@@ -302,25 +302,19 @@ let command_to_string c =
           (String.concat " " (List.map string_of_int is))
     | CoInduction None -> "coinduction"
     | CoInduction (Some hn) -> "coinduction " ^ hn
-    | Apply(h, [], [], hn) ->
-        sprintf "%sapply %s" (hn_to_string hn)
-          (clearable_to_string h)
-    | Apply(h, hs, [], hn) ->
-        sprintf "%sapply %s to %s"
-          (hn_to_string hn)
-          (clearable_to_string h)
-          (clearables_to_string hs)
-    | Apply(h, [], ws, hn) ->
-        sprintf "%sapply %s with %s"
-          (hn_to_string hn)
-          (clearable_to_string h)
-          (withs_to_string ws)
-    | Apply(h, hs, ws, hn) ->
-        sprintf "%sapply %s to %s with %s"
-          (hn_to_string hn)
-          (clearable_to_string h)
-          (clearables_to_string hs)
-          (withs_to_string ws)
+    | Apply(dbound, h, hs, ws, hn) -> begin
+        let buf = Buffer.create 10 in
+        Buffer.add_string buf (hn_to_string hn) ;
+        Buffer.add_string buf "apply" ;
+        Buffer.add_string buf (dbound_to_string dbound) ;
+        if hs <> [] then
+          (Buffer.add_string buf " to " ;
+           Buffer.add_string buf (clearables_to_string hs)) ;
+        if ws <> [] then
+          (Buffer.add_string buf " with " ;
+           Buffer.add_string buf (withs_to_string ws)) ;
+        Buffer.contents buf
+      end
     | Backchain(dbound, h, []) ->
         sprintf "backchain%s %s"
           (dbound_to_string dbound)

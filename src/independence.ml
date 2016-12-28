@@ -150,16 +150,25 @@ let collect_contexts () =
     | [] -> ()
   done;
 
-  (*can probably change to use sign instead of ctx_col--certain to get all declared predicates*)
+  (*assumes a predicate is defined for each as in http://abella-prover.org/independence/code/stlc.html for ty and tm*)
   let extract_all_predicates () =
     let rec collect_preds lst =
       match lst with
       | [] -> []
-      | (pred,Poly (_,ty))::t ->
+      | (pred,Poly (_,ty))::tl -> 
          if (ty = oty) then
-           pred::(collect_preds t)
+           pred::(collect_preds tl)
          else
-           collect_preds t
+           match ty with
+           (*match higher-order types*)
+           | Ty ([Ty ([x],_)],_) -> collect_preds tl
+           (*match type prediates*)
+           | Ty ([x],bty) ->
+              if ((tybase bty) = oty) then
+                pred::(collect_preds tl)
+              else
+                collect_preds tl
+           | _ -> collect_preds tl
     in
     let _,l = !sign in
     collect_preds l
@@ -175,6 +184,12 @@ let collect_contexts () =
   H.iter (fun p l -> print_string ("Pred: " ^ p ^ "\n");
                      List.iter (fun t -> print_string ((term_to_string t) ^ ";\n")) l
          ) dynamic_contexts*)
+  (*display sign*)
+  (*;let x,y = !sign in
+   let _ = List.iter (fun (s,p) -> match p with
+                                   | Poly (_,t) -> print_string (s^" : "^(ty_to_string t)^"\n")) y in
+   let _ = print_string "\n" in
+   List.iter (fun s -> print_string (s ^ "\n")) x*)
 
 
 let collect_dependencies () =
@@ -276,6 +291,13 @@ let independent f g =
       | App (t, tlist) ->
          (collect_quantified_variables t) @ (List.fold_right (fun tm lst -> (collect_quantified_variables tm) @ lst) tlist [])
       | _ -> []
+  in
+
+  let rec term_to_uterm trm =
+    match (observe trm) with
+    | Var v -> UCon ((Lexing.dummy_pos,Lexing.dummy_pos), v.name, v.ty) (*dummy type for now*) 
+    | App (tm1,[tm2]) -> UApp ((Lexing.dummy_pos,Lexing.dummy_pos), term_to_uterm tm1, term_to_uterm tm2)
+    | _ -> bugf "Should not have any terms but Vars and Apps"
 
   in
   let define_ctx pred =
@@ -283,10 +305,28 @@ let independent f g =
     let ctx_name = make_ctx_name pred in
     let rec add_formula form_lst def_str =
       match form_lst with
-      | [] -> def_str ^ ".\n\n"
+      | [] -> (def_str ^ ".\n\n",
+               [(UPred (UApp ((Lexing.dummy_pos,Lexing.dummy_pos),
+                              UCon ((Lexing.dummy_pos,Lexing.dummy_pos), ctx_name, tyarrow [olistty] propty),
+                              UCon ((Lexing.dummy_pos,Lexing.dummy_pos), "nil", olistty)), Irrelevant),
+               UTrue)])
       | h::t -> (*TODO--do checking/replacing to remove names L, E*)
-         let new_def = def_str ^ ";\n\t" ^ ctx_name ^ " ((" ^ (term_to_string (make_variables_universal h)) ^ ") :: L) := " ^ ctx_name ^ " L" in
-         add_formula t new_def
+         let cap_term = make_variables_universal h in
+         let new_def = def_str ^ ";\n\t" ^ ctx_name ^ " ((" ^ (term_to_string cap_term) ^ ") :: L) := " ^ ctx_name ^ " L" in
+         let s,l = add_formula t new_def in
+         let utrm = term_to_uterm cap_term in
+         let udef = UPred (UApp ((Lexing.dummy_pos,Lexing.dummy_pos),
+                                 UCon ((Lexing.dummy_pos,Lexing.dummy_pos), ctx_name, tyarrow [olistty] propty),
+                                 (UApp ((Lexing.dummy_pos,Lexing.dummy_pos),
+                                        UApp ((Lexing.dummy_pos,Lexing.dummy_pos),
+                                              UCon ((Lexing.dummy_pos,Lexing.dummy_pos), "::", tyarrow [oty; olistty] olistty),
+                                              utrm),
+                                        UCon ((Lexing.dummy_pos,Lexing.dummy_pos), "L", olistty)))), Irrelevant) in
+         let udef_proof = UPred (UApp ((Lexing.dummy_pos,Lexing.dummy_pos),
+                                       UCon ((Lexing.dummy_pos,Lexing.dummy_pos), ctx_name, tyarrow [olistty] propty),
+                                       UCon ((Lexing.dummy_pos,Lexing.dummy_pos), "L", olistty)),
+                                 Irrelevant) in
+         (s, (udef,udef_proof)::l)
     in
     let rec add_proof_step form_lst thm_str prf_str =
       match form_lst with
@@ -304,9 +344,12 @@ let independent f g =
            let new_prf = prf_str ^ "\n\tcase H2. search. apply IH to H3 H4. search." in
          add_proof_step t new_thm new_prf
     in
-    
+
+    let ctx_type = tyarrow [olistty] propty in
     let def_start = "Define " ^ ctx_name ^" : olist -> prop by\n\t" ^ ctx_name ^ " nil" in
-    let definition = add_formula ctx_formulas def_start in
+    let definition,udefs = add_formula ctx_formulas def_start in
+    let def = Define (Inductive, [(ctx_name,ctx_type)], udefs) in
+    let _ = register_definition def in
     output_string outfile definition;
 
     if (List.length ctx_formulas > 0) then

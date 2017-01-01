@@ -1177,9 +1177,6 @@ let remove_thing cm h =
   then remove_hyp cm h
   else remove_var cm h
 
-  (* sequent.vars <- *)
-  (*   List.filter (fun xv -> fst xv <> h) sequent.vars *)
-
 let is_used v =
   List.exists begin fun h ->
     get_metaterm_used h.term |>
@@ -1192,7 +1189,8 @@ let check_removable h =
       let v = List.assoc h sequent.vars in
       if is_uninstantiated (h, v) && is_used h then
         failwithf "Cannot clear strict uninstantiated variable %s" h
-    with Not_found -> ()
+    with Not_found ->
+      failwithf "Unknown hypothesis or variable %s" h
 
 let clear cm hs =
   List.iter begin fun h ->

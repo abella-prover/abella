@@ -551,7 +551,7 @@ let independent f g =
       let rec get_antecedents trm =
         let ob_tm = observe trm in
         match ob_tm with
-        | Var  v -> [ob_tm]
+        | Var  v -> []
         | App  (t,tlst) -> if (is_imp ob_tm) then
                              let a,b = extract_imp ob_tm in
                              let lst = get_antecedents b in
@@ -565,57 +565,61 @@ let independent f g =
           let subctx_lemma = make_subctx_name pred bc_name in
           let ih = find_ih g_dep bc_name in
           let pred_hyp = "H" ^ (string_of_int index) in
-          let prf = "\t\t\t\tappply " ^ subctx_lemma ^ " to H1. apply " ^ ih ^ " to _ " ^ pred_hyp ^ ".\n" in
+          let prf = "\t\t\t\tapply " ^ subctx_lemma ^ " to H1. apply " ^ ih ^ " to _ " ^ pred_hyp ^ ".\n" in
           let () = apply (Keep (subctx_lemma, [])) [(Keep ("H1", []))] [] in
           let () = apply (Keep (ih, [])) [(Keep ("_", [])); (Keep (pred_hyp, []))] [] in
           prf
         in
-        let rec assert_case tm index =
-          let rec iter_ctx existing_ih tm index ctx_remaining i =
-            match ctx_remaining with
-            | [] -> (*thing independent of*)
-               let mem_hyp_name = "H" ^ (string_of_int (index + 4 + i)) in
-               let () = case (Remove (mem_hyp_name, [])) in
-               let obj_hyp_name = "H" ^ (string_of_int (index + 3)) in
-               let () = case (Remove (obj_hyp_name, [])) in
-               "case " ^ mem_hyp_name ^ ". case " ^ obj_hyp_name ^ ".\n"
-            | h::t ->
-               (*check for backchain*)
-               if ((get_head_predicate h) = [tm]) then
-                 let antecedents = get_antecedents h in
-                 let new_goal = List.hd (List.rev antecedents) in
-                 let new_goal_hd = get_head_predicate new_goal in
-                 if (H.mem existing_ih new_goal_hd) then
-                   (*apply existing IH*)
-                   let new_goal_IH = H.find existing_ih new_goal_hd in
-                   let ctx_hyp = "H" ^ (string_of_int index) in
-                   let obj_hyp = "H" ^ (string_of_int (index+1)(*?*)) in
-                   let () = apply (Keep (new_goal_IH, [])) [Keep (ctx_hyp, []); Keep (obj_hyp, [])] [] in
-                   let prf = "apply " ^ new_goal_IH ^ " to " ^ ctx_hyp ^ " " ^ obj_hyp ^ ".\n" in
-                   prf ^ (iter_ctx existing_ih tm index t (i + 1))
-                 else
-                   let new_ih = H.copy existing_ih in
-                   let () = H.add new_ih new_goal_hd ___ih_name___ in
-                   let assertion = assert_and_prove new_ih ctx new_goal (index+4+i) in
-                   let subctx_lemma = make_subctx_name tm head in
-                   let ctx_hyp = "H" ^ (string_of_int index) in
-                   let () = apply (Keep (subctx_lemma, [])) [Keep (ctx_hyp, [])] [] in
-                   let assert_hyp = "H" ^ (string_of_int (index+4+i)) in
-                   let this_ctx_hyp = "H" ^ (string_of_int (index+4+i+1)) in
-                   let obj_hyp = "H" ^ (string_of_int (index+1)(*?*)) in
-                   let () = apply (Remove (assert_hyp, [])) [Keep (this_ctx_hyp, []); Keep (obj_hyp, [])] [] in
-                   let () = search in
-                   let prf = "apply " ^ subctx_lemma ^ " to " ^ ctx_hyp ^ ". apply " ^ assert_hyp ^
-                               " to " this_ctx_hyp ^ " " ^ obj_hyp ". search.\n" in
-                   assertion ^ prf ^ (iter_ctx existing_ih tm index t (i + 1))
-               else
+        let rec assert_case tm index next_IH =
+          let rec iter_ctx existing_ih next_IH tm index ctx i =
+            let rec aux ctx_remaining i =
+              match ctx_remaining with
+              | [] -> (*thing independent of*)
                  let mem_hyp_name = "H" ^ (string_of_int (index + 4 + i)) in
                  let () = case (Remove (mem_hyp_name, [])) in
                  let obj_hyp_name = "H" ^ (string_of_int (index + 3)) in
                  let () = case (Remove (obj_hyp_name, [])) in
-                 let prf_str = "case " ^ mem_hyp_name ^ ". case " ^ obj_hyp_name ^ ".\n" in
-                 prf_str ^ (iter_ctx existing_ih tm index t (i+1))
-          and assert_and_prove existing_ih ctx tm index =
+                 "case " ^ mem_hyp_name ^ ". case " ^ obj_hyp_name ^ ".\n"
+              | h::t ->
+                 (*check for backchain*)
+                 if ((get_head_predicate h) = [tm]) then
+                   let antecedents = get_antecedents h in
+                   let new_goal = List.hd (List.rev antecedents) in
+                   let new_goal_hd = get_head_predicate new_goal in
+                   if (H.mem existing_ih new_goal_hd) then
+                     (*apply existing IH*)
+                     let new_goal_IH = H.find existing_ih new_goal_hd in
+                     let ctx_hyp = "H" ^ (string_of_int index) in
+                     let obj_hyp = "H" ^ (string_of_int (index+1)(*?*)) in
+                     let () = apply (Keep (new_goal_IH, [])) [Keep (ctx_hyp, []); Keep (obj_hyp, [])] [] in
+                     let prf = "apply " ^ new_goal_IH ^ " to " ^ ctx_hyp ^ " " ^ obj_hyp ^ ".\n" in
+                     prf ^ (aux t (i + 1))
+                   else
+                     let new_ih = H.copy existing_ih in
+                     let () = H.add new_ih new_goal_hd ("H" ^ (string_of_int next_IH)) in
+                     let assertion = assert_and_prove new_ih next_IH ctx new_goal (index+4+i) in
+                     let head = List.hd (get_head_predicate h) in
+                     let subctx_lemma = make_subctx_name tm head in
+                     let ctx_hyp = "H" ^ (string_of_int index) in
+                     let () = apply (Keep (subctx_lemma, [])) [Keep (ctx_hyp, [])] [] in
+                     let assert_hyp = "H" ^ (string_of_int (index+4+i)) in
+                     let this_ctx_hyp = "H" ^ (string_of_int (index+4+i+1)) in
+                     let obj_hyp = "H" ^ (string_of_int (index+1)(*?*)) in
+                     let () = apply (Remove (assert_hyp, [])) [Keep (this_ctx_hyp, []); Keep (obj_hyp, [])] [] in
+                     let () = search ~witness:WMagic ~handle_witness:(fun x -> ()) () in
+                     let prf = "apply " ^ subctx_lemma ^ " to " ^ ctx_hyp ^ ". apply " ^ assert_hyp ^
+                                 " to "^  this_ctx_hyp ^ " " ^ obj_hyp ^ ". search.\n" in
+                     assertion ^ prf ^ (aux t (i + 1))
+                 else
+                   let mem_hyp_name = "H" ^ (string_of_int (index + 4 + i)) in
+                   let () = case (Remove (mem_hyp_name, [])) in
+                   let obj_hyp_name = "H" ^ (string_of_int (index + 3)) in
+                   let () = case (Remove (obj_hyp_name, [])) in
+                   let prf_str = "case " ^ mem_hyp_name ^ ". case " ^ obj_hyp_name ^ ".\n" in
+                   prf_str ^ (aux t (i+1))
+            in
+            aux ctx i
+          and assert_and_prove existing_ih next_IH ctx tm index =
             let umtm1 = UPred (UApp ((Lexing.dummy_pos,Lexing.dummy_pos),
                                      UCon ((Lexing.dummy_pos,Lexing.dummy_pos),
                                            (make_ctx_name pred), (tyarrow [olistty] propty)),
@@ -643,8 +647,10 @@ let independent f g =
             let assert_umtm = UBinding (Forall, [("L",olistty)], UArrow (umtm1, UArrow (umtm2, umtm3))) in
             let prf_done = ref false in
             let _ = untyped_ensure_no_restrictions assert_umtm in
+            let _ = print_string ("assert " ^ (umetaterm_to_string assert_umtm) ^ ".\n") in
             let () = assert_hyp assert_umtm in
             let assert_str = "assert " ^ (umetaterm_to_string assert_umtm) ^ "." in
+            let _ = print_string "induction on 2.\n" in
             let () = (try induction [2] with
                       | _ -> prf_done := true
                      )in
@@ -656,12 +662,12 @@ let independent f g =
               let () = case (Remove (case_hyp_name, [])) in
               let prf_start = "induction on 2. intros. case " ^ case_hyp_name ^ ".\n" in
               let prf = assert_str ^ prf_start in
-              let ctx_prf = iter_ctx existing_ih tm index ctx 0 in
+              let ctx_prf = iter_ctx existing_ih next_IH (List.hd (get_head_predicate tm)) index ctx 0 in
               prf ^ ctx_prf
           in
           let ctx = get_antecedents tm in
           let existing_ih = H.create 10 in
-          let assertion_prf = assert_and_prove existing_ih ctx tm index in
+          let assertion_prf = assert_and_prove existing_ih next_IH ctx tm index in
           assertion_prf
 
         in
@@ -669,15 +675,15 @@ let independent f g =
           match lst with
           | [] -> ""
           | h::t ->
-             let prf = (atch h with
+             let prf = (match (observe h) with
                         | Var v -> basic_ind_hyp v.name
                         | App (tm,tmlst) -> (
                           match (observe tm) with
                           | Var v -> if (List.mem v.name !pred_list) then
                                        basic_ind_hyp v.name
                                      else
-                                       assert_case h index
-                          | _ -> assert_case h index
+                                       assert_case h index ((List.length g_dep) -1)
+                          | _ -> assert_case h index ((List.length g_dep) -1)
                         )
                         | _ -> failwith "Should only be vars and apps remaining") in
              let rest_of_prf = aux t (index + 1) in
@@ -686,12 +692,23 @@ let independent f g =
                
       in
       let rec build_reg_ctx_prf pred lst prf =
+        (*match lst with
+        | [] -> prf
+        | h::t -> build_reg_ctx_prf pred t prf*)
         match lst with
         | [] -> prf
-        | h::t -> build_reg_ctx_prf pred t prf
+        | h::t ->
+           if ((get_head_predicate h) = [pred]) then
+             let antecedents = get_antecedents h in
+             let new_prf_step = (iterate_antecedents pred antecedents 3) ^
+                                  "\t\t\tsearch.\n" in
+             let () = search ~witness:WMagic ~handle_witness:(fun x -> ()) () in
+             build_reg_ctx_prf pred t new_prf_step
+           else
+             build_reg_ctx_prf pred t ""
       in
       let build_dyn_ctx_prf pred =
-        let rec iterate_ctx pred lst prf =
+        let rec iterate_ctx pred obj_hyp_index lst prf =
           match lst with
           | [] -> prf
           | h::t ->
@@ -701,14 +718,14 @@ let independent f g =
                       ) in
              if ((get_head_predicate h) = [pred]) then
                let antecedents = get_antecedents h in
-               let new_prf_step = new_prf_step ^ (iterate_antecedents pred antecedents 6) ^
+               let new_prf_step = new_prf_step ^ (iterate_antecedents pred antecedents obj_hyp_index) ^
                                     "\t\t\tsearch.\n" in
                let () = (try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
                          | Prover.End_proof reason -> finish_proof reason
                         ) in
-               iterate_ctx pred t new_prf_step
+               iterate_ctx pred obj_hyp_index t new_prf_step
              else
-               iterate_ctx pred t new_prf_step
+               iterate_ctx pred obj_hyp_index t new_prf_step
         in
         let () = case (Remove ("H4", [])) in
         let () = case (Remove ("H3", [])) in
@@ -719,7 +736,12 @@ let independent f g =
                  )in
         let prf_start = "\tcase H4.\n\t\tcase H3.\n\t\tapply " ^ ctx_mem_name ^ " to H1 _.\n" in
         let ctx_formulas = H.find dynamic_contexts pred in
-        let dyn_ctx_prf_str = iterate_ctx pred ctx_formulas prf_start in
+        let prf_start,obj_hyp_index = (if ((List.length ctx_formulas) > 1) then
+                                         let () = case (Remove ("H6",[])) in
+                                         prf_start ^ "\t\tcase H6.\n", 7
+                                       else
+                                         prf_start,6) in
+        let dyn_ctx_prf_str = iterate_ctx pred obj_hyp_index ctx_formulas prf_start in
         dyn_ctx_prf_str
       in
       let rec each_pred lst prf =
@@ -737,7 +759,7 @@ let independent f g =
       if ((List.length g_dep) > 1) then
         let prf = (List.fold_right (fun x s -> s ^ " 2") g_dep "induction on") ^ ". split.\n" in
         let () = induction (List.map (fun x -> 2) g_dep) in
-        let () = split true in
+        let () = split false in
         each_pred g_dep prf
       else
         let prf = (List.fold_right (fun x s -> s ^ " 2") g_dep "induction on") ^ ".\n" in

@@ -570,20 +570,11 @@ let independent f g =
         | _ -> failwith "Term should not contain anything but Var and App"
       in
       let iterate_antecedents pred lst index =
-        let basic_ind_hyp bc_name =
-          let subctx_lemma = make_subctx_name pred bc_name in
-          let ih = find_ih g_dep bc_name in
-          let pred_hyp = "H" ^ (string_of_int index) in
-          let prf = "    apply " ^ subctx_lemma ^ " to H1. apply " ^ ih ^ " to _ " ^ pred_hyp ^ ".\n" in
-          let () = apply (Keep (subctx_lemma, [])) [(Keep ("H1", []))] [] in
-          let () = apply (Keep (ih, [])) [(Keep ("_", [])); (Keep (pred_hyp, []))] [] in
-          prf
-        in
-        let grown_ctx_case tm hyp_ind =
+        let apply_ind_hyp tm hyp_ind =
           let find_gc_lemma tm head =
             let rec find_aux lst i =
               match lst with
-              | [] -> bugf "Dyanmic context member not found in dynamic context"
+              | [] -> bugf "Dynamic context member not found in dynamic context"
               | h::t -> if eq tm h then
                           i
                         else
@@ -621,17 +612,7 @@ let independent f g =
           match lst with
           | [] -> ""
           | h::t ->
-             let prf = (match (observe h) with
-                        | Var v -> basic_ind_hyp v.name
-                        | App (tm,tmlst) -> (
-                          match (observe tm) with
-                          | Var v -> if (List.mem v.name !pred_list) then
-                                       basic_ind_hyp v.name
-                                     else
-                                       grown_ctx_case h index
-                          | _ -> grown_ctx_case h index
-                        )
-                        | _ -> failwith "Should only be vars and apps remaining") in
+             let prf = apply_ind_hyp h index in
              let rest_of_prf = aux t (index + 1) in
              prf ^ rest_of_prf
         in aux lst index

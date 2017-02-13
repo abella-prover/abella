@@ -66,6 +66,18 @@ let rec member trm lst =
      else
        member trm t
 
+let pred_type pred =
+  let rec find_type lst =
+    match lst with
+    | [] -> failwith "Given predicate is undefined"
+    | (name, Poly (l,ty))::t -> if (name = pred) then
+                                  ty
+                                else
+                                  find_type t
+  in
+  let _,lst = !sign in
+  find_type lst
+
 let rec fresh_in_tyctx lst var =
   match lst with
   | [] -> true
@@ -541,7 +553,8 @@ let independent f g =
                               [app (var Constant "::" 0 (tyarrow [oty; olistty] olistty))
                                    [h; var Logic "L" 0 olistty]],
                           Irrelevant) in
-         let thm = Binding (Forall, [("L",olistty)], Arrow (thm1, thm2)) in
+         let quant_vars = collect_quantified_variables h in
+         let thm = Binding (Forall, ("L",olistty)::quant_vars, Arrow (thm1, thm2)) in
          let () = register_theorem thm_name thm in
          let () = (
              try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
@@ -645,48 +658,154 @@ let independent f g =
           
   in
   let indep_theorem g_dep =
-    let rec build_theorem dep_lst thm =
+    let rec build_theorem dep_lst f_quant_vars thm =
       match dep_lst with
       | [] -> failwith "Found empty dependency list"
       | [h] ->
          let ctx_name = make_ctx_name h in
-         let ctx_var = "L" in
-         let f_str = List.fold_left (fun str tm -> str ^ ", " ^ (term_to_string tm)) "" f in
-         let start_part = "\n  (forall " ^ ctx_var ^ ", " ^ ctx_name ^ " " ^ ctx_var ^
-                            " -> {" ^ ctx_var ^ f_str ^ " |- " ^ h ^ "}" in
-         let end_part = " -> {" ^ ctx_var ^ " |- " ^ h  ^ "})" in
+         let ctx_var = "L" in (*TODO--actually make this fresh*)
+         let abs_var1 = "T" in (*this one, too*)
+         let abs_var2 = "K" in (*this as well*)
+         let abs_var2_abstraction_var = "y" in (*here, too*)
+         let quantifications = "forall " ^ ctx_var ^ (if (List.length f_quant_vars > 0) then
+                                                        let x,_ = List.hd f_quant_vars in
+                                                        " " ^ abs_var1 ^ ", nabla " ^ x ^ ", "
+                                                      else
+                                                        ", ") in
+         let universally_quantified_vars = (if (List.length f_quant_vars > 0) then
+                                              let _,ty = List.hd f_quant_vars in
+                                              let h_ty = pred_type h in
+                                              let h_arg_ty = (match h_ty with
+                                                              | Ty (tylst, bty) -> List.hd tylst) in
+                                              let abs_var1_ty = tyarrow [ty] h_arg_ty in
+                                              [(ctx_var, olistty); (abs_var1, abs_var1_ty)]
+                                            else
+                                              [(ctx_var, olistty)]) in
+         let f_str = term_to_string f in
+         let start_part = "\n  (" ^ quantifications ^ ctx_name ^ " " ^ ctx_var ^
+                            " -> {" ^ ctx_var ^ ", " ^ f_str ^ " |- " ^
+                              (if (List.length f_quant_vars > 0) then
+                                 let x,_ = List.hd f_quant_vars in
+                                 h ^ " (" ^ abs_var1 ^ " " ^ x ^ ")"
+                               else
+                                 h) ^ "}" in
+         let end_part = " -> " ^
+                          (if (List.length f_quant_vars > 0) then
+                             "exists " ^ abs_var2 ^ ", " ^ abs_var1 ^ " = " ^
+                               abs_var2_abstraction_var ^ "\\" ^ abs_var2 ^
+                                 " /\\ {" ^ ctx_var ^ " |- " ^ h ^ " " ^ abs_var2 ^ "}"
+                           else
+                             "{" ^ ctx_var ^ " |- " ^ h ^ "}") ^ ")" in
          let full_thm_str = thm ^ start_part ^ end_part ^ ".\n" in
          let umtm1 = Pred (app (var Constant ctx_name 0 (tyarrow [olistty] propty))
                                [var Logic ctx_var 0 olistty],
                            Irrelevant) in
-         let umtm2 = Obj ({context = [List.fold_left (fun old tm -> app (var Constant "::" 0 (tyarrow [oty; olistty] olistty))
-                                                                        [tm; old]) (var Logic ctx_var 0 olistty) f];
-                           right = var Constant h 0 oty;
+         let umtm2 = Obj ({context = [app (var Constant "::" 0 (tyarrow [oty; olistty] olistty))
+                                          [f; var Logic ctx_var 0 olistty]];
+                           right = (if (List.length f_quant_vars > 0) then
+                                      let x,ty = List.hd f_quant_vars in
+                                      let h_ty = pred_type h in
+                                      let h_arg_ty = (match h_ty with
+                                                      | Ty (tylst, bty) -> List.hd tylst) in
+                                      let abs_var1_ty = tyarrow [ty] h_arg_ty in
+                                      app (var Constant h 0 h_ty)
+                                          [app (var Logic abs_var1 0 abs_var1_ty) [(var Eigen(*?*) x 0 ty)]]
+                                    else
+                                      var Constant h 0 oty);
                            mode = Async;}, Irrelevant) in
-         let umtm3 = Obj ({context = [var Logic ctx_var 0 olistty];
-                           right = var Constant h 0 oty;
-                           mode = Async;}, Irrelevant) in
-         let this_dep = Binding (Forall, [(ctx_var,olistty)], Arrow (umtm1, Arrow (umtm2, umtm3))) in
+         let umtm3 = (if (List.length f_quant_vars > 0) then
+                        let _,ty = List.hd f_quant_vars in
+                        let h_ty = pred_type h in
+                        let h_arg_ty = (match h_ty with
+                                        | Ty (tylst, bty) -> List.hd tylst) in
+                        And (Eq ((var Logic ctx_var 0 olistty),
+                                 (lambda [(abs_var2_abstraction_var,ty)] (var Logic abs_var2 0 h_arg_ty))),
+                             Obj ({context = [var Logic ctx_var 0 olistty];
+                                   right = app (var Constant h 0 oty) [var Logic abs_var2 0 h_arg_ty];
+                                   mode = Async;}, Irrelevant))
+                      else
+                        Obj ({context = [var Logic ctx_var 0 olistty];
+                              right = var Constant h 0 oty;
+                              mode = Async;}, Irrelevant)) in
+         let this_dep_interior = (let basic_interior = Arrow (umtm1, Arrow (umtm2, umtm3)) in
+                                  if (List.length f_quant_vars > 0) then
+                                    Binding (Nabla, f_quant_vars, basic_interior)
+                                  else
+                                    basic_interior) in
+         let this_dep = Binding (Forall, universally_quantified_vars, this_dep_interior) in
          (full_thm_str, this_dep)
       | h::t ->
          let ctx_name = make_ctx_name h in
-         let ctx_var = "L" in
-         let f_str = List.fold_left (fun str tm -> str ^ ", " ^ (term_to_string tm)) "" f in
-         let start_part = "\n  (forall " ^ ctx_var ^ ", " ^ ctx_name ^ " " ^ ctx_var ^
-                            " -> {" ^ ctx_var ^  f_str ^ " |- " ^ h ^ "}" in
-         let end_part = " -> {" ^ ctx_var ^ " |- " ^ h  ^ "}) /\\" in
-         let full_thm_str,rest_of_thm = build_theorem t (thm ^ start_part ^ end_part) in
+         let ctx_var = "L" in (*TODO--actually make this fresh*)
+         let abs_var1 = "T" in (*this one, too*)
+         let abs_var2 = "K" in (*this as well*)
+         let abs_var2_abstraction_var = "y" in (*here, too*)
+         let quantifications = "forall " ^ ctx_var ^ (if (List.length f_quant_vars > 0) then
+                                                        let x,_ = List.hd f_quant_vars in
+                                                        " " ^ abs_var1 ^ ", nabla " ^ x ^ ", "
+                                                      else
+                                                        ", ") in
+         let universally_quantified_vars = (if (List.length f_quant_vars > 0) then
+                                              let _,ty = List.hd f_quant_vars in
+                                              let h_ty = pred_type h in
+                                              let h_arg_ty = (match h_ty with
+                                                              | Ty (tylst, bty) -> List.hd tylst) in
+                                              let abs_var1_ty = tyarrow [ty] h_arg_ty in
+                                              [(ctx_var, olistty); (abs_var1, abs_var1_ty)]
+                                            else
+                                              [(ctx_var, olistty)]) in
+         let f_str = term_to_string f in
+         let start_part = "\n  (" ^ quantifications ^ ctx_name ^ " " ^ ctx_var ^
+                            " -> {" ^ ctx_var ^ ", " ^ f_str ^ " |- " ^
+                              (if (List.length f_quant_vars > 0) then
+                                 let x,_ = List.hd f_quant_vars in
+                                 h ^ " (" ^ abs_var1 ^ " " ^ x ^ ")"
+                               else
+                                 h) ^ "}" in
+         let end_part =  " -> " ^
+                          (if (List.length f_quant_vars > 0) then
+                             "exists " ^ abs_var2 ^ ", " ^ abs_var1 ^ " = " ^
+                               abs_var2_abstraction_var ^ "\\" ^ abs_var2 ^
+                                 " /\\ {" ^ ctx_var ^ " |- " ^ h ^ " " ^ abs_var2 ^ "}"
+                           else
+                             "{" ^ ctx_var ^ " |- " ^ h ^ "}") ^ ") /\\" in
+         let full_thm_str,rest_of_thm = build_theorem t f_quant_vars (thm ^ start_part ^ end_part) in
          let umtm1 = Pred (app (var Constant ctx_name 0 (tyarrow [olistty] propty))
                                [var Logic ctx_var 0 olistty],
                            Irrelevant) in
-         let umtm2 = Obj ({context = [List.fold_left (fun old tm -> app (var Constant "::" 0 (tyarrow [oty; olistty] olistty))
-                                                                        [tm; old]) (var Logic ctx_var 0 olistty) f];
-                           right = var Constant h 0 oty;
+         let umtm2 = Obj ({context = [app (var Constant "::" 0 (tyarrow [oty; olistty] olistty))
+                                          [f; var Logic ctx_var 0 olistty]];
+                           right = (if (List.length f_quant_vars > 0) then
+                                      let x,ty = List.hd f_quant_vars in
+                                      let h_ty = pred_type h in
+                                      let h_arg_ty = (match h_ty with
+                                                      | Ty (tylst, bty) -> List.hd tylst) in
+                                      let abs_var1_ty = tyarrow [ty] h_arg_ty in
+                                      app (var Constant h 0 h_ty)
+                                          [app (var Logic abs_var1 0 abs_var1_ty) [(var Eigen(*?*) x 0 ty)]]
+                                    else
+                                      var Constant h 0 oty);
                            mode = Async;}, Irrelevant) in
-         let umtm3 = Obj ({context = [var Logic ctx_var 0 olistty];
-                           right = var Constant h 0 oty;
-                           mode = Async;}, Irrelevant) in
-         let this_dep = Binding (Forall, [(ctx_var,olistty)], Arrow (umtm1, Arrow (umtm2, umtm3))) in
+         let umtm3 = (if (List.length f_quant_vars > 0) then
+                        let _,ty = List.hd f_quant_vars in
+                        let h_ty = pred_type h in
+                        let h_arg_ty = (match h_ty with
+                                        | Ty (tylst, bty) -> List.hd tylst) in
+                        And (Eq ((var Logic ctx_var 0 olistty),
+                                 (lambda [(abs_var2_abstraction_var,ty)] (var Logic abs_var2 0 h_arg_ty))),
+                             Obj ({context = [var Logic ctx_var 0 olistty];
+                                   right = app (var Constant h 0 oty) [var Logic abs_var2 0 h_arg_ty];
+                                   mode = Async;}, Irrelevant))
+                      else
+                        Obj ({context = [var Logic ctx_var 0 olistty];
+                              right = var Constant h 0 oty;
+                              mode = Async;}, Irrelevant)) in
+         let this_dep_interior = (let basic_interior = Arrow (umtm1, Arrow (umtm2, umtm3)) in
+                                  if (List.length f_quant_vars > 0) then
+                                    Binding (Nabla, f_quant_vars, basic_interior)
+                                  else
+                                    basic_interior) in
+         let this_dep = Binding (Forall, universally_quantified_vars, this_dep_interior) in
          (full_thm_str, And (this_dep, rest_of_thm))
     in
     let build_proof g_dep =
@@ -808,7 +927,7 @@ let independent f g =
              let () = case (Remove ("H3", [])) in
              "    case " ^ mem_hyp ^ ". case H3.\n" ^ (iter_indep t (index + 1))
         in
-        let prf_start = iter_indep f 4 in
+        let prf_start = iter_indep [f] 4 in
         let ctx_mem_name = (make_ctx_name pred) ^ "_mem" in
         let () = (try apply (Keep (ctx_mem_name,[])) [(Keep ("H1",[])); (Keep ("_",[]))] [] with
                   | Prover.End_proof reason ->
@@ -816,13 +935,12 @@ let independent f g =
                  )in
         let prf_start = prf_start ^ "    apply " ^ ctx_mem_name ^ " to H1 _.\n" in
         let ctx_formulas = H.find dynamic_contexts pred in
-        let f_len = List.length f in
         let prf_start,obj_hyp_index = (if ((List.length ctx_formulas) > 1) then
-                                         let mem_eq_hyp = "H" ^ (string_of_int (5 + f_len)) in
+                                         let mem_eq_hyp = "H" ^ (string_of_int 6) in
                                          let () = case (Remove (mem_eq_hyp,[])) in
-                                         prf_start ^ "      case " ^ mem_eq_hyp ^ ".\n", (5 + f_len + 1)
+                                         prf_start ^ "      case " ^ mem_eq_hyp ^ ".\n", 7
                                        else
-                                         prf_start, (5 + f_len)) in
+                                         prf_start, 6) in
         let dyn_ctx_prf_str = iterate_ctx pred obj_hyp_index ctx_formulas prf_start in
         dyn_ctx_prf_str
       in
@@ -849,7 +967,8 @@ let independent f g =
         each_pred g_dep prf
     in
     let thm_start = "Theorem " ^ g ^ "_indep" ^ " : " in
-    let theorem_str,mtm = build_theorem g_dep thm_start in
+    let quant_vars = collect_quantified_variables f in
+    let theorem_str,mtm = build_theorem g_dep quant_vars thm_start in
     let () = register_theorem (g ^ "_indep") mtm in
     let () = output_string outfile theorem_str in
     let proof = build_proof g_dep in
@@ -858,8 +977,9 @@ let independent f g =
 
   in
   let dep_g = H.find dependencies g in
-  (*if (List.mem f dep_g) then
-    failwith ("Cannot prove " ^ g ^ " independent of " ^ f ^ "--dependency exists");*)
+  let f_head = get_head_predicate f in
+  if (List.mem (List.hd f_head) dep_g) then
+    failwith ("Cannot prove " ^ g ^ " independent of " ^ (term_to_string f) ^ "--dependency exists");
   List.iter define_ctx dep_g;
   List.iter (fun x -> let x_ctx = H.find dynamic_contexts x in
                       let dep_x = H.find dependencies x in

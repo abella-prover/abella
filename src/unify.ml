@@ -41,7 +41,7 @@ let rec explain_failure = function
   | ConstClash (t1, t2) ->
       Printf.sprintf "Unification failure (constant clash between %s and %s)"
         (term_to_string t1) (term_to_string t2)
-  | Generic -> "Unification failure (nominal reasoning)"
+  | Generic -> "Unification failure"
   | FailTrail (n, fl) ->
       Printf.sprintf "While matching argument #%d:\n%s" n (explain_failure fl)
 

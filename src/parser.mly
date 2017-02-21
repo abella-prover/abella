@@ -611,10 +611,20 @@ binder:
     { Metaterm.Nabla }
 
 binding_list:
-  | paid binding_list
-    { binding_cons (deloc_id_ty $1) $2 }
-  | paid
-    { [deloc_id_ty $1] }
+  | binding_one
+    { $1 }
+  | binding_one binding_list
+    { $1 @ $2 }
+
+binding_one:
+  | id
+    { [$1, Term.fresh_tyvar ()] }
+  | LPAREN binding_vars COLON ty RPAREN
+    { List.fold_right (fun x tids -> binding_cons (x, $4) tids) $2 [] }
+
+binding_vars:
+  | id { [$1] }
+  | id binding_vars { $1 :: $2 }
 
 restriction:
   | { Metaterm.Irrelevant }

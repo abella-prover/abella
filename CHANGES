@@ -44,6 +44,12 @@ Additions
 
 Tweaks to existing functionality
 
+* The syntax for quantifiers now allows for multiple bound variables of the
+  same type. Example:
+
+        /* Type p i -> i -> prop. */
+        forall (x y : i) (f g : i -> i), p (f (g y)) (g (f x))
+
 * The `apply` tactic now takes an optional numerical argument that defines
   the search depth for automatic searches performed for omitted arguments. A
   bound of 0 means that no searches are attempted.

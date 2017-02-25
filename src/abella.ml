@@ -28,6 +28,7 @@ open Typing
 open Extensions
 open Printf
 open Accumulate
+open Independence
 
 let load_path = State.rref (Sys.getcwd ())
 
@@ -123,7 +124,10 @@ let read_specification name =
   (* Any exceptions must have been thrown by now - do actual assignments *)
   sr := sr' ;
   sign := sign' ;
-  add_clauses clauses'
+  add_clauses clauses';
+  collect_contexts ();
+  collect_dependencies ();
+  independent (var Constant "v" 0 oty) "r"(*(app (var Constant "tm" 0 (tyarrow [tybase "tm"] oty)) [(var Eigen "X" 0 (tybase "tm"))]) "ty"*)
 
 
 (* Compilation and importing *)

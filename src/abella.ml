@@ -127,7 +127,7 @@ let read_specification name =
   add_clauses clauses';
   collect_contexts ();
   collect_dependencies ();
-  independent (var Constant "v" 0 oty) "r"(*(app (var Constant "tm" 0 (tyarrow [tybase "tm"] oty)) [(var Eigen "X" 0 (tybase "tm"))]) "ty"*)
+  independent (var Constant "v" 0 oty) "r"(*(app (var Constant "tm" 0 (tyarrow [tybase "tm"] oty)) [(var Eigen "X" 0 (tybase "tm"))]) "ty"*) (*(app (var Constant "foo" 0 (tyarrow [tybase "ty"; tybase "tm"] oty)) [var Eigen "X" 0 (tybase "ty"); var Eigen "Y" 0 (tybase "tm"); var Eigen "Z" 0 (tybase "ty")]) "bar"*)
 
 
 (* Compilation and importing *)

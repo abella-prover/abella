@@ -18,6 +18,7 @@ type definition = flavor * tyctx * udef_clause list
 type program_element =
   | Definition of definition
   | TheoremProof of theorem_proof
+  | SplitTheorem of id
 
 let thm_proof_to_string pf =
   let rec pts_aux lst =
@@ -45,6 +46,7 @@ let rec program_to_string prog =
   | [] -> ""
   | (Definition d)::t -> (definition_to_string d) ^ (program_to_string t)
   | (TheoremProof tp)::t -> (thm_proof_to_string tp) ^ (program_to_string t)
+  | (SplitTheorem id)::t -> "Split " ^ id ^ ".\n\n" ^ (program_to_string t)
 
 let rec get_head_predicate trm =
   match (observe trm) with
@@ -205,6 +207,40 @@ let fresh_name_uterm ut base =
   else
     get_name 0
 
+             
+let register_theorem name thm =
+  add_lemma name [] thm;
+  theorem thm
+
+
+let finish_proof reason =
+  match reason with
+  | `completed -> reset_prover ()
+  | _ -> failwith "Automated proof not completed"
+
+let rec collect_quantified_variables trm =
+  let is_constant name =
+    let rec find_in_sign name lst =
+      match lst with
+      | [] -> false
+      | (const_name,_)::t -> if (const_name = name) then
+                               true
+                             else
+                               find_in_sign name t
+    in
+    let _,constants = !sign in
+    (H.mem defs_table name) || (find_in_sign name constants)
+  in
+  let obtm = observe trm in
+  match obtm with
+  | Var v -> if (is_constant v.name) then
+               []
+             else
+               [(v.name,v.ty)]
+  | App (t, tlist) ->
+     (collect_quantified_variables t) @ (List.fold_left (fun lst tm -> (collect_quantified_variables tm) @ lst) [] tlist)
+  | _ -> []
+
 
 type set_ref =
   | Ref of id
@@ -212,16 +248,15 @@ type set_ref =
 
 let pred_list : string list ref = ref []
 
-let dynamic_contexts : (id, term list) H.t = H.create 10
-
-let dependencies : (id, id list) H.t = H.create 10
 
 exception StrengthenFailure
 
 
-let collect_contexts () =
+
+
+let collect_contexts dynamic_contexts all_ctx_terms =
   let ctx_col : (string, set_ref list) H.t = H.create 10 in
-  let gamma' = ref !clauses in
+  let gamma' = ref (all_ctx_terms @ !clauses) in
 
   let rec simplify_constraints cnstrnts output =
     let rec add_formulas lst pred =
@@ -256,8 +291,7 @@ let collect_contexts () =
         ()
 
     in
-    List.iter (fun h -> H.add output h [];
-                        if (not (H.mem cnstrnts h)) then (*add empty context constraints*)
+    List.iter (fun h -> if (not (H.mem cnstrnts h)) then (*add empty context constraints*)
                           H.add cnstrnts h []
               ) !pred_list;
     simplify_aux ()
@@ -292,13 +326,14 @@ let collect_contexts () =
     | [] -> ()
   done;
 
-  (*assumes a predicate is defined for each as in http://abella-prover.org/independence/code/stlc.html for ty and tm*)
   let extract_all_predicates () =
     let rec collect_preds lst =
       match lst with
       | [] -> []
-      | (pred,Poly (_,ty))::tl -> 
-         if (ty = oty) then
+      | (pred,Poly (_,ty))::tl ->
+         if (pred = "=>" || pred = "&") then (*don't add built-in predicates*)
+           collect_preds tl
+         else if (ty = oty) then
            pred::(collect_preds tl)
          else
            match ty with
@@ -316,25 +351,13 @@ let collect_contexts () =
             
   in
   pred_list := extract_all_predicates ();
+  List.iter (fun h -> H.add dynamic_contexts h all_ctx_terms) !pred_list; (*add to all contexts*)
   simplify_constraints ctx_col dynamic_contexts
-  (*display all predicates in pred_list -- testing purposes only*)
-  (*;print_string "Predicates\n";
-  List.iter (fun p -> print_string (p ^ "; ")) !pred_list;
-  print_string "\n"*)
-  (*display dynamic contexts --  testing purposes only*)
-  (*;print_string "Dynamic Contexts\n";
-  H.iter (fun p l -> print_string ("Pred: " ^ p ^ "\n");
-                     List.iter (fun t -> print_string ((term_to_string t) ^ ";\n")) l
-         ) dynamic_contexts*)
-  (*display sign*)
-  (*;let x,y = !sign in
-   let _ = List.iter (fun (s,p) -> match p with
-                                   | Poly (_,t) -> print_string (s^" : "^(ty_to_string t)^"\n")) y in
-   let _ = print_string "\n" in
-   List.iter (fun s -> print_string (s ^ "\n")) x*)
 
 
-let collect_dependencies () =
+
+
+let collect_dependencies dynamic_contexts dependencies =
   let dep_col = H.create 10 in
   let gamma' = !clauses in
 
@@ -396,18 +419,13 @@ let collect_dependencies () =
   in
   List.iter (fun pred -> add_constraints pred) !pred_list;
   simplify_constraints dep_col dependencies
-  (*display dependencies --  testing purposes only*)
-  (*;print_string "Dependencies\n";
-  H.iter (fun p l -> print_string ("Pred: " ^ p ^ "\n");
-                     List.iter (fun t -> print_string (t ^ "; ")) l; print_string "\n";
-         ) dependencies*)
+
+
 
 
 (*Prove g independent of f*)
-let independent f g =
+let independent f g dynamic_contexts dependencies =
 
-  let outfile = open_out "out.thm" in
-  
   let make_ctx_name pred =
     "ctx_" ^ pred
                
@@ -426,16 +444,6 @@ let independent f g =
     | _ -> trm
              
   in
-  let rec collect_quantified_variables trm =
-    match (observe trm) with
-    | Var v -> if (v.tag = Constant) then
-                 []
-               else
-                 [(v.name,v.ty)]
-    | App (t, tlist) ->
-       (collect_quantified_variables t) @ (List.fold_right (fun tm lst -> (collect_quantified_variables tm) @ lst) tlist [])
-    | _ -> []
-  in
   
   let rec term_to_uterm trm =
     match (observe trm) with
@@ -445,18 +453,7 @@ let independent f g =
                             let x = term_to_uterm t in
                             UApp ((Lexing.dummy_pos,Lexing.dummy_pos), ut, x)) (term_to_uterm tm) tlst
     | _ -> bugf "Should not have any terms but Vars and Apps"
-                
-  in
-  let register_theorem name thm =
-    add_lemma name [] thm;
-    theorem thm
-            
-  in
-  let finish_proof reason =
-    match reason with
-    | `completed -> reset_prover ()
-    | _ -> failwith "Automated proof not completed"
-                    
+
   in
   let define_ctx pred =
     let ctx_formulas = H.find dynamic_contexts pred in
@@ -914,9 +911,9 @@ let independent f g =
     in
     let quant_vars = collect_quantified_variables f in
     let mtm = build_theorem g_dep quant_vars in
-    let () = register_theorem (g ^ "_indep") mtm in
+    let () = register_theorem ("indep") mtm in
     let prf_lst = build_proof g_dep in
-    TheoremProof (g ^ "_indep", mtm, List.rev prf_lst)
+    TheoremProof ("indep", mtm, List.rev prf_lst)
 
   in
   let dep_g = H.find dependencies g in
@@ -931,8 +928,118 @@ let independent f g =
                   dep_g [] in
   let independence = indep_theorem dep_g in
   let independence_program = context_theorems @ subctxs @ [independence] in
-  let program_string = (*List.fold_left (fun str pf -> str ^ (thm_proof_to_string pf)) "" independence_program in*)
-    program_to_string independence_program in
+  independence_program
+
+
+
+
+
+let strengthen () =
+  let rec strip_bindings thm =
+    match thm with
+    | Binding (_, lst, t) -> strip_bindings t
+    | _ -> thm
+  in
+  let extract_from_theorem thm =
+    let plain_thm = strip_bindings thm in
+    match plain_thm with
+    | Arrow (mtm1, Arrow (mtm2, mtm3)) ->
+       let ctx = (match mtm1 with
+                  | Pred (tm,_) -> (match get_head_predicate tm with
+                                    | [h] -> h
+                                    | _ -> raise StrengthenFailure)
+                  | _ -> raise StrengthenFailure) in
+       let f,g = (match mtm2 with
+                  | Obj (o,_) ->
+                     let g = (match (get_head_predicate o.right) with
+                              | [h] -> h
+                              | _ -> raise StrengthenFailure) in
+                     let f = (match o.context with
+                              | _::x::l -> x
+                              | _ -> raise StrengthenFailure) in
+                     f,g
+                  | _ -> raise StrengthenFailure) in
+       ctx, f, g
+    | _ -> raise StrengthenFailure
+  in
+  let original_thm = sequent.goal in
+  let ctx_name, f, g = extract_from_theorem original_thm in
+  let ctx_clauses = (H.find defs_table ctx_name).clauses in
+  let extract_term mtm =
+    match mtm with
+    | Pred (tm,_) ->
+       (match tm with
+        | App (_, [App (_, [t; _])]) -> Some t
+        | _ -> None)
+    | _ -> raise StrengthenFailure
+  in
+  let ctx_terms = List.fold_left (fun lst clause -> match (extract_term clause.head) with
+                                                    | None -> lst
+                                                    | Some tm -> tm::lst) []  ctx_clauses in
+  let dynamic_contexts : (id, term list) H.t = H.create 10 in
+  let dependencies : (id, id list) H.t = H.create 10 in
+  let () = collect_contexts dynamic_contexts ctx_terms in
+  let () = collect_dependencies dynamic_contexts dependencies in
+  let indep_program = independent f g dynamic_contexts dependencies in
+
+  let dep_g = H.find dependencies g in
+  let g_dep_count = List.length dep_g in
+  
+  let ctx_subctx_name = ctx_name ^ "_subctx_ctx_" ^ g in
+  let subctx_proof = (Induction ([1], None))::(Intros [])::(Case (Remove ("H1",[]), None))::(Search `nobounds)::
+                       (List.fold_left (fun lst h -> (Apply (None, Keep ("IH",[]), [Keep ("H2",[])], [], None))::
+                                                       (Search `nobounds)::lst)
+                                       [] (List.tl ctx_clauses)) in
+  let umtm1 = Pred (app (var Constant ctx_name 0 (tyarrow [olistty] propty))
+                        [var Constant "L" 0 olistty],
+                    Irrelevant) in
+  let umtm2 = Pred (app (var Constant ("ctx_" ^ g) 0 (tyarrow [olistty] propty))
+                        [var Constant "L" 0 olistty],
+                    Irrelevant) in
+  let thm = Binding (Forall, [("L",olistty)], Arrow (umtm1, umtm2)) in
+  let subctx_thm = TheoremProof (ctx_subctx_name, thm, subctx_proof) in
+  let () = register_theorem ctx_subctx_name thm in
+  let () = induction [1] in
+  let () = intros [] in
+  let () = case (Remove ("H1",[])) in
+  let () = search ~witness:WMagic ~handle_witness:(fun x -> ()) () in
+  let () = List.iter (fun x -> apply (Keep ("IH",[])) [Keep ("H2",[])] [];
+                               try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
+                               | Prover.End_proof reason -> finish_proof reason) (List.tl ctx_clauses) in
+
+  let indep_split_name = "indep" ^ (if (g_dep_count > 1) then
+                                      string_of_int g_dep_count
+                                    else "") in
+  let split_step = (if (g_dep_count > 1) then
+                      let () = List.iter (fun (n, (tys,t)) -> add_lemma n tys t)
+                                         (create_split_theorems "indep" []) in
+                      Some (SplitTheorem "indep")
+                    else None) in
+  let strengthening_proof = [Intros [];
+                             Apply (None, Keep (ctx_subctx_name,[]),
+                                    [Remove ("H1",[])], [], None);
+                             Apply (None, Keep (indep_split_name,[]),
+                                    [Remove ("H3",[]); Remove ("H2",[])], [], None);
+                             Search `nobounds] in
+  let () = sequent.goal <- original_thm in
+  let () = intros [] in
+  let () = apply (Keep (ctx_subctx_name,[])) [Remove ("H1",[])] [] in
+  let () = apply (Keep (indep_split_name,[])) [Remove ("H3",[]); Remove ("H2",[])] [] in
+  let () = try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
+           | Prover.End_proof reason -> finish_proof reason in
+  let strengthening_theorem = TheoremProof ("original_name", original_thm, strengthening_proof) in
+  let strengthening_program = (match split_step with
+                               | Some step -> [subctx_thm; step; strengthening_theorem]
+                               | None -> [subctx_thm; strengthening_theorem]) in
+
+  let program_string = program_to_string indep_program in
+  let strengthening_string = program_to_string strengthening_program in
+  let outfile = open_out "out.thm" in
   let () = output_string outfile program_string in
+  let () = output_string outfile strengthening_string in
   let () = flush outfile in
-  close_out outfile
+  let () = close_out outfile in
+  raise (Prover.End_proof `completed) (*let interactive prover know the proof is done*)
+
+
+

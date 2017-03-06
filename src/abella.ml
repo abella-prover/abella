@@ -124,10 +124,10 @@ let read_specification name =
   (* Any exceptions must have been thrown by now - do actual assignments *)
   sr := sr' ;
   sign := sign' ;
-  add_clauses clauses';
+  add_clauses clauses'(*;
   collect_contexts ();
   collect_dependencies ();
-  independent (var Constant "v" 0 oty) "r"(*(app (var Constant "tm" 0 (tyarrow [tybase "tm"] oty)) [(var Eigen "X" 0 (tybase "tm"))]) "ty"*) (*(app (var Constant "foo" 0 (tyarrow [tybase "ty"; tybase "tm"] oty)) [var Eigen "X" 0 (tybase "ty"); var Eigen "Y" 0 (tybase "tm"); var Eigen "Z" 0 (tybase "ty")]) "bar"*)
+  let _ = independent (var Constant "v" 0 oty) "r"(*(app (var Constant "tm" 0 (tyarrow [tybase "tm"] oty)) [(var Eigen "X" 0 (tybase "tm"))]) "ty"*) (*(app (var Constant "foo" 0 (tyarrow [tybase "ty"; tybase "tm"] oty)) [var Eigen "X" 0 (tybase "ty"); var Eigen "Y" 0 (tybase "tm"); var Eigen "Z" 0 (tybase "ty")]) "bar"*) in ()*)
 
 
 (* Compilation and importing *)
@@ -608,6 +608,7 @@ and process_proof1 name =
       search ?depth ~witness ~handle_witness:handle_search_witness ()
     end
   | Permute(ids, h)        -> permute_nominals ids h
+  | Strengthen             -> strengthen ()
   | Split                  -> split false
   | SplitStar              -> split true
   | Left                   -> left ()

@@ -152,6 +152,7 @@ type command =
   | Monotone of clearable * uterm
   | Permute of id list * id option
   | Search of [`nobounds | `depth of depth_bound | `witness of witness]
+  | Strengthen
   | Split
   | SplitStar
   | Left
@@ -403,3 +404,4 @@ let command_to_string c =
     | Abort -> "abort"
     | Undo -> "undo"
     | Common(cc) -> common_command_to_string cc
+    | Strengthen -> "strengthen"

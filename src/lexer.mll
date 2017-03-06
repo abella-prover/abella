@@ -74,6 +74,7 @@
     "search",        SEARCH ;
     "sig",           SIG ;
     "skip",          SKIP ;
+    "strengthen",    STRENGTHEN ;
     "split",         SPLIT ;
     "split*",        SPLITSTAR ;
     "to",            TO ;

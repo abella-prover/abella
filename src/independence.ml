@@ -212,11 +212,23 @@ let register_theorem name thm =
   add_lemma name [] thm;
   theorem thm
 
-
 let finish_proof reason =
   match reason with
   | `completed -> reset_prover ()
   | _ -> failwith "Automated proof not completed"
+
+
+let strengthen_count = ref 1
+
+
+let make_ctx_name pred =
+  "ctx_" ^ pred ^ (string_of_int !strengthen_count)
+
+let make_subctx_name pred_sub pred_super =
+  (make_ctx_name pred_sub) ^ "_subctx_" ^ (make_ctx_name pred_super)
+
+let make_indep_name pred =
+  "indep" ^ (string_of_int !strengthen_count) ^ "_" ^ pred
 
 let rec collect_quantified_variables trm =
   let is_constant name =
@@ -426,14 +438,6 @@ let collect_dependencies dynamic_contexts dependencies =
 (*Prove g independent of f*)
 let independent f g dynamic_contexts dependencies =
 
-  let make_ctx_name pred =
-    "ctx_" ^ pred
-               
-  in
-  let make_subctx_name pred_sub pred_super =
-    (make_ctx_name pred_sub) ^ "_subctx_" ^ (make_ctx_name pred_super)
-                                              
-  in
   let rec make_variables_universal trm =
     match (observe trm) with
     | Var v -> if (v.tag = Constant) then
@@ -909,11 +913,12 @@ let independent f g dynamic_contexts dependencies =
       else
         each_pred g_dep prf_lst
     in
+    let indep_name = make_indep_name g in
     let quant_vars = collect_quantified_variables f in
     let mtm = build_theorem g_dep quant_vars in
-    let () = register_theorem ("indep") mtm in
+    let () = register_theorem indep_name mtm in
     let prf_lst = build_proof g_dep in
-    TheoremProof ("indep", mtm, List.rev prf_lst)
+    TheoremProof (indep_name, mtm, List.rev prf_lst)
 
   in
   let dep_g = H.find dependencies g in
@@ -962,6 +967,22 @@ let strengthen () =
        ctx, f, g
     | _ -> raise StrengthenFailure
   in
+  let rec update_strengthen_count g_dep =
+    let rec is_free_num lst =
+      match lst with
+      | [] -> true
+      | h::t -> if (H.mem defs_table (make_ctx_name h)) then
+                  false
+                else
+                  is_free_num t
+    in
+    if (is_free_num g_dep) then
+      ()
+    else begin
+      strengthen_count := !strengthen_count + 1;
+      update_strengthen_count g_dep
+      end
+  in
   let original_thm = sequent.goal in
   let ctx_name, f, g = extract_from_theorem original_thm in
   let ctx_clauses = (H.find defs_table ctx_name).clauses in
@@ -980,12 +1001,13 @@ let strengthen () =
   let dependencies : (id, id list) H.t = H.create 10 in
   let () = collect_contexts dynamic_contexts ctx_terms in
   let () = collect_dependencies dynamic_contexts dependencies in
+  let dep_g = H.find dependencies g in
+  let () = update_strengthen_count dep_g in
+  let g_dep_count = List.length dep_g in
   let indep_program = independent f g dynamic_contexts dependencies in
 
-  let dep_g = H.find dependencies g in
-  let g_dep_count = List.length dep_g in
-  
-  let ctx_subctx_name = ctx_name ^ "_subctx_ctx_" ^ g in
+  let g_ctx_name = make_ctx_name g in
+  let ctx_subctx_name = ctx_name ^ "_subctx_" ^ g_ctx_name in
   let subctx_proof = (Induction ([1], None))::(Intros [])::(Case (Remove ("H1",[]), None))::(Search `nobounds)::
                        (List.fold_left (fun lst h -> (Apply (None, Keep ("IH",[]), [Keep ("H2",[])], [], None))::
                                                        (Search `nobounds)::lst)
@@ -993,7 +1015,7 @@ let strengthen () =
   let umtm1 = Pred (app (var Constant ctx_name 0 (tyarrow [olistty] propty))
                         [var Constant "L" 0 olistty],
                     Irrelevant) in
-  let umtm2 = Pred (app (var Constant ("ctx_" ^ g) 0 (tyarrow [olistty] propty))
+  let umtm2 = Pred (app (var Constant g_ctx_name 0 (tyarrow [olistty] propty))
                         [var Constant "L" 0 olistty],
                     Irrelevant) in
   let thm = Binding (Forall, [("L",olistty)], Arrow (umtm1, umtm2)) in
@@ -1002,18 +1024,20 @@ let strengthen () =
   let () = induction [1] in
   let () = intros [] in
   let () = case (Remove ("H1",[])) in
-  let () = search ~witness:WMagic ~handle_witness:(fun x -> ()) () in
+  let () = (try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
+            | Prover.End_proof reason -> finish_proof reason) in
   let () = List.iter (fun x -> apply (Keep ("IH",[])) [Keep ("H2",[])] [];
                                try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
                                | Prover.End_proof reason -> finish_proof reason) (List.tl ctx_clauses) in
 
-  let indep_split_name = "indep" ^ (if (g_dep_count > 1) then
-                                      string_of_int g_dep_count
-                                    else "") in
+  let indep_thm_name = make_indep_name g in
+  let indep_split_name = indep_thm_name ^ (if (g_dep_count > 1) then
+                                             string_of_int g_dep_count
+                                           else "") in
   let split_step = (if (g_dep_count > 1) then
                       let () = List.iter (fun (n, (tys,t)) -> add_lemma n tys t)
-                                         (create_split_theorems "indep" []) in
-                      Some (SplitTheorem "indep")
+                                         (create_split_theorems indep_thm_name []) in
+                      Some (SplitTheorem indep_thm_name)
                     else None) in
   let strengthening_proof = [Intros [];
                              Apply (None, Keep (ctx_subctx_name,[]),
@@ -1038,7 +1062,10 @@ let strengthen () =
   let () = output_string outfile program_string in
   let () = output_string outfile strengthening_string in
   let () = flush outfile in
-  let () = close_out outfile in
+  close_out outfile;
+
+  strengthen_count := !strengthen_count +1;
+
   raise (Prover.End_proof `completed) (*let interactive prover know the proof is done*)
 
 

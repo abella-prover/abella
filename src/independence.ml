@@ -271,7 +271,7 @@ let collect_contexts dynamic_contexts all_ctx_terms =
   let gamma' = ref (all_ctx_terms @ !clauses) in
 
   let rec simplify_constraints cnstrnts output =
-    let rec add_formulas lst pred =
+    let rec add_formulas lst pred refs_added =
       match lst with
       | [] -> false
       | h::t ->
@@ -279,21 +279,21 @@ let collect_contexts dynamic_contexts all_ctx_terms =
          | Formula trm ->
             if not (member trm (H.find output pred)) then
               let _ = H.replace output pred (trm::(H.find output pred)) in
-              let _ = add_formulas t in
+              let _ = add_formulas t pred refs_added in
               true
             else
-              add_formulas t pred
+              add_formulas t pred refs_added
          | Ref s ->
-            if ((H.mem cnstrnts s) && s <> pred) then
-              add_formulas ((H.find cnstrnts s) @ t) pred
+            if ((H.mem cnstrnts s) && not (List.mem s refs_added)) then
+              add_formulas ((H.find cnstrnts s) @ t) pred (s::refs_added)
             else
-              add_formulas t pred
+              add_formulas t pred refs_added
 
     in
     let rec simplify_iterate lst changed =
       match lst with
       | [] -> changed
-      | h::t -> simplify_iterate t ((add_formulas (H.find cnstrnts h) h) || changed)
+      | h::t -> simplify_iterate t ((add_formulas (H.find cnstrnts h) h [h]) || changed)
 
     in
     let rec simplify_aux () =
@@ -924,7 +924,7 @@ let independent f g dynamic_contexts dependencies =
   let dep_g = H.find dependencies g in
   let f_head = get_head_predicate f in
   if (List.mem (List.hd f_head) dep_g) then
-    failwith ("Cannot prove " ^ g ^ " independent of " ^ (term_to_string f) ^ "--dependency exists");
+    failwith ("Cannot automatically prove " ^ g ^ " independent of " ^ (term_to_string f) ^ "--dependency may exist");
   let context_theorems = List.fold_right (fun pred lst -> (define_ctx pred) @ lst) dep_g [] in
   let subctxs =  List.fold_right (fun x lst -> let x_ctx = H.find dynamic_contexts x in
                                                let dep_x = H.find dependencies x in
@@ -1011,7 +1011,7 @@ let strengthen () =
   let subctx_proof = (Induction ([1], None))::(Intros [])::(Case (Remove ("H1",[]), None))::(Search `nobounds)::
                        (List.fold_left (fun lst h -> (Apply (None, Keep ("IH",[]), [Keep ("H2",[])], [], None))::
                                                        (Search `nobounds)::lst)
-                                       [] (List.tl ctx_clauses)) in
+                                       [] (List.tl ctx_clauses)) in (*tail of list to do for everything but nil rule*)
   let umtm1 = Pred (app (var Constant ctx_name 0 (tyarrow [olistty] propty))
                         [var Constant "L" 0 olistty],
                     Irrelevant) in
@@ -1029,6 +1029,7 @@ let strengthen () =
   let () = List.iter (fun x -> apply (Keep ("IH",[])) [Keep ("H2",[])] [];
                                try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
                                | Prover.End_proof reason -> finish_proof reason) (List.tl ctx_clauses) in
+                                                                    (*tail of list to do for everything but nil rule*)
 
   let indep_thm_name = make_indep_name g in
   let indep_split_name = indep_thm_name ^ (if (g_dep_count > 1) then

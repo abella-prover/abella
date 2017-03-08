@@ -261,8 +261,6 @@ type set_ref =
 let pred_list : string list ref = ref []
 
 
-exception StrengthenFailure
-
 
 
 
@@ -938,32 +936,67 @@ let independent f g dynamic_contexts dependencies =
 
 
 
+exception StrengthenFailure
 
-let strengthen () =
+
+let strengthen original_thm_name =
   let rec strip_bindings thm =
     match thm with
     | Binding (_, lst, t) -> strip_bindings t
     | _ -> thm
   in
   let extract_from_theorem thm =
+    let rec exact_tm_equality tm1 tm2 =
+      match (observe tm1, observe tm2) with
+      | Var v1, Var v2 -> v1.name = v2.name
+      | App (t1,tlst1), App (t2,tlst2) ->
+         (exact_tm_equality t1 t2) &&
+           (List.fold_left2 (fun boolean x1 x2 -> boolean && (exact_tm_equality x1 x2)) true tlst1 tlst2)
+      | _ -> failwith "Should only be apps and vars"
+    in
     let plain_thm = strip_bindings thm in
     match plain_thm with
     | Arrow (mtm1, Arrow (mtm2, mtm3)) ->
-       let ctx = (match mtm1 with
-                  | Pred (tm,_) -> (match get_head_predicate tm with
-                                    | [h] -> h
-                                    | _ -> raise StrengthenFailure)
-                  | _ -> raise StrengthenFailure) in
-       let f,g = (match mtm2 with
-                  | Obj (o,_) ->
-                     let g = (match (get_head_predicate o.right) with
-                              | [h] -> h
-                              | _ -> raise StrengthenFailure) in
-                     let f = (match o.context with
-                              | _::x::l -> x
-                              | _ -> raise StrengthenFailure) in
-                     f,g
-                  | _ -> raise StrengthenFailure) in
+       let ctx, lst_var = (match mtm1 with
+                           | Pred (tm,_) -> (match (observe tm) with
+                                             | App (ctx_tm, [lst_tm]) ->
+                                                (match (observe ctx_tm, observe lst_tm) with
+                                                 | Var v, Var lst ->
+                                                    if (v.ty <> (tyarrow [olistty] propty)) then
+                                                      raise StrengthenFailure
+                                                    else
+                                                      v.name, lst.name
+                                                 | _ -> raise StrengthenFailure)
+                                             | _ -> raise StrengthenFailure)
+                          | _ -> raise StrengthenFailure) in
+       let f, g_tm = (match mtm2 with
+                      | Obj (o,_) ->
+                         let g_tm = o.right in
+                         let f = (match o.context with
+                                  | [lst; otm] -> (match (observe lst) with
+                                                   | Var v -> if (v.name <> lst_var) then
+                                                                raise StrengthenFailure
+                                                   | _ -> raise StrengthenFailure);
+                                                  otm
+                                  | _ -> raise StrengthenFailure) in
+                         f, g_tm
+                      | _ -> raise StrengthenFailure) in
+       let g = (match mtm3 with
+                | Obj (o,_) -> (match o.context with
+                                | [lst] -> (match (observe lst) with
+                                            | Var v -> if (v.name <> lst_var) then
+                                                         raise StrengthenFailure
+                                            | _ -> raise StrengthenFailure)
+                                | _ -> raise StrengthenFailure);
+                               if (not (exact_tm_equality o.right g_tm) || is_imp g_tm || is_amp g_tm) then
+                                 raise StrengthenFailure
+                               else
+                                 let g_head = get_head_predicate g_tm in
+                                 if (List.length g_head <> 1) then
+                                   raise StrengthenFailure
+                                 else
+                                   List.hd g_head
+                | _ -> raise StrengthenFailure) in
        ctx, f, g
     | _ -> raise StrengthenFailure
   in
@@ -1052,7 +1085,7 @@ let strengthen () =
   let () = apply (Keep (indep_split_name,[])) [Remove ("H3",[]); Remove ("H2",[])] [] in
   let () = try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
            | Prover.End_proof reason -> finish_proof reason in
-  let strengthening_theorem = TheoremProof ("original_name", original_thm, strengthening_proof) in
+  let strengthening_theorem = TheoremProof (original_thm_name, original_thm, strengthening_proof) in
   let strengthening_program = (match split_step with
                                | Some step -> [subctx_thm; step; strengthening_theorem]
                                | None -> [subctx_thm; strengthening_theorem]) in

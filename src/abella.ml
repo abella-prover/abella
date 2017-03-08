@@ -555,6 +555,7 @@ let rec process1 () =
         | Failure msg -> msg
         | Unify.UnifyFailure fl -> Unify.explain_failure fl
         | Unify.UnifyError err -> Unify.explain_error err
+        | Independence.StrengthenFailure -> "Given theorem is not in the form of a strengthening lemma"
         | UserInterrupt -> "Interrupted (use ctrl-D to quit)"
         | _ ->
             Printexc.to_string e ^ "\n\n\
@@ -608,7 +609,9 @@ and process_proof1 name =
       search ?depth ~witness ~handle_witness:handle_search_witness ()
     end
   | Permute(ids, h)        -> permute_nominals ids h
-  | Strengthen             -> strengthen ()
+  | Strengthen             -> (match !current_state with
+                               | Process_proof p -> strengthen p.thm
+                               | _ -> failwith "Cannot use strengthen outside of proof processing")
   | Split                  -> split false
   | SplitStar              -> split true
   | Left                   -> left ()

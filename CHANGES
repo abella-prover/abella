@@ -3,6 +3,27 @@ Changes in 2.0.5-dev from 2.0.4
 
 Additions
 
+* Added support for simultaneous induction. Given a goal
+
+        A -> B -> C -> D
+
+  the invocation `induction on (1 3)` produces a new hypothesis
+
+        A * -> B -> C * -> D
+
+  and new goal
+
+        A @ -> B -> C @ -> D.
+
+  to use the IH with `apply`, at least one of the smaller formal arguments
+  must be matched by a smaller actual argument, while the rest of the
+  smaller formal arguments must be matched by equal or smaller actual
+  arguments. In other words, the three ways to use the IH are with:
+
+  - `A *` and `C @`,
+  - `A @` and `C *`, and
+  - `A *` and `C *`.
+
 * Added support for (first-order) polymorphic definitions. Definitions
   such as the following are now accepted.
 

@@ -859,16 +859,20 @@ let next_restriction () =
   1 + (sequent.hyps |> List.map (fun h -> h.term) |>
        List.map get_max_restriction |> List.max)
 
-let rec nth_product n term =
-  match term with
-  | Binding(Forall, _, body) -> nth_product n body
-  | Binding(Nabla, _, body) -> nth_product n body
-  | Arrow(left, right) ->
-      if n = 1 then
-        left
-      else
-        nth_product (n-1) right
-  | _ -> failwith "Can only induct on predicates and judgments"
+let rec nth_product n0 term =
+  let rec aux n term =
+    match term with
+    | Binding(Forall, _, body) -> aux n body
+    | Binding(Nabla, _, body) -> aux n body
+    | Arrow(left, right) ->
+        if n = 1 then
+          left
+        else
+          aux (n-1) right
+    | _ ->
+      failwithf "Could not find inductive argument #%d" n0
+  in
+  aux n0 term
 
 let ensure_is_inductive term =
   match term with
@@ -897,9 +901,12 @@ let induction ?name ind_args =
   if List.length ind_args != List.length stmts then
     failwithf "Expecting %d induction arguments but got %d"
       (List.length stmts) (List.length ind_args) ;
-  List.iter
-    (fun (arg, goal) -> ensure_is_inductive (nth_product arg goal))
-    (List.combine ind_args stmts) ;
+  List.iter2 begin
+    fun args goal ->
+      List.iter
+        (fun arg -> ensure_is_inductive (nth_product arg goal))
+        args
+  end ind_args stmts ;
   let res_num = next_restriction () in
   let (ihs, new_goal) = Tactics.induction ind_args res_num sequent.goal in
   let name = match name with

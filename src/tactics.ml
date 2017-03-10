@@ -558,29 +558,29 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
 (* Induction *)
 
 let single_induction ind_arg ind_num stmt =
-  let rec aux ind_arg stmt =
+  let rec aux cur_arg stmt =
     match stmt with
     | Binding(Forall, bindings, body) ->
-        let (ih, goal) = aux ind_arg body in
+        let (ih, goal) = aux cur_arg body in
         (forall bindings ih, forall bindings goal)
     | Binding(Nabla, bindings, body) ->
-        let (ih, goal) = aux ind_arg body in
+        let (ih, goal) = aux cur_arg body in
         (nabla bindings ih, nabla bindings goal)
-    | Arrow (left, right) when ind_arg = 1 ->
-        let ih = Arrow (set_restriction (Smaller ind_num) left, right) in
-        let goal = Arrow (set_restriction (Equal ind_num) left, right) in
-        (ih, goal)
     | Arrow (left, right) ->
-        let (ih, goal) = aux (ind_arg - 1) right in
-        (Arrow (left, ih), Arrow (left, goal))
+        let (ih, goal) = aux (cur_arg + 1) right in
+        let (ihleft, goalleft) =
+          if List.mem cur_arg ind_arg then
+            (set_restriction (Smaller ind_num) left, set_restriction (Equal ind_num) left)
+          else (left, left) in
+        (Arrow (ihleft, ih), Arrow (goalleft, goal))
     | _ ->
-        if ind_arg < 1 then
-          failwith "Not enough implications in induction"
-        else
-          failwithf "Cannot determine further positions in:\n%s"
-            (metaterm_to_string stmt)
+        List.iter begin fun arg ->
+          if cur_arg < arg then
+            failwith "Not enough implications in induction"
+        end ind_arg ;
+        (stmt, stmt)
   in
-  aux ind_arg stmt
+  aux 1 stmt
 
 let induction ind_args ind_num stmt =
   let ihs, goals =
@@ -1157,19 +1157,34 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
 
 (* Apply one statement to a list of other statements *)
 
+type restriction_match =
+  | Strict_match
+  | Lax_match
+  | No_match
+
+let combine_matches m1 m2 =
+  match m1, m2 with
+  | No_match, m | m, No_match -> m
+  | Lax_match, m | m, Lax_match -> m
+  | Strict_match, _ -> Strict_match
+
 let check_restrictions formal actual =
   if (List.length formal <> List.length actual) then
     failwithf "%s arguments to apply\n(Expected %d but got %d)" begin
       let diff = compare (List.length formal) (List.length actual) in
       if diff > 0 then "Not enough" else "Too many"
     end (List.length formal) (List.length actual) ;
-  List.iter2 (fun fr ar -> match fr, ar with
-      | Smaller i, Smaller j when i = j -> ()
-      | Equal i, Smaller j when i = j -> ()
-      | Equal i, Equal j when i = j -> ()
-      | Irrelevant, _ -> ()
-      | _ -> failwith "Inductive restriction violated")
-    formal actual
+  List.fold_left2 begin fun cm fr ar ->
+    combine_matches cm begin
+      match fr, ar with
+      | Smaller i, Smaller j when i = j -> Strict_match
+      | Equal i, Smaller j when i = j -> Strict_match
+      | Equal i, Equal j when i = j -> Strict_match
+      | Smaller i, Equal j when i = j -> Lax_match
+      | Irrelevant, _ -> No_match
+      | _ -> failwith "Inductive restriction violated"
+    end
+  end No_match formal actual
 
 let rec map_args f t =
   match t with
@@ -1183,9 +1198,10 @@ let some_term_to_restriction t =
   | Some t -> term_to_restriction t
 
 let apply_arrow term args =
-  let () = check_restrictions
-      (map_args term_to_restriction term)
-      (List.map some_term_to_restriction args)
+  let () =
+    match check_restrictions (map_args term_to_restriction term) (List.map some_term_to_restriction args) with
+    | No_match | Strict_match -> ()
+    | Lax_match -> failwith "Inductive restriction violated"
   in
   let context_pairs = ref [] in
   let obligations = ref [] in

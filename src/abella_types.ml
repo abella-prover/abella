@@ -134,7 +134,7 @@ type clear_mode =
   | Clear_extro
 
 type command =
-  | Induction of int list * id option
+  | Induction of int list list * id option
   | CoInduction of id option
   | Apply of depth_bound option * clearable * clearable list * (id * uterm) list * id option
   | Backchain of depth_bound option * clearable * (id * uterm) list
@@ -295,11 +295,19 @@ let ewitness_to_string = function
   | ETerm t -> uterm_to_string t
   | ESub (x, t) -> x ^ " = " ^ uterm_to_string t
 
+let induction_scheme_to_string is =
+  let icount_to_string i =
+    match i with
+    | [i] -> string_of_int i
+    | is  -> "(" ^ String.concat " " (List.map string_of_int is) ^ ")"
+  in
+  String.concat " " (List.map icount_to_string is)
+
 let command_to_string c =
   match c with
     | Induction(is, hn) ->
         sprintf "%sinduction on %s" (hn_to_string hn)
-          (String.concat " " (List.map string_of_int is))
+          (induction_scheme_to_string is)
     | CoInduction None -> "coinduction"
     | CoInduction (Some hn) -> "coinduction " ^ hn
     | Apply(dbound, h, hs, ws, hn) -> begin

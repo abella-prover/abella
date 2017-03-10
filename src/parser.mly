@@ -446,8 +446,8 @@ maybe_depth:
   | { None }
 
 pure_command:
-  | hhint IND ON num_list DOT
-    { Types.Induction($4, $1) }
+  | hhint IND ON ind_arg_list DOT
+    { Types.Induction(List.unique $4, $1) }
   | hhint COIND DOT
     { Types.CoInduction($1) }
   | hhint APPLY maybe_depth clearable TO apply_args DOT
@@ -542,6 +542,14 @@ num_list:
     { $1::$2 }
   | NUM
     { [$1] }
+
+ind_arg_list:
+  | ind_arg ind_arg_list { $1 :: $2 }
+  | ind_arg { [$1] }
+
+ind_arg:
+  | NUM { [$1] }
+  | LPAREN num_list RPAREN { $2 }
 
 ewitnesses:
   | ewitness COMMA ewitnesses { $1 :: $3 }

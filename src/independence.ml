@@ -434,7 +434,7 @@ let collect_dependencies dynamic_contexts dependencies =
 
 
 (*Prove g independent of f*)
-let independent f g dynamic_contexts dependencies =
+let independent (f: term list) g dynamic_contexts dependencies =
 
   let rec make_variables_universal trm =
     match (observe trm) with
@@ -660,17 +660,17 @@ let independent f g dynamic_contexts dependencies =
          let h_var_tm = var Constant h 0 h_ty in
          let h_tm_args,h_quant_vars = List.fold_left
                                         (fun (tmlst,vars) ty ->
-                                          let name = fresh_name_term_lst (h_var_tm::f::tmlst) "X" in
+                                          let name = fresh_name_term_lst (h_var_tm::(tmlst @ f)) "X" in
                                           ((var Constant name 0 ty)::tmlst, (name,ty)::vars)
                                         )
                                         ([], []) h_arg_tys in
          let h_tm = app h_var_tm h_tm_args in
-         let ctx_var = fresh_name_term f "L" in
+         let ctx_var = fresh_name_term_lst f "L" in
          let universally_quantified_vars = (ctx_var, olistty)::(f_quant_vars @ h_quant_vars) in
          let umtm1 = Pred (app (var Constant ctx_name 0 (tyarrow [olistty] propty))
                                [var Constant ctx_var 0 olistty],
                            Irrelevant) in
-         let f = let rec replace_in_with f name repl =
+         (*let f = let rec replace_in_with f name repl =
                    match (observe f) with
                    | Var v -> if (v.name = name) then
                                 repl
@@ -679,8 +679,8 @@ let independent f g dynamic_contexts dependencies =
                    | App (t1, tl) -> app (replace_in_with t1 name repl)
                                          (List.map (fun t2 -> replace_in_with t2 name repl) tl)
                    | _ -> f
-                 in List.fold_left (fun y (h,ty) -> replace_in_with y h (var Constant h 0 ty)) f f_quant_vars in
-         let umtm2 = Obj ({context = [var Constant ctx_var 0 olistty; f];
+                 in List.fold_left (fun y (h,ty) -> replace_in_with y h (var Constant h 0 ty)) f f_quant_vars in*)
+         let umtm2 = Obj ({context = (var Constant ctx_var 0 olistty)::f;
                            right = h_tm;
                            mode = Async;}, Irrelevant) in
          let umtm3 = Obj ({context = [var Constant ctx_var 0 olistty];
@@ -697,18 +697,18 @@ let independent f g dynamic_contexts dependencies =
          let h_var_tm = var Constant h 0 h_ty in
          let h_tm_args,h_quant_vars = List.fold_left
                                         (fun (tmlst,vars) ty ->
-                                          let name = fresh_name_term_lst (h_var_tm::f::tmlst) "X" in
+                                          let name = fresh_name_term_lst (h_var_tm::(tmlst @ f)) "X" in
                                           ((var Constant name 0 ty)::tmlst, (name,ty)::vars)
                                         )
                                         ([], []) h_arg_tys in
          let h_tm = app h_var_tm h_tm_args in
-         let ctx_var = fresh_name_term f "L" in
+         let ctx_var = fresh_name_term_lst f "L" in
          let universally_quantified_vars = (ctx_var, olistty)::(f_quant_vars @ h_quant_vars) in
          let rest_of_thm = build_theorem t f_quant_vars in
          let umtm1 = Pred (app (var Constant ctx_name 0 (tyarrow [olistty] propty))
                                [var Constant ctx_var 0 olistty],
                            Irrelevant) in
-         let f = let rec replace_in_with f name repl =
+         (*let f = let rec replace_in_with f name repl =
                    match (observe f) with
                    | Var v -> if (v.name = name) then
                                 repl
@@ -717,8 +717,8 @@ let independent f g dynamic_contexts dependencies =
                    | App (t1, tl) -> app (replace_in_with t1 name repl)
                                          (List.map (fun t2 -> replace_in_with t2 name repl) tl)
                    | _ -> f
-                 in List.fold_left (fun y (h,ty) -> replace_in_with y h (var Constant h 0 ty)) f f_quant_vars in
-         let umtm2 = Obj ({context = [var Constant ctx_var 0 olistty; f];
+                 in List.fold_left (fun y (h,ty) -> replace_in_with y h (var Constant h 0 ty)) f f_quant_vars in*)
+         let umtm2 = Obj ({context = (var Constant ctx_var 0 olistty)::f;
                            right = h_tm;
                            mode = Async;}, Irrelevant) in
          let umtm3 = Obj ({context = [var Constant ctx_var 0 olistty];
@@ -868,24 +868,26 @@ let independent f g dynamic_contexts dependencies =
              let () = case (Remove (mem_hyp, [])) in
              let () = case (Remove ("H3", [])) in
              let proof_lst = (Case (Remove ("H3",[]),None))::(Case (Remove (mem_hyp,[]),None))::prf_lst in
-             let proof_lst = iter_indep t (index + 2) proof_lst in
+             let proof_lst = iter_indep t (index + 1) proof_lst in
              proof_lst
         in
-        let proof_lst = iter_indep [f] 4 prf_lst in
+        let proof_lst = iter_indep f 4 prf_lst in
         let ctx_mem_name = (make_ctx_name pred) ^ "_mem" in
-        let () = (try apply (Keep (ctx_mem_name,[])) [(Keep ("H1",[])); (Keep ("H5",[]))] [] with
+        let f_len = List.length f in
+        let mem_hyp = "H" ^ (string_of_int (4 + f_len)) in
+        let () = (try apply (Keep (ctx_mem_name,[])) [(Keep ("H1",[])); (Keep (mem_hyp,[]))] [] with
                   | Prover.End_proof reason ->
                      finish_proof reason
                  )in
-        let proof_lst = (Apply (None, Keep (ctx_mem_name,[]), [Keep ("H1",[]); Keep ("H5",[])], [], None))::proof_lst in
+        let proof_lst = (Apply (None, Keep (ctx_mem_name,[]), [Keep ("H1",[]); Keep (mem_hyp,[])], [], None))::proof_lst in
         let ctx_formulas = H.find dynamic_contexts pred in
         let obj_hyp_index,proof_lst = (if ((List.length ctx_formulas) > 1) then
-                                         let mem_eq_hyp = "H" ^ (string_of_int 6) in
+                                         let mem_eq_hyp = "H" ^ (string_of_int (5 + f_len)) in
                                          let () = case (Remove (mem_eq_hyp,[])) in
                                          let proof_lst = (Case (Remove (mem_eq_hyp,[]),None))::proof_lst in
-                                         7, proof_lst
+                                         (5 + f_len + 1), proof_lst
                                        else
-                                         6, proof_lst) in
+                                         (5 + f_len), proof_lst) in
         let proof_lst = iterate_ctx pred obj_hyp_index ctx_formulas proof_lst in
         proof_lst
       in
@@ -912,7 +914,7 @@ let independent f g dynamic_contexts dependencies =
         each_pred g_dep prf_lst
     in
     let indep_name = make_indep_name g in
-    let quant_vars = collect_quantified_variables f in
+    let quant_vars = List.fold_left (fun lst x -> (collect_quantified_variables x) @ lst) [] f in
     let mtm = build_theorem g_dep quant_vars in
     let () = register_theorem indep_name mtm in
     let prf_lst = build_proof g_dep in
@@ -920,9 +922,10 @@ let independent f g dynamic_contexts dependencies =
 
   in
   let dep_g = H.find dependencies g in
-  let f_head = get_head_predicate f in
-  if (List.mem (List.hd f_head) dep_g) then
-    failwith ("Cannot automatically prove " ^ g ^ " independent of " ^ (term_to_string f) ^ "--dependency may exist");
+  List.iter (fun x -> let head = get_head_predicate x in
+                      if (List.mem (List.hd head) dep_g) then
+                        failwith ("Cannot automatically prove " ^ g ^ " independent of " ^
+                                    (term_to_string x) ^ "--dependency may exist")) f;
   let context_theorems = List.fold_right (fun pred lst -> (define_ctx pred) @ lst) dep_g [] in
   let subctxs =  List.fold_right (fun x lst -> let x_ctx = H.find dynamic_contexts x in
                                                let dep_x = H.find dependencies x in
@@ -973,11 +976,11 @@ let strengthen original_thm_name =
                       | Obj (o,_) ->
                          let g_tm = o.right in
                          let f = (match o.context with
-                                  | [lst; otm] -> (match (observe lst) with
-                                                   | Var v -> if (v.name <> lst_var) then
-                                                                raise StrengthenFailure
-                                                   | _ -> raise StrengthenFailure);
-                                                  otm
+                                  | lst::otms -> (match (observe lst) with
+                                                  | Var v -> if (v.name <> lst_var) then
+                                                               raise StrengthenFailure
+                                                  | _ -> raise StrengthenFailure);
+                                                  otms
                                   | _ -> raise StrengthenFailure) in
                          f, g_tm
                       | _ -> raise StrengthenFailure) in
@@ -1044,7 +1047,7 @@ let strengthen original_thm_name =
   let subctx_proof = (Induction ([1], None))::(Intros [])::(Case (Remove ("H1",[]), None))::(Search `nobounds)::
                        (List.fold_left (fun lst h -> (Apply (None, Keep ("IH",[]), [Keep ("H2",[])], [], None))::
                                                        (Search `nobounds)::lst)
-                                       [] (List.tl ctx_clauses)) in (*tail of list to do for everything but nil rule*)
+                                       [] (List.tl ctx_clauses)) in (*tail of list to do for everythirng but nil rule*)
   let umtm1 = Pred (app (var Constant ctx_name 0 (tyarrow [olistty] propty))
                         [var Constant "L" 0 olistty],
                     Irrelevant) in

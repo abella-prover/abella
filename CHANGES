@@ -15,14 +15,14 @@ Additions
 
         A @ -> B -> C @ -> D.
 
-  to use the IH with `apply`, at least one of the smaller formal arguments
-  must be matched by a smaller actual argument, while the rest of the
-  smaller formal arguments must be matched by equal or smaller actual
-  arguments. In other words, the three ways to use the IH are with:
+  Two orders are enabled for using the IH with `apply`, controlled with the
+  new flag `simultaneous_decr`: a strict order (flag value `all`) where all
+  inductive arguments must be smaller, and a lax order (flag value `any`,
+  also the default) where at least one has to be smaller while the others
+  can remain the same size. So the matching conditions are:
 
-  - `A *` and `C @`,
-  - `A @` and `C *`, and
-  - `A *` and `C *`.
+  - (`A *` and `C @`) or (`A @` and`C *`) for `simultaneous_decr = all`; and
+  - `A *` and `C *` whatever the value of `simultaneous_decr`.
 
 * Added support for (first-order) polymorphic definitions. Definitions
   such as the following are now accepted.

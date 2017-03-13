@@ -454,6 +454,12 @@ let set k v =
                              ~key:"instantiations"
                              ~expected:"'on' or 'off'"
 
+  | "simultaneous_decr", Str "all" -> Tactics.simul_mode := Tactics.Simul_all
+  | "simultaneous_decr", Str "any" -> Tactics.simul_mode := Tactics.Simul_any
+  | "simultaneous_decr", _ -> set_fail v
+                             ~key:"simultaneous_decr"
+                             ~expected:"'all' or 'any'"
+
   | "types", Str "on" -> Metaterm.show_types := true
   | "types", Str "off" -> Metaterm.show_types := false
   | "types", _ -> set_fail v

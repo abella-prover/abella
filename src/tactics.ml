@@ -1157,6 +1157,12 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
 
 (* Apply one statement to a list of other statements *)
 
+type simul_mode =
+  | Simul_all
+  | Simul_any
+
+let simul_mode = State.rref Simul_any
+
 type restriction_match =
   | Strict_match
   | Lax_match
@@ -1180,7 +1186,7 @@ let check_restrictions formal actual =
       | Smaller i, Smaller j when i = j -> Strict_match
       | Equal i, Smaller j when i = j -> Strict_match
       | Equal i, Equal j when i = j -> Strict_match
-      | Smaller i, Equal j when i = j -> Lax_match
+      | Smaller i, Equal j when i = j && !simul_mode = Simul_any -> Lax_match
       | Irrelevant, _ -> No_match
       | _ -> failwith "Inductive restriction violated"
     end

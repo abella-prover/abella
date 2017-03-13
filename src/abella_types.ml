@@ -142,7 +142,7 @@ type command =
   | Cut of clearable * clearable * id option
   | SearchCut of clearable * id option
   | Inst of clearable * (id * uterm) list * id option
-  | Case of clearable * id option
+  | Case of clearable list * id option
   | Assert of umetaterm * int option * id option
   | Exists of [`EXISTS | `WITNESS] * ewitness list
   | Clear of clear_mode * id list
@@ -349,10 +349,14 @@ let command_to_string c =
         sprintf "%s inst %s with %s" (hn_to_string hn)
           (clearable_to_string h)
           (withs_to_string ws)
-    | Case(Keep (h, _), hn) ->
-        sprintf "%scase %s (keep)" (hn_to_string hn) h
-    | Case(Remove (h, _), hn) ->
-        sprintf "%scase %s" (hn_to_string hn) h
+    | Case(cs, hn) ->
+        let case_to_string = function
+          | Keep (h, _) -> h ^ " (keep)"
+          | Remove (h, _) -> h
+        in
+        sprintf "%scase %s"
+          (hn_to_string hn)
+          (List.map case_to_string cs |> String.concat " ")
     | Assert(t, dp, hn) ->
         sprintf "%sassert %s%s"
           (hn_to_string hn)

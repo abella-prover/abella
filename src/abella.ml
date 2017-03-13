@@ -588,7 +588,7 @@ and process_proof1 name =
   | CutFrom(h, arg, t, hn)        -> cut_from ?name:hn h arg t
   | SearchCut(h, hn)              -> search_cut ?name:hn h
   | Inst(h, ws, hn)               -> inst ?name:hn h ws
-  | Case(str, hn)                 -> case ?name:hn str
+  | Case(cs, hn)                  -> case ?name:hn cs
   | Assert(t, dp, hn)             ->
       untyped_ensure_no_restrictions t ;
       assert_hyp ?name:hn ?depth:dp t

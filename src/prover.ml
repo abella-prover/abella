@@ -837,18 +837,39 @@ let case_to_subgoal ?name case =
     Term.set_bind_state case.bind_state ;
     update_self_bound_vars ()
 
-let case ?name str =
+let case ?name cs =
   let global_support =
     (List.flatten_map metaterm_support
        (List.map (fun h -> h.term) sequent.hyps)) @
     (metaterm_support sequent.goal)
   in
-  let term = get_stmt_clearly str in
-  let (mutual, defs) = def_unfold term in
-  let cases =
-    Tactics.case ~used:sequent.vars ~sr:!sr ~clauses:!clauses
-      ~mutual ~defs ~global_support term
+  let terms = List.map get_stmt_clearly cs in
+  let starting_sequent = copy_sequent () in
+  let rec spin ~finished ~todo =
+    match todo with
+    | [] -> List.rev finished
+    | (case, terms) :: todo -> begin
+        set_bind_state case.bind_state ;
+        match terms with
+        | [] -> spin ~finished:(case :: finished) ~todo
+        | term :: terms ->
+            let (mutual, defs) = def_unfold term in
+            let new_cases =
+              Tactics.case ~used:sequent.vars ~sr:!sr ~clauses:!clauses
+                ~mutual ~defs ~global_support term
+            in
+            let todo =
+              List.map begin fun nc ->
+                ({nc with new_vars = case.new_vars @ nc.new_vars ;
+                          new_hyps = case.new_hyps @ nc.new_hyps}, terms)
+              end new_cases @ todo
+            in
+            spin ~finished ~todo
+      end
   in
+  let empty_case = stateless_case_to_case empty_case in
+  let cases = spin ~finished:[] ~todo:[empty_case, terms] in
+  set_sequent starting_sequent ;
   add_subgoals (List.map (case_to_subgoal ?name) cases) ;
   next_subgoal ()
 

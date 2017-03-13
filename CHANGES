@@ -24,6 +24,13 @@ Additions
   - (`A *` and `C @`) or (`A @` and`C *`) for `simultaneous_decr = all`; and
   - `A *` and `C *` whatever the value of `simultaneous_decr`.
 
+* Added support for iterated cases. The invocation:
+
+        case H1 H2 (keep) H3.
+
+  Performs a `case H1`, and in each subgoal performs a `case H2 (keep)`, and
+  for each of _those_ performs `case H3`.
+
 * Added support for (first-order) polymorphic definitions. Definitions
   such as the following are now accepted.
 

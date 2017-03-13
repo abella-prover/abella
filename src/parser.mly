@@ -470,10 +470,8 @@ pure_command:
     { Types.SearchCut($3, $1) }
   | hhint INST clearable WITH withs DOT
     { Types.Inst($3, $5, $1) }
-  | hhint CASE hyp DOT
-    { Types.Case(Types.Remove ($3, []), $1) }
-  | hhint CASE hyp LPAREN KEEP RPAREN DOT
-    { Types.Case(Types.Keep ($3, []), $1) }
+  | hhint CASE case_args DOT
+    { Types.Case($3, $1) }
   | hhint ASSERT maybe_depth metaterm DOT
     { Types.Assert($4, $3, $1) }
   | EXISTS ewitnesses DOT
@@ -536,6 +534,16 @@ hyp_list:
     { $1::$2 }
   | hyp
     { [$1] }
+
+case_args:
+  | case_arg { [$1] }
+  | case_arg case_args { $1 :: $2 }
+
+case_arg:
+  | hyp
+    { Types.Remove ($1, []) }
+  | hyp LPAREN KEEP RPAREN
+    { Types.Keep ($1, []) }
 
 num_list:
   | NUM num_list

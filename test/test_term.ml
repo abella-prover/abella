@@ -49,7 +49,6 @@ let norm_tests =
            let t = t ^^ [ 2 /// (db 2 ^^ [db 1]) ] in
            let t = hnorm t in
              assert_term_equal (1 /// ((1 /// db 1) ^^ [db 1]))  t) ;
-
       "[(x\\ x (x\\ x)) (x\\y\\ x y) c]" >::
         (fun () ->
            let c = uconst "c" in
@@ -171,5 +170,26 @@ let binding_tests =
                (fun () -> bind v2 v1)) ;
     ]
 
+let abstract_tests =
+  "Abstract" >:::
+    [
+      "Should not capture unprotected dB's" >::
+        (fun () ->
+          let g = uconst "g" in
+          let h = uconst "h" in
+          let x = uconst "X" in
+          let t = db 1 ^^ [(g ^^ [1 /// (h ^^ [db 1; x])])] in
+          let actual = abstract "X" emptyty t in
+          let expected = 1 /// (db 2 ^^ [(g ^^ [1 /// (h ^^ [db 1; db 2])])]) in
+          assert_term_equal expected actual) ;
+    ]
+
 let tests =
-  "Term" >::: [norm_tests; pprint_tests; typing_tests; binding_tests]
+  "Term" >:::
+    [
+      norm_tests;
+      pprint_tests;
+      typing_tests;
+      binding_tests;
+      abstract_tests
+    ]

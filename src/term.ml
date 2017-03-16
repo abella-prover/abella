@@ -249,15 +249,15 @@ let unwind_state f x =
  * selected by [test]. Indices unprotected by abstractions
  * are incremented. *)
 let abstract test =
-  let rec aux ~inc_i n t = match t with
-    | DB i -> DB (if inc_i then i + 1 else i)
-    | App(h,ts) -> App(aux ~inc_i n h, List.map (aux ~inc_i n) ts)
-    | Lam(idtys,s) -> Lam (idtys, aux ~inc_i:false (n + List.length idtys) s)
-    | Ptr {contents=T t} -> Ptr (ref (T (aux ~inc_i n t)))
+  let rec aux n t = match t with
+    | DB i -> DB (if i < n then i else i + 1)
+    | App(h,ts) -> App(aux n h, List.map (aux n) ts)
+    | Lam(idtys,s) -> Lam (idtys, aux (n + List.length idtys) s)
+    | Ptr {contents=T t} -> Ptr (ref (T (aux n t)))
     | Ptr {contents=V v} -> if test t v.name then DB n else t
     | Var _ -> assert false
     | Susp _ -> assert false
-  in aux ~inc_i:true
+  in aux
 
 (** Abstract [t] over constant or variable named [id]. *)
 let abstract id ty t =

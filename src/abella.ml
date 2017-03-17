@@ -54,7 +54,15 @@ exception AbortProof
 
 exception UserInterrupt
 
-let eprintf fmt = fprintf !out fmt
+let output_flush out s =
+  output_string out s ; flush out
+
+let eprintf fmt =
+  ksprintf begin fun s ->
+    output_flush !out s ;
+    if !out <> stdout then
+      output_flush stderr s
+  end fmt
 
 (* Input *)
 
@@ -551,7 +559,7 @@ let rec process1 () =
         | Failure msg -> msg
         | Unify.UnifyFailure fl -> Unify.explain_failure fl
         | Unify.UnifyError err -> Unify.explain_error err
-        | UserInterrupt -> "Interrupted (use ctrl-D to quit)"
+        | UserInterrupt -> "Interrupted (use Ctrl-D to quit)"
         | _ ->
             Printexc.to_string e ^ "\n\n\
                                    \ Sorry for displaying a naked OCaml exception. An informative error message\n\

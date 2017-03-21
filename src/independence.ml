@@ -435,6 +435,64 @@ let collect_dependencies dynamic_contexts dependencies =
 
 
 
+let find_gc_lemma tm head dynamic_contexts =
+  let rec find_aux lst i =
+    match lst with
+    | [] -> bugf "Dynamic context member not found in dynamic context"
+    | h::t -> if eq tm h then
+                i
+              else
+                find_aux t (i + 1)
+  in
+  let lst = H.find dynamic_contexts head in
+  (make_ctx_name head) ^ "_plus" ^ (string_of_int (find_aux lst 1))
+
+let get_antecedents trm =
+  let rec remove_pis tm =
+    if (is_pi tm) then
+      let abs = extract_pi tm in
+      let base = (match (observe abs) with
+                  | Lam (_, tm) -> tm
+                  | _ -> abs) in
+      remove_pis base
+    else
+      tm
+  in
+  let rec antecedent_aux trm =
+    let ob_tm = observe trm in
+    match ob_tm with
+    | Var  v -> [ob_tm]
+    | App  (t,tlst) -> if (is_imp ob_tm) then
+                         let a,b = extract_imp ob_tm in
+                         let lst = antecedent_aux b in
+                         a::lst
+                       else
+                         [ob_tm]
+    | _ -> failwith "Term should not contain anything but Var and App"
+        in
+        let rec remove_last lst =
+          match lst with
+          | [] -> []
+          | [x] -> []
+          | h::t -> h::(remove_last t)
+        in
+        let trm = remove_pis trm in
+        if (is_imp trm) then
+          remove_last (antecedent_aux trm)
+        else
+          []
+
+
+let rec term_to_uterm trm =
+    match (observe trm) with
+    | Var v -> UCon ((Lexing.dummy_pos,Lexing.dummy_pos), v.name, v.ty)
+    | App (tm1,[tm2]) -> UApp ((Lexing.dummy_pos,Lexing.dummy_pos), term_to_uterm tm1, term_to_uterm tm2)
+    | App (tm, tlst) -> List.fold_left (fun ut t ->
+                            let x = term_to_uterm t in
+                            UApp ((Lexing.dummy_pos,Lexing.dummy_pos), ut, x)) (term_to_uterm tm) tlst
+    | _ -> bugf "Should not have any terms but Vars and Apps"
+
+
 
 (*Prove g independent of f*)
 let independent (f: term list) g dynamic_contexts dependencies =
@@ -449,17 +507,7 @@ let independent (f: term list) g dynamic_contexts dependencies =
     | _ -> trm
              
   in
-  
-  let rec term_to_uterm trm =
-    match (observe trm) with
-    | Var v -> UCon ((Lexing.dummy_pos,Lexing.dummy_pos), v.name, v.ty)
-    | App (tm1,[tm2]) -> UApp ((Lexing.dummy_pos,Lexing.dummy_pos), term_to_uterm tm1, term_to_uterm tm2)
-    | App (tm, tlst) -> List.fold_left (fun ut t ->
-                            let x = term_to_uterm t in
-                            UApp ((Lexing.dummy_pos,Lexing.dummy_pos), ut, x)) (term_to_uterm tm) tlst
-    | _ -> bugf "Should not have any terms but Vars and Apps"
 
-  in
   let define_ctx pred =
     let ctx_formulas = H.find dynamic_contexts pred in
     let ctx_name = make_ctx_name pred in
@@ -734,60 +782,13 @@ let independent (f: term list) g dynamic_contexts dependencies =
         else
           "IH" ^ (string_of_int ind)
       in
-      let get_antecedents trm =
-        let rec remove_pis tm =
-          if (is_pi tm) then
-            let abs = extract_pi tm in
-            let base = (match (observe abs) with
-                        | Lam (_, tm) -> tm
-                        | _ -> abs) in
-            remove_pis base
-          else
-            tm
-        in
-        let rec antecedent_aux trm =
-          let ob_tm = observe trm in
-          match ob_tm with
-          | Var  v -> [ob_tm]
-          | App  (t,tlst) -> if (is_imp ob_tm) then
-                               let a,b = extract_imp ob_tm in
-                               let lst = antecedent_aux b in
-                               a::lst
-                             else
-                               [ob_tm]
-          | _ -> failwith "Term should not contain anything but Var and App"
-        in
-        let rec remove_last lst =
-          match lst with
-          | [] -> []
-          | [x] -> []
-          | h::t -> h::(remove_last t)
-        in
-        let trm = remove_pis trm in
-        if (is_imp trm) then
-          remove_last (antecedent_aux trm)
-        else
-          []
-      in
       let iterate_antecedents pred lst index prf_lst =
         let apply_ind_hyp tm hyp_ind ctx_hyp_ind prf_lst =
-          let find_gc_lemma tm head =
-            let rec find_aux lst i =
-              match lst with
-              | [] -> bugf "Dynamic context member not found in dynamic context"
-              | h::t -> if eq tm h then
-                          i
-                        else
-                          find_aux t (i + 1)
-            in
-            let lst = H.find dynamic_contexts head in
-            (make_ctx_name head) ^ "_plus" ^ (string_of_int (find_aux lst 1))
-          in
           let rec iter_grown_ctx lst head index prf_lst =
             match lst with
             | [] -> index, prf_lst
             | h::t ->
-               let ctx_plus_name = find_gc_lemma h head in
+               let ctx_plus_name = find_gc_lemma h head dynamic_contexts in
                let hyp_name = "H" ^ (string_of_int index) in
                let () = apply (Keep (ctx_plus_name,[])) [Keep (hyp_name,[])] [] in
                let prf_lst = (Apply (None, Keep (ctx_plus_name,[]), [Keep (hyp_name,[])], [], None))::prf_lst in
@@ -976,23 +977,19 @@ let strengthen original_thm_name =
                                   | _ -> raise StrengthenFailure) in
                          f, g_tm
                       | _ -> raise StrengthenFailure) in
-       let g = (match mtm3 with
+       let () = (match mtm3 with
                 | Obj (o,_) -> (match o.context with
                                 | [lst] -> (match (observe lst) with
                                             | Var v -> if (v.name <> lst_var) then
                                                          raise StrengthenFailure
                                             | _ -> raise StrengthenFailure)
                                 | _ -> raise StrengthenFailure);
-                               if (not (exact_tm_equality o.right g_tm) || is_imp g_tm || is_amp g_tm) then
+                               if (not (exact_tm_equality o.right g_tm) || is_amp g_tm) then
                                  raise StrengthenFailure
                                else
-                                 let g_head = get_head_predicate g_tm in
-                                 if (List.length g_head <> 1) then
-                                   raise StrengthenFailure
-                                 else
-                                   List.hd g_head
+                                 ()
                 | _ -> raise StrengthenFailure) in
-       ctx, f, g
+       ctx, f, g_tm, lst_var
     | _ -> raise StrengthenFailure
   in
   let rec update_strengthen_count g_dep =
@@ -1012,7 +1009,9 @@ let strengthen original_thm_name =
       end
   in
   let original_thm = sequent.goal in
-  let ctx_name, f, g = extract_from_theorem original_thm in
+  let ctx_name, f, g_tm, ctx_lst_var = extract_from_theorem original_thm in
+  let g = List.hd (get_head_predicate g_tm) in
+  let g_antecedents = get_antecedents g_tm in
   let ctx_clauses = (H.find defs_table ctx_name).clauses in
   let extract_term mtm =
     match mtm with
@@ -1027,7 +1026,7 @@ let strengthen original_thm_name =
                                                     | Some tm -> tm::lst) []  ctx_clauses in
   let dynamic_contexts : (id, term list) H.t = H.create 10 in
   let dependencies : (id, id list) H.t = H.create 10 in
-  let () = collect_contexts dynamic_contexts ctx_terms in
+  let () = collect_contexts dynamic_contexts (g_antecedents @ ctx_terms) in
   let () = collect_dependencies dynamic_contexts dependencies in
   let dep_g = H.find dependencies g in
   let () = update_strengthen_count dep_g in
@@ -1070,20 +1069,29 @@ let strengthen original_thm_name =
                                          (create_split_theorems indep_thm_name []) in
                       Some (SplitTheorem indep_thm_name)
                     else None) in
-  let strengthening_proof = [Intros [];
-                             Apply (None, Keep (ctx_subctx_name,[]),
-                                    [Remove ("H1",[])], [], None);
-                             Apply (None, Keep (indep_split_name,[]),
-                                    [Remove ("H3",[]); Remove ("H2",[])], [], None);
-                             Search `nobounds] in
   let () = sequent.goal <- original_thm in
   let () = intros [] in
   let () = apply (Keep (ctx_subctx_name,[])) [Remove ("H1",[])] [] in
-  let () = apply (Keep (indep_split_name,[])) [Remove ("H3",[]); Remove ("H2",[])] [] in
+  let ant_prf_lst, index  = List.fold_left (fun (old_lst,index) tm ->
+                                let gc_lemma = find_gc_lemma tm g dynamic_contexts in
+                                let ctx_hyp = "H" ^ (string_of_int index) in
+                                let () = apply (Keep (gc_lemma,[])) [Remove (ctx_hyp,[])] [] in
+                                let app_step = Apply (None, Keep (gc_lemma,[]), [Remove (ctx_hyp,[])], [], None) in
+                                (app_step::old_lst, index + 1)
+                              ) ([],3) g_antecedents in
+  let () = apply (Keep (indep_split_name,[])) [Remove ("H" ^ (string_of_int index),[]); Remove ("H2",[])] [] in
   let prf_comp = ref false in
   let () = try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
            | Prover.End_proof reason -> prf_comp := finish_proof reason in
   let () = if !prf_comp then () else proof_failure () in
+  let end_stren_prf = List.rev ((Search `nobounds)::
+                                  (Apply (None, Keep (indep_split_name,[]),
+                                          [Remove ("H"^(string_of_int index),[]); Remove ("H2",[])],
+                                          [], None))::ant_prf_lst) in
+  let strengthening_proof = (Intros [])::
+                              (Apply (None, Keep (ctx_subctx_name,[]),
+                                      [Remove ("H1",[])], [], None))::
+                                end_stren_prf in
   let strengthening_theorem = TheoremProof (original_thm_name, original_thm, strengthening_proof) in
   let strengthening_program = (match split_step with
                                | Some step -> [subctx_thm; step; strengthening_theorem]

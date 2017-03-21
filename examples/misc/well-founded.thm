@@ -1,0 +1,129 @@
+%% Use well-founded induction to prove the totality of Euclid's GCD algorithm.
+%% Well-foundedness is characterized by using the idea of accessibility
+%% (e.g. see https://coq.inria.fr/library/Coq.Init.Wf.html).
+%%
+%% Author: Todd Wilson
+%%
+
+%%%% Natural numbers
+
+Kind nat type.
+Type z  nat.
+Type s  nat -> nat.
+
+% Ground nats
+Define nat : nat -> prop by
+  nat z;
+  nat (s N) := nat N.
+
+% Less than
+Define lt : nat -> nat -> prop by
+  lt N (s N);
+  lt N1 (s N2) := lt N1 N2.
+
+% The accessible part of the less-than relation
+Define lt_acc : nat -> prop by
+  lt_acc N := forall M, lt M N -> lt_acc M.
+
+
+%%%% Every natural number is accessible.
+
+Theorem nat_acc : forall N, nat N -> lt_acc N.
+induction on 1. intros. case H1.
+  unfold. intros. case H2.
+  apply IH to H2. unfold. intros. case H4.
+    search.
+    case H3. apply H6 to H5. search.
+
+
+%%%% Some properties of lt
+
+Theorem lt_z : forall N, nat N -> lt z (s N).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem lt_s : forall N1 N2, lt N1 N2 -> lt (s N1) (s N2).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+
+%%%% Algorithms
+
+% Subtraction
+Define sub : nat -> nat -> nat -> prop by
+  sub N z N := nat N;
+  sub (s N1) (s N2) N3 := sub N1 N2 N3.
+
+% Remainder: mod N M = R
+Define mod : nat -> nat -> nat -> prop by
+  mod N M N := lt N M;
+  mod N M R := exists N', sub N M N' /\ mod N' M R.
+
+% Euclid's Algorithm: gcd N M = D (including gcd z z = z)
+Define gcd : nat -> nat -> nat -> prop by
+  gcd N z N;
+  gcd N (s M) D := exists R, mod N (s M) R /\ gcd (s M) R D.
+
+
+%%%% Properties of algorithms
+
+% Totality of subtraction
+Theorem sub_total : forall N1 N2,
+  nat N1 -> nat N2 ->
+    lt N1 N2 \/ exists N3, nat N3 /\ sub N1 N2 N3.
+induction on 1. intros. case H1.
+  case H2.
+    search.
+    apply lt_z to H3. search.
+  case H2.
+    search.
+    apply IH to H3 H4. case H5.
+      apply lt_s to H6. search.
+      search.
+
+% Non-zero subtraction gets smaller
+Theorem sub_lt : forall N1 N2 N3,
+  nat N2 -> sub N1 (s N2) N3 ->
+    lt N3 N1.
+induction on 1. intros. case H1.
+  case H2. case H3. search.
+  case H2. apply IH to H3 H4. search.
+  
+
+% Totality of mod N (s M) R, by strong induction on N
+Theorem mod_total_strong : forall N M,
+  nat N -> lt_acc N -> nat M ->
+    exists R, nat R /\ mod N (s M) R.
+induction on 2. intros. case H2. apply sub_total to H1 _ with N2 = s M. case H5.
+  search.
+  apply sub_lt to H3 H7. apply H4 to H8. apply IH to H6 H9 H3. search.
+
+Theorem mod_total : forall N M,
+  nat N -> nat M ->
+    exists R, nat R /\ mod N (s M) R.
+intros. apply nat_acc to H1. apply mod_total_strong to H1 H3 H2. search.
+
+
+% Remainder smaller than divisor
+Theorem mod_lt : forall N M R, mod N M R -> lt R M.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H3. search.
+  
+
+% Totality of gcd N M D, by strong induction on m
+Theorem gcd_total_strong : forall N M,
+  nat N -> nat M -> lt_acc M ->
+    exists D, nat D /\ gcd N M D.
+induction on 3. intros. case H3.
+  case H2.
+    search.
+    apply mod_total to H1 H5. apply mod_lt to H7. apply H4 to H8. %\
+       apply IH to _ H6 H9 with N = s N1. search.
+
+Theorem gcd_total : forall N M,
+  nat N -> nat M ->
+    exists D, nat D /\ gcd N M D.
+intros. apply nat_acc to H2. apply gcd_total_strong to H1 H2 H3. search.

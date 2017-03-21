@@ -212,10 +212,13 @@ let register_theorem name thm =
   add_lemma name [] thm;
   theorem thm
 
+let proof_failure () =
+  failwith "Automated strengthening proof could not be completed"
+
 let finish_proof reason =
   match reason with
-  | `completed -> reset_prover ()
-  | _ -> failwith "Automated proof not completed"
+  | `completed -> reset_prover (); true
+  | _ -> proof_failure ()
 
 
 let strengthen_count = ref 1
@@ -521,10 +524,11 @@ let independent (f: term list) g dynamic_contexts dependencies =
          let mtm = build_mem_thm t mem_var in
          Or (mtm_quantifications, mtm)
     in
-    let rec add_proof_step form_lst prf_lst =
+    let rec add_proof_step form_lst prf_lst proof_completed =
       match form_lst with
-      | [] -> prf_lst
+      | [] -> if proof_completed then prf_lst else proof_failure ()
       | h::t ->
+         let prf_comp = ref proof_completed in
          let () = case (Remove ("H2", [])) in
          let prf_lst = (Case (Remove ("H2",[]), None))::prf_lst in
          let () = search ~witness:WMagic ~handle_witness:(fun x -> ()) () in
@@ -533,10 +537,10 @@ let independent (f: term list) g dynamic_contexts dependencies =
          let prf_lst = (Apply (None, Keep ("IH",[]), [(Keep ("H3",[])); (Keep ("H4",[]))], [], None))::prf_lst in
          let () = (
              try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
-             | Prover.End_proof reason -> finish_proof reason
+             | Prover.End_proof reason -> prf_comp := finish_proof reason
            ) in
          let prf_lst = (Search `nobounds)::prf_lst in
-         add_proof_step t prf_lst
+         add_proof_step t prf_lst !prf_comp
     in
     let rec add_grown_context_lemma form_lst index =
       match form_lst with
@@ -553,10 +557,12 @@ let independent (f: term list) g dynamic_contexts dependencies =
          let quant_vars = collect_quantified_variables h in
          let thm = Binding (Forall, ("L",olistty)::quant_vars, Arrow (thm1, thm2)) in
          let () = register_theorem thm_name thm in
+         let prf_comp = ref false in
          let () = (
              try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
-             | Prover.End_proof reason -> finish_proof reason
+             | Prover.End_proof reason -> prf_comp := finish_proof reason
            ) in
+         let () = if !prf_comp then () else proof_failure () in
          let proof_lst = add_grown_context_lemma t (index + 1)in
          (TheoremProof (thm_name,thm,[Search `nobounds]))::proof_lst
     in
@@ -592,7 +598,7 @@ let independent (f: term list) g dynamic_contexts dependencies =
       let () = intros [] in
       let () = case (Remove ("H1", [])) in
       let () = case (Keep ("H2", [])) in
-      let proof_lst = add_proof_step ctx_formulas [] in
+      let proof_lst = add_proof_step ctx_formulas [] false in
       let proof_lst = (Induction ([1],None))::(Intros [])::(Case (Remove ("H1",[]),None))::
                         (Case (Keep ("H2",[]),None))::List.rev proof_lst in
       program_definition::(TheoremProof (thm_name, thm, proof_lst))::gc_proof_lsts
@@ -602,9 +608,11 @@ let independent (f: term list) g dynamic_contexts dependencies =
       let () = induction [1] in
       let () = intros [] in
       let () = case (Remove ("H1", [])) in
+      let prf_comp = ref false in
       let () = (try case (Keep ("H2", [])) with
-                | Prover.End_proof reason -> finish_proof reason
+                | Prover.End_proof reason -> prf_comp := finish_proof reason
                ) in
+      let () = if !prf_comp then () else proof_failure () in
       let proof_structure = TheoremProof (thm_name, thm,
                                           [Induction ([1],None); Intros []; Case (Remove ("H1",[]),None);
                                            Case (Keep ("H2",[]),None)]) in
@@ -612,17 +620,18 @@ let independent (f: term list) g dynamic_contexts dependencies =
 
   in
   let subctx_thm subp pred subp_ctx =
-    let rec add_step lst prf_lst =
+    let rec add_step lst prf_lst proof_completed =
       match lst with
-      | [] -> prf_lst
+      | [] -> if proof_completed then prf_lst else proof_failure ()
       | h::t ->
+         let prf_comp = ref proof_completed in
          let () = apply (Keep ("IH",[])) [(Keep ("H2",[]))] [] in
          let () = (
              try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
-             | Prover.End_proof reason -> finish_proof reason
+             | Prover.End_proof reason -> prf_comp := finish_proof reason
            ) in
          let prf_lst = (Search `nobounds)::(Apply (None, Keep ("IH",[]), [Keep ("H2",[])], [], None))::prf_lst in
-         add_step t prf_lst
+         add_step t prf_lst !prf_comp
     in
     let subctx_name = make_subctx_name subp pred in
     let subp_ctx_name = make_ctx_name subp in
@@ -638,11 +647,12 @@ let independent (f: term list) g dynamic_contexts dependencies =
     let () = induction [1] in
     let () = intros [] in
     let () = case (Remove ("H1", [])) in
+    let prf_comp = ref false in
     let () = (
         try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
-        | Prover.End_proof reason -> finish_proof reason
+        | Prover.End_proof reason -> prf_comp := finish_proof reason
       ) in
-    let prf_lst = add_step subp_ctx [] in
+    let prf_lst = add_step subp_ctx [] !prf_comp in
     let prf_lst = (Induction ([1],None))::(Intros [])::(Case (Remove ("H1",[]),None))::
                     (Search `nobounds)::(List.rev prf_lst) in
     TheoremProof (subctx_name, thm, prf_lst)
@@ -670,16 +680,6 @@ let independent (f: term list) g dynamic_contexts dependencies =
          let umtm1 = Pred (app (var Constant ctx_name 0 (tyarrow [olistty] propty))
                                [var Constant ctx_var 0 olistty],
                            Irrelevant) in
-         (*let f = let rec replace_in_with f name repl =
-                   match (observe f) with
-                   | Var v -> if (v.name = name) then
-                                repl
-                              else
-                                observe f
-                   | App (t1, tl) -> app (replace_in_with t1 name repl)
-                                         (List.map (fun t2 -> replace_in_with t2 name repl) tl)
-                   | _ -> f
-                 in List.fold_left (fun y (h,ty) -> replace_in_with y h (var Constant h 0 ty)) f f_quant_vars in*)
          let umtm2 = Obj ({context = (var Constant ctx_var 0 olistty)::f;
                            right = h_tm;
                            mode = Async;}, Irrelevant) in
@@ -708,16 +708,6 @@ let independent (f: term list) g dynamic_contexts dependencies =
          let umtm1 = Pred (app (var Constant ctx_name 0 (tyarrow [olistty] propty))
                                [var Constant ctx_var 0 olistty],
                            Irrelevant) in
-         (*let f = let rec replace_in_with f name repl =
-                   match (observe f) with
-                   | Var v -> if (v.name = name) then
-                                repl
-                              else
-                                observe f
-                   | App (t1, tl) -> app (replace_in_with t1 name repl)
-                                         (List.map (fun t2 -> replace_in_with t2 name repl) tl)
-                   | _ -> f
-                 in List.fold_left (fun y (h,ty) -> replace_in_with y h (var Constant h 0 ty)) f f_quant_vars in*)
          let umtm2 = Obj ({context = (var Constant ctx_var 0 olistty)::f;
                            right = h_tm;
                            mode = Async;}, Irrelevant) in
@@ -842,23 +832,24 @@ let independent (f: term list) g dynamic_contexts dependencies =
              build_reg_ctx_prf pred t prf_lst
       in
       let build_dyn_ctx_prf pred prf_lst =
-        let rec iterate_ctx pred obj_hyp_index lst prf_lst =
+        let rec iterate_ctx pred obj_hyp_index lst prf_lst proof_completed =
           match lst with
-          | [] -> prf_lst
+          | [] -> prf_lst,proof_completed
           | h::t ->
+             let prf_comp = ref proof_completed in
              let () = (try case (Remove ("H3", [])) with
-                       | Prover.End_proof reason -> finish_proof reason
+                       | Prover.End_proof reason -> prf_comp := finish_proof reason
                       ) in
              let proof_lst = (Case (Remove ("H3",[]),None))::prf_lst in
              if ((get_head_predicate h) = [pred]) then
                let antecedents = get_antecedents h in
                let proof_lst = iterate_antecedents pred antecedents obj_hyp_index proof_lst in
                let () = (try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
-                         | Prover.End_proof reason -> finish_proof reason
+                         | Prover.End_proof reason -> prf_comp := finish_proof reason
                         ) in
-               iterate_ctx pred obj_hyp_index t ((Search `nobounds)::proof_lst)
+               iterate_ctx pred obj_hyp_index t ((Search `nobounds)::proof_lst) !prf_comp
              else
-               iterate_ctx pred obj_hyp_index t proof_lst
+               iterate_ctx pred obj_hyp_index t proof_lst !prf_comp
         in
         let rec iter_indep lst index prf_lst =
           match lst with
@@ -875,9 +866,10 @@ let independent (f: term list) g dynamic_contexts dependencies =
         let ctx_mem_name = (make_ctx_name pred) ^ "_mem" in
         let f_len = List.length f in
         let mem_hyp = "H" ^ (string_of_int (4 + f_len)) in
+        let prf_comp = ref false in
         let () = (try apply (Keep (ctx_mem_name,[])) [(Keep ("H1",[])); (Keep (mem_hyp,[]))] [] with
                   | Prover.End_proof reason ->
-                     finish_proof reason
+                     prf_comp := finish_proof reason
                  )in
         let proof_lst = (Apply (None, Keep (ctx_mem_name,[]), [Keep ("H1",[]); Keep (mem_hyp,[])], [], None))::proof_lst in
         let ctx_formulas = H.find dynamic_contexts pred in
@@ -888,20 +880,20 @@ let independent (f: term list) g dynamic_contexts dependencies =
                                          (5 + f_len + 1), proof_lst
                                        else
                                          (5 + f_len), proof_lst) in
-        let proof_lst = iterate_ctx pred obj_hyp_index ctx_formulas proof_lst in
-        proof_lst
+        let proof_lst,prf_comp = iterate_ctx pred obj_hyp_index ctx_formulas proof_lst !prf_comp in
+        proof_lst,prf_comp
       in
-      let rec each_pred lst prf_lst =
+      let rec each_pred lst prf_lst proof_completed =
         match lst with
-        | [] ->  prf_lst
+        | [] ->  if proof_completed then prf_lst else proof_failure ()
         | h::t ->
            let () = intros [] in
            let proof_lst = (Intros [])::prf_lst in
            let () = case  (Remove ("H2", [])) in
            let proof_lst = (Case (Remove ("H2",[]), None))::proof_lst in
            let reg_ctx_prf_lst = build_reg_ctx_prf h !clauses proof_lst in
-           let full_prf_lst = build_dyn_ctx_prf h reg_ctx_prf_lst in
-           each_pred t full_prf_lst
+           let full_prf_lst,prf_comp = build_dyn_ctx_prf h reg_ctx_prf_lst in
+           each_pred t full_prf_lst prf_comp
       in
       let ind_lst = List.map (fun x -> 2) g_dep in
       let () = induction ind_lst in
@@ -909,9 +901,9 @@ let independent (f: term list) g dynamic_contexts dependencies =
       if ((List.length g_dep) > 1) then
         let () = split false in
         let prf_lst = Split::prf_lst in
-        each_pred g_dep prf_lst
+        each_pred g_dep prf_lst false
       else
-        each_pred g_dep prf_lst
+        each_pred g_dep prf_lst false
     in
     let indep_name = make_indep_name g in
     let quant_vars = List.fold_left (fun lst x -> (collect_quantified_variables x) @ lst) [] f in
@@ -1060,12 +1052,14 @@ let strengthen original_thm_name =
   let () = induction [1] in
   let () = intros [] in
   let () = case (Remove ("H1",[])) in
+  let prf_comp = ref false in
   let () = (try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
-            | Prover.End_proof reason -> finish_proof reason) in
+            | Prover.End_proof reason -> prf_comp := finish_proof reason) in
   let () = List.iter (fun x -> apply (Keep ("IH",[])) [Keep ("H2",[])] [];
                                try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
-                               | Prover.End_proof reason -> finish_proof reason) (List.tl ctx_clauses) in
+                               | Prover.End_proof reason -> prf_comp := finish_proof reason) (List.tl ctx_clauses) in
                                                                     (*tail of list to do for everything but nil rule*)
+  let () = if !prf_comp then () else proof_failure () in
 
   let indep_thm_name = make_indep_name g in
   let indep_split_name = indep_thm_name ^ (if (g_dep_count > 1) then
@@ -1086,8 +1080,10 @@ let strengthen original_thm_name =
   let () = intros [] in
   let () = apply (Keep (ctx_subctx_name,[])) [Remove ("H1",[])] [] in
   let () = apply (Keep (indep_split_name,[])) [Remove ("H3",[]); Remove ("H2",[])] [] in
+  let prf_comp = ref false in
   let () = try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
-           | Prover.End_proof reason -> finish_proof reason in
+           | Prover.End_proof reason -> prf_comp := finish_proof reason in
+  let () = if !prf_comp then () else proof_failure () in
   let strengthening_theorem = TheoremProof (original_thm_name, original_thm, strengthening_proof) in
   let strengthening_program = (match split_step with
                                | Some step -> [subctx_thm; step; strengthening_theorem]

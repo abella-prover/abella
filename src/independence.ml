@@ -469,18 +469,43 @@ let get_antecedents trm =
                        else
                          [ob_tm]
     | _ -> failwith "Term should not contain anything but Var and App"
-        in
-        let rec remove_last lst =
-          match lst with
-          | [] -> []
-          | [x] -> []
-          | h::t -> h::(remove_last t)
-        in
-        let trm = remove_pis trm in
-        if (is_imp trm) then
-          remove_last (antecedent_aux trm)
-        else
-          []
+  in
+  let rec remove_last lst =
+    match lst with
+    | [] -> []
+    | [x] -> []
+    | h::t -> h::(remove_last t)
+  in
+  let trm = remove_pis trm in
+  if (is_imp trm) then
+    remove_last (antecedent_aux trm)
+  else
+    []
+
+let get_head_term tm =
+  let rec remove_pis tm =
+    if (is_pi tm) then
+      let abs = extract_pi tm in
+      let base = (match (observe abs) with
+                  | Lam (_, tm) -> tm
+                  | _ -> abs) in
+      remove_pis base
+    else
+      tm
+  in
+  let rec aux trm =
+    let ob_tm = observe trm in
+    match ob_tm with
+    | Var v -> ob_tm
+    | App (t,tlst) -> if (is_imp ob_tm) then
+                        let a,b = extract_imp ob_tm in
+                        aux b
+                      else
+                        ob_tm
+    | Lam (_,t) -> aux t
+    | _ -> failwith "Term should not contain anything but Var, App, and Lam"
+  in
+  aux (remove_pis tm)
 
 
 let rec term_to_uterm trm =
@@ -984,13 +1009,24 @@ let strengthen original_thm_name =
                                                          raise StrengthenFailure
                                             | _ -> raise StrengthenFailure)
                                 | _ -> raise StrengthenFailure);
-                               if (not (exact_tm_equality o.right g_tm) || is_amp g_tm) then
+                               if (not (exact_tm_equality o.right g_tm) (*|| is_amp g_tm*)) then
                                  raise StrengthenFailure
                                else
                                  ()
                 | _ -> raise StrengthenFailure) in
        ctx, f, g_tm, lst_var
     | _ -> raise StrengthenFailure
+  in
+  let rec extract_atomic_goals ctx_terms g_tm =
+    let ant = get_antecedents g_tm in
+    let head_tm = get_head_term g_tm in
+    let full_ctx = ant @ ctx_terms in
+    if (is_amp head_tm) then
+      let a,b = extract_amp head_tm in
+      (extract_atomic_goals full_ctx a) @ (extract_atomic_goals full_ctx b)
+    else
+      let g = List.hd (get_head_predicate head_tm) in
+      [(full_ctx,g)]
   in
   let rec update_strengthen_count g_dep =
     let rec is_free_num lst =
@@ -1010,8 +1046,6 @@ let strengthen original_thm_name =
   in
   let original_thm = sequent.goal in
   let ctx_name, f, g_tm, ctx_lst_var = extract_from_theorem original_thm in
-  let g = List.hd (get_head_predicate g_tm) in
-  let g_antecedents = get_antecedents g_tm in
   let ctx_clauses = (H.find defs_table ctx_name).clauses in
   let extract_term mtm =
     match mtm with
@@ -1024,80 +1058,106 @@ let strengthen original_thm_name =
   let ctx_terms = List.fold_left (fun lst clause -> match (extract_term clause.head) with
                                                     | None -> lst
                                                     | Some tm -> tm::lst) []  ctx_clauses in
-  let dynamic_contexts : (id, term list) H.t = H.create 10 in
-  let dependencies : (id, id list) H.t = H.create 10 in
-  let () = collect_contexts dynamic_contexts (g_antecedents @ ctx_terms) in
-  let () = collect_dependencies dynamic_contexts dependencies in
-  let dep_g = H.find dependencies g in
-  let () = update_strengthen_count dep_g in
-  let g_dep_count = List.length dep_g in
-  let indep_program = independent f g dynamic_contexts dependencies in
+  let ctx_goals = extract_atomic_goals [] g_tm in
 
-  let g_ctx_name = make_ctx_name g in
-  let ctx_subctx_name = ctx_name ^ "_subctx_" ^ g_ctx_name in
-  let subctx_proof = (Induction ([1], None))::(Intros [])::(Case (Remove ("H1",[]), None))::(Search `nobounds)::
-                       (List.fold_left (fun lst h -> (Apply (None, Keep ("IH",[]), [Keep ("H2",[])], [], None))::
-                                                       (Search `nobounds)::lst)
-                                       [] (List.tl ctx_clauses)) in (*tail of list to do for everythirng but nil rule*)
-  let umtm1 = Pred (app (var Constant ctx_name 0 (tyarrow [olistty] propty))
-                        [var Constant "L" 0 olistty],
-                    Irrelevant) in
-  let umtm2 = Pred (app (var Constant g_ctx_name 0 (tyarrow [olistty] propty))
-                        [var Constant "L" 0 olistty],
-                    Irrelevant) in
-  let thm = Binding (Forall, [("L",olistty)], Arrow (umtm1, umtm2)) in
-  let subctx_thm = TheoremProof (ctx_subctx_name, thm, subctx_proof) in
-  let () = register_theorem ctx_subctx_name thm in
-  let () = induction [1] in
-  let () = intros [] in
-  let () = case (Remove ("H1",[])) in
-  let prf_comp = ref false in
-  let () = (try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
-            | Prover.End_proof reason -> prf_comp := finish_proof reason) in
-  let () = List.iter (fun x -> apply (Keep ("IH",[])) [Keep ("H2",[])] [];
-                               try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
-                               | Prover.End_proof reason -> prf_comp := finish_proof reason) (List.tl ctx_clauses) in
+  (*let g = List.hd (get_head_predicate g_tm) in
+  let g_antecedents = get_antecedents g_tm in*)
+  let rec build_indep_programs ctx_goal_lst =
+    match ctx_goal_lst with
+    | [] -> ([],[])
+    | (g_antecedents,g)::lst_tail ->
+       let dynamic_contexts : (id, term list) H.t = H.create 10 in
+       let dependencies : (id, id list) H.t = H.create 10 in
+       let () = collect_contexts dynamic_contexts (g_antecedents @ ctx_terms) in
+       let () = collect_dependencies dynamic_contexts dependencies in
+       let dep_g = H.find dependencies g in
+       let () = update_strengthen_count dep_g in
+       let g_dep_count = List.length dep_g in
+       let indep_program = independent f g dynamic_contexts dependencies in
+       
+       let g_ctx_name = make_ctx_name g in
+       let ctx_subctx_name = ctx_name ^ "_subctx_" ^ g_ctx_name in
+       let subctx_proof = (Induction ([1], None))::(Intros [])::(Case (Remove ("H1",[]), None))::(Search `nobounds)::
+                            (List.fold_left (fun lst h -> (Apply (None, Keep ("IH",[]), [Keep ("H2",[])], [], None))::
+                                                            (Search `nobounds)::lst)
+                                            [] (List.tl ctx_clauses)) in (*tail of list to do for everythirng but nil rule*)
+       let umtm1 = Pred (app (var Constant ctx_name 0 (tyarrow [olistty] propty))
+                             [var Constant "L" 0 olistty],
+                         Irrelevant) in
+       let umtm2 = Pred (app (var Constant g_ctx_name 0 (tyarrow [olistty] propty))
+                             [var Constant "L" 0 olistty],
+                         Irrelevant) in
+       let thm = Binding (Forall, [("L",olistty)], Arrow (umtm1, umtm2)) in
+       let subctx_thm = TheoremProof (ctx_subctx_name, thm, subctx_proof) in
+       let () = register_theorem ctx_subctx_name thm in
+       let () = induction [1] in
+       let () = intros [] in
+       let () = case (Remove ("H1",[])) in
+       let prf_comp = ref false in
+       let () = (try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
+                 | Prover.End_proof reason -> prf_comp := finish_proof reason) in
+       let () = List.iter (fun x -> apply (Keep ("IH",[])) [Keep ("H2",[])] [];
+                                    try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
+                                    | Prover.End_proof reason -> prf_comp := finish_proof reason) (List.tl ctx_clauses) in
                                                                     (*tail of list to do for everything but nil rule*)
-  let () = if !prf_comp then () else proof_failure () in
+       let () = if !prf_comp then () else proof_failure () in
+       let indep_thm_name = make_indep_name g in
+       let indep_split_name = indep_thm_name ^ (if (g_dep_count > 1) then
+                                                  string_of_int g_dep_count
+                                                else "") in
+       let split_step = (if (g_dep_count > 1) then
+                           let () = List.iter (fun (n, (tys,t)) -> add_lemma n tys t)
+                                              (create_split_theorems indep_thm_name []) in
+                           Some (SplitTheorem indep_thm_name)
+                         else None) in
+       let g_gc_lemmas = List.rev (List.map (fun x -> find_gc_lemma x g dynamic_contexts) g_antecedents) in
+       let program_lst,names_lst = build_indep_programs lst_tail in
+       let full_program = indep_program @ (subctx_thm::(match split_step with
+                                                        | Some step -> step :: program_lst
+                                                        | None -> program_lst)) in
+       (full_program, (indep_split_name, ctx_subctx_name, g_gc_lemmas)::names_lst)
+  in
 
-  let indep_thm_name = make_indep_name g in
-  let indep_split_name = indep_thm_name ^ (if (g_dep_count > 1) then
-                                             string_of_int g_dep_count
-                                           else "") in
-  let split_step = (if (g_dep_count > 1) then
-                      let () = List.iter (fun (n, (tys,t)) -> add_lemma n tys t)
-                                         (create_split_theorems indep_thm_name []) in
-                      Some (SplitTheorem indep_thm_name)
-                    else None) in
+  let indep_programs, ctx_goal_lst = build_indep_programs ctx_goals in
+  let num_goals = List.length ctx_goals in
+
   let () = sequent.goal <- original_thm in
   let () = intros [] in
-  let () = apply (Keep (ctx_subctx_name,[])) [Remove ("H1",[])] [] in
-  let ant_prf_lst, index  = List.fold_left (fun (old_lst,index) tm ->
-                                let gc_lemma = find_gc_lemma tm g dynamic_contexts in
-                                let ctx_hyp = "H" ^ (string_of_int index) in
-                                let () = apply (Keep (gc_lemma,[])) [Remove (ctx_hyp,[])] [] in
-                                let app_step = Apply (None, Keep (gc_lemma,[]), [Remove (ctx_hyp,[])], [], None) in
-                                (app_step::old_lst, index + 1)
-                              ) ([],3) g_antecedents in
-  let () = apply (Keep (indep_split_name,[])) [Remove ("H" ^ (string_of_int index),[]); Remove ("H2",[])] [] in
+  let prf_lst = [Intros []] in
+  let obj_ind = if num_goals > 1 then 3 else 2 in
+  let prf_lst = if num_goals > 1 then
+                  let () = case (Remove ("H2",[])) in
+                  (Case (Remove ("H2",[]),None))::prf_lst
+                else
+                  prf_lst in
+  let rec prove_portion start_lst obj_ind end_index prf_lst =
+    match start_lst with
+    | [] -> prf_lst
+    | (indep_split_name,ctx_subctx_name,gc_lemmas)::lst_tail ->
+       let () = apply (Keep (ctx_subctx_name,[])) [Keep ("H1",[])] [] in
+       let prf_lst = (Apply (None, Keep (ctx_subctx_name,[]), [Keep ("H1",[])], [], None))::prf_lst in
+       let ant_prf_lst, index  = List.fold_left (fun (old_lst,index) gc_lemma ->
+                                     let ctx_hyp = "H" ^ (string_of_int index) in
+                                     let () = apply (Keep (gc_lemma,[])) [Remove (ctx_hyp,[])] [] in
+                                     let app_step = Apply (None, Keep (gc_lemma,[]), [Remove (ctx_hyp,[])], [], None) in
+                                     (app_step::old_lst, index + 1)
+                                   ) (prf_lst,end_index) gc_lemmas in
+       let ctx_hyp = "H" ^ (string_of_int index) in
+       let obj_hyp = "H" ^ (string_of_int obj_ind) in
+       let () = apply (Keep (indep_split_name,[])) [Remove (ctx_hyp,[]); Remove (obj_hyp,[])] [] in
+       let full_prf_lst = (Apply (None, Keep (indep_split_name,[]),
+                                  [Remove (ctx_hyp,[]); Remove (obj_hyp,[])], [], None))::ant_prf_lst in
+       prove_portion lst_tail (obj_ind + 1) (index + 2) full_prf_lst
+  in
+  let prf_lst = prove_portion ctx_goal_lst obj_ind (obj_ind + num_goals) prf_lst in
   let prf_comp = ref false in
   let () = try search ~witness:WMagic ~handle_witness:(fun x -> ()) () with
            | Prover.End_proof reason -> prf_comp := finish_proof reason in
   let () = if !prf_comp then () else proof_failure () in
-  let end_stren_prf = List.rev ((Search `nobounds)::
-                                  (Apply (None, Keep (indep_split_name,[]),
-                                          [Remove ("H"^(string_of_int index),[]); Remove ("H2",[])],
-                                          [], None))::ant_prf_lst) in
-  let strengthening_proof = (Intros [])::
-                              (Apply (None, Keep (ctx_subctx_name,[]),
-                                      [Remove ("H1",[])], [], None))::
-                                end_stren_prf in
-  let strengthening_theorem = TheoremProof (original_thm_name, original_thm, strengthening_proof) in
-  let strengthening_program = (match split_step with
-                               | Some step -> [subctx_thm; step; strengthening_theorem]
-                               | None -> [subctx_thm; strengthening_theorem]) in
+  let strengthening_proof = List.rev ((Search `nobounds)::prf_lst) in
+  let strengthening_program = [TheoremProof (original_thm_name, original_thm, strengthening_proof)] in
 
-  let program_string = program_to_string indep_program in
+  let program_string = program_to_string indep_programs in
   let strengthening_string = program_to_string strengthening_program in
   let outfile = open_out "out.thm" in
   let () = output_string outfile program_string in

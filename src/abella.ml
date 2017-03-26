@@ -413,7 +413,7 @@ let query q =
       let ctx = Tactics.fresh_nameless_alist ~support ~ts:0 ~tag:Logic fv in
       let q = replace_metaterm_vars ctx q in
       let _ = Tactics.search q
-          ~depth:max_int
+          ~depth:!search_depth
           ~hyps:[]
           ~clauses:!clauses
           ~def_unfold:Prover.def_unfold

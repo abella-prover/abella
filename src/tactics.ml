@@ -876,7 +876,9 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     end
 
   and async_obj_aux n hyps goal r ts ~sc ~witness =
-    (* Printf.eprintf "axync_obj_aux: %s\n%!" (witness_to_string witness) ; *)
+    (* Printf.eprintf "async_obj_aux[%d]: %s\n%s\n%!" n *)
+    (*   (Pretty.print_string (Metaterm.pretty_obj goal)) *)
+    (*   (witness_to_string witness) ; *)
     normalize_obj goal |>
     List.iter begin fun goal ->
       (* Check hyps for derivability *)
@@ -910,7 +912,9 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     end
 
   and sync_obj_aux n hyps goal r ts ~sc ~witness =
-    (* Printf.eprintf "sync_obj_aux: %s\n%!" (witness_to_string witness) ; *)
+    (* Printf.eprintf "sync_obj_aux[%d]: %s\n%s\n%!" n *)
+    (*   (Pretty.print_string (Metaterm.pretty_obj goal)) *)
+    (*   (witness_to_string witness) ; *)
     normalize_obj goal |>
     List.iter begin fun goal ->
       let focus = match goal.mode with
@@ -957,7 +961,8 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
       end
 
   and metaterm_aux n hyps goal ts ~sc ~witness =
-    (* Printf.eprintf "metaterm_aux: %s\n%!  -- %s\n%!" (witness_to_string witness) (metaterm_to_string goal) ; *)
+    (* Printf.eprintf "metaterm_aux[%d]: %s\n%!  -- %s\n%!" n *)
+    (*   (witness_to_string witness) (metaterm_to_string goal) ; *)
     let goal = normalize goal in
     let () =
       hyps |>

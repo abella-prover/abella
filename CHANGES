@@ -54,6 +54,9 @@ Tweaks to existing functionality
   the search depth for automatic searches performed for omitted arguments. A
   bound of 0 means that no searches are attempted.
 
+* Error messages in interactive mode are printed to stderr in addition to any
+  other output file specified with `-o`.
+
 
 Bugfixes
 

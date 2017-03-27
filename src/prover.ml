@@ -893,9 +893,13 @@ let add_ih h =
 let induction ?name ind_args =
   if has_coinductive_restriction sequent.goal then
     failwith "Induction within coinduction is not allowed" ;
+  let stmts = and_to_list sequent.goal in
+  if List.length ind_args != List.length stmts then
+    failwithf "Expecting %d induction arguments but got %d"
+      (List.length stmts) (List.length ind_args) ;
   List.iter
     (fun (arg, goal) -> ensure_is_inductive (nth_product arg goal))
-    (List.combine ind_args (and_to_list sequent.goal)) ;
+    (List.combine ind_args stmts) ;
   let res_num = next_restriction () in
   let (ihs, new_goal) = Tactics.induction ind_args res_num sequent.goal in
   let name = match name with

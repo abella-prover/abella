@@ -246,10 +246,11 @@ let unwind_state f x =
   result
 
 (* Recursively raise dB indices and abstract over variables
- * selected by [test]. *)
+ * selected by [test]. Indices unprotected by abstractions
+ * are incremented. *)
 let abstract test =
   let rec aux n t = match t with
-    | DB i -> t
+    | DB i -> DB (if i < n then i else i + 1)
     | App(h,ts) -> App(aux n h, List.map (aux n) ts)
     | Lam(idtys,s) -> Lam (idtys, aux (n + List.length idtys) s)
     | Ptr {contents=T t} -> Ptr (ref (T (aux n t)))

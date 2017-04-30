@@ -283,7 +283,7 @@ let rec contains_tyvar = function
 
 let tid_ensure_fully_inferred ~sign (id, ty) =
   if contains_tyvar ty then
-    failwithf "Type not fully determined for %s" id ;
+    failwith "Types of variables are not fully determined" ;
   kind_check_poly sign [] ty
 
 let term_ensure_fully_inferred ~sign t =

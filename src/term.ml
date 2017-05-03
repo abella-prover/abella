@@ -164,13 +164,6 @@ let rec hnorm term =
           end
     | Ptr _ -> assert false
 
-let rec norm t =
-  match observe (hnorm t) with
-  | (Var _ | DB _) as t -> t
-  | App (f, ts) -> App (norm f, List.map norm ts)
-  | Lam (cx, t) -> Lam (cx, norm t)
-  | _ -> assert false
-
 let rec eq t1 t2 =
   match observe (hnorm t1), observe (hnorm t2) with
     | DB i1, DB i2 -> i1 = i2

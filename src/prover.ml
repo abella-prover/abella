@@ -969,7 +969,7 @@ let assert_hyp ?name ?depth term =
 
 (* Object logic monotone *)
 
-let monotone h t =
+let monotone ?name h t =
   let ht = get_stmt_clearly h in
   match ht with
   | Obj (obj, r) ->
@@ -979,7 +979,7 @@ let monotone h t =
       in
       let t = type_uterm ~expected_ty:olistty ~sr:!sr ~sign:!sign ~ctx t in
       let new_obj = {obj with mode = Async ; context = Context.normalize [t]} in
-      delay_mainline
+      delay_mainline ?name
         (Obj (new_obj, r))
         (Binding(Forall, [("X", oty)],
                  Arrow(member (Term.const "X" oty)

@@ -133,23 +133,25 @@ type clear_mode =
   | Clear_delete
   | Clear_extro
 
+type hhint = id option
+
 type command =
-  | Induction of int list * id option
+  | Induction of int list * hhint
   | CoInduction of id option
-  | Apply of depth_bound option * clearable * clearable list * (id * uterm) list * id option
+  | Apply of depth_bound option * clearable * clearable list * (id * uterm) list * hhint
   | Backchain of depth_bound option * clearable * (id * uterm) list
-  | CutFrom of clearable * clearable * uterm * id option
-  | Cut of clearable * clearable * id option
-  | SearchCut of clearable * id option
-  | Inst of clearable * (id * uterm) list * id option
-  | Case of clearable * id option
-  | Assert of umetaterm * int option * id option
+  | CutFrom of clearable * clearable * uterm * hhint
+  | Cut of clearable * clearable * hhint
+  | SearchCut of clearable * hhint
+  | Inst of clearable * (id * uterm) list * hhint
+  | Case of clearable * hhint
+  | Assert of umetaterm * int option * hhint
+  | Monotone of clearable * uterm * hhint
   | Exists of [`EXISTS | `WITNESS] * ewitness list
   | Clear of clear_mode * id list
   | Abbrev of id * string
   | Unabbrev of id list
   | Rename of id * id
-  | Monotone of clearable * uterm
   | Permute of id list * id option
   | Search of [`nobounds | `depth of depth_bound | `witness of witness]
   | Split
@@ -352,6 +354,11 @@ let command_to_string c =
            | Some dp -> string_of_int dp ^ " "
            | None -> "")
           (umetaterm_to_formatted_string t)
+    | Monotone(h, t, hn) ->
+        sprintf "%smonotone %s with %s"
+          (hn_to_string hn)
+          (clearable_to_string h)
+          (uterm_to_string t)
     | Exists (how, ews) ->
         let hows = match how with
           | `EXISTS -> "exists"
@@ -371,10 +378,6 @@ let command_to_string c =
         sprintf "unabbrev %s" (String.concat " " hs)
     | Rename(hfrom, hto) ->
         sprintf "rename %s to %s" hfrom hto
-    | Monotone(h, t) ->
-        sprintf "monotone %s with %s"
-          (clearable_to_string h)
-          (uterm_to_string t)
     | Permute(ids, t) ->
         sprintf "permute (%s)%s"
           (String.concat " " ids)

@@ -476,6 +476,8 @@ pure_command:
     { Types.Case(Types.Keep ($3, []), $1) }
   | hhint ASSERT maybe_depth metaterm DOT
     { Types.Assert($4, $3, $1) }
+  | hhint MONOTONE clearable WITH term DOT
+    { Types.Monotone($3, $5, $1) }
   | EXISTS ewitnesses DOT
     { Types.Exists(`EXISTS, $2) }
   | WITNESS ewitnesses DOT
@@ -518,8 +520,6 @@ pure_command:
     { check_legal_var $2 2 ;
       check_legal_var $4 4 ;
       Types.Rename($2, $4) }
-  | MONOTONE clearable WITH term DOT
-    { Types.Monotone($2, $4) }
   | PERMUTE perm DOT
     { Types.Permute($2, None) }
   | PERMUTE perm hyp DOT

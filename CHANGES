@@ -57,6 +57,7 @@ Tweaks to existing functionality
 * Error messages in interactive mode are printed to stderr in addition to any
   other output file specified with `-o`.
 
+* The `monotone` tactic now accepts hypothesis naming hints. (#91)
 
 Bugfixes
 

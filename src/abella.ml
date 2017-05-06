@@ -594,8 +594,8 @@ and process_proof1 name =
   | Assert(t, dp, hn)             ->
       untyped_ensure_no_restrictions t ;
       assert_hyp ?name:hn ?depth:dp t
+  | Monotone(h, t, hn)            -> monotone ?name:hn h t
   | Exists(_, ts)                 -> List.iter exists ts
-  | Monotone(h, t)                -> monotone h t
   | Clear(cm, hs)                 -> clear cm hs
   | Abbrev(h, s)                  -> abbrev h s
   | Unabbrev(hs)                  -> unabbrev hs

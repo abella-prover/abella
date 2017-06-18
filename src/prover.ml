@@ -38,7 +38,7 @@ let subgoals : subgoal list ref = State.rref []
 type hyp = {
   id : id ;
   term : metaterm ;
-  mutable abbrev : string option ;
+  abbrev : string option ;
 }
 
 type sequent = {
@@ -376,7 +376,21 @@ let format_hyp fmt hyp =
   pp_force_newline fmt ()
 
 let format_hyps fmt =
-  List.iter (format_hyp fmt) sequent.hyps
+  let (am, hyps) = List.fold_left begin fun (am, hs) h ->
+      match h.abbrev with
+      | None -> (am, h :: hs)
+      | Some ab ->
+          let am = match Itab.find ab am with
+            | hs -> Itab.add ab (h.id :: hs) am
+            | exception Not_found -> Itab.add ab [h.id] am
+          in
+          (am, hs)
+    end (Itab.empty, []) sequent.hyps
+  in
+  Itab.iter begin fun ab hs ->
+    fprintf fmt "%s : %s@\n" (String.concat "," (List.rev hs)) ab
+  end am ;
+  List.iter (format_hyp fmt) (List.rev hyps)
 
 let format_count_subgoals fmt n =
   match n with
@@ -1204,11 +1218,21 @@ let clear cm hs =
 
 (* Abbrev *)
 
-let abbrev id str =
-  List.iter (fun h -> if h.id = id then h.abbrev <- Some str) sequent.hyps
+let abbrev ids str =
+  sequent.hyps <-
+    List.map begin fun h ->
+      if Iset.mem h.id ids then
+        {h with abbrev = Some str}
+      else h
+    end sequent.hyps
 
 let unabbrev ids =
-  List.iter (fun h -> if List.mem h.id ids then h.abbrev <- None) sequent.hyps
+  sequent.hyps <-
+    List.map begin fun h ->
+      if Iset.mem h.id ids then
+        {h with abbrev = None}
+      else h
+    end sequent.hyps
 
 (* Rename *)
 

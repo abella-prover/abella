@@ -512,7 +512,7 @@ pure_command:
     { Types.Clear(Types.Clear_delete, $2) }
   | CLEAR RARROW hyp_list DOT
     { Types.Clear(Types.Clear_extro, $3) }
-  | ABBREV hyp QSTRING DOT
+  | ABBREV hyp_list QSTRING DOT
     { Types.Abbrev($2, $3) }
   | UNABBREV hyp_list DOT
     { Types.Unabbrev($2) }

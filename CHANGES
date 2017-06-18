@@ -54,6 +54,9 @@ Tweaks to existing functionality
   the search depth for automatic searches performed for omitted arguments. A
   bound of 0 means that no searches are attempted.
 
+* The `abbrev` and `unabbrev` tactics now both take a list of hypotheses to
+  (un)abbreviate. The display of abbreviations has also been compressed.
+
 * Error messages in interactive mode are printed to stderr in addition to any
   other output file specified with `-o`.
 
@@ -67,6 +70,7 @@ Bugfixes
   (#70; reported by Ahn Ki Yung)
 * Search now correctly raises eigenvariables over support  
   (#71; reported by Morten Rhiger)
+* Undo/ProofGeneral now handles `abbrev` and `unabbrev` correctly.
 
 
 Changes in 2.0.4 from 2.0.3

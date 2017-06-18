@@ -149,7 +149,7 @@ type command =
   | Monotone of clearable * uterm * hhint
   | Exists of [`EXISTS | `WITNESS] * ewitness list
   | Clear of clear_mode * id list
-  | Abbrev of id * string
+  | Abbrev of id list * string
   | Unabbrev of id list
   | Rename of id * id
   | Permute of id list * id option
@@ -372,8 +372,8 @@ let command_to_string c =
            | Clear_delete -> ""
            | Clear_extro -> " -> ")
           (String.concat " " hs)
-    | Abbrev(h, s) ->
-        sprintf "abbrev %s \"%s\"" h s
+    | Abbrev(hs, s) ->
+        sprintf "abbrev %s \"%s\"" (String.concat " " hs) s
     | Unabbrev hs ->
         sprintf "unabbrev %s" (String.concat " " hs)
     | Rename(hfrom, hto) ->

@@ -597,8 +597,8 @@ and process_proof1 name =
   | Monotone(h, t, hn)            -> monotone ?name:hn h t
   | Exists(_, ts)                 -> List.iter exists ts
   | Clear(cm, hs)                 -> clear cm hs
-  | Abbrev(h, s)                  -> abbrev h s
-  | Unabbrev(hs)                  -> unabbrev hs
+  | Abbrev(hs, s)                 -> abbrev (Iset.of_list hs) s
+  | Unabbrev(hs)                  -> unabbrev (Iset.of_list hs)
   | Rename(hfr, hto)              -> rename hfr hto
   | Search(bounds) -> begin
       let depth = match bounds with

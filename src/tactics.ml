@@ -652,9 +652,8 @@ let coinductive_wrapper r names t =
 let maybe_select sel l = match sel with
   | Abella_types.Select_any -> l
   | Abella_types.Select_num n ->
-      if n > List.length l then
-        failwithf "Cannot select clause #%d; there are only %d clauses" n
-          (List.length l) ;
+      if n < 1 || n > List.length l then
+        failwithf "Given clause number (%d) not in range (1..%d)" n (List.length l) ;
       [List.nth l (n - 1)]
   | Abella_types.Select_named n ->
       failwith "Cannot select named clauses for inductive predicates"

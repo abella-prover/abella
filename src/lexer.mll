@@ -46,6 +46,7 @@
     "apply",         APPLY ;
     "as",            AS ;
     "assert",        ASSERT ;
+    "async",         ASYNC ;
     "backchain",     BACKCHAIN ;
     "by",            BY ;
     "case",          CASE ;
@@ -68,7 +69,6 @@
     "nabla",         NABLA ;
     "on",            ON ;
     "permute",       PERMUTE ;
-    "pick",          PICK ;
     "rename",        RENAME ;
     "right",         RIGHT ;
     "search",        SEARCH ;

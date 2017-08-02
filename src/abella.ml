@@ -611,6 +611,7 @@ and process_proof1 name =
       in
       search ?depth ~witness ~handle_witness:handle_search_witness ()
     end
+  | Async                  -> async ()
   | Permute(ids, h)        -> permute_nominals ids h
   | Split                  -> split false
   | SplitStar              -> split true

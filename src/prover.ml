@@ -705,6 +705,9 @@ let search ?depth ~witness ~handle_witness () =
   | None -> failwith "Search failed"
   | Some w -> handle_witness w ; next_subgoal ()
 
+let async () =
+  failwith "async not implemented"
+
 (* Search cut *)
 
 let search_cut ?name h =

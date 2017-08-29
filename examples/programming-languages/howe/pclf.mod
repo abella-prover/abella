@@ -16,13 +16,13 @@ of (lcase M N R) T :- of M (list S), of N T,
 cp (app M N) (app SM SN) :-
   cp M SM, cp N SN.
 cp (lam R) (lam SR) :-
-  pi x\ pi xx\ cp x xx => cp (R x) (SR xx).
+  pi x\ cp x x => cp (R x) (SR x).
 cp (fix R) (fix SR) :-
-  pi x\ pi xx\ cp x xx => cp (R x) (SR xx).
+  pi x\ cp x x => cp (R x) (SR x).
 cp unit unit.
 cp nill nill.
 cp (cons M N) (cons SM SN) :-
   cp M SM, cp N SN.
 cp (lcase M N R) (lcase SM SN SR) :-
   cp M SM, cp N SN,
-  pi h\ pi hh\ cp h hh => pi k\ pi kk\ cp k kk => cp (R h k) (SR hh kk).
+  pi h\ cp h h => pi k\ cp k k => cp (R h k) (SR h k).

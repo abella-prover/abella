@@ -694,9 +694,18 @@ let normalize_nominals t =
   let nominal_alist = List.combine shadowed nominals in
     replace_metaterm_typed_nominals nominal_alist t
 
+let maybe_normalize_obj term =
+  match term with
+  | Obj (obj, r) ->
+      normalize_obj obj |>
+      List.map (fun obj -> Obj (obj, r)) |>
+      conjoin
+  | term -> term
+
 let normalize term =
   term
-  |> map_on_objs normalize_obj
+  (* |> map_on_objs normalize_obj *)
+  |> maybe_normalize_obj
   |> normalize_nominals
   |> normalize_binders
 

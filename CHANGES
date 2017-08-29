@@ -71,6 +71,9 @@ Bugfixes
 * Search now correctly raises eigenvariables over support  
   (#71; reported by Morten Rhiger)
 * Undo/ProofGeneral now handles `abbrev` and `unabbrev` correctly.
+* Do not normalize object sequents except when they occur shallowly
+  among the assumptions or goal. Deep normalization is unsound.  
+  (Reported by Dale Miller)
 
 
 Changes in 2.0.4 from 2.0.3

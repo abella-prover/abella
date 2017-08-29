@@ -9,37 +9,39 @@ Theorem subjred : forall M T V,
   {of M T} -> {eval M V} -> {of V T}.
 induction on 2. intros. case H2.
   search.
-  case H1. apply IH to *H5 *H3. case H7. inst *H8 with n1 = N. cut *H9 with *H6.
-    apply IH to *H10 *H4. search.
-  case H1. apply IH to *H6 *H4. search.
-  case H1. apply IH to *H5 *H3. case H8. inst *H7 with n1 = H, n2 = K.
-    cut *H11 with *H9. cut *H12 with *H10. apply IH to *H13 *H4. search.
+  case H1 (keep). inst *H4 with n1 = fix R. cut *H5 with *H1.
+    apply IH to *H6 *H3. search.
+  case H1. apply IH to *H6 *H3. case H8. inst *H9 with n1 = N. cut *H10 with *H7.
+    apply IH to *H11 *H4. search.
+  case H1. apply IH to *H7 *H4. search.
+  case H1. apply IH to *H6 *H3. case H9. inst *H8 with n1 = H, n2 = K.
+    cut *H12 with *H10. cut *H13 with *H11. apply IH to *H14 *H4. search.
   case H1. apply IH to *H6 *H4. search.
   case H1. apply IH to *H5 *H3. case H8. inst *H7 with n1 = K. cut *H10 with *H9.
     apply IH to *H11 *H4. search.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-CoDefine sim : ty -> tm -> tm -> prop by
-; sim nat M N :=
+CoDefine sim : tm -> tm -> ty -> prop by
+; sim M N top :=
+    {eval M unit} -> {eval N unit}
+; sim M N nat :=
     ({eval M zero} -> {eval N zero}) /\
     (forall U, {eval M (succ U)} ->
-     exists V, {eval N (succ V)} /\ sim nat U V)
-; sim top M N :=
-    {eval M unit} -> {eval N unit}
-; sim (arr S T) M N :=
+     exists V, {eval N (succ V)} /\ sim U V nat)
+; sim M N (arr S T) :=
     forall MR, {eval M (lam MR)} ->
     exists NR, {eval N (lam NR)} /\
-    forall x, {of x S} -> sim T (MR x) (NR x)
-; sim (list T) M N :=
+    forall x, {of x S} -> sim (MR x) (NR x) T
+; sim M N (list T) :=
     ({eval M nill} -> {eval N nill}) /\
     (forall MH MK, {eval M (cons MH MK)} ->
      exists NH NK, {eval N (cons NH NK)} /\
-       sim T MH NH /\
-       sim (list T) MK NK)
+       sim MH NH T /\
+       sim MK NK (list T))
 .
 
-Theorem sim_refl : forall T M, {ty T} -> {of M T} -> sim T M M.
+Theorem sim_refl : forall T M, {ty T} -> {of M T} -> sim M M T.
 coinduction. intros. case H1.
   unfold. search.
   unfold.
@@ -53,14 +55,14 @@ coinduction. intros. case H1.
     apply subjred to H2 H5. case H6. witness MR. split. search.
     intros. inst *H7 with n1 = x. cut *H9 with *H8. backchain CH.
 
-Theorem sim_trans : forall T M N K, sim T M N -> sim T N K -> sim T M K.
+Theorem sim_trans : forall T M N K, sim M N T -> sim N K T -> sim M K T.
 coinduction. intros. case H1.
+  case H2. unfold. intros.
+    backchain H4. backchain H3.
   case H2. unfold.
     intros. backchain H5. backchain H3.
     intros. apply *H4 to *H7. apply *H6 to *H8.
       apply CH to *H9 *H11. search.
-  case H2. unfold. intros.
-    backchain H4. backchain H3.
   case H2. unfold. intros.
     apply *H3 to *H5. apply *H4 to *H6. witness NR1. split. search.
     intros. apply *H7 to H10. apply *H9 to *H10. backchain CH.
@@ -71,39 +73,52 @@ coinduction. intros. case H1.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-Define osim : olist -> ty -> tm -> tm -> prop by
-osim G T M N :=
+Define osim : olist -> tm -> tm -> ty -> prop by
+osim G M N T :=
+  ctx G /\ {G |- of M T} /\ {G |- of N T} /\
   forall SS SM SN,
     ofsub nil SS G ->
     {SS |- cp M SM} ->
     {SS |- cp N SN} ->
-    sim T SM SN.
+    sim SM SN T.
 
-Theorem osim_refl : forall G T M, {ty T} -> {G |- of M T} -> osim G T M M.
-intros. unfold. intros.
-  apply subst to H3 H2. apply cp_det to H3 *H6 H4.
-    apply cp_det to H3 *H5 H4. backchain sim_refl.
+Theorem osim_refl : forall G T M, {ty T} -> ctx G -> {G |- of M T} -> osim G M M T.
+intros. unfold. search. search. search. intros.
+  apply subst to H4 H3. apply cp_det to H4 *H7 H5.
+    apply cp_det to H4 *H6 H5. backchain sim_refl.
 
-Theorem osim_trans : forall G T M N K,
-  {G |- of M T} -> {G |- of N T} -> {G |- of K T} ->
-  osim G T M N -> osim G T N K ->
-  osim G T M K.
-intros. unfold. intros. rename SN to SK.
-  apply subst to H6 H1. apply cp_det to H6 *H9 H7.
-  apply subst to H6 H2. rename SM2 to SN.
-  apply subst to H6 H3. apply cp_det to H6 *H13 H8.
-  Hs : case H4. apply *Hs to H6 *H7 H11.
-  Hs : case H5. apply *Hs to H6 *H11 *H8.
-  backchain sim_trans.
+Theorem osim_trans : forall G M N T K,
+  osim G M N T -> osim G N K T -> osim G M K T.
+intros Hmn Hnk. Hmn1 : case Hmn. Hnk1 : case Hnk.
+unfold. search. search. search. intros Hs Hm Hk. rename SN to SK.
+Hn : apply subst to Hs Hnk2. rename SM1 to SN. rename Hn1 to Hnn.
+Hk : apply subst to Hs Hnk3. apply cp_det to Hs *Hk1 Hk. rename Hk2 to Hkk.
+Hsim1 : apply *Hmn4 to Hs *Hm Hn.
+Hsim2 : apply *Hnk4 to Hs *Hn *Hk.
+backchain sim_trans.
 
-Theorem osim_cus : forall G SS D T M N SM SN,
-  {D |- of M T} -> {D |- of N T} -> osim D T M N ->
-  ofsub G SS D ->
-  {SS |- cp M SM} -> {SS |- cp N SN} ->
-  osim G T SM SN.
-intros. unfold. intros.
-  apply compose_exists to H7 H4.
-  apply compose_map to H7 H4 H10 *H1 *H5 *H8.
-  apply compose_map to H7 H4 H10 *H2 *H6 *H9.
-  Hs : case H3. apply *Hs to *H11 *H12 *H13.
-  search.
+Theorem osim_cus : forall G SS D M N T SM SN,
+  osim D M N T ->
+  ofsub G SS D -> {SS |- cp M SM} -> {SS |- cp N SN} ->
+  osim G SM SN T.
+intros Hos Hsb Happm Happn. Hos1 : case Hos. unfold.
+apply ofsub_ctx to Hsb. search.
+apply subst to Hsb Hos2. apply cp_det to Hsb Happm H1. search.
+apply subst to Hsb Hos3. apply cp_det to Hsb Happn H1. search.
+intros Hnsb Hcpm Hcpn.
+Hscom1 : apply compose_exists to Hnsb Hsb.
+Hum : apply compose_map to Hnsb Hsb Hscom1 Hos2 Happm Hcpm.
+Hun : apply compose_map to Hnsb Hsb Hscom1 Hos3 Happn Hcpn.
+backchain Hos4.
+
+Theorem osim_weak : forall GG G M N T,
+  osim G M N T ->
+  ctx GG -> (forall E, member E G -> member E GG) ->
+  osim GG M N T.
+intros. case H1. unfold. search.
+monotone H5 with GG. search.
+monotone H6 with GG. search.
+intros. apply ofsub_strength to H4 H2 H3 H8.
+apply cp_strength to H11 H5 H12 H9.
+apply cp_strength to H11 H6 H12 H10.
+apply H7 to H11 H13 H14. search.

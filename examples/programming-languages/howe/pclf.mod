@@ -7,13 +7,13 @@ ty (arr S T) :- ty S, ty T.
 
 of zero nat.
 of (succ M) nat :- of M nat.
-of (app M N) T :- of M (arr S T), of N S.
+of (app M N) T :- ty S, of M (arr S T), of N S.
 of (lam R) (arr S T) :- pi x\ of x S => of (R x) T.
 of (fix R) T :- pi x\ of x T => of (R x) T.
 of unit top.
 of nill (list T).
 of (cons M N) (list T) :- of M T, of N (list T).
-of (lcase M N R) T :- of M (list S), of N T,
+of (lcase M N R) T :- ty S, of M (list S), of N T,
   pi h\ of h S => pi k\ of k (list S) => of (R h k) T.
 of (ncase M N R) T :- of M nat, of N T,
   pi x\ of x nat => of (R x) T.
@@ -39,6 +39,8 @@ cp (ncase M N R) (ncase SM SN SR) :-
   pi x\ cp x x => cp (R x) (SR x).
 
 eval V V :- value V.
+eval (fix R) V :-
+  eval (R (fix R)) V.
 eval (app M N) V :-
   eval M (lam R), eval (R N) V.
 eval (lcase M N R) V :-
@@ -55,4 +57,3 @@ value (succ M).
 value nill.
 value (cons M N).
 value (lam R).
-value (fix R).

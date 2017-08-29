@@ -127,6 +127,7 @@ induction on 2. intros. case H2.
    apply ctx_member to H1 H8. case H7.
    apply ctx_uniq to H1 H5 H8. search.
 
+Set search_depth 30.
 Query
   Add = (rec (arr num (arr num num))
              (add\ abs num x\ abs num y\

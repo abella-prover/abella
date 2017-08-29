@@ -310,6 +310,7 @@ let command_to_string c =
         Buffer.add_string buf (hn_to_string hn) ;
         Buffer.add_string buf "apply" ;
         Buffer.add_string buf (dbound_to_string dbound) ;
+        Buffer.add_string buf (" " ^ clearable_to_string h) ;
         if hs <> [] then
           (Buffer.add_string buf " to " ;
            Buffer.add_string buf (clearables_to_string hs)) ;

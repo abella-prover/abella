@@ -117,12 +117,23 @@ let warn_on_teyjus_only_keywords (ktable, ctable) =
 let update_subordination_sign sr sign =
   List.fold_left Subordination.update sr (sign_to_tys sign)
 
+let sanitize_filename fn =
+  try begin
+    let lpl = String.length !load_path in
+    let fnl = String.length fn in
+    if fnl + 1 < lpl then raise Not_found ;
+    for i = 0 to lpl - 1 do
+      if String.unsafe_get !load_path i <> String.unsafe_get fn i then
+        raise Not_found
+    done ;
+    if String.unsafe_get fn lpl <> '/' then raise Not_found ;
+    String.sub fn (lpl + 1) (fnl - lpl - 1)
+  end with
+  | Not_found -> fn
+
 let read_specification name =
   clear_specification_cache () ;
-  fprintf !out "Reading specification %S%s\n%!" name
-    (if !load_path <> "." then
-       sprintf " (from %S)" !load_path
-     else "") ;
+  fprintf !out "Reading specification %S\n%!" (sanitize_filename name) ;
   let read_sign = get_sign name in
   let () = warn_on_teyjus_only_keywords read_sign in
   let sign' = merge_signs [!sign; read_sign] in

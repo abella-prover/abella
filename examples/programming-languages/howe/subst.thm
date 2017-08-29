@@ -29,6 +29,8 @@ induction on 1. intros. case H1.
 Theorem of_prune : forall G M T, nabla (x : tm),
   ctx G -> {G |- of (M x) T} -> exists MM, M = x\ MM.
 induction on 2. intros. case H2.
+  search.
+  apply IH to H1 H3. search.
   apply IH to H1 H3. apply IH to H1 H4. search.
   apply IH to _ H3. search.
   apply IH to _ H3. search.
@@ -36,19 +38,8 @@ induction on 2. intros. case H2.
   search.
   apply IH to H1 H3. apply IH to H1 H4. search.
   apply IH to H1 H3. apply IH to H1 H4. apply IH to _ H5. search.
+  apply IH to H1 H3. apply IH to H1 H4. apply IH to _ H5. search.
   apply member_prune to H4. apply ctx_mem to H1 H4. case H3. search.
-
-Theorem ctx_prune : forall G M T, nabla (x : tm),
-  ctx G -> {G |- of (M x) T} -> exists MM, M = x\ MM.
-induction on 2. intros. case H2.
-  apply IH to _ H3. apply IH to _ H4. search.
-  apply IH to _ H3. search.
-  apply IH to _ H3. search.
-  search.
-  search.
-  apply IH to _ H3. apply IH to _ H4. search.
-  apply IH to _ H3. apply IH to _ H4. apply IH to _ H5. search.
-  apply ctx_mem to H1 H4. case H3. apply member_prune to H4. search.
 
 Theorem ctx_uniq : forall G X T1 T2,
   ctx G -> member (of X T1) G -> member (of X T2) G -> T1 = T2.
@@ -109,6 +100,10 @@ Theorem subst :
   ofsub G SS D -> {D |- of M T} ->
   exists SM, {SS |- cp M SM} /\ {G |- of SM T}.
 induction on 2. intros. case H2.
+  search.
+
+  apply IH to H1 *H3. search.
+
   apply IH to H1 *H3. apply IH to H1 *H4. search.
 
   apply ofsub_weak1 to *H1 with T = S, x = n1.
@@ -132,6 +127,12 @@ induction on 2. intros. case H2.
                         SS = cp n2 n2 :: cp n1 n1 :: SS.
   search.
 
+  apply IH to H1 *H3. apply IH to H1 *H4.
+  apply ofsub_weak1 to *H1 with T = nat, x = n1.
+  apply IH to _ *H5 with G = of n1 nat :: G,
+                        SS = cp n1 n1 :: SS.
+  search.
+
   apply ofsub_mem_src to H1 H4. case H3. search.
 
 %% each variable is mapped to exactly one term in a substitution
@@ -148,6 +149,10 @@ induction on 1. intros. case H1.
 Theorem cp_det : forall G SS D M N1 N2,
    ofsub G SS D -> {SS |- cp M N1} -> {SS |- cp M N2} -> N1 = N2.
 induction on 2. intros. case H2.
+  case H3. search.
+    apply ofsub_mem_sub to *H1 *H5. case H4. case H7.
+  case H3. apply IH to H1 *H4 *H5. search.
+    apply ofsub_mem_sub to *H1 *H6. case H5. case H8.
   case H3. apply IH to H1 *H4 *H6. apply IH to *H1 *H5 *H7. search.
     apply ofsub_mem_sub to *H1 *H7. case H9. case H6.
   case H3.
@@ -169,6 +174,10 @@ induction on 2. intros. case H2.
     apply ofsub_weak1 to *H10 with T = list top, x = n2.
     apply IH to _ *H6 *H9 with G = of n2 (list top) :: of n1 top :: G. search.
     apply ofsub_mem_sub to *H1 *H8. case H10. case H7.
+  case H3. apply IH to H1 *H4 *H7. apply IH to H1 *H5 *H8.
+    apply ofsub_weak1 to *H1 with T = top, x = n1.
+    apply IH to _ *H6 *H9 with G = of n1 top :: G. search.
+    apply ofsub_mem_sub to *H1 *H8. case H10. case H7.
   apply ofsub_mem_sub to H1 H5. case H4. case H7.
    case H3. apply ofsub_mem_sub to H1 H10. case H9.
    apply ofsub_det to H1 H5 H10. search.
@@ -178,7 +187,7 @@ induction on 2. intros. case H2.
 
 Define comp : olist -> olist -> olist -> prop by
 ; comp SS nil nil
-; nabla x, comp (SS x) (cp x (M x) :: (TT x)) (cp x (N x) :: (UU x)) :=
+; nabla x, comp (SS x) (cp x (M x) :: TT x) (cp x (N x) :: UU x) :=
     nabla x, {SS x |- cp (M x) (N x)} /\ comp (SS x) (TT x) (UU x)
 .
 
@@ -204,6 +213,14 @@ Theorem compose_map : forall G SS D TT W UU M N K T,
   ofsub G SS D -> ofsub D TT W -> comp SS TT UU ->
   {W |- of M T} -> {TT |- cp M N} -> {SS |- cp N K} -> {UU |- cp M K}.
 induction on 4. intros. case H4.
+  case H5. case H6.
+    search.
+    apply ofsub_mem_sub to H1 H8. case H7. case H10.
+    apply ofsub_mem_sub to H2 H8. case H7. case H10.
+  case H5. case H6.
+    apply IH to H1 H2 H3 *H7 *H8 *H9. search.
+    apply ofsub_mem_sub to H1 H10. case H9. case H12.
+    apply ofsub_mem_sub to H2 H9. case H8. case H11.
   case H5. case H6.
     apply IH to H1 H2 H3 *H7 *H9 *H11. apply IH to H1 H2 H3 *H8 *H10 *H12. search.
     apply ofsub_mem_sub to H1 H12. case H11. case H14.
@@ -243,6 +260,15 @@ induction on 4. intros. case H4.
     apply IH to _ _ _ *H9 *H12 *H15
      with G = of n2 (list S) :: of n1 S :: G,
           D = of n2 (list S) :: of n1 S :: D. search.
+    apply ofsub_mem_sub to H1 H14. case H13. case H16.
+    apply ofsub_mem_sub to H2 H11. case H10. case H13.
+  case H5. case H6.
+    apply IH to H1 H2 H3 *H7 *H10 *H13. apply IH to H1 H2 H3 *H8 *H11 *H14.
+    apply ofsub_weak1 to *H2 with T = nat, x = n1.
+    apply ofsub_weak1 to *H1 with T = nat, x = n1.
+    apply comp_weak to *H3 with x = n1, M = x\ x.
+    apply IH to _ _ _ *H9 *H12 *H15
+     with G = of n1 nat :: G, D = of n1 nat :: D. search.
     apply ofsub_mem_sub to H1 H14. case H13. case H16.
     apply ofsub_mem_sub to H2 H11. case H10. case H13.
   apply ofsub_mem_src to H2 H8. case H7. case H10.

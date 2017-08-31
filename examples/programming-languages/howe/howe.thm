@@ -318,7 +318,6 @@ induction on 2. intros. case H2.
       apply ofsub_weak1 to H4 with T = S. search.
       backchain howesub_frame.
       apply ofsub_weak1 to H3 with T = S. apply ofsub_weak1 to H37 with T = list S. search.
-    assert exists SM5, y\ x\ SM4 x y = x\ y\ SM5 x y. case H38.
-    apply osim_cus to H12 H4 _ H7 with M = lcase MM HH RR, SM = lcase SM2 SM3 SM5.
+    apply osim_cus to H12 H4 _ H7 with M = lcase MM HH RR, SM = lcase SM2 SM3 (k\ h\ SM4 h k).
     search.
     apply ofsub_mem_sub to H3 H14. case H13. case H16.

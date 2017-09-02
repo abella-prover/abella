@@ -142,7 +142,9 @@ let object_cut_from obj1 obj2 term =
   in
   if not (Context.mem term obj1.context) then
     failwith "Needless use of cut" ;
-  let tobj = normalize_obj {context = Context.empty ; right = term ; mode = Async} in
+  let tobj = normalize_obj ~parity:true ~bindstack:[]
+      {context = Context.empty ; right = term ; mode = Async}
+  in
   if List.length tobj > 1 then
     failwith "Cannot cut conjunctive formulas" ;
   let tobj = List.hd tobj in
@@ -734,7 +736,7 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
       | Abella_types.Select_named nm -> begin
           match Typing.lookup_clause nm with
           | Some cl ->
-              normalize_obj goal |>
+              normalize_obj ~parity:true ~bindstack:[] goal |>
               List.map begin fun goal ->
                 let support = metaterm_support goal0 in
                 let cl = clausify cl in
@@ -756,7 +758,7 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                       let body =
                         List.map begin fun g ->
                           let aobj = {goal with right = g} in
-                          map_on_objs normalize_obj (Obj (aobj, sr))
+                          map_on_objs_full normalize_obj (Obj (aobj, sr))
                         end body in
                       if quant_vars = [] then body
                       else [existentially_close ~used quant_vars (conjoin body)]
@@ -878,7 +880,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     (* Printf.eprintf "async_obj_aux[%d]: %s\n%s\n%!" n *)
     (*   (Pretty.print_string (Metaterm.pretty_obj goal)) *)
     (*   (witness_to_string witness) ; *)
-    normalize_obj goal |>
+    normalize_obj ~parity:true ~bindstack:[] goal |>
     List.iter begin fun goal ->
       (* Check hyps for derivability *)
       let () =
@@ -914,7 +916,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     (* Printf.eprintf "sync_obj_aux[%d]: %s\n%s\n%!" n *)
     (*   (Pretty.print_string (Metaterm.pretty_obj goal)) *)
     (*   (witness_to_string witness) ; *)
-    normalize_obj goal |>
+    normalize_obj ~parity:true ~bindstack:[] goal |>
     List.iter begin fun goal ->
       let focus = match goal.mode with
         | Sync focus -> focus

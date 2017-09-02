@@ -154,7 +154,7 @@ type command =
   | Rename of id * id
   | Permute of id list * id option
   | Search of [`nobounds | `depth of depth_bound | `witness of witness]
-  | Async
+  | Async_steps
   | Split
   | SplitStar
   | Left
@@ -387,7 +387,7 @@ let command_to_string c =
     | Search(`nobounds) -> "search"
     | Search(`depth d) -> sprintf "search %d" d
     | Search(`witness w) -> sprintf "search with %s" (witness_to_string w)
-    | Async -> "async"
+    | Async_steps -> "async"
     | Split -> "split"
     | SplitStar -> "split*"
     | Left -> "left"

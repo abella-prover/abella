@@ -212,20 +212,20 @@ induction on 2. intros. case H2.
   apply howe_substitutive_var to H1 H3 H4 H5 H8 H10 H7 H9.
   search.
   % top
-  assert SM = unit. case H6. search.
+  case H6.
+    apply osim_cus to H8 H4 _ H7.
+    search.
     apply ofsub_mem_sub to H3 H10. case H9. case H12.
-    case H9.
-   apply osim_cus to H8 H4 _ H7 with SM = unit. search.
   % zero
-  assert SM = zero. case H6. search.
+  case H6.
+    apply osim_cus to H8 H4 _ H7.
+    search.
     apply ofsub_mem_sub to H3 H10. case H9. case H12.
-    case H9.
-   apply osim_cus to H8 H4 _ H7 with SM = zero. search.
   % succ
   case H6.
     apply howe_ty to H8. apply subst to H4 H13.
     apply IH to H1 H8 H3 H4 H5 H10 H14.
-    apply osim_cus to H9 H4 _ H7 with M = succ MM, SM = succ SM2.
+    apply osim_cus to H9 H4 _ H7 with M = succ MM.
     search.
     apply ofsub_mem_sub to H3 H11. case H10. case H13.
   % ncase
@@ -243,7 +243,7 @@ induction on 2. intros. case H2.
     apply IH to H1 H10 _ _ H29 H14 H35
      with G = of n1 nat :: G, D = of n1 nat :: D,
           SS = cp n1 n1 :: SS, TT = cp n1 n1 :: TT.
-    apply osim_cus to H11 H4 _ H7 with M = ncase MM HH RR, SM = ncase SM2 SM3 SM4.
+    apply osim_cus to H11 H4 _ H7 with M = ncase MM HH RR.
     search.
     apply ofsub_mem_sub to H3 H13. case H12. case H15.
   % lam
@@ -259,7 +259,7 @@ induction on 2. intros. case H2.
           D = of n1 S :: D,
           SS = cp n1 n1 :: SS,
           TT = cp n1 n1 :: TT.
-    apply osim_cus to H9 H4 _ H7 with M = lam RR, SM = lam SM1.
+    apply osim_cus to H9 H4 _ H7 with M = lam RR.
     search.
     apply ofsub_mem_sub to H3 H11. case H10. case H13.
   % fix
@@ -272,7 +272,7 @@ induction on 2. intros. case H2.
     apply IH to H1 H8 _ _ H11 H10 H21
      with G = of n1 T :: G, D = of n1 T :: D,
           SS = cp n1 n1 :: SS, TT = cp n1 n1 :: TT.
-    apply osim_cus to H9 H4 _ H7 with M = fix RR, SM = fix SM1.
+    apply osim_cus to H9 H4 _ H7 with M = fix RR.
     search.
     apply ofsub_mem_sub to H3 H11. case H10. case H13.
   % app
@@ -281,7 +281,7 @@ induction on 2. intros. case H2.
     apply IH to _ H9 H3 H4 H5 H12 H17.
     apply howe_ty to H10. apply subst to H4 H22.
     apply IH to _ H10 H3 H4 H5 H13 H23.
-    apply osim_cus to H11 H4 _ H7 with M = app FF MM, SM = app SM2 SM3.
+    apply osim_cus to H11 H4 _ H7 with M = app FF MM.
     search.
     apply ofsub_mem_sub to H3 H13. case H12. case H15.
   % nill
@@ -296,7 +296,7 @@ induction on 2. intros. case H2.
     apply IH to _ H8 H3 H4 H5 H11 H17.
     apply howe_ty to H9. apply subst to H4 H22.
     apply IH to _ H9 H3 H4 H5 H12 H23.
-    apply osim_cus to H10 H4 _ H7 with M = cons HH KK, SM = cons SM2 SM3.
+    apply osim_cus to H10 H4 _ H7 with M = cons HH KK.
     search.
     apply ofsub_mem_sub to H3 H12. case H11. case H14.
   % lcase
@@ -318,6 +318,6 @@ induction on 2. intros. case H2.
       apply ofsub_weak1 to H4 with T = S. search.
       backchain howesub_frame.
       apply ofsub_weak1 to H3 with T = S. apply ofsub_weak1 to H37 with T = list S. search.
-    apply osim_cus to H12 H4 _ H7 with M = lcase MM HH RR, SM = lcase SM2 SM3 SM4.
+    apply osim_cus to H12 H4 _ H7 with M = lcase MM HH RR.
     search.
     apply ofsub_mem_sub to H3 H14. case H13. case H16.

@@ -489,7 +489,7 @@ pure_command:
   | SEARCH WITH search_witness DOT
     { Types.Search(`witness $3) }
   | ASYNC DOT
-    { Types.Async }
+    { Types.Async_steps }
   | SPLIT DOT
     { Types.Split }
   | SPLITSTAR DOT

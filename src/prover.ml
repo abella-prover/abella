@@ -980,16 +980,18 @@ let pick ?depth bs body : unit =
       let alist = fresh_nameless_alist ~support:global_support ~tag:Logic ~ts:0 bs in
       let fresh_body = replace_metaterm_vars alist body in
       let succeed w =
+        (* Printf.eprintf "Success\n%!" ; *)
         let lvs = alist |> List.map snd |> find_var_refs Logic in
         if lvs <> [] then failwithf "Could not find a ground proof" ;
         let alist = List.map (fun (x, v) -> (x, deep_copy v)) alist in
-        sequent.vars <- alist @ sequent.vars
+        sequent.vars <- alist @ sequent.vars ;
+        raise (Tactics.SearchSuccess w)
       in
       let hyps = List.map (fun h -> (h.id, h.term)) sequent.hyps in
       let depth = Option.default !search_depth depth in
       if Option.is_none (Tactics.search fresh_body
                            ~depth ~hyps ~clauses:!clauses ~def_unfold ~sr:!sr ~sc:succeed ~retype)
-      then failwithf "Could not solve: %s" (metaterm_to_formatted_string ex)
+      then failwithf "Could not solve: %s" (metaterm_to_formatted_string fresh_body)
   | _ -> bugf "pick: unexpected typing result: %s" (metaterm_to_string ex)
 
 (* Object logic monotone *)

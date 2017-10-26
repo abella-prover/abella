@@ -298,6 +298,9 @@ let def_unfold term =
         failwith "Cannot perform case-analysis on undefined atom"
   | _ -> (Itab.empty, [])
 
+let var_unavailable x =
+  try is_uninstantiated (x, List.assoc x sequent.vars)
+  with Not_found -> false
 
 (* Pretty print *)
 
@@ -967,6 +970,10 @@ let assert_hyp ?name ?depth term =
 (* Pick *)
 
 let pick ?depth bs body : unit =
+  List.iter begin fun (v, ty) ->
+    if var_unavailable v then
+      failwithf "%S is already a variable or a binding" v
+  end bs ;
   let ex = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars begin
       UBinding (Metaterm.Exists, bs, body)
     end in
@@ -1265,10 +1272,6 @@ let rename_var vfr xto =
       else Some v
     end sequent.vars ;
   sequent.goal <- rewrite sequent.goal
-
-let var_unavailable x =
-  try is_uninstantiated (x, List.assoc x sequent.vars)
-  with Not_found -> false
 
 let rename xfr xto =
   if H.mem lemmas xto then

@@ -1233,6 +1233,9 @@ let apply ?(used_nominals=[]) term args =
     Some term :: args |>
     List.flatten_map (Option.map_default metaterm_support []) |>
     List.unique |>
+      (* used_nominals are nominal constants provided by 'withs' for
+         (partially) instantiating nabla quantified variables and
+         should not be raised over by 'forall' quantified variables *)
     (fun s -> List.minus s used_nominals)
   in
   let process_bindings foralls nablas body =
@@ -1248,7 +1251,14 @@ let apply ?(used_nominals=[]) term args =
              (List.map term_to_name (support @ used_nominals))) @
           support
         in
-        support |> List.rev |> List.permute n |>
+        (* The nominal constants for nabla quantified variables should
+           be chosen from 'candiate_nominals', which contains dummy
+           nominals and nominals that occur in the arguments and do
+           not occur in the support of the applying term, so as to
+           respect the side condition of the nabla-left rule. *)
+        let candidate_nominals = List.minus support (metaterm_support term)
+        in
+        candidate_nominals |> List.rev |> List.permute n |>
         List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals) |>
         List.find_some begin fun nominals ->
           try_with_state ~fail:None
@@ -1296,7 +1306,7 @@ let take_from_binders binders withs =
       (fun (x, ty) -> List.mem_assoc x withs) binders
   in
   (binders', withs')
-
+ 
 let rec instantiate_withs term withs =
   match term with
   | Binding(Forall, binders, body) ->

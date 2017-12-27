@@ -1229,15 +1229,14 @@ let apply_arrow term args =
   (normalize result, !obligations)
 
 let apply ?(used_nominals=[]) term args =
-  let support =
-    Some term :: args |>
-    List.flatten_map (Option.map_default metaterm_support []) |>
-    List.unique |>
-      (* used_nominals are nominal constants provided by 'withs' for
-         (partially) instantiating nabla quantified variables and
-         should not be raised over by 'forall' quantified variables *)
-    (fun s -> List.minus s used_nominals)
-  in
+  let hyp_support = metaterm_support term in
+  let support = hyp_support @
+                  List.flatten_map (Option.map_default metaterm_support []) args in
+  let support = List.unique support in
+  (* used_nominals are nominal constants provided by 'withs' for
+     (partially) instantiating nabla quantified variables and
+     should not be raised over by 'forall' quantified variables *)
+  let support = List.minus support used_nominals in
   let process_bindings foralls nablas body =
     match nablas with
     | [] -> (* short circuit *)
@@ -1256,22 +1255,21 @@ let apply ?(used_nominals=[]) term args =
            nominals and nominals that occur in the arguments and do
            not occur in the support of the applying term, so as to
            respect the side condition of the nabla-left rule. *)
-        let candidate_nominals = List.minus support (metaterm_support term)
-        in
+        let candidate_nominals = List.minus support hyp_support in
         candidate_nominals |> List.rev |> List.permute n |>
         List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals) |>
         List.find_some begin fun nominals ->
           try_with_state ~fail:None
             (fun () ->
-               let support = List.minus support nominals in
-               let raised_body =
-                 freshen_nameless_bindings ~support ~ts:0 foralls body
-               in
-               let alist = List.combine nabla_ids nominals in
-               let permuted_body =
-                 replace_metaterm_vars alist raised_body
-               in
-               Some(apply_arrow permuted_body args))
+              let support = List.minus support nominals in
+              let raised_body =
+                freshen_nameless_bindings ~support ~ts:0 foralls body
+              in
+              let alist = List.combine nabla_ids nominals in
+              let permuted_body =
+                replace_metaterm_vars alist raised_body
+              in
+              Some(apply_arrow permuted_body args))
         end |>
         (function
           | Some v -> v
@@ -1306,7 +1304,11 @@ let take_from_binders binders withs =
       (fun (x, ty) -> List.mem_assoc x withs) binders
   in
   (binders', withs')
- 
+
+(** instantiate_withs F ws = G, ns
+
+Instantiate F with respect to the with declarations ws to get G,
+and ns = supp(G)\supp(F) *)
 let rec instantiate_withs term withs =
   match term with
   | Binding(Forall, binders, body) ->

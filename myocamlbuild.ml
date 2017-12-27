@@ -56,8 +56,10 @@ let () =
         (fun major minor ->
            if major >= 4 then begin
              flag ["ocaml" ; "compile"] (A "-bin-annot") ;
-             if minor >= 2 then
-               flag ["ocaml" ; "compile"] (A "-safe-string")
+             if minor >= 2 && minor < 6 then
+               flag ["ocaml" ; "compile"] (A "-safe-string") ;
+             if minor >= 6 then
+               flag ["ocaml" ; "compile"] (A "-strict-formats") ;
            end) ;
       if Sys.os_type = "Unix" then
         flag ["ocaml" ; "compile"] (S [A "-w" ; A "@3@5@6@8..12@14@20@26@28@29"]) ;

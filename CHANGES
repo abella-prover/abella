@@ -1,5 +1,5 @@
-Changes in 2.0.5-dev from 2.0.4
--------------------------------
+Changes in 2.0.5 from 2.0.4
+---------------------------
 
 Additions
 
@@ -74,6 +74,9 @@ Bugfixes
 * Do not normalize object sequents except when they occur shallowly
   among the assumptions or goal. Deep normalization is unsound.  
   (Reported by Dale Miller)
+* The `apply` tactic was invalidly raising guessed instances over
+  nominal constants that already occur in the body of the lemma.
+  (#96; reported by Ahn Ki Yung and Alwen Tiu)
 
 
 Changes in 2.0.4 from 2.0.3

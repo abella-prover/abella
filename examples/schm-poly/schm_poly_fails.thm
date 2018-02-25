@@ -1,0 +1,40 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This example demonstrates when schematic polymorphism fails to prove
+%% properties about polymorphic specifications
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Define eq : A -> A -> prop by
+  eq X X.
+
+Type p   A -> o.
+
+Theorem eq_non_schm[A,B] : forall (X:A) (Y:B),
+  eq (p X) (p Y) -> false.
+intros. 
+  %% The following case analysis fails for the following reason.
+  %% Whether (p X) is equal to (p Y) depends on whether X and Y has
+  %% identical types, i.e., whether A and B can be made equal. Since A
+  %% and B are treated as "black boxes", examination of their identity
+  %% is not allowed.
+
+  % case H1.
+  skip.
+
+%% The following is a theorem that does not have
+%% a schematic proof.
+Theorem true_thm_with_no_schematic_proof [A,B]:
+  forall (X:A) (F:A -> B), exists (Y:B),
+    (eq (p X) (p Y)) \/ (eq (p X) (p Y) -> false).
+%% This theorem has a proof as follows:
+%% Case 1: A = B.
+%%   We choose Y to be X and show the right branch holds.
+%% Case 2: A =/= B.
+%%   We choose Y to be (F X) and then try to prove the right branch.
+%%   Since (p X) and (p Y) has different predicate heads, 
+%%   the right branch is trivially ture.
+%%
+%% However, since the above proof inspects the types for A and B,
+%% it is not a schematic proof. In fact, the above theore, also provable,
+%% does not have a schematic proof.
+skip.
+  

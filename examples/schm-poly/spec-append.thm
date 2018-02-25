@@ -1,0 +1,28 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% This example demonstrates how to use schematic polymorphism to
+%% prove properties about inductively defined polymorphic definitions
+%% at the specification level
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Specification "append".
+
+% Append is deterministic in its third argument
+Theorem app_det[A] : forall (L1 : list A) L2 L3 L3',
+  {append L1 L2 L3} -> {append L1 L2 L3'} -> L3 = L3'.
+induction on 1. intros. case H1.
+  % Case: L1 = nil, L2 = L3.
+  case H2. search.
+  % Inductive case
+  case H2. apply IH to H3 H4. search.
+
+% The determinacy property at some particular type instances
+Kind nat type.
+
+Theorem app_det_nat : forall (L1: list nat) L2 L3 L3',
+  {append L1 L2 L3} -> {append L1 L2 L3'} -> L3 = L3'.
+  intros. apply app_det to H1 H2. search.
+
+Theorem app_det_list[B] : forall (L1 : list (list B)) L2 L3 L3',
+  {append L1 L2 L3} -> {append L1 L2 L3'} -> L3 = L3'.
+  intros. apply app_det to H1 H2. search.
+

@@ -1,3 +1,26 @@
+The Schematics Polymorphism Branch
+==================================
+
+This is the branch of Abella that supports schematic polymorphism. You
+can find examples showing the capabilities and limitations of
+schematic polymorphism in the directory
+'examples/schm-poly'. Currently, this directory contains the following
+examples:
+
+1. A definition of the append relation at the reasoning level and the
+proof of its determinacy (reasoning-append.thm). This example
+demonstrates how to reason about schematic definitions defined at the
+reasoning level.
+
+2. A definition of the append relation at the specification level and
+the proof of its determinacy (spec-append.thm). This example
+demonstrates how to reason about schematic definitions defined at the
+specification level.
+
+3. Examples showing the limitations of schematic polymorphism
+(schm-poly-fails.thm).
+
+
 Quick Start
 ===========
 

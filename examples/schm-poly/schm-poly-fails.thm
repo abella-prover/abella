@@ -31,10 +31,10 @@ Theorem true_thm_with_no_schematic_proof [A,B]:
 %% Case 2: A =/= B.
 %%   We choose Y to be (F X) and then try to prove the right branch.
 %%   Since (p X) and (p Y) has different predicate heads, 
-%%   the right branch is trivially ture.
+%%   the right branch is trivially true.
 %%
 %% However, since the above proof inspects the types for A and B,
-%% it is not a schematic proof. In fact, the above theore, also provable,
+%% it is not a schematic proof. In fact, the above theorem, also provable,
 %% does not have a schematic proof.
 skip.
   

@@ -17,13 +17,11 @@ Define halts : tm -> prop by
 
 %% Reduce is the logical relation used to prove normalization.
 %%
-%% This definition uses itself recursively in a negative context (the
-%% left side of an implication). In order to guarantee consistency of
-%% the system we must ensure this definition is stratified. Note the
-%% second argument to reduce is strictly smaller in the (negative)
-%% recursive occurrence, thus the definition is indeed stratified.
+%% Note that this is not a stratified definition, but it is reducible
+%% because in negative contexts the second argument to reduce is strictly
+%% decreasing.
 
-Define reduce : tm -> ty -> prop by
+Recursive reduce : tm -> ty -> prop by
   reduce M top := {of M top} /\ halts M ;
   reduce M (arrow A B) := {of M (arrow A B)} /\
                           halts M /\
@@ -97,44 +95,41 @@ induction on 2. intros. case H2.
   case H1. apply IH to H4 H3. search.
   case H1. apply IH to H6 H4. search.
   case H1. case H4.
-    inst H6 with n1 = M1.
-      cut H7 with H5. search.
+    inst H7 with n1 = M1.
+      cut H8 with H5. search.
 
 Theorem reduce_step_forward : forall M N A,
-  reduce M A -> {step M N} -> reduce N A.
+  {ty A} -> reduce M A -> {step M N} -> reduce N A.
 induction on 1. intros. case H1.
-  apply of_step_forward to H3 H2.
-    apply halt_step_forward to H4 H2.
-      search.
-  unfold.
-    apply of_step_forward to H3 H2. search.
-    apply halt_step_forward to H4 H2. search.
-    intros. apply H5 to H6.
-      apply IH to H7 _. search.
+  case H2. apply halt_step_forward to H5 H3. apply of_step_forward to H4 H3. search.
+  case H2. unfold.
+    apply of_step_forward to H6 H3. search.
+    apply halt_step_forward to H7 H3. search.
+    intros. apply H8 to H9. apply IH to H5 H10 _. search.
 
 Theorem reduce_steps_forward : forall M N A,
-  reduce M A -> {steps M N} -> reduce N A.
-induction on 2. intros. case H2.
+  {ty A} -> reduce M A -> {steps M N} -> reduce N A.
+induction on 3. intros. case H3.
   search.
-  apply reduce_step_forward to H1 H3. apply IH to H5 H4. search.
+  apply reduce_step_forward to H1 H2 H4. apply IH to H1 H6 H5. search.
 
 Theorem reduce_step_backward : forall M N A,
-  reduce N A -> {step M N} -> {of M A} -> reduce M A.
+  {ty A} -> reduce N A -> {step M N} -> {of M A} -> reduce M A.
 induction on 1. intros. case H1.
-  apply halt_step_backward to H5 H2. search.
-  unfold.
+  case H2. apply halt_step_backward to H6 H3. search.
+  case H2. unfold.
     search.
-    apply halt_step_backward to H5 H2. search.
-    intros. apply H6 to H7.
-      apply reduce_of to H7.
-        apply IH to H8 _ _. search.
+    apply halt_step_backward to H8 H3. search.
+    intros. apply H9 to H10.
+     apply reduce_of to H10.
+       apply IH to H6 H11 _ _. search.
 
 Theorem reduce_steps_backward : forall M N A,
-  reduce N A -> {steps M N} -> {of M A} -> reduce M A.
-induction on 2. intros. case H2.
+  {ty A} -> reduce N A -> {steps M N} -> {of M A} -> reduce M A.
+induction on 3. intros. case H3.
   search.
-  apply of_step_forward to H3 H4. apply IH to H1 H5 H6.
-    apply reduce_step_backward to H7 H4 H3. search.
+  apply of_step_forward to H4 H5. apply IH to H1 H2 H6 H7.
+    apply reduce_step_backward to H1 H8 H5 H4. search.
 
 
 %% Properties about nominal constants, e.g. where they can and cannot occur.
@@ -142,7 +137,7 @@ induction on 2. intros. case H2.
 
 Define ctx : olist -> prop by
   ctx nil ;
-  nabla x, ctx (of x A :: L) := ctx L.
+  nabla x, ctx (of x A :: L) := {ty A} /\ ctx L.
 
 % A term is closed if it can be typed in the empty context
 Define closed : tm -> prop by
@@ -159,7 +154,16 @@ induction on 1. intros. case H1.
   case H2.
   case H2.
     search.
-    apply IH to H3 H4. search.
+    apply IH to H4 H5. search.
+
+Theorem ctx_tys :
+  forall L X A,
+  ctx L -> member (of X A) L -> {ty A}.
+induction on 1. intros. case H1.
+  case H2.
+  case H2.
+    search.
+    apply IH to H4 H5. search.
 
 Theorem member_prune : forall L E, nabla (x:tm),
   member (E x) L -> exists F, E = y\F.
@@ -167,13 +171,19 @@ induction on 1. intros. case H1.
   search.
   apply IH to H2. search.
 
+Theorem ty_ignores_ctx : forall L A, ctx L -> {L |- ty A} -> {ty A}.
+induction on 2. intros. case H2.
+  search.
+  apply IH to _ H3. apply IH to _ H4. search.
+  apply ctx_member to H1 H4. case H3.
+
 % A term cannot contain a nominal variable which does not appear in
 % its typing context L.
 Theorem prune_of : forall L R A, nabla (x:tm),
   ctx L -> {L |- of (R x) A} -> exists M, R = y\M.
 induction on 2. intros. case H2.
   apply IH to H1 H3. apply IH to H1 H4. search.
-  apply IH to _ H3. search.
+  apply ty_ignores_ctx to H1 H3. apply IH to _ H4. search.
   apply ctx_member to H1 H4. case H3.
    apply member_prune to H4. search.
 
@@ -218,17 +228,17 @@ Theorem subst_var : forall L M N A,
 induction on 1. intros. case H1.
   case H2.
   case H2.
-    case H3. apply reduce_closed to H5.
-      apply closed_subst to H8 H7. search.
-    case H3. apply member_prune to H5.
-      apply IH to H4 H5 H8. search.
+    case H3. apply reduce_closed to H6.
+      apply closed_subst to H9 H8. search.
+    case H3. apply member_prune to H6.
+      apply IH to H5 H6 H9. search.
 
 Theorem subst_app : forall L M N R,
   ctx L -> subst L (app M N) R ->
     exists MR NR, R = app MR NR /\ subst L M MR /\ subst L N NR.
 induction on 1. intros. case H1.
   case H2. search.
-  case H2. apply IH to H3 H6. search.
+  case H2. apply IH to H4 H7. search.
 
 Theorem subst_abs : forall L M R A,
   ctx L -> subst L (abs A M) R ->
@@ -240,19 +250,26 @@ induction on 1. intros. case H1.
     search.
     intros. search.
   case H2.
-    apply IH to H3 H6.
+    apply IH to H4 H7.
       exists MR. split.
         search.
-        intros. apply prune_reduce to H8.
-          apply H7 to H8 H9. case H10. search.
+        intros. apply prune_reduce to H9.
+          apply H8 to H9 H10. case H11. search.
 
 Theorem subst_preserves_ty : forall L M N A,
   ctx L -> subst L M N -> {L |- of M A} -> {of N A}.
 induction on 1. intros. case H1.
   case H2. search.
   case H2.
-    apply reduce_of to H5. inst H3 with n1 = V. cut H9 with H8.
-      apply IH to H4 H7 H10. search.
+    apply reduce_of to H6. inst H3 with n1 = V. cut H10 with H9.
+      apply IH to H5 H8 H11. search.
+
+Theorem ty_of_ctx : forall L M A, ctx L -> {L |- of M A} -> {ty A}.
+induction on 2. intros. case H2.
+  apply IH to _ H3. case H5. search.
+  apply ty_ignores_ctx to H1 H3. apply IH to _ H4. search.
+  apply ctx_member to H1 H4. case H5. case H3.
+   apply ctx_tys to H1 H4. search.
 
 Theorem weak_norm_ext : forall L M R A,
   ctx L -> {L |- of M A} -> subst L M R -> reduce R A.
@@ -266,14 +283,17 @@ induction on 2. intros. case H2 (keep).
       search.
       search.
       intros. % The rest is one single case
-        apply reduce_halts to H7. case H8.
-        apply reduce_steps_forward to H7 H9.
-        apply H5 to H11 H10.
-        apply IH to _ H4 H12.
-        apply steps_app_value to _ H9 with M = abs A1 MR.
-        apply steps_right to H14 _ with R = MR V.
-        apply reduce_of to H7.
-        apply reduce_steps_backward to H13 H15 _.
+        apply reduce_halts to H8. case H9.
+        apply reduce_steps_forward to _ H8 H10.
+          backchain ty_ignores_ctx.
+        apply H6 to H12 H11.
+        apply IH to _ H5 H13.
+          apply ty_ignores_ctx to _ H4. search.
+        apply steps_app_value to _ H10 with M = abs A1 MR.
+        apply steps_right to H15 _ with R = MR V.
+        apply reduce_of to H8.
+        apply reduce_steps_backward to _ H14 H16 _.
+          apply ty_ignores_ctx to _ H4. backchain ty_of_ctx.
         search.
   apply ctx_member to H1 H5. case H6. case H4.
    apply subst_var to H1 H5 H3. search.

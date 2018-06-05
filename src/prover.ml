@@ -169,6 +169,8 @@ let defs_table : defs_table = State.table ()
 
 let built_ins_done = ref false
 
+let arity (Ty (args, _)) = List.length args
+
 let add_defs typarams preds flavor clauses =
   List.iter begin fun (id, _) ->
     if List.mem id [k_fresh ; k_name] && !built_ins_done then
@@ -179,12 +181,12 @@ let add_defs typarams preds flavor clauses =
   (* List.iter begin fun (head, body) -> *)
   (*   Format.eprintf "%a := %a@." format_metaterm head format_metaterm body *)
   (* end defs ; *)
-  let mutual = List.fold_left begin fun mutual (id, ty) ->
+  let atoms = List.fold_left begin fun mutual (id, ty) ->
       Itab.add id ty mutual
     end Itab.empty preds in
-  let def = {flavor ; typarams ; mutual ; clauses} in
+  let def = {flavor ; typarams ; atoms ; clauses} in
   Checks.check_def ~def ;
-  List.iter (fun (id, _) -> H.add defs_table id def) preds
+  List.iter (fun (id, ty) -> H.add defs_table id def) preds
 
 let lookup_poly_const k =
   try let Poly (typarams, ty) = List.assoc k (snd !sign) in (typarams, ty) with
@@ -250,7 +252,7 @@ let rec app_ty tymap = function
 
 let instantiate_clauses_aux =
   let fn (pn, ty_acts) def =
-    let Ty (ty_exps, _) = Itab.find pn def.mutual in
+    let Ty (ty_exps, _) = Itab.find pn def.atoms in
     let ty_fresh = List.fold_left begin fun fresh_sub tyvar ->
         let tv = Term.fresh_tyvar () in
         Itab.add tyvar tv fresh_sub
@@ -292,7 +294,7 @@ let def_unfold term =
           if def.typarams = [] then def.clauses
           else instantiate_clauses pn def (term_spine p)
         in
-        (def.mutual, clauses)
+        (def.atoms, clauses)
       end else
         failwith "Cannot perform case-analysis on undefined atom"
   | _ -> (Itab.empty, [])
@@ -895,9 +897,9 @@ let ensure_is_inductive term =
       begin try
         match (H.find defs_table pname).flavor with
         | Inductive -> ()
-        | CoInductive ->
+        | CoInductive | Recursive ->
             failwithf "Cannot induct on %s since it has\
-                     \ been coinductively defined"
+                     \ not been inductively defined"
               pname
       with Not_found ->
         failwithf "Cannot induct on %s since it has not been defined" pname
@@ -942,9 +944,9 @@ let ensure_is_coinductive p =
   try
     match (H.find defs_table pname).flavor with
     | CoInductive -> ()
-    | Inductive ->
+    | Inductive | Recursive ->
         failwithf "Cannot coinduct on %s since it has\
-                 \ been inductively defined"
+                 \ not been coinductively defined"
           pname
   with Not_found ->
     failwithf "Cannot coinduct on %s since it has not been defined" pname

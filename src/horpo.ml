@@ -12,24 +12,36 @@
 
 
 open Term
+open Abella_types
+
 open Extensions
 
 let geq ?(gt=(>)) s t =
   Term.eq s t || gt s t
 
-let rec multiset_extension ?gt set1 set2 =
-  match set1 with
-  | [] -> set2 = []
-  | s :: set1 ->
-      let set2 = List.filter (fun t -> not (geq ?gt s t)) set2 in
-      multiset_extension ?gt set1 set2
+let rec splits left x right =
+  match right with
+  | [] -> [x, List.rev left]
+  | r :: right1 -> (x, List.rev_append left right) :: splits (x :: left) r right1
+let splits l = match l with
+  | [] -> []
+  | x :: l -> splits [] x l
+
+let rec multiset_extension ?(gt=(>)) set1 set2 =
+  splits set1 |>
+  List.exists begin fun (s, set1) ->
+    let set2 = List.filter (fun t -> not (gt s t)) set2 in
+    List.length (List.intersect ~cmp:Term.eq set1 set2) =
+    List.length set1
+  end
 
 let rec lex_extension ?(gt=(>)) ss tt =
   match ss, tt with
   | (s :: ss), (t :: tt) ->
       gt s t || (Term.eq s t && lex_extension ~gt ss tt)
-  | [], _ -> true
-  | _, [] -> false
+  | [], [] -> false
+  | [], _  -> true
+  | _, []  -> false
 
 let rec remove_common_prefix ss tt =
   match ss, tt with
@@ -77,7 +89,6 @@ let rec horpo ?(cx=[]) s0 t0 =
   sty = tty &&
   match observe (hnorm s0), observe (hnorm t0) with
   | DB m, DB n   -> m > n
-  | Var v, Var u -> v.name > u.name
   | Lam (scx, s), Lam (tcx, t) ->
       let (ccx, scx, tcx) = remove_common_prefix scx tcx in
       let s = lambda scx s in
@@ -157,14 +168,13 @@ let metaterm_inject =
         let mt = replace_metaterm_vars [x, db 1] (Binding (q, bs, f)) in
         app kq [lambda [x, xty] (metaterm mt)]
     | Eq (s, t) -> app (k_eq (tc [] s)) [s ; t]
-    | Obj (Async aobj, _) ->
-        let (cx, concl) = Async.get aobj in
-        let cx = context cx in
-        app k_aobj [cx ; concl]
-    | Obj (Sync aobj, _) ->
-        let (cx, foc, concl) = Sync.get aobj in
-        let cx = context cx in
-        app k_sobj [cx ; foc ; concl]
+    | Obj (obj, _) -> begin
+        match obj.mode with
+        | Async ->
+            app k_aobj [context obj.context ; obj.right]
+        | Sync foc ->
+            app k_sobj [context obj.context ; foc ; obj.right]
+      end
     | Pred (p, _) -> app k_pred [p]
   and context = function
     | [] -> const Typing.k_nil olistty
@@ -176,6 +186,53 @@ let horpo_metaterms ms0 mt0 =
   let s0 = metaterm_inject ms0 in
   let t0 = metaterm_inject mt0 in
   horpo s0 t0
+
+let extend_ctx cx1 cx2 =
+  List.fold_left begin fun (cx, sub) (x, ty) ->
+    let xx = fresh_name x cx in
+    let cx = (xx, ty) :: cx in
+    let sub = (x, const xx ty) :: sub in
+    (cx, sub)
+  end (cx1, []) cx2
+
+let stratification_check ~def =
+  let nocc : (tyctx * term list) list ref = ref [] in
+  let measure t = match term_head t with
+    | Some (_, args) -> args
+    | None -> bugf "stratification_check#measure"
+  in
+  let emit cx t = nocc := (cx, measure t) :: !nocc in
+  let open Metaterm in
+  let rec scan_nocc rt cx a = match a with
+    | True | False | Eq _ | Obj _ -> ()
+    | And (a, b) | Or (a, b) ->
+        scan_nocc rt cx a ;
+        scan_nocc rt cx b
+    | Arrow (a, b) ->
+        scan_nocc false cx a ;
+        scan_nocc rt cx b
+    | Binding (q, acx, a) ->
+        let (cx, sub) = extend_ctx cx acx in
+        let a = replace_metaterm_vars sub a in
+        scan_nocc rt cx a
+    | Pred (p, _) ->
+        if Itab.mem (term_head_name p) def.atoms && not rt then emit cx p
+  in
+  let rec get_head h =
+    let (cx, p) = match h with
+      | Binding (_, cx, Pred (p, _)) -> (cx, p)
+      | Pred (p, _) -> ([], p)
+      | _ -> bugf "Bad head"
+    in
+    (capital_tids [p] @ cx, measure p)
+  in
+  List.filter_map begin fun cl ->
+    let cx, h = get_head cl.head in
+    nocc := [] ;
+    scan_nocc true cx cl.body ;
+    if !nocc = [] then None
+    else Some ((cx, h), !nocc)
+  end def.clauses
 
 module Test = struct
 
@@ -197,5 +254,12 @@ module Test = struct
 
   let r3l = lambda ["x", natty] (app k_rec [app k_succ [db 1] ; k_u ; k_X])
   let r3r = lambda ["x", natty] (app k_X [db 1 ; app k_rec [db 1 ; k_u ; k_X]])
+
+  let tyty = tybase "ty"
+  let k_arrow = const "arrow" (tyarrow [tyty ; tyty] tyty)
+  let k_a = const "A" tyty
+  let k_b = const "B" tyty
+  let k_ab = app k_arrow [k_a ; k_b]
+  let k_aa = app k_arrow [k_a ; k_a]
 
 end

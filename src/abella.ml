@@ -693,7 +693,7 @@ and process_top1 () =
         add_lemma n tys t ;
         compile (CTheorem(n, tys, t))
       end gen_thms ;
-  | Define _ ->
+  | Define (flavor, _, _) ->
       compile (register_definition input)
   | TopCommon(Back) ->
       if !interactive then State.Undo.back 2

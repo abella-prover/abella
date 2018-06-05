@@ -28,7 +28,7 @@ open Extensions
 type uclause = string option * uterm * uterm list
 type clause = term
 
-type flavor = Inductive | CoInductive
+type flavor = Inductive | CoInductive | Recursive
 
 type udef_clause = umetaterm * umetaterm
 type def_clause = {
@@ -38,7 +38,7 @@ type def_clause = {
 type def = {
   flavor   : flavor ;
   typarams : string list ;
-  mutual   : ty Itab.t ;
+  atoms    : ty Itab.t ;
   clauses  : def_clause list ;
 }
 type defs_table = (string, def) Hashtbl.t
@@ -202,8 +202,9 @@ let udef_clauses_to_string cls =
 
 let flavor_to_string dtype =
   match dtype with
-    | Inductive -> "inductive"
-    | CoInductive -> "coinductive"
+    | Inductive -> "Define"
+    | CoInductive -> "CoDefine"
+    | Recursive -> "Recursive"
 
 let set_value_to_string v =
   match v with
@@ -253,7 +254,7 @@ let top_command_to_string tc =
           (umetaterm_to_formatted_string body)
     | Define(flavor, idtys, cls) ->
         sprintf "%s %s by \n%s"
-          (match flavor with Inductive -> "Define" | _ -> "CoDefine")
+          (flavor_to_string flavor)
           (idtys_to_string idtys) (udef_clauses_to_string cls) ;
     | Import (filename, withs) ->
         sprintf "Import \"%s\"%s%s" filename

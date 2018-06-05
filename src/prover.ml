@@ -45,6 +45,7 @@ type sequent = {
   mutable vars : (id * term) list ;
   mutable hyps : hyp list ;
   mutable goal : metaterm ;
+  mutable count : int ;
   mutable name : string ;
   mutable next_subgoal_id : int ;
 }
@@ -55,6 +56,7 @@ let assign_sequent sq1 sq2 =
   sq1.vars <- sq2.vars ;
   sq1.hyps <- sq2.hyps ;
   sq1.goal <- sq2.goal ;
+  sq1.count <- sq2.count ;
   sq1.name <- sq2.name ;
   sq1.next_subgoal_id <- sq2.next_subgoal_id
 
@@ -63,6 +65,7 @@ let sequent =
     vars = [] ;
     hyps = [] ;
     goal = termobj (const "placeholder" propty) ;
+    count = 0 ;
     name = "" ;
     next_subgoal_id = 1 ;
   }
@@ -129,11 +132,11 @@ let copy_sequent () = cp_sequent sequent
 let set_sequent other = assign_sequent sequent other
 
 let fresh_hyp_name base =
-  let base = match base with
-    | "" -> "H1"
-    | _ -> base
-  in
-  fresh_name base (List.map (fun h -> (h.id, ())) sequent.hyps)
+  if base = "" then begin
+    sequent.count <- sequent.count + 1 ;
+    "H" ^ (string_of_int sequent.count)
+  end else
+    fresh_name base (List.map (fun h -> (h.id, ())) sequent.hyps)
 
 (* let normalize mt = *)
 (*   let before = metaterm_to_string mt in *)

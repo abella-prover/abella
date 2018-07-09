@@ -3,7 +3,9 @@ Changes in 2.0.6-dev from 2.0.5
 
 Experimental Additions
 
-* Added support for reducible recursive definitions. Such definitions
+* THIS FEATURE HAS KNOWN SOUNDNESS BUGS -- DON'T USE IT YET
+
+  Added support for reducible recursive definitions. Such definitions
   are introduced with the new keyword `Recursive`. Here is an example:
 
         Recursive of : tm -> ty -> prop by

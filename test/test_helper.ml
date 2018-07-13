@@ -179,6 +179,10 @@ let assert_term_pprint_equal s t =
   let t = renumber_term t in
   assert_string_equal s (Term.term_to_string t)
 
+let assert_term_pprint_differeent s t =
+  let t = renumber_term t in
+  assert_string_equal s (Term.term_to_string t)
+
 let assert_ty_pprint_equal s t =
   assert_string_equal s (Term.ty_to_string t)
 

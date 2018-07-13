@@ -506,11 +506,8 @@ class term_printer = object (self)
         | Var {name=("pi"|"sigma" as q); _}, [a] -> begin
             match observe (hnorm a) with
             | Lam ([x, ty], t) ->
-                Pretty.(Bracket { left = STR (q ^ " " ^ x ^ "\\") ;
-                                  right = STR "" ;
-                                  indent = 2 ;
-                                  inner = self#print (adjoin cx (x, ty)) t ;
-                                  trans = TRANSPARENT })
+                Pretty.(Opapp (50, Prefix (STR (q ^ " " ^ x ^ "\\"),
+                                           self#print (adjoin cx (x, ty)) t)))
             | a ->
                 print_app Pretty.(Atom (STR "pi")) [self#print cx a]
           end
@@ -681,3 +678,21 @@ let extract_pi t =
   match observe (hnorm t) with
     | App(t, [abs]) -> abs
     | _ -> bugf "Check is_pi before calling extract_pi"
+
+
+
+module Test = struct
+
+  let p = const "p" (tyarrow [tybase "x"] oty)
+  let q = const "q" (tyarrow [tybase "x"] oty)
+  let mkpi x ty f =
+    app (const "pi" (tyarrow [tyarrow [ty] oty] oty)) [lambda [x, ty] f]
+  let mkimp f g =
+    app (const "=>" (tyarrow [oty ; oty] oty)) [f ; g]
+  let ity = tybase "i"
+  let t1 =
+    mkpi "x" ity (mkimp (app p [db 1]) (app q [db 1]))
+  let t2 =
+    mkimp (mkpi "x" ity (app p [db 1])) (app q [db 1])
+
+end

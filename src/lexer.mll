@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -32,7 +32,6 @@
     "Kind",          KKIND ;
     "Query",         QUERY ;
     "Quit",          QUIT ;
-    "Recursive",     RECURSIVE ;
     "Set",           SET ;
     "Show",          SHOW ;
     "Specification", SPECIFICATION ;

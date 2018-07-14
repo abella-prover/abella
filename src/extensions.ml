@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -424,15 +424,3 @@ module IntMap : Map.S with type key := int =
       if x < y then -1 else
       if x = y then 0 else 1
   end)
-
-module Delim = struct
-  type 'a t = 'a -> exn
-
-  let shift label value =
-    raise (label value)
-
-  let reset (type u) (f : u t -> u) : u =
-    let module M = struct exception Return of u end in
-    try f (fun x -> M.Return x)
-    with M.Return u -> u
-end

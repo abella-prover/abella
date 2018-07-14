@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -28,7 +28,7 @@ open Extensions
 type uclause = string option * uterm * uterm list
 type clause = term
 
-type flavor = Inductive | CoInductive | Recursive
+type flavor = Inductive | CoInductive
 
 type udef_clause = umetaterm * umetaterm
 type def_clause = {
@@ -38,7 +38,7 @@ type def_clause = {
 type def = {
   flavor   : flavor ;
   typarams : string list ;
-  atoms    : ty Itab.t ;
+  mutual   : ty Itab.t ;
   clauses  : def_clause list ;
 }
 type defs_table = (string, def) Hashtbl.t
@@ -202,9 +202,8 @@ let udef_clauses_to_string cls =
 
 let flavor_to_string dtype =
   match dtype with
-    | Inductive -> "Define"
-    | CoInductive -> "CoDefine"
-    | Recursive -> "Recursive"
+    | Inductive -> "inductive"
+    | CoInductive -> "coinductive"
 
 let set_value_to_string v =
   match v with
@@ -254,7 +253,7 @@ let top_command_to_string tc =
           (umetaterm_to_formatted_string body)
     | Define(flavor, idtys, cls) ->
         sprintf "%s %s by \n%s"
-          (flavor_to_string flavor)
+          (match flavor with Inductive -> "Define" | _ -> "CoDefine")
           (idtys_to_string idtys) (udef_clauses_to_string cls) ;
     | Import (filename, withs) ->
         sprintf "Import \"%s\"%s%s" filename

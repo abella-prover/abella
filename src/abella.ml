@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -693,7 +693,7 @@ and process_top1 () =
         add_lemma n tys t ;
         compile (CTheorem(n, tys, t))
       end gen_thms ;
-  | Define (flavor, _, _) ->
+  | Define _ ->
       compile (register_definition input)
   | TopCommon(Back) ->
       if !interactive then State.Undo.back 2

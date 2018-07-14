@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -693,6 +693,7 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   metaterm_ensure_subordination sr result ;
   check_meta_quantification result ;
   result
+
 
 let type_udef ~sr ~sign (head, body) =
   let cids = umetaterm_extract_if is_capital_name head in

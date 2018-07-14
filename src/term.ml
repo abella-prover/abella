@@ -1,7 +1,7 @@
 (****************************************************************************)
 (* An implemention of Higher-Order Pattern Unification                      *)
 (* Copyright (C) 2006-2009 Nadathur, Linnell, Baelde, Ziegler, Gacek        *)
-(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -306,30 +306,20 @@ let remove_trailing_numbers s =
   let len = scan (String.length s - 1) in
   String.sub s 0 len
 
-let get_salt base s =
-  if String.length base = String.length s then 0 else
-  int_of_string (String.sub s
-                   (String.length base)
-                   (String.length s - String.length base))
-
 let fresh_name name used =
   let basename = remove_trailing_numbers name in
-  let salt = get_salt basename name in
-  let rec spin salt used =
-    match used with
-    | [] -> salt
-    | (hn, _) :: used ->
-        let hnbase = remove_trailing_numbers hn in
-        let salt =
-          if basename = hnbase then
-            max salt (get_salt hnbase hn + 1)
-          else salt
-        in
-        spin salt used
+  let rec aux i =
+    let name = basename ^ (string_of_int i) in
+      if List.mem_assoc name used then
+        aux (i+1)
+      else
+        name
   in
-  let salt = spin salt used in
-  if salt = 0 then basename else
-  basename ^ string_of_int salt
+    (* Try to avoid any renaming *)
+    if List.mem_assoc name used then
+      aux 1
+    else
+      name
 
 let fresh_wrt ~ts tag name ty used =
   let name = fresh_name name used in

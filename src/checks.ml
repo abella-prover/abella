@@ -1,7 +1,7 @@
 (*
  * Author: Kaustuv Chaudhuri <kaustuv.chaudhuri@inria.fr>
- * Copyright (C) 2015-2018  Inria (Institut National de Recherche
- *                          en Informatique et en Automatique)
+ * Copyright (C) 2015  Inria (Institut National de Recherche
+ *                     en Informatique et en Automatique)
  * See LICENSE for licensing details.
  *)
 
@@ -113,13 +113,11 @@ let warn_stratify names head term =
       let msg = match reason with
         | Negative_head name ->
             Printf.sprintf
-              "Clause might not be stratified\n\
-             \ (%S occurs to the left of ->)"
+              "Definition might not be stratified\n  (%S occurs to the left of ->)"
               name
         | Negative_ho_arg name ->
             Printf.sprintf
-              "Clause can be used to defeat stratification\n\
-             \ (higher-order argument %S occurs to the left of ->)"
+              "Definition can be used to defeat stratification\n  (higher-order argument %S occurs to the left of ->)"
               name
       in
       if stratification_warnings_are_errors
@@ -151,7 +149,7 @@ let ensure_wellformed_head t =
       failwithf "Invalid head in definition: %s"
         (metaterm_to_string t)
 
-let check_monotone ~def =
+let check_basic_stratification ~def =
   let check_clause {head ; body} =
     let nonposities = get_pred_occurrences body in
     let is_ho_var arg =
@@ -162,7 +160,7 @@ let check_monotone ~def =
     let ho_names = def_head_args head |>
                    List.filter_map is_ho_var in
     let scan () = Iset.iter begin fun pname ->
-        if Itab.mem pname def.atoms then
+        if Itab.mem pname def.mutual then
           raise (Nonstrat (Negative_head pname)) ;
         if List.mem pname ho_names then
           raise (Nonstrat (Negative_ho_arg pname)) ;
@@ -173,12 +171,12 @@ let check_monotone ~def =
           | Negative_head name ->
               Printf.sprintf
                 "Definition might not be stratified\n\
-                \ (%S occurs to the left of ->)"
+               \ (%S occurs to the left of ->)"
                 name
           | Negative_ho_arg name ->
               Printf.sprintf
                 "Definition can be used to defeat stratification\n\
-                \ (higher-order argument %S occurs to the left of ->)"
+               \ (higher-order argument %S occurs to the left of ->)"
                 name
         in
         if stratification_warnings_are_errors then failwith msg
@@ -186,46 +184,15 @@ let check_monotone ~def =
   in
   List.iter check_clause def.clauses
 
-let arity (Ty (args, _)) = List.length args
-
-let check_reducible ~def =
-  if Itab.cardinal def.atoms <> 1 then
-    failwithf "Mutually recursive definitions not yet supported" ;
-  let (p, ty) = Itab.choose def.atoms in
-  let checks = Horpo.stratification_check ~def in
-  if checks <> [] then begin
-    let surv = ref (List.range 1 (arity ty)) in
-    List.iter begin fun ((_, lefts), body) ->
-      List.iter begin fun (_, rights) ->
-        List.iter2 begin fun (i, l) r ->
-          if List.mem i !surv then
-            let horpo = Horpo.horpo l r in
-            (* let (!!) pp ff x = pp ff x in *)
-            (* Format.eprintf "%d : %a ?> %a ? %b@." i *)
-            (*   !!format_term l *)
-            (*   !!format_term r *)
-            (*   horpo ; *)
-            if not horpo then surv := List.filter (fun k -> k <> i) !surv
-        end (List.number lefts) rights ;
-      end body
-    end checks ;
-    if !surv = [] then
-      failwithf "Cannot infer reducibility on any argument" ;
-    Printf.fprintf !out "Inferred reducible on argument(s): %s\n%!"
-      (String.concat ", " (List.map string_of_int !surv))
-  end
-
 let check_stratification ~def =
-  match def.flavor with
-  | Inductive | CoInductive -> check_monotone ~def
-  | Recursive -> check_reducible ~def
+  check_basic_stratification ~def
 
 let check_def ~def =
-  Itab.iter (fun nm _ -> ensure_not_capital nm) def.atoms ;
+  Itab.iter (fun nm _ -> ensure_not_capital nm) def.mutual ;
   List.iter begin fun {head ; body} ->
     let head_pred = def_head_name head in
     ensure_wellformed_head head ;
-    if not (Itab.mem head_pred def.atoms) then
+    if not (Itab.mem head_pred def.mutual) then
       failwithf "Found stray clause for %s" head_pred ;
     ensure_no_restrictions head ;
     ensure_no_restrictions body ;

@@ -18,11 +18,13 @@ Define neutral : tm -> prop by
 
 %% Reduce is the logical relation used to prove normalization.
 %%
-%% Note that this is not a stratified definition, but it is reducible
-%% because in negative contexts the second argument to reduce is strictly
-%% decreasing.
+%% This definition uses itself recursively in a negative context (the
+%% left side of an implication). In order to guarantee consistency of
+%% the system we must ensure this definition is stratified. Note the
+%% second argument to reduce is strictly smaller in the (negative)
+%% recursive occurrence, thus the definition is indeed stratified.
 
-Recursive reduce : tm -> ty -> prop by
+Define reduce : tm -> ty -> prop by
   reduce M top := {of M top} /\ sn M ;
   reduce M (arrow A B) :=
     {of M (arrow A B)} /\
@@ -94,12 +96,12 @@ intros. case H1. apply H3 to H2. search.
 
 % CR2
 Theorem reduce_step : forall M N A,
-  {ty A} -> reduce M A -> {step M N} -> reduce N A.
+  reduce M A -> {step M N} -> reduce N A.
 induction on 1. intros. case H1.
-  case H2. apply sn_step to H5 H3. apply of_step to H4 H3. search.
-  case H2. unfold.
-    apply of_step to H6 H3. search.
-    intros. apply H7 to H8. apply IH to H5 H9 _. search.
+  apply of_step to H3 H2. apply sn_step to H4 H2. search.
+  unfold.
+    apply of_step to H3 H2. search.
+    intros. apply H4 to H5. apply IH to H6 _. search.
 
 Theorem sn_app_c : forall M,
   sn (app M c) -> sn M.
@@ -107,18 +109,6 @@ induction on 1. intros. case H1.
   unfold. intros.
     assert {step (app M c) (app N c)}.
     apply H2 to H4. apply IH to H5. search.
-
-Theorem of_ty_ext : forall L M A,
-  ctx L -> {L |- of M A} -> {ty A}.
-induction on 2. intros. case H2.
-  apply IH to H1 H3. case H5. search.
-  apply ty_ignores_ctx to H1 H3. apply IH to _ H4. search.
-  apply ty_ignores_ctx to H1 H3. search.
-  apply ctx_member to H1 H4. case H5. case H3. search.
-
-Theorem of_ty : forall M A,
-  {of M A} -> {ty A}.
-intros. apply of_ty_ext to _ H1. search.
 
 % CR1 and CR3 are mutually recursive,
 Theorem cr1_cr3 : forall A,
@@ -138,9 +128,10 @@ induction on 1. intros. split*.
 
     % Arrow case
     case H1.
-    assert (neutral c).
+    assert 0 (neutral c).
+      unfold. intros. case H7.
     assert {of c A1}.
-    assert (forall P, {step c P} -> reduce P A1).
+    assert 0 (forall P, {step c P} -> reduce P A1).
       intros. case H9.
     apply IH to H5.
     apply H11 to H7 H8 H9.
@@ -172,10 +163,11 @@ induction on 1. intros. split*.
                 intros. case H15.
                   apply H5 to H16. case H17.
                     apply H19 to H13. search.
-                  apply H14 to H16. apply reduce_step to _ H13 H16.
+                  apply H14 to H16. apply reduce_step to H13 H16.
                     apply IH1 to H17 H18. search.
                   case H3. apply H16 to _.
-              assert neutral (app M U1).
+              assert 0 neutral (app M U1).
+                unfold. intros. case H16.
               assert {of (app M U1) B}.
                 apply reduce_of to H13. search.
               apply IH to H7.
@@ -194,10 +186,23 @@ Theorem neutral_step_reduce : forall A M,
     reduce M A.
 intros. apply cr1_cr3 to H3. apply H6 to H1 H2 H4. search.
 
+Theorem of_ty_ext : forall L M A,
+  ctx L -> {L |- of M A} -> {ty A}.
+induction on 2. intros. case H2.
+  apply IH to H1 H3. case H5. search.
+  apply ty_ignores_ctx to H1 H3. apply IH to _ H4. search.
+  apply ty_ignores_ctx to H1 H3. search.
+  apply ctx_member to H1 H4. case H5. case H3. search.
+
+Theorem of_ty : forall M A,
+  {of M A} -> {ty A}.
+intros. apply of_ty_ext to _ H1. search.
+
 Theorem reduce_const : forall C,
   {ty C} -> reduce c C.
 intros.
-  assert (neutral c).
+  assert 0 (neutral c).
+    unfold. intros. case H2.
   assert (forall P, {step c P} -> reduce P C).
     intros. case H3.
   apply neutral_step_reduce to H2 _ H1 H3. search.
@@ -218,21 +223,19 @@ induction on 1. induction on 2. intros.
         apply of_step to H5 _. search.
         intros. apply H4 to H12.
           inst H8 with n1 = V.
-            apply reduce_step to _ H13 H14.
-              apply of_ty to H5. case H15. search.
-            search.
+            apply reduce_step to H13 H14. search.
       search.
 
       % Case 2: (app (abs A M) U) -> (app (abs A M) N')
       case H1. apply H8 to H7.
-      apply reduce_step to _ H3 H7.
-        apply of_ty to H5. case H10. search.
+      apply reduce_step to H3 H7.
       apply IH to H9 H2 H10 H4 H5 with M = M. search.
 
       % Case 3: (app (abs A M) U) -> (M U)
       apply H4 to H3. search.
 
-  assert neutral (app (abs A M) U).
+  assert 0 neutral (app (abs A M) U).
+    unfold. intros. case H7.
 
   assert {of (app (abs A M) U) B}.
     apply reduce_of to H3. search.

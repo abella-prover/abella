@@ -1,7 +1,7 @@
 (****************************************************************************)
 (* An implemention of Higher-Order Pattern Unification                      *)
 (* Copyright (C) 2006-2009 Nadathur, Linnell, Baelde, Ziegler, Gacek        *)
-(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -122,7 +122,6 @@ val abstract : string -> ty -> term -> term
 (** Abella specific additions and changes *)
 val const : ?ts:int -> string -> ty -> term
 val fresh : ?tag:tag -> int -> ty -> term
-val fresh_name : id -> (id * 'a) list -> id
 val fresh_wrt : ts:int -> tag -> id -> ty ->
                   (id * term) list -> term * (id * term) list
 

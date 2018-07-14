@@ -1,6 +1,6 @@
 /****************************************************************************/
 /* Copyright (C) 2007-2009 Gacek                                            */
-/* Copyright (C) 2013-2018 Inria (Institut National de Recherche            */
+/* Copyright (C) 2013-2016 Inria (Institut National de Recherche            */
 /*                         en Informatique et en Automatique)               */
 /*                                                                          */
 /* This file is part of Abella.                                             */
@@ -112,7 +112,7 @@
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY ASYNC
 %token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON
-%token THEOREM DEFINE CODEFINE RECURSIVE PLUS SET ABBREV UNABBREV QUERY SHOW
+%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
 %token BACK RESET
 %token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND
@@ -684,16 +684,13 @@ theorem_typarams:
   | LBRACK id_list RBRACK
     { List.map deloc_id $2 }
 
-define_flavor:
-  | DEFINE { Types.Inductive }
-  | CODEFINE { Types.CoInductive }
-  | RECURSIVE { Types.Recursive }
-
 pure_top_command:
   | THEOREM loc_id theorem_typarams COLON metaterm DOT
     { Types.Theorem(deloc_id $2, $3, $5) }
-  | define_flavor id_tys BY optsemi defs DOT
-    { Types.Define($1, $2, $5) }
+  | DEFINE id_tys BY optsemi defs DOT
+    { Types.Define(Types.Inductive, $2, $5) }
+  | CODEFINE id_tys BY optsemi defs DOT
+    { Types.Define(Types.CoInductive, $2, $5) }
   | QUERY metaterm DOT
     { Types.Query($2) }
   | IMPORT QSTRING DOT

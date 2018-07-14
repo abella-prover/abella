@@ -1,30 +1,6 @@
 Changes in 2.0.6-dev from 2.0.5
 -------------------------------
 
-Experimental Additions
-
-* THIS FEATURE HAS KNOWN SOUNDNESS BUGS -- DON'T USE IT YET
-
-  Added support for reducible recursive definitions. Such definitions
-  are introduced with the new keyword `Recursive`. Here is an example:
-
-        Recursive of : tm -> ty -> prop by
-          of (app M N) B := exists A, of M (arrow A B) /\ of N A;
-          of (abs R) (arrow A B) := nabla x, of x A -> of (R x) B.
-
-  Such definitions are only accepted if Abella can infer a reducible
-  relation between at least one argument of the defined atom for occurrences
-  of the defined predicate that are in subformulas to the left of `->` in
-  the body. In this example, it infers that the type argument always
-  strictly decreases, so it is valid.
-
-  This reducibility condition is slightly weaker than the "stratification"
-  condition for inductive and co-inductive definitions. On the other hand,
-  recursive definitions are weaker in the sense that they cannot be used for
-  induction or co-induction.
-
-  The stlc-strong-norm and stlc-weak-norm examples have been modified to use
-  reducible recursive definitions that fixes their existing bogosity.
 
 
 Changes in 2.0.5 from 2.0.4

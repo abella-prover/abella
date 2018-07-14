@@ -1347,13 +1347,14 @@ let apply_with term args withs =
 
 let backchain_check_restrictions hr gr =
   match hr, gr with
-  | ( Smaller i, Smaller j | CoSmaller i, CoSmaller j ) when i = j -> ()
-  | _, ( Smaller _ | CoSmaller _ as r)
-  | ( Smaller _ | CoSmaller _ as r), _ ->
+  | Smaller _, Irrelevant
+  | Irrelevant, CoSmaller _ -> ()
+  | (Smaller i, Smaller j | CoSmaller i, CoSmaller j) when i = j -> ()
+  | _, (Smaller _ | CoSmaller _ as r)
+  | (Smaller _ | CoSmaller _ as r), _ ->
       failwithf "%snductive restriction violated"
         (match r with Smaller _ -> "I" | _ -> "Coi")
-  | _ ->
-     ()
+  | _ -> ()
 
 let backchain_arrow term goal =
   let obligations, head = decompose_arrow term in

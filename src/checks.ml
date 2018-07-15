@@ -202,3 +202,15 @@ let check_def ~def =
     ensure_no_restrictions body ;
   end def.clauses ;
   check_stratification ~def
+
+(** The list of type parameters of a definition must be 
+    exactly those occuring in the type of the constants being defined *)
+let check_typaram tyvars ty =
+  let tyvars' = get_typaram ty in
+  let extra1 = (List.minus tyvars tyvars') in
+  let extra2 = (List.minus tyvars' tyvars) in
+  if (List.length extra1 <> 0 || List.length extra2 <> 0) then
+    failwithf "Some type parameters do not occur in type of some constant being defined"
+
+let check_typarams tyvars tys =
+  List.iter (check_typaram tyvars) tys

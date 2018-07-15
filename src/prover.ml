@@ -204,7 +204,8 @@ let lookup_poly_const k =
 
 let register_definition = function
   | Define (flav, idtys, udefs) ->
-      let typarams = idtys |> List.map snd |> get_typarams in
+      let typarams = List.unique (idtys |> List.map snd |> get_typarams) in
+      check_typarams typarams (List.map snd idtys);
       let ids = List.map fst idtys in
       check_noredef ids;
       let (basics, consts) = !sign in

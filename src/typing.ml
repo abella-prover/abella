@@ -24,6 +24,13 @@ open Metaterm
 open Extensions
 open Unifyty
 
+(** Iterate over types *)
+let iter_ty f ty =
+  let rec aux = function
+    | Ty(tys, bty) -> f bty; List.iter aux tys
+  in
+  aux ty
+
 (** Untyped terms *)
 
 type uterm =
@@ -378,12 +385,6 @@ let term_ensure_subordination sr t =
     | _ -> assert false
   in
   aux [] t
-
-let iter_ty f ty =
-  let rec aux = function
-    | Ty(tys, bty) -> f bty; List.iter aux tys
-  in
-  aux ty
 
 let check_spec_logic_type ty =
   iter_ty

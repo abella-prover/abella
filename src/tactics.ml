@@ -42,13 +42,20 @@ let freshen_clause ~used ~sr ?(support=[]) clause =
    replace_term_vars alist head,
    List.map (replace_term_vars alist) body)
 
-let freshen_poly_clause ~tysub ~used ~sr ?(support=[]) clause =
-  let (tids, head, body) = clause in
-  let tids' = List.map 
-    (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in
-  let head' = inst_term_ty tysub head in
-  let body' = List.map (inst_term_ty tysub) body in
-  freshen_clause ~sr ~support ~used (tids',head',body')
+let instantiate_poly_clause tysub vars head body =
+  let vars' = 
+    List.map (fun (id,t) -> (id, inst_var_ty tysub t)) vars in
+  let head' = replace_term_vars vars' head in
+  let body' = List.map (replace_term_vars vars') body in
+  (vars', head', body')
+  
+(* let freshen_poly_clause ~tysub ~used ~sr ?(support=[]) clause =
+ *   let (tids, head, body) = clause in
+ *   let tids' = List.map 
+ *     (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in
+ *   let head' = inst_term_ty tysub head in
+ *   let body' = List.map (inst_term_ty tysub) body in
+ *   freshen_clause ~sr ~support ~used (tids',head',body') *)
 
 let freshen_def ~used ~sr ?(support=[]) head body =
   let tids = capital_tids [head] in
@@ -79,13 +86,13 @@ let freshen_nameless_clause ?(support=[]) ~ts clause =
   let fresh_body = List.map (replace_term_vars fresh_names) body in
   (fresh_names, fresh_head, fresh_body)
 
-let freshen_nameless_poly_clause ?(support=[]) ~tysub ~ts clause =
-  let (tids, head, body) = clause in
-  let tids' = List.map 
-    (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in
-  let head' = inst_term_ty tysub head in
-  let body' = List.map (inst_term_ty tysub) body in
-  freshen_nameless_clause ~support ~ts (tids',head',body')
+(* let freshen_nameless_poly_clause ?(support=[]) ~tysub ~ts clause =
+ *   let (tids, head, body) = clause in
+ *   let tids' = List.map 
+ *     (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in
+ *   let head' = inst_term_ty tysub head in
+ *   let body' = List.map (inst_term_ty tysub) body in
+ *   freshen_nameless_clause ~support ~ts (tids',head',body') *)
 
 let freshen_nameless_def ?(support=[]) ~ts head body =
   let tids = capital_tids [head] in
@@ -487,41 +494,29 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
                  new_vars = new_vars ;
                  new_hyps = rewrap_succedent fresh_head :: body }
         end else begin
-          (* obtain the result of unification of the goal and the
-             program clause. Unification will be performed twice when
-             the program clause is polymorphic. The first pass is to
-             identify the relevant instance of the polymorphic clause
-             and returns a type substitution for type variables in the
-             clause. The second pass uses the type substitution to
-             obtain the relevant instance and perform the actually
-             unification *)
-          let result, fresh_used, fresh_head, fresh_body = 
-            try
-              let result = try_left_unify_cpairs fresh_head sync_obj.right
-                ~used:(fresh_used @ used) in
-              (result, fresh_used, fresh_head, fresh_body)
-            with
-            | UnifyError (TypeInstantiation tysub) ->
-               (* let _ = print_ty_sub tysub in *)
-               (* if type unification is involved then
-                  construct the relevant ground instance of the clause
-                  by using the resulting type subsitution *)
-               let fresh_used, fresh_head, fresh_body =
-                 freshen_poly_clause ~tysub ~sr ~support ~used clause in
-               let result = try_left_unify_cpairs fresh_head sync_obj.right
-                 ~used:(fresh_used @ used) in
-               (result, fresh_used, fresh_head, fresh_body)
-          in
-          match result with
-          | Some cpairs ->
-              let new_vars =
-                term_vars_alist Eigen (fresh_head::sync_obj.right::fresh_body) in
-              let body = List.map rewrap_antecedent fresh_body in
-              Some { bind_state = get_bind_state () ;
-                     new_vars = new_vars ;
-                     new_hyps = cpairs_to_eqs cpairs @ body }
-          | None -> None
-        end
+            (* Perform the type unification first to determine the
+               most general types that instantiate the type variables 
+               in the clause *)
+            let constrs = type_constrs fresh_head sync_obj.right in
+            let tysub = Unifyty.solve_constraints constrs in
+            match tysub with
+            (* type unification fails *)
+            | None -> None  
+            (* type unification succeeds *)
+            | Some tysub' ->  
+               let (fresh_used, fresh_head, fresh_body) =
+                 instantiate_poly_clause tysub' fresh_used fresh_head fresh_body in
+               match try_left_unify_cpairs fresh_head sync_obj.right
+                       ~used:(fresh_used @ used) with
+               | Some cpairs ->
+                  let new_vars =
+                    term_vars_alist Eigen (fresh_head::sync_obj.right::fresh_body) in
+                  let body = List.map rewrap_antecedent fresh_body in
+                  Some { bind_state = get_bind_state () ;
+                         new_vars = new_vars ;
+                         new_hyps = cpairs_to_eqs cpairs @ body }
+               | None -> None
+          end
       end clause
     end
   in
@@ -785,53 +780,44 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                   "Failed to select a clause from '%s' which is normalized to more than one program clauses" (term_to_string cl') in
                 let cl = List.hd cl in
                 let (vars, head, body) = freshen_nameless_clause ~support ~ts:0 cl in
-                (* obtain the result of unification of the goal and the
-                   program clause. Unification will be performed twice when
-                   the program clause is polymorphic. The first pass is to
-                   identify the relevant instance of the polymorphic clause
-                   and returns a type substitution for type variables in the
-                   clause. The second pass uses the type substitution to
-                   obtain the relevant instance and perform the actually
-                   unification *)
-                let result, vars, head, body = 
-                  try
-                    let result = try_right_unify_cpairs head goal.right in
-                    (result, vars, head, body)
-                  with
-                  | UnifyError (TypeInstantiation tysub) ->
-                    (* let _ = print_ty_sub tysub in *)
-                    (* if type unification is involved then
-                       construct the relevant ground instance of the clause
-                       by using the resulting type subsitution *)
-                    let vars, head, body =
-                      freshen_nameless_poly_clause ~support ~tysub ~ts:0 cl in
-                    let result = try_right_unify_cpairs head goal.right in
-                    (result, vars, head, body)
-                in
-                match result with
+                (* Perform the type unification first to determine the
+                   most general types that instantiate the type variables 
+                   in the clause *)
+                let constrs = type_constrs head goal.right in
+                let tysub = Unifyty.solve_constraints constrs in
+                match tysub with
+                (* type unification fails *)
                 | None ->
-                    failwithf "Head of program clause named %S not\
-                              \ unifiable with goal or type variables in the head\
+                    failwithf "Type variables in the head of program clause\
                               \ cannot be fully inferred by unification"
                       nm
-                | Some cpairs ->
-                    if try_unify_cpairs cpairs then begin
-                      let new_vars = List.map (fun (x, xv) -> (x, find_vars Logic [xv])) vars in
-                      let quant_vars =
-                        List.fold_left
-                          (fun vs (x, nvs) -> if nvs = [] then vs else (x, nvs) :: vs)
-                          [] new_vars in
-                      let body =
-                        List.map begin fun g ->
-                          let aobj = {goal with right = g} in
-                          map_on_objs normalize_obj (Obj (aobj, sr))
-                        end body in
-                      if quant_vars = [] then body
-                      else [existentially_close ~used quant_vars (conjoin body)]
-                    end else
-                      failwithf "Unsolvable unification of head\
-                                \ of program clause named %S with goal"
-                        nm
+                (* type unification succeeds *)
+                | Some tysub' -> 
+                   let (vars, head, body) =
+                     instantiate_poly_clause tysub' vars head body in
+                   match try_right_unify_cpairs head goal.right with
+                   | None ->
+                    failwithf "Head of program clause named %S not\
+                              \ unifiable with goal"
+                      nm
+                   | Some cpairs ->
+                      if try_unify_cpairs cpairs then begin
+                          let new_vars = List.map (fun (x, xv) -> (x, find_vars Logic [xv])) vars in
+                          let quant_vars =
+                            List.fold_left
+                              (fun vs (x, nvs) -> if nvs = [] then vs else (x, nvs) :: vs)
+                              [] new_vars in
+                          let body =
+                            List.map begin fun g ->
+                              let aobj = {goal with right = g} in
+                              map_on_objs normalize_obj (Obj (aobj, sr))
+                              end body in
+                          if quant_vars = [] then body
+                          else [existentially_close ~used quant_vars (conjoin body)]
+                        end else
+                        failwithf "Unsolvable unification of head\
+                                   \ of program clause named %S with goal"
+                          nm
               end |>
               List.concat
           | None ->
@@ -903,11 +889,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
     let support = term_list_support (goal :: context) in
     let freshen_clause (i, cl) =
       let (_vars, head, body) = freshen_nameless_clause ~support ~ts cl in
-      (i, (head, body), cl)
-    in
-    let freshen_poly_clause ~tysub (i, cl) =
-      let (_vars, head, body) = freshen_nameless_poly_clause ~tysub ~support ~ts cl in
-      (i, (head, body), cl)
+      (i, (head, body))
     in
     let p = term_head_name goal in
     let wrap body = List.map (fun t -> {context ; mode = Async ; right = t}) body in
@@ -927,44 +909,34 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
     List.number |>
     List.filter filter_by_witness |>
     List.map freshen_clause |>
-    List.iter ~guard:unwind_state begin fun (i, (head, body), clause) ->
-      (* obtain the result of unification of the goal and the
-         program clause. Unification will be performed twice when
-         the program clause is polymorphic. The first pass is to
-         identify the relevant instance of the polymorphic clause
-         and returns a type substitution for type variables in the
-         clause. The second pass uses the type substitution to
-         obtain the relevant instance and perform the actually
-         unification *)
-      let result, head, body = 
-        try
-          let result = try_right_unify_cpairs head goal in
-          (result, head, body)
-        with
-        | UnifyError (TypeInstantiation tysub) ->
-           (* let _ = print_ty_sub tysub in *)
-           let (i, (head,body), _) = 
-             freshen_poly_clause ~tysub (i, clause) in
-           let result = try_right_unify_cpairs head goal in
-           (result, head, body)
-      in
-      match result with
+    List.iter ~guard:unwind_state begin fun (i, (head, body)) ->
+      (* Perform the type unification first to determine the
+         most general types that instantiate the type variables 
+         in the clause *)
+      let constrs = type_constrs head goal in
+      let tysub = Unifyty.solve_constraints constrs in
+      match tysub with
       | None -> ()
-      | Some cpairs ->
-          let sc ws =
-            if try_unify_cpairs cpairs then
-              sc (WUnfold(p, i, ws)) in
-          let witnesses = match witness with
-            | WUnfold (_, _, ws) when List.length ws = List.length body -> ws
-            | WMagic -> List.map (fun _ -> WMagic) body
-            | _ -> bad_witness ()
-          in
-          let n = match witness with
-            | WUnfold _ -> n
-            | _ -> n - 1
-          in
-          async_obj_aux_conj n (wrap body) r ts ~sc ~witnesses
-    end
+      | Some tysub' ->
+         let (_, head, body) =
+           instantiate_poly_clause tysub' [] head body in
+         match try_right_unify_cpairs head goal with
+         | None -> ()
+         | Some cpairs ->
+            let sc ws =
+              if try_unify_cpairs cpairs then
+                sc (WUnfold(p, i, ws)) in
+            let witnesses = match witness with
+              | WUnfold (_, _, ws) when List.length ws = List.length body -> ws
+              | WMagic -> List.map (fun _ -> WMagic) body
+              | _ -> bad_witness ()
+            in
+            let n = match witness with
+              | WUnfold _ -> n
+              | _ -> n - 1
+            in
+            async_obj_aux_conj n (wrap body) r ts ~sc ~witnesses
+      end
 
   and async_obj_aux n hyps goal r ts ~sc ~witness =
     (* Printf.eprintf "axync_obj_aux: %s\n%!" (witness_to_string witness) ; *)

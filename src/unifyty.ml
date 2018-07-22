@@ -10,8 +10,10 @@ type constraint_type = CFun | CArg
 type constraint_info = pos * constraint_type
 type constraints = (expected * actual * constraint_info) list
 exception TypeInferenceFailure of constraint_info * expected * actual
-type error_info = InstGenericTyvar of string
-exception TypeInferenceError of error_info
+exception InstGenericTyvar of string
+
+let inst_gen_tyvar_msg = function v ->    
+    Printf.sprintf "the generic type variable %s cannot be instantiated" v
 
 let position_range (p1, p2) =
   let file = p1.Lexing.pos_fname in
@@ -38,6 +40,16 @@ let rec occurs v = function
     List.exists (fun ty -> occurs v ty) tys ||
     List.exists (fun ty -> occurs v ty) args
 
+(** Unify the equality constraints between types. 
+    The possible results are listed as follows:
+    - The unification succeeds and returns a list of type substitutions;
+    - The unification fails and raises 'TypeInferenceFailure',
+      meaning the some types cannot be unified no matter how the
+      generic type variables are instantiated;
+    - The unification may succeed or fail depending on how 
+      some generic variables are instantiated. 
+      In this case, 'InstGenericTyvar' is raised 
+*)
 let unify_constraints eqns =
   let add_sub v vty s =
     (v, vty) :: (apply_bind_sub v vty s)
@@ -68,12 +80,12 @@ let unify_constraints eqns =
     | Ty([], AtmTy(cty,args)), _ when is_gen_tyvar cty ->
       (
         assert (args = []);
-         raise (TypeInferenceError (InstGenericTyvar cty))
+         raise (InstGenericTyvar cty)
       )
     | _, Ty([], AtmTy(cty,args)) when is_gen_tyvar cty ->
       (
         assert (args = []);
-        raise (TypeInferenceError (InstGenericTyvar cty))
+        raise (InstGenericTyvar cty)
       )
     | Ty([], AtmTy(cty1,args1)), Ty([], AtmTy(cty2,args2)) 
       when cty1 = cty2 && List.length args1 = List.length args2 ->
@@ -96,6 +108,15 @@ let unify_constraints eqns =
 
   List.fold_left unify_single_constraint [] eqns
 
+(* Similar to unify_constraints, but returns 
+   the type substituions in an option type *)
+let solve_constraints eqns : (id * ty) list option =
+  try
+    Some (unify_constraints eqns)
+  with
+  | TypeInferenceFailure _ -> None
+  | InstGenericTyvar v -> failwith (inst_gen_tyvar_msg v)
+  
 
 let ty_compatible ty1 ty2 =
   try
@@ -103,5 +124,5 @@ let ty_compatible ty1 ty2 =
     true
   with
   | TypeInferenceFailure _
-  | TypeInferenceError _ ->
+  | InstGenericTyvar _ ->
     false

@@ -385,16 +385,22 @@ let iter_term_tys f t =
   in
   aux t
 
-let map_on_term_tys f t =
-  let rec taux t = match observe (hnorm t) with
+let inst_var_ty tysub t =
+  let f = (apply_sub_ty sub) in
+  match observe (hnorm t) with
   | Var v -> var v.tag v.name v.ts (f v.ty)
-  | DB _ as t -> t
-  | Lam (cx, t) -> lambda (List.map baux cx) (taux t)
-  | App (f, ts) -> app (taux f) (List.map taux ts)
-  | Ptr _ | Susp _ -> assert false
-  and baux (v, ty) = (v, f ty) 
-  in
-  taux t
+  | _ -> assert false
+
+(* let map_on_term_tys f t =
+ *   let rec taux t = match observe (hnorm t) with
+ *   | Var v -> var v.tag v.name v.ts (f v.ty)
+ *   | DB _ as t -> t
+ *   | Lam (cx, t) -> lambda (List.map baux cx) (taux t)
+ *   | App (f, ts) -> app (taux f) (List.map taux ts)
+ *   | Ptr _ | Susp _ -> assert false
+ *   and baux (v, ty) = (v, f ty) 
+ *   in
+ *   taux t *)
 
 
 (* Pretty printing *)
@@ -823,8 +829,8 @@ let apply_bind_sub v ty sub =
 let is_ground_tysub sub =
   not (List.exists (fun (id,ty) -> contains_tyvar ty) sub)
 
-let inst_term_ty sub t =
-  map_on_term_tys (apply_sub_ty sub) t
+(* let inst_term_ty sub t =
+ *   map_on_term_tys (apply_sub_ty sub) t *)
     
 let term_fully_instantiated t =
   let insted = ref true in

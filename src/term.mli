@@ -191,7 +191,7 @@ val nominal_tids : term list -> (id * ty) list
 val all_tids : term list -> (id * ty) list
 
 val iter_term_tys : (ty -> unit) -> term -> unit
-val map_on_term_tys : (ty -> ty) -> term -> term
+(* val map_on_term_tys : (ty -> ty) -> term -> term *)
 
 val tc : tyctx -> term -> ty
 
@@ -222,7 +222,8 @@ val apply_sub_ty : tysub -> ty -> ty
 val apply_bind_sub : string -> ty -> tysub -> tysub
 
 val is_ground_tysub : tysub -> bool
-val inst_term_ty : tysub -> term -> term
+val inst_var_ty : tysub -> term -> term
+(* val inst_term_ty : tysub -> term -> term *)
 val term_fully_instantiated : term -> bool
     
 (* Manipulation of clauses *)

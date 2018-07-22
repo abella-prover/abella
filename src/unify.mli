@@ -1,7 +1,7 @@
 (****************************************************************************)
 (* An implemention of Higher-Order Pattern Unification                      *)
 (* Copyright (C) 2006-2009 Nadathur, Linnell, Baelde, Ziegler, Gacek        *)
-(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -21,7 +21,6 @@
 (****************************************************************************)
 
 open Term
-open Unifyty
 
 type unify_failure =
   | OccursCheck
@@ -35,9 +34,7 @@ exception UnifyFailure of unify_failure
 
 type unify_error =
   | NotLLambda
-  | InstGenericVar of string
-  | TypesNotFullyInferred
-  | TypeInstantiation of tysub
+  | InstGenericTyvar of string
 
 val explain_error : unify_error -> string
 
@@ -51,10 +48,9 @@ val try_with_state : fail:'a -> (unit -> 'a) -> 'a
 val try_right_unify : ?used:(id * term) list -> term -> term -> bool
 val try_left_unify : ?used:(id * term) list -> term -> term -> bool
 
-val try_left_unify_cpairs : 
+val try_left_unify_cpairs :
   used:(id * term) list -> term -> term -> (term * term) list option
-val try_right_unify_cpairs : 
-  term -> term -> (term * term) list option
+val try_right_unify_cpairs : term -> term -> (term * term) list option
 
 val left_flexible_heads :
   used:(id * term) list ->
@@ -63,7 +59,5 @@ val left_flexible_heads :
   ((id*ty) list * term * term list) ->
     term list
 
-val start_collecting_ty_constraints : unit -> unit
-val end_collecting_ty_constraints : unit -> unit
-val get_ty_constraints : unit -> (ty * ty * constraint_info) list
-val add_ty_constraint : ty -> ty -> unit
+(* Collecting constraints on types *)
+val type_constrs : term -> term -> Unifyty.constraints

@@ -38,7 +38,7 @@ let alist_to_used (_, t) = term_to_pair t
 let freshen_clause ~used ~sr ?(support=[]) clause =
   let (tids, head, body) = clause in
   let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
-  (List.map term_to_pair vars @ used,
+  (List.map term_to_pair vars,
    replace_term_vars alist head,
    List.map (replace_term_vars alist) body)
 

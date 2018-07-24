@@ -25,6 +25,8 @@ open Unify
 open Abella_types
 
 open Extensions
+  
+  
 
 (* Variable naming utilities *)
 
@@ -38,7 +40,7 @@ let alist_to_used (_, t) = term_to_pair t
 let freshen_clause ~used ~sr ?(support=[]) clause =
   let (tids, head, body) = clause in
   let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
-  (List.map term_to_pair vars @ used,
+  (List.map term_to_pair vars,
    replace_term_vars alist head,
    List.map (replace_term_vars alist) body)
 
@@ -503,19 +505,23 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
             (* type unification fails *)
             | None -> None  
             (* type unification succeeds *)
-            | Some tysub' ->  
-               let (fresh_used, fresh_head, fresh_body) =
-                 instantiate_poly_clause tysub' fresh_used fresh_head fresh_body in
-               match try_left_unify_cpairs fresh_head sync_obj.right
-                       ~used:(fresh_used @ used) with
-               | Some cpairs ->
-                  let new_vars =
-                    term_vars_alist Eigen (fresh_head::sync_obj.right::fresh_body) in
-                  let body = List.map rewrap_antecedent fresh_body in
-                  Some { bind_state = get_bind_state () ;
-                         new_vars = new_vars ;
-                         new_hyps = cpairs_to_eqs cpairs @ body }
-               | None -> None
+            | Some tysub' -> 
+               if is_ground_tysub tysub' then begin
+                 let (fresh_used, fresh_head, fresh_body) =
+                   instantiate_poly_clause tysub' fresh_used fresh_head fresh_body in
+                 match try_left_unify_cpairs fresh_head sync_obj.right
+                         ~used:(fresh_used @ used) with
+                 | Some cpairs ->
+                    let new_vars =
+                      term_vars_alist Eigen (fresh_head::sync_obj.right::fresh_body) in
+                    let body = List.map rewrap_antecedent fresh_body in
+                    Some { bind_state = get_bind_state () ;
+                           new_vars = new_vars ;
+                           new_hyps = cpairs_to_eqs cpairs @ body }
+                 | None -> None
+                 end
+               else
+                 failwith "Cannot fully infer the type of some specification clause"
           end
       end clause
     end
@@ -784,7 +790,7 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                    most general types that instantiate the type variables 
                    in the clause *)
                 let constrs = type_constrs head goal.right in
-                let tysub = Unifyty.solve_constraints constrs in
+                let tysub = Unifyty.solve_constraints_silent constrs in
                 match tysub with
                 (* type unification fails *)
                 | None ->
@@ -793,35 +799,39 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                       nm
                 (* type unification succeeds *)
                 | Some tysub' -> 
-                   let (vars, head, body) =
-                     instantiate_poly_clause tysub' vars head body in
-                   match try_right_unify_cpairs head goal.right with
-                   | None ->
-                    failwithf "Head of program clause named %S not\
-                              \ unifiable with goal"
-                      nm
-                   | Some cpairs ->
-                      if try_unify_cpairs cpairs then begin
-                          let new_vars = List.map (fun (x, xv) -> (x, find_vars Logic [xv])) vars in
-                          let quant_vars =
-                            List.fold_left
-                              (fun vs (x, nvs) -> if nvs = [] then vs else (x, nvs) :: vs)
-                              [] new_vars in
-                          let body =
-                            List.map begin fun g ->
-                              let aobj = {goal with right = g} in
-                              map_on_objs normalize_obj (Obj (aobj, sr))
-                              end body in
-                          if quant_vars = [] then body
-                          else [existentially_close ~used quant_vars (conjoin body)]
-                        end else
-                        failwithf "Unsolvable unification of head\
-                                   \ of program clause named %S with goal"
-                          nm
-              end |>
-              List.concat
+                   if is_ground_tysub tysub' then begin
+                       let (vars, head, body) =
+                         instantiate_poly_clause tysub' vars head body in
+                       match try_right_unify_cpairs head goal.right with
+                       | None ->
+                          failwithf "Head of program clause named %S not\
+                                     \ unifiable with goal"
+                            nm
+                       | Some cpairs ->
+                          if try_unify_cpairs cpairs then begin
+                              let new_vars = List.map (fun (x, xv) -> (x, find_vars Logic [xv])) vars in
+                              let quant_vars =
+                                List.fold_left
+                                  (fun vs (x, nvs) -> if nvs = [] then vs else (x, nvs) :: vs)
+                                  [] new_vars in
+                              let body =
+                                List.map begin fun g ->
+                                  let aobj = {goal with right = g} in
+                                  map_on_objs normalize_obj (Obj (aobj, sr))
+                                  end body in
+                              if quant_vars = [] then body
+                              else [existentially_close ~used quant_vars (conjoin body)]
+                            end else
+                            failwithf "Unsolvable unification of head\
+                                       \ of program clause named %S with goal"
+                              nm
+                     end
+                   else
+                     failwith "Cannot fully infer the type of some specification clause"
+                end |>
+                List.concat
           | None ->
-              failwithf "Program clause named %S not found" nm
+             failwithf "Program clause named %S not found" nm
         end
       | _ ->
           failwith "Can only unfold named program clauses for object sequents"
@@ -914,28 +924,32 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
          most general types that instantiate the type variables 
          in the clause *)
       let constrs = type_constrs head goal in
-      let tysub = Unifyty.solve_constraints constrs in
+      let tysub = Unifyty.solve_constraints_silent constrs in
       match tysub with
       | None -> ()
       | Some tysub' ->
-         let (_, head, body) =
-           instantiate_poly_clause tysub' [] head body in
-         match try_right_unify_cpairs head goal with
-         | None -> ()
-         | Some cpairs ->
-            let sc ws =
-              if try_unify_cpairs cpairs then
-                sc (WUnfold(p, i, ws)) in
-            let witnesses = match witness with
-              | WUnfold (_, _, ws) when List.length ws = List.length body -> ws
-              | WMagic -> List.map (fun _ -> WMagic) body
-              | _ -> bad_witness ()
-            in
-            let n = match witness with
-              | WUnfold _ -> n
-              | _ -> n - 1
-            in
-            async_obj_aux_conj n (wrap body) r ts ~sc ~witnesses
+         if is_ground_tysub tysub' then begin
+             let (_, head, body) =
+               instantiate_poly_clause tysub' [] head body in
+             match try_right_unify_cpairs head goal with
+             | None -> ()
+             | Some cpairs ->
+                let sc ws =
+                  if try_unify_cpairs cpairs then
+                    sc (WUnfold(p, i, ws)) in
+                let witnesses = match witness with
+                  | WUnfold (_, _, ws) when List.length ws = List.length body -> ws
+                  | WMagic -> List.map (fun _ -> WMagic) body
+                  | _ -> bad_witness ()
+                in
+                let n = match witness with
+                  | WUnfold _ -> n
+                  | _ -> n - 1
+                in
+                async_obj_aux_conj n (wrap body) r ts ~sc ~witnesses
+           end
+         else
+           failwith "Cannot fully infer the type of some specification clause"
       end
 
   and async_obj_aux n hyps goal r ts ~sc ~witness =
@@ -1239,13 +1253,45 @@ let apply_arrow term args =
   Context.reconcile !context_pairs ;
   (normalize result, !obligations)
 
-let apply ?(used_nominals=[]) term args =
-  let support =
-    Some term :: args |>
-    List.flatten_map (Option.map_default metaterm_support []) |>
-    List.unique |>
-    (fun s -> List.minus s used_nominals)
+(* Infer type constraints from application *)
+let apply_arrow_type_constrs term args =
+  let context_pairs = ref [] in
+  (* collect type constraints *)
+  let (_,constrs) =
+    List.fold_left begin
+        fun (term, constrs) arg ->
+        match term, arg with
+        | Arrow (Obj (left, _), right), Some (Obj (arg, _)) ->
+           context_pairs := (left.context, arg.context) :: !context_pairs ;
+           (* collect type constraints on focused terms *)
+           let mode_constrs = 
+             begin match left.mode, arg.mode with
+             | Sync lf, Sync af -> (type_constrs lf af) @ constrs
+             | _ -> []
+             end
+           in
+           let goal_constrs = type_constrs left.right arg.right in
+           (right, mode_constrs @ goal_constrs @ constrs)
+        | Arrow(left, right), Some arg ->
+           (right, (meta_right_type_constrs left arg) @ constrs)
+        | Arrow(left, right), None ->
+           (right, constrs)
+        | _ ->
+           failwith "Too few implications in application"
+    end (term, []) args
   in
+  let ctx_constrs = Context.reconcile_constrs !context_pairs in
+  constrs @ ctx_constrs
+
+let apply ?(used_nominals=[]) term args =
+  let hyp_support = metaterm_support term in
+  let support = hyp_support @
+                  List.flatten_map (Option.map_default metaterm_support []) args in
+  let support = List.unique support in
+  (* used_nominals are nominal constants provided by 'withs' for
+     (partially) instantiating nabla quantified variables and
+     should not be raised over by 'forall' quantified variables *)
+  let support = List.minus support used_nominals in
   let process_bindings foralls nablas body =
     match nablas with
     | [] -> (* short circuit *)
@@ -1259,27 +1305,37 @@ let apply ?(used_nominals=[]) term args =
              (List.map term_to_name (support @ used_nominals))) @
           support
         in
-        support |> List.rev |> List.permute n |>
+        (* The nominal constants for nabla quantified variables should
+           be chosen from 'candiate_nominals', which contains dummy
+           nominals and nominals that occur in the arguments and do
+           not occur in the support of the applying term, so as to
+           respect the side condition of the nabla-left rule. *)
+        let candidate_nominals = List.minus support hyp_support in
+        candidate_nominals |> List.rev |> List.permute n |>
         List.find_all begin fun nominals -> 
           let norm_tys = List.map (tc []) nominals in
           let ty_pairs = List.map2 (fun ty1 ty2 -> (ty1, ty2)) norm_tys nabla_tys in
           List.for_all (fun (ty1, ty2) -> Unifyty.ty_compatible ty1 ty2) ty_pairs
         end |>
         List.find_some begin fun nominals ->
-          let norm_tys = List.map (tc []) nominals in
-          let ty_pairs = List.map2 (fun ty1 ty2 -> (ty1, ty2)) norm_tys nabla_tys in
-          List.iter (fun (ty1,ty2) -> add_ty_constraint ty1 ty2) ty_pairs;
           try_with_state ~fail:None
             (fun () ->
-               let support = List.minus support nominals in
-               let raised_body =
-                 freshen_nameless_bindings ~support ~ts:0 foralls body
-               in
-               let alist = List.combine nabla_ids nominals in
-               let permuted_body =
-                 replace_metaterm_vars alist raised_body
-               in
-               Some(apply_arrow permuted_body args))
+              let support = List.minus support nominals in
+              let raised_body =
+                freshen_nameless_bindings ~support ~ts:0 foralls body
+              in
+              let alist = List.combine nabla_ids nominals in
+              let permuted_body =
+                replace_metaterm_vars alist raised_body
+              in
+              (* Infer the type of the applied term *)
+              let constrs = apply_arrow_type_constrs permuted_body args in
+              let tysub = Unifyty.solve_constraints_silent constrs in
+              match tysub with
+              | None -> None
+              | Some tysub' ->
+                 let permuted_body' = permuted_body in
+                 Some(apply_arrow permuted_body args))
         end |>
         (function
           | Some v -> v
@@ -1301,6 +1357,69 @@ let apply ?(used_nominals=[]) term args =
       [ "Structure of applied term must be a substructure of the following." ;
         "forall A1 ... Ai, nabla z1 ... zj, H1 -> ... -> Hk -> C" ] |>
       String.concat "\n" |> failwith
+
+(* let apply ?(used_nominals=[]) term args =
+ *   let support =
+ *     Some term :: args |>
+ *     List.flatten_map (Option.map_default metaterm_support []) |>
+ *     List.unique |>
+ *     (fun s -> List.minus s used_nominals)
+ *   in
+ *   let process_bindings foralls nablas body =
+ *     match nablas with
+ *     | [] -> (\* short circuit *\)
+ *         apply_arrow (freshen_nameless_bindings ~support ~ts:0 foralls body) args
+ *     | _ ->
+ *         let n = List.length nablas in
+ *         let (nabla_ids, nabla_tys) = List.split nablas in
+ *         (\* Add dummy nominals in case nabla bound variables aren't used *\)
+ *         let support =
+ *           (fresh_nominals_by_list nabla_tys
+ *              (List.map term_to_name (support @ used_nominals))) @
+ *           support
+ *         in
+ *         support |> List.rev |> List.permute n |>
+ *         List.find_all begin fun nominals -> 
+ *           let norm_tys = List.map (tc []) nominals in
+ *           let ty_pairs = List.map2 (fun ty1 ty2 -> (ty1, ty2)) norm_tys nabla_tys in
+ *           List.for_all (fun (ty1, ty2) -> Unifyty.ty_compatible ty1 ty2) ty_pairs
+ *         end |>
+ *         List.find_some begin fun nominals ->
+ *           let norm_tys = List.map (tc []) nominals in
+ *           let ty_pairs = List.map2 (fun ty1 ty2 -> (ty1, ty2)) norm_tys nabla_tys in
+ *           List.iter (fun (ty1,ty2) -> add_ty_constraint ty1 ty2) ty_pairs;
+ *           try_with_state ~fail:None
+ *             (fun () ->
+ *                let support = List.minus support nominals in
+ *                let raised_body =
+ *                  freshen_nameless_bindings ~support ~ts:0 foralls body
+ *                in
+ *                let alist = List.combine nabla_ids nominals in
+ *                let permuted_body =
+ *                  replace_metaterm_vars alist raised_body
+ *                in
+ *                Some(apply_arrow permuted_body args))
+ *         end |>
+ *         (function
+ *           | Some v -> v
+ *           | None ->
+ *               failwith "Failed to find instantiations for nabla-quantified variables")
+ *   in
+ *   match term with
+ *   | Binding(Forall, foralls, Binding(Nabla, nablas, body)) ->
+ *       process_bindings foralls nablas body
+ *   | Binding(Forall, foralls, body) ->
+ *       process_bindings foralls [] body
+ *   | Binding(Nabla, nablas, body) ->
+ *       process_bindings [] nablas body
+ *   | Arrow _ ->
+ *       apply_arrow term args
+ *   | term when args = [] ->
+ *       (term, [])
+ *   | _ ->
+ *       [ "Structure of applied term must be a substructure of the following." ;
+ *         "forall A1 ... Ai, nabla z1 ... zj, H1 -> ... -> Hk -> C" ] |>
+ *       String.concat "\n" |> failwith *)
 
 let rec ensure_unique_nominals lst =
   if not (List.is_unique lst) || not (List.for_all Term.is_nominal lst) then

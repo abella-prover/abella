@@ -1,7 +1,7 @@
 (****************************************************************************)
 (* An implemention of Higher-Order Pattern Unification                      *)
 (* Copyright (C) 2006-2009 Nadathur, Linnell, Baelde, Ziegler, Gacek        *)
-(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -23,6 +23,7 @@
 (** Higher Order Pattern Unification *)
 
 open Term
+open Unifyty
 open Extensions
 
 (* generate ids for n binders *)
@@ -41,7 +42,7 @@ let rec explain_failure = function
   | ConstClash (t1, t2) ->
       Printf.sprintf "Unification failure (constant clash between %s and %s)"
         (term_to_string t1) (term_to_string t2)
-  | Generic -> "Unification failure"
+  | Generic -> "Unification failure (nominal reasoning)"
   | FailTrail (n, fl) ->
       Printf.sprintf "While matching argument #%d:\n%s" n (explain_failure fl)
 
@@ -51,16 +52,47 @@ let fail f = raise (UnifyFailure f)
 
 type unify_error =
   | NotLLambda
-  | InstGenericTyvar of string
+  | InstGenericVar of string
+  | TypesNotFullyInferred
+  | TypeInstantiation of tysub
 
 let explain_error = function
   | NotLLambda -> "Unification incompleteness (non-pattern unification problem)"
-  | InstGenericTyvar v ->
-     Printf.sprintf 
+  | InstGenericVar v -> 
+    Printf.sprintf 
       "Unification incompleteness (generic type variable %s cannot be instantiated)"
       v
+  | TypesNotFullyInferred ->
+      "Types cannot be fully inferred by unification"
+  | TypeInstantiation tysub ->
+      "Unification tried to instantiate types"
+
 
 exception UnifyError of unify_error
+
+(* If unif_collect_ty_subs is set then unification will not raise an
+   exception when types need to be instantiated. Instead, the type
+   constraints are collected in unif_ty_constraints. This is useful to
+   collect type contraints across several unifications that will be
+   used to infer types *)
+let unif_collect_ty_constraints = ref false  
+let unif_ty_constraints = ref []
+let add_tysub_as_constraints tysub =
+  let eqns = List.map 
+    (fun (id, ty) -> (tybase (atybase id) , ty, (ghost, CArg))) tysub
+  in
+  unif_ty_constraints := eqns @ (!unif_ty_constraints)
+let add_ty_constraint ty1 ty2 =
+  unif_ty_constraints := (ty1, ty2, (ghost, CArg)) :: !unif_ty_constraints
+
+let start_collecting_ty_constraints () =
+  unif_collect_ty_constraints := true;
+  unif_ty_constraints := []
+let end_collecting_ty_constraints () =
+  unif_collect_ty_constraints := false
+
+let get_ty_constraints () = !unif_ty_constraints
+
 
 (* An explicit handler is specified for how to deal with
    non-llambda conflict pairs *)
@@ -77,6 +109,30 @@ struct
 open P
 
 let local_used = ref []
+(* type substitutions accumulated during the unification *)
+let tysub = ref []
+
+
+
+let unify_type ty1 ty2 =
+  let ty1 = apply_sub_ty (!tysub) ty1 in
+  let ty2 = apply_sub_ty (!tysub) ty2 in
+  let add_tysub sub1 sub2 =
+    let sub2' = 
+      List.fold_left begin
+        fun s (v,ty) -> apply_bind_sub v ty s
+      end sub2 sub1
+    in
+    sub1 @ sub2'
+  in
+  try
+    let sub = unify_constraints [(ty1, ty2, (ghost, CArg))] in
+    tysub := add_tysub sub (!tysub);
+    true
+  with
+  | TypeInferenceFailure _ -> false
+  | TypeInferenceError (InstGenericTyvar v) ->
+     raise (UnifyError (InstGenericVar v))
 
 let named_fresh name ts ty =
   let (v, new_used) = fresh_wrt ~ts instantiatable name ty !local_used in
@@ -631,25 +687,6 @@ let makesubst tyctx h1 t2 a1 n =
     ensure_flex_args a1 ts1 ;
     lambda (List.combine a1ids a1tys) (toplevel_subst tyctx t2 0)
 
-(** Check if two constant are equal except by their types *)
-let constant_eq c1 c2 =
-  c1.name = c2.name && c1.tag = c2.tag && c1.ts = c2.ts
-
-(** Unify two ty objects. 
-    - if the two objects can be made equal, then return true
-    - if the two objects cannot be made equal under any circumstances, 
-      then return false;
-    - if the euqality of the two objects depends on instantiation of
-      generic type variables, raise an exception
- *)
-let unifyty ty1 ty2 =
-  try
-    unify_constraints [(ty1, ty2, (ghost, CArg))]; true
-  with
-  | TypeInferenceFailure _ -> false
-  | InstGenericTyvar v ->
-     raise (UnifyError (InstGenericTyVar v))
-
 (** Unifying the arguments of two rigid terms with the same head, these
   * arguments being given as lists. Exceptions are raised if
   * unification fails or if there are unequal numbers of arguments; the
@@ -666,22 +703,22 @@ let rec unify_list (tyctx:(Term.id*Term.ty) list) l1 l2 =
  * an application-term unification problem. *)
 and unify_const_term tyctx cst t2 = 
   let v1 = term_to_var cst in
-  match observe t2 with
-    | Var v2 when constant v2.tag ->
-       constant_eq v1 v2 then begin
-         (* if the two constants have the same name then try to identify
+  match (observe t2) with
+  | Var v2 when constant v2.tag ->
+     if v1.name = v2.name then begin
+       (* if the two constants have the same name then try to identify
           the two constants by unifying their types *)
-           if not (unifyty v1.ty v2.ty) then
-             fail (ConstClash (cst, t2))
-         end
-       else
+       if not (unify_type v1.ty v2.ty) then
          fail (ConstClash (cst, t2))
-    | Lam (idtys,t2) ->
-        let a1 = lift_args [] (List.length idtys) in
-          unify (List.rev_app idtys tyctx) (app cst a1) t2
-    | Var v when not (variable v.tag || constant v.tag) ->
-        bugf "logic variable on the left (3)"
-    | _ -> fail (ConstClash (cst,t2))
+     end
+     else
+       fail (ConstClash (cst, t2))
+  | Lam (idtys,t2) ->
+     let a1 = lift_args [] (List.length idtys) in
+     unify (List.rev_app idtys tyctx) (app cst a1) t2
+  | Var v when not (variable v.tag || constant v.tag) ->
+     bugf "logic variable on the left (3)"
+  | _ -> fail (ConstClash (cst,t2))
 
 (* Unify [App h1 a1 = t2].
  * [t1] should be the term decomposed as [App h1 a1].
@@ -694,13 +731,13 @@ and unify_app_term tyctx h1 a1 t1 t2 =
     | Var v1, App (h2,a2) when constant v1.tag ->
         begin match observe h2 with
           | Var v2 when constant v2.tag ->
-              constant_eq v1 v2 then begin
+              if v1.name = v2.name then begin
                 (* if the two constants have the same name then try to
                    identify the two constants by unifying their types *)
-                (if not (unifyty v1.ty v2.ty) then
+                (if not (unify_type v1.ty v2.ty) then
                     fail (ConstClash (h1, h2)));
                 unify_list tyctx a1 a2
-                end
+              end
               else
                 fail (ConstClash (h1,h2))
           | DB _ ->
@@ -719,10 +756,7 @@ and unify_app_term tyctx h1 a1 t1 t2 =
           | Var v when variable v.tag ->
               let m = List.length a2 in
                 bind h2 (makesubst tyctx h2 t1 a2 m)
-          | Var v when constant v.tag -> fail (ConstClash (h1,h2))
-          | Var v when not (variable v.tag || constant v.tag) ->
-              bugf "logic variable on the left (5)"
-          | _ -> assert false
+          | _ -> fail (ConstClash (h1,h2))
         end
     | Lam _, _ | _, Lam _
     | Ptr _, _ | _, Ptr _
@@ -791,19 +825,36 @@ and unify tyctx t1 t2 =
     | _ -> bugf "logic variable on the left (7)"
   with
     | UnifyError NotLLambda ->
-        let n = max (closing_depth t1) (closing_depth t2) in
-        let tys = List.rev (List.take n tyctx) in
-          handler (lambda tys t1) (lambda tys t2)
+       let n = max (closing_depth t1) (closing_depth t2) in
+       let tys = List.rev (List.take n tyctx) in
+       handler (lambda tys t1) (lambda tys t2)
 
 let pattern_unify ~used t1 t2 =
   local_used := used ;
-  if not (term_fully_instantiated t1 
-          && term_fully_instantiated t2) then
-    failwith 
-      "Try to unify terms containing type variables: %s = %s"
-      (term_to_string t1) (term_to_string t2)
-  else
-    unify [] (hnorm t1) (hnorm t2)
+  tysub := [] ;
+  unify [] (hnorm t1) (hnorm t2) ;
+  if (term_contains_tyvar t1 || term_contains_tyvar t2) then begin
+    let t1' = inst_term_ty (!tysub) t1 in
+    let t2' = inst_term_ty (!tysub) t2 in
+      if not (is_ground_tysub (!tysub) 
+              && term_fully_instantiated t1'
+              && term_fully_instantiated t2') then
+        raise (UnifyError TypesNotFullyInferred)
+      else
+        (* Unification never actually unifies types as side effects.
+           Instead, the type substitution generated by unification
+           should be used to instantiate the original unification
+           problem so as to eliminate the type variables in it.
+           If unif_collect_ty_constraints is set, add tysub to the
+           set of type constraints instead of raising an exception*)
+        if !unif_collect_ty_constraints then
+          add_tysub_as_constraints (!tysub)
+        else 
+          raise (UnifyError (TypeInstantiation !tysub))
+  end
+  else ()
+
+  
 
 (* Given Lam(tys1, App(h1, a1)) and Lam(tys2, App(h2, a2))
    where h1 is flexible, h2 is rigid, and len(tys1) <= len(tys2),
@@ -909,18 +960,19 @@ let try_with_state ~fail f =
     try
       f ()
     with
-      | UnifyFailure _ | UnifyError _ -> set_scoped_bind_state state ; fail
+    | UnifyFailure _ | UnifyError _ -> 
+       set_scoped_bind_state state ; fail
 
 let try_right_unify ?used:(used=[]) t1 t2 =
   try_with_state ~fail:false
     (fun () ->
-       right_unify ~used t1 t2 ;
+       right_unify ~used  t1 t2 ;
        true)
 
 let try_left_unify ?used:(used=[]) t1 t2 =
   try_with_state ~fail:false
     (fun () ->
-       left_unify ~used t1 t2 ;
+       left_unify ~used  t1 t2 ;
        true)
 
 let try_left_unify_cpairs ~used t1 t2 =
@@ -945,110 +997,38 @@ let try_left_unify_cpairs ~used t1 t2 =
         | NotLLambda -> 
            failwith (msg ^ "encountered non-pattern unification problem")
         | InstGenericVar v ->
-           let msg = msg ^ (Unifyty.error_info_msg v) in
+           let msg = msg ^ Printf.sprintf "the generic type variable %s cannot be instantiated" 
+             v in
            failwith msg
+        | TypesNotFullyInferred ->
+           failwith (msg ^ "Types cannot be fully determined by unification")
+        | TypeInstantiation _ -> 
+           raise (UnifyError err)
 
 let try_right_unify_cpairs t1 t2 =
-  try_with_state ~fail:None
-    (fun () ->
-       let cpairs = ref [] in
-       let cpairs_handler x y = cpairs := (x,y)::!cpairs in
-       let module RightCpairs =
-         Make (struct
-                 let instantiatable = Logic
-                 let constant_like = Eigen
-                 let handler = cpairs_handler
-               end)
-       in
-         RightCpairs.pattern_unify ~used:[] t1 t2 ;
-         Some !cpairs)
+  let state = get_scoped_bind_state () in
+  let cpairs = ref [] in
+  let cpairs_handler x y = cpairs := (x,y)::!cpairs in
+  let module RightCpairs =
+        Make (struct
+          let instantiatable = Logic
+          let constant_like = Eigen
+          let handler = cpairs_handler
+        end)
+  in
+  try
+    RightCpairs.pattern_unify ~used:[] t1 t2 ;
+    Some !cpairs
+  with
+  | UnifyFailure _ -> set_scoped_bind_state state ; None
+  | UnifyError err -> set_scoped_bind_state state ;
+    match err with
+    | NotLLambda 
+    | InstGenericVar _ 
+    | TypesNotFullyInferred
+        -> None
+    | TypeInstantiation _ -> 
+       raise (UnifyError err)
+
 
 let left_flexible_heads = Left.flexible_heads
-
-
-(** The following process is used to generate equality relations
-   between types whose solution consists of the most general type
-   instances for type variables in terms that make them unifiable. It
-   is based on term unification, but only looks into the unification
-   of types of head constants of rigid-rigid pairs. *)
-let rec type_constrs_list l1 l2 =
-  try
-    List.fold_left2 
-      (fun l a1 a2 -> (type_constrs (hnorm a1) (hnorm a2)) @ l) [] l1 l2 
-  with
-    | Invalid_argument _ -> assert false (* fail TypesMismatch *)
-
-(* Unify [cst=t2], assuming [cst] is a constant.
- * Fail if [t2] is a variable or an application.
- * If it is a lambda, binders need to be equalized and so this becomes
- * an application-term unification problem. *)
-and type_constrs_const_term cst t2 = 
-  let v1 = term_to_var cst in
-  match observe t2 with
-    | Var v2 when constant v2.tag ->
-       if v1.name = v2.name then
-         (* if the two constants have the same name then return the
-            equality between their types as a constraint *)
-         [(ty1, ty2, (ghost, CArg))]
-       else
-         []
-    | Lam (idtys,t2) ->
-        let a1 = lift_args [] (List.length idtys) in
-          type_constrs (app cst a1) t2
-    | _ -> []
-
-(* Unify [App h1 a1 = t2].
- * [t1] should be the term decomposed as [App h1 a1].
- * [t2] should be dereferenced and head-normalized, not a var or lambda *)
-and type_constrs_app_term h1 a1 t1 t2 =
-  match observe h1,observe t2 with
-    | Var v1, App (h2,a2) when constant v1.tag ->
-        begin match observe h2 with
-          | Var v2 when constant v2.tag ->
-              if v1.name = v2.name then begin
-                  (ty1, ty2, (ghost, CArg)) ::
-                    (type_unify_list a1 a2)
-                end
-              else
-                []
-          | _ -> []
-        end
-    | DB n1, App (h2,a2) ->
-        begin match observe h2 with
-          | DB n2 when n1 == n2 ->
-              type_constrs_list a1 a2
-          | _ -> []
-        end
-    | -> []
-
-(* Unify [Lam(tys1,t1) = t2]. *)
-and type_constrs_lam_term tys1 t1 t2 =
-  let n = List.length tys1 in
-    type_constrs 
-      t1 (hnorm (app (lift t2 n) (lift_args [] n)))
-
-(** The main unification procedure. *)
-and type_constrs t1 t2 =
-  try match observe t1,observe t2 with
-    | Lam(idtys1,t1),_    -> type_constrs_lam_term idtys1 t1 t2
-    | _,Lam(idtys2,t2)    -> type_constrs_lam_term idtys2 t2 t1
-
-    (* Check for a special case of asymmetric unification outside of LLambda *)
-    | App(h1,a1), App(h2,a2) ->
-        begin match observe h1, observe h2 with
-          | Var v1, _ when variable v1.tag &&
-              check_flex_args (List.map hnorm a1) v1.ts ->
-              type_constrs_app_term h1 a1 t1 t2
-
-          | _, Var v2 when variable v2.tag &&
-              check_flex_args (List.map hnorm a2) v2.ts ->
-              type_constrs_app_term h2 a2 t2 t1
-
-          | _ -> type_constrs_app_term h1 a1 t1 t2
-        end
-
-    | App (h1,a1),_                 -> type_constrs_app_term h1 a1 t1 t2
-    | _,App (h2,a2)                 -> type_constrs_app_term h2 a2 t2 t1
-    | Var c1,_ when constant c1.tag -> type_constrs_const_term t1 t2
-    | _,Var c2 when constant c2.tag -> type_constrs_const_term t2 t1
-    | _,_ -> []

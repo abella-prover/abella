@@ -12,6 +12,8 @@ type constraints = (expected * actual * constraint_info) list
 exception TypeInferenceFailure of constraint_info * expected * actual
 exception InstGenericTyvar of string
 
+let def_cinfo = (ghost,CArg)
+
 let inst_gen_tyvar_msg = function v ->    
     Printf.sprintf "the generic type variable %s cannot be instantiated" v
 
@@ -117,10 +119,15 @@ let solve_constraints eqns : (id * ty) list option =
   | TypeInferenceFailure _ -> None
   | InstGenericTyvar v -> failwith (inst_gen_tyvar_msg v)
   
+let solve_constraints_silent eqns =
+  try 
+    solve_constraints eqns
+  with
+  | InstGenericTyvar _ -> None
 
 let ty_compatible ty1 ty2 =
   try
-    let _ = unify_constraints [(ty1, ty2, (ghost,CArg))] in
+    let _ = unify_constraints [(ty1, ty2, def_cinfo)] in
     true
   with
   | TypeInferenceFailure _

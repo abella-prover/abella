@@ -169,6 +169,21 @@ let reconcile pair_list =
     Unify.right_unify var (context_to_term ctx)
   end groups
 
+(* Collect type constraints from reconciliation *)
+let reconcile_constrs pair_list =
+  let pair_list = List.map (fun (x,y) -> xor x y) pair_list in
+  let pair_list = List.remove_all (fun (x,y) -> is_empty y) pair_list in
+  let var_ctx_list =
+    List.map (fun (x,y) -> (extract_singleton x, y)) pair_list
+  in
+  let groups = group var_ctx_list in
+  let groups = List.map (fun (x,y) -> (x, union_list y)) groups in
+  let groups = List.map (fun (x,y) -> (x, normalize y)) groups in
+  List.fold_left 
+    begin fun constrs (var, ctx) ->
+    (Unify.type_constrs var (context_to_term ctx)) @ constrs
+    end [] groups
+
 (* Want to make hctx as large as possible but remain a subcontext of gctx *)
 let backchain_reconcile hctx gctx =
   let hctx, gctx = xor hctx gctx in

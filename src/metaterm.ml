@@ -679,6 +679,47 @@ let make_nabla_alist tids body =
 
 open Unify
 
+(* Collect type constraints from right unification of metaterms *)
+let rec meta_right_type_constrs t1 t2 =
+  match t1, t2 with
+    | Eq(l1, r1), Eq(l2, r2) ->
+        (type_constrs l1 l2) @ (type_constrs r1 r2)
+    | Obj (o1, _), Obj (o2, _) ->
+        let oconstrs = type_constrs o1.right o2.right in
+        let mode_constrs = 
+          begin match o1.mode, o2.mode with
+          | Sync f1, Sync f2 -> type_constrs f1 f2
+          | _ -> []
+          end
+        in
+        oconstrs @ mode_constrs
+    | Pred(t1, _), Pred(t2, _) ->
+        type_constrs t1 t2
+    | And(l1, r1), And(l2, r2)
+    | Or(l1, r1), Or(l2, r2)
+    | Arrow(l1, r1), Arrow(l2, r2) ->
+        (meta_right_type_constrs l1 l2) @
+        (meta_right_type_constrs r1 r2)
+    | Binding(b1, tids1, t1), Binding(b2, tids2, t2)
+        when b1 = b2 && List.length tids1 = List.length tids2 ->
+        let bnd_constrs = 
+          List.map2 (fun (_,ty1) (_,ty2) -> (ty1,ty2,Unifyty.def_cinfo)) 
+            tids1 tids2 in
+        let new_bindings1 =
+          List.map (fun (_, ty) -> fresh ~tag:Constant (max_int-1) ty) tids1 in
+        let new_bindings2 =
+          List.map2 
+            (fun v (_,ty) -> var Constant ((term_to_var v).name) (max_int-1) ty)
+            new_bindings1 tids2  in 
+        let alist1 = List.combine (List.map fst tids1) new_bindings1 in
+        let alist2 = List.combine (List.map fst tids2) new_bindings2 in
+          bnd_constrs @
+          (meta_right_type_constrs
+            (replace_metaterm_vars alist1 t1)
+            (replace_metaterm_vars alist2 t2))
+    | _, _ -> []
+
+
 let rec meta_right_unify t1 t2 =
   match t1, t2 with
     | True, True -> ()
@@ -871,3 +912,9 @@ let inst_poly_metaterm tysub ctx t =
   in 
   let t = map_on_tys (apply_sub_ty tysub) t in
   replace_metaterm_vars ctx t
+
+(* Instantiate the type variables in metaterms. Note that free
+   variables with polymorphic types are replaced by new variables with
+   ground types. So be careful if when using it on terms whose
+   variables with polymorphic types need to be preserved. *)
+

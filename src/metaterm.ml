@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -514,30 +514,31 @@ let replace_term_vars ?tag alist t =
   in
     aux t
 
-let rec replace_metaterm_vars alist t =
-  let term_aux alist = replace_term_vars alist in
-  let rec aux alist t =
+let find_free_constants t =
+  let terms_aux ts = find_var_refs Constant ts in
+  let rec aux t = 
     match t with
-      | True | False -> t
-      | Eq(a, b) -> Eq(term_aux alist a, term_aux alist b)
-      | Obj(obj, r) -> Obj(map_obj (term_aux alist) obj, r)
-      | Arrow(a, b) -> Arrow(aux alist a, aux alist b)
-      | Binding(binder, bindings, body) ->
-          let alist = List.remove_assocs (List.map fst bindings) alist in
-          let used = get_used (List.map snd alist) in
-          let bindings_alist = fresh_alist ~tag:Constant ~used bindings in
-          let bindings' =
-            List.map (fun (_, t) -> let v = term_to_var t in (v.name, v.ty))
-              bindings_alist
-          in
-            Binding(binder,
-                    bindings',
-                    aux (alist @ bindings_alist) body)
-      | Or(a, b) -> Or(aux alist a, aux alist b)
-      | And(a, b) -> And(aux alist a, aux alist b)
-      | Pred(p, r) -> Pred(term_aux alist p, r)
-  in
-    aux alist t
+    | True | False -> []
+    | Eq (a, b) -> terms_aux [a;b]
+    | Obj (obj, _) ->
+       let suffix = match obj.mode with
+         | Async -> [obj.right]
+         | Sync focus -> [focus ; obj.right]
+       in
+       let ts = Context.context_to_list obj.context @ suffix in
+       terms_aux ts
+    | Arrow (a, b) -> (aux a) @ (aux b)
+    | Binding(_,bindings,body) ->
+       let bound t = 
+         let name = (term_to_var t).name in
+         List.exists (fun (id,ty) -> id = name) bindings 
+       in
+       List.remove_all bound (aux body)
+    | Or(a, b) -> (aux a) @ (aux b)
+    | And(a, b) -> (aux a) @ (aux b)
+    | Pred(p, r) -> terms_aux [p]
+  in 
+  List.unique (aux t) 
 
 let rec collect_terms t =
   match t with
@@ -556,8 +557,6 @@ let rec collect_terms t =
     | And(a, b) -> (collect_terms a) @ (collect_terms b)
     | Pred(p, _) -> [p]
 
-let map_term_list f t = List.map f (collect_terms t)
-
 let get_metaterm_used t =
   t |> collect_terms
     |> find_var_refs Eigen
@@ -566,6 +565,37 @@ let get_metaterm_used t =
 let get_metaterm_used_nominals t =
   t |> metaterm_support
     |> List.map term_to_pair
+
+let rec replace_metaterm_vars alist t =
+  let top_used = get_metaterm_used t
+                 @ get_metaterm_used_nominals t
+                 @ (find_free_constants t |> List.map term_to_pair)
+  in
+  let term_aux alist = replace_term_vars alist in
+  let rec aux alist t =
+    match t with
+      | True | False -> t
+      | Eq(a, b) -> Eq(term_aux alist a, term_aux alist b)
+      | Obj(obj, r) -> Obj(map_obj (term_aux alist) obj, r)
+      | Arrow(a, b) -> Arrow(aux alist a, aux alist b)
+      | Binding(binder, bindings, body) ->
+          let alist = List.remove_assocs (List.map fst bindings) alist in
+          let used = (get_used (List.map snd alist)) @ top_used in
+          let bindings_alist = fresh_alist ~tag:Constant ~used bindings in
+          let bindings' =
+            List.map (fun (_, t) -> let v = term_to_var t in (v.name, v.ty))
+              bindings_alist
+          in
+            Binding(binder,
+                    bindings',
+                    aux (alist @ bindings_alist) body)
+      | Or(a, b) -> Or(aux alist a, aux alist b)
+      | And(a, b) -> And(aux alist a, aux alist b)
+      | Pred(p, r) -> Pred(term_aux alist p, r)
+  in
+    aux alist t
+
+let map_term_list f t = List.map f (collect_terms t)
 
 let fresh_nominals_by_list tys used_names =
   let p = prefix Nominal in
@@ -650,7 +680,8 @@ let normalize_binders =
         binding binder bvars (aux rens used body)
   in
   fun form ->
-    let used = get_metaterm_used form @ get_metaterm_used_nominals form in
+    let used = get_metaterm_used form @ get_metaterm_used_nominals form
+               @ (find_free_constants form |> List.map term_to_pair) in
     aux [] used form
 
 let replace_term_typed_nominals alist t =

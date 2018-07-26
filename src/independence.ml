@@ -527,7 +527,7 @@ let independent (f: term list) g dynamic_contexts dependencies =
     | Var v -> if (v.tag = Constant) then
                  trm
                else
-                 var v.tag (String.uppercase v.name) v.ts v.ty
+                 var v.tag (String.uppercase_ascii v.name) v.ts v.ty
     | App (t, tlist) -> app (make_variables_universal t) (List.map make_variables_universal tlist)
     | _ -> trm
              

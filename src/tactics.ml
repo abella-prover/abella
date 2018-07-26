@@ -1283,6 +1283,16 @@ let apply_arrow_type_constrs term args =
   let ctx_constrs = Context.reconcile_constrs !context_pairs in
   constrs @ ctx_constrs
 
+let infer_types_then_apply_arrow body args =
+  let constrs = apply_arrow_type_constrs body args in
+  let tysub = Unifyty.solve_constraints_silent constrs in
+  match tysub with
+  | Some tysub' when is_ground_tysub tysub' ->
+     let body = instantiate_poly_metaterm tysub' body in
+     apply_arrow body args
+  | _ ->
+     failwith "Cannot fully infer the type of the applied term"
+
 let apply ?(used_nominals=[]) term args =
   let hyp_support = metaterm_support term in
   let support = hyp_support @
@@ -1295,7 +1305,8 @@ let apply ?(used_nominals=[]) term args =
   let process_bindings foralls nablas body =
     match nablas with
     | [] -> (* short circuit *)
-        apply_arrow (freshen_nameless_bindings ~support ~ts:0 foralls body) args
+       let body = (freshen_nameless_bindings ~support ~ts:0 foralls body) in
+       infer_types_then_apply_arrow body args
     | _ ->
         let n = List.length nablas in
         let (nabla_ids, nabla_tys) = List.split nablas in
@@ -1325,19 +1336,8 @@ let apply ?(used_nominals=[]) term args =
                 freshen_nameless_bindings ~support ~ts:0 foralls body
               in
               let alist = List.combine nabla_ids nominals in
-              let permuted_body =
-                replace_metaterm_vars alist raised_body
-              in
-              (* Infer the type of the applied term *)
-              let constrs = apply_arrow_type_constrs permuted_body args in
-              let tysub = Unifyty.solve_constraints_silent constrs in
-              match tysub with
-              | Some tysub' when is_ground_tysub tysub' ->
-                 let permuted_body = 
-                   instantiate_poly_metaterm tysub' permuted_body in
-                 Some(apply_arrow permuted_body args)
-              | _ ->
-               failwith "Cannot fully infer the type of the applied term"
+              let permuted_body = replace_metaterm_vars alist raised_body in
+              Some (infer_types_then_apply_arrow permuted_body args)
             )
         end |>
         (function
@@ -1353,7 +1353,7 @@ let apply ?(used_nominals=[]) term args =
   | Binding(Nabla, nablas, body) ->
       process_bindings [] nablas body
   | Arrow _ ->
-      apply_arrow term args
+      infer_types_then_apply_arrow term args
   | term when args = [] ->
       (term, [])
   | _ ->

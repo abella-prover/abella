@@ -570,9 +570,11 @@ let is_hyp name =
 let get_generic_lemma name = H.find lemmas name
 
 let get_lemma ?(tys:ty list = []) name =
-  let (argtys, bod) = H.find lemmas name in
-  if List.length tys <> List.length argtys then
-    failwithf "Need to provide mappings for %d types" (List.length argtys) ;
+  let (argtys, bod) = get_generic_lemma name in
+  let tys = 
+    if List.length tys <> List.length argtys then
+      List.map (fun t -> fresh_tyvar ()) argtys
+    else tys in
   let tysub = List.map2 (fun id ty -> (id, ty)) argtys tys in
   Tactics.instantiate_poly_metaterm tysub bod
 
@@ -600,36 +602,6 @@ let get_stmt_clearly h =
 let get_arg_clearly = function
   | Keep ("_", _) -> None
   | arg -> Some (get_stmt_clearly arg)
-
-let clearable_tyvars h =
-  match h with
-  | Keep (_, tys) ->
-    List.unique (List.flatten_map get_tyvars tys)
-  | Remove (_, tys) -> 
-    List.unique (List.flatten_map get_tyvars tys)
-
-(* fill in type variables for parameterizing types in lemmas if
-   explicit type assignments are not given *)
-let fill_in_tyvars_for_lemma hp =
-  let gen_tyvars h tys =
-    try 
-      let (argtys, body) = get_generic_lemma h in
-      if tys = [] && List.length argtys > 0 then
-        let tys' = List.map (fun t -> fresh_tyvar ()) argtys in
-        tys'
-      else
-        tys
-    with
-    | Not_found -> tys
-  in
-  match hp with
-  | Keep (h, tys) ->
-    let tys' = gen_tyvars h tys in
-    Keep (h, tys')
-  | Remove (h, []) when is_hyp h -> hp
-  | Remove (h, tys) ->
-    let tys' = gen_tyvars h tys in
-    Keep (h, tys')
 
 
 exception End_proof of [`completed | `aborted]

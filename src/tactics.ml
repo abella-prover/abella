@@ -521,7 +521,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
             (* Perform the type unification first to determine the
                most general types that instantiate the type variables 
                in the clause *)
-            let constrs = type_constrs fresh_head sync_obj.right in
+            let constrs = left_type_constrs fresh_head sync_obj.right in
             let tysub = Unifyty.solve_constraints constrs in
             match tysub with
             (* type unification fails *)
@@ -811,7 +811,7 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                 (* Perform the type unification first to determine the
                    most general types that instantiate the type variables 
                    in the clause *)
-                let constrs = type_constrs head goal.right in
+                let constrs = right_type_constrs head goal.right in
                 let tysub = Unifyty.solve_constraints_silent constrs in
                 match tysub with
                 (* type unification succeeds *)
@@ -942,7 +942,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
       (* Perform the type unification first to determine the
          most general types that instantiate the type variables 
          in the clause *)
-      let constrs = type_constrs head goal in
+      let constrs = right_type_constrs head goal in
       let tysub = Unifyty.solve_constraints_silent constrs in
       match tysub with
       | None -> ()
@@ -1281,11 +1281,11 @@ let apply_arrow_type_constrs term args =
            (* collect type constraints on focused terms *)
            let mode_constrs = 
              begin match left.mode, arg.mode with
-             | Sync lf, Sync af -> (type_constrs lf af) @ constrs
+             | Sync lf, Sync af -> (right_type_constrs lf af) @ constrs
              | _ -> []
              end
            in
-           let goal_constrs = type_constrs left.right arg.right in
+           let goal_constrs = right_type_constrs left.right arg.right in
            (right, mode_constrs @ goal_constrs @ constrs)
         | Arrow(left, right), Some arg ->
            (right, (meta_right_type_constrs left arg) @ constrs)
@@ -1493,7 +1493,7 @@ let backchain_arrow_type_constrs term goal =
   let obligations, head = decompose_arrow term in
   match head, goal with
   | Obj ({mode = Async ; _} as hobj, _), Obj ({mode = Async ; _} as gobj, _) ->
-      let gconstrs = type_constrs hobj.right gobj.right in
+      let gconstrs = right_type_constrs hobj.right gobj.right in
       let cconstrs = 
         Context.backchain_reconcile_constrs hobj.context gobj.context in
       gconstrs @ cconstrs

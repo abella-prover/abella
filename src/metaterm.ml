@@ -753,18 +753,18 @@ open Unify
 let rec meta_right_type_constrs t1 t2 =
   match t1, t2 with
     | Eq(l1, r1), Eq(l2, r2) ->
-        (type_constrs l1 l2) @ (type_constrs r1 r2)
+        (right_type_constrs l1 l2) @ (right_type_constrs r1 r2)
     | Obj (o1, _), Obj (o2, _) ->
-        let oconstrs = type_constrs o1.right o2.right in
+        let oconstrs = right_type_constrs o1.right o2.right in
         let mode_constrs = 
           begin match o1.mode, o2.mode with
-          | Sync f1, Sync f2 -> type_constrs f1 f2
+          | Sync f1, Sync f2 -> right_type_constrs f1 f2
           | _ -> []
           end
         in
         oconstrs @ mode_constrs
     | Pred(t1, _), Pred(t2, _) ->
-        type_constrs t1 t2
+        right_type_constrs t1 t2
     | And(l1, r1), And(l2, r2)
     | Or(l1, r1), Or(l2, r2)
     | Arrow(l1, r1), Arrow(l2, r2) ->

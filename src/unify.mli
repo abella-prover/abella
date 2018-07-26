@@ -60,4 +60,5 @@ val left_flexible_heads :
     term list
 
 (* Collecting constraints on types *)
-val type_constrs : term -> term -> Unifyty.constraints
+val left_type_constrs : term -> term -> Unifyty.constraints
+val right_type_constrs : term -> term -> Unifyty.constraints

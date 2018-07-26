@@ -878,6 +878,93 @@ let flexible_heads ~used ~sr (tys1, h1, a1) (tys2, h2, a2) =
   in
     results
 
+(** The following process is used to generate equality relations
+   between types whose solution consists of the most general type
+   instances for type variables in terms that make them unifiable. It
+   is based on term unification, but only looks into the unification
+   of types of head constants of rigid-rigid pairs. *)
+let rec type_constrs_list l1 l2 =
+  try
+    List.fold_left2 
+      (fun l a1 a2 -> (type_constrs (hnorm a1) (hnorm a2)) @ l) [] l1 l2 
+  with
+    | Invalid_argument _ -> assert false (* fail TypesMismatch *)
+
+(* Unify [cst=t2], assuming [cst] is a constant.
+ * Fail if [t2] is a variable or an application.
+ * If it is a lambda, binders need to be equalized and so this becomes
+ * an application-term unification problem. *)
+and type_constrs_const_term cst t2 = 
+  let v1 = term_to_var cst in
+  match observe t2 with
+    | Var v2 when constant v2.tag ->
+       if v1.name = v2.name then
+         (* if the two constants have the same name then return the
+            equality between their types as a constraint *)
+         [(v1.ty, v2.ty, def_cinfo)]
+       else
+         []
+    | Lam (idtys,t2) ->
+        let a1 = lift_args [] (List.length idtys) in
+          type_constrs (app cst a1) t2
+    | _ -> []
+
+(* Unify [App h1 a1 = t2].
+ * [t1] should be the term decomposed as [App h1 a1].
+ * [t2] should be dereferenced and head-normalized, not a var or lambda *)
+and type_constrs_app_term h1 a1 t1 t2 =
+  match observe h1,observe t2 with
+    | Var v1, App (h2,a2) when constant v1.tag ->
+        begin match observe h2 with
+          | Var v2 when constant v2.tag ->
+              if v1.name = v2.name then begin
+                  (v1.ty, v2.ty, def_cinfo) ::
+                    (type_constrs_list a1 a2)
+                end
+              else
+                []
+          | _ -> []
+        end
+    | DB n1, App (h2,a2) ->
+        begin match observe h2 with
+          | DB n2 when n1 == n2 ->
+              type_constrs_list a1 a2
+          | _ -> []
+        end
+    | _ -> []
+
+(* Unify [Lam(tys1,t1) = t2]. *)
+and type_constrs_lam_term tys1 t1 t2 =
+  let n = List.length tys1 in
+    type_constrs 
+      t1 (hnorm (app (lift t2 n) (lift_args [] n)))
+
+(** The main unification procedure. *)
+and type_constrs t1 t2 =
+  match observe t1,observe t2 with
+    | Lam(idtys1,t1),_    -> type_constrs_lam_term idtys1 t1 t2
+    | _,Lam(idtys2,t2)    -> type_constrs_lam_term idtys2 t2 t1
+
+    (* Check for a special case of asymmetric unification outside of LLambda *)
+    | App(h1,a1), App(h2,a2) ->
+        begin match observe h1, observe h2 with
+          | Var v1, _ when variable v1.tag &&
+              check_flex_args (List.map hnorm a1) v1.ts ->
+              type_constrs_app_term h1 a1 t1 t2
+
+          | _, Var v2 when variable v2.tag &&
+              check_flex_args (List.map hnorm a2) v2.ts ->
+              type_constrs_app_term h2 a2 t2 t1
+
+          | _ -> type_constrs_app_term h1 a1 t1 t2
+        end
+
+    | App (h1,a1),_                 -> type_constrs_app_term h1 a1 t1 t2
+    | _,App (h2,a2)                 -> type_constrs_app_term h2 a2 t2 t1
+    | Var c1,_ when constant c1.tag -> type_constrs_const_term t1 t2
+    | _,Var c2 when constant c2.tag -> type_constrs_const_term t2 t1
+    | _,_ -> []
+
 end
 
 let standard_handler t1 t2 = raise (UnifyError NotLLambda)
@@ -901,6 +988,12 @@ let right_unify ?used:(used=[]) t1 t2 =
 
 let left_unify ?used:(used=[]) t1 t2 =
   Left.pattern_unify ~used t1 t2
+
+let right_type_constrs t1 t2 =
+  Right.type_constrs t1 t2
+
+let left_type_constrs t1 t2 =
+  Left.type_constrs t1 t2
 
 let try_with_state ~fail f =
   let state = get_scoped_bind_state () in
@@ -964,89 +1057,3 @@ let try_right_unify_cpairs t1 t2 =
 let left_flexible_heads = Left.flexible_heads
 
 
-(** The following process is used to generate equality relations
-   between types whose solution consists of the most general type
-   instances for type variables in terms that make them unifiable. It
-   is based on term unification, but only looks into the unification
-   of types of head constants of rigid-rigid pairs. *)
-let rec type_constrs_list l1 l2 =
-  try
-    List.fold_left2 
-      (fun l a1 a2 -> (type_constrs (hnorm a1) (hnorm a2)) @ l) [] l1 l2 
-  with
-    | Invalid_argument _ -> assert false (* fail TypesMismatch *)
-
-(* Unify [cst=t2], assuming [cst] is a constant.
- * Fail if [t2] is a variable or an application.
- * If it is a lambda, binders need to be equalized and so this becomes
- * an application-term unification problem. *)
-and type_constrs_const_term cst t2 = 
-  let v1 = term_to_var cst in
-  match observe t2 with
-    | Var v2 when constant v2.tag ->
-       if v1.name = v2.name then
-         (* if the two constants have the same name then return the
-            equality between their types as a constraint *)
-         [(ty1, ty2, (ghost, CArg))]
-       else
-         []
-    | Lam (idtys,t2) ->
-        let a1 = lift_args [] (List.length idtys) in
-          type_constrs (app cst a1) t2
-    | _ -> []
-
-(* Unify [App h1 a1 = t2].
- * [t1] should be the term decomposed as [App h1 a1].
- * [t2] should be dereferenced and head-normalized, not a var or lambda *)
-and type_constrs_app_term h1 a1 t1 t2 =
-  match observe h1,observe t2 with
-    | Var v1, App (h2,a2) when constant v1.tag ->
-        begin match observe h2 with
-          | Var v2 when constant v2.tag ->
-              if v1.name = v2.name then begin
-                  (ty1, ty2, (ghost, CArg)) ::
-                    (type_unify_list a1 a2)
-                end
-              else
-                []
-          | _ -> []
-        end
-    | DB n1, App (h2,a2) ->
-        begin match observe h2 with
-          | DB n2 when n1 == n2 ->
-              type_constrs_list a1 a2
-          | _ -> []
-        end
-    | _ -> []
-
-(* Unify [Lam(tys1,t1) = t2]. *)
-and type_constrs_lam_term tys1 t1 t2 =
-  let n = List.length tys1 in
-    type_constrs 
-      t1 (hnorm (app (lift t2 n) (lift_args [] n)))
-
-(** The main unification procedure. *)
-and type_constrs t1 t2 =
-  match observe t1,observe t2 with
-    | Lam(idtys1,t1),_    -> type_constrs_lam_term idtys1 t1 t2
-    | _,Lam(idtys2,t2)    -> type_constrs_lam_term idtys2 t2 t1
-
-    (* Check for a special case of asymmetric unification outside of LLambda *)
-    | App(h1,a1), App(h2,a2) ->
-        begin match observe h1, observe h2 with
-          | Var v1, _ when variable v1.tag &&
-              check_flex_args (List.map hnorm a1) v1.ts ->
-              type_constrs_app_term h1 a1 t1 t2
-
-          | _, Var v2 when variable v2.tag &&
-              check_flex_args (List.map hnorm a2) v2.ts ->
-              type_constrs_app_term h2 a2 t2 t1
-
-          | _ -> type_constrs_app_term h1 a1 t1 t2
-        end
-
-    | App (h1,a1),_                 -> type_constrs_app_term h1 a1 t1 t2
-    | _,App (h2,a2)                 -> type_constrs_app_term h2 a2 t2 t1
-    | Var c1,_ when constant c1.tag -> type_constrs_const_term t1 t2
-    | _,Var c2 when constant c2.tag -> type_constrs_const_term t2 t1
-    | _,_ -> []

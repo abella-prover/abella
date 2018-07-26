@@ -181,7 +181,7 @@ let reconcile_constrs pair_list =
   let groups = List.map (fun (x,y) -> (x, normalize y)) groups in
   List.fold_left 
     begin fun constrs (var, ctx) ->
-    (Unify.type_constrs var (context_to_term ctx)) @ constrs
+    (Unify.right_type_constrs var (context_to_term ctx)) @ constrs
     end [] groups
 
 (* Want to make hctx as large as possible but remain a subcontext of gctx *)
@@ -195,5 +195,5 @@ let backchain_reconcile hctx gctx =
 let backchain_reconcile_constrs hctx gctx =
   let hctx, gctx = xor hctx gctx in
     match hctx with
-      | [hv] -> Unify.type_constrs hv (context_to_term gctx)
+      | [hv] -> Unify.right_type_constrs hv (context_to_term gctx)
       | _ -> []

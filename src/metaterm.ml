@@ -573,30 +573,6 @@ let rec replace_metaterm_vars alist t =
   in
   aux top_free_unchanged_vars alist t
 
-(* let rec replace_metaterm_vars alist t = *)
-(*   let term_aux alist = replace_term_vars alist in *)
-(*   let rec aux alist t = *)
-(*     match t with *)
-(*       | True | False -> t *)
-(*       | Eq(a, b) -> Eq(term_aux alist a, term_aux alist b) *)
-(*       | Obj(obj, r) -> Obj(map_obj (term_aux alist) obj, r) *)
-(*       | Arrow(a, b) -> Arrow(aux alist a, aux alist b) *)
-(*       | Binding(binder, bindings, body) -> *)
-(*           let alist = List.remove_assocs (List.map fst bindings) alist in *)
-(*           let used = get_used (List.map snd alist) in *)
-(*           let bindings_alist = fresh_alist ~tag:Constant ~used bindings in *)
-(*           let bindings' = *)
-(*             List.map (fun (_, t) -> let v = term_to_var t in (v.name, v.ty)) *)
-(*               bindings_alist *)
-(*           in *)
-(*             Binding(binder, *)
-(*                     bindings', *)
-(*                     aux (alist @ bindings_alist) body) *)
-(*       | Or(a, b) -> Or(aux alist a, aux alist b) *)
-(*       | And(a, b) -> And(aux alist a, aux alist b) *)
-(*       | Pred(p, r) -> Pred(term_aux alist p, r) *)
-(*   in *)
-(*     aux alist t *)
 
 let map_term_list f t = List.map f (collect_terms t)
 
@@ -949,40 +925,6 @@ let rec clausify ?(vars=[]) ?(body=[]) head =
       clausify ~vars ~body head2
   | head -> [vars, head, List.rev body]
 
-(* let inst_poly_metaterm tysub ctx t =
- *   let map_on_tys f mt =
- *     let rec aux mt =
- *       match mt with
- *       | True | False -> mt
- *       | Eq (a, b) -> Eq (taux a, taux b)
- *       | Obj (o, r) -> Obj (oaux o, r)
- *       | Arrow (f, g) -> Arrow (aux f, aux g)
- *       | Binding (q, bs, bod) ->
- *         Binding (q, List.map baux bs, aux bod)
- *       | Or (f, g) -> Or (aux f, aux g)
- *       | And (f, g) -> And (aux f, aux g)
- *       | Pred (p, r) -> Pred (taux p, r)
- *     and taux t =
- *       match observe (hnorm t) with
- *       | Var v -> var v.tag v.name v.ts (f v.ty)
- *       | DB _ as t -> t
- *       | Lam (cx, t) -> lambda (List.map baux cx) (taux t)
- *       | App (f, ts) -> app (taux f) (List.map taux ts)
- *       | Ptr _ | Susp _ -> assert false
- *     and oaux o =
- *       let context = Context.map taux o.context in
- *       let right = taux o.right in
- *       let mode = match o.mode with
- *         | Async -> Async
- *         | Sync focus -> Sync (taux focus)
- *       in
- *       { context ; right ; mode }
- *     and baux (v, ty) = (v, f ty)
- *     in aux mt
- *   in 
- *   let t = map_on_tys (apply_sub_ty tysub) t in
- *   replace_metaterm_vars ctx t *)
-
 (* Instantiate the type contexts *)
 let inst_tyctx tysub tyctx =
   List.map (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tyctx
@@ -1025,5 +967,3 @@ let find_metaterm_poly_vars tag t =
   t |> collect_terms
     |> find_poly_var_refs tag
 
-(* let find_metaterms_poly_vars tag ts =
- *   List.unique (List.flatten_map (find_metaterm_poly_vars tag) ts) *)

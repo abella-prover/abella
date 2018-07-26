@@ -74,14 +74,6 @@ let freshen_clause ~used ~sr ?(support=[]) clause =
    replace_term_vars alist head,
    List.map (replace_term_vars alist) body)
   
-(* let freshen_poly_clause ~tysub ~used ~sr ?(support=[]) clause =
- *   let (tids, head, body) = clause in
- *   let tids' = List.map 
- *     (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in
- *   let head' = inst_term_ty tysub head in
- *   let body' = List.map (inst_term_ty tysub) body in
- *   freshen_clause ~sr ~support ~used (tids',head',body') *)
-
 let freshen_def ~used ~sr ?(support=[]) head body =
   let tids = capital_tids [head] in
   let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
@@ -110,14 +102,6 @@ let freshen_nameless_clause ?(support=[]) ~ts clause =
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
   (fresh_names, fresh_head, fresh_body)
-
-(* let freshen_nameless_poly_clause ?(support=[]) ~tysub ~ts clause =
- *   let (tids, head, body) = clause in
- *   let tids' = List.map 
- *     (fun (id,ty) -> (id, apply_sub_ty tysub ty)) tids in
- *   let head' = inst_term_ty tysub head in
- *   let body' = List.map (inst_term_ty tysub) body in
- *   freshen_nameless_clause ~support ~ts (tids',head',body') *)
 
 let freshen_nameless_def ?(support=[]) ~ts head body =
   let tids = capital_tids [head] in
@@ -1376,69 +1360,6 @@ let apply ?(used_nominals=[]) term args =
       [ "Structure of applied term must be a substructure of the following." ;
         "forall A1 ... Ai, nabla z1 ... zj, H1 -> ... -> Hk -> C" ] |>
       String.concat "\n" |> failwith
-
-(* let apply ?(used_nominals=[]) term args =
- *   let support =
- *     Some term :: args |>
- *     List.flatten_map (Option.map_default metaterm_support []) |>
- *     List.unique |>
- *     (fun s -> List.minus s used_nominals)
- *   in
- *   let process_bindings foralls nablas body =
- *     match nablas with
- *     | [] -> (\* short circuit *\)
- *         apply_arrow (freshen_nameless_bindings ~support ~ts:0 foralls body) args
- *     | _ ->
- *         let n = List.length nablas in
- *         let (nabla_ids, nabla_tys) = List.split nablas in
- *         (\* Add dummy nominals in case nabla bound variables aren't used *\)
- *         let support =
- *           (fresh_nominals_by_list nabla_tys
- *              (List.map term_to_name (support @ used_nominals))) @
- *           support
- *         in
- *         support |> List.rev |> List.permute n |>
- *         List.find_all begin fun nominals -> 
- *           let norm_tys = List.map (tc []) nominals in
- *           let ty_pairs = List.map2 (fun ty1 ty2 -> (ty1, ty2)) norm_tys nabla_tys in
- *           List.for_all (fun (ty1, ty2) -> Unifyty.ty_compatible ty1 ty2) ty_pairs
- *         end |>
- *         List.find_some begin fun nominals ->
- *           let norm_tys = List.map (tc []) nominals in
- *           let ty_pairs = List.map2 (fun ty1 ty2 -> (ty1, ty2)) norm_tys nabla_tys in
- *           List.iter (fun (ty1,ty2) -> add_ty_constraint ty1 ty2) ty_pairs;
- *           try_with_state ~fail:None
- *             (fun () ->
- *                let support = List.minus support nominals in
- *                let raised_body =
- *                  freshen_nameless_bindings ~support ~ts:0 foralls body
- *                in
- *                let alist = List.combine nabla_ids nominals in
- *                let permuted_body =
- *                  replace_metaterm_vars alist raised_body
- *                in
- *                Some(apply_arrow permuted_body args))
- *         end |>
- *         (function
- *           | Some v -> v
- *           | None ->
- *               failwith "Failed to find instantiations for nabla-quantified variables")
- *   in
- *   match term with
- *   | Binding(Forall, foralls, Binding(Nabla, nablas, body)) ->
- *       process_bindings foralls nablas body
- *   | Binding(Forall, foralls, body) ->
- *       process_bindings foralls [] body
- *   | Binding(Nabla, nablas, body) ->
- *       process_bindings [] nablas body
- *   | Arrow _ ->
- *       apply_arrow term args
- *   | term when args = [] ->
- *       (term, [])
- *   | _ ->
- *       [ "Structure of applied term must be a substructure of the following." ;
- *         "forall A1 ... Ai, nabla z1 ... zj, H1 -> ... -> Hk -> C" ] |>
- *       String.concat "\n" |> failwith *)
 
 let rec ensure_unique_nominals lst =
   if not (List.is_unique lst) || not (List.for_all Term.is_nominal lst) then

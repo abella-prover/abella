@@ -257,47 +257,6 @@ let clause_head_name cl =
       term_head_name p
   | _ -> bugf "Clause head name for invalid clause: %s" (metaterm_to_string cl.head)
 
-(* let rec app_ty tymap = function *)
-(*   | Ty(tys, (AtmTy(cty,args))) -> *)
-(*     let tys = (List.map (app_ty tymap) tys) in *)
-(*     let targ =  *)
-(*       try Itab.find cty tymap  *)
-(*       with Not_found -> tybase (AtmTy(cty, (List.map (app_ty tymap) args))) *)
-(*     in tyarrow tys targ *)
-
-(* let instantiate_clauses_aux =
- *   let fn (pn, ty_acts) def =
- *     (\* find the proper instantiation for 
- *        the type variables of the definition *\)
- *     let Ty (ty_exps, _) = Itab.find pn def.mutual in
- *     let ty_fresh = 
- *       List.map (fun id -> (id, Term.fresh_tyvar ())) def.typarams in
- *     let ty_exps = List.map (apply_sub_ty ty_fresh) ty_exps in
- *     let eqns = List.map2 begin fun ty_exp ty_act ->
- *         (ty_exp, ty_act, (ghost, Unifyty.CArg))
- *       end ty_exps ty_acts in
- *     let tysol = Unifyty.unify_constraints eqns in
- *     let tymap = List.map begin fun (id, ftyv) ->
- *       match ftyv with
- *       | Ty([], AtmTy (cty,[])) ->
- *          let ity = 
- *            try List.assoc cty tysol
- *            with Not_found -> 
- *              failwithf "The type parameter %s cannot be determined" id
- *          in (id, ity)
- *       | _ -> assert false
- *     end ty_fresh in
- *     (\* generate the instance of the definition under the type substitution *\)
- *     let inst_clause tysub cl =
- *       let tyctx = metaterm_capital_tids cl.head in
- *       let ctx = tyctx_to_ctx (apply_sub_tyctx tysub tyctx) in
- *       {head = inst_poly_metaterm tysub ctx cl.head ;
- *        body = inst_poly_metaterm tysub ctx cl.body}
- *     in
- *     List.map (inst_clause tymap) def.clauses
- *   in
- *   memoize fn *)
-
 let instantiate_clauses pred def =
     (* Determine the type instances for parameterizing types of
        the definition by looking at the head predicate of p *)
@@ -861,23 +820,6 @@ let partition_obligations ?depth obligations =
           | Some w -> Either.Right (g, w))
        obligations)
 
-(* let try_infer_tysub tyvars f failmsg=
- *   Unify.start_collecting_ty_constraints ();
- *   (try
- *     f ()
- *    with
- *    | e -> ());
- *   Unify.end_collecting_ty_constraints ();
- *   try
- *     let tysub = unify_constraints (Unify.get_ty_constraints ()) in
- *     let subdom = List.map fst tysub in
- *     if List.for_all (fun tv -> List.mem tv subdom) tyvars then
- *       tysub
- *     else
- *       failwith failmsg
- *   with
- *   | TypeInferenceFailure _ | TypeInferenceError _ ->
- *     failwith failmsg *)
 
 let apply ?name ?(term_witness=ignore) h args ws =
   let stmt = get_stmt_clearly h in

@@ -26,7 +26,36 @@ open Abella_types
 
 open Extensions
   
-  
+
+(* Instantiation of polymorphic clauses and metaterms *)
+
+let instantiate_poly_clause tysub vars head body =
+  let vars = 
+    List.map (fun (id,t) -> (id, inst_var_ty tysub t)) vars in
+  let head = replace_term_vars vars 
+               (inst_term_const_types tysub head) in
+  let body = List.map 
+               ((inst_term_const_types tysub) >> (replace_term_vars vars)) 
+               body in
+  (vars, head, body)
+
+let instantiate_poly_def_clause tysub vars head body =
+  let vars = 
+    List.map (fun (id,t) -> (id, inst_var_ty tysub t)) vars in
+  let head = replace_metaterm_vars vars 
+               (inst_metaterm_const_types tysub head) in
+  let body = body |> inst_metaterm_const_types tysub
+                  |> replace_metaterm_vars vars in
+  (vars, head, body)
+
+let instantiate_poly_metaterm tysub t =
+  let pvars = List.unique ((find_metaterm_poly_vars Logic t)
+                           @ (find_metaterm_poly_vars Nominal t)) in
+  let alist = 
+    List.map (fun t -> (term_to_name t, inst_var_ty tysub t)) pvars in
+  replace_metaterm_vars alist (inst_metaterm_const_types tysub t)
+
+
 
 (* Variable naming utilities *)
 
@@ -43,13 +72,6 @@ let freshen_clause ~used ~sr ?(support=[]) clause =
   (List.map term_to_pair vars,
    replace_term_vars alist head,
    List.map (replace_term_vars alist) body)
-
-let instantiate_poly_clause tysub vars head body =
-  let vars' = 
-    List.map (fun (id,t) -> (id, inst_var_ty tysub t)) vars in
-  let head' = replace_term_vars vars' head in
-  let body' = List.map (replace_term_vars vars') body in
-  (vars', head', body')
   
 (* let freshen_poly_clause ~tysub ~used ~sr ?(support=[]) clause =
  *   let (tids, head, body) = clause in
@@ -792,42 +814,39 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                 let constrs = type_constrs head goal.right in
                 let tysub = Unifyty.solve_constraints_silent constrs in
                 match tysub with
+                (* type unification succeeds *)
+                | Some tysub' when is_ground_tysub tysub' -> begin
+                    let (vars, head, body) =
+                      instantiate_poly_clause tysub' vars head body in
+                    match try_right_unify_cpairs head goal.right with
+                    | None ->
+                       failwithf "Head of program clause named %S not\
+                                  \ unifiable with goal"
+                         nm
+                    | Some cpairs ->
+                       if try_unify_cpairs cpairs then begin
+                           let new_vars = List.map (fun (x, xv) -> (x, find_vars Logic [xv])) vars in
+                           let quant_vars =
+                             List.fold_left
+                               (fun vs (x, nvs) -> if nvs = [] then vs else (x, nvs) :: vs)
+                               [] new_vars in
+                           let body =
+                             List.map begin fun g ->
+                               let aobj = {goal with right = g} in
+                               map_on_objs normalize_obj (Obj (aobj, sr))
+                               end body in
+                           if quant_vars = [] then body
+                           else [existentially_close ~used quant_vars (conjoin body)]
+                         end else
+                         failwithf "Unsolvable unification of head\
+                                    \ of program clause named %S with goal"
+                           nm
+                  end
+                | _ -> 
                 (* type unification fails *)
-                | None ->
-                    failwithf "Type variables in the head of program clause\
+                   failwithf "Type variables in the head of program clause %S\
                               \ cannot be fully inferred by unification"
                       nm
-                (* type unification succeeds *)
-                | Some tysub' -> 
-                   if is_ground_tysub tysub' then begin
-                       let (vars, head, body) =
-                         instantiate_poly_clause tysub' vars head body in
-                       match try_right_unify_cpairs head goal.right with
-                       | None ->
-                          failwithf "Head of program clause named %S not\
-                                     \ unifiable with goal"
-                            nm
-                       | Some cpairs ->
-                          if try_unify_cpairs cpairs then begin
-                              let new_vars = List.map (fun (x, xv) -> (x, find_vars Logic [xv])) vars in
-                              let quant_vars =
-                                List.fold_left
-                                  (fun vs (x, nvs) -> if nvs = [] then vs else (x, nvs) :: vs)
-                                  [] new_vars in
-                              let body =
-                                List.map begin fun g ->
-                                  let aobj = {goal with right = g} in
-                                  map_on_objs normalize_obj (Obj (aobj, sr))
-                                  end body in
-                              if quant_vars = [] then body
-                              else [existentially_close ~used quant_vars (conjoin body)]
-                            end else
-                            failwithf "Unsolvable unification of head\
-                                       \ of program clause named %S with goal"
-                              nm
-                     end
-                   else
-                     failwith "Cannot fully infer the type of some specification clause"
                 end |>
                 List.concat
           | None ->
@@ -928,28 +947,24 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~retype
       match tysub with
       | None -> ()
       | Some tysub' ->
-         if is_ground_tysub tysub' then begin
-             let (_, head, body) =
-               instantiate_poly_clause tysub' [] head body in
-             match try_right_unify_cpairs head goal with
-             | None -> ()
-             | Some cpairs ->
-                let sc ws =
-                  if try_unify_cpairs cpairs then
-                    sc (WUnfold(p, i, ws)) in
-                let witnesses = match witness with
-                  | WUnfold (_, _, ws) when List.length ws = List.length body -> ws
-                  | WMagic -> List.map (fun _ -> WMagic) body
-                  | _ -> bad_witness ()
-                in
-                let n = match witness with
-                  | WUnfold _ -> n
-                  | _ -> n - 1
-                in
-                async_obj_aux_conj n (wrap body) r ts ~sc ~witnesses
-           end
-         else
-           failwith "Cannot fully infer the type of some specification clause"
+         let (_, head, body) =
+           instantiate_poly_clause tysub' [] head body in
+         match try_right_unify_cpairs head goal with
+         | None -> ()
+         | Some cpairs ->
+            let sc ws =
+              if try_unify_cpairs cpairs then
+                sc (WUnfold(p, i, ws)) in
+            let witnesses = match witness with
+              | WUnfold (_, _, ws) when List.length ws = List.length body -> ws
+              | WMagic -> List.map (fun _ -> WMagic) body
+              | _ -> bad_witness ()
+            in
+            let n = match witness with
+              | WUnfold _ -> n
+              | _ -> n - 1
+            in
+            async_obj_aux_conj n (wrap body) r ts ~sc ~witnesses
       end
 
   and async_obj_aux n hyps goal r ts ~sc ~witness =
@@ -1332,10 +1347,13 @@ let apply ?(used_nominals=[]) term args =
               let constrs = apply_arrow_type_constrs permuted_body args in
               let tysub = Unifyty.solve_constraints_silent constrs in
               match tysub with
-              | None -> None
-              | Some tysub' ->
-                 let permuted_body' = permuted_body in
-                 Some(apply_arrow permuted_body args))
+              | Some tysub' when is_ground_tysub tysub' ->
+                 let permuted_body = 
+                   instantiate_poly_metaterm tysub' permuted_body in
+                 Some(apply_arrow permuted_body args)
+              | _ ->
+               failwith "Cannot fully infer the type of the applied term"
+            )
         end |>
         (function
           | Some v -> v
@@ -1470,6 +1488,18 @@ let apply_with term args withs =
 
 (* Backchain *)
 
+(* Infer type constraints from backchaining *)
+let backchain_arrow_type_constrs term goal =
+  let obligations, head = decompose_arrow term in
+  match head, goal with
+  | Obj ({mode = Async ; _} as hobj, _), Obj ({mode = Async ; _} as gobj, _) ->
+      let gconstrs = type_constrs hobj.right gobj.right in
+      let cconstrs = 
+        Context.backchain_reconcile_constrs hobj.context gobj.context in
+      gconstrs @ cconstrs
+  | _, _ -> 
+      meta_right_type_constrs head goal
+
 let backchain_arrow term goal =
   let obligations, head = decompose_arrow term in
   let () =
@@ -1508,9 +1538,6 @@ let backchain ?(used_nominals=[]) term goal =
         List.for_all (fun (ty1, ty2) -> Unifyty.ty_compatible ty1 ty2) ty_pairs
       end |>
       List.find_some begin fun nominals ->
-        let norm_tys = List.map (tc []) nominals in
-        let ty_pairs = List.map2 (fun ty1 ty2 -> (ty1, ty2)) norm_tys nabla_tys in
-        List.iter (fun (ty1,ty2) -> add_ty_constraint ty1 ty2) ty_pairs;
         try_with_state ~fail:None
           (fun () ->
              let support = List.minus support nominals in
@@ -1521,7 +1548,17 @@ let backchain ?(used_nominals=[]) term goal =
              let permuted_body =
                replace_metaterm_vars alist raised_body
              in
-             Some(backchain_arrow permuted_body goal))
+             (* Infer the type of the backchained term *)
+             let constrs = backchain_arrow_type_constrs permuted_body goal in
+             let tysub = Unifyty.solve_constraints_silent constrs in
+             match tysub with
+             | Some tysub' when is_ground_tysub tysub' ->
+                let permuted_body = 
+                  instantiate_poly_metaterm tysub' permuted_body in
+                Some(backchain_arrow permuted_body goal)
+             | _ ->
+                failwith "Cannot fully infer the type of the applied term"
+          )
       end |>
       (function
         | Some v -> v

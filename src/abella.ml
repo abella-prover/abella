@@ -539,7 +539,7 @@ let rec process1 () =
       State.Undo.undo () ;
       type_inference_error ci exp act ;
       interactive_or_exit ()
-  | TypeInferenceError (InstGenericTyvar v) ->
+  | InstGenericTyvar v ->
       State.Undo.undo () ;
       eprintf "%s\n" 
         (Printf.sprintf "The generic type variable %s cannot be instantiated" 
@@ -663,7 +663,7 @@ and process_top1 () =
       let gtys = List.map tag_gen_tyvar tys in
       let tysub = 
         List.map2 (fun id gty -> (id, tybase (atybase gty))) tys gtys in
-      let thm = inst_poly_metaterm tysub [] thm in
+      let thm = Tactics.instantiate_poly_metaterm tysub thm in
       let tsign = 
         let (basics, consts) = !sign in
         (List.map (fun id -> (id,kind 0)) gtys @ basics, consts)

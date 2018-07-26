@@ -385,12 +385,6 @@ let iter_term_tys f t =
   in
   aux t
 
-let inst_var_ty tysub t =
-  let f = (apply_sub_ty sub) in
-  match observe (hnorm t) with
-  | Var v -> var v.tag v.name v.ts (f v.ty)
-  | _ -> assert false
-
 (* let map_on_term_tys f t =
  *   let rec taux t = match observe (hnorm t) with
  *   | Var v -> var v.tag v.name v.ts (f v.ty)
@@ -617,6 +611,12 @@ let term_head_name t =
     | Some (t, _) -> term_to_name t
     | None -> assert false
 
+let term_head_pred t =
+  match term_head t with
+    | Some (t, _) -> t
+    | None -> assert false
+
+
 let is_head_name name t =
   match term_head t with
     | Some (Ptr {contents=V v}, _) when v.name = name -> true
@@ -806,6 +806,18 @@ let get_tycstr f ty =
   and aux_tys tyvs tys = List.fold_left aux_ty tyvs tys in
   Iset.elements (aux_ty Iset.empty ty)
 
+(* Find polymorphic type variables *)
+let find_var_refs tag ts =
+  List.unique (select_var_refs (fun v -> v.tag = tag) ts)
+
+let find_vars tag ts =
+  List.map term_to_var (find_var_refs tag ts)
+
+let find_poly_var_refs tag ts =
+  List.unique (select_var_refs (fun v -> contains_tyvar v.ty) ts)
+
+let find_poly_vars tag ts =
+  List.map term_to_var (find_poly_var_refs tag ts)
 
 (** Type substitutions *)
 type tysub = (string * ty) list
@@ -829,8 +841,10 @@ let apply_bind_sub v ty sub =
 let is_ground_tysub sub =
   not (List.exists (fun (id,ty) -> contains_tyvar ty) sub)
 
-(* let inst_term_ty sub t =
- *   map_on_term_tys (apply_sub_ty sub) t *)
+let inst_var_ty tysub t =
+  match observe (hnorm t) with
+  | Var v -> var v.tag v.name v.ts (apply_sub_ty tysub v.ty)
+  | _ -> assert false
     
 let term_fully_instantiated t =
   let insted = ref true in

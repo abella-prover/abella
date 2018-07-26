@@ -183,6 +183,7 @@ val fresh_name : string -> (string * 'a) list -> string
 val term_head : term -> (term * term list) option
 val is_head_name : string -> term -> bool
 val term_head_name : term -> string
+val term_head_pred : term -> term
 
 val is_capital_name : string -> bool
 val capital_tids : term list -> (id * ty) list
@@ -214,6 +215,9 @@ val term_contains_tyvar : term -> bool
 val term_contains_gen_tyvar : term -> bool
 val is_poly_term : term -> bool
 
+val find_poly_var_refs : tag -> term list -> term list
+val find_poly_vars : tag -> term list -> var list
+
 (* Type substitutions *)
 type tysub = (string * ty) list
 
@@ -239,3 +243,4 @@ val replace_pi_with_const : term -> tyctx * term
 
 val print_var_tys : term -> unit
 val print_ty_sub : tysub -> unit
+

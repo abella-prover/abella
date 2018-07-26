@@ -191,3 +191,9 @@ let backchain_reconcile hctx gctx =
       | [hv] -> Unify.right_unify hv (context_to_term gctx)
       | [] -> ()
       | _ -> failwith ("Contexts did not match: " ^ (context_to_string hctx))
+
+let backchain_reconcile_constrs hctx gctx =
+  let hctx, gctx = xor hctx gctx in
+    match hctx with
+      | [hv] -> Unify.type_constrs hv (context_to_term gctx)
+      | _ -> []

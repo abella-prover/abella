@@ -23,6 +23,7 @@
 (** Higher Order Pattern Unification *)
 
 open Term
+open Unifyty
 open Extensions
 
 (* generate ids for n binders *)
@@ -631,10 +632,6 @@ let makesubst tyctx h1 t2 a1 n =
     ensure_flex_args a1 ts1 ;
     lambda (List.combine a1ids a1tys) (toplevel_subst tyctx t2 0)
 
-(** Check if two constant are equal except by their types *)
-let constant_eq c1 c2 =
-  c1.name = c2.name && c1.tag = c2.tag && c1.ts = c2.ts
-
 (** Unify two ty objects. 
     - if the two objects can be made equal, then return true
     - if the two objects cannot be made equal under any circumstances, 
@@ -644,11 +641,12 @@ let constant_eq c1 c2 =
  *)
 let unifyty ty1 ty2 =
   try
-    unify_constraints [(ty1, ty2, (ghost, CArg))]; true
+    let _ = Unifyty.unify_constraints [(ty1, ty2, def_cinfo)] in
+    true
   with
   | TypeInferenceFailure _ -> false
   | InstGenericTyvar v ->
-     raise (UnifyError (InstGenericTyVar v))
+     raise (UnifyError (InstGenericTyvar v))
 
 (** Unifying the arguments of two rigid terms with the same head, these
   * arguments being given as lists. Exceptions are raised if
@@ -668,7 +666,7 @@ and unify_const_term tyctx cst t2 =
   let v1 = term_to_var cst in
   match observe t2 with
     | Var v2 when constant v2.tag ->
-       constant_eq v1 v2 then begin
+       if v1.name = v2.name then begin
          (* if the two constants have the same name then try to identify
           the two constants by unifying their types *)
            if not (unifyty v1.ty v2.ty) then
@@ -694,7 +692,7 @@ and unify_app_term tyctx h1 a1 t1 t2 =
     | Var v1, App (h2,a2) when constant v1.tag ->
         begin match observe h2 with
           | Var v2 when constant v2.tag ->
-              constant_eq v1 v2 then begin
+              if v1.name = v2.name then begin
                 (* if the two constants have the same name then try to
                    identify the two constants by unifying their types *)
                 (if not (unifyty v1.ty v2.ty) then
@@ -799,7 +797,7 @@ let pattern_unify ~used t1 t2 =
   local_used := used ;
   if not (term_fully_instantiated t1 
           && term_fully_instantiated t2) then
-    failwith 
+    failwithf
       "Try to unify terms containing type variables: %s = %s"
       (term_to_string t1) (term_to_string t2)
   else
@@ -944,8 +942,8 @@ let try_left_unify_cpairs ~used t1 t2 =
         match err with
         | NotLLambda -> 
            failwith (msg ^ "encountered non-pattern unification problem")
-        | InstGenericVar v ->
-           let msg = msg ^ (Unifyty.error_info_msg v) in
+        | InstGenericTyvar v ->
+           let msg = msg ^ (Unifyty.inst_gen_tyvar_msg v) in
            failwith msg
 
 let try_right_unify_cpairs t1 t2 =
@@ -1019,7 +1017,7 @@ and type_constrs_app_term h1 a1 t1 t2 =
               type_constrs_list a1 a2
           | _ -> []
         end
-    | -> []
+    | _ -> []
 
 (* Unify [Lam(tys1,t1) = t2]. *)
 and type_constrs_lam_term tys1 t1 t2 =
@@ -1029,7 +1027,7 @@ and type_constrs_lam_term tys1 t1 t2 =
 
 (** The main unification procedure. *)
 and type_constrs t1 t2 =
-  try match observe t1,observe t2 with
+  match observe t1,observe t2 with
     | Lam(idtys1,t1),_    -> type_constrs_lam_term idtys1 t1 t2
     | _,Lam(idtys2,t2)    -> type_constrs_lam_term idtys2 t2 t1
 

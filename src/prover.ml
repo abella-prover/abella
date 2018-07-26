@@ -265,18 +265,48 @@ let clause_head_name cl =
 (*       with Not_found -> tybase (AtmTy(cty, (List.map (app_ty tymap) args))) *)
 (*     in tyarrow tys targ *)
 
-let instantiate_clauses_aux =
-  let fn (pn, ty_acts) def =
-    (* find the proper instantiation for 
-       the type variables of the definition *)
-    let Ty (ty_exps, _) = Itab.find pn def.mutual in
+(* let instantiate_clauses_aux =
+ *   let fn (pn, ty_acts) def =
+ *     (\* find the proper instantiation for 
+ *        the type variables of the definition *\)
+ *     let Ty (ty_exps, _) = Itab.find pn def.mutual in
+ *     let ty_fresh = 
+ *       List.map (fun id -> (id, Term.fresh_tyvar ())) def.typarams in
+ *     let ty_exps = List.map (apply_sub_ty ty_fresh) ty_exps in
+ *     let eqns = List.map2 begin fun ty_exp ty_act ->
+ *         (ty_exp, ty_act, (ghost, Unifyty.CArg))
+ *       end ty_exps ty_acts in
+ *     let tysol = Unifyty.unify_constraints eqns in
+ *     let tymap = List.map begin fun (id, ftyv) ->
+ *       match ftyv with
+ *       | Ty([], AtmTy (cty,[])) ->
+ *          let ity = 
+ *            try List.assoc cty tysol
+ *            with Not_found -> 
+ *              failwithf "The type parameter %s cannot be determined" id
+ *          in (id, ity)
+ *       | _ -> assert false
+ *     end ty_fresh in
+ *     (\* generate the instance of the definition under the type substitution *\)
+ *     let inst_clause tysub cl =
+ *       let tyctx = metaterm_capital_tids cl.head in
+ *       let ctx = tyctx_to_ctx (apply_sub_tyctx tysub tyctx) in
+ *       {head = inst_poly_metaterm tysub ctx cl.head ;
+ *        body = inst_poly_metaterm tysub ctx cl.body}
+ *     in
+ *     List.map (inst_clause tymap) def.clauses
+ *   in
+ *   memoize fn *)
+
+let instantiate_clauses pred def =
+    (* Determine the type instances for parameterizing types of
+       the definition by looking at the head predicate of p *)
+    let pn = term_to_name pred in
+    let ty = Itab.find pn def.mutual in
     let ty_fresh = 
       List.map (fun id -> (id, Term.fresh_tyvar ())) def.typarams in
-    let ty_exps = List.map (apply_sub_ty ty_fresh) ty_exps in
-    let eqns = List.map2 begin fun ty_exp ty_act ->
-        (ty_exp, ty_act, (ghost, Unifyty.CArg))
-      end ty_exps ty_acts in
-    let tysol = Unifyty.unify_constraints eqns in
+    let ty = apply_sub_ty ty_fresh ty in
+    let tysol = Unifyty.unify_constraints [(ty, (term_to_var pred).ty, def_cinfo)] in
     let tymap = List.map begin fun (id, ftyv) ->
       match ftyv with
       | Ty([], AtmTy (cty,[])) ->
@@ -290,17 +320,13 @@ let instantiate_clauses_aux =
     (* generate the instance of the definition under the type substitution *)
     let inst_clause tysub cl =
       let tyctx = metaterm_capital_tids cl.head in
-      let ctx = tyctx_to_ctx (apply_sub_tyctx tysub tyctx) in
-      {head = inst_poly_metaterm tysub ctx cl.head ;
-       body = inst_poly_metaterm tysub ctx cl.body}
+      let ctx = tyctx_to_ctx tyctx in
+      let (_,head,body) = 
+        Tactics.instantiate_poly_def_clause tysub ctx cl.head cl.body
+      in
+      {head = head ; body = body}
     in
     List.map (inst_clause tymap) def.clauses
-  in
-  memoize fn
-
-let instantiate_clauses pn def args =
-  let ty_acts = List.map (tc []) args in
-  instantiate_clauses_aux (pn, ty_acts) def
 
 let def_unfold term =
   match term with
@@ -311,7 +337,8 @@ let def_unfold term =
         let def = H.find defs_table (term_head_name p) in
         let clauses =
           if def.typarams = [] then def.clauses
-          else instantiate_clauses pn def (term_spine p)
+          else 
+            instantiate_clauses (term_head_pred p) def
         in
         (def.mutual, clauses)
       end else
@@ -588,7 +615,7 @@ let get_lemma ?(tys:ty list = []) name =
   if List.length tys <> List.length argtys then
     failwithf "Need to provide mappings for %d types" (List.length argtys) ;
   let tysub = List.map2 (fun id ty -> (id, ty)) argtys tys in
-  inst_poly_metaterm tysub [] bod
+  Tactics.instantiate_poly_metaterm tysub bod
 
 let get_hyp_or_lemma ?tys name =
   try get_hyp name with
@@ -834,43 +861,29 @@ let partition_obligations ?depth obligations =
           | Some w -> Either.Right (g, w))
        obligations)
 
-let try_infer_tysub tyvars f failmsg=
-  Unify.start_collecting_ty_constraints ();
-  (try
-    f ()
-   with
-   | e -> ());
-  Unify.end_collecting_ty_constraints ();
-  try
-    let tysub = unify_constraints (Unify.get_ty_constraints ()) in
-    let subdom = List.map fst tysub in
-    if List.for_all (fun tv -> List.mem tv subdom) tyvars then
-      tysub
-    else
-      failwith failmsg
-  with
-  | TypeInferenceFailure _ | TypeInferenceError _ ->
-    failwith failmsg
+(* let try_infer_tysub tyvars f failmsg=
+ *   Unify.start_collecting_ty_constraints ();
+ *   (try
+ *     f ()
+ *    with
+ *    | e -> ());
+ *   Unify.end_collecting_ty_constraints ();
+ *   try
+ *     let tysub = unify_constraints (Unify.get_ty_constraints ()) in
+ *     let subdom = List.map fst tysub in
+ *     if List.for_all (fun tv -> List.mem tv subdom) tyvars then
+ *       tysub
+ *     else
+ *       failwith failmsg
+ *   with
+ *   | TypeInferenceFailure _ | TypeInferenceError _ ->
+ *     failwith failmsg *)
 
 let apply ?name ?(term_witness=ignore) h args ws =
-  let h = fill_in_tyvars_for_lemma h in
-  let htyvars = clearable_tyvars h in
   let stmt = get_stmt_clearly h in
   let args = List.map get_arg_clearly args in
   let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
   let ws = type_apply_withs stmt ws in
-  let stmt = 
-    if List.length htyvars > 0 then begin
-      let tysub = try_infer_tysub htyvars
-        (fun _ -> let _ = Tactics.apply_with stmt args ws in ())
-        "Type variables in the lemma cannot be completely determined"
-      in
-      inst_poly_metaterm tysub [] stmt
-    end
-    else
-      stmt
-  in
-  metaterm_ensure_subordination !sr stmt;
   let result, obligations = Tactics.apply_with stmt args ws in
   let remaining_obligations, term_witnesses =
     partition_obligations obligations
@@ -909,22 +922,8 @@ let type_backchain_withs stmt ws =
     ws
 
 let backchain ?depth ?(term_witness=ignore) h ws =
-  let h = fill_in_tyvars_for_lemma h in
-  let htyvars = clearable_tyvars h in
   let stmt = get_stmt_clearly h in
   let ws = type_backchain_withs stmt ws in
-  let stmt = 
-    if List.length htyvars > 0 then begin
-      let tysub = try_infer_tysub htyvars 
-        (fun _ -> let _ = Tactics.backchain_with stmt ws sequent.goal in ())
-        "Type variables in the lemma cannot be completely determined"
-      in
-      inst_poly_metaterm tysub [] stmt
-    end
-    else
-      stmt
-  in
-  metaterm_ensure_subordination !sr stmt;
   let obligations = Tactics.backchain_with stmt ws sequent.goal in
   let remaining_obligations, term_witnesses =
     partition_obligations ?depth obligations

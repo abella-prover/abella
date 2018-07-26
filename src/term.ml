@@ -184,6 +184,7 @@ let rec eq t1 t2 =
         (get_ctx_tys idtys1) = (get_ctx_tys idtys2) && eq t1 t2
     | _ -> false
 
+
 (* Binding a variable to a term. The *contents* of the cell representing the
  * variable is a reference which must be updated. Also the variable must
  * not be made a reference to itself. *)

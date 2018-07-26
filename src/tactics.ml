@@ -50,6 +50,7 @@ let instantiate_poly_def_clause tysub vars head body =
 
 let instantiate_poly_metaterm tysub t =
   let pvars = List.unique ((find_metaterm_poly_vars Logic t)
+                           @ (find_metaterm_poly_vars Eigen t)
                            @ (find_metaterm_poly_vars Nominal t)) in
   let alist = 
     List.map (fun t -> (term_to_name t, inst_var_ty tysub t)) pvars in

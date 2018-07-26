@@ -1283,8 +1283,8 @@ let apply_arrow_type_constrs term args =
   let ctx_constrs = Context.reconcile_constrs !context_pairs in
   constrs @ ctx_constrs
 
-let infer_types_then_apply_arrow body args =
-  let constrs = apply_arrow_type_constrs body args in
+let infer_types_then_apply_arrow aconstrs body args =
+  let constrs = aconstrs @ (apply_arrow_type_constrs body args) in
   let tysub = Unifyty.solve_constraints_silent constrs in
   match tysub with
   | Some tysub' when is_ground_tysub tysub' ->
@@ -1306,7 +1306,7 @@ let apply ?(used_nominals=[]) term args =
     match nablas with
     | [] -> (* short circuit *)
        let body = (freshen_nameless_bindings ~support ~ts:0 foralls body) in
-       infer_types_then_apply_arrow body args
+       infer_types_then_apply_arrow [] body args
     | _ ->
         let n = List.length nablas in
         let (nabla_ids, nabla_tys) = List.split nablas in
@@ -1329,15 +1329,17 @@ let apply ?(used_nominals=[]) term args =
           List.for_all (fun (ty1, ty2) -> Unifyty.ty_compatible ty1 ty2) ty_pairs
         end |>
         List.find_some begin fun nominals ->
+          let norm_tys = List.map (tc []) nominals in
+          let arg_constrs = 
+            List.map2 (fun ty1 ty2 -> (ty1, ty2, Unifyty.def_cinfo)) norm_tys nabla_tys in
           try_with_state ~fail:None
             (fun () ->
               let support = List.minus support nominals in
               let raised_body =
-                freshen_nameless_bindings ~support ~ts:0 foralls body
-              in
+                freshen_nameless_bindings ~support ~ts:0 foralls body in
               let alist = List.combine nabla_ids nominals in
               let permuted_body = replace_metaterm_vars alist raised_body in
-              Some (infer_types_then_apply_arrow permuted_body args)
+              Some (infer_types_then_apply_arrow arg_constrs permuted_body args)
             )
         end |>
         (function
@@ -1353,7 +1355,7 @@ let apply ?(used_nominals=[]) term args =
   | Binding(Nabla, nablas, body) ->
       process_bindings [] nablas body
   | Arrow _ ->
-      infer_types_then_apply_arrow term args
+      infer_types_then_apply_arrow [] term args
   | term when args = [] ->
       (term, [])
   | _ ->
@@ -1441,8 +1443,8 @@ let backchain_arrow term goal =
   end ;
   obligations
 
-let infer_types_then_backchain_arrow body goal = 
-  let constrs = backchain_arrow_type_constrs body goal in
+let infer_types_then_backchain_arrow aconstrs body goal = 
+  let constrs = aconstrs @ (backchain_arrow_type_constrs body goal) in
   let tysub = Unifyty.solve_constraints_silent constrs in
   match tysub with
   | Some tysub' when is_ground_tysub tysub' ->
@@ -1470,13 +1472,15 @@ let backchain ?(used_nominals=[]) term goal =
         List.for_all (fun (ty1, ty2) -> Unifyty.ty_compatible ty1 ty2) ty_pairs
       end |>
       List.find_some begin fun nominals ->
+        let norm_tys = List.map (tc []) nominals in
+        let arg_constrs = List.map2 (fun ty1 ty2 -> (ty1, ty2, Unifyty.def_cinfo)) norm_tys nabla_tys in
         try_with_state ~fail:None
           (fun () ->
              let support = List.minus support nominals in
              let raised_body = freshen_nameless_bindings ~support ~ts:0 bindings body in
              let alist = List.combine nabla_ids nominals in
              let permuted_body = replace_metaterm_vars alist raised_body in
-             Some (infer_types_then_backchain_arrow permuted_body goal)
+             Some (infer_types_then_backchain_arrow arg_constrs permuted_body goal)
           )
       end |>
       (function
@@ -1485,9 +1489,9 @@ let backchain ?(used_nominals=[]) term goal =
             failwith "Failed to find instantiations for nabla quantified variables")
 
   | Binding(Forall, bindings, body) ->
-      infer_types_then_backchain_arrow (freshen_nameless_bindings ~support ~ts:0 bindings body) goal
+      infer_types_then_backchain_arrow [] (freshen_nameless_bindings ~support ~ts:0 bindings body) goal
 
-  | _ -> infer_types_then_backchain_arrow term goal
+  | _ -> infer_types_then_backchain_arrow [] term goal
 
 let backchain_with term withs goal =
   let term, used_nominals = instantiate_withs term withs in

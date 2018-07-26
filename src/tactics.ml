@@ -1441,6 +1441,16 @@ let backchain_arrow term goal =
   end ;
   obligations
 
+let infer_types_then_backchain_arrow body goal = 
+  let constrs = backchain_arrow_type_constrs body goal in
+  let tysub = Unifyty.solve_constraints_silent constrs in
+  match tysub with
+  | Some tysub' when is_ground_tysub tysub' ->
+     let body = instantiate_poly_metaterm tysub' body in
+     backchain_arrow body goal
+  | _ ->
+     failwith "Cannot fully infer the type of the applied term"
+
 let backchain ?(used_nominals=[]) term goal =
   let support = List.minus (metaterm_support goal) used_nominals in
   match term with
@@ -1463,23 +1473,10 @@ let backchain ?(used_nominals=[]) term goal =
         try_with_state ~fail:None
           (fun () ->
              let support = List.minus support nominals in
-             let raised_body =
-               freshen_nameless_bindings ~support ~ts:0 bindings body
-             in
+             let raised_body = freshen_nameless_bindings ~support ~ts:0 bindings body in
              let alist = List.combine nabla_ids nominals in
-             let permuted_body =
-               replace_metaterm_vars alist raised_body
-             in
-             (* Infer the type of the backchained term *)
-             let constrs = backchain_arrow_type_constrs permuted_body goal in
-             let tysub = Unifyty.solve_constraints_silent constrs in
-             match tysub with
-             | Some tysub' when is_ground_tysub tysub' ->
-                let permuted_body = 
-                  instantiate_poly_metaterm tysub' permuted_body in
-                Some(backchain_arrow permuted_body goal)
-             | _ ->
-                failwith "Cannot fully infer the type of the applied term"
+             let permuted_body = replace_metaterm_vars alist raised_body in
+             Some (infer_types_then_backchain_arrow permuted_body goal)
           )
       end |>
       (function
@@ -1488,9 +1485,9 @@ let backchain ?(used_nominals=[]) term goal =
             failwith "Failed to find instantiations for nabla quantified variables")
 
   | Binding(Forall, bindings, body) ->
-      backchain_arrow (freshen_nameless_bindings ~support ~ts:0 bindings body) goal
+      infer_types_then_backchain_arrow (freshen_nameless_bindings ~support ~ts:0 bindings body) goal
 
-  | _ -> backchain_arrow term goal
+  | _ -> infer_types_then_backchain_arrow term goal
 
 let backchain_with term withs goal =
   let term, used_nominals = instantiate_withs term withs in

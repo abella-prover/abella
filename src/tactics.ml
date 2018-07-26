@@ -503,6 +503,9 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
                  new_vars = new_vars ;
                  new_hyps = rewrap_succedent fresh_head :: body }
         end else begin
+            if not (term_head_name sync_obj.right = term_head_name fresh_head) then
+              None
+            else
             (* Perform the type unification first to determine the
                most general types that instantiate the type variables 
                in the clause *)
@@ -516,6 +519,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
                if is_ground_tysub tysub' then begin
                  let (fresh_used, fresh_head, fresh_body) =
                    instantiate_poly_clause tysub' fresh_used fresh_head fresh_body in
+                 Printf.printf "Clause head is: %s\n" (term_to_string fresh_head);
                  match try_left_unify_cpairs fresh_head sync_obj.right
                          ~used:(fresh_used @ used) with
                  | Some cpairs ->

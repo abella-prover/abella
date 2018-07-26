@@ -1,6 +1,6 @@
 /****************************************************************************/
 /* Copyright (C) 2007-2009 Gacek                                            */
-/* Copyright (C) 2013-2016 Inria (Institut National de Recherche            */
+/* Copyright (C) 2013-2018 Inria (Institut National de Recherche            */
 /*                         en Informatique et en Automatique)               */
 /*                                                                          */
 /* This file is part of Abella.                                             */
@@ -110,7 +110,7 @@
 
 %token IMP IF AMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
-%token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY PICK
+%token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY ASYNC
 %token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
@@ -170,52 +170,52 @@ loc_id:
 
 id:
   | STRINGID      { $1 }
+  | ABBREV        { "abbrev" }
+  | ABORT         { "abort" }
+  | ALL           { "all" }
+  | APPLY         { "apply" }
+  | AS            { "as" }
+  | ASSERT        { "assert" }
+  | ASYNC         { "async" }
+  | BACKCHAIN     { "backchain" }
+  | BY            { "by" }
+  | CASE          { "case" }
+  | CLEAR         { "clear" }
+  | CLOSE         { "Close" }
+  | CODEFINE      { "CoDefine" }
+  | COIND         { "coinduction" }
+  | CUT           { "cut" }
+  | DEFINE        { "Define" }
+  | FROM          { "from" }
+  | IMPORT        { "Import" }
   | IND           { "induction" }
   | INST          { "inst" }
-  | APPLY         { "apply" }
-  | BACKCHAIN     { "backchain" }
-  | CASE          { "case" }
-  | SEARCH        { "search" }
-  | TO            { "to" }
-  | ON            { "on" }
-  | BY            { "by" }
-  | AS            { "as" }
-  | WITH          { "with" }
   | INTROS        { "intros" }
-  | CUT           { "cut" }
-  | FROM          { "from" }
-  | ASSERT        { "assert" }
-  | PICK          { "pick" }
-  | SKIP          { "skip" }
-  | WITNESS       { "witness" }
-  | UNDO          { "undo" }
-  | ABORT         { "abort" }
-  | COIND         { "coinduction" }
-  | LEFT          { "left" }
-  | RIGHT         { "right" }
-  | MONOTONE      { "monotone" }
-  | SPLIT         { "split" }
-  | UNFOLD        { "unfold" }
-  | ALL           { "all" }
   | KEEP          { "keep" }
-  | CLEAR         { "clear" }
-  | ABBREV        { "abbrev" }
-  | UNABBREV      { "unabbrev" }
-  | RENAME        { "rename" }
+  | KKIND         { "Kind" }
+  | LEFT          { "left" }
+  | MONOTONE      { "monotone" }
+  | ON            { "on" }
   | PERMUTE       { "permute" }
-  | THEOREM       { "Theorem" }
-  | IMPORT        { "Import" }
-  | SPECIFICATION { "Specification" }
-  | DEFINE        { "Define" }
-  | CODEFINE      { "CoDefine" }
+  | QUERY         { "Query" }
+  | QUIT          { "Quit" }
+  | RENAME        { "rename" }
+  | RIGHT         { "right" }
+  | SEARCH        { "search" }
   | SET           { "Set" }
   | SHOW          { "Show" }
-  | QUIT          { "Quit" }
-  | QUERY         { "Query" }
+  | SKIP          { "skip" }
+  | SPECIFICATION { "Specification" }
+  | SPLIT         { "split" }
   | SSPLIT        { "Split" }
-  | CLOSE         { "Close" }
+  | THEOREM       { "Theorem" }
+  | TO            { "to" }
   | TTYPE         { "Type" }
-  | KKIND         { "Kind" }
+  | UNABBREV      { "unabbrev" }
+  | UNDO          { "undo" }
+  | UNFOLD        { "unfold" }
+  | WITH          { "with" }
+  | WITNESS       { "witness" }
 
 /* Annotated ID */
 aid:
@@ -477,6 +477,8 @@ pure_command:
     { Types.Case(Types.Keep ($3, []), $1) }
   | hhint ASSERT maybe_depth metaterm DOT
     { Types.Assert($4, $3, $1) }
+  | hhint MONOTONE clearable WITH term DOT
+    { Types.Monotone($3, $5, $1) }
   | EXISTS ewitnesses DOT
     { Types.Exists(`EXISTS, $2) }
   | WITNESS ewitnesses DOT
@@ -487,6 +489,8 @@ pure_command:
     { Types.Search(`depth $2) }
   | SEARCH WITH search_witness DOT
     { Types.Search(`witness $3) }
+  | ASYNC DOT
+    { Types.Async_steps }
   | SPLIT DOT
     { Types.Split }
   | SPLITSTAR DOT
@@ -511,7 +515,7 @@ pure_command:
     { Types.Clear(Types.Clear_delete, $2) }
   | CLEAR RARROW hyp_list DOT
     { Types.Clear(Types.Clear_extro, $3) }
-  | ABBREV hyp QSTRING DOT
+  | ABBREV hyp_list QSTRING DOT
     { Types.Abbrev($2, $3) }
   | UNABBREV hyp_list DOT
     { Types.Unabbrev($2) }
@@ -519,8 +523,6 @@ pure_command:
     { check_legal_var $2 2 ;
       check_legal_var $4 4 ;
       Types.Rename($2, $4) }
-  | MONOTONE clearable WITH term DOT
-    { Types.Monotone($2, $4) }
   | PERMUTE perm DOT
     { Types.Permute($2, None) }
   | PERMUTE perm hyp DOT

@@ -1,5 +1,16 @@
-Changes in 2.0.5-dev from 2.0.4
+Changes in 2.0.6-dev from 2.0.5
 -------------------------------
+
+
+
+Bugfixes
+
+* Incorrect pretty-printing of `(pi x\ p x)`.
+  #104 (Reported by Dan DaCosta)
+
+
+Changes in 2.0.5 from 2.0.4
+---------------------------
 
 Additions
 
@@ -54,9 +65,13 @@ Tweaks to existing functionality
   the search depth for automatic searches performed for omitted arguments. A
   bound of 0 means that no searches are attempted.
 
+* The `abbrev` and `unabbrev` tactics now both take a list of hypotheses to
+  (un)abbreviate. The display of abbreviations has also been compressed.
+
 * Error messages in interactive mode are printed to stderr in addition to any
   other output file specified with `-o`.
 
+* The `monotone` tactic now accepts hypothesis naming hints. (#91)
 
 Bugfixes
 
@@ -66,6 +81,13 @@ Bugfixes
   (#70; reported by Ahn Ki Yung)
 * Search now correctly raises eigenvariables over support  
   (#71; reported by Morten Rhiger)
+* Undo/ProofGeneral now handles `abbrev` and `unabbrev` correctly.
+* Do not normalize object sequents except when they occur shallowly
+  among the assumptions or goal. Deep normalization is unsound.  
+  (Reported by Dale Miller)
+* The `apply` tactic was invalidly raising guessed instances over
+  nominal constants that already occur in the body of the lemma.
+  (#96; reported by Ahn Ki Yung and Alwen Tiu)
 
 
 Changes in 2.0.4 from 2.0.3

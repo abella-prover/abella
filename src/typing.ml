@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -283,7 +283,7 @@ let rec contains_tyvar = function
 
 let tid_ensure_fully_inferred ~sign (id, ty) =
   if contains_tyvar ty then
-    failwithf "Type not fully determined for %s" id ;
+    failwith "Types of variables are not fully determined" ;
   kind_check_poly sign [] ty
 
 let term_ensure_fully_inferred ~sign t =

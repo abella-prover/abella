@@ -1,0 +1,323 @@
+Specification "pclf".
+Close ty, tm.
+
+Import "sim".
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Define howe : olist -> tm -> tm -> ty -> prop by
+; howe G X N T := member (of X T) G /\ osim G X N T
+; howe G unit N top := osim G unit N top
+; howe G zero N nat := osim G zero N nat
+; howe G (succ M) N nat :=
+    exists MM, howe G M MM nat /\
+    osim G (succ MM) N nat
+; howe G (ncase M H R) N T :=
+    exists MM, howe G M MM nat /\
+    exists HH, howe G H HH T /\
+    exists RR, (nabla x, howe (of x nat :: G) (R x) (RR x) T) /\
+    osim G (ncase MM HH RR) N T
+; howe G (lam R) N (arr S T) :=
+    exists RR, (nabla x, howe (of x S :: G) (R x) (RR x) T) /\
+    osim G (lam RR) N (arr S T)
+; howe G (fix R) N T :=
+    exists RR, (nabla x, howe (of x T :: G) (R x) (RR x) T) /\
+    osim G (fix RR) N T
+; howe G (app F M) N T :=
+    exists S FF, {ty S} /\ howe G F FF (arr S T) /\
+    exists MM, howe G M MM S /\
+    osim G (app FF MM) N T
+; howe G nill N (list T) := osim G nill N (list T)
+; howe G (cons H K) N (list T) :=
+    exists HH, howe G H HH T /\
+    exists KK, howe G K KK (list T) /\
+    osim G (cons HH KK) N (list T)
+; howe G (lcase M H R) N T :=
+    exists S MM, {ty S} /\ howe G M MM (list S) /\
+    exists HH, howe G H HH T /\
+    exists RR, (nabla h k, howe (of k (list S) :: of h S :: G) (R h k) (RR h k) T) /\
+    osim G (lcase MM HH RR) N T
+.
+
+Define howesub : olist -> olist -> olist -> olist -> prop by
+; howesub G nil nil nil := ctx G
+; nabla x, howesub (G x) (cp x (M x) :: SS x) (cp x (N x) :: TT x) (of x T :: D) :=
+    nabla x, howe (G x) (M x) (N x) T /\
+    howesub (G x) (SS x) (TT x) D
+.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% typing
+
+Theorem howe_ty : forall G M N T,
+  howe G M N T -> ctx G /\ {G |- of M T} /\ {G |- of N T}.
+induction on 1. intros. case H1.
+  case H3. search.
+  case H2. search.
+  case H2. search.
+  case H3. apply IH to H2. search.
+  case H5. apply IH to H2. apply IH to H3. apply IH to H4. search.
+  case H3. apply IH to H2. search.
+  case H3. apply IH to H2. search.
+  case H5. apply IH to H3. apply IH to H4. search.
+  case H2. search.
+  case H4. apply IH to H2. apply IH to H3. search.
+  case H6. apply IH to H3. apply IH to H4. apply IH to H5. search.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% reflexivity of Howe
+
+Theorem howe_refl : forall G M T, {ty T} -> ctx G -> {G |- of M T} -> howe G M M T.
+induction on 3. intros. apply osim_refl to _ H2 _ with M = M, T = T. case H3.
+  search.
+  apply IH to H1 H2 H5. search.
+  apply ty_closed to H2 *H5.
+   apply IH to _ _ H6. apply IH to _ _ H7. search.
+  case H1. apply IH to _ _ H5. search.
+  apply IH to _ _ H5. search.
+  search.
+  search.
+  case H1. apply IH to _ _ H5. apply IH to _ _ H6. search.
+  apply ty_closed to H2 *H5.
+   apply IH to _ _ H6. apply IH to _ _ H7.
+   apply IH to _ _ H8. search.
+  apply IH to _ _ H5. apply IH to _ _ H6. apply IH to _ _ H7.
+   search.
+  apply ctx_mem to H2 H6. case H5. search.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% weakening
+
+Theorem howe_weak : forall GG G M N T,
+  howe G M N T ->
+  ctx GG -> (forall E, member E G -> member E GG) ->
+  howe GG M N T.
+induction on 1. intros. case H1.
+  apply osim_weak to H5 H2 H3. apply *H3 to *H4. search.
+  apply osim_weak to H4 H2 H3. search.
+  apply osim_weak to H4 H2 H3. search.
+  apply IH to H4 H2 H3. apply osim_weak to H5 H2 H3. search.
+  apply IH to *H4 H2 H3. apply IH to *H5 H2 H3.
+   apply IH to *H6 _ _ with GG = of n1 nat :: GG.
+      intros. case H10. search. apply H3 to H11. search.
+   apply osim_weak to *H7 H2 H3. search.
+  apply IH to *H4 _ _ with GG = of n1 S :: GG.
+    intros. case H6. search. apply H3 to H7. search.
+   apply osim_weak to H5 H2 H3. search.
+  apply IH to *H4 _ _ with GG = of n1 T :: GG.
+    intros. case H6. search. apply H3 to H7. search.
+   apply osim_weak to H5 H2 H3. search.
+  apply IH to *H5 H2 H3. apply IH to *H6 H2 H3.
+   apply osim_weak to *H7 H2 H3. search.
+  apply osim_weak to *H4 H2 H3. search.
+  apply IH to *H4 H2 H3. apply IH to *H5 H2 H3.
+   apply osim_weak to *H6 H2 H3. search.
+  apply IH to *H5 H2 H3. apply IH to *H6 H2 H3.
+   apply IH to *H7 _ _ with GG = of n2 (list S) :: of n1 S :: GG.
+     intros. case H11. search. case H12. search. apply H3 to H13. search.
+   apply osim_weak to *H8 H2 H3. search.
+
+Theorem howesub_weak : forall GG G SS TT D T,
+  {ty T} ->
+  ofsub G SS D -> ofsub G TT D ->
+  howesub G SS TT D ->
+  ctx GG -> (forall E, member E G -> member E GG) ->
+  howesub GG SS TT D.
+induction on 4. intros. case H4.
+  search.
+  case H2. case H3. apply IH to _ H10 H12 H8 H5 H6.
+    apply howe_weak to H7 H5 H6. search.
+
+Theorem howesub_frame : forall G SS TT D T, nabla x,
+  {ty T} ->
+  ofsub G SS D -> ofsub G TT D ->
+  howesub G SS TT D ->
+  howesub (of x T :: G) (cp x x :: SS) (cp x x :: TT) (of x T :: D).
+intros. unfold. intros. split.
+  backchain howe_refl. apply ofsub_ctx to H2. search.
+  backchain howesub_weak. apply ofsub_ctx to H2. search.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% semi-transitivity of Howe
+
+Theorem howe_semi_trans : forall G M N K T,
+  howe G M N T -> osim G N K T -> howe G M K T.
+intros Hh Ho. Hh1 : case Hh.
+  apply osim_trans to Hh2 Ho. search.
+  apply osim_trans to Hh1 Ho. search.
+  apply osim_trans to Hh1 Ho. search.
+  apply osim_trans to Hh2 Ho. search.
+  apply osim_trans to Hh4 Ho. search.
+  apply osim_trans to Hh2 Ho. search.
+  apply osim_trans to Hh2 Ho. search.
+  apply osim_trans to Hh4 Ho. search.
+  apply osim_trans to Hh1 Ho. search.
+  apply osim_trans to Hh3 Ho. search.
+  apply osim_trans to Hh5 Ho. search.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% osim is included in howe
+
+Theorem osim_in_howe : forall G M N T,
+  {ty T} -> osim G M N T -> howe G M N T.
+intros. case H2 (keep). clear H5 H6.
+apply howe_refl to H1 H3 H4.
+backchain howe_semi_trans.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Theorem howe_substitutive_var : forall T G SS TT D SM N TN, nabla x,
+  {ty T} ->
+  ofsub (G x) (SS x) (D x) ->
+  ofsub (G x) (TT x) (D x) ->
+  howesub (G x) (SS x) (TT x) (D x) ->
+  member (of x T) (D x) ->
+  member (cp x (SM x)) (SS x) ->
+  {TT x |- cp (N x) (TN x)} ->
+  osim (D x) x (N x) T ->
+  howe (G x) (SM x) (TN x) T.
+induction on 4. intros.
+apply subst to H3 _ with M = n1, T = T. rename SM1 to TM.
+apply osim_cus to H8 H3 H9 H7.
+case H5.
+  case H4. case H6.
+    case H9. case H15.
+      case H14. apply howe_semi_trans to H12 H11. search.
+      case H3. apply ofsub_mem_sub to H18 H16. case H14. apply member_prune to H19.
+    case H2. apply ofsub_mem_sub to H16 H14. apply member_prune to H17.
+  case H4.
+    case H2. case H3. apply ofsub_ctx to H16. clear H19. case H6.
+     apply osim_refl to H1 *H20 _ with M = n1, T = T.
+     apply subst to H18 _ with M = n1, T = T.
+     apply IH to H1 H16 H18 H14 H12 H21 H23 H22.
+     backchain 0 howe_semi_trans.
+     case H9. case H27. case H26.
+     apply ofsub_mem_sub to H18 H28. case H26. assert {TT1 n1 n2 |- cp n1 (TM n2 n1)}.
+     apply cp_det to H18 *H23 H32.
+     search.
+    apply member_prune to H12.
+
+Theorem howe_substitutive : forall G SS TT D M N T SM TN,
+  {ty T} ->
+  howe D M N T ->
+  ofsub G SS D -> ofsub G TT D -> howesub G SS TT D ->
+  {SS |- cp M SM} -> {TT |- cp N TN} ->
+  howe G SM TN T.
+induction on 2. intros. case H2.
+  % var
+  apply ofsub_mem_src to H3 H8. case H11.
+  case H6. apply ofsub_mem_sub to H3 H14. case H13.
+  apply ofsub_det to H3 *H14 H10.
+  apply ofsub_ctx to H3. apply ctx_uniq to *H19 *H15 H8. clear H16 H17 H18.
+  apply howe_substitutive_var to H1 H3 H4 H5 H8 H10 H7 H9.
+  search.
+  % top
+  case H6.
+    apply osim_cus to H8 H4 _ H7.
+    search.
+    apply ofsub_mem_sub to H3 H10. case H9. case H12.
+  % zero
+  case H6.
+    apply osim_cus to H8 H4 _ H7.
+    search.
+    apply ofsub_mem_sub to H3 H10. case H9. case H12.
+  % succ
+  case H6.
+    apply howe_ty to H8. apply subst to H4 H13.
+    apply IH to H1 H8 H3 H4 H5 H10 H14.
+    apply osim_cus to H9 H4 _ H7 with M = succ MM.
+    search.
+    apply ofsub_mem_sub to H3 H11. case H10. case H13.
+  % ncase
+  case H6.
+    apply howe_ty to H8. apply subst to H4 H17.
+    apply IH to _ H8 H3 H4 H5 H12 H18.
+    apply howe_ty to H9. apply subst to H4 H23.
+    apply IH to H1 H9 H3 H4 H5 H13 H24.
+    apply ofsub_ctx to H3.
+    apply howesub_frame to _ H3 H4 H5 with T = nat.
+    apply ofsub_weak1 to *H3 with T = nat.
+    apply ofsub_weak1 to H4 with T = nat.
+    apply howe_ty to H10.
+    apply subst to _ H34 with G = of n1 nat :: G, SS = cp n1 n1 :: TT.
+    apply IH to H1 H10 _ _ H29 H14 H35
+     with G = of n1 nat :: G, D = of n1 nat :: D,
+          SS = cp n1 n1 :: SS, TT = cp n1 n1 :: TT.
+    apply osim_cus to H11 H4 _ H7 with M = ncase MM HH RR.
+    search.
+    apply ofsub_mem_sub to H3 H13. case H12. case H15.
+  % lam
+  case H6.
+    case H1.
+    apply howesub_frame to _ H3 H4 H5 with T = S.
+    apply ofsub_weak1 to *H3 with T = S, x = n1.
+    apply ofsub_weak1 to H4 with T = S, x = n1.
+    apply howe_ty to H8. case H16. apply ofsub_ctx to H14. case H20. clear H21.
+    apply subst to _ H18 with G = of n1 S :: G, SS = cp n1 n1 :: TT.
+    apply IH to H12 H8 _ _ H13 H10 H23
+     with G = of n1 S :: G,
+          D = of n1 S :: D,
+          SS = cp n1 n1 :: SS,
+          TT = cp n1 n1 :: TT.
+    apply osim_cus to H9 H4 _ H7 with M = lam RR.
+    search.
+    apply ofsub_mem_sub to H3 H11. case H10. case H13.
+  % fix
+  case H6.
+    apply howesub_frame to _ H3 H4 H5 with T = T.
+    apply ofsub_weak1 to *H3 with T = T, x = n1.
+    apply ofsub_weak1 to H4 with T = T, x = n1.
+    apply howe_ty to H8. case H14. apply ofsub_ctx to H12. case H18. clear H19.
+    apply subst to _ H16 with G = of n1 T :: G, SS = cp n1 n1 :: TT.
+    apply IH to H1 H8 _ _ H11 H10 H21
+     with G = of n1 T :: G, D = of n1 T :: D,
+          SS = cp n1 n1 :: SS, TT = cp n1 n1 :: TT.
+    apply osim_cus to H9 H4 _ H7 with M = fix RR.
+    search.
+    apply ofsub_mem_sub to H3 H11. case H10. case H13.
+  % app
+  case H6.
+    apply howe_ty to H9. apply subst to H4 H16.
+    apply IH to _ H9 H3 H4 H5 H12 H17.
+    apply howe_ty to H10. apply subst to H4 H22.
+    apply IH to _ H10 H3 H4 H5 H13 H23.
+    apply osim_cus to H11 H4 _ H7 with M = app FF MM.
+    search.
+    apply ofsub_mem_sub to H3 H13. case H12. case H15.
+  % nill
+  assert SM = nill. case H6. search.
+    apply ofsub_mem_sub to H3 H10. case H9. case H12.
+    case H9.
+   apply osim_cus to H8 H4 _ H7 with SM = nill. search.
+  % cons
+  case H6.
+    case H1.
+    apply howe_ty to H8. apply subst to H4 H16.
+    apply IH to _ H8 H3 H4 H5 H11 H17.
+    apply howe_ty to H9. apply subst to H4 H22.
+    apply IH to _ H9 H3 H4 H5 H12 H23.
+    apply osim_cus to H10 H4 _ H7 with M = cons HH KK.
+    search.
+    apply ofsub_mem_sub to H3 H12. case H11. case H14.
+  % lcase
+  case H6.
+    apply ofsub_ctx to H3.
+    apply howe_ty to H9. apply howe_ty to H10. apply howe_ty to H11.
+    clear H18 H21 H24.
+    apply ofsub_weak1 to H4 with T = S. apply ofsub_weak1 to *H27 with T = list S.
+    apply subst to H4 H20. apply subst to H4 H23.
+    apply subst to _ H26 with G = of n2 (list S) :: of n1 S :: G,
+                              SS = cp n2 n2 :: cp n1 n1 :: TT.
+    apply IH to _ H9 H3 H4 H5 H13 H29.
+    apply IH to _ H10 H3 H4 H5 H14 H31.
+    apply IH to _ H11 _ _ _ H15 H33
+     with G = of n2 (list S) :: of n1 S :: G, D = of n2 (list S) :: of n1 S :: D,
+          SS = cp n2 n2 :: cp n1 n1 :: SS, TT = cp n2 n2 :: cp n1 n1 :: TT.
+      backchain howesub_frame.
+      apply ofsub_weak1 to H3 with T = S. search.
+      apply ofsub_weak1 to H4 with T = S. search.
+      backchain howesub_frame.
+      apply ofsub_weak1 to H3 with T = S. apply ofsub_weak1 to H37 with T = list S. search.
+    apply osim_cus to H12 H4 _ H7 with M = lcase MM HH RR.
+    search.
+    apply ofsub_mem_sub to H3 H14. case H13. case H16.

@@ -133,6 +133,21 @@ let pprint_tests =
         (fun () ->
            let t = app (uconst "pi") [app (uconst "A") [uconst "B"]] in
              assert_term_pprint_equal "pi (A B)" t) ;
+
+      "((pi x\\p x) => qx) != (pi x\\(p x => q x))" >::
+        (fun () ->
+          let p = const "p" (tyarrow [tybase "x"] oty) in
+          let q = const "q" (tyarrow [tybase "x"] oty) in
+          let mkpi x ty f =
+            app (const "pi" (tyarrow [tyarrow [ty] oty] oty)) [lambda [x, ty] f] in
+          let mkimp f g =
+            app (const "=>" (tyarrow [oty ; oty] oty)) [f ; g] in
+          let ity = tybase "i" in
+          let t1 =
+            mkpi "x" ity (mkimp (app p [db 1]) (app q [db 1])) |> term_to_string in
+          let t2 =
+            mkimp (mkpi "x" ity (app p [db 1])) (app q [db 1]) |> term_to_string in
+          assert_bool (t1 ^ " == " ^ t2) (t1 <> t2)) ;
     ]
 
 let typing_tests =

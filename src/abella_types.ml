@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -133,26 +133,29 @@ type clear_mode =
   | Clear_delete
   | Clear_extro
 
+type hhint = id option
+
 type command =
-  | Induction of int list * id option
+  | Induction of int list * hhint
   | CoInduction of id option
-  | Apply of depth_bound option * clearable * clearable list * (id * uterm) list * id option
+  | Apply of depth_bound option * clearable * clearable list * (id * uterm) list * hhint
   | Backchain of depth_bound option * clearable * (id * uterm) list
-  | CutFrom of clearable * clearable * uterm * id option
-  | Cut of clearable * clearable * id option
-  | SearchCut of clearable * id option
-  | Inst of clearable * (id * uterm) list * id option
-  | Case of clearable * id option
-  | Assert of umetaterm * int option * id option
+  | CutFrom of clearable * clearable * uterm * hhint
+  | Cut of clearable * clearable * hhint
+  | SearchCut of clearable * hhint
+  | Inst of clearable * (id * uterm) list * hhint
+  | Case of clearable * hhint
+  | Assert of umetaterm * int option * hhint
+  | Monotone of clearable * uterm * hhint
   | Exists of [`EXISTS | `WITNESS] * ewitness list
   | Clear of clear_mode * id list
-  | Abbrev of id * string
+  | Abbrev of id list * string
   | Unabbrev of id list
   | Rename of id * id
-  | Monotone of clearable * uterm
   | Permute of id list * id option
   | Search of [`nobounds | `depth of depth_bound | `witness of witness]
   | Strengthen
+  | Async_steps
   | Split
   | SplitStar
   | Left
@@ -308,8 +311,7 @@ let command_to_string c =
         Buffer.add_string buf (hn_to_string hn) ;
         Buffer.add_string buf "apply" ;
         Buffer.add_string buf (dbound_to_string dbound) ;
-        Buffer.add_string buf " ";
-        Buffer.add_string buf (clearable_to_string h);
+        Buffer.add_string buf (" " ^ clearable_to_string h) ;
         if hs <> [] then
           (Buffer.add_string buf " to " ;
            Buffer.add_string buf (clearables_to_string hs)) ;
@@ -355,6 +357,11 @@ let command_to_string c =
            | Some dp -> string_of_int dp ^ " "
            | None -> "")
           (umetaterm_to_formatted_string t)
+    | Monotone(h, t, hn) ->
+        sprintf "%smonotone %s with %s"
+          (hn_to_string hn)
+          (clearable_to_string h)
+          (uterm_to_string t)
     | Exists (how, ews) ->
         let hows = match how with
           | `EXISTS -> "exists"
@@ -368,16 +375,12 @@ let command_to_string c =
            | Clear_delete -> ""
            | Clear_extro -> " -> ")
           (String.concat " " hs)
-    | Abbrev(h, s) ->
-        sprintf "abbrev %s \"%s\"" h s
+    | Abbrev(hs, s) ->
+        sprintf "abbrev %s \"%s\"" (String.concat " " hs) s
     | Unabbrev hs ->
         sprintf "unabbrev %s" (String.concat " " hs)
     | Rename(hfrom, hto) ->
         sprintf "rename %s to %s" hfrom hto
-    | Monotone(h, t) ->
-        sprintf "monotone %s with %s"
-          (clearable_to_string h)
-          (uterm_to_string t)
     | Permute(ids, t) ->
         sprintf "permute (%s)%s"
           (String.concat " " ids)
@@ -385,6 +388,7 @@ let command_to_string c =
     | Search(`nobounds) -> "search"
     | Search(`depth d) -> sprintf "search %d" d
     | Search(`witness w) -> sprintf "search with %s" (witness_to_string w)
+    | Async_steps -> "async"
     | Split -> "split"
     | SplitStar -> "split*"
     | Left -> "left"

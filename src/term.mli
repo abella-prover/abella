@@ -1,7 +1,7 @@
 (****************************************************************************)
 (* An implemention of Higher-Order Pattern Unification                      *)
 (* Copyright (C) 2006-2009 Nadathur, Linnell, Baelde, Ziegler, Gacek        *)
-(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -139,7 +139,6 @@ val has_logic_head : term -> bool
 val has_eigen_head : term -> bool
 
 val hnorm : term -> term
-val norm : term -> term
 
 val pretty_ty : ty -> Pretty.expr
 val format_ty : Format.formatter -> ty -> unit

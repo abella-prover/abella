@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -38,7 +38,7 @@ let alist_to_used (_, t) = term_to_pair t
 let freshen_clause ~used ~sr ?(support=[]) clause =
   let (tids, head, body) = clause in
   let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
-  (List.map term_to_pair vars @ used,
+  (List.map term_to_pair vars,
    replace_term_vars alist head,
    List.map (replace_term_vars alist) body)
 
@@ -142,7 +142,9 @@ let object_cut_from obj1 obj2 term =
   in
   if not (Context.mem term obj1.context) then
     failwith "Needless use of cut" ;
-  let tobj = normalize_obj {context = Context.empty ; right = term ; mode = Async} in
+  let tobj = normalize_obj ~parity:true ~bindstack:[]
+      {context = Context.empty ; right = term ; mode = Async}
+  in
   if List.length tobj > 1 then
     failwith "Cannot cut conjunctive formulas" ;
   let tobj = List.hd tobj in
@@ -652,9 +654,8 @@ let coinductive_wrapper r names t =
 let maybe_select sel l = match sel with
   | Abella_types.Select_any -> l
   | Abella_types.Select_num n ->
-      if n > List.length l then
-        failwithf "Cannot select clause #%d; there are only %d clauses" n
-          (List.length l) ;
+      if n < 1 || n > List.length l then
+        failwithf "Given clause number (%d) not in range (1..%d)" n (List.length l) ;
       [List.nth l (n - 1)]
   | Abella_types.Select_named n ->
       failwith "Cannot select named clauses for inductive predicates"
@@ -735,7 +736,7 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
       | Abella_types.Select_named nm -> begin
           match Typing.lookup_clause nm with
           | Some cl ->
-              normalize_obj goal |>
+              normalize_obj ~parity:true ~bindstack:[] goal |>
               List.map begin fun goal ->
                 let support = metaterm_support goal0 in
                 let cl = clausify cl in
@@ -757,7 +758,7 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                       let body =
                         List.map begin fun g ->
                           let aobj = {goal with right = g} in
-                          map_on_objs normalize_obj (Obj (aobj, sr))
+                          map_on_objs_full normalize_obj (Obj (aobj, sr))
                         end body in
                       if quant_vars = [] then body
                       else [existentially_close ~used quant_vars (conjoin body)]
@@ -879,7 +880,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     (* Printf.eprintf "async_obj_aux[%d]: %s\n%s\n%!" n *)
     (*   (Pretty.print_string (Metaterm.pretty_obj goal)) *)
     (*   (witness_to_string witness) ; *)
-    normalize_obj goal |>
+    normalize_obj ~parity:true ~bindstack:[] goal |>
     List.iter begin fun goal ->
       (* Check hyps for derivability *)
       let () =
@@ -915,7 +916,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     (* Printf.eprintf "sync_obj_aux[%d]: %s\n%s\n%!" n *)
     (*   (Pretty.print_string (Metaterm.pretty_obj goal)) *)
     (*   (witness_to_string witness) ; *)
-    normalize_obj goal |>
+    normalize_obj ~parity:true ~bindstack:[] goal |>
     List.iter begin fun goal ->
       let focus = match goal.mode with
         | Sync focus -> focus
@@ -1228,12 +1229,14 @@ let apply_arrow term args =
   (normalize result, !obligations)
 
 let apply ?(used_nominals=[]) term args =
-  let support =
-    Some term :: args |>
-    List.flatten_map (Option.map_default metaterm_support []) |>
-    List.unique |>
-    (fun s -> List.minus s used_nominals)
-  in
+  let hyp_support = metaterm_support term in
+  let support = hyp_support @
+                  List.flatten_map (Option.map_default metaterm_support []) args in
+  let support = List.unique support in
+  (* used_nominals are nominal constants provided by 'withs' for
+     (partially) instantiating nabla quantified variables and
+     should not be raised over by 'forall' quantified variables *)
+  let support = List.minus support used_nominals in
   let process_bindings foralls nablas body =
     match nablas with
     | [] -> (* short circuit *)
@@ -1247,20 +1250,26 @@ let apply ?(used_nominals=[]) term args =
              (List.map term_to_name (support @ used_nominals))) @
           support
         in
-        support |> List.rev |> List.permute n |>
+        (* The nominal constants for nabla quantified variables should
+           be chosen from 'candiate_nominals', which contains dummy
+           nominals and nominals that occur in the arguments and do
+           not occur in the support of the applying term, so as to
+           respect the side condition of the nabla-left rule. *)
+        let candidate_nominals = List.minus support hyp_support in
+        candidate_nominals |> List.rev |> List.permute n |>
         List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals) |>
         List.find_some begin fun nominals ->
           try_with_state ~fail:None
             (fun () ->
-               let support = List.minus support nominals in
-               let raised_body =
-                 freshen_nameless_bindings ~support ~ts:0 foralls body
-               in
-               let alist = List.combine nabla_ids nominals in
-               let permuted_body =
-                 replace_metaterm_vars alist raised_body
-               in
-               Some(apply_arrow permuted_body args))
+              let support = List.minus support nominals in
+              let raised_body =
+                freshen_nameless_bindings ~support ~ts:0 foralls body
+              in
+              let alist = List.combine nabla_ids nominals in
+              let permuted_body =
+                replace_metaterm_vars alist raised_body
+              in
+              Some(apply_arrow permuted_body args))
         end |>
         (function
           | Some v -> v
@@ -1296,6 +1305,10 @@ let take_from_binders binders withs =
   in
   (binders', withs')
 
+(** instantiate_withs F ws = G, ns
+
+Instantiate F with respect to the with declarations ws to get G,
+and ns = supp(G)\supp(F) *)
 let rec instantiate_withs term withs =
   match term with
   | Binding(Forall, binders, body) ->
@@ -1334,10 +1347,13 @@ let apply_with term args withs =
 
 let backchain_check_restrictions hr gr =
   match hr, gr with
-  | ( Smaller i, Smaller j | CoSmaller i, CoSmaller j ) when i = j -> ()
-  | ( Smaller _ | CoSmaller _ ), _ ->
+  | Smaller _, Irrelevant
+  | Irrelevant, CoSmaller _ -> ()
+  | (Smaller i, Smaller j | CoSmaller i, CoSmaller j) when i = j -> ()
+  | _, (Smaller _ | CoSmaller _ as r)
+  | (Smaller _ | CoSmaller _ as r), _ ->
       failwithf "%snductive restriction violated"
-        (match hr with Smaller _ -> "I" | _ -> "Coi")
+        (match r with Smaller _ -> "I" | _ -> "Coi")
   | _ -> ()
 
 let backchain_arrow term goal =

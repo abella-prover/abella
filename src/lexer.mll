@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -46,6 +46,7 @@
     "apply",         APPLY ;
     "as",            AS ;
     "assert",        ASSERT ;
+    "async",         ASYNC ;
     "backchain",     BACKCHAIN ;
     "by",            BY ;
     "case",          CASE ;
@@ -68,7 +69,6 @@
     "nabla",         NABLA ;
     "on",            ON ;
     "permute",       PERMUTE ;
-    "pick",          PICK ;
     "rename",        RENAME ;
     "right",         RIGHT ;
     "search",        SEARCH ;

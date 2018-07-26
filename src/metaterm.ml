@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -289,20 +289,27 @@ let metaterm_to_formatted_string t =
 
 (* Manipulations *)
 
-let map_on_objs f t =
-  let rec aux t =
-    match t with
-      | Obj(obj, r) ->
-          f obj |>
-          List.map (fun obj -> Obj (obj, r)) |>
-          conjoin
-      | Arrow(a, b) -> Arrow(aux a, aux b)
-      | Binding(binder, bindings, body) -> Binding(binder, bindings, aux body)
-      | Or(a, b) -> Or(aux a, aux b)
-      | And(a, b) -> And(aux a, aux b)
-      | True | False | Eq _ | Pred _ -> t
+let map_on_objs_full f mt =
+  let rec aux ~parity ~bindstack = function
+    | Obj (obj, r) ->
+        f ~parity ~bindstack obj |>
+        List.map (fun obj -> Obj (obj, r)) |>
+        conjoin
+    | Arrow (a, b) ->
+        let a = aux ~parity:(not parity) ~bindstack a in
+        let b = aux ~parity ~bindstack b in
+        Arrow (a, b)
+    | Binding (binder, bindings, body) ->
+        let body = aux ~parity ~bindstack:((binder, bindings) :: bindstack) body in
+        Binding (binder, bindings, body)
+    | Or (a, b) -> Or (aux ~parity ~bindstack a, aux ~parity ~bindstack b)
+    | And (a, b) -> And (aux ~parity ~bindstack a, aux ~parity ~bindstack b)
+    | (True | False | Eq _ | Pred _) as t -> t
   in
-    aux t
+  aux ~parity:true ~bindstack:[] mt
+
+let map_on_objs f mt =
+  map_on_objs_full (fun ~parity ~bindstack obj -> f obj) mt
 
 let map_obj f obj =
   let context = Context.map f obj.context in
@@ -594,7 +601,7 @@ let replace_pi_with_nominal obj =
       { obj with right = app abs [nominal] }
   | _ -> assert false
 
-let rec normalize_obj obj =
+let rec normalize_obj ~parity ~bindstack obj =
   let rec aux obj =
     if is_imp obj.right then
       aux (move_imp_to_context obj)
@@ -602,7 +609,7 @@ let rec normalize_obj obj =
       let (a, b) = extract_amp obj.right in
       aux {obj with right = a} @
       aux {obj with right = b}
-    end else if is_pi obj.right then
+    end else if bindstack = [] && is_pi obj.right then
       aux (replace_pi_with_nominal obj)
     else [{ obj with context = Context.normalize obj.context }]
   in
@@ -696,7 +703,7 @@ let normalize_nominals t =
 
 let normalize term =
   term
-  |> map_on_objs normalize_obj
+  |> map_on_objs_full normalize_obj
   |> normalize_nominals
   |> normalize_binders
 

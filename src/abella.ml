@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -97,7 +97,7 @@ let type_inference_error (pos, ct) exp act =
   fprintf !out "Typing error%s.\n%!" (position_range pos) ;
   match ct with
   | CArg ->
-      eprintf "Expression has type %s but is used here with type %s\n%!"
+      eprintf "Expression has type %s but is used here with type %s.\n%!"
         (ty_to_string act) (ty_to_string exp)
   | CFun ->
       eprintf "Expression is applied to too many arguments\n%!"
@@ -112,18 +112,29 @@ let warn_on_teyjus_only_keywords (ktable, ctable) =
   let used_keywords = List.intersect tokens teyjus_only_keywords in
   if used_keywords <> [] then
     fprintf !out
-      "Warning: The following tokens are keywords in Teyjus: %s\n%!"
+      "Warning: The following tokens are keywords in Teyjus: %s.\n%!"
       (String.concat ", " used_keywords)
 
 let update_subordination_sign sr sign =
   List.fold_left Subordination.update sr (sign_to_tys sign)
 
+let sanitize_filename fn =
+  try begin
+    let lpl = String.length !load_path in
+    let fnl = String.length fn in
+    if fnl + 1 < lpl then raise Not_found ;
+    for i = 0 to lpl - 1 do
+      if String.unsafe_get !load_path i <> String.unsafe_get fn i then
+        raise Not_found
+    done ;
+    if String.unsafe_get fn lpl <> '/' then raise Not_found ;
+    String.sub fn (lpl + 1) (fnl - lpl - 1)
+  end with
+  | Not_found -> fn
+
 let read_specification name =
   clear_specification_cache () ;
-  fprintf !out "Reading specification %S%s\n%!" name
-    (if !load_path <> "." then
-       sprintf " (from %S)" !load_path
-     else "") ;
+  fprintf !out "Reading specification %S.\n%!" (sanitize_filename name) ;
   let read_sign = get_sign name in
   let () = warn_on_teyjus_only_keywords read_sign in
   let sign' = merge_signs [!sign; read_sign] in
@@ -251,7 +262,11 @@ let maybe_make_importable ?(force=false) root =
     end in
   if not !Sys.interactive && force then
     let cmd = Printf.sprintf "%s %s -o %s.out -c %s" Sys.executable_name thm root thc in
-    Printf.eprintf "Running: %S.\n%!" cmd ;
+    let sanitized_cmd = Printf.sprintf "abella %s -o %s.out -c %s"
+        (sanitize_filename thm)
+        (sanitize_filename root)
+        (sanitize_filename thc) in
+    Printf.eprintf "Running: %S.\n%!" sanitized_cmd ;
     if Sys.command cmd <> 0 then
       failwithf "Could not create %S" thc
 
@@ -259,12 +274,12 @@ let replace_atom_term decl defn_name defn t =
   let ty = tc [] defn in
   let t = Term.abstract decl ty t in
   let rt = Term.app t [defn] in
-  (* Printf.printf "Rewrote %s to %s\n%!" (term_to_string t) (term_to_string rt) ; *)
+  (* Printf.printf "Rewrote %s to %s.\n%!" (term_to_string t) (term_to_string rt) ; *)
   rt
 
 let replace_atom_metaterm decl defn_name defn mt =
   let rmt = map_terms (replace_atom_term decl defn_name defn) mt in
-  (* Printf.printf "Rewrote %s to %s\n%!" (metaterm_to_string mt) (metaterm_to_string rmt) ; *)
+  (* Printf.printf "Rewrote %s to %s.\n%!" (metaterm_to_string mt) (metaterm_to_string rmt) ; *)
   rmt
 
 let replace_atom_clause decl defn_name defn cl =
@@ -356,7 +371,7 @@ let import filename withs =
                 add_global_types ids ;
                 process_decls decls
             | CType(ids, (Ty(_, "prop") as ty)) -> begin
-                (* Printf.printf "Need to instantiate: %s\n%!" (String.concat ", " ids) ; *)
+                (* Printf.printf "Need to instantiate: %s.\n%!" (String.concat ", " ids) ; *)
                 let instantiate_id decls id =
                   try begin
                     let open Typing in
@@ -401,7 +416,7 @@ let import filename withs =
   if List.mem filename !imported then
     fprintf !out "Ignoring import: %s has already been imported.\n%!" filename
   else begin
-    fprintf !out "Importing from %s\n%!" filename ;
+    fprintf !out "Importing from %S.\n%!" (sanitize_filename filename) ;
     aux filename withs
   end
 
@@ -489,11 +504,11 @@ let set k v =
 
 let handle_search_witness w =
   if !witnesses then
-    fprintf !out "Witness: %s\n%!" (witness_to_string w)
+    fprintf !out "Witness: %s.\n%!" (witness_to_string w)
 
 let term_witness (t, w) =
   if !witnesses then
-    fprintf !out "Witness: %s\n%!" (witness_to_string w)
+    fprintf !out "Witness: %s.\n%!" (witness_to_string w)
 
 let suppress_proof_state_display = State.rref false
 
@@ -599,11 +614,11 @@ and process_proof1 name =
   | Assert(t, dp, hn)             ->
       untyped_ensure_no_restrictions t ;
       assert_hyp ?name:hn ?depth:dp t
+  | Monotone(h, t, hn)            -> monotone ?name:hn h t
   | Exists(_, ts)                 -> List.iter exists ts
-  | Monotone(h, t)                -> monotone h t
   | Clear(cm, hs)                 -> clear cm hs
-  | Abbrev(h, s)                  -> abbrev h s
-  | Unabbrev(hs)                  -> unabbrev hs
+  | Abbrev(hs, s)                 -> abbrev (Iset.of_list hs) s
+  | Unabbrev(hs)                  -> unabbrev (Iset.of_list hs)
   | Rename(hfr, hto)              -> rename hfr hto
   | Search(bounds) -> begin
       let depth = match bounds with
@@ -616,6 +631,7 @@ and process_proof1 name =
       in
       search ?depth ~witness ~handle_witness:handle_search_witness ()
     end
+  | Async_steps            -> async ()
   | Permute(ids, h)        -> permute_nominals ids h
   | Strengthen             -> (match !current_state with
                                | Process_proof p -> strengthen p.thm
@@ -724,7 +740,7 @@ and process_top1 () =
 
 (* Command line and startup *)
 
-let welcome_msg = sprintf "Welcome to Abella %s\n" Version.version
+let welcome_msg = sprintf "Welcome to Abella %s.\n" Version.version
 
 let usage_message = Printf.sprintf "%s [options] <theorem-file>" begin
     if !Sys.interactive then "abella" else Filename.basename Sys.executable_name
@@ -795,7 +811,7 @@ let set_input () =
         lexbuf := lexbuf_from_file filename ;
         load_path := normalize_filename ~wrt:(Sys.getcwd ()) (Filename.dirname filename)
     | fs ->
-        eprintf "Error: Multiple files specified as input: %s\n%!"
+        eprintf "Error: Multiple files specified as input: %s.\n%!"
           (String.concat ", " fs) ;
         exit 1
 

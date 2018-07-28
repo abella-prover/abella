@@ -594,7 +594,7 @@ let rec replace_metaterm_vars alist t =
              if List.mem_assoc id new_fvars then begin
                  (* If so, rename the current binding to avoid capturing free variables *)
                  let all_fvars = fuvars @ new_fvars in
-                 let (bv, used) = fresh_wrt ~ts:0 Constant id ty all_fvars in
+                 let (bv, _) = fresh_wrt ~ts:0 Constant id ty all_fvars in
                  (fuvars, (id, bv)::alist, (term_to_name bv, ty)::rev_bnds)
                end
              else

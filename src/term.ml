@@ -182,7 +182,6 @@ let rec eq t1 t2 =
 (* bind_state is a list of (var, old_value, new_value) *)
 type bind_state = (ptr * in_ptr * term) list
 let bind_state : bind_state ref = ref []
-let bind_len = ref 0
 
 let rec deref = function
   | Ptr {contents=T t} -> deref t
@@ -197,15 +196,13 @@ let bind v t =
   let dt = deref t in
     assert (match dt with Ptr r -> dv != r | _ -> true) ;
     bind_state := (dv, !dv, dt) :: !bind_state ;
-    incr bind_len ;
     dv := T dt
 
 let get_bind_state () = !bind_state
 
 let clear_bind_state () =
   List.iter (fun (v, ov, nv) -> v := ov) !bind_state ;
-  bind_state := [] ;
-  bind_len := 0
+  bind_state := []
 
 let set_bind_state state =
   clear_bind_state () ;
@@ -220,15 +217,15 @@ let () = State.make () ~copy:get_bind_state ~assign:(fun () st -> set_bind_state
 
 type scoped_bind_state = int
 
-let get_scoped_bind_state () = !bind_len
+let get_bind_len () = List.length (!bind_state)
+let get_scoped_bind_state () = get_bind_len ()
 
 let set_scoped_bind_state state =
-  while !bind_len > state do
+  while get_bind_len () > state do
     match !bind_state with
       | (v, ov, nv)::rest ->
           v := ov ;
           bind_state := rest ;
-          decr bind_len
       | [] -> assert false
   done
 

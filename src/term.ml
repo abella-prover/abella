@@ -220,9 +220,9 @@ let rec eq t1 t2 =
  * variable is a reference which must be updated. Also the variable must
  * not be made a reference to itself. *)
 
-(* bind_state is a list of (var, old_value, new_value) *)
-type bind_state = (ptr * in_ptr * term) list
-let bind_state : bind_state ref = ref []
+(* bind_state for variables is a list of (var, old_value, new_value) *)
+type bind_state_var = (ptr * in_ptr * term) list
+let bind_state_var : bind_state_var ref = ref []
 
 let rec deref = function
   | Ptr {contents=T t} -> deref t
@@ -236,18 +236,46 @@ let bind v t =
   let dv = getref (deref v) in
   let dt = deref t in
     assert (match dt with Ptr r -> dv != r | _ -> true) ;
-    bind_state := (dv, !dv, dt) :: !bind_state ;
+    bind_state_var := (dv, !dv, dt) :: !bind_state_var ;
     dv := T dt
 
-let get_bind_state () = !bind_state
+(* Binding a type variable to a type, similar to binding of term variables *)
+
+(* bind_state for type variables is a list of (tyvar, old_value, new_value) *)
+type bind_state_ty = (typtr * in_typtr * ty) list
+let bind_state_ty : bind_state_ty ref = ref []
+
+let rec deref_ty = function
+  | Typtr {contents=TT t} -> deref_ty t
+  | t -> t
+
+let getref_ty = function
+  | Typtr t -> t
+  | _ -> assert false
+
+let bind_ty v t =
+  let dv = getref_ty (deref_ty v) in
+  let dt = observe_ty t in
+    assert (match dt with Typtr r -> dv != r | _ -> true) ;
+    bind_state_ty := (dv, !dv, dt) :: !bind_state_ty ;
+    dv := TT dt
+
+(* Bind state consists of these of terms and types *)
+type bind_state = bind_state_var * bind_state_ty
+
+(* Retrieve or reset the bind state *)
+let get_bind_state () = (!bind_state_var, !bind_state_ty)
 
 let clear_bind_state () =
-  List.iter (fun (v, ov, nv) -> v := ov) !bind_state ;
-  bind_state := []
+  List.iter (fun (v, ov, nv) -> v := ov) !bind_state_var ;
+  List.iter (fun (tv, tov, tnv) -> tv := tov) !bind_state_ty ;
+  bind_state_var := [] ;
+  bind_state_ty := [] ;
 
-let set_bind_state state =
+let set_bind_state (state_var, state_ty) =
   clear_bind_state () ;
-  List.iter (fun (v, ov, nv) -> bind (Ptr v) nv) (List.rev state)
+  List.iter (fun (v, ov, nv) -> bind (Ptr v) nv) (List.rev state_var)
+  List.iter (fun (tv, tov, tnv) -> bind_ty (Typtr tv) tnv) (List.rev state_ty)
 
 (* make state undoable *)
 let () = State.make () ~copy:get_bind_state ~assign:(fun () st -> set_bind_state st)
@@ -256,19 +284,33 @@ let () = State.make () ~copy:get_bind_state ~assign:(fun () st -> set_bind_state
    must always be used in a lexically scoped fashion. The unwind_state
    wraps a function with a scoped get and set. *)
 
-type scoped_bind_state = int
+type scoped_bind_state = int * int
 
-let get_bind_len () = List.length (!bind_state)
+let get_bind_len () = 
+  (List.length (!bind_state_var), List.length (!bind_state_ty))
 let get_scoped_bind_state () = get_bind_len ()
 
-let set_scoped_bind_state state =
-  while get_bind_len () > state do
-    match !bind_state with
+let set_scoped_bind_state_var state =
+  while (List.length !bind_state_var) > state do
+    match !bind_state_var with
       | (v, ov, nv)::rest ->
           v := ov ;
-          bind_state := rest ;
+          bind_state_var := rest ;
       | [] -> assert false
   done
+
+let set_scoped_bind_state_ty state =
+  while (List.length !bind_state_ty) > state do
+    match !bind_state_ty with
+      | (v, ov, nv)::rest ->
+          v := ov ;
+          bind_state_ty := rest ;
+      | [] -> assert false
+  done
+
+let se_scoped_bind_state (sv, st) =
+  set_scoped_bind_state_var sv;
+  set_scoped_bind_state_ty st
 
 let unwind_state f x =
   let state = get_scoped_bind_state () in

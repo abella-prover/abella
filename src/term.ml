@@ -26,10 +26,45 @@ let show_ts  = false
 
 open Extensions
 
-type ty = Ty of ty list * string
+type id = string
+
+type tyvar = id
+type tycons = id
+
+type knd = Knd of int
+type ty = Ty of ty list * aty
+and aty = 
+  | Tygenvar of tyvar
+  | Typtr of typtr  
+  | Tycons of tycons * ty list
+and typtr = in_typtr ref
+and in_typtr = TV of tyvar | TT of ty
+
+(* Utilities for constructing and deconstructing terms *)
+
+let rec observe_ty = function
+  | Ty (args, aty) ->
+     let args' = List.map observe_ty args in
+     let targ = 
+       match aty with
+       | Tycons (c, tys) -> 
+          let aargs = List.map observe_ty tys in
+          Ty ([], Tycons (c, aargs))
+       | Typtr {contents=TV _}
+       | Tygenvar _ ->
+          Ty ([], aty)
+       | Typtr {contents=TT t} -> observe_ty t
+     in
+     let tyspine args t =
+       match t with 
+       | Ty (args', targ) -> Ty (args@args', targ)
+     in
+     tyspine args' targ
+
+let eq_ty ty1 ty2 = (observe_ty ty1 = observe_ty ty2)
+
 
 type tag = Eigen | Constant | Logic | Nominal
-type id = string
 
 module Itab = Map.Make (String)
 module Iset = struct
@@ -44,6 +79,11 @@ type var = {
   ts   : int ;
   ty   : ty ;
 }
+
+let eq_var v1 v2 = 
+  v1.name = v2.name && v1.tag = v2.tag && v1.ts = v2.ts
+  && eq_ty v1.ty v2.ty
+ 
 
 type tyctx = (id * ty) list
 
@@ -167,12 +207,13 @@ let rec hnorm term =
 let rec eq t1 t2 =
   match observe (hnorm t1), observe (hnorm t2) with
     | DB i1, DB i2 -> i1 = i2
-    | Var v1, Var v2 -> v1 = v2
+    | Var v1, Var v2 -> eq_var v1 v2
     | App(h1,l1), App(h2,l2) ->
         List.length l1 = List.length l2 &&
         List.for_all2 eq (h1::l1) (h2::l2)
     | Lam(idtys1,t1), Lam(idtys2,t2) ->
-        (get_ctx_tys idtys1) = (get_ctx_tys idtys2) && eq t1 t2
+        List.for_all2 eq_ty (get_ctx_tys idtys1) (get_ctx_tys idtys2) 
+        && eq t1 t2
     | _ -> false
 
 (* Binding a variable to a term. The *contents* of the cell representing the
@@ -407,7 +448,8 @@ let arrow_op = Pretty.FMT " ->@ "
 let rec pretty_ty (Ty (args, targ)) =
   let open Pretty in
   let args = List.map pretty_ty args in
-  let targ = Atom (STR targ) in
+  (* let targ = Atom (STR targ) in *)
+  let targ = Atom (STR "") in
   List.fold_right begin fun arg targ ->
     Opapp (1, Infix (RIGHT, arg, arrow_op, targ))
   end args targ
@@ -616,14 +658,24 @@ let has_logic_head t =
 let has_eigen_head t =
   has_head (fun v -> v.tag = Eigen) t
 
+(* Kinding *)
+let kind i = Knd i
+let kincr = function Knd i -> Knd (i+1)
+let karity = function Knd i -> i
+
 (* Typing *)
+let atyvar str = Typtr (ref (TV (str)))
+let atyapp aty ty = 
+  match observe_ty aty with
+  | Tycons c tys -> Tycons (c, tys@[ty])
+  | Typtr _ -> assert false
 
 let tyarrow tys ty =
-  match ty with
+  match observe_ty ty with
     | Ty(tys', bty) -> Ty(tys @ tys', bty)
 
 let tybase bty =
-  Ty([], bty)
+  Ty([], Tycons (bty,[]))
 
 let oty = tybase "o"
 let olistty = tybase "olist"
@@ -632,7 +684,7 @@ let propty = tybase "prop"
 let rec tc (tyctx:tyctx) t =
   match observe (hnorm t) with
     | DB i -> snd (List.nth tyctx (i-1))
-    | Var v -> v.ty
+    | Var v -> observe_ty v.ty
     | App(h,args) ->
         let arg_tys = List.map (tc tyctx) args in
         let Ty(tys, bty) = tc tyctx h in
@@ -646,8 +698,8 @@ let rec tc (tyctx:tyctx) t =
 let is_tyvar str =
   str.[0] = '?'
 
-let tyvar str =
-  tybase ("?" ^ str)
+let tyvar str = 
+  Ty ([], atyvar str)
 
 let fresh_tyvar =
   let count = ref 0 in

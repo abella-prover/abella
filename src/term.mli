@@ -20,10 +20,29 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+type id = string
+
+(* Kinds *)
+type knd = Knd of int
+
+val kind : int -> knd
+val kincr : knd -> knd
+val karity : knd -> int
+
 (* Types *)
 
-type ty = Ty of ty list * string
+type tyvar = id
+type tycons = id
 
+type ty = Ty of ty list * aty
+and aty = 
+  | Tygenvar of tyvar
+  | Typtr of typtr  
+  | Tycons of tycons * ty list
+and typtr = in_typtr ref
+and in_typtr = TV of tyvar | TT of ty
+
+val observe_ty : ty -> ty
 val tyarrow : ty list -> ty -> ty
 val tybase : string -> ty
 val oty : ty
@@ -33,7 +52,6 @@ val propty : ty
 (* Variables *)
 
 type tag = Eigen | Constant | Logic | Nominal
-type id = string
 
 module Itab : Map.S with type key := id
 module Iset : sig
@@ -177,6 +195,8 @@ val all_tids : term list -> (id * ty) list
 
 val tc : tyctx -> term -> ty
 
+val atyvar : string -> aty
+val atyapp : aty -> ty -> aty
 val tyvar : string -> ty
 val is_tyvar : string -> bool
 val fresh_tyvar : unit -> ty

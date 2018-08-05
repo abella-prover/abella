@@ -216,6 +216,13 @@ id:
   | WITH          { "with" }
   | WITNESS       { "witness" }
 
+/* Kind */
+knd:
+  | TYPE
+      {Term.kind 0}
+  | TYPE RARROW knd
+      {Term.kincr $3}
+
 /* Annotated ID */
 aid:
   | loc_id
@@ -304,8 +311,8 @@ sig_preamble:
   | { [] }
 
 sig_body:
-  | KIND id_list TYPE DOT sig_body
-    { Types.SKind(List.map deloc_id $2) :: $5 }
+  | KIND id_list knd DOT sig_body
+    { Types.SKind(List.map deloc_id $2, $3) :: $5 }
   | TYPE id_list ty DOT sig_body
     { Types.SType(List.map deloc_id $2, $3) :: $5 }
   | { [] }
@@ -339,9 +346,21 @@ id_list:
   | loc_id COMMA id_list
     { $1::$3}
 
-ty:
+pty:
   | id
-    { Term.tybase $1 }
+    {Term.tyvar $1}
+  | LPAREN ty RPAREN
+    {$2}
+
+aty:
+  | id
+    { Term.atyvar $1}
+  | aty pty
+    { Term.atyapp $1 $2 }
+
+ty:
+  | aty
+    { Term.tyvar $1 }
   | ty RARROW ty
     { Term.tyarrow [$1] $3 }
   | LPAREN ty RPAREN

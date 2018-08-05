@@ -181,7 +181,7 @@ type any_command =
   | ACommon of common_command
 
 type sig_decl =
-  | SKind of id list
+  | SKind of id list * knd
   | SType of id list * ty
 
 type lpsig =

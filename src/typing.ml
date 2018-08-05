@@ -101,11 +101,23 @@ type umetaterm =
 
 type tysub = (string * ty) list
 
-let rec apply_bind_ty v ty = function
-  | Ty(tys, bty) ->
-      tyarrow
-        (List.map (apply_bind_ty v ty) tys)
-        (if v = bty then ty else Ty([], bty))
+let apply_bind_ty v ty t =
+  let rec aux = function
+    | Ty(tys, aty) ->
+       let tys' = (List.map aux tys) in
+       let aty' = 
+         match aty with
+         | Tygenvar _ -> Ty ([], aty)
+         | Typtr {contents=TV v'} -> 
+            if v' = v then ty
+            else Ty ([],aty)
+         | Tycons (c,args) ->
+            let args' = (List.map aux args) in
+            Ty ([], Tycons(c,args')) 
+         | Typtr {contents=TT _} -> assert false
+       in
+       tyarrow tys' aty'
+  in aux (observe_ty t)
 
 let apply_sub_ty s ty =
   List.fold_left (fun ty (v,vty) -> apply_bind_ty v vty ty) ty s
@@ -125,36 +137,48 @@ let tyctx_to_nominal_ctx tyctx =
 
 (** Tables / Signatures *)
 
-type ktable = string list
+type ktable = (string * knd) list
 type pty = Poly of string list * ty
 type ctable = (string * pty) list
 type sign = ktable * ctable
 
 (** Kinds *)
 
-let add_types (ktable, ctable) ids =
+let add_types (ktable, ctable) ids knd =
   List.iter begin fun id ->
     if is_capital_name id then
       failwithf "Types may not begin with a capital letter: %s" id
   end ids ;
-  (ids @ ktable, ctable)
+  ((List.map (fun id -> (id, knd)) ids) @ ktable, ctable)
 
 let lookup_type (ktable, _) id =
-  List.mem id ktable
+  List.assoc id ktable
 
 (** Constants *)
 
-let kind_check_poly sign ids ty =
-  let rec aux = function
-    | Ty(tys, bty) ->
-        if List.mem bty ids || lookup_type sign bty then
-          List.iter aux tys
-        else
-          failwithf "Unknown type: %s" bty
-  in
-  aux ty
+let kind_check sign ty =
+  let rec aux = function 
+    | Ty(tys, aty) ->
+       List.iter aux tys;
+       match aty with
+       | Tygenvar _ 
+       | Typtr {contents = TV _} -> ()
+       | Tycons(cty,args) ->
+          let knd = 
+            try lookup_type sign cty 
+            with
+            | Not_found -> failwithf "Unknown type constructor: %s" cty
+          in
+          let arity = karity knd in
+          let nargs = List.length args in
+          if not (nargs = arity) then
+            failwithf "%s expects %i arguments but has %i" cty arity nargs
+       | Typtr {contents = TT _} -> assert false
+  in aux (observe_ty ty)          
 
-let kind_check sign (Poly(ids, ty)) = kind_check_poly sign ids ty
+let kind_check_poly (ktable,ctable) (Poly(ids, ty)) = 
+  let vknds = List.map (fun id -> (id, kind 0)) ids in
+  kind_check (vknds@ktable,ctable) ty
 
 let check_const (ktable, ctable) (id, pty) =
   begin try
@@ -168,7 +192,7 @@ let check_const (ktable, ctable) (id, pty) =
   if is_capital_name id then
     failwithf "Constants may not begin with a capital letter: %s" id ;
 
-  kind_check (ktable, ctable) pty
+  kind_check_poly (ktable, ctable) pty
 
 let add_poly_consts (ktable, ctable) idptys =
   List.iter (check_const (ktable, ctable)) idptys ;
@@ -277,14 +301,24 @@ let occurs v ty =
   in
   aux ty
 
-let rec contains_tyvar = function
-  | Ty(tys, bty) ->
-      is_tyvar bty || List.exists contains_tyvar tys
+let contains_tyvar ty = 
+  let rec aux = function
+    | Ty (tys,aty) ->
+       let cv =
+         match aty with
+         | Tygenvar _ -> false
+         | Typtr {contents=TV _} -> true
+         | Tycons (c,args) ->
+            List.exists aux args
+         | Typtr {contents=TT _} -> assert false
+       in
+       cv || List.exists aux tys
+  in aux ty
 
 let tid_ensure_fully_inferred ~sign (id, ty) =
   if contains_tyvar ty then
     failwith "Types of variables are not fully determined" ;
-  kind_check_poly sign [] ty
+  kind_check sign ty
 
 let term_ensure_fully_inferred ~sign t =
   let rec aux t =

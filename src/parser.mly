@@ -348,7 +348,7 @@ id_list:
 
 pty:
   | id
-    {Term.tyvar $1}
+    {Term.tybase (Term.atyvar $1)}
   | LPAREN ty RPAREN
     {$2}
 
@@ -360,7 +360,7 @@ aty:
 
 ty:
   | aty
-    { Term.tyvar $1 }
+    { Typing.desugar_ty (Term.tybase $1) }
   | ty RARROW ty
     { Term.tyarrow [$1] $3 }
   | LPAREN ty RPAREN

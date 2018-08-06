@@ -212,6 +212,24 @@ let lookup_const (_, ctable) id =
   with
   | Not_found -> failwithf "Unknown constant: %s" id
 
+(** Desugar types *)
+let desugar_aty aty =
+  match aty with
+  | Typtr {contents=TV v} ->
+     if v = "olist" then
+       Tycons ("list",[oty])
+     else aty
+  | Typtr {contents=TT t} -> assert false
+  | _ -> aty
+
+let desugar_ty ty =
+  let rec aux = function
+    | Ty (tys, aty) ->
+       let tys = List.map aux tys in
+       let aty = desugar_aty aty in
+       Ty (tys,aty)
+  in aux (observe_ty ty)
+
 (** Pervasive signature *)
 
 let k_fresh = "fresh_for"
@@ -466,6 +484,7 @@ let check_pi_quantification ts =
                 check_spec_logic_quantification_type tau
             | _ -> assert false)
        ts)
+
 
 let type_uterm ?expected_ty ~sr ~sign ~ctx t =
   let nominal_tyctx = uterm_nominals_to_tyctx t in

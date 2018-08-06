@@ -707,6 +707,7 @@ let karity = function Knd i -> i
 
 (* Typing *)
 let atyvar str = Typtr (ref (TV (str)))
+let atybase tyc = Tycons (tyc,[]) 
 let atyapp aty ty = 
   match observe_ty aty with
   | Tycons c tys -> Tycons (c, tys@[ty])
@@ -717,11 +718,11 @@ let tyarrow tys ty =
     | Ty(tys', bty) -> Ty(tys @ tys', bty)
 
 let tybase bty =
-  Ty([], Tycons (bty,[]))
+  Ty([], bty)
 
-let oty = tybase "o"
-let olistty = tybase "olist"
-let propty = tybase "prop"
+let oty = tybase (atybase "o")
+let olistty = tybase (atyapp (atybase "list") oty)
+let propty = tybase (atybase "prop")
 
 let rec tc (tyctx:tyctx) t =
   match observe (hnorm t) with
@@ -741,7 +742,7 @@ let is_tyvar str =
   str.[0] = '?'
 
 let tyvar str = 
-  Ty ([], atyvar str)
+  Ty ([], atyvar ("?"^str))
 
 let fresh_tyvar =
   let count = ref 0 in

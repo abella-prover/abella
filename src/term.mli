@@ -108,11 +108,13 @@ val get_ctx_tys : tyctx -> ty list
 
 val eq : term -> term -> bool
 
-(* Binding a variable to a term. The *contents* of the cell representing the
- * variable is a reference which must be updated. Also the variable must
- * not be made a reference to itself. *)
+(* Binding a variable to a term or type . The *contents* of the cell
+   representing the * variable is a reference which must be
+   updated. Also the variable must * not be made a reference to
+   itself. *)
 
 val bind : term -> term -> unit
+val bind_ty : aty -> ty -> unit
 
 type bind_state
 val get_bind_state : unit -> bind_state

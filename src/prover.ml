@@ -70,8 +70,8 @@ let sequent =
     next_subgoal_id = 1 ;
   }
 
-let add_global_types tys =
-  sign := add_types !sign tys
+let add_global_types tys knd =
+  sign := add_types !sign tys knd
 
 let locally_add_global_consts cs =
   let local_sr = List.fold_left Subordination.update !sr (List.map snd cs)
@@ -86,16 +86,17 @@ let add_global_consts cs =
   sr := List.fold_left Subordination.update !sr (List.map snd cs) ;
   sign := add_consts !sign cs
 
+(* This function may be broken for now. Need to fix it later *)
 let close_types ids =
   begin match List.minus ids (fst !sign) with
   | [] -> ()
-  | xs -> failwithf "Unknown type(s): %s" (String.concat ", " xs)
+  | xs -> failwithf "Unknown type(s): %s" (String.concat ", " (List.map fst xs))
   end ;
-  begin match List.intersect ["o"; "olist"; "prop"] ids with
+  begin match List.intersect ["o"; "olist"; "prop"] (List.map fst ids) with
   | [] -> ()
   | xs -> failwithf "Cannot close %s" (String.concat ", " xs)
   end ;
-  sr := Subordination.close !sr ids
+  sr := Subordination.close !sr (List.map fst ids)
 
 let add_subgoals ?(mainline) new_subgoals =
   let extend_name i =
@@ -190,23 +191,14 @@ let lookup_poly_const k =
   try let Poly (typarams, ty) = List.assoc k (snd !sign) in (typarams, ty) with
   | Not_found -> failwithf "Unknown constant: %S" k
 
-let get_typarams idtys =
-  let rec aux_ty tyvs ty =
-    match ty with
-    | Ty (argtys, targty) ->
-        let tyvs = aux_tys tyvs argtys in
-        if List.mem targty (fst !sign) then tyvs
-        else Iset.add targty tyvs
-  and aux_tys tyvs tys = List.fold_left aux_ty tyvs tys in
-  idtys |> List.map snd |> aux_tys Iset.empty |> Iset.elements
 
 let register_definition = function
   | Define (flav, idtys, udefs) ->
-      let typarams = get_typarams idtys in
+      let typarams = List.unique (idtys |> List.map snd |> get_typarams) in
+      check_typarams typarams (List.map snd idtys);
       let ids = List.map fst idtys in
       check_noredef ids;
       let (basics, consts) = !sign in
-      let basics = typarams @ basics in
       let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
       let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
                     List.map (fun (head, body) -> {head ; body}) in

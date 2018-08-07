@@ -55,7 +55,7 @@ let rec occurs v ty =
       some generic variables are instantiated. 
       In this case, 'InstGenericTyvar' is raised 
 *)
-let unify_constraints eqns ~fail ~stuck =
+let unify_constraints eqns =
   let rec aux (ty1, ty2) fail =
     let ty1 = observe_ty ty1 in
     let ty2 = observe_ty ty2 in

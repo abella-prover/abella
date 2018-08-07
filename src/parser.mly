@@ -108,7 +108,7 @@
 
   let id_to_aty id =
     if is_captial_name id then
-      Term.atyvar id
+      Term.Tygenvar id
     else
       Term.atybase id
 

@@ -720,9 +720,12 @@ let tyarrow tys ty =
 let tybase bty =
   Ty([], bty)
 
-let oty = tybase (atybase "o")
-let olistty = tybase (atyapp (atybase "list") oty)
-let propty = tybase (atybase "prop")
+let oaty = (atybase "o")
+let olistaty = (atyapp (atybase "list") oty)
+let propaty = (atybase "prop")
+let oty = tybase oaty
+let olistty = tybase olistaty
+let propty = tybase propaty
 
 let rec tc (tyctx:tyctx) t =
   match observe (hnorm t) with

@@ -45,7 +45,11 @@ and in_typtr = TV of tyvar | TT of ty
 val eq_ty : ty -> ty -> bool
 val observe_ty : ty -> ty
 val tyarrow : ty list -> ty -> ty
-val tybase : string -> ty
+val tybase : aty -> ty
+
+val oaty : aty
+val olistaty : aty
+val propaty : aty
 val oty : ty
 val olistty : ty
 val propty : ty
@@ -199,6 +203,7 @@ val all_tids : term list -> (id * ty) list
 val tc : tyctx -> term -> ty
 
 val atyvar : string -> aty
+val atybase : string -> aty
 val atyapp : aty -> ty -> aty
 val tyvar : string -> ty
 val is_tyvar : string -> bool

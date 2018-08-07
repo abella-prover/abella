@@ -22,7 +22,19 @@
 open Term
 open Metaterm
 open Extensions
+open Unifyty
 
+let iter_ty f ty =
+  let rec aux = function
+    | Ty(tys, bty) -> 
+       List.iter aux tys;
+       f bty; 
+       match bty with
+       | Tycons (c,args) -> List.iter aux args
+       | Typtr {contents=TT _} -> assert false
+       | _ -> ()
+  in
+  aux (observe_ty ty)
 
 (** Untyped terms *)
 
@@ -107,10 +119,11 @@ let apply_bind_ty v ty t =
        let tys' = (List.map aux tys) in
        let aty' = 
          match aty with
-         | Tygenvar _ -> Ty ([], aty)
-         | Typtr {contents=TV v'} -> 
+         | Tygenvar v' -> 
             if v' = v then ty
-            else Ty ([],aty)
+            else Ty ([], aty)
+         | Typtr {contents=TV v'} -> 
+            Ty ([],aty)
          | Tycons (c,args) ->
             let args' = (List.map aux args) in
             Ty ([], Tycons(c,args')) 
@@ -186,8 +199,7 @@ let kind_check sign ty =
   in aux (observe_ty ty)          
 
 let kind_check_poly (ktable,ctable) (Poly(ids, ty)) = 
-  let vknds = List.map (fun id -> (id, kind 0)) ids in
-  kind_check (vknds@ktable,ctable) ty
+  kind_check (ktable,ctable) ty
 
 let eq_pty pty1 pty2 = 
   match pty1,pty2 with
@@ -220,8 +232,23 @@ let add_poly_consts (ktable, ctable) idptys =
   List.iter (check_const (ktable, ctable)) idptys ;
   (ktable, idptys @ ctable)
 
+let get_typaram ty = 
+  let params = ref [] in
+  iter_ty begin fun aty ->
+    match aty with
+    | Tygenvar v ->
+       if is_capital_name v then 
+         params := v::(!params)
+    | _ -> ()
+    end ty;
+  !params
+
+let get_typarams tys = List.flatten_map get_typaram tys
+
 let add_consts sign idtys =
-  let idptys = List.map (fun (id, ty) -> (id, Poly([], ty))) idtys in
+  let typarams = idtys |> List.map snd |> List.map get_typaram in
+  let idptys = List.map2
+                 (fun (id, ty) pas -> (id, Poly(pas, ty))) idtys typarams in
   add_poly_consts sign idptys
 
 let freshen_ty (Poly(ids, ty)) =
@@ -261,12 +288,14 @@ let k_cons = "::"
 let k_nil = "nil"
 
 let pervasive_sign =
-  (["o"; "olist"; "prop"],
-   [("pi",     Poly(["A"], tyarrow [tyarrow [tybase "A"] oty] oty)) ;
+  let aty = tybase (Tygenvar "A") in
+  let alistty = tybase (atyapp (atybase "list") aty) in
+  ([("o", Knd 0); ("list", Knd 1); ("prop", Knd 0)],
+   [("pi",     Poly(["A"], tyarrow [tyarrow [aty] oty] oty)) ;
     ("=>",     Poly([],    tyarrow [oty; oty] oty)) ;
     ("&",      Poly([],    tyarrow [oty; oty] oty)) ;
-    (k_cons,   Poly([],    tyarrow [oty; olistty] olistty)) ;
-    (k_nil,    Poly([],    olistty)) ])
+    (k_cons,   Poly(["A"], tyarrow [aty; alistty] alistty)) ;
+    (k_nil,    Poly(["A"], alistty)) ])
 
 let sign_to_tys sign =
   List.filter_map
@@ -334,12 +363,12 @@ let constraints_to_string eqns =
   in
   String.concat "\n" (List.map aux eqns)
 
-let occurs v ty =
-  let rec aux = function
-    | Ty(tys, bty) when bty = v -> true
-    | Ty(tys, _) -> List.exists aux tys
-  in
-  aux ty
+(* let occurs v ty =
+ *   let rec aux = function
+ *     | Ty(tys, bty) when bty = v -> true
+ *     | Ty(tys, _) -> List.exists aux tys
+ *   in
+ *   aux ty *)
 
 let contains_tyvar ty = 
   let rec aux = function
@@ -353,7 +382,7 @@ let contains_tyvar ty =
          | Typtr {contents=TT _} -> assert false
        in
        cv || List.exists aux tys
-  in aux ty
+  in aux (observe_ty ty)
 
 let tid_ensure_fully_inferred ~sign (id, ty) =
   if contains_tyvar ty then
@@ -448,17 +477,17 @@ let uterms_extract_if test ts =
 let uterm_nominals_to_tyctx t =
   ids_to_fresh_tyctx (uterms_extract_if is_nominal_name [t])
 
-let uterm_to_term sub t =
+let uterm_to_term t =
   let rec aux t =
     match t with
-    | UCon(_, id, ty) -> const id (apply_sub_ty sub ty)
-    | ULam(_, id, ty, t) -> abstract id (apply_sub_ty sub ty) (aux t)
+    | UCon(_, id, ty) -> const id ty
+    | ULam(_, id, ty, t) -> abstract id ty (aux t)
     | UApp(_, t1, t2) -> app (aux t1) [aux t2]
   in
   aux t
 
 let uterm_to_string t =
-  term_to_string (uterm_to_term [] t)
+  term_to_string (uterm_to_term t)
 
 let term_ensure_subordination sr t =
   let rec aux tyctx t =
@@ -473,18 +502,12 @@ let term_ensure_subordination sr t =
   in
   aux [] t
 
-let iter_ty f ty =
-  let rec aux = function
-    | Ty(tys, bty) -> f bty; List.iter aux tys
-  in
-  aux ty
-
 let check_spec_logic_type ty =
   iter_ty
     (fun bty ->
-       if bty = "prop" then
+       if bty = propaty then
          failwith "Cannot mention type prop in the specification logic" ;
-       if bty = "olist" then
+       if bty = olistaty then
          failwith "Cannot mention type olist in the specification logic")
     ty
 
@@ -492,7 +515,7 @@ let check_spec_logic_quantification_type ty =
   check_spec_logic_type ty ;
   iter_ty
     (fun bty  ->
-       if bty = "o" then
+       if bty = oaty then
          failwith "Cannot quantify over type o in the specification logic")
     ty
 
@@ -501,7 +524,7 @@ let check_pi_quantification ts =
     (map_vars
        (fun v ->
           if v.name = "pi" then
-            match v.ty with
+            match observe_ty v.ty with
             | Ty([Ty([tau], _)], _) ->
                 check_spec_logic_quantification_type tau
             | _ -> assert false)
@@ -522,6 +545,7 @@ let check_pi_quantification ts =
  *        ns @ ans
  *   in List.unique (aux (observe_ty ty)) *)
 
+
 let type_uterm ?expected_ty ~sr ~sign ~ctx t =
   let nominal_tyctx = uterm_nominals_to_tyctx t in
   let tyctx =
@@ -534,9 +558,9 @@ let type_uterm ?expected_ty ~sr ~sign ~ctx t =
     | None -> eqns
     | Some exp_ty -> (exp_ty, ty, (get_pos t, CArg)) :: eqns
   in
-  let sub = unify_constraints eqns in
-  let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx)) in
-  let result = replace_term_vars ctx (uterm_to_term sub t) in
+  unify_constraints eqns;
+  let ctx = ctx @ (tyctx_to_nominal_ctx nominal_tyctx) in
+  let result = replace_term_vars ctx (uterm_to_term t) in
   term_ensure_fully_inferred ~sign result ;
   term_ensure_subordination sr result ;
   result
@@ -685,20 +709,20 @@ let umetaterm_extract_if test t =
 let umetaterm_nominals_to_tyctx t =
   ids_to_fresh_tyctx (umetaterm_extract_if is_nominal_name t)
 
-let umetaterm_to_metaterm ?sign sub t =
+let umetaterm_to_metaterm ?sign t =
   let rec aux t =
     match t with
     | UTrue -> True
     | UFalse -> False
-    | UEq(a, b) -> Eq(uterm_to_term sub a, uterm_to_term sub b)
+    | UEq(a, b) -> Eq(uterm_to_term a, uterm_to_term b)
     | UAsyncObj(l, g, r) ->
-        let context = Context.normalize [uterm_to_term sub l] in
-        let right = uterm_to_term sub g in
+        let context = Context.normalize [uterm_to_term l] in
+        let right = uterm_to_term g in
         Obj({context ; right ; mode = Async}, r)
     | USyncObj(l, f, g, r) ->
-        let context = Context.normalize [uterm_to_term sub l] in
-        let right = uterm_to_term sub g in
-        let mode = Sync (uterm_to_term sub f) in
+        let context = Context.normalize [uterm_to_term l] in
+        let right = uterm_to_term g in
+        let mode = Sync (uterm_to_term f) in
         Obj({context ; right ; mode}, r)
     | UArrow(a, b) -> Arrow(aux a, aux b)
     | UBinding(binder, tids, body) ->
@@ -706,25 +730,23 @@ let umetaterm_to_metaterm ?sign sub t =
         (*   | Some sign -> List.iter (fun (_, ty) -> kind_check_poly sign [] ty) tids *)
         (*   | None -> () *)
         (* in *)
-        Binding(binder,
-                List.map_snd (apply_sub_ty sub) tids,
-                aux body)
+        Binding(binder, tids, aux body)
     | UOr(a, b) -> Or(aux a, aux b)
     | UAnd(a, b) -> And(aux a, aux b)
-    | UPred(p, r) -> Pred(uterm_to_term sub p, r)
+    | UPred(p, r) -> Pred(uterm_to_term p, r)
   in
   aux t
 
 let umetaterm_to_string ?sign t =
-  metaterm_to_string (umetaterm_to_metaterm ?sign [] t)
+  metaterm_to_string (umetaterm_to_metaterm ?sign t)
 
 let umetaterm_to_formatted_string ?sign t =
-  metaterm_to_formatted_string (umetaterm_to_metaterm ?sign [] t)
+  metaterm_to_formatted_string (umetaterm_to_metaterm ?sign t)
 
 let check_meta_logic_quantification_type ty =
   iter_ty
     (fun bty ->
-       if bty = "prop" then
+       if bty = propaty then
          failwith "Cannot quantify over type prop")
     ty
 
@@ -775,9 +797,9 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
     (List.map (fun (id, t) -> (id, tc [] t)) ctx)
     @ nominal_tyctx in
   let eqns = infer_constraints ~sign ~tyctx t in
-  let sub = unify_constraints eqns in
-  let ctx = ctx @ (tyctx_to_nominal_ctx (apply_sub_tyctx sub nominal_tyctx)) in
-  let result = replace_metaterm_vars ctx (umetaterm_to_metaterm ~sign sub t) in
+  unify_constraints eqns;
+  let ctx = ctx @ (tyctx_to_nominal_ctx nominal_tyctx) in
+  let result = replace_metaterm_vars ctx (umetaterm_to_metaterm ~sign t) in
   metaterm_ensure_fully_inferred ~sign result ;
   metaterm_ensure_subordination sr result ;
   check_meta_quantification result ;
@@ -789,11 +811,11 @@ let type_udef ~sr ~sign (head, body) =
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns1 = infer_constraints ~sign ~tyctx head in
   let eqns2 = infer_constraints ~sign ~tyctx body in
-  let sub = unify_constraints (eqns1 @ eqns2) in
-  let ctx = tyctx_to_ctx (apply_sub_tyctx sub tyctx) in
+  unify_constraints (eqns1 @ eqns2);
+  let ctx = tyctx_to_ctx tyctx in
   let (rhead, rbody) =
-    (replace_metaterm_vars ctx (umetaterm_to_metaterm ~sign sub head),
-     replace_metaterm_vars ctx (umetaterm_to_metaterm ~sign sub body))
+    (replace_metaterm_vars ctx (umetaterm_to_metaterm ~sign head),
+     replace_metaterm_vars ctx (umetaterm_to_metaterm ~sign body))
   in
   metaterm_ensure_fully_inferred ~sign rhead ;
   metaterm_ensure_fully_inferred ~sign rbody ;
@@ -815,5 +837,5 @@ let rec has_capital_head t =
 
 (** globals *)
 
-let sign = State.rref pervasive_sign
+let sign : sign ref = State.rref pervasive_sign
 let sr = State.rref pervasive_sr

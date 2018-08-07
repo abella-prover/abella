@@ -106,6 +106,12 @@
       error_report "Invalid signature constants: %s@\n\
                     Identifiers matching n[0-9]+ are reserved for nominal constants." ks
 
+  let id_to_aty id =
+    if is_captial_name id then
+      Term.atyvar id
+    else
+      Term.atybase id
+
 %}
 
 %token IMP IF AMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
@@ -348,15 +354,22 @@ id_list:
 
 pty:
   | id
-    {Term.tybase (Term.atyvar $1)}
+    { Term.tybase (id_to_aty $1) }
   | LPAREN ty RPAREN
     {$2}
 
 aty:
   | id
-    { Term.atyvar $1}
+    { id_to_aty $1 }
   | aty pty
-    { Term.atyapp $1 $2 }
+    { 
+      match aty with
+      | Tycons _ -> Term.atyapp $1 $2
+      | Typtr {contents=TV _} ->
+         error_report ~pos:(pos 0) 
+           "Type variable cannot be applied to arguments"
+      | _ -> assert false
+    }
 
 ty:
   | aty

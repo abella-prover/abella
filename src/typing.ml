@@ -146,8 +146,17 @@ type sign = ktable * ctable
 
 let add_types (ktable, ctable) ids knd =
   List.iter begin fun id ->
+    begin 
+      try
+        let knd' = List.assoc id ktable in
+        if knd <> knd' then
+          failwithf "Type constructor %s has inconsistent kind declarations" id
+      with
+      | Not_found -> ()
+    end ;
+
     if is_capital_name id then
-      failwithf "Types may not begin with a capital letter: %s" id
+      failwithf "Types may not begin with a capital letter: %s" id;
   end ids ;
   ((List.map (fun id -> (id, knd)) ids) @ ktable, ctable)
 
@@ -180,10 +189,23 @@ let kind_check_poly (ktable,ctable) (Poly(ids, ty)) =
   let vknds = List.map (fun id -> (id, kind 0)) ids in
   kind_check (vknds@ktable,ctable) ty
 
+let eq_pty pty1 pty2 = 
+  match pty1,pty2 with
+  | Poly(ids1, ty1), Poly(ids2,ty2) ->
+     List.length ids1 = List.length ids2 &&
+     begin
+       let tyvars = List.map (fun _ -> Term.fresh_tyvar ()) ids1 in
+       let sub1 = List.map2 (fun id ty -> (id,ty)) ids1 tyvars in
+       let sub2 = List.map2 (fun id ty -> (id,ty)) ids2 tyvars in
+       let ty1' = apply_sub_ty sub1 ty1 in
+       let ty2' = apply_sub_ty sub2 ty2 in
+       eq_ty ty1' ty2'
+     end
+
 let check_const (ktable, ctable) (id, pty) =
   begin try
     let pty' = List.assoc id ctable in
-    if pty <> pty' then
+    if not (eq_pty pty pty') then
       failwithf "Constant %s has inconsistent type declarations" id
   with
   | Not_found -> ()
@@ -257,13 +279,13 @@ let pervasive_sr =
 
 (** Typing for terms *)
 
-type expected = ty
-type actual = ty
-(* A constraint contains the position of the 'actual' type *)
-type constraint_type = CFun | CArg
-type constraint_info = pos * constraint_type
-type constraints = (expected * actual * constraint_info) list
-exception TypeInferenceFailure of constraint_info * expected * actual
+(* type expected = ty
+ * type actual = ty
+ * (\* A constraint contains the position of the 'actual' type *\)
+ * type constraint_type = CFun | CArg
+ * type constraint_info = pos * constraint_type
+ * type constraints = (expected * actual * constraint_info) list
+ * exception TypeInferenceFailure of constraint_info * expected * actual *)
 
 let infer_type_and_constraints ~sign tyctx t =
   let eqns = ref [] in
@@ -373,46 +395,46 @@ let metaterm_ensure_fully_inferred ~sign t =
   in
   aux t
 
-let apply_bind_constraints v ty eqns =
-  List.map (fun (x,y) -> (apply_bind_ty v ty x, apply_bind_ty v ty y)) eqns
-
-let apply_bind_sub v ty sub =
-  List.map (fun (x,y) -> (x, apply_bind_ty v ty y)) sub
-
-let unify_constraints eqns =
-  let add_sub v vty s =
-    (v, vty) :: (apply_bind_sub v vty s)
-  in
-
-  (* Unify a single constraint and call fail on failure *)
-  let rec aux s (ty1, ty2) fail =
-    let ty1 = apply_sub_ty s ty1 in
-    let ty2 = apply_sub_ty s ty2 in
-    match ty1, ty2 with
-    | _, _ when ty1 = ty2 -> s
-    | Ty([], bty1), _ when is_tyvar bty1 ->
-        if occurs bty1 ty2 then
-          fail s
-        else
-          add_sub bty1 ty2 s
-    | _, Ty([], bty2) when is_tyvar bty2 ->
-        if occurs bty2 ty1 then
-          fail s
-        else
-          add_sub bty2 ty1 s
-    | Ty(ty1::tys1, bty1), Ty(ty2::tys2, bty2) ->
-        let s = aux s (ty1, ty2) fail in
-        aux s (Ty(tys1, bty1), Ty(tys2, bty2)) fail
-    | ty1, ty2 -> fail s
-  in
-
-  let unify_single_constraint s (ty1, ty2, p) =
-    aux s (ty1, ty2)
-      (fun s -> raise (TypeInferenceFailure(p, apply_sub_ty s ty1,
-                                            apply_sub_ty s ty2)))
-  in
-
-  List.fold_left unify_single_constraint [] eqns
+(* let apply_bind_constraints v ty eqns =
+ *   List.map (fun (x,y) -> (apply_bind_ty v ty x, apply_bind_ty v ty y)) eqns
+ * 
+ * let apply_bind_sub v ty sub =
+ *   List.map (fun (x,y) -> (x, apply_bind_ty v ty y)) sub
+ * 
+ * let unify_constraints eqns =
+ *   let add_sub v vty s =
+ *     (v, vty) :: (apply_bind_sub v vty s)
+ *   in
+ * 
+ *   (\* Unify a single constraint and call fail on failure *\)
+ *   let rec aux s (ty1, ty2) fail =
+ *     let ty1 = apply_sub_ty s ty1 in
+ *     let ty2 = apply_sub_ty s ty2 in
+ *     match ty1, ty2 with
+ *     | _, _ when ty1 = ty2 -> s
+ *     | Ty([], bty1), _ when is_tyvar bty1 ->
+ *         if occurs bty1 ty2 then
+ *           fail s
+ *         else
+ *           add_sub bty1 ty2 s
+ *     | _, Ty([], bty2) when is_tyvar bty2 ->
+ *         if occurs bty2 ty1 then
+ *           fail s
+ *         else
+ *           add_sub bty2 ty1 s
+ *     | Ty(ty1::tys1, bty1), Ty(ty2::tys2, bty2) ->
+ *         let s = aux s (ty1, ty2) fail in
+ *         aux s (Ty(tys1, bty1), Ty(tys2, bty2)) fail
+ *     | ty1, ty2 -> fail s
+ *   in
+ * 
+ *   let unify_single_constraint s (ty1, ty2, p) =
+ *     aux s (ty1, ty2)
+ *       (fun s -> raise (TypeInferenceFailure(p, apply_sub_ty s ty1,
+ *                                             apply_sub_ty s ty2)))
+ *   in
+ * 
+ *   List.fold_left unify_single_constraint [] eqns *)
 
 let uterms_extract_if test ts =
   let rec aux t =
@@ -485,6 +507,20 @@ let check_pi_quantification ts =
             | _ -> assert false)
        ts)
 
+(* let get_tyvar_names ty =
+ *   let rec aux = function
+ *     | Ty (tys, aty) ->
+ *        let ns = List.flatten_map aux tys in
+ *        let ans = 
+ *          match aty with
+ *          | Typtr {contents=TV v} -> [v]
+ *          | Typtr {contents=TT _} -> assert false
+ *          | Tygenvar _ -> []
+ *          | Tycons (c,args) -> 
+ *             List.flatten_map aux tys
+ *        in
+ *        ns @ ans
+ *   in List.unique (aux (observe_ty ty)) *)
 
 let type_uterm ?expected_ty ~sr ~sign ~ctx t =
   let nominal_tyctx = uterm_nominals_to_tyctx t in

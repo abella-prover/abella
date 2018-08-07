@@ -42,6 +42,7 @@ and aty =
 and typtr = in_typtr ref
 and in_typtr = TV of tyvar | TT of ty
 
+val eq_ty : ty -> ty -> bool
 val observe_ty : ty -> ty
 val tyarrow : ty list -> ty -> ty
 val tybase : string -> ty

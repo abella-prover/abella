@@ -410,6 +410,28 @@ let spec_view t =
     end
   | t -> Spec_atom t
 
+let terms_contain_tyvar l = 
+  List.exists (fun t -> List.length (collect_tyvar_names t) <> 0) l
+
+let extract_terms_from_cpairs cpairs = 
+  match cpairs with
+  | None -> []
+  | Some pl -> List.fold_left (fun l (a,b) -> a::b::l) [] pl
+
+let try_left_unify_cpairs_fully_inferred ~used ~msg t1 t2 =
+  let cpairs = try_left_unify_cpairs ~used t1 t2 in
+  let rterms = t1 :: t2 :: (extract_terms_from_cpairs cpairs) in
+  if terms_contain_tyvar rterms then
+    failwith msg;
+  cpairs
+
+let try_right_unify_cpairs_fully_inferred ~msg t1 t2 =
+  let cpairs = try_right_unify_cpairs t1 t2 in
+  let rterms = t1 :: t2 :: (extract_terms_from_cpairs cpairs) in
+  if terms_contain_tyvar rterms then
+    failwith msg;
+  cpairs
+             
 let case ~used ~sr ~clauses ~typarams ~mutual ~defs ~global_support term =
   let support = metaterm_support term in
   let def_case ~wrapper term =
@@ -417,7 +439,9 @@ let case ~used ~sr ~clauses ~typarams ~mutual ~defs ~global_support term =
       let fresh_used, head, body =
         freshen_def ~sr ~support ~used ~typarams head body
       in
-      match try_left_unify_cpairs ~used:(fresh_used @ used) head term with
+      let msg = "Cannot fully infer the type of some definitional clause" in
+      match try_left_unify_cpairs_fully_inferred ~used:(fresh_used @ used) 
+              ~msg head term with
       | Some cpairs ->
           let used_head = term_vars_alist Eigen [head; term] in
           let used_body = metaterm_vars_alist Eigen body in
@@ -491,8 +515,10 @@ let case ~used ~sr ~clauses ~typarams ~mutual ~defs ~global_support term =
                  new_vars = new_vars ;
                  new_hyps = rewrap_succedent fresh_head :: body }
         end else begin
-          match try_left_unify_cpairs fresh_head sync_obj.right
-                  ~used:(fresh_used @ used) with
+          let msg = "Cannot fully infer the type of some program clause" in
+          match try_left_unify_cpairs_fully_inferred 
+                  fresh_head sync_obj.right
+                  ~used:(fresh_used @ used) ~msg with
           | Some cpairs ->
               let new_vars =
                 term_vars_alist Eigen (fresh_head::sync_obj.right::fresh_body) in
@@ -698,7 +724,8 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
       let alist = List.combine ids nominals in
       let head = replace_term_vars alist head in
       let head, body = freshen_nameless_def ~support ~ts ~typarams head body in
-      match try_right_unify_cpairs head goal with
+      let msg = "Cannot fully infer the type of some definitional clause" in
+      match try_right_unify_cpairs_fully_inferred ~msg head goal with
       | None -> []
       | Some cpairs ->
           [(get_bind_state (), cpairs, normalize (wrapper body), i)]
@@ -762,7 +789,9 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                 let cl = List.hd cl in
                 let (vars, head, body) = 
                   freshen_nameless_clause ~support ~ts:0 ~typarams:tyvars cl in
-                match try_right_unify_cpairs head goal.right with
+                let msg = "Cannot fully infer the type of some program clause" in
+                match try_right_unify_cpairs_fully_inferred ~msg 
+                        head goal.right with
                 | None ->
                     failwithf "Head of program clause named %S not\
                               \ unifiable with goal"
@@ -879,7 +908,8 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     List.filter filter_by_witness |>
     List.map freshen_clause |>
     List.iter ~guard:unwind_state begin fun (i, (head, body)) ->
-      match try_right_unify_cpairs head goal with
+      let msg = "Cannot fully infer the type of some program clause" in
+      match try_right_unify_cpairs_fully_inferred ~msg head goal with
       | None -> ()
       | Some cpairs ->
           let sc ws =

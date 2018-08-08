@@ -256,18 +256,14 @@ let bind v t =
 type bind_state_ty = (typtr * in_typtr * ty) list
 let bind_state_ty : bind_state_ty ref = ref []
 
-let rec deref_ty = function
-  | Typtr {contents=TT t} -> deref_ty t
-  | t -> t
-
 let getref_ty = function
   | Typtr t -> t
   | _ -> assert false
 
 let bind_ty v t =
-  let dv = getref_ty (deref_ty v) in
+  let dv = getref_ty v in
   let dt = observe_ty t in
-    assert (match dt with Typtr r -> dv != r | _ -> true) ;
+    assert (match dt with Ty ([], Typtr r) -> dv != r | _ -> true) ;
     bind_state_ty := (dv, !dv, dt) :: !bind_state_ty ;
     dv := TT dt
 
@@ -281,11 +277,11 @@ let clear_bind_state () =
   List.iter (fun (v, ov, nv) -> v := ov) !bind_state_var ;
   List.iter (fun (tv, tov, tnv) -> tv := tov) !bind_state_ty ;
   bind_state_var := [] ;
-  bind_state_ty := [] ;
+  bind_state_ty := []
 
 let set_bind_state (state_var, state_ty) =
   clear_bind_state () ;
-  List.iter (fun (v, ov, nv) -> bind (Ptr v) nv) (List.rev state_var)
+  List.iter (fun (v, ov, nv) -> bind (Ptr v) nv) (List.rev state_var) ;
   List.iter (fun (tv, tov, tnv) -> bind_ty (Typtr tv) tnv) (List.rev state_ty)
 
 (* make state undoable *)
@@ -319,7 +315,7 @@ let set_scoped_bind_state_ty state =
       | [] -> assert false
   done
 
-let se_scoped_bind_state (sv, st) =
+let set_scoped_bind_state (sv, st) =
   set_scoped_bind_state_var sv;
   set_scoped_bind_state_ty st
 
@@ -724,9 +720,9 @@ let karity = function Knd i -> i
 let atyvar str = Typtr (ref (TV (str)))
 let atybase tyc = Tycons (tyc,[]) 
 let atyapp aty ty = 
-  match observe_ty aty with
-  | Tycons c tys -> Tycons (c, tys@[ty])
-  | Typtr _ -> assert false
+  match aty with
+  | Tycons (c,tys) -> Tycons (c, tys@[ty])
+  | _ -> assert false
 
 let tyarrow tys ty =
   match observe_ty ty with
@@ -736,11 +732,12 @@ let tybase bty =
   Ty([], bty)
 
 let oaty = (atybase "o")
-let olistaty = (atyapp (atybase "list") oty)
-let propaty = (atybase "prop")
 let oty = tybase oaty
+let olistaty = (atyapp (atybase "list") oty)
 let olistty = tybase olistaty
+let propaty = (atybase "prop")
 let propty = tybase propaty
+
 
 let rec tc (tyctx:tyctx) t =
   match observe (hnorm t) with
@@ -817,13 +814,13 @@ let collect_tyvar_names t =
 
 module Test = struct
 
-  let p = const "p" (tyarrow [tybase "x"] oty)
-  let q = const "q" (tyarrow [tybase "x"] oty)
+  let p = const "p" (tyarrow [tybase (atybase "x")] oty)
+  let q = const "q" (tyarrow [tybase (atybase "x")] oty)
   let mkpi x ty f =
     app (const "pi" (tyarrow [tyarrow [ty] oty] oty)) [lambda [x, ty] f]
   let mkimp f g =
     app (const "=>" (tyarrow [oty ; oty] oty)) [f ; g]
-  let ity = tybase "i"
+  let ity = tybase (atybase "i")
   let t1 =
     mkpi "x" ity (mkimp (app p [db 1]) (app q [db 1]))
   let t2 =

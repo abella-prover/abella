@@ -740,18 +740,20 @@ let propty = tybase propaty
 
 
 let rec tc (tyctx:tyctx) t =
-  match observe (hnorm t) with
+  let ty =
+    match observe (hnorm t) with
     | DB i -> snd (List.nth tyctx (i-1))
-    | Var v -> observe_ty v.ty
+    | Var v -> v.ty
     | App(h,args) ->
-        let arg_tys = List.map (tc tyctx) args in
-        let Ty(tys, bty) = tc tyctx h in
-        let n = List.length arg_tys in
-          assert (List.take n tys = arg_tys) ;
-          Ty(List.drop n tys, bty)
+       let arg_tys = List.map (tc tyctx) args in
+       let Ty(tys, bty) = tc tyctx h in
+       let n = List.length arg_tys in
+       assert (List.take n tys = arg_tys) ;
+       Ty(List.drop n tys, bty)
     | Lam(idtys,t) ->
-        tyarrow (get_ctx_tys idtys) (tc (List.rev_app idtys tyctx) t)
+       tyarrow (get_ctx_tys idtys) (tc (List.rev_app idtys tyctx) t)
     | _ -> assert false
+  in observe_ty ty
 
 let is_tyvar str =
   str.[0] = '?'

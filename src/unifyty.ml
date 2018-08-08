@@ -3,6 +3,9 @@ open Term
 type pos = Lexing.position * Lexing.position
 let ghost : pos = (Lexing.dummy_pos, Lexing.dummy_pos)
 
+let inst_gen_tyvar_msg = function v ->    
+    Printf.sprintf "the generic type variable %s cannot be instantiated" v
+
 let position_range (p1, p2) =
   let file = p1.Lexing.pos_fname in
   let line = p1.Lexing.pos_lnum in

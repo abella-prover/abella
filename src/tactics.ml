@@ -35,15 +35,24 @@ let is_uninstantiated (x, vtm) =
 
 let alist_to_used (_, t) = term_to_pair t
 
-let freshen_clause ~used ~sr ?(support=[]) clause =
+let freshen_clause ~used ~sr ?(support=[]) ~typarams clause =
+  let sub = List.map (fun id -> (id, Term.fresh_tyvar ())) typarams in
   let (tids, head, body) = clause in
+  let head = term_map_on_tys (Typing.apply_sub_ty sub) head in
+  let body = 
+    List.map (term_map_on_tys (Typing.apply_sub_ty sub)) body in
+  let tids = List.map (fun (id, ty) -> (id, Typing.apply_sub_ty sub ty)) tids in
   let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
   (List.map term_to_pair vars,
    replace_term_vars alist head,
    List.map (replace_term_vars alist) body)
 
-let freshen_def ~used ~sr ?(support=[]) head body =
+let freshen_def ~used ~sr ?(support=[]) ~typarams head body =
+  let sub = List.map (fun id -> (id, Term.fresh_tyvar ())) typarams in
+  let head = term_map_on_tys (Typing.apply_sub_ty sub) head in
+  let body = map_on_tys (Typing.apply_sub_ty sub) body in
   let tids = capital_tids [head] in
+  let tids = List.map (fun (id, ty) -> (id, Typing.apply_sub_ty sub ty)) tids in
   let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
   (List.map term_to_pair vars,
    replace_term_vars alist head,
@@ -64,15 +73,24 @@ let fresh_nameless_alist ~support ~tag ~ts tids =
        (x, app (fresh ~tag ts (tyarrow ntys ty)) support))
     tids
 
-let freshen_nameless_clause ?(support=[]) ~ts clause =
+let freshen_nameless_clause ?(support=[]) ~ts ~typarams clause =
+  let sub = List.map (fun id -> (id, Term.fresh_tyvar ())) typarams in
   let (tids, head, body) = clause in
+  let head = term_map_on_tys (Typing.apply_sub_ty sub) head in
+  let body = 
+    List.map (term_map_on_tys (Typing.apply_sub_ty sub)) body in
+  let tids = List.map (fun (id, ty) -> (id, Typing.apply_sub_ty sub ty)) tids in
   let fresh_names = fresh_nameless_alist ~support ~tag:Logic ~ts tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
   (fresh_names, fresh_head, fresh_body)
 
-let freshen_nameless_def ?(support=[]) ~ts head body =
+let freshen_nameless_def ?(support=[]) ~ts ~typarams head body =
+  let sub = List.map (fun id -> (id, Term.fresh_tyvar ())) typarams in
+  let head = term_map_on_tys (Typing.apply_sub_ty sub) head in
+  let body = map_on_tys (Typing.apply_sub_ty sub) body in
   let tids = capital_tids [head] in
+  let tids = List.map (fun (id, ty) -> (id, Typing.apply_sub_ty sub ty)) tids in
   let fresh_names = fresh_nameless_alist ~support ~tag:Logic ~ts tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = replace_metaterm_vars fresh_names body in
@@ -392,12 +410,12 @@ let spec_view t =
     end
   | t -> Spec_atom t
 
-let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
+let case ~used ~sr ~clauses ~typarams ~mutual ~defs ~global_support term =
   let support = metaterm_support term in
   let def_case ~wrapper term =
     let make_case ~support ~used (head, body) term =
       let fresh_used, head, body =
-        freshen_def ~sr ~support ~used head body
+        freshen_def ~sr ~support ~used ~typarams head body
       in
       match try_left_unify_cpairs ~used:(fresh_used @ used) head term with
       | Some cpairs ->
@@ -453,7 +471,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
     end
   in
 
-  let focus sync_obj f r =
+  let focus sync_obj (tyvars,f) r =
     if has_eigen_head f then
       failwithf "Head of backchained clause, %s, is a variable.\n\
                \ The case command cannot determine the derivability of this hypothesis"
@@ -465,7 +483,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
     List.filter_map begin fun clause ->
       unwind_state begin fun clause ->
         let fresh_used, fresh_head, fresh_body =
-          freshen_clause ~sr ~support ~used clause in
+          freshen_clause ~sr ~support ~used ~typarams:tyvars clause in
         if has_eigen_head fresh_head then begin
           let new_vars = term_vars_alist Eigen (fresh_head :: sync_obj.right :: fresh_body) in
           let body = List.map rewrap_antecedent fresh_body in
@@ -525,7 +543,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   | Obj (obj, r) -> begin
       match obj.mode with
       | Async -> async_case obj r
-      | Sync f -> focus obj f r
+      | Sync f -> focus obj ([],f) r
     end
   | True -> [stateless_case_to_case empty_case]
   | False -> []
@@ -662,7 +680,7 @@ let maybe_select sel l = match sel with
 
 let unfold_defs ~mdefs clause_sel ~ts goal r =
   let p = term_head_name goal in
-  let (mutual, defs) = mdefs in
+  let (typarams, mutual, defs) = mdefs in
   let support = term_support goal in
   let wrapper = coinductive_wrapper r mutual in
   let unfold_def tids head body i =
@@ -679,7 +697,7 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
       let support = List.minus support nominals in
       let alist = List.combine ids nominals in
       let head = replace_term_vars alist head in
-      let head, body = freshen_nameless_def ~support ~ts head body in
+      let head, body = freshen_nameless_def ~support ~ts ~typarams head body in
       match try_right_unify_cpairs head goal with
       | None -> []
       | Some cpairs ->
@@ -735,14 +753,15 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
       match clause_sel with
       | Abella_types.Select_named nm -> begin
           match Typing.lookup_clause nm with
-          | Some cl ->
+          | Some (tyvars,cl) ->
               normalize_obj ~parity:true ~bindstack:[] goal |>
               List.map begin fun goal ->
                 let support = metaterm_support goal0 in
                 let cl = clausify cl in
                 assert (List.length cl = 1) ;
                 let cl = List.hd cl in
-                let (vars, head, body) = freshen_nameless_clause ~support ~ts:0 cl in
+                let (vars, head, body) = 
+                  freshen_nameless_clause ~support ~ts:0 ~typarams:tyvars cl in
                 match try_right_unify_cpairs head goal.right with
                 | None ->
                     failwithf "Head of program clause named %S not\
@@ -835,25 +854,27 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
   let rec clause_aux n context foci goal r ts ~sc ~witness =
     (* Printf.eprintf "clause_aux: %s\n%!" (witness_to_string witness) ; *)
     let support = term_list_support (goal :: context) in
-    let freshen_clause (i, cl) =
-      let (_vars, head, body) = freshen_nameless_clause ~support ~ts cl in
+    let freshen_clause (i, (tyvars,cl)) =
+      let (_vars, head, body) = 
+        freshen_nameless_clause ~support ~ts ~typarams:tyvars cl in
       (i, (head, body))
     in
     let p = term_head_name goal in
     let wrap body = List.map (fun t -> {context ; mode = Async ; right = t}) body in
     let filter_by_witness = match witness with
       | WUnfold (p, n, _) ->
-          (fun (i, (_, h, _)) -> term_head_name h = p && i = n)
+          (fun (i, (_,(_, h, _))) -> term_head_name h = p && i = n)
       | WMagic ->
           (fun _ -> true)
       | _ -> bad_witness ()
     in
     foci |>
     (* ignore the elements in the context of type olist *)
-    List.find_all (fun cls -> not (tc [] cls = olistty)) |>
-    List.map clausify |>
+    List.find_all (fun (_,cls) -> not (tc [] cls = olistty)) |>
+    List.map (fun (tyvars, cl) -> 
+        List.map (fun c -> (tyvars, c)) (clausify cl)) |>
     List.concat |>
-    List.find_all (fun (_, h, _) -> term_head_name h = p) |>
+    List.find_all (fun (_,(_, h, _)) -> term_head_name h = p) |>
     List.number |>
     List.filter filter_by_witness |>
     List.map freshen_clause |>
@@ -895,7 +916,8 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
       | Smaller _ | Equal _ -> ()
       | _ ->
           (* Backchain *)
-          if n > 0 then clause_aux n goal.context (goal.context @ clauses) goal.right r ts ~sc ~witness ;
+         let gctx = List.map (fun t -> ([],t)) goal.context in
+          if n > 0 then clause_aux n goal.context (gctx @ clauses) goal.right r ts ~sc ~witness ;
           (* Also backchain the goal G in '{.. L ..|- G}' on clauses F
              occurring in hypotheses of the form 'member F L' *)
           let ctxs = List.find_all (fun cls -> tc [] cls = olistty) goal.context in
@@ -944,7 +966,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
           (* let ctx, focus, term = Sync.get goal in *)
           if n > 0 then begin
             match witness with
-            | WMagic | WUnfold _ -> clause_aux n goal.context [focus] goal.right r ts ~sc ~witness
+            | WMagic | WUnfold _ -> clause_aux n goal.context [([],focus)] goal.right r ts ~sc ~witness
             | _ -> bad_witness ()
           end
     end

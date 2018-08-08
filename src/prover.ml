@@ -87,16 +87,17 @@ let add_global_consts cs =
   sign := add_consts !sign cs
 
 (* This function may be broken for now. Need to fix it later *)
-let close_types ids =
-  begin match List.minus ids (fst !sign) with
+let close_types (ids: id list) =
+  let sign = List.map fst (fst !sign) in
+  begin match List.minus ids sign with
   | [] -> ()
-  | xs -> failwithf "Unknown type(s): %s" (String.concat ", " (List.map fst xs))
+  | xs -> failwithf "Unknown type(s): %s" (String.concat ", " xs)
   end ;
-  begin match List.intersect ["o"; "olist"; "prop"] (List.map fst ids) with
+  begin match List.intersect ["o"; "olist"; "prop"] ids with
   | [] -> ()
   | xs -> failwithf "Cannot close %s" (String.concat ", " xs)
   end ;
-  sr := Subordination.close !sr (List.map fst ids)
+  sr := Subordination.close !sr ids
 
 let add_subgoals ?(mainline) new_subgoals =
   let extend_name i =
@@ -199,6 +200,9 @@ let register_definition = function
       let ids = List.map fst idtys in
       check_noredef ids;
       let (basics, consts) = !sign in
+      (* Note that in order to type check the definitions, the types
+         of predicates being defined are fixed to their most generate
+         form by fixing the type variables in them to generic ones *)
       let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
       let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
                     List.map (fun (head, body) -> {head ; body}) in
@@ -234,45 +238,69 @@ let clause_head_name cl =
       term_head_name p
   | _ -> bugf "Clause head name for invalid clause: %s" (metaterm_to_string cl.head)
 
-let rec app_ty tymap = function
-  | Ty (args, res) ->
-      let args = List.map (app_ty tymap) args in
-      let res = try Itab.find res tymap with Not_found -> tybase res in
-      tyarrow args res
+(* let rec app_ty tymap = function
+ *   | Ty (args, res) ->
+ *       let args = List.map (app_ty tymap) args in
+ *       let res = try Itab.find res tymap with Not_found -> tybase res in
+ *       tyarrow args res *)
 
-let instantiate_clauses_aux =
-  let fn (pn, ty_acts) def =
-    let Ty (ty_exps, _) = Itab.find pn def.mutual in
-    let ty_fresh = List.fold_left begin fun fresh_sub tyvar ->
-        let tv = Term.fresh_tyvar () in
-        Itab.add tyvar tv fresh_sub
-      end Itab.empty def.typarams in
-    let ty_exps = List.map (app_ty ty_fresh) ty_exps in
-    let eqns = List.map2 begin fun ty_exp ty_act ->
-        (ty_exp, ty_act, (ghost, CArg))
-      end ty_exps ty_acts in
-    let tysol = unify_constraints eqns in
-    let tymap = List.fold_left begin fun tymap tyv ->
-        try begin
-          let Ty (_, tyf) = Itab.find tyv ty_fresh in
-          Itab.add tyv (List.assoc tyf tysol) tymap
-        end with Not_found -> tymap
-      end Itab.empty def.typarams in
-    (* Itab.iter begin fun v ty -> *)
-    (*   Format.eprintf "instantiating: %s <- %s@." v (ty_to_string ty) *)
-    (* end tymap ; *)
-    List.map begin fun cl ->
-      if clause_head_name cl = pn then
-        {head = map_on_tys (app_ty tymap) cl.head ;
-         body = map_on_tys (app_ty tymap) cl.body}
-      else cl
-    end def.clauses
-  in
-  memoize fn
+(* let instantiate_clauses_aux =
+ *   let fn (pn, ty_acts) def =
+ *     let Ty (ty_exps, _) = Itab.find pn def.mutual in
+ *     let ty_fresh = List.fold_left begin fun fresh_sub tyvar ->
+ *         let tv = Term.fresh_tyvar () in
+ *         Itab.add tyvar tv fresh_sub
+ *       end Itab.empty def.typarams in
+ *     let ty_exps = List.map (app_ty ty_fresh) ty_exps in
+ *     let eqns = List.map2 begin fun ty_exp ty_act ->
+ *         (ty_exp, ty_act, (ghost, CArg))
+ *       end ty_exps ty_acts in
+ *     let tysol = unify_constraints eqns in
+ *     let tymap = List.fold_left begin fun tymap tyv ->
+ *         try begin
+ *           let Ty (_, tyf) = Itab.find tyv ty_fresh in
+ *           Itab.add tyv (List.assoc tyf tysol) tymap
+ *         end with Not_found -> tymap
+ *       end Itab.empty def.typarams in
+ *     (\* Itab.iter begin fun v ty -> *\)
+ *     (\*   Format.eprintf "instantiating: %s <- %s@." v (ty_to_string ty) *\)
+ *     (\* end tymap ; *\)
+ *     List.map begin fun cl ->
+ *       if clause_head_name cl = pn then
+ *         {head = map_on_tys (app_ty tymap) cl.head ;
+ *          body = map_on_tys (app_ty tymap) cl.body}
+ *       else cl
+ *     end def.clauses
+ *   in
+ *   memoize fn *)
 
-let instantiate_clauses pn def args =
-  let ty_acts = List.map (tc []) args in
-  instantiate_clauses_aux (pn, ty_acts) def
+(* let instantiate_clauses pn def args =
+ *   let ty_acts = List.map (tc []) args in
+ *   instantiate_clauses_aux (pn, ty_acts) def *)
+
+(* let instantiate_pred_types tysub (tbl: ty Itab.t) : ty Itab.t =
+ *   let res : ty Itab.t = ref Itab.empty in
+ *   Itab.iter begin fun id ty ->
+ *     let ty' = apply_sub_ty tysub ty in
+ *     res.add id ty' res
+ *     end tbl;
+ *   !res
+ * 
+ * let instantiate_clause tysub cl =
+ *   let head = map_on_tys (app_sub_ty tysub) cl.head in
+ *   let body = map_on_tys (app_sub_ty tysub) cl.body in
+ *   let tids = metaterm_capital_tids cl.head in
+ *   let tids = List.map (fun (id, ty) -> (id, apply_sub_ty tysub ty)) tids in
+ *   let ctx = tyctx_to_ctx tids in
+ *   replace_metaterm_vars ctx 
+ *   
+ * 
+ * let instantiate_clauses pn def =
+ *   let tysub = List.map (fun id -> (id, Term.fresh_tyvar ())) def.typarams in
+ *   let mutual = instantiate_pred_types tysub def.mutual in
+ *   let clauses = List.find_all (fun cl -> clause_head_name cl = pn) def.clauses in
+ *   let clauses = List.map (instantiate_clause tysub) clauses in
+ *   (mutual, clauses) *)
 
 let def_unfold term =
   match term with
@@ -280,14 +308,11 @@ let def_unfold term =
       let pn = term_head_name p in
       if H.mem defs_table pn then begin
         let def = H.find defs_table (term_head_name p) in
-        let clauses =
-          if def.typarams = [] then def.clauses
-          else instantiate_clauses pn def (term_spine p)
-        in
-        (def.mutual, clauses)
+        (def.typarams, def.mutual, 
+         List.find_all (fun cl -> clause_head_name cl = pn) def.clauses)
       end else
         failwith "Cannot perform case-analysis on undefined atom"
-  | _ -> (Itab.empty, [])
+  | _ -> ([], Itab.empty, [])
 
 
 (* Pretty print *)
@@ -542,18 +567,19 @@ let get_lemma ?(tys:ty list = []) name =
   let (argtys, bod) = H.find lemmas name in
   if List.length tys <> List.length argtys then
     failwithf "Need to provide mappings for %d types" (List.length argtys) ;
-  let tysub = List.fold_left2 begin
-      fun sub oldty newty ->
-        Itab.add oldty newty sub
-    end Itab.empty argtys tys
-  in
-  let rec app_ty = function
-    | Ty (args, res) ->
-        let args = List.map app_ty args in
-        let res = try Itab.find res tysub with Not_found -> tybase res in
-        tyarrow args res
-  in
-  map_on_tys app_ty bod
+  (* let tysub = List.fold_left2 begin
+   *     fun sub oldty newty ->
+   *       Itab.add oldty newty sub
+   *   end Itab.empty argtys tys
+   * in
+   * let rec app_ty = function
+   *   | Ty (args, res) ->
+   *       let args = List.map app_ty args in
+   *       let res = try Itab.find res tysub with Not_found -> tybase res in
+   *       tyarrow args res
+   * in *)
+  let tysub = List.map2 (fun id ty -> (id,ty)) argtys tys in
+  map_on_tys (apply_sub_ty tysub) bod
 
 let get_hyp_or_lemma ?tys name =
   try get_hyp name with
@@ -853,10 +879,10 @@ let case ?name str =
     (metaterm_support sequent.goal)
   in
   let term = get_stmt_clearly str in
-  let (mutual, defs) = def_unfold term in
+  let (typarams, mutual, defs) = def_unfold term in
   let cases =
     Tactics.case ~used:sequent.vars ~sr:!sr ~clauses:!clauses
-      ~mutual ~defs ~global_support term
+      ~typarams ~mutual ~defs ~global_support term
   in
   add_subgoals (List.map (case_to_subgoal ?name) cases) ;
   next_subgoal ()
@@ -1291,7 +1317,7 @@ let permute_nominals ids form =
       (fun id ->
          try
            List.assoc id support_alist
-         with Not_found -> nominal_var id (tybase ""))
+         with Not_found -> nominal_var id (tybase (atybase "")))
       ids
   in
   let result = Tactics.permute_nominals perm term in

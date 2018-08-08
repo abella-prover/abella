@@ -136,13 +136,13 @@ let pprint_tests =
 
       "((pi x\\p x) => qx) != (pi x\\(p x => q x))" >::
         (fun () ->
-          let p = const "p" (tyarrow [tybase "x"] oty) in
-          let q = const "q" (tyarrow [tybase "x"] oty) in
+          let p = const "p" (tyarrow [tybase (atybase "x")] oty) in
+          let q = const "q" (tyarrow [tybase (atybase "x")] oty) in
           let mkpi x ty f =
             app (const "pi" (tyarrow [tyarrow [ty] oty] oty)) [lambda [x, ty] f] in
           let mkimp f g =
             app (const "=>" (tyarrow [oty ; oty] oty)) [f ; g] in
-          let ity = tybase "i" in
+          let ity = tybase (atybase "i") in
           let t1 =
             mkpi "x" ity (mkimp (app p [db 1]) (app q [db 1])) |> term_to_string in
           let t2 =

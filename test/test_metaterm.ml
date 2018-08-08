@@ -303,8 +303,8 @@ let tests =
 
       "Fresh raised alist with subordination" >::
         (fun () ->
-           let tm = tybase "tm" in
-           let tp = tybase "tp" in
+           let tm = tybase (atybase "tm") in
+           let tp = tybase (atybase "tp") in
            let t_lam = tyarrow [tp; tyarrow [tm] tm] tm in
            let sr = Subordination.update Subordination.empty t_lam in
            let sr = Subordination.close sr ["tp"; "tm"] in

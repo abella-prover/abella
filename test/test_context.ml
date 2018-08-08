@@ -5,7 +5,7 @@ open Unify
 open Term
 open Term.Notations
 
-let tmty = tybase "tm"
+let tmty = tybase (atybase "tm")
 let eval = const "eval" (tyarrow [tmty; tmty] oty)
 let evalAB = eval ^^ [const "A" tmty; const "B" tmty]
 

@@ -4,8 +4,8 @@ open Term
 open Term.Notations
 open Subordination
 
-let tm = tybase "tm"
-let tp = tybase "tp"
+let tm = tybase (atybase "tm")
+let tp = tybase (atybase "tp")
 let t_lam = tyarrow [tp; tyarrow [tm] tm] tm
 
 let tests =
@@ -61,9 +61,9 @@ let tests =
 
     "Subordination should by transitive" >::
       (fun () ->
-         let a = tybase "a" in
-         let b = tybase "b" in
-         let c = tybase "c" in
+         let a = tybase (atybase "a") in
+         let b = tybase (atybase "b") in
+         let c = tybase (atybase "c") in
          let sr = update empty (tyarrow [tyarrow [a] b] c) in
          let sr = close sr ["a"; "b"; "c"] in
            assert_true (query sr a b) ;

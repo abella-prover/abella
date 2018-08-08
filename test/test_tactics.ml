@@ -511,7 +511,7 @@ let case ?used ?(sr=Subordination.empty) ?(clauses=[]) ?(defs=[])
       | None -> metaterm_vars_alist Eigen metaterm
       | Some used -> used
   in
-    case ~used ~sr ~clauses ~defs ~mutual ~global_support metaterm
+    case ~used ~sr ~clauses ~typarams:[] ~defs ~mutual ~global_support metaterm
 
 let case_tests =
   "Case" >:::
@@ -967,7 +967,7 @@ let case_tests =
 
       "On flex-rigid: R N = plus A B" >::
         (fun () ->
-           let tm = tybase "tm" in
+           let tm = tybase (atybase "tm") in
            let r = var Eigen "R" 0 (tyarrow [tm] tm) in
            let n = var Eigen "N" 0 tm in
            let a = var Eigen "A" 0 tm in
@@ -1135,9 +1135,9 @@ let assert_search ?(clauses="") ?(defs="")
     List.map (fun {Abella_types.head; _} -> def_head_name head) defs |>
     List.fold_left add_to_itab Itab.empty
   in
-  let def_unfold _ = (mutual, defs) in (*TODO*)
+  let def_unfold _ = ([], mutual, defs) in (*TODO*)
   let hyps = List.map (fun h -> ("", h)) (List.map freshen hyps) in
-  let retype t = Typing.uterm_to_term [] t in (*TODO*)
+  let retype t = Typing.uterm_to_term t in (*TODO*)
   let goal = freshen goal in
   let actual = Option.is_some
     (search ~depth ~hyps ~clauses ~def_unfold ~retype ~sr:Subordination.empty goal)
@@ -1622,7 +1622,7 @@ let unfold ~defs goal =
   let mutual =
     List.map (fun {Abella_types.head; _} -> def_head_name head) defs |>
     List.fold_left add_to_itab Itab.empty in
-  let mdefs = (mutual, defs) in
+  let mdefs = ([], mutual, defs) in
     unfold ~mdefs ~used:[] Abella_types.Select_any Abella_types.Solution_first
       goal (*TODO*)
 

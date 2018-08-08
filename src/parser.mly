@@ -107,7 +107,7 @@
                     Identifiers matching n[0-9]+ are reserved for nominal constants." ks
 
   let id_to_aty id =
-    if is_captial_name id then
+    if Term.is_capital_name id then
       Term.Tygenvar id
     else
       Term.atybase id
@@ -363,10 +363,11 @@ aty:
     { id_to_aty $1 }
   | aty pty
     { 
-      match aty with
-      | Tycons _ -> Term.atyapp $1 $2
+      let open Term in
+      match $1 with
+      | Tycons _ -> atyapp $1 $2
       | Typtr {contents=TV _} ->
-         error_report ~pos:(pos 0) 
+         error_report ~pos:(Parsing.symbol_start_pos ())
            "Type variable cannot be applied to arguments"
       | _ -> assert false
     }
@@ -731,8 +732,8 @@ pure_top_command:
     { Types.Import($2, $4) }
   | SPECIFICATION QSTRING DOT
     { Types.Specification($2) }
-  | KKIND id_list TYPE DOT
-    { Types.Kind(List.map deloc_id $2) }
+  | KKIND id_list knd DOT
+    { Types.Kind(List.map deloc_id $2, $3) }
   | TTYPE id_list ty DOT
     { Types.Type(List.map deloc_id $2, $3) }
   | CLOSE id_list DOT
@@ -801,7 +802,7 @@ search_witness_list:
 
 exists_binds:
   | { [] }
-  | withs { List.map (fun (id, t) -> (id, uterm_to_term [] t)) $1 }
+  | withs { List.map (fun (id, t) -> (id, uterm_to_term t)) $1 }
 
 depth_spec:
   | depth_spec_one { [$1] }

@@ -26,7 +26,15 @@ type sr = string Graph.t * string list
 
 let empty = (Graph.empty, [])
 
-let head (Ty(_, h)) = h
+let rec head t = 
+  match (observe_ty t) with
+  | Ty(_,aty) ->
+     match aty with
+     | Tygenvar v
+     | Typtr{contents=TV v}
+     | Tycons (v,_) -> v
+     | Typtr{contents=TT _} -> assert false
+
 
 let close (graph, closed) atys =
   let closed = atys @ closed in
@@ -53,14 +61,20 @@ let add (graph, closed) a b =
     (Graph.add_arc graph a b, closed)
 
 let update sr ty =
-  let rec aux sr (Ty(args, target)) =
-    let sr = List.fold_left aux sr args in
-      List.fold_left (fun sr ty -> add sr (head ty) target) sr args
+  let rec aux sr t =
+    let th = head t in
+    match (observe_ty t) with
+    | Ty(args, _) ->
+       let sr = List.fold_left aux sr args in
+       List.fold_left (fun sr ty -> add sr (head ty) th) sr args
   in
     aux sr ty
 
 let ensure (graph, closed) ty =
-  let rec aux (Ty(args, target)) =
+  let rec aux t =
+    let target = head t in
+    match observe_ty t with
+    | Ty(args, _) ->
     List.iter aux args ;
     if List.mem target closed then
       let target_preds = Graph.predecessors graph target in

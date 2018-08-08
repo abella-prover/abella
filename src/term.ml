@@ -63,6 +63,17 @@ let rec observe_ty = function
 
 let eq_ty ty1 ty2 = (observe_ty ty1 = observe_ty ty2)
 
+let iter_ty f ty =
+  let rec aux = function
+    | Ty(tys, bty) -> 
+       List.iter aux tys;
+       f bty; 
+       match bty with
+       | Tycons (c,args) -> List.iter aux args
+       | Typtr {contents=TT _} -> assert false
+       | _ -> ()
+  in
+  aux (observe_ty ty)
 
 type tag = Eigen | Constant | Logic | Nominal
 
@@ -516,6 +527,10 @@ let var_to_string v =
     ^ (if show_ty then ":" ^ ty_to_string v.ty else "")
   end ^ aft
 
+let rec knd_to_string = function
+  | Knd 0 -> "Type"
+  | Knd i -> "Type -> " ^ (knd_to_string (Knd (i-1)))
+
 let infix_ops : (id * (Pretty.atom * Pretty.assoc * Pretty.prec)) list =
   let open Pretty in
   [ "=>" , (FMT " =>@ " , RIGHT , 1) ;
@@ -774,6 +789,30 @@ let extract_pi t =
     | App(t, [abs]) -> abs
     | _ -> bugf "Check is_pi before calling extract_pi"
 
+
+let term_map_on_tys f t =
+  let rec taux t =
+    match observe (hnorm t) with
+    | Var v -> var v.tag v.name v.ts (f v.ty)
+    | DB _ as t -> t
+    | Lam (cx, t) -> 
+       lambda (List.map (fun (id,ty) -> (id, f ty)) cx) (taux t)
+    | App (f, ts) -> app (taux f) (List.map taux ts)
+    | Ptr _ | Susp _ -> assert false
+  in 
+  taux t
+
+let collect_tyvar_names t = 
+  let tyvars = ref [] in
+  let record_tyvar aty = 
+    match aty with
+    | Typtr {contents=TV v} -> 
+       tyvars := v::!tyvars
+    | _ -> () in
+  let _ = term_map_on_tys begin fun ty ->
+            iter_ty record_tyvar ty; ty
+            end t in
+  List.unique (!tyvars)
 
 
 module Test = struct

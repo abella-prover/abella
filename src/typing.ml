@@ -24,18 +24,6 @@ open Metaterm
 open Extensions
 open Unifyty
 
-let iter_ty f ty =
-  let rec aux = function
-    | Ty(tys, bty) -> 
-       List.iter aux tys;
-       f bty; 
-       match bty with
-       | Tycons (c,args) -> List.iter aux args
-       | Typtr {contents=TT _} -> assert false
-       | _ -> ()
-  in
-  aux (observe_ty ty)
-
 (** Untyped terms *)
 
 type pos = Lexing.position * Lexing.position
@@ -113,27 +101,35 @@ type umetaterm =
 
 type tysub = (string * ty) list
 
-let apply_bind_ty v ty t =
-  let rec aux = function
-    | Ty(tys, aty) ->
-       let tys' = (List.map aux tys) in
-       let aty' = 
-         match aty with
-         | Tygenvar v' -> 
-            if v' = v then ty
-            else Ty ([], aty)
-         | Typtr {contents=TV v'} -> 
-            Ty ([],aty)
-         | Tycons (c,args) ->
-            let args' = (List.map aux args) in
-            Ty ([], Tycons(c,args')) 
-         | Typtr {contents=TT _} -> assert false
-       in
-       tyarrow tys' aty'
-  in aux (observe_ty t)
+let rec apply_bind_aty ~btyvar v ty aty =
+  match aty with
+  | Tygenvar v' -> 
+     if (not btyvar) && v' = v then ty
+     else Ty ([], aty)
+  | Typtr {contents=TV v'} -> 
+     if btyvar && v' = v then ty
+     else Ty ([],aty)
+  | Tycons (c,args) ->
+     let args' = (List.map (apply_bind_ty ~btyvar v ty) args) in
+     Ty ([], Tycons(c,args')) 
+  | Typtr {contents=TT _} -> assert false
+
+and apply_bind_ty ~btyvar v ty t =
+  match (observe_ty t) with
+  | Ty(tys, aty) ->
+     let tys' = (List.map (apply_bind_ty ~btyvar v ty) tys) in
+     let aty' = apply_bind_aty ~btyvar v ty aty in
+     tyarrow tys' aty'
 
 let apply_sub_ty s ty =
-  List.fold_left (fun ty (v,vty) -> apply_bind_ty v vty ty) ty s
+  List.fold_left begin fun ty (v,vty) -> 
+    apply_bind_ty ~btyvar:false v vty ty
+    end ty s
+
+let apply_sub_ty_tyvar s ty =
+  List.fold_left begin fun ty (v,vty) -> 
+    apply_bind_ty ~btyvar:true v vty ty
+    end ty s
 
 let apply_sub_tyctx s tyctx =
   List.map (fun (id, ty) -> (id, apply_sub_ty s ty)) tyctx
@@ -546,7 +542,7 @@ let check_pi_quantification ts =
  *   in List.unique (aux (observe_ty ty)) *)
 
 
-let type_uterm ?expected_ty ~sr ~sign ~ctx t =
+let type_uterm ?partial_infer ?expected_ty ~sr ~sign ~ctx t =
   let nominal_tyctx = uterm_nominals_to_tyctx t in
   let tyctx =
     (List.map (fun (id, t) -> (id, tc [] t)) ctx)
@@ -561,7 +557,9 @@ let type_uterm ?expected_ty ~sr ~sign ~ctx t =
   unify_constraints eqns;
   let ctx = ctx @ (tyctx_to_nominal_ctx nominal_tyctx) in
   let result = replace_term_vars ctx (uterm_to_term t) in
-  term_ensure_fully_inferred ~sign result ;
+  (match partial_infer with
+   | None -> term_ensure_fully_inferred ~sign result
+   | Some _ -> ()) ;
   term_ensure_subordination sr result ;
   result
 
@@ -594,7 +592,7 @@ let replace_underscores head body =
   | h::b -> (h, b)
   | [] -> assert false
 
-let clause_map : term Itab.t ref = ref Itab.empty
+let clause_map : (string list * term) Itab.t ref = ref Itab.empty
 let seen_name cname = Itab.mem cname !clause_map
 let register_clause name clause =
   (* Printf.printf "Note: registered %S : %s\n%!" name *)
@@ -604,6 +602,12 @@ let lookup_clause cname =
   if seen_name cname
   then Some (Itab.find cname !clause_map)
   else None
+
+let generalize_tyvars t =
+  let tyvars = collect_tyvar_names t in
+  let tysub = List.map (fun id -> (id, tybase (Tygenvar id))) tyvars in
+  let t' = term_map_on_tys (apply_sub_ty_tyvar tysub) t in
+  (tyvars, t')
 
 let type_uclause ~sr ~sign (cname, head, body) =
   if has_capital_head head then
@@ -624,8 +628,9 @@ let type_uclause ~sr ~sign (cname, head, body) =
      List.fold_right pify ids body)
   in
   let pi_form = get_pi_form cids imp_form in
-  let result = type_uterm ~sr ~sign ~ctx:[] pi_form in
-  let _ = check_pi_quantification [result] in
+  let result = type_uterm ~partial_infer:true ~sr ~sign ~ctx:[] pi_form in
+  let result = generalize_tyvars result in
+  let _ = check_pi_quantification [snd result] in
   begin match cname with
   | None -> ()
   | Some cname ->

@@ -44,6 +44,8 @@ and in_typtr = TV of tyvar | TT of ty
 
 val eq_ty : ty -> ty -> bool
 val observe_ty : ty -> ty
+val iter_ty : (aty -> unit) -> ty -> unit
+
 val tyarrow : ty list -> ty -> ty
 val tybase : aty -> ty
 
@@ -168,6 +170,7 @@ val hnorm : term -> term
 val pretty_ty : ty -> Pretty.expr
 val format_ty : Format.formatter -> ty -> unit
 val ty_to_string : ty -> string
+val knd_to_string : knd -> string
 
 val var_to_string : var -> string
 
@@ -218,3 +221,5 @@ val extract_amp : term -> term * term
 val is_pi : term -> bool
 val extract_pi : term -> term
 
+val term_map_on_tys : (ty -> ty) -> term -> term
+val collect_tyvar_names : term -> string list

@@ -258,22 +258,24 @@ let lookup_const (_, ctable) id =
   | Not_found -> failwithf "Unknown constant: %s" id
 
 (** Desugar types *)
-let desugar_aty aty =
+let rec desugar_aty aty =
   match aty with
-  | Typtr {contents=TV v} ->
-     if v = "olist" then
+  | Tycons (v,tys) ->
+     if v = "olist" && tys = [] then
        Tycons ("list",[oty])
-     else aty
-  | Typtr {contents=TT t} -> assert false
+     else 
+       let tys = List.map desugar_ty tys in
+       Tycons (v,tys)
+  | Typtr {contents=TT t} -> 
+     assert false
   | _ -> aty
 
-let desugar_ty ty =
-  let rec aux = function
+and desugar_ty ty = 
+  match (observe_ty ty) with
     | Ty (tys, aty) ->
-       let tys = List.map aux tys in
+       let tys = List.map desugar_ty tys in
        let aty = desugar_aty aty in
        Ty (tys,aty)
-  in aux (observe_ty ty)
 
 (** Pervasive signature *)
 

@@ -366,7 +366,7 @@ aty:
       let open Term in
       match $1 with
       | Tycons _ -> atyapp $1 $2
-      | Typtr {contents=TV _} ->
+      | Tygenvar _ ->
          error_report ~pos:(Parsing.symbol_start_pos ())
            "Type variable cannot be applied to arguments"
       | _ -> assert false

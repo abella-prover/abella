@@ -36,8 +36,10 @@ let is_uninstantiated (x, vtm) =
 let alist_to_used (_, t) = term_to_pair t
 
 let inst_clause_types typarams clause =
-  let sub = List.map (fun id -> (id, Term.fresh_tyvar ())) typarams in
-  term_map_on_tys (Typing.apply_sub_ty sub) clause
+  if typarams = [] then clause
+  else
+    let sub = List.map (fun id -> (id, Term.fresh_tyvar ())) typarams in
+    term_map_on_tys (Typing.apply_sub_ty sub) clause
 
 let freshen_clause ~used ~sr ?(support=[]) clause =
   let (tids, head, body) = clause in

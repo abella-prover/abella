@@ -35,13 +35,12 @@ let is_uninstantiated (x, vtm) =
 
 let alist_to_used (_, t) = term_to_pair t
 
-let freshen_clause ~used ~sr ?(support=[]) ~typarams clause =
+let inst_clause_types typarams clause =
   let sub = List.map (fun id -> (id, Term.fresh_tyvar ())) typarams in
+  term_map_on_tys (Typing.apply_sub_ty sub) clause
+
+let freshen_clause ~used ~sr ?(support=[]) clause =
   let (tids, head, body) = clause in
-  let head = term_map_on_tys (Typing.apply_sub_ty sub) head in
-  let body = 
-    List.map (term_map_on_tys (Typing.apply_sub_ty sub)) body in
-  let tids = List.map (fun (id, ty) -> (id, Typing.apply_sub_ty sub ty)) tids in
   let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
   (List.map term_to_pair vars,
    replace_term_vars alist head,
@@ -73,13 +72,8 @@ let fresh_nameless_alist ~support ~tag ~ts tids =
        (x, app (fresh ~tag ts (tyarrow ntys ty)) support))
     tids
 
-let freshen_nameless_clause ?(support=[]) ~ts ~typarams clause =
-  let sub = List.map (fun id -> (id, Term.fresh_tyvar ())) typarams in
+let freshen_nameless_clause ?(support=[]) ~ts clause =
   let (tids, head, body) = clause in
-  let head = term_map_on_tys (Typing.apply_sub_ty sub) head in
-  let body = 
-    List.map (term_map_on_tys (Typing.apply_sub_ty sub)) body in
-  let tids = List.map (fun (id, ty) -> (id, Typing.apply_sub_ty sub ty)) tids in
   let fresh_names = fresh_nameless_alist ~support ~tag:Logic ~ts tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
@@ -510,11 +504,12 @@ let case ~used ~sr ~clauses ~typarams ~mutual ~defs ~global_support term =
     let rewrap obj = Obj (obj, reduce_inductive_restriction r) in
     let rewrap_antecedent g = rewrap {sync_obj with mode = Async ; right = g} in
     let rewrap_succedent f = rewrap {sync_obj with mode = Sync f} in
+    let f = inst_clause_types tyvars f in
     clausify f |>
     List.filter_map begin fun clause ->
       unwind_state begin fun clause ->
         let fresh_used, fresh_head, fresh_body =
-          freshen_clause ~sr ~support ~used ~typarams:tyvars clause in
+          freshen_clause ~sr ~support ~used clause in
         if has_eigen_head fresh_head then begin
           let new_vars = term_vars_alist Eigen (fresh_head :: sync_obj.right :: fresh_body) in
           let body = List.map rewrap_antecedent fresh_body in
@@ -791,11 +786,11 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
               normalize_obj ~parity:true ~bindstack:[] goal |>
               List.map begin fun goal ->
                 let support = metaterm_support goal0 in
-                let cl = clausify cl in
+                let cl = clausify (inst_clause_types tyvars cl) in
                 assert (List.length cl = 1) ;
                 let cl = List.hd cl in
                 let (vars, head, body) = 
-                  freshen_nameless_clause ~support ~ts:0 ~typarams:tyvars cl in
+                  freshen_nameless_clause ~support ~ts:0 cl in
                 let msg = "Cannot fully infer the type of some program clause" in
                 match try_right_unify_cpairs_fully_inferred ~msg 
                         head goal.right with
@@ -890,27 +885,26 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
   let rec clause_aux n context foci goal r ts ~sc ~witness =
     (* Printf.eprintf "clause_aux: %s\n%!" (witness_to_string witness) ; *)
     let support = term_list_support (goal :: context) in
-    let freshen_clause (i, (tyvars,cl)) =
-      let (_vars, head, body) = 
-        freshen_nameless_clause ~support ~ts ~typarams:tyvars cl in
+    let freshen_clause (i, cl) =
+      let (_vars, head, body) = freshen_nameless_clause ~support ~ts cl in
       (i, (head, body))
     in
     let p = term_head_name goal in
     let wrap body = List.map (fun t -> {context ; mode = Async ; right = t}) body in
     let filter_by_witness = match witness with
       | WUnfold (p, n, _) ->
-          (fun (i, (_,(_, h, _))) -> term_head_name h = p && i = n)
+          (fun (i, (_, h, _)) -> term_head_name h = p && i = n)
       | WMagic ->
           (fun _ -> true)
       | _ -> bad_witness ()
     in
+    let foci = List.map (fun (tyvars,cl) -> inst_clause_types tyvars cl) foci in
     foci |>
     (* ignore the elements in the context of type olist *)
-    List.find_all (fun (_,cls) -> not (tc [] cls = olistty)) |>
-    List.map (fun (tyvars, cl) -> 
-        List.map (fun c -> (tyvars, c)) (clausify cl)) |>
+    List.find_all (fun cls -> not (tc [] cls = olistty)) |>
+    List.map clausify |>
     List.concat |>
-    List.find_all (fun (_,(_, h, _)) -> term_head_name h = p) |>
+    List.find_all (fun (_, h, _) -> term_head_name h = p) |>
     List.number |>
     List.filter filter_by_witness |>
     List.map freshen_clause |>

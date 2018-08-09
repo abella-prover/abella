@@ -183,7 +183,7 @@ id:
   | ASSERT        { "assert" }
   | ASYNC         { "async" }
   | BACKCHAIN     { "backchain" }
-  | BY            { "by" }
+/*  | BY            { "by" } */
   | CASE          { "case" }
   | CLEAR         { "clear" }
   | CLOSE         { "Close" }

@@ -522,6 +522,9 @@ and proof_processor = {
 
 let current_state = State.rref Process_top
 
+let print_clauses () =
+  List.iter print_clause !clauses
+
 let rec process1 () =
   State.Undo.push () ;
   try begin match !current_state with
@@ -538,6 +541,7 @@ let rec process1 () =
               | `aborted -> "ABORTED"
             end ;
             proc.reset () ;
+            (* print_clauses () ; *)
             current_state := Process_top
           end
       end
@@ -662,6 +666,8 @@ and process_top1 () =
   end ;
   begin match input with
   | Theorem(name, tys, thm) ->
+      let st = get_bind_state () in
+      let seq = copy_sequent () in
       let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
       check_theorem thm ;
       theorem thm ;
@@ -673,7 +679,7 @@ and process_top1 () =
       in
       let thm_reset () =
         sign := oldsign ;
-        reset_prover ()
+        reset_prover st seq ()
       in
       current_state := Process_proof {
           thm = name ;

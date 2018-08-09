@@ -413,14 +413,21 @@ let spec_view t =
 let terms_contain_tyvar l = 
   List.exists (fun t -> List.length (collect_tyvar_names t) <> 0) l
 
+let terms_tyvars l = 
+  List.unique (List.fold_left (fun vs t -> (collect_tyvar_names t)@vs) [] l)
+
 let extract_terms_from_cpairs cpairs = 
   match cpairs with
   | None -> []
   | Some pl -> List.fold_left (fun l (a,b) -> a::b::l) [] pl
 
 let try_left_unify_cpairs_fully_inferred ~used ~msg t1 t2 =
+  (* Printf.eprintf "Before left unify (%s) and (%s)\n" 
+   *   (term_to_string t1) (term_to_string t2); *)
   let cpairs = try_left_unify_cpairs ~used t1 t2 in
   let rterms = t1 :: t2 :: (extract_terms_from_cpairs cpairs) in
+  (* Printf.eprintf "After left unify (%s) and (%s)\n" 
+   *   (term_to_string t1) (term_to_string t2); *)
   if terms_contain_tyvar rterms then
     failwith msg;
   cpairs

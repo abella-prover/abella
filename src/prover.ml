@@ -489,19 +489,20 @@ let get_display () =
 
 (* Proof state manipulation utilities *)
 
-let reset_prover =
-  let original_state = get_bind_state () in
-  let original_sequent = copy_sequent () in
+let reset_prover original_state original_sequent =
+  (* let original_state = get_bind_state () in
+   * let original_sequent = copy_sequent () in *)
   fun () ->
     set_bind_state original_state ;
     set_sequent original_sequent ;
     subgoals := []
 
-let full_reset_prover =
-  let original_clauses = !clauses in
-  let original_defs_table = H.copy defs_table in
+let full_reset_prover original_state original_sequent
+  original_clauses original_defs_table =
+  (* let original_clauses = !clauses in
+   * let original_defs_table = H.copy defs_table in *)
   fun () ->
-    reset_prover () ;
+    reset_prover original_state original_sequent () ;
     clauses := original_clauses ;
     H.assign defs_table original_defs_table
 

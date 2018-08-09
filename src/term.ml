@@ -494,17 +494,25 @@ let rec list_range a b =
 let abs_name = "x"
 
 let arrow_op = Pretty.FMT " ->@ "
-let aty_head aty =
-  match aty with
-  | Tygenvar v 
-  | Typtr {contents=TV v} 
-  | Tycons (v, _) -> v
-  | Typtr {contents=TT _} -> assert false
-                           
+let space_op = Pretty.FMT " "
+
 let rec pretty_ty (Ty (args, targ)) =
   let open Pretty in
   let args = List.map pretty_ty args in
-  let targ = Atom (STR (aty_head targ)) in
+  (* Pretty print format for atomic types *)
+  let targ = 
+    match targ with
+    | Tygenvar v
+    | Typtr {contents=TV v} ->
+       Atom (STR v)
+    | Typtr {contents=TT _} -> assert false
+    | Tycons (c,args) ->
+       let cty = Atom (STR c) in
+       let cargs = List.map pretty_ty args in
+       List.fold_left begin fun aty arg ->
+         Opapp (1, Infix (LEFT, aty, space_op, arg))
+         end cty cargs
+  in
   List.fold_right begin fun arg targ ->
     Opapp (1, Infix (RIGHT, arg, arrow_op, targ))
   end args targ

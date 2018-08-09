@@ -632,6 +632,10 @@ let type_uclause ~sr ~sign (cname, head, body) =
   let pi_form = get_pi_form cids imp_form in
   let result = type_uterm ~partial_infer:true ~sr ~sign ~ctx:[] pi_form in
   let result = generalize_tyvars result in
+  (* let (vars, clause) = result in
+   * let vstr = String.concat "," vars in
+   * let cstr = term_to_string clause in
+   * Printf.eprintf "Typed clause: [%s] %s\n" vstr cstr; *)
   let _ = check_pi_quantification [snd result] in
   begin match cname with
   | None -> ()

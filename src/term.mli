@@ -224,4 +224,4 @@ val extract_pi : term -> term
 val term_map_on_tys : (ty -> ty) -> term -> term
 val collect_tyvar_names : term -> string list
 
-val aty_head : aty -> string
+

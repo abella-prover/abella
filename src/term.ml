@@ -591,7 +591,8 @@ class term_printer = object (self)
               let x = fresh_name x tcx in
               let cx = adjoin cx (x, ty) in
               let x = fst (List.hd cx) in
-              Pretty.(Bracket { left = STR (x ^ "\\") ;
+              let tys = (if show_ty then ":" ^ ty_to_string ty else "") in
+              Pretty.(Bracket { left = STR (x ^ tys ^ "\\") ;
                                 right = STR "" ;
                                 indent = 2 ;
                                 inner = spin cx vs ;
@@ -613,7 +614,8 @@ class term_printer = object (self)
         | Var {name=("pi"|"sigma" as q); _}, [a] -> begin
             match observe (hnorm a) with
             | Lam ([x, ty], t) ->
-                Pretty.(Opapp (50, Prefix (STR (q ^ " " ^ x ^ "\\"),
+              let tys = (if show_ty then ":" ^ ty_to_string ty else "") in
+                Pretty.(Opapp (50, Prefix (STR (q ^ " " ^ x ^ tys ^ "\\"),
                                            self#print (adjoin cx (x, ty)) t)))
             | a ->
                 print_app Pretty.(Atom (STR "pi")) [self#print cx a]

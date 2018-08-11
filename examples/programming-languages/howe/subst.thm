@@ -13,7 +13,7 @@ Define fresh : A -> B -> prop by
 Define name : A -> prop by
   nabla x, name x.
 
-Theorem member_prune : forall G E, nabla (x : tm), member (E x) G ->
+Theorem member_prune : forall (G:olist) E, nabla (x : tm), member (E x) G ->
   exists F, E = x\ F.
 induction on 1. intros. case H1.
   search.

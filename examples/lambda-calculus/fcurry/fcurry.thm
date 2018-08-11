@@ -6,7 +6,7 @@ Specification "fcurry".
 
 Close ty, tm.
 
-Theorem member_prune : forall L E, nabla (x : tm),
+Theorem member_prune : forall (L:olist) E, nabla (x : tm),
   member (E x) L -> exists F, E = x\ F.
 % Proof:
 induction on 1. intros. case H1.

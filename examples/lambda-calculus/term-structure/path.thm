@@ -14,13 +14,13 @@ Define tm_var : tm -> prop by
 Define path_var : path -> prop by
   nabla x, path_var x.
 
-Theorem member_prune_tm : forall E L, nabla (x:tm),
+Theorem member_prune_tm : forall E (L:olist), nabla (x:tm),
   member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
   search.
   apply IH to H2. search.
 
-Theorem member_prune_path : forall E L, nabla (x:path),
+Theorem member_prune_path : forall E (L:olist), nabla (x:path),
   member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
   search.

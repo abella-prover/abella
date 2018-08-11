@@ -168,7 +168,7 @@ Define bfctx : olist -> olist -> prop by
 ; nabla n p, bfctx (bfree n :: L) (path n p :: K) := bfctx L K.
 
 
-Theorem member_prune_path : forall E L, nabla (x:p),
+Theorem member_prune_path : forall E (L:olist), nabla (x:p),
   member (E x) L -> exists F, E = y\F.
 induction on 1. intros. case H1.
   search.

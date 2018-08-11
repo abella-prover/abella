@@ -128,7 +128,7 @@ split.
 Split $weakening as weakening_seq, weakening_bch.
 
 Theorem member_inst :
-   forall F L, nabla (n:tm), member (F n) (L n) -> forall t, member (F t) (L t).
+   forall F (L:tm -> olist), nabla (n:tm), member (F n) (L n) -> forall t, member (F t) (L t).
 induction on 1. intros. case H1.
   search.
   apply IH to H2. apply H3 with t = t. search.

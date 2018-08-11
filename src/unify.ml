@@ -635,7 +635,7 @@ let makesubst tyctx h1 t2 a1 n =
 
 let unifyty ty1 ty2 =
   try
-    let _ = unify_constraints [(ty1, ty2, def_cinfo)] in
+    let _ = unify_constraints ~enable_bind:true [(ty1, ty2, def_cinfo)] in
     true
   with
   | TypeInferenceFailure _ -> false

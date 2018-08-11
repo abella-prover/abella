@@ -408,22 +408,35 @@ let extract_terms_from_cpairs cpairs =
   | Some pl -> List.fold_left (fun l (a,b) -> a::b::l) [] pl
 
 let try_left_unify_cpairs_fully_inferred ~used ~msg t1 t2 =
-  (* Printf.eprintf "Before left unify (%s) and (%s)\n" 
-   *   (term_to_string t1) (term_to_string t2); *)
   let cpairs = try_left_unify_cpairs ~used t1 t2 in
   let rterms = t1 :: t2 :: (extract_terms_from_cpairs cpairs) in
-  (* Printf.eprintf "After left unify (%s) and (%s)\n" 
-   *   (term_to_string t1) (term_to_string t2); *)
-  if terms_contain_tyvar rterms then
-    failwith msg;
+  (match cpairs with
+   | None -> ()
+   | Some _ ->
+     if terms_contain_tyvar rterms then
+       failwith msg);
   cpairs
 
 let try_right_unify_cpairs_fully_inferred ~msg t1 t2 =
   let cpairs = try_right_unify_cpairs t1 t2 in
   let rterms = t1 :: t2 :: (extract_terms_from_cpairs cpairs) in
-  if terms_contain_tyvar rterms then
-    failwith msg;
+  (match cpairs with
+   | None -> ()
+   | Some _ ->
+     if terms_contain_tyvar rterms then
+       failwith msg);
   cpairs
+
+let msg_cannot_fully_infer_def_clause head body = 
+  Printf.sprintf "Cannot fully infer the type of the definitional clause: %s := %s"
+    (term_to_string head) 
+    (metaterm_to_string body)
+
+let msg_cannot_fully_infer_prog_clause head body =
+  Printf.sprintf "Cannot fully infer the type of the program clause: %s :- %s"
+    (term_to_string head) 
+    (String.concat "," (List.map term_to_string body))
+
              
 let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   let support = metaterm_support term in
@@ -432,7 +445,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
       let fresh_used, head, body =
         freshen_def ~sr ~support ~used head body
       in
-      let msg = "Cannot fully infer the type of some definitional clause" in
+      let msg = msg_cannot_fully_infer_def_clause head body in
       match try_left_unify_cpairs_fully_inferred ~used:(fresh_used @ used) 
               ~msg head term with
       | Some cpairs ->
@@ -509,7 +522,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
                  new_vars = new_vars ;
                  new_hyps = rewrap_succedent fresh_head :: body }
         end else begin
-          let msg = "Cannot fully infer the type of some program clause" in
+          let msg = msg_cannot_fully_infer_prog_clause fresh_head fresh_body in
           match try_left_unify_cpairs_fully_inferred 
                   fresh_head sync_obj.right
                   ~used:(fresh_used @ used) ~msg with
@@ -720,7 +733,7 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
       let alist = List.combine ids nominals in
       let head = replace_term_vars alist head in
       let head, body = freshen_nameless_def ~support ~ts head body in
-      let msg = "Cannot fully infer the type of some definitional clause" in
+      let msg = msg_cannot_fully_infer_def_clause head body in
       match try_right_unify_cpairs_fully_inferred ~msg head goal with
       | None -> []
       | Some cpairs ->
@@ -785,7 +798,7 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                 let cl = List.hd cl in
                 let (vars, head, body) = 
                   freshen_nameless_clause ~support ~ts:0 cl in
-                let msg = "Cannot fully infer the type of some program clause" in
+                let msg = msg_cannot_fully_infer_prog_clause head body in
                 match try_right_unify_cpairs_fully_inferred ~msg 
                         head goal.right with
                 | None ->
@@ -903,7 +916,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     List.filter filter_by_witness |>
     List.map freshen_clause |>
     List.iter ~guard:unwind_state begin fun (i, (head, body)) ->
-      let msg = "Cannot fully infer the type of some program clause" in
+      let msg = msg_cannot_fully_infer_prog_clause head body in
       match try_right_unify_cpairs_fully_inferred ~msg head goal with
       | None -> ()
       | Some cpairs ->

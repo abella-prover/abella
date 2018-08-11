@@ -43,6 +43,7 @@ and typtr = in_typtr ref
 and in_typtr = TV of tyvar | TT of ty
 
 val eq_ty : ty -> ty -> bool
+val eq_tid : (id * ty) -> (id * ty) -> bool
 val observe_ty : ty -> ty
 val iter_ty : (aty -> unit) -> ty -> unit
 
@@ -91,7 +92,6 @@ and env = envitem list
 
 (* [observe t] is the way to analyze the structure of a term. *)
 val observe : term -> term
-val deep_observe : term -> term
 
 (** [deep_copy t] copies the term t by duplicating all variables *)
 val deep_copy : term -> term
@@ -115,6 +115,7 @@ end
 val get_ctx_tys : tyctx -> ty list
 
 val eq : term -> term -> bool
+val eq_idterm : (id * term) -> (id * term) -> bool
 
 (* Binding a variable to a term or type . The *contents* of the cell
    representing the * variable is a reference which must be

@@ -129,7 +129,7 @@ let metaterm_support ?tag t =
       | And(t1, t2) -> aux t1 @ aux t2
       | Pred(t, _) -> term_support ?tag t
   in
-    List.unique (aux t)
+    List.unique ~cmp:eq (aux t)
 
 (* Pretty printing *)
 
@@ -538,7 +538,7 @@ let find_free_constants t =
     | And(a, b) -> (aux a) @ (aux b)
     | Pred(p, r) -> terms_aux [p]
   in 
-  List.map term_to_pair (List.unique (aux t))
+  List.map term_to_pair (List.unique ~cmp:eq (aux t))
 
 let rec collect_terms t =
   match t with
@@ -569,7 +569,7 @@ let get_metaterm_used_nominals t =
 let rec replace_metaterm_vars alist t =
   let term_aux alist = replace_term_vars alist in
   (* Compute (possiblely) free variables at the top-level *) 
-  let top_free_vars = List.unique (get_metaterm_used t
+  let top_free_vars = List.unique ~cmp:eq_idterm (get_metaterm_used t
                                    @ get_metaterm_used_nominals t
                                    @ find_free_constants t)
   in
@@ -900,7 +900,7 @@ let metaterm_extract_tids aux_term t =
     | And(a, b) -> aux a @ aux b
     | Pred(p, r) -> aux_term [p]
   in
-  List.unique (aux t)
+  List.unique ~cmp:eq_tid (aux t)
 
 let metaterm_capital_tids t =
   metaterm_extract_tids capital_tids t

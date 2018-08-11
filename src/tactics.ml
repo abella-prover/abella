@@ -438,7 +438,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
       | Some cpairs ->
           let used_head = term_vars_alist Eigen [head; term] in
           let used_body = metaterm_vars_alist Eigen body in
-          let used = List.unique (used_head @ used_body @ used) in
+          let used = List.unique ~cmp:eq_idterm (used_head @ used_body @ used) in
           begin match recursive_metaterm_case ~used ~sr body with
           | None -> []
           | Some case ->
@@ -1122,7 +1122,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
             ~sc:(fun w -> sc (WIntros(List.map fst hargs, w)))
     | Binding(Metaterm.Exists, tids, body) ->
         let global_support =
-          List.unique
+          List.unique ~cmp:eq
             ((List.flatten_map (fun (_, h) -> metaterm_support h) hyps) @
              (metaterm_support goal))
         in
@@ -1236,6 +1236,13 @@ let some_term_to_restriction t =
   | Some t -> term_to_restriction t
 
 let apply_arrow term args =
+  (* Printf.eprintf "Applying term: %s\n" (metaterm_to_string term);
+   * List.iter begin fun arg ->
+   *   match arg with
+   *   | None -> Printf.eprintf "Applied args: None\n"
+   *   | Some a ->
+   *      Printf.eprintf "Applied args: %s\n" (metaterm_to_string a)
+   *   end args; *)
   let () = check_restrictions
       (map_args term_to_restriction term)
       (List.map some_term_to_restriction args)
@@ -1271,6 +1278,8 @@ let apply_arrow term args =
          | Unify.UnifyFailure fl -> raise (Unify.UnifyFailure (Unify.FailTrail (!argno, fl)))
     end term args
   in
+  (* Printf.eprintf "Applying result: %s\n" (metaterm_to_string result);  
+   * Printf.eprintf "Normalized applying result: %s\n" (metaterm_to_string (normalize result)); *)  
   (* [HACK] reconcile does not produce failure trails *)
   Context.reconcile !context_pairs ;
   (normalize result, !obligations)
@@ -1279,7 +1288,7 @@ let apply ?(used_nominals=[]) term args =
   let hyp_support = metaterm_support term in
   let support = hyp_support @
                   List.flatten_map (Option.map_default metaterm_support []) args in
-  let support = List.unique support in
+  let support = List.unique ~cmp:eq support in
   (* used_nominals are nominal constants provided by 'withs' for
      (partially) instantiating nabla quantified variables and
      should not be raised over by 'forall' quantified variables *)
@@ -1341,7 +1350,7 @@ let apply ?(used_nominals=[]) term args =
       String.concat "\n" |> failwith
 
 let rec ensure_unique_nominals lst =
-  if not (List.is_unique lst) || not (List.for_all Term.is_nominal lst) then
+  if not (List.is_unique ~cmp:eq lst) || not (List.for_all Term.is_nominal lst) then
     failwith "Invalid instantiation for nabla variable"
 
 let take_from_binders binders withs =

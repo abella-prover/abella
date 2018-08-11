@@ -63,6 +63,9 @@ let rec observe_ty = function
 
 let eq_ty ty1 ty2 = (observe_ty ty1 = observe_ty ty2)
 
+let eq_tid (id1,ty1) (id2,ty2) =
+  id1 = id2 && eq_ty ty1 ty2
+
 let iter_ty f ty =
   let rec aux = function
     | Ty(tys, bty) -> 
@@ -112,31 +115,13 @@ and envitem = Dum of int | Binding of term * int
 
 (* Utilities for constructing and deconstructing terms *)
 
+let rec observe_var_ty v = {v with ty = observe_ty v.ty}
+
 let rec observe = function
   | Ptr {contents=T d} -> observe d
-  | Ptr {contents=V v} -> Var v
+  | Ptr {contents=V v} -> Var (observe_var_ty v)
   | t -> t
 
-let rec observe_var v = {v with ty = observe_ty v.ty}
-
-let rec deep_observe t = 
-  let rec aux = function
-  | Ptr {contents = T t} -> aux t
-  | Var v 
-  | Ptr {contents=V v} -> Var (observe_var v)
-  | DB i -> DB i
-  | Lam (cx, t) -> 
-     let cx = List.map (fun (id,ty) -> (id, observe_ty ty)) cx in
-     Lam (cx, aux t)
-  | App (t, ts) -> App (aux t, List.map aux ts)
-  | Susp (t, ol, nl, e) -> Susp (aux t, ol, nl, deep_observe_env e)
-  in aux t
-
-and deep_observe_env e = List.map deep_observe_env_item e
-
-and deep_observe_env_item = function
-  | Binding (t, n) -> Binding (deep_observe t, n)
-  | Dum i -> Dum i
 
 let rec deep_copy t =
   match t with
@@ -237,7 +222,7 @@ let rec hnorm term =
     | Ptr _ -> assert false
 
 let rec eq t1 t2 =
-  match deep_observe (hnorm t1), deep_observe (hnorm t2) with
+  match observe (hnorm t1), observe (hnorm t2) with
     | DB i1, DB i2 -> i1 = i2
     | Var v1, Var v2 -> eq_var v1 v2
     | App(h1,l1), App(h2,l2) ->
@@ -247,6 +232,9 @@ let rec eq t1 t2 =
         List.for_all2 eq_ty (get_ctx_tys idtys1) (get_ctx_tys idtys2) 
         && eq t1 t2
     | _ -> false
+
+let eq_idterm (id1,t1) (id2,t2) =
+  id1 = id2 && eq t1 t2
 
 (* Binding a variable to a term. The *contents* of the cell representing the
  * variable is a reference which must be updated. Also the variable must
@@ -454,7 +442,7 @@ let select_var_refs f ts =
     List.fold_left fv [] ts
 
 let find_var_refs tag ts =
-  List.unique (select_var_refs (fun v -> v.tag = tag) ts)
+  List.unique ~cmp:eq (select_var_refs (fun v -> v.tag = tag) ts)
 
 let find_vars tag ts =
   List.map term_to_var (find_var_refs tag ts)
@@ -462,14 +450,14 @@ let find_vars tag ts =
 let map_vars f ts =
   select_var_refs (fun v -> true) ts
   |> List.rev
-  |> List.unique
+  |> List.unique ~cmp:eq
   |> List.map term_to_var
   |> List.map f
 
 let get_used ts =
   select_var_refs (fun v -> true) ts
   |> List.rev
-  |> List.unique
+  |> List.unique ~cmp:eq
   |> List.map (fun t -> ((term_to_var t).name, t))
 
 (* Pretty printing *)
@@ -708,7 +696,7 @@ let extract_tids test terms =
   terms
   |> map_vars (fun v -> (v.name, v.ty))
   |> List.find_all (fun (id, ty) -> test id)
-  |> List.unique
+  |> List.unique ~cmp:eq_tid
 
 let is_question_name str =
   str.[0] = '?'

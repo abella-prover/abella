@@ -778,8 +778,8 @@ let case_tests =
         (fun () ->
            let term = freshen "member (hyp A) (hyp C :: L)" in
            let defs =
-             parse_defs ("member A (A :: L) ;" ^
-                           "member A (B :: L) := member A L.")
+             parse_defs ("member (A:o) (A :: L) ;" ^
+                           "member (A:o) (B :: L) := member A L.")
            in
              match case ~defs term with
                | [case1; case2] ->
@@ -1313,7 +1313,7 @@ let search_tests =
         (fun () ->
            assert_search ()
              ~clauses:eval_clauses_string
-             ~defs:"member A (A :: L); member A (B :: L) := member A L."
+             ~defs:"member (A:o) (A :: L); member (A:o) (B :: L) := member A L."
              ~goal:"{eval M (abs R), eval (R N) V |- eval (app M N) V}"
              ~expect: true
         );
@@ -1353,9 +1353,9 @@ let search_tests =
       "Should backchain on definitions" >::
         (fun () ->
            assert_search ()
-             ~defs:"member A (B :: L) := member A L."
-             ~hyps:["member E K"]
-             ~goal:"member E (F :: K)"
+             ~defs:"member (A:o) (B :: L) := member A L."
+             ~hyps:["member (E:o) K"]
+             ~goal:"member (E:o) (F :: K)"
              ~expect: true
         );
 

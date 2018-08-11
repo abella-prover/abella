@@ -158,7 +158,8 @@ let object_cut_from obj1 obj2 term =
   let nids, ntys = List.split (nominal_tids norms) in
   let cut_objs =
     List.permute (List.length norms) (obj_support obj2) |>
-    List.find_all (fun permuted -> ntys = List.map (tc []) permuted) |>
+    List.find_all (fun permuted -> 
+        List.for_all2 eq_ty ntys (List.map (tc []) permuted)) |>
     List.filter_map begin fun permuted ->
       let tobj =
         replace_metaterm_vars
@@ -469,8 +470,8 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
             let head = replace_term_vars (List.combine rids nominals) head in
             let (pids, ptys) = List.split (List.minus tids raised) in
             List.permute (List.length pids) support |>
-            List.find_all
-              (fun permuted -> ptys = List.map (tc []) permuted) |>
+            List.find_all (fun permuted -> 
+                List.for_all2 eq_ty ptys (List.map (tc []) permuted)) |>
             List.flatten_map ~guard:unwind_state begin fun permuted ->
               let support = List.minus support permuted in
               let head =
@@ -711,7 +712,9 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
     in
     support |>
     List.permute (List.length tids) |>
-    List.find_all (fun nominals -> tys = List.map (tc []) nominals) |>
+    List.find_all 
+      (fun nominals -> 
+        List.for_all2 eq_ty tys (List.map (tc []) nominals)) |>
     List.flatten_map ~guard:unwind_state begin fun nominals ->
       let support = List.minus support nominals in
       let alist = List.combine ids nominals in
@@ -1301,7 +1304,8 @@ let apply ?(used_nominals=[]) term args =
            respect the side condition of the nabla-left rule. *)
         let candidate_nominals = List.minus support hyp_support in
         candidate_nominals |> List.rev |> List.permute n |>
-        List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals) |>
+        List.find_all (fun nominals -> 
+            List.for_all2 eq_ty nabla_tys (List.map (tc []) nominals)) |>
         List.find_some begin fun nominals ->
           try_with_state ~fail:None
             (fun () ->
@@ -1421,7 +1425,8 @@ let backchain ?(used_nominals=[]) term goal =
       let n = List.length nablas in
       let (nabla_ids, nabla_tys) = List.split nablas in
       support |> List.rev |> List.permute n |>
-      List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals) |>
+      List.find_all (fun nominals -> 
+          List.for_all2 eq_ty nabla_tys (List.map (tc []) nominals)) |>
       List.find_some begin fun nominals ->
         try_with_state ~fail:None
           (fun () ->

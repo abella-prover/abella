@@ -117,6 +117,27 @@ let rec observe = function
   | Ptr {contents=V v} -> Var v
   | t -> t
 
+let rec observe_var v = {v with ty = observe_ty v.ty}
+
+let rec deep_observe t = 
+  let rec aux = function
+  | Ptr {contents = T t} -> aux t
+  | Var v 
+  | Ptr {contents=V v} -> Var (observe_var v)
+  | DB i -> DB i
+  | Lam (cx, t) -> 
+     let cx = List.map (fun (id,ty) -> (id, observe_ty ty)) cx in
+     Lam (cx, aux t)
+  | App (t, ts) -> App (aux t, List.map aux ts)
+  | Susp (t, ol, nl, e) -> Susp (aux t, ol, nl, deep_observe_env e)
+  in aux t
+
+and deep_observe_env e = List.map deep_observe_env_item e
+
+and deep_observe_env_item = function
+  | Binding (t, n) -> Binding (deep_observe t, n)
+  | Dum i -> Dum i
+
 let rec deep_copy t =
   match t with
   | Ptr {contents = T t} -> deep_copy t
@@ -216,7 +237,7 @@ let rec hnorm term =
     | Ptr _ -> assert false
 
 let rec eq t1 t2 =
-  match observe (hnorm t1), observe (hnorm t2) with
+  match deep_observe (hnorm t1), deep_observe (hnorm t2) with
     | DB i1, DB i2 -> i1 = i2
     | Var v1, Var v2 -> eq_var v1 v2
     | App(h1,l1), App(h2,l2) ->

@@ -222,7 +222,7 @@ let parse_definition str =
 
 let k_member = "member"
 let member_def_compiled =
-  "Define " ^ k_member ^ " : o -> olist -> prop by\
+  "Define " ^ k_member ^ " : A -> list A -> prop by\
   \  " ^ k_member ^ " A (A :: L) ; \
   \  " ^ k_member ^ " A (B :: L) := " ^ k_member ^ " A L." |>
   parse_definition

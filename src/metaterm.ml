@@ -816,7 +816,9 @@ let rec meta_right_unify t1 t2 =
         meta_right_unify l1 l2 ;
         meta_right_unify r1 r2
     | Binding(b1, tids1, t1), Binding(b2, tids2, t2)
-        when b1 = b2 && List.map snd tids1 = List.map snd tids2 ->
+        when b1 = b2 && 
+             List.length tids1 = List.length tids2 &&
+             List.for_all2 eq_ty (List.map snd tids1) (List.map snd tids2) ->
         (* Replace bound variables with constants with "infinite"
            timestamp. This prevents illegal variable capture.
            We use max_int-1 since max_int is for nominal constants. *)

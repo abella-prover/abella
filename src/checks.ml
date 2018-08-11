@@ -213,3 +213,15 @@ let check_typaram tyvars ty =
 
 let check_typarams tyvars tys =
   List.iter (check_typaram tyvars) tys
+
+(* Check that there is no parameterization of types at clause levels *)
+let ensure_no_schm_clause typarams cl =
+  let htyvars = (metaterm_collect_tyvar_names cl.head) in
+  let btyvars = (metaterm_collect_tyvar_names cl.body) in
+  [] = (List.minus (htyvars @ btyvars) typarams)
+
+let ensure_no_schm_clauses typarams clauses =
+  let ns = List.for_all (ensure_no_schm_clause typarams) clauses in
+  if not ns then
+    failwithf "Type variables in some clause are not bound at the \
+               definition levelh"

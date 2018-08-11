@@ -606,7 +606,7 @@ let lookup_clause cname =
   else None
 
 let generalize_tyvars t =
-  let tyvars = collect_tyvar_names t in
+  let tyvars = term_collect_tyvar_names t in
   let tysub = List.map (fun id -> (id, tybase (Tygenvar id))) tyvars in
   let t' = term_map_on_tys (apply_sub_ty_tyvar tysub) t in
   (tyvars, t')

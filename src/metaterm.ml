@@ -950,3 +950,11 @@ let rec clausify ?(vars=[]) ?(body=[]) head =
       clausify ~vars ~body head1 @
       clausify ~vars ~body head2
   | head -> [vars, head, List.rev body]
+
+let metaterm_collect_tyvar_names t = 
+  let tyvars = ref [] in
+  let record ty = 
+    tyvars := (ty_tyvars ty)@(!tyvars); ty in
+  let _ = map_on_tys record t in
+  List.unique (!tyvars)
+  

@@ -668,6 +668,11 @@ let term_head t =
   in
   aux t []
 
+let term_head_ty t = 
+  match term_head t with
+  | None -> assert false
+  | Some (h,args) -> (term_to_var h).ty
+
 let term_head_name t =
   match term_head t with
     | Some (t, _) -> term_to_name t
@@ -818,17 +823,25 @@ let term_map_on_tys f t =
   in 
   taux t
 
-let collect_tyvar_names t = 
+let ty_tyvars ty =
   let tyvars = ref [] in
-  let record_tyvar aty = 
+  let record aty = 
     match aty with
     | Typtr {contents=TV v} -> 
        tyvars := v::!tyvars
     | _ -> () in
+  iter_ty record ty;
+  !tyvars
+  
+let term_collect_tyvar_names t = 
+  let tyvars = ref [] in
   let _ = term_map_on_tys begin fun ty ->
-            iter_ty record_tyvar ty; ty
+            tyvars := (ty_tyvars ty)@(!tyvars); ty
             end t in
   List.unique (!tyvars)
+
+let terms_contain_tyvar l = 
+  List.exists (fun t -> List.length (term_collect_tyvar_names t) <> 0) l
 
 
 module Test = struct

@@ -196,6 +196,7 @@ val fresh_name : string -> (string * 'a) list -> string
 val term_head : term -> (term * term list) option
 val is_head_name : string -> term -> bool
 val term_head_name : term -> string
+val term_head_ty : term -> ty
 
 val is_capital_name : string -> bool
 val capital_tids : term list -> (id * ty) list
@@ -222,6 +223,7 @@ val is_pi : term -> bool
 val extract_pi : term -> term
 
 val term_map_on_tys : (ty -> ty) -> term -> term
-val collect_tyvar_names : term -> string list
+val term_collect_tyvar_names : term -> string list
 
-
+val ty_tyvars : ty -> string list
+val terms_contain_tyvar : term list -> bool

@@ -27,6 +27,7 @@ open Tactics
 open Checks
 open Abella_types
 open Extensions
+open Unifyty
 
 module H = Hashtbl
 
@@ -206,6 +207,7 @@ let register_definition = function
       let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
       let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
                     List.map (fun (head, body) -> {head ; body}) in
+      ensure_no_schm_clauses typarams clauses;
       let (basics, consts) = !sign in
       let consts = List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys @ consts in
       sign := (basics, consts) ;
@@ -278,41 +280,42 @@ let clause_head_name cl =
  *   let ty_acts = List.map (tc []) args in
  *   instantiate_clauses_aux (pn, ty_acts) def *)
 
-(* let instantiate_pred_types tysub (tbl: ty Itab.t) : ty Itab.t =
- *   let res : ty Itab.t = ref Itab.empty in
- *   Itab.iter begin fun id ty ->
- *     let ty' = apply_sub_ty tysub ty in
- *     res.add id ty' res
- *     end tbl;
- *   !res
- * 
- * let instantiate_clause tysub cl =
- *   let head = map_on_tys (app_sub_ty tysub) cl.head in
- *   let body = map_on_tys (app_sub_ty tysub) cl.body in
- *   let tids = metaterm_capital_tids cl.head in
- *   let tids = List.map (fun (id, ty) -> (id, apply_sub_ty tysub ty)) tids in
- *   let ctx = tyctx_to_ctx tids in
- *   replace_metaterm_vars ctx 
- *   
- * 
- * let instantiate_clauses pn def =
- *   let tysub = List.map (fun id -> (id, Term.fresh_tyvar ())) def.typarams in
- *   let mutual = instantiate_pred_types tysub def.mutual in
- *   let clauses = List.find_all (fun cl -> clause_head_name cl = pn) def.clauses in
- *   let clauses = List.map (instantiate_clause tysub) clauses in
- *   (mutual, clauses) *)
+let instantiate_pred_types tysub (tbl: ty Itab.t) : ty Itab.t =
+  let res = ref Itab.empty in
+  Itab.iter begin fun id ty ->
+    let ty' = apply_sub_ty tysub ty in
+    res := Itab.add id ty' !res
+    end tbl;
+  !res
+
+let instantiate_clause tysub cl =
+  let head = map_on_tys (apply_sub_ty tysub) cl.head in
+  let body = map_on_tys (apply_sub_ty tysub) cl.body in
+  {head = head; body = body}
+
+let instantiate_clauses p def =
+  let pn = term_head_name p in
+  let pty = term_head_ty p in
+  let clauses = 
+    List.find_all (fun cl -> clause_head_name cl = pn) def.clauses in
+  let tysub = List.map (fun id -> (id, Term.fresh_tyvar ())) def.typarams in
+  let mutual = instantiate_pred_types tysub def.mutual in
+  let dpty = Itab.find pn mutual in
+  unify_constraints [(pty, dpty, def_cinfo)];
+  assert (ty_tyvars dpty = []);
+  let clauses = List.map (instantiate_clause tysub) clauses in
+  (mutual, clauses)
 
 let def_unfold term =
   match term with
   | Pred(p, _) ->
-      let pn = term_head_name p in
+     let pn = term_head_name p in
       if H.mem defs_table pn then begin
-        let def = H.find defs_table (term_head_name p) in
-        (def.typarams, def.mutual, 
-         List.find_all (fun cl -> clause_head_name cl = pn) def.clauses)
+        let def = H.find defs_table pn in
+        instantiate_clauses p def
       end else
         failwith "Cannot perform case-analysis on undefined atom"
-  | _ -> ([], Itab.empty, [])
+  | _ -> (Itab.empty, [])
 
 
 (* Pretty print *)
@@ -880,10 +883,10 @@ let case ?name str =
     (metaterm_support sequent.goal)
   in
   let term = get_stmt_clearly str in
-  let (typarams, mutual, defs) = def_unfold term in
+  let (mutual, defs) = def_unfold term in
   let cases =
     Tactics.case ~used:sequent.vars ~sr:!sr ~clauses:!clauses
-      ~typarams ~mutual ~defs ~global_support term
+      ~mutual ~defs ~global_support term
   in
   add_subgoals (List.map (case_to_subgoal ?name) cases) ;
   next_subgoal ()

@@ -48,12 +48,8 @@ let freshen_clause ~used ~sr ?(support=[]) clause =
    replace_term_vars alist head,
    List.map (replace_term_vars alist) body)
 
-let freshen_def ~used ~sr ?(support=[]) ~typarams head body =
-  let sub = List.map (fun id -> (id, Term.fresh_tyvar ())) typarams in
-  let head = term_map_on_tys (Typing.apply_sub_ty sub) head in
-  let body = map_on_tys (Typing.apply_sub_ty sub) body in
+let freshen_def ~used ~sr ?(support=[]) head body =
   let tids = capital_tids [head] in
-  let tids = List.map (fun (id, ty) -> (id, Typing.apply_sub_ty sub ty)) tids in
   let (alist, vars) = fresh_raised_alist ~sr ~tag:Eigen ~used ~support tids in
   (List.map term_to_pair vars,
    replace_term_vars alist head,
@@ -81,12 +77,8 @@ let freshen_nameless_clause ?(support=[]) ~ts clause =
   let fresh_body = List.map (replace_term_vars fresh_names) body in
   (fresh_names, fresh_head, fresh_body)
 
-let freshen_nameless_def ?(support=[]) ~ts ~typarams head body =
-  let sub = List.map (fun id -> (id, Term.fresh_tyvar ())) typarams in
-  let head = term_map_on_tys (Typing.apply_sub_ty sub) head in
-  let body = map_on_tys (Typing.apply_sub_ty sub) body in
+let freshen_nameless_def ?(support=[]) ~ts head body =
   let tids = capital_tids [head] in
-  let tids = List.map (fun (id, ty) -> (id, Typing.apply_sub_ty sub ty)) tids in
   let fresh_names = fresh_nameless_alist ~support ~tag:Logic ~ts tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = replace_metaterm_vars fresh_names body in
@@ -406,11 +398,8 @@ let spec_view t =
     end
   | t -> Spec_atom t
 
-let terms_contain_tyvar l = 
-  List.exists (fun t -> List.length (collect_tyvar_names t) <> 0) l
-
 let terms_tyvars l = 
-  List.unique (List.fold_left (fun vs t -> (collect_tyvar_names t)@vs) [] l)
+  List.unique (List.fold_left (fun vs t -> (term_collect_tyvar_names t)@vs) [] l)
 
 let extract_terms_from_cpairs cpairs = 
   match cpairs with
@@ -435,12 +424,12 @@ let try_right_unify_cpairs_fully_inferred ~msg t1 t2 =
     failwith msg;
   cpairs
              
-let case ~used ~sr ~clauses ~typarams ~mutual ~defs ~global_support term =
+let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   let support = metaterm_support term in
   let def_case ~wrapper term =
     let make_case ~support ~used (head, body) term =
       let fresh_used, head, body =
-        freshen_def ~sr ~support ~used ~typarams head body
+        freshen_def ~sr ~support ~used head body
       in
       let msg = "Cannot fully infer the type of some definitional clause" in
       match try_left_unify_cpairs_fully_inferred ~used:(fresh_used @ used) 
@@ -710,7 +699,7 @@ let maybe_select sel l = match sel with
 
 let unfold_defs ~mdefs clause_sel ~ts goal r =
   let p = term_head_name goal in
-  let (typarams, mutual, defs) = mdefs in
+  let (mutual, defs) = mdefs in
   let support = term_support goal in
   let wrapper = coinductive_wrapper r mutual in
   let unfold_def tids head body i =
@@ -727,7 +716,7 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
       let support = List.minus support nominals in
       let alist = List.combine ids nominals in
       let head = replace_term_vars alist head in
-      let head, body = freshen_nameless_def ~support ~ts ~typarams head body in
+      let head, body = freshen_nameless_def ~support ~ts head body in
       let msg = "Cannot fully infer the type of some definitional clause" in
       match try_right_unify_cpairs_fully_inferred ~msg head goal with
       | None -> []

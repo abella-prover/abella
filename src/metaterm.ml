@@ -960,3 +960,5 @@ let metaterm_collect_tyvar_names t =
   let _ = map_on_tys record t in
   List.unique (!tyvars)
   
+let metaterms_contain_tyvar l = 
+  List.exists (fun t -> List.length (metaterm_collect_tyvar_names t) <> 0) l

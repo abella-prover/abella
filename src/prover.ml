@@ -568,19 +568,13 @@ let get_generic_lemma name =
 
 let get_lemma ?(tys:ty list = []) name =
   let (argtys, bod) = H.find lemmas name in
-  if List.length tys <> List.length argtys then
-    failwithf "Need to provide mappings for %d types" (List.length argtys) ;
-  (* let tysub = List.fold_left2 begin
-   *     fun sub oldty newty ->
-   *       Itab.add oldty newty sub
-   *   end Itab.empty argtys tys
-   * in
-   * let rec app_ty = function
-   *   | Ty (args, res) ->
-   *       let args = List.map app_ty args in
-   *       let res = try Itab.find res tysub with Not_found -> tybase res in
-   *       tyarrow args res
-   * in *)
+  let tys = 
+    if (List.length argtys > 0 && List.length tys = 0) then
+      List.map (fun t -> fresh_tyvar ()) argtys
+    else if List.length tys <> List.length argtys then
+      failwithf "Need to provide mappings for %d types" (List.length argtys)
+    else
+      tys in
   let tysub = List.map2 (fun id ty -> (id,ty)) argtys tys in
   map_on_tys (apply_sub_ty tysub) bod
 

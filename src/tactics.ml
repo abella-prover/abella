@@ -23,6 +23,7 @@ open Term
 open Metaterm
 open Unify
 open Abella_types
+open Unifyty
 
 open Extensions
 
@@ -1297,6 +1298,15 @@ let apply_arrow term args =
   Context.reconcile !context_pairs ;
   (normalize result, !obligations)
 
+let try_with_state_all ~fail f =
+  let state = get_scoped_bind_state () in
+    try
+      f ()
+    with
+      | UnifyFailure _ | UnifyError _ 
+      | TypeInferenceFailure _ | InstGenericTyvar _
+        -> set_scoped_bind_state state ; fail
+
 let apply ?(used_nominals=[]) term args =
   let hyp_support = metaterm_support term in
   let support = hyp_support @
@@ -1326,21 +1336,29 @@ let apply ?(used_nominals=[]) term args =
            respect the side condition of the nabla-left rule. *)
         let candidate_nominals = List.minus support hyp_support in
         candidate_nominals |> List.rev |> List.permute n |>
-        List.find_all (fun nominals -> 
-            List.for_all2 eq_ty nabla_tys (List.map (tc []) nominals)) |>
-        List.find_some begin fun nominals ->
-          try_with_state ~fail:None
-            (fun () ->
-              let support = List.minus support nominals in
-              let raised_body =
-                freshen_nameless_bindings ~support ~ts:0 foralls body
-              in
-              let alist = List.combine nabla_ids nominals in
-              let permuted_body =
-                replace_metaterm_vars alist raised_body
-              in
-              Some(apply_arrow permuted_body args))
-        end |>
+        List.find_some (fun nominals ->
+            try_with_state_all ~fail:None (fun () ->
+                List.iter2 (fun ty1 ty2 ->
+                    unify_constraints ~enable_bind:true [(ty1,ty2,def_cinfo)])
+                  nabla_tys (List.map (tc []) nominals);
+                let support = List.minus support nominals in
+                let raised_body =
+                  freshen_nameless_bindings ~support ~ts:0 foralls body
+                in
+                let alist = List.combine nabla_ids nominals in
+                let permuted_body =
+                  replace_metaterm_vars alist raised_body in
+                let (result, obs) = apply_arrow permuted_body args in
+                let args' = List.fold_left (fun l a ->
+                                match a with
+                                | None -> l
+                                | Some a -> a :: l) [] args in
+                let tms = result :: permuted_body :: obs @ args' in
+                if metaterms_contain_tyvar tms then
+                  None
+                else Some (result, obs)
+                ))
+        |>
         (function
           | Some v -> v
           | None ->

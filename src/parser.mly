@@ -456,7 +456,15 @@ clearable:
 
 maybe_inst:
   | { [] }
-  | LBRACK ty_list RBRACK { $2 }
+  | LBRACK uty_list RBRACK { $2 }
+
+uty:
+  | ty { $1 }
+  | UNDERSCORE {Term.fresh_tyvar ()}
+
+uty_list:
+  | uty { [$1] }
+  | uty COMMA uty_list { $1 :: $3 }
 
 ty_list:
   | ty { [$1] }

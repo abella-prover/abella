@@ -58,14 +58,13 @@ let rec occurs v ty =
       some generic variables are instantiated. 
       In this case, 'InstGenericTyvar' is raised 
 *)
-let unify_constraints ?enable_bind eqns =
+let unify_constraints ?(enable_bind=false) eqns =
   let bind_ty =
-    match enable_bind with
-    | None -> 
-       (fun aty ty -> match aty with
-                      | Typtr t -> t := TT (observe_ty ty)
-                      | _ -> assert false)
-    | Some _ -> bind_ty
+    if enable_bind then bind_ty
+    else
+      (fun aty ty -> match aty with
+                     | Typtr t -> t := TT (observe_ty ty)
+                     | _ -> assert false)
   in
   let rec aux (ty1, ty2) fail =
     let ty1 = observe_ty ty1 in

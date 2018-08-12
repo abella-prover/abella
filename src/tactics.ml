@@ -1249,6 +1249,8 @@ let some_term_to_restriction t =
   | None -> Irrelevant
   | Some t -> term_to_restriction t
 
+exception TypesNotFullyDetermined
+ 
 let apply_arrow term args =
   (* Printf.eprintf "Applying term: %s\n" (metaterm_to_string term);
    * List.iter begin fun arg ->
@@ -1296,7 +1298,16 @@ let apply_arrow term args =
    * Printf.eprintf "Normalized applying result: %s\n" (metaterm_to_string (normalize result)); *)  
   (* [HACK] reconcile does not produce failure trails *)
   Context.reconcile !context_pairs ;
-  (normalize result, !obligations)
+  let result = normalize result in
+  let args' = List.fold_left (fun l a ->
+                  match a with
+                  | None -> l
+                  | Some a -> a :: l) [] args in
+  let tms = result :: term :: (!obligations) @ args' in
+  if metaterms_contain_tyvar tms then 
+    raise TypesNotFullyDetermined
+  else
+    (result, !obligations)
 
 let try_with_state_all ~fail f =
   let state = get_scoped_bind_state () in
@@ -1305,6 +1316,7 @@ let try_with_state_all ~fail f =
     with
       | UnifyFailure _ | UnifyError _ 
       | TypeInferenceFailure _ | InstGenericTyvar _
+      | TypesNotFullyDetermined
         -> set_scoped_bind_state state ; fail
 
 let apply ?(used_nominals=[]) term args =
@@ -1336,7 +1348,7 @@ let apply ?(used_nominals=[]) term args =
            respect the side condition of the nabla-left rule. *)
         let candidate_nominals = List.minus support hyp_support in
         candidate_nominals |> List.rev |> List.permute n |>
-        List.find_some (fun nominals ->
+        List.find_some begin fun nominals ->
             try_with_state_all ~fail:None (fun () ->
                 List.iter2 (fun ty1 ty2 ->
                     unify_constraints ~enable_bind:true [(ty1,ty2,def_cinfo)])
@@ -1348,17 +1360,9 @@ let apply ?(used_nominals=[]) term args =
                 let alist = List.combine nabla_ids nominals in
                 let permuted_body =
                   replace_metaterm_vars alist raised_body in
-                let (result, obs) = apply_arrow permuted_body args in
-                let args' = List.fold_left (fun l a ->
-                                match a with
-                                | None -> l
-                                | Some a -> a :: l) [] args in
-                let tms = result :: permuted_body :: obs @ args' in
-                if metaterms_contain_tyvar tms then
-                  None
-                else Some (result, obs)
-                ))
-        |>
+                Some (apply_arrow permuted_body args)
+                )
+          end |>
         (function
           | Some v -> v
           | None ->
@@ -1456,7 +1460,11 @@ let backchain_arrow term goal =
       | Unify.UnifyFailure fl -> raise (Unify.UnifyFailure (Unify.FailTrail (1, fl)))
     end
   end ;
-  obligations
+  let tms = term :: goal :: obligations in
+  if metaterms_contain_tyvar tms then 
+    raise TypesNotFullyDetermined
+  else
+    obligations
 
 let backchain ?(used_nominals=[]) term goal =
   let support = List.minus (metaterm_support goal) used_nominals in
@@ -1465,20 +1473,20 @@ let backchain ?(used_nominals=[]) term goal =
       let n = List.length nablas in
       let (nabla_ids, nabla_tys) = List.split nablas in
       support |> List.rev |> List.permute n |>
-      List.find_all (fun nominals -> 
-          List.for_all2 eq_ty nabla_tys (List.map (tc []) nominals)) |>
       List.find_some begin fun nominals ->
-        try_with_state ~fail:None
+        try_with_state_all ~fail:None
           (fun () ->
-             let support = List.minus support nominals in
-             let raised_body =
-               freshen_nameless_bindings ~support ~ts:0 bindings body
-             in
-             let alist = List.combine nabla_ids nominals in
-             let permuted_body =
-               replace_metaterm_vars alist raised_body
-             in
-             Some(backchain_arrow permuted_body goal))
+            List.iter2 (fun ty1 ty2 ->
+                unify_constraints ~enable_bind:true [(ty1,ty2,def_cinfo)])
+              nabla_tys (List.map (tc []) nominals);
+            let support = List.minus support nominals in
+            let raised_body =
+              freshen_nameless_bindings ~support ~ts:0 bindings body
+            in
+            let alist = List.combine nabla_ids nominals in
+            let permuted_body =
+              replace_metaterm_vars alist raised_body in
+            Some (backchain_arrow permuted_body goal))
       end |>
       (function
         | Some v -> v

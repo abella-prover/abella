@@ -13,7 +13,7 @@ let tests =
     "STLC example" >::
       (fun () ->
          let sr = update empty t_lam in
-         let sr = close sr ["tm"; "tp"] in
+         let sr = close sr [atybase "tm"; atybase "tp"] in
            assert_true (query sr tp tp) ;
            assert_true (query sr tm tm) ;
            assert_true (query sr tp tm) ;
@@ -34,12 +34,12 @@ let tests =
          let sr = update empty t_lam in
            assert_raises
              (Failure "Cannot close tm without closing tp")
-             (fun () -> close sr ["tm"])
+             (fun () -> close sr [atybase "tm"])
       );
 
     "Should not be able to subordinate closed types" >::
       (fun () ->
-         let sr = close empty ["tm"] in
+         let sr = close empty [atybase "tm"] in
            assert_raises
              (Failure "Type tm is closed and cannot be subordinated by tp")
              (fun () -> update sr t_lam)
@@ -48,15 +48,15 @@ let tests =
     "Should be able to properly update closed types" >::
       (fun () ->
          let sr = update empty t_lam in
-         let sr = close sr ["tm"; "tp"] in
+         let sr = close sr [atybase "tm"; atybase "tp"] in
            ignore (update sr t_lam)
       );
 
     "Should be able to sequentially close" >::
       (fun () ->
          let sr = update empty t_lam in
-         let sr = close sr ["tp"] in
-           ignore (close sr ["tm"])
+         let sr = close sr [atybase "tp"] in
+           ignore (close sr [atybase "tm"])
       );
 
     "Subordination should by transitive" >::
@@ -65,7 +65,7 @@ let tests =
          let b = tybase (atybase "b") in
          let c = tybase (atybase "c") in
          let sr = update empty (tyarrow [tyarrow [a] b] c) in
-         let sr = close sr ["a"; "b"; "c"] in
+         let sr = close sr [atybase "a"; atybase "b"; atybase "c"] in
            assert_true (query sr a b) ;
            assert_true (query sr b c) ;
            assert_true (query sr a c) ;

@@ -101,7 +101,7 @@ let process_top_command str =
     | Abella_types.Type(ids, ty) ->
         add_global_consts (List.map (fun id -> (id, ty)) ids)
     | Abella_types.Close(ids) ->
-        close_types ids
+        close_types !sign !clauses ids
     | _ -> assert false
 
 let () = process_top_command "Type   foo, bar, baz         i -> prop."
@@ -118,7 +118,7 @@ let sr_b = Term.tybase (Term.atybase "sr_b")
 let sr_sr =
   Subordination.close
     (Subordination.update Subordination.empty (Term.tyarrow [sr_a] sr_b))
-    ["sr_a"; "sr_b"]
+    [Term.atybase "sr_a"; Term.atybase "sr_b"]
 
 let freshen str =
   let uterm = parse_umetaterm str in

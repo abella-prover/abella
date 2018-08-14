@@ -172,6 +172,7 @@ val hnorm : term -> term
 val pretty_ty : ty -> Pretty.expr
 val format_ty : Format.formatter -> ty -> unit
 val ty_to_string : ty -> string
+val aty_to_string : aty -> string
 val knd_to_string : knd -> string
 
 val var_to_string : var -> string
@@ -225,7 +226,18 @@ val is_pi : term -> bool
 val extract_pi : term -> term
 
 val term_map_on_tys : (ty -> ty) -> term -> term
-val term_collect_tyvar_names : term -> string list
 
 val ty_tyvars : ty -> string list
+val ty_contains_tyvar : ty -> bool
+val term_collect_tyvar_names : term -> string list
 val terms_contain_tyvar : term list -> bool
+
+val ty_gentyvars : ty -> string list
+val ty_contains_gentyvar : ty -> bool
+val term_collect_gentyvar_names : term -> string list
+val terms_contain_gentyvar : term list -> bool
+
+(* Type substitutions *)
+type tysub = (string * ty) list
+val apply_sub_ty : tysub -> ty -> ty
+val apply_sub_ty_tyvar : tysub -> ty -> ty

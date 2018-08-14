@@ -87,18 +87,16 @@ let add_global_consts cs =
   sr := List.fold_left Subordination.update !sr (List.map snd cs) ;
   sign := add_consts !sign cs
 
-(* This function may be broken for now. Need to fix it later *)
-let close_types (ids: id list) =
-  let sign = List.map fst (fst !sign) in
-  begin match List.minus ids sign with
+let close_types sign clauses atys =
+  List.iter (kind_check sign) (List.map tybase atys);
+  let tys = List.map tybase atys in
+  begin match List.intersect [oty; olistty; propty] tys with
   | [] -> ()
-  | xs -> failwithf "Unknown type(s): %s" (String.concat ", " xs)
+  | xs -> failwithf "Cannot close %s" 
+     (String.concat ", " (List.map ty_to_string xs))
   end ;
-  begin match List.intersect ["o"; "olist"; "prop"] ids with
-  | [] -> ()
-  | xs -> failwithf "Cannot close %s" (String.concat ", " xs)
-  end ;
-  sr := Subordination.close !sr ids
+  sr := Subordination.close !sr atys;
+  List.iter (Typing.term_ensure_subordination !sr) (List.map snd clauses)
 
 let add_subgoals ?(mainline) new_subgoals =
   let extend_name i =
@@ -311,7 +309,12 @@ let def_unfold term =
      let pn = term_head_name p in
       if H.mem defs_table pn then begin
         let def = H.find defs_table pn in
-        instantiate_clauses p def
+        let (mutual, clauses) = instantiate_clauses p def in
+        List.iter begin fun cl ->
+          metaterm_ensure_subordination !sr cl.head ;
+          metaterm_ensure_subordination !sr cl.body
+          end clauses;
+        (mutual,clauses)
       end else
         failwith "Cannot perform case-analysis on undefined atom"
   | _ -> (Itab.empty, [])

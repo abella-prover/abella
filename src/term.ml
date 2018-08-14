@@ -509,26 +509,30 @@ let rec pretty_ty (Ty (args, targ)) =
   let open Pretty in
   let args = List.map pretty_ty args in
   (* Pretty print format for atomic types *)
-  let targ = 
-    match targ with
-    | Tygenvar v
-    | Typtr {contents=TV v} ->
-       Atom (STR v)
-    | Typtr {contents=TT _} -> assert false
-    | Tycons (c,args) ->
-       let cty = Atom (STR c) in
-       let cargs = List.map pretty_ty args in
-       List.fold_left begin fun aty arg ->
-         Opapp (1, Infix (LEFT, aty, space_op, arg))
-         end cty cargs
-  in
+  let targ = pretty_aty targ in
   List.fold_right begin fun arg targ ->
     Opapp (1, Infix (RIGHT, arg, arrow_op, targ))
   end args targ
+
+and pretty_aty aty = 
+  let open Pretty in
+  match aty with
+  | Tygenvar v
+  | Typtr {contents=TV v} ->
+     Atom (STR v)
+  | Typtr {contents=TT _} -> assert false
+  | Tycons (c,args) ->
+     let cty = Atom (STR c) in
+     let cargs = List.map pretty_ty args in
+     List.fold_left begin fun aty arg ->
+       Opapp (1, Infix (LEFT, aty, space_op, arg))
+       end cty cargs
+
 let format_ty fmt ty =
   Format.pp_open_box fmt 2 ; begin
     Pretty.print fmt (pretty_ty ty)
   end ; Format.pp_close_box fmt ()
+
 let ty_to_string ty =
   let ty = observe_ty ty in
   let buf = Buffer.create 19 in
@@ -762,6 +766,9 @@ let tyarrow tys ty =
 let tybase bty =
   Ty([], bty)
 
+let aty_to_string aty =
+  ty_to_string (tybase aty)
+
 let oaty = (atybase "o")
 let oty = tybase oaty
 let olistaty = (atyapp (atybase "list") oty)
@@ -839,8 +846,11 @@ let ty_tyvars ty =
     | Typtr {contents=TV v} -> 
        tyvars := v::!tyvars
     | _ -> () in
-  iter_ty record ty;
+  iter_ty record (observe_ty ty);
   !tyvars
+
+let ty_contains_tyvar ty =
+  List.length (ty_tyvars ty) > 0
   
 let term_collect_tyvar_names t = 
   let tyvars = ref [] in
@@ -851,6 +861,64 @@ let term_collect_tyvar_names t =
 
 let terms_contain_tyvar l = 
   List.exists (fun t -> List.length (term_collect_tyvar_names t) <> 0) l
+
+let ty_gentyvars ty =
+  let tyvars = ref [] in
+  let record aty = 
+    match aty with
+    | Tygenvar v -> 
+       tyvars := v::!tyvars
+    | _ -> () in
+  iter_ty record ty;
+  !tyvars
+
+let ty_contains_gentyvar ty =
+  List.length (ty_gentyvars ty) > 0
+
+let term_collect_gentyvar_names t = 
+  let tyvars = ref [] in
+  let _ = term_map_on_tys begin fun ty ->
+            tyvars := (ty_gentyvars ty)@(!tyvars); ty
+            end t in
+  List.unique (!tyvars)
+
+let terms_contain_gentyvar l = 
+  List.exists (fun t -> List.length (term_collect_gentyvar_names t) <> 0) l
+
+
+(** Type substitutions *)
+
+type tysub = (string * ty) list
+
+let rec apply_bind_aty ~btyvar v ty aty =
+  match aty with
+  | Tygenvar v' -> 
+     if (not btyvar) && v' = v then ty
+     else Ty ([], aty)
+  | Typtr {contents=TV v'} -> 
+     if btyvar && v' = v then ty
+     else Ty ([],aty)
+  | Tycons (c,args) ->
+     let args' = (List.map (apply_bind_ty ~btyvar v ty) args) in
+     Ty ([], Tycons(c,args')) 
+  | Typtr {contents=TT _} -> assert false
+
+and apply_bind_ty ~btyvar v ty t =
+  match (observe_ty t) with
+  | Ty(tys, aty) ->
+     let tys' = (List.map (apply_bind_ty ~btyvar v ty) tys) in
+     let aty' = apply_bind_aty ~btyvar v ty aty in
+     tyarrow tys' aty'
+
+let apply_sub_ty s ty =
+  List.fold_left begin fun ty (v,vty) -> 
+    apply_bind_ty ~btyvar:false v vty ty
+    end ty s
+
+let apply_sub_ty_tyvar s ty =
+  List.fold_left begin fun ty (v,vty) -> 
+    apply_bind_ty ~btyvar:true v vty ty
+    end ty s
 
 
 module Test = struct

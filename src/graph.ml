@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -20,25 +20,81 @@
 (****************************************************************************)
 
 open Extensions
+open Unifyty
+open Term
 
-type 'a t = ('a * 'a) list
+type t = (aty * aty) list
 
 let empty = []
+
+let aty_no_tyvar aty = 
+  let ty = (tybase aty) in
+  (not (ty_contains_tyvar ty)) && (not (ty_contains_gentyvar ty))
+    
 
 let add_arc arcs a b =
   if List.mem (a, b) arcs then arcs else (a, b)::arcs
 
-let direct_predecessors arcs a =
-  a :: (List.map fst (List.filter (snd >> (=) a) arcs))
+let is_prop_type aty =
+  aty = oaty || aty = propaty || aty = olistaty
 
+let arc_predecessor ((s, t):(aty * aty)) a =
+  assert (aty_no_tyvar a);
+  (match t with
+  | Tygenvar _ ->
+       failwith "Pre-condition of subordination check is violated:\
+                 \ target type cannot be a variable\n"
+  | _ -> ());
+  let typarams = ty_gentyvars (tybase t) in
+  assert (is_prop_type t 
+          || List.minus (ty_gentyvars (tybase s)) typarams = []);
+  let sub = List.map (fun v -> (v,fresh_tyvar ())) typarams in
+  let a' = tybase a in
+  let s' = apply_sub_ty sub (tybase s) in
+  let t' = apply_sub_ty sub (tybase t) in
+  try
+    unify_constraints [(t', a', (ghost, CArg))];
+    match observe_ty s' with
+    | Ty([], aty) -> Some aty
+    | _ -> failwithf "Subordination check failure: new non-atomic\
+                      \ type %s arises during subordination check\n"
+             (ty_to_string s')
+  with
+  | TypeInferenceFailure _ -> None
+  | e -> raise e
+  
+let direct_predecessors arcs a =
+  assert (aty_no_tyvar a);
+  let infer_pred preds (s,t) =
+    match (arc_predecessor (s,t) a) with
+    | Some aty -> (aty, (s,t)) :: preds
+    | None -> preds
+  in
+  List.fold_left infer_pred [] arcs
+
+let max_search_depth = 50
+
+(* search the predecessors of a in the graph arcs.
+   a must be a ground atomic type *)
 let predecessors arcs a =
-  let rec aux acc a =
-    if List.mem a acc then
+  (* aux accumulates pairs of nodes (atomic types) and paths from the
+     root to the nodes by performing depth first search *)
+  let rec aux acc (a,path) =
+    if List.mem a (List.map fst acc) then
       acc
     else
-      List.fold_left aux (a::acc) (direct_predecessors arcs a)
+      let dpreds = (direct_predecessors arcs a) in
+      (* abandon the search if the search depth exceeds the limit *)
+      (if List.length path > max_search_depth then
+        failwith "Subordination check failure: reached the search limit\n");
+      let dpreds = List.map (fun (a,e) -> (a, e::path)) dpreds in
+      List.fold_left aux ((a,path)::acc) dpreds
   in
-    aux [] a
+  assert (aty_no_tyvar a);
+  let acc = aux [] (a,[]) in
+  List.map fst acc
 
 let is_path arcs a b =
+  assert (aty_no_tyvar a);
+  assert (aty_no_tyvar b);
   List.mem a (predecessors arcs b)

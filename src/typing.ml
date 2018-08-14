@@ -97,40 +97,6 @@ type umetaterm =
   | UPred of uterm * restriction
 
 
-(** Type substitutions *)
-
-type tysub = (string * ty) list
-
-let rec apply_bind_aty ~btyvar v ty aty =
-  match aty with
-  | Tygenvar v' -> 
-     if (not btyvar) && v' = v then ty
-     else Ty ([], aty)
-  | Typtr {contents=TV v'} -> 
-     if btyvar && v' = v then ty
-     else Ty ([],aty)
-  | Tycons (c,args) ->
-     let args' = (List.map (apply_bind_ty ~btyvar v ty) args) in
-     Ty ([], Tycons(c,args')) 
-  | Typtr {contents=TT _} -> assert false
-
-and apply_bind_ty ~btyvar v ty t =
-  match (observe_ty t) with
-  | Ty(tys, aty) ->
-     let tys' = (List.map (apply_bind_ty ~btyvar v ty) tys) in
-     let aty' = apply_bind_aty ~btyvar v ty aty in
-     tyarrow tys' aty'
-
-let apply_sub_ty s ty =
-  List.fold_left begin fun ty (v,vty) -> 
-    apply_bind_ty ~btyvar:false v vty ty
-    end ty s
-
-let apply_sub_ty_tyvar s ty =
-  List.fold_left begin fun ty (v,vty) -> 
-    apply_bind_ty ~btyvar:true v vty ty
-    end ty s
-
 let apply_sub_tyctx s tyctx =
   List.map (fun (id, ty) -> (id, apply_sub_ty s ty)) tyctx
 
@@ -296,8 +262,8 @@ let pervasive_sign =
     (k_nil,    Poly(["A"], alistty)) ])
 
 let sign_to_tys sign =
-  List.filter_map
-    (function (_, Poly([], ty)) -> Some ty | _ -> None)
+  List.map
+    (function (_, Poly(ids, ty)) -> ty)
     (snd sign)
 
 let pervasive_sr =

@@ -1,0 +1,134 @@
+Specification "schm_poly_tst".
+
+% Set types on. 
+% Set instantiations on.
+
+Define append : list A -> list A -> list A -> prop by
+  append nil L L;
+  append (X :: L1) L2 (X :: L3) := append L1 L2 L3.
+
+Theorem append_det[A] : forall (L1: list A) L2 L3 L3',
+  append L1 L2 L3 -> append L1 L2 L3' -> L3 = L3'.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H3 H4. search.
+
+Theorem oappend_det : forall (L1: list o) L2 L3 L3',
+  append L1 L2 L3 -> append L1 L2 L3' -> L3 = L3'.
+intros. apply append_det[o] to H1 H2. search.
+
+Theorem append_det1[A] : forall (L1: list A) L2 L3 L3',
+  append L1 L2 L3 -> append L1 L2 L3' -> L3 = L3'.
+intros. apply append_det[A] to H1 H2. search.
+
+Theorem append_det2[A] : forall (L1: list A) L2 L3 L3',
+  append L1 L2 L3 -> append L1 L2 L3' -> L3 = L3'.
+intros. apply append_det[_] to H1 H2. search.
+
+Theorem append_det3[A] : forall (L1: list A) L2 L3 L3',
+  append L1 L2 L3 -> append L1 L2 L3' -> L3 = L3'.
+intros. apply append_det to H1 H2. search.
+
+
+%% Do not support types with a variable as its target
+% Type fst,snd   list A -> A.
+Type p   A -> o.
+
+Define eq : A -> A -> prop by
+  eq M M.
+
+Theorem tst [A,B] : forall (X:A) (Y:B),
+  eq (p X) (p Y) -> false.
+intros. 
+  %% The following case analysis should report an error that
+  %% generic type variables cannot be instantiated
+  % case H1.
+  skip.
+  
+
+Theorem inst_gen_var1[A,B] : forall (X:A) (Y:B),
+  p X = p Y -> false.
+intros. 
+  %% The following case analysis should report an error that
+  %% generic type variables cannot be instantiated
+  % case H1.
+  skip.
+
+Theorem inst_gen_var2[A] : forall (X:A) (Y:o),
+  p X = p Y -> false.
+intros.
+  % case H1.
+  skip.
+
+Theorem inst_gen_var3[A] : forall (X:i) (Y:o),
+  p X = p Y -> false.
+intros. case H1.
+
+
+Theorem member_prune[A,B] : forall M (L:list A), nabla (x:B),
+  member (M x) L -> exists M', M = y\M'.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem olist_mem_prune : forall M (L:list o), nabla (x:o),
+  member (M x) L -> exists M', M = y\M'.
+intros. apply member_prune[o,o] to H1. search.
+
+Theorem member_prune1[A,B] : forall M (L:list A), nabla (x:B),
+  member (M x) L -> exists M', M = y\M'.
+intros. apply member_prune[A,B] to H1. search.
+
+Theorem member_prune2[A,B] : forall M (L:list A), nabla (x:B),
+  member (M x) L -> exists M', M = y\M'.
+intros. apply member_prune[_,B] to H1. search.
+
+Theorem member_prune3[A,B] : forall M (L:list A), nabla (x:i),
+  member (M x) L -> exists M', M = y\M'.
+intros. apply member_prune[_,i] to H1. search.
+
+Theorem member_prune4[A,B] : forall M (L:list A), nabla (x:i),
+  member (M x) L -> exists M', M = y\M'.
+intros. apply member_prune to H1. search.
+
+Theorem olist_mem_prune_bc : forall M (L:list o), nabla (x:o),
+  member (M x) L -> exists M', M = y\M'.
+intros. backchain member_prune[o,o].
+
+Theorem member_prune1_bc[A,B] : forall M (L:list A), nabla (x:B),
+  member (M x) L -> exists M', M = y\M'.
+intros. backchain member_prune[A,B].
+
+
+Theorem app_det[A] : forall (L1: list A) L2 L3 L3',
+  {app L1 L2 L3} -> {app L1 L2 L3'} -> L3 = L3'.
+induction on 1. intros. case H1 (keep).
+  case H2. search.
+  case H2. apply IH to H3 H4. search.
+
+Theorem app_search[A] : forall (X:A) L,
+  {app (X :: nil) L (X :: L)}.
+search.
+
+Theorem ty_fdet_left[A] : forall (X:A),
+  {pred (cst X)} -> true.
+intros. case H1. search.
+
+Theorem ty_fdet_right[A] : forall (X:A),
+  {pred (cst X)}.
+search.
+
+Theorem ty_not_fdet_left : forall M,
+  {pred M} -> false.
+intros.
+  %% The following case analysis should report an error because the
+  %% type variable in the clause cannot be fully instantiated by unification
+  % case H1.
+  skip. 
+
+Theorem ty_not_fdet_right : forall M,
+  {pred M}.
+  %% The following search should fail because the type variable in the
+  %% clause cannot be fully instantiated by unification
+  %search.
+  skip.

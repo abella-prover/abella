@@ -127,7 +127,10 @@ let warn_stratify names head term =
       then failwith msg
       else Printf.fprintf !out "Warning: %s\n%!" msg
 
-let check_theorem thm =
+let check_theorem tys thm =
+  let tys' = metaterm_collect_gentyvar_names thm in
+  if List.minus tys' tys <> [] then
+    failwith "Some type variables in the theorem is not bounded";
   ensure_no_restrictions thm
 
 let check_noredef ids =
@@ -216,12 +219,12 @@ let check_typarams tyvars tys =
 
 (* Check that there is no parameterization of types at clause levels *)
 let ensure_no_schm_clause typarams cl =
-  let htyvars = (metaterm_collect_tyvar_names cl.head) in
-  let btyvars = (metaterm_collect_tyvar_names cl.body) in
+  let htyvars = (metaterm_collect_gentyvar_names cl.head) in
+  let btyvars = (metaterm_collect_gentyvar_names cl.body) in
   [] = (List.minus (htyvars @ btyvars) typarams)
 
 let ensure_no_schm_clauses typarams clauses =
   let ns = List.for_all (ensure_no_schm_clause typarams) clauses in
   if not ns then
     failwithf "Type variables in some clause are not bound at the \
-               definition levelh"
+               definition level"

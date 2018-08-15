@@ -86,7 +86,10 @@ let unify_constraints ?(enable_bind=false) eqns =
       -> assert false
     | Ty([], Tygenvar v), _ 
     | _, Ty([], Tygenvar v) ->
-       raise (InstGenericTyvar v)
+       if enable_bind then
+         raise (InstGenericTyvar v)
+       else
+         fail ()
     | Ty([], Tycons (cty1,args1)), Ty([], Tycons (cty2,args2)) 
       when cty1 = cty2 && List.length args1 = List.length args2 ->
       let eqns = List.map2 (fun ty1 ty2 -> (ty1,ty2)) args1 args2 
@@ -105,4 +108,4 @@ let unify_constraints ?(enable_bind=false) eqns =
       (fun () -> raise (TypeInferenceFailure(ty1, ty2, p)))
   in
 
-  List.iter unify_single_constraint eqns
+  List.iter unify_single_constraint eqns    

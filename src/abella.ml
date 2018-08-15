@@ -670,7 +670,7 @@ and process_top1 () =
       let st = get_bind_state () in
       let seq = copy_sequent () in
       let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
-      check_theorem thm ;
+      check_theorem tys thm ;
       theorem thm ;
       let oldsign = !sign in
       let thm_compile () =

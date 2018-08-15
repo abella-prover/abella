@@ -962,3 +962,11 @@ let metaterm_collect_tyvar_names t =
   
 let metaterms_contain_tyvar l = 
   List.exists (fun t -> List.length (metaterm_collect_tyvar_names t) <> 0) l
+
+let metaterm_collect_gentyvar_names t = 
+  let tyvars = ref [] in
+  let record ty = 
+    tyvars := (ty_gentyvars ty)@(!tyvars); ty in
+  let _ = map_on_tys record t in
+  List.unique (!tyvars)
+  

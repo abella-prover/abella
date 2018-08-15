@@ -46,19 +46,22 @@ let arc_predecessor ((s, t):(aty * aty)) a =
                  \ target type cannot be a variable\n"
   | _ -> ());
   let typarams = ty_gentyvars (tybase t) in
-  assert (is_prop_type t 
-          || List.minus (ty_gentyvars (tybase s)) typarams = []);
   let sub = List.map (fun v -> (v,fresh_tyvar ())) typarams in
   let a' = tybase a in
   let s' = apply_sub_ty sub (tybase s) in
   let t' = apply_sub_ty sub (tybase t) in
   try
     unify_constraints [(t', a', (ghost, CArg))];
-    match observe_ty s' with
-    | Ty([], aty) -> Some aty
-    | _ -> failwithf "Subordination check failure: new non-atomic\
-                      \ type %s arises during subordination check\n"
-             (ty_to_string s')
+    if (ty_tyvars s' <> []) then
+        failwithf "Subordination check failure: in '%s',\
+                  \ the source type cannot be fully determined by\
+                  \ the target type\n" (ty_to_string (tyarrow [s'] t'))
+    else
+      match observe_ty s' with
+      | Ty([], aty) -> Some aty
+      | _ -> failwithf "Subordination check failure: new non-atomic\
+                        \ type %s arises during subordination check\n"
+               (ty_to_string s')
   with
   | TypeInferenceFailure _ -> None
   | e -> raise e

@@ -88,17 +88,17 @@ let check_no_sr_extension closed a b =
 let not_prop_type aty =
   not (aty = oaty || aty = propaty || aty = olistaty)
 
-let check_typarams a b =
-  if not (List.minus (ty_gentyvars (tybase a)) 
-                     (ty_gentyvars (tybase b)) = []) 
-     && not_prop_type b then
-   failwithf "Some type variable in the source type %s does not occur in the \
-              target type %s" (aty_to_string a) (aty_to_string b)
+(* let check_typarams a b =
+ *   if not (List.minus (ty_gentyvars (tybase a)) 
+ *                      (ty_gentyvars (tybase b)) = []) 
+ *      && not_prop_type b then
+ *    failwithf "Some type variable in the source type %s does not occur in the \
+ *               target type %s" (aty_to_string a) (aty_to_string b) *)
 
 let add (graph, closed) a b =
   check_no_tyvar a; 
   check_no_tyvar b;
-  check_typarams a b;
+  (* check_typarams a b; *)
   check_no_sr_extension closed a b;
   (Graph.add_arc graph a b, closed)
 

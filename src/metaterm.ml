@@ -849,6 +849,10 @@ let all_meta_right_permute_unify ~sc t1 t2 =
       let support_t2_names = List.map term_to_name support_t2 in
         support_t1
         |> List.permute (List.length support_t2)
+        |> List.find_all begin fun perm_support_t1 -> 
+                         List.for_all2 (fun v1 v2 -> (term_to_var v1).ty = (term_to_var v2).ty) 
+                                       perm_support_t1 support_t2
+                         end
         |> List.iter
             (unwind_state
                (fun perm_support_t1 ->
@@ -872,6 +876,10 @@ let derivable goal hyp =
   let support_h_names = List.map term_to_name support_h in
   support_g
   |> List.permute (List.length support_h)
+  |> List.find_all begin fun perm_support_g -> 
+                   List.for_all2 (fun v1 v2 -> (term_to_var v1).ty = (term_to_var v2).ty) 
+                                 perm_support_g support_h
+                   end
   |> List.exists
     (fun perm_support_g ->
        let alist = List.combine support_h_names perm_support_g in

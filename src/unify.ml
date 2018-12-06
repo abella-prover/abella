@@ -381,6 +381,8 @@ let make_non_llambda_subst v1 a1 t2 =
     match observe (hnorm t) with
       | Var v when variable v.tag && v <> v1 && v.ts <= v1.ts ->
           t
+      | Var v when v.tag=Constant && v.ts <= v1.ts ->
+         t
       | Var v when constant v.tag && v1.ts < v.ts ->
           let i = cindex v a1 n in
             if i = 0 then

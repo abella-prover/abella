@@ -333,7 +333,12 @@ let one_step_huet ~used ~sr a b =
         else None
       end
   in
-  if is_left_flexible a && is_left_rigid b then
+  if terms_contain_tyvar [a; b] then
+    (* If the terms involved are of polymorphic types, then do nothing *)
+    [{ bind_state = get_bind_state () ;
+       new_vars = [] ;
+       new_hyps = [Eq(a, b)] }]
+  else if is_left_flexible a && is_left_rigid b then
     flex_rigid a b
   else if is_left_rigid a && is_left_flexible b then
     flex_rigid b a

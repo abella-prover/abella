@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -23,9 +23,12 @@
 (* Functional implementation of directed graphs with reflexive and
 transitivie closure *)
 
-type 'a t
+open Term
 
-val empty : 'a t
-val add_arc : 'a t -> 'a -> 'a -> 'a t
-val is_path : 'a t -> 'a -> 'a -> bool
-val predecessors : 'a t -> 'a -> 'a list
+type t
+
+val empty : t
+val add_arc : t -> aty -> aty -> t
+val arc_predecessor : aty * aty -> aty -> aty option
+val is_path : t -> aty -> aty -> bool
+val predecessors : t -> aty -> aty list

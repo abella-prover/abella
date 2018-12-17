@@ -1,6 +1,6 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
-(* Copyright (C) 2013-2018 Inria (Institut National de Recherche            *)
+(* Copyright (C) 2013-2016 Inria (Institut National de Recherche            *)
 (*                         en Informatique et en Automatique)               *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
@@ -25,7 +25,7 @@ type sr
 
 val empty : sr
 val query : sr -> ty -> ty -> bool
-val close : sr -> string list -> sr
+val close : sr -> aty list -> sr
 val update : sr -> ty -> sr
 val ensure : sr -> ty -> unit
-val subordinates : sr -> string -> string list
+val subordinates : sr -> aty -> aty list

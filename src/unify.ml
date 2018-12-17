@@ -24,6 +24,7 @@
 
 open Term
 open Extensions
+open Unifyty
 
 (* generate ids for n binders *)
 let gen_binder_ids n =
@@ -51,9 +52,15 @@ let fail f = raise (UnifyFailure f)
 
 type unify_error =
   | NotLLambda
+  | InstGenericTyvar of string
+
 
 let explain_error = function
   | NotLLambda -> "Unification incompleteness (non-pattern unification problem)"
+  | InstGenericTyvar v ->
+     Printf.sprintf 
+      "Unification incompleteness (generic type variable %s cannot be instantiated)"
+      v
 
 exception UnifyError of unify_error
 
@@ -628,6 +635,15 @@ let makesubst tyctx h1 t2 a1 n =
     ensure_flex_args a1 ts1 ;
     lambda (List.combine a1ids a1tys) (toplevel_subst tyctx t2 0)
 
+let unifyty ty1 ty2 =
+  try
+    let _ = unify_constraints ~enable_bind:true [(ty1, ty2, def_cinfo)] in
+    true
+  with
+  | TypeInferenceFailure _ -> false
+  | InstGenericTyvar v ->
+     raise (UnifyError (InstGenericTyvar v))
+
 (** Unifying the arguments of two rigid terms with the same head, these
   * arguments being given as lists. Exceptions are raised if
   * unification fails or if there are unequal numbers of arguments; the
@@ -642,8 +658,18 @@ let rec unify_list (tyctx:(Term.id*Term.ty) list) l1 l2 =
  * Fail if [t2] is a variable or an application.
  * If it is a lambda, binders need to be equalized and so this becomes
  * an application-term unification problem. *)
-and unify_const_term tyctx cst t2 = if eq cst t2 then () else
+and unify_const_term tyctx cst t2 = 
+  let v1 = term_to_var cst in
   match observe t2 with
+    | Var v2 when constant v2.tag ->
+       if v1.name = v2.name then begin
+         (* if the two constants have the same name then try to identify
+          the two constants by unifying their types *)
+           if not (unifyty v1.ty v2.ty) then
+             fail (ConstClash (cst, t2))
+         end
+       else
+         fail (ConstClash (cst, t2))
     | Lam (idtys,t2) ->
         let a1 = lift_args [] (List.length idtys) in
           unify (List.rev_app idtys tyctx) (app cst a1) t2
@@ -662,8 +688,13 @@ and unify_app_term tyctx h1 a1 t1 t2 =
     | Var v1, App (h2,a2) when constant v1.tag ->
         begin match observe h2 with
           | Var v2 when constant v2.tag ->
-              if eq h1 h2 then
+              if v1.name = v2.name then begin
+                (* if the two constants have the same name then try to
+                   identify the two constants by unifying their types *)
+                (if not (unifyty v1.ty v2.ty) then
+                    fail (ConstClash (h1, h2)));
                 unify_list tyctx a1 a2
+                end
               else
                 fail (ConstClash (h1,h2))
           | DB _ ->
@@ -812,14 +843,14 @@ let flexible_heads ~used ~sr (tys1, h1, a1) (tys2, h2, a2) =
   (* Projection *)
   let projections =
     let n = a1n + (n2 - n1) in
-    let bty = match hv1.ty with Ty(tys, ty) -> Ty(List.drop n tys, ty) in
+    let bty = match observe_ty hv1.ty with Ty(tys, ty) -> Ty(List.drop n tys, ty) in
     let bn = match bty with Ty(tys, _) -> List.length tys in
       List.filter_map
         (fun (a, aty, i) ->
            let Ty(tys, ty) = aty in
            let use = List.drop_last bn tys in
            let leave = List.take_last bn tys in
-             if Ty(leave, ty) = bty then
+             if eq_ty (Ty(leave, ty)) bty then
                Some
                  (lambda (a1ctx @ tys2')
                     (app (db (n-i))
@@ -833,7 +864,7 @@ let flexible_heads ~used ~sr (tys1, h1, a1) (tys2, h2, a2) =
   let results = imitation @ projections in
   let () =
     let tyctx = List.rev tys1 in
-      List.iter (fun r -> assert (hv1.ty = tc tyctx r)) results
+      List.iter (fun r -> assert (eq_ty hv1.ty (tc tyctx r))) results
   in
     results
 
@@ -896,8 +927,14 @@ let try_left_unify_cpairs ~used t1 t2 =
       Some !cpairs
     with
       | UnifyFailure _ -> set_scoped_bind_state state ; None
-      | UnifyError _ -> set_scoped_bind_state state ;
-          failwith "Unification error during case analysis"
+      | UnifyError err -> set_scoped_bind_state state ;
+        let msg = "Unification error during case analysis: " in
+        match err with
+        | NotLLambda -> 
+           failwith (msg ^ "encountered non-pattern unification problem")
+        | InstGenericTyvar v ->
+           let msg = msg ^ (Unifyty.inst_gen_tyvar_msg v) in
+           failwith msg
 
 let try_right_unify_cpairs t1 t2 =
   try_with_state ~fail:None

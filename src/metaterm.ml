@@ -129,7 +129,7 @@ let metaterm_support ?tag t =
       | And(t1, t2) -> aux t1 @ aux t2
       | Pred(t, _) -> term_support ?tag t
   in
-    List.unique (aux t)
+    List.unique ~cmp:eq (aux t)
 
 (* Pretty printing *)
 
@@ -538,7 +538,7 @@ let find_free_constants t =
     | And(a, b) -> (aux a) @ (aux b)
     | Pred(p, r) -> terms_aux [p]
   in 
-  List.map term_to_pair (List.unique (aux t))
+  List.map term_to_pair (List.unique ~cmp:eq (aux t))
 
 let rec collect_terms t =
   match t with
@@ -569,7 +569,7 @@ let get_metaterm_used_nominals t =
 let rec replace_metaterm_vars alist t =
   let term_aux alist = replace_term_vars alist in
   (* Compute (possiblely) free variables at the top-level *) 
-  let top_free_vars = List.unique (get_metaterm_used t
+  let top_free_vars = List.unique ~cmp:eq_idterm (get_metaterm_used t
                                    @ get_metaterm_used_nominals t
                                    @ find_free_constants t)
   in
@@ -816,7 +816,9 @@ let rec meta_right_unify t1 t2 =
         meta_right_unify l1 l2 ;
         meta_right_unify r1 r2
     | Binding(b1, tids1, t1), Binding(b2, tids2, t2)
-        when b1 = b2 && List.map snd tids1 = List.map snd tids2 ->
+        when b1 = b2 && 
+             List.length tids1 = List.length tids2 &&
+             List.for_all2 eq_ty (List.map snd tids1) (List.map snd tids2) ->
         (* Replace bound variables with constants with "infinite"
            timestamp. This prevents illegal variable capture.
            We use max_int-1 since max_int is for nominal constants. *)
@@ -908,7 +910,7 @@ let metaterm_extract_tids aux_term t =
     | And(a, b) -> aux a @ aux b
     | Pred(p, r) -> aux_term [p]
   in
-  List.unique (aux t)
+  List.unique ~cmp:eq_tid (aux t)
 
 let metaterm_capital_tids t =
   metaterm_extract_tids capital_tids t
@@ -958,3 +960,21 @@ let rec clausify ?(vars=[]) ?(body=[]) head =
       clausify ~vars ~body head1 @
       clausify ~vars ~body head2
   | head -> [vars, head, List.rev body]
+
+let metaterm_collect_tyvar_names t = 
+  let tyvars = ref [] in
+  let record ty = 
+    tyvars := (ty_tyvars ty)@(!tyvars); ty in
+  let _ = map_on_tys record t in
+  List.unique (!tyvars)
+  
+let metaterms_contain_tyvar l = 
+  List.exists (fun t -> List.length (metaterm_collect_tyvar_names t) <> 0) l
+
+let metaterm_collect_gentyvar_names t = 
+  let tyvars = ref [] in
+  let record ty = 
+    tyvars := (ty_gentyvars ty)@(!tyvars); ty in
+  let _ = map_on_tys record t in
+  List.unique (!tyvars)
+  

@@ -26,7 +26,7 @@ open Printf
 open Extensions
 
 type uclause = string option * uterm * uterm list
-type clause = term
+type clause = string list * term
 
 type flavor = Inductive | CoInductive
 
@@ -68,9 +68,9 @@ type top_command =
   | Import of string * (string * string) list
   | Specification of string
   | Query of umetaterm
-  | Kind of id list
+  | Kind of id list * knd
   | Type of id list * ty
-  | Close of id list
+  | Close of aty list
   | SSplit of id * id list
   | TopCommon of common_command
 
@@ -78,9 +78,9 @@ type compiled =
   | CTheorem of id * string list * metaterm
   | CDefine of flavor * string list * tyctx * def_clause list
   | CImport of string * (string * string) list
-  | CKind of id list
+  | CKind of id list * knd
   | CType of id list * ty
-  | CClose of (id * id list) list
+  | CClose of (aty * aty list) list
 
 type witness =
   | WTrue
@@ -181,7 +181,7 @@ type any_command =
   | ACommon of common_command
 
 type sig_decl =
-  | SKind of id list
+  | SKind of id list * knd
   | SType of id list * ty
 
 type lpsig =
@@ -246,6 +246,9 @@ let gen_to_string tys =
   | [] -> ""
   | _ -> " [" ^ String.concat "," tys ^ "]"
 
+let aty_list_to_string atys = 
+  String.concat "," (List.map aty_to_string atys)
+
 let top_command_to_string tc =
   match tc with
     | Theorem(name, tys, body) ->
@@ -265,12 +268,12 @@ let top_command_to_string tc =
         sprintf "Specification \"%s\"" filename
     | Query q ->
         sprintf "Query %s" (umetaterm_to_formatted_string q)
-    | Kind ids ->
-        sprintf "Kind %s type" (id_list_to_string ids)
+    | Kind (ids, knd) ->
+        sprintf "Kind %s %s" (id_list_to_string ids) (knd_to_string knd)
     | Type(ids, ty) ->
         sprintf "Type %s %s" (id_list_to_string ids) (ty_to_string ty)
-    | Close ids ->
-        sprintf "Close %s" (id_list_to_string ids)
+    | Close atys ->
+        sprintf "Close %s" (aty_list_to_string atys)
     | SSplit(id, ids) ->
         if ids <> [] then
           sprintf "Split %s as %s" id (id_list_to_string ids)

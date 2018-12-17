@@ -106,6 +106,12 @@
       error_report "Invalid signature constants: %s@\n\
                     Identifiers matching n[0-9]+ are reserved for nominal constants." ks
 
+  let id_to_aty id =
+    if Term.is_capital_name id then
+      Term.Tygenvar id
+    else
+      Term.atybase id
+
 %}
 
 %token IMP IF AMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
@@ -177,7 +183,7 @@ id:
   | ASSERT        { "assert" }
   | ASYNC         { "async" }
   | BACKCHAIN     { "backchain" }
-  | BY            { "by" }
+/*  | BY            { "by" } */
   | CASE          { "case" }
   | CLEAR         { "clear" }
   | CLOSE         { "Close" }
@@ -215,6 +221,13 @@ id:
   | UNFOLD        { "unfold" }
   | WITH          { "with" }
   | WITNESS       { "witness" }
+
+/* Kind */
+knd:
+  | TYPE
+      {Term.kind 0}
+  | TYPE RARROW knd
+      {Term.kincr $3}
 
 /* Annotated ID */
 aid:
@@ -304,8 +317,8 @@ sig_preamble:
   | { [] }
 
 sig_body:
-  | KIND id_list TYPE DOT sig_body
-    { Types.SKind(List.map deloc_id $2) :: $5 }
+  | KIND id_list knd DOT sig_body
+    { Types.SKind(List.map deloc_id $2, $3) :: $5 }
   | TYPE id_list ty DOT sig_body
     { Types.SType(List.map deloc_id $2, $3) :: $5 }
   | { [] }
@@ -339,9 +352,29 @@ id_list:
   | loc_id COMMA id_list
     { $1::$3}
 
-ty:
+pty:
   | id
-    { Term.tybase $1 }
+    { Term.tybase (id_to_aty $1) }
+  | LPAREN ty RPAREN
+    {$2}
+
+aty:
+  | id
+    { id_to_aty $1 }
+  | aty pty
+    { 
+      let open Term in
+      match $1 with
+      | Tycons _ -> atyapp $1 $2
+      | Tygenvar _ ->
+         error_report ~pos:(Parsing.symbol_start_pos ())
+           "Type variable cannot be applied to arguments"
+      | _ -> assert false
+    }
+
+ty:
+  | aty
+    { Typing.desugar_ty (Term.tybase $1) }
   | ty RARROW ty
     { Term.tyarrow [$1] $3 }
   | LPAREN ty RPAREN
@@ -423,7 +456,19 @@ clearable:
 
 maybe_inst:
   | { [] }
-  | LBRACK ty_list RBRACK { $2 }
+  | LBRACK uty_list RBRACK { $2 }
+
+uty:
+  | ty { $1 }
+  | UNDERSCORE {Term.fresh_tyvar ()}
+
+uty_list:
+  | uty { [$1] }
+  | uty COMMA uty_list { $1 :: $3 }
+
+aty_list:
+  | aty { [Typing.desugar_aty $1] }
+  | aty COMMA aty_list { (Typing.desugar_aty $1) :: $3 }
 
 ty_list:
   | ty { [$1] }
@@ -699,12 +744,12 @@ pure_top_command:
     { Types.Import($2, $4) }
   | SPECIFICATION QSTRING DOT
     { Types.Specification($2) }
-  | KKIND id_list TYPE DOT
-    { Types.Kind(List.map deloc_id $2) }
+  | KKIND id_list knd DOT
+    { Types.Kind(List.map deloc_id $2, $3) }
   | TTYPE id_list ty DOT
     { Types.Type(List.map deloc_id $2, $3) }
-  | CLOSE id_list DOT
-    { Types.Close(List.map deloc_id $2) }
+  | CLOSE aty_list DOT
+    { Types.Close($2) }
   | SSPLIT loc_id DOT
     { Types.SSplit(deloc_id $2, []) }
   | SSPLIT loc_id AS id_list DOT
@@ -769,7 +814,7 @@ search_witness_list:
 
 exists_binds:
   | { [] }
-  | withs { List.map (fun (id, t) -> (id, uterm_to_term [] t)) $1 }
+  | withs { List.map (fun (id, t) -> (id, uterm_to_term t)) $1 }
 
 depth_spec:
   | depth_spec_one { [$1] }

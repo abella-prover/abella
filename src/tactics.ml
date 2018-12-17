@@ -23,6 +23,7 @@ open Term
 open Metaterm
 open Unify
 open Abella_types
+open Unifyty
 
 open Extensions
 
@@ -34,6 +35,12 @@ let is_uninstantiated (x, vtm) =
   | _ -> false
 
 let alist_to_used (_, t) = term_to_pair t
+
+let inst_clause_types typarams clause =
+  if typarams = [] then clause
+  else
+    let sub = List.map (fun id -> (id, Term.fresh_tyvar ())) typarams in
+    term_map_on_tys (apply_sub_ty sub) clause
 
 let freshen_clause ~used ~sr ?(support=[]) clause =
   let (tids, head, body) = clause in
@@ -152,7 +159,8 @@ let object_cut_from obj1 obj2 term =
   let nids, ntys = List.split (nominal_tids norms) in
   let cut_objs =
     List.permute (List.length norms) (obj_support obj2) |>
-    List.find_all (fun permuted -> ntys = List.map (tc []) permuted) |>
+    List.find_all (fun permuted -> 
+        List.for_all2 eq_ty ntys (List.map (tc []) permuted)) |>
     List.filter_map begin fun permuted ->
       let tobj =
         replace_metaterm_vars
@@ -325,7 +333,12 @@ let one_step_huet ~used ~sr a b =
         else None
       end
   in
-  if is_left_flexible a && is_left_rigid b then
+  if terms_contain_tyvar [a; b] then
+    (* If the terms involved are of polymorphic types, then do nothing *)
+    [{ bind_state = get_bind_state () ;
+       new_vars = [] ;
+       new_hyps = [Eq(a, b)] }]
+  else if is_left_flexible a && is_left_rigid b then
     flex_rigid a b
   else if is_left_rigid a && is_left_flexible b then
     flex_rigid b a
@@ -392,6 +405,45 @@ let spec_view t =
     end
   | t -> Spec_atom t
 
+let terms_tyvars l = 
+  List.unique (List.fold_left (fun vs t -> (term_collect_tyvar_names t)@vs) [] l)
+
+let extract_terms_from_cpairs cpairs = 
+  match cpairs with
+  | None -> []
+  | Some pl -> List.fold_left (fun l (a,b) -> a::b::l) [] pl
+
+let try_left_unify_cpairs_fully_inferred ~used ~msg t1 t2 =
+  let cpairs = try_left_unify_cpairs ~used t1 t2 in
+  let rterms = t1 :: t2 :: (extract_terms_from_cpairs cpairs) in
+  (match cpairs with
+   | None -> ()
+   | Some _ ->
+     if terms_contain_tyvar rterms then
+       failwith msg);
+  cpairs
+
+let try_right_unify_cpairs_fully_inferred ~msg t1 t2 =
+  let cpairs = try_right_unify_cpairs t1 t2 in
+  let rterms = t1 :: t2 :: (extract_terms_from_cpairs cpairs) in
+  (match cpairs with
+   | None -> ()
+   | Some _ ->
+     if terms_contain_tyvar rterms then
+       failwith msg);
+  cpairs
+
+let msg_cannot_fully_infer_def_clause head body = 
+  Printf.sprintf "Cannot fully infer the type of the definitional clause: %s := %s"
+    (term_to_string head) 
+    (metaterm_to_string body)
+
+let msg_cannot_fully_infer_prog_clause head body =
+  Printf.sprintf "Cannot fully infer the type of the program clause: %s :- %s"
+    (term_to_string head) 
+    (String.concat "," (List.map term_to_string body))
+
+             
 let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   let support = metaterm_support term in
   let def_case ~wrapper term =
@@ -399,11 +451,13 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
       let fresh_used, head, body =
         freshen_def ~sr ~support ~used head body
       in
-      match try_left_unify_cpairs ~used:(fresh_used @ used) head term with
+      let msg = msg_cannot_fully_infer_def_clause head body in
+      match try_left_unify_cpairs_fully_inferred ~used:(fresh_used @ used) 
+              ~msg head term with
       | Some cpairs ->
           let used_head = term_vars_alist Eigen [head; term] in
           let used_body = metaterm_vars_alist Eigen body in
-          let used = List.unique (used_head @ used_body @ used) in
+          let used = List.unique ~cmp:eq_idterm (used_head @ used_body @ used) in
           begin match recursive_metaterm_case ~used ~sr body with
           | None -> []
           | Some case ->
@@ -435,8 +489,8 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
             let head = replace_term_vars (List.combine rids nominals) head in
             let (pids, ptys) = List.split (List.minus tids raised) in
             List.permute (List.length pids) support |>
-            List.find_all
-              (fun permuted -> ptys = List.map (tc []) permuted) |>
+            List.find_all (fun permuted -> 
+                List.for_all2 eq_ty ptys (List.map (tc []) permuted)) |>
             List.flatten_map ~guard:unwind_state begin fun permuted ->
               let support = List.minus support permuted in
               let head =
@@ -453,7 +507,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
     end
   in
 
-  let focus sync_obj f r =
+  let focus sync_obj (tyvars,f) r =
     if has_eigen_head f then
       failwithf "Head of backchained clause, %s, is a variable.\n\
                \ The case command cannot determine the derivability of this hypothesis"
@@ -461,6 +515,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
     let rewrap obj = Obj (obj, reduce_inductive_restriction r) in
     let rewrap_antecedent g = rewrap {sync_obj with mode = Async ; right = g} in
     let rewrap_succedent f = rewrap {sync_obj with mode = Sync f} in
+    let f = inst_clause_types tyvars f in
     clausify f |>
     List.filter_map begin fun clause ->
       unwind_state begin fun clause ->
@@ -473,8 +528,10 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
                  new_vars = new_vars ;
                  new_hyps = rewrap_succedent fresh_head :: body }
         end else begin
-          match try_left_unify_cpairs fresh_head sync_obj.right
-                  ~used:(fresh_used @ used) with
+          let msg = msg_cannot_fully_infer_prog_clause fresh_head fresh_body in
+          match try_left_unify_cpairs_fully_inferred 
+                  fresh_head sync_obj.right
+                  ~used:(fresh_used @ used) ~msg with
           | Some cpairs ->
               let new_vars =
                 term_vars_alist Eigen (fresh_head::sync_obj.right::fresh_body) in
@@ -525,7 +582,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   | Obj (obj, r) -> begin
       match obj.mode with
       | Async -> async_case obj r
-      | Sync f -> focus obj f r
+      | Sync f -> focus obj ([],f) r
     end
   | True -> [stateless_case_to_case empty_case]
   | False -> []
@@ -674,13 +731,16 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
     in
     support |>
     List.permute (List.length tids) |>
-    List.find_all (fun nominals -> tys = List.map (tc []) nominals) |>
+    List.find_all 
+      (fun nominals -> 
+        List.for_all2 eq_ty tys (List.map (tc []) nominals)) |>
     List.flatten_map ~guard:unwind_state begin fun nominals ->
       let support = List.minus support nominals in
       let alist = List.combine ids nominals in
       let head = replace_term_vars alist head in
       let head, body = freshen_nameless_def ~support ~ts head body in
-      match try_right_unify_cpairs head goal with
+      let msg = msg_cannot_fully_infer_def_clause head body in
+      match try_right_unify_cpairs_fully_inferred ~msg head goal with
       | None -> []
       | Some cpairs ->
           [(get_bind_state (), cpairs, normalize (wrapper body), i)]
@@ -735,15 +795,18 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
       match clause_sel with
       | Abella_types.Select_named nm -> begin
           match Typing.lookup_clause nm with
-          | Some cl ->
+          | Some (tyvars,cl) ->
               normalize_obj ~parity:true ~bindstack:[] goal |>
               List.map begin fun goal ->
                 let support = metaterm_support goal0 in
-                let cl = clausify cl in
+                let cl = clausify (inst_clause_types tyvars cl) in
                 assert (List.length cl = 1) ;
                 let cl = List.hd cl in
-                let (vars, head, body) = freshen_nameless_clause ~support ~ts:0 cl in
-                match try_right_unify_cpairs head goal.right with
+                let (vars, head, body) = 
+                  freshen_nameless_clause ~support ~ts:0 cl in
+                let msg = msg_cannot_fully_infer_prog_clause head body in
+                match try_right_unify_cpairs_fully_inferred ~msg 
+                        head goal.right with
                 | None ->
                     failwithf "Head of program clause named %S not\
                               \ unifiable with goal"
@@ -848,6 +911,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
           (fun _ -> true)
       | _ -> bad_witness ()
     in
+    let foci = List.map (fun (tyvars,cl) -> inst_clause_types tyvars cl) foci in
     foci |>
     (* ignore the elements in the context of type olist *)
     List.find_all (fun cls -> not (tc [] cls = olistty)) |>
@@ -858,7 +922,8 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     List.filter filter_by_witness |>
     List.map freshen_clause |>
     List.iter ~guard:unwind_state begin fun (i, (head, body)) ->
-      match try_right_unify_cpairs head goal with
+      let msg = msg_cannot_fully_infer_prog_clause head body in
+      match try_right_unify_cpairs_fully_inferred ~msg head goal with
       | None -> ()
       | Some cpairs ->
           let sc ws =
@@ -895,7 +960,8 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
       | Smaller _ | Equal _ -> ()
       | _ ->
           (* Backchain *)
-          if n > 0 then clause_aux n goal.context (goal.context @ clauses) goal.right r ts ~sc ~witness ;
+         let gctx = List.map (fun t -> ([],t)) goal.context in
+          if n > 0 then clause_aux n goal.context (gctx @ clauses) goal.right r ts ~sc ~witness ;
           (* Also backchain the goal G in '{.. L ..|- G}' on clauses F
              occurring in hypotheses of the form 'member F L' *)
           let ctxs = List.find_all (fun cls -> tc [] cls = olistty) goal.context in
@@ -944,7 +1010,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
           (* let ctx, focus, term = Sync.get goal in *)
           if n > 0 then begin
             match witness with
-            | WMagic | WUnfold _ -> clause_aux n goal.context [focus] goal.right r ts ~sc ~witness
+            | WMagic | WUnfold _ -> clause_aux n goal.context [([],focus)] goal.right r ts ~sc ~witness
             | _ -> bad_witness ()
           end
     end
@@ -1075,7 +1141,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
             ~sc:(fun w -> sc (WIntros(List.map fst hargs, w)))
     | Binding(Metaterm.Exists, tids, body) ->
         let global_support =
-          List.unique
+          List.unique ~cmp:eq
             ((List.flatten_map (fun (_, h) -> metaterm_support h) hyps) @
              (metaterm_support goal))
         in
@@ -1188,7 +1254,16 @@ let some_term_to_restriction t =
   | None -> Irrelevant
   | Some t -> term_to_restriction t
 
+exception TypesNotFullyDetermined
+ 
 let apply_arrow term args =
+  (* Printf.eprintf "Applying term: %s\n" (metaterm_to_string term);
+   * List.iter begin fun arg ->
+   *   match arg with
+   *   | None -> Printf.eprintf "Applied args: None\n"
+   *   | Some a ->
+   *      Printf.eprintf "Applied args: %s\n" (metaterm_to_string a)
+   *   end args; *)
   let () = check_restrictions
       (map_args term_to_restriction term)
       (List.map some_term_to_restriction args)
@@ -1224,15 +1299,36 @@ let apply_arrow term args =
          | Unify.UnifyFailure fl -> raise (Unify.UnifyFailure (Unify.FailTrail (!argno, fl)))
     end term args
   in
+  (* Printf.eprintf "Applying result: %s\n" (metaterm_to_string result);  
+   * Printf.eprintf "Normalized applying result: %s\n" (metaterm_to_string (normalize result)); *)  
   (* [HACK] reconcile does not produce failure trails *)
   Context.reconcile !context_pairs ;
-  (normalize result, !obligations)
+  let result = normalize result in
+  let args' = List.fold_left (fun l a ->
+                  match a with
+                  | None -> l
+                  | Some a -> a :: l) [] args in
+  let tms = result :: term :: (!obligations) @ args' in
+  if metaterms_contain_tyvar tms then 
+    raise TypesNotFullyDetermined
+  else
+    (result, !obligations)
+
+let try_with_state_all ~fail f =
+  let state = get_scoped_bind_state () in
+    try
+      f ()
+    with
+      | UnifyFailure _ | UnifyError _ 
+      | TypeInferenceFailure _ | InstGenericTyvar _
+      | TypesNotFullyDetermined
+        -> set_scoped_bind_state state ; fail
 
 let apply ?(used_nominals=[]) term args =
   let hyp_support = metaterm_support term in
   let support = hyp_support @
                   List.flatten_map (Option.map_default metaterm_support []) args in
-  let support = List.unique support in
+  let support = List.unique ~cmp:eq support in
   (* used_nominals are nominal constants provided by 'withs' for
      (partially) instantiating nabla quantified variables and
      should not be raised over by 'forall' quantified variables *)
@@ -1257,20 +1353,21 @@ let apply ?(used_nominals=[]) term args =
            respect the side condition of the nabla-left rule. *)
         let candidate_nominals = List.minus support hyp_support in
         candidate_nominals |> List.rev |> List.permute n |>
-        List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals) |>
         List.find_some begin fun nominals ->
-          try_with_state ~fail:None
-            (fun () ->
-              let support = List.minus support nominals in
-              let raised_body =
-                freshen_nameless_bindings ~support ~ts:0 foralls body
-              in
-              let alist = List.combine nabla_ids nominals in
-              let permuted_body =
-                replace_metaterm_vars alist raised_body
-              in
-              Some(apply_arrow permuted_body args))
-        end |>
+            try_with_state_all ~fail:None (fun () ->
+                List.iter2 (fun ty1 ty2 ->
+                    unify_constraints ~enable_bind:true [(ty1,ty2,def_cinfo)])
+                  nabla_tys (List.map (tc []) nominals);
+                let support = List.minus support nominals in
+                let raised_body =
+                  freshen_nameless_bindings ~support ~ts:0 foralls body
+                in
+                let alist = List.combine nabla_ids nominals in
+                let permuted_body =
+                  replace_metaterm_vars alist raised_body in
+                Some (apply_arrow permuted_body args)
+                )
+          end |>
         (function
           | Some v -> v
           | None ->
@@ -1293,7 +1390,7 @@ let apply ?(used_nominals=[]) term args =
       String.concat "\n" |> failwith
 
 let rec ensure_unique_nominals lst =
-  if not (List.is_unique lst) || not (List.for_all Term.is_nominal lst) then
+  if not (List.is_unique ~cmp:eq lst) || not (List.for_all Term.is_nominal lst) then
     failwith "Invalid instantiation for nabla variable"
 
 let take_from_binders binders withs =
@@ -1368,7 +1465,11 @@ let backchain_arrow term goal =
       | Unify.UnifyFailure fl -> raise (Unify.UnifyFailure (Unify.FailTrail (1, fl)))
     end
   end ;
-  obligations
+  let tms = term :: goal :: obligations in
+  if metaterms_contain_tyvar tms then 
+    raise TypesNotFullyDetermined
+  else
+    obligations
 
 let backchain ?(used_nominals=[]) term goal =
   let support = List.minus (metaterm_support goal) used_nominals in
@@ -1376,20 +1477,27 @@ let backchain ?(used_nominals=[]) term goal =
   | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->
       let n = List.length nablas in
       let (nabla_ids, nabla_tys) = List.split nablas in
+      (* Add dummy nominals in case nabla bound variables aren't used *)
+      let support =
+        (fresh_nominals_by_list nabla_tys
+           (List.map term_to_name (support @ used_nominals))) @
+          support
+      in
       support |> List.rev |> List.permute n |>
-      List.find_all (fun nominals -> nabla_tys = List.map (tc []) nominals) |>
       List.find_some begin fun nominals ->
-        try_with_state ~fail:None
+        try_with_state_all ~fail:None
           (fun () ->
-             let support = List.minus support nominals in
-             let raised_body =
-               freshen_nameless_bindings ~support ~ts:0 bindings body
-             in
-             let alist = List.combine nabla_ids nominals in
-             let permuted_body =
-               replace_metaterm_vars alist raised_body
-             in
-             Some(backchain_arrow permuted_body goal))
+            List.iter2 (fun ty1 ty2 ->
+                unify_constraints ~enable_bind:true [(ty1,ty2,def_cinfo)])
+              nabla_tys (List.map (tc []) nominals);
+            let support = List.minus support nominals in
+            let raised_body =
+              freshen_nameless_bindings ~support ~ts:0 bindings body
+            in
+            let alist = List.combine nabla_ids nominals in
+            let permuted_body =
+              replace_metaterm_vars alist raised_body in
+            Some (backchain_arrow permuted_body goal))
       end |>
       (function
         | Some v -> v

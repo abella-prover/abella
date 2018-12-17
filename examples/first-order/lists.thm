@@ -52,7 +52,7 @@ induction on 1. intros. case H1.
   apply IH to H3. apply perm_lemma to H4 H2. search.
 
 %% We can define append at the meta-level and show a connection
-Define app : list -> list -> list -> prop by
+Define app : lst -> lst -> lst -> prop by
   app nl C C ;
   app (cons X A) B (cons X C) := app A B C.
 

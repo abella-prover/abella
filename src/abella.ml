@@ -25,6 +25,7 @@ open Prover
 open Checks
 open Abella_types
 open Typing
+open Unifyty
 open Extensions
 open Printf
 open Accumulate
@@ -107,7 +108,7 @@ let teyjus_only_keywords =
    "use_sig"; "useonly"; "sigma"]
 
 let warn_on_teyjus_only_keywords (ktable, ctable) =
-  let tokens = List.unique (ktable @ List.map fst ctable) in
+  let tokens = List.unique (List.map fst ktable @ List.map fst ctable) in
   let used_keywords = List.intersect tokens teyjus_only_keywords in
   if used_keywords <> [] then
     fprintf !out
@@ -170,7 +171,7 @@ let compile citem =
 let predicates (ktable, ctable) =
   ctable |>
   List.filter_map begin fun (id, Poly (_, Ty (_, targty))) ->
-    if List.mem id [k_member ; k_fresh ; k_name] || targty = "o" then None
+    if List.mem id [k_member ; k_fresh ; k_name] || targty = oaty then None
     else Some id
   end
 
@@ -182,9 +183,10 @@ let write_compilation () =
   marshal (predicates !sign) ;
   marshal (List.rev !comp_content)
 
-let clause_eq c1 c2 = eq c1 c2
+let clause_eq (_,c1) (_,c2) = eq c1 c2
 
 let clauses_to_predicates clauses =
+  let clauses = List.map snd clauses in 
   clauses |>
   List.map clausify |>
   List.concat |>
@@ -197,7 +199,7 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   let imp_ctable = List.filter begin
       fun (id, ty) ->
         match ty with
-        | Typing.Poly (_, Ty (_, "prop")) -> false
+        | Typing.Poly (_, Ty (_, aty)) when aty = propaty -> false
         | _ -> true
     end imp_ctable in
 
@@ -205,7 +207,7 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   let missing_types = List.minus imp_ktable ktable in
   let () = if missing_types <> [] then
       failwithf "Imported file makes reference to unknown types: %s"
-        (String.concat ", " missing_types)
+        (String.concat ", " (List.map fst missing_types))
   in
 
   (* 2. Imported ctable must be a subset of ctable *)
@@ -228,7 +230,7 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   let extended_clauses =
     List.minus ~cmp:clause_eq
       (List.find_all
-         (fun clause ->
+         (fun (_,clause) ->
             clausify clause |>
             List.map (fun (_, h, _) -> term_head_name h) |>
             List.exists (fun h -> List.mem h imp_predicates))
@@ -301,7 +303,7 @@ let replace_atom_compiled decl defn_name defn comp=
           else (wfrom, wto)
         end ws in
       CImport (fn, ws)
-  | CKind ids ->
+  | CKind (ids,knd) ->
       (* Printf.printf "Trying to rewrite a CKind\n%!" ; *)
       if List.mem defn_name ids then
         failwithf "There are declared types named %s in import" defn_name ;
@@ -362,11 +364,11 @@ let import filename withs =
             | CImport(filename, withs) ->
                 aux (normalize_filename (Filename.concat file_dir filename)) withs ;
                 process_decls decls
-            | CKind(ids) ->
+            | CKind(ids, knd) ->
                 check_noredef ids ;
-                add_global_types ids ;
+                add_global_types ids knd;
                 process_decls decls
-            | CType(ids, (Ty(_, "prop") as ty)) -> begin
+            | CType(ids, (Ty(_, aty) as ty)) when aty = propaty-> begin
                 (* Printf.printf "Need to instantiate: %s.\n%!" (String.concat ", " ids) ; *)
                 let instantiate_id decls id =
                   try begin
@@ -400,9 +402,10 @@ let import filename withs =
                      | xs ->
                          failwithf
                            "Cannot close %s since it is now subordinate to %s"
-                           ty (String.concat ", " xs))
+                           (aty_to_string ty) 
+                           (String.concat ", " (List.map aty_to_string xs)))
                   ty_subords ;
-                close_types (List.map fst ty_subords) ;
+                close_types !sign !clauses (List.map fst ty_subords) ;
                 process_decls decls
           end
       in
@@ -520,6 +523,9 @@ and proof_processor = {
 
 let current_state = State.rref Process_top
 
+let print_clauses () =
+  List.iter print_clause !clauses
+
 let rec process1 () =
   State.Undo.push () ;
   try begin match !current_state with
@@ -536,6 +542,7 @@ let rec process1 () =
               | `aborted -> "ABORTED"
             end ;
             proc.reset () ;
+            (* print_clauses () ; *)
             current_state := Process_top
           end
       end
@@ -549,7 +556,7 @@ let rec process1 () =
       eprintf "Syntax error%s.\n%!" (position !lexbuf) ;
       Lexing.flush_input !lexbuf ;
       interactive_or_exit ()
-  | TypeInferenceFailure(ci, exp, act) ->
+  | TypeInferenceFailure(exp, act, ci) ->
       State.Undo.undo () ;
       type_inference_error ci exp act ;
       interactive_or_exit ()
@@ -660,15 +667,10 @@ and process_top1 () =
   end ;
   begin match input with
   | Theorem(name, tys, thm) ->
-      let tsign =
-        let (basics, consts) = !sign in
-        if List.exists (fun t -> List.mem t basics) tys then
-          failwithf "This basic type is already in scope: %s"
-            (List.find (fun t -> List.mem t basics) tys) ;
-        (tys @ basics, consts)
-      in
-      let thm = type_umetaterm ~sr:!sr ~sign:tsign thm in
-      check_theorem thm ;
+      let st = get_bind_state () in
+      let seq = copy_sequent () in
+      let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
+      check_theorem tys thm ;
       theorem thm ;
       let oldsign = !sign in
       let thm_compile () =
@@ -678,9 +680,8 @@ and process_top1 () =
       in
       let thm_reset () =
         sign := oldsign ;
-        reset_prover ()
+        reset_prover st seq ()
       in
-      sign := tsign ;
       current_state := Process_proof {
           thm = name ;
           compile = thm_compile ;
@@ -715,17 +716,17 @@ and process_top1 () =
         failwith "Specification can only be read \
                  \ at the begining of a development."
   | Query(q) -> query q
-  | Kind(ids) ->
+  | Kind(ids,knd) ->
       check_noredef ids;
-      add_global_types ids ;
-      compile (CKind ids)
+      add_global_types ids knd;
+      compile (CKind (ids,knd))
   | Type(ids, ty) ->
       check_noredef ids;
       add_global_consts (List.map (fun id -> (id, ty)) ids) ;
       compile (CType(ids, ty))
-  | Close(ids) ->
-      close_types ids ;
-      compile (CClose(List.map (fun id -> (id, Subordination.subordinates !sr id)) ids))
+  | Close(atys) ->
+      close_types !sign !clauses atys ;
+      compile (CClose(List.map (fun aty -> (aty, Subordination.subordinates !sr aty)) atys))
   end ;
   if !interactive then flush stdout ;
   fprintf !out "\n%!"

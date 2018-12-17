@@ -51,12 +51,15 @@ let ensure_no_restrictions term =
       (metaterm_to_string term)
 
 let untyped_ensure_no_restrictions term =
-  ensure_no_restrictions (umetaterm_to_metaterm [] term)
+  ensure_no_restrictions (umetaterm_to_metaterm term)
 
 let rec contains_prop ty =
-  match ty with
-  | Ty (argtys, targty) ->
-      targty = "prop" || List.exists contains_prop argtys
+  let cp = ref false in
+  iter_ty
+    (fun bty ->
+       if bty = propaty then cp := true)
+    ty;
+  !cp
 
 type nonstrat_reason =
   | Negative_head of string
@@ -124,7 +127,10 @@ let warn_stratify names head term =
       then failwith msg
       else Printf.fprintf !out "Warning: %s\n%!" msg
 
-let check_theorem thm =
+let check_theorem tys thm =
+  let tys' = metaterm_collect_gentyvar_names thm in
+  if List.minus tys' tys <> [] then
+    failwith "Some type variables in the theorem is not bounded";
   ensure_no_restrictions thm
 
 let check_noredef ids =
@@ -198,3 +204,27 @@ let check_def ~def =
     ensure_no_restrictions body ;
   end def.clauses ;
   check_stratification ~def
+
+(** The list of type parameters of a definition must be 
+    exactly those occuring in the type of the constants being defined *)
+let check_typaram tyvars ty =
+  let tyvars' = get_typaram ty in
+  let extra1 = (List.minus tyvars tyvars') in
+  let extra2 = (List.minus tyvars' tyvars) in
+  if (List.length extra1 <> 0 || List.length extra2 <> 0) then
+    failwithf "Some type parameters do not occur in type of some constant being defined"
+
+let check_typarams tyvars tys =
+  List.iter (check_typaram tyvars) tys
+
+(* Check that there is no parameterization of types at clause levels *)
+let ensure_no_schm_clause typarams cl =
+  let htyvars = (metaterm_collect_gentyvar_names cl.head) in
+  let btyvars = (metaterm_collect_gentyvar_names cl.body) in
+  [] = (List.minus (htyvars @ btyvars) typarams)
+
+let ensure_no_schm_clauses typarams clauses =
+  let ns = List.for_all (ensure_no_schm_clause typarams) clauses in
+  if not ns then
+    failwithf "Type variables in some clause are not bound at the \
+               definition level"

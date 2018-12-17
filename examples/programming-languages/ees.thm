@@ -13,7 +13,7 @@ Close natural, typ, exp.
 
 % Nominals
 
-Theorem member_prune : forall G E, nabla (x:exp),
+Theorem member_prune : forall (G:olist) E, nabla (x:exp),
   member (E x) G ->
     exists E', E = y\E'.
 induction on 1. intros. case H1.

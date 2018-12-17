@@ -65,7 +65,7 @@ let tests =
               uapp (ucon "p1") (ucon "X"),
               [uapp (uapp (ucon "pr") (ucon "_")) (ucon "_")])
            in
-             let clause = type_uclause ~sr:!sr ~sign:!sign uclause in
+             let (_, clause) = type_uclause ~sr:!sr ~sign:!sign uclause in
              match Metaterm.clausify clause with
                | [_, _, p::_] ->
                    assert_term_pprint_equal "pr X1 X2" p

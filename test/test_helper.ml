@@ -96,12 +96,12 @@ let () = process_decls (parse_decls nat_sig_string)
 
 let process_top_command str =
   match parse_top_command str with
-    | Abella_types.Kind(ids) ->
-        add_global_types ids ;
+    | Abella_types.Kind(ids, knd) ->
+        add_global_types ids knd ;
     | Abella_types.Type(ids, ty) ->
         add_global_consts (List.map (fun id -> (id, ty)) ids)
     | Abella_types.Close(ids) ->
-        close_types ids
+        close_types !sign !clauses ids
     | _ -> assert false
 
 let () = process_top_command "Type   foo, bar, baz         i -> prop."
@@ -113,12 +113,12 @@ let () = process_top_command "Kind     sr_a, sr_b     type."
 let () = process_top_command "Type     a_to_b   sr_a -> sr_b."
 let () = process_top_command "Type     sr_a_b   sr_a -> sr_b -> prop."
 let () = process_top_command "Close    sr_a, sr_b."
-let sr_a = Term.tybase "sr_a"
-let sr_b = Term.tybase "sr_b"
+let sr_a = Term.tybase (Term.atybase "sr_a")
+let sr_b = Term.tybase (Term.atybase "sr_b")
 let sr_sr =
   Subordination.close
     (Subordination.update Subordination.empty (Term.tyarrow [sr_a] sr_b))
-    ["sr_a"; "sr_b"]
+    [Term.atybase "sr_a"; Term.atybase "sr_b"]
 
 let freshen str =
   let uterm = parse_umetaterm str in
@@ -217,20 +217,20 @@ let rec extract_tests path test =
 
 (* Quick types *)
 
-let ity = Term.tybase "i"
+let ity = Term.tybase (Term.atybase "i")
 let iity = Term.tyarrow [ity] ity
 let iiity = Term.tyarrow [ity; ity] ity
 let iiiity = Term.tyarrow [ity; ity; ity] ity
 
-let aty = Term.tybase "a"
-let bty = Term.tybase "b"
-let cty = Term.tybase "c"
-let dty = Term.tybase "d"
-let ety = Term.tybase "e"
+let aty = Term.tybase (Term.atybase "a")
+let bty = Term.tybase (Term.atybase "b")
+let cty = Term.tybase (Term.atybase "c")
+let dty = Term.tybase (Term.atybase "d")
+let ety = Term.tybase (Term.atybase "e")
 
 (* We can ignore types for some tests *)
 
-let emptyty = Term.tybase ""
+let emptyty = Term.tybase (Term.atybase "")
 let uconst name = Term.const name emptyty
 let uvar tag name ts = Term.var tag name ts emptyty
 let unominal_var name = Term.nominal_var name emptyty

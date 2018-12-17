@@ -20,12 +20,39 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+type id = string
+
+(* Kinds *)
+type knd = Knd of int
+
+val kind : int -> knd
+val kincr : knd -> knd
+val karity : knd -> int
+
 (* Types *)
 
-type ty = Ty of ty list * string
+type tyvar = id
+type tycons = id
+
+type ty = Ty of ty list * aty
+and aty = 
+  | Tygenvar of tyvar
+  | Typtr of typtr  
+  | Tycons of tycons * ty list
+and typtr = in_typtr ref
+and in_typtr = TV of tyvar | TT of ty
+
+val eq_ty : ty -> ty -> bool
+val eq_tid : (id * ty) -> (id * ty) -> bool
+val observe_ty : ty -> ty
+val iter_ty : (aty -> unit) -> ty -> unit
 
 val tyarrow : ty list -> ty -> ty
-val tybase : string -> ty
+val tybase : aty -> ty
+
+val oaty : aty
+val olistaty : aty
+val propaty : aty
 val oty : ty
 val olistty : ty
 val propty : ty
@@ -33,7 +60,6 @@ val propty : ty
 (* Variables *)
 
 type tag = Eigen | Constant | Logic | Nominal
-type id = string
 
 module Itab : Map.S with type key := id
 module Iset : sig
@@ -89,12 +115,15 @@ end
 val get_ctx_tys : tyctx -> ty list
 
 val eq : term -> term -> bool
+val eq_idterm : (id * term) -> (id * term) -> bool
 
-(* Binding a variable to a term. The *contents* of the cell representing the
- * variable is a reference which must be updated. Also the variable must
- * not be made a reference to itself. *)
+(* Binding a variable to a term or type . The *contents* of the cell
+   representing the * variable is a reference which must be
+   updated. Also the variable must * not be made a reference to
+   itself. *)
 
 val bind : term -> term -> unit
+val bind_ty : aty -> ty -> unit
 
 type bind_state
 val get_bind_state : unit -> bind_state
@@ -143,6 +172,8 @@ val hnorm : term -> term
 val pretty_ty : ty -> Pretty.expr
 val format_ty : Format.formatter -> ty -> unit
 val ty_to_string : ty -> string
+val aty_to_string : aty -> string
+val knd_to_string : knd -> string
 
 val var_to_string : var -> string
 
@@ -168,6 +199,7 @@ val fresh_name : string -> (string * 'a) list -> string
 val term_head : term -> (term * term list) option
 val is_head_name : string -> term -> bool
 val term_head_name : term -> string
+val term_head_ty : term -> ty
 
 val is_capital_name : string -> bool
 val capital_tids : term list -> (id * ty) list
@@ -177,6 +209,9 @@ val all_tids : term list -> (id * ty) list
 
 val tc : tyctx -> term -> ty
 
+val atyvar : string -> aty
+val atybase : string -> aty
+val atyapp : aty -> ty -> aty
 val tyvar : string -> ty
 val is_tyvar : string -> bool
 val fresh_tyvar : unit -> ty
@@ -190,3 +225,19 @@ val extract_amp : term -> term * term
 val is_pi : term -> bool
 val extract_pi : term -> term
 
+val term_map_on_tys : (ty -> ty) -> term -> term
+
+val ty_tyvars : ty -> string list
+val ty_contains_tyvar : ty -> bool
+val term_collect_tyvar_names : term -> string list
+val terms_contain_tyvar : term list -> bool
+
+val ty_gentyvars : ty -> string list
+val ty_contains_gentyvar : ty -> bool
+val term_collect_gentyvar_names : term -> string list
+val terms_contain_gentyvar : term list -> bool
+
+(* Type substitutions *)
+type tysub = (string * ty) list
+val apply_sub_ty : tysub -> ty -> ty
+val apply_sub_ty_tyvar : tysub -> ty -> ty

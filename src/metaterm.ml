@@ -852,7 +852,7 @@ let all_meta_right_permute_unify ~sc t1 t2 =
         support_t1
         |> List.permute (List.length support_t2)
         |> List.find_all begin fun perm_support_t1 -> 
-                         List.for_all2 (fun v1 v2 -> (term_to_var v1).ty = (term_to_var v2).ty) 
+                         List.for_all2 (fun v1 v2 -> eq_ty (term_to_var v1).ty (term_to_var v2).ty)
                                        perm_support_t1 support_t2
                          end
         |> List.iter
@@ -879,7 +879,7 @@ let derivable goal hyp =
   support_g
   |> List.permute (List.length support_h)
   |> List.find_all begin fun perm_support_g -> 
-                   List.for_all2 (fun v1 v2 -> (term_to_var v1).ty = (term_to_var v2).ty) 
+                   List.for_all2 (fun v1 v2 -> eq_ty (term_to_var v1).ty (term_to_var v2).ty) 
                                  perm_support_g support_h
                    end
   |> List.exists

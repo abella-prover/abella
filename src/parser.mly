@@ -470,10 +470,6 @@ aty_list:
   | aty { [Typing.desugar_aty $1] }
   | aty COMMA aty_list { (Typing.desugar_aty $1) :: $3 }
 
-ty_list:
-  | ty { [$1] }
-  | ty COMMA ty_list { $1 :: $3 }
-
 apply_args:
   | apply_arg apply_args
     { $1 :: $2 }

@@ -58,7 +58,7 @@ type unify_error =
 let explain_error = function
   | NotLLambda -> "Unification incompleteness (non-pattern unification problem)"
   | InstGenericTyvar v ->
-     Printf.sprintf 
+     Printf.sprintf
       "Unification incompleteness (generic type variable %s cannot be instantiated)"
       v
 
@@ -103,7 +103,7 @@ let closing_depth t =
     aux t
 
 (* Transforming a term to represent substitutions under abstractions *)
-let rec lift t n =
+let lift t n =
   match observe t with
     | Var _ -> t
     | DB i -> db (i+n)
@@ -256,14 +256,14 @@ let raise_and_invert ts1 ts2 a1 a2 lev =
         end
   in
 
-  (** [prune args n] "prunes" those items in [args] that are not
-    * bound by an embedded abstraction and that do not appear in
-    * [a1]. At the same time inverts the items that are not pruned
-    * and that are not bound by an embedded abstraction; [n] is assumed to be
-    * the length of [args] here and hence yields the index of the
-    * leftmost argument position. This pruning computation is
-    * relevant to the case when [ts1 < ts2]. The terms in [args]
-    * are assumed to be constants or de Bruijn indices. *)
+  (* [prune args n] "prunes" those items in [args] that are not
+   * bound by an embedded abstraction and that do not appear in
+   * [a1]. At the same time inverts the items that are not pruned
+   * and that are not bound by an embedded abstraction; [n] is assumed to be
+   * the length of [args] here and hence yields the index of the
+   * leftmost argument position. This pruning computation is
+   * relevant to the case when [ts1 < ts2]. The terms in [args]
+   * are assumed to be constants or de Bruijn indices. *)
   let rec prune l n = match l,n with
     | [],0 -> false,[],[]
     | t::q,n ->
@@ -294,15 +294,15 @@ let raise_and_invert ts1 ts2 a1 a2 lev =
     | _ -> assert false
   in
 
-  (** Relevant to the case when [ts1 > ts2]. In this case,
-    * [prune_and_raise args n] prunes those constants and de
-    * Bruijn indices not bound by an embedded abstraction that do
-    * not appear in [a1] and, in the case of constants, that do not
-    * have a timestamp less than [ts1]. Constants that do have a timestamp
-    * greater than or equal to [ts1] are preserved via a raising of
-    * [v1]. As in prune, [n] is assumed to be the length of the list
-    * args. The terms in [args] are assumed to be constants or de
-    * Bruijn indices. *)
+  (* Relevant to the case when [ts1 > ts2]. In this case,
+   * [prune_and_raise args n] prunes those constants and de
+   * Bruijn indices not bound by an embedded abstraction that do
+   * not appear in [a1] and, in the case of constants, that do not
+   * have a timestamp less than [ts1]. Constants that do have a timestamp
+   * greater than or equal to [ts1] are preserved via a raising of
+   * [v1]. As in prune, [n] is assumed to be the length of the list
+   * args. The terms in [args] are assumed to be constants or de
+   * Bruijn indices. *)
   let rec prune_and_raise l n = match l,n with
     | [],0 -> false,[],[]
     | a::q,n ->
@@ -484,13 +484,13 @@ let makesubst tyctx h1 t2 a1 n =
   let ts1 = hv1.ts in
   let a1 = List.map hnorm a1 in
 
-  (** Generating a substitution term and performing raising and
-    * pruning substitutions corresponding to a non top-level
-    * (sub)term. In this case the variable being bound cannot appear
-    * embedded inside the term. This code assumes that its term
-      * argument is head normalized. Exceptions can be
-    * raised if unification fails or if LLambda conditions are found
-    * to be violated. *)
+  (* Generating a substitution term and performing raising and
+   * pruning substitutions corresponding to a non top-level
+   * (sub)term. In this case the variable being bound cannot appear
+   * embedded inside the term. This code assumes that its term
+   * argument is head normalized. Exceptions can be
+   * raised if unification fails or if LLambda conditions are found
+   * to be violated. *)
   let rec nested_subst tyctx c lev =
     match observe c with
       | Var v when constant v.tag ->
@@ -572,19 +572,19 @@ let makesubst tyctx h1 t2 a1 n =
       | _ -> assert false
   in
 
-  (** Processing toplevel structure in generating a substitution.
-    * First descend under abstractions. Then if the term is a
-    * variable, generate the simple substitution. Alternatively, if
-    * it is an application with the variable being bound as its head,
-    * then generate the pruning substitution. In all other cases,
-    * pass the task on to nested_subst. An optimization is possible
-    * in the case that the term being examined has no outer
-    * abstractions (i.e. lev = 0) and its head is a variable with a
-    * time stamp greater than that of the variable being bound. In
-    * this case it may be better to invoke raise_and_invert
-    * directly with the order of the "terms" reversed.
-    *
-    * The incoming term is assumed to be head normalized. *)
+  (* Processing toplevel structure in generating a substitution.
+   * First descend under abstractions. Then if the term is a
+   * variable, generate the simple substitution. Alternatively, if
+   * it is an application with the variable being bound as its head,
+   * then generate the pruning substitution. In all other cases,
+   * pass the task on to nested_subst. An optimization is possible
+   * in the case that the term being examined has no outer
+   * abstractions (i.e. lev = 0) and its head is a variable with a
+   * time stamp greater than that of the variable being bound. In
+   * this case it may be better to invoke raise_and_invert
+   * directly with the order of the "terms" reversed.
+   *
+   * The incoming term is assumed to be head normalized. *)
   let rec toplevel_subst tyctx t2 lev =
     match observe t2 with
       | Lam (idtys,t2) ->
@@ -658,7 +658,7 @@ let rec unify_list (tyctx:(Term.id*Term.ty) list) l1 l2 =
  * Fail if [t2] is a variable or an application.
  * If it is a lambda, binders need to be equalized and so this becomes
  * an application-term unification problem. *)
-and unify_const_term tyctx cst t2 = 
+and unify_const_term tyctx cst t2 =
   let v1 = term_to_var cst in
   match observe t2 with
     | Var v2 when constant v2.tag ->
@@ -846,7 +846,7 @@ let flexible_heads ~used ~sr (tys1, h1, a1) (tys2, h2, a2) =
     let bty = match observe_ty hv1.ty with Ty(tys, ty) -> Ty(List.drop n tys, ty) in
     let bn = match bty with Ty(tys, _) -> List.length tys in
       List.filter_map
-        (fun (a, aty, i) ->
+        (fun (_a, aty, i) ->
            let Ty(tys, ty) = aty in
            let use = List.drop_last bn tys in
            let leave = List.take_last bn tys in
@@ -870,7 +870,7 @@ let flexible_heads ~used ~sr (tys1, h1, a1) (tys2, h2, a2) =
 
 end
 
-let standard_handler t1 t2 = raise (UnifyError NotLLambda)
+let standard_handler _t1 _t2 = raise (UnifyError NotLLambda)
 
 module Right =
   Make (struct
@@ -930,7 +930,7 @@ let try_left_unify_cpairs ~used t1 t2 =
       | UnifyError err -> set_scoped_bind_state state ;
         let msg = "Unification error during case analysis: " in
         match err with
-        | NotLLambda -> 
+        | NotLLambda ->
            failwith (msg ^ "encountered non-pattern unification problem")
         | InstGenericTyvar v ->
            let msg = msg ^ (Unifyty.inst_gen_tyvar_msg v) in

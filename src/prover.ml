@@ -92,7 +92,7 @@ let close_types sign clauses atys =
   let tys = List.map tybase atys in
   begin match List.intersect [oty; olistty; propty] tys with
   | [] -> ()
-  | xs -> failwithf "Cannot close %s" 
+  | xs -> failwithf "Cannot close %s"
      (String.concat ", " (List.map ty_to_string xs))
   end ;
   sr := Subordination.close !sr atys;
@@ -322,7 +322,7 @@ let def_unfold term =
 
 (* Pretty print *)
 
-let sequent_var_to_string (x, xt) =
+let sequent_var_to_string (x, _xt) =
   x (* ^ "(=" ^ term_to_string xt ^ ")" *)
 
 let show_instantiations = State.rref false
@@ -571,9 +571,9 @@ let get_generic_lemma name =
 
 let get_lemma ?(tys:ty list = []) name =
   let (argtys, bod) = H.find lemmas name in
-  let tys = 
+  let tys =
     if (List.length argtys > 0 && List.length tys = 0) then
-      List.map (fun t -> fresh_tyvar ()) argtys
+      List.map (fun _t -> fresh_tyvar ()) argtys
     else if List.length tys <> List.length argtys then
       failwithf "Need to provide mappings for %d types" (List.length argtys)
     else
@@ -669,9 +669,9 @@ let has_inductive_hyps hyp =
     match term with
     | Binding(Forall, _, body) -> aux body
     | Binding(Nabla, _, body) -> aux body
-    | Arrow(Obj(_, Smaller i), _) -> true
-    | Arrow(Pred(_, Smaller i), _) -> true
-    | Arrow(left, right) -> aux right
+    | Arrow(Obj(_, Smaller _i), _) -> true
+    | Arrow(Pred(_, Smaller _i), _) -> true
+    | Arrow(_left, right) -> aux right
     | _ -> false
   in
   aux hyp.term
@@ -684,7 +684,7 @@ let has_coinductive_result hyp =
     match term with
     | Binding(Forall, _, body) -> aux body true
     | Binding(Nabla, _, body) -> aux body true
-    | Arrow(left, right) -> aux right true
+    | Arrow(_left, right) -> aux right true
     | Pred(_, CoSmaller _) -> nested
     | Pred(_, CoEqual _) -> nested
     | _ -> false
@@ -756,12 +756,12 @@ let ensure_no_restrictions term =
     | Binding(Forall, _, body) -> aux body true
     | Binding(Nabla, _, body) -> aux body true
     | Arrow(left, right) -> aux left true; aux right true
-    | Obj(_, Smaller i) | Obj(_, Equal i)
-    | Pred(_, Smaller i) | Pred(_, Equal i) ->
+    | Obj(_, Smaller _i) | Obj(_, Equal _i)
+    | Pred(_, Smaller _i) | Pred(_, Equal _i) ->
         if nested then
           failwithf "Inductive restrictions must not occur in strict subterms:\n%s"
             (metaterm_to_string term)
-    | Pred(_, CoSmaller i) | Pred(_, CoEqual i) ->
+    | Pred(_, CoSmaller _i) | Pred(_, CoEqual _i) ->
         failwithf "Co-Inductive restrictions must not be present:\n%s"
           (metaterm_to_string term)
     | _ -> ()
@@ -951,7 +951,7 @@ let rec conclusion term =
   match term with
   | Binding(Forall, _, body) -> conclusion body
   | Binding(Nabla, _, body) -> conclusion body
-  | Arrow(left, right) -> conclusion right
+  | Arrow(_left, right) -> conclusion right
   | Pred(p, _) -> p
   | _ -> failwith "Cannot coinduct on a goal of this form"
 
@@ -1095,7 +1095,7 @@ let decompose_forall_nabla t =
   | _ ->
       ([], [], t)
 
-let rec multiarrow arrows body =
+let multiarrow arrows body =
   let rec aux = function
     | h::hs -> Arrow(h, aux hs)
     | [] -> body
@@ -1178,7 +1178,7 @@ let rec resolve_ewitness ew tids =
       if x = id then (x, ty, t, tids) else
       let (_, xty, _, tids) = resolve_ewitness ew tids in
       (x, xty, t, (id, ty) :: tids)
-  | _, nil ->
+  | _, [] ->
       failwithf "Could not resolve existential witness %s" (ewitness_to_string ew)
 
 let exists ew =

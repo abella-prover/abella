@@ -124,7 +124,7 @@ let iter f ctx = List.iter f ctx
 let rec group pair_list =
   match pair_list with
     | [] -> []
-    | (a, b)::_ ->
+    | (a, _b)::_ ->
         let pairings = List.assoc_all ~cmp:eq a pair_list in
         let pair_list' = List.remove_all_assoc ~cmp:eq a pair_list in
           (a, pairings)::(group pair_list')
@@ -158,7 +158,7 @@ let extract_singleton ctx =
 (* For each context pair (ctx1, ctx2), make ctx2 a subcontext of ctx1 *)
 let reconcile pair_list =
   let pair_list = List.map (fun (x,y) -> xor x y) pair_list in
-  let pair_list = List.remove_all (fun (x,y) -> is_empty y) pair_list in
+  let pair_list = List.remove_all (fun (_x,y) -> is_empty y) pair_list in
   let var_ctx_list =
     List.map (fun (x,y) -> (extract_singleton x, y)) pair_list
   in

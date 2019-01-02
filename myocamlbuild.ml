@@ -62,7 +62,7 @@ let () =
                flag ["ocaml" ; "compile"] (A "-strict-formats") ;
            end) ;
       if Sys.os_type = "Unix" then
-        flag ["ocaml" ; "compile"] (S [A "-w" ; A "@3@5@6@8..12@14@20@26@28@29"]) ;
+        flag ["ocaml" ; "compile"] (S [A "-w" ; A "@a-4-29-40-41-42-44-45-48-58-59-60"]) ;
       flag ["ocaml" ; "native" ; "compile"] (A "-nodynlink") ;
   | _ -> ()
   end

@@ -53,7 +53,7 @@ let ensure_no_restrictions term =
 let untyped_ensure_no_restrictions term =
   ensure_no_restrictions (umetaterm_to_metaterm term)
 
-let rec contains_prop ty =
+let contains_prop ty =
   let cp = ref false in
   iter_ty
     (fun bty ->
@@ -88,7 +88,7 @@ let get_pred_occurrences mt =
     | Var _ | DB _ -> ()
     | _ -> assert false
   in
-  iter_preds begin fun ~parity ~posity t ->
+  iter_preds begin fun ~parity:_ ~posity t ->
     if posity = NONPOS then aux_term t
   end mt ;
   !preds

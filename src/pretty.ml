@@ -47,7 +47,7 @@ let rparen = FUN (fun ff -> pp_print_string ff ")")
 let bracket ?(left=lparen) ?(right=rparen) ?(trans=OPAQUE) ?(indent=2) inner =
   Bracket {left; right; indent; inner; trans}
 
-type dom_op = PRE of prec |POST of prec | NOP
+type dom_op = PRE of prec | POST of prec | NOP
 
 let rec reprec de = match de with
   | Atom _ -> (de, NOP)
@@ -158,6 +158,9 @@ and print_bracket ~left ~right ff br =
     print ~left ~right ff br.inner ;
     print_atom ff br.right ;
   end ; pp_close_box ff ()
+
+let print ff ?left ?right ex =
+  print ff ?left ?right (fst (reprec ex))
 
 let print_string ?(left=lparen) ?(right=rparen) ex =
   let buf = Buffer.create 19 in

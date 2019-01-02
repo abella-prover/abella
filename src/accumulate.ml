@@ -23,7 +23,6 @@ open Abella_types
 open Typing
 open Extensions
 open Format
-open Prover
 
 module H = Hashtbl
 

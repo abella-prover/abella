@@ -121,7 +121,7 @@ type sign = ktable * ctable
 
 let add_types (ktable, ctable) ids knd =
   List.iter begin fun id ->
-    begin 
+    begin
       try
         let knd' = List.assoc id ktable in
         if knd <> knd' then
@@ -141,15 +141,15 @@ let lookup_type (ktable, _) id =
 (** Constants *)
 
 let kind_check sign ty =
-  let rec aux = function 
+  let rec aux = function
     | Ty(tys, aty) ->
        List.iter aux tys;
        match aty with
-       | Tygenvar _ 
+       | Tygenvar _
        | Typtr {contents = TV _} -> ()
        | Tycons(cty,args) ->
-          let knd = 
-            try lookup_type sign cty 
+          let knd =
+            try lookup_type sign cty
             with
             | Not_found -> failwithf "Unknown type constructor: %s" cty
           in
@@ -158,12 +158,12 @@ let kind_check sign ty =
           if not (nargs = arity) then
             failwithf "%s expects %i arguments but has %i" cty arity nargs
        | Typtr {contents = TT _} -> assert false
-  in aux (observe_ty ty)          
+  in aux (observe_ty ty)
 
-let kind_check_poly (ktable,ctable) (Poly(ids, ty)) = 
+let kind_check_poly (ktable,ctable) (Poly(_ids, ty)) =
   kind_check (ktable,ctable) ty
 
-let eq_pty pty1 pty2 = 
+let eq_pty pty1 pty2 =
   match pty1,pty2 with
   | Poly(ids1, ty1), Poly(ids2,ty2) ->
      List.length ids1 = List.length ids2 &&
@@ -194,12 +194,12 @@ let add_poly_consts (ktable, ctable) idptys =
   List.iter (check_const (ktable, ctable)) idptys ;
   (ktable, idptys @ ctable)
 
-let get_typaram ty = 
+let get_typaram ty =
   let params = ref [] in
   iter_ty begin fun aty ->
     match aty with
     | Tygenvar v ->
-       if is_capital_name v then 
+       if is_capital_name v then
          params := v::(!params)
     | _ -> ()
     end ty;
@@ -229,14 +229,14 @@ let rec desugar_aty aty =
   | Tycons (v,tys) ->
      if v = "olist" && tys = [] then
        Tycons ("list",[oty])
-     else 
+     else
        let tys = List.map desugar_ty tys in
        Tycons (v,tys)
-  | Typtr {contents=TT t} -> 
+  | Typtr {contents=TT _t} ->
      assert false
   | _ -> aty
 
-and desugar_ty ty = 
+and desugar_ty ty =
   match (observe_ty ty) with
     | Ty (tys, aty) ->
        let tys = List.map desugar_ty tys in
@@ -263,7 +263,7 @@ let pervasive_sign =
 
 let sign_to_tys sign =
   List.map
-    (function (_, Poly(ids, ty)) -> ty)
+    (function (_, Poly(_ids, ty)) -> ty)
     (snd sign)
 
 let pervasive_sr =
@@ -334,21 +334,21 @@ let constraints_to_string eqns =
  *   in
  *   aux ty *)
 
-let contains_tyvar ty = 
+let contains_tyvar ty =
   let rec aux = function
     | Ty (tys,aty) ->
        let cv =
          match aty with
          | Tygenvar _ -> false
          | Typtr {contents=TV _} -> true
-         | Tycons (c,args) ->
+         | Tycons (_c,args) ->
             List.exists aux args
          | Typtr {contents=TT _} -> assert false
        in
        cv || List.exists aux tys
   in aux (observe_ty ty)
 
-let tid_ensure_fully_inferred ~sign (id, ty) =
+let tid_ensure_fully_inferred ~sign (_id, ty) =
   if contains_tyvar ty then
     failwith "Types of variables are not fully determined" ;
   kind_check sign ty
@@ -357,9 +357,9 @@ let term_ensure_fully_inferred ~sign t =
   let rec aux t =
     match observe (hnorm t) with
     | Var v -> tid_ensure_fully_inferred ~sign (v.name, v.ty)
-    | DB i -> ()
+    | DB _i -> ()
     | App(h, args) -> aux h ; List.iter aux args
-    | Lam(tys, body) -> aux body
+    | Lam(_tys, body) -> aux body
     | _ -> assert false
   in
   aux t
@@ -390,15 +390,15 @@ let metaterm_ensure_fully_inferred ~sign t =
 
 (* let apply_bind_constraints v ty eqns =
  *   List.map (fun (x,y) -> (apply_bind_ty v ty x, apply_bind_ty v ty y)) eqns
- * 
+ *
  * let apply_bind_sub v ty sub =
  *   List.map (fun (x,y) -> (x, apply_bind_ty v ty y)) sub
- * 
+ *
  * let unify_constraints eqns =
  *   let add_sub v vty s =
  *     (v, vty) :: (apply_bind_sub v vty s)
  *   in
- * 
+ *
  *   (\* Unify a single constraint and call fail on failure *\)
  *   let rec aux s (ty1, ty2) fail =
  *     let ty1 = apply_sub_ty s ty1 in
@@ -420,13 +420,13 @@ let metaterm_ensure_fully_inferred ~sign t =
  *         aux s (Ty(tys1, bty1), Ty(tys2, bty2)) fail
  *     | ty1, ty2 -> fail s
  *   in
- * 
+ *
  *   let unify_single_constraint s (ty1, ty2, p) =
  *     aux s (ty1, ty2)
  *       (fun s -> raise (TypeInferenceFailure(p, apply_sub_ty s ty1,
  *                                             apply_sub_ty s ty2)))
  *   in
- * 
+ *
  *   List.fold_left unify_single_constraint [] eqns *)
 
 let uterms_extract_if test ts =
@@ -457,7 +457,7 @@ let term_ensure_subordination sr t =
   let rec aux tyctx t =
     match observe (hnorm t) with
     | Var v -> Subordination.ensure sr v.ty
-    | DB i -> ()
+    | DB _i -> ()
     | App(h, ts) -> aux tyctx h ; List.iter (aux tyctx) ts
     | Lam(idtys, b) ->
         Subordination.ensure sr (tc tyctx t) ;
@@ -498,12 +498,12 @@ let check_pi_quantification ts =
  *   let rec aux = function
  *     | Ty (tys, aty) ->
  *        let ns = List.flatten_map aux tys in
- *        let ans = 
+ *        let ans =
  *          match aty with
  *          | Typtr {contents=TV v} -> [v]
  *          | Typtr {contents=TT _} -> assert false
  *          | Tygenvar _ -> []
- *          | Tycons (c,args) -> 
+ *          | Tycons (c,args) ->
  *             List.flatten_map aux tys
  *        in
  *        ns @ ans
@@ -689,7 +689,7 @@ let umetaterm_extract_if test t =
 let umetaterm_nominals_to_tyctx t =
   ids_to_fresh_tyctx (umetaterm_extract_if is_nominal_name t)
 
-let umetaterm_to_metaterm ?sign t =
+let umetaterm_to_metaterm ?sign:_ t =
   let rec aux t =
     match t with
     | UTrue -> True

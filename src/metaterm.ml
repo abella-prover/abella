@@ -309,7 +309,7 @@ let map_on_objs_full f mt =
   aux ~parity:true ~bindstack:[] mt
 
 let map_on_objs f mt =
-  map_on_objs_full (fun ~parity ~bindstack obj -> f obj) mt
+  map_on_objs_full (fun ~parity:_ ~bindstack:_ obj -> f obj) mt
 
 let map_obj f obj =
   let context = Context.map f obj.context in
@@ -416,7 +416,7 @@ let is_member = function
 let extract_member = function
   | Pred (t,_) -> (
       match observe (hnorm t) with
-      | App (t, [a;b]) -> (a,b)
+      | App (_t, [a;b]) -> (a,b)
       | _ -> bugf "Check is_member before calling extract_member")
   | _ -> bugf "Check is_member before calling extract_member"
 
@@ -516,7 +516,7 @@ let replace_term_vars ?tag alist t =
 
 let find_free_constants t =
   let terms_aux ts = find_var_refs Constant ts in
-  let rec aux t = 
+  let rec aux t =
     match t with
     | True | False -> []
     | Eq (a, b) -> terms_aux [a;b]
@@ -529,15 +529,15 @@ let find_free_constants t =
        terms_aux ts
     | Arrow (a, b) -> (aux a) @ (aux b)
     | Binding(_,bindings,body) ->
-       let bound t = 
+       let bound t =
          let name = (term_to_var t).name in
          List.mem_assoc name bindings
        in
        List.remove_all bound (aux body)
     | Or(a, b) -> (aux a) @ (aux b)
     | And(a, b) -> (aux a) @ (aux b)
-    | Pred(p, r) -> terms_aux [p]
-  in 
+    | Pred(p, _r) -> terms_aux [p]
+  in
   List.map term_to_pair (List.unique ~cmp:eq (aux t))
 
 let rec collect_terms t =
@@ -566,9 +566,9 @@ let get_metaterm_used_nominals t =
   t |> metaterm_support
     |> List.map term_to_pair
 
-let rec replace_metaterm_vars alist t =
+let replace_metaterm_vars alist t =
   let term_aux alist = replace_term_vars alist in
-  (* Compute (possiblely) free variables at the top-level *) 
+  (* Compute (possibly) free variables at the top-level *)
   let top_free_vars = List.unique ~cmp:eq_idterm (get_metaterm_used t
                                    @ get_metaterm_used_nominals t
                                    @ find_free_constants t)
@@ -583,8 +583,8 @@ let rec replace_metaterm_vars alist t =
       | Obj(obj, r) -> Obj(map_obj (term_aux alist) obj, r)
       | Arrow(a, b) -> Arrow(aux fuvars alist a, aux fuvars alist b)
       | Binding(binder, bindings, body) ->
-         let (fuvars, alist, rev_bindings) = 
-           List.fold_left 
+         let (fuvars, alist, rev_bindings) =
+           List.fold_left
              begin fun (fuvars, alist, rev_bnds) (id,ty) ->
              (* Remove the binding variable from the lists for free variables *)
              let alist = List.remove_assocs [id] alist in
@@ -651,7 +651,7 @@ let fresh_nominals_by_list tys used_names =
       done ;
       p ^ (string_of_int !n)
   in
-    for i = 1 to List.length tys do
+    for _ = 1 to List.length tys do
       result := !result @ [get_name()] ;
     done ;
     List.map2 nominal_var !result tys
@@ -675,7 +675,7 @@ let replace_pi_with_nominal obj =
       { obj with right = app abs [nominal] }
   | _ -> assert false
 
-let rec normalize_obj ~parity ~bindstack obj =
+let normalize_obj ~parity:_ ~bindstack obj =
   let rec aux obj =
     if is_imp obj.right then
       aux (move_imp_to_context obj)
@@ -724,7 +724,7 @@ let normalize_binders =
         binding binder bvars (aux rens used body)
   in
   fun form ->
-    let used = get_metaterm_used form 
+    let used = get_metaterm_used form
                @ get_metaterm_used_nominals form
                @ find_free_constants form in
     aux [] used form
@@ -743,7 +743,7 @@ let replace_term_typed_nominals alist t =
   in
     aux t
 
-let rec replace_metaterm_typed_nominals alist t =
+let replace_metaterm_typed_nominals alist t =
   let term_aux = replace_term_typed_nominals alist in
   let rec aux t =
     match t with
@@ -816,7 +816,7 @@ let rec meta_right_unify t1 t2 =
         meta_right_unify l1 l2 ;
         meta_right_unify r1 r2
     | Binding(b1, tids1, t1), Binding(b2, tids2, t2)
-        when b1 = b2 && 
+        when b1 = b2 &&
              List.length tids1 = List.length tids2 &&
              List.for_all2 eq_ty (List.map snd tids1) (List.map snd tids2) ->
         (* Replace bound variables with constants with "infinite"
@@ -851,7 +851,7 @@ let all_meta_right_permute_unify ~sc t1 t2 =
       let support_t2_names = List.map term_to_name support_t2 in
         support_t1
         |> List.permute (List.length support_t2)
-        |> List.find_all begin fun perm_support_t1 -> 
+        |> List.find_all begin fun perm_support_t1 ->
                          List.for_all2 (fun v1 v2 -> eq_ty (term_to_var v1).ty (term_to_var v2).ty)
                                        perm_support_t1 support_t2
                          end
@@ -878,8 +878,8 @@ let derivable goal hyp =
   let support_h_names = List.map term_to_name support_h in
   support_g
   |> List.permute (List.length support_h)
-  |> List.find_all begin fun perm_support_g -> 
-                   List.for_all2 (fun v1 v2 -> eq_ty (term_to_var v1).ty (term_to_var v2).ty) 
+  |> List.find_all begin fun perm_support_g ->
+                   List.for_all2 (fun v1 v2 -> eq_ty (term_to_var v1).ty (term_to_var v2).ty)
                                  perm_support_g support_h
                    end
   |> List.exists
@@ -902,13 +902,13 @@ let metaterm_extract_tids aux_term t =
   let rec aux = function
     | True | False -> []
     | Eq(a, b) -> aux_term [a; b]
-    | Obj(obj, r) -> aux_obj obj
+    | Obj(obj, _r) -> aux_obj obj
     | Arrow(a, b) -> aux a @ aux b
-    | Binding(binder, bindings, body) ->
-        List.remove_all (fun (id, ty) -> List.mem_assoc id bindings) (aux body)
+    | Binding(_binder, bindings, body) ->
+        List.remove_all (fun (id, _ty) -> List.mem_assoc id bindings) (aux body)
     | Or(a, b) -> aux a @ aux b
     | And(a, b) -> aux a @ aux b
-    | Pred(p, r) -> aux_term [p]
+    | Pred(p, _r) -> aux_term [p]
   in
   List.unique ~cmp:eq_tid (aux t)
 
@@ -961,20 +961,19 @@ let rec clausify ?(vars=[]) ?(body=[]) head =
       clausify ~vars ~body head2
   | head -> [vars, head, List.rev body]
 
-let metaterm_collect_tyvar_names t = 
+let metaterm_collect_tyvar_names t =
   let tyvars = ref [] in
-  let record ty = 
+  let record ty =
     tyvars := (ty_tyvars ty)@(!tyvars); ty in
   let _ = map_on_tys record t in
   List.unique (!tyvars)
-  
-let metaterms_contain_tyvar l = 
+
+let metaterms_contain_tyvar l =
   List.exists (fun t -> List.length (metaterm_collect_tyvar_names t) <> 0) l
 
-let metaterm_collect_gentyvar_names t = 
+let metaterm_collect_gentyvar_names t =
   let tyvars = ref [] in
-  let record ty = 
+  let record ty =
     tyvars := (ty_gentyvars ty)@(!tyvars); ty in
   let _ = map_on_tys record t in
   List.unique (!tyvars)
-  

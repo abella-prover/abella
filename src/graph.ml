@@ -27,16 +27,13 @@ type t = (aty * aty) list
 
 let empty = []
 
-let aty_no_tyvar aty = 
+let aty_no_tyvar aty =
   let ty = (tybase aty) in
   (not (ty_contains_tyvar ty)) && (not (ty_contains_gentyvar ty))
-    
+
 
 let add_arc arcs a b =
   if List.mem (a, b) arcs then arcs else (a, b)::arcs
-
-let is_prop_type aty =
-  aty = oaty || aty = propaty || aty = olistaty
 
 let arc_predecessor ((s, t):(aty * aty)) a =
   assert (aty_no_tyvar a);
@@ -65,7 +62,7 @@ let arc_predecessor ((s, t):(aty * aty)) a =
   with
   | TypeInferenceFailure _ -> None
   | e -> raise e
-  
+
 let direct_predecessors arcs a =
   assert (aty_no_tyvar a);
   let infer_pred preds (s,t) =

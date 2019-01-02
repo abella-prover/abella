@@ -33,9 +33,9 @@ type tycons = id
 
 type knd = Knd of int
 type ty = Ty of ty list * aty
-and aty = 
+and aty =
   | Tygenvar of tyvar
-  | Typtr of typtr  
+  | Typtr of typtr
   | Tycons of tycons * ty list
 and typtr = in_typtr ref
 and in_typtr = TV of tyvar | TT of ty
@@ -45,9 +45,9 @@ and in_typtr = TV of tyvar | TT of ty
 let rec observe_ty = function
   | Ty (args, aty) ->
      let args' = List.map observe_ty args in
-     let targ = 
+     let targ =
        match aty with
-       | Tycons (c, tys) -> 
+       | Tycons (c, tys) ->
           let aargs = List.map observe_ty tys in
           Ty ([], Tycons (c, aargs))
        | Typtr {contents=TV _}
@@ -56,7 +56,7 @@ let rec observe_ty = function
        | Typtr {contents=TT t} -> observe_ty t
      in
      let tyspine args t =
-       match t with 
+       match t with
        | Ty (args', targ) -> Ty (args@args', targ)
      in
      tyspine args' targ
@@ -68,11 +68,11 @@ let eq_tid (id1,ty1) (id2,ty2) =
 
 let iter_ty f ty =
   let rec aux = function
-    | Ty(tys, bty) -> 
+    | Ty(tys, bty) ->
        List.iter aux tys;
-       f bty; 
+       f bty;
        match bty with
-       | Tycons (c,args) -> List.iter aux args
+       | Tycons (_c,args) -> List.iter aux args
        | Typtr {contents=TT _} -> assert false
        | _ -> ()
   in
@@ -94,10 +94,10 @@ type var = {
   ty   : ty ;
 }
 
-let eq_var v1 v2 = 
+let eq_var v1 v2 =
   v1.name = v2.name && v1.tag = v2.tag && v1.ts = v2.ts
   && eq_ty v1.ty v2.ty
- 
+
 
 type tyctx = (id * ty) list
 
@@ -115,7 +115,7 @@ and envitem = Dum of int | Binding of term * int
 
 (* Utilities for constructing and deconstructing terms *)
 
-let rec observe_var_ty v = {v with ty = observe_ty v.ty}
+let observe_var_ty v = {v with ty = observe_ty v.ty}
 
 let rec observe = function
   | Ptr {contents=T d} -> observe d
@@ -229,7 +229,7 @@ let rec eq t1 t2 =
         List.length l1 = List.length l2 &&
         List.for_all2 eq (h1::l1) (h2::l2)
     | Lam(idtys1,t1), Lam(idtys2,t2) ->
-        List.for_all2 eq_ty (get_ctx_tys idtys1) (get_ctx_tys idtys2) 
+        List.for_all2 eq_ty (get_ctx_tys idtys1) (get_ctx_tys idtys2)
         && eq t1 t2
     | _ -> false
 
@@ -283,15 +283,15 @@ type bind_state = bind_state_var * bind_state_ty
 let get_bind_state () = (!bind_state_var, !bind_state_ty)
 
 let clear_bind_state () =
-  List.iter (fun (v, ov, nv) -> v := ov) !bind_state_var ;
-  List.iter (fun (tv, tov, tnv) -> tv := tov) !bind_state_ty ;
+  List.iter (fun (v, ov, _nv) -> v := ov) !bind_state_var ;
+  List.iter (fun (tv, tov, _tnv) -> tv := tov) !bind_state_ty ;
   bind_state_var := [] ;
   bind_state_ty := []
 
 let set_bind_state (state_var, state_ty) =
   clear_bind_state () ;
-  List.iter (fun (v, ov, nv) -> bind (Ptr v) nv) (List.rev state_var) ;
-  List.iter (fun (tv, tov, tnv) -> bind_ty (Typtr tv) tnv) (List.rev state_ty)
+  List.iter (fun (v, _ov, nv) -> bind (Ptr v) nv) (List.rev state_var) ;
+  List.iter (fun (tv, _tov, tnv) -> bind_ty (Typtr tv) tnv) (List.rev state_ty)
 
 (* make state undoable *)
 let () = State.make () ~copy:get_bind_state ~assign:(fun () st -> set_bind_state st)
@@ -302,14 +302,14 @@ let () = State.make () ~copy:get_bind_state ~assign:(fun () st -> set_bind_state
 
 type scoped_bind_state = int * int
 
-let get_bind_len () = 
+let get_bind_len () =
   (List.length (!bind_state_var), List.length (!bind_state_ty))
 let get_scoped_bind_state () = get_bind_len ()
 
 let set_scoped_bind_state_var state =
   while (List.length !bind_state_var) > state do
     match !bind_state_var with
-      | (v, ov, nv)::rest ->
+      | (v, ov, _nv)::rest ->
           v := ov ;
           bind_state_var := rest ;
       | [] -> assert false
@@ -318,7 +318,7 @@ let set_scoped_bind_state_var state =
 let set_scoped_bind_state_ty state =
   while (List.length !bind_state_ty) > state do
     match !bind_state_ty with
-      | (v, ov, nv)::rest ->
+      | (v, ov, _nv)::rest ->
           v := ov ;
           bind_state_ty := rest ;
       | [] -> assert false
@@ -350,7 +350,7 @@ let abstract test =
 
 (** Abstract [t] over constant or variable named [id]. *)
 let abstract id ty t =
-  lambda [(id,ty)] (abstract (fun t id' -> id' = id) 1 t)
+  lambda [(id,ty)] (abstract (fun _t id' -> id' = id) 1 t)
 
 (** Utilities.
   * Easy creation of constants and variables, with sharing. *)
@@ -434,7 +434,7 @@ let select_var_refs f ts =
       match observe t with
         | Var v -> if f v then t::acc else acc
         | App (h, ts) -> List.fold_left fv (fv acc h) ts
-        | Lam (idtys, t') -> fv acc t'
+        | Lam (_idtys, t') -> fv acc t'
         | DB _ -> acc
         | Susp _ -> assert false
         | Ptr _ -> assert false
@@ -448,57 +448,25 @@ let find_vars tag ts =
   List.map term_to_var (find_var_refs tag ts)
 
 let map_vars f ts =
-  select_var_refs (fun v -> true) ts
+  select_var_refs (fun _v -> true) ts
   |> List.rev
   |> List.unique ~cmp:eq
   |> List.map term_to_var
   |> List.map f
 
 let get_used ts =
-  select_var_refs (fun v -> true) ts
+  select_var_refs (fun _v -> true) ts
   |> List.rev
   |> List.unique ~cmp:eq
   |> List.map (fun t -> ((term_to_var t).name, t))
 
 (* Pretty printing *)
 
-exception Found of int
-
-type assoc = Left | Right | Both | No
-
-(* List of infix operators sorted by priority, low to high. *)
-let infix : (string * assoc) list =
-  [("=>", Right); ("&", Left); ("::", Right)]
-
-let is_infix x = List.mem_assoc x infix
-let get_assoc op = List.assoc op infix
-let priority x =
-  try
-    ignore (List.fold_left
-              (fun i (e, assoc) -> if e = x then raise (Found i) else i+1)
-              1 infix) ;
-    0
-  with
-    | Found i -> i
-let get_max_priority () = List.length infix
-
-let is_obj_quantifier x = x = "pi" || x = "sigma"
-
-let is_lam t =
-  match observe (hnorm t) with
-    | Lam _ -> true
-    | _ -> false
-
 let tag2str = function
   | Constant -> "c"
   | Eigen -> "e"
   | Logic -> "l"
   | Nominal -> "n"
-
-let parenthesis x = "(" ^ x ^ ")"
-
-let rec list_range a b =
-  if a > b then [] else a::(list_range (a+1) b)
 
 let abs_name = "x"
 
@@ -514,7 +482,7 @@ let rec pretty_ty (Ty (args, targ)) =
     Opapp (1, Infix (RIGHT, arg, arrow_op, targ))
   end args targ
 
-and pretty_aty aty = 
+and pretty_aty aty =
   let open Pretty in
   match aty with
   | Tygenvar v
@@ -554,15 +522,6 @@ let var_to_string v =
 let rec knd_to_string = function
   | Knd 0 -> "Type"
   | Knd i -> "Type -> " ^ (knd_to_string (Knd (i-1)))
-
-let infix_ops : (id * (Pretty.atom * Pretty.assoc * Pretty.prec)) list =
-  let open Pretty in
-  [ "=>" , (FMT " =>@ " , RIGHT , 1) ;
-    "&"  , (FMT " &@ "  , LEFT  , 2) ;
-    "::" , (FMT " ::@ " , LEFT  , 3) ]
-let is_infix op = List.exists (fun (o, _) -> o = op) infix_ops
-let prefix_ops = [ "pi" ; "sigma" ]
-let is_prefix op = List.mem op prefix_ops
 
 let atomic s = Pretty.(Atom (STR s))
 
@@ -668,7 +627,7 @@ let is_free t =
 
 let is_nominal t =
   match observe (hnorm t) with
-    | Var {tag=Nominal; name=name; ts=ts; ty=ty} -> true
+    | Var {tag=Nominal; _} -> true
     | _ -> false
 
 let term_head t =
@@ -681,10 +640,10 @@ let term_head t =
   in
   aux t []
 
-let term_head_ty t = 
+let term_head_ty t =
   match term_head t with
   | None -> assert false
-  | Some (h,args) -> (term_to_var h).ty
+  | Some (h, _args) -> (term_to_var h).ty
 
 let term_head_name t =
   match term_head t with
@@ -699,7 +658,7 @@ let is_head_name name t =
 let extract_tids test terms =
   terms
   |> map_vars (fun v -> (v.name, v.ty))
-  |> List.find_all (fun (id, ty) -> test id)
+  |> List.find_all (fun (id, _ty) -> test id)
   |> List.unique ~cmp:eq_tid
 
 let is_question_name str =
@@ -753,8 +712,8 @@ let karity = function Knd i -> i
 
 (* Typing *)
 let atyvar str = Typtr (ref (TV (str)))
-let atybase tyc = Tycons (tyc,[]) 
-let atyapp aty ty = 
+let atybase tyc = Tycons (tyc,[])
+let atyapp aty ty =
   match aty with
   | Tycons (c,tys) -> Tycons (c, tys@[ty])
   | _ -> assert false
@@ -796,7 +755,7 @@ let rec tc (tyctx:tyctx) t =
 let is_tyvar str =
   str.[0] = '?'
 
-let tyvar str = 
+let tyvar str =
   Ty ([], atyvar ("?"^str))
 
 let fresh_tyvar =
@@ -810,20 +769,20 @@ let is_imp t = is_head_name "=>" t
 
 let extract_imp t =
   match observe (hnorm t) with
-    | App(t, [a; b]) -> (a, b)
+    | App(_t, [a; b]) -> (a, b)
     | _ -> bugf "Check is_imp before calling extract_imp"
 
 let is_amp t = is_head_name "&" t
 let extract_amp t =
   match observe (hnorm t) with
-    | App(t, [a; b]) -> (a, b)
+    | App(_t, [a; b]) -> (a, b)
     | _ -> bugf "Check is_amp before calling extract_amp"
 
 let is_pi t = is_head_name "pi" t
 
 let extract_pi t =
   match observe (hnorm t) with
-    | App(t, [abs]) -> abs
+    | App(_t, [abs]) -> abs
     | _ -> bugf "Check is_pi before calling extract_pi"
 
 
@@ -832,18 +791,18 @@ let term_map_on_tys f t =
     match observe (hnorm t) with
     | Var v -> var v.tag v.name v.ts (f v.ty)
     | DB _ as t -> t
-    | Lam (cx, t) -> 
+    | Lam (cx, t) ->
        lambda (List.map (fun (id,ty) -> (id, f ty)) cx) (taux t)
     | App (f, ts) -> app (taux f) (List.map taux ts)
     | Ptr _ | Susp _ -> assert false
-  in 
+  in
   taux t
 
 let ty_tyvars ty =
   let tyvars = ref [] in
-  let record aty = 
+  let record aty =
     match aty with
-    | Typtr {contents=TV v} -> 
+    | Typtr {contents=TV v} ->
        tyvars := v::!tyvars
     | _ -> () in
   iter_ty record (observe_ty ty);
@@ -851,22 +810,22 @@ let ty_tyvars ty =
 
 let ty_contains_tyvar ty =
   List.length (ty_tyvars ty) > 0
-  
-let term_collect_tyvar_names t = 
+
+let term_collect_tyvar_names t =
   let tyvars = ref [] in
   let _ = term_map_on_tys begin fun ty ->
             tyvars := (ty_tyvars ty)@(!tyvars); ty
             end t in
   List.unique (!tyvars)
 
-let terms_contain_tyvar l = 
+let terms_contain_tyvar l =
   List.exists (fun t -> List.length (term_collect_tyvar_names t) <> 0) l
 
 let ty_gentyvars ty =
   let tyvars = ref [] in
-  let record aty = 
+  let record aty =
     match aty with
-    | Tygenvar v -> 
+    | Tygenvar v ->
        tyvars := v::!tyvars
     | _ -> () in
   iter_ty record ty;
@@ -875,14 +834,14 @@ let ty_gentyvars ty =
 let ty_contains_gentyvar ty =
   List.length (ty_gentyvars ty) > 0
 
-let term_collect_gentyvar_names t = 
+let term_collect_gentyvar_names t =
   let tyvars = ref [] in
   let _ = term_map_on_tys begin fun ty ->
             tyvars := (ty_gentyvars ty)@(!tyvars); ty
             end t in
   List.unique (!tyvars)
 
-let terms_contain_gentyvar l = 
+let terms_contain_gentyvar l =
   List.exists (fun t -> List.length (term_collect_gentyvar_names t) <> 0) l
 
 
@@ -892,15 +851,15 @@ type tysub = (string * ty) list
 
 let rec apply_bind_aty ~btyvar v ty aty =
   match aty with
-  | Tygenvar v' -> 
+  | Tygenvar v' ->
      if (not btyvar) && v' = v then ty
      else Ty ([], aty)
-  | Typtr {contents=TV v'} -> 
+  | Typtr {contents=TV v'} ->
      if btyvar && v' = v then ty
      else Ty ([],aty)
   | Tycons (c,args) ->
      let args' = (List.map (apply_bind_ty ~btyvar v ty) args) in
-     Ty ([], Tycons(c,args')) 
+     Ty ([], Tycons(c,args'))
   | Typtr {contents=TT _} -> assert false
 
 and apply_bind_ty ~btyvar v ty t =
@@ -911,12 +870,12 @@ and apply_bind_ty ~btyvar v ty t =
      tyarrow tys' aty'
 
 let apply_sub_ty s ty =
-  List.fold_left begin fun ty (v,vty) -> 
+  List.fold_left begin fun ty (v,vty) ->
     apply_bind_ty ~btyvar:false v vty ty
     end ty s
 
 let apply_sub_ty_tyvar s ty =
-  List.fold_left begin fun ty (v,vty) -> 
+  List.fold_left begin fun ty (v,vty) ->
     apply_bind_ty ~btyvar:true v vty ty
     end ty s
 
@@ -930,9 +889,9 @@ module Test = struct
   let mkimp f g =
     app (const "=>" (tyarrow [oty ; oty] oty)) [f ; g]
   let ity = tybase (atybase "i")
-  let t1 =
+  let _t1 =
     mkpi "x" ity (mkimp (app p [db 1]) (app q [db 1]))
-  let t2 =
+  let _t2 =
     mkimp (mkpi "x" ity (app p [db 1])) (app q [db 1])
 
 end

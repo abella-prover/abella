@@ -26,7 +26,7 @@ type sr = Graph.t * aty list
 
 let empty = (Graph.empty, [])
 
-let ty_no_tyvar ty = 
+let ty_no_tyvar ty =
   (not (ty_contains_tyvar ty)) && (not (ty_contains_gentyvar ty))
 
 let check_non_poly a =
@@ -50,7 +50,7 @@ let close (graph, closed) atys =
            | [] -> ()
            | xs -> failwith
                (Printf.sprintf "Cannot close %s without closing %s"
-                  (aty_to_string aty) 
+                  (aty_to_string aty)
                   (String.concat ", " (List.map aty_to_string xs))))
       atys ;
     (graph, closed)
@@ -70,33 +70,33 @@ let query (graph, closed) a b =
  *   | Ty (tys, AtmTy(cty, args)) ->
  *      let tys' = List.map aux tys in
  *      let args' = List.map aux args in
- *      let cty' = if List.mem cty gen_tyvars 
+ *      let cty' = if List.mem cty gen_tyvars
  *        then tag_gen_tyvar cty else cty in
  *      Ty (tys', AtmTy(cty', args')) *)
-  
+
 (* check that the arc does not extend the existing subordination relation *)
 let check_no_sr_extension closed a b =
-  List.iter begin fun aty -> 
+  List.iter begin fun aty ->
     match Graph.arc_predecessor (a,b) aty with
     | None -> ()
-    | Some t -> 
+    | Some t ->
        if not (List.mem t closed) then
          failwithf "Type %s is closed and cannot be subordinated by %s"
            (aty_to_string aty) (aty_to_string t)
   end closed
 
-let not_prop_type aty =
-  not (aty = oaty || aty = propaty || aty = olistaty)
-
-(* let check_typarams a b =
- *   if not (List.minus (ty_gentyvars (tybase a)) 
- *                      (ty_gentyvars (tybase b)) = []) 
+(* let not_prop_type aty =
+ *   not (aty = oaty || aty = propaty || aty = olistaty)
+ *
+ * let check_typarams a b =
+ *   if not (List.minus (ty_gentyvars (tybase a))
+ *                      (ty_gentyvars (tybase b)) = [])
  *      && not_prop_type b then
  *    failwithf "Some type variable in the source type %s does not occur in the \
  *               target type %s" (aty_to_string a) (aty_to_string b) *)
 
 let add (graph, closed) a b =
-  check_no_tyvar a; 
+  check_no_tyvar a;
   check_no_tyvar b;
   (* check_typarams a b; *)
   check_no_sr_extension closed a b;
@@ -109,15 +109,15 @@ let update sr ty =
   in
     aux sr (observe_ty ty)
 
-let ensure (graph, closed) ty =
+let ensure (_graph, closed) ty =
   let rec aux (Ty(args, target)) =
     List.iter aux args;
-    List.iter begin fun arg -> 
+    List.iter begin fun arg ->
       check_no_sr_extension closed (head arg) target
     end args
   in
   aux (observe_ty ty)
 
-let subordinates (graph, closed) a =
+let subordinates (graph, _closed) a =
   check_non_poly a;
   Graph.predecessors graph a

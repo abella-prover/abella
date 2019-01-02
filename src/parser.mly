@@ -53,18 +53,11 @@
   let binop id t1 t2 =
     UApp(pos 0, UApp(pos 0, predefined id, t1), t2)
 
-  let rec unlist t = match t with
-    | UApp(_, UApp(_, UCon(_, "::", _), h), t) ->
-        h :: unlist t
-    | UCon(_, "nil", _) -> []
-    | _ -> [t]
-
   let nested_app head args =
     List.fold_left
       (fun h a -> UApp((fst (get_pos h), snd (get_pos a)), h, a))
       head args
 
-  exception Illegal
   let is_illegal_constant k = Term.is_nominal_name k
 
   let binding_cons (x, ty) tids =
@@ -101,7 +94,7 @@
     List.iter collect_bad_decl sigdecls ;
     match List.rev !badconsts with
     | [] -> Types.Sig (sigid, sigpre, sigdecls)
-    | (k :: _) as ks ->
+    | (_k :: _) as ks ->
       let ks = String.concat ", " ks in
       error_report "Invalid signature constants: %s@\n\
                     Identifiers matching n[0-9]+ are reserved for nominal constants." ks

@@ -357,7 +357,7 @@ let rec and_to_list term =
   | And(left, right) -> (and_to_list left) @ (and_to_list right)
   | _ -> [term]
 
-let rec list_to_and terms =
+let list_to_and terms =
   List.fold_left1 meta_and terms
 
 let predicate_wrapper r names t =
@@ -661,7 +661,7 @@ let coinduction res_num stmt =
     | Arrow(left, right) ->
         let (ch, goal) = aux right in
         (arrow left ch, arrow left goal)
-    | Pred(p, Smaller _) | Pred(p, Equal _) ->
+    | Pred(_p, Smaller _) | Pred(_p, Equal _) ->
         failwith "Cannot coinduct on inductively restricted goal"
     | Pred(p, _) ->
         let ch = Pred(p, CoSmaller res_num) in
@@ -714,7 +714,7 @@ let maybe_select sel l = match sel with
       if n < 1 || n > List.length l then
         failwithf "Given clause number (%d) not in range (1..%d)" n (List.length l) ;
       [List.nth l (n - 1)]
-  | Abella_types.Select_named n ->
+  | Abella_types.Select_named _n ->
       failwith "Cannot select named clauses for inductive predicates"
 
 let unfold_defs ~mdefs clause_sel ~ts goal r =
@@ -754,7 +754,7 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
   end |>
   List.number |>
   maybe_select clause_sel |>
-  List.find_all (fun (i, (_, h, _)) -> term_head_name h = p) |>
+  List.find_all (fun (_i, (_, h, _)) -> term_head_name h = p) |>
   List.flatten_map
     (fun (i, (tids, head, body)) -> unfold_def tids head body i)
 
@@ -950,8 +950,8 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
       (* Check hyps for derivability *)
       let () =
         hyps |>
-        List.find_all (fun (id, h) -> is_async_obj h) |>
-        List.find_all (fun (id, h) -> satisfies (term_to_restriction h) r) |>
+        List.find_all (fun (_id, h) -> is_async_obj h) |>
+        List.find_all (fun (_id, h) -> satisfies (term_to_restriction h) r) |>
         List.map (fun (id, h) -> (id, term_to_async_obj h)) |>
         List.iter ~guard:unwind_state begin fun (id, obj) ->
           if derivable goal obj then sc (WHyp id)
@@ -973,7 +973,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
               None
           in
           let ctx_foci = List.filter_map get_member_foci
-              (List.map (fun (id, h) -> h) hyps) in
+              (List.map (fun (_id, h) -> h) hyps) in
           let focus_goals = List.map (fun f -> {goal with mode = Sync f}) ctx_foci in
           List.iter (fun fg -> sync_obj_aux n hyps fg r ts ~sc ~witness) focus_goals
     end
@@ -998,8 +998,8 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
       let () =
         hyps |>
         List.filter filter_by_witness |>
-        List.find_all (fun (id, h) -> is_sync_obj h) |>
-        List.find_all (fun (id, h) -> satisfies (term_to_restriction h) r) |>
+        List.find_all (fun (_id, h) -> is_sync_obj h) |>
+        List.find_all (fun (_id, h) -> satisfies (term_to_restriction h) r) |>
         List.map (fun (id, h) -> (id, term_to_sync_obj h)) |>
         List.iter ~guard:unwind_state begin fun (id, obj) ->
           if derivable goal obj then sc (WHyp id)
@@ -1389,16 +1389,16 @@ let apply ?(used_nominals=[]) term args =
         "forall A1 ... Ai, nabla z1 ... zj, H1 -> ... -> Hk -> C" ] |>
       String.concat "\n" |> failwith
 
-let rec ensure_unique_nominals lst =
+let ensure_unique_nominals lst =
   if not (List.is_unique ~cmp:eq lst) || not (List.for_all Term.is_nominal lst) then
     failwith "Invalid instantiation for nabla variable"
 
 let take_from_binders binders withs =
   let withs' =
-    List.find_all (fun (x, t) -> List.mem_assoc x binders) withs
+    List.find_all (fun (x, _t) -> List.mem_assoc x binders) withs
   in
   let binders' = List.remove_all
-      (fun (x, ty) -> List.mem_assoc x withs) binders
+      (fun (x, _ty) -> List.mem_assoc x withs) binders
   in
   (binders', withs')
 
@@ -1422,7 +1422,7 @@ let rec instantiate_withs term withs =
       let support = metaterm_support body in
       ensure_unique_nominals nominals ;
       begin try
-        let (xfr, xto) = List.find (fun (xfr, xto) -> List.mem xto support) withs' in
+        let (xfr, xto) = List.find (fun (_xfr, xto) -> List.mem xto support) withs' in
         failwithf "Invalid instantiation %s = %s\n\
                  \ %s already occurs in the support"
           xfr (term_to_string xto) (term_to_string xto)

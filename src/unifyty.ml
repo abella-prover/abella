@@ -3,7 +3,7 @@ open Term
 type pos = Lexing.position * Lexing.position
 let ghost : pos = (Lexing.dummy_pos, Lexing.dummy_pos)
 
-let inst_gen_tyvar_msg = function v ->    
+let inst_gen_tyvar_msg = function v ->
     Printf.sprintf "the generic type variable %s cannot be instantiated" v
 
 let position_range (p1, p2) =
@@ -34,29 +34,29 @@ let type_inference_error (pos, ct) exp act =
   | CFun ->
       Printf.eprintf "Expression is applied to too many arguments\n%!"
 
-let rec occurs v ty = 
+let occurs v ty =
   let rec aux = function
     | Ty(tys, aty) ->
        let ocr =
          match aty with
          | Tygenvar _ -> false
          | Typtr {contents=TV v'} -> v = v'
-         | Tycons (c,args) ->
+         | Tycons (_c,args) ->
             List.exists aux args
          | Typtr {contents=TT _} -> assert false
        in
        ocr || List.exists aux tys
   in aux ty
 
-(** Unify the equality constraints between types. 
+(** Unify the equality constraints between types.
     The possible results are listed as follows:
     - The unification succeeds and binds the type variables to their instances;
     - The unification fails and raises 'TypeInferenceFailure',
       meaning the some types cannot be unified no matter how the
       generic type variables are instantiated;
-    - The unification may succeed or fail depending on how 
-      some generic variables are instantiated. 
-      In this case, 'InstGenericTyvar' is raised 
+    - The unification may succeed or fail depending on how
+      some generic variables are instantiated.
+      In this case, 'InstGenericTyvar' is raised
 *)
 let unify_constraints ?(enable_bind=false) eqns =
   let bind_ty =
@@ -80,19 +80,19 @@ let unify_constraints ?(enable_bind=false) eqns =
        if occurs v ty1 then
          fail ()
        else
-         bind_ty aty ty1 
-    | Ty([], (Typtr {contents=TT _})), _ 
-    | _, Ty([], (Typtr {contents=TT _})) 
+         bind_ty aty ty1
+    | Ty([], (Typtr {contents=TT _})), _
+    | _, Ty([], (Typtr {contents=TT _}))
       -> assert false
-    | Ty([], Tygenvar v), _ 
+    | Ty([], Tygenvar v), _
     | _, Ty([], Tygenvar v) ->
        if enable_bind then
          raise (InstGenericTyvar v)
        else
          fail ()
-    | Ty([], Tycons (cty1,args1)), Ty([], Tycons (cty2,args2)) 
+    | Ty([], Tycons (cty1,args1)), Ty([], Tycons (cty2,args2))
       when cty1 = cty2 && List.length args1 = List.length args2 ->
-      let eqns = List.map2 (fun ty1 ty2 -> (ty1,ty2)) args1 args2 
+      let eqns = List.map2 (fun ty1 ty2 -> (ty1,ty2)) args1 args2
       in
       List.iter begin fun (ty1, ty2) ->
         aux (ty1, ty2) fail
@@ -100,7 +100,7 @@ let unify_constraints ?(enable_bind=false) eqns =
     | Ty(ty1::tys1, bty1), Ty(ty2::tys2, bty2) ->
         aux (ty1, ty2) fail;
         aux (Ty(tys1, bty1), Ty(tys2, bty2)) fail
-    | ty1, ty2 -> fail ()
+    | _ty1, _ty2 -> fail ()
   in
 
   let unify_single_constraint (ty1, ty2, p) =
@@ -108,4 +108,4 @@ let unify_constraints ?(enable_bind=false) eqns =
       (fun () -> raise (TypeInferenceFailure(ty1, ty2, p)))
   in
 
-  List.iter unify_single_constraint eqns    
+  List.iter unify_single_constraint eqns

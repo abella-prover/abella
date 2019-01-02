@@ -8,7 +8,7 @@
 open Extensions
 
 type cell = unit -> unit
-type snap = (unit -> unit) list
+type snap = cell list
 
 let __snappers : (unit -> unit -> unit) list ref = ref []
 
@@ -72,7 +72,7 @@ module Undo = struct
 
   let stack : snap list ref = ref []
 
-  let describe msg =
+  let describe _msg =
     (* Printf.eprintf "AFTER(%s) : %d\n%!" msg (List.length !stack) ; *)
     ()
 

@@ -168,7 +168,7 @@ let compile citem =
   ensure_finalized_specification () ;
   comp_content := citem :: !comp_content
 
-let predicates (ktable, ctable) =
+let predicates (_ktable, ctable) =
   ctable |>
   List.filter_map begin fun (id, Poly (_, Ty (_, targty))) ->
     if List.mem id [k_member ; k_fresh ; k_name] || targty = oaty then None
@@ -186,7 +186,7 @@ let write_compilation () =
 let clause_eq (_,c1) (_,c2) = eq c1 c2
 
 let clauses_to_predicates clauses =
-  let clauses = List.map snd clauses in 
+  let clauses = List.map snd clauses in
   clauses |>
   List.map clausify |>
   List.concat |>
@@ -197,7 +197,7 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   let (ktable, ctable) = !sign in
   let (imp_ktable, imp_ctable) = imp_spec_sign in
   let imp_ctable = List.filter begin
-      fun (id, ty) ->
+      fun (_id, ty) ->
         match ty with
         | Typing.Poly (_, Ty (_, aty)) when aty = propaty -> false
         | _ -> true
@@ -268,7 +268,7 @@ let maybe_make_importable ?(force=false) root =
     if Sys.command cmd <> 0 then
       failwithf "Could not create %S" thc
 
-let replace_atom_term decl defn_name defn t =
+let replace_atom_term decl _defn_name defn t =
   let ty = tc [] defn in
   let t = Term.abstract decl ty t in
   let rt = Term.app t [defn] in
@@ -303,7 +303,7 @@ let replace_atom_compiled decl defn_name defn comp=
           else (wfrom, wto)
         end ws in
       CImport (fn, ws)
-  | CKind (ids,knd) ->
+  | CKind (ids, _knd) ->
       (* Printf.printf "Trying to rewrite a CKind\n%!" ; *)
       if List.mem defn_name ids then
         failwithf "There are declared types named %s in import" defn_name ;
@@ -402,7 +402,7 @@ let import filename withs =
                      | xs ->
                          failwithf
                            "Cannot close %s since it is now subordinate to %s"
-                           (aty_to_string ty) 
+                           (aty_to_string ty)
                            (String.concat ", " (List.map aty_to_string xs)))
                   ty_subords ;
                 close_types !sign !clauses (List.map fst ty_subords) ;
@@ -437,7 +437,7 @@ let query q =
           ~def_unfold:Prover.def_unfold
           ~retype
           ~sr:!sr
-          ~sc:(fun w ->
+          ~sc:(fun _w ->
               fprintf !out "Found solution:\n" ;
               List.iter
                 (fun (n, v) ->
@@ -505,7 +505,7 @@ let handle_search_witness w =
   if !witnesses then
     fprintf !out "Witness: %s.\n%!" (witness_to_string w)
 
-let term_witness (t, w) =
+let term_witness (_t, w) =
   if !witnesses then
     fprintf !out "Witness: %s.\n%!" (witness_to_string w)
 

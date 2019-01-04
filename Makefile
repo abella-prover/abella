@@ -15,6 +15,17 @@ all:
 all-windows:
 	OCAMLFIND_TOOLCHAIN=windows $(MAKE) all
 
+AIN := abella.install
+
+.PHONY: $(AIN)
+$(AIN):
+	echo 'bin: ["_build/src/abella.native" {"abella"}]' > $(AIN)
+	echo 'share: [' >> $(AIN)
+	for f in emacs/* `find examples -type f | grep -E '(sig|mod|thm)$$'` ; do \
+	    echo '"'$$f'"' '{"'$$f'"}' >> $(AIN) ; \
+	done
+	echo ']' >> $(AIN)
+
 .PHONY: clean
 clean:
 	$(OCB) -clean

@@ -14,8 +14,8 @@ build: [
   [make "all" "abella.install"]
 ]
 depends: [
-  "ocamlfind"
   "ocaml" { >= "4.02.3" }
+  "ocamlfind" {build}
   "ocamlbuild" {build}
 ]
 bug-reports: "https://github.com/abella-prover/abella/issues"

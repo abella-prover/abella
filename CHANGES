@@ -1,3 +1,12 @@
+Changes in 2.0.7-dev from 2.0.6
+-------------------------------
+
+Bugfixes
+
+* Asserting trivial facts incorrectly left variables instantiated  
+  (#113, reported by Jinxu Zhao)
+
+
 Changes in 2.0.6 from 2.0.5
 ---------------------------
 

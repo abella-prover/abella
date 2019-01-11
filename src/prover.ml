@@ -984,7 +984,7 @@ let coinduction ?name () =
 (* Assert *)
 
 let delay_mainline ?name ?depth new_hyp detour_goal =
-  if search_goal ?depth detour_goal then
+  if depth <> Some 0 && unwind_state (search_goal ?depth) detour_goal then
     add_hyp ?name new_hyp
   else
   let mainline =

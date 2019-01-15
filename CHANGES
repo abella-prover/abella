@@ -3,6 +3,8 @@ Changes in 2.0.7-dev from 2.0.6
 
 Bugfixes
 
+* Quote filenames when making shell calls  
+  (#115, reported by @JimmyZJX)
 * Asserting trivial facts incorrectly left variables instantiated  
   (#113, reported by Jinxu Zhao)
 

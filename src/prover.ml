@@ -172,9 +172,7 @@ let built_ins_done = ref false
 
 let add_defs typarams preds flavor clauses =
   List.iter begin fun (id, _) ->
-    if List.mem id [k_fresh ; k_name] && !built_ins_done then
-      Printf.eprintf "Warning: %s shadows a built-in definition.\n%!" id
-    else if H.mem defs_table id then
+    if H.mem defs_table id then
       failwithf "Predicate %s has already been defined" id ;
   end preds ;
   (* List.iter begin fun (head, body) -> *)

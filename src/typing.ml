@@ -245,8 +245,6 @@ and desugar_ty ty =
 
 (** Pervasive signature *)
 
-let k_fresh = "fresh_for"
-let k_name = "is_name"
 let k_member = "member"
 let k_cons = "::"
 let k_nil = "nil"

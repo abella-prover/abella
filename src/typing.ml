@@ -468,9 +468,9 @@ let check_spec_logic_type ty =
   iter_ty
     (fun bty ->
        if bty = propaty then
-         failwith "Cannot mention type prop in the specification logic" ;
+         failwith "Cannot mention type 'prop' in the specification logic" ;
        if bty = olistaty then
-         failwith "Cannot mention type olist in the specification logic")
+         failwith "Cannot mention type 'list o' in the specification logic")
     ty
 
 let check_spec_logic_quantification_type ty =

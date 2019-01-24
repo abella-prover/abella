@@ -21,7 +21,6 @@
 
 open Term
 open Metaterm
-open Prover
 open Checks
 open Abella_types
 open Typing
@@ -143,7 +142,7 @@ let read_specification name =
   (* Any exceptions must have been thrown by now - do actual assignments *)
   sr := sr' ;
   sign := sign' ;
-  add_clauses clauses'
+  Prover.add_clauses clauses'
 
 
 (* Compilation and importing *)
@@ -161,7 +160,7 @@ let ensure_finalized_specification () =
   if !can_read_specification then begin
     can_read_specification := false ;
     comp_spec_sign := !sign ;
-    comp_spec_clauses := !clauses
+    comp_spec_clauses := !Prover.clauses
   end
 
 let compile citem =
@@ -219,7 +218,7 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
 
   (* 3. Imported clauses must be a subset of clauses *)
   let missing_clauses =
-    List.minus ~cmp:clause_eq imp_spec_clauses !clauses
+    List.minus ~cmp:clause_eq imp_spec_clauses !Prover.clauses
   in
   let () = if missing_clauses <> [] then
       failwithf "Imported file makes reference to unknown clauses for: %s"
@@ -234,7 +233,7 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
             clausify clause |>
             List.map (fun (_, h, _) -> term_head_name h) |>
             List.exists (fun h -> List.mem h imp_predicates))
-         !clauses)
+         !Prover.clauses)
       imp_spec_clauses
   in
   let () = if extended_clauses <> [] then
@@ -351,7 +350,7 @@ let import filename withs =
         | decl :: decls -> begin
             match decl with
             | CTheorem(name, tys, thm) ->
-                add_lemma name tys thm ;
+                Prover.add_lemma name tys thm ;
                 process_decls decls
             | CDefine(flav, tyargs, idtys, clauses) ->
                 let ids = List.map fst idtys in
@@ -359,14 +358,14 @@ let import filename withs =
                 let (basics, consts) = !sign in
                 let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
                 sign := (basics, consts) ;
-                add_defs tyargs idtys flav clauses ;
+                Prover.add_defs tyargs idtys flav clauses ;
                 process_decls decls
             | CImport(filename, withs) ->
                 aux (normalize_filename (Filename.concat file_dir filename)) withs ;
                 process_decls decls
             | CKind(ids, knd) ->
                 check_noredef ids ;
-                add_global_types ids knd;
+                Prover.add_global_types ids knd;
                 process_decls decls
             | CType(ids, (Ty(_, aty) as ty)) when aty = propaty-> begin
                 (* Printf.printf "Need to instantiate: %s.\n%!" (String.concat ", " ids) ; *)
@@ -391,7 +390,7 @@ let import filename withs =
               end
             | CType(ids,ty) ->
                 check_noredef ids ;
-                add_global_consts (List.map (fun id -> (id, ty)) ids) ;
+                Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
                 process_decls decls
             | CClose(ty_subords) ->
                 List.iter
@@ -405,7 +404,7 @@ let import filename withs =
                            (aty_to_string ty)
                            (String.concat ", " (List.map aty_to_string xs)))
                   ty_subords ;
-                close_types !sign !clauses (List.map fst ty_subords) ;
+                Prover.close_types !sign !Prover.clauses (List.map fst ty_subords) ;
                 process_decls decls
           end
       in
@@ -431,11 +430,11 @@ let query q =
       let ctx = Tactics.fresh_nameless_alist ~support ~ts:0 ~tag:Logic fv in
       let q = replace_metaterm_vars ctx q in
       let _ = Tactics.search q
-          ~depth:!search_depth
+          ~depth:!Prover.search_depth
           ~hyps:[]
-          ~clauses:!clauses
+          ~clauses:!Prover.clauses
           ~def_unfold:Prover.def_unfold
-          ~retype
+          ~retype:Prover.retype
           ~sr:!sr
           ~sc:(fun _w ->
               fprintf !out "Found solution:\n" ;
@@ -455,19 +454,19 @@ let set_fail ~key ~expected v =
 let set_subgoal_max_spec spec =
   let buf = Lexing.from_string spec in
   let spec = Parser.depth_spec Lexer.token buf in
-  set_subgoal_max spec
+  Prover.set_subgoal_max spec
 
 let set k v =
   match k, v with
   | "subgoals", Int d when d >= 0 ->
-      reset_subgoal_max () ;
-      set_subgoal_max [d, Some max_int]
+      Prover.reset_subgoal_max () ;
+      Prover.set_subgoal_max [d, Some max_int]
   | "subgoals", Str "on" ->
-      reset_subgoal_max () ;
-      set_subgoal_max_default max_int
+      Prover.reset_subgoal_max () ;
+      Prover.set_subgoal_max_default max_int
   | "subgoals", Str "off" ->
-      reset_subgoal_max () ;
-      set_subgoal_max_default 0
+      Prover.reset_subgoal_max () ;
+      Prover.set_subgoal_max_default 0
   | "subgoals", QStr spec ->
       set_subgoal_max_spec spec
   | "subgoals", _ -> set_fail v
@@ -486,7 +485,7 @@ let set k v =
                     ~key:"types"
                     ~expected:"'on' or 'off'"
 
-  | "search_depth", Int d when d >= 0 -> search_depth := d
+  | "search_depth", Int d when d >= 0 -> Prover.search_depth := d
   | "search_depth", _ -> set_fail v
                            ~key:"search_depth"
                            ~expected:"non-negative integer"
@@ -524,7 +523,7 @@ and proof_processor = {
 let current_state = State.rref Process_top
 
 let print_clauses () =
-  List.iter print_clause !clauses
+  List.iter print_clause !Prover.clauses
 
 let rec process1 () =
   State.Undo.push () ;
@@ -594,7 +593,7 @@ let rec process1 () =
 
 and process_proof1 name =
   if not !suppress_proof_state_display then begin
-    display !out ;
+    Prover.display !out ;
   end ;
   suppress_proof_state_display := false ;
   fprintf !out "%s < %!" name ;
@@ -604,24 +603,24 @@ and process_proof1 name =
     fprintf !out "%s%s.%s\n%!" pre (command_to_string input) post
   end ;
   begin match input with
-  | Induction(args, hn)           -> induction ?name:hn args
-  | CoInduction hn                -> coinduction ?name:hn ()
-  | Apply(depth, h, args, ws, hn) -> apply ?depth ?name:hn h args ws ~term_witness
-  | Backchain(depth, h, ws)       -> backchain ?depth h ws ~term_witness
-  | Cut(h, arg, hn)               -> cut ?name:hn h arg
-  | CutFrom(h, arg, t, hn)        -> cut_from ?name:hn h arg t
-  | SearchCut(h, hn)              -> search_cut ?name:hn h
-  | Inst(h, ws, hn)               -> inst ?name:hn h ws
-  | Case(str, hn)                 -> case ?name:hn str
+  | Induction(args, hn)           -> Prover.induction ?name:hn args
+  | CoInduction hn                -> Prover.coinduction ?name:hn ()
+  | Apply(depth, h, args, ws, hn) -> Prover.apply ?depth ?name:hn h args ws ~term_witness
+  | Backchain(depth, h, ws)       -> Prover.backchain ?depth h ws ~term_witness
+  | Cut(h, arg, hn)               -> Prover.cut ?name:hn h arg
+  | CutFrom(h, arg, t, hn)        -> Prover.cut_from ?name:hn h arg t
+  | SearchCut(h, hn)              -> Prover.search_cut ?name:hn h
+  | Inst(h, ws, hn)               -> Prover.inst ?name:hn h ws
+  | Case(str, hn)                 -> Prover.case ?name:hn str
   | Assert(t, dp, hn)             ->
       untyped_ensure_no_restrictions t ;
-      assert_hyp ?name:hn ?depth:dp t
-  | Monotone(h, t, hn)            -> monotone ?name:hn h t
-  | Exists(_, ts)                 -> List.iter exists ts
-  | Clear(cm, hs)                 -> clear cm hs
-  | Abbrev(hs, s)                 -> abbrev (Iset.of_list hs) s
-  | Unabbrev(hs)                  -> unabbrev (Iset.of_list hs)
-  | Rename(hfr, hto)              -> rename hfr hto
+      Prover.assert_hyp ?name:hn ?depth:dp t
+  | Monotone(h, t, hn)            -> Prover.monotone ?name:hn h t
+  | Exists(_, ts)                 -> List.iter Prover.exists ts
+  | Clear(cm, hs)                 -> Prover.clear cm hs
+  | Abbrev(hs, s)                 -> Prover.abbrev (Iset.of_list hs) s
+  | Unabbrev(hs)                  -> Prover.unabbrev (Iset.of_list hs)
+  | Rename(hfr, hto)              -> Prover.rename hfr hto
   | Search(bounds) -> begin
       let depth = match bounds with
         | `depth n -> Some n
@@ -631,18 +630,18 @@ and process_proof1 name =
         | `witness w -> w
         | _ -> WMagic
       in
-      search ?depth ~witness ~handle_witness:handle_search_witness ()
+      Prover.search ?depth ~witness ~handle_witness:handle_search_witness ()
     end
-  | Async_steps            -> async ()
-  | Permute(ids, h)        -> permute_nominals ids h
-  | Split                  -> split false
-  | SplitStar              -> split true
-  | Left                   -> left ()
-  | Right                  -> right ()
-  | Unfold (cs, ss)        -> unfold cs ss
-  | Intros hs              -> intros hs
-  | Skip                   -> skip ()
-  | Abort                  -> raise (End_proof `aborted)
+  | Async_steps            -> Prover.async ()
+  | Permute(ids, h)        -> Prover.permute_nominals ids h
+  | Split                  -> Prover.split false
+  | SplitStar              -> Prover.split true
+  | Left                   -> Prover.left ()
+  | Right                  -> Prover.right ()
+  | Unfold (cs, ss)        -> Prover.unfold cs ss
+  | Intros hs              -> Prover.intros hs
+  | Skip                   -> Prover.skip ()
+  | Abort                  -> raise (Prover.End_proof `aborted)
   | Undo
   | Common(Back)           ->
       if !interactive then State.Undo.back 2
@@ -652,7 +651,7 @@ and process_proof1 name =
       else failwith "Cannot use interactive commands in non-interactive mode"
   | Common(Set(k, v))      -> set k v
   | Common(Show nm)        ->
-      show nm ;
+      Prover.show nm ;
       fprintf !out "\n%!" ;
       suppress_proof_state_display := true
   | Common(Quit)           -> raise End_of_file
@@ -668,19 +667,19 @@ and process_top1 () =
   begin match input with
   | Theorem(name, tys, thm) ->
       let st = get_bind_state () in
-      let seq = copy_sequent () in
+      let seq = Prover.copy_sequent () in
       let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
       check_theorem tys thm ;
-      theorem thm ;
+      Prover.theorem thm ;
       let oldsign = !sign in
       let thm_compile () =
         sign := oldsign ;
         compile (CTheorem(name, tys, thm)) ;
-        add_lemma name tys thm
+        Prover.add_lemma name tys thm
       in
       let thm_reset () =
         sign := oldsign ;
-        reset_prover st seq ()
+        Prover.reset_prover st seq ()
       in
       current_state := Process_proof {
           thm = name ;
@@ -688,14 +687,14 @@ and process_top1 () =
           reset = thm_reset
         } ;
   | SSplit(name, names) ->
-      let gen_thms = create_split_theorems name names in
+      let gen_thms = Prover.create_split_theorems name names in
       List.iter begin fun (n, (tys, t)) ->
-        print_theorem n (tys, t) ;
-        add_lemma n tys t ;
+        Prover.print_theorem n (tys, t) ;
+        Prover.add_lemma n tys t ;
         compile (CTheorem(n, tys, t))
       end gen_thms ;
   | Define _ ->
-      compile (register_definition input)
+      compile (Prover.register_definition input)
   | TopCommon(Back) ->
       if !interactive then State.Undo.back 2
       else failwith "Cannot use interactive commands in non-interactive mode"
@@ -703,7 +702,7 @@ and process_top1 () =
       if !interactive then State.Undo.reset ()
       else failwith "Cannot use interactive commands in non-interactive mode"
   | TopCommon(Set(k, v)) -> set k v
-  | TopCommon(Show(n)) -> show n
+  | TopCommon(Show(n)) -> Prover.show n
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, withs) ->
       compile (CImport (filename, withs)) ;
@@ -718,14 +717,14 @@ and process_top1 () =
   | Query(q) -> query q
   | Kind(ids,knd) ->
       check_noredef ids;
-      add_global_types ids knd;
+      Prover.add_global_types ids knd;
       compile (CKind (ids,knd))
   | Type(ids, ty) ->
       check_noredef ids;
-      add_global_consts (List.map (fun id -> (id, ty)) ids) ;
+      Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
       compile (CType(ids, ty))
   | Close(atys) ->
-      close_types !sign !clauses atys ;
+      Prover.close_types !sign !Prover.clauses atys ;
       compile (CClose(List.map (fun aty -> (aty, Subordination.subordinates !sr aty)) atys))
   end ;
   if !interactive then flush stdout ;

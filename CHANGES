@@ -3,6 +3,8 @@ Changes in 2.0.7-dev from 2.0.6
 
 Bugfixes
 
+* Import statements with file paths containing . no longer break
+  the HTML exporter
 * Quote filenames when making shell calls  
   (#115, reported by @JimmyZJX)
 * Asserting trivial facts incorrectly left variables instantiated  

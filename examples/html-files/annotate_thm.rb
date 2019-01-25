@@ -72,7 +72,7 @@ class HTMLComment < Element
 end
 
 def convert(string)
-  regex = /(\/\*.*?\*\/|%.*?\n|(?:Theorem|CoDefine|Define|Import|Specification|Type|Kind|Close|Split|Query|Set|Show|(?:(?:[A-Za-z_][A-Za-z_0-9]* *: *)?(?:induction|coinduction|apply|cut|inst|case|assert))|backchain|monotone|permute|exists|witness|clear|abbrev|unabbrev|search|split|split\*|unfold|intros|rename|skip|abort|undo)(?:[^%]|%.*?\n)*?\.)/m
+  regex = /(\/\*.*?\*\/|%.*?\n|(?:Theorem|CoDefine|Define|Import|Specification|Type|Kind|Close|Split|Query|Set|Show|(?:(?:[A-Za-z_][A-Za-z_0-9]* *: *)?(?:induction|coinduction|apply|cut|inst|case|assert))|backchain|monotone|permute|exists|witness|clear|abbrev|unabbrev|search|split|split\*|unfold|intros|rename|skip|abort|undo)(?:"[^"]*"|[^%]|%.*?\n)*?\.)/m
 
   list = string.split(regex).map do |s|
     case s

@@ -1262,7 +1262,57 @@ let some_term_to_restriction t =
 
 exception TypesNotFullyDetermined
 
-let apply_arrow term args =
+
+
+let compatible_term formal actual =
+  let f_hname = term_head_name formal in
+  let a_hname = term_head_name actual in
+  let f_hty = term_head_ty formal in
+  let a_hty = term_head_ty actual in
+  f_hname = a_hname || (eq_ty f_hty a_hty && not (Filename.check_suffix (ty_to_string f_hty) "-> prop"))
+
+(*let rec compatible_term formal actual = match observe formal, observe actual with
+  | Lam (tyf, tmf), Lam (tya, tma) -> tyf = tya && compatible_term tmf tma
+  | _, _ -> true*)
+
+let compatible_restriction formal actual = match formal, actual with
+  | Smaller i, Smaller j when i = j -> true
+  | Equal i, Smaller j when i = j -> true
+  | Equal i, Equal j when i = j -> true
+  | Irrelevant, _ -> true
+  | _ -> false
+
+let rec compatible_metaterm formal actual = match formal, actual with
+  | True, True -> true
+  | False, False -> true
+  | Eq (ftm1, ftm2), Eq (atm1, atm2) -> compatible_term ftm1 atm1 && compatible_term ftm2 atm2
+  | Obj (_, fr), Obj (_, ar) -> compatible_restriction fr ar
+  | Arrow _, _ -> failwith "Compatible should not deal with Arrows..."
+  | Binding (fb, _, fm), Binding (ab, _, am) -> fb == ab && compatible_metaterm fm am
+  | Or (fm1, fm2), Or (am1, am2) -> compatible_metaterm fm1 am1 && compatible_metaterm fm2 am2
+  | And (fm1, fm2), And (am1, am2) -> compatible_metaterm fm1 am1 && compatible_metaterm fm2 am2
+  | Pred (fm, fr), Pred (am, ar) -> compatible_term fm am && compatible_restriction fr ar
+  | _ -> false
+
+let tag2str = function
+  | Constant -> "c"
+  | Eigen -> "e"
+  | Logic -> "l"
+  | Nominal -> "n"
+let term_head_tag tm = 
+  match term_head tm with
+  | None -> assert false
+  | Some (h, _) -> (term_to_var h).tag
+
+let term_head_nametag_str tm = 
+  ty_to_string (term_head_ty tm) ^ " " ^ term_head_name tm
+
+let head2str metatm = match metatm with
+  | Eq (tm1, tm2) -> term_head_nametag_str tm1 ^ "=" ^ term_head_nametag_str tm2
+  | Pred (tm, _) -> "P " ^ term_head_nametag_str tm
+  | _ -> "~~"
+
+let apply_arrow ?(applys=false) term args =
   (* Printf.eprintf "Applying term: %s\n" (metaterm_to_string term);
    * List.iter begin fun arg ->
    *   match arg with
@@ -1270,6 +1320,18 @@ let apply_arrow term args =
    *   | Some a ->
    *      Printf.eprintf "Applied args: %s\n" (metaterm_to_string a)
    *   end args; *)
+  if applys then begin
+    let terms = (map_args (fun x -> x) term) in (
+      Printf.printf "Applying term: %s\n" (metaterm_to_string term);
+      List.iter2 begin fun tm arg ->
+        match arg with
+        | None -> Printf.printf " %s {%s} ~ _\n" (metaterm_to_string tm) (head2str tm)
+        | Some a ->
+          Printf.printf " %s {%s} ~%B %s {%s}\n" (metaterm_to_string tm) (head2str tm) (compatible_metaterm tm a) (metaterm_to_string a) (head2str a)
+      end terms args
+    );
+    failwith "apply_arrow applys not implemented!"
+  end;
   let () = check_restrictions
       (map_args term_to_restriction term)
       (List.map some_term_to_restriction args)
@@ -1330,7 +1392,7 @@ let try_with_state_all ~fail f =
       | TypesNotFullyDetermined
         -> set_scoped_bind_state state ; fail
 
-let apply ?(used_nominals=[]) term args =
+let apply ?(applys=false) ?(used_nominals=[]) term args =
   let hyp_support = metaterm_support term in
   let support = hyp_support @
                   List.flatten_map (Option.map_default metaterm_support []) args in
@@ -1342,7 +1404,7 @@ let apply ?(used_nominals=[]) term args =
   let process_bindings foralls nablas body =
     match nablas with
     | [] -> (* short circuit *)
-        apply_arrow (freshen_nameless_bindings ~support ~ts:0 foralls body) args
+        apply_arrow (freshen_nameless_bindings ~support ~ts:0 foralls body) args ~applys
     | _ ->
         let n = List.length nablas in
         let (nabla_ids, nabla_tys) = List.split nablas in
@@ -1371,7 +1433,7 @@ let apply ?(used_nominals=[]) term args =
                 let alist = List.combine nabla_ids nominals in
                 let permuted_body =
                   replace_metaterm_vars alist raised_body in
-                Some (apply_arrow permuted_body args)
+                Some (apply_arrow permuted_body args ~applys)
                 )
           end |>
         (function
@@ -1439,12 +1501,12 @@ let rec instantiate_withs term withs =
       (normalize (nabla binders' body), nominals @ used_nominals)
   | _ -> (term, [])
 
-let apply_with term args withs =
-  if args = [] && withs = [] then
+let apply_with ?applys:(applys=false) term args withs =
+  if args = [] && withs = [] && not applys then
     (term, [])
   else
   let term, used_nominals = instantiate_withs term withs in
-  apply (normalize term) args ~used_nominals
+  apply (normalize term) args ~used_nominals ~applys
 
 (* Backchain *)
 

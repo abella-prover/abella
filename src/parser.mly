@@ -108,7 +108,7 @@
 %}
 
 %token IMP IF AMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
-%token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
+%token IND INST APPLY APPLYS CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY ASYNC
 %token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
@@ -172,6 +172,7 @@ id:
   | ABORT         { "abort" }
   | ALL           { "all" }
   | APPLY         { "apply" }
+  | APPLYS        { "applys" }
   | AS            { "as" }
   | ASSERT        { "assert" }
   | ASYNC         { "async" }
@@ -484,14 +485,25 @@ pure_command:
     { Types.Induction($4, $1) }
   | hhint COIND DOT
     { Types.CoInduction($1) }
+
   | hhint APPLY maybe_depth clearable TO apply_args DOT
-    { Types.Apply($3, $4, $6, [], $1) }
+    { Types.Apply($3, $4, $6, [], $1, false) }
   | hhint APPLY maybe_depth clearable TO apply_args WITH withs DOT
-    { Types.Apply($3, $4, $6, $8, $1) }
+    { Types.Apply($3, $4, $6, $8, $1, false) }
   | hhint APPLY maybe_depth clearable WITH withs DOT
-    { Types.Apply($3, $4, [], $6, $1) }
+    { Types.Apply($3, $4, [], $6, $1, false) }
   | hhint APPLY maybe_depth clearable DOT
-    { Types.Apply($3, $4, [], [], $1) }
+    { Types.Apply($3, $4, [], [], $1, false) }
+    
+  | hhint APPLYS maybe_depth clearable TO apply_args DOT
+    { Types.Apply($3, $4, $6, [], $1, true) }
+  | hhint APPLYS maybe_depth clearable TO apply_args WITH withs DOT
+    { Types.Apply($3, $4, $6, $8, $1, true) }
+  | hhint APPLYS maybe_depth clearable WITH withs DOT
+    { Types.Apply($3, $4, [], $6, $1, true) }
+  | hhint APPLYS maybe_depth clearable DOT
+    { Types.Apply($3, $4, [], [], $1, true) }
+
   | BACKCHAIN maybe_depth clearable DOT
     { Types.Backchain($2, $3, []) }
   | BACKCHAIN maybe_depth clearable WITH withs DOT

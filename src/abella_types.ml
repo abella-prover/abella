@@ -138,7 +138,7 @@ type hhint = id option
 type command =
   | Induction of int list * hhint
   | CoInduction of id option
-  | Apply of depth_bound option * clearable * clearable list * (id * uterm) list * hhint
+  | Apply of depth_bound option * clearable * clearable list * (id * uterm) list * hhint * bool (* false: apply; true: applys *)
   | Backchain of depth_bound option * clearable * (id * uterm) list
   | CutFrom of clearable * clearable * uterm * hhint
   | Cut of clearable * clearable * hhint
@@ -308,10 +308,11 @@ let command_to_string c =
           (String.concat " " (List.map string_of_int is))
     | CoInduction None -> "coinduction"
     | CoInduction (Some hn) -> "coinduction " ^ hn
-    | Apply(dbound, h, hs, ws, hn) -> begin
+    | Apply(dbound, h, hs, ws, hn, applys) -> begin
         let buf = Buffer.create 10 in
         Buffer.add_string buf (hn_to_string hn) ;
         Buffer.add_string buf "apply" ;
+        if applys then Buffer.add_string buf "s" ;
         Buffer.add_string buf (dbound_to_string dbound) ;
         Buffer.add_string buf (" " ^ clearable_to_string h) ;
         if hs <> [] then

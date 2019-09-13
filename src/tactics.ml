@@ -1263,17 +1263,12 @@ let some_term_to_restriction t =
 exception TypesNotFullyDetermined
 
 
-
 let compatible_term formal actual =
   let f_hname = term_head_name formal in
   let a_hname = term_head_name actual in
   let f_hty = term_head_ty formal in
   let a_hty = term_head_ty actual in
   f_hname = a_hname || (eq_ty f_hty a_hty && not (Filename.check_suffix (ty_to_string f_hty) "-> prop"))
-
-(*let rec compatible_term formal actual = match observe formal, observe actual with
-  | Lam (tyf, tmf), Lam (tya, tma) -> tyf = tya && compatible_term tmf tma
-  | _, _ -> true*)
 
 let compatible_restriction formal actual = match formal, actual with
   | Smaller i, Smaller j when i = j -> true
@@ -1294,23 +1289,13 @@ let rec compatible_metaterm formal actual = match formal, actual with
   | Pred (fm, fr), Pred (am, ar) -> compatible_term fm am && compatible_restriction fr ar
   | _ -> false
 
-let tag2str = function
-  | Constant -> "c"
-  | Eigen -> "e"
-  | Logic -> "l"
-  | Nominal -> "n"
-let term_head_tag tm = 
-  match term_head tm with
-  | None -> assert false
-  | Some (h, _) -> (term_to_var h).tag
-
-let term_head_nametag_str tm = 
+(* let term_head_nametag_str tm = 
   ty_to_string (term_head_ty tm) ^ " " ^ term_head_name tm
 
 let head2str metatm = match metatm with
   | Eq (tm1, tm2) -> term_head_nametag_str tm1 ^ "=" ^ term_head_nametag_str tm2
   | Pred (tm, _) -> "P " ^ term_head_nametag_str tm
-  | _ -> "~~"
+  | _ -> "~~" *)
 
 let apply_arrow ?(applys=false) term args =
   (* Printf.eprintf "Applying term: %s\n" (metaterm_to_string term);
@@ -1320,18 +1305,34 @@ let apply_arrow ?(applys=false) term args =
    *   | Some a ->
    *      Printf.eprintf "Applied args: %s\n" (metaterm_to_string a)
    *   end args; *)
-  if applys then begin
-    let terms = (map_args (fun x -> x) term) in (
-      Printf.printf "Applying term: %s\n" (metaterm_to_string term);
-      List.iter2 begin fun tm arg ->
-        match arg with
-        | None -> Printf.printf " %s {%s} ~ _\n" (metaterm_to_string tm) (head2str tm)
-        | Some a ->
-          Printf.printf " %s {%s} ~%B %s {%s}\n" (metaterm_to_string tm) (head2str tm) (compatible_metaterm tm a) (metaterm_to_string a) (head2str a)
-      end terms args
-    );
-    failwith "apply_arrow applys not implemented!"
-  end;
+  let args = if not applys then args else begin
+      let terms = (map_args (fun x -> x) term) in
+      (*
+        Printf.printf "Applying term: %s\n" (metaterm_to_string term);
+        List.iter2 begin fun tm arg ->
+          match arg with
+          | None -> Printf.printf " %s {%s} ~ _\n" (metaterm_to_string tm) (head2str tm)
+          | Some a ->
+            Printf.printf " %s {%s} ~%B %s {%s}\n" (metaterm_to_string tm) (head2str tm) (compatible_metaterm tm a) (metaterm_to_string a) (head2str a)
+        end terms args ;*)
+      (* naive: match first *)
+      let argArr = Array.make (List.length terms) None in
+      List.iter (function
+          | Some a ->
+            let pa = ref (-1) in
+            List.iteri (fun i t ->
+              if !pa < 0 && argArr.(i) = None && compatible_metaterm a t then pa := i
+            ) terms;
+            if !pa < 0 then
+              failwithf "Hypothesis [%s] is not compatible with any subgoal" (metaterm_to_string a)
+            else
+              argArr.(!pa) <- Some a
+          | None -> ()
+        ) args;
+      (* Printf.printf "applys get %d args and produces %d terms\n" (List.length args) (Array.length argArr); *)
+      Array.to_list argArr
+      (*; failwith "apply_arrow applys not implemented!" *)
+    end in
   let () = check_restrictions
       (map_args term_to_restriction term)
       (List.map some_term_to_restriction args)
@@ -1449,7 +1450,7 @@ let apply ?(applys=false) ?(used_nominals=[]) term args =
   | Binding(Nabla, nablas, body) ->
       process_bindings [] nablas body
   | Arrow _ ->
-      apply_arrow term args
+      apply_arrow term args ~applys
   | term when args = [] ->
       (term, [])
   | _ ->

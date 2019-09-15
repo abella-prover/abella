@@ -499,6 +499,10 @@ pure_command:
     { Types.Apply($3, $4, $6, [], $1, true) }
   | hhint APPLYS maybe_depth clearable TO apply_args WITH withs DOT
     { Types.Apply($3, $4, $6, $8, $1, true) }
+  | hhint APPLYS maybe_depth clearable apply_args DOT
+    { Types.Apply($3, $4, $5, [], $1, true) }
+  | hhint APPLYS maybe_depth clearable apply_args WITH withs DOT
+    { Types.Apply($3, $4, $5, $7, $1, true) }
   | hhint APPLYS maybe_depth clearable WITH withs DOT
     { Types.Apply($3, $4, [], $6, $1, true) }
   | hhint APPLYS maybe_depth clearable DOT

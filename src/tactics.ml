@@ -1321,7 +1321,7 @@ let apply_arrow ?(applys=false) term args =
           | Some a ->
             let pa = ref (-1) in
             List.iteri (fun i t ->
-              if !pa < 0 && argArr.(i) = None && compatible_metaterm a t then pa := i
+              if !pa < 0 && argArr.(i) = None && compatible_metaterm t a then pa := i
             ) terms;
             if !pa < 0 then
               failwithf "Hypothesis [%s] is not compatible with any subgoal" (metaterm_to_string a)

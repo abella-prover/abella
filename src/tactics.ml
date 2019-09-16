@@ -1289,15 +1289,44 @@ let rec compatible_metaterm formal actual = match formal, actual with
   | Pred (fm, fr), Pred (am, ar) -> compatible_term fm am && compatible_restriction fr ar
   | _ -> false
 
-(* let term_head_nametag_str tm = 
-  ty_to_string (term_head_ty tm) ^ " " ^ term_head_name tm
+let genCompatibleArgs term args hyps =
+  (* naive: match first *)
+  let terms = (map_args (fun x -> x) term) in
+  (*
+    Printf.printf "Applying term: %s\n" (metaterm_to_string term);
+    List.iter2 begin fun tm arg ->
+      match arg with
+      | None -> Printf.printf " %s {%s} ~ _\n" (metaterm_to_string tm) (head2str tm)
+      | Some a ->
+        Printf.printf " %s {%s} ~%B %s {%s}\n" (metaterm_to_string tm) (head2str tm) (compatible_metaterm tm a) (metaterm_to_string a) (head2str a)
+    end terms args ;*)
+  let argArr = Array.make (List.length terms) None in
+  List.iter (function
+      | Some a ->
+        let pa = ref (-1) in
+        List.iteri (fun i t ->
+          if !pa < 0 && argArr.(i) = None && compatible_metaterm t a then pa := i
+        ) terms;
+        if !pa < 0 then
+          failwithf "Hypothesis [%s] is not compatible with any subgoal" (metaterm_to_string a)
+        else
+          argArr.(!pa) <- Some a
+      | None -> ()
+    ) args;
+  (* Printf.printf "applys get %d args and produces %d terms\n" (List.length args) (Array.length argArr); *)
+  (* Fix induction hyps *)
+  List.iteri (fun i t -> if argArr.(i) = None then
+    match t with
+      | Pred (_, r) when r <> Irrelevant ->
+        List.iter (fun hyp ->
+          if compatible_metaterm t hyp then
+            argArr.(i) <- Some hyp
+        ) hyps
+      | _ -> ()
+  ) terms;
+  Array.to_list argArr
 
-let head2str metatm = match metatm with
-  | Eq (tm1, tm2) -> term_head_nametag_str tm1 ^ "=" ^ term_head_nametag_str tm2
-  | Pred (tm, _) -> "P " ^ term_head_nametag_str tm
-  | _ -> "~~" *)
-
-let apply_arrow ?(applys=false) term args =
+let apply_arrow ?(applys=false) term args hyps =
   (* Printf.eprintf "Applying term: %s\n" (metaterm_to_string term);
    * List.iter begin fun arg ->
    *   match arg with
@@ -1305,34 +1334,7 @@ let apply_arrow ?(applys=false) term args =
    *   | Some a ->
    *      Printf.eprintf "Applied args: %s\n" (metaterm_to_string a)
    *   end args; *)
-  let args = if not applys then args else begin
-      let terms = (map_args (fun x -> x) term) in
-      (*
-        Printf.printf "Applying term: %s\n" (metaterm_to_string term);
-        List.iter2 begin fun tm arg ->
-          match arg with
-          | None -> Printf.printf " %s {%s} ~ _\n" (metaterm_to_string tm) (head2str tm)
-          | Some a ->
-            Printf.printf " %s {%s} ~%B %s {%s}\n" (metaterm_to_string tm) (head2str tm) (compatible_metaterm tm a) (metaterm_to_string a) (head2str a)
-        end terms args ;*)
-      (* naive: match first *)
-      let argArr = Array.make (List.length terms) None in
-      List.iter (function
-          | Some a ->
-            let pa = ref (-1) in
-            List.iteri (fun i t ->
-              if !pa < 0 && argArr.(i) = None && compatible_metaterm t a then pa := i
-            ) terms;
-            if !pa < 0 then
-              failwithf "Hypothesis [%s] is not compatible with any subgoal" (metaterm_to_string a)
-            else
-              argArr.(!pa) <- Some a
-          | None -> ()
-        ) args;
-      (* Printf.printf "applys get %d args and produces %d terms\n" (List.length args) (Array.length argArr); *)
-      Array.to_list argArr
-      (*; failwith "apply_arrow applys not implemented!" *)
-    end in
+  let args = if not applys then args else genCompatibleArgs term args hyps in
   let () = check_restrictions
       (map_args term_to_restriction term)
       (List.map some_term_to_restriction args)
@@ -1393,7 +1395,7 @@ let try_with_state_all ~fail f =
       | TypesNotFullyDetermined
         -> set_scoped_bind_state state ; fail
 
-let apply ?(applys=false) ?(used_nominals=[]) term args =
+let apply ?(applys=false) ?(used_nominals=[]) term args hyps =
   let hyp_support = metaterm_support term in
   let support = hyp_support @
                   List.flatten_map (Option.map_default metaterm_support []) args in
@@ -1405,7 +1407,7 @@ let apply ?(applys=false) ?(used_nominals=[]) term args =
   let process_bindings foralls nablas body =
     match nablas with
     | [] -> (* short circuit *)
-        apply_arrow (freshen_nameless_bindings ~support ~ts:0 foralls body) args ~applys
+        apply_arrow (freshen_nameless_bindings ~support ~ts:0 foralls body) args hyps ~applys
     | _ ->
         let n = List.length nablas in
         let (nabla_ids, nabla_tys) = List.split nablas in
@@ -1434,7 +1436,7 @@ let apply ?(applys=false) ?(used_nominals=[]) term args =
                 let alist = List.combine nabla_ids nominals in
                 let permuted_body =
                   replace_metaterm_vars alist raised_body in
-                Some (apply_arrow permuted_body args ~applys)
+                Some (apply_arrow permuted_body args hyps ~applys)
                 )
           end |>
         (function
@@ -1450,7 +1452,7 @@ let apply ?(applys=false) ?(used_nominals=[]) term args =
   | Binding(Nabla, nablas, body) ->
       process_bindings [] nablas body
   | Arrow _ ->
-      apply_arrow term args ~applys
+      apply_arrow term args hyps ~applys
   | term when args = [] ->
       (term, [])
   | _ ->
@@ -1502,12 +1504,12 @@ let rec instantiate_withs term withs =
       (normalize (nabla binders' body), nominals @ used_nominals)
   | _ -> (term, [])
 
-let apply_with ?applys:(applys=false) term args withs =
+let apply_with ?applys:(applys=false) term args withs hyps =
   if args = [] && withs = [] && not applys then
     (term, [])
   else
   let term, used_nominals = instantiate_withs term withs in
-  apply (normalize term) args ~used_nominals ~applys
+  apply (normalize term) args hyps ~used_nominals ~applys
 
 (* Backchain *)
 

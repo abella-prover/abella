@@ -797,9 +797,10 @@ let apply ?applys:(applys=false) ?depth ?name ?(term_witness=ignore) h args ws =
   (* (if applys = true then failwith "applys not implemented"); *)
   let stmt = get_stmt_clearly h in
   let args = List.map get_arg_clearly args in
+  let hyp_tms = List.map (fun h -> h.term) sequent.hyps in
   let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
   let ws = type_apply_withs stmt ws in
-  let result, obligations = Tactics.apply_with stmt args ws ~applys in
+  let result, obligations = Tactics.apply_with stmt args ws hyp_tms ~applys in
   let remaining_obligations, term_witnesses =
     partition_obligations ?depth obligations
   in

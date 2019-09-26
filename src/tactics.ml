@@ -1307,17 +1307,27 @@ let genCompatibleArgs term args hyps =
         Printf.printf " %s {%s} ~%B %s {%s}\n" (metaterm_to_string tm) (head2str tm) (compatible_metaterm tm a) (metaterm_to_string a) (head2str a)
     end terms args ;*)
   let argArr = Array.make (List.length terms) None in
+  let wildcardCounter = ref 0 in
+  (* interpret "_" as a indicator to skip match: `applys X to _ H` will match H with its second compatible term *)
   List.iter (function
       | Some a ->
+        let toSkip = !wildcardCounter in
+        wildcardCounter := 0;
+        let skipCnt = ref 0 in
         let pa = ref (-1) in
         List.iteri (fun i t ->
-          if !pa < 0 && argArr.(i) = None && compatible_metaterm t a then pa := i
+          if !pa < 0 && argArr.(i) = None && compatible_metaterm t a then
+          begin
+            if !skipCnt = toSkip then pa := i;
+            incr skipCnt
+          end
         ) terms;
         if !pa < 0 then
-          failwithf "Hypothesis [%s] is not compatible with any subgoal" (metaterm_to_string a)
+          let skipStr = if toSkip = 0 then "" else Printf.sprintf " (skip %d/%d)" toSkip !skipCnt in
+          failwithf "[%s] is not compatible with any subgoal%s" (metaterm_to_string a) skipStr
         else
           argArr.(!pa) <- Some a
-      | None -> ()
+      | None -> incr wildcardCounter
     ) args;
   (* Printf.printf "applys get %d args and produces %d terms\n" (List.length args) (Array.length argArr); *)
   (* Fix induction hyps *)

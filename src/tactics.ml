@@ -1410,8 +1410,7 @@ let try_with_state_all ~fail f =
       | TypesNotFullyDetermined
         -> set_scoped_bind_state state ; fail
 
-let apply ?(applys=false) ?(used_nominals=[]) term args hyps =
-  let args = if not applys then args else genCompatibleArgs term args hyps in
+let apply ?(used_nominals=[]) term args =
   let hyp_support = metaterm_support term in
   let support = hyp_support @
                   List.flatten_map (Option.map_default metaterm_support []) args in
@@ -1521,11 +1520,12 @@ let rec instantiate_withs term withs =
   | _ -> (term, [])
 
 let apply_with ?applys:(applys=false) term args withs hyps =
-  if args = [] && withs = [] && not applys then
+  let args = if not applys then args else genCompatibleArgs term args hyps in
+  if args = [] && withs = [] then
     (term, [])
   else
-  let term, used_nominals = instantiate_withs term withs in
-  apply (normalize term) args hyps ~used_nominals ~applys
+    let term, used_nominals = instantiate_withs term withs in
+    apply (normalize term) args ~used_nominals
 
 (* Backchain *)
 

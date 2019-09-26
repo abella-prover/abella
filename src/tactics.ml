@@ -1289,9 +1289,15 @@ let rec compatible_metaterm formal actual = match formal, actual with
   | Pred (fm, fr), Pred (am, ar) -> compatible_term fm am && compatible_restriction fr ar
   | _ -> false
 
+(* naive: match first *)
 let genCompatibleArgs term args hyps =
-  (* naive: match first *)
-  let terms = (map_args (fun x -> x) term) in
+  let tmBody = match term with
+    | Binding(Forall, _, Binding(Nabla, _, body)) -> body
+    | Binding(Forall, _, body) -> body
+    | Binding(Nabla, _, body) -> body
+    | _ -> term (* apply will throw an error if the shape is not H1 -> H2 -> H3 *)
+  in
+  let terms = (map_args (fun x -> x) tmBody) in
   (*
     Printf.printf "Applying term: %s\n" (metaterm_to_string term);
     List.iter2 begin fun tm arg ->
@@ -1326,7 +1332,7 @@ let genCompatibleArgs term args hyps =
   ) terms;
   Array.to_list argArr
 
-let apply_arrow ?(applys=false) term args hyps =
+let apply_arrow term args =
   (* Printf.eprintf "Applying term: %s\n" (metaterm_to_string term);
    * List.iter begin fun arg ->
    *   match arg with
@@ -1334,7 +1340,6 @@ let apply_arrow ?(applys=false) term args hyps =
    *   | Some a ->
    *      Printf.eprintf "Applied args: %s\n" (metaterm_to_string a)
    *   end args; *)
-  let args = if not applys then args else genCompatibleArgs term args hyps in
   let () = check_restrictions
       (map_args term_to_restriction term)
       (List.map some_term_to_restriction args)
@@ -1396,6 +1401,7 @@ let try_with_state_all ~fail f =
         -> set_scoped_bind_state state ; fail
 
 let apply ?(applys=false) ?(used_nominals=[]) term args hyps =
+  let args = if not applys then args else genCompatibleArgs term args hyps in
   let hyp_support = metaterm_support term in
   let support = hyp_support @
                   List.flatten_map (Option.map_default metaterm_support []) args in
@@ -1407,7 +1413,7 @@ let apply ?(applys=false) ?(used_nominals=[]) term args hyps =
   let process_bindings foralls nablas body =
     match nablas with
     | [] -> (* short circuit *)
-        apply_arrow (freshen_nameless_bindings ~support ~ts:0 foralls body) args hyps ~applys
+        apply_arrow (freshen_nameless_bindings ~support ~ts:0 foralls body) args
     | _ ->
         let n = List.length nablas in
         let (nabla_ids, nabla_tys) = List.split nablas in
@@ -1436,7 +1442,7 @@ let apply ?(applys=false) ?(used_nominals=[]) term args hyps =
                 let alist = List.combine nabla_ids nominals in
                 let permuted_body =
                   replace_metaterm_vars alist raised_body in
-                Some (apply_arrow permuted_body args hyps ~applys)
+                Some (apply_arrow permuted_body args)
                 )
           end |>
         (function
@@ -1452,7 +1458,7 @@ let apply ?(applys=false) ?(used_nominals=[]) term args hyps =
   | Binding(Nabla, nablas, body) ->
       process_bindings [] nablas body
   | Arrow _ ->
-      apply_arrow term args hyps ~applys
+      apply_arrow term args
   | term when args = [] ->
       (term, [])
   | _ ->

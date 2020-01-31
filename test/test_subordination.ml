@@ -1,7 +1,6 @@
 open OUnit
 open Test_helper
 open Term
-open Term.Notations
 open Subordination
 
 let tm = tybase (atybase "tm")

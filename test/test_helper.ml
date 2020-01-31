@@ -59,7 +59,7 @@ let process_decls decls =
   sign := List.fold_left add_decl !sign decls ;
   sr := List.fold_left Subordination.update !sr
     (List.filter_map
-       (function Abella_types.SType(ids, ty) -> Some ty | _ -> None)
+       (function Abella_types.SType(_, ty) -> Some ty | _ -> None)
        decls)
 
 let () = process_decls (parse_decls eval_sig_string)
@@ -149,7 +149,7 @@ let renumber_term t =
     | Term.Var _ | Term.DB _ -> t
     | Term.Lam (tycx, t) ->
         let (dep, tycx) = List.fold_left begin
-          fun (dep, tycx) (v, ty) ->
+          fun (dep, tycx) (_, ty) ->
             let xv = "x" ^ string_of_int dep in
             let dep = dep + 1 in
             let tycx = (xv, ty) :: tycx in
@@ -202,7 +202,7 @@ let assert_string_list_equal lst1 lst2 =
 let assert_raises_any ?msg (f: unit -> 'a) =
   let str = "expected exception, but no exception was raised." in
     match raises f, msg with
-      | Some e, _ -> ()
+      | Some _, _ -> ()
 	  | None, None -> assert_failure str
 	  | None, Some s -> assert_failure (Format.sprintf "%s\n%s" s str)
 

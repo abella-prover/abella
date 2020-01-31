@@ -1,8 +1,5 @@
 open OUnit
 open Test_helper
-open Metaterm
-open Lexer
-open Parser
 open Typing
 
 let assert_uterm_pprint_equal s t =

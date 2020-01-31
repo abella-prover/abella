@@ -3,7 +3,6 @@ open Test_helper
 open Term
 open Term.Notations
 open Metaterm
-open Typing
 
 let var_a = uvar Eigen "A" 0
 let var_b = uvar Eigen "B" 0
@@ -313,7 +312,7 @@ let tests =
              match
                fresh_raised_alist ~used:[] ~sr ~tag:Eigen ~support tids
              with
-               | ([(x, rx); (y, ry)], [x'; y']) ->
+               | ([(_, rx); (_, ry)], [x'; y']) ->
                    assert_term_pprint_equal ((term_to_string x') ^ " n1 n2") rx ;
                    assert_term_pprint_equal ((term_to_string y') ^ " n2") ry ;
                | _ -> assert false

@@ -251,7 +251,7 @@ let format_metaterm ff mt =
   pp_open_vbox ff 0 ; begin
     if !show_types then begin
       let noms = metaterm_support mt |>
-                 List.fast_sort (fun n1 n2 -> Pervasives.compare (term_head_name n1) (term_head_name n2))
+                 List.fast_sort (fun n1 n2 -> compare (term_head_name n1) (term_head_name n2))
       in
       if noms <> [] then begin
         pp_open_hovbox ff 1 ; begin

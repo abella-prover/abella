@@ -173,8 +173,8 @@ let rec was_successful results =
   match results with
       [] -> true
     | RSuccess _::t -> was_successful t
-    | RFailure _::t -> false
-    | RError _::t -> false
+    | RFailure _::_ -> false
+    | RError _::_ -> false
 
 (* Events which can happen during testing *)
 type test_event =
@@ -223,11 +223,11 @@ let run_test_tt ?(verbose=false) test =
   let separator2 =
     "----------------------------------------------------------------------" in
   let string_of_result = function
-      RSuccess path ->
+      RSuccess _ ->
 	if verbose then "ok\n" else "."
-    | RFailure (path, _) ->
+    | RFailure (_, _) ->
 	if verbose then "FAIL\n" else "F"
-    | RError (path, _) ->
+    | RError (_, _) ->
 	if verbose then "ERROR\n" else "E"
   in
   let report_event = function

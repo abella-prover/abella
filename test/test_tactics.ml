@@ -365,9 +365,9 @@ let apply_tests =
              apply_with h [None] [("X", nominal_var "n1" ity)]
            in
              match obligations with
-               | [Eq(t1, t2)] ->
+               | [Eq(_, t2)] ->
                    begin match observe (hnorm t2) with
-                     | App(h, [n]) ->
+                     | App(_, [n]) ->
                          assert_term_pprint_equal "n1" n ;
                      | _ -> assert_failure "Unexpected term"
                    end
@@ -761,7 +761,7 @@ let case_tests =
            let term = freshen "{L |- p1 A}" in
            let clauses = parse_clauses "p1 X :- p2 X." in
              match case ~clauses term with
-               | [case1; case2] -> begin
+               | [case1; _] -> begin
                    (* case2 is the member case *)
                    set_bind_state case1.bind_state ;
                    match case1.new_hyps with
@@ -808,7 +808,7 @@ let case_tests =
            let defs = parse_defs "rel1 M N." in
            let term = freshen "rel1 (A (n1:i)) B" in
              match case ~defs term with
-               | [case1] -> ()
+               | [_] -> ()
                | cases -> assert_expected_cases 1 cases) ;
 
       "Should raise over nominal variables in clauses" >::
@@ -816,7 +816,7 @@ let case_tests =
            let clauses = parse_clauses "eq M N." in
            let term = freshen "{eq (A (n1:i)) B}" in
              match case ~clauses term with
-               | [case1] -> ()
+               | [_] -> ()
                | cases -> assert_expected_cases 1 cases) ;
 
       "Should raise when nabla in predicate head" >::
@@ -945,7 +945,7 @@ let case_tests =
                | [case1] ->
                    set_bind_state case1.bind_state ;
                    begin match case1.new_hyps with
-                     | [hyp1; hyp2] ->
+                     | [_; hyp2] ->
                          assert_pprint_equal "sr_a_b (X n1) (Y n2 n1)" hyp2 ;
                      | _ -> assert_failure "Expected 2 new hypotheses"
                    end

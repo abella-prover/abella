@@ -3,7 +3,6 @@ open Test_helper
 open Typing
 open Term
 open Metaterm
-open Prover (* Need global signature *)
 
 let dummy_pos = (Lexing.dummy_pos, Lexing.dummy_pos)
 

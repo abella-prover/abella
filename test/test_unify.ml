@@ -20,7 +20,7 @@ let rec extract path t =
   match path, observe (hnorm t) with
     | L::tl, Lam(_,t) -> extract tl t
     | A::tl, App(_,t::_) -> extract tl t
-    | H::tl, App(t,_) -> observe t
+    | H::_, App(t,_) -> observe t
     | _ -> assert false
 
 let assert_raises_occurs_check f =

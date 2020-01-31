@@ -364,7 +364,7 @@ let format_vars ff =
       |> List.map
         (fun (x, xtm) -> (Term.tc [] xtm, x))
       |> List.sort
-        (fun (ty1, _) (ty2, _) -> Pervasives.compare ty1 ty2)
+        (fun (ty1, _) (ty2, _) -> compare ty1 ty2)
       |> List.collate_assoc
       |> List.iter (format_typed_vars ff) ;
     end else begin

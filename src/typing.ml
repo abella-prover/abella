@@ -156,7 +156,8 @@ let kind_check sign ty =
           let arity = karity knd in
           let nargs = List.length args in
           if not (nargs = arity) then
-            failwithf "%s expects %i arguments but has %i" cty arity nargs
+            failwithf "%s expects %i arguments but has %i" cty arity nargs ;
+          List.iter aux args
        | Typtr {contents = TT _} -> assert false
   in aux (observe_ty ty)
 

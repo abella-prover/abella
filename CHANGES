@@ -9,6 +9,8 @@ Bugfixes
   (#115, reported by @JimmyZJX)
 * Asserting trivial facts incorrectly left variables instantiated  
   (#113, reported by Jinxu Zhao)
+* Fully check that types are well-formed  
+  (#128, reported by @RandomActsOfGrammar)
 
 
 Changes in 2.0.6 from 2.0.5

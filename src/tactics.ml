@@ -1282,7 +1282,7 @@ let rec compatible_metaterm formal actual = match formal, actual with
   | False, False -> true
   | Eq (ftm1, ftm2), Eq (atm1, atm2) -> compatible_term ftm1 atm1 && compatible_term ftm2 atm2
   | Obj (_, fr), Obj (_, ar) -> compatible_restriction fr ar
-  | Arrow _, _ -> failwith "Compatible should not deal with Arrows..."
+  | Arrow _, Arrow _ -> true (* failwith "Compatible should not deal with Arrows..." *)
   | Binding (fb, _, fm), Binding (ab, _, am) -> fb == ab && compatible_metaterm fm am
   | Or (fm1, fm2), Or (am1, am2) -> compatible_metaterm fm1 am1 && compatible_metaterm fm2 am2
   | And (fm1, fm2), And (am1, am2) -> compatible_metaterm fm1 am1 && compatible_metaterm fm2 am2

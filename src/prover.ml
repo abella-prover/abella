@@ -1011,7 +1011,7 @@ let monotone ?name h t =
                 (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
       in
       let t = type_uterm ~expected_ty:olistty ~sr:!sr ~sign:!sign ~ctx t in
-      let new_obj = {obj with mode = Async ; context = Context.normalize [t]} in
+      let new_obj = {obj with context = Context.normalize [t]} in
       delay_mainline ?name
         (Obj (new_obj, r))
         (Binding(Forall, [("X", oty)],

@@ -13,7 +13,8 @@ Bugfixes
   (#128, reported by @RandomActsOfGrammar)
 * Case for async object sequents should normalize before clause selection  
   (#129, reported by Guillaume Melquiond)
-
+* Monotone for backchaining sequents should preserve backchaining  
+  (Related to #129, formally justified by conjunct 2 of logic/hh_meta.thm)
 
 Changes in 2.0.6 from 2.0.5
 ---------------------------

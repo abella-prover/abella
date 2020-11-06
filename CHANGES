@@ -11,6 +11,8 @@ Bugfixes
   (#113, reported by Jinxu Zhao)
 * Fully check that types are well-formed  
   (#128, reported by @RandomActsOfGrammar)
+* Case for async object sequents should normalize before clause selection  
+  (#129, reported by Guillaume Melquiond)
 
 
 Changes in 2.0.6 from 2.0.5

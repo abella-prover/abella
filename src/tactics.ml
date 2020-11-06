@@ -159,7 +159,7 @@ let object_cut_from obj1 obj2 term =
   let nids, ntys = List.split (nominal_tids norms) in
   let cut_objs =
     List.permute (List.length norms) (obj_support obj2) |>
-    List.find_all (fun permuted -> 
+    List.find_all (fun permuted ->
         List.for_all2 eq_ty ntys (List.map (tc []) permuted)) |>
     List.filter_map begin fun permuted ->
       let tobj =
@@ -405,10 +405,10 @@ let spec_view t =
     end
   | t -> Spec_atom t
 
-let terms_tyvars l = 
+let terms_tyvars l =
   List.unique (List.fold_left (fun vs t -> (term_collect_tyvar_names t)@vs) [] l)
 
-let extract_terms_from_cpairs cpairs = 
+let extract_terms_from_cpairs cpairs =
   match cpairs with
   | None -> []
   | Some pl -> List.fold_left (fun l (a,b) -> a::b::l) [] pl
@@ -433,17 +433,17 @@ let try_right_unify_cpairs_fully_inferred ~msg t1 t2 =
        failwith msg);
   cpairs
 
-let msg_cannot_fully_infer_def_clause head body = 
+let msg_cannot_fully_infer_def_clause head body =
   Printf.sprintf "Cannot fully infer the type of the definitional clause: %s := %s"
-    (term_to_string head) 
+    (term_to_string head)
     (metaterm_to_string body)
 
 let msg_cannot_fully_infer_prog_clause head body =
   Printf.sprintf "Cannot fully infer the type of the program clause: %s :- %s"
-    (term_to_string head) 
+    (term_to_string head)
     (String.concat "," (List.map term_to_string body))
 
-             
+
 let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   let support = metaterm_support term in
   let def_case ~wrapper term =
@@ -452,7 +452,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
         freshen_def ~sr ~support ~used head body
       in
       let msg = msg_cannot_fully_infer_def_clause head body in
-      match try_left_unify_cpairs_fully_inferred ~used:(fresh_used @ used) 
+      match try_left_unify_cpairs_fully_inferred ~used:(fresh_used @ used)
               ~msg head term with
       | Some cpairs ->
           let used_head = term_vars_alist Eigen [head; term] in
@@ -489,7 +489,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
             let head = replace_term_vars (List.combine rids nominals) head in
             let (pids, ptys) = List.split (List.minus tids raised) in
             List.permute (List.length pids) support |>
-            List.find_all (fun permuted -> 
+            List.find_all (fun permuted ->
                 List.for_all2 eq_ty ptys (List.map (tc []) permuted)) |>
             List.flatten_map ~guard:unwind_state begin fun permuted ->
               let support = List.minus support permuted in
@@ -529,7 +529,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
                  new_hyps = rewrap_succedent fresh_head :: body }
         end else begin
           let msg = msg_cannot_fully_infer_prog_clause fresh_head fresh_body in
-          match try_left_unify_cpairs_fully_inferred 
+          match try_left_unify_cpairs_fully_inferred
                   fresh_head sync_obj.right
                   ~used:(fresh_used @ used) ~msg with
           | Some cpairs ->
@@ -569,13 +569,19 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   in
 
   let async_case obj r =
-    if has_eigen_head obj.right then
-        failwithf "Cannot case-analyze an object sequent with a flexible goal.\n\
-                 \ The case command does not enumerate object logic formulas." ;
-    let clause_cases = clause_case obj r in
-    clause_cases @
-    (if Context.is_empty obj.context then []
-     else [create_sync ~used ~sr ~support obj r])
+    match normalize_obj ~parity:true ~bindstack:[] obj with
+    | [obj] ->
+        if has_eigen_head obj.right then
+          failwithf "Cannot case-analyze an object sequent with a flexible goal.\n\
+                    \ The case command does not enumerate object logic formulas." ;
+        let clause_cases = clause_case obj r in
+        clause_cases @
+        (if Context.is_empty obj.context then []
+         else [create_sync ~used ~sr ~support obj r])
+    | objs ->
+        [{ bind_state = get_bind_state () ;
+           new_vars = [] ;
+           new_hyps = List.map (fun obj -> Obj (obj, r)) objs }]
   in
 
   match term with
@@ -731,8 +737,8 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
     in
     support |>
     List.permute (List.length tids) |>
-    List.find_all 
-      (fun nominals -> 
+    List.find_all
+      (fun nominals ->
         List.for_all2 eq_ty tys (List.map (tc []) nominals)) |>
     List.flatten_map ~guard:unwind_state begin fun nominals ->
       let support = List.minus support nominals in
@@ -802,10 +808,10 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                 let cl = clausify (inst_clause_types tyvars cl) in
                 assert (List.length cl = 1) ;
                 let cl = List.hd cl in
-                let (vars, head, body) = 
+                let (vars, head, body) =
                   freshen_nameless_clause ~support ~ts:0 cl in
                 let msg = msg_cannot_fully_infer_prog_clause head body in
-                match try_right_unify_cpairs_fully_inferred ~msg 
+                match try_right_unify_cpairs_fully_inferred ~msg
                         head goal.right with
                 | None ->
                     failwithf "Head of program clause named %S not\
@@ -1255,7 +1261,7 @@ let some_term_to_restriction t =
   | Some t -> term_to_restriction t
 
 exception TypesNotFullyDetermined
- 
+
 let apply_arrow term args =
   (* Printf.eprintf "Applying term: %s\n" (metaterm_to_string term);
    * List.iter begin fun arg ->
@@ -1299,8 +1305,8 @@ let apply_arrow term args =
          | Unify.UnifyFailure fl -> raise (Unify.UnifyFailure (Unify.FailTrail (!argno, fl)))
     end term args
   in
-  (* Printf.eprintf "Applying result: %s\n" (metaterm_to_string result);  
-   * Printf.eprintf "Normalized applying result: %s\n" (metaterm_to_string (normalize result)); *)  
+  (* Printf.eprintf "Applying result: %s\n" (metaterm_to_string result);
+   * Printf.eprintf "Normalized applying result: %s\n" (metaterm_to_string (normalize result)); *)
   (* [HACK] reconcile does not produce failure trails *)
   Context.reconcile !context_pairs ;
   let result = normalize result in
@@ -1309,7 +1315,7 @@ let apply_arrow term args =
                   | None -> l
                   | Some a -> a :: l) [] args in
   let tms = result :: term :: (!obligations) @ args' in
-  if metaterms_contain_tyvar tms then 
+  if metaterms_contain_tyvar tms then
     raise TypesNotFullyDetermined
   else
     (result, !obligations)
@@ -1319,7 +1325,7 @@ let try_with_state_all ~fail f =
     try
       f ()
     with
-      | UnifyFailure _ | UnifyError _ 
+      | UnifyFailure _ | UnifyError _
       | TypeInferenceFailure _ | InstGenericTyvar _
       | TypesNotFullyDetermined
         -> set_scoped_bind_state state ; fail
@@ -1466,7 +1472,7 @@ let backchain_arrow term goal =
     end
   end ;
   let tms = term :: goal :: obligations in
-  if metaterms_contain_tyvar tms then 
+  if metaterms_contain_tyvar tms then
     raise TypesNotFullyDetermined
   else
     obligations

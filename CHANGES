@@ -1,5 +1,13 @@
-Changes in 2.0.7-dev from 2.0.6
+Changes in 2.0.8-dev from 2.0.7
 -------------------------------
+
+
+Changes in 2.0.7
+------------------
+
+This release adds no functionality, but fixes a number of minor bugs. It also
+makes Abella compilable with OCaml versions 4.08.0 and higher.
+
 
 Bugfixes
 
@@ -15,6 +23,7 @@ Bugfixes
   (#129, reported by Guillaume Melquiond)
 * Monotone for backchaining sequents should preserve backchaining  
   (Related to #129, formally justified by conjunct 2 of logic/hh_meta.thm)
+
 
 Changes in 2.0.6 from 2.0.5
 ---------------------------

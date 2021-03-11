@@ -74,9 +74,11 @@
     "search",        SEARCH ;
     "sig",           SIG ;
     "skip",          SKIP ;
+    "solve",         SOLVE ;
     "split",         SPLIT ;
     "split*",        SPLITSTAR ;
     "to",            TO ;
+    "try",           TRY ;
     "true",          TRUE ;
     "type",          TYPE ;
     "unabbrev",      UNABBREV ;

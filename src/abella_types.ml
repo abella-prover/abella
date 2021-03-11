@@ -136,6 +136,9 @@ type clear_mode =
 type hhint = id option
 
 type command =
+  | Solve of command
+  | Try of command
+  | SemiColon of command * command
   | Induction of int list * hhint
   | CoInduction of id option
   | Apply of depth_bound option * clearable * clearable list * (id * uterm) list * hhint
@@ -301,8 +304,12 @@ let ewitness_to_string = function
   | ETerm t -> uterm_to_string t
   | ESub (x, t) -> x ^ " = " ^ uterm_to_string t
 
-let command_to_string c =
+let rec command_to_string c =
   match c with
+    | Solve(cmd) -> "solve " ^ command_to_string cmd
+    | Try(cmd) -> "try " ^ command_to_string cmd
+    | SemiColon(cmd1, cmd2) ->
+      "(" ^ command_to_string cmd1 ^ " ; " ^ command_to_string cmd2 ^ ")"
     | Induction(is, hn) ->
         sprintf "%sinduction on %s" (hn_to_string hn)
           (String.concat " " (List.map string_of_int is))

@@ -28,6 +28,7 @@ open Unifyty
 open Extensions
 open Printf
 open Accumulate
+open Prover
 
 let load_path = State.rref (Sys.getcwd ())
 
@@ -602,45 +603,7 @@ and process_proof1 name =
     let pre, post = if !annotate then "<b>", "</b>" else "", "" in
     fprintf !out "%s%s.%s\n%!" pre (command_to_string input) post
   end ;
-  begin match input with
-  | Induction(args, hn)           -> Prover.induction ?name:hn args
-  | CoInduction hn                -> Prover.coinduction ?name:hn ()
-  | Apply(depth, h, args, ws, hn) -> Prover.apply ?depth ?name:hn h args ws ~term_witness
-  | Backchain(depth, h, ws)       -> Prover.backchain ?depth h ws ~term_witness
-  | Cut(h, arg, hn)               -> Prover.cut ?name:hn h arg
-  | CutFrom(h, arg, t, hn)        -> Prover.cut_from ?name:hn h arg t
-  | SearchCut(h, hn)              -> Prover.search_cut ?name:hn h
-  | Inst(h, ws, hn)               -> Prover.inst ?name:hn h ws
-  | Case(str, hn)                 -> Prover.case ?name:hn str
-  | Assert(t, dp, hn)             ->
-      untyped_ensure_no_restrictions t ;
-      Prover.assert_hyp ?name:hn ?depth:dp t
-  | Monotone(h, t, hn)            -> Prover.monotone ?name:hn h t
-  | Exists(_, ts)                 -> List.iter Prover.exists ts
-  | Clear(cm, hs)                 -> Prover.clear cm hs
-  | Abbrev(hs, s)                 -> Prover.abbrev (Iset.of_list hs) s
-  | Unabbrev(hs)                  -> Prover.unabbrev (Iset.of_list hs)
-  | Rename(hfr, hto)              -> Prover.rename hfr hto
-  | Search(bounds) -> begin
-      let depth = match bounds with
-        | `depth n -> Some n
-        | _ -> None
-      in
-      let witness = match bounds with
-        | `witness w -> w
-        | _ -> WMagic
-      in
-      Prover.search ?depth ~witness ~handle_witness:handle_search_witness ()
-    end
-  | Async_steps            -> Prover.async ()
-  | Permute(ids, h)        -> Prover.permute_nominals ids h
-  | Split                  -> Prover.split false
-  | SplitStar              -> Prover.split true
-  | Left                   -> Prover.left ()
-  | Right                  -> Prover.right ()
-  | Unfold (cs, ss)        -> Prover.unfold cs ss
-  | Intros hs              -> Prover.intros hs
-  | Skip                   -> Prover.skip ()
+  match input with
   | Abort                  -> raise (Prover.End_proof `aborted)
   | Undo
   | Common(Back)           ->
@@ -655,7 +618,64 @@ and process_proof1 name =
       fprintf !out "\n%!" ;
       suppress_proof_state_display := true
   | Common(Quit)           -> raise End_of_file
-  end
+  | _                      -> process_proof_command input
+
+and process_proof_command input =
+  match input with
+  | Solve(cmd)                    ->
+      process_proof_command cmd ;
+      failwith "Goal not solved"
+  | Try(cmd)                      ->
+      let state = snapshot_state () in
+      begin try process_proof_command cmd with
+        | End_proof reason   -> raise (End_proof reason)
+        | _e                 -> recover_state state
+      end
+  | SemiColon(cmd1, cmd2)         -> begin
+        Printf.fprintf !out "SEMI: %s\n%!" (command_to_string input) ;
+        add_pending_command cmd2 ;
+        process_proof_command cmd1 ;
+        process_pending_commands ()
+      end
+  | Induction(args, hn)           -> induction ?name:hn args
+  | CoInduction hn                -> coinduction ?name:hn ()
+  | Apply(depth, h, args, ws, hn) -> apply ?depth ?name:hn h args ws ~term_witness
+  | Backchain(depth, h, ws)       -> backchain ?depth h ws ~term_witness
+  | Cut(h, arg, hn)               -> cut ?name:hn h arg
+  | CutFrom(h, arg, t, hn)        -> cut_from ?name:hn h arg t
+  | SearchCut(h, hn)              -> search_cut ?name:hn h
+  | Inst(h, ws, hn)               -> inst ?name:hn h ws
+  | Case(str, hn)                 -> case ?name:hn str
+  | Assert(t, dp, hn)             ->
+      untyped_ensure_no_restrictions t ;
+      assert_hyp ?name:hn ?depth:dp t
+  | Monotone(h, t, hn)            -> monotone ?name:hn h t
+  | Exists(_, ts)                 -> List.iter exists ts
+  | Clear(cm, hs)                 -> clear cm hs
+  | Abbrev(hs, s)                 -> abbrev (Iset.of_list hs) s
+  | Unabbrev(hs)                  -> unabbrev (Iset.of_list hs)
+  | Rename(hfr, hto)              -> rename hfr hto
+  | Search(bounds) -> begin
+      let depth = match bounds with
+        | `depth n -> Some n
+        | _ -> None
+      in
+      let witness = match bounds with
+        | `witness w -> w
+        | _ -> WMagic
+      in
+      search ?depth ~witness ~handle_witness:handle_search_witness ()
+    end
+  | Async_steps            -> async ()
+  | Permute(ids, h)        -> permute_nominals ids h
+  | Split                  -> split false
+  | SplitStar              -> split true
+  | Left                   -> left ()
+  | Right                  -> right ()
+  | Unfold (cs, ss)        -> unfold cs ss
+  | Intros hs              -> intros hs
+  | Skip                   -> skip ()
+  | _                      -> failwith ("Invalid proof command: " ^ command_to_string input)
 
 and process_top1 () =
   fprintf !out "Abella < %!" ;
@@ -729,6 +749,9 @@ and process_top1 () =
   end ;
   if !interactive then flush stdout ;
   fprintf !out "\n%!"
+
+(* Dirty workaround that resolves the dependency issue *)
+let _ = Prover.process_proof_command := process_proof_command;;
 
 (* Command line and startup *)
 

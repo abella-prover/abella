@@ -111,7 +111,7 @@
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY ASYNC
 %token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON
-%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
+%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY REPROVE SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
 %token BACK RESET
 %token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND
@@ -198,6 +198,7 @@ id:
   | QUERY         { "Query" }
   | QUIT          { "Quit" }
   | RENAME        { "rename" }
+  | REPROVE       { "Reprove" }
   | RIGHT         { "right" }
   | SEARCH        { "search" }
   | SET           { "Set" }
@@ -731,6 +732,8 @@ pure_top_command:
     { Types.Import($2, []) }
   | IMPORT QSTRING WITH import_withs DOT
     { Types.Import($2, $4) }
+  | REPROVE DOT
+    { Types.Reprove }
   | SPECIFICATION QSTRING DOT
     { Types.Specification($2) }
   | KKIND id_list knd DOT

@@ -522,6 +522,9 @@ and proof_processor = {
 
 let current_state = State.rref Process_top
 
+(* Used to process the "Reprove" command; Quit just represents a null command *)
+let last_top_command = State.rref (TopCommon Quit)
+
 let print_clauses () =
   List.iter print_clause !Prover.clauses
 
@@ -659,12 +662,21 @@ and process_proof1 name =
 
 and process_top1 () =
   fprintf !out "Abella < %!" ;
-  let input = Parser.top_command Lexer.token !lexbuf in
+  let input = ref (Parser.top_command Lexer.token !lexbuf) in
   if not !interactive then begin
     let pre, post = if !annotate then "<b>", "</b>" else "", "" in
-    fprintf !out "%s%s.%s\n%!" pre (top_command_to_string input) post
+    fprintf !out "%s%s.%s\n%!" pre (top_command_to_string !input) post
   end ;
-  begin match input with
+  begin
+    if !input == Reprove then
+      match !last_top_command with
+      | Theorem(_, _, _) -> input := !last_top_command
+      | _                -> failwith "Reprove requires the last top-level command to be a theorem declaration"
+      (* Also keep the last command unchanged to enable multiple reproofs *)
+    else
+      last_top_command := !input
+  end ;
+  begin match !input with
   | Theorem(name, tys, thm) ->
       let st = get_bind_state () in
       let seq = Prover.copy_sequent () in
@@ -694,7 +706,7 @@ and process_top1 () =
         compile (CTheorem(n, tys, t))
       end gen_thms ;
   | Define _ ->
-      compile (Prover.register_definition input)
+      compile (Prover.register_definition !input)
   | TopCommon(Back) ->
       if !interactive then State.Undo.back 2
       else failwith "Cannot use interactive commands in non-interactive mode"
@@ -707,6 +719,7 @@ and process_top1 () =
   | Import(filename, withs) ->
       compile (CImport (filename, withs)) ;
       import (normalize_filename filename) withs;
+  | Reprove -> failwith "Assertion failure: Abella should not encounter the Reprove command here"
   | Specification(filename) ->
       if !can_read_specification then begin
         read_specification (normalize_filename filename) ;

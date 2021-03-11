@@ -32,6 +32,7 @@
     "Kind",          KKIND ;
     "Query",         QUERY ;
     "Quit",          QUIT ;
+    "Reprove",       REPROVE ;
     "Set",           SET ;
     "Show",          SHOW ;
     "Specification", SPECIFICATION ;

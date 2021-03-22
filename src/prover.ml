@@ -139,15 +139,16 @@ let rec process_pending_commands () =
 
 let process_command_subgoal subgoal =
   let state = snapshot_state () in
-  let subgoal_processed = try begin
+  let subgoals_processed = try begin
+      subgoals := [] ;
       subgoal () ;
       process_pending_commands () ;
       let state_subgoal = snapshot_state () in
-      [fun () -> recover_state_maingoal state_subgoal]
-    end with (End_proof _reason) -> []
+      [fun () -> recover_state_maingoal state_subgoal] @ !subgoals
+    end with (End_proof _reason) -> !subgoals
   in
-  recover_state_maingoal state ;
-  subgoal_processed
+  recover_state state ;
+  subgoals_processed
 
 let format_subgoals subgoals =
   let pristine = State.snapshot () in

@@ -192,8 +192,8 @@ let add_subgoals ?(mainline) new_subgoals =
   in
   let processed_subgoals = List.map process_command_subgoal annotated_subgoals |> List.concat
   in
-  Printf.fprintf !out "Generating %d subgoals\n%!" (List.length processed_subgoals);
-  format_subgoals processed_subgoals;
+  (* Printf.fprintf !out "Generating %d subgoals\n%!" (List.length processed_subgoals); *)
+  (* format_subgoals processed_subgoals; *)
   subgoals := processed_subgoals @ !subgoals
 
 let fresh_hyp_name base =

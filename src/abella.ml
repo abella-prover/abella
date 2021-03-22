@@ -632,7 +632,6 @@ and process_proof_command input =
         | _e                 -> recover_state state
       end
   | SemiColon(cmd1, cmd2)         -> begin
-        Printf.fprintf !out "SEMI: %s\n%!" (command_to_string input) ;
         add_pending_command cmd2 ;
         process_proof_command cmd1 ;
         process_pending_commands ()

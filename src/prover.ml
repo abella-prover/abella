@@ -49,6 +49,7 @@ type sequent = {
   mutable count : int ;
   mutable name : string ;
   mutable next_subgoal_id : int ;
+  mutable pending_commands : command list;
 }
 
 (* The vars = sq.vars is superfluous, but forces the copy *)
@@ -59,7 +60,8 @@ let assign_sequent sq1 sq2 =
   sq1.goal <- sq2.goal ;
   sq1.count <- sq2.count ;
   sq1.name <- sq2.name ;
-  sq1.next_subgoal_id <- sq2.next_subgoal_id
+  sq1.next_subgoal_id <- sq2.next_subgoal_id ;
+  sq1.pending_commands <- sq2.pending_commands
 
 let sequent =
   State.make ~copy:cp_sequent ~assign:assign_sequent {
@@ -69,6 +71,7 @@ let sequent =
     count = 0 ;
     name = "" ;
     next_subgoal_id = 1 ;
+    pending_commands = [] ;
   }
 
 let add_global_types tys knd =
@@ -97,6 +100,66 @@ let close_types sign clauses atys =
   end ;
   sr := Subordination.close !sr atys;
   List.iter (Typing.term_ensure_subordination !sr) (List.map snd clauses)
+
+exception End_proof of [`completed | `aborted]
+
+let copy_sequent () = cp_sequent sequent
+let set_sequent other = assign_sequent sequent other
+
+type prover_state = bind_state * sequent * subgoal list
+
+let snapshot_state () =
+  let bind_state = get_bind_state () ; in
+  let seq = copy_sequent () ; in
+  let subgls = !subgoals in
+  (bind_state, seq, subgls)
+
+let recover_state (bind_state, seq, subgls) =
+  set_bind_state bind_state ;
+  set_sequent seq ;
+  subgoals := subgls
+
+let recover_state_maingoal (bind_state, seq, _subgls) =
+  set_bind_state bind_state ;
+  set_sequent seq
+
+
+let add_pending_command command =
+  sequent.pending_commands <- command :: sequent.pending_commands
+
+let process_proof_command = ref (fun _input -> ())
+
+let rec process_pending_commands () =
+  match sequent.pending_commands with
+  | cmd :: cmds ->
+      sequent.pending_commands <- cmds;
+      !process_proof_command cmd;
+      process_pending_commands ()
+  | [] -> ()
+
+let process_command_subgoal subgoal =
+  let state = snapshot_state () in
+  let subgoals_processed = try begin
+      subgoals := [] ;
+      subgoal () ;
+      process_pending_commands () ;
+      let state_subgoal = snapshot_state () in
+      [fun () -> recover_state_maingoal state_subgoal] @ !subgoals
+    end with (End_proof _reason) -> !subgoals
+  in
+  recover_state state ;
+  subgoals_processed
+
+let format_subgoals subgoals =
+  let pristine = State.snapshot () in
+  List.iter begin fun set_state ->
+    set_state () ;
+    Printf.fprintf !out "[Subgoal %s%s: %s]\n%!"
+      sequent.name
+      (if sequent.name = "" then "" else " ")
+      (metaterm_to_string (normalize sequent.goal))
+  end subgoals ;
+  State.reload pristine
 
 let add_subgoals ?(mainline) new_subgoals =
   let extend_name i =
@@ -127,10 +190,11 @@ let add_subgoals ?(mainline) new_subgoals =
         in
         annotate sequent.next_subgoal_id new_subgoals @ [new_mainline]
   in
-  subgoals := annotated_subgoals @ !subgoals
-
-let copy_sequent () = cp_sequent sequent
-let set_sequent other = assign_sequent sequent other
+  let processed_subgoals = List.map process_command_subgoal annotated_subgoals |> List.concat
+  in
+  (* Printf.fprintf !out "Generating %d subgoals\n%!" (List.length processed_subgoals); *)
+  (* format_subgoals processed_subgoals; *)
+  subgoals := processed_subgoals @ !subgoals
 
 let fresh_hyp_name base =
   if base = "" then begin
@@ -603,8 +667,6 @@ let get_stmt_clearly h =
 let get_arg_clearly = function
   | Keep ("_", _) -> None
   | arg -> Some (get_stmt_clearly arg)
-
-exception End_proof of [`completed | `aborted]
 
 let next_subgoal () =
   match !subgoals with

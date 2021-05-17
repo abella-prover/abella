@@ -110,7 +110,7 @@
 %token IMP IF AMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY ASYNC
-%token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON
+%token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON TRY SOLVE
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
 %token BACK RESET
@@ -203,11 +203,13 @@ id:
   | SET           { "Set" }
   | SHOW          { "Show" }
   | SKIP          { "skip" }
+  | SOLVE         { "solve" }
   | SPECIFICATION { "Specification" }
   | SPLIT         { "split" }
   | SSPLIT        { "Split" }
   | THEOREM       { "Theorem" }
   | TO            { "to" }
+  | TRY           { "try" }
   | TTYPE         { "Type" }
   | UNABBREV      { "unabbrev" }
   | UNDO          { "undo" }
@@ -480,85 +482,103 @@ maybe_depth:
   | { None }
 
 pure_command:
-  | hhint IND ON num_list DOT
+  | pure_command_semicolon DOT
+    { $1 }
+  | pure_command_wo_dot DOT
+    { $1 }
+
+pure_command_semicolon:
+  | pure_command_wo_dot SEMICOLON pure_command_wo_dot
+    { Types.SemiColon($1, $3) }
+  | pure_command_semicolon SEMICOLON pure_command_wo_dot
+    { Types.SemiColon($1, $3) }
+
+pure_command_wo_dot:
+  | SOLVE pure_command_wo_dot
+    { Types.Solve($2) }
+  | TRY pure_command_wo_dot
+    { Types.Try($2) }
+  | LPAREN pure_command_semicolon RPAREN
+    { $2 }
+  | hhint IND ON num_list
     { Types.Induction($4, $1) }
-  | hhint COIND DOT
+  | hhint COIND
     { Types.CoInduction($1) }
-  | hhint APPLY maybe_depth clearable TO apply_args DOT
+  | hhint APPLY maybe_depth clearable TO apply_args
     { Types.Apply($3, $4, $6, [], $1) }
-  | hhint APPLY maybe_depth clearable TO apply_args WITH withs DOT
+  | hhint APPLY maybe_depth clearable TO apply_args WITH withs
     { Types.Apply($3, $4, $6, $8, $1) }
-  | hhint APPLY maybe_depth clearable WITH withs DOT
+  | hhint APPLY maybe_depth clearable WITH withs
     { Types.Apply($3, $4, [], $6, $1) }
-  | hhint APPLY maybe_depth clearable DOT
+  | hhint APPLY maybe_depth clearable
     { Types.Apply($3, $4, [], [], $1) }
-  | BACKCHAIN maybe_depth clearable DOT
+  | BACKCHAIN maybe_depth clearable
     { Types.Backchain($2, $3, []) }
-  | BACKCHAIN maybe_depth clearable WITH withs DOT
+  | BACKCHAIN maybe_depth clearable WITH withs
     { Types.Backchain($2, $3, $5) }
-  | hhint CUT LPAREN term RPAREN FROM clearable WITH clearable DOT
+  | hhint CUT LPAREN term RPAREN FROM clearable WITH clearable
     { Types.CutFrom($7,$9,$4,$1) }
-  | hhint CUT clearable WITH clearable DOT
+  | hhint CUT clearable WITH clearable
     { Types.Cut($3, $5, $1) }
-  | hhint CUT clearable DOT
+  | hhint CUT clearable
     { Types.SearchCut($3, $1) }
-  | hhint INST clearable WITH withs DOT
+  | hhint INST clearable WITH withs
     { Types.Inst($3, $5, $1) }
-  | hhint CASE hyp DOT
+  | hhint CASE hyp
     { Types.Case(Types.Remove ($3, []), $1) }
-  | hhint CASE hyp LPAREN KEEP RPAREN DOT
+  | hhint CASE hyp LPAREN KEEP RPAREN
     { Types.Case(Types.Keep ($3, []), $1) }
-  | hhint ASSERT maybe_depth metaterm DOT
+  | hhint ASSERT maybe_depth metaterm
     { Types.Assert($4, $3, $1) }
-  | hhint MONOTONE clearable WITH term DOT
+  | hhint MONOTONE clearable WITH term
     { Types.Monotone($3, $5, $1) }
-  | EXISTS ewitnesses DOT
+  | EXISTS ewitnesses
     { Types.Exists(`EXISTS, $2) }
-  | WITNESS ewitnesses DOT
+  | WITNESS ewitnesses
     { Types.Exists(`WITNESS, $2) }
-  | SEARCH DOT
+  | SEARCH
     { Types.Search(`nobounds) }
-  | SEARCH NUM DOT
+  | SEARCH NUM
     { Types.Search(`depth $2) }
-  | SEARCH WITH search_witness DOT
+  | SEARCH WITH search_witness
     { Types.Search(`witness $3) }
-  | ASYNC DOT
+  | ASYNC
     { Types.Async_steps }
-  | SPLIT DOT
+  | SPLIT
     { Types.Split }
-  | SPLITSTAR DOT
+  | SPLITSTAR
     { Types.SplitStar }
-  | LEFT DOT
+  | LEFT
     { Types.Left }
-  | RIGHT DOT
+  | RIGHT
     { Types.Right }
-  | INTROS DOT
+  | INTROS
     { Types.Intros [] }
-  | INTROS hyp_list DOT
+  | INTROS hyp_list
     { Types.Intros($2) }
-  | SKIP DOT
+  | SKIP
     { Types.Skip }
-  | ABORT DOT
+  | ABORT
     { Types.Abort }
-  | UNDO DOT
+  | UNDO
     { Types.Undo }
-  | UNFOLD clause_sel sol_sel DOT
+  | UNFOLD clause_sel sol_sel
     { Types.Unfold ($2, $3) }
-  | CLEAR hyp_list DOT
+  | CLEAR hyp_list
     { Types.Clear(Types.Clear_delete, $2) }
-  | CLEAR RARROW hyp_list DOT
+  | CLEAR RARROW hyp_list
     { Types.Clear(Types.Clear_extro, $3) }
-  | ABBREV hyp_list QSTRING DOT
+  | ABBREV hyp_list QSTRING
     { Types.Abbrev($2, $3) }
-  | UNABBREV hyp_list DOT
+  | UNABBREV hyp_list
     { Types.Unabbrev($2) }
-  | RENAME STRINGID TO STRINGID DOT
+  | RENAME STRINGID TO STRINGID
     { check_legal_var $2 2 ;
       check_legal_var $4 4 ;
       Types.Rename($2, $4) }
-  | PERMUTE perm DOT
+  | PERMUTE perm
     { Types.Permute($2, None) }
-  | PERMUTE perm hyp DOT
+  | PERMUTE perm hyp
     { Types.Permute($2, Some $3) }
 
 hhint:

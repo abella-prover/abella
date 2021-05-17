@@ -605,7 +605,7 @@ and process_proof1 name =
   begin match input with
   | Induction(args, hn)           -> Prover.induction ?name:hn args
   | CoInduction hn                -> Prover.coinduction ?name:hn ()
-  | Apply(depth, h, args, ws, hn) -> Prover.apply ?depth ?name:hn h args ws ~term_witness
+  | Apply(depth, h, args, ws, hn, applys) -> Prover.apply ~applys ?depth ?name:hn h args ws ~term_witness
   | Backchain(depth, h, ws)       -> Prover.backchain ?depth h ws ~term_witness
   | Cut(h, arg, hn)               -> Prover.cut ?name:hn h arg
   | CutFrom(h, arg, t, hn)        -> Prover.cut_from ?name:hn h arg t

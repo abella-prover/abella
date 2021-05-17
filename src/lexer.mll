@@ -44,6 +44,7 @@
     "accumulate",    ACCUM ;
     "all",           ALL ;
     "apply",         APPLY ;
+    "applys",        APPLYS ;
     "as",            AS ;
     "assert",        ASSERT ;
     "async",         ASYNC ;

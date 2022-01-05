@@ -23,6 +23,9 @@ Bugfixes
 * Automatic compilation in `Import` statements now does not clobber existing
   partial compilation results. This improves the support for multiple runs
   of Abella in parallel using the same source files.
+* The *first* Type or Kind declaration was accidentally being added to
+  the specification signature.  
+  (Identified by Farah Al Wardani, @innofarah)
 
 
 Changes in 2.0.7

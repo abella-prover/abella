@@ -241,6 +241,14 @@ let comp_spec_sign = State.rref ([], [])
 let comp_spec_clauses = State.rref []
 let comp_content = State.rref []
 
+let debug_spec_sign1 ?(msg="") () =
+  let (kt, ct) = !comp_spec_sign in
+  Printf.printf "DEBUG: %sspec_ktable = [%s], spec_ctable = [%s]\n"
+    (if msg = "" then "" else "[" ^ msg ^ "] ")
+    (String.concat "," (List.map fst kt))
+    (String.concat "," (List.map fst ct))
+let debug_spec_sign ?(msg="") () = ignore msg
+
 let marshal citem =
   match !compile_out with
   | Some cout -> Marshal.to_channel cout citem []
@@ -254,7 +262,7 @@ let ensure_finalized_specification () =
   end
 
 let compile citem =
-  ensure_finalized_specification () ;
+  (* ensure_finalized_specification () ; *)
   comp_content := citem :: !comp_content
 
 let predicates (_ktable, ctable) =
@@ -267,6 +275,7 @@ let predicates (_ktable, ctable) =
 let write_compilation () =
   marshal Version.self_digest ;
   marshal Version.version ;
+  debug_spec_sign ~msg:"write_compilation" () ;
   marshal !comp_spec_sign ;
   marshal !comp_spec_clauses ;
   marshal (predicates !sign) ;
@@ -853,11 +862,13 @@ and process_top1 () =
   | Kind(ids,knd) ->
       check_noredef ids;
       Prover.add_global_types ids knd;
-      compile (CKind (ids,knd))
+      compile (CKind (ids,knd)) ;
+      debug_spec_sign ~msg:"Kind" ()
   | Type(ids, ty) ->
       check_noredef ids;
       Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
-      compile (CType(ids, ty))
+      compile (CType(ids, ty)) ;
+      debug_spec_sign ~msg:"Type" ()
   | Close(atys) ->
       Prover.close_types !sign !Prover.clauses atys ;
       compile (CClose(List.map (fun aty -> (aty, Subordination.subordinates !sr aty)) atys))

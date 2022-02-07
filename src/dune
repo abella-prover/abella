@@ -1,0 +1,9 @@
+(executable
+  (name abella)
+  (libraries unix))
+
+(ocamllex
+  (modules lexer))
+
+(ocamlyacc
+  (modules parser))

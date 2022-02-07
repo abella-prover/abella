@@ -1,6 +1,6 @@
 opam-version: "2.0"
 name: "abella"
-version: "2.0.7-dev"
+version: "2.0.8-dev"
 synopsis: "Interactive theorem prover based on lambda-tree syntax"
 maintainer: "kaustuv@chaudhuri.info"
 authors: [
@@ -11,7 +11,7 @@ authors: [
 homepage: "http://abella-prover.org"
 license: "GPL 3"
 build: [
-  [make "all" "abella.install"]
+  [make "all-release" "abella.install"]
 ]
 depends: [
   "ocaml" { >= "4.02.3" }

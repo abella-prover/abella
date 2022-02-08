@@ -18,10 +18,6 @@
 *.html
 !index.html
 *.native
-src/lexer.ml
-src/parser.ml
-src/parser.mli
-src/version.ml
 abella
 _build
 examples/examples.tar.gz

@@ -15,8 +15,7 @@ build: [
 ]
 depends: [
   "ocaml" { >= "4.02.3" }
-  "ocamlfind" {build}
-  "ocamlbuild" {build}
+  "dune" {build}
 ]
 bug-reports: "https://github.com/abella-prover/abella/issues"
 dev-repo: "git+https://github.com/abella-prover/abella.git"

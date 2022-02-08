@@ -2,10 +2,10 @@
 
 .PHONY: all all-release
 all:
-	dune build
+	dune build src/abella.exe
 
 all-release:
-	dune build --release
+	dune build --release src/abella.exe
 
 AIN := abella.install
 

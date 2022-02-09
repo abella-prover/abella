@@ -1,6 +1,6 @@
 (*
  * Author: Kaustuv Chaudhuri <kaustuv.chaudhuri@inria.fr>
- * Copyright (C) 2015-2018  Inria (Institut National de Recherche
+ * Copyright (C) 2015-2022  Inria (Institut National de Recherche
  *                          en Informatique et en Automatique)
  * See LICENSE for licensing details.
  *)

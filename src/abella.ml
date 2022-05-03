@@ -39,9 +39,11 @@ let normalize_filename ?(wrt = !load_path) fn =
 let can_read_specification = State.rref true
 
 let interactive = ref true
+let switch_to_interactive = ref false
+let is_interactive () = !interactive || !switch_to_interactive
+
 let compile_out = ref None
 
-let switch_to_interactive = ref false
 let lexbuf = ref (Lexing.from_channel stdin)
 
 let annotate = ref false
@@ -49,6 +51,8 @@ let annotate = ref false
 let count = ref 0
 
 let witnesses = State.rref false
+
+let unfinished_theorems : string list ref = ref []
 
 exception AbortProof
 
@@ -286,9 +290,9 @@ let replace_atom_clause decl defn_name defn cl =
 
 let replace_atom_compiled decl defn_name defn comp=
   match comp with
-  | CTheorem (nm, tyvars, bod) ->
+  | CTheorem (nm, tyvars, bod, fin) ->
       (* Printf.printf "Trying to rewrite a CTheorem\n%!" ; *)
-      CTheorem (nm, tyvars, replace_atom_metaterm decl defn_name defn bod)
+      CTheorem (nm, tyvars, replace_atom_metaterm decl defn_name defn bod, fin)
   | CDefine (flav, tyvars, definiens, clauses) ->
       if List.mem_assoc defn_name definiens then
         failwithf "There is already a defined atom named %s in import" defn_name ;
@@ -349,7 +353,7 @@ let import filename withs =
         | [] -> ()
         | decl :: decls -> begin
             match decl with
-            | CTheorem(name, tys, thm) ->
+            | CTheorem(name, tys, thm, _) ->
                 Prover.add_lemma name tys thm ;
                 process_decls decls
             | CDefine(flav, tyargs, idtys, clauses) ->
@@ -516,7 +520,7 @@ type processing_state =
 
 and proof_processor = {
   thm : string ;
-  compile : (unit -> unit) ;
+  compile : (fin -> unit) ;
   reset : (unit -> unit) ;
 }
 
@@ -535,9 +539,15 @@ let rec process1 () =
         | Prover.End_proof reason -> begin
             fprintf !out "Proof %s.\n%!" begin
               match reason with
-              | `completed ->
-                  proc.compile () ;
-                  "completed"
+              | `completed fin -> begin
+                  proc.compile fin ;
+                  if fin = Unfinished then
+                    unfinished_theorems := proc.thm :: !unfinished_theorems ;
+                  Printf.sprintf "completed%s"
+                    (match fin with
+                     | Finished -> ""
+                     | Unfinished -> " *** USING skip ***")
+                end
               | `aborted -> "ABORTED"
             end ;
             proc.reset () ;
@@ -568,6 +578,12 @@ let rec process1 () =
         match !current_state with
         | Process_top ->
             if !annotate then fprintf !out "\n</pre>\n%!" ;
+            if not (is_interactive ()) && !unfinished_theorems <> [] then begin
+              fprintf !out "\n\nThere were skips in these theorem(s): %s\n"
+                (String.concat ", "  !unfinished_theorems)
+              (* fprintf !out "\n\n*** unfinished theorems (using skip): ***\n" ; *)
+              (* List.iter (fprintf !out "%s\n") !unfinished_theorems *)
+            end ;
             exit 0
         | _ ->
             fprintf !out "Proof NOT completed.\n%!" ;
@@ -672,15 +688,16 @@ and process_top1 () =
       check_theorem tys thm ;
       Prover.theorem thm ;
       let oldsign = !sign in
-      let thm_compile () =
+      let thm_compile fin =
         sign := oldsign ;
-        compile (CTheorem(name, tys, thm)) ;
+        compile (CTheorem(name, tys, thm, fin)) ;
         Prover.add_lemma name tys thm
       in
       let thm_reset () =
         sign := oldsign ;
         Prover.reset_prover st seq ()
       in
+      Prover.start_proof () ;
       current_state := Process_proof {
           thm = name ;
           compile = thm_compile ;
@@ -691,7 +708,7 @@ and process_top1 () =
       List.iter begin fun (n, (tys, t)) ->
         Prover.print_theorem n (tys, t) ;
         Prover.add_lemma n tys t ;
-        compile (CTheorem(n, tys, t))
+        compile (CTheorem(n, tys, t, Finished))
       end gen_thms ;
   | Define _ ->
       compile (Prover.register_definition input)
@@ -831,7 +848,7 @@ let _ =
     end else begin
       set_input () ;
       fprintf !out "%s%!" welcome_msg ;
-      State.Undo.set_enabled (!interactive || !switch_to_interactive) ;
+      State.Undo.set_enabled (is_interactive ()) ;
       while true do number process1 () done
     end
 ;;

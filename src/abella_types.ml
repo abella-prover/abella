@@ -74,8 +74,10 @@ type top_command =
   | SSplit of id * id list
   | TopCommon of common_command
 
+type fin = Finished | Unfinished
+
 type compiled =
-  | CTheorem of id * string list * metaterm
+  | CTheorem of id * string list * metaterm * fin
   | CDefine of flavor * string list * tyctx * def_clause list
   | CImport of string * (string * string) list
   | CKind of id list * knd

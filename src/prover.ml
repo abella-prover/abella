@@ -36,6 +36,9 @@ let lemmas : (string, string list * metaterm) H.t = State.table ()
 type subgoal = unit -> unit
 let subgoals : subgoal list ref = State.rref []
 
+let skip_seen : bool ref = State.rref false
+let start_proof () = skip_seen := false
+
 type hyp = {
   id : id ;
   term : metaterm ;
@@ -604,11 +607,13 @@ let get_arg_clearly = function
   | Keep ("_", _) -> None
   | arg -> Some (get_stmt_clearly arg)
 
-exception End_proof of [`completed | `aborted]
+exception End_proof of [`completed of fin | `aborted]
 
 let next_subgoal () =
   match !subgoals with
-  | [] -> raise (End_proof `completed)
+  | [] ->
+      let fin = if !skip_seen then Unfinished else Finished in
+      raise (End_proof (`completed fin))
   | set_subgoal::rest ->
       set_subgoal () ;
       subgoals := rest ;
@@ -1196,6 +1201,7 @@ let exists ew =
 (* Skip *)
 
 let skip () =
+  skip_seen := true ;
   next_subgoal ()
 
 (* Clear *)

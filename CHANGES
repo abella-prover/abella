@@ -6,6 +6,13 @@ Possibly breaking changes
 * Abella now uses Dune instead of ocamlbuild.
 
 
+Additions
+
+* Mention that a proof contained "skip" during interactive mode, and a
+  summary of skipped theorems in batch mode.  
+  (#137, reported by Farah Al Wardani)
+
+
 Bugfixes
 
 

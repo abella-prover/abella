@@ -200,6 +200,13 @@ let assert_string_list_equal lst1 lst2 =
   ignore (List.map2 assert_string_equal lst1 lst2)
 
 let assert_raises_any ?msg (f: unit -> 'a) =
+  let raises f =
+    try
+      f ();
+      None
+    with
+      e -> Some e
+  in
   let str = "expected exception, but no exception was raised." in
     match raises f, msg with
       | Some _, _ -> ()

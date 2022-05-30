@@ -24,7 +24,6 @@ clean:
 	dune clean
 	$(RM) abella abella.exe abella.install
 
-# .PHONY: test
-# test: all
-# 	$(OCB) -no-links test/test.native
-# 	_build/test/test.native
+.PHONY: test
+test:
+	dune runtest --release

@@ -66,6 +66,7 @@ type top_command =
   | Theorem of id * string list * umetaterm
   | Define of flavor * tyctx * udef_clause list
   | Import of string * (string * string) list
+  | Reprove
   | Specification of string
   | Query of umetaterm
   | Kind of id list * knd
@@ -266,6 +267,7 @@ let top_command_to_string tc =
           (withs |>
            List.map (fun (a, b) -> a ^ " := " ^ b) |>
            String.concat ", ")
+    | Reprove -> "Reprove"
     | Specification filename ->
         sprintf "Specification \"%s\"" filename
     | Query q ->

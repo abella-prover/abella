@@ -1,6 +1,12 @@
 (executable
   (name abella)
-  (libraries unix))
+  (modules abella)
+  (libraries src unix))
+
+(library
+  (name src)
+  (modules :standard \ abella)
+  (wrapped false))
 
 (ocamllex
   (modules lexer))

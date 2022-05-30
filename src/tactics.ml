@@ -1262,6 +1262,86 @@ let some_term_to_restriction t =
 
 exception TypesNotFullyDetermined
 
+
+let compatible_term formal actual =
+  let f_hname = term_head_name formal in
+  let a_hname = term_head_name actual in
+  let f_hty = term_head_ty formal in
+  let a_hty = term_head_ty actual in
+  f_hname = a_hname || (eq_ty f_hty a_hty && not (Filename.check_suffix (ty_to_string f_hty) "-> prop"))
+
+let compatible_restriction formal actual = match formal, actual with
+  | Smaller i, Smaller j when i = j -> true
+  | Equal i, Smaller j when i = j -> true
+  | Equal i, Equal j when i = j -> true
+  | Irrelevant, _ -> true
+  | _ -> false
+
+let rec compatible_metaterm formal actual = match formal, actual with
+  | True, True -> true
+  | False, False -> true
+  | Eq (ftm1, ftm2), Eq (atm1, atm2) -> compatible_term ftm1 atm1 && compatible_term ftm2 atm2
+  | Obj (_, fr), Obj (_, ar) -> compatible_restriction fr ar
+  | Arrow _, Arrow _ -> true (* failwith "Compatible should not deal with Arrows..." *)
+  | Binding (fb, _, fm), Binding (ab, _, am) -> fb == ab && compatible_metaterm fm am
+  | Or (fm1, fm2), Or (am1, am2) -> compatible_metaterm fm1 am1 && compatible_metaterm fm2 am2
+  | And (fm1, fm2), And (am1, am2) -> compatible_metaterm fm1 am1 && compatible_metaterm fm2 am2
+  | Pred (fm, fr), Pred (am, ar) -> compatible_term fm am && compatible_restriction fr ar
+  | _ -> false
+
+(* naive: match first *)
+let genCompatibleArgs term args hyps =
+  let tmBody = match term with
+    | Binding(Forall, _, Binding(Nabla, _, body)) -> body
+    | Binding(Forall, _, body) -> body
+    | Binding(Nabla, _, body) -> body
+    | _ -> term (* apply will throw an error if the shape is not H1 -> H2 -> H3 *)
+  in
+  let terms = (map_args (fun x -> x) tmBody) in
+  (*
+    Printf.printf "Applying term: %s\n" (metaterm_to_string term);
+    List.iter2 begin fun tm arg ->
+      match arg with
+      | None -> Printf.printf " %s {%s} ~ _\n" (metaterm_to_string tm) (head2str tm)
+      | Some a ->
+        Printf.printf " %s {%s} ~%B %s {%s}\n" (metaterm_to_string tm) (head2str tm) (compatible_metaterm tm a) (metaterm_to_string a) (head2str a)
+    end terms args ;*)
+  let argArr = Array.make (List.length terms) None in
+  let wildcardCounter = ref 0 in
+  (* interpret "_" as a indicator to skip match: `applys X to _ H` will match H with its second compatible term *)
+  List.iter (function
+      | Some a ->
+        let toSkip = !wildcardCounter in
+        wildcardCounter := 0;
+        let skipCnt = ref 0 in
+        let pa = ref (-1) in
+        List.iteri (fun i t ->
+          if !pa < 0 && argArr.(i) = None && compatible_metaterm t a then
+          begin
+            if !skipCnt = toSkip then pa := i;
+            incr skipCnt
+          end
+        ) terms;
+        if !pa < 0 then
+          let skipStr = if toSkip = 0 then "" else Printf.sprintf " (skip %d/%d)" toSkip !skipCnt in
+          failwithf "[%s] is not compatible with any subgoal%s" (metaterm_to_string a) skipStr
+        else
+          argArr.(!pa) <- Some a
+      | None -> incr wildcardCounter
+    ) args;
+  (* Printf.printf "applys get %d args and produces %d terms\n" (List.length args) (Array.length argArr); *)
+  (* Fix induction hyps *)
+  List.iteri (fun i t -> if argArr.(i) = None then
+    match t with
+      | Pred (_, r) when r <> Irrelevant ->
+        List.iter (fun hyp ->
+          if compatible_metaterm t hyp then
+            argArr.(i) <- Some hyp
+        ) hyps
+      | _ -> ()
+  ) terms;
+  Array.to_list argArr
+
 let apply_arrow term args =
   (* Printf.eprintf "Applying term: %s\n" (metaterm_to_string term);
    * List.iter begin fun arg ->
@@ -1439,12 +1519,13 @@ let rec instantiate_withs term withs =
       (normalize (nabla binders' body), nominals @ used_nominals)
   | _ -> (term, [])
 
-let apply_with term args withs =
+let apply_with ?applys:(applys=false) term args withs hyps =
+  let args = if not applys then args else genCompatibleArgs term args hyps in
   if args = [] && withs = [] then
     (term, [])
   else
-  let term, used_nominals = instantiate_withs term withs in
-  apply (normalize term) args ~used_nominals
+    let term, used_nominals = instantiate_withs term withs in
+    apply (normalize term) args ~used_nominals
 
 (* Backchain *)
 

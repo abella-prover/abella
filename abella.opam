@@ -16,7 +16,8 @@ build: [
 depends: [
   "ocaml" { >= "4.02.3" }
   "menhir" { >= "20211012" & build }
-  "dune" { build }
+  "dune" { >= "3.0" & build }
+  "ounit2" { with-test }
 ]
 bug-reports: "https://github.com/abella-prover/abella/issues"
 dev-repo: "git+https://github.com/abella-prover/abella.git"

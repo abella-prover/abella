@@ -11,10 +11,10 @@ open Prover
 (* Parsing functions *)
 
 let parse_uterm str =
-  Parser.term Lexer.token (Lexing.from_string str)
+  Parser.one_term Lexer.token (Lexing.from_string str)
 
 let parse_umetaterm str =
-  Parser.metaterm Lexer.token (Lexing.from_string str)
+  Parser.one_metaterm Lexer.token (Lexing.from_string str)
 
 let parse_top_command str =
   Parser.top_command Lexer.token (Lexing.from_string str)
@@ -23,16 +23,16 @@ let parse_metaterm ?(ctx=[]) str =
   type_umetaterm ~sr:!sr ~sign:!sign ~ctx (parse_umetaterm str)
 
 let parse_uclauses str =
-  Parser.mod_body Lexer.token (Lexing.from_string str)
+  Parser.one_mod_body Lexer.token (Lexing.from_string str)
 
 let parse_clauses str =
   List.map (type_uclause ~sr:!sr ~sign:!sign) (parse_uclauses str)
 
 let parse_decls str =
-  Parser.sig_body Lexer.token (Lexing.from_string str)
+  Parser.one_sig_body Lexer.token (Lexing.from_string str)
 
 let parse_udefs str =
-  Parser.defs Lexer.token (Lexing.from_string str)
+  Parser.one_defs Lexer.token (Lexing.from_string str)
 
 let parse_defs str =
   type_udefs ~sr:!sr ~sign:!sign (parse_udefs str) |>
@@ -202,7 +202,7 @@ let assert_string_list_equal lst1 lst2 =
 let assert_raises_any ?msg (f: unit -> 'a) =
   let raises f =
     try
-      f ();
+      ignore (f ()) ;
       None
     with
       e -> Some e

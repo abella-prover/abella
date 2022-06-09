@@ -140,7 +140,7 @@
 
 
 %start lpmod lpsig top_command command any_command sig_decl mod_clause search_witness depth_spec
-/* %start term metaterm */
+%start one_term one_metaterm one_defs one_sig_body one_mod_body
 
 %type <Typing.uterm> term
 %type <Typing.umetaterm> metaterm
@@ -154,6 +154,12 @@
 %type <Abella_types.any_command> any_command
 %type <Abella_types.witness> search_witness
 %type <(int * int option) list> depth_spec
+
+%type <Typing.uterm> one_term
+%type <Typing.umetaterm> one_metaterm
+%type <Abella_types.sig_decl list> one_sig_body
+%type <Abella_types.uclause list> one_mod_body
+%type <Abella_types.udef_clause list> one_defs
 
 %%
 
@@ -717,3 +723,14 @@ depth_spec_one:
     { (n1, Some n2) }
   | n=NUM
     { (n, None) }
+
+one_term:
+  | t=term EOF { t }
+one_metaterm:
+  | mt=metaterm EOF { mt }
+one_sig_body:
+  | bod=list(sig_decl) EOF { bod }
+one_mod_body:
+  | bod=list(mod_clause) EOF { bod }
+one_defs:
+  | ds=defs DOT EOF { ds }

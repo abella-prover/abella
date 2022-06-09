@@ -1272,7 +1272,7 @@ let search_tests =
       "On forall, arrow, unfold" >::
         (fun () ->
            assert_search ()
-             ~defs:"foo X := bar X"
+             ~defs:"foo X := bar X."
              ~goal:"forall Z, bar Z -> foo Z"
              ~expect:true
         );

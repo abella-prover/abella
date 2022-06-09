@@ -3,7 +3,8 @@ Changes in 2.0.8-dev from 2.0.7
 
 Possibly breaking changes
 
-* Abella now uses Dune instead of ocamlbuild.
+* Abella now uses Dune instead of ocamlbuild.  
+  (#138, additional contributions: Chase Johnson)
 
 
 Additions

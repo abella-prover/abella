@@ -1,10 +1,10 @@
 (executable
   (name abella)
   (modules abella)
-  (libraries src unix))
+  (libraries abella_lib unix))
 
 (library
-  (name src)
+  (name abella_lib)
   (modules :standard \ abella)
   (wrapped false))
 

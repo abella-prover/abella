@@ -163,12 +163,6 @@ let clauses : clause list ref = State.rref []
 let add_clauses new_clauses =
   clauses := !clauses @ new_clauses
 
-let parse_defs ?(sign = !sign) str =
-  Lexing.from_string str |>
-  Parser.defs Lexer.token |>
-  type_udefs ~sr:!sr ~sign |>
-  List.map (fun (head, body) -> {head ; body})
-
 let defs_table : defs_table = State.table ()
 
 let built_ins_done = ref false

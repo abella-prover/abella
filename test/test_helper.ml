@@ -17,7 +17,7 @@ let parse_umetaterm str =
   Parser.one_metaterm Lexer.token (Lexing.from_string str)
 
 let parse_top_command str =
-  Parser.top_command Lexer.token (Lexing.from_string str)
+  Parser.top_command_start Lexer.token (Lexing.from_string str)
 
 let parse_metaterm ?(ctx=[]) str =
   type_umetaterm ~sr:!sr ~sign:!sign ~ctx (parse_umetaterm str)
@@ -95,7 +95,7 @@ let nat_sig_string = "\
 let () = process_decls (parse_decls nat_sig_string)
 
 let process_top_command str =
-  match parse_top_command str with
+  match fst (parse_top_command str) with
     | Abella_types.Kind(ids, knd) ->
         add_global_types ids knd ;
     | Abella_types.Type(ids, ty) ->

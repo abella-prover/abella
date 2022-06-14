@@ -21,7 +21,6 @@
 
 {
   open Parser
-  open Lexing
 
   let keyword_table : (string, token) Hashtbl.t = Hashtbl.create 89 ;;
   let () = List.iter (fun (k, t) -> Hashtbl.add keyword_table k t) [
@@ -86,12 +85,6 @@
     "witness",       WITNESS ;
   ] ;;
 
-  let incrline lexbuf =
-    lexbuf.lex_curr_p <- {
-        lexbuf.lex_curr_p with
-          pos_bol = lexbuf.lex_curr_p.pos_cnum ;
-          pos_lnum = 1 + lexbuf.lex_curr_p.pos_lnum }
-
   let comment_level = ref 0
 }
 
@@ -109,11 +102,11 @@ let blank = ' ' | '\t' | '\r'
 rule token = parse
 | "/*"               { incr comment_level; comment lexbuf }
 | "%:" (name as s) ":" [^'\n']* '\n'
-                     { incrline lexbuf; CLAUSENAME s }
-| '%' [^'\n']* '\n'? { incrline lexbuf; token lexbuf }
+                     { Lexing.new_line lexbuf; CLAUSENAME s }
+| '%' [^'\n']* '\n'? { Lexing.new_line lexbuf; token lexbuf }
 
 | blank              { token lexbuf }
-| '\n'               { incrline lexbuf; token lexbuf }
+| '\n'               { Lexing.new_line lexbuf; token lexbuf }
 
 | '"' ([^ '"']* as s) '"'
                      { QSTRING s }
@@ -180,7 +173,7 @@ and comment = parse
                          comment lexbuf }
 | "*"                { comment lexbuf }
 | "/"                { comment lexbuf }
-| "\n"               { incrline lexbuf; comment lexbuf }
+| "\n"               { Lexing.new_line lexbuf; comment lexbuf }
 | eof                { print_endline
                          "Warning: comment not closed at end of file" ;
                        token lexbuf }

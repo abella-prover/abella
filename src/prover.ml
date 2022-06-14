@@ -210,8 +210,8 @@ let register_definition = function
 
 let parse_definition str =
   Lexing.from_string str |>
-  Parser.top_command Lexer.token |>
-  register_definition
+  Parser.top_command_start Lexer.token |>
+  fst |> register_definition
 
 let k_member = "member"
 let member_def_compiled =
@@ -486,6 +486,22 @@ let get_display () =
   format_display (formatter_of_buffer b) ;
   Buffer.contents b
 
+let state_json () : Json.t =
+  let vars =
+    List.filter is_uninstantiated sequent.vars
+    |> List.map fst |> List.map Json.string in
+  let hyps = List.map begin fun h ->
+      `List [
+        `String h.id ;
+        `String (metaterm_to_string h.term) ;
+      ]
+    end sequent.hyps in
+  let goal = metaterm_to_string sequent.goal in
+  `Assoc [
+    "vars", `List vars ;
+    "hyps", `List hyps ;
+    "goal", `String goal ;
+  ]
 
 (* Proof state manipulation utilities *)
 

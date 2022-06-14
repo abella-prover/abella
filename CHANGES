@@ -6,6 +6,8 @@ Possibly breaking changes
 * Abella now uses Dune instead of ocamlbuild.  
   (#138, additional contributions: Chase Johnson)
 * Abella's parser changed from ocamlbuild to Menhir
+* Abella's annotation mode (-a) now produces annotations in JSON format
+  instead of in HTML fragments
 
 
 Additions

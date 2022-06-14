@@ -48,53 +48,53 @@ type id = string
 exception Reported_parse_error
 
 type set_value =
-  | Str of string
-  | Int of int
-  | QStr of string
+  | Str           of string
+  | Int           of int
+  | QStr          of string
 
 type clearable =
-  | Keep of id * ty list
-  | Remove of id * ty list
+  | Keep          of id * ty list
+  | Remove        of id * ty list
 
 type common_command =
   | Back | Reset
-  | Set of string * set_value
-  | Show of string
+  | Set           of string * set_value
+  | Show          of string
   | Quit
 
 type top_command =
-  | Theorem of id * string list * umetaterm
-  | Define of flavor * tyctx * udef_clause list
-  | Import of string * (string * string) list
+  | Theorem       of id * string list * umetaterm
+  | Define        of flavor * tyctx * udef_clause list
+  | Import        of string * (string * string) list
   | Specification of string
-  | Query of umetaterm
-  | Kind of id list * knd
-  | Type of id list * ty
-  | Close of aty list
-  | SSplit of id * id list
-  | TopCommon of common_command
+  | Query         of umetaterm
+  | Kind          of id list * knd
+  | Type          of id list * ty
+  | Close         of aty list
+  | SSplit        of id * id list
+  | TopCommon     of common_command
 
 type fin = Finished | Unfinished
 
 type compiled =
-  | CTheorem of id * string list * metaterm * fin
-  | CDefine of flavor * string list * tyctx * def_clause list
-  | CImport of string * (string * string) list
-  | CKind of id list * knd
-  | CType of id list * ty
-  | CClose of (aty * aty list) list
+  | CTheorem      of id * string list * metaterm * fin
+  | CDefine       of flavor * string list * tyctx * def_clause list
+  | CImport       of string * (string * string) list
+  | CKind         of id list * knd
+  | CType         of id list * ty
+  | CClose        of (aty * aty list) list
 
 type witness =
   | WTrue
-  | WHyp of id
-  | WLeft of witness
-  | WRight of witness
-  | WSplit of witness * witness
-  | WForall of id list * witness
-  | WIntros of id list * witness
-  | WExists of (id * term) list * witness
+  | WHyp          of id
+  | WLeft         of witness
+  | WRight        of witness
+  | WSplit        of witness * witness
+  | WForall       of id list * witness
+  | WIntros       of id list * witness
+  | WExists       of (id * term) list * witness
   | WReflexive
-  | WUnfold of id * int * witness list
+  | WUnfold       of id * int * witness list
   | WMagic
 
 let witness_to_string =
@@ -129,7 +129,7 @@ type depth_bound = int
 
 type ewitness =
   | ETerm of uterm
-  | ESub of id * uterm
+  | ESub  of id * uterm
 
 type clear_mode =
   | Clear_delete
@@ -138,39 +138,40 @@ type clear_mode =
 type hhint = id option
 
 type command =
-  | Induction of int list * hhint
-  | CoInduction of id option
-  | Apply of depth_bound option * clearable * clearable list * (id * uterm) list * hhint
-  | Backchain of depth_bound option * clearable * (id * uterm) list
-  | CutFrom of clearable * clearable * uterm * hhint
-  | Cut of clearable * clearable * hhint
-  | SearchCut of clearable * hhint
-  | Inst of clearable * (id * uterm) list * hhint
-  | Case of clearable * hhint
-  | Assert of umetaterm * int option * hhint
-  | Monotone of clearable * uterm * hhint
-  | Exists of [`EXISTS | `WITNESS] * ewitness list
-  | Clear of clear_mode * id list
-  | Abbrev of id list * string
-  | Unabbrev of id list
-  | Rename of id * id
-  | Permute of id list * id option
-  | Search of [`nobounds | `depth of depth_bound | `witness of witness]
+  | Induction    of int list * hhint
+  | CoInduction  of id option
+  | Apply        of depth_bound option * clearable
+                    * clearable list * (id * uterm) list * hhint
+  | Backchain    of depth_bound option * clearable * (id * uterm) list
+  | CutFrom      of clearable * clearable * uterm * hhint
+  | Cut          of clearable * clearable * hhint
+  | SearchCut    of clearable * hhint
+  | Inst         of clearable * (id * uterm) list * hhint
+  | Case         of clearable * hhint
+  | Assert       of umetaterm * int option * hhint
+  | Monotone     of clearable * uterm * hhint
+  | Exists       of [`EXISTS | `WITNESS] * ewitness list
+  | Clear        of clear_mode * id list
+  | Abbrev       of id list * string
+  | Unabbrev     of id list
+  | Rename       of id * id
+  | Permute      of id list * id option
+  | Search       of [`nobounds | `depth of depth_bound | `witness of witness]
   | Async_steps
   | Split
   | SplitStar
   | Left
   | Right
-  | Intros of id list
-  | Unfold of clause_selector * solution_selector
+  | Intros       of id list
+  | Unfold       of clause_selector * solution_selector
   | Skip
   | Abort
   | Undo
-  | Common of common_command
+  | Common       of common_command
 
 and clause_selector =
   | Select_any
-  | Select_num of int
+  | Select_num   of int
   | Select_named of string
 
 and solution_selector =
@@ -178,13 +179,13 @@ and solution_selector =
   | Solution_all
 
 type any_command =
-  | ATopCommand of top_command
-  | ACommand of command
-  | ACommon of common_command
+  | ATopCommand  of top_command
+  | ACommand     of command
+  | ACommon      of common_command
 
 type sig_decl =
-  | SKind of id list * knd
-  | SType of id list * ty
+  | SKind        of id list * knd
+  | SType        of id list * ty
 
 type lpsig =
   | Sig of string * string list * sig_decl list

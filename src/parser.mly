@@ -41,17 +41,11 @@
       (fun _ -> raise Abella_types.Reported_parse_error)
       Format.err_formatter parse_fmt pos_string
 
-  let pos i =
-    if i = 0 then
-      (Parsing.symbol_start_pos (), Parsing.symbol_end_pos ())
-    else
-      (Parsing.rhs_start_pos i, Parsing.rhs_end_pos i)
+  let predefined ~pos id =
+    UCon(pos, id, Term.fresh_tyvar ())
 
-  let predefined id =
-    UCon(pos 0, id, Term.fresh_tyvar ())
-
-  let binop id t1 t2 =
-    UApp(pos 0, UApp(pos 0, predefined id, t1), t2)
+  let binop ~pos id t1 t2 =
+    UApp(pos, UApp(pos, predefined ~pos id, t1), t2)
 
   let nested_app head args =
     List.fold_left
@@ -139,7 +133,9 @@
 /* Higher */
 
 
-%start lpmod lpsig top_command command any_command sig_decl mod_clause search_witness depth_spec
+%start lpmod lpsig
+%start top_command_start command_start any_command_start
+%start sig_decl mod_clause search_witness depth_spec
 %start one_term one_metaterm one_defs one_sig_body one_mod_body
 
 %type <Typing.uterm> term
@@ -149,9 +145,9 @@
 %type <Abella_types.sig_decl> sig_decl
 %type <Abella_types.uclause> mod_clause
 %type <Abella_types.udef_clause list> defs
-%type <Abella_types.command> command
-%type <Abella_types.top_command> top_command
-%type <Abella_types.any_command> any_command
+%type <Abella_types.command * Typing.pos> command_start
+%type <Abella_types.top_command * Typing.pos> top_command_start
+%type <Abella_types.any_command * Typing.pos> any_command_start
 %type <Abella_types.witness> search_witness
 %type <(int * int option) list> depth_spec
 
@@ -162,6 +158,10 @@
 %type <Abella_types.udef_clause list> one_defs
 
 %%
+
+any_command_start: com=located(any_command) { com }
+command_start: com=located(command) { com }
+top_command_start: com=located(top_command) { com }
 
 hyp:
   | x=STRINGID
@@ -229,43 +229,43 @@ paid:
     { (x, Term.fresh_tyvar ()) }
   | LPAREN; x=loc_id; COLON; ty=ty; RPAREN
     { (x, ty) }
-  | _u=UNDERSCORE
-    { (("_", $loc(_u)), Term.fresh_tyvar ()) }
-  | LPAREN; _u=UNDERSCORE; COLON; ty=ty; RPAREN
-    { (("_", $loc(_u)), ty) }
+  | UNDERSCORE
+    { (("_", $loc($1)), Term.fresh_tyvar ()) }
+  | LPAREN; UNDERSCORE; COLON; ty=ty; RPAREN
+    { (("_", $loc($2)), ty) }
 
 contexted_term:
   | cx=context; TURN; gl=term
     { (cx, gl) }
   | gl=term
-    { (predefined "nil", gl) }
+    { (predefined ~pos:$loc "nil", gl) }
 
 focused_term:
   | cx=context; COMMA; LBRACK; foc=term; RBRACK; TURN; goal=term
     { (cx, foc, goal) }
   | LBRACK; foc=term; RBRACK; TURN; goal=term
-    { (predefined "nil", foc, goal) }
+    { (predefined ~pos:$loc "nil", foc, goal) }
 
 context:
   | cx=context; COMMA; f=term
-    { binop "::" f cx }
+    { binop ~pos:$loc "::" f cx }
   | f=term
     { if has_capital_head f then f
-      else binop "::" f (predefined "nil") }
+      else binop ~pos:$loc "::" f (predefined ~pos:$loc "nil") }
 
 term:
   | f=term; IMP; g=term
-    { binop "=>" f g }
+    { binop ~pos:$loc($2) "=>" f g }
   | g=term; IF; f=term
-    { binop "=>" f g }
+    { binop ~pos:$loc($2) "=>" f g }
   | f=term; AMP; g=term
-    { binop "&" f g }
+    { binop ~pos:$loc($2) "&" f g }
   | x=term; CONS; l=term
-    { binop "::" x l }
+    { binop ~pos:$loc($2) "::" x l }
   | v=aid; BSLASH; bod=term
     { let (id, ty) = v in
       let id = deloc_id id in
-      ULam(pos 0, id, ty, bod) }
+      ULam($loc(v), id, ty, bod) }
   | e=exp; es=exp_list
     { nested_app e es }
   | e=exp
@@ -366,7 +366,7 @@ clause_head:
     { head }
   | f=paid; args=loption(exp_list)
     { let ((id, _), ty) = f in
-      nested_app (UCon(pos 0, id, ty)) args }
+      nested_app (UCon($loc(f), id, ty)) args }
 
 clause_body:
   | t=term; COMMA; bod=clause_body
@@ -734,3 +734,7 @@ one_mod_body:
   | bod=list(mod_clause) EOF { bod }
 one_defs:
   | ds=defs DOT EOF { ds }
+
+%inline
+located(X):
+  | x=X { (x, $sloc) }

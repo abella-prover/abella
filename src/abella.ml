@@ -43,6 +43,8 @@ let switch_to_interactive = ref false
 let is_interactive () = !interactive || !switch_to_interactive
 
 let compile_out = ref None
+let compile_out_filename = ref ""
+let compile_out_temp_filename = ref ""
 
 let lexbuf = ref (Lexing.from_channel ~with_positions:false stdin)
 
@@ -244,7 +246,12 @@ let write_compilation () =
   marshal !comp_spec_sign ;
   marshal !comp_spec_clauses ;
   marshal (predicates !sign) ;
-  marshal (List.rev !comp_content)
+  marshal (List.rev !comp_content) ;
+  begin match !compile_out with
+  | Some cout ->
+      close_out cout ;
+      Sys.rename !compile_out_temp_filename !compile_out_filename
+  | None -> () end
 
 let clause_eq (_,c1) (_,c2) = eq c1 c2
 
@@ -380,6 +387,13 @@ let replace_atom_compiled decl defn_name defn comp=
       (* Printf.printf "Trying to rewrite a CClose\n%!" ; *)
       comp
 
+let add_lemma name tys thm =
+  match Prover.add_lemma name tys thm with
+  | `replace ->
+      system_message ~severity:Info
+        "Warning: overriding existing lemma named %S." name
+  | _ -> ()
+
 let import filename withs =
   let rec aux filename withs =
     maybe_make_importable filename ;
@@ -392,7 +406,7 @@ let import filename withs =
         let dig = (Marshal.from_channel ch : Digest.t) in
         let ver = (Marshal.from_channel ch : string) in
         if dig <> Version.self_digest then begin
-          Printf.printf
+          system_message ~severity:Info
             "Warning: %S was compiled with a different version (%s) of Abella; recompiling...\n%!"
             thc ver ;
           close_in ch ;
@@ -414,7 +428,7 @@ let import filename withs =
         | decl :: decls -> begin
             match decl with
             | CTheorem(name, tys, thm, _) ->
-                Prover.add_lemma name tys thm ;
+                add_lemma name tys thm ;
                 process_decls decls
             | CDefine(flav, tyargs, idtys, clauses) ->
                 let ids = List.map fst idtys in
@@ -761,7 +775,7 @@ and process_top1 () =
       let thm_compile fin =
         sign := oldsign ;
         compile (CTheorem(name, tys, thm, fin)) ;
-        Prover.add_lemma name tys thm
+        add_lemma name tys thm
       in
       let thm_reset () =
         sign := oldsign ;
@@ -777,7 +791,7 @@ and process_top1 () =
       let gen_thms = Prover.create_split_theorems name names in
       List.iter begin fun (n, (tys, t)) ->
         Prover.print_theorem n (tys, t) ;
-        Prover.add_lemma n tys t ;
+        add_lemma n tys t ;
         compile (CTheorem(n, tys, t, Finished))
       end gen_thms ;
   | Define _ ->
@@ -829,7 +843,13 @@ let set_output filename =
   out := open_out filename
 
 let set_compile_out filename =
-  compile_out := Some (open_out_bin filename)
+  compile_out_filename := filename ;
+  let (fn, ch) = Filename.open_temp_file
+      ~mode:[Open_binary]
+      ~temp_dir:(Filename.dirname filename)
+      (Filename.basename filename) ".part" in
+  compile_out_temp_filename := fn ;
+  compile_out := Some ch
 
 let makefile = ref false
 

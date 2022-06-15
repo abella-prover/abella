@@ -19,6 +19,10 @@ Additions
 
 Bugfixes
 
+* Automatic compilation in `Import` statements now do not partially clobber
+  existing partial compilation results. This improves the ability of
+  multiple runs of Abella in parallel using the same source files.
+
 
 Changes in 2.0.7
 ------------------

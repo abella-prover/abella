@@ -564,9 +564,9 @@ let add_if_new_var (name, v) =
     add_var (name, v)
 
 let add_lemma name tys lemma =
-  if H.mem lemmas name then
-    Format.eprintf "Warning: overriding existing lemma named %S@." name ;
-  H.replace lemmas name (tys, lemma)
+  let ovr = if H.mem lemmas name then `replace else `append in
+  H.replace lemmas name (tys, lemma) ;
+  ovr
 
 let get_hyp name =
   let hyp = List.find (fun h -> h.id = name) sequent.hyps in

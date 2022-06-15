@@ -16,14 +16,14 @@ let () =
     let ff = formatter_of_buffer buf in
     fprintf ff ".PHONY: all\nall:\n\n" ;
     let rec loop () =
-      match In_channel.input_line ch with
-      | Some thmfile ->
+      match input_line ch with
+      | thmfile ->
           let jsonfile = String.map (function '/' | '.' -> '_' | c -> c) thmfile ^ ".json" in
           fprintf ff "%s: %s\n" jsonfile thmfile ;
           fprintf ff "\t../src/abella.exe -a $< -o $@@\n" ;
           fprintf ff "all: %s\n" jsonfile ;
           loop ()
-      | None ->
+      | exception End_of_file ->
           close_in ch
     in
     loop () ;

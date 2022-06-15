@@ -407,7 +407,7 @@ command:
 
 clearable:
   | clr=boption(STAR); h=hyp; ins=maybe_inst
-    { if clr then Types.Keep(h, ins) else Types.Remove(h, ins) }
+    { if clr then Types.Remove(h, ins) else Types.Keep(h, ins) }
 
 %inline
 maybe_inst:

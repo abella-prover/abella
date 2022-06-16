@@ -50,8 +50,6 @@ let lexbuf = ref (Lexing.from_channel ~with_positions:false stdin)
 
 let annotate = ref false
 
-let count = ref 0
-
 let witnesses = State.rref false
 
 let unfinished_theorems : string list ref = ref []
@@ -72,40 +70,54 @@ let eprintf fmt =
 
 (* Annotations *)
 
+let json_of_position (lft, rgt) =
+  let open Lexing in
+  if ( lft = Lexing.dummy_pos
+       || lft.pos_fname = ""
+       || lft.pos_fname <> rgt.pos_fname )
+  then `Null else
+    `List [
+      `Int lft.pos_cnum ;
+      `Int lft.pos_bol ;
+      `Int lft.pos_lnum ;
+      `Int rgt.pos_cnum ;
+      `Int rgt.pos_bol ;
+      `Int rgt.pos_lnum ;
+    ]
+
 module Annot : sig
-  val enter : string -> unit
-  val leave : unit -> unit
-  val add_field : string -> Json.t -> unit
+  type t
+  val fresh : unit -> t
+  val id : t -> int
+  val extend : t -> string -> Json.t -> unit
+  val commit : t -> unit
+  val last_commit_id : unit -> int option
 end = struct
-  let cur_annot : (string * Json.t) list option ref = ref None
-  let count = ref 0
+  type t = {
+    id : int ;
+    mutable fields : (string * Json.t) list ;
+  }
+  let id annot = annot.id
+  let last_id = ref @@ -1
   let is_first = ref true
-  let enter reason =
-    match !cur_annot with
-    | Some _ -> bugf "annotation: enter called in scope of another enter"
-    | None ->
-        incr count ;
-        cur_annot := Some [
-            "type", `String reason ;
-            "count", `Int !count ;
-          ]
-  let leave () =
-    match !cur_annot with
-    | Some flds ->
-        cur_annot := None ;
-        let annot = `Assoc (List.rev flds) in
-        if !annotate then begin
-          if not !is_first then fprintf !out ",\n" ;
-          is_first := false ;
-          fprintf !out "%s%!" (Json.to_string annot) ;
-        end
-    | None ->
-        bugf "annotation: leave called before enter"
-  let add_field key value =
-    match !cur_annot with
-    | None ->
-        bugf "annotation: add_field called outside scope of enter"
-    | Some flds -> cur_annot := Some ((key, value) :: flds)
+  let fresh () =
+    incr last_id ;
+    { id = !last_id ; fields = [] }
+  let extend annot key value =
+    annot.fields <- (key, value) :: annot.fields
+  let last_commit = ref None
+  let commit annot =
+    if !annotate then begin
+      if not !is_first then fprintf !out ",\n" ;
+      is_first := false ;
+      let json = `Assoc (("id", `Int annot.id) :: annot.fields) in
+      fprintf !out "%s%!" (Json.to_string json) ;
+      last_commit := Some annot
+    end
+  let last_commit_id () =
+    match !last_commit with
+    | None -> None
+    | Some {id ; _} -> Some id
 end
 
 type severity = Info | Error
@@ -113,14 +125,20 @@ type severity = Info | Error
 let system_message ?(severity=Info) fmt =
   Printf.ksprintf begin fun msg ->
     if !annotate then begin
-      Annot.enter "system_message" ;
-      Annot.add_field "severity" @@ `String (
+      let json = Annot.fresh () in
+      Annot.extend json "type" @@ `String "system_message" ;
+      Annot.extend json "after" @@ begin
+        match Annot.last_commit_id () with
+        | None -> `Null
+        | Some id -> `Int id
+      end ;
+      Annot.extend json "severity" @@ `String (
         match severity with
         | Info -> "info"
         | Error -> "error"
       ) ;
-      Annot.add_field "message" @@ `String msg ;
-      Annot.leave ()
+      Annot.extend json "message" @@ `String msg ;
+      Annot.commit json
     end else begin
       match severity with
       | Info -> fprintf !out "%s\n%!" msg
@@ -593,6 +611,7 @@ type processing_state =
   | Process_proof of proof_processor
 
 and proof_processor = {
+  id : int ;
   thm : string ;
   compile : (fin -> unit) ;
   reset : (unit -> unit) ;
@@ -608,7 +627,7 @@ let rec process1 () =
   try begin match !current_state with
     | Process_top -> process_top1 ()
     | Process_proof proc -> begin
-        try process_proof1 proc.thm with
+        try process_proof1 proc with
         | Prover.End_proof reason -> begin
             system_message "Proof %s" begin
               match reason with
@@ -678,94 +697,103 @@ let rec process1 () =
       system_message ~severity:Error "Error: %s\n%!" msg ;
       interactive_or_exit ()
 
-and process_proof1 name =
+and process_proof1 proc =
+  let annot = Annot.fresh () in
+  Annot.extend annot "type" @@ `String "proof_command" ;
   if not !suppress_proof_state_display then begin
     if !annotate then begin
-      Annot.enter "proof_state" ;
-      Annot.add_field "theorem" @@ `String name ;
-      Annot.add_field "contents" @@ Prover.state_json () ;
-      Annot.leave ()
+      Annot.extend annot "thm_id" @@ `Int proc.id ;
+      Annot.extend annot "theorem" @@ `String proc.thm ;
+      Annot.extend annot "start_state" @@ Prover.state_json () ;
     end
     else if !interactive then Prover.display !out
   end ;
   suppress_proof_state_display := false ;
-  if !interactive && not !annotate then fprintf !out "%s < %!" name ;
+  if !interactive && not !annotate then fprintf !out "%s < %!" proc.thm ;
   let input, input_pos = Parser.command_start Lexer.token !lexbuf in
-  Annot.enter "proof_command" ;
-  Annot.add_field "theorem" @@ `String name ;
-  if fst input_pos != Lexing.dummy_pos then
-    Annot.add_field "provenance" @@ Json.of_position input_pos ;
   let cmd_string = command_to_string input in
   if not (!interactive || !annotate) then fprintf !out "%s.\n%!" cmd_string ;
-  Annot.add_field "command" @@ `String cmd_string ;
-  Annot.leave () ;
-  begin match input with
-  | Induction(args, hn)           -> Prover.induction ?name:hn args
-  | CoInduction hn                -> Prover.coinduction ?name:hn ()
-  | Apply(depth, h, args, ws, hn) -> Prover.apply ?depth ?name:hn h args ws ~term_witness
-  | Backchain(depth, h, ws)       -> Prover.backchain ?depth h ws ~term_witness
-  | Cut(h, arg, hn)               -> Prover.cut ?name:hn h arg
-  | CutFrom(h, arg, t, hn)        -> Prover.cut_from ?name:hn h arg t
-  | SearchCut(h, hn)              -> Prover.search_cut ?name:hn h
-  | Inst(h, ws, hn)               -> Prover.inst ?name:hn h ws
-  | Case(str, hn)                 -> Prover.case ?name:hn str
-  | Assert(t, dp, hn)             ->
-      untyped_ensure_no_restrictions t ;
-      Prover.assert_hyp ?name:hn ?depth:dp t
-  | Monotone(h, t, hn)            -> Prover.monotone ?name:hn h t
-  | Exists(_, ts)                 -> List.iter Prover.exists ts
-  | Clear(cm, hs)                 -> Prover.clear cm hs
-  | Abbrev(hs, s)                 -> Prover.abbrev (Iset.of_list hs) s
-  | Unabbrev(hs)                  -> Prover.unabbrev (Iset.of_list hs)
-  | Rename(hfr, hto)              -> Prover.rename hfr hto
-  | Search(bounds) -> begin
-      let depth = match bounds with
-        | `depth n -> Some n
-        | _ -> None
-      in
-      let witness = match bounds with
-        | `witness w -> w
-        | _ -> WMagic
-      in
-      Prover.search ?depth ~witness ~handle_witness:handle_search_witness ()
+  if !annotate then Annot.extend annot "command" @@ `String cmd_string ;
+  if !annotate && fst input_pos != Lexing.dummy_pos then
+    Annot.extend annot "range" @@ json_of_position input_pos ;
+  let perform () =
+    begin match input with
+    | Induction(args, hn)           -> Prover.induction ?name:hn args
+    | CoInduction hn                -> Prover.coinduction ?name:hn ()
+    | Apply(depth, h, args, ws, hn) -> Prover.apply ?depth ?name:hn h args ws ~term_witness
+    | Backchain(depth, h, ws)       -> Prover.backchain ?depth h ws ~term_witness
+    | Cut(h, arg, hn)               -> Prover.cut ?name:hn h arg
+    | CutFrom(h, arg, t, hn)        -> Prover.cut_from ?name:hn h arg t
+    | SearchCut(h, hn)              -> Prover.search_cut ?name:hn h
+    | Inst(h, ws, hn)               -> Prover.inst ?name:hn h ws
+    | Case(str, hn)                 -> Prover.case ?name:hn str
+    | Assert(t, dp, hn)             ->
+        untyped_ensure_no_restrictions t ;
+        Prover.assert_hyp ?name:hn ?depth:dp t
+    | Monotone(h, t, hn)            -> Prover.monotone ?name:hn h t
+    | Exists(_, ts)                 -> List.iter Prover.exists ts
+    | Clear(cm, hs)                 -> Prover.clear cm hs
+    | Abbrev(hs, s)                 -> Prover.abbrev (Iset.of_list hs) s
+    | Unabbrev(hs)                  -> Prover.unabbrev (Iset.of_list hs)
+    | Rename(hfr, hto)              -> Prover.rename hfr hto
+    | Search(bounds) -> begin
+        let depth = match bounds with
+          | `depth n -> Some n
+          | _ -> None
+        in
+        let witness = match bounds with
+          | `witness w -> w
+          | _ -> WMagic
+        in
+        Prover.search ?depth ~witness ~handle_witness:handle_search_witness ()
+      end
+    | Async_steps            -> Prover.async ()
+    | Permute(ids, h)        -> Prover.permute_nominals ids h
+    | Split                  -> Prover.split false
+    | SplitStar              -> Prover.split true
+    | Left                   -> Prover.left ()
+    | Right                  -> Prover.right ()
+    | Unfold (cs, ss)        -> Prover.unfold cs ss
+    | Intros hs              -> Prover.intros hs
+    | Skip                   -> Prover.skip ()
+    | Abort                  -> raise (Prover.End_proof `aborted)
+    | Undo
+    | Common(Back)           ->
+        if !interactive then State.Undo.back 2
+        else failwith "Cannot use interactive commands in non-interactive mode"
+    | Common(Reset)          ->
+        if !interactive then State.Undo.reset ()
+        else failwith "Cannot use interactive commands in non-interactive mode"
+    | Common(Set(k, v))      -> set k v
+    | Common(Show nm)        ->
+        Prover.show nm ;
+        if !interactive then fprintf !out "\n%!" ;
+        suppress_proof_state_display := true
+    | Common(Quit)           -> raise End_of_file
     end
-  | Async_steps            -> Prover.async ()
-  | Permute(ids, h)        -> Prover.permute_nominals ids h
-  | Split                  -> Prover.split false
-  | SplitStar              -> Prover.split true
-  | Left                   -> Prover.left ()
-  | Right                  -> Prover.right ()
-  | Unfold (cs, ss)        -> Prover.unfold cs ss
-  | Intros hs              -> Prover.intros hs
-  | Skip                   -> Prover.skip ()
-  | Abort                  -> raise (Prover.End_proof `aborted)
-  | Undo
-  | Common(Back)           ->
-      if !interactive then State.Undo.back 2
-      else failwith "Cannot use interactive commands in non-interactive mode"
-  | Common(Reset)          ->
-      if !interactive then State.Undo.reset ()
-      else failwith "Cannot use interactive commands in non-interactive mode"
-  | Common(Set(k, v))      -> set k v
-  | Common(Show nm)        ->
-      Prover.show nm ;
-      if !interactive then fprintf !out "\n%!" ;
-      suppress_proof_state_display := true
-  | Common(Quit)           -> raise End_of_file
-  end
+  in
+  if not !annotate then perform () else
+  match perform () with
+  | () ->
+      Annot.extend annot "end_state" @@ Prover.state_json () ;
+      Annot.commit annot
+  | exception e ->
+      Annot.commit annot ;
+      raise e
 
 and process_top1 () =
   if !interactive && not !annotate then fprintf !out "Abella < %!" ;
+  let annot = Annot.fresh () in
   let input, input_pos = Parser.top_command_start Lexer.token !lexbuf in
-  Annot.enter "top_command" ;
+  Annot.extend annot "type" @@ `String "top_command" ;
   if fst input_pos != Lexing.dummy_pos then
-    Annot.add_field "provenance" @@ Json.of_position input_pos ;
+    Annot.extend annot "range" @@ json_of_position input_pos ;
   let cmd_string = top_command_to_string input in
   if not (!interactive || !annotate) then fprintf !out "%s.\n%!" cmd_string ;
-  Annot.add_field "command" @@ `String cmd_string ;
-  Annot.leave () ;
+  Annot.extend annot "command" @@ `String cmd_string ;
+  Annot.commit annot ;
   begin match input with
-  | Theorem(name, tys, thm) ->
+  | Theorem(name, tys, thm) -> begin
       let st = get_bind_state () in
       let seq = Prover.copy_sequent () in
       let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
@@ -783,10 +811,11 @@ and process_top1 () =
       in
       Prover.start_proof () ;
       current_state := Process_proof {
-          thm = name ;
+          id = Annot.id annot ; thm = name ;
           compile = thm_compile ;
           reset = thm_reset
-        } ;
+        }
+    end
   | SSplit(name, names) ->
       let gen_thms = Prover.create_split_theorems name names in
       List.iter begin fun (n, (tys, t)) ->

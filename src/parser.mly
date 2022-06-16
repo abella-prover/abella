@@ -514,6 +514,7 @@ pure_command:
   | PERMUTE; p=perm; h=option(hyp); DOT
     { Types.Permute(p, h) }
 
+%inline
 hhint:
   | x=STRINGID; COLON
     { check_legal_var x $startpos(x) ; Some x }
@@ -737,4 +738,4 @@ one_defs:
 
 %inline
 located(X):
-  | x=X { (x, $sloc) }
+  | x=X { (x, $loc) }

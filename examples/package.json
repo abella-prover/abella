@@ -1,0 +1,13 @@
+{
+  "name": "examples",
+  "version": "1.0.0",
+  "description": "",
+  "main": "abella.js",
+  "scripts": {
+    "dev": "npx tailwindcss --output css/style.css --input css/style-src.css --watch",
+    "build": "npx tailwindcss --output css/style.css --input css/style-src.css --minify"
+  },
+  "keywords": [],
+  "author": "Kaustuv Chaudhuri <kaustuv@chaudhuri.info>",
+  "license": "GPL-3"
+}

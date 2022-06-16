@@ -38,6 +38,8 @@ let normalize_filename ?(wrt = !load_path) fn =
 
 let can_read_specification = State.rref true
 
+let no_recurse = ref false
+
 let interactive = ref true
 let switch_to_interactive = ref false
 let is_interactive () = !interactive || !switch_to_interactive
@@ -347,6 +349,8 @@ let maybe_make_importable ?(force=false) root =
       end
     end in
   if not !Sys.interactive && force then
+    if !no_recurse then
+      failwithf "Recursive invocation of Abella prevented with the -nr flag" ;
     let cmd = Printf.sprintf "%s %S -o %S.out -c %S" Sys.executable_name thm root thc in
     let sanitized_cmd = Printf.sprintf "abella %S -o %S.out -c %S"
         (sanitize_filename thm)
@@ -924,6 +928,8 @@ let options =
 
     "-a", Arg.Set annotate, " Annotate mode" ;
 
+    "-nr", Arg.Set no_recurse, " Do not recursively invoke Abella" ;
+
     "-v", Arg.Unit print_version, " Show version and exit" ;
 
     "-M", Arg.Set makefile, " Output dependencies in Makefile format" ;
@@ -947,7 +953,7 @@ let set_input () =
 let add_input filename =
   input_files := !input_files @ [filename]
 
-let _ =
+let () =
   Sys.set_signal Sys.sigint
     (Sys.Signal_handle (fun _ -> raise UserInterrupt)) ;
 

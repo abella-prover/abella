@@ -3,9 +3,14 @@
   (modules abella)
   (libraries abella_lib unix))
 
+(executable
+  (name abella_doc)
+  (modules abella_doc)
+  (libraries abella_lib unix))
+
 (library
   (name abella_lib)
-  (modules :standard \ abella)
+  (modules :standard \ abella abella_doc)
   (wrapped false))
 
 (ocamllex

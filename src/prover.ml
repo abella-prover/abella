@@ -635,13 +635,12 @@ let next_subgoal () =
 
 (* Show *)
 
-let print_theorem name (tys, thm) =
-  let ff = Format.formatter_of_out_channel !Checks.out in
-  Format.fprintf ff "@[<hv2>Theorem %s%s :@ %a@].@."
+let print_theorem name (tys, thm) fmt =
+  Format.fprintf fmt "@[<hv2>Theorem %s%s :@ %a@].@."
     name (gen_to_string tys) format_metaterm thm
 
-let show name =
-  print_theorem name (get_generic_lemma name)
+let show name fmt =
+  print_theorem name (get_generic_lemma name) fmt
 
 (* Object level instantiation *)
 

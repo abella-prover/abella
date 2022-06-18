@@ -148,6 +148,9 @@ let system_message ?(severity=Info) fmt =
     end
   end fmt
 
+let system_message_format ?severity fmt =
+  Format.kasprintf (system_message ?severity "%s") fmt
+
 (* Input *)
 
 let perform_switch_to_interactive () =
@@ -412,8 +415,7 @@ let replace_atom_compiled decl defn_name defn comp=
 let add_lemma name tys thm =
   match Prover.add_lemma name tys thm with
   | `replace ->
-      system_message ~severity:Info
-        "Warning: overriding existing lemma named %S." name
+      system_message "Warning: overriding existing lemma named %S." name
   | _ -> ()
 
 let import filename withs =
@@ -428,7 +430,7 @@ let import filename withs =
         let dig = (Marshal.from_channel ch : Digest.t) in
         let ver = (Marshal.from_channel ch : string) in
         if dig <> Version.self_digest then begin
-          system_message ~severity:Info
+          system_message
             "Warning: %S was compiled with a different version (%s) of Abella; recompiling...\n%!"
             thc ver ;
           close_in ch ;
@@ -673,11 +675,11 @@ let rec process1 () =
       end else begin
         match !current_state with
         | Process_top ->
-            if !annotate then fprintf !out "]\n%!" ;
             if not (is_interactive ()) && !unfinished_theorems <> [] then begin
-              system_message ~severity:Info "There were skips in these theorem(s): %s\n"
+              system_message "There were skips in these theorem(s): %s\n"
                 (String.concat ", "  !unfinished_theorems)
             end ;
+            if !annotate then fprintf !out "]\n%!" ;
             exit 0
         | _ ->
             system_message ~severity:Error "Proof NOT Completed." ;
@@ -770,7 +772,7 @@ and process_proof1 proc =
         else failwith "Cannot use interactive commands in non-interactive mode"
     | Common(Set(k, v))      -> set k v
     | Common(Show nm)        ->
-        Prover.show nm ;
+        system_message_format "%t" (Prover.show nm) ;
         if !interactive then fprintf !out "\n%!" ;
         suppress_proof_state_display := true
     | Common(Quit)           -> raise End_of_file
@@ -823,7 +825,7 @@ and process_top1 () =
   | SSplit(name, names) ->
       let gen_thms = Prover.create_split_theorems name names in
       List.iter begin fun (n, (tys, t)) ->
-        Prover.print_theorem n (tys, t) ;
+        system_message_format "%t" (Prover.print_theorem n (tys, t)) ;
         add_lemma n tys t ;
         compile (CTheorem(n, tys, t, Finished))
       end gen_thms ;
@@ -836,7 +838,7 @@ and process_top1 () =
       if !interactive then State.Undo.reset ()
       else failwith "Cannot use interactive commands in non-interactive mode"
   | TopCommon(Set(k, v)) -> set k v
-  | TopCommon(Show(n)) -> Prover.show n
+  | TopCommon(Show(n)) -> system_message_format "%t" (Prover.show n)
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, withs) ->
       compile (CImport (filename, withs)) ;

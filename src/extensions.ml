@@ -430,7 +430,7 @@ module Json = struct
     | `Assoc asc -> begin
         pp_print_string out "{ " ;
         pp_open_box out 0 ; begin
-          pp_print_list format_field out (List.rev asc)
+          pp_print_list format_field out asc
             ~pp_sep:(fun out () ->
                 pp_print_string out "," ;
                 pp_print_space out ())

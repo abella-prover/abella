@@ -32,7 +32,7 @@ let doc_template root =
   <div class="w-11/12 mx-auto mt-2 border-rose-300 border-2">
     <div id="container">
       <div id="thmbox"
-        class="font-mono bg-yellow-200 leading-tight w-full h-full px-2 whitespace-pre overflow-auto text-green-800">
+        class="font-mono italic bg-yellow-50 leading-tight w-full h-full px-2 whitespace-pre overflow-auto text-green-800">
         &nbsp;
       </div>
     </div>
@@ -91,7 +91,7 @@ let doc_template root =
             $(chunk_div).append(space);
             last_pos = start;
           }
-          const ul = elm.type === "proof_command" ? "text-rose-700 text-sm" : "leading-snug text-slate-800";
+          const ul = elm.type === "proof_command" ? "text-rose-700 not-italic text-sm" : "leading-snug not-italic text-[#000000]";
           const cmd = $(`<div class="abella-command inline-block ${ul} cursor-default hover:bg-rose-200/60">${thm_text.slice(start, stop)}</div>`);
           $(cmd).data('obj', elm);
           cmd_map.set(elm.id, cmd);

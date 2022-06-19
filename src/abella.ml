@@ -89,7 +89,7 @@ let json_of_position (lft, rgt) =
 
 module Annot : sig
   type t
-  val fresh : unit -> t
+  val fresh : string -> t
   val id : t -> int
   val extend : t -> string -> Json.t -> unit
   val commit : t -> unit
@@ -97,14 +97,15 @@ module Annot : sig
 end = struct
   type t = {
     id : int ;
+    typ : string ;
     mutable fields : (string * Json.t) list ;
   }
   let id annot = annot.id
   let last_id = ref @@ -1
   let is_first = ref true
-  let fresh () =
+  let fresh typ =
     incr last_id ;
-    { id = !last_id ; fields = [] }
+    { id = !last_id ; typ ; fields = [] }
   let extend annot key value =
     annot.fields <- (key, value) :: annot.fields
   let last_commit = ref None
@@ -112,9 +113,10 @@ end = struct
     if !annotate then begin
       if not !is_first then fprintf !out ",\n" ;
       is_first := false ;
-      let json = `Assoc (("id", `Int annot.id) :: annot.fields) in
+      let json = `Assoc (("id", `Int annot.id) :: ("type", `String annot.typ) :: annot.fields) in
       fprintf !out "%s%!" (Json.to_string json) ;
-      last_commit := Some annot
+      if annot.typ != "system_message" then
+        last_commit := Some annot
     end
   let last_commit_id () =
     match !last_commit with
@@ -127,8 +129,7 @@ type severity = Info | Error
 let system_message ?(severity=Info) fmt =
   Printf.ksprintf begin fun msg ->
     if !annotate then begin
-      let json = Annot.fresh () in
-      Annot.extend json "type" @@ `String "system_message" ;
+      let json = Annot.fresh "system_message" in
       Annot.extend json "after" @@ begin
         match Annot.last_commit_id () with
         | None -> `Null
@@ -704,8 +705,7 @@ let rec process1 () =
       interactive_or_exit ()
 
 and process_proof1 proc =
-  let annot = Annot.fresh () in
-  Annot.extend annot "type" @@ `String "proof_command" ;
+  let annot = Annot.fresh "proof_command" in
   if not !suppress_proof_state_display then begin
     if !annotate then begin
       Annot.extend annot "thm_id" @@ `Int proc.id ;
@@ -789,9 +789,8 @@ and process_proof1 proc =
 
 and process_top1 () =
   if !interactive && not !annotate then fprintf !out "Abella < %!" ;
-  let annot = Annot.fresh () in
+  let annot = Annot.fresh "top_command" in
   let input, input_pos = Parser.top_command_start Lexer.token !lexbuf in
-  Annot.extend annot "type" @@ `String "top_command" ;
   if fst input_pos != Lexing.dummy_pos then
     Annot.extend annot "range" @@ json_of_position input_pos ;
   let cmd_string = top_command_to_string input in

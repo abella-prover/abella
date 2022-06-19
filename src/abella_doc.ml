@@ -209,14 +209,14 @@ let main () =
   List.iter begin fun thmfile ->
     match Filename.chop_suffix thmfile ".thm" with
     | exception Invalid_argument _ ->
-      failwithf "Invalid file %S; All input files must end in .thm" thmfile
+        failwithf "Invalid file %S; All input files must end in .thm" thmfile
     | base ->
-      if not (Hashtbl.mem dep_tab thmfile) then
-        let (_, deps) = Depend.get_thm_depend base in
-        let deps = List.map begin fun dep ->
-            Filename.concat (Filename.dirname thmfile) dep
-          end deps in
-        Hashtbl.replace dep_tab base deps
+        if not (Hashtbl.mem dep_tab thmfile) then
+          let (_, deps) = Depend.get_thm_depend base in
+          let deps = List.map begin fun dep ->
+              Filename.concat (Filename.dirname thmfile) dep
+            end deps in
+          Hashtbl.replace dep_tab base deps
   end !input_files ;
   let seen = Hashtbl.create (List.length !input_files) in
   let topo = ref [] in

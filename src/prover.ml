@@ -96,7 +96,7 @@ let close_types sign clauses atys =
   begin match List.intersect [oty; olistty; propty] tys with
   | [] -> ()
   | xs -> failwithf "Cannot close %s"
-     (String.concat ", " (List.map ty_to_string xs))
+            (String.concat ", " (List.map ty_to_string xs))
   end ;
   sr := Subordination.close !sr atys;
   List.iter (Typing.term_ensure_subordination !sr) (List.map snd clauses)
@@ -214,11 +214,11 @@ let parse_definition str =
   fst |> register_definition
 
 let k_member = "member"
-let member_def_compiled =
-  "Define " ^ k_member ^ " : A -> list A -> prop by\
-  \  " ^ k_member ^ " A (A :: L) ; \
-  \  " ^ k_member ^ " A (B :: L) := " ^ k_member ^ " A L." |>
-  parse_definition
+let member_def_compiled = {|
+Define |} ^ k_member ^ {| : A -> list A -> prop by
+; |} ^ k_member ^ {| A (A :: L)
+; |} ^ k_member ^ {| A (B :: L) := |} ^ k_member ^ {| A L.
+|} |> parse_definition
 
 let () = built_ins_done := true
 
@@ -278,7 +278,7 @@ let instantiate_pred_types tysub (tbl: ty Itab.t) : ty Itab.t =
   Itab.iter begin fun id ty ->
     let ty' = apply_sub_ty tysub ty in
     res := Itab.add id ty' !res
-    end tbl;
+  end tbl;
   !res
 
 let instantiate_clause tysub cl =
@@ -301,14 +301,14 @@ let instantiate_clauses p def =
 let def_unfold term =
   match term with
   | Pred(p, _) ->
-     let pn = term_head_name p in
+      let pn = term_head_name p in
       if H.mem defs_table pn then begin
         let def = H.find defs_table pn in
         let (mutual, clauses) = instantiate_clauses p def in
         List.iter begin fun cl ->
           metaterm_ensure_subordination !sr cl.head ;
           metaterm_ensure_subordination !sr cl.body
-          end clauses;
+        end clauses;
         (mutual,clauses)
       end else
         failwith "Cannot perform case-analysis on undefined atom"
@@ -329,12 +329,12 @@ let separate_strings xs =
   let rec spin nxs pos = function
     | [] -> emit nxs
     | x :: xs ->
-      if pos + String.length x + 1 < __max_len then
-        spin (x :: nxs) (pos + String.length x + 1) xs
-      else begin
-        emit nxs ;
-        spin [x] (String.length x) xs
-      end
+        if pos + String.length x + 1 < __max_len then
+          spin (x :: nxs) (pos + String.length x + 1) xs
+        else begin
+          emit nxs ;
+          spin [x] (String.length x) xs
+        end
   in
   spin [] 0 xs ;
   List.rev !result
@@ -358,10 +358,8 @@ let format_vars ff =
     if !show_types then begin
       pp_print_newline ff () ;
       eigen_vars
-      |> List.map
-        (fun (x, xtm) -> (Term.tc [] xtm, x))
-      |> List.sort
-        (fun (ty1, _) (ty2, _) -> compare ty1 ty2)
+      |> List.map (fun (x, xtm) -> (Term.tc [] xtm, x))
+      |> List.sort (fun (ty1, _) (ty2, _) -> compare ty1 ty2)
       |> List.collate_assoc
       |> List.iter (format_typed_vars ff) ;
     end else begin
@@ -509,22 +507,16 @@ let state_json () : Json.t =
 
 (* Proof state manipulation utilities *)
 
-let reset_prover original_state original_sequent =
-  (* let original_state = get_bind_state () in
-   * let original_sequent = copy_sequent () in *)
-  fun () ->
-    set_bind_state original_state ;
-    set_sequent original_sequent ;
-    subgoals := []
+let reset_prover original_state original_sequent () =
+  set_bind_state original_state ;
+  set_sequent original_sequent ;
+  subgoals := []
 
 let full_reset_prover original_state original_sequent
-  original_clauses original_defs_table =
-  (* let original_clauses = !clauses in
-   * let original_defs_table = H.copy defs_table in *)
-  fun () ->
-    reset_prover original_state original_sequent () ;
-    clauses := original_clauses ;
-    H.assign defs_table original_defs_table
+    original_clauses original_defs_table () =
+  reset_prover original_state original_sequent () ;
+  clauses := original_clauses ;
+  H.assign defs_table original_defs_table
 
 let add_hyp ?name term =
   let name = fresh_hyp_name begin

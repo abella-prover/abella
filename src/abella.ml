@@ -355,14 +355,14 @@ let maybe_make_importable ?(force=false) root =
   if not !Sys.interactive && force then
     if !no_recurse then
       failwithf "Recursive invocation of Abella prevented with the -nr flag" ;
-    let cmd = Printf.sprintf "%s %S -o %S.out -c %S" Sys.executable_name thm root thc in
-    let sanitized_cmd = Printf.sprintf "abella %S -o %S.out -c %S"
-        (sanitize_filename thm)
-        (sanitize_filename root)
-        (sanitize_filename thc) in
-    system_message "Running: %s.\n%!" sanitized_cmd ;
-    if Sys.command cmd <> 0 then
-      failwithf "Could not create %S" thc
+  let cmd = Printf.sprintf "%s %S -o %S.out -c %S" Sys.executable_name thm root thc in
+  let sanitized_cmd = Printf.sprintf "abella %S -o %S.out -c %S"
+      (sanitize_filename thm)
+      (sanitize_filename root)
+      (sanitize_filename thc) in
+  system_message "Running: %s.\n%!" sanitized_cmd ;
+  if Sys.command cmd <> 0 then
+    failwithf "Could not create %S" thc
 
 let replace_atom_term decl _defn_name defn t =
   let ty = tc [] defn in

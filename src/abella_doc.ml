@@ -28,7 +28,12 @@ let doc_template root =
 </head>
 
 <body>
-  <h1>|} ^ root ^ {|</h1>
+  <div class="w-11/12 mx-auto mb-2">
+    <a href="https://abella-prover.org/index.html"><img src="https://abella-prover.org/images/logo-small.png"></a>
+    <h1 class="text-lg font-mono text-[maroon]">
+      |} ^ root ^ {|.thm
+    </h1>
+  </div>
   <div class="w-11/12 mx-auto mt-2 border-rose-300 border-2">
     <div id="container">
       <div id="thmbox"
@@ -70,6 +75,7 @@ let doc_template root =
       repr += '</div>';
       return repr;
     }
+    const make_safe = (str) => new Option(str).innerHTML;
     const getStuff = async () => {
       const init = {
         method: 'GET',
@@ -87,12 +93,11 @@ let doc_template root =
           const [start, , , stop, ,] = elm.range;
           const chunk_div = $(`<div id="chunk-${elm.id}" class="inline">`);
           if (last_pos < start) {
-            const space = $(`<span>${thm_text.slice(last_pos, start)}</span>`);
-            $(chunk_div).append(space);
+            $(thm_box).append($(`<span>${make_safe(thm_text.slice(last_pos, start))}</span>`));
             last_pos = start;
           }
           const ul = elm.type === "proof_command" ? "text-rose-700 not-italic text-sm" : "leading-snug not-italic text-[#000000]";
-          const cmd = $(`<div class="abella-command inline-block ${ul} cursor-default hover:bg-rose-200/60">${thm_text.slice(start, stop)}</div>`);
+          const cmd = $(`<div class="abella-command inline-block ${ul} cursor-default hover:bg-rose-200/60">${make_safe(thm_text.slice(start, stop))}</div>`);
           $(cmd).data('obj', elm);
           cmd_map.set(elm.id, cmd);
           $(chunk_div).append(cmd);
@@ -213,9 +218,6 @@ let main () =
     | base ->
         if not (Hashtbl.mem dep_tab thmfile) then
           let (_, deps) = Depend.get_thm_depend base in
-          let deps = List.map begin fun dep ->
-              Filename.concat (Filename.dirname thmfile) dep
-            end deps in
           Hashtbl.replace dep_tab base deps
   end !input_files ;
   let seen = Hashtbl.create (List.length !input_files) in

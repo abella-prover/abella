@@ -644,11 +644,11 @@ pure_top_command:
     { Types.Define(Types.CoInductive, xs, ds) }
   | QUERY; f=metaterm; DOT
     { Types.Query(f) }
-  | IMPORT; i=QSTRING;
+  | IMPORT; iloc=located(QSTRING);
     ws=loption(WITH; ws=import_withs {ws}); DOT
-    { Types.Import(i, ws) }
-  | SPECIFICATION; spec=QSTRING; DOT
-    { Types.Specification(spec) }
+    { let i, loc = iloc in Types.Import(i, loc, ws) }
+  | SPECIFICATION; sploc=located(QSTRING); DOT
+    { let spec, loc = sploc in Types.Specification(spec, loc) }
   | KKIND; tys=id_list; ki=knd; DOT
     { Types.Kind(List.map deloc_id tys, ki) }
   | TTYPE; cs=id_list; ty=ty; DOT

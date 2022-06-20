@@ -124,6 +124,12 @@ end = struct
     | Some {id ; _} -> Some id
 end
 
+let link_message pos url =
+  let ann = Annot.fresh "link" in
+  Annot.extend ann "source" @@ json_of_position pos ;
+  Annot.extend ann "url" @@ `String url ;
+  Annot.commit ann
+
 type severity = Info | Error
 
 let system_message ?(severity=Info) fmt =
@@ -429,7 +435,7 @@ let add_lemma name tys thm =
       system_message "Warning: overriding existing lemma named %S." name
   | _ -> ()
 
-let import filename withs =
+let import pos filename withs =
   let rec aux filename withs =
     maybe_make_importable filename ;
     if not (List.mem filename !imported) then begin
@@ -528,7 +534,8 @@ let import filename withs =
     system_message "Ignoring import: %s has already been imported." filename
   else begin
     system_message "Importing from %S." (sanitize_filename filename) ;
-    aux filename withs
+    aux (normalize_filename filename) withs ;
+    link_message pos (filename ^ ".html") ;
   end
 
 
@@ -849,13 +856,14 @@ and process_top1 () =
   | TopCommon(Set(k, v)) -> set k v
   | TopCommon(Show(n)) -> system_message_format "%t" (Prover.show n)
   | TopCommon(Quit) -> raise End_of_file
-  | Import(filename, withs) ->
+  | Import(filename, pos, withs) ->
       compile (CImport (filename, withs)) ;
-      import (normalize_filename filename) withs;
-  | Specification(filename) ->
+      import pos filename withs;
+  | Specification(filename, pos) ->
       if !can_read_specification then begin
         read_specification (normalize_filename filename) ;
-        ensure_finalized_specification ()
+        ensure_finalized_specification () ;
+        if !annotate then link_message pos (filename ^ ".html") ;
       end else
         failwith "Specification can only be read \
                  \ at the begining of a development."

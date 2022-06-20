@@ -33,8 +33,8 @@ let get_thm_depend filename =
     begin try
       while true do
         match Parser.any_command_start Lexer.token lexbuf with
-          | ATopCommand(Specification(s)), _ -> specs := s :: !specs
-          | ATopCommand(Import(i, _)), _ -> imports := i :: !imports
+          | ATopCommand(Specification(s, _)), _ -> specs := s :: !specs
+          | ATopCommand(Import(i, _, _)), _ -> imports := i :: !imports
           | _ -> ()
       done
     with

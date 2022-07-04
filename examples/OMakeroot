@@ -1,9 +1,0 @@
-if $(equal $(OSTYPE), Win32)
-    OSTYPE = Cygwin
-    GCC_FOUND = true
-    GXX_FOUND = true
-    export
-
-open build/OCaml
-
-.SUBDIRS: .

@@ -1,13 +1,21 @@
 {
   "name": "examples",
-  "version": "1.0.0",
+  "version": "2.0.8-dev",
   "description": "",
   "main": "abella.js",
   "scripts": {
-    "dev": "npx tailwindcss --output css/style.css --input css/style-src.css --watch",
-    "build": "npx tailwindcss --output css/style.css --input css/style-src.css --minify"
+    "js": "rollup --config",
+    "css": "npx tailwindcss --output css/style.css --input css/style-src.css --minify",
   },
   "keywords": [],
   "author": "Kaustuv Chaudhuri <kaustuv@chaudhuri.info>",
-  "license": "GPL-3"
+  "license": "GPL-3",
+  "devDependencies": {
+    "@fancyapps/ui": "^4.0.27",
+    "@rollup/plugin-commonjs": "^22.0.0",
+    "@rollup/plugin-node-resolve": "^13.3.0",
+    "jquery": "^3.6.0",
+    "rollup": "^2.75.7",
+    "rollup-plugin-terser": "^7.0.2"
+  }
 }

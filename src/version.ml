@@ -5,5 +5,5 @@
  * See LICENSE for licensing details.
  *)
 
-let version = "2.0.8-dev";;
+let version = "2.0.9-ipfs";;
 let self_digest = Digest.file Sys.executable_name;;

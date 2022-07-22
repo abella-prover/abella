@@ -11,13 +11,11 @@
 (library
   (name abella_lib)
   (modules :standard \ abella abella_doc)
-  (wrapped false))
+  (wrapped false)
+  (libraries yojson))
 
 (ocamllex
   (modules lexer))
-
-; (ocamlyacc
-;   (modules parser))
 
 (menhir
   (modules parser)

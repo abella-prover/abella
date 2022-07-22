@@ -56,6 +56,13 @@ let witnesses = State.rref false
 
 let unfinished_theorems : string list ref = ref []
 
+module Ipfs = struct
+  let enabled = ref false
+  let dispatch = ref "dispatch"
+  let publish = ref false
+  let dry_run = ref false
+end
+
 exception AbortProof
 
 exception UserInterrupt
@@ -91,14 +98,14 @@ module Annot : sig
   type t
   val fresh : string -> t
   val id : t -> int
-  val extend : t -> string -> Json.t -> unit
+  val extend : t -> string -> Yojson.Safe.t -> unit
   val commit : t -> unit
   val last_commit_id : unit -> int option
 end = struct
   type t = {
     id : int ;
     typ : string ;
-    mutable fields : (string * Json.t) list ;
+    mutable fields : (string * Yojson.Safe.t) list ;
   }
   let id annot = annot.id
   let last_id = ref @@ -1
@@ -114,7 +121,7 @@ end = struct
       if not !is_first then fprintf !out ",\n" ;
       is_first := false ;
       let json = `Assoc (("id", `Int annot.id) :: ("type", `String annot.typ) :: annot.fields) in
-      fprintf !out "%s%!" (Json.to_string json) ;
+      fprintf !out "%s%!" (Yojson.Safe.to_string json) ;
       if annot.typ != "system_message" then
         last_commit := Some annot
     end
@@ -949,6 +956,11 @@ let options =
 
     "-a", Arg.Set annotate, " Annotate mode" ;
 
+    "--ipfs-imports", Arg.Set Ipfs.enabled, " Enable IPFS imports" ;
+    "--ipfs-dispatch-prog", Arg.Set_string Ipfs.dispatch, "<prog> Path to the `dispatch' tool" ;
+    "--ipfs-publish", Arg.Set Ipfs.publish, " Enable publishing to IPFS (default: false)" ;
+    "--ipfs-dry-run", Arg.Set Ipfs.dry_run, " If --ipfs-publish, then run without publishing" ;
+
     "-nr", Arg.Set no_recurse, " Do not recursively invoke Abella" ;
 
     "-v", Arg.Unit print_version, " Show version and exit" ;
@@ -980,6 +992,11 @@ let () =
 
   Arg.parse options add_input usage_message ;
 
+  if !Ipfs.enabled then begin
+    interactive := false ;
+    switch_to_interactive := false ;
+  end ;
+
   if not !Sys.interactive then
     if !makefile then begin
       List.iter Depend.print_deps !input_files ;
@@ -987,7 +1004,7 @@ let () =
       set_input () ;
       if !annotate then fprintf !out "[%!" ;
       if !interactive then system_message "%s" welcome_msg ;
-      State.Undo.set_enabled (!interactive || !switch_to_interactive) ;
+      State.Undo.set_enabled @@ is_interactive () ;
       while true do process1 () done
     end
 ;;

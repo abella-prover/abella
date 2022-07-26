@@ -39,32 +39,23 @@ let pp_print_commaspace ff () =
     Format.pp_print_string ff "," ;
     Format.pp_print_space ff ()
 
-module Option = struct
-  let is_some x =
-    match x with
-      | Some _ -> true
-      | None -> false
+let read_all ic =
+  let len = 64 in
+  let byte_buf = Bytes.create len in
+  let buf = Buffer.create 19 in
+  let rec spin () =
+    match Stdlib.input ic byte_buf 0 len with
+    | 0 -> ()                   (* EOF reached *)
+    | n ->
+        Buffer.add_subbytes buf byte_buf 0 n ;
+        spin ()
+  in
+  spin () ; Buffer.contents buf
 
-  let is_none x =
-    match x with
-      | Some _ -> false
-      | None -> true
-
-  let get x =
-    match x with
-      | Some v -> v
-      | None -> failwith "Option.get called on None"
-
-  let map_default f default x =
-    match x with
-      | Some v -> f v
-      | None -> default
-
-  let default default x =
-    match x with
-      | Some v -> v
-      | None -> default
-end
+let setoff prefix str =
+  String.split_on_char '\n' str |>
+  List.map (fun line -> prefix ^ line) |>
+  String.concat "\n"
 
 module String = struct
   include String

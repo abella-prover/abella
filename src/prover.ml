@@ -429,7 +429,7 @@ let set_subgoal_max ndps =
   let smax = !subgoal_max in
   let smax_map = List.fold_left begin
       fun smax_map (dp, n) ->
-        let n = Option.default max_int n in
+        let n = Option.value ~default:max_int n in
         (* Printf.printf "Max subgoals at depth %d: %d\n%!" dp n ; *)
         IntMap.add dp n smax_map
     end smax.smax_map ndps in
@@ -710,7 +710,7 @@ let search_goal_witness ?depth goal witness =
              |> remove_coinductive_hypotheses
              |> List.map (fun h -> (h.id, h.term))
   in
-  let depth = Option.default !search_depth depth in
+  let depth = Option.value ~default:!search_depth depth in
   Tactics.search
     ~depth
     ~hyps
@@ -806,7 +806,10 @@ let partition_obligations ?depth obligations =
 let apply ?depth ?name ?(term_witness=ignore) h args ws =
   let stmt = get_stmt_clearly h in
   let args = List.map get_arg_clearly args in
-  let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
+  let () = List.iter begin function
+      | Some arg -> ensure_no_restrictions arg
+      | None -> ()
+    end args in
   let ws = type_apply_withs stmt ws in
   let result, obligations = Tactics.apply_with stmt args ws in
   let remaining_obligations, term_witnesses =

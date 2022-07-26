@@ -58,9 +58,47 @@ let unfinished_theorems : string list ref = ref []
 
 module Ipfs = struct
   let enabled = ref false
-  let dispatch = ref "dispatch"
+  let dispatch = ref "/bin/false"
+  let set_dispatch fn =
+    if not @@ Filename.check_suffix fn ".js" then
+      failwithf "Unexpected dispatch program %S: does not end with .js" fn ;
+    if not @@ Sys.file_exists fn then
+      failwithf "Cannot find %S: does it exist?" fn ;
+    let ic = Unix.open_process_in "node --version" in
+    let version_string = input_line ic in
+    close_in ic ;
+    if version_string.[0] != 'v' then
+      failwithf "Weird version string returned by `node': %S" version_string ;
+    match String.split_on_char '.'
+            (String.sub version_string 1
+               (String.length version_string - 1)) with
+    | major :: minor :: _ ->
+        let major = int_of_string major in
+        let minor = int_of_string minor in
+        if (major, minor) < (16, 0) then
+          failwithf "`node' version %S too old; need 16.0 or later" version_string ;
+        dispatch := "node " ^ fn
+    | _ ->
+        failwithf "Cannot parse `node' version string: %S" version_string
   let publish = ref false
   let dry_run = ref false
+
+  let get cid =
+    let temp_dir = Filename.get_temp_dir_name () in
+    let cmd = Printf.sprintf "%s get %s %s 2>&1" !dispatch cid temp_dir in
+    let ic = Unix.open_process_in cmd in
+    match Unix.waitpid [] (Unix.process_in_pid ic) with
+    | (_, Unix.WEXITED 0) ->
+        (* Printf.eprintf "[DEBUG] subprocess output\n%s\n%!" *)
+        (*   (setoff "> " (read_all ic)) ; *)
+        let file = Filename.concat temp_dir cid ^ ".json" in
+        let json = Yojson.Safe.from_file file in
+        Unix.unlink file ;
+        json
+    | _ | exception _ ->
+        Printf.eprintf "Error in subprocess\nCommand: \"%s\"\n%s\n%!"
+          cmd (setoff "> " (read_all ic)) ;
+        failwith "Error in subprocess"
 end
 
 exception AbortProof
@@ -957,7 +995,7 @@ let options =
     "-a", Arg.Set annotate, " Annotate mode" ;
 
     "--ipfs-imports", Arg.Set Ipfs.enabled, " Enable IPFS imports" ;
-    "--ipfs-dispatch-prog", Arg.Set_string Ipfs.dispatch, "<prog> Path to the `dispatch' tool" ;
+    "--ipfs-dispatch-prog", Arg.String Ipfs.set_dispatch, "<prog> Path to the `dispatch' tool" ;
     "--ipfs-publish", Arg.Set Ipfs.publish, " Enable publishing to IPFS (default: false)" ;
     "--ipfs-dry-run", Arg.Set Ipfs.dry_run, " If --ipfs-publish, then run without publishing" ;
 
@@ -986,25 +1024,54 @@ let set_input () =
 let add_input filename =
   input_files := !input_files @ [filename]
 
-let () =
-  Sys.set_signal Sys.sigint
-    (Sys.Signal_handle (fun _ -> raise UserInterrupt)) ;
+let () = try
+    Sys.set_signal Sys.sigint
+      (Sys.Signal_handle (fun _ -> raise UserInterrupt)) ;
 
-  Arg.parse options add_input usage_message ;
+    let config_home =
+      try Sys.getenv "XDG_CONFIG_HOME"
+      with Not_found -> Filename.concat (Sys.getenv "HOME") ".config"
+    in
+    let config_dir = Filename.concat config_home "abella" in
+    let config_json = Filename.concat config_dir "config.json" in
+    if Sys.file_exists config_json then begin
+      Yojson.Safe.from_file config_json |>
+      Yojson.Safe.Util.to_assoc |>
+      List.iter begin fun (key, value) ->
+        match key with
+        | "ipfs.dispatch" -> begin
+            match Yojson.Safe.Util.to_string_option value with
+            | Some prog ->
+                Ipfs.set_dispatch prog
+            | None ->
+                failwithf "Invalid value for config option ipfs.dispatch (file %S)"
+                  config_json
+          end
+        | _ ->
+            Printf.eprintf "Warning: ignoring config key %S in %S" key config_json
+      end
+    end ;
 
-  if !Ipfs.enabled then begin
-    interactive := false ;
-    switch_to_interactive := false ;
-  end ;
+    if not !Sys.interactive then begin
+      Arg.parse options add_input usage_message ;
 
-  if not !Sys.interactive then
-    if !makefile then begin
-      List.iter Depend.print_deps !input_files ;
-    end else begin
-      set_input () ;
-      if !annotate then fprintf !out "[%!" ;
-      if !interactive then system_message "%s" welcome_msg ;
-      State.Undo.set_enabled @@ is_interactive () ;
-      while true do process1 () done
+      if !makefile then begin
+        List.iter Depend.print_deps !input_files ;
+      end else begin
+        if !Ipfs.enabled then begin
+          interactive := false ;
+          switch_to_interactive := false ;
+          if !input_files = [] then
+            failwithf "Need at least one input file in IPFS mode"
+        end ;
+        set_input () ;
+        if !annotate then fprintf !out "[%!" ;
+        if !interactive then system_message "%s" welcome_msg ;
+        State.Undo.set_enabled @@ is_interactive () ;
+        while true do process1 () done
+      end
     end
+  with
+  | Failure msg ->
+      Printf.eprintf "FAILURE: %s\n" msg ; exit 1
 ;;

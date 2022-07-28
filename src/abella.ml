@@ -58,32 +58,39 @@ let unfinished_theorems : string list ref = ref []
 
 module Ipfs = struct
   let enabled = ref false
-  let dispatch = ref "/bin/false"
-  let set_dispatch fn =
-    if not @@ Filename.check_suffix fn ".js" then
-      failwithf "Unexpected dispatch program %S: does not end with .js" fn ;
-    if not @@ Sys.file_exists fn then
-      failwithf "Cannot find %S: does it exist?" fn ;
-    let ic = Unix.open_process_in "node --version" in
-    let version_string = input_line ic in
-    close_in ic ;
-    if version_string.[0] != 'v' then
-      failwithf "Weird version string returned by `node': %S" version_string ;
-    match String.split_on_char '.'
-            (String.sub version_string 1
-               (String.length version_string - 1)) with
-    | major :: minor :: _ ->
-        let major = int_of_string major in
-        let minor = int_of_string minor in
-        if (major, minor) < (16, 0) then
-          failwithf "`node' version %S too old; need 16.0 or later" version_string ;
-        dispatch := "node " ^ fn
-    | _ ->
-        failwithf "Cannot parse `node' version string: %S" version_string
+  let dispatch = ref "/bin/false" (* will be changed by set_dispatch *)
+  let set_dispatch =
+    let node_needs_checking = ref false in
+    fun fn ->
+      if not @@ Filename.check_suffix fn ".js" then
+        failwithf "Unexpected dispatch program %S: does not end with .js" fn ;
+      if not @@ Sys.file_exists fn then
+        failwithf "Cannot find %S: does it exist?" fn ;
+      if !node_needs_checking then begin
+        let ic = Unix.open_process_in "node --version" in
+        let version_string = input_line ic in
+        close_in ic ;
+        if version_string.[0] != 'v' then
+          failwithf "Weird version string returned by `node': %S" version_string ;
+        match String.split_on_char '.'
+                (String.sub version_string 1
+                   (String.length version_string - 1)) with
+        | major :: minor :: _ ->
+            let major = int_of_string major in
+            let minor = int_of_string minor in
+            if (major, minor) < (16, 0) then
+              failwithf "`node' version %S too old; need 16.0 or later" version_string ;
+            node_needs_checking := true
+        | _ ->
+            failwithf "Cannot parse `node' version string: %S" version_string
+      end ;
+      dispatch := "node " ^ fn
+
   let publish = ref false
   let dry_run = ref false
 
-  let get cid =
+  (** Download a DAG via dispatch *)
+  let get_dag cid =
     let temp_dir = Filename.get_temp_dir_name () in
     let cmd = Printf.sprintf "%s get %s %s 2>&1" !dispatch cid temp_dir in
     let ic = Unix.open_process_in cmd in
@@ -583,6 +590,23 @@ let import pos filename withs =
     link_message pos (filename ^ ".html") ;
   end
 
+let ipfs_import cid =
+  try
+    Ipfs.get_dag cid |>
+    Yojson.Safe.Util.to_assoc |>
+    List.iter begin fun (thmname, payload) ->
+      debugf "import theorem %s [cid = %s]" thmname cid ;
+      let sign = Yojson.Safe.Util.member "SigmaFormula" payload |>
+                 Yojson.Safe.Util.to_list |>
+                 List.map Yojson.Safe.Util.to_string |>
+                 String.concat ".\n" in
+      let form = Yojson.Safe.Util.member "formula" payload |>
+                 Yojson.Safe.Util.to_string in
+      debugf "Trying to merge:\n%s.\nTheorem %s: %s.@."
+        sign thmname form
+    end
+  with Yojson.Safe.Util.Type_error _ ->
+    failwithf "Failed to import ipfs:%s" cid
 
 (* Proof processing *)
 
@@ -901,9 +925,20 @@ and process_top1 () =
   | TopCommon(Set(k, v)) -> set k v
   | TopCommon(Show(n)) -> system_message_format "%t" (Prover.show n)
   | TopCommon(Quit) -> raise End_of_file
-  | Import(filename, pos, withs) ->
-      compile (CImport (filename, withs)) ;
-      import pos filename withs;
+  | Import(filename, pos, withs) -> begin
+      match String.split_on_char ':' filename with
+      | ["ipfs" ; cid] ->
+          if not @@ !Ipfs.enabled then
+            failwithf "Cannot process IPFS imports without --ipfs-imports" ;
+          if withs <> [] then
+            failwithf "Importing from IPFS with propositional instantiation is not supported" ;
+          ipfs_import cid
+      | [_] ->
+          compile (CImport (filename, withs)) ;
+          import pos filename withs
+      | _ ->
+          failwithf "Cannot import this kind of object: %S" filename
+    end
   | Specification(filename, pos) ->
       if !can_read_specification then begin
         read_specification (normalize_filename filename) ;

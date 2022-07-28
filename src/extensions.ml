@@ -28,6 +28,10 @@ let uncurry f x y = f (x,y)
 let bugf      fmt = Printf.ksprintf (fun s -> Printf.eprintf "%s\n%!" s ; failwith "Bug")
     ("[ABELLA BUG]\n" ^^ fmt ^^
      "\nPlease report this at https://github.com/abella-prover/abella/issues")
+let debugf fmt = Format.kasprintf begin
+    fun str ->
+      Printf.eprintf "[DEBUG] %s\n%!" str
+  end fmt
 
 let failwithf fmt = Printf.ksprintf failwith fmt
 let maybe_guard ?guard f =

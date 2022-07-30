@@ -596,14 +596,48 @@ let ipfs_import cid =
     Yojson.Safe.Util.to_assoc |>
     List.iter begin fun (thmname, payload) ->
       debugf "import theorem %s [cid = %s]" thmname cid ;
-      let sign = Yojson.Safe.Util.member "SigmaFormula" payload |>
+      let sigma = Yojson.Safe.Util.member "SigmaFormula" payload |>
                  Yojson.Safe.Util.to_list |>
-                 List.map Yojson.Safe.Util.to_string |>
-                 String.concat ".\n" in
-      let form = Yojson.Safe.Util.member "formula" payload |>
-                 Yojson.Safe.Util.to_string in
-      debugf "Trying to merge:\n%s.\nTheorem %s: %s.@."
-        sign thmname form
+                 List.map Yojson.Safe.Util.to_string in
+      List.iter begin fun txt ->
+        let lb = Lexing.from_string (txt ^ ".") in
+        let cmd, _ = Parser.top_command_start Lexer.token lb in
+        let () = match cmd with
+          | Kind (ids, knd) ->
+              debugf "before" ;
+              Prover.add_global_types ids knd ;
+              debugf "after" ;
+              compile (CKind (ids, knd)) ;
+              debug_spec_sign ~msg:"Kind" ()
+          | Type (ids, ty) ->
+              Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
+              compile (CType (ids, ty)) ;
+              debug_spec_sign ~msg:"Type" ()
+          | Define _ ->
+              compile (Prover.register_definition cmd)
+          | _ ->
+              failwithf "Illegal element in Sigma: %s" txt
+        in
+        debugf "%s (* sigma *)" (top_command_to_string cmd)
+      end sigma ;
+      let form =
+        let txt = Yojson.Safe.Util.member "formula" payload |>
+                  Yojson.Safe.Util.to_string in
+        let txt = Printf.sprintf "Theorem %s : %s." thmname txt in
+        let lb = Lexing.from_string txt in
+        let cmd, _ = Parser.top_command_start Lexer.token lb in
+        match cmd with
+        | Theorem (name, tys, thm) -> begin
+            let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
+            check_theorem tys thm ;
+            Prover.theorem thm ;
+            compile (CTheorem (name, tys, thm, Finished)) ;
+            debugf "%s (* formula *)" (top_command_to_string cmd)
+          end
+        | _ ->
+            bugf "Parsed a non-theorem from a generated `Theorem' text"
+      in
+      ignore form
     end
   with Yojson.Safe.Util.Type_error _ ->
     failwithf "Failed to import ipfs:%s" cid

@@ -186,7 +186,6 @@ let lookup_poly_const k =
   try let Poly (typarams, ty) = List.assoc k (snd !sign) in (typarams, ty) with
   | Not_found -> failwithf "Unknown constant: %S" k
 
-
 let register_definition = function
   | Define (flav, idtys, udefs) ->
       let typarams = List.unique (idtys |> List.map snd |> get_typarams) in
@@ -195,7 +194,7 @@ let register_definition = function
       check_noredef ids;
       let (basics, consts) = !sign in
       (* Note that in order to type check the definitions, the types
-         of predicates being defined are fixed to their most generate
+         of predicates being defined are fixed to their most generic
          form by fixing the type variables in them to generic ones *)
       let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
       let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>

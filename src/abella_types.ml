@@ -36,6 +36,7 @@ type def_clause = {
   body : metaterm ;
 }
 type def = {
+  defid    : int ;
   flavor   : flavor ;
   typarams : string list ;
   mutual   : ty Itab.t ;

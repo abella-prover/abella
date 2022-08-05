@@ -167,7 +167,11 @@ let defs_table : defs_table = State.table ()
 
 let built_ins_done = ref false
 
-let add_defs typarams preds flavor clauses =
+let fresh_defid =
+  let count = ref 0 in
+  fun () -> incr count ; !count
+
+let add_defs typarams preds mutual flavor clauses =
   List.iter begin fun (id, _) ->
     if H.mem defs_table id then
       failwithf "Predicate %s has already been defined" id ;
@@ -175,10 +179,7 @@ let add_defs typarams preds flavor clauses =
   (* List.iter begin fun (head, body) -> *)
   (*   Format.eprintf "%a := %a@." format_metaterm head format_metaterm body *)
   (* end defs ; *)
-  let mutual = List.fold_left begin fun mutual (id, ty) ->
-      Itab.add id ty mutual
-    end Itab.empty preds in
-  let def = {flavor ; typarams ; mutual ; clauses} in
+  let def = {defid = fresh_defid () ; flavor ; typarams ; mutual ; clauses} in
   Checks.check_def ~def ;
   List.iter (fun (id, _) -> H.add defs_table id def) preds
 
@@ -186,12 +187,21 @@ let lookup_poly_const k =
   try let Poly (typarams, ty) = List.assoc k (snd !sign) in (typarams, ty) with
   | Not_found -> failwithf "Unknown constant: %S" k
 
+let rec eq_clauses cls1 cls2 =
+  match cls1, cls2 with
+  | [], [] -> true
+  | cl1 :: cls1, cl2 :: cls2 ->
+      eq_metaterm cl1.head cl2.head &&
+      eq_metaterm cl1.body cl2.body &&
+      eq_clauses cls1 cls2
+  | _ -> false
+
 let register_definition = function
-  | Define (flav, idtys, udefs) ->
+  | Define (flav, idtys, udefs) -> begin
       let typarams = List.unique (idtys |> List.map snd |> get_typarams) in
       check_typarams typarams (List.map snd idtys);
       let ids = List.map fst idtys in
-      check_noredef ids;
+      (* check_noredef ids; *)
       let (basics, consts) = !sign in
       (* Note that in order to type check the definitions, the types
          of predicates being defined are fixed to their most generic
@@ -200,11 +210,33 @@ let register_definition = function
       let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
                     List.map (fun (head, body) -> {head ; body}) in
       ensure_no_schm_clauses typarams clauses;
-      let (basics, consts) = !sign in
-      let consts = List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys @ consts in
-      sign := (basics, consts) ;
-      add_defs typarams idtys flav clauses ;
-      CDefine (flav, typarams, idtys, clauses)
+      let mutual = Itab.of_seq @@ List.to_seq idtys in
+      (* here we will check that the clauses match up *)
+      match
+        List.filter_map (fun id -> Hashtbl.find_opt defs_table id) ids |>
+        List.unique ~cmp:(fun d1 d2 -> d1.defid = d2.defid)
+      with
+      | [def] ->
+          (* this mutual block already exists, so check the clauses are the
+           * same and in the same order *)
+          if def.flavor <> flav then
+            failwithf "flavors don't match" ;
+          if def.typarams <> typarams then
+            failwithf "typarams don't match" ;
+          if not @@ Itab.equal eq_ty def.mutual mutual then
+            failwithf "mutals don't match" ;
+          if not @@ eq_clauses def.clauses clauses then
+            failwithf "clauses don't match" ;
+          None
+      | [] ->
+          let (basics, consts) = !sign in
+          let consts = List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys @ consts in
+          sign := (basics, consts) ;
+          add_defs typarams idtys mutual flav clauses ;
+          Some (CDefine (flav, typarams, idtys, clauses))
+      | _ ->
+          failwithf "definition block covers multiple existing definitions"
+    end
   | _ -> bugf "Not a definition!"
 
 let parse_definition str =

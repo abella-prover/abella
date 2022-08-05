@@ -28,9 +28,19 @@ let uncurry f x y = f (x,y)
 let bugf      fmt = Printf.ksprintf (fun s -> Printf.eprintf "%s\n%!" s ; failwith "Bug")
     ("[ABELLA BUG]\n" ^^ fmt ^^
      "\nPlease report this at https://github.com/abella-prover/abella/issues")
-let debugf fmt = Format.kasprintf begin
+
+let setoff prefix str =
+  String.split_on_char '\n' str |>
+  List.map (fun line -> prefix ^ line) |>
+  String.concat "\n"
+
+let debugf ?dkind fmt = Format.kasprintf begin
     fun str ->
-      Printf.eprintf "[DEBUG] %s\n%!" str
+      let prefix = match dkind with
+        | None -> "[DEBUG] "
+        | Some kind -> "[DEBUG:" ^ kind ^ "] "
+      in
+      Printf.eprintf "%s\n%!" (setoff prefix str)
   end fmt
 
 let failwithf fmt = Printf.ksprintf failwith fmt
@@ -55,11 +65,6 @@ let read_all ic =
         spin ()
   in
   spin () ; Buffer.contents buf
-
-let setoff prefix str =
-  String.split_on_char '\n' str |>
-  List.map (fun line -> prefix ^ line) |>
-  String.concat "\n"
 
 module String = struct
   include String

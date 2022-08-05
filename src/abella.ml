@@ -529,7 +529,8 @@ let import pos filename withs =
                 let (basics, consts) = !sign in
                 let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
                 sign := (basics, consts) ;
-                Prover.add_defs tyargs idtys flav clauses ;
+                let mutual = Itab.of_seq @@ List.to_seq idtys in
+                Prover.add_defs tyargs idtys mutual flav clauses ;
                 process_decls decls
             | CImport(filename, withs) ->
                 aux (normalize_filename (Filename.concat file_dir filename)) withs ;
@@ -591,22 +592,23 @@ let import pos filename withs =
   end
 
 let ipfs_import cid =
+  let open Yojson.Safe.Util in
+  let dkind = "IPFS" in
   try
     Ipfs.get_dag cid |>
-    Yojson.Safe.Util.to_assoc |>
+    to_assoc |>
     List.iter begin fun (thmname, payload) ->
-      debugf "import theorem %s [cid = %s]" thmname cid ;
-      let sigma = Yojson.Safe.Util.member "SigmaFormula" payload |>
-                 Yojson.Safe.Util.to_list |>
-                 List.map Yojson.Safe.Util.to_string in
+      let cid = member "cidFormula" payload |> to_string in
+      debugf ~dkind "(* import theorem %s [cid = %s] *)" thmname cid ;
+      let sigma = member "SigmaFormula" payload |>
+                 to_list |>
+                 List.map to_string in
       List.iter begin fun txt ->
         let lb = Lexing.from_string (txt ^ ".") in
         let cmd, _ = Parser.top_command_start Lexer.token lb in
         let () = match cmd with
           | Kind (ids, knd) ->
-              debugf "before" ;
               Prover.add_global_types ids knd ;
-              debugf "after" ;
               compile (CKind (ids, knd)) ;
               debug_spec_sign ~msg:"Kind" ()
           | Type (ids, ty) ->
@@ -614,15 +616,15 @@ let ipfs_import cid =
               compile (CType (ids, ty)) ;
               debug_spec_sign ~msg:"Type" ()
           | Define _ ->
-              compile (Prover.register_definition cmd)
+              Option.iter compile @@ Prover.register_definition cmd
           | _ ->
               failwithf "Illegal element in Sigma: %s" txt
         in
-        debugf "%s (* sigma *)" (top_command_to_string cmd)
+        debugf ~dkind "%s (* merged *)" (top_command_to_string cmd)
       end sigma ;
       let form =
-        let txt = Yojson.Safe.Util.member "formula" payload |>
-                  Yojson.Safe.Util.to_string in
+        let txt = member "formula" payload |>
+                  to_string in
         let txt = Printf.sprintf "Theorem %s : %s." thmname txt in
         let lb = Lexing.from_string txt in
         let cmd, _ = Parser.top_command_start Lexer.token lb in
@@ -632,14 +634,14 @@ let ipfs_import cid =
             check_theorem tys thm ;
             Prover.theorem thm ;
             compile (CTheorem (name, tys, thm, Finished)) ;
-            debugf "%s (* formula *)" (top_command_to_string cmd)
+            debugf ~dkind "%s (* added *)" (top_command_to_string cmd)
           end
         | _ ->
             bugf "Parsed a non-theorem from a generated `Theorem' text"
       in
       ignore form
     end
-  with Yojson.Safe.Util.Type_error _ ->
+  with Type_error _ ->
     failwithf "Failed to import ipfs:%s" cid
 
 (* Proof processing *)
@@ -949,7 +951,7 @@ and process_top1 () =
         compile (CTheorem(n, tys, t, Finished))
       end gen_thms ;
   | Define _ ->
-      compile (Prover.register_definition input)
+      Option.iter compile @@ Prover.register_definition input
   | TopCommon(Back) ->
       if !interactive then State.Undo.back 2
       else failwith "Cannot use interactive commands in non-interactive mode"

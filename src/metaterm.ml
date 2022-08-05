@@ -288,6 +288,29 @@ let metaterm_to_formatted_string t =
     Buffer.contents b
 
 (* Manipulations *)
+let rec eq_metaterm mt1 mt2 =
+  match mt1, mt2 with
+  | And (a1, b1), And (a2, b2)
+  | Or (a1, b1), Or (a2, b2)
+  | Arrow (a1, b1), Arrow (a2, b2) ->
+      eq_metaterm a1 a2 && eq_metaterm b1 b2
+  | True, True
+  | False, False ->
+      true
+  | Eq (s1, t1), Eq (s2, t2) ->
+      Term.eq s1 s2 && Term.eq t1 t2
+  | Pred (s1, r1), Pred (s2, r2) ->
+      Term.eq s1 s2 && r1 = r2
+  | Binding (b1, bs1, bod1), Binding (b2, bs2, bod2) ->
+      b1 = b2 && eq_binding bs1 bs2 && eq_metaterm bod1 bod2
+  | _ -> false
+
+and eq_binding bs1 bs2 =
+  match bs1, bs2 with
+  | [], [] -> true
+  | (v1, ty1) :: bs1, (v2, ty2) :: bs2 ->
+      v1 = v2 && eq_ty ty1 ty2 && eq_binding bs1 bs2
+  | _ -> false
 
 let map_on_objs_full f mt =
   let rec aux ~parity ~bindstack = function

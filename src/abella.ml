@@ -102,10 +102,8 @@ module Ipfs = struct
     let ic = Unix.open_process_in cmd in
     match Unix.waitpid [] (Unix.process_in_pid ic) with
     | (_, Unix.WEXITED 0) ->
-        (* Printf.eprintf "[DEBUG] subprocess output\n%s\n%!" *)
-        (*   (setoff "> " (read_all ic)) ; *)
         let file = Filename.concat temp_dir cid ^ ".json" in
-        let json = Yojson.Safe.from_file file in
+        let json = Json.from_file file in
         Unix.unlink file ;
         json
     | _ | exception _ ->
@@ -149,14 +147,14 @@ module Annot : sig
   type t
   val fresh : string -> t
   val id : t -> int
-  val extend : t -> string -> Yojson.Safe.t -> unit
+  val extend : t -> string -> Json.t -> unit
   val commit : t -> unit
   val last_commit_id : unit -> int option
 end = struct
   type t = {
     id : int ;
     typ : string ;
-    mutable fields : (string * Yojson.Safe.t) list ;
+    mutable fields : (string * Json.t) list ;
   }
   let id annot = annot.id
   let last_id = ref @@ -1
@@ -172,7 +170,7 @@ end = struct
       if not !is_first then fprintf !out ",\n" ;
       is_first := false ;
       let json = `Assoc (("id", `Int annot.id) :: ("type", `String annot.typ) :: annot.fields) in
-      fprintf !out "%s%!" (Yojson.Safe.to_string json) ;
+      fprintf !out "%s%!" (Json.to_string json) ;
       if annot.typ != "system_message" then
         last_commit := Some annot
     end
@@ -587,7 +585,7 @@ let import pos filename withs =
   end
 
 let ipfs_import cid =
-  let open Yojson.Safe.Util in
+  let open Json in
   let dkind = "IPFS" in
   try
     Ipfs.get_dag cid |>
@@ -1111,12 +1109,12 @@ let () = try
     let config_dir = Filename.concat config_home "abella" in
     let config_json = Filename.concat config_dir "config.json" in
     if Sys.file_exists config_json then begin
-      Yojson.Safe.from_file config_json |>
-      Yojson.Safe.Util.to_assoc |>
+      Json.from_file config_json |>
+      Json.to_assoc |>
       List.iter begin fun (key, value) ->
         match key with
         | "ipfs.dispatch" -> begin
-            match Yojson.Safe.Util.to_string_option value with
+            match Json.to_string_option value with
             | Some prog ->
                 Ipfs.set_dispatch prog
             | None ->

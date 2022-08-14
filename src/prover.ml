@@ -481,7 +481,7 @@ let get_display () =
   format_display (formatter_of_buffer b) ;
   Buffer.contents b
 
-let state_json () : Yojson.Safe.t =
+let state_json () : Json.t =
   let vars = List.map begin fun ((v, t) as vt) ->
       `List [ `String v ;
               if is_uninstantiated vt then `Null else

@@ -402,3 +402,8 @@ module IntMap : Map.S with type key := int =
       if x < y then -1 else
       if x = y then 0 else 1
   end)
+
+module Json = struct
+  include Yojson.Safe
+  include Util
+end

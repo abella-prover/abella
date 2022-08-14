@@ -65,13 +65,16 @@ let read_lpmod = read_lp ".mod" Parser.lpmod
 let merge_signs signs =
   let (ktables, ctables) = List.split signs in
   let ktable = List.flatten ktables in
-    List.fold_left add_poly_consts (ktable, []) ctables
+  List.fold_left begin fun sign idptys ->
+    (add_poly_consts sign idptys).contents
+  end (ktable, []) ctables
 
 let add_decl sign = function
-  | SKind(tynames, knd) -> add_types sign tynames knd
+  | SKind(tynames, knd) ->
+      (add_types sign tynames knd).contents
   | SType(ids, ty) ->
       check_spec_logic_type ty ;
-      add_consts sign (List.map (fun id -> (id, ty)) ids)
+      (add_consts sign (List.map (fun id -> (id, ty)) ids)).contents
 
 let rec get_sign_accum_sigs filename =
   try match H.find sig_cache filename with

@@ -62,29 +62,35 @@ module Ipfs = struct
   let set_dispatch =
     let node_needs_checking = ref false in
     fun fn ->
-      if not @@ Filename.check_suffix fn ".js" then
-        failwithf "Unexpected dispatch program %S: does not end with .js" fn ;
       if not @@ Sys.file_exists fn then
         failwithf "Cannot find %S: does it exist?" fn ;
-      if !node_needs_checking then begin
-        let ic = Unix.open_process_in "node --version" in
-        let version_string = input_line ic in
-        close_in ic ;
-        if version_string.[0] != 'v' then
-          failwithf "Weird version string returned by `node': %S" version_string ;
-        match String.split_on_char '.'
-                (String.sub version_string 1
-                   (String.length version_string - 1)) with
-        | major :: minor :: _ ->
-            let major = int_of_string major in
-            let minor = int_of_string minor in
-            if (major, minor) < (16, 0) then
-              failwithf "`node' version %S too old; need 16.0 or later" version_string ;
-            node_needs_checking := true
-        | _ ->
-            failwithf "Cannot parse `node' version string: %S" version_string
+      if Filename.check_suffix fn ".js" then begin
+        if !node_needs_checking then begin
+          let ic = Unix.open_process_in "node --version" in
+          let version_string = input_line ic in
+          close_in ic ;
+          if version_string.[0] != 'v' then
+            failwithf "Weird version string returned by `node': %S" version_string ;
+          match String.split_on_char '.'
+                  (String.sub version_string 1
+                     (String.length version_string - 1)) with
+          | major :: minor :: _ ->
+              let major = int_of_string major in
+              let minor = int_of_string minor in
+              if (major, minor) < (16, 0) then
+                failwithf "`node' version %S too old; need 16.0 or later" version_string ;
+              node_needs_checking := true
+          | _ ->
+              failwithf "Cannot parse `node' version string: %S" version_string
+        end ;
+        dispatch := "node " ^ fn
+      end else begin
+        let stats = Unix.stat fn in
+        if stats.Unix.st_perm land 0o111 = 0 then
+          failwithf "Not executable: %S" fn ;
+        dispatch := fn
       end ;
-      dispatch := "node " ^ fn
+      debugf ~dkind:"IPFS" "ipfs.dispatch = %S" !dispatch
 
   let publish = ref false
   let dry_run = ref false
@@ -482,10 +488,7 @@ let replace_atom_compiled decl defn_name defn comp=
       comp
 
 let add_lemma name tys thm =
-  match Prover.add_lemma name tys thm with
-  | `replace ->
-      system_message "Warning: overriding existing lemma named %S." name
-  | _ -> ()
+  ignore @@ Prover.add_lemma name tys thm
 
 let import pos filename withs =
   let rec aux filename withs =
@@ -524,20 +527,13 @@ let import pos filename withs =
                 add_lemma name tys thm ;
                 process_decls decls
             | CDefine(flav, tyargs, idtys, clauses) ->
-                let ids = List.map fst idtys in
-                check_noredef ids;
-                let (basics, consts) = !sign in
-                let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
-                sign := (basics, consts) ;
-                let mutual = Itab.of_seq @@ List.to_seq idtys in
-                Prover.add_defs tyargs idtys mutual flav clauses ;
+                ignore @@ Prover.register_definition_clauses flav tyargs idtys clauses ;
                 process_decls decls
             | CImport(filename, withs) ->
                 aux (normalize_filename (Filename.concat file_dir filename)) withs ;
                 process_decls decls
             | CKind(ids, knd) ->
-                check_noredef ids ;
-                Prover.add_global_types ids knd;
+                ignore @@ Prover.add_global_types ids knd;
                 process_decls decls
             | CType(ids, (Ty(_, aty) as ty)) when aty = propaty-> begin
                 (* Printf.printf "Need to instantiate: %s.\n%!" (String.concat ", " ids) ; *)
@@ -561,8 +557,7 @@ let import pos filename withs =
                 process_decls
               end
             | CType(ids,ty) ->
-                check_noredef ids ;
-                Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
+                ignore @@ Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
                 process_decls decls
             | CClose(ty_subords) ->
                 List.iter
@@ -606,21 +601,31 @@ let ipfs_import cid =
       List.iter begin fun txt ->
         let lb = Lexing.from_string (txt ^ ".") in
         let cmd, _ = Parser.top_command_start Lexer.token lb in
+        let remark = ref "" in
         let () = match cmd with
           | Kind (ids, knd) ->
-              Prover.add_global_types ids knd ;
+              let fresh_ids = Prover.add_global_types ids knd in
+              remark :=
+                if fresh_ids = [] then " (* merged *)"
+                else Printf.sprintf " (* fresh: %s *)" (String.concat ", " fresh_ids) ;
               compile (CKind (ids, knd)) ;
               debug_spec_sign ~msg:"Kind" ()
           | Type (ids, ty) ->
-              Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
+              let fresh_ids = Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) in
+              remark :=
+                if fresh_ids = [] then " (* merged *)"
+                else Printf.sprintf " (* fresh: %s *)" (String.concat ", " fresh_ids) ;
               compile (CType (ids, ty)) ;
               debug_spec_sign ~msg:"Type" ()
-          | Define _ ->
-              Option.iter compile @@ Prover.register_definition cmd
+          | Define (flav, tyargs, udefs) -> begin
+              match Prover.register_definition flav tyargs udefs with
+              | None -> remark := " (* merged *)"
+              | Some comp -> compile comp
+            end
           | _ ->
               failwithf "Illegal element in Sigma: %s" txt
         in
-        debugf ~dkind "%s (* merged *)" (top_command_to_string cmd)
+        debugf ~dkind "%s.%s" (top_command_to_string cmd) !remark
       end sigma ;
       let form =
         let txt = member "formula" payload |>
@@ -634,7 +639,7 @@ let ipfs_import cid =
             check_theorem tys thm ;
             Prover.theorem thm ;
             compile (CTheorem (name, tys, thm, Finished)) ;
-            debugf ~dkind "%s (* added *)" (top_command_to_string cmd)
+            debugf ~dkind "%s." (top_command_to_string cmd)
           end
         | _ ->
             bugf "Parsed a non-theorem from a generated `Theorem' text"
@@ -950,8 +955,8 @@ and process_top1 () =
         add_lemma n tys t ;
         compile (CTheorem(n, tys, t, Finished))
       end gen_thms ;
-  | Define _ ->
-      Option.iter compile @@ Prover.register_definition input
+  | Define (flav, tyargs, udefs) ->
+      Option.iter compile @@ Prover.register_definition flav tyargs udefs
   | TopCommon(Back) ->
       if !interactive then State.Undo.back 2
       else failwith "Cannot use interactive commands in non-interactive mode"
@@ -985,13 +990,13 @@ and process_top1 () =
                  \ at the begining of a development."
   | Query(q) -> query q
   | Kind(ids,knd) ->
-      check_noredef ids;
-      Prover.add_global_types ids knd;
+      (* check_noredef ids; *)
+      ignore @@ Prover.add_global_types ids knd;
       compile (CKind (ids,knd)) ;
       debug_spec_sign ~msg:"Kind" ()
   | Type(ids, ty) ->
-      check_noredef ids;
-      Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
+      (* check_noredef ids; *)
+      ignore @@ Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
       compile (CType(ids, ty)) ;
       debug_spec_sign ~msg:"Type" ()
   | Close(atys) ->

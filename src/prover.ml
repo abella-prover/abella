@@ -75,7 +75,9 @@ let sequent =
   }
 
 let add_global_types tys knd =
-  sign := add_types !sign tys knd
+  let fmark = add_types !sign tys knd in
+  sign := fmark.contents ;
+  fmark.fresh
 
 let locally_add_global_consts cs =
   let local_sr = List.fold_left Subordination.update !sr (List.map snd cs)
@@ -88,7 +90,9 @@ let commit_global_consts local_sr local_sign =
 
 let add_global_consts cs =
   sr := List.fold_left Subordination.update !sr (List.map snd cs) ;
-  sign := add_consts !sign cs
+  let fmark = add_consts !sign cs in
+  sign := fmark.contents ;
+  fmark.fresh
 
 let close_types sign clauses atys =
   List.iter (kind_check sign) (List.map tybase atys);
@@ -196,53 +200,56 @@ let rec eq_clauses cls1 cls2 =
       eq_clauses cls1 cls2
   | _ -> false
 
-let register_definition = function
-  | Define (flav, idtys, udefs) -> begin
-      let typarams = List.unique (idtys |> List.map snd |> get_typarams) in
-      check_typarams typarams (List.map snd idtys);
-      let ids = List.map fst idtys in
-      (* check_noredef ids; *)
+let register_definition_clauses flav typarams idtys clauses =
+  let (ids, tys) = unzip idtys in
+  check_typarams typarams tys ;
+  ensure_no_schm_clauses typarams clauses;
+  let mutual = Itab.of_seq @@ List.to_seq idtys in
+  (* here we will check that the clauses match up *)
+  match
+    List.filter_map (fun id -> Hashtbl.find_opt defs_table id) ids |>
+    List.unique ~cmp:(fun d1 d2 -> d1.defid = d2.defid)
+  with
+  | [def] ->
+      (* this mutual block already exists, so check the clauses are the
+       * same and in the same order *)
+      if def.flavor <> flav then
+        failwithf "flavors don't match" ;
+      if def.typarams <> typarams then
+        failwithf "typarams don't match" ;
+      if not @@ Itab.equal eq_ty def.mutual mutual then
+        failwithf "mutals don't match" ;
+      if not @@ eq_clauses def.clauses clauses then
+        failwithf "clauses don't match" ;
+      None
+  | [] ->
       let (basics, consts) = !sign in
-      (* Note that in order to type check the definitions, the types
-         of predicates being defined are fixed to their most generic
-         form by fixing the type variables in them to generic ones *)
-      let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
-      let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
-                    List.map (fun (head, body) -> {head ; body}) in
-      ensure_no_schm_clauses typarams clauses;
-      let mutual = Itab.of_seq @@ List.to_seq idtys in
-      (* here we will check that the clauses match up *)
-      match
-        List.filter_map (fun id -> Hashtbl.find_opt defs_table id) ids |>
-        List.unique ~cmp:(fun d1 d2 -> d1.defid = d2.defid)
-      with
-      | [def] ->
-          (* this mutual block already exists, so check the clauses are the
-           * same and in the same order *)
-          if def.flavor <> flav then
-            failwithf "flavors don't match" ;
-          if def.typarams <> typarams then
-            failwithf "typarams don't match" ;
-          if not @@ Itab.equal eq_ty def.mutual mutual then
-            failwithf "mutals don't match" ;
-          if not @@ eq_clauses def.clauses clauses then
-            failwithf "clauses don't match" ;
-          None
-      | [] ->
-          let (basics, consts) = !sign in
-          let consts = List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys @ consts in
-          sign := (basics, consts) ;
-          add_defs typarams idtys mutual flav clauses ;
-          Some (CDefine (flav, typarams, idtys, clauses))
-      | _ ->
-          failwithf "definition block covers multiple existing definitions"
-    end
-  | _ -> bugf "Not a definition!"
+      let consts = List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys @ consts in
+      sign := (basics, consts) ;
+      add_defs typarams idtys mutual flav clauses ;
+      Some (CDefine (flav, typarams, idtys, clauses))
+  | _ ->
+      failwithf "definition block covers multiple existing definitions"
+
+let register_definition flav idtys udefs =
+  let typarams = List.unique (idtys |> List.map snd |> get_typarams) in
+  let (basics, consts) = !sign in
+  (* Note that in order to type check the definitions, the types
+     of predicates being defined are fixed to their most generic
+     form by fixing the type variables in them to generic ones *)
+  let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
+  let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
+                List.map (fun (head, body) -> {head ; body}) in
+  register_definition_clauses flav typarams idtys clauses
 
 let parse_definition str =
-  Lexing.from_string str |>
-  Parser.top_command_start Lexer.token |>
-  fst |> register_definition
+  let (cmd, _) = Lexing.from_string str |>
+                 Parser.top_command_start Lexer.token in
+  match cmd with
+  | Define (flav, tyargs, udefs) ->
+      register_definition flav tyargs udefs
+  | _ ->
+      bugf "parse_definition: got %s" (top_command_to_string cmd)
 
 let k_member = "member"
 let member_def_compiled = {|
@@ -263,46 +270,6 @@ let clause_head_name cl =
   | Binding (Nabla, _, Pred (p, _)) | Pred (p, _) ->
       term_head_name p
   | _ -> bugf "Clause head name for invalid clause: %s" (metaterm_to_string cl.head)
-
-(* let rec app_ty tymap = function
- *   | Ty (args, res) ->
- *       let args = List.map (app_ty tymap) args in
- *       let res = try Itab.find res tymap with Not_found -> tybase res in
- *       tyarrow args res *)
-
-(* let instantiate_clauses_aux =
- *   let fn (pn, ty_acts) def =
- *     let Ty (ty_exps, _) = Itab.find pn def.mutual in
- *     let ty_fresh = List.fold_left begin fun fresh_sub tyvar ->
- *         let tv = Term.fresh_tyvar () in
- *         Itab.add tyvar tv fresh_sub
- *       end Itab.empty def.typarams in
- *     let ty_exps = List.map (app_ty ty_fresh) ty_exps in
- *     let eqns = List.map2 begin fun ty_exp ty_act ->
- *         (ty_exp, ty_act, (ghost, CArg))
- *       end ty_exps ty_acts in
- *     let tysol = unify_constraints eqns in
- *     let tymap = List.fold_left begin fun tymap tyv ->
- *         try begin
- *           let Ty (_, tyf) = Itab.find tyv ty_fresh in
- *           Itab.add tyv (List.assoc tyf tysol) tymap
- *         end with Not_found -> tymap
- *       end Itab.empty def.typarams in
- *     (\* Itab.iter begin fun v ty -> *\)
- *     (\*   Format.eprintf "instantiating: %s <- %s@." v (ty_to_string ty) *\)
- *     (\* end tymap ; *\)
- *     List.map begin fun cl ->
- *       if clause_head_name cl = pn then
- *         {head = map_on_tys (app_ty tymap) cl.head ;
- *          body = map_on_tys (app_ty tymap) cl.body}
- *       else cl
- *     end def.clauses
- *   in
- *   memoize fn *)
-
-(* let instantiate_clauses pn def args =
- *   let ty_acts = List.map (tc []) args in
- *   instantiate_clauses_aux (pn, ty_acts) def *)
 
 let instantiate_pred_types tysub (tbl: ty Itab.t) : ty Itab.t =
   let res = ref Itab.empty in
@@ -344,7 +311,6 @@ let def_unfold term =
       end else
         failwith "Cannot perform case-analysis on undefined atom"
   | _ -> (Itab.empty, [])
-
 
 (* Pretty print *)
 

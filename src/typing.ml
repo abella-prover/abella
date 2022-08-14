@@ -119,21 +119,29 @@ type sign = ktable * ctable
 
 (** Kinds *)
 
-let add_types (ktable, ctable) ids knd =
-  List.iter begin fun id ->
-    begin
-      try
-        let knd' = List.assoc id ktable in
-        if knd <> knd' then
-          failwithf "Type constructor %s has inconsistent kind declarations" id
-      with
-      | Not_found -> ()
-    end ;
+type ('a, 'b) freshmark = {
+  contents : 'a ;
+  fresh : 'b ;
+}
 
-    if is_capital_name id then
-      failwithf "Types may not begin with a capital letter: %s" id;
-  end ids ;
-  ((List.map (fun id -> (id, knd)) ids) @ ktable, ctable)
+let add_type (ktable, ctable as sign) id knd : (sign, bool) freshmark =
+  if is_capital_name id then
+    failwithf "Types may not begin with a capital letter: %s" id ;
+  match List.assoc id ktable with
+  | knd_old ->
+      if knd_old <> knd then
+        failwithf "Type constructor %s has inconsistent kind declarations" id ;
+      { contents = sign ; fresh = false }
+  | exception Not_found ->
+      let ktable = (id, knd) :: ktable in
+      { contents = (ktable, ctable) ; fresh = true }
+
+let add_types sign ids knd : (sign, string list) freshmark =
+  List.fold_left begin fun res id ->
+    let isf = add_type res.contents id knd in
+    let fresh = (if isf.fresh then [id] else []) @ res.fresh in
+    { isf with fresh }
+  end { contents = sign ; fresh = [] } ids
 
 let lookup_type (ktable, _) id =
   List.assoc id ktable
@@ -178,22 +186,26 @@ let eq_pty pty1 pty2 =
      end
 
 let check_const (ktable, ctable) (id, pty) =
-  begin try
-    let pty' = List.assoc id ctable in
-    if not (eq_pty pty pty') then
-      failwithf "Constant %s has inconsistent type declarations" id
-  with
-  | Not_found -> ()
-  end ;
-
   if is_capital_name id then
     failwithf "Constants may not begin with a capital letter: %s" id ;
+  kind_check_poly (ktable, ctable) pty ;
+  match List.assoc id ctable with
+  | pty_old ->
+      if not (eq_pty pty pty_old) then
+        failwithf "Constant %s has inconsistent type declarations" id ;
+      false
+  | exception Not_found -> true
 
-  kind_check_poly (ktable, ctable) pty
-
-let add_poly_consts (ktable, ctable) idptys =
-  List.iter (check_const (ktable, ctable)) idptys ;
-  (ktable, idptys @ ctable)
+let add_poly_consts (sign : sign) idptys : (sign, id list) freshmark =
+  List.fold_left begin fun res (id, _ as idpty) ->
+    let isf = check_const res.contents idpty in
+    let fresh = (if isf then [id] else []) @ res.fresh in
+    let contents = if not isf then res.contents else
+        let (ktable, ctable) = res.contents in
+        (ktable, idpty :: ctable)
+    in
+    { contents ; fresh }
+  end { contents = sign ; fresh = [] } idptys
 
 let get_typaram ty =
   let params = ref [] in

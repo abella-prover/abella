@@ -24,6 +24,13 @@ let (|>) x f = f x
 
 let curry f (x,y) = f x y
 let uncurry f x y = f (x,y)
+let unzip ls =
+  let rec aux l1 l2 ls =
+    match ls with
+    | [] -> (List.rev l1, List.rev l2)
+    | (a, b) :: ls -> aux (a :: l1) (b :: l2) ls
+  in
+  aux [] [] ls
 
 let bugf      fmt = Printf.ksprintf (fun s -> Printf.eprintf "%s\n%!" s ; failwith "Bug")
     ("[ABELLA BUG]\n" ^^ fmt ^^

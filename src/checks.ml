@@ -133,13 +133,6 @@ let check_theorem tys thm =
     failwith "Some type variables in the theorem is not bounded";
   ensure_no_restrictions thm
 
-let check_noredef ids =
-  let (_, ctable) = !sign in
-  List.iter begin fun id ->
-    if List.mem id (List.map fst ctable) then
-      failwithf "Predicate or constant %s already exists" id
-  end ids
-
 let ensure_not_capital name =
   if is_capital_name name then
     failwithf "Invalid defined predicate name %S.\n\

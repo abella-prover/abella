@@ -52,15 +52,15 @@ let fail f = raise (UnifyFailure f)
 
 type unify_error =
   | NotLLambda
-  | InstGenericTyvar of string
+  | InstGenericTyvar of string * ty
 
 
 let explain_error = function
   | NotLLambda -> "Unification incompleteness (non-pattern unification problem)"
-  | InstGenericTyvar v ->
+  | InstGenericTyvar (v, ty) ->
      Printf.sprintf
-      "Unification incompleteness (generic type variable %s cannot be instantiated)"
-      v
+      "Unification incompleteness (generic type variable %s cannot be instantiated, instead it is being instantiated to %s)"
+      v (ty_to_string ty)
 
 exception UnifyError of unify_error
 
@@ -641,8 +641,8 @@ let unifyty ty1 ty2 =
     true
   with
   | TypeInferenceFailure _ -> false
-  | InstGenericTyvar v ->
-     raise (UnifyError (InstGenericTyvar v))
+  | InstGenericTyvar (v, ty) ->
+     raise (UnifyError (InstGenericTyvar (v, ty)))
 
 (** Unifying the arguments of two rigid terms with the same head, these
   * arguments being given as lists. Exceptions are raised if
@@ -932,8 +932,8 @@ let try_left_unify_cpairs ~used t1 t2 =
         match err with
         | NotLLambda ->
            failwith (msg ^ "encountered non-pattern unification problem")
-        | InstGenericTyvar v ->
-           let msg = msg ^ (Unifyty.inst_gen_tyvar_msg v) in
+        | InstGenericTyvar (v,ty) ->
+           let msg = msg ^ (Unifyty.inst_gen_tyvar_msg v ty) in
            failwith msg
 
 let try_right_unify_cpairs t1 t2 =

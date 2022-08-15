@@ -3,8 +3,8 @@ open Term
 type pos = Lexing.position * Lexing.position
 let ghost : pos = (Lexing.dummy_pos, Lexing.dummy_pos)
 
-let inst_gen_tyvar_msg = function v ->
-    Printf.sprintf "the generic type variable %s cannot be instantiated" v
+let inst_gen_tyvar_msg v ty =
+    Printf.sprintf "the generic type variable %s cannot be instantiated; instead it is instantiated to (%s)." v (ty_to_string ty)
 
 let position_range (p1, p2) =
   let file = p1.Lexing.pos_fname in
@@ -21,7 +21,7 @@ type constraint_info = pos * constraint_type
 type constraints = (ty * ty * constraint_info) list
 
 exception TypeInferenceFailure of ty * ty * constraint_info
-exception InstGenericTyvar of string
+exception InstGenericTyvar of string * ty
 
 let def_cinfo = (ghost,CArg)
 
@@ -84,10 +84,14 @@ let unify_constraints ?(enable_bind=false) eqns =
     | Ty([], (Typtr {contents=TT _})), _
     | _, Ty([], (Typtr {contents=TT _}))
       -> assert false
-    | Ty([], Tygenvar v), _
+    | Ty([], Tygenvar v), _ ->
+       if enable_bind then
+         raise (InstGenericTyvar (v, ty2))
+       else
+         fail ()
     | _, Ty([], Tygenvar v) ->
        if enable_bind then
-         raise (InstGenericTyvar v)
+         raise (InstGenericTyvar (v, ty1))
        else
          fail ()
     | Ty([], Tycons (cty1,args1)), Ty([], Tycons (cty2,args2))

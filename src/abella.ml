@@ -85,15 +85,11 @@ module Ipfs = struct
         end ;
         dispatch := "node " ^ fn
       end else begin
-        let stats = Unix.stat fn in
-        if stats.Unix.st_perm land 0o111 = 0 then
+        if Unix.(stat fn).st_perm land 0o111 = 0 then
           failwithf "Not executable: %S" fn ;
         dispatch := fn
       end ;
       debugf ~dkind:"IPFS" "ipfs.dispatch = %S" !dispatch
-
-  let publish = ref false
-  let dry_run = ref false
 
   (** Download a DAG via dispatch *)
   let get_dag cid =
@@ -110,6 +106,21 @@ module Ipfs = struct
         Printf.eprintf "Error in subprocess\nCommand: \"%s\"\n%s\n%!"
           cmd (setoff "> " (read_all ic)) ;
         failwith "Error in subprocess"
+
+  let exporting = ref false
+  let export_file_name = ref "/dev/null"
+  let set_export_file fname =
+    try
+      (* [HACK] this tests if the file is writable and empties it out
+       * at the same time. *)
+      close_out (open_out_bin fname) ;
+      Unix.unlink fname ;
+      exporting := true ;
+      export_file_name := fname
+    with _ ->
+      failwithf "Failed to create IPFS export file %S" fname
+
+  let publish = ref false
 end
 
 exception AbortProof
@@ -933,6 +944,7 @@ and process_top1 () =
       let thm_compile fin =
         sign := oldsign ;
         compile (CTheorem(name, tys, thm, fin)) ;
+        debugf ~dkind:"IPFS" "there would be an export at this point." ;
         add_lemma name tys thm
       in
       let thm_reset () =
@@ -1070,8 +1082,8 @@ let options =
 
     "--ipfs-imports", Arg.Set Ipfs.enabled, " Enable IPFS imports" ;
     "--ipfs-dispatch-prog", Arg.String Ipfs.set_dispatch, "<prog> Path to the `dispatch' tool" ;
-    "--ipfs-publish", Arg.Set Ipfs.publish, " Enable publishing to IPFS (default: false)" ;
-    "--ipfs-dry-run", Arg.Set Ipfs.dry_run, " If --ipfs-publish, then run without publishing" ;
+    "--ipfs-publish-file", Arg.String Ipfs.set_export_file, "FILE Set IPFS export file to FILE" ;
+    "--ipfs-publish", Arg.Set Ipfs.publish, " Run `dispatch publish'" ;
 
     "-nr", Arg.Set no_recurse, " Do not recursively invoke Abella" ;
 
@@ -1136,7 +1148,12 @@ let () = try
           interactive := false ;
           switch_to_interactive := false ;
           if !input_files = [] then
-            failwithf "Need at least one input file in IPFS mode"
+            failwithf "IPFS support is currently only enabled in batch mode" ;
+          if !Ipfs.publish && not !Ipfs.exporting then begin
+            let export_file = List.hd !input_files ^ ".json" in
+            debugf ~dkind:"IPFS" "exporting to %S" export_file ;
+            Ipfs.set_export_file export_file
+          end
         end ;
         set_input () ;
         if !annotate then fprintf !out "[%!" ;

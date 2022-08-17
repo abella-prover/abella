@@ -133,8 +133,6 @@ let metaterm_support ?tag t =
 
 (* Pretty printing *)
 
-let show_types = State.rref false
-
 let restriction_to_string r =
   match r with
   | Smaller i -> String.make i '*'
@@ -202,6 +200,11 @@ let pretty_obj obj =
     ~left:(STR "{") ~right:(STR "}")
     ~printer:Term.core_printer
 
+let pp_print_tid ff (id, ty) =
+  if !show_types then
+    Format.fprintf ff "(%s :@ %s)" id (ty_to_string ty)
+  else Format.pp_print_string ff id
+
 let rec pretty_metaterm mt =
   let open Format in
   match mt with
@@ -230,10 +233,10 @@ let rec pretty_metaterm mt =
             pp_print_string ff (binder_to_string q) ;
             pp_print_string ff " " ;
             pp_open_box ff 0 ; begin
-              pp_print_string ff (fst (List.hd tids)) ;
+              pp_print_tid ff (List.hd tids) ;
               List.iter begin fun tid ->
                 pp_print_space ff () ;
-                pp_print_string ff (fst tid)
+                pp_print_tid ff tid
               end (List.tl tids) ;
             end ; pp_close_box ff () ;
             pp_print_string ff ", " ;
@@ -246,10 +249,12 @@ let rec pretty_metaterm mt =
       Pretty.(Opapp (60, Postfix (Term.core_printer#print [] p,
                                   STR (" " ^ restriction_to_string r))))
 
+let show_nominal_types = State.rref false
+
 let format_metaterm ff mt =
   let open Format in
   pp_open_vbox ff 0 ; begin
-    if !show_types then begin
+    if !show_nominal_types then begin
       let noms = metaterm_support mt |>
                  List.fast_sort (fun n1 n2 -> compare (term_head_name n1) (term_head_name n2))
       in
@@ -632,35 +637,6 @@ let replace_metaterm_vars alist t =
       | Pred(p, r) -> Pred(term_aux alist p, r)
   in
     aux top_free_unchanged_vars alist t
-
-(* let rec replace_metaterm_vars alist t = *)
-(*   let top_used = get_metaterm_used t *)
-(*                  @ get_metaterm_used_nominals t *)
-(*                  @ find_free_constants t *)
-(*   in *)
-(*   let term_aux alist = replace_term_vars alist in *)
-(*   let rec aux alist t = *)
-(*     match t with *)
-(*       | True | False -> t *)
-(*       | Eq(a, b) -> Eq(term_aux alist a, term_aux alist b) *)
-(*       | Obj(obj, r) -> Obj(map_obj (term_aux alist) obj, r) *)
-(*       | Arrow(a, b) -> Arrow(aux alist a, aux alist b) *)
-(*       | Binding(binder, bindings, body) -> *)
-(*           let alist = List.remove_assocs (List.map fst bindings) alist in *)
-(*           let used = (get_used (List.map snd alist)) @ top_used in *)
-(*           let bindings_alist = fresh_alist ~tag:Constant ~used bindings in *)
-(*           let bindings' = *)
-(*             List.map (fun (_, t) -> let v = term_to_var t in (v.name, v.ty)) *)
-(*               bindings_alist *)
-(*           in *)
-(*             Binding(binder, *)
-(*                     bindings', *)
-(*                     aux (alist @ bindings_alist) body) *)
-(*       | Or(a, b) -> Or(aux alist a, aux alist b) *)
-(*       | And(a, b) -> And(aux alist a, aux alist b) *)
-(*       | Pred(p, r) -> Pred(term_aux alist p, r) *)
-(*   in *)
-(*     aux alist t *)
 
 let map_term_list f t = List.map f (collect_terms t)
 

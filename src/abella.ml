@@ -648,7 +648,10 @@ let ipfs_import cid =
             check_theorem tys thm ;
             Prover.theorem thm ;
             compile (CTheorem (name, tys, thm, Finished)) ;
-            debugf ~dkind "%s." (top_command_to_string cmd)
+            let old_show_types = !Term.show_types in
+            Term.show_types := true ;
+            debugf ~dkind "%s." (top_command_to_string cmd) ;
+            Term.show_types := old_show_types
           end
         | _ ->
             bugf "Parsed a non-theorem from a generated `Theorem' text"
@@ -718,11 +721,17 @@ let set k v =
                              ~key:"instantiations"
                              ~expected:"'on' or 'off'"
 
-  | "types", Str "on" -> Metaterm.show_types := true
-  | "types", Str "off" -> Metaterm.show_types := false
+  | "types", Str "on" -> Term.show_types := true
+  | "types", Str "off" -> Term.show_types := false
   | "types", _ -> set_fail v
                     ~key:"types"
                     ~expected:"'on' or 'off'"
+
+  | "nominal_types", Str "on" ->  Metaterm.show_nominal_types := true
+  | "nominal_types", Str "off" -> Metaterm.show_nominal_types := false
+  | "nominal_types", _ -> set_fail v
+                            ~key:"nominal_types"
+                            ~expected:"'on' or 'off'"
 
   | "search_depth", Int d when d >= 0 -> Prover.search_depth := d
   | "search_depth", _ -> set_fail v

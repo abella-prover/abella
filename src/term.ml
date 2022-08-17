@@ -20,8 +20,9 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+let show_types = State.rref false
+
 let show_tag = false
-let show_ty  = false
 let show_ts  = false
 
 open Extensions
@@ -511,12 +512,11 @@ let ty_to_string ty =
   Buffer.contents buf
 
 let var_to_string v =
-  let (bef, aft) = if show_tag || show_ts || show_ty then ("$(", ")") else ("", "") in
+  let (bef, aft) = if show_tag || show_ts then ("$(", ")") else ("", "") in
   bef ^ begin
     v.name
     ^ (if show_tag then "!" ^ tag2str v.tag else "")
     ^ (if show_ts then "/" ^ string_of_int v.ts else "")
-    ^ (if show_ty then ":" ^ ty_to_string v.ty else "")
   end ^ aft
 
 let rec knd_to_string = function
@@ -563,7 +563,7 @@ class term_printer = object (self)
               let x = fresh_name x tcx in
               let cx = adjoin cx (x, ty) in
               let x = fst (List.hd cx) in
-              let tys = (if show_ty then ":" ^ ty_to_string ty else "") in
+              let tys = (if !show_types then ":" ^ ty_to_string ty else "") in
               Pretty.(Bracket { left = STR (x ^ tys ^ "\\") ;
                                 right = STR "" ;
                                 indent = 2 ;
@@ -586,7 +586,7 @@ class term_printer = object (self)
         | Var {name=("pi"|"sigma" as q); _}, [a] -> begin
             match observe (hnorm a) with
             | Lam ([x, ty], t) ->
-              let tys = (if show_ty then ":" ^ ty_to_string ty else "") in
+              let tys = (if !show_types then ":" ^ ty_to_string ty else "") in
                 Pretty.(Opapp (50, Prefix (STR (q ^ " " ^ x ^ tys ^ "\\"),
                                            self#print (adjoin cx (x, ty)) t)))
             | a ->

@@ -241,3 +241,6 @@ val terms_contain_gentyvar : term list -> bool
 type tysub = (string * ty) list
 val apply_sub_ty : tysub -> ty -> ty
 val apply_sub_ty_tyvar : tysub -> ty -> ty
+
+(* options *)
+val show_types : bool ref

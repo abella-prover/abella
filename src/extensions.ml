@@ -380,7 +380,6 @@ let memoize fn =
       Hashtbl.add memo x res ;
       res
 
-
 module Either = struct
   type ('a, 'b) either = Left of 'a | Right of 'b
 
@@ -395,6 +394,13 @@ module Either = struct
       List.fold_right (either left right) eithers ([], [])
 end
 
+module Itab = Map.Make (String)
+module Iset = struct
+    include Set.Make (String)
+    let of_list l =
+      List.fold_left (fun s x -> add x s) empty l
+  end
+
 module IntMap : Map.S with type key := int =
   Map.Make (struct
     type t = int
@@ -403,7 +409,4 @@ module IntMap : Map.S with type key := int =
       if x = y then 0 else 1
   end)
 
-module Json = struct
-  include Yojson.Safe
-  include Util
-end
+module Json = Yojson.Safe

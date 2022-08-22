@@ -121,6 +121,122 @@ module Ipfs = struct
       failwithf "Failed to create IPFS export file %S" fname
 
   let publish = ref false
+
+  type 'a marked = {
+    key : 'a ;
+    rep : Json.t ;
+    mutable mark : bool ;
+  }
+
+  let sigma_types : id marked list ref = ref []
+  let sigma_consts : id marked list ref = ref []
+  let sigma_defns : id list marked list ref = ref []
+
+  let reset_marks () =
+    let reset_mark m = m.mark <- false in
+    List.iter reset_mark !sigma_types ;
+    List.iter reset_mark !sigma_consts ;
+    List.iter reset_mark !sigma_defns
+
+  let add_type a knd =
+    if List.exists (fun m -> m.key = a) !sigma_types then () else
+    let rep = Printf.sprintf "Kind %s %s" a (knd_to_string knd) in
+    sigma_types := { key = a ; rep = `String rep ; mark = false }
+                   :: !sigma_types
+  let mark_type a =
+    List.iter (fun m -> if m.key = a then m.mark <- true) !sigma_types
+
+  let add_const k ty =
+    if List.exists (fun m -> m.key = k) !sigma_consts then () else
+    let rep = Printf.sprintf "Type %s %s" k (ty_to_string ty) in
+    sigma_consts := { key = k ; rep = `String rep ; mark = false }
+                    :: !sigma_consts
+  let mark_const a =
+    List.iter (fun m -> if m.key = a then m.mark <- true) !sigma_consts
+
+  let add_defn flav idtys clauses =
+    if List.exists (fun (id, _) ->
+        List.exists (fun m -> List.mem id m.key)
+          !sigma_defns)
+        idtys then () else
+    let clauses_rep = List.map begin fun clause ->
+        Printf.sprintf "%s := %s"
+          (metaterm_to_string clause.head)
+          (metaterm_to_string clause.body)
+      end clauses |> String.concat "; " in
+    let definienda_rep = List.map begin fun (id, ty) ->
+        Printf.sprintf "%s : %s" id (ty_to_string ty)
+      end idtys |> String.concat ", " in
+    let flavor_rep = match flav with Inductive -> "Define" | _ -> "CoDefine" in
+    let rep = Printf.sprintf "%s %s by %s"
+        flavor_rep definienda_rep clauses_rep in
+    sigma_defns := { key = List.map fst idtys ;
+                     rep = `String rep ; mark = false }
+                   :: !sigma_defns
+
+  let rec mark_ty ty =
+    Term.iter_ty begin function
+    | Tycons (c, _) -> mark_type c
+    | _ -> ()
+    end ty
+
+  and mark_term cx tm =
+    match observe (hnorm tm) with
+    | Var v ->
+        mark_ty v.ty ;
+        if not @@ Iset.mem v.name cx then
+          if Hashtbl.mem Prover.defs_table v.name
+          then mark_defn v.name
+          else mark_const v.name
+    | DB _ -> ()
+    | Lam (bs, tm) ->
+        let cx = List.fold_left mark_binding cx bs in
+        mark_term cx tm
+    | App (f, ts) ->
+        mark_term cx f ;
+        List.iter (mark_term cx) ts
+    | Susp _ | Ptr _ -> assert false
+
+  and mark_metaterm cx mt =
+    match mt with
+    | Eq (s, t) ->
+        mark_term cx s ;
+        mark_term cx t
+    | Pred (p, _) ->
+        mark_term cx p
+    | Obj _ ->
+        bugf "IPFS export cannot yet handle the specification logic"
+    | Binding (_, bs, bod) ->
+        let cx = List.fold_left mark_binding cx bs in
+        mark_metaterm cx bod
+    | And (a, b) | Or (a, b) | Arrow (a, b) ->
+        mark_metaterm cx a ;
+        mark_metaterm cx b
+    | True | False -> ()
+
+  and mark_binding cx (v, ty) = mark_ty ty ; Iset.add v cx
+
+  and mark_defn a =
+    List.iter begin fun m ->
+      if List.mem a m.key then begin
+        let oldmark = m.mark in
+        m.mark <- true ;
+        if not oldmark then begin
+          let def = Hashtbl.find Prover.defs_table a in
+          Itab.iter (fun _ ty -> mark_ty ty) def.mutual ;
+          List.iter begin fun cl ->
+            mark_metaterm Iset.empty cl.head ;
+            mark_metaterm Iset.empty cl.body ;
+          end def.clauses
+        end
+      end
+    end !sigma_defns
+
+  let sigma () : Json.t =
+    let get m = if m.mark then Some m.rep else None in
+    `List ( List.rev (List.filter_map get !sigma_types) @
+            List.rev (List.filter_map get !sigma_consts) @
+            List.rev (List.filter_map get !sigma_defns) )
 end
 
 exception AbortProof
@@ -336,7 +452,15 @@ let ensure_finalized_specification () =
 
 let compile citem =
   (* ensure_finalized_specification () ; *)
-  comp_content := citem :: !comp_content
+  comp_content := citem :: !comp_content ;
+  match citem with
+  | CKind (ids, knd) ->
+      List.iter (fun id -> Ipfs.add_type id knd) ids
+  | CType (ids, ty) ->
+      List.iter (fun id -> Ipfs.add_const id ty) ids
+  | CDefine (flav, _, idtys, clauses) ->
+      Ipfs.add_defn flav idtys clauses
+  | _ -> ()
 
 let predicates (_ktable, ctable) =
   ctable |>
@@ -600,13 +724,13 @@ let ipfs_import cid =
   let dkind = "IPFS" in
   try
     Ipfs.get_dag cid |>
-    to_assoc |>
+    Util.to_assoc |>
     List.iter begin fun (thmname, payload) ->
-      let cid = member "cidFormula" payload |> to_string in
+      let cid = Util.member "cidFormula" payload |> Util.to_string in
       debugf ~dkind "(* import theorem %s [cid = %s] *)" thmname cid ;
-      let sigma = member "SigmaFormula" payload |>
-                 to_list |>
-                 List.map to_string in
+      let sigma = Util.member "SigmaFormula" payload |>
+                  Util.to_list |>
+                  List.map Util.to_string in
       List.iter begin fun txt ->
         let lb = Lexing.from_string (txt ^ ".") in
         let cmd, _ = Parser.top_command_start Lexer.token lb in
@@ -637,8 +761,8 @@ let ipfs_import cid =
         debugf ~dkind "%s.%s" (top_command_to_string cmd) !remark
       end sigma ;
       let form =
-        let txt = member "formula" payload |>
-                  to_string in
+        let txt = Util.member "formula" payload |>
+                  Util.to_string in
         let txt = Printf.sprintf "Theorem %s : %s." thmname txt in
         let lb = Lexing.from_string txt in
         let cmd, _ = Parser.top_command_start Lexer.token lb in
@@ -658,8 +782,42 @@ let ipfs_import cid =
       in
       ignore form
     end
-  with Type_error _ ->
+  with Util.Type_error _ ->
     failwithf "Failed to import ipfs:%s" cid
+
+let format_kind ff (Knd arity) =
+  let rec aux n =
+    if n = 0 then Format.pp_print_string ff "type" else begin
+      Format.pp_print_string ff "type -> " ;
+      aux (n - 1)
+    end
+  in
+  aux arity
+
+let ipfs_export_theorem name tys form =
+  if not !Ipfs.exporting then () else begin
+    Ipfs.reset_marks () ;
+    let dkind = "IPFS" in
+    let old_show_types = !Term.show_types in
+    Term.show_types := true ;
+    Ipfs.mark_metaterm Iset.empty form ;
+    let sigma = Ipfs.sigma () in
+    let conclusion =
+      Format.asprintf "%s%a"
+        (match tys with
+         | [] -> ""
+         | _ -> "[" ^ String.concat "," tys ^ "] ")
+        format_metaterm form in
+    let json : Json.t =
+      `Assoc [
+        "Sigma", sigma ;
+        "conclusion", `String conclusion ;
+        "lemmas", `List [ `List [] ] ;
+      ] in
+    debugf ~dkind "--- EXPORT START ---\n%S: %s\n--- EXPORT END ---"
+      name (Json.to_string json) ;
+    Term.show_types := old_show_types
+  end
 
 (* Proof processing *)
 
@@ -953,7 +1111,7 @@ and process_top1 () =
       let thm_compile fin =
         sign := oldsign ;
         compile (CTheorem(name, tys, thm, fin)) ;
-        debugf ~dkind:"IPFS" "there would be an export at this point." ;
+        ipfs_export_theorem name tys thm ;
         add_lemma name tys thm
       in
       let thm_reset () =
@@ -1012,11 +1170,13 @@ and process_top1 () =
       (* check_noredef ids; *)
       ignore @@ Prover.add_global_types ids knd;
       compile (CKind (ids,knd)) ;
+      List.iter (fun id -> Ipfs.add_type id knd) ids ;
       debug_spec_sign ~msg:"Kind" ()
   | Type(ids, ty) ->
       (* check_noredef ids; *)
       ignore @@ Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
       compile (CType(ids, ty)) ;
+      List.iter (fun id -> Ipfs.add_const id ty) ids ;
       debug_spec_sign ~msg:"Type" ()
   | Close(atys) ->
       Prover.close_types !sign !Prover.clauses atys ;
@@ -1131,11 +1291,11 @@ let () = try
     let config_json = Filename.concat config_dir "config.json" in
     if Sys.file_exists config_json then begin
       Json.from_file config_json |>
-      Json.to_assoc |>
+      Json.Util.to_assoc |>
       List.iter begin fun (key, value) ->
         match key with
         | "ipfs.dispatch" -> begin
-            match Json.to_string_option value with
+            match Json.Util.to_string_option value with
             | Some prog ->
                 Ipfs.set_dispatch prog
             | None ->

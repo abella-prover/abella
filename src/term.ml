@@ -81,13 +81,6 @@ let iter_ty f ty =
 
 type tag = Eigen | Constant | Logic | Nominal
 
-module Itab = Map.Make (String)
-module Iset = struct
-    include Set.Make (String)
-    let of_list l =
-      List.fold_left (fun s x -> add x s) empty l
-  end
-
 type var = {
   name : id ;
   tag  : tag ;
@@ -784,7 +777,6 @@ let extract_pi t =
   match observe (hnorm t) with
     | App(_t, [abs]) -> abs
     | _ -> bugf "Check is_pi before calling extract_pi"
-
 
 let term_map_on_tys f t =
   let rec taux t =

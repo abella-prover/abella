@@ -61,12 +61,6 @@ val propty : ty
 
 type tag = Eigen | Constant | Logic | Nominal
 
-module Itab : Map.S with type key := id
-module Iset : sig
-    include Set.S with type elt := id
-    val of_list : id list -> t
-  end
-
 type var = private {
   name : id ;
   tag  : tag ;

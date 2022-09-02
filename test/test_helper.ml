@@ -101,9 +101,9 @@ let () = process_decls (parse_decls nat_sig_string)
 let process_top_command str =
   match fst (parse_top_command str) with
     | Abella_types.Kind(ids, knd) ->
-        add_global_types ids knd ;
+        ignore @@ add_global_types ids knd ;
     | Abella_types.Type(ids, ty) ->
-        add_global_consts (List.map (fun id -> (id, ty)) ids)
+        ignore @@ add_global_consts (List.map (fun id -> (id, ty)) ids)
     | Abella_types.Close(ids) ->
         close_types !sign !clauses ids
     | _ -> assert false

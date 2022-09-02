@@ -238,3 +238,4 @@ val apply_sub_ty_tyvar : tysub -> ty -> ty
 
 (* options *)
 val show_types : bool ref
+val showing_types : (unit -> 'a) -> 'a

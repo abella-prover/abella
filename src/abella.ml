@@ -139,40 +139,48 @@ module Ipfs = struct
     List.iter reset_mark !sigma_defns
 
   let add_type a knd =
-    if List.exists (fun m -> m.key = a) !sigma_types then () else
-    let rep = Printf.sprintf "Kind %s %s" a (knd_to_string knd) in
-    sigma_types := { key = a ; rep = `String rep ; mark = false }
-                   :: !sigma_types
+    showing_types begin fun () ->
+      if List.exists (fun m -> m.key = a) !sigma_types then () else
+      let rep = Printf.sprintf "Kind %s %s" a (knd_to_string knd) in
+      sigma_types := { key = a ; rep = `String rep ; mark = false }
+                     :: !sigma_types
+    end
+
   let mark_type a =
     List.iter (fun m -> if m.key = a then m.mark <- true) !sigma_types
 
   let add_const k ty =
-    if List.exists (fun m -> m.key = k) !sigma_consts then () else
-    let rep = Printf.sprintf "Type %s %s" k (ty_to_string ty) in
-    sigma_consts := { key = k ; rep = `String rep ; mark = false }
-                    :: !sigma_consts
+    showing_types begin fun () ->
+      if List.exists (fun m -> m.key = k) !sigma_consts then () else
+      let rep = Printf.sprintf "Type %s %s" k (ty_to_string ty) in
+      sigma_consts := { key = k ; rep = `String rep ; mark = false }
+                      :: !sigma_consts
+    end
+
   let mark_const a =
     List.iter (fun m -> if m.key = a then m.mark <- true) !sigma_consts
 
   let add_defn flav idtys clauses =
-    if List.exists (fun (id, _) ->
-        List.exists (fun m -> List.mem id m.key)
-          !sigma_defns)
-        idtys then () else
-    let clauses_rep = List.map begin fun clause ->
-        Printf.sprintf "%s := %s"
-          (metaterm_to_string clause.head)
-          (metaterm_to_string clause.body)
-      end clauses |> String.concat "; " in
-    let definienda_rep = List.map begin fun (id, ty) ->
-        Printf.sprintf "%s : %s" id (ty_to_string ty)
-      end idtys |> String.concat ", " in
-    let flavor_rep = match flav with Inductive -> "Define" | _ -> "CoDefine" in
-    let rep = Printf.sprintf "%s %s by %s"
-        flavor_rep definienda_rep clauses_rep in
-    sigma_defns := { key = List.map fst idtys ;
-                     rep = `String rep ; mark = false }
-                   :: !sigma_defns
+    showing_types begin fun () ->
+      if List.exists (fun (id, _) ->
+          List.exists (fun m -> List.mem id m.key)
+            !sigma_defns)
+          idtys then () else
+      let clauses_rep = List.map begin fun clause ->
+          Printf.sprintf "%s := %s"
+            (metaterm_to_string clause.head)
+            (metaterm_to_string clause.body)
+        end clauses |> String.concat "; " in
+      let definienda_rep = List.map begin fun (id, ty) ->
+          Printf.sprintf "%s : %s" id (ty_to_string ty)
+        end idtys |> String.concat ", " in
+      let flavor_rep = match flav with Inductive -> "Define" | _ -> "CoDefine" in
+      let rep = Printf.sprintf "%s %s by %s"
+          flavor_rep definienda_rep clauses_rep in
+      sigma_defns := { key = List.map fst idtys ;
+                       rep = `String rep ; mark = false }
+                     :: !sigma_defns
+    end
 
   let rec mark_ty ty =
     Term.iter_ty begin function
@@ -772,10 +780,7 @@ let ipfs_import cid =
             check_theorem tys thm ;
             Prover.theorem thm ;
             compile (CTheorem (name, tys, thm, Finished)) ;
-            let old_show_types = !Term.show_types in
-            Term.show_types := true ;
             debugf ~dkind "%s." (top_command_to_string cmd) ;
-            Term.show_types := old_show_types
           end
         | _ ->
             bugf "Parsed a non-theorem from a generated `Theorem' text"
@@ -795,28 +800,27 @@ let format_kind ff (Knd arity) =
   aux arity
 
 let ipfs_export_theorem name tys form =
-  if not !Ipfs.exporting then () else begin
-    Ipfs.reset_marks () ;
-    let dkind = "IPFS" in
-    let old_show_types = !Term.show_types in
-    Term.show_types := true ;
-    Ipfs.mark_metaterm Iset.empty form ;
-    let sigma = Ipfs.sigma () in
-    let conclusion =
-      Format.asprintf "%s%a"
-        (match tys with
-         | [] -> ""
-         | _ -> "[" ^ String.concat "," tys ^ "] ")
-        format_metaterm form in
-    let json : Json.t =
-      `Assoc [
-        "Sigma", sigma ;
-        "conclusion", `String conclusion ;
-        "lemmas", `List [ `List [] ] ;
-      ] in
-    debugf ~dkind "--- EXPORT START ---\n%S: %s\n--- EXPORT END ---"
-      name (Json.to_string json) ;
-    Term.show_types := old_show_types
+  showing_types begin fun () ->
+    if not !Ipfs.exporting then () else begin
+      Ipfs.reset_marks () ;
+      let dkind = "IPFS" in
+      Ipfs.mark_metaterm Iset.empty form ;
+      let sigma = Ipfs.sigma () in
+      let conclusion =
+        Format.asprintf "%s%a"
+          (match tys with
+           | [] -> ""
+           | _ -> "[" ^ String.concat "," tys ^ "] ")
+          format_metaterm form in
+      let json : Json.t =
+        `Assoc [
+          "Sigma", sigma ;
+          "conclusion", `String conclusion ;
+          "lemmas", `List [ `List [] ] ;
+        ] in
+      debugf ~dkind "--- EXPORT START ---\n%S: %s\n--- EXPORT END ---"
+        name (Json.to_string json)
+    end
   end
 
 (* Proof processing *)

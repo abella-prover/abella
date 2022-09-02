@@ -21,6 +21,12 @@
 (****************************************************************************)
 
 let show_types = State.rref false
+let showing_types fn =
+  let old_show_types = !show_types in
+  show_types := true ;
+  let result = fn () in
+  show_types := old_show_types ;
+  result
 
 let show_tag = false
 let show_ts  = false

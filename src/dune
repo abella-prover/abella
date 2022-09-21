@@ -12,7 +12,7 @@
   (name abella_lib)
   (modules :standard \ abella abella_doc)
   (wrapped false)
-  (libraries yojson))
+  (libraries yojson unix))
 
 (ocamllex
   (modules lexer))

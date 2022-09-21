@@ -57,6 +57,11 @@ let witnesses = State.rref false
 let unfinished_theorems : string list ref = ref []
 
 module Ipfs = struct
+  let profile = ref ""
+  let set_profile prof =
+    profile := prof ;
+    debugf ~dkind:"IPFS" "ipfs.profile = %S" !profile
+
   let enabled = ref false
   let dispatch = ref "/bin/false" (* will be changed by set_dispatch *)
   let set_dispatch =
@@ -94,18 +99,11 @@ module Ipfs = struct
   (** Download a DAG via dispatch *)
   let get_dag cid =
     let temp_dir = Filename.get_temp_dir_name () in
-    let cmd = Printf.sprintf "%s get %s %s 2>&1" !dispatch cid temp_dir in
-    let ic = Unix.open_process_in cmd in
-    match Unix.waitpid [] (Unix.process_in_pid ic) with
-    | (_, Unix.WEXITED 0) ->
-        let file = Filename.concat temp_dir cid ^ ".json" in
-        let json = Json.from_file file in
-        Unix.unlink file ;
-        json
-    | _ | exception _ ->
-        Printf.eprintf "Error in subprocess\nCommand: \"%s\"\n%s\n%!"
-          cmd (setoff "> " (read_all ic)) ;
-        failwith "Error in subprocess"
+    ignore @@ run_command @@ Printf.sprintf "%s get %s %s" !dispatch cid temp_dir ;
+    let file = Filename.concat temp_dir cid ^ ".json" in
+    let json = Json.from_file file in
+    Unix.unlink file ;
+    json
 
   let exporting = ref false
   let export_file_name = ref "/dev/null"
@@ -120,7 +118,45 @@ module Ipfs = struct
     with _ ->
       failwithf "Failed to create IPFS export file %S" fname
 
+  let exports : (id * Json.t) list ref = ref []
+  let add_export id payload = exports := (id, payload) :: !exports
+  let write_export_file () =
+    if !exporting then begin
+      let json : Json.t = `Assoc (List.rev !exports) in
+      debugf ~dkind:"IPFS" "--- EXPORT %s START ---\n%s\n--- EXPORT %s END ---"
+        !export_file_name
+        (Json.to_string json)
+        !export_file_name ;
+      Json.to_file !export_file_name json
+    end
+
   let publish = ref false
+  let do_publish () =
+    if !exporting && !publish then begin
+      let output =
+        run_command @@ Printf.sprintf "%s publish %s %s %s %s"
+          !dispatch
+          (Filename.basename (Filename.chop_suffix !export_file_name ".json"))
+          !profile
+          (Filename.dirname !export_file_name)
+          "local" in
+      debugf ~dkind:"IPFS" "--- OUTPUT START ---\n%s\n---OUTPUT END ---\n"
+        output ;
+      let cid = String.split_on_char ' ' output |> List.last in
+      debugf ~dkind:"IPFS" "Published %S as ipfs:%s" !export_file_name cid
+    end
+
+  type thm_id =
+    | Local of string
+    | Global of string
+
+  let thm_map : (id, thm_id) Hashtbl.t = Hashtbl.create 19
+  let clear_thm_map () = Hashtbl.clear thm_map
+  let add_id local_name thid = Hashtbl.replace thm_map local_name thid
+
+  let used_lemmas : id list ref = ref []
+  let mark_lemma id = used_lemmas := id :: !used_lemmas
+  let reset_lemmas () = used_lemmas := []
 
   type 'a marked = {
     key : 'a ;
@@ -468,6 +504,8 @@ let compile citem =
       List.iter (fun id -> Ipfs.add_const id ty) ids
   | CDefine (flav, _, idtys, clauses) ->
       Ipfs.add_defn flav idtys clauses
+  | CTheorem (name, _, _, _) ->
+      Ipfs.(add_id name (Local name))
   | _ -> ()
 
 let predicates (_ktable, ctable) =
@@ -771,15 +809,22 @@ let ipfs_import cid =
       let form =
         let txt = Util.member "formula" payload |>
                   Util.to_string in
-        let txt = Printf.sprintf "Theorem %s : %s." thmname txt in
+        let txt =
+          Printf.sprintf "Theorem %s%s%s." thmname
+            (match txt.[0] with
+             | ':' | '[' -> "" | _ -> ": ")
+            txt
+        in
         let lb = Lexing.from_string txt in
         let cmd, _ = Parser.top_command_start Lexer.token lb in
         match cmd with
         | Theorem (name, tys, thm) -> begin
             let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
             check_theorem tys thm ;
-            Prover.theorem thm ;
+            (* Prover.theorem thm ; *)
+            add_lemma name tys thm ;
             compile (CTheorem (name, tys, thm, Finished)) ;
+            Ipfs.(add_id name (Global cid)) ;
             debugf ~dkind "%s." (top_command_to_string cmd) ;
           end
         | _ ->
@@ -802,24 +847,32 @@ let format_kind ff (Knd arity) =
 let ipfs_export_theorem name tys form =
   showing_types begin fun () ->
     if not !Ipfs.exporting then () else begin
-      Ipfs.reset_marks () ;
       let dkind = "IPFS" in
+      Ipfs.reset_marks () ;
       Ipfs.mark_metaterm Iset.empty form ;
       let sigma = Ipfs.sigma () in
       let conclusion =
-        Format.asprintf "%s%a"
+        Format.asprintf "%s: %a"
           (match tys with
            | [] -> ""
-           | _ -> "[" ^ String.concat "," tys ^ "] ")
+           | _ -> "[" ^ String.concat "," tys ^ "]")
           format_metaterm form in
+      let lemmas = List.map begin fun locid ->
+          match Hashtbl.find Ipfs.thm_map locid with
+          | Ipfs.Local id -> `String id
+          | Ipfs.Global cid -> `String ("ipfs:" ^ cid)
+          | exception Not_found ->
+              bugf "used lemma %S not found in Ipfs.thm_map" locid
+        end !Ipfs.used_lemmas in
       let json : Json.t =
         `Assoc [
           "Sigma", sigma ;
           "conclusion", `String conclusion ;
-          "lemmas", `List [ `List [] ] ;
+          "lemmas", `List [ `List lemmas ] ;
         ] in
-      debugf ~dkind "--- EXPORT START ---\n%S: %s\n--- EXPORT END ---"
-        name (Json.to_string json)
+      debugf ~dkind "--- THEOREM START ---\n%S: %s\n--- THEOREM END ---"
+        name (Json.to_string json) ;
+      Ipfs.add_export name json
     end
   end
 
@@ -978,6 +1031,8 @@ let rec process1 () =
       interactive_or_exit ()
   | End_of_file ->
       write_compilation () ;
+      Ipfs.write_export_file () ;
+      Ipfs.do_publish () ;
       if !switch_to_interactive then begin
         perform_switch_to_interactive ()
       end else begin
@@ -1033,7 +1088,16 @@ and process_proof1 proc =
     begin match input with
     | Induction(args, hn)           -> Prover.induction ?name:hn args
     | CoInduction hn                -> Prover.coinduction ?name:hn ()
-    | Apply(depth, h, args, ws, hn) -> Prover.apply ?depth ?name:hn h args ws ~term_witness
+    | Apply(depth, h, args, ws, hn) -> begin
+        Prover.apply ?depth ?name:hn h args ws ~term_witness ;
+        match h with
+          | ( Remove (name, []) | Keep (name, _) )
+            when not @@ Prover.is_hyp name ->
+              Ipfs.mark_lemma name
+          | Remove (name, _) ->
+              Ipfs.mark_lemma name
+          | _ -> ()
+      end
     | Backchain(depth, h, ws)       -> Prover.backchain ?depth h ws ~term_witness
     | Cut(h, arg, hn)               -> Prover.cut ?name:hn h arg
     | CutFrom(h, arg, t, hn)        -> Prover.cut_from ?name:hn h arg t
@@ -1123,6 +1187,7 @@ and process_top1 () =
         Prover.reset_prover st seq ()
       in
       Prover.start_proof () ;
+      Ipfs.reset_lemmas () ;
       current_state := Process_proof {
           id = Annot.id annot ; thm = name ;
           compile = thm_compile ;
@@ -1253,6 +1318,7 @@ let options =
 
     "-a", Arg.Set annotate, " Annotate mode" ;
 
+    "--ipfs-profile", Arg.String Ipfs.set_profile, "PROF Set the IPFS profile to PROF" ;
     "--ipfs-imports", Arg.Set Ipfs.enabled, " Enable IPFS imports" ;
     "--ipfs-dispatch-prog", Arg.String Ipfs.set_dispatch, "<prog> Path to the `dispatch' tool" ;
     "--ipfs-publish-file", Arg.String Ipfs.set_export_file, "FILE Set IPFS export file to FILE" ;
@@ -1298,6 +1364,14 @@ let () = try
       Json.Util.to_assoc |>
       List.iter begin fun (key, value) ->
         match key with
+        | "ipfs.profile" -> begin
+            match Json.Util.to_string_option value with
+            | Some profile ->
+                Ipfs.set_profile profile
+            | None ->
+                failwithf "Invalid value for config option ipfs.profile (file %S)"
+                  config_json
+          end
         | "ipfs.dispatch" -> begin
             match Json.Util.to_string_option value with
             | Some prog ->

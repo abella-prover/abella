@@ -410,3 +410,15 @@ module IntMap : Map.S with type key := int =
   end)
 
 module Json = Yojson.Safe
+
+let run_command cmd =
+  let cmd = cmd ^ " 2>&1" in
+  debugf ~dkind:"EXT" "Command to run: %s" cmd ;
+  let ic = Unix.open_process_in cmd in
+  match Unix.waitpid [] (Unix.process_in_pid ic) with
+  | (_, Unix.WEXITED 0) ->
+      read_all ic
+  | _ | exception _ ->
+      Printf.eprintf "Error in subprocess\nCommand: \"%s\"\n%s\n%!"
+        cmd (setoff "> " (read_all ic)) ;
+      failwith "Error in subprocess"

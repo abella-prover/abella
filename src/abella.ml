@@ -56,6 +56,111 @@ let witnesses = State.rref false
 
 let unfinished_theorems : string list ref = ref []
 
+
+exception AbortProof
+
+exception UserInterrupt
+
+let output_flush out s =
+  output_string out s ; flush out
+
+let eprintf fmt =
+  ksprintf begin fun s ->
+    output_flush !out s ;
+    if !out <> stdout then
+      output_flush stderr s
+  end fmt
+
+(* Annotations *)
+
+let json_of_position (lft, rgt) =
+  let open Lexing in
+  if ( lft = Lexing.dummy_pos
+       || lft.pos_fname = ""
+       || lft.pos_fname <> rgt.pos_fname )
+  then `Null else
+    `List [
+      `Int lft.pos_cnum ;
+      `Int lft.pos_bol ;
+      `Int lft.pos_lnum ;
+      `Int rgt.pos_cnum ;
+      `Int rgt.pos_bol ;
+      `Int rgt.pos_lnum ;
+    ]
+
+module Annot : sig
+  type t
+  val fresh : string -> t
+  val id : t -> int
+  val extend : t -> string -> Json.t -> unit
+  val commit : t -> unit
+  val last_commit_id : unit -> int option
+end = struct
+  type t = {
+    id : int ;
+    typ : string ;
+    mutable fields : (string * Json.t) list ;
+  }
+  let id annot = annot.id
+  let last_id = ref @@ -1
+  let is_first = ref true
+  let fresh typ =
+    incr last_id ;
+    { id = !last_id ; typ ; fields = [] }
+  let extend annot key value =
+    annot.fields <- (key, value) :: annot.fields
+  let last_commit = ref None
+  let commit annot =
+    if !annotate then begin
+      if not !is_first then fprintf !out ",\n" ;
+      is_first := false ;
+      let json = `Assoc (("id", `Int annot.id) :: ("type", `String annot.typ) :: annot.fields) in
+      fprintf !out "%s%!" (Json.to_string json) ;
+      if annot.typ != "system_message" then
+        last_commit := Some annot
+    end
+  let last_commit_id () =
+    match !last_commit with
+    | None -> None
+    | Some {id ; _} -> Some id
+end
+
+let link_message pos url =
+  let ann = Annot.fresh "link" in
+  Annot.extend ann "source" @@ json_of_position pos ;
+  Annot.extend ann "url" @@ `String url ;
+  Annot.commit ann
+
+type severity = Info | Error
+
+let system_message ?(severity=Info) fmt =
+  Printf.ksprintf begin fun msg ->
+    if !annotate then begin
+      let json = Annot.fresh "system_message" in
+      Annot.extend json "after" @@ begin
+        match Annot.last_commit_id () with
+        | None -> `Null
+        | Some id -> `Int id
+      end ;
+      Annot.extend json "severity" @@ `String (
+        match severity with
+        | Info -> "info"
+        | Error -> "error"
+      ) ;
+      Annot.extend json "message" @@ `String msg ;
+      Annot.commit json
+    end else begin
+      match severity with
+      | Info -> fprintf !out "%s\n%!" msg
+      | Error -> eprintf "%s\n%!" msg
+    end
+  end fmt
+
+let system_message_format ?severity fmt =
+  Format.kasprintf (system_message ?severity "%s") fmt
+
+(* IPFS *)
+
 module Ipfs = struct
   let profile = ref ""
   let set_profile prof =
@@ -131,10 +236,15 @@ module Ipfs = struct
     end
 
   let publish = ref false
-  let publish_target = ref "local"
-  let set_publish_target targ =
-    publish := true ;
-    publish_target := targ
+  let publish_target = ref "illegal-target"
+  let set_publish_target target =
+    match target with
+    | "local" | "cloud" ->
+        publish := true ;
+        publish_target := target
+    | _ ->
+        failwithf "illegal ipfs-publish target %S; valid values are \"cloud\" or \"local\""
+          target
 
   let do_publish () =
     if !exporting && !publish then begin
@@ -147,8 +257,9 @@ module Ipfs = struct
           !publish_target in
       debugf ~dkind:"IPFS" "--- OUTPUT START ---\n%s\n---OUTPUT END ---\n"
         output ;
-      let cid = String.split_on_char ' ' output |> List.last in
-      debugf ~dkind:"IPFS" "Published %S as ipfs:%s" !export_file_name cid
+      let cid = String.split ~test:(function ' ' | '\n' | '\r' -> true | _ -> false) output |> List.last in
+      debugf ~dkind:"IPFS" "Published %S as ipfs:%s" !export_file_name cid ;
+      system_message "Published as ipfs:%s" cid
     end
 
   type thm_id =
@@ -287,108 +398,6 @@ module Ipfs = struct
             List.rev (List.filter_map get !sigma_consts) @
             List.rev (List.filter_map get !sigma_defns) )
 end
-
-exception AbortProof
-
-exception UserInterrupt
-
-let output_flush out s =
-  output_string out s ; flush out
-
-let eprintf fmt =
-  ksprintf begin fun s ->
-    output_flush !out s ;
-    if !out <> stdout then
-      output_flush stderr s
-  end fmt
-
-(* Annotations *)
-
-let json_of_position (lft, rgt) =
-  let open Lexing in
-  if ( lft = Lexing.dummy_pos
-       || lft.pos_fname = ""
-       || lft.pos_fname <> rgt.pos_fname )
-  then `Null else
-    `List [
-      `Int lft.pos_cnum ;
-      `Int lft.pos_bol ;
-      `Int lft.pos_lnum ;
-      `Int rgt.pos_cnum ;
-      `Int rgt.pos_bol ;
-      `Int rgt.pos_lnum ;
-    ]
-
-module Annot : sig
-  type t
-  val fresh : string -> t
-  val id : t -> int
-  val extend : t -> string -> Json.t -> unit
-  val commit : t -> unit
-  val last_commit_id : unit -> int option
-end = struct
-  type t = {
-    id : int ;
-    typ : string ;
-    mutable fields : (string * Json.t) list ;
-  }
-  let id annot = annot.id
-  let last_id = ref @@ -1
-  let is_first = ref true
-  let fresh typ =
-    incr last_id ;
-    { id = !last_id ; typ ; fields = [] }
-  let extend annot key value =
-    annot.fields <- (key, value) :: annot.fields
-  let last_commit = ref None
-  let commit annot =
-    if !annotate then begin
-      if not !is_first then fprintf !out ",\n" ;
-      is_first := false ;
-      let json = `Assoc (("id", `Int annot.id) :: ("type", `String annot.typ) :: annot.fields) in
-      fprintf !out "%s%!" (Json.to_string json) ;
-      if annot.typ != "system_message" then
-        last_commit := Some annot
-    end
-  let last_commit_id () =
-    match !last_commit with
-    | None -> None
-    | Some {id ; _} -> Some id
-end
-
-let link_message pos url =
-  let ann = Annot.fresh "link" in
-  Annot.extend ann "source" @@ json_of_position pos ;
-  Annot.extend ann "url" @@ `String url ;
-  Annot.commit ann
-
-type severity = Info | Error
-
-let system_message ?(severity=Info) fmt =
-  Printf.ksprintf begin fun msg ->
-    if !annotate then begin
-      let json = Annot.fresh "system_message" in
-      Annot.extend json "after" @@ begin
-        match Annot.last_commit_id () with
-        | None -> `Null
-        | Some id -> `Int id
-      end ;
-      Annot.extend json "severity" @@ `String (
-        match severity with
-        | Info -> "info"
-        | Error -> "error"
-      ) ;
-      Annot.extend json "message" @@ `String msg ;
-      Annot.commit json
-    end else begin
-      match severity with
-      | Info -> fprintf !out "%s\n%!" msg
-      | Error -> eprintf "%s\n%!" msg
-    end
-  end fmt
-
-let system_message_format ?severity fmt =
-  Format.kasprintf (system_message ?severity "%s") fmt
 
 (* Input *)
 
@@ -1327,7 +1336,7 @@ let options =
     "--ipfs-imports", Arg.Set Ipfs.enabled, " Enable IPFS imports" ;
     "--ipfs-dispatch-prog", Arg.String Ipfs.set_dispatch, "<prog> Path to the `dispatch' tool" ;
     "--ipfs-publish-file", Arg.String Ipfs.set_export_file, "FILE Set IPFS export file to FILE" ;
-    "--ipfs-publish", Arg.String Ipfs.set_publish_target, "TARGET Run `dispatch publish' with target TARGET" ;
+    "--ipfs-publish", Arg.String Ipfs.set_publish_target, "TARGET Run `dispatch publish' with target TARGET (cloud, local)" ;
 
     "-nr", Arg.Set no_recurse, " Do not recursively invoke Abella" ;
 

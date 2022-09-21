@@ -19,6 +19,8 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+let debug_mode = false
+
 let (>>) f g x = g (f x)
 let (|>) x f = f x
 
@@ -41,14 +43,18 @@ let setoff prefix str =
   List.map (fun line -> prefix ^ line) |>
   String.concat "\n"
 
-let debugf ?dkind fmt = Format.kasprintf begin
-    fun str ->
-      let prefix = match dkind with
-        | None -> "[DEBUG] "
-        | Some kind -> "[DEBUG:" ^ kind ^ "] "
-      in
-      Printf.eprintf "%s\n%!" (setoff prefix str)
-  end fmt
+let debugf ?dkind fmt =
+  if not debug_mode then
+    Format.ifprintf Format.err_formatter fmt
+  else
+    Format.kasprintf begin
+      fun str ->
+        let prefix = match dkind with
+          | None -> "[DEBUG] "
+          | Some kind -> "[DEBUG:" ^ kind ^ "] "
+        in
+        Printf.eprintf "%s\n%!" (setoff prefix str)
+    end fmt
 
 let failwithf fmt = Printf.ksprintf failwith fmt
 let maybe_guard ?guard f =

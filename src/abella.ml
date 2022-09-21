@@ -131,6 +131,11 @@ module Ipfs = struct
     end
 
   let publish = ref false
+  let publish_target = ref "local"
+  let set_publish_target targ =
+    publish := true ;
+    publish_target := targ
+
   let do_publish () =
     if !exporting && !publish then begin
       let output =
@@ -139,7 +144,7 @@ module Ipfs = struct
           (Filename.basename (Filename.chop_suffix !export_file_name ".json"))
           !profile
           (Filename.dirname !export_file_name)
-          "local" in
+          !publish_target in
       debugf ~dkind:"IPFS" "--- OUTPUT START ---\n%s\n---OUTPUT END ---\n"
         output ;
       let cid = String.split_on_char ' ' output |> List.last in
@@ -1322,7 +1327,7 @@ let options =
     "--ipfs-imports", Arg.Set Ipfs.enabled, " Enable IPFS imports" ;
     "--ipfs-dispatch-prog", Arg.String Ipfs.set_dispatch, "<prog> Path to the `dispatch' tool" ;
     "--ipfs-publish-file", Arg.String Ipfs.set_export_file, "FILE Set IPFS export file to FILE" ;
-    "--ipfs-publish", Arg.Set Ipfs.publish, " Run `dispatch publish'" ;
+    "--ipfs-publish", Arg.String Ipfs.set_publish_target, "TARGET Run `dispatch publish' with target TARGET" ;
 
     "-nr", Arg.Set no_recurse, " Do not recursively invoke Abella" ;
 

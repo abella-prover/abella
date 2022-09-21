@@ -788,6 +788,7 @@ let ipfs_import cid =
     List.iter begin fun (thmname, payload) ->
       let cid = Util.member "cidFormula" payload |> Util.to_string in
       debugf ~dkind "(* import theorem %s [cid = %s] *)" thmname cid ;
+      debugf ~dkind "JSON: %a" (Json.pretty_print ~std:true) payload ;
       let sigma = Util.member "SigmaFormula" payload |>
                   Util.to_list |>
                   List.map Util.to_string in
@@ -846,7 +847,7 @@ let ipfs_import cid =
       in
       ignore form
     end
-  with Util.Type_error _ ->
+  with Parser.Error | Util.Type_error _ ->
     failwithf "Failed to import ipfs:%s" cid
 
 let format_kind ff (Knd arity) =

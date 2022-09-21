@@ -519,8 +519,8 @@ let var_to_string v =
   end ^ aft
 
 let rec knd_to_string = function
-  | Knd 0 -> "Type"
-  | Knd i -> "Type -> " ^ (knd_to_string (Knd (i-1)))
+  | Knd 0 -> "type"
+  | Knd i -> "type -> " ^ (knd_to_string (Knd (i-1)))
 
 let atomic s = Pretty.(Atom (STR s))
 

@@ -299,11 +299,9 @@ module Ipfs = struct
   let do_publish () =
     if !exporting && !publish then begin
       let output =
-        run_command @@ Printf.sprintf "%s publish %s %s %s %s"
+        run_command @@ Printf.sprintf "%s publish %s %s"
           !dispatch
-          (Filename.basename (Filename.chop_suffix !export_file_name ".json"))
-          !agent
-          (Filename.dirname !export_file_name)
+          !export_file_name
           !publish_target in
       debugf ~dkind:"IPFS" "--- OUTPUT START ---\n%s\n---OUTPUT END ---\n"
         output ;
@@ -564,7 +562,7 @@ let compile citem =
       Ipfs.reset_marks () ;
       Ipfs.mark_metaterm Iset.empty form ;
       let sigma = Ipfs.sigma () in
-      let declarations = name ^ "!" ^ "sigma" in
+      let declarations = name ^ "!sigma" in
       Ipfs.register_sigma declarations sigma ;
       let form = Format.asprintf "%s: %a"
           (match tyvars with
@@ -574,7 +572,7 @@ let compile citem =
       let thm_id : Json.t = `Assoc [
           "language", Ipfs.language ;
           "content", `String form ;
-          "declarations", `String declarations ;
+          "declarations", `List [`String declarations] ;
         ] in
       Ipfs.(register_thm name @@ Local thm_id)
   | _ -> ()
@@ -930,7 +928,7 @@ let ipfs_export_theorem name =
       let json : Json.t =
         `Assoc [
           "format", `String "assertion" ;
-          "assertion", `Assoc [
+          "element", `Assoc [
             "agent", `String !Ipfs.agent ;
             "statement", `Assoc [
               "format", `String "annotated-production" ;
@@ -939,7 +937,7 @@ let ipfs_export_theorem name =
                 "tool", `String !Ipfs.tool ;
                 "sequent", `Assoc [
                   "conclusion", `String name ;
-                  "dependencies", `List [`List lemmas] ;
+                  "dependencies", `List lemmas ;
                 ] ;
               ] ;
             ] ;

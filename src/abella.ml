@@ -56,7 +56,6 @@ let witnesses = State.rref false
 
 let unfinished_theorems : string list ref = ref []
 
-
 exception AbortProof
 
 exception UserInterrupt
@@ -167,6 +166,22 @@ module Ipfs = struct
     profile := prof ;
     debugf ~dkind:"IPFS" "ipfs.profile = %S" !profile
 
+  let tool = ref ""
+  let set_tool tl =
+    tool := tl ;
+    debugf ~dkind:"IPFS" "ipfs.tool = %S" !tool
+
+  let language : Json.t =
+    let vv = Version.version ^ "-" ^ Digest.to_hex Version.self_digest in
+    let lang : Json.t =
+      `Assoc [
+        "name", `String "Abella" ;
+        "version", `String vv ;
+        "tag", `String ("Abella " ^ vv) ;
+      ] in
+    debugf ~dkind:"IPFS" "language = %a@." Json.pp lang ;
+    lang
+
   let enabled = ref false
   let dispatch = ref "/bin/false" (* will be changed by set_dispatch *)
   let set_dispatch =
@@ -223,11 +238,46 @@ module Ipfs = struct
     with _ ->
       failwithf "Failed to create IPFS export file %S" fname
 
+  let input_file = ref "/dev/null"
+  let set_input_file fname = input_file := fname
+
+  type thm_id =
+    | Local of Json.t (** theorem in the same file that may or may not be published *)
+    | Global of string (** published theorem *)
+
+  let thm_map : (id, thm_id) Hashtbl.t = Hashtbl.create 19
+  let clear_thm_map () = Hashtbl.clear thm_map
+  let register_thm local_name thid = Hashtbl.replace thm_map local_name thid
+
+  let sigma_map : (id, Json.t) Hashtbl.t = Hashtbl.create 19
+  let clear_sigma_map () = Hashtbl.clear sigma_map
+  let register_sigma name sigma = Hashtbl.replace sigma_map name sigma
+
   let exports : (id * Json.t) list ref = ref []
   let add_export id payload = exports := (id, payload) :: !exports
   let write_export_file () =
     if !exporting then begin
-      let json : Json.t = `Assoc (List.rev !exports) in
+      debugf ~dkind:"IPFS" "input_file = %S" !input_file ;
+      let name = Filename.chop_suffix (Filename.basename !input_file) ".thm" in
+      let formulas = Hashtbl.to_seq thm_map |>
+                     Seq.filter_map begin function
+                     | (name, Local json) -> Some (name, json)
+                     | _ -> None
+                     end |> List.of_seq in
+      let declarations : (string * Json.t) list =
+        Hashtbl.to_seq sigma_map |>
+        Seq.map begin fun (name, sigma) ->
+          (name, `Assoc ["language", language ;
+                         "content", sigma])
+        end |>
+        List.of_seq in
+      let json : Json.t = `Assoc [
+          "format", `String "collection" ;
+          "name", `String name ;
+          "elements", `List (List.rev !exports |> List.map snd) ;
+          "formulas", `Assoc formulas ;
+          "declarations", `Assoc declarations ;
+        ] in
       debugf ~dkind:"IPFS" "--- EXPORT %s START ---\n%s\n--- EXPORT %s END ---"
         !export_file_name
         (Json.to_string json)
@@ -261,14 +311,6 @@ module Ipfs = struct
       debugf ~dkind:"IPFS" "Published %S as ipfs:%s" !export_file_name cid ;
       system_message "Published as ipfs:%s" cid
     end
-
-  type thm_id =
-    | Local of string
-    | Global of string
-
-  let thm_map : (id, thm_id) Hashtbl.t = Hashtbl.create 19
-  let clear_thm_map () = Hashtbl.clear thm_map
-  let add_id local_name thid = Hashtbl.replace thm_map local_name thid
 
   let used_lemmas : id list ref = ref []
   let mark_lemma id = used_lemmas := id :: !used_lemmas
@@ -518,8 +560,23 @@ let compile citem =
       List.iter (fun id -> Ipfs.add_const id ty) ids
   | CDefine (flav, _, idtys, clauses) ->
       Ipfs.add_defn flav idtys clauses
-  | CTheorem (name, _, _, _) ->
-      Ipfs.(add_id name (Local name))
+  | CTheorem (name, tyvars, form, _) ->
+      Ipfs.reset_marks () ;
+      Ipfs.mark_metaterm Iset.empty form ;
+      let sigma = Ipfs.sigma () in
+      let declarations = name ^ "!" ^ "sigma" in
+      Ipfs.register_sigma declarations sigma ;
+      let form = Format.asprintf "%s: %a"
+          (match tyvars with
+           | [] -> ""
+           | _ -> "[" ^ String.concat "," tyvars ^ "]")
+          format_metaterm form in
+      let thm_id : Json.t = `Assoc [
+          "language", Ipfs.language ;
+          "content", `String form ;
+          "declarations", `String declarations ;
+        ] in
+      Ipfs.(register_thm name @@ Local thm_id)
   | _ -> ()
 
 let predicates (_ktable, ctable) =
@@ -839,7 +896,7 @@ let ipfs_import cid =
             (* Prover.theorem thm ; *)
             add_lemma name tys thm ;
             compile (CTheorem (name, tys, thm, Finished)) ;
-            Ipfs.(add_id name (Global cid)) ;
+            Ipfs.(register_thm name (Global cid)) ;
             debugf ~dkind "%s." (top_command_to_string cmd) ;
           end
         | _ ->
@@ -859,31 +916,34 @@ let format_kind ff (Knd arity) =
   in
   aux arity
 
-let ipfs_export_theorem name tys form =
+let ipfs_export_theorem name =
   showing_types begin fun () ->
     if not !Ipfs.exporting then () else begin
       let dkind = "IPFS" in
-      Ipfs.reset_marks () ;
-      Ipfs.mark_metaterm Iset.empty form ;
-      let sigma = Ipfs.sigma () in
-      let conclusion =
-        Format.asprintf "%s: %a"
-          (match tys with
-           | [] -> ""
-           | _ -> "[" ^ String.concat "," tys ^ "]")
-          format_metaterm form in
       let lemmas = List.map begin fun locid ->
           match Hashtbl.find Ipfs.thm_map locid with
-          | Ipfs.Local id -> `String id
-          | Ipfs.Global cid -> `String ("ipfs:" ^ cid)
+          | Ipfs.Local thm_id -> thm_id
+          | Ipfs.Global cid -> `String ("ipld:" ^ cid)
           | exception Not_found ->
               bugf "used lemma %S not found in Ipfs.thm_map" locid
         end !Ipfs.used_lemmas in
       let json : Json.t =
         `Assoc [
-          "Sigma", sigma ;
-          "conclusion", `String conclusion ;
-          "lemmas", `List [ `List lemmas ] ;
+          "format", `String "assertion" ;
+          "assertion", `Assoc [
+            "agent", `String !Ipfs.profile ;
+            "statement", `Assoc [
+              "format", `String "annotated-production" ;
+              "annotation", `String name ;
+              "production", `Assoc [
+                "tool", `String !Ipfs.tool ;
+                "sequent", `Assoc [
+                  "conclusion", `String name ;
+                  "dependencies", `List [`List lemmas] ;
+                ] ;
+              ] ;
+            ] ;
+          ] ;
         ] in
       debugf ~dkind "--- THEOREM START ---\n%S: %s\n--- THEOREM END ---"
         name (Json.to_string json) ;
@@ -1194,7 +1254,7 @@ and process_top1 () =
       let thm_compile fin =
         sign := oldsign ;
         compile (CTheorem(name, tys, thm, fin)) ;
-        ipfs_export_theorem name tys thm ;
+        ipfs_export_theorem name ;
         add_lemma name tys thm
       in
       let thm_reset () =
@@ -1333,7 +1393,9 @@ let options =
 
     "-a", Arg.Set annotate, " Annotate mode" ;
 
-    "--ipfs-profile", Arg.String Ipfs.set_profile, "PROF Set the IPFS profile to PROF" ;
+    "--ipfs-agent", Arg.String Ipfs.set_profile, "PROF Set the IPFS agent profile to PROF" ;
+    "--ipfs-profile", Arg.String Ipfs.set_profile, "PROF Same as --ipfs-profile PROF" ;
+    "--ipfs-tool", Arg.String Ipfs.set_tool, "TOOL Set the IPFS tool profile to PROF" ;
     "--ipfs-imports", Arg.Set Ipfs.enabled, " Enable IPFS imports" ;
     "--ipfs-dispatch-prog", Arg.String Ipfs.set_dispatch, "<prog> Path to the `dispatch' tool" ;
     "--ipfs-publish-file", Arg.String Ipfs.set_export_file, "FILE Set IPFS export file to FILE" ;
@@ -1352,7 +1414,11 @@ let set_input () =
   match !input_files with
   | [] -> ()
   | [filename] ->
+      if not @@ String.ends_with ~suffix:".thm" filename then
+        failwithf "Invalid input file name %S: does not end in .thm"
+          filename ;
       interactive := false ;
+      Ipfs.set_input_file filename ;
       lexbuf := lexbuf_from_file filename ;
       load_path := normalize_filename ~wrt:(Sys.getcwd ()) (Filename.dirname filename)
   | fs ->
@@ -1385,6 +1451,13 @@ let () = try
                 Ipfs.set_profile profile
             | None ->
                 failwithf "Invalid value for config option ipfs.profile (file %S)"
+                  config_json
+          end
+        | "ipfs.tool" -> begin
+            match Json.Util.to_string_option value with
+            | Some tl -> Ipfs.set_tool tl
+            | None ->
+                failwithf "Invalid value for config option ipfs.tool (file %S)"
                   config_json
           end
         | "ipfs.dispatch" -> begin

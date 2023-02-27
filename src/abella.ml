@@ -922,7 +922,7 @@ let ipfs_export_theorem name =
       let dkind = "IPFS" in
       let lemmas = List.map begin fun locid ->
           match Hashtbl.find Ipfs.thm_map locid with
-          | Ipfs.Local thm_id -> thm_id
+          | Ipfs.Local _ -> `String locid
           | Ipfs.Global cid -> `String ("ipld:" ^ cid)
           | exception Not_found ->
               bugf "used lemma %S not found in Ipfs.thm_map" locid

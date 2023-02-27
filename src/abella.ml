@@ -161,10 +161,10 @@ let system_message_format ?severity fmt =
 (* IPFS *)
 
 module Ipfs = struct
-  let profile = ref ""
-  let set_profile prof =
-    profile := prof ;
-    debugf ~dkind:"IPFS" "ipfs.profile = %S" !profile
+  let agent = ref ""
+  let set_agent ag =
+    agent := ag ;
+    debugf ~dkind:"IPFS" "ipfs.agent = %S" !agent
 
   let tool = ref ""
   let set_tool tl =
@@ -302,7 +302,7 @@ module Ipfs = struct
         run_command @@ Printf.sprintf "%s publish %s %s %s %s"
           !dispatch
           (Filename.basename (Filename.chop_suffix !export_file_name ".json"))
-          !profile
+          !agent
           (Filename.dirname !export_file_name)
           !publish_target in
       debugf ~dkind:"IPFS" "--- OUTPUT START ---\n%s\n---OUTPUT END ---\n"
@@ -931,7 +931,7 @@ let ipfs_export_theorem name =
         `Assoc [
           "format", `String "assertion" ;
           "assertion", `Assoc [
-            "agent", `String !Ipfs.profile ;
+            "agent", `String !Ipfs.agent ;
             "statement", `Assoc [
               "format", `String "annotated-production" ;
               "annotation", `String name ;
@@ -1393,9 +1393,9 @@ let options =
 
     "-a", Arg.Set annotate, " Annotate mode" ;
 
-    "--ipfs-agent", Arg.String Ipfs.set_profile, "PROF Set the IPFS agent profile to PROF" ;
-    "--ipfs-profile", Arg.String Ipfs.set_profile, "PROF Same as --ipfs-profile PROF" ;
-    "--ipfs-tool", Arg.String Ipfs.set_tool, "TOOL Set the IPFS tool profile to PROF" ;
+    "--ipfs-agent", Arg.String Ipfs.set_agent, "AG Set the IPFS agent profile to AG" ;
+    "--ipfs-profile", Arg.String Ipfs.set_agent, "AG Same as --ipfs-agent AG" ;
+    "--ipfs-tool", Arg.String Ipfs.set_tool, "TOOL Set the IPFS tool profile to TOOL" ;
     "--ipfs-imports", Arg.Set Ipfs.enabled, " Enable IPFS imports" ;
     "--ipfs-dispatch-prog", Arg.String Ipfs.set_dispatch, "<prog> Path to the `dispatch' tool" ;
     "--ipfs-publish-file", Arg.String Ipfs.set_export_file, "FILE Set IPFS export file to FILE" ;
@@ -1445,12 +1445,13 @@ let () = try
       Json.Util.to_assoc |>
       List.iter begin fun (key, value) ->
         match key with
+        | "ipfs.agent"
         | "ipfs.profile" -> begin
             match Json.Util.to_string_option value with
-            | Some profile ->
-                Ipfs.set_profile profile
+            | Some ag ->
+                Ipfs.set_agent ag
             | None ->
-                failwithf "Invalid value for config option ipfs.profile (file %S)"
+                failwithf "Invalid value for config option ipfs.agent (file %S)"
                   config_json
           end
         | "ipfs.tool" -> begin

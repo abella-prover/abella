@@ -1,0 +1,14 @@
+Import "ipfs:bafyreih6ns6v6hzmnkiftq756axjzv6bckec3wm45ji7ogfu6ajxxysaye".
+
+Theorem plus_succ :
+ forall M N K, plus M N K -> plus M (s N) (s K).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem plus_comm :
+ forall M N K, nat K -> plus M N K -> plus N M K.
+induction on 2. intros. case H2.
+  apply plus_zero to H1. search.
+  case H1. apply IH to H4 H3.
+  apply plus_succ to H5. search.

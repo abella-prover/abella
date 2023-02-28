@@ -161,26 +161,22 @@ let system_message_format ?severity fmt =
 (* IPFS *)
 
 module Ipfs = struct
+  let debugf fmt = Extensions.debugf ~dkind:"IPFS" fmt
+
   let agent = ref ""
   let set_agent ag =
     agent := ag ;
-    debugf ~dkind:"IPFS" "ipfs.agent = %S" !agent
+    debugf "ipfs.agent = %S" !agent
 
   let tool = ref ""
   let set_tool tl =
     tool := tl ;
-    debugf ~dkind:"IPFS" "ipfs.tool = %S" !tool
+    debugf "ipfs.tool = %S" !tool
 
-  let language : Json.t =
-    let vv = Version.version ^ "-" ^ Digest.to_hex Version.self_digest in
-    let lang : Json.t =
-      `Assoc [
-        "name", `String "Abella" ;
-        "version", `String vv ;
-        "tag", `String ("Abella " ^ vv) ;
-      ] in
-    debugf ~dkind:"IPFS" "language = %a@." Json.pp lang ;
-    lang
+  (* ipfs dag put abella-lang.json *)
+  let language_cid = "ipfs:bafyreigsjmy5qfodp54pxymi4h76nr5qo5p4p2xs5ptjpltlyxj3fvoqbm"
+  (* ipfs dag put abella-tool.json *)
+  let tool_cid = "ipfs:bafyreigcecpkuudgfkqtpg777cjfrvzqyfmwyk32lmn4xgttdi5zrrf4lm"
 
   let enabled = ref false
   let dispatch = ref "/bin/false" (* will be changed by set_dispatch *)
@@ -214,7 +210,7 @@ module Ipfs = struct
           failwithf "Not executable: %S" fn ;
         dispatch := fn
       end ;
-      debugf ~dkind:"IPFS" "ipfs.dispatch = %S" !dispatch
+      debugf "ipfs.dispatch = %S" !dispatch
 
   (** Download a DAG via dispatch *)
   let get_dag cid =
@@ -223,6 +219,7 @@ module Ipfs = struct
     let file = Filename.concat temp_dir cid ^ ".json" in
     let json = Json.from_file file in
     Unix.unlink file ;
+    debugf "IPFS dag = @\n%a" Json.pp json ;
     json
 
   let exporting = ref false
@@ -257,7 +254,7 @@ module Ipfs = struct
   let add_export id payload = exports := (id, payload) :: !exports
   let write_export_file () =
     if !exporting then begin
-      debugf ~dkind:"IPFS" "input_file = %S" !input_file ;
+      debugf "input_file = %S" !input_file ;
       let name = Filename.chop_suffix (Filename.basename !input_file) ".thm" in
       let formulas = Hashtbl.to_seq thm_map |>
                      Seq.filter_map begin function
@@ -267,7 +264,7 @@ module Ipfs = struct
       let declarations : (string * Json.t) list =
         Hashtbl.to_seq sigma_map |>
         Seq.map begin fun (name, sigma) ->
-          (name, `Assoc ["language", language ;
+          (name, `Assoc ["language", `String language_cid ;
                          "content", sigma])
         end |>
         List.of_seq in
@@ -278,7 +275,7 @@ module Ipfs = struct
           "formulas", `Assoc formulas ;
           "declarations", `Assoc declarations ;
         ] in
-      debugf ~dkind:"IPFS" "--- EXPORT %s START ---\n%s\n--- EXPORT %s END ---"
+      debugf "--- EXPORT %s START ---\n%s\n--- EXPORT %s END ---"
         !export_file_name
         (Json.to_string json)
         !export_file_name ;
@@ -303,10 +300,10 @@ module Ipfs = struct
           !dispatch
           !export_file_name
           !publish_target in
-      debugf ~dkind:"IPFS" "--- OUTPUT START ---\n%s\n---OUTPUT END ---\n"
+      debugf "--- OUTPUT START ---\n%s\n---OUTPUT END ---\n"
         output ;
       let cid = String.split ~test:(function ' ' | '\n' | '\r' -> true | _ -> false) output |> List.last in
-      debugf ~dkind:"IPFS" "Published %S as ipfs:%s" !export_file_name cid ;
+      debugf "Published %S as ipfs:%s" !export_file_name cid ;
       system_message "Published as ipfs:%s" cid
     end
 
@@ -570,7 +567,7 @@ let compile citem =
            | _ -> "[" ^ String.concat "," tyvars ^ "]")
           format_metaterm form in
       let thm_id : Json.t = `Assoc [
-          "language", Ipfs.language ;
+          "language", `String Ipfs.language_cid ;
           "content", `String form ;
           "declarations", `List [`String declarations] ;
         ] in
@@ -834,20 +831,29 @@ let import pos filename withs =
     link_message pos (filename ^ ".html") ;
   end
 
-let ipfs_import cid =
+let ipfs_import =
   let open Json in
-  let dkind = "IPFS" in
-  try
-    Ipfs.get_dag cid |>
-    Util.to_assoc |>
-    List.iter begin fun (thmname, payload) ->
-      let cid = Util.member "cidFormula" payload |> Util.to_string in
-      debugf ~dkind "(* import theorem %s [cid = %s] *)" thmname cid ;
-      debugf ~dkind "JSON: %a" (Json.pretty_print ~std:true) payload ;
-      let sigma = Util.member "SigmaFormula" payload |>
-                  Util.to_list |>
-                  List.map Util.to_string in
+  let lang_tab : (id, Json.t) Hashtbl.t = Hashtbl.create 19 in
+  let decl_tab : (id, Json.t) Hashtbl.t = Hashtbl.create 19 in
+  let form_tab : (id, Json.t) Hashtbl.t = Hashtbl.create 19 in
+  let debugf fmt = Extensions.debugf ~dkind:"IPFS.import" fmt in
+  let doit cid =
+    let check_valid_language json =
+      let cid = Util.member "language" json |>
+                Util.to_string |>
+                Hashtbl.find lang_tab |>
+                Util.member "content" |>
+                Util.to_string in
+      if cid <> Ipfs.language_cid then
+        failwithf "Unexpected language %S@\nExpecting %S"
+          cid Ipfs.language_cid
+    in
+    let process_declaration_cid cid_json =
+      let json = Hashtbl.find decl_tab (Util.to_string cid_json) in
+      check_valid_language json ;
+      let content = Util.member "content" json |> Util.to_list in
       List.iter begin fun txt ->
+        let txt = Util.to_string txt in
         let lb = Lexing.from_string (txt ^ ".") in
         let cmd, _ = Parser.top_command_start Lexer.token lb in
         let remark = ref "" in
@@ -874,36 +880,91 @@ let ipfs_import cid =
           | _ ->
               failwithf "Illegal element in Sigma: %s" txt
         in
-        debugf ~dkind "%s.%s" (top_command_to_string cmd) !remark
-      end sigma ;
-      let form =
-        let txt = Util.member "formula" payload |>
-                  Util.to_string in
-        let txt =
-          Printf.sprintf "Theorem %s%s%s." thmname
-            (match txt.[0] with
-             | ':' | '[' -> "" | _ -> ": ")
-            txt
-        in
-        let lb = Lexing.from_string txt in
-        let cmd, _ = Parser.top_command_start Lexer.token lb in
-        match cmd with
-        | Theorem (name, tys, thm) -> begin
-            let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
-            check_theorem tys thm ;
-            (* Prover.theorem thm ; *)
-            add_lemma name tys thm ;
-            compile (CTheorem (name, tys, thm, Finished)) ;
-            Ipfs.(register_thm name (Global cid)) ;
-            debugf ~dkind "%s." (top_command_to_string cmd) ;
-          end
-        | _ ->
-            bugf "Parsed a non-theorem from a generated `Theorem' text"
+        debugf "%s.%s" (top_command_to_string cmd) !remark
+      end content
+    in
+    let process_theorem_cid thmname cid =
+      let json = Hashtbl.find form_tab cid in
+      check_valid_language json ;
+      let () = Util.member "declarations" json |>
+               Util.to_list |>
+               List.iter process_declaration_cid in
+      let txt = Util.member "content" json |> Util.to_string in
+      let txt =
+        Printf.sprintf "Theorem %s%s%s." thmname
+          (match txt.[0] with
+           | ':' | '[' -> "" | _ -> ": ")
+          txt
       in
-      ignore form
-    end
-  with Parser.Error | Util.Type_error _ ->
-    failwithf "Failed to import ipfs:%s" cid
+      let lb = Lexing.from_string txt in
+      let cmd, _ = Parser.top_command_start Lexer.token lb in
+      match cmd with
+      | Theorem (name, tys, thm) -> begin
+          let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
+          check_theorem tys thm ;
+          (* Prover.theorem thm ; *)
+          add_lemma name tys thm ;
+          compile (CTheorem (name, tys, thm, Finished)) ;
+          Ipfs.(register_thm name (Global cid)) ;
+          debugf "%s." (top_command_to_string cmd)
+        end
+      | _ ->
+          bugf "Parsed a non-theorem from a generated `Theorem' text"
+    in
+    let process_assertion json =
+      let statement = Util.member "statement" json in
+      match Util.member "format" statement |> Util.to_string with
+      | "annotated-production" ->
+          let thmname =
+            match Util.member "annotation" statement |> Util.to_list with
+            | nm :: _ -> Util.to_string nm
+            | _ -> failwithf "Expecting lemma name, found empty annotation list"
+          in
+          statement |>
+          Util.member "production" |>
+          Util.member "sequent" |>
+          Util.member "conclusion" |> Util.to_string |>
+          process_theorem_cid thmname
+      | fmt ->
+          failwithf "Expecting format \"annotated-production\",\ found %S" fmt
+    in
+    let process_element json =
+      match Util.member "format" json |> Util.to_string with
+      | "assertion" -> process_assertion (Util.member "element" json)
+      | "annotated-sequent" ->
+          let thmname =
+            match Util.member "annotation" json |> Util.to_list with
+            | nm :: _ -> Util.to_string nm
+            | _ -> failwithf "Expecting lemma name, found empty annotation list"
+          in
+          json |>
+          Util.member "sequent" |>
+          Util.member "conclusion" |> Util.to_string |>
+          process_theorem_cid thmname
+      | fmt ->
+          failwithf "Expecting format \"assertion\" or \"sequent\", found %S" fmt
+    in
+    let dag = Ipfs.get_dag cid in
+    match Util.member "format" dag |> Util.to_string with
+    | "collection" ->
+        let read_into_table tab json =
+          Hashtbl.clear tab ;
+          let assoc = Json.Util.to_assoc json in
+          List.iter (fun (k, v) -> Hashtbl.replace tab k v) assoc
+        in
+        read_into_table decl_tab (Util.member "declarations" dag) ;
+        read_into_table form_tab (Util.member "formulas" dag) ;
+        read_into_table lang_tab (Util.member "languages" dag) ;
+        let elements = Util.member "elements" dag |> Util.to_list in
+        List.iter process_element elements
+    | _ | exception Util.Type_error _ ->
+        debugf "Invalid JSON\n%a" pp dag ;
+        failwithf "Invalid JSON: expecting key \"format\""
+  in
+  fun cid ->
+    try doit cid
+    with Parser.Error | Util.Type_error _ ->
+      failwithf "Failed to import ipfs:%s" cid
 
 let format_kind ff (Knd arity) =
   let rec aux n =

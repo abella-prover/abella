@@ -1,0 +1,18 @@
+Kind nat type.
+
+Type z nat.
+Type s nat -> nat.
+
+Define nat : nat -> prop by
+  nat z;
+  nat (s N) := nat N.
+
+Define plus : nat -> nat -> nat -> prop by
+	plus z N N ;
+	plus (s M) N (s K) := plus M N K.
+
+Theorem plus_zero :
+ forall N, nat N -> plus N z N.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.

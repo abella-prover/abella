@@ -1,0 +1,4 @@
+(executable
+  (name ipfs_cids)
+  (modules ipfs_cids)
+  (libraries yojson unix))

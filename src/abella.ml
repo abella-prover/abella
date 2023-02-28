@@ -163,25 +163,12 @@ let system_message_format ?severity fmt =
 module Ipfs = struct
   let debugf fmt = Extensions.debugf ~dkind:"IPFS" fmt
 
-  let () =
-    debugf "abella-%s-%s" Version.version (Digest.to_hex Version.self_digest)
+  include Ipfs_cids
 
   let agent = ref ""
   let set_agent ag =
     agent := ag ;
     debugf "ipfs.agent = %S" !agent
-
-  let tool = ref ""
-  let set_tool tl =
-    tool := tl ;
-    debugf "ipfs.tool = %S" !tool
-
-  (* ipfs dag put abella-lang.json *)
-  (* let language_cid = "ipfs:bafyreigsjmy5qfodp54pxymi4h76nr5qo5p4p2xs5ptjpltlyxj3fvoqbm" *)
-  let language_cid = "bafyreigf44unyr36rzqmwnd6pll3h32abgdzfpo6p6axpwmuweppc6eagy"
-  (* ipfs dag put abella-tool.json *)
-  (* let tool_cid = "ipfs:bafyreigcecpkuudgfkqtpg777cjfrvzqyfmwyk32lmn4xgttdi5zrrf4lm" *)
-  let tool_cid = "abella"
 
   let enabled = ref false
   let dispatch = ref "/bin/false" (* will be changed by set_dispatch *)
@@ -1006,7 +993,7 @@ let ipfs_export_theorem name =
               "format", `String "annotated-production" ;
               "annotation", `List [`String name] ;
               "production", `Assoc [
-                "tool", `String !Ipfs.tool ;
+                "tool", `String ("ipld:" ^ Ipfs.tool_cid) ;
                 "sequent", `Assoc [
                   "conclusion", `String name ;
                   "dependencies", `List lemmas ;
@@ -1465,7 +1452,6 @@ let options =
 
     "--ipfs-agent", Arg.String Ipfs.set_agent, "AG Set the IPFS agent profile to AG" ;
     "--ipfs-profile", Arg.String Ipfs.set_agent, "AG Same as --ipfs-agent AG" ;
-    "--ipfs-tool", Arg.String Ipfs.set_tool, "TOOL Set the IPFS tool profile to TOOL" ;
     "--ipfs-imports", Arg.Set Ipfs.enabled, " Enable IPFS imports" ;
     "--ipfs-dispatch-prog", Arg.String Ipfs.set_dispatch, "<prog> Path to the `dispatch' tool" ;
     "--ipfs-publish-file", Arg.String Ipfs.set_export_file, "FILE Set IPFS export file to FILE" ;
@@ -1522,13 +1508,6 @@ let () = try
                 Ipfs.set_agent ag
             | None ->
                 failwithf "Invalid value for config option ipfs.agent (file %S)"
-                  config_json
-          end
-        | "ipfs.tool" -> begin
-            match Json.Util.to_string_option value with
-            | Some tl -> Ipfs.set_tool tl
-            | None ->
-                failwithf "Invalid value for config option ipfs.tool (file %S)"
                   config_json
           end
         | "ipfs.dispatch" -> begin

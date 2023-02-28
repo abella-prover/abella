@@ -1,3 +1,8 @@
+(rule
+  (targets ipfs_cids.ml)
+  (deps (:gen ../gen/ipfs_cids.exe))
+  (action (run %{gen} -o %{targets})))
+
 (executable
   (name abella)
   (modules abella)

@@ -1,4 +1,7 @@
-Import "ipfs:bafyreih6ns6v6hzmnkiftq756axjzv6bckec3wm45ji7ogfu6ajxxysaye".
+% Import "ipfs:bafyreih6ns6v6hzmnkiftq756axjzv6bckec3wm45ji7ogfu6ajxxysaye".
+% Import "ipfs:bafyreia5vz4ercihaig2uuc3atcfqybbqpzhifoggsz4vnpukibexhbpim".
+% Import "ipfs:bafyreic7o74ywqt4osorwxanhxq7jyfzwwscuy4qonwy6rnwk536hyp3ta".
+Import "ipfs:bafyreihja54qcbrkq6krebws32dgyhozmdumcwa3d3y7fvrs2drnxxnap4".
 
 Theorem plus_succ :
  forall M N K, plus M N K -> plus M (s N) (s K).

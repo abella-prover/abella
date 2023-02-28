@@ -19,7 +19,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
-let debug_mode = false
+let debug_mode = true
 
 let (>>) f g x = g (f x)
 let (|>) x f = f x

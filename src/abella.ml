@@ -163,6 +163,9 @@ let system_message_format ?severity fmt =
 module Ipfs = struct
   let debugf fmt = Extensions.debugf ~dkind:"IPFS" fmt
 
+  let () =
+    debugf "abella-%s-%s" Version.version (Digest.to_hex Version.self_digest)
+
   let agent = ref ""
   let set_agent ag =
     agent := ag ;
@@ -174,9 +177,11 @@ module Ipfs = struct
     debugf "ipfs.tool = %S" !tool
 
   (* ipfs dag put abella-lang.json *)
-  let language_cid = "ipfs:bafyreigsjmy5qfodp54pxymi4h76nr5qo5p4p2xs5ptjpltlyxj3fvoqbm"
+  (* let language_cid = "ipfs:bafyreigsjmy5qfodp54pxymi4h76nr5qo5p4p2xs5ptjpltlyxj3fvoqbm" *)
+  let language_cid = "bafyreigf44unyr36rzqmwnd6pll3h32abgdzfpo6p6axpwmuweppc6eagy"
   (* ipfs dag put abella-tool.json *)
-  let tool_cid = "ipfs:bafyreigcecpkuudgfkqtpg777cjfrvzqyfmwyk32lmn4xgttdi5zrrf4lm"
+  (* let tool_cid = "ipfs:bafyreigcecpkuudgfkqtpg777cjfrvzqyfmwyk32lmn4xgttdi5zrrf4lm" *)
+  let tool_cid = "abella"
 
   let enabled = ref false
   let dispatch = ref "/bin/false" (* will be changed by set_dispatch *)
@@ -219,7 +224,7 @@ module Ipfs = struct
     let file = Filename.concat temp_dir cid ^ ".json" in
     let json = Json.from_file file in
     Unix.unlink file ;
-    debugf "IPFS dag = @\n%a" Json.pp json ;
+    debugf "IPFS dag = @\n%s" (Json.pretty_to_string json) ;
     json
 
   let exporting = ref false
@@ -264,7 +269,7 @@ module Ipfs = struct
       let declarations : (string * Json.t) list =
         Hashtbl.to_seq sigma_map |>
         Seq.map begin fun (name, sigma) ->
-          (name, `Assoc ["language", `String language_cid ;
+          (name, `Assoc ["language", `String ("ipld:" ^ language_cid) ;
                          "content", sigma])
         end |>
         List.of_seq in
@@ -567,7 +572,7 @@ let compile citem =
            | _ -> "[" ^ String.concat "," tyvars ^ "]")
           format_metaterm form in
       let thm_id : Json.t = `Assoc [
-          "language", `String Ipfs.language_cid ;
+          "language", `String ("ipld:" ^ Ipfs.language_cid) ;
           "content", `String form ;
           "declarations", `List [`String declarations] ;
         ] in
@@ -833,21 +838,17 @@ let import pos filename withs =
 
 let ipfs_import =
   let open Json in
-  let lang_tab : (id, Json.t) Hashtbl.t = Hashtbl.create 19 in
   let decl_tab : (id, Json.t) Hashtbl.t = Hashtbl.create 19 in
   let form_tab : (id, Json.t) Hashtbl.t = Hashtbl.create 19 in
   let debugf fmt = Extensions.debugf ~dkind:"IPFS.import" fmt in
+  let check_valid_language json =
+    let cid = Util.member "language" json |>
+              Util.to_string in
+    if cid <> Ipfs.language_cid then
+      failwithf "Unexpected language %S@\nExpecting %S"
+        cid Ipfs.language_cid
+  in
   let doit cid =
-    let check_valid_language json =
-      let cid = Util.member "language" json |>
-                Util.to_string |>
-                Hashtbl.find lang_tab |>
-                Util.member "content" |>
-                Util.to_string in
-      if cid <> Ipfs.language_cid then
-        failwithf "Unexpected language %S@\nExpecting %S"
-          cid Ipfs.language_cid
-    in
     let process_declaration_cid cid_json =
       let json = Hashtbl.find decl_tab (Util.to_string cid_json) in
       check_valid_language json ;
@@ -925,6 +926,8 @@ let ipfs_import =
           Util.member "sequent" |>
           Util.member "conclusion" |> Util.to_string |>
           process_theorem_cid thmname
+      | "production" ->
+          debugf "Ignoring anonymous production"
       | fmt ->
           failwithf "Expecting format \"annotated-production\",\ found %S" fmt
     in
@@ -953,18 +956,26 @@ let ipfs_import =
           List.iter (fun (k, v) -> Hashtbl.replace tab k v) assoc
         in
         read_into_table decl_tab (Util.member "declarations" dag) ;
+        debugf "Loaded declarations" ;
         read_into_table form_tab (Util.member "formulas" dag) ;
-        read_into_table lang_tab (Util.member "languages" dag) ;
+        debugf "Loaded formulas" ;
         let elements = Util.member "elements" dag |> Util.to_list in
-        List.iter process_element elements
-    | _ | exception Util.Type_error _ ->
+        List.iter process_element elements ;
+        debugf "Loaded elements"
+    | _ ->
         debugf "Invalid JSON\n%a" pp dag ;
+        failwithf "Invalid JSON: expecting key \"format\""
+    | exception Util.Type_error (nm, t) ->
+        debugf "Invalid JSON@\n%a@\n%s: %s" pp dag nm (Json.pretty_to_string t) ;
         failwithf "Invalid JSON: expecting key \"format\""
   in
   fun cid ->
-    try doit cid
-    with Parser.Error | Util.Type_error _ ->
-      failwithf "Failed to import ipfs:%s" cid
+    try doit cid with
+    | Parser.Error ->
+        failwithf "Parse error in import of ipfs:%s" cid
+    | Util.Type_error (nm, t) ->
+        debugf "Invalid JSON@\n%s: %s" nm (Json.pretty_to_string t) ;
+        failwithf "Parse error in import of ipfs:%s" cid
 
 let format_kind ff (Knd arity) =
   let rec aux n =
@@ -993,7 +1004,7 @@ let ipfs_export_theorem name =
             "agent", `String !Ipfs.agent ;
             "statement", `Assoc [
               "format", `String "annotated-production" ;
-              "annotation", `String name ;
+              "annotation", `List [`String name] ;
               "production", `Assoc [
                 "tool", `String !Ipfs.tool ;
                 "sequent", `Assoc [

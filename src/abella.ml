@@ -265,7 +265,7 @@ module Ipfs = struct
           "name", `String name ;
           "elements", `List (List.rev !exports |> List.map snd) ;
           "formulas", `Assoc formulas ;
-          "declarations", `Assoc declarations ;
+          "contexts", `Assoc declarations ;
         ] in
       debugf "--- EXPORT %s START ---\n%s\n--- EXPORT %s END ---"
         !export_file_name
@@ -825,7 +825,7 @@ let import pos filename withs =
 
 let ipfs_import =
   let open Json in
-  let decl_tab : (id, Json.t) Hashtbl.t = Hashtbl.create 19 in
+  let ctx_tab : (id, Json.t) Hashtbl.t = Hashtbl.create 19 in
   let form_tab : (id, Json.t) Hashtbl.t = Hashtbl.create 19 in
   let debugf fmt = Extensions.debugf ~dkind:"IPFS.import" fmt in
   let check_valid_language json =
@@ -836,8 +836,8 @@ let ipfs_import =
         cid Ipfs.language_cid
   in
   let doit cid =
-    let process_declaration_cid cid_json =
-      let json = Hashtbl.find decl_tab (Util.to_string cid_json) in
+    let process_context_cid cid_json =
+      let json = Hashtbl.find ctx_tab (Util.to_string cid_json) in
       check_valid_language json ;
       let content = Util.member "content" json |> Util.to_list in
       List.iter begin fun txt ->
@@ -874,9 +874,9 @@ let ipfs_import =
     let process_theorem_cid thmname cid =
       let json = Hashtbl.find form_tab cid in
       check_valid_language json ;
-      let () = Util.member "declarations" json |>
+      let () = Util.member "context" json |>
                Util.to_list |>
-               List.iter process_declaration_cid in
+               List.iter process_context_cid in
       let txt = Util.member "content" json |> Util.to_string in
       let txt =
         Printf.sprintf "Theorem %s%s%s." thmname
@@ -932,7 +932,7 @@ let ipfs_import =
           Util.member "conclusion" |> Util.to_string |>
           process_theorem_cid thmname
       | fmt ->
-          failwithf "Expecting format \"assertion\" or \"sequent\", found %S" fmt
+          failwithf "Expecting format \"assertion\" or \"annotated-sequent\", found %S" fmt
     in
     let dag = Ipfs.get_dag cid in
     match Util.member "format" dag |> Util.to_string with
@@ -942,15 +942,15 @@ let ipfs_import =
           let assoc = Json.Util.to_assoc json in
           List.iter (fun (k, v) -> Hashtbl.replace tab k v) assoc
         in
-        read_into_table decl_tab (Util.member "declarations" dag) ;
+        read_into_table ctx_tab (Util.member "contexts" dag) ;
         debugf "Loaded declarations" ;
         read_into_table form_tab (Util.member "formulas" dag) ;
         debugf "Loaded formulas" ;
         let elements = Util.member "elements" dag |> Util.to_list in
         List.iter process_element elements ;
         debugf "Loaded elements"
-    | _ ->
-        debugf "Invalid JSON\n%a" pp dag ;
+    | fmt ->
+        debugf "Expecting format \"collection\", found %S" fmt ;
         failwithf "Invalid JSON: expecting key \"format\""
     | exception Util.Type_error (nm, t) ->
         debugf "Invalid JSON@\n%a@\n%s: %s" pp dag nm (Json.pretty_to_string t) ;
@@ -993,7 +993,7 @@ let ipfs_export_theorem name =
               "format", `String "annotated-production" ;
               "annotation", `List [`String name] ;
               "production", `Assoc [
-                "tool", `String ("ipld:" ^ Ipfs.tool_cid) ;
+                "mode", `String ("ipld:" ^ Ipfs.tool_cid) ;
                 "sequent", `Assoc [
                   "conclusion", `String name ;
                   "dependencies", `List lemmas ;

@@ -253,7 +253,7 @@ module Ipfs = struct
                      | (name, Local json) -> Some (name, json)
                      | _ -> None
                      end |> List.of_seq in
-      let declarations : (string * Json.t) list =
+      let contexts : (string * Json.t) list =
         Hashtbl.to_seq sigma_map |>
         Seq.map begin fun (name, sigma) ->
           (name, `Assoc ["language", `String ("ipld:" ^ language_cid) ;
@@ -265,7 +265,7 @@ module Ipfs = struct
           "name", `String name ;
           "elements", `List (List.rev !exports |> List.map snd) ;
           "formulas", `Assoc formulas ;
-          "contexts", `Assoc declarations ;
+          "contexts", `Assoc contexts ;
         ] in
       debugf "--- EXPORT %s START ---\n%s\n--- EXPORT %s END ---"
         !export_file_name
@@ -551,8 +551,8 @@ let compile citem =
       Ipfs.reset_marks () ;
       Ipfs.mark_metaterm Iset.empty form ;
       let sigma = Ipfs.sigma () in
-      let declarations = name ^ "!sigma" in
-      Ipfs.register_sigma declarations sigma ;
+      let context = name ^ "!sigma" in
+      Ipfs.register_sigma context sigma ;
       let form = Format.asprintf "%s: %a"
           (match tyvars with
            | [] -> ""
@@ -561,7 +561,7 @@ let compile citem =
       let thm_id : Json.t = `Assoc [
           "language", `String ("ipld:" ^ Ipfs.language_cid) ;
           "content", `String form ;
-          "declarations", `List [`String declarations] ;
+          "context", `List [`String context] ;
         ] in
       Ipfs.(register_thm name @@ Local thm_id)
   | _ -> ()
@@ -943,7 +943,7 @@ let ipfs_import =
           List.iter (fun (k, v) -> Hashtbl.replace tab k v) assoc
         in
         read_into_table ctx_tab (Util.member "contexts" dag) ;
-        debugf "Loaded declarations" ;
+        debugf "Loaded contexts" ;
         read_into_table form_tab (Util.member "formulas" dag) ;
         debugf "Loaded formulas" ;
         let elements = Util.member "elements" dag |> Util.to_list in

@@ -900,7 +900,7 @@ let ipfs_import =
           bugf "Parsed a non-theorem from a generated `Theorem' text"
     in
     let process_assertion json =
-      let statement = Util.member "statement" json in
+      let statement = Util.member "claim" json in
       match Util.member "format" statement |> Util.to_string with
       | "annotated-production" ->
           let thmname =
@@ -989,7 +989,7 @@ let ipfs_export_theorem name =
           "format", `String "assertion" ;
           "element", `Assoc [
             "agent", `String !Ipfs.agent ;
-            "statement", `Assoc [
+            "claim", `Assoc [
               "format", `String "annotated-production" ;
               "annotation", `List [`String name] ;
               "production", `Assoc [

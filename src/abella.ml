@@ -158,17 +158,17 @@ let system_message ?(severity=Info) fmt =
 let system_message_format ?severity fmt =
   Format.kasprintf (system_message ?severity "%s") fmt
 
-(* IPFS *)
+(* DAMF *)
 
-module Ipfs = struct
-  let debugf fmt = Extensions.debugf ~dkind:"IPFS" fmt
+module Damf = struct
+  let debugf fmt = Extensions.debugf ~dkind:"DAMF" fmt
 
-  include Ipfs_cids
+  include Damf_cids
 
   let agent = ref ""
   let set_agent ag =
     agent := ag ;
-    debugf "ipfs.agent = %S" !agent
+    debugf "damf.agent = %S" !agent
 
   let enabled = ref false
   let dispatch = ref "/bin/false" (* will be changed by set_dispatch *)
@@ -202,7 +202,7 @@ module Ipfs = struct
           failwithf "Not executable: %S" fn ;
         dispatch := fn
       end ;
-      debugf "ipfs.dispatch = %S" !dispatch
+      debugf "damf.dispatch = %S" !dispatch
 
   (** Download a DAG via dispatch *)
   let get_dag cid =
@@ -211,7 +211,7 @@ module Ipfs = struct
     let file = Filename.concat temp_dir cid ^ ".json" in
     let json = Json.from_file file in
     Unix.unlink file ;
-    debugf "IPFS dag = @\n%s" (Json.pretty_to_string json) ;
+    debugf "DAMF dag = @\n%s" (Json.pretty_to_string json) ;
     json
 
   let exporting = ref false
@@ -225,7 +225,7 @@ module Ipfs = struct
       exporting := true ;
       export_file_name := fname
     with _ ->
-      failwithf "Failed to create IPFS export file %S" fname
+      failwithf "Failed to create DAMF export file %S" fname
 
   let input_file = ref "/dev/null"
   let set_input_file fname = input_file := fname
@@ -282,7 +282,7 @@ module Ipfs = struct
         publish := true ;
         publish_target := target
     | _ ->
-        failwithf "illegal ipfs-publish target %S; valid values are \"cloud\" or \"local\""
+        failwithf "illegal damf-publish target %S; valid values are \"cloud\" or \"local\""
           target
 
   let do_publish () =
@@ -295,8 +295,8 @@ module Ipfs = struct
       debugf "--- OUTPUT START ---\n%s\n---OUTPUT END ---\n"
         output ;
       let cid = String.split ~test:(function ' ' | '\n' | '\r' -> true | _ -> false) output |> List.last in
-      debugf "Published %S as ipfs:%s" !export_file_name cid ;
-      system_message "Published as ipfs:%s" cid
+      debugf "Published %S as damf:%s" !export_file_name cid ;
+      system_message "Published as damf:%s" cid
     end
 
   let used_lemmas : id list ref = ref []
@@ -394,7 +394,7 @@ module Ipfs = struct
     | Pred (p, _) ->
         mark_term cx p
     | Obj _ ->
-        bugf "IPFS export cannot yet handle the specification logic"
+        bugf "DAMF export cannot yet handle the specification logic"
     | Binding (_, bs, bod) ->
         let cx = List.fold_left mark_binding cx bs in
         mark_metaterm cx bod
@@ -542,28 +542,28 @@ let compile citem =
   comp_content := citem :: !comp_content ;
   match citem with
   | CKind (ids, knd) ->
-      List.iter (fun id -> Ipfs.add_type id knd) ids
+      List.iter (fun id -> Damf.add_type id knd) ids
   | CType (ids, ty) ->
-      List.iter (fun id -> Ipfs.add_const id ty) ids
+      List.iter (fun id -> Damf.add_const id ty) ids
   | CDefine (flav, _, idtys, clauses) ->
-      Ipfs.add_defn flav idtys clauses
+      Damf.add_defn flav idtys clauses
   | CTheorem (name, tyvars, form, _) ->
-      Ipfs.reset_marks () ;
-      Ipfs.mark_metaterm Iset.empty form ;
-      let sigma = Ipfs.sigma () in
+      Damf.reset_marks () ;
+      Damf.mark_metaterm Iset.empty form ;
+      let sigma = Damf.sigma () in
       let context = name ^ "!sigma" in
-      Ipfs.register_sigma context sigma ;
+      Damf.register_sigma context sigma ;
       let form = Format.asprintf "%s: %a"
           (match tyvars with
            | [] -> ""
            | _ -> "[" ^ String.concat "," tyvars ^ "]")
           format_metaterm form in
       let thm_id : Json.t = `Assoc [
-          "language", `String ("ipld:" ^ Ipfs.language_cid) ;
+          "language", `String ("ipld:" ^ Damf.language_cid) ;
           "content", `String form ;
           "context", `List [`String context] ;
         ] in
-      Ipfs.(register_thm name @@ Local thm_id)
+      Damf.(register_thm name @@ Local thm_id)
   | _ -> ()
 
 let predicates (_ktable, ctable) =
@@ -823,17 +823,17 @@ let import pos filename withs =
     link_message pos (filename ^ ".html") ;
   end
 
-let ipfs_import =
+let damf_import =
   let open Json in
   let ctx_tab : (id, Json.t) Hashtbl.t = Hashtbl.create 19 in
   let form_tab : (id, Json.t) Hashtbl.t = Hashtbl.create 19 in
-  let debugf fmt = Extensions.debugf ~dkind:"IPFS.import" fmt in
+  let debugf fmt = Extensions.debugf ~dkind:"DAMF.import" fmt in
   let check_valid_language json =
     let cid = Util.member "language" json |>
               Util.to_string in
-    if cid <> Ipfs.language_cid then
+    if cid <> Damf.language_cid then
       failwithf "Unexpected language %S@\nExpecting %S"
-        cid Ipfs.language_cid
+        cid Damf.language_cid
   in
   let doit cid =
     let process_context_cid cid_json =
@@ -893,7 +893,7 @@ let ipfs_import =
           (* Prover.theorem thm ; *)
           add_lemma name tys thm ;
           compile (CTheorem (name, tys, thm, Finished)) ;
-          Ipfs.(register_thm name (Global cid)) ;
+          Damf.(register_thm name (Global cid)) ;
           debugf "%s." (top_command_to_string cmd)
         end
       | _ ->
@@ -934,7 +934,7 @@ let ipfs_import =
       | fmt ->
           failwithf "Expecting format \"assertion\" or \"annotated-sequent\", found %S" fmt
     in
-    let dag = Ipfs.get_dag cid in
+    let dag = Damf.get_dag cid in
     match Util.member "format" dag |> Util.to_string with
     | "collection" ->
         let read_into_table tab json =
@@ -959,10 +959,10 @@ let ipfs_import =
   fun cid ->
     try doit cid with
     | Parser.Error ->
-        failwithf "Parse error in import of ipfs:%s" cid
+        failwithf "Parse error in import of damf:%s" cid
     | Util.Type_error (nm, t) ->
         debugf "Invalid JSON@\n%s: %s" nm (Json.pretty_to_string t) ;
-        failwithf "Parse error in import of ipfs:%s" cid
+        failwithf "Parse error in import of damf:%s" cid
 
 let format_kind ff (Knd arity) =
   let rec aux n =
@@ -973,27 +973,27 @@ let format_kind ff (Knd arity) =
   in
   aux arity
 
-let ipfs_export_theorem name =
+let damf_export_theorem name =
   showing_types begin fun () ->
-    if not !Ipfs.exporting then () else begin
-      let dkind = "IPFS" in
+    if not !Damf.exporting then () else begin
+      let dkind = "DAMF" in
       let lemmas = List.map begin fun locid ->
-          match Hashtbl.find Ipfs.thm_map locid with
-          | Ipfs.Local _ -> `String locid
-          | Ipfs.Global cid -> `String ("ipld:" ^ cid)
+          match Hashtbl.find Damf.thm_map locid with
+          | Damf.Local _ -> `String locid
+          | Damf.Global cid -> `String ("ipld:" ^ cid)
           | exception Not_found ->
-              bugf "used lemma %S not found in Ipfs.thm_map" locid
-        end !Ipfs.used_lemmas in
+              bugf "used lemma %S not found in Damf.thm_map" locid
+        end !Damf.used_lemmas in
       let json : Json.t =
         `Assoc [
           "format", `String "assertion" ;
           "element", `Assoc [
-            "agent", `String !Ipfs.agent ;
+            "agent", `String !Damf.agent ;
             "claim", `Assoc [
               "format", `String "annotated-production" ;
               "annotation", `List [`String name] ;
               "production", `Assoc [
-                "mode", `String ("ipld:" ^ Ipfs.tool_cid) ;
+                "mode", `String ("ipld:" ^ Damf.tool_cid) ;
                 "sequent", `Assoc [
                   "conclusion", `String name ;
                   "dependencies", `List lemmas ;
@@ -1004,7 +1004,7 @@ let ipfs_export_theorem name =
         ] in
       debugf ~dkind "--- THEOREM START ---\n%S: %s\n--- THEOREM END ---"
         name (Json.to_string json) ;
-      Ipfs.add_export name json
+      Damf.add_export name json
     end
   end
 
@@ -1163,8 +1163,8 @@ let rec process1 () =
       interactive_or_exit ()
   | End_of_file ->
       write_compilation () ;
-      Ipfs.write_export_file () ;
-      Ipfs.do_publish () ;
+      Damf.write_export_file () ;
+      Damf.do_publish () ;
       if !switch_to_interactive then begin
         perform_switch_to_interactive ()
       end else begin
@@ -1225,9 +1225,9 @@ and process_proof1 proc =
         match h with
           | ( Remove (name, []) | Keep (name, _) )
             when not @@ Prover.is_hyp name ->
-              Ipfs.mark_lemma name
+              Damf.mark_lemma name
           | Remove (name, _) ->
-              Ipfs.mark_lemma name
+              Damf.mark_lemma name
           | _ -> ()
       end
     | Backchain(depth, h, ws)       -> Prover.backchain ?depth h ws ~term_witness
@@ -1311,7 +1311,7 @@ and process_top1 () =
       let thm_compile fin =
         sign := oldsign ;
         compile (CTheorem(name, tys, thm, fin)) ;
-        ipfs_export_theorem name ;
+        damf_export_theorem name ;
         add_lemma name tys thm
       in
       let thm_reset () =
@@ -1319,7 +1319,7 @@ and process_top1 () =
         Prover.reset_prover st seq ()
       in
       Prover.start_proof () ;
-      Ipfs.reset_lemmas () ;
+      Damf.reset_lemmas () ;
       current_state := Process_proof {
           id = Annot.id annot ; thm = name ;
           compile = thm_compile ;
@@ -1346,12 +1346,12 @@ and process_top1 () =
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, pos, withs) -> begin
       match String.split_on_char ':' filename with
-      | ["ipfs" ; cid] ->
-          if not @@ !Ipfs.enabled then
-            failwithf "Cannot process IPFS imports without --ipfs-imports" ;
+      | [ "damf" ; cid] ->
+          if not @@ !Damf.enabled then
+            failwithf "Cannot process DAMF imports without --damf-imports" ;
           if withs <> [] then
-            failwithf "Importing from IPFS with propositional instantiation is not supported" ;
-          ipfs_import cid
+            failwithf "Importing from DAMF with propositional instantiation is not supported" ;
+          damf_import cid
       | [_] ->
           compile (CImport (filename, withs)) ;
           import pos filename withs
@@ -1371,13 +1371,13 @@ and process_top1 () =
       (* check_noredef ids; *)
       ignore @@ Prover.add_global_types ids knd;
       compile (CKind (ids,knd)) ;
-      List.iter (fun id -> Ipfs.add_type id knd) ids ;
+      List.iter (fun id -> Damf.add_type id knd) ids ;
       debug_spec_sign ~msg:"Kind" ()
   | Type(ids, ty) ->
       (* check_noredef ids; *)
       ignore @@ Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
       compile (CType(ids, ty)) ;
-      List.iter (fun id -> Ipfs.add_const id ty) ids ;
+      List.iter (fun id -> Damf.add_const id ty) ids ;
       debug_spec_sign ~msg:"Type" ()
   | Close(atys) ->
       Prover.close_types !sign !Prover.clauses atys ;
@@ -1450,12 +1450,12 @@ let options =
 
     "-a", Arg.Set annotate, " Annotate mode" ;
 
-    "--ipfs-agent", Arg.String Ipfs.set_agent, "AG Set the IPFS agent profile to AG" ;
-    "--ipfs-profile", Arg.String Ipfs.set_agent, "AG Same as --ipfs-agent AG" ;
-    "--ipfs-imports", Arg.Set Ipfs.enabled, " Enable IPFS imports" ;
-    "--ipfs-dispatch-prog", Arg.String Ipfs.set_dispatch, "<prog> Path to the `dispatch' tool" ;
-    "--ipfs-publish-file", Arg.String Ipfs.set_export_file, "FILE Set IPFS export file to FILE" ;
-    "--ipfs-publish", Arg.String Ipfs.set_publish_target, "TARGET Run `dispatch publish' with target TARGET (cloud, local)" ;
+    "--damf-agent", Arg.String Damf.set_agent, "AG Set the DAMF agent profile to AG" ;
+    "--damf-profile", Arg.String Damf.set_agent, "AG Same as --damf-agent AG" ;
+    "--damf-imports", Arg.Set Damf.enabled, " Enable DAMF imports" ;
+    "--damf-dispatch-prog", Arg.String Damf.set_dispatch, "<prog> Path to the `dispatch' tool" ;
+    "--damf-publish-file", Arg.String Damf.set_export_file, "FILE Set DAMF export file to FILE" ;
+    "--damf-publish", Arg.String Damf.set_publish_target, "TARGET Run `dispatch publish' with target TARGET (cloud, local)" ;
 
     "-nr", Arg.Set no_recurse, " Do not recursively invoke Abella" ;
 
@@ -1474,7 +1474,7 @@ let set_input () =
         failwithf "Invalid input file name %S: does not end in .thm"
           filename ;
       interactive := false ;
-      Ipfs.set_input_file filename ;
+      Damf.set_input_file filename ;
       lexbuf := lexbuf_from_file filename ;
       load_path := normalize_filename ~wrt:(Sys.getcwd ()) (Filename.dirname filename)
   | fs ->
@@ -1501,21 +1501,21 @@ let () = try
       Json.Util.to_assoc |>
       List.iter begin fun (key, value) ->
         match key with
-        | "ipfs.agent"
-        | "ipfs.profile" -> begin
+        | "damf.agent"
+        | "damf.profile" -> begin
             match Json.Util.to_string_option value with
             | Some ag ->
-                Ipfs.set_agent ag
+                Damf.set_agent ag
             | None ->
-                failwithf "Invalid value for config option ipfs.agent (file %S)"
+                failwithf "Invalid value for config option damf.agent (file %S)"
                   config_json
           end
-        | "ipfs.dispatch" -> begin
+        | "damf.dispatch" -> begin
             match Json.Util.to_string_option value with
             | Some prog ->
-                Ipfs.set_dispatch prog
+                Damf.set_dispatch prog
             | None ->
-                failwithf "Invalid value for config option ipfs.dispatch (file %S)"
+                failwithf "Invalid value for config option damf.dispatch (file %S)"
                   config_json
           end
         | _ ->
@@ -1529,15 +1529,15 @@ let () = try
       if !makefile then begin
         List.iter Depend.print_deps !input_files ;
       end else begin
-        if !Ipfs.enabled then begin
+        if !Damf.enabled then begin
           interactive := false ;
           switch_to_interactive := false ;
           if !input_files = [] then
-            failwithf "IPFS support is currently only enabled in batch mode" ;
-          if !Ipfs.publish && not !Ipfs.exporting then begin
+            failwithf "DAMF support is currently only enabled in batch mode" ;
+          if !Damf.publish && not !Damf.exporting then begin
             let export_file = List.hd !input_files ^ ".json" in
-            debugf ~dkind:"IPFS" "exporting to %S" export_file ;
-            Ipfs.set_export_file export_file
+            debugf ~dkind:"DAMF" "exporting to %S" export_file ;
+            Damf.set_export_file export_file
           end
         end ;
         set_input () ;

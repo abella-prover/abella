@@ -1,6 +1,6 @@
 (rule
-  (targets ipfs_cids.ml)
-  (deps (:gen ../gen/ipfs_cids.exe))
+  (targets damf_cids.ml)
+  (deps (:gen ../gen/damf_cids.exe))
   (action (run %{gen} -o %{targets})))
 
 (executable

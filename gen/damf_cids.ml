@@ -5,7 +5,7 @@
  * See LICENSE for licensing details.
  *)
 
-let version = "2.0.9 IPFS"
+let version = "2.0.9 DAMF"
 
 module Json = Yojson.Safe
 

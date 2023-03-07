@@ -1,4 +1,4 @@
 (executable
-  (name ipfs_cids)
-  (modules ipfs_cids)
+  (name damf_cids)
+  (modules damf_cids)
   (libraries yojson unix))

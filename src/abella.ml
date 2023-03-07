@@ -256,7 +256,7 @@ module Damf = struct
       let contexts : (string * Json.t) list =
         Hashtbl.to_seq sigma_map |>
         Seq.map begin fun (name, sigma) ->
-          (name, `Assoc ["language", `String ("ipld:" ^ language_cid) ;
+          (name, `Assoc ["language", `String ("damf:" ^ language_cid) ;
                          "content", sigma])
         end |>
         List.of_seq in
@@ -559,7 +559,7 @@ let compile citem =
            | _ -> "[" ^ String.concat "," tyvars ^ "]")
           format_metaterm form in
       let thm_id : Json.t = `Assoc [
-          "language", `String ("ipld:" ^ Damf.language_cid) ;
+          "language", `String ("damf:" ^ Damf.language_cid) ;
           "content", `String form ;
           "context", `List [`String context] ;
         ] in
@@ -980,7 +980,7 @@ let damf_export_theorem name =
       let lemmas = List.map begin fun locid ->
           match Hashtbl.find Damf.thm_map locid with
           | Damf.Local _ -> `String locid
-          | Damf.Global cid -> `String ("ipld:" ^ cid)
+          | Damf.Global cid -> `String ("damf:" ^ cid)
           | exception Not_found ->
               bugf "used lemma %S not found in Damf.thm_map" locid
         end !Damf.used_lemmas in
@@ -993,7 +993,7 @@ let damf_export_theorem name =
               "format", `String "annotated-production" ;
               "annotation", `List [`String name] ;
               "production", `Assoc [
-                "mode", `String ("ipld:" ^ Damf.tool_cid) ;
+                "mode", `String ("damf:" ^ Damf.tool_cid) ;
                 "sequent", `Assoc [
                   "conclusion", `String name ;
                   "dependencies", `List lemmas ;

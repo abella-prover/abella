@@ -1,0 +1,17 @@
+Kind nat type.
+Type z nat.
+Type s nat -> nat.
+
+Define nat : nat -> prop by
+; nat z
+; nat (s X) := nat X.
+
+Define plus : nat -> nat -> nat -> prop by
+; plus z N N
+; plus (s M) N (s K) := plus M N K.
+
+Import "damf:bafyreia4fjuph7n3gwluxexiqcy56d66pvuoep3xec3ybt4kocyqgyvrwi"
+as lol: forall (x : nat), false.
+
+Theorem blah : false.
+apply lol with x = z.

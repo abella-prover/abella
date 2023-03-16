@@ -63,10 +63,16 @@ type common_command =
   | Show          of string
   | Quit
 
+type damf_cid = string
+type importable =
+  | LocalFile of string
+  | DamfCid of damf_cid
+
 type top_command =
   | Theorem       of id * string list * umetaterm
   | Define        of flavor * tyctx * udef_clause list
-  | Import        of string * pos * (string * string) list
+  | Import        of importable * pos * (string * string) list
+  | ImportAs      of damf_cid * pos * id * string list * umetaterm
   | Specification of string * pos
   | Query         of umetaterm
   | Kind          of id list * knd
@@ -250,8 +256,13 @@ let gen_to_string tys =
   | [] -> ""
   | _ -> " [" ^ String.concat "," tys ^ "]"
 
-let aty_list_to_string atys = 
+let aty_list_to_string atys =
   String.concat "," (List.map aty_to_string atys)
+
+let importable_to_string imp =
+  match imp with
+  | LocalFile f -> f
+  | DamfCid cid -> "damf:" ^ cid
 
 let top_command_to_string tc =
   match tc with
@@ -262,12 +273,18 @@ let top_command_to_string tc =
         sprintf "%s %s by \n%s"
           (match flavor with Inductive -> "Define" | _ -> "CoDefine")
           (idtys_to_string idtys) (udef_clauses_to_string cls) ;
-    | Import (filename, _, withs) ->
-        sprintf "Import \"%s\"%s%s" filename
+    | Import (imp, _, withs) ->
+        sprintf "Import \"%s\"%s%s"
+          (importable_to_string imp)
           (if withs = [] then "" else " with ")
           (withs |>
            List.map (fun (a, b) -> a ^ " := " ^ b) |>
            String.concat ", ")
+    | ImportAs (cid, _, name, tys, body) ->
+        sprintf "Import \"%s\"\nas %s%s : %s"
+          (importable_to_string (DamfCid cid))
+          name (gen_to_string tys)
+          (umetaterm_to_formatted_string body)
     | Specification (filename, _) ->
         sprintf "Specification \"%s\"" filename
     | Query q ->

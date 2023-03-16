@@ -30,20 +30,22 @@ let get_thm_depend filename =
   let lexbuf = lexbuf_from_file (filename ^ ".thm") in
   let specs = ref [] in
   let imports = ref [] in
-    begin try
-      while true do
-        match Parser.any_command_start Lexer.token lexbuf with
-          | ATopCommand(Specification(s, _)), _ -> specs := s :: !specs
-          | ATopCommand(Import(i, _, _)), _ -> imports := i :: !imports
-          | _ -> ()
-      done
-    with
-      | End_of_file -> ()
-      | Parsing.Parse_error ->
-          eprintf "Syntax error%s.\n%!" (position lexbuf) ;
-          exit 1
-    end ;
-    (List.rev !specs, List.rev !imports)
+  begin try
+    while true do
+      match Parser.any_command_start Lexer.token lexbuf with
+      | ATopCommand(Specification(s, _)), _ ->
+          specs := s :: !specs
+      | ATopCommand(Import(LocalFile i, _, _)), _ ->
+          imports := i :: !imports
+      | _ -> ()
+    done
+  with
+  | End_of_file -> ()
+  | Parsing.Parse_error ->
+      eprintf "Syntax error%s.\n%!" (position lexbuf) ;
+      exit 1
+  end ;
+  (List.rev !specs, List.rev !imports)
 
 let sig_depend_cache = H.create 10
 let mod_depend_cache = H.create 10
@@ -93,7 +95,7 @@ let print_deps filename =
   let depends =
     sprintf "%s.thm %s %s"
       filename
-      (String.concat " " (List.map (fun i -> i ^ ".thc") imports))
+      (String.concat " " (List.map (fun f -> f ^ ".thc") imports))
       (String.concat " " spec_depends)
   in
     printf "%s.thc: %s\n%!" filename depends ;

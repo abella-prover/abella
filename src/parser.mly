@@ -75,6 +75,12 @@
 
   let deloc_id_ty (lid, ty) = (deloc_id lid, ty)
 
+  let make_importable ~pos str =
+    match String.split_on_char ':' str with
+    | [file] -> Types.LocalFile file
+    | ["damf" ; cid] -> Types.DamfCid cid
+    | _ -> error_report ~pos "Invalid importable %S" str
+
   let make_sig sigid sigpre sigdecls =
     let badconsts = ref [] in
     let collect_bad_decl = function
@@ -646,7 +652,13 @@ pure_top_command:
     { Types.Query(f) }
   | IMPORT; iloc=located(QSTRING);
     ws=loption(WITH; ws=import_withs {ws}); DOT
-    { let i, loc = iloc in Types.Import(i, loc, ws) }
+    { let i, loc = iloc in Types.Import(make_importable ~pos:(fst loc) i, loc, ws) }
+  | IMPORT; iloc=located(QSTRING); AS;
+    x=loc_id; thm=theorem_typarams; COLON; bod=metaterm; DOT
+    { let i, (pos, _ as loc) = iloc in
+      match make_importable ~pos i with
+      | Types.DamfCid cid -> Types.ImportAs(cid, loc, deloc_id x, thm, bod)
+      | _ -> error_report ~pos "Invalid importable for Import ... as: %S" i }
   | SPECIFICATION; sploc=located(QSTRING); DOT
     { let spec, loc = sploc in Types.Specification(spec, loc) }
   | KKIND; tys=id_list; ki=knd; DOT

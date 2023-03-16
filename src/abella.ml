@@ -271,7 +271,9 @@ module Damf = struct
         !export_file_name
         (Json.to_string json)
         !export_file_name ;
-      Json.to_file !export_file_name json
+      let oc = open_out_bin !export_file_name in
+      Json.pretty_to_channel oc json ;
+      close_out oc
     end
 
   let publish = ref false
@@ -964,6 +966,35 @@ let damf_import =
         debugf "Invalid JSON@\n%s: %s" nm (Json.pretty_to_string t) ;
         failwithf "Parse error in import of damf:%s" cid
 
+let damf_extract_conclusion cid : damf_cid =
+  let open Json in
+  let dkind = "DAMF.ImportAs" in
+  let handle_production dag =
+    debugf ~dkind "handle_production@\n%s" (Json.pretty_to_string dag) ;
+    dag |> Util.member "sequent" |> Util.member "conclusion" |> Util.to_string
+  in
+  let handle_annotated_production dag =
+    debugf ~dkind "handle_annotated_production@\n%s" (Json.pretty_to_string dag) ;
+    dag |> Util.member "production" |> handle_production
+  in
+  let handle_assertion dag =
+    debugf ~dkind "handle_assertion@\n%s" (Json.pretty_to_string dag) ;
+    let claim = Util.member "claim" dag in
+    match Util.member "format" claim |> Util.to_string with
+    | "production" -> handle_production claim
+    | "annotated-production" -> handle_annotated_production claim
+    | format ->
+        failwithf "Expecting format \"annotated-production\" or \"production\", found %S" format
+  in
+  let dag = Damf.get_dag cid in
+  debugf ~dkind "damf_extract worked" ;
+  match Util.member "format" dag |> Util.to_string with
+  | "assertion" -> Util.member "assertion" dag |> handle_assertion
+  | "production" -> Util.member "production" dag |> handle_production
+  | "annotated-production" -> Util.member "content" dag |> handle_annotated_production
+  | format ->
+      failwithf "Expecting format \"assertion\" or \"[annotated-]production\", found %S" format
+
 let format_kind ff (Knd arity) =
   let rec aux n =
     if n = 0 then Format.pp_print_string ff "type" else begin
@@ -974,8 +1005,8 @@ let format_kind ff (Knd arity) =
   aux arity
 
 let damf_export_theorem name =
-  showing_types begin fun () ->
-    if not !Damf.exporting then () else begin
+  if not !Damf.exporting then () else
+    showing_types begin fun () ->
       let dkind = "DAMF" in
       let lemmas = List.map begin fun locid ->
           match Hashtbl.find Damf.thm_map locid with
@@ -1006,7 +1037,32 @@ let damf_export_theorem name =
         name (Json.to_string json) ;
       Damf.add_export name json
     end
-  end
+
+let damf_export_manual_adapter external_cid name =
+  if not !Damf.exporting then () else
+    showing_types begin fun () ->
+      let json : Json.t =
+        `Assoc [
+          "format", `String "assertion" ;
+          "element", `Assoc [
+              "agent", `String !Damf.agent ;
+              "claim", `Assoc [
+                "format", `String "annotated-production" ;
+                "annotation", `List [`String (name ^ "!adapter")] ;
+                "production", `Assoc [
+                  "mode", `String ("damf:" ^ Damf.tool_cid) ;
+                  "sequent", `Assoc [
+                    "conclusion", `String name ;
+                    "dependencies", `List [ `String ("damf:" ^ external_cid) ] ;
+                  ] ;
+                ] ;
+              ] ;
+            ] ;
+        ] in
+      debugf ~dkind:"DAMF" "--- ADAPTER START ---\n%S: %s\n--- ADAPTER END ---"
+        name (Json.to_string json) ;
+      Damf.add_export (name ^ "!" ^ "adapted") json
+    end
 
 (* Proof processing *)
 
@@ -1344,19 +1400,26 @@ and process_top1 () =
   | TopCommon(Set(k, v)) -> set k v
   | TopCommon(Show(n)) -> system_message_format "%t" (Prover.show n)
   | TopCommon(Quit) -> raise End_of_file
-  | Import(filename, pos, withs) -> begin
-      match String.split_on_char ':' filename with
-      | [ "damf" ; cid] ->
+  | Import(imp, pos, withs) -> begin
+      match imp with
+      | LocalFile filename ->
+          compile (CImport (filename, withs)) ;
+          import pos filename withs
+      | DamfCid cid ->
           if not @@ !Damf.enabled then
             failwithf "Cannot process DAMF imports without --damf-imports" ;
           if withs <> [] then
             failwithf "Importing from DAMF with propositional instantiation is not supported" ;
           damf_import cid
-      | [_] ->
-          compile (CImport (filename, withs)) ;
-          import pos filename withs
-      | _ ->
-          failwithf "Cannot import this kind of object: %S" filename
+    end
+  | ImportAs(cid, _, name, tys, body) -> begin
+      let conclusion_cid = damf_extract_conclusion cid in
+      let thm = type_umetaterm ~sr:!sr ~sign:!sign body in
+      check_theorem tys thm ;
+      compile (CTheorem(name, tys, thm, Finished)) ;
+      damf_export_manual_adapter conclusion_cid name ;
+      damf_export_theorem name ;
+      add_lemma name tys thm
     end
   | Specification(filename, pos) ->
       if !can_read_specification then begin

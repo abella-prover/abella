@@ -1431,13 +1431,15 @@ and process_top1 () =
           compile (CImport (filename, withs)) ;
           import pos filename withs
       | DamfCid cid ->
-          if not @@ !Damf.enabled then
+          if not !Damf.enabled then
             failwithf "Cannot process DAMF imports without --damf-imports" ;
           if withs <> [] then
             failwithf "Importing from DAMF with propositional instantiation is not supported" ;
           damf_import cid
     end
   | ImportAs(cid, _, name, tys, body) -> begin
+      if not !Damf.enabled then
+        failwithf "Cannot process DAMF imports without --damf-imports" ;
       let conclusion_cid = damf_extract_conclusion cid in
       let thm = type_umetaterm ~sr:!sr ~sign:!sign body in
       check_theorem tys thm ;

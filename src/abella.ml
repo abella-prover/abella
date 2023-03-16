@@ -211,7 +211,7 @@ module Damf = struct
     let file = Filename.concat temp_dir cid ^ ".json" in
     let json = Json.from_file file in
     Unix.unlink file ;
-    debugf "DAMF dag = @\n%s" (Json.pretty_to_string json) ;
+    (* debugf "DAMF dag = @\n%s" (Json.pretty_to_string json) ; *)
     json
 
   let exporting = ref false
@@ -267,10 +267,10 @@ module Damf = struct
           "formulas", `Assoc formulas ;
           "contexts", `Assoc contexts ;
         ] in
-      debugf "--- EXPORT %s START ---\n%s\n--- EXPORT %s END ---"
-        !export_file_name
-        (Json.to_string json)
-        !export_file_name ;
+      (* debugf "--- EXPORT %s START ---\n%s\n--- EXPORT %s END ---" *)
+      (*   !export_file_name *)
+      (*   (Json.to_string json) *)
+      (*   !export_file_name ; *)
       let oc = open_out_bin !export_file_name in
       Json.pretty_to_channel oc json ;
       close_out oc
@@ -302,7 +302,9 @@ module Damf = struct
     end
 
   let used_lemmas : id list ref = ref []
-  let mark_lemma id = used_lemmas := id :: !used_lemmas
+  let mark_lemma id =
+    debugf "marking lemma %s" id ;
+    used_lemmas := id :: !used_lemmas
   let reset_lemmas () = used_lemmas := []
 
   type 'a marked = {
@@ -968,17 +970,17 @@ let damf_import =
 
 let damf_extract_conclusion cid : damf_cid =
   let open Json in
-  let dkind = "DAMF.ImportAs" in
+  (* let dkind = "DAMF.ImportAs" in *)
   let handle_production dag =
-    debugf ~dkind "handle_production@\n%s" (Json.pretty_to_string dag) ;
+    (* debugf ~dkind "handle_production@\n%s" (Json.pretty_to_string dag) ; *)
     dag |> Util.member "sequent" |> Util.member "conclusion" |> Util.to_string
   in
   let handle_annotated_production dag =
-    debugf ~dkind "handle_annotated_production@\n%s" (Json.pretty_to_string dag) ;
+    (* debugf ~dkind "handle_annotated_production@\n%s" (Json.pretty_to_string dag) ; *)
     dag |> Util.member "production" |> handle_production
   in
   let handle_assertion dag =
-    debugf ~dkind "handle_assertion@\n%s" (Json.pretty_to_string dag) ;
+    (* debugf ~dkind "handle_assertion@\n%s" (Json.pretty_to_string dag) ; *)
     let claim = Util.member "claim" dag in
     match Util.member "format" claim |> Util.to_string with
     | "production" -> handle_production claim
@@ -987,7 +989,6 @@ let damf_extract_conclusion cid : damf_cid =
         failwithf "Expecting format \"annotated-production\" or \"production\", found %S" format
   in
   let dag = Damf.get_dag cid in
-  debugf ~dkind "damf_extract worked" ;
   match Util.member "format" dag |> Util.to_string with
   | "assertion" -> Util.member "assertion" dag |> handle_assertion
   | "production" -> Util.member "production" dag |> handle_production
@@ -1007,7 +1008,7 @@ let format_kind ff (Knd arity) =
 let damf_export_theorem name =
   if not !Damf.exporting then () else
     showing_types begin fun () ->
-      let dkind = "DAMF" in
+      (* let dkind = "DAMF" in *)
       let lemmas = List.map begin fun locid ->
           match Hashtbl.find Damf.thm_map locid with
           | Damf.Local _ -> `String locid
@@ -1033,8 +1034,8 @@ let damf_export_theorem name =
             ] ;
           ] ;
         ] in
-      debugf ~dkind "--- THEOREM START ---\n%S: %s\n--- THEOREM END ---"
-        name (Json.to_string json) ;
+      (* debugf ~dkind "--- THEOREM START ---\n%S: %s\n--- THEOREM END ---" *)
+      (*   name (Json.to_string json) ; *)
       Damf.add_export name json
     end
 
@@ -1048,7 +1049,7 @@ let damf_export_manual_adapter external_cid name =
               "agent", `String !Damf.agent ;
               "claim", `Assoc [
                 "format", `String "annotated-production" ;
-                "annotation", `List [`String (name ^ "!adapter")] ;
+                "annotation", `List [`String name] ;
                 "production", `Assoc [
                   "mode", `String ("damf:" ^ Damf.tool_cid) ;
                   "sequent", `Assoc [
@@ -1059,8 +1060,8 @@ let damf_export_manual_adapter external_cid name =
               ] ;
             ] ;
         ] in
-      debugf ~dkind:"DAMF" "--- ADAPTER START ---\n%S: %s\n--- ADAPTER END ---"
-        name (Json.to_string json) ;
+      (* debugf ~dkind:"DAMF" "--- ADAPTER START ---\n%S: %s\n--- ADAPTER END ---" *)
+      (*   name (Json.to_string json) ; *)
       Damf.add_export (name ^ "!" ^ "adapted") json
     end
 
@@ -1254,6 +1255,7 @@ let rec process1 () =
       system_message ~severity:Error "Error: %s\n%!" msg ;
       interactive_or_exit ()
 
+
 and process_proof1 proc =
   let annot = Annot.fresh "proof_command" in
   if not !suppress_proof_state_display then begin
@@ -1272,35 +1274,56 @@ and process_proof1 proc =
   if !annotate then Annot.extend annot "command" @@ `String cmd_string ;
   if !annotate && fst input_pos != Lexing.dummy_pos then
     Annot.extend annot "range" @@ json_of_position input_pos ;
+  let damf_mark h =
+    match h with
+    | Remove (name, _) | Keep (name, _) ->
+        if not @@ Prover.is_hyp name then Damf.mark_lemma name
+  in
   let perform () =
     begin match input with
-    | Induction(args, hn)           -> Prover.induction ?name:hn args
-    | CoInduction hn                -> Prover.coinduction ?name:hn ()
-    | Apply(depth, h, args, ws, hn) -> begin
-        Prover.apply ?depth ?name:hn h args ws ~term_witness ;
-        match h with
-          | ( Remove (name, []) | Keep (name, _) )
-            when not @@ Prover.is_hyp name ->
-              Damf.mark_lemma name
-          | Remove (name, _) ->
-              Damf.mark_lemma name
-          | _ -> ()
+    | Induction(args, hn) -> Prover.induction ?name:hn args
+    | CoInduction hn -> Prover.coinduction ?name:hn ()
+    | Apply(depth, h, args, ws, hn ) -> begin
+        damf_mark h ;
+        Prover.apply ?depth ?name:hn h args ws ~term_witness
       end
-    | Backchain(depth, h, ws)       -> Prover.backchain ?depth h ws ~term_witness
-    | Cut(h, arg, hn)               -> Prover.cut ?name:hn h arg
-    | CutFrom(h, arg, t, hn)        -> Prover.cut_from ?name:hn h arg t
-    | SearchCut(h, hn)              -> Prover.search_cut ?name:hn h
-    | Inst(h, ws, hn)               -> Prover.inst ?name:hn h ws
-    | Case(str, hn)                 -> Prover.case ?name:hn str
-    | Assert(t, dp, hn)             ->
+    | Backchain(depth, h, ws) -> begin
+        damf_mark h ;
+        Prover.backchain ?depth h ws ~term_witness
+      end
+    | Cut(h, arg, hn) -> begin
+        damf_mark h ;
+        Prover.cut ?name:hn h arg ;
+      end
+    | CutFrom(h, arg, t, hn) -> begin
+        damf_mark h ;
+        Prover.cut_from ?name:hn h arg t
+      end
+    | SearchCut(h, hn) -> begin
+        damf_mark h ;
+        Prover.search_cut ?name:hn h
+      end
+    | Inst(h, ws, hn) -> begin
+        damf_mark h ;
+        Prover.inst ?name:hn h ws
+      end
+    | Case(str, hn) -> begin
+        damf_mark str ;
+        Prover.case ?name:hn str
+      end
+    | Assert(t, dp, hn) -> begin
         untyped_ensure_no_restrictions t ;
         Prover.assert_hyp ?name:hn ?depth:dp t
-    | Monotone(h, t, hn)            -> Prover.monotone ?name:hn h t
-    | Exists(_, ts)                 -> List.iter Prover.exists ts
-    | Clear(cm, hs)                 -> Prover.clear cm hs
-    | Abbrev(hs, s)                 -> Prover.abbrev (Iset.of_list hs) s
-    | Unabbrev(hs)                  -> Prover.unabbrev (Iset.of_list hs)
-    | Rename(hfr, hto)              -> Prover.rename hfr hto
+      end
+    | Monotone(h, t, hn) -> begin
+        damf_mark h ;
+        Prover.monotone ?name:hn h t
+      end
+    | Exists(_, ts) -> List.iter Prover.exists ts
+    | Clear(cm, hs) -> Prover.clear cm hs
+    | Abbrev(hs, s) -> Prover.abbrev (Iset.of_list hs) s
+    | Unabbrev(hs) -> Prover.unabbrev (Iset.of_list hs)
+    | Rename(hfr, hto) -> Prover.rename hfr hto
     | Search(bounds) -> begin
         let depth = match bounds with
           | `depth n -> Some n
@@ -1312,29 +1335,31 @@ and process_proof1 proc =
         in
         Prover.search ?depth ~witness ~handle_witness:handle_search_witness ()
       end
-    | Async_steps            -> Prover.async ()
-    | Permute(ids, h)        -> Prover.permute_nominals ids h
-    | Split                  -> Prover.split false
-    | SplitStar              -> Prover.split true
-    | Left                   -> Prover.left ()
-    | Right                  -> Prover.right ()
-    | Unfold (cs, ss)        -> Prover.unfold cs ss
-    | Intros hs              -> Prover.intros hs
-    | Skip                   -> Prover.skip ()
-    | Abort                  -> raise (Prover.End_proof `aborted)
-    | Undo
-    | Common(Back)           ->
+    | Async_steps -> Prover.async ()
+    | Permute(ids, h) -> Prover.permute_nominals ids h
+    | Split -> Prover.split false
+    | SplitStar -> Prover.split true
+    | Left -> Prover.left ()
+    | Right -> Prover.right ()
+    | Unfold (cs, ss) -> Prover.unfold cs ss
+    | Intros hs -> Prover.intros hs
+    | Skip -> Prover.skip ()
+    | Abort -> raise (Prover.End_proof `aborted)
+    | Undo | Common(Back) -> begin
         if !interactive then State.Undo.back 2
         else failwith "Cannot use interactive commands in non-interactive mode"
-    | Common(Reset)          ->
+      end
+    | Common(Reset) -> begin
         if !interactive then State.Undo.reset ()
         else failwith "Cannot use interactive commands in non-interactive mode"
-    | Common(Set(k, v))      -> set k v
-    | Common(Show nm)        ->
+      end
+    | Common(Set(k, v)) -> set k v
+    | Common(Show nm) -> begin
         system_message_format "%t" (Prover.show nm) ;
         if !interactive then fprintf !out "\n%!" ;
         suppress_proof_state_display := true
-    | Common(Quit)           -> raise End_of_file
+      end
+    | Common(Quit) -> raise End_of_file
     end
   in
   if not !annotate then perform () else
@@ -1418,7 +1443,6 @@ and process_top1 () =
       check_theorem tys thm ;
       compile (CTheorem(name, tys, thm, Finished)) ;
       damf_export_manual_adapter conclusion_cid name ;
-      damf_export_theorem name ;
       add_lemma name tys thm
     end
   | Specification(filename, pos) ->

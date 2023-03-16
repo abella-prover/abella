@@ -267,7 +267,7 @@ let importable_to_string imp =
 let top_command_to_string tc =
   match tc with
     | Theorem(name, tys, body) ->
-        sprintf "Theorem %s%s : \n%s" name (gen_to_string tys)
+        sprintf "Theorem %s%s : %s" name (gen_to_string tys)
           (umetaterm_to_formatted_string body)
     | Define(flavor, idtys, cls) ->
         sprintf "%s %s by \n%s"

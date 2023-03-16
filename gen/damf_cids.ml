@@ -50,7 +50,7 @@ let () =
       (Filename.basename Sys.executable_name) in
   Arg.parse options (fun _ -> failwith "bad arguments") usage_message ;
   if !output_file = "" then
-    failwith "Needs an input file" ;
+    failwith "Needs an output file" ;
   let tool_json : Json.t = `Assoc [
       "name", `String "Abella" ;
       "version", `String version ;
@@ -79,6 +79,7 @@ let () =
   let lang_cid = String.trim @@ run_command "ipfs dag put" (fun oc -> Json.to_channel oc lang_json) in
   let oc = open_out !output_file in
   Printf.fprintf oc "(* This file is generated. Do not edit! *)\n" ;
+  Printf.fprintf oc "(* dune exec ../gen/damf_cids.ml -- -o damf_cids.ml *)\n" ;
   Printf.fprintf oc "let language_cid = \"%s\";;\n" lang_cid ;
   Printf.fprintf oc "let tool_cid = \"%s\";;\n" tool_cid ;
   close_out oc

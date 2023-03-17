@@ -52,6 +52,11 @@
       (fun h a -> UApp((fst (get_pos h), snd (get_pos a)), h, a))
       head args
 
+  let rec iterated_app n f x =
+    if n <= 0 then x else
+      let bod = iterated_app (n - 1) f x in
+      UApp((fst (get_pos f), snd (get_pos bod)), f, bod)
+
   let is_illegal_constant k = Term.is_nominal_name k
 
   let binding_cons (x, ty) tids =
@@ -114,7 +119,7 @@
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
 %token BACK RESET
-%token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND
+%token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND CARET
 %token LBRACE RBRACE LBRACK RBRACK
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
 
@@ -274,6 +279,8 @@ term:
       ULam($loc(v), id, ty, bod) }
   | e=exp; es=exp_list
     { nested_app e es }
+  | f=exp; CARET; n=NUM; x=exp
+    { iterated_app n f x }
   | e=exp
     { e }
 

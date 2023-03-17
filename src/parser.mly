@@ -654,7 +654,7 @@ pure_top_command:
     ws=loption(WITH; ws=import_withs {ws}); DOT
     { let i, loc = iloc in Types.Import(make_importable ~pos:(fst loc) i, loc, ws) }
   | IMPORT; iloc=located(QSTRING); AS;
-    x=loc_id; thm=theorem_typarams; COLON; bod=metaterm; DOT
+    THEOREM; x=loc_id; thm=theorem_typarams; COLON; bod=metaterm; DOT
     { let i, (pos, _ as loc) = iloc in
       match make_importable ~pos i with
       | Types.DamfCid cid -> Types.ImportAs(cid, loc, deloc_id x, thm, bod)

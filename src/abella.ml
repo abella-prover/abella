@@ -1051,7 +1051,7 @@ let damf_export_manual_adapter external_cid name =
                 "format", `String "annotated-production" ;
                 "annotation", `List [`String name] ;
                 "production", `Assoc [
-                  "mode", `String ("damf:" ^ Damf.tool_cid) ;
+                  "mode", `Null ;
                   "sequent", `Assoc [
                     "conclusion", `String name ;
                     "dependencies", `List [ `String ("damf:" ^ external_cid) ] ;

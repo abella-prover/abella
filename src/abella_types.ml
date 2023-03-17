@@ -281,7 +281,7 @@ let top_command_to_string tc =
            List.map (fun (a, b) -> a ^ " := " ^ b) |>
            String.concat ", ")
     | ImportAs (cid, _, name, tys, body) ->
-        sprintf "Import \"%s\"\nas %s%s : %s"
+        sprintf "Import \"%s\" as\nTheorem %s%s : %s"
           (importable_to_string (DamfCid cid))
           name (gen_to_string tys)
           (umetaterm_to_formatted_string body)

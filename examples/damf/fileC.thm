@@ -10,8 +10,8 @@ Define plus : nat -> nat -> nat -> prop by
 ; plus z N N
 ; plus (s M) N (s K) := plus M N K.
 
-Import "damf:bafyreidbq2olskbt2fmyw7igota7rqcavyi2e7dzhpjjo3oser2hhlelwa"
-as lol : forall (x : nat), nat (s x) -> nat x.
+Import "damf:bafyreibby73a42xrrmg4quqbta6ezj36f5zky63y65ee7ieose535t2l7u" as
+Theorem lol : forall (x : nat), nat (s x) -> nat x.
 
 Theorem blah : true.
 apply lol to _ with x = z.

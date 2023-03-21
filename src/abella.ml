@@ -1438,14 +1438,20 @@ and process_top1 () =
           damf_import cid
     end
   | ImportAs(cid, _, name, tys, body) -> begin
-      if not !Damf.enabled then
-        failwithf "Cannot process DAMF imports without --damf-imports" ;
-      let conclusion_cid = damf_extract_conclusion cid in
       let thm = type_umetaterm ~sr:!sr ~sign:!sign body in
       check_theorem tys thm ;
-      compile (CTheorem(name, tys, thm, Finished)) ;
-      damf_export_manual_adapter conclusion_cid name ;
-      add_lemma name tys thm
+      let fin =
+        if !Damf.enabled then begin
+          let conclusion_cid = damf_extract_conclusion cid in
+          damf_export_manual_adapter conclusion_cid name ;
+          Finished
+        end else begin
+          system_message "Running without --damf-imports; trusting theorem." ;
+          Unfinished
+        end
+      in
+      compile (CTheorem(name, tys, thm, fin)) ;
+      add_lemma name tys thm ;
     end
   | Specification(filename, pos) ->
       if !can_read_specification then begin

@@ -30,6 +30,9 @@ open Printf
 open Accumulate
 
 let load_path = State.rref (Sys.getcwd ())
+let cache_path =
+  try Sys.getenv "XDG_CACHE_HOME"
+  with Not_found -> Filename.concat (Sys.getenv "HOME") ".cache"
 
 let normalize_filename ?(wrt = !load_path) fn =
   if Filename.is_relative fn
@@ -206,11 +209,12 @@ module Damf = struct
 
   (** Download a DAG via dispatch *)
   let get_dag cid =
-    let temp_dir = Filename.get_temp_dir_name () in
-    ignore @@ run_command @@ Printf.sprintf "%s get %s %s" !dispatch cid temp_dir ;
-    let file = Filename.concat temp_dir cid ^ ".json" in
-    let json = Json.from_file file in
-    Unix.unlink file ;
+    let cache_file = Filename.concat cache_path (cid ^ ".json") in
+    if not @@ Sys.file_exists cache_file then begin
+      let cmd = Printf.sprintf "%s get %s %s" !dispatch cid cache_path in
+      ignore (run_command cmd)
+    end ;
+    let json = Json.from_file cache_file in
     (* debugf "DAMF dag = @\n%s" (Json.pretty_to_string json) ; *)
     json
 

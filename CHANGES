@@ -26,6 +26,9 @@ Bugfixes
 * The *first* Type or Kind declaration was accidentally being added to
   the specification signature.  
   (Identified by Farah Al Wardani, @innofarah)
+* Unification of reasoning-level formulas attempts type unification instead
+  of assuming ground types.
+  (#143, reported by @RandomActsOfGrammar)
 
 
 Changes in 2.0.7

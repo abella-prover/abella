@@ -816,9 +816,9 @@ let rec meta_right_unify t1 t2 =
         meta_right_unify l1 l2 ;
         meta_right_unify r1 r2
     | Binding(b1, tids1, t1), Binding(b2, tids2, t2)
-        when b1 = b2 &&
-             List.length tids1 = List.length tids2 &&
-             List.for_all2 eq_ty (List.map snd tids1) (List.map snd tids2) ->
+      when b1 = b2 &&
+           List.length tids1 = List.length tids2 &&
+           tids_unifyable tids1 tids2 ->
         (* Replace bound variables with constants with "infinite"
            timestamp. This prevents illegal variable capture.
            We use max_int-1 since max_int is for nominal constants. *)
@@ -827,10 +827,18 @@ let rec meta_right_unify t1 t2 =
         in
         let alist1 = List.combine (List.map fst tids1) new_bindings in
         let alist2 = List.combine (List.map fst tids2) new_bindings in
-          meta_right_unify
-            (replace_metaterm_vars alist1 t1)
-            (replace_metaterm_vars alist2 t2)
+        meta_right_unify
+          (replace_metaterm_vars alist1 t1)
+          (replace_metaterm_vars alist2 t2)
     | _, _ -> raise (UnifyFailure Generic)
+
+and tids_unifyable tids1 tids2 =
+  let tys1 = List.map snd tids1 in
+  let tys2 = List.map snd tids2 in
+  let prob : Unifyty.constraints =
+    List.map2 (fun ty1 ty2 -> (ty1, ty2, Unifyty.(ghost, CArg))) tys1 tys2 in
+  Unifyty.unify_constraints prob ;
+  true
 
 let try_meta_right_unify t1 t2 =
   try_with_state ~fail:false

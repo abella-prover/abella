@@ -908,9 +908,12 @@ let damf_import =
       match Util.member "format" statement |> Util.to_string with
       | "annotated-production" ->
           let thmname =
-            match Util.member "annotation" statement |> Util.to_list with
-            | nm :: _ -> Util.to_string nm
-            | _ -> failwithf "Expecting lemma name, found empty annotation list"
+            match Util.member "annotation" statement with
+            | `List (nm :: _) -> Util.to_string nm
+            | `Assoc _ as asc -> Util.member "name" asc |> Util.to_string
+            | `String nm -> nm
+            | ann ->
+                failwithf "Cannot process annotation: %s" (Json.to_string ann)
           in
           statement |>
           Util.member "production" |>

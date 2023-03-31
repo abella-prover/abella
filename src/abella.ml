@@ -1026,7 +1026,7 @@ let damf_export_theorem name =
       let json : Json.t =
         `Assoc [
           "format", `String "assertion" ;
-          "element", `Assoc [
+          (* "element", `Assoc [ *)
             "agent", `String !Damf.agent ;
             "claim", `Assoc [
               "format", `String "annotated-production" ;
@@ -1039,7 +1039,7 @@ let damf_export_theorem name =
                 ] ;
               ] ;
             ] ;
-          ] ;
+          (* ] ; *)
         ] in
       (* debugf ~dkind "--- THEOREM START ---\n%S: %s\n--- THEOREM END ---" *)
       (*   name (Json.to_string json) ; *)
@@ -1052,7 +1052,7 @@ let damf_export_manual_adapter external_cid name =
       let json : Json.t =
         `Assoc [
           "format", `String "assertion" ;
-          "element", `Assoc [
+          (* "element", `Assoc [ *)
               "agent", `String !Damf.agent ;
               "claim", `Assoc [
                 "format", `String "annotated-production" ;
@@ -1065,7 +1065,7 @@ let damf_export_manual_adapter external_cid name =
                   ] ;
                 ] ;
               ] ;
-            ] ;
+            (* ] ; *)
         ] in
       (* debugf ~dkind:"DAMF" "--- ADAPTER START ---\n%S: %s\n--- ADAPTER END ---" *)
       (*   name (Json.to_string json) ; *)

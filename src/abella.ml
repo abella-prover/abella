@@ -931,7 +931,7 @@ let damf_import =
     in
     let process_element json =
       match Util.member "format" json |> Util.to_string with
-      | "assertion" -> process_assertion (Util.member "element" json)
+      | "assertion" -> process_assertion json
       | "annotated-sequent" ->
           let thmname =
             match Util.member "annotation" json |> Util.to_list with
@@ -1026,20 +1026,18 @@ let damf_export_theorem name =
       let json : Json.t =
         `Assoc [
           "format", `String "assertion" ;
-          (* "element", `Assoc [ *)
-            "agent", `String !Damf.agent ;
-            "claim", `Assoc [
-              "format", `String "annotated-production" ;
-              "annotation", `List [`String name] ;
-              "production", `Assoc [
-                "mode", `String ("damf:" ^ Damf.tool_cid) ;
-                "sequent", `Assoc [
-                  "conclusion", `String name ;
-                  "dependencies", `List lemmas ;
-                ] ;
+          "agent", `String !Damf.agent ;
+          "claim", `Assoc [
+            "format", `String "annotated-production" ;
+            "annotation", `List [`String name] ;
+            "production", `Assoc [
+              "mode", `String ("damf:" ^ Damf.tool_cid) ;
+              "sequent", `Assoc [
+                "conclusion", `String name ;
+                "dependencies", `List lemmas ;
               ] ;
             ] ;
-          (* ] ; *)
+          ] ;
         ] in
       (* debugf ~dkind "--- THEOREM START ---\n%S: %s\n--- THEOREM END ---" *)
       (*   name (Json.to_string json) ; *)
@@ -1052,20 +1050,18 @@ let damf_export_manual_adapter external_cid name =
       let json : Json.t =
         `Assoc [
           "format", `String "assertion" ;
-          (* "element", `Assoc [ *)
-              "agent", `String !Damf.agent ;
-              "claim", `Assoc [
-                "format", `String "annotated-production" ;
-                "annotation", `List [`String name] ;
-                "production", `Assoc [
-                  "mode", `Null ;
-                  "sequent", `Assoc [
-                    "conclusion", `String name ;
-                    "dependencies", `List [ `String ("damf:" ^ external_cid) ] ;
-                  ] ;
-                ] ;
+          "agent", `String !Damf.agent ;
+          "claim", `Assoc [
+            "format", `String "annotated-production" ;
+            "annotation", `List [`String name] ;
+            "production", `Assoc [
+              "mode", `Null ;
+              "sequent", `Assoc [
+                "conclusion", `String name ;
+                "dependencies", `List [ `String ("damf:" ^ external_cid) ] ;
               ] ;
-            (* ] ; *)
+            ] ;
+          ] ;
         ] in
       (* debugf ~dkind:"DAMF" "--- ADAPTER START ---\n%S: %s\n--- ADAPTER END ---" *)
       (*   name (Json.to_string json) ; *)

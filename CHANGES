@@ -29,6 +29,9 @@ Bugfixes
 * Unification of reasoning-level formulas attempts type unification instead
   of assuming ground types.
   (#143, reported by @RandomActsOfGrammar)
+* Hypothesis name hints that match generated hypothesis names should update
+  the generator count.
+  (#145, reported by Todd Wilson @lambdacalculator)
 
 
 Changes in 2.0.7

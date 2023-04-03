@@ -518,12 +518,21 @@ let full_reset_prover original_state original_sequent
   clauses := original_clauses ;
   H.assign defs_table original_defs_table
 
+(** Update sequent.count based on whether name is of the form
+    H<num> *)
+let update_hyp_count name =
+  if name.[0] <> 'H' then () else
+  match int_of_string (String.sub name 1 (String.length name - 1)) with
+  | n -> sequent.count <- max sequent.count n
+  | exception _ -> ()
+
 let add_hyp ?name term =
   let name = fresh_hyp_name begin
       match name with
       | None -> ""
       | Some name -> name
     end in
+  update_hyp_count name ;
   sequent.hyps <- List.append sequent.hyps
       [{ id = name ; term = term ; abbrev = None }]
 

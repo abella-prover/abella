@@ -807,7 +807,10 @@ let type_apply_withs stmt ws =
 let partition_obligations ?depth obligations =
   Either.partition_eithers
     (List.map
-       (fun g -> match search_goal_witness ?depth g WMagic with
+       (fun g ->
+          let wit = search_goal_witness ?depth g WMagic in
+          ensure_no_logic_variable [g] ;
+          match wit with
           | None -> Either.Left g
           | Some w -> Either.Right (g, w))
        obligations)

@@ -32,6 +32,9 @@ Bugfixes
 * Hypothesis name hints that match generated hypothesis names should update
   the generator count.
   (#145, reported by Todd Wilson @lambdacalculator)
+* Apply with unknowns now requires each computed subgoal to fully instantiate
+  logic variables. ***SOUNDNESS BUG***
+  (#146, reported by @Chen-PL, @jiangsy)
 
 
 Changes in 2.0.7

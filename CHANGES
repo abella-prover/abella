@@ -35,6 +35,9 @@ Bugfixes
 * Apply with unknowns now requires each computed subgoal to fully instantiate
   logic variables. ***SOUNDNESS BUG***
   (#146, reported by @Chen-PL, @jiangsy)
+* Apply with unknowns now undoes variable instantiations on failed search
+  for generated logic variables. ***SOUNDNESS BUG***
+  (related to #146)
 
 
 Changes in 2.0.7

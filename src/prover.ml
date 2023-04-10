@@ -456,13 +456,16 @@ let format_other_subgoals fmt =
   format_count_subgoals fmt !count ;
   State.reload pristine
 
-let format_sequent fmt =
+let format_sequent_with_goal fmt goal =
   pp_open_vbox fmt 0 ; begin
     format_vars fmt ;
     format_hyps fmt ;
     fprintf fmt "============================@\n " ;
-    format_metaterm fmt sequent.goal
+    format_metaterm fmt goal
   end ; pp_close_box fmt ()
+
+let format_sequent fmt =
+  format_sequent_with_goal fmt sequent.goal
 
 let format_display fmt =
   pp_open_box fmt 0 ;
@@ -808,11 +811,21 @@ let partition_obligations ?depth obligations =
   Either.partition_eithers
     (List.map
        (fun g ->
+          (* Format.eprintf "before search:@.%a@." *)
+          (*   format_sequent_with_goal g ; *)
+          let bstate = get_scoped_bind_state () in
           let wit = search_goal_witness ?depth g WMagic in
           ensure_no_logic_variable [g] ;
           match wit with
-          | None -> Either.Left g
-          | Some w -> Either.Right (g, w))
+          | None ->
+              (* Format.eprintf "after search/failure:@.%a@." *)
+              (*   format_sequent_with_goal g ; *)
+              set_scoped_bind_state bstate ;
+              Either.Left g
+          | Some w ->
+              (* Format.eprintf "after search/success:@.%a@." *)
+              (*   format_sequent_with_goal g ; *)
+              Either.Right (g, w))
        obligations)
 
 let apply ?depth ?name ?(term_witness=ignore) h args ws =

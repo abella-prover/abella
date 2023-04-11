@@ -748,7 +748,7 @@ let search ?depth ~witness ~handle_witness () =
 let search_cut ?name h =
   match get_stmt_clearly h with
   | Obj(obj, _) ->
-      add_hyp ?name (Obj(search_cut ~search_goal obj, Irrelevant))
+      add_hyp ?name (Obj(Tactics.search_cut ~search_goal obj, Irrelevant))
   | _ ->
       failwith "Cut can only be used on hypotheses of the form {... |- ...}"
 
@@ -762,10 +762,13 @@ let goal_to_subgoal g =
     Term.set_bind_state bind_state ;
     sequent.goal <- g
 
-let ensure_no_logic_variable terms =
-  let logic_vars = List.flatten_map (metaterm_vars_alist Logic) terms in
+let ensure_no_logic_variable term =
+  let logic_vars = metaterm_vars_alist Logic term in
   if logic_vars <> [] then
-    failwith "Found logic variable at toplevel"
+    failwithf {|Found logic variable at toplevel.
+This usually means that the `search` tactic could not fully solve a goal.
+Note: the `search` tactic may have been invoked implicitly by `apply`,
+`backchain`, etc. with unknown arguments.|}
 
 let ensure_no_restrictions term =
   let rec aux t nested =
@@ -810,14 +813,12 @@ let partition_obligations ?depth obligations =
        (fun g ->
           (* Format.eprintf "before search:@.%a@." *)
           (*   format_sequent_with_goal g ; *)
-          let bstate = get_scoped_bind_state () in
           let wit = search_goal_witness ?depth g WMagic in
-          ensure_no_logic_variable [g] ;
+          ensure_no_logic_variable g ;
           match wit with
           | None ->
               (* Format.eprintf "after search/failure:@.%a@." *)
               (*   format_sequent_with_goal g ; *)
-              set_scoped_bind_state bstate ;
               Either.Left g
           | Some w ->
               (* Format.eprintf "after search/success:@.%a@." *)
@@ -834,7 +835,7 @@ let apply ?depth ?name ?(term_witness=ignore) h args ws =
   let remaining_obligations, term_witnesses =
     partition_obligations ?depth obligations
   in
-  let () = ensure_no_logic_variable (result :: remaining_obligations) in
+  let () = ensure_no_logic_variable result in
   let () = List.iter term_witness term_witnesses in
   let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
   let resulting_case = recursive_metaterm_case ~used:sequent.vars ~sr:!sr result in
@@ -874,7 +875,6 @@ let backchain ?depth ?(term_witness=ignore) h ws =
   let remaining_obligations, term_witnesses =
     partition_obligations ?depth obligations
   in
-  let () = ensure_no_logic_variable remaining_obligations in
   let () = List.iter term_witness term_witnesses in
   let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
   add_subgoals obligation_subgoals ;
@@ -1014,7 +1014,7 @@ let coinduction ?name () =
 (* Assert *)
 
 let delay_mainline ?name ?depth new_hyp detour_goal =
-  if depth <> Some 0 && unwind_state (search_goal ?depth) detour_goal then
+  if depth <> Some 0 && search_goal ?depth detour_goal then
     add_hyp ?name new_hyp
   else
   let mainline =

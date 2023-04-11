@@ -1228,8 +1228,10 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     end with Failure _ -> ()
 
   in
+  let bstate = get_scoped_bind_state () in
   try
     metaterm_aux n hyps goal 0 ~sc ~witness ;
+    set_scoped_bind_state bstate ;
     None
   with SearchSuccess(w) -> Some w
 

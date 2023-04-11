@@ -103,7 +103,7 @@
 
 %token IMP IF AMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
-%token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY ASYNC
+%token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
 %token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
@@ -181,7 +181,6 @@ id:
   | APPLY         { "apply" }
   | AS            { "as" }
   | ASSERT        { "assert" }
-  | ASYNC         { "async" }
   | BACKCHAIN     { "backchain" }
   | CASE          { "case" }
   | CLEAR         { "clear" }
@@ -479,8 +478,6 @@ pure_command:
     { Types.Search(`depth dep) }
   | SEARCH; WITH; wit=search_witness; DOT
     { Types.Search(`witness wit) }
-  | ASYNC; DOT
-    { Types.Async_steps }
   | SPLIT; DOT
     { Types.Split }
   | SPLITSTAR; DOT

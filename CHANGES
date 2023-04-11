@@ -26,6 +26,18 @@ Bugfixes
 * The *first* Type or Kind declaration was accidentally being added to
   the specification signature.  
   (Identified by Farah Al Wardani, @innofarah)
+* Unification of reasoning-level formulas attempts type unification instead
+  of assuming ground types.
+  (#143, reported by @RandomActsOfGrammar)
+* Hypothesis name hints that match generated hypothesis names should update
+  the generator count.
+  (#145, reported by Todd Wilson @lambdacalculator)
+* Apply with unknowns now requires each computed subgoal to fully instantiate
+  logic variables. ***SOUNDNESS BUG***
+  (#146, reported by @Chen-PL, @jiangsy)
+* Apply with unknowns now undoes variable instantiations on failed search
+  for generated logic variables. ***SOUNDNESS BUG***
+  (related to #146)
 
 
 Changes in 2.0.7

@@ -1338,7 +1338,6 @@ and process_proof1 proc =
         in
         Prover.search ?depth ~witness ~handle_witness:handle_search_witness ()
       end
-    | Async_steps -> Prover.async ()
     | Permute(ids, h) -> Prover.permute_nominals ids h
     | Split -> Prover.split false
     | SplitStar -> Prover.split true

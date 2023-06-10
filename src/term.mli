@@ -35,9 +35,9 @@ type tyvar = id
 type tycons = id
 
 type ty = Ty of ty list * aty
-and aty = 
+and aty =
   | Tygenvar of tyvar
-  | Typtr of typtr  
+  | Typtr of typtr
   | Tycons of tycons * ty list
 and typtr = in_typtr ref
 and in_typtr = TV of tyvar | TT of ty

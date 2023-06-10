@@ -38,6 +38,9 @@ Bugfixes
 * Apply with unknowns now undoes variable instantiations on failed search
   for generated logic variables. ***SOUNDNESS BUG***
   (related to #146)
+* Declared constants must not have types containing `prop` as descendants of
+  argument types. ***SOUNDNESS BUG***
+  (#147, discovered by Sebastiaan Joosten, reported by Gopalan Nadathur)
 
 
 Changes in 2.0.7

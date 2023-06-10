@@ -873,7 +873,8 @@ and process_top1 () =
       compile (CKind (ids,knd)) ;
       debug_spec_sign ~msg:"Kind" ()
   | Type(ids, ty) ->
-      check_noredef ids;
+      check_noredef ids ;
+      check_no_higher_order ty ;
       Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
       compile (CType(ids, ty)) ;
       debug_spec_sign ~msg:"Type" ()

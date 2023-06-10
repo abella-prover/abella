@@ -140,6 +140,17 @@ let check_noredef ids =
       failwithf "Predicate or constant %s already exists" id
   end ids
 
+exception Is_prop
+let ensure_not_prop aty =
+  if aty = propaty then raise Is_prop
+
+let check_no_higher_order (Ty (args, _) as ty) =
+  match List.iter (iter_ty ensure_not_prop) args with
+  | _ -> ()
+  | exception Is_prop ->
+      failwithf "Invalid higher-order type for constant: %s"
+        (ty_to_string ty)
+
 let ensure_not_capital name =
   if is_capital_name name then
     failwithf "Invalid defined predicate name %S.\n\

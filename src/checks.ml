@@ -53,18 +53,19 @@ let ensure_no_restrictions term =
 let untyped_ensure_no_restrictions term =
   ensure_no_restrictions (umetaterm_to_metaterm term)
 
-let contains_prop ty =
-  let cp = ref false in
-  iter_ty
-    (fun bty ->
-       if bty = propaty then cp := true)
-    ty;
-  !cp
+exception Is_prop
+let ensure_not_prop aty =
+  if aty = propaty then raise Is_prop
 
-type nonstrat_reason =
-  | Negative_head of string
-  | Negative_ho_arg of string
-exception Nonstrat of nonstrat_reason
+let contains_prop ty =
+  match iter_ty ensure_not_prop ty with
+  | () -> false
+  | exception Is_prop -> true
+
+type non_wff_reason =
+  | Nonstrat of id
+  | Ho_args of (id * ty) list
+exception Non_wff of non_wff_reason
 
 let add_sgn preds p posity =
   let old_posity =
@@ -93,40 +94,6 @@ let get_pred_occurrences mt =
   end mt ;
   !preds
 
-let warn_stratify names head term =
-  let nonposities = get_pred_occurrences term in
-  let is_ho_var arg =
-    match observe (hnorm arg) with
-    | Var { Term.ty = ty; Term.name = v; _ } when contains_prop ty -> Some v
-    | _ -> None
-  in
-  let ho_names =
-    def_head_args head |>
-    List.filter_map is_ho_var in
-  let doit () =
-    Iset.iter begin fun pname ->
-      if List.mem pname names then
-        raise (Nonstrat (Negative_head pname)) ;
-      if List.mem pname ho_names then
-        raise (Nonstrat (Negative_ho_arg pname)) ;
-    end nonposities
-  in
-  try doit () with
-  | Nonstrat reason ->
-      let msg = match reason with
-        | Negative_head name ->
-            Printf.sprintf
-              "Definition might not be stratified\n  (%S occurs to the left of ->)"
-              name
-        | Negative_ho_arg name ->
-            Printf.sprintf
-              "Definition can be used to defeat stratification\n  (higher-order argument %S occurs to the left of ->)"
-              name
-      in
-      if stratification_warnings_are_errors
-      then failwith msg
-      else Printf.fprintf !out "Warning: %s\n%!" msg
-
 let check_theorem tys thm =
   let tys' = metaterm_collect_gentyvar_names thm in
   if List.minus tys' tys <> [] then
@@ -139,17 +106,6 @@ let check_noredef ids =
     if List.mem id (List.map fst ctable) then
       failwithf "Predicate or constant %s already exists" id
   end ids
-
-exception Is_prop
-let ensure_not_prop aty =
-  if aty = propaty then raise Is_prop
-
-let check_no_higher_order (Ty (args, _) as ty) =
-  match List.iter (iter_ty ensure_not_prop) args with
-  | _ -> ()
-  | exception Is_prop ->
-      failwithf "Invalid higher-order type for constant: %s"
-        (ty_to_string ty)
 
 let ensure_not_capital name =
   if is_capital_name name then
@@ -165,43 +121,43 @@ let ensure_wellformed_head t =
       failwithf "Invalid head in definition: %s"
         (metaterm_to_string t)
 
-let check_basic_stratification ~def =
-  let check_clause {head ; body} =
+let check_well_formed ~def =
+  let check_clause clauseno {head ; body} =
+    let clauseno = clauseno + 1 in
     let nonposities = get_pred_occurrences body in
-    let is_ho_var arg =
-      match observe (hnorm arg) with
-      | Var { Term.ty = ty; Term.name = v; _ } when contains_prop ty -> Some v
-      | _ -> None
-    in
+    let is_ho_var (v, ty) = if contains_prop ty then Some (v, ty) else None in
     let ho_names = def_head_args head |>
+                   capital_tids |>
                    List.filter_map is_ho_var in
-    let scan () = Iset.iter begin fun pname ->
+    let scan () =
+      if ho_names <> [] then raise (Non_wff (Ho_args ho_names)) ;
+      Iset.iter begin fun pname ->
         if Itab.mem pname def.mutual then
-          raise (Nonstrat (Negative_head pname)) ;
-        if List.mem pname ho_names then
-          raise (Nonstrat (Negative_ho_arg pname)) ;
+          raise (Non_wff (Nonstrat pname)) ;
       end nonposities in
     try scan () with
-    | Nonstrat reason ->
+    | Non_wff reason ->
         let msg = match reason with
-          | Negative_head name ->
+          | Nonstrat name ->
               Printf.sprintf
                 "Definition might not be stratified\n\
-               \ (%S occurs to the left of ->)"
-                name
-          | Negative_ho_arg name ->
-              Printf.sprintf
-                "Definition can be used to defeat stratification\n\
-               \ (higher-order argument %S occurs to the left of ->)"
-                name
+               \ (%S occurs to the left of -> in clause #%d)"
+                name clauseno
+        | Ho_args vtys ->
+            let msgs =
+              List.map begin fun (v, ty) ->
+                Printf.sprintf "  %s : %s" v (ty_to_string ty)
+              end vtys |> String.concat "\n"
+            in
+            Printf.sprintf
+              "Definition might not be well-formed because of the following\n\
+               higher-order parameters in clause #%d:\n" clauseno
+            ^ msgs
         in
         if stratification_warnings_are_errors then failwith msg
         else Printf.fprintf !out "Warning: %s\n%!" msg
   in
-  List.iter check_clause def.clauses
-
-let check_stratification ~def =
-  check_basic_stratification ~def
+  List.iteri check_clause def.clauses
 
 let check_def ~def =
   Itab.iter (fun nm _ -> ensure_not_capital nm) def.mutual ;
@@ -213,7 +169,7 @@ let check_def ~def =
     ensure_no_restrictions head ;
     ensure_no_restrictions body ;
   end def.clauses ;
-  check_stratification ~def
+  check_well_formed ~def
 
 (** The list of type parameters of a definition must be 
     exactly those occuring in the type of the constants being defined *)

@@ -38,8 +38,9 @@ Bugfixes
 * Apply with unknowns now undoes variable instantiations on failed search
   for generated logic variables. ***SOUNDNESS BUG***
   (related to #146)
-* Declared constants must not have types containing `prop` as descendants of
-  argument types. ***SOUNDNESS BUG***
+* Definitional clauses with higher-order parameters now trigger a
+  non-well-formedness warning because they can be used to prove `false`.
+  ***SOUNDNESS BUG***
   (#147, discovered by Sebastiaan Joosten, reported by Gopalan Nadathur)
 
 

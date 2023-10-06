@@ -16,6 +16,8 @@ Additions
 * Mention that a proof contained "skip" during interactive mode, and a
   summary of skipped theorems in batch mode.  
   (#137, reported by Farah Al Wardani)
+* The `types` flag when set to `on` will now print the types of
+  quantified variables as well.
 
 
 Bugfixes
@@ -42,6 +44,8 @@ Bugfixes
   non-well-formedness warning because they can be used to prove `false`.
   ***SOUNDNESS BUG***
   (#147, discovered by Sebastiaan Joosten, reported by Gopalan Nadathur)
+* Backchaining specification clauses now respects subordination when raising
+  newly introduced variables.
 
 
 Changes in 2.0.7

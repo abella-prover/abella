@@ -39,6 +39,17 @@ let pp_print_commaspace ff () =
     Format.pp_print_string ff "," ;
     Format.pp_print_space ff ()
 
+let pp_print_list ?(pp_sep=pp_print_commaspace) pp_elem ff l =
+  match l with
+  | [] -> ()
+  | [x] -> pp_elem ff x
+  | x :: xs ->
+      pp_elem ff x ;
+      List.iter begin fun x ->
+        pp_sep ff () ;
+        pp_elem ff x
+      end xs
+
 module Option = struct
   let is_some x =
     match x with

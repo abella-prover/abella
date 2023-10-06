@@ -176,7 +176,7 @@ let pretty_obj ~left ~right ~printer obj =
         | [] -> concl
         | _ ->
             Opapp (10, Infix (LEFT, pretty_context ~printer obj.context,
-                              FMT " |-@ ", concl))
+                              FMT " |- ", concl))
       in
       Bracket {
         left ; right ; indent = 3 ; trans = OPAQUE ; inner
@@ -191,7 +191,7 @@ let pretty_obj ~left ~right ~printer obj =
         | _ -> Opapp (10, Infix (LEFT, pretty_context ~printer obj.context,
                                  FMT ",@ ", focus))
       in
-      let inner = Opapp (10, Infix (LEFT, hyps, FMT " |-@ ", concl)) in
+      let inner = Opapp (10, Infix (LEFT, hyps, FMT " |- ", concl)) in
       Bracket {
         left ; right ; indent = 3 ; trans = OPAQUE ; inner
       }
@@ -201,6 +201,40 @@ let pretty_obj obj =
   pretty_obj obj
     ~left:(STR "{") ~right:(STR "}")
     ~printer:Term.core_printer
+
+
+let pp_print_tids ff tids =
+  let open Format in
+  let pp_sep ff () = pp_print_space ff () in
+  if not !show_types then begin
+    pp_print_list ~pp_sep (fun ff (x, _) -> pp_print_string ff x) ff tids
+  end else begin
+    let rec collate cur_ids cur_ty res tids =
+      match tids with
+      | [] -> List.rev ((List.rev cur_ids, cur_ty) :: res)
+      | (x, ty) :: tids ->
+          if Term.eq_ty ty cur_ty then
+            collate (x :: cur_ids) cur_ty res tids
+          else
+            collate [x] ty ((List.rev cur_ids, cur_ty) :: res) tids
+    in
+    match tids with
+    | [] -> bugf "Empty quantified variables list"
+    | (x, ty) :: tids ->
+        let collated_tids = collate [x] ty [] tids in
+        let pp_collated ff (xs, ty) =
+          pp_open_box ff 2 ; begin
+            pp_print_string ff "(" ;
+            pp_print_list ~pp_sep pp_print_string ff xs ;
+            pp_print_string ff " : " ;
+            pp_print_string ff (ty_to_string ty) ;
+            pp_print_string ff ")"
+          end ; pp_close_box ff ()
+        in
+        pp_open_box ff 2 ; begin
+          pp_print_list ~pp_sep pp_collated ff collated_tids
+        end ; pp_close_box ff ()
+  end
 
 let rec pretty_metaterm mt =
   let open Format in
@@ -229,13 +263,7 @@ let rec pretty_metaterm mt =
           fun ff ->
             pp_print_string ff (binder_to_string q) ;
             pp_print_string ff " " ;
-            pp_open_box ff 0 ; begin
-              pp_print_string ff (fst (List.hd tids)) ;
-              List.iter begin fun tid ->
-                pp_print_space ff () ;
-                pp_print_string ff (fst tid)
-              end (List.tl tids) ;
-            end ; pp_close_box ff () ;
+            pp_print_tids ff tids ;
             pp_print_string ff ", " ;
         end) in
       let bod = pretty_metaterm a in

@@ -547,7 +547,7 @@ let query q =
   match type_umetaterm ~sr:!sr ~sign:!sign ~ctx (UBinding(Metaterm.Exists, fv, q)) with
   | Binding(Metaterm.Exists, fv, q) ->
       let support = metaterm_support q in
-      let ctx = Tactics.fresh_nameless_alist ~support ~ts:0 ~tag:Logic fv in
+      let ctx = Tactics.fresh_nameless_alist ~sr:!sr ~support ~ts:0 ~tag:Logic fv in
       let q = replace_metaterm_vars ctx q in
       let _ = Tactics.search q
           ~depth:!Prover.search_depth

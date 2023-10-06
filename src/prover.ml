@@ -831,7 +831,7 @@ let apply ?depth ?name ?(term_witness=ignore) h args ws =
   let args = List.map get_arg_clearly args in
   let () = List.iter (Option.map_default ensure_no_restrictions ()) args in
   let ws = type_apply_withs stmt ws in
-  let result, obligations = Tactics.apply_with stmt args ws in
+  let result, obligations = Tactics.apply_with ~sr:!sr stmt args ws in
   let remaining_obligations, term_witnesses =
     partition_obligations ?depth obligations
   in
@@ -871,7 +871,7 @@ let type_backchain_withs stmt ws =
 let backchain ?depth ?(term_witness=ignore) h ws =
   let stmt = get_stmt_clearly h in
   let ws = type_backchain_withs stmt ws in
-  let obligations = Tactics.backchain_with stmt ws sequent.goal in
+  let obligations = Tactics.backchain_with ~sr:!sr stmt ws sequent.goal in
   let remaining_obligations, term_witnesses =
     partition_obligations ?depth obligations
   in
@@ -1193,7 +1193,7 @@ let right () =
 let unfold clause_sel sol_sel =
   let mdefs = def_unfold sequent.goal in
   let used = sequent.vars in
-  let goal = unfold ~used ~mdefs clause_sel sol_sel sequent.goal in
+  let goal = unfold ~sr:!sr ~used ~mdefs clause_sel sol_sel sequent.goal in
   let goals = List.concat (List.map and_to_list goal) in
   add_subgoals (List.map goal_to_subgoal goals) ;
   next_subgoal ()

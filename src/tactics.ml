@@ -64,29 +64,32 @@ let metaterm_vars_alist tag metaterm =
 
 (* Freshening for Logic variables uses anonymous names *)
 
-let fresh_nameless_alist ~support ~tag ~ts tids =
-  let ntys = List.map (tc []) support in
+let fresh_nameless_alist ~sr ~support ~tag ~ts tids =
+  (* let ntys = List.map (tc []) support in *)
   List.map
     (fun (x, ty) ->
-       (x, app (fresh ~tag ts (tyarrow ntys ty)) support))
+       (* Format.eprintf "unraised_ty(%s): %s@." x (ty_to_string ty) ; *)
+       let (ty, args) = raise_type ~sr support ty in
+       (* Format.eprintf "raised_ty(%s): %s@." x (ty_to_string ty) ; *)
+       (x, app (fresh ~tag ts ty) args))
     tids
 
-let freshen_nameless_clause ?(support=[]) ~ts clause =
+let freshen_nameless_clause ~sr ?(support=[]) ~ts clause =
   let (tids, head, body) = clause in
-  let fresh_names = fresh_nameless_alist ~support ~tag:Logic ~ts tids in
+  let fresh_names = fresh_nameless_alist ~sr ~support ~tag:Logic ~ts tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = List.map (replace_term_vars fresh_names) body in
   (fresh_names, fresh_head, fresh_body)
 
-let freshen_nameless_def ?(support=[]) ~ts head body =
+let freshen_nameless_def ~sr ?(support=[]) ~ts head body =
   let tids = capital_tids [head] in
-  let fresh_names = fresh_nameless_alist ~support ~tag:Logic ~ts tids in
+  let fresh_names = fresh_nameless_alist ~sr ~support ~tag:Logic ~ts tids in
   let fresh_head = replace_term_vars fresh_names head in
   let fresh_body = replace_metaterm_vars fresh_names body in
   (fresh_head, fresh_body)
 
-let freshen_nameless_bindings ~support ~ts bindings term =
-  let alist = fresh_nameless_alist ~support ~tag:Logic ~ts bindings in
+let freshen_nameless_bindings ~sr ~support ~ts bindings term =
+  let alist = fresh_nameless_alist ~sr ~support ~tag:Logic ~ts bindings in
   replace_metaterm_vars alist term
 
 let existentially_close ~used quant_vars body =
@@ -723,7 +726,7 @@ let maybe_select sel l = match sel with
   | Abella_types.Select_named _n ->
       failwith "Cannot select named clauses for inductive predicates"
 
-let unfold_defs ~mdefs clause_sel ~ts goal r =
+let unfold_defs ~sr ~mdefs clause_sel ~ts goal r =
   let p = term_head_name goal in
   let (mutual, defs) = mdefs in
   let support = term_support goal in
@@ -744,7 +747,7 @@ let unfold_defs ~mdefs clause_sel ~ts goal r =
       let support = List.minus support nominals in
       let alist = List.combine ids nominals in
       let head = replace_term_vars alist head in
-      let head, body = freshen_nameless_def ~support ~ts head body in
+      let head, body = freshen_nameless_def ~sr ~support ~ts head body in
       let msg = msg_cannot_fully_infer_def_clause head body in
       match try_right_unify_cpairs_fully_inferred ~msg head goal with
       | None -> []
@@ -772,7 +775,20 @@ let rec disjoin = function
   | [f] -> f
   | f1 :: f2 :: fs -> disjoin (Or(f1, f2) :: fs)
 
-let unfold ~mdefs ~used clause_sel sol_sel goal0 =
+let do_exclaim = false
+
+let exclaim msg vars head body =
+  if do_exclaim then begin
+    Format.eprintf "[%s]@.vars = [%s]@.head = %s@.body = %s@."
+      msg
+      (List.map begin fun (v, t) ->
+          v ^ " = " ^ term_to_string t
+        end vars |> String.concat ", ")
+      (term_to_string head)
+      (List.map term_to_string body |> String.concat ", ")
+  end
+
+let unfold ~sr ~mdefs ~used clause_sel sol_sel goal0 =
   match goal0 with
   | Pred(_, Smaller _) | Pred(_, Equal _) ->
       failwith "Cannot unfold inductively restricted predicate"
@@ -786,7 +802,7 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
         | _::rest -> select_non_cpairs emit rest
         | [] -> emit
       in
-      let unfoldings = unfold_defs ~mdefs clause_sel ~ts:0 goal r in
+      let unfoldings = unfold_defs ~sr ~mdefs clause_sel ~ts:0 goal r in
       begin match select_non_cpairs [] unfoldings with
       | [] -> failwith "No matching clauses"
       | [case1] -> [case1]
@@ -797,7 +813,7 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
           | Abella_types.Solution_all -> [disjoin cases]
         end
       end
-  | Obj ({mode = Async ; _} as goal, sr) -> begin
+  | Obj ({mode = Async ; _} as goal, sz) -> begin
       match clause_sel with
       | Abella_types.Select_named nm -> begin
           match Typing.lookup_clause nm with
@@ -809,7 +825,8 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                 assert (List.length cl = 1) ;
                 let cl = List.hd cl in
                 let (vars, head, body) =
-                  freshen_nameless_clause ~support ~ts:0 cl in
+                  freshen_nameless_clause ~sr ~support ~ts:0 cl in
+                exclaim "unfold" vars head body ;
                 let msg = msg_cannot_fully_infer_prog_clause head body in
                 match try_right_unify_cpairs_fully_inferred ~msg
                         head goal.right with
@@ -827,7 +844,7 @@ let unfold ~mdefs ~used clause_sel sol_sel goal0 =
                       let body =
                         List.map begin fun g ->
                           let aobj = {goal with right = g} in
-                          map_on_objs_full normalize_obj (Obj (aobj, sr))
+                          map_on_objs_full normalize_obj (Obj (aobj, sz))
                         end body in
                       if quant_vars = [] then body
                       else [existentially_close ~used quant_vars (conjoin body)]
@@ -905,7 +922,8 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     (* Printf.eprintf "clause_aux: %s\n%!" (witness_to_string witness) ; *)
     let support = term_list_support (goal :: context) in
     let freshen_clause (i, cl) =
-      let (_vars, head, body) = freshen_nameless_clause ~support ~ts cl in
+      let (vars, head, body) = freshen_nameless_clause ~sr ~support ~ts cl in
+      exclaim "clause_aux" vars head body ;
       (i, (head, body))
     in
     let p = term_head_name goal in
@@ -1158,7 +1176,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
                 end alist in
               (alist, w)
           | WMagic ->
-              (fresh_nameless_alist
+              (fresh_nameless_alist ~sr
                  ~support:global_support ~tag:Logic ~ts tids, WMagic)
           | _ -> bad_witness ()
         in
@@ -1189,7 +1207,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
                 end ids tids in
               (alist, w)
           | WMagic ->
-              (fresh_nameless_alist ~support ~tag:Eigen ~ts tids, WMagic)
+              (fresh_nameless_alist ~sr ~support ~tag:Eigen ~ts tids, WMagic)
           | _ -> bad_witness ()
         in
         let body = replace_metaterm_vars alist body in
@@ -1216,7 +1234,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
         | _ -> bad_witness ()
       in
       let doit () =
-        unfold_defs ~mdefs csel ~ts goal r |>
+        unfold_defs ~sr ~mdefs csel ~ts goal r |>
         List.iter begin fun (state, cpairs, body, i) ->
           set_bind_state state ;
           metaterm_aux subn hyps body ts
@@ -1332,7 +1350,7 @@ let try_with_state_all ~fail f =
       | TypesNotFullyDetermined
         -> set_scoped_bind_state state ; fail
 
-let apply ?(used_nominals=[]) term args =
+let apply ?(used_nominals=[]) ~sr term args =
   let hyp_support = metaterm_support term in
   let support = hyp_support @
                   List.flatten_map (Option.map_default metaterm_support []) args in
@@ -1344,7 +1362,7 @@ let apply ?(used_nominals=[]) term args =
   let process_bindings foralls nablas body =
     match nablas with
     | [] -> (* short circuit *)
-        apply_arrow (freshen_nameless_bindings ~support ~ts:0 foralls body) args
+        apply_arrow (freshen_nameless_bindings ~sr ~support ~ts:0 foralls body) args
     | _ ->
         let n = List.length nablas in
         let (nabla_ids, nabla_tys) = List.split nablas in
@@ -1368,7 +1386,7 @@ let apply ?(used_nominals=[]) term args =
                   nabla_tys (List.map (tc []) nominals);
                 let support = List.minus support nominals in
                 let raised_body =
-                  freshen_nameless_bindings ~support ~ts:0 foralls body
+                  freshen_nameless_bindings ~sr ~support ~ts:0 foralls body
                 in
                 let alist = List.combine nabla_ids nominals in
                 let permuted_body =
@@ -1441,12 +1459,12 @@ let rec instantiate_withs term withs =
       (normalize (nabla binders' body), nominals @ used_nominals)
   | _ -> (term, [])
 
-let apply_with term args withs =
+let apply_with ~sr term args withs =
   if args = [] && withs = [] then
     (term, [])
   else
   let term, used_nominals = instantiate_withs term withs in
-  apply (normalize term) args ~used_nominals
+  apply ~sr (normalize term) args ~used_nominals
 
 (* Backchain *)
 
@@ -1479,7 +1497,7 @@ let backchain_arrow term goal =
   else
     obligations
 
-let backchain ?(used_nominals=[]) term goal =
+let backchain ~sr ?(used_nominals=[]) term goal =
   let support = List.minus (metaterm_support goal) used_nominals in
   match term with
   | Binding(Forall, bindings, Binding(Nabla, nablas, body)) ->
@@ -1500,7 +1518,7 @@ let backchain ?(used_nominals=[]) term goal =
               nabla_tys (List.map (tc []) nominals);
             let support = List.minus support nominals in
             let raised_body =
-              freshen_nameless_bindings ~support ~ts:0 bindings body
+              freshen_nameless_bindings ~sr ~support ~ts:0 bindings body
             in
             let alist = List.combine nabla_ids nominals in
             let permuted_body =
@@ -1513,7 +1531,7 @@ let backchain ?(used_nominals=[]) term goal =
             failwith "Failed to find instantiations for nabla quantified variables")
 
   | Binding(Forall, bindings, body) ->
-      backchain_arrow (freshen_nameless_bindings ~support ~ts:0 bindings body) goal
+      backchain_arrow (freshen_nameless_bindings ~sr ~support ~ts:0 bindings body) goal
 
   | _ -> backchain_arrow term goal
 

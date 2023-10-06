@@ -124,6 +124,7 @@ let object_instantiation_tests =
     ]
 
 let apply_tests =
+  let sr = Subordination.empty in
   "Apply" >:::
     [
       "Normal" >::
@@ -132,7 +133,7 @@ let apply_tests =
              "forall A B C, {eval A B} -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-           let t, _ = apply h0 [Some h1; Some h2] in
+           let t, _ = apply ~sr h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
       "Properly restricted" >::
@@ -141,7 +142,7 @@ let apply_tests =
              "forall A B C, {eval A B}* -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}*" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-           let t, _ = apply h0 [Some h1; Some h2] in
+           let t, _ = apply ~sr h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
       "Needlessly restricted" >::
@@ -150,7 +151,7 @@ let apply_tests =
              "forall A B C, {eval A B} -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}*" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-           let t, _ = apply h0 [Some h1; Some h2] in
+           let t, _ = apply ~sr h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
       "Improperly restricted" >::
@@ -160,7 +161,7 @@ let apply_tests =
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
              assert_raises (Failure "Inductive restriction violated")
-               (fun () -> apply h0 [Some h1; Some h2])) ;
+               (fun () -> apply ~sr h0 [Some h1; Some h2])) ;
 
       "Improperly restricted (2)" >::
         (fun () ->
@@ -169,7 +170,7 @@ let apply_tests =
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
              assert_raises (Failure "Inductive restriction violated")
-               (fun () -> apply h0 [Some h1; Some h2])) ;
+               (fun () -> apply ~sr h0 [Some h1; Some h2])) ;
 
       "Properly double restricted" >::
         (fun () ->
@@ -177,7 +178,7 @@ let apply_tests =
              "forall A B C, {eval A B}@ -> {typeof A C}** -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}**" in
-           let t, _ = apply h0 [Some h1; Some h2] in
+           let t, _ = apply ~sr h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
       "Improperly double restricted" >::
@@ -187,7 +188,7 @@ let apply_tests =
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}@@" in
              assert_raises (Failure "Inductive restriction violated")
-               (fun () -> apply h0 [Some h1; Some h2])) ;
+               (fun () -> apply ~sr h0 [Some h1; Some h2])) ;
 
       "Improperly double restricted (2)" >::
         (fun () ->
@@ -196,13 +197,13 @@ let apply_tests =
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}**" in
              assert_raises (Failure "Inductive restriction violated")
-               (fun () -> apply h0 [Some h1; Some h2])) ;
+               (fun () -> apply ~sr h0 [Some h1; Some h2])) ;
 
       "Properly restricted on predicate" >::
         (fun () ->
            let h0 = freshen "forall A, foo A * -> bar A" in
            let h1 = freshen "foo A *" in
-           let t, _ = apply h0 [Some h1] in
+           let t, _ = apply ~sr h0 [Some h1] in
              assert_pprint_equal "bar A" t) ;
 
       "Improperly restricted on predicate" >::
@@ -210,7 +211,7 @@ let apply_tests =
            let h0 = freshen "forall A, foo A * -> bar A" in
            let h1 = freshen "foo A @" in
              assert_raises (Failure "Inductive restriction violated")
-               (fun () -> apply h0 [Some h1])) ;
+               (fun () -> apply ~sr h0 [Some h1])) ;
 
       "Unification failure" >:: begin fun () ->
          let h0 = freshen
@@ -224,7 +225,7 @@ let apply_tests =
                assert_failure ("Expected constant clash; got " ^ Unify.explain_failure uf)
          in
          try
-           let _ = apply h0 [Some h1; Some h2] in
+           let _ = apply ~sr h0 [Some h1; Some h2] in
            assert_failure "Expected constant clash"
          with
          | UnifyFailure uf -> check_good_failure uf
@@ -237,28 +238,28 @@ let apply_tests =
                 "{E |- conc A} -> {E |- conc C}") in
            let h1 = freshen "{L, hyp A, hyp B1, hyp B2 |- conc C}" in
            let h2 = freshen "{L |- conc A}" in
-           let t, _ = apply h0 [Some h1; Some h2] in
+           let t, _ = apply ~sr h0 [Some h1; Some h2] in
              assert_pprint_equal "{L, hyp B1, hyp B2 |- conc C}" t) ;
 
       "On non-object" >::
         (fun () ->
            let h0 = freshen "forall A, foo A -> bar A" in
            let h1 = freshen "foo B" in
-           let t, _ = apply h0 [Some h1] in
+           let t, _ = apply ~sr h0 [Some h1] in
              assert_pprint_equal "bar B" t) ;
 
       "On arrow" >::
         (fun () ->
            let h0 = freshen "forall A, (forall B, foo A -> bar B) -> baz A" in
            let h1 = freshen "forall B, foo C -> bar B" in
-           let t, _ = apply h0 [Some h1] in
+           let t, _ = apply ~sr h0 [Some h1] in
              assert_pprint_equal "baz C" t) ;
 
       "With nabla" >::
         (fun () ->
            let h0 = freshen "forall B, nabla x, rel1 x (B x) -> rel2 t1 (iabs B)" in
            let h1 = freshen "rel1 n1 (D n1)" in
-           let t, _ = apply h0 [Some h1] in
+           let t, _ = apply ~sr h0 [Some h1] in
              assert_pprint_equal "rel2 t1 (iabs (x1\\D x1))" t) ;
 
       "With multiple nablas" >::
@@ -269,7 +270,7 @@ let apply_tests =
                           rel2 (iabs A) (iabs B)"
            in
            let h1 = freshen "rel1 (iapp n1 n2) (iapp (C n1) (D n2))" in
-           let t, _ = apply h0 [Some h1] in
+           let t, _ = apply ~sr h0 [Some h1] in
              assert_pprint_equal
                "rel2 (iabs (x1\\C x1)) (iabs (x1\\D x1))"
                t) ;
@@ -278,14 +279,14 @@ let apply_tests =
         (fun () ->
            let h0 = freshen "forall A B, nabla x, rel1 (A x) (B x) -> rel2 (iabs A) (iabs B)" in
            let h1 = freshen "rel1 C D" in
-           let t, _ = apply h0 [Some h1] in
+           let t, _ = apply ~sr h0 [Some h1] in
              assert_pprint_equal "rel2 (iabs x1\\C) (iabs x1\\D)" t) ;
 
       "Absent argument should produce corresponding obligation" >::
         (fun () ->
            let h0 = freshen "forall L, foo L -> bar L -> false" in
            let h1 = freshen "bar K" in
-           let _, obligations = apply h0 [None; Some h1] in
+           let _, obligations = apply ~sr h0 [None; Some h1] in
              match obligations with
                | [term] ->
                    assert_pprint_equal "foo K" term
@@ -339,14 +340,14 @@ let apply_tests =
         (fun () ->
            let h = freshen "forall E, foo E" in
            let a = const "a" ity in
-           let (t, _) = apply_with h [] [("E", a)] in
+           let (t, _) = apply_with ~sr h [] [("E", a)] in
              assert_pprint_equal "foo a" t);
 
       "Apply with no arguments should contain logic variables" >::
         (fun () ->
            let h = freshen "forall A B, rel1 A B" in
            let a = const "a" ity in
-           let (t, _) = apply_with h [] [("A", a)] in
+           let (t, _) = apply_with ~sr h [] [("A", a)] in
            let logic_vars = metaterm_vars_alist Logic t in
              assert_bool "Should contain logic variable(s)"
                (List.length logic_vars > 0));
@@ -354,7 +355,7 @@ let apply_tests =
       "Apply with no arguments or withs" >::
         (fun () ->
            let h = freshen "forall A B, rel1 A B -> rel2 A B" in
-           let (t, obs) = apply_with h [] [] in
+           let (t, obs) = apply_with ~sr h [] [] in
              assert_bool "Should have no obligations" (obs = []) ;
              assert_metaterm_equal h t);
 
@@ -362,7 +363,7 @@ let apply_tests =
         (fun () ->
            let h = freshen "forall (X:i) Y, X = Y -> true" in
            let _, obligations =
-             apply_with h [None] [("X", nominal_var "n1" ity)]
+             apply_with ~sr h [None] [("X", nominal_var "n1" ity)]
            in
              match obligations with
                | [Eq(_, t2)] ->
@@ -376,13 +377,14 @@ let apply_tests =
     ]
 
 let backchain_tests =
+  let sr = Subordination.empty in
   "Backchain" >:::
     [
       "Normal" >::
         (fun () ->
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B" in
            let g = freshen "rel3 t3 t4" in
-             match backchain h g with
+             match backchain ~sr h g with
                | [h1; h2] ->
                    assert_pprint_equal "rel1 t3 t1" h1 ;
                    assert_pprint_equal "rel2 t4 t2" h2
@@ -395,7 +397,7 @@ let backchain_tests =
         (fun () ->
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B +" in
            let g = freshen "rel3 t3 t4 +" in
-             match backchain h g with
+             match backchain ~sr h g with
                | [h1; h2] ->
                    assert_pprint_equal "rel1 t3 t1" h1 ;
                    assert_pprint_equal "rel2 t4 t2" h2
@@ -408,7 +410,7 @@ let backchain_tests =
         (fun () ->
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B" in
            let g = freshen "rel3 t3 t4 +" in
-             match backchain h g with
+             match backchain ~sr h g with
                | [h1; h2] ->
                    assert_pprint_equal "rel1 t3 t1" h1 ;
                    assert_pprint_equal "rel2 t4 t2" h2
@@ -423,7 +425,7 @@ let backchain_tests =
              "forall A B, rel1 A t1 * -> rel2 B t2 @ -> rel3 A B"
            in
            let g = freshen "rel3 t3 t4" in
-             match backchain h g with
+             match backchain ~sr h g with
                | [h1; h2] ->
                    assert_pprint_equal "rel1 t3 t1 *" h1 ;
                    assert_pprint_equal "rel2 t4 t2 @" h2
@@ -437,21 +439,21 @@ let backchain_tests =
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B +" in
            let g = freshen "rel3 t3 t4" in
              assert_raises (Failure "Coinductive restriction violated")
-               (fun () -> backchain h g)) ;
+               (fun () -> backchain ~sr h g)) ;
 
       "Improperly restricted (2)" >::
         (fun () ->
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B +" in
            let g = freshen "rel3 t3 t4 #" in
              assert_raises (Failure "Coinductive restriction violated")
-               (fun () -> backchain h g)) ;
+               (fun () -> backchain ~sr h g)) ;
 
       "Improperly restricted (3)" >::
         (fun () ->
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B +" in
            let g = freshen "rel3 t3 t4 ++" in
              assert_raises (Failure "Coinductive restriction violated")
-               (fun () -> backchain h g)) ;
+               (fun () -> backchain ~sr h g)) ;
 
       "With contexts" >::
         (fun () ->
@@ -459,7 +461,7 @@ let backchain_tests =
              "forall A B L, ctx L -> {L |- eq A B}"
            in
            let g = freshen "{L, eq t1 t2 |- eq t3 t4}" in
-             match backchain h g with
+             match backchain ~sr h g with
                | [h1] ->
                    assert_pprint_equal "ctx (eq t1 t2 :: L)" h1 ;
                | hs ->
@@ -473,7 +475,7 @@ let backchain_tests =
              "forall A B, {pr A B} -> {eq A B}"
            in
            let g = freshen "{eq t1 t2}" in
-             match backchain h g with
+             match backchain ~sr h g with
                | [h1] ->
                    assert_pprint_equal "{pr t1 t2}" h1 ;
                | hs ->
@@ -488,7 +490,7 @@ let backchain_tests =
            in
            let g = freshen "{L |- eq t3 t4}" in
              assert_raises_any
-               (fun () -> backchain h g)) ;
+               (fun () -> backchain ~sr h g)) ;
 
     ]
 
@@ -1635,6 +1637,8 @@ let unfold_tests =
      assert_int_equal (List.length result) 1 ;
      assert_pprint_equal str (List.nth result 0) in
 
+  let sr = Subordination.empty in
+
   "Unfold" >:::
     [
       "Should pick matching clause" >::
@@ -1643,35 +1647,35 @@ let unfold_tests =
              parse_defs "foo (r1 X) := bar X; foo (r2 X) := baz X."
            in
            let goal = freshen "foo (r2 t1)" in
-           let result = unfold ~defs goal in
+           let result = unfold ~sr ~defs goal in
              assert_pprint_equal "baz t1" result) ;
 
       "Should work with nominals" >::
         (fun () ->
            let defs = parse_defs "foo X := bar X." in
            let goal = freshen "foo (r1 n1)" in
-           let result = unfold ~defs goal in
+           let result = unfold ~sr ~defs goal in
              assert_pprint_equal "bar (r1 n1)" result) ;
 
       "Should avoid variable capture" >::
         (fun () ->
            let defs = parse_defs "foo X := forall A, rel1 X A." in
            let goal = freshen "foo A" in
-           let result = unfold ~defs goal in
+           let result = unfold ~sr ~defs goal in
              assert_pprint_equal "forall A1, rel1 A A1" result) ;
 
       "Should work on nabla in the head (permute)" >::
         (fun () ->
            let defs = parse_defs "nabla x, rel1 x Z := bar Z." in
            let goal = freshen "rel1 n1 D" in
-           let result = unfold ~defs goal in
+           let result = unfold ~sr ~defs goal in
              assert_pprint_equal "bar D" result) ;
 
       "Should reduce coinductive restriction" >::
         (fun () ->
            let defs = parse_defs "foo X := foo X." in
            let goal = freshen "foo D #" in
-           let result = unfold ~defs goal in
+           let result = unfold ~sr ~defs goal in
              assert_pprint_equal "foo D +" result) ;
 
       "Should not work on inductively restricted definition" >::
@@ -1680,7 +1684,7 @@ let unfold_tests =
            let goal = freshen "foo A @" in
              assert_raises
                (Failure "Cannot unfold inductively restricted predicate")
-               (fun () -> unfold ~defs goal)) ;
+               (fun () -> unfold ~sr ~defs goal)) ;
     ]
 
 let permute_tests =

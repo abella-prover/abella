@@ -1,0 +1,410 @@
+Specification "sess".
+
+Close tp.
+
+Theorem dual_det : forall A B1 B2, {dual A B1} -> {dual A B2} -> B1 = B2.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. search.
+  case H2. apply IH to *H3 *H5. apply IH to *H4 *H6. search.
+  case H2. apply IH to *H3 *H5. apply IH to *H4 *H6. search.
+  case H2. apply IH to *H3 *H5. apply IH to *H4 *H6. search.
+  case H2. apply IH to *H3 *H5. apply IH to *H4 *H6. search.
+
+Theorem dual_sym : forall A B, {dual A B} -> {dual B A}.
+induction on 1. intros. case H1.
+  search.
+  search.
+  apply IH to *H2. apply IH to *H3. search.
+  apply IH to *H2. apply IH to *H3. search.
+  apply IH to *H2. apply IH to *H3. search.
+  apply IH to *H2. apply IH to *H3. search.
+
+Define name : A -> prop by
+; nabla x, name x.
+
+Define fresh : A -> B -> prop by
+; nabla x, fresh x Z.
+
+Theorem member_prune[A]: forall (E: A -> o) L, nabla x, member (E x) L ->
+  exists F, E = x\ F.
+induction on 1. intros. case H1.
+  search.
+  apply IH to *H2. search.
+
+Define ctx : olist -> prop by
+; ctx nil
+; nabla x, ctx (hyp x A :: G) := ctx G.
+
+Theorem ctx_mem : forall E G, ctx G -> member E G ->
+  exists X A, E = hyp X A /\ fresh X A.
+induction on 1. intros. case H1.
+  case H2.
+  case H2. search.
+    apply member_prune to H4.
+     apply IH to *H3 *H4. search.
+
+Theorem str_hyp : forall G C X A, nabla y, ctx G -> {G, hyp y C |- hyp X A} -> {G |- hyp X A}.
+induction on 2. intros. case H2.
+  case H4. case H3.
+  apply member_prune to H5.
+   apply ctx_mem to H1 H5. case H3. search.
+
+Theorem str_dual : forall G A B, ctx G -> {G |- dual A B} -> {dual A B}.
+induction on 2. intros. case H2.
+  search. search.
+  apply IH to _ *H3. apply IH to _ *H4. search.
+  apply IH to _ *H3. apply IH to _ *H4. search.
+  apply IH to _ *H3. apply IH to _ *H4. search.
+  apply IH to _ *H3. apply IH to _ *H4. search.
+  apply ctx_mem to H1 H4. case H5. case H3.
+
+Theorem str_lin : forall G A P, nabla y, ctx G -> {G, hyp y A |- lin (P y)} -> {G |- lin (P y)}.
+induction on 2. intros. case H2.
+  search.
+  search.
+  search.
+  search.
+  apply IH to _ *H3. search.
+  apply IH to _ *H3. apply IH to _ *H4. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply IH to _ *H3 with y = n1. apply IH to _ *H4 with y = n1. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply IH to _ *H3. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply IH to _ *H3. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply IH to _ *H3. apply IH to _ *H4. search.
+  apply IH to _ *H3 with y = n1. apply IH to _ *H4 with y = n1. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply ctx_mem to _ H4. case H3.
+
+Theorem str_lin_as_beluga : forall G A P, nabla y, ctx G -> {G, hyp y A |- lin P} -> {G |- lin P}.
+induction on 2. intros. case H2.
+  search.
+  search.
+  search.
+  search.
+  apply IH to _ *H3. search.
+  apply IH to _ *H3. apply IH to _ *H4. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply IH to _ *H3 with y = n1. apply IH to _ *H4 with y = n1. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply IH to _ *H3. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply IH to _ *H3. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply IH to _ *H3. apply IH to _ *H4. search.
+  apply IH to _ *H3 with y = n1. apply IH to _ *H4 with y = n1. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply IH to _ *H3 with y = n1. search.
+  apply ctx_mem to _ H4. case H3.
+
+Theorem str_wtp : forall G C P, nabla y, ctx G -> {G, hyp y C |- wtp P} -> {G |- wtp P}.
+induction on 2. intros. case H2.
+  apply str_dual to _ *H3.
+   apply str_hyp to _ *H4.
+   apply str_hyp to _ *H5.
+   search.
+  apply str_hyp to _ *H3. search.
+  apply str_hyp to _ *H3.
+   apply IH to _ *H4. search.
+  apply str_hyp to _ *H3. apply IH to _ *H4. apply IH to _ *H5. search.
+  apply str_hyp to _ *H3. apply IH to _ *H4. search.
+  apply str_hyp to _ *H3. apply IH to _ *H4. search.
+  apply str_hyp to _ *H3. apply IH to _ *H4. search.
+  apply str_hyp to _ *H3. apply IH to _ *H4. apply IH to _ *H5. search.
+  apply str_dual to _ *H3.
+   apply str_lin to _ *H4. apply str_lin to _ *H5.
+   apply IH to _ *H6. apply IH to _ *H7. search.
+  case H4. case H3.
+    apply ctx_mem to _ *H5. case H3.
+
+Theorem str_cong1 : forall G C P Q, nabla y, ctx G -> {G, hyp y C |- cong1 P (Q y)} ->
+  exists R, Q = y\ R /\ {G |- cong1 P R}.
+induction on 2. intros. case H2.
+  apply str_dual to _ *H3. search.
+  search.
+  case H4. case H3.
+    apply member_prune to H5. apply ctx_mem to _ H5. case H3.
+
+Theorem str_cong : forall G C P Q, nabla y, ctx G -> {G, hyp y C |- cong P (Q y)} ->
+  exists R, Q = y\ R /\ {G |- cong P R}.
+induction on 2. intros. case H2.
+  search.
+  apply str_cong1 to _ *H3.
+   apply IH to _ *H4. search.
+  case H4. case H3.
+    apply member_prune to H5. apply ctx_mem to _ H5. case H3.
+
+Theorem str_step : forall G C P Q, nabla y, ctx G -> {G, hyp y C |- step P (Q y)} ->
+  exists R, Q = y\ R /\ {G |- step P R}.
+induction on 2. intros. case H2.
+  search.
+  search.
+  search.
+  search.
+  search.
+  search.
+  search.
+  search.
+  search.
+  search.
+  search.
+  search.
+  search.
+  apply IH to _ *H3. search.
+  apply IH to _ *H3. search.
+  apply str_cong to _ *H3. apply IH to _ *H4. apply str_cong to _ *H5. search.
+  case H4. case H3.
+    apply member_prune to H5. apply ctx_mem to _ H5. case H3.
+
+Theorem lin_relevant : forall G P, ctx G -> {G |- lin (x\ P)} -> false.
+induction on 2. intros. case H2.
+  apply IH to _ *H3.
+  apply IH to _ *H3.
+  apply IH to _ *H3.
+  apply IH to _ *H3.
+  apply IH to _ *H3.
+  apply IH to _ *H3.
+  apply IH to _ *H3.
+  apply IH to _ *H3.
+  apply IH to _ *H3.
+  apply ctx_mem to _ H4. case H3.
+
+Theorem lin_cong1 : forall G A P Q, nabla x, ctx G ->
+  {G, hyp x A |- cong1 (P x) (Q x)} -> {G |- lin P} -> {G |- lin Q}.
+induction on 2. intros. case H2.
+  apply str_dual to _ *H4. case H3.
+    search. search.
+    apply ctx_mem to _ H7. case H6.
+  case H3.
+    case H4.
+      search. search.
+      apply member_prune to H6. apply ctx_mem to _ H6. case H5.
+    search.
+    apply ctx_mem to _ H5. case H4.
+  case H5. case H4.
+    apply member_prune to H6. apply ctx_mem to _ H6. case H4.
+
+Theorem lin_cong : forall G A P Q, nabla x, ctx G ->
+  {G, hyp x A |- cong (P x) (Q x)} -> {G |- lin P} -> {G |- lin Q}.
+induction on 2. intros. case H2.
+  search.
+  apply lin_cong1 to _ *H4 *H3. apply IH to _ *H5 *H6. search.
+  case H5. case H4.
+    apply member_prune to H6. apply ctx_mem to H1 H6. case H4.
+
+Theorem wtp_cong1 : forall G P Q, ctx G ->
+  {G |- cong1 P Q} -> {G |- wtp P} -> {G |- wtp Q}.
+induction on 2. intros. case H2.
+  case H3.
+    apply str_dual to _ *H4. apply str_dual to _ *H5.
+     apply dual_det to H10 H11. apply dual_sym to *H11. search.
+    apply ctx_mem to _ H6. case H5.
+  case H3. case H5.
+    apply lin_relevant to _ *H9.
+    case H7.
+      apply str_dual to _ *H4. apply str_dual to _ *H10.
+       apply str_wtp to _ *H13. apply str_lin to _ *H11.
+       apply str_lin to _ *H12. search.
+      case H11. case H10. apply member_prune to H12.
+       apply ctx_mem to H1 H12. case H10.
+      apply ctx_mem to H1 H10. case H9.
+    apply ctx_mem to H1 H5. case H4.
+  apply ctx_mem to H1 H5. case H4.
+
+Theorem wtp_cong : forall G P Q, ctx G ->
+  {G |- cong P Q} -> {G |- wtp P} -> {G |- wtp Q}.
+induction on 2. intros. case H2.
+  search.
+  apply wtp_cong1 to _ *H4 *H3. apply IH to _ *H5 *H6. search.
+  apply ctx_mem to H1 H5. case H4.
+
+Theorem lin_s : forall G A P Q, nabla x, ctx G ->
+   {G, hyp x A |- step (P x) (Q x)} ->
+   {G, hyp x A |- wtp (P x)} ->
+   {G |- lin P} ->
+   {G |- lin Q}.
+induction on 2. intros. case H2.
+  case H4.
+    case H5.
+      case H3. apply str_lin to _ *H8. search.
+        case H7. case H6. apply ctx_mem to H1 H8. case H6.
+      apply ctx_mem to H1 H7. case H6.
+    inst H5 with n1 = P2. search.
+    apply ctx_mem to H1 H6. case H5.
+  case H4.
+    case H5.
+      case H3. apply str_lin to _ *H8. search.
+        case H7. case H6. apply ctx_mem to H1 H8. case H6.
+      apply ctx_mem to H1 H7. case H6.
+    inst H5 with n1 = P2. search.
+    apply ctx_mem to H1 H6. case H5.
+  case H4.
+    apply lin_relevant to _ H5.
+    case H5. search. apply ctx_mem to H1 H7. case H6.
+    apply ctx_mem to H1 H6. case H5.
+  case H4.
+    case H5. search. search. apply ctx_mem to H1 H7. case H6.
+    case H5. search. apply ctx_mem to H1 H7. case H6.
+    apply ctx_mem to H1 H6. case H5.
+  case H4.
+    case H5. search. apply ctx_mem to H1 H7. case H6.
+    case H5. search. apply ctx_mem to H1 H7. case H6.
+    apply ctx_mem to H1 H6. case H5.
+  case H4.
+    case H5. search. apply ctx_mem to H1 H7. case H6.
+    case H5. search. apply ctx_mem to H1 H7. case H6.
+    apply ctx_mem to H1 H6. case H5.
+  case H4.
+    case H5. search. search. apply ctx_mem to H1 H7. case H6.
+    search.
+    apply ctx_mem to H1 H6. case H5.
+  case H4.
+    case H5. search. search. search. apply ctx_mem to H1 H7. case H6.
+    search.
+    apply ctx_mem to H1 H6. case H5.
+  case H4.
+    case H5. search. search. search. apply ctx_mem to H1 H7. case H6.
+    search.
+    apply ctx_mem to H1 H6. case H5.
+  case H4.
+    case H5. search. search. apply ctx_mem to H1 H7. case H6.
+    search.
+    apply ctx_mem to H1 H6. case H5.
+  case H4.
+    case H5. search. search. apply ctx_mem to H1 H7. case H6.
+    search.
+    apply ctx_mem to H1 H6. case H5.
+  case H4.
+    case H5. search. search. apply ctx_mem to H1 H7. case H6.
+    search.
+    apply ctx_mem to H1 H6. case H5.
+  case H4.
+    case H5. search. search. apply ctx_mem to H1 H7. case H6.
+    search.
+    apply ctx_mem to H1 H6. case H5.
+  case H4.
+    case H3.
+      permute (n1 n2) H6. apply IH to _ *H5 *H10 *H6. apply str_lin to _ *H12. search.
+      case H8. case H7. apply ctx_mem to H1 H9. case H7.
+    apply str_step to _ H5. search.
+    apply ctx_mem to H1 H7. case H6.
+  case H4.
+    apply str_step to _ *H5. search.
+    case H3.
+      permute (n1 n2) H6. apply IH to _ *H5 *H11 *H6. apply str_lin to _ *H12. search.
+      case H8. case H7. apply ctx_mem to H1 H9. case H7.
+    apply ctx_mem to H1 H7. case H6.
+  apply lin_cong to _ H5 *H4. apply wtp_cong to _ *H5 *H3.
+   apply IH to _ *H6 *H9 *H8. apply lin_cong to _ *H7 *H10. search.
+  case H6. case H5. apply ctx_mem to H1 H7. case H5.
+
+Theorem hyp_same : forall G A B, nabla x, ctx G -> {G, hyp x A |- hyp x B} -> A = B.
+intros. case H2. case H4. case H3. search.
+apply member_prune to H5. apply ctx_mem to H1 H5. case H3.
+
+Theorem wtp_s : forall G P Q, ctx G ->
+   {G |- step P Q} ->
+   {G |- wtp P} ->
+   {G |- wtp Q}.
+induction on 2. intros. case H2.
+  case H3.
+    case H7.
+      case H10. case H13.
+        case H12. apply str_dual to _ *H9. apply str_dual to _ *H4.
+         apply dual_det to H14 *H15.
+         inst H8 with n1 = Y. cut H16 with H11. apply str_wtp to _ *H17. search.
+         apply member_prune to H14. apply ctx_mem to H1 H14. case H12.
+      case H10. case H9. apply member_prune to H11. apply ctx_mem to H1 H11. case H9.
+    apply ctx_mem to H1 H5. case H4.
+  case H3.
+    case H7. apply hyp_same to _ *H11. apply str_dual to _ *H4. apply str_dual to _ *H9.
+     apply dual_sym to *H13. apply dual_det to H12 *H14.
+     inst H8 with n1 = X. cut H15 with H10. apply str_wtp to _ *H16. search.
+     case H10. case H9. apply ctx_mem to H1 H11. case H9.
+    apply ctx_mem to H1 H5. case H4.
+  case H3.
+    apply str_dual to _ *H4. case H9. case H8. apply str_wtp to _ *H11. search.
+      case H11. case H10. apply ctx_mem to H1 H12. case H10.
+    apply ctx_mem to H1 H5. case H4.
+  case H3.
+    apply str_dual to _ *H4. case H9. case H7. case H8.
+      apply hyp_same to _ *H12. apply hyp_same to _ *H15.
+       apply str_wtp to _ *H13. apply str_wtp to _ *H14. apply str_wtp to _ *H16.
+       case H5. case H6. search.
+      apply ctx_mem to H1 H23. case H22.
+      apply ctx_mem to H1 H21. case H20.
+      case H16. case H15. apply ctx_mem to H1 H17. case H15.
+      case H13. case H12. apply ctx_mem to H1 H14. case H12.
+    apply ctx_mem to H1 H5. case H4.
+  case H3.
+    apply str_dual to _ *H4. case H9. case H7. case H8. case H5. case H6.
+      apply hyp_same to _ *H12. apply hyp_same to _ *H14.
+       apply str_wtp to _ *H13. apply str_wtp to _ *H15. apply str_wtp to _ *H16.
+       search.
+      apply ctx_mem to H1 H19. case H18.
+      apply ctx_mem to H1 H18. case H17.
+      case H15. case H14. apply ctx_mem to H1 H16. case H14.
+      case H13. case H12. apply ctx_mem to H1 H14. case H12.
+    apply ctx_mem to H1 H5. case H4.
+  case H3.
+    apply str_dual to _ *H4. case H9. case H5. case H6. case H7. case H8.
+     apply hyp_same to _ *H15. apply hyp_same to _ *H17.
+     apply str_wtp to _ *H16. apply str_wtp to _ *H19. search.
+     case H18. case H17. apply ctx_mem to H1 H19. case H17.
+     case H16. case H15. apply ctx_mem to H1 H17. case H15.
+     apply ctx_mem to H1 H14. case H13. apply ctx_mem to H1 H13. case H12.
+    apply ctx_mem to H1 H5. case H4.
+  case H3.
+    apply str_dual to _ *H4. case H5. case H7.
+     apply str_hyp to _ *H11. search.
+     case H12. case H11. apply ctx_mem to H1 H13. case H11.
+     apply ctx_mem to H1 H11. case H10.
+    apply ctx_mem to H1 H5. case H4.
+  case H3.
+    apply str_dual to _ *H4. case H5. case H7. apply str_hyp to _ *H11.
+     apply str_wtp to _ *H13. search.
+     case H12. case H11. apply ctx_mem to H1 H13. case H11.
+     apply lin_relevant to _ H10.
+     apply ctx_mem to H1 H11. case H10.
+    apply ctx_mem to H1 H5. case H4.
+  case H3.
+    apply str_dual to _ *H4. case H5. apply lin_relevant to _ H10. case H7.
+     apply str_hyp to _ *H11. apply str_wtp to _ *H12. search.
+     case H12. case H11. apply ctx_mem to H1 H13. case H11.
+     apply ctx_mem to H1 H11. case H10.
+    apply ctx_mem to H1 H5. case H4.
+  case H3.
+    apply str_dual to _ *H4. case H5. case H7.
+     apply str_hyp to _ *H11. search.
+     case H12. case H11. apply ctx_mem to H1 H13. case H11.
+     apply ctx_mem to H1 H11. case H10.
+    apply ctx_mem to H1 H5. case H4.
+  case H3.
+    apply str_dual to _ *H4. case H5. case H7. apply str_hyp to _ *H11. search.
+     case H12. case H11. apply ctx_mem to H1 H13. case H11.
+     apply ctx_mem to H1 H11. case H10.
+    apply ctx_mem to H1 H5. case H4.
+  case H3.
+    apply str_dual to _ *H4. case H5. case H7. apply str_hyp to _ *H11. search.
+     case H12. case H11. apply ctx_mem to H1 H13. case H11.
+     apply ctx_mem to H1 H11. case H10.
+    apply ctx_mem to H1 H5. case H4.
+  case H3.
+    apply str_dual to _ *H4. case H5. case H7. apply str_hyp to _ *H12. search.
+     case H13. case H12. apply ctx_mem to H1 H14. case H12.
+     apply ctx_mem to H1 H11. case H10.
+    apply ctx_mem to H1 H5. case H4.
+  case H3.
+    apply IH to _ H4 H8. apply lin_s to _ H4 H8 H6 with G = G. search.
+    apply ctx_mem to H1 H6. case H5.
+  case H3.
+    apply IH to _ H4 H9. apply lin_s to _ H4 H9 H7 with G = G. search.
+    apply ctx_mem to H1 H6. case H5.
+  apply wtp_cong to _ *H4 *H3. apply IH to _ *H5 *H7. apply wtp_cong to _ *H6 *H8. search.
+  apply ctx_mem to H1 H5. case H4.

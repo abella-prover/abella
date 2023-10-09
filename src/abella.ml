@@ -477,7 +477,7 @@ let import pos filename withs =
                 let (basics, consts) = !sign in
                 let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
                 sign := (basics, consts) ;
-                Prover.add_defs tyargs idtys flav clauses ;
+                Prover.add_defs ~print:system_message tyargs idtys flav clauses ;
                 process_decls decls
             | CImport(filename, withs) ->
                 aux (normalize_filename (Filename.concat file_dir filename)) withs ;
@@ -845,7 +845,7 @@ and process_top1 () =
         compile (CTheorem(n, tys, t, Finished))
       end gen_thms ;
   | Define _ ->
-      compile (Prover.register_definition input)
+      compile (Prover.register_definition ~print:system_message input)
   | TopCommon(Back) ->
       if !interactive then State.Undo.back 2
       else failwith "Cannot use interactive commands in non-interactive mode"

@@ -6,5 +6,5 @@
 (test
   (name regress)
   (modules regress)
-  (deps ../src/abella.exe)
+  (deps ../src/abella.exe ../src/abella_doc.exe)
   (libraries unix))

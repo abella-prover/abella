@@ -121,7 +121,7 @@ let ensure_wellformed_head t =
       failwithf "Invalid head in definition: %s"
         (metaterm_to_string t)
 
-let check_well_formed ~def =
+let check_well_formed ~def ~print =
   let check_clause clauseno {head ; body} =
     let clauseno = clauseno + 1 in
     let nonposities = get_pred_occurrences body in
@@ -155,11 +155,11 @@ let check_well_formed ~def =
             ^ msgs
         in
         if stratification_warnings_are_errors then failwith msg
-        else Printf.fprintf !out "Warning: %s\n%!" msg
+        else print ("" ^^ "Warning: %s\n%!") msg
   in
   List.iteri check_clause def.clauses
 
-let check_def ~def =
+let check_def ~def ~print =
   Itab.iter (fun nm _ -> ensure_not_capital nm) def.mutual ;
   List.iter begin fun {head ; body} ->
     let head_pred = def_head_name head in
@@ -169,7 +169,7 @@ let check_def ~def =
     ensure_no_restrictions head ;
     ensure_no_restrictions body ;
   end def.clauses ;
-  check_well_formed ~def
+  check_well_formed ~def ~print
 
 (** The list of type parameters of a definition must be 
     exactly those occuring in the type of the constants being defined *)

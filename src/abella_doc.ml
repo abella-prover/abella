@@ -221,9 +221,14 @@ let abella =
   ref @@ if Sys.file_exists ab1 then ab1 else ab2
 ;;
 
+let recursive = ref false
+;;
+
 let options = Arg.[
     "-a", Set_string abella,
     Printf.sprintf "PROG Run PROG as abella (default: %s)" !abella ;
+    "-r", Arg.Set recursive,
+    Printf.sprintf " Recursively process directories" ;
   ] |> Arg.align
 
 let input_files : string list ref = ref []
@@ -235,19 +240,38 @@ let usage_message = Printf.sprintf "%s [options] <theorem-file> ..." begin
     if !Sys.interactive then "abella_doc" else Filename.basename Sys.executable_name
   end
 
+let dep_tab = Hashtbl.create (List.length !input_files)
+
+let ignore_list = [ "node_modules" ; "css" ]
+
+let rec process file =
+  let file_bn = Filename.basename file in
+  if List.mem file_bn ignore_list then () else
+  let open Unix in
+  let stats = stat file in
+  match stats.st_kind with
+  | S_DIR when !recursive ->
+      process_directory file
+  | S_REG when Filename.check_suffix file ".thm" ->
+      let base = Filename.chop_suffix file ".thm" in
+      if not (Hashtbl.mem dep_tab base) then
+        let (_, deps) = Depend.get_thm_depend base in
+        Hashtbl.replace dep_tab base deps ;
+        List.iter (fun f -> process (f ^ ".thm")) deps
+  | _ ->
+      (* ignore all other files *)
+      Printf.printf "IGNORE: %s\n%!" file
+
+and process_directory dir =
+  let fs = Sys.readdir dir in
+  Array.fast_sort String.compare fs ;
+  Array.iter (fun file -> process (Filename.concat dir file)) fs
+
 let main () =
   Arg.parse options add_input_file usage_message ;
-  let dep_tab = Hashtbl.create (List.length !input_files) in
-  List.iter begin fun thmfile ->
-    match Filename.chop_suffix thmfile ".thm" with
-    | exception Invalid_argument _ ->
-        failwithf "Invalid file %S; All input files must end in .thm" thmfile
-    | base ->
-        if not (Hashtbl.mem dep_tab thmfile) then
-          let (_, deps) = Depend.get_thm_depend base in
-          Hashtbl.replace dep_tab base deps
-  end !input_files ;
-  let seen = Hashtbl.create (List.length !input_files) in
+  input_files := List.rev !input_files ;
+  List.iter process !input_files ;
+  let seen = Hashtbl.create (Hashtbl.length dep_tab) in
   let topo = ref [] in
   let rec toproc file =
     if Hashtbl.mem seen file then () else begin

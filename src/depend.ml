@@ -29,12 +29,16 @@ module H = Hashtbl
 let get_thm_depend filename =
   let lexbuf = lexbuf_from_file (filename ^ ".thm") in
   let specs = ref [] in
+  let load_path = ref (Filename.dirname filename) in
+  let normalize_filename fn =
+    if Filename.is_relative fn then Filename.concat !load_path fn else fn in
   let imports = ref [] in
     begin try
       while true do
         match Parser.any_command_start Lexer.token lexbuf with
-          | ATopCommand(Specification(s, _)), _ -> specs := s :: !specs
-          | ATopCommand(Import(i, _, _)), _ -> imports := i :: !imports
+          | ATopCommand(Specification(s, _)), _ -> specs := normalize_filename s :: !specs
+          | ATopCommand(Import(i, _, _)), _ -> imports := normalize_filename i :: !imports
+          | ACommon(Set("load_path", QStr lp)), _ -> load_path := lp
           | _ -> ()
       done
     with

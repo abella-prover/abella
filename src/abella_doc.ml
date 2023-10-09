@@ -24,7 +24,8 @@ let doc_template root =
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"
     integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@4.0/dist/fancybox.css" />
-  <link rel="stylesheet" href="https://abella-prover.org/examples/css/style.css" />
+  <!-- <link rel="stylesheet" href="https://abella-prover.org/examples/css/style.css" /> -->
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 
 <body>
@@ -45,6 +46,13 @@ let doc_template root =
 
   <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@4.0/dist/fancybox.umd.js"></script>
   <script>
+    const top_builtin_re = /\b(Import|Specification|Query|Set|Show|Close)\b/g;
+    const top_command_re = /\b((?:Co)?Define|Theorem|Split|by|Kind|Type)\b/g;
+    const proof_command_re = /\b(abbrev|all|apply|assert|backchain|case|clear|(?:co)?induction|cut|inst|intros|keep|left|monotone|on|permute|rename|right|search|split(?:\*)?|to|unabbrev|unfold|with|witness)\b/g;
+    const proof_special_re = /\b(skip|undo|abort)\b/g;
+    const type_re = /\b(list|prop|o)\b/g;
+    const term_re = /\b(forall|exists|nabla|pi|sigma|sig|module|end)\b/g;
+    const op_re = /(=(?:&gt;)?|\|-|-&gt;|\\\/?|\/\\|\{|\})/g;
     const bg = (count) => (count & 1) === 0 ? "bg-slate-50" : "bg-slate-100";
     const seqToStr = (obj, doInsts) => {
       let repr = '<div class="flex flex-col max-w-xl whitespace-normal ml-2 bg-rose-50">';
@@ -83,6 +91,25 @@ let doc_template root =
         headers: { pragma: 'no-cache' }
       };
       let thm_text = await fetch('|} ^ thmfile ^ {|', init).then(resp => resp.text());
+      let styled_slice = (start, stop, type) => {
+        let txt = make_safe(thm_text.slice(start, stop));
+        if (type) {
+          // wash terms and types
+          txt = txt
+            .replaceAll(op_re, `<span style="color:#9d1f1f;">$1</span>`)
+            .replaceAll(term_re, `<span style="color:#9d1f1f;">$1</span>`)
+            .replaceAll(type_re, `<span style="color:#1640b0;">$1</span>`);
+          if (type === "top_command")
+            txt = txt
+              .replaceAll(top_builtin_re, `<span style="color:#338fff;">$1</span>`)
+              .replaceAll(top_command_re, `<span style="color:#9d1f1f;font-weight:bold;">$1</span>`);
+          if (type === "proof_command")
+            txt = txt
+              .replaceAll(proof_special_re, `<span style="background-color:#9d1f1f;color:#c0965b;font-weight:bold;">$1</span>`)
+              .replaceAll(proof_command_re, `<span style="color:#9d1f1f;font-style:italic;">$1</span>`);
+        }
+        return txt;
+      };
       let run_data = await fetch('|} ^ jsonfile ^ {|', init).then(resp => resp.json());
       const thm_box = $('#thmbox');
       thm_box.empty();
@@ -93,11 +120,11 @@ let doc_template root =
           const [start, , , stop, ,] = elm.range;
           const chunk_div = $(`<div id="chunk-${elm.id}" class="inline">`);
           if (last_pos < start) {
-            $(thm_box).append($(`<span>${make_safe(thm_text.slice(last_pos, start))}</span>`));
+            $(chunk_div).append($(`<span>${styled_slice(last_pos, start)}</span>`));
             last_pos = start;
           }
           const ul = elm.type === "proof_command" ? "text-rose-700 not-italic text-sm" : "leading-snug not-italic text-[#000000]";
-          const cmd = $(`<div class="abella-command inline-block ${ul} cursor-default hover:bg-rose-200/60">${make_safe(thm_text.slice(start, stop))}</div>`);
+          const cmd = $(`<div class="abella-command inline-block ${ul} cursor-default hover:bg-rose-200/60">${styled_slice(start, stop, elm.type)}</div>`);
           $(cmd).data('obj', elm);
           cmd_map.set(elm.id, cmd);
           $(chunk_div).append(cmd);

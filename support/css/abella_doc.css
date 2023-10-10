@@ -1,0 +1,147 @@
+/* @import "@fancyapps/ui/dist/fancybox/fancybox.css"; */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+#logobox {
+    @apply w-11/12 mx-auto mb-2;
+}
+
+#thmname {
+    @apply text-lg font-mono text-[maroon];
+}
+
+#outer-container, .outer-container {
+    @apply w-11/12 mx-auto mt-2;
+}
+
+#container, .container {
+    @apply border-rose-300 border-2;
+}
+
+#thmbox, #sigbox, #modbox {
+    @apply font-mono italic bg-yellow-50 leading-tight w-full h-full px-2 whitespace-pre overflow-auto text-green-800;
+}
+
+div.default-contents {
+    @apply not-italic text-[#000000];
+}
+
+button.proof-toggle {
+    @apply font-sans text-[.75em] text-green-700 hover:text-green-700/70 hover:underline;
+}
+
+div.ab-command {
+    @apply inline-block cursor-default not-italic text-black hover:bg-rose-200/60;
+}
+
+div.ab-proof {
+    @apply inline not-italic text-sm;
+}
+
+div.ab-top {
+    @apply leading-snug not-italic text-[#000000];
+}
+
+div.ab-sys {
+    @apply text-rose-500 font-bold;
+}
+
+div.ab-int {
+    @apply mt-1 mb-1;
+}
+
+span.ab-pr {
+    @apply text-rose-600 font-bold italic;
+}
+
+div.float {
+    @apply border-2 border-rose-800 bg-white p-2 shadow-lg shadow-rose-600/40;
+}
+
+div.float-container {
+    @apply whitespace-pre font-mono not-italic text-[#000000] text-sm overflow-auto;
+}
+
+div.rl {
+    @apply flex flex-col max-w-xl whitespace-normal ml-2 bg-amber-50;
+}
+
+span.rl-name {
+    @apply mb-3 font-sans text-rose-600 text-[.8em];
+}
+
+div.rl-even {
+    @apply bg-amber-50;
+}
+
+div.rl-odd {
+    @apply bg-amber-100;
+}
+
+div.rl-line {
+    @apply border-t-2 border-t-rose-600;
+}
+
+div.rl-more {
+    @apply mt-1 font-sans text-rose-600 text-[.8em];
+}
+
+span.rl-hyp {
+    @apply text-rose-600;
+}
+
+/* REST OF FILE IS NOT TAILWIND SPECIFIC */
+
+body { padding-bottom: 50px; padding-top: 10px; }
+
+span.s-op { color: #9d1f1f; font-style: normal; }
+span.s-ty { color: #1640b0; }
+span.s-tm { color: #9d1f1f; }
+span.s-tb { color: #338fff; }
+span.s-tc { color: #9d1f1f; font-weight:bold; }
+span.s-pc { color: #9d1f1f; font-style:italic; }
+span.s-ps { background-color: #9d1f1f;
+            color: #c0965b;
+            font-weight:bold; }
+a.ln { text-decoration-line: underline;
+       color: #335fcf; }
+
+#focusbox, .focusbox {
+  position: fixed;
+  top: 0px; left: 0px;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 15px;
+}
+
+.focusbox-inner {
+  position: relative;
+  max-width: 80vw;
+  background: white;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.3);
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.focusbox-close {
+  background: none;
+  outline: none;
+  position: absolute;
+  top: 0; right: 0;
+  font-size: 30px;
+  cursor: pointer;
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.focusbox-close:hover {
+  color: black;
+}

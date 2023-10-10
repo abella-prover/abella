@@ -1,0 +1,26 @@
+{
+  "name": "abella_doc_lib",
+  "version": "2.0.8-rc1",
+  "description": "Support code for abella_doc (https://abella-prover.org)",
+  "main": "./js/abella_doc.js",
+  "scripts": {
+    "check": "tsc -noEmit",
+    "js": "esbuild ./ts/abella_doc.ts --color=false --bundle --minify --format=esm --outfile=dist/abella_doc.js",
+    "css": "tailwindcss --output dist/abella_doc.css --input css/abella_doc.css --minify",
+    "build": "npm run js && npm run css",
+    "clean": "rimraf js dist"
+  },
+  "keywords": [],
+  "author": "Kaustuv Chaudhuri <kaustuv@chaudhuri.info>",
+  "license": "GPL-3",
+  "devDependencies": {
+    "@types/node": "^20.8.4",
+    "esbuild": "^0.19.4",
+    "rimraf": "^5.0.5",
+    "tailwindcss": "^3.3.3",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "@fancyapps/ui": "^5.0.24"
+  }
+}

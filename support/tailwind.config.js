@@ -1,5 +1,5 @@
 module.exports = {
-  content: ['**/*.{html,js}', '../src/abella_doc.ml'],
+  content: ['ts/**/*.ts'],
   theme: {
     extend: {
       fontFamily: {

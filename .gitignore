@@ -20,5 +20,7 @@
 *.native
 abella
 _build
-examples/examples.tar.gz
 /abella.install
+smoke/
+bad-examples/
+dev-examples/

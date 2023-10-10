@@ -1,7 +1,11 @@
 name: Abella check tests
 on:
-  - pull_request
-  - push
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
 jobs:
   build:
     strategy:

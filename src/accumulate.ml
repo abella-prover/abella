@@ -71,11 +71,13 @@ let merge_signs signs =
   let ktable = List.flatten ktables in
     List.fold_left add_poly_consts (ktable, []) ctables
 
-let add_decl sign = function
-  | SKind(tynames, knd) -> add_types sign tynames knd
+let add_decl sign decl =
+  match decl.el with
+  | SKind(tynames, knd) ->
+      add_types sign (List.map get_el tynames) knd.el
   | SType(ids, ty) ->
-      check_spec_logic_type ty ;
-      add_consts sign (List.map (fun id -> (id, ty)) ids)
+      check_spec_logic_type ty.el ;
+      add_consts sign (List.map (fun id -> (id.el, ty.el)) ids)
 
 let rec get_sign_accum_sigs filename =
   try match H.find sig_cache filename with
@@ -84,29 +86,31 @@ let rec get_sign_accum_sigs filename =
   with
     | Not_found ->
         H.add sig_cache filename None ;
-        let Sig(name, accums, decls) = read_lpsig filename in
-          if name <> Filename.basename filename then
+        let Sig {name ; accum_sig ; decls } = read_lpsig filename in
+          if name.el <> Filename.basename filename then
             failwithf "Expected 'sig %s.' but found 'sig %s.'"
-              (Filename.basename filename) name ;
-          let accum_signs = List.map get_sign accums in
+              (Filename.basename filename) name.el ;
+          let accum_signs = List.map get_sign_ accum_sig in
           let sign = merge_signs (pervasive_sign :: accum_signs) in
           let sign = List.fold_left add_decl sign decls in
-            H.replace sig_cache filename (Some(sign, accums)) ;
-            (sign, accums)
+            H.replace sig_cache filename (Some(sign, accum_sig)) ;
+            (sign, accum_sig)
+
 and get_sign filename = fst (get_sign_accum_sigs filename)
+
+and get_sign_ wpos = get_sign wpos.el
 
 let merge_named_clauses ncs =
   let cmp (x, _) (y, _) = (x=y) in
     List.unique ~cmp ncs
 
 let ensure_no_redefine_keywords name uclauses =
-  List.iter
-    (fun (_, head, _) ->
-       let id = uterm_head_name head in
-         if id = "pi" || id = "=>" || id = "&" then
-           failwithf "Module %s attempts to re-define keyword %s"
-             name id)
-    uclauses
+  List.iter begin fun { el = (_, head, _) ; _ } ->
+    let id = uterm_head_name head in
+    if id = "pi" || id = "=>" || id = "&" then
+      failwithf "Module %s attempts to re-define keyword %s"
+        name id
+  end uclauses
 
 let rec get_named_clauses ~sr filename =
   try match H.find mod_cache filename with
@@ -115,20 +119,26 @@ let rec get_named_clauses ~sr filename =
   with
     | Not_found ->
         H.add mod_cache filename None ;
-        let Mod(name, accumulate, uclauses) = read_lpmod filename in
-          if name <> Filename.basename filename then
+        let Mod { name ; accum ; clauses } = read_lpmod filename in
+          if name.el <> Filename.basename filename then
             failwithf "Expected 'module %s.' but found 'module %s.'"
-              (Filename.basename filename) name ;
-          ensure_no_redefine_keywords name uclauses ;
+              (Filename.basename filename) name.el ;
+          ensure_no_redefine_keywords name.el clauses ;
           let (sign, accum_sigs) = get_sign_accum_sigs filename in
-          let non_accum = List.minus accumulate accum_sigs in
+          let non_accum =
+            List.minus
+              (List.map get_el accum)
+              (List.map get_el accum_sigs) in
           let () = if non_accum <> [] then
             failwithf "Signature %s must accum_sig %s."
               filename (String.concat ", " non_accum)
           in
-          let accum_clauses = List.flatten_map (get_named_clauses ~sr) accumulate in
+          let accum_clauses =
+            List.flatten_map (get_named_clauses ~sr)
+              (List.map get_el accum) in
           let nclauses = (merge_named_clauses accum_clauses) @
-            [filename, List.map (type_uclause ~sr ~sign) uclauses]
+            [ filename,
+              List.map (type_uclause ~sr ~sign) (List.map get_el clauses) ]
           in
             H.replace mod_cache filename (Some nclauses) ;
             nclauses

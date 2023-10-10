@@ -211,7 +211,7 @@ let register_definition ~print = function
 let parse_definition ~print str =
   Lexing.from_string str |>
   Parser.top_command_start Lexer.token |>
-  fst |> register_definition ~print
+  Typing.get_el |> register_definition ~print
 
 let k_member = "member"
 let member_def_compiled = {|

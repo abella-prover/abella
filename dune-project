@@ -1,4 +1,5 @@
-(lang dune 2.7)
+(lang dune 3.11)
 (name abella)
-(version v2.0.8-dev)
+(version v2.0.8-rc1)
 (using menhir 2.0)
+(using directory-targets 0.1)

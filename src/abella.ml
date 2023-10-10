@@ -29,13 +29,6 @@ open Extensions
 open Printf
 open Accumulate
 
-let load_path = State.rref (Sys.getcwd ())
-
-let normalize_filename ?(wrt = !load_path) fn =
-  if Filename.is_relative fn
-  then Filename.concat wrt fn
-  else fn
-
 let can_read_specification = State.rref true
 
 let no_recurse = ref false
@@ -55,8 +48,6 @@ let annotate = ref false
 let witnesses = State.rref false
 
 let unfinished_theorems : string list ref = ref []
-
-exception AbortProof
 
 exception UserInterrupt
 
@@ -125,9 +116,14 @@ end = struct
 end
 
 let link_message pos url =
+  let old_id = match Annot.last_commit_id () with
+    | None -> `Null
+    | Some id -> `Int id
+  in
   let ann = Annot.fresh "link" in
   Annot.extend ann "source" @@ json_of_position pos ;
   Annot.extend ann "url" @@ `String url ;
+  Annot.extend ann "parent" old_id ;
   Annot.commit ann
 
 type severity = Info | Error
@@ -160,9 +156,12 @@ let system_message_format ?severity fmt =
 
 (* Input *)
 
+let input_wrt = ref ""
+
 let perform_switch_to_interactive () =
   assert !switch_to_interactive ;
   switch_to_interactive := false ;
+  input_wrt := "" ;
   lexbuf := Lexing.from_channel ~with_positions:false stdin ;
   interactive := true ;
   out := stdout ;
@@ -191,11 +190,11 @@ let type_inference_error (pos, ct) exp act =
   match ct with
   | CArg ->
       system_message ~severity:Error
-        "Expression has type %s but is used here with type %s.\n%!"
+        "Expression has type %s but is used here with type %s."
         (ty_to_string act) (ty_to_string exp)
   | CFun ->
       system_message ~severity:Error
-        "Expression is applied to too many arguments\n%!"
+        "Expression is applied to too many arguments"
 
 let teyjus_only_keywords =
   ["closed"; "exportdef"; "import"; "infix"; "infixl"; "infixr"; "local";
@@ -212,24 +211,10 @@ let warn_on_teyjus_only_keywords (ktable, ctable) =
 let update_subordination_sign sr sign =
   List.fold_left Subordination.update sr (sign_to_tys sign)
 
-let sanitize_filename fn =
-  try begin
-    let lpl = String.length !load_path in
-    let fnl = String.length fn in
-    if fnl + 1 < lpl then raise Not_found ;
-    for i = 0 to lpl - 1 do
-      if String.unsafe_get !load_path i <> String.unsafe_get fn i then
-        raise Not_found
-    done ;
-    if String.unsafe_get fn lpl <> '/' then raise Not_found ;
-    String.sub fn (lpl + 1) (fnl - lpl - 1)
-  end with
-  | Not_found -> fn
-
 let read_specification name =
   clear_specification_cache () ;
   if !interactive then
-    system_message "Reading specification %S." (sanitize_filename name) ;
+    system_message "Reading specification %S." name ;
   let read_sign = get_sign name in
   let () = warn_on_teyjus_only_keywords read_sign in
   let sign' = merge_signs [!sign; read_sign] in
@@ -240,20 +225,11 @@ let read_specification name =
   sign := sign' ;
   Prover.add_clauses clauses'
 
-
 (* Compilation and importing *)
 
 let comp_spec_sign = State.rref ([], [])
 let comp_spec_clauses = State.rref []
 let comp_content = State.rref []
-
-let debug_spec_sign1 ?(msg="") () =
-  let (kt, ct) = !comp_spec_sign in
-  Printf.printf "DEBUG: %sspec_ktable = [%s], spec_ctable = [%s]\n"
-    (if msg = "" then "" else "[" ^ msg ^ "] ")
-    (String.concat "," (List.map fst kt))
-    (String.concat "," (List.map fst ct))
-let debug_spec_sign ?(msg="") () = ignore msg
 
 let marshal citem =
   match !compile_out with
@@ -281,7 +257,6 @@ let predicates (_ktable, ctable) =
 let write_compilation () =
   marshal Version.self_digest ;
   marshal Version.version ;
-  debug_spec_sign ~msg:"write_compilation" () ;
   marshal !comp_spec_sign ;
   marshal !comp_spec_clauses ;
   marshal (predicates !sign) ;
@@ -355,31 +330,6 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
 
 let imported = State.rref []
 
-let maybe_make_importable ?(force=false) root =
-  let thc = root ^ ".thc" in
-  let thm = root ^ ".thm" in
-  let force = force || begin
-      Sys.file_exists thm && begin
-        not (Sys.file_exists thc) || begin
-          let thmstat = Unix.stat thm in
-          let thcstat = Unix.stat thc in
-          thmstat.Unix.st_mtime > thcstat.Unix.st_mtime
-        end
-      end
-    end in
-  if not !Sys.interactive && force then begin
-    if !no_recurse then
-      failwithf "Recursive invocation of Abella prevented with the -nr flag" ;
-    let cmd = Printf.sprintf "%s %S -o %S.out -c %S" Sys.executable_name thm root thc in
-    let sanitized_cmd = Printf.sprintf "abella %S -o %S.out -c %S"
-        (sanitize_filename thm)
-        (sanitize_filename root)
-        (sanitize_filename thc) in
-    system_message "Running: %s.\n%!" sanitized_cmd ;
-    if Sys.command cmd <> 0 then
-      failwithf "Could not create %S" thc
-  end
-
 let replace_atom_term decl _defn_name defn t =
   let ty = tc [] defn in
   let t = Term.abstract decl ty t in
@@ -435,109 +385,121 @@ let add_lemma name tys thm =
       system_message "Warning: overriding existing lemma named %S." name
   | _ -> ()
 
-let import pos filename withs =
-  let rec aux filename withs =
-    maybe_make_importable filename ;
-    if not (List.mem filename !imported) then begin
-      imported := filename :: !imported ;
-      let file_dir = Filename.dirname (filename :> string) in
-      let thc = (filename :> string) ^ ".thc" in
-      let file =
-        let ch = open_in_bin thc in
-        let dig = (Marshal.from_channel ch : Digest.t) in
-        let ver = (Marshal.from_channel ch : string) in
-        if dig <> Version.self_digest then begin
-          system_message
-            "Warning: %S was compiled with a different version (%s) of Abella; recompiling...\n%!"
-            thc ver ;
-          close_in ch ;
-          maybe_make_importable ~force:true filename ;
-          let ch = open_in_bin thc in
-          ignore (Marshal.from_channel ch : Digest.t) ;
-          ignore (Marshal.from_channel ch : string) ;
-          ch
-        end else ch
-      in
-      let imp_spec_sign = (Marshal.from_channel file : sign) in
-      let imp_spec_clauses = (Marshal.from_channel file : clause list) in
-      let imp_predicates = (Marshal.from_channel file : string list) in
-      let imp_content = (Marshal.from_channel file : compiled list) in
-      ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates ;
-      let rec process_decls decls =
-        match decls with
-        | [] -> ()
-        | decl :: decls -> begin
-            match decl with
-            | CTheorem(name, tys, thm, _) ->
-                add_lemma name tys thm ;
-                process_decls decls
-            | CDefine(flav, tyargs, idtys, clauses) ->
-                let ids = List.map fst idtys in
-                check_noredef ids;
-                let (basics, consts) = !sign in
-                let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
-                sign := (basics, consts) ;
-                Prover.add_defs ~print:system_message tyargs idtys flav clauses ;
-                process_decls decls
-            | CImport(filename, withs) ->
-                aux (normalize_filename (Filename.concat file_dir filename)) withs ;
-                process_decls decls
-            | CKind(ids, knd) ->
-                check_noredef ids ;
-                Prover.add_global_types ids knd;
-                process_decls decls
-            | CType(ids, (Ty(_, aty) as ty)) when aty = propaty-> begin
-                (* Printf.printf "Need to instantiate: %s.\n%!" (String.concat ", " ids) ; *)
-                let instantiate_id decls id =
-                  try begin
-                    let open Typing in
-                    let pred_name = List.assoc id withs in
-                    let pred = UCon (ghost, pred_name, Term.fresh_tyvar ()) in
-                    let pred = type_uterm ~sr:!sr ~sign:!sign ~ctx:[] pred in
-                    let pred_ty = tc [] pred in
-                    tid_ensure_fully_inferred ~sign:!sign (pred_name, pred_ty) ;
-                    if ty <> pred_ty then
-                      failwithf "Expected type %s:%s, got %s:%s"
-                        id (ty_to_string ty)
-                        pred_name (ty_to_string pred_ty) ;
-                    List.map (replace_atom_compiled id pred_name pred) decls
-                  end with Not_found ->
-                    failwithf "Missing instantiation for %s" id
-                in
-                List.fold_left instantiate_id decls ids |>
-                process_decls
-              end
-            | CType(ids,ty) ->
-                check_noredef ids ;
-                Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
-                process_decls decls
-            | CClose(ty_subords) ->
-                List.iter
-                  (fun (ty, prev) ->
-                     let curr = Subordination.subordinates !sr ty in
-                     match List.minus curr prev with
-                     | [] -> ()
-                     | xs ->
-                         failwithf
-                           "Cannot close %s since it is now subordinate to %s"
-                           (aty_to_string ty)
-                           (String.concat ", " (List.map aty_to_string xs)))
-                  ty_subords ;
-                Prover.close_types !sign !Prover.clauses (List.map fst ty_subords) ;
-                process_decls decls
-          end
-      in
-      process_decls imp_content
-    end
-  in
+let rec import ~wrt pos impfile withs =
+  let filename = Filepath.normalize ~wrt impfile in
   if List.mem filename !imported then
-    system_message "Ignoring import: %s has already been imported." filename
+    system_message "Ignoring repeated import: %S." filename
   else begin
-    system_message "Importing from %S." (sanitize_filename filename) ;
-    aux (normalize_filename filename) withs ;
+    system_message "Importing: %S." filename ;
     link_message pos (filename ^ ".html") ;
+    import_load filename withs
   end
 
+and import_load filename withs =
+  if List.mem filename !imported then () else begin
+    imported := filename :: !imported ;
+    let thc_name = filename ^ ".thc" in
+    let thm_name = filename ^ ".thm" in
+    let recursive_invoke () =
+      if !no_recurse then
+        failwithf "Recursive invocation of Abella prevented with the -nr flag" ;
+      let out_name = filename ^ ".out" in
+      let cmd = Printf.sprintf " %S -o %S -c %S" thm_name out_name thc_name in
+      system_message "Running: abella%s" cmd ;
+      if Sys.command (Sys.executable_name ^ cmd) <> 0 then
+        failwithf "Could not create %S" thc_name
+    in
+    if not @@ Sys.file_exists thm_name then
+      failwithf "File not found: %S" thm_name ;
+    if not (Sys.file_exists thc_name) ||
+       Unix.((stat thm_name).st_mtime > (stat thc_name).st_mtime)
+    then recursive_invoke () ;
+    let thc_ch =
+      let ch = open_in_bin thc_name in
+      let dig = (Marshal.from_channel ch : Digest.t) in
+      let ver = (Marshal.from_channel ch : string) in
+      if dig = Version.self_digest then ch else begin
+        system_message
+          "Warning: %S was compiled with a different version (%s) of Abella; Need to recompile.%!"
+          thc_name ver ;
+        close_in ch ;
+        recursive_invoke () ;
+        let ch = open_in_bin thc_name in
+        ignore (Marshal.from_channel ch : Digest.t) ;
+        ignore (Marshal.from_channel ch : string) ;
+        ch
+      end in
+    let imp_spec_sign = (Marshal.from_channel thc_ch : sign) in
+    let imp_spec_clauses = (Marshal.from_channel thc_ch : clause list) in
+    let imp_predicates = (Marshal.from_channel thc_ch : string list) in
+    let imp_content = (Marshal.from_channel thc_ch : compiled list) in
+    ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates ;
+    let rec process_decls decls =
+      match decls with
+      | [] -> ()
+      | decl :: decls -> begin
+          match decl with
+          | CTheorem(name, tys, thm, _) ->
+              add_lemma name tys thm ;
+              process_decls decls
+          | CDefine(flav, tyargs, idtys, clauses) ->
+              let ids = List.map fst idtys in
+              check_noredef ids;
+              let (basics, consts) = !sign in
+              let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
+              sign := (basics, consts) ;
+              Prover.add_defs ~print:system_message tyargs idtys flav clauses ;
+              process_decls decls
+          | CImport(impname, withs) ->
+              import_load (Filepath.normalize ~wrt:filename impname) withs ;
+              process_decls decls
+          | CKind(ids, knd) ->
+              check_noredef ids ;
+              Prover.add_global_types ids knd;
+              process_decls decls
+          | CType(ids, (Ty(_, aty) as ty)) when aty = propaty-> begin
+              (* Printf.printf "Need to instantiate: %s.\n%!" (String.concat ", " ids) ; *)
+              let instantiate_id decls id =
+                try begin
+                  let open Typing in
+                  let pred_name = List.assoc id withs in
+                  let pred = UCon (ghost, pred_name, Term.fresh_tyvar ()) in
+                  let pred = type_uterm ~sr:!sr ~sign:!sign ~ctx:[] pred in
+                  let pred_ty = tc [] pred in
+                  tid_ensure_fully_inferred ~sign:!sign (pred_name, pred_ty) ;
+                  if ty <> pred_ty then
+                    failwithf "Expected type %s:%s, got %s:%s"
+                      id (ty_to_string ty)
+                      pred_name (ty_to_string pred_ty) ;
+                  List.map (replace_atom_compiled id pred_name pred) decls
+                end with Not_found ->
+                  failwithf "Missing instantiation for %s" id
+              in
+              List.fold_left instantiate_id decls ids |>
+              process_decls
+            end
+          | CType(ids,ty) ->
+              check_noredef ids ;
+              Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
+              process_decls decls
+          | CClose(ty_subords) ->
+              List.iter
+                (fun (ty, prev) ->
+                   let curr = Subordination.subordinates !sr ty in
+                   match List.minus curr prev with
+                   | [] -> ()
+                   | xs ->
+                       failwithf
+                         "Cannot close %s since it is now subordinate to %s"
+                         (aty_to_string ty)
+                         (String.concat ", " (List.map aty_to_string xs)))
+                ty_subords ;
+              Prover.close_types !sign !Prover.clauses (List.map fst ty_subords) ;
+              process_decls decls
+        end
+    in
+    process_decls imp_content
+  end
 
 (* Proof processing *)
 
@@ -616,8 +578,8 @@ let set k v =
                         ~key:"witnesses"
                         ~expected:"'on' or 'off'"
 
-  | "load_path", QStr s -> load_path := normalize_filename ~wrt:(Sys.getcwd ()) s
-
+  | "load_path", QStr s ->
+      Filepath.set_load_path ~wrt:!input_wrt s
   | _, _ -> failwithf "Unknown key '%s'" k
 
 let handle_search_witness w =
@@ -643,7 +605,7 @@ and proof_processor = {
 
 let current_state = State.rref Process_top
 
-let print_clauses () =
+let _print_clauses () =
   List.iter print_clause !Prover.clauses
 
 let rec process1 () =
@@ -679,7 +641,7 @@ let rec process1 () =
   | Parser.Error ->
       State.Undo.undo () ;
       system_message ~severity:Error
-        "Syntax error%s.\n%!" (position !lexbuf) ;
+        "Syntax error%s." (position !lexbuf) ;
       Lexing.flush_input !lexbuf ;
       interactive_or_exit ()
   | TypeInferenceFailure(exp, act, ci) ->
@@ -694,7 +656,7 @@ let rec process1 () =
         match !current_state with
         | Process_top ->
             if not (is_interactive ()) && !unfinished_theorems <> [] then begin
-              system_message "There were skips in these theorem(s): %s\n"
+              system_message "There were skips in these theorem(s): %s"
                 (String.concat ", "  !unfinished_theorems)
             end ;
             if !annotate then fprintf !out "]\n%!" ;
@@ -718,7 +680,7 @@ let rec process1 () =
                                    \ To help improve Abella's error messages, please file a bug report at\n\
                                    \ <https://github.com/abella-prover/abella/issues>. Thanks!"
       in
-      system_message ~severity:Error "Error: %s\n%!" msg ;
+      system_message ~severity:Error "Error: %s" msg ;
       interactive_or_exit ()
 
 and process_proof1 proc =
@@ -733,14 +695,14 @@ and process_proof1 proc =
   end ;
   suppress_proof_state_display := false ;
   if !interactive && not !annotate then fprintf !out "%s < %!" proc.thm ;
-  let input, input_pos = Parser.command_start Lexer.token !lexbuf in
-  let cmd_string = command_to_string input in
+  let input = Parser.command_start Lexer.token !lexbuf in
+  let cmd_string = command_to_string input.el in
   if not (!interactive || !annotate) then fprintf !out "%s.\n%!" cmd_string ;
   if !annotate then Annot.extend annot "command" @@ `String cmd_string ;
-  if !annotate && fst input_pos != Lexing.dummy_pos then
-    Annot.extend annot "range" @@ json_of_position input_pos ;
+  if !annotate && fst input.pos != Lexing.dummy_pos then
+    Annot.extend annot "range" @@ json_of_position input.pos ;
   let perform () =
-    begin match input with
+    begin match input.el with
     | Induction(args, hn)           -> Prover.induction ?name:hn args
     | CoInduction hn                -> Prover.coinduction ?name:hn ()
     | Apply(depth, h, args, ws, hn) -> Prover.apply ?depth ?name:hn h args ws ~term_witness
@@ -806,14 +768,14 @@ and process_proof1 proc =
 and process_top1 () =
   if !interactive && not !annotate then fprintf !out "Abella < %!" ;
   let annot = Annot.fresh "top_command" in
-  let input, input_pos = Parser.top_command_start Lexer.token !lexbuf in
-  if fst input_pos != Lexing.dummy_pos then
-    Annot.extend annot "range" @@ json_of_position input_pos ;
-  let cmd_string = top_command_to_string input in
+  let input = Parser.top_command_start Lexer.token !lexbuf in
+  if fst input.pos != Lexing.dummy_pos then
+    Annot.extend annot "range" @@ json_of_position input.pos ;
+  let cmd_string = top_command_to_string input.el in
   if not (!interactive || !annotate) then fprintf !out "%s.\n%!" cmd_string ;
   Annot.extend annot "command" @@ `String cmd_string ;
   Annot.commit annot ;
-  begin match input with
+  begin match input.el with
   | Theorem(name, tys, thm) -> begin
       let st = get_bind_state () in
       let seq = Prover.copy_sequent () in
@@ -845,7 +807,7 @@ and process_top1 () =
         compile (CTheorem(n, tys, t, Finished))
       end gen_thms ;
   | Define _ ->
-      compile (Prover.register_definition ~print:system_message input)
+      compile (Prover.register_definition ~print:system_message input.el)
   | TopCommon(Back) ->
       if !interactive then State.Undo.back 2
       else failwith "Cannot use interactive commands in non-interactive mode"
@@ -857,12 +819,13 @@ and process_top1 () =
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, pos, withs) ->
       compile (CImport (filename, withs)) ;
-      import pos filename withs;
+      import ~wrt:!input_wrt pos filename withs
   | Specification(filename, pos) ->
       if !can_read_specification then begin
-        read_specification (normalize_filename filename) ;
+        let filename = Filepath.normalize ~wrt:!input_wrt filename in
+        read_specification filename ;
         ensure_finalized_specification () ;
-        if !annotate then link_message pos (filename ^ ".html") ;
+        if !annotate then link_message pos (filename ^ ".lp.html") ;
       end else
         failwith "Specification can only be read \
                  \ at the begining of a development."
@@ -871,12 +834,10 @@ and process_top1 () =
       check_noredef ids;
       Prover.add_global_types ids knd;
       compile (CKind (ids,knd)) ;
-      debug_spec_sign ~msg:"Kind" ()
   | Type(ids, ty) ->
       check_noredef ids ;
       Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
       compile (CType(ids, ty)) ;
-      debug_spec_sign ~msg:"Type" ()
   | Close(atys) ->
       Prover.close_types !sign !Prover.clauses atys ;
       compile (CClose(List.map (fun aty -> (aty, Subordination.subordinates !sr aty)) atys))
@@ -903,8 +864,6 @@ let set_compile_out filename =
       (Filename.basename filename) ".part" in
   compile_out_temp_filename := fn ;
   compile_out := Some ch
-
-let makefile = ref false
 
 let parse_value v =
   if String.length v < 1 then bugf "parse_value" ;
@@ -952,41 +911,33 @@ let options =
 
     "-v", Arg.Unit print_version, " Show version and exit" ;
 
-    "-M", Arg.Set makefile, " Output dependencies in Makefile format" ;
+    "-M", Arg.Unit (fun () ->
+        system_message ~severity:Error
+          "Error: -M is deprecated; run abella_dep instead" ;
+        failwith "Deprecated: -M"
+      ), " [deprecated]" ;
   ]
 
-let input_files = ref []
-
-let set_input () =
-  match !input_files with
-  | [] -> ()
-  | [filename] ->
-      interactive := false ;
-      lexbuf := lexbuf_from_file filename ;
-      load_path := normalize_filename ~wrt:(Sys.getcwd ()) (Filename.dirname filename)
-  | fs ->
-      system_message ~severity:Error
-        "Error: Multiple files specified as input: %s.\n%!"
-        (String.concat ", " fs) ;
-      exit 1
-
-let add_input filename =
-  input_files := !input_files @ [filename]
+let set_input filename =
+  if not !interactive then begin
+    system_message ~severity:Error
+      "Error: Multiple files specified as input." ;
+    failwith "Too many inputs"
+  end ;
+  interactive := false ;
+  lexbuf := lexbuf_from_file filename ;
+  input_wrt := filename
 
 let () =
   Sys.set_signal Sys.sigint
     (Sys.Signal_handle (fun _ -> raise UserInterrupt)) ;
 
-  Arg.parse options add_input usage_message ;
+  Arg.parse options set_input usage_message ;
 
-  if not !Sys.interactive then
-    if !makefile then begin
-      List.iter Depend.print_deps !input_files ;
-    end else begin
-      set_input () ;
-      if !annotate then fprintf !out "[%!" ;
-      if !interactive then system_message "%s" welcome_msg ;
-      State.Undo.set_enabled (!interactive || !switch_to_interactive) ;
-      while true do process1 () done
-    end
+  if not !Sys.interactive then begin
+    if !annotate then fprintf !out "[%!" ;
+    if !interactive then system_message "%s" welcome_msg ;
+    State.Undo.set_enabled (!interactive || !switch_to_interactive) ;
+    while true do process1 () done
+  end
 ;;

@@ -1,18 +1,36 @@
-Changes in 2.0.8-dev from 2.0.7
+Changes in 2.0.8-rc1 from 2.0.7
 -------------------------------
 
 Possibly breaking changes
 
-* Abella now uses Dune instead of ocamlbuild.  
+* Abella now uses [Dune][dune] instead of [ocamlbuild][ocamlbuild].  
   (#138, additional contributions: Chase Johnson)
-* Abella's parser changed from ocamlbuild to Menhir
-* Abella's annotation mode (-a) now produces annotations in JSON format
+* Abella's parser changed from [ocamlyacc][ocamlyacc] to [Menhir][menhir]
+* Abella's annotation mode (`-a`) now produces annotations in JSON format
   instead of in HTML fragments. The JSON schema should be seen as
   experimental for now and subject to change in the future.
+* Abella's dependency generator option (`-M`) has now been moved to
+  a separate program (see "Additions" below).
 
+[dune]: https://dune.build
+[ocamlbuild]: https://github.com/ocaml/ocamlbuild/
+[ocamlyacc]: https://v2.ocaml.org/manual/lexyacc.html#s%3Aocamlyacc-overview
+[menhir]: http://gallium.inria.fr/~fpottier/menhir/
 
 Additions
 
+* **Documentation Generation (`abella_doc`)**: There is now a special program
+  called `abella_doc` that can be used to convert a collection of Abella
+  sources into HTML pages that resemble the Abella examples on the
+  web-site: https://abella-prover.org/examples/
+  
+  Run `abella_doc -help` for usage instructions.
+* **Dependency Generation (`abella_dep`)**: There is now a special
+  program called `abella_dep` that can be used to generate a
+  `Makefile`-based dependency graph. Executing `make` on that
+  `Makefile` will recompile all the Abella sources specified to
+  `abella_dep`. This `Makefile` can be used in parallel (i.e., `make -j`)
+  mode.
 * Mention that a proof contained "skip" during interactive mode, and a
   summary of skipped theorems in batch mode.  
   (#137, reported by Farah Al Wardani)

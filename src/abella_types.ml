@@ -183,14 +183,22 @@ type any_command =
   | ACommon      of common_command
 
 type sig_decl =
-  | SKind        of id list * knd
-  | SType        of id list * ty
+  | SKind        of id wpos list * knd wpos
+  | SType        of id wpos list * ty wpos
 
 type lpsig =
-  | Sig of string * string list * sig_decl list
+  | Sig of {
+      name : string wpos ;
+      accum_sig : string wpos list ;
+      decls : sig_decl wpos list ;
+    }
 
 type lpmod =
-  | Mod of string * string list * uclause list
+  | Mod of {
+      name : string wpos ;
+      accum : string wpos list ;
+      clauses : uclause wpos list ;
+    }
 
 let udef_to_string (head, body) =
   if body = UTrue then

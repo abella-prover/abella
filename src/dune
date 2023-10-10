@@ -3,14 +3,24 @@
   (modules abella)
   (libraries abella_lib unix))
 
+(rule
+  (target abella_doc_dist.ml)
+  (deps ../support/dist/abella_doc.js ../support/dist/abella_doc.css)
+  (action (run ocaml-crunch -m plain -o abella_doc_dist.ml ../support/dist)))
+
 (executable
   (name abella_doc)
   (modules abella_doc)
   (libraries abella_lib unix))
 
+(executable
+  (name abella_dep)
+  (modules abella_dep)
+  (libraries abella_lib unix))
+
 (library
   (name abella_lib)
-  (modules :standard \ abella abella_doc)
+  (modules :standard \ abella abella_doc abella_dep)
   (wrapped false))
 
 (ocamllex
@@ -23,3 +33,7 @@
   (modules parser)
   (infer true)
   (flags --explain))
+
+(alias
+  (name default)
+  (deps abella.exe abella_doc.exe abella_dep.exe))

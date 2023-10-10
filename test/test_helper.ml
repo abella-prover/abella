@@ -26,7 +26,7 @@ let parse_uclauses str =
   Parser.one_mod_body Lexer.token (Lexing.from_string str)
 
 let parse_clauses str =
-  List.map (type_uclause ~sr:!sr ~sign:!sign) (parse_uclauses str)
+  List.map (fun cl -> type_uclause ~sr:!sr ~sign:!sign cl.el) (parse_uclauses str)
 
 let parse_decls str =
   Parser.one_sig_body Lexer.token (Lexing.from_string str)
@@ -58,11 +58,12 @@ let eval_clauses_string = {|
 |}
 
 let process_decls decls =
+  let decls = List.map (fun decl -> Typing.{ el = decl ; pos = (Lexing.dummy_pos, Lexing.dummy_pos) }) decls in
   sign := List.fold_left add_decl !sign decls ;
   sr := List.fold_left Subordination.update !sr
-    (List.filter_map
-       (function Abella_types.SType(_, ty) -> Some ty | _ -> None)
-       decls)
+      (List.filter_map
+         (function { el = Abella_types.SType(_, ty) ; _ } -> Some ty.el | _ -> None)
+         decls)
 
 let () = process_decls (parse_decls eval_sig_string)
 
@@ -99,7 +100,7 @@ let nat_sig_string = {|
 let () = process_decls (parse_decls nat_sig_string)
 
 let process_top_command str =
-  match fst (parse_top_command str) with
+  match (parse_top_command str).el with
     | Abella_types.Kind(ids, knd) ->
         add_global_types ids knd ;
     | Abella_types.Type(ids, ty) ->

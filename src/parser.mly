@@ -65,7 +65,7 @@
       error_report ~pos
         "Invalid bound variable %S.@\nIdentifiers matching n[0-9]+ are reserved for nominal constants." vid
 
-  let deloc_id (id, (pos, _)) =
+  let deloc_id Typing.{ el = id ; pos = (pos, _) } =
     if is_illegal_constant id then
       error_report ~pos
         "Invalid bound variable %S.@\n\
@@ -75,19 +75,22 @@
 
   let deloc_id_ty (lid, ty) = (deloc_id lid, ty)
 
-  let make_sig sigid sigpre sigdecls =
+  let make_sig (sigid : string wpos) (sigpre : string wpos list) sigdecls =
     let badconsts = ref [] in
-    let collect_bad_decl = function
+    let collect_bad_decl decl =
+      match decl.el with
       | Abella_types.SKind _ -> ()
       | Abella_types.SType (ids, _) ->
-          List.iter begin fun k ->
-            if is_illegal_constant k then
-              badconsts := k :: !badconsts
-          end ids
+         List.iter begin fun k ->
+           if is_illegal_constant k.el then
+             badconsts := k.el :: !badconsts
+           end ids
     in
     List.iter collect_bad_decl sigdecls ;
     match List.rev !badconsts with
-    | [] -> Abella_types.Sig (sigid, sigpre, sigdecls)
+    | [] -> Abella_types.Sig { name = sigid ;
+                               accum_sig = sigpre ;
+                               decls = sigdecls }
     | (_k :: _) as ks ->
       let ks = String.concat ", " ks in
       error_report "Invalid signature constants: %s@\n\
@@ -143,18 +146,18 @@
 %type <Abella_types.lpsig> lpsig
 %type <Abella_types.lpmod> lpmod
 %type <Abella_types.sig_decl> sig_decl
-%type <Abella_types.uclause> mod_clause
+%type <Abella_types.uclause Typing.wpos> mod_clause
 %type <Abella_types.udef_clause list> defs
-%type <Abella_types.command * Typing.pos> command_start
-%type <Abella_types.top_command * Typing.pos> top_command_start
-%type <Abella_types.any_command * Typing.pos> any_command_start
+%type <Abella_types.command Typing.wpos> command_start
+%type <Abella_types.top_command Typing.wpos> top_command_start
+%type <Abella_types.any_command Typing.wpos> any_command_start
 %type <Abella_types.witness> search_witness
 %type <(int * int option) list> depth_spec
 
 %type <Typing.uterm> one_term
 %type <Typing.umetaterm> one_metaterm
 %type <Abella_types.sig_decl list> one_sig_body
-%type <Abella_types.uclause list> one_mod_body
+%type <Abella_types.uclause Typing.wpos list> one_mod_body
 %type <Abella_types.udef_clause list> one_defs
 
 %%
@@ -170,8 +173,8 @@ hyp:
     { "_" }
 
 loc_id:
-  | x=id
-    { (x, $loc(x)) }
+  | x=located(id)
+    { x }
 
 id:
   | x=STRINGID    { x }
@@ -229,9 +232,9 @@ paid:
   | LPAREN; x=loc_id; COLON; ty=ty; RPAREN
     { (x, ty) }
   | UNDERSCORE
-    { (("_", $loc($1)), Term.fresh_tyvar ()) }
+    { (Typing.{ el = "_" ; pos = $loc($1) }, Term.fresh_tyvar ()) }
   | LPAREN; UNDERSCORE; COLON; ty=ty; RPAREN
-    { (("_", $loc($2)), ty) }
+    { (Typing.{ el = "_" ; pos = $loc($2) }, ty) }
 
 contexted_term:
   | cx=context; TURN; gl=term
@@ -274,8 +277,8 @@ exp:
   | LPAREN; t=term; RPAREN
     { change_pos $loc t }
   | vty=paid
-    { let ((id, _), ty) = vty in
-      UCon($loc, id, ty) }
+    { let (id, ty) = vty in
+      UCon($loc, id.el, ty) }
 
 exp_list:
   | e=exp; es=exp_list
@@ -288,26 +291,28 @@ exp_list:
       [ULam($loc, id, ty, bod)] }
 
 lpsig:
-  | SIG; head=id; DOT;
+  | SIG; head=loc_id; DOT;
     pre=flatten(list(ACCUMSIG; ms=id_list; DOT {ms}));
-    body=list(sig_decl); lpend
-    { make_sig head (List.map deloc_id pre) body }
+    body=list(located(sig_decl)); lpend
+    { make_sig head pre body }
 
 sig_decl:
-  | KIND; tys=id_list; ki=knd; DOT
-    { Types.SKind(List.map deloc_id tys, ki) }
-  | TYPE; cs=id_list; ty=ty; DOT
-    { Types.SType(List.map deloc_id cs, ty) }
+  | KIND; tys=id_list; ki=located(knd); DOT
+    { Types.SKind(tys, ki) }
+  | TYPE; cs=id_list; ty=located(ty); DOT
+    { Types.SType(cs, ty) }
 
 lpmod:
-  | MODULE; head=id; DOT;
+  | MODULE; head=loc_id; DOT;
     pre=flatten(list(ACCUM; ms=id_list; DOT {ms}));
     cls=list(mod_clause); lpend
-    { Types.Mod(head, List.map deloc_id pre, cls) }
+    { Types.Mod { name = head ;
+                  accum = pre ;
+                  clauses = cls } }
 
 mod_clause:
-  | cn=clause_name; cl=clause
-    { let (h, b) = cl in (cn, h, b) }
+  | cn=clause_name; cl=located(clause)
+    { let (h, b) = cl.el in { el = (cn, h, b) ; pos = cl.pos } }
 
 %inline lpend:
   | END | EOF { }
@@ -364,8 +369,8 @@ clause_head:
   | LPAREN; head=clause_head; RPAREN
     { head }
   | f=paid; args=loption(exp_list)
-    { let ((id, _), ty) = f in
-      nested_app (UCon($loc(f), id, ty)) args }
+    { let (id, ty) = f in
+      nested_app (UCon($loc(f), id.el, ty)) args }
 
 clause_body:
   | t=term; COMMA; bod=clause_body
@@ -641,11 +646,11 @@ pure_top_command:
     { Types.Define(Types.CoInductive, xs, ds) }
   | QUERY; f=metaterm; DOT
     { Types.Query(f) }
-  | IMPORT; iloc=located(QSTRING);
+  | IMPORT; im=located(QSTRING);
     ws=loption(WITH; ws=import_withs {ws}); DOT
-    { let i, loc = iloc in Types.Import(i, loc, ws) }
-  | SPECIFICATION; sploc=located(QSTRING); DOT
-    { let spec, loc = sploc in Types.Specification(spec, loc) }
+    { Types.Import(im.el, im.pos, ws) }
+  | SPECIFICATION; spec=located(QSTRING); DOT
+    { Types.Specification(spec.el, spec.pos) }
   | KKIND; tys=id_list; ki=knd; DOT
     { Types.Kind(List.map deloc_id tys, ki) }
   | TTYPE; cs=id_list; ty=ty; DOT
@@ -735,4 +740,4 @@ one_defs:
 
 %inline
 located(X):
-  | x=X { (x, $loc) }
+  | x=X { Typing.{ el = x ; pos = $loc } }

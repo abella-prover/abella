@@ -23,8 +23,3 @@ jobs:
       - run: opam install . --deps-only --with-test
       - run: opam exec -- dune build
       - run: opam exec -- dune runtest
-      - name: Upload the build artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.os }}-${{ matrix.ocaml-compiler }}-abella.exe
-          path: _build/default/src/abella.exe

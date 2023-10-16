@@ -98,7 +98,7 @@ Additions
 
   You can read more about it here:
 
-     http://abella-prover.org/schm-poly/index.html
+     https://abella-prover.org/schm-poly/index.html
 
   Thanks to Yuting Wang and Gopalan Nadathur for developing the theory
   to match the implementation by Yuting.

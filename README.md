@@ -8,7 +8,7 @@ anywhere.
 
 Use the following walkthrough for an introduction to using Abella:
 
-  http://abella-prover.org/walkthrough.html
+  https://abella-prover.org/walkthrough.html
 
 
 More Information
@@ -16,7 +16,7 @@ More Information
 
 More information on Abella is available at
 
-  http://abella-prover.org/
+  https://abella-prover.org/
 
 
 Bugs, Feature Requests, and Issues

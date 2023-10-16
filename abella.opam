@@ -8,7 +8,7 @@ authors: [
   "Yuting Wang"
   "Kaustuv Chaudhuri"
 ]
-homepage: "http://abella-prover.org"
+homepage: "https://abella-prover.org"
 license: "GPL-3.0-only"
 build: [
   [make "all-release" "abella.install"]

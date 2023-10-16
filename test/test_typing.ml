@@ -1,4 +1,5 @@
 open OUnit
+open Extensions
 open Test_helper
 open Typing
 open Term

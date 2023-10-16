@@ -18,6 +18,7 @@ depends: [
   "menhir" { >= "20211012" & build }
   "dune" { >= "3.11" & build }
   "crunch" { >= "3.3.0" & build }
+  "yojson" { >= "2.1.1" & build }
   "ounit2" { with-test }
 ]
 bug-reports: "https://github.com/abella-prover/abella/issues"

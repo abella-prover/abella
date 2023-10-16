@@ -80,8 +80,8 @@ function sequentToString(obj: SequentObj, doInsts?: boolean): string {
   return repr;
 }
 
-function isPresent<A>(arg: A | undefined): A {
-  if (arg === undefined) throw new Error("Bug: isPresent()");
+function isPresent<A>(arg: A | null | undefined): A {
+  if (arg === undefined || arg === null) throw new Error("Bug: isPresent()");
   return arg;
 }
 
@@ -97,15 +97,21 @@ class Content {
   }
 
   addMark(pos: number, thing: string) {
-    if (pos < 0 || pos > this.source.length)
-      throw new Error(`bug: Content.addMark(${pos}, ${thing})`);
+    if (pos < 0 || pos > this.source.length) {
+      throw new Error(`bug: Content.addMark(${pos}, ${thing}, limit=${this.source.length})`);
+      // console.log(`bug: Content.addMark(${pos}, ${thing}, limit=${this.source.length})`);
+      // return;
+    }
     this.marks.push([pos, thing]);
     this.dirty = true;          // [HACK] optimizable?
   }
 
   fontify(start: number, stop: number, rex: RegExp, cls: string) {
-    if (start < 0 || start > stop || stop > this.source.length)
+    if (start < 0 || start > stop || stop > this.source.length) {
       throw new Error(`bug: Content.fontify(${start}, ${stop}, ..., ${cls})`);
+      // console.log(`bug: Content.fontify(${start}, ${stop}, ..., ${cls})`);
+      // return;
+    }
     const extract = this.source.slice(start, stop);
     for (let match of extract.matchAll(rex)) {
       const matchStart = start + isPresent(match.index);
@@ -152,11 +158,11 @@ const sigRex = /\b(type|kind)\b/g;
 const do_expand = "[expand proof]";
 const do_collapse = "[collapse proof]";
 
-function getBox(boxId: string) {
+function getBox(boxId: string): HTMLDivElement {
   const box = document.getElementById(boxId);
   if (!box) throw new Error(`Bug: cannot find #${boxId}`);
-  // box.replaceChildren();
-  return box;
+  if (box.tagName !== "DIV") throw new Error(`Bug: #${boxId} is a <${box.tagName}>, not a <div>`);
+  return box as HTMLDivElement;
 }
 
 class FocusBox {
@@ -208,17 +214,12 @@ class FocusBox {
   }
 }
 
-async function loadModule(boxId: string, thmfile: string, jsonfile: string) {
+async function loadModule(boxId: string, thmContents: string, thmJson: any[]) {
   const focusBox = new FocusBox();
   const thmBox = getBox(boxId);
   // get data
-  const init: RequestInit = {
-    method: "GET",
-    cache: "no-store",
-    headers: { pragma: "no-cache" },
-  };
-  const thmText = new Content(await fetch(thmfile, init).then(resp => resp.text()));
-  const runData = await fetch(jsonfile, init).then(resp => resp.json()) as any[];
+  const thmText = new Content(thmContents);
+  const runData = thmJson;
   // map data to chunks
   const chunkMap = new Map<number, any>();
   runData.forEach((elm) => {
@@ -271,25 +272,29 @@ async function loadModule(boxId: string, thmfile: string, jsonfile: string) {
   // create the buttons
   document.querySelectorAll('div[class="ab-proof"]').forEach((el) => {
     const proofEl = el as HTMLElement;
-    proofEl.style.display = "none";
+    for (let el = proofEl.firstChild; el != null && el.nodeType === Node.TEXT_NODE; el = proofEl.firstChild)
+      proofEl.before(el);
     const btn = document.createElement("button");
     btn.classList.add("proof-toggle");
     btn.innerText = do_expand;
-    btn.dataset.state = "C";
-    btn.addEventListener("click", () => {
-      const prevState = btn.dataset.state;
-      if (prevState === "E") {
-        btn.dataset.state = "C";
-        btn.innerText = do_expand;
+    const setDisplay = (state: "C" | "E") => {
+      btn.dataset.state = state ;
+      if (state === "C") {
+        btn.textContent = do_expand;
         proofEl.style.display = "none";
       } else {
-        btn.dataset.state = "E";
-        btn.innerText = do_collapse;
+        btn.textContent = do_collapse;
         proofEl.style.display = "";
       }
+    }
+    btn.addEventListener("click", () => {
+      const prevState = btn.dataset.state;
+      setDisplay(prevState === "C" ? "E" : "C");
     });
-    proofEl.before(document.createTextNode("\n"));
     proofEl.before(btn);
+    proofEl.before(document.createElement("br"));
+    // initial state
+    setDisplay("C");
   });
   // create the floats
   runData.forEach((elm) => {
@@ -321,33 +326,55 @@ async function loadModule(boxId: string, thmfile: string, jsonfile: string) {
   runData.forEach((elm) => {
     if (elm.float) {
       const targetChunk = document.getElementById(`chunk-${elm.id}`);
-      if (!targetChunk) throw new Error(`Bug: could not find chunk #${elm.id}`);
+      if (!targetChunk) {
+        console.log(`Bug: could not find chunk #${elm.id}`);
+        return;
+      }
       const float = document.createElement("div");
       float.classList.add("float")
-      float.style.position = "absolute";
+      float.style.position = "fixed"; // "absolute";
       float.style.zIndex = "10100";
       float.style.display = "none";
+      float.style.transformOrigin = "top left";
+      float.style.opacity = "0";
+      float.style.transition = "opacity .3s ease-in .5s";
       float.innerHTML = `<div class="float-container">${elm.float}</div>`;
-      targetChunk.addEventListener("mousemove", (ev) => {
-        const flWidth = float.offsetWidth, flHeight = float.offsetHeight;
+      targetChunk.addEventListener("mousemove", () => {
+        float.style.display = "block";
+        const flWidth = Math.max(float.offsetWidth, 1);
+        const flHeight = Math.max(float.offsetHeight, 1);
         const wWidth = window.innerWidth, wHeight = window.innerHeight;
-        const pX = ev.pageX, pY = ev.pageY;
-        const d = 10;
-        let giveUp = false;
-        float.style.display = "none";
-        if (pX + flWidth + d <= wWidth)
-          float.style.left = `${pX + d}px`;
+        const proofCommandRect = targetChunk.getBoundingClientRect();
+        let yscale = 1;
+        if (proofCommandRect.bottom + flHeight <= wHeight)
+          // below command
+          float.style.top = `${proofCommandRect.bottom}px`;
+        else if (proofCommandRect.top - flHeight >= 0)
+          // above command
+          float.style.top = `${proofCommandRect.top - flHeight}px`;
+        else if (proofCommandRect.top > wHeight - proofCommandRect.bottom) {
+          // above command scaled
+          const maxHeight = proofCommandRect.top;
+          yscale = maxHeight / flHeight;
+          float.style.top = '0px';
+          float.style.transform = `scale(${yscale})`;
+        } else {
+          // below command scaled
+          const maxHeight = Math.max(wHeight - proofCommandRect.bottom, 1);
+          yscale = maxHeight / flHeight;
+          float.style.top = `${proofCommandRect.bottom}px`;
+          float.style.transform = `scale(${yscale})`;
+        }
+        if (proofCommandRect.left + flWidth * yscale <= wWidth)
+          // left-adjusted with command
+          float.style.left = `${proofCommandRect.left}px`;
         else
-          float.style.left = `${wWidth - flWidth}px`;
-        if (pY + flHeight + d <= wHeight)
-          float.style.top = `${pY + d}px`;
-        else if (pY - flHeight - d >= 0)
-          float.style.top = `${pY - flHeight - d}px`;
-        else giveUp = true; // float doesn't fit above or below
-        if (!giveUp)
-          float.style.display = "block";
+          // flush right
+          float.style.left = `${Math.max(wWidth - flWidth * yscale, 0)}px`;
+        float.style.opacity = "1";
       });
       targetChunk.addEventListener("mouseleave", () => {
+        float.style.opacity = "0";
         float.style.display = "none";
       });
       targetChunk.addEventListener("click", (ev) => {
@@ -384,27 +411,17 @@ async function loadModule(boxId: string, thmfile: string, jsonfile: string) {
   thmBox.insertAdjacentElement("afterbegin", btnCollapseAll);
   thmBox.insertAdjacentText("afterbegin", " ");
   thmBox.insertAdjacentElement("afterbegin", btnExpandAll);
-  // const thmBox_ = document.getElementById(boxId + "_");
-  // if (thmBox_) {
-  //   thmBox_.style.display = "none";
-  //   thmBox.style.display = "";
-  // }
 }
 
-async function loadLP(sigBoxId: string, sigFile: string, sigJson: string,
-                             modBoxId: string, modFile: string, modJson: string) {
+async function loadLP(sigBoxId: string, sigContents: string, sigJson: any[],
+                      modBoxId: string, modContents: string, modJson: any[]) {
   const sigBox = getBox(sigBoxId);
   const modBox = getBox(modBoxId);
   // get data
-  const init: RequestInit = {
-    method: "GET",
-    cache: "no-store",
-    headers: { pragma: "no-cache" },
-  };
-  const sigText = new Content(await fetch(sigFile, init).then(resp => resp.text()));
-  const sigData = await fetch(sigJson, init).then(resp => resp.json()) as any[];
-  const modText = new Content(await fetch(modFile, init).then(resp => resp.text()));
-  const modData = await fetch(modJson, init).then(resp => resp.json()) as any[];
+  const sigText = new Content(sigContents);
+  const sigData = sigJson;
+  const modText = new Content(modContents);
+  const modData = modJson;
   sigData.forEach((annot) => {
     if (annot.kind === "name") {
       sigText.addMark(annot.range[0], '<span class="s-op">');

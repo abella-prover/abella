@@ -65,7 +65,7 @@
       error_report ~pos
         "Invalid bound variable %S.@\nIdentifiers matching n[0-9]+ are reserved for nominal constants." vid
 
-  let deloc_id Typing.{ el = id ; pos = (pos, _) } =
+  let deloc_id { el = id ; pos = (pos, _) } =
     if is_illegal_constant id then
       error_report ~pos
         "Invalid bound variable %S.@\n\
@@ -146,18 +146,18 @@
 %type <Abella_types.lpsig> lpsig
 %type <Abella_types.lpmod> lpmod
 %type <Abella_types.sig_decl> sig_decl
-%type <Abella_types.uclause Typing.wpos> mod_clause
+%type <Abella_types.uclause Extensions.wpos> mod_clause
 %type <Abella_types.udef_clause list> defs
-%type <Abella_types.command Typing.wpos> command_start
-%type <Abella_types.top_command Typing.wpos> top_command_start
-%type <Abella_types.any_command Typing.wpos> any_command_start
+%type <Abella_types.command Extensions.wpos> command_start
+%type <Abella_types.top_command Extensions.wpos> top_command_start
+%type <Abella_types.any_command Extensions.wpos> any_command_start
 %type <Abella_types.witness> search_witness
 %type <(int * int option) list> depth_spec
 
 %type <Typing.uterm> one_term
 %type <Typing.umetaterm> one_metaterm
 %type <Abella_types.sig_decl list> one_sig_body
-%type <Abella_types.uclause Typing.wpos list> one_mod_body
+%type <Abella_types.uclause Extensions.wpos list> one_mod_body
 %type <Abella_types.udef_clause list> one_defs
 
 %%
@@ -232,9 +232,9 @@ paid:
   | LPAREN; x=loc_id; COLON; ty=ty; RPAREN
     { (x, ty) }
   | UNDERSCORE
-    { (Typing.{ el = "_" ; pos = $loc($1) }, Term.fresh_tyvar ()) }
+    { ({ el = "_" ; pos = $loc($1) }, Term.fresh_tyvar ()) }
   | LPAREN; UNDERSCORE; COLON; ty=ty; RPAREN
-    { (Typing.{ el = "_" ; pos = $loc($2) }, ty) }
+    { ({ el = "_" ; pos = $loc($2) }, ty) }
 
 contexted_term:
   | cx=context; TURN; gl=term
@@ -740,4 +740,4 @@ one_defs:
 
 %inline
 located(X):
-  | x=X { Typing.{ el = x ; pos = $loc } }
+  | x=X { { el = x ; pos = $loc } }

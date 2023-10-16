@@ -37,7 +37,7 @@ div.ab-command {
 }
 
 div.ab-proof {
-    @apply inline not-italic text-sm;
+    @apply inline-block not-italic text-sm;
 }
 
 div.ab-top {

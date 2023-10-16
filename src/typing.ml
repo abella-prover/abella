@@ -26,10 +26,6 @@ open Unifyty
 
 (** Untyped terms *)
 
-type pos = Lexing.position * Lexing.position
-type 'a wpos = { el : 'a ; pos : pos }
-let get_el (wp : _ wpos) = wp.el
-
 type uterm =
   | UCon of pos * string * ty
   | ULam of pos * string * ty * uterm

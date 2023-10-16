@@ -51,109 +51,6 @@ let unfinished_theorems : string list ref = ref []
 
 exception UserInterrupt
 
-let output_flush out s =
-  output_string out s ; flush out
-
-let eprintf fmt =
-  ksprintf begin fun s ->
-    output_flush !out s ;
-    if !out <> stdout then
-      output_flush stderr s
-  end fmt
-
-(* Annotations *)
-
-let json_of_position (lft, rgt) =
-  let open Lexing in
-  if ( lft = Lexing.dummy_pos
-       || lft.pos_fname = ""
-       || lft.pos_fname <> rgt.pos_fname )
-  then `Null else
-    `List [
-      `Int lft.pos_cnum ;
-      `Int lft.pos_bol ;
-      `Int lft.pos_lnum ;
-      `Int rgt.pos_cnum ;
-      `Int rgt.pos_bol ;
-      `Int rgt.pos_lnum ;
-    ]
-
-module Annot : sig
-  type t
-  val fresh : string -> t
-  val id : t -> int
-  val extend : t -> string -> Json.t -> unit
-  val commit : t -> unit
-  val last_commit_id : unit -> int option
-end = struct
-  type t = {
-    id : int ;
-    typ : string ;
-    mutable fields : (string * Json.t) list ;
-  }
-  let id annot = annot.id
-  let last_id = ref @@ -1
-  let is_first = ref true
-  let fresh typ =
-    incr last_id ;
-    { id = !last_id ; typ ; fields = [] }
-  let extend annot key value =
-    annot.fields <- (key, value) :: annot.fields
-  let last_commit = ref None
-  let commit annot =
-    if !annotate then begin
-      if not !is_first then fprintf !out ",\n" ;
-      is_first := false ;
-      let json = `Assoc (("id", `Int annot.id) :: ("type", `String annot.typ) :: annot.fields) in
-      fprintf !out "%s%!" (Json.to_string json) ;
-      if annot.typ != "system_message" then
-        last_commit := Some annot
-    end
-  let last_commit_id () =
-    match !last_commit with
-    | None -> None
-    | Some {id ; _} -> Some id
-end
-
-let link_message pos url =
-  let old_id = match Annot.last_commit_id () with
-    | None -> `Null
-    | Some id -> `Int id
-  in
-  let ann = Annot.fresh "link" in
-  Annot.extend ann "source" @@ json_of_position pos ;
-  Annot.extend ann "url" @@ `String url ;
-  Annot.extend ann "parent" old_id ;
-  Annot.commit ann
-
-type severity = Info | Error
-
-let system_message ?(severity=Info) fmt =
-  Printf.ksprintf begin fun msg ->
-    if !annotate then begin
-      let json = Annot.fresh "system_message" in
-      Annot.extend json "after" @@ begin
-        match Annot.last_commit_id () with
-        | None -> `Null
-        | Some id -> `Int id
-      end ;
-      Annot.extend json "severity" @@ `String (
-        match severity with
-        | Info -> "info"
-        | Error -> "error"
-      ) ;
-      Annot.extend json "message" @@ `String msg ;
-      Annot.commit json
-    end else begin
-      match severity with
-      | Info -> fprintf !out "%s\n%!" msg
-      | Error -> eprintf "%s\n%!" msg
-    end
-  end fmt
-
-let system_message_format ?severity fmt =
-  Format.kasprintf (system_message ?severity "%s") fmt
-
 (* Input *)
 
 let input_wrt = ref ""
@@ -164,8 +61,8 @@ let perform_switch_to_interactive () =
   input_wrt := "" ;
   lexbuf := Lexing.from_channel ~with_positions:false stdin ;
   interactive := true ;
-  out := stdout ;
-  system_message "Switching to interactive mode." ;
+  Output.(dest := Channel stdout) ;
+  Output.system_message "Switching to interactive mode." ;
   State.Undo.undo ()
 
 let interactive_or_exit () =
@@ -186,14 +83,14 @@ let position_range (p1, p2) =
     sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
 
 let type_inference_error (pos, ct) exp act =
-  system_message "Typing error%s." (position_range pos) ;
+  Output.system_message "Typing error%s." (position_range pos) ;
   match ct with
   | CArg ->
-      system_message ~severity:Error
+      Output.system_message ~severity:Error
         "Expression has type %s but is used here with type %s."
         (ty_to_string act) (ty_to_string exp)
   | CFun ->
-      system_message ~severity:Error
+      Output.system_message ~severity:Error
         "Expression is applied to too many arguments"
 
 let teyjus_only_keywords =
@@ -205,7 +102,8 @@ let warn_on_teyjus_only_keywords (ktable, ctable) =
   let tokens = List.unique (List.map fst ktable @ List.map fst ctable) in
   let used_keywords = List.intersect tokens teyjus_only_keywords in
   if used_keywords <> [] then
-    system_message "Warning: The following tokens are keywords in Teyjus: %s."
+    Output.system_message
+      "Warning: The following tokens are keywords in Teyjus: %s."
       (String.concat ", " used_keywords)
 
 let update_subordination_sign sr sign =
@@ -214,7 +112,7 @@ let update_subordination_sign sr sign =
 let read_specification name =
   clear_specification_cache () ;
   if !interactive then
-    system_message "Reading specification %S." name ;
+    Output.system_message "Reading specification %S." name ;
   let read_sign = get_sign name in
   let () = warn_on_teyjus_only_keywords read_sign in
   let sign' = merge_signs [!sign; read_sign] in
@@ -382,16 +280,16 @@ let replace_atom_compiled decl defn_name defn comp=
 let add_lemma name tys thm =
   match Prover.add_lemma name tys thm with
   | `replace ->
-      system_message "Warning: overriding existing lemma named %S." name
+      Output.system_message "Warning: overriding existing lemma named %S." name
   | _ -> ()
 
 let rec import ~wrt pos impfile withs =
   let filename = Filepath.normalize ~wrt impfile in
   if List.mem filename !imported then
-    system_message "Ignoring repeated import: %S." filename
+    Output.system_message "Ignoring repeated import: %S." filename
   else begin
-    system_message "Importing: %S." filename ;
-    link_message pos (filename ^ ".html") ;
+    Output.system_message "Importing: %S." filename ;
+    Output.link_message ~pos ~url:(filename ^ ".html") ;
     import_load filename withs
   end
 
@@ -405,7 +303,7 @@ and import_load filename withs =
         failwithf "Recursive invocation of Abella prevented with the -nr flag" ;
       let out_name = filename ^ ".out" in
       let cmd = Printf.sprintf " %S -o %S -c %S" thm_name out_name thc_name in
-      system_message "Running: abella%s" cmd ;
+      Output.system_message "Running: abella%s" cmd ;
       if Sys.command (Sys.executable_name ^ cmd) <> 0 then
         failwithf "Could not create %S" thc_name
     in
@@ -419,7 +317,7 @@ and import_load filename withs =
       let dig = (Marshal.from_channel ch : Digest.t) in
       let ver = (Marshal.from_channel ch : string) in
       if dig = Version.self_digest then ch else begin
-        system_message
+        Output.system_message
           "Warning: %S was compiled with a different version (%s) of Abella; Need to recompile.%!"
           thc_name ver ;
         close_in ch ;
@@ -448,7 +346,7 @@ and import_load filename withs =
               let (basics, consts) = !sign in
               let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
               sign := (basics, consts) ;
-              Prover.add_defs ~print:system_message tyargs idtys flav clauses ;
+              Prover.add_defs tyargs idtys flav clauses ;
               process_decls decls
           | CImport(impname, withs) ->
               import_load (Filepath.normalize ~wrt:filename impname) withs ;
@@ -519,14 +417,14 @@ let query q =
           ~retype:Prover.retype
           ~sr:!sr
           ~sc:(fun _w ->
-              system_message "Found solution:" ;
+              Output.system_message "Found solution:" ;
               List.iter
                 (fun (n, v) ->
-                   system_message "%s = %s" n (term_to_string v))
+                   Output.system_message "%s = %s" n (term_to_string v))
                 ctx ;
-              if !interactive then fprintf !out "\n%!")
+              Output.blank_line ())
       in
-      system_message "No more solutions."
+      Output.system_message "No more solutions."
   | _ -> assert false
 
 let set_fail ~key ~expected v =
@@ -584,11 +482,11 @@ let set k v =
 
 let handle_search_witness w =
   if !witnesses then
-    system_message "Witness: %s." (witness_to_string w)
+    Output.system_message "Witness: %s." (witness_to_string w)
 
 let term_witness (_t, w) =
   if !witnesses then
-    system_message "Witness: %s." (witness_to_string w)
+    Output.system_message "Witness: %s." (witness_to_string w)
 
 let suppress_proof_state_display = State.rref false
 
@@ -615,7 +513,7 @@ let rec process1 () =
     | Process_proof proc -> begin
         try process_proof1 proc with
         | Prover.End_proof reason -> begin
-            system_message "Proof %s" begin
+            Output.system_message "Proof %s" begin
               match reason with
               | `completed fin -> begin
                   proc.compile fin ;
@@ -640,7 +538,7 @@ let rec process1 () =
       interactive_or_exit ()
   | Parser.Error ->
       State.Undo.undo () ;
-      system_message ~severity:Error
+      Output.system_message ~severity:Error
         "Syntax error%s." (position !lexbuf) ;
       Lexing.flush_input !lexbuf ;
       interactive_or_exit ()
@@ -656,15 +554,13 @@ let rec process1 () =
         match !current_state with
         | Process_top ->
             if not (is_interactive ()) && !unfinished_theorems <> [] then begin
-              system_message "There were skips in these theorem(s): %s"
+              Output.system_message "There were skips in these theorem(s): %s"
                 (String.concat ", "  !unfinished_theorems)
             end ;
-            if !annotate then fprintf !out "]\n%!" ;
-            exit 0
+            Output.exit 0
         | _ ->
-            system_message ~severity:Error "Proof NOT Completed." ;
-            if !annotate then fprintf !out "]\n%!" ;
-            exit 1
+            Output.system_message ~severity:Error "Proof NOT Completed." ;
+            Output.exit 1
       end
   | e ->
       State.Undo.undo () ;
@@ -680,27 +576,28 @@ let rec process1 () =
                                    \ To help improve Abella's error messages, please file a bug report at\n\
                                    \ <https://github.com/abella-prover/abella/issues>. Thanks!"
       in
-      system_message ~severity:Error "Error: %s" msg ;
+      Output.system_message ~severity:Error "Error: %s" msg ;
       interactive_or_exit ()
 
 and process_proof1 proc =
-  let annot = Annot.fresh "proof_command" in
+  let annot = Output.fresh ProofCommand in
   if not !suppress_proof_state_display then begin
     if !annotate then begin
-      Annot.extend annot "thm_id" @@ `Int proc.id ;
-      Annot.extend annot "theorem" @@ `String proc.thm ;
-      Annot.extend annot "start_state" @@ Prover.state_json () ;
+      Output.extend annot "thm_id" @@ `Int proc.id ;
+      Output.extend annot "theorem" @@ `String proc.thm ;
+      Output.extend annot "start_state" @@ Prover.state_json ()
     end
-    else if !interactive then Prover.display !out
+    else if !interactive then Output.ordinary "%s" @@ Prover.get_display ()
   end ;
   suppress_proof_state_display := false ;
-  if !interactive && not !annotate then fprintf !out "%s < %!" proc.thm ;
+  if !interactive && not !annotate then Output.ordinary "%s < " proc.thm ;
   let input = Parser.command_start Lexer.token !lexbuf in
   let cmd_string = command_to_string input.el in
-  if not (!interactive || !annotate) then fprintf !out "%s.\n%!" cmd_string ;
-  if !annotate then Annot.extend annot "command" @@ `String cmd_string ;
+  if not (!interactive || !annotate) then
+    Output.ordinary "%s.\n" cmd_string ;
+  if !annotate then Output.extend annot "command" @@ `String cmd_string ;
   if !annotate && fst input.pos != Lexing.dummy_pos then
-    Annot.extend annot "range" @@ json_of_position input.pos ;
+    Output.extend annot "range" @@ json_of_position input.pos ;
   let perform () =
     begin match input.el with
     | Induction(args, hn)           -> Prover.induction ?name:hn args
@@ -750,8 +647,8 @@ and process_proof1 proc =
         else failwith "Cannot use interactive commands in non-interactive mode"
     | Common(Set(k, v))      -> set k v
     | Common(Show nm)        ->
-        system_message_format "%t" (Prover.show nm) ;
-        if !interactive then fprintf !out "\n%!" ;
+        Output.system_message_format "%t" (Prover.show nm) ;
+        if !interactive then Output.blank_line () ;
         suppress_proof_state_display := true
     | Common(Quit)           -> raise End_of_file
     end
@@ -759,22 +656,23 @@ and process_proof1 proc =
   if not !annotate then perform () else
   match perform () with
   | () ->
-      Annot.extend annot "end_state" @@ Prover.state_json () ;
-      Annot.commit annot
+      Output.extend annot "end_state" @@ Prover.state_json () ;
+      Output.commit_message annot
   | exception e ->
-      Annot.commit annot ;
+      Output.commit_message annot ;
       raise e
 
 and process_top1 () =
-  if !interactive && not !annotate then fprintf !out "Abella < %!" ;
-  let annot = Annot.fresh "top_command" in
+  if !interactive && not !annotate then Output.ordinary "Abella < " ;
+  let annot = Output.fresh TopCommand in
   let input = Parser.top_command_start Lexer.token !lexbuf in
   if fst input.pos != Lexing.dummy_pos then
-    Annot.extend annot "range" @@ json_of_position input.pos ;
+    Output.extend annot "range" @@ json_of_position input.pos ;
   let cmd_string = top_command_to_string input.el in
-  if not (!interactive || !annotate) then fprintf !out "%s.\n%!" cmd_string ;
-  Annot.extend annot "command" @@ `String cmd_string ;
-  Annot.commit annot ;
+  if not (!interactive || !annotate) then
+    Output.ordinary "%s.\n%!" cmd_string ;
+  Output.extend annot "command" @@ `String cmd_string ;
+  Output.commit_message annot ;
   begin match input.el with
   | Theorem(name, tys, thm) -> begin
       let st = get_bind_state () in
@@ -794,7 +692,7 @@ and process_top1 () =
       in
       Prover.start_proof () ;
       current_state := Process_proof {
-          id = Annot.id annot ; thm = name ;
+          id = annot.id ; thm = name ;
           compile = thm_compile ;
           reset = thm_reset
         }
@@ -802,12 +700,12 @@ and process_top1 () =
   | SSplit(name, names) ->
       let gen_thms = Prover.create_split_theorems name names in
       List.iter begin fun (n, (tys, t)) ->
-        system_message_format "%t" (Prover.print_theorem n (tys, t)) ;
+        Output.system_message_format "%t" (Prover.print_theorem n (tys, t)) ;
         add_lemma n tys t ;
         compile (CTheorem(n, tys, t, Finished))
       end gen_thms ;
   | Define _ ->
-      compile (Prover.register_definition ~print:system_message input.el)
+      compile (Prover.register_definition input.el)
   | TopCommon(Back) ->
       if !interactive then State.Undo.back 2
       else failwith "Cannot use interactive commands in non-interactive mode"
@@ -815,7 +713,7 @@ and process_top1 () =
       if !interactive then State.Undo.reset ()
       else failwith "Cannot use interactive commands in non-interactive mode"
   | TopCommon(Set(k, v)) -> set k v
-  | TopCommon(Show(n)) -> system_message_format "%t" (Prover.show n)
+  | TopCommon(Show(n)) -> Output.system_message_format "%t" (Prover.show n)
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, pos, withs) ->
       compile (CImport (filename, withs)) ;
@@ -825,7 +723,8 @@ and process_top1 () =
         let filename = Filepath.normalize ~wrt:!input_wrt filename in
         read_specification filename ;
         ensure_finalized_specification () ;
-        if !annotate then link_message pos (filename ^ ".lp.html") ;
+        if !annotate then
+          Output.link_message ~pos ~url:(filename ^ ".lp.html") ;
       end else
         failwith "Specification can only be read \
                  \ at the begining of a development."
@@ -842,8 +741,7 @@ and process_top1 () =
       Prover.close_types !sign !Prover.clauses atys ;
       compile (CClose(List.map (fun aty -> (aty, Subordination.subordinates !sr aty)) atys))
   end ;
-  if !interactive then flush stdout ;
-  if not !annotate then fprintf !out "\n%!"
+  if not !annotate then Output.blank_line ()
 
 (* Command line and startup *)
 
@@ -854,7 +752,7 @@ let usage_message = Printf.sprintf "%s [options] <theorem-file>" begin
   end
 
 let set_output filename =
-  out := open_out filename
+  Output.dest := Channel (open_out_bin filename)
 
 let set_compile_out filename =
   compile_out_filename := filename ;
@@ -912,7 +810,7 @@ let options =
     "-v", Arg.Unit print_version, " Show version and exit" ;
 
     "-M", Arg.Unit (fun () ->
-        system_message ~severity:Error
+        Output.system_message ~severity:Error
           "Error: -M is deprecated; run abella_dep instead" ;
         failwith "Deprecated: -M"
       ), " [deprecated]" ;
@@ -920,7 +818,7 @@ let options =
 
 let set_input filename =
   if not !interactive then begin
-    system_message ~severity:Error
+    Output.system_message ~severity:Error
       "Error: Multiple files specified as input." ;
     failwith "Too many inputs"
   end ;
@@ -935,9 +833,10 @@ let () =
   Arg.parse options set_input usage_message ;
 
   if not !Sys.interactive then begin
-    if !annotate then fprintf !out "[%!" ;
-    if !interactive then system_message "%s" welcome_msg ;
+    if !annotate then Output.annotation_mode () ;
+    if !interactive then Output.system_message "%s" welcome_msg ;
     State.Undo.set_enabled (!interactive || !switch_to_interactive) ;
-    while true do process1 () done
+    while true do process1 () done ;
+    Output.exit 0
   end
 ;;

@@ -19,8 +19,6 @@ open Typing
 
 open Extensions
 
-let out = ref stdout
-
 (* Checks *)
 
 let get_restriction r =
@@ -121,7 +119,7 @@ let ensure_wellformed_head t =
       failwithf "Invalid head in definition: %s"
         (metaterm_to_string t)
 
-let check_well_formed ~def ~print =
+let check_well_formed ~def =
   let check_clause clauseno {head ; body} =
     let clauseno = clauseno + 1 in
     let nonposities = get_pred_occurrences body in
@@ -155,11 +153,11 @@ let check_well_formed ~def ~print =
             ^ msgs
         in
         if stratification_warnings_are_errors then failwith msg
-        else print ("" ^^ "Warning: %s\n%!") msg
+        else Output.system_message ("" ^^ "Warning: %s\n%!") msg
   in
   List.iteri check_clause def.clauses
 
-let check_def ~def ~print =
+let check_def ~def =
   Itab.iter (fun nm _ -> ensure_not_capital nm) def.mutual ;
   List.iter begin fun {head ; body} ->
     let head_pred = def_head_name head in
@@ -169,9 +167,9 @@ let check_def ~def ~print =
     ensure_no_restrictions head ;
     ensure_no_restrictions body ;
   end def.clauses ;
-  check_well_formed ~def ~print
+  check_well_formed ~def
 
-(** The list of type parameters of a definition must be 
+(** The list of type parameters of a definition must be
     exactly those occuring in the type of the constants being defined *)
 let check_typaram tyvars ty =
   let tyvars' = get_typaram ty in

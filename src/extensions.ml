@@ -407,61 +407,33 @@ module IntMap : Map.S with type key := int =
       if x = y then 0 else 1
   end)
 
-(* The following is roughly compatible with Yojson.Basic (v. 1.7.0) *)
-module Json = struct
-  type t =
-    [ `Assoc of (string * t) list
-    | `Bool of bool
-    | `Int of int
-    | `Intlit of string
-    | `List of t list
-    | `Null
-    | `String of string ]
-  type json = t
+module Json = Yojson.Safe
 
-  let rec format out (x : t) =
-    let open Format in
-    match x with
-    | `Null     -> pp_print_string out "null"
-    | `Bool b   -> pp_print_bool out b
-    | `Int x    -> pp_print_int out x
-    | `Intlit x -> pp_print_string out x
-    | `String s -> pp_print_string out (sanitize s)
-    | `List []  -> pp_print_string out "[]"
-    | `List l   -> begin
-        pp_print_string out "[ " ;
-        pp_open_box out 0 ; begin
-          pp_print_list format out l
-            ~pp_sep:(fun out () ->
-                pp_print_string out "," ;
-                pp_print_space out ())
-        end ; pp_close_box out () ;
-        pp_print_string out " ]"
-      end
-    | `Assoc asc -> begin
-        pp_print_string out "{ " ;
-        pp_open_box out 0 ; begin
-          pp_print_list format_field out asc
-            ~pp_sep:(fun out () ->
-                pp_print_string out "," ;
-                pp_print_space out ())
-        end ; pp_close_box out () ;
-        pp_print_string out " }"
-      end
+type pos = Lexing.position * Lexing.position
+type 'a wpos = { el : 'a ; pos : pos }
+let get_el (wp : _ wpos) = wp.el
 
-  and format_field out (key, value) =
-    let open Format in
-    fprintf out "@[<hv2>%s: %a@]"
-      (sanitize key)
-      format value
+let json_of_position (lft, rgt : pos) : Json.t =
+  let open Lexing in
+  if ( lft = Lexing.dummy_pos
+       || lft.pos_fname = ""
+       || lft.pos_fname <> rgt.pos_fname )
+  then `Null else
+    `List [
+      `Int lft.pos_cnum ;
+      `Int lft.pos_bol ;
+      `Int lft.pos_lnum ;
+      `Int rgt.pos_cnum ;
+      `Int rgt.pos_bol ;
+      `Int rgt.pos_lnum ;
+    ]
 
-  and sanitize s = "\"" ^ String.escaped s ^ "\""
-
-  let string s : t = `String s
-
-  let to_string x = Format.asprintf "%a" format x
-
-  let to_channel oc x =
-    let out = Format.formatter_of_out_channel oc in
-    Format.fprintf out "%a@?" format x
-end
+let lexbuf_from_file filename =
+  match Lexing.from_channel (open_in_bin filename) with
+  | lexbuf ->
+      lexbuf.Lexing.lex_curr_p <- {
+        lexbuf.Lexing.lex_curr_p with
+        Lexing.pos_fname = filename } ;
+      lexbuf
+  | exception Sys_error msg ->
+      failwithf "Failure reading %S: %s" filename msg

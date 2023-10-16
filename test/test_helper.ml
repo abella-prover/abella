@@ -58,7 +58,7 @@ let eval_clauses_string = {|
 |}
 
 let process_decls decls =
-  let decls = List.map (fun decl -> Typing.{ el = decl ; pos = (Lexing.dummy_pos, Lexing.dummy_pos) }) decls in
+  let decls = List.map (fun decl -> { el = decl ; pos = (Lexing.dummy_pos, Lexing.dummy_pos) }) decls in
   sign := List.fold_left add_decl !sign decls ;
   sr := List.fold_left Subordination.update !sr
       (List.filter_map

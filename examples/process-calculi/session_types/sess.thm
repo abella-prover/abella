@@ -1,3 +1,20 @@
+%% Type-preservation of session-typed proof terms for
+%% classical propositional MALL without additive units.
+
+%% This formalization is based on the following paper:
+%%
+%%    Chuta Sano, Ryan Kavanagh, and Brigitte Pientka;
+%%    "Mechanizing Session-Types Using a Structural View:
+%%    Enforcing linearity without linearity";
+%%    OOPSLA 2023
+%%
+%%    (Note: the formulation and uses of lin() are slightly
+%%    different in this paper.)
+
+%% The session-type system is derived from:
+%%
+%%    Philip Wadler; "Propositions as Sessions"; ICFP 2012
+
 Specification "sess".
 
 Close tp.
@@ -44,6 +61,10 @@ induction on 1. intros. case H1.
     apply member_prune to H4.
      apply IH to *H3 *H4. search.
 
+Theorem hyp_same : forall G A B, nabla x, ctx G -> {G, hyp x A |- hyp x B} -> A = B.
+intros. case H2. case H4. case H3. search.
+apply member_prune to H5. apply ctx_mem to H1 H5. case H3.
+
 Theorem str_hyp : forall G C X A, nabla y, ctx G -> {G, hyp y C |- hyp X A} -> {G |- hyp X A}.
 induction on 2. intros. case H2.
   case H4. case H3.
@@ -59,7 +80,7 @@ induction on 2. intros. case H2.
   apply IH to _ *H3. apply IH to _ *H4. search.
   apply ctx_mem to H1 H4. case H5. case H3.
 
-Theorem str_lin : forall G A P, nabla y, ctx G -> {G, hyp y A |- lin (P y)} -> {G |- lin (P y)}.
+Theorem str_lin: forall G P, ctx G -> {G |- lin P} -> {lin P}.
 induction on 2. intros. case H2.
   search.
   search.
@@ -67,20 +88,22 @@ induction on 2. intros. case H2.
   search.
   apply IH to _ *H3. search.
   apply IH to _ *H3. apply IH to _ *H4. search.
-  apply IH to _ *H3 with y = n1. search.
-  apply IH to _ *H3 with y = n1. search.
-  apply IH to _ *H3 with y = n1. apply IH to _ *H4 with y = n1. search.
-  apply IH to _ *H3 with y = n1. search.
   apply IH to _ *H3. search.
-  apply IH to _ *H3 with y = n1. search.
   apply IH to _ *H3. search.
-  apply IH to _ *H3 with y = n1. search.
   apply IH to _ *H3. apply IH to _ *H4. search.
-  apply IH to _ *H3 with y = n1. apply IH to _ *H4 with y = n1. search.
-  apply IH to _ *H3 with y = n1. search.
-  apply IH to _ *H3 with y = n1. search.
+  apply IH to _ *H3. search.
+  apply IH to _ *H3. search.
+  apply IH to _ *H3. search.
+  apply IH to _ *H3. search.
+  apply IH to _ *H3. search.
+  apply IH to _ *H3. apply IH to _ *H4. search.
+  apply IH to _ *H3. apply IH to _ *H4. search.
+  apply IH to _ *H3. search.
+  apply IH to _ *H3. search.
   apply ctx_mem to _ H4. case H3.
 
+%% The str_lin theorem is stronger than the following, which is the version
+%% that was proved in Beluga.
 Theorem str_lin_as_beluga : forall G A P, nabla y, ctx G -> {G, hyp y A |- lin P} -> {G |- lin P}.
 induction on 2. intros. case H2.
   search.
@@ -303,10 +326,6 @@ induction on 2. intros. case H2.
   apply lin_cong to _ H5 *H4. apply wtp_cong to _ *H5 *H3.
    apply IH to _ *H6 *H9 *H8. apply lin_cong to _ *H7 *H10. search.
   case H6. case H5. apply ctx_mem to H1 H7. case H5.
-
-Theorem hyp_same : forall G A B, nabla x, ctx G -> {G, hyp x A |- hyp x B} -> A = B.
-intros. case H2. case H4. case H3. search.
-apply member_prune to H5. apply ctx_mem to H1 H5. case H3.
 
 Theorem wtp_s : forall G P Q, ctx G ->
    {G |- step P Q} ->

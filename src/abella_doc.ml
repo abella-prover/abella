@@ -7,16 +7,15 @@
 
 (* Generate documentation for a collection of Abella .thm files *)
 
+open Extensions
+
 module Dist = Abella_doc_dist
 let css_content = Dist.read "abella_doc.css" |> Option.get
 let js_content = Dist.read "abella_doc.js" |> Option.get
 
 (******************************************************************************)
 
-let safe_file_contents fn =
-  let ch = open_in_bin fn in
-  let str = really_input_string ch (in_channel_length ch) in
-  close_in ch ;
+let html_escape str =
   let buf = Buffer.create (String.length str) in
   String.iter begin function
   | '<' -> Buffer.add_string buf "&lt;"
@@ -26,43 +25,48 @@ let safe_file_contents fn =
   end str ;
   Buffer.contents buf
 
+let file_contents fn =
+  let ch = open_in_bin fn in
+  let str = really_input_string ch (in_channel_length ch) in
+  close_in ch ;
+  str
+
 let thm_template base =
   let root = Filename.basename base in
-  let thmfile = root ^ ".thm" in
-  let jsonfile = root ^ ".json" in
-  let thmfile_contents = safe_file_contents (base ^ ".thm") in
+  let thm_contents = file_contents (base ^ ".thm") in
+  let thm_json = Json.from_file (base ^ ".json") in
   {|<!DOCTYPE html>
 <html lang="en"><head>
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>|} ^ base ^ {|.thm [Abella trace]</title>
+  <title>|} ^ root ^ {|.thm [Abella trace]</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
   <style>|} ^ css_content ^ {|</style>
 </head><body>
   <div id="logobox">
-    <a href="https://abella-prover.org/index.html"><img src="https://abella-prover.org/images/logo-small.png"></a>
+    <a href="https://abella-prover.org/index.html"><img src="https://abella-prover.org/images/logo-small.png" alt="Abella logo (small)"></a>
     <h1 id="thmname">|} ^ root ^ {|.thm</h1>
   </div>
   <div id="outer-container">
     <div id="container">
-      <div id="thmbox"><div class="default-contents">|} ^ thmfile_contents ^ {|</div></div>
+      <div id="thmbox"><div class="default-contents">|} ^ html_escape thm_contents ^ {|</div></div>
     </div>
   </div>
   <script type="module">
 |} ^ js_content ^ {|
-await loadModule("thmbox", "|} ^ thmfile ^ {|", "|} ^ jsonfile ^ {|");
+    const thmContent = |} ^ Json.to_string (`String thm_contents) ^ {|;
+    const thmJson = |} ^ Json.to_string thm_json ^ {|;
+    await loadModule("thmbox", thmContent, thmJson);
   </script>
 </body></html>|} ;;
 
 let lp_template root =
   let base = Filename.basename root in
-  let sig_src = base ^ ".sig" in
-  let sig_contents = safe_file_contents (root ^ ".sig") in
-  let sig_json = base ^ ".sig.json" in
-  let mod_src = base ^ ".mod" in
-  let mod_contents = safe_file_contents (root ^ ".mod") in
-  let mod_json = base ^ ".mod.json" in
+  let sig_contents = file_contents (root ^ ".sig") in
+  let sig_json = Json.from_file (root ^ ".sig.json") in
+  let mod_contents = file_contents (root ^ ".mod") in
+  let mod_json = Json.from_file (root ^ ".mod.json") in
   {|<!DOCTYPE html>
 <html lang="en"><head>
   <meta charset="UTF-8">
@@ -78,19 +82,23 @@ let lp_template root =
   <div class="outer-container">
     <h2><strong><tt>|} ^ base ^ {|.sig</tt></strong></h2>
     <div class="container">
-      <div id="sigbox"><div class="default-contents">|} ^ sig_contents ^ {|</div></div>
+      <div id="sigbox"><div class="default-contents">|} ^ html_escape sig_contents ^ {|</div></div>
     </div>
   </div>
   <div class="outer-container">
     <h2><strong><tt>|} ^ base ^ {|.mod</tt></strong></h2>
     <div class="container">
-      <div id="modbox"><div class="default-contents">|} ^ mod_contents ^ {|</div></div>
+      <div id="modbox"><div class="default-contents">|} ^ html_escape mod_contents ^ {|</div></div>
     </div>
   </div>
   <script type="module">
 |} ^ js_content ^ {|
-await loadLP("sigbox", "|} ^ sig_src ^ {|", "|} ^ sig_json ^ {|",
-             "modbox", "|} ^ mod_src ^ {|", "|} ^ mod_json ^ {|");
+    const sigContents = |} ^ Json.to_string (`String sig_contents) ^ {|;
+    const sigJson = |} ^ Json.to_string sig_json ^ {|;
+    const modContents = |} ^ Json.to_string (`String mod_contents) ^ {|;
+    const modJson = |} ^ Json.to_string mod_json ^ {|;
+    await loadLP("sigbox", sigContents, sigJson,
+                 "modbox", modContents, modJson);
   </script>
 </body></html>|} ;;
 
@@ -149,9 +157,11 @@ let rec process file =
         Hashtbl.replace dep_tab file [] ;
         if Filename.check_suffix file ".sig" then
           process_sig file
-        else if Filename.check_suffix file ".mod" then
-          process_mod file
-        else if Filename.check_suffix file ".thm" then
+        else if Filename.check_suffix file ".mod" then begin
+          let base = Filename.chop_suffix file ".mod" in
+          if not @@ Sys.file_exists (base ^ ".sig") then
+            failwithf "Cannot find %s.sig" base
+        end else if Filename.check_suffix file ".thm" then
           process_thm file
         (* else *)
         (*   Printf.printf "IGNORE: %s\n%!" file *)
@@ -169,11 +179,11 @@ and process_sig file =
   let emit annot = annots := annot :: !annots in
   emit @@ `Assoc [ "kind", `String "name" ;
                    "range", json_of_position lpsig.name.pos ] ;
-  List.iter begin fun (acc : _ Typing.wpos) ->
+  List.iter begin fun (acc : _ wpos) ->
     emit @@ `Assoc [ "kind", `String "accum_sig" ;
                      "range", json_of_position acc.pos ]
   end lpsig.accum_sig ;
-  List.iter begin fun (decl : _ Typing.wpos) ->
+  List.iter begin fun (decl : _ wpos) ->
     emit @@ `Assoc [ "kind", `String "decl" ;
                      "range", json_of_position decl.pos ]
   end lpsig.decls ;
@@ -182,11 +192,7 @@ and process_sig file =
   output_string out (Json.to_string json) ;
   close_out out ;
   Printf.printf "LPSIG: %s -> %s.json\n%!" file file ;
-  let html_file = base ^ ".lp.html" in
-  let out = open_out_bin html_file in
-  output_string out (lp_template base) ;
-  close_out out ;
-  Printf.printf "CREATE: %s\n%!" html_file
+  process_mod (base ^ ".mod")
 
 and process_mod file =
   let base = Filename.chop_suffix file ".mod" in
@@ -194,11 +200,11 @@ and process_mod file =
   let annots =
     `Assoc [ "kind", `String "name" ;
              "range", json_of_position lpmod.name.pos ] ::
-    List.map begin fun (acc : _ Typing.wpos) ->
+    List.map begin fun (acc : _ wpos) ->
       `Assoc [ "kind", `String "accum" ;
                "range", json_of_position acc.pos ]
     end lpmod.accum @
-    List.map begin fun (cl : _ Typing.wpos) ->
+    List.map begin fun (cl : _ wpos) ->
       `Assoc [ "kind", `String "clause" ;
                "range", json_of_position cl.pos ]
     end lpmod.clauses in
@@ -206,7 +212,12 @@ and process_mod file =
   let out = open_out_bin (file ^ ".json") in
   output_string out (Json.to_string json) ;
   close_out out ;
-  Printf.printf "LPMOD: %s -> %s.json\n%!" file file
+  Printf.printf "LPMOD: %s -> %s.json\n%!" file file ;
+  let html_file = base ^ ".lp.html" in
+  let out = open_out_bin html_file in
+  output_string out (lp_template base) ;
+  close_out out ;
+  Printf.printf "CREATE: %s\n%!" html_file
 
 and process_thm file =
   let base = Filename.chop_suffix file ".thm" in

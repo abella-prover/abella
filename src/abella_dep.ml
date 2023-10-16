@@ -11,34 +11,52 @@ open Extensions
 
 let makefile = ref "Makefile"
 let noclobber = ref false
+let recursive = ref false
 
 let options = Arg.[
     "-o", Set_string makefile,
     Printf.sprintf "FILE Output dependencies to FILE (default: %s)" !makefile ;
-    "-nc", Set noclobber, " Do not clobber an existing Makefile" ;
+    "-nc", Set noclobber, " Do not clobber an existing Makefile (default: false)" ;
+    "-r", Set recursive, " Process directories recursively (default: false)" ;
   ] |> Arg.align
 
 let dep_tab : (string, string list option) Hashtbl.t = Hashtbl.create 19
 
-let add_input_file thmfile =
-  if not @@ Filename.check_suffix thmfile ".thm" then
-    failwithf "Illegal file %S; input files must have suffix .thm" thmfile ;
-  match Hashtbl.find dep_tab thmfile with
-  | None ->
-      failwithf "Circular dependencies detected for %S" thmfile
-  | Some _ -> ()
-  | exception Not_found -> begin
-      let base = Filename.chop_suffix thmfile ".thm" in
-      let thcfile = base ^ ".thc" in
-      Hashtbl.replace dep_tab thcfile None ;
-      let (specs, deps) = Depend.thm_dependencies base in
-      let deps = List.map (fun f -> f ^ ".thc") deps in
-      let deps = specs @ deps in
-      Hashtbl.replace dep_tab thcfile (Some deps)
-  end
+let rec add_input_file file =
+  match Unix.stat file with
+  | { st_kind = S_DIR ; _ } when !recursive -> begin
+      let dir = file in
+      let fs = Sys.readdir dir in
+      Array.fast_sort String.compare fs ;
+      Array.iter begin fun file ->
+        let file = Filename.concat dir file in
+        add_input_file file
+      end fs
+    end
+  | { st_kind = S_REG ; _ } when Filename.check_suffix file ".thm" -> begin
+      let thmfile = file in
+      match Hashtbl.find dep_tab thmfile with
+      | None ->
+          failwithf "Circular dependencies detected for %S" thmfile
+      | Some _ -> ()
+      | exception Not_found -> begin
+          let base = Filename.chop_suffix thmfile ".thm" in
+          let thcfile = base ^ ".thc" in
+          Hashtbl.replace dep_tab thcfile None ;
+          let (specs, deps) = Depend.thm_dependencies base in
+          let deps = List.map (fun f -> f ^ ".thc") deps in
+          let deps = specs @ deps in
+          Hashtbl.replace dep_tab thcfile (Some deps)
+        end
+    end
+  | { st_kind = S_REG ; _ } ->
+      if not !recursive then
+        failwithf "Illegal file %S; input files must have suffix .thm" file ;
+  | _ ->
+      failwithf "Cannot process: %s" file
 
 let usage_message =
-  Printf.sprintf "Usage: %s [options] <theorem-file> ..."
+  Printf.sprintf "Usage: %s [options] [<theorem-file> | <directory>] ..."
     (if !Sys.interactive then "abella_dep" else Sys.argv.(0))
 
 let main () =

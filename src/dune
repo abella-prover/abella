@@ -21,6 +21,7 @@
 (library
   (name abella_lib)
   (modules :standard \ abella abella_doc abella_dep)
+  (libraries yojson)
   (wrapped false))
 
 (ocamllex

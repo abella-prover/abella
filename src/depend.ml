@@ -31,14 +31,14 @@ module LPSig : LP = struct
   let extension = ".sig"
   let immediate_depends filename =
     let Sig { accum_sig ; _ } = read_lpsig filename in
-    List.map (fun Typing.{ el ; _ } -> el) accum_sig
+    List.map (fun { el ; _ } -> el) accum_sig
 end
 
 module LPMod : LP = struct
   let extension = ".mod"
   let immediate_depends filename =
     let Mod { accum ; _ } = read_lpmod filename in
-    List.map (fun Typing.{ el ; _ } -> el) accum
+    List.map (fun { el ; _ } -> el) accum
 end
 
 let lp_depend_cache : (string, string list option) Hashtbl.t = Hashtbl.create 19

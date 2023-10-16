@@ -33,17 +33,6 @@ let clear_specification_cache () =
   H.clear mod_cache ;
   H.clear sig_cache
 
-let lexbuf_from_file filename =
-  try
-    let lexbuf = Lexing.from_channel (open_in filename) in
-    lexbuf.Lexing.lex_curr_p <- {
-      lexbuf.Lexing.lex_curr_p with
-      Lexing.pos_fname = filename } ;
-    lexbuf
-  with
-  | Sys_error msg ->
-      failwithf "Failure reading specification.\n%s" msg
-
 let position lexbuf =
   let curr = lexbuf.Lexing.lex_curr_p in
   let file = curr.Lexing.pos_fname in

@@ -167,7 +167,7 @@ let defs_table : defs_table = State.table ()
 
 let built_ins_done = ref false
 
-let add_defs ~print typarams preds flavor clauses =
+let add_defs typarams preds flavor clauses =
   List.iter begin fun (id, _) ->
     if H.mem defs_table id then
       failwithf "Predicate %s has already been defined" id ;
@@ -179,7 +179,7 @@ let add_defs ~print typarams preds flavor clauses =
       Itab.add id ty mutual
     end Itab.empty preds in
   let def = {flavor ; typarams ; mutual ; clauses} in
-  Checks.check_def ~def ~print ;
+  Checks.check_def ~def ;
   List.iter (fun (id, _) -> H.add defs_table id def) preds
 
 let lookup_poly_const k =
@@ -187,7 +187,7 @@ let lookup_poly_const k =
   | Not_found -> failwithf "Unknown constant: %S" k
 
 
-let register_definition ~print = function
+let register_definition = function
   | Define (flav, idtys, udefs) ->
       let typarams = List.unique (idtys |> List.map snd |> get_typarams) in
       check_typarams typarams (List.map snd idtys);
@@ -204,21 +204,21 @@ let register_definition ~print = function
       let (basics, consts) = !sign in
       let consts = List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys @ consts in
       sign := (basics, consts) ;
-      add_defs ~print typarams idtys flav clauses ;
+      add_defs typarams idtys flav clauses ;
       CDefine (flav, typarams, idtys, clauses)
   | _ -> bugf "Not a definition!"
 
-let parse_definition ~print str =
+let parse_definition str =
   Lexing.from_string str |>
   Parser.top_command_start Lexer.token |>
-  Typing.get_el |> register_definition ~print
+  get_el |> register_definition
 
 let k_member = "member"
 let member_def_compiled = {|
 Define |} ^ k_member ^ {| : A -> list A -> prop by
 ; |} ^ k_member ^ {| A (A :: L)
 ; |} ^ k_member ^ {| A (B :: L) := |} ^ k_member ^ {| A L.
-|} |> parse_definition ~print:Format.eprintf
+|} |> parse_definition
 
 let () = built_ins_done := true
 

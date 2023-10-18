@@ -9,11 +9,14 @@
 
 open Extensions
 
+let abella = ref "abella"
 let makefile = ref "Makefile"
 let noclobber = ref false
 let recursive = ref false
 
 let options = Arg.[
+    "-a", Set_string abella,
+    Printf.sprintf "CMD Set the ABella command to CMD (Default: %s)" !abella ;
     "-o", Set_string makefile,
     Printf.sprintf "FILE Output dependencies to FILE (default: %s)" !makefile ;
     "-nc", Set noclobber, " Do not clobber an existing Makefile (default: false)" ;
@@ -69,7 +72,7 @@ let main () =
   in
   Printf.fprintf out ".PHONY: all\n" ;
   Printf.fprintf out "%%.thc: %%.thm\n" ;
-  Printf.fprintf out "\tabella -nr -c $@ -o ${<:%%.thm=%%.out} $<\n" ;
+  Printf.fprintf out "\t%s -nr -c $@ -o ${<:%%.thm=%%.out} $<\n" !abella ;
   Hashtbl.iter begin fun file deps ->
     if not @@ Filename.check_suffix file ".thc" then () else
     Printf.fprintf out "all: %s\n" file ;

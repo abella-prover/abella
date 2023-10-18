@@ -19,5 +19,5 @@
   (action (chdir %{project_root}
     (progn
       (run test/setup_regression.exe --actual examples)
-      (run src/abella_dep.exe -o test/test.mk -r examples)
+      (run src/abella_dep.exe -a "src/abella.exe" -o test/test.mk -r examples)
       (run make -k -j --quiet -f test/test.mk all)))))

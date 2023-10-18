@@ -38,7 +38,7 @@ let rec process dir =
     | { st_kind = S_DIR ; _ } ->
         process file
     | { st_kind = S_REG ; _ } -> begin
-        if List.exists (fun suffix -> String.ends_with ~suffix file) [
+        if List.exists (fun suffix -> Filename.check_suffix file suffix) [
             ".thc" ; ".out"
           ] then Unix.unlink file
       end

@@ -11,12 +11,12 @@
 (executable
   (name abella_doc)
   (modules abella_doc)
-  (libraries abella_lib unix))
+  (libraries abella_lib unix cmdliner))
 
 (executable
   (name abella_dep)
   (modules abella_dep)
-  (libraries abella_lib unix))
+  (libraries abella_lib unix cmdliner))
 
 (library
   (name abella_lib)

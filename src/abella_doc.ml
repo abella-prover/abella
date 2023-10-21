@@ -106,6 +106,20 @@ let lp_template root =
 
 open Extensions
 
+type conf = {
+  abella : string ;
+  recursive : bool ;
+  verbose : bool ;
+}
+
+let mk_conf abella recursive verbose =
+  { abella ; recursive ; verbose }
+
+let vprintf conf =
+  if conf.verbose
+  then (fun fmt -> Printf.printf (fmt ^^ "\n%!"))
+  else Printf.ifprintf stdout
+
 let json_of_position (lft, rgt) =
   let open Lexing in
   if ( lft = Lexing.dummy_pos
@@ -117,60 +131,37 @@ let json_of_position (lft, rgt) =
       `Int rgt.pos_cnum ;
     ]
 
-let abella =
-  let dir = Filename.dirname Sys.executable_name in
-  let ab1 = Filename.concat dir "abella" in
-  let ab2 = Filename.concat dir "abella.exe" in
-  ref @@ if Sys.file_exists ab1 then ab1 else ab2
-
-let recursive = ref false
-
-let options = Arg.[
-    "-a", Set_string abella,
-    Printf.sprintf "PROG Run PROG as abella (default: %s)" !abella ;
-    "-r", Arg.Set recursive, " Recursively process directories" ;
-  ] |> Arg.align
-
-let input_files : string list ref = ref []
-
-let add_input_file file =
-  input_files := file :: !input_files
-
-let usage_message = Printf.sprintf "Usage: %s [options] [<theorem-file> | <directory>] ..." begin
-    if !Sys.interactive then "abella_doc" else Sys.argv.(0) (*Filename.basename Sys.executable_name*)
-  end
-
-let dep_tab = Hashtbl.create (List.length !input_files)
+let dep_tab = Hashtbl.create 19
 
 let ignore_list = [ "node_modules" ; "build" ; "dist" ; "css" ; "js" ]
 
-let rec process file =
+let rec process conf file =
   let file_bn = Filename.basename file in
   if List.mem file_bn ignore_list then () else
   let open Unix in
   let stats = stat file in
   match stats.st_kind with
-  | S_DIR when !recursive ->
-      process_directory file
+  | S_DIR when conf.recursive ->
+      process_directory conf file
   | S_REG ->
       if Hashtbl.mem dep_tab file then () else begin
         Hashtbl.replace dep_tab file [] ;
         if Filename.check_suffix file ".sig" then
-          process_sig file
+          process_sig conf file
         else if Filename.check_suffix file ".mod" then begin
           let base = Filename.chop_suffix file ".mod" in
           if not @@ Sys.file_exists (base ^ ".sig") then
             failwithf "Cannot find %s.sig" base
         end else if Filename.check_suffix file ".thm" then
-          process_thm file
-        (* else *)
-        (*   Printf.printf "IGNORE: %s\n%!" file *)
+          process_thm conf file
+        else
+          vprintf conf "IGNORE: %s" file
       end
   | _ ->
       (* ignore all other files *)
-      Printf.printf "IGNORE: %s\n%!" file
+      vprintf conf "IGNORE: %s" file
 
-and process_sig file =
+and process_sig conf file =
   if not @@ Filename.is_relative file then
     failwithf "cannot handle absolute paths: %s" file ;
   let base = Filename.chop_suffix file ".sig" in
@@ -191,10 +182,10 @@ and process_sig file =
   let out = open_out_bin (file ^ ".json") in
   output_string out (Json.to_string json) ;
   close_out out ;
-  Printf.printf "LPSIG: %s -> %s.json\n%!" file file ;
-  process_mod (base ^ ".mod")
+  vprintf conf "LPSIG: %s -> %s.json" file file ;
+  process_mod conf (base ^ ".mod")
 
-and process_mod file =
+and process_mod conf file =
   let base = Filename.chop_suffix file ".mod" in
   let Mod lpmod = Accumulate.read_lpmod base in
   let annots =
@@ -212,29 +203,28 @@ and process_mod file =
   let out = open_out_bin (file ^ ".json") in
   output_string out (Json.to_string json) ;
   close_out out ;
-  Printf.printf "LPMOD: %s -> %s.json\n%!" file file ;
+  vprintf conf "LPMOD: %s -> %s.json" file file ;
   let html_file = base ^ ".lp.html" in
   let out = open_out_bin html_file in
   output_string out (lp_template base) ;
   close_out out ;
-  Printf.printf "CREATE: %s\n%!" html_file
+  vprintf conf "CREATE: %s" html_file
 
-and process_thm file =
+and process_thm conf file =
   let base = Filename.chop_suffix file ".thm" in
   let (specs, deps) = Depend.thm_dependencies base in
   let deps = specs @ List.rev_map (fun f -> f ^ ".thm") deps in
   Hashtbl.replace dep_tab file deps ;
-  List.iter process deps
+  List.iter (process conf) deps
 
-and process_directory dir =
+and process_directory conf dir =
   let fs = Sys.readdir dir in
   Array.fast_sort String.compare fs ;
-  Array.iter (fun file -> process (Filename.concat dir file)) fs
+  Array.iter (fun file -> process conf (Filename.concat dir file)) fs
 
-let main () =
-  Arg.parse options add_input_file usage_message ;
-  input_files := List.rev !input_files ;
-  List.iter process !input_files ;
+let main conf files =
+  (* Arg.parse options add_input_file usage_message ; *)
+  List.iter (process conf) files ;
   let seen = Hashtbl.create (Hashtbl.length dep_tab) in
   let topo = ref [] in
   let rec toproc file =
@@ -248,15 +238,65 @@ let main () =
     if not @@ Filename.check_suffix file ".thm" then () else
     let root = Filename.chop_suffix file ".thm" in
     let cmd = Printf.sprintf "%s -nr -a %s.thm -o %s.json -c %s.thc"
-        !abella root root root in
-    Printf.printf "RUN: %s\n%!" cmd ;
+        conf.abella root root root in
+    vprintf conf "RUN: %s" cmd ;
     if Sys.command cmd != 0 then
       failwithf "ERROR running: %s" cmd ;
     let htmlfile = root ^ ".html" in
     let ch = open_out_bin htmlfile in
     output_string ch (thm_template root) ;
     close_out ch ;
-    Printf.printf "CREATE: %s\n%!" htmlfile
+    vprintf conf "CREATE: %s" htmlfile
   end (List.rev !topo)
 
-let () = if not !Sys.interactive then main()
+(******************************************************************************)
+(* Command line parsing *)
+
+let () =
+  let open Cmdliner in
+  let conf =
+    let abella =
+      let default =
+        let dir = Filename.dirname Sys.executable_name in
+        let ab1 = Filename.concat dir "abella" in
+        let ab2 = Filename.concat dir "abella.exe" in
+        if Sys.file_exists ab1 then ab1 else ab2 in
+      let env = Cmd.Env.info "ABELLA"
+          ~doc:"Abella command to run (overriden by $(b,--abella))" in
+      let doc = "Set the Abella command to $(docv)" in
+      Arg.(value @@ opt string default @@
+           info ["a" ; "abella"] ~doc ~env
+             ~docv:"CMD"
+             ~absent:"$(b,abella[.exe])")
+    in
+    let verbose =
+      let doc = "Verbose output" in
+      Arg.(value @@ flag @@ info ["verbose"] ~doc)
+    in
+    let recursive =
+      let doc = "Process directories recursively" in
+      Arg.(value @@ flag @@ info ["r"] ~doc)
+    in
+    Term.(const mk_conf $ abella $ recursive $ verbose)
+  in
+  let files =
+    let doc = "An Abella $(b,.thm) file or a directory" in
+    Arg.(value @@ pos_all string [] @@ info [] ~docv:"SOURCE" ~doc)
+  in
+  let cmd =
+    let doc = "Generate HTML documentation from Abella source" in
+    let man = [
+      `S Manpage.s_examples ;
+      `Blocks [
+        `P "To create HTML documents from a.thm, d/b.thm, and c/*.thm" ;
+        `Pre "  \\$ $(tname) a.thm d/b.thm c/*.thm" ;
+        `P "To create HTML documentation recursively from all .thm files in d/" ;
+        `Pre "  \\$ $(tname) -r d" ;
+      ] ;
+      `S Manpage.s_bugs ;
+      `P "File bug reports on <$(b,https://github.com/abella-prover/abella/issues)>" ;
+    ] in
+    let info = Cmd.info "abella_doc" ~doc ~man ~exits:[] in
+    Cmd.v info @@ Term.(const main $ conf $ files)
+  in
+  exit (Cmd.eval cmd)

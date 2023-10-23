@@ -46,7 +46,7 @@ type config = {
 } [@@warning "-69"]
 
 let config =
-  let mode = `batch in
+  let mode = `interactive in
   let compiled = None in
   let annotate = false in
   let recurse = true in

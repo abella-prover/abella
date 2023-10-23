@@ -13,7 +13,7 @@ The easiest way to install Abella is using [OPAM][opam] (version 2.1+).
 
 To uninstall Abella using OPAM, do:
 
-1. From the same directory as above, run: `opam remove abella`.
+1. Run: `opam remove abella`.
 2. Then run: `opam unpin abella`.
 
 

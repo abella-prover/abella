@@ -75,6 +75,16 @@ module Option = struct
     match x with
       | Some v -> v
       | None -> default
+
+  let map f x =
+    match x with
+    | None -> None
+    | Some x -> Some (f x)
+
+  let iter f x =
+    match x with
+    | None -> ()
+    | Some x -> f x
 end
 
 module String = struct

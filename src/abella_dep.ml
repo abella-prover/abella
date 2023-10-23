@@ -74,7 +74,7 @@ let abella_dep conf files =
   Printf.fprintf out "# Generated on: %s\n" time ;
   Printf.fprintf out ".PHONY: all\n" ;
   Printf.fprintf out "%%.thc: %%.thm\n" ;
-  Printf.fprintf out "\t%s -nr -c $@ -o ${<:%%.thm=%%.out} $<\n" conf.abella ;
+  Printf.fprintf out "\t%s --non-recursive --output=${<:%%.thm=%%.out} $<\n" conf.abella ;
   Hashtbl.iter begin fun file deps ->
     if not @@ Filename.check_suffix file ".thc" then () else
     Printf.fprintf out "all: %s\n" file ;

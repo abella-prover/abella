@@ -237,8 +237,8 @@ let main conf files =
   List.iter begin fun file ->
     if not @@ Filename.check_suffix file ".thm" then () else
     let root = Filename.chop_suffix file ".thm" in
-    let cmd = Printf.sprintf "%s -nr -a %s.thm -o %s.json -c %s.thc"
-        conf.abella root root root in
+    let cmd = Printf.sprintf "%s --non-recursive --annotate --output=%s.json %s.thm"
+        conf.abella root root in
     vprintf conf "RUN: %s" cmd ;
     if Sys.command cmd != 0 then
       failwithf "ERROR running: %s" cmd ;

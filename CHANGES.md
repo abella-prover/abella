@@ -1,3 +1,14 @@
+Changes since 2.0.8-rc1
+-----------------------
+
+Possibly breaking changes
+
+* The command line for the `abella` command has slightly changed.
+  - The old `-v` option is removed; use `--version` instead.
+  - The old `-nr` option is removed; use `--non-recursive` instead.
+* In batch mode, `abella` always produces `file.thc` from `file.thm`.
+
+
 Changes in 2.0.8-rc1 from 2.0.7
 -------------------------------
 

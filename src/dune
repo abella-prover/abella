@@ -1,7 +1,7 @@
 (executable
   (name abella)
   (modules abella)
-  (libraries abella_lib unix))
+  (libraries abella_lib unix cmdliner))
 
 (rule
   (target abella_doc_dist.ml)

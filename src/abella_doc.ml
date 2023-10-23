@@ -293,6 +293,8 @@ let () =
         `P "To create HTML documentation recursively from all .thm files in d/" ;
         `Pre "  \\$ $(tname) -r d" ;
       ] ;
+      `S Manpage.s_see_also ;
+      `P "$(b,abella)(1)" ;
       `S Manpage.s_bugs ;
       `P "File bug reports on <$(b,https://github.com/abella-prover/abella/issues)>" ;
     ] in

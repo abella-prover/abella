@@ -19,12 +19,17 @@ $(AIN):
 	echo '"_build/default/src/abella_doc.exe" {"abella_doc"}' >> $(AIN)
 	echo '"_build/default/src/abella_dep.exe" {"abella_dep"}' >> $(AIN)
 	echo ']' >> $(AIN)
+	echo 'man: [' >> $(AIN)
+	for pr in _build/default/src/*.exe ; do \
+	  $$pr --help=groff > $${pr%%.exe}.1 ; \
+	  echo '"'$${pr%%.exe}.1'"' >> $(AIN) ; \
+	done
+	echo ']' >> $(AIN)
 	echo 'share: [' >> $(AIN)
 	for f in emacs/* `find examples -type f | grep -E '(sig|mod|thm)$$'` ; do \
 	    echo '"'$$f'"' '{"'$$f'"}' >> $(AIN) ; \
 	done
 	echo ']' >> $(AIN)
-
 
 .PHONY: clean
 clean:

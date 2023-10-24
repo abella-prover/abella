@@ -1,4 +1,0 @@
-(rule
-  (targets (dir node_modules))
-  (deps package.json package-lock.json)
-  (action (run npm install --no-save)))

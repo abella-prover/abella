@@ -1,21 +1,14 @@
-Changes since 2.0.8-rc1
------------------------
-
-Possibly breaking changes
-
-* The command line for the `abella` command has slightly changed.
-  - The old `-v` option is removed; use `--version` instead.
-  - The old `-nr` option is removed; use `--non-recursive` instead.
-* In batch mode, `abella` always produces `file.thc` from `file.thm`.
-
-
-Changes in 2.0.8-rc1 from 2.0.7
--------------------------------
+Changes in 2.0.8 from 2.0.7
+---------------------------
 
 Possibly breaking changes
 
 * Abella now uses [Dune][dune] instead of [ocamlbuild][ocamlbuild].  
   (#138, additional contributions: Chase Johnson)
+* The command line for the `abella` command has slightly changed.
+  - The old `-v` option is removed; use `--version` instead.
+  - The old `-nr` option is removed; use `--non-recursive` instead.
+* In batch mode, Abella always produces `file.thc` from `file.thm`.
 * Abella's parser changed from [ocamlyacc][ocamlyacc] to [Menhir][menhir]
 * Abella's annotation mode (`-a`) now produces annotations in JSON format
   instead of in HTML fragments. The JSON schema should be seen as
@@ -35,7 +28,7 @@ Additions
   sources into HTML pages that resemble the Abella examples on the
   web-site: https://abella-prover.org/examples/
   
-  Run `abella_doc -help` for usage instructions.
+  Run `abella_doc --help` for usage instructions.
 * **Dependency Generation (`abella_dep`)**: There is now a special
   program called `abella_dep` that can be used to generate a
   `Makefile`-based dependency graph. Executing `make` on that

@@ -22,6 +22,14 @@
 let[@inline] curry f (x,y) = f x y
 let[@inline] uncurry f x y = f (x,y)
 
+let sorry exn =
+  String.concat "\n"
+    [ Printexc.to_string exn ; "" ;
+      "Sorry for displaying a naked OCaml exception. An informative error" ;
+      "message has not been designed for this situation." ;
+      "To help improve Abella's error messages, please file a bug report at" ;
+      "<https://github.com/abella-prover/abella/issues>" ]
+
 let bugf fmt =
   Printf.ksprintf begin fun msg ->
     String.concat "\n"

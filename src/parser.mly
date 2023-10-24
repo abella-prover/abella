@@ -102,6 +102,20 @@
     else
       Term.atybase id
 
+  let cmdline_arg_one a =
+    match String.split_on_char '=' a with
+    | [a ; b] -> begin
+        match int_of_string_opt b with
+        | Some n -> (a, Abella_types.Int n)
+        | None -> (a, Abella_types.Str b)
+      end
+    | _ -> raise Abella_types.Reported_parse_error
+
+  let cmdline_arg_two a b =
+    match String.split_on_char '=' a with
+    | [a ; ""] -> (a, b)
+    | _ -> raise Abella_types.Reported_parse_error
+
 %}
 
 %token IMP IF AMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
@@ -140,6 +154,7 @@
 %start top_command_start command_start any_command_start
 %start sig_decl mod_clause search_witness depth_spec
 %start one_term one_metaterm one_defs one_sig_body one_mod_body
+%start cmdline_flags
 
 %type <Typing.uterm> term
 %type <Typing.umetaterm> metaterm
@@ -159,6 +174,7 @@
 %type <Abella_types.sig_decl list> one_sig_body
 %type <Abella_types.uclause Extensions.wpos list> one_mod_body
 %type <Abella_types.udef_clause list> one_defs
+%type <(string * Abella_types.set_value) list> cmdline_flags
 
 %%
 
@@ -737,6 +753,14 @@ one_mod_body:
   | bod=list(mod_clause) EOF { bod }
 one_defs:
   | ds=defs DOT EOF { ds }
+
+cmdline_flags:
+  | fls=separated_list(COMMA,cmdline_flag); EOF
+    { fls }
+
+cmdline_flag:
+  | a=id            { cmdline_arg_one a }
+  | a=id; q=QSTRING { cmdline_arg_two a @@ Abella_types.QStr q }
 
 %inline
 located(X):

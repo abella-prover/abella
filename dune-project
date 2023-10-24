@@ -1,5 +1,5 @@
 (lang dune 3.11)
 (name abella)
-(version v2.0.8-rc1)
+(version v2.0.8)
 (using menhir 2.0)
 (using directory-targets 0.1)

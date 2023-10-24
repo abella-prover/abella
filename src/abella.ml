@@ -441,14 +441,21 @@ let query q =
       Output.msg_printf "No more solutions."
   | _ -> assert false
 
-let set_fail ~key ~expected v =
-  failwithf "Unknown value '%s' for key %S; expected %s"
+let on_or_off = {|"on" or "off"|}
+
+let set_fail ~key ?(expected = on_or_off) v =
+  failwithf "Unknown value %S for key %S; expected %s"
     (set_value_to_string v) key expected
 
 let set_subgoal_max_spec spec =
-  let buf = Lexing.from_string spec in
-  let spec = Parser.depth_spec Lexer.token buf in
-  Prover.set_subgoal_max spec
+  try
+    let buf = Lexing.from_string spec in
+    let spec = Parser.depth_spec Lexer.token buf in
+    Prover.set_subgoal_max spec
+  with
+  | Abella_types.Reported_parse_error
+  | Parser.Error ->
+      failwithf "Invalid subgoal depth specification: %S" spec
 
 let set k v =
   match k, v with
@@ -465,30 +472,26 @@ let set k v =
       set_subgoal_max_spec spec
   | "subgoals", _ -> set_fail v
                        ~key:"subgoals"
-                       ~expected:"'on', 'off', non-negative integer, or depth specification"
+                       ~expected:{|"on", "off", non-negative integer, or depth specification|}
 
   | "instantiations", Str "on" -> Prover.show_instantiations := true
   | "instantiations", Str "off" -> Prover.show_instantiations := false
   | "instantiations", _ -> set_fail v
                              ~key:"instantiations"
-                             ~expected:"'on' or 'off'"
 
   | "types", Str "on" -> Metaterm.show_types := true
   | "types", Str "off" -> Metaterm.show_types := false
   | "types", _ -> set_fail v
                     ~key:"types"
-                    ~expected:"'on' or 'off'"
 
   | "search_depth", Int d when d >= 0 -> Prover.search_depth := d
   | "search_depth", _ -> set_fail v
                            ~key:"search_depth"
-                           ~expected:"non-negative integer"
 
   | "witnesses", Str "on" -> witnesses := true
   | "witnesses", Str "off" -> witnesses := false
   | "witnesses", _ -> set_fail v
                         ~key:"witnesses"
-                        ~expected:"'on' or 'off'"
 
   | "load_path", QStr s ->
       Filepath.set_load_path ~wrt:!input_wrt s
@@ -585,12 +588,7 @@ let rec process1 () =
         | Unify.UnifyFailure fl -> Unify.explain_failure fl
         | Unify.UnifyError err -> Unify.explain_error err
         | UserInterrupt -> "Interrupted (use Ctrl-D to quit)"
-        | _ ->
-            Printexc.to_string e ^ "\n\n\
-                                   \ Sorry for displaying a naked OCaml exception. An informative error message\n\
-                                   \ has not been designed for this situation.\n\n\
-                                   \ To help improve Abella's error messages, please file a bug report at\n\
-                                   \ <https://github.com/abella-prover/abella/issues>. Thanks!"
+        | _ -> sorry e
       in
       Output.msg_printf ~severity:Error "Error: %s" msg ;
       interactive_or_exit ()
@@ -766,7 +764,7 @@ and process_top1 () =
       compile (CClose(List.map (fun aty -> (aty, Subordination.subordinates !sr aty)) atys))
   end ;
   if not config.annotate then Output.blank_line ()
-      
+
 (* Command line and startup *)
 
 let welcome_msg = sprintf "Welcome to Abella %s.\n" Version.version
@@ -781,9 +779,15 @@ let set_compile_out filename =
       (Filename.basename filename) ".part" in
   config.compiled <- Some { name = filename ; temp_name ; channel }
 
+let set_or_exit k v =
+  try set k v with
+  | Failure msg ->
+      Output.msg_printf ~severity:Error "Error: %s" msg ;
+      raise @@ AbellaExit 1
+
 let abella_main flags switch output compiled annotate norec _em infile =
   try begin
-    List.iter (fun (k, v) -> set k v) flags ;
+    List.iter (fun (k, v) -> set_or_exit k v) flags ;
     if switch then config.mode <- `switch ;
     Option.iter set_output output ;
     Option.iter set_compile_out compiled ;
@@ -804,7 +808,11 @@ let abella_main flags switch output compiled annotate norec _em infile =
       Output.msg_printf "%s" welcome_msg ;
     State.Undo.set_enabled (config.mode <> `batch) ;
     while true do process1 () done ; 0
-  end with AbellaExit n -> n
+  end with
+  | AbellaExit n -> n
+  | e ->
+      Output.msg_printf ~severity:Error "Error: %s" (sorry e) ;
+      1
 
 let () =
   Sys.set_signal Sys.sigint
@@ -814,32 +822,23 @@ let () =
 
   let flag_conv : (string * set_value) list Arg.conv =
     let parse str =
-      String.split ~test:(fun c -> c = ',') str |>
-      List.map (String.split ~test:(fun c -> c = '=')) |>
-      List.filter_map begin function
-      | [k ; v] -> begin
-          if String.length v < 1 then None else
-          match v.[0] with
-          | '0' .. '9' ->
-              int_of_string_opt v |>
-              Option.map (fun n -> (k, Int n))
-          | '"' ->
-              (* [FIXME] does not handle foo="bar=baz" *)
-              if String.get v (String.length v - 1) = '"'
-              then Some (k, QStr (String.sub v 1 (String.length v - 2)))
-              else None
-          | _ ->
-              Some (k, Str v)
-        end
-      | [k] -> Some (k, Str "on")
-      | _ -> None
-      end |> Result.ok in
+      try
+        Lexing.from_string str |>
+        Parser.cmdline_flags Lexer.token |>
+        Result.ok
+      with
+      | Abella_types.Reported_parse_error
+      | Parser.Error ->
+          Printf.ksprintf (fun s -> `Msg s)
+            "Could not parse argument: %S" str
+          |> Result.error
+    in
     let print _ _ = () in
     Arg.conv (parse, print)
   in
 
   let flags =
-    let doc = "Intialize flags based on $(docv), which is a \
+    let doc = "Intialize Abella flags based on $(docv), which is a \
                comma-separated list of key=value pairs. Unknown \
                flags are silently ignored." in
     Arg.(value @@ opt flag_conv [] @@
@@ -883,7 +882,9 @@ let () =
   in
 
   let file =
-    let doc = "An Abella development (.thm file) to process in batch mode." in
+    let doc = "An Abella development to process in batch mode. \
+               The $(docv) must end with the extension $(b,.thm). \
+               If no $(docv) is provided, Abella runs in interactive mode." in
     Arg.(value @@ pos 0 (some string) None @@
          info [] ~docv:"FILE" ~doc)
   in

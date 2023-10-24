@@ -3,11 +3,6 @@
   (modules abella)
   (libraries abella_lib unix cmdliner))
 
-(rule
-  (target abella_doc_dist.ml)
-  (deps ../support/dist/abella_doc.js ../support/dist/abella_doc.css)
-  (action (run ocaml-crunch -m plain -o abella_doc_dist.ml ../support/dist)))
-
 (executable
   (name abella_doc)
   (modules abella_doc)

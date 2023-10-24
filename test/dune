@@ -20,4 +20,4 @@
     (progn
       (run test/setup_regression.exe --actual examples)
       (run src/abella_dep.exe -a "src/abella.exe" -o test/test.mk -r examples)
-      (run make -k -j --quiet -f test/test.mk all)))))
+      (run make -k -j -f test/test.mk all)))))

@@ -90,7 +90,7 @@
 let number = ['0'-'9'] +
 
 (* Initial characters for variables *)
-let ichar = ['A'-'Z' 'a'-'z' '-' '^' '=' '`' '\'' '?' '$']
+let ichar = ['A'-'Z' 'a'-'z' '-' '=' '^' '`' '\'' '?' '$']
 
 (* Characters allowed only in the body of variables. *)
 let bchar = ['0'-'9' '_' '/' '*' '@' '+' '#' '!' '~']
@@ -143,7 +143,7 @@ rule token = parse
 
 | "_"                { UNDERSCORE }
 | number as n        { NUM (int_of_string n) }
-| name as id          { try Hashtbl.find keyword_table id
+| name as id         { try Hashtbl.find keyword_table id
                        with Not_found -> STRINGID id }
 
 | eof                { EOF }

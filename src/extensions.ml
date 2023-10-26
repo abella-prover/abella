@@ -35,23 +35,16 @@ let maybe_guard ?guard f =
   | None -> f
   | Some g -> g f
 
-let pp_print_commaspace ff () =
-    Format.pp_print_string ff "," ;
-    Format.pp_print_space ff ()
+module Format = struct
+  include Stdlib.Format
 
-let pp_print_list ?(pp_sep=pp_print_commaspace) pp_elem ff l =
-  match l with
-  | [] -> ()
-  | [x] -> pp_elem ff x
-  | x :: xs ->
-      pp_elem ff x ;
-      List.iter begin fun x ->
-        pp_sep ff () ;
-        pp_elem ff x
-      end xs
+  let pp_print_commaspace ppf () =
+    pp_print_string ppf "," ;
+    pp_print_space ppf ()
+end
 
 module String = struct
-  include String
+  include Stdlib.String
 
   let count str char =
     let count = ref 0 in
@@ -91,7 +84,7 @@ module String = struct
 end
 
 module List = struct
-  include List
+  include Stdlib.List
 
   let mem ?(cmp=(=)) elt list =
     let rec aux list =

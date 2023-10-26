@@ -77,7 +77,7 @@ let perform_switch_to_interactive () =
   config.lexbuf <- Lexing.from_channel ~with_positions:false stdin ;
   config.mode <- `interactive ;
   Output.(dest := Channel stdout) ;
-  Output.system_message "Switching to interactive mode." ;
+  Output.msg_printf "Switching to interactive mode." ;
   State.Undo.undo ()
 
 let interactive_or_exit () =
@@ -97,14 +97,14 @@ let position_range (p1, p2) =
     sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
 
 let type_inference_error (pos, ct) exp act =
-  Output.system_message "Typing error%s." (position_range pos) ;
+  Output.msg_printf "Typing error%s." (position_range pos) ;
   match ct with
   | CArg ->
-      Output.system_message ~severity:Error
+      Output.msg_printf ~severity:Error
         "Expression has type %s but is used here with type %s."
         (ty_to_string act) (ty_to_string exp)
   | CFun ->
-      Output.system_message ~severity:Error
+      Output.msg_printf ~severity:Error
         "Expression is applied to too many arguments"
 
 let teyjus_only_keywords =
@@ -116,7 +116,7 @@ let warn_on_teyjus_only_keywords (ktable, ctable) =
   let tokens = List.unique (List.map fst ktable @ List.map fst ctable) in
   let used_keywords = List.intersect tokens teyjus_only_keywords in
   if used_keywords <> [] then
-    Output.system_message
+    Output.msg_printf
       "Warning: The following tokens are keywords in Teyjus: %s."
       (String.concat ", " used_keywords)
 
@@ -126,7 +126,7 @@ let update_subordination_sign sr sign =
 let read_specification name =
   clear_specification_cache () ;
   if config.mode = `interactive then
-    Output.system_message "Reading specification %S." name ;
+    Output.msg_printf "Reading specification %S." name ;
   let read_sign = get_sign name in
   let () = warn_on_teyjus_only_keywords read_sign in
   let sign' = merge_signs [!sign; read_sign] in
@@ -294,15 +294,15 @@ let replace_atom_compiled decl defn_name defn comp=
 let add_lemma name tys thm =
   match Prover.add_lemma name tys thm with
   | `replace ->
-      Output.system_message "Warning: overriding existing lemma named %S." name
+      Output.msg_printf "Warning: overriding existing lemma named %S." name
   | _ -> ()
 
 let rec import ~wrt pos impfile withs =
   let filename = Filepath.normalize ~wrt impfile in
   if List.mem filename !imported then
-    Output.system_message "Ignoring repeated import: %S." filename
+    Output.msg_printf "Ignoring repeated import: %S." filename
   else begin
-    Output.system_message "Importing: %S." filename ;
+    Output.msg_printf "Importing: %S." filename ;
     Output.link_message ~pos ~url:(filename ^ ".html") ;
     import_load filename withs
   end
@@ -317,7 +317,7 @@ and import_load filename withs =
         failwithf "Recursive invocation of Abella prevented with the -nr flag" ;
       let out_name = filename ^ ".out" in
       let cmd = Printf.sprintf " %S -o %S -c %S" thm_name out_name thc_name in
-      Output.system_message "Running: abella%s" cmd ;
+      Output.msg_printf "Running: abella%s" cmd ;
       if Sys.command (Sys.executable_name ^ cmd) <> 0 then
         failwithf "Could not create %S" thc_name
     in
@@ -331,7 +331,7 @@ and import_load filename withs =
       let dig = (Marshal.from_channel ch : Digest.t) in
       let ver = (Marshal.from_channel ch : string) in
       if dig = Version.self_digest then ch else begin
-        Output.system_message
+        Output.msg_printf
           "Warning: %S was compiled with a different version (%s) of Abella; Need to recompile.%!"
           thc_name ver ;
         close_in ch ;
@@ -431,14 +431,14 @@ let query q =
           ~retype:Prover.retype
           ~sr:!sr
           ~sc:(fun _w ->
-              Output.system_message "Found solution:" ;
+              Output.msg_printf "Found solution:" ;
               List.iter
                 (fun (n, v) ->
-                   Output.system_message "%s = %s" n (term_to_string v))
+                   Output.msg_printf "%s = %s" n (term_to_string v))
                 ctx ;
               Output.blank_line ())
       in
-      Output.system_message "No more solutions."
+      Output.msg_printf "No more solutions."
   | _ -> assert false
 
 let set_fail ~key ~expected v =
@@ -496,11 +496,11 @@ let set k v =
 
 let handle_search_witness w =
   if !witnesses then
-    Output.system_message "Witness: %s." (witness_to_string w)
+    Output.msg_printf "Witness: %s." (witness_to_string w)
 
 let term_witness (_t, w) =
   if !witnesses then
-    Output.system_message "Witness: %s." (witness_to_string w)
+    Output.msg_printf "Witness: %s." (witness_to_string w)
 
 let suppress_proof_state_display = State.rref false
 
@@ -509,7 +509,7 @@ type processing_state =
   | Process_proof of proof_processor
 
 and proof_processor = {
-  id : int ;
+  thm_id : int ;
   thm : string ;
   compile : (fin -> unit) ;
   reset : (unit -> unit) ;
@@ -527,7 +527,7 @@ let rec process1 () =
     | Process_proof proc -> begin
         try process_proof1 proc with
         | Prover.End_proof reason -> begin
-            Output.system_message "Proof %s" begin
+            Output.msg_printf "Proof %s" begin
               match reason with
               | `completed fin -> begin
                   proc.compile fin ;
@@ -552,7 +552,7 @@ let rec process1 () =
       interactive_or_exit ()
   | Parser.Error ->
       State.Undo.undo () ;
-      Output.system_message ~severity:Error
+      Output.msg_printf ~severity:Error
         "Syntax error%s." (position config.lexbuf) ;
       Lexing.flush_input config.lexbuf ;
       interactive_or_exit ()
@@ -568,13 +568,13 @@ let rec process1 () =
         match !current_state with
         | Process_top ->
             if not (is_interactive ()) && config.unfinished <> [] then begin
-              Output.system_message "There were skips in these theorem(s): %s"
+              Output.msg_printf "There were skips in these theorem(s): %s"
                 (String.concat ", "  config.unfinished)
             end ;
             Output.flush () ;
             raise @@ AbellaExit 0
         | _ ->
-            Output.system_message ~severity:Error "Proof NOT Completed." ;
+            Output.msg_printf ~severity:Error "Proof NOT Completed." ;
             Output.flush () ;
             raise @@ AbellaExit 1
       end
@@ -592,28 +592,30 @@ let rec process1 () =
                                    \ To help improve Abella's error messages, please file a bug report at\n\
                                    \ <https://github.com/abella-prover/abella/issues>. Thanks!"
       in
-      Output.system_message ~severity:Error "Error: %s" msg ;
+      Output.msg_printf ~severity:Error "Error: %s" msg ;
       interactive_or_exit ()
 
 and process_proof1 proc =
-  let annot = Output.fresh ProofCommand in
-  if not !suppress_proof_state_display then begin
-    if config.annotate then begin
-      Output.extend annot "thm_id" @@ `Int proc.id ;
-      Output.extend annot "theorem" @@ `String proc.thm ;
-      Output.extend annot "start_state" @@ Prover.state_json ()
-    end
-    else if config.mode = `interactive then Output.ordinary "%s" @@ Prover.get_display ()
-  end ;
+  if config.mode = `interactive && not !suppress_proof_state_display then
+    Output.non_annot "%s" @@ Prover.get_display () ;
   suppress_proof_state_display := false ;
-  if config.mode = `interactive && not config.annotate then Output.ordinary "%s < " proc.thm ;
+  if config.mode = `interactive then
+    Output.non_annot "%s < " proc.thm ;
   let input = Parser.command_start Lexer.token config.lexbuf in
   let cmd_string = command_to_string input.el in
-  if not (config.mode = `interactive || config.annotate) then
-    Output.ordinary "%s.\n" cmd_string ;
-  if config.annotate then Output.extend annot "command" @@ `String cmd_string ;
-  if config.annotate && fst input.pos != Lexing.dummy_pos then
-    Output.extend annot "range" @@ json_of_position input.pos ;
+  if config.mode <> `interactive then
+    Output.non_annot "%s.\n" cmd_string ;
+  let annot =
+    if not config.annotate then None else
+    Output.message "proof_command" ~fields:begin
+      [ "thm_id", `Int proc.thm_id ;
+        "theorem", `String proc.thm ;
+        "start_state", Prover.state_json () ;
+        "command", `String cmd_string ] @
+      (if fst input.pos = Lexing.dummy_pos then [] else
+         [ "range", json_of_position input.pos ])
+    end |> Option.some
+  in
   let perform () =
     begin match input.el with
     | Induction(args, hn)           -> Prover.induction ?name:hn args
@@ -663,7 +665,7 @@ and process_proof1 proc =
         else failwith "Cannot use interactive commands in non-interactive mode"
     | Common(Set(k, v))      -> set k v
     | Common(Show nm)        ->
-        Output.system_message_format "%t" (Prover.show nm) ;
+        Output.msg_format "%t" (Prover.show nm) ;
         if config.mode = `interactive then Output.blank_line () ;
         suppress_proof_state_display := true
     | Common(Quit)           -> raise End_of_file
@@ -672,24 +674,29 @@ and process_proof1 proc =
   if not config.annotate then perform () else
   match perform () with
   | () ->
-      Output.extend annot "end_state" @@ Prover.state_json () ;
-      Output.commit_message annot
+      Option.iter begin fun annot ->
+        Output.extend annot "end_state" @@ Prover.state_json ()
+        |> Output.commit_message
+      end annot
   | exception e ->
-      Output.commit_message annot ;
+      Option.iter Output.commit_message annot ;
       raise e
 
 and process_top1 () =
-  if config.mode = `interactive && not config.annotate then
-    Output.ordinary "Abella < " ;
-  let annot = Output.fresh TopCommand in
+  if config.mode = `interactive then Output.non_annot "Abella < " ;
   let input = Parser.top_command_start Lexer.token config.lexbuf in
-  if fst input.pos != Lexing.dummy_pos then
-    Output.extend annot "range" @@ json_of_position input.pos ;
   let cmd_string = top_command_to_string input.el in
-  if not (config.mode = `interactive || config.annotate) then
-    Output.ordinary "%s.\n%!" cmd_string ;
-  Output.extend annot "command" @@ `String cmd_string ;
-  Output.commit_message annot ;
+  if config.mode <> `interactive then Output.non_annot "%s.\n%!" cmd_string ;
+  let thm_id =
+    if not config.annotate then -1 else
+    let annot = Output.message "top_command" ~fields:begin
+        (if fst input.pos = Lexing.dummy_pos then [] else
+           ["range", json_of_position input.pos]) @
+        [ "command", `String cmd_string ]
+      end in
+    Output.commit_message annot ;
+    annot.id
+  in
   begin match input.el with
   | Theorem(name, tys, thm) -> begin
       let st = get_bind_state () in
@@ -709,7 +716,7 @@ and process_top1 () =
       in
       Prover.start_proof () ;
       current_state := Process_proof {
-          id = annot.id ; thm = name ;
+          thm_id ; thm = name ;
           compile = thm_compile ;
           reset = thm_reset
         }
@@ -717,7 +724,7 @@ and process_top1 () =
   | SSplit(name, names) ->
       let gen_thms = Prover.create_split_theorems name names in
       List.iter begin fun (n, (tys, t)) ->
-        Output.system_message_format "%t" (Prover.print_theorem n (tys, t)) ;
+        Output.msg_format "%t" (Prover.print_theorem n (tys, t)) ;
         add_lemma n tys t ;
         compile (CTheorem(n, tys, t, Finished))
       end gen_thms ;
@@ -730,7 +737,7 @@ and process_top1 () =
       if config.mode = `interactive then State.Undo.reset ()
       else failwith "Cannot use interactive commands in non-interactive mode"
   | TopCommon(Set(k, v)) -> set k v
-  | TopCommon(Show(n)) -> Output.system_message_format "%t" (Prover.show n)
+  | TopCommon(Show(n)) -> Output.msg_format "%t" (Prover.show n)
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, pos, withs) ->
       compile (CImport (filename, withs)) ;
@@ -759,7 +766,7 @@ and process_top1 () =
       compile (CClose(List.map (fun aty -> (aty, Subordination.subordinates !sr aty)) atys))
   end ;
   if not config.annotate then Output.blank_line ()
-
+      
 (* Command line and startup *)
 
 let welcome_msg = sprintf "Welcome to Abella %s.\n" Version.version
@@ -794,7 +801,7 @@ let abella_main flags switch output compiled annotate norec _em infile =
     | None -> () end ;
     if config.annotate then Output.annotation_mode () ;
     if config.mode = `interactive then
-      Output.system_message "%s" welcome_msg ;
+      Output.msg_printf "%s" welcome_msg ;
     State.Undo.set_enabled (config.mode <> `batch) ;
     while true do process1 () done ; 0
   end with AbellaExit n -> n

@@ -9,41 +9,27 @@
 
 open Extensions
 
-type kind =
-  | TopCommand | ProofCommand
-  | SystemMessage
-  | Link
-
-let kind_to_string = function
-  | TopCommand -> "top_command"
-  | ProofCommand -> "proof_command"
-  | SystemMessage -> "system_message"
-  | Link -> "link"
+open struct
+  let last_id : int ref = ref (-1)
+end
 
 type message = {
-  kind : kind ;
+  kind : string ;
   id : int ;
-  mutable fields : (string * Json.t) list ;
+  fields : (string * Json.t) list ;
 }
 
-let last_id : int ref = ref (-1)
 
-let fresh kind =
+let message ?(fields = []) kind =
   incr last_id ;
-  { kind ; id = !last_id ; fields = [] }
+  { kind ; id = !last_id ; fields }
 
 let extend msg k v =
-  msg.fields <- (k, v) :: msg.fields
-
-let last_command_id : int option ref = ref None
+  { msg with fields = (k, v) :: msg.fields }
 
 let commit msg : Json.t =
-  begin match msg.kind with
-  | TopCommand | ProofCommand ->
-      last_command_id := Some msg.id
-  | _ -> () end ;
   `Assoc (("id", `Int msg.id) ::
-          ("type", `String (kind_to_string msg.kind)) ::
+          ("type", `String msg.kind) ::
           msg.fields)
 
 type t =
@@ -52,7 +38,7 @@ type t =
   | Json of { mutable out : Json.t list ; base : out_channel }
   | Null
 
-let dest : t ref = ref @@ Channel stdout
+let dest : t ref = ref @@ Channel Stdlib.stdout
 
 let annotation_mode () =
   match !dest with
@@ -63,7 +49,7 @@ let annotation_mode () =
 
 type severity = Info | Error
 
-let system_message ?(severity = Info) fmt =
+let msg_printf ?(severity = Info) fmt =
   Printf.ksprintf begin fun str ->
     match !dest with
     | Channel out ->
@@ -73,39 +59,31 @@ let system_message ?(severity = Info) fmt =
         Buffer.add_string buf str ;
         Buffer.add_string buf "\n"
     | Json js -> begin
-        let msg = fresh SystemMessage in
-        begin match !last_command_id with
-          | None -> ()
-          | Some id -> extend msg "after" @@ `Int id
-        end ;
-        extend msg "severity" @@ begin
-            match severity with
-            | Info -> `String "info"
-            | Error -> `String "error"
-          end ;
-        extend msg "message" @@ `String str ;
+        let msg = message "system_message" ~fields:[
+            "severity", `String (match severity with
+                | Info -> "info"
+                | Error -> "error") ;
+            "message", `String str
+          ] in
         js.out <- commit msg :: js.out
       end
     | Null -> ()
   end fmt
 
-let system_message_format ?severity fmt =
-  Format.kasprintf (system_message ?severity "%s") fmt
+let msg_format ?severity fmt =
+  Format.kasprintf (msg_printf ?severity "%s") fmt
 
 let link_message ~pos ~url =
   match !dest with
   | Json js ->
-      let msg = fresh Link in
-      begin match !last_command_id with
-        | None -> ()
-        | Some id -> extend msg "parent" @@ `Int id
-      end ;
-      extend msg "source" @@ json_of_position pos ;
-      extend msg "url" @@ `String url ;
+      let msg = message "link" ~fields:[
+          "source", json_of_position pos ;
+          "url", `String url
+        ] in
       js.out <- commit msg :: js.out
   | _ -> ()
 
-let ordinary fmt =
+let non_annot fmt =
   Printf.ksprintf begin fun str ->
       match !dest with
       | Channel out ->
@@ -116,6 +94,9 @@ let ordinary fmt =
       | Json _ | Null -> ()
   end fmt
 
+let non_annot_format fmt =
+  Format.kasprintf (non_annot "%s") fmt
+
 let json thing =
   match !dest with
   | Json js ->
@@ -123,9 +104,6 @@ let json thing =
   | _ -> ()
 
 let commit_message msg = commit msg |> json
-
-let ordinary_format fmt =
-  Format.kasprintf (ordinary "%s") fmt
 
 let blank_line () =
   match !dest with

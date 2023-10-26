@@ -1,7 +1,6 @@
 open OUnit
 open Term
 open Term.Notations
-open Extensions
 open Test_helper
 
 let norm_tests =

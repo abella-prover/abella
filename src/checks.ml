@@ -153,7 +153,7 @@ let check_well_formed ~def =
             ^ msgs
         in
         if stratification_warnings_are_errors then failwith msg
-        else Output.system_message ("" ^^ "Warning: %s\n%!") msg
+        else Output.msg_printf ("" ^^ "Warning: %s\n%!") msg
   in
   List.iteri check_clause def.clauses
 

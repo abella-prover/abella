@@ -316,14 +316,16 @@ async function loadModule(boxId: string, thmContents: string, thmJson: any[]) {
     }
   });
   // add system messages to floats
+  let floatDest : any | undefined = undefined;
   runData.forEach((elm) => {
-    if (elm.type === "system_message") {
-      const cmdElm = chunkMap.get(elm.after);
+    if (elm.type === "system_message" && floatDest) {
       // [HACK] below, if happens, is possible Abella bug; skip
-      if (cmdElm === undefined || cmdElm.float === undefined) return;
+      if (floatDest.float === undefined) return;
       elm.message = makeSafe(elm.message);
-      cmdElm.float += `<div class="ab-sys">${elm.message}</div>`;
+      floatDest.float += `<div class="ab-sys">${elm.message}</div>`;
     }
+    if (elm.type === "top_command" || elm.type === "proof_command")
+      floatDest = elm;
   });
   // link the floats
   runData.forEach((elm) => {

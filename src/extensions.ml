@@ -19,18 +19,24 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
-let (>>) f g x = g (f x)
-let (|>) x f = f x
+let[@inline] curry f (x,y) = f x y
+let[@inline] uncurry f x y = f (x,y)
 
-let curry f (x,y) = f x y
-let uncurry f x y = f (x,y)
-
-let bugf      fmt = Printf.ksprintf (fun s -> Printf.eprintf "%s\n%!" s ; failwith "Bug")
-    ("[ABELLA BUG]\n" ^^ fmt ^^
-     "\nPlease report this at https://github.com/abella-prover/abella/issues")
+let bugf fmt =
+  Printf.ksprintf begin fun msg ->
+    String.concat "\n"
+      [ "[ABELLA BUG]" ;
+        msg ;
+        "Please report this at \
+        \ https://github.com/abella-prover/abella/issues\n" ] |>
+    output_string Stdlib.stderr ;
+    Stdlib.(flush stderr) ;
+    failwith "Bug"
+  end fmt
 
 let failwithf fmt = Printf.ksprintf failwith fmt
-let maybe_guard ?guard f =
+
+let[@inline] maybe_guard ?guard f =
   match guard with
   | None -> f
   | Some g -> g f
@@ -51,19 +57,16 @@ module String = struct
       String.iter (fun c -> if c = char then incr count) str ;
       !count
 
+  open struct
+    let is_whitespace = function
+      | ' ' | '\t' | '\n' | '\r' -> true
+      | _ -> false
+  end
+
   let split ?test ?(start = 0) ?len str =
-    let test = match test with
-      | None -> begin function
-        | ' ' | '\t' | '\n' | '\r' -> true
-        | _ -> false
-        end
-      | Some test -> test
-    in
+    let test = Option.value ~default:is_whitespace test in
     let strlen = String.length str in
-    let len = match len with
-      | None -> strlen
-      | Some len -> len
-    in
+    let len = Option.value ~default:strlen len in
     if start < 0 || len < 0 || (start + len) > String.length str then
       invalid_arg "String.split" ;
     let toks = ref [] in
@@ -89,44 +92,44 @@ module List = struct
   let mem ?(cmp=(=)) elt list =
     let rec aux list =
       match list with
-        | [] -> false
-        | head::tail -> cmp elt head || aux tail
+      | [] -> false
+      | head::tail -> cmp elt head || aux tail
     in
-      aux list
+    aux list
 
   let remove ?(cmp=(=)) elt list =
     let rec aux list =
       match list with
-        | [] -> []
-        | head::tail when cmp elt head -> aux tail
-        | head::tail -> head::(aux tail)
+      | [] -> []
+      | head::tail when cmp elt head -> aux tail
+      | head::tail -> head::(aux tail)
     in
-      aux list
+    aux list
 
   let unique ?(cmp=(=)) list =
     let rec aux list =
       match list with
-        | [] -> []
-        | head::tail -> head::(aux (remove ~cmp:cmp head tail))
+      | [] -> []
+      | head::tail -> head::(aux (remove ~cmp:cmp head tail))
     in
-      aux list
+    aux list
 
   let is_unique ?(cmp=(=)) list =
     let rec aux list =
       match list with
-        | [] -> true
-        | head::tail -> not (mem ~cmp head tail) && aux tail
+      | [] -> true
+      | head::tail -> not (mem ~cmp head tail) && aux tail
     in
-      aux list
+    aux list
 
   let find_duplicate list =
     let rec aux list =
       match list with
-        | [] -> None
-        | head::tail when mem head tail -> Some head
-        | _::tail -> aux tail
+      | [] -> None
+      | head::tail when mem head tail -> Some head
+      | _::tail -> aux tail
     in
-      aux list
+    aux list
 
   let map ?guard f list = map (maybe_guard ?guard f) list
 
@@ -158,13 +161,13 @@ module List = struct
     let f = maybe_guard ?guard f in
     let rec aux list =
       match list with
-        | [] -> None
-        | head::tail ->
-            match f head with
-              | Some v -> Some v
-              | None -> aux tail
+      | [] -> None
+      | head::tail ->
+          match f head with
+          | Some v -> Some v
+          | None -> aux tail
     in
-      aux list
+    aux list
 
   let filter_map ?guard f list =
     let f = maybe_guard ?guard f in
@@ -186,46 +189,46 @@ module List = struct
 
   let rec take n list =
     match list, n with
-      | [], _ -> []
-      | _, n when n <= 0 -> []
-      | x::xs, n -> x::(take (n-1) xs)
+    | [], _ -> []
+    | _, n when n <= 0 -> []
+    | x::xs, n -> x::(take (n-1) xs)
 
   let remove_assocs to_remove alist =
     let rec aux alist =
       match alist with
-        | (a, b)::rest ->
-            if mem a to_remove
-            then aux rest
-            else (a, b)::(aux rest)
-        | [] -> []
+      | (a, b)::rest ->
+          if mem a to_remove
+          then aux rest
+          else (a, b)::(aux rest)
+      | [] -> []
     in
-      aux alist
+    aux alist
 
   let assoc_all ?(cmp=(=)) x list =
     let rec aux list =
       match list with
-        | [] -> []
-        | (a, b)::tail when cmp x a -> b::(aux tail)
-        | _::tail -> aux tail
+      | [] -> []
+      | (a, b)::tail when cmp x a -> b::(aux tail)
+      | _::tail -> aux tail
     in
-      aux list
+    aux list
 
   let remove_all_assoc ?(cmp=(=)) x list =
     let rec aux list =
       match list with
-        | [] -> []
-        | (a, _b)::tail when cmp x a -> aux tail
-        | head::tail -> head::(aux tail)
+      | [] -> []
+      | (a, _b)::tail when cmp x a -> aux tail
+      | head::tail -> head::(aux tail)
     in
-      aux list
+    aux list
 
   let collate_assoc ?(cmp=(=)) alist =
     let rec spin finished ck cv = function
       | [] -> List.rev ((ck, List.rev cv) :: finished)
       | (nk, nv) :: rest ->
-        if cmp ck nk
-        then spin finished ck (nv :: cv) rest
-        else spin ((ck, List.rev cv) :: finished) nk [nv] rest
+          if cmp ck nk
+          then spin finished ck (nv :: cv) rest
+          else spin ((ck, List.rev cv) :: finished) nk [nv] rest
     in
     match alist with
     | [] -> []
@@ -234,38 +237,38 @@ module List = struct
   let max list =
     let rec aux list m =
       match list with
-        | [] -> m
-        | head::tail -> aux tail (max head m)
+      | [] -> m
+      | head::tail -> aux tail (max head m)
     in
-      aux list 0
+    aux list 0
 
   let rec distribute elt list =
     match list with
-      | [] -> [[elt]]
-      | head::tail -> (elt::list) ::
-          (map (fun x -> head::x) (distribute elt tail))
+    | [] -> [[elt]]
+    | head::tail -> (elt::list) ::
+                    (map (fun x -> head::x) (distribute elt tail))
 
   (* Generate all permutations of all n element subsets of list *)
   let rec permute n list =
     if n = 0 then
       [[]]
     else
-      match list with
-        | [] -> []
-        | head::tail ->
-            (flatten_map (distribute head) (permute (n-1) tail))
-            @ (permute n tail)
+    match list with
+    | [] -> []
+    | head::tail ->
+        (flatten_map (distribute head) (permute (n-1) tail))
+        @ (permute n tail)
 
   (* Generate all n element subsets of list *)
   let rec choose n list =
     if n = 0 then
       [[]]
     else
-      match list with
-        | [] -> []
-        | head::tail ->
-            (map (fun t -> head::t) (choose (n-1) tail))
-            @ (choose n tail)
+    match list with
+    | [] -> []
+    | head::tail ->
+        (map (fun t -> head::t) (choose (n-1) tail))
+        @ (choose n tail)
 
   let rec range a b =
     if a > b then
@@ -276,20 +279,20 @@ module List = struct
   let number list =
     let rec aux i list =
       match list with
-        | [] -> []
-        | head::tail -> (i, head) :: (aux (i+1) tail)
+      | [] -> []
+      | head::tail -> (i, head) :: (aux (i+1) tail)
     in
-      aux 1 list
+    aux 1 list
 
   let fold_left1 f list =
     match list with
-      | x::xs -> fold_left f x xs
-      | _ -> invalid_arg "Empty list"
+    | x::xs -> fold_left f x xs
+    | _ -> invalid_arg "Empty list"
 
   let rec drop n list =
     match list with
-      | _x::xs when n > 0 -> drop (n-1) xs
-      | _ -> list
+    | _x::xs when n > 0 -> drop (n-1) xs
+    | _ -> list
 
   let drop_last n list = rev (drop n (rev list))
   let take_last n list = rev (take n (rev list))
@@ -302,22 +305,22 @@ module List = struct
   let rev_map f list =
     let rec aux list acc =
       match list with
-        | [] -> acc
-        | x::xs -> aux xs (f x :: acc)
+      | [] -> acc
+      | x::xs -> aux xs (f x :: acc)
     in
-      aux list []
+    aux list []
 
   let rec rev_app xs ys =
     match xs with
-      | [] -> ys
-      | x::xs -> rev_app xs (x::ys)
+    | [] -> ys
+    | x::xs -> rev_app xs (x::ys)
 
   let replicate n x =
     let rec aux = function
       | 0 -> []
       | i -> x :: aux (i-1)
     in
-      aux n
+    aux n
 
   let map_fst f list =
     map (fun (x,y) -> (f x, y)) list
@@ -327,14 +330,14 @@ module List = struct
 
   let rec combine3 l1 l2 l3 =
     match l1, l2, l3 with
-      | [], [], [] -> []
-      | x::xs, y::ys, z::zs -> (x, y, z) :: (combine3 xs ys zs)
-      | _ -> raise (Invalid_argument "List.combine3")
+    | [], [], [] -> []
+    | x::xs, y::ys, z::zs -> (x, y, z) :: (combine3 xs ys zs)
+    | _ -> raise (Invalid_argument "List.combine3")
 
 end
 
 module Hashtbl = struct
-  include Hashtbl
+  include Stdlib.Hashtbl
 
   let assign dest src =
     clear dest ;
@@ -342,36 +345,16 @@ module Hashtbl = struct
 
 end
 
-let memoize fn =
-  let memo = Hashtbl.create 3 in
-  fun x ->
-    try Hashtbl.find memo x with Not_found ->
-      let res = fn x in
-      Hashtbl.add memo x res ;
-      res
+(* let memoize fn = *)
+(*   let memo = Hashtbl.create 3 in *)
+(*   fun x -> *)
+(*     try Hashtbl.find memo x *)
+(*     with Not_found -> *)
+(*       let res = fn x in *)
+(*       Hashtbl.add memo x res ; *)
+(*       res *)
 
-
-module Either = struct
-  type ('a, 'b) either = Left of 'a | Right of 'b
-
-  let either left right e =
-    match e with
-      | Left x -> left x
-      | Right x -> right x
-
-  let partition_eithers eithers =
-    let left x (l, r) = (x::l, r) in
-    let right x (l, r) = (l, x::r) in
-      List.fold_right (either left right) eithers ([], [])
-end
-
-module IntMap : Map.S with type key := int =
-  Map.Make (struct
-    type t = int
-    let compare (x : int) y =
-      if x < y then -1 else
-      if x = y then 0 else 1
-  end)
+module IntMap = Stdlib.Map.Make(Stdlib.Int)
 
 module Json = Yojson.Safe
 

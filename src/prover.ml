@@ -808,23 +808,21 @@ let type_apply_withs stmt ws =
     ws
 
 let partition_obligations ?depth obligations =
-  Either.partition_eithers
-    (List.map
-       (fun g ->
-          (* Format.eprintf "before search:@.%a@." *)
-          (*   format_sequent_with_goal g ; *)
-          let wit = search_goal_witness ?depth g WMagic in
-          ensure_no_logic_variable g ;
-          match wit with
-          | None ->
-              (* Format.eprintf "after search/failure:@.%a@." *)
-              (*   format_sequent_with_goal g ; *)
-              Either.Left g
-          | Some w ->
-              (* Format.eprintf "after search/success:@.%a@." *)
-              (*   format_sequent_with_goal g ; *)
-              Either.Right (g, w))
-       obligations)
+  List.partition_map begin fun g ->
+    (* Format.eprintf "before search:@.%a@." *)
+    (*   format_sequent_with_goal g ; *)
+    let wit = search_goal_witness ?depth g WMagic in
+    ensure_no_logic_variable g ;
+    match wit with
+    | None ->
+        (* Format.eprintf "after search/failure:@.%a@." *)
+        (*   format_sequent_with_goal g ; *)
+        Either.Left g
+    | Some w ->
+        (* Format.eprintf "after search/success:@.%a@." *)
+        (*   format_sequent_with_goal g ; *)
+        Either.Right (g, w)
+  end obligations
 
 let apply ?depth ?name ?(term_witness=ignore) h args ws =
   let stmt = get_stmt_clearly h in

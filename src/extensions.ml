@@ -50,43 +50,6 @@ let pp_print_list ?(pp_sep=pp_print_commaspace) pp_elem ff l =
         pp_elem ff x
       end xs
 
-module Option = struct
-  let is_some x =
-    match x with
-      | Some _ -> true
-      | None -> false
-
-  let is_none x =
-    match x with
-      | Some _ -> false
-      | None -> true
-
-  let get x =
-    match x with
-      | Some v -> v
-      | None -> failwith "Option.get called on None"
-
-  let map_default f default x =
-    match x with
-      | Some v -> f v
-      | None -> default
-
-  let default default x =
-    match x with
-      | Some v -> v
-      | None -> default
-
-  let map f x =
-    match x with
-    | None -> None
-    | Some x -> Some (f x)
-
-  let iter f x =
-    match x with
-    | None -> ()
-    | Some x -> f x
-end
-
 module String = struct
   include String
 

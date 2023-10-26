@@ -618,7 +618,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   | And _
   | Binding(Metaterm.Exists, _, _)
   | Binding(Nabla, _, _) ->
-      Option.map_default (fun sc -> [stateless_case_to_case sc]) []
+      Option.fold ~none:[] ~some:(fun sc -> [stateless_case_to_case sc])
         (recursive_metaterm_case ~used ~sr term)
   | _ ->
       failwith "Cannot perform case-analysis on this kind of formula"
@@ -1353,7 +1353,7 @@ let try_with_state_all ~fail f =
 let apply ?(used_nominals=[]) ~sr term args =
   let hyp_support = metaterm_support term in
   let support = hyp_support @
-                  List.flatten_map (Option.map_default metaterm_support []) args in
+                  List.flatten_map (Option.fold ~some:metaterm_support ~none:[]) args in
   let support = List.unique ~cmp:eq support in
   (* used_nominals are nominal constants provided by 'withs' for
      (partially) instantiating nabla quantified variables and

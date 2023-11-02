@@ -296,7 +296,7 @@ let () =
       `S Manpage.s_see_also ;
       `P "$(b,abella)(1)" ;
       `S Manpage.s_bugs ;
-      `P "File bug reports on <$(b,https://github.com/abella-prover/abella/issues)>" ;
+      `P "File bug reports at <$(b,https://github.com/abella-prover/abella/issues)>" ;
     ] in
     let info = Cmd.info "abella_doc" ~doc ~man ~exits:[] in
     Cmd.v info @@ Term.(const main $ conf $ files)

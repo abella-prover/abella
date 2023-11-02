@@ -56,8 +56,9 @@ let mk_conf abella makefile clobber recursive =
 
 let abella_dep conf files =
   List.iter (add_input_file conf.recursive) files ;
-  if not conf.clobber && Sys.file_exists conf.makefile then
-    failwithf "Would clobber %S but given option -nc" conf.makefile ;
+  if not conf.clobber && conf.makefile <> "-" &&
+     Sys.file_exists conf.makefile
+  then failwithf "Would clobber %S but not given option -c" conf.makefile ;
   if Hashtbl.length dep_tab = 0 then () else
   let (out, close) = match conf.makefile with
     | "-" -> (stdout, fun () -> ())
@@ -95,21 +96,34 @@ let () =
   let open Cmdliner in
   let conf =
     let abella =
-      let doc = "Set the Abella command to $(docv)" in
-      Arg.(value @@ opt string "abella" @@
-           info ["a" ; "abella"] ~docv:"CMD" ~doc)
+      let default =
+        let dir = Filename.dirname Sys.executable_name in
+        let ab1 = Filename.concat dir "abella" in
+        let ab2 = Filename.concat dir "abella.exe" in
+        if Sys.file_exists ab1 then ab1 else ab2 in
+      let env = Cmd.Env.info "ABELLA"
+          ~doc:"Abella command to run (overriden by $(b,--abella))" in
+      let doc = "Set the Abella command to $(docv)." in
+      Arg.(value @@ opt string default @@
+           info ["a" ; "abella"] ~doc ~env
+             ~docv:"CMD"
+             ~absent:"$(b,abella[.exe])")
     in
     let makefile =
-      let doc = "Output dependencies to $(docv) as a makefile" in
-      Arg.(value @@ opt string "Makefile" @@
-           info ["o" ; "output"] ~docv:"FILE" ~doc)
+      let doc = "Output dependencies to $(docv) as a makefile. \
+                 If $(docv) is $(b,-), then send the output to \
+                 the standard output." in
+      Arg.(value @@ opt string "-" @@
+           info ["o" ; "output"] ~doc
+             ~docv:"FILE"
+             ~absent:"standard output")
     in
     let clobber =
-      let doc = "Clobber (overwrite) an existing file specified with $(b,-o)" in
+      let doc = "Clobber (overwrite) an existing file specified with $(b,-o)." in
       Arg.(value @@ flag @@ info ["c" ; "clobber"] ~doc)
     in
     let recursive =
-      let doc = "Process directories recursively" in
+      let doc = "Process directories recursively." in
       Arg.(value @@ flag @@ info ["r"] ~doc)
     in
     Term.(const mk_conf $ abella $ makefile $ clobber $ recursive) in
@@ -130,7 +144,7 @@ let () =
       `S Manpage.s_see_also ;
       `P "$(b,abella)(1)" ;
       `S Manpage.s_bugs ;
-      `P "File bug reports on <$(b,https://github.com/abella-prover/abella/issues)>" ;
+      `P "File bug reports at <$(b,https://github.com/abella-prover/abella/issues)>" ;
     ] in
     let info = Cmd.info "abella_dep" ~doc ~man ~exits:[] in
     Cmd.v info @@ Term.(const abella_dep $ conf $ files)

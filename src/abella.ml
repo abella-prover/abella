@@ -895,7 +895,7 @@ let () =
       `S Manpage.s_see_also ;
       `P "$(b,abella_dep)(1), $(b,abella_doc)(1)" ;
       `S Manpage.s_bugs ;
-      `P "File bug reports on <$(b,https://github.com/abella-prover/abella/issues)>" ;
+      `P "File bug reports at <$(b,https://github.com/abella-prover/abella/issues)>" ;
     ] in
     let info = Cmd.info "abella" ~doc ~man ~exits:[] ~version:Version.version in
     Cmd.v info @@ Term.(const abella_main $ flags $ switch $ output $ compiled $ annotate $ norec $ em $ file)

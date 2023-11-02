@@ -14,13 +14,17 @@ build: [
   [make "all-release" "abella.install"]
 ]
 depends: [
-  "ocaml"    { >= "4.12.0" }
-  "cmdliner" { >= "1.2.0" }
-  "menhir"   { >= "20211012" }
-  "yojson"   { >= "2.1.1" }
-  "dune"     { >= "3.11" }
-  "crunch"   { >= "3.3.0" & build }
-  "ounit2"   { with-test }
+  "ocaml"     { >= "4.12.0" }
+  "base64"    { >= "3.5.1" }
+  "cmdliner"  { >= "1.2.0" }
+  "ezcurl"    { >= "0.2.3" }
+  "menhir"    { >= "20211012" }
+  "re"        { >= "1.11.0" }
+  "xdg"       { >= "3.11.1" }
+  "yojson"    { >= "2.1.1" }
+  "dune"      { >= "3.11" }
+  "crunch"    { >= "3.3.0" & build }
+  "ounit2"    { with-test }
 ]
 bug-reports: "https://github.com/abella-prover/abella/issues"
 dev-repo: "git+https://github.com/abella-prover/abella.git"

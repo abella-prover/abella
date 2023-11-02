@@ -1,35 +1,32 @@
 (executable
-  (name abella)
-  (modules abella)
-  (libraries abella_lib unix cmdliner))
+ (name abella)
+ (modules abella)
+ (libraries abella_lib unix cmdliner))
 
 (executable
-  (name abella_doc)
-  (modules abella_doc)
-  (libraries abella_lib unix cmdliner))
+ (name abella_doc)
+ (modules abella_doc abella_doc_dist)
+ (libraries abella_lib unix cmdliner))
 
 (executable
-  (name abella_dep)
-  (modules abella_dep)
-  (libraries abella_lib unix cmdliner))
+ (name abella_dep)
+ (modules abella_dep)
+ (libraries abella_lib unix cmdliner))
 
 (library
-  (name abella_lib)
-  (modules :standard \ abella abella_doc abella_dep)
-  (libraries yojson)
-  (wrapped false))
+ (name abella_lib)
+ (modules :standard \ abella abella_dep abella_doc abella_doc_dist)
+ (libraries unix re xdg yojson base64 ezcurl)
+ (wrapped false))
 
 (ocamllex
-  (modules lexer))
-
-; (ocamlyacc
-;   (modules parser))
+ (modules lexer))
 
 (menhir
-  (modules parser)
-  (infer true)
-  (flags --explain))
+ (modules parser)
+ (infer true)
+ (flags --explain))
 
 (alias
-  (name default)
-  (deps abella.exe abella_doc.exe abella_dep.exe))
+ (name default)
+ (deps abella.exe abella_doc.exe abella_dep.exe))

@@ -44,13 +44,13 @@ let position lexbuf =
       sprintf ": file %s, line %d, character %d" file line char
 
 let read_lp ext parser name =
-  let lexbuf = lexbuf_from_file (name ^ ext) in
-    try
-      parser Lexer.token lexbuf
-    with
-      | Parsing.Parse_error ->
-          eprintf "Syntax error%s.\n%!" (position lexbuf) ;
-          failwith "Failed while reading specification"
+  let module Src = (val Source.read (name ^ ext)) in
+  let lexbuf = Src.lex true in
+  try parser Lexer.token lexbuf with
+  | Parsing.Parse_error | Reported_parse_error ->
+      Output.msg_printf ~severity:Output.Error
+        "Syntax error%s." (position lexbuf) ;
+      failwith "Failed while reading specification"
 
 let read_lpsig = read_lp ".sig" Parser.lpsig
 let read_lpmod = read_lp ".mod" Parser.lpmod

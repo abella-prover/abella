@@ -1,7 +1,12 @@
 Changes in 2.1.0-dev from 2.0.8
 -------------------------------
 
+Additions
 
+* Abella can now load files over the internet. Anywhere a file name is
+  expected, a URL can be used instead. For instance, it is valid to say:
+
+  >     Import "https://abella-prover.org/examples/first-order/add".
 
 
 Changes in 2.0.8 from 2.0.7

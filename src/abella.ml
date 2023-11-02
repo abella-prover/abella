@@ -29,36 +29,21 @@ open Extensions
 open Printf
 open Accumulate
 
-type compile_target = {
-  name : string ;
-  temp_name : string ;
-  channel : out_channel ;
-}
-
-type config = {
-  mutable compiled : compile_target option ;
-  mutable mode : [`batch | `interactive | `switch] ;
-  mutable annotate : bool ;
-  mutable recurse : bool ;
-  mutable verbose : int ;
-  mutable lexbuf : Lexing.lexbuf ;
-  mutable unfinished : string list ;
-} [@@warning "-69"]
-
-let config =
-  let mode = `interactive in
-  let compiled = None in
-  let annotate = false in
-  let recurse = true in
-  let verbose = 0 in
-  let lexbuf = Lexing.from_channel ~with_positions:false stdin in
-  let unfinished = [] in
-  { compiled ; mode ; annotate ; recurse ; verbose ; lexbuf ; unfinished }
+module Setup = struct
+  let compiled : (module Source.THM) option ref = ref None
+  let mode : [`batch | `interactive | `switch] ref = ref `interactive
+  let annotate : bool ref = ref true
+  let recurse : bool ref = ref false
+  let input : string ref = ref "" (* file name including suffix *)
+  let lexbuf : Lexing.lexbuf ref =
+    ref (Lexing.from_channel ~with_positions:false stdin)
+  let unfinished : string list ref = ref []
+end
 
 let can_read_specification = State.rref true
 
 let is_interactive () =
-  match config.mode with
+  match !Setup.mode with
   | `interactive | `switch -> true
   | _ -> false
 
@@ -69,19 +54,17 @@ exception AbellaExit of int
 
 (* Input *)
 
-let input_wrt = ref ""
-
 let perform_switch_to_interactive () =
-  assert (config.mode = `switch) ;
-  input_wrt := "" ;
-  config.lexbuf <- Lexing.from_channel ~with_positions:false stdin ;
-  config.mode <- `interactive ;
+  assert (!Setup.mode = `switch) ;
+  Setup.input := "" ;
+  Setup.lexbuf := Lexing.from_channel ~with_positions:false stdin ;
+  Setup.mode := `interactive ;
   Output.(dest := Channel stdout) ;
   Output.msg_printf "Switching to interactive mode." ;
   State.Undo.undo ()
 
 let interactive_or_exit () =
-  match config.mode with
+  match !Setup.mode with
   | `interactive -> ()
   | `switch -> perform_switch_to_interactive ()
   | _ -> raise @@ AbellaExit 1
@@ -125,7 +108,7 @@ let update_subordination_sign sr sign =
 
 let read_specification name =
   clear_specification_cache () ;
-  if config.mode = `interactive then
+  if !Setup.mode = `interactive then
     Output.msg_printf "Reading specification %S." name ;
   let read_sign = get_sign name in
   let () = warn_on_teyjus_only_keywords read_sign in
@@ -144,8 +127,8 @@ let comp_spec_clauses = State.rref []
 let comp_content = State.rref []
 
 let marshal citem =
-  match config.compiled with
-  | Some ct -> Marshal.to_channel ct.channel citem []
+  match !Setup.compiled with
+  | Some (module Thm) -> Thm.marshal citem
   | None -> ()
 
 let ensure_finalized_specification () =
@@ -173,10 +156,8 @@ let write_compilation () =
   marshal !comp_spec_clauses ;
   marshal (predicates !sign) ;
   marshal (List.rev !comp_content) ;
-  begin match config.compiled with
-  | Some ct ->
-      close_out ct.channel ;
-      Sys.rename ct.temp_name ct.name
+  begin match !Setup.compiled with
+  | Some (module Thm) -> Thm.close ()
   | None -> () end
 
 let clause_eq (_,c1) (_,c2) = eq c1 c2
@@ -307,36 +288,30 @@ let rec import ~wrt pos impfile withs =
     import_load filename withs
   end
 
-and import_load filename withs =
-  if List.mem filename !imported then () else begin
-    imported := filename :: !imported ;
-    let thc_name = filename ^ ".thc" in
-    let thm_name = filename ^ ".thm" in
+and import_load modname withs =
+  if List.mem modname !imported then () else begin
+    imported := modname :: !imported ;
+    let module Thm = (val Source.read_thm (modname ^ ".thm")) in
     let recursive_invoke () =
-      if not config.recurse then
-        failwithf "Recursive invocation of Abella prevented with the -nr flag" ;
-      let out_name = filename ^ ".out" in
-      let cmd = Printf.sprintf " %S -o %S -c %S" thm_name out_name thc_name in
+      if not !Setup.recurse then
+        failwithf "Recursive invocation of Abella prevented (--non-recursive)" ;
+      let cmd = Printf.sprintf " %S -o %S" Thm.path Thm.out_path in
       Output.msg_printf "Running: abella%s" cmd ;
       if Sys.command (Sys.executable_name ^ cmd) <> 0 then
-        failwithf "Could not create %S" thc_name
+        failwithf "Could not create %S" Thm.thc_path
     in
-    if not @@ Sys.file_exists thm_name then
-      failwithf "File not found: %S" thm_name ;
-    if not (Sys.file_exists thc_name) ||
-       Unix.((stat thm_name).st_mtime > (stat thc_name).st_mtime)
-    then recursive_invoke () ;
+    if Thm.is_stale then recursive_invoke () ;
     let thc_ch =
-      let ch = open_in_bin thc_name in
+      let ch = open_in_bin Thm.thc_path in
       let dig = (Marshal.from_channel ch : Digest.t) in
       let ver = (Marshal.from_channel ch : string) in
       if dig = Version.self_digest then ch else begin
         Output.msg_printf
           "Warning: %S was compiled with a different version (%s) of Abella; Need to recompile.%!"
-          thc_name ver ;
+          Thm.thc_path ver ;
         close_in ch ;
         recursive_invoke () ;
-        let ch = open_in_bin thc_name in
+        let ch = open_in_bin Thm.thc_path in
         ignore (Marshal.from_channel ch : Digest.t) ;
         ignore (Marshal.from_channel ch : string) ;
         ch
@@ -363,7 +338,7 @@ and import_load filename withs =
               Prover.add_defs tyargs idtys flav clauses ;
               process_decls decls
           | CImport(impname, withs) ->
-              import_load (Filepath.normalize ~wrt:filename impname) withs ;
+              import_load (Filepath.normalize ~wrt:modname impname) withs ;
               process_decls decls
           | CKind(ids, knd) ->
               check_noredef ids ;
@@ -494,7 +469,7 @@ let set k v =
                         ~key:"witnesses"
 
   | "load_path", QStr s ->
-      Filepath.set_load_path ~wrt:!input_wrt s
+      Filepath.set_load_path ~wrt:!Setup.input s
   | _, _ -> failwithf "Unknown key '%s'" k
 
 let handle_search_witness w =
@@ -535,7 +510,7 @@ let rec process1 () =
               | `completed fin -> begin
                   proc.compile fin ;
                   if fin = Unfinished then
-                    config.unfinished <- proc.thm :: config.unfinished ;
+                    Setup.unfinished := proc.thm :: !Setup.unfinished ;
                   Printf.sprintf "completed%s"
                     (match fin with
                      | Finished -> ""
@@ -551,13 +526,13 @@ let rec process1 () =
   end with
   | Abella_types.Reported_parse_error ->
       State.Undo.undo () ;
-      Lexing.flush_input config.lexbuf ;
+      Lexing.flush_input !Setup.lexbuf ;
       interactive_or_exit ()
   | Parser.Error ->
       State.Undo.undo () ;
       Output.msg_printf ~severity:Error
-        "Syntax error%s." (position config.lexbuf) ;
-      Lexing.flush_input config.lexbuf ;
+        "Syntax error%s." (position !Setup.lexbuf) ;
+      Lexing.flush_input !Setup.lexbuf ;
       interactive_or_exit ()
   | TypeInferenceFailure(exp, act, ci) ->
       State.Undo.undo () ;
@@ -565,14 +540,14 @@ let rec process1 () =
       interactive_or_exit ()
   | End_of_file ->
       write_compilation () ;
-      if config.mode = `switch then
+      if !Setup.mode = `switch then
         perform_switch_to_interactive ()
       else begin
         match !current_state with
         | Process_top ->
-            if not (is_interactive ()) && config.unfinished <> [] then begin
+            if not (is_interactive ()) && !Setup.unfinished <> [] then begin
               Output.msg_printf "There were skips in these theorem(s): %s"
-                (String.concat ", "  config.unfinished)
+                (String.concat ", "  !Setup.unfinished)
             end ;
             Output.flush () ;
             raise @@ AbellaExit 0
@@ -594,17 +569,17 @@ let rec process1 () =
       interactive_or_exit ()
 
 and process_proof1 proc =
-  if config.mode = `interactive && not !suppress_proof_state_display then
+  if !Setup.mode = `interactive && not !suppress_proof_state_display then
     Output.non_annot "%s" @@ Prover.get_display () ;
   suppress_proof_state_display := false ;
-  if config.mode = `interactive then
+  if !Setup.mode = `interactive then
     Output.non_annot "%s < " proc.thm ;
-  let input = Parser.command_start Lexer.token config.lexbuf in
+  let input = Parser.command_start Lexer.token !Setup.lexbuf in
   let cmd_string = command_to_string input.el in
-  if config.mode <> `interactive then
+  if !Setup.mode <> `interactive then
     Output.non_annot "%s.\n" cmd_string ;
   let annot =
-    if not config.annotate then None else
+    if not !Setup.annotate then None else
     Output.message "proof_command" ~fields:begin
       [ "thm_id", `Int proc.thm_id ;
         "theorem", `String proc.thm ;
@@ -656,20 +631,20 @@ and process_proof1 proc =
     | Abort                  -> raise (Prover.End_proof `aborted)
     | Undo
     | Common(Back)           ->
-        if config.mode = `interactive then State.Undo.back 2
+        if !Setup.mode = `interactive then State.Undo.back 2
         else failwith "Cannot use interactive commands in non-interactive mode"
     | Common(Reset)          ->
-        if config.mode = `interactive then State.Undo.reset ()
+        if !Setup.mode = `interactive then State.Undo.reset ()
         else failwith "Cannot use interactive commands in non-interactive mode"
     | Common(Set(k, v))      -> set k v
     | Common(Show nm)        ->
         Output.msg_format "%t" (Prover.show nm) ;
-        if config.mode = `interactive then Output.blank_line () ;
+        if !Setup.mode = `interactive then Output.blank_line () ;
         suppress_proof_state_display := true
     | Common(Quit)           -> raise End_of_file
     end
   in
-  if not config.annotate then perform () else
+  if not !Setup.annotate then perform () else
   match perform () with
   | () ->
       Option.iter begin fun annot ->
@@ -681,12 +656,12 @@ and process_proof1 proc =
       raise e
 
 and process_top1 () =
-  if config.mode = `interactive then Output.non_annot "Abella < " ;
-  let input = Parser.top_command_start Lexer.token config.lexbuf in
+  if !Setup.mode = `interactive then Output.non_annot "Abella < " ;
+  let input = Parser.top_command_start Lexer.token !Setup.lexbuf in
   let cmd_string = top_command_to_string input.el in
-  if config.mode <> `interactive then Output.non_annot "%s.\n%!" cmd_string ;
+  if !Setup.mode <> `interactive then Output.non_annot "%s.\n%!" cmd_string ;
   let thm_id =
-    if not config.annotate then -1 else
+    if not !Setup.annotate then -1 else
     let annot = Output.message "top_command" ~fields:begin
         (if fst input.pos = Lexing.dummy_pos then [] else
            ["range", json_of_position input.pos]) @
@@ -729,23 +704,23 @@ and process_top1 () =
   | Define _ ->
       compile (Prover.register_definition input.el)
   | TopCommon(Back) ->
-      if config.mode = `interactive then State.Undo.back 2
+      if !Setup.mode = `interactive then State.Undo.back 2
       else failwith "Cannot use interactive commands in non-interactive mode"
   | TopCommon(Reset) ->
-      if config.mode = `interactive then State.Undo.reset ()
+      if !Setup.mode = `interactive then State.Undo.reset ()
       else failwith "Cannot use interactive commands in non-interactive mode"
   | TopCommon(Set(k, v)) -> set k v
   | TopCommon(Show(n)) -> Output.msg_format "%t" (Prover.show n)
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, pos, withs) ->
       compile (CImport (filename, withs)) ;
-      import ~wrt:!input_wrt pos filename withs
+      import ~wrt:!Setup.input pos filename withs
   | Specification(filename, pos) ->
       if !can_read_specification then begin
-        let filename = Filepath.normalize ~wrt:!input_wrt filename in
+        let filename = Filepath.normalize ~wrt:!Setup.input filename in
         read_specification filename ;
         ensure_finalized_specification () ;
-        if config.annotate then
+        if !Setup.annotate then
           Output.link_message ~pos ~url:(filename ^ ".lp.html") ;
       end else
         failwith "Specification can only be read \
@@ -763,7 +738,7 @@ and process_top1 () =
       Prover.close_types !sign !Prover.clauses atys ;
       compile (CClose(List.map (fun aty -> (aty, Subordination.subordinates !sr aty)) atys))
   end ;
-  if not config.annotate then Output.blank_line ()
+  if not !Setup.annotate then Output.blank_line ()
 
 (* Command line and startup *)
 
@@ -772,12 +747,12 @@ let welcome_msg = sprintf "Welcome to Abella %s.\n" Version.version
 let set_output filename =
   Output.dest := Channel (open_out_bin filename)
 
-let set_compile_out filename =
-  let (temp_name, channel) = Filename.open_temp_file
-      ~mode:[Open_binary]
-      ~temp_dir:(Filename.dirname filename)
-      (Filename.basename filename) ".part" in
-  config.compiled <- Some { name = filename ; temp_name ; channel }
+(* let set_compile_out filename = *)
+(*   let (temp_name, channel) = Filename.open_temp_file *)
+(*       ~mode:[Open_binary] *)
+(*       ~temp_dir:(Filename.dirname filename) *)
+(*       (Filename.basename filename) ".part" in *)
+(*   Setup.compiled := Some { name = filename ; temp_name ; channel } *)
 
 let set_or_exit k v =
   try set k v with
@@ -788,25 +763,24 @@ let set_or_exit k v =
 let abella_main flags switch output compiled annotate norec _em infile =
   try begin
     List.iter (fun (k, v) -> set_or_exit k v) flags ;
-    if switch then config.mode <- `switch ;
+    if switch then Setup.mode := `switch ;
     Option.iter set_output output ;
-    Option.iter set_compile_out compiled ;
-    config.annotate <- annotate ;
-    config.recurse <- not norec ;
+    if annotate then Output.annotation_mode () ;
+    Setup.annotate := annotate ;
+    Setup.recurse := not norec ;
     begin match infile with
     | Some file ->
         if not @@ Filename.check_suffix file ".thm" then
           failwithf "Input file does not end in .thm: %S" file ;
-        let base = Filename.chop_suffix file ".thm" in
-        if compiled = None then set_compile_out (base ^ ".thc") ;
-        config.mode <- if switch then `switch else `batch ;
-        config.lexbuf <- lexbuf_from_file file ;
-        input_wrt := file
+        let module Thm = (val Source.read_thm ?thc:compiled file) in
+        Setup.compiled := Some (module Thm) ;
+        Setup.mode := if switch then `switch else `batch ;
+        Setup.lexbuf := Thm.lex true ;
+        Setup.input := Filename.concat (Option.value Thm.dir ~default:"") "<dummy>.thm"
     | None -> () end ;
-    if config.annotate then Output.annotation_mode () ;
-    if config.mode = `interactive then
+    if !Setup.mode = `interactive then
       Output.msg_printf "%s" welcome_msg ;
-    State.Undo.set_enabled (config.mode <> `batch) ;
+    State.Undo.set_enabled (!Setup.mode <> `batch) ;
     while true do process1 () done ; 0
   end with
   | AbellaExit n -> n

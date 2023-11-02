@@ -25,6 +25,7 @@ let[@inline] uncurry f x y = f (x,y)
 let sorry exn =
   String.concat "\n"
     [ Printexc.to_string exn ; "" ;
+      Printexc.get_backtrace () ; "" ;
       "Sorry for displaying a naked OCaml exception. An informative error" ;
       "message has not been designed for this situation." ;
       "To help improve Abella's error messages, please file a bug report at" ;
@@ -57,6 +58,36 @@ module Format = struct
     pp_print_space ppf ()
 end
 
+module Option = struct
+  include Stdlib.Option
+  let wrap fn x =
+    try Some (fn x) with _ -> None
+  let return = some
+  let fail = none
+  let ( let* ) = bind
+  let ( and* ) o1 o2 =
+    match o1, o2 with
+    | Some x, Some y -> Some (x, y)
+    | None, _ | _, None -> None
+end
+
+module Result = struct
+  include Stdlib.Result
+  let wrap fn x =
+    try Ok (fn x) with exn -> Error exn
+  let return = ok
+  exception UnknownError
+  let fail = error UnknownError
+  let failwith msg = error @@ Failure msg
+  let failwithf fmt = Printf.ksprintf failwith fmt
+  let ( let* ) = bind
+  let ( and* ) r1 r2 =
+    match r1, r2 with
+    | Ok x, Ok y -> Ok (x, y)
+    | Error e, _
+    | _, Error e -> Error e
+end
+
 module String = struct
   include Stdlib.String
 
@@ -64,34 +95,6 @@ module String = struct
     let count = ref 0 in
       String.iter (fun c -> if c = char then incr count) str ;
       !count
-
-  open struct
-    let is_whitespace = function
-      | ' ' | '\t' | '\n' | '\r' -> true
-      | _ -> false
-  end
-
-  let split ?test ?(start = 0) ?len str =
-    let test = Option.value ~default:is_whitespace test in
-    let strlen = String.length str in
-    let len = Option.value ~default:strlen len in
-    if start < 0 || len < 0 || (start + len) > String.length str then
-      invalid_arg "String.split" ;
-    let toks = ref [] in
-    let emit tstart tend =
-      let tok = String.sub str tstart (tend - tstart) in
-      if tok <> "" then toks := tok :: !toks
-    in
-    let rec spin tstart cur =
-      if cur >= start + len then emit tstart cur else
-      if test str.[cur] then begin
-        emit tstart cur ;
-        let cur = cur + 1 in
-        spin cur cur
-      end else spin tstart (cur + 1)
-    in
-    spin start start ;
-    List.rev !toks
 end
 
 module List = struct
@@ -394,3 +397,97 @@ let lexbuf_from_file filename =
       lexbuf
   | exception Sys_error msg ->
       failwithf "Failure reading %S: %s" filename msg
+
+module Filename = struct
+  include Stdlib.Filename
+
+  let split =
+    let rec elems bases fn =
+      match fn with
+      | "" -> bases
+      | _ -> begin
+          let bases = basename fn :: bases in
+          match dirname fn with
+          | "." -> bases
+          | fn ->
+              if fn = Filename.dir_sep then bases
+              else (elems[@tailcall]) bases fn
+        end
+    in
+    let[@tail_mod_cons] rec collapse stack elems =
+      match elems with
+      | [] -> List.rev stack
+      | x :: elems -> begin
+          match x with
+          | "." -> collapse stack elems
+          | ".." -> begin
+              match stack with
+              | [] -> ".." :: (collapse[@tailcall]) [] elems
+              | _ :: stack -> collapse stack elems
+            end
+          | _ -> collapse (x :: stack) elems
+        end
+    in
+    let at_least_dot = function
+      | [] -> ["."]
+      | l -> l
+    in
+    fun fn -> fn |> elems [] |> collapse [] |> at_least_dot
+
+  let clean ?(sep=Filename.dir_sep) fn =
+    String.concat sep (split fn)
+end
+
+module Xdg = struct
+  open struct
+    let xdg = Xdg.create ~env:Sys.getenv_opt ()
+
+    let ensure_dir dir =
+      if Sys.file_exists dir then
+        if Sys.is_directory dir then ()
+        else bugf "Not a directory: %s" dir
+      else Sys.mkdir dir 0o755
+
+    let ( / ) parent child =
+      ensure_dir parent ;
+      let child = Filename.concat parent child in
+      ensure_dir child ;
+      child
+
+    let abella = "abella"
+  end
+
+  let cache_dir   = Xdg.cache_dir xdg  / abella
+  let config_dir  = Xdg.config_dir xdg / abella
+  let state_dir   = Xdg.state_dir xdg  / abella
+  let runtime_dir = Xdg.runtime_dir xdg
+end
+
+let cache_check =
+  let abellafy fn = Printf.sprintf "Ab(%s):%s" Version.version fn in
+  fun ?after ?after_file fn ->
+    if not @@ Filename.is_relative fn then
+      bugf "Cache check for non-relative file: %S" fn ;
+    let cfn = Filename.clean ~sep:"!" fn
+              |> abellafy
+              |> Base64.encode
+              |> Result.get_ok
+              |> Filename.concat Xdg.cache_dir in
+    match Unix.stat cfn with
+    | { Unix.st_kind = Unix.S_REG ; st_mtime = t ; _ } -> begin
+        let o = match after with
+          | Some o -> o
+          | None -> begin
+              match after_file with
+              | Some ofn -> begin
+                  match Unix.stat ofn with
+                  | { Unix.st_mtime = o ; _ } -> o
+                  | exception Unix.Unix_error _ -> 0.
+                end
+              | None -> 0.
+            end
+        in
+        if o <= t then Ok cfn else Error cfn
+      end
+    | _
+    | exception Unix.Unix_error _ -> Error cfn

@@ -422,7 +422,7 @@ module Filename = struct
           | "." -> collapse stack elems
           | ".." -> begin
               match stack with
-              | [] -> ".." :: (collapse[@tailcall]) [] elems
+              | [] -> ".." :: collapse [] elems
               | _ :: stack -> collapse stack elems
             end
           | _ -> collapse (x :: stack) elems

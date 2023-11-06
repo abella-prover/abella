@@ -112,7 +112,6 @@ open struct
     in
     make_attempt 50
 
-
   let url_rex = "^http(s?)://([^/]*)(.*)$" |> Re.Pcre.regexp
   type url_fields = {
     secure : bool ;
@@ -162,8 +161,43 @@ open struct
     end in
     return (module Src : SOURCE)
 
+  let ipfs_rex = "^ipfs:(.*)$" |> Re.Pcre.regexp
+  type ipfs_fields = {
+    cid : string ;
+  }
+
+  let ipfs_fields url =
+    let open Result in
+    let* strs = wrap (Re.Pcre.extract ~rex:ipfs_rex) url in
+    return { cid = strs.(1) }
+
+  let open_ipfs source =
+    let kind = "Source.open_ipfs" in
+    let open Result in
+    let* { cid } = ipfs_fields source in
+    let cache_name = Filename.concat Xdg.cache_dir cid in
+    let cmd = Printf.sprintf "ipfs get --timeout=10s --progress=false --output %s %s >/dev/null 2>&1"
+        cache_name cid in
+    Output.trace ~v:2 begin fun (module Trace) ->
+      Trace.printf ~kind "Running: %s" cmd
+    end ;
+    if Sys.command cmd <> 0 then failwithf "Running ipfs" ;
+    let* stat = wrap Unix.stat cache_name in
+    let module Src = struct
+      let path = source
+      let mtime = stat.st_mtime
+      let dir = None
+      let lex with_positions =
+        let ch = Stdlib.open_in_bin cache_name in
+        let lb = Lexing.from_channel ~with_positions ch in
+        lb.lex_curr_p <- { lb.lex_curr_p with pos_fname = source } ;
+        lb
+    end in
+    return (module Src : SOURCE)
+
   let openers = [
     "url", open_url ;
+    "ipfs", open_ipfs ;
     "local", open_local_file ;
   ]
 end

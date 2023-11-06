@@ -289,6 +289,7 @@ let rec import ~wrt pos impfile withs =
   end
 
 and import_load modname withs =
+  let kind = "import_load" in
   if List.mem modname !imported then () else begin
     imported := modname :: !imported ;
     let module Thm = (val Source.read_thm (modname ^ ".thm")) in
@@ -296,7 +297,9 @@ and import_load modname withs =
       if not !Setup.recurse then
         failwithf "Recursive invocation of Abella prevented (--non-recursive)" ;
       let cmd = Printf.sprintf " %S -o %S" Thm.path Thm.out_path in
-      Output.msg_printf "Running: abella%s" cmd ;
+      Output.trace ~v:1 begin fun (module Trace) ->
+        Trace.printf ~kind "Running: abella%s" cmd ;
+      end ;
       if Sys.command (Sys.executable_name ^ cmd) <> 0 then
         failwithf "Could not create %S" Thm.thc_path
     in
@@ -306,9 +309,9 @@ and import_load modname withs =
       let dig = (Marshal.from_channel ch : Digest.t) in
       let ver = (Marshal.from_channel ch : string) in
       if dig = Version.self_digest then ch else begin
-        Output.msg_printf
-          "Warning: %S was compiled with a different version (%s) of Abella; Need to recompile.%!"
-          Thm.thc_path ver ;
+        Output.msg_format
+          "@[<v2>Warning: The following .thc file was compiled with a different version (%s) of Abella; recompiling@,%s@]"
+          ver Thm.thc_path ;
         close_in ch ;
         recursive_invoke () ;
         let ch = open_in_bin Thm.thc_path in
@@ -760,8 +763,9 @@ let set_or_exit k v =
       Output.msg_printf ~severity:Error "Error: %s" msg ;
       raise @@ AbellaExit 1
 
-let abella_main flags switch output compiled annotate norec _em infile =
+let abella_main flags switch output compiled annotate norec _em verb infile =
   try begin
+    Output.trace_verbosity := verb ;
     List.iter (fun (k, v) -> set_or_exit k v) flags ;
     if switch then Setup.mode := `switch ;
     Option.iter set_output output ;
@@ -769,14 +773,13 @@ let abella_main flags switch output compiled annotate norec _em infile =
     Setup.annotate := annotate ;
     Setup.recurse := not norec ;
     begin match infile with
-    | Some file ->
-        if not @@ Filename.check_suffix file ".thm" then
-          failwithf "Input file does not end in .thm: %S" file ;
+    | Some file -> begin
         let module Thm = (val Source.read_thm ?thc:compiled file) in
         Setup.compiled := Some (module Thm) ;
         Setup.mode := if switch then `switch else `batch ;
         Setup.lexbuf := Thm.lex true ;
         Setup.input := Filename.concat (Option.value Thm.dir ~default:"") "<dummy>.thm"
+      end
     | None -> () end ;
     if !Setup.mode = `interactive then
       Output.msg_printf "%s" welcome_msg ;
@@ -785,8 +788,15 @@ let abella_main flags switch output compiled annotate norec _em infile =
   end with
   | AbellaExit n -> n
   | e ->
-      Output.msg_printf ~severity:Error "Error: %s" (sorry e) ;
-      1
+      let msg = match e with
+        | Failure msg -> "Failure: " ^ msg
+        | Unix.Unix_error (err, fn, arg) ->
+            Printf.sprintf "System error: %s(%s): %s"
+              fn arg (Unix.error_message err)
+        | _ -> Printf.sprintf "Error: %s" (sorry e)
+      in
+      Output.msg_printf ~severity:Error "%s" msg ;
+      Output.flush () ; 1
 
 let () =
   Sys.set_signal Sys.sigint
@@ -855,6 +865,12 @@ let () =
     Arg.(value @@ flag @@ info ["M"] ~doc ~deprecated)
   in
 
+  let verb =
+    let doc = "Set verbosity to $(docv)." in
+    Arg.(value @@ opt int 0 @@
+         info ["verbosity"] ~doc ~docv:"NUM")
+  in
+
   let file =
     let doc = "An Abella development to process in batch mode. \
                The $(docv) must end with the extension $(b,.thm). \
@@ -872,7 +888,7 @@ let () =
       `P "File bug reports at <$(b,https://github.com/abella-prover/abella/issues)>" ;
     ] in
     let info = Cmd.info "abella" ~doc ~man ~exits:[] ~version:Version.version in
-    Cmd.v info @@ Term.(const abella_main $ flags $ switch $ output $ compiled $ annotate $ norec $ em $ file)
+    Cmd.v info @@ Term.(const abella_main $ flags $ switch $ output $ compiled $ annotate $ norec $ em $ verb $ file)
   in
 
   Stdlib.exit (Cmd.eval' cmd)

@@ -26,26 +26,30 @@ open struct
 
   exception Fail
 
-  let open_local_file source =
-    let module Source = struct
-      let path = source
-      let mtime = Unix.((stat source).st_mtime)
-      let dir = Some (Filename.dirname path)
-      let lex with_positions =
-        Stdlib.open_in_bin path
-        |> Lexing.from_channel ~with_positions
-    end in
-    (module Source : SOURCE)
-
-  let open_local_file = Option.wrap open_local_file
-
-  let url_rex = "^http(s?)://([^/]*)(.*)$" |> Re.Pcre.regexp
+  let open_local_file =
+    Result.wrap begin fun source ->
+      let module Source = struct
+        let path = source
+        let mtime = Unix.((stat source).st_mtime)
+        let dir = Some (Filename.dirname path)
+        let lex with_positions =
+          Stdlib.open_in_bin path
+          |> Lexing.from_channel ~with_positions
+      end in
+      (module Source : SOURCE)
+    end
 
   let wdays = [| "Sun" ; "Mon" ; "Tue" ; "Wed" ; "Thu" ; "Fri" ; "Sat" |]
   let mons = [| "Jan" ; "Feb" ; "Mar" ; "Apr" ; "May" ; "Jun" ;
                 "Jul" ; "Aug" ; "Sep" ; "Oct" ; "Nov" ; "Dec" |]
 
+  let abella_agent =
+    Printf.sprintf "Abella %s (using libcurl %s)"
+      Version.version
+      (Curl.version ())
+
   let fetch_with_cache url =
+    let kind = "Source.fetch" in
     let cache_name = Filename.concat Xdg.cache_dir (Base64.encode_string url) in
     let ifnt =
       if not @@ Sys.file_exists cache_name then [] else
@@ -55,41 +59,100 @@ open struct
           mtime.tm_mday mons.(mtime.tm_mon) (mtime.tm_year + 1900)
           mtime.tm_hour mtime.tm_min mtime.tm_sec
       in
-      ["If-Modified-Since", mtime_str]
+      Output.trace ~v:2 begin fun (module Trace) ->
+        Trace.format ~kind "@[<v2>Found cache of: %s@,at: %s@,last modified: %s@]"
+          url cache_name mtime_str ;
+      end ;
+      ["If-Modified-Since: " ^ mtime_str]
     in
-    let () = match Ezcurl.get ~headers:ifnt ~url () with
-      | Ok resp when resp.code = 200 ->
-          (* Output.msg_printf "Fetched: %s" url ; *)
-          let ch = Stdlib.open_out_bin cache_name in
-          Stdlib.output_string ch resp.body ;
-          Stdlib.close_out ch
-      | Ok resp when resp.code = 304 ->
-          (* Output.msg_printf "Found in cache: %s" url ; *)
-          ()
-      | Ok resp ->
-          failwithf "Unexpected HTTP %d" resp.code
-      | Error (_, msg) ->
-          failwithf "Unexpected libcurl error: %s" msg
+    let cl = Curl.init () in
+    Gc.finalise Curl.cleanup cl ;
+    Curl.set_maxredirs cl 50 ;
+    Curl.set_useragent cl abella_agent ;
+    Curl.set_followlocation cl true ;
+    Curl.set_httpheader cl ifnt ;
+    Curl.set_url cl url ;
+    Curl.set_httpget cl true ;
+    let response_headers = Buffer.create 19 in
+    let response_body = Buffer.create 19 in
+    Curl.set_headerfunction cl begin fun str ->
+      Buffer.add_string response_headers str ;
+      String.length str
+    end ;
+    Curl.set_writefunction cl begin fun str ->
+      Buffer.add_string response_body str ;
+      String.length str
+    end ;
+    let rec make_attempt n =
+      if n <= 0 then Result.error "Exceeded attempt count without success" else
+      match Curl.perform cl ; Curl.CURLE_OK with
+      | Curl.CURLE_OK -> begin
+          let code = Curl.get_httpcode cl in
+          Curl.cleanup cl ;
+          if code = 200 then begin
+            let ch = Stdlib.open_out_bin cache_name in
+            Buffer.output_buffer ch response_body ;
+            Stdlib.close_out ch
+          end ;
+          if code = 304 then begin
+            Output.trace ~v:2 begin fun (module Trace) ->
+              Trace.printf ~kind "Cached version is newer (HTTP 304)"
+            end ;
+            Result.ok cache_name
+          end else begin
+            Result.error @@ Printf.sprintf "Unexpected HTTP %d" code
+          end
+        end
+      | Curl.CURLE_AGAIN ->
+          make_attempt @@ n - 1
+      | code
+      | exception Curl.CurlException (code, _, _) ->
+          Curl.cleanup cl ;
+          Result.error @@ Curl.strerror code
     in
-    cache_name
+    make_attempt 50
+
+
+  let url_rex = "^http(s?)://([^/]*)(.*)$" |> Re.Pcre.regexp
+  type url_fields = {
+    secure : bool ;
+    host : string ;
+    path : string ;
+  }
+
+  let url_fields url =
+    let open Result in
+    let* strs = wrap (Re.Pcre.extract ~rex:url_rex) url in
+    let secure = strs.(1) == "s" in
+    let host = strs.(2) in
+    let path = strs.(3) in
+    let path = if String.length path > 0 then
+        String.sub path 1 (String.length path - 1)
+      else "" in
+    return { secure ; host ; path }
 
   let open_url source =
-    let fields = Re.Pcre.extract ~rex:url_rex source in
-    let url_secure = Array.get fields 1 in
-    let url_host = Array.get fields 2 in
-    let url_path =
-      let p = Array.get fields 3 in
-      if String.length p > 0 then
-        String.sub p 1 (String.length p - 1)
-      else ""
+    let open Result in
+    let* fields = url_fields source in
+    let cache_file =
+      match fetch_with_cache source with
+      | Result.Ok file -> file
+      | Result.Error msg ->
+          Output.trace ~v:2 begin fun (module Trace) ->
+            let kind = "Source.open_url" in
+            Trace.printf ~kind "CURL Failure: %s" msg ;
+          end ;
+          failwithf "Opening URL: %s" source
     in
-    let cache_file = fetch_with_cache source in
+    let* stat = wrap Unix.stat cache_file in
     let module Src = struct
       let path = source
-      let mtime = Unix.((stat cache_file).st_mtime)
+      let mtime = stat.st_mtime
       let dir =
-        Printf.sprintf "http%s://%s/%s" url_secure url_host
-          (Filename.dirname url_path)
+        Printf.sprintf "http%s://%s/%s"
+          (if fields.secure then "s" else "")
+          fields.host
+          (Filename.dirname fields.path)
         |> Option.some
       let lex with_positions =
         let ch = Stdlib.open_in_bin cache_file in
@@ -97,24 +160,31 @@ open struct
         lb.lex_curr_p <- { lb.lex_curr_p with pos_fname = source } ;
         lb
     end in
-    (module Src : SOURCE)
-
-  let open_url = Option.wrap open_url
+    return (module Src : SOURCE)
 
   let openers = [
-    open_url ;
-    open_local_file ;
+    "url", open_url ;
+    "local", open_local_file ;
   ]
 end
 
 let read source =
   let rec spin ops =
+    let kind = "Source.read.spin" in
     match ops with
-    | [] -> failwithf "Opening: %s" source
-    | op :: ops ->
-        match op source with
-        | Some s -> s
-        | None -> (spin[@tailrec]) ops
+    | [] ->
+        Output.trace ~v:5 begin fun (module Trace) ->
+          Trace.printf ~kind "No more openers"
+        end ;
+        failwithf "Opening: %s" source
+    | (op_name, op_fn) :: ops ->
+        match op_fn source with
+        | Ok s -> s
+        | Error exn ->
+            Output.trace ~v:5 begin fun (module Trace) ->
+              Trace.printf ~kind "%s: %s" op_name (Printexc.to_string exn)
+            end ;
+            (spin[@tailrec]) ops
   in
   spin openers
 

@@ -75,11 +75,15 @@ module Result = struct
   include Stdlib.Result
   let wrap fn x =
     try Ok (fn x) with exn -> Error exn
+  let wrap2 fn x y =
+    try Ok (fn x y) with exn -> Error exn
+  let wrap3 fn x y z =
+    try Ok (fn x y z) with exn -> Error exn
+  let wrap4 fn x y z w =
+    try Ok (fn x y z w) with exn -> Error exn
   let return = ok
   exception UnknownError
   let fail = error UnknownError
-  let failwith msg = error @@ Failure msg
-  let failwithf fmt = Printf.ksprintf failwith fmt
   let ( let* ) = bind
   let ( and* ) r1 r2 =
     match r1, r2 with
@@ -462,32 +466,3 @@ module Xdg = struct
   let state_dir   = Xdg.state_dir xdg  / abella
   let runtime_dir = Xdg.runtime_dir xdg
 end
-
-let cache_check =
-  let abellafy fn = Printf.sprintf "Ab(%s):%s" Version.version fn in
-  fun ?after ?after_file fn ->
-    if not @@ Filename.is_relative fn then
-      bugf "Cache check for non-relative file: %S" fn ;
-    let cfn = Filename.clean ~sep:"!" fn
-              |> abellafy
-              |> Base64.encode
-              |> Result.get_ok
-              |> Filename.concat Xdg.cache_dir in
-    match Unix.stat cfn with
-    | { Unix.st_kind = Unix.S_REG ; st_mtime = t ; _ } -> begin
-        let o = match after with
-          | Some o -> o
-          | None -> begin
-              match after_file with
-              | Some ofn -> begin
-                  match Unix.stat ofn with
-                  | { Unix.st_mtime = o ; _ } -> o
-                  | exception Unix.Unix_error _ -> 0.
-                end
-              | None -> 0.
-            end
-        in
-        if o <= t then Ok cfn else Error cfn
-      end
-    | _
-    | exception Unix.Unix_error _ -> Error cfn

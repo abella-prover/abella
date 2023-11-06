@@ -48,17 +48,20 @@ open struct
       Version.version
       (Curl.version ())
 
+  let http_strftime t =
+    let tm = Unix.gmtime t in
+    Printf.sprintf "%s, %02d %s %04d %02d:%02d:%02d GMT"
+      wdays.(tm.tm_wday)
+      tm.tm_mday mons.(tm.tm_mon) (tm.tm_year + 1900)
+      tm.tm_hour tm.tm_min tm.tm_sec
+
   let fetch_with_cache url =
     let kind = "Source.fetch" in
     let cache_name = Filename.concat Xdg.cache_dir (Base64.encode_string url) in
     let ifnt =
       if not @@ Sys.file_exists cache_name then [] else
-      let mtime = Unix.(gmtime (stat cache_name).st_mtime) in
-      let mtime_str = Printf.sprintf "%s, %02d %s %04d %02d:%02d:%02d GMT"
-          wdays.(mtime.tm_wday)
-          mtime.tm_mday mons.(mtime.tm_mon) (mtime.tm_year + 1900)
-          mtime.tm_hour mtime.tm_min mtime.tm_sec
-      in
+      let mtime = Unix.((stat cache_name).st_mtime) in
+      let mtime_str = http_strftime mtime in
       Output.trace ~v:2 begin fun (module Trace) ->
         Trace.format ~kind "@[<v2>Found cache of: %s@,at: %s@,last modified: %s@]"
           url cache_name mtime_str ;
@@ -92,9 +95,14 @@ open struct
           if code = 200 then begin
             let ch = Stdlib.open_out_bin cache_name in
             Buffer.output_buffer ch response_body ;
-            Stdlib.close_out ch
-          end ;
-          if code = 304 then begin
+            Stdlib.close_out ch ;
+            Output.trace ~v:2 begin fun (module Trace) ->
+              Trace.format ~kind "@[<v2>Cached: %s@,at: %s@,on: %s@]"
+                url cache_name
+                (http_strftime Unix.((stat cache_name).st_mtime)) ;
+            end ;
+            Result.ok cache_name
+          end else if code = 304 then begin
             Output.trace ~v:2 begin fun (module Trace) ->
               Trace.printf ~kind "Cached version is newer (HTTP 304)"
             end ;

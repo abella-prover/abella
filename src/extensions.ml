@@ -461,7 +461,7 @@ module Xdg = struct
     let abella = "abella"
   end
 
-  let cache_dir   = Xdg.cache_dir xdg  / abella
+  let cache_dir   = Xdg.cache_dir xdg  / abella / "run"
   let config_dir  = Xdg.config_dir xdg / abella
   let state_dir   = Xdg.state_dir xdg  / abella
   let runtime_dir = Xdg.runtime_dir xdg

@@ -7,7 +7,7 @@ all: src/abella_doc_dist.ml
 	dune build $(BINS)
 
 .PHONY: all-release
-all-release: src/abella_doc_dist.ml
+all-release: # src/abella_doc_dist.ml
 	dune build --release $(BINS)
 
 src/abella_doc_dist.ml: $(wildcard support/**/*.ts support/**/*.css)

@@ -23,7 +23,6 @@ depends: [
   "xdg"       { >= "3.11.1" }
   "yojson"    { >= "2.1.1" }
   "dune"      { >= "3.11" }
-  "crunch"    { >= "3.3.0" & build }
   "ounit2"    { with-test }
 ]
 bug-reports: "https://github.com/abella-prover/abella/issues"

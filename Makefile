@@ -3,18 +3,18 @@
 BINS := src/abella.exe src/abella_doc.exe src/abella_dep.exe
 
 .PHONY: all
-all: src/abella_doc_dist.ml
+all: support/.stamp
 	dune build $(BINS)
 
 .PHONY: all-release
-all-release: # src/abella_doc_dist.ml
+all-release: # support/.stamp
 	dune build --release $(BINS)
 
-src/abella_doc_dist.ml: $(wildcard support/**/*.ts support/**/*.css)
+support/.stamp: $(wildcard support/ts/*.ts support/css/*.css)
 	( cd support && \
 	  npm install --no-save && \
-	  npm run build )
-	ocaml-crunch -m plain -o $@ support/dist
+	  npm run build && \
+	  touch .stamp )
 
 AIN := abella.install
 

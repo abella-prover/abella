@@ -49,27 +49,33 @@ let annotation_mode () =
 
 type severity = Info | Error
 
-let msg_printf ?(post = fun x -> x) ?(severity = Info) fmt =
+let msg_printfk k ?(post = fun x -> x) ?(severity = Info) fmt =
   Printf.ksprintf begin fun str ->
     let str = post str in
-    match !dest with
-    | Channel out ->
-        Printf.fprintf out "%s\n%!" str
-    | Buffer { out ; err ; _ } ->
-        let buf = if severity = Info then out else err in
-        Buffer.add_string buf str ;
-        Buffer.add_string buf "\n"
-    | Json js -> begin
-        let msg = message "system_message" ~fields:[
-            "severity", `String (match severity with
-                | Info -> "info"
-                | Error -> "error") ;
-            "message", `String str
-          ] in
-        js.out <- commit msg :: js.out
-      end
-    | Null -> ()
+    let doit () =
+      match !dest with
+      | Channel out ->
+          Printf.fprintf out "%s\n%!" str
+      | Buffer { out ; err ; _ } ->
+          let buf = if severity = Info then out else err in
+          Buffer.add_string buf str ;
+          Buffer.add_string buf "\n"
+      | Json js -> begin
+          let msg = message "system_message" ~fields:[
+              "severity", `String (match severity with
+                  | Info -> "info"
+                  | Error -> "error") ;
+              "message", `String str
+            ] in
+          js.out <- commit msg :: js.out
+        end
+      | Null -> ()
+    in
+    doit () ; k str
   end fmt
+
+let msg_printf ?post ?severity fmt =
+  msg_printfk ignore ?post ?severity fmt
 
 let msg_format ?post ?severity fmt =
   Format.kasprintf (msg_printf ?post ?severity "%s") fmt

@@ -282,7 +282,6 @@ let infer_type_and_constraints ~sign tyctx t =
   let add_constraint expected actual pos =
     eqns := (expected, actual, pos) :: !eqns
   in
-
   let rec aux tyctx t =
     match t with
     | UCon(p, id, ty) ->
@@ -313,7 +312,6 @@ let infer_type_and_constraints ~sign tyctx t =
         add_constraint aty ty2 (get_pos t2, CArg) ;
         rty
   in
-
   let ty = aux tyctx t in
   (ty, List.rev !eqns)
 
@@ -491,22 +489,6 @@ let check_pi_quantification ts =
             | _ -> assert false)
        ts)
 
-(* let get_tyvar_names ty =
- *   let rec aux = function
- *     | Ty (tys, aty) ->
- *        let ns = List.flatten_map aux tys in
- *        let ans =
- *          match aty with
- *          | Typtr {contents=TV v} -> [v]
- *          | Typtr {contents=TT _} -> assert false
- *          | Tygenvar _ -> []
- *          | Tycons (c,args) ->
- *             List.flatten_map aux tys
- *        in
- *        ns @ ans
- *   in List.unique (aux (observe_ty ty)) *)
-
-
 let type_uterm ?partial_infer ?expected_ty ~sr ~sign ~ctx t =
   let nominal_tyctx = uterm_nominals_to_tyctx t in
   let tyctx =
@@ -578,7 +560,7 @@ let print_clause cl =
   let (vars, clause) = cl in
   let vstr = String.concat "," vars in
   let cstr = term_to_string clause in
-  Printf.eprintf "Typed clause: [%s] %s\n" vstr cstr
+  Output.msg_printf "Typed clause: [%s] %s\n" vstr cstr
 
 let type_uclause ~sr ~sign (cname, head, body) =
   if has_capital_head head then
@@ -611,25 +593,6 @@ let type_uclause ~sr ~sign (cname, head, body) =
       register_clause cname result ;
   end ;
   result
-
-(*
-  let tyctx = ids_to_fresh_tyctx cids in
-  let eqns =
-    List.fold_left (fun acc p ->
-                      let (pty, peqns) = infer_type_and_constraints ~sign tyctx p in
-                        acc @ peqns @ [(oty, pty, (get_pos p, CArg))])
-      [] (head::body)
-  in
-  let sub = unify_constraints eqns in
-  let ctx = tyctx_to_ctx (apply_sub_tyctx sub tyctx) in
-  let convert p = replace_term_vars ctx (uterm_to_term sub p) in
-  let (rhead, rbody) = (convert head, List.map convert body) in
-    List.iter term_ensure_fully_inferred (rhead::rbody) ;
-    List.iter (term_ensure_subordination sr) (rhead::rbody) ;
-    check_pi_quantification (rhead::rbody) ;
-    (rhead, rbody)
-*)
-
 
 (** Typing for metaterms *)
 

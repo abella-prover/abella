@@ -37,9 +37,9 @@
           pos.pos_fname pos.pos_lnum
           (pos.pos_cnum - pos.pos_bol + 1)
     in
-    Format.kfprintf
-      (fun _ -> raise Abella_types.Reported_parse_error)
-      Format.err_formatter parse_fmt pos_string
+    Output.msg_printfk
+      (fun _ -> raise Types.Reported_parse_error)
+      ~severity:Error parse_fmt pos_string
 
   let predefined ~pos id =
     UCon(pos, id, Term.fresh_tyvar ())

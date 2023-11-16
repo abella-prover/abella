@@ -48,7 +48,7 @@ let read_lp ext parser name =
   let lexbuf = Src.lex true in
   try parser Lexer.token lexbuf with
   | Parsing.Parse_error | Reported_parse_error ->
-      Output.msg_printf ~severity:Output.Error
+      Output.msg_printf ~severity:Error
         "Syntax error%s." (position lexbuf) ;
       failwith "Failed while reading specification"
 

@@ -4,16 +4,17 @@ type pos = Lexing.position * Lexing.position
 let ghost : pos = (Lexing.dummy_pos, Lexing.dummy_pos)
 
 let inst_gen_tyvar_msg v ty =
-    Printf.sprintf "the generic type variable %s cannot be instantiated; instead it is instantiated to (%s)." v (ty_to_string ty)
+    Printf.sprintf
+      "the generic type variable %s cannot be instantiated;\
+       instead it is instantiated to (%s)."
+      v (ty_to_string ty)
 
 let position_range (p1, p2) =
   let file = p1.Lexing.pos_fname in
   let line = p1.Lexing.pos_lnum in
   let char1 = p1.Lexing.pos_cnum - p1.Lexing.pos_bol in
   let char2 = p2.Lexing.pos_cnum - p1.Lexing.pos_bol in
-  if file = "" then
-    ""
-  else
+  if file = "" then "" else
     Printf.sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
 
 type constraint_type = CFun | CArg
@@ -26,13 +27,15 @@ exception InstGenericTyvar of string * ty
 let def_cinfo = (ghost,CArg)
 
 let type_inference_error (pos, ct) exp act =
-  Printf.printf "Typing error%s.\n%!" (position_range pos) ;
+  Output.msg_printf "Typing error%s.\n%!" (position_range pos) ;
   match ct with
   | CArg ->
-      Printf.eprintf "Expression has type %s but is used here with type %s\n%!"
+      Output.msg_printf ~severity:Error
+        "Expression has type %s but is used here with type %s\n%!"
         (ty_to_string act) (ty_to_string exp)
   | CFun ->
-      Printf.eprintf "Expression is applied to too many arguments\n%!"
+      Output.msg_printf ~severity:Error
+        "Expression is applied to too many arguments\n%!"
 
 let occurs v ty =
   let rec aux = function

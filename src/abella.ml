@@ -773,12 +773,14 @@ let import pos filename withs =
                 add_lemma name tys thm ;
                 process_decls decls
             | CDefine(flav, tyargs, idtys, clauses) ->
+                compile (CDefine (flav, tyargs, idtys, clauses)) ;
                 ignore @@ Prover.register_definition_clauses flav tyargs idtys clauses ;
                 process_decls decls
             | CImport(filename, withs) ->
                 aux (normalize_filename (Filename.concat file_dir filename)) withs ;
                 process_decls decls
             | CKind(ids, knd) ->
+                compile (CKind (ids, knd)) ;
                 ignore @@ Prover.add_global_types ids knd;
                 process_decls decls
             | CType(ids, (Ty(_, aty) as ty)) when aty = propaty-> begin
@@ -803,6 +805,7 @@ let import pos filename withs =
                 process_decls
               end
             | CType(ids,ty) ->
+                compile (CType (ids, ty)) ;
                 ignore @@ Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
                 process_decls decls
             | CClose(ty_subords) ->

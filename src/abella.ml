@@ -769,6 +769,7 @@ let import pos filename withs =
         | decl :: decls -> begin
             match decl with
             | CTheorem(name, tys, thm, _) ->
+                compile (CTheorem (name, tys, thm, Finished)) ;
                 add_lemma name tys thm ;
                 process_decls decls
             | CDefine(flav, tyargs, idtys, clauses) ->

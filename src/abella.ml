@@ -545,9 +545,7 @@ let ensure_finalized_specification () =
     comp_spec_clauses := !Prover.clauses
   end
 
-let compile citem =
-  (* ensure_finalized_specification () ; *)
-  comp_content := citem :: !comp_content ;
+let damf_register citem =
   match citem with
   | CKind (ids, knd) ->
       List.iter (fun id -> Damf.add_type id knd) ids
@@ -573,6 +571,11 @@ let compile citem =
         ] in
       Damf.(register_thm name @@ Local thm_id)
   | _ -> ()
+
+let compile citem =
+  (* ensure_finalized_specification () ; *)
+  comp_content := citem :: !comp_content ;
+  damf_register citem
 
 let predicates (_ktable, ctable) =
   ctable |>
@@ -767,9 +770,10 @@ let import pos filename withs =
         match decls with
         | [] -> ()
         | decl :: decls -> begin
+            damf_register decl ;
             match decl with
             | CTheorem(name, tys, thm, _) ->
-                compile (CTheorem (name, tys, thm, Finished)) ;
+                (* compile (CTheorem (name, tys, thm, Finished)) ; *)
                 add_lemma name tys thm ;
                 process_decls decls
             | CDefine(flav, tyargs, idtys, clauses) ->
@@ -860,19 +864,19 @@ let damf_import =
               remark :=
                 if fresh_ids = [] then " (* merged *)"
                 else Printf.sprintf " (* fresh: %s *)" (String.concat ", " fresh_ids) ;
-              compile (CKind (ids, knd)) ;
+              damf_register (CKind (ids, knd)) ;
               debug_spec_sign ~msg:"Kind" ()
           | Type (ids, ty) ->
               let fresh_ids = Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) in
               remark :=
                 if fresh_ids = [] then " (* merged *)"
                 else Printf.sprintf " (* fresh: %s *)" (String.concat ", " fresh_ids) ;
-              compile (CType (ids, ty)) ;
+              damf_register (CType (ids, ty)) ;
               debug_spec_sign ~msg:"Type" ()
           | Define (flav, tyargs, udefs) -> begin
               match Prover.register_definition flav tyargs udefs with
               | None -> remark := " (* merged *)"
-              | Some comp -> compile comp
+              | Some comp -> damf_register comp
             end
           | _ ->
               failwithf "Illegal element in Sigma: %s" txt
@@ -901,7 +905,7 @@ let damf_import =
           check_theorem tys thm ;
           (* Prover.theorem thm ; *)
           add_lemma name tys thm ;
-          compile (CTheorem (name, tys, thm, Finished)) ;
+          damf_register (CTheorem (name, tys, thm, Finished)) ;
           Damf.(register_thm name (Global cid)) ;
           debugf "%s." (top_command_to_string cmd)
         end
@@ -1394,7 +1398,7 @@ and process_top1 () =
       let oldsign = !sign in
       let thm_compile fin =
         sign := oldsign ;
-        compile (CTheorem(name, tys, thm, fin)) ;
+        compile @@ CTheorem (name, tys, thm, fin) ;
         damf_export_theorem name ;
         add_lemma name tys thm
       in

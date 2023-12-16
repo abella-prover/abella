@@ -1,6 +1,6 @@
 # See LICENSE for licensing details.
 
-BINS := src/abella.exe src/abella_doc.exe src/abella_dep.exe
+BINS := src/abella.bc src/abella_doc.bc src/abella_dep.bc
 
 .PHONY: all all-release
 all: src/abella_doc_dist.ml
@@ -21,14 +21,14 @@ AIN := abella.install
 $(AIN):
 	rm -f $(AIN)
 	echo 'bin: [' >> $(AIN)
-	echo '"_build/default/src/abella.exe" {"abella"}' >> $(AIN)
-	echo '"_build/default/src/abella_doc.exe" {"abella_doc"}' >> $(AIN)
-	echo '"_build/default/src/abella_dep.exe" {"abella_dep"}' >> $(AIN)
+	echo '"_build/default/src/abella.bc" {"abella"}' >> $(AIN)
+	echo '"_build/default/src/abella_doc.bc" {"abella_doc"}' >> $(AIN)
+	echo '"_build/default/src/abella_dep.bc" {"abella_dep"}' >> $(AIN)
 	echo ']' >> $(AIN)
 	echo 'man: [' >> $(AIN)
-	for pr in _build/default/src/*.exe ; do \
-	  $$pr --help=groff > $${pr%%.exe}.1 ; \
-	  echo '"'$${pr%%.exe}.1'"' >> $(AIN) ; \
+	for pr in _build/default/src/*.bc ; do \
+	  $$pr --help=groff > $${pr%%.bc}.1 ; \
+	  echo '"'$${pr%%.bc}.1'"' >> $(AIN) ; \
 	done
 	echo ']' >> $(AIN)
 	echo 'share: [' >> $(AIN)
@@ -57,9 +57,9 @@ publish-doc: examples/make.stamp
 	  examples abellaweb@abella-prover.org:abella-prover.org/
 
 examples/make.stamp: $(wildcard examples/**/*.{sig,mod,thm})
-examples/make.stamp: $(wildcard _build/default/src/abella*.exe)
+examples/make.stamp: $(wildcard _build/default/src/abella*.bc)
 examples/make.stamp: $(wildcard $(patsubst %.thm,%.thc,$(wildcard examples/**/*.thm)))
 examples/make.stamp:
 	git clean -fxd examples
-	dune exec src/abella_doc.exe -- -r examples
+	dune exec src/abella_doc.bc -- -r examples
 	touch examples/make.stamp

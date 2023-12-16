@@ -1,15 +1,18 @@
 (executable
   (name abella)
+  (modes byte exe)
   (modules abella)
   (libraries abella_lib unix cmdliner))
 
 (executable
   (name abella_doc)
+  (modes byte exe)
   (modules abella_doc)
   (libraries abella_lib unix cmdliner))
 
 (executable
   (name abella_dep)
+  (modes byte exe)
   (modules abella_dep)
   (libraries abella_lib unix cmdliner))
 
@@ -32,4 +35,4 @@
 
 (alias
   (name default)
-  (deps abella.exe abella_doc.exe abella_dep.exe))
+  (deps abella.bc abella_doc.bc abella_dep.bc))

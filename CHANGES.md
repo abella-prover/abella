@@ -1,3 +1,10 @@
+Changes in 2.0.8+bc from 2.0.8
+------------------------------
+
+* Abella is byte-compiled for architectures that do not have a
+  supported native compiler (e.g., `ppc32-macos`).
+
+
 Changes in 2.0.8 from 2.0.7
 ---------------------------
 

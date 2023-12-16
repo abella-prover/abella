@@ -1,23 +1,25 @@
 (test
   (name test)
+  (modes byte exe)
   (modules :standard \ setup_regression)
   (libraries abella_lib ounit2))
 
 (test
   (name setup_regression)
+  (modes byte exe)
   (modules setup_regression)
   (libraries unix))
 
 (rule
   (alias runtest)
   (deps
-    ../src/abella.exe
-    ../src/abella_dep.exe
-    ../test/setup_regression.exe
+    ../src/abella.bc
+    ../src/abella_dep.bc
+    ../test/setup_regression.bc
     (source_tree ../examples))
   (target test.mk)
   (action (chdir %{project_root}
     (progn
-      (run test/setup_regression.exe --actual examples)
-      (run src/abella_dep.exe -a "src/abella.exe" -o test/test.mk -r examples)
+      (run test/setup_regression.bc --actual examples)
+      (run src/abella_dep.bc -a "src/abella.bc" -o test/test.mk -r examples)
       (run make -k -j -f test/test.mk all)))))

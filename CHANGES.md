@@ -9,6 +9,15 @@ Additions
   >     Import "https://abella-prover.org/examples/first-order/add".
 
 
+Bugfixes
+
+* `Import ... with` now requires the replacements for the declared
+  predicates in the importee to be pairwise distinct.  
+  (#152, discovered in discussions with Farah Al Wardani @innofarah and Dale
+  Miller @thatdalemiller)  
+  ***SOUNDNESS BUG***
+
+
 Changes in 2.0.8 from 2.0.7
 ---------------------------
 

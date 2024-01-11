@@ -290,6 +290,9 @@ let rec import ~wrt pos impfile withs =
 
 and import_load modname withs =
   let kind = "import_load" in
+  let replacement_set = List.to_seq withs |> Seq.map snd |> Iset.of_seq in
+  if Iset.cardinal replacement_set <> List.length withs then
+    failwithf "Replacements for \"with\" are not pairwise distinct" ;
   if List.mem modname !imported then () else begin
     imported := modname :: !imported ;
     let module Thm = (val Source.read_thm (modname ^ ".thm")) in

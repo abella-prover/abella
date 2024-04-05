@@ -1,13 +1,12 @@
-Changes in 2.1.0-dev from 2.0.8
+Changes in 2.0.8.1 from 2.0.8
 -------------------------------
 
-Additions
+This is a very small bugfix release.
 
-* Abella can now load files over the internet. Anywhere a file name is
-  expected, a URL can be used instead. For instance, it is valid to say:
+Changes
 
-  >     Import "https://abella-prover.org/examples/first-order/add".
-
+* Abella now compiles with Dune version 3.7 or later.  
+  (#154, reported by @yurivict)
 
 Bugfixes
 

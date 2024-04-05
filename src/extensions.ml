@@ -458,7 +458,9 @@ module Xdg = struct
 
     let abella = "abella"
 
-    let home = if Sys.win32 then "USERPROFILE" else "HOME"
+    let home =
+      Sys.getenv_opt (if Sys.win32 then "USERPROFILE" else "HOME") |>
+      Option.value ~default:""
     let xdg_cache_dir =
       Sys.getenv_opt "XDG_CACHE_HOME" |>
       Option.value ~default:(home / ".cache")

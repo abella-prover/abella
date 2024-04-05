@@ -20,9 +20,8 @@ depends: [
   "menhir"    { >= "20211012" }
   "ocurl"     { >= "0.9.2" }
   "re"        { >= "1.11.0" }
-  "xdg"       { >= "3.11.1" }
   "yojson"    { >= "2.1.1" }
-  "dune"      { >= "3.11" }
+  "dune"      { >= "3.7" }
   "ounit2"    { with-test }
 ]
 bug-reports: "https://github.com/abella-prover/abella/issues"

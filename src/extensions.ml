@@ -444,8 +444,6 @@ end
 
 module Xdg = struct
   open struct
-    let xdg = Xdg.create ~env:Sys.getenv_opt ()
-
     let ensure_dir dir =
       if Sys.file_exists dir then
         if Sys.is_directory dir then ()
@@ -459,10 +457,20 @@ module Xdg = struct
       child
 
     let abella = "abella"
+
+    let home = if Sys.win32 then "USERPROFILE" else "HOME"
+    let xdg_cache_dir =
+      Sys.getenv_opt "XDG_CACHE_HOME" |>
+      Option.value ~default:(home / ".cache")
+    let xdg_config_dir =
+      Sys.getenv_opt "XDG_CONFIG_HOME" |>
+      Option.value ~default:(home / ".config")
+    let xdg_state_dir =
+      Sys.getenv_opt "XDG_STATE_HOME" |>
+      Option.value ~default:(home / ".local" / "state")
   end
 
-  let cache_dir   = Xdg.cache_dir xdg  / abella / "run"
-  let config_dir  = Xdg.config_dir xdg / abella
-  let state_dir   = Xdg.state_dir xdg  / abella
-  let runtime_dir = Xdg.runtime_dir xdg
+  let cache_dir   = xdg_cache_dir  / abella / "run"
+  let config_dir  = xdg_config_dir / abella
+  let state_dir   = xdg_state_dir  / abella
 end

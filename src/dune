@@ -1,5 +1,6 @@
 (executable
  (name abella)
+ (modes byte exe)
  (modules abella)
  (libraries abella_lib unix cmdliner))
 
@@ -15,11 +16,13 @@
 
 (executable
  (name abella_doc)
+ (modes byte exe)
  (modules abella_doc abella_doc_dist)
  (libraries abella_lib unix cmdliner))
 
 (executable
  (name abella_dep)
+ (modes byte exe)
  (modules abella_dep)
  (libraries abella_lib unix cmdliner))
 

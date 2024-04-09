@@ -1,10 +1,12 @@
 (test
   (name test)
+  (modes exe)
   (modules :standard \ setup_regression)
   (libraries abella_lib ounit2))
 
 (test
   (name setup_regression)
+  (modes exe)
   (modules setup_regression)
   (libraries unix))
 

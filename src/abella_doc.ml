@@ -258,7 +258,10 @@ let () =
         let dir = Filename.dirname Sys.executable_name in
         let ab1 = Filename.concat dir "abella" in
         let ab2 = Filename.concat dir "abella.exe" in
-        if Sys.file_exists ab1 then ab1 else ab2 in
+        let ab3 = Filename.concat dir "abella.bc" in
+        if Sys.file_exists ab1 then ab1
+        else if Sys.file_exists ab2 then ab2
+        else ab3 in
       let env = Cmd.Env.info "ABELLA"
           ~doc:"Abella command to run (overriden by $(b,--abella))" in
       let doc = "Set the Abella command to $(docv)" in

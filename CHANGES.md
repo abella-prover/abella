@@ -1,4 +1,4 @@
-Changes in 2.0.8.1 from 2.0.8
+Changes in 2.0.8.2 from 2.0.8
 -------------------------------
 
 This is a very small bugfix release.
@@ -7,6 +7,8 @@ Changes
 
 * Abella now compiles with Dune version 3.7 or later.  
   (#154, reported by @yurivict)
+* Abella is now byte-compiled for ppc32 and ppc64.
+  (#153, reporeted by @barracuda156)
 
 Bugfixes
 

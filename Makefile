@@ -1,14 +1,18 @@
 # See LICENSE for licensing details.
 
-BINS := src/abella.exe src/abella_doc.exe src/abella_dep.exe
+DUNE := dune
+
+# run with `make BYTECODE=true` to produce bytecode
+EXTN := $(if $(strip $(BYTECODE)),bc,exe)
+BINS := $(patsubst %,%.$(EXTN),src/abella src/abella_doc src/abella_dep)
 
 .PHONY: all
 all: support/.stamp
-	dune build $(BINS)
+	$(DUNE) build $(BINS)
 
 .PHONY: all-release
 all-release: # support/.stamp
-	dune build --release $(BINS)
+	$(DUNE) build --release $(BINS)
 
 support/.stamp: $(wildcard support/ts/*.ts support/css/*.css)
 	( cd support && \
@@ -22,14 +26,14 @@ AIN := abella.install
 $(AIN):
 	$(RM) $(AIN)
 	echo 'bin: [' >> $(AIN)
-	echo '"_build/default/src/abella.exe" {"abella"}' >> $(AIN)
-	echo '"_build/default/src/abella_doc.exe" {"abella_doc"}' >> $(AIN)
-	echo '"_build/default/src/abella_dep.exe" {"abella_dep"}' >> $(AIN)
+	echo '"_build/default/src/abella.$(EXTN)" {"abella"}' >> $(AIN)
+	echo '"_build/default/src/abella_doc.$(EXTN)" {"abella_doc"}' >> $(AIN)
+	echo '"_build/default/src/abella_dep.$(EXTN)" {"abella_dep"}' >> $(AIN)
 	echo ']' >> $(AIN)
 	echo 'man: [' >> $(AIN)
-	for pr in _build/default/src/*.exe ; do \
-	  $$pr --help=groff > $${pr%%.exe}.1 ; \
-	  echo '"'$${pr%%.exe}.1'"' >> $(AIN) ; \
+	for pr in _build/default/src/*.$(EXTN) ; do \
+	  $$pr --help=groff > $${pr%%.$(EXTN)}.1 ; \
+	  echo '"'$${pr%%.$(EXTN)}.1'"' >> $(AIN) ; \
 	done
 	echo ']' >> $(AIN)
 	echo 'share: [' >> $(AIN)
@@ -40,12 +44,12 @@ $(AIN):
 
 .PHONY: clean
 clean:
-	dune clean
+	$(DUNE) clean
 	$(RM) abella $(BINS) $(AIN)
 
 .PHONY: test
 test:
-	dune runtest --release
+	$(DUNE) runtest --release
 
 .PHONY: publish-doc
 publish-doc: examples/make.stamp
@@ -58,9 +62,15 @@ publish-doc: examples/make.stamp
 	  examples abellaweb@abella-prover.org:abella-prover.org/
 
 examples/make.stamp: $(wildcard examples/**/*.{sig,mod,thm})
-examples/make.stamp: $(wildcard _build/default/src/abella*.exe)
+examples/make.stamp: $(wildcard _build/default/src/abella*.$(EXTN))
 examples/make.stamp: $(wildcard $(patsubst %.thm,%.thc,$(wildcard examples/**/*.thm)))
 examples/make.stamp:
 	git clean -fxd examples
-	dune exec src/abella_doc.exe -- -r examples
+	$(DUNE) exec src/abella_doc.$(EXTN) -- -r examples
 	touch examples/make.stamp
+
+.PHONY: makefile_debug
+makefile_debug:
+	@echo "BYTECODE='$(BYTECODE)'"
+	@echo "EXTN='$(EXTN)'"
+	@echo "BINS='$(BINS)'"

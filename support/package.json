@@ -1,6 +1,6 @@
 {
   "name": "abella_doc_lib",
-  "version": "2.1.0-dev",
+  "version": "2.0.8.2",
   "description": "Support code for abella_doc (https://abella-prover.org)",
   "main": "./js/abella_doc.js",
   "scripts": {

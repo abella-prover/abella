@@ -15,6 +15,7 @@ Bugfixes
   (#152, discovered in discussions with Farah Al Wardani @innofarah and Dale
   Miller @thatdalemiller)  
   ***SOUNDNESS BUG***
+* `Import ... with` performs the replacements simultaneously. (#153)
 
 
 Changes in 2.0.8 from 2.0.7

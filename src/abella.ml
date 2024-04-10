@@ -223,54 +223,86 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
 
 let imported = State.rref []
 
-let replace_atom_term decl _defn_name defn t =
-  let ty = tc [] defn in
-  let t = Term.abstract decl ty t in
-  let rt = Term.app t [defn] in
-  (* Printf.printf "Rewrote %s to %s.\n%!" (term_to_string t) (term_to_string rt) ; *)
-  rt
+module Replacement = struct
+  type target = {
+    name : id ;
+    term : term ;
+    ty : ty ;
+  }
 
-let replace_atom_metaterm decl defn_name defn mt =
-  let rmt = map_terms (replace_atom_term decl defn_name defn) mt in
-  (* Printf.printf "Rewrote %s to %s.\n%!" (metaterm_to_string mt) (metaterm_to_string rmt) ; *)
-  rmt
+  type t = {
+    map : target Itab.t ;
+    range : Iset.t ;
+  }
 
-let replace_atom_clause decl defn_name defn cl =
-  let head = replace_atom_metaterm decl defn_name defn cl.head in
-  let body = replace_atom_metaterm decl defn_name defn cl.body in
-  { head ; body }
+  let make withs =
+    let map = ref Itab.empty in
+    let range = ref Iset.empty in
+    List.iter begin fun (decl, defn) ->
+      let pred = UCon (ghost, defn, Term.fresh_tyvar ()) in
+      let pred = type_uterm ~sr:!sr ~sign:!sign ~ctx:[] pred in
+      map := Itab.add decl { name = defn ; term = pred ; ty = tc [] pred } !map ;
+      range := Iset.add defn !range
+    end withs ;
+    if Itab.cardinal !map <> Iset.cardinal !range ||
+       Itab.cardinal !map <> List.length withs then
+      failwithf "Replacements for \"with\" are not pairwise distrinct" ;
+    { map = !map ; range = !range }
 
-let replace_atom_compiled decl defn_name defn comp=
-  match comp with
-  | CTheorem (nm, tyvars, bod, fin) ->
-      (* Printf.printf "Trying to rewrite a CTheorem\n%!" ; *)
-      CTheorem (nm, tyvars, replace_atom_metaterm decl defn_name defn bod, fin)
-  | CDefine (flav, tyvars, definiens, clauses) ->
-      if List.mem_assoc defn_name definiens then
-        failwithf "There is already a defined atom named %s in import" defn_name ;
-      (* Printf.printf "Trying to rewrite a CDefine\n%!" ; *)
-      CDefine (flav, tyvars, definiens,
-               List.map (replace_atom_clause decl defn_name defn) clauses)
-  | CImport (fn, ws) ->
-      (* Printf.printf "Trying to rewrite a CImport\n%!" ; *)
-      let ws = List.map begin fun (wfrom, wto) ->
-          if wto = decl then (wfrom, defn_name)
-          else (wfrom, wto)
-        end ws in
-      CImport (fn, ws)
-  | CKind (ids, _knd) ->
-      (* Printf.printf "Trying to rewrite a CKind\n%!" ; *)
-      if List.mem defn_name ids then
-        failwithf "There are declared types named %s in import" defn_name ;
-      comp
-  | CType (ids, _) ->
-      (* Printf.printf "Trying to rewrite a CType\n%!" ; *)
-      if List.mem defn_name ids then
-        failwithf "There are declared constants named %s in import" defn_name ;
-      comp
-  | CClose _ ->
-      (* Printf.printf "Trying to rewrite a CClose\n%!" ; *)
-      comp
+  let find repl decl = Itab.find decl repl.map
+  (* let find_opt repl decl = Itab.find_opt decl repl.map *)
+
+  let term (repl : t) body =
+    let (abs, args) = Itab.fold begin fun decl defn (abs, args) ->
+        (Term.abstract decl defn.ty abs, defn.term :: args)
+      end repl.map (body, []) in
+    Term.app abs args
+
+  let metaterm repl body = map_terms (term repl) body
+
+  let clause repl cl =
+    let head = metaterm repl cl.head in
+    let body = metaterm repl cl.body in
+    { head ; body }
+
+  open struct
+    let rec check_no_existing ~what ~mem ids =
+      match ids with
+      | [] -> ()
+      | id :: ids ->
+          if mem id then
+            failwithf "There is an existing %s named %s" what id ;
+          check_no_existing ~what ~mem ids
+  end
+
+  let compiled repl comp =
+    match comp with
+    | CTheorem (nm, tyvars, body, fin) ->
+        CTheorem (nm, tyvars, metaterm repl body, fin)
+    | CDefine (flav, tyvars, preds, cls) ->
+        check_no_existing (List.map fst preds)
+          ~what:"defined atom"
+          ~mem:(fun id -> Iset.mem id repl.range) ;
+        CDefine (flav, tyvars, preds, List.map (clause repl) cls)
+    | CImport (fn, ws) ->
+        let ws = List.map begin fun (wfrom, wto) ->
+            match Itab.find_opt wfrom repl.map with
+            | Some defn -> (wfrom, defn.name)
+            | _ -> (wfrom, wto)
+          end ws in
+        CImport (fn, ws)
+    | CKind (ids, _) ->
+        check_no_existing ids
+          ~what:"declared type"
+          ~mem:(fun id -> Itab.mem id repl.map) ;
+        comp
+    | CType (ids, _) ->
+        check_no_existing ids
+          ~what:"declared constant"
+          ~mem:(fun id -> Itab.mem id repl.map) ;
+        comp
+    | CClose _ -> comp
+end
 
 let add_lemma name tys thm =
   match Prover.add_lemma name tys thm with
@@ -290,9 +322,7 @@ let rec import ~wrt pos impfile withs =
 
 and import_load modname withs =
   let kind = "import_load" in
-  let replacement_set = List.to_seq withs |> Seq.map snd |> Iset.of_seq in
-  if Iset.cardinal replacement_set <> List.length withs then
-    failwithf "Replacements for \"with\" are not pairwise distinct" ;
+  let repl = Replacement.make withs in
   if List.mem modname !imported then () else begin
     imported := modname :: !imported ;
     let module Thm = (val Source.read_thm (modname ^ ".thm")) in
@@ -351,24 +381,20 @@ and import_load modname withs =
               Prover.add_global_types ids knd;
               process_decls decls
           | CType(ids, (Ty(_, aty) as ty)) when aty = propaty-> begin
-              (* Printf.printf "Need to instantiate: %s.\n%!" (String.concat ", " ids) ; *)
-              let instantiate_id decls id =
+              let check_types id =
                 try begin
                   let open Typing in
-                  let pred_name = List.assoc id withs in
-                  let pred = UCon (ghost, pred_name, Term.fresh_tyvar ()) in
-                  let pred = type_uterm ~sr:!sr ~sign:!sign ~ctx:[] pred in
-                  let pred_ty = tc [] pred in
-                  tid_ensure_fully_inferred ~sign:!sign (pred_name, pred_ty) ;
-                  if ty <> pred_ty then
+                  let pred = Replacement.find repl id in
+                  tid_ensure_fully_inferred ~sign:!sign (pred.name, pred.ty) ;
+                  if ty <> pred.ty then
                     failwithf "Expected type %s:%s, got %s:%s"
                       id (ty_to_string ty)
-                      pred_name (ty_to_string pred_ty) ;
-                  List.map (replace_atom_compiled id pred_name pred) decls
+                      pred.name (ty_to_string pred.ty)
                 end with Not_found ->
                   failwithf "Missing instantiation for %s" id
               in
-              List.fold_left instantiate_id decls ids |>
+              List.iter check_types ids ;
+              List.map (Replacement.compiled repl) decls |>
               process_decls
             end
           | CType(ids,ty) ->

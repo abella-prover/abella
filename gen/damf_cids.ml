@@ -52,29 +52,21 @@ let () =
   if !output_file = "" then
     failwith "Needs an output file" ;
   let tool_json : Json.t = `Assoc [
-      "name", `String "Abella" ;
-      "version", `String version ;
-      "tag", `String ("Abella " ^ version) ;
-    ] in
-  let cid =
-    run_command "ipfs dag put" (fun oc -> Json.to_channel oc tool_json) |>
-    String.trim in
-  let tool_json : Json.t = `Assoc [
       "format", `String "tool" ;
-      "content", `Assoc [ "/", `String cid ]
+      "content", `Assoc [
+        "name", `String "Abella" ;
+        "version", `String version ;
+        "tag", `String ("Abella " ^ version) ;
+      ]
     ] in
   let tool_cid = String.trim @@ run_command "ipfs dag put" (fun oc -> Json.to_channel oc tool_json) in
   let lang_json : Json.t = `Assoc [
-      "name", `String "Abella" ;
-      "version", `String version ;
-      "tag", `String ("Abella " ^ version) ;
-    ] in
-  let cid =
-    run_command "ipfs dag put" (fun oc -> Json.to_channel oc lang_json) |>
-    String.trim in
-  let lang_json : Json.t = `Assoc [
       "format", `String "language" ;
-      "content", `Assoc [ "/", `String cid ]
+      "content", `Assoc [
+        "name", `String "Abella" ;
+        "version", `String version ;
+        "tag", `String ("Abella " ^ version) ;
+      ]
     ] in
   let lang_cid = String.trim @@ run_command "ipfs dag put" (fun oc -> Json.to_channel oc lang_json) in
   let oc = open_out !output_file in

@@ -1285,14 +1285,22 @@ and process_proof1 proc =
   let damf_mark h =
     match h with
     | Remove (name, _) | Keep (name, _) ->
-        if not @@ Prover.is_hyp name then Damf.mark_lemma name
+        if not @@ Prover.is_hyp name then
+          let ex n = n = name in 
+          if not (List.exists ex !Damf.used_lemmas) then
+            Damf.mark_lemma name
+  in
+  let rec damf_mark_list list = 
+    match list with
+    | [] -> ()
+    | x :: xs -> damf_mark x ; damf_mark_list xs
   in
   let perform () =
     begin match input with
     | Induction(args, hn) -> Prover.induction ?name:hn args
     | CoInduction hn -> Prover.coinduction ?name:hn ()
     | Apply(depth, h, args, ws, hn ) -> begin
-        damf_mark h ;
+        damf_mark h ;  damf_mark_list args ;
         Prover.apply ?depth ?name:hn h args ws ~term_witness
       end
     | Backchain(depth, h, ws) -> begin

@@ -5,5 +5,5 @@
  * See LICENSE for licensing details.
  *)
 
-let version = "2.0.8.2";;
+let version = "2.0.8.3";;
 let self_digest = Digest.file Sys.executable_name;;

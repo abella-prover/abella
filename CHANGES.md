@@ -10,6 +10,8 @@ Changes
 
 Bugfixes
 
+* Incorrect lambda-prefix for non-Llambda unification problems  
+  (#155, report + fix by @wikku)
 * `Import ... with` now requires the replacements for the declared
   predicates in the importee to be pairwise distinct.  
   (#152, discovered in discussions with Farah Al Wardani @innofarah and Dale

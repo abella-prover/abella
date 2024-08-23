@@ -33,8 +33,10 @@ open struct
         let mtime = Unix.((stat source).st_mtime)
         let dir = Some (Filename.dirname path)
         let lex with_positions =
-          Stdlib.open_in_bin path
-          |> Lexing.from_channel ~with_positions
+          let ch = Stdlib.open_in_bin path in
+          let lb = Lexing.from_channel ~with_positions ch in
+          Lexing.set_filename lb source;
+          lb
       end in
       (module Source : SOURCE)
     end
@@ -164,7 +166,7 @@ open struct
       let lex with_positions =
         let ch = Stdlib.open_in_bin cache_file in
         let lb = Lexing.from_channel ~with_positions ch in
-        lb.lex_curr_p <- { lb.lex_curr_p with pos_fname = source } ;
+        Lexing.set_filename lb source;
         lb
     end in
     return (module Src : SOURCE)
@@ -198,7 +200,7 @@ open struct
       let lex with_positions =
         let ch = Stdlib.open_in_bin cache_name in
         let lb = Lexing.from_channel ~with_positions ch in
-        lb.lex_curr_p <- { lb.lex_curr_p with pos_fname = source } ;
+        Lexing.set_filename lb source;
         lb
     end in
     return (module Src : SOURCE)

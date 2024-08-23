@@ -10,6 +10,8 @@ Changes
 
 Bugfixes
 
+* File names in error locations were not correct  
+  (PR #157, contributed by @wikku)
 * Incorrect lambda-prefix for non-Llambda unification problems  
   (#155, report + fix by @wikku)
 * `Import ... with` now requires the replacements for the declared

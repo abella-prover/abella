@@ -26,17 +26,19 @@ open struct
 
   exception Fail
 
+  let lex source path with_positions =
+    let ch = Stdlib.open_in_bin path in
+    let lb = Lexing.from_channel ~with_positions ch in
+    Lexing.set_filename lb source;
+    lb
+
   let open_local_file =
     Result.wrap begin fun source ->
       let module Source = struct
         let path = source
         let mtime = Unix.((stat source).st_mtime)
         let dir = Some (Filename.dirname path)
-        let lex with_positions =
-          let ch = Stdlib.open_in_bin path in
-          let lb = Lexing.from_channel ~with_positions ch in
-          Lexing.set_filename lb source;
-          lb
+        let lex with_positions = lex source path with_positions
       end in
       (module Source : SOURCE)
     end
@@ -163,11 +165,7 @@ open struct
           fields.host
           (Filename.dirname fields.path)
         |> Option.some
-      let lex with_positions =
-        let ch = Stdlib.open_in_bin cache_file in
-        let lb = Lexing.from_channel ~with_positions ch in
-        Lexing.set_filename lb source;
-        lb
+      let lex with_positions = lex source cache_file with_positions
     end in
     return (module Src : SOURCE)
 
@@ -197,11 +195,7 @@ open struct
       let path = source
       let mtime = stat.st_mtime
       let dir = None
-      let lex with_positions =
-        let ch = Stdlib.open_in_bin cache_name in
-        let lb = Lexing.from_channel ~with_positions ch in
-        Lexing.set_filename lb source;
-        lb
+      let lex with_positions = lex source cache_name with_positions
     end in
     return (module Src : SOURCE)
 

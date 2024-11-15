@@ -1,6 +1,12 @@
 Changes in 2.1.0-dev from 2.0.8
 -------------------------------
 
+Additions
+
+* Added the `compute` tactic for performing asynchronous
+  computation on hypotheses. Detailed examples can be found
+  in the `examples/compute/` subdirectory.
+
 Changes
 
 * Abella now compiles with Dune version 3.7 or later.  

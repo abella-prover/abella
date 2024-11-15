@@ -37,7 +37,7 @@
           pos.pos_fname pos.pos_lnum
           (pos.pos_cnum - pos.pos_bol + 1)
     in
-    Output.msg_printfk
+    Output.msg_formatk
       (fun _ -> raise Types.Reported_parse_error)
       ~severity:Error parse_fmt pos_string
 
@@ -127,8 +127,8 @@
 %token IND INST APPLY CASE FROM SEARCH TO ON WITH INTROS CUT ASSERT CLAUSEEQ
 %token SKIP UNDO ABORT COIND LEFT RIGHT MONOTONE IMPORT BY
 %token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON
-%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW
-%token PERMUTE BACKCHAIN QUIT UNDERSCORE AS SSPLIT RENAME
+%token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW SUSPEND
+%token PERMUTE BACKCHAIN COMPUTE QUIT UNDERSCORE AS SSPLIT RENAME
 %token BACK RESET
 %token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND CARET
 %token LBRACE RBRACE LBRACK RBRACK
@@ -209,6 +209,7 @@ id:
   | CASE          { "case" }
   | CLEAR         { "clear" }
   | COIND         { "coinduction" }
+  | COMPUTE       { "compute" }
   | CUT           { "cut" }
   | FROM          { "from" }
   | IND           { "induction" }
@@ -476,6 +477,8 @@ pure_command:
     args=loption(TO; args=apply_args {args});
     ws=loption(WITH; ws=withs {ws}); DOT
     { Types.Apply(dep, clr, args, ws, ht) }
+  | ht=hhint; COMPUTE; dp=option(NUM); hs=nonempty_list(clearable); DOT
+    { Types.Compute (hs, dp, ht) }
   | BACKCHAIN; dep=maybe_depth; clr=clearable;
     ws=loption(WITH; ws=withs {ws}); DOT
     { Types.Backchain(dep, clr, ws) }
@@ -698,6 +701,19 @@ common_command:
     { Types.Set(a, Types.QStr s) }
   | SHOW; l=loc_id; DOT
     { Types.Show(deloc_id l) }
+  | SUSPEND; predicate=loc_id; args=list(id); DEFEQ; flex=separated_nonempty_list(COMMA, id); DOT
+    { let pos = $startpos in
+      if not (List.is_unique args) then
+        error_report ~pos "argument list is not unique: %s" (String.concat " " args) ;
+      if not (List.is_unique flex) then
+        error_report ~pos "flex list is not unique: %s" (String.concat " " flex) ;
+      if List.exists (fun f -> not @@ List.mem f args) flex then
+        error_report ~pos "flex list [%s] is not a subset of argument list [%s]"
+          (String.concat " " flex) (String.concat " " args) ;
+      let arity = List.length args in
+      let flex = List.mapi (fun i x -> if List.mem x flex then i else -1) args
+                 |> List.filter (fun x -> x >= 0) in
+      Types.(Suspend { predicate ; arity ; flex }) }
   | QUIT; DOT
     { Types.Quit }
   | BACK; DOT

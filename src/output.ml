@@ -80,6 +80,9 @@ let msg_printf ?post ?severity fmt =
 let msg_format ?post ?severity fmt =
   Format.kasprintf (msg_printf ?post ?severity "%s") fmt
 
+let msg_formatk k ?post ?severity fmt =
+  Format.kasprintf (msg_printfk k ?post ?severity "%s") fmt
+
 module type TRACE = sig
   val printf : ?kind:string -> ('a, unit, string, unit) Stdlib.format4 -> 'a
   val format : ?kind:string -> ('a, Format.formatter, unit, unit) Stdlib.format4 -> 'a

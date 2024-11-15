@@ -35,6 +35,7 @@
     "Show",          SHOW ;
     "Specification", SPECIFICATION ;
     "Split",         SSPLIT ;
+    "Suspend",       SUSPEND ;
     "Theorem",       THEOREM ;
     "Type",          TTYPE ;
     "abbrev",        ABBREV ;
@@ -50,6 +51,7 @@
     "case",          CASE ;
     "clear",         CLEAR ;
     "coinduction",   COIND ;
+    "compute",       COMPUTE ;
     "cut",           CUT ;
     "end",           END ;
     "exists",        EXISTS ;

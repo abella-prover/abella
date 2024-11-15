@@ -1,0 +1,56 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Illustrating the use of the `compute` tactic
+
+Kind nat type.
+Type z nat.
+Type s nat -> nat.
+
+Define $nat : nat -> prop by
+; $nat z
+; $nat (s X) := $nat X.
+
+%% declare that `compute` must suspend on `$nat X` if `X` is flex.
+Suspend $nat X := X.
+
+Theorem ten : forall X, $nat (s^10 X) -> $nat X.
+intros. compute H1. search.
+  % can also say `compute *H1` to get rid of H1
+
+Define plus : nat -> nat -> nat -> prop by
+; plus z X X := $nat X
+; plus (s X) Y (s Z) := plus X Y Z.
+
+%% `compute` must suspend when the first argument of `plus` is flex
+Suspend plus X Y Z := X.
+
+Theorem eight : forall X, plus (s^3 z) X (s^8 z) -> X = s^5 z.
+intros. compute H1. search.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Some other minor uses of compute
+
+Theorem plus_invert : forall M N K, plus M N K -> $nat M /\ $nat N /\ $nat K.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem plus_zero : forall N, $nat N -> plus N z N.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem plus_succ : forall M N K, plus M N K -> plus M (s N) (s K).
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem plus_comm : forall M N K, $nat K -> plus M N K -> plus N M K.
+induction on 2. intros. case H2.
+  apply plus_zero to H1. search.
+  compute *H1. apply IH to H4 H3. apply plus_succ to H5. search.
+
+Theorem plus_assoc : forall A B C AB ABC,
+  plus A B AB -> plus AB C ABC -> exists BC, plus B C BC /\ plus A BC ABC.
+induction on 1. intros. case H1.
+  apply plus_invert to H2. search.
+  compute *H2. apply IH to H3 H4. search.

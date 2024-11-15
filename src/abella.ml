@@ -527,9 +527,6 @@ and proof_processor = {
 
 let current_state = State.rref Process_top
 
-let _print_clauses () =
-  List.iter print_clause !Prover.clauses
-
 let rec process1 () =
   State.Undo.push () ;
   try begin match !current_state with
@@ -627,6 +624,7 @@ and process_proof1 proc =
     | CoInduction hn                -> Prover.coinduction ?name:hn ()
     | Apply(depth, h, args, ws, hn) -> Prover.apply ?depth ?name:hn h args ws ~term_witness
     | Backchain(depth, h, ws)       -> Prover.backchain ?depth h ws ~term_witness
+    | Compute (hs, gas, hn)         -> Prover.compute ?name:hn ?gas hs
     | Cut(h, arg, hn)               -> Prover.cut ?name:hn h arg
     | CutFrom(h, arg, t, hn)        -> Prover.cut_from ?name:hn h arg t
     | SearchCut(h, hn)              -> Prover.search_cut ?name:hn h
@@ -673,6 +671,7 @@ and process_proof1 proc =
         Output.msg_format "%t" (Prover.show nm) ;
         if !Setup.mode = `interactive then Output.blank_line () ;
         suppress_proof_state_display := true
+    | Common (Suspend sp)    -> Prover.add_suspension sp
     | Common(Quit)           -> raise End_of_file
     end
   in
@@ -743,6 +742,7 @@ and process_top1 () =
       else failwith "Cannot use interactive commands in non-interactive mode"
   | TopCommon(Set(k, v)) -> set k v
   | TopCommon(Show(n)) -> Output.msg_format "%t" (Prover.show n)
+  | TopCommon (Suspend sp) -> Prover.add_suspension sp
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, pos, withs) ->
       compile (CImport (filename, withs)) ;

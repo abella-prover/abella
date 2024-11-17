@@ -301,6 +301,7 @@ module Replacement = struct
           ~what:"declared constant"
           ~mem:(fun id -> Itab.mem id repl.map) ;
         comp
+    | CSuspend _
     | CClose _ -> comp
 end
 
@@ -414,6 +415,9 @@ and import_load modname withs =
                          (String.concat ", " (List.map aty_to_string xs)))
                 ty_subords ;
               Prover.close_types !sign !Prover.clauses (List.map fst ty_subords) ;
+              process_decls decls
+          | CSuspend susp ->
+              Prover.add_suspension susp ;
               process_decls decls
         end
     in
@@ -671,7 +675,6 @@ and process_proof1 proc =
         Output.msg_format "%t" (Prover.show nm) ;
         if !Setup.mode = `interactive then Output.blank_line () ;
         suppress_proof_state_display := true
-    | Common (Suspend sp)    -> Prover.add_suspension sp
     | Common(Quit)           -> raise End_of_file
     end
   in
@@ -734,6 +737,9 @@ and process_top1 () =
       end gen_thms ;
   | Define _ ->
       compile (Prover.register_definition input.el)
+  | Suspend sp ->
+      Prover.add_suspension sp ;
+      compile @@ CSuspend sp
   | TopCommon(Back) ->
       if !Setup.mode = `interactive then State.Undo.back 2
       else failwith "Cannot use interactive commands in non-interactive mode"
@@ -742,7 +748,6 @@ and process_top1 () =
       else failwith "Cannot use interactive commands in non-interactive mode"
   | TopCommon(Set(k, v)) -> set k v
   | TopCommon(Show(n)) -> Output.msg_format "%t" (Prover.show n)
-  | TopCommon (Suspend sp) -> Prover.add_suspension sp
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, pos, withs) ->
       compile (CImport (filename, withs)) ;

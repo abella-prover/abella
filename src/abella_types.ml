@@ -67,7 +67,6 @@ type common_command =
   | Back | Reset
   | Set           of string * set_value
   | Show          of string
-  | Suspend       of suspension
   | Quit
 
 type top_command =
@@ -80,6 +79,7 @@ type top_command =
   | Type          of id list * ty
   | Close         of aty list
   | SSplit        of id * id list
+  | Suspend       of suspension
   | TopCommon     of common_command
 
 type fin = Finished | Unfinished
@@ -91,6 +91,7 @@ type compiled =
   | CKind         of id list * knd
   | CType         of id list * ty
   | CClose        of (aty * aty list) list
+  | CSuspend      of suspension
 
 type witness =
   | WTrue
@@ -264,8 +265,6 @@ let common_command_to_string cc =
       sprintf "Set %s %s" k (set_value_to_string v)
   | Show nm ->
       sprintf "Show %s" nm
-  | Suspend sp ->
-      sprintf "Suspend %s" (suspension_to_string sp)
   | Quit ->
       sprintf "Quit"
 
@@ -307,6 +306,8 @@ let top_command_to_string tc =
           sprintf "Split %s as %s" id (id_list_to_string ids)
         else
           sprintf "Split %s" id
+    | Suspend sp ->
+        sprintf "Suspend %s" (suspension_to_string sp)
     | TopCommon(cc) ->
         common_command_to_string cc
 

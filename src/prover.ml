@@ -1345,7 +1345,7 @@ let compute ?name ?(gas = 1_000) hs =
       compute_all ~chs ~wait:(get_wait ch.clr ch.form :: wait) ~todo
     end else begin
       let chs = List.filter (fun oldch -> oldch.clr <> ch.clr) chs in
-      let cases = case_subgoals ch.clr in
+      let cases = try case_subgoals ch.clr with _ -> [] in
       let saved_sequent = copy_sequent () in
       List.iter begin fun case ->
         set_sequent saved_sequent ;

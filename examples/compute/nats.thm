@@ -87,3 +87,7 @@ intros.
 Theorem no_progress : forall X Y, {is_nat X |- is_nat Y} -> false.
 intros. compute H1. % no progress is possible because is_nat Y is suspended
 abort.
+
+Theorem no_progress_nabla : nabla X Y, {is_nat X |- is_nat Y} -> false.
+intros. compute H1. % this will work because nominal constants are not eigenvariables
+

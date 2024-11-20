@@ -1,7 +1,5 @@
+open Extensions
 open Term
-
-type pos = Lexing.position * Lexing.position
-let ghost : pos = (Lexing.dummy_pos, Lexing.dummy_pos)
 
 let inst_gen_tyvar_msg v ty =
     Printf.sprintf
@@ -24,7 +22,7 @@ type constraints = (ty * ty * constraint_info) list
 exception TypeInferenceFailure of ty * ty * constraint_info
 exception InstGenericTyvar of string * ty
 
-let def_cinfo = (ghost,CArg)
+let def_cinfo = (ghost_pos, CArg)
 
 let type_inference_error (pos, ct) exp act =
   Output.msg_printf "Typing error%s.\n%!" (position_range pos) ;

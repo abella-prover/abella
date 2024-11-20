@@ -239,7 +239,7 @@ module Replacement = struct
     let map = ref Itab.empty in
     let range = ref Iset.empty in
     List.iter begin fun (decl, defn) ->
-      let pred = UCon (ghost, defn, Term.fresh_tyvar ()) in
+      let pred = UCon (ghost_pos, defn, Term.fresh_tyvar ()) in
       let pred = type_uterm ~sr:!sr ~sign:!sign ~ctx:[] pred in
       map := Itab.add decl { name = defn ; term = pred ; ty = tc [] pred } !map ;
       range := Iset.add defn !range

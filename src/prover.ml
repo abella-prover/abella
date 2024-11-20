@@ -1243,6 +1243,9 @@ let add_suspension sp =
     failwithf "Expected target type prop, got %s" (aty_to_string targty) ;
   Hashtbl.add suspensions sp.predicate.el sp
 
+let () =
+  Hashtbl.add suspensions "member" { predicate = ghost "member" ; arity = 2 ; flex = [1] }
+
 type compute_hyp = {
   clr : clearable ;
   form : metaterm ;
@@ -1283,6 +1286,7 @@ let compute ?name ?(gas = 1_000) hs =
     let count = ref @@ -1 in
     fun () -> incr count ; "<#" ^ string_of_int !count ^ ">"
   in
+  let subgoals = ref [] in
   let rec compute_all ~chs ~wait ~todo =
     Output.trace ~v begin fun (module Trace) ->
       Trace.printf
@@ -1307,7 +1311,7 @@ let compute ?name ?(gas = 1_000) hs =
             Term.set_bind_state state ;
             set_sequent current_seq
         in
-        add_subgoals [sg]
+        subgoals := sg :: !subgoals ;
     | h :: todo ->
         compute_one ~chs ~wait ~todo h
   and compute_one ~chs ~wait ~todo (ch : compute_hyp) =
@@ -1378,7 +1382,9 @@ let compute ?name ?(gas = 1_000) hs =
   match compute_all ~chs:[] ~wait:[] ~todo with
   | exception Out_of_gas ->
       failwithf "Compute ran out of gas (given %d) -- looping?" total_gas
-  | _ -> next_subgoal ()
+  | _ ->
+      add_subgoals @@ List.rev !subgoals ;
+      next_subgoal ()
 
 (* Skip *)
 

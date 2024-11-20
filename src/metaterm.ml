@@ -864,7 +864,7 @@ and tids_unifyable tids1 tids2 =
   let tys1 = List.map snd tids1 in
   let tys2 = List.map snd tids2 in
   let prob : Unifyty.constraints =
-    List.map2 (fun ty1 ty2 -> (ty1, ty2, Unifyty.(ghost, CArg))) tys1 tys2 in
+    List.map2 (fun ty1 ty2 -> (ty1, ty2, Unifyty.(ghost_pos, CArg))) tys1 tys2 in
   let bstate = get_scoped_bind_state () in
   match Unifyty.unify_constraints prob with
   | _ -> true

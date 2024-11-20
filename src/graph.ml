@@ -48,7 +48,7 @@ let arc_predecessor ((s, t):(aty * aty)) a =
   let s' = apply_sub_ty sub (tybase s) in
   let t' = apply_sub_ty sub (tybase t) in
   try
-    unify_constraints [(t', a', (ghost, CArg))];
+    unify_constraints [(t', a', (ghost_pos, CArg))];
     if (ty_tyvars s' <> []) then
         failwithf "Subordination check failure: in '%s',\
                   \ the source type cannot be fully determined by\

@@ -14,22 +14,15 @@ Theorem ten : forall X, $nat (s^10 X) -> $nat X.
 intros. compute H1. search.
   % can also say `compute *H1` to get rid of H1
 
-Theorem to_spec : forall X, $nat X -> {is_nat X}.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+Define leq : nat -> nat -> prop by
+; leq z X
+; leq (s X) (s Y) := leq X Y.
 
-Theorem from_spec : forall X, {is_nat X} -> $nat X.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+Suspend leq X Y := X.
 
-/** These don't currently work **/
-% Theorem foo : forall X, {is_nat X |- is_nat X} -> false.
-% intros. compute H1.
-%
-% Theorem spec_ten : forall X, {is_nat (s^10 X)} -> {is_nat X}.
-% intros. compute H1. abort.
+Theorem filter : forall X L, member X (s^10 z :: s^9 z :: s^8 z :: L) -> leq X (s^5 z) -> member X L.
+/* Built-in: Suspend member E L := L. */
+intros. compute H1 H2. search.
 
 Define plus : nat -> nat -> nat -> prop by
 ; plus z X X := $nat X
@@ -72,3 +65,24 @@ Theorem plus_assoc : forall A B C AB ABC,
 induction on 1. intros. case H1.
   apply plus_invert to H2. search.
   compute *H2. apply IH to H3 H4. search.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Spec logic stuff (broken)
+
+Theorem to_spec : forall X, $nat X -> {is_nat X}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem from_spec : forall X, {is_nat X} -> $nat X.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+/** These don't currently work **/
+% Theorem foo : forall X, {is_nat X |- is_nat X} -> false.
+% intros. compute H1.
+%
+% Theorem spec_ten : forall X, {is_nat (s^10 X)} -> {is_nat X}.
+% intros. compute H1. abort.
+

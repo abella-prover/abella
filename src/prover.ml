@@ -1239,8 +1239,8 @@ let add_suspension sp =
   let Ty (argtys, targty) = Term.tc [] predtm in
   if List.length argtys <> sp.arity then
     failwithf "Expected %d arguments, got %d" (List.length argtys) sp.arity ;
-  if not @@ Term.(eq_ty (tybase targty) propty) then
-    failwithf "Expected target type prop, got %s" (aty_to_string targty) ;
+  if not @@ Term.(eq_ty (tybase targty) propty || eq_ty (tybase targty) oty) then
+    failwithf "Expected target type prop or o, got %s" (aty_to_string targty) ;
   Hashtbl.add suspensions sp.predicate.el sp
 
 let () =
@@ -1320,6 +1320,7 @@ let compute ?name ?(gas = 1_000) hs =
         match ch.form with
         | Binding (Forall, _, _)
         | Arrow _ -> true
+        | Obj ({ mode = Async ; right = atm ; _ }, _)
         | Pred (atm, _) -> begin
             let pred, args = match Term.(observe (hnorm atm) |> term_head) with
               | Some (pred, args) -> (Term.term_to_name pred, args)
@@ -1338,7 +1339,6 @@ let compute ?name ?(gas = 1_000) hs =
             | Var _ -> true
             | _ -> false
           end
-        | Obj _ -> true
         | _ -> false
       end in
     if is_done then begin

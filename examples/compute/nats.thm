@@ -67,22 +67,23 @@ induction on 1. intros. case H1.
   compute *H2. apply IH to H3 H4. search.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Spec logic stuff (broken)
+%% Spec logic stuff (partial support)
 
-Theorem to_spec : forall X, $nat X -> {is_nat X}.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+Type p nat -> o.
 
-Theorem from_spec : forall X, {is_nat X} -> $nat X.
-induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+% Suspend p X := X. % if you suspend p, then the following won't work
 
-/** These don't currently work **/
-% Theorem foo : forall X, {is_nat X |- is_nat X} -> false.
-% intros. compute H1.
-%
-% Theorem spec_ten : forall X, {is_nat (s^10 X)} -> {is_nat X}.
-% intros. compute H1. abort.
+Theorem p_cases : forall X Y Z, {p X, p Y |- p Z} -> Z = X \/ Z = Y.
+intros.
+compute H1. search. search.
 
+%% suspension of spec predicates is allowed
+Suspend is_nat X := X.
+
+Theorem spec_ten : forall X, {is_nat (s^10 X)} -> {is_nat X}.
+intros.
+ compute H1. search.
+
+Theorem no_progress : forall X Y, {is_nat X |- is_nat Y} -> false.
+intros. compute H1. % no progress is possible because is_nat Y is suspended
+abort.

@@ -1,9 +1,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Illustrating the use of the `compute` tactic
 
-Kind nat type.
-Type z nat.
-Type s nat -> nat.
+Specification "nat".
 
 Define $nat : nat -> prop by
 ; $nat z
@@ -16,6 +14,23 @@ Theorem ten : forall X, $nat (s^10 X) -> $nat X.
 intros. compute H1. search.
   % can also say `compute *H1` to get rid of H1
 
+Theorem to_spec : forall X, $nat X -> {is_nat X}.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+Theorem from_spec : forall X, {is_nat X} -> $nat X.
+induction on 1. intros. case H1.
+  search.
+  apply IH to H2. search.
+
+/** These don't currently work **/
+% Theorem foo : forall X, {is_nat X |- is_nat X} -> false.
+% intros. compute H1.
+%
+% Theorem spec_ten : forall X, {is_nat (s^10 X)} -> {is_nat X}.
+% intros. compute H1. abort.
+
 Define plus : nat -> nat -> nat -> prop by
 ; plus z X X := $nat X
 ; plus (s X) Y (s Z) := plus X Y Z.
@@ -25,6 +40,9 @@ Suspend plus X Y Z := X.
 
 Theorem eight : forall X, plus (s^3 z) X (s^8 z) -> X = s^5 z.
 intros. compute H1. search.
+
+Theorem nine : forall X, plus (s^3 z) X (s^8 z) -> plus X (s^4 z) (s^9 z) -> false.
+intros. compute H2 H1. /* will only reach here if both computes complete */ abort.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Some other minor uses of compute

@@ -529,6 +529,11 @@ let update_hyp_count name =
   | n -> sequent.count <- max sequent.count n
   | exception _ -> ()
 
+let unsafe_add_hyp name term =
+  let h = { id = name ; term = term ; abbrev = None } in
+  sequent.hyps <- List.append sequent.hyps [h] ;
+  h
+
 let add_hyp_ ?name term =
   let name = fresh_hyp_name begin
       match name with
@@ -536,9 +541,7 @@ let add_hyp_ ?name term =
       | Some name -> name
     end in
   update_hyp_count name ;
-  let h = { id = name ; term = term ; abbrev = None } in
-  sequent.hyps <- List.append sequent.hyps [h] ;
-  h
+  unsafe_add_hyp name term
 
 let add_hyp ?name term = ignore (add_hyp_ ?name term)
 
@@ -1240,18 +1243,64 @@ let add_suspension sp =
     failwithf "Expected target type prop, got %s" (aty_to_string targty) ;
   Hashtbl.add suspensions sp.predicate.el sp
 
-let compute ?name ?(gas = 10_000) hs =
+type compute_hyp = {
+  clr : clearable ;
+  form : metaterm ;
+}
+
+type compute_wait = {
+  vars : (id * term) list ;
+  chyp  : compute_hyp ;
+}
+
+let ch_to_string (ch : compute_hyp) = clearable_to_string ch.clr
+
+let format_ch ff (ch : compute_hyp) =
+  Format.fprintf ff "%s : %a" (clearable_to_string ch.clr) format_metaterm ch.form
+
+let cw_to_string w =
+  Printf.sprintf "<%s>%s"
+    (List.map fst w.vars |> String.concat ", ")
+    (ch_to_string w.chyp)
+
+let pp_print_wait_var ff (v, t) =
+  Format.fprintf ff "%s <- %s" v (term_to_string t)
+
+let get_wait clr form =
+  let vars = get_metaterm_used form in
+  { vars ; chyp = { clr ; form } }
+
+let is_unchanged wait =
+  List.for_all (fun (_, t) -> Term.is_free t) wait.vars
+
+exception Out_of_gas
+
+let compute ?name ?(gas = 1_000) hs =
+  let v = 2 in
   let total_gas = gas in
   let gas = ref total_gas in
-  (* let pp_print_hs ff hs = *)
-  (*   Format.(pp_print_list pp_print_string) ff (List.map stmt_name hs) *)
-  (* in *)
-  let rec compute_all susp todo =
+  let fresh_compute_hyp =
+    let count = ref @@ -1 in
+    fun () -> incr count ; "<#" ^ string_of_int !count ^ ">"
+  in
+  let rec compute_all ~chs ~wait ~todo =
+    Output.trace ~v begin fun (module Trace) ->
+      Trace.printf
+        "compute_all ~chs:[%s] ~wait:[%s] ~todo:[%s]"
+        (List.map ch_to_string chs |> String.concat ",")
+        (List.map cw_to_string wait |> String.concat ",")
+        (List.map ch_to_string todo |> String.concat ",")
+    end ;
     match todo with
     | [] ->
-        (* Output.msg_format "compute_all done; susp = [%a]" *)
-        (*   pp_print_hs susp ; *)
         let sg =
+          List.iter begin fun ch ->
+            Output.trace ~v begin fun (module Trace) ->
+              Trace.printf "Renaming: %s" (ch_to_string ch)
+            end ;
+            let stmt = get_stmt_clearly ch.clr in
+            add_hyp ?name stmt
+          end chs ;
           let state = Term.get_bind_state () in
           let current_seq = copy_sequent () in
           fun () ->
@@ -1260,68 +1309,76 @@ let compute ?name ?(gas = 10_000) hs =
         in
         add_subgoals [sg]
     | h :: todo ->
-        (* Output.msg_format "compute_all: susp=[%a] todo=[%s :: %a]" *)
-        (*   pp_print_hs susp *)
-        (*   (stmt_name h) *)
-        (*   pp_print_hs todo ; *)
-        compute_one gas susp todo h
-  and compute_one gas susp todo h =
-    (* Output.msg_format "compute_one[%d]: %s" !gas (stmt_name h) ; *)
-    if !gas = 0 then Output.msg_printf "compute ran out of gas [given %d]" total_gas ;
-    let is_done = !gas = 0 || begin
-        let thing = get_hyp_or_lemma (stmt_name h) in
-        (* Output.msg_format "compute_one: i.e., %a" format_metaterm thing ; *)
-        match thing with
+        compute_one ~chs ~wait ~todo h
+  and compute_one ~chs ~wait ~todo (ch : compute_hyp) =
+    if !gas = 0 then raise Out_of_gas ;
+    let is_done = begin
+        match ch.form with
         | Binding (Forall, _, _)
         | Arrow _ -> true
         | Pred (atm, _) -> begin
             let pred, args = match Term.(observe (hnorm atm) |> term_head) with
               | Some (pred, args) -> (Term.term_to_name pred, args)
-              | _ -> bugf "Invalid predicate: %s" (metaterm_to_string thing)
+              | _ -> bugf "Invalid predicate: %s" (metaterm_to_string ch.form)
             in
             let args = List.map (fun arg -> observe (hnorm arg)) args in
             List.exists begin fun susp ->
-              (* Output.msg_printf "Need to check: %s" (suspension_to_string susp) ; *)
               List.length args = susp.arity &&
               List.for_all begin fun i ->
-                let b = Term.has_eigen_head (List.nth args i) in
-                (* if not b then *)
-                (*   Output.msg_format "Failed %s because #%d: %s is not flex" *)
-                (*     (suspension_to_string susp) *)
-                (*     (i + 1) (term_to_string (List.nth args i)) ; *)
-                b
+                Term.has_eigen_head (List.nth args i)
               end susp.flex
             end (Hashtbl.find_all suspensions pred)
           end
+        | Obj ({ mode = Sync f ; _ }, _) -> begin
+            match Term.(observe @@ hnorm f) with
+            | Var _ -> true
+            | _ -> false
+          end
+        | Obj _ -> true
         | _ -> false
       end in
     if is_done then begin
-      (* Output.msg_printf "compute_one[%d]: done with %s" !gas (stmt_name h) ; *)
-      compute_all susp todo
+      compute_all ~chs ~wait:(get_wait ch.clr ch.form :: wait) ~todo
     end else begin
-      let cases = case_subgoals h in
-      (* Output.msg_printf "compute_one: %s yielded %d cases" *)
-      (*   (stmt_name h) (List.length cases) ; *)
+      let chs = List.filter (fun oldch -> oldch.clr <> ch.clr) chs in
+      let cases = case_subgoals ch.clr in
       let saved_sequent = copy_sequent () in
       List.iter begin fun case ->
         set_sequent saved_sequent ;
-        (* List.iter begin fun (v, _) -> *)
-        (*   Output.msg_format "NEW VAR! %s" v *)
-        (* end case.new_vars ; *)
+        Output.trace ~v begin fun (module Trace) ->
+          Trace.format "Case %a" format_ch ch
+        end ;
         List.iter add_if_new_var case.new_vars ;
-        let hs = List.map (add_hyp_ ?name) case.new_hyps in
-        (* List.iter begin fun h -> *)
-        (*   Output.msg_format "NEW! %s : %a" h.id format_metaterm h.term *)
-        (* end hs ; *)
+        let hs = List.map (fun h -> unsafe_add_hyp (fresh_compute_hyp ()) h) case.new_hyps in
         Term.set_bind_state case.bind_state ;
         update_self_bound_vars () ;
-        (* Output.msg_format "Result: @[<v0>%t@]" format_sequent ; *)
+        Output.trace ~v begin fun (module Trace) ->
+          List.iter begin fun h ->
+            Trace.format "Adding: %s : %a" h.id format_metaterm h.term
+          end hs
+        end ;
         decr gas ;
-        compute_all susp (List.map (fun h -> Remove (h.id, [])) hs @ todo)
+        let (wait, newly_active) = List.partition is_unchanged wait in
+        Output.trace ~v begin fun (module Trace) ->
+          List.iter begin fun w ->
+            Trace.format "Reactivated %s: %a cuz @[<v1>%a@]"
+              (clearable_to_string w.chyp.clr) format_metaterm w.chyp.form
+              (Format.pp_print_list pp_print_wait_var) w.vars
+          end newly_active
+        end ;
+        let new_chs = List.map (fun h -> { clr = Remove (h.id, []) ; form = h.term }) hs in
+        let chs = List.rev_append new_chs chs in
+        let todo =
+          List.rev_map (fun w -> w.chyp) newly_active
+          @ new_chs @ todo in
+        compute_all ~chs ~wait ~todo
       end cases
     end in
-  compute_all [] hs ;
-  next_subgoal ()
+  let todo = List.map (fun h -> { clr = h ; form = get_hyp_or_lemma (stmt_name h) }) hs in
+  match compute_all ~chs:[] ~wait:[] ~todo with
+  | exception Out_of_gas ->
+      failwithf "Compute ran out of gas (given %d) -- looping?" total_gas
+  | _ -> next_subgoal ()
 
 (* Skip *)
 

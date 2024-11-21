@@ -43,17 +43,38 @@ induction on 1. intros. case H1.
   search.
   apply IH to *H3. apply $perm to H4. search.
 
-Theorem perm_sym : forall K L, $list K -> $list L -> perm K L -> perm L K.
-induction on 3. intros. case H3.
+Theorem perm_sym : forall K L, perm K L -> perm L K.
+induction on 1. intros. case H1.
   search.
-  apply $adj to H4. apply $adj to H5.
-   apply IH to _ _ H6. search.
+  apply IH to H4. search.
 
-Theorem perm_trans : forall J K L, $list J -> $list K -> $list L ->
-  perm J K -> perm K L -> perm J L.
+Theorem adj_swap : forall E F J K L, adj J E K -> adj K F L ->
+  exists U, adj J F U /\ adj U E L.
 induction on 2. intros. case H2.
-  apply perm_sym to _ _ *H4. compute *H5 *H6. search.
-  case H9.
-  case H9.
-  case H12.
-abort. % unfinished
+  case H1. search.
+   apply $adj to H6. search.
+  case H1.
+    apply $adj to H4. search.
+    apply IH to H6 H4. search.
+
+Theorem perm_cons_1 : forall E J L, perm (E :: J) L ->
+  exists K, adj K E L /\ perm J K.
+induction on 1. intros. case H1.
+  case H2. search.
+  apply IH to *H4. apply adj_swap to *H7 *H3. search.
+
+Theorem perm_cons_2 : forall E L K, perm L (E :: K) ->
+  exists J, adj J E L /\ perm J K.
+induction on 1. intros. case H1.
+  case H3. search.
+  apply IH to *H4. apply adj_swap to *H7 *H2. search.
+
+Theorem perm_trans_lem : forall J K L, $list K ->
+  perm J K -> perm K L -> perm J L.
+induction on 1. intros. case H1.
+  compute H2 H3. search. case H6.
+  apply perm_cons_2 to *H2. apply perm_cons_1 to *H3.
+   apply IH to H5 H7 H9. search.
+
+Theorem perm_trans : forall J K L, perm J K -> perm K L -> perm J L.
+intros. apply $perm to H1. backchain perm_trans_lem with K = K.

@@ -1,0 +1,56 @@
+Define total : (A -> prop) -> prop by
+  total P := exists X, P X.
+
+Define deterministic : (A -> prop) -> prop by
+  deterministic P := forall X Y, P X -> P Y -> X = Y.
+
+Define singleton : (A -> prop) -> prop by
+  singleton P := total P /\ deterministic P.
+
+Define deterministic_upto : (A -> prop) -> (A -> A -> prop) -> prop by
+  deterministic_upto P Eq := forall X Y, P X -> P Y -> Eq X Y.
+
+Define singleton_upto : (A -> prop) -> (A -> A -> prop) -> prop by
+  singleton_upto P Eq := total P /\ deterministic_upto P Eq.
+
+Define reflexive : (A -> A -> prop) -> prop by
+  reflexive P := forall X, P X X.
+
+Define symmetric : (A -> A -> prop) -> prop by
+  symmetric P := forall X Y, P X Y -> P Y X.
+
+Define transitive : (A -> A -> prop) -> prop by
+  transitive P := forall X Y Z, P X Y -> P Y Z -> P X Z.
+
+Define equivalence : (A -> A -> prop) -> prop by
+  equivalence P := reflexive P /\ symmetric P /\ transitive P.
+
+Define preorder : (A -> A -> prop) -> prop by
+  preorder P := reflexive P /\ transitive P.
+
+Define similar : (A -> A -> prop) -> prop by
+  similar P := reflexive P /\ symmetric P.
+
+Define upto : (A -> prop) -> (A -> A -> prop) -> A -> prop by
+  upto P Eq X := exists Y, Eq X Y /\ P Y.
+
+Kind i type.
+Type p, q i -> prop.
+Type eqv i -> i -> prop.
+
+Theorem change_forall_exists : total p -> (forall x, p x -> q x) -> (exists x, p x /\ q x).
+intros. compute H1. apply H2 to H3. search.
+
+Theorem change_exists_forall : deterministic p -> (exists x, p x /\ q x) -> (forall x, p x -> q x).
+intros. compute H1 H2. apply H6 to H3 H5. search.
+
+Theorem change_forall_exists_upto : total p ->
+   (forall x, p x -> upto q eqv x) ->
+   (exists x, p x /\ upto q eqv x).
+/* minor variant of change_forall_exists */
+intros. compute H1. apply H2 to H3. compute *H4. search.
+
+Theorem change_exists_forall_upto : deterministic_upto p eqv -> preorder eqv ->
+   (exists x, p x /\ upto q eqv x) ->
+   (forall x, p x -> upto q eqv x).
+intros. compute *H1 *H2 *H3. apply H10 to H4 H7. apply H8 to H11 H6. search.

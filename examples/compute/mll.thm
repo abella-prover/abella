@@ -1,0 +1,59 @@
+% Import "rels".
+
+Kind atm, form type.
+Type atom atm -> form.
+Type tens, par form -> form -> form.
+Type one, bot  form.
+
+Define $form : form -> prop by
+; $form (atom A)
+; $form (tens F G) := $form F /\ $form G
+; $form one
+; $form (par F G) := $form F /\ $form G
+; $form bot.
+
+Define $list : list form -> prop by
+; $list nil
+; $list (F :: L) := $form F /\ $list L.
+
+Define adj : list form -> form -> list form -> prop by
+; adj L X (X :: L) := $form X /\ $list L
+; adj (Y :: L) X (Y :: K) := $form Y /\ adj L X K.
+
+Suspend adj L X K := L.
+
+Theorem $adj : forall K E L, adj K E L -> $list K /\ $form E /\ $list L.
+induction on 1. intros. case H1.
+  search.
+  apply IH to *H3. search.
+
+Define perm : list form -> list form -> prop by
+; perm nil nil
+; perm L1 L2 := exists E K1 K2, adj K1 E L1 /\ adj K2 E L2 /\ perm K1 K2.
+
+Suspend perm J K := J.
+
+Theorem $perm : forall K L, perm K L -> $list K /\ $list L.
+induction on 1. intros. case H1.
+  search.
+  apply $adj to *H2. apply $adj to *H3. apply IH to *H4. search.
+
+Theorem perm_refl : forall L, $list L -> perm L L.
+induction on 1. intros. case H1.
+  search.
+  apply IH to *H3. apply $perm to H4. search.
+
+Theorem perm_sym : forall K L, $list K -> $list L -> perm K L -> perm L K.
+induction on 3. intros. case H3.
+  search.
+  apply $adj to H4. apply $adj to H5.
+   apply IH to _ _ H6. search.
+
+Theorem perm_trans : forall J K L, $list J -> $list K -> $list L ->
+  perm J K -> perm K L -> perm J L.
+induction on 2. intros. case H2.
+  apply perm_sym to _ _ *H4. compute *H5 *H6. search.
+  case H9.
+  case H9.
+  case H12.
+abort. % unfinished

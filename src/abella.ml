@@ -301,7 +301,7 @@ module Replacement = struct
           ~what:"declared constant"
           ~mem:(fun id -> Itab.mem id repl.map) ;
         comp
-    | CSuspend _
+    | CGuard _
     | CClose _ -> comp
 end
 
@@ -416,8 +416,8 @@ and import_load modname withs =
                 ty_subords ;
               Prover.close_types !sign !Prover.clauses (List.map fst ty_subords) ;
               process_decls decls
-          | CSuspend susp ->
-              Prover.add_suspension susp ;
+          | CGuard g ->
+              Compute.add_guard g ;
               process_decls decls
         end
     in
@@ -737,9 +737,9 @@ and process_top1 () =
       end gen_thms ;
   | Define _ ->
       compile (Prover.register_definition input.el)
-  | Suspend sp ->
-      Prover.add_suspension sp ;
-      compile @@ CSuspend sp
+  | Guard g ->
+      Compute.add_guard g ;
+      compile @@ CGuard g
   | TopCommon(Back) ->
       if !Setup.mode = `interactive then State.Undo.back 2
       else failwith "Cannot use interactive commands in non-interactive mode"

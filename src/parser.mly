@@ -686,19 +686,9 @@ pure_top_command:
   | SSPLIT; thm=loc_id;
     cs=loption(AS; cs=id_list {cs}); DOT
     { Types.SSplit(deloc_id thm, List.map deloc_id cs) }
-  | SUSPEND; predicate=loc_id; args=list(id); DEFEQ; flex=separated_nonempty_list(COMMA, id); DOT
-    { let pos = $startpos in
-      if not (List.is_unique args) then
-        error_report ~pos "argument list is not unique: %s" (String.concat " " args) ;
-      if not (List.is_unique flex) then
-        error_report ~pos "flex list is not unique: %s" (String.concat " " flex) ;
-      if List.exists (fun f -> not @@ List.mem f args) flex then
-        error_report ~pos "flex list [%s] is not a subset of argument list [%s]"
-          (String.concat " " flex) (String.concat " " args) ;
-      let arity = List.length args in
-      let flex = List.mapi (fun i x -> if List.mem x flex then i else -1) args
-                 |> List.filter (fun x -> x >= 0) in
-      Types.(Suspend { predicate ; arity ; flex }) }
+  | SUSPEND; head=term; DEFEQ; test=separated_nonempty_list(COMMA, id); DOT
+    { let g = Compute.(make_guard ~head ~test) in
+      Types.Guard g }
 
 %inline
 import_withs:

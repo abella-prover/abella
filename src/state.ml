@@ -27,8 +27,8 @@ let rref x =
   in
   __snappers := snap :: !__snappers ; xr
 
-let table () =
-  let ht = Hashtbl.create 19 in
+let table ?initial () =
+  let ht = match initial with Some tab -> tab | None -> Hashtbl.create 19 in
   let wx = Weak.create 1 in
   Weak.set wx 0 (Some ht) ;
   let snap () =

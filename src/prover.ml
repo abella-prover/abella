@@ -1232,19 +1232,18 @@ let exists ew =
 
 (* Compute *)
 
-let suspensions : (string, suspension) Hashtbl.t = State.table ()
-let add_suspension sp =
-  let pred = Typing.(UCon (sp.predicate.pos, sp.predicate.el, Term.fresh_tyvar ())) in
-  let predtm = Typing.type_uterm ~sr:!sr ~sign:!sign ~ctx:[] pred in
-  let Ty (argtys, targty) = Term.tc [] predtm in
-  if List.length argtys <> sp.arity then
-    failwithf "Expected %d arguments, got %d" (List.length argtys) sp.arity ;
-  if not @@ Term.(eq_ty (tybase targty) propty || eq_ty (tybase targty) oty) then
-    failwithf "Expected target type prop or o, got %s" (aty_to_string targty) ;
-  Hashtbl.add suspensions sp.predicate.el sp
-
 let () =
-  Hashtbl.add suspensions "member" { predicate = ghost "member" ; arity = 2 ; flex = [1] }
+  let open Typing in
+  let e = UCon (ghost_pos, "X", fresh_tyvar ()) in
+  let l = UCon (ghost_pos, "L", fresh_tyvar ()) in
+  let head = UApp (ghost_pos,
+                   UApp (ghost_pos,
+                         UCon (ghost_pos, "member", fresh_tyvar ()),
+                         e),
+                   l) in
+  let test = ["L"] in
+  Compute.make_guard ~head ~test
+  |> Compute.add_guard
 
 type compute_hyp = {
   clr : clearable ;
@@ -1280,7 +1279,7 @@ exception Out_of_gas
 exception Suspended
 
 let compute ?name ?(gas = 1_000) hs =
-  let v = 0 in
+  let v, kind = 0, "compute" in
   let total_gas = gas in
   let gas = ref total_gas in
   let fresh_compute_hyp =
@@ -1290,7 +1289,7 @@ let compute ?name ?(gas = 1_000) hs =
   let subgoals = ref [] in
   let rec compute_all ~chs ~wait ~todo =
     Output.trace ~v begin fun (module Trace) ->
-      Trace.printf
+      Trace.printf ~kind
         "compute_all ~chs:[%s] ~wait:[%s] ~todo:[%s]"
         (List.map ch_to_string chs |> String.concat ",")
         (List.map cw_to_string wait |> String.concat ",")
@@ -1301,7 +1300,7 @@ let compute ?name ?(gas = 1_000) hs =
         let sg =
           List.iter begin fun ch ->
             Output.trace ~v begin fun (module Trace) ->
-              Trace.printf "Renaming: %s" (ch_to_string ch)
+              Trace.printf ~kind "Renaming: %s" (ch_to_string ch)
             end ;
             let stmt = get_stmt_clearly ch.clr in
             add_hyp ?name stmt
@@ -1322,21 +1321,9 @@ let compute ?name ?(gas = 1_000) hs =
         | Binding (Forall, _, _)
         | Arrow _ -> ()
         | Obj ({ mode = Async ; right = atm ; _ }, _)
-        | Pred (atm, _) -> begin
-            let pred, args = match Term.(observe (hnorm atm) |> term_head) with
-              | Some (pred, args) -> (Term.term_to_name pred, args)
-              | _ -> bugf "Invalid predicate: %s" (metaterm_to_string ch.form)
-            in
-            let args = List.map (fun arg -> observe (hnorm arg)) args in
-            if begin
-              List.exists begin fun susp ->
-                List.length args <> susp.arity ||
-                List.for_all begin fun i ->
-                  Term.has_eigen_head (List.nth args i)
-                end susp.flex
-              end (Hashtbl.find_all suspensions pred)
-            end then raise Suspended
-          end
+        | Pred (atm, _) ->
+            if Compute.is_guarded atm then
+              raise Suspended
         | Obj ({ mode = Sync f ; _ }, _) -> begin
             match Term.(observe @@ hnorm f) with
             | Var _ -> raise Suspended
@@ -1360,7 +1347,7 @@ let compute ?name ?(gas = 1_000) hs =
         List.iter begin fun case ->
           set_sequent saved ;
           Output.trace ~v begin fun (module Trace) ->
-            Trace.format "Case %a" format_ch ch
+            Trace.format ~kind "Case %a" format_ch ch
           end ;
           List.iter add_if_new_var case.new_vars ;
           let hs = List.map (fun h -> unsafe_add_hyp (fresh_compute_hyp ()) h) case.new_hyps in
@@ -1368,14 +1355,14 @@ let compute ?name ?(gas = 1_000) hs =
           update_self_bound_vars () ;
           Output.trace ~v begin fun (module Trace) ->
             List.iter begin fun h ->
-              Trace.format "Adding: %s : %a" h.id format_metaterm h.term
+              Trace.format ~kind "Adding: %s : %a" h.id format_metaterm h.term
             end hs
           end ;
           decr gas ;
           let (wait, newly_active) = List.partition is_unchanged wait in
           Output.trace ~v begin fun (module Trace) ->
             List.iter begin fun w ->
-              Trace.format "Reactivated %s: %a cuz @[<v1>%a@]"
+              Trace.format ~kind "Reactivated %s: %a cuz @[<v1>%a@]"
                 (clearable_to_string w.chyp.clr) format_metaterm w.chyp.form
                 (Format.pp_print_list pp_print_wait_var) w.vars
             end newly_active

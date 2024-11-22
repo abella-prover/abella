@@ -79,7 +79,7 @@ type top_command =
   | Type          of id list * ty
   | Close         of aty list
   | SSplit        of id * id list
-  | Suspend       of suspension
+  | Guard         of Compute.guard
   | TopCommon     of common_command
 
 type fin = Finished | Unfinished
@@ -91,7 +91,7 @@ type compiled =
   | CKind         of id list * knd
   | CType         of id list * ty
   | CClose        of (aty * aty list) list
-  | CSuspend      of suspension
+  | CGuard        of Compute.guard
 
 type witness =
   | WTrue
@@ -306,8 +306,8 @@ let top_command_to_string tc =
           sprintf "Split %s as %s" id (id_list_to_string ids)
         else
           sprintf "Split %s" id
-    | Suspend sp ->
-        sprintf "Suspend %s" (suspension_to_string sp)
+    | Guard g ->
+        Compute.guard_to_string g
     | TopCommon(cc) ->
         common_command_to_string cc
 

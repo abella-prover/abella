@@ -195,7 +195,7 @@ let register_definition = function
       check_noredef ids;
       let (basics, consts) = !sign in
       (* Note that in order to type check the definitions, the types
-         of predicates being defined are fixed to their most generate
+         of predicates being defined are fixed to their most generic
          form by fixing the type variables in them to generic ones *)
       let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
       let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
@@ -208,17 +208,30 @@ let register_definition = function
       CDefine (flav, typarams, idtys, clauses)
   | _ -> bugf "Not a definition!"
 
-let parse_definition str =
-  Lexing.from_string str |>
-  Parser.top_command_start Lexer.token |>
-  get_el |> register_definition
-
 let k_member = "member"
-let member_def_compiled = {|
-Define |} ^ k_member ^ {| : A -> list A -> prop by
-; |} ^ k_member ^ {| A (A :: L)
-; |} ^ k_member ^ {| A (B :: L) := |} ^ k_member ^ {| A L.
-|} |> parse_definition
+let member_def =
+  let ty_a = tybase @@ Tygenvar "A" in
+  let ty_list_a = tybase @@ Tycons ("list", [ty_a]) in
+  let ty_member = tyarrow [ty_a ; ty_list_a] propty in
+  let const k = UCon (ghost_pos, k, fresh_tyvar ()) in
+  let rec app f ts =
+    match ts with
+    | [] -> f
+    | t :: ts -> app (UApp (ghost_pos, f, t)) ts
+  in
+  let clause_nil : udef_clause =
+    let head = app (const "member") [const "A" ;
+                                     app (const k_cons) [const "A" ;
+                                                         const "L"]] in
+    (UPred (head, Irrelevant), UTrue) in
+  let clause_cons : udef_clause =
+    let head = app (const "member") [const "A" ;
+                                     app (const k_cons) [const "B" ;
+                                                         const "L"]] in
+    let body = app (const "member") [const "A" ; const "L"] in
+    (UPred (head, Irrelevant), UPred (body, Irrelevant)) in
+  Define (Inductive, ["member", ty_member], [clause_nil ; clause_cons])
+  |> register_definition
 
 let () = built_ins_done := true
 
@@ -1230,158 +1243,7 @@ let exists ew =
       normalize_sequent ()
   | _ -> ()
 
-(* Compute *)
-
-let () =
-  let open Typing in
-  let e = UCon (ghost_pos, "X", fresh_tyvar ()) in
-  let l = UCon (ghost_pos, "L", fresh_tyvar ()) in
-  let head = UApp (ghost_pos,
-                   UApp (ghost_pos,
-                         UCon (ghost_pos, "member", fresh_tyvar ()),
-                         e),
-                   l) in
-  let test = ["L"] in
-  Compute.make_guard ~head ~test
-  |> Compute.add_guard
-
-type compute_hyp = {
-  clr : clearable ;
-  form : metaterm ;
-}
-
-type compute_wait = {
-  vars : (id * term) list ;
-  chyp  : compute_hyp ;
-}
-
-let ch_to_string (ch : compute_hyp) = clearable_to_string ch.clr
-
-let format_ch ff (ch : compute_hyp) =
-  Format.fprintf ff "%s : %a" (clearable_to_string ch.clr) format_metaterm ch.form
-
-let cw_to_string w =
-  Printf.sprintf "<%s>%s"
-    (List.map fst w.vars |> String.concat ", ")
-    (ch_to_string w.chyp)
-
-let pp_print_wait_var ff (v, t) =
-  Format.fprintf ff "%s <- %s" v (term_to_string t)
-
-let get_wait clr form =
-  let vars = get_metaterm_used form in
-  { vars ; chyp = { clr ; form } }
-
-let is_unchanged wait =
-  List.for_all (fun (_, t) -> Term.is_free t) wait.vars
-
-exception Out_of_gas
-exception Suspended
-
-let compute ?name ?(gas = 1_000) hs =
-  let v, kind = 0, "compute" in
-  let total_gas = gas in
-  let gas = ref total_gas in
-  let fresh_compute_hyp =
-    let count = ref @@ -1 in
-    fun () -> incr count ; "<#" ^ string_of_int !count ^ ">"
-  in
-  let subgoals = ref [] in
-  let rec compute_all ~chs ~wait ~todo =
-    Output.trace ~v begin fun (module Trace) ->
-      Trace.printf ~kind
-        "compute_all ~chs:[%s] ~wait:[%s] ~todo:[%s]"
-        (List.map ch_to_string chs |> String.concat ",")
-        (List.map cw_to_string wait |> String.concat ",")
-        (List.map ch_to_string todo |> String.concat ",")
-    end ;
-    match todo with
-    | [] ->
-        let sg =
-          List.iter begin fun ch ->
-            Output.trace ~v begin fun (module Trace) ->
-              Trace.printf ~kind "Renaming: %s" (ch_to_string ch)
-            end ;
-            let stmt = get_stmt_clearly ch.clr in
-            add_hyp ?name stmt
-          end chs ;
-          let state = Term.get_bind_state () in
-          let current_seq = copy_sequent () in
-          fun () ->
-            Term.set_bind_state state ;
-            set_sequent current_seq
-        in
-        subgoals := sg :: !subgoals ;
-    | h :: todo ->
-        compute_one ~chs ~wait ~todo h
-  and compute_one ~chs ~wait ~todo (ch : compute_hyp) =
-    if !gas = 0 then raise Out_of_gas ;
-    let check_suspended () =
-        match ch.form with
-        | Binding (Forall, _, _)
-        | Arrow _ -> ()
-        | Obj ({ mode = Async ; right = atm ; _ }, _)
-        | Pred (atm, _) ->
-            if Compute.is_guarded atm then
-              raise Suspended
-        | Obj ({ mode = Sync f ; _ }, _) -> begin
-            match Term.(observe @@ hnorm f) with
-            | Var _ -> raise Suspended
-            | _ -> ()
-          end
-        | _ -> ()
-    in
-    let cases_or_suspend () =
-      let saved = copy_sequent () in
-      try
-        let chs = List.filter (fun oldch -> oldch.clr <> ch.clr) chs in
-        (chs, copy_sequent (), case_subgoals ch.clr)
-      with _ ->
-        set_sequent saved ;
-        raise Suspended
-    in
-    match (check_suspended () ; cases_or_suspend ()) with
-    | exception Suspended ->
-        compute_all ~chs ~wait:(get_wait ch.clr ch.form :: wait) ~todo
-    | chs, saved, cases ->
-        List.iter begin fun case ->
-          set_sequent saved ;
-          Output.trace ~v begin fun (module Trace) ->
-            Trace.format ~kind "Case %a" format_ch ch
-          end ;
-          List.iter add_if_new_var case.new_vars ;
-          let hs = List.map (fun h -> unsafe_add_hyp (fresh_compute_hyp ()) h) case.new_hyps in
-          Term.set_bind_state case.bind_state ;
-          update_self_bound_vars () ;
-          Output.trace ~v begin fun (module Trace) ->
-            List.iter begin fun h ->
-              Trace.format ~kind "Adding: %s : %a" h.id format_metaterm h.term
-            end hs
-          end ;
-          decr gas ;
-          let (wait, newly_active) = List.partition is_unchanged wait in
-          Output.trace ~v begin fun (module Trace) ->
-            List.iter begin fun w ->
-              Trace.format ~kind "Reactivated %s: %a cuz @[<v1>%a@]"
-                (clearable_to_string w.chyp.clr) format_metaterm w.chyp.form
-                (Format.pp_print_list pp_print_wait_var) w.vars
-            end newly_active
-          end ;
-          let new_chs = List.map (fun h -> { clr = Remove (h.id, []) ; form = h.term }) hs in
-          let chs = List.rev_append new_chs chs in
-          let todo =
-            List.rev_map (fun w -> w.chyp) newly_active
-            @ new_chs @ todo in
-          compute_all ~chs ~wait ~todo
-        end cases
-  in
-  let todo = List.map (fun h -> { clr = h ; form = get_hyp_or_lemma (stmt_name h) }) hs in
-  match compute_all ~chs:[] ~wait:[] ~todo with
-  | exception Out_of_gas ->
-      failwithf "Compute ran out of gas (given %d) -- looping?" total_gas
-  | _ ->
-      add_subgoals @@ List.rev !subgoals ;
-      next_subgoal ()
+(* Compute: see compute.ml *)
 
 (* Skip *)
 

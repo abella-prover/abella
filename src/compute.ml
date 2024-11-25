@@ -194,6 +194,7 @@ let compute ?name ?(gas = 1_000) hs =
       end
     | _ -> doit ()
   and compute_case ~chs ~wait ~todo (ch : compute_hyp) =
+    if !gas <= 0 then raise Out_of_gas ;
     let saved = Prover.copy_sequent () in
     match Prover.case_subgoals ch.clr with
     | exception _ ->

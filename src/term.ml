@@ -592,6 +592,21 @@ class term_printer = object (self)
             | a ->
                 print_app Pretty.(Atom (STR "pi")) [self#print cx a]
           end
+        | _, [u] -> begin
+            let rec get_repeat n u =
+              match observe (hnorm u) with
+              | App (f, [u]) when eq t f ->
+                  get_repeat (n + 1) u
+              | u -> (n, u)
+            in
+            let (n, u) = get_repeat 1 u in
+            let t = self#print cx t in
+            let u = self#print cx u in
+            let t = if n = 1 then t else
+                Pretty.(Opapp (210, Postfix (t, STR ("^" ^ string_of_int n))))
+            in
+            print_app t [u]
+          end
         | _ ->
             print_app (self#print cx t) (List.map (self#print cx) ts)
       end

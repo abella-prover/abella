@@ -737,7 +737,8 @@ and process_top1 () =
       end gen_thms ;
   | Define _ ->
       compile (Prover.register_definition input.el)
-  | Guard g ->
+  | Guard (head, test) ->
+      let g = Compute.make_guard ~head ~test in
       Compute.add_guard g ;
       compile @@ CGuard g
   | TopCommon(Back) ->

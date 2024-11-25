@@ -72,7 +72,7 @@ induction on 1. intros. case H1.
 Theorem perm_trans_lem : forall J K L, $list K ->
   perm J K -> perm K L -> perm J L.
 induction on 1. intros. case H1.
-  compute H2 H3. search. case H6.
+  compute H2 H3. search. case H4.
   apply perm_cons_2 to *H2. apply perm_cons_1 to *H3.
    apply IH to H5 H7 H9. search.
 

@@ -10,6 +10,20 @@ open Term
 open Metaterm
 open Abella_types
 
+let format_guard ff guard =
+  let format_term ff t = Term.format_term ff t in
+  Format.fprintf ff "Suspend %a := @[<hov0>%a@]"
+    (format_term) guard.pattern
+    (Format.pp_print_list format_term
+       ~pp_sep:Format.pp_print_commaspace) guard.condition
+
+let guard_to_string guard =
+  let buf = Buffer.create 19 in
+  let ff = Format.formatter_of_buffer buf in
+  format_guard ff guard ;
+  Format.pp_print_flush ff () ;
+  Buffer.contents buf
+
 let make_guard ~head ~test =
   let (predicate, pattern) =
     let rec get_predicate : Typing.uterm -> _ = function

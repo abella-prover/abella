@@ -69,26 +69,6 @@ type common_command =
   | Show          of string
   | Quit
 
-type guard = {
-  predicate : id ;
-  pattern : term ;
-  condition : term list ;
-}
-
-let format_guard ff guard =
-  let format_term ff t = Term.format_term ff t in
-  Format.fprintf ff "Suspend %a := @[<hov0>%a@]"
-    (format_term) guard.pattern
-    (Format.pp_print_list format_term
-       ~pp_sep:Format.pp_print_commaspace) guard.condition
-
-let guard_to_string guard =
-  let buf = Buffer.create 19 in
-  let ff = Format.formatter_of_buffer buf in
-  format_guard ff guard ;
-  Format.pp_print_flush ff () ;
-  Buffer.contents buf
-
 type top_command =
   | Theorem       of id * string list * umetaterm
   | Define        of flavor * tyctx * udef_clause list
@@ -99,10 +79,16 @@ type top_command =
   | Type          of id list * ty
   | Close         of aty list
   | SSplit        of id * id list
-  | Guard         of guard
+  | Guard         of uterm * id list
   | TopCommon     of common_command
 
 type fin = Finished | Unfinished
+
+type guard = {
+  predicate : id ;
+  pattern : term ;
+  condition : term list ;
+}
 
 type compiled =
   | CTheorem      of id * string list * metaterm * fin
@@ -326,8 +312,10 @@ let top_command_to_string tc =
           sprintf "Split %s as %s" id (id_list_to_string ids)
         else
           sprintf "Split %s" id
-    | Guard g ->
-        guard_to_string g
+    | Guard (head, test) ->
+        sprintf "Suspend %s := %s"
+          (uterm_to_string head)
+          (String.concat ", " test)
     | TopCommon(cc) ->
         common_command_to_string cc
 

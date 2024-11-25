@@ -687,8 +687,7 @@ pure_top_command:
     cs=loption(AS; cs=id_list {cs}); DOT
     { Types.SSplit(deloc_id thm, List.map deloc_id cs) }
   | SUSPEND; head=term; DEFEQ; test=separated_nonempty_list(COMMA, id); DOT
-    { let g = Compute.(make_guard ~head ~test) in
-      Types.Guard g }
+    { Types.Guard (head, test) }
 
 %inline
 import_withs:

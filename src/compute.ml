@@ -159,14 +159,19 @@ let get_wait clr form =
   let vars = get_metaterm_used form in
   { vars ; chyp = { clr ; form } }
 
+let is_free t =
+  match Term.observe t with
+  | Var { tag = Eigen ; _ } -> true
+  | _ -> false
+
 let is_unchanged wait =
-  List.for_all (fun (_, t) -> Term.is_free t) wait.vars
+  List.for_all (fun (_, t) -> is_free t) wait.vars
 
 exception Out_of_gas
 exception Suspended
 
 let compute ?name ?(gas = 1_000) hs =
-  let v, kind = 0, "compute" in
+  let v, kind = 2, "compute" in
   let total_gas = gas in
   let gas = ref total_gas in
   let fresh_compute_hyp =
@@ -246,9 +251,9 @@ let compute ?name ?(gas = 1_000) hs =
           let (wait, newly_active) = List.partition is_unchanged wait in
           Output.trace ~v begin fun (module Trace) ->
             List.iter begin fun w ->
-              Trace.format ~kind "Reactivated %s: %a cuz @[<v1>%a@]"
+              Trace.format ~kind "Reactivated %s: %a cuz @[<hov0>%a@]"
                 (clearable_to_string w.chyp.clr) format_metaterm w.chyp.form
-                (Format.pp_print_list pp_print_wait_var) w.vars
+                (Format.pp_print_list ~pp_sep:Format.pp_print_commaspace pp_print_wait_var) w.vars
             end newly_active
           end ;
           let new_chs = List.rev_map (fun h -> { clr = Remove (h.Prover.id, []) ; form = h.term }) hs in

@@ -18,7 +18,7 @@ Define leq : nat -> nat -> prop by
 ; leq z X
 ; leq (s X) (s Y) := leq X Y.
 
-Suspend leq X Y := X.
+Suspend leq X _ := X.
 
 Theorem filter : forall X L, member X (s^10 z :: s^9 z :: s^8 z :: L) -> leq X (s^5 z) -> member X L.
 /* Built-in: Suspend member E L := L. */
@@ -29,7 +29,7 @@ Define plus : nat -> nat -> nat -> prop by
 ; plus (s X) Y (s Z) := plus X Y Z.
 
 %% `compute` must suspend when the first argument of `plus` is flex
-Suspend plus X Y Z := X.
+Suspend plus X _ _ := X.
 
 Theorem eight : forall X, plus (s^3 z) X (s^8 z) -> X = s^5 z.
 intros. compute H1. search.

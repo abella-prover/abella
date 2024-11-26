@@ -515,7 +515,6 @@ let rec has_capital_head t =
   | UApp(_, h, _) -> has_capital_head h
   | _ -> false
 
-
 let replace_underscores head body =
   let names = uterms_extract_if is_capital_name (head::body) in
   let used = ref (List.map (fun x -> (x, ())) names) in

@@ -20,7 +20,7 @@ Define adj : list form -> form -> list form -> prop by
 ; adj L X (X :: L) := $form X /\ $list L
 ; adj (Y :: L) X (Y :: K) := $form Y /\ adj L X K.
 
-Suspend adj L X K := L.
+Suspend adj L _ _ := L.
 
 Theorem $adj : forall K E L, adj K E L -> $list K /\ $form E /\ $list L.
 induction on 1. intros. case H1.
@@ -31,7 +31,7 @@ Define perm : list form -> list form -> prop by
 ; perm nil nil
 ; perm L1 L2 := exists E K1 K2, adj K1 E L1 /\ adj K2 E L2 /\ perm K1 K2.
 
-Suspend perm J K := J.
+Suspend perm J _ := J.
 
 Theorem $perm : forall K L, perm K L -> $list K /\ $list L.
 induction on 1. intros. case H1.

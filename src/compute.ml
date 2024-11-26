@@ -24,18 +24,40 @@ let guard_to_string guard =
   Format.pp_print_flush ff () ;
   Buffer.contents buf
 
-let make_guard ~head ~test =
-  let (predicate, pattern) =
-    let rec get_predicate : Typing.uterm -> _ = function
-      | UCon (_, pred, _) -> pred
-      | UApp (_, ut, _) -> get_predicate ut
-      | ULam _ ->
-          failwith "Invalid lambda-abstraction in guard pattern"
-    in
-    (get_predicate head, head)
+let standardize_predicate (ut : Typing.uterm) =
+  let rec get_predicate = function
+    | Typing.UCon (_, pred, _) -> pred
+    | UApp (_, ut, _) -> get_predicate ut
+    | ULam (pos, _, _, _) ->
+        failwithf_at ~pos "Invalid lambda-abstraction in suspension head"
   in
-  let vids = Typing.(uterms_extract_if is_capital_name [pattern]) in
-  let tyctx = Typing.ids_to_fresh_tyctx vids in
+  let pred = get_predicate ut in
+  let rec get_vars ctx = function
+    | Typing.UCon (pos, "_", _) ->
+        let id = Term.fresh_name "X" ctx in
+        let ty = fresh_tyvar () in
+        let ctx = (id, ty) :: ctx in
+        (ctx, Typing.UCon (pos, id, ty))
+    | UCon (pos, id, _) when is_capital_name id ->
+        if List.mem_assoc id ctx then
+          failwithf_at ~pos "Repeated variable %s" id ;
+        let ty = fresh_tyvar () in
+        let ctx = (id, ty) :: ctx in
+        (ctx, UCon (pos, id, ty))
+    | UCon _ as ut -> (ctx, ut)
+    | UApp (pos, ut1, ut2) ->
+        let (ctx, ut1) = get_vars ctx ut1 in
+        let (ctx, ut2) = get_vars ctx ut2 in
+        (ctx, UApp (pos, ut1, ut2))
+    | ULam (pos, id, ty, ut) ->
+        let (ctx, ut) = get_vars ctx ut in
+        (ctx, ULam (pos, id, ty, ut))
+  in
+  let (ctx, ut) = get_vars [] ut in
+  (ctx, pred, ut)
+
+let make_guard ~head ~test =
+  let (tyctx, predicate, pattern) = standardize_predicate head in
   let (ty, eqns) = Typing.(infer_type_and_constraints ~sign:!sign tyctx pattern) in
   Unifyty.unify_constraints eqns ;
   let vars = List.map (fun (id, ty) -> (id, Term.fresh ~tag:Eigen 0 ty)) tyctx in

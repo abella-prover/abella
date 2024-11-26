@@ -379,6 +379,25 @@ type 'a wpos = { el : 'a ; pos : pos }
 let ghost e = { el = e ; pos = ghost_pos }
 let get_el (wp : _ wpos) = wp.el
 
+let string_of_position ((start, stop) : pos) =
+  if start == Lexing.dummy_pos then "Unknown position"
+  else if start.pos_lnum = stop.pos_lnum then
+    Printf.sprintf "File %S, line %d, characters %d-%d"
+      start.pos_fname start.pos_lnum
+      (start.pos_cnum - start.pos_bol + 1)
+      (stop.pos_cnum - stop.pos_bol + 1)
+  else
+    Printf.sprintf "File %S, line %d, character %d to line %d, character %d"
+      start.pos_fname
+      start.pos_lnum (start.pos_cnum - start.pos_bol + 1)
+      stop.pos_lnum (stop.pos_cnum - stop.pos_bol + 1)
+
+let failwithf_at ~pos fmt =
+  if pos == ghost_pos || fst pos == Lexing.dummy_pos then
+    failwithf fmt
+  else
+    failwithf ("%s\n" ^^ fmt) (string_of_position pos)
+
 let json_of_position (lft, rgt : pos) : Json.t =
   let open Lexing in
   if ( lft = Lexing.dummy_pos

@@ -686,8 +686,10 @@ pure_top_command:
   | SSPLIT; thm=loc_id;
     cs=loption(AS; cs=id_list {cs}); DOT
     { Types.SSplit(deloc_id thm, List.map deloc_id cs) }
+  | SUSPEND; head=term; DOT
+    { Types.Suspend (head, None) }
   | SUSPEND; head=term; DEFEQ; test=separated_nonempty_list(COMMA, id); DOT
-    { Types.Guard (head, test) }
+    { Types.Suspend (head, Some test) }
 
 %inline
 import_withs:

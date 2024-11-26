@@ -34,7 +34,7 @@ let standardize_predicate (ut : Typing.uterm) =
   let pred = get_predicate ut in
   let rec get_vars ctx = function
     | Typing.UCon (pos, "_", _) ->
-        let id = Term.fresh_name "X" ctx in
+        let id = Term.fresh_name "#" ctx in
         let ty = fresh_tyvar () in
         let ctx = (id, ty) :: ctx in
         (ctx, Typing.UCon (pos, id, ty))
@@ -64,13 +64,16 @@ let make_guard ~head ~test =
   let pattern = Typing.(uterm_to_term pattern |> replace_term_vars vars) in
   if not @@ Term.(eq_ty ty propty || eq_ty ty oty) then
     failwithf "Expected target type prop or o, got %s" (ty_to_string ty) ;
-  let condition =
-    List.unique test
-    |> List.map begin fun vid ->
-      match List.assoc_opt vid vars with
-      | None -> failwithf "Unknown condition variable %s" vid
-      | Some term -> term
-    end
+  let condition = match test with
+    | None ->
+        List.filter_map (fun (id, vtm) -> if id.[0] = '#' then None else Some vtm) vars
+    | Some test ->
+        List.unique test
+        |> List.map begin fun vid ->
+          match List.assoc_opt vid vars with
+          | None -> failwithf "Unknown condition variable %s" vid
+          | Some term -> term
+        end
   in
   { predicate ; pattern ; condition }
 
@@ -119,14 +122,14 @@ let is_guarded atm =
 
 let () =
   let open Typing in
-  let e = UCon (ghost_pos, "X", fresh_tyvar ()) in
+  let e = UCon (ghost_pos, "_", fresh_tyvar ()) in
   let l = UCon (ghost_pos, "L", fresh_tyvar ()) in
   let head = UApp (ghost_pos,
                    UApp (ghost_pos,
                          UCon (ghost_pos, "member", fresh_tyvar ()),
                          e),
                    l) in
-  let test = ["L"] in
+  let test = None in
   make_guard ~head ~test |> add_guard
 
 type compute_hyp = {

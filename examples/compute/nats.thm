@@ -8,7 +8,13 @@ Define $nat : nat -> prop by
 ; $nat (s X) := $nat X.
 
 %% declare that `compute` must suspend on `$nat X` if `X` is flex.
-Suspend $nat X := X.
+Suspend $nat X.
+%% can also say:
+%%
+%%   Suspend $nat X := X.
+%%
+%% If the := part is omitted, then *all* the variables in the head
+%% must be flex.
 
 Theorem ten : forall X, $nat (s^10 X) -> $nat X.
 intros. compute H1. search.
@@ -18,7 +24,8 @@ Define leq : nat -> nat -> prop by
 ; leq z X
 ; leq (s X) (s Y) := leq X Y.
 
-Suspend leq X _ := X.
+Suspend leq X _.
+%% Equivalently: Suspend leq X Y := X.
 
 Theorem filter : forall X L, member X (s^10 z :: s^9 z :: s^8 z :: L) -> leq X (s^5 z) -> member X L.
 /* Built-in: Suspend member E L := L. */
@@ -28,8 +35,8 @@ Define plus : nat -> nat -> nat -> prop by
 ; plus z X X := $nat X
 ; plus (s X) Y (s Z) := plus X Y Z.
 
-%% `compute` must suspend when the first argument of `plus` is flex
-Suspend plus X _ _ := X.
+Suspend plus X _ Z.
+%% Equivalently: plus X Y Z := X, Z.
 
 Theorem eight : forall X, plus (s^3 z) X (s^8 z) -> X = s^5 z.
 intros. compute H1. search.
@@ -66,19 +73,64 @@ induction on 1. intros. case H1.
   apply plus_invert to H2. search.
   compute *H2. apply IH to H3 H4. search.
 
+Theorem plus_det : forall M N J K, plus M N J -> plus M N K -> J = K.
+induction on 1. intros. case H1.
+  case H2. search.
+  case H2. apply IH to H3 H4. search.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Spec logic stuff (partial support)
+%% Fibonacci
+
+Define fib : nat -> nat -> prop by
+; fib z z
+; fib (s z) (s z)
+; fib (s (s X)) F := exists A B, fib (s X) A /\ fib X B /\ plus A B F.
+
+Suspend fib (s X) _.
+Suspend fib X _.
+%% The order matters only insofar as it may change the order of subgoals
+%% produced by compute.
+
+Theorem fib_three : forall F, fib (s^3 z) F -> F = s^2 z.
+intros. compute *H1. search.
+
+Theorem fib_four : forall F, fib (s^4 z) F -> F = s^3 z.
+intros. compute *H1. search.
+
+Theorem fib_five : forall F, fib (s^5 z) F -> F = s^5 z.
+intros. compute *H1. search.
+
+Theorem fib_six : forall F, fib (s^6 z) F -> F = s^8 z.
+intros. compute *H1. search.
+
+Theorem fib_seven : forall F, fib (s^7 z) F -> F = s^13 z.
+intros. compute *H1. search.
+
+Theorem fib_det : forall A B C, fib A B -> fib A C -> B = C.
+induction on 1. intros. case H1.
+  compute *H2. search.
+  compute *H2. search.
+  compute *H2.
+   apply IH to H4 H7. apply IH to H3 H6.
+   apply plus_det to H5 H8. search.
+
+Theorem three_solutions : forall N, (N = z \/ N = s z \/ N = s^5 z) -> fib N N.
+intros. compute H1. search. search. search 10.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Spec logic
 
 Type p nat -> o.
 
-% Suspend p X := X. % if you suspend p, then the following won't work
+% Suspend p X.
+%% if you suspend p, then the following won't work
 
 Theorem p_cases : forall X Y Z, {p X, p Y |- p Z} -> Z = X \/ Z = Y.
 intros.
 compute H1. search. search.
 
 %% suspension of spec predicates is allowed
-Suspend is_nat X := X.
+Suspend is_nat X.
 
 Theorem spec_ten : forall X, {is_nat (s^10 X)} -> {is_nat X}.
 intros.
@@ -90,4 +142,3 @@ abort.
 
 Theorem no_progress_nabla : nabla X Y, {is_nat X |- is_nat Y} -> false.
 intros. compute H1. % this will work because nominal constants are not eigenvariables
-

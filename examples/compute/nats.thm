@@ -31,6 +31,10 @@ Theorem filter : forall X L, member X (s^10 z :: s^9 z :: s^8 z :: L) -> leq X (
 /* Built-in: Suspend member E L := L. */
 intros. compute H1 H2. search.
 
+Theorem filter_alt : forall X L, member X (s^10 z :: s^9 z :: s^8 z :: L) -> leq X (s^5 z) -> member X L.
+% the "compute (all)" form tries compute on all hypotheses
+intros. compute (*all). search.
+
 Define plus : nat -> nat -> nat -> prop by
 ; plus z X X := $nat X
 ; plus (s X) Y (s Z) := plus X Y Z.
@@ -39,10 +43,10 @@ Suspend plus X _ Z.
 %% Equivalently: plus X Y Z := X, Z.
 
 Theorem eight : forall X, plus (s^3 z) X (s^8 z) -> X = s^5 z.
-intros. compute H1. search.
+intros. compute (*all). search.
 
-Theorem nine : forall X, plus (s^3 z) X (s^8 z) -> plus X (s^4 z) (s^9 z) -> false.
-intros. compute H2 H1. /* will only reach here if both computes complete */ abort.
+Theorem nine : forall X Y, plus (s^3 z) X (s^8 z) -> plus Y (s^4 z) (s^9 z) -> X = Y.
+intros. compute (all). search.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Some other minor uses of compute

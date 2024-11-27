@@ -159,6 +159,7 @@ type command =
                     * clearable list * (id * uterm) list * hhint
   | Backchain    of depth_bound option * clearable * (id * uterm) list
   | Compute      of clearable list * int option * hhint
+  | ComputeAll   of int option * hhint * [`CLEAR | `KEEP]
   | CutFrom      of clearable * clearable * uterm * hhint
   | Cut          of clearable * clearable * hhint
   | SearchCut    of clearable * hhint
@@ -375,6 +376,11 @@ let command_to_string c =
           (hn_to_string hn)
           (match dp with Some dp -> " " ^ string_of_int dp | None -> "")
           (clearables_to_string hs)
+    | ComputeAll (dp, hn, clr) ->
+        sprintf "%scompute%s (%sall)"
+          (hn_to_string hn)
+          (match dp with Some dp -> " " ^ string_of_int dp | None -> "")
+          (if clr = `CLEAR then "*" else "")
     | Cut(h1, h2, hn) ->
         sprintf "%scut %s with %s"
           (hn_to_string hn)

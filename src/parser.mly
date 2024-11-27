@@ -479,6 +479,8 @@ pure_command:
     { Types.Apply(dep, clr, args, ws, ht) }
   | ht=hhint; COMPUTE; dp=option(NUM); hs=nonempty_list(clearable); DOT
     { Types.Compute (hs, dp, ht) }
+  | ht=hhint; COMPUTE; dp=option(NUM); LPAREN; clr=boption(STAR); ALL; RPAREN; DOT
+    { Types.ComputeAll (dp, ht, if clr then `CLEAR else `KEEP) }
   | BACKCHAIN; dep=maybe_depth; clr=clearable;
     ws=loption(WITH; ws=withs {ws}); DOT
     { Types.Backchain(dep, clr, ws) }

@@ -271,3 +271,9 @@ let compute ?name ?(gas = 1_000) hs =
   | _ ->
       Prover.add_subgoals @@ List.rev !subgoals ;
       Prover.next_subgoal ()
+
+let compute_all ?name ?gas clr =
+  let hs = List.map begin fun (h : Prover.hyp) ->
+      if clr = `CLEAR then Remove (h.id, []) else Keep (h.id, [])
+    end Prover.sequent.hyps in
+  compute ?name ?gas hs

@@ -629,6 +629,7 @@ and process_proof1 proc =
     | Apply(depth, h, args, ws, hn) -> Prover.apply ?depth ?name:hn h args ws ~term_witness
     | Backchain(depth, h, ws)       -> Prover.backchain ?depth h ws ~term_witness
     | Compute (hs, gas, hn)         -> Compute.compute ?name:hn ?gas hs
+    | ComputeAll (gas, hn, clr)     -> Compute.compute_all ?name:hn ?gas clr
     | Cut(h, arg, hn)               -> Prover.cut ?name:hn h arg
     | CutFrom(h, arg, t, hn)        -> Prover.cut_from ?name:hn h arg t
     | SearchCut(h, hn)              -> Prover.search_cut ?name:hn h

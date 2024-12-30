@@ -23,6 +23,7 @@ depends: [
   "menhir"    { >= "20211012" }
   "re"        { >= "1.11.0" }
   "yojson"    { >= "2.1.1" }
+  "ppxlib"    { >= "0.28.0" }
   "dune"      { >= "3.7" }
   "ounit2"    { with-test }
 ]

@@ -1,5 +1,6 @@
 open OUnit
 open Test_helper
+open Abella_lib
 open Term
 open Subordination
 

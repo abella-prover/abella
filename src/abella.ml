@@ -19,6 +19,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+open Abella_lib
 open Term
 open Metaterm
 open Checks

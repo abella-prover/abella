@@ -1,5 +1,6 @@
 open OUnit
 open Test_helper
+open Abella_lib
 open Typing
 
 let assert_uterm_pprint_equal s t =

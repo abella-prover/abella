@@ -30,7 +30,7 @@
  (name abella_lib)
  (modules :standard \ abella abella_dep abella_doc abella_doc_dist)
  (libraries unix re yojson base64 curl)
- (wrapped false))
+ (wrapped true))
 
 (ocamllex
  (modules lexer))

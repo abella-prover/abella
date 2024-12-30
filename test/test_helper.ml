@@ -1,4 +1,5 @@
 open OUnit
+open Abella_lib
 open Metaterm
 open Extensions
 open Typing

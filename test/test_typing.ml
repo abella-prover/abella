@@ -1,4 +1,5 @@
 open OUnit
+open Abella_lib
 open Extensions
 open Test_helper
 open Typing

@@ -1,4 +1,5 @@
 open OUnit
+open Abella_lib
 open Term
 open Term.Notations
 open Unify

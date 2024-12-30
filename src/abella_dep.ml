@@ -7,6 +7,7 @@
 
 (* Dependency generator for Abella *)
 
+open Abella_lib
 open Extensions
 
 let dep_tab : (string, string list option) Hashtbl.t = Hashtbl.create 19

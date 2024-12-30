@@ -1150,6 +1150,8 @@ let multiarrow arrows body =
   in
   aux arrows
 
+(*
+(* [#161] This check does not appear to be logically justified *)
 let ensure_no_renaming vars terms =
   let conflicts =
     List.intersect
@@ -1158,6 +1160,7 @@ let ensure_no_renaming vars terms =
   in
   if conflicts <> [] then
     bugf "Variable renaming required"
+*)
 
 let split_theorem (tys, thm) =
   let foralls, nablas, body = decompose_forall_nabla thm in
@@ -1172,7 +1175,9 @@ let split_theorem (tys, thm) =
     in
     let iforalls = List.map (fun x -> (term_to_name x, tc [] x)) iforall_vars in
     let ibody = replace_metaterm_vars alist ibody in
-    ensure_no_renaming (List.map fst (iforalls @ inablas)) arrows ;
+    (* [#161] This prevents things like: forall x, (forall x, p x) -> p x *)
+    (*        even though they can be manually stated as new theorems *)
+    (* ensure_no_renaming (List.map fst (iforalls @ inablas)) arrows ; *)
     let thm = forall (foralls @ iforalls)
         (nabla (nablas @ inablas)
            (multiarrow arrows ibody)) in

@@ -16,6 +16,8 @@ Changes
 
 Bugfixes
 
+* `Split` is less picky about the forms of generated theorems  
+  (#161, reported by @wikku)
 * File names in error locations were not correct  
   (PR #157, contributed by @wikku)
 * Incorrect lambda-prefix for non-Llambda unification problems  

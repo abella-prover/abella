@@ -404,7 +404,7 @@ let spec_view t =
   | App (pi, [abs]) when is_pi pi -> begin
       match observe (hnorm abs) with
       | Lam ([x, ty], t) -> Spec_pi (x, ty, t)
-      | _ -> bugf "Cannot view pi body: %s" (term_to_string abs)
+      | _ -> [%bug] "Cannot view pi body: %s" (term_to_string abs)
     end
   | t -> Spec_atom t
 
@@ -504,7 +504,7 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
           end
         end
     | {head ; body} ->
-        bugf "Bad head in definitional clause:\n%s := %s"
+        [%bug] "Bad head in definitional clause:\n%s := %s"
           (metaterm_to_string head)
           (metaterm_to_string body)
     end
@@ -1010,7 +1010,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     List.iter begin fun goal ->
       let focus = match goal.mode with
         | Sync focus -> focus
-        | _ -> bugf "search/sync_obj_aux: not a sync object"
+        | _ -> [%bug] "search/sync_obj_aux: not a sync object"
       in
       let filter_by_witness =
         match witness with

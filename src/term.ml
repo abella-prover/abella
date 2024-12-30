@@ -785,20 +785,20 @@ let is_imp t = is_head_name "=>" t
 let extract_imp t =
   match observe (hnorm t) with
     | App(_t, [a; b]) -> (a, b)
-    | _ -> bugf "Check is_imp before calling extract_imp"
+    | _ -> [%bug] "Check is_imp before calling extract_imp"
 
 let is_amp t = is_head_name "&" t
 let extract_amp t =
   match observe (hnorm t) with
     | App(_t, [a; b]) -> (a, b)
-    | _ -> bugf "Check is_amp before calling extract_amp"
+    | _ -> [%bug] "Check is_amp before calling extract_amp"
 
 let is_pi t = is_head_name "pi" t
 
 let extract_pi t =
   match observe (hnorm t) with
     | App(_t, [abs]) -> abs
-    | _ -> bugf "Check is_pi before calling extract_pi"
+    | _ -> [%bug] "Check is_pi before calling extract_pi"
 
 
 let term_map_on_tys f t =

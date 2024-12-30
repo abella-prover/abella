@@ -80,27 +80,20 @@ let make_guard ~head ~test =
 (** [evaluate_guard guard t] returns true if the guard stops compute *)
 let evaluate_guard guard t =
   let format_term ff t = Term.format_term ff t in
-  let v, kind = 2, "evaluate_guard" in
-  Output.trace ~v begin fun (module Trace) ->
-    Trace.format ~kind "@[<v0>Testing @[%a@]@,against @[%a@]@]"
+  [%trace 2 "@[<v0>Testing @[%a@]@,against @[%a@]@]"
       format_term t
-      format_guard guard
-  end ;
+      format_guard guard] ;
   let state = Term.get_scoped_bind_state () in
   let result = try
       Unify.left_unify t guard.pattern ;
-      Output.trace ~v begin fun (module Trace) ->
-        Trace.format ~kind "Unification resulted in %a"
-          format_term guard.pattern
-      end ;
+      [%trace 2 "Unification resulted in %a"
+          format_term guard.pattern] ;
       (* all test vars neeed to be eigen to stop *)
       List.for_all Term.has_eigen_head guard.condition
     with _ -> false
   in
   Term.set_scoped_bind_state state ;
-  Output.trace ~v begin fun (module Trace) ->
-    Trace.printf ~kind "result: %b" result
-  end ;
+  [%trace 2 "result: %b" result] ;
   result
 
 let guards : (id, guard) Hashtbl.t = State.table ()
@@ -111,7 +104,7 @@ let is_guarded atm =
   let pred, _args =
     match Term.term_head atm with
     | Some pa -> pa
-    | None -> bugf "Invalid predicate: %s" (term_to_string atm)
+    | None -> [%bug] "Invalid predicate: %s" (term_to_string atm)
   in
   Term.term_to_name pred
   |> Hashtbl.find_all guards
@@ -171,7 +164,6 @@ exception Out_of_gas
 exception Suspended
 
 let compute ?name ?(gas = 1_000) hs =
-  let v, kind = 2, "compute" in
   let total_gas = gas in
   let gas = ref total_gas in
   let fresh_compute_hyp =
@@ -180,20 +172,15 @@ let compute ?name ?(gas = 1_000) hs =
   in
   let subgoals = ref [] in
   let rec compute_all ~chs ~wait ~todo =
-    Output.trace ~v begin fun (module Trace) ->
-      Trace.printf ~kind
-        "compute_all ~chs:[%s] ~wait:[%s] ~todo:[%s]"
+    [%trace 2 "compute_all ~chs:[%s] ~wait:[%s] ~todo:[%s]"
         (List.map ch_to_string chs |> String.concat ",")
         (List.map cw_to_string wait |> String.concat ",")
-        (List.map ch_to_string todo |> String.concat ",")
-    end ;
+        (List.map ch_to_string todo |> String.concat ",")] ;
     match todo with
     | [] ->
         let sg =
           List.iter begin fun ch ->
-            Output.trace ~v begin fun (module Trace) ->
-              Trace.printf ~kind "Renaming: %s" (ch_to_string ch)
-            end ;
+            [%trace 2 "Renaming: %s" (ch_to_string ch)] ;
             let stmt = Prover.get_stmt_clearly ch.clr in
             Prover.add_hyp ?name stmt
           end chs ;
@@ -235,27 +222,21 @@ let compute ?name ?(gas = 1_000) hs =
         let saved = Prover.copy_sequent () in
         List.iter begin fun case ->
           Prover.set_sequent saved ;
-          Output.trace ~v begin fun (module Trace) ->
-            Trace.format ~kind "Case %a" format_ch ch
-          end ;
+          [%trace 2 "Case %a" format_ch ch] ;
           List.iter Prover.add_if_new_var case.Tactics.new_vars ;
           let hs = List.map (fun h -> Prover.unsafe_add_hyp (fresh_compute_hyp ()) h) case.new_hyps in
           Term.set_bind_state case.bind_state ;
           Prover.update_self_bound_vars () ;
-          Output.trace ~v begin fun (module Trace) ->
-            List.iter begin fun h ->
-              Trace.format ~kind "Adding: %s : %a" h.Prover.id format_metaterm h.term
-            end hs
-          end ;
+          List.iter begin fun h ->
+            [%trace 2 "Adding: %s : %a" h.Prover.id format_metaterm h.term]
+          end hs ;
           decr gas ;
           let (wait, newly_active) = List.partition is_unchanged wait in
-          Output.trace ~v begin fun (module Trace) ->
-            List.iter begin fun w ->
-              Trace.format ~kind "Reactivated %s: %a cuz @[<hov0>%a@]"
+          List.iter begin fun w ->
+            [%trace 2 "Reactivated %s: %a cuz @[<hov0>%a@]"
                 (clearable_to_string w.chyp.clr) format_metaterm w.chyp.form
-                (Format.pp_print_list ~pp_sep:Format.pp_print_commaspace pp_print_wait_var) w.vars
-            end newly_active
-          end ;
+                (Format.pp_print_list ~pp_sep:Format.pp_print_commaspace pp_print_wait_var) w.vars]
+          end newly_active ;
           let new_chs = List.rev_map (fun h -> { clr = Remove (h.Prover.id, []) ; form = h.term }) hs in
           let chs = List.rev_append new_chs chs in
           let todo =

@@ -45,10 +45,10 @@ let rec forget_term ?(cx=[]) t =
       try
         let (x, xty) = List.nth cx (n - 1) in
         UCon (ghost_pos, x, xty)
-      with Failure _ -> bugf "forget_term called with too small a context"
+      with Failure _ -> [%bug] "forget_term called with too small a context"
     end
   | _ ->
-      bugf "forget_term called on: %s" (term_to_string t)
+      [%bug] "forget_term called on: %s" (term_to_string t)
 
 let get_pos t =
   match t with

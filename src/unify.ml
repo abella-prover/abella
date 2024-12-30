@@ -565,10 +565,10 @@ let makesubst tyctx h1 t2 a1 n =
                           app h2 a1'
                   else
                     make_non_llambda_subst lev hv1 a1 c
-            | Var _ -> bugf "logic variable on the left (1)"
+            | Var _ -> [%bug] "logic variable on the left (1)"
             | _ -> assert false
           end
-      | Var _ -> bugf "logic variable on the left (2)"
+      | Var _ -> [%bug] "logic variable on the left (2)"
       | _ -> assert false
   in
 
@@ -674,7 +674,7 @@ and unify_const_term tyctx cst t2 =
         let a1 = lift_args [] (List.length idtys) in
           unify (List.rev_app idtys tyctx) (app cst a1) t2
     | Var v when not (variable v.tag || constant v.tag) ->
-        bugf "logic variable on the left (3)"
+        [%bug] "logic variable on the left (3)"
     | _ -> fail (ConstClash (cst,t2))
 
 (* Unify [App h1 a1 = t2].
@@ -703,7 +703,7 @@ and unify_app_term tyctx h1 a1 t1 t2 =
               let m = List.length a2 in
                 bind h2 (makesubst tyctx h2 t1 a2 m)
           | Var v when not (variable v.tag || constant v.tag) ->
-              bugf "logic variable on the left (5)"
+              [%bug] "logic variable on the left (5)"
           | _ -> assert false
         end
     | DB n1, App (h2,a2) ->
@@ -715,14 +715,14 @@ and unify_app_term tyctx h1 a1 t1 t2 =
                 bind h2 (makesubst tyctx h2 t1 a2 m)
           | Var v when constant v.tag -> fail (ConstClash (h1,h2))
           | Var v when not (variable v.tag || constant v.tag) ->
-              bugf "logic variable on the left (5)"
+              [%bug] "logic variable on the left (5)"
           | _ -> assert false
         end
     | Lam _, _ | _, Lam _
     | Ptr _, _ | _, Ptr _
     | Susp _, _ | _, Susp _ -> assert false
     | Var v, _ when not (variable v.tag || constant v.tag) ->
-        bugf "logic variable on the left (6)"
+        [%bug] "logic variable on the left (6)"
     | _ -> fail (ConstClash (h1,t2))
 
 (* Unify [v1 = t2].
@@ -782,7 +782,7 @@ and unify tyctx t1 t2 =
     | _,Var c2 when constant c2.tag -> unify_const_term tyctx t2 t1
     | DB i1,DB i2                   -> if i1 <> i2 then fail (ConstClash(t1, t2))
 
-    | _ -> bugf "logic variable on the left (7)"
+    | _ -> [%bug] "logic variable on the left (7)"
   with
     | UnifyError NotLLambda ->
         let n = max (closing_depth t1) (closing_depth t2) in

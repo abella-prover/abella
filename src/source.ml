@@ -50,21 +50,13 @@ end
 
 let read source =
   let rec spin ops =
-    let kind = "Source.read.spin" in
     match ops with
     | [] ->
-        Output.trace ~v:5 begin fun (module Trace) ->
-          Trace.printf ~kind "No more openers"
-        end ;
         failwithf "Opening: %s" source
-    | (op_name, op_fn) :: ops ->
+    | (_op_name, op_fn) :: ops ->
         match op_fn source with
         | Ok s -> s
-        | Error exn ->
-            Output.trace ~v:5 begin fun (module Trace) ->
-              Trace.printf ~kind "%s: %s" op_name (Printexc.to_string exn)
-            end ;
-            (spin[@tailrec]) ops
+        | Error _exn -> (spin[@tailrec]) ops
   in
   spin openers
 
@@ -115,6 +107,6 @@ let read_thm ?thc source =
           Stdlib.close_out ch ;
           Sys.rename temp thc_path
       | None ->
-          bugf "Repeated close() of sink for: %s" path ;
+          [%bug] "Repeated close() of sink for: %s" path ;
   end in
   (module Thm : THM)

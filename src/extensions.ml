@@ -31,18 +31,6 @@ let sorry exn =
       "To help improve Abella's error messages, please file a bug report at" ;
       "<https://github.com/abella-prover/abella/issues>" ]
 
-let bugf fmt =
-  Printf.ksprintf begin fun msg ->
-    String.concat "\n"
-      [ "[ABELLA BUG]" ;
-        msg ;
-        "Please report this at \
-        \ https://github.com/abella-prover/abella/issues\n" ] |>
-    output_string Stdlib.stderr ;
-    Stdlib.(flush stderr) ;
-    failwith "Bug"
-  end fmt
-
 let failwithf fmt = Printf.ksprintf failwith fmt
 
 let[@inline] maybe_guard ?guard f =
@@ -468,7 +456,7 @@ module Xdg = struct
     let ensure_dir dir =
       if Sys.file_exists dir then
         if Sys.is_directory dir then ()
-        else bugf "Not a directory: %s" dir
+        else [%bug] "Not a directory: %s" dir
       else Sys.mkdir dir 0o755
 
     let ( / ) parent child =

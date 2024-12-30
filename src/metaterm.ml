@@ -219,7 +219,7 @@ let pp_print_tids ff tids =
             collate [x] ty ((List.rev cur_ids, cur_ty) :: res) tids
     in
     match tids with
-    | [] -> bugf "Empty quantified variables list"
+    | [] -> [%bug] "Empty quantified variables list"
     | (x, ty) :: tids ->
         let collated_tids = collate [x] ty [] tids in
         let pp_collated ff (xs, ty) =
@@ -445,8 +445,8 @@ let extract_member = function
   | Pred (t,_) -> (
       match observe (hnorm t) with
       | App (_t, [a;b]) -> (a,b)
-      | _ -> bugf "Check is_member before calling extract_member")
-  | _ -> bugf "Check is_member before calling extract_member"
+      | _ -> [%bug] "Check is_member before calling extract_member")
+  | _ -> [%bug] "Check is_member before calling extract_member"
 
 let move_imp_to_context obj =
   let (a, right) = extract_imp obj.right in
@@ -461,7 +461,7 @@ let is_async_obj t =
 let term_to_async_obj t =
   match t with
   | Obj ({mode = Async ; _} as obj, _) -> obj
-  | _ -> bugf "term_to_async_obj called on non-async-object"
+  | _ -> [%bug] "term_to_async_obj called on non-async-object"
 
 let is_sync_obj t =
   match t with
@@ -471,7 +471,7 @@ let is_sync_obj t =
 let term_to_sync_obj t =
   match t with
   | Obj ({mode = Sync _ ; _} as obj, _) -> obj
-  | _ -> bugf "term_to_sync_obj called on non-sync-object"
+  | _ -> [%bug] "term_to_sync_obj called on non-sync-object"
 
 let term_to_restriction t =
   match t with
@@ -483,7 +483,7 @@ let set_restriction r t =
   match t with
     | Obj(obj, _) -> Obj(obj, r)
     | Pred(p, _) -> Pred(p, r)
-    | _ -> bugf "Attempting to set restriction to non-object"
+    | _ -> [%bug] "Attempting to set restriction to non-object"
 
 let reduce_inductive_restriction r =
   match r with
@@ -910,7 +910,7 @@ let derivable goal hyp =
     | Async, Async -> (goal.context, hyp.context)
     | Sync gfoc, Sync hfoc -> (gfoc :: goal.context, hfoc :: hyp.context)
     |  _ ->
-        bugf "derivable: incompatible object sequents"
+        [%bug] "derivable: incompatible object sequents"
   in
   let support_g = obj_support goal in
   let support_h = obj_support hyp in
@@ -974,7 +974,7 @@ let def_head_args head =
     | Pred (p, _) -> begin
         match term_head p with
         | Some (_, args) -> args
-        | None -> bugf "Cannot find arguments!"
+        | None -> [%bug] "Cannot find arguments!"
       end
     | Binding (_, _, t) -> aux t
     | _ -> assert false
@@ -991,7 +991,7 @@ let rec clausify ?(vars=[]) ?(body=[]) head =
          let vars = (x, ty) :: vars in
          clausify ~vars ~body (app abs [xv])
       | tm ->
-          bugf "clausify: invalid pi: %s" (term_to_string tm)
+          [%bug] "clausify: invalid pi: %s" (term_to_string tm)
     end
   | App (imp, [a; head]) when is_imp imp ->
       let body = a :: body in

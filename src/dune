@@ -2,7 +2,8 @@
  (name abella)
  (modes byte exe)
  (modules abella)
- (libraries abella_lib unix cmdliner))
+ (libraries abella_lib unix cmdliner ppx_abella_lib)
+ (preprocess (pps ppx_abella)))
 
 (rule
  (with-stdout-to abella_doc_dist.ml
@@ -29,8 +30,9 @@
 (library
  (name abella_lib)
  (modules :standard \ abella abella_dep abella_doc abella_doc_dist)
- (libraries unix re yojson base64)
- (wrapped true))
+ (libraries unix re yojson base64 ppx_abella_lib)
+ (wrapped true)
+ (preprocess (pps ppx_abella)))
 
 (ocamllex
  (modules lexer))

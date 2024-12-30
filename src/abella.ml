@@ -323,7 +323,6 @@ let rec import ~wrt pos impfile withs =
   end
 
 and import_load modname withs =
-  let kind = "import_load" in
   let repl = Replacement.make withs in
   if List.mem modname !imported then () else begin
     imported := modname :: !imported ;
@@ -332,9 +331,7 @@ and import_load modname withs =
       if not !Setup.recurse then
         failwithf "Recursive invocation of Abella prevented (--non-recursive)" ;
       let cmd = Printf.sprintf " %S -o %S" Thm.path Thm.out_path in
-      Output.trace ~v:1 begin fun (module Trace) ->
-        Trace.printf ~kind "Running: abella%s" cmd ;
-      end ;
+      [%trace 1 "Running: abella%s" cmd] ;
       if Sys.command (Sys.executable_name ^ cmd) <> 0 then
         failwithf "Could not create %S" Thm.thc_path
     in
@@ -802,7 +799,7 @@ let set_or_exit k v =
 
 let abella_main flags switch output compiled annotate norec _em verb infile =
   try begin
-    Output.trace_verbosity := verb ;
+    Output.set_verbosity verb ;
     List.iter (fun (k, v) -> set_or_exit k v) flags ;
     if switch then Setup.mode := `switch ;
     Option.iter set_output output ;

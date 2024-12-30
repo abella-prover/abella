@@ -1,0 +1,13 @@
+(library
+  (name ppx_abella_lib)
+  (public_name abella.ppx_abella_lib)
+  (modules ppx_abella_lib)
+  (preprocess no_preprocessing))
+
+(library
+  (name ppx_abella)
+  (public_name abella.ppx)
+  (kind ppx_rewriter)
+  (modules ppx_abella)
+  (libraries ppx_abella_lib ppxlib)
+  (preprocess no_preprocessing))

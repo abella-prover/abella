@@ -7,7 +7,7 @@
 (** Small library for ppx_abella *)
 
 module type PRINTER = sig
-  val format : Stdlib.(('a, Format.formatter, unit) format -> 'a)
+  val format : ('a, Stdlib.Format.formatter, unit) Stdlib.format -> 'a
 end
 
 let printer : (module PRINTER) ref =

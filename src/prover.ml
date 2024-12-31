@@ -1363,19 +1363,17 @@ let permute_nominals ids form =
   let term =
     match form with
     | None -> sequent.goal
-    | Some h -> get_hyp h
+    | Some h ->
+        try get_hyp h
+        with _ -> failwithf "Unknown hypothesis %s" h
   in
   let support_alist =
     List.map (fun t -> (term_to_name t, t)) (metaterm_support term)
   in
-  let perm =
-    List.map
-      (fun id ->
-         try
-           List.assoc id support_alist
-         with Not_found -> nominal_var id (tybase (atybase "")))
-      ids
-  in
+  let perm = List.map begin fun id ->
+      try List.assoc id support_alist
+      with Not_found -> nominal_var id (tybase (atybase ""))
+    end ids in
   let result = Tactics.permute_nominals perm term in
   match form with
   | None -> sequent.goal <- result

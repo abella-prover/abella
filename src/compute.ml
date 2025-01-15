@@ -237,7 +237,7 @@ let compute ?name ?(gas = 1_000) hs =
                 (clearable_to_string w.chyp.clr) format_metaterm w.chyp.form
                 (Format.pp_print_list ~pp_sep:Format.pp_print_commaspace pp_print_wait_var) w.vars]
           end newly_active ;
-          let new_chs = List.rev_map (fun h -> { clr = Remove (h.Prover.id, []) ; form = h.term }) hs in
+          let new_chs = List.map (fun h -> { clr = Remove (h.Prover.id, []) ; form = h.term }) hs in
           let chs = List.rev_append new_chs chs in
           let todo =
             List.rev_map (fun w -> w.chyp) newly_active

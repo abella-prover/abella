@@ -44,7 +44,7 @@ Theorem change_forall_exists : total p -> (forall x, p x -> q x) -> (exists x, p
 intros. compute H1. apply H2 to H3. search.
 
 Theorem change_exists_forall : deterministic p -> (exists x, p x /\ q x) -> (forall x, p x -> q x).
-intros. compute H1 H2. apply H6 to H3 H4. search.
+intros. compute H1 H2. apply H6 to H3 H5. search.
 
 Theorem change_forall_exists_upto : total p ->
    (forall x, p x -> upto q eqv x) ->
@@ -55,4 +55,4 @@ intros. compute H1. apply H2 to H3. compute *H4. search.
 Theorem change_exists_forall_upto : deterministic_upto p eqv -> transitive eqv ->
    (exists x, p x /\ upto q eqv x) ->
    (forall x, p x -> upto q eqv x).
-intros. compute *H1 *H2 *H3. apply H9 to H4 H7. apply H8 to H10 H5. search.
+intros. compute *H1 *H2 *H3. apply H9 to H4 H7. apply H8 to H10 H6. search.

@@ -115,8 +115,8 @@ induction on 1. intros. case H1.
   compute *H2. search.
   compute *H2. search.
   compute *H2.
-   apply IH to H4 H7. apply IH to H3 H6.
-   apply plus_det to H5 H8. search.
+   apply IH to H4 H7. apply IH to H3 H8.
+   apply plus_det to H5 H6. search.
 
 Theorem three_solutions : forall N, (N = z \/ N = s z \/ N = s^5 z) -> fib N N.
 intros. compute H1. search. search. search 10.

@@ -62,12 +62,12 @@ intros. apply ctx_faithful to H1 H4. case H5.
    apply H9 to H6. apply H8 to H11. apply H14 to H2.
    witness RR. split. search.
    case H12. case H18. case H17.
-   apply ctx_mirror to H7 with Q1 = P5.
+   apply ctx_mirror to H7 with Q1 = P4.
    apply ctx_mirror to H16 with Q1 = Q5.
    apply bisim_substitutive_ to H7 H23 H21.
    apply bisim_substitutive_ to H16 H24 H22.
    apply concat_ctx2 to H19 H23 H20 H24.
-   witness P4. witness Q4. split. search.
+   witness P5. witness Q4. split. search.
    backchain CH.
   apply H6 to H2. witness P3. split. search.
    witness P3. witness P3. split.
@@ -83,11 +83,11 @@ intros. apply ctx_faithful to H2 H4. case H5.
    witness RR. split. search.
    case H12. case H18. case H17.
    apply ctx_mirror to H7 with Q1 = P5.
-   apply ctx_mirror to H16 with Q1 = Q5.
+   apply ctx_mirror to H16 with Q1 = Q4.
    apply bisim_substitutive_ to H7 H24 H22.
    apply bisim_substitutive_ to H16 H23 H21.
    apply concat_ctx2 to H19 H23 H20 H24.
-   witness P4. witness Q4. split. search.
+   witness P4. witness Q5. split. search.
    backchain CH.
   apply H6 to H1. witness Q3. split. search.
    witness Q3. witness Q3. split. backchain bisim_context_t_reflexive.
@@ -118,10 +118,10 @@ unfold. coinduction. intros. case H1. unfold.
    witness P6. witness Q3. split. search.
    case H14. case H21.
    assert bisim_up_to refl_t P6 P7. backchain bisim_transitive_.
-   assert bisim_up_to bisim_context_t P7 Q5.
+   assert bisim_up_to bisim_context_t P7 Q2.
      Lem : apply bisim_context_substitutive. Lem : case Lem.
      case H22. backchain Lem.
-   assert bisim_up_to refl_t Q5 Q3.
+   assert bisim_up_to refl_t Q2 Q3.
      apply bisim_symmetric_ to H24. backchain bisim_transitive_.
    backchain CH.
 

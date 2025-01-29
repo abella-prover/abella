@@ -91,13 +91,13 @@ induction on 1. induction on 2. intros.
       apply sub_total_tt to H16.
       apply sub_lt to H14 H17.
       apply lt_trans to H18 H12.
-      apply H10 to _ H19 with X = s X1. search.
+      apply H10 to _ H19 with X1 = s X1. search.
 
       % X1 >= X2
       apply sub_total_ff to H16.
       apply sub_lt to H13 H17.
       apply lt_trans to H18 H11.
-      apply H9 to H19 _ with Y = s X2. search.
+      apply H9 to H19 _ with Y1 = s X2. search.
 
 
 Theorem gcd_total : forall X Y,

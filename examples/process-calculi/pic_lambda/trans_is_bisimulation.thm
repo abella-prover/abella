@@ -104,7 +104,7 @@ induction on 1. intros. case H1.
             backchain 0 str_eq_sym. backchain nu_gen.
    case H3. case H7.
       permute (n1 n4) H5. apply IH to *H5 *H2 *H8 _. exists subex W V1.
-         exists a\nu (x\par (Q3 x a) (in x Q2)). intros. split. search. search.
+         exists a\nu (x\par (Q4 x a) (in x Q2)). intros. split. search. search.
             unfold 20. exists nu (z2\nu (z3\par (nu (z4\par (S z4 z2 n1 z3)
                (in z4 Q2))) (in z3 R))). split. backchain str_eq_sym.
             unfold 20. exists nu (z2\nu (z3\nu (z4\par (par (S z4 z2 n1 z3)

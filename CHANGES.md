@@ -16,6 +16,10 @@ Changes
 
 Bugfixes
 
+* `apply` now prevents capture on instantiation of `forall`-quantified
+  variables in the lemma. ***BREAKING CHANGE*** (this changes the
+  numbering of variables, even bound variables)  
+  (#164, reported by @wikku)
 * `Split` is less picky about the forms of generated theorems  
   (#161, reported by @wikku)
 * File names in error locations were not correct  

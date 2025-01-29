@@ -41,7 +41,7 @@ intros. apply ctx_faithful to H1 H4. case H5.
    witness RR. split. search.
    case H12.
    apply concat_ctx2 to H17 H7 H18 H16.
-   witness P4. witness Q4. split. search. backchain CH.
+   witness P5. witness Q4. split. search. backchain CH.
   apply H6 to H2. witness P3. split. search.
    witness P3. witness P3. split. search.
    backchain CH. backchain context_reflexive.
@@ -55,7 +55,7 @@ intros. apply ctx_faithful to H2 H4. case H5.
     witness RR. split. search.
     case H12.
     apply concat_ctx2 to H17 H16 H18 H7.
-    witness P4. witness Q4. split. search. backchain CH.
+    witness P4. witness Q5. split. search. backchain CH.
   apply H6 to H1. witness Q3. split. search.
    witness Q3. witness Q3. split. search.
    backchain CH. backchain context_reflexive.

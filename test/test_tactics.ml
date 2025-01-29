@@ -341,14 +341,14 @@ let apply_tests =
         (fun () ->
            let h = freshen "forall E, foo E" in
            let a = const "a" ity in
-           let (t, _) = apply_with ~sr h [] [("E", a)] in
+           let (t, _) = apply_with ~sr ~used:[] h [] [("E", a)] in
              assert_pprint_equal "foo a" t);
 
       "Apply with no arguments should contain logic variables" >::
         (fun () ->
            let h = freshen "forall A B, rel1 A B" in
            let a = const "a" ity in
-           let (t, _) = apply_with ~sr h [] [("A", a)] in
+           let (t, _) = apply_with ~sr ~used:[] h [] [("A", a)] in
            let logic_vars = metaterm_vars_alist Logic t in
              assert_bool "Should contain logic variable(s)"
                (List.length logic_vars > 0));
@@ -356,7 +356,7 @@ let apply_tests =
       "Apply with no arguments or withs" >::
         (fun () ->
            let h = freshen "forall A B, rel1 A B -> rel2 A B" in
-           let (t, obs) = apply_with ~sr h [] [] in
+           let (t, obs) = apply_with ~sr ~used:[] h [] [] in
              assert_bool "Should have no obligations" (obs = []) ;
              assert_metaterm_equal h t);
 
@@ -364,7 +364,7 @@ let apply_tests =
         (fun () ->
            let h = freshen "forall (X:i) Y, X = Y -> true" in
            let _, obligations =
-             apply_with ~sr h [None] [("X", nominal_var "n1" ity)]
+             apply_with ~sr ~used:[] h [None] [("X", nominal_var "n1" ity)]
            in
              match obligations with
                | [Eq(_, t2)] ->

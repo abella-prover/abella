@@ -79,7 +79,7 @@ induction on 1. intros. case H1.
   apply sub_forall to H3.
     apply invert_sub_forall to H3.
     apply IH to H2.
-    assert {sub n1 T1 |- sub n1 S2}.
+    assert {sub n1 T1 |- sub n1 S3}.
     cut H8 with H9.
     search.
 

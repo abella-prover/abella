@@ -131,7 +131,7 @@ Theorem member_inst :
    forall F (L:tm -> olist), nabla (n:tm), member (F n) (L n) -> forall t, member (F t) (L t).
 induction on 1. intros. case H1.
   search.
-  apply IH to H2. apply H3 with t = t. search.
+  apply IH to H2. apply H3 with t1 = t. search.
 
 % The instantiation lemma
 Theorem $inst :
@@ -140,21 +140,21 @@ Theorem $inst :
 induction on 1 1. split.
   intros. case H1.
     apply IH1 to H3. apply member_inst to H2.
-     apply H4 with t = t. apply H5 with t = t. search.
-    apply IH1 to H3. apply prog_has_no_nablas to H2. apply H4 with t = t. search.
+     apply H4 with t1 = t. apply H5 with t1 = t. search.
+    apply IH1 to H3. apply prog_has_no_nablas to H2. apply H4 with t1 = t. search.
     apply IH to H2. apply IH to H3.
-     apply H4 with t = t. apply H5 with t = t. search.
+     apply H4 with t1 = t. apply H5 with t1 = t. search.
     search.
-    apply IH to H2. apply H3 with t = t. search.
-    apply IH to H2. apply H3 with t = t. search.
+    apply IH to H2. apply H3 with t1 = t. search.
+    apply IH to H2. apply H3 with t1 = t. search.
   intros. case H1.
     search.
     case H2.
-      apply IH1 to H3. apply H4 with t = t. search.
-      apply IH1 to H3. apply H4 with t = t. search.
+      apply IH1 to H3. apply H4 with t1 = t. search.
+      apply IH1 to H3. apply H4 with t1 = t. search.
     apply IH to H2. apply IH1 to H3.
-     apply H4 with t = t. apply H5 with t = t. search.
-    apply IH1 to H2. apply H3 with t = t. search.
+     apply H4 with t1 = t. apply H5 with t1 = t. search.
+    apply IH1 to H2. apply H3 with t2 = t. search.
 
 Split $inst as inst_seq, inst_bch.
 
@@ -191,7 +191,7 @@ induction on 4 4 3. split.
          apply IH2 to H9 H15 H13. search.
         case H6.
          apply IH4 to H1 H2 H3 H9.
-         case H2. apply inst_seq to H11. apply H12 with t = t.
+         case H2. apply inst_seq to H11. apply H12 with t1 = t.
           apply H8 with x = t.
           apply IH2 to H14 H13 H10. search.
       apply IH4 to H1 H2 H3 H6. search.
@@ -221,7 +221,7 @@ induction on 4 4 3. split.
      apply IH2 to H7 H9 H5. search.
     case H1 (keep). case H2 (keep).
      apply H5 with x = t.
-     apply inst_seq to H6. apply H8 with t = t.
+     apply inst_seq to H6. apply H8 with t1 = t.
      apply IH2 to H7 H9 H4. search.
 
 Split $cut as cut, cut_commutative, cut_principal.

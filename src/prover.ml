@@ -848,7 +848,10 @@ let apply ?depth ?name ?(term_witness=ignore) h args ws =
   let args = List.map get_arg_clearly args in
   let () = List.iter (Option.fold ~some:ensure_no_restrictions ~none:()) args in
   let ws = type_apply_withs stmt ws in
-  let result, obligations = Tactics.apply_with ~sr:!sr stmt args ws in
+  let result, obligations =
+    Tactics.apply_with ~sr:!sr stmt args ws
+      ~used:(List.filter is_uninstantiated sequent.vars)
+  in
   let remaining_obligations, term_witnesses =
     partition_obligations ?depth obligations
   in

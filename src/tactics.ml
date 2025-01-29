@@ -1283,13 +1283,9 @@ let some_term_to_restriction t =
 exception TypesNotFullyDetermined
 
 let apply_arrow term args =
-  (* Printf.eprintf "Applying term: %s\n" (metaterm_to_string term);
-   * List.iter begin fun arg ->
-   *   match arg with
-   *   | None -> Printf.eprintf "Applied args: None\n"
-   *   | Some a ->
-   *      Printf.eprintf "Applied args: %s\n" (metaterm_to_string a)
-   *   end args; *)
+  (* [%trace 2 "@[<v0>apply_arrow@,term = %a@,args = @[<v0>%a@]@]" *)
+  (*     format_metaterm term *)
+  (*     Format.(pp_print_list (pp_print_option format_metaterm)) args ] ; *)
   let () = check_restrictions
       (map_args term_to_restriction term)
       (List.map some_term_to_restriction args)
@@ -1325,8 +1321,6 @@ let apply_arrow term args =
          | Unify.UnifyFailure fl -> raise (Unify.UnifyFailure (Unify.FailTrail (!argno, fl)))
     end term args
   in
-  (* Printf.eprintf "Applying result: %s\n" (metaterm_to_string result);
-   * Printf.eprintf "Normalized applying result: %s\n" (metaterm_to_string (normalize result)); *)
   (* [HACK] reconcile does not produce failure trails *)
   Context.reconcile !context_pairs ;
   let result = normalize result in
@@ -1459,12 +1453,12 @@ let rec instantiate_withs term withs =
       (normalize (nabla binders' body), nominals @ used_nominals)
   | _ -> (term, [])
 
-let apply_with ~sr term args withs =
+let apply_with ~sr ~used term args withs =
   if args = [] && withs = [] then
     (term, [])
   else
   let term, used_nominals = instantiate_withs term withs in
-  apply ~sr (normalize term) args ~used_nominals
+  apply ~sr (normalize ~used term) args ~used_nominals
 
 (* Backchain *)
 

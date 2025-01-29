@@ -717,7 +717,7 @@ let normalize_obj ~parity:_ ~bindstack obj =
   in
   aux obj
 
-let normalize_binders =
+let normalize_binders ?(used = []) form =
   let aux_term rens t = replace_term_vars ~tag:Constant rens t in
   let rec aux rens used form = match form with
     | True | False -> form
@@ -751,11 +751,11 @@ let normalize_binders =
         (*   (String.concat "," (List.map fst used)) ; *)
         binding binder bvars (aux rens used body)
   in
-  fun form ->
-    let used = get_metaterm_used form
-               @ get_metaterm_used_nominals form
-               @ find_free_constants form in
-    aux [] used form
+  let used = get_metaterm_used form
+             @ get_metaterm_used_nominals form
+             @ find_free_constants form
+             @ used in
+  aux [] used form
 
 let replace_term_typed_nominals alist t =
   let rec aux t =
@@ -805,11 +805,11 @@ let normalize_nominals t =
   let nominal_alist = List.combine shadowed nominals in
     replace_metaterm_typed_nominals nominal_alist t
 
-let normalize term =
+let normalize ?used term =
   term
   |> map_on_objs_full normalize_obj
   |> normalize_nominals
-  |> normalize_binders
+  |> normalize_binders ?used
 
 let make_nabla_alist tids body =
   let (id_names, id_tys) = List.split tids in
@@ -821,6 +821,9 @@ let make_nabla_alist tids body =
 open Unify
 
 let rec meta_right_unify t1 t2 =
+  (* [%trace 2 "@[<v0>meta_right_unify@,t1 = %a@,t2 = %a@]" *)
+  (*     format_metaterm t1 *)
+  (*     format_metaterm t2] ; *)
   match t1, t2 with
     | True, True -> ()
     | False, False -> ()

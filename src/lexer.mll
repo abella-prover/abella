@@ -71,6 +71,7 @@
     "permute",       PERMUTE ;
     "rename",        RENAME ;
     "right",         RIGHT ;
+    "saturate",      SATURATE ;
     "search",        SEARCH ;
     "sig",           SIG ;
     "skip",          SKIP ;

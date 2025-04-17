@@ -180,6 +180,7 @@ type command =
   | Right
   | Intros       of id list
   | Unfold       of clause_selector * solution_selector
+  | Saturate     of { depth : int option ; lemmas : id list option ; hint : hhint }
   | Skip
   | Abort
   | Undo
@@ -453,6 +454,16 @@ let command_to_string c =
           (match sol_sel with
            | Solution_first -> ""
            | Solution_all -> " (all)")
+    | Saturate { hint = hn ; depth ; lemmas } -> begin
+        let dp = match depth with
+          | None -> ""
+          | Some n -> " " ^ string_of_int n
+        in
+        match lemmas with
+        | None -> sprintf "%ssaturate%s" (hn_to_string hn) dp
+        | Some lemmas -> sprintf "%ssaturate%s %s" (hn_to_string hn) dp
+                            (String.concat " " lemmas)
+      end
     | Intros [] -> "intros"
     | Intros ids -> sprintf "intros %s" (String.concat " " ids)
     | Skip -> "skip"

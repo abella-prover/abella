@@ -176,6 +176,19 @@ module List = struct
     let f = maybe_guard ?guard f in
     map Option.get (find_all Option.is_some (map f list))
 
+  let rev_filter_map ?guard f list =
+    let f = maybe_guard ?guard f in
+    let rec spin u l =
+      match l with
+      | [] -> u
+      | x :: l -> begin
+          match f x with
+          | None -> spin u l
+          | Some x -> spin (x :: u) l
+        end
+    in
+    spin [] list
+
   let flatten_map ?guard f list =
     let f = maybe_guard ?guard f in
     flatten (map f list)

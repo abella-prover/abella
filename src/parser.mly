@@ -129,7 +129,7 @@
 %token SPLIT SPLITSTAR UNFOLD ALL KEEP CLEAR SPECIFICATION SEMICOLON
 %token THEOREM DEFINE PLUS CODEFINE SET ABBREV UNABBREV QUERY SHOW SUSPEND
 %token PERMUTE BACKCHAIN COMPUTE QUIT UNDERSCORE AS SSPLIT RENAME
-%token BACK RESET
+%token BACK RESET SATURATE
 %token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND CARET
 %token LBRACE RBRACE LBRACK RBRACK
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
@@ -223,6 +223,7 @@ id:
   | PERMUTE       { "permute" }
   | RENAME        { "rename" }
   | RIGHT         { "right" }
+  | SATURATE      { "saturate" }
   | SEARCH        { "search" }
   | SKIP          { "skip" }
   | SPLIT         { "split" }
@@ -511,6 +512,8 @@ pure_command:
     { Types.Search(`depth dep) }
   | SEARCH; WITH; wit=search_witness; DOT
     { Types.Search(`witness wit) }
+  | ht=hhint; SATURATE; depth=maybe_depth; lemmas=option(hyp_list); DOT
+    { Types.Saturate { depth ; lemmas ; hint = ht } }
   | SPLIT; DOT
     { Types.Split }
   | SPLITSTAR; DOT

@@ -1393,3 +1393,183 @@ let cut_from ?name h arg term =
       add_hyp ?name (object_cut_from obj_h1 obj_h2 term)
   | _,_ -> failwith "The cut command can only be used on \
                    \ hypotheses of the form {...}"
+
+(* Saturate *)
+
+exception SaturateSuccess
+let[@ocaml.warning "-26-27"] saturate ?name ?depth ?use () =
+  let use = match use with
+    | None -> H.to_seq_keys lemmas
+    | Some use -> List.to_seq use
+  in
+  let lemtab = H.create 19 in
+  Seq.iter begin fun lem ->
+    H.add lemtab lem (get_lemma lem)
+  end use ;
+  let initial_focus = H.to_seq_values lemtab |> List.of_seq in
+  let depth = match depth with
+    | None -> 1
+    | Some depth -> depth
+  in
+  (* [%trace 2 "@[<v2>using lemmas:@,@[<b0>%t@]@]"] begin fun ff -> *)
+  (*   H.iter begin fun lemname lem -> *)
+  (*     Format.fprintf ff "%s:(@[%a@])@," lemname format_metaterm lem *)
+  (*   end lemtab *)
+  (* end ; *)
+  let global_support =
+    (List.flatten_map (fun h -> metaterm_support h.term) sequent.hyps @
+     metaterm_support sequent.goal)
+    |> List.unique ~cmp:eq
+  in
+  let rec loop ~depth =
+    (* [%trace 2 "loop %d"] depth ; *)
+    if depth <= 0 then () else begin
+      let num_released, subgoals =
+        multifocus [] initial_focus
+          ~succ:(fun () -> loop ~depth:(depth - 1))
+      in
+      if num_released = 0 then begin
+        [%trace 2 "Saturated at depth %d"] depth ;
+        ()
+      end else begin
+        add_subgoals subgoals ;
+        next_subgoal ()
+      end
+    end
+  and multifocus ~succ dead live =
+    match live with
+    | [] ->
+        let to_release =
+          List.rev_filter_map begin fun form ->
+            match purepos ~succ:(fun () -> raise SaturateSuccess) form with
+            | _ ->
+                (* [%trace 2 "NEW: %a"] format_metaterm form ; *)
+                Some form
+            | exception SaturateSuccess ->
+                (* [%trace 2 "OLD: %a"] format_metaterm form ; *)
+                None
+          end dead in
+        (* [%trace 2 "release: @[<v0>%t@]"] begin fun ff -> *)
+        (*   List.iter (fun r -> Format.fprintf ff "%a@," format_metaterm r) *)
+        (*     to_release *)
+        (* end ; *)
+        let num_released = List.length to_release in
+        (num_released, release ~succ ~nvs:[] ~nhs:[] to_release)
+    | form :: live -> begin
+        (* [%trace 2 "multifoc %d:@ %a"] depth format_metaterm form ; *)
+        match form with
+        | True -> multifocus ~succ dead live
+        | Arrow (f1, f2) ->
+            let cases = ref [] in
+            let add_proof () =
+              let f1 = Metaterm.map_terms Term.deep_copy f1 in
+              let f2 = Metaterm.map_terms Term.deep_copy f2 in
+              (* [%trace 2 "Found @[<b2>%a ->@ %a@]"] *)
+              (*   format_metaterm f1 *)
+              (*   format_metaterm f2 ; *)
+              let lvars = metaterm_vars_alist Logic f1 in
+              if lvars = [] then cases := (f1, f2) :: !cases
+              (* else [%trace 2 "Not adding since not ground"] *)
+            in
+            purepos ~succ:add_proof f1 ;
+            let live = List.rev_map (fun (_, f2) -> f2) !cases @ live in
+            multifocus ~succ dead live
+        | Binding (Forall, vs, form) ->
+            let alist =
+              fresh_nameless_alist ~sr:!sr ~support:global_support
+                ~tag:Logic ~ts:0 vs
+            in
+            let form = replace_metaterm_vars alist form in
+            multifocus ~succ dead (form :: live)
+        | (False | Eq _ | Binding (Exists, _, _) | And _ | Or _ | Pred _) ->
+            (* [%trace 2 "multifocus done with: %a"] *)
+            (*   format_metaterm form ; *)
+            multifocus ~succ (form :: dead) live
+        | _ ->
+            [%trace 2 "deleting %a"] format_metaterm form ;
+            multifocus ~succ dead live
+      end
+  and purepos ~succ form =
+    (* [%trace 2 "purepos: %a"] format_metaterm form ; *)
+    match form with
+    | True -> succ ()
+    | False -> ()
+    | Or (f1, f2) ->
+        purepos ~succ f1 ;
+        purepos ~succ f2
+    | And (f1, f2) ->
+        purepos f1 ~succ:(fun () -> purepos ~succ f2)
+    | Binding (Exists, vs, form) ->
+        let alist =
+          fresh_nameless_alist ~sr:!sr ~support:global_support
+            ~tag:Logic ~ts:0 vs
+        in
+        let form = replace_metaterm_vars alist form in
+        purepos ~succ form
+    | Eq (t1, t2) ->
+        unwind_state begin fun () ->
+          if Unify.try_right_unify t1 t2 then succ ()
+        end ()
+    | Pred (cp, cr) ->
+        List.iter ~guard:unwind_state begin fun h ->
+          match h.term with
+          | Pred (hp, hr) ->
+              if satisfies hr cr then
+                all_meta_right_permute_unify ~sc:succ form h.term
+          | _ -> ()
+        end sequent.hyps
+    | Arrow _ | Binding _ | Obj _ ->
+        [%trace 2 "purpos found negative: %a"]
+          format_metaterm form
+  and release ~succ ~nvs ~nhs forms =
+    match forms with
+    | [] ->
+        let nvs = List.rev nvs in
+        let nhs = List.rev nhs in
+        let case =
+          Tactics.{ bind_state = get_bind_state () ;
+                    new_vars = nvs ;
+                    new_hyps = nhs } in
+        (* List.iter (fun h -> [%trace 2 "release hyp: %a"] format_metaterm h) nhs ; *)
+        let setup_subgoal = case_to_subgoal ?name case in
+        let recur () =
+          setup_subgoal () ;
+          succ ()
+        in
+        [ recur ]
+    | form :: forms -> begin
+        (* [%trace 2 "release_loop: %a"] format_metaterm form ; *)
+        match form with
+        | True -> release ~succ ~nvs ~nhs forms
+        | False -> []
+        | Or (f1, f2) ->
+            let state = get_scoped_bind_state () in
+            let cs1 = release ~succ ~nvs ~nhs (f1 :: forms) in
+            set_scoped_bind_state state ;
+            let cs2 = release ~succ ~nvs ~nhs (f2 :: forms) in
+            cs1 @ cs2
+        | And (f1, f2) ->
+            release ~succ ~nvs ~nhs (f1 :: f2 :: forms)
+        | Binding (Exists, vs, form) ->
+            let (alist, vars) =
+              fresh_raised_alist ~sr:!sr ~support:global_support
+                ~used:(nvs @ sequent.vars) ~tag:Eigen vs
+            in
+            let nvs = List.rev_map term_to_pair vars @ nvs in
+            let form = replace_metaterm_vars alist form in
+            release ~succ ~nvs ~nhs (form :: forms)
+        | Eq (t1, t2) -> begin
+            match Unify.try_left_unify_cpairs ~used:(nvs @ sequent.vars) t1 t2 with
+            | Some cpairs ->
+                let nhs = List.map (fun (t1, t2) -> Eq (t1, t2)) cpairs @ nhs in
+                release ~succ ~nvs ~nhs forms
+            | None ->
+                []
+          end
+        | _ ->
+            (* [%trace 2 "store: %a"] format_metaterm form ; *)
+            let nhs = form :: nhs in
+            release ~succ ~nvs ~nhs forms
+      end
+  in
+  loop ~depth

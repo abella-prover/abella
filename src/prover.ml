@@ -1407,7 +1407,7 @@ let[@ocaml.warning "-26-27"] saturate ?name ?depth ?use () =
     H.add lemtab lem (get_lemma lem)
   end use ;
   let initial_focus = H.to_seq_values lemtab |> List.of_seq in
-  let depth = match depth with
+  let depth0 = match depth with
     | None -> 1
     | Some depth -> depth
   in
@@ -1429,7 +1429,7 @@ let[@ocaml.warning "-26-27"] saturate ?name ?depth ?use () =
           ~succ:(fun () -> loop ~depth:(depth - 1))
       in
       if num_released = 0 then begin
-        [%trace 2 "Saturated at depth %d"] depth ;
+        [%trace 2 "Saturated at depth %d"] (depth0 - depth) ;
         ()
       end else begin
         add_subgoals subgoals ;
@@ -1568,8 +1568,8 @@ let[@ocaml.warning "-26-27"] saturate ?name ?depth ?use () =
           end
         | _ ->
             (* [%trace 2 "store: %a"] format_metaterm form ; *)
-            let nhs = form :: nhs in
+            let nhs = if List.mem form nhs then nhs else form :: nhs in
             release ~succ ~nvs ~nhs forms
       end
   in
-  loop ~depth
+  loop ~depth:depth0

@@ -1517,7 +1517,7 @@ let[@ocaml.warning "-26-27"] saturate ?name ?depth ?use () =
               if satisfies hr cr then
                 all_meta_right_permute_unify ~sc:succ form h.term
           | _ -> ()
-        end sequent.hyps
+        end (List.unique ~cmp:(fun h1 h2 -> h1.term = h2.term) sequent.hyps)
     | Arrow _ | Binding _ | Obj _ ->
         [%trace 2 "purpos found negative: %a"]
           format_metaterm form

@@ -1405,7 +1405,7 @@ let saturate ?name ?depth ?use () =
   in
   let lemtab = H.create 19 in
   Seq.iter begin fun lem ->
-    H.add lemtab lem (get_lemma lem)
+    H.add lemtab lem (get_hyp_or_lemma lem)
   end use ;
   let initial_focus = H.to_seq_values lemtab |> List.of_seq in
   let depth0 = match depth with

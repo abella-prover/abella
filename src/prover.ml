@@ -1407,7 +1407,11 @@ let saturate ?name ?depth ?use () =
   Seq.iter begin fun lem ->
     H.add lemtab lem (get_hyp_or_lemma lem)
   end use ;
-  let initial_focus = H.to_seq_values lemtab |> List.of_seq in
+  let initial_focus () =
+    H.to_seq_values lemtab
+    |> Seq.map (fun lem -> normalize ~used:sequent.vars lem)
+    |> List.of_seq
+  in
   let depth0 = match depth with
     | None -> 1
     | Some depth -> depth
@@ -1426,7 +1430,7 @@ let saturate ?name ?depth ?use () =
     (* [%trace 2 "loop %d"] depth ; *)
     if depth <= 0 then () else begin
       let num_released, subgoals =
-        multifocus [] initial_focus
+        multifocus [] (initial_focus ())
           ~succ:(fun () -> loop ~depth:(depth - 1))
       in
       if num_released = 0 then begin

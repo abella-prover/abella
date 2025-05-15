@@ -1397,7 +1397,8 @@ let cut_from ?name h arg term =
 (* Saturate *)
 
 exception SaturateSuccess
-let[@ocaml.warning "-26-27"] saturate ?name ?depth ?use () =
+let is_ground f = metaterm_vars_alist Logic f = []
+let saturate ?name ?depth ?use () =
   let use = match use with
     | None -> H.to_seq_keys lemmas
     | Some use -> List.to_seq use
@@ -1441,6 +1442,7 @@ let[@ocaml.warning "-26-27"] saturate ?name ?depth ?use () =
     | [] ->
         let to_release =
           List.rev_filter_map begin fun form ->
+            if not @@ is_ground form then None else
             match purepos ~succ:(fun () -> raise SaturateSuccess) form with
             | _ ->
                 (* [%trace 2 "NEW: %a"] format_metaterm form ; *)
@@ -1467,8 +1469,7 @@ let[@ocaml.warning "-26-27"] saturate ?name ?depth ?use () =
               (* [%trace 2 "Found @[<b2>%a ->@ %a@]"] *)
               (*   format_metaterm f1 *)
               (*   format_metaterm f2 ; *)
-              let lvars = metaterm_vars_alist Logic f1 in
-              if lvars = [] then cases := (f1, f2) :: !cases
+              if is_ground f1 then cases := (f1, f2) :: !cases
               (* else [%trace 2 "Not adding since not ground"] *)
             in
             purepos ~succ:add_proof f1 ;
@@ -1510,10 +1511,10 @@ let[@ocaml.warning "-26-27"] saturate ?name ?depth ?use () =
         unwind_state begin fun () ->
           if Unify.try_right_unify t1 t2 then succ ()
         end ()
-    | Pred (cp, cr) ->
+    | Pred (_, cr) ->
         List.iter ~guard:unwind_state begin fun h ->
           match h.term with
-          | Pred (hp, hr) ->
+          | Pred (_, hr) ->
               if satisfies hr cr then
                 all_meta_right_permute_unify ~sc:succ form h.term
           | _ -> ()

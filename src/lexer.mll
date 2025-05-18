@@ -72,6 +72,7 @@
     "rename",        RENAME ;
     "right",         RIGHT ;
     "saturate",      SATURATE ;
+    "fchain",        SATURATE ;
     "search",        SEARCH ;
     "sig",           SIG ;
     "skip",          SKIP ;

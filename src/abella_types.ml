@@ -462,8 +462,8 @@ let command_to_string c =
           | Some n -> " " ^ string_of_int n
         in
         match lemmas with
-        | None -> sprintf "%ssaturate%s" (hn_to_string hn) dp
-        | Some lemmas -> sprintf "%ssaturate%s %s" (hn_to_string hn) dp
+        | None -> sprintf "%sfchain%s" (hn_to_string hn) dp
+        | Some lemmas -> sprintf "%sfchain%s %s" (hn_to_string hn) dp
                             (String.concat " " lemmas)
       end
     | Intros [] -> "intros"

@@ -151,7 +151,7 @@ const typeRex = /\b(olist|prop|o)\b/g;
 const termRex = /\b(forall|exists|nabla|pi|sigma|sig|module|end)\b/g;
 const topBuiltRex = /\b(Import|Specification|Query|Set|Show|Close)\b/g;
 const topCmdRex = /\b((?:Co)?Define|Theorem|Split|by|Kind|Type|Suspend)\b/g;
-const proofCmdRex = /\b(abbrev|all|apply|assert|backchain|case|clear|(?:co)?induction|compute|cut|inst|intros|keep|left|monotone|on|permute|rename|right|search|split(?:\*)?|to|unabbrev|unfold|with|witness)\b/g;
+const proofCmdRex = /\b(abbrev|all|apply|assert|backchain|case|clear|(?:co)?induction|compute|cut|inst|intros|keep|left|monotone|on|permute|rename|right|search|split(?:\*)?|to|unabbrev|unfold|with|witness|fchain|saturate)\b/g;
 const proofSpecRex = /\b(skip|undo|abort)\b/g;
 const sigRex = /\b(type|kind)\b/g;
 

@@ -1578,3 +1578,21 @@ let saturate ?name ?depth ?use () =
       end
   in
   loop ~depth:depth0
+
+let clear_duplicates () =
+  let new_hyps = ref [] in
+  let new_preds = ref [] in
+  let scan (h : hyp) =
+    match h.term with
+    | Pred (a, res) ->
+        if List.exists (fun (oa, ores) -> res = ores && Term.eq a oa) !new_preds
+        then ()
+        else begin
+          new_preds := (a, res) :: !new_preds ;
+          new_hyps := h :: !new_hyps
+        end
+    | _ ->
+        new_hyps := h :: !new_hyps
+  in
+  List.iter scan sequent.hyps ;
+  sequent.hyps <- List.rev !new_hyps

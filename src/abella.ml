@@ -639,6 +639,7 @@ and process_proof1 proc =
     | Monotone(h, t, hn)            -> Prover.monotone ?name:hn h t
     | Exists(_, ts)                 -> List.iter Prover.exists ts
     | Clear(cm, hs)                 -> Prover.clear cm hs
+    | ClearDups                     -> Prover.clear_duplicates ()
     | Abbrev(hs, s)                 -> Prover.abbrev (Iset.of_list hs) s
     | Unabbrev(hs)                  -> Prover.unabbrev (Iset.of_list hs)
     | Rename(hfr, hto)              -> Prover.rename hfr hto

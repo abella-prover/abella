@@ -534,6 +534,8 @@ pure_command:
     { Types.Unfold (csel, ssel) }
   | CLEAR; hs=hyp_list; DOT
     { Types.Clear(Types.Clear_delete, hs) }
+  | CLEAR; DOT
+    { Types.ClearDups }
   | CLEAR; RARROW; hs=hyp_list; DOT
     { Types.Clear(Types.Clear_extro, hs) }
   | ABBREV; hs=hyp_list; ab=QSTRING; DOT

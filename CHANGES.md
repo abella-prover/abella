@@ -13,6 +13,10 @@ Changes
   (#154, reported by @yurivict)
 * Abella is now byte-compiled for ppc32 and ppc64.  
   (#151, reporeted by @barracuda156)
+* Abella now compiles with OCaml 5.5, whose type inference no longer
+  infers the package type of a first-class module passed as a
+  partially-applied argument.  
+  (#166, reported by @kit-ty-kate)
 
 Bugfixes
 

@@ -710,6 +710,8 @@ and unify_app_term tyctx h1 a1 t1 t2 =
         begin match observe h2 with
           | DB n2 when n1 == n2 ->
               unify_list tyctx a1 a2
+          | DB _ ->
+              fail (ConstClash (h1,h2))
           | Var v when variable v.tag ->
               let m = List.length a2 in
                 bind h2 (makesubst tyctx h2 t1 a2 m)

@@ -1394,6 +1394,26 @@ let cut_from ?name h arg term =
   | _,_ -> failwith "The cut command can only be used on \
                    \ hypotheses of the form {...}"
 
+(* Duplicate hypothesis removal *)
+
+let clear_duplicates () =
+  let new_hyps = ref [] in
+  let new_preds = ref [] in
+  let scan (h : hyp) =
+    match h.term with
+    | Pred (a, res) ->
+        if List.exists (fun (oa, ores) -> res = ores && Term.eq a oa) !new_preds
+        then ()
+        else begin
+          new_preds := (a, res) :: !new_preds ;
+          new_hyps := h :: !new_hyps
+        end
+    | _ ->
+        new_hyps := h :: !new_hyps
+  in
+  List.iter scan sequent.hyps ;
+  sequent.hyps <- List.rev !new_hyps
+
 (* Saturate *)
 
 exception SaturateSuccess
@@ -1427,6 +1447,7 @@ let saturate ?name ?depth ?use () =
     |> List.unique ~cmp:eq
   in
   let rec loop ~depth =
+    clear_duplicates () ;
     (* [%trace 2 "loop %d"] depth ; *)
     if depth <= 0 then () else begin
       let num_released, subgoals =
@@ -1578,21 +1599,3 @@ let saturate ?name ?depth ?use () =
       end
   in
   loop ~depth:depth0
-
-let clear_duplicates () =
-  let new_hyps = ref [] in
-  let new_preds = ref [] in
-  let scan (h : hyp) =
-    match h.term with
-    | Pred (a, res) ->
-        if List.exists (fun (oa, ores) -> res = ores && Term.eq a oa) !new_preds
-        then ()
-        else begin
-          new_preds := (a, res) :: !new_preds ;
-          new_hyps := h :: !new_hyps
-        end
-    | _ ->
-        new_hyps := h :: !new_hyps
-  in
-  List.iter scan sequent.hyps ;
-  sequent.hyps <- List.rev !new_hyps

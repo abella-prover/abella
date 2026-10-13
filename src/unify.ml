@@ -509,7 +509,8 @@ let makesubst tyctx h1 t2 a1 n =
       | Var v when variable v.tag ->
           if eq c h1 then fail OccursCheck ;
           let (changed,a1',a2') = raise_and_invert ts1 v.ts a1 [] lev in
-            if changed || ts1 < v.ts then
+            if changed
+               || (ts1 < v.ts && v.tag = Logic) (* See: #171 *) then
               let ty = tyarrow (List.map (tc tyctx) a2') (tc tyctx c) in
               let h' = named_fresh hv1.name (min ts1 v.ts) ty in
                 bind c (app h' a2') ;

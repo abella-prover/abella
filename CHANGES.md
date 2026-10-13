@@ -39,6 +39,10 @@ Bugfixes
   logic variable is not provably different from a constant. ***SOUNDNESS BUG***
   ***BREAKING CHANGE***
   (#170, reported by Dale Miller @ThatDaleMiller)
+* Left-unification no longer lowers the timestamp of an eigen variable by
+  renaming it, which could unsoundly let an earlier existential witness
+  depend on it. ***SOUNDNESS BUG***
+  (#171, reported by Dale Miller @ThatDaleMiller)
 
 
 Changes in 2.0.8 from 2.0.7

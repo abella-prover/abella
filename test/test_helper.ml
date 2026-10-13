@@ -114,6 +114,11 @@ let () = process_top_command "Type   foo, bar, baz         i -> prop."
 let () = process_top_command "Type   rel1, rel2, rel3      i -> i -> prop."
 let () = process_top_command "Type   ctx                   olist -> prop."
 
+(* A kind with a single constant, used to test that a logic variable is not
+   provably different from that constant (see issue #170). *)
+let () = process_top_command "Kind   issue170              type."
+let () = process_top_command "Type   only_a                issue170."
+
 (* For subordination tests *)
 let () = process_top_command "Kind     sr_a, sr_b     type."
 let () = process_top_command "Type     a_to_b   sr_a -> sr_b."

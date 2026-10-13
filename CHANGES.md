@@ -35,6 +35,10 @@ Bugfixes
 * Abella now compiles with OCaml 5.5 (#166)
 * Bound variable clash should be a unification error instead of failure
   (#168, identified and fixed by Matteo Manighetti @manmatteo)
+* Left-unification no longer treats logic variables as constant-like, so a
+  logic variable is not provably different from a constant. ***SOUNDNESS BUG***
+  ***BREAKING CHANGE***
+  (#170, reported by Dale Miller @ThatDaleMiller)
 
 
 Changes in 2.0.8 from 2.0.7

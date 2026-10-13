@@ -932,6 +932,21 @@ let case_tests =
                    end
                | cases -> assert_expected_cases 1 cases) ;
 
+      "Logic variable against a constant should result in an equality" >::
+        (fun () ->
+           let x = var Logic "X" 0 ity in
+           let a = const ~ts:0 "t1" ity in
+           let term = Eq(x, a) in
+             match case ~used:[] term with
+               | [case1] ->
+                   set_bind_state case1.bind_state ;
+                   begin match case1.new_hyps with
+                     | [hyp] ->
+                         assert_pprint_equal "X = t1" hyp ;
+                     | _ -> assert_failure "Expected 1 new hypothesis"
+                   end
+               | cases -> assert_expected_cases 1 cases) ;
+
       "Should not work on flexible clause head" >::
         (fun () ->
            let term = freshen "{P}" in
@@ -1478,6 +1493,13 @@ let search_tests =
              ~goal:"rel1 (iapp t1 t2) (r1 t3)"
              ~defs:"rel1 (iapp A B) (C D) := rel1 A (iabs C) /\\ rel1 B D."
              ~expect:true
+        );
+
+      "Should not prove a logic variable different from the only constant" >::
+        (fun () ->
+           assert_search ()
+             ~goal:"exists X, X = only_a -> false"
+             ~expect:false
         );
 
       "Should not match co-restricted hypothesis (1)" >::

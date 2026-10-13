@@ -415,6 +415,29 @@ let tests =
              assert_raises_any
                (fun () -> left_unify a n)) ;
 
+      "Logic variables on left are not constant-like" >::
+        (fun () ->
+           let x = var Logic "X" 0 ity in
+           let a = const ~ts:0 "a" ity in
+             try
+               left_unify x a ;
+               assert_failure "Expected NotLLambda"
+             with
+               | UnifyError NotLLambda -> ()) ;
+
+      "Logic variables on left produce a conflict pair" >::
+        (fun () ->
+           let x = var Logic "X" 0 ity in
+           let a = const ~ts:0 "a" ity in
+             match try_left_unify_cpairs ~used:[] x a with
+               | Some [(t1, t2)] ->
+                   assert_term_pprint_equal "X" t1 ;
+                   assert_term_pprint_equal "a" t2
+               | Some l -> assert_failure
+                   (Printf.sprintf "Expected one conflict pair, but found %d"
+                      (List.length l))
+               | None -> assert_failure "Unification failed") ;
+
       "Raised eigen variables on left should unify with nominal variables" >::
         (fun () ->
            let a = var Eigen "a" 0 iity in

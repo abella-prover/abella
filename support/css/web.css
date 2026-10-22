@@ -188,6 +188,7 @@ button {
 .file-list {
   display: flex;
   flex-direction: column;
+  min-width: max-content;
 }
 
 .file-group {
@@ -199,24 +200,29 @@ button {
   color: var(--muted);
 }
 
+.file-dir {
+  padding: 0.4rem 0.9rem 0.15rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
 .file {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 0.4rem;
   width: 100%;
   border: 0;
   border-radius: 0;
   background: transparent;
-  padding: 0.35rem 0.9rem;
+  padding: 0.3rem 0.9rem 0.3rem 1.35rem;
   text-align: left;
   font-family: var(--mono);
   font-size: 0.82rem;
-  overflow: hidden;
 
   .file-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
     white-space: nowrap;
   }
 
@@ -228,6 +234,7 @@ button {
   .file-root {
     color: var(--amber);
     font-weight: 700;
+    margin-left: -0.2rem;
   }
 }
 

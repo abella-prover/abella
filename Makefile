@@ -20,32 +20,10 @@ support/.stamp: $(wildcard support/ts/*.ts support/css/*.css)
 	  npm run build && \
 	  touch .stamp )
 
-AIN := abella.install
-
-.PHONY: $(AIN)
-$(AIN):
-	$(RM) $(AIN)
-	echo 'bin: [' >> $(AIN)
-	echo '"_build/default/src/abella.$(EXTN)" {"abella"}' >> $(AIN)
-	echo '"_build/default/src/abella_doc.$(EXTN)" {"abella_doc"}' >> $(AIN)
-	echo '"_build/default/src/abella_dep.$(EXTN)" {"abella_dep"}' >> $(AIN)
-	echo ']' >> $(AIN)
-	echo 'man: [' >> $(AIN)
-	for pr in _build/default/src/*.$(EXTN) ; do \
-	  $$pr --help=groff > $${pr%%.$(EXTN)}.1 ; \
-	  echo '"'$${pr%%.$(EXTN)}.1'"' >> $(AIN) ; \
-	done
-	echo ']' >> $(AIN)
-	echo 'share: [' >> $(AIN)
-	for f in emacs/* `find examples -type f | grep -E '(sig|mod|thm)$$'` ; do \
-	    echo '"'$$f'"' '{"'$$f'"}' >> $(AIN) ; \
-	done
-	echo ']' >> $(AIN)
-
 .PHONY: clean
 clean:
 	$(DUNE) clean
-	$(RM) abella $(BINS) $(AIN)
+	$(RM) abella $(BINS)
 
 .PHONY: test
 test:

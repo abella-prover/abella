@@ -1,5 +1,7 @@
 (executable
  (name abella)
+ (public_name abella)
+ (package abella)
  (modes byte exe)
  (modules abella)
  (libraries abella_lib unix cmdliner ppx_abella_lib)
@@ -17,12 +19,16 @@
 
 (executable
  (name abella_doc)
+ (public_name abella_doc)
+ (package abella)
  (modes byte exe)
  (modules abella_doc abella_doc_dist)
  (libraries abella_lib unix cmdliner))
 
 (executable
  (name abella_dep)
+ (public_name abella_dep)
+ (package abella)
  (modes byte exe)
  (modules abella_dep)
  (libraries abella_lib unix cmdliner))
@@ -45,3 +51,19 @@
 (alias
  (name default)
  (deps abella.exe abella_doc.exe abella_dep.exe))
+
+(rule
+ (targets abella.1 abella_doc.1 abella_dep.1)
+ (action
+  (progn
+   (with-stdout-to abella.1
+    (run %{exe:abella.exe} --help=groff))
+   (with-stdout-to abella_doc.1
+    (run %{exe:abella_doc.exe} --help=groff))
+   (with-stdout-to abella_dep.1
+    (run %{exe:abella_dep.exe} --help=groff)))))
+
+(install
+ (section man)
+ (package abella)
+ (files abella.1 abella_doc.1 abella_dep.1))

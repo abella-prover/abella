@@ -550,7 +550,7 @@ and source_compile ~modname =
     compiling := modname :: saved_compiling ;
     Output.collect_mode () ;
     ignore (Output.drain ()) ;
-    Option.iter (fun f -> f modname) !on_import ;
+    Option.iter (fun f -> f (Source.canon modname)) !on_import ;
     let rec drive () =
       match !process1_hook () with
       | `ok -> drive ()

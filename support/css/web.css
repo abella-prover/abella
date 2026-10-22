@@ -80,9 +80,7 @@ button {
   font-size: 1rem;
   line-height: 1;
   color: var(--muted);
-}
-
-.topbar {
+}.topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -171,26 +169,30 @@ button {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 14rem minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width, 14rem) 6px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) minmax(10rem, 28vh);
   gap: 0;
   transition: grid-template-columns 160ms ease;
 }
 
+.layout.resizing {
+  transition: none;
+}
+
 .layout.sidebar-collapsed {
-  grid-template-columns: 0 minmax(0, 1fr);
+  grid-template-columns: 0 6px minmax(0, 1fr);
 
   .sidebar {
     opacity: 0;
     visibility: hidden;
     overflow: hidden;
-    border-right: 0;
   }
 }
 
 .sidebar {
+  grid-column: 1;
   grid-row: 1 / -1;
-  border-right: 1px solid var(--border);
+  border-right: 0;
   background: var(--surface);
   min-height: 0;
   overflow: auto;
@@ -198,6 +200,38 @@ button {
   opacity: 1;
   visibility: visible;
   transition: opacity 120ms ease;
+}
+
+.splitter {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  position: relative;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0 2px;
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  &:hover::before,
+  &:focus-visible::before,
+  &.dragging::before {
+    border-left: 2px solid var(--rose);
+  }
+
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .sidebar-title {
@@ -263,7 +297,7 @@ button {
 }
 
 .editor-pane {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1;
   min-height: 0;
   background: var(--surface);
@@ -279,7 +313,7 @@ button {
 }
 
 .panels {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 2;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -404,10 +438,22 @@ kbd {
   white-space: nowrap;
 }
 
+.mobile-only {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .layout {
     display: flex;
     flex-direction: column;
+  }
+
+  .splitter {
+    display: none;
+  }
+
+  .mobile-only {
+    display: inline-flex;
   }
 
   .layout.sidebar-collapsed .sidebar {

@@ -10,15 +10,6 @@
   <body>
     <header class="topbar">
       <div class="brand">
-        <button
-          id="sidebar-toggle"
-          class="icon-button"
-          type="button"
-          aria-controls="sidebar"
-          aria-expanded="true"
-          aria-label="Toggle project sidebar"
-          title="Toggle project sidebar (Ctrl/Cmd-B)"
-        ><span aria-hidden="true">☰</span></button>
         <img src="logo.png" alt="" width="64" height="29">
         <h1>Abella Web</h1>
       </div>
@@ -33,6 +24,9 @@
         </select>
       </label>
       <button id="scratch" type="button">Start from scratch</button>
+      <button id="sidebar-mobile-toggle" class="mobile-only" type="button" aria-controls="sidebar">
+        Project
+      </button>
       <span class="spacer"></span>
       <button id="download-zip" type="button">Download zip</button>
       <button id="import-zip" type="button">Import zip</button>
@@ -51,6 +45,17 @@
         <div class="sidebar-title">Project</div>
         <div id="file-list" class="file-list"></div>
       </aside>
+      <div
+        id="sidebar-splitter"
+        class="splitter"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize or collapse the project sidebar"
+        aria-valuemin="0"
+        aria-valuenow="224"
+        tabindex="0"
+        title="Drag to resize; drag far left or double-click to collapse"
+      ></div>
       <section class="editor-pane">
         <div id="editor" class="editor"></div>
       </section>

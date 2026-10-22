@@ -42,36 +42,210 @@ const processAllButton = byId<HTMLButtonElement>("process-all");
 const resetButton = byId<HTMLButtonElement>("reset");
 const layout = document.querySelector(".layout") as HTMLElement;
 const sidebar = byId<HTMLElement>("sidebar");
-const sidebarToggle = byId<HTMLButtonElement>("sidebar-toggle");
+const splitter = byId<HTMLDivElement>("sidebar-splitter");
 const SIDEBAR_KEY = "abella.web.v1.sidebar";
+const DEFAULT_SIDEBAR_WIDTH = 224;
+const MIN_SIDEBAR_WIDTH = 150;
+const COLLAPSE_THRESHOLD = 100;
 
 let project: Project = loadProject() ?? scratchProject();
 let bundle: Bundle | undefined;
 let editor: EditorManager;
 let session: Session;
 let saveTimer: number | undefined;
+let measureTimer: number | undefined;
+let sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
+let sidebarCollapsed = false;
 
-function sidebarPreference(): boolean {
+interface SidebarPref {
+  width: number;
+  collapsed: boolean;
+}
+
+function loadSidebarPref(): SidebarPref {
   try {
-    return localStorage.getItem(SIDEBAR_KEY) !== "closed";
+    const raw = localStorage.getItem(SIDEBAR_KEY);
+    if (raw === "closed") {
+      return { width: DEFAULT_SIDEBAR_WIDTH, collapsed: true };
+    }
+    if (raw === "open") {
+      return { width: DEFAULT_SIDEBAR_WIDTH, collapsed: false };
+    }
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<SidebarPref>;
+      if (typeof parsed.width === "number") {
+        return {
+          width: parsed.width,
+          collapsed: Boolean(parsed.collapsed),
+        };
+      }
+    }
   } catch {
-    return true;
+    // Fall through to the default.
+  }
+  return {
+    width: DEFAULT_SIDEBAR_WIDTH,
+    collapsed: window.matchMedia("(max-width: 900px)").matches,
+  };
+}
+
+function maxSidebarWidth(): number {
+  return Math.max(
+    MIN_SIDEBAR_WIDTH,
+    Math.min(window.innerWidth * 0.5, 560)
+  );
+}
+
+function scheduleMeasure(): void {
+  window.clearTimeout(measureTimer);
+  measureTimer = window.setTimeout(() => editor?.requestMeasure(), 80);
+}
+
+function renderSidebar(collapsed: boolean, width: number): void {
+  sidebarCollapsed = collapsed;
+  if (!collapsed) {
+    sidebarWidth = Math.max(
+      MIN_SIDEBAR_WIDTH,
+      Math.min(width, maxSidebarWidth())
+    );
+  }
+  layout.style.setProperty(
+    "--sidebar-width",
+    collapsed ? "0px" : `${sidebarWidth}px`
+  );
+  layout.classList.toggle("sidebar-collapsed", collapsed);
+  sidebar.toggleAttribute("inert", collapsed);
+  sidebar.setAttribute("aria-hidden", String(collapsed));
+  splitter.setAttribute(
+    "aria-valuenow",
+    collapsed ? "0" : String(Math.round(sidebarWidth))
+  );
+  splitter.setAttribute("aria-valuemax", String(Math.round(maxSidebarWidth())));
+  splitter.setAttribute(
+    "aria-valuetext",
+    collapsed ? "collapsed" : `${Math.round(sidebarWidth)} pixels`
+  );
+  splitter.title = collapsed
+    ? "Drag right or double-click to show the project sidebar"
+    : "Drag to resize; drag far left or double-click to collapse";
+  scheduleMeasure();
+}
+
+function saveSidebar(): void {
+  try {
+    localStorage.setItem(
+      SIDEBAR_KEY,
+      JSON.stringify({
+        width: Math.round(sidebarWidth),
+        collapsed: sidebarCollapsed,
+      })
+    );
+  } catch {
+    // Persistence is optional.
   }
 }
 
-function applySidebar(open: boolean, persist: boolean): void {
-  layout.classList.toggle("sidebar-collapsed", !open);
-  sidebarToggle.setAttribute("aria-expanded", String(open));
-  sidebar.toggleAttribute("inert", !open);
-  sidebar.setAttribute("aria-hidden", String(!open));
-  if (persist) {
-    try {
-      localStorage.setItem(SIDEBAR_KEY, open ? "open" : "closed");
-    } catch {
-      // Persistence is optional.
+function setSidebar(collapsed: boolean, width: number): void {
+  renderSidebar(collapsed, width);
+  saveSidebar();
+}
+
+function toggleSidebar(): void {
+  setSidebar(!sidebarCollapsed, sidebarWidth);
+}
+
+function installSplitter(): void {
+  let dragging = false;
+  let startX = 0;
+  let startWidth = 0;
+  let lastWidth = 0;
+
+  const finish = (): void => {
+    if (!dragging) return;
+    dragging = false;
+    layout.classList.remove("resizing");
+    splitter.classList.remove("dragging");
+    document.body.classList.remove("resizing");
+    if (lastWidth < COLLAPSE_THRESHOLD) {
+      setSidebar(true, sidebarWidth);
+    } else {
+      setSidebar(false, Math.max(MIN_SIDEBAR_WIDTH, lastWidth));
     }
-  }
-  window.setTimeout(() => editor?.requestMeasure(), 180);
+  };
+
+  splitter.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    dragging = true;
+    startX = event.clientX;
+    startWidth = sidebarCollapsed ? 0 : sidebarWidth;
+    lastWidth = startWidth;
+    layout.classList.add("resizing");
+    splitter.classList.add("dragging");
+    document.body.classList.add("resizing");
+    splitter.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  splitter.addEventListener("pointermove", (event) => {
+    if (!dragging) return;
+    const raw = Math.max(
+      0,
+      Math.min(startWidth + event.clientX - startX, maxSidebarWidth())
+    );
+    lastWidth = raw;
+    if (raw < COLLAPSE_THRESHOLD) {
+      renderSidebar(true, sidebarWidth);
+    } else {
+      renderSidebar(false, raw);
+    }
+  });
+
+  splitter.addEventListener("pointerup", finish);
+  splitter.addEventListener("pointercancel", finish);
+  splitter.addEventListener("dblclick", toggleSidebar);
+
+  splitter.addEventListener("keydown", (event) => {
+    const step = 16;
+    switch (event.key) {
+      case "ArrowLeft":
+        event.preventDefault();
+        if (sidebarCollapsed) {
+          toggleSidebar();
+        } else if (sidebarWidth - step < COLLAPSE_THRESHOLD) {
+          setSidebar(true, sidebarWidth);
+        } else {
+          setSidebar(false, sidebarWidth - step);
+        }
+        break;
+      case "ArrowRight": {
+        event.preventDefault();
+        const base = sidebarCollapsed
+          ? Math.max(MIN_SIDEBAR_WIDTH, sidebarWidth)
+          : sidebarWidth;
+        setSidebar(false, base + step);
+        break;
+      }
+      case "Home":
+        event.preventDefault();
+        setSidebar(true, sidebarWidth);
+        break;
+      case "End":
+        event.preventDefault();
+        setSidebar(false, maxSidebarWidth());
+        break;
+      case "Enter":
+      case " ":
+        event.preventDefault();
+        toggleSidebar();
+        break;
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (!sidebarCollapsed) {
+      renderSidebar(false, Math.min(sidebarWidth, maxSidebarWidth()));
+    }
+  });
 }
 
 const statusText: Record<SessionStatus, string> = {
@@ -224,10 +398,13 @@ async function main(): Promise<void> {
     setStatus("compiling", module)
   );
   session = new Session(driver, project, events);
-  applySidebar(sidebarPreference(), false);
-  sidebarToggle.addEventListener("click", () => {
-    applySidebar(layout.classList.contains("sidebar-collapsed"), true);
-  });
+  const pref = loadSidebarPref();
+  renderSidebar(pref.collapsed, pref.width);
+  installSplitter();
+  byId<HTMLButtonElement>("sidebar-mobile-toggle").addEventListener(
+    "click",
+    toggleSidebar
+  );
   document.addEventListener("keydown", (event) => {
     if (
       (event.ctrlKey || event.metaKey) &&
@@ -235,7 +412,7 @@ async function main(): Promise<void> {
       !(event.target as HTMLElement).closest("input, select, textarea")
     ) {
       event.preventDefault();
-      applySidebar(layout.classList.contains("sidebar-collapsed"), true);
+      toggleSidebar();
     }
   });
 

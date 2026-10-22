@@ -13,6 +13,7 @@ let tests = "Abella" >:::
     Test_parser.tests ;
     Test_tactics.tests ;
     (*TODO Test_prover.tests ;*)
+    Test_web.tests ;
   ]
 
 let tests = extract_tests [] tests

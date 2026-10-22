@@ -516,8 +516,8 @@ function renderGoal(): void {
     message.textContent = currentOutcome.message;
     block.append(message);
     goalPanel.append(block);
-    goalPanel.scrollTop = goalPanel.scrollHeight;
   }
+  goalPanel.scrollTop = goalPanel.scrollHeight;
 }
 
 function goal(state: ProofState | undefined): void {

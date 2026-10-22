@@ -242,6 +242,31 @@ let test_output_collect () =
   assert_string_list_equal ["info" ; "error"] severities ;
   assert_int_equal 0 (List.length (Output.drain ()))
 
+let has_kind name =
+  List.exists (fun (id, _) -> id = name) (fst !Typing.sign)
+
+let test_undo_back_counts () =
+  let process_three prefix =
+    let names = List.map (fun s -> prefix ^ s) ["a" ; "b" ; "c"] in
+    List.iter (fun name ->
+        assert_ok (fst (process_command ("Kind " ^ name ^ " type."))))
+      names ;
+    names
+  in
+  let check prefix n expected =
+    start_web_session () ;
+    let names = process_three prefix in
+    State.Undo.back n ;
+    List.iter2 (fun name present ->
+        assert_bool
+          (name ^ (if present then " is missing" else " should be gone"))
+          (has_kind name = present))
+      names expected
+  in
+  check "u1" 1 [true ; true ; false] ;
+  check "u2" 2 [true ; false ; false] ;
+  check "u3" 3 [false ; false ; false]
+
 let test_source_import_cache () =
   Source.add_virtual "main.thm" "" ;
   Source.add_virtual "mod.thm" web_module ;
@@ -260,6 +285,15 @@ let test_source_import_cache () =
   let (status, _) = process_command "Import \"mod\"." in
   assert_ok status ;
   assert_string_list_equal [] !hits ;
+
+  (* The source-compiled module is actually applied. *)
+  let (status, _) = process_command
+      "Theorem root_ok : forall A B, is_app (app A B)." in
+  assert_ok status ;
+  assert_ok (fst (process_command "intros.")) ;
+  let (status, msgs) = process_command "search." in
+  assert_ok status ;
+  assert_contains "Proof completed" (system_messages msgs) ;
 
   let (status, msgs) = process_command "Import \"nope\"." in
   assert_bool "missing import fails" (status = `error) ;
@@ -331,6 +365,7 @@ let test_import_cycle () =
 let tests = "web_core" >::: [
   "virtual_source" >:: (fun () -> with_session test_virtual_source) ;
   "output_collect" >:: (fun () -> with_session test_output_collect) ;
+  "undo_back_counts" >:: (fun () -> with_session test_undo_back_counts) ;
   "source_import_cache" >:: (fun () -> with_session test_source_import_cache) ;
   "values_match_native" >:: (fun () -> with_session test_values_match_native) ;
   "virtual_native_thc" >:: (fun () -> with_session test_virtual_native_thc) ;

@@ -168,6 +168,12 @@ let thc path =
   else
     Js.Unsafe.inject Js.null
 
+(* Install the progress callback used by the worker. *)
+let set_on_import callback =
+  Abella_driver.on_import := Some (fun name ->
+      ignore (Js.Unsafe.fun_call callback
+                [| Js.Unsafe.inject (Js.string name) |]))
+
 let () =
   let api = Js.Unsafe.obj [|
     "init", Js.Unsafe.inject (Js.Unsafe.callback init) ;
@@ -175,6 +181,7 @@ let () =
     "process", Js.Unsafe.inject (Js.Unsafe.callback process) ;
     "back", Js.Unsafe.inject (Js.Unsafe.callback back) ;
     "thc", Js.Unsafe.inject (Js.Unsafe.callback thc) ;
+    "setOnImport", Js.Unsafe.inject (Js.Unsafe.callback set_on_import) ;
   |] in
   Js.Unsafe.set Js.Unsafe.global (Js.string "Abellajs") api ;
   Js.export "Abellajs" api

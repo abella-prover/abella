@@ -15,6 +15,7 @@
     /* Language and Environment */
     "target": "esnext",                                  /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
     "lib": ["ESNext", "DOM"],                            /* Specify a set of bundled library declaration files that describe the target runtime environment. */
+    "types": ["node"],                                   /* Include the Node types used by the web test harness. */
     // "jsx": "preserve",                                /* Specify what JSX code is generated. */
     // "experimentalDecorators": true,                   /* Enable experimental support for legacy experimental decorators. */
     // "emitDecoratorMetadata": true,                    /* Emit design-type metadata for decorated declarations in source files. */

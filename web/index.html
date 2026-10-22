@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Abella Web</title>
+    <link rel="icon" href="logo.png" type="image/png">
+    <link rel="stylesheet" href="abella_web.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img src="logo.png" alt="" width="64" height="29">
+        <h1>Abella Web</h1>
+      </div>
+      <span id="status" class="status" data-status="idle">Starting…</span>
+    </header>
+
+    <div class="toolbar">
+      <label class="example-picker">
+        <span class="visually-hidden">Example</span>
+        <select id="example-select" disabled>
+          <option>Loading examples…</option>
+        </select>
+      </label>
+      <button id="scratch" type="button">Start from scratch</button>
+      <span class="spacer"></span>
+      <button id="download-zip" type="button">Download zip</button>
+      <button id="import-zip" type="button">Import zip</button>
+      <input id="zip-input" type="file" accept=".zip" hidden>
+    </div>
+
+    <div class="toolbar secondary">
+      <button id="process" type="button" title="Ctrl/Cmd-Enter">Process to cursor</button>
+      <button id="process-all" type="button">Process full</button>
+      <button id="reset" type="button">Reset</button>
+      <span id="status-detail" class="status-detail"></span>
+    </div>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <div class="sidebar-title">Project</div>
+        <div id="file-list" class="file-list"></div>
+      </aside>
+      <section class="editor-pane">
+        <div id="editor" class="editor"></div>
+      </section>
+      <section class="panels">
+        <section class="panel">
+          <h2>Goal</h2>
+          <div id="goal" class="goal-panel"></div>
+        </section>
+        <section class="panel">
+          <h2>Messages</h2>
+          <div id="messages" class="messages-panel"></div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd> process to cursor</span>
+      <span><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> blocking</span>
+      <a href="https://abella-prover.org">abella-prover.org</a>
+    </footer>
+
+    <script type="module" src="abella_web.js"></script>
+  </body>
+</html>

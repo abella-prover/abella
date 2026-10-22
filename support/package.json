@@ -5,7 +5,13 @@
   "private": true,
   "scripts": {
     "check": "tsc -noEmit",
-    "build": "esbuild ./ts/abella_doc.ts --color=false --bundle --minify --format=esm --outfile=dist/abella_doc.js"
+    "build": "esbuild ./ts/abella_doc.ts --color=false --bundle --minify --format=esm --outfile=dist/abella_doc.js",
+    "web:js": "esbuild ./ts/web/main.ts --bundle --format=esm --minify --outfile=../web/abella_web.js",
+    "web:worker": "esbuild ./ts/web/worker.ts --bundle --format=iife --minify --define:__ENGINE__='\"wasm\"' --outfile=../web/abella_js/worker.js",
+    "web:worker-js": "esbuild ./ts/web/worker.ts --bundle --format=iife --minify --define:__ENGINE__='\"js\"' --outfile=../web/abella_worker.js",
+    "web:css": "esbuild css/web.css --minify --outfile=../web/abella_web.css",
+    "web:build": "npm run web:js && npm run web:worker && npm run web:worker-js && npm run web:css",
+    "web:test": "esbuild ./ts/web/commands.test.ts ./ts/web/session.test.ts --bundle --platform=node --format=cjs --outdir=../web/.test --log-level=warning && node --test ../web/.test/*.test.js"
   },
   "keywords": [],
   "author": "Kaustuv Chaudhuri <kaustuv@chaudhuri.info>",
@@ -14,5 +20,17 @@
     "@types/node": "^26.5.0",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "6.20.4",
+    "@codemirror/commands": "6.11.1",
+    "@codemirror/lang-markdown": "6.5.2",
+    "@codemirror/language": "6.13.1",
+    "@codemirror/lint": "6.9.7",
+    "@codemirror/search": "6.7.2",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.15",
+    "@lezer/highlight": "1.2.5",
+    "fflate": "0.8.3"
   }
 }

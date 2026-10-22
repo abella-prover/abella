@@ -80,6 +80,14 @@ button {
   font-size: 1rem;
   line-height: 1;
   color: var(--muted);
+}
+
+button:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+.splitter:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 1px;
 }.topbar {
   display: flex;
   align-items: center;
@@ -264,6 +272,22 @@ body.resizing {
   font-size: 0.72rem;
   color: var(--muted);
   white-space: nowrap;
+}
+
+.file-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.5rem 0.6rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+
+  button {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.45rem;
+  }
 }
 
 .file {

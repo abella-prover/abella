@@ -15,6 +15,7 @@ export interface Driver {
   process(command: string, start: SourcePos): Promise<RunResult>;
   back(count: number): Promise<RunResult>;
   terminate(): void;
+  restart?(): void;
   onProgress?: (module: string) => void;
 }
 
@@ -39,26 +40,36 @@ export async function loadEngine(): Promise<Engine> {
 }
 
 export class WorkerDriver implements Driver {
-  private worker: Worker;
-  private ready: Promise<void>;
+  private engine: Engine;
+  private worker!: Worker;
+  private ready!: Promise<void>;
+  private rejectReady?: (error: Error) => void;
   private pending = new Map<number, Pending>();
   private nextId = 0;
   onProgress?: (module: string) => void;
 
   constructor(engine: Engine, onProgress?: (module: string) => void) {
-    this.worker = new Worker(workerPath(engine));
+    this.engine = engine;
     this.onProgress = onProgress;
+    this.spawn();
+  }
+
+  private spawn(): void {
+    this.worker = new Worker(workerPath(this.engine));
     this.ready = new Promise((resolve, reject) => {
+      this.rejectReady = reject;
       const onReady = (event: MessageEvent) => {
         if (event.data?.type === "ready") {
           this.worker.removeEventListener("message", onReady);
           this.worker.removeEventListener("error", onError);
+          this.rejectReady = undefined;
           resolve();
         }
       };
       const onError = (event: ErrorEvent) => {
         this.worker.removeEventListener("message", onReady);
         this.worker.removeEventListener("error", onError);
+        this.rejectReady = undefined;
         reject(new Error(event.message || "Could not start the prover worker"));
       };
       this.worker.addEventListener("message", onReady);
@@ -67,9 +78,13 @@ export class WorkerDriver implements Driver {
     this.worker.addEventListener("message", (event) => this.receive(event));
     this.worker.addEventListener("error", (event) => {
       const error = new Error(event.message || "Prover worker error");
-      for (const pending of this.pending.values()) pending.reject(error);
-      this.pending.clear();
+      this.rejectPending(error);
     });
+  }
+
+  private rejectPending(error: Error): void {
+    for (const pending of this.pending.values()) pending.reject(error);
+    this.pending.clear();
   }
 
   private receive(event: MessageEvent): void {
@@ -119,9 +134,14 @@ export class WorkerDriver implements Driver {
 
   terminate(): void {
     this.worker.terminate();
-    for (const pending of this.pending.values()) {
-      pending.reject(new Error("Prover worker terminated"));
-    }
-    this.pending.clear();
+    this.rejectPending(new Error("Prover worker terminated"));
+  }
+
+  restart(): void {
+    this.rejectReady?.(new Error("Prover worker restarted"));
+    this.rejectReady = undefined;
+    this.worker.terminate();
+    this.rejectPending(new Error("Prover worker restarted"));
+    this.spawn();
   }
 }

@@ -25,7 +25,11 @@ function fileButton(
   button.className = "file";
   button.dataset.path = path;
   button.title = path;
-  if (path === active) button.classList.add("active");
+  button.setAttribute("aria-label", path);
+  if (path === active) {
+    button.classList.add("active");
+    button.setAttribute("aria-current", "true");
+  }
   if (path === project.root) button.classList.add("root");
   const name = document.createElement("span");
   name.className = "file-name";

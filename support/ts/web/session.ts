@@ -144,6 +144,7 @@ export class Session {
   private lastState?: ProofState;
   private lastOutcome?: ProofOutcome;
   private currentTheorem?: string;
+  private generation = 0;
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(driver: Driver, project: Project, events: SessionEvents) {
@@ -262,19 +263,34 @@ export class Session {
     });
   }
 
+  /** Terminate the current prover worker and abandon the session state. */
+  stop(): void {
+    this.generation++;
+    if (this.driver.restart) this.driver.restart();
+    else this.driver.terminate();
+    this.clearSessionState();
+    this.initialized = false;
+    this.dirty = true;
+    this.events.onStatus("ready");
+  }
+
   private async processCommand(
     doc: string,
-    command: Command
+    command: Command,
+    generation = this.generation
   ): Promise<boolean> {
+    if (generation !== this.generation) return false;
     const start = sourcePos(doc, command.from);
     let result: RunResult;
     try {
       result = await this.driver.process(command.text, start);
     } catch (error) {
+      if (generation !== this.generation) return false;
       this.events.onStatus("error");
       this.events.onError(String(error), command.from, command.to);
       return false;
     }
+    if (generation !== this.generation) return false;
     this.events.onResult(result, command);
     const entries = outputEntries(result.messages);
     if (entries.length > 0) this.events.onOutput(entries, command);
@@ -347,9 +363,12 @@ export class Session {
         return;
       }
       this.events.onStatus("processing");
+      const generation = this.generation;
       for (const command of targets) {
-        if (!(await this.processCommand(doc, command))) return;
+        if (generation !== this.generation) return;
+        if (!(await this.processCommand(doc, command, generation))) return;
       }
+      if (generation !== this.generation) return;
       this.events.onStatus("ok");
     });
   }
@@ -442,8 +461,9 @@ export class Session {
         return false;
       }
       this.events.onStatus("processing");
-      const ok = await this.processCommand(doc, command);
-      if (!ok) return false;
+      const generation = this.generation;
+      const ok = await this.processCommand(doc, command, generation);
+      if (!ok || generation !== this.generation) return false;
       if (atEnd) this.events.onCursor(command.to);
       this.events.onStatus("ok");
       return true;

@@ -32,6 +32,7 @@ const ok = (messages: RawMessage[] = []): RunResult => ({
 class FakeDriver implements Driver {
   inits = 0;
   resets = 0;
+  restarts = 0;
   processed: string[] = [];
   backs: number[] = [];
   failAt = -1;
@@ -105,6 +106,10 @@ class FakeDriver implements Driver {
   }
 
   terminate(): void {}
+
+  restart(): void {
+    this.restarts++;
+  }
 }
 
 function makeProject(): Project {
@@ -343,6 +348,18 @@ test("editing a text file does not invalidate the session", async () => {
   session.notifyEdit("README.md", 0);
   await session.processTo(0);
   assert.equal(driver.inits, 1);
+});
+
+test("stop abandons the session and reinitializes on the next request", async () => {
+  const { driver, session } = setup();
+  await session.init();
+  await session.processTo(10000);
+  session.stop();
+  assert.equal(driver.restarts, 1);
+  assert.equal(session.currentTip, 0);
+  assert.equal(session.stepsCount, 0);
+  await session.processTo(0);
+  assert.equal(driver.inits, 2);
 });
 
 test("reset clears steps and reloads the project", async () => {

@@ -13,7 +13,7 @@
         <img src="logo.png" alt="" width="64" height="29">
         <h1>Abella Web</h1>
       </div>
-      <span id="status" class="status" data-status="idle">Starting…</span>
+      <span id="status" class="status" role="status" aria-live="polite" data-status="idle">Starting…</span>
     </header>
 
     <div class="toolbar">
@@ -36,14 +36,21 @@
     <div class="toolbar secondary">
       <button id="process" type="button" title="Ctrl/Cmd-Enter">Process to cursor</button>
       <button id="process-all" type="button">Process full</button>
+      <button id="stop" type="button" disabled>Stop</button>
       <button id="reset" type="button">Reset</button>
       <span id="status-detail" class="status-detail"></span>
     </div>
 
     <main class="layout">
-      <aside class="sidebar" id="sidebar">
+      <aside class="sidebar" id="sidebar" aria-label="Project files">
         <div class="sidebar-title">Project</div>
-        <div id="file-list" class="file-list"></div>
+        <div id="file-list" class="file-list" aria-label="Project files"></div>
+        <div class="file-actions" role="group" aria-label="Project file actions">
+          <button id="add-file" type="button">+ File</button>
+          <button id="rename-file" type="button" disabled>Rename</button>
+          <button id="delete-file" type="button" disabled>Delete</button>
+          <button id="set-root" type="button" disabled>Set root</button>
+        </div>
       </aside>
       <div
         id="sidebar-splitter"
@@ -65,7 +72,7 @@
           <div id="goal" class="goal-panel"></div>
           <details id="output-disclosure" class="output-disclosure">
             <summary id="output-summary">Warnings and output</summary>
-            <div id="output" class="output-panel"></div>
+            <div id="output" class="output-panel" role="log" aria-live="polite"></div>
           </details>
         </section>
       </section>

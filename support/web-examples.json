@@ -31,10 +31,10 @@
       "root": "examples/compute/nats.thm"
     },
     {
-      "id": "ccs",
-      "group": "Process calculi",
-      "name": "Bisimulation for CCS",
-      "root": "examples/process-calculi/ccs/ccs_bisim_examples.thm"
+      "id": "howe",
+      "group": "Programming languages",
+      "name": "Howe's congruence",
+      "root": "examples/programming-languages/howe/howe.thm"
     },
     {
       "id": "pic",

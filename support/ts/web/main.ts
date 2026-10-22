@@ -14,6 +14,7 @@ import {
 import { renderFiles } from "./files";
 import {
   clearSavedProject,
+  classify,
   loadProject,
   projectFromBundle,
   saveProject,
@@ -48,7 +49,12 @@ const exampleSelect = byId<HTMLSelectElement>("example-select");
 const zipInput = byId<HTMLInputElement>("zip-input");
 const processButton = byId<HTMLButtonElement>("process");
 const processAllButton = byId<HTMLButtonElement>("process-all");
+const stopButton = byId<HTMLButtonElement>("stop");
 const resetButton = byId<HTMLButtonElement>("reset");
+const addFileButton = byId<HTMLButtonElement>("add-file");
+const renameFileButton = byId<HTMLButtonElement>("rename-file");
+const deleteFileButton = byId<HTMLButtonElement>("delete-file");
+const setRootButton = byId<HTMLButtonElement>("set-root");
 const layout = document.querySelector(".layout") as HTMLElement;
 const sidebar = byId<HTMLElement>("sidebar");
 const splitter = byId<HTMLDivElement>("sidebar-splitter");
@@ -63,6 +69,7 @@ let editor: EditorManager;
 let session: Session;
 let saveTimer: number | undefined;
 let measureTimer: number | undefined;
+let saveWarningShown = false;
 let sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
 let sidebarCollapsed = false;
 let lastGoalState: ProofState | undefined;
@@ -280,11 +287,33 @@ function setStatus(status: SessionStatus, detail?: string): void {
   processButton.disabled = busy;
   processAllButton.disabled = busy;
   resetButton.disabled = busy;
+  stopButton.disabled = !busy;
+  layout.setAttribute("aria-busy", busy ? "true" : "false");
+  if (
+    (status === "ok" || status === "error") &&
+    window.matchMedia("(max-width: 900px)").matches
+  ) {
+    window.requestAnimationFrame(() =>
+      goalPanel.scrollIntoView({ block: "nearest", behavior: "smooth" })
+    );
+  }
+}
+
+function persistProject(): void {
+  const error = saveProject(project);
+  if (error) {
+    if (!saveWarningShown) {
+      saveWarningShown = true;
+      appendEntries([{ severity: "error", message: `Warning: ${error}` }]);
+    }
+  } else {
+    saveWarningShown = false;
+  }
 }
 
 function scheduleSave(): void {
   window.clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(() => saveProject(project), 250);
+  saveTimer = window.setTimeout(persistProject, 250);
 }
 
 function updateOutputSummary(): void {
@@ -318,6 +347,13 @@ function info(message: string): void {
 
 function refreshFiles(): void {
   renderFiles(fileList, project, project.active, openFile);
+  const active = project.files.get(project.active);
+  renameFileButton.disabled = !active;
+  deleteFileButton.disabled = !active;
+  setRootButton.disabled =
+    !active ||
+    !project.active.endsWith(".thm") ||
+    project.active === project.root;
 }
 
 function openFile(path: string): void {
@@ -328,6 +364,130 @@ function openFile(path: string): void {
   refreshFiles();
   scheduleSave();
   editor.focus();
+}
+
+function normalizeNewPath(input: string | null): string | undefined {
+  if (input === null) return undefined;
+  const path = input.trim().replace(/\\/g, "/").replace(/^\.\//, "");
+  if (
+    path === "" ||
+    path.startsWith("/") ||
+    path.split("/").some((part) => part === "" || part === "." || part === "..")
+  ) {
+    return undefined;
+  }
+  return path;
+}
+
+function specName(path: string): string {
+  const base = path.slice(path.lastIndexOf("/") + 1);
+  return base.replace(/\.(sig|mod)$/, "");
+}
+
+function projectStructureChanged(): void {
+  lastGoalState = undefined;
+  currentOutcome = undefined;
+  renderGoal();
+  session.setProject(project);
+  editor.clearDiagnostics(project.root);
+}
+
+function addFile(): void {
+  const path = normalizeNewPath(
+    window.prompt("New file path (for example helper.thm or notes.md):")
+  );
+  if (!path) return;
+  if (project.files.has(path)) {
+    window.alert(`A file named ${path} already exists.`);
+    return;
+  }
+  const kind = classify(path);
+  let text = "";
+  if (path.endsWith(".sig")) {
+    text = `sig ${specName(path)}.\n`;
+  } else if (path.endsWith(".mod")) {
+    text = `module ${specName(path)}.\n`;
+  }
+  project.files.set(path, { text, kind });
+  openFile(path);
+  if (kind === "abella") projectStructureChanged();
+  persistProject();
+}
+
+function renameFile(): void {
+  const from = project.active;
+  const file = project.files.get(from);
+  if (!file) return;
+  const to = normalizeNewPath(window.prompt("Rename file to:", from));
+  if (!to || to === from) return;
+  if (from === project.root && !to.endsWith(".thm")) {
+    window.alert("The root reasoning file must have a .thm extension.");
+    return;
+  }
+  if (project.files.has(to)) {
+    window.alert(`A file named ${to} already exists.`);
+    return;
+  }
+  const nextKind = classify(to);
+  project.files.delete(from);
+  project.files.set(to, { text: file.text, kind: nextKind });
+  if (project.root === from) project.root = to;
+  if (project.active === from) project.active = to;
+  if (file.kind === nextKind) {
+    editor.rename(from, to);
+  } else {
+    editor.remove(from);
+  }
+  refreshFiles();
+  if (file.kind !== nextKind) openFile(to);
+  if (file.kind === "abella" || nextKind === "abella") {
+    projectStructureChanged();
+  }
+  persistProject();
+}
+
+function deleteFile(): void {
+  const path = project.active;
+  const file = project.files.get(path);
+  if (!file) return;
+  let newRoot = project.root;
+  if (path === project.root) {
+    const candidate = [...project.files.keys()].find(
+      (other) => other.endsWith(".thm") && other !== path
+    );
+    if (!candidate) {
+      window.alert("Cannot delete the only .thm file in the project.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Delete ${path} and make ${candidate} the root reasoning file?`
+      )
+    ) {
+      return;
+    }
+    newRoot = candidate;
+  } else if (!window.confirm(`Delete ${path}?`)) {
+    return;
+  }
+  project.files.delete(path);
+  editor.remove(path);
+  project.root = newRoot;
+  if (project.active === path) project.active = project.root;
+  refreshFiles();
+  openFile(project.active);
+  if (file.kind === "abella") projectStructureChanged();
+  persistProject();
+}
+
+function setRoot(): void {
+  const path = project.active;
+  if (!path.endsWith(".thm") || path === project.root) return;
+  editor.setProcessedTip(project.root, 0);
+  project.root = path;
+  refreshFiles();
+  projectStructureChanged();
+  persistProject();
 }
 
 function renderGoal(): void {
@@ -344,6 +504,7 @@ function renderGoal(): void {
     const block = document.createElement("div");
     block.className = "goal-outcome";
     block.dataset.status = currentOutcome.status;
+    block.setAttribute("role", "status");
     if (currentOutcome.theorem) {
       const theorem = document.createElement("div");
       theorem.className = "goal-outcome-theorem";
@@ -528,10 +689,19 @@ async function main(): Promise<void> {
 
   processButton.addEventListener("click", () => void processToCursor());
   processAllButton.addEventListener("click", () => void session.processAll());
+  stopButton.addEventListener("click", () => {
+    session.stop();
+    editor.clearDiagnostics(project.root);
+    appendEntries([{ severity: "info", message: "Stopped." }]);
+  });
   resetButton.addEventListener("click", () => {
     clearOutput();
     void session.reset();
   });
+  addFileButton.addEventListener("click", addFile);
+  renameFileButton.addEventListener("click", renameFile);
+  deleteFileButton.addEventListener("click", deleteFile);
+  setRootButton.addEventListener("click", setRoot);
 
   exampleSelect.addEventListener("change", () => {
     const id = exampleSelect.value;
@@ -547,6 +717,9 @@ async function main(): Promise<void> {
   });
 
   byId<HTMLButtonElement>("scratch").addEventListener("click", () => {
+    if (!window.confirm("Discard the current project and start from scratch?")) {
+      return;
+    }
     clearSavedProject();
     void startProject(scratchProject());
   });
@@ -563,6 +736,9 @@ async function main(): Promise<void> {
     if (!file) return;
     try {
       const imported = await importProject(file);
+      if (!window.confirm("Replace the current project with this archive?")) {
+        return;
+      }
       await startProject(imported);
     } catch (error) {
       appendEntries([

@@ -90,7 +90,7 @@ interface SavedProject {
   example?: string;
 }
 
-export function saveProject(project: Project): void {
+export function saveProject(project: Project): string | undefined {
   const data: SavedProject = {
     version: 1,
     files: Object.fromEntries(
@@ -102,8 +102,9 @@ export function saveProject(project: Project): void {
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    return undefined;
   } catch (error) {
-    console.warn("Could not save the project", error);
+    return `Could not save the project: ${String(error)}`;
   }
 }
 

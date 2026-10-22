@@ -20,4 +20,5 @@ module Undo : sig
   val back  : int -> unit
 
   val set_enabled : bool -> unit
+  val is_enabled : unit -> bool
 end

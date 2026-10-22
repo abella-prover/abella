@@ -483,18 +483,24 @@ module Xdg = struct
     let home =
       Sys.getenv_opt (if Sys.win32 then "USERPROFILE" else "HOME") |>
       Option.value ~default:""
-    let xdg_cache_dir =
+    (* These must stay lazy: both the defaults and the [ / ] operator
+       create directories, which is not safe at module initialization
+       time in a browser. *)
+    let xdg_cache_dir = lazy begin
       Sys.getenv_opt "XDG_CACHE_HOME" |>
       Option.value ~default:(home / ".cache")
-    let xdg_config_dir =
+    end
+    let xdg_config_dir = lazy begin
       Sys.getenv_opt "XDG_CONFIG_HOME" |>
       Option.value ~default:(home / ".config")
-    let xdg_state_dir =
+    end
+    let xdg_state_dir = lazy begin
       Sys.getenv_opt "XDG_STATE_HOME" |>
       Option.value ~default:(home / ".local" / "state")
+    end
   end
 
-  let cache_dir   = xdg_cache_dir  / abella / "run"
-  let config_dir  = xdg_config_dir / abella
-  let state_dir   = xdg_state_dir  / abella
+  let cache_dir   = lazy (Lazy.force xdg_cache_dir  / abella / "run")
+  let config_dir  = lazy (Lazy.force xdg_config_dir / abella)
+  let state_dir   = lazy (Lazy.force xdg_state_dir  / abella)
 end

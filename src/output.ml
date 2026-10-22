@@ -35,7 +35,8 @@ let commit msg : Json.t =
 type t =
   | Channel of out_channel
   | Buffer of { out : Buffer.t ; err : Buffer.t ; base : out_channel }
-  | Json of { mutable out : Json.t list ; base : out_channel }
+  | Json of { mutable out : Json.t list ; base : out_channel option }
+  | Collect of { mutable out : Json.t list }
   | Null
 
 let dest : t ref = ref @@ Channel Stdlib.stdout
@@ -44,8 +45,19 @@ let annotation_mode () =
   match !dest with
   | Channel base
   | Buffer { base ; _ } ->
-      dest := Json { out = [] ; base }
-  | Json _ | Null -> ()
+      dest := Json { out = [] ; base = Some base }
+  | Json _ | Null | Collect _ -> ()
+
+let collect_mode () =
+  dest := Collect { out = [] }
+
+let drain () =
+  match !dest with
+  | Collect js ->
+      let out = List.rev js.out in
+      js.out <- [] ;
+      out
+  | _ -> []
 
 type severity = Info | Error
 
@@ -69,6 +81,14 @@ let msg_printfk k ?(post = fun x -> x) ?(severity = Info) fmt =
             ] in
           js.out <- commit msg :: js.out
         end
+      | Collect js ->
+          let msg = message "system_message" ~fields:[
+              "severity", `String (match severity with
+                  | Info -> "info"
+                  | Error -> "error") ;
+              "message", `String str
+            ] in
+          js.out <- commit msg :: js.out
       | Null -> ()
     in
     doit () ; k str
@@ -93,13 +113,15 @@ let () =
   Ppx_abella_lib.printer := (module Printer)
 
 let link_message ~pos ~url =
+  let fields = [
+    "source", json_of_position pos ;
+    "url", `String url
+  ] in
   match !dest with
   | Json js ->
-      let msg = message "link" ~fields:[
-          "source", json_of_position pos ;
-          "url", `String url
-        ] in
-      js.out <- commit msg :: js.out
+      js.out <- commit (message "link" ~fields) :: js.out
+  | Collect js ->
+      js.out <- commit (message "link" ~fields) :: js.out
   | _ -> ()
 
 let non_annot fmt =
@@ -110,7 +132,7 @@ let non_annot fmt =
           flush out
       | Buffer { out ; _ } ->
           Buffer.add_string out str
-      | Json _ | Null -> ()
+      | Json _ | Collect _ | Null -> ()
   end fmt
 
 let non_annot_format fmt =
@@ -119,6 +141,8 @@ let non_annot_format fmt =
 let json thing =
   match !dest with
   | Json js ->
+      js.out <- thing :: js.out
+  | Collect js ->
       js.out <- thing :: js.out
   | _ -> ()
 
@@ -142,10 +166,13 @@ let flush () =
       output_string base "\n################################################################################\n" ;
       output_string base @@ Buffer.contents err ;
       close_out base
-  | Json { out ; base } ->
-      (* Json.pretty_to_channel base @@ `List (List.rev out) ; *)
-      Json.to_channel base @@ `List (List.rev out) ;
-      close_out base
-  | Null -> ()
+  | Json { out ; base } -> begin
+      match base with
+      | Some base ->
+          Json.to_channel base @@ `List (List.rev out) ;
+          close_out base
+      | None -> ()
+    end
+  | Collect _ | Null -> ()
 
 let exit code = flush () ; Stdlib.exit code

@@ -70,6 +70,8 @@ module Undo = struct
     (* Printf.eprintf "Undos are %senabled.\n%!" (if en then "" else "NOT ") ; *)
     enabled := en
 
+  let is_enabled () = !enabled
+
   let stack : snap list ref = ref []
 
   let describe _msg =

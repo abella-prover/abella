@@ -6,4 +6,4 @@
  *)
 
 let version = "2.1.0-dev";;
-let self_digest = Digest.file Sys.executable_name;;
+let self_digest = lazy (Digest.file Sys.executable_name);;

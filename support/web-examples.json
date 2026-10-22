@@ -1,0 +1,52 @@
+{
+  "examples": [
+    {
+      "id": "type-uniq",
+      "group": "Lambda calculus",
+      "name": "Type uniqueness",
+      "root": "examples/lambda-calculus/type-uniq/type-uniq.thm"
+    },
+    {
+      "id": "stlc-weak-norm",
+      "group": "Lambda calculus",
+      "name": "Weak normalisation",
+      "root": "examples/lambda-calculus/normalization/stlc-weak-norm.thm"
+    },
+    {
+      "id": "hh-meta",
+      "group": "Logic",
+      "name": "Harrop-style meta-theory",
+      "root": "examples/logic/hh_meta.thm"
+    },
+    {
+      "id": "lists",
+      "group": "First order",
+      "name": "Lists",
+      "root": "examples/first-order/lists.thm"
+    },
+    {
+      "id": "nats",
+      "group": "Computation",
+      "name": "Natural numbers",
+      "root": "examples/compute/nats.thm"
+    },
+    {
+      "id": "ccs",
+      "group": "Process calculi",
+      "name": "Bisimulation for CCS",
+      "root": "examples/process-calculi/ccs/ccs_bisim_examples.thm"
+    },
+    {
+      "id": "pic",
+      "group": "Process calculi",
+      "name": "Bisimulation for the pi-calculus",
+      "root": "examples/process-calculi/pic/pic_bisim_examples.thm"
+    },
+    {
+      "id": "umt",
+      "group": "Miscellaneous",
+      "name": "Unification",
+      "root": "examples/misc/umt.thm"
+    }
+  ]
+}

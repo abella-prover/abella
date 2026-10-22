@@ -63,17 +63,18 @@
         <section class="panel">
           <h2>Goal</h2>
           <div id="goal" class="goal-panel"></div>
-        </section>
-        <section class="panel">
-          <h2>Messages</h2>
-          <div id="messages" class="messages-panel"></div>
+          <details id="output-disclosure" class="output-disclosure">
+            <summary id="output-summary">Warnings and output</summary>
+            <div id="output" class="output-panel"></div>
+          </details>
         </section>
       </section>
     </main>
 
     <footer class="footer">
-      <span><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd> process to cursor</span>
-      <span><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> blocking</span>
+      <span><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd> check to cursor</span>
+      <span><kbd>Ctrl</kbd>+<kbd>]</kbd> / <kbd>[</kbd> next / previous command</span>
+      <span><kbd>Ctrl</kbd>+<kbd>.</kbd> jump to checked tip</span>
       <a href="https://abella-prover.org">abella-prover.org</a>
     </footer>
 

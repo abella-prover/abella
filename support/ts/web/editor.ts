@@ -89,10 +89,17 @@ const editorTheme = EditorView.theme({
   },
 });
 
+export interface EditorActions {
+  process(): void;
+  stepForward(): void;
+  stepBackward(): void;
+  jumpToTip(): void;
+}
+
 function baseExtensions(
   path: string,
   onChange: (path: string, update: import("@codemirror/view").ViewUpdate) => void,
-  onProcess: (blocking: boolean) => void
+  actions: EditorActions
 ): Extension[] {
   const listener = EditorView.updateListener.of((update) => {
     if (update.docChanged) onChange(path, update);
@@ -101,14 +108,28 @@ function baseExtensions(
     {
       key: "Mod-Enter",
       run: () => {
-        onProcess(false);
+        actions.process();
         return true;
       },
     },
     {
-      key: "Mod-Shift-Enter",
+      key: "Ctrl-]",
       run: () => {
-        onProcess(true);
+        actions.stepForward();
+        return true;
+      },
+    },
+    {
+      key: "Ctrl-[",
+      run: () => {
+        actions.stepBackward();
+        return true;
+      },
+    },
+    {
+      key: "Ctrl-.",
+      run: () => {
+        actions.jumpToTip();
         return true;
       },
     },
@@ -159,7 +180,7 @@ export class EditorManager {
     path: string,
     update: import("@codemirror/view").ViewUpdate
   ) => void;
-  private onProcess: (blocking: boolean) => void;
+  private onProcess: EditorActions;
 
   constructor(
     parent: HTMLElement,
@@ -167,11 +188,11 @@ export class EditorManager {
       path: string,
       update: import("@codemirror/view").ViewUpdate
     ) => void,
-    onProcess: (blocking: boolean) => void
+    actions: EditorActions
   ) {
     this.parent = parent;
     this.onChange = onChange;
-    this.onProcess = onProcess;
+    this.onProcess = actions;
     this.view = new EditorView({ parent });
   }
 
@@ -265,6 +286,26 @@ export class EditorManager {
 
   focus(): void {
     this.view.focus();
+  }
+
+  setCursor(path: string, offset: number, scroll = false): void {
+    const state = this.states.get(path);
+    if (!state) return;
+    const position = Math.max(0, Math.min(offset, state.doc.length));
+    if (this.activePath === path) {
+      this.view.dispatch({
+        selection: { anchor: position },
+        effects: scroll
+          ? EditorView.scrollIntoView(position, { y: "center" })
+          : undefined,
+      });
+      this.view.focus();
+    } else {
+      this.states.set(
+        path,
+        state.update({ selection: { anchor: position } }).state
+      );
+    }
   }
 
   requestMeasure(): void {

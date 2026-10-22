@@ -2,7 +2,8 @@
 //                     en Informatique et en Automatique)
 // See LICENSE for licensing details.
 
-import type { ProofState, RawMessage } from "./types";
+import type { OutputEntry } from "./session";
+import type { ProofState } from "./types";
 
 function row(className: string, ...children: (Node | string)[]): HTMLElement {
   const element = document.createElement("div");
@@ -59,26 +60,16 @@ export function renderSequent(state: ProofState): HTMLElement {
   return box;
 }
 
-export function appendMessages(
+export function appendOutput(
   container: HTMLElement,
-  messages: RawMessage[]
+  entries: OutputEntry[]
 ): void {
-  for (const message of messages) {
-    if (message.type !== "system_message") continue;
+  for (const entry of entries) {
     const line = document.createElement("div");
-    line.className = "message";
-    line.dataset.severity = message.severity;
-    line.textContent = message.message;
+    line.className = "output-entry";
+    line.dataset.severity = entry.severity;
+    line.textContent = entry.message;
     container.append(line);
   }
   container.scrollTop = container.scrollHeight;
-}
-
-export function errorMessages(messages: RawMessage[]): string[] {
-  return messages
-    .filter(
-      (message): message is Extract<RawMessage, { type: "system_message" }> =>
-        message.type === "system_message" && message.severity === "error"
-    )
-    .map((message) => message.message);
 }

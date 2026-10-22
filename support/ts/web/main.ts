@@ -3,6 +3,7 @@
 // See LICENSE for licensing details.
 
 import { downloadProject, importProject } from "./archive";
+import type { Command } from "./commands";
 import { WorkerDriver, loadEngine } from "./driver";
 import { EditorManager } from "./editor";
 import {
@@ -20,8 +21,14 @@ import {
   setFileText,
   type Project,
 } from "./project";
-import { Session, type SessionEvents, type SessionStatus } from "./session";
-import { appendMessages, renderSequent } from "./trace";
+import {
+  Session,
+  type OutputEntry,
+  type ProofOutcome,
+  type SessionEvents,
+  type SessionStatus,
+} from "./session";
+import { appendOutput, renderSequent } from "./trace";
 import type { ProofState, RawMessage } from "./types";
 
 function byId<T extends HTMLElement>(id: string): T {
@@ -34,7 +41,9 @@ const statusBadge = byId<HTMLSpanElement>("status");
 const statusDetail = byId<HTMLSpanElement>("status-detail");
 const fileList = byId<HTMLDivElement>("file-list");
 const goalPanel = byId<HTMLDivElement>("goal");
-const messagesPanel = byId<HTMLDivElement>("messages");
+const outputPanel = byId<HTMLDivElement>("output");
+const outputDisclosure = byId<HTMLDetailsElement>("output-disclosure");
+const outputSummary = byId<HTMLElement>("output-summary");
 const exampleSelect = byId<HTMLSelectElement>("example-select");
 const zipInput = byId<HTMLInputElement>("zip-input");
 const processButton = byId<HTMLButtonElement>("process");
@@ -56,6 +65,9 @@ let saveTimer: number | undefined;
 let measureTimer: number | undefined;
 let sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
 let sidebarCollapsed = false;
+let lastGoalState: ProofState | undefined;
+let currentOutcome: ProofOutcome | undefined;
+let outputCount = 0;
 
 interface SidebarPref {
   width: number;
@@ -275,10 +287,33 @@ function scheduleSave(): void {
   saveTimer = window.setTimeout(() => saveProject(project), 250);
 }
 
+function updateOutputSummary(): void {
+  outputSummary.textContent = `Warnings and output (${outputCount})`;
+}
+
+function clearOutput(): void {
+  outputCount = 0;
+  outputPanel.replaceChildren();
+  outputDisclosure.open = false;
+  updateOutputSummary();
+}
+
+function appendEntries(entries: OutputEntry[], command?: Command): void {
+  if (entries.length === 0) return;
+  appendOutput(outputPanel, entries);
+  outputCount += entries.length;
+  updateOutputSummary();
+  const autoOpen =
+    entries.some(
+      (entry) =>
+        entry.severity === "error" || entry.message.startsWith("Warning")
+    ) ||
+    (command !== undefined && /^(Show|Query)\b/.test(command.text));
+  if (autoOpen) outputDisclosure.open = true;
+}
+
 function info(message: string): void {
-  appendMessages(messagesPanel, [
-    { type: "system_message", id: -1, severity: "info", message },
-  ]);
+  appendEntries([{ severity: "info", message }]);
 }
 
 function refreshFiles(): void {
@@ -295,16 +330,43 @@ function openFile(path: string): void {
   editor.focus();
 }
 
-function goal(state: ProofState | undefined): void {
+function renderGoal(): void {
   goalPanel.replaceChildren();
-  if (state) {
-    goalPanel.append(renderSequent(state));
+  if (lastGoalState) {
+    goalPanel.append(renderSequent(lastGoalState));
   } else {
     const empty = document.createElement("div");
     empty.className = "goal-empty";
     empty.textContent = "No proof state yet.";
     goalPanel.append(empty);
   }
+  if (currentOutcome) {
+    const block = document.createElement("div");
+    block.className = "goal-outcome";
+    block.dataset.status = currentOutcome.status;
+    if (currentOutcome.theorem) {
+      const theorem = document.createElement("div");
+      theorem.className = "goal-outcome-theorem";
+      theorem.textContent = `Theorem ${currentOutcome.theorem}`;
+      block.append(theorem);
+    }
+    const message = document.createElement("div");
+    message.className = "goal-outcome-message";
+    message.textContent = currentOutcome.message;
+    block.append(message);
+    goalPanel.append(block);
+    goalPanel.scrollTop = goalPanel.scrollHeight;
+  }
+}
+
+function goal(state: ProofState | undefined): void {
+  lastGoalState = state;
+  renderGoal();
+}
+
+function outcome(value: ProofOutcome | undefined): void {
+  currentOutcome = value;
+  renderGoal();
 }
 
 function errorDiagnostic(message: string, from: number, to: number): void {
@@ -322,8 +384,13 @@ const events: SessionEvents = {
     editor.setProcessedTip(project.root, tip);
   },
   onGoal: goal,
+  onOutcome: outcome,
+  onOutput: appendEntries,
+  onCursor(offset) {
+    if (editor.active !== project.root) openFile(project.root);
+    editor.setCursor(project.root, offset, true);
+  },
   onResult(result, command) {
-    appendMessages(messagesPanel, result.messages);
     if (result.status === "ok") {
       editor.clearDiagnostics(project.root);
     } else if (command) {
@@ -342,16 +409,17 @@ const events: SessionEvents = {
     }
   },
   onError(message, from, to) {
-    appendMessages(messagesPanel, [
-      { type: "system_message", id: -1, severity: "error", message },
-    ]);
+    appendEntries([{ severity: "error", message }]);
     errorDiagnostic(message, from, to);
   },
 };
 
-async function startProject(next: Project, keepMessages = false): Promise<void> {
+async function startProject(next: Project): Promise<void> {
   project = next;
-  if (!keepMessages) messagesPanel.replaceChildren();
+  clearOutput();
+  lastGoalState = undefined;
+  currentOutcome = undefined;
+  renderGoal();
   editor.reset();
   refreshFiles();
   openFile(project.active);
@@ -364,13 +432,33 @@ async function startProject(next: Project, keepMessages = false): Promise<void> 
   }
 }
 
-async function processToCursor(blocking: boolean): Promise<void> {
+function rootCursor(): number {
   if (editor.active !== project.root) {
     info(`Processing the root reasoning file ${project.root}.`);
     openFile(project.root);
   }
-  const cursor = editor.cursorFor(project.root);
-  await session.processTo(cursor, blocking);
+  return editor.cursorFor(project.root);
+}
+
+async function processToCursor(): Promise<void> {
+  const cursor = rootCursor();
+  await session.processTo(cursor);
+}
+
+async function stepForward(): Promise<void> {
+  const cursor = rootCursor();
+  await session.stepForward(cursor);
+}
+
+async function stepBackward(): Promise<void> {
+  const cursor = rootCursor();
+  await session.stepBackward(cursor);
+}
+
+function jumpToTip(): void {
+  rootCursor();
+  editor.setCursor(project.root, session.currentTip, true);
+  editor.focus();
 }
 
 async function main(): Promise<void> {
@@ -390,7 +478,12 @@ async function main(): Promise<void> {
       }
       refreshFiles();
     },
-    (blocking) => void processToCursor(blocking)
+    {
+      process: () => void processToCursor(),
+      stepForward: () => void stepForward(),
+      stepBackward: () => void stepBackward(),
+      jumpToTip: () => jumpToTip(),
+    }
   );
 
   const engine = await loadEngine();
@@ -433,10 +526,10 @@ async function main(): Promise<void> {
     setStatus("error", String(error));
   }
 
-  processButton.addEventListener("click", () => void processToCursor(false));
+  processButton.addEventListener("click", () => void processToCursor());
   processAllButton.addEventListener("click", () => void session.processAll());
   resetButton.addEventListener("click", () => {
-    messagesPanel.replaceChildren();
+    clearOutput();
     void session.reset();
   });
 
@@ -445,7 +538,9 @@ async function main(): Promise<void> {
     if (!id || !bundle) return;
     const next = projectFromBundle(bundle, id);
     if (!next) {
-      info(`Could not load example ${id}.`);
+      appendEntries([
+        { severity: "error", message: `Could not load example ${id}.` },
+      ]);
       return;
     }
     void startProject(next);
@@ -470,7 +565,9 @@ async function main(): Promise<void> {
       const imported = await importProject(file);
       await startProject(imported);
     } catch (error) {
-      info(`Could not import the archive: ${String(error)}`);
+      appendEntries([
+        { severity: "error", message: `Could not import the archive: ${String(error)}` },
+      ]);
     }
   });
 }

@@ -7,7 +7,13 @@ import assert from "node:assert/strict";
 import type { Command } from "./commands";
 import type { Driver } from "./driver";
 import { classify, type Project, type ProjectTextFile } from "./project";
-import { Session, type SessionEvents, type SessionStatus } from "./session";
+import {
+  Session,
+  type OutputEntry,
+  type ProofOutcome,
+  type SessionEvents,
+  type SessionStatus,
+} from "./session";
 import type { ProofState, RawMessage, RunResult, SourcePos } from "./types";
 
 const state: ProofState = {
@@ -29,6 +35,8 @@ class FakeDriver implements Driver {
   processed: string[] = [];
   backs: number[] = [];
   failAt = -1;
+  endOn?: string;
+  warningOn?: string;
   onProgress?: (module: string) => void;
 
   async init(): Promise<RunResult> {
@@ -40,6 +48,8 @@ class FakeDriver implements Driver {
     this.resets++;
     return ok();
   }
+
+  currentTheorem = "t";
 
   async process(command: string, _start: SourcePos): Promise<RunResult> {
     if (this.processed.length === this.failAt) {
@@ -56,17 +66,37 @@ class FakeDriver implements Driver {
       };
     }
     this.processed.push(command);
-    return ok([
-      {
+    const messages: RawMessage[] = [];
+    const theorem = /^Theorem\s+(\S+)/.exec(command)?.[1];
+    if (theorem) this.currentTheorem = theorem;
+    if (!/^(Specification|Kind|Type|Theorem)\b/.test(command)) {
+      messages.push({
         type: "proof_command",
         id: 1,
         thm_id: 1,
-        theorem: "t",
+        theorem: this.currentTheorem,
         command,
         start_state: state,
         end_state: state,
-      },
-    ]);
+      });
+    }
+    if (this.warningOn === command) {
+      messages.push({
+        type: "system_message",
+        id: 2,
+        severity: "info",
+        message: "Warning: synthetic warning",
+      });
+    }
+    if (this.endOn === command) {
+      messages.push({
+        type: "system_message",
+        id: 3,
+        severity: "info",
+        message: "Proof completed",
+      });
+    }
+    return ok(messages);
   }
 
   async back(count: number): Promise<RunResult> {
@@ -85,9 +115,20 @@ function makeProject(): Project {
   add("empty.mod", "module empty.\n");
   add(
     "main.thm",
-    'Specification "empty".\nKind tm type.\nTheorem t : forall A, A = A.\n'
+    'Specification "empty".\nKind tm type.\nTheorem t : forall A, A = A.\nintros.\n'
   );
   add("README.md", "notes\n");
+  return { files, root: "main.thm", active: "main.thm" };
+}
+
+function makeTwoTheoremProject(): Project {
+  const files = new Map<string, ProjectTextFile>();
+  files.set("main.thm", {
+    text:
+      "Theorem a : forall A, A = A.\nintros a.\n" +
+      "Theorem b : forall A, A = A.\nintros b.\n",
+    kind: "abella",
+  });
   return { files, root: "main.thm", active: "main.thm" };
 }
 
@@ -95,9 +136,12 @@ interface Captured {
   statuses: SessionStatus[];
   tips: number[];
   goals: (ProofState | undefined)[];
+  outcomes: (ProofOutcome | undefined)[];
+  outputs: OutputEntry[][];
   results: RunResult[];
   errors: string[];
   commands: (Command | undefined)[];
+  cursors: number[];
 }
 
 function capture(): { events: SessionEvents; captured: Captured } {
@@ -105,62 +149,121 @@ function capture(): { events: SessionEvents; captured: Captured } {
     statuses: [],
     tips: [],
     goals: [],
+    outcomes: [],
+    outputs: [],
     results: [],
     errors: [],
     commands: [],
+    cursors: [],
   };
   const events: SessionEvents = {
     onStatus: (status) => captured.statuses.push(status),
     onTip: (tip) => captured.tips.push(tip),
     onGoal: (goal) => captured.goals.push(goal),
+    onOutcome: (outcome) => captured.outcomes.push(outcome),
+    onOutput: (entries) => captured.outputs.push(entries),
     onResult: (result, command) => {
       captured.results.push(result);
       captured.commands.push(command);
     },
     onError: (message) => captured.errors.push(message),
+    onCursor: (offset) => captured.cursors.push(offset),
   };
   return { events, captured };
 }
 
-function setup() {
-  const project = makeProject();
+function setup(project = makeProject()) {
   const driver = new FakeDriver();
   const { events, captured } = capture();
   const session = new Session(driver, project, events);
   return { project, driver, captured, session };
 }
 
-test("processes commands up to the cursor", async () => {
+test("checks commands that start before the cursor", async () => {
   const { project, driver, captured, session } = setup();
   await session.init();
   const doc = project.files.get(project.root)!.text;
   await session.processTo(doc.indexOf("Kind"));
+  assert.deepEqual(driver.processed, ['Specification "empty".']);
+  assert.equal(session.currentTip, doc.indexOf("Kind") - 1);
+  assert.equal(session.stepsCount, 1);
+
+  await session.processTo(doc.indexOf("Kind") + 1);
   assert.deepEqual(driver.processed, [
     'Specification "empty".',
     "Kind tm type.",
   ]);
-  assert.equal(session.currentTip, doc.indexOf("Kind") + "Kind tm type.".length);
   assert.equal(session.stepsCount, 2);
-  assert.deepEqual(captured.statuses, ["ready", "processing", "ok"]);
 });
 
-test("blocking mode leaves the command under the cursor", async () => {
-  const { project, driver, session } = setup();
-  await session.init();
-  const doc = project.files.get(project.root)!.text;
-  await session.processTo(doc.indexOf("Theorem"), true);
-  assert.equal(driver.processed.length, 2);
-  assert.ok(!driver.processed[1].startsWith("Theorem"));
-});
-
-test("rewinds to the first affected command", async () => {
+test("Ctrl-Enter inside the checked region rewinds to the command boundary", async () => {
   const { project, driver, session } = setup();
   await session.init();
   const doc = project.files.get(project.root)!.text;
   await session.processTo(doc.length);
-  assert.equal(driver.processed.length, 3);
-  await session.rewindTo(0);
+  assert.equal(driver.processed.length, 4);
+
+  const insideTheorem = doc.indexOf("Theorem") + 2;
+  await session.processTo(insideTheorem);
+  assert.deepEqual(driver.backs, [2]);
+  assert.equal(session.stepsCount, 2);
+  assert.equal(session.currentTip, doc.indexOf("Kind") + "Kind tm type.".length);
+
+  await session.processTo(insideTheorem);
+  assert.equal(driver.processed.length, 5);
+  assert.equal(session.stepsCount, 3);
+});
+
+test("Ctrl-Enter in whitespace keeps the previous complete command", async () => {
+  const { project, driver, session } = setup();
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+  await session.processTo(doc.length);
+  await session.processTo(doc.indexOf("Kind"));
   assert.deepEqual(driver.backs, [3]);
+  assert.equal(session.stepsCount, 1);
+  assert.equal(session.currentTip, doc.indexOf("Kind") - 1);
+});
+
+test("steps forward and back at the checked tip", async () => {
+  const { project, driver, captured, session } = setup();
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+  await session.stepForward(0);
+  assert.deepEqual(driver.processed, ['Specification "empty".']);
+  assert.deepEqual(captured.cursors, ['Specification "empty".'.length]);
+
+  await session.stepBackward('Specification "empty".'.length);
+  assert.deepEqual(driver.backs, [1]);
+  assert.equal(session.stepsCount, 0);
+  assert.deepEqual(captured.cursors, ['Specification "empty".'.length, 0]);
+  assert.equal(session.currentTip, 0);
+});
+
+test("stepping before the tip leaves the cursor alone", async () => {
+  const { project, driver, captured, session } = setup();
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+  await session.processTo(doc.indexOf("Theorem"));
+  captured.cursors.length = 0;
+
+  await session.stepForward(0);
+  assert.equal(driver.processed.length, 3);
+  assert.deepEqual(captured.cursors, []);
+
+  await session.stepBackward(0);
+  assert.equal(driver.backs.at(-1), 1);
+  assert.deepEqual(captured.cursors, []);
+});
+
+test("rewinds to the first affected command on edit", async () => {
+  const { project, driver, session } = setup();
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+  await session.processTo(doc.length);
+  assert.equal(driver.processed.length, 4);
+  await session.rewindTo(0);
+  assert.deepEqual(driver.backs, [4]);
   assert.equal(session.currentTip, 0);
   assert.equal(session.stepsCount, 0);
 });
@@ -175,7 +278,54 @@ test("stops at the first failing command", async () => {
   assert.equal(session.stepsCount, 1);
   assert.equal(session.currentTip, doc.indexOf("Kind"));
   assert.equal(captured.statuses.at(-1), "error");
-  assert.deepEqual(captured.errors, ["synthetic failure"]);
+  assert.deepEqual(captured.errors, []);
+  assert.ok(
+    captured.outputs
+      .flat()
+      .some(
+        (entry) =>
+          entry.severity === "error" &&
+          entry.message === "synthetic failure"
+      )
+  );
+});
+
+test("records proof outcomes verbatim and clears them on rewind", async () => {
+  const { project, driver, session } = setup();
+  driver.endOn = "intros.";
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+  await session.processTo(doc.length);
+  assert.deepEqual(session.outcome, {
+    theorem: "t",
+    status: "completed",
+    message: "Proof completed",
+  });
+  await session.rewindTo(0);
+  assert.equal(session.outcome, undefined);
+});
+
+test("a new theorem hides the previous outcome", async () => {
+  const { project, driver, session } = setup(makeTwoTheoremProject());
+  driver.endOn = "intros a.";
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+  await session.processTo(doc.indexOf("Theorem b"));
+  assert.equal(session.outcome?.theorem, "a");
+  await session.processTo(doc.length);
+  assert.equal(session.outcome, undefined);
+});
+
+test("proof lifecycle messages are not output entries", async () => {
+  const { project, driver, captured, session } = setup();
+  driver.endOn = "intros.";
+  driver.warningOn = "Kind tm type.";
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+  await session.processTo(doc.length);
+  const output = captured.outputs.flat();
+  assert.ok(output.some((entry) => entry.message.includes("synthetic warning")));
+  assert.ok(!output.some((entry) => entry.message === "Proof completed"));
 });
 
 test("editing a spec file forces re-initialization", async () => {

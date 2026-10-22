@@ -316,7 +316,7 @@ body.resizing {
   grid-column: 3;
   grid-row: 2;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   border-top: 1px solid var(--border);
   min-height: 0;
 }
@@ -326,10 +326,6 @@ body.resizing {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-
-  & + & {
-    border-left: 1px solid var(--border);
-  }
 
   h2 {
     margin: 0;
@@ -343,8 +339,7 @@ body.resizing {
   }
 }
 
-.goal-panel,
-.messages-panel {
+.goal-panel {
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -356,6 +351,67 @@ body.resizing {
 .goal-empty {
   color: var(--muted);
   font-family: var(--sans);
+}
+
+.goal-outcome {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border);
+
+  .goal-outcome-theorem {
+    color: var(--muted);
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .goal-outcome-message {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  &[data-status="aborted"],
+  &[data-status="not-completed"] {
+    color: var(--red);
+  }
+
+  &[data-status="completed"],
+  &[data-status="completed-skip"] {
+    color: var(--green);
+  }
+}
+
+.output-disclosure {
+  flex: none;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  font-family: var(--sans);
+  font-size: 0.8rem;
+
+  summary {
+    cursor: pointer;
+    padding: 0.35rem 0.75rem;
+    color: var(--muted);
+    user-select: none;
+  }
+}
+
+.output-panel {
+  max-height: 10rem;
+  overflow: auto;
+  padding: 0.15rem 0.75rem 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+.output-entry {
+  padding: 0.15rem 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+
+  &[data-severity="error"] {
+    color: var(--red);
+  }
 }
 
 .sequent {
@@ -384,21 +440,6 @@ body.resizing {
   .sequent-more {
     color: var(--muted);
     margin-top: 0.3rem;
-  }
-}
-
-.messages-panel {
-  font-family: var(--sans);
-  font-size: 0.85rem;
-
-  .message {
-    padding: 0.2rem 0;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-
-    &[data-severity="error"] {
-      color: var(--red);
-    }
   }
 }
 
@@ -472,11 +513,6 @@ kbd {
 
   .panels {
     grid-template-columns: 1fr;
-    border-top: 1px solid var(--border);
-  }
-
-  .panel + .panel {
-    border-left: 0;
     border-top: 1px solid var(--border);
   }
 

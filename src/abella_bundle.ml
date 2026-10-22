@@ -98,8 +98,11 @@ let text_files_for root =
 
 let build_example (files : (string, string) Hashtbl.t) example =
   let thms, specs = dependencies example.root in
-  List.iter (fun path -> Hashtbl.replace files path (read_file path))
-    (thms @ specs @ text_files_for example.root) ;
+  let paths =
+    List.unique (thms @ specs @ text_files_for example.root) |>
+    List.sort String.compare
+  in
+  List.iter (fun path -> Hashtbl.replace files path (read_file path)) paths ;
   let base = chop_thm example.root in
   let has_suffix suffix =
     let path = base ^ suffix in
@@ -112,6 +115,7 @@ let build_example (files : (string, string) Hashtbl.t) example =
     "root", `String example.root ;
     "sig", (if has_suffix ".sig" then `String (base ^ ".sig") else `Null) ;
     "mod", (if has_suffix ".mod" then `String (base ^ ".mod") else `Null) ;
+    "files", `List (List.map (fun path -> `String path) paths) ;
   ]
 
 let main manifest_path output_path =

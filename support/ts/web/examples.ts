@@ -9,6 +9,7 @@ export interface ExampleEntry {
   root: string;
   sig: string | null;
   mod: string | null;
+  files?: string[];
 }
 
 export interface Bundle {

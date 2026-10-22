@@ -59,15 +59,19 @@ export function projectFromBundle(
   id: string
 ): Project | undefined {
   const data = bundle as {
-    examples?: { id: string; root: string }[];
+    examples?: { id: string; root: string; files?: string[] }[];
     files?: Record<string, string>;
   };
   if (!data?.examples || !data.files) return undefined;
   const example = data.examples.find((entry) => entry.id === id);
   if (!example) return undefined;
   const files = new Map<string, ProjectTextFile>();
-  for (const [path, text] of Object.entries(data.files)) {
-    files.set(path, { text, kind: classify(path) });
+  const paths = example.files ?? Object.keys(data.files);
+  for (const path of paths) {
+    const text = data.files[path];
+    if (typeof text === "string") {
+      files.set(path, { text, kind: classify(path) });
+    }
   }
   if (!files.has(example.root)) return undefined;
   return {

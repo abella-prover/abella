@@ -8,7 +8,7 @@ license: "GPL-3.0-only"
 homepage: "https://abella-prover.org"
 bug-reports: "https://github.com/abella-prover/abella/issues"
 depends: [
-  "dune" {>= "3.7"}
+  "dune" {>= "3.20"}
   "ocaml" {>= "4.12.0"}
   "base64" {>= "3.5.1"}
   "cmdliner" {>= "1.2.0"}

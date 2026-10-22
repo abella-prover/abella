@@ -1,0 +1,10 @@
+(executable
+ (name abella_js)
+ (modes js wasm)
+ (modules abella_js)
+ (libraries abella_lib js_of_ocaml)
+ (preprocess (pps js_of_ocaml-ppx))
+ (js_of_ocaml
+  (enabled_if %{lib-available:js_of_ocaml}))
+ (wasm_of_ocaml
+  (enabled_if %{lib-available:wasm_of_ocaml-compiler})))

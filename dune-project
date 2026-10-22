@@ -1,4 +1,4 @@
-(lang dune 3.7)
+(lang dune 3.20)
 (name abella)
 (version 2.1.0-dev)
 (using menhir 2.0)

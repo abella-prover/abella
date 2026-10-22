@@ -267,6 +267,10 @@ export class EditorManager {
     this.view.focus();
   }
 
+  requestMeasure(): void {
+    this.view.requestMeasure();
+  }
+
   get text(): string {
     return this.view.state.doc.toString();
   }

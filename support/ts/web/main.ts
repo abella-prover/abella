@@ -40,12 +40,39 @@ const zipInput = byId<HTMLInputElement>("zip-input");
 const processButton = byId<HTMLButtonElement>("process");
 const processAllButton = byId<HTMLButtonElement>("process-all");
 const resetButton = byId<HTMLButtonElement>("reset");
+const layout = document.querySelector(".layout") as HTMLElement;
+const sidebar = byId<HTMLElement>("sidebar");
+const sidebarToggle = byId<HTMLButtonElement>("sidebar-toggle");
+const SIDEBAR_KEY = "abella.web.v1.sidebar";
 
 let project: Project = loadProject() ?? scratchProject();
 let bundle: Bundle | undefined;
 let editor: EditorManager;
 let session: Session;
 let saveTimer: number | undefined;
+
+function sidebarPreference(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_KEY) !== "closed";
+  } catch {
+    return true;
+  }
+}
+
+function applySidebar(open: boolean, persist: boolean): void {
+  layout.classList.toggle("sidebar-collapsed", !open);
+  sidebarToggle.setAttribute("aria-expanded", String(open));
+  sidebar.toggleAttribute("inert", !open);
+  sidebar.setAttribute("aria-hidden", String(!open));
+  if (persist) {
+    try {
+      localStorage.setItem(SIDEBAR_KEY, open ? "open" : "closed");
+    } catch {
+      // Persistence is optional.
+    }
+  }
+  window.setTimeout(() => editor?.requestMeasure(), 180);
+}
 
 const statusText: Record<SessionStatus, string> = {
   idle: "Starting…",
@@ -197,6 +224,20 @@ async function main(): Promise<void> {
     setStatus("compiling", module)
   );
   session = new Session(driver, project, events);
+  applySidebar(sidebarPreference(), false);
+  sidebarToggle.addEventListener("click", () => {
+    applySidebar(layout.classList.contains("sidebar-collapsed"), true);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      event.key.toLowerCase() === "b" &&
+      !(event.target as HTMLElement).closest("input, select, textarea")
+    ) {
+      event.preventDefault();
+      applySidebar(layout.classList.contains("sidebar-collapsed"), true);
+    }
+  });
 
   bundle = await loadBundle();
   if (bundle) {

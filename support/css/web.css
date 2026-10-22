@@ -73,6 +73,15 @@ button {
   }
 }
 
+.icon-button {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--muted);
+}
+
 .topbar {
   display: flex;
   align-items: center;
@@ -165,6 +174,18 @@ button {
   grid-template-columns: 14rem minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) minmax(10rem, 28vh);
   gap: 0;
+  transition: grid-template-columns 160ms ease;
+}
+
+.layout.sidebar-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
+
+  .sidebar {
+    opacity: 0;
+    visibility: hidden;
+    overflow: hidden;
+    border-right: 0;
+  }
 }
 
 .sidebar {
@@ -174,6 +195,9 @@ button {
   min-height: 0;
   overflow: auto;
   padding-bottom: 1rem;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 120ms ease;
 }
 
 .sidebar-title {
@@ -384,6 +408,10 @@ kbd {
   .layout {
     display: flex;
     flex-direction: column;
+  }
+
+  .layout.sidebar-collapsed .sidebar {
+    display: none;
   }
 
   .sidebar {

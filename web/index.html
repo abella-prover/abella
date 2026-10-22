@@ -10,6 +10,15 @@
   <body>
     <header class="topbar">
       <div class="brand">
+        <button
+          id="sidebar-toggle"
+          class="icon-button"
+          type="button"
+          aria-controls="sidebar"
+          aria-expanded="true"
+          aria-label="Toggle project sidebar"
+          title="Toggle project sidebar (Ctrl/Cmd-B)"
+        ><span aria-hidden="true">☰</span></button>
         <img src="logo.png" alt="" width="64" height="29">
         <h1>Abella Web</h1>
       </div>
@@ -38,7 +47,7 @@
     </div>
 
     <main class="layout">
-      <aside class="sidebar">
+      <aside class="sidebar" id="sidebar">
         <div class="sidebar-title">Project</div>
         <div id="file-list" class="file-list"></div>
       </aside>

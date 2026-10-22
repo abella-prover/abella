@@ -1,0 +1,59 @@
+# Abella TODO (obsolete)
+
+> **Obsolete:** This list is no longer maintained and is kept only for
+> historical reference. It does not describe the current state of the
+> project. Active work is tracked in the GitHub issue tracker and in the
+> design plans under `plans/`.
+
+## Document in next release
+
+- Fixed a variable capture issue when using `with` clauses
+- Ctrl-C now interrupts the current command (e.g. `search`)
+- Can now set `search_depth` to configure default search depth
+- Examples
+  - PSN for lambda-sigma
+  - Co-induction in relational semantics
+
+## Future
+
+- Errors during import should restore the prover to its state prior to
+  import.
+- Allow the prover to be restarted so that new Specifications can be
+  given?
+- Add a `C-c C-a` command to emacs mode which aborts the current proof
+  and goes back to the start of the theorem.
+- Disallow constants with name `n[0-9]+`
+- Allow delcarations about which types are nominal?
+  - But which ones are automatically nominal?
+- Polymorphism? Type constructors?
+  - Issues when using `apply` and metavariables
+- Allow for tacticals
+  - This requires reworking many things.
+  - How is tactic failure propogated through tacticals?
+- From Todd Wilson: Every time I've used `apply .. with ..` so far, the
+  with clause has been an identity substitution, e.g.,
+  `with T0=T0, M0=M0`. Would it be reasonable to default to this
+  instead of giving an error message for missing variables?
+- Clean up similarities between `replace_metaterm_vars` and
+  `normalize_binders`
+
+## Examples
+
+- System F - can we quantify over logical relations?
+- Bohm's theorem from Barendregt
+- Separation theorems from Barendregt
+- Lustre equation reordering
+- Lazy lambda calculus by Abramsky
+
+## Larger or longer term issues
+
+- Implement a robust auto tactic which uses `search` but also uses
+  `backchain` on hyps and lemmas.
+- Change `OMakefile` so exceptions print full stack trace? Is there a
+  way to integrate this with OUnit?
+- How to deal with logic variables at the top level
+  - We need to remember their bindings
+  - Would also require fixing our issues with timestamps
+  - This might be best to leave unsupported
+  - Fix timestamp bug in unify that David has a test for
+  - Would also search underneath `forall`

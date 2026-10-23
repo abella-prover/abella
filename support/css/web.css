@@ -707,6 +707,58 @@ body.resizing {
   }
 }
 
+body.privacy-body {
+  display: block;
+  height: auto;
+}
+
+.privacy-page {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 2.5rem 1.25rem 4rem;
+  line-height: 1.55;
+
+  h1 {
+    margin-top: 0;
+  }
+
+  h2 {
+    margin-top: 2rem;
+    font-size: 1.15rem;
+  }
+
+  h3 {
+    margin-top: 1.4rem;
+    font-size: 1rem;
+  }
+
+  ul {
+    padding-left: 1.25rem;
+  }
+
+  li {
+    margin: 0.25rem 0;
+  }
+
+  a {
+    color: var(--rose);
+  }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.85em;
+  }
+}
+
+.privacy-back {
+  margin: 0 0 1.5rem;
+  font-size: 0.85rem;
+}
+
+.privacy-meta {
+  color: var(--muted);
+}
+
 kbd {
   font-family: var(--mono);
   font-size: 0.72rem;

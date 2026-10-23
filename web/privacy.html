@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Notice - Abella Web</title>
+  <link rel="icon" href="logo.png" type="image/png">
+  <link rel="stylesheet" href="abella_web.css">
+</head>
+<body class="privacy-body">
+<main class="privacy-page">
+  <p class="privacy-back"><a href="./">&larr; Abella Web</a></p>
+
+  <h1>Privacy Notice</h1>
+  <p class="privacy-meta"><strong>Last updated:</strong> 23 October 2026</p>
+
+  <p>
+    Abella Web is the browser interface at
+    <a href="https://abella-prover.org/web/">https://abella-prover.org/web/</a>,
+    operated by the Abella project maintainers ("we", "us", or "our"). We
+    minimize the data we process and do not use tracking analytics. The
+    prover and editor run in your browser. A small, stateless Cloudflare
+    Worker handles GitHub OAuth token exchange, and Cloudflare and
+    DreamHost provide edge and origin hosting.
+  </p>
+
+  <h2>1. Data controller</h2>
+
+  <p>
+    <strong>Controller:</strong> The Abella project maintainers<br>
+    <strong>Contact:</strong>
+    <a href="mailto:kaustuv@chaudhuri.info">kaustuv@chaudhuri.info</a><br>
+    <strong>Website:</strong>
+    <a href="https://abella-prover.org/web/">https://abella-prover.org/web/</a>
+  </p>
+
+  <h2>2. Data we process</h2>
+
+  <h3>A. Project, editor, and local-folder data</h3>
+
+  <p>
+    Your project files, editor contents, imported source files, and archive
+    contents are handled in your browser. They are not uploaded to, stored
+    on, or processed by our static server.
+  </p>
+
+  <ul>
+    <li>
+      The current project and workspace descriptor may be saved in
+      <code>localStorage</code> so that a reload restores your work.
+    </li>
+    <li>
+      If you use <strong>Open folder</strong>, the browser's File System
+      Access API reads and writes the files you select. The contents remain
+      on your device and are not sent to us.
+    </li>
+    <li>
+      <strong>Import zip</strong> and <strong>Download zip</strong> operate
+      locally in the browser.
+    </li>
+    <li>
+      If you load or commit a GitHub repository, your browser communicates
+      directly with GitHub. See below.
+    </li>
+  </ul>
+
+  <h3>B. GitHub authentication and repository access</h3>
+
+  <p>
+    GitHub integration is optional. You can use a fine-grained personal
+    access token (PAT) or choose <strong>Sign in with GitHub</strong>.
+    Abella Web has no user accounts of its own.
+  </p>
+
+  <ul>
+    <li>
+      With OAuth, the main tab sends a short-lived authorization code and a
+      PKCE verifier to the Cloudflare Worker at
+      <code>oauth.abella-prover.org</code>. The Worker exchanges them with
+      GitHub using the OAuth client secret and returns only the access token
+      and granted scope.
+    </li>
+    <li>
+      The Worker does not store, database, or log authorization codes,
+      verifiers, tokens, or the client secret. The client secret exists only
+      as a Cloudflare Worker secret. Cloudflare may process request metadata
+      at the edge as described below.
+    </li>
+    <li>
+      The access token, granted scope, and GitHub login are kept in
+      <code>sessionStorage</code> for the current tab. They are cleared when
+      the tab closes or when you choose <strong>Disconnect</strong>. The token
+      is never written to <code>localStorage</code>, a URL, a log, or an error
+      message.
+    </li>
+    <li>
+      A PAT entered in the dialog is also kept in <code>sessionStorage</code>
+      and is sent directly to GitHub's API. It is not sent to our static
+      server.
+    </li>
+    <li>
+      The default OAuth scope is <code>public_repo</code> (public repository
+      read and write). If you explicitly enable
+      <strong>Allow private repositories</strong>, the scope is
+      <code>repo</code>, which is account-wide and covers all repositories
+      you can access. A fine-grained PAT remains the least-privilege option.
+    </li>
+    <li>
+      Repository contents, branches, commits, and account details that you
+      access through GitHub are processed by GitHub, Inc. under the
+      <a href="https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement">
+        GitHub Privacy Statement</a>. We do not proxy or store repository
+      contents on our servers.
+    </li>
+    <li>
+      You can revoke the OAuth authorization at any time in
+      <a href="https://github.com/settings/connections/applications">
+        GitHub Settings &rarr; Applications &rarr; Authorized OAuth Apps</a>,
+      or by using <strong>Disconnect</strong> in Abella Web.
+    </li>
+  </ul>
+
+  <h3>C. Network and security metadata</h3>
+
+  <p>
+    When you request the site or use the OAuth Worker, Cloudflare and
+    DreamHost process limited request metadata to deliver and protect the
+    service:
+  </p>
+
+  <ul>
+    <li>
+      <strong>Data:</strong> IP address, browser user agent, operating
+      system, requested URL, timestamp, and limited request/response
+      metadata.
+    </li>
+    <li>
+      <strong>Purpose:</strong> serving static assets, TLS termination,
+      DDoS and abuse protection, the OAuth token-route rate limit, and
+      troubleshooting. The token route is rate-limited by IP for short
+      windows (currently 5 requests per 10 seconds).
+    </li>
+    <li>
+      <strong>Legal basis:</strong> our legitimate interest in keeping the
+      service secure and available (GDPR Art. 6(1)(f)).
+    </li>
+    <li>
+      <strong>Retention:</strong> access logs are rotated and are not
+      retained longer than 30 days. We do not maintain application-level
+      user profiles or a database of user activity.
+    </li>
+  </ul>
+
+  <h2>3. Legal bases</h2>
+
+  <ul>
+    <li>
+      Local storage that is strictly necessary to provide the editor and
+      the project you requested is used under the ePrivacy Directive's
+      strictly-necessary exception; no consent banner is required for it.
+    </li>
+    <li>
+      GitHub integration is processed to provide the service you request
+      (GDPR Art. 6(1)(b)) and, where consent is the applicable basis, with
+      your consent (Art. 6(1)(a)). You can withdraw consent by disconnecting
+      or revoking the GitHub authorization.
+    </li>
+    <li>
+      Security, rate limiting, and access logs rely on our legitimate
+      interests (Art. 6(1)(f)).
+    </li>
+    <li>
+      We do not intentionally collect special-category data, make automated
+      decisions about you, or sell personal data.
+    </li>
+  </ul>
+
+  <h2>4. Cookies and browser storage</h2>
+
+  <p>
+    Abella Web sets no first-party cookies and uses no advertising,
+    analytics, or behavioural-tracking services. All application code,
+    styles, and fonts are self-hosted; Cloudflare delivers them at the edge.
+    Cloudflare may set a strictly necessary security cookie at the edge, but
+    we do not use it for tracking.
+  </p>
+
+  <p>We use the following browser storage:</p>
+
+  <ul>
+    <li>
+      <code>localStorage</code>:
+      <code>abella.web.v1.project</code> (project and workspace data),
+      <code>abella.web.v1.theme</code> (theme preference),
+      <code>abella.web.v1.sidebar</code> (sidebar preference), and
+      <code>abella.web.v1.github.input</code> (last GitHub repository URL).
+    </li>
+    <li>
+      <code>sessionStorage</code>:
+      <code>abella.web.v1.github.token</code> (GitHub access token) and
+      <code>abella.web.v1.github.meta</code> (granted scope and account
+      login). These are limited to the current tab and cleared on
+      disconnect or tab close.
+    </li>
+  </ul>
+
+  <p>
+    You can remove local data at any time by clearing this site's data in
+    your browser, or by using <strong>Disconnect</strong> for the GitHub
+    session.
+  </p>
+
+  <h2>5. Recipients and international transfers</h2>
+
+  <p>We use a small number of service providers:</p>
+
+  <ul>
+    <li>
+      <strong>Cloudflare, Inc.</strong> (DNS, CDN, edge security, rate
+      limiting, and the OAuth Worker) processes request metadata as a
+      processor. See the
+      <a href="https://www.cloudflare.com/privacypolicy/">
+        Cloudflare Privacy Policy</a>.
+    </li>
+    <li>
+      <strong>DreamHost</strong> hosts the static site and its origin server
+      access logs. See the
+      <a href="https://www.dreamhost.com/privacy/">
+        DreamHost Privacy Policy</a>.
+    </li>
+    <li>
+      <strong>GitHub, Inc.</strong> processes GitHub account data,
+      authorization decisions, tokens, and repository requests under its
+      own privacy statement linked above. GitHub is not acting as our
+      processor for your GitHub account.
+    </li>
+  </ul>
+
+  <p>
+    These providers may process data outside your country. Their privacy
+    statements describe the safeguards they use, such as standard
+    contractual clauses or applicable adequacy frameworks. We do not sell
+    personal data or share it for advertising.
+  </p>
+
+  <h2>6. Retention</h2>
+
+  <ul>
+    <li>
+      Local project data and preferences remain in your browser until you
+      clear site data.
+    </li>
+    <li>
+      The GitHub token and account metadata remain in
+      <code>sessionStorage</code> until the tab closes or you disconnect.
+    </li>
+    <li>
+      The OAuth Worker is stateless. Authorization codes, verifiers, and
+      tokens are transient and are not stored by us. Cloudflare rate-limit
+      counters are short-lived.
+    </li>
+    <li>
+      Network access logs are retained for no longer than 30 days, except
+      where a longer period is necessary to investigate a security incident.
+    </li>
+    <li>
+      GitHub retains data according to its own policies.
+    </li>
+  </ul>
+
+  <h2>7. Your rights</h2>
+
+  <p>
+    If you are in the European Economic Area, the United Kingdom, or
+    Switzerland, you have rights under the applicable data protection law,
+    including:
+  </p>
+
+  <ul>
+    <li>access to your personal data;</li>
+    <li>rectification of inaccurate data;</li>
+    <li>erasure of your personal data;</li>
+    <li>restriction of or objection to processing;</li>
+    <li>data portability;</li>
+    <li>withdrawal of consent, where processing is based on consent;</li>
+    <li>
+      lodging a complaint with your local supervisory authority.
+    </li>
+  </ul>
+
+  <p>
+    Because most data is stored only in your browser, you can exercise
+    access and erasure directly by viewing or clearing your browser's site
+    data. For requests about transient server or edge logs, contact us at
+    <a href="mailto:kaustuv@chaudhuri.info">kaustuv@chaudhuri.info</a>. We
+    will respond within one month and may ask for information needed to
+    locate the relevant records. We do not charge a fee for ordinary
+    requests.
+  </p>
+
+  <h2>8. Security</h2>
+
+  <p>
+    We use HTTPS, a strict Content Security Policy, a restrictive
+    cross-origin opener policy, an exact-origin CORS allowlist, PKCE for
+    OAuth, a fixed redirect URI, and a stateless Worker. The OAuth client
+    secret exists only as a Cloudflare secret. Tokens are kept in
+    <code>sessionStorage</code>, and codes, verifiers, tokens, and secrets are
+    not logged. No method is completely secure; please report a suspected
+    vulnerability to the contact address above.
+  </p>
+
+  <h2>9. Children</h2>
+
+  <p>
+    Abella Web is an educational tool that is not directed at children. We
+    do not create accounts or knowingly collect personal data from children.
+    If you believe a child's data has been processed, contact us.
+  </p>
+
+  <h2>10. Changes to this notice</h2>
+
+  <p>
+    We may update this notice if the architecture or legal requirements
+    change. The revision date at the top will be updated, and material
+    changes will be described on this page.
+  </p>
+
+  <h2>11. Contact</h2>
+
+  <p>
+    Privacy questions and data protection requests:
+    <a href="mailto:kaustuv@chaudhuri.info">kaustuv@chaudhuri.info</a>.
+    Non-sensitive project questions can also use the
+    <a href="https://github.com/abella-prover/abella/issues">
+      Abella issue tracker</a>.
+  </p>
+
+  <p class="privacy-back"><a href="./">&larr; Back to Abella Web</a></p>
+</main>
+</body>
+</html>

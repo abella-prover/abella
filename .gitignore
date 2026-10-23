@@ -34,3 +34,8 @@ dev-examples/
 /web/examples/bundle.json
 /web/.test/
 /web/chunks/
+# Abella Web OAuth worker (local secrets and build output)
+/support/oauth-worker/node_modules/
+/support/oauth-worker/.wrangler/
+/support/oauth-worker/.test/
+/support/oauth-worker/.dev.vars

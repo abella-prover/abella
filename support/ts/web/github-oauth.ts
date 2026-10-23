@@ -100,7 +100,8 @@ export async function fetchGitHubOAuthConfig(
   if (!response.ok) {
     throw new WorkspaceError(
       "unavailable",
-      "GitHub sign-in is unavailable right now."
+      "GitHub sign-in is unavailable right now.",
+      response.status
     );
   }
   const body = await readJson(response);
@@ -113,7 +114,8 @@ export async function fetchGitHubOAuthConfig(
   ) {
     throw new WorkspaceError(
       "io",
-      "The GitHub sign-in service returned an invalid configuration."
+      "The GitHub sign-in service returned an invalid configuration.",
+      response.status
     );
   }
   return { clientId: body.clientId, redirectUri: body.redirectUri };
@@ -190,28 +192,43 @@ export async function exchangeGitHubCode(
     isRecord(body) && typeof body.error === "string" ? body.error : "";
   switch (error) {
     case "access_denied":
-      throw new WorkspaceError("cancelled", "GitHub sign-in was cancelled.");
+      throw new WorkspaceError(
+        "cancelled",
+        "GitHub sign-in was cancelled.",
+        response.status
+      );
     case "invalid_code":
       throw new WorkspaceError(
         "permission-denied",
-        "GitHub sign-in expired. Try again."
+        "GitHub sign-in expired. Try again.",
+        response.status
       );
     case "configuration_error":
-      throw new WorkspaceError("io", "GitHub sign-in is misconfigured.");
+      throw new WorkspaceError(
+        "io",
+        "GitHub sign-in is misconfigured.",
+        response.status
+      );
     case "forbidden":
       throw new WorkspaceError(
         "io",
-        "GitHub sign-in is not allowed from this site."
+        "GitHub sign-in is not allowed from this site.",
+        response.status
       );
     case "invalid_request":
     case "invalid_json":
     case "payload_too_large":
     case "method_not_allowed":
-      throw new WorkspaceError("io", "GitHub sign-in was rejected.");
+      throw new WorkspaceError(
+        "io",
+        "GitHub sign-in was rejected.",
+        response.status
+      );
     default:
       throw new WorkspaceError(
         "unavailable",
-        "GitHub sign-in is unavailable right now."
+        "GitHub sign-in is unavailable right now.",
+        response.status
       );
   }
 }
@@ -240,13 +257,15 @@ export async function validateGitHubToken(
   if (response.status === 401) {
     throw new WorkspaceError(
       "permission-denied",
-      "GitHub did not accept the token. Reconnect GitHub."
+      "GitHub did not accept the token. Reconnect GitHub.",
+      401
     );
   }
   if (!response.ok) {
     throw new WorkspaceError(
       "unavailable",
-      "GitHub could not validate the token."
+      "GitHub could not validate the token.",
+      response.status
     );
   }
   const body = await readJson(response);
@@ -255,7 +274,11 @@ export async function validateGitHubToken(
     typeof body.login !== "string" ||
     body.login.length === 0
   ) {
-    throw new WorkspaceError("io", "GitHub returned an invalid user response.");
+    throw new WorkspaceError(
+      "io",
+      "GitHub returned an invalid user response.",
+      response.status
+    );
   }
   return { login: body.login };
 }

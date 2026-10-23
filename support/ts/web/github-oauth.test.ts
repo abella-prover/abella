@@ -397,7 +397,11 @@ test("validateGitHubToken rejects an empty token", async () => {
 
 test("validateGitHubToken maps a 401 to permission denied", async () => {
   mockFetch(() => jsonResponse({ message: "Bad credentials" }, 401));
-  await rejectsWith(validateGitHubToken("gho_test"), "permission-denied");
+  const error = await rejectsWith(
+    validateGitHubToken("gho_test"),
+    "permission-denied"
+  );
+  assert.equal(error.status, 401);
 });
 
 test("validateGitHubToken maps a 403 to unavailable", async () => {

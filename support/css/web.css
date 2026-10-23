@@ -550,6 +550,39 @@ body.resizing {
   padding: 0.4rem 1rem 1rem;
 }
 
+.primary-button {
+  background: var(--rose);
+  border-color: var(--rose);
+  color: var(--surface);
+
+  &:hover:not(:disabled) {
+    background: var(--rose-dark);
+    border-color: var(--rose-dark);
+    color: var(--surface);
+  }
+}
+
+.wide-button {
+  width: 100%;
+  margin-top: 0.8rem;
+}
+
+.token-disclosure {
+  margin-top: 0.9rem;
+
+  summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 0.8rem;
+    user-select: none;
+  }
+}
+
+.setting-link {
+  color: var(--rose-dark);
+  font-size: 0.8rem;
+}
+
 .settings-head {
   display: flex;
   align-items: center;
@@ -581,6 +614,12 @@ body.resizing {
   margin: 0.8rem 0 0;
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.setting code,
+.setting-note code {
+  font-family: var(--mono);
+  font-size: 0.75rem;
 }
 
 .field {

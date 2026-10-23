@@ -49,8 +49,20 @@ import {
 import {
   clearGitHubToken,
   loadGitHubToken,
+  loadGitHubTokenMeta,
   saveGitHubToken,
+  saveGitHubTokenMeta,
 } from "./github-auth";
+import {
+  createOAuthRequest,
+  exchangeGitHubCode,
+  fetchGitHubOAuthConfig,
+  validateGitHubToken,
+  type GitHubOAuthConfig,
+  type GitHubOAuthScope,
+} from "./github-oauth";
+import { GITHUB_OAUTH_WORKER } from "./github-oauth-config";
+import { isOAuthCallback } from "./oauth-callback";
 import {
   directoryPickerSupported,
   openDirectoryProject,
@@ -99,6 +111,16 @@ const githubTitle = byId<HTMLElement>("github-title");
 const githubRepoField = byId<HTMLElement>("github-repo-field");
 const githubRepoInput = byId<HTMLInputElement>("github-repo");
 const githubTokenInput = byId<HTMLInputElement>("github-token");
+const githubOAuthSection = byId<HTMLElement>("github-oauth-section");
+const githubLoadButton = byId<HTMLButtonElement>("github-load");
+const githubOAuthButton = byId<HTMLButtonElement>("github-oauth");
+const githubPrivateCheckbox = byId<HTMLInputElement>("github-private");
+const githubPatDetails = byId<HTMLDetailsElement>("github-pat");
+const githubStatus = byId<HTMLElement>("github-status");
+const githubRevokeRow = byId<HTMLElement>("github-revoke-row");
+const githubRevokeLink = byId<HTMLAnchorElement>("github-revoke");
+const githubReconnectPrivateButton =
+  byId<HTMLButtonElement>("github-reconnect-private");
 const githubNote = byId<HTMLElement>("github-note");
 const githubError = byId<HTMLElement>("github-error");
 const githubSubmitButton = byId<HTMLButtonElement>("github-submit");
@@ -136,9 +158,39 @@ let lastDirectoryHandle: DirectoryHandle | undefined;
 let measureTimer: number | undefined;
 let saveWarningShown = false;
 let saving = false;
+
+type OAuthConfigState = "unknown" | "loading" | "ready" | "unavailable";
+
+interface PendingOAuth {
+  state: string;
+  verifier: string;
+  popup: Window;
+  intent: "connect" | "commit";
+  repoInput?: string;
+  commitMessage?: string;
+  requestedScope: GitHubOAuthScope;
+  createdAt: number;
+  messageReceived: boolean;
+  cancelled: boolean;
+  timeoutTimer: number;
+  closeTimer: number;
+}
+
+const savedGitHubMeta = loadGitHubTokenMeta();
 let githubToken = loadGitHubToken();
+let githubScope = savedGitHubMeta.scope;
+let githubLogin = savedGitHubMeta.login;
 let githubDialogMode: "connect" | "commit" = "connect";
 let pendingCommitMessage: string | undefined;
+let oauthConfigState: OAuthConfigState = "unknown";
+let oauthConfig: GitHubOAuthConfig | undefined;
+let oauthConfigPromise: Promise<void> | undefined;
+let pendingOAuth: PendingOAuth | undefined;
+let oauthBusy = false;
+let oauthStatus: string | undefined;
+let oauthStartId = 0;
+let githubBusy = false;
+const OAUTH_FLOW_TIMEOUT_MS = 10 * 60 * 1000;
 const GITHUB_INPUT_KEY = "abella.web.v1.github.input";
 let lastGitHubInput = loadLastGitHubInput();
 
@@ -488,9 +540,10 @@ function workspaceLabel(session: WorkspaceSession): string {
     return `Read-only folder: ${session.name}`;
   }
   if (session.kind === "github") {
-    return session.capabilities.commit
+    const label = session.capabilities.commit
       ? `GitHub: ${session.name}`
       : `Read-only GitHub: ${session.name}`;
+    return githubLogin ? `${label} (${githubLogin})` : label;
   }
   return `${session.kind}: ${session.name}`;
 }
@@ -765,66 +818,268 @@ async function reconnectFolder(): Promise<void> {
   }
 }
 
-function openGitHubDialog(mode: "connect" | "commit"): void {
-  githubDialogMode = mode;
-  githubTitle.textContent =
-    mode === "commit" ? "Connect GitHub to commit" : "Load GitHub repository";
-  githubRepoField.hidden = mode === "commit";
-  githubSubmitButton.textContent =
-    mode === "commit" ? "Authorize commit" : "Load repository";
-  githubError.textContent = "";
-  githubTokenInput.value = "";
-  githubNote.textContent = githubToken
-    ? "A token is saved for this tab. Leave the field blank to reuse it, " +
-      "or Disconnect to load without a token."
-    : mode === "commit"
-      ? "Enter a fine-grained token with Contents: Read and write."
-      : "Public repositories need no token. " +
-        "Private repositories need Contents: Read.";
-  githubDisconnectButton.hidden = !githubToken;
-  if (
-    mode === "connect" &&
-    githubRepoInput.value.trim() === "" &&
-    lastGitHubInput !== ""
-  ) {
-    githubRepoInput.value = lastGitHubInput;
-  }
-  githubDialog.showModal();
+function githubScopeIncludesPrivate(scope: string | undefined): boolean {
+  if (!scope) return false;
+  return scope.split(/[ ,]+/).includes("repo");
 }
 
-async function handleGitHubSubmit(event: Event): Promise<void> {
-  event.preventDefault();
+function githubNoteText(): string {
+  if (githubToken) {
+    const account = githubLogin
+      ? ` Signed in as ${githubLogin}.`
+      : "";
+    const action =
+      githubDialogMode === "commit"
+        ? "Authorize commit"
+        : "Load repository";
+    return (
+      `A token is saved for this tab.${account} ` +
+      `Use ${action} to reuse it, or Disconnect to load ` +
+      "without a token."
+    );
+  }
+  if (oauthConfigState === "unavailable") {
+    return (
+      "GitHub sign-in is unavailable. Use a personal access token " +
+      "below."
+    );
+  }
+  if (githubDialogMode === "commit") {
+    return (
+      "Enter a fine-grained token with Contents: Read and write, or " +
+      "sign in with GitHub."
+    );
+  }
+  return (
+    "Public repositories need no token. Private repositories need " +
+    "Contents: Read."
+  );
+}
+
+function syncGitHubDialogUi(): void {
+  const unavailable = oauthConfigState === "unavailable";
+  githubOAuthSection.hidden = unavailable;
+  if (unavailable) githubPatDetails.open = true;
+  githubRevokeRow.hidden = oauthConfig === undefined;
+  if (oauthConfig !== undefined) {
+    githubRevokeLink.href =
+      "https://github.com/settings/connections/applications/" +
+      encodeURIComponent(oauthConfig.clientId);
+  }
+  const busy = oauthBusy || pendingOAuth !== undefined || githubBusy;
+  const ready = oauthConfigState === "ready";
+  const hasToken = Boolean(githubToken);
+  githubLoadButton.hidden = !hasToken;
+  githubLoadButton.disabled = busy || !hasToken;
+  githubLoadButton.textContent =
+    githubDialogMode === "commit" ? "Authorize commit" : "Load repository";
+  githubOAuthButton.textContent = hasToken
+    ? "Reconnect with GitHub"
+    : "Sign in with GitHub";
+  githubOAuthButton.classList.toggle("primary-button", !hasToken);
+  githubLoadButton.classList.toggle("primary-button", hasToken);
+  githubOAuthButton.disabled = busy || !ready;
+  githubPrivateCheckbox.disabled = busy || !ready;
+  githubSubmitButton.disabled = busy;
+  githubReconnectPrivateButton.disabled = busy || !ready;
+  githubDisconnectButton.hidden = !hasToken;
+  githubNote.textContent = githubNoteText();
+  if (githubError.textContent !== "") {
+    githubStatus.textContent = "";
+  } else if (oauthStatus !== undefined) {
+    githubStatus.textContent = oauthStatus;
+  } else if (pendingOAuth !== undefined) {
+    githubStatus.textContent = "Waiting for GitHub...";
+  } else if (oauthConfigState === "unknown" || oauthConfigState === "loading") {
+    githubStatus.textContent = "Checking GitHub sign-in...";
+  } else if (githubToken && githubLogin) {
+    githubStatus.textContent = `Signed in as ${githubLogin}.`;
+  } else {
+    githubStatus.textContent = "";
+  }
+}
+
+function ensureOAuthConfig(): Promise<void> {
+  if (oauthConfigState === "ready" || oauthConfigState === "unavailable") {
+    return Promise.resolve();
+  }
+  if (oauthConfigPromise) return oauthConfigPromise;
+  oauthConfigState = "loading";
+  syncGitHubDialogUi();
+  oauthConfigPromise = fetchGitHubOAuthConfig(GITHUB_OAUTH_WORKER)
+    .then((config) => {
+      oauthConfig = config;
+      oauthConfigState = "ready";
+    })
+    .catch(() => {
+      oauthConfig = undefined;
+      oauthConfigState = "unavailable";
+    })
+    .finally(() => {
+      oauthConfigPromise = undefined;
+      if (githubDialog.open) syncGitHubDialogUi();
+    });
+  return oauthConfigPromise;
+}
+
+function setGitHubError(message: string): void {
+  oauthStatus = undefined;
+  githubError.textContent = message;
+  githubStatus.textContent = "";
+  githubReconnectPrivateButton.hidden = true;
+  syncGitHubDialogUi();
+}
+
+function showGitHubError(error: unknown): void {
+  if (error instanceof WorkspaceError && error.status === 401) {
+    clearGitHubAuth();
+  }
+  setGitHubError(workspaceMessage(error));
+}
+
+function saveGitHubAuth(
+  token: string,
+  scope: string | undefined,
+  login: string | undefined
+): void {
+  githubToken = token;
+  githubScope = scope || undefined;
+  githubLogin = login;
+  saveGitHubToken(token);
+  saveGitHubTokenMeta({ scope: githubScope, login });
+  updateWorkspaceUi();
+  syncGitHubDialogUi();
+}
+
+function clearGitHubAuth(): void {
+  clearGitHubToken();
+  githubToken = undefined;
+  githubScope = undefined;
+  githubLogin = undefined;
+  const workspace = workspaceSession.workspace;
+  if (workspace instanceof GitHubWorkspace) workspace.clearToken();
+  githubTokenInput.value = "";
+  githubPrivateCheckbox.checked = false;
+  githubReconnectPrivateButton.hidden = true;
+  updateWorkspaceUi();
+  syncGitHubDialogUi();
+}
+
+function clearOAuthTimers(pending: PendingOAuth): void {
+  window.clearTimeout(pending.timeoutTimer);
+  window.clearInterval(pending.closeTimer);
+}
+
+function cancelOAuth(): void {
+  const pending = pendingOAuth;
+  pendingOAuth = undefined;
+  if (pending !== undefined) pending.cancelled = true;
+  oauthStartId++;
+  oauthBusy = false;
+  oauthStatus = undefined;
+  if (pending !== undefined) {
+    clearOAuthTimers(pending);
+    try {
+      pending.popup.close();
+    } catch {
+      // The popup is already closed.
+    }
+  }
+  syncGitHubDialogUi();
+}
+
+function failOAuth(message: string): void {
+  const pending = pendingOAuth;
+  pendingOAuth = undefined;
+  oauthStartId++;
+  oauthBusy = false;
+  oauthStatus = undefined;
+  if (pending !== undefined) {
+    pending.cancelled = true;
+    clearOAuthTimers(pending);
+    try {
+      pending.popup.close();
+    } catch {
+      // The popup is already closed.
+    }
+  }
+  setGitHubError(message);
+}
+
+function maybeOfferPrivateReconnect(
+  error: unknown,
+  intent: "connect" | "commit"
+): void {
+  if (intent !== "connect") return;
+  if (oauthConfigState !== "ready" || !githubToken) return;
+  if (githubScopeIncludesPrivate(githubScope)) return;
+  if (!(error instanceof WorkspaceError) || error.code !== "not-found") {
+    return;
+  }
+  githubReconnectPrivateButton.hidden = false;
+  githubError.textContent =
+    workspaceMessage(error) +
+    " Reconnect with private repository access, or check the URL.";
+}
+
+async function loadGitHubConnect(
+  input: string,
+  token: string | undefined,
+  login?: string
+): Promise<void> {
+  const opened = await loadGitHubRepository(input, token);
+  lastGitHubInput = input;
+  saveLastGitHubInput(input);
+  await startProject(opened.project, opened.workspace);
+  const account = opened.login ?? login;
+  info(
+    `Loaded GitHub repository ${opened.workspace.name}` +
+      `${account ? ` as ${account}` : ""}.`
+  );
+  if (opened.truncated) {
+    appendEntries([
+      {
+        severity: "info",
+        message:
+          "Warning: the repository tree was truncated; " +
+          "not every file was loaded.",
+      },
+    ]);
+  }
+  if (opened.skipped > 0) {
+    appendEntries([
+      {
+        severity: "info",
+        message:
+          `Warning: skipped ${opened.skipped} file` +
+          `${opened.skipped === 1 ? "" : "s"} that were too large ` +
+          "or unsupported.",
+      },
+    ]);
+  }
+  githubDialog.close();
+}
+
+async function runGitHubIntent(
+  token: string,
+  scope: string,
+  intent: "connect" | "commit"
+): Promise<void> {
   githubError.textContent = "";
-  const enteredToken = githubTokenInput.value.trim();
-  const token = enteredToken || githubToken;
-  githubSubmitButton.disabled = true;
-  try {
-    if (githubDialogMode === "commit") {
-      if (!token) {
-        githubError.textContent =
-          "Enter a GitHub token with Contents: Read and write.";
-        return;
-      }
-      const workspace = workspaceSession.workspace;
-      if (!(workspace instanceof GitHubWorkspace)) {
-        githubError.textContent =
-          "This project is not connected to GitHub.";
-        return;
-      }
-      await workspace.authorize(token);
-      githubToken = token;
-      saveGitHubToken(token);
-      const message = pendingCommitMessage;
-      pendingCommitMessage = undefined;
-      githubDialog.close();
-      if (message) await performCommit(message);
+  githubStatus.textContent = "";
+  oauthStatus = undefined;
+  githubReconnectPrivateButton.hidden = true;
+  if (intent === "commit") {
+    if (!(workspaceSession.workspace instanceof GitHubWorkspace)) {
+      setGitHubError("This project is not connected to GitHub.");
       return;
     }
-
+  } else {
     const input = githubRepoInput.value.trim();
     if (!parseGitHubInput(input)) {
-      githubError.textContent =
-        "Enter a GitHub URL such as https://github.com/owner/repo.";
+      setGitHubError(
+        "Enter a GitHub URL such as https://github.com/owner/repo."
+      );
       return;
     }
     if (
@@ -836,57 +1091,363 @@ async function handleGitHubSubmit(event: Event): Promise<void> {
     ) {
       return;
     }
-    const opened = await loadGitHubRepository(input, token);
-    if (token) {
-      githubToken = token;
-      saveGitHubToken(token);
-    }
-    lastGitHubInput = input;
-    saveLastGitHubInput(input);
-    githubDialog.close();
-    await startProject(opened.project, opened.workspace);
-    info(
-      `Loaded GitHub repository ${opened.workspace.name}` +
-        `${opened.login ? ` as ${opened.login}` : ""}.`
-    );
-    if (opened.truncated) {
-      appendEntries([
-        {
-          severity: "info",
-          message:
-            "Warning: the repository tree was truncated; " +
-            "not every file was loaded.",
-        },
-      ]);
-    }
-    if (opened.skipped > 0) {
-      appendEntries([
-        {
-          severity: "info",
-          message:
-            `Warning: skipped ${opened.skipped} file` +
-            `${opened.skipped === 1 ? "" : "s"} that were too large ` +
-            "or unsupported.",
-        },
-      ]);
-    }
+  }
+  githubBusy = true;
+  syncGitHubDialogUi();
+  try {
+    await applyGitHubToken(token, scope, intent);
   } catch (error) {
-    githubError.textContent = workspaceMessage(error);
+    showGitHubError(error);
+    maybeOfferPrivateReconnect(error, intent);
   } finally {
-    githubSubmitButton.disabled = false;
+    githubBusy = false;
+    syncGitHubDialogUi();
+  }
+}
+
+async function applyGitHubToken(
+  token: string,
+  scope: string,
+  intent: "connect" | "commit"
+): Promise<void> {
+  if (intent === "commit") {
+    const workspace = workspaceSession.workspace;
+    if (!(workspace instanceof GitHubWorkspace)) {
+      throw new WorkspaceError(
+        "io",
+        "This project is not connected to GitHub."
+      );
+    }
+    const user = await workspace.authorize(token);
+    saveGitHubAuth(token, scope, user.login);
+    const message = pendingCommitMessage;
+    pendingCommitMessage = undefined;
+    githubDialog.close();
+    info(`Signed in to GitHub as ${user.login}.`);
+    if (message !== undefined) await performCommit(message);
+    return;
+  }
+  const input = githubRepoInput.value.trim();
+  const user = await validateGitHubToken(token);
+  saveGitHubAuth(token, scope, user.login);
+  if (!input) {
+    oauthStatus =
+      `Signed in as ${user.login}. Enter a repository to load.`;
+    syncGitHubDialogUi();
+    return;
+  }
+  if (!parseGitHubInput(input)) {
+    oauthStatus =
+      `Signed in as ${user.login}. Enter a valid repository URL.`;
+    syncGitHubDialogUi();
+    return;
+  }
+  await loadGitHubConnect(input, token, user.login);
+}
+
+async function startGitHubOAuth(
+  intent: "connect" | "commit",
+  options: { repoInput?: string; scope?: GitHubOAuthScope } = {}
+): Promise<void> {
+  if (oauthConfig === undefined) {
+    setGitHubError(
+      "GitHub sign-in is unavailable. Use a personal access token below."
+    );
+    githubPatDetails.open = true;
+    return;
+  }
+  const repoInput =
+    intent === "connect"
+      ? (options.repoInput ?? githubRepoInput.value.trim()) || undefined
+      : undefined;
+  if (intent === "connect") {
+    const ref =
+      repoInput === undefined ? undefined : parseGitHubInput(repoInput);
+    if (
+      ref !== undefined &&
+      workspaceSession.hasDirty() &&
+      !window.confirm(
+        `Discard unsaved changes in ${workspaceSession.name} ` +
+          "and load a GitHub repository?"
+      )
+    ) {
+      return;
+    }
+  } else if (!(workspaceSession.workspace instanceof GitHubWorkspace)) {
+    setGitHubError("This project is not connected to GitHub.");
+    return;
+  }
+  if (pendingOAuth !== undefined) cancelOAuth();
+  githubReconnectPrivateButton.hidden = true;
+  githubError.textContent = "";
+  const scope =
+    options.scope ??
+    (githubPrivateCheckbox.checked ? "repo" : "public_repo");
+  const startId = ++oauthStartId;
+  const popup = window.open(
+    "",
+    "abella-github-oauth",
+    "popup,width=520,height=640"
+  );
+  if (!popup) {
+    setGitHubError("Allow popups for this site, or use a token below.");
+    githubPatDetails.open = true;
+    return;
+  }
+  oauthBusy = true;
+  oauthStatus = "Waiting for GitHub...";
+  syncGitHubDialogUi();
+  let request: { state: string; verifier: string; url: string };
+  try {
+    request = await createOAuthRequest(oauthConfig, scope);
+  } catch (error) {
+    try {
+      popup.close();
+    } catch {
+      // The popup is already closed.
+    }
+    if (startId === oauthStartId) {
+      oauthBusy = false;
+      oauthStatus = undefined;
+      showGitHubError(error);
+    }
+    return;
+  }
+  if (startId !== oauthStartId) {
+    try {
+      popup.close();
+    } catch {
+      // The popup is already closed.
+    }
+    return;
+  }
+  try {
+    popup.location.href = request.url;
+  } catch {
+    try {
+      popup.close();
+    } catch {
+      // The popup is already closed.
+    }
+    oauthBusy = false;
+    oauthStatus = undefined;
+    setGitHubError(
+      "Could not open the GitHub sign-in page. Try again."
+    );
+    return;
+  }
+  const pending: PendingOAuth = {
+    state: request.state,
+    verifier: request.verifier,
+    popup,
+    intent,
+    repoInput,
+    commitMessage:
+      intent === "commit" ? pendingCommitMessage : undefined,
+    requestedScope: scope,
+    createdAt: Date.now(),
+    messageReceived: false,
+    cancelled: false,
+    timeoutTimer: 0,
+    closeTimer: 0,
+  };
+  pending.timeoutTimer = window.setTimeout(() => {
+    if (pendingOAuth === pending) {
+      failOAuth("GitHub sign-in timed out. Try again.");
+    }
+  }, OAUTH_FLOW_TIMEOUT_MS);
+  pending.closeTimer = window.setInterval(() => {
+    if (pendingOAuth !== pending || !pending.popup.closed) return;
+    window.clearInterval(pending.closeTimer);
+    pending.closeTimer = 0;
+    window.setTimeout(() => {
+      if (pendingOAuth === pending) {
+        failOAuth("GitHub sign-in was cancelled.");
+      }
+    }, 500);
+  }, 500);
+  pendingOAuth = pending;
+  oauthBusy = false;
+  syncGitHubDialogUi();
+}
+
+function handleOAuthMessage(event: MessageEvent): void {
+  const pending = pendingOAuth;
+  if (pending === undefined || pending.messageReceived) return;
+  if (event.origin !== window.location.origin) return;
+  if (event.source !== pending.popup) return;
+  const data = event.data;
+  if (!isOAuthCallback(data)) return;
+  if (data.state !== pending.state) {
+    failOAuth("Sign-in state did not match. Try again.");
+    return;
+  }
+  if (data.error !== undefined) {
+    failOAuth(
+      data.error === "access_denied"
+        ? "GitHub sign-in was cancelled."
+        : "GitHub sign-in failed. Try again."
+    );
+    return;
+  }
+  if (!data.code) {
+    failOAuth("GitHub sign-in did not return a code. Try again.");
+    return;
+  }
+  pending.messageReceived = true;
+  clearOAuthTimers(pending);
+  void completeOAuth(pending, data.code);
+}
+
+async function completeOAuth(
+  pending: PendingOAuth,
+  code: string
+): Promise<void> {
+  oauthBusy = true;
+  oauthStatus = "Finishing GitHub sign-in...";
+  syncGitHubDialogUi();
+  try {
+    const token = await exchangeGitHubCode(
+      GITHUB_OAUTH_WORKER,
+      code,
+      pending.verifier
+    );
+    if (pendingOAuth !== pending || pending.cancelled) return;
+    if (
+      pending.requestedScope === "repo" &&
+      !githubScopeIncludesPrivate(token.scope)
+    ) {
+      appendEntries([
+        {
+          severity: "info",
+          message:
+            "Warning: GitHub did not grant private repository access.",
+        },
+      ]);
+    }
+    if (pending.repoInput !== undefined) {
+      githubRepoInput.value = pending.repoInput;
+    }
+    if (pending.commitMessage !== undefined) {
+      pendingCommitMessage = pending.commitMessage;
+    }
+    await applyGitHubToken(token.token, token.scope, pending.intent);
+  } catch (error) {
+    if (pendingOAuth === pending && !pending.cancelled) {
+      pendingOAuth = undefined;
+      clearOAuthTimers(pending);
+      try {
+        pending.popup.close();
+      } catch {
+        // The popup is already closed.
+      }
+      showGitHubError(error);
+      maybeOfferPrivateReconnect(error, pending.intent);
+    }
+  } finally {
+    if (pendingOAuth === pending) {
+      pendingOAuth = undefined;
+      clearOAuthTimers(pending);
+    }
+    oauthBusy = false;
+    if (oauthStatus === "Finishing GitHub sign-in...") {
+      oauthStatus = undefined;
+    }
+    syncGitHubDialogUi();
+  }
+}
+
+function openGitHubDialog(mode: "connect" | "commit"): void {
+  if (pendingOAuth !== undefined) cancelOAuth();
+  githubDialogMode = mode;
+  githubTitle.textContent =
+    mode === "commit" ? "Connect GitHub to commit" : "Load GitHub repository";
+  githubRepoField.hidden = mode === "commit";
+  githubSubmitButton.textContent =
+    mode === "commit" ? "Authorize commit" : "Load repository";
+  githubError.textContent = "";
+  githubStatus.textContent = "";
+  oauthStatus = undefined;
+  githubTokenInput.value = "";
+  githubPrivateCheckbox.checked = githubScopeIncludesPrivate(githubScope);
+  githubReconnectPrivateButton.hidden = true;
+  githubDisconnectButton.hidden = !githubToken;
+  if (
+    mode === "connect" &&
+    githubRepoInput.value.trim() === "" &&
+    lastGitHubInput !== ""
+  ) {
+    githubRepoInput.value = lastGitHubInput;
+  }
+  githubDialog.showModal();
+  syncGitHubDialogUi();
+  void ensureOAuthConfig();
+}
+
+async function handleGitHubSubmit(event: Event): Promise<void> {
+  event.preventDefault();
+  if (githubBusy || oauthBusy || pendingOAuth !== undefined) return;
+  githubError.textContent = "";
+  githubStatus.textContent = "";
+  oauthStatus = undefined;
+  githubReconnectPrivateButton.hidden = true;
+  const enteredToken = githubTokenInput.value.trim();
+  const token = enteredToken || githubToken;
+  const intent = githubDialogMode;
+  if (intent === "commit") {
+    if (!(workspaceSession.workspace instanceof GitHubWorkspace)) {
+      setGitHubError("This project is not connected to GitHub.");
+      return;
+    }
+    if (!token) {
+      setGitHubError(
+        "Sign in with GitHub, or enter a fine-grained token with " +
+          "Contents: Read and write."
+      );
+      return;
+    }
+    await runGitHubIntent(token, "", "commit");
+    return;
+  }
+  const input = githubRepoInput.value.trim();
+  if (!parseGitHubInput(input)) {
+    setGitHubError(
+      "Enter a GitHub URL such as https://github.com/owner/repo."
+    );
+    return;
+  }
+  if (token) {
+    await runGitHubIntent(token, "", "connect");
+    return;
+  }
+  if (
+    workspaceSession.hasDirty() &&
+    !window.confirm(
+      `Discard unsaved changes in ${workspaceSession.name} ` +
+        "and load a GitHub repository?"
+    )
+  ) {
+    return;
+  }
+  githubBusy = true;
+  syncGitHubDialogUi();
+  try {
+    await loadGitHubConnect(input, undefined);
+  } catch (error) {
+    showGitHubError(error);
+  } finally {
+    githubBusy = false;
+    syncGitHubDialogUi();
   }
 }
 
 function disconnectGitHub(): void {
-  clearGitHubToken();
-  githubToken = undefined;
-  const workspace = workspaceSession.workspace;
-  if (workspace instanceof GitHubWorkspace) workspace.clearToken();
-  githubTokenInput.value = "";
-  githubDisconnectButton.hidden = true;
+  clearGitHubAuth();
+  githubError.textContent = "";
+  githubStatus.textContent = "";
+  oauthStatus = undefined;
   githubNote.textContent =
     "Disconnected. Public repositories can still be read.";
-  updateWorkspaceUi();
   info("Disconnected GitHub.");
 }
 
@@ -914,14 +1475,8 @@ async function performCommit(message: string): Promise<void> {
       appendEntries([{ severity: "error", message: result.message }]);
     }
   } catch (error) {
-    if (
-      error instanceof WorkspaceError &&
-      error.code === "permission-denied" &&
-      workspaceSession.kind === "github"
-    ) {
-      pendingCommitMessage = message;
-      openGitHubDialog("commit");
-      return;
+    if (error instanceof WorkspaceError && error.status === 401) {
+      clearGitHubAuth();
     }
     appendEntries([
       {
@@ -929,6 +1484,15 @@ async function performCommit(message: string): Promise<void> {
         message: `Could not commit: ${workspaceMessage(error)}`,
       },
     ]);
+    if (
+      error instanceof WorkspaceError &&
+      error.code === "permission-denied" &&
+      workspaceSession.kind === "github"
+    ) {
+      pendingCommitMessage = message;
+      openGitHubDialog("commit");
+      setGitHubError(workspaceMessage(error));
+    }
   } finally {
     saving = false;
     refreshFiles();
@@ -1350,11 +1914,34 @@ async function main(): Promise<void> {
   githubForm.addEventListener("submit", (event) => {
     void handleGitHubSubmit(event);
   });
+  githubLoadButton.addEventListener("click", () => {
+    if (!githubToken) return;
+    void runGitHubIntent(
+      githubToken,
+      githubScope ?? "",
+      githubDialogMode
+    );
+  });
+  githubOAuthButton.addEventListener("click", () => {
+    void startGitHubOAuth(githubDialogMode);
+  });
+  githubReconnectPrivateButton.addEventListener("click", () => {
+    githubPrivateCheckbox.checked = true;
+    void startGitHubOAuth("connect", {
+      repoInput: githubRepoInput.value.trim(),
+      scope: "repo",
+    });
+  });
+  window.addEventListener("message", handleOAuthMessage);
   githubCloseButton.addEventListener("click", () => githubDialog.close());
   githubDisconnectButton.addEventListener("click", disconnectGitHub);
   githubDialog.addEventListener("close", () => {
+    if (pendingOAuth !== undefined) cancelOAuth();
     githubTokenInput.value = "";
     githubError.textContent = "";
+    githubStatus.textContent = "";
+    oauthStatus = undefined;
+    githubReconnectPrivateButton.hidden = true;
     if (githubDialogMode === "commit") pendingCommitMessage = undefined;
   });
   commitButton.addEventListener("click", openCommitDialog);

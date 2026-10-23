@@ -47,11 +47,13 @@ export type WorkspaceErrorCode =
 
 export class WorkspaceError extends Error {
   readonly code: WorkspaceErrorCode;
+  readonly status?: number;
 
-  constructor(code: WorkspaceErrorCode, message: string) {
+  constructor(code: WorkspaceErrorCode, message: string, status?: number) {
     super(message);
     this.name = "WorkspaceError";
     this.code = code;
+    this.status = status;
   }
 }
 

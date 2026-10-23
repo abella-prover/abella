@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import type { Project } from "./project";
 import {
   GitHubWorkspace,
+  githubError,
   loadGitHubRepository,
   parseGitHubInput,
   type GitHubApi,
@@ -177,6 +178,16 @@ test("parses GitHub repository inputs", () => {
   });
   assert.equal(parseGitHubInput("not a repository"), undefined);
   assert.equal(parseGitHubInput("https://example.com/acme/demo"), undefined);
+});
+
+test("GitHub errors expose the HTTP status", () => {
+  const unauthorized = githubError({ status: 401 }, "reading");
+  assert.equal(unauthorized.code, "permission-denied");
+  assert.equal(unauthorized.status, 401);
+  const forbidden = githubError({ status: 403 }, "reading");
+  assert.equal(forbidden.status, 403);
+  const existing = new GitHubWorkspaceError("not-found", "missing", 404);
+  assert.equal(githubError(existing, "reading"), existing);
 });
 
 test("loads a subdirectory and builds the project", async () => {

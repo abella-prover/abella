@@ -189,9 +189,10 @@ test("session commit clears dirty state after success", async () => {
 });
 
 test("workspace errors keep their codes and messages", () => {
-  const error = new WorkspaceError("permission-denied", "nope");
+  const error = new WorkspaceError("permission-denied", "nope", 401);
   assert.equal(workspaceMessage(error), "nope");
   assert.equal(workspaceErrorOf(error).code, "permission-denied");
+  assert.equal(workspaceErrorOf(error).status, 401);
   assert.equal(workspaceErrorOf(new Error("io")).code, "io");
   assert.equal(workspaceErrorOf("text").code, "io");
 });

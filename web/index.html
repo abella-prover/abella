@@ -163,15 +163,61 @@
             placeholder="https://github.com/owner/repo"
           >
         </div>
-        <div class="field">
-          <label for="github-token">Fine-grained token</label>
-          <input id="github-token" type="password" autocomplete="off">
+        <div id="github-oauth-section">
+          <button
+            id="github-load"
+            type="button"
+            class="wide-button"
+            hidden
+          >Load repository</button>
+          <button
+            id="github-oauth"
+            type="button"
+            class="primary-button wide-button"
+          >Sign in with GitHub</button>
+          <label class="setting">
+            <span>
+              Allow private repositories
+              (<code>repo</code> scope)
+            </span>
+            <input id="github-private" type="checkbox">
+          </label>
+          <p class="setting-note" id="github-oauth-note">
+            GitHub sign-in grants account-wide scopes.
+            <code>repo</code> covers all repositories you can access; use a
+            fine-grained token below for per-repository access.
+          </p>
         </div>
+        <details class="token-disclosure" id="github-pat">
+          <summary>Use a personal access token instead</summary>
+          <div class="field">
+            <label for="github-token">Fine-grained token</label>
+            <input id="github-token" type="password" autocomplete="off">
+          </div>
+          <div class="dialog-actions">
+            <button id="github-submit" type="submit">Load repository</button>
+          </div>
+        </details>
         <p class="setting-note" id="github-note"></p>
+        <p class="setting-note" id="github-status" role="status"></p>
         <p class="setting-note dialog-error" id="github-error" role="alert"></p>
+        <p class="setting-note" id="github-revoke-row" hidden>
+          <a
+            id="github-revoke"
+            class="setting-link"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Review or revoke access</a>
+        </p>
+        <button
+          id="github-reconnect-private"
+          type="button"
+          class="wide-button"
+          hidden
+        >Reconnect with private repository access</button>
         <div class="dialog-actions">
           <button id="github-disconnect" type="button">Disconnect</button>
-          <button id="github-submit" type="submit">Load repository</button>
         </div>
       </form>
     </dialog>

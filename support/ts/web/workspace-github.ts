@@ -299,11 +299,13 @@ function errorMessage(error: unknown): string {
 }
 
 export function githubError(error: unknown, action: string): WorkspaceError {
+  if (error instanceof WorkspaceError) return error;
   const status = statusOf(error);
   if (status === 401) {
     return new WorkspaceError(
       "permission-denied",
-      "GitHub rejected the token. Reconnect GitHub and try again."
+      "GitHub rejected the token. Reconnect GitHub and try again.",
+      401
     );
   }
   if (status === 403) {
@@ -319,30 +321,35 @@ export function githubError(error: unknown, action: string): WorkspaceError {
       return new WorkspaceError(
         "unavailable",
         `GitHub's rate limit was exceeded.${when} ` +
-          "Connect a token for a higher limit."
+          "Connect a token for a higher limit.",
+        403
       );
     }
     return new WorkspaceError(
       "permission-denied",
       "GitHub denied access. Check the token permissions and repository " +
-        "access."
+        "access.",
+      403
     );
   }
   if (status === 404) {
     return new WorkspaceError(
       "not-found",
-      `GitHub could not find ${action}.`
+      `GitHub could not find ${action}.`,
+      404
     );
   }
   if (status === 422) {
     return new WorkspaceError(
       "conflict",
-      "The branch moved on GitHub. Reload the repository and try again."
+      "The branch moved on GitHub. Reload the repository and try again.",
+      422
     );
   }
   return new WorkspaceError(
     "unavailable",
-    `GitHub request failed while ${action}: ${errorMessage(error)}`
+    `GitHub request failed while ${action}: ${errorMessage(error)}`,
+    status
   );
 }
 
@@ -495,13 +502,15 @@ async function fetchRawFile(
     if (response.status === 404) {
       throw new WorkspaceError(
         "not-found",
-        `GitHub could not find ${path}.`
+        `GitHub could not find ${path}.`,
+        404
       );
     }
     throw new WorkspaceError(
       "unavailable",
       `GitHub raw content request failed for ${path} ` +
-        `(HTTP ${response.status}).`
+        `(HTTP ${response.status}).`,
+      response.status
     );
   }
   return response.text();
@@ -545,7 +554,8 @@ export async function loadGitHubRepository(
         token
           ? "GitHub could not find the repository, or the token cannot " +
             "access it."
-          : "Repository not found or private. Connect GitHub with a token."
+          : "Repository not found or private. Connect GitHub with a token.",
+        404
       );
     }
     throw githubError(error, "the repository");
@@ -750,15 +760,16 @@ export class GitHubWorkspace implements Workspace {
     else this.project.files.set(path, { text, kind: classify(path) });
   }
 
-  async authorize(token: string): Promise<void> {
+  async authorize(token: string): Promise<{ login: string }> {
     let api: GitHubApi;
     try {
       api = await createGitHubApi(token);
     } catch (error) {
       throw githubError(error, "starting the GitHub client");
     }
+    let user: { login: string };
     try {
-      await api.validateUser();
+      user = await api.validateUser();
     } catch (error) {
       throw githubError(error, "validating the GitHub token");
     }
@@ -766,17 +777,20 @@ export class GitHubWorkspace implements Workspace {
     try {
       info = await api.getRepo(this.owner, this.repo);
     } catch (error) {
-      throw githubError(error, "checking repository access");
+      throw githubError(error, "the repository");
     }
     if (info.canPush === false) {
       throw new WorkspaceError(
         "permission-denied",
         "That token can read this repository but cannot push to it. " +
-          "Use a token with Contents: Read and write."
+          "Use a token with write access, or reconnect with an account " +
+          "that can push.",
+        403
       );
     }
     this.api = api;
     this.token = token;
+    return user;
   }
 
   clearToken(): void {

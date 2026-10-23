@@ -492,13 +492,11 @@ export class Session {
     return this.exclusive(async () => {
       if (this.steps.length === 0) return false;
       const oldTip = this.tip;
-      const last = this.steps[this.steps.length - 1];
-      const moved = await this.undoFrom(
-        this.steps.length - 1,
-        last.from
-      );
+      const previous = this.steps[this.steps.length - 2];
+      const newTip = previous ? previous.to : 0;
+      const moved = await this.undoFrom(this.steps.length - 1, newTip);
       if (moved > 0 && cursor >= oldTip) {
-        this.events.onCursor(last.from);
+        this.events.onCursor(newTip);
       }
       return moved > 0;
     });

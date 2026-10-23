@@ -246,6 +246,21 @@ test("steps forward and back at the checked tip", async () => {
   assert.equal(session.currentTip, 0);
 });
 
+test("stepping back leaves the tip at the previous command end", async () => {
+  const { project, captured, session } = setup();
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+  await session.processTo(doc.length);
+  const theoremEnd =
+    doc.indexOf("Theorem") + "Theorem t : forall A, A = A.".length;
+  captured.cursors.length = 0;
+
+  await session.stepBackward(doc.length);
+  assert.equal(session.currentTip, theoremEnd);
+  assert.equal(session.stepsCount, 3);
+  assert.deepEqual(captured.cursors, [theoremEnd]);
+});
+
 test("stepping before the tip leaves the cursor alone", async () => {
   const { project, driver, captured, session } = setup();
   await session.init();

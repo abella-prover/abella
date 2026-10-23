@@ -4,6 +4,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { ChangeSet } from "@codemirror/state";
 import type { Command } from "./commands";
 import type { Driver } from "./driver";
 import { classify, type Project, type ProjectTextFile } from "./project";
@@ -337,7 +338,11 @@ test("editing a spec file forces re-initialization", async () => {
   const { driver, session } = setup();
   await session.init();
   assert.equal(driver.inits, 1);
-  session.notifyEdit("empty.sig", 0);
+  const text = "sig empty.\n";
+  await session.notifyEdit(
+    "empty.sig",
+    ChangeSet.of({ from: 0, insert: "" }, text.length)
+  );
   await session.processTo(0);
   assert.equal(driver.inits, 2);
 });
@@ -345,9 +350,58 @@ test("editing a spec file forces re-initialization", async () => {
 test("editing a text file does not invalidate the session", async () => {
   const { driver, session } = setup();
   await session.init();
-  session.notifyEdit("README.md", 0);
+  const text = "notes\n";
+  await session.notifyEdit(
+    "README.md",
+    ChangeSet.of({ from: 0, insert: "" }, text.length)
+  );
   await session.processTo(0);
   assert.equal(driver.inits, 1);
+});
+
+test("editing and deleting before the tip keeps checked steps", async () => {
+  const text =
+    'Specification "empty".\nKind tm type.\n' +
+    "Theorem t : forall A, A = A.\nintros.\n  search.\n  case H1.\n";
+  const files = new Map<string, ProjectTextFile>([
+    ["main.thm", { text, kind: "abella" }],
+  ]);
+  const project: Project = {
+    files,
+    root: "main.thm",
+    active: "main.thm",
+  };
+  const { driver, captured, session } = setup(project);
+  await session.init();
+  await session.processTo(text.length);
+  const checked = session.stepsCount;
+  assert.equal(checked, 6);
+
+  const searchEnd = text.indexOf("search.") + "search.".length;
+  const caseStart = text.indexOf("case H1.");
+  const spaced = text.slice(0, searchEnd) + " " + text.slice(searchEnd);
+
+  await session.notifyEdit(
+    "main.thm",
+    ChangeSet.of({ from: searchEnd, insert: " " }, text.length)
+  );
+  assert.equal(session.stepsCount, checked - 1);
+  assert.equal(session.currentTip, caseStart + 1);
+
+  await session.notifyEdit(
+    "main.thm",
+    ChangeSet.of(
+      { from: searchEnd, to: searchEnd + 1, insert: "" },
+      spaced.length
+    )
+  );
+  assert.equal(session.stepsCount, checked - 1);
+  assert.equal(session.currentTip, caseStart);
+  assert.deepEqual(driver.backs, [1]);
+
+  await session.stepForward(searchEnd);
+  assert.equal(driver.processed.at(-1), "case H1.");
+  assert.deepEqual(captured.errors, []);
 });
 
 test("stop abandons the session and reinitializes on the next request", async () => {

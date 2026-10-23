@@ -1831,7 +1831,7 @@ async function main(): Promise<void> {
         minFrom = Math.min(minFrom, fromA, fromB);
       });
       if (minFrom !== Number.POSITIVE_INFINITY) {
-        session.notifyEdit(path, minFrom);
+        void session.notifyEdit(path, update.changes);
       }
       refreshFiles();
     },

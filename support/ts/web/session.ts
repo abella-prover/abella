@@ -2,6 +2,7 @@
 //                     en Informatique et en Automatique)
 // See LICENSE for licensing details.
 
+import type { ChangeSet } from "@codemirror/state";
 import type { Command } from "./commands";
 import { ScanError, scanCommands, sourcePos } from "./commands";
 import type { Driver } from "./driver";
@@ -133,6 +134,20 @@ function startsTheorem(command: Command): boolean {
   return /^Theorem\b/.test(command.text);
 }
 
+function firstChangedOffset(changes: ChangeSet): number | undefined {
+  let first: number | undefined;
+  changes.iterChangedRanges((fromA) => {
+    if (first === undefined || fromA < first) first = fromA;
+  });
+  return first;
+}
+
+interface StepBounds {
+  from: number;
+  to: number;
+  tip: number;
+}
+
 export class Session {
   private project: Project;
   private driver: Driver;
@@ -146,6 +161,8 @@ export class Session {
   private currentTheorem?: string;
   private generation = 0;
   private queue: Promise<unknown> = Promise.resolve();
+  private pendingEdits: ChangeSet[] = [];
+  private editTask?: Promise<void>;
 
   constructor(driver: Driver, project: Project, events: SessionEvents) {
     this.driver = driver;
@@ -411,10 +428,11 @@ export class Session {
         return 0;
       }
       const index = this.steps.findIndex((step) => offset < step.to);
-      const from = index < 0 ? this.steps.length : index;
-      const first = this.steps[from];
-      const newTip = first ? first.from : 0;
-      return this.undoFrom(from, newTip);
+      if (index < 0) {
+        const last = this.steps[this.steps.length - 1];
+        return this.undoFrom(this.steps.length, last ? last.to : 0);
+      }
+      return this.undoFrom(index, this.steps[index].from);
     });
   }
 
@@ -494,18 +512,95 @@ export class Session {
     this.events.onStatus("ready");
   }
 
-  /** Called after the editor changed `path`; `minFrom` is a JS offset. */
-  notifyEdit(path: string, minFrom: number): void {
+  /** Called after the editor changed `path`; offsets are JS offsets. */
+  notifyEdit(path: string, changes: ChangeSet): Promise<void> {
     const kind = classify(path);
     if (path !== this.project.root) {
       if (kind === "abella") {
         this.dirty = true;
         this.events.onStatus("ready");
       }
+      return Promise.resolve();
+    }
+    this.pendingEdits.push(changes);
+    if (!this.editTask) {
+      this.editTask = this.exclusive(async () => {
+        this.editTask = undefined;
+        const edits = this.pendingEdits.splice(0);
+        await this.applyEdits(edits);
+      });
+    }
+    return this.editTask;
+  }
+
+  /**
+   * Remap the checked tip and surviving steps through a batch of edits.
+   * Edits at or after the tip only shift offsets; an edit before the tip
+   * invalidates the command it touches and every command after it.
+   */
+  private async applyEdits(edits: ChangeSet[]): Promise<void> {
+    if (!this.initialized) {
+      this.clearSessionState();
       return;
     }
-    if (minFrom < this.tip) {
-      void this.rewindTo(minFrom);
+    const bounds: StepBounds[] = this.steps.map((step) => ({
+      from: step.from,
+      to: step.to,
+      tip: step.tip,
+    }));
+    let invalid = bounds.length;
+    let candidate: number | undefined;
+    let tip = this.tip;
+
+    for (const changes of edits) {
+      const offset = firstChangedOffset(changes);
+      if (offset === undefined) continue;
+      if (invalid === bounds.length) {
+        const index = bounds.findIndex((bound) => bound.to > offset);
+        if (index >= 0) invalid = index;
+      }
+      if (invalid < bounds.length) {
+        candidate ??= bounds[invalid].from;
+        candidate = changes.mapPos(candidate, -1);
+        tip = candidate;
+      } else {
+        tip = changes.mapPos(tip, offset < tip ? 1 : -1);
+      }
+      for (let i = 0; i < invalid; i++) {
+        bounds[i].from = changes.mapPos(bounds[i].from, 1);
+        bounds[i].to = changes.mapPos(bounds[i].to, -1);
+        bounds[i].tip = changes.mapPos(bounds[i].tip, -1);
+      }
     }
+
+    const commitBounds = () => {
+      for (let i = 0; i < invalid; i++) {
+        this.steps[i].from = bounds[i].from;
+        this.steps[i].to = bounds[i].to;
+        this.steps[i].tip = bounds[i].tip;
+      }
+    };
+
+    if (invalid === bounds.length) {
+      commitBounds();
+      this.tip = tip;
+      this.events.onTip(tip);
+      return;
+    }
+
+    const first = this.steps[invalid];
+    const count = this.steps.length - invalid;
+    const result = await this.driver.back(count);
+    if (result.status === "error") {
+      this.events.onStatus("error");
+      this.events.onError(errorText(result.messages), first.from, first.to);
+      return;
+    }
+    this.steps.splice(invalid);
+    commitBounds();
+    this.tip = tip;
+    this.recomputeView();
+    this.events.onTip(tip);
+    this.events.onStatus("ready");
   }
 }

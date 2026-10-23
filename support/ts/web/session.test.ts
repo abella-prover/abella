@@ -377,17 +377,19 @@ test("editing and deleting before the tip keeps checked steps", async () => {
   const checked = session.stepsCount;
   assert.equal(checked, 6);
 
+  const rootFile = project.files.get("main.thm")!;
   const searchEnd = text.indexOf("search.") + "search.".length;
-  const caseStart = text.indexOf("case H1.");
   const spaced = text.slice(0, searchEnd) + " " + text.slice(searchEnd);
 
+  rootFile.text = spaced;
   await session.notifyEdit(
     "main.thm",
     ChangeSet.of({ from: searchEnd, insert: " " }, text.length)
   );
   assert.equal(session.stepsCount, checked - 1);
-  assert.equal(session.currentTip, caseStart + 1);
+  assert.equal(session.currentTip, searchEnd);
 
+  rootFile.text = text;
   await session.notifyEdit(
     "main.thm",
     ChangeSet.of(
@@ -396,11 +398,57 @@ test("editing and deleting before the tip keeps checked steps", async () => {
     )
   );
   assert.equal(session.stepsCount, checked - 1);
-  assert.equal(session.currentTip, caseStart);
+  assert.equal(session.currentTip, searchEnd);
   assert.deepEqual(driver.backs, [1]);
 
   await session.stepForward(searchEnd);
   assert.equal(driver.processed.at(-1), "case H1.");
+  assert.deepEqual(captured.errors, []);
+});
+
+test("inserted commands stay unchecked until explicitly stepped", async () => {
+  const text =
+    'Specification "empty".\nKind tm type.\n' +
+    "Theorem t : forall A, A = A.\nintros.\n  search.\n  case H1.\n";
+  const files = new Map<string, ProjectTextFile>([
+    ["main.thm", { text, kind: "abella" }],
+  ]);
+  const project: Project = {
+    files,
+    root: "main.thm",
+    active: "main.thm",
+  };
+  const { driver, captured, session } = setup(project);
+  await session.init();
+  await session.processTo(text.length);
+  const checked = session.stepsCount;
+
+  const rootFile = project.files.get("main.thm")!;
+  const searchEnd = text.indexOf("search.") + "search.".length;
+  const spaced = text.slice(0, searchEnd) + " " + text.slice(searchEnd);
+  rootFile.text = spaced;
+  await session.notifyEdit(
+    "main.thm",
+    ChangeSet.of({ from: searchEnd, insert: " " }, text.length)
+  );
+  assert.equal(session.currentTip, searchEnd);
+  assert.equal(session.stepsCount, checked - 1);
+
+  const withAbort =
+    spaced.slice(0, searchEnd + 1) +
+    "abort. " +
+    spaced.slice(searchEnd + 1);
+  rootFile.text = withAbort;
+  await session.notifyEdit(
+    "main.thm",
+    ChangeSet.of({ from: searchEnd + 1, insert: "abort. " }, spaced.length)
+  );
+  assert.equal(session.currentTip, searchEnd);
+  assert.equal(session.stepsCount, checked - 1);
+
+  await session.stepForward(searchEnd);
+  assert.equal(driver.processed.at(-1), "abort.");
+  assert.equal(session.stepsCount, checked);
   assert.deepEqual(captured.errors, []);
 });
 

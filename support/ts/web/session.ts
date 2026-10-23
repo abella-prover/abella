@@ -548,25 +548,31 @@ export class Session {
       to: step.to,
       tip: step.tip,
     }));
-    let invalid = bounds.length;
+    let keep = bounds.length;
     let candidate: number | undefined;
     let tip = this.tip;
 
     for (const changes of edits) {
       const offset = firstChangedOffset(changes);
       if (offset === undefined) continue;
-      if (invalid === bounds.length) {
-        const index = bounds.findIndex((bound) => bound.to > offset);
-        if (index >= 0) invalid = index;
-      }
-      if (invalid < bounds.length) {
-        candidate ??= bounds[invalid].from;
+      if (offset < tip) {
+        // Keep only commands that end at or before the edit. The new tip
+        // is the end of the last such command, so inserted text is
+        // unchecked until the next explicit step.
+        let nextKeep = 0;
+        while (nextKeep < keep && bounds[nextKeep].to <= offset) {
+          nextKeep++;
+        }
+        keep = nextKeep;
+        candidate = keep > 0 ? bounds[keep - 1].to : 0;
+        tip = changes.mapPos(candidate, -1);
+      } else if (candidate !== undefined) {
         candidate = changes.mapPos(candidate, -1);
         tip = candidate;
       } else {
-        tip = changes.mapPos(tip, offset < tip ? 1 : -1);
+        tip = changes.mapPos(tip, -1);
       }
-      for (let i = 0; i < invalid; i++) {
+      for (let i = 0; i < keep; i++) {
         bounds[i].from = changes.mapPos(bounds[i].from, 1);
         bounds[i].to = changes.mapPos(bounds[i].to, -1);
         bounds[i].tip = changes.mapPos(bounds[i].tip, -1);
@@ -574,29 +580,29 @@ export class Session {
     }
 
     const commitBounds = () => {
-      for (let i = 0; i < invalid; i++) {
+      for (let i = 0; i < keep; i++) {
         this.steps[i].from = bounds[i].from;
         this.steps[i].to = bounds[i].to;
         this.steps[i].tip = bounds[i].tip;
       }
     };
 
-    if (invalid === bounds.length) {
+    if (keep === bounds.length) {
       commitBounds();
       this.tip = tip;
       this.events.onTip(tip);
       return;
     }
 
-    const first = this.steps[invalid];
-    const count = this.steps.length - invalid;
+    const first = this.steps[keep];
+    const count = this.steps.length - keep;
     const result = await this.driver.back(count);
     if (result.status === "error") {
       this.events.onStatus("error");
       this.events.onError(errorText(result.messages), first.from, first.to);
       return;
     }
-    this.steps.splice(invalid);
+    this.steps.splice(keep);
     commitBounds();
     this.tip = tip;
     this.recomputeView();

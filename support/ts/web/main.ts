@@ -42,6 +42,16 @@ import {
   type WorkspaceKind,
 } from "./workspace";
 import {
+  GitHubWorkspace,
+  loadGitHubRepository,
+  parseGitHubInput,
+} from "./workspace-github";
+import {
+  clearGitHubToken,
+  loadGitHubToken,
+  saveGitHubToken,
+} from "./github-auth";
+import {
   directoryPickerSupported,
   openDirectoryProject,
   readDirectoryHandle,
@@ -81,6 +91,27 @@ const saveAllButton = byId<HTMLButtonElement>("save-all");
 const reconnectFolderButton = byId<HTMLButtonElement>("reconnect-folder");
 const workspaceName = byId<HTMLSpanElement>("workspace-name");
 const folderInput = byId<HTMLInputElement>("folder-input");
+const githubButton = byId<HTMLButtonElement>("github");
+const commitButton = byId<HTMLButtonElement>("commit");
+const githubDialog = byId<HTMLDialogElement>("github-dialog");
+const githubForm = byId<HTMLFormElement>("github-form");
+const githubTitle = byId<HTMLElement>("github-title");
+const githubRepoField = byId<HTMLElement>("github-repo-field");
+const githubRepoInput = byId<HTMLInputElement>("github-repo");
+const githubTokenInput = byId<HTMLInputElement>("github-token");
+const githubNote = byId<HTMLElement>("github-note");
+const githubError = byId<HTMLElement>("github-error");
+const githubSubmitButton = byId<HTMLButtonElement>("github-submit");
+const githubDisconnectButton = byId<HTMLButtonElement>("github-disconnect");
+const githubCloseButton = byId<HTMLButtonElement>("github-close");
+const commitDialog = byId<HTMLDialogElement>("commit-dialog");
+const commitForm = byId<HTMLFormElement>("commit-form");
+const commitMessageInput = byId<HTMLTextAreaElement>("commit-message");
+const commitNote = byId<HTMLElement>("commit-note");
+const commitError = byId<HTMLElement>("commit-error");
+const commitSubmitButton = byId<HTMLButtonElement>("commit-submit");
+const commitCancelButton = byId<HTMLButtonElement>("commit-cancel");
+const commitCloseButton = byId<HTMLButtonElement>("commit-close");
 const sidebarTitle = byId<HTMLElement>("sidebar-title");
 const settingsButton = byId<HTMLButtonElement>("settings");
 const settingsDialog = byId<HTMLDialogElement>("settings-dialog");
@@ -105,6 +136,27 @@ let lastDirectoryHandle: DirectoryHandle | undefined;
 let measureTimer: number | undefined;
 let saveWarningShown = false;
 let saving = false;
+let githubToken = loadGitHubToken();
+let githubDialogMode: "connect" | "commit" = "connect";
+let pendingCommitMessage: string | undefined;
+const GITHUB_INPUT_KEY = "abella.web.v1.github.input";
+let lastGitHubInput = loadLastGitHubInput();
+
+function loadLastGitHubInput(): string {
+  try {
+    return localStorage.getItem(GITHUB_INPUT_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveLastGitHubInput(input: string): void {
+  try {
+    localStorage.setItem(GITHUB_INPUT_KEY, input);
+  } catch {
+    // Preferences are optional.
+  }
+}
 
 function initialWorkspaceFor(
   project: Project,
@@ -435,12 +487,19 @@ function workspaceLabel(session: WorkspaceSession): string {
   if (session.kind === "memory") {
     return `Read-only folder: ${session.name}`;
   }
+  if (session.kind === "github") {
+    return session.capabilities.commit
+      ? `GitHub: ${session.name}`
+      : `Read-only GitHub: ${session.name}`;
+  }
   return `${session.kind}: ${session.name}`;
 }
 
 function updateWorkspaceUi(): void {
   const capabilities = workspaceSession.capabilities;
-  const explicitSave = capabilities.write && !capabilities.autoSave;
+  const explicitSave =
+    capabilities.write && !capabilities.autoSave && !capabilities.commit;
+  const showCommit = capabilities.commit;
   const picker = directoryPickerSupported();
   openFolderButton.hidden = false;
   openFolderButton.textContent = picker
@@ -455,6 +514,10 @@ function updateWorkspaceUi(): void {
     saving || !explicitSave || !workspaceSession.isDirty(project.active);
   saveAllButton.disabled =
     saving || !explicitSave || !workspaceSession.hasDirty();
+  commitButton.hidden = !showCommit;
+  commitButton.disabled =
+    saving || !showCommit || !workspaceSession.hasDirty();
+  githubButton.disabled = saving;
   if (explicitSave) {
     saveFileButton.title = workspaceSession.isDirty(project.active)
       ? `Save ${project.active}`
@@ -466,6 +529,9 @@ function updateWorkspaceUi(): void {
     saveFileButton.removeAttribute("title");
     saveAllButton.removeAttribute("title");
   }
+  commitButton.title = workspaceSession.hasDirty()
+    ? "Commit changed files"
+    : "No changes to commit";
   workspaceName.textContent = workspaceLabel(workspaceSession);
   workspaceName.title = workspaceSession.name;
   reconnectFolderButton.hidden = !workspaceSession.isDetachedDirectory;
@@ -495,7 +561,8 @@ async function savePath(path: string): Promise<void> {
   if (
     saving ||
     !workspaceSession.capabilities.write ||
-    workspaceSession.capabilities.autoSave
+    workspaceSession.capabilities.autoSave ||
+    workspaceSession.capabilities.commit
   ) {
     return;
   }
@@ -527,7 +594,8 @@ async function saveAll(): Promise<void> {
   if (
     saving ||
     !workspaceSession.capabilities.write ||
-    workspaceSession.capabilities.autoSave
+    workspaceSession.capabilities.autoSave ||
+    workspaceSession.capabilities.commit
   ) {
     return;
   }
@@ -694,6 +762,192 @@ async function reconnectFolder(): Promise<void> {
         message: `Could not reconnect the folder: ${workspaceMessage(error)}`,
       },
     ]);
+  }
+}
+
+function openGitHubDialog(mode: "connect" | "commit"): void {
+  githubDialogMode = mode;
+  githubTitle.textContent =
+    mode === "commit" ? "Connect GitHub to commit" : "Load GitHub repository";
+  githubRepoField.hidden = mode === "commit";
+  githubSubmitButton.textContent =
+    mode === "commit" ? "Authorize commit" : "Load repository";
+  githubError.textContent = "";
+  githubTokenInput.value = "";
+  githubNote.textContent = githubToken
+    ? "A token is saved for this tab. Leave the field blank to reuse it, " +
+      "or Disconnect to load without a token."
+    : mode === "commit"
+      ? "Enter a fine-grained token with Contents: Read and write."
+      : "Public repositories need no token. " +
+        "Private repositories need Contents: Read.";
+  githubDisconnectButton.hidden = !githubToken;
+  if (
+    mode === "connect" &&
+    githubRepoInput.value.trim() === "" &&
+    lastGitHubInput !== ""
+  ) {
+    githubRepoInput.value = lastGitHubInput;
+  }
+  githubDialog.showModal();
+}
+
+async function handleGitHubSubmit(event: Event): Promise<void> {
+  event.preventDefault();
+  githubError.textContent = "";
+  const enteredToken = githubTokenInput.value.trim();
+  const token = enteredToken || githubToken;
+  githubSubmitButton.disabled = true;
+  try {
+    if (githubDialogMode === "commit") {
+      if (!token) {
+        githubError.textContent =
+          "Enter a GitHub token with Contents: Read and write.";
+        return;
+      }
+      const workspace = workspaceSession.workspace;
+      if (!(workspace instanceof GitHubWorkspace)) {
+        githubError.textContent =
+          "This project is not connected to GitHub.";
+        return;
+      }
+      await workspace.authorize(token);
+      githubToken = token;
+      saveGitHubToken(token);
+      const message = pendingCommitMessage;
+      pendingCommitMessage = undefined;
+      githubDialog.close();
+      if (message) await performCommit(message);
+      return;
+    }
+
+    const input = githubRepoInput.value.trim();
+    if (!parseGitHubInput(input)) {
+      githubError.textContent =
+        "Enter a GitHub URL such as https://github.com/owner/repo.";
+      return;
+    }
+    if (
+      workspaceSession.hasDirty() &&
+      !window.confirm(
+        `Discard unsaved changes in ${workspaceSession.name} ` +
+          "and load a GitHub repository?"
+      )
+    ) {
+      return;
+    }
+    const opened = await loadGitHubRepository(input, token);
+    if (token) {
+      githubToken = token;
+      saveGitHubToken(token);
+    }
+    lastGitHubInput = input;
+    saveLastGitHubInput(input);
+    githubDialog.close();
+    await startProject(opened.project, opened.workspace);
+    info(
+      `Loaded GitHub repository ${opened.workspace.name}` +
+        `${opened.login ? ` as ${opened.login}` : ""}.`
+    );
+    if (opened.truncated) {
+      appendEntries([
+        {
+          severity: "info",
+          message:
+            "Warning: the repository tree was truncated; " +
+            "not every file was loaded.",
+        },
+      ]);
+    }
+    if (opened.skipped > 0) {
+      appendEntries([
+        {
+          severity: "info",
+          message:
+            `Warning: skipped ${opened.skipped} file` +
+            `${opened.skipped === 1 ? "" : "s"} that were too large ` +
+            "or unsupported.",
+        },
+      ]);
+    }
+  } catch (error) {
+    githubError.textContent = workspaceMessage(error);
+  } finally {
+    githubSubmitButton.disabled = false;
+  }
+}
+
+function disconnectGitHub(): void {
+  clearGitHubToken();
+  githubToken = undefined;
+  const workspace = workspaceSession.workspace;
+  if (workspace instanceof GitHubWorkspace) workspace.clearToken();
+  githubTokenInput.value = "";
+  githubDisconnectButton.hidden = true;
+  githubNote.textContent =
+    "Disconnected. Public repositories can still be read.";
+  updateWorkspaceUi();
+  info("Disconnected GitHub.");
+}
+
+function openCommitDialog(): void {
+  if (!workspaceSession.capabilities.commit || !workspaceSession.hasDirty()) {
+    return;
+  }
+  commitError.textContent = "";
+  commitMessageInput.value = `Update ${project.root} from Abella Web`;
+  commitNote.textContent =
+    `${workspaceSession.dirtyPaths().length} changed file` +
+    `${workspaceSession.dirtyPaths().length === 1 ? "" : "s"}.`;
+  commitDialog.showModal();
+  commitMessageInput.focus();
+}
+
+async function performCommit(message: string): Promise<void> {
+  saving = true;
+  updateWorkspaceUi();
+  try {
+    const result = await workspaceSession.commit(message);
+    if (result.status === "committed") {
+      info(`Committed ${result.revision.slice(0, 7)}.`);
+    } else {
+      appendEntries([{ severity: "error", message: result.message }]);
+    }
+  } catch (error) {
+    if (
+      error instanceof WorkspaceError &&
+      error.code === "permission-denied" &&
+      workspaceSession.kind === "github"
+    ) {
+      pendingCommitMessage = message;
+      openGitHubDialog("commit");
+      return;
+    }
+    appendEntries([
+      {
+        severity: "error",
+        message: `Could not commit: ${workspaceMessage(error)}`,
+      },
+    ]);
+  } finally {
+    saving = false;
+    refreshFiles();
+  }
+}
+
+async function handleCommitSubmit(event: Event): Promise<void> {
+  event.preventDefault();
+  const message = commitMessageInput.value.trim();
+  if (message === "") {
+    commitError.textContent = "Enter a commit message.";
+    return;
+  }
+  commitSubmitButton.disabled = true;
+  try {
+    commitDialog.close();
+    await performCommit(message);
+  } finally {
+    commitSubmitButton.disabled = false;
   }
 }
 
@@ -1092,6 +1346,26 @@ async function main(): Promise<void> {
     "click",
     () => void reconnectFolder()
   );
+  githubButton.addEventListener("click", () => openGitHubDialog("connect"));
+  githubForm.addEventListener("submit", (event) => {
+    void handleGitHubSubmit(event);
+  });
+  githubCloseButton.addEventListener("click", () => githubDialog.close());
+  githubDisconnectButton.addEventListener("click", disconnectGitHub);
+  githubDialog.addEventListener("close", () => {
+    githubTokenInput.value = "";
+    githubError.textContent = "";
+    if (githubDialogMode === "commit") pendingCommitMessage = undefined;
+  });
+  commitButton.addEventListener("click", openCommitDialog);
+  commitForm.addEventListener("submit", (event) => {
+    void handleCommitSubmit(event);
+  });
+  commitCancelButton.addEventListener("click", () => commitDialog.close());
+  commitCloseButton.addEventListener("click", () => commitDialog.close());
+  commitDialog.addEventListener("close", () => {
+    commitError.textContent = "";
+  });
   saveFileButton.addEventListener("click", () => void savePath(project.active));
   saveAllButton.addEventListener("click", () => void saveAll());
   folderInput.addEventListener("change", () => void openReadOnlyFolder());

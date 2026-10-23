@@ -37,8 +37,12 @@
             type="button"
             title="Open a local folder"
           >Open folder</button>
+          <button id="github" type="button" title="Load a GitHub repository">
+            GitHub
+          </button>
           <button id="save-file" type="button" hidden disabled>Save</button>
           <button id="save-all" type="button" hidden disabled>Save all</button>
+          <button id="commit" type="button" hidden disabled>Commit</button>
           <button id="download-zip" type="button">Download zip</button>
           <button id="import-zip" type="button">Import zip</button>
           <button
@@ -130,6 +134,73 @@
           <input id="theme-toggle" type="checkbox" role="switch">
         </label>
         <p class="setting-note">Preferences are saved in this browser.</p>
+      </form>
+    </dialog>
+
+    <dialog
+      id="github-dialog"
+      class="settings-dialog"
+      aria-labelledby="github-title"
+    >
+      <form method="dialog" id="github-form" class="settings-form" novalidate>
+        <div class="settings-head">
+          <h2 id="github-title">GitHub</h2>
+          <button
+            class="icon-button"
+            type="button"
+            id="github-close"
+            aria-label="Close GitHub dialog"
+          >×</button>
+        </div>
+        <div class="field" id="github-repo-field">
+          <label for="github-repo">Repository</label>
+          <input
+            id="github-repo"
+            type="text"
+            inputmode="url"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="https://github.com/owner/repo"
+          >
+        </div>
+        <div class="field">
+          <label for="github-token">Fine-grained token</label>
+          <input id="github-token" type="password" autocomplete="off">
+        </div>
+        <p class="setting-note" id="github-note"></p>
+        <p class="setting-note dialog-error" id="github-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button id="github-disconnect" type="button">Disconnect</button>
+          <button id="github-submit" type="submit">Load repository</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog
+      id="commit-dialog"
+      class="settings-dialog"
+      aria-labelledby="commit-title"
+    >
+      <form method="dialog" id="commit-form" class="settings-form">
+        <div class="settings-head">
+          <h2 id="commit-title">Commit changes</h2>
+          <button
+            class="icon-button"
+            type="button"
+            id="commit-close"
+            aria-label="Close commit dialog"
+          >×</button>
+        </div>
+        <div class="field">
+          <label for="commit-message">Commit message</label>
+          <textarea id="commit-message" rows="3"></textarea>
+        </div>
+        <p class="setting-note" id="commit-note"></p>
+        <p class="setting-note dialog-error" id="commit-error" role="alert"></p>
+        <div class="dialog-actions">
+          <button id="commit-cancel" type="button">Cancel</button>
+          <button id="commit-submit" type="submit">Commit</button>
+        </div>
       </form>
     </dialog>
 

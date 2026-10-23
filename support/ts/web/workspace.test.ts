@@ -149,6 +149,45 @@ test("save-all reports success, cancellation, and failures", async () => {
   session.close();
 });
 
+test("session commit clears dirty state after success", async () => {
+  const project = projectFixture();
+  const persisted: string[] = [];
+  const workspace: Workspace = {
+    kind: "github",
+    name: "acme/demo@main",
+    capabilities: {
+      write: true,
+      remove: false,
+      structural: false,
+      refresh: false,
+      commit: true,
+      autoSave: false,
+    },
+    async list() {
+      return [];
+    },
+    async read() {
+      return "";
+    },
+    async write() {
+      // The editor owns the in-memory text.
+    },
+    async commit(message: string) {
+      return { status: "committed", revision: `rev-${message}` };
+    },
+  };
+  const session = new WorkspaceSession(project, workspace, {
+    persist: (_project, value) => persisted.push(value.name),
+  });
+  session.markDirty("main.thm");
+  assert.equal(session.hasDirty(), true);
+  const result = await session.commit("message");
+  assert.deepEqual(result, { status: "committed", revision: "rev-message" });
+  assert.equal(session.hasDirty(), false);
+  assert.deepEqual(persisted, ["acme/demo@main"]);
+  session.close();
+});
+
 test("workspace errors keep their codes and messages", () => {
   const error = new WorkspaceError("permission-denied", "nope");
   assert.equal(workspaceMessage(error), "nope");

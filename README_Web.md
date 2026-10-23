@@ -28,6 +28,9 @@ deployment, serve `.wasm` files as `application/wasm` and include
 `'wasm-unsafe-eval'` in the CSP `script-src`. The wasm browser floor is
 Chrome/Edge 119+, Firefox 122+, and Safari 18.2+.
 
+The GitHub backend calls `https://api.github.com`; a deployed CSP must
+allow that origin in `connect-src`.
+
 `make publish-web` expects SSH access to the publishing account and
 copies the whole generated `web/` tree, including lazy JavaScript
 chunks. Generated assets are gitignored.

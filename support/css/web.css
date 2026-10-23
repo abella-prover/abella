@@ -583,6 +583,45 @@ body.resizing {
   font-size: 0.8rem;
 }
 
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.9rem;
+
+  label {
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+
+  input,
+  textarea {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    padding: 0.45rem 0.55rem;
+  }
+
+  textarea {
+    font-family: var(--mono);
+    resize: vertical;
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.dialog-error {
+  color: var(--red);
+}
+
 .sequent {
   .sequent-name {
     color: var(--rose-dark);

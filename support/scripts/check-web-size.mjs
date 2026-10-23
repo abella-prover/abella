@@ -17,7 +17,7 @@ const KiB = 1024;
 
 const budgets = {
   "initial JS": { gzip: 180 * KiB },
-  "lazy chunks": { gzip: 100 * KiB },
+  "lazy chunks": { gzip: 120 * KiB },
   "abella_web.css": { gzip: 16 * KiB },
   "examples/bundle.json": { gzip: 32 * KiB },
   "wasm assets": { raw: 1024 * KiB },

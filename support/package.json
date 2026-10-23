@@ -12,7 +12,7 @@
     "web:css": "esbuild css/web.css --minify --outfile=../web/abella_web.css",
     "web:build": "npm run web:js && npm run web:worker && npm run web:worker-js && npm run web:css",
     "web:size": "node ./scripts/check-web-size.mjs",
-    "web:test": "esbuild ./ts/web/commands.test.ts ./ts/web/session.test.ts ./ts/web/workspace-directory.test.ts ./ts/web/workspace.test.ts --bundle --platform=node --format=cjs --outdir=../web/.test --log-level=warning && node --test ../web/.test/*.test.js"
+    "web:test": "esbuild ./ts/web/commands.test.ts ./ts/web/session.test.ts ./ts/web/workspace-directory.test.ts ./ts/web/workspace.test.ts ./ts/web/workspace-github.test.ts ./ts/web/github-auth.test.ts --bundle --platform=node --format=cjs --outdir=../web/.test --log-level=warning && node --test ../web/.test/*.test.js"
   },
   "keywords": [],
   "author": "Kaustuv Chaudhuri <kaustuv@chaudhuri.info>",
@@ -32,6 +32,7 @@
     "@codemirror/state": "6.7.6",
     "@codemirror/view": "6.43.15",
     "@lezer/highlight": "1.2.5",
+    "@octokit/rest": "22.0.1",
     "fflate": "0.8.3"
   }
 }

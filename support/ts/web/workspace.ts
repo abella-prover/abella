@@ -284,6 +284,21 @@ export class WorkspaceSession {
     return report;
   }
 
+  async commit(message: string): Promise<CommitResult> {
+    if (!this.workspace.commit) {
+      throw new WorkspaceError(
+        "unsupported",
+        "This workspace cannot commit changes."
+      );
+    }
+    const result = await this.workspace.commit(message);
+    if (result.status === "committed") {
+      this.dirty.clear();
+      this.persistNow();
+    }
+    return result;
+  }
+
   close(): void {
     if (this.persistTimer !== undefined) {
       clearTimeout(this.persistTimer);

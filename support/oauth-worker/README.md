@@ -182,9 +182,10 @@ becomes `/web/github-callback.html`; update the OAuth App, the Worker
 | `ALLOWED_ORIGIN` | plain var | Exact site origin |
 | `REDIRECT_URI` | plain var | Exact registered callback URL |
 
-The production environment currently omits `GITHUB_CLIENT_ID` until the
-production OAuth App exists. Until it is set, `GET /github/config`
-returns `503` and the frontend falls back to personal access tokens.
+The production environment records the public OAuth App client ID. The
+client secret is supplied with `wrangler secret put --env production`.
+Until every required variable is present, `GET /github/config` returns
+`503` and the frontend falls back to personal access tokens.
 
 ## Deployment
 
@@ -202,8 +203,9 @@ returns `503` and the frontend falls back to personal access tokens.
    npm test
    npm run deploy
    ```
-5. Attach the chosen hostname, preferably `oauth.abella-prover.org`,
-   with a Cloudflare custom domain or DNS record.
+5. The production environment's `routes` entry attaches
+   `oauth.abella-prover.org` as a Worker Custom Domain. Confirm that the
+   route and DNS record appear after deployment.
 6. Add that exact origin to the site's `connect-src` CSP and build the
    frontend against it. `README_Web.md` covers the CSP, COOP, and
    callback-page headers.
@@ -213,11 +215,16 @@ independent operation with its own environment and secret.
 
 ## Rate limiting
 
-Configure a Cloudflare rate-limit rule in the dashboard:
+Configure a Cloudflare rate-limit rule in the dashboard. On the free
+plan, create one rule:
 
-- route: `POST /github/token`;
-- limit: 30 requests per minute per IP;
-- action: block for 60 seconds.
+- expression: Path equals `/github/token`;
+- limit: 5 requests per 10 seconds per IP;
+- action: block for 10 seconds.
+
+This is approximately 30 requests per minute. The free plan supports
+only Path matching and a 10-second window. Paid plans can use 30
+requests per minute with a 60-second block.
 
 The Worker does not keep a distributed counter. PKCE makes stolen codes
 hard to use; the rate limit is for abuse and cost control.

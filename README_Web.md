@@ -38,6 +38,18 @@ origins in `connect-src`.
 copies the whole generated `web/` tree, including lazy JavaScript
 chunks. Generated assets are gitignored.
 
+Cloudflare proxies the public apex, so SSH publishing cannot target the
+proxied `abella-prover.org` address. Keep a DNS-only
+`origin.abella-prover.org` A record pointing at the DreamHost Apache
+origin; `make publish-web` connects there while still using the
+`abellaweb@abella-prover.org` SSH identity and host-key entry. Override
+the destination with `WEB_ORIGIN=...` if the origin record has another
+name.
+
+The origin SSH host key must be current for the `abella-prover.org`
+known-hosts entry. Verify it with the hosting provider before accepting
+a changed key.
+
 GitHub authentication
 ---------------------
 

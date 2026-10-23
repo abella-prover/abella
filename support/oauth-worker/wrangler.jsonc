@@ -17,7 +17,15 @@
     },
     "production": {
       "name": "abella-web-oauth",
+      "workers_dev": false,
+      "routes": [
+        {
+          "pattern": "oauth.abella-prover.org",
+          "custom_domain": true
+        }
+      ],
       "vars": {
+        "GITHUB_CLIENT_ID": "Ov23lij3esU9SVP6NPzv",
         "ALLOWED_ORIGIN": "https://abella-prover.org",
         "REDIRECT_URI": "https://abella-prover.org/web/github-callback.html"
       }

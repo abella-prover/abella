@@ -16,6 +16,10 @@ all-release: # support/.stamp
 
 ENGINE ?= wasm
 
+# Cloudflare proxies the public apex; SSH publishing must use a DNS-only
+# origin record.  Override with WEB_ORIGIN=173.236.255.153 if needed.
+WEB_ORIGIN ?= origin.abella-prover.org
+
 .PHONY: web
 web:
 	mkdir -p web/examples web/abella_js
@@ -46,7 +50,7 @@ web-bundle:
 
 .PHONY: publish-web
 publish-web: web
-	rsync -aviz \
+	rsync -aviz -e "ssh -o HostName=$(WEB_ORIGIN)" \
 	  --exclude '.test/' \
 	  --exclude '*.map' \
 	  web/ abellaweb@abella-prover.org:abella-prover.org/web/

@@ -8,6 +8,7 @@ import type {
   RunResult,
   SourcePos,
 } from "./types";
+import { WEB_ASSET_VERSION } from "./version";
 
 export interface Driver {
   init(files: ProjectFile[], root: string): Promise<RunResult>;
@@ -25,7 +26,8 @@ interface Pending {
 }
 
 export function workerPath(engine: Engine): string {
-  return engine === "wasm" ? "abella_js/worker.js" : "abella_worker.js";
+  const path = engine === "wasm" ? "abella_js/worker.js" : "abella_worker.js";
+  return `${path}?v=${WEB_ASSET_VERSION}`;
 }
 
 export async function loadEngine(): Promise<Engine> {

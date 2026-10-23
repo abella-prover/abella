@@ -50,6 +50,11 @@ The origin SSH host key must be current for the `abella-prover.org`
 known-hosts entry. Verify it with the hosting provider before accepting
 a changed key.
 
+Cloudflare caches generated JavaScript, CSS, and wasm launchers by URL
+for 30 days. Bump `WEB_ASSET_VERSION` in
+`support/ts/web/version.ts` and the `?v=` strings in `web/*.html` when
+publishing changed assets.
+
 GitHub authentication
 ---------------------
 

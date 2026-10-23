@@ -9,14 +9,16 @@
 // launcher resolves its .wasm assets relative to this worker's URL, which is
 // why the wasm build lives inside web/abella_js/.
 
+import { WEB_ASSET_VERSION } from "./version";
+
 declare const __ENGINE__: "js" | "wasm";
 declare function importScripts(...urls: string[]): void;
 declare const Abellajs: import("./types").Abellajs;
 
 if (__ENGINE__ === "wasm") {
-  importScripts("abella_js.bc.wasm.js");
+  importScripts(`abella_js.bc.wasm.js?v=${WEB_ASSET_VERSION}`);
 } else {
-  importScripts("abella_js.js");
+  importScripts(`abella_js.js?v=${WEB_ASSET_VERSION}`);
 }
 
 const scope = self as unknown as {

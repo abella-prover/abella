@@ -40,6 +40,60 @@ let compiling : string list ref = ref []
 
 let initial_snapshot : State.snap option ref = ref None
 
+type saved = {
+  snapshot : State.snap ;
+  mode : [`batch | `interactive] ;
+  annotate : bool ;
+  recurse : bool ;
+  input : string ;
+  lexbuf : Lexing.lexbuf ;
+  compiled : (module Source.COMPILED) option ;
+  import_mode : [`thc | `source | `auto] ;
+  trust_compiled : bool ;
+  file_kind : [`thm | `thmod] ;
+  on_import : (string -> unit) option ;
+  compiling : string list ;
+  dest : Output.t ;
+  undo : bool ;
+}
+
+let save () = {
+  snapshot = State.snapshot () ;
+  mode = !mode ;
+  annotate = !annotate ;
+  recurse = !recurse ;
+  input = !input ;
+  lexbuf = !lexbuf ;
+  compiled = !compiled ;
+  import_mode = !import_mode ;
+  trust_compiled = !trust_compiled ;
+  file_kind = !file_kind ;
+  on_import = !on_import ;
+  compiling = !compiling ;
+  dest = !Output.dest ;
+  undo = State.Undo.is_enabled () ;
+}
+
+let restore saved =
+  State.reload saved.snapshot ;
+  mode := saved.mode ;
+  annotate := saved.annotate ;
+  recurse := saved.recurse ;
+  input := saved.input ;
+  lexbuf := saved.lexbuf ;
+  compiled := saved.compiled ;
+  import_mode := saved.import_mode ;
+  trust_compiled := saved.trust_compiled ;
+  file_kind := saved.file_kind ;
+  on_import := saved.on_import ;
+  compiling := saved.compiling ;
+  Output.dest := saved.dest ;
+  State.Undo.set_enabled saved.undo
+
+let with_saved f =
+  let saved = save () in
+  Fun.protect ~finally:(fun () -> restore saved) f
+
 type type_error = {
   pos : Extensions.pos ;
   actual : Term.ty ;

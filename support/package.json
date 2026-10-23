@@ -23,5 +23,10 @@
   },
   "dependencies": {
     "@fancyapps/ui": "^6.1.15"
+  },
+  "overrides": {
+    "@parcel/watcher": "2.6.0",
+    "brace-expansion": "5.0.12",
+    "source-map-js": "1.2.2"
   }
 }

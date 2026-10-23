@@ -3,12 +3,23 @@
   "name": "abella-web-oauth",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-23",
+  "observability": {
+    "enabled": true
+  },
   "env": {
     "dev": {
+      "name": "abella-web-oauth-dev",
       "vars": {
         "GITHUB_CLIENT_ID": "Ov23liHFsnnDvfvvg7fZ",
         "ALLOWED_ORIGIN": "http://127.0.0.1:8000",
         "REDIRECT_URI": "http://127.0.0.1:8000/github-callback.html"
+      }
+    },
+    "production": {
+      "name": "abella-web-oauth",
+      "vars": {
+        "ALLOWED_ORIGIN": "https://abella-prover.org",
+        "REDIRECT_URI": "https://abella-prover.org/web/github-callback.html"
       }
     }
   }

@@ -1,0 +1,4 @@
+# Copy this file to .dev.vars for local development.  Never commit
+# .dev.vars.  The public client ID and the allowed origin live in
+# wrangler.jsonc; only the client secret belongs here.
+GITHUB_CLIENT_SECRET=

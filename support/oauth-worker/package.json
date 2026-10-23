@@ -1,0 +1,18 @@
+{
+  "name": "abella-web-oauth-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "esbuild src/index.test.ts --bundle --platform=node --outfile=.test/index.test.cjs && node --test .test/index.test.cjs",
+    "dev": "wrangler dev --env dev --port 8787",
+    "deploy": "wrangler deploy --env production"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261023.1",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.152.0"
+  }
+}

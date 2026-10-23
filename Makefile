@@ -51,6 +51,14 @@ publish-web: web
 	  --exclude '*.map' \
 	  web/ abellaweb@abella-prover.org:abella-prover.org/web/
 
+.PHONY: oauth-worker-check
+oauth-worker-check:
+	( cd support/oauth-worker && npm ci && npm run check && npm test )
+
+.PHONY: oauth-worker-deploy
+oauth-worker-deploy:
+	( cd support/oauth-worker && npm ci && npm run deploy )
+
 support/.stamp: $(wildcard support/ts/*.ts) support/package.json \
                 support/package-lock.json
 	( cd support && \

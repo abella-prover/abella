@@ -4,13 +4,12 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Abella Web</title>
-    <link rel="icon" href="logo.png" type="image/png">
+    <link rel="icon" href="/images/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="abella_web.css">
   </head>
   <body>
     <header class="topbar">
       <div class="brand">
-        <img src="logo.png" alt="" width="64" height="29">
         <h1>Abella Web</h1>
       </div>
       <div class="topbar-controls">
@@ -20,60 +19,75 @@
             <option>Loading examples…</option>
           </select>
         </label>
-        <button id="scratch" type="button">Start from scratch</button>
         <button
           id="sidebar-mobile-toggle"
           class="mobile-only"
           type="button"
           aria-controls="sidebar"
         >Project</button>
-        <div class="topbar-actions">
-          <div class="workspace-control" aria-label="Workspace">
-            <span id="workspace-name" class="workspace-name">Virtual project</span>
-            <button id="reconnect-folder" type="button" hidden>Reconnect</button>
-          </div>
-          <button
-            id="open-folder"
-            type="button"
-            title="Open a local folder"
-          >Open folder</button>
-          <button id="github" type="button" title="Load a GitHub repository">
-            GitHub
-          </button>
-          <button id="save-file" type="button" hidden disabled>Save</button>
-          <button id="save-all" type="button" hidden disabled>Save all</button>
-          <button id="commit" type="button" hidden disabled>Commit</button>
-          <button id="download-zip" type="button">Download zip</button>
-          <button id="import-zip" type="button">Import zip</button>
-          <button
-            id="settings"
-            class="icon-button"
-            type="button"
-            aria-label="Settings"
-            title="Settings"
-            aria-haspopup="dialog"
-            aria-controls="settings-dialog"
-          ><span aria-hidden="true">⚙</span></button>
-          <input id="zip-input" type="file" accept=".zip" hidden>
-          <input
-            id="folder-input"
-            type="file"
-            webkitdirectory
-            multiple
-            hidden
-          >
+      </div>
+      <div class="topbar-actions">
+        <div class="workspace-control" aria-label="Workspace">
+          <span id="workspace-name" class="workspace-name">Virtual project</span>
+          <button id="reconnect-folder" type="button" hidden>Reconnect</button>
         </div>
+        <nav class="menus" aria-label="Project and run actions">
+          <details id="project-menu" class="menu">
+            <summary>Project</summary>
+            <div class="menu-list">
+              <button id="scratch" type="button">Start from scratch</button>
+              <button
+                id="open-folder"
+                type="button"
+                title="Open a local folder"
+              >Open folder</button>
+              <button
+                id="github"
+                type="button"
+                title="Load a GitHub repository"
+              >GitHub…</button>
+              <button id="save-file" type="button" hidden disabled>Save</button>
+              <button id="save-all" type="button" hidden disabled>
+                Save all
+              </button>
+              <button id="commit" type="button" hidden disabled>
+                Commit…
+              </button>
+              <button id="download-zip" type="button">Download zip</button>
+              <button id="import-zip" type="button">Import zip</button>
+            </div>
+          </details>
+          <details id="run-menu" class="menu">
+            <summary>Run</summary>
+            <div class="menu-list">
+              <button id="process-cursor" type="button">
+                Check to cursor
+              </button>
+              <button id="process-all" type="button">Process full</button>
+              <button id="stop" type="button" disabled>Stop</button>
+              <button id="reset" type="button">Reset</button>
+            </div>
+          </details>
+        </nav>
+        <button
+          id="settings"
+          class="icon-button"
+          type="button"
+          aria-label="Settings"
+          title="Settings"
+          aria-haspopup="dialog"
+          aria-controls="settings-dialog"
+        ><span aria-hidden="true">⚙</span></button>
+        <input id="zip-input" type="file" accept=".zip" hidden>
+        <input
+          id="folder-input"
+          type="file"
+          webkitdirectory
+          multiple
+          hidden
+        >
       </div>
     </header>
-
-    <div class="toolbar actions">
-      <button id="process-all" type="button">Process full</button>
-      <button id="stop" type="button" disabled>Stop</button>
-      <button id="reset" type="button">Reset</button>
-      <span class="spacer"></span>
-      <span id="status-detail" class="status-detail"></span>
-      <span id="status" class="status" role="status" aria-live="polite" data-status="idle">Starting…</span>
-    </div>
 
     <main class="layout">
       <aside class="sidebar" id="sidebar" aria-label="Project files">
@@ -100,24 +114,86 @@
       <section class="editor-pane">
         <div id="editor" class="editor"></div>
       </section>
+      <div
+        id="panel-splitter"
+        class="splitter horizontal"
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Resize the goal and output panel"
+        aria-valuemin="128"
+        aria-valuenow="200"
+        tabindex="0"
+        title="Drag to resize; double-click to reset"
+      ></div>
       <section class="panels">
         <section class="panel">
-          <h2>Goal</h2>
-          <div id="goal" class="goal-panel"></div>
-          <details id="output-disclosure" class="output-disclosure">
-            <summary id="output-summary">Warnings and output</summary>
-            <div id="output" class="output-panel" role="log" aria-live="polite"></div>
-          </details>
+          <div class="panel-head">
+            <div class="panel-tabs" role="tablist" aria-label="Proof panels">
+              <button
+                id="goal-tab"
+                class="panel-tab"
+                type="button"
+                role="tab"
+                aria-selected="true"
+                aria-controls="goal"
+              >Goal</button>
+              <button
+                id="output-tab"
+                class="panel-tab"
+                type="button"
+                role="tab"
+                aria-selected="false"
+                aria-controls="output"
+              >Warnings and output<span
+                id="output-count"
+                class="output-count"
+                hidden
+              ></span><span
+                id="output-error"
+                class="output-error"
+                aria-label="Output contains an error"
+                hidden
+              >!</span></button>
+            </div>
+            <span class="panel-status">
+              <span id="status-detail" class="status-detail"></span>
+              <span
+                id="status"
+                class="status"
+                role="status"
+                aria-live="polite"
+                data-status="idle"
+              >Starting…</span>
+            </span>
+          </div>
+          <div
+            id="goal"
+            class="goal-panel"
+            role="tabpanel"
+            aria-labelledby="goal-tab"
+          ></div>
+          <div
+            id="output"
+            class="output-panel"
+            role="tabpanel"
+            aria-labelledby="output-tab"
+            aria-live="polite"
+            hidden
+          ></div>
         </section>
       </section>
     </main>
 
     <footer class="footer">
-      <span><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd> check to cursor</span>
-      <span><kbd>Ctrl</kbd>+<kbd>]</kbd> / <kbd>[</kbd> next / previous command</span>
-      <span><kbd>Ctrl</kbd>+<kbd>.</kbd> jump to checked tip</span>
-      <a href="privacy.html">Privacy</a>
-      <a href="https://abella-prover.org">abella-prover.org</a>
+      <span class="footer-help">
+        <button id="help" class="link-button" type="button">
+          Help <kbd>Ctrl</kbd>+<kbd>?</kbd>
+        </button>
+      </span>
+      <span class="footer-links">
+        <a href="privacy.html">Privacy</a>
+        <a href="https://abella-prover.org">abella-prover.org</a>
+      </span>
     </footer>
 
     <dialog
@@ -135,6 +211,49 @@
           <input id="theme-toggle" type="checkbox" role="switch">
         </label>
         <p class="setting-note">Preferences are saved in this browser.</p>
+      </form>
+    </dialog>
+
+    <dialog
+      id="help-dialog"
+      class="settings-dialog help-dialog"
+      aria-labelledby="help-title"
+    >
+      <form method="dialog" class="settings-form">
+        <div class="settings-head">
+          <h2 id="help-title">Keyboard shortcuts</h2>
+          <button
+            class="icon-button"
+            type="submit"
+            aria-label="Close help"
+          >×</button>
+        </div>
+        <dl class="keymap">
+          <div>
+            <dt><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Enter</kbd></dt>
+            <dd>Check to cursor</dd>
+          </div>
+          <div>
+            <dt><kbd>Ctrl</kbd>+<kbd>]</kbd> / <kbd>[</kbd></dt>
+            <dd>Next / previous command</dd>
+          </div>
+          <div>
+            <dt><kbd>Ctrl</kbd>+<kbd>.</kbd></dt>
+            <dd>Jump to the checked tip</dd>
+          </div>
+          <div>
+            <dt><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>B</kbd></dt>
+            <dd>Show or hide the project sidebar</dd>
+          </div>
+          <div>
+            <dt><kbd>Ctrl</kbd>+<kbd>?</kbd></dt>
+            <dd>Open this help</dd>
+          </div>
+        </dl>
+        <p class="setting-note">
+          On macOS, use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd> for the
+          editor and sidebar shortcuts.
+        </p>
       </form>
     </dialog>
 

@@ -3,7 +3,6 @@
 // See LICENSE for licensing details.
 
 import { downloadProject, importProject } from "./archive";
-import type { Command } from "./commands";
 import { WorkerDriver, loadEngine } from "./driver";
 import { EditorManager } from "./editor";
 import {
@@ -86,10 +85,14 @@ const statusDetail = byId<HTMLSpanElement>("status-detail");
 const fileList = byId<HTMLDivElement>("file-list");
 const goalPanel = byId<HTMLDivElement>("goal");
 const outputPanel = byId<HTMLDivElement>("output");
-const outputDisclosure = byId<HTMLDetailsElement>("output-disclosure");
-const outputSummary = byId<HTMLElement>("output-summary");
+const goalTab = byId<HTMLButtonElement>("goal-tab");
+const outputTab = byId<HTMLButtonElement>("output-tab");
+const outputCountBadge = byId<HTMLElement>("output-count");
+const outputErrorBadge = byId<HTMLElement>("output-error");
+const panelTabs = document.querySelector(".panel-tabs") as HTMLElement;
 const exampleSelect = byId<HTMLSelectElement>("example-select");
 const zipInput = byId<HTMLInputElement>("zip-input");
+const processCursorButton = byId<HTMLButtonElement>("process-cursor");
 const processAllButton = byId<HTMLButtonElement>("process-all");
 const stopButton = byId<HTMLButtonElement>("stop");
 const resetButton = byId<HTMLButtonElement>("reset");
@@ -137,15 +140,22 @@ const commitCloseButton = byId<HTMLButtonElement>("commit-close");
 const sidebarTitle = byId<HTMLElement>("sidebar-title");
 const settingsButton = byId<HTMLButtonElement>("settings");
 const settingsDialog = byId<HTMLDialogElement>("settings-dialog");
+const helpButton = byId<HTMLButtonElement>("help");
+const helpDialog = byId<HTMLDialogElement>("help-dialog");
 const themeToggle = byId<HTMLInputElement>("theme-toggle");
 const THEME_KEY = "abella.web.v1.theme";
 const layout = document.querySelector(".layout") as HTMLElement;
+const panelsElement = document.querySelector(".panels") as HTMLElement;
 const sidebar = byId<HTMLElement>("sidebar");
 const splitter = byId<HTMLDivElement>("sidebar-splitter");
+const panelSplitter = byId<HTMLDivElement>("panel-splitter");
 const SIDEBAR_KEY = "abella.web.v1.sidebar";
+const PANEL_KEY = "abella.web.v1.panels";
 const DEFAULT_SIDEBAR_WIDTH = 224;
 const MIN_SIDEBAR_WIDTH = 150;
 const COLLAPSE_THRESHOLD = 100;
+const MIN_PANEL_HEIGHT = 128;
+const EDITOR_MIN_HEIGHT = 160;
 
 const savedProject = loadProjectRecord();
 let project: Project = savedProject?.project ?? scratchProject();
@@ -258,6 +268,9 @@ let sidebarCollapsed = false;
 let lastGoalState: ProofState | undefined;
 let currentOutcome: ProofOutcome | undefined;
 let outputCount = 0;
+let outputHasError = false;
+let activePanel: "goal" | "output" = "goal";
+let panelHeight: number | undefined;
 
 interface SidebarPref {
   width: number;
@@ -450,6 +463,159 @@ function installSplitter(): void {
   });
 }
 
+function maxPanelHeight(): number {
+  return Math.max(
+    MIN_PANEL_HEIGHT,
+    layout.clientHeight - EDITOR_MIN_HEIGHT
+  );
+}
+
+function defaultPanelHeight(): number {
+  return Math.max(
+    MIN_PANEL_HEIGHT,
+    Math.round(window.innerHeight * 0.28)
+  );
+}
+
+function loadPanelHeight(): number | undefined {
+  try {
+    const raw = localStorage.getItem(PANEL_KEY);
+    if (!raw) return undefined;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function renderPanelHeight(height: number | undefined): void {
+  if (height === undefined) {
+    panelHeight = undefined;
+    layout.style.removeProperty("--panel-height");
+  } else {
+    panelHeight = Math.max(
+      MIN_PANEL_HEIGHT,
+      Math.min(height, maxPanelHeight())
+    );
+    layout.style.setProperty("--panel-height", `${panelHeight}px`);
+  }
+  const shown = Math.round(panelHeight ?? defaultPanelHeight());
+  panelSplitter.setAttribute(
+    "aria-valuemax",
+    String(Math.round(maxPanelHeight()))
+  );
+  panelSplitter.setAttribute("aria-valuenow", String(shown));
+  panelSplitter.setAttribute("aria-valuetext", `${shown} pixels`);
+  scheduleMeasure();
+}
+
+function savePanelHeight(): void {
+  if (panelHeight === undefined) return;
+  try {
+    localStorage.setItem(PANEL_KEY, String(Math.round(panelHeight)));
+  } catch {
+    // Persistence is optional.
+  }
+}
+
+function installPanelSplitter(): void {
+  let dragging = false;
+  let startY = 0;
+  let startHeight = 0;
+  let lastHeight = 0;
+
+  const finish = (): void => {
+    if (!dragging) return;
+    dragging = false;
+    layout.classList.remove("resizing");
+    panelSplitter.classList.remove("dragging");
+    document.body.classList.remove("resizing-row");
+    renderPanelHeight(lastHeight);
+    savePanelHeight();
+  };
+
+  panelSplitter.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    dragging = true;
+    startY = event.clientY;
+    startHeight = panelsElement.getBoundingClientRect().height;
+    lastHeight = startHeight;
+    layout.classList.add("resizing");
+    panelSplitter.classList.add("dragging");
+    document.body.classList.add("resizing-row");
+    panelSplitter.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  panelSplitter.addEventListener("pointermove", (event) => {
+    if (!dragging) return;
+    lastHeight = startHeight - (event.clientY - startY);
+    renderPanelHeight(lastHeight);
+  });
+
+  panelSplitter.addEventListener("pointerup", finish);
+  panelSplitter.addEventListener("pointercancel", finish);
+  panelSplitter.addEventListener("dblclick", () => {
+    renderPanelHeight(undefined);
+    try {
+      localStorage.removeItem(PANEL_KEY);
+    } catch {
+      // Persistence is optional.
+    }
+  });
+
+  panelSplitter.addEventListener("keydown", (event) => {
+    const step = 16;
+    const base = panelHeight ?? defaultPanelHeight();
+    switch (event.key) {
+      case "ArrowUp":
+        event.preventDefault();
+        renderPanelHeight(base + step);
+        savePanelHeight();
+        break;
+      case "ArrowDown":
+        event.preventDefault();
+        renderPanelHeight(base - step);
+        savePanelHeight();
+        break;
+      case "Home":
+        event.preventDefault();
+        renderPanelHeight(MIN_PANEL_HEIGHT);
+        savePanelHeight();
+        break;
+      case "End":
+        event.preventDefault();
+        renderPanelHeight(maxPanelHeight());
+        savePanelHeight();
+        break;
+      case "Enter":
+      case " ":
+        event.preventDefault();
+        renderPanelHeight(undefined);
+        try {
+          localStorage.removeItem(PANEL_KEY);
+        } catch {
+          // Persistence is optional.
+        }
+        break;
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (panelHeight !== undefined) {
+      renderPanelHeight(panelHeight);
+    } else {
+      const shown = Math.round(defaultPanelHeight());
+      panelSplitter.setAttribute(
+        "aria-valuemax",
+        String(Math.round(maxPanelHeight()))
+      );
+      panelSplitter.setAttribute("aria-valuenow", String(shown));
+      panelSplitter.setAttribute("aria-valuetext", `${shown} pixels`);
+    }
+  });
+}
+
 const statusText: Record<SessionStatus, string> = {
   idle: "Starting…",
   ready: "Ready",
@@ -467,6 +633,7 @@ function setStatus(status: SessionStatus, detail?: string): void {
       : statusText[status];
   statusDetail.textContent = detail ?? "";
   const busy = status === "processing" || status === "compiling";
+  processCursorButton.disabled = busy;
   processAllButton.disabled = busy;
   resetButton.disabled = busy;
   stopButton.disabled = !busy;
@@ -475,8 +642,9 @@ function setStatus(status: SessionStatus, detail?: string): void {
     (status === "ok" || status === "error") &&
     window.matchMedia("(max-width: 900px)").matches
   ) {
+    const target = activePanel === "output" ? outputPanel : goalPanel;
     window.requestAnimationFrame(() =>
-      goalPanel.scrollIntoView({ block: "nearest", behavior: "smooth" })
+      target.scrollIntoView({ block: "nearest", behavior: "smooth" })
     );
   }
 }
@@ -500,29 +668,105 @@ function scheduleSave(): void {
   workspaceSession.schedulePersist();
 }
 
-function updateOutputSummary(): void {
-  outputSummary.textContent = `Warnings and output (${outputCount})`;
+function updateOutputTab(): void {
+  outputCountBadge.textContent = String(outputCount);
+  outputCountBadge.hidden = outputCount === 0;
+  outputErrorBadge.hidden = !outputHasError;
+  outputTab.dataset.error = String(outputHasError);
+}
+
+function selectPanel(panel: "goal" | "output", focus = false): void {
+  activePanel = panel;
+  const goalActive = panel === "goal";
+  goalTab.setAttribute("aria-selected", String(goalActive));
+  outputTab.setAttribute("aria-selected", String(!goalActive));
+  goalTab.tabIndex = goalActive ? 0 : -1;
+  outputTab.tabIndex = goalActive ? -1 : 0;
+  goalPanel.hidden = !goalActive;
+  outputPanel.hidden = goalActive;
+  if (!goalActive) outputHasError = false;
+  updateOutputTab();
+  if (focus) (goalActive ? goalTab : outputTab).focus();
 }
 
 function clearOutput(): void {
   outputCount = 0;
+  outputHasError = false;
   outputPanel.replaceChildren();
-  outputDisclosure.open = false;
-  updateOutputSummary();
+  selectPanel("goal");
 }
 
-function appendEntries(entries: OutputEntry[], command?: Command): void {
+function appendEntries(entries: OutputEntry[]): void {
   if (entries.length === 0) return;
   appendOutput(outputPanel, entries);
   outputCount += entries.length;
-  updateOutputSummary();
-  const autoOpen =
-    entries.some(
-      (entry) =>
-        entry.severity === "error" || entry.message.startsWith("Warning")
-    ) ||
-    (command !== undefined && /^(Show|Query)\b/.test(command.text));
-  if (autoOpen) outputDisclosure.open = true;
+  const hasError = entries.some((entry) => entry.severity === "error");
+  if (hasError && activePanel !== "output") outputHasError = true;
+  updateOutputTab();
+}
+
+function closeMenus(): void {
+  for (const menu of document.querySelectorAll<HTMLDetailsElement>(
+    ".menu[open]"
+  )) {
+    menu.open = false;
+  }
+}
+
+function installMenus(): void {
+  const menus = [
+    ...document.querySelectorAll<HTMLDetailsElement>(".menu"),
+  ];
+  for (const menu of menus) {
+    menu.addEventListener("toggle", () => {
+      if (!menu.open) return;
+      for (const other of menus) {
+        if (other !== menu) other.open = false;
+      }
+    });
+    menu.addEventListener("click", (event) => {
+      if ((event.target as HTMLElement).closest("button")) menu.open = false;
+    });
+  }
+  document.addEventListener("pointerdown", (event) => {
+    if (!(event.target as HTMLElement).closest(".menu")) closeMenus();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    const open = document.querySelector<HTMLDetailsElement>(".menu[open]");
+    if (!open) return;
+    closeMenus();
+    open.querySelector("summary")?.focus();
+  });
+}
+
+function installTabs(): void {
+  goalTab.addEventListener("click", () => selectPanel("goal"));
+  outputTab.addEventListener("click", () => selectPanel("output"));
+  panelTabs.addEventListener("keydown", (event) => {
+    switch (event.key) {
+      case "ArrowLeft":
+      case "ArrowRight":
+        event.preventDefault();
+        selectPanel(activePanel === "goal" ? "output" : "goal", true);
+        break;
+      case "Home":
+        event.preventDefault();
+        selectPanel("goal", true);
+        break;
+      case "End":
+        event.preventDefault();
+        selectPanel("output", true);
+        break;
+    }
+  });
+}
+
+function openHelp(): void {
+  closeMenus();
+  if (helpDialog.open) return;
+  if (document.querySelector("dialog[open]")) return;
+  helpDialog.showModal();
 }
 
 function info(message: string): void {
@@ -1840,6 +2084,7 @@ async function main(): Promise<void> {
       stepForward: () => void stepForward(),
       stepBackward: () => void stepBackward(),
       jumpToTip: () => jumpToTip(),
+      help: openHelp,
     }
   );
 
@@ -1857,11 +2102,33 @@ async function main(): Promise<void> {
   }
   const pref = loadSidebarPref();
   renderSidebar(pref.collapsed, pref.width);
+  renderPanelHeight(loadPanelHeight());
   installSplitter();
+  installPanelSplitter();
+  installMenus();
+  installTabs();
+  selectPanel("goal");
   byId<HTMLButtonElement>("sidebar-mobile-toggle").addEventListener(
     "click",
     toggleSidebar
   );
+  helpButton.addEventListener("click", openHelp);
+  helpDialog.addEventListener("click", (event) => {
+    if (event.target === helpDialog) helpDialog.close();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (
+      event.defaultPrevented ||
+      !event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      event.key !== "?"
+    ) {
+      return;
+    }
+    event.preventDefault();
+    openHelp();
+  });
   document.addEventListener("keydown", (event) => {
     if (
       (event.ctrlKey || event.metaKey) &&
@@ -1891,6 +2158,10 @@ async function main(): Promise<void> {
     setStatus("error", String(error));
   }
 
+  processCursorButton.addEventListener(
+    "click",
+    () => void processToCursor()
+  );
   processAllButton.addEventListener("click", () => void session.processAll());
   stopButton.addEventListener("click", () => {
     session.stop();

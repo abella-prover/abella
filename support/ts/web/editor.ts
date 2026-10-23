@@ -108,6 +108,7 @@ export interface EditorActions {
   stepForward(): void;
   stepBackward(): void;
   jumpToTip(): void;
+  help(): void;
 }
 
 function baseExtensions(
@@ -144,6 +145,13 @@ function baseExtensions(
       key: "Ctrl-.",
       run: () => {
         actions.jumpToTip();
+        return true;
+      },
+    },
+    {
+      key: "Ctrl-?",
+      run: () => {
+        actions.help();
         return true;
       },
     },

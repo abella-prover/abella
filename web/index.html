@@ -30,6 +30,15 @@
         <div class="topbar-actions">
           <button id="download-zip" type="button">Download zip</button>
           <button id="import-zip" type="button">Import zip</button>
+          <button
+            id="settings"
+            class="icon-button"
+            type="button"
+            aria-label="Settings"
+            title="Settings"
+            aria-haspopup="dialog"
+            aria-controls="settings-dialog"
+          ><span aria-hidden="true">⚙</span></button>
           <input id="zip-input" type="file" accept=".zip" hidden>
         </div>
       </div>
@@ -87,6 +96,24 @@
       <span><kbd>Ctrl</kbd>+<kbd>.</kbd> jump to checked tip</span>
       <a href="https://abella-prover.org">abella-prover.org</a>
     </footer>
+
+    <dialog
+      id="settings-dialog"
+      class="settings-dialog"
+      aria-labelledby="settings-title"
+    >
+      <form method="dialog" class="settings-form">
+        <div class="settings-head">
+          <h2 id="settings-title">Settings</h2>
+          <button class="icon-button" type="submit" aria-label="Close settings">×</button>
+        </div>
+        <label class="setting">
+          <span>Dark mode</span>
+          <input id="theme-toggle" type="checkbox" role="switch">
+        </label>
+        <p class="setting-note">Preferences are saved in this browser.</p>
+      </form>
+    </dialog>
 
     <script type="module" src="abella_web.js"></script>
   </body>

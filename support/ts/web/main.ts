@@ -54,6 +54,10 @@ const addFileButton = byId<HTMLButtonElement>("add-file");
 const renameFileButton = byId<HTMLButtonElement>("rename-file");
 const deleteFileButton = byId<HTMLButtonElement>("delete-file");
 const setRootButton = byId<HTMLButtonElement>("set-root");
+const settingsButton = byId<HTMLButtonElement>("settings");
+const settingsDialog = byId<HTMLDialogElement>("settings-dialog");
+const themeToggle = byId<HTMLInputElement>("theme-toggle");
+const THEME_KEY = "abella.web.v1.theme";
 const layout = document.querySelector(".layout") as HTMLElement;
 const sidebar = byId<HTMLElement>("sidebar");
 const splitter = byId<HTMLDivElement>("sidebar-splitter");
@@ -69,6 +73,32 @@ let session: Session;
 let saveTimer: number | undefined;
 let measureTimer: number | undefined;
 let saveWarningShown = false;
+
+type Theme = "light" | "dark";
+
+function loadTheme(): Theme {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === "dark" || saved === "light") return saved;
+  } catch {
+    // Fall through to the system preference.
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function applyTheme(theme: Theme, persist: boolean): void {
+  document.documentElement.dataset.theme = theme;
+  themeToggle.checked = theme === "dark";
+  if (persist) {
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      // Preferences are optional.
+    }
+  }
+}
 let sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
 let sidebarCollapsed = false;
 let lastGoalState: ProofState | undefined;
@@ -699,6 +729,17 @@ async function main(): Promise<void> {
   renameFileButton.addEventListener("click", renameFile);
   deleteFileButton.addEventListener("click", deleteFile);
   setRootButton.addEventListener("click", setRoot);
+  settingsButton.addEventListener("click", () => {
+    themeToggle.checked =
+      document.documentElement.dataset.theme === "dark";
+    settingsDialog.showModal();
+  });
+  themeToggle.addEventListener("change", () => {
+    applyTheme(themeToggle.checked ? "dark" : "light", true);
+  });
+  settingsDialog.addEventListener("click", (event) => {
+    if (event.target === settingsDialog) settingsDialog.close();
+  });
 
   exampleSelect.addEventListener("change", () => {
     const id = exampleSelect.value;
@@ -744,4 +785,5 @@ async function main(): Promise<void> {
     }
   });
 }
+applyTheme(loadTheme(), false);
 void main();

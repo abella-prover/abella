@@ -5,6 +5,7 @@
  */
 
 :root {
+  color-scheme: light;
   --bg: #faf7f5;
   --surface: #fffefd;
   --surface-2: #f3ece8;
@@ -19,6 +20,9 @@
   --processed: rgba(181, 106, 18, 0.12);
   --selection: #f2d3bb;
   --active-line: rgba(168, 62, 91, 0.05);
+  --status-warn-bg: #fbefd9;
+  --status-ok-bg: #e4f2e8;
+  --status-error-bg: #f8e2e4;
   --mono: "Iosevka", "Fira Code", "DejaVu Sans Mono", monospace;
   --sans: "Inter", "Segoe UI", system-ui, sans-serif;
   --cm-comment: #8a7a72;
@@ -30,6 +34,36 @@
   --cm-operator: #9d1f1f;
   --cm-punctuation: #6d5d56;
   --cm-meta: #7e2942;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #151210;
+  --surface: #1e1a17;
+  --surface-2: #2a2420;
+  --ink: #f0e8e2;
+  --muted: #b8a79b;
+  --border: #3b322d;
+  --rose: #e07a97;
+  --rose-dark: #f3a9bc;
+  --amber: #e0a04a;
+  --green: #7bc89a;
+  --red: #ff9090;
+  --processed: rgba(224, 160, 74, 0.18);
+  --selection: #5a3a45;
+  --active-line: rgba(224, 122, 151, 0.1);
+  --status-warn-bg: #3a2c15;
+  --status-ok-bg: #18301f;
+  --status-error-bg: #3a1b1f;
+  --cm-comment: #9b8b82;
+  --cm-keyword: #e07a97;
+  --cm-type: #7fb7e6;
+  --cm-variable: #e8ded7;
+  --cm-string: #7bc89a;
+  --cm-number: #e0a04a;
+  --cm-operator: #ff9f9f;
+  --cm-punctuation: #b8a79b;
+  --cm-meta: #f3a9bc;
 }
 
 * {
@@ -149,18 +183,18 @@ summary:focus-visible,
 
   &[data-status="processing"],
   &[data-status="compiling"] {
-    background: #fbefd9;
+    background: var(--status-warn-bg);
     color: var(--amber);
   }
 
   &[data-status="ok"],
   &[data-status="ready"] {
-    background: #e4f2e8;
+    background: var(--status-ok-bg);
     color: var(--green);
   }
 
   &[data-status="error"] {
-    background: #f8e2e4;
+    background: var(--status-error-bg);
     color: var(--red);
   }
 }
@@ -463,6 +497,57 @@ body.resizing {
   &[data-severity="error"] {
     color: var(--red);
   }
+}
+
+.settings-dialog {
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+
+  &::backdrop {
+    background: rgba(0, 0, 0, 0.45);
+  }
+}
+
+.settings-form {
+  padding: 0.4rem 1rem 1rem;
+}
+
+.settings-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 0 0.6rem;
+
+  h2 {
+    margin: 0;
+    font-size: 1rem;
+  }
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 0 0.2rem;
+
+  input[type="checkbox"] {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: var(--rose);
+  }
+}
+
+.setting-note {
+  margin: 0.8rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
 }
 
 .sequent {

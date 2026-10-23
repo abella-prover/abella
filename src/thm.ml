@@ -412,7 +412,6 @@ and source_compile ~modname =
   let saved_can_read = !can_read_specification in
   let saved_witnesses = !Setup.witnesses in
   let saved_compiling = !Setup.compiling in
-  let saved_clause_map = !Typing.clause_map in
   let restore () =
     State.reload saved_snapshot ;
     Setup.mode := saved_mode ;
@@ -429,8 +428,7 @@ and source_compile ~modname =
     State.Undo.set_enabled saved_undo ;
     can_read_specification := saved_can_read ;
     Setup.witnesses := saved_witnesses ;
-    Setup.compiling := saved_compiling ;
-    Typing.clause_map := saved_clause_map
+    Setup.compiling := saved_compiling
   in
   try begin
     State.reload (Option.get !Setup.initial_snapshot) ;

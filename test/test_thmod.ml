@@ -56,7 +56,6 @@ let with_temp_dir f =
 let with_session f =
   let snap = State.snapshot () in
   let dest = !Output.dest in
-  let clause_map = !Typing.clause_map in
   let compiling = !D.compiling in
   let mode = !D.Setup.mode in
   let annotate = !D.Setup.annotate in
@@ -71,7 +70,6 @@ let with_session f =
   let restore () =
     State.reload snap ;
     Output.dest := dest ;
-    Typing.clause_map := clause_map ;
     D.compiling := compiling ;
     D.Setup.mode := mode ;
     D.Setup.annotate := annotate ;

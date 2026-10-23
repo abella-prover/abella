@@ -35,7 +35,6 @@ let start_web_session () =
   State.Undo.set_enabled true ;
   State.Undo.reset () ;
   Accumulate.clear_specification_cache () ;
-  Typing.clause_map := Term.Itab.empty ;
   Source.clear_virtual () ;
   Source.clear_thc_trust () ;
   D.compiling := [] ;
@@ -56,7 +55,6 @@ let start_web_session () =
 let with_session f =
   let snap = State.snapshot () in
   let dest = !Output.dest in
-  let clause_map = !Typing.clause_map in
   let compiling = !D.compiling in
   let on_import = !D.on_import in
   let mode = !D.Setup.mode in
@@ -74,7 +72,6 @@ let with_session f =
   let restore () =
     State.reload snap ;
     Output.dest := dest ;
-    Typing.clause_map := clause_map ;
     D.compiling := compiling ;
     D.on_import := on_import ;
     D.Setup.mode := mode ;

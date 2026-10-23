@@ -542,7 +542,7 @@ let replace_underscores head body =
   | h::b -> (h, b)
   | [] -> [%bug] "replace_underscores: empty term list"
 
-let clause_map : (string list * term) Itab.t ref = ref Itab.empty
+let clause_map : (string list * term) Itab.t ref = State.rref Itab.empty
 let seen_name cname = Itab.mem cname !clause_map
 let register_clause name clause =
   (* Printf.printf "Note: registered %S : %s\n%!" name *)

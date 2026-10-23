@@ -106,7 +106,6 @@ let re_init files root =
   State.Undo.reset () ;
   Abella_driver.compiling := [] ;
   Accumulate.clear_specification_cache () ;
-  Typing.clause_map := Term.Itab.empty ;
   Source.clear_virtual () ;
   Source.clear_thc_trust () ;
   Source.set_thc_cache_limit (64 * 1024 * 1024) ;

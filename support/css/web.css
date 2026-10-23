@@ -173,6 +173,31 @@ summary:focus-visible,
   margin-left: auto;
 }
 
+.workspace-control {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 18rem;
+  padding: 0.2rem 0.25rem 0.2rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-2);
+}
+
+.workspace-name {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-control button {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.75rem;
+}
+
 .status {
   border-radius: 999px;
   padding: 0.2rem 0.7rem;

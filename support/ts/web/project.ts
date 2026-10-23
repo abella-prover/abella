@@ -82,15 +82,29 @@ export function projectFromBundle(
   };
 }
 
+export interface WorkspaceDescriptor {
+  kind: string;
+  name: string;
+}
+
 interface SavedProject {
   version: 1;
   files: Record<string, string>;
   root: string;
   active?: string;
   example?: string;
+  workspace?: WorkspaceDescriptor;
 }
 
-export function saveProject(project: Project): string | undefined {
+export interface LoadedProject {
+  project: Project;
+  workspace?: WorkspaceDescriptor;
+}
+
+export function saveProject(
+  project: Project,
+  workspace?: WorkspaceDescriptor
+): string | undefined {
   const data: SavedProject = {
     version: 1,
     files: Object.fromEntries(
@@ -99,6 +113,7 @@ export function saveProject(project: Project): string | undefined {
     root: project.root,
     active: project.active,
     example: project.example,
+    workspace,
   };
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -108,7 +123,7 @@ export function saveProject(project: Project): string | undefined {
   }
 }
 
-export function loadProject(): Project | undefined {
+export function loadProjectRecord(): LoadedProject | undefined {
   let raw: string | null = null;
   try {
     raw = localStorage.getItem(STORAGE_KEY);
@@ -127,14 +142,30 @@ export function loadProject(): Project | undefined {
     }
     if (!files.has(data.root)) return undefined;
     return {
-      files,
-      root: data.root,
-      active: files.has(data.active ?? "") ? data.active! : data.root,
-      example: data.example,
+      project: {
+        files,
+        root: data.root,
+        active: files.has(data.active ?? "") ? data.active! : data.root,
+        example: data.example,
+      },
+      workspace:
+        data.workspace && typeof data.workspace.kind === "string"
+          ? {
+              kind: data.workspace.kind,
+              name:
+                typeof data.workspace.name === "string"
+                  ? data.workspace.name
+                  : "",
+            }
+          : undefined,
     };
   } catch {
     return undefined;
   }
+}
+
+export function loadProject(): Project | undefined {
+  return loadProjectRecord()?.project;
 }
 
 export function clearSavedProject(): void {

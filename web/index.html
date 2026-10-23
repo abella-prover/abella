@@ -28,11 +28,14 @@
           aria-controls="sidebar"
         >Project</button>
         <div class="topbar-actions">
+          <div class="workspace-control" aria-label="Workspace">
+            <span id="workspace-name" class="workspace-name">Virtual project</span>
+            <button id="reconnect-folder" type="button" hidden>Reconnect</button>
+          </div>
           <button
             id="open-folder"
             type="button"
-            title="Open a local folder (Chromium-based browsers)"
-            hidden
+            title="Open a local folder"
           >Open folder</button>
           <button id="save-file" type="button" hidden disabled>Save</button>
           <button id="save-all" type="button" hidden disabled>Save all</button>
@@ -48,6 +51,13 @@
             aria-controls="settings-dialog"
           ><span aria-hidden="true">⚙</span></button>
           <input id="zip-input" type="file" accept=".zip" hidden>
+          <input
+            id="folder-input"
+            type="file"
+            webkitdirectory
+            multiple
+            hidden
+          >
         </div>
       </div>
     </header>

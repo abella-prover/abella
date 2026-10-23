@@ -12,9 +12,16 @@ import {
   type Project,
   type ProjectTextFile,
 } from "./project";
+import {
+  WorkspaceError,
+  type Workspace,
+  type WorkspaceCapabilities,
+  type WorkspaceFileEntry,
+  type WorkspaceKind,
+} from "./workspace";
 
-const MAX_FILE_BYTES = 512 * 1024;
-const MAX_FILES = 500;
+export const MAX_FILE_BYTES = 512 * 1024;
+export const MAX_FILES = 500;
 const MAX_DEPTH = 8;
 const MAX_MANIFEST_BYTES = 64 * 1024;
 
@@ -88,21 +95,29 @@ type PickerWindow = Window & {
   }) => Promise<DirectoryHandle>;
 };
 
-export class DirectoryUnavailableError extends Error {}
-export class DirectoryPermissionError extends Error {}
-export class DirectoryEmptyError extends Error {}
+export class DirectoryUnavailableError extends WorkspaceError {
+  constructor(message: string) {
+    super("unavailable", message);
+  }
+}
+
+export class DirectoryPermissionError extends WorkspaceError {
+  constructor(message: string) {
+    super("permission-denied", message);
+  }
+}
+
+export class DirectoryEmptyError extends WorkspaceError {
+  constructor(message: string) {
+    super("not-found", message);
+  }
+}
 
 export interface OpenedDirectory {
   project: Project;
   workspace: DirectoryWorkspace;
   truncated: boolean;
   skipped: number;
-}
-
-export interface SaveReport {
-  saved: number;
-  cancelled: number;
-  failures: { path: string; message: string }[];
 }
 
 export function directoryPickerSupported(): boolean {
@@ -174,9 +189,37 @@ function isPermissionDenied(error: unknown): boolean {
   return name === "NotAllowedError" || name === "SecurityError";
 }
 
-export function messageOf(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message;
-  return String(error);
+function permissionError(): DirectoryPermissionError {
+  return new DirectoryPermissionError(
+    "Permission to use the folder was denied. " +
+      "Use Download zip to keep your work."
+  );
+}
+
+async function ensurePermission(
+  handle: DirectoryHandle,
+  mode: "read" | "readwrite"
+): Promise<void> {
+  // Call requestPermission first so a click's transient activation is not
+  // consumed by an intervening queryPermission await.
+  if (handle.requestPermission) {
+    let requested: PermissionState | undefined;
+    try {
+      requested = await handle.requestPermission({ mode });
+    } catch {
+      requested = undefined;
+    }
+    if (requested === "granted") return;
+    if (requested === "denied") throw permissionError();
+  }
+  if (!handle.queryPermission) return;
+  let permission: PermissionState;
+  try {
+    permission = await handle.queryPermission({ mode });
+  } catch {
+    return;
+  }
+  if (permission !== "granted") throw permissionError();
 }
 
 interface ReadState {
@@ -243,13 +286,53 @@ async function readDirectory(
   }
 }
 
-export async function openDirectoryProject(
+export async function readDirectoryHandle(
+  handle: DirectoryHandle,
+  confirmOverwrite: (path: string) => boolean,
   confirmReplace?: (folderName: string) => boolean
+): Promise<OpenedDirectory> {
+  await ensurePermission(handle, "readwrite");
+  if (confirmReplace && !confirmReplace(handle.name)) {
+    throw new WorkspaceError("cancelled", "Folder reconnect cancelled.");
+  }
+  const state: ReadState = {
+    files: new Map(),
+    handles: new Map(),
+    lastModified: new Map(),
+    truncated: false,
+    skipped: 0,
+  };
+  await readDirectory(handle, "", 0, state);
+  const manifestRoot = await readManifestRoot(handle);
+  const root = chooseRoot([...state.files.keys()], handle.name, manifestRoot);
+  if (!root) {
+    throw new DirectoryEmptyError(
+      "That folder does not contain a .thm reasoning file."
+    );
+  }
+  const project: Project = { files: state.files, root, active: root };
+  return {
+    project,
+    workspace: new DirectoryWorkspace(
+      handle,
+      state.files,
+      state.handles,
+      state.lastModified,
+      confirmOverwrite
+    ),
+    truncated: state.truncated,
+    skipped: state.skipped,
+  };
+}
+
+export async function openDirectoryProject(
+  confirmReplace: (folderName: string) => boolean,
+  confirmOverwrite: (path: string) => boolean
 ): Promise<OpenedDirectory | undefined> {
   const picker = (window as PickerWindow).showDirectoryPicker;
   if (!picker) {
     throw new DirectoryUnavailableError(
-      "This browser cannot open local folders. Use Import zip instead."
+      "This browser cannot open local folders with a picker."
     );
   }
   let handle: DirectoryHandle;
@@ -266,75 +349,60 @@ export async function openDirectoryProject(
   }
   // The picker needs the click's transient activation, so the replacement
   // prompt must run after it rather than before it.
-  if (confirmReplace && !confirmReplace(handle.name)) return undefined;
-
-  const state: ReadState = {
-    files: new Map(),
-    handles: new Map(),
-    lastModified: new Map(),
-    truncated: false,
-    skipped: 0,
-  };
-  await readDirectory(handle, "", 0, state);
-  const manifestRoot = await readManifestRoot(handle);
-  const root = chooseRoot([...state.files.keys()], handle.name, manifestRoot);
-  if (!root) {
-    throw new DirectoryEmptyError(
-      "That folder does not contain a .thm reasoning file."
-    );
-  }
-  return {
-    project: { files: state.files, root, active: root },
-    workspace: new DirectoryWorkspace(
-      handle,
-      state.handles,
-      state.lastModified
-    ),
-    truncated: state.truncated,
-    skipped: state.skipped,
-  };
+  if (!confirmReplace(handle.name)) return undefined;
+  return readDirectoryHandle(handle, confirmOverwrite);
 }
 
-export class DirectoryWorkspace {
-  readonly folderName: string;
-  private handle: DirectoryHandle;
+export class DirectoryWorkspace implements Workspace {
+  readonly kind: WorkspaceKind = "directory";
+  readonly name: string;
+  readonly capabilities: WorkspaceCapabilities = {
+    write: true,
+    remove: false,
+    structural: false,
+    refresh: false,
+    commit: false,
+    autoSave: false,
+  };
+  readonly handle: DirectoryHandle;
+
+  private files: Map<string, ProjectTextFile>;
   private handles: Map<string, DirectoryFileHandle>;
   private lastModified: Map<string, number>;
-  private dirty = new Set<string>();
+  private confirmOverwrite: (path: string) => boolean;
 
   constructor(
     handle: DirectoryHandle,
+    files: Map<string, ProjectTextFile>,
     handles: Map<string, DirectoryFileHandle>,
-    lastModified: Map<string, number>
+    lastModified: Map<string, number>,
+    confirmOverwrite: (path: string) => boolean
   ) {
     this.handle = handle;
-    this.folderName = handle.name;
+    this.name = handle.name;
+    this.files = files;
     this.handles = handles;
     this.lastModified = lastModified;
+    this.confirmOverwrite = confirmOverwrite;
   }
 
-  isDirty(path: string): boolean {
-    return this.dirty.has(path);
+  async list(): Promise<WorkspaceFileEntry[]> {
+    return [...this.files.entries()].map(([path, file]) => ({
+      path,
+      kind: file.kind,
+    }));
   }
 
-  hasDirty(): boolean {
-    return this.dirty.size > 0;
+  async read(path: string): Promise<string> {
+    const file = this.files.get(path);
+    if (!file) {
+      throw new WorkspaceError("not-found", `File not found: ${path}`);
+    }
+    return file.text;
   }
 
-  dirtyPaths(): string[] {
-    return [...this.dirty];
-  }
-
-  markDirty(path: string): void {
-    this.dirty.add(path);
-  }
-
-  async save(
-    path: string,
-    text: string,
-    confirmOverwrite: (path: string) => boolean
-  ): Promise<"saved" | "cancelled"> {
-    await this.ensureWritable();
+  async write(path: string, text: string): Promise<void> {
+    await ensurePermission(this.handle, "readwrite");
     const existing = this.handles.get(path);
     if (existing) {
       let file: File | undefined;
@@ -348,9 +416,12 @@ export class DirectoryWorkspace {
         file &&
         known !== undefined &&
         file.lastModified !== known &&
-        !confirmOverwrite(path)
+        !this.confirmOverwrite(path)
       ) {
-        return "cancelled";
+        throw new WorkspaceError(
+          "cancelled",
+          `${path} was not overwritten.`
+        );
       }
     }
     const handle = existing ?? (await this.createFileHandle(path));
@@ -367,59 +438,18 @@ export class DirectoryWorkspace {
       throw error;
     }
     this.handles.set(path, handle);
+    this.files.set(path, { text, kind: classify(path) });
     try {
       const after = await handle.getFile();
       this.lastModified.set(path, after.lastModified);
     } catch {
       this.lastModified.delete(path);
     }
-    this.dirty.delete(path);
-    return "saved";
   }
 
-  async saveAll(
-    paths: Iterable<string>,
-    textFor: (path: string) => string | undefined,
-    confirmOverwrite: (path: string) => boolean
-  ): Promise<SaveReport> {
-    const report: SaveReport = { saved: 0, cancelled: 0, failures: [] };
-    for (const path of paths) {
-      const text = textFor(path);
-      if (text === undefined) continue;
-      try {
-        const result = await this.save(path, text, confirmOverwrite);
-        if (result === "saved") report.saved++;
-        else report.cancelled++;
-      } catch (error) {
-        report.failures.push({ path, message: messageOf(error) });
-        if (error instanceof DirectoryPermissionError) break;
-      }
-    }
-    return report;
-  }
-
-  private async ensureWritable(): Promise<void> {
-    if (!this.handle.queryPermission) return;
-    let permission: PermissionState;
-    try {
-      permission = await this.handle.queryPermission({ mode: "readwrite" });
-    } catch {
-      return;
-    }
-    if (permission === "granted") return;
-    if (permission === "prompt" && this.handle.requestPermission) {
-      try {
-        permission = await this.handle.requestPermission({ mode: "readwrite" });
-      } catch {
-        permission = "denied";
-      }
-    }
-    if (permission !== "granted") {
-      throw new DirectoryPermissionError(
-        "Permission to write to the folder was denied. " +
-          "Use Download zip to keep your work."
-      );
-    }
+  close(): void {
+    this.handles.clear();
+    this.lastModified.clear();
   }
 
   private async createFileHandle(path: string): Promise<DirectoryFileHandle> {

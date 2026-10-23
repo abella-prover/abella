@@ -12,7 +12,7 @@
     "web:css": "esbuild css/web.css --minify --outfile=../web/abella_web.css",
     "web:build": "npm run web:js && npm run web:worker && npm run web:worker-js && npm run web:css",
     "web:size": "node ./scripts/check-web-size.mjs",
-    "web:test": "esbuild ./ts/web/commands.test.ts ./ts/web/session.test.ts ./ts/web/workspace-directory.test.ts --bundle --platform=node --format=cjs --outdir=../web/.test --log-level=warning && node --test ../web/.test/*.test.js"
+    "web:test": "esbuild ./ts/web/commands.test.ts ./ts/web/session.test.ts ./ts/web/workspace-directory.test.ts ./ts/web/workspace.test.ts --bundle --platform=node --format=cjs --outdir=../web/.test --log-level=warning && node --test ../web/.test/*.test.js"
   },
   "keywords": [],
   "author": "Kaustuv Chaudhuri <kaustuv@chaudhuri.info>",

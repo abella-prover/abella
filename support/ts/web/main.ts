@@ -15,12 +15,13 @@ import { renderFiles } from "./files";
 import {
   clearSavedProject,
   classify,
-  loadProject,
+  loadProjectRecord,
   projectFromBundle,
   saveProject,
   scratchProject,
   setFileText,
   type Project,
+  type WorkspaceDescriptor,
 } from "./project";
 import {
   Session,
@@ -32,11 +33,25 @@ import {
 import { appendOutput, renderSequent } from "./trace";
 import type { ProofState, RawMessage } from "./types";
 import {
+  WorkspaceError,
+  WorkspaceSession,
+  virtualWorkspace,
+  readOnlyWorkspace,
+  workspaceMessage,
+  type Workspace,
+  type WorkspaceKind,
+} from "./workspace";
+import {
   directoryPickerSupported,
-  messageOf,
   openDirectoryProject,
-  type DirectoryWorkspace,
+  readDirectoryHandle,
+  type DirectoryHandle,
 } from "./workspace-directory";
+import { openMemoryFolder } from "./workspace-memory";
+import {
+  loadDirectoryHandle,
+  storeDirectoryHandle,
+} from "./workspace-storage";
 
 function byId<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -63,6 +78,9 @@ const setRootButton = byId<HTMLButtonElement>("set-root");
 const openFolderButton = byId<HTMLButtonElement>("open-folder");
 const saveFileButton = byId<HTMLButtonElement>("save-file");
 const saveAllButton = byId<HTMLButtonElement>("save-all");
+const reconnectFolderButton = byId<HTMLButtonElement>("reconnect-folder");
+const workspaceName = byId<HTMLSpanElement>("workspace-name");
+const folderInput = byId<HTMLInputElement>("folder-input");
 const sidebarTitle = byId<HTMLElement>("sidebar-title");
 const settingsButton = byId<HTMLButtonElement>("settings");
 const settingsDialog = byId<HTMLDialogElement>("settings-dialog");
@@ -76,15 +94,35 @@ const DEFAULT_SIDEBAR_WIDTH = 224;
 const MIN_SIDEBAR_WIDTH = 150;
 const COLLAPSE_THRESHOLD = 100;
 
-let project: Project = loadProject() ?? scratchProject();
+const savedProject = loadProjectRecord();
+let project: Project = savedProject?.project ?? scratchProject();
+let savedWorkspace: WorkspaceDescriptor | undefined =
+  savedProject?.workspace;
 let bundle: Bundle | undefined;
 let editor: EditorManager;
 let session: Session;
-let saveTimer: number | undefined;
+let lastDirectoryHandle: DirectoryHandle | undefined;
 let measureTimer: number | undefined;
 let saveWarningShown = false;
-let directory: DirectoryWorkspace | undefined;
 let saving = false;
+
+function initialWorkspaceFor(
+  project: Project,
+  descriptor?: WorkspaceDescriptor
+): Workspace {
+  if (!descriptor || descriptor.kind === "virtual") {
+    return virtualWorkspace(project);
+  }
+  const kind = descriptor.kind as WorkspaceKind;
+  const name = descriptor.name || "Folder";
+  return readOnlyWorkspace(kind, name, project);
+}
+
+let workspaceSession = new WorkspaceSession(
+  project,
+  initialWorkspaceFor(project, savedWorkspace),
+  { persist: persistProject }
+);
 
 type Theme = "light" | "dark";
 
@@ -339,8 +377,11 @@ function setStatus(status: SessionStatus, detail?: string): void {
   }
 }
 
-function persistProject(): void {
-  const error = saveProject(project);
+function persistProject(project: Project, workspace: Workspace): void {
+  const error = saveProject(project, {
+    kind: workspace.kind,
+    name: workspace.name,
+  });
   if (error) {
     if (!saveWarningShown) {
       saveWarningShown = true;
@@ -352,8 +393,7 @@ function persistProject(): void {
 }
 
 function scheduleSave(): void {
-  window.clearTimeout(saveTimer);
-  saveTimer = window.setTimeout(persistProject, 250);
+  workspaceSession.schedulePersist();
 }
 
 function updateOutputSummary(): void {
@@ -385,35 +425,62 @@ function info(message: string): void {
   appendEntries([{ severity: "info", message }]);
 }
 
-function updateDirectoryUi(): void {
-  openFolderButton.hidden = !directoryPickerSupported();
-  const folder = directory;
-  saveFileButton.hidden = !folder;
-  saveAllButton.hidden = !folder;
+function workspaceLabel(session: WorkspaceSession): string {
+  if (session.kind === "virtual") return "Virtual project";
+  if (session.kind === "directory") {
+    return session.capabilities.write
+      ? `Folder: ${session.name}`
+      : `Read-only copy: ${session.name}`;
+  }
+  if (session.kind === "memory") {
+    return `Read-only folder: ${session.name}`;
+  }
+  return `${session.kind}: ${session.name}`;
+}
+
+function updateWorkspaceUi(): void {
+  const capabilities = workspaceSession.capabilities;
+  const explicitSave = capabilities.write && !capabilities.autoSave;
+  const picker = directoryPickerSupported();
+  openFolderButton.hidden = false;
+  openFolderButton.textContent = picker
+    ? "Open folder"
+    : "Open folder (read-only)";
+  openFolderButton.title = picker
+    ? "Open a local folder"
+    : "Open a folder read-only; use Download zip to keep changes";
+  saveFileButton.hidden = !explicitSave;
+  saveAllButton.hidden = !explicitSave;
   saveFileButton.disabled =
-    saving || !folder || !folder.isDirty(project.active);
-  saveAllButton.disabled = saving || !folder || !folder.hasDirty();
-  if (folder) {
-    saveFileButton.title = folder.isDirty(project.active)
+    saving || !explicitSave || !workspaceSession.isDirty(project.active);
+  saveAllButton.disabled =
+    saving || !explicitSave || !workspaceSession.hasDirty();
+  if (explicitSave) {
+    saveFileButton.title = workspaceSession.isDirty(project.active)
       ? `Save ${project.active}`
       : "No unsaved changes in this file";
-    saveAllButton.title = folder.hasDirty()
+    saveAllButton.title = workspaceSession.hasDirty()
       ? "Save all changed files"
       : "No unsaved changes";
-    sidebarTitle.textContent = `Project · ${folder.folderName}`;
-    sidebarTitle.title = `Folder: ${folder.folderName}`;
   } else {
     saveFileButton.removeAttribute("title");
     saveAllButton.removeAttribute("title");
-    sidebarTitle.textContent = "Project";
-    sidebarTitle.title = "";
   }
+  workspaceName.textContent = workspaceLabel(workspaceSession);
+  workspaceName.title = workspaceSession.name;
+  reconnectFolderButton.hidden = !workspaceSession.isDetachedDirectory;
+  reconnectFolderButton.disabled = !lastDirectoryHandle;
+  reconnectFolderButton.title = lastDirectoryHandle
+    ? "Reconnect to the saved folder"
+    : "No saved folder handle; use Open folder";
+  sidebarTitle.textContent = "Project";
+  sidebarTitle.title = "";
 }
 
-function confirmDiscardDirectoryChanges(): boolean {
-  if (!directory?.hasDirty()) return true;
+function confirmDiscardWorkspaceChanges(): boolean {
+  if (!workspaceSession.hasDirty()) return true;
   return window.confirm(
-    `Discard unsaved changes in ${directory.folderName}?`
+    `Discard unsaved changes in ${workspaceSession.name}?`
   );
 }
 
@@ -425,19 +492,29 @@ function confirmOverwrite(path: string): boolean {
 }
 
 async function savePath(path: string): Promise<void> {
-  if (!directory || saving) return;
+  if (
+    saving ||
+    !workspaceSession.capabilities.write ||
+    workspaceSession.capabilities.autoSave
+  ) {
+    return;
+  }
   const file = project.files.get(path);
   if (!file) return;
   saving = true;
-  updateDirectoryUi();
+  updateWorkspaceUi();
   try {
-    const result = await directory.save(path, file.text, confirmOverwrite);
-    if (result === "saved") info(`Saved ${path}.`);
+    const result = await workspaceSession.save(path, file.text);
+    if (result === "saved") {
+      info(`Saved ${path}.`);
+    } else {
+      info(`Save cancelled for ${path}.`);
+    }
   } catch (error) {
     appendEntries([
       {
         severity: "error",
-        message: `Could not save ${path}: ${messageOf(error)}`,
+        message: `Could not save ${path}: ${workspaceMessage(error)}`,
       },
     ]);
   } finally {
@@ -447,16 +524,21 @@ async function savePath(path: string): Promise<void> {
 }
 
 async function saveAll(): Promise<void> {
-  if (!directory || saving) return;
-  const paths = directory.dirtyPaths();
+  if (
+    saving ||
+    !workspaceSession.capabilities.write ||
+    workspaceSession.capabilities.autoSave
+  ) {
+    return;
+  }
+  const paths = workspaceSession.dirtyPaths();
   if (paths.length === 0) return;
   saving = true;
-  updateDirectoryUi();
+  updateWorkspaceUi();
   try {
-    const report = await directory.saveAll(
+    const report = await workspaceSession.saveAll(
       paths,
-      (path) => project.files.get(path)?.text,
-      confirmOverwrite
+      (path) => project.files.get(path)?.text
     );
     for (const failure of report.failures) {
       appendEntries([
@@ -482,20 +564,34 @@ async function saveAll(): Promise<void> {
 }
 
 async function openFolder(): Promise<void> {
+  if (!directoryPickerSupported()) {
+    folderInput.click();
+    return;
+  }
   try {
-    const opened = await openDirectoryProject((folderName) => {
-      const message = directory?.hasDirty()
-        ? `Discard unsaved changes in ${directory.folderName} ` +
-          `and replace the project with ${folderName}?`
-        : `Replace the current project with the folder ${folderName}?`;
-      return window.confirm(message);
-    });
+    const opened = await openDirectoryProject(
+      (folderName) => {
+        const message = workspaceSession.hasDirty()
+          ? `Discard unsaved changes in ${workspaceSession.name} ` +
+            `and replace the project with ${folderName}?`
+          : `Replace the current project with the folder ${folderName}?`;
+        return window.confirm(message);
+      },
+      confirmOverwrite
+    );
     if (!opened) return;
+    lastDirectoryHandle = opened.workspace.handle;
+    const stored = await storeDirectoryHandle(opened.workspace.handle);
     await startProject(opened.project, opened.workspace);
     info(
-      `Opened folder ${opened.workspace.folderName} ` +
+      `Opened folder ${opened.workspace.name} ` +
         `(${opened.project.files.size} files).`
     );
+    if (!stored) {
+      info(
+        "Warning: this browser could not remember the folder for reload."
+      );
+    }
     if (opened.truncated) {
       appendEntries([
         {
@@ -521,7 +617,81 @@ async function openFolder(): Promise<void> {
     appendEntries([
       {
         severity: "error",
-        message: `Could not open the folder: ${messageOf(error)}`,
+        message: `Could not open the folder: ${workspaceMessage(error)}`,
+      },
+    ]);
+  }
+}
+
+async function openReadOnlyFolder(): Promise<void> {
+  const files = folderInput.files ? Array.from(folderInput.files) : [];
+  folderInput.value = "";
+  if (files.length === 0) return;
+  const message = workspaceSession.hasDirty()
+    ? `Discard unsaved changes in ${workspaceSession.name} ` +
+      "and replace the project with the selected read-only folder?"
+    : "Replace the current project with the selected read-only folder?";
+  if (!window.confirm(message)) return;
+  try {
+    const opened = await openMemoryFolder(files);
+    await startProject(opened.project, opened.workspace);
+    info(
+      `Opened read-only folder ${opened.workspace.name} ` +
+        `(${opened.project.files.size} files).`
+    );
+    if (opened.skipped > 0) {
+      appendEntries([
+        {
+          severity: "info",
+          message:
+            `Warning: skipped ${opened.skipped} file` +
+            `${opened.skipped === 1 ? "" : "s"} that were too large ` +
+            "or unsupported.",
+        },
+      ]);
+    }
+  } catch (error) {
+    appendEntries([
+      {
+        severity: "error",
+        message: `Could not open the folder: ${workspaceMessage(error)}`,
+      },
+    ]);
+  }
+}
+
+async function reconnectFolder(): Promise<void> {
+  if (!workspaceSession.isDetachedDirectory) return;
+  if (!lastDirectoryHandle) {
+    appendEntries([
+      {
+        severity: "error",
+        message:
+          "No saved folder handle was found. Use Open folder to pick it again.",
+      },
+    ]);
+    return;
+  }
+  try {
+    const opened = await readDirectoryHandle(
+      lastDirectoryHandle,
+      confirmOverwrite,
+      (folderName) => {
+        const message = workspaceSession.hasDirty()
+          ? `Discard unsaved changes in ${workspaceSession.name} ` +
+            `and reconnect to ${folderName}?`
+          : `Reconnect to the folder ${folderName}?`;
+        return window.confirm(message);
+      }
+    );
+    await startProject(opened.project, opened.workspace);
+    info(`Reconnected to ${opened.workspace.name}.`);
+  } catch (error) {
+    if (error instanceof WorkspaceError && error.code === "cancelled") return;
+    appendEntries([
+      {
+        severity: "error",
+        message: `Could not reconnect the folder: ${workspaceMessage(error)}`,
       },
     ]);
   }
@@ -533,24 +703,24 @@ function refreshFiles(): void {
     project,
     project.active,
     openFile,
-    directory?.dirtyPaths()
+    workspaceSession.dirtyPaths()
   );
   const active = project.files.get(project.active);
-  const folderLocked = directory !== undefined;
-  addFileButton.disabled = folderLocked;
-  renameFileButton.disabled = folderLocked || !active;
-  deleteFileButton.disabled = folderLocked || !active;
+  const structural = workspaceSession.capabilities.structural;
+  addFileButton.disabled = !structural;
+  renameFileButton.disabled = !structural || !active;
+  deleteFileButton.disabled = !structural || !active;
   setRootButton.disabled =
     !active ||
     !project.active.endsWith(".thm") ||
     project.active === project.root;
-  const folderNote = folderLocked
-    ? "File actions are not available for opened folders."
-    : "";
-  addFileButton.title = folderNote;
-  renameFileButton.title = folderNote;
-  deleteFileButton.title = folderNote;
-  updateDirectoryUi();
+  const note = structural
+    ? ""
+    : "File actions are not available for this workspace.";
+  addFileButton.title = note;
+  renameFileButton.title = note;
+  deleteFileButton.title = note;
+  updateWorkspaceUi();
 }
 
 function openFile(path: string): void {
@@ -590,7 +760,7 @@ function projectStructureChanged(): void {
 }
 
 function addFile(): void {
-  if (directory) return;
+  if (!workspaceSession.capabilities.structural) return;
   const path = normalizeNewPath(
     window.prompt("New file path (for example helper.thm or notes.md):")
   );
@@ -609,11 +779,11 @@ function addFile(): void {
   project.files.set(path, { text, kind });
   openFile(path);
   if (kind === "abella") projectStructureChanged();
-  persistProject();
+  workspaceSession.persistNow();
 }
 
 function renameFile(): void {
-  if (directory) return;
+  if (!workspaceSession.capabilities.structural) return;
   const from = project.active;
   const file = project.files.get(from);
   if (!file) return;
@@ -642,11 +812,11 @@ function renameFile(): void {
   if (file.kind === "abella" || nextKind === "abella") {
     projectStructureChanged();
   }
-  persistProject();
+  workspaceSession.persistNow();
 }
 
 function deleteFile(): void {
-  if (directory) return;
+  if (!workspaceSession.capabilities.structural) return;
   const path = project.active;
   const file = project.files.get(path);
   if (!file) return;
@@ -677,7 +847,7 @@ function deleteFile(): void {
   refreshFiles();
   openFile(project.active);
   if (file.kind === "abella") projectStructureChanged();
-  persistProject();
+  workspaceSession.persistNow();
 }
 
 function setRoot(): void {
@@ -687,7 +857,7 @@ function setRoot(): void {
   project.root = path;
   refreshFiles();
   projectStructureChanged();
-  persistProject();
+  workspaceSession.persistNow();
 }
 
 function renderGoal(): void {
@@ -777,10 +947,13 @@ const events: SessionEvents = {
 
 async function startProject(
   next: Project,
-  workspace?: DirectoryWorkspace
+  workspace: Workspace
 ): Promise<void> {
-  directory = workspace;
-  project = next;
+  workspaceSession.close();
+  workspaceSession = new WorkspaceSession(next, workspace, {
+    persist: persistProject,
+  });
+  project = workspaceSession.project;
   clearOutput();
   lastGoalState = undefined;
   currentOutcome = undefined;
@@ -789,7 +962,7 @@ async function startProject(
   refreshFiles();
   openFile(project.active);
   session.setProject(project);
-  scheduleSave();
+  workspaceSession.schedulePersist();
   try {
     await session.init();
   } catch (error) {
@@ -831,7 +1004,7 @@ async function main(): Promise<void> {
     byId<HTMLDivElement>("editor"),
     (path, update) => {
       setFileText(project, path, update.state.doc.toString());
-      directory?.markDirty(path);
+      workspaceSession.markDirty(path);
       project.active = path;
       scheduleSave();
       editor.clearDiagnostics(path);
@@ -857,6 +1030,13 @@ async function main(): Promise<void> {
     setStatus("compiling", module)
   );
   session = new Session(driver, project, events);
+  if (workspaceSession.isDetachedDirectory) {
+    try {
+      lastDirectoryHandle = await loadDirectoryHandle();
+    } catch {
+      lastDirectoryHandle = undefined;
+    }
+  }
   const pref = loadSidebarPref();
   renderSidebar(pref.collapsed, pref.width);
   installSplitter();
@@ -885,6 +1065,7 @@ async function main(): Promise<void> {
 
   refreshFiles();
   openFile(project.active);
+  workspaceSession.schedulePersist();
   setStatus("idle");
   try {
     await session.init();
@@ -907,10 +1088,15 @@ async function main(): Promise<void> {
   deleteFileButton.addEventListener("click", deleteFile);
   setRootButton.addEventListener("click", setRoot);
   openFolderButton.addEventListener("click", () => void openFolder());
+  reconnectFolderButton.addEventListener(
+    "click",
+    () => void reconnectFolder()
+  );
   saveFileButton.addEventListener("click", () => void savePath(project.active));
   saveAllButton.addEventListener("click", () => void saveAll());
+  folderInput.addEventListener("change", () => void openReadOnlyFolder());
   window.addEventListener("beforeunload", (event) => {
-    if (!directory?.hasDirty()) return;
+    if (!workspaceSession.hasDirty()) return;
     event.preventDefault();
     event.returnValue = "";
   });
@@ -929,7 +1115,7 @@ async function main(): Promise<void> {
   exampleSelect.addEventListener("change", () => {
     const id = exampleSelect.value;
     if (!id || !bundle) return;
-    if (!confirmDiscardDirectoryChanges()) {
+    if (!confirmDiscardWorkspaceChanges()) {
       exampleSelect.value = "";
       return;
     }
@@ -940,19 +1126,21 @@ async function main(): Promise<void> {
       ]);
       return;
     }
-    void startProject(next);
+    void startProject(next, virtualWorkspace(next));
   });
 
   byId<HTMLButtonElement>("scratch").addEventListener("click", () => {
-    const message = directory?.hasDirty()
-      ? `Discard unsaved changes in ${directory.folderName} ` +
+    const message = workspaceSession.hasDirty()
+      ? `Discard unsaved changes in ${workspaceSession.name} ` +
         "and start from scratch?"
       : "Discard the current project and start from scratch?";
     if (!window.confirm(message)) {
       return;
     }
     clearSavedProject();
-    void startProject(scratchProject());
+    lastDirectoryHandle = undefined;
+    const next = scratchProject();
+    void startProject(next, virtualWorkspace(next));
   });
 
   byId<HTMLButtonElement>("download-zip").addEventListener("click", () => {
@@ -967,19 +1155,19 @@ async function main(): Promise<void> {
     if (!file) return;
     try {
       const imported = await importProject(file);
-      const message = directory?.hasDirty()
+      const message = workspaceSession.hasDirty()
         ? "Replace the current project with this archive? " +
-          "Unsaved folder changes will be lost."
+          "Unsaved changes will be lost."
         : "Replace the current project with this archive?";
       if (!window.confirm(message)) {
         return;
       }
-      await startProject(imported);
+      await startProject(imported, virtualWorkspace(imported));
     } catch (error) {
       appendEntries([
         {
           severity: "error",
-          message: `Could not import the archive: ${messageOf(error)}`,
+          message: `Could not import the archive: ${workspaceMessage(error)}`,
         },
       ]);
     }

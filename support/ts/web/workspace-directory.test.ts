@@ -8,8 +8,8 @@ import {
   chooseRoot,
   isCandidateFile,
   isSkippedDirectory,
-  messageOf,
 } from "./workspace-directory";
+import { workspaceMessage } from "./workspace";
 
 test("keeps Abella and small text files", () => {
   for (const path of [
@@ -66,6 +66,6 @@ test("returns no root without a theorem", () => {
 });
 
 test("formats errors", () => {
-  assert.equal(messageOf(new Error("nope")), "nope");
-  assert.equal(messageOf("nope"), "nope");
+  assert.equal(workspaceMessage(new Error("nope")), "nope");
+  assert.equal(workspaceMessage("nope"), "nope");
 });

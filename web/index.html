@@ -13,32 +13,35 @@
         <img src="logo.png" alt="" width="64" height="29">
         <h1>Abella Web</h1>
       </div>
-      <span id="status" class="status" role="status" aria-live="polite" data-status="idle">Starting…</span>
+      <div class="topbar-controls">
+        <label class="example-picker">
+          <span class="visually-hidden">Example</span>
+          <select id="example-select" disabled>
+            <option>Loading examples…</option>
+          </select>
+        </label>
+        <button id="scratch" type="button">Start from scratch</button>
+        <button
+          id="sidebar-mobile-toggle"
+          class="mobile-only"
+          type="button"
+          aria-controls="sidebar"
+        >Project</button>
+        <div class="topbar-actions">
+          <button id="download-zip" type="button">Download zip</button>
+          <button id="import-zip" type="button">Import zip</button>
+          <input id="zip-input" type="file" accept=".zip" hidden>
+        </div>
+      </div>
     </header>
 
-    <div class="toolbar">
-      <label class="example-picker">
-        <span class="visually-hidden">Example</span>
-        <select id="example-select" disabled>
-          <option>Loading examples…</option>
-        </select>
-      </label>
-      <button id="scratch" type="button">Start from scratch</button>
-      <button id="sidebar-mobile-toggle" class="mobile-only" type="button" aria-controls="sidebar">
-        Project
-      </button>
-      <span class="spacer"></span>
-      <button id="download-zip" type="button">Download zip</button>
-      <button id="import-zip" type="button">Import zip</button>
-      <input id="zip-input" type="file" accept=".zip" hidden>
-    </div>
-
-    <div class="toolbar secondary">
-      <button id="process" type="button" title="Ctrl/Cmd-Enter">Process to cursor</button>
+    <div class="toolbar actions">
       <button id="process-all" type="button">Process full</button>
       <button id="stop" type="button" disabled>Stop</button>
       <button id="reset" type="button">Reset</button>
+      <span class="spacer"></span>
       <span id="status-detail" class="status-detail"></span>
+      <span id="status" class="status" role="status" aria-live="polite" data-status="idle">Starting…</span>
     </div>
 
     <main class="layout">

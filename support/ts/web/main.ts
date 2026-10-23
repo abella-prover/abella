@@ -47,7 +47,6 @@ const outputDisclosure = byId<HTMLDetailsElement>("output-disclosure");
 const outputSummary = byId<HTMLElement>("output-summary");
 const exampleSelect = byId<HTMLSelectElement>("example-select");
 const zipInput = byId<HTMLInputElement>("zip-input");
-const processButton = byId<HTMLButtonElement>("process");
 const processAllButton = byId<HTMLButtonElement>("process-all");
 const stopButton = byId<HTMLButtonElement>("stop");
 const resetButton = byId<HTMLButtonElement>("reset");
@@ -284,7 +283,6 @@ function setStatus(status: SessionStatus, detail?: string): void {
       : statusText[status];
   statusDetail.textContent = detail ?? "";
   const busy = status === "processing" || status === "compiling";
-  processButton.disabled = busy;
   processAllButton.disabled = busy;
   resetButton.disabled = busy;
   stopButton.disabled = !busy;
@@ -687,7 +685,6 @@ async function main(): Promise<void> {
     setStatus("error", String(error));
   }
 
-  processButton.addEventListener("click", () => void processToCursor());
   processAllButton.addEventListener("click", () => void session.processAll());
   stopButton.addEventListener("click", () => {
     session.stop();

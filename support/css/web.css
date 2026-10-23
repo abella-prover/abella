@@ -91,16 +91,17 @@ summary:focus-visible,
 }.topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
   padding: 0.55rem 1rem;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
 
   .brand {
     display: flex;
     align-items: center;
     gap: 0.7rem;
+    flex: none;
   }
 
   img {
@@ -114,6 +115,28 @@ summary:focus-visible,
     font-size: 1.15rem;
     letter-spacing: 0.01em;
   }
+}
+
+.topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+
+  .example-picker {
+    flex: 0 1 22rem;
+    min-width: 12rem;
+  }
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .status {
@@ -150,7 +173,7 @@ summary:focus-visible,
   background: var(--surface);
   border-bottom: 1px solid var(--border);
 
-  &.secondary {
+  &.actions {
     background: var(--bg);
   }
 
@@ -171,6 +194,10 @@ summary:focus-visible,
   color: var(--muted);
   font-size: 0.85rem;
   margin-left: 0.5rem;
+}
+
+.toolbar.actions .status {
+  margin-left: 0.25rem;
 }
 
 .layout {

@@ -42,6 +42,13 @@ web-bundle:
 	$(DUNE) exec src/abella_bundle.exe -- \
 	  -m support/web-examples.json -o web/examples/bundle.json
 
+.PHONY: publish-web
+publish-web: web
+	rsync -aviz \
+	  --exclude '.test/' \
+	  --exclude '*.map' \
+	  web/ abellaweb@abella-prover.org:abella-prover.org/web/
+
 support/.stamp: $(wildcard support/ts/*.ts) support/package.json \
                 support/package-lock.json
 	( cd support && \

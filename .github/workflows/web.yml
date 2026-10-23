@@ -1,0 +1,65 @@
+name: Abella Web
+
+on:
+  push:
+    branches:
+      - master
+      - wip-abella-web # temporary; remove before merging
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Binaryen 120
+        run: |
+          BASE=https://github.com/WebAssembly/binaryen/releases/download
+          curl -fsSL -o /tmp/binaryen.tar.gz \
+            "$BASE/version_120/binaryen-version_120-x86_64-linux.tar.gz"
+          tar -xzf /tmp/binaryen.tar.gz -C /tmp
+          echo "/tmp/binaryen-version_120/bin" >> "$GITHUB_PATH"
+
+      - name: Use OCaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.5"
+
+      - name: Install OCaml dependencies
+        run: |
+          opam install . --deps-only --with-test
+          opam install \
+            js_of_ocaml.6.4.1 \
+            js_of_ocaml-ppx.6.4.1 \
+            wasm_of_ocaml-compiler.6.4.1 \
+            --assume-depexts
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: support/package-lock.json
+
+      - name: Install npm dependencies
+        run: npm ci
+        working-directory: support
+
+      - name: TypeScript check
+        run: npm run check
+        working-directory: support
+
+      - name: Unit tests
+        run: npm run web:test
+        working-directory: support
+
+      - name: Build web
+        run: opam exec -- make web ENGINE=wasm
+
+      - name: Check bundle size
+        run: npm run web:size
+        working-directory: support

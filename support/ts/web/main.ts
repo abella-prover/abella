@@ -31,6 +31,12 @@ import {
 } from "./session";
 import { appendOutput, renderSequent } from "./trace";
 import type { ProofState, RawMessage } from "./types";
+import {
+  directoryPickerSupported,
+  messageOf,
+  openDirectoryProject,
+  type DirectoryWorkspace,
+} from "./workspace-directory";
 
 function byId<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -54,6 +60,10 @@ const addFileButton = byId<HTMLButtonElement>("add-file");
 const renameFileButton = byId<HTMLButtonElement>("rename-file");
 const deleteFileButton = byId<HTMLButtonElement>("delete-file");
 const setRootButton = byId<HTMLButtonElement>("set-root");
+const openFolderButton = byId<HTMLButtonElement>("open-folder");
+const saveFileButton = byId<HTMLButtonElement>("save-file");
+const saveAllButton = byId<HTMLButtonElement>("save-all");
+const sidebarTitle = byId<HTMLElement>("sidebar-title");
 const settingsButton = byId<HTMLButtonElement>("settings");
 const settingsDialog = byId<HTMLDialogElement>("settings-dialog");
 const themeToggle = byId<HTMLInputElement>("theme-toggle");
@@ -73,6 +83,8 @@ let session: Session;
 let saveTimer: number | undefined;
 let measureTimer: number | undefined;
 let saveWarningShown = false;
+let directory: DirectoryWorkspace | undefined;
+let saving = false;
 
 type Theme = "light" | "dark";
 
@@ -373,15 +385,172 @@ function info(message: string): void {
   appendEntries([{ severity: "info", message }]);
 }
 
+function updateDirectoryUi(): void {
+  openFolderButton.hidden = !directoryPickerSupported();
+  const folder = directory;
+  saveFileButton.hidden = !folder;
+  saveAllButton.hidden = !folder;
+  saveFileButton.disabled =
+    saving || !folder || !folder.isDirty(project.active);
+  saveAllButton.disabled = saving || !folder || !folder.hasDirty();
+  if (folder) {
+    saveFileButton.title = folder.isDirty(project.active)
+      ? `Save ${project.active}`
+      : "No unsaved changes in this file";
+    saveAllButton.title = folder.hasDirty()
+      ? "Save all changed files"
+      : "No unsaved changes";
+    sidebarTitle.textContent = `Project · ${folder.folderName}`;
+    sidebarTitle.title = `Folder: ${folder.folderName}`;
+  } else {
+    saveFileButton.removeAttribute("title");
+    saveAllButton.removeAttribute("title");
+    sidebarTitle.textContent = "Project";
+    sidebarTitle.title = "";
+  }
+}
+
+function confirmDiscardDirectoryChanges(): boolean {
+  if (!directory?.hasDirty()) return true;
+  return window.confirm(
+    `Discard unsaved changes in ${directory.folderName}?`
+  );
+}
+
+function confirmOverwrite(path: string): boolean {
+  return window.confirm(
+    `${path} changed on disk since it was opened. ` +
+      "Overwrite it with the browser copy?"
+  );
+}
+
+async function savePath(path: string): Promise<void> {
+  if (!directory || saving) return;
+  const file = project.files.get(path);
+  if (!file) return;
+  saving = true;
+  updateDirectoryUi();
+  try {
+    const result = await directory.save(path, file.text, confirmOverwrite);
+    if (result === "saved") info(`Saved ${path}.`);
+  } catch (error) {
+    appendEntries([
+      {
+        severity: "error",
+        message: `Could not save ${path}: ${messageOf(error)}`,
+      },
+    ]);
+  } finally {
+    saving = false;
+    refreshFiles();
+  }
+}
+
+async function saveAll(): Promise<void> {
+  if (!directory || saving) return;
+  const paths = directory.dirtyPaths();
+  if (paths.length === 0) return;
+  saving = true;
+  updateDirectoryUi();
+  try {
+    const report = await directory.saveAll(
+      paths,
+      (path) => project.files.get(path)?.text,
+      confirmOverwrite
+    );
+    for (const failure of report.failures) {
+      appendEntries([
+        {
+          severity: "error",
+          message: `Could not save ${failure.path}: ${failure.message}`,
+        },
+      ]);
+    }
+    if (report.saved > 0) {
+      info(`Saved ${report.saved} file${report.saved === 1 ? "" : "s"}.`);
+    }
+    if (report.cancelled > 0) {
+      info(
+        `Left ${report.cancelled} changed file` +
+          `${report.cancelled === 1 ? "" : "s"} unsaved.`
+      );
+    }
+  } finally {
+    saving = false;
+    refreshFiles();
+  }
+}
+
+async function openFolder(): Promise<void> {
+  try {
+    const opened = await openDirectoryProject((folderName) => {
+      const message = directory?.hasDirty()
+        ? `Discard unsaved changes in ${directory.folderName} ` +
+          `and replace the project with ${folderName}?`
+        : `Replace the current project with the folder ${folderName}?`;
+      return window.confirm(message);
+    });
+    if (!opened) return;
+    await startProject(opened.project, opened.workspace);
+    info(
+      `Opened folder ${opened.workspace.folderName} ` +
+        `(${opened.project.files.size} files).`
+    );
+    if (opened.truncated) {
+      appendEntries([
+        {
+          severity: "info",
+          message:
+            "Warning: the folder was truncated at the file limit; " +
+            "not every file was loaded.",
+        },
+      ]);
+    }
+    if (opened.skipped > 0) {
+      appendEntries([
+        {
+          severity: "info",
+          message:
+            `Warning: skipped ${opened.skipped} file` +
+            `${opened.skipped === 1 ? "" : "s"} that were too large ` +
+            "or unreadable.",
+        },
+      ]);
+    }
+  } catch (error) {
+    appendEntries([
+      {
+        severity: "error",
+        message: `Could not open the folder: ${messageOf(error)}`,
+      },
+    ]);
+  }
+}
+
 function refreshFiles(): void {
-  renderFiles(fileList, project, project.active, openFile);
+  renderFiles(
+    fileList,
+    project,
+    project.active,
+    openFile,
+    directory?.dirtyPaths()
+  );
   const active = project.files.get(project.active);
-  renameFileButton.disabled = !active;
-  deleteFileButton.disabled = !active;
+  const folderLocked = directory !== undefined;
+  addFileButton.disabled = folderLocked;
+  renameFileButton.disabled = folderLocked || !active;
+  deleteFileButton.disabled = folderLocked || !active;
   setRootButton.disabled =
     !active ||
     !project.active.endsWith(".thm") ||
     project.active === project.root;
+  const folderNote = folderLocked
+    ? "File actions are not available for opened folders."
+    : "";
+  addFileButton.title = folderNote;
+  renameFileButton.title = folderNote;
+  deleteFileButton.title = folderNote;
+  updateDirectoryUi();
 }
 
 function openFile(path: string): void {
@@ -421,6 +590,7 @@ function projectStructureChanged(): void {
 }
 
 function addFile(): void {
+  if (directory) return;
   const path = normalizeNewPath(
     window.prompt("New file path (for example helper.thm or notes.md):")
   );
@@ -443,6 +613,7 @@ function addFile(): void {
 }
 
 function renameFile(): void {
+  if (directory) return;
   const from = project.active;
   const file = project.files.get(from);
   if (!file) return;
@@ -475,6 +646,7 @@ function renameFile(): void {
 }
 
 function deleteFile(): void {
+  if (directory) return;
   const path = project.active;
   const file = project.files.get(path);
   if (!file) return;
@@ -603,7 +775,11 @@ const events: SessionEvents = {
   },
 };
 
-async function startProject(next: Project): Promise<void> {
+async function startProject(
+  next: Project,
+  workspace?: DirectoryWorkspace
+): Promise<void> {
+  directory = workspace;
   project = next;
   clearOutput();
   lastGoalState = undefined;
@@ -655,6 +831,7 @@ async function main(): Promise<void> {
     byId<HTMLDivElement>("editor"),
     (path, update) => {
       setFileText(project, path, update.state.doc.toString());
+      directory?.markDirty(path);
       project.active = path;
       scheduleSave();
       editor.clearDiagnostics(path);
@@ -729,6 +906,14 @@ async function main(): Promise<void> {
   renameFileButton.addEventListener("click", renameFile);
   deleteFileButton.addEventListener("click", deleteFile);
   setRootButton.addEventListener("click", setRoot);
+  openFolderButton.addEventListener("click", () => void openFolder());
+  saveFileButton.addEventListener("click", () => void savePath(project.active));
+  saveAllButton.addEventListener("click", () => void saveAll());
+  window.addEventListener("beforeunload", (event) => {
+    if (!directory?.hasDirty()) return;
+    event.preventDefault();
+    event.returnValue = "";
+  });
   settingsButton.addEventListener("click", () => {
     themeToggle.checked =
       document.documentElement.dataset.theme === "dark";
@@ -744,6 +929,10 @@ async function main(): Promise<void> {
   exampleSelect.addEventListener("change", () => {
     const id = exampleSelect.value;
     if (!id || !bundle) return;
+    if (!confirmDiscardDirectoryChanges()) {
+      exampleSelect.value = "";
+      return;
+    }
     const next = projectFromBundle(bundle, id);
     if (!next) {
       appendEntries([
@@ -755,7 +944,11 @@ async function main(): Promise<void> {
   });
 
   byId<HTMLButtonElement>("scratch").addEventListener("click", () => {
-    if (!window.confirm("Discard the current project and start from scratch?")) {
+    const message = directory?.hasDirty()
+      ? `Discard unsaved changes in ${directory.folderName} ` +
+        "and start from scratch?"
+      : "Discard the current project and start from scratch?";
+    if (!window.confirm(message)) {
       return;
     }
     clearSavedProject();
@@ -774,13 +967,20 @@ async function main(): Promise<void> {
     if (!file) return;
     try {
       const imported = await importProject(file);
-      if (!window.confirm("Replace the current project with this archive?")) {
+      const message = directory?.hasDirty()
+        ? "Replace the current project with this archive? " +
+          "Unsaved folder changes will be lost."
+        : "Replace the current project with this archive?";
+      if (!window.confirm(message)) {
         return;
       }
       await startProject(imported);
     } catch (error) {
       appendEntries([
-        { severity: "error", message: `Could not import the archive: ${String(error)}` },
+        {
+          severity: "error",
+          message: `Could not import the archive: ${messageOf(error)}`,
+        },
       ]);
     }
   });

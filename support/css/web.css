@@ -379,6 +379,14 @@ body.resizing {
     font-weight: 700;
     margin-left: -0.2rem;
   }
+
+  .file-dirty {
+    margin-left: auto;
+    padding-left: 0.4rem;
+    color: var(--amber);
+    font-size: 0.8rem;
+    line-height: 1;
+  }
 }
 
 .editor-pane {

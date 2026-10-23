@@ -23,6 +23,9 @@ Additions
   the *immediate* consequences of the lemmas from the hypotheses in scope,
   iterating up to the given depth. This is a branching tactic.
 
+* Abella Web can open a local directory in Chromium-based browsers,
+  save changed files, and save all changes.
+
 Changes
 
 * Abella now compiles with Dune version 3.7 or later.  

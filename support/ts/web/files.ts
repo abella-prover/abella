@@ -18,6 +18,7 @@ function fileButton(
   project: Project,
   path: string,
   active: string,
+  dirty: ReadonlySet<string>,
   onSelect: (path: string) => void
 ): HTMLElement {
   const button = document.createElement("button");
@@ -42,6 +43,16 @@ function fileButton(
     marker.textContent = "*";
     button.append(marker);
   }
+  if (dirty.has(path)) {
+    button.classList.add("dirty");
+    button.title = `${path} (unsaved changes)`;
+    button.setAttribute("aria-label", `${path} (unsaved changes)`);
+    const marker = document.createElement("span");
+    marker.className = "file-dirty";
+    marker.setAttribute("aria-hidden", "true");
+    marker.textContent = "●";
+    button.append(marker);
+  }
   button.addEventListener("click", () => onSelect(path));
   return button;
 }
@@ -50,9 +61,11 @@ export function renderFiles(
   container: HTMLElement,
   project: Project,
   active: string,
-  onSelect: (path: string) => void
+  onSelect: (path: string) => void,
+  dirty: Iterable<string> = []
 ): void {
   container.replaceChildren();
+  const dirtyPaths = new Set(dirty);
 
   const byKind = (kind: string) =>
     sortPaths(
@@ -87,7 +100,9 @@ export function renderFiles(
       const inDirectory = directories.get(directory)!;
       inDirectory.sort((a, b) => basenameOf(a).localeCompare(basenameOf(b)));
       for (const path of inDirectory) {
-        container.append(fileButton(project, path, active, onSelect));
+        container.append(
+          fileButton(project, path, active, dirtyPaths, onSelect)
+        );
       }
     }
   };

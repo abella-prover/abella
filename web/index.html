@@ -28,6 +28,14 @@
           aria-controls="sidebar"
         >Project</button>
         <div class="topbar-actions">
+          <button
+            id="open-folder"
+            type="button"
+            title="Open a local folder (Chromium-based browsers)"
+            hidden
+          >Open folder</button>
+          <button id="save-file" type="button" hidden disabled>Save</button>
+          <button id="save-all" type="button" hidden disabled>Save all</button>
           <button id="download-zip" type="button">Download zip</button>
           <button id="import-zip" type="button">Import zip</button>
           <button
@@ -55,7 +63,7 @@
 
     <main class="layout">
       <aside class="sidebar" id="sidebar" aria-label="Project files">
-        <div class="sidebar-title">Project</div>
+        <div id="sidebar-title" class="sidebar-title">Project</div>
         <div id="file-list" class="file-list" aria-label="Project files"></div>
         <div class="file-actions" role="group" aria-label="Project file actions">
           <button id="add-file" type="button">+ File</button>

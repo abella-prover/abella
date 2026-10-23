@@ -136,6 +136,9 @@ let process command start =
       pos_bol = bol ;
       pos_cnum = offset ;
     } ;
+    (* The lexer engine recomputes pos_cnum as lex_abs_pos + the
+       command-relative offset after every token. *)
+    lb.Lexing.lex_abs_pos <- offset ;
     Abella_driver.Setup.lexbuf := lb ;
     let status =
       try Abella_driver.process1 () with

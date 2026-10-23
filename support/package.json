@@ -6,11 +6,12 @@
   "scripts": {
     "check": "tsc -noEmit",
     "build": "esbuild ./ts/abella_doc.ts --color=false --bundle --minify --format=esm --outfile=dist/abella_doc.js",
-    "web:js": "esbuild ./ts/web/main.ts --bundle --format=esm --minify --outfile=../web/abella_web.js",
+    "web:js": "node -e \"fs.rmSync('../web/chunks',{recursive:true,force:true})\" && esbuild ./ts/web/main.ts --bundle --format=esm --minify --splitting --outdir=../web --entry-names=abella_web --chunk-names=chunks/[name]-[hash]",
     "web:worker": "esbuild ./ts/web/worker.ts --bundle --format=iife --minify --define:__ENGINE__='\"wasm\"' --outfile=../web/abella_js/worker.js",
     "web:worker-js": "esbuild ./ts/web/worker.ts --bundle --format=iife --minify --define:__ENGINE__='\"js\"' --outfile=../web/abella_worker.js",
     "web:css": "esbuild css/web.css --minify --outfile=../web/abella_web.css",
     "web:build": "npm run web:js && npm run web:worker && npm run web:worker-js && npm run web:css",
+    "web:size": "node ./scripts/check-web-size.mjs",
     "web:test": "esbuild ./ts/web/commands.test.ts ./ts/web/session.test.ts ./ts/web/workspace-directory.test.ts --bundle --platform=node --format=cjs --outdir=../web/.test --log-level=warning && node --test ../web/.test/*.test.js"
   },
   "keywords": [],

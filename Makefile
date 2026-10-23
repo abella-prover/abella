@@ -26,9 +26,11 @@ ifeq ($(ENGINE),js)
 	$(DUNE) build --profile release src/js/abella_js.bc.js
 	rm -f web/abella_js.js
 	cp _build/default/src/js/abella_js.bc.js web/abella_js.js
+	rm -rf web/abella_js
 	echo '{"engine":"js"}' > web/engine.json
 else
 	$(DUNE) build --profile release src/js/abella_js.bc.wasm.js
+	rm -f web/abella_js.js
 	rm -rf web/abella_js/abella_js.bc.wasm.assets
 	rm -f web/abella_js/abella_js.bc.wasm.js
 	cp _build/default/src/js/abella_js.bc.wasm.js web/abella_js/

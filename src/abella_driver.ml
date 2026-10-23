@@ -587,8 +587,9 @@ and source_compile ~modname =
       let bytes = thc_layout spec_sign spec_clauses predicates content in
       ignore (collected_messages ()) ;
       restore () ;
-      Source.add_virtual (modname ^ ".thc") bytes ;
-      Source.set_thc_trusted (modname ^ ".thc") true ;
+      Source.add_virtual_thc (modname ^ ".thc") bytes ;
+      if Source.virtual_exists (modname ^ ".thc") then
+        Source.set_thc_trusted (modname ^ ".thc") true ;
       bytes
   | AbellaExit n ->
       let text = collected_messages () in

@@ -77,6 +77,7 @@ let with_session f =
   let unfinished = !D.Setup.unfinished in
   let import_mode = !D.Setup.import_mode in
   let trust_compiled = !D.Setup.trust_compiled in
+  let thc_cache_limit = !Source.thc_cache_limit in
   let restore () =
     State.reload snap ;
     Output.dest := dest ;
@@ -94,6 +95,7 @@ let with_session f =
     D.Setup.trust_compiled := trust_compiled ;
     Source.clear_virtual () ;
     Source.clear_thc_trust () ;
+    Source.set_thc_cache_limit thc_cache_limit ;
     Accumulate.clear_specification_cache ()
   in
   Fun.protect ~finally:restore (fun () ->
@@ -242,6 +244,28 @@ let test_virtual_source () =
   Source.clear_virtual () ;
   assert_bool "cleared" (not (Source.virtual_exists "a/b.thm"))
 
+let test_thc_cache_bound () =
+  Source.set_thc_cache_limit 10 ;
+  Source.add_virtual_thc "a.thc" "12345" ;
+  Source.set_thc_trusted "a.thc" true ;
+  Source.add_virtual_thc "b.thc" "12345" ;
+  assert_int_equal 10 (Source.thc_cache_size ()) ;
+  Source.add_virtual_thc "c.thc" "12345" ;
+  assert_bool "oldest thc evicted" (not (Source.virtual_exists "a.thc")) ;
+  assert_bool "evicted thc trust removed"
+    (not (Source.is_thc_trusted "a.thc")) ;
+  assert_bool "newest thc kept" (Source.virtual_exists "c.thc") ;
+  assert_int_equal 10 (Source.thc_cache_size ()) ;
+  Source.clear_virtual () ;
+  Source.set_thc_cache_limit 0 ;
+  Source.add_virtual_thc "large.thc" (String.make 100 'x') ;
+  assert_bool "unlimited keeps large thc" (Source.virtual_exists "large.thc") ;
+  assert_int_equal 100 (Source.thc_cache_size ()) ;
+  Source.add_virtual_thc "large.thc" "tiny" ;
+  assert_int_equal 4 (Source.thc_cache_size ()) ;
+  Source.clear_virtual () ;
+  assert_int_equal 0 (Source.thc_cache_size ())
+
 let test_output_collect () =
   Output.collect_mode () ;
   ignore (Output.drain ()) ;
@@ -384,6 +408,7 @@ let test_import_cycle () =
 
 let tests = "web_core" >::: [
   "virtual_source" >:: (fun () -> with_session test_virtual_source) ;
+  "thc_cache_bound" >:: (fun () -> with_session test_thc_cache_bound) ;
   "output_collect" >:: (fun () -> with_session test_output_collect) ;
   "undo_back_counts" >:: (fun () -> with_session test_undo_back_counts) ;
   "source_import_cache" >:: (fun () -> with_session test_source_import_cache) ;

@@ -71,8 +71,18 @@ let virtual_exists path =
 let virtual_contents path =
   Hashtbl.find virtual_files (canon path)
 
+(* Cache bookkeeping lives beside the virtual files so clearing the virtual
+   filesystem also releases the generated .thc entries. *)
+let thc_cache_limit = ref 0
+let thc_cache_bytes = ref 0
+let thc_cache_sizes : (string, int) Hashtbl.t = Hashtbl.create 19
+let thc_cache_order : string list ref = ref []
+
 let clear_virtual () =
-  Hashtbl.clear virtual_files
+  Hashtbl.clear virtual_files ;
+  Hashtbl.clear thc_cache_sizes ;
+  thc_cache_order := [] ;
+  thc_cache_bytes := 0
 
 (* Set when a browser-generated .thc file is ready. *)
 let thc_trusted : (string, bool) Hashtbl.t = Hashtbl.create 19
@@ -85,6 +95,47 @@ let is_thc_trusted path =
 
 let clear_thc_trust () =
   Hashtbl.clear thc_trusted
+
+(* Generated .thc files are kept for the session so repeated imports do not
+   recompile.  Bound their total size so an import-heavy project cannot grow
+   the worker heap without limit.  A limit of 0 disables eviction. *)
+let thc_cache_size () = !thc_cache_bytes
+
+let set_thc_cache_limit limit =
+  thc_cache_limit := max 0 limit ;
+  let rec trim () =
+    if !thc_cache_limit > 0 && !thc_cache_bytes > !thc_cache_limit then
+      match List.rev !thc_cache_order with
+      | [] -> ()
+      | oldest :: _ ->
+          thc_cache_order :=
+            List.filter (fun path -> path <> oldest) !thc_cache_order ;
+          begin
+            match Hashtbl.find_opt thc_cache_sizes oldest with
+            | None -> ()
+            | Some size ->
+                Hashtbl.remove thc_cache_sizes oldest ;
+                Hashtbl.remove virtual_files oldest ;
+                Hashtbl.remove thc_trusted oldest ;
+                thc_cache_bytes := !thc_cache_bytes - size
+          end ;
+          trim ()
+  in
+  trim ()
+
+let add_virtual_thc path contents =
+  let path = canon path in
+  begin
+    match Hashtbl.find_opt thc_cache_sizes path with
+    | None -> ()
+    | Some size -> thc_cache_bytes := !thc_cache_bytes - size
+  end ;
+  let size = String.length contents in
+  Hashtbl.replace virtual_files path contents ;
+  Hashtbl.replace thc_cache_sizes path size ;
+  thc_cache_bytes := !thc_cache_bytes + size ;
+  thc_cache_order := path :: List.filter (fun p -> p <> path) !thc_cache_order ;
+  set_thc_cache_limit !thc_cache_limit
 
 open struct
   [@@@warning "-32-38"]

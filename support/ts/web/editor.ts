@@ -9,7 +9,6 @@ import {
   historyKeymap,
   indentWithTab,
 } from "@codemirror/commands";
-import { markdown } from "@codemirror/lang-markdown";
 import {
   bracketMatching,
   indentOnInput,
@@ -43,8 +42,20 @@ import {
 } from "./abella-lang";
 
 const setProcessedTipEffect = StateEffect.define<number>();
+const markdownConfiguredEffect = StateEffect.define<null>();
 
 const processedMark = Decoration.mark({ class: "cm-processed" });
+
+const markdownConfiguredField = StateField.define<boolean>({
+  create: () => false,
+  update(configured, transaction) {
+    let next = configured;
+    for (const effect of transaction.effects) {
+      if (effect.is(markdownConfiguredEffect)) next = true;
+    }
+    return next;
+  },
+});
 
 const processedField = StateField.define<DecorationSet>({
   create: () => Decoration.none,
@@ -159,6 +170,7 @@ function baseExtensions(
     ]),
     editorTheme,
     processedField,
+    markdownConfiguredField,
     lintGutter(),
     ...(language ? [language] : []),
     listener,
@@ -168,8 +180,24 @@ function baseExtensions(
 export function languageFor(path: string): Extension | null {
   if (path.endsWith(".thm")) return abellaLanguage;
   if (path.endsWith(".sig") || path.endsWith(".mod")) return lprologLanguage;
-  if (path.endsWith(".md") || path.endsWith(".markdown")) return markdown();
   return null;
+}
+
+function isMarkdown(path: string): boolean {
+  return path.endsWith(".md") || path.endsWith(".markdown");
+}
+
+let markdownExtension: Promise<Extension> | undefined;
+
+function loadMarkdown(): Promise<Extension> {
+  markdownExtension ??= import("@codemirror/lang-markdown").then(
+    ({ markdown }) => markdown(),
+    (error) => {
+      markdownExtension = undefined;
+      throw error;
+    }
+  );
+  return markdownExtension;
 }
 
 export class EditorManager {
@@ -178,6 +206,7 @@ export class EditorManager {
   private states = new Map<string, EditorState>();
   private tips = new Map<string, number>();
   private diagnostics = new Map<string, readonly Diagnostic[]>();
+  private markdownPending = new Set<string>();
   private activePath: string | null = null;
   private onChange: (
     path: string,
@@ -226,6 +255,7 @@ export class EditorManager {
     this.view.setState(state);
     this.applyTip(path);
     this.applyDiagnostics(path);
+    this.ensureMarkdown(path);
     this.view.requestMeasure();
   }
 
@@ -233,6 +263,7 @@ export class EditorManager {
     this.states.delete(path);
     this.tips.delete(path);
     this.diagnostics.delete(path);
+    this.markdownPending.delete(path);
   }
 
   rename(from: string, to: string): void {
@@ -251,15 +282,46 @@ export class EditorManager {
       this.diagnostics.delete(from);
       this.diagnostics.set(to, diagnostics);
     }
+    this.markdownPending.delete(from);
     if (this.activePath === from) this.activePath = to;
+    this.ensureMarkdown(to);
   }
 
   reset(): void {
     this.states.clear();
     this.tips.clear();
     this.diagnostics.clear();
+    this.markdownPending.clear();
     this.activePath = null;
     this.view.setState(EditorState.create({ doc: "", extensions: [] }));
+  }
+
+  private ensureMarkdown(path: string): void {
+    if (!isMarkdown(path) || this.markdownPending.has(path)) return;
+    const state = this.states.get(path);
+    if (!state || state.field(markdownConfiguredField)) return;
+    this.markdownPending.add(path);
+    void loadMarkdown().then(
+      (extension) => {
+        this.markdownPending.delete(path);
+        const current = this.states.get(path);
+        if (!current || current.field(markdownConfiguredField)) return;
+        const next = current.update({
+          effects: [
+            StateEffect.appendConfig.of(extension),
+            markdownConfiguredEffect.of(null),
+          ],
+        }).state;
+        this.states.set(path, next);
+        if (this.activePath === path) {
+          this.view.setState(next);
+          this.view.requestMeasure();
+        }
+      },
+      () => {
+        this.markdownPending.delete(path);
+      }
+    );
   }
 
   setProcessedTip(path: string, tip: number): void {

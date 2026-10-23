@@ -102,6 +102,7 @@ let re_init files root =
   Typing.clause_map := Term.Itab.empty ;
   Source.clear_virtual () ;
   Source.clear_thc_trust () ;
+  Source.set_thc_cache_limit (64 * 1024 * 1024) ;
   List.iter (fun (path, contents) -> Source.add_virtual path contents) files ;
   Abella_driver.Setup.mode := `interactive ;
   Abella_driver.Setup.annotate := true ;

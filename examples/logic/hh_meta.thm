@@ -4,13 +4,13 @@
 % of the cut theorem.
 
 % The definition (remove G A D) asserts that G is D extended with A.
-Define remove : olist -> o -> olist -> prop by
+Define remove : list T -> T -> list T -> prop by
   remove (A :: G) A G
 ; remove (B :: G) A (B :: D) := remove G A D.
 
 % If G is an extension of D, then all members of D are also members of G.
-Theorem remove_incl :
-  forall G D A B, remove G A D -> member B D -> member B G.
+Theorem remove_incl[T] :
+  forall G D (A : T) B, remove G A D -> member B D -> member B G.
 induction on 1. intros. case H1.
   search.
   case H2.
@@ -19,8 +19,8 @@ induction on 1. intros. case H1.
 
 % If G is D extended with A, then any member of G is either A or a
 % member of D.
-Theorem remove_charac :
-  forall G A D B, remove G A D -> member B G -> A = B \/ member B D.
+Theorem remove_charac[T] :
+  forall G (A : T) D B, remove G A D -> member B G -> A = B \/ member B D.
 induction on 1. intros. case H1 (keep).
   case H2.
     search.
@@ -40,12 +40,6 @@ Type and fm -> fm -> fm.
 Type top fm.
 Type imp fm -> fm -> fm.
 Type all (tm -> fm) -> fm.
-
-% Contexts are lists of formulas, but instead of defining a type of
-% formula lists, we just reuse the olist type and keep things of
-% the form ($fm A) in them.  In a polymorphically typed extension
-% of Abella, we can avoid this hack.
-Type $fm fm -> o.
 
 % We will need to induct on the structure of formulas, so we write
 % an inductive definition of all formulas.
@@ -71,15 +65,15 @@ skip.
 % bch L F A   stands for    L ; [F] |- A     (F backchainied)
 % seq L G      stands for    L |- G
 Define
-  seq   : olist       -> fm -> prop,
-  bch  : olist -> fm -> tm -> prop
+  seq  : list fm       -> fm -> prop,
+  bch  : list fm -> fm -> tm -> prop
 by
-  seq L (atm A) := exists F, member ($fm F) L /\ bch L F A
+  seq L (atm A) := exists F, member F L /\ bch L F A
 ; seq L (atm A) := exists F, prog F /\ bch L F A
 
 ; seq L (and G1 G2) := seq L G1 /\ seq L G2
 ; seq L top
-; seq L (imp F G) := seq ($fm F :: L) G
+; seq L (imp F G) := seq (F :: L) G
 ; seq L (all A) := nabla x, seq L (A x)
 
 ; bch L (atm A) A
@@ -100,7 +94,7 @@ induction on 2 2. split.
     apply IH1 to H1 H4. search.
     apply IH to H1 H3. apply IH to H1 H4. search.
     search.
-    assert forall E, member E ($fm F :: L) -> member E ($fm F :: L').
+    assert forall E, member E (F :: L) -> member E (F :: L').
       intros. case H4. search. apply H1 to H5. search.
      apply IH to H4 H3. search.
     apply IH to H1 H3. search.
@@ -128,7 +122,7 @@ split.
 Split $weakening as weakening_seq, weakening_bch.
 
 Theorem member_inst :
-   forall F (L:tm -> olist), nabla (n:tm), member (F n) (L n) -> forall t, member (F t) (L t).
+   forall F (L:tm -> list fm), nabla (n:tm), member (F n) (L n) -> forall t, member (F t) (L t).
 induction on 1. intros. case H1.
   search.
   apply IH to H2. apply H3 with t1 = t. search.
@@ -161,9 +155,9 @@ Split $inst as inst_seq, inst_bch.
 % The main cut-admissibility theorem.
 Theorem $cut :
    (forall L K F G, is_fm F ->
-     seq K F -> remove L ($fm F) K -> seq L G  -> seq K G)
+     seq K F -> remove L F K -> seq L G  -> seq K G)
 /\ (forall L K F F' A, is_fm F ->
-     seq K F -> remove L ($fm F) K -> bch L F' A -> bch K F' A)
+     seq K F -> remove L F K -> bch L F' A -> bch K F' A)
 /\ (forall L F A, is_fm F ->
      seq L F ->                       bch L F A -> seq L (atm A)).
 % We proceed by nested induction on:
@@ -199,8 +193,8 @@ induction on 4 4 3. split.
     apply IH3 to H1 H2 H3 H5.
      apply IH3 to H1 H2 H3 H6. search.
     search.
-    assert remove ($fm F1 :: L) ($fm F) ($fm F1 :: K).
-     assert seq ($fm F1 :: K) F. backchain weakening_seq.
+    assert remove (F1 :: L) F (F1 :: K).
+     assert seq (F1 :: K) F. backchain weakening_seq.
      apply IH3 to H1 H7 H6 H5. search.
     apply IH3 to H1 H2 H3 H5. search.
   intros. case H4 (keep).

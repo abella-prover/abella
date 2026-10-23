@@ -138,6 +138,13 @@ cd web
 python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
+Build the frontend against the local Worker:
+
+```sh
+cd support
+npm run web:build:dev
+```
+
 Then open `http://127.0.0.1:8000/`. The callback page is
 `http://127.0.0.1:8000/github-callback.html`.
 
@@ -198,7 +205,8 @@ returns `503` and the frontend falls back to personal access tokens.
 5. Attach the chosen hostname, preferably `oauth.abella-prover.org`,
    with a Cloudflare custom domain or DNS record.
 6. Add that exact origin to the site's `connect-src` CSP and build the
-   frontend against it.
+   frontend against it. `README_Web.md` covers the CSP, COOP, and
+   callback-page headers.
 
 `make publish-web` never deploys this Worker. Deployment is an
 independent operation with its own environment and secret.

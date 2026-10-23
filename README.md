@@ -28,6 +28,9 @@ More information on Abella is available at
 
   https://abella-prover.org/
 
+For building and deploying the browser interface, see
+[README_Web.md](README_Web.md).
+
 
 Bugs, Feature Requests, and Issues
 ==================================

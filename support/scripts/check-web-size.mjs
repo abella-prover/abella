@@ -18,6 +18,7 @@ const KiB = 1024;
 const budgets = {
   "initial JS": { gzip: 180 * KiB },
   "lazy chunks": { gzip: 120 * KiB },
+  "github_callback.js": { gzip: 4 * KiB },
   "abella_web.css": { gzip: 16 * KiB },
   "examples/bundle.json": { gzip: 32 * KiB },
   "wasm assets": { raw: 1024 * KiB },
@@ -112,6 +113,20 @@ const initial = sumMeasure(chunks.eager);
 check("initial JS", join(webRoot, "abella_web.js"), "gzip", initial.gzip);
 const lazy = sumMeasure(chunks.lazy);
 check("lazy chunks", join(webRoot, "chunks"), "gzip", lazy.gzip);
+
+const callback = safeMeasure(join(webRoot, "github_callback.js"));
+if (!callback) {
+  console.error(
+    "Missing web/github_callback.js; run npm run web:build first."
+  );
+  process.exit(1);
+}
+check(
+  "github_callback.js",
+  join(webRoot, "github_callback.js"),
+  "gzip",
+  callback.gzip
+);
 
 const css = safeMeasure(join(webRoot, "abella_web.css"));
 if (!css) {

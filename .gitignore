@@ -17,6 +17,7 @@
 *.output
 *.html
 !index.html
+!web/github-callback.html
 *.native
 abella
 _build
@@ -30,6 +31,7 @@ dev-examples/
 /web/abella_web.css
 /web/abella_js.js
 /web/abella_js/
+/web/github_callback.js
 /web/engine.json
 /web/examples/bundle.json
 /web/.test/

@@ -7,12 +7,15 @@
     "check": "tsc -noEmit",
     "build": "esbuild ./ts/abella_doc.ts --color=false --bundle --minify --format=esm --outfile=dist/abella_doc.js",
     "web:js": "node -e \"fs.rmSync('../web/chunks',{recursive:true,force:true})\" && esbuild ./ts/web/main.ts --bundle --format=esm --minify --splitting --outdir=../web --entry-names=abella_web --chunk-names=chunks/[name]-[hash]",
+    "web:js:dev": "node -e \"fs.rmSync('../web/chunks',{recursive:true,force:true})\" && esbuild ./ts/web/main.ts --bundle --format=esm --minify --splitting --outdir=../web --entry-names=abella_web --chunk-names=chunks/[name]-[hash] --define:__GITHUB_OAUTH_WORKER__='\"http://127.0.0.1:8787\"'",
     "web:worker": "esbuild ./ts/web/worker.ts --bundle --format=iife --minify --define:__ENGINE__='\"wasm\"' --outfile=../web/abella_js/worker.js",
     "web:worker-js": "esbuild ./ts/web/worker.ts --bundle --format=iife --minify --define:__ENGINE__='\"js\"' --outfile=../web/abella_worker.js",
+    "web:callback": "esbuild ./ts/web/github-callback.ts --bundle --format=iife --minify --outfile=../web/github_callback.js",
     "web:css": "esbuild css/web.css --minify --outfile=../web/abella_web.css",
-    "web:build": "npm run web:js && npm run web:worker && npm run web:worker-js && npm run web:css",
+    "web:build": "npm run web:js && npm run web:worker && npm run web:worker-js && npm run web:callback && npm run web:css",
+    "web:build:dev": "npm run web:js:dev && npm run web:worker && npm run web:worker-js && npm run web:callback && npm run web:css",
     "web:size": "node ./scripts/check-web-size.mjs",
-    "web:test": "esbuild ./ts/web/commands.test.ts ./ts/web/session.test.ts ./ts/web/workspace-directory.test.ts ./ts/web/workspace.test.ts ./ts/web/workspace-github.test.ts ./ts/web/github-auth.test.ts --bundle --platform=node --format=cjs --outdir=../web/.test --log-level=warning && node --test ../web/.test/*.test.js"
+    "web:test": "esbuild ./ts/web/commands.test.ts ./ts/web/session.test.ts ./ts/web/workspace-directory.test.ts ./ts/web/workspace.test.ts ./ts/web/workspace-github.test.ts ./ts/web/github-auth.test.ts ./ts/web/github-oauth.test.ts --bundle --platform=node --format=cjs --outdir=../web/.test --log-level=warning && node --test ../web/.test/*.test.js"
   },
   "keywords": [],
   "author": "Kaustuv Chaudhuri <kaustuv@chaudhuri.info>",

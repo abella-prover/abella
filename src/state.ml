@@ -12,6 +12,11 @@ type snap = cell list
 
 let __snappers : (unit -> unit -> unit) list ref = ref []
 
+(* Restore cells for the values at registration. These hold the initial
+   values strongly, unlike snapshot cells, so that a pristine session can
+   be reconstructed after imports have changed the global state. *)
+let __initial_snappers : (unit -> unit) list ref = ref []
+
 exception Killme
 
 let rref x =
@@ -25,7 +30,14 @@ let rref x =
         let y = !xr in
         fun () -> xr := y
   in
-  __snappers := snap :: !__snappers ; xr
+  let initial () =
+    match Weak.get wx 0 with
+    | None -> raise Killme
+    | Some xr -> xr := x
+  in
+  __snappers := snap :: !__snappers ;
+  __initial_snappers := initial :: !__initial_snappers ;
+  xr
 
 let table ?initial () =
   let ht = match initial with Some tab -> tab | None -> Hashtbl.create 19 in
@@ -38,7 +50,15 @@ let table ?initial () =
         let saved = Hashtbl.copy ht in
         fun () -> Hashtbl.assign ht saved
   in
-  __snappers := snap :: !__snappers ; ht
+  let initial = Hashtbl.copy ht in
+  let reset () =
+    match Weak.get wx 0 with
+    | None -> raise Killme
+    | Some ht -> Hashtbl.assign ht initial
+  in
+  __snappers := snap :: !__snappers ;
+  __initial_snappers := reset :: !__initial_snappers ;
+  ht
 
 let make ~copy ~assign x =
   let wx = Weak.create 1 in
@@ -50,7 +70,14 @@ let make ~copy ~assign x =
         let saved = copy x in
         fun () -> assign x saved
   in
+  let initial = copy x in
+  let reset () =
+    match Weak.get wx 0 with
+    | None -> raise Killme
+    | Some x -> assign x initial
+  in
   __snappers := snap :: !__snappers ;
+  __initial_snappers := reset :: !__initial_snappers ;
   x
 
 let snapshot () : snap =
@@ -62,6 +89,13 @@ let snapshot () : snap =
   snap
 
 let reload (snap : snap) = List.iter (fun f -> f ()) snap
+
+let reset () =
+  __initial_snappers :=
+    List.filter begin fun restore ->
+      try restore () ; true with
+      | Killme -> false
+    end !__initial_snappers
 
 module Undo = struct
   let enabled = ref true

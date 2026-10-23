@@ -12,6 +12,7 @@ val make      : copy:('a -> 'b) -> assign:('a -> 'b -> unit) -> 'a -> 'a
 type snap
 val snapshot : unit -> snap
 val reload   : snap -> unit
+val reset    : unit -> unit
 
 module Undo : sig
   val reset : unit -> unit

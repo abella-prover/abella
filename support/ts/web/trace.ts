@@ -80,7 +80,9 @@ export function appendOutput(
       line.tabIndex = 0;
       line.setAttribute("role", "button");
       line.title = "Jump to the command that produced this output";
-      const jump = (): void => {
+      let jumpTimer: number | undefined;
+      line.addEventListener("click", (event) => {
+        if (event.detail > 1) return;
         const selection = window.getSelection();
         if (
           selection &&
@@ -90,9 +92,14 @@ export function appendOutput(
         ) {
           return;
         }
-        onSelect(from);
-      };
-      line.addEventListener("click", jump);
+        window.clearTimeout(jumpTimer);
+        jumpTimer = window.setTimeout(() => {
+          if (line.isConnected) onSelect(from);
+        }, 180);
+      });
+      line.addEventListener("dblclick", () => {
+        window.clearTimeout(jumpTimer);
+      });
       line.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();

@@ -11,6 +11,7 @@ import {
   type Bundle,
 } from "./examples";
 import { renderFiles } from "./files";
+import { OutputLog } from "./output-log";
 import {
   clearSavedProject,
   classify,
@@ -267,6 +268,7 @@ let sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
 let sidebarCollapsed = false;
 let lastGoalState: ProofState | undefined;
 let currentOutcome: ProofOutcome | undefined;
+const outputLog = new OutputLog();
 let outputCount = 0;
 let outputHasError = false;
 let activePanel: "goal" | "output" = "goal";
@@ -675,6 +677,22 @@ function updateOutputTab(): void {
   outputTab.dataset.error = String(outputHasError);
 }
 
+function renderOutput(): void {
+  outputPanel.replaceChildren();
+  appendOutput(
+    outputPanel,
+    outputLog.ordered.map((record) => record.entry)
+  );
+  outputCount = outputLog.count;
+  updateOutputTab();
+}
+
+function pruneOutput(tip: number): void {
+  if (outputLog.prune(tip) === 0) return;
+  if (!outputLog.hasError) outputHasError = false;
+  renderOutput();
+}
+
 function selectPanel(panel: "goal" | "output", focus = false): void {
   activePanel = panel;
   const goalActive = panel === "goal";
@@ -690,19 +708,19 @@ function selectPanel(panel: "goal" | "output", focus = false): void {
 }
 
 function clearOutput(): void {
+  outputLog.clear();
   outputCount = 0;
   outputHasError = false;
   outputPanel.replaceChildren();
   selectPanel("goal");
 }
 
-function appendEntries(entries: OutputEntry[]): void {
+function appendEntries(entries: OutputEntry[], position?: number): void {
   if (entries.length === 0) return;
-  appendOutput(outputPanel, entries);
-  outputCount += entries.length;
+  outputLog.append(entries, position);
   const hasError = entries.some((entry) => entry.severity === "error");
   if (hasError && activePanel !== "output") outputHasError = true;
-  updateOutputTab();
+  renderOutput();
 }
 
 function closeMenus(): void {
@@ -1975,6 +1993,7 @@ const events: SessionEvents = {
   onStatus: setStatus,
   onTip(tip) {
     editor.setProcessedTip(project.root, tip);
+    pruneOutput(tip);
   },
   onGoal: goal,
   onOutcome: outcome,
@@ -2002,7 +2021,7 @@ const events: SessionEvents = {
     }
   },
   onError(message, from, to) {
-    appendEntries([{ severity: "error", message }]);
+    appendEntries([{ severity: "error", message }], from);
     errorDiagnostic(message, from, to);
   },
 };

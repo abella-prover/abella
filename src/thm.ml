@@ -72,11 +72,7 @@ let add_compiled citem =
 
 let compiled_content () = List.rev !comp_content
 
-let add_lemma ?(fin=Finished) name tys thm =
-  match Prover.add_lemma ~fin name tys thm with
-  | `replace ->
-      Output.msg_printf "Warning: overriding existing lemma named %S." name
-  | _ -> ()
+let add_lemma = Artifact.add_lemma
 
 module Replacement = struct
   type target = {

@@ -40,6 +40,13 @@ export interface OutputEntry {
   message: string;
 }
 
+export interface OutputLocation {
+  /** Start of the command that produced the output. */
+  from: number;
+  /** Prune the output once the tip moves before this offset. */
+  position: number;
+}
+
 export interface Step {
   from: number;
   to: number;
@@ -55,7 +62,7 @@ export interface SessionEvents {
   onTip(tip: number): void;
   onGoal(state: ProofState | undefined): void;
   onOutcome(outcome: ProofOutcome | undefined): void;
-  onOutput(entries: OutputEntry[], position?: number): void;
+  onOutput(entries: OutputEntry[], location?: OutputLocation): void;
   onResult(result: RunResult, command?: Command): void;
   onError(message: string, from: number, to: number): void;
   onCursor(offset: number): void;
@@ -310,12 +317,15 @@ export class Session {
     if (generation !== this.generation) return false;
     this.events.onResult(result, command);
     const entries = outputEntries(result.messages);
-    const position = result.status === "ok" ? command.to : command.from;
-    if (entries.length > 0) this.events.onOutput(entries, position);
+    const location = {
+      from: command.from,
+      position: result.status === "ok" ? command.to : command.from,
+    };
+    if (entries.length > 0) this.events.onOutput(entries, location);
     if (result.status === "error") {
       const message = errorText(result.messages);
       if (entries.length === 0) {
-        this.events.onOutput([{ severity: "error", message }], position);
+        this.events.onOutput([{ severity: "error", message }], location);
       }
       this.tip = command.from;
       this.events.onTip(this.tip);

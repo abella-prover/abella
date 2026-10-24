@@ -26,6 +26,7 @@ import {
 import {
   Session,
   type OutputEntry,
+  type OutputLocation,
   type ProofOutcome,
   type SessionEvents,
   type SessionStatus,
@@ -86,6 +87,12 @@ const statusDetail = byId<HTMLSpanElement>("status-detail");
 const fileList = byId<HTMLDivElement>("file-list");
 const goalPanel = byId<HTMLDivElement>("goal");
 const outputPanel = byId<HTMLDivElement>("output");
+// Temporary preview switch for choosing the output separator style.
+if (
+  new URLSearchParams(window.location.search).get("output") === "zebra"
+) {
+  outputPanel.dataset.style = "zebra";
+}
 const goalTab = byId<HTMLButtonElement>("goal-tab");
 const outputTab = byId<HTMLButtonElement>("output-tab");
 const outputCountBadge = byId<HTMLElement>("output-count");
@@ -677,11 +684,21 @@ function updateOutputTab(): void {
   outputTab.dataset.error = String(outputHasError);
 }
 
+function jumpToOutput(from: number): void {
+  if (editor.active !== project.root) openFile(project.root);
+  editor.setCursor(project.root, from, true);
+  editor.focus();
+}
+
 function renderOutput(): void {
   outputPanel.replaceChildren();
   appendOutput(
     outputPanel,
-    outputLog.ordered.map((record) => record.entry)
+    outputLog.ordered.map((record) => ({
+      entry: record.entry,
+      from: record.location?.from,
+    })),
+    jumpToOutput
   );
   outputCount = outputLog.count;
   updateOutputTab();
@@ -715,9 +732,12 @@ function clearOutput(): void {
   selectPanel("goal");
 }
 
-function appendEntries(entries: OutputEntry[], position?: number): void {
+function appendEntries(
+  entries: OutputEntry[],
+  location?: OutputLocation
+): void {
   if (entries.length === 0) return;
-  outputLog.append(entries, position);
+  outputLog.append(entries, location);
   const hasError = entries.some((entry) => entry.severity === "error");
   if (hasError && activePanel !== "output") outputHasError = true;
   renderOutput();
@@ -2021,7 +2041,10 @@ const events: SessionEvents = {
     }
   },
   onError(message, from, to) {
-    appendEntries([{ severity: "error", message }], from);
+    appendEntries([{ severity: "error", message }], {
+      from,
+      position: from,
+    });
     errorDiagnostic(message, from, to);
   },
 };

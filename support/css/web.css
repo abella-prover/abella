@@ -652,6 +652,40 @@ body.resizing-row {
   &[data-severity="error"] {
     color: var(--red);
   }
+
+  &.output-jump {
+    cursor: pointer;
+
+    &:hover {
+      background: var(--active-line);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--rose);
+      outline-offset: -2px;
+    }
+  }
+}
+
+.output-panel[data-style="separator"] .output-entry {
+  padding: 0.35rem 0;
+}
+
+.output-panel[data-style="separator"] .output-entry + .output-entry {
+  border-top: 1px solid var(--border);
+}
+
+.output-panel[data-style="zebra"] {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.output-panel[data-style="zebra"] .output-entry {
+  padding: 0.35rem 0.75rem;
+}
+
+.output-panel[data-style="zebra"] .output-entry:nth-child(even) {
+  background: var(--surface-2);
 }
 
 .settings-dialog {

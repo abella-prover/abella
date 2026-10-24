@@ -20,20 +20,24 @@ const error = (message: string): OutputEntry => ({
 test("orders positioned output and keeps manual messages last", () => {
   const log = new OutputLog();
   log.append([info("manual")]);
-  log.append([info("second")], 20);
-  log.append([info("first")], 10);
+  log.append([info("second")], { from: 15, position: 20 });
+  log.append([info("first")], { from: 5, position: 10 });
 
   assert.deepEqual(
     log.ordered.map((record) => record.entry.message),
     ["first", "second", "manual"]
   );
+  assert.deepEqual(log.ordered[0].location, { from: 5, position: 10 });
   assert.equal(log.count, 3);
 });
 
 test("entries at the same position keep insertion order", () => {
   const log = new OutputLog();
-  log.append([info("first"), info("second")], 10);
-  log.append([info("third")], 10);
+  log.append(
+    [info("first"), info("second")],
+    { from: 5, position: 10 }
+  );
+  log.append([info("third")], { from: 5, position: 10 });
 
   assert.deepEqual(
     log.ordered.map((record) => record.entry.message),
@@ -43,8 +47,8 @@ test("entries at the same position keep insertion order", () => {
 
 test("pruning drops positioned entries after the tip", () => {
   const log = new OutputLog();
-  log.append([info("early")], 10);
-  log.append([info("late")], 20);
+  log.append([info("early")], { from: 5, position: 10 });
+  log.append([info("late")], { from: 5, position: 20 });
   log.append([info("manual")]);
 
   assert.equal(log.prune(10), 1);
@@ -56,8 +60,8 @@ test("pruning drops positioned entries after the tip", () => {
 
 test("pruning clears the error flag when no errors remain", () => {
   const log = new OutputLog();
-  log.append([info("ok")], 10);
-  log.append([error("bad")], 20);
+  log.append([info("ok")], { from: 5, position: 10 });
+  log.append([error("bad")], { from: 15, position: 20 });
   assert.equal(log.hasError, true);
 
   log.prune(10);
@@ -67,7 +71,7 @@ test("pruning clears the error flag when no errors remain", () => {
 test("clear removes every entry", () => {
   const log = new OutputLog();
   log.append([info("manual")]);
-  log.append([info("positioned")], 10);
+  log.append([info("positioned")], { from: 5, position: 10 });
   log.clear();
 
   assert.equal(log.count, 0);

@@ -60,15 +60,45 @@ export function renderSequent(state: ProofState): HTMLElement {
   return box;
 }
 
+export interface OutputLine {
+  entry: OutputEntry;
+  from?: number;
+}
+
 export function appendOutput(
   container: HTMLElement,
-  entries: OutputEntry[]
+  lines: readonly OutputLine[],
+  onSelect?: (from: number) => void
 ): void {
-  for (const entry of entries) {
+  for (const { entry, from } of lines) {
     const line = document.createElement("div");
     line.className = "output-entry";
     line.dataset.severity = entry.severity;
     line.textContent = entry.message;
+    if (from !== undefined && onSelect) {
+      line.classList.add("output-jump");
+      line.tabIndex = 0;
+      line.setAttribute("role", "button");
+      line.title = "Jump to the command that produced this output";
+      const jump = (): void => {
+        const selection = window.getSelection();
+        if (
+          selection &&
+          !selection.isCollapsed &&
+          selection.anchorNode &&
+          line.contains(selection.anchorNode)
+        ) {
+          return;
+        }
+        onSelect(from);
+      };
+      line.addEventListener("click", jump);
+      line.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onSelect(from);
+      });
+    }
     container.append(line);
   }
   container.scrollTop = container.scrollHeight;

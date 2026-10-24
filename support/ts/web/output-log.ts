@@ -2,11 +2,11 @@
 //                     en Informatique et en Automatique)
 // See LICENSE for licensing details.
 
-import type { OutputEntry } from "./session";
+import type { OutputEntry, OutputLocation } from "./session";
 
 export interface OutputRecord {
   entry: OutputEntry;
-  position?: number;
+  location?: OutputLocation;
   seq: number;
 }
 
@@ -20,11 +20,13 @@ export class OutputLog {
 
   get ordered(): readonly OutputRecord[] {
     return [...this.records].sort((a, b) => {
-      if (a.position !== undefined && b.position !== undefined) {
-        return a.position - b.position || a.seq - b.seq;
+      const aPosition = a.location?.position;
+      const bPosition = b.location?.position;
+      if (aPosition !== undefined && bPosition !== undefined) {
+        return aPosition - bPosition || a.seq - b.seq;
       }
-      if (a.position !== undefined) return -1;
-      if (b.position !== undefined) return 1;
+      if (aPosition !== undefined) return -1;
+      if (bPosition !== undefined) return 1;
       return a.seq - b.seq;
     });
   }
@@ -35,9 +37,9 @@ export class OutputLog {
     );
   }
 
-  append(entries: readonly OutputEntry[], position?: number): void {
+  append(entries: readonly OutputEntry[], location?: OutputLocation): void {
     for (const entry of entries) {
-      this.records.push({ entry, position, seq: this.nextSequence++ });
+      this.records.push({ entry, location, seq: this.nextSequence++ });
     }
   }
 
@@ -45,7 +47,8 @@ export class OutputLog {
   prune(tip: number): number {
     const before = this.records.length;
     this.records = this.records.filter(
-      (record) => record.position === undefined || record.position <= tip
+      (record) =>
+        record.location === undefined || record.location.position <= tip
     );
     return before - this.records.length;
   }

@@ -26,6 +26,8 @@ import {
   StateEffect,
   StateField,
   type Extension,
+  type Range,
+  type Text,
 } from "@codemirror/state";
 import {
   Decoration,
@@ -45,6 +47,27 @@ const setProcessedTipEffect = StateEffect.define<number>();
 const markdownConfiguredEffect = StateEffect.define<null>();
 
 const processedMark = Decoration.mark({ class: "cm-processed" });
+const processedLine = Decoration.line({ class: "cm-processed-line" });
+const processedPartialLine = Decoration.line({
+  class: "cm-processed-partial-line",
+});
+
+function processedDecorations(doc: Text, tip: number): DecorationSet {
+  const clamped = Math.max(0, Math.min(tip, doc.length));
+  if (clamped === 0) return Decoration.none;
+  const endLine = doc.lineAt(clamped);
+  const decorations: Range<Decoration>[] = [];
+  for (let number = 1; number <= endLine.number; number++) {
+    const line = doc.line(number);
+    if (line.to <= clamped) {
+      decorations.push(processedLine.range(line.from));
+    } else if (line.from < clamped) {
+      decorations.push(processedPartialLine.range(line.from));
+      decorations.push(processedMark.range(line.from, clamped));
+    }
+  }
+  return Decoration.set(decorations);
+}
 
 const markdownConfiguredField = StateField.define<boolean>({
   create: () => false,
@@ -63,11 +86,7 @@ const processedField = StateField.define<DecorationSet>({
     let next = decorations.map(transaction.changes);
     for (const effect of transaction.effects) {
       if (effect.is(setProcessedTipEffect)) {
-        const tip = Math.max(0, Math.min(effect.value, transaction.newDoc.length));
-        next =
-          tip > 0
-            ? Decoration.set([processedMark.range(0, tip)])
-            : Decoration.none;
+        next = processedDecorations(transaction.newDoc, effect.value);
       }
     }
     return next;
@@ -97,7 +116,20 @@ const editorTheme = EditorView.theme({
   },
   ".cm-activeLine": { backgroundColor: "var(--active-line)" },
   ".cm-activeLineGutter": { backgroundColor: "var(--active-line)" },
-  ".cm-processed": { backgroundColor: "var(--processed)" },
+  ".cm-processed": {
+    backgroundColor: "var(--processed)",
+    // CodeMirror lines have 6px of left padding; extend the partial
+    // highlight over it without moving the text.
+    padding: "2px 0 2px 6px",
+    marginLeft: "-6px",
+  },
+  ".cm-processed-line": { backgroundColor: "var(--processed)" },
+  ".cm-activeLine.cm-processed-line": {
+    backgroundColor: "var(--processed)",
+  },
+  ".cm-activeLine.cm-processed-partial-line": {
+    backgroundColor: "transparent",
+  },
   ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
     backgroundColor: "var(--selection) !important",
   },

@@ -87,12 +87,6 @@ const statusDetail = byId<HTMLSpanElement>("status-detail");
 const fileList = byId<HTMLDivElement>("file-list");
 const goalPanel = byId<HTMLDivElement>("goal");
 const outputPanel = byId<HTMLDivElement>("output");
-// Temporary preview switch for choosing the output separator style.
-if (
-  new URLSearchParams(window.location.search).get("output") === "zebra"
-) {
-  outputPanel.dataset.style = "zebra";
-}
 const goalTab = byId<HTMLButtonElement>("goal-tab");
 const outputTab = byId<HTMLButtonElement>("output-tab");
 const outputCountBadge = byId<HTMLElement>("output-count");

@@ -645,7 +645,7 @@ body.resizing-row {
 }
 
 .output-entry {
-  padding: 0.15rem 0;
+  padding: 0.35rem 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 
@@ -667,25 +667,8 @@ body.resizing-row {
   }
 }
 
-.output-panel[data-style="separator"] .output-entry {
-  padding: 0.35rem 0;
-}
-
-.output-panel[data-style="separator"] .output-entry + .output-entry {
+.output-entry + .output-entry {
   border-top: 1px solid var(--border);
-}
-
-.output-panel[data-style="zebra"] {
-  padding-right: 0;
-  padding-left: 0;
-}
-
-.output-panel[data-style="zebra"] .output-entry {
-  padding: 0.35rem 0.75rem;
-}
-
-.output-panel[data-style="zebra"] .output-entry:nth-child(even) {
-  background: var(--surface-2);
 }
 
 .settings-dialog {

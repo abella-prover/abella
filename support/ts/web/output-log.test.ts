@@ -37,7 +37,7 @@ test("entries at the same position keep insertion order", () => {
     [info("first"), info("second")],
     { from: 5, position: 10 }
   );
-  log.append([info("third")], { from: 5, position: 10 });
+  log.append([info("third")], { from: 9, position: 10 });
 
   assert.deepEqual(
     log.ordered.map((record) => record.entry.message),
@@ -48,7 +48,7 @@ test("entries at the same position keep insertion order", () => {
 test("pruning drops positioned entries after the tip", () => {
   const log = new OutputLog();
   log.append([info("early")], { from: 5, position: 10 });
-  log.append([info("late")], { from: 5, position: 20 });
+  log.append([info("late")], { from: 8, position: 20 });
   log.append([info("manual")]);
 
   assert.equal(log.prune(10), 1);
@@ -66,6 +66,20 @@ test("pruning clears the error flag when no errors remain", () => {
 
   log.prune(10);
   assert.equal(log.hasError, false);
+});
+
+test("reappending a command replaces its earlier output", () => {
+  const log = new OutputLog();
+  log.append([error("first failure")], { from: 5, position: 5 });
+  log.append([error("second failure")], { from: 5, position: 5 });
+
+  assert.deepEqual(
+    log.ordered.map((record) => record.entry.message),
+    ["second failure"]
+  );
+
+  log.append([], { from: 5, position: 5 });
+  assert.equal(log.count, 0);
 });
 
 test("clear removes every entry", () => {

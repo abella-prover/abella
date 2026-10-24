@@ -321,12 +321,14 @@ export class Session {
       from: command.from,
       position: result.status === "ok" ? command.to : command.from,
     };
-    if (entries.length > 0) this.events.onOutput(entries, location);
+    if (result.status === "error" && entries.length === 0) {
+      entries.push({
+        severity: "error",
+        message: errorText(result.messages),
+      });
+    }
+    this.events.onOutput(entries, location);
     if (result.status === "error") {
-      const message = errorText(result.messages);
-      if (entries.length === 0) {
-        this.events.onOutput([{ severity: "error", message }], location);
-      }
       this.tip = command.from;
       this.events.onTip(this.tip);
       this.events.onStatus("error");

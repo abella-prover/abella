@@ -11,6 +11,7 @@ import { classify, type Project, type ProjectTextFile } from "./project";
 import {
   Session,
   type OutputEntry,
+  type OutputLocation,
   type ProofOutcome,
   type SessionEvents,
   type SessionStatus,
@@ -144,6 +145,7 @@ interface Captured {
   goals: (ProofState | undefined)[];
   outcomes: (ProofOutcome | undefined)[];
   outputs: OutputEntry[][];
+  outputLocations: (OutputLocation | undefined)[];
   results: RunResult[];
   errors: string[];
   commands: (Command | undefined)[];
@@ -157,6 +159,7 @@ function capture(): { events: SessionEvents; captured: Captured } {
     goals: [],
     outcomes: [],
     outputs: [],
+    outputLocations: [],
     results: [],
     errors: [],
     commands: [],
@@ -167,7 +170,10 @@ function capture(): { events: SessionEvents; captured: Captured } {
     onTip: (tip) => captured.tips.push(tip),
     onGoal: (goal) => captured.goals.push(goal),
     onOutcome: (outcome) => captured.outcomes.push(outcome),
-    onOutput: (entries) => captured.outputs.push(entries),
+    onOutput: (entries, location) => {
+      captured.outputs.push(entries);
+      captured.outputLocations.push(location);
+    },
     onResult: (result, command) => {
       captured.results.push(result);
       captured.commands.push(command);
@@ -184,6 +190,22 @@ function setup(project = makeProject()) {
   const session = new Session(driver, project, events);
   return { project, driver, captured, session };
 }
+
+test("reports an output location for every processed command", async () => {
+  const { project, captured, session } = setup();
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+  await session.processTo(doc.length);
+
+  assert.equal(captured.outputLocations.length, 4);
+  assert.ok(
+    captured.outputLocations.every((location) => location !== undefined)
+  );
+  assert.deepEqual(captured.outputLocations[0], {
+    from: 0,
+    position: 'Specification "empty".'.length,
+  });
+});
 
 test("checks commands that start before the cursor", async () => {
   const { project, driver, captured, session } = setup();

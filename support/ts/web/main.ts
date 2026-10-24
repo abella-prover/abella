@@ -730,10 +730,14 @@ function appendEntries(
   entries: OutputEntry[],
   location?: OutputLocation
 ): void {
-  if (entries.length === 0) return;
+  if (!location && entries.length === 0) return;
   outputLog.append(entries, location);
   const hasError = entries.some((entry) => entry.severity === "error");
-  if (hasError && activePanel !== "output") outputHasError = true;
+  if (hasError && activePanel !== "output") {
+    outputHasError = true;
+  } else if (!outputLog.hasError) {
+    outputHasError = false;
+  }
   renderOutput();
 }
 

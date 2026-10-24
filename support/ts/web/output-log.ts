@@ -38,6 +38,11 @@ export class OutputLog {
   }
 
   append(entries: readonly OutputEntry[], location?: OutputLocation): void {
+    if (location !== undefined) {
+      this.records = this.records.filter(
+        (record) => record.location?.from !== location.from
+      );
+    }
     for (const entry of entries) {
       this.records.push({ entry, location, seq: this.nextSequence++ });
     }

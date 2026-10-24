@@ -23,6 +23,7 @@ import {
   type Project,
   type WorkspaceDescriptor,
 } from "./project";
+import { planRename } from "./renames";
 import {
   Session,
   type OutputEntry,
@@ -1887,27 +1888,47 @@ function renameFile(): void {
   if (!file) return;
   const to = normalizeNewPath(window.prompt("Rename file to:", from));
   if (!to || to === from) return;
-  if (from === project.root && !to.endsWith(".thm")) {
+  if (from === project.root && !to.toLowerCase().endsWith(".thm")) {
     window.alert("The root reasoning file must have a .thm extension.");
     return;
   }
-  if (project.files.has(to)) {
-    window.alert(`A file named ${to} already exists.`);
+  const result = planRename(project, from, to);
+  if (!result.ok) {
+    window.alert(result.message);
     return;
   }
-  const nextKind = classify(to);
-  project.files.delete(from);
-  project.files.set(to, { text: file.text, kind: nextKind });
-  if (project.root === from) project.root = to;
-  if (project.active === from) project.active = to;
-  if (file.kind === nextKind) {
-    editor.rename(from, to);
-  } else {
-    editor.remove(from);
+  const plan = result.plan;
+  const renamedKinds = plan.renames.map((rename) => ({
+    ...rename,
+    oldKind: project.files.get(rename.from)?.kind,
+    newKind: classify(rename.to),
+  }));
+
+  project.files.clear();
+  for (const [path, next] of plan.files) project.files.set(path, next);
+  project.root = plan.root;
+  project.active = plan.active;
+
+  for (const rename of renamedKinds) {
+    if (rename.oldKind === rename.newKind) {
+      editor.rename(rename.from, rename.to);
+    } else {
+      editor.remove(rename.from);
+    }
   }
+  for (const [path, text] of plan.changed) {
+    editor.replaceText(path, text);
+    editor.clearDiagnostics(path);
+  }
+
   refreshFiles();
-  if (file.kind !== nextKind) openFile(to);
-  if (file.kind === "abella" || nextKind === "abella") {
+  if (file.kind !== classify(to)) openFile(to);
+  if (
+    renamedKinds.some(
+      (rename) =>
+        rename.oldKind === "abella" || rename.newKind === "abella"
+    )
+  ) {
     projectStructureChanged();
   }
   workspaceSession.persistNow();

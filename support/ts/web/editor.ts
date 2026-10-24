@@ -364,6 +364,19 @@ export class EditorManager {
     );
   }
 
+  replaceText(path: string, text: string): void {
+    const state = this.states.get(path);
+    if (!state || state.doc.toString() === text) return;
+    const next = state.update({
+      changes: { from: 0, to: state.doc.length, insert: text },
+    }).state;
+    this.states.set(path, next);
+    if (this.activePath === path) {
+      this.view.setState(next);
+      this.view.requestMeasure();
+    }
+  }
+
   setProcessedTip(path: string, tip: number): void {
     this.tips.set(path, tip);
     if (this.activePath === path) this.applyTip(path);

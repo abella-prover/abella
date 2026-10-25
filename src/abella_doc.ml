@@ -37,10 +37,9 @@ let thm_template base =
   {|<!DOCTYPE html>
 <html lang="en"><head>
   <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
   <title>|} ^ root ^ {|.thm [Abella trace]</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
   <style>|} ^ Dist.css ^ {|</style>
 </head><body>
   <div id="logobox">
@@ -69,13 +68,13 @@ let lp_template root =
   {|<!DOCTYPE html>
 <html lang="en"><head>
   <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
   <title>|} ^ base ^ {| [&lambda;Prolog]</title>
   <style>|} ^ Dist.css ^ {|</style>
 </head><body>
   <div id="logobox">
-    <a href="https://abella-prover.org/index.html"><img src="https://abella-prover.org/images/logo-small.png"></a>
+    <a href="https://abella-prover.org/index.html"><img src="https://abella-prover.org/images/logo-small.png" alt="Abella logo (small)"></a>
     <h1 id="thmname">&lambda;Prolog module <strong>|} ^ base ^ {|</strong></h1>
   </div>
   <div class="outer-container">

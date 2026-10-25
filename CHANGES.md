@@ -13,6 +13,7 @@ Changes
   (#154, reported by @yurivict)
 * Abella is now byte-compiled for ppc32 and ppc64.  
   (#151, reporeted by @barracuda156)
+* `abella_doc` modernized with light/dark mode support.
 
 Bugfixes
 

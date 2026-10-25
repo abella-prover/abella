@@ -14,7 +14,8 @@ all: support/.stamp
 all-release: # support/.stamp
 	$(DUNE) build --release $(BINS)
 
-support/.stamp: $(wildcard support/ts/*.ts support/css/*.css)
+support/.stamp: $(wildcard support/ts/*.ts) support/package.json \
+                support/package-lock.json
 	( cd support && \
 	  npm install --no-save && \
 	  npm run build && \

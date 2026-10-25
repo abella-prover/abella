@@ -8,14 +8,16 @@
  (preprocess (pps ppx_abella)))
 
 (rule
- (with-stdout-to abella_doc_dist.ml
-  (progn
-   (echo "let css = {abella_doc_css|")
-   (cat ../support/dist/abella_doc.css)
-   (echo "|abella_doc_css};;\n")
-   (echo "let js = {abella_doc_js|")
-   (cat ../support/dist/abella_doc.js)
-   (echo "|abella_doc_js};;\n"))))
+ (deps ../support/css/abella_doc.css ../support/dist/abella_doc.js)
+ (action
+  (with-stdout-to abella_doc_dist.ml
+   (progn
+    (echo "let css = {abella_doc_css|")
+    (cat ../support/css/abella_doc.css)
+    (echo "|abella_doc_css};;\n")
+    (echo "let js = {abella_doc_js|")
+    (cat ../support/dist/abella_doc.js)
+    (echo "|abella_doc_js};;\n")))))
 
 (executable
  (name abella_doc)

@@ -3,37 +3,45 @@
 //                     en Informatique et en Automatique)
 // See LICENSE for licensing details.
 
-function makeSafe(txt: string): string {
-  return new Option(txt).innerHTML;
+const htmlEscapes: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+function escapeHtml(txt: string): string {
+  return txt.replace(/[&<>"']/g, (ch) => htmlEscapes[ch]);
 }
 
 type RexHandler = {
   rex: RegExp;
-  style: string;
+  cls: string;
 };
 
 const rexHandlers: Array<RexHandler> = [
   {
     // op_re
     rex: /(:[:=-]?|=(?:&gt;)?|\|-|-&gt;|\\\/?|\/\\|\{|\})/g,
-    style: "color:#9d1f1f;",
+    cls: "s-op",
   },
   {
     // type_re
     rex: /\b(olist|prop|o)\b/g,
-    style: "color:#1640b0;",
+    cls: "s-ty",
   },
   {
     // term_re
     rex: /\b(forall|exists|nabla|pi|sigma)\b/g,
-    style: "color:#9d1f1f;",
+    cls: "s-tm",
   },
 ];
 
 function fontify(txt: string): string {
-  txt = makeSafe(txt);
+  txt = escapeHtml(txt);
   rexHandlers.forEach((hnd) => {
-    txt = txt.replaceAll(hnd.rex, `<span style=${hnd.style}>$1</span>`);
+    txt = txt.replaceAll(hnd.rex, `<span class="${hnd.cls}">$1</span>`);
   });
   return txt;
 }
@@ -136,12 +144,12 @@ class Content {
       const [nextMarkPos, nextMark] = next.value;
       if (nextMarkPos < curPos)
         throw new Error(`bug: Content.toString(curPos = ${curPos}, nextMarkPos = ${nextMarkPos})`);
-      result += makeSafe(this.source.slice(curPos, nextMarkPos));
+      result += escapeHtml(this.source.slice(curPos, nextMarkPos));
       curPos = nextMarkPos;
       result += nextMark;
     }
     if (curPos < this.source.length)
-      result += makeSafe(this.source.slice(curPos, this.source.length));
+      result += escapeHtml(this.source.slice(curPos, this.source.length));
     return result;
   }
 }
@@ -165,60 +173,50 @@ function getBox(boxId: string): HTMLDivElement {
   return box as HTMLDivElement;
 }
 
-const xIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+const xIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
   <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
 </svg>`;
 
-class FocusBox {
-  readonly box: HTMLDivElement;
-  readonly inner: HTMLDivElement;
+class FocusDialog {
+  readonly dialog: HTMLDialogElement;
   readonly content: HTMLDivElement;
 
   show(html: string) {
     this.content.innerHTML = html;
-    this.box.style.display = "";
-    this.inner.style.width = `${this.content.offsetWidth + 40}px`;
-    this.inner.style.height = `${this.content.offsetHeight + 20}px`;
+    if (!this.dialog.open) this.dialog.showModal();
   }
 
   close() {
-      this.box.style.display = "none";
-      this.content.replaceChildren();
+    if (this.dialog.open) this.dialog.close();
   }
 
   constructor() {
-    this.box = document.createElement("div");
-    this.box.id = "focusbox";
-    this.box.classList.add("focusbox");
-    this.box.style.display = "none";
-    this.inner = document.createElement("div");
-    this.inner.classList.add("focusbox-inner");
-    this.box.append(this.inner);
+    this.dialog = document.createElement("dialog");
+    this.dialog.classList.add("focusbox");
+    const inner = document.createElement("div");
+    inner.classList.add("focusbox-inner");
     const btnClose = document.createElement("button");
     btnClose.type = "button";
-    btnClose.innerHTML = xIcon;
     btnClose.classList.add("focusbox-close");
-    this.inner.append(btnClose);
+    btnClose.setAttribute("aria-label", "Close");
+    btnClose.innerHTML = xIcon;
+    btnClose.addEventListener("click", () => this.close());
     this.content = document.createElement("div");
     this.content.classList.add("focusbox-content");
-    this.inner.append(this.content);
-    btnClose.addEventListener("click", () => {
-      this.close();
+    inner.append(btnClose, this.content);
+    this.dialog.append(inner);
+    this.dialog.addEventListener("click", (ev) => {
+      if (ev.target === this.dialog) this.close();
     });
-    this.box.addEventListener("mousedown", (ev) => {
-      if ((ev.target as HTMLElement).matches("#focusbox"))
-        this.close();
+    this.dialog.addEventListener("close", () => {
+      this.content.replaceChildren();
     });
-    document.addEventListener("keydown", (ev) => {
-      if (ev.key === "Escape")
-        this.close();
-    });
-    document.body.insertAdjacentElement("beforeend", this.box);
+    document.body.append(this.dialog);
   }
 }
 
 async function loadModule(boxId: string, thmContents: string, thmJson: any[]) {
-  const focusBox = new FocusBox();
+  const focusDialog = new FocusDialog();
   const thmBox = getBox(boxId);
   // get data
   const thmText = new Content(thmContents);
@@ -246,7 +244,7 @@ async function loadModule(boxId: string, thmContents: string, thmJson: any[]) {
         thmText.fontify(start, stop, proofCmdRex, "s-pc");
         thmText.fontify(start, stop, proofSpecRex, "s-ps");
       }
-      elm.command = makeSafe(thmText.source.slice(start, stop));
+      elm.command = escapeHtml(thmText.source.slice(start, stop));
     } else if (elm.type === "link") {
       const [start, , , stop, , ] = elm.source;
       thmText.addMark(start + 1, `<a href="/${elm.url}" class="ln">`);
@@ -273,31 +271,28 @@ async function loadModule(boxId: string, thmContents: string, thmJson: any[]) {
   // render text
   thmBox.innerHTML = thmText.toString();
   // create the buttons
-  document.querySelectorAll('div[class="ab-proof"]').forEach((el) => {
+  thmBox.querySelectorAll("div.ab-proof").forEach((el) => {
     const proofEl = el as HTMLElement;
-    for (let el = proofEl.firstChild; el != null && el.nodeType === Node.TEXT_NODE; el = proofEl.firstChild)
-      proofEl.before(el);
+    for (let child = proofEl.firstChild;
+         child != null && child.nodeType === Node.TEXT_NODE;
+         child = proofEl.firstChild)
+      proofEl.before(child);
     const btn = document.createElement("button");
+    btn.type = "button";
     btn.classList.add("proof-toggle");
-    btn.innerText = do_expand;
-    const setDisplay = (state: "C" | "E") => {
-      btn.dataset.state = state ;
-      if (state === "C") {
-        btn.textContent = do_expand;
-        proofEl.style.display = "none";
-      } else {
-        btn.textContent = do_collapse;
-        proofEl.style.display = "";
-      }
-    }
+    btn.textContent = do_expand;
+    const setExpanded = (expanded: boolean) => {
+      btn.dataset.state = expanded ? "E" : "C";
+      btn.setAttribute("aria-expanded", String(expanded));
+      btn.textContent = expanded ? do_collapse : do_expand;
+      proofEl.hidden = !expanded;
+    };
     btn.addEventListener("click", () => {
-      const prevState = btn.dataset.state;
-      setDisplay(prevState === "C" ? "E" : "C");
+      setExpanded(btn.dataset.state !== "E");
     });
     proofEl.before(btn);
     proofEl.before(document.createElement("br"));
-    // initial state
-    setDisplay("C");
+    setExpanded(false);
   });
   // create the floats
   runData.forEach((elm) => {
@@ -309,7 +304,7 @@ async function loadModule(boxId: string, thmContents: string, thmJson: any[]) {
         const startSeq = elm.start_state as SequentObj;
         const endSeq = elm.end_state as SequentObj | undefined;
         elm.float += sequentToString(startSeq);
-        elm.theorem = makeSafe(elm.theorem);
+        elm.theorem = escapeHtml(elm.theorem);
         elm.float += `<div class="ab-int"><span class="ab-pr">${elm.theorem} &lt;</span> <strong>${elm.command}</strong></div>`;
         if (endSeq) elm.float += sequentToString(endSeq);
       }
@@ -321,7 +316,7 @@ async function loadModule(boxId: string, thmContents: string, thmJson: any[]) {
     if (elm.type === "system_message" && floatDest) {
       // [HACK] below, if happens, is possible Abella bug; skip
       if (floatDest.float === undefined) return;
-      elm.message = makeSafe(elm.message);
+      elm.message = escapeHtml(elm.message);
       floatDest.float += `<div class="ab-sys">${elm.message}</div>`;
     }
     if (elm.type === "top_command" || elm.type === "proof_command")
@@ -336,38 +331,40 @@ async function loadModule(boxId: string, thmContents: string, thmJson: any[]) {
         return;
       }
       const float = document.createElement("div");
-      float.classList.add("float")
-      float.style.position = "fixed"; // "absolute";
-      float.style.zIndex = "10100";
-      float.style.display = "none";
-      float.style.transformOrigin = "top left";
-      float.style.opacity = "0";
-      float.style.transition = "opacity .3s ease-in .5s";
+      float.classList.add("float");
       float.innerHTML = `<div class="float-container">${elm.float}</div>`;
       targetChunk.addEventListener("mousemove", () => {
-        float.style.display = "block";
-        const flWidth = Math.max(float.offsetWidth, 1);
-        const flHeight = Math.max(float.offsetHeight, 1);
+        float.dataset.visible = "true";
+        float.style.transform = "";
+        const flRect = float.getBoundingClientRect();
+        const flWidth = Math.max(flRect.width, 1);
+        const flHeight = Math.max(flRect.height, 1);
         const wWidth = window.innerWidth, wHeight = window.innerHeight;
         const proofCommandRect = targetChunk.getBoundingClientRect();
+        // Tuck the shared border under the command's opaque tab background
+        // so the tab and the float do not show a double edge.
         let yscale = 1;
-        if (proofCommandRect.bottom + flHeight <= wHeight)
+        if (proofCommandRect.bottom + flHeight <= wHeight) {
           // below command
-          float.style.top = `${proofCommandRect.bottom}px`;
-        else if (proofCommandRect.top - flHeight >= 0)
+          targetChunk.dataset.floatSide = "below";
+          float.style.top = `${proofCommandRect.bottom - 1}px`;
+        } else if (proofCommandRect.top - flHeight >= 0) {
           // above command
-          float.style.top = `${proofCommandRect.top - flHeight}px`;
-        else if (proofCommandRect.top > wHeight - proofCommandRect.bottom) {
+          targetChunk.dataset.floatSide = "above";
+          float.style.top = `${proofCommandRect.top - flHeight + 1}px`;
+        } else if (proofCommandRect.top > wHeight - proofCommandRect.bottom) {
           // above command scaled
+          targetChunk.dataset.floatSide = "above";
           const maxHeight = proofCommandRect.top;
           yscale = maxHeight / flHeight;
-          float.style.top = '0px';
+          float.style.top = "1px";
           float.style.transform = `scale(${yscale})`;
         } else {
           // below command scaled
+          targetChunk.dataset.floatSide = "below";
           const maxHeight = Math.max(wHeight - proofCommandRect.bottom, 1);
           yscale = maxHeight / flHeight;
-          float.style.top = `${proofCommandRect.bottom}px`;
+          float.style.top = `${proofCommandRect.bottom - 1}px`;
           float.style.transform = `scale(${yscale})`;
         }
         if (proofCommandRect.left + flWidth * yscale <= wWidth)
@@ -376,41 +373,35 @@ async function loadModule(boxId: string, thmContents: string, thmJson: any[]) {
         else
           // flush right
           float.style.left = `${Math.max(wWidth - flWidth * yscale, 0)}px`;
-        float.style.opacity = "1";
       });
       targetChunk.addEventListener("mouseleave", () => {
-        float.style.opacity = "0";
-        float.style.display = "none";
+        delete float.dataset.visible;
       });
       targetChunk.addEventListener("click", (ev) => {
-        // [HACK] do nothing if it contains an a element
-        if (targetChunk.querySelector("a")) {
-          ev.stopPropagation();
-          return false;
-        }
-        float.style.display = "none";
-        focusBox.show(float.innerHTML);
+        if (ev.target instanceof Element && ev.target.closest("a")) return;
+        delete float.dataset.visible;
+        focusDialog.show(float.innerHTML);
       });
-      thmBox.append(float);
+      document.body.append(float);
     }
   });
   const btnExpandAll = document.createElement("button");
+  btnExpandAll.type = "button";
   btnExpandAll.classList.add("proof-toggle");
   btnExpandAll.textContent = "[expand all proofs]";
   btnExpandAll.addEventListener("click", () => {
-    thmBox.querySelectorAll('.proof-toggle[data-state="C"]')
-      .forEach((el) => {
-        el.dispatchEvent(new MouseEvent("click"));
-      });
+    thmBox.querySelectorAll<HTMLButtonElement>(
+      'button.proof-toggle[data-state="C"]')
+      .forEach((el) => el.click());
   });
   const btnCollapseAll = document.createElement("button");
+  btnCollapseAll.type = "button";
   btnCollapseAll.classList.add("proof-toggle");
   btnCollapseAll.textContent = "[collapse all proofs]";
   btnCollapseAll.addEventListener("click", () => {
-    thmBox.querySelectorAll('.proof-toggle[data-state="E"]')
-      .forEach((el) => {
-        el.dispatchEvent(new MouseEvent("click"));
-      });
+    thmBox.querySelectorAll<HTMLButtonElement>(
+      'button.proof-toggle[data-state="E"]')
+      .forEach((el) => el.click());
   });
   thmBox.insertAdjacentText("afterbegin", "\n");
   thmBox.insertAdjacentElement("afterbegin", btnCollapseAll);

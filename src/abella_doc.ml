@@ -30,6 +30,25 @@ let file_contents fn =
   close_in ch ;
   str
 
+let theme_init = {|
+  <script>
+    (() => {
+      const key = "abella-doc-theme";
+      let saved = null;
+      try {
+        saved = localStorage.getItem(key);
+      } catch (_) {
+        // Storage can be unavailable in private browsing.
+      }
+      const systemDark = window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.dataset.theme =
+        saved === "light" || saved === "dark"
+          ? saved : systemDark ? "dark" : "light";
+    })();
+  </script>
+|}
+
 let thm_template base =
   let root = Filename.basename base in
   let thm_contents = file_contents (base ^ ".thm") in
@@ -39,6 +58,7 @@ let thm_template base =
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
+|} ^ theme_init ^ {|
   <title>|} ^ root ^ {|.thm [Abella trace]</title>
   <style>|} ^ Dist.css ^ {|</style>
 </head><body>
@@ -70,6 +90,7 @@ let lp_template root =
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
+|} ^ theme_init ^ {|
   <title>|} ^ base ^ {| [&lambda;Prolog]</title>
   <style>|} ^ Dist.css ^ {|</style>
 </head><body>

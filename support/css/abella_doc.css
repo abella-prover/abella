@@ -34,6 +34,13 @@
   --accent-line: #c4506a;
   --danger: #b23a2e;
 
+  --switch-track: #e6dcd6;
+  --switch-knob: #ffffff;
+  --switch-inset: rgb(0 0 0 / 12%);
+  --switch-highlight: rgb(255 255 255 / 70%);
+  --switch-knob-shadow: rgb(60 20 30 / 25%);
+  --switch-icon: #6d2135;
+
   --row-even: #fdf8f2;
   --row-odd: #f5ece2;
 
@@ -49,40 +56,45 @@
   --syn-ps-fg: #f6dfb2;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
+:root[data-theme="dark"] {
+  color-scheme: dark;
 
-    --shadow: 0 18px 40px -20px rgb(0 0 0 / 55%);
-    --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow: 0 18px 40px -20px rgb(0 0 0 / 55%);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
 
-    --bg: #151110;
-    --surface: #201a18;
-    --code-bg: #1b1614;
-    --ink: #f2e9e4;
-    --muted: #bda9a0;
-    --border: #3a2f2b;
+  --bg: #151110;
+  --surface: #201a18;
+  --code-bg: #1b1614;
+  --ink: #f2e9e4;
+  --muted: #bda9a0;
+  --border: #3a2f2b;
 
-    --accent: #f08aa2;
-    --accent-strong: #ffb3c2;
-    --accent-soft: rgb(240 138 162 / 14%);
-    --accent-line: #b85a72;
-    --danger: #ff9a8a;
+  --accent: #f08aa2;
+  --accent-strong: #ffb3c2;
+  --accent-soft: rgb(240 138 162 / 14%);
+  --accent-line: #b85a72;
+  --danger: #ff9a8a;
 
-    --row-even: #241d1a;
-    --row-odd: #2c2421;
+  --switch-track: #3a2f2b;
+  --switch-knob: #bda9a0;
+  --switch-inset: rgb(0 0 0 / 40%);
+  --switch-highlight: rgb(255 255 255 / 18%);
+  --switch-knob-shadow: rgb(0 0 0 / 45%);
+  --switch-icon: #3b1520;
 
-    --link: #9dc0ff;
-    --link-hover: #c8ddff;
+  --row-even: #241d1a;
+  --row-odd: #2c2421;
 
-    --syn-op: #ff9aae;
-    --syn-ty: #9cc2ff;
-    --syn-tm: #ff9aae;
-    --syn-tb: #7db4ff;
-    --syn-tc: #ffb3c2;
-    --syn-ps-bg: #ffb3c2;
-    --syn-ps-fg: #3b1520;
-  }
+  --link: #9dc0ff;
+  --link-hover: #c8ddff;
+
+  --syn-op: #ff9aae;
+  --syn-ty: #9cc2ff;
+  --syn-tm: #ff9aae;
+  --syn-tb: #7db4ff;
+  --syn-tc: #ffb3c2;
+  --syn-ps-bg: #ffb3c2;
+  --syn-ps-fg: #3b1520;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -144,6 +156,80 @@ a { color: inherit; text-decoration: none; }
 }
 
 #thmname strong { color: inherit; }
+
+.theme-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  cursor: pointer;
+}
+
+.theme-switch {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.theme-toggle-track {
+  display: block;
+  position: relative;
+  width: 3.5rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: var(--switch-track);
+  box-shadow: inset 0 .125rem .25rem var(--switch-inset);
+  transition: background-color .25s ease, box-shadow .25s ease;
+}
+
+.theme-toggle-knob {
+  position: absolute;
+  top: .1875rem;
+  left: .1875rem;
+  display: grid;
+  place-items: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 50%;
+  background: var(--switch-knob);
+  box-shadow: 0 .125rem .3rem var(--switch-knob-shadow),
+              inset 0 1px 0 var(--switch-highlight);
+  transition: left .25s ease, background-color .25s ease,
+              box-shadow .25s ease;
+}
+
+.theme-icon {
+  grid-area: 1 / 1;
+  width: .75rem;
+  height: .75rem;
+  color: var(--switch-icon);
+  pointer-events: none;
+}
+
+.theme-icon-moon { display: none; }
+
+.theme-switch:checked + .theme-toggle-track .theme-toggle-knob {
+  left: calc(100% - 1.5625rem);
+}
+
+.theme-switch:checked + .theme-toggle-track .theme-icon-sun {
+  display: none;
+}
+
+.theme-switch:checked + .theme-toggle-track .theme-icon-moon {
+  display: block;
+}
+
+.theme-switch:focus-visible + .theme-toggle-track {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
 
 /* Page body ------------------------------------------------------------ */
 
@@ -462,12 +548,10 @@ dialog.focusbox::backdrop {
 
 /* Preferences and small screens ---------------------------------------- */
 
-@media (prefers-color-scheme: dark) {
-  #logobox a {
-    padding: .15rem .35rem;
-    border-radius: .4rem;
-    background: #fff;
-  }
+:root[data-theme="dark"] #logobox a {
+  padding: .15rem .35rem;
+  border-radius: .4rem;
+  background: #fff;
 }
 
 @media (prefers-reduced-motion: reduce) {

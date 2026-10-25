@@ -173,6 +173,53 @@ function getBox(boxId: string): HTMLDivElement {
   return box as HTMLDivElement;
 }
 
+const themeKey = "abella-doc-theme";
+
+function setupThemeToggle() {
+  const label = document.createElement("label");
+  label.classList.add("theme-toggle");
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.classList.add("theme-switch");
+  input.setAttribute("role", "switch");
+  input.setAttribute("aria-label", "Dark mode");
+  const track = document.createElement("span");
+  track.classList.add("theme-toggle-track");
+  const knob = document.createElement("span");
+  knob.classList.add("theme-toggle-knob");
+  knob.innerHTML = `
+    <svg class="theme-icon theme-icon-sun" viewBox="0 0 16 16"
+         fill="none" stroke="currentColor" stroke-width="1.5"
+         stroke-linecap="round" aria-hidden="true">
+      <circle cx="8" cy="8" r="2.75"/>
+      <path d="M8 1.5v1.25M8 13.25v1.25M1.5 8h1.25M13.25 8h1.25M3.4 3.4l.9.9M11.7 11.7l.9.9M12.6 3.4l-.9.9M4.3 11.7l-.9.9"/>
+    </svg>
+    <svg class="theme-icon theme-icon-moon" viewBox="0 0 16 16"
+         fill="currentColor" aria-hidden="true">
+      <path d="M13.5 9.7A5.7 5.7 0 0 1 6.3 2.5 5.7 5.7 0 1 0 13.5 9.7Z"/>
+    </svg>`;
+  track.append(knob);
+  label.append(input, track);
+  const refresh = () => {
+    const dark = document.documentElement.dataset.theme === "dark";
+    input.checked = dark;
+    label.title = dark ? "Switch to light mode" : "Switch to dark mode";
+  };
+  input.addEventListener("change", () => {
+    const next = input.checked ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem(themeKey, next);
+    } catch (_) {
+      // Storage can be unavailable in private browsing.
+    }
+    refresh();
+  });
+  refresh();
+  const header = document.getElementById("logobox");
+  if (header) header.append(label); else document.body.append(label);
+}
+
 const xIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
   <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
 </svg>`;
@@ -459,6 +506,8 @@ async function loadLP(sigBoxId: string, sigContents: string, sigJson: any[],
   });
   modBox.innerHTML = modText.toString();
 }
+
+setupThemeToggle();
 
 (window as any)["loadModule"] = loadModule;
 (window as any)["loadLP"] = loadLP;

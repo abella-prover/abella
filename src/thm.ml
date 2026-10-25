@@ -162,27 +162,42 @@ module Replacement = struct
     | CClose _ -> comp
 end
 
-let thc_layout sign clauses predicates content =
-  Artifact.marshal_bytes [
-    Obj.repr (Artifact.digest_placeholder ()) ;
-    Obj.repr Version.version ;
-    Obj.repr sign ;
-    Obj.repr clauses ;
-    Obj.repr predicates ;
-    Obj.repr content ;
-  ]
+type artifact = {
+  thc_spec_sign : Typing.sign ;
+  thc_spec_clauses : clause list ;
+  thc_predicates : string list ;
+  thc_content : compiled list ;
+}
+
+let artifact_spec = {
+  Artifact.file_kind = `thm ;
+  suffix = ".thm" ;
+  compiled_suffix = ".thc" ;
+  compiling_key = (fun ~modname -> modname) ;
+  extract = (fun () -> {
+    thc_spec_sign = !Setup.spec_sign ;
+    thc_spec_clauses = !Setup.spec_clauses ;
+    thc_predicates = Artifact.predicates !sign ;
+    thc_content = compiled_content () ;
+  }) ;
+  encode = (fun art -> [
+    Obj.repr art.thc_spec_sign ;
+    Obj.repr art.thc_spec_clauses ;
+    Obj.repr art.thc_predicates ;
+    Obj.repr art.thc_content ;
+  ]) ;
+  decode = (fun read -> {
+    thc_spec_sign = (Obj.obj (read ()) : Typing.sign) ;
+    thc_spec_clauses = (Obj.obj (read ()) : clause list) ;
+    thc_predicates = (Obj.obj (read ()) : string list) ;
+    thc_content = (Obj.obj (read ()) : compiled list) ;
+  }) ;
+}
 
 let write_compilation () =
   match !Setup.compiled with
   | None -> ()
-  | Some (module Compiled) ->
-      Compiled.marshal (Lazy.force Version.self_digest) ;
-      Compiled.marshal Version.version ;
-      Compiled.marshal !Setup.spec_sign ;
-      Compiled.marshal !Setup.spec_clauses ;
-      Compiled.marshal (Artifact.predicates !sign) ;
-      Compiled.marshal (compiled_content ()) ;
-      Compiled.close ()
+  | Some compiled -> Artifact.write_compiled artifact_spec compiled
 
 (* Importing .thm files *)
 
@@ -450,11 +465,8 @@ and source_compile ~modname =
     drive Setup.Process_top
   end with
   | Setup.AbellaExit 0 ->
-      let spec_sign = !Setup.spec_sign in
-      let spec_clauses = !Setup.spec_clauses in
-      let predicates = Artifact.predicates !sign in
-      let content = compiled_content () in
-      let bytes = thc_layout spec_sign spec_clauses predicates content in
+      let art = artifact_spec.Artifact.extract () in
+      let bytes = Artifact.to_bytes artifact_spec art in
       ignore (Output.collected_messages ()) ;
       restore () ;
       Source.add_virtual_thc (modname ^ ".thc") bytes ;

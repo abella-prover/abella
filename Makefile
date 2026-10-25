@@ -38,7 +38,7 @@ publish-doc: examples/make.stamp
 	  --exclude '*.json' \
 	  --exclude '*.stamp' \
 	  --exclude '.gitignore' \
-	  examples abellaweb@abella-prover.org:abella-prover.org/
+	  examples abellaweb@origin.abella-prover.org:abella-prover.org/
 
 examples/make.stamp: $(wildcard examples/**/*.{sig,mod,thm})
 examples/make.stamp: $(wildcard _build/default/src/abella*.$(EXTN))

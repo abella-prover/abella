@@ -843,24 +843,79 @@ type artifact = {
   ta_exports : string list ;
 }
 
+let sign_of_content content =
+  let ktable =
+    List.flatten_map (function
+        | CKind (ids, knd) -> List.map (fun id -> (id, knd)) ids
+        | _ -> []) content
+  in
+  let ctable =
+    List.flatten_map (function
+        | CType (ids, typarams, ty)
+        | CDeclPred (ids, typarams, ty) ->
+            List.map (fun id -> (id, Poly (typarams, ty))) ids
+        | CDefine (_, typarams, idtys, _) ->
+            List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys
+        | CTheorem _ | CKind _ | CImport _ | CClose _ | CSuspend _ -> [])
+      content
+  in
+  (ktable, ctable)
+
+let artifact_spec = {
+  Artifact.file_kind = `thmod ;
+  suffix = ".thmod" ;
+  compiled_suffix = ".thmodc" ;
+  compiling_key = (fun ~modname -> modname ^ ".thmod") ;
+  extract = (fun () ->
+    let name = match top_name () with
+      | Some name -> name
+      | None -> failwith "Cannot write a .thmodc without a module"
+    in
+    let content = exported_content () in
+    { ta_name = name ;
+      ta_params = top_params () ;
+      ta_content = content ;
+      ta_nested = nested_module_names () ;
+      ta_exports = exported_names () ;
+    }) ;
+  encode = (fun art ->
+    let sign = sign_of_content art.ta_content in
+    let predicates =
+      Artifact.predicates sign |>
+      List.filter (fun id -> List.mem id art.ta_exports)
+    in
+    [
+      Obj.repr art.ta_name ;
+      Obj.repr art.ta_params ;
+      Obj.repr sign ;
+      Obj.repr !Setup.spec_clauses ;
+      Obj.repr predicates ;
+      Obj.repr art.ta_content ;
+      Obj.repr art.ta_nested ;
+      Obj.repr art.ta_exports ;
+    ]) ;
+  decode = (fun read ->
+    let name = (Obj.obj (read ()) : string) in
+    let params = (Obj.obj (read ()) : string list) in
+    ignore (Obj.obj (read ()) : Typing.sign) ;
+    ignore (Obj.obj (read ()) : clause list) ;
+    ignore (Obj.obj (read ()) : string list) ;
+    let content = (Obj.obj (read ()) : compiled list) in
+    let nested = (Obj.obj (read ()) : string list) in
+    let exports = (Obj.obj (read ()) : string list) in
+    { ta_name = name ;
+      ta_params = params ;
+      ta_content = content ;
+      ta_nested = nested ;
+      ta_exports = exports ;
+    }) ;
+}
+
 let parse_artifact bytes =
-  let read = Artifact.marshal_reader bytes in
-  ignore (read () : Digest.t) ;
-  ignore (read () : string) ;
-  let name = (read () : string) in
-  let params = (read () : string list) in
-  ignore (read () : sign) ;
-  ignore (read () : clause list) ;
-  ignore (read () : string list) ;
-  let content = (read () : compiled list) in
-  let nested = (read () : string list) in
-  let exports = (read () : string list) in
-  { ta_name = name ;
-    ta_params = params ;
-    ta_content = content ;
-    ta_nested = nested ;
-    ta_exports = exports ;
-  }
+  let (_digest, _version, art) =
+    Artifact.read_header_and_body artifact_spec bytes
+  in
+  art
 
 let loading : string list ref = State.rref []
 
@@ -980,23 +1035,8 @@ and source_compile ~modname =
     drive Setup.Process_top
   end with
   | Setup.AbellaExit 0 ->
-      let name = match top_name () with
-        | Some name -> name
-        | None -> failwith "A .thmod must contain a top-level module"
-      in
-      let params = top_params () in
-      let content = exported_content () in
-      let nested = nested_module_names () in
-      let exports = exported_names () in
-      let artifact_sign = sign_of_content content in
-      let preds =
-        Artifact.predicates artifact_sign |>
-        List.filter (fun id -> List.mem id exports)
-      in
-      let bytes =
-        thmodc_layout name params artifact_sign !Setup.spec_clauses preds
-          content nested exports
-      in
+      let art = artifact_spec.Artifact.extract () in
+      let bytes = Artifact.to_bytes artifact_spec art in
       ignore (Output.collected_messages ()) ;
       restore () ;
       Source.add_virtual_thc (modname ^ ".thmodc") bytes ;
@@ -1018,63 +1058,10 @@ and source_compile ~modname =
       failwithf "Could not compile imported module %S: %s%s"
         modname msg (if text = "" then "" else "\n" ^ text)
 
-and sign_of_content content =
-  let ktable =
-    List.flatten_map (function
-        | CKind (ids, knd) -> List.map (fun id -> (id, knd)) ids
-        | _ -> []) content
-  in
-  let ctable =
-    List.flatten_map (function
-        | CType (ids, typarams, ty)
-        | CDeclPred (ids, typarams, ty) ->
-            List.map (fun id -> (id, Poly (typarams, ty))) ids
-        | CDefine (_, typarams, idtys, _) ->
-            List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys
-        | CTheorem _ | CKind _ | CImport _ | CClose _ | CSuspend _ -> [])
-      content
-  in
-  (ktable, ctable)
-
-and thmodc_layout name params sign clauses predicates content nested exports =
-  Artifact.marshal_bytes [
-    Obj.repr (Artifact.digest_placeholder ()) ;
-    Obj.repr Version.version ;
-    Obj.repr name ;
-    Obj.repr params ;
-    Obj.repr sign ;
-    Obj.repr clauses ;
-    Obj.repr predicates ;
-    Obj.repr content ;
-    Obj.repr nested ;
-    Obj.repr exports ;
-  ]
-
-and write_compilation () =
+let write_compilation () =
   match !Setup.compiled with
   | None -> ()
-  | Some (module Compiled) ->
-      let name = match top_name () with
-        | Some name -> name
-        | None -> failwith "Cannot write a .thmodc without a module"
-      in
-      let content = exported_content () in
-      let exports = exported_names () in
-      let preds =
-        Artifact.predicates !sign |>
-        List.filter (fun id -> List.mem id exports)
-      in
-      Compiled.marshal (Lazy.force Version.self_digest) ;
-      Compiled.marshal Version.version ;
-      Compiled.marshal name ;
-      Compiled.marshal (top_params ()) ;
-      Compiled.marshal (sign_of_content content) ;
-      Compiled.marshal !Setup.spec_clauses ;
-      Compiled.marshal preds ;
-      Compiled.marshal content ;
-      Compiled.marshal (nested_module_names ()) ;
-      Compiled.marshal exports ;
-      Compiled.close ()
+  | Some compiled -> Artifact.write_compiled artifact_spec compiled
 
 (* File structure *)
 

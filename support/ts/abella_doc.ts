@@ -358,21 +358,21 @@ async function loadModule(boxId: string, thmContents: string, thmJson: any[]) {
           const maxHeight = proofCommandRect.top;
           yscale = maxHeight / flHeight;
           float.style.top = "1px";
-          float.style.transform = `scale(${yscale})`;
+          float.style.transform = `scaleY(${yscale})`;
         } else {
           // below command scaled
           targetChunk.dataset.floatSide = "below";
           const maxHeight = Math.max(wHeight - proofCommandRect.bottom, 1);
           yscale = maxHeight / flHeight;
           float.style.top = `${proofCommandRect.bottom - 1}px`;
-          float.style.transform = `scale(${yscale})`;
+          float.style.transform = `scaleY(${yscale})`;
         }
-        if (proofCommandRect.left + flWidth * yscale <= wWidth)
+        if (proofCommandRect.left + flWidth <= wWidth)
           // left-adjusted with command
           float.style.left = `${proofCommandRect.left}px`;
         else
           // flush right
-          float.style.left = `${Math.max(wWidth - flWidth * yscale, 0)}px`;
+          float.style.left = `${Math.max(wWidth - flWidth, 0)}px`;
       });
       targetChunk.addEventListener("mouseleave", () => {
         delete float.dataset.visible;

@@ -291,8 +291,8 @@ span.ab-pr {
 div.rl {
   display: flex;
   flex-direction: column;
-  max-width: min(36rem, 100%);
-  margin: .35rem 0 .35rem .5rem;
+  max-width: 100%;
+  margin: .35rem 0;
   overflow: hidden;
   white-space: normal;
   background: var(--row-even);
@@ -355,9 +355,11 @@ div.float[data-visible="true"] {
 }
 
 div.float-container {
+  /* Leave room for the sequent rows' 1rem padding and 1px borders. */
+  max-width: calc(70ch + 1.125rem);
   max-height: 60vh;
   overflow: auto;
-  white-space: pre;
+  white-space: pre-wrap;
   font-family: var(--font-mono);
   font-size: .875rem;
   font-style: normal;
@@ -487,7 +489,6 @@ dialog.focusbox::backdrop {
   #logobox img { max-height: 2.25rem; }
   #thmname { font-size: 1rem; }
   #thmbox, #sigbox, #modbox { padding: .5rem .65rem; }
-  div.rl { max-width: 100%; margin-left: 0; }
 }
 
 @media print {

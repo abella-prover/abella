@@ -104,7 +104,29 @@ Put its client secret in `support/oauth-worker/.dev.vars`; the public
 client ID, allowed origin, and redirect URI are in the `dev` environment
 of `support/oauth-worker/wrangler.jsonc`. Never commit `.dev.vars`.
 
-Run the pieces in three terminals:
+Run the whole environment with:
+
+```sh
+make web-dev-local
+```
+
+That opens a tmux session with the Worker, a static server on
+`http://127.0.0.1:8000`, and a shell at the repository root. The session
+is torn down as soon as any of the three exits. It needs tmux 3.3 or
+newer, a completed `npm ci` in `support/oauth-worker`, and `web/` built
+against the local Worker.
+
+The third pane is for dune, tests, and rebuilds. Use
+`make web-dev-build` rather than `make web`: only the dev build
+compiles the loopback Worker URL, so a production build silently
+disables OAuth and falls back to the PAT path.
+
+Open `http://127.0.0.1:8000/`. The callback page is served from the
+same tree; `web/github_callback.js` is generated and ignored by git.
+The callback page carries `Referrer-Policy: no-referrer` through its
+meta tag in local development.
+
+Without tmux, run the pieces in three terminals:
 
 ```sh
 # Worker
@@ -116,11 +138,6 @@ cd web && python3 -m http.server 8000 --bind 127.0.0.1
 # frontend built against the local Worker
 cd support && npm run web:build:dev
 ```
-
-Open `http://127.0.0.1:8000/`. The callback page is served from the
-same tree; `web/github_callback.js` is generated and ignored by git.
-The callback page carries `Referrer-Policy: no-referrer` through its
-meta tag in local development.
 
 Production OAuth deployment
 ---------------------------

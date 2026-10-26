@@ -48,6 +48,20 @@ web-bundle:
 	$(DUNE) exec src/abella_bundle.exe -- \
 	  -m support/web-examples.json -o web/examples/bundle.json
 
+WEB_DEV_SESSION ?= abella-web-dev
+WEB_DEV_PORT ?= 8000
+
+.PHONY: web-dev-local
+web-dev-local:
+	WEB_DEV_SESSION=$(WEB_DEV_SESSION) WEB_DEV_PORT=$(WEB_DEV_PORT) \
+	  support/scripts/web-dev-local.sh
+
+# Only the dev build compiles the loopback OAuth Worker URL, and `make
+# web` bakes in the production one, so the order matters.
+.PHONY: web-dev-build
+web-dev-build: web
+	( cd support && npm run web:build:dev )
+
 WEB_VERSION_FILE := support/ts/web/version.ts
 WEB_ASSET_INPUTS := $(wildcard support/ts/web/*.ts) \
                     $(wildcard support/css/*.css) \

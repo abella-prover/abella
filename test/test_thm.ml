@@ -199,7 +199,6 @@ let run_thm dir name source =
   write_file path source ;
   State.reload D.initial_snapshot ;
   Thmod.reset () ;
-  D.thm_instances := [] ;
   State.Undo.set_enabled false ;
   D.compiling := [] ;
   D.Setup.mode := `batch ;

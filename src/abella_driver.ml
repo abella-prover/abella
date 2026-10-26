@@ -36,7 +36,6 @@ let on_import = Setup.on_import
 let compiling = Setup.compiling
 let witnesses = Setup.witnesses
 
-let thm_instances = Thm.instances
 let comp_content = Thm.comp_content
 let can_read_specification = Thm.can_read_specification
 module Replacement = Thm.Replacement
@@ -155,16 +154,11 @@ let compile citem =
   else
     comp_content := citem :: !comp_content
 
-let find_import_instance name =
-  if in_module () then Thmod.find_instance name
-  else Thm.find_instance name
+let find_import_instance name = Thmod.find_instance name
 
-let add_import_instance inst =
-  if in_module () then Thmod.add_instance inst
-  else Thm.add_instance inst
+let add_import_instance inst = Thmod.add_instance inst
 
-let import_prefix name =
-  if in_module () then Thmod.instance_prefix name else [name]
+let import_prefix name = Thmod.instance_prefix name
 
 type pred_value = {
   pv_name : string ;
@@ -538,9 +532,7 @@ let import_module mi =
     materialize_import ~decls:source_decls ~from ~to_:prefix
       ~params ~args ~is_instance ~avoid:(bound_params ())
   in
-  let existing_instances =
-    if in_module () then Thmod.all_instances () else !thm_instances
-  in
+  let existing_instances = Thmod.all_instances () in
   let rigid =
     List.fold_left begin fun rigid instance ->
       if instance.Thmod.ins_source = source then
@@ -844,21 +836,9 @@ let term_witness (_t, w) =
 
 let suppress_proof_state_display = State.rref false
 
-let check_structure cmd =
-  match !Setup.file_kind with
-  | `thm -> Thm.check_structure cmd
-  | `thmod -> Thmod.check_structure cmd
-
-let process_module name params =
-  match !Setup.file_kind with
-  | `thm -> Thm.process_module name params
-  | `thmod -> Thmod.process_module name params
-
-
-let process_end name =
-  match !Setup.file_kind with
-  | `thm -> Thm.process_end name
-  | `thmod -> Thmod.process_end name
+let check_structure = Thmod.check_structure
+let process_module = Thmod.process_module
+let process_end = Thmod.process_end
 
 let check_thmod_complete () =
   if !Setup.file_kind = `thmod then

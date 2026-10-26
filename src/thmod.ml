@@ -71,6 +71,7 @@ type env = {
   en_stack : scope list ;           (* innermost first *)
   en_top : scope option ;
   en_templates : scope list ;       (* completed top-level .thm modules *)
+  en_instances : (string * instance) list ; (* top-level .thm imports *)
   en_complete : bool ;
 }
 
@@ -78,6 +79,7 @@ let initial_env = {
   en_stack = [] ;
   en_top = None ;
   en_templates = [] ;
+  en_instances = [] ;
   en_complete = false ;
 }
 
@@ -161,12 +163,17 @@ let find_template name =
 
 let find_instance name =
   match current_scope () with
-  | None -> None
+  | None -> List.assoc_opt name !env.en_instances
   | Some sc -> List.assoc_opt name sc.sc_instances
 
 let add_instance inst =
   match !env.en_stack with
-  | [] -> failwith "Cannot import a module outside a module"
+  | [] ->
+      if List.mem_assoc inst.ins_name !env.en_instances then
+        failwithf "Module name %s is already imported" inst.ins_name ;
+      env := { !env with
+               en_instances =
+                 !env.en_instances @ [(inst.ins_name, inst)] }
   | sc :: rest ->
       if List.mem_assoc inst.ins_name sc.sc_instances then
         failwithf "Module name %s is already imported" inst.ins_name ;
@@ -198,7 +205,8 @@ let all_items () =
   List.flatten_map (fun sc -> sc.sc_items) !env.en_stack
 
 let all_instances () =
-  List.flatten_map (fun sc -> List.map snd sc.sc_instances) !env.en_stack
+  List.flatten_map (fun sc -> List.map snd sc.sc_instances) !env.en_stack @
+  List.map snd !env.en_instances
 
 let lookup_item_in items name =
   List.find_some begin fun it ->
@@ -230,6 +238,7 @@ let all_module_names () =
       scopes
   in
   let templates = List.map (fun sc -> sc.sc_name) !env.en_templates in
+  let instances = List.map fst !env.en_instances in
   let stack_top =
     match List.rev scopes with
     | sc :: _ -> [sc.sc_name]
@@ -240,11 +249,11 @@ let all_module_names () =
     | Some sc -> sc.sc_name :: names
     | None -> stack_top @ names
   in
-  List.unique (templates @ names)
+  List.unique (templates @ instances @ names)
 
 let all_child_names () =
   match current_scope () with
-  | None -> []
+  | None -> List.map fst !env.en_instances
   | Some sc ->
       List.map (fun ch -> ch.sc_name) sc.sc_children @
       List.map fst sc.sc_instances
@@ -1073,7 +1082,21 @@ let basename () =
     Filename.chop_suffix base ".thmod"
   else base
 
-let check_structure cmd =
+let check_module_body cmd =
+  match cmd with
+  | Import _ ->
+      failwith "A module may not use ordinary Import"
+  | Specification _ ->
+      failwith "Specification is not allowed in a module"
+  | Close _ ->
+      failwith "Close is not allowed in a module"
+  | Suspend _ ->
+      failwith "Suspend is not allowed in a module"
+  | TopCommon Quit ->
+      failwith "Quit is not allowed in a module"
+  | _ -> ()
+
+let check_thmod_structure cmd =
   match cmd with
   | Module _ ->
       if is_complete () then
@@ -1097,6 +1120,13 @@ let check_structure cmd =
       if current_name () = None then
         failwith "A .thmod must start with a Module command"
 
+let check_structure cmd =
+  match !Setup.file_kind with
+  | `thm ->
+      if current_name () <> None then check_module_body cmd
+  | `thmod ->
+      check_thmod_structure cmd
+
 let remove_scope_declarations sc =
   let names =
     List.map (fun item -> item.item_name) sc.sc_items
@@ -1108,19 +1138,27 @@ let remove_scope_declarations sc =
   Prover.remove_globals names
 
 let process_module name params =
-  let is_top = current_name () = None in
-  if is_top then begin
-    if is_complete () then
-      failwith "Module after End is not allowed in a .thmod" ;
-    let base = basename () in
-    if name <> base then
-      failwithf "Module %s does not match the file name %s.thmod"
-        name base
-  end ;
-  push_frame !sr ;
-  enter_module name params
+  match !Setup.file_kind with
+  | `thm ->
+      if current_name () = None && find_instance name <> None then
+        failwithf "Module name %s is already imported" name ;
+      push_frame !sr ;
+      enter_module ~top_path:[name] name params
+  | `thmod ->
+      let is_top = current_name () = None in
+      if is_top then begin
+        if is_complete () then
+          failwith "Module after End is not allowed in a .thmod" ;
+        let base = basename () in
+        if name <> base then
+          failwithf "Module %s does not match the file name %s.thmod"
+            name base
+      end ;
+      push_frame !sr ;
+      enter_module name params
 
 let process_end name =
-  let closed, is_top = leave_module ~retain_top:false name in
-  if not is_top then remove_scope_declarations closed ;
+  let retain_top = !Setup.file_kind = `thm in
+  let closed, is_top = leave_module ~retain_top name in
+  if retain_top || not is_top then remove_scope_declarations closed ;
   sr := pop_frame ()

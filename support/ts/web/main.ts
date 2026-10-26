@@ -1174,7 +1174,7 @@ function syncGitHubDialogUi(): void {
   } else if (oauthConfigState === "unknown" || oauthConfigState === "loading") {
     githubStatus.textContent = "Checking GitHub sign-in...";
   } else if (githubToken && githubLogin) {
-    githubStatus.textContent = `Signed in as ${githubLogin}.`;
+    githubStatus.textContent = `GitHub connected as ${githubLogin}.`;
   } else {
     githubStatus.textContent = "";
   }

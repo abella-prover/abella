@@ -275,7 +275,9 @@ summary:focus-visible,
   white-space: nowrap;
 
   &[data-status="processing"],
-  &[data-status="compiling"] {
+  &[data-status="compiling"],
+  &[data-status="pausing"],
+  &[data-status="paused"] {
     background: var(--status-warn-bg);
     color: var(--amber);
   }
@@ -530,6 +532,42 @@ body.resizing-row {
   padding: 0 0.5rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
+}
+
+.run-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-right: 0.5rem;
+  border-right: 1px solid var(--border);
+  flex: none;
+
+  .icon-button {
+    width: 2rem;
+    height: 2rem;
+    display: inline-grid;
+    place-items: center;
+  }
+}
+
+.run-icon {
+  width: 1rem;
+  height: 1rem;
+  pointer-events: none;
+}
+
+.run-icon-pause {
+  display: none;
+}
+
+#run-toggle[data-mode="pause"] {
+  .run-icon-play {
+    display: none;
+  }
+
+  .run-icon-pause {
+    display: block;
+  }
 }
 
 .panel-tabs {

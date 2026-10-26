@@ -77,6 +77,8 @@ export class WorkerDriver implements Driver {
       this.worker.addEventListener("message", onReady);
       this.worker.addEventListener("error", onError);
     });
+    // A restart can reject this before any caller awaits it.
+    this.ready.catch(() => undefined);
     this.worker.addEventListener("message", (event) => this.receive(event));
     this.worker.addEventListener("error", (event) => {
       const error = new Error(event.message || "Prover worker error");

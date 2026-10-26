@@ -45,6 +45,27 @@ import {
 
 const setProcessedTipEffect = StateEffect.define<number>();
 const markdownConfiguredEffect = StateEffect.define<null>();
+const setRunLockedEffect = StateEffect.define<boolean>();
+
+const runLockedField = StateField.define<boolean>({
+  create: () => false,
+  update(locked, transaction) {
+    for (const effect of transaction.effects) {
+      if (effect.is(setRunLockedEffect)) return effect.value;
+    }
+    return locked;
+  },
+});
+
+const runLockedExtensions: Extension[] = [
+  runLockedField,
+  EditorState.readOnly.compute([runLockedField], (state) =>
+    state.field(runLockedField)
+  ),
+  EditorView.editable.compute([runLockedField], (state) =>
+    !state.field(runLockedField)
+  ),
+];
 
 const processedMark = Decoration.mark({ class: "cm-processed" });
 const processedLine = Decoration.line({ class: "cm-processed-line" });
@@ -211,6 +232,7 @@ function baseExtensions(
     editorTheme,
     processedField,
     markdownConfiguredField,
+    ...runLockedExtensions,
     lintGutter(),
     ...(language ? [language] : []),
     listener,
@@ -248,6 +270,7 @@ export class EditorManager {
   private diagnostics = new Map<string, readonly Diagnostic[]>();
   private markdownPending = new Set<string>();
   private activePath: string | null = null;
+  private runLocked = false;
   private onChange: (
     path: string,
     update: import("@codemirror/view").ViewUpdate
@@ -269,7 +292,7 @@ export class EditorManager {
   }
 
   private createState(path: string, doc: string): EditorState {
-    return EditorState.create({
+    const state = EditorState.create({
       doc,
       extensions: baseExtensions(
         path,
@@ -280,6 +303,15 @@ export class EditorManager {
         this.onProcess
       ),
     });
+    return this.applyRunLock(state);
+  }
+
+  private applyRunLock(state: EditorState): EditorState {
+    const current = state.field(runLockedField, false);
+    if (current === undefined || current === this.runLocked) return state;
+    return state.update({
+      effects: setRunLockedEffect.of(this.runLocked),
+    }).state;
   }
 
   open(path: string, doc: string): void {
@@ -291,6 +323,8 @@ export class EditorManager {
       state = this.createState(path, doc);
       this.states.set(path, state);
     }
+    state = this.applyRunLock(state);
+    this.states.set(path, state);
     this.activePath = path;
     this.view.setState(state);
     this.applyTip(path);
@@ -365,6 +399,7 @@ export class EditorManager {
   }
 
   replaceText(path: string, text: string): void {
+    if (this.runLocked) return;
     const state = this.states.get(path);
     if (!state || state.doc.toString() === text) return;
     const next = state.update({
@@ -374,6 +409,22 @@ export class EditorManager {
     if (this.activePath === path) {
       this.view.setState(next);
       this.view.requestMeasure();
+    }
+  }
+
+  setRunLocked(locked: boolean): void {
+    if (this.runLocked === locked) return;
+    this.runLocked = locked;
+    for (const [path, state] of this.states) {
+      const base = path === this.activePath ? this.view.state : state;
+      const next = base.update({
+        effects: setRunLockedEffect.of(locked),
+      }).state;
+      this.states.set(path, next);
+      if (path === this.activePath) {
+        this.view.setState(next);
+        this.view.requestMeasure();
+      }
     }
   }
 

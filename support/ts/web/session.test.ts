@@ -36,11 +36,42 @@ class FakeDriver implements Driver {
   resets = 0;
   restarts = 0;
   processed: string[] = [];
+  started: string[] = [];
   backs: number[] = [];
   failAt = -1;
   endOn?: string;
   warningOn?: string;
   onProgress?: (module: string) => void;
+  private startWaiters: Array<() => void> = [];
+  private startWaitsServed = 0;
+  private gate?: { promise: Promise<void>; release: () => void };
+
+  holdNextProcess(): void {
+    let release!: () => void;
+    const promise = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.gate = { promise, release };
+  }
+
+  releaseProcess(): void {
+    const gate = this.gate;
+    this.gate = undefined;
+    gate?.release();
+  }
+
+  waitForNextStart(): Promise<void> {
+    if (this.started.length > this.startWaitsServed) {
+      this.startWaitsServed++;
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve) => {
+      this.startWaiters.push(() => {
+        this.startWaitsServed++;
+        resolve();
+      });
+    });
+  }
 
   async init(): Promise<RunResult> {
     this.inits++;
@@ -55,6 +86,10 @@ class FakeDriver implements Driver {
   currentTheorem = "t";
 
   async process(command: string, _start: SourcePos): Promise<RunResult> {
+    this.started.push(command);
+    this.startWaiters.shift()?.();
+    const gate = this.gate;
+    if (gate) await gate.promise;
     if (this.processed.length === this.failAt) {
       return {
         status: "error",
@@ -489,16 +524,136 @@ test("inserted commands stay unchecked until explicitly stepped", async () => {
   assert.deepEqual(captured.errors, []);
 });
 
-test("stop abandons the session and reinitializes on the next request", async () => {
-  const { driver, session } = setup();
+test("pause waits for the in-flight command and resumes from the tip", async () => {
+  const { project, driver, captured, session } = setup();
   await session.init();
-  await session.processTo(10000);
-  session.stop();
+  const doc = project.files.get(project.root)!.text;
+  const firstEnd = doc.indexOf("Kind") - 1;
+
+  driver.holdNextProcess();
+  const run = session.processTo(doc.length);
+  await driver.waitForNextStart();
+  assert.equal(session.requestPause(), true);
+  assert.equal(captured.statuses.at(-1), "pausing");
+  assert.equal(session.isRunActive, true);
+
+  driver.releaseProcess();
+  await run;
+  assert.equal(driver.processed.length, 1);
+  assert.equal(session.currentTip, firstEnd);
+  assert.equal(session.stepsCount, 1);
+  assert.equal(captured.statuses.at(-1), "paused");
+  assert.equal(session.isRunActive, false);
+
+  await session.processTo(doc.length);
+  assert.equal(driver.processed.length, 4);
+  assert.equal(captured.statuses.at(-1), "ok");
+});
+
+test("pause during the final command still reports ok", async () => {
+  const { project, driver, captured, session } = setup();
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+  const firstEnd = doc.indexOf("Kind") - 1;
+
+  driver.holdNextProcess();
+  const run = session.processTo(firstEnd);
+  await driver.waitForNextStart();
+  assert.equal(session.requestPause(), true);
+  driver.releaseProcess();
+  await run;
+
+  assert.equal(session.stepsCount, 1);
+  assert.equal(captured.statuses.at(-1), "ok");
+});
+
+test("requestPause is a no-op when no run is active", () => {
+  const { session } = setup();
+  assert.equal(session.requestPause(), false);
+});
+
+test("reset aborts an in-flight command and reloads the project", async () => {
+  const { project, driver, captured, session } = setup();
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+
+  driver.holdNextProcess();
+  const run = session.processTo(doc.length);
+  await driver.waitForNextStart();
+  const reset = session.reset();
+  assert.equal(captured.statuses.at(-1), "idle");
+  driver.releaseProcess();
+  await run;
+  await reset;
+
+  assert.equal(driver.restarts, 1);
+  assert.equal(driver.inits, 2);
+  assert.equal(session.currentTip, 0);
+  assert.equal(session.stepsCount, 0);
+  assert.equal(captured.statuses.at(-1), "ready");
+});
+
+test("run and step requests are rejected while a run is active", async () => {
+  const { project, driver, session } = setup();
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+
+  driver.holdNextProcess();
+  const run = session.processTo(doc.length);
+  await driver.waitForNextStart();
+  await session.processTo(0);
+  assert.equal(await session.stepForward(0), false);
+  assert.equal(await session.stepBackward(0), false);
+
+  session.requestPause();
+  driver.releaseProcess();
+  await run;
+  assert.equal(driver.processed.length, 1);
+});
+
+test("replacing the project aborts an in-flight command", async () => {
+  const { project, driver, captured, session } = setup();
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+
+  driver.holdNextProcess();
+  const run = session.processTo(doc.length);
+  await driver.waitForNextStart();
+  session.setProject(makeProject());
+  driver.releaseProcess();
+  await run;
+
   assert.equal(driver.restarts, 1);
   assert.equal(session.currentTip, 0);
   assert.equal(session.stepsCount, 0);
-  await session.processTo(0);
-  assert.equal(driver.inits, 2);
+  assert.equal(captured.statuses.at(-1), "idle");
+});
+
+test("editing while paused returns to ready and keeps the tip", async () => {
+  const { project, driver, captured, session } = setup();
+  await session.init();
+  const doc = project.files.get(project.root)!.text;
+  const firstEnd = doc.indexOf("Kind") - 1;
+
+  driver.holdNextProcess();
+  const run = session.processTo(doc.length);
+  await driver.waitForNextStart();
+  session.requestPause();
+  driver.releaseProcess();
+  await run;
+  assert.equal(captured.statuses.at(-1), "paused");
+
+  const text = project.files.get(project.root)!.text;
+  project.files.get(project.root)!.text = text + "\n";
+  await session.notifyEdit(
+    project.root,
+    ChangeSet.of({ from: text.length, insert: "\n" }, text.length)
+  );
+  assert.equal(captured.statuses.at(-1), "ready");
+  assert.equal(session.currentTip, firstEnd);
+
+  await session.processTo(text.length + 1);
+  assert.equal(driver.processed.length, 4);
 });
 
 test("reset clears steps and reloads the project", async () => {
@@ -506,7 +661,8 @@ test("reset clears steps and reloads the project", async () => {
   await session.init();
   await session.processTo(10000);
   await session.reset();
-  assert.equal(driver.resets, 1);
+  assert.equal(driver.restarts, 1);
+  assert.equal(driver.inits, 2);
   assert.equal(session.currentTip, 0);
   assert.equal(session.stepsCount, 0);
 });

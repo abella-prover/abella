@@ -19,6 +19,8 @@ export type SessionStatus =
   | "ready"
   | "processing"
   | "compiling"
+  | "pausing"
+  | "paused"
   | "ok"
   | "error";
 
@@ -167,6 +169,10 @@ export class Session {
   private lastOutcome?: ProofOutcome;
   private currentTheorem?: string;
   private generation = 0;
+  private runToken = 0;
+  private runActive = false;
+  private paused = false;
+  private pauseRequested = false;
   private queue: Promise<unknown> = Promise.resolve();
   private pendingEdits: ChangeSet[] = [];
   private editTask?: Promise<void>;
@@ -175,8 +181,12 @@ export class Session {
     this.driver = driver;
     this.project = project;
     this.events = events;
-    driver.onProgress = (module) =>
-      this.events.onStatus("compiling", module);
+    driver.onProgress = (module) => {
+      this.events.onStatus(
+        this.pauseRequested ? "pausing" : "compiling",
+        module
+      );
+    };
   }
 
   get currentTip(): number {
@@ -193,6 +203,10 @@ export class Session {
 
   get stepsCount(): number {
     return this.steps.length;
+  }
+
+  get isRunActive(): boolean {
+    return this.runActive;
   }
 
   private exclusive<T>(task: () => Promise<T>): Promise<T> {
@@ -245,10 +259,24 @@ export class Session {
   }
 
   private async initialize(): Promise<boolean> {
-    const result = await this.driver.init(
-      abellaFiles(this.project),
-      this.project.root
-    );
+    const generation = this.generation;
+    let result: RunResult;
+    try {
+      result = await this.driver.init(
+        abellaFiles(this.project),
+        this.project.root
+      );
+    } catch (error) {
+      if (generation !== this.generation) return false;
+      this.events.onStatus("error");
+      this.events.onError(
+        String(error),
+        0,
+        rootText(this.project).length
+      );
+      return false;
+    }
+    if (generation !== this.generation) return false;
     this.clearSessionState();
     this.dirty = false;
     this.initialized = result.status === "ok";
@@ -264,38 +292,46 @@ export class Session {
     return this.initialize();
   }
 
+  /** Abort any run and discard session state, keeping the project. */
+  private abortRun(): void {
+    this.generation++;
+    this.runToken++;
+    this.runActive = false;
+    this.paused = false;
+    this.pauseRequested = false;
+    this.pendingEdits = [];
+    this.editTask = undefined;
+    if (this.driver.restart) this.driver.restart();
+    else this.driver.terminate();
+    this.clearSessionState();
+    this.initialized = false;
+    this.dirty = true;
+    this.events.onStatus("idle");
+  }
+
   async init(): Promise<void> {
+    const generation = this.generation;
     await this.exclusive(async () => {
+      if (generation !== this.generation) return;
       this.dirty = true;
       await this.ensureInitialized();
     });
   }
 
   async reset(): Promise<void> {
+    this.abortRun();
+    const generation = this.generation;
     await this.exclusive(async () => {
-      const result = await this.driver.reset(
-        abellaFiles(this.project),
-        this.project.root
-      );
-      this.clearSessionState();
-      this.dirty = false;
-      this.initialized = result.status === "ok";
-      const entries = outputEntries(result.messages);
-      if (entries.length > 0) this.events.onOutput(entries);
-      this.events.onResult(result);
-      this.events.onStatus(this.initialized ? "ready" : "error");
+      if (generation !== this.generation) return;
+      await this.initialize();
     });
   }
 
-  /** Terminate the current prover worker and abandon the session state. */
-  stop(): void {
-    this.generation++;
-    if (this.driver.restart) this.driver.restart();
-    else this.driver.terminate();
-    this.clearSessionState();
-    this.initialized = false;
-    this.dirty = true;
-    this.events.onStatus("ready");
+  requestPause(): boolean {
+    if (!this.runActive || this.paused || this.pauseRequested) return false;
+    this.pauseRequested = true;
+    this.events.onStatus("pausing");
+    return true;
   }
 
   private async processCommand(
@@ -368,39 +404,71 @@ export class Session {
   }
 
   async processTo(cursor: number): Promise<void> {
-    await this.exclusive(async () => {
-      if (!(await this.ensureInitialized())) return;
-      if (cursor < this.tip) {
-        await this.rewindToLeftOfUnlocked(cursor);
-        return;
-      }
-      const doc = rootText(this.project);
-      let commands: Command[];
-      try {
-        commands = scanCommands(doc, this.tip);
-      } catch (error) {
-        const message =
-          error instanceof ScanError ? error.message : String(error);
-        this.events.onStatus("error");
-        this.events.onError(message, this.tip, doc.length);
-        return;
-      }
-      const targets = commands.filter(
-        (command) => command.from < cursor
-      );
-      if (targets.length === 0) {
-        this.events.onStatus("ready");
-        return;
-      }
-      this.events.onStatus("processing");
-      const generation = this.generation;
-      for (const command of targets) {
+    if (this.runActive) return;
+    const generation = this.generation;
+    const token = ++this.runToken;
+    this.runActive = true;
+    this.paused = false;
+    this.pauseRequested = false;
+    try {
+      await this.exclusive(async () => {
         if (generation !== this.generation) return;
-        if (!(await this.processCommand(doc, command, generation))) return;
-      }
-      if (generation !== this.generation) return;
-      this.events.onStatus("ok");
-    });
+        if (!(await this.ensureInitialized())) return;
+        if (generation !== this.generation) return;
+        if (cursor < this.tip) {
+          await this.rewindToLeftOfUnlocked(cursor);
+          return;
+        }
+        const doc = rootText(this.project);
+        let commands: Command[];
+        try {
+          commands = scanCommands(doc, this.tip);
+        } catch (error) {
+          const message =
+            error instanceof ScanError ? error.message : String(error);
+          this.events.onStatus("error");
+          this.events.onError(message, this.tip, doc.length);
+          return;
+        }
+        const targets = commands.filter(
+          (command) => command.from < cursor
+        );
+        if (targets.length === 0) {
+          this.events.onStatus("ready");
+          return;
+        }
+        if (this.pauseRequested) {
+          this.paused = true;
+          this.events.onStatus("paused");
+          return;
+        }
+        this.events.onStatus("processing");
+        let index = 0;
+        for (; index < targets.length; index++) {
+          if (generation !== this.generation) return;
+          if (this.pauseRequested) break;
+          if (
+            !(await this.processCommand(
+              doc,
+              targets[index],
+              generation
+            ))
+          ) {
+            return;
+          }
+        }
+        if (generation !== this.generation) return;
+        if (this.pauseRequested && index < targets.length) {
+          this.paused = true;
+          this.events.onStatus("paused");
+        } else {
+          this.events.onStatus("ok");
+        }
+      });
+    } finally {
+      this.pauseRequested = false;
+      if (this.runToken === token) this.runActive = false;
+    }
   }
 
   async processAll(): Promise<void> {
@@ -409,6 +477,9 @@ export class Session {
   }
 
   private async undoFrom(index: number, newTip: number): Promise<number> {
+    this.paused = false;
+    this.pauseRequested = false;
+    const generation = this.generation;
     const count = this.steps.length - index;
     if (count <= 0) {
       this.tip = newTip;
@@ -418,7 +489,16 @@ export class Session {
       return 0;
     }
     const first = this.steps[index];
-    const result = await this.driver.back(count);
+    let result: RunResult;
+    try {
+      result = await this.driver.back(count);
+    } catch (error) {
+      if (generation !== this.generation) return 0;
+      this.events.onStatus("error");
+      this.events.onError(String(error), first.from, first.to);
+      return 0;
+    }
+    if (generation !== this.generation) return 0;
     if (result.status === "error") {
       this.events.onStatus("error");
       this.events.onError(errorText(result.messages), first.from, first.to);
@@ -434,7 +514,10 @@ export class Session {
 
   /** Rewind for an edit: `offset` becomes the new tip. */
   async rewindTo(offset: number): Promise<number> {
+    if (this.runActive) return 0;
+    const generation = this.generation;
     return this.exclusive(async () => {
+      if (generation !== this.generation) return 0;
       if (offset >= this.tip) return 0;
       if (!this.initialized) {
         this.clearSessionState();
@@ -465,44 +548,72 @@ export class Session {
   }
 
   async rewindToLeftOf(cursor: number): Promise<number> {
+    if (this.runActive) return 0;
+    const generation = this.generation;
     return this.exclusive(async () => {
+      if (generation !== this.generation) return 0;
       if (cursor >= this.tip) return 0;
       return this.rewindToLeftOfUnlocked(cursor);
     });
   }
 
   async stepForward(cursor: number): Promise<boolean> {
-    return this.exclusive(async () => {
-      if (!(await this.ensureInitialized())) return false;
-      const atEnd = cursor >= this.tip;
-      const doc = rootText(this.project);
-      let commands: Command[];
-      try {
-        commands = scanCommands(doc, this.tip);
-      } catch (error) {
-        const message =
-          error instanceof ScanError ? error.message : String(error);
-        this.events.onStatus("error");
-        this.events.onError(message, this.tip, doc.length);
-        return false;
-      }
-      const command = commands[0];
-      if (!command) {
-        this.events.onStatus("ready");
-        return false;
-      }
-      this.events.onStatus("processing");
-      const generation = this.generation;
-      const ok = await this.processCommand(doc, command, generation);
-      if (!ok || generation !== this.generation) return false;
-      if (atEnd) this.events.onCursor(command.to);
-      this.events.onStatus("ok");
-      return true;
-    });
+    if (this.runActive) return false;
+    const generation = this.generation;
+    const token = ++this.runToken;
+    this.runActive = true;
+    this.paused = false;
+    this.pauseRequested = false;
+    try {
+      return await this.exclusive(async () => {
+        if (generation !== this.generation) return false;
+        if (!(await this.ensureInitialized())) return false;
+        if (generation !== this.generation) return false;
+        const atEnd = cursor >= this.tip;
+        const doc = rootText(this.project);
+        let commands: Command[];
+        try {
+          commands = scanCommands(doc, this.tip);
+        } catch (error) {
+          const message =
+            error instanceof ScanError ? error.message : String(error);
+          this.events.onStatus("error");
+          this.events.onError(message, this.tip, doc.length);
+          return false;
+        }
+        const command = commands[0];
+        if (!command) {
+          this.events.onStatus("ready");
+          return false;
+        }
+        if (this.pauseRequested) {
+          this.paused = true;
+          this.events.onStatus("paused");
+          return false;
+        }
+        this.events.onStatus("processing");
+        const ok = await this.processCommand(doc, command, generation);
+        if (!ok || generation !== this.generation) return false;
+        if (atEnd) this.events.onCursor(command.to);
+        if (this.pauseRequested) {
+          this.paused = true;
+          this.events.onStatus("paused");
+        } else {
+          this.events.onStatus("ok");
+        }
+        return true;
+      });
+    } finally {
+      this.pauseRequested = false;
+      if (this.runToken === token) this.runActive = false;
+    }
   }
 
   async stepBackward(cursor: number): Promise<boolean> {
+    if (this.runActive) return false;
+    const generation = this.generation;
     return this.exclusive(async () => {
+      if (generation !== this.generation) return false;
       if (this.steps.length === 0) return false;
       const oldTip = this.tip;
       const previous = this.steps[this.steps.length - 2];
@@ -516,11 +627,11 @@ export class Session {
   }
 
   setProject(project: Project): void {
+    this.abortRun();
     this.project = project;
     this.dirty = true;
     this.initialized = false;
-    this.clearSessionState();
-    this.events.onStatus("ready");
+    this.events.onStatus("idle");
   }
 
   /** Called after the editor changed `path`; offsets are JS offsets. */
@@ -528,18 +639,23 @@ export class Session {
     const kind = classify(path);
     if (path !== this.project.root) {
       if (kind === "abella") {
+        this.paused = false;
+        this.pauseRequested = false;
         this.dirty = true;
         this.events.onStatus("ready");
       }
       return Promise.resolve();
     }
+    const generation = this.generation;
     this.pendingEdits.push(changes);
     if (!this.editTask) {
-      this.editTask = this.exclusive(async () => {
+      const task = this.exclusive(async () => {
+        if (generation !== this.generation) return;
         this.editTask = undefined;
         const edits = this.pendingEdits.splice(0);
         await this.applyEdits(edits);
       });
+      this.editTask = task;
     }
     return this.editTask;
   }
@@ -550,10 +666,14 @@ export class Session {
    * invalidates the command it touches and every command after it.
    */
   private async applyEdits(edits: ChangeSet[]): Promise<void> {
+    const wasPaused = this.paused;
+    this.paused = false;
+    this.pauseRequested = false;
     if (!this.initialized) {
       this.clearSessionState();
       return;
     }
+    const generation = this.generation;
     const bounds: StepBounds[] = this.steps.map((step) => ({
       from: step.from,
       to: step.to,
@@ -602,12 +722,22 @@ export class Session {
       commitBounds();
       this.tip = tip;
       this.events.onTip(tip);
+      if (wasPaused) this.events.onStatus("ready");
       return;
     }
 
     const first = this.steps[keep];
     const count = this.steps.length - keep;
-    const result = await this.driver.back(count);
+    let result: RunResult;
+    try {
+      result = await this.driver.back(count);
+    } catch (error) {
+      if (generation !== this.generation) return;
+      this.events.onStatus("error");
+      this.events.onError(String(error), first.from, first.to);
+      return;
+    }
+    if (generation !== this.generation) return;
     if (result.status === "error") {
       this.events.onStatus("error");
       this.events.onError(errorText(result.messages), first.from, first.to);

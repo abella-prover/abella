@@ -31,7 +31,7 @@
           <span id="workspace-name" class="workspace-name">Virtual project</span>
           <button id="reconnect-folder" type="button" hidden>Reconnect</button>
         </div>
-        <nav class="menus" aria-label="Project and run actions">
+        <nav class="menus" aria-label="Project actions">
           <details id="project-menu" class="menu">
             <summary>Project</summary>
             <div class="menu-list">
@@ -55,17 +55,6 @@
               </button>
               <button id="download-zip" type="button">Download zip</button>
               <button id="import-zip" type="button">Import zip</button>
-            </div>
-          </details>
-          <details id="run-menu" class="menu">
-            <summary>Run</summary>
-            <div class="menu-list">
-              <button id="process-cursor" type="button">
-                Check to cursor
-              </button>
-              <button id="process-all" type="button">Process full</button>
-              <button id="stop" type="button" disabled>Stop</button>
-              <button id="reset" type="button">Reset</button>
             </div>
           </details>
         </nav>
@@ -128,6 +117,47 @@
       <section class="panels">
         <section class="panel">
           <div class="panel-head">
+            <div class="run-controls" role="group" aria-label="Prover controls">
+              <button
+                id="run-toggle"
+                class="icon-button"
+                type="button"
+                data-mode="play"
+                aria-label="Check the rest of the file"
+                title="Check the rest of the file"
+              >
+                <svg
+                  class="run-icon run-icon-play"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  aria-hidden="true"
+                ><path d="M5 3.2 12.2 8 5 12.8Z"/></svg>
+                <svg
+                  class="run-icon run-icon-pause"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  aria-hidden="true"
+                ><path d="M4.5 3.2h2.7v9.6H4.5zM8.8 3.2h2.7v9.6H8.8z"/></svg>
+              </button>
+              <button
+                id="reset"
+                class="icon-button"
+                type="button"
+                aria-label="Reset the prover and discard all checked progress"
+                title="Reset the prover and discard all checked progress"
+              >
+                <svg
+                  class="run-icon"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                ><path d="M3.2 7.8a4.8 4.8 0 1 0 1.4-3.4"/><path d="M3.2 2.8v3.6h3.6"/></svg>
+              </button>
+            </div>
             <div class="panel-tabs" role="tablist" aria-label="Proof panels">
               <button
                 id="goal-tab"

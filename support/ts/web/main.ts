@@ -95,10 +95,10 @@ const outputErrorBadge = byId<HTMLElement>("output-error");
 const panelTabs = document.querySelector(".panel-tabs") as HTMLElement;
 const exampleSelect = byId<HTMLSelectElement>("example-select");
 const zipInput = byId<HTMLInputElement>("zip-input");
-const processCursorButton = byId<HTMLButtonElement>("process-cursor");
-const processAllButton = byId<HTMLButtonElement>("process-all");
-const stopButton = byId<HTMLButtonElement>("stop");
+const runToggleButton = byId<HTMLButtonElement>("run-toggle");
 const resetButton = byId<HTMLButtonElement>("reset");
+const scratchButton = byId<HTMLButtonElement>("scratch");
+const importZipButton = byId<HTMLButtonElement>("import-zip");
 const addFileButton = byId<HTMLButtonElement>("add-file");
 const renameFileButton = byId<HTMLButtonElement>("rename-file");
 const deleteFileButton = byId<HTMLButtonElement>("delete-file");
@@ -171,6 +171,7 @@ let lastDirectoryHandle: DirectoryHandle | undefined;
 let measureTimer: number | undefined;
 let saveWarningShown = false;
 let saving = false;
+let runBusy = false;
 
 type OAuthConfigState = "unknown" | "loading" | "ready" | "unavailable";
 
@@ -625,9 +626,28 @@ const statusText: Record<SessionStatus, string> = {
   ready: "Ready",
   processing: "Processing…",
   compiling: "Compiling import…",
+  pausing: "Pausing…",
+  paused: "Paused",
   ok: "Commands processed",
   error: "Error",
 };
+
+function updateRunControls(status: SessionStatus): void {
+  const running =
+    status === "processing" ||
+    status === "compiling" ||
+    status === "pausing";
+  const showPause = running && (session?.isRunActive ?? false);
+  runToggleButton.dataset.mode = showPause ? "pause" : "play";
+  runToggleButton.disabled =
+    status === "pausing" || (running && !showPause);
+  const label = showPause
+    ? "Pause after the current command"
+    : "Check the rest of the file";
+  runToggleButton.setAttribute("aria-label", label);
+  runToggleButton.title = label;
+  resetButton.disabled = false;
+}
 
 function setStatus(status: SessionStatus, detail?: string): void {
   statusBadge.dataset.status = status;
@@ -636,11 +656,17 @@ function setStatus(status: SessionStatus, detail?: string): void {
       ? `${session?.stepsCount ?? 0} commands processed`
       : statusText[status];
   statusDetail.textContent = detail ?? "";
-  const busy = status === "processing" || status === "compiling";
-  processCursorButton.disabled = busy;
-  processAllButton.disabled = busy;
-  resetButton.disabled = busy;
-  stopButton.disabled = !busy;
+  const busy =
+    status === "processing" ||
+    status === "compiling" ||
+    status === "pausing";
+  const busyChanged = busy !== runBusy;
+  runBusy = busy;
+  updateRunControls(status);
+  if (busyChanged) {
+    if (editor) editor.setRunLocked(busy);
+    refreshFiles();
+  }
   layout.setAttribute("aria-busy", busy ? "true" : "false");
   if (
     (status === "ok" || status === "error") &&
@@ -835,23 +861,36 @@ function updateWorkspaceUi(): void {
     capabilities.write && !capabilities.autoSave && !capabilities.commit;
   const showCommit = capabilities.commit;
   const picker = directoryPickerSupported();
+  exampleSelect.disabled = runBusy || !bundle;
   openFolderButton.hidden = false;
+  openFolderButton.disabled = runBusy;
   openFolderButton.textContent = picker
     ? "Open folder"
     : "Open folder (read-only)";
   openFolderButton.title = picker
     ? "Open a local folder"
     : "Open a folder read-only; use Download zip to keep changes";
+  scratchButton.disabled = runBusy;
+  importZipButton.disabled = runBusy;
   saveFileButton.hidden = !explicitSave;
   saveAllButton.hidden = !explicitSave;
   saveFileButton.disabled =
-    saving || !explicitSave || !workspaceSession.isDirty(project.active);
+    runBusy ||
+    saving ||
+    !explicitSave ||
+    !workspaceSession.isDirty(project.active);
   saveAllButton.disabled =
-    saving || !explicitSave || !workspaceSession.hasDirty();
+    runBusy ||
+    saving ||
+    !explicitSave ||
+    !workspaceSession.hasDirty();
   commitButton.hidden = !showCommit;
   commitButton.disabled =
-    saving || !showCommit || !workspaceSession.hasDirty();
-  githubButton.disabled = saving;
+    runBusy ||
+    saving ||
+    !showCommit ||
+    !workspaceSession.hasDirty();
+  githubButton.disabled = runBusy || saving;
   if (explicitSave) {
     saveFileButton.title = workspaceSession.isDirty(project.active)
       ? `Save ${project.active}`
@@ -869,7 +908,7 @@ function updateWorkspaceUi(): void {
   workspaceName.textContent = workspaceLabel(workspaceSession);
   workspaceName.title = workspaceSession.name;
   reconnectFolderButton.hidden = !workspaceSession.isDetachedDirectory;
-  reconnectFolderButton.disabled = !lastDirectoryHandle;
+  reconnectFolderButton.disabled = runBusy || !lastDirectoryHandle;
   reconnectFolderButton.title = lastDirectoryHandle
     ? "Reconnect to the saved folder"
     : "No saved folder handle; use Open folder";
@@ -893,6 +932,7 @@ function confirmOverwrite(path: string): boolean {
 
 async function savePath(path: string): Promise<void> {
   if (
+    runBusy ||
     saving ||
     !workspaceSession.capabilities.write ||
     workspaceSession.capabilities.autoSave ||
@@ -926,6 +966,7 @@ async function savePath(path: string): Promise<void> {
 
 async function saveAll(): Promise<void> {
   if (
+    runBusy ||
     saving ||
     !workspaceSession.capabilities.write ||
     workspaceSession.capabilities.autoSave ||
@@ -966,6 +1007,7 @@ async function saveAll(): Promise<void> {
 }
 
 async function openFolder(): Promise<void> {
+  if (runBusy) return;
   if (!directoryPickerSupported()) {
     folderInput.click();
     return;
@@ -1026,6 +1068,10 @@ async function openFolder(): Promise<void> {
 }
 
 async function openReadOnlyFolder(): Promise<void> {
+  if (runBusy) {
+    folderInput.value = "";
+    return;
+  }
   const files = folderInput.files ? Array.from(folderInput.files) : [];
   folderInput.value = "";
   if (files.length === 0) return;
@@ -1063,6 +1109,7 @@ async function openReadOnlyFolder(): Promise<void> {
 }
 
 async function reconnectFolder(): Promise<void> {
+  if (runBusy) return;
   if (!workspaceSession.isDetachedDirectory) return;
   if (!lastDirectoryHandle) {
     appendEntries([
@@ -1639,6 +1686,7 @@ async function completeOAuth(
 }
 
 function openGitHubDialog(mode: "connect" | "commit"): void {
+  if (runBusy) return;
   if (pendingOAuth !== undefined) cancelOAuth();
   githubDialogMode = mode;
   githubTitle.textContent =
@@ -1733,7 +1781,11 @@ function disconnectGitHub(): void {
 }
 
 function openCommitDialog(): void {
-  if (!workspaceSession.capabilities.commit || !workspaceSession.hasDirty()) {
+  if (
+    runBusy ||
+    !workspaceSession.capabilities.commit ||
+    !workspaceSession.hasDirty()
+  ) {
     return;
   }
   commitError.textContent = "";
@@ -1746,6 +1798,15 @@ function openCommitDialog(): void {
 }
 
 async function performCommit(message: string): Promise<void> {
+  if (runBusy) {
+    appendEntries([
+      {
+        severity: "error",
+        message: "Finish or pause the current run before committing.",
+      },
+    ]);
+    return;
+  }
   saving = true;
   updateWorkspaceUi();
   try {
@@ -1806,10 +1867,11 @@ function refreshFiles(): void {
   );
   const active = project.files.get(project.active);
   const structural = workspaceSession.capabilities.structural;
-  addFileButton.disabled = !structural;
-  renameFileButton.disabled = !structural || !active;
-  deleteFileButton.disabled = !structural || !active;
+  addFileButton.disabled = runBusy || !structural;
+  renameFileButton.disabled = runBusy || !structural || !active;
+  deleteFileButton.disabled = runBusy || !structural || !active;
   setRootButton.disabled =
+    runBusy ||
     !active ||
     !project.active.endsWith(".thm") ||
     project.active === project.root;
@@ -1856,9 +1918,11 @@ function projectStructureChanged(): void {
   renderGoal();
   session.setProject(project);
   editor.clearDiagnostics(project.root);
+  setStatus("ready");
 }
 
 function addFile(): void {
+  if (runBusy) return;
   if (!workspaceSession.capabilities.structural) return;
   const path = normalizeNewPath(
     window.prompt("New file path (for example helper.thm or notes.md):")
@@ -1882,6 +1946,7 @@ function addFile(): void {
 }
 
 function renameFile(): void {
+  if (runBusy) return;
   if (!workspaceSession.capabilities.structural) return;
   const from = project.active;
   const file = project.files.get(from);
@@ -1935,6 +2000,7 @@ function renameFile(): void {
 }
 
 function deleteFile(): void {
+  if (runBusy) return;
   if (!workspaceSession.capabilities.structural) return;
   const path = project.active;
   const file = project.files.get(path);
@@ -1970,6 +2036,7 @@ function deleteFile(): void {
 }
 
 function setRoot(): void {
+  if (runBusy) return;
   const path = project.active;
   if (!path.endsWith(".thm") || path === project.root) return;
   editor.setProcessedTip(project.root, 0);
@@ -2072,6 +2139,10 @@ async function startProject(
   next: Project,
   workspace: Workspace
 ): Promise<void> {
+  if (runBusy) {
+    info("Finish or pause the current run before changing projects.");
+    return;
+  }
   workspaceSession.close();
   workspaceSession = new WorkspaceSession(next, workspace, {
     persist: persistProject,
@@ -2102,16 +2173,19 @@ function rootCursor(): number {
 }
 
 async function processToCursor(): Promise<void> {
+  if (runBusy) return;
   const cursor = rootCursor();
   await session.processTo(cursor);
 }
 
 async function stepForward(): Promise<void> {
+  if (runBusy) return;
   const cursor = rootCursor();
   await session.stepForward(cursor);
 }
 
 async function stepBackward(): Promise<void> {
+  if (runBusy) return;
   const cursor = rootCursor();
   await session.stepBackward(cursor);
 }
@@ -2219,18 +2293,18 @@ async function main(): Promise<void> {
     setStatus("error", String(error));
   }
 
-  processCursorButton.addEventListener(
-    "click",
-    () => void processToCursor()
-  );
-  processAllButton.addEventListener("click", () => void session.processAll());
-  stopButton.addEventListener("click", () => {
-    session.stop();
-    editor.clearDiagnostics(project.root);
-    appendEntries([{ severity: "info", message: "Stopped." }]);
+  runToggleButton.addEventListener("click", () => {
+    const status = statusBadge.dataset.status as SessionStatus;
+    if (status === "pausing") return;
+    if (status === "processing" || status === "compiling") {
+      session.requestPause();
+      return;
+    }
+    void session.processAll();
   });
   resetButton.addEventListener("click", () => {
     clearOutput();
+    editor.clearDiagnostics(project.root);
     void session.reset();
   });
   addFileButton.addEventListener("click", addFile);
@@ -2307,6 +2381,10 @@ async function main(): Promise<void> {
 
   exampleSelect.addEventListener("change", () => {
     const id = exampleSelect.value;
+    if (runBusy) {
+      exampleSelect.value = "";
+      return;
+    }
     if (!id || !bundle) return;
     if (!confirmDiscardWorkspaceChanges()) {
       exampleSelect.value = "";
@@ -2322,7 +2400,8 @@ async function main(): Promise<void> {
     void startProject(next, virtualWorkspace(next));
   });
 
-  byId<HTMLButtonElement>("scratch").addEventListener("click", () => {
+  scratchButton.addEventListener("click", () => {
+    if (runBusy) return;
     const message = workspaceSession.hasDirty()
       ? `Discard unsaved changes in ${workspaceSession.name} ` +
         "and start from scratch?"
@@ -2339,13 +2418,14 @@ async function main(): Promise<void> {
   byId<HTMLButtonElement>("download-zip").addEventListener("click", () => {
     downloadProject(project);
   });
-  byId<HTMLButtonElement>("import-zip").addEventListener("click", () => {
+  importZipButton.addEventListener("click", () => {
+    if (runBusy) return;
     zipInput.click();
   });
   zipInput.addEventListener("change", async () => {
     const file = zipInput.files?.[0];
     zipInput.value = "";
-    if (!file) return;
+    if (!file || runBusy) return;
     try {
       const imported = await importProject(file);
       const message = workspaceSession.hasDirty()

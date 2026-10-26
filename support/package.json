@@ -5,8 +5,7 @@
   "private": true,
   "scripts": {
     "check": "tsc -noEmit",
-    "build": "esbuild ./ts/abella_doc.ts --color=false --bundle --minify --format=esm --outfile=dist/abella_doc.js",
-    "clean": "rimraf dist"
+    "build": "esbuild ./ts/abella_doc.ts --color=false --bundle --minify --format=esm --outfile=dist/abella_doc.js"
   },
   "keywords": [],
   "author": "Kaustuv Chaudhuri <kaustuv@chaudhuri.info>",
@@ -14,10 +13,6 @@
   "devDependencies": {
     "@types/node": "^26.5.0",
     "esbuild": "^0.28.2",
-    "rimraf": "^6.1.3",
     "typescript": "^7.0.2"
-  },
-  "overrides": {
-    "brace-expansion": "5.0.12"
   }
 }

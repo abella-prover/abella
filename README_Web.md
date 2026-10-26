@@ -51,9 +51,16 @@ known-hosts entry. Verify it with the hosting provider before accepting
 a changed key.
 
 Cloudflare caches generated JavaScript, CSS, and wasm launchers by URL
-for 30 days. Bump `WEB_ASSET_VERSION` in
-`support/ts/web/version.ts` and the `?v=` strings in `web/*.html` when
-publishing changed assets.
+for 30 days. After changing frontend or wasm sources, run
+
+```sh
+make web-version-bump
+```
+
+before publishing. It updates `WEB_ASSET_VERSION` in
+`support/ts/web/version.ts` and the `?v=` strings in `web/*.html`
+together. `make publish-web` refuses to run when the versions disagree,
+or when a frontend input changed since the last bump.
 
 GitHub authentication
 ---------------------

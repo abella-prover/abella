@@ -48,8 +48,35 @@ web-bundle:
 	$(DUNE) exec src/abella_bundle.exe -- \
 	  -m support/web-examples.json -o web/examples/bundle.json
 
+WEB_VERSION_FILE := support/ts/web/version.ts
+WEB_ASSET_INPUTS := $(wildcard support/ts/web/*.ts) \
+                    $(wildcard support/css/*.css) \
+                    src/js/abella_js.ml
+
+.PHONY: web-version-bump
+web-version-bump:
+	node support/scripts/web-version.mjs --bump
+
+.PHONY: web-version-check
+web-version-check:
+	@node support/scripts/web-version.mjs --check || exit 1
+	@last=$$(git log -1 --format=%H -- $(WEB_VERSION_FILE)); \
+	if [ -n "$$last" ] && git diff --quiet $$last -- $(WEB_VERSION_FILE); then \
+	  changed=$$(git diff --name-only $$last -- $(WEB_ASSET_INPUTS) || true); \
+	  if [ -n "$$changed" ]; then \
+	    echo "Web assets changed since the last version bump:"; \
+	    echo "$$changed" | sed 's/^/  /'; \
+	    echo "Run 'make web-version-bump'."; \
+	    exit 1; \
+	  fi; \
+	fi
+
+# The check must run before the build, which bakes the version into the
+# JavaScript, so the two steps are sequenced by hand.
 .PHONY: publish-web
-publish-web: web
+publish-web:
+	$(MAKE) --no-print-directory web-version-check
+	$(MAKE) --no-print-directory web
 	rsync -aviz -e "ssh -o HostName=$(WEB_ORIGIN)" \
 	  --exclude '.test/' \
 	  --exclude '*.map' \

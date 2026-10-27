@@ -11,7 +11,11 @@
 open Term
 open Metaterm
 open Abella_types
+open Typing
+open Checks
 open Extensions
+
+module Setup = Driver_setup
 
 type renamer = {
   r_const : string -> string ;
@@ -374,3 +378,604 @@ let tycons_of_ty ty =
       List.iter collect_ty args ;
       collect_aty aty ;
       List.unique !names
+
+let summary_to_string ~name ~params ~prefix content =
+  let strip name =
+    match strip_path prefix name with
+    | Some local -> local
+    | None -> name
+  in
+  let renamer = {
+    r_const = strip ;
+    r_tycons = strip ;
+    r_lemma = strip ;
+    r_tyvar = (fun id -> id) ;
+  } in
+  let content = List.map (map_compiled renamer) content in
+  let buf = Buffer.create 256 in
+  let line fmt =
+    Printf.ksprintf
+      (fun text -> Buffer.add_string buf text ; Buffer.add_char buf '\n')
+      fmt
+  in
+  let params =
+    match params with
+    | [] -> ""
+    | _ -> "[" ^ String.concat ", " params ^ "]"
+  in
+  let clause_to_string cl =
+    let head = metaterm_to_string cl.head in
+    if cl.body = True then head
+    else head ^ " := " ^ metaterm_to_string cl.body
+  in
+  line "Module %s%s." name params ;
+  List.iter begin function
+    | CKind (ids, knd) ->
+        line "  Kind %s %s." (String.concat ", " ids)
+          (String.lowercase_ascii (knd_to_string knd))
+    | CType (ids, _, ty) | CDeclPred (ids, _, ty) ->
+        line "  Type %s %s." (String.concat ", " ids) (ty_to_string ty)
+    | CDefine (flavor, _, idtys, clauses) ->
+        let keyword =
+          match flavor with
+          | Inductive -> "Define"
+          | CoInductive -> "CoDefine"
+        in
+        let idtys =
+          String.concat ", "
+            (List.map (fun (id, ty) -> id ^ " : " ^ ty_to_string ty) idtys)
+        in
+        line "  %s %s by" keyword idtys ;
+        List.iter
+          (fun cl -> line "    %s." (clause_to_string cl))
+          clauses
+    | CTheorem (id, tys, stmt, Axiomatic) ->
+        line "  Axiom %s%s : %s." id (gen_to_string tys)
+          (metaterm_to_string stmt)
+    | CTheorem (id, tys, stmt, _) ->
+        line "  Theorem %s%s : %s." id (gen_to_string tys)
+          (metaterm_to_string stmt)
+    | CImport _ | CClose _ | CSuspend _ ->
+        failwith "Unexpected declaration in module summary"
+  end content ;
+  line "End %s." name ;
+  Buffer.contents buf
+
+let in_module () = Thmod.current_name () <> None
+
+type pred_value = {
+  pv_name : string ;
+  pv_typarams : string list ;
+  pv_ty : ty ;
+}
+
+type axiom_value = {
+  av_name : string ;
+  av_typarams : string list ;
+  av_stmt : metaterm ;
+  av_tag : fin ;
+}
+
+type import_value =
+  | PredValue of pred_value
+  | AxiomValue of axiom_value
+
+type import_target =
+  | TargetTemplate of Thmod.template
+  | TargetInstance of Thmod.instance
+
+type resolved_key = {
+  rk_source : string ;
+  rk_prefixed : string ;
+  rk_predicate : bool ;
+}
+
+let is_predicate_ty ty =
+  match observe_ty ty with
+  | Ty (_, aty) -> aty = propaty
+
+let resolve_import_target ~(load : modname:string -> Thmod.artifact) mi =
+  match mi.mi_source with
+  | QuoteSource (file, _) ->
+      if Filename.check_suffix file ".thmod" then
+        failwith "Do not include the .thmod extension in an import" ;
+      let file = Filepath.normalize ~wrt:!Setup.input file in
+      let artifact = load ~modname:file in
+      let base = Filename.basename file in
+      if artifact.ta_name <> base then
+        failwithf "Module %s does not match the file name %s.thmod"
+          artifact.ta_name base ;
+      let source = Source.canon (file ^ ".thmod") in
+      let template = {
+        Thmod.tp_name = artifact.ta_name ;
+        tp_from = [] ;
+        tp_source = source ;
+        tp_params = artifact.ta_params ;
+        tp_content = artifact.ta_content ;
+        tp_nested = artifact.ta_nested ;
+      } in
+      (TargetTemplate template, artifact.ta_name, source)
+  | NameSource name ->
+      let template = Thmod.find_template name in
+      let instance = Thmod.find_instance name in
+      if mi.mi_tyargs <> [] then
+        begin match template with
+        | Some template ->
+            (TargetTemplate template, name, template.Thmod.tp_source)
+        | None ->
+            begin match instance with
+            | Some _ ->
+                failwithf "Module %s is already instantiated" name
+            | None ->
+                failwithf "Unknown module template %s with type arguments" name
+            end
+        end
+      else
+        begin match instance with
+        | Some instance ->
+            (TargetInstance instance, name, instance.Thmod.ins_source)
+        | None ->
+            begin match template with
+            | Some template ->
+                (TargetTemplate template, name, template.Thmod.tp_source)
+            | None -> failwithf "Unknown module %s" name
+            end
+        end
+
+let resolve_type_args args =
+  List.map begin fun ty ->
+    let ty = if in_module () then Thmod.resolve_ty ty else ty in
+    kind_check !sign ty ;
+    if contains_prop ty then
+      failwithf "Type argument %s may not contain prop"
+        (ty_to_string ty) ;
+    let free = get_typaram ty in
+    if in_module () then begin
+      let allowed = Thmod.all_params () in
+      match List.minus free allowed with
+      | [] -> ()
+      | bad :: _ ->
+          failwithf "Type argument %s contains the free type variable %s"
+            (ty_to_string ty) bad
+    end else if free <> [] then
+      failwithf "Type argument %s contains a free type variable"
+        (ty_to_string ty) ;
+    ty
+  end args
+
+let target_index decls from =
+  List.flatten_map begin fun decl ->
+    List.filter_map begin fun id ->
+      match strip_path from id with
+      | Some relative -> Some (relative, id, decl)
+      | None -> None
+    end (ids_of_compiled decl)
+  end decls
+
+let find_decl_by_id id decls =
+  List.find_some begin fun decl ->
+    if List.mem id (ids_of_compiled decl) then Some decl
+    else None
+  end decls
+
+let materialize_import ~decls ~from ~to_ ~params ~args ~is_instance ~avoid =
+  let renamer =
+    if is_instance then
+      prefix_renamer ~from ~to_
+        ~const_ids:[] ~kind_ids:[] ~lemma_ids:[] ()
+    else
+      prefix_renamer ~from ~to_
+        ~const_ids:(const_ids decls)
+        ~kind_ids:(kind_ids decls)
+        ~lemma_ids:(lemma_ids decls) ()
+  in
+  let tysub =
+    if is_instance then [] else tyvar_subst params args
+  in
+  let avoid = avoid @ List.flatten_map get_typaram args in
+  let materialized =
+    List.map (materialize_decl ~renamer ~avoid ~tysub) decls
+  in
+  let rigid_decls =
+    if is_instance then decls
+    else List.map (map_compiled renamer) decls
+  in
+  let rigid = Thmod.rigid_predicates_of_decls rigid_decls in
+  (renamer, materialized, rigid)
+
+let value_of_item item =
+  match item.Thmod.item_class with
+  | Thmod.PredicateItem | Thmod.DefineItem ->
+      begin match item.Thmod.item_ty with
+      | Some ty ->
+          PredValue {
+            pv_name = item.Thmod.item_name ;
+            pv_typarams = item.Thmod.item_typarams ;
+            pv_ty = ty ;
+          }
+      | None -> failwithf "Missing type for predicate %s"
+                  item.Thmod.item_name
+      end
+  | Thmod.AxiomItem | Thmod.TheoremItem ->
+      let (tys, stmt) = Prover.get_generic_lemma item.Thmod.item_name in
+      let tag = Prover.get_lemma_tag item.Thmod.item_name in
+      AxiomValue {
+        av_name = item.Thmod.item_name ;
+        av_typarams = tys ;
+        av_stmt = stmt ;
+        av_tag = tag ;
+      }
+  | Thmod.KindItem | Thmod.TypeItem ->
+      failwithf "%s is not a predicate or axiom"
+        item.Thmod.item_name
+
+let value_of_name ~predicate name =
+  let local_name () =
+    let name = Thmod.resolve_id name in
+    match Thmod.lookup_item_by_name name with
+    | Some item -> Some (name, value_of_item item)
+    | None -> None
+  in
+  let value =
+    if in_module () then
+      match local_name () with
+      | Some (_, value) -> Some value
+      | None -> None
+    else None
+  in
+  match value with
+  | Some value -> value
+  | None ->
+      if predicate then
+        begin match List.assoc_opt name (snd !sign) with
+        | Some (Poly (typarams, ty)) when is_predicate_ty ty ->
+            PredValue {
+              pv_name = name ;
+              pv_typarams = typarams ;
+              pv_ty = ty ;
+            }
+        | _ -> failwithf "%s is not a declared or defined predicate" name
+        end
+      else
+        begin
+          try
+            let (tys, stmt) = Prover.get_generic_lemma name in
+            let tag = Prover.get_lemma_tag name in
+            AxiomValue {
+              av_name = name ;
+              av_typarams = tys ;
+              av_stmt = stmt ;
+              av_tag = tag ;
+            }
+          with _ -> failwithf "%s is not an axiom or theorem" name
+        end
+
+let resolve_with_keys ~materialized ~decls ~from ~renamer withs =
+  let index = target_index decls from in
+  let seen = ref [] in
+  List.map begin fun (key, value) ->
+    let key = qualid_to_string key in
+    if List.mem key !seen then
+      failwithf "Duplicate with key %s" key ;
+    seen := key :: !seen ;
+    let candidates =
+      List.filter (fun (relative, _, _) -> relative = key) index
+    in
+    match candidates with
+    | [] -> failwithf "Unknown with key %s" key
+    | (_, source_id, decl) :: rest ->
+        if List.exists (fun (_, id, _) -> id <> source_id) rest then
+          failwithf "Ambiguous with key %s" key ;
+        let predicate =
+          match Thmod.class_of_compiled decl with
+          | Some Thmod.PredicateItem -> true
+          | Some Thmod.AxiomItem -> false
+          | _ ->
+              failwithf "%s is not a declared predicate or axiom" key
+        in
+        let prefixed =
+          if predicate then renamer.r_const source_id
+          else renamer.r_lemma source_id
+        in
+        if predicate then begin
+          match find_decl_by_id prefixed materialized with
+          | Some (CDeclPred (_, _, ty) | CType (_, _, ty)) ->
+              if contains_prop_argument ty then
+                failwithf
+                  "Declared predicate %s is higher-order and cannot be a key"
+                  key
+          | _ -> failwithf "Cannot classify with key %s" key
+        end ;
+        ({ rk_source = source_id ;
+           rk_prefixed = prefixed ;
+           rk_predicate = predicate ;
+         }, value)
+  end withs
+
+let target_local_names ~renamer decls =
+  let consts =
+    List.flatten_map (function
+        | CType (ids, _, _) | CDeclPred (ids, _, _) -> ids
+        | CDefine (_, _, idtys, _) -> List.map fst idtys
+        | CTheorem _ | CKind _ | CImport _ | CClose _ | CSuspend _ -> [])
+      decls
+    |> List.map renamer.r_const
+  in
+  let kinds =
+    List.flatten_map (function
+        | CKind (ids, _) -> ids
+        | _ -> [])
+      decls
+    |> List.map renamer.r_tycons
+  in
+  (List.unique consts, List.unique kinds)
+
+let replay_imported_decls ~record decls =
+  let replay decl =
+    match decl with
+    | CImport _ ->
+        failwith "Unexpected import in a compiled reasoning module"
+    | CClose _ | CSuspend _ ->
+        failwith "Unexpected command in a compiled reasoning module"
+    | _ ->
+        Artifact.install_compiled_decl
+          ~strat_errors:true ~subordinate:true decl ;
+        record decl
+  in
+  List.iter replay decls
+
+let import_module
+    ~(load : modname:string -> Thmod.artifact) ~record mi =
+  let target, default_name, source = resolve_import_target ~load mi in
+  let name = match mi.mi_alias with
+    | Some alias -> alias
+    | None -> default_name
+  in
+  if List.mem name (Thmod.all_params ()) then
+    failwithf "Module name %s is already used as a module parameter" name ;
+  begin match mi.mi_alias with
+  | None ->
+      if Thmod.find_instance name <> None then
+        failwithf "Module %s has already been imported" name
+  | Some alias ->
+      if Thmod.find_instance alias <> None then
+        failwithf "Module name %s is already imported" alias ;
+      if Thmod.find_template alias <> None then
+        failwithf "Module name %s is already in use" alias
+  end ;
+  let prefix = Thmod.instance_prefix name in
+  let source_decls, from, params, args, is_instance =
+    match target with
+    | TargetTemplate template ->
+        let args = resolve_type_args mi.mi_tyargs in
+        if List.length args <> List.length template.Thmod.tp_params then
+          failwithf "Module %s expects %d type arguments but got %d"
+            template.Thmod.tp_name
+            (List.length template.Thmod.tp_params)
+            (List.length args) ;
+        (template.Thmod.tp_content, template.Thmod.tp_from,
+         template.Thmod.tp_params, args, false)
+    | TargetInstance instance ->
+        if mi.mi_tyargs <> [] then
+          failwithf "Module %s is already instantiated"
+            instance.Thmod.ins_name ;
+        (instance.Thmod.ins_decls, instance.Thmod.ins_prefix,
+         [], [], true)
+  in
+  let args =
+    match target with
+    | TargetTemplate _ -> args
+    | TargetInstance instance -> instance.Thmod.ins_tyargs
+  in
+  let renamer, materialized, rigid =
+    materialize_import ~decls:source_decls ~from ~to_:prefix
+      ~params ~args ~is_instance ~avoid:(Thmod.all_params ())
+  in
+  let rigid =
+    List.fold_left begin fun rigid instance ->
+      if instance.Thmod.ins_source = source then
+        Iset.union rigid
+          (Thmod.rigid_predicates_of_decls instance.Thmod.ins_decls)
+      else
+        rigid
+    end rigid (Thmod.all_instances ())
+  in
+  let keys =
+    resolve_with_keys ~materialized ~decls:source_decls ~from ~renamer
+      mi.mi_withs
+  in
+  let resolved =
+    List.map begin fun (key, value_name) ->
+      let value_name = qualid_to_string value_name in
+      let value =
+        value_of_name ~predicate:key.rk_predicate value_name
+      in
+      begin match key.rk_predicate, value with
+      | true, PredValue _ -> ()
+      | false, AxiomValue axiom when axiom.av_tag = Unfinished ->
+          failwithf
+            "Axiom key %s cannot use the unfinished theorem %s"
+            key.rk_source axiom.av_name
+      | false, AxiomValue _ -> ()
+      | true, AxiomValue _ ->
+          failwithf "Predicate key %s requires a predicate value" key.rk_source
+      | false, PredValue _ ->
+          failwithf "Axiom key %s requires an axiom or theorem value"
+            key.rk_source
+      end ;
+      (key, value)
+    end keys
+  in
+  let pred_pairs =
+    List.filter_map begin fun (key, value) ->
+      match value with
+      | PredValue value -> Some (key, value)
+      | AxiomValue _ -> None
+    end resolved
+  in
+  let axiom_pairs =
+    List.filter_map begin fun (key, value) ->
+      match value with
+      | AxiomValue value -> Some (key, value)
+      | PredValue _ -> None
+    end resolved
+  in
+  let pred_names = List.map (fun (_, v) -> v.pv_name) pred_pairs in
+  if not (List.is_unique pred_names) then
+    failwith "Predicate values in with clauses must be pairwise distinct" ;
+  List.iter begin fun (key, value) ->
+    if Term.Iset.mem value.pv_name rigid then
+      failwithf
+        "Predicate value %s already occurs in the declarations of %s"
+        value.pv_name key.rk_source
+  end pred_pairs ;
+  let pred_map =
+    List.map (fun (key, value) -> (key.rk_prefixed, value.pv_name))
+      pred_pairs
+  in
+  let substitute name =
+    match List.assoc_opt name pred_map with
+    | Some name -> name
+    | None -> name
+  in
+  let target_consts, target_kinds =
+    target_local_names ~renamer source_decls
+  in
+  List.iter begin fun (key, _) ->
+    match find_decl_by_id key.rk_prefixed materialized with
+    | Some (CDeclPred (_, _, ty) | CType (_, _, ty)) ->
+        begin match
+            List.intersect (tycons_of_ty ty) target_kinds
+        with
+        | [] -> ()
+        | name :: _ ->
+            failwithf
+              "Predicate key %s mentions the target-local type %s"
+              key.rk_source name
+        end
+    | _ -> failwithf "Cannot classify predicate key %s" key.rk_source
+  end pred_pairs ;
+  List.iter begin fun (key, _) ->
+    match find_decl_by_id key.rk_prefixed materialized with
+    | Some (CTheorem (_, _, stmt, _)) ->
+        let stmt = map_metaterm_constants substitute stmt in
+        begin match
+            List.intersect
+              (metaterm_names stmt)
+              (target_consts @ target_kinds)
+        with
+        | [] -> ()
+        | name :: _ ->
+            failwithf
+              "Axiom key %s mentions the target-local name %s"
+              key.rk_source name
+        end
+    | _ -> failwithf "Cannot classify axiom key %s" key.rk_source
+  end axiom_pairs ;
+  List.iter begin fun (key, value) ->
+    match find_decl_by_id key.rk_prefixed materialized with
+    | Some (CTheorem (_, tys, stmt, _)) ->
+        let stmt = map_metaterm_constants substitute stmt in
+        if not (statements_match
+                   ~key_params:tys ~key_stmt:stmt
+                   ~value_params:value.av_typarams
+                   ~value_stmt:value.av_stmt) then
+          failwithf
+            "Axiom value %s does not have the same statement as key %s"
+            value.av_name key.rk_source
+    | _ -> failwithf "Cannot classify axiom key %s" key.rk_source
+  end axiom_pairs ;
+  List.iter begin fun (key, value) ->
+    match find_decl_by_id key.rk_prefixed materialized with
+    | Some (CDeclPred (_, tps, ty) | CType (_, tps, ty)) ->
+        if not (scheme_matches
+                   ~key_params:tps ~key_ty:ty
+                   ~value_params:value.pv_typarams
+                   ~value_ty:value.pv_ty) then
+          failwithf
+            "Predicate value %s does not have the same type as key %s"
+            value.pv_name key.rk_source
+    | _ -> failwithf "Cannot classify predicate key %s" key.rk_source
+  end pred_pairs ;
+  let axiom_map =
+    List.map (fun (key, value) -> (key.rk_prefixed, value.av_tag))
+      axiom_pairs
+  in
+  let final =
+    List.filter_map begin fun decl ->
+      match decl with
+      | CDeclPred (ids, typarams, ty) ->
+          let ids =
+            List.filter (fun id -> not (List.mem_assoc id pred_map)) ids
+          in
+          if ids = [] then None else Some (CDeclPred (ids, typarams, ty))
+      | CType (ids, typarams, ty) when is_predicate_ty ty ->
+          let ids =
+            List.filter (fun id -> not (List.mem_assoc id pred_map)) ids
+          in
+          if ids = [] then None else Some (CType (ids, typarams, ty))
+      | CTheorem (id, tys, stmt, fin) ->
+          let stmt = map_metaterm_constants substitute stmt in
+          let fin = match List.assoc_opt id axiom_map with
+            | Some fin -> fin
+            | None -> fin
+          in
+          Some (CTheorem (id, tys, stmt, fin))
+      | CDefine (flavor, typarams, idtys, clauses) ->
+          let clauses =
+            List.map (fun cl ->
+                { head = map_metaterm_constants substitute cl.head ;
+                  body = map_metaterm_constants substitute cl.body ;
+                }) clauses
+          in
+          Some (CDefine (flavor, typarams, idtys, clauses))
+      | CType _ | CKind _ -> Some decl
+      | CImport _ | CClose _ | CSuspend _ ->
+          failwith "Unexpected declaration in a reasoning module"
+    end materialized
+  in
+  replay_imported_decls ~record final ;
+  let instance = {
+    Thmod.ins_name = name ;
+    ins_source = source ;
+    ins_prefix = prefix ;
+    ins_decls = final ;
+    ins_tyargs = args ;
+  } in
+  Thmod.add_instance instance ;
+  Output.msg_printf "Imported module %s." name
+
+let show_module ~(load : modname:string -> Thmod.artifact) src =
+  let name, params, prefix, content =
+    match src with
+    | QuoteSource (file, _) ->
+        if Filename.check_suffix file ".thmod" then
+          failwith "Do not include the .thmod extension in Show Module" ;
+        let file = Filepath.normalize ~wrt:!Setup.input file in
+        let artifact = load ~modname:file in
+        let base = Filename.basename file in
+        if artifact.ta_name <> base then
+          failwithf "Module %s does not match the file name %s.thmod"
+            artifact.ta_name base ;
+        (artifact.ta_name, artifact.ta_params, [],
+         artifact.ta_content)
+    | NameSource name ->
+        begin match Thmod.find_instance name with
+        | Some instance ->
+            (instance.Thmod.ins_name, [], instance.Thmod.ins_prefix,
+             instance.Thmod.ins_decls)
+        | None ->
+            begin match Thmod.find_template name with
+            | Some template ->
+                (template.Thmod.tp_name, template.Thmod.tp_params,
+                 template.Thmod.tp_from, template.Thmod.tp_content)
+            | None ->
+                if List.mem name (Thmod.all_params ()) then
+                  failwithf "Module parameter %s is not a module" name ;
+                failwithf "Unknown module %s" name
+            end
+        end
+  in
+  let summary =
+    summary_to_string ~name ~params ~prefix content in
+  Output.msg_printf "%s" summary

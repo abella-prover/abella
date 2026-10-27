@@ -1384,7 +1384,8 @@ async function runGitHubIntent(
     const input = githubRepoInput.value.trim();
     if (!parseGitHubInput(input)) {
       setGitHubError(
-        "Enter a GitHub URL such as https://github.com/owner/repo."
+        "Enter a repository as owner/repo, owner/repo@branch, or a " +
+          "GitHub URL."
       );
       return;
     }
@@ -1444,7 +1445,8 @@ async function applyGitHubToken(
   }
   if (!parseGitHubInput(input)) {
     oauthStatus =
-      `Signed in as ${user.login}. Enter a valid repository URL.`;
+      `Signed in as ${user.login}. Enter a repository such as ` +
+      "owner/repo or a GitHub URL.";
     syncGitHubDialogUi();
     return;
   }
@@ -1719,7 +1721,8 @@ async function handleGitHubSubmit(event: Event): Promise<void> {
   const input = githubRepoInput.value.trim();
   if (!parseGitHubInput(input)) {
     setGitHubError(
-      "Enter a GitHub URL such as https://github.com/owner/repo."
+      "Enter a repository as owner/repo, owner/repo@branch, or a " +
+        "GitHub URL."
     );
     return;
   }

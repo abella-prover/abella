@@ -180,6 +180,58 @@ test("parses GitHub repository inputs", () => {
   assert.equal(parseGitHubInput("https://example.com/acme/demo"), undefined);
 });
 
+test("parses short GitHub references like the workspace status", () => {
+  assert.deepEqual(parseGitHubInput("acme/demo@dev:examples/logic"), {
+    owner: "acme",
+    repo: "demo",
+    branch: "dev",
+    path: "examples/logic",
+  });
+  assert.deepEqual(parseGitHubInput(" acme/demo@feature/x:sub/dir "), {
+    owner: "acme",
+    repo: "demo",
+    branch: "feature/x",
+    path: "sub/dir",
+  });
+  assert.deepEqual(parseGitHubInput("acme/demo@dev:"), {
+    owner: "acme",
+    repo: "demo",
+    branch: "dev",
+    path: undefined,
+  });
+  assert.deepEqual(parseGitHubInput("acme/demo"), {
+    owner: "acme",
+    repo: "demo",
+    path: undefined,
+  });
+  assert.deepEqual(parseGitHubInput("acme/demo:examples/logic"), {
+    owner: "acme",
+    repo: "demo",
+    path: "examples/logic",
+  });
+  assert.deepEqual(parseGitHubInput("acme/demo:"), {
+    owner: "acme",
+    repo: "demo",
+    path: undefined,
+  });
+  assert.deepEqual(parseGitHubInput("acme/demo/examples/logic"), {
+    owner: "acme",
+    repo: "demo",
+    path: "examples/logic",
+  });
+  assert.deepEqual(parseGitHubInput("acme/demo@dev/sub"), {
+    owner: "acme",
+    repo: "demo",
+    branch: "dev/sub",
+    path: undefined,
+  });
+  assert.equal(parseGitHubInput("gist.github.com"), undefined);
+  assert.equal(parseGitHubInput("github.com"), undefined);
+  assert.equal(parseGitHubInput("acme/demo@"), undefined);
+  assert.equal(parseGitHubInput("acme/"), undefined);
+  assert.equal(parseGitHubInput("acme/demo@:sub"), undefined);
+});
+
 test("GitHub errors expose the HTTP status", () => {
   const unauthorized = githubError({ status: 401 }, "reading");
   assert.equal(unauthorized.code, "permission-denied");

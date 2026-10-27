@@ -358,11 +358,100 @@ export function githubError(error: unknown, action: string): WorkspaceError {
   );
 }
 
-export function parseGitHubInput(input: string): GitHubRepoRef | undefined {
-  let raw = input.trim();
-  if (raw === "") return undefined;
-  if (raw.startsWith("github.com/")) raw = `https://${raw}`;
+function safeDecode(part: string): string | undefined {
+  try {
+    return decodeURIComponent(part);
+  } catch {
+    return undefined;
+  }
+}
 
+function splitRef(raw: string): GitHubRepoRef | undefined {
+  const slash = raw.indexOf("/");
+  if (slash <= 0) return undefined;
+  const owner = raw.slice(0, slash);
+  const remainder = raw.slice(slash + 1);
+  // `owner/repo`, `owner/repo@branch`, and `owner/repo[@branch]:path`.
+  // Branch names may contain `/` but not `:`, so the first `:` after `@`
+  // ends the branch; without a `:`, the branch runs to the end of the
+  // input.  The `:` is what separates a subfolder from the repository, so
+  // `owner/repo/dir` keeps meaning a path with the default branch.
+  const at = remainder.indexOf("@");
+  if (at < 0) {
+    const repoEnd = remainder.search(/[/:]/);
+    const repo =
+      repoEnd < 0 ? remainder : remainder.slice(0, repoEnd);
+    if (!GITHUB_NAME.test(owner) || !GITHUB_NAME.test(repo)) {
+      return undefined;
+    }
+    const path =
+      repoEnd < 0 ? undefined : remainder.slice(repoEnd + 1) || undefined;
+    return { owner, repo, path };
+  }
+  const colon = remainder.indexOf(":", at);
+  const refEnd = colon < 0 ? remainder.length : colon;
+  const repo = remainder.slice(0, at);
+  const branch = remainder.slice(at + 1, refEnd);
+  const path = (colon < 0 ? "" : remainder.slice(colon + 1)) || undefined;
+  if (
+    !GITHUB_NAME.test(owner) ||
+    !GITHUB_NAME.test(repo) ||
+    branch === ""
+  ) {
+    return undefined;
+  }
+  return { owner, repo, branch, path };
+}
+
+function parseGitHubUrl(url: URL): GitHubRepoRef | undefined {
+  if (url.hostname !== "github.com" && url.hostname !== "www.github.com") {
+    return undefined;
+  }
+  const parts: string[] = [];
+  for (const part of url.pathname.split("/").filter(Boolean)) {
+    const decoded = safeDecode(part);
+    if (decoded === undefined) return undefined;
+    parts.push(decoded);
+  }
+  if (parts.length < 2) return undefined;
+  const owner = parts[0];
+  const repo = parts[1].replace(/\.git$/i, "");
+  if (!GITHUB_NAME.test(owner) || !GITHUB_NAME.test(repo)) {
+    return undefined;
+  }
+  const rest = parts.slice(2);
+  if (rest[0] === "tree" && rest[1]) {
+    return {
+      owner,
+      repo,
+      branch: rest[1],
+      path: rest.slice(2).join("/") || undefined,
+    };
+  }
+  if (rest[0] === "blob" && rest[1]) {
+    const file = rest.slice(2);
+    return {
+      owner,
+      repo,
+      branch: rest[1],
+      path: file.length > 1 ? file.slice(0, -1).join("/") : undefined,
+    };
+  }
+  if (rest[0] === "tree" || rest[0] === "blob") {
+    return { owner, repo };
+  }
+  if (rest.length > 0 && GITHUB_RESERVED.has(rest[0])) {
+    return undefined;
+  }
+  if (rest.length > 0) {
+    return { owner, repo, path: rest.join("/") };
+  }
+  return { owner, repo };
+}
+
+export function parseGitHubInput(input: string): GitHubRepoRef | undefined {
+  const raw = input.trim();
+  if (raw === "") return undefined;
   if (/^https?:\/\//i.test(raw)) {
     let url: URL;
     try {
@@ -370,68 +459,18 @@ export function parseGitHubInput(input: string): GitHubRepoRef | undefined {
     } catch {
       return undefined;
     }
-    if (url.hostname !== "github.com" && url.hostname !== "www.github.com") {
+    return parseGitHubUrl(url);
+  }
+  if (/^(www\.)?github\.com\//i.test(raw)) {
+    let url: URL;
+    try {
+      url = new URL(`https://${raw}`);
+    } catch {
       return undefined;
     }
-    const parts = url.pathname
-      .split("/")
-      .filter(Boolean)
-      .map((part) => decodeURIComponent(part));
-    if (parts.length < 2) return undefined;
-    const owner = parts[0];
-    const repo = parts[1].replace(/\.git$/i, "");
-    if (!GITHUB_NAME.test(owner) || !GITHUB_NAME.test(repo)) {
-      return undefined;
-    }
-    const rest = parts.slice(2);
-    if (rest[0] === "tree" && rest[1]) {
-      return {
-        owner,
-        repo,
-        branch: rest[1],
-        path: rest.slice(2).join("/") || undefined,
-      };
-    }
-    if (rest[0] === "blob" && rest[1]) {
-      const file = rest.slice(2);
-      return {
-        owner,
-        repo,
-        branch: rest[1],
-        path: file.length > 1 ? file.slice(0, -1).join("/") : undefined,
-      };
-    }
-    if (rest[0] === "tree" || rest[0] === "blob") {
-      return { owner, repo };
-    }
-    if (rest.length > 0 && GITHUB_RESERVED.has(rest[0])) {
-      return undefined;
-    }
-    if (rest.length > 0) {
-      return { owner, repo, path: rest.join("/") };
-    }
-    return { owner, repo };
+    return parseGitHubUrl(url);
   }
-
-  const parts = raw.split("/").filter(Boolean);
-  if (parts.length < 2) return undefined;
-  const owner = parts[0];
-  let repo = parts[1].replace(/\.git$/i, "");
-  let branch: string | undefined;
-  const at = repo.lastIndexOf("@");
-  if (at > 0) {
-    branch = repo.slice(at + 1);
-    repo = repo.slice(0, at);
-  }
-  if (!GITHUB_NAME.test(owner) || !GITHUB_NAME.test(repo)) {
-    return undefined;
-  }
-  return {
-    owner,
-    repo,
-    branch,
-    path: parts.slice(2).join("/") || undefined,
-  };
+  return splitRef(raw);
 }
 
 export function githubWorkspaceName(
@@ -531,8 +570,8 @@ export async function loadGitHubRepository(
   if (!ref) {
     throw new WorkspaceError(
       "not-found",
-      "Enter a GitHub repository URL such as " +
-        "https://github.com/owner/repo."
+      "Enter a GitHub repository such as owner/repo, " +
+        "owner/repo@branch:folder, or https://github.com/owner/repo."
     );
   }
   let api: GitHubApi;

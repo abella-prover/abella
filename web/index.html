@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Abella Web</title>
     <link rel="icon" href="/images/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="abella_web.css?v=20261027-1">
+    <link rel="stylesheet" href="abella_web.css?v=20261027-2">
   </head>
   <body>
     <header class="topbar">
@@ -296,8 +296,13 @@
             inputmode="url"
             autocomplete="off"
             spellcheck="false"
-            placeholder="https://github.com/owner/repo"
+            placeholder="owner/repo@branch:folder"
           >
+          <p class="setting-note">
+            Use <code>owner/repo</code>, add
+            <code>@branch:folder</code> (branch optional) to narrow the
+            load, or paste any GitHub URL.
+          </p>
         </div>
         <div id="github-oauth-section">
           <button
@@ -386,6 +391,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="abella_web.js?v=20261027-1"></script>
+    <script type="module" src="abella_web.js?v=20261027-2"></script>
   </body>
 </html>

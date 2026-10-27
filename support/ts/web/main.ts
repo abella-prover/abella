@@ -645,7 +645,9 @@ function updateRunControls(status: SessionStatus): void {
     ? "Pause after the current command"
     : "Check the rest of the file";
   runToggleButton.setAttribute("aria-label", label);
-  runToggleButton.title = label;
+  runToggleButton.title = showPause
+    ? label
+    : `${label} (Ctrl+Shift+])`;
   resetButton.disabled = false;
 }
 
@@ -2196,6 +2198,17 @@ function jumpToTip(): void {
   editor.focus();
 }
 
+function continueRun(): void {
+  if (runBusy) return;
+  void session.processAll();
+}
+
+function resetSession(): void {
+  clearOutput();
+  editor.clearDiagnostics(project.root);
+  void session.reset();
+}
+
 async function main(): Promise<void> {
   editor = new EditorManager(
     byId<HTMLDivElement>("editor"),
@@ -2218,7 +2231,6 @@ async function main(): Promise<void> {
       process: () => void processToCursor(),
       stepForward: () => void stepForward(),
       stepBackward: () => void stepBackward(),
-      jumpToTip: () => jumpToTip(),
       help: openHelp,
     }
   );
@@ -2266,6 +2278,45 @@ async function main(): Promise<void> {
   });
   document.addEventListener("keydown", (event) => {
     if (
+      event.defaultPrevented ||
+      event.repeat ||
+      !event.ctrlKey ||
+      event.metaKey ||
+      event.altKey
+    ) {
+      return;
+    }
+    if (document.querySelector("dialog[open]")) return;
+    if (!event.shiftKey) {
+      if (event.key !== "." && event.code !== "Period") return;
+      event.preventDefault();
+      jumpToTip();
+      return;
+    }
+    const right =
+      event.code === "BracketRight" ||
+      event.key === "}" ||
+      event.key === "]";
+    const left =
+      event.code === "BracketLeft" ||
+      event.key === "{" ||
+      event.key === "[";
+    if (!right && !left) return;
+    if (event.target instanceof HTMLElement) {
+      if (event.target.closest("input, textarea, select")) return;
+      if (
+        event.target.isContentEditable &&
+        !event.target.closest(".cm-editor")
+      ) {
+        return;
+      }
+    }
+    event.preventDefault();
+    if (right) continueRun();
+    else resetSession();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (
       (event.ctrlKey || event.metaKey) &&
       event.key.toLowerCase() === "b" &&
       !(event.target as HTMLElement).closest("input, select, textarea")
@@ -2300,13 +2351,9 @@ async function main(): Promise<void> {
       session.requestPause();
       return;
     }
-    void session.processAll();
+    continueRun();
   });
-  resetButton.addEventListener("click", () => {
-    clearOutput();
-    editor.clearDiagnostics(project.root);
-    void session.reset();
-  });
+  resetButton.addEventListener("click", resetSession);
   addFileButton.addEventListener("click", addFile);
   renameFileButton.addEventListener("click", renameFile);
   deleteFileButton.addEventListener("click", deleteFile);

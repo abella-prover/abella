@@ -144,7 +144,7 @@
                 class="icon-button"
                 type="button"
                 aria-label="Reset the prover and discard all checked progress"
-                title="Reset the prover and discard all checked progress"
+                title="Reset the prover (Ctrl+Shift+[)"
               >
                 <svg
                   class="run-icon"
@@ -264,12 +264,24 @@
             <dd>Check to cursor</dd>
           </div>
           <div>
-            <dt><kbd>Ctrl</kbd>+<kbd>]</kbd> / <kbd>[</kbd></dt>
-            <dd>Next / previous command</dd>
+            <dt><kbd>Ctrl</kbd>+<kbd>]</kbd></dt>
+            <dd>Check next command</dd>
+          </div>
+          <div>
+            <dt><kbd>Ctrl</kbd>+<kbd>[</kbd></dt>
+            <dd>Undo previous command</dd>
+          </div>
+          <div>
+            <dt><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>]</kbd></dt>
+            <dd>Continue checking to the end</dd>
+          </div>
+          <div>
+            <dt><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>[</kbd></dt>
+            <dd>Reset the prover</dd>
           </div>
           <div>
             <dt><kbd>Ctrl</kbd>+<kbd>.</kbd></dt>
-            <dd>Jump to the checked tip</dd>
+            <dd>Focus and scroll to the checked tip</dd>
           </div>
           <div>
             <dt><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>B</kbd></dt>
@@ -282,7 +294,8 @@
         </dl>
         <p class="setting-note">
           On macOS, use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd> for the
-          editor and sidebar shortcuts.
+          <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> shortcuts. The bracket and dot
+          shortcuts use <kbd>Ctrl</kbd> on every platform.
         </p>
       </form>
     </dialog>

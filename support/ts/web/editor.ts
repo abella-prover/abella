@@ -70,19 +70,20 @@ const processedPartialLine = Decoration.line({
   class: "cm-processed-partial-line",
 });
 
-function processedDecorations(doc: Text, tip: number): DecorationSet {
+export function processedDecorations(
+  doc: Text,
+  tip: number
+): DecorationSet {
   const clamped = Math.max(0, Math.min(tip, doc.length));
   if (clamped === 0) return Decoration.none;
   const endLine = doc.lineAt(clamped);
   const decorations: Range<Decoration>[] = [];
-  for (let number = 1; number <= endLine.number; number++) {
-    const line = doc.line(number);
-    if (line.to <= clamped) {
-      decorations.push(processedLine.range(line.from));
-    } else if (line.from < clamped) {
-      decorations.push(processedPartialLine.range(line.from));
-      decorations.push(processedMark.range(line.from, clamped));
-    }
+  for (let number = 1; number < endLine.number; number++) {
+    decorations.push(processedLine.range(doc.line(number).from));
+  }
+  if (endLine.from < clamped) {
+    decorations.push(processedPartialLine.range(endLine.from));
+    decorations.push(processedMark.range(endLine.from, clamped));
   }
   return Decoration.set(decorations);
 }

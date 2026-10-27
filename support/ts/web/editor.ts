@@ -62,9 +62,6 @@ const runLockedExtensions: Extension[] = [
   EditorState.readOnly.compute([runLockedField], (state) =>
     state.field(runLockedField)
   ),
-  EditorView.editable.compute([runLockedField], (state) =>
-    !state.field(runLockedField)
-  ),
 ];
 
 const processedMark = Decoration.mark({ class: "cm-processed" });
@@ -416,15 +413,20 @@ export class EditorManager {
     if (this.runLocked === locked) return;
     this.runLocked = locked;
     for (const [path, state] of this.states) {
-      const base = path === this.activePath ? this.view.state : state;
-      const next = base.update({
+      if (path === this.activePath) continue;
+      this.states.set(
+        path,
+        state.update({
+          effects: setRunLockedEffect.of(locked),
+        }).state
+      );
+    }
+    if (this.activePath) {
+      this.view.dispatch({
         effects: setRunLockedEffect.of(locked),
-      }).state;
-      this.states.set(path, next);
-      if (path === this.activePath) {
-        this.view.setState(next);
-        this.view.requestMeasure();
-      }
+      });
+      this.states.set(this.activePath, this.view.state);
+      this.view.requestMeasure();
     }
   }
 

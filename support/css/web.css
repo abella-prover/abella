@@ -258,15 +258,16 @@ summary:focus-visible,
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
+  min-width: 0;
   margin-left: auto;
 }
 
 .workspace-control {
   display: flex;
+  flex: 0 1 auto;
   align-items: center;
   gap: 0.35rem;
   min-width: 0;
-  max-width: 18rem;
   padding: 0.2rem 0.25rem 0.2rem 0.55rem;
   border: 1px solid var(--border);
   border-radius: 7px;
@@ -274,6 +275,8 @@ summary:focus-visible,
 }
 
 .workspace-name {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   color: var(--muted);
   font-size: 0.8rem;
@@ -288,6 +291,7 @@ summary:focus-visible,
 
 .menus {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 0.5rem;
 }

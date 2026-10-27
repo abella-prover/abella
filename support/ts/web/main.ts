@@ -2287,8 +2287,12 @@ async function main(): Promise<void> {
       }
     }
     event.preventDefault();
-    if (right) continueRun();
-    else resetSession();
+    if (right) {
+      continueRun();
+      editor.focus();
+    } else {
+      resetSession();
+    }
   });
   document.addEventListener("keydown", (event) => {
     if (

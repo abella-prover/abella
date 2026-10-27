@@ -3,7 +3,12 @@
 // See LICENSE for licensing details.
 
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
-import { classify, type Project, type ProjectTextFile } from "./project";
+import {
+  classify,
+  normalizeNewlines,
+  type Project,
+  type ProjectTextFile,
+} from "./project";
 
 interface Manifest {
   version: 1;
@@ -56,7 +61,10 @@ export async function importProject(file: File): Promise<Project> {
   for (const path of names) {
     const data = entries[path];
     if (!data) continue;
-    files.set(path, { text: strFromU8(data), kind: classify(path) });
+    files.set(path, {
+      text: normalizeNewlines(strFromU8(data)),
+      kind: classify(path),
+    });
   }
   if (!files.has(manifest.root)) {
     throw new Error("The root file is missing from the archive.");

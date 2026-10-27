@@ -8,6 +8,7 @@
 
 import {
   classify,
+  normalizeNewlines,
   sortPaths,
   type Project,
   type ProjectTextFile,
@@ -280,7 +281,10 @@ async function readDirectory(
       state.skipped++;
       continue;
     }
-    state.files.set(path, { text: stripBom(text), kind: classify(path) });
+    state.files.set(path, {
+      text: normalizeNewlines(stripBom(text)),
+      kind: classify(path),
+    });
     state.handles.set(path, entry);
     state.lastModified.set(path, file.lastModified);
   }

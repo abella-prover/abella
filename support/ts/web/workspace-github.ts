@@ -5,7 +5,12 @@
 // GitHub workspace backend.  Octokit is loaded dynamically so it never
 // enters the initial Abella Web bundle.
 
-import { classify, type Project, type ProjectTextFile } from "./project";
+import {
+  classify,
+  normalizeNewlines,
+  type Project,
+  type ProjectTextFile,
+} from "./project";
 import {
   MAX_FILE_BYTES,
   MAX_FILES,
@@ -621,7 +626,7 @@ export async function loadGitHubRepository(
             )
           : await api.getBlob(ref.owner, ref.repo, item.sha);
         files.set(item.path, {
-          text: stripBom(text),
+          text: normalizeNewlines(stripBom(text)),
           kind: classify(item.path),
         });
       } catch (error) {

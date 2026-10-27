@@ -24,6 +24,14 @@ export function classify(path: string): FileKind {
   return /\.(thm|sig|mod)$/i.test(path) ? "abella" : "text";
 }
 
+/**
+ * CodeMirror only stores `\n` line breaks, so project text must use the
+ * same convention or command offsets drift from editor offsets.
+ */
+export function normalizeNewlines(text: string): string {
+  return text.replace(/\r\n?/g, "\n");
+}
+
 export function sortPaths(paths: string[]): string[] {
   return [...paths].sort((a, b) => a.localeCompare(b));
 }
@@ -40,7 +48,7 @@ export function rootText(project: Project): string {
 
 export function setFileText(project: Project, path: string, text: string): void {
   const file = project.files.get(path);
-  if (file) file.text = text;
+  if (file) file.text = normalizeNewlines(text);
 }
 
 export function scratchProject(): Project {
@@ -70,7 +78,10 @@ export function projectFromBundle(
   for (const path of paths) {
     const text = data.files[path];
     if (typeof text === "string") {
-      files.set(path, { text, kind: classify(path) });
+      files.set(path, {
+        text: normalizeNewlines(text),
+        kind: classify(path),
+      });
     }
   }
   if (!files.has(example.root)) return undefined;
@@ -137,7 +148,10 @@ export function loadProjectRecord(): LoadedProject | undefined {
     const files = new Map<string, ProjectTextFile>();
     for (const [path, text] of Object.entries(data.files)) {
       if (typeof text === "string") {
-        files.set(path, { text, kind: classify(path) });
+        files.set(path, {
+          text: normalizeNewlines(text),
+          kind: classify(path),
+        });
       }
     }
     if (!files.has(data.root)) return undefined;

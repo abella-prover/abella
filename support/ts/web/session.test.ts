@@ -7,7 +7,12 @@ import assert from "node:assert/strict";
 import { ChangeSet } from "@codemirror/state";
 import type { Command } from "./commands";
 import type { Driver } from "./driver";
-import { classify, type Project, type ProjectTextFile } from "./project";
+import {
+  classify,
+  projectFromBundle,
+  type Project,
+  type ProjectTextFile,
+} from "./project";
 import {
   Session,
   type OutputEntry,
@@ -301,6 +306,24 @@ test("steps forward and back at the checked tip", async () => {
   assert.equal(session.stepsCount, 0);
   assert.deepEqual(captured.cursors, ['Specification "empty".'.length, 0]);
   assert.equal(session.currentTip, 0);
+});
+
+test("checked tips use editor offsets for CRLF sources", async () => {
+  const project = projectFromBundle(
+    {
+      examples: [{ id: "crlf", root: "main.thm" }],
+      files: {
+        "main.thm": "Kind nat type.\r\n\r\nType z nat.\r\n",
+      },
+    },
+    "crlf"
+  );
+  assert.ok(project);
+  const { session } = setup(project);
+  await session.init();
+
+  await session.stepForward(0);
+  assert.equal(session.currentTip, "Kind nat type.".length);
 });
 
 test("stepping back leaves the tip at the previous command end", async () => {

@@ -4,7 +4,12 @@
 
 // Read-only workspace built from <input type="file" webkitdirectory>.
 
-import { classify, type Project, type ProjectTextFile } from "./project";
+import {
+  classify,
+  normalizeNewlines,
+  type Project,
+  type ProjectTextFile,
+} from "./project";
 import {
   MAX_FILES,
   MAX_FILE_BYTES,
@@ -75,7 +80,7 @@ export async function openMemoryFolder(
       continue;
     }
     try {
-      const text = stripBom(await file.text());
+      const text = normalizeNewlines(stripBom(await file.text()));
       filesByName.set(path, { text, kind: classify(path) });
     } catch {
       skipped++;

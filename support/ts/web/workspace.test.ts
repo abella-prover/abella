@@ -220,6 +220,19 @@ test("memory folder strips its root and skips ignored paths", async () => {
   assert.equal(opened.workspace.capabilities.structural, false);
 });
 
+test("memory folder normalizes line endings", async () => {
+  const opened = await openMemoryFolder([
+    folderFile(
+      "project/main.thm",
+      "Kind nat type.\r\n\r\nType z nat.\r\n"
+    ),
+  ]);
+  assert.equal(
+    opened.project.files.get("main.thm")?.text,
+    "Kind nat type.\n\nType z nat.\n"
+  );
+});
+
 test("memory folder requires a theorem", async () => {
   await assert.rejects(
     () =>

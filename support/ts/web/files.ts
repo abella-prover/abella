@@ -39,6 +39,7 @@ export interface TreeEdit {
 export interface TreeOptions {
   entries: WorkspaceEntry[];
   active?: string;
+  entry?: string;
   selected?: string;
   expanded: ReadonlySet<string>;
   dirty: ReadonlySet<string>;
@@ -73,6 +74,24 @@ function sortNodes(nodes: TreeNode[]): void {
     return byName !== 0 ? byName : a.path.localeCompare(b.path);
   });
   for (const node of nodes) sortNodes(node.children);
+}
+
+function compactDirectories(nodes: TreeNode[]): void {
+  for (const node of nodes) {
+    while (
+      node.kind === "directory" &&
+      node.children.length === 1 &&
+      node.children[0].kind === "directory"
+    ) {
+      const child = node.children[0];
+      node.path = child.path;
+      node.name = `${node.name}/${child.name}`;
+      node.openable = child.openable;
+      node.reason = child.reason;
+      node.children = child.children;
+    }
+    compactDirectories(node.children);
+  }
 }
 
 export function buildTree(entries: WorkspaceEntry[]): TreeNode[] {
@@ -127,6 +146,7 @@ export function buildTree(entries: WorkspaceEntry[]): TreeNode[] {
     }
   }
   sortNodes(roots);
+  compactDirectories(roots);
   return roots;
 }
 
@@ -295,6 +315,16 @@ function renderNode(
     label.className = "tree-label";
     label.textContent = node.name;
     row.append(label);
+  }
+
+  if (node.kind === "file" && node.path === options.entry && !editing) {
+    const entry = document.createElement("span");
+    entry.className = "tree-entry";
+    entry.setAttribute("role", "img");
+    entry.setAttribute("aria-label", "Prover file");
+    entry.title = "Prover file";
+    entry.textContent = "*";
+    row.append(entry);
   }
 
   if (

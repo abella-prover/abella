@@ -558,6 +558,7 @@ body.resizing-row {
   padding-right: 0.35rem;
   padding-bottom: 0.24rem;
   color: var(--ink);
+  cursor: pointer;
   font-family: var(--mono);
   font-size: 0.8rem;
   text-align: left;
@@ -575,6 +576,7 @@ body.resizing-row {
 
   &.inert {
     color: var(--muted);
+    cursor: default;
     opacity: 0.6;
   }
 
@@ -593,7 +595,16 @@ body.resizing-row {
 .tree-icon {
   flex: 0 0 auto;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 1em;
+  line-height: 1;
+}
+
+.tree-entry {
+  flex: 0 0 auto;
+  color: var(--amber);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .tree-label {
@@ -759,6 +770,10 @@ body.resizing-row {
 .tab-label {
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.tab.entry .tab-label {
+  font-weight: 700;
 }
 
 .tab-dirty {

@@ -909,6 +909,22 @@ function workspaceLabel(session: WorkspaceSession): string {
   return `${session.kind}: ${session.name}`;
 }
 
+function projectPanelTitle(session: WorkspaceSession): string {
+  if (session.kind !== "github") return session.name;
+  const name = session.name;
+  const colon = name.indexOf(":");
+  if (colon >= 0) {
+    const path = name.slice(colon + 1);
+    const parts = path.split("/").filter(Boolean);
+    if (parts.length > 0) return parts[parts.length - 1];
+  }
+  const repo = name.slice(0, colon >= 0 ? colon : name.length);
+  const at = repo.indexOf("@");
+  const base = at >= 0 ? repo.slice(0, at) : repo;
+  const slash = base.lastIndexOf("/");
+  return slash >= 0 ? base.slice(slash + 1) : base;
+}
+
 function updateWorkspaceUi(): void {
   const capabilities = workspaceSession.capabilities;
   const explicitSave =
@@ -966,7 +982,7 @@ function updateWorkspaceUi(): void {
   reconnectFolderButton.title = lastDirectoryHandle
     ? "Reconnect to the saved folder"
     : "No saved folder handle; use Open folder";
-  sidebarTitle.textContent = workspaceSession.name;
+  sidebarTitle.textContent = projectPanelTitle(workspaceSession);
   sidebarTitle.title = workspaceLabel(workspaceSession);
 }
 
@@ -1979,6 +1995,7 @@ function refreshFiles(
     {
       entries,
       active: project.active,
+      entry: project.entry,
       selected: selectedPath ?? project.active,
       expanded: expandedDirs,
       dirty,
@@ -1998,7 +2015,9 @@ function refreshFiles(
   addFileButton.title = structural
     ? "New file"
     : "File actions are not available for this workspace.";
-  collapseAllButton.disabled = entries.length === 0;
+  const hasDirectories = allDirectories(entries).size > 0;
+  collapseAllButton.hidden = !hasDirectories;
+  collapseAllButton.disabled = !hasDirectories;
   updateEntryLabel();
   renderTabs();
   updateRunControls(statusBadge.dataset.status as SessionStatus);
@@ -2070,6 +2089,7 @@ function renderTabs(focusPath?: string): void {
     tab.className = "tab";
     const active = path === project.active;
     tab.classList.toggle("active", active);
+    tab.classList.toggle("entry", path === project.entry);
     tab.dataset.path = path;
 
     const button = document.createElement("button");

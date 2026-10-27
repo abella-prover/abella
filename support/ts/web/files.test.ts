@@ -33,12 +33,22 @@ test("tree sorts directories before files at every level", () => {
   );
 });
 
-test("derives directories from file paths", () => {
+test("derives directories from file paths and compacts chains", () => {
   const tree = buildTree([entry("a/b/c.thm")]);
-  assert.equal(tree[0].path, "a");
+  assert.equal(tree[0].path, "a/b");
+  assert.equal(tree[0].name, "a/b");
   assert.equal(tree[0].kind, "directory");
+  assert.equal(tree[0].children[0].path, "a/b/c.thm");
+});
+
+test("does not compact a folder that also contains files", () => {
+  const tree = buildTree([
+    entry("a/README.md"),
+    entry("a/b/c.thm"),
+  ]);
+  assert.equal(tree[0].path, "a");
   assert.equal(tree[0].children[0].path, "a/b");
-  assert.equal(tree[0].children[0].children[0].path, "a/b/c.thm");
+  assert.equal(tree[0].children[0].name, "b");
 });
 
 test("keeps explicit empty directories", () => {

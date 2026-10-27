@@ -41,14 +41,12 @@ chunks. Generated assets are gitignored.
 Cloudflare proxies the public apex, so SSH publishing cannot target the
 proxied `abella-prover.org` address. Keep a DNS-only
 `origin.abella-prover.org` A record pointing at the DreamHost Apache
-origin; `make publish-web` connects there while still using the
-`abellaweb@abella-prover.org` SSH identity and host-key entry. Override
-the destination with `WEB_ORIGIN=...` if the origin record has another
-name.
+origin; `make publish-web` and `make publish-doc` connect there as
+`abellaweb`.
 
-The origin SSH host key must be current for the `abella-prover.org`
-known-hosts entry. Verify it with the hosting provider before accepting
-a changed key.
+The origin SSH host key must be current for the
+`origin.abella-prover.org` known-hosts entry. Verify it with the hosting
+provider before accepting a changed key.
 
 Cloudflare caches generated JavaScript, CSS, and wasm launchers by URL
 for 30 days. After changing frontend or wasm sources, run
@@ -116,8 +114,11 @@ is torn down as soon as any of the three exits. It needs tmux 3.3 or
 newer, a completed `npm ci` in `support/oauth-worker`, and `web/` built
 against the local Worker.
 
-The third pane is for dune, tests, and rebuilds. Use
-`make web-dev-build` rather than `make web`: only the dev build
+Running it again attaches to the existing session instead of starting a
+second one, so it doubles as the way back into a detached session.
+
+The shell pane, the widest one, is for dune, tests, and rebuilds. Use
+`make web-dev` rather than `make web`: only the dev build
 compiles the loopback Worker URL, so a production build silently
 disables OAuth and falls back to the PAT path.
 

@@ -47,6 +47,16 @@ teardown() {
   tmux kill-session -t "$1" 2>/dev/null || true
 }
 
+# Inside tmux, switch the current client rather than nesting a new one.
+enter_session() {
+  if [ -n "${TMUX:-}" ]; then
+    tmux switch-client -t "=$1:"
+  else
+    tmux attach -t "=$1:"
+    echo "web-dev-local: session '$1' ended"
+  fi
+}
+
 if [ "${1:-}" = "--teardown" ]; then
   [ -n "${2:-}" ] || exit 2
   teardown "$2"
@@ -67,7 +77,13 @@ if [ "$major" -lt 3 ] || { [ "$major" -eq 3 ] && [ "$minor" -lt 3 ]; }; then
 fi
 
 if tmux has-session -t "$session" 2>/dev/null; then
-  die "session '$session' exists; attach with: tmux attach -t $session"
+  attached=$(tmux display-message -p -t "=$session:" '#{session_attached}')
+  if [ "${attached:-0}" -gt 0 ]; then
+    die "session '$session' is already attached; use: tmux attach -t $session"
+  fi
+  echo "web-dev-local: attaching to detached session '$session'"
+  enter_session "$session"
+  exit 0
 fi
 
 [ -f "$root/support/oauth-worker/.dev.vars" ] ||
@@ -75,7 +91,7 @@ fi
 [ -x "$root/support/oauth-worker/node_modules/.bin/wrangler" ] ||
   die "run: (cd support/oauth-worker && npm ci)"
 [ -f "$root/web/abella_web.js" ] ||
-  die "web/ is not built; run: make web-dev-build"
+  die "web/ is not built; run: make web-dev"
 [ -f "$root/web/examples/bundle.json" ] ||
   die "examples bundle missing; run: make web-bundle"
 free_port "$port" || die "port $port is already in use"
@@ -84,34 +100,29 @@ free_port "$oauth_port" || die "port $oauth_port is already in use"
 if [ -f "$root/web/abella_web.js" ] &&
    ! grep -q '127\.0\.0\.1:8787' "$root/web/abella_web.js"; then
   echo "web-dev-local: warning: web/abella_web.js is a production build," >&2
-  echo "  so OAuth falls back to PAT.  Run: make web-dev-build" >&2
+  echo "  so OAuth falls back to PAT.  Run: make web-dev" >&2
 fi
 
-tmux new-session -d -s "$session" -n dev \
-  -c "$root/support/oauth-worker" 'npm run dev'
-tmux split-window -h -t "$session" -c "$root/web" \
+tmux new-session -d -s "$session" -n dev -c "$root" "${SHELL:-sh}"
+tmux split-window -h -t "$session":0.0 -c "$root/support/oauth-worker" \
+  'npm run dev'
+tmux split-window -v -t "$session":0.1 -c "$root/web" \
   "python3 -m http.server $port --bind 127.0.0.1"
-tmux split-window -v -t "$session":0.1 -c "$root" "${SHELL:-sh}"
 tmux select-layout -t "$session" main-vertical
 
 tmux set-option -wt "$session" remain-on-exit on
 tmux set-option -wt "$session" pane-border-status top
-tmux select-pane -t "$session":0.0 -T worker
-tmux select-pane -t "$session":0.1 -T server
-tmux select-pane -t "$session":0.2 -T shell
+tmux select-pane -t "$session":0.0 -T shell
+tmux select-pane -t "$session":0.1 -T worker
+tmux select-pane -t "$session":0.2 -T server
 
 # A dead pane only closes itself, so the hook tears down the session.
 tmux set-hook -t "$session" pane-died \
   "run-shell -b $(quote "$self --teardown $session")"
-tmux select-pane -t "$session":0.2
+tmux select-pane -t "$session":0.0
 
 # The dev OAuth App only allows the loopback origin.
 tmux set-option -t "$session" status-right " http://127.0.0.1:$port/ "
 
 echo "web-dev-local: open http://127.0.0.1:$port/ (not localhost)"
-if [ -n "${TMUX:-}" ]; then
-  tmux switch-client -t "$session"
-else
-  tmux attach -t "$session"
-  echo "web-dev-local: session '$session' ended"
-fi
+enter_session "$session"

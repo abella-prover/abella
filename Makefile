@@ -16,10 +16,6 @@ all-release: # support/.stamp
 
 ENGINE ?= wasm
 
-# Cloudflare proxies the public apex; SSH publishing must use a DNS-only
-# origin record.  Override with WEB_ORIGIN=173.236.255.153 if needed.
-WEB_ORIGIN ?= origin.abella-prover.org
-
 .PHONY: web
 web:
 	mkdir -p web/examples web/abella_js
@@ -58,8 +54,8 @@ web-dev-local:
 
 # Only the dev build compiles the loopback OAuth Worker URL, and `make
 # web` bakes in the production one, so the order matters.
-.PHONY: web-dev-build
-web-dev-build: web
+.PHONY: web-dev
+web-dev: web
 	( cd support && npm run web:build:dev )
 
 WEB_VERSION_FILE := support/ts/web/version.ts
@@ -91,10 +87,10 @@ web-version-check:
 publish-web:
 	$(MAKE) --no-print-directory web-version-check
 	$(MAKE) --no-print-directory web
-	rsync -aviz -e "ssh -o HostName=$(WEB_ORIGIN)" \
+	rsync -aviz \
 	  --exclude '.test/' \
 	  --exclude '*.map' \
-	  web/ abellaweb@abella-prover.org:abella-prover.org/web/
+	  web/ abellaweb@origin.abella-prover.org:abella-prover.org/web/
 
 .PHONY: oauth-worker-check
 oauth-worker-check:

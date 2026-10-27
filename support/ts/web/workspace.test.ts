@@ -93,6 +93,8 @@ test("explicit-save sessions track and clear dirty files", async () => {
   const session = new WorkspaceSession(project, writableWorkspace(project), {
     persist: () => undefined,
   });
+  project.files.get("main.thm")!.text += "% edit\n";
+  project.files.get("notes.md")!.text += "edit\n";
   session.markDirty("main.thm");
   session.markDirty("notes.md");
   assert.deepEqual(session.dirtyPaths().sort(), ["main.thm", "notes.md"]);
@@ -132,6 +134,7 @@ test("save-all reports success, cancellation, and failures", async () => {
     },
   };
   const session = new WorkspaceSession(project, workspace);
+  project.files.get("main.thm")!.text += "% edit\n";
   session.markDirty("main.thm");
   session.markDirty("cancel.thm");
   session.markDirty("fail.thm");
@@ -179,6 +182,7 @@ test("session commit clears dirty state after success", async () => {
   const session = new WorkspaceSession(project, workspace, {
     persist: (_project, value) => persisted.push(value.name),
   });
+  project.files.get("main.thm")!.text += "% edit\n";
   session.markDirty("main.thm");
   assert.equal(session.hasDirty(), true);
   const result = await session.commit("message");
@@ -318,4 +322,28 @@ test("memory entries derive from the openable project files", async () => {
       ["notes.md", "file", true],
     ]
   );
+});
+
+test("dirty state clears when edits return to the saved text", () => {
+  const project = projectFixture();
+  const session = new WorkspaceSession(project, writableWorkspace(project));
+  const original = project.files.get("main.thm")!.text;
+  project.files.get("main.thm")!.text = `${original}% edit\n`;
+  session.markDirty("main.thm");
+  assert.equal(session.isDirty("main.thm"), true);
+  project.files.get("main.thm")!.text = original;
+  session.markDirty("main.thm");
+  assert.equal(session.isDirty("main.thm"), false);
+  assert.equal(session.savedText("main.thm"), original);
+  session.close();
+});
+
+test("new saved files become the clean baseline", async () => {
+  const project = projectFixture();
+  const session = new WorkspaceSession(project, virtualWorkspace(project));
+  await session.loadEntries();
+  await session.createFile("new.thm", "Theorem t : True.\n");
+  assert.equal(session.isDirty("new.thm"), false);
+  assert.equal(session.savedText("new.thm"), "Theorem t : True.\n");
+  session.close();
 });

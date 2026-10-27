@@ -180,6 +180,7 @@ export class WorkspaceSession {
   readonly project: Project;
   readonly workspace: Workspace;
   private dirty = new Set<string>();
+  private saved = new Map<string, string>();
   private persistTimer?: ReturnType<typeof setTimeout>;
   private persist?: (project: Project, workspace: Workspace) => void;
 
@@ -191,6 +192,9 @@ export class WorkspaceSession {
     this.project = project;
     this.workspace = workspace;
     this.persist = options.persist;
+    for (const [path, file] of project.files) {
+      this.saved.set(path, file.text);
+    }
   }
 
   get kind(): WorkspaceKind {
@@ -210,12 +214,28 @@ export class WorkspaceSession {
   }
 
   markDirty(path: string): void {
-    if (!this.capabilities.autoSave) this.dirty.add(path);
+    if (!this.capabilities.autoSave) {
+      const current = this.project.files.get(path)?.text;
+      if (current !== undefined && this.saved.get(path) === current) {
+        this.dirty.delete(path);
+      } else {
+        this.dirty.add(path);
+      }
+    }
     this.schedulePersist();
   }
 
   isDirty(path: string): boolean {
     return this.dirty.has(path);
+  }
+
+  savedText(path: string): string | undefined {
+    return this.saved.get(path);
+  }
+
+  private markSaved(path: string, text: string): void {
+    this.saved.set(path, text);
+    this.dirty.delete(path);
   }
 
   hasDirty(): boolean {
@@ -287,8 +307,11 @@ export class WorkspaceSession {
     }
     await this.workspace.write(path, text);
     this.updateEntriesAfterCreate(path);
-    if (this.capabilities.commit) this.markDirty(path);
-    else this.clearDirty(path);
+    if (this.capabilities.commit) {
+      this.dirty.add(path);
+    } else {
+      this.markSaved(path, text);
+    }
     this.persistNow();
   }
 
@@ -299,10 +322,16 @@ export class WorkspaceSession {
         "Deleting files is not supported by this workspace."
       );
     }
+    const wasSaved = this.saved.has(path);
     await this.workspace.remove(path);
     this.updateEntriesAfterRemove(path);
-    if (this.capabilities.commit) this.markDirty(path);
-    else this.clearDirty(path);
+    if (this.capabilities.commit) {
+      if (wasSaved) this.dirty.add(path);
+      else this.dirty.delete(path);
+    } else {
+      this.saved.delete(path);
+      this.dirty.delete(path);
+    }
     this.persistNow();
   }
 
@@ -326,10 +355,10 @@ export class WorkspaceSession {
         this.updateEntriesAfterCreate(rename.to);
         if (this.capabilities.commit) {
           this.dirty.delete(rename.from);
-          this.markDirty(rename.to);
+          this.dirty.add(rename.to);
         } else {
-          this.clearDirty(rename.from);
-          this.clearDirty(rename.to);
+          this.saved.delete(rename.from);
+          this.markSaved(rename.to, rename.text);
         }
       } catch (error) {
         failures.push(workspaceMessage(error));
@@ -343,6 +372,18 @@ export class WorkspaceSession {
           failures.join("; ")
       );
     }
+  }
+
+  async applyChangedFiles(
+    changed: ReadonlyMap<string, string>
+  ): Promise<void> {
+    if (changed.size === 0) return;
+    for (const [path, text] of changed) {
+      await this.workspace.write(path, text);
+      if (this.capabilities.commit) this.dirty.add(path);
+      else this.markSaved(path, text);
+    }
+    this.persistNow();
   }
 
   schedulePersist(): void {
@@ -368,7 +409,7 @@ export class WorkspaceSession {
       }
       throw error;
     }
-    this.dirty.delete(path);
+    this.markSaved(path, text);
     this.persistNow();
     return "saved";
   }
@@ -383,7 +424,7 @@ export class WorkspaceSession {
       if (text === undefined) continue;
       try {
         await this.workspace.write(path, text);
-        this.dirty.delete(path);
+        this.markSaved(path, text);
         report.saved++;
       } catch (error) {
         if (error instanceof WorkspaceError && error.code === "cancelled") {
@@ -414,6 +455,9 @@ export class WorkspaceSession {
     const result = await this.workspace.commit(message);
     if (result.status === "committed") {
       this.dirty.clear();
+      this.saved = new Map(
+        [...this.project.files].map(([path, file]) => [path, file.text])
+      );
       this.persistNow();
     }
     return result;

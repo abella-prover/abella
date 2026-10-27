@@ -2,6 +2,7 @@
 //                     en Informatique et en Automatique)
 // See LICENSE for licensing details.
 
+import { ChangeSet } from "@codemirror/state";
 import { downloadProject, importProject } from "./archive";
 import { WorkerDriver } from "./driver";
 import { EditorManager } from "./editor";
@@ -2366,6 +2367,31 @@ function renameDestinationFree(renames: { from: string; to: string }[]):
   return undefined;
 }
 
+function revertFile(path: string): void {
+  if (runBusy) return;
+  const saved = workspaceSession.savedText(path);
+  const file = project.files.get(path);
+  if (saved === undefined || !file) return;
+  const previous = file.text;
+  if (previous !== saved) {
+    file.text = saved;
+    editor.replaceText(path, saved);
+    editor.clearDiagnostics(path);
+    void session.notifyEdit(
+      path,
+      ChangeSet.of(
+        { from: 0, to: previous.length, insert: saved },
+        previous.length
+      )
+    );
+  }
+  workspaceSession.clearDirty(path);
+  workspaceSession.persistNow();
+  refreshRowDirty(path);
+  renderTabs();
+  updateWorkspaceUi();
+}
+
 async function commitRename(from: string, value: string): Promise<void> {
   treeEdit = undefined;
   const to = normalizeNewPath(value);
@@ -2430,6 +2456,17 @@ async function commitRename(from: string, value: string): Promise<void> {
   } catch (error) {
     appendEntries([
       { severity: "error", message: workspaceMessage(error) },
+    ]);
+  }
+  try {
+    await workspaceSession.applyChangedFiles(plan.changed);
+  } catch (error) {
+    appendEntries([
+      {
+        severity: "error",
+        message: `Could not update renamed references: ` +
+          workspaceMessage(error),
+      },
     ]);
   }
 
@@ -2574,8 +2611,21 @@ function openRowMenu(path: string, anchor: HTMLElement): void {
       )
     );
   } else {
-    menu.append(
-      menuItem("Open", true, () => openFile(path)),
+    const items = [menuItem("Open", true, () => openFile(path))];
+    if (
+      workspaceSession.isDirty(path) &&
+      workspaceSession.savedText(path) !== undefined
+    ) {
+      items.push(
+        menuItem(
+          "Revert",
+          !runBusy,
+          () => revertFile(path),
+          "Finish or pause the current run first."
+        )
+      );
+    }
+    items.push(
       menuItem(
         "Rename",
         structural && !runBusy,
@@ -2589,6 +2639,7 @@ function openRowMenu(path: string, anchor: HTMLElement): void {
         blockedReason
       )
     );
+    menu.append(...items);
   }
   document.body.append(menu);
   const rect = anchor.getBoundingClientRect();

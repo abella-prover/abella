@@ -17,13 +17,14 @@ import {
   WorkspaceError,
   type Workspace,
   type WorkspaceCapabilities,
-  type WorkspaceFileEntry,
+  type WorkspaceEntry,
   type WorkspaceKind,
 } from "./workspace";
 
 export const MAX_FILE_BYTES = 512 * 1024;
 export const MAX_FILES = 500;
-const MAX_DEPTH = 8;
+export const MAX_ENTRIES = 2000;
+export const MAX_DEPTH = 8;
 const MAX_MANIFEST_BYTES = 64 * 1024;
 
 const TEXT_EXTENSIONS = new Set([
@@ -88,6 +89,7 @@ export interface DirectoryHandle {
     name: string,
     options?: { create?: boolean }
   ): Promise<DirectoryFileHandle>;
+  removeEntry?(name: string, options?: { recursive?: boolean }): Promise<void>;
 }
 
 type PickerWindow = Window & {
@@ -108,16 +110,11 @@ export class DirectoryPermissionError extends WorkspaceError {
   }
 }
 
-export class DirectoryEmptyError extends WorkspaceError {
-  constructor(message: string) {
-    super("not-found", message);
-  }
-}
-
 export interface OpenedDirectory {
   project: Project;
   workspace: DirectoryWorkspace;
   truncated: boolean;
+  listingTruncated: boolean;
   skipped: number;
 }
 
@@ -145,17 +142,17 @@ function baseName(path: string): string {
   return path.slice(path.lastIndexOf("/") + 1).toLowerCase();
 }
 
-export function chooseRoot(
+export function chooseEntry(
   paths: string[],
   folderName: string,
-  manifestRoot?: string
+  manifestEntry?: string
 ): string | undefined {
   if (
-    manifestRoot &&
-    paths.includes(manifestRoot) &&
-    manifestRoot.toLowerCase().endsWith(".thm")
+    manifestEntry &&
+    paths.includes(manifestEntry) &&
+    manifestEntry.toLowerCase().endsWith(".thm")
   ) {
-    return manifestRoot;
+    return manifestEntry;
   }
   const theorems = sortPaths(
     paths.filter((path) => path.toLowerCase().endsWith(".thm"))
@@ -227,19 +224,21 @@ interface ReadState {
   files: Map<string, ProjectTextFile>;
   handles: Map<string, DirectoryFileHandle>;
   lastModified: Map<string, number>;
+  entries: WorkspaceEntry[];
   truncated: boolean;
+  listingTruncated: boolean;
   skipped: number;
 }
 
-async function readManifestRoot(
+async function readManifestEntry(
   handle: DirectoryHandle
 ): Promise<string | undefined> {
   try {
     const fileHandle = await handle.getFileHandle("project.json");
     const file = await fileHandle.getFile();
     if (file.size > MAX_MANIFEST_BYTES) return undefined;
-    const data = JSON.parse(await file.text()) as { root?: unknown };
-    return typeof data.root === "string" ? data.root : undefined;
+    const data = JSON.parse(await file.text()) as { entry?: unknown };
+    return typeof data.entry === "string" ? data.entry : undefined;
   } catch {
     return undefined;
   }
@@ -252,25 +251,55 @@ async function readDirectory(
   state: ReadState
 ): Promise<void> {
   for await (const [name, entry] of directory.entries()) {
-    if (state.files.size >= MAX_FILES) {
-      state.truncated = true;
+    if (state.entries.length >= MAX_ENTRIES) {
+      state.listingTruncated = true;
       return;
     }
     const path = prefix ? `${prefix}/${name}` : name;
     if (entry.kind === "directory") {
       if (depth >= MAX_DEPTH || isSkippedDirectory(name)) continue;
+      state.entries.push({
+        path,
+        kind: "directory",
+        openable: true,
+      });
       await readDirectory(entry, path, depth + 1, state);
       continue;
     }
-    if (!isCandidateFile(path)) continue;
+    if (name.startsWith(".")) continue;
+    if (!isCandidateFile(path)) {
+      state.entries.push({
+        path,
+        kind: "file",
+        openable: false,
+        reason: "unsupported",
+      });
+      continue;
+    }
+    const record: WorkspaceEntry = {
+      path,
+      kind: "file",
+      openable: true,
+    };
+    state.entries.push(record);
+    if (state.files.size >= MAX_FILES) {
+      state.truncated = true;
+      record.openable = false;
+      record.reason = "unreadable";
+      continue;
+    }
     let file: File;
     try {
       file = await entry.getFile();
     } catch {
+      record.openable = false;
+      record.reason = "unreadable";
       state.skipped++;
       continue;
     }
     if (file.size > MAX_FILE_BYTES) {
+      record.openable = false;
+      record.reason = "too-large";
       state.skipped++;
       continue;
     }
@@ -278,6 +307,8 @@ async function readDirectory(
     try {
       text = await file.text();
     } catch {
+      record.openable = false;
+      record.reason = "unreadable";
       state.skipped++;
       continue;
     }
@@ -303,18 +334,23 @@ export async function readDirectoryHandle(
     files: new Map(),
     handles: new Map(),
     lastModified: new Map(),
+    entries: [],
     truncated: false,
+    listingTruncated: false,
     skipped: 0,
   };
   await readDirectory(handle, "", 0, state);
-  const manifestRoot = await readManifestRoot(handle);
-  const root = chooseRoot([...state.files.keys()], handle.name, manifestRoot);
-  if (!root) {
-    throw new DirectoryEmptyError(
-      "That folder does not contain a .thm reasoning file."
-    );
-  }
-  const project: Project = { files: state.files, root, active: root };
+  const manifestEntry = await readManifestEntry(handle);
+  const entry = chooseEntry(
+    [...state.files.keys()],
+    handle.name,
+    manifestEntry
+  );
+  const project: Project = {
+    files: state.files,
+    entry,
+    active: entry ?? sortPaths([...state.files.keys()])[0],
+  };
   return {
     project,
     workspace: new DirectoryWorkspace(
@@ -322,9 +358,11 @@ export async function readDirectoryHandle(
       state.files,
       state.handles,
       state.lastModified,
+      state.entries,
       confirmOverwrite
     ),
     truncated: state.truncated,
+    listingTruncated: state.listingTruncated,
     skipped: state.skipped,
   };
 }
@@ -362,8 +400,8 @@ export class DirectoryWorkspace implements Workspace {
   readonly name: string;
   readonly capabilities: WorkspaceCapabilities = {
     write: true,
-    remove: false,
-    structural: false,
+    remove: true,
+    structural: true,
     refresh: false,
     commit: false,
     autoSave: false,
@@ -373,6 +411,7 @@ export class DirectoryWorkspace implements Workspace {
   private files: Map<string, ProjectTextFile>;
   private handles: Map<string, DirectoryFileHandle>;
   private lastModified: Map<string, number>;
+  private entriesList: WorkspaceEntry[];
   private confirmOverwrite: (path: string) => boolean;
 
   constructor(
@@ -380,6 +419,7 @@ export class DirectoryWorkspace implements Workspace {
     files: Map<string, ProjectTextFile>,
     handles: Map<string, DirectoryFileHandle>,
     lastModified: Map<string, number>,
+    entries: WorkspaceEntry[],
     confirmOverwrite: (path: string) => boolean
   ) {
     this.handle = handle;
@@ -387,14 +427,12 @@ export class DirectoryWorkspace implements Workspace {
     this.files = files;
     this.handles = handles;
     this.lastModified = lastModified;
+    this.entriesList = entries;
     this.confirmOverwrite = confirmOverwrite;
   }
 
-  async list(): Promise<WorkspaceFileEntry[]> {
-    return [...this.files.entries()].map(([path, file]) => ({
-      path,
-      kind: file.kind,
-    }));
+  async entries(): Promise<WorkspaceEntry[]> {
+    return [...this.entriesList];
   }
 
   async read(path: string): Promise<string> {
@@ -443,12 +481,49 @@ export class DirectoryWorkspace implements Workspace {
     }
     this.handles.set(path, handle);
     this.files.set(path, { text, kind: classify(path) });
+    if (!this.entriesList.some((entry) => entry.path === path)) {
+      this.entriesList.push({ path, kind: "file", openable: true });
+      const parts = path.split("/");
+      parts.pop();
+      for (let depth = 1; depth <= parts.length; depth++) {
+        const directory = parts.slice(0, depth).join("/");
+        if (!this.entriesList.some((entry) => entry.path === directory)) {
+          this.entriesList.push({
+            path: directory,
+            kind: "directory",
+            openable: true,
+          });
+        }
+      }
+    }
     try {
       const after = await handle.getFile();
       this.lastModified.set(path, after.lastModified);
     } catch {
       this.lastModified.delete(path);
     }
+  }
+
+  async remove(path: string): Promise<void> {
+    await ensurePermission(this.handle, "readwrite");
+    const parts = path.split("/");
+    const name = parts.pop();
+    if (!name) throw new WorkspaceError("io", `Invalid file path: ${path}`);
+    let directory = this.handle;
+    for (const part of parts) {
+      directory = await directory.getDirectoryHandle(part);
+    }
+    if (!directory.removeEntry) {
+      throw new WorkspaceError(
+        "unsupported",
+        "This browser cannot remove files from a folder."
+      );
+    }
+    await directory.removeEntry(name);
+    this.handles.delete(path);
+    this.lastModified.delete(path);
+    this.files.delete(path);
+    this.entriesList = this.entriesList.filter((entry) => entry.path !== path);
   }
 
   close(): void {

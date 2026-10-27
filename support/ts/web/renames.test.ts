@@ -9,7 +9,7 @@ import { planRename, type RenamePlan } from "./renames";
 
 function makeProject(
   files: Record<string, string>,
-  root = "main.thm"
+  entry = "main.thm"
 ): Project {
   return {
     files: new Map(
@@ -18,8 +18,8 @@ function makeProject(
         { text, kind: classify(path) },
       ])
     ),
-    root,
-    active: root,
+    entry,
+    active: entry,
   };
 }
 
@@ -94,7 +94,7 @@ test("renaming a thm updates imports and the root path", () => {
   );
   const plan = planOrThrow(project, "foo.thm", "bar.thm");
   assert.deepEqual(plan.renames, [{ from: "foo.thm", to: "bar.thm" }]);
-  assert.equal(plan.root, "bar.thm");
+  assert.equal(plan.entry, "bar.thm");
   assert.equal(plan.active, "bar.thm");
   assert.equal(plan.files.get("bar.thm")?.text, "Import \"other\".\n");
   assert.equal(plan.files.get("other.thm")?.text, "Import \"bar\".\n");
@@ -187,4 +187,21 @@ test("the original project is not mutated", () => {
     project.files.get("main.thm")?.text,
     'Specification "foo".\n'
   );
+});
+
+test("renaming the entry to a non-executable type clears it", () => {
+  const project = makeProject({
+    "main.thm": "Theorem t : forall A, A = A.\n",
+  });
+  const plan = planOrThrow(project, "main.thm", "main.md");
+  assert.equal(plan.entry, undefined);
+  assert.equal(plan.active, "main.md");
+});
+
+test("renaming the entry to another theorem keeps it", () => {
+  const project = makeProject({
+    "main.thm": "Theorem t : forall A, A = A.\n",
+  });
+  const plan = planOrThrow(project, "main.thm", "proof.thm");
+  assert.equal(plan.entry, "proof.thm");
 });

@@ -165,7 +165,7 @@ function makeProject(): Project {
     'Specification "empty".\nKind tm type.\nTheorem t : forall A, A = A.\nintros.\n'
   );
   add("README.md", "notes\n");
-  return { files, root: "main.thm", active: "main.thm" };
+  return { files, entry: "main.thm", active: "main.thm" };
 }
 
 function makeTwoTheoremProject(): Project {
@@ -176,7 +176,7 @@ function makeTwoTheoremProject(): Project {
       "Theorem b : forall A, A = A.\nintros b.\n",
     kind: "abella",
   });
-  return { files, root: "main.thm", active: "main.thm" };
+  return { files, entry: "main.thm", active: "main.thm" };
 }
 
 interface Captured {
@@ -234,7 +234,7 @@ function setup(project = makeProject()) {
 test("reports an output location for every processed command", async () => {
   const { project, captured, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   await session.processTo(doc.length);
 
   assert.equal(captured.outputLocations.length, 4);
@@ -250,7 +250,7 @@ test("reports an output location for every processed command", async () => {
 test("checks commands that start before the cursor", async () => {
   const { project, driver, captured, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   await session.processTo(doc.indexOf("Kind"));
   assert.deepEqual(driver.processed, ['Specification "empty".']);
   assert.equal(session.currentTip, doc.indexOf("Kind") - 1);
@@ -267,7 +267,7 @@ test("checks commands that start before the cursor", async () => {
 test("Ctrl-Enter inside the checked region rewinds to the command boundary", async () => {
   const { project, driver, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   await session.processTo(doc.length);
   assert.equal(driver.processed.length, 4);
 
@@ -285,7 +285,7 @@ test("Ctrl-Enter inside the checked region rewinds to the command boundary", asy
 test("Ctrl-Enter in whitespace keeps the previous complete command", async () => {
   const { project, driver, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   await session.processTo(doc.length);
   await session.processTo(doc.indexOf("Kind"));
   assert.deepEqual(driver.backs, [3]);
@@ -296,7 +296,7 @@ test("Ctrl-Enter in whitespace keeps the previous complete command", async () =>
 test("steps forward and back at the checked tip", async () => {
   const { project, driver, captured, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   await session.stepForward(0);
   assert.deepEqual(driver.processed, ['Specification "empty".']);
   assert.deepEqual(captured.cursors, ['Specification "empty".'.length]);
@@ -311,7 +311,7 @@ test("steps forward and back at the checked tip", async () => {
 test("checked tips use editor offsets for CRLF sources", async () => {
   const project = projectFromBundle(
     {
-      examples: [{ id: "crlf", root: "main.thm" }],
+      examples: [{ id: "crlf", entry: "main.thm" }],
       files: {
         "main.thm": "Kind nat type.\r\n\r\nType z nat.\r\n",
       },
@@ -329,7 +329,7 @@ test("checked tips use editor offsets for CRLF sources", async () => {
 test("stepping back leaves the tip at the previous command end", async () => {
   const { project, captured, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   await session.processTo(doc.length);
   const theoremEnd =
     doc.indexOf("Theorem") + "Theorem t : forall A, A = A.".length;
@@ -344,7 +344,7 @@ test("stepping back leaves the tip at the previous command end", async () => {
 test("stepping before the tip leaves the cursor alone", async () => {
   const { project, driver, captured, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   await session.processTo(doc.indexOf("Theorem"));
   captured.cursors.length = 0;
 
@@ -360,7 +360,7 @@ test("stepping before the tip leaves the cursor alone", async () => {
 test("rewinds to the first affected command on edit", async () => {
   const { project, driver, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   await session.processTo(doc.length);
   assert.equal(driver.processed.length, 4);
   await session.rewindTo(0);
@@ -373,7 +373,7 @@ test("stops at the first failing command", async () => {
   const { project, driver, captured, session } = setup();
   driver.failAt = 1;
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   await session.processTo(doc.length);
   assert.equal(driver.processed.length, 1);
   assert.equal(session.stepsCount, 1);
@@ -395,7 +395,7 @@ test("records proof outcomes verbatim and clears them on rewind", async () => {
   const { project, driver, session } = setup();
   driver.endOn = "intros.";
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   await session.processTo(doc.length);
   assert.deepEqual(session.outcome, {
     theorem: "t",
@@ -410,7 +410,7 @@ test("a new theorem hides the previous outcome", async () => {
   const { project, driver, session } = setup(makeTwoTheoremProject());
   driver.endOn = "intros a.";
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   await session.processTo(doc.indexOf("Theorem b"));
   assert.equal(session.outcome?.theorem, "a");
   await session.processTo(doc.length);
@@ -422,7 +422,7 @@ test("proof lifecycle messages are not output entries", async () => {
   driver.endOn = "intros.";
   driver.warningOn = "Kind tm type.";
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   await session.processTo(doc.length);
   const output = captured.outputs.flat();
   assert.ok(output.some((entry) => entry.message.includes("synthetic warning")));
@@ -463,7 +463,7 @@ test("editing and deleting before the tip keeps checked steps", async () => {
   ]);
   const project: Project = {
     files,
-    root: "main.thm",
+    entry: "main.thm",
     active: "main.thm",
   };
   const { driver, captured, session } = setup(project);
@@ -510,7 +510,7 @@ test("inserted commands stay unchecked until explicitly stepped", async () => {
   ]);
   const project: Project = {
     files,
-    root: "main.thm",
+    entry: "main.thm",
     active: "main.thm",
   };
   const { driver, captured, session } = setup(project);
@@ -550,7 +550,7 @@ test("inserted commands stay unchecked until explicitly stepped", async () => {
 test("pause waits for the in-flight command and resumes from the tip", async () => {
   const { project, driver, captured, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   const firstEnd = doc.indexOf("Kind") - 1;
 
   driver.holdNextProcess();
@@ -576,7 +576,7 @@ test("pause waits for the in-flight command and resumes from the tip", async () 
 test("pause during the final command still reports ok", async () => {
   const { project, driver, captured, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   const firstEnd = doc.indexOf("Kind") - 1;
 
   driver.holdNextProcess();
@@ -598,7 +598,7 @@ test("requestPause is a no-op when no run is active", () => {
 test("reset aborts an in-flight command and reloads the project", async () => {
   const { project, driver, captured, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
 
   driver.holdNextProcess();
   const run = session.processTo(doc.length);
@@ -619,7 +619,7 @@ test("reset aborts an in-flight command and reloads the project", async () => {
 test("run and step requests are rejected while a run is active", async () => {
   const { project, driver, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
 
   driver.holdNextProcess();
   const run = session.processTo(doc.length);
@@ -637,7 +637,7 @@ test("run and step requests are rejected while a run is active", async () => {
 test("replacing the project aborts an in-flight command", async () => {
   const { project, driver, captured, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
 
   driver.holdNextProcess();
   const run = session.processTo(doc.length);
@@ -655,7 +655,7 @@ test("replacing the project aborts an in-flight command", async () => {
 test("editing while paused returns to ready and keeps the tip", async () => {
   const { project, driver, captured, session } = setup();
   await session.init();
-  const doc = project.files.get(project.root)!.text;
+  const doc = project.files.get(project.entry!)!.text;
   const firstEnd = doc.indexOf("Kind") - 1;
 
   driver.holdNextProcess();
@@ -666,10 +666,10 @@ test("editing while paused returns to ready and keeps the tip", async () => {
   await run;
   assert.equal(captured.statuses.at(-1), "paused");
 
-  const text = project.files.get(project.root)!.text;
-  project.files.get(project.root)!.text = text + "\n";
+  const text = project.files.get(project.entry!)!.text;
+  project.files.get(project.entry!)!.text = text + "\n";
   await session.notifyEdit(
-    project.root,
+    project.entry!,
     ChangeSet.of({ from: text.length, insert: "\n" }, text.length)
   );
   assert.equal(captured.statuses.at(-1), "ready");
@@ -688,4 +688,71 @@ test("reset clears steps and reloads the project", async () => {
   assert.equal(driver.inits, 2);
   assert.equal(session.currentTip, 0);
   assert.equal(session.stepsCount, 0);
+});
+
+test("a project without an entry stays idle and does not initialize", async () => {
+  const files = new Map<string, ProjectTextFile>([
+    ["notes.md", { text: "# Notes\n", kind: "text" }],
+  ]);
+  const project: Project = { files, active: "notes.md" };
+  const { driver, captured, session } = setup(project);
+  await session.init();
+  assert.equal(driver.inits, 0);
+  assert.equal(captured.statuses.at(-1), "idle");
+});
+
+test("setEntry aborts the session and checks the new file on the next run", async () => {
+  const files = new Map<string, ProjectTextFile>([
+    [
+      "main.thm",
+      { text: 'Specification "empty".\nTheorem a : True.\n', kind: "abella" },
+    ],
+    [
+      "other.thm",
+      { text: 'Specification "empty".\nTheorem b : True.\n', kind: "abella" },
+    ],
+  ]);
+  const project: Project = {
+    files,
+    entry: "main.thm",
+    active: "main.thm",
+  };
+  const { driver, captured, session } = setup(project);
+  await session.init();
+  await session.processTo(project.files.get("main.thm")!.text.length);
+  assert.equal(driver.inits, 1);
+
+  session.setEntry("other.thm");
+  assert.equal(captured.statuses.at(-1), "idle");
+  assert.equal(session.currentTip, 0);
+  assert.equal(project.entry, "other.thm");
+
+  await session.processTo(project.files.get("other.thm")!.text.length);
+  assert.equal(driver.inits, 2);
+  assert.ok(session.currentTip > 0);
+});
+
+test("edits to a non-entry Abella file mark the session dirty without remapping", async () => {
+  const files = new Map<string, ProjectTextFile>([
+    ["main.thm", { text: 'Specification "empty".\n', kind: "abella" }],
+    ["other.thm", { text: "Theorem t : True.\n", kind: "abella" }],
+  ]);
+  const project: Project = {
+    files,
+    entry: "main.thm",
+    active: "main.thm",
+  };
+  const { driver, captured, session } = setup(project);
+  await session.init();
+  await session.processTo(project.files.get("main.thm")!.text.length);
+  const tip = session.currentTip;
+
+  await session.notifyEdit(
+    "other.thm",
+    ChangeSet.of({ from: 0, insert: "% x\n" }, 20)
+  );
+  assert.equal(session.currentTip, tip);
+  assert.equal(captured.statuses.at(-1), "ready");
+  await session.processTo(tip);
+  assert.equal(driver.inits, 2);
 });

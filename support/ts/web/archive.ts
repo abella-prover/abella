@@ -5,21 +5,25 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import {
   classify,
+  fallbackEntry,
+  isExecutable,
   normalizeNewlines,
+  sortPaths,
   type Project,
   type ProjectTextFile,
 } from "./project";
+import { isCandidateFile } from "./workspace-directory";
 
 interface Manifest {
-  version: 1;
-  root: string;
+  version: 2;
+  entry?: string;
   files: string[];
 }
 
 export function downloadProject(project: Project): void {
   const manifest: Manifest = {
-    version: 1,
-    root: project.root,
+    version: 2,
+    entry: project.entry,
     files: [...project.files.keys()].sort(),
   };
   const archive: Record<string, Uint8Array> = {
@@ -38,7 +42,12 @@ export function downloadProject(project: Project): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function importProject(file: File): Promise<Project> {
+export interface ImportedProject {
+  project: Project;
+  skipped: number;
+}
+
+export async function importProject(file: File): Promise<ImportedProject> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   let entries: Record<string, Uint8Array>;
   try {
@@ -50,28 +59,40 @@ export async function importProject(file: File): Promise<Project> {
   if (!manifestBytes) {
     throw new Error("The archive does not contain project.json.");
   }
-  const manifest = JSON.parse(strFromU8(manifestBytes)) as Manifest;
-  if (manifest.version !== 1 || !manifest.root) {
-    throw new Error("Unsupported project.json.");
+  const manifest = JSON.parse(strFromU8(manifestBytes)) as Partial<Manifest>;
+  if (manifest.version !== 2 || !Array.isArray(manifest.files)) {
+    throw new Error(
+      "This archive was written by an incompatible version of Abella Web. " +
+        "Export it again from the current version."
+    );
   }
   const files = new Map<string, ProjectTextFile>();
-  const names = manifest.files?.length
-    ? manifest.files
-    : Object.keys(entries).filter((path) => path !== "project.json");
+  const names = manifest.files;
+  let skipped = 0;
   for (const path of names) {
     const data = entries[path];
     if (!data) continue;
+    if (!isCandidateFile(path)) {
+      skipped++;
+      continue;
+    }
     files.set(path, {
       text: normalizeNewlines(strFromU8(data)),
       kind: classify(path),
     });
   }
-  if (!files.has(manifest.root)) {
-    throw new Error("The root file is missing from the archive.");
-  }
+  const wanted =
+    typeof manifest.entry === "string" &&
+    isExecutable(manifest.entry) &&
+    files.has(manifest.entry)
+      ? manifest.entry
+      : fallbackEntry(files);
   return {
-    files,
-    root: manifest.root,
-    active: manifest.root,
+    project: {
+      files,
+      entry: wanted,
+      active: wanted ?? sortPaths([...files.keys()])[0],
+    },
+    skipped,
   };
 }

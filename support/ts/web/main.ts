@@ -10,11 +10,19 @@ import {
   loadBundle,
   type Bundle,
 } from "./examples";
-import { renderFiles } from "./files";
+import {
+  allDirectories,
+  normalizeNewPath,
+  renderFiles,
+  visibleRows,
+  type TreeEdit,
+  type TreeHandlers,
+} from "./files";
 import { OutputLog } from "./output-log";
 import {
   clearSavedProject,
   classify,
+  isExecutable,
   loadProjectRecord,
   projectFromBundle,
   saveProject,
@@ -33,6 +41,7 @@ import {
   type SessionStatus,
 } from "./session";
 import { appendOutput, renderSequent } from "./trace";
+import { addTab, closeTabAt, remapTabs, tabLabels } from "./tabs";
 import type { ProofState, RawMessage } from "./types";
 import {
   WorkspaceError,
@@ -41,6 +50,7 @@ import {
   readOnlyWorkspace,
   workspaceMessage,
   type Workspace,
+  type WorkspaceEntry,
   type WorkspaceKind,
 } from "./workspace";
 import {
@@ -71,6 +81,7 @@ import { GITHUB_OAUTH_WORKER } from "./github-oauth-config";
 import { isOAuthCallback } from "./oauth-callback";
 import {
   directoryPickerSupported,
+  isCandidateFile,
   openDirectoryProject,
   readDirectoryHandle,
   type DirectoryHandle,
@@ -103,10 +114,10 @@ const runToggleButton = byId<HTMLButtonElement>("run-toggle");
 const resetButton = byId<HTMLButtonElement>("reset");
 const scratchButton = byId<HTMLButtonElement>("scratch");
 const importZipButton = byId<HTMLButtonElement>("import-zip");
-const addFileButton = byId<HTMLButtonElement>("add-file");
-const renameFileButton = byId<HTMLButtonElement>("rename-file");
-const deleteFileButton = byId<HTMLButtonElement>("delete-file");
-const setRootButton = byId<HTMLButtonElement>("set-root");
+const addFileButton = byId<HTMLButtonElement>("new-file");
+const collapseAllButton = byId<HTMLButtonElement>("collapse-all");
+const sidebarCloseButton = byId<HTMLButtonElement>("sidebar-close");
+const sidebarBackdrop = byId<HTMLElement>("sidebar-backdrop");
 const openFolderButton = byId<HTMLButtonElement>("open-folder");
 const saveFileButton = byId<HTMLButtonElement>("save-file");
 const saveAllButton = byId<HTMLButtonElement>("save-all");
@@ -145,6 +156,9 @@ const commitSubmitButton = byId<HTMLButtonElement>("commit-submit");
 const commitCancelButton = byId<HTMLButtonElement>("commit-cancel");
 const commitCloseButton = byId<HTMLButtonElement>("commit-close");
 const sidebarTitle = byId<HTMLElement>("sidebar-title");
+const entryFile = byId<HTMLElement>("entry-file");
+const tabStrip = byId<HTMLDivElement>("tab-strip");
+const emptyEditor = byId<HTMLDivElement>("empty-editor");
 const helpButton = byId<HTMLButtonElement>("help");
 const helpDialog = byId<HTMLDialogElement>("help-dialog");
 const THEME_KEY = "abella.web.v1.theme";
@@ -162,9 +176,12 @@ const MIN_PANEL_HEIGHT = 128;
 const EDITOR_MIN_HEIGHT = 160;
 
 const savedProject = loadProjectRecord();
-let project: Project = savedProject?.project ?? scratchProject();
+let project: Project =
+  savedProject.status === "loaded" ? savedProject.project : scratchProject();
 let savedWorkspace: WorkspaceDescriptor | undefined =
-  savedProject?.workspace;
+  savedProject.status === "loaded" ? savedProject.workspace : undefined;
+const savedProjectWarning =
+  savedProject.status === "rejected" ? savedProject.message : undefined;
 let bundle: Bundle | undefined;
 let editor: EditorManager;
 let session: Session;
@@ -173,6 +190,14 @@ let measureTimer: number | undefined;
 let saveWarningShown = false;
 let saving = false;
 let runBusy = false;
+let openTabs: string[] = [];
+let expandedDirs = new Set<string>();
+let selectedPath: string | undefined;
+let treeEdit: TreeEdit | undefined;
+let treeFocusSelected = false;
+let treeFocusInput = false;
+let contextMenu: HTMLElement | undefined;
+let contextMenuPath: string | undefined;
 
 type OAuthConfigState = "unknown" | "loading" | "ready" | "unavailable";
 
@@ -245,6 +270,7 @@ let workspaceSession = new WorkspaceSession(
 
 let sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
 let sidebarCollapsed = false;
+let sidebarReturnFocus: HTMLElement | undefined;
 let lastGoalState: ProofState | undefined;
 let currentOutcome: ProofOutcome | undefined;
 const outputLog = new OutputLog();
@@ -312,6 +338,10 @@ function renderSidebar(collapsed: boolean, width: number): void {
   layout.classList.toggle("sidebar-collapsed", collapsed);
   sidebar.toggleAttribute("inert", collapsed);
   sidebar.setAttribute("aria-hidden", String(collapsed));
+  const overlay =
+    !collapsed && window.matchMedia("(max-width: 900px)").matches;
+  sidebarBackdrop.hidden = !overlay;
+  sidebar.classList.toggle("drawer-open", overlay);
   splitter.setAttribute(
     "aria-valuenow",
     collapsed ? "0" : String(Math.round(sidebarWidth))
@@ -347,7 +377,27 @@ function setSidebar(collapsed: boolean, width: number): void {
 }
 
 function toggleSidebar(): void {
+  const opening = sidebarCollapsed;
+  if (
+    opening &&
+    window.matchMedia("(max-width: 900px)").matches &&
+    document.activeElement instanceof HTMLElement
+  ) {
+    sidebarReturnFocus = document.activeElement;
+  }
   setSidebar(!sidebarCollapsed, sidebarWidth);
+  if (!opening) restoreSidebarFocus();
+}
+
+function closeSidebar(): void {
+  setSidebar(true, sidebarWidth);
+  restoreSidebarFocus();
+}
+
+function restoreSidebarFocus(): void {
+  const target = sidebarReturnFocus;
+  sidebarReturnFocus = undefined;
+  target?.focus();
 }
 
 function installSplitter(): void {
@@ -614,17 +664,41 @@ function updateRunControls(status: SessionStatus): void {
     status === "compiling" ||
     status === "pausing";
   const showPause = running && (session?.isRunActive ?? false);
+  const executable = isExecutable(project.active);
   runToggleButton.dataset.mode = showPause ? "pause" : "play";
   runToggleButton.disabled =
-    status === "pausing" || (running && !showPause);
+    status === "pausing" ||
+    (running && !showPause) ||
+    (!executable && !showPause);
   const label = showPause
     ? "Pause after the current command"
-    : "Check the rest of the file";
-  runToggleButton.setAttribute("aria-label", label);
-  runToggleButton.title = showPause
-    ? label
-    : `${label} (Ctrl+Shift+])`;
+    : isExecutable(project.entry) && project.active === project.entry
+      ? "Check the rest of the file"
+      : "Check this file from the start";
+  const usable = executable || showPause;
+  runToggleButton.setAttribute(
+    "aria-label",
+    usable ? label : "Only .thm files can be checked"
+  );
+  runToggleButton.title = !usable
+    ? "Only .thm files can be checked"
+    : showPause
+      ? label
+      : `${label} (Ctrl+Shift+])`;
   resetButton.disabled = false;
+}
+
+function updateEntryLabel(): void {
+  const entry = project.entry;
+  if (!entry) {
+    entryFile.hidden = true;
+    entryFile.textContent = "";
+    entryFile.removeAttribute("title");
+    return;
+  }
+  entryFile.hidden = false;
+  entryFile.textContent = entry.slice(entry.lastIndexOf("/") + 1);
+  entryFile.title = `Prover file: ${entry}`;
 }
 
 function setStatus(status: SessionStatus, detail?: string): void {
@@ -684,8 +758,10 @@ function updateOutputTab(): void {
 }
 
 function jumpToOutput(from: number): void {
-  if (editor.active !== project.root) openFile(project.root);
-  editor.setCursor(project.root, from, true);
+  const entry = project.entry;
+  if (!entry) return;
+  if (editor.active !== entry) openFile(entry);
+  editor.setCursor(entry, from, true);
   editor.focus();
 }
 
@@ -852,11 +928,11 @@ function updateWorkspaceUi(): void {
   importZipButton.disabled = runBusy;
   saveFileButton.hidden = !explicitSave;
   saveAllButton.hidden = !explicitSave;
+  const activePath = project.active;
+  const activeDirty =
+    activePath !== undefined && workspaceSession.isDirty(activePath);
   saveFileButton.disabled =
-    runBusy ||
-    saving ||
-    !explicitSave ||
-    !workspaceSession.isDirty(project.active);
+    runBusy || saving || !explicitSave || !activeDirty;
   saveAllButton.disabled =
     runBusy ||
     saving ||
@@ -870,8 +946,8 @@ function updateWorkspaceUi(): void {
     !workspaceSession.hasDirty();
   githubButton.disabled = runBusy || saving;
   if (explicitSave) {
-    saveFileButton.title = workspaceSession.isDirty(project.active)
-      ? `Save ${project.active}`
+    saveFileButton.title = activeDirty
+      ? `Save ${activePath}`
       : "No unsaved changes in this file";
     saveAllButton.title = workspaceSession.hasDirty()
       ? "Save all changed files"
@@ -890,8 +966,8 @@ function updateWorkspaceUi(): void {
   reconnectFolderButton.title = lastDirectoryHandle
     ? "Reconnect to the saved folder"
     : "No saved folder handle; use Open folder";
-  sidebarTitle.textContent = "Project";
-  sidebarTitle.title = "";
+  sidebarTitle.textContent = workspaceSession.name;
+  sidebarTitle.title = workspaceLabel(workspaceSession);
 }
 
 function confirmDiscardWorkspaceChanges(): boolean {
@@ -1021,6 +1097,16 @@ async function openFolder(): Promise<void> {
           message:
             "Warning: the folder was truncated at the file limit; " +
             "not every file was loaded.",
+        },
+      ]);
+    }
+    if (opened.listingTruncated) {
+      appendEntries([
+        {
+          severity: "info",
+          message:
+            "Warning: the project tree was truncated; " +
+            "not every entry is listed.",
         },
       ]);
     }
@@ -1352,6 +1438,16 @@ async function loadGitHubConnect(
       },
     ]);
   }
+  if (opened.listingTruncated) {
+    appendEntries([
+      {
+        severity: "info",
+        message:
+          "Warning: the project tree was truncated; " +
+          "not every entry is listed.",
+      },
+    ]);
+  }
   if (opened.skipped > 0) {
     appendEntries([
       {
@@ -1359,7 +1455,7 @@ async function loadGitHubConnect(
         message:
           `Warning: skipped ${opened.skipped} file` +
           `${opened.skipped === 1 ? "" : "s"} that were too large ` +
-          "or unsupported.",
+          "or unreadable.",
       },
     ]);
   }
@@ -1770,7 +1866,8 @@ function openCommitDialog(): void {
     return;
   }
   commitError.textContent = "";
-  commitMessageInput.value = `Update ${project.root} from Abella Web`;
+  commitMessageInput.value =
+    `Update ${project.entry ?? workspaceSession.name} from Abella Web`;
   commitNote.textContent =
     `${workspaceSession.dirtyPaths().length} changed file` +
     `${workspaceSession.dirtyPaths().length === 1 ? "" : "s"}.`;
@@ -1838,59 +1935,261 @@ async function handleCommitSubmit(event: Event): Promise<void> {
   }
 }
 
-function refreshFiles(): void {
+function treeEntries(): WorkspaceEntry[] {
+  return workspaceSession.entries();
+}
+
+function isTreePath(path: string): boolean {
+  return treeEntries().some(
+    (entry) => entry.path === path || entry.path.startsWith(`${path}/`)
+  );
+}
+
+function treeHandlers(): TreeHandlers {
+  return {
+    onOpen: openFile,
+    onToggle: toggleDirectory,
+    onSelect: selectTreeRow,
+    onContextMenu: openRowMenu,
+    onCommitRename: (from, value) => void commitRename(from, value),
+    onCommitCreate: (folder, value) => void commitCreate(folder, value),
+    onCancelEdit() {
+      const path = treeEdit?.path ?? treeEdit?.folder;
+      treeEdit = undefined;
+      if (path) {
+        selectedPath = path;
+        treeFocusSelected = true;
+      }
+      refreshFiles();
+    },
+  };
+}
+
+function refreshFiles(
+  options: { focus?: boolean; focusInput?: boolean } = {}
+): void {
+  if (!workspaceSession) return;
+  const entries = treeEntries();
+  if (selectedPath && !isTreePath(selectedPath)) {
+    selectedPath = undefined;
+  }
+  const dirty = new Set(workspaceSession.dirtyPaths());
   renderFiles(
     fileList,
-    project,
-    project.active,
-    openFile,
-    workspaceSession.dirtyPaths()
+    {
+      entries,
+      active: project.active,
+      selected: selectedPath ?? project.active,
+      expanded: expandedDirs,
+      dirty,
+      rename:
+        treeEdit && treeEdit.path !== undefined ? treeEdit : undefined,
+      create:
+        treeEdit && treeEdit.folder !== undefined ? treeEdit : undefined,
+      focusSelected: options.focus ?? treeFocusSelected,
+      focusInput: options.focusInput ?? treeFocusInput,
+    },
+    treeHandlers()
   );
-  const active = project.files.get(project.active);
+  treeFocusSelected = false;
+  treeFocusInput = false;
   const structural = workspaceSession.capabilities.structural;
   addFileButton.disabled = runBusy || !structural;
-  renameFileButton.disabled = runBusy || !structural || !active;
-  deleteFileButton.disabled = runBusy || !structural || !active;
-  setRootButton.disabled =
-    runBusy ||
-    !active ||
-    !project.active.endsWith(".thm") ||
-    project.active === project.root;
-  const note = structural
-    ? ""
+  addFileButton.title = structural
+    ? "New file"
     : "File actions are not available for this workspace.";
-  addFileButton.title = note;
-  renameFileButton.title = note;
-  deleteFileButton.title = note;
+  collapseAllButton.disabled = entries.length === 0;
+  updateEntryLabel();
+  renderTabs();
+  updateRunControls(statusBadge.dataset.status as SessionStatus);
   updateWorkspaceUi();
 }
 
-function openFile(path: string): void {
+function toggleDirectory(path: string): void {
+  if (expandedDirs.has(path)) expandedDirs.delete(path);
+  else expandedDirs.add(path);
+  treeFocusSelected = true;
+  refreshFiles();
+}
+
+function selectTreeRow(path: string): void {
+  selectedPath = path;
+  for (const row of fileList.querySelectorAll<HTMLElement>(".tree-row")) {
+    if (row.classList.contains("inert")) continue;
+    const current = row.dataset.path === path;
+    row.tabIndex = current ? 0 : -1;
+  }
+}
+
+function refreshTreeSelection(): void {
+  for (const row of fileList.querySelectorAll<HTMLElement>(".tree-row")) {
+    const active = row.dataset.path === project.active;
+    row.classList.toggle("active", active);
+    if (active) row.setAttribute("aria-selected", "true");
+    else row.removeAttribute("aria-selected");
+  }
+}
+
+function refreshRowDirty(path: string): void {
+  const row = fileList.querySelector<HTMLElement>(
+    `.tree-row[data-path="${CSS.escape(path)}"]`
+  );
+  if (!row) return;
+  const marker = row.querySelector(".tree-dirty");
+  const dirty = workspaceSession.isDirty(path);
+  if (dirty && !marker) {
+    const dot = document.createElement("span");
+    dot.className = "tree-dirty";
+    dot.setAttribute("aria-hidden", "true");
+    dot.textContent = "●";
+    const menu = row.querySelector(".tree-row-menu");
+    row.insertBefore(dot, menu);
+  } else if (!dirty && marker) {
+    marker.remove();
+  }
+}
+
+function resetTreeState(): void {
+  const entries = treeEntries();
+  expandedDirs = allDirectories(entries);
+  selectedPath = project.active;
+  treeEdit = undefined;
+}
+
+function updateEmptyState(): void {
+  const empty = project.active === undefined;
+  emptyEditor.hidden = !empty;
+  tabStrip.hidden = openTabs.length === 0;
+}
+
+function renderTabs(focusPath?: string): void {
+  tabStrip.replaceChildren();
+  const labels = tabLabels(openTabs);
+  for (const path of openTabs) {
+    const tab = document.createElement("div");
+    tab.className = "tab";
+    const active = path === project.active;
+    tab.classList.toggle("active", active);
+    tab.dataset.path = path;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "tab-button";
+    button.setAttribute("role", "tab");
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+    button.title = path;
+    button.setAttribute("aria-label", path);
+    const label = document.createElement("span");
+    label.className = "tab-label";
+    label.textContent = labels.get(path) ?? path;
+    button.append(label);
+    if (workspaceSession.isDirty(path)) {
+      const dirty = document.createElement("span");
+      dirty.className = "tab-dirty";
+      dirty.setAttribute("aria-hidden", "true");
+      dirty.textContent = "●";
+      button.append(dirty);
+    }
+    button.addEventListener("click", () => activateTab(path));
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "tab-close";
+    close.setAttribute("aria-label", `Close ${path}`);
+    close.title = `Close ${path}`;
+    close.textContent = "×";
+    close.addEventListener("click", (event) => {
+      event.stopPropagation();
+      closeTab(path);
+    });
+
+    tab.append(button, close);
+    tabStrip.append(tab);
+    if (path === (focusPath ?? project.active)) {
+      button.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+  }
+  updateEmptyState();
+}
+
+function activateTab(
+  path: string,
+  focus: "editor" | "tab" | "none" = "editor"
+): void {
   const file = project.files.get(path);
   if (!file) return;
+  openTabs = addTab(openTabs, path);
   project.active = path;
   editor.open(path, file.text);
   refreshFiles();
+  renderTabs(focus === "tab" ? path : undefined);
   scheduleSave();
-  editor.focus();
+  if (focus === "editor") editor.focus();
+  if (focus === "tab") {
+    const button = tabStrip.querySelector<HTMLButtonElement>(
+      `.tab[data-path="${CSS.escape(path)}"] .tab-button`
+    );
+    button?.focus();
+  }
 }
 
-function normalizeNewPath(input: string | null): string | undefined {
-  if (input === null) return undefined;
-  const path = input.trim().replace(/\\/g, "/").replace(/^\.\//, "");
-  if (
-    path === "" ||
-    path.startsWith("/") ||
-    path.split("/").some((part) => part === "" || part === "." || part === "..")
-  ) {
-    return undefined;
+function openFile(path: string): void {
+  activateTab(path);
+}
+
+function closeTab(path: string): void {
+  const result = closeTabAt(openTabs, path, project.active);
+  if (result.tabs.length === openTabs.length) return;
+  openTabs = result.tabs;
+  editor.close(path);
+  if (result.active !== project.active) {
+    if (result.active) {
+      activateTab(result.active);
+    } else {
+      project.active = undefined;
+      editor.clearActive();
+      renderTabs();
+      refreshFiles();
+      scheduleSave();
+    }
+    return;
   }
-  return path;
+  renderTabs();
+  refreshFiles();
+}
+
+function installTabStrip(): void {
+  tabStrip.addEventListener("keydown", (event) => {
+    const current = project.active;
+    if (!current) return;
+    const index = openTabs.indexOf(current);
+    let next: string | undefined;
+    switch (event.key) {
+      case "ArrowLeft":
+        next = openTabs[index - 1] ?? openTabs[openTabs.length - 1];
+        break;
+      case "ArrowRight":
+        next = openTabs[index + 1] ?? openTabs[0];
+        break;
+      case "Home":
+        next = openTabs[0];
+        break;
+      case "End":
+        next = openTabs[openTabs.length - 1];
+        break;
+      default:
+        return;
+    }
+    if (!next) return;
+    event.preventDefault();
+    activateTab(next, "tab");
+  });
 }
 
 function specName(path: string): string {
   const base = path.slice(path.lastIndexOf("/") + 1);
-  return base.replace(/\.(sig|mod)$/, "");
+  return base.replace(/\.(sig|mod)$/i, "");
 }
 
 function projectStructureChanged(): void {
@@ -1898,61 +2197,191 @@ function projectStructureChanged(): void {
   currentOutcome = undefined;
   renderGoal();
   session.setProject(project);
-  editor.clearDiagnostics(project.root);
-  setStatus("ready");
+  if (project.entry) editor.clearDiagnostics(project.entry);
+  updateEntryLabel();
+  setStatus(project.entry ? "ready" : "idle");
 }
 
-function addFile(): void {
-  if (runBusy) return;
-  if (!workspaceSession.capabilities.structural) return;
-  const path = normalizeNewPath(
-    window.prompt("New file path (for example helper.thm or notes.md):")
+function clearEntrySession(): void {
+  const entry = project.entry;
+  if (entry) {
+    editor.setProcessedTip(entry, 0);
+    editor.clearDiagnostics(entry);
+  }
+  clearOutput();
+  lastGoalState = undefined;
+  currentOutcome = undefined;
+  renderGoal();
+  updateEntryLabel();
+}
+
+/** Switch the file the prover checks and discard the old session state. */
+function changeEntry(path: string): void {
+  if (!isExecutable(path)) return;
+  if (project.entry !== path) clearEntrySession();
+  project.entry = path;
+  session.setEntry(path);
+  updateEntryLabel();
+  scheduleSave();
+  setStatus("idle");
+}
+
+function pathRow(path: string): HTMLElement | undefined {
+  return (
+    fileList.querySelector<HTMLElement>(
+      `.tree-row[data-path="${CSS.escape(path)}"]`
+    ) ?? undefined
   );
-  if (!path) return;
-  if (project.files.has(path)) {
-    window.alert(`A file named ${path} already exists.`);
+}
+
+function rowEntry(path: string): WorkspaceEntry | undefined {
+  const entries = treeEntries();
+  const explicit = entries.find((entry) => entry.path === path);
+  if (explicit) return explicit;
+  if (entries.some((entry) => entry.path.startsWith(`${path}/`))) {
+    return { path, kind: "directory", openable: true };
+  }
+  return undefined;
+}
+
+function openableDestination(path: string): boolean {
+  return isCandidateFile(path);
+}
+
+function entryExists(path: string): boolean {
+  return isTreePath(path) || project.files.has(path);
+}
+
+function newFileTarget(): string {
+  const path = selectedPath ?? project.active;
+  if (!path) return "";
+  const entry = rowEntry(path);
+  if (entry?.kind === "directory") return path;
+  const slash = path.lastIndexOf("/");
+  return slash < 0 ? "" : path.slice(0, slash);
+}
+
+function ensureExpanded(path: string): void {
+  const parts = path.split("/");
+  parts.pop();
+  for (let depth = 1; depth <= parts.length; depth++) {
+    expandedDirs.add(parts.slice(0, depth).join("/"));
+  }
+}
+
+function startCreate(folder = newFileTarget()): void {
+  if (runBusy || !workspaceSession.capabilities.structural) return;
+  if (folder) expandedDirs.add(folder);
+  treeEdit = { folder, value: "" };
+  treeFocusInput = true;
+  refreshFiles();
+}
+
+function startRename(path: string): void {
+  if (runBusy || !workspaceSession.capabilities.structural) return;
+  const entry = rowEntry(path);
+  if (!entry || entry.kind !== "file" || !entry.openable) return;
+  ensureExpanded(path);
+  selectedPath = path;
+  treeEdit = { path, value: path };
+  refreshFiles();
+}
+
+async function commitCreate(folder: string, value: string): Promise<void> {
+  treeEdit = undefined;
+  const input = value.trim();
+  if (input === "") {
+    refreshFiles();
     return;
   }
-  const kind = classify(path);
+  const path = normalizeNewPath(folder ? `${folder}/${input}` : input);
+  if (!path) {
+    window.alert("Enter a valid file path.");
+    refreshFiles();
+    return;
+  }
+  if (!openableDestination(path)) {
+    window.alert(`Abella Web cannot open ${path}.`);
+    startCreate(folder);
+    return;
+  }
+  if (entryExists(path)) {
+    window.alert(`A file or folder named ${path} already exists.`);
+    startCreate(folder);
+    return;
+  }
   let text = "";
-  if (path.endsWith(".sig")) {
+  const lowerPath = path.toLowerCase();
+  if (lowerPath.endsWith(".sig")) {
     text = `sig ${specName(path)}.\n`;
-  } else if (path.endsWith(".mod")) {
+  } else if (lowerPath.endsWith(".mod")) {
     text = `module ${specName(path)}.\n`;
   }
-  project.files.set(path, { text, kind });
+  try {
+    await workspaceSession.createFile(path, text);
+  } catch (error) {
+    appendEntries([
+      {
+        severity: "error",
+        message: `Could not create ${path}: ${workspaceMessage(error)}`,
+      },
+    ]);
+    refreshFiles();
+    return;
+  }
+  ensureExpanded(path);
+  selectedPath = path;
+  if (classify(path) === "abella") projectStructureChanged();
   openFile(path);
-  if (kind === "abella") projectStructureChanged();
-  workspaceSession.persistNow();
+  refreshFiles();
 }
 
-function renameFile(): void {
-  if (runBusy) return;
-  if (!workspaceSession.capabilities.structural) return;
-  const from = project.active;
-  const file = project.files.get(from);
-  if (!file) return;
-  const to = normalizeNewPath(window.prompt("Rename file to:", from));
-  if (!to || to === from) return;
-  if (from === project.root && !to.toLowerCase().endsWith(".thm")) {
-    window.alert("The root reasoning file must have a .thm extension.");
+function renameDestinationFree(renames: { from: string; to: string }[]):
+  string | undefined {
+  for (const rename of renames) {
+    if (rename.to === rename.from) continue;
+    const isSource = renames.some((other) => other.from === rename.to);
+    if (!isSource && isTreePath(rename.to)) return rename.to;
+  }
+  return undefined;
+}
+
+async function commitRename(from: string, value: string): Promise<void> {
+  treeEdit = undefined;
+  const to = normalizeNewPath(value);
+  if (!to || to === from) {
+    refreshFiles();
+    return;
+  }
+  if (!openableDestination(to)) {
+    window.alert(`Abella Web cannot open ${to}.`);
+    refreshFiles();
     return;
   }
   const result = planRename(project, from, to);
   if (!result.ok) {
     window.alert(result.message);
+    refreshFiles();
     return;
   }
   const plan = result.plan;
+  const conflict = renameDestinationFree(plan.renames);
+  if (conflict) {
+    window.alert(`A file or folder named ${conflict} already exists.`);
+    refreshFiles();
+    return;
+  }
   const renamedKinds = plan.renames.map((rename) => ({
     ...rename,
     oldKind: project.files.get(rename.from)?.kind,
     newKind: classify(rename.to),
   }));
+  const hadEntry = project.entry;
+  const entryChanged = hadEntry !== plan.entry;
 
   project.files.clear();
   for (const [path, next] of plan.files) project.files.set(path, next);
-  project.root = plan.root;
+  project.entry = plan.entry;
   project.active = plan.active;
 
   for (const rename of renamedKinds) {
@@ -1967,9 +2396,36 @@ function renameFile(): void {
     editor.clearDiagnostics(path);
   }
 
-  refreshFiles();
-  if (file.kind !== classify(to)) openFile(to);
+  const remap = new Map(plan.renames.map((rename) => [rename.from, rename.to]));
+  openTabs = remapTabs(openTabs, remap);
+  selectedPath = remap.get(from) ?? selectedPath;
+
+  try {
+    await workspaceSession.renameFiles(
+      plan.renames.map((rename) => ({
+        ...rename,
+        text: plan.files.get(rename.to)?.text ?? "",
+      }))
+    );
+  } catch (error) {
+    appendEntries([
+      { severity: "error", message: workspaceMessage(error) },
+    ]);
+  }
+
+  if (entryChanged && hadEntry) {
+    editor.setProcessedTip(hadEntry, 0);
+    editor.clearDiagnostics(hadEntry);
+  }
   if (
+    renamedKinds.some(
+      (rename) => rename.from === from && rename.oldKind !== rename.newKind
+    )
+  ) {
+    openFile(to);
+  }
+  if (
+    entryChanged ||
     renamedKinds.some(
       (rename) =>
         rename.oldKind === "abella" || rename.newKind === "abella"
@@ -1977,54 +2433,313 @@ function renameFile(): void {
   ) {
     projectStructureChanged();
   }
-  workspaceSession.persistNow();
+  treeFocusSelected = true;
+  refreshFiles();
 }
 
-function deleteFile(): void {
-  if (runBusy) return;
-  if (!workspaceSession.capabilities.structural) return;
-  const path = project.active;
+async function deleteRow(path: string): Promise<void> {
+  if (runBusy || !workspaceSession.capabilities.structural) return;
   const file = project.files.get(path);
   if (!file) return;
-  let newRoot = project.root;
-  if (path === project.root) {
-    const candidate = [...project.files.keys()].find(
-      (other) => other.endsWith(".thm") && other !== path
+  if (!window.confirm(`Delete ${path}?`)) return;
+  try {
+    await workspaceSession.removeFile(path);
+  } catch (error) {
+    appendEntries([
+      {
+        severity: "error",
+        message: `Could not delete ${path}: ${workspaceMessage(error)}`,
+      },
+    ]);
+    return;
+  }
+  const index = openTabs.indexOf(path);
+  editor.remove(path);
+  if (index >= 0) openTabs.splice(index, 1);
+  if (project.entry === path) {
+    editor.setProcessedTip(path, 0);
+    project.entry = undefined;
+  }
+  if (project.active === path) {
+    const next = openTabs[index] ?? openTabs[index - 1];
+    if (next) {
+      activateTab(next);
+    } else {
+      project.active = undefined;
+      editor.clearActive();
+      scheduleSave();
+    }
+  }
+  if (selectedPath === path) {
+    selectedPath = nextPathAfterRemoval(path);
+  }
+  treeFocusSelected = true;
+  if (file.kind === "abella") projectStructureChanged();
+  scheduleSave();
+  refreshFiles();
+}
+
+function nextPathAfterRemoval(path: string): string | undefined {
+  const slash = path.lastIndexOf("/");
+  const folder = slash < 0 ? "" : path.slice(0, slash);
+  const sibling = treeEntries().find(
+    (entry) =>
+      entry.kind === "file" &&
+      entry.openable &&
+      (folder === ""
+        ? !entry.path.includes("/")
+        : entry.path.startsWith(`${folder}/`))
+  );
+  return sibling?.path ?? (folder || project.entry);
+}
+
+function focusRow(path: string): void {
+  const row = pathRow(path);
+  if (!row) return;
+  selectedPath = path;
+  selectTreeRow(path);
+  row.focus();
+}
+
+function closeRowMenu(returnFocus = false): void {
+  const menu = contextMenu;
+  const path = contextMenuPath;
+  contextMenu = undefined;
+  contextMenuPath = undefined;
+  menu?.remove();
+  if (returnFocus && path) focusRow(path);
+}
+
+function menuItem(
+  label: string,
+  enabled: boolean,
+  action: () => void,
+  reason = ""
+): HTMLButtonElement {
+  const item = document.createElement("button");
+  item.type = "button";
+  item.setAttribute("role", "menuitem");
+  item.textContent = label;
+  item.disabled = !enabled;
+  if (!enabled && reason) item.title = reason;
+  item.addEventListener("click", () => {
+    closeRowMenu();
+    action();
+  });
+  return item;
+}
+
+function openRowMenu(path: string, anchor: HTMLElement): void {
+  closeRowMenu();
+  const entry = rowEntry(path);
+  if (!entry) return;
+  if (entry.kind === "file" && !entry.openable) return;
+  const structural = workspaceSession.capabilities.structural;
+  const blockedReason = !structural
+    ? "File actions are not available for this workspace."
+    : runBusy
+      ? "Finish or pause the current run first."
+      : "";
+  const menu = document.createElement("div");
+  menu.className = "context-menu";
+  menu.setAttribute("role", "menu");
+  menu.setAttribute("aria-label", `Actions for ${path}`);
+  if (entry.kind === "directory") {
+    menu.append(
+      menuItem(
+        "New File",
+        structural && !runBusy,
+        () => startCreate(path),
+        blockedReason
+      )
     );
-    if (!candidate) {
-      window.alert("Cannot delete the only .thm file in the project.");
+  } else {
+    menu.append(
+      menuItem("Open", true, () => openFile(path)),
+      menuItem(
+        "Rename",
+        structural && !runBusy,
+        () => startRename(path),
+        blockedReason
+      ),
+      menuItem(
+        "Delete",
+        structural && !runBusy,
+        () => void deleteRow(path),
+        blockedReason
+      )
+    );
+  }
+  document.body.append(menu);
+  const rect = anchor.getBoundingClientRect();
+  const width = menu.offsetWidth;
+  const height = menu.offsetHeight;
+  const left = Math.max(
+    4,
+    Math.min(rect.left, window.innerWidth - width - 4)
+  );
+  const top = Math.max(
+    4,
+    Math.min(rect.bottom + 2, window.innerHeight - height - 4)
+  );
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  contextMenu = menu;
+  contextMenuPath = path;
+  const items = (): HTMLButtonElement[] => [
+    ...menu.querySelectorAll<HTMLButtonElement>("button:not([disabled])"),
+  ];
+  menu.addEventListener("keydown", (event) => {
+    const enabled = items();
+    const index = enabled.indexOf(
+      document.activeElement as HTMLButtonElement
+    );
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        enabled[(index + 1) % enabled.length]?.focus();
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        enabled[(index - 1 + enabled.length) % enabled.length]?.focus();
+        break;
+      case "Home":
+        event.preventDefault();
+        enabled[0]?.focus();
+        break;
+      case "End":
+        event.preventDefault();
+        enabled[enabled.length - 1]?.focus();
+        break;
+      case "Escape":
+        event.preventDefault();
+        closeRowMenu(true);
+        break;
+    }
+  });
+  enabledFirst(menu);
+}
+
+function enabledFirst(menu: HTMLElement): void {
+  menu.querySelector<HTMLButtonElement>("button:not([disabled])")?.focus();
+}
+
+function installRowMenu(): void {
+  const dismiss = (): void => closeRowMenu();
+  document.addEventListener("pointerdown", (event) => {
+    if (!contextMenu) return;
+    if (event.target instanceof Node && contextMenu.contains(event.target)) {
       return;
     }
+    dismiss();
+  });
+  window.addEventListener("blur", dismiss);
+  window.addEventListener("resize", dismiss);
+  window.addEventListener("scroll", dismiss, true);
+}
+
+function installTree(): void {
+  fileList.addEventListener("keydown", (event) => {
     if (
-      !window.confirm(
-        `Delete ${path} and make ${candidate} the root reasoning file?`
-      )
+      event.target instanceof HTMLElement &&
+      event.target.closest(".tree-edit")
     ) {
       return;
     }
-    newRoot = candidate;
-  } else if (!window.confirm(`Delete ${path}?`)) {
-    return;
-  }
-  project.files.delete(path);
-  editor.remove(path);
-  project.root = newRoot;
-  if (project.active === path) project.active = project.root;
-  refreshFiles();
-  openFile(project.active);
-  if (file.kind === "abella") projectStructureChanged();
-  workspaceSession.persistNow();
+    const rows = visibleRows(fileList);
+    if (rows.length === 0) return;
+    const current = selectedPath ?? project.active;
+    let index = rows.findIndex((row) => row.dataset.path === current);
+    if (index < 0) index = 0;
+    const row = rows[index];
+    const depth = Number(row.dataset.depth);
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        index = Math.min(rows.length - 1, index + 1);
+        focusRow(rows[index].dataset.path ?? "");
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        index = Math.max(0, index - 1);
+        focusRow(rows[index].dataset.path ?? "");
+        break;
+      case "Home":
+        event.preventDefault();
+        focusRow(rows[0].dataset.path ?? "");
+        break;
+      case "End":
+        event.preventDefault();
+        focusRow(rows[rows.length - 1].dataset.path ?? "");
+        break;
+      case "ArrowRight": {
+        event.preventDefault();
+        const path = row.dataset.path ?? "";
+        if (row.dataset.kind === "directory") {
+          if (!expandedDirs.has(path)) toggleDirectory(path);
+          else {
+            const next = rows[index + 1];
+            if (next && Number(next.dataset.depth) === depth + 1) {
+              focusRow(next.dataset.path ?? "");
+            }
+          }
+        }
+        break;
+      }
+      case "ArrowLeft": {
+        event.preventDefault();
+        const path = row.dataset.path ?? "";
+        if (row.dataset.kind === "directory" && expandedDirs.has(path)) {
+          toggleDirectory(path);
+        } else {
+          for (let previous = index - 1; previous >= 0; previous--) {
+            if (Number(rows[previous].dataset.depth) === depth - 1) {
+              focusRow(rows[previous].dataset.path ?? "");
+              break;
+            }
+          }
+        }
+        break;
+      }
+      case "Enter":
+      case " ": {
+        event.preventDefault();
+        const path = row.dataset.path ?? "";
+        if (row.dataset.kind === "directory") toggleDirectory(path);
+        else openFile(path);
+        break;
+      }
+      case "F2":
+        event.preventDefault();
+        startRename(row.dataset.path ?? "");
+        break;
+      case "Delete":
+        event.preventDefault();
+        void deleteRow(row.dataset.path ?? "");
+        break;
+      case "F10":
+        if (!event.shiftKey) return;
+        event.preventDefault();
+        openRowMenu(row.dataset.path ?? "", row);
+        break;
+      case "Escape":
+        closeRowMenu();
+        break;
+    }
+  });
 }
 
-function setRoot(): void {
-  if (runBusy) return;
-  const path = project.active;
-  if (!path.endsWith(".thm") || path === project.root) return;
-  editor.setProcessedTip(project.root, 0);
-  project.root = path;
-  refreshFiles();
-  projectStructureChanged();
-  workspaceSession.persistNow();
+function installExplorer(): void {
+  installTree();
+  installRowMenu();
+  addFileButton.addEventListener("click", () => startCreate());
+  collapseAllButton.addEventListener("click", () => {
+    expandedDirs.clear();
+    treeFocusSelected = true;
+    refreshFiles();
+  });
+  sidebarCloseButton.addEventListener("click", closeSidebar);
+  sidebarBackdrop.addEventListener("click", closeSidebar);
 }
 
 function renderGoal(): void {
@@ -2068,10 +2783,12 @@ function outcome(value: ProofOutcome | undefined): void {
 }
 
 function errorDiagnostic(message: string, from: number, to: number): void {
-  const doc = project.files.get(project.root)?.text ?? "";
+  const entry = project.entry;
+  if (!entry) return;
+  const doc = project.files.get(entry)?.text ?? "";
   const end = Math.max(0, Math.min(to, doc.length));
   const start = Math.max(0, Math.min(from, end));
-  editor.setDiagnostics(project.root, [
+  editor.setDiagnostics(entry, [
     { from: start, to: end, severity: "error", message },
   ]);
 }
@@ -2079,19 +2796,25 @@ function errorDiagnostic(message: string, from: number, to: number): void {
 const events: SessionEvents = {
   onStatus: setStatus,
   onTip(tip) {
-    editor.setProcessedTip(project.root, tip);
+    const entry = project.entry;
+    if (!entry) return;
+    editor.setProcessedTip(entry, tip);
     pruneOutput(tip);
   },
   onGoal: goal,
   onOutcome: outcome,
   onOutput: appendEntries,
   onCursor(offset) {
-    if (editor.active !== project.root) openFile(project.root);
-    editor.setCursor(project.root, offset, true);
+    const entry = project.entry;
+    if (!entry) return;
+    if (editor.active !== entry) openFile(entry);
+    editor.setCursor(entry, offset, true);
   },
   onResult(result, command) {
+    const entry = project.entry;
+    if (!entry) return;
     if (result.status === "ok") {
-      editor.clearDiagnostics(project.root);
+      editor.clearDiagnostics(entry);
     } else if (command) {
       errorDiagnostic(
         result.messages
@@ -2124,18 +2847,30 @@ async function startProject(
     info("Finish or pause the current run before changing projects.");
     return;
   }
+  closeRowMenu();
   workspaceSession.close();
   workspaceSession = new WorkspaceSession(next, workspace, {
     persist: persistProject,
   });
   project = workspaceSession.project;
+  await workspaceSession.loadEntries();
   clearOutput();
   lastGoalState = undefined;
   currentOutcome = undefined;
   renderGoal();
   editor.reset();
+  const first =
+    next.active && next.files.has(next.active)
+      ? next.active
+      : next.entry && next.files.has(next.entry)
+        ? next.entry
+        : [...next.files.keys()].sort()[0];
+  next.active = first;
+  openTabs = first ? [first] : [];
+  resetTreeState();
   refreshFiles();
-  openFile(project.active);
+  if (first) openFile(first);
+  updateEntryLabel();
   session.setProject(project);
   workspaceSession.schedulePersist();
   try {
@@ -2145,46 +2880,59 @@ async function startProject(
   }
 }
 
-function rootCursor(): number {
-  if (editor.active !== project.root) {
-    info(`Processing the root reasoning file ${project.root}.`);
-    openFile(project.root);
+function runTarget(): number | undefined {
+  const path = project.active;
+  if (!path || !isExecutable(path) || !project.files.has(path)) {
+    info("Only .thm files can be checked; open a .thm file first.");
+    return undefined;
   }
-  return editor.cursorFor(project.root);
+  if (path !== project.entry) {
+    changeEntry(path);
+    info(`Checking ${path} from the start.`);
+  } else if (editor.active !== path) {
+    openFile(path);
+  }
+  return editor.cursorFor(path);
 }
 
 async function processToCursor(): Promise<void> {
   if (runBusy) return;
-  const cursor = rootCursor();
+  const cursor = runTarget();
+  if (cursor === undefined) return;
   await session.processTo(cursor);
 }
 
 async function stepForward(): Promise<void> {
   if (runBusy) return;
-  const cursor = rootCursor();
+  const cursor = runTarget();
+  if (cursor === undefined) return;
   await session.stepForward(cursor);
 }
 
 async function stepBackward(): Promise<void> {
   if (runBusy) return;
-  const cursor = rootCursor();
+  const cursor = runTarget();
+  if (cursor === undefined) return;
   await session.stepBackward(cursor);
 }
 
 function jumpToTip(): void {
-  rootCursor();
-  editor.setCursor(project.root, session.currentTip, true);
+  const entry = project.entry;
+  if (!entry) return;
+  if (editor.active !== entry) openFile(entry);
+  editor.setCursor(entry, session.currentTip, true);
   editor.focus();
 }
 
 function continueRun(): void {
   if (runBusy) return;
+  if (runTarget() === undefined) return;
   void session.processAll();
 }
 
 function resetSession(): void {
   clearOutput();
-  editor.clearDiagnostics(project.root);
+  if (project.entry) editor.clearDiagnostics(project.entry);
   void session.reset();
 }
 
@@ -2204,7 +2952,10 @@ async function main(): Promise<void> {
       if (minFrom !== Number.POSITIVE_INFINITY) {
         void session.notifyEdit(path, update.changes);
       }
-      refreshFiles();
+      refreshTreeSelection();
+      refreshRowDirty(path);
+      renderTabs();
+      updateWorkspaceUi();
     },
     {
       process: () => void processToCursor(),
@@ -2232,6 +2983,7 @@ async function main(): Promise<void> {
   installPanelSplitter();
   installMenus();
   installTabs();
+  installTabStrip();
   selectPanel("goal");
   byId<HTMLButtonElement>("sidebar-mobile-toggle").addEventListener(
     "click",
@@ -2316,8 +3068,22 @@ async function main(): Promise<void> {
     exampleSelect.title = "Could not load examples/bundle.json";
   }
 
+  const firstTab =
+    project.active && project.files.has(project.active)
+      ? project.active
+      : project.entry && project.files.has(project.entry)
+        ? project.entry
+        : [...project.files.keys()].sort()[0];
+  project.active = firstTab;
+  openTabs = firstTab ? [firstTab] : [];
+  await workspaceSession.loadEntries();
+  resetTreeState();
   refreshFiles();
-  openFile(project.active);
+  updateEntryLabel();
+  if (firstTab) openFile(firstTab);
+  if (savedProjectWarning) {
+    appendEntries([{ severity: "error", message: savedProjectWarning }]);
+  }
   workspaceSession.schedulePersist();
   setStatus("idle");
   try {
@@ -2336,10 +3102,7 @@ async function main(): Promise<void> {
     continueRun();
   });
   resetButton.addEventListener("click", resetSession);
-  addFileButton.addEventListener("click", addFile);
-  renameFileButton.addEventListener("click", renameFile);
-  deleteFileButton.addEventListener("click", deleteFile);
-  setRootButton.addEventListener("click", setRoot);
+  installExplorer();
   openFolderButton.addEventListener("click", () => void openFolder());
   reconnectFolderButton.addEventListener(
     "click",
@@ -2388,7 +3151,9 @@ async function main(): Promise<void> {
   commitDialog.addEventListener("close", () => {
     commitError.textContent = "";
   });
-  saveFileButton.addEventListener("click", () => void savePath(project.active));
+  saveFileButton.addEventListener("click", () => {
+    if (project.active) void savePath(project.active);
+  });
   saveAllButton.addEventListener("click", () => void saveAll());
   folderInput.addEventListener("change", () => void openReadOnlyFolder());
   window.addEventListener("beforeunload", (event) => {
@@ -2453,7 +3218,14 @@ async function main(): Promise<void> {
       if (!window.confirm(message)) {
         return;
       }
-      await startProject(imported, virtualWorkspace(imported));
+      await startProject(imported.project, virtualWorkspace(imported.project));
+      if (imported.skipped > 0) {
+        info(
+          `Skipped ${imported.skipped} archive entr` +
+            `${imported.skipped === 1 ? "y" : "ies"} that Abella Web ` +
+            "cannot open."
+        );
+      }
     } catch (error) {
       appendEntries([
         {

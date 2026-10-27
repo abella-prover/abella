@@ -6,7 +6,7 @@ export interface ExampleEntry {
   id: string;
   group: string;
   name: string;
-  root: string;
+  entry: string;
   sig: string | null;
   mod: string | null;
   files?: string[];

@@ -13,7 +13,7 @@ import {
 import {
   MAX_FILES,
   MAX_FILE_BYTES,
-  chooseRoot,
+  chooseEntry,
   isCandidateFile,
   isSkippedDirectory,
 } from "./workspace-directory";
@@ -86,14 +86,12 @@ export async function openMemoryFolder(
       skipped++;
     }
   }
-  const root = chooseRoot([...filesByName.keys()], name);
-  if (!root) {
-    throw new WorkspaceError(
-      "not-found",
-      "That folder does not contain a .thm reasoning file."
-    );
-  }
-  const project: Project = { files: filesByName, root, active: root };
+  const entry = chooseEntry([...filesByName.keys()], name);
+  const project: Project = {
+    files: filesByName,
+    entry,
+    active: entry ?? [...filesByName.keys()].sort()[0],
+  };
   return {
     project,
     workspace: readOnlyWorkspace("memory", name, project),

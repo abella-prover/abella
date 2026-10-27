@@ -27,7 +27,7 @@ type example = {
   id : string ;
   group : string ;
   name : string ;
-  root : string ;
+  entry : string ;
 }
 
 let read_file path =
@@ -46,7 +46,7 @@ let parse_example = function
       { id = string_field "id" fields ;
         group = string_field "group" fields ;
         name = string_field "name" fields ;
-        root = string_field "root" fields }
+        entry = string_field "entry" fields }
   | _ -> failwithf "Example entries must be objects"
 
 let read_manifest path =
@@ -62,10 +62,10 @@ let chop_thm path =
   if Filename.check_suffix path ".thm" then
     Filename.chop_suffix path ".thm"
   else
-    failwithf "Example root must end in .thm: %S" path
+    failwithf "Example entry must end in .thm: %S" path
 
 (* Transitive .thm files and spec files for one root. *)
-let dependencies root =
+let dependencies entry =
   let seen = Hashtbl.create 19 in
   let thms = ref [] in
   let specs = ref [] in
@@ -78,14 +78,14 @@ let dependencies root =
       List.iter visit imports
     end
   in
-  visit (chop_thm root) ;
+  visit (chop_thm entry) ;
   (List.rev !thms, List.unique !specs)
 
 let is_small_text path =
   Filename.check_suffix path ".md" || Filename.check_suffix path ".txt"
 
-let text_files_for root =
-  let dir = Filename.dirname root in
+let text_files_for entry =
+  let dir = Filename.dirname entry in
   if Sys.file_exists dir && Sys.is_directory dir then
     Sys.readdir dir |>
     Array.to_list |>
@@ -97,13 +97,13 @@ let text_files_for root =
     []
 
 let build_example (files : (string, string) Hashtbl.t) example =
-  let thms, specs = dependencies example.root in
+  let thms, specs = dependencies example.entry in
   let paths =
-    List.unique (thms @ specs @ text_files_for example.root) |>
+    List.unique (thms @ specs @ text_files_for example.entry) |>
     List.sort String.compare
   in
   List.iter (fun path -> Hashtbl.replace files path (read_file path)) paths ;
-  let base = chop_thm example.root in
+  let base = chop_thm example.entry in
   let has_suffix suffix =
     let path = base ^ suffix in
     List.mem path specs
@@ -112,7 +112,7 @@ let build_example (files : (string, string) Hashtbl.t) example =
     "id", `String example.id ;
     "group", `String example.group ;
     "name", `String example.name ;
-    "root", `String example.root ;
+    "entry", `String example.entry ;
     "sig", (if has_suffix ".sig" then `String (base ^ ".sig") else `Null) ;
     "mod", (if has_suffix ".mod" then `String (base ^ ".mod") else `Null) ;
     "files", `List (List.map (fun path -> `String path) paths) ;

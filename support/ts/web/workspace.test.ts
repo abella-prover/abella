@@ -23,7 +23,7 @@ function projectFixture(): Project {
       ["main.thm", { text: "Specification \"empty\".\n", kind: "abella" }],
       ["notes.md", { text: "# Notes\n", kind: "text" }],
     ]),
-    root: "main.thm",
+    entry: "main.thm",
     active: "main.thm",
   };
 }
@@ -43,7 +43,7 @@ test("memory workspace lists, reads, writes, and removes", async () => {
   const project = projectFixture();
   const workspace = virtualWorkspace(project);
   assert.deepEqual(
-    (await workspace.list()).map((entry) => entry.path).sort(),
+    (await workspace.entries()).map((entry) => entry.path).sort(),
     ["main.thm", "notes.md"]
   );
   assert.equal(await workspace.read("notes.md"), "# Notes\n");
@@ -116,7 +116,7 @@ test("save-all reports success, cancellation, and failures", async () => {
       commit: false,
       autoSave: false,
     },
-    async list() {
+    async entries() {
       return [];
     },
     async read() {
@@ -163,7 +163,7 @@ test("session commit clears dirty state after success", async () => {
       commit: true,
       autoSave: false,
     },
-    async list() {
+    async entries() {
       return [];
     },
     async read() {
@@ -214,7 +214,7 @@ test("memory folder strips its root and skips ignored paths", async () => {
     [...opened.project.files.keys()].sort(),
     ["main.thm", "notes.md"]
   );
-  assert.equal(opened.project.root, "main.thm");
+  assert.equal(opened.project.entry!, "main.thm");
   assert.equal(opened.workspace.name, "project");
   assert.equal(opened.workspace.capabilities.write, false);
   assert.equal(opened.workspace.capabilities.structural, false);
@@ -233,14 +233,89 @@ test("memory folder normalizes line endings", async () => {
   );
 });
 
-test("memory folder requires a theorem", async () => {
+test("memory folder opens without a theorem", async () => {
+  const opened = await openMemoryFolder([
+    folderFile("project/spec.sig", "sig spec.\n"),
+    folderFile("project/README.md", "# Readme\n"),
+  ]);
+  assert.equal(opened.project.entry, undefined);
+  assert.equal(opened.project.active, "README.md");
+  assert.deepEqual(
+    [...opened.project.files.keys()].sort(),
+    ["README.md", "spec.sig"]
+  );
+});
+
+test("structural helpers update the cached entry list in place", async () => {
+  const project = projectFixture();
+  const session = new WorkspaceSession(project, virtualWorkspace(project));
+  await session.loadEntries();
+  await session.createFile("sub/new.thm", "Theorem t : True.\n");
+  assert.deepEqual(
+    session.entries().map((entry) => entry.path).sort(),
+    ["main.thm", "notes.md", "sub", "sub/new.thm"]
+  );
+  assert.equal(project.files.has("sub/new.thm"), true);
+
+  await session.renameFiles([
+    {
+      from: "sub/new.thm",
+      to: "sub/renamed.thm",
+      text: "Theorem t : True.\n",
+    },
+  ]);
+  assert.deepEqual(
+    session.entries().map((entry) => entry.path).sort(),
+    ["main.thm", "notes.md", "sub", "sub/renamed.thm"]
+  );
+  assert.equal(project.files.has("sub/new.thm"), false);
+  assert.equal(project.files.has("sub/renamed.thm"), true);
+
+  await session.removeFile("sub/renamed.thm");
+  assert.deepEqual(
+    session.entries().map((entry) => entry.path).sort(),
+    ["main.thm", "notes.md", "sub"]
+  );
+  assert.equal(project.files.has("sub/renamed.thm"), false);
+  session.close();
+});
+
+test("read-only workspaces reject structural helpers", async () => {
+  const project = projectFixture();
+  const session = new WorkspaceSession(
+    project,
+    readOnlyWorkspace("memory", "Notes", project)
+  );
+  await session.loadEntries();
+  await assert.rejects(
+    () => session.createFile("new.thm", ""),
+    (error: unknown) =>
+      error instanceof WorkspaceError && error.code === "unsupported"
+  );
+  await assert.rejects(
+    () => session.removeFile("main.thm"),
+    (error: unknown) =>
+      error instanceof WorkspaceError && error.code === "unsupported"
+  );
   await assert.rejects(
     () =>
-      openMemoryFolder([
-        folderFile("project/spec.sig", "sig spec.\n"),
-        folderFile("project/README.md", "# Readme\n"),
+      session.renameFiles([
+        { from: "main.thm", to: "other.thm", text: "" },
       ]),
     (error: unknown) =>
-      error instanceof WorkspaceError && error.code === "not-found"
+      error instanceof WorkspaceError && error.code === "unsupported"
+  );
+});
+
+test("memory entries derive from the openable project files", async () => {
+  const project = projectFixture();
+  const session = new WorkspaceSession(project, virtualWorkspace(project));
+  const entries = await session.loadEntries();
+  assert.deepEqual(
+    entries.map((entry) => [entry.path, entry.kind, entry.openable]).sort(),
+    [
+      ["main.thm", "file", true],
+      ["notes.md", "file", true],
+    ]
   );
 });

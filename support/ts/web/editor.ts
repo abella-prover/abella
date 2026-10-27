@@ -330,6 +330,18 @@ export class EditorManager {
     this.markdownPending.delete(path);
   }
 
+  /** Drop the editor state for `path`, leaving other tabs untouched. */
+  close(path: string): void {
+    this.remove(path);
+    if (this.activePath === path) this.activePath = null;
+  }
+
+  /** Show the empty state without discarding any editor state. */
+  clearActive(): void {
+    this.activePath = null;
+    this.view.setState(EditorState.create({ doc: "", extensions: [] }));
+  }
+
   rename(from: string, to: string): void {
     const state = this.states.get(from);
     if (state) {

@@ -13,8 +13,8 @@ export interface ProjectTextFile {
 
 export interface Project {
   files: Map<string, ProjectTextFile>;
-  root: string;
-  active: string;
+  entry?: string;
+  active?: string;
   example?: string;
 }
 
@@ -22,6 +22,10 @@ export const STORAGE_KEY = "abella.web.v1.project";
 
 export function classify(path: string): FileKind {
   return /\.(thm|sig|mod)$/i.test(path) ? "abella" : "text";
+}
+
+export function isExecutable(path: string | undefined): boolean {
+  return path !== undefined && path.toLowerCase().endsWith(".thm");
 }
 
 /**
@@ -42,8 +46,8 @@ export function abellaFiles(project: Project): ProjectFile[] {
     .map(([path, file]) => ({ path, contents: file.text }));
 }
 
-export function rootText(project: Project): string {
-  return project.files.get(project.root)?.text ?? "";
+export function entryText(project: Project): string {
+  return project.entry ? project.files.get(project.entry)?.text ?? "" : "";
 }
 
 export function setFileText(project: Project, path: string, text: string): void {
@@ -59,7 +63,7 @@ export function scratchProject(): Project {
     text: 'Specification "empty".\n',
     kind: "abella",
   });
-  return { files, root: "main.thm", active: "main.thm" };
+  return { files, entry: "main.thm", active: "main.thm" };
 }
 
 export function projectFromBundle(
@@ -67,7 +71,7 @@ export function projectFromBundle(
   id: string
 ): Project | undefined {
   const data = bundle as {
-    examples?: { id: string; root: string; files?: string[] }[];
+    examples?: { id: string; entry: string; files?: string[] }[];
     files?: Record<string, string>;
   };
   if (!data?.examples || !data.files) return undefined;
@@ -84,11 +88,13 @@ export function projectFromBundle(
       });
     }
   }
-  if (!files.has(example.root)) return undefined;
+  if (!isExecutable(example.entry) || !files.has(example.entry)) {
+    return undefined;
+  }
   return {
     files,
-    root: example.root,
-    active: example.root,
+    entry: example.entry,
+    active: example.entry,
     example: id,
   };
 }
@@ -99,9 +105,9 @@ export interface WorkspaceDescriptor {
 }
 
 interface SavedProject {
-  version: 1;
+  version: 2;
   files: Record<string, string>;
-  root: string;
+  entry?: string;
   active?: string;
   example?: string;
   workspace?: WorkspaceDescriptor;
@@ -112,16 +118,40 @@ export interface LoadedProject {
   workspace?: WorkspaceDescriptor;
 }
 
+export type ProjectLoadResult =
+  | { status: "loaded"; project: Project; workspace?: WorkspaceDescriptor }
+  | { status: "rejected"; message: string }
+  | { status: "empty" };
+
+function firstPath(files: Map<string, ProjectTextFile>): string | undefined {
+  return sortPaths([...files.keys()])[0];
+}
+
+export function fallbackEntry(
+  files: Map<string, ProjectTextFile>
+): string | undefined {
+  const theorems = sortPaths(
+    [...files.keys()].filter((path) => isExecutable(path))
+  );
+  if (theorems.length === 0) return undefined;
+  return (
+    theorems.find(
+      (path) =>
+        path.slice(path.lastIndexOf("/") + 1).toLowerCase() === "main.thm"
+    ) ?? theorems[0]
+  );
+}
+
 export function saveProject(
   project: Project,
   workspace?: WorkspaceDescriptor
 ): string | undefined {
   const data: SavedProject = {
-    version: 1,
+    version: 2,
     files: Object.fromEntries(
       [...project.files.entries()].map(([path, file]) => [path, file.text])
     ),
-    root: project.root,
+    entry: project.entry,
     active: project.active,
     example: project.example,
     workspace,
@@ -134,17 +164,31 @@ export function saveProject(
   }
 }
 
-export function loadProjectRecord(): LoadedProject | undefined {
+export function loadProjectRecord(): ProjectLoadResult {
   let raw: string | null = null;
   try {
     raw = localStorage.getItem(STORAGE_KEY);
   } catch {
-    return undefined;
+    return { status: "empty" };
   }
-  if (!raw) return undefined;
+  if (!raw) return { status: "empty" };
   try {
-    const data = JSON.parse(raw) as SavedProject;
-    if (data.version !== 1 || typeof data.files !== "object") return undefined;
+    const data = JSON.parse(raw) as Partial<SavedProject>;
+    if (
+      typeof data.files !== "object" ||
+      data.files === null ||
+      Array.isArray(data.files)
+    ) {
+      return { status: "rejected", message: "Unsupported project record." };
+    }
+    if (data.version !== 2) {
+      return {
+        status: "rejected",
+        message:
+          "The saved project uses an older format and was discarded. " +
+          "Starting from scratch.",
+      };
+    }
     const files = new Map<string, ProjectTextFile>();
     for (const [path, text] of Object.entries(data.files)) {
       if (typeof text === "string") {
@@ -154,12 +198,22 @@ export function loadProjectRecord(): LoadedProject | undefined {
         });
       }
     }
-    if (!files.has(data.root)) return undefined;
+    const entry =
+      typeof data.entry === "string" &&
+      isExecutable(data.entry) &&
+      files.has(data.entry)
+        ? data.entry
+        : fallbackEntry(files);
+    const active =
+      typeof data.active === "string" && files.has(data.active)
+        ? data.active
+        : entry ?? firstPath(files);
     return {
+      status: "loaded",
       project: {
         files,
-        root: data.root,
-        active: files.has(data.active ?? "") ? data.active! : data.root,
+        entry,
+        active,
         example: data.example,
       },
       workspace:
@@ -174,12 +228,13 @@ export function loadProjectRecord(): LoadedProject | undefined {
           : undefined,
     };
   } catch {
-    return undefined;
+    return { status: "rejected", message: "Unreadable project record." };
   }
 }
 
 export function loadProject(): Project | undefined {
-  return loadProjectRecord()?.project;
+  const result = loadProjectRecord();
+  return result.status === "loaded" ? result.project : undefined;
 }
 
 export function clearSavedProject(): void {

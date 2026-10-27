@@ -4,49 +4,49 @@
       "id": "type-uniq",
       "group": "Lambda calculus",
       "name": "Type uniqueness",
-      "root": "examples/lambda-calculus/type-uniq/type-uniq.thm"
+      "entry": "examples/lambda-calculus/type-uniq/type-uniq.thm"
     },
     {
       "id": "stlc-weak-norm",
       "group": "Lambda calculus",
       "name": "Weak normalisation",
-      "root": "examples/lambda-calculus/normalization/stlc-weak-norm.thm"
+      "entry": "examples/lambda-calculus/normalization/stlc-weak-norm.thm"
     },
     {
       "id": "hh-meta",
       "group": "Logic",
       "name": "Harrop-style meta-theory",
-      "root": "examples/logic/hh_meta.thm"
+      "entry": "examples/logic/hh_meta.thm"
     },
     {
       "id": "lists",
       "group": "First order",
       "name": "Lists",
-      "root": "examples/first-order/lists.thm"
+      "entry": "examples/first-order/lists.thm"
     },
     {
       "id": "nats",
       "group": "Computation",
       "name": "Natural numbers",
-      "root": "examples/compute/nats.thm"
+      "entry": "examples/compute/nats.thm"
     },
     {
       "id": "howe",
       "group": "Programming languages",
       "name": "Howe's congruence",
-      "root": "examples/programming-languages/howe/howe.thm"
+      "entry": "examples/programming-languages/howe/howe.thm"
     },
     {
       "id": "pic",
       "group": "Process calculi",
       "name": "Bisimulation for the pi-calculus",
-      "root": "examples/process-calculi/pic/pic_bisim_examples.thm"
+      "entry": "examples/process-calculi/pic/pic_bisim_examples.thm"
     },
     {
       "id": "umt",
       "group": "Miscellaneous",
       "name": "Unification",
-      "root": "examples/misc/umt.thm"
+      "entry": "examples/misc/umt.thm"
     }
   ]
 }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Abella Web</title>
     <link rel="icon" href="/images/favicon.ico" type="image/x-icon">
-    <link rel="stylesheet" href="abella_web.css?v=20261027-2">
+    <link rel="stylesheet" href="abella_web.css?v=20261028-1">
   </head>
   <body>
     <header class="topbar">
@@ -71,15 +71,40 @@
 
     <main class="layout">
       <aside class="sidebar" id="sidebar" aria-label="Project files">
-        <div id="sidebar-title" class="sidebar-title">Project</div>
-        <div id="file-list" class="file-list" aria-label="Project files"></div>
-        <div class="file-actions" role="group" aria-label="Project file actions">
-          <button id="add-file" type="button">+ File</button>
-          <button id="rename-file" type="button" disabled>Rename</button>
-          <button id="delete-file" type="button" disabled>Delete</button>
-          <button id="set-root" type="button" disabled>Set root</button>
+        <div class="explorer-head">
+          <span id="sidebar-title" class="explorer-name">Project</span>
+          <div class="explorer-actions">
+            <button
+              id="new-file"
+              class="icon-button explorer-button"
+              type="button"
+              title="New file"
+              aria-label="New file"
+            >+</button>
+            <button
+              id="collapse-all"
+              class="icon-button explorer-button"
+              type="button"
+              title="Collapse all folders"
+              aria-label="Collapse all folders"
+            >⤒</button>
+            <button
+              id="sidebar-close"
+              class="icon-button explorer-button mobile-only"
+              type="button"
+              title="Close the project panel"
+              aria-label="Close the project panel"
+            >×</button>
+          </div>
         </div>
+        <div
+          id="file-list"
+          class="file-list"
+          role="tree"
+          aria-label="Project files"
+        ></div>
       </aside>
+      <div id="sidebar-backdrop" class="sidebar-backdrop" hidden></div>
       <div
         id="sidebar-splitter"
         class="splitter"
@@ -92,7 +117,19 @@
         title="Drag to resize; drag far left or double-click to collapse"
       ></div>
       <section class="editor-pane">
+        <div
+          id="tab-strip"
+          class="tab-strip"
+          role="tablist"
+          aria-label="Open files"
+        ></div>
         <div id="editor" class="editor"></div>
+        <div id="empty-editor" class="empty-editor" hidden>
+          <p>No file open.</p>
+          <p class="empty-editor-hint">
+            Pick a file in the project panel to start editing.
+          </p>
+        </div>
       </section>
       <div
         id="panel-splitter"
@@ -176,6 +213,12 @@
                 hidden
               >!</span></button>
             </div>
+            <span
+              id="entry-file"
+              class="entry-file"
+              title=""
+              hidden
+            ></span>
             <span class="panel-status">
               <span id="status-detail" class="status-detail"></span>
               <span
@@ -258,13 +301,42 @@
           </div>
           <div>
             <dt><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>B</kbd></dt>
-            <dd>Show or hide the project sidebar</dd>
+            <dd>Show or hide the project panel</dd>
+          </div>
+          <div>
+            <dt><kbd>↑</kbd>/<kbd>↓</kbd> in the project panel</dt>
+            <dd>Move through files and folders</dd>
+          </div>
+          <div>
+            <dt><kbd>→</kbd>/<kbd>←</kbd> in the project panel</dt>
+            <dd>Expand or collapse folders, or move to the parent</dd>
+          </div>
+          <div>
+            <dt><kbd>F2</kbd> in the project panel</dt>
+            <dd>Rename the selected file</dd>
+          </div>
+          <div>
+            <dt><kbd>Delete</kbd> in the project panel</dt>
+            <dd>Delete the selected file</dd>
+          </div>
+          <div>
+            <dt><kbd>Shift</kbd>+<kbd>F10</kbd></dt>
+            <dd>Open the actions menu for the selected file or folder</dd>
+          </div>
+          <div>
+            <dt><kbd>←</kbd>/<kbd>→</kbd> in the tab strip</dt>
+            <dd>Switch between open files</dd>
           </div>
           <div>
             <dt><kbd>Ctrl</kbd>+<kbd>?</kbd></dt>
             <dd>Open this help</dd>
           </div>
         </dl>
+        <p class="setting-note">
+          The play and step controls check the active <code>.thm</code> tab.
+          Switching tabs does not reset the prover; checking a different
+          theorem does.
+        </p>
         <p class="setting-note">
           On macOS, use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd> for the
           <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> shortcuts. The bracket and dot
@@ -391,6 +463,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="abella_web.js?v=20261027-2"></script>
+    <script type="module" src="abella_web.js?v=20261028-1"></script>
   </body>
 </html>

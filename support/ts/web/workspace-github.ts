@@ -12,17 +12,20 @@ import {
   type ProjectTextFile,
 } from "./project";
 import {
+  MAX_DEPTH,
+  MAX_ENTRIES,
   MAX_FILE_BYTES,
   MAX_FILES,
-  chooseRoot,
+  chooseEntry,
   isCandidateFile,
+  isSkippedDirectory,
 } from "./workspace-directory";
 import {
   WorkspaceError,
   type CommitResult,
   type Workspace,
   type WorkspaceCapabilities,
-  type WorkspaceFileEntry,
+  type WorkspaceEntry,
   type WorkspaceKind,
 } from "./workspace";
 
@@ -493,6 +496,31 @@ function stripBom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
+function isIgnoredPath(path: string): boolean {
+  const parts = path.split("/");
+  return parts.some(
+    (part, index) =>
+      part.startsWith(".") ||
+      (index < parts.length - 1 && isSkippedDirectory(part))
+  );
+}
+
+function withParentDirectories(entries: WorkspaceEntry[]): WorkspaceEntry[] {
+  const known = new Set(entries.map((entry) => entry.path));
+  const directories: WorkspaceEntry[] = [];
+  for (const entry of entries) {
+    const parts = entry.path.split("/");
+    parts.pop();
+    for (let depth = 1; depth <= parts.length; depth++) {
+      const path = parts.slice(0, depth).join("/");
+      if (known.has(path)) continue;
+      known.add(path);
+      directories.push({ path, kind: "directory", openable: true });
+    }
+  }
+  return [...directories, ...entries];
+}
+
 export interface OpenedGitHub {
   project: Project;
   workspace: GitHubWorkspace;
@@ -500,6 +528,7 @@ export interface OpenedGitHub {
   login?: string;
   skipped: number;
   truncated: boolean;
+  listingTruncated: boolean;
 }
 
 interface SelectedFile {
@@ -616,8 +645,10 @@ export async function loadGitHubRepository(
 
   const subdir = normalizeSubdir(ref.path);
   const selected: SelectedFile[] = [];
+  const entries: WorkspaceEntry[] = [];
   let skipped = 0;
   let truncated = tree.truncated;
+  let listingTruncated = false;
   for (const entry of tree.tree) {
     if (entry.type !== "blob") continue;
     if (
@@ -630,14 +661,38 @@ export async function loadGitHubRepository(
     const path = subdir
       ? entry.path.slice(subdir.length + 1)
       : entry.path;
-    if (!path || !isCandidateFile(path)) continue;
+    if (!path || isIgnoredPath(path)) continue;
+    if (path.split("/").length - 1 > MAX_DEPTH) continue;
+    if (entries.length >= MAX_ENTRIES) {
+      listingTruncated = true;
+      break;
+    }
+    if (!isCandidateFile(path)) {
+      entries.push({
+        path,
+        kind: "file",
+        openable: false,
+        reason: "unsupported",
+      });
+      continue;
+    }
+    const record: WorkspaceEntry = {
+      path,
+      kind: "file",
+      openable: true,
+    };
+    entries.push(record);
     if (entry.size !== undefined && entry.size > MAX_FILE_BYTES) {
+      record.openable = false;
+      record.reason = "too-large";
       skipped++;
       continue;
     }
     if (selected.length >= MAX_FILES) {
       truncated = true;
-      break;
+      record.openable = false;
+      record.reason = "unreadable";
+      continue;
     }
     selected.push({
       path,
@@ -688,17 +743,15 @@ export async function loadGitHubRepository(
     throw githubError(fatal, "a repository file");
   }
 
-  const root = chooseRoot(
+  const entry = chooseEntry(
     [...files.keys()],
     subdir ? subdir.split("/").pop() ?? ref.repo : ref.repo
   );
-  if (!root) {
-    throw new WorkspaceError(
-      "not-found",
-      "That repository does not contain a .thm reasoning file."
-    );
-  }
-  const project: Project = { files, root, active: root };
+  const project: Project = {
+    files,
+    entry,
+    active: entry ?? [...files.keys()].sort()[0],
+  };
   const baseTexts = new Map(
     [...files.entries()].map(([path, file]) => [path, file.text])
   );
@@ -710,6 +763,7 @@ export async function loadGitHubRepository(
     branch,
     subdir,
     project,
+    entries: withParentDirectories(entries),
     baseRevision: head.sha,
     baseTree: tree.sha,
     baseTexts,
@@ -721,6 +775,7 @@ export async function loadGitHubRepository(
     login,
     skipped,
     truncated,
+    listingTruncated,
   };
 }
 
@@ -732,6 +787,7 @@ export interface GitHubWorkspaceOptions {
   branch: string;
   subdir?: string;
   project: Project;
+  entries: WorkspaceEntry[];
   baseRevision: string;
   baseTree: string;
   baseTexts: Map<string, string>;
@@ -742,8 +798,8 @@ export class GitHubWorkspace implements Workspace {
   readonly name: string;
   readonly capabilities: WorkspaceCapabilities = {
     write: true,
-    remove: false,
-    structural: false,
+    remove: true,
+    structural: true,
     refresh: false,
     commit: true,
     autoSave: false,
@@ -757,6 +813,7 @@ export class GitHubWorkspace implements Workspace {
   private branch: string;
   private subdir: string;
   private project: Project;
+  private entriesList: WorkspaceEntry[];
   private baseTree: string;
   private baseTexts: Map<string, string>;
 
@@ -768,6 +825,7 @@ export class GitHubWorkspace implements Workspace {
     this.branch = options.branch;
     this.subdir = normalizeSubdir(options.subdir);
     this.project = options.project;
+    this.entriesList = options.entries;
     this.baseRevision = options.baseRevision;
     this.baseTree = options.baseTree;
     this.baseTexts = options.baseTexts;
@@ -783,11 +841,8 @@ export class GitHubWorkspace implements Workspace {
     return Boolean(this.token);
   }
 
-  async list(): Promise<WorkspaceFileEntry[]> {
-    return [...this.project.files.entries()].map(([path, file]) => ({
-      path,
-      kind: file.kind,
-    }));
+  async entries(): Promise<WorkspaceEntry[]> {
+    return [...this.entriesList];
   }
 
   async read(path: string): Promise<string> {
@@ -802,6 +857,16 @@ export class GitHubWorkspace implements Workspace {
     const file = this.project.files.get(path);
     if (file) file.text = text;
     else this.project.files.set(path, { text, kind: classify(path) });
+    if (!this.entriesList.some((entry) => entry.path === path)) {
+      this.entriesList.push({ path, kind: "file", openable: true });
+    }
+  }
+
+  async remove(path: string): Promise<void> {
+    this.project.files.delete(path);
+    this.entriesList = this.entriesList.filter(
+      (entry) => entry.path !== path
+    );
   }
 
   async authorize(token: string): Promise<{ login: string }> {

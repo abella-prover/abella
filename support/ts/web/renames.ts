@@ -11,8 +11,8 @@ export interface FileRename {
 
 export interface RenamePlan {
   files: Map<string, ProjectTextFile>;
-  root: string;
-  active: string;
+  entry?: string;
+  active?: string;
   renames: FileRename[];
   changed: Map<string, string>;
 }
@@ -314,15 +314,18 @@ export function planRename(
     }
   }
 
-  let root = project.root;
+  let entry = project.entry;
   let active = project.active;
   for (const rename of renames) {
-    if (root === rename.from) root = rename.to;
+    if (entry === rename.from) entry = rename.to;
     if (active === rename.from) active = rename.to;
+  }
+  if (entry !== undefined && !entry.toLowerCase().endsWith(".thm")) {
+    entry = undefined;
   }
 
   return {
     ok: true,
-    plan: { files, root, active, renames, changed },
+    plan: { files, entry, active, renames, changed },
   };
 }

@@ -10,7 +10,7 @@ import type { ProofState, RawMessage, RunResult } from "./types";
 import {
   abellaFiles,
   classify,
-  rootText,
+  entryText,
   type Project,
 } from "./project";
 
@@ -260,19 +260,24 @@ export class Session {
 
   private async initialize(): Promise<boolean> {
     const generation = this.generation;
+    const entry = this.project.entry;
+    if (!entry) {
+      this.clearSessionState();
+      this.dirty = false;
+      this.initialized = false;
+      this.events.onStatus("idle");
+      return false;
+    }
     let result: RunResult;
     try {
-      result = await this.driver.init(
-        abellaFiles(this.project),
-        this.project.root
-      );
+      result = await this.driver.init(abellaFiles(this.project), entry);
     } catch (error) {
       if (generation !== this.generation) return false;
       this.events.onStatus("error");
       this.events.onError(
         String(error),
         0,
-        rootText(this.project).length
+        entryText(this.project).length
       );
       return false;
     }
@@ -419,7 +424,7 @@ export class Session {
           await this.rewindToLeftOfUnlocked(cursor);
           return;
         }
-        const doc = rootText(this.project);
+        const doc = entryText(this.project);
         let commands: Command[];
         try {
           commands = scanCommands(doc, this.tip);
@@ -472,7 +477,7 @@ export class Session {
   }
 
   async processAll(): Promise<void> {
-    const doc = rootText(this.project);
+    const doc = entryText(this.project);
     await this.processTo(doc.length);
   }
 
@@ -570,7 +575,7 @@ export class Session {
         if (!(await this.ensureInitialized())) return false;
         if (generation !== this.generation) return false;
         const atEnd = cursor >= this.tip;
-        const doc = rootText(this.project);
+        const doc = entryText(this.project);
         let commands: Command[];
         try {
           commands = scanCommands(doc, this.tip);
@@ -634,10 +639,19 @@ export class Session {
     this.events.onStatus("idle");
   }
 
+  /** Abort the current run and check `path` on the next execution. */
+  setEntry(path: string): void {
+    this.abortRun();
+    this.project.entry = path;
+    this.dirty = true;
+    this.initialized = false;
+    this.events.onStatus("idle");
+  }
+
   /** Called after the editor changed `path`; offsets are JS offsets. */
   notifyEdit(path: string, changes: ChangeSet): Promise<void> {
     const kind = classify(path);
-    if (path !== this.project.root) {
+    if (path !== this.project.entry) {
       if (kind === "abella") {
         this.paused = false;
         this.pauseRequested = false;

@@ -126,7 +126,7 @@ function projectFixture(): Project {
       ["main.thm", { text: 'Specification "spec".\n', kind: "abella" }],
       ["spec.sig", { text: "sig spec.\n", kind: "abella" }],
     ]),
-    root: "main.thm",
+    entry: "main.thm",
     active: "main.thm",
   };
 }
@@ -144,6 +144,11 @@ function workspaceFixture(
     branch: "main",
     subdir: "sub",
     project,
+    entries: [...project.files.keys()].map((path) => ({
+      path,
+      kind: "file" as const,
+      openable: true,
+    })),
     baseRevision: "commit-base",
     baseTree: "tree-base",
     baseTexts: new Map([
@@ -253,11 +258,11 @@ test("loads a subdirectory and builds the project", async () => {
     [...opened.project.files.keys()].sort(),
     ["README.md", "main.thm", "spec.sig"]
   );
-  assert.equal(opened.project.root, "main.thm");
+  assert.equal(opened.project.entry!, "main.thm");
   assert.equal(opened.workspace.name, "acme/demo@main:sub");
   assert.equal(opened.workspace.baseRevision, "commit-base");
   assert.equal(opened.workspace.capabilities.commit, true);
-  assert.equal(opened.workspace.capabilities.structural, false);
+  assert.equal(opened.workspace.capabilities.structural, true);
 });
 
 test("loads public files through raw content URLs", async () => {
@@ -359,5 +364,63 @@ test("commit requires a token and actual changes", async () => {
     () => unchanged.commit("Update"),
     (error: unknown) =>
       error instanceof GitHubWorkspaceError && error.code === "io"
+  );
+});
+
+test("retains inert entries in the repository tree", async () => {
+  const api = new FakeApi();
+  const opened = await loadGitHubRepository(
+    "https://github.com/acme/demo/tree/main/sub",
+    "token",
+    async () => api
+  );
+  const entries = await opened.workspace.entries();
+  const byPath = new Map(entries.map((entry) => [entry.path, entry]));
+  assert.equal(byPath.get("logo.png")?.openable, false);
+  assert.equal(byPath.get("logo.png")?.reason, "unsupported");
+  assert.equal(byPath.get("main.thm")?.openable, true);
+});
+
+test("removing a file commits a deletion", async () => {
+  const api = new FakeApi();
+  const project = projectFixture();
+  const workspace = workspaceFixture(api, project, "token");
+  await workspace.remove("spec.sig");
+  assert.equal(project.files.has("spec.sig"), false);
+  const result = await workspace.commit("Remove spec");
+  assert.equal(result.status, "committed");
+  assert.deepEqual(
+    api.treeEntries.find((entry) => entry.path === "sub/spec.sig"),
+    {
+      path: "sub/spec.sig",
+      mode: "100644",
+      type: "blob",
+      sha: null,
+    }
+  );
+});
+
+test("renaming a file commits a new blob and a deletion", async () => {
+  const api = new FakeApi();
+  const project = projectFixture();
+  project.files.delete("spec.sig");
+  project.files.set("spec2.sig", { text: "sig spec.\n", kind: "abella" });
+  const workspace = workspaceFixture(api, project, "token");
+  const result = await workspace.commit("Rename spec");
+  assert.equal(result.status, "committed");
+  assert.equal(
+    api.treeEntries.some(
+      (entry) => entry.path === "sub/spec2.sig" && entry.sha !== null
+    ),
+    true
+  );
+  assert.deepEqual(
+    api.treeEntries.find((entry) => entry.path === "sub/spec.sig"),
+    {
+      path: "sub/spec.sig",
+      mode: "100644",
+      type: "blob",
+      sha: null,
+    }
   );
 });

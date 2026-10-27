@@ -7,8 +7,6 @@
 
 import {
   classify,
-  setFileText,
-  type FileKind,
   type Project,
 } from "./project";
 
@@ -31,9 +29,13 @@ export interface WorkspaceCapabilities {
   autoSave: boolean;
 }
 
-export interface WorkspaceFileEntry {
+export type WorkspaceEntryReason = "unsupported" | "too-large" | "unreadable";
+
+export interface WorkspaceEntry {
   path: string;
-  kind: FileKind;
+  kind: "file" | "directory";
+  openable: boolean;
+  reason?: WorkspaceEntryReason;
 }
 
 export type WorkspaceErrorCode =
@@ -65,7 +67,7 @@ export interface Workspace {
   readonly kind: WorkspaceKind;
   readonly name: string;
   readonly capabilities: WorkspaceCapabilities;
-  list(): Promise<WorkspaceFileEntry[]>;
+  entries(): Promise<WorkspaceEntry[]>;
   read(path: string): Promise<string>;
   write(path: string, text: string): Promise<void>;
   remove?(path: string): Promise<void>;
@@ -105,10 +107,11 @@ export class MemoryWorkspace implements Workspace {
     readonly capabilities: WorkspaceCapabilities
   ) {}
 
-  async list(): Promise<WorkspaceFileEntry[]> {
-    return [...this.project.files.entries()].map(([path, file]) => ({
+  async entries(): Promise<WorkspaceEntry[]> {
+    return [...this.project.files.keys()].map((path) => ({
       path,
-      kind: file.kind,
+      kind: "file" as const,
+      openable: true,
     }));
   }
 
@@ -225,6 +228,121 @@ export class WorkspaceSession {
 
   clearDirty(path: string): void {
     this.dirty.delete(path);
+  }
+
+  private cachedEntries: WorkspaceEntry[] = [];
+
+  async loadEntries(): Promise<WorkspaceEntry[]> {
+    this.cachedEntries = await this.workspace.entries();
+    return this.entries();
+  }
+
+  entries(): WorkspaceEntry[] {
+    return [...this.cachedEntries];
+  }
+
+  hasEntry(path: string): boolean {
+    return this.cachedEntries.some((entry) => entry.path === path);
+  }
+
+  private addParentDirectories(path: string): void {
+    const parts = path.split("/");
+    parts.pop();
+    for (let depth = 1; depth <= parts.length; depth++) {
+      const directory = parts.slice(0, depth).join("/");
+      if (!this.hasEntry(directory)) {
+        this.cachedEntries.push({
+          path: directory,
+          kind: "directory",
+          openable: true,
+        });
+      }
+    }
+  }
+
+  private updateEntriesAfterCreate(path: string): void {
+    this.cachedEntries = this.cachedEntries.filter(
+      (entry) => entry.path !== path
+    );
+    this.cachedEntries.push({
+      path,
+      kind: "file",
+      openable: true,
+    });
+    this.addParentDirectories(path);
+  }
+
+  private updateEntriesAfterRemove(path: string): void {
+    this.cachedEntries = this.cachedEntries.filter(
+      (entry) => entry.path !== path
+    );
+  }
+
+  async createFile(path: string, text: string): Promise<void> {
+    if (!this.capabilities.structural) {
+      throw new WorkspaceError(
+        "unsupported",
+        "Creating files is not supported by this workspace."
+      );
+    }
+    await this.workspace.write(path, text);
+    this.updateEntriesAfterCreate(path);
+    if (this.capabilities.commit) this.markDirty(path);
+    else this.clearDirty(path);
+    this.persistNow();
+  }
+
+  async removeFile(path: string): Promise<void> {
+    if (!this.capabilities.structural || !this.workspace.remove) {
+      throw new WorkspaceError(
+        "unsupported",
+        "Deleting files is not supported by this workspace."
+      );
+    }
+    await this.workspace.remove(path);
+    this.updateEntriesAfterRemove(path);
+    if (this.capabilities.commit) this.markDirty(path);
+    else this.clearDirty(path);
+    this.persistNow();
+  }
+
+  async renameFiles(
+    renames: { from: string; to: string; text: string }[]
+  ): Promise<void> {
+    if (!this.capabilities.structural || !this.workspace.remove) {
+      throw new WorkspaceError(
+        "unsupported",
+        "Renaming files is not supported by this workspace."
+      );
+    }
+    for (const rename of renames) {
+      await this.workspace.write(rename.to, rename.text);
+    }
+    const failures: string[] = [];
+    for (const rename of renames) {
+      try {
+        await this.workspace.remove(rename.from);
+        this.updateEntriesAfterRemove(rename.from);
+        this.updateEntriesAfterCreate(rename.to);
+        if (this.capabilities.commit) {
+          this.dirty.delete(rename.from);
+          this.markDirty(rename.to);
+        } else {
+          this.clearDirty(rename.from);
+          this.clearDirty(rename.to);
+        }
+      } catch (error) {
+        failures.push(workspaceMessage(error));
+      }
+    }
+    this.persistNow();
+    if (failures.length > 0) {
+      throw new WorkspaceError(
+        "io",
+        "The new file was written, but the old file could not be removed: " +
+          failures.join("; ")
+      );
+    }
   }
 
   schedulePersist(): void {

@@ -62,5 +62,3 @@ export interface Abellajs {
   thc(path: string): string | null;
   setOnImport(callback: (name: string) => void): void;
 }
-
-export type Engine = "wasm" | "js";

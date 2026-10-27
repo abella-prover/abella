@@ -3,7 +3,7 @@
 // See LICENSE for licensing details.
 
 import { downloadProject, importProject } from "./archive";
-import { WorkerDriver, loadEngine } from "./driver";
+import { WorkerDriver } from "./driver";
 import { EditorManager } from "./editor";
 import {
   fillExampleSelect,
@@ -2211,8 +2211,7 @@ async function main(): Promise<void> {
     }
   );
 
-  const engine = await loadEngine();
-  const driver = new WorkerDriver(engine, (module) =>
+  const driver = new WorkerDriver((module) =>
     setStatus("compiling", module)
   );
   session = new Session(driver, project, events);

@@ -4,17 +4,16 @@ Abella Web
 Abella Web is the static browser interface in `web/`. Build it with:
 
 ```sh
-make web                 # wasm backend (default)
-make web ENGINE=js       # diagnostic/fallback js_of_ocaml backend
+make web                 # build the wasm backend
 make publish-web         # build and rsync web/ to the site
 ```
 
-`make web` needs Node 22+, Dune 3.20+, and, for the default wasm
-backend, `wasm_of_ocaml-compiler` 6.4.x plus system Binaryen 119+.
-The selected compiler is not needed for `make all` or the native tests.
+`make web` needs Node 22+, Dune 3.20+, `wasm_of_ocaml-compiler` 6.4.x,
+and system Binaryen 119+. The wasm compiler is not needed for `make all`
+or the native tests.
 
-The frontend reads the backend from `web/engine.json`. Test the
-TypeScript and unit tests, and check the bundle budgets, with:
+The frontend always loads the wasm worker from `abella_js/worker.js`.
+Test the TypeScript and unit tests, and check the bundle budgets, with:
 
 ```sh
 cd support

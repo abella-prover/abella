@@ -18,7 +18,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
-(* JS-facing adapter shared by the js_of_ocaml and wasm_of_ocaml targets. *)
+(* JS-facing adapter for the wasm_of_ocaml browser target. *)
 
 open Js_of_ocaml
 open Abella_lib

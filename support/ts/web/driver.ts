@@ -2,12 +2,7 @@
 //                     en Informatique et en Automatique)
 // See LICENSE for licensing details.
 
-import type {
-  Engine,
-  ProjectFile,
-  RunResult,
-  SourcePos,
-} from "./types";
+import type { ProjectFile, RunResult, SourcePos } from "./types";
 import { WEB_ASSET_VERSION } from "./version";
 
 export interface Driver {
@@ -25,24 +20,9 @@ interface Pending {
   reject: (reason: Error) => void;
 }
 
-export function workerPath(engine: Engine): string {
-  const path = engine === "wasm" ? "abella_js/worker.js" : "abella_worker.js";
-  return `${path}?v=${WEB_ASSET_VERSION}`;
-}
-
-export async function loadEngine(): Promise<Engine> {
-  try {
-    const response = await fetch("engine.json", { cache: "no-store" });
-    if (!response.ok) return "wasm";
-    const data = (await response.json()) as { engine?: string };
-    return data.engine === "js" ? "js" : "wasm";
-  } catch {
-    return "wasm";
-  }
-}
+const WORKER_PATH = `abella_js/worker.js?v=${WEB_ASSET_VERSION}`;
 
 export class WorkerDriver implements Driver {
-  private engine: Engine;
   private worker!: Worker;
   private ready!: Promise<void>;
   private rejectReady?: (error: Error) => void;
@@ -50,14 +30,13 @@ export class WorkerDriver implements Driver {
   private nextId = 0;
   onProgress?: (module: string) => void;
 
-  constructor(engine: Engine, onProgress?: (module: string) => void) {
-    this.engine = engine;
+  constructor(onProgress?: (module: string) => void) {
     this.onProgress = onProgress;
     this.spawn();
   }
 
   private spawn(): void {
-    this.worker = new Worker(workerPath(this.engine));
+    this.worker = new Worker(WORKER_PATH);
     this.ready = new Promise((resolve, reject) => {
       this.rejectReady = reject;
       const onReady = (event: MessageEvent) => {

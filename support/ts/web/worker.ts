@@ -4,22 +4,15 @@
 
 // Web Worker entry for the Abella Web prover engine.
 //
-// esbuild replaces __ENGINE__ at build time and emits this file either as
-// web/abella_js/worker.js (wasm) or web/abella_worker.js (js).  The wasm
-// launcher resolves its .wasm assets relative to this worker's URL, which is
-// why the wasm build lives inside web/abella_js/.
+// The wasm launcher resolves its .wasm assets relative to this worker's URL,
+// which is why this file is emitted into web/abella_js/.
 
 import { WEB_ASSET_VERSION } from "./version";
 
-declare const __ENGINE__: "js" | "wasm";
 declare function importScripts(...urls: string[]): void;
 declare const Abellajs: import("./types").Abellajs;
 
-if (__ENGINE__ === "wasm") {
-  importScripts(`abella_js.bc.wasm.js?v=${WEB_ASSET_VERSION}`);
-} else {
-  importScripts(`abella_js.js?v=${WEB_ASSET_VERSION}`);
-}
+importScripts(`abella_js.bc.wasm.js?v=${WEB_ASSET_VERSION}`);
 
 const scope = self as unknown as {
   postMessage(message: unknown): void;
@@ -31,7 +24,7 @@ function announceWhenReady(): void {
     Abellajs.setOnImport((module) => {
       scope.postMessage({ type: "progress", stage: "compiling", module });
     });
-    scope.postMessage({ type: "ready", engine: __ENGINE__ });
+    scope.postMessage({ type: "ready" });
   } else {
     setTimeout(announceWhenReady, 10);
   }

@@ -2,6 +2,10 @@
 
 DUNE := dune
 
+ifneq ($(strip $(ENGINE)),)
+$(error ENGINE is no longer supported; Abella Web builds wasm only)
+endif
+
 # run with `make BYTECODE=true` to produce bytecode
 EXTN := $(if $(strip $(BYTECODE)),bc,exe)
 BINS := $(patsubst %,%.$(EXTN),src/abella src/abella_doc src/abella_dep)
@@ -14,29 +18,18 @@ all: support/.stamp
 all-release: # support/.stamp
 	$(DUNE) build --release $(BINS)
 
-ENGINE ?= wasm
-
 .PHONY: web
 web:
+	rm -f web/abella_worker.js web/abella_js.js web/engine.json
 	mkdir -p web/examples web/abella_js
 	$(DUNE) exec src/abella_bundle.exe -- \
 	  -m support/web-examples.json -o web/examples/bundle.json
 	( cd support && npm install --no-save && npm run web:build )
-ifeq ($(ENGINE),js)
-	$(DUNE) build --profile release src/js/abella_js.bc.js
-	rm -f web/abella_js.js
-	cp _build/default/src/js/abella_js.bc.js web/abella_js.js
-	rm -rf web/abella_js
-	echo '{"engine":"js"}' > web/engine.json
-else
 	$(DUNE) build --profile release src/js/abella_js.bc.wasm.js
-	rm -f web/abella_js.js
 	rm -rf web/abella_js/abella_js.bc.wasm.assets
 	rm -f web/abella_js/abella_js.bc.wasm.js
 	cp _build/default/src/js/abella_js.bc.wasm.js web/abella_js/
 	cp -r _build/default/src/js/abella_js.bc.wasm.assets web/abella_js/
-	echo '{"engine":"wasm"}' > web/engine.json
-endif
 
 .PHONY: web-bundle
 web-bundle:

@@ -63,6 +63,10 @@ import {
   type GitHubOAuthConfig,
   type GitHubOAuthScope,
 } from "./github-oauth";
+import {
+  createThemeToggle,
+  loadTheme,
+} from "../theme-toggle";
 import { GITHUB_OAUTH_WORKER } from "./github-oauth-config";
 import { isOAuthCallback } from "./oauth-callback";
 import {
@@ -141,11 +145,8 @@ const commitSubmitButton = byId<HTMLButtonElement>("commit-submit");
 const commitCancelButton = byId<HTMLButtonElement>("commit-cancel");
 const commitCloseButton = byId<HTMLButtonElement>("commit-close");
 const sidebarTitle = byId<HTMLElement>("sidebar-title");
-const settingsButton = byId<HTMLButtonElement>("settings");
-const settingsDialog = byId<HTMLDialogElement>("settings-dialog");
 const helpButton = byId<HTMLButtonElement>("help");
 const helpDialog = byId<HTMLDialogElement>("help-dialog");
-const themeToggle = byId<HTMLInputElement>("theme-toggle");
 const THEME_KEY = "abella.web.v1.theme";
 const layout = document.querySelector(".layout") as HTMLElement;
 const panelsElement = document.querySelector(".panels") as HTMLElement;
@@ -242,31 +243,6 @@ let workspaceSession = new WorkspaceSession(
   { persist: persistProject }
 );
 
-type Theme = "light" | "dark";
-
-function loadTheme(): Theme {
-  try {
-    const saved = localStorage.getItem(THEME_KEY);
-    if (saved === "dark" || saved === "light") return saved;
-  } catch {
-    // Fall through to the system preference.
-  }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
-function applyTheme(theme: Theme, persist: boolean): void {
-  document.documentElement.dataset.theme = theme;
-  themeToggle.checked = theme === "dark";
-  if (persist) {
-    try {
-      localStorage.setItem(THEME_KEY, theme);
-    } catch {
-      // Preferences are optional.
-    }
-  }
-}
 let sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
 let sidebarCollapsed = false;
 let lastGoalState: ProofState | undefined;
@@ -2414,17 +2390,6 @@ async function main(): Promise<void> {
     event.preventDefault();
     event.returnValue = "";
   });
-  settingsButton.addEventListener("click", () => {
-    themeToggle.checked =
-      document.documentElement.dataset.theme === "dark";
-    settingsDialog.showModal();
-  });
-  themeToggle.addEventListener("change", () => {
-    applyTheme(themeToggle.checked ? "dark" : "light", true);
-  });
-  settingsDialog.addEventListener("click", (event) => {
-    if (event.target === settingsDialog) settingsDialog.close();
-  });
 
   exampleSelect.addEventListener("change", () => {
     const id = exampleSelect.value;
@@ -2493,5 +2458,7 @@ async function main(): Promise<void> {
     }
   });
 }
-applyTheme(loadTheme(), false);
+const themeToggle = createThemeToggle(THEME_KEY);
+themeToggle.setTheme(loadTheme(THEME_KEY), false);
+zipInput.before(themeToggle.element);
 void main();

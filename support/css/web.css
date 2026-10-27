@@ -25,6 +25,12 @@
   --status-error-bg: #f8e2e4;
   --mono: "Iosevka", "Fira Code", "DejaVu Sans Mono", monospace;
   --sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  --switch-track: #e6dcd6;
+  --switch-knob: #ffffff;
+  --switch-inset: rgb(0 0 0 / 12%);
+  --switch-highlight: rgb(255 255 255 / 70%);
+  --switch-knob-shadow: rgb(60 20 30 / 25%);
+  --switch-icon: #6d2135;
   --cm-comment: #8a7a72;
   --cm-keyword: #a83e5b;
   --cm-type: #205e8a;
@@ -55,6 +61,12 @@
   --status-warn-bg: #3a2c15;
   --status-ok-bg: #18301f;
   --status-error-bg: #3a1b1f;
+  --switch-track: #3a2f2b;
+  --switch-knob: #bda9a0;
+  --switch-inset: rgb(0 0 0 / 40%);
+  --switch-highlight: rgb(255 255 255 / 18%);
+  --switch-knob-shadow: rgb(0 0 0 / 45%);
+  --switch-icon: #3b1520;
   --cm-comment: #9b8b82;
   --cm-keyword: #e07a97;
   --cm-type: #7fb7e6;
@@ -126,7 +138,85 @@ summary:focus-visible,
 .splitter:focus-visible {
   outline: 2px solid var(--rose);
   outline-offset: 1px;
-}.topbar {
+}
+
+.theme-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  cursor: pointer;
+}
+
+.theme-switch {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.theme-toggle-track {
+  display: block;
+  position: relative;
+  width: 3.5rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: var(--switch-track);
+  box-shadow: inset 0 0.125rem 0.25rem var(--switch-inset);
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.theme-toggle-knob {
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  display: grid;
+  place-items: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  border-radius: 50%;
+  background: var(--switch-knob);
+  box-shadow: 0 0.125rem 0.3rem var(--switch-knob-shadow),
+    inset 0 1px 0 var(--switch-highlight);
+  transition: left 0.25s ease, background-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.theme-icon {
+  grid-area: 1 / 1;
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--switch-icon);
+  pointer-events: none;
+}
+
+.theme-icon-moon {
+  display: none;
+}
+
+.theme-switch:checked + .theme-toggle-track .theme-toggle-knob {
+  left: calc(100% - 1.5625rem);
+}
+
+.theme-switch:checked + .theme-toggle-track .theme-icon-sun {
+  display: none;
+}
+
+.theme-switch:checked + .theme-toggle-track .theme-icon-moon {
+  display: block;
+}
+
+.theme-switch:focus-visible + .theme-toggle-track {
+  outline: 2px solid var(--rose);
+  outline-offset: 3px;
+}
+
+.topbar {
   display: flex;
   align-items: center;
   gap: 1rem;

@@ -1,12 +1,7 @@
 name: Abella Web
 
 on:
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - master
+  workflow_dispatch:
 
 jobs:
   web:

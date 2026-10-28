@@ -11,8 +11,9 @@
     "web:worker": "esbuild ./ts/web/worker.ts --bundle --format=iife --minify --outfile=../web/abella_js/worker.js",
     "web:callback": "esbuild ./ts/web/github-callback.ts --bundle --format=iife --minify --outfile=../web/github_callback.js",
     "web:css": "esbuild css/web.css --minify --outfile=../web/abella_web.css",
-    "web:build": "npm run web:js && npm run web:worker && npm run web:callback && npm run web:css",
-    "web:build:dev": "npm run web:js:dev && npm run web:worker && npm run web:callback && npm run web:css",
+    "web:fonts": "node ./scripts/copy-web-fonts.mjs",
+    "web:build": "npm run web:js && npm run web:worker && npm run web:callback && npm run web:css && npm run web:fonts",
+    "web:build:dev": "npm run web:js:dev && npm run web:worker && npm run web:callback && npm run web:css && npm run web:fonts",
     "web:size": "node ./scripts/check-web-size.mjs",
     "web:test": "esbuild ./ts/web/archive.test.ts ./ts/web/commands.test.ts ./ts/web/editor.test.ts ./ts/web/files.test.ts ./ts/web/project.test.ts ./ts/web/session.test.ts ./ts/web/tabs.test.ts ./ts/web/output-log.test.ts ./ts/web/renames.test.ts ./ts/web/workspace-directory.test.ts ./ts/web/workspace.test.ts ./ts/web/workspace-github.test.ts ./ts/web/github-auth.test.ts ./ts/web/github-oauth.test.ts --bundle --platform=node --format=cjs --outdir=../web/.test --log-level=warning && node --test ../web/.test/*.test.js"
   },
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@types/node": "^26.5.0",
     "esbuild": "^0.28.2",
+    "firacode": "^6.2.0",
     "typescript": "^7.0.2"
   },
   "dependencies": {

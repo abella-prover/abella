@@ -4,6 +4,14 @@
  * See LICENSE for licensing details.
  */
 
+@font-face {
+  font-family: "Fira Code";
+  src: url("fonts/FiraCode-VF.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
   --bg: #faf7f5;
@@ -23,7 +31,7 @@
   --status-warn-bg: #fbefd9;
   --status-ok-bg: #e4f2e8;
   --status-error-bg: #f8e2e4;
-  --mono: "Iosevka", "Fira Code", "DejaVu Sans Mono", monospace;
+  --mono: "Fira Code", "DejaVu Sans Mono", monospace;
   --sans: "Inter", "Segoe UI", system-ui, sans-serif;
   --switch-track: #e6dcd6;
   --switch-knob: #ffffff;

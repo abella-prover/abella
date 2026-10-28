@@ -20,6 +20,7 @@ const budgets = {
   "lazy chunks": { gzip: 120 * KiB },
   "github_callback.js": { gzip: 4 * KiB },
   "abella_web.css": { gzip: 16 * KiB },
+  "fonts": { raw: 128 * KiB },
   "examples/bundle.json": { gzip: 32 * KiB },
   "wasm assets": { raw: 1024 * KiB },
 };
@@ -134,6 +135,21 @@ if (!css) {
   process.exit(1);
 }
 check("abella_web.css", join(webRoot, "abella_web.css"), "gzip", css.gzip);
+
+const fontsDir = join(webRoot, "fonts");
+let fontsRaw = 0;
+if (existsSync(fontsDir)) {
+  for (const name of readdirSync(fontsDir)) {
+    if (name.endsWith(".woff2")) {
+      fontsRaw += statSync(join(fontsDir, name)).size;
+    }
+  }
+}
+if (fontsRaw === 0) {
+  console.error("Missing web/fonts; run npm run web:build first.");
+  process.exit(1);
+}
+check("fonts", fontsDir, "raw", fontsRaw);
 
 const examples = safeMeasure(join(webRoot, "examples/bundle.json"));
 if (!examples) {

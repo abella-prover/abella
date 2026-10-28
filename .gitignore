@@ -29,6 +29,7 @@ dev-examples/
 # Abella Web generated assets
 /web/abella_web.js
 /web/abella_web.css
+/web/fonts/
 /web/abella_js/
 /web/github_callback.js
 /web/examples/bundle.json

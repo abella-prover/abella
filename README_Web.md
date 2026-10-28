@@ -24,6 +24,11 @@ npm run web:size
 
 The size check includes the small `github_callback.js` bundle.
 
+The frontend bundles the full Fira Code variable font as
+`web/fonts/FiraCode-VF.woff2`, copied from the `firacode` npm package
+during `web:build`. The font is licensed under the SIL Open Font License
+1.1; `web:fonts` also copies the license text to `web/fonts/OFL.txt`.
+
 Serve `web/` from a static server for local testing. For a wasm
 deployment, serve `.wasm` files as `application/wasm` and include
 `'wasm-unsafe-eval'` in the CSP `script-src`. The wasm browser floor is

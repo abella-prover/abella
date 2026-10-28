@@ -13,6 +13,6 @@
     "@cloudflare/workers-types": "^5.20261023.1",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
-    "wrangler": "^4.152.0"
+    "wrangler": "^4.155.0"
   }
 }

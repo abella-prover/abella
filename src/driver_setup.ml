@@ -38,8 +38,6 @@ let on_import : (string -> unit) option ref = ref None
 (* Files currently being source-compiled, outermost first. *)
 let compiling : string list ref = ref []
 
-let initial_snapshot : State.snap option ref = ref None
-
 type saved = {
   snapshot : State.snap ;
   mode : [`batch | `interactive] ;
@@ -93,40 +91,3 @@ let restore saved =
 let with_saved f =
   let saved = save () in
   Fun.protect ~finally:(fun () -> restore saved) f
-
-type type_error = {
-  pos : Extensions.pos ;
-  actual : Term.ty ;
-  expected : Term.ty ;
-  kind : Unifyty.constraint_type ;
-}
-
-type processing_error =
-  | Parse_error of Extensions.pos
-  | Syntax_error of Extensions.pos
-  | Type_error of type_error
-  | Module_parameter_error of {
-      parameter : string ;
-      ty : Term.ty ;
-    }
-  | Unification_error of string
-  | User_interrupt
-  | Runtime_error of string
-
-type processing_state =
-  | Process_top
-  | Process_proof of proof_processor
-
-and proof_processor = {
-  thm_id : int ;
-  thm : string ;
-  compile : fin -> unit ;
-  reset : (unit -> unit) ;
-}
-
-(* The driver loop is installed here to avoid a dependency cycle between
-   the driver and the file-kind-specific modules. *)
-let process1 :
-    (processing_state ->
-     (processing_state, processing_error) Result.t) ref =
-  ref (fun state -> Ok state)

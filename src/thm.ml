@@ -10,7 +10,6 @@
 
 open Term
 open Metaterm
-open Checks
 open Abella_types
 open Typing
 open Extensions
@@ -186,12 +185,12 @@ let artifact_spec = {
     Obj.repr art.thc_predicates ;
     Obj.repr art.thc_content ;
   ]) ;
-  decode = (fun read -> {
-    thc_spec_sign = (Obj.obj (read ()) : Typing.sign) ;
-    thc_spec_clauses = (Obj.obj (read ()) : clause list) ;
-    thc_predicates = (Obj.obj (read ()) : string list) ;
-    thc_content = (Obj.obj (read ()) : compiled list) ;
-  }) ;
+  decode = (fun read ->
+    let thc_spec_sign = (Obj.obj (read ()) : Typing.sign) in
+    let thc_spec_clauses = (Obj.obj (read ()) : clause list) in
+    let thc_predicates = (Obj.obj (read ()) : string list) in
+    let thc_content = (Obj.obj (read ()) : compiled list) in
+    { thc_spec_sign ; thc_spec_clauses ; thc_predicates ; thc_content }) ;
 }
 
 let write_compilation () =
@@ -263,100 +262,22 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
 
 let imported = State.rref []
 
-let rec import ~wrt pos impfile withs =
-  let filename = Filepath.normalize ~wrt impfile in
-  if List.mem filename !imported then
-    Output.msg_printf "Ignoring repeated import: %S." filename
-  else begin
-    Output.msg_printf "Importing: %S." filename ;
-    Output.link_message ~pos ~url:(filename ^ ".html") ;
-    import_load filename withs
-  end
-
-and import_load modname withs =
-  let repl = Replacement.make withs in
-  if List.mem modname !imported then () else begin
-    imported := modname :: !imported ;
-    let thm_path = modname ^ ".thm" in
-    let module Compiled = (val read thm_path) in
-    let recursive_invoke () =
-      if not !Setup.recurse then
-        failwithf "Recursive invocation of Abella prevented (--non-recursive)" ;
-      let cmd = Printf.sprintf " %S -o %S"
-          Compiled.path Compiled.out_path in
-      [%trace 1 "Running: abella%s" cmd] ;
-      if Sys.command (Sys.executable_name ^ cmd) <> 0 then
-        failwithf "Could not create %S" Compiled.thc_path
-    in
-    let use_thc = match !Setup.import_mode with
-      | `thc -> true
-      | `source -> false
-      | `auto -> Source.is_thc_trusted (modname ^ ".thc")
-    in
-    let bytes =
-      if use_thc then begin
-        if Compiled.is_stale then recursive_invoke () ;
-        read_thc ~modname ~recursive_invoke (Compiled.thc_contents ())
-      end
-      else source_compile ~modname
-    in
-    apply_compiled ~repl ~modname bytes
-  end
-
-(* Read and validate the four compiled values, recompiling natively if
-   the .thc was produced by a different Abella. Returns the bytes to
-   marshal from, which may have changed. *)
-and read_thc ~modname ~recursive_invoke bytes =
-  let unmarshal = Artifact.marshal_reader bytes in
-  let dig = (unmarshal () : Digest.t) in
-  let ver = (unmarshal () : string) in
-  if !Setup.trust_compiled || dig = Lazy.force Version.self_digest then bytes
-  else begin
-    Output.msg_format
-      "@[<v2>Warning: The following .thc file was compiled with a different version (%s) of Abella; recompiling@,%s@]"
-      ver (modname ^ ".thc") ;
-    recursive_invoke () ;
-    let module Compiled = (val read (modname ^ ".thm")) in
-    Compiled.thc_contents ()
-  end
-
-and apply_compiled ~repl ~modname bytes =
-  let read = Artifact.marshal_reader bytes in
-  ignore (read () : Digest.t) ;
-  ignore (read () : string) ;
-  let imp_spec_sign = (read () : sign) in
-  let imp_spec_clauses = (read () : clause list) in
-  let imp_predicates = (read () : string list) in
-  let imp_content = (read () : compiled list) in
-  ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates ;
-  process_decls ~repl ~modname imp_content
-
-and process_decls ~repl ~modname decls =
+let rec process_decls
+    ?(import : (string -> (id * id) list -> unit) option)
+    ~repl ~modname decls =
   match decls with
   | [] -> ()
   | decl :: decls -> begin
       match decl with
-      | CTheorem(name, tys, thm, fin) ->
-          if fin = Axiomatic then
-            Setup.axioms := name :: !Setup.axioms ;
-          add_lemma ~fin name tys thm ;
-          process_decls ~repl ~modname decls
-      | CDefine(flav, tyargs, idtys, clauses) ->
-          let ids = List.map fst idtys in
-          check_noredef ids;
-          let (basics, consts) = !sign in
-          let consts = List.map (fun (id, ty) -> (id, Poly (tyargs, ty))) idtys @ consts in
-          sign := (basics, consts) ;
-          Prover.add_defs tyargs idtys flav clauses ;
-          process_decls ~repl ~modname decls
       | CImport(impname, withs) ->
-          import_load (Filepath.normalize ~wrt:modname impname) withs ;
-          process_decls ~repl ~modname decls
-      | CKind(ids, knd) ->
-          check_noredef ids ;
-          Prover.add_global_types ids knd;
-          process_decls ~repl ~modname decls
-      | CType(ids, _, (Ty(_, aty) as ty)) when aty = propaty-> begin
+          begin match import with
+          | Some import ->
+              import (Filepath.normalize ~wrt:modname impname) withs
+          | None ->
+              failwith "Unexpected import in compiled content"
+          end ;
+          process_decls ?import ~repl ~modname decls
+      | CType(ids, _, (Ty(_, aty) as ty)) when aty = propaty -> begin
           let check_types id =
             try begin
               let open Typing in
@@ -371,14 +292,8 @@ and process_decls ~repl ~modname decls =
           in
           List.iter check_types ids ;
           List.map (Replacement.compiled repl) decls |>
-          process_decls ~repl ~modname
+          process_decls ?import ~repl ~modname
         end
-      | CType(ids, typarams, ty)
-      | CDeclPred(ids, typarams, ty) ->
-          check_noredef ids ;
-          Prover.add_global_consts ~typarams
-            (List.map (fun id -> (id, ty)) ids) ;
-          process_decls ~repl ~modname decls
       | CClose(ty_subords) ->
           List.iter
             (fun (ty, prev) ->
@@ -392,100 +307,32 @@ and process_decls ~repl ~modname decls =
                      (String.concat ", " (List.map aty_to_string xs)))
             ty_subords ;
           Prover.close_types !sign !Prover.clauses (List.map fst ty_subords) ;
-          process_decls ~repl ~modname decls
+          process_decls ?import ~repl ~modname decls
       | CSuspend g ->
           Compute.add_guard g ;
-          process_decls ~repl ~modname decls
+          process_decls ?import ~repl ~modname decls
+      | decl ->
+          Artifact.install_compiled_decl decl ;
+          process_decls ?import ~repl ~modname decls
     end
 
-(* Compile an imported .thm from its source in a pristine sub-session,
-   serialize the result in the native .thc layout, then restore the
-   parent session. *)
-and source_compile ~modname =
-  let thm_path = modname ^ ".thm" in
-  if List.mem modname !Setup.compiling then
-    failwithf "Cyclic import of %S: %s"
-      modname
-      (String.concat " -> " (List.rev (modname :: !Setup.compiling))) ;
-  let saved_snapshot = State.snapshot () in
-  let saved_mode = !Setup.mode in
-  let saved_annotate = !Setup.annotate in
-  let saved_recurse = !Setup.recurse in
-  let saved_input = !Setup.input in
-  let saved_lexbuf = !Setup.lexbuf in
-  let saved_compiled = !Setup.compiled in
-  let saved_unfinished = !Setup.unfinished in
-  let saved_import_mode = !Setup.import_mode in
-  let saved_trust_compiled = !Setup.trust_compiled in
-  let saved_file_kind = !Setup.file_kind in
-  let saved_dest = !Output.dest in
-  let saved_undo = State.Undo.is_enabled () in
-  let saved_can_read = !can_read_specification in
-  let saved_witnesses = !Setup.witnesses in
-  let saved_compiling = !Setup.compiling in
-  let restore () =
-    State.reload saved_snapshot ;
-    Setup.mode := saved_mode ;
-    Setup.annotate := saved_annotate ;
-    Setup.recurse := saved_recurse ;
-    Setup.input := saved_input ;
-    Setup.lexbuf := saved_lexbuf ;
-    Setup.compiled := saved_compiled ;
-    Setup.unfinished := saved_unfinished ;
-    Setup.import_mode := saved_import_mode ;
-    Setup.trust_compiled := saved_trust_compiled ;
-    Setup.file_kind := saved_file_kind ;
-    Output.dest := saved_dest ;
-    State.Undo.set_enabled saved_undo ;
-    can_read_specification := saved_can_read ;
-    Setup.witnesses := saved_witnesses ;
-    Setup.compiling := saved_compiling
-  in
-  try begin
-    State.reload (Option.get !Setup.initial_snapshot) ;
-    State.Undo.set_enabled false ;
-    Setup.mode := `batch ;
-    Setup.annotate := false ;
-    Setup.recurse := false ;
-    Setup.compiled := None ;
-    Setup.unfinished := [] ;
-    Setup.input := thm_path ;
-    Setup.file_kind := `thm ;
-    let module Src = (val Source.read thm_path) in
-    Setup.lexbuf := Src.lex true ;
-    Setup.compiling := modname :: saved_compiling ;
-    Output.collect_mode () ;
-    ignore (Output.drain ()) ;
-    Option.iter (fun f -> f (Source.canon modname)) !Setup.on_import ;
-    let rec drive state =
-      match !Setup.process1 state with
-      | Ok state -> drive state
-      | Error _ -> raise (Setup.AbellaExit 1)
-    in
-    drive Setup.Process_top
-  end with
-  | Setup.AbellaExit 0 ->
-      let art = artifact_spec.Artifact.extract () in
-      let bytes = Artifact.to_bytes artifact_spec art in
-      ignore (Output.collected_messages ()) ;
-      restore () ;
-      Source.add_virtual_thc (modname ^ ".thc") bytes ;
-      if Source.virtual_exists (modname ^ ".thc") then
-        Source.set_thc_trusted (modname ^ ".thc") true ;
-      bytes
-  | Setup.AbellaExit n ->
-      let text = Output.collected_messages () in
-      restore () ;
-      failwithf "Could not compile imported module %S (exit %d)%s%s"
-        modname n (if text = "" then "" else ": ") text
-  | e ->
-      let text = Output.collected_messages () in
-      restore () ;
-      let msg = match e with
-        | Failure msg -> msg
-        | _ -> sorry e
-      in
-      failwithf "Could not compile imported module %S: %s%s"
-        modname msg (if text = "" then "" else "\n" ^ text)
+let rec import ~load ~wrt pos impfile withs =
+  let filename = Filepath.normalize ~wrt impfile in
+  if List.mem filename !imported then
+    Output.msg_printf "Ignoring repeated import: %S." filename
+  else begin
+    Output.msg_printf "Importing: %S." filename ;
+    Output.link_message ~pos ~url:(filename ^ ".html") ;
+    import_load ~load filename withs
+  end
 
-
+and import_load ~load modname withs =
+  let repl = Replacement.make withs in
+  if List.mem modname !imported then () else begin
+    imported := modname :: !imported ;
+    let art = load ~modname in
+    ensure_valid_import
+      art.thc_spec_sign art.thc_spec_clauses art.thc_predicates ;
+    process_decls ~import:(import_load ~load)
+      ~repl ~modname art.thc_content
+  end

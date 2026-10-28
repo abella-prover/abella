@@ -30,7 +30,6 @@ open Printf
 open Accumulate
 
 module Setup = Driver_setup
-open Setup
 
 let on_import = Setup.on_import
 let compiling = Setup.compiling
@@ -57,14 +56,14 @@ let bound_params () =
 exception UserInterrupt = Setup.UserInterrupt
 exception AbellaExit = Setup.AbellaExit
 
-type type_error = Setup.type_error = {
+type type_error = {
   pos : Extensions.pos ;
   actual : Term.ty ;
   expected : Term.ty ;
   kind : Unifyty.constraint_type ;
 }
 
-type processing_error = Setup.processing_error =
+type processing_error =
   | Parse_error of Extensions.pos
   | Syntax_error of Extensions.pos
   | Type_error of type_error
@@ -76,9 +75,16 @@ type processing_error = Setup.processing_error =
   | User_interrupt
   | Runtime_error of string
 
-type processing_state = Setup.processing_state =
+type processing_state =
   | Process_top
-  | Process_proof of Setup.proof_processor
+  | Process_proof of proof_processor
+
+and proof_processor = {
+  thm_id : int ;
+  thm : string ;
+  compile : fin -> unit ;
+  reset : unit -> unit ;
+}
 
 let pp_type_error ppf { pos ; actual ; expected ; kind } =
   match kind with
@@ -446,7 +452,7 @@ and process_proof1_body proc =
         suppress_proof_state_display := true
     | Common(ShowModule src) ->
         Thmod_import.show_module
-          ~load:(fun ~modname -> Thmod.load_artifact ~modname) src ;
+          ~load:(load_artifact Thmod.artifact_spec) src ;
         if !Setup.mode = `interactive then Output.blank_line () ;
         suppress_proof_state_display := true
     | Common(Quit)           -> raise End_of_file
@@ -583,12 +589,13 @@ and process_top1_body () =
       Output.msg_format "%t" (Prover.show n) ; Process_top
   | TopCommon(ShowModule src) ->
       Thmod_import.show_module
-        ~load:(fun ~modname -> Thmod.load_artifact ~modname) src ;
+        ~load:(load_artifact Thmod.artifact_spec) src ;
       Process_top
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, pos, withs) ->
       compile (CImport (filename, withs)) ;
-      Thm.import ~wrt:!Setup.input pos filename withs ;
+      Thm.import ~load:(load_artifact Thm.artifact_spec)
+        ~wrt:!Setup.input pos filename withs ;
       Process_top
   | Module (name, params) ->
       process_module name params ;
@@ -606,7 +613,7 @@ and process_top1_body () =
       | NameSource _ -> ()
       end ;
       Thmod_import.import_module
-        ~load:(fun ~modname -> Thmod.load_artifact ~modname)
+        ~load:(load_artifact Thmod.artifact_spec)
         ~record:record_imported mi ;
       Process_top
   | Specification(filename, pos) ->
@@ -664,9 +671,72 @@ and process_top1_body () =
   if not !Setup.annotate then Output.blank_line () ;
   next_state
 
-let () = Setup.process1 := process1
+and source_compile : type a. a Artifact.spec -> modname:string -> string =
+  fun spec ~modname ->
+    let key = spec.compiling_key ~modname in
+    let path = modname ^ spec.suffix in
+    if List.mem key !Setup.compiling then
+      failwithf "Cyclic import of %S: %s"
+        path (String.concat " -> " (List.rev (key :: !Setup.compiling))) ;
+    let saved_compiling = !Setup.compiling in
+    Setup.with_saved begin fun () ->
+      let outcome =
+        try begin
+          State.reset () ;
+          State.Undo.set_enabled false ;
+          Setup.mode := `batch ;
+          Setup.annotate := false ;
+          Setup.recurse := false ;
+          Setup.compiled := None ;
+          Setup.unfinished := [] ;
+          Setup.input := path ;
+          Setup.file_kind := spec.file_kind ;
+          let module Src = (val Source.read path) in
+          Setup.lexbuf := Src.lex true ;
+          Setup.compiling := key :: saved_compiling ;
+          Output.collect_mode () ;
+          ignore (Output.drain ()) ;
+          Option.iter (fun f -> f (Source.canon key)) !Setup.on_import ;
+          let rec drive (state : processing_state) : unit =
+            match process1 state with
+            | Ok state -> drive state
+            | Error _ -> raise (Setup.AbellaExit 1)
+          in
+          drive Process_top ;
+          Ok ()
+        end with
+        | Setup.AbellaExit 0 -> Ok ()
+        | Setup.AbellaExit n ->
+            Error (`Exit (n, Output.collected_messages ()))
+        | e ->
+            Error (`Exn (e, Output.collected_messages ()))
+      in
+      match outcome with
+      | Ok () ->
+          let art = spec.extract () in
+          let bytes = Artifact.to_bytes spec art in
+          ignore (Output.collected_messages ()) ;
+          let artifact_path = modname ^ spec.compiled_suffix in
+          Source.add_virtual_thc artifact_path bytes ;
+          if Source.virtual_exists artifact_path then
+            Source.set_thc_trusted artifact_path true ;
+          bytes
+      | Error (`Exit (n, text)) ->
+          failwithf "Could not compile imported module %S (exit %d)%s%s"
+            modname n (if text = "" then "" else ": ") text
+      | Error (`Exn (e, text)) ->
+          let msg = match e with
+            | Failure msg -> msg
+            | _ -> sorry e
+          in
+          failwithf "Could not compile imported module %S: %s%s"
+            modname msg (if text = "" then "" else "\n" ^ text)
+    end
+
+and load_artifact : type a. a Artifact.spec -> modname:string -> a =
+  fun spec ~modname ->
+    Artifact.load ~compile_source:source_compile spec ~modname
 
 let initial_snapshot = State.snapshot ()
-let () = Setup.initial_snapshot := Some initial_snapshot
 
 let welcome_msg = sprintf "Welcome to Abella %s.\n" Version.version

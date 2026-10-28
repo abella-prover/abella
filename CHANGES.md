@@ -1,6 +1,16 @@
 Changes in 2.1.0-dev from 2.0.8
 -------------------------------
 
+Abella Web
+
+* Abella now has a web interface at:
+
+    https://abella-prover.org/web
+
+  The Abella source distribution contains the source code for Abella Web and
+  the full instructions for running a local Abella Web server locally.
+  See `README_Web.md` for further details.
+
 Additions
 
 * Added the `compute` tactic for performing asynchronous computation on

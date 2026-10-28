@@ -42,7 +42,13 @@ import {
   type SessionStatus,
 } from "./session";
 import { appendOutput, renderSequent } from "./trace";
-import { addTab, closeTabAt, remapTabs, tabLabels } from "./tabs";
+import {
+  addTab,
+  closeTabAt,
+  reconcileTabState,
+  remapTabs,
+  tabLabels,
+} from "./tabs";
 import type { ProofState, RawMessage } from "./types";
 import {
   WorkspaceError,
@@ -199,6 +205,7 @@ let treeFocusSelected = false;
 let treeFocusInput = false;
 let contextMenu: HTMLElement | undefined;
 let contextMenuPath: string | undefined;
+let projectStart = 0;
 
 type OAuthConfigState = "unknown" | "loading" | "ready" | "unavailable";
 
@@ -1956,6 +1963,27 @@ function treeEntries(): WorkspaceEntry[] {
   return workspaceSession.entries();
 }
 
+function reconcileTabs(fallback?: string): void {
+  const previous = project.active;
+  const result = reconcileTabState(
+    openTabs,
+    (path) => project.files.has(path),
+    project.active,
+    fallback
+  );
+  openTabs = result.tabs;
+  project.active = result.active;
+  if (result.active !== undefined) {
+    const file = project.files.get(result.active);
+    if (file && editor.active !== result.active) {
+      editor.open(result.active, file.text);
+    }
+  } else if (editor.active !== null) {
+    editor.clearActive();
+  }
+  if (project.active !== previous) scheduleSave();
+}
+
 function isTreePath(path: string): boolean {
   return treeEntries().some(
     (entry) => entry.path === path || entry.path.startsWith(`${path}/`)
@@ -1986,6 +2014,7 @@ function refreshFiles(
   options: { focus?: boolean; focusInput?: boolean } = {}
 ): void {
   if (!workspaceSession) return;
+  reconcileTabs();
   const entries = treeEntries();
   if (selectedPath && !isTreePath(selectedPath)) {
     selectedPath = undefined;
@@ -2512,21 +2541,14 @@ async function deleteRow(path: string): Promise<void> {
   }
   const index = openTabs.indexOf(path);
   editor.remove(path);
-  if (index >= 0) openTabs.splice(index, 1);
+  openTabs = openTabs.filter((open) => open !== path);
   if (project.entry === path) {
     editor.setProcessedTip(path, 0);
     project.entry = undefined;
   }
-  if (project.active === path) {
-    const next = openTabs[index] ?? openTabs[index - 1];
-    if (next) {
-      activateTab(next);
-    } else {
-      project.active = undefined;
-      editor.clearActive();
-      scheduleSave();
-    }
-  }
+  if (project.active === path) project.active = undefined;
+  const fallback = openTabs[index] ?? openTabs[index - 1];
+  reconcileTabs(fallback);
   if (selectedPath === path) {
     selectedPath = nextPathAfterRemoval(path);
   }
@@ -2919,12 +2941,14 @@ async function startProject(
     return;
   }
   closeRowMenu();
+  const generation = ++projectStart;
   workspaceSession.close();
   workspaceSession = new WorkspaceSession(next, workspace, {
     persist: persistProject,
   });
   project = workspaceSession.project;
   await workspaceSession.loadEntries();
+  if (generation !== projectStart) return;
   clearOutput();
   lastGoalState = undefined;
   currentOutcome = undefined;

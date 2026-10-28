@@ -34,6 +34,35 @@ export function remapTabs(
   return tabs.map((path) => renames.get(path) ?? path);
 }
 
+export interface TabState {
+  tabs: string[];
+  active?: string;
+}
+
+/**
+ * Drop tabs whose files no longer exist, keep the active tab when it is
+ * still open, and otherwise fall back to a neighbour or the first tab.
+ * The editor's active path is reconciled separately by the caller.
+ */
+export function reconcileTabState(
+  tabs: readonly string[],
+  exists: (path: string) => boolean,
+  active: string | undefined,
+  fallback?: string
+): TabState {
+  const valid = [...new Set(tabs.filter((path) => exists(path)))];
+  let nextActive =
+    active !== undefined && exists(active)
+      ? active
+      : fallback !== undefined && exists(fallback)
+        ? fallback
+        : valid[0];
+  if (nextActive !== undefined && !valid.includes(nextActive)) {
+    valid.push(nextActive);
+  }
+  return { tabs: valid, active: nextActive };
+}
+
 function suffixOf(path: string, depth: number): string {
   const parts = path.split("/");
   return parts.slice(Math.max(0, parts.length - depth)).join("/");

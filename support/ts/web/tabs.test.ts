@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import {
   addTab,
   closeTabAt,
+  reconcileTabState,
   remapTabs,
   tabLabels,
 } from "./tabs";
@@ -66,4 +67,26 @@ test("unique basenames stay basenames", () => {
   assert.equal(labels.get("main.thm"), "main.thm");
   assert.equal(labels.get("spec.sig"), "spec.sig");
   assert.equal(labels.get("docs/notes.md"), "notes.md");
+});
+
+test("reconcile drops stale tabs and heals a missing active tab", () => {
+  const files = new Set(["a", "b", "c"]);
+  assert.deepEqual(
+    reconcileTabState(["a", "gone", "b", "a"], (path) => files.has(path), "gone", "b"),
+    { tabs: ["a", "b"], active: "b" }
+  );
+});
+
+test("reconcile clears the active tab when nothing remains", () => {
+  assert.deepEqual(
+    reconcileTabState(["gone"], () => false, "gone", "also-gone"),
+    { tabs: [], active: undefined }
+  );
+});
+
+test("reconcile keeps a valid active file even if it lost its tab", () => {
+  assert.deepEqual(
+    reconcileTabState(["a"], (path) => path === "a" || path === "b", "b"),
+    { tabs: ["a", "b"], active: "b" }
+  );
 });

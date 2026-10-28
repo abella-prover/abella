@@ -7,6 +7,7 @@
 
 import {
   classify,
+  explicitEntry,
   normalizeNewlines,
   type Project,
   type ProjectTextFile,
@@ -16,7 +17,7 @@ import {
   MAX_ENTRIES,
   MAX_FILE_BYTES,
   MAX_FILES,
-  chooseEntry,
+  MAX_MANIFEST_BYTES,
   isCandidateFile,
   isSkippedDirectory,
 } from "./workspace-directory";
@@ -644,6 +645,13 @@ export async function loadGitHubRepository(
   }
 
   const subdir = normalizeSubdir(ref.path);
+  const useRaw = !token && info.private !== true;
+  const manifestBlob = tree.tree.find(
+    (entry) =>
+      entry.type === "blob" &&
+      entry.path ===
+        (subdir ? `${subdir}/project.json` : "project.json")
+  );
   const selected: SelectedFile[] = [];
   const entries: WorkspaceEntry[] = [];
   let skipped = 0;
@@ -702,7 +710,6 @@ export async function loadGitHubRepository(
     });
   }
 
-  const useRaw = !token && info.private !== true;
   const files = new Map<string, ProjectTextFile>();
   let cursor = 0;
   let fatal: unknown;
@@ -743,14 +750,32 @@ export async function loadGitHubRepository(
     throw githubError(fatal, "a repository file");
   }
 
-  const entry = chooseEntry(
-    [...files.keys()],
-    subdir ? subdir.split("/").pop() ?? ref.repo : ref.repo
-  );
+  let manifestEntry: unknown;
+  if (
+    manifestBlob &&
+    (manifestBlob.size === undefined ||
+      manifestBlob.size <= MAX_MANIFEST_BYTES)
+  ) {
+    try {
+      const text = useRaw
+        ? await rawFetcher(
+            ref.owner,
+            ref.repo,
+            branch,
+            manifestBlob.path
+          )
+        : await api.getBlob(ref.owner, ref.repo, manifestBlob.sha);
+      const data = JSON.parse(text) as { entry?: unknown };
+      manifestEntry = data.entry;
+    } catch {
+      manifestEntry = undefined;
+    }
+  }
+  const entry = explicitEntry(files, manifestEntry);
   const project: Project = {
     files,
     entry,
-    active: entry ?? [...files.keys()].sort()[0],
+    active: entry,
   };
   const baseTexts = new Map(
     [...files.entries()].map(([path, file]) => [path, file.text])

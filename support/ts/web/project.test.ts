@@ -84,10 +84,11 @@ test("unknown keys including root are ignored on load", () => {
   const loaded = loadProjectRecord();
   assert.equal(loaded.status, "loaded");
   if (loaded.status !== "loaded") return;
-  assert.equal(loaded.project.entry, "a.thm");
+  assert.equal(loaded.project.entry, undefined);
+  assert.equal(loaded.project.active, undefined);
 });
 
-test("an invalid entry falls back to main.thm", () => {
+test("an invalid entry does not fall back to a theorem", () => {
   storage.setItem(
     STORAGE_KEY,
     JSON.stringify({
@@ -102,8 +103,8 @@ test("an invalid entry falls back to main.thm", () => {
   const loaded = loadProjectRecord();
   assert.equal(loaded.status, "loaded");
   if (loaded.status !== "loaded") return;
-  assert.equal(loaded.project.entry, "main.thm");
-  assert.equal(loaded.project.active, "main.thm");
+  assert.equal(loaded.project.entry, undefined);
+  assert.equal(loaded.project.active, undefined);
 });
 
 test("a project without a theorem has no entry", () => {
@@ -118,7 +119,7 @@ test("a project without a theorem has no entry", () => {
   assert.equal(loaded.status, "loaded");
   if (loaded.status !== "loaded") return;
   assert.equal(loaded.project.entry, undefined);
-  assert.equal(loaded.project.active, "notes.md");
+  assert.equal(loaded.project.active, undefined);
 });
 
 test("scratch projects start from main.thm", () => {

@@ -5,10 +5,8 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import {
   classify,
-  fallbackEntry,
-  isExecutable,
+  explicitEntry,
   normalizeNewlines,
-  sortPaths,
   type Project,
   type ProjectTextFile,
 } from "./project";
@@ -81,17 +79,12 @@ export async function importProject(file: File): Promise<ImportedProject> {
       kind: classify(path),
     });
   }
-  const wanted =
-    typeof manifest.entry === "string" &&
-    isExecutable(manifest.entry) &&
-    files.has(manifest.entry)
-      ? manifest.entry
-      : fallbackEntry(files);
+  const entry = explicitEntry(files, manifest.entry);
   return {
     project: {
       files,
-      entry: wanted,
-      active: wanted ?? sortPaths([...files.keys()])[0],
+      entry,
+      active: entry,
     },
     skipped,
   };

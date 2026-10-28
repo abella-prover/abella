@@ -123,23 +123,15 @@ export type ProjectLoadResult =
   | { status: "rejected"; message: string }
   | { status: "empty" };
 
-function firstPath(files: Map<string, ProjectTextFile>): string | undefined {
-  return sortPaths([...files.keys()])[0];
-}
-
-export function fallbackEntry(
-  files: Map<string, ProjectTextFile>
+export function explicitEntry(
+  files: Map<string, ProjectTextFile>,
+  candidate: unknown
 ): string | undefined {
-  const theorems = sortPaths(
-    [...files.keys()].filter((path) => isExecutable(path))
-  );
-  if (theorems.length === 0) return undefined;
-  return (
-    theorems.find(
-      (path) =>
-        path.slice(path.lastIndexOf("/") + 1).toLowerCase() === "main.thm"
-    ) ?? theorems[0]
-  );
+  return typeof candidate === "string" &&
+    isExecutable(candidate) &&
+    files.has(candidate)
+    ? candidate
+    : undefined;
 }
 
 export function saveProject(
@@ -198,16 +190,11 @@ export function loadProjectRecord(): ProjectLoadResult {
         });
       }
     }
-    const entry =
-      typeof data.entry === "string" &&
-      isExecutable(data.entry) &&
-      files.has(data.entry)
-        ? data.entry
-        : fallbackEntry(files);
+    const entry = explicitEntry(files, data.entry);
     const active =
       typeof data.active === "string" && files.has(data.active)
         ? data.active
-        : entry ?? firstPath(files);
+        : entry;
     return {
       status: "loaded",
       project: {

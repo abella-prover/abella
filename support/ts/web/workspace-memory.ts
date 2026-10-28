@@ -6,6 +6,7 @@
 
 import {
   classify,
+  explicitEntry,
   normalizeNewlines,
   type Project,
   type ProjectTextFile,
@@ -13,7 +14,7 @@ import {
 import {
   MAX_FILES,
   MAX_FILE_BYTES,
-  chooseEntry,
+  MAX_MANIFEST_BYTES,
   isCandidateFile,
   isSkippedDirectory,
 } from "./workspace-directory";
@@ -55,6 +56,19 @@ function stripBom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
+async function readManifestEntry(files: File[]): Promise<unknown> {
+  const manifest = files.find(
+    (file) => relativePath(file) === "project.json"
+  );
+  if (!manifest || manifest.size > MAX_MANIFEST_BYTES) return undefined;
+  try {
+    const data = JSON.parse(await manifest.text()) as { entry?: unknown };
+    return data.entry;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function openMemoryFolder(
   files: FileList | File[]
 ): Promise<OpenedMemoryFolder> {
@@ -86,11 +100,14 @@ export async function openMemoryFolder(
       skipped++;
     }
   }
-  const entry = chooseEntry([...filesByName.keys()], name);
+  const entry = explicitEntry(
+    filesByName,
+    await readManifestEntry(list)
+  );
   const project: Project = {
     files: filesByName,
     entry,
-    active: entry ?? [...filesByName.keys()].sort()[0],
+    active: entry,
   };
   return {
     project,

@@ -218,7 +218,8 @@ test("memory folder strips its root and skips ignored paths", async () => {
     [...opened.project.files.keys()].sort(),
     ["main.thm", "notes.md"]
   );
-  assert.equal(opened.project.entry!, "main.thm");
+  assert.equal(opened.project.entry, undefined);
+  assert.equal(opened.project.active, undefined);
   assert.equal(opened.workspace.name, "project");
   assert.equal(opened.workspace.capabilities.write, false);
   assert.equal(opened.workspace.capabilities.structural, false);
@@ -243,10 +244,27 @@ test("memory folder opens without a theorem", async () => {
     folderFile("project/README.md", "# Readme\n"),
   ]);
   assert.equal(opened.project.entry, undefined);
-  assert.equal(opened.project.active, "README.md");
+  assert.equal(opened.project.active, undefined);
   assert.deepEqual(
     [...opened.project.files.keys()].sort(),
     ["README.md", "spec.sig"]
+  );
+});
+
+test("memory folder reads an explicit project.json entry", async () => {
+  const opened = await openMemoryFolder([
+    folderFile(
+      "project/project.json",
+      JSON.stringify({ entry: "main.thm", root: "other.thm" })
+    ),
+    folderFile("project/main.thm", "Specification \"main\".\n"),
+    folderFile("project/notes.md", "# Notes\n"),
+  ]);
+  assert.equal(opened.project.entry, "main.thm");
+  assert.equal(opened.project.active, "main.thm");
+  assert.deepEqual(
+    [...opened.project.files.keys()].sort(),
+    ["main.thm", "notes.md"]
   );
 });
 

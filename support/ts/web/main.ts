@@ -2935,7 +2935,7 @@ async function startProject(
       ? next.active
       : next.entry && next.files.has(next.entry)
         ? next.entry
-        : [...next.files.keys()].sort()[0];
+        : undefined;
   next.active = first;
   openTabs = first ? [first] : [];
   resetTreeState();
@@ -3144,7 +3144,7 @@ async function main(): Promise<void> {
       ? project.active
       : project.entry && project.files.has(project.entry)
         ? project.entry
-        : [...project.files.keys()].sort()[0];
+        : undefined;
   project.active = firstTab;
   openTabs = firstTab ? [firstTab] : [];
   await workspaceSession.loadEntries();

@@ -5,7 +5,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  chooseEntry,
   isCandidateFile,
   isSkippedDirectory,
 } from "./workspace-directory";
@@ -46,23 +45,6 @@ test("skips build and hidden directories only", () => {
   }
   assert.equal(isSkippedDirectory("src"), false);
   assert.equal(isSkippedDirectory("examples"), false);
-});
-
-test("uses a manifest entry when it names a loaded theorem", () => {
-  const paths = ["a.thm", "b.thm"];
-  assert.equal(chooseEntry(paths, "project", "b.thm"), "b.thm");
-  assert.equal(chooseEntry(paths, "project", "missing.thm"), "a.thm");
-});
-
-test("prefers main.thm then the folder name among several theorems", () => {
-  assert.equal(chooseEntry(["a.thm", "main.thm"], "project"), "main.thm");
-  assert.equal(chooseEntry(["a.thm", "project.thm"], "project"), "project.thm");
-  assert.equal(chooseEntry(["b.thm", "a.thm"], "project"), "a.thm");
-});
-
-test("returns no entry without a theorem", () => {
-  assert.equal(chooseEntry(["spec.sig", "README.md"], "project"), undefined);
-  assert.equal(chooseEntry([], "project"), undefined);
 });
 
 test("formats errors", () => {
@@ -163,6 +145,13 @@ class FakeDirectory implements DirectoryHandle {
 
 function folderFixture(): FakeDirectory {
   return new FakeDirectory("project", [
+    [
+      "project.json",
+      new FakeFileHandle(
+        "project.json",
+        JSON.stringify({ entry: "main.thm" })
+      ),
+    ],
     ["main.thm", new FakeFileHandle("main.thm", 'Specification "x".\n')],
     ["notes.md", new FakeFileHandle("notes.md", "# Notes\n")],
     ["logo.png", new FakeFileHandle("logo.png", "binary")],
@@ -205,7 +194,17 @@ test("a folder without a theorem opens with no entry", async () => {
   ]);
   const opened = await readDirectoryHandle(handle, () => true);
   assert.equal(opened.project.entry, undefined);
-  assert.equal(opened.project.active, "notes.md");
+  assert.equal(opened.project.active, undefined);
+});
+
+test("a folder with theorems but no manifest opens with no entry", async () => {
+  const handle = new FakeDirectory("project", [
+    ["a.thm", new FakeFileHandle("a.thm", "Specification \"a\".\n")],
+    ["main.thm", new FakeFileHandle("main.thm", "Specification \"m\".\n")],
+  ]);
+  const opened = await readDirectoryHandle(handle, () => true);
+  assert.equal(opened.project.entry, undefined);
+  assert.equal(opened.project.active, undefined);
 });
 
 test("folder writes create nested files and removes delete them", async () => {
@@ -239,6 +238,7 @@ test("folder manifests read entry and ignore root", async () => {
   ]);
   const opened = await readDirectoryHandle(withEntry, () => true);
   assert.equal(opened.project.entry, "b.thm");
+  assert.equal(opened.project.active, "b.thm");
 
   const legacy = new FakeDirectory("project", [
     [
@@ -249,5 +249,6 @@ test("folder manifests read entry and ignore root", async () => {
     ["b.thm", new FakeFileHandle("b.thm", "Specification \"b\".\n")],
   ]);
   const legacyOpened = await readDirectoryHandle(legacy, () => true);
-  assert.equal(legacyOpened.project.entry, "a.thm");
+  assert.equal(legacyOpened.project.entry, undefined);
+  assert.equal(legacyOpened.project.active, undefined);
 });

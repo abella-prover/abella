@@ -78,7 +78,7 @@ test("unsupported archive entries are skipped and counted", async () => {
   assert.deepEqual([...imported.project.files.keys()], ["main.thm"]);
 });
 
-test("unknown keys are ignored and a missing entry falls back", async () => {
+test("unknown keys are ignored and a missing entry starts empty", async () => {
   const imported = await importProject(
     archiveFile(
       {
@@ -92,5 +92,6 @@ test("unknown keys are ignored and a missing entry falls back", async () => {
       }
     )
   );
-  assert.equal(imported.project.entry, "main.thm");
+  assert.equal(imported.project.entry, undefined);
+  assert.equal(imported.project.active, undefined);
 });

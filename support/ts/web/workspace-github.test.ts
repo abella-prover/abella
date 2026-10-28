@@ -30,6 +30,11 @@ class FakeApi implements GitHubApi {
   constructor(
     private entries: GitHubTreeEntry[] = [
       {
+        path: "sub/project.json",
+        type: "blob",
+        sha: "manifest-blob",
+      },
+      {
         path: "sub/main.thm",
         type: "blob",
         sha: "main-blob",
@@ -51,6 +56,7 @@ class FakeApi implements GitHubApi {
       },
     ]
   ) {
+    this.blobs.set("manifest-blob", JSON.stringify({ entry: "main.thm" }));
     this.blobs.set("main-blob", 'Specification "spec".\n');
     this.blobs.set("sig-blob", "sig spec.\n");
     this.blobs.set("readme-blob", "# Demo\n");
@@ -265,10 +271,29 @@ test("loads a subdirectory and builds the project", async () => {
   assert.equal(opened.workspace.capabilities.structural, true);
 });
 
+test("a repository without a project.json entry starts empty", async () => {
+  const api = new FakeApi([
+    {
+      path: "sub/main.thm",
+      type: "blob",
+      sha: "main-blob",
+    },
+  ]);
+  const opened = await loadGitHubRepository(
+    "https://github.com/acme/demo/tree/main/sub",
+    "token",
+    async () => api
+  );
+  assert.equal(opened.project.entry, undefined);
+  assert.equal(opened.project.active, undefined);
+  assert.deepEqual([...opened.project.files.keys()], ["main.thm"]);
+});
+
 test("loads public files through raw content URLs", async () => {
   const api = new FakeApi();
   const rawPaths: string[] = [];
   const raw = new Map([
+    ["sub/project.json", JSON.stringify({ entry: "main.thm" })],
     ["sub/main.thm", 'Specification "spec".\n'],
     ["sub/spec.sig", "sig spec.\n"],
     ["sub/README.md", "# Demo\n"],
@@ -289,6 +314,7 @@ test("loads public files through raw content URLs", async () => {
   assert.deepEqual(rawPaths.sort(), [
     "sub/README.md",
     "sub/main.thm",
+    "sub/project.json",
     "sub/spec.sig",
   ]);
 });

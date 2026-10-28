@@ -8,8 +8,8 @@
 
 import {
   classify,
+  explicitEntry,
   normalizeNewlines,
-  sortPaths,
   type Project,
   type ProjectTextFile,
 } from "./project";
@@ -25,7 +25,7 @@ export const MAX_FILE_BYTES = 512 * 1024;
 export const MAX_FILES = 500;
 export const MAX_ENTRIES = 2000;
 export const MAX_DEPTH = 8;
-const MAX_MANIFEST_BYTES = 64 * 1024;
+export const MAX_MANIFEST_BYTES = 64 * 1024;
 
 const TEXT_EXTENSIONS = new Set([
   ".md",
@@ -136,34 +136,6 @@ export function isCandidateFile(path: string): boolean {
   }
   if (TEXT_EXTENSIONS.has(extension)) return true;
   return dot < 0 && TEXT_BASENAMES.has(name.toLowerCase());
-}
-
-function baseName(path: string): string {
-  return path.slice(path.lastIndexOf("/") + 1).toLowerCase();
-}
-
-export function chooseEntry(
-  paths: string[],
-  folderName: string,
-  manifestEntry?: string
-): string | undefined {
-  if (
-    manifestEntry &&
-    paths.includes(manifestEntry) &&
-    manifestEntry.toLowerCase().endsWith(".thm")
-  ) {
-    return manifestEntry;
-  }
-  const theorems = sortPaths(
-    paths.filter((path) => path.toLowerCase().endsWith(".thm"))
-  );
-  if (theorems.length === 0) return undefined;
-  if (theorems.length === 1) return theorems[0];
-  const main = theorems.find((path) => baseName(path) === "main.thm");
-  if (main) return main;
-  const folder = `${folderName.toLowerCase()}.thm`;
-  const named = theorems.find((path) => baseName(path) === folder);
-  return named ?? theorems[0];
 }
 
 function stripBom(text: string): string {
@@ -341,15 +313,11 @@ export async function readDirectoryHandle(
   };
   await readDirectory(handle, "", 0, state);
   const manifestEntry = await readManifestEntry(handle);
-  const entry = chooseEntry(
-    [...state.files.keys()],
-    handle.name,
-    manifestEntry
-  );
+  const entry = explicitEntry(state.files, manifestEntry);
   const project: Project = {
     files: state.files,
     entry,
-    active: entry ?? sortPaths([...state.files.keys()])[0],
+    active: entry,
   };
   return {
     project,

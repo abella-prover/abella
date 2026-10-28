@@ -1418,15 +1418,11 @@ let clear_duplicates () =
 
 exception SaturateSuccess
 let is_ground f = metaterm_vars_alist Logic f = []
-let saturate ?name ?depth ?use () =
-  let use = match use with
-    | None -> H.to_seq_keys lemmas
-    | Some use -> List.to_seq use
-  in
+let saturate ?name ?depth lemmas =
   let lemtab = H.create 19 in
-  Seq.iter begin fun lem ->
+  List.iter begin fun lem ->
     H.add lemtab lem (get_hyp_or_lemma lem)
-  end use ;
+  end lemmas ;
   let initial_focus () =
     H.to_seq_values lemtab
     |> Seq.map (fun lem -> normalize ~used:sequent.vars lem)

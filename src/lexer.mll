@@ -71,7 +71,6 @@
     "permute",       PERMUTE ;
     "rename",        RENAME ;
     "right",         RIGHT ;
-    "saturate",      SATURATE ;
     "fchain",        SATURATE ;
     "search",        SEARCH ;
     "sig",           SIG ;

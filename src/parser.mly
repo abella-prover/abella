@@ -512,7 +512,7 @@ pure_command:
     { Types.Search(`depth dep) }
   | SEARCH; WITH; wit=search_witness; DOT
     { Types.Search(`witness wit) }
-  | ht=hhint; SATURATE; depth=maybe_depth; lemmas=option(hyp_list); DOT
+  | ht=hhint; SATURATE; depth=maybe_depth; lemmas=hyp_list; DOT
     { Types.Saturate { depth ; lemmas ; hint = ht } }
   | SPLIT; DOT
     { Types.Split }

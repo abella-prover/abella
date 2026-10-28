@@ -3,9 +3,25 @@ Changes in 2.1.0-dev from 2.0.8
 
 Additions
 
-* Added the `compute` tactic for performing asynchronous
-  computation on hypotheses. Detailed examples can be found
-  in the `examples/compute/` subdirectory.
+* Added the `compute` tactic for performing asynchronous computation on
+  hypotheses. Detailed examples can be found in the `examples/compute/`
+  subdirectory.
+
+* Added the no argument form of the `clear` tactic that merely deduplicates
+  the context, deleting later hypotheses that are the same as earlier
+  hypotheses.
+
+* Added the `fchain` tactic for performing forward-chaining using a given
+  list of lemmas. The general form of the command is:
+
+```
+[hn : ] saturate [d] lem1, lem2, ... .
+```
+
+  where `lem1`, `lem2`, etc. are a list of comma-separate lemmas and an
+  optional `d` is a max depth depth (default: 5). It will try to find all
+  the *immediate* consequences of the lemmas from the hypotheses in scope,
+  iterating up to the given depth. This is a branching tactic.
 
 Changes
 

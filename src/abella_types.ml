@@ -181,7 +181,7 @@ type command =
   | Right
   | Intros       of id list
   | Unfold       of clause_selector * solution_selector
-  | Saturate     of { depth : int option ; lemmas : id list option ; hint : hhint }
+  | Saturate     of { depth : int option ; lemmas : id list ; hint : hhint }
   | Skip
   | Abort
   | Undo
@@ -461,10 +461,8 @@ let command_to_string c =
           | None -> ""
           | Some n -> " " ^ string_of_int n
         in
-        match lemmas with
-        | None -> sprintf "%sfchain%s" (hn_to_string hn) dp
-        | Some lemmas -> sprintf "%sfchain%s %s" (hn_to_string hn) dp
-                            (String.concat " " lemmas)
+        sprintf "%sfchain%s %s" (hn_to_string hn) dp
+          (String.concat " " lemmas)
       end
     | Intros [] -> "intros"
     | Intros ids -> sprintf "intros %s" (String.concat " " ids)

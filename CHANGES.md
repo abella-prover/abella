@@ -35,10 +35,8 @@ Additions
 
 Changes
 
-* Abella now compiles with Dune version 3.7 or later.  
-  (#154, reported by @yurivict)
-* Abella is now byte-compiled for ppc32 and ppc64.  
-  (#151, reporeted by @barracuda156)
+* Abella now requires Dune version 3.20 or later.
+* Abella is no longer supported on ppc32 and ppc64. Please use Abella Web.
 * `abella_doc` modernized with light/dark mode support.
 
 Bugfixes

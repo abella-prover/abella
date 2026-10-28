@@ -2,21 +2,14 @@
 
 DUNE := dune
 
-ifneq ($(strip $(ENGINE)),)
-$(error ENGINE is no longer supported; Abella Web builds wasm only)
-endif
-
-# run with `make BYTECODE=true` to produce bytecode
-EXTN := $(if $(strip $(BYTECODE)),bc,exe)
-BINS := $(patsubst %,%.$(EXTN),src/abella src/abella_doc src/abella_dep)
-
 .PHONY: all
 all: support/.stamp
-	$(DUNE) build $(BINS)
+	$(DUNE) build src/abella.exe src/abella_doc.exe src/abella_dep.exe
 
 .PHONY: all-release
 all-release: # support/.stamp
-	$(DUNE) build --release $(BINS)
+	$(DUNE) build --release src/abella.exe src/abella_doc.exe \
+	  src/abella_dep.exe
 
 .PHONY: web
 web:
@@ -103,7 +96,7 @@ support/.stamp: $(wildcard support/ts/*.ts) support/package.json \
 .PHONY: clean
 clean:
 	$(DUNE) clean
-	$(RM) abella $(BINS)
+	$(RM) abella
 
 .PHONY: test
 test:
@@ -120,15 +113,9 @@ publish-doc: examples/make.stamp
 	  examples abellaweb@origin.abella-prover.org:abella-prover.org/
 
 examples/make.stamp: $(wildcard examples/**/*.{sig,mod,thm})
-examples/make.stamp: $(wildcard _build/default/src/abella*.$(EXTN))
+examples/make.stamp: $(wildcard _build/default/src/abella*.exe)
 examples/make.stamp: $(wildcard $(patsubst %.thm,%.thc,$(wildcard examples/**/*.thm)))
 examples/make.stamp:
 	git clean -fxd examples
-	$(DUNE) exec src/abella_doc.$(EXTN) -- -r examples
+	$(DUNE) exec src/abella_doc.exe -- -r examples
 	touch examples/make.stamp
-
-.PHONY: makefile_debug
-makefile_debug:
-	@echo "BYTECODE='$(BYTECODE)'"
-	@echo "EXTN='$(EXTN)'"
-	@echo "BINS='$(BINS)'"

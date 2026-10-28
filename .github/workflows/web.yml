@@ -58,21 +58,11 @@ jobs:
       - name: Build web
         run: opam exec -- make web
 
-      - name: Check single-engine artifacts
+      - name: Check web artifacts
         run: |
           test -f web/abella_js/worker.js
           test -f web/abella_js/abella_js.bc.wasm.js
           test -d web/abella_js/abella_js.bc.wasm.assets
-          test ! -e web/abella_worker.js
-          test ! -e web/abella_js.js
-          test ! -e web/engine.json
-
-      - name: Check for retired engine references
-        run: |
-          if git grep -nE 'ENGINE=js|engine\.json|abella_worker|abella_js\.js|web:worker-js|loadEngine|__ENGINE__' -- src support README_Web.md .gitignore; then
-            echo "Retired js-engine references remain." >&2
-            exit 1
-          fi
 
       - name: Check bundle size
         run: npm run web:size

@@ -20,7 +20,7 @@
   (github abella-prover/abella))
  (depends
   (ocaml
-   (>= 4.12.0))
+   (>= 5.3.0))
   (base64
    (>= 3.5.1))
   (cmdliner

@@ -54,38 +54,12 @@ let with_temp_dir f =
   Fun.protect ~finally:(fun () -> remove_tree dir) (fun () -> f dir)
 
 let with_session f =
-  let snap = State.snapshot () in
-  let dest = !Output.dest in
-  let compiling = !D.compiling in
-  let mode = !D.Setup.mode in
-  let annotate = !D.Setup.annotate in
-  let recurse = !D.Setup.recurse in
-  let input = !D.Setup.input in
-  let lexbuf = !D.Setup.lexbuf in
-  let compiled = !D.Setup.compiled in
-  let unfinished = !D.Setup.unfinished in
-  let import_mode = !D.Setup.import_mode in
-  let trust_compiled = !D.Setup.trust_compiled in
-  let file_kind = !D.Setup.file_kind in
-  let restore () =
-    State.reload snap ;
-    Output.dest := dest ;
-    D.compiling := compiling ;
-    D.Setup.mode := mode ;
-    D.Setup.annotate := annotate ;
-    D.Setup.recurse := recurse ;
-    D.Setup.input := input ;
-    D.Setup.lexbuf := lexbuf ;
-    D.Setup.compiled := compiled ;
-    D.Setup.unfinished := unfinished ;
-    D.Setup.import_mode := import_mode ;
-    D.Setup.trust_compiled := trust_compiled ;
-    D.Setup.file_kind := file_kind ;
+  let cleanup () =
     Source.clear_virtual () ;
     Source.clear_thc_trust () ;
     Accumulate.clear_specification_cache ()
   in
-  Fun.protect ~finally:restore f
+  Fun.protect ~finally:cleanup (fun () -> D.Setup.with_saved f)
 
 (* Compile [source] as a .thmod file named [name].thmod and return the
    bytes written to [name.thmodc], or the collected error text. *)

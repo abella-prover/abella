@@ -81,46 +81,19 @@ let start_thm_session () =
   ignore (Output.drain ())
 
 let with_session f =
-  let snap = State.snapshot () in
-  let dest = !Output.dest in
-  let compiling = !D.compiling in
-  let on_import = !D.on_import in
-  let mode = !D.Setup.mode in
-  let annotate = !D.Setup.annotate in
-  let recurse = !D.Setup.recurse in
-  let input = !D.Setup.input in
-  let lexbuf = !D.Setup.lexbuf in
-  let compiled = !D.Setup.compiled in
-  let unfinished = !D.Setup.unfinished in
-  let import_mode = !D.Setup.import_mode in
-  let trust_compiled = !D.Setup.trust_compiled in
-  let file_kind = !D.Setup.file_kind in
   let thc_cache_limit = !Source.thc_cache_limit in
   let saved_processing_state = !processing_state in
-  let restore () =
-    State.reload snap ;
-    Output.dest := dest ;
-    D.compiling := compiling ;
-    D.on_import := on_import ;
-    D.Setup.mode := mode ;
-    D.Setup.annotate := annotate ;
-    D.Setup.recurse := recurse ;
-    D.Setup.input := input ;
-    D.Setup.lexbuf := lexbuf ;
-    D.Setup.compiled := compiled ;
-    D.Setup.unfinished := unfinished ;
-    D.Setup.import_mode := import_mode ;
-    D.Setup.trust_compiled := trust_compiled ;
-    D.Setup.file_kind := file_kind ;
+  let cleanup () =
     Source.clear_virtual () ;
     Source.clear_thc_trust () ;
     Source.set_thc_cache_limit thc_cache_limit ;
     Accumulate.clear_specification_cache () ;
     processing_state := saved_processing_state
   in
-  Fun.protect ~finally:restore (fun () ->
-    start_thm_session () ;
-    f ())
+  Fun.protect ~finally:cleanup (fun () ->
+    D.Setup.with_saved (fun () ->
+      start_thm_session () ;
+      f ()))
 
 let process_command command =
   let lb = Lexing.from_string command in

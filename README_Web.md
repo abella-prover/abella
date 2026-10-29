@@ -20,6 +20,7 @@ cd support
 npm run check
 npm run web:test
 npm run web:size
+npm run web:check
 ```
 
 The size check includes the small `github_callback.js` bundle.
@@ -53,16 +54,19 @@ The origin SSH host key must be current for the
 provider before accepting a changed key.
 
 Cloudflare caches generated JavaScript, CSS, and wasm launchers by URL
-for 30 days. After changing frontend or wasm sources, run
+for 30 days and does not revalidate when the origin changes. The three
+HTML entry pages are not edge-cached and are browser-cached for 10
+minutes.
 
-```sh
-make web-version-bump
-```
+`make web` handles cache busting automatically. It hashes the built
+assets, appends the hash as `?v=` to the references in `web/index.html`,
+`web/privacy.html`, and `web/github-callback.html`, and bakes the worker
+and wasm-launcher hashes into the bundles. There is no version file to
+bump. `make publish-web` rebuilds, verifies the stamped references with
+`npm run web:check`, and syncs the tree.
 
-before publishing. It updates `WEB_ASSET_VERSION` in
-`support/ts/web/version.ts` and the `?v=` strings in `web/*.html`
-together. `make publish-web` refuses to run when the versions disagree,
-or when a frontend input changed since the last bump.
+The HTML pages must stay at a short `max-age` and out of the CDN edge
+cache; the hashes only protect subresources.
 
 GitHub authentication
 ---------------------

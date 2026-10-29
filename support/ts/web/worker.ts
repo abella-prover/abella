@@ -7,12 +7,11 @@
 // The wasm launcher resolves its .wasm assets relative to this worker's URL,
 // which is why this file is emitted into web/abella_js/.
 
-import { WEB_ASSET_VERSION } from "./version";
-
 declare function importScripts(...urls: string[]): void;
 declare const Abellajs: import("./types").Abellajs;
+declare const __WASM_LAUNCHER_HASH__: string;
 
-importScripts(`abella_js.bc.wasm.js?v=${WEB_ASSET_VERSION}`);
+importScripts(`abella_js.bc.wasm.js?v=${__WASM_LAUNCHER_HASH__}`);
 
 const scope = self as unknown as {
   postMessage(message: unknown): void;

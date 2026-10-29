@@ -59,6 +59,10 @@ jobs:
           test -f web/abella_js/abella_js.bc.wasm.js
           test -d web/abella_js/abella_js.bc.wasm.assets
 
+      - name: Check web asset stamps
+        run: npm run web:check
+        working-directory: support
+
       - name: Check bundle size
         run: npm run web:size
         working-directory: support

@@ -3,7 +3,8 @@
 // See LICENSE for licensing details.
 
 import type { ProjectFile, RunResult, SourcePos } from "./types";
-import { WEB_ASSET_VERSION } from "./version";
+
+declare const __WORKER_HASH__: string;
 
 export interface Driver {
   init(files: ProjectFile[], root: string): Promise<RunResult>;
@@ -20,7 +21,7 @@ interface Pending {
   reject: (reason: Error) => void;
 }
 
-const WORKER_PATH = `abella_js/worker.js?v=${WEB_ASSET_VERSION}`;
+const WORKER_PATH = `abella_js/worker.js?v=${__WORKER_HASH__}`;
 
 export class WorkerDriver implements Driver {
   private worker!: Worker;

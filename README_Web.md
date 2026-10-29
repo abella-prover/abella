@@ -41,7 +41,9 @@ origins in `connect-src`.
 
 `make publish-web` expects SSH access to the publishing account and
 copies the whole generated `web/` tree, including lazy JavaScript
-chunks. Generated assets are gitignored.
+chunks. It uses `rsync --delete`, so files that are no longer in the
+local `web/` tree are removed from the origin. Generated assets are
+gitignored.
 
 Cloudflare proxies the public apex, so SSH publishing cannot target the
 proxied `abella-prover.org` address. Keep a DNS-only
@@ -64,6 +66,10 @@ assets, appends the hash as `?v=` to the references in `web/index.html`,
 and wasm-launcher hashes into the bundles. There is no version file to
 bump. `make publish-web` rebuilds, verifies the stamped references with
 `npm run web:check`, and syncs the tree.
+
+Obsolete chunks and wasm assets are deleted on publish. A stale browser
+tab that still holds the previous HTML may need a reload if it asks for
+an old chunk that is no longer on the origin.
 
 The HTML pages must stay at a short `max-age` and out of the CDN edge
 cache; the hashes only protect subresources.

@@ -48,7 +48,7 @@ web-dev: web
 publish-web:
 	$(MAKE) --no-print-directory web
 	( cd support && npm run web:check )
-	rsync -aviz \
+	rsync -aviz --delete \
 	  --exclude '.test/' \
 	  --exclude '*.map' \
 	  web/ abellaweb@origin.abella-prover.org:abella-prover.org/web/

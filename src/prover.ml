@@ -1424,7 +1424,7 @@ let saturate ?name ?depth lemmas =
     List.map (normalize ~used:sequent.vars) focus_lemmas
   in
   let depth0 = match depth with
-    | None -> 5
+    | None -> List.length lemmas
     | Some depth -> depth
   in
   (* saturate does not handle nabla, so we always raise over the global support *)

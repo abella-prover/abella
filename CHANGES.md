@@ -25,13 +25,14 @@ Additions
   list of lemmas. The general form of the command is:
 
 ```
-[hn : ] saturate [d] lem1, lem2, ... .
+[hn : ] fchain [d] lem1 lem2 ... .
 ```
 
-  where `lem1`, `lem2`, etc. are a list of comma-separate lemmas and an
-  optional `d` is a max depth depth (default: 5). It will try to find all
+  where `lem1`, `lem2`, etc. are a list of lemmas and an optional `d` is a
+  maximum depth (default: the number of lemmas). It will try to find all
   the *immediate* consequences of the lemmas from the hypotheses in scope,
-  iterating up to the given depth. This is a branching tactic.
+  trying the lemmas from left to right and iterating up to the given depth.
+  This is a branching tactic.
 
 Changes
 

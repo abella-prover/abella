@@ -39,6 +39,9 @@ Changes
 * Abella now requires Dune version 3.20 or later.
 * Abella is no longer supported on ppc32 and ppc64. Please use Abella Web.
 * `abella_doc` modernized with light/dark mode support.
+* `abella_doc` now accepts `--verbosity` and forwards it to the Abella
+  runs, so diagnostic messages can appear in the generated HTML.
+  `--verbose` now sets verbosity to at least 2.
 
 Bugfixes
 

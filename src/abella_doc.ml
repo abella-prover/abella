@@ -128,14 +128,15 @@ open Extensions
 type conf = {
   abella : string ;
   recursive : bool ;
-  verbose : bool ;
 }
 
-let mk_conf abella recursive verbose =
-  { abella ; recursive ; verbose }
+let mk_conf abella recursive verbosity verbose =
+  let verbosity = if verbose then max verbosity 2 else verbosity in
+  Ppx_abella_lib.verbosity := verbosity ;
+  { abella ; recursive }
 
-let vprintf conf =
-  if conf.verbose
+let vprintf _conf =
+  if !Ppx_abella_lib.verbosity >= 1
   then (fun fmt -> Printf.printf (fmt ^^ "\n%!"))
   else Printf.ifprintf stdout
 
@@ -256,8 +257,9 @@ let main conf files =
   List.iter begin fun file ->
     if not @@ Filename.check_suffix file ".thm" then () else
     let root = Filename.chop_suffix file ".thm" in
-    let cmd = Printf.sprintf "%s --non-recursive --annotate --output=%s.json %s.thm"
-        conf.abella root root in
+    let cmd = Printf.sprintf
+        "%s --non-recursive --annotate --output=%s.json --verbosity=%d %s.thm"
+        conf.abella root !Ppx_abella_lib.verbosity root in
     vprintf conf "RUN: %s" cmd ;
     if Sys.command cmd != 0 then
       failwithf "ERROR running: %s" cmd ;
@@ -291,15 +293,20 @@ let () =
              ~docv:"CMD"
              ~absent:"$(b,abella[.exe])")
     in
+    let verbosity =
+      let doc = "Set verbosity to $(docv)." in
+      Arg.(value @@ opt int 0 @@
+           info ["verbosity"] ~doc ~docv:"NUM")
+    in
     let verbose =
-      let doc = "Verbose output" in
+      let doc = "Set verbosity to at least 2." in
       Arg.(value @@ flag @@ info ["verbose"] ~doc)
     in
     let recursive =
       let doc = "Process directories recursively" in
       Arg.(value @@ flag @@ info ["r"] ~doc)
     in
-    Term.(const mk_conf $ abella $ recursive $ verbose)
+    Term.(const mk_conf $ abella $ recursive $ verbosity $ verbose)
   in
   let files =
     let doc = "An Abella $(b,.thm) file or a directory" in

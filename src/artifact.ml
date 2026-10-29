@@ -5,7 +5,8 @@
  * See LICENSE for licensing details.
  *)
 
-(* Marshalling helpers shared by the .thc and .thmodc artifacts. *)
+(* Artifact codecs, loading policy, and shared compiled-declaration
+   installation for .thc and .thmodc files. *)
 
 open Term
 open Typing

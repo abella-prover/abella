@@ -5,7 +5,8 @@
  * See LICENSE for licensing details.
  *)
 
-(* Pure transformations used when instantiating an imported reasoning
+(* Import Module and Show Module orchestration, plus the pure
+   transformations used when instantiating an imported reasoning
    module. *)
 
 open Term

@@ -5,8 +5,8 @@
  * See LICENSE for licensing details.
  *)
 
-(* .thm-specific state: specifications, the .thc artifact, ordinary
-   imports, and inline module scopes. *)
+(* .thm-specific state: specifications, the .thc artifact, and ordinary
+   source imports. *)
 
 open Term
 open Metaterm

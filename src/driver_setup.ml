@@ -5,8 +5,8 @@
  * See LICENSE for licensing details.
  *)
 
-(* Session configuration and state shared by the driver and the
-   file-kind-specific modules. *)
+(* Session configuration shared by the driver and the
+   file-kind-specific modules, with save/restore for sub-sessions. *)
 
 open Abella_types
 

@@ -5,10 +5,10 @@
  * See LICENSE for licensing details.
  *)
 
-(* Module environments, name resolution, and artifact-relative naming for
-   reasoning-level modules. Internal names are stored relative to the
-   top-level module: a direct item is [x], and an item in the nested
-   module [Bar] is [Bar.x]. *)
+(* Module scopes, instances, name resolution, Module/End handling, and
+   the .thmodc codec for reasoning-level modules. Internal names are
+   stored relative to the top-level module: a direct item is [x], and an
+   item in the nested module [Bar] is [Bar.x]. *)
 
 open Term
 open Typing

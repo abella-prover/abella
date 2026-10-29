@@ -1419,17 +1419,12 @@ let clear_duplicates () =
 exception SaturateSuccess
 let is_ground f = metaterm_vars_alist Logic f = []
 let saturate ?name ?depth lemmas =
-  let lemtab = H.create 19 in
-  List.iter begin fun lem ->
-    H.add lemtab lem (get_hyp_or_lemma lem)
-  end lemmas ;
+  let focus_lemmas = List.map get_hyp_or_lemma lemmas in
   let initial_focus () =
-    H.to_seq_values lemtab
-    |> Seq.map (fun lem -> normalize ~used:sequent.vars lem)
-    |> List.of_seq
+    List.map (normalize ~used:sequent.vars) focus_lemmas
   in
   let depth0 = match depth with
-    | None -> 1
+    | None -> 5
     | Some depth -> depth
   in
   (* saturate does not handle nabla, so we always raise over the global support *)
@@ -1440,20 +1435,27 @@ let saturate ?name ?depth lemmas =
   in
   let rec loop ~ts ~depth =
     clear_duplicates () ;
-    (* [%trace 2 "loop %d"] depth ; *)
     if depth <= 0 then () else begin
-      let num_released, subgoals =
-        multifocus [] (initial_focus ())
-          ~ts
-          ~succ:(fun ts -> loop ~ts ~depth:(depth - 1))
+      let rec try_lemmas = function
+        | [] ->
+            [%trace 2 "Saturated at depth %d"] (depth0 - depth) ;
+            ()
+        | focus :: rest ->
+            let state = get_scoped_bind_state () in
+            let num_released, subgoals =
+              multifocus [] [focus]
+                ~ts
+                ~succ:(fun ts -> loop ~ts ~depth:(depth - 1))
+            in
+            if num_released = 0 then begin
+              set_scoped_bind_state state ;
+              try_lemmas rest
+            end else begin
+              add_subgoals subgoals ;
+              next_subgoal ()
+            end
       in
-      if num_released = 0 then begin
-        [%trace 2 "Saturated at depth %d"] (depth0 - depth) ;
-        ()
-      end else begin
-        add_subgoals subgoals ;
-        next_subgoal ()
-      end
+      try_lemmas (initial_focus ())
     end
   and multifocus ~ts ~succ dead live =
     (* [%trace 2 "@[<v2>multifoc:@,dead = @[<v0>%a@]@,live = @[<v0>%a@]@]"] *)

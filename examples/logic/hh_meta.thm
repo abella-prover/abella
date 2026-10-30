@@ -54,11 +54,9 @@ Define is_fm : fm -> prop by
 Type prog fm -> prop.
 
 % We have to assume that any prog clause is independent of nabla in
-% order for instantiation to be sound. Since there is no way to write
-% axioms in Abella, we state this as a theorem with an empty proof.
-Theorem prog_has_no_nablas :
+% order for instantiation to be sound. We state this as an axiom.
+Axiom prog_has_no_nablas :
   forall F, nabla (n:tm), prog (F n) -> exists E, F = x\ E.
-skip.
 
 % The backchaining calculus consists of two phases: seq and bch
 %

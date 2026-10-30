@@ -43,7 +43,7 @@ intros.
   %% The following case analysis should report an error that
   %% generic type variables cannot be instantiated
   % case H1.
-  skip.
+  abort.
   
 
 Theorem inst_gen_var1[A,B] : forall (X:A) (Y:B),
@@ -52,13 +52,13 @@ intros.
   %% The following case analysis should report an error that
   %% generic type variables cannot be instantiated
   % case H1.
-  skip.
+  abort.
 
 Theorem inst_gen_var2[A] : forall (X:A) (Y:o),
   p X = p Y -> false.
 intros.
   % case H1.
-  skip.
+  abort.
 
 Theorem inst_gen_var3[A] : forall (X:i) (Y:o),
   p X = p Y -> false.
@@ -124,11 +124,11 @@ intros.
   %% The following case analysis should report an error because the
   %% type variable in the clause cannot be fully instantiated by unification
   % case H1.
-  skip. 
+  abort. 
 
 Theorem ty_not_fdet_right : forall M,
   {pred M}.
   %% The following search should fail because the type variable in the
   %% clause cannot be fully instantiated by unification
   %search.
-  skip.
+  abort.

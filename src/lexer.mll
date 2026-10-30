@@ -26,6 +26,7 @@
      syntax-highlighting tables for abella_doc and Abella Web are derived
      from this list. *)
   let keywords = [
+    "Axiom",         AXIOM ;
     "Close",         CLOSE ;
     "CoDefine",      CODEFINE ;
     "Define",        DEFINE ;

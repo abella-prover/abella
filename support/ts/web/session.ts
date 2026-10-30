@@ -140,7 +140,7 @@ function errorText(messages: RawMessage[]): string {
 }
 
 function startsTheorem(command: Command): boolean {
-  return /^Theorem\b/.test(command.text);
+  return /^(?:Axiom|Theorem)\b/.test(command.text);
 }
 
 function firstChangedOffset(changes: ChangeSet): number | undefined {

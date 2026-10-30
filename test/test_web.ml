@@ -406,6 +406,16 @@ let test_import_cycle () =
   assert_bool "cycle fails" (status = `error) ;
   assert_contains "Cyclic import" (system_messages msgs)
 
+let test_axiom_declaration () =
+  let (status, msgs) = process_command "Axiom ax : true." in
+  assert_ok status ;
+  assert_string_list_equal [] (error_messages msgs) ;
+  assert_string_list_equal ["ax"] !D.Setup.axioms ;
+  assert_string_list_equal [] !D.Setup.unfinished ;
+  let (status, msgs) = process_command "Show ax." in
+  assert_ok status ;
+  assert_contains "Theorem ax" (system_messages msgs)
+
 let tests = "web_core" >::: [
   "virtual_source" >:: (fun () -> with_session test_virtual_source) ;
   "thc_cache_bound" >:: (fun () -> with_session test_thc_cache_bound) ;
@@ -416,4 +426,5 @@ let tests = "web_core" >::: [
   "virtual_native_thc" >:: (fun () -> with_session test_virtual_native_thc) ;
   "nested_imports" >:: (fun () -> with_session test_nested_imports) ;
   "import_cycle" >:: (fun () -> with_session test_import_cycle) ;
+  "axiom_declaration" >:: (fun () -> with_session test_axiom_declaration) ;
 ]

@@ -13,6 +13,9 @@ Abella Web
 
 Additions
 
+* Added the `Axiom` command, which declares a theorem without requiring a
+  proof. In batch mode, the axioms used are listed at the end of the run.
+
 * Added the `compute` tactic for performing asynchronous computation on
   hypotheses. Detailed examples can be found in the `examples/compute/`
   subdirectory.

@@ -12,6 +12,7 @@ export const abellaKeywords = {
     "Specification",
   ],
   topCmd: [
+    "Axiom",
     "CoDefine",
     "Define",
     "Kind",
@@ -80,6 +81,7 @@ export const abellaKeywords = {
 } as const;
 
 export const allAbellaKeywords = [
+  "Axiom",
   "Close",
   "CoDefine",
   "Define",

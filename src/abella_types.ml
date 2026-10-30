@@ -71,6 +71,7 @@ type common_command =
 
 type top_command =
   | Theorem       of id * string list * umetaterm
+  | Axiom         of id * string list * umetaterm
   | Define        of flavor * tyctx * udef_clause list
   | Import        of string * pos * (string * string) list
   | Specification of string * pos
@@ -82,7 +83,7 @@ type top_command =
   | Suspend       of uterm * id list option
   | TopCommon     of common_command
 
-type fin = Finished | Unfinished
+type fin = Finished | Unfinished | Axiomatic
 
 type guard = {
   predicate : id ;
@@ -289,6 +290,9 @@ let top_command_to_string tc =
   match tc with
     | Theorem(name, tys, body) ->
         sprintf "Theorem %s%s : \n%s" name (gen_to_string tys)
+          (umetaterm_to_formatted_string body)
+    | Axiom(name, tys, body) ->
+        sprintf "Axiom %s%s : \n%s" name (gen_to_string tys)
           (umetaterm_to_formatted_string body)
     | Define(flavor, idtys, cls) ->
         sprintf "%s %s by \n%s"

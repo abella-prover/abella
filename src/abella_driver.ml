@@ -38,6 +38,7 @@ module Setup = struct
   let lexbuf : Lexing.lexbuf ref =
     ref (Lexing.from_string "")
   let unfinished : string list ref = ref []
+  let axioms : string list ref = State.rref []
   let import_mode : [`thc | `source | `auto] ref = ref `thc
   let trust_compiled : bool ref = ref false
 end
@@ -455,7 +456,9 @@ and process_decls ~repl ~modname decls =
   | [] -> ()
   | decl :: decls -> begin
       match decl with
-      | CTheorem(name, tys, thm, _) ->
+      | CTheorem(name, tys, thm, fin) ->
+          if fin = Axiomatic then
+            Setup.axioms := name :: !Setup.axioms ;
           add_lemma name tys thm ;
           process_decls ~repl ~modname decls
       | CDefine(flav, tyargs, idtys, clauses) ->
@@ -717,7 +720,7 @@ let rec process1 () =
                     Setup.unfinished := proc.thm :: !Setup.unfinished ;
                   Printf.sprintf "completed%s"
                     (match fin with
-                     | Finished -> ""
+                     | Finished | Axiomatic -> ""
                      | Unfinished -> " *** USING skip ***")
                 end
               | `aborted -> "ABORTED"
@@ -755,6 +758,10 @@ let rec process1 () =
             if not (is_interactive ()) && !Setup.unfinished <> [] then begin
               Output.msg_printf "There were skips in these theorem(s): %s"
                 (String.concat ", "  !Setup.unfinished)
+            end ;
+            if not (is_interactive ()) && !Setup.axioms <> [] then begin
+              Output.msg_printf "The following axioms were used: %s"
+                (String.concat ", " (List.unique (List.rev !Setup.axioms)))
             end ;
             Output.flush () ;
             raise @@ AbellaExit 0
@@ -908,6 +915,12 @@ and process_top1 () =
           reset = thm_reset
         }
     end
+  | Axiom(name, tys, thm) ->
+      let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
+      check_theorem tys thm ;
+      compile (CTheorem(name, tys, thm, Axiomatic)) ;
+      add_lemma name tys thm ;
+      Setup.axioms := name :: !Setup.axioms
   | SSplit(name, names) ->
       let gen_thms = Prover.create_split_theorems name names in
       List.iter begin fun (n, (tys, t)) ->

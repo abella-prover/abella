@@ -40,7 +40,7 @@ let category (name, token) =
   match token with
   | CLOSE | IMPORT | QUERY | QUIT | SET | SHOW | SPECIFICATION ->
       TopBuilt
-  | CODEFINE | DEFINE | THEOREM | SSPLIT | SUSPEND | KKIND | TTYPE
+  | CODEFINE | DEFINE | THEOREM | AXIOM | SSPLIT | SUSPEND | KKIND | TTYPE
   | AS | BY ->
       TopCmd
   | ABBREV | ALL | APPLY | ASSERT | BACKCHAIN | CASE | CLEAR | COIND

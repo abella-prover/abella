@@ -1,25 +1,25 @@
 (test
   (name test)
   (modes exe)
-  (modules :standard \ setup_regression)
   (libraries abella_lib alcotest unix))
 
-(test
-  (name setup_regression)
-  (modes exe)
-  (modules setup_regression)
-  (libraries unix))
+(rule
+  (target test.mk)
+  (deps
+    ../bin/abella_dep.exe
+    (glob_files_rec ../examples/*.thm)
+    (glob_files_rec ../examples/*.sig)
+    (glob_files_rec ../examples/*.mod))
+  (action (chdir %{project_root}
+    (run bin/abella_dep.exe -a "bin/abella.exe" -o test/test.mk -r examples))))
 
 (rule
   (alias runtest)
   (deps
+    test.mk
     ../bin/abella.exe
-    ../bin/abella_dep.exe
-    ../test/setup_regression.exe
-    (source_tree ../examples))
-  (target test.mk)
+    (glob_files_rec ../examples/*.thm)
+    (glob_files_rec ../examples/*.sig)
+    (glob_files_rec ../examples/*.mod))
   (action (chdir %{project_root}
-    (progn
-      (run test/setup_regression.exe --actual examples)
-      (run bin/abella_dep.exe -a "bin/abella.exe" -o test/test.mk -r examples)
-      (run make -k -j -f test/test.mk all)))))
+    (run make -k -j -B -f test/test.mk all))))

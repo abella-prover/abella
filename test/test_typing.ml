@@ -1,4 +1,3 @@
-open OUnit
 open Abella_lib
 open Extensions
 open Test_helper
@@ -27,39 +26,43 @@ type uterm =
 
 
 let tests =
-  "Typing" >:::
-    [
-      "Should not allow pi quantification over o in clause" >::
+  suite "Typing" [
+      test_case "Should not allow pi quantification over o in clause"
         (fun () ->
            let uclause =
              (None, ucon "a", [uapp (ucon "pi") (ulam "x" ~ty:oty (ucon "x"))])
            in
-             assert_raises
-               (Failure "Cannot quantify over type o in the specification logic")
-               (fun () -> type_uclause ~sr:!sr ~sign:!sign uclause)
+             Alcotest.check_raises
+               "Cannot quantify over type o in the specification logic"
+               (Failure
+                  "Cannot quantify over type o in the specification logic")
+               (fun () ->
+                  ignore (type_uclause ~sr:!sr ~sign:!sign uclause))
         );
 
-      "Should not allow quantification over prop in definition" >::
+      test_case "Should not allow quantification over prop in definition"
         (fun () ->
            let udef =
              (UTrue, UBinding(Forall, [("x", propty)], upred (ucon "x")))
            in
-             assert_raises
+             Alcotest.check_raises
+               "Cannot quantify over type prop"
                (Failure "Cannot quantify over type prop")
-               (fun () -> type_udef ~sr:!sr ~sign:!sign udef)
+               (fun () -> ignore (type_udef ~sr:!sr ~sign:!sign udef))
         );
 
-      "Should not allow quantification over prop in metaterm" >::
+      test_case "Should not allow quantification over prop in metaterm"
         (fun () ->
            let umetaterm =
              UBinding(Forall, [("x", propty)], upred (ucon "x"))
            in
-             assert_raises
+             Alcotest.check_raises
+               "Cannot quantify over type prop"
                (Failure "Cannot quantify over type prop")
-               (fun () -> type_umetaterm ~sr:!sr ~sign:!sign umetaterm)
+               (fun () -> ignore (type_umetaterm ~sr:!sr ~sign:!sign umetaterm))
         );
 
-      "Should replace underscores in clauses with fresh names" >::
+      test_case "Should replace underscores in clauses with fresh names"
         (fun () ->
            let uclause =
              (None,

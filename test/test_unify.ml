@@ -1,4 +1,3 @@
-open OUnit
 open Abella_lib
 open Term
 open Term.Notations
@@ -6,11 +5,11 @@ open Unify
 open Test_helper
 
 let right_unify ?(used=[]) t1 t2 =
-  assert_ty_equal (tc [] t1) (tc [] t2) ;
+  Alcotest.check ty_testable "types differ" (tc [] t1) (tc [] t2) ;
   right_unify ~used t1 t2
 
 let left_unify ?(used=[]) t1 t2 =
-  assert_ty_equal (tc [] t1) (tc [] t2) ;
+  Alcotest.check ty_testable "types differ" (tc [] t1) (tc [] t2) ;
   left_unify ~used t1 t2
 
 (* Extracting a variable at some position in a term,
@@ -27,63 +26,62 @@ let rec extract path t =
 let assert_raises_occurs_check f =
   try
     f () ;
-    assert_failure "Expected OccursCheck"
+    Alcotest.fail "Expected OccursCheck"
   with
     | UnifyFailure OccursCheck -> ()
 
 let assert_raises_unify_failure f =
   try
     f () ;
-    assert_failure "Expected UnifyFailure"
+    Alcotest.fail "Expected UnifyFailure"
   with
     | UnifyFailure _ -> ()
 
 (* Tests from Nadathur's SML implementation *)
 let tests =
-  "Unify" >:::
-    [
+  suite "Unify" [
       (* Example 1, simple test involving abstractions *)
-      "[x\\ x = x\\ M x]" >::
+      test_case "[x\\ x = x\\ M x]"
         (fun () ->
            let t1 = [("x",ity)] // db 1 in
            let m = var Logic "m" 1 iity in
            let t2 = [("x",ity)] // ( m ^^ [ db 1 ] ) in
              right_unify t1 t2 ;
-             assert_term_equal ([("x",ity)] // db 1) m) ;
+             Alcotest.check term_testable "terms differ" ([("x",ity)] // db 1) m) ;
 
       (* Example 2, adds descending into constructors *)
-      "[x\\ c x = x\\ c (N x)]" >::
+      test_case "[x\\ c x = x\\ c (N x)]"
         (fun () ->
            let n = var Logic "n" 1 iity in
            let c = const ~ts:1 "c" iity in
            let t1 = [("x",ity)] // (c ^^ [ db 1 ]) in
            let t2 = [("x",ity)] // (c ^^ [ n ^^ [ db 1 ] ]) in
              right_unify t1 t2 ;
-             assert_term_equal ([("x",ity)] // db 1) n) ;
+             Alcotest.check term_testable "terms differ" ([("x",ity)] // db 1) n) ;
 
       (* Example 3, needs eta expanding on the fly *)
-      "[x\\y\\ c y x = N]" >::
+      test_case "[x\\y\\ c y x = N]"
         (fun () ->
            let n = var Logic "n" 1 iiity in
            let c = const ~ts:1 "c" iiity in
            let t = [("y",ity); ("x",ity)] // (c ^^ [ db 1 ; db 2 ]) in
              right_unify t n ;
-             assert_term_equal ([("y",ity); ("x",ity)] // (c ^^ [ db 1 ; db 2 ])) n) ;
+             Alcotest.check term_testable "terms differ" ([("y",ity); ("x",ity)] // (c ^^ [ db 1 ; db 2 ])) n) ;
 
 
       (* Example 4, on-the-fly eta, constructors at top-level *)
-      "[x\\y\\ c x y = x\\ c (N x)]" >::
+      test_case "[x\\y\\ c x y = x\\ c (N x)]"
         (fun () ->
            let n = var Logic "n" 1 iity in
            let c = const ~ts:1 "c" iiity in
              right_unify
                ([("y",ity); ("x",ity)] // (c ^^ [db 2;db 1]))
                ([("x",ity)] // (c ^^ [n ^^ [db 1]])) ;
-             assert_term_equal ([("x",ity)] // db 1) n) ;
+             Alcotest.check term_testable "terms differ" ([("x",ity)] // db 1) n) ;
 
 
       (* Example 5, flex-flex case where we need to raise & prune *)
-      "[X1 a2 b3 = Y2 b3 c3]" >::
+      test_case "[X1 a2 b3 = Y2 b3 c3]"
         (fun () ->
            let x = var Logic "x" 1 (tyarrow [aty; bty] ity) in
            let y = var Logic "y" 2 (tyarrow [bty; cty] ity) in
@@ -96,14 +94,14 @@ let tests =
              let h =
                match extract [L;H] x with
                  | Var {name=h;ts=1;tag=Logic;ty=ty} -> var Logic h 1 ty
-                 | _ -> assert_failure "X should match x\\y\\ H ..."
+                 | _ -> Alcotest.fail "X should match x\\y\\ H ..."
              in
-               assert_term_equal ([("a",aty); ("b",bty)] // (h ^^ [ db 2 ; db 1 ])) x ;
-               assert_term_equal ([("b",bty); ("c",cty)] // (h ^^ [ a ; db 2 ])) y) ;
+               Alcotest.check term_testable "terms differ" ([("a",aty); ("b",bty)] // (h ^^ [ db 2 ; db 1 ])) x ;
+               Alcotest.check term_testable "terms differ" ([("b",bty); ("c",cty)] // (h ^^ [ a ; db 2 ])) y) ;
 
       (* Example 6, flex-rigid case involving raise & prune relative to an
        * embedded flex term. *)
-      "[X1 a2 b3 = c1 (Y2 b3 d3)]" >::
+      test_case "[X1 a2 b3 = c1 (Y2 b3 d3)]"
         (fun () ->
            let x = var Logic "x" 1 iiity in
            let y = var Logic "y" 2 iiity in
@@ -115,13 +113,13 @@ let tests =
              let h =
                match extract [L;A;H] x with
                  | Var {name=h;ts=1;tag=Logic;ty=ty} -> var Logic h 1 ty
-                 | _ -> assert_failure "X should match x\\y\\ _ H .."
+                 | _ -> Alcotest.fail "X should match x\\y\\ _ H .."
              in
-               assert_term_equal ([("y",ity); ("x",ity)] // (c ^^ [h^^[db 2;db 1]])) x ;
-               assert_term_equal ([("y",ity); ("x",ity)] // (h ^^ [a;db 2])) y) ;
+               Alcotest.check term_testable "terms differ" ([("y",ity); ("x",ity)] // (c ^^ [h^^[db 2;db 1]])) x ;
+               Alcotest.check term_testable "terms differ" ([("y",ity); ("x",ity)] // (h ^^ [a;db 2])) y) ;
 
       (* Example 7, multiple occurences *)
-      "[e0 (X1 a2 b3) (X1 b3 d2) = e0 (Y2 b3 c3) (e0 b3 d2)]" >::
+      test_case "[e0 (X1 a2 b3) (X1 b3 d2) = e0 (Y2 b3 c3) (e0 b3 d2)]"
         (fun () ->
            let x = var Logic "x" 1 iiity in
            let y = var Logic "y" 2 iiity in
@@ -133,12 +131,12 @@ let tests =
              right_unify
                (e ^^ [ x ^^ [a;b] ; x ^^ [b;d] ])
                (e ^^ [ y ^^ [b;c] ; e ^^ [b;d] ]) ;
-             assert_term_equal ([("y",ity); ("x",ity)] // (e ^^ [db 2; db 1])) x ;
-             assert_term_equal ([("y",ity); ("x",ity)] // (e ^^ [a; db 2])) y) ;
+             Alcotest.check term_testable "terms differ" ([("y",ity); ("x",ity)] // (e ^^ [db 2; db 1])) x ;
+             Alcotest.check term_testable "terms differ" ([("y",ity); ("x",ity)] // (e ^^ [a; db 2])) y) ;
 
       (* Example 8, multiple occurences with a bound var as the rigid part
        * instead of a constant *)
-      "[x\\ e0 (X1 a2 b3) (X x d2) = x\\ e0 (Y2 b3 c3) (e0 x d2)]" >::
+      test_case "[x\\ e0 (X1 a2 b3) (X x d2) = x\\ e0 (Y2 b3 c3) (e0 x d2)]"
         (fun () ->
            let x = var Logic "x" 1 iiity in
            let y = var Logic "y" 2 iiity in
@@ -150,11 +148,11 @@ let tests =
              right_unify
                ([("x",ity)] // (e ^^ [ x ^^ [a;b] ; x ^^ [db 1;d]]))
                ([("x",ity)] // (e ^^ [ y ^^ [b;c] ; e ^^ [db 1;d] ])) ;
-             assert_term_equal ([("y",ity); ("x",ity)] // (e ^^ [db 2;db 1])) x ;
-             assert_term_equal ([("y",ity); ("x",ity)] // (e ^^ [a;db 2])) y) ;
+             Alcotest.check term_testable "terms differ" ([("y",ity); ("x",ity)] // (e ^^ [db 2;db 1])) x ;
+             Alcotest.check term_testable "terms differ" ([("y",ity); ("x",ity)] // (e ^^ [a;db 2])) y) ;
 
       (* Example 9, flex-flex with same var at both heads *)
-      "[X1 a2 b3 c3 = X1 c3 b3 a2]" >::
+      test_case "[X1 a2 b3 c3 = X1 c3 b3 a2]"
         (fun () ->
            let x = var Logic "x" 1 (tyarrow [aty; bty; aty] ity) in
            let a = const ~ts:2 "a" aty in
@@ -164,12 +162,12 @@ let tests =
              let h =
                match extract [L;H] x with
                  | Var {name=h;ts=1;tag=Logic;ty=ty} -> var Logic h 1 ty
-                 | _ -> assert_failure "X should match x\\y\\z\\ H ..."
+                 | _ -> Alcotest.fail "X should match x\\y\\z\\ H ..."
              in
-               assert_term_equal ([("a",aty); ("a",bty); ("c",aty)] // (h^^[db 2])) x) ;
+               Alcotest.check term_testable "terms differ" ([("a",aty); ("a",bty); ("c",aty)] // (h^^[db 2])) x) ;
 
       (* Example 10, failure due to OccursCheck *)
-      "[X1 != d1 X1]" >::
+      test_case "[X1 != d1 X1]"
         (fun () ->
            let x = var Logic "X" 1 ity in
            let d = const ~ts:1 "d" iity in
@@ -177,7 +175,7 @@ let tests =
                (fun () -> right_unify x (d ^^ [x]))) ;
 
       (* 10bis: quantifier dependency violation *)
-      "[X1 a2 != d3 (X1 a2)]" >::
+      test_case "[X1 a2 != d3 (X1 a2)]"
         (fun () ->
            let x = var Logic "X" 1 iity in
            let a = const ~ts:2 "a" ity in
@@ -186,7 +184,7 @@ let tests =
                (fun () -> right_unify (x ^^ [a]) (d ^^ [x ^^ [a]]))) ;
 
       (* Example 11, flex-flex without raising *)
-      "[X1 a2 b3 = Y1 b3 c3]" >::
+      test_case "[X1 a2 b3 = Y1 b3 c3]"
         (fun () ->
            let x = var Logic "x" 1 (tyarrow [aty; bty] ity) in
            let y = var Logic "y" 1 (tyarrow [bty; cty] ity) in
@@ -201,11 +199,11 @@ let tests =
                      (Printf.sprintf "X=%s should match Lam (_,(App H _))"
                         (term_to_string x))
              in
-               assert_term_equal ([("a",aty); ("b",bty)] // (h ^^ [db 1])) x ;
-               assert_term_equal ([("b",bty); ("c",cty)] // (h ^^ [db 2])) y) ;
+               Alcotest.check term_testable "terms differ" ([("a",aty); ("b",bty)] // (h ^^ [db 1])) x ;
+               Alcotest.check term_testable "terms differ" ([("b",bty); ("c",cty)] // (h ^^ [db 2])) y) ;
 
       (* Example 12, flex-flex with raising on one var, pruning on the other *)
-      "[X1 a2 b3 c3 = Y2 c3]" >::
+      test_case "[X1 a2 b3 c3 = Y2 c3]"
         (fun () ->
            let x = var Logic "x" 1 (tyarrow [aty; bty; cty] ity) in
            let y = var Logic "y" 2 (tyarrow [cty] ity) in
@@ -218,11 +216,11 @@ let tests =
                  | Var {name=h;ts=1;tag=Logic;ty=ty} -> var Logic h 1 ty
                  | _ -> failwith "X should match x\\y\\z\\ H ..."
              in
-               assert_term_equal ([("a",aty); ("b",bty); ("c",cty)] // (h ^^ [db 3;db 1])) x ;
-               assert_term_equal ([("c",cty)] // (h ^^ [a;db 1])) y) ;
+               Alcotest.check term_testable "terms differ" ([("a",aty); ("b",bty); ("c",cty)] // (h ^^ [db 3;db 1])) x ;
+               Alcotest.check term_testable "terms differ" ([("c",cty)] // (h ^^ [a;db 1])) y) ;
 
       (* Example 13, flex-rigid where rigid has to be abstracted *)
-      "[X1 a2 b3 = a2 (Y2 b3 c3)]" >::
+      test_case "[X1 a2 b3 = a2 (Y2 b3 c3)]"
         (fun () ->
            let x = var Logic "x" 1 (tyarrow [iity; bty] ity) in
            let y = var Logic "y" 2 (tyarrow [bty; cty] ity) in
@@ -235,13 +233,13 @@ let tests =
                  | Var {name=h;ts=1;tag=Logic;ty=ty} -> var Logic h 1 ty
                  | _ -> failwith "X should match x\\y\\ _ (H ..) .."
              in
-               assert_term_equal
+               Alcotest.check term_testable "terms differ"
                  ([("a",iity); ("b",bty)] // (db 2 ^^ [h ^^ [db 2 ; db 1]])) x ;
-               assert_term_equal
+               Alcotest.check term_testable "terms differ"
                  ([("b",bty); ("c",cty)] // (h ^^ [a ; db 2])) y) ;
 
       (* Example 14, rigid-path failure *)
-      "[X1 a2 b3 != d3 (Y2 b3 c3)]" >::
+      test_case "[X1 a2 b3 != d3 (Y2 b3 c3)]"
         (fun () ->
            let x = var Logic "x" 1 (tyarrow [aty; bty] ity) in
            let y = var Logic "y" 2 (tyarrow [bty; cty] dty) in
@@ -252,11 +250,11 @@ let tests =
              assert_raises_unify_failure
                (fun () -> right_unify (x ^^ [a;b]) (d ^^ [y ^^ [b;c]]))) ;
 
-      "[a = a]" >::
+      test_case "[a = a]"
         (fun () ->
            right_unify (const ~ts:1 "a" aty) (const ~ts:1 "a" aty)) ;
 
-      "[x\\ a x b = x\\ a x b]" >::
+      test_case "[x\\ a x b = x\\ a x b]"
         (fun () ->
            let a = const ~ts:1 "a" (tyarrow [aty; bty] ity) in
            let b = const ~ts:1 "b" bty in
@@ -265,23 +263,23 @@ let tests =
 
       (* End of Gopalan's examples *)
 
-      "[f a a = f X X]" >::
+      test_case "[f a a = f X X]"
         (fun () ->
            let f = const ~ts:1 "f" (tyarrow [aty; aty] ity) in
            let a = const ~ts:2 "a" aty in
            let x = var Logic "x" 3 aty in
              right_unify (f ^^ [x;x]) (f ^^ [a;a])) ;
 
-      "[x\\y\\ P x = x\\ Q x]" >::
+      test_case "[x\\y\\ P x = x\\ Q x]"
         (fun () ->
            let p = var Logic "P" 1 (tyarrow [aty] ity) in
            let q = var Logic "Q" 1 (tyarrow [aty; bty] ity) in
              right_unify
                ([("y",aty); ("x",bty)] // (p ^^ [db 2]))
                ([("x",aty)] // (q ^^ [db 1])) ;
-             assert_term_equal ([("y",aty); ("x",bty)] // (p ^^ [db 2])) q) ;
+             Alcotest.check term_testable "terms differ" ([("y",aty); ("x",bty)] // (p ^^ [db 2])) q) ;
 
-      "[T = a X, T = a Y, Y = T]" >::
+      test_case "[T = a X, T = a Y, Y = T]"
         (fun () ->
            let t = var Logic "T" 1 ity in
            let x = var Logic "X" 1 ity in
@@ -293,7 +291,7 @@ let tests =
              assert_raises_unify_failure
                (fun () -> right_unify y t)) ;
 
-      "[x\\y\\ H1 x = x\\y\\ G2 x]" >::
+      test_case "[x\\y\\ H1 x = x\\y\\ G2 x]"
         (fun () ->
            let h = var Logic "H" 1 (tyarrow [aty] ity) in
            let g = var Logic "G" 2 (tyarrow [aty] ity) in
@@ -301,9 +299,9 @@ let tests =
              right_unify
                ([("y",aty); ("x",bty)] // (h ^^ [db 2]))
                ([("y",aty); ("x",bty)] // (g ^^ [db 2])) ;
-             assert_term_equal (g^^[db 2]) (h^^[db 2])) ;
+             Alcotest.check term_testable "terms differ" (g^^[db 2]) (h^^[db 2])) ;
 
-      "[X1 = y2]" >::
+      test_case "[X1 = y2]"
         (fun () ->
            let x = var Logic "X" 1 ity in
            let y = var Eigen "y" 2 ity in
@@ -311,7 +309,7 @@ let tests =
                (fun () -> right_unify x y)) ;
 
       (* Tests added while developing Abella *)
-      "Saving and restoring states" >::
+      test_case "Saving and restoring states"
         (fun () ->
            let a = var Logic "A" 0 ity in
            let b = var Logic "B" 0 ity in
@@ -327,7 +325,7 @@ let tests =
                assert_term_pprint_equal "B" a ;
                assert_term_pprint_equal "B" b) ;
 
-      "No new names for simple unification" >::
+      test_case "No new names for simple unification"
         (fun () ->
            let a = var Logic "A" 0 aty in
            let b = var Logic "B" 0 bty in
@@ -341,13 +339,13 @@ let tests =
              right_unify evalAB evalapp ;
              assert_term_pprint_equal "eval (app M N) V" evalAB) ;
 
-      "[X = X]" >::
+      test_case "[X = X]"
         (fun () ->
            let x = var Logic "X" 0 ity in
              right_unify x x ;
              assert_term_pprint_equal "X" x) ;
 
-      "Loosening of LLambda restriction" >::
+      test_case "Loosening of LLambda restriction"
         (fun () ->
            let a = var Logic "A" 0 ity in
            let b = var Logic "B" 0 (tyarrow [cty] ity) in
@@ -355,7 +353,7 @@ let tests =
              right_unify a (b ^^ [c]) ;
              assert_term_pprint_equal "B C" a) ;
 
-      "Loosening of LLambda restriction inside of constructor" >::
+      test_case "Loosening of LLambda restriction inside of constructor"
         (fun () ->
            let a = var Logic "A" 0 aty in
            let b = var Logic "B" 0 (tyarrow [cty] bty) in
@@ -366,7 +364,7 @@ let tests =
              right_unify a term ;
              assert_term_pprint_equal "cons (B C) D" a) ;
 
-      "[X^0 = Y^1]" >::
+      test_case "[X^0 = Y^1]"
         (fun () ->
            let x = var Logic "X" 0 ity in
            let y = var Logic "Y" 1 ity in
@@ -376,9 +374,9 @@ let tests =
              assert_term_pprint_equal "X" y ;
              match observe x, observe y with
                | Var {ts=0; _}, Var {ts=0; _} -> ()
-               | _ -> assert_failure "Timestamps should be lowered to match") ;
+               | _ -> Alcotest.fail "Timestamps should be lowered to match") ;
 
-      "[X^0 = p^0 Y^1 Z^1]" >::
+      test_case "[X^0 = p^0 Y^1 Z^1]"
         (fun () ->
            let x = var Logic "X" 0 ity in
            let y = var Logic "Y" 1 ity in
@@ -389,9 +387,9 @@ let tests =
              assert_term_pprint_equal "p X1 X2" x ;
              match observe y, observe z with
                | Var {ts=0; _}, Var {ts=0; _} -> ()
-               | _ -> assert_failure "Timestamps should be lowered to match") ;
+               | _ -> Alcotest.fail "Timestamps should be lowered to match") ;
 
-      "X^0 = f^0 a^1" >::
+      test_case "X^0 = f^0 a^1"
         (fun () ->
            let a = const ~ts:1 "a" aty in
            let x = var Logic "X" 0 ity in
@@ -401,31 +399,31 @@ let tests =
                (fun () ->
                   right_unify ~used x (f ^^ [a]))) ;
 
-      "Logic variables on right should not unify with nominal variables" >::
+      test_case "Logic variables on right should not unify with nominal variables"
         (fun () ->
            let a = var Logic "A" 0 ity in
            let n = nominal_var "n" ity in
-             assert_raises_any
-               (fun () -> right_unify a n)) ;
+             Alcotest.match_raises "expected exception" (fun _ -> true)
+               (fun () -> ignore (right_unify a n))) ;
 
-      "Eigen variables on left should not unify with nominal variables" >::
+      test_case "Eigen variables on left should not unify with nominal variables"
         (fun () ->
            let a = var Eigen "a" 0 ity in
            let n = nominal_var "n" ity in
-             assert_raises_any
-               (fun () -> left_unify a n)) ;
+             Alcotest.match_raises "expected exception" (fun _ -> true)
+               (fun () -> ignore (left_unify a n))) ;
 
-      "Logic variables on left are not constant-like" >::
+      test_case "Logic variables on left are not constant-like"
         (fun () ->
            let x = var Logic "X" 0 ity in
            let a = const ~ts:0 "a" ity in
              try
                left_unify x a ;
-               assert_failure "Expected NotLLambda"
+               Alcotest.fail "Expected NotLLambda"
              with
                | UnifyError NotLLambda -> ()) ;
 
-      "Logic variables on left produce a conflict pair" >::
+      test_case "Logic variables on left produce a conflict pair"
         (fun () ->
            let x = var Logic "X" 0 ity in
            let a = const ~ts:0 "a" ity in
@@ -433,19 +431,19 @@ let tests =
                | Some [(t1, t2)] ->
                    assert_term_pprint_equal "X" t1 ;
                    assert_term_pprint_equal "a" t2
-               | Some l -> assert_failure
+               | Some l -> Alcotest.fail
                    (Printf.sprintf "Expected one conflict pair, but found %d"
                       (List.length l))
-               | None -> assert_failure "Unification failed") ;
+               | None -> Alcotest.fail "Unification failed") ;
 
-      "Raised eigen variables on left should unify with nominal variables" >::
+      test_case "Raised eigen variables on left should unify with nominal variables"
         (fun () ->
            let a = var Eigen "a" 0 iity in
            let n = nominal_var "n" ity in
              left_unify (a ^^ [n]) n ;
-             assert_term_equal ([("a",ity)] // db 1) a) ;
+             Alcotest.check term_testable "terms differ" ([("a",ity)] // db 1) a) ;
 
-      "Pruning should not generate a needless new name" >::
+      test_case "Pruning should not generate a needless new name"
         (fun () ->
            let n = nominal_var "n" ity in
            let a = var Eigen "A" 0 (tyarrow [ity] aty) in
@@ -455,7 +453,7 @@ let tests =
              assert_term_pprint_equal "x1\\B" a ;
              assert_term_pprint_equal "B" b) ;
 
-      "X^0 a^1 b^1 = Y^0 Z^0 b^1" >::
+      test_case "X^0 a^1 b^1 = Y^0 Z^0 b^1"
         (fun () ->
            let a = const ~ts:1 "a" aty in
            let b = const ~ts:1 "b" bty in
@@ -468,7 +466,7 @@ let tests =
              assert_term_pprint_equal "Y" y ;
              assert_term_pprint_equal "Z" z) ;
 
-      "X^0 a^1 = Y^0 (Z^0 a^1)" >::
+      test_case "X^0 a^1 = Y^0 (Z^0 a^1)"
         (fun () ->
            let a = const ~ts:1 "a" ity in
            let x = var Eigen "X" 0 iity in
@@ -480,7 +478,7 @@ let tests =
              assert_term_pprint_equal "Y" y ;
              assert_term_pprint_equal "Z" z) ;
 
-      "w\\X^0 w = Y^0 Z^0" >::
+      test_case "w\\X^0 w = Y^0 Z^0"
         (fun () ->
            let x = var Eigen "X" 0 iity in
            let y = var Eigen "Y" 0 iiity in
@@ -491,7 +489,7 @@ let tests =
              assert_term_pprint_equal "Y" y ;
              assert_term_pprint_equal "Z" z) ;
 
-      "X^0 a^1 = app (Y^0 W^0 a^1) (Z^0 a^1)" >::
+      test_case "X^0 a^1 = app (Y^0 W^0 a^1) (Z^0 a^1)"
         (fun () ->
            let a = const ~ts:1 "a" aty in
            let x = var Eigen "X" 0 (tyarrow [aty] ity) in
@@ -508,7 +506,7 @@ let tests =
              assert_term_pprint_equal "Y" y ;
              assert_term_pprint_equal "Z" z) ;
 
-      "f\\x\\f x = f\\x\\f (Z f x)" >::
+      test_case "f\\x\\f x = f\\x\\f (Z f x)"
         (fun () ->
            let z = var Eigen "Z" 0 (tyarrow [iity; ity] ity) in
            let used = [("Z", z)] in
@@ -517,7 +515,7 @@ let tests =
                ([("x",iity); ("f",ity)] // (db 2 ^^ [z ^^ [db 2; db 1]])) ;
              assert_term_pprint_equal "x1\\x2\\x2" z) ;
 
-      "p^0 (X^0 Y^0) = p^0 (Z^0 W^0)" >::
+      test_case "p^0 (X^0 Y^0) = p^0 (Z^0 W^0)"
         (fun () ->
            let p = const ~ts:0 "p" iity in
            let x = var Logic "X" 0 iity in
@@ -532,9 +530,9 @@ let tests =
                    assert_term_pprint_equal "X Y" a ;
                    assert_term_pprint_equal "Z W" b
                | _ ->
-                   assert_failure "Expected one conflict pair" );
+                   Alcotest.fail "Expected one conflict pair" );
 
-      "p^0 (X^0 Y^0) = p^0 (z^0 w^0)" >::
+      test_case "p^0 (X^0 Y^0) = p^0 (z^0 w^0)"
         (fun () ->
            let p = const ~ts:0 "p" iity in
            let x = var Logic "X" 0 iity in
@@ -548,12 +546,12 @@ let tests =
                | Some [(a,b)] ->
                    assert_term_pprint_equal "X Y" a ;
                    assert_term_pprint_equal "z w" b
-               | Some l -> assert_failure
+               | Some l -> Alcotest.fail
                    (Printf.sprintf "Expected one conflict pair, but found %d"
                       (List.length l))
-               | None -> assert_failure "Unification failed" );
+               | None -> Alcotest.fail "Unification failed" );
 
-      "X^0 a^1 (Y^0 a^1) = Z^0" >::
+      test_case "X^0 a^1 (Y^0 a^1) = Z^0"
         (fun () ->
            let x = var Logic "X" 0 iiity in
            let y = var Logic "Y" 0 iity in
@@ -565,12 +563,12 @@ let tests =
                | Some [(a,b)] ->
                    assert_term_pprint_equal "X a (Y a)" a ;
                    assert_term_pprint_equal "Z" b
-               | Some l -> assert_failure
+               | Some l -> Alcotest.fail
                    (Printf.sprintf "Expected one conflict pair, but found %d"
                       (List.length l))
-               | None -> assert_failure "Unification failed" );
+               | None -> Alcotest.fail "Unification failed" );
 
-      "x1\\p^0 (X^0 x1 (Y^0 x1)) = x1\\p^0 Z^0" >::
+      test_case "x1\\p^0 (X^0 x1 (Y^0 x1)) = x1\\p^0 Z^0"
         (fun () ->
            let p = const ~ts:0 "p" iity in
            let x = var Logic "X" 0 iiity in
@@ -583,12 +581,12 @@ let tests =
                | Some [(a,b)] ->
                    assert_term_pprint_equal "x1\\X x1 (Y x1)" a ;
                    assert_term_pprint_equal "x1\\Z" b
-               | Some l -> assert_failure
+               | Some l -> Alcotest.fail
                    (Printf.sprintf "Expected one conflict pair, but found %d"
                       (List.length l))
-               | None -> assert_failure "Unification failed" );
+               | None -> Alcotest.fail "Unification failed" );
 
-      "X^0 = F^0 X^0" >::
+      test_case "X^0 = F^0 X^0"
         (fun () ->
            let x = var Logic "X" 0 ity in
            let f = var Logic "F" 0 iity in
@@ -596,12 +594,12 @@ let tests =
                | Some [(a, b)] ->
                    assert_term_pprint_equal "X" a ;
                    assert_term_pprint_equal "F X" b ;
-               | Some l -> assert_failure
+               | Some l -> Alcotest.fail
                    (Printf.sprintf "Expected one conflict pair, but found %d"
                       (List.length l))
-               | None -> assert_failure "Unification failed" );
+               | None -> Alcotest.fail "Unification failed" );
 
-      "X^0 = x1\\Y^1" >::
+      test_case "X^0 = x1\\Y^1"
         (fun () ->
            let x = var Logic "X" 0 iity in
            let y = var Logic "Y" 1 ity in
@@ -610,9 +608,9 @@ let tests =
              assert_term_pprint_equal "x1\\Y1" x ;
              match observe y with
                | Var {ts=0; _} -> ()
-               | _ -> assert_failure "Timestamp should be lowered to match") ;
+               | _ -> Alcotest.fail "Timestamp should be lowered to match") ;
 
-      "R^0 N^0 = plus A^0 B^0" >::
+      test_case "R^0 N^0 = plus A^0 B^0"
         (fun () ->
            let r = var Eigen "R" 0 iity in
            let n = var Eigen "N" 0 ity in
@@ -628,10 +626,10 @@ let tests =
                    assert_term_pprint_equal "x1\\plus (R1 x1) (R2 x1)" t1 ;
                    assert_term_pprint_equal "x1\\x1" t2 ;
                | ts ->
-                   assert_int_equal 2 (List.length ts)
+                   Alcotest.check Alcotest.int "ints differ" 2 (List.length ts)
         );
 
-      "R^0 N^0 = x1\\x1 A^0 B^0" >::
+      test_case "R^0 N^0 = x1\\x1 A^0 B^0"
         (fun () ->
            let r = var Eigen "R" 0 (tyarrow [ity; iiity] ity) in
            let n = var Eigen "N" 0 ity in
@@ -648,10 +646,10 @@ let tests =
                    assert_term_pprint_equal
                      "x1\\x2\\x1" t2 ;
                | ts ->
-                   assert_int_equal 2 (List.length ts)
+                   Alcotest.check Alcotest.int "ints differ" 2 (List.length ts)
         );
 
-      "x1\\R^0 N^0 = x1\\x1 A^0 B^0" >::
+      test_case "x1\\R^0 N^0 = x1\\x1 A^0 B^0"
         (fun () ->
            let r = var Eigen "R" 0 iity in
            let n = var Eigen "N" 0 ity in
@@ -665,10 +663,10 @@ let tests =
                | [t1] ->
                    assert_term_pprint_equal "x1\\x1" t1 ;
                | ts ->
-                   assert_int_equal 1 (List.length ts)
+                   Alcotest.check Alcotest.int "ints differ" 1 (List.length ts)
         );
 
-      "R^0 X^0 b^0 = a^0 b^0" >::
+      test_case "R^0 X^0 b^0 = a^0 b^0"
         (fun () ->
            let r = var Eigen "R" 0 (tyarrow [iiity; ity] ity) in
            let x = var Eigen "X" 0 iiity in
@@ -687,10 +685,10 @@ let tests =
                    assert_term_pprint_equal
                      "x1\\x2\\x2" t3 ;
                | ts ->
-                   assert_int_equal 3 (List.length ts)
+                   Alcotest.check Alcotest.int "ints differ" 3 (List.length ts)
         );
 
-      "Flex-rigid subordination: R A1 B1 = sr_a_b A2 B2" >::
+      test_case "Flex-rigid subordination: R A1 B1 = sr_a_b A2 B2"
         (fun () ->
            let r = var Eigen "R" 0 (tyarrow [sr_a; sr_b] oty) in
            let a1 = var Eigen "A1" 0 sr_a in
@@ -709,10 +707,10 @@ let tests =
                    assert_term_pprint_equal
                      "x1\\x2\\sr_a_b (R1 x1) (R2 x1 x2)" t1 ;
                | ts ->
-                   assert_int_equal 1 (List.length ts)
+                   Alcotest.check Alcotest.int "ints differ" 1 (List.length ts)
         );
 
-      "X = f\\f (X (y\\e))" >::
+      test_case "X = f\\f (X (y\\e))"
         (fun () ->
            let xty = tyarrow [iity] ity in
            let x = var Logic "X" 0 xty in
@@ -725,12 +723,12 @@ let tests =
                | Some [(a, b)] ->
                    assert_term_pprint_equal "X" a ;
                    assert_term_pprint_equal "x1\\x1 (X x2\\e)" b ;
-               | Some l -> assert_failure
+               | Some l -> Alcotest.fail
                    (Printf.sprintf "Expected one conflict pair, but found %d"
                       (List.length l))
                | None ->
                    (* X = f\ f e is one solution *)
-                   assert_failure "Unification failed"
+                   Alcotest.fail "Unification failed"
         );
 
       (* This is a case where unification has no most general
@@ -739,7 +737,7 @@ let tests =
          treat all higher-order unification problems (perhaps with a
          special tactic to invoke such solution finding)
 
-      "X^0 = Y^0 a^1 (Z^0 a^1)" >::
+      test_case "X^0 = Y^0 a^1 (Z^0 a^1)"
         (fun () ->
            let a = const ~ts:1 "a" ity in
            let x = var Eigen "X" 0 ity in
@@ -752,10 +750,10 @@ let tests =
                | Some [(t1,t2)] ->
                    assert_term_pprint_equal "X" t1 ;
                    assert_term_pprint_equal "Y1 (Z a)" t2
-               | Some l -> assert_failure
+               | Some l -> Alcotest.fail
                    (Printf.sprintf "Expected one conflict pair, but found %d"
                       (List.length l))
-               | None -> assert_failure "Unification failed" );
+               | None -> Alcotest.fail "Unification failed" );
 
       *)
 

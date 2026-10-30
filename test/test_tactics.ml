@@ -1,4 +1,3 @@
-open OUnit
 open Test_helper
 open Abella_lib
 open Term
@@ -16,11 +15,11 @@ let assert_failure_begins exfl exn =
       then
         Printf.sprintf "Expected exception Failure(\"%s...\"); got %S"
           exfl gotfl |>
-        assert_failure
+        Alcotest.fail
   | _ ->
       Printf.sprintf "Expected exception Failure(\"%s...\"); got %S"
         exfl (Printexc.to_string exn) |>
-      assert_failure
+      Alcotest.fail
 
 let assert_object_cut ~cut ~using ~expect =
   match freshen cut, freshen using with
@@ -29,10 +28,8 @@ let assert_object_cut ~cut ~using ~expect =
           assert_pprint_equal expect actual
     | _ -> assert false
 
-let object_cut_tests =
-  "Object Cut" >:::
-    [
-      "Simple" >::
+let object_cut_tests = [
+      test_case "Simple"
         (fun () ->
            assert_object_cut
              ~cut:    "{a |- b}"
@@ -40,7 +37,7 @@ let object_cut_tests =
              ~expect: "{b}"
         );
 
-      "Contexts should be merged" >::
+      test_case "Contexts should be merged"
         (fun () ->
            assert_object_cut
              ~cut:    "{a, b |- c}"
@@ -48,7 +45,7 @@ let object_cut_tests =
              ~expect: "{d, a |- c}"
         );
 
-      "Context should be normalized" >::
+      test_case "Context should be normalized"
         (fun () ->
            assert_object_cut
              ~cut:    "{a, b, c |- d}"
@@ -56,26 +53,26 @@ let object_cut_tests =
              ~expect: "{a, c |- d}"
         );
 
-      "Should fail on useless cut" >::
+      test_case "Should fail on useless cut"
         (fun () ->
-           assert_raises (Failure "Needless use of cut")
+           Alcotest.check_raises "Needless use of cut"
+             (Failure "Needless use of cut")
              (fun () ->
-                assert_object_cut
+                ignore (assert_object_cut
                   ~cut:    "{a |- b}"
                   ~using:  "{c}"
-                  ~expect: ""
-             )
+                  ~expect: ""))
         );
 
-      "Should fail if tails don't match" >::
+      test_case "Should fail if tails don't match"
         (fun () ->
-           assert_raises (Failure "Cannot merge contexts")
+           Alcotest.check_raises "Cannot merge contexts"
+             (Failure "Cannot merge contexts")
              (fun () ->
-                assert_object_cut
+                ignore (assert_object_cut
                   ~cut:    "{L, a |- b}"
                   ~using:  "{K |- a}"
-                  ~expect: ""
-             )
+                  ~expect: ""))
         );
     ]
 
@@ -86,10 +83,8 @@ let assert_object_inst ~on ~inst ~using ~expect =
   let actual = object_inst on inst using in
     assert_pprint_equal expect actual
 
-let object_instantiation_tests =
-  "Object Instantiation" >:::
-    [
-      "Simple" >::
+let object_instantiation_tests = [
+      test_case "Simple"
         (fun () ->
            assert_object_inst
              ~on:"{eq n1 t2}"
@@ -98,37 +93,36 @@ let object_instantiation_tests =
              ~expect:"{eq t1 t2}"
         );
 
-      "Should fail if nominal is not found" >::
+      test_case "Should fail if nominal is not found"
         (fun () ->
-           assert_raises (Failure "Did not find n2")
+           Alcotest.check_raises "Did not find n2"
+             (Failure "Did not find n2")
              (fun () ->
-                assert_object_inst
+                ignore (assert_object_inst
                   ~on:"{eq n1 n1}"
                   ~inst:"n2"
                   ~using:"dummy"
-                  ~expect:""
-             )
+                  ~expect:""))
         );
 
-      "Should only work on nominals" >::
+      test_case "Should only work on nominals"
         (fun () ->
-           assert_raises (Failure "Did not find A")
+           Alcotest.check_raises "Did not find A"
+             (Failure "Did not find A")
              (fun () ->
-                assert_object_inst
+                ignore (assert_object_inst
                   ~on:"{eq t1 t2}"
                   ~inst:"A"
                   ~using:"dummy"
-                  ~expect:""
-             )
+                  ~expect:""))
         );
 
     ]
 
 let apply_tests =
   let sr = Subordination.empty in
-  "Apply" >:::
-    [
-      "Normal" >::
+  [
+      test_case "Normal"
         (fun () ->
            let h0 = freshen
              "forall A B C, {eval A B} -> {typeof A C} -> {typeof B C}" in
@@ -137,7 +131,7 @@ let apply_tests =
            let t, _ = apply ~sr h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
-      "Properly restricted" >::
+      test_case "Properly restricted"
         (fun () ->
            let h0 = freshen
              "forall A B C, {eval A B}* -> {typeof A C} -> {typeof B C}" in
@@ -146,7 +140,7 @@ let apply_tests =
            let t, _ = apply ~sr h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
-      "Needlessly restricted" >::
+      test_case "Needlessly restricted"
         (fun () ->
            let h0 = freshen
              "forall A B C, {eval A B} -> {typeof A C} -> {typeof B C}" in
@@ -155,25 +149,27 @@ let apply_tests =
            let t, _ = apply ~sr h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
-      "Improperly restricted" >::
+      test_case "Improperly restricted"
         (fun () ->
            let h0 = freshen
              "forall A B C, {eval A B}* -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-             assert_raises (Failure "Inductive restriction violated")
-               (fun () -> apply ~sr h0 [Some h1; Some h2])) ;
+             Alcotest.check_raises "Inductive restriction violated"
+               (Failure "Inductive restriction violated")
+               (fun () -> ignore (apply ~sr h0 [Some h1; Some h2]))) ;
 
-      "Improperly restricted (2)" >::
+      test_case "Improperly restricted (2)"
         (fun () ->
            let h0 = freshen
              "forall A B C, {eval A B}* -> {typeof A C} -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}" in
-             assert_raises (Failure "Inductive restriction violated")
-               (fun () -> apply ~sr h0 [Some h1; Some h2])) ;
+             Alcotest.check_raises "Inductive restriction violated"
+               (Failure "Inductive restriction violated")
+               (fun () -> ignore (apply ~sr h0 [Some h1; Some h2]))) ;
 
-      "Properly double restricted" >::
+      test_case "Properly double restricted"
         (fun () ->
            let h0 = freshen
              "forall A B C, {eval A B}@ -> {typeof A C}** -> {typeof B C}" in
@@ -182,39 +178,42 @@ let apply_tests =
            let t, _ = apply ~sr h0 [Some h1; Some h2] in
              assert_pprint_equal "{typeof (abs R) (arrow S T)}" t) ;
 
-      "Improperly double restricted" >::
+      test_case "Improperly double restricted"
         (fun () ->
            let h0 = freshen
              "forall A B C, {eval A B}@ -> {typeof A C}** -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}@" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}@@" in
-             assert_raises (Failure "Inductive restriction violated")
-               (fun () -> apply ~sr h0 [Some h1; Some h2])) ;
+             Alcotest.check_raises "Inductive restriction violated"
+               (Failure "Inductive restriction violated")
+               (fun () -> ignore (apply ~sr h0 [Some h1; Some h2]))) ;
 
-      "Improperly double restricted (2)" >::
+      test_case "Improperly double restricted (2)"
         (fun () ->
            let h0 = freshen
              "forall A B C, {eval A B}@ -> {typeof A C}** -> {typeof B C}" in
            let h1 = freshen "{eval (abs R) (abs R)}" in
            let h2 = freshen "{typeof (abs R) (arrow S T)}**" in
-             assert_raises (Failure "Inductive restriction violated")
-               (fun () -> apply ~sr h0 [Some h1; Some h2])) ;
+             Alcotest.check_raises "Inductive restriction violated"
+               (Failure "Inductive restriction violated")
+               (fun () -> ignore (apply ~sr h0 [Some h1; Some h2]))) ;
 
-      "Properly restricted on predicate" >::
+      test_case "Properly restricted on predicate"
         (fun () ->
            let h0 = freshen "forall A, foo A * -> bar A" in
            let h1 = freshen "foo A *" in
            let t, _ = apply ~sr h0 [Some h1] in
              assert_pprint_equal "bar A" t) ;
 
-      "Improperly restricted on predicate" >::
+      test_case "Improperly restricted on predicate"
         (fun () ->
            let h0 = freshen "forall A, foo A * -> bar A" in
            let h1 = freshen "foo A @" in
-             assert_raises (Failure "Inductive restriction violated")
-               (fun () -> apply ~sr h0 [Some h1])) ;
+             Alcotest.check_raises "Inductive restriction violated"
+               (Failure "Inductive restriction violated")
+               (fun () -> ignore (apply ~sr h0 [Some h1]))) ;
 
-      "Unification failure" >:: begin fun () ->
+      test_case "Unification failure" begin fun () ->
          let h0 = freshen
              "forall A B C, {eval A B} -> {typeof A C} -> {typeof B C}" in
          let h1 = freshen "{eval (abs R) (abs R)}" in
@@ -223,16 +222,16 @@ let apply_tests =
            | ConstClash _ -> ()
            | FailTrail (_, uf) -> check_good_failure uf
            | uf ->
-               assert_failure ("Expected constant clash; got " ^ Unify.explain_failure uf)
+               Alcotest.fail ("Expected constant clash; got " ^ Unify.explain_failure uf)
          in
          try
            let _ = apply ~sr h0 [Some h1; Some h2] in
-           assert_failure "Expected constant clash"
+           Alcotest.fail "Expected constant clash"
          with
          | UnifyFailure uf -> check_good_failure uf
       end ;
 
-      "With contexts" >::
+      test_case "With contexts"
         (fun () ->
            let h0 = freshen
              ("forall E A C, {E, hyp A |- conc C} -> " ^
@@ -242,28 +241,28 @@ let apply_tests =
            let t, _ = apply ~sr h0 [Some h1; Some h2] in
              assert_pprint_equal "{L, hyp B1, hyp B2 |- conc C}" t) ;
 
-      "On non-object" >::
+      test_case "On non-object"
         (fun () ->
            let h0 = freshen "forall A, foo A -> bar A" in
            let h1 = freshen "foo B" in
            let t, _ = apply ~sr h0 [Some h1] in
              assert_pprint_equal "bar B" t) ;
 
-      "On arrow" >::
+      test_case "On arrow"
         (fun () ->
            let h0 = freshen "forall A, (forall B, foo A -> bar B) -> baz A" in
            let h1 = freshen "forall B, foo C -> bar B" in
            let t, _ = apply ~sr h0 [Some h1] in
              assert_pprint_equal "baz C" t) ;
 
-      "With nabla" >::
+      test_case "With nabla"
         (fun () ->
            let h0 = freshen "forall B, nabla x, rel1 x (B x) -> rel2 t1 (iabs B)" in
            let h1 = freshen "rel1 n1 (D n1)" in
            let t, _ = apply ~sr h0 [Some h1] in
              assert_pprint_equal "rel2 t1 (iabs (x1\\D x1))" t) ;
 
-      "With multiple nablas" >::
+      test_case "With multiple nablas"
         (fun () ->
            let h0 =
              freshen "forall A B, nabla x y,\
@@ -276,14 +275,14 @@ let apply_tests =
                "rel2 (iabs (x1\\C x1)) (iabs (x1\\D x1))"
                t) ;
 
-      "With vacuous nabla" >::
+      test_case "With vacuous nabla"
         (fun () ->
            let h0 = freshen "forall A B, nabla x, rel1 (A x) (B x) -> rel2 (iabs A) (iabs B)" in
            let h1 = freshen "rel1 C D" in
            let t, _ = apply ~sr h0 [Some h1] in
              assert_pprint_equal "rel2 (iabs x1\\C) (iabs x1\\D)" t) ;
 
-      "Absent argument should produce corresponding obligation" >::
+      test_case "Absent argument should produce corresponding obligation"
         (fun () ->
            let h0 = freshen "forall L, foo L -> bar L -> false" in
            let h1 = freshen "bar K" in
@@ -291,11 +290,11 @@ let apply_tests =
              match obligations with
                | [term] ->
                    assert_pprint_equal "foo K" term
-               | _ -> assert_failure
+               | _ -> Alcotest.fail
                    ("Expected one obligation but found " ^
                       (string_of_int (List.length obligations)))) ;
 
-      "Instantiate should not allow existing nominal" >::
+      test_case "Instantiate should not allow existing nominal"
         (fun () ->
            let h = freshen "nabla x, rel1 x n1" in
            try begin
@@ -303,7 +302,7 @@ let apply_tests =
            end with
            | exn -> assert_failure_begins "Invalid instantiation " exn);
 
-      "Instantiate should not allow soon to be existing nominal" >::
+      test_case "Instantiate should not allow soon to be existing nominal"
         (fun () ->
            let h = freshen "forall E, nabla x, rel1 E x" in
            try begin
@@ -313,54 +312,57 @@ let apply_tests =
            end with
            | exn -> assert_failure_begins "Invalid instantiation " exn);
 
-      "Instantiate should not allow two identical nominals" >::
+      test_case "Instantiate should not allow two identical nominals"
         (fun () ->
            let h = freshen "nabla x y, rel1 x y" in
-             assert_raises (Failure "Invalid instantiation for nabla variable")
+             Alcotest.check_raises
+               "Invalid instantiation for nabla variable"
+               (Failure "Invalid instantiation for nabla variable")
                (fun () ->
-                  instantiate_withs h [("x", nominal_var "n1" ity);
-                                       ("y", nominal_var "n1" ity)]
-               ));
+                  ignore (instantiate_withs h [("x", nominal_var "n1" ity);
+                                               ("y", nominal_var "n1" ity)])));
 
-      "Instantiate should allow distinct nominals" >::
+      test_case "Instantiate should allow distinct nominals"
         (fun () ->
            let h = freshen "nabla x y, rel1 x y" in
            let (t, _) = instantiate_withs h [("x", nominal_var "n1" ity);
                                              ("y", nominal_var "n2" ity)] in
              assert_pprint_equal "rel1 n1 n2" t);
 
-      "Instantiate should not allow non-nominal for nabla" >::
+      test_case "Instantiate should not allow non-nominal for nabla"
         (fun () ->
            let h = freshen "nabla x, foo x" in
-             assert_raises (Failure "Invalid instantiation for nabla variable")
+             Alcotest.check_raises
+               "Invalid instantiation for nabla variable"
+               (Failure "Invalid instantiation for nabla variable")
                (fun () ->
-                  instantiate_withs h [("x", const "A" ity)]
-               ));
+                  ignore (instantiate_withs h [("x", const "A" ity)])));
 
-      "Apply with no arguments" >::
+      test_case "Apply with no arguments"
         (fun () ->
            let h = freshen "forall E, foo E" in
            let a = const "a" ity in
            let (t, _) = apply_with ~sr ~used:[] h [] [("E", a)] in
              assert_pprint_equal "foo a" t);
 
-      "Apply with no arguments should contain logic variables" >::
+      test_case "Apply with no arguments should contain logic variables"
         (fun () ->
            let h = freshen "forall A B, rel1 A B" in
            let a = const "a" ity in
            let (t, _) = apply_with ~sr ~used:[] h [] [("A", a)] in
            let logic_vars = metaterm_vars_alist Logic t in
-             assert_bool "Should contain logic variable(s)"
+             Alcotest.check Alcotest.bool
+               "Should contain logic variable(s)" true
                (List.length logic_vars > 0));
 
-      "Apply with no arguments or withs" >::
+      test_case "Apply with no arguments or withs"
         (fun () ->
            let h = freshen "forall A B, rel1 A B -> rel2 A B" in
            let (t, obs) = apply_with ~sr ~used:[] h [] [] in
-             assert_bool "Should have no obligations" (obs = []) ;
+             Alcotest.check Alcotest.bool "Should have no obligations" true (obs = []) ;
              assert_metaterm_equal h t);
 
-      "Should raise over nominals in applied term" >::
+      test_case "Should raise over nominals in applied term"
         (fun () ->
            let h = freshen "forall (X:i) Y, X = Y -> true" in
            let _, obligations =
@@ -371,17 +373,16 @@ let apply_tests =
                    begin match observe (hnorm t2) with
                      | App(_, [n]) ->
                          assert_term_pprint_equal "n1" n ;
-                     | _ -> assert_failure "Unexpected term"
+                     | _ -> Alcotest.fail "Unexpected term"
                    end
-               | _ -> assert_failure "Unexpected pattern"
+               | _ -> Alcotest.fail "Unexpected pattern"
         );
     ]
 
 let backchain_tests =
   let sr = Subordination.empty in
-  "Backchain" >:::
-    [
-      "Normal" >::
+  [
+      test_case "Normal"
         (fun () ->
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B" in
            let g = freshen "rel3 t3 t4" in
@@ -390,11 +391,11 @@ let backchain_tests =
                    assert_pprint_equal "rel1 t3 t1" h1 ;
                    assert_pprint_equal "rel2 t4 t2" h2
                | hs ->
-                   assert_failure
+                   Alcotest.fail
                      ("Expected 2 obligations but found " ^
                         (string_of_int (List.length hs)))) ;
 
-      "Properly restricted" >::
+      test_case "Properly restricted"
         (fun () ->
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B +" in
            let g = freshen "rel3 t3 t4 +" in
@@ -403,11 +404,11 @@ let backchain_tests =
                    assert_pprint_equal "rel1 t3 t1" h1 ;
                    assert_pprint_equal "rel2 t4 t2" h2
                | hs ->
-                   assert_failure
+                   Alcotest.fail
                      ("Expected 2 obligations but found " ^
                         (string_of_int (List.length hs)))) ;
 
-      "Needlessly restricted" >::
+      test_case "Needlessly restricted"
         (fun () ->
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B" in
            let g = freshen "rel3 t3 t4 +" in
@@ -416,11 +417,11 @@ let backchain_tests =
                    assert_pprint_equal "rel1 t3 t1" h1 ;
                    assert_pprint_equal "rel2 t4 t2" h2
                | hs ->
-                   assert_failure
+                   Alcotest.fail
                      ("Expected 2 obligations but found " ^
                         (string_of_int (List.length hs)))) ;
 
-      "Inductively restricted" >::
+      test_case "Inductively restricted"
         (fun () ->
            let h = freshen
              "forall A B, rel1 A t1 * -> rel2 B t2 @ -> rel3 A B"
@@ -431,32 +432,35 @@ let backchain_tests =
                    assert_pprint_equal "rel1 t3 t1 *" h1 ;
                    assert_pprint_equal "rel2 t4 t2 @" h2
                | hs ->
-                   assert_failure
+                   Alcotest.fail
                      ("Expected 2 obligations but found " ^
                         (string_of_int (List.length hs)))) ;
 
-      "Improperly restricted" >::
+      test_case "Improperly restricted"
         (fun () ->
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B +" in
            let g = freshen "rel3 t3 t4" in
-             assert_raises (Failure "Coinductive restriction violated")
-               (fun () -> backchain ~sr h g)) ;
+             Alcotest.check_raises "Coinductive restriction violated"
+               (Failure "Coinductive restriction violated")
+               (fun () -> ignore (backchain ~sr h g))) ;
 
-      "Improperly restricted (2)" >::
+      test_case "Improperly restricted (2)"
         (fun () ->
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B +" in
            let g = freshen "rel3 t3 t4 #" in
-             assert_raises (Failure "Coinductive restriction violated")
-               (fun () -> backchain ~sr h g)) ;
+             Alcotest.check_raises "Coinductive restriction violated"
+               (Failure "Coinductive restriction violated")
+               (fun () -> ignore (backchain ~sr h g))) ;
 
-      "Improperly restricted (3)" >::
+      test_case "Improperly restricted (3)"
         (fun () ->
            let h = freshen "forall A B, rel1 A t1 -> rel2 B t2 -> rel3 A B +" in
            let g = freshen "rel3 t3 t4 ++" in
-             assert_raises (Failure "Coinductive restriction violated")
-               (fun () -> backchain ~sr h g)) ;
+             Alcotest.check_raises "Coinductive restriction violated"
+               (Failure "Coinductive restriction violated")
+               (fun () -> ignore (backchain ~sr h g))) ;
 
-      "With contexts" >::
+      test_case "With contexts"
         (fun () ->
            let h = freshen
              "forall A B L, ctx L -> {L |- eq A B}"
@@ -466,11 +470,11 @@ let backchain_tests =
                | [h1] ->
                    assert_pprint_equal "ctx (eq t1 t2 :: L)" h1 ;
                | hs ->
-                   assert_failure
+                   Alcotest.fail
                      ("Expected 1 obligation but found " ^
                         (string_of_int (List.length hs)))) ;
 
-      "With empty contexts" >::
+      test_case "With empty contexts"
         (fun () ->
            let h = freshen
              "forall A B, {pr A B} -> {eq A B}"
@@ -480,23 +484,23 @@ let backchain_tests =
                | [h1] ->
                    assert_pprint_equal "{pr t1 t2}" h1 ;
                | hs ->
-                   assert_failure
+                   Alcotest.fail
                      ("Expected 1 obligation but found " ^
                         (string_of_int (List.length hs)))) ;
 
-      "With bad contexts" >::
+      test_case "With bad contexts"
         (fun () ->
            let h = freshen
              "forall A B L, ctx L -> {L, eq t1 t2 |- eq A B}"
            in
            let g = freshen "{L |- eq t3 t4}" in
-             assert_raises_any
-               (fun () -> backchain ~sr h g)) ;
+             Alcotest.match_raises "expected exception" (fun _ -> true)
+               (fun () -> ignore (backchain ~sr h g))) ;
 
     ]
 
 let assert_expected_cases n cases =
-  assert_failure (Printf.sprintf "Expected %d case(s) but found %d case(s)"
+  Alcotest.fail (Printf.sprintf "Expected %d case(s) but found %d case(s)"
                     n (List.length cases))
 
 let add_to_itab itab id =
@@ -516,17 +520,16 @@ let case ?used ?(sr=Subordination.empty) ?(clauses=[]) ?(defs=[])
   in
     case ~used ~sr ~clauses ~defs ~mutual ~global_support metaterm
 
-let case_tests =
-  "Case" >:::
-    [
-      "Normal" >::
+let case_tests = [
+      test_case "Normal"
         (fun () ->
            let term = freshen "{eval A B}" in
              match case ~clauses:eval_clauses term with
                | [case1; case2] ->
                    set_bind_state case1.bind_state ;
                    assert_pprint_equal "{eval (abs R) (abs R)}" term ;
-                   assert_bool "R should be flagged as used"
+                   Alcotest.check Alcotest.bool
+                     "R should be flagged as used" true
                      (List.mem "R" (List.map fst case1.new_vars)) ;
 
                    set_bind_state case2.bind_state ;
@@ -535,17 +538,20 @@ let case_tests =
                      | [h1; h2] ->
                          assert_pprint_equal "{eval M (abs R)}" h1 ;
                          assert_pprint_equal "{eval (R N) B}" h2 ;
-                     | _ -> assert_failure "Expected 2 new hypotheses"
+                     | _ -> Alcotest.fail "Expected 2 new hypotheses"
                    end ;
-                   assert_bool "R should be flagged as used"
+                   Alcotest.check Alcotest.bool
+                     "R should be flagged as used" true
                      (List.mem "R" (List.map fst case2.new_vars)) ;
-                   assert_bool "M should be flagged as used"
+                   Alcotest.check Alcotest.bool
+                     "M should be flagged as used" true
                      (List.mem "M" (List.map fst case2.new_vars)) ;
-                   assert_bool "N should be flagged as used"
+                   Alcotest.check Alcotest.bool
+                     "N should be flagged as used" true
                      (List.mem "N" (List.map fst case2.new_vars))
                | cases -> assert_expected_cases 2 cases) ;
 
-      "Restriction should become smaller" >::
+      test_case "Restriction should become smaller"
         (fun () ->
            let term = freshen "{p1 A}@" in
            let clauses = parse_clauses "p1 X :- p2 X." in
@@ -555,11 +561,11 @@ let case_tests =
                    begin match case1.new_hyps with
                      | [hyp] ->
                          assert_pprint_equal "{p2 A}*" hyp ;
-                     | _ -> assert_failure "Expected 1 new hypothesis"
+                     | _ -> Alcotest.fail "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 1 cases) ;
 
-      "Restriction on predicates should become smaller" >::
+      test_case "Restriction on predicates should become smaller"
         (fun () ->
            let term = freshen "foo A @" in
            let defs = parse_defs "foo X := foo X." in
@@ -570,11 +576,11 @@ let case_tests =
                    begin match case1.new_hyps with
                      | [hyp] ->
                          assert_pprint_equal "foo A *" hyp ;
-                     | _ -> assert_failure "Expected 1 new hypothesis"
+                     | _ -> Alcotest.fail "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 1 cases) ;
 
-      "Restriction should descend under binders" >::
+      test_case "Restriction should descend under binders"
         (fun () ->
            let term = freshen "foo A @" in
            let defs = parse_defs "foo X := forall (Y:i), foo X." in
@@ -585,11 +591,11 @@ let case_tests =
                    begin match case1.new_hyps with
                      | [hyp] ->
                          assert_pprint_equal "forall Y, foo A *" hyp ;
-                     | _ -> assert_failure "Expected 1 new hypothesis"
+                     | _ -> Alcotest.fail "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 1 cases) ;
 
-      "Restriction should descend only under the right of arrows" >::
+      test_case "Restriction should descend only under the right of arrows"
         (fun () ->
            let term = freshen "foo A @" in
            let defs = parse_defs "foo X := foo X -> foo X." in
@@ -600,11 +606,11 @@ let case_tests =
                    begin match case1.new_hyps with
                      | [hyp] ->
                          assert_pprint_equal "foo A -> foo A *" hyp ;
-                     | _ -> assert_failure "Expected 1 new hypothesis"
+                     | _ -> Alcotest.fail "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 1 cases) ;
 
-      "Restriction should only apply to matching predicates" >::
+      test_case "Restriction should only apply to matching predicates"
         (fun () ->
            let term = freshen "foo A @" in
            let defs = parse_defs "foo X := foo X \\/ bar X." in
@@ -615,20 +621,20 @@ let case_tests =
                    begin match case1.new_hyps with
                      | [hyp] ->
                          assert_pprint_equal "foo A * \\/ bar A" hyp ;
-                     | _ -> assert_failure "Expected 1 new hypothesis"
+                     | _ -> Alcotest.fail "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 1 cases) ;
 
-      "On OR" >::
+      test_case "On OR"
         (fun () ->
            let term = freshen "{a} \\/ {b}" in
              match case term with
                | [{new_hyps=[hyp1] ; _} ; {new_hyps=[hyp2] ; _}] ->
                    assert_pprint_equal "{a}" hyp1 ;
                    assert_pprint_equal "{b}" hyp2 ;
-               | _ -> assert_failure "Pattern mismatch") ;
+               | _ -> Alcotest.fail "Pattern mismatch") ;
 
-      "On multiple OR" >::
+      test_case "On multiple OR"
         (fun () ->
            let term = freshen "{a} \\/ {b} \\/ {c}" in
              match case term with
@@ -637,26 +643,26 @@ let case_tests =
                    assert_pprint_equal "{a}" hyp1 ;
                    assert_pprint_equal "{b}" hyp2 ;
                    assert_pprint_equal "{c}" hyp3 ;
-               | _ -> assert_failure "Pattern mismatch") ;
+               | _ -> Alcotest.fail "Pattern mismatch") ;
 
-      "OR branches should not share unifiers" >::
+      test_case "OR branches should not share unifiers"
         (fun () ->
            let term = freshen "A = B \\/ rel1 A B" in
              match case term with
                | [{new_hyps=[] ; _} ; {new_hyps=[hyp] ; _}] ->
                    assert_pprint_equal "rel1 A B" hyp ;
-               | _ -> assert_failure "Pattern mismatch") ;
+               | _ -> Alcotest.fail "Pattern mismatch") ;
 
-      "On AND" >::
+      test_case "On AND"
         (fun () ->
            let term = freshen "{a} /\\ {b}" in
              match case term with
                | [{new_hyps=[hyp1;hyp2] ; _}] ->
                    assert_pprint_equal "{a}" hyp1 ;
                    assert_pprint_equal "{b}" hyp2 ;
-               | _ -> assert_failure "Pattern mismatch") ;
+               | _ -> Alcotest.fail "Pattern mismatch") ;
 
-      "On multiple AND" >::
+      test_case "On multiple AND"
         (fun () ->
            let term = freshen "{a} /\\ {b} /\\ {c}" in
              match case term with
@@ -664,91 +670,91 @@ let case_tests =
                    assert_pprint_equal "{a}" hyp1 ;
                    assert_pprint_equal "{b}" hyp2 ;
                    assert_pprint_equal "{c}" hyp3 ;
-               | _ -> assert_failure "Pattern mismatch") ;
+               | _ -> Alcotest.fail "Pattern mismatch") ;
 
-      "On exists" >::
+      test_case "On exists"
         (fun () ->
            let term = freshen "exists A B, rel1 A B" in
            let used = [] in
              match case ~used term with
                | [{new_vars=new_vars ; new_hyps=[hyp] ; _}] ->
                    let var_names = List.map fst new_vars in
-                     assert_string_list_equal ["A"; "B"] var_names ;
+                     Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["A"; "B"] var_names ;
                      assert_pprint_equal "rel1 A B" hyp ;
-               | _ -> assert_failure "Pattern mismatch") ;
+               | _ -> Alcotest.fail "Pattern mismatch") ;
 
-      "On nested exists, AND" >::
+      test_case "On nested exists, AND"
         (fun () ->
            let term = freshen "exists A B, foo A /\\ bar B" in
            let used = [] in
              match case ~used term with
                | [{new_vars=new_vars ; new_hyps=[hyp1; hyp2] ; _}] ->
                    let var_names = List.map fst new_vars in
-                     assert_string_list_equal ["A"; "B"] var_names ;
+                     Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["A"; "B"] var_names ;
                      assert_pprint_equal "foo A" hyp1 ;
                      assert_pprint_equal "bar B" hyp2 ;
-               | _ -> assert_failure "Pattern mismatch") ;
+               | _ -> Alcotest.fail "Pattern mismatch") ;
 
-      "On nested AND, exists" >::
+      test_case "On nested AND, exists"
         (fun () ->
            let term = freshen "{a} /\\ exists B, bar B" in
            let used = [] in
              match case ~used term with
                | [{new_vars=new_vars ; new_hyps=[hyp1; hyp2] ; _}] ->
                    let var_names = List.map fst new_vars in
-                     assert_string_list_equal ["B"] var_names ;
+                     Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["B"] var_names ;
                      assert_pprint_equal "{a}" hyp1 ;
                      assert_pprint_equal "bar B" hyp2 ;
-               | _ -> assert_failure "Pattern mismatch") ;
+               | _ -> Alcotest.fail "Pattern mismatch") ;
 
-      "On nabla" >::
+      test_case "On nabla"
         (fun () ->
            let term = freshen "nabla x, foo x" in
            let used = [] in
              match case ~used term with
                | [{new_vars=[] ; new_hyps=[hyp] ; _}] ->
                    assert_pprint_equal "foo n1" hyp ;
-               | _ -> assert_failure "Pattern mismatch") ;
+               | _ -> Alcotest.fail "Pattern mismatch") ;
 
-      "On multiple nablas" >::
+      test_case "On multiple nablas"
         (fun () ->
            let term = freshen "nabla x y, rel1 x y" in
            let used = [] in
              match case ~used term with
                | [{new_vars=[] ; new_hyps=[hyp] ; _}] ->
                    assert_pprint_equal "rel1 n1 n2" hyp ;
-               | _ -> assert_failure "Pattern mismatch") ;
+               | _ -> Alcotest.fail "Pattern mismatch") ;
 
-      "On nested nabla, exists" >::
+      test_case "On nested nabla, exists"
         (fun () ->
            let term = freshen "nabla x, exists A, rel1 x A" in
            let used = [] in
              match case ~used term with
                | [{new_vars=new_vars ; new_hyps=[hyp] ; _}] ->
                    let var_names = List.map fst new_vars in
-                     assert_string_list_equal ["A"] var_names ;
+                     Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["A"] var_names ;
                      assert_pprint_equal "rel1 n1 (A n1)" hyp ;
-               | _ -> assert_failure "Pattern mismatch") ;
+               | _ -> Alcotest.fail "Pattern mismatch") ;
 
-      "On nabla with n1 used" >::
+      test_case "On nabla with n1 used"
         (fun () ->
            let term = freshen "nabla x, rel1 n1 x" in
            let used = [] in
              match case ~used term with
                | [{new_vars=[] ; new_hyps=[hyp] ; _}] ->
                    assert_pprint_equal "rel1 n1 n2" hyp ;
-               | _ -> assert_failure "Pattern mismatch") ;
+               | _ -> Alcotest.fail "Pattern mismatch") ;
 
-      "Should look in context for member" >:: begin fun () ->
+      test_case "Should look in context for member" begin fun () ->
         let term = freshen "{L, hyp A |- hyp B}" in
         match case term with
         | [{new_vars=[(x, _)] ; new_hyps=[_; hyp] ; _}] ->
             let exp = Printf.sprintf "member %s (hyp A :: L)" x in
             assert_pprint_equal exp hyp
-        | _ -> assert_failure "Pattern mismatch"
+        | _ -> Alcotest.fail "Pattern mismatch"
       end ;
 
-      "Member case should not get restriction from object" >:: begin
+      test_case "Member case should not get restriction from object" begin
         fun () ->
           let term = freshen "{L |- p1 A}@" in
           match case term with
@@ -756,10 +762,10 @@ let case_tests =
               let exp = Printf.sprintf "member %s L" x in
               assert_pprint_equal exp hyp
           | _ ->
-              assert_failure "Pattern mismatch"
+              Alcotest.fail "Pattern mismatch"
       end ;
 
-      "Should pass along context" >::
+      test_case "Should pass along context"
         (fun () ->
            let term = freshen "{L |- p1 A}" in
            let clauses = parse_clauses "p1 X :- p2 X." in
@@ -773,11 +779,11 @@ let case_tests =
                    | hyps ->
                        Printf.sprintf "Expected 1 new hypothesis; got %d"
                          (List.length hyps) |>
-                       assert_failure
+                       Alcotest.fail
                  end
                | cases -> assert_expected_cases 3 cases) ;
 
-      "On member" >::
+      test_case "On member"
         (fun () ->
            let term = freshen "member (hyp A) (hyp C :: L)" in
            let defs =
@@ -793,20 +799,20 @@ let case_tests =
                    begin match case2.new_hyps with
                      | [hyp] ->
                          assert_pprint_equal "member (hyp A) L" hyp ;
-                     | _ -> assert_failure "Expected 1 new hypothesis"
+                     | _ -> Alcotest.fail "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 2 cases) ;
 
-      "On exists should raise over support" >::
+      test_case "On exists should raise over support"
         (fun () ->
            let term = freshen "exists A, rel1 A n1" in
            let used = [] in
              match case ~used term with
                | [{new_hyps=[hyp] ; _}] ->
                    assert_pprint_equal "rel1 (A n1) n1" hyp
-               | _ -> assert_failure "Pattern mismatch") ;
+               | _ -> Alcotest.fail "Pattern mismatch") ;
 
-      "Should raise over nominal variables in definitions" >::
+      test_case "Should raise over nominal variables in definitions"
         (fun () ->
            let defs = parse_defs "rel1 M N." in
            let term = freshen "rel1 (A (n1:i)) B" in
@@ -814,7 +820,7 @@ let case_tests =
                | [_] -> ()
                | cases -> assert_expected_cases 1 cases) ;
 
-      "Should raise over nominal variables in clauses" >::
+      test_case "Should raise over nominal variables in clauses"
         (fun () ->
            let clauses = parse_clauses "eq M N." in
            let term = freshen "{eq (A (n1:i)) B}" in
@@ -822,7 +828,7 @@ let case_tests =
                | [_] -> ()
                | cases -> assert_expected_cases 1 cases) ;
 
-      "Should raise when nabla in predicate head" >::
+      test_case "Should raise when nabla in predicate head"
         (fun () ->
            let defs =
              parse_defs "nabla x, ctx (hyp x :: L) := ctx L." in
@@ -833,7 +839,7 @@ let case_tests =
                    assert_pprint_equal "ctx (hyp n1 :: L)" term
                | cases -> assert_expected_cases 1 cases) ;
 
-      "Should permute when nabla is in the head" >::
+      test_case "Should permute when nabla is in the head"
         (fun () ->
            let defs =
              parse_defs "nabla x, ctx (hyp x :: L) := ctx L." in
@@ -848,7 +854,7 @@ let case_tests =
                    assert_pprint_equal "ctx (hyp n2 :: L)" term
                | cases -> assert_expected_cases 2 cases) ;
 
-      "With multiple nabla in the head" >::
+      test_case "With multiple nabla in the head"
         (fun () ->
            let defs =
              parse_defs "nabla x y, ctx (eq x y :: L) := ctx L." in
@@ -866,7 +872,7 @@ let case_tests =
                    assert_pprint_equal "ctx (eq n2 n1 :: L)" term ;
                | cases -> assert_expected_cases 3 cases) ;
 
-      "Should not use existing nabla variables as fresh" >::
+      test_case "Should not use existing nabla variables as fresh"
         (fun () ->
            let defs = parse_defs "nabla x, foo x." in
            let term = freshen "foo A" in
@@ -877,15 +883,16 @@ let case_tests =
                    assert_pprint_equal "foo n2" term
                | cases -> assert_expected_cases 1 cases) ;
 
-      "Should not apply to coinductive restriction" >::
+      test_case "Should not apply to coinductive restriction"
         (fun () ->
            let term = freshen "foo A +" in
-             assert_raises
+             Alcotest.check_raises
+               "Cannot case-analyze hypothesis with coinductive restriction"
                (Failure "Cannot case-analyze hypothesis\
                          \ with coinductive restriction")
-               (fun () -> case term)) ;
+               (fun () -> ignore (case term))) ;
 
-      "Non-llambda equality should result in equalities" >::
+      test_case "Non-llambda equality should result in equalities"
         (fun () ->
            let term = freshen "foo (r1 t1) = foo (A (B:i))" in
              match case term with
@@ -894,11 +901,11 @@ let case_tests =
                    begin match case1.new_hyps with
                      | [hyp] ->
                          assert_pprint_equal "r1 t1 = A B" hyp ;
-                     | _ -> assert_failure "Expected 1 new hypothesis"
+                     | _ -> Alcotest.fail "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 1 cases) ;
 
-      "Non-llambda definition should result in equalities" >::
+      test_case "Non-llambda definition should result in equalities"
         (fun () ->
            let term = freshen "foo (A (B:i))" in
            let defs = parse_defs "foo (r1 t1)."
@@ -911,11 +918,11 @@ let case_tests =
                    begin match case1.new_hyps with
                      | [hyp] ->
                          assert_pprint_equal "r1 t1 = A B" hyp ;
-                     | _ -> assert_failure "Expected 1 new hypothesis"
+                     | _ -> Alcotest.fail "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 1 cases) ;
 
-      "Non-llambda clause should result in equalities" >::
+      test_case "Non-llambda clause should result in equalities"
         (fun () ->
            let term = freshen "{p1 (A (B:i))}" in
            let clauses = parse_clauses "p1 (r1 t1)."
@@ -928,11 +935,11 @@ let case_tests =
                    begin match case1.new_hyps with
                      | [hyp] ->
                          assert_pprint_equal "r1 t1 = A B" hyp ;
-                     | _ -> assert_failure "Expected 1 new hypothesis"
+                     | _ -> Alcotest.fail "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 1 cases) ;
 
-      "Logic variable against a constant should result in an equality" >::
+      test_case "Logic variable against a constant should result in an equality"
         (fun () ->
            let x = var Logic "X" 0 ity in
            let a = const ~ts:0 "t1" ity in
@@ -943,11 +950,11 @@ let case_tests =
                    begin match case1.new_hyps with
                      | [hyp] ->
                          assert_pprint_equal "X = t1" hyp ;
-                     | _ -> assert_failure "Expected 1 new hypothesis"
+                     | _ -> Alcotest.fail "Expected 1 new hypothesis"
                    end
                | cases -> assert_expected_cases 1 cases) ;
 
-      "Should not work on flexible clause head" >::
+      test_case "Should not work on flexible clause head"
         (fun () ->
            let term = freshen "{P}" in
            let clauses = parse_clauses "p1 t1." in
@@ -956,7 +963,7 @@ let case_tests =
                assert_failure_begins "Cannot case-analyze an object sequent with a flexible goal."
                  exn);
 
-      "Should use subordination information for existentials" >::
+      test_case "Should use subordination information for existentials"
         (fun () ->
            let term = freshen "exists X Y, sr_a_b n1 n2 /\\ sr_a_b X Y" in
              match case ~sr:sr_sr term with
@@ -965,11 +972,11 @@ let case_tests =
                    begin match case1.new_hyps with
                      | [_; hyp2] ->
                          assert_pprint_equal "sr_a_b (X n1) (Y n2 n1)" hyp2 ;
-                     | _ -> assert_failure "Expected 2 new hypotheses"
+                     | _ -> Alcotest.fail "Expected 2 new hypotheses"
                    end
                | cases -> assert_expected_cases 1 cases) ;
 
-      "Should use subordination information for nabla in the head of definitions" >::
+      test_case "Should use subordination information for nabla in the head of definitions"
         (fun () ->
            let defs = parse_defs "nabla x y, sr_a_b x y." in
            let a = var Eigen "A" 0 sr_a in
@@ -983,7 +990,7 @@ let case_tests =
                    assert_term_pprint_equal "B n1 n2" b ;
                | cases -> assert_expected_cases 1 cases) ;
 
-      "On flex-rigid: R N = plus A B" >::
+      test_case "On flex-rigid: R N = plus A B"
         (fun () ->
            let tm = tybase (atybase "tm") in
            let r = var Eigen "R" 0 (tyarrow [tm] tm) in
@@ -1007,7 +1014,7 @@ let case_tests =
                    assert_term_pprint_equal "B" b ;
                | cases -> assert_expected_cases 2 cases) ;
 
-      "On flex-rigid: X^0 Y^0 a^1 = a^1" >::
+      test_case "On flex-rigid: X^0 Y^0 a^1 = a^1"
         (fun () ->
            let x = var Eigen "X" 0 iiity in
            let y = var Eigen "Y" 0 ity in
@@ -1019,7 +1026,7 @@ let case_tests =
                    assert_term_pprint_equal "x1\\x2\\x2" x ;
                | cases -> assert_expected_cases 1 cases) ;
 
-      "On flex-rigid: R X b = a b" >::
+      test_case "On flex-rigid: R X b = a b"
         (fun () ->
            let r = var Eigen "R" 0 (tyarrow [iiity; ity] ity) in
            let x = var Eigen "X" 0 iiity in
@@ -1032,7 +1039,7 @@ let case_tests =
                    assert_term_pprint_equal "x1\\x2\\a (R1 x1 x2)" r ;
                    begin match case1.new_hyps with
                      | [hyp1] -> assert_pprint_equal "R1 X b = b" hyp1 ;
-                     | hs -> assert_int_equal 1 (List.length hs)
+                     | hs -> Alcotest.check Alcotest.int "ints differ" 1 (List.length hs)
                    end ;
 
                    set_bind_state case2.bind_state ;
@@ -1041,17 +1048,15 @@ let case_tests =
                    begin match case2.new_hyps with
                      | [hyp1] -> assert_pprint_equal
                          "X (R1 X b) (R2 X b) = a b" hyp1 ;
-                     | hs -> assert_int_equal 1 (List.length hs)
+                     | hs -> Alcotest.check Alcotest.int "ints differ" 1 (List.length hs)
                    end ;
                | cases -> assert_expected_cases 2 cases
         );
 
     ]
 
-let induction_tests =
-  "Induction" >:::
-    [
-      "Single" >::
+let induction_tests = [
+      test_case "Single"
         (fun () ->
            let stmt = freshen
                "forall A, {hyp A} -> {conc A} -> {form A}" in
@@ -1063,7 +1068,7 @@ let induction_tests =
                "forall A, {hyp A}@ -> {conc A} -> {form A}"
                goal) ;
 
-      "Nested" >::
+      test_case "Nested"
         (fun () ->
            let stmt = freshen
                "forall A, {hyp A} -> {conc A} -> {form A}" in
@@ -1078,7 +1083,7 @@ let induction_tests =
                assert_pprint_equal
                  "forall A, {hyp A}@ -> {conc A}@@ -> {form A}" goal) ;
 
-      "With OR on left of arrow" >::
+      test_case "With OR on left of arrow"
         (fun () ->
            let stmt = freshen "forall (X:i), {A} \\/ {B} -> {C} -> {D}" in
            let (ih, goal) = single_induction 2 1 stmt in
@@ -1089,7 +1094,7 @@ let induction_tests =
                "forall X, {A} \\/ {B} -> {C}@ -> {D}"
                goal) ;
 
-      "On predicate" >::
+      test_case "On predicate"
         (fun () ->
            let stmt = freshen
              "forall A, foo A -> bar A -> baz A" in
@@ -1101,7 +1106,7 @@ let induction_tests =
                "forall A, foo A @ -> bar A -> baz A"
                goal) ;
 
-      "Mutual on objects" >::
+      test_case "Mutual on objects"
         (fun () ->
            let stmt = freshen
              "(forall A, {hyp A} -> {conc A} -> {form A}) /\\\
@@ -1122,10 +1127,8 @@ let induction_tests =
 
     ]
 
-let coinduction_tests =
-  "CoInduction" >:::
-    [
-      "Single" >::
+let coinduction_tests = [
+      test_case "Single"
         (fun () ->
            let stmt = freshen "forall A, foo A -> bar A -> baz A" in
            let (ch, goal) = coinduction 1 stmt in
@@ -1136,12 +1139,13 @@ let coinduction_tests =
                "forall A, foo A -> bar A -> baz A #"
                goal) ;
 
-      "Should fail on inductively restricted" >::
+      test_case "Should fail on inductively restricted"
         (fun () ->
            let stmt = freshen "foo A *" in
-             assert_raises
+             Alcotest.check_raises
+               "Cannot coinduct on inductively restricted goal"
                (Failure "Cannot coinduct on inductively restricted goal")
-               (fun () -> coinduction 1 stmt)) ;
+               (fun () -> ignore (coinduction 1 stmt))) ;
     ]
 
 let assert_search ?(clauses="") ?(defs="")
@@ -1161,14 +1165,12 @@ let assert_search ?(clauses="") ?(defs="")
     (search ~depth ~hyps ~clauses ~def_unfold ~retype ~sr:Subordination.empty goal)
   in
     if expect then
-      assert_bool "Search should succeed" actual
+      Alcotest.check Alcotest.bool "Search should succeed" true actual
     else
-      assert_bool "Search should fail" (not actual)
+      Alcotest.check Alcotest.bool "Search should fail" true (not actual)
 
-let search_tests =
-  "Search" >:::
-    [
-      "Should check hypotheses" >::
+let search_tests = [
+      test_case "Should check hypotheses"
         (fun () ->
            assert_search ()
              ~hyps:["{eval A B}"]
@@ -1176,7 +1178,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should should succeed if clause matches" >::
+      test_case "Should should succeed if clause matches"
         (fun () ->
            assert_search ()
              ~clauses:eval_clauses_string
@@ -1184,7 +1186,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should backchain on clauses" >::
+      test_case "Should backchain on clauses"
         (fun () ->
            assert_search ()
              ~clauses:"p1 X :- p2 X, p3 X."
@@ -1193,7 +1195,7 @@ let search_tests =
              ~expect: true
         );
 
-      "On left of OR" >::
+      test_case "On left of OR"
         (fun () ->
            assert_search ()
              ~hyps:["{eval A B}"]
@@ -1201,7 +1203,7 @@ let search_tests =
              ~expect: true
         );
 
-      "On right of OR" >::
+      test_case "On right of OR"
         (fun () ->
            assert_search ()
              ~hyps:["{eval A B}"]
@@ -1209,7 +1211,7 @@ let search_tests =
              ~expect: true
         );
 
-      "On AND" >::
+      test_case "On AND"
         (fun () ->
            assert_search ()
              ~hyps:["{a}"; "{b}"]
@@ -1217,7 +1219,7 @@ let search_tests =
              ~expect: true
         );
 
-      "On AND (failure)" >::
+      test_case "On AND (failure)"
         (fun () ->
            assert_search ()
              ~hyps:["{a}"]
@@ -1225,7 +1227,7 @@ let search_tests =
              ~expect: false
         );
 
-      "On exists" >::
+      test_case "On exists"
         (fun () ->
            assert_search ()
              ~clauses:"eq X X."
@@ -1233,7 +1235,7 @@ let search_tests =
              ~expect: true
         );
 
-      "On exists (double)" >::
+      test_case "On exists (double)"
         (fun () ->
            assert_search ()
              ~clauses:"eq X X."
@@ -1241,7 +1243,7 @@ let search_tests =
              ~expect: true
         );
 
-      "On exists (failure)" >::
+      test_case "On exists (failure)"
         (fun () ->
            assert_search ()
              ~clauses:"eq X X."
@@ -1249,7 +1251,7 @@ let search_tests =
              ~expect: false
         );
 
-      "On forall" >::
+      test_case "On forall"
         (fun () ->
            assert_search ()
              ~clauses:"eq X X."
@@ -1257,7 +1259,7 @@ let search_tests =
              ~expect:true
         );
 
-      "On forall (2)" >::
+      test_case "On forall (2)"
         (fun () ->
            assert_search ()
              ~clauses:"eq X X."
@@ -1265,7 +1267,7 @@ let search_tests =
              ~expect:true
         );
 
-      "On forall (failure)" >::
+      test_case "On forall (failure)"
         (fun () ->
            assert_search ()
              ~clauses:"eq X X."
@@ -1273,21 +1275,21 @@ let search_tests =
              ~expect:false
         );
 
-      "On arrow" >::
+      test_case "On arrow"
         (fun () ->
            assert_search ()
              ~goal:"{a} -> {a}"
              ~expect:true
         );
 
-      "On arrow (failure)" >::
+      test_case "On arrow (failure)"
         (fun () ->
            assert_search ()
              ~goal:"{a} -> {b}"
              ~expect:false
         );
 
-      "On forall, arrow, unfold" >::
+      test_case "On forall, arrow, unfold"
         (fun () ->
            assert_search ()
              ~defs:"foo X := bar X."
@@ -1295,7 +1297,7 @@ let search_tests =
              ~expect:true
         );
 
-      "Should unbind on backtracking over equality" >::
+      test_case "Should unbind on backtracking over equality"
         (fun () ->
            assert_search ()
              ~hyps:["{p2 t2}"]
@@ -1303,7 +1305,7 @@ let search_tests =
              ~expect:true
         );
 
-      "Should use meta unification" >::
+      test_case "Should use meta unification"
         (fun () ->
            assert_search ()
              ~hyps:["{a} /\\ {b}"]
@@ -1311,7 +1313,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should fail if there is no proof" >::
+      test_case "Should fail if there is no proof"
         (fun () ->
            assert_search ()
              ~clauses:eval_clauses_string
@@ -1319,7 +1321,7 @@ let search_tests =
              ~expect: false
         );
 
-      "Should fail if hypothesis has non-subcontext" >::
+      test_case "Should fail if hypothesis has non-subcontext"
         (fun () ->
            assert_search ()
              ~hyps:["{eval A B |- eval A B}"]
@@ -1327,7 +1329,7 @@ let search_tests =
              ~expect: false
         );
 
-      "Should preserve context while backchaining" >::
+      test_case "Should preserve context while backchaining"
         (fun () ->
            assert_search ()
              ~clauses:eval_clauses_string
@@ -1336,7 +1338,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should move implies to the left" >::
+      test_case "Should move implies to the left"
         (fun () ->
            assert_search ()
              ~hyps:["{a |- b}"]
@@ -1344,7 +1346,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should replace pi x\\ with nominal variable" >::
+      test_case "Should replace pi x\\ with nominal variable"
         (fun () ->
            assert_search ()
              ~hyps:["{eq n1 n1}"]
@@ -1352,7 +1354,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should look for member" >::
+      test_case "Should look for member"
         (fun () ->
            assert_search ()
              ~hyps:["member (hyp A) L"]
@@ -1360,7 +1362,7 @@ let search_tests =
              ~expect: true
         );
 
-      "On nablas" >::
+      test_case "On nablas"
         (fun () ->
            assert_search ()
              ~hyps:["rel1 n1 n2"]
@@ -1368,7 +1370,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should backchain on definitions" >::
+      test_case "Should backchain on definitions"
         (fun () ->
            assert_search ()
              ~defs:"member (A:o) (B :: L) := member A L."
@@ -1377,7 +1379,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should undo partial results in favor of overall goal" >::
+      test_case "Should undo partial results in favor of overall goal"
         (fun () ->
            assert_search ()
              ~hyps:["foo A"; "foo B"; "bar B"]
@@ -1385,7 +1387,7 @@ let search_tests =
              ~expect:true
         );
 
-      "Should raise definitions over support" >::
+      test_case "Should raise definitions over support"
         (fun () ->
            assert_search ()
              ~defs:"foo X."
@@ -1393,7 +1395,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should raise object clauses over support" >::
+      test_case "Should raise object clauses over support"
         (fun () ->
            assert_search ()
              ~clauses:"p1 X."
@@ -1401,7 +1403,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should raise exists over support" >::
+      test_case "Should raise exists over support"
         (fun () ->
            assert_search ()
              ~hyps:["rel1 n1 n1"]
@@ -1409,7 +1411,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should raise exists over global support" >::
+      test_case "Should raise exists over global support"
         (fun () ->
            assert_search ()
              ~hyps:["rel1 n1 n1"]
@@ -1417,7 +1419,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should work with nabla in the head" >::
+      test_case "Should work with nabla in the head"
         (fun () ->
            assert_search ()
              ~defs:"nabla x, ctx (hyp x :: L) := ctx L."
@@ -1426,7 +1428,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should work with nabla in the head despite nominal name" >::
+      test_case "Should work with nabla in the head despite nominal name"
         (fun () ->
            assert_search ()
              ~defs:"nabla x, ctx (hyp x :: L) := ctx L."
@@ -1435,7 +1437,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should work with multiple nabla in the head" >::
+      test_case "Should work with multiple nabla in the head"
         (fun () ->
            assert_search ()
              ~defs:"nabla x y, ctx (eq x y :: L) := ctx L."
@@ -1444,7 +1446,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should try dummy nominals with nabla in the head" >::
+      test_case "Should try dummy nominals with nabla in the head"
         (fun () ->
            assert_search ()
              ~defs:"nabla (x:i), foo (E x)."
@@ -1452,7 +1454,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should permute nominal constants" >::
+      test_case "Should permute nominal constants"
         (fun () ->
            assert_search ()
              ~hyps:["foo n1"]
@@ -1460,7 +1462,7 @@ let search_tests =
              ~expect: true
         );
 
-      "Should permute nominal constants in derivability" >::
+      test_case "Should permute nominal constants in derivability"
         (fun () ->
            assert_search ()
              ~hyps:["{L, hyp n1 |- conc n2}"]
@@ -1468,7 +1470,7 @@ let search_tests =
              ~expect:true
         );
 
-      "Should delay non-llambda pairs for clauses - simple" >::
+      test_case "Should delay non-llambda pairs for clauses - simple"
         (fun () ->
            assert_search ()
              ~hyps:["{pr t1 (iabs r1)}"; "{pr t2 t3}"]
@@ -1477,7 +1479,7 @@ let search_tests =
              ~expect:true
         );
 
-      "Should delay non-llambda pairs for clauses - complex" >::
+      test_case "Should delay non-llambda pairs for clauses - complex"
         (fun () ->
            assert_search ()
              ~hyps:["{pr t1 (iabs (iapp t2))}"; "{pr t3 (r2 t4)}"]
@@ -1486,7 +1488,7 @@ let search_tests =
              ~expect:true
         );
 
-      "Should delay non-llambda pairs for defs - simple" >::
+      test_case "Should delay non-llambda pairs for defs - simple"
         (fun () ->
            assert_search ()
              ~hyps:["rel1 t1 (iabs r1)"; "rel1 t2 t3"]
@@ -1495,14 +1497,14 @@ let search_tests =
              ~expect:true
         );
 
-      "Should not prove a logic variable different from the only constant" >::
+      test_case "Should not prove a logic variable different from the only constant"
         (fun () ->
            assert_search ()
              ~goal:"exists X, X = only_a -> false"
              ~expect:false
         );
 
-      "Should not match co-restricted hypothesis (1)" >::
+      test_case "Should not match co-restricted hypothesis (1)"
         (fun () ->
            assert_search ()
              ~hyps:["foo t1 +"]
@@ -1510,7 +1512,7 @@ let search_tests =
              ~expect:false
         );
 
-      "Should not match co-restricted hypothesis (2)" >::
+      test_case "Should not match co-restricted hypothesis (2)"
         (fun () ->
            assert_search ()
              ~hyps:["foo t1 +"]
@@ -1518,7 +1520,7 @@ let search_tests =
              ~expect:false
         );
 
-      "Should match co-restricted hypothesis after unfolding" >::
+      test_case "Should match co-restricted hypothesis after unfolding"
         (fun () ->
            assert_search ()
              ~hyps:["foo A +"]
@@ -1527,7 +1529,7 @@ let search_tests =
              ~expect:true
         );
 
-      "Should match restricted hypothesis" >::
+      test_case "Should match restricted hypothesis"
         (fun () ->
            assert_search ()
              ~hyps:["foo A *"]
@@ -1535,7 +1537,7 @@ let search_tests =
              ~expect:true
         );
 
-      "Should match restricted hypothesis (2)" >::
+      test_case "Should match restricted hypothesis (2)"
         (fun () ->
            assert_search ()
              ~hyps:["foo A @"]
@@ -1543,7 +1545,7 @@ let search_tests =
              ~expect:true
         );
 
-      "Should match restricted hypothesis (3)" >::
+      test_case "Should match restricted hypothesis (3)"
         (fun () ->
            assert_search ()
              ~hyps:["foo A *"]
@@ -1551,7 +1553,7 @@ let search_tests =
              ~expect:true
         );
 
-      "Should not match different restricted hypothesis" >::
+      test_case "Should not match different restricted hypothesis"
         (fun () ->
            assert_search ()
              ~hyps:["foo A **"]
@@ -1559,7 +1561,7 @@ let search_tests =
              ~expect:false
         );
 
-      "Should not match different restricted hypothesis (2)" >::
+      test_case "Should not match different restricted hypothesis (2)"
         (fun () ->
            assert_search ()
              ~hyps:["foo A @"]
@@ -1567,7 +1569,7 @@ let search_tests =
              ~expect:false
         );
 
-      "Should not match different restricted hypothesis (3)" >::
+      test_case "Should not match different restricted hypothesis (3)"
         (fun () ->
            assert_search ()
              ~hyps:["foo A"]
@@ -1575,7 +1577,7 @@ let search_tests =
              ~expect:false
         );
 
-      "Should match restricted object hypothesis" >::
+      test_case "Should match restricted object hypothesis"
         (fun () ->
            assert_search ()
              ~hyps:["{hyp A}*"]
@@ -1583,7 +1585,7 @@ let search_tests =
              ~expect:true
         );
 
-      "Should match restricted object hypothesis (2)" >::
+      test_case "Should match restricted object hypothesis (2)"
         (fun () ->
            assert_search ()
              ~hyps:["{hyp A}@"]
@@ -1591,7 +1593,7 @@ let search_tests =
              ~expect:true
         );
 
-      "Should match restricted object hypothesis (3)" >::
+      test_case "Should match restricted object hypothesis (3)"
         (fun () ->
            assert_search ()
              ~hyps:["{hyp A}*"]
@@ -1599,7 +1601,7 @@ let search_tests =
              ~expect:true
         );
 
-      "Should not match different restricted object hypothesis" >::
+      test_case "Should not match different restricted object hypothesis"
         (fun () ->
            assert_search ()
              ~hyps:["{hyp A}**"]
@@ -1607,7 +1609,7 @@ let search_tests =
              ~expect:false
         );
 
-      "Should not match different restricted object hypothesis (2)" >::
+      test_case "Should not match different restricted object hypothesis (2)"
         (fun () ->
            assert_search ()
              ~hyps:["{hyp A}@"]
@@ -1615,7 +1617,7 @@ let search_tests =
              ~expect:false
         );
 
-      "Should not match different restricted object hypothesis (3)" >::
+      test_case "Should not match different restricted object hypothesis (3)"
         (fun () ->
            assert_search ()
              ~hyps:["{hyp A}"]
@@ -1623,7 +1625,7 @@ let search_tests =
              ~expect:false
         );
 
-      "Should not unfold definition in restricted goal" >::
+      test_case "Should not unfold definition in restricted goal"
         (fun () ->
            assert_search ()
              ~hyps:["bar A *"]
@@ -1632,7 +1634,7 @@ let search_tests =
              ~expect:false
         );
 
-      "Should not unfold clause in restricted goal" >::
+      test_case "Should not unfold clause in restricted goal"
         (fun () ->
            assert_search ()
              ~hyps:["{hyp A}*"]
@@ -1657,14 +1659,13 @@ let unfold_tests =
    * aware of it, or once the distinction must be made explicit, it can be
    * renamed together with the calls in each test. *)
   let assert_pprint_equal str result =
-     assert_int_equal (List.length result) 1 ;
+     Alcotest.check Alcotest.int "ints differ" (List.length result) 1 ;
      assert_pprint_equal str (List.nth result 0) in
 
   let sr = Subordination.empty in
 
-  "Unfold" >:::
-    [
-      "Should pick matching clause" >::
+  [
+      test_case "Should pick matching clause"
         (fun () ->
            let defs =
              parse_defs "foo (r1 X) := bar X; foo (r2 X) := baz X."
@@ -1673,48 +1674,47 @@ let unfold_tests =
            let result = unfold ~sr ~defs goal in
              assert_pprint_equal "baz t1" result) ;
 
-      "Should work with nominals" >::
+      test_case "Should work with nominals"
         (fun () ->
            let defs = parse_defs "foo X := bar X." in
            let goal = freshen "foo (r1 n1)" in
            let result = unfold ~sr ~defs goal in
              assert_pprint_equal "bar (r1 n1)" result) ;
 
-      "Should avoid variable capture" >::
+      test_case "Should avoid variable capture"
         (fun () ->
            let defs = parse_defs "foo X := forall A, rel1 X A." in
            let goal = freshen "foo A" in
            let result = unfold ~sr ~defs goal in
              assert_pprint_equal "forall A1, rel1 A A1" result) ;
 
-      "Should work on nabla in the head (permute)" >::
+      test_case "Should work on nabla in the head (permute)"
         (fun () ->
            let defs = parse_defs "nabla x, rel1 x Z := bar Z." in
            let goal = freshen "rel1 n1 D" in
            let result = unfold ~sr ~defs goal in
              assert_pprint_equal "bar D" result) ;
 
-      "Should reduce coinductive restriction" >::
+      test_case "Should reduce coinductive restriction"
         (fun () ->
            let defs = parse_defs "foo X := foo X." in
            let goal = freshen "foo D #" in
            let result = unfold ~sr ~defs goal in
              assert_pprint_equal "foo D +" result) ;
 
-      "Should not work on inductively restricted definition" >::
+      test_case "Should not work on inductively restricted definition"
         (fun () ->
            let defs = parse_defs "foo X := bar X." in
            let goal = freshen "foo A @" in
-             assert_raises
+             Alcotest.check_raises
+               "Cannot unfold inductively restricted predicate"
                (Failure "Cannot unfold inductively restricted predicate")
-               (fun () -> unfold ~sr ~defs goal)) ;
+               (fun () -> ignore (unfold ~sr ~defs goal))) ;
     ]
 
-let permute_tests =
-  "Permute" >:::
-    [
+let permute_tests = [
 
-      "Basic" >::
+      test_case "Basic"
         (fun () ->
            let h = freshen "foo n1 -> bar n2" in
            let perm = [nominal_var "n1" ity; nominal_var "n2" ity] in
@@ -1725,7 +1725,7 @@ let permute_tests =
       (* following test is no longer relevant because n1 cannot be a bound
          variable name any more *)
       (*
-      "Should avoid capture" >::
+      test_case "Should avoid capture"
         (fun () ->
            let h = freshen "nabla n1, foo n1 -> bar n3" in
            let perm = [nominal_var "n1" ity; nominal_var "n3" ity] in
@@ -1747,10 +1747,8 @@ let assert_search_cut ~cut ~provable ~expect =
           assert_pprint_equal expect actual
     | _ -> assert false
 
-let search_cut_tests =
-  "Search Cut" >:::
-    [
-      "Simple" >::
+let search_cut_tests = [
+      test_case "Simple"
         (fun () ->
            assert_search_cut
              ~cut:      "{a, b, c |- d}"
@@ -1760,17 +1758,15 @@ let search_cut_tests =
     ]
 
 let tests =
-  "Tactics" >:::
-    [
-      object_cut_tests ;
-      object_instantiation_tests ;
-      apply_tests ;
-      backchain_tests ;
-      case_tests ;
-      induction_tests ;
-      coinduction_tests ;
-      search_tests ;
-      unfold_tests ;
-      permute_tests ;
-      search_cut_tests ;
-    ]
+  suite "Tactics"
+    (group "Object Cut" object_cut_tests @
+     group "Object Instantiation" object_instantiation_tests @
+     group "Apply" apply_tests @
+     group "Backchain" backchain_tests @
+     group "Case" case_tests @
+     group "Induction" induction_tests @
+     group "CoInduction" coinduction_tests @
+     group "Search" search_tests @
+     group "Unfold" unfold_tests @
+     group "Permute" permute_tests @
+     group "Search Cut" search_cut_tests)

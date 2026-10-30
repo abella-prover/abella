@@ -33,4 +33,4 @@
    (>= 2.1.1))
   (ppxlib
    (>= 0.28.0))
-  (ounit2 :with-test)))
+  (alcotest :with-test)))

@@ -1,4 +1,3 @@
-open OUnit
 open Test_helper
 open Term
 open Metaterm
@@ -6,17 +5,17 @@ open Prover
 
 let assert_n_subgoals n =
   if n <> 1 + List.length !subgoals then
-    assert_failure ("Expected " ^ (string_of_int n) ^ " subgoal(s), " ^
+    Alcotest.fail ("Expected " ^ (string_of_int n) ^ " subgoal(s), " ^
                       "but current proof state is,\n\n" ^ get_display ())
 
 let assert_proof proof_function =
   try
     proof_function () ;
-    assert_failure ("Proof not completed,\n\n" ^ get_display ())
+    Alcotest.fail ("Proof not completed,\n\n" ^ get_display ())
   with Failure("Proof completed.") -> ()
 
 let assert_goal goal =
-  assert_string_equal goal (metaterm_to_string sequent.goal)
+  Alcotest.check Alcotest.string "strings differ" goal (metaterm_to_string sequent.goal)
 
 let setup_prover ?clauses:(clauses=[])
     ?goal:(goal="") ?lemmas:(lemmas=[]) () =
@@ -27,20 +26,20 @@ let setup_prover ?clauses:(clauses=[])
     List.map (fun (name,body) -> (name, parse_metaterm body)) lemmas
 
 let tests =
-  "Prover" >:::
-    [
-      "New variables added to context" >::
+  suite "Prover" [
+      test_case "New variables added to context"
         (fun () ->
            setup_prover ()
              ~clauses:eval_clauses ;
 
            add_hyp (freshen "{eval A B}") ;
            case "H1" ;
-           assert_bool "R should be added to variable list"
+           Alcotest.check Alcotest.bool
+             "R should be added to variable list" true
              (List.mem_assoc "R" sequent.vars)
         ) ;
 
-      "Intros should raise over support" >::
+      test_case "Intros should raise over support"
         (fun () ->
            setup_prover ()
              ~goal:"forall L, rel1 n1 L" ;
@@ -49,7 +48,7 @@ let tests =
            assert_goal "rel1 n1 (L n1)"
         ) ;
 
-      "Intros on multiple nabla variables" >::
+      test_case "Intros on multiple nabla variables"
         (fun () ->
            setup_prover ()
              ~goal:"nabla (x:i) y, x = y" ;
@@ -58,7 +57,7 @@ let tests =
            assert_goal "n1 = n2"
         ) ;
 
-      "Assert test" >::
+      test_case "Assert test"
         (fun () ->
            setup_prover ()
              ~goal:"{a}" ;
@@ -73,10 +72,10 @@ let tests =
            assert_pprint_equal "{a}" sequent.goal ;
            match sequent.hyps with
              | [h] -> assert_pprint_equal "{b}" h.term
-             | _ -> assert_failure "Expected one hypothesis"
+             | _ -> Alcotest.fail "Expected one hypothesis"
         ) ;
 
-      "Monotone test" >::
+      test_case "Monotone test"
         (fun () ->
            setup_prover () ;
 
@@ -94,10 +93,10 @@ let tests =
            match sequent.hyps with
              | [_; h] ->
                  assert_pprint_equal "{b, a |- conc A}*" h.term
-             | _ -> assert_failure "Expected two hypotheses"
+             | _ -> Alcotest.fail "Expected two hypotheses"
         ) ;
 
-      "Split test" >::
+      test_case "Split test"
         (fun () ->
            setup_prover ()
              ~goal:"{A} /\\ {B}" ;
@@ -110,10 +109,10 @@ let tests =
            skip () ;
            match sequent.hyps with
              | [] -> assert_pprint_equal "{B}" sequent.goal
-             | _ -> assert_failure "Expected no hypotheses"
+             | _ -> Alcotest.fail "Expected no hypotheses"
         ) ;
 
-      "SplitStar test" >::
+      test_case "SplitStar test"
         (fun () ->
            setup_prover ()
              ~goal:"{A} /\\ {B}" ;
@@ -128,10 +127,10 @@ let tests =
              | [h] ->
                  assert_pprint_equal "{A}" h.term ;
                  assert_pprint_equal "{B}" sequent.goal
-             | _ -> assert_failure "Expected one hypothesis"
+             | _ -> Alcotest.fail "Expected one hypothesis"
         ) ;
 
-      "Split many test" >::
+      test_case "Split many test"
         (fun () ->
            setup_prover ()
              ~goal:"({A} /\\ {B}) /\\ ({C} /\\ {D})" ;
@@ -148,7 +147,7 @@ let tests =
            assert_pprint_equal "{D}" sequent.goal
         ) ;
 
-      "SplitStar many test" >::
+      test_case "SplitStar many test"
         (fun () ->
            setup_prover ()
              ~goal:"{A} /\\ {B} /\\ {C}" ;
@@ -163,7 +162,7 @@ let tests =
              | [h] ->
                  assert_pprint_equal "{A}" h.term ;
                  assert_pprint_equal "{B}" sequent.goal
-             | _ -> assert_failure "Expected one hypothesis"
+             | _ -> Alcotest.fail "Expected one hypothesis"
            end ;
 
            skip () ;
@@ -172,20 +171,21 @@ let tests =
                  assert_pprint_equal "{A}" h1.term ;
                  assert_pprint_equal "{B}" h2.term ;
                  assert_pprint_equal "{C}" sequent.goal
-             | _ -> assert_failure "Expected two hypotheses"
+             | _ -> Alcotest.fail "Expected two hypotheses"
            end
         ) ;
 
-      "Needless split" >::
+      test_case "Needless split"
         (fun () ->
            setup_prover ()
              ~goal:"{A}" ;
 
-           assert_raises (Failure "Needless use of split")
-             (fun () -> split false)
+           Alcotest.check_raises "Needless use of split"
+             (Failure "Needless use of split")
+             (fun () -> ignore (split false))
         ) ;
 
-      "Exists test" >::
+      test_case "Exists test"
         (fun () ->
            setup_prover ()
              ~goal:"exists A, foo A" ;
@@ -194,7 +194,7 @@ let tests =
 
            assert_pprint_equal "foo t1" sequent.goal) ;
 
-      "Obligations from apply should be added as subgoals" >::
+      test_case "Obligations from apply should be added as subgoals"
         (fun () ->
            setup_prover ()
              ~goal:"baz B" ;
@@ -214,7 +214,7 @@ let tests =
            assert_pprint_equal "baz B" sequent.goal ;
         );
 
-      "Apply should trigger case analysis" >::
+      test_case "Apply should trigger case analysis"
         (fun () ->
            setup_prover () ;
 
@@ -226,7 +226,7 @@ let tests =
            assert_pprint_equal "baz B" (get_hyp "H4") ;
         );
 
-      "Cases should not consume fresh hyp names" >::
+      test_case "Cases should not consume fresh hyp names"
         (fun () ->
            setup_prover ()
              ~clauses:eval_clauses
@@ -235,17 +235,17 @@ let tests =
            intros [] ;
            case ~keep:true "H1" ;
            assert_n_subgoals 2 ;
-           assert_string_list_equal ["H1"; "H2"]
+           Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["H1"; "H2"]
              (List.map (fun h -> h.id) sequent.hyps) ;
 
            search () ;
            assert_n_subgoals 1 ;
 
-           assert_string_list_equal
+           Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
              ["H1"; "H2"; "H3"] (List.map (fun h -> h.id) sequent.hyps)
         ) ;
 
-      "Skip should remove current subcase" >::
+      test_case "Skip should remove current subcase"
         (fun () ->
            setup_prover ()
              ~clauses:eval_clauses
@@ -259,7 +259,7 @@ let tests =
            assert_n_subgoals 1 ;
         ) ;
 
-      "Add example (lemmas)" >::
+      test_case "Add example (lemmas)"
         (fun () ->
            let addition_clauses = parse_clauses "
              add z N N.
@@ -291,7 +291,7 @@ let tests =
                )
         ) ;
 
-      "Undo should restore previous save state" >::
+      test_case "Undo should restore previous save state"
         (fun () ->
            setup_prover ()
              ~clauses:eval_clauses
@@ -312,17 +312,18 @@ let tests =
            assert_n_subgoals 2 ;
         ) ;
 
-      "Inst should error on vacuous" >::
+      test_case "Inst should error on vacuous"
         (fun () ->
            setup_prover ()
              ~goal:"{b}" ;
 
            add_hyp (freshen "{a}") ;
-           assert_raises (Failure("Vacuous instantiation"))
-             (fun () -> inst "H1" [("n1", (parse_uterm "t1"))])
+           Alcotest.check_raises "Vacuous instantiation"
+             (Failure "Vacuous instantiation")
+             (fun () -> ignore (inst "H1" [("n1", (parse_uterm "t1"))]))
         ) ;
 
-      "Proving OR" >::
+      test_case "Proving OR"
         (fun () ->
            let clauses = parse_clauses "p1 t1. p1 t2. eq X X." in
 
@@ -345,7 +346,7 @@ let tests =
                )
         ) ;
 
-      "OR on left side of arrow" >::
+      test_case "OR on left side of arrow"
         (fun () ->
            let clauses = parse_clauses "p1 t1. p1 t2. eq X X." in
 
@@ -368,7 +369,7 @@ let tests =
                )
         ) ;
 
-      "Using IH with OR" >::
+      test_case "Using IH with OR"
         (fun () ->
            let clauses = parse_clauses
              ("nat z. nat (s X) :- nat X." ^
@@ -401,7 +402,7 @@ let tests =
                )
         ) ;
 
-      "Toplevel logic variable should produce error in apply" >::
+      test_case "Toplevel logic variable should produce error in apply"
         (fun () ->
            setup_prover () ;
 
@@ -410,13 +411,13 @@ let tests =
 
            try
              apply "H1" ["H2"] [] ;
-             assert_failure ("Logic variable did not produce error\n\n" ^
+             Alcotest.fail ("Logic variable did not produce error\n\n" ^
                                get_display ())
            with
              | Failure("Found logic variable at toplevel") -> ()
         ) ;
 
-      "Search should not find the inductive hypothesis" >::
+      test_case "Search should not find the inductive hypothesis"
         (fun () ->
            setup_prover ()
              ~goal:"forall X, {p1 X} -> {p2 X}" ;
@@ -427,7 +428,7 @@ let tests =
               indicates test failure *)
         );
 
-      "Search should not find complex co-inductive hypothesis" >::
+      test_case "Search should not find complex co-inductive hypothesis"
         (fun () ->
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
@@ -441,7 +442,7 @@ let tests =
               indicates test failure *)
         );
 
-      "Search should find simple co-inductive hypothesis" >::
+      test_case "Search should find simple co-inductive hypothesis"
         (fun () ->
            setup_prover ()
              ~goal:"bar X" ;
@@ -455,7 +456,7 @@ let tests =
                 search ())
         );
 
-      "Apply should not work with IH as argument" >::
+      test_case "Apply should not work with IH as argument"
         (fun () ->
            setup_prover ()
              ~lemmas:[("lem", "(forall X, foo X -> bar X) -> {a}")]
@@ -465,10 +466,10 @@ let tests =
              (parse_defs "foo X := foo X.") ;
 
            induction [1] ;
-           assert_raises_any (fun () -> apply "lem" ["IH"] []) ;
+           Alcotest.match_raises "expected exception" (fun _ -> true) (fun () -> ignore (apply "lem" ["IH"] [])) ;
         );
 
-      "Apply should not work with CH as argument" >::
+      test_case "Apply should not work with CH as argument"
         (fun () ->
            setup_prover ()
              ~lemmas:[("lem", "(forall X, foo X -> bar X) -> {a}")]
@@ -478,20 +479,20 @@ let tests =
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
-           assert_raises_any (fun () -> apply "lem" ["CH"] []) ;
+           Alcotest.match_raises "expected exception" (fun _ -> true) (fun () -> ignore (apply "lem" ["CH"] [])) ;
         );
 
-      "Apply should not work with coinductively restricted argument" >::
+      test_case "Apply should not work with coinductively restricted argument"
         (fun () ->
            setup_prover ()
              ~lemmas:[("lem", "forall X, foo X -> bar X")]
              ~goal:"forall X, foo X + -> bar X" ;
 
            intros [] ;
-           assert_raises_any (fun () -> apply "lem" ["H1"] []) ;
+           Alcotest.match_raises "expected exception" (fun _ -> true) (fun () -> ignore (apply "lem" ["H1"] [])) ;
         );
 
-      "Case-analysis with nabla in the head, two in a row" >::
+      test_case "Case-analysis with nabla in the head, two in a row"
         (fun () ->
            setup_prover ()
              ~goal:"forall X Y, foo X -> foo Y -> \
@@ -518,7 +519,7 @@ let tests =
              )
         ) ;
 
-      "Induction within coinduction should fail" >::
+      test_case "Induction within coinduction should fail"
         (fun () ->
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
@@ -529,12 +530,14 @@ let tests =
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
-           assert_raises (Failure "Induction within coinduction is not allowed")
-             (fun () -> induction [1]) ;
+           Alcotest.check_raises
+             "Induction within coinduction is not allowed"
+             (Failure "Induction within coinduction is not allowed")
+             (fun () -> ignore (induction [1])) ;
         ) ;
 
 
-      "Coinduction within induction should fail" >::
+      test_case "Coinduction within induction should fail"
         (fun () ->
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
@@ -545,11 +548,13 @@ let tests =
              (parse_defs "bar X := bar X.") ;
 
            induction [1] ;
-           assert_raises (Failure "Coinduction within induction is not allowed")
-             coinduction ;
+           Alcotest.check_raises
+             "Coinduction within induction is not allowed"
+             (Failure "Coinduction within induction is not allowed")
+             (fun () -> ignore (coinduction ())) ;
         ) ;
 
-      "Huet's unification example" >::
+      test_case "Huet's unification example"
         (fun () ->
            setup_prover ()
              ~goal:"forall F X, F (F X) = r1 (r1 t1) ->
@@ -578,7 +583,7 @@ let tests =
              );
         ) ;
 
-      "Split theorem" >::
+      test_case "Split theorem"
         (fun () ->
            let t =
              parse_metaterm
@@ -592,24 +597,26 @@ let tests =
                      "forall X Y, nabla Z, foo X -> bar Y -> bar Z" t1 ;
                    assert_pprint_equal
                      "forall X W, foo X -> baz W" t2 ;
-               | ts -> assert_int_equal 2 (List.length ts)
+               | ts -> Alcotest.check Alcotest.int "ints differ" 2 (List.length ts)
         );
 
-      "Split theorem (variable capture)" >::
+      test_case "Split theorem (variable capture)"
         (fun () ->
            let t = parse_metaterm "forall X, foo X -> (forall X, bar X)" in
-             assert_raises (Failure "Variable renaming required")
-               (fun () -> split_theorem t)
+             Alcotest.check_raises "Variable renaming required"
+               (Failure "Variable renaming required")
+               (fun () -> ignore (split_theorem t))
         );
 
-      "Split theorem (variable/constant capture)" >::
+      test_case "Split theorem (variable/constant capture)"
         (fun () ->
            let t = parse_metaterm "foo t1 -> (forall t1, bar t1)" in
-             assert_raises (Failure "Variable renaming required")
-               (fun () -> split_theorem t)
+             Alcotest.check_raises "Variable renaming required"
+               (Failure "Variable renaming required")
+               (fun () -> ignore (split_theorem t))
         );
 
-      "Split with raising" >::
+      test_case "Split with raising"
         (fun () ->
            let t =
              parse_metaterm
@@ -623,10 +630,10 @@ let tests =
                      "forall X Y, nabla Z Z', rel1 X Z -> rel2 (Y Z) Z'" t1 ;
                    assert_pprint_equal
                      "forall X W, nabla Z, rel1 X Z -> foo (W Z)" t2 ;
-               | ts -> assert_int_equal 2 (List.length ts)
+               | ts -> Alcotest.check Alcotest.int "ints differ" 2 (List.length ts)
         );
 
-      "Split with raising (types test)" >::
+      test_case "Split with raising (types test)"
         (fun () ->
            let t = parse_metaterm "nabla (Z1:tm) (Z2:ty), forall Y, foo Y" in
              match split_theorem t with
@@ -638,10 +645,10 @@ let tests =
                          assert_ty_pprint_equal "tm -> ty -> i" ty ;
                      | _ -> assert false
                    end
-               | ts -> assert_int_equal 1 (List.length ts)
+               | ts -> Alcotest.check Alcotest.int "ints differ" 1 (List.length ts)
         );
 
-      "Split with raising and subordination" >::
+      test_case "Split with raising and subordination"
         (fun () ->
            let t =
              parse_metaterm "nabla (x:sr_a) (y:sr_b), forall A B, sr_a_b A B"
@@ -650,10 +657,10 @@ let tests =
                | [t1] ->
                    assert_pprint_equal
                      "forall A B, nabla x y, sr_a_b (A x) (B x y)" t1 ;
-               | ts -> assert_int_equal 1 (List.length ts)
+               | ts -> Alcotest.check Alcotest.int "ints differ" 1 (List.length ts)
         );
 
-      "Intros should use subordination information" >::
+      test_case "Intros should use subordination information"
         (fun () ->
              setup_prover ()
                ~goal:"nabla x y, forall X Y, sr_a_b x y -> sr_a_b X Y" ;
@@ -662,11 +669,13 @@ let tests =
              assert_goal "sr_a_b (X n1) (Y n2 n1)" ;
         );
 
-      "Should not be able to close built-in types" >::
+      test_case "Should not be able to close built-in types"
         (fun () ->
            let should_not_close id =
-             assert_raises (Failure ("Cannot close " ^ id))
-               (fun () -> close_types [id])
+             Alcotest.check_raises
+               ("Cannot close " ^ id)
+               (Failure ("Cannot close " ^ id))
+               (fun () -> ignore (close_types [id]))
            in
              should_not_close "o" ;
              should_not_close "olist" ;

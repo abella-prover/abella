@@ -1,4 +1,3 @@
-open OUnit
 open Test_helper
 open Abella_lib
 open Term
@@ -16,7 +15,7 @@ let c = termobj var_c
 let assert_raises_unify_failure f =
   try
     f () ;
-    assert_failure "Expected UnifyFailure"
+    Alcotest.fail "Expected UnifyFailure"
   with
     | Unify.UnifyFailure _ -> ()
 
@@ -28,128 +27,127 @@ let assert_metaterm_unify s1 s2 =
     assert_metaterm_equal t1 t2
 
 let tests =
-  "Metaterm" >:::
-    [
-      "Print equality" >::
+  suite "Metaterm" [
+      test_case "Print equality"
         (fun () ->
            let t = Eq(var_a, var_b) in
              assert_pprint_equal "A = B" t) ;
 
-      "Print object" >::
+      test_case "Print object"
         (fun () ->
            let eval = uconst "eval" in
            let t = termobj (eval ^^ [var_a; var_b]) in
              assert_pprint_equal "{eval A B}" t) ;
 
-      "Print arrow" >::
+      test_case "Print arrow"
         (fun () ->
            let t = arrow a b  in
              assert_pprint_equal "{A} -> {B}" t) ;
 
-      "Print multiple arrows" >::
+      test_case "Print multiple arrows"
         (fun () ->
            let t = arrow a (arrow b c)  in
              assert_pprint_equal "{A} -> {B} -> {C}" t) ;
 
-      "Print forall" >::
+      test_case "Print forall"
         (fun () ->
            let t = forall [("A", emptyty)] b in
              assert_pprint_equal "forall A, {B}" t) ;
 
-      "Print exists" >::
+      test_case "Print exists"
         (fun () ->
            let t = exists [("A", emptyty)] b in
              assert_pprint_equal "exists A, {B}" t) ;
 
-      "Print smaller restricted object" >::
+      test_case "Print smaller restricted object"
         (fun () ->
            let t = set_restriction (Smaller 1) a in
              assert_pprint_equal "{A}*" t) ;
 
-      "Print equal restricted object" >::
+      test_case "Print equal restricted object"
         (fun () ->
            let t = set_restriction (Equal 1) a in
              assert_pprint_equal "{A}@" t) ;
 
-      "Print co-smaller restricted object" >::
+      test_case "Print co-smaller restricted object"
         (fun () ->
            let t = set_restriction (CoSmaller 1) a in
              assert_pprint_equal "{A}+" t) ;
 
-      "Print co-equal restricted object" >::
+      test_case "Print co-equal restricted object"
         (fun () ->
            let t = set_restriction (CoEqual 1) a in
              assert_pprint_equal "{A}#" t) ;
 
-      "Print second smaller restricted object" >::
+      test_case "Print second smaller restricted object"
         (fun () ->
            let t = set_restriction (Smaller 2) a in
              assert_pprint_equal "{A}**" t) ;
 
-      "Print OR" >::
+      test_case "Print OR"
         (fun () ->
            let t = meta_or a b in
              assert_pprint_equal "{A} \\/ {B}" t) ;
 
-      "Print AND" >::
+      test_case "Print AND"
         (fun () ->
            let t = meta_and a b in
              assert_pprint_equal "{A} /\\ {B}" t) ;
 
-      "Print multiple \\/" >::
+      test_case "Print multiple \\/"
         (fun () ->
            let t = meta_or (meta_or a b) c in
              assert_pprint_equal "{A} \\/ {B} \\/ {C}" t) ;
 
-      "Print multiple OR (right assoc)" >::
+      test_case "Print multiple OR (right assoc)"
         (fun () ->
            let t = meta_or a (meta_or b c) in
              assert_pprint_equal "{A} \\/ ({B} \\/ {C})" t) ;
 
-      "Print OR within arrow" >::
+      test_case "Print OR within arrow"
         (fun () ->
            let t = arrow a (meta_or b c) in
              assert_pprint_equal "{A} -> {B} \\/ {C}" t) ;
 
-      "Print arrow within OR" >::
+      test_case "Print arrow within OR"
         (fun () ->
            let t = meta_or (arrow a b) c in
              assert_pprint_equal "({A} -> {B}) \\/ {C}" t) ;
 
-      "Print OR within AND" >::
+      test_case "Print OR within AND"
         (fun () ->
            let t = meta_and a (meta_or b c) in
              assert_pprint_equal "{A} /\\ ({B} \\/ {C})" t) ;
 
-      "Print AND within OR" >::
+      test_case "Print AND within OR"
         (fun () ->
            let t = meta_or a (meta_and b c) in
              assert_pprint_equal "{A} \\/ {B} /\\ {C}" t) ;
 
-      "Print exists left of OR" >::
+      test_case "Print exists left of OR"
         (fun () ->
            let t = meta_or (exists [("A", emptyty)] b) c in
              assert_pprint_equal "(exists A, {B}) \\/ {C}" t) ;
 
-      "Replace should descend underneath exists" >::
+      test_case "Replace should descend underneath exists"
         (fun () ->
            let t = exists [("A", emptyty)] b in
            let t' = replace_metaterm_vars [("B", var_c)] t in
              assert_pprint_equal "exists A, {C}" t') ;
 
-      "Replace should not descend underneath exists if names are equal" >::
+      test_case "Replace should not descend underneath exists if names are equal"
         (fun () ->
            let t = exists [("A", emptyty)] a in
            let t' = replace_metaterm_vars [("A", var_b)] t in
              assert_pprint_equal "exists A, {A}" t') ;
 
-      "Replace should not capture exists variables" >::
+      test_case "Replace should not capture exists variables"
         (fun () ->
            let t = exists [("A", emptyty)] b in
            let t' = replace_metaterm_vars [("B", var_a)] t in
              assert_pprint_equal "exists A1, {A}" t') ;
 
-      "Cascading capture" >::
+      test_case "Cascading capture"
         (fun () ->
            let t = forall [("E2", emptyty)]
              (arrow (Eq(uconst "E2", uvar Eigen "E" 0))
@@ -158,31 +156,31 @@ let tests =
              assert_pprint_equal
                "forall E2, E2 = E1 -> (exists E3, E3 = E2)" t');
 
-      "Print non-empty context" >::
+      test_case "Print non-empty context"
         (fun () ->
            let context = Context.add (uconst "L") Context.empty in
            let t = Obj ({context ; right = var_a ; mode = Async}, Irrelevant) in
              assert_pprint_equal "{L |- A}" t) ;
 
-      "Print predicate" >::
+      test_case "Print predicate"
         (fun () ->
            let p = uconst "head" ^^ [var_a; var_b] in
            let t = Pred(p, Irrelevant) in
              assert_pprint_equal "head A B" t) ;
 
-      "Print restricted predicate" >::
+      test_case "Print restricted predicate"
         (fun () ->
            let p = uconst "head" ^^ [var_a; var_b] in
            let t = Pred(p, Smaller 1) in
              assert_pprint_equal "head A B *" t) ;
 
-      "Print object quantifier inside of predicate" >::
+      test_case "Print object quantifier inside of predicate"
         (fun () ->
            let t = pred (uconst "prove" ^^
                            [uconst "pi" ^^ [uconst "G"]]) in
              assert_pprint_equal "prove (pi G)" t) ;
 
-      "Normalize should move all implications to the context" >::
+      test_case "Normalize should move all implications to the context"
         (fun () ->
            let context = Context.add (uconst "L") Context.empty in
            let bc = uconst "=>" ^^ [uconst "B"; uconst "C"] in
@@ -191,7 +189,7 @@ let tests =
            assert_pprint_equal "{L |- A => B => C}" t ;
            assert_pprint_equal "{L, A, B |- C}" (normalize t)) ;
 
-      "Normalize should instantiate pi x\\ with nominal constant" >::
+      test_case "Normalize should instantiate pi x\\ with nominal constant"
         (fun () ->
            let pi = const "pi" iiity in
            let pred = const "pred" iiity in
@@ -200,7 +198,7 @@ let tests =
              assert_pprint_equal "{pi x1\\pred x1 x1}" t ;
              assert_pprint_equal "{pred n1 n1}" (normalize t)) ;
 
-      "Normalize should rename bound variables if needed" >::
+      test_case "Normalize should rename bound variables if needed"
         (fun () ->
            let const_a = uconst "A" in
            let p = uconst "p" in
@@ -209,7 +207,7 @@ let tests =
            in
              assert_pprint_equal "forall A1, p A -> p A1" (normalize t)) ;
 
-      "Normalize should rename bound nabla variables if needed" >::
+      test_case "Normalize should rename bound nabla variables if needed"
         (fun () ->
            let const_n1 = uconst "n1" in
            let nom_n1 = nominal_var "n1" emptyty in
@@ -219,7 +217,7 @@ let tests =
            in
              assert_pprint_equal "forall n2, p n1 -> p n2" (normalize t)) ;
 
-      "Normalize should rename nested binders" >::
+      test_case "Normalize should rename nested binders"
         (fun () ->
            (* The var_a should force renaming of the A which should
               cascade and force renaming of A1 *)
@@ -231,7 +229,7 @@ let tests =
              assert_pprint_equal "forall A1, A -> (forall A2, A1 = A2)"
                (normalize t) );
 
-      "Normalize should rename nested binders (2)" >::
+      test_case "Normalize should rename nested binders (2)"
         (fun () ->
            let eq = Eq(uconst "A1", uconst "A1") in
            let t = Binding(Forall, [("A1", emptyty)],
@@ -241,7 +239,7 @@ let tests =
              assert_pprint_equal "forall A2, A = A1 -> (forall A3, A3 = A3)"
                (normalize t) );
 
-      "Normalize should rename nominals of different types" >::
+      test_case "Normalize should rename nominals of different types"
         (fun () ->
            let t = pred ((uconst "foo") ^^ [nominal_var "n1" aty;
                                             nominal_var "n1" bty;
@@ -249,37 +247,37 @@ let tests =
            in
              assert_pprint_equal "foo n3 n1 n2" (normalize t)) ;
 
-      "Meta right unify - equality" >::
+      test_case "Meta right unify - equality"
         (fun () ->
            assert_metaterm_unify
              "t1 = t2"
              "?1 = ?2") ;
 
-      "Meta right unify - pred" >::
+      test_case "Meta right unify - pred"
         (fun () ->
            assert_metaterm_unify
              "foo t1"
              "foo ?1") ;
 
-      "Meta right unify - arrow" >::
+      test_case "Meta right unify - arrow"
         (fun () ->
            assert_metaterm_unify
              "foo t1 -> bar t2"
              "foo ?1 -> bar ?2") ;
 
-      "Meta right unify - forall" >::
+      test_case "Meta right unify - forall"
         (fun () ->
            assert_metaterm_unify
              "forall A, rel1 t1 A"
              "forall A, rel1 ?1 A") ;
 
-      "Meta right unify - obj" >::
+      test_case "Meta right unify - obj"
         (fun () ->
            assert_metaterm_unify
              "{p2 t2 |- p1 t1}"
              "{p2 t2 |- p1 ?1}") ;
 
-      "Meta right unify - variable capture" >::
+      test_case "Meta right unify - variable capture"
         (fun () ->
            assert_raises_unify_failure
              (fun () ->
@@ -287,13 +285,13 @@ let tests =
                   "forall A, rel1 A A"
                   "forall A, rel1 A ?1")) ;
 
-      "Meta right unify - variable renaming" >::
+      test_case "Meta right unify - variable renaming"
         (fun () ->
            let t1 = parse_metaterm "forall A, foo A" in
            let t2 = parse_metaterm "forall B, foo B" in
              meta_right_unify t1 t2) ;
 
-      "Meta right unify - variable renaming (2)" >::
+      test_case "Meta right unify - variable renaming (2)"
         (fun () ->
            let ctx = [("?1", var Logic "?1" 0 (tyarrow [iity] ity))] in
            let t1 = parse_metaterm ~ctx "forall A, foo (iabs A)" in
@@ -301,7 +299,7 @@ let tests =
              meta_right_unify t1 t2 ;
              assert_pprint_equal "forall B, foo (iabs B)" t2) ;
 
-      "Fresh raised alist with subordination" >::
+      test_case "Fresh raised alist with subordination"
         (fun () ->
            let tm = tybase (atybase "tm") in
            let tp = tybase (atybase "tp") in

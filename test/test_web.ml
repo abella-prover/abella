@@ -21,7 +21,6 @@
 (* Tests for the browser-facing core: virtual sources, collected output,
    the generated .thc cache, and source imports. *)
 
-open OUnit
 open Abella_lib
 open Abella_types
 open Extensions
@@ -140,7 +139,7 @@ let error_messages messages =
 
 let assert_ok = function
   | `ok -> ()
-  | `error -> assert_failure "command failed"
+  | `error -> Alcotest.fail "command failed"
 
 let assert_contains needle haystack =
   let found = List.exists begin fun text ->
@@ -151,7 +150,7 @@ let assert_contains needle haystack =
       spin 0
     end haystack
   in
-  assert_bool ("expected message containing " ^ needle) found
+  Alcotest.check Alcotest.bool ("expected message containing " ^ needle) true found
 
 let read_thc_values bytes =
   let buf = Bytes.unsafe_of_string bytes in
@@ -216,55 +215,55 @@ let native_compile_module () =
     let rec drive () =
       try ignore (D.process1 ()) ; drive () with
       | D.AbellaExit 0 -> ()
-      | D.AbellaExit n -> assert_failure ("native compile exited " ^ string_of_int n)
+      | D.AbellaExit n -> Alcotest.fail ("native compile exited " ^ string_of_int n)
     in
     drive () ;
     read_file thc
   end
 
 let test_virtual_source () =
-  assert_bool "canon strip ./" (Source.canon "./a/b.thm" = "a/b.thm") ;
-  assert_bool "canon collapse dot" (Source.canon "a/./b.thm" = "a/b.thm") ;
-  assert_bool "canon collapse dotdot" (Source.canon "a/x/../b.thm" = "a/b.thm") ;
+  Alcotest.check Alcotest.bool "canon strip ./" true (Source.canon "./a/b.thm" = "a/b.thm") ;
+  Alcotest.check Alcotest.bool "canon collapse dot" true (Source.canon "a/./b.thm" = "a/b.thm") ;
+  Alcotest.check Alcotest.bool "canon collapse dotdot" true (Source.canon "a/x/../b.thm" = "a/b.thm") ;
   Source.add_virtual "./a/b.thm" "contents" ;
-  assert_bool "virtual exists" (Source.virtual_exists "a/b.thm") ;
-  assert_string_equal "contents" (Source.virtual_contents "a/b.thm") ;
+  Alcotest.check Alcotest.bool "virtual exists" true (Source.virtual_exists "a/b.thm") ;
+  Alcotest.check Alcotest.string "strings differ" "contents" (Source.virtual_contents "a/b.thm") ;
   let module Src = (val Source.read "a/b.thm") in
-  assert_string_equal "a/b.thm" Src.path ;
-  assert_equal ~printer:(function Some d -> d | None -> "None") (Some "a") Src.dir ;
-  assert_equal ~printer:string_of_float 0. Src.mtime ;
+  Alcotest.check Alcotest.string "strings differ" "a/b.thm" Src.path ;
+  Alcotest.check (Alcotest.option Alcotest.string) "dir" (Some "a") Src.dir ;
+  Alcotest.check (Alcotest.float 1e-9) "mtime" 0. Src.mtime ;
   let lb = Src.lex true in
-  assert_string_equal "a/b.thm" lb.Lexing.lex_curr_p.Lexing.pos_fname ;
-  assert_bool "missing file" begin
+  Alcotest.check Alcotest.string "strings differ" "a/b.thm" lb.Lexing.lex_curr_p.Lexing.pos_fname ;
+  Alcotest.check Alcotest.bool "missing file" true begin
     try ignore (Source.read "nope.thm") ; false with Failure _ -> true
   end ;
   let bytes = "\000\001\255\254thc" in
   Source.add_virtual "gen/binary.thc" bytes ;
-  assert_string_equal bytes (Source.virtual_contents "gen/binary.thc") ;
+  Alcotest.check Alcotest.string "strings differ" bytes (Source.virtual_contents "gen/binary.thc") ;
   Source.clear_virtual () ;
-  assert_bool "cleared" (not (Source.virtual_exists "a/b.thm"))
+  Alcotest.check Alcotest.bool "cleared" true (not (Source.virtual_exists "a/b.thm"))
 
 let test_thc_cache_bound () =
   Source.set_thc_cache_limit 10 ;
   Source.add_virtual_thc "a.thc" "12345" ;
   Source.set_thc_trusted "a.thc" true ;
   Source.add_virtual_thc "b.thc" "12345" ;
-  assert_int_equal 10 (Source.thc_cache_size ()) ;
+  Alcotest.check Alcotest.int "ints differ" 10 (Source.thc_cache_size ()) ;
   Source.add_virtual_thc "c.thc" "12345" ;
-  assert_bool "oldest thc evicted" (not (Source.virtual_exists "a.thc")) ;
-  assert_bool "evicted thc trust removed"
+  Alcotest.check Alcotest.bool "oldest thc evicted" true (not (Source.virtual_exists "a.thc")) ;
+  Alcotest.check Alcotest.bool "evicted thc trust removed" true
     (not (Source.is_thc_trusted "a.thc")) ;
-  assert_bool "newest thc kept" (Source.virtual_exists "c.thc") ;
-  assert_int_equal 10 (Source.thc_cache_size ()) ;
+  Alcotest.check Alcotest.bool "newest thc kept" true (Source.virtual_exists "c.thc") ;
+  Alcotest.check Alcotest.int "ints differ" 10 (Source.thc_cache_size ()) ;
   Source.clear_virtual () ;
   Source.set_thc_cache_limit 0 ;
   Source.add_virtual_thc "large.thc" (String.make 100 'x') ;
-  assert_bool "unlimited keeps large thc" (Source.virtual_exists "large.thc") ;
-  assert_int_equal 100 (Source.thc_cache_size ()) ;
+  Alcotest.check Alcotest.bool "unlimited keeps large thc" true (Source.virtual_exists "large.thc") ;
+  Alcotest.check Alcotest.int "ints differ" 100 (Source.thc_cache_size ()) ;
   Source.add_virtual_thc "large.thc" "tiny" ;
-  assert_int_equal 4 (Source.thc_cache_size ()) ;
+  Alcotest.check Alcotest.int "ints differ" 4 (Source.thc_cache_size ()) ;
   Source.clear_virtual () ;
-  assert_int_equal 0 (Source.thc_cache_size ())
+  Alcotest.check Alcotest.int "ints differ" 0 (Source.thc_cache_size ())
 
 let test_output_collect () =
   Output.collect_mode () ;
@@ -272,9 +271,9 @@ let test_output_collect () =
   Output.msg_printf "one" ;
   Output.msg_printf ~severity:Error "two" ;
   let msgs = Output.drain () in
-  assert_int_equal 2 (List.length msgs) ;
+  Alcotest.check Alcotest.int "ints differ" 2 (List.length msgs) ;
   let texts = system_messages msgs in
-  assert_string_list_equal ["one" ; "two"] texts ;
+  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["one" ; "two"] texts ;
   let severities = List.filter_map begin function
       | `Assoc fields -> begin
           match List.assoc_opt "severity" fields with
@@ -283,8 +282,8 @@ let test_output_collect () =
         end
       | _ -> None
     end msgs in
-  assert_string_list_equal ["info" ; "error"] severities ;
-  assert_int_equal 0 (List.length (Output.drain ()))
+  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["info" ; "error"] severities ;
+  Alcotest.check Alcotest.int "ints differ" 0 (List.length (Output.drain ()))
 
 let has_kind name =
   List.exists (fun (id, _) -> id = name) (fst !Typing.sign)
@@ -302,9 +301,9 @@ let test_undo_back_counts () =
     let names = process_three prefix in
     State.Undo.back n ;
     List.iter2 (fun name present ->
-        assert_bool
+        Alcotest.check Alcotest.bool
           (name ^ (if present then " is missing" else " should be gone"))
-          (has_kind name = present))
+          true (has_kind name = present))
       names expected
   in
   check "u1" 1 [true ; true ; false] ;
@@ -318,17 +317,17 @@ let test_source_import_cache () =
   D.on_import := Some (fun name -> hits := name :: !hits) ;
   let (status, msgs) = process_command "Import \"mod\"." in
   assert_ok status ;
-  assert_bool "generated thc exists" (Source.virtual_exists "mod.thc") ;
-  assert_bool "generated thc trusted" (Source.is_thc_trusted "mod.thc") ;
-  assert_string_list_equal ["mod"] !hits ;
-  assert_string_list_equal [] (error_messages msgs) ;
+  Alcotest.check Alcotest.bool "generated thc exists" true (Source.virtual_exists "mod.thc") ;
+  Alcotest.check Alcotest.bool "generated thc trusted" true (Source.is_thc_trusted "mod.thc") ;
+  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["mod"] !hits ;
+  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" [] (error_messages msgs) ;
 
   (* Rewind over the import; the generated .thc stays in the virtual FS. *)
   assert_ok (try State.Undo.back 1 ; `ok with Failure _ -> `error) ;
   hits := [] ;
   let (status, _) = process_command "Import \"mod\"." in
   assert_ok status ;
-  assert_string_list_equal [] !hits ;
+  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" [] !hits ;
 
   (* The source-compiled module is actually applied. *)
   let (status, _) = process_command
@@ -340,7 +339,7 @@ let test_source_import_cache () =
   assert_contains "Proof completed" (system_messages msgs) ;
 
   let (status, msgs) = process_command "Import \"nope\"." in
-  assert_bool "missing import fails" (status = `error) ;
+  Alcotest.check Alcotest.bool "missing import fails" true (status = `error) ;
   assert_contains "Opening: ./nope.thm" (system_messages msgs)
 
 let test_values_match_native () =
@@ -353,10 +352,10 @@ let test_values_match_native () =
   let generated = Source.virtual_contents "mod.thc" in
   let (ns, nc, np, nt) = read_thc_values native in
   let (ws, wc, wp, wt) = read_thc_values generated in
-  assert_bool "spec sign differs" (ns = ws) ;
-  assert_bool "spec clauses differ" (nc = wc) ;
-  assert_bool "predicates differ" (np = wp) ;
-  assert_bool "compiled content differs" (nt = wt)
+  Alcotest.check Alcotest.bool "spec sign differs" true (ns = ws) ;
+  Alcotest.check Alcotest.bool "spec clauses differ" true (nc = wc) ;
+  Alcotest.check Alcotest.bool "predicates differ" true (np = wp) ;
+  Alcotest.check Alcotest.bool "compiled content differs" true (nt = wt)
 
 let test_virtual_native_thc () =
   let native = native_compile_module () in
@@ -369,7 +368,7 @@ let test_virtual_native_thc () =
   D.on_import := Some (fun name -> hits := name :: !hits) ;
   let (status, _) = process_command "Import \"mod\"." in
   assert_ok status ;
-  assert_string_list_equal [] !hits ;
+  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" [] !hits ;
   let (status, _) = process_command
       "Theorem root_ok : forall A B, is_app (app A B)." in
   assert_ok status ;
@@ -393,38 +392,38 @@ intros. search.
   let hits = ref [] in
   D.on_import := Some (fun name -> hits := name :: !hits) ;
   assert_ok (fst (process_command "Import \"outer\".")) ;
-  assert_bool "inner thc" (Source.is_thc_trusted "inner.thc") ;
-  assert_bool "outer thc" (Source.is_thc_trusted "outer.thc") ;
+  Alcotest.check Alcotest.bool "inner thc" true (Source.is_thc_trusted "inner.thc") ;
+  Alcotest.check Alcotest.bool "outer thc" true (Source.is_thc_trusted "outer.thc") ;
   (* The outer progress hook fires before its sandbox compiles inner. *)
-  assert_string_list_equal ["inner" ; "outer"] !hits
+  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["inner" ; "outer"] !hits
 
 let test_import_cycle () =
   Source.add_virtual "main.thm" "" ;
   Source.add_virtual "a.thm" "Import \"b\"." ;
   Source.add_virtual "b.thm" "Import \"a\"." ;
   let (status, msgs) = process_command "Import \"a\"." in
-  assert_bool "cycle fails" (status = `error) ;
+  Alcotest.check Alcotest.bool "cycle fails" true (status = `error) ;
   assert_contains "Cyclic import" (system_messages msgs)
 
 let test_axiom_declaration () =
   let (status, msgs) = process_command "Axiom ax : true." in
   assert_ok status ;
-  assert_string_list_equal [] (error_messages msgs) ;
-  assert_string_list_equal ["ax"] !D.Setup.axioms ;
-  assert_string_list_equal [] !D.Setup.unfinished ;
+  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" [] (error_messages msgs) ;
+  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["ax"] !D.Setup.axioms ;
+  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" [] !D.Setup.unfinished ;
   let (status, msgs) = process_command "Show ax." in
   assert_ok status ;
   assert_contains "Theorem ax" (system_messages msgs)
 
-let tests = "web_core" >::: [
-  "virtual_source" >:: (fun () -> with_session test_virtual_source) ;
-  "thc_cache_bound" >:: (fun () -> with_session test_thc_cache_bound) ;
-  "output_collect" >:: (fun () -> with_session test_output_collect) ;
-  "undo_back_counts" >:: (fun () -> with_session test_undo_back_counts) ;
-  "source_import_cache" >:: (fun () -> with_session test_source_import_cache) ;
-  "values_match_native" >:: (fun () -> with_session test_values_match_native) ;
-  "virtual_native_thc" >:: (fun () -> with_session test_virtual_native_thc) ;
-  "nested_imports" >:: (fun () -> with_session test_nested_imports) ;
-  "import_cycle" >:: (fun () -> with_session test_import_cycle) ;
-  "axiom_declaration" >:: (fun () -> with_session test_axiom_declaration) ;
+let tests = suite "web_core" [
+  test_case "virtual_source" (fun () -> with_session test_virtual_source) ;
+  test_case "thc_cache_bound" (fun () -> with_session test_thc_cache_bound) ;
+  test_case "output_collect" (fun () -> with_session test_output_collect) ;
+  test_case "undo_back_counts" (fun () -> with_session test_undo_back_counts) ;
+  test_case "source_import_cache" (fun () -> with_session test_source_import_cache) ;
+  test_case "values_match_native" (fun () -> with_session test_values_match_native) ;
+  test_case "virtual_native_thc" (fun () -> with_session test_virtual_native_thc) ;
+  test_case "nested_imports" (fun () -> with_session test_nested_imports) ;
+  test_case "import_cycle" (fun () -> with_session test_import_cycle) ;
+  test_case "axiom_declaration" (fun () -> with_session test_axiom_declaration) ;
 ]

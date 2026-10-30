@@ -1,4 +1,3 @@
-open OUnit
 open Abella_lib
 open Metaterm
 open Extensions
@@ -148,11 +147,15 @@ let freshen str =
 
 (* Custom asserts *)
 
-let assert_true b = assert_bool "Expected true" b
-let assert_false b = assert_bool "Expected false" (not b)
+let term_testable =
+  Alcotest.testable
+    (fun ppf t -> Format.pp_print_string ppf (Term.term_to_string t))
+    Term.eq
 
-let assert_string_equal =
-  assert_equal ~printer:(fun s -> s)
+let ty_testable =
+  Alcotest.testable
+    (fun ppf t -> Format.pp_print_string ppf (Term.ty_to_string t))
+    (=)
 
 let renumber_term t =
   let rec spin dep t =
@@ -179,59 +182,34 @@ let renumber_term t =
 
 let assert_pprint_equal s t =
   let t = map_terms renumber_term t in
-  assert_string_equal s (metaterm_to_string t)
+  Alcotest.check Alcotest.string "metaterm printing" s (metaterm_to_string t)
 
 let assert_metaterm_equal s t =
   let s = map_terms renumber_term s in
   let t = map_terms renumber_term t in
-  assert_string_equal (metaterm_to_string s) (metaterm_to_string t)
+  Alcotest.check Alcotest.string "metaterm equality"
+    (metaterm_to_string s) (metaterm_to_string t)
 
 let assert_term_pprint_equal s t =
   let t = renumber_term t in
-  assert_string_equal s (Term.term_to_string t)
+  Alcotest.check Alcotest.string "term printing" s (Term.term_to_string t)
 
 let assert_term_pprint_differeent s t =
   let t = renumber_term t in
-  assert_string_equal s (Term.term_to_string t)
+  Alcotest.check Alcotest.string "term printing" s (Term.term_to_string t)
 
 let assert_ty_pprint_equal s t =
-  assert_string_equal s (Term.ty_to_string t)
+  Alcotest.check Alcotest.string "type printing" s (Term.ty_to_string t)
 
-let assert_term_equal =
-  assert_equal ~cmp:Term.eq ~printer:Term.term_to_string
+(* Suite constructors *)
 
-let assert_ty_equal =
-  assert_equal ~printer:Term.ty_to_string
+let test_case name f = Alcotest.test_case name `Quick f
+let suite name cases = (name, cases)
 
-let assert_int_equal =
-  assert_equal ~printer:string_of_int
-
-let assert_string_list_equal lst1 lst2 =
-  assert_int_equal (List.length lst1) (List.length lst2) ;
-  ignore (List.map2 assert_string_equal lst1 lst2)
-
-let assert_raises_any ?msg (f: unit -> 'a) =
-  let raises f =
-    try
-      ignore (f ()) ;
-      None
-    with
-      e -> Some e
-  in
-  let str = "expected exception, but no exception was raised." in
-    match raises f, msg with
-      | Some _, _ -> ()
-	  | None, None -> assert_failure str
-	  | None, Some s -> assert_failure (Format.sprintf "%s\n%s" s str)
-
-let rec extract_tests path test =
-  match path, test with
-    | [], _ -> test
-    | n::rest, TestList l ->
-        TestLabel(string_of_int n, extract_tests rest (List.nth l n))
-    | _, TestLabel(name, t) ->
-        TestLabel(name, extract_tests path t)
-    | _ -> assert false
+let group prefix cases =
+  List.map
+    (fun (name, speed, f) -> (prefix ^ " / " ^ name, speed, f))
+    cases
 
 (* Quick types *)
 

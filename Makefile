@@ -4,18 +4,18 @@ DUNE := dune
 
 .PHONY: all
 all: support/.stamp
-	$(DUNE) build src/abella.exe src/abella_doc.exe src/abella_dep.exe
+	$(DUNE) build bin/abella.exe bin/abella_doc.exe bin/abella_dep.exe
 
 .PHONY: all-release
 all-release: # support/.stamp
-	$(DUNE) build --release src/abella.exe src/abella_doc.exe \
-	  src/abella_dep.exe
+	$(DUNE) build --release bin/abella.exe bin/abella_doc.exe \
+	  bin/abella_dep.exe
 
 .PHONY: web
 web: support/ts/keywords.generated.ts
 	rm -f web/abella_worker.js web/abella_js.js web/engine.json
 	mkdir -p web/examples web/abella_js
-	$(DUNE) exec src/abella_bundle.exe -- \
+	$(DUNE) exec bin/abella_bundle.exe -- \
 	  -m support/web-examples.json -o web/examples/bundle.json
 	$(DUNE) build --profile release src/js/abella_js.bc.wasm.js
 	rm -rf web/abella_js/abella_js.bc.wasm.assets
@@ -27,7 +27,7 @@ web: support/ts/keywords.generated.ts
 .PHONY: web-bundle
 web-bundle:
 	mkdir -p web/examples
-	$(DUNE) exec src/abella_bundle.exe -- \
+	$(DUNE) exec bin/abella_bundle.exe -- \
 	  -m support/web-examples.json -o web/examples/bundle.json
 
 WEB_DEV_SESSION ?= abella-web-dev
@@ -61,8 +61,8 @@ oauth-worker-check:
 oauth-worker-deploy:
 	( cd support/oauth-worker && npm ci && npm run deploy )
 
-support/ts/keywords.generated.ts: src/lexer.mll src/abella_keywords.ml
-	$(DUNE) exec src/abella_keywords.exe -- -o $@
+support/ts/keywords.generated.ts: src/lexer.mll bin/abella_keywords.ml
+	$(DUNE) exec bin/abella_keywords.exe -- -o $@
 
 support/.stamp: $(wildcard support/ts/*.ts) support/package.json \
                 support/package-lock.json \
@@ -92,9 +92,9 @@ publish-doc: examples/make.stamp
 	  examples abellaweb@origin.abella-prover.org:abella-prover.org/
 
 examples/make.stamp: $(wildcard examples/**/*.{sig,mod,thm})
-examples/make.stamp: $(wildcard _build/default/src/abella*.exe)
+examples/make.stamp: $(wildcard _build/default/bin/abella*.exe)
 examples/make.stamp: $(wildcard $(patsubst %.thm,%.thc,$(wildcard examples/**/*.thm)))
 examples/make.stamp:
 	git clean -fxd examples
-	$(DUNE) exec src/abella_doc.exe -- -r examples
+	$(DUNE) exec bin/abella_doc.exe -- -r examples
 	touch examples/make.stamp

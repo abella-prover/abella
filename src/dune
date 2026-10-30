@@ -1,56 +1,5 @@
-(executable
- (name abella)
- (public_name abella)
- (package abella)
- (modes byte exe)
- (modules abella)
- (libraries abella_lib unix cmdliner ppx_abella_lib)
- (preprocess (pps ppx_abella)))
-
-(rule
- (deps ../support/css/abella_doc.css ../support/dist/abella_doc.js)
- (action
-  (with-stdout-to abella_doc_dist.ml
-   (progn
-    (echo "let css = {abella_doc_css|")
-    (cat ../support/css/abella_doc.css)
-    (echo "|abella_doc_css};;\n")
-    (echo "let js = {abella_doc_js|")
-    (cat ../support/dist/abella_doc.js)
-    (echo "|abella_doc_js};;\n")))))
-
-(executable
- (name abella_doc)
- (public_name abella_doc)
- (package abella)
- (modes byte exe)
- (modules abella_doc abella_doc_dist)
- (libraries abella_lib unix cmdliner))
-
-(executable
- (name abella_dep)
- (public_name abella_dep)
- (package abella)
- (modes byte exe)
- (modules abella_dep)
- (libraries abella_lib unix cmdliner))
-
-(executable
- (name abella_bundle)
- (modes exe)
- (modules abella_bundle)
- (libraries abella_lib unix cmdliner))
-
-(executable
- (name abella_keywords)
- (modes exe)
- (modules abella_keywords)
- (libraries abella_lib cmdliner))
-
 (library
  (name abella_lib)
- (modules :standard \ abella abella_dep abella_doc abella_doc_dist
-                      abella_bundle abella_keywords)
  (libraries unix re yojson base64 ppx_abella_lib)
  (wrapped true)
  (preprocess (pps ppx_abella)))
@@ -62,23 +11,3 @@
  (modules parser)
  (infer true)
  (flags --explain))
-
-(alias
- (name default)
- (deps abella.exe abella_doc.exe abella_dep.exe))
-
-(rule
- (targets abella.1 abella_doc.1 abella_dep.1)
- (action
-  (progn
-   (with-stdout-to abella.1
-    (run %{exe:abella.exe} --help=groff))
-   (with-stdout-to abella_doc.1
-    (run %{exe:abella_doc.exe} --help=groff))
-   (with-stdout-to abella_dep.1
-    (run %{exe:abella_dep.exe} --help=groff)))))
-
-(install
- (section man)
- (package abella)
- (files abella.1 abella_doc.1 abella_dep.1))

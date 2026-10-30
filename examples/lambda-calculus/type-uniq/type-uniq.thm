@@ -26,7 +26,7 @@ Close tm, ty.
 
 Define ctx : olist -> prop by
   ctx nil ;
-  nabla x, ctx (of x T :: L) := ctx L.    
+  nabla x, ctx (of x T :: L) := ctx L.
 
 Theorem ctx_uniq : forall L E T1 T2,
  ctx L -> member (of E T1) L -> member (of E T2) L -> T1 = T2.

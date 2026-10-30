@@ -102,7 +102,7 @@ induction on 1. intros. case H1.
 
 Theorem depth_name : forall L H X HX,
   ctx L H -> {L |- depth X HX} -> name X.
-intros. case H2. 
+intros. case H2.
  apply ctx_world to H1 H4. case H3. search.
 
 Theorem member_depth_det2 : forall L H X H1 H2,

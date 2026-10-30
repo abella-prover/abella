@@ -85,10 +85,10 @@ induction on 1. intros. case H1.
   apply IH to H2. search.
 
 Theorem ctx_inv : forall E L H,
-  ctx L H -> member E L -> 
-   exists X HX, 
+  ctx L H -> member E L ->
+   exists X HX,
      E = pi H'\ pi DX\ add HX DX H' => ho2db X H' (dvar DX) /\
-     name X /\ le (s HX) H.          
+     name X /\ le (s HX) H.
 induction on 1. intros. case H1.
   case H2.
   case H2.

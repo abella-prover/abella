@@ -33,5 +33,5 @@ Define
 Define evc_cl : (pt -> pt -> prop) -> pt -> pt -> prop by
    evc_cl R U V := R U V;
    evc_cl R (app U W) (app V W) := evc_cl R U V;
-   evc_cl R (subex U W) (subex V W) := 
+   evc_cl R (subex U W) (subex V W) :=
       nabla x, evc_cl R (U x) (V x).

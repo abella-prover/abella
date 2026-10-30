@@ -43,7 +43,7 @@ Theorem cd_worlds : forall L K J E,
        member (cd1 A A) J).
 induction on 2. intros. case H2.
   case H1. search.
-  case H1. case H3. 
+  case H1. case H3.
     right. search.
     apply IH to H4 H5. case H6.
       search. search.
@@ -120,13 +120,13 @@ induction on 2. intros. case H2.
       case H10. case H7.
       case H10. case H7.
 
-  case H3. 
+  case H3.
     apply IH to _ H4 H5. search.
-    apply cd_worlds to H1 H6. case H7. 
-      case H8. case H5. 
+    apply cd_worlds to H1 H6. case H7.
+      case H8. case H5.
       case H5.
 
-  case H3. 
+  case H3.
     apply notabs_abs_absurd to H1 H6.
     apply IH to H1 H4 H6. apply IH to H1 H5 H7. search.
     apply cd_worlds to H1 H7. case H8.
@@ -209,7 +209,7 @@ induction on 3. intros. case H3.
 
   % cd1 contract
   case H2.
-    case H6. 
+    case H6.
       apply IH to H1 H7 H5. apply IH to H1 _ H4. search.
       apply pr1_worlds to H1 H9. case H10. case H8.
     apply IH to H1 H7 H5. apply IH to H1 _ H4.

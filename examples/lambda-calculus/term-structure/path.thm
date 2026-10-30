@@ -64,13 +64,13 @@ induction on 2. intros. case H2.
   assert ctxs (tm n1 :: L) (path n1 n2 :: K).
     apply IH to H4 H3. search.
   apply ctxs_member1 to H1 H4. case H3. search.
-  
+
 
 Theorem path_app : forall L K M N Y,
-  ctxs L K -> {L |- tm (app M N)} -> 
+  ctxs L K -> {L |- tm (app M N)} ->
     (forall P, {K |- path (app M N) P} -> {K |- path Y P}) ->
       exists YM YN, Y = app YM YN.
-intros. case H2. 
+intros. case H2.
   apply path_exists to H1 H4.
     assert {K |- path (app M N) (left P)}.
     apply H3 to H7.
@@ -87,8 +87,8 @@ intros. case H2.
   assert ctxs (tm n1 :: L) (path n1 n2 :: K).
     apply path_exists to H5 H4.
     assert {K |- path (abs R) (bnd P)}.
-    apply H3 to H7. 
-    case H8. 
+    apply H3 to H7.
+    case H8.
       search.
       apply ctxs_member2 to H1 H10. case H9. case H12.
   apply ctxs_member1 to H1 H5. case H4. case H6.

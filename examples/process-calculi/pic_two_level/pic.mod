@@ -11,7 +11,7 @@ oneb (in X M) (dn X) M.
 % free output
 one (out X Y P) (up X Y) P.
 
-% tau 
+% tau
 one  (taup P) tau P.
 
 % match prefix
@@ -34,7 +34,7 @@ oneb (par P Q) A (x\par P (N x)) :- oneb Q A N.
 one  (nu x\P x) A (nu x\Q x)      :- pi x\ one  (P x) A (Q x).
 oneb (nu x\P x) A (y\ nu x\Q x y) :- pi x\ oneb (P x) A (y\ Q x y).
 
-% open 
+% open
 oneb (nu x\M x) (up X) N :- pi y\ one (M y) (up X y) (N y).
 
 % close
@@ -52,5 +52,5 @@ oneb Q (dn X) M,  one P (up X Y) R, eq T (M Y).
 one (bang P) A (par Q (bang P)) :- one P A Q.
 oneb (bang P) X (y\ par (M y) (bang P)) :- oneb P X M.
 one (bang P) tau (par (par Q R) (bang P)) :- one P (up X Y) Q, oneb P (dn X) M, eq R (M Y).
-one (bang P) tau (par (nu z\ par (M z) ( N z)) (bang P)) :- 
+one (bang P) tau (par (nu z\ par (M z) ( N z)) (bang P)) :-
   oneb P (up X) M, oneb P (dn X) N.

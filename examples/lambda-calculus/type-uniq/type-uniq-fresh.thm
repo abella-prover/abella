@@ -32,7 +32,7 @@ Define ctx : olist -> prop by
 % since it does not require introducting nominal variables in most cases.
 % Moreover, we can use lemmas based on fresh rather than on nominal variables.
 
-Theorem of_name : 
+Theorem of_name :
   forall L E,
   ctx L -> member E L ->
   exists X T, E = of X T /\ name X.

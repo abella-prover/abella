@@ -1,7 +1,7 @@
 Specification "bred_alt".
 
 Close tm, p.
- 
+
 Define ctx2 : olist -> olist -> prop by
   ctx2 nil nil
 ; nabla x p,
@@ -36,7 +36,7 @@ induction on 1. intros. case H1.
     apply IH to H3 H4. search.
 
 Theorem btctx_mem2 : forall L K F,
-  btctx L K -> member F L -> 
+  btctx L K -> member F L ->
     exists x, (F = bred x x /\ name x).
 induction on 1. intros. case H1.
   case H2.
@@ -44,7 +44,7 @@ induction on 1. intros. case H1.
 
 Theorem btctx_sync : forall L K x,
   btctx L K ->
-  member (tm x) K -> 
+  member (tm x) K ->
   member (bred x x) L.
 induction on 1. intros. case H1.
   case H2.
@@ -63,7 +63,7 @@ induction on 2. intros. case H2.
     case H4. search.
     apply btctx_mem2 to H1 H6.
       case H4. case H7. search. search.
-           
+
 
 Theorem bred_terminate :  forall L K M,
   btctx L K -> {K |- tm M} -> exists U, {L |- bred M U}.

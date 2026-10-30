@@ -90,7 +90,7 @@ intros. induction on 5 5. split.
   % {L, hyp B2 |- unfocus C} -> {L |- unfocus C}
   intros. case H5.
     case H3. apply IH to _ _ H8 _ H6. search.
-    case H6. case H9. 
+    case H6. case H9.
       case H8. search.
       apply ctx_member to H1 H10. case H8.
         apply IH1 to H1 H2 H11 H4 H7. search.

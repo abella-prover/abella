@@ -26,7 +26,7 @@ induction on 1. intros. case H1.
       search.
 
 Theorem ctxs_var : forall E L K,
-  ctxs L K -> member E K -> 
+  ctxs L K -> member E K ->
   exists X, E = neutral X /\ name X.
 induction on 1. intros. case H1.
   case H2.
@@ -62,7 +62,7 @@ intros. apply total_ext to _ H1. search.
 
 Theorem neutral_abs_absurd : forall L K R,
   ctxs L K -> {K |- neutral (abs R)} -> false.
-intros. case H2. 
+intros. case H2.
  apply ctxs_var to H1 H4. case H3. case H5.
 
 Theorem disjoint_ext : forall L K T,

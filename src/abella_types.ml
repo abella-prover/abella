@@ -283,7 +283,7 @@ let gen_to_string tys =
   | [] -> ""
   | _ -> " [" ^ String.concat "," tys ^ "]"
 
-let aty_list_to_string atys = 
+let aty_list_to_string atys =
   String.concat "," (List.map aty_to_string atys)
 
 let top_command_to_string tc =

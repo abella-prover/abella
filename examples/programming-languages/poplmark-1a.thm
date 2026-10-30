@@ -151,7 +151,7 @@ induction on 1. intros. split*.
 
       % TM is bound in L
       % Use inner inductive hypothesis
-      apply IH1 to H3 H4 H7. 
+      apply IH1 to H3 H4 H7.
        case H3. apply ctx_member to H13 H10. case H8. search.
 
     % SA-Arrow, TM = arrow S1 S2, TN = arrow T1 T2

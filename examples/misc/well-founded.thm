@@ -90,7 +90,7 @@ Theorem sub_lt : forall N1 N2 N3,
 induction on 1. intros. case H1.
   case H2. case H3. search.
   case H2. apply IH to H3 H4. search.
-  
+
 
 % Totality of mod N (s M) R, by strong induction on N
 Theorem mod_total_strong : forall N M,
@@ -111,7 +111,7 @@ Theorem mod_lt : forall N M R, mod N M R -> lt R M.
 induction on 1. intros. case H1.
   search.
   apply IH to H3. search.
-  
+
 
 % Totality of gcd N M D, by strong induction on m
 Theorem gcd_total_strong : forall N M,

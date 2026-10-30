@@ -12,6 +12,11 @@ make publish-web         # build and rsync web/ to the site
 and system Binaryen 119+. The wasm compiler is not needed for `make all`
 or the native tests.
 
+The syntax-highlighting keyword tables shared by Abella Web and
+`abella_doc` are generated from the reserved words in `src/lexer.mll`
+into `support/ts/keywords.generated.ts` by `make all` and `make web`.
+Add or remove keywords in the lexer, never in the generated file.
+
 The frontend always loads the wasm worker from `abella_js/worker.js`.
 Test the TypeScript and unit tests, and check the bundle budgets, with:
 

@@ -3,6 +3,7 @@
 //                     en Informatique et en Automatique)
 // See LICENSE for licensing details.
 
+import { abellaKeywords } from "./keywords.generated";
 import { createThemeToggle } from "./theme-toggle";
 
 const htmlEscapes: Record<string, string> = {
@@ -156,14 +157,27 @@ class Content {
   }
 }
 
+function keywordRex(words: readonly string[]): RegExp {
+  const alternatives = words
+    .slice()
+    .sort((a, b) => b.length - a.length || a.localeCompare(b))
+    .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return new RegExp(`\\b(${alternatives.join("|")})(?!\\w)`, "g");
+}
+
 const opRex = /(:[:=-]?|=(?:>)?|\|-|->|\\\/?|\/\\|\{|\}|;|\.)/g;
 const typeRex = /\b(olist|prop|o)\b/g;
-const termRex = /\b(forall|exists|nabla|pi|sigma|sig|module|end)\b/g;
-const topBuiltRex = /\b(Import|Specification|Query|Set|Show|Close)\b/g;
-const topCmdRex = /\b((?:Co)?Define|Theorem|Split|by|Kind|Type|Suspend)\b/g;
-const proofCmdRex = /\b(abbrev|all|apply|assert|backchain|case|clear|(?:co)?induction|compute|cut|inst|intros|keep|left|monotone|on|permute|rename|right|search|split(?:\*)?|to|unabbrev|unfold|with|witness|fchain)\b/g;
-const proofSpecRex = /\b(skip|undo|abort)\b/g;
-const sigRex = /\b(type|kind)\b/g;
+const termRex = keywordRex([
+  ...abellaKeywords.term,
+  ...abellaKeywords.lprolog,
+  "pi",
+  "sigma",
+]);
+const topBuiltRex = keywordRex(abellaKeywords.topBuilt);
+const topCmdRex = keywordRex(abellaKeywords.topCmd);
+const proofCmdRex = keywordRex(abellaKeywords.proofCmd);
+const proofSpecRex = keywordRex(abellaKeywords.proofSpec);
+const sigRex = keywordRex(abellaKeywords.sig);
 
 const do_expand = "[expand proof]";
 const do_collapse = "[collapse proof]";

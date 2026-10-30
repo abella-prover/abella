@@ -1,7 +1,7 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
 (* Copyright (C) 2013-2026 Inria (Institut National de Recherche            *)
-(*                         en Informatique et en Automatique)               *)
+(*                                en Informatique et en Automatique)        *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
 (*                                                                          *)

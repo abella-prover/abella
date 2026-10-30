@@ -12,7 +12,7 @@ all-release: # support/.stamp
 	  src/abella_dep.exe
 
 .PHONY: web
-web:
+web: support/ts/keywords.generated.ts
 	rm -f web/abella_worker.js web/abella_js.js web/engine.json
 	mkdir -p web/examples web/abella_js
 	$(DUNE) exec src/abella_bundle.exe -- \
@@ -61,8 +61,12 @@ oauth-worker-check:
 oauth-worker-deploy:
 	( cd support/oauth-worker && npm ci && npm run deploy )
 
+support/ts/keywords.generated.ts: src/lexer.mll src/abella_keywords.ml
+	$(DUNE) exec src/abella_keywords.exe -- -o $@
+
 support/.stamp: $(wildcard support/ts/*.ts) support/package.json \
-                support/package-lock.json
+                support/package-lock.json \
+                support/ts/keywords.generated.ts
 	( cd support && \
 	  npm install --no-save && \
 	  npm run build && \

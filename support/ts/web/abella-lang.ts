@@ -9,92 +9,30 @@ import {
   type StreamParser,
 } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
+import { abellaKeywords, allAbellaKeywords } from "../keywords.generated";
 
-const topLevelKeywords = [
-  "Close",
-  "CoDefine",
-  "Define",
-  "Import",
-  "Kind",
-  "Query",
-  "Quit",
-  "Set",
-  "Show",
-  "Specification",
-  "Split",
-  "Suspend",
-  "Theorem",
-  "Type",
-];
-
-const tacticKeywords = [
-  "abbrev",
-  "abort",
-  "accum_sig",
-  "accumulate",
-  "all",
-  "apply",
-  "as",
-  "assert",
-  "backchain",
-  "by",
-  "case",
-  "clear",
-  "coinduction",
-  "compute",
-  "cut",
-  "end",
-  "exists",
-  "false",
-  "forall",
-  "from",
-  "induction",
-  "inst",
-  "intros",
-  "keep",
-  "kind",
-  "left",
-  "module",
-  "monotone",
-  "nabla",
-  "on",
-  "permute",
-  "rename",
-  "right",
-  "search",
-  "sig",
-  "skip",
-  "split",
-  "split*",
-  "to",
-  "true",
-  "type",
-  "unabbrev",
-  "undo",
-  "unfold",
-  "with",
-  "witness",
-];
-
-const lprologKeywords = [
-  "accum_sig",
-  "accumulate",
+// λProlog syntax that Abella parses without reserving it in its lexer.
+const lprologExtras = [
   "exportdef",
   "import",
   "infix",
   "infixl",
   "infixr",
-  "kind",
   "local",
   "localkind",
-  "module",
   "postfix",
   "prefix",
-  "sig",
-  "type",
   "typeabbrev",
   "use_sig",
   "useonly",
+];
+
+const lprologKeywords = [
+  ...abellaKeywords.sig,
+  ...abellaKeywords.lprolog,
+  ...lprologExtras,
+  "true",
+  "false",
 ];
 
 interface TokenState {
@@ -175,11 +113,11 @@ function makeParser(keywords: readonly string[]): StreamParser<TokenState> {
 }
 
 export const abellaLanguage = new LanguageSupport(
-  StreamLanguage.define(makeParser([...topLevelKeywords, ...tacticKeywords]))
+  StreamLanguage.define(makeParser(allAbellaKeywords))
 );
 
 export const lprologLanguage = new LanguageSupport(
-  StreamLanguage.define(makeParser([...lprologKeywords, "true", "false"]))
+  StreamLanguage.define(makeParser(lprologKeywords))
 );
 
 export const abellaHighlightStyle = HighlightStyle.define([

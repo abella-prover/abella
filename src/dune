@@ -41,10 +41,16 @@
  (modules abella_bundle)
  (libraries abella_lib unix cmdliner))
 
+(executable
+ (name abella_keywords)
+ (modes exe)
+ (modules abella_keywords)
+ (libraries abella_lib cmdliner))
+
 (library
  (name abella_lib)
  (modules :standard \ abella abella_dep abella_doc abella_doc_dist
-                      abella_bundle)
+                      abella_bundle abella_keywords)
  (libraries unix re yojson base64 ppx_abella_lib)
  (wrapped true)
  (preprocess (pps ppx_abella)))

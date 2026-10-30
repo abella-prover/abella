@@ -1,7 +1,7 @@
 (****************************************************************************)
 (* Copyright (C) 2007-2009 Gacek                                            *)
 (* Copyright (C) 2013-2022 Inria (Institut National de Recherche            *)
-(*                         en Informatique et en Automatique)               *)
+(*                                en Informatique et en Automatique)        *)
 (*                                                                          *)
 (* This file is part of Abella.                                             *)
 (*                                                                          *)
@@ -22,8 +22,10 @@
 {
   open Parser
 
-  let keyword_table : (string, token) Hashtbl.t = Hashtbl.create 89 ;;
-  let () = List.iter (fun (k, t) -> Hashtbl.add keyword_table k t) [
+  (* The single source of truth for the reserved words.  The generated
+     syntax-highlighting tables for abella_doc and Abella Web are derived
+     from this list. *)
+  let keywords = [
     "Close",         CLOSE ;
     "CoDefine",      CODEFINE ;
     "Define",        DEFINE ;
@@ -86,6 +88,10 @@
     "with",          WITH ;
     "witness",       WITNESS ;
   ] ;;
+
+  let keyword_table : (string, token) Hashtbl.t = Hashtbl.create 89 ;;
+  let () =
+    List.iter (fun (k, t) -> Hashtbl.add keyword_table k t) keywords ;;
 
   let comment_level = ref 0
 }

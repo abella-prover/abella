@@ -157,6 +157,33 @@ a { color: inherit; text-decoration: none; }
 
 #thmname strong { color: inherit; }
 
+.edit-this {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  padding: .25rem;
+  border-radius: var(--radius);
+  color: var(--muted);
+}
+
+.edit-this svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.edit-this:hover,
+.edit-this:focus-visible {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  outline: none;
+}
+
 .theme-toggle {
   flex: 0 0 auto;
   display: inline-flex;
@@ -548,10 +575,8 @@ dialog.focusbox::backdrop {
 
 /* Preferences and small screens ---------------------------------------- */
 
-:root[data-theme="dark"] #logobox a {
-  padding: .15rem .35rem;
-  border-radius: .4rem;
-  background: #fff;
+:root[data-theme="dark"] #logobox img {
+  content: url("https://abella-prover.org/images/logo-dark-small.png");
 }
 
 @media (prefers-reduced-motion: reduce) {

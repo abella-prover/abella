@@ -1,7 +1,14 @@
 (test
   (name test)
   (modes exe)
+  (modules (:standard \ test_doc_manifest))
   (libraries abella_lib alcotest unix))
+
+(test
+  (name test_doc_manifest)
+  (modes exe)
+  (modules test_doc_manifest)
+  (libraries abella_doc_manifest alcotest))
 
 (rule
   (target test.mk)

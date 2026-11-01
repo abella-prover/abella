@@ -99,6 +99,40 @@ export function projectFromBundle(
   };
 }
 
+export interface ProjectManifest {
+  version: 2;
+  entry?: string;
+  files: string[];
+}
+
+export function parseProjectManifest(text: string): ProjectManifest {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("The project manifest is not valid JSON.");
+  }
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    throw new Error("The project manifest is not a JSON object.");
+  }
+  const record = data as Record<string, unknown>;
+  if (record.version !== 2) {
+    throw new Error(
+      "This project manifest was written by an incompatible version of " +
+        "Abella Web. Export it again from the current version."
+    );
+  }
+  const files = record.files;
+  if (!Array.isArray(files) || files.some((path) => typeof path !== "string")) {
+    throw new Error("The project manifest is missing its file list.");
+  }
+  return {
+    version: 2,
+    entry: typeof record.entry === "string" ? record.entry : undefined,
+    files,
+  };
+}
+
 export interface WorkspaceDescriptor {
   kind: string;
   name: string;

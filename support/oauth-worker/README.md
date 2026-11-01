@@ -88,9 +88,9 @@ Register a separate GitHub OAuth App for local work. Do not use the
 production app or the production client secret on a development machine.
 
 - Application name: `Abella Web (dev)`
-- Homepage URL: `http://127.0.0.1:8000/`
+- Homepage URL: `http://127.0.0.1:8000/web/`
 - Authorization callback URL:
-  `http://127.0.0.1:8000/github-callback.html`
+  `http://127.0.0.1:8000/web/github-callback.html`
 - Leave "Expire access tokens" disabled.
 
 The callback URL must match exactly and must not rely on wildcard
@@ -121,7 +121,7 @@ The public development settings live under `env.dev.vars` in
 ```text
 GITHUB_CLIENT_ID=<development client id>
 ALLOWED_ORIGIN=http://127.0.0.1:8000
-REDIRECT_URI=http://127.0.0.1:8000/github-callback.html
+REDIRECT_URI=http://127.0.0.1:8000/web/github-callback.html
 ```
 
 ### Run it
@@ -130,11 +130,10 @@ REDIRECT_URI=http://127.0.0.1:8000/github-callback.html
 npm run dev
 ```
 
-The Worker listens on `http://127.0.0.1:8787`. Serve the generated
-`web/` tree from the repository root:
+The Worker listens on `http://127.0.0.1:8787`. Serve the repository root
+so `/web` and `/examples` share an origin:
 
 ```sh
-cd web
 python3 -m http.server 8000 --bind 127.0.0.1
 ```
 
@@ -145,8 +144,8 @@ cd support
 npm run web:build:dev
 ```
 
-Then open `http://127.0.0.1:8000/`. The callback page is
-`http://127.0.0.1:8000/github-callback.html`.
+Then open `http://127.0.0.1:8000/web/`. The callback page is
+`http://127.0.0.1:8000/web/github-callback.html`.
 
 Check the routes without a browser:
 
@@ -167,9 +166,9 @@ curl -i -X POST \
   http://127.0.0.1:8787/github/token
 ```
 
-If you serve the repository root instead of `web/`, the callback path
-becomes `/web/github-callback.html`; update the OAuth App, the Worker
-`REDIRECT_URI`, and the frontend build to match.
+If you serve `web/` as the document root instead, the app moves to `/`
+and the callback path becomes `/github-callback.html`; update the OAuth
+App, the Worker `REDIRECT_URI`, and the frontend build to match.
 
 ## Configuration
 

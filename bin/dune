@@ -19,13 +19,19 @@
     (cat ../support/dist/abella_doc.js)
     (echo "|abella_doc_js};;\n")))))
 
+(library
+ (name abella_doc_manifest)
+ (wrapped false)
+ (modules abella_doc_manifest)
+ (libraries yojson))
+
 (executable
  (name abella_doc)
  (public_name abella_doc)
  (package abella)
  (modes byte exe)
  (modules abella_doc abella_doc_dist)
- (libraries abella_lib unix cmdliner))
+ (libraries abella_lib unix cmdliner abella_doc_manifest))
 
 (executable
  (name abella_dep)

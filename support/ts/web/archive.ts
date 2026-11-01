@@ -7,19 +7,15 @@ import {
   classify,
   explicitEntry,
   normalizeNewlines,
+  parseProjectManifest,
   type Project,
+  type ProjectManifest,
   type ProjectTextFile,
 } from "./project";
 import { isCandidateFile } from "./workspace-directory";
 
-interface Manifest {
-  version: 2;
-  entry?: string;
-  files: string[];
-}
-
 export function downloadProject(project: Project): void {
-  const manifest: Manifest = {
+  const manifest: ProjectManifest = {
     version: 2,
     entry: project.entry,
     files: [...project.files.keys()].sort(),
@@ -57,13 +53,7 @@ export async function importProject(file: File): Promise<ImportedProject> {
   if (!manifestBytes) {
     throw new Error("The archive does not contain project.json.");
   }
-  const manifest = JSON.parse(strFromU8(manifestBytes)) as Partial<Manifest>;
-  if (manifest.version !== 2 || !Array.isArray(manifest.files)) {
-    throw new Error(
-      "This archive was written by an incompatible version of Abella Web. " +
-        "Export it again from the current version."
-    );
-  }
+  const manifest = parseProjectManifest(strFromU8(manifestBytes));
   const files = new Map<string, ProjectTextFile>();
   const names = manifest.files;
   let skipped = 0;

@@ -238,6 +238,12 @@ summary:focus-visible,
     align-items: center;
     gap: 0.7rem;
     flex: none;
+
+    img {
+      display: block;
+      height: 2.5rem;
+      width: auto;
+    }
   }
 
   h1 {
@@ -245,6 +251,10 @@ summary:focus-visible,
     font-size: 1.15rem;
     letter-spacing: 0.01em;
   }
+}
+
+:root[data-theme="dark"] .brand img {
+  content: url("https://abella-prover.org/images/logo-dark-small.png");
 }
 
 .topbar-controls {

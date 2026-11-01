@@ -97,6 +97,14 @@ fi
 free_port "$port" || die "port $port is already in use"
 free_port "$oauth_port" || die "port $oauth_port is already in use"
 
+# Serve only web/ and examples/, at the same URLs the deployed site uses,
+# so doc-site manifests and the app share an origin.
+site=$root/_build/web-dev-local
+rm -rf "$site"
+mkdir -p "$site"
+ln -s "$root/web" "$site/web"
+ln -s "$root/examples" "$site/examples"
+
 if [ -f "$root/web/abella_web.js" ] &&
    ! grep -q '127\.0\.0\.1:8787' "$root/web/abella_web.js"; then
   echo "web-dev-local: warning: web/abella_web.js is a production build," >&2
@@ -106,7 +114,9 @@ fi
 tmux new-session -d -s "$session" -n dev -c "$root" "${SHELL:-sh}"
 tmux split-window -h -t "$session":0.0 -c "$root/support/oauth-worker" \
   'npm run dev'
-tmux split-window -v -t "$session":0.1 -c "$root/web" \
+# /web and /examples must share an origin with the app; the symlink
+# root above exposes only those two trees.
+tmux split-window -v -t "$session":0.1 -c "$site" \
   "python3 -m http.server $port --bind 127.0.0.1"
 tmux select-layout -t "$session" main-vertical
 
@@ -122,7 +132,7 @@ tmux set-hook -t "$session" pane-died \
 tmux select-pane -t "$session":0.0
 
 # The dev OAuth App only allows the loopback origin.
-tmux set-option -t "$session" status-right " http://127.0.0.1:$port/ "
+tmux set-option -t "$session" status-right " http://127.0.0.1:$port/web/ "
 
-echo "web-dev-local: open http://127.0.0.1:$port/ (not localhost)"
+echo "web-dev-local: open http://127.0.0.1:$port/web/ (not localhost)"
 enter_session "$session"

@@ -79,6 +79,48 @@ an old chunk that is no longer on the origin.
 The HTML pages must stay at a short `max-age` and out of the CDN edge
 cache; the hashes only protect subresources.
 
+Documentation pages
+-------------------
+
+`abella_doc` writes a version 2 `<theorem>.project.json` manifest next to
+every generated theorem page. The manifest names the theorem as `entry`
+and lists the transitive `.thm`, `.sig`, and `.mod` sources it needs,
+with paths relative to the manifest.
+
+When `--web` is set (the default is
+`https://abella-prover.org/web/`), the theorem page also gets an
+**Edit this** pencil icon next to its title, linking to
+
+```
+<web>?project=<root-relative manifest URL>
+```
+
+The manifest URL is the invocation path of the page with `/` prepended,
+so generate docs from the directory that `/` maps to: `make publish-doc`
+does this from the repository root. Pass `--web=/web/` for local
+testing, or `--web=` to omit the link.
+
+`?project=` is served by the read-only `SiteWorkspace` backend. It
+accepts only same-origin manifests (or an explicit host allow-list in
+`workspace-site.ts`), loads each listed source, and is satisfied with
+**Download zip** as the export path. The deployed CSP already needs
+`connect-src 'self'` for this.
+
+Generate a page and serve the repository root to try it locally. Use an
+absolute `--web` URL if the page will be opened with `xdg-open`: the
+root-relative `/web/` form would otherwise resolve against `file://`.
+
+```sh
+make web
+dune exec bin/abella_doc.exe -- \
+  --web=http://127.0.0.1:8000/web/ -r examples
+python3 -m http.server 8000        # or: make web-dev-local
+# open http://127.0.0.1:8000/examples/.../theorem.html
+```
+
+Both servers expose `/web/` and `/examples/` from the repository root,
+so `--web=/web/` also works when the page is opened over HTTP.
+
 GitHub authentication
 ---------------------
 
@@ -114,8 +156,8 @@ Local OAuth development
 Use the loopback origin `http://127.0.0.1:8000`, not `localhost`.
 Register a separate development GitHub OAuth App with:
 
-- homepage URL: `http://127.0.0.1:8000/`
-- callback URL: `http://127.0.0.1:8000/github-callback.html`
+- homepage URL: `http://127.0.0.1:8000/web/`
+- callback URL: `http://127.0.0.1:8000/web/github-callback.html`
 
 Put its client secret in `support/oauth-worker/.dev.vars`; the public
 client ID, allowed origin, and redirect URI are in the `dev` environment
@@ -127,11 +169,12 @@ Run the whole environment with:
 make web-dev-local
 ```
 
-That opens a tmux session with the Worker, a static server on
+That opens a tmux session with the Worker, a static server that exposes
+`web/` and `examples/` as `/web/` and `/examples/` on
 `http://127.0.0.1:8000`, and a shell at the repository root. The session
-is torn down as soon as any of the three exits. It needs tmux 3.3 or
-newer, a completed `npm ci` in `support/oauth-worker`, and `web/` built
-against the local Worker.
+is torn down as soon as any of the three exits. It
+needs tmux 3.3 or newer, a completed `npm ci` in
+`support/oauth-worker`, and `web/` built against the local Worker.
 
 Running it again attaches to the existing session instead of starting a
 second one, so it doubles as the way back into a detached session.
@@ -141,10 +184,12 @@ The shell pane, the widest one, is for dune, tests, and rebuilds. Use
 compiles the loopback Worker URL, so a production build silently
 disables OAuth and falls back to the PAT path.
 
-Open `http://127.0.0.1:8000/`. The callback page is served from the
-same tree; `web/github_callback.js` is generated and ignored by git.
-The callback page carries `Referrer-Policy: no-referrer` through its
-meta tag in local development.
+Open `http://127.0.0.1:8000/web/`. The server also exposes the example
+sources under `/examples/`, which is what the `abella_doc` **Edit this**
+links load. The callback page is
+`http://127.0.0.1:8000/web/github-callback.html`; `web/github_callback.js`
+is generated and ignored by git. The callback page carries
+`Referrer-Policy: no-referrer` through its meta tag in local development.
 
 Without tmux, run the pieces in three terminals:
 
@@ -152,8 +197,8 @@ Without tmux, run the pieces in three terminals:
 # Worker
 cd support/oauth-worker && npm run dev
 
-# static site from web/
-cd web && python3 -m http.server 8000 --bind 127.0.0.1
+# static site from the repository root
+python3 -m http.server 8000 --bind 127.0.0.1
 
 # frontend built against the local Worker
 cd support && npm run web:build:dev

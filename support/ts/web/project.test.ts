@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import {
   STORAGE_KEY,
   loadProjectRecord,
+  parseProjectManifest,
   projectFromBundle,
   saveProject,
   scratchProject,
@@ -153,4 +154,25 @@ test("example bundles with a root key are rejected", () => {
     "demo"
   );
   assert.equal(loaded, undefined);
+});
+
+test("project manifests parse version 2 documents", () => {
+  const manifest = parseProjectManifest(
+    JSON.stringify({ version: 2, entry: "main.thm", files: ["main.thm"] })
+  );
+  assert.equal(manifest.version, 2);
+  assert.equal(manifest.entry, "main.thm");
+  assert.deepEqual(manifest.files, ["main.thm"]);
+});
+
+test("project manifests reject old versions and missing file lists", () => {
+  assert.throws(
+    () => parseProjectManifest(JSON.stringify({ version: 1, files: [] })),
+    /incompatible version/
+  );
+  assert.throws(
+    () => parseProjectManifest(JSON.stringify({ version: 2 })),
+    /missing its file list/
+  );
+  assert.throws(() => parseProjectManifest("not json"), /not valid JSON/);
 });

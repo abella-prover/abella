@@ -86,6 +86,7 @@ publish-doc: examples/make.stamp
 	rsync -aviz \
 	  --exclude '*.thc' \
 	  --exclude '*.out' \
+	  --include '*.project.json' \
 	  --exclude '*.json' \
 	  --exclude '*.stamp' \
 	  --exclude '.gitignore' \

@@ -12,7 +12,7 @@
       "vars": {
         "GITHUB_CLIENT_ID": "Ov23liHFsnnDvfvvg7fZ",
         "ALLOWED_ORIGIN": "http://127.0.0.1:8000",
-        "REDIRECT_URI": "http://127.0.0.1:8000/github-callback.html"
+        "REDIRECT_URI": "http://127.0.0.1:8000/web/github-callback.html"
       }
     },
     "production": {

@@ -94,6 +94,7 @@ import {
   type DirectoryHandle,
 } from "./workspace-directory";
 import { openMemoryFolder } from "./workspace-memory";
+import { loadSiteProject, projectParam } from "./workspace-site";
 import {
   loadDirectoryHandle,
   storeDirectoryHandle,
@@ -189,6 +190,7 @@ let savedWorkspace: WorkspaceDescriptor | undefined =
   savedProject.status === "loaded" ? savedProject.workspace : undefined;
 const savedProjectWarning =
   savedProject.status === "rejected" ? savedProject.message : undefined;
+let siteProjectWarning: string | undefined;
 let bundle: Bundle | undefined;
 let editor: EditorManager;
 let session: Session;
@@ -907,6 +909,9 @@ function workspaceLabel(session: WorkspaceSession): string {
   }
   if (session.kind === "memory") {
     return `Read-only folder: ${session.name}`;
+  }
+  if (session.kind === "site") {
+    return `Site: ${session.name}`;
   }
   if (session.kind === "github") {
     const label = session.capabilities.commit
@@ -2932,6 +2937,13 @@ const events: SessionEvents = {
   },
 };
 
+function clearProjectRoute(): void {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("project")) return;
+  url.searchParams.delete("project");
+  window.history.replaceState(null, "", url);
+}
+
 async function startProject(
   next: Project,
   workspace: Workspace
@@ -2940,6 +2952,7 @@ async function startProject(
     info("Finish or pause the current run before changing projects.");
     return;
   }
+  if (workspace.kind !== "site") clearProjectRoute();
   closeRowMenu();
   const generation = ++projectStart;
   workspaceSession.close();
@@ -3163,6 +3176,24 @@ async function main(): Promise<void> {
     exampleSelect.title = "Could not load examples/bundle.json";
   }
 
+  const siteUrl = projectParam(window.location.search);
+  if (siteUrl) {
+    try {
+      const linked = await loadSiteProject(siteUrl);
+      workspaceSession.close();
+      workspaceSession = new WorkspaceSession(
+        linked.project,
+        linked.workspace,
+        { persist: persistProject }
+      );
+      project = workspaceSession.project;
+      session.setProject(project);
+    } catch (error) {
+      siteProjectWarning =
+        `Could not open the linked project: ${workspaceMessage(error)}`;
+    }
+  }
+
   const firstTab =
     project.active && project.files.has(project.active)
       ? project.active
@@ -3178,6 +3209,9 @@ async function main(): Promise<void> {
   if (firstTab) openFile(firstTab);
   if (savedProjectWarning) {
     appendEntries([{ severity: "error", message: savedProjectWarning }]);
+  }
+  if (siteProjectWarning) {
+    appendEntries([{ severity: "error", message: siteProjectWarning }]);
   }
   workspaceSession.schedulePersist();
   setStatus("idle");

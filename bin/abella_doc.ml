@@ -11,6 +11,7 @@ open Abella_lib
 open Extensions
 
 module Dist = Abella_doc_dist
+module Manifest = Abella_doc_manifest
 
 (******************************************************************************)
 
@@ -49,7 +50,7 @@ let theme_init = {|
   </script>
 |}
 
-let thm_template base =
+let thm_template edit_link base =
   let root = Filename.basename base in
   let thm_contents = file_contents (base ^ ".thm") in
   let thm_json = Json.from_file (base ^ ".json") in
@@ -65,7 +66,7 @@ let thm_template base =
   <div id="logobox">
     <a href="https://abella-prover.org/index.html"><img src="https://abella-prover.org/images/logo-small.png" alt="Abella logo (small)"></a>
     <h1 id="thmname">|} ^ root ^ {|.thm</h1>
-  </div>
+|} ^ edit_link ^ {|  </div>
   <div id="outer-container">
     <div id="container">
       <div id="thmbox"><div class="default-contents">|} ^ html_escape thm_contents ^ {|</div></div>
@@ -128,17 +129,30 @@ open Extensions
 type conf = {
   abella : string ;
   recursive : bool ;
+  web : string ;
 }
 
-let mk_conf abella recursive verbosity verbose =
+let mk_conf abella recursive verbosity verbose web =
   let verbosity = if verbose then max verbosity 2 else verbosity in
   Ppx_abella_lib.verbosity := verbosity ;
-  { abella ; recursive }
+  { abella ; recursive ; web }
 
 let vprintf _conf =
   if !Ppx_abella_lib.verbosity >= 1
   then (fun fmt -> Printf.printf (fmt ^^ "\n%!"))
   else Printf.ifprintf stdout
+
+let edit_link conf root =
+  match Manifest.site_manifest_url root with
+  | Some manifest when conf.web <> "" ->
+      let sep = if String.contains conf.web '?' then "&" else "?" in
+      let href =
+        conf.web ^ sep ^ "project=" ^ Manifest.url_encode manifest in
+      Printf.sprintf
+        {|    <a class="edit-this" href="%s" aria-label="Edit this in Abella Web" title="Edit this in Abella Web"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></a>
+|}
+        (html_escape href)
+  | _ -> ""
 
 let json_of_position (lft, rgt) =
   let open Lexing in
@@ -152,6 +166,34 @@ let json_of_position (lft, rgt) =
     ]
 
 let dep_tab = Hashtbl.create 19
+
+let dependency_closure file =
+  let seen = Hashtbl.create 19 in
+  let rec visit path =
+    if not (Hashtbl.mem seen path) then begin
+      Hashtbl.add seen path () ;
+      match Hashtbl.find_opt dep_tab path with
+      | Some deps -> List.iter visit deps
+      | None -> ()
+    end
+  in
+  visit file ;
+  Hashtbl.fold (fun path () acc -> path :: acc) seen []
+
+let write_manifest conf root =
+  let dir = Filename.dirname root in
+  let files =
+    dependency_closure (root ^ ".thm")
+    |> List.map (fun path -> Manifest.relative_path ~from:dir ~target:path)
+    |> List.sort_uniq String.compare in
+  let entry =
+    Manifest.relative_path ~from:dir ~target:(root ^ ".thm") in
+  let json = Manifest.manifest_json ~entry ~files in
+  let manifest = root ^ ".project.json" in
+  let out = open_out_bin manifest in
+  output_string out (Json.to_string json) ;
+  close_out out ;
+  vprintf conf "MANIFEST: %s" manifest
 
 let ignore_list = [ "node_modules" ; "build" ; "dist" ; "css" ; "js" ]
 
@@ -265,9 +307,10 @@ let main conf files =
       failwithf "ERROR running: %s" cmd ;
     let htmlfile = root ^ ".html" in
     let ch = open_out_bin htmlfile in
-    output_string ch (thm_template root) ;
+    output_string ch (thm_template (edit_link conf root) root) ;
     close_out ch ;
-    vprintf conf "CREATE: %s" htmlfile
+    vprintf conf "CREATE: %s" htmlfile ;
+    write_manifest conf root
   end (List.rev !topo)
 
 (******************************************************************************)
@@ -306,7 +349,15 @@ let () =
       let doc = "Process directories recursively" in
       Arg.(value @@ flag @@ info ["r"] ~doc)
     in
-    Term.(const mk_conf $ abella $ recursive $ verbosity $ verbose)
+    let web =
+      let doc =
+        "Link theorem pages to the Abella Web app at $(docv). \
+         The default is the public site; pass an empty value to omit \
+         the link." in
+      Arg.(value @@ opt string "https://abella-prover.org/web/" @@
+           info ["web"] ~doc ~docv:"URL")
+    in
+    Term.(const mk_conf $ abella $ recursive $ verbosity $ verbose $ web)
   in
   let files =
     let doc = "An Abella $(b,.thm) file or a directory" in

@@ -65,12 +65,17 @@ for 30 days and does not revalidate when the origin changes. The three
 HTML entry pages are not edge-cached and are browser-cached for 10
 minutes.
 
+The HTML sources live in `support/web/`; `make web` writes the stamped
+copies to `web/index.html`, `web/privacy.html`, and
+`web/github-callback.html`. The copies are generated and gitignored, so
+`make web` and `make web-dev` never dirty a tracked file.
+
 `make web` handles cache busting automatically. It hashes the built
-assets, appends the hash as `?v=` to the references in `web/index.html`,
-`web/privacy.html`, and `web/github-callback.html`, and bakes the worker
-and wasm-launcher hashes into the bundles. There is no version file to
-bump. `make publish-web` rebuilds, verifies the stamped references with
-`npm run web:check`, and syncs the tree.
+assets, appends the hash as `?v=` to the references in the generated
+entry pages, and bakes the worker and wasm-launcher hashes into the
+bundles. There is no version file to bump. `make publish-web` rebuilds,
+verifies the stamped references with `npm run web:check`, and syncs the
+tree.
 
 Obsolete chunks and wasm assets are deleted on publish. A stale browser
 tab that still holds the previous HTML may need a reload if it asks for

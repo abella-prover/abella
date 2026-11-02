@@ -16,9 +16,7 @@
 *.out
 *.output
 *.html
-!index.html
-!web/github-callback.html
-!web/privacy.html
+!support/web/*.html
 *.native
 abella
 _build

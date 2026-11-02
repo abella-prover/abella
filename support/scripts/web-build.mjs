@@ -10,6 +10,7 @@
 import { createHash } from "node:crypto";
 import {
   existsSync,
+  mkdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -33,17 +34,22 @@ const fontPath = join(webRoot, "fonts/FiraCode-VF.woff2");
 const dev = process.argv.includes("--dev");
 const checkOnly = process.argv.includes("--check");
 
+const templatesRoot = join(supportRoot, "web");
+
 const pages = [
   {
-    path: join(webRoot, "index.html"),
+    source: join(templatesRoot, "index.html"),
+    target: join(webRoot, "index.html"),
     assets: ["abella_web.css", "abella_web.js"],
   },
   {
-    path: join(webRoot, "privacy.html"),
+    source: join(templatesRoot, "privacy.html"),
+    target: join(webRoot, "privacy.html"),
     assets: ["abella_web.css"],
   },
   {
-    path: join(webRoot, "github-callback.html"),
+    source: join(templatesRoot, "github-callback.html"),
+    target: join(webRoot, "github-callback.html"),
     assets: ["github_callback.js"],
   },
 ];
@@ -111,13 +117,17 @@ function check() {
   const problems = [];
 
   for (const page of pages) {
-    const found = references(readFileSync(page.path, "utf8"));
+    if (!existsSync(page.target)) {
+      problems.push(`${page.target}: missing; run make web`);
+      continue;
+    }
+    const found = references(readFileSync(page.target, "utf8"));
     for (const asset of page.assets) {
       if (!found.has(asset)) {
-        problems.push(`${page.path}: no reference to ${asset}`);
+        problems.push(`${page.target}: no reference to ${asset}`);
       } else if (found.get(asset) !== assets.get(asset)) {
         problems.push(
-          `${page.path}: ${asset} has ?v=${found.get(asset)}, ` +
+          `${page.target}: ${asset} has ?v=${found.get(asset)}, ` +
             `expected ?v=${assets.get(asset)}`
         );
       }
@@ -149,6 +159,7 @@ async function buildAssets() {
     fail("missing web/abella_js/abella_js.bc.wasm.js; run make web first");
   }
 
+  mkdirSync(webRoot, { recursive: true });
   copyWebFonts();
   const fontHash = fileHash(fontPath);
 
@@ -218,17 +229,16 @@ async function buildAssets() {
   ]);
 
   for (const page of pages) {
-    const before = readFileSync(page.path, "utf8");
+    if (!existsSync(page.source)) fail(`missing ${page.source}`);
+    const before = readFileSync(page.source, "utf8");
     const after = stampPage(before, assets);
     for (const asset of page.assets) {
       if (!after.includes(`${asset}?v=${assets.get(asset)}`)) {
-        fail(`${page.path}: could not stamp ${asset}`);
+        fail(`${page.source}: could not stamp ${asset}`);
       }
     }
-    if (after !== before) {
-      writeFileSync(page.path, after);
-      console.log(`stamped ${page.path}`);
-    }
+    writeFileSync(page.target, after);
+    console.log(`stamped ${page.target}`);
   }
 
   console.log("Web asset hashes");

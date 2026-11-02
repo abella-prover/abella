@@ -94,7 +94,7 @@ import {
   type DirectoryHandle,
 } from "./workspace-directory";
 import { openMemoryFolder } from "./workspace-memory";
-import { loadSiteProject, projectParam } from "./workspace-site";
+import { loadSharedProject, zipParam } from "./share";
 import {
   loadDirectoryHandle,
   storeDirectoryHandle,
@@ -190,7 +190,7 @@ let savedWorkspace: WorkspaceDescriptor | undefined =
   savedProject.status === "loaded" ? savedProject.workspace : undefined;
 const savedProjectWarning =
   savedProject.status === "rejected" ? savedProject.message : undefined;
-let siteProjectWarning: string | undefined;
+let shareProjectWarning: string | undefined;
 let bundle: Bundle | undefined;
 let editor: EditorManager;
 let session: Session;
@@ -267,7 +267,10 @@ function initialWorkspaceFor(
   if (!descriptor || descriptor.kind === "virtual") {
     return virtualWorkspace(project);
   }
-  const kind = descriptor.kind as WorkspaceKind;
+  const kind =
+    descriptor.kind === "site"
+      ? "memory"
+      : (descriptor.kind as WorkspaceKind);
   const name = descriptor.name || "Folder";
   return readOnlyWorkspace(kind, name, project);
 }
@@ -909,9 +912,6 @@ function workspaceLabel(session: WorkspaceSession): string {
   }
   if (session.kind === "memory") {
     return `Read-only folder: ${session.name}`;
-  }
-  if (session.kind === "site") {
-    return `Site: ${session.name}`;
   }
   if (session.kind === "github") {
     const label = session.capabilities.commit
@@ -2939,8 +2939,8 @@ const events: SessionEvents = {
 
 function clearProjectRoute(): void {
   const url = new URL(window.location.href);
-  if (!url.searchParams.has("project")) return;
-  url.searchParams.delete("project");
+  if (!url.searchParams.has("zip")) return;
+  url.searchParams.delete("zip");
   window.history.replaceState(null, "", url);
 }
 
@@ -2952,7 +2952,7 @@ async function startProject(
     info("Finish or pause the current run before changing projects.");
     return;
   }
-  if (workspace.kind !== "site") clearProjectRoute();
+  clearProjectRoute();
   closeRowMenu();
   const generation = ++projectStart;
   workspaceSession.close();
@@ -3176,21 +3176,42 @@ async function main(): Promise<void> {
     exampleSelect.title = "Could not load examples/bundle.json";
   }
 
-  const siteUrl = projectParam(window.location.search);
-  if (siteUrl) {
+  const zipUrl = zipParam(window.location.search);
+  if (zipUrl) {
+    statusBadge.classList.add("status-waiting");
     try {
-      const linked = await loadSiteProject(siteUrl);
+      setStatus("processing", "Waiting for the shared project…");
+      const imported = await loadSharedProject(zipUrl, {
+        onWaiting(attempt, waitMs) {
+          const seconds = Math.max(1, Math.ceil(waitMs / 1000));
+          setStatus(
+            "processing",
+            `Waiting for the shared project… ` +
+              `(retry ${attempt} in ${seconds}s)`
+          );
+        },
+      });
       workspaceSession.close();
       workspaceSession = new WorkspaceSession(
-        linked.project,
-        linked.workspace,
+        imported.project,
+        virtualWorkspace(imported.project),
         { persist: persistProject }
       );
       project = workspaceSession.project;
       session.setProject(project);
+      clearProjectRoute();
+      if (imported.skipped > 0) {
+        info(
+          `Skipped ${imported.skipped} archive entr` +
+            `${imported.skipped === 1 ? "y" : "ies"} that Abella Web ` +
+            "cannot open."
+        );
+      }
     } catch (error) {
-      siteProjectWarning =
-        `Could not open the linked project: ${workspaceMessage(error)}`;
+      shareProjectWarning =
+        `Could not open the shared project: ${workspaceMessage(error)}`;
+    } finally {
+      statusBadge.classList.remove("status-waiting");
     }
   }
 
@@ -3210,8 +3231,8 @@ async function main(): Promise<void> {
   if (savedProjectWarning) {
     appendEntries([{ severity: "error", message: savedProjectWarning }]);
   }
-  if (siteProjectWarning) {
-    appendEntries([{ severity: "error", message: siteProjectWarning }]);
+  if (shareProjectWarning) {
+    appendEntries([{ severity: "error", message: shareProjectWarning }]);
   }
   workspaceSession.schedulePersist();
   setStatus("idle");

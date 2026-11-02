@@ -40,3 +40,8 @@ dev-examples/
 /support/oauth-worker/.wrangler/
 /support/oauth-worker/.test/
 /support/oauth-worker/.dev.vars
+
+# Abella Web ZIP worker (local build output)
+/support/share-worker/node_modules/
+/support/share-worker/.wrangler/
+/support/share-worker/.test/

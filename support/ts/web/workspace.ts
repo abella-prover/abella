@@ -14,7 +14,6 @@ export type WorkspaceKind =
   | "virtual"
   | "memory"
   | "directory"
-  | "site"
   | "github"
   | "gitlab"
   | "gitea"

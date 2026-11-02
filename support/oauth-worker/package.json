@@ -6,7 +6,7 @@
   "scripts": {
     "check": "tsc --noEmit",
     "test": "esbuild src/index.test.ts --bundle --platform=node --outfile=.test/index.test.cjs && node --test .test/index.test.cjs",
-    "dev": "wrangler dev --env dev --port 8787",
+    "dev": "wrangler dev --env dev --port 8787 --inspector-port 9229",
     "deploy": "wrangler deploy --env production"
   },
   "devDependencies": {

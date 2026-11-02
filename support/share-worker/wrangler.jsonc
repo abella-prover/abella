@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "abella-web-zips-dev",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-23",
+  "observability": {
+    "enabled": true
+  },
+  "kv_namespaces": [
+    {
+      "binding": "ZIPS",
+      "id": "35d147ac0e0c4b6685c0ebe02001c153",
+      "preview_id": "35d147ac0e0c4b6685c0ebe02001c153"
+    }
+  ],
+  "env": {
+    "production": {
+      "name": "abella-web-zips",
+      "workers_dev": false,
+      "routes": [
+        {
+          "pattern": "zips.abella-prover.org",
+          "custom_domain": true
+        }
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "ZIPS",
+          "id": "555b5b1135594128bfa286ce39c95a22"
+        }
+      ]
+    }
+  }
+}

@@ -5,6 +5,7 @@
 
 import { abellaKeywords } from "./keywords.generated";
 import { createThemeToggle } from "./theme-toggle";
+import { installProjectShare } from "./abella-doc-share";
 
 const htmlEscapes: Record<string, string> = {
   "&": "&amp;",
@@ -485,6 +486,7 @@ async function loadLP(sigBoxId: string, sigContents: string, sigJson: any[],
 }
 
 setupThemeToggle();
+installProjectShare();
 
 (window as any)["loadModule"] = loadModule;
 (window as any)["loadLP"] = loadLP;

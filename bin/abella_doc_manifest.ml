@@ -5,8 +5,8 @@
  * See LICENSE for licensing details.
  *)
 
-(* Path and URL helpers for the manifest that abella_doc emits
-   next to each theorem page. *)
+(* Path helpers for the project handoff that abella_doc embeds in each
+   theorem page. *)
 
 (* This is a library so that it can be tested. Lots of finicky
    details to get right *)
@@ -38,27 +38,3 @@ let relative_path ~from ~target =
   match ups @ dst with
   | [] -> "."
   | parts -> String.concat "/" parts
-
-let site_manifest_url root =
-  let path = root ^ ".project.json" in
-  if not (Filename.is_relative path) then None else
-  match normalize_parts (split_path path) with
-  | [] | ".." :: _ -> None
-  | parts -> Some ("/" ^ String.concat "/" parts)
-
-let url_encode str =
-  let buf = Buffer.create (String.length str) in
-  String.iter begin fun c ->
-    match c with
-    | 'A'..'Z' | 'a'..'z' | '0'..'9' | '-' | '_' | '.' | '~' ->
-        Buffer.add_char buf c
-    | _ -> Buffer.add_string buf (Printf.sprintf "%%%02X" (Char.code c))
-  end str ;
-  Buffer.contents buf
-
-let manifest_json ~entry ~files =
-  `Assoc [
-    "version", `Int 2 ;
-    "entry", `String entry ;
-    "files", `List (List.map (fun file -> `String file) files) ;
-  ]

@@ -50,7 +50,7 @@ let theme_init = {|
   </script>
 |}
 
-let thm_template edit_link base =
+let thm_template edit base =
   let root = Filename.basename base in
   let thm_contents = file_contents (base ^ ".thm") in
   let thm_json = Json.from_file (base ^ ".json") in
@@ -66,7 +66,7 @@ let thm_template edit_link base =
   <div id="logobox">
     <a href="https://abella-prover.org/index.html"><img src="https://abella-prover.org/images/logo-small.png" alt="Abella logo (small)"></a>
     <h1 id="thmname">|} ^ root ^ {|.thm</h1>
-|} ^ edit_link ^ {|  </div>
+|} ^ edit ^ {|  </div>
   <div id="outer-container">
     <div id="container">
       <div id="thmbox"><div class="default-contents">|} ^ html_escape thm_contents ^ {|</div></div>
@@ -130,29 +130,44 @@ type conf = {
   abella : string ;
   recursive : bool ;
   web : string ;
+  share : string ;
 }
 
-let mk_conf abella recursive verbosity verbose web =
+let mk_conf abella recursive verbosity verbose web share =
   let verbosity = if verbose then max verbosity 2 else verbosity in
   Ppx_abella_lib.verbosity := verbosity ;
-  { abella ; recursive ; web }
+  { abella ; recursive ; web ; share }
 
 let vprintf _conf =
   if !Ppx_abella_lib.verbosity >= 1
   then (fun fmt -> Printf.printf (fmt ^^ "\n%!"))
   else Printf.ifprintf stdout
 
-let edit_link conf root =
-  match Manifest.site_manifest_url root with
-  | Some manifest when conf.web <> "" ->
-      let sep = if String.contains conf.web '?' then "&" else "?" in
-      let href =
-        conf.web ^ sep ^ "project=" ^ Manifest.url_encode manifest in
-      Printf.sprintf
-        {|    <a class="edit-this" href="%s" aria-label="Edit this in Abella Web" title="Edit this in Abella Web"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></a>
+let script_safe_json json =
+  let text = Json.to_string json in
+  let buf = Buffer.create (String.length text) in
+  String.iter begin fun c ->
+    if c = '<' then Buffer.add_string buf "\\u003c"
+    else Buffer.add_char buf c
+  end text ;
+  Buffer.contents buf
+
+let share_data conf ~entry ~files =
+  `Assoc [
+    "entry", `String entry ;
+    "files", `List (List.map (fun file -> `String file) files) ;
+    "web", `String conf.web ;
+    "share", `String conf.share ;
+  ]
+  |> script_safe_json
+
+let edit_button conf data =
+  if conf.web = "" || conf.share = "" then "" else
+  Printf.sprintf
+    {|  <script type="application/json" id="abella-project">%s</script>
+    <button type="button" class="edit-this" data-abella-share aria-label="Edit this in Abella Web" title="Edit this in Abella Web (uploads a 10-minute copy)"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
 |}
-        (html_escape href)
-  | _ -> ""
+    data
 
 let json_of_position (lft, rgt) =
   let open Lexing in
@@ -180,7 +195,7 @@ let dependency_closure file =
   visit file ;
   Hashtbl.fold (fun path () acc -> path :: acc) seen []
 
-let write_manifest conf root =
+let project_files root =
   let dir = Filename.dirname root in
   let files =
     dependency_closure (root ^ ".thm")
@@ -188,12 +203,7 @@ let write_manifest conf root =
     |> List.sort_uniq String.compare in
   let entry =
     Manifest.relative_path ~from:dir ~target:(root ^ ".thm") in
-  let json = Manifest.manifest_json ~entry ~files in
-  let manifest = root ^ ".project.json" in
-  let out = open_out_bin manifest in
-  output_string out (Json.to_string json) ;
-  close_out out ;
-  vprintf conf "MANIFEST: %s" manifest
+  (entry, files)
 
 let ignore_list = [ "node_modules" ; "build" ; "dist" ; "css" ; "js" ]
 
@@ -305,12 +315,13 @@ let main conf files =
     vprintf conf "RUN: %s" cmd ;
     if Sys.command cmd != 0 then
       failwithf "ERROR running: %s" cmd ;
+    let (entry, files) = project_files root in
+    let edit = edit_button conf (share_data conf ~entry ~files) in
     let htmlfile = root ^ ".html" in
     let ch = open_out_bin htmlfile in
-    output_string ch (thm_template (edit_link conf root) root) ;
+    output_string ch (thm_template edit root) ;
     close_out ch ;
-    vprintf conf "CREATE: %s" htmlfile ;
-    write_manifest conf root
+    vprintf conf "CREATE: %s" htmlfile
   end (List.rev !topo)
 
 (******************************************************************************)
@@ -357,7 +368,16 @@ let () =
       Arg.(value @@ opt string "https://abella-prover.org/web/" @@
            info ["web"] ~doc ~docv:"URL")
     in
-    Term.(const mk_conf $ abella $ recursive $ verbosity $ verbose $ web)
+    let share =
+      let doc =
+        "Upload the project to the ZIP Worker at $(docv) when the \
+         Edit this button is clicked. The default is the public \
+         Worker; pass an empty value to omit the button." in
+      Arg.(value @@ opt string "https://zips.abella-prover.org/" @@
+           info ["share"] ~doc ~docv:"URL")
+    in
+    Term.(const mk_conf $ abella $ recursive $ verbosity $ verbose $
+          web $ share)
   in
   let files =
     let doc = "An Abella $(b,.thm) file or a directory" in

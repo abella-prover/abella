@@ -163,8 +163,96 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   justify-content: center;
   padding: .25rem;
+  border: 0;
   border-radius: var(--radius);
+  background: none;
   color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.edit-this:disabled {
+  cursor: progress;
+  opacity: .6;
+}
+
+.edit-status {
+  width: calc(100% - 2rem);
+  max-width: var(--page-width);
+  margin: -.25rem auto .75rem;
+  color: var(--muted);
+  font-size: .85rem;
+}
+
+.edit-status[data-state="error"] {
+  color: var(--accent-strong);
+}
+
+dialog.edit-dialog {
+  width: min(34rem, calc(100vw - 2rem));
+  max-height: 80vh;
+  overflow: auto;
+  padding: 1rem 1.25rem 1.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+dialog.edit-dialog::backdrop {
+  background: rgb(15 10 12 / 45%);
+}
+
+.edit-dialog h2 {
+  margin: 0 0 .5rem;
+  font-size: 1.05rem;
+}
+
+.edit-dialog p {
+  margin: 0 0 1rem;
+  line-height: 1.45;
+}
+
+.edit-dialog code {
+  font-family: var(--font-mono);
+  font-size: .9em;
+  overflow-wrap: anywhere;
+}
+
+.edit-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+}
+
+.edit-dialog-actions button {
+  padding: .4rem .8rem;
+  border: 1px solid var(--border);
+  border-radius: .4rem;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.edit-dialog-actions button:hover {
+  background: var(--accent-soft);
+}
+
+.edit-dialog-actions button.edit-dialog-upload {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.edit-dialog-actions button.edit-dialog-upload:hover {
+  background: var(--accent-strong);
+}
+
+.edit-dialog-actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .edit-this svg {

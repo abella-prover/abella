@@ -406,6 +406,25 @@ summary:focus-visible,
   }
 }
 
+.status-waiting::before {
+  content: "";
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-right: 0.4em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  vertical-align: -0.05em;
+  animation: status-spin 0.8s linear infinite;
+}
+
+@keyframes status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .example-picker select {
   max-width: 22rem;
   border: 1px solid var(--border);

@@ -61,6 +61,14 @@ oauth-worker-check:
 oauth-worker-deploy:
 	( cd support/oauth-worker && npm ci && npm run deploy )
 
+.PHONY: share-worker-check
+share-worker-check:
+	( cd support/share-worker && npm ci && npm run check && npm test )
+
+.PHONY: share-worker-deploy
+share-worker-deploy:
+	( cd support/share-worker && npm ci && npm run deploy )
+
 support/ts/keywords.generated.ts: src/lexer.mll bin/abella_keywords.ml
 	$(DUNE) exec bin/abella_keywords.exe -- -o $@
 
@@ -86,7 +94,6 @@ publish-doc: examples/make.stamp
 	rsync -aviz \
 	  --exclude '*.thc' \
 	  --exclude '*.out' \
-	  --include '*.project.json' \
 	  --exclude '*.json' \
 	  --exclude '*.stamp' \
 	  --exclude '.gitignore' \

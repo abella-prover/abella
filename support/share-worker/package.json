@@ -1,0 +1,19 @@
+{
+  "name": "abella-web-zips-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "esbuild src/index.test.ts --bundle --platform=node --outfile=.test/index.test.cjs && node --test .test/index.test.cjs",
+    "dev": "wrangler dev --port 8788 --inspector-port 9230",
+    "deploy": "wrangler deploy --env production"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261023.1",
+    "@types/node": "^26.5.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.155.0"
+  }
+}

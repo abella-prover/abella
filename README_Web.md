@@ -82,44 +82,58 @@ cache; the hashes only protect subresources.
 Documentation pages
 -------------------
 
-`abella_doc` writes a version 2 `<theorem>.project.json` manifest next to
-every generated theorem page. The manifest names the theorem as `entry`
-and lists the transitive `.thm`, `.sig`, and `.mod` sources it needs,
-with paths relative to the manifest.
+`abella_doc` embeds the theorem's dependency closure in each generated
+theorem page and no longer writes `<theorem>.project.json`. The page's
+**Edit this** button opens Abella Web from any origin, including a
+local server or a personal host.
 
 When `--web` is set (the default is
-`https://abella-prover.org/web/`), the theorem page also gets an
-**Edit this** pencil icon next to its title, linking to
+`https://abella-prover.org/web/`) and `--share` is set (the default is
+`https://zips.abella-prover.org/`), the theorem page gets a pencil
+button. Clicking it:
 
-```
-<web>?project=<root-relative manifest URL>
-```
+1. fetches the `.thm`, `.sig`, and `.mod` files listed in the page
+   (they must be served next to the HTML);
+2. builds `project.json` and a zip in the browser;
+3. shows an in-page confirmation with the file count, total bytes, and
+   destination; no tab is opened before this;
+4. on **Upload**, opens `<web>?zip=<download-url>` in a new tab and
+   POSTs the zip to the share Worker.
 
-The manifest URL is the invocation path of the page with `/` prepended,
-so generate docs from the directory that `/` maps to: `make publish-doc`
-does this from the repository root. Pass `--web=/web/` for local
-testing, or `--web=` to omit the link.
+The Worker stores the zip in Workers KV with a 600-second expiration,
+so the link is short-lived and there is no R2 subscription or payment
+method. Abella Web treats a `404` as "KV has not propagated yet" and
+retries with backoff for up to 60 seconds; `410` means the link
+expired and `503` means the daily KV limit was reached.
 
-`?project=` is served by the read-only `SiteWorkspace` backend. It
-accepts only same-origin manifests (or an explicit host allow-list in
-`workspace-site.ts`), loads each listed source, and is satisfied with
-**Download zip** as the export path. The deployed CSP already needs
-`connect-src 'self'` for this.
+Pass `--share=` to omit the button for private docs. Pass
+`--web=` to omit it as well. The generated page does not need a
+manifest; the file list is embedded as JSON.
 
-Generate a page and serve the repository root to try it locally. Use an
-absolute `--web` URL if the page will be opened with `xdg-open`: the
-root-relative `/web/` form would otherwise resolve against `file://`.
+The deployed CSP must allow the share Worker in `connect-src`
+(`https://zips.abella-prover.org`). A doc page served with its own CSP
+needs the same origin in `connect-src`. `make publish-doc` still copies
+the raw sources because the browser fetches them when the button is
+clicked; it no longer includes `*.project.json`.
+
+Generate a page and serve the repository root to try it locally. Use
+absolute `--web` and `--share` URLs if the page will be opened with
+`xdg-open`: relative forms would resolve against `file://`.
 
 ```sh
 make web
 dune exec bin/abella_doc.exe -- \
-  --web=http://127.0.0.1:8000/web/ -r examples
+  --web=http://127.0.0.1:8000/web/ \
+  --share=http://127.0.0.1:8788 -r examples
 python3 -m http.server 8000        # or: make web-dev-local
 # open http://127.0.0.1:8000/examples/.../theorem.html
 ```
 
 Both servers expose `/web/` and `/examples/` from the repository root,
-so `--web=/web/` also works when the page is opened over HTTP.
+so `--web=/web/` also works when the page is opened over HTTP. The dev
+share Worker listens on `http://127.0.0.1:8788`; install its dependencies
+once with `(cd support/share-worker && npm ci)`. `file://` pages cannot
+fetch their source files and the button reports that clearly.
 
 GitHub authentication
 ---------------------

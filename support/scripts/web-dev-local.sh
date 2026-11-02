@@ -7,6 +7,7 @@ set -eu
 session=${WEB_DEV_SESSION:-abella-web-dev}
 port=${WEB_DEV_PORT:-8000}
 oauth_port=8787
+share_port=8788
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 self=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/$(basename -- "$0")
 
@@ -22,12 +23,23 @@ quote() {
 free_port() {
   python3 - "$1" <<'EOF'
 import socket, sys
-sock = socket.socket()
-sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-try:
-    sock.bind(("127.0.0.1", int(sys.argv[1])))
-except OSError:
-    sys.exit(1)
+
+port = int(sys.argv[1])
+for family, host in (
+    (socket.AF_INET, "127.0.0.1"),
+    (socket.AF_INET6, "::1"),
+):
+    try:
+        sock = socket.socket(family, socket.SOCK_STREAM)
+    except OSError:
+        continue
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind((host, port))
+    except OSError:
+        sys.exit(1)
+    finally:
+        sock.close()
 EOF
 }
 
@@ -51,8 +63,11 @@ teardown() {
 enter_session() {
   if [ -n "${TMUX:-}" ]; then
     tmux switch-client -t "=$1:"
+  elif ! tmux attach -t "=$1:"; then
+    echo "web-dev-local: session '$1' is running;" >&2
+    echo "  attach with: tmux attach -t $1" >&2
+    exit 1
   else
-    tmux attach -t "=$1:"
     echo "web-dev-local: session '$1' ended"
   fi
 }
@@ -90,15 +105,20 @@ fi
   die "missing support/oauth-worker/.dev.vars"
 [ -x "$root/support/oauth-worker/node_modules/.bin/wrangler" ] ||
   die "run: (cd support/oauth-worker && npm ci)"
+[ -x "$root/support/share-worker/node_modules/.bin/wrangler" ] ||
+  die "run: (cd support/share-worker && npm ci)"
 [ -f "$root/web/abella_web.js" ] ||
   die "web/ is not built; run: make web-dev"
 [ -f "$root/web/examples/bundle.json" ] ||
   die "examples bundle missing; run: make web-bundle"
 free_port "$port" || die "port $port is already in use"
 free_port "$oauth_port" || die "port $oauth_port is already in use"
+free_port "$share_port" || die "port $share_port is already in use"
+free_port 9229 || die "inspector port 9229 is already in use"
+free_port 9230 || die "inspector port 9230 is already in use"
 
 # Serve only web/ and examples/, at the same URLs the deployed site uses,
-# so doc-site manifests and the app share an origin.
+# so the generated doc pages and the app share an origin.
 site=$root/_build/web-dev-local
 rm -rf "$site"
 mkdir -p "$site"
@@ -118,13 +138,16 @@ tmux split-window -h -t "$session":0.0 -c "$root/support/oauth-worker" \
 # root above exposes only those two trees.
 tmux split-window -v -t "$session":0.1 -c "$site" \
   "python3 -m http.server $port --bind 127.0.0.1"
+tmux split-window -v -t "$session":0.2 -c "$root/support/share-worker" \
+  'npm run dev'
 tmux select-layout -t "$session" main-vertical
 
 tmux set-option -wt "$session" remain-on-exit on
 tmux set-option -wt "$session" pane-border-status top
 tmux select-pane -t "$session":0.0 -T shell
-tmux select-pane -t "$session":0.1 -T worker
+tmux select-pane -t "$session":0.1 -T oauth-worker
 tmux select-pane -t "$session":0.2 -T server
+tmux select-pane -t "$session":0.3 -T share-worker
 
 # A dead pane only closes itself, so the hook tears down the session.
 tmux set-hook -t "$session" pane-died \

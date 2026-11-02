@@ -196,7 +196,6 @@ function formatBytes(bytes: number): string {
 export interface UploadConfirmation {
   files: number;
   bytes: number;
-  origin: string;
 }
 
 interface ConfirmationResult {
@@ -219,11 +218,9 @@ function confirmUpload(
     const text = document.createElement("p");
     text.append(
       `Upload ${details.files} file${details.files === 1 ? "" : "s"} ` +
-        `(${formatBytes(details.bytes)}) to `
+        `(${formatBytes(details.bytes)}) to Abella Web? ` +
+        "The link expires in 10 minutes."
     );
-    const origin = document.createElement("code");
-    origin.textContent = details.origin;
-    text.append(origin, ". The link expires in 10 minutes.");
 
     const actions = document.createElement("div");
     actions.className = "edit-dialog-actions";
@@ -327,7 +324,6 @@ export function installProjectShare(options: ShareOptions = {}): void {
       const confirmation = await confirmUpload({
         files: data.files.length,
         bytes: totalBytes,
-        origin: withBase(data.share, baseUrl).origin,
       });
       if (!confirmation.confirmed) {
         setStatus("Upload cancelled.");

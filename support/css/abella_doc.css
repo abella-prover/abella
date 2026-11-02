@@ -214,12 +214,6 @@ dialog.edit-dialog::backdrop {
   line-height: 1.45;
 }
 
-.edit-dialog code {
-  font-family: var(--font-mono);
-  font-size: .9em;
-  overflow-wrap: anywhere;
-}
-
 .edit-dialog-actions {
   display: flex;
   justify-content: flex-end;

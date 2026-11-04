@@ -109,18 +109,20 @@ let process_top_command str =
         close_types !sign !clauses ids
     | _ -> assert false
 
-let () = process_top_command "Type   foo, bar, baz         i -> prop."
-let () = process_top_command "Type   poly                A -> prop."
-let () = process_top_command "Type   rel1, rel2, rel3      i -> i -> prop."
-let () = process_top_command "Type   ctx                   olist -> prop."
+let () = process_top_command "Type   foo, bar, baz     i -> prop."
+let () = process_top_command "Type   poly              A -> prop."
+let () = process_top_command "Type   ho_decl           (prop -> prop) -> prop."
+let () = process_top_command "Type   russell_d         prop."
+let () = process_top_command "Type   rel1, rel2, rel3  i -> i -> prop."
+let () = process_top_command "Type   ctx               olist -> prop."
 
 (* A kind with a single constant, used to test that a logic variable is not
    provably different from that constant (see issue #170). *)
-let () = process_top_command "Kind   issue170              type."
-let () = process_top_command "Type   only_a                issue170."
+let () = process_top_command "Kind   issue170          type."
+let () = process_top_command "Type   only_a            issue170."
 
 (* For subordination tests *)
-let () = process_top_command "Kind     sr_a, sr_b     type."
+let () = process_top_command "Kind     sr_a, sr_b      type."
 let () = process_top_command "Type     a_to_b   sr_a -> sr_b."
 let () = process_top_command "Type     sr_a_b   sr_a -> sr_b -> prop."
 let () = process_top_command "Close    sr_a, sr_b."

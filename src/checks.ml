@@ -74,7 +74,11 @@ let add_sgn preds p posity =
   in
   Itab.add p posity preds
 
-let get_pred_occurrences mt =
+let contains_prop_argument ty =
+  let Ty(tys, _) = observe_ty ty in
+  List.exists contains_prop tys
+
+let get_pred_occurrences ~is_defined mt =
   let preds = ref Iset.empty in
   let rec aux_term t =
     match observe (hnorm t) with
@@ -87,8 +91,29 @@ let get_pred_occurrences mt =
     | Var _ | DB _ -> ()
     | _ -> assert false
   in
+  let rec aux_defined_term t =
+    match observe (hnorm t) with
+    | Var v when contains_prop v.ty && is_defined v.Term.name ->
+        preds := Iset.add v.Term.name !preds
+    | App (t, ts) ->
+        aux_defined_term t ; List.iter aux_defined_term ts
+    | Lam (_, t) ->
+        aux_defined_term t
+    | Var _ | DB _ -> ()
+    | _ -> assert false
+  in
+  let check_declared_head t =
+    match term_head t with
+    | Some (head, args) ->
+        let v = term_to_var head in
+        if v.tag = Constant && not (is_defined v.name) &&
+           contains_prop_argument v.ty then
+          List.iter aux_defined_term args
+    | None -> ()
+  in
   iter_preds begin fun ~parity:_ ~posity t ->
-    if posity = NONPOS then aux_term t
+    if posity = NONPOS then aux_term t ;
+    check_declared_head t
   end mt ;
   !preds
 
@@ -119,10 +144,11 @@ let ensure_wellformed_head t =
       failwithf "Invalid head in definition: %s"
         (metaterm_to_string t)
 
-let check_well_formed ~def =
+let check_well_formed
+    ?(errors=stratification_warnings_are_errors) ~def ~is_defined () =
   let check_clause clauseno {head ; body} =
     let clauseno = clauseno + 1 in
-    let nonposities = get_pred_occurrences body in
+    let nonposities = get_pred_occurrences ~is_defined body in
     let is_ho_var (v, ty) = if contains_prop ty then Some (v, ty) else None in
     let ho_names = def_head_args head |>
                    capital_tids |>
@@ -152,12 +178,13 @@ let check_well_formed ~def =
                higher-order parameters in clause #%d:\n" clauseno
             ^ msgs
         in
-        if stratification_warnings_are_errors then failwith msg
+        if errors then failwith msg
         else Output.msg_printf ("" ^^ "Warning: %s\n%!") msg
   in
   List.iteri check_clause def.clauses
 
-let check_def ~def =
+let check_def
+    ?(errors=stratification_warnings_are_errors) ~def ~is_defined () =
   Itab.iter (fun nm _ -> ensure_not_capital nm) def.mutual ;
   List.iter begin fun {head ; body} ->
     let head_pred = def_head_name head in
@@ -167,7 +194,7 @@ let check_def ~def =
     ensure_no_restrictions head ;
     ensure_no_restrictions body ;
   end def.clauses ;
-  check_well_formed ~def
+  check_well_formed ~errors ~def ~is_defined ()
 
 (** The list of type parameters of a definition must be
     exactly those occuring in the type of the constants being defined *)

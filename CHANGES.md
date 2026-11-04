@@ -86,6 +86,8 @@ Bugfixes
 * `Split` now propagates the source theorem's tag: `Finished` (ordinary
   theorem), `Unfinished` (proofs containing `skip`), or `Axiomatic` (for
   `Axiom`s)
+* Stratification checks now inspect defined predicates passed to declared
+  higher-order predicates, and can be configured as hard errors.
 
 
 Changes in 2.0.8 from 2.0.7

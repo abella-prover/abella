@@ -73,6 +73,41 @@ let unifyty ty1 ty2 =
   | InstGenericTyvar (v, ty) ->
      raise (UnifyError (InstGenericTyvar (v, ty)))
 
+(* Compatibility test for case analysis. A successful test keeps the
+   Typtr bindings it makes. A ground mismatch rolls the bindings back
+   and returns false. An attempted generic instantiation rolls the
+   bindings back and propagates the error. *)
+let unifyty_compat ty1 ty2 =
+  let state = get_scoped_bind_state () in
+  try
+    match unifyty ty1 ty2 with
+    | true -> true
+    | false ->
+        set_scoped_bind_state state;
+        false
+  with e ->
+    set_scoped_bind_state state;
+    raise e
+
+let unifyty_list_compat tys1 tys2 =
+  let state = get_scoped_bind_state () in
+  let rec aux tys1 tys2 =
+    match tys1, tys2 with
+    | [], [] -> true
+    | ty1 :: tys1, ty2 :: tys2 ->
+        unifyty_compat ty1 ty2 && aux tys1 tys2
+    | _ -> false
+  in
+  try
+    match aux tys1 tys2 with
+    | true -> true
+    | false ->
+        set_scoped_bind_state state;
+        false
+  with e ->
+    set_scoped_bind_state state;
+    raise e
+
 let db_type tyctx i = snd (List.nth tyctx (i - 1))
 
 (* An explicit handler is specified for how to deal with
@@ -862,22 +897,30 @@ let flexible_heads ~used ~sr (tys1, h1, a1) (tys2, h2, a2) =
 
   (* Projection *)
   let projections =
-    let n = a1n + (n2 - n1) in
-    let bty = match observe_ty hv1.ty with Ty(tys, ty) -> Ty(List.drop n tys, ty) in
-    let bn = match bty with Ty(tys, _) -> List.length tys in
-      List.filter_map
-        (fun (_a, aty, i) ->
-           let Ty(tys, ty) = aty in
-           let use = List.drop_last bn tys in
-           let leave = List.take_last bn tys in
-             if eq_ty (Ty(leave, ty)) bty then
-               Some
-                 (lambda (a1ctx @ tys2')
-                    (app (db (n-i))
-                       (create_raised_vars (a1tys @ (get_ctx_tys tys2')) use)))
-             else
-               None)
-        (List.combine3 a1 a1tys (List.range 0 (a1n - 1)))
+    let state = get_scoped_bind_state () in
+    try
+      let n = a1n + (n2 - n1) in
+      let bty =
+        match observe_ty hv1.ty with Ty(tys, ty) -> Ty(List.drop n tys, ty)
+      in
+      let bn = match bty with Ty(tys, _) -> List.length tys in
+        List.filter_map
+          (fun (_a, aty, i) ->
+             let Ty(tys, ty) = aty in
+             let use = List.drop_last bn tys in
+             let leave = List.take_last bn tys in
+               if unifyty_compat (Ty(leave, ty)) bty then
+                 Some
+                   (lambda (a1ctx @ tys2')
+                      (app (db (n-i))
+                         (create_raised_vars
+                            (a1tys @ (get_ctx_tys tys2')) use)))
+               else
+                 None)
+          (List.combine3 a1 a1tys (List.range 0 (a1n - 1)))
+    with e ->
+      set_scoped_bind_state state;
+      raise e
   in
 
   (* Final results *)

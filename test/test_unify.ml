@@ -37,6 +37,18 @@ let assert_raises_unify_failure f =
   with
     | UnifyFailure _ -> ()
 
+let assert_raises_inst_generic f =
+  try
+    f () ;
+    Alcotest.fail "Expected InstGenericTyvar"
+  with
+    | UnifyError (InstGenericTyvar _) -> ()
+
+let is_unbound_tyvar ty =
+  match observe_ty ty with
+  | Ty ([], Typtr {contents = TV _}) -> true
+  | _ -> false
+
 (* Tests from Nadathur's SML implementation *)
 let tests =
   suite "Unify" [
@@ -763,5 +775,53 @@ let tests =
                | None -> Alcotest.fail "Unification failed" );
 
       *)
+
+      test_case "Flex-rigid projection with a generic type fails"
+        (fun () ->
+           let generic = tybase (Tygenvar "A") in
+           let r = var Eigen "R" 0 (tyarrow [generic] ity) in
+           let a = var Eigen "A1" 0 generic in
+           let c = var Constant "c" 0 (tyarrow [generic] ity) in
+           let used = [("R", r); ("A1", a)] in
+             assert_raises_inst_generic
+               (fun () ->
+                  ignore
+                    (left_flexible_heads ~used ~sr:Subordination.empty
+                       ([], r, [a]) ([], c, [a]))) );
+
+      test_case "Flex-rigid projection with a ground type is found"
+        (fun () ->
+           let r = var Eigen "R" 0 iity in
+           let a = var Eigen "A1" 0 ity in
+           let c = var Constant "c" 0 iity in
+           let used = [("R", r); ("A1", a)] in
+             match
+               left_flexible_heads ~used ~sr:Subordination.empty
+                 ([], r, [a]) ([], c, [a])
+             with
+               | [_; projection] ->
+                   assert_term_pprint_equal "x1\\x1" projection
+               | ts ->
+                   Alcotest.check Alcotest.int "ints differ" 2
+                     (List.length ts) );
+
+      test_case "Type compatibility rolls back a failed list"
+        (fun () ->
+           let tv = fresh_tyvar () in
+           let generic = tybase (Tygenvar "A") in
+             assert_raises_inst_generic
+               (fun () ->
+                  ignore
+                    (unifyty_list_compat [tv; generic] [ity; ity])) ;
+             Alcotest.check Alcotest.bool "type binding leaked" true
+               (is_unbound_tyvar tv) );
+
+      test_case "Type compatibility keeps successful bindings"
+        (fun () ->
+           let tv = fresh_tyvar () in
+             Alcotest.check Alcotest.bool "should unify" true
+               (unifyty_compat tv ity) ;
+             Alcotest.check Alcotest.bool "type binding missing" false
+               (is_unbound_tyvar tv) );
 
     ]

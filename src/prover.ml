@@ -930,8 +930,13 @@ let case_subgoals str =
   in
   let term = get_stmt_clearly str in
   let (mutual, defs) = def_unfold term in
-  Tactics.case ~used:sequent.vars ~sr:!sr ~clauses:!clauses
-    ~mutual ~defs ~global_support term
+  let state = get_scoped_bind_state () in
+  try
+    Tactics.case ~used:sequent.vars ~sr:!sr ~clauses:!clauses
+      ~mutual ~defs ~global_support term
+  with e ->
+    set_scoped_bind_state state;
+    raise e
 
 let case ?name h =
   let cases = case_subgoals h in

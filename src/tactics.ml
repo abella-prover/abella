@@ -336,8 +336,10 @@ let one_step_huet ~used ~sr a b =
         else None
       end
   in
-  if terms_contain_tyvar [a; b] then
-    (* If the terms involved are of polymorphic types, then do nothing *)
+  if terms_contain_tyvar [a; b] || terms_contain_gentyvar [a; b] then
+    (* If the terms involved are of polymorphic types, then do nothing.
+       Generic type variables must take the same conservative path:
+       instantiating them during the case split is not allowed. *)
     [{ bind_state = get_bind_state () ;
        new_vars = [] ;
        new_hyps = [Eq(a, b)] }]
@@ -447,7 +449,7 @@ let msg_cannot_fully_infer_prog_clause head body =
     (String.concat "," (List.map term_to_string body))
 
 
-let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
+let case_aux ~used ~sr ~clauses ~mutual ~defs ~global_support term =
   let support = metaterm_support term in
   let def_case ~wrapper term =
     let make_case ~support ~used (head, body) term =
@@ -492,14 +494,15 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
             let head = replace_term_vars (List.combine rids nominals) head in
             let (pids, ptys) = List.split (List.minus tids raised) in
             List.permute (List.length pids) support |>
-            List.find_all (fun permuted ->
-                List.for_all2 eq_ty ptys (List.map (tc []) permuted)) |>
             List.flatten_map ~guard:unwind_state begin fun permuted ->
-              let support = List.minus support permuted in
-              let head =
-                replace_term_vars (List.combine pids permuted) head
-              in
-              make_case ~support ~used (head, body) term
+              let permuted_tys = List.map (tc []) permuted in
+              if not (unifyty_list_compat ptys permuted_tys) then []
+              else
+                let support = List.minus support permuted in
+                let head =
+                  replace_term_vars (List.combine pids permuted) head
+                in
+                make_case ~support ~used (head, body) term
             end
           end
         end
@@ -622,6 +625,13 @@ let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
         (recursive_metaterm_case ~used ~sr term)
   | _ ->
       failwith "Cannot perform case-analysis on this kind of formula"
+
+let case ~used ~sr ~clauses ~mutual ~defs ~global_support term =
+  let state = get_scoped_bind_state () in
+  try case_aux ~used ~sr ~clauses ~mutual ~defs ~global_support term
+  with e ->
+    set_scoped_bind_state state;
+    raise e
 
 (* Induction *)
 

@@ -1053,6 +1053,58 @@ let case_tests = [
                | cases -> assert_expected_cases 2 cases
         );
 
+      test_case "Generic equality case stays a conflict pair"
+        (fun () ->
+           let generic = tybase (Tygenvar "A") in
+           let r = var Eigen "R" 0 (tyarrow [generic] ity) in
+           let a = var Eigen "A1" 0 generic in
+           let c = var Constant "c" 0 (tyarrow [generic] ity) in
+           let term = Eq(r ^^ [a], c ^^ [a]) in
+             match case ~used:[] term with
+               | [{new_hyps=[hyp]; _}] -> assert_metaterm_equal term hyp
+               | cases -> assert_expected_cases 1 cases) ;
+
+      test_case "Nabla head case needs a generic instantiation"
+        (fun () ->
+           let generic = tybase (Tygenvar "A") in
+           let tv = fresh_tyvar () in
+           let tids = [("x", tv); ("y", generic)] in
+           let foo = const "foo" (tyarrow [ity; ity] propty) in
+           let args = List.map (fun (id, ty) -> const id ty) tids in
+           let head = Binding(Nabla, tids, Pred(foo ^^ args, Irrelevant)) in
+           let defs = [Abella_types.{head = head; body = True}] in
+           let n1 = nominal_var "n1" ity in
+           let n2 = nominal_var "n2" ity in
+           let term = Pred(foo ^^ [n1; n2], Irrelevant) in
+           let raised_generic =
+             try
+               ignore
+                 (case ~used:[] ~defs ~global_support:[n1; n2] term) ;
+               false
+             with
+             | UnifyError (InstGenericTyvar _) -> true
+           in
+             Alcotest.check Alcotest.bool "Expected generic type error" true
+               raised_generic ;
+             Alcotest.check Alcotest.bool "type binding leaked" true
+               (match observe_ty tv with
+                | Ty ([], Typtr {contents = TV _}) -> true
+                | _ -> false)) ;
+
+      test_case "Nabla head case with ground types succeeds"
+        (fun () ->
+           let tids = [("x", aty); ("y", bty)] in
+           let foo = const "foo" (tyarrow [aty; bty] propty) in
+           let args = List.map (fun (id, ty) -> const id ty) tids in
+           let head = Binding(Nabla, tids, Pred(foo ^^ args, Irrelevant)) in
+           let defs = [Abella_types.{head = head; body = True}] in
+           let n1 = nominal_var "n1" aty in
+           let n2 = nominal_var "n2" bty in
+           let term = Pred(foo ^^ [n1; n2], Irrelevant) in
+             match case ~used:[] ~defs term with
+               | [] -> Alcotest.fail "Expected at least one case"
+               | _ -> ()) ;
+
     ]
 
 let induction_tests = [

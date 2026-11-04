@@ -45,6 +45,9 @@ val left_unify : ?used:(id * term) list -> term -> term -> unit
 
 val unifyty : ty -> ty -> bool
 
+val unifyty_compat : ty -> ty -> bool
+val unifyty_list_compat : ty list -> ty list -> bool
+
 val try_with_state : fail:'a -> (unit -> 'a) -> 'a
 
 val try_right_unify : ?used:(id * term) list -> term -> term -> bool

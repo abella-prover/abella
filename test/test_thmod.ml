@@ -1095,6 +1095,111 @@ End InternalKey.
     end
   end
 
+let test_tags_split_and_import () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      let bytes = native_compile_thmod dir "Tags" {|
+Module Tags.
+  Kind u type.
+  Type p u -> prop.
+  Axiom ax : forall (x:u), p x /\ p x.
+  Split ax.
+  Theorem skip_t : forall (x:u), p x /\ p x.
+  intros. skip.
+  Split skip_t.
+End Tags.
+|} in
+      let (_, _, content, _, _) = read_thmod_values bytes in
+      let has_tag name tag =
+        List.exists begin function
+          | CTheorem (n, _, _, fin) -> n = name && fin = tag
+          | _ -> false
+        end content
+      in
+      Alcotest.check Alcotest.bool "axiom tag" true
+        (has_tag "ax" Axiomatic) ;
+      Alcotest.check Alcotest.bool "split axiom tag" true
+        (has_tag "ax1" Axiomatic) ;
+      Alcotest.check Alcotest.bool "skip tag" true
+        (has_tag "skip_t" Unfinished) ;
+      Alcotest.check Alcotest.bool "split skip tag" true
+        (has_tag "skip_t1" Unfinished) ;
+      let axioms = List.unique !(D.Setup.axioms) in
+      let unfinished = List.unique !(D.Setup.unfinished) in
+      Alcotest.check (Alcotest.list Alcotest.string) "reported axioms"
+        ["ax"] (List.sort String.compare axioms) ;
+      Alcotest.check (Alcotest.list Alcotest.string) "reported skips"
+        ["skip_t"; "skip_t1"; "skip_t2"]
+        (List.sort String.compare unfinished) ;
+      let bytes = native_compile_thmod dir "UseTags" {|
+Module UseTags.
+  Import Module T = "Tags".
+End UseTags.
+|} in
+      let (_, _, content, _, _) = read_thmod_values bytes in
+      let has_tag name tag =
+        List.exists begin function
+          | CTheorem (n, _, _, fin) -> n = name && fin = tag
+          | _ -> false
+        end content
+      in
+      Alcotest.check Alcotest.bool "imported axiom tag" true
+        (has_tag "T.ax" Axiomatic) ;
+      Alcotest.check Alcotest.bool "imported split axiom tag" true
+        (has_tag "T.ax1" Axiomatic) ;
+      Alcotest.check Alcotest.bool "imported skip tag" true
+        (has_tag "T.skip_t" Unfinished) ;
+      let axioms = List.unique !(D.Setup.axioms) in
+      let unfinished = List.unique !(D.Setup.unfinished) in
+      Alcotest.check Alcotest.bool "imported axioms reported" true
+        (List.mem "T.ax1" axioms) ;
+      Alcotest.check Alcotest.bool "imported skips not reported" false
+        (List.mem "T.skip_t" unfinished)
+    end
+  end
+
+let test_tags_alias () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      ignore (native_compile_thmod dir "Eq6" {|
+Module Eq6[T].
+  Type eq T -> T -> prop.
+  Axiom refl : forall (x:T), eq x x.
+End Eq6.
+|}) ;
+      let bytes = native_compile_thmod dir "UseEq6" {|
+Module UseEq6.
+  Kind u type.
+  Define eq_u : u -> u -> prop by
+    eq_u X X.
+  Theorem refl_u : forall (x:u), eq_u x x.
+  intros. search.
+  Define eq_v : u -> u -> prop by
+    eq_v X X.
+  Axiom refl_ax : forall (x:u), eq_v x x.
+  Import Module A = "Eq6"[u] with eq := eq_u, refl := refl_u.
+  Import Module B = "Eq6"[u] with eq := eq_v, refl := refl_ax.
+End UseEq6.
+|} in
+      let (_, _, content, _, _) = read_thmod_values bytes in
+      let has_tag name tag =
+        List.exists begin function
+          | CTheorem (n, _, _, fin) -> n = name && fin = tag
+          | _ -> false
+        end content
+      in
+      Alcotest.check Alcotest.bool "finished alias tag" true
+        (has_tag "A.refl" Finished) ;
+      Alcotest.check Alcotest.bool "axiomatic alias tag" true
+        (has_tag "B.refl" Axiomatic) ;
+      let axioms = List.unique !(D.Setup.axioms) in
+      Alcotest.check Alcotest.bool "finished alias not reported" false
+        (List.mem "A.refl" axioms) ;
+      Alcotest.check Alcotest.bool "axiomatic alias reported" true
+        (List.mem "B.refl" axioms)
+    end
+  end
+
 let tests =
   suite "thmod" [
       test_case "read_thmod defaults" test_read_thmod_defaults ;
@@ -1114,4 +1219,6 @@ let tests =
       test_case "import multiple instances" test_import_multiple_instances ;
       test_case "import thm flattening" test_import_thm_flattening ;
       test_case "import errors" test_import_errors ;
+      test_case "tags split and import" test_tags_split_and_import ;
+      test_case "tags alias" test_tags_alias ;
     ]

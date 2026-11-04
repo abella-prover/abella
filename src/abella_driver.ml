@@ -970,9 +970,6 @@ let value_of_item item =
   | Thmod.AxiomItem | Thmod.TheoremItem ->
       let (tys, stmt) = Prover.get_generic_lemma item.Thmod.item_name in
       let tag = Prover.get_lemma_tag item.Thmod.item_name in
-      if tag = Unfinished then
-        failwithf "Theorem %s is unfinished and cannot be used as an axiom"
-          item.Thmod.item_name ;
       AxiomValue {
         av_name = item.Thmod.item_name ;
         av_typarams = tys ;
@@ -1007,10 +1004,6 @@ let value_of_name ~predicate name =
           try
             let (tys, stmt) = Prover.get_generic_lemma name in
             let tag = Prover.get_lemma_tag name in
-            if tag = Unfinished then
-              failwithf
-                "Theorem %s is unfinished and cannot be used as an axiom"
-                name ;
             AxiomValue {
               av_name = name ;
               av_typarams = tys ;
@@ -1215,6 +1208,10 @@ let import_module mi =
       in
       begin match key.rk_predicate, value with
       | true, PredValue _ -> ()
+      | false, AxiomValue axiom when axiom.av_tag = Unfinished ->
+          failwithf
+            "Axiom key %s cannot use the unfinished theorem %s"
+            key.rk_source axiom.av_name
       | false, AxiomValue _ -> ()
       | true, AxiomValue _ ->
           failwithf "Predicate key %s requires a predicate value" key.rk_source
@@ -1599,7 +1596,7 @@ let rec process1 () =
         | Process_top ->
             if not (is_interactive ()) && !Setup.unfinished <> [] then begin
               Output.msg_printf "There were skips in these theorem(s): %s"
-                (String.concat ", "  !Setup.unfinished)
+                (String.concat ", " (List.unique !Setup.unfinished))
             end ;
             if not (is_interactive ()) && !Setup.axioms <> [] then begin
               Output.msg_printf "The following axioms were used: %s"

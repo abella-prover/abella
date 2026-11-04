@@ -336,6 +336,88 @@ let tests =
              Alcotest.check Alcotest.bool "type binding leaked" true
                (eq_ty (observe_ty tv1) tv1)) ;
 
+      test_case "tids_unifyable restores type bindings on success"
+        (fun () ->
+           let tv1 = fresh_tyvar () in
+           let tv2 = fresh_tyvar () in
+             Alcotest.check Alcotest.bool "should unify" true
+               (tids_unifyable [("x", tv1)] [("x", tv2)]) ;
+             Alcotest.check Alcotest.bool "type binding leaked" true
+               (eq_ty (observe_ty tv1) tv1)) ;
+
+      test_case "tids_unifyable restores partial bindings on failure"
+        (fun () ->
+           let tv1 = fresh_tyvar () in
+           let tv2 = fresh_tyvar () in
+           let natty = tybase (atybase "nat") in
+             Alcotest.check Alcotest.bool "should not unify" false
+               (tids_unifyable
+                  [("x", tv1); ("y", natty)]
+                  [("x", tv2); ("y", ity)]) ;
+             Alcotest.check Alcotest.bool "type binding leaked" true
+               (eq_ty (observe_ty tv1) tv1)) ;
+
+      test_case "Meta right unify - rigid binder type rejects binding"
+        (fun () ->
+           assert_raises_unify_failure
+             (fun () ->
+                assert_metaterm_unify
+                  "forall (x:A), poly x"
+                  "forall (x:nat), poly x")) ;
+
+      test_case "Meta right unify - fresh binder type may be bound"
+        (fun () ->
+           let tv = fresh_tyvar () in
+           let natty = tybase (atybase "nat") in
+           let forall_p binder_ty =
+             let p = const "p" (tyarrow [binder_ty] propty) in
+             let x = const "x" binder_ty in
+             Binding(Forall, [("x", binder_ty)],
+                     Pred(p ^^ [x], Irrelevant))
+           in
+             meta_right_unify (forall_p tv) (forall_p natty)) ;
+
+      test_case "Meta right unify - fresh binder types unify pairwise"
+        (fun () ->
+           let tv1 = fresh_tyvar () in
+           let tv2 = fresh_tyvar () in
+           let forall_p binder_ty =
+             let p = const "p" (tyarrow [binder_ty] propty) in
+             let x = const "x" binder_ty in
+             Binding(Forall, [("x", binder_ty)],
+                     Pred(p ^^ [x], Irrelevant))
+           in
+             meta_right_unify (forall_p tv1) (forall_p tv2) ;
+             Alcotest.check Alcotest.bool "binder types did not unify" true
+               (eq_ty (observe_ty tv1) (observe_ty tv2))) ;
+
+      test_case "Meta right unify - binder types unify when bodies agree"
+        (fun () ->
+           let tv1 = fresh_tyvar () in
+           let tv2 = fresh_tyvar () in
+             meta_right_unify
+               (Binding(Forall, [("x", tv1)], True))
+               (Binding(Forall, [("x", tv2)], True)) ;
+             Alcotest.check Alcotest.bool "binder types did not unify" true
+               (eq_ty (observe_ty tv1) (observe_ty tv2))) ;
+
+      test_case "Meta right unify - failed binding unification rolls back"
+        (fun () ->
+           let tv1 = fresh_tyvar () in
+           let tv2 = fresh_tyvar () in
+           let t1 =
+             Binding(Forall, [("x", tv1)],
+                     Pred(const "x" tv1, Irrelevant))
+           in
+           let t2 =
+             Binding(Forall, [("x", tv2)],
+                     Pred(const "z" tv2, Irrelevant))
+           in
+             Alcotest.check Alcotest.bool "should fail" false
+               (try_meta_right_unify t1 t2) ;
+             Alcotest.check Alcotest.bool "type binding leaked" true
+               (eq_ty (observe_ty tv1) tv1)) ;
+
       test_case "Fresh raised alist with subordination"
         (fun () ->
            let tm = tybase (atybase "tm") in

@@ -852,14 +852,27 @@ let rec meta_right_unify t1 t2 =
       when b1 = b2 &&
            List.length tids1 = List.length tids2 &&
            tids_unifyable tids1 tids2 ->
+        List.iter2
+          (fun (_, ty1) (_, ty2) ->
+             if not (unifyty ty1 ty2) then raise (UnifyFailure Generic))
+          tids1 tids2 ;
         (* Replace bound variables with constants with "infinite"
            timestamp. This prevents illegal variable capture.
-           We use max_int-1 since max_int is for nominal constants. *)
-        let new_bindings =
+           We use max_int-1 since max_int is for nominal constants.
+           Each side keeps its own binder type; the shared names let
+           unification check that those types are compatible. *)
+        let new_bindings1 =
           List.map (fun (_, ty) -> fresh ~tag:Constant (max_int-1) ty) tids1
         in
-        let alist1 = List.combine (List.map fst tids1) new_bindings in
-        let alist2 = List.combine (List.map fst tids2) new_bindings in
+        let new_bindings2 =
+          List.map2
+            (fun binding1 (_, ty) ->
+               let v1 = term_to_var binding1 in
+               var Constant v1.name (max_int-1) ty)
+            new_bindings1 tids2
+        in
+        let alist1 = List.combine (List.map fst tids1) new_bindings1 in
+        let alist2 = List.combine (List.map fst tids2) new_bindings2 in
         meta_right_unify
           (replace_metaterm_vars alist1 t1)
           (replace_metaterm_vars alist2 t2)
@@ -871,11 +884,15 @@ and tids_unifyable tids1 tids2 =
   let prob : Unifyty.constraints =
     List.map2 (fun ty1 ty2 -> (ty1, ty2, Unifyty.(ghost_pos, CArg))) tys1 tys2 in
   let bstate = get_scoped_bind_state () in
-  match Unifyty.unify_constraints prob with
-  | _ -> true
-  | exception _ ->
-      set_scoped_bind_state bstate ;
-      false
+  let result =
+    try
+      let _ = Unifyty.unify_constraints ~enable_bind:true prob in
+      true
+    with
+    | _ -> false
+  in
+  set_scoped_bind_state bstate ;
+  result
 
 let try_meta_right_unify t1 t2 =
   try_with_state ~fail:false

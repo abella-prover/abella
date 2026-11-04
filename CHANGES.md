@@ -78,6 +78,9 @@ Bugfixes
 * Meta-right-unification now checks binder and operand types, so
   differently typed statements are not accepted as equal.
   ***SOUNDNESS BUG***
+* Meta-right-unification no longer leaks tentative type bindings from
+  its binder compatibility check, and compares each body under that
+  side's own binder type.
 
 
 Changes in 2.0.8 from 2.0.7

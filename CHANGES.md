@@ -90,6 +90,8 @@ Bugfixes
   higher-order predicates, and can be configured as hard errors.
 * Subordination checks now reject new edges between separately closed types.
 * Diagnostics and relative imports now use the real input file name.
+* Compiled declarations now store declaration-local type parameters
+  explicitly; existing `.thc` files are recompiled.
 
 
 Changes in 2.0.8 from 2.0.7

@@ -41,6 +41,10 @@ module Setup = struct
   let axioms : string list ref = State.rref []
   let import_mode : [`thc | `source | `auto] ref = ref `thc
   let trust_compiled : bool ref = ref false
+  let file_kind : [`thm | `thmod] ref = ref `thm
+  let thmod_name : string option ref = State.rref None
+  let thmod_params : string list ref = State.rref []
+  let thmod_finished : bool ref = State.rref false
 end
 
 let on_import : (string -> unit) option ref = ref None
@@ -66,7 +70,11 @@ let perform_switch_to_interactive () =
   Setup.mode := `interactive ;
   Output.(dest := Channel stdout) ;
   Output.msg_printf "Switching to interactive mode." ;
-  State.Undo.undo ()
+  State.Undo.undo () ;
+  Setup.file_kind := `thm ;
+  Setup.thmod_name := None ;
+  Setup.thmod_params := [] ;
+  Setup.thmod_finished := false
 
 let interactive_or_exit () =
   match !Setup.mode with
@@ -173,10 +181,22 @@ let write_compilation () =
   | Some _ ->
       marshal (Lazy.force Version.self_digest) ;
       marshal Version.version ;
+      if !Setup.file_kind = `thmod then begin
+        let name = match !Setup.thmod_name with
+          | Some name -> name
+          | None -> failwith "Cannot write a .thmodc without a module"
+        in
+        marshal name ;
+        marshal !Setup.thmod_params ;
+      end ;
       marshal !comp_spec_sign ;
       marshal !comp_spec_clauses ;
       marshal (predicates !sign) ;
       marshal (List.rev !comp_content) ;
+      if !Setup.file_kind = `thmod then begin
+        marshal ([] : string list) ;  (* nested modules *)
+        marshal ([] : string list) ;  (* exported names *)
+      end ;
       begin match !Setup.compiled with
       | Some (module Thm) -> Thm.close ()
       | None -> () end
@@ -542,6 +562,7 @@ and source_compile ~modname =
   let saved_unfinished = !Setup.unfinished in
   let saved_import_mode = !Setup.import_mode in
   let saved_trust_compiled = !Setup.trust_compiled in
+  let saved_file_kind = !Setup.file_kind in
   let saved_dest = !Output.dest in
   let saved_undo = State.Undo.is_enabled () in
   let saved_can_read = !can_read_specification in
@@ -560,6 +581,7 @@ and source_compile ~modname =
     Setup.unfinished := saved_unfinished ;
     Setup.import_mode := saved_import_mode ;
     Setup.trust_compiled := saved_trust_compiled ;
+    Setup.file_kind := saved_file_kind ;
     Output.dest := saved_dest ;
     State.Undo.set_enabled saved_undo ;
     can_read_specification := saved_can_read ;
@@ -577,6 +599,7 @@ and source_compile ~modname =
     Setup.compiled := None ;
     Setup.unfinished := [] ;
     Setup.input := thm_path ;
+    Setup.file_kind := `thm ;
     let module Src = (val Source.read thm_path) in
     Setup.lexbuf := Src.lex true ;
     compiling := modname :: saved_compiling ;
@@ -712,6 +735,84 @@ let term_witness (_t, w) =
 
 let suppress_proof_state_display = State.rref false
 
+let thmod_basename () =
+  let base = Filename.basename !Setup.input in
+  if Filename.check_suffix base ".thmod" then
+    Filename.chop_suffix base ".thmod"
+  else base
+
+let check_thmod_structure cmd =
+  match !Setup.file_kind with
+  | `thm -> begin
+      match cmd with
+      | Module _ ->
+          failwith "Module is only allowed in a .thmod file"
+      | End _ ->
+          failwith "End is only allowed in a .thmod file"
+      | _ -> ()
+    end
+  | `thmod -> begin
+      match cmd with
+      | Module _ ->
+          if !Setup.thmod_finished then
+            failwith "Module after End is not allowed in a .thmod" ;
+          if !Setup.thmod_name <> None then
+            failwith "Nested modules are not implemented yet"
+      | End _ -> ()
+      | Import _ ->
+          failwith "A .thmod may not use ordinary Import"
+      | Specification _ ->
+          failwith "Specification is not allowed in a .thmod"
+      | Close _ ->
+          failwith "Close is not allowed in a .thmod"
+      | Suspend _ ->
+          failwith "Suspend is not allowed in a .thmod"
+      | TopCommon Quit ->
+          failwith "Quit is not allowed in a .thmod"
+      | _ ->
+          if !Setup.thmod_finished then
+            failwith "Commands after End are not allowed in a .thmod" ;
+          if !Setup.thmod_name = None then
+            failwith "A .thmod must start with a Module command"
+    end
+
+let process_module name params =
+  match !Setup.file_kind with
+  | `thm ->
+      failwith "Module is only allowed in a .thmod file"
+  | `thmod ->
+      if !Setup.thmod_name <> None then
+        failwith "Nested modules are not implemented yet" ;
+      let base = thmod_basename () in
+      if name <> base then
+        failwithf "Module %s does not match the file name %s.thmod"
+          name base ;
+      Setup.thmod_name := Some name ;
+      Setup.thmod_params := params
+
+let process_end name =
+  match !Setup.file_kind with
+  | `thm ->
+      failwith "End is only allowed in a .thmod file"
+  | `thmod -> begin
+      match !Setup.thmod_name with
+      | None ->
+          failwith "End without a matching Module"
+      | Some current ->
+          if name <> current then
+            failwithf "End %s does not match Module %s" name current ;
+          Setup.thmod_finished := true
+    end
+
+let check_thmod_complete () =
+  if !Setup.file_kind = `thmod then
+    match !Setup.thmod_name with
+    | None ->
+        failwith "A .thmod must contain a top-level module"
+    | Some name ->
+        if not !Setup.thmod_finished then
+          failwithf "Missing End for module %s" name
+
 let rec process1 () =
   State.Undo.push () ;
   let outcome = ref `ok in
@@ -757,6 +858,7 @@ let rec process1 () =
       type_inference_error ci exp act ;
       interactive_or_exit ()
   | End_of_file ->
+      check_thmod_complete () ;
       write_compilation () ;
       if !Setup.mode = `switch then
         perform_switch_to_interactive ()
@@ -889,6 +991,7 @@ and process_top1 () =
   let input = Parser.top_command_start Lexer.token !Setup.lexbuf in
   let cmd_string = top_command_to_string input.el in
   if !Setup.mode <> `interactive then Output.non_annot "%s.\n%!" cmd_string ;
+  check_thmod_structure input.el ;
   let thm_id =
     if not !Setup.annotate then -1 else
     let annot = Output.message "top_command" ~fields:begin
@@ -961,10 +1064,12 @@ and process_top1 () =
   | Import(filename, pos, withs) ->
       compile (CImport (filename, withs)) ;
       import ~wrt:!Setup.input pos filename withs
-  | ImportModule _
-  | Module _
-  | End _ ->
-      failwith "Reasoning-level modules are not implemented yet"
+  | Module (name, params) ->
+      process_module name params
+  | End name ->
+      process_end name
+  | ImportModule _ ->
+      failwith "Reasoning-level module imports are not implemented yet"
   | Specification(filename, pos) ->
       if !can_read_specification then begin
         let filename = Filepath.normalize ~wrt:!Setup.input filename in
@@ -983,7 +1088,15 @@ and process_top1 () =
   | Type(ids, ty) ->
       check_noredef ids ;
       Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
-      compile (CType(ids, get_typaram ty, ty)) ;
+      let typarams = get_typaram ty in
+      let comp =
+        if !Setup.file_kind = `thmod &&
+           (match observe_ty ty with
+            | Ty (_, aty) -> aty = propaty)
+        then CDeclPred (ids, typarams, ty)
+        else CType (ids, typarams, ty)
+      in
+      compile comp ;
   | Close(atys) ->
       Prover.close_types !sign !Prover.clauses atys ;
       compile (CClose(List.map (fun aty -> (aty, Subordination.subordinates !sr aty)) atys))

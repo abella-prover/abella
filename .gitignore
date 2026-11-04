@@ -12,6 +12,7 @@
 *.lp
 *.lpo
 *.thc
+*.thmodc
 *.dep
 *.out
 *.output

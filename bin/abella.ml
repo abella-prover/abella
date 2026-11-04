@@ -46,11 +46,18 @@ let abella_main flags switch output compiled annotate norec _em verb infile =
     Setup.recurse := not norec ;
     begin match infile with
     | Some file -> begin
-        let module Thm = (val Source.read_thm ?thc:compiled file) in
-        Setup.compiled := Some (module Thm) ;
+        let is_thmod = Filename.check_suffix file ".thmod" in
+        let module Src =
+          (val if is_thmod then
+                 Source.read_thmod ?thmodc:compiled file
+               else
+                 Source.read_thm ?thc:compiled file)
+        in
+        Setup.compiled := Some (module Src) ;
+        Setup.file_kind := if is_thmod then `thmod else `thm ;
         Setup.mode := if switch then `switch else `batch ;
-        Setup.lexbuf := Thm.lex true ;
-        Setup.input := Thm.path
+        Setup.lexbuf := Src.lex true ;
+        Setup.input := Src.path
       end
     | None ->
         Setup.lexbuf := Lexing.from_channel ~with_positions:false stdin
@@ -117,8 +124,10 @@ let () =
   let compiled =
     let doc = "Save compiled Abella development to $(docv) instead of the \
                default location. By default, in batch mode, the compiled version \
-               of $(i,file.thm) is saved to $(i,file.thc), while in interactive \
-               mode the compiled development is not saved anywhere." in
+               of $(i,file.thm) is saved to $(i,file.thc) and the compiled \
+               version of $(i,file.thmod) is saved to $(i,file.thmodc), while \
+               in interactive mode the compiled development is not saved \
+               anywhere." in
     Arg.(value @@ opt (some string) None @@
          info ["c" ; "compile"] ~doc ~docv:"FILE")
   in
@@ -147,8 +156,9 @@ let () =
 
   let file =
     let doc = "An Abella development to process in batch mode. \
-               The $(docv) must end with the extension $(b,.thm). \
-               If no $(docv) is provided, Abella runs in interactive mode." in
+               The $(docv) must end with the extension $(b,.thm) or \
+               $(b,.thmod). If no $(docv) is provided, Abella runs in \
+               interactive mode." in
     Arg.(value @@ pos 0 (some string) None @@
          info [] ~docv:"FILE" ~doc)
   in

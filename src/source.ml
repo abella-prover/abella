@@ -200,26 +200,27 @@ let read_file_bytes path =
     really_input_string ch len
   end
 
-let read_thm ?thc source =
+let read_compiled ?(suffix = ".thm") ?(compiled_suffix = ".thc")
+    ?compiled source =
   let is_virtual = virtual_exists source in
   let module Thm = struct
     include (val read source : SOURCE)
 
     let base =
       if is_virtual then
-        if Filename.check_suffix path ".thm" then
-          Filename.chop_suffix path ".thm"
+        if Filename.check_suffix path suffix then
+          Filename.chop_suffix path suffix
         else path
-      else if not @@ Filename.check_suffix path ".thm" then
+      else if not @@ Filename.check_suffix path suffix then
         Base64.encode path
         |> Result.get_ok
         |> Filename.concat (Lazy.force Xdg.cache_dir)
       else
-        Filename.chop_suffix path ".thm"
+        Filename.chop_suffix path suffix
 
     let out_path = base ^ ".out"
-    let thc_path = Option.value thc
-        ~default:(base ^ ".thc")
+    let thc_path = Option.value compiled
+        ~default:(base ^ compiled_suffix)
 
     let thc_mtime =
       if not is_virtual && Sys.file_exists thc_path then
@@ -258,3 +259,10 @@ let read_thm ?thc source =
 
   end in
   (module Thm : THM)
+
+let read_thm ?thc source =
+  read_compiled ~suffix:".thm" ~compiled_suffix:".thc" ?compiled:thc source
+
+let read_thmod ?thmodc source =
+  read_compiled ~suffix:".thmod" ~compiled_suffix:".thmodc"
+    ?compiled:thmodc source

@@ -177,6 +177,53 @@ let binding_tests = [
                (fun () -> ignore (bind v2 v1))) ;
     ]
 
+let substitution_tests =
+  let gen name = tybase (Tygenvar name) in
+  let tv name = tybase (Typtr (ref (TV name))) in
+  let list ty = tybase (Tycons ("list", [ty])) in
+  [
+      test_case "Gentvar substitution is simultaneous"
+        (fun () ->
+           let t = gen "T" in
+           let u = gen "U" in
+             Alcotest.check ty_testable "types differ" u
+               (apply_sub_ty [("T", u); ("U", t)] t)) ;
+
+      test_case "Nested gentvar occurrences are simultaneous"
+        (fun () ->
+           let t = gen "T" in
+           let u = gen "U" in
+           let sub = [("T", u); ("U", t)] in
+           let ty = tyarrow [list t; tybase (Tycons ("pair", [t; u]))] t in
+           let expected =
+             tyarrow [list u; tybase (Tycons ("pair", [u; t]))] u
+           in
+             Alcotest.check ty_testable "types differ" expected
+               (apply_sub_ty sub ty)) ;
+
+      test_case "Single gentvar binding is unchanged"
+        (fun () ->
+           let t = gen "T" in
+           let u = gen "U" in
+           let ty = tyarrow [t; u] t in
+             Alcotest.check ty_testable "types differ" (tyarrow [u; u] u)
+               (apply_sub_ty [("T", u)] ty)) ;
+
+      test_case "Type variable substitution is simultaneous"
+        (fun () ->
+           let t = tv "T" in
+           let u = tv "U" in
+             Alcotest.check ty_testable "types differ" u
+               (apply_sub_ty_tyvar [("T", u); ("U", t)] t)) ;
+
+      test_case "Gentvar substitution leaves type variables"
+        (fun () ->
+           let u = gen "U" in
+           let ty = tv "T" in
+             Alcotest.check ty_testable "types differ" ty
+               (apply_sub_ty [("T", u)] ty)) ;
+    ]
+
 let abstract_tests = [
       test_case "Should not capture unprotected dB's (single layer)"
         (fun () ->
@@ -209,4 +256,5 @@ let tests =
      group "Pprint" pprint_tests @
      group "Typing" typing_tests @
      group "Binding" binding_tests @
+     group "Substitution" substitution_tests @
      group "Abstract" abstract_tests)

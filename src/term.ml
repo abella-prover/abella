@@ -884,15 +884,43 @@ and apply_bind_ty ~btyvar v ty t =
      let aty' = apply_bind_aty ~btyvar v ty aty in
      tyarrow tys' aty'
 
+let rec apply_sub_aty ~btyvar s aty =
+  match aty with
+  | Tygenvar v ->
+     if btyvar then Ty ([], aty)
+     else begin match List.assoc_opt v s with
+       | Some ty -> ty
+       | None -> Ty ([], aty)
+     end
+  | Typtr {contents=TV v} ->
+     if not btyvar then Ty ([], aty)
+     else begin match List.assoc_opt v s with
+       | Some ty -> ty
+       | None -> Ty ([], aty)
+     end
+  | Tycons (c,args) ->
+     let args' = List.map (apply_sub_ty_gen ~btyvar s) args in
+     Ty ([], Tycons(c,args'))
+  | Typtr {contents=TT _} -> assert false
+
+and apply_sub_ty_gen ~btyvar s t =
+  match observe_ty t with
+  | Ty(tys, aty) ->
+     let tys' = List.map (apply_sub_ty_gen ~btyvar s) tys in
+     let aty' = apply_sub_aty ~btyvar s aty in
+     tyarrow tys' aty'
+
 let apply_sub_ty s ty =
-  List.fold_left begin fun ty (v,vty) ->
-    apply_bind_ty ~btyvar:false v vty ty
-    end ty s
+  match s with
+  | [] -> ty
+  | [(v, vty)] -> apply_bind_ty ~btyvar:false v vty ty
+  | _ -> apply_sub_ty_gen ~btyvar:false s ty
 
 let apply_sub_ty_tyvar s ty =
-  List.fold_left begin fun ty (v,vty) ->
-    apply_bind_ty ~btyvar:true v vty ty
-    end ty s
+  match s with
+  | [] -> ty
+  | [(v, vty)] -> apply_bind_ty ~btyvar:true v vty ty
+  | _ -> apply_sub_ty_gen ~btyvar:true s ty
 
 
 module Test = struct

@@ -88,6 +88,7 @@ Bugfixes
   `Axiom`s)
 * Stratification checks now inspect defined predicates passed to declared
   higher-order predicates, and can be configured as hard errors.
+* Subordination checks now reject new edges between separately closed types.
 
 
 Changes in 2.0.8 from 2.0.7

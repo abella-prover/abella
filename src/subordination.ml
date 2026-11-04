@@ -75,14 +75,17 @@ let query (graph, closed) a b =
  *      Ty (tys', AtmTy(cty', args')) *)
 
 (* check that the arc does not extend the existing subordination relation *)
-let check_no_sr_extension closed a b =
+let check_no_sr_extension graph closed a b =
+  let graph' = Graph.add_arc graph a b in
   List.iter begin fun aty ->
-    match Graph.arc_predecessor (a,b) aty with
-    | None -> ()
-    | Some t ->
-       if not (List.mem t closed) then
-         failwithf "Type %s is closed and cannot be subordinated by %s"
-           (aty_to_string aty) (aty_to_string t)
+    let before = Graph.predecessors graph aty in
+    let after = Graph.predecessors graph' aty in
+    match List.minus after before with
+    | [] -> ()
+    | xs ->
+        failwithf "Type %s is closed and cannot be subordinated by %s"
+          (aty_to_string aty)
+          (String.concat ", " (List.map aty_to_string xs))
   end closed
 
 (* let not_prop_type aty =
@@ -99,7 +102,7 @@ let add (graph, closed) a b =
   check_no_tyvar a;
   check_no_tyvar b;
   (* check_typarams a b; *)
-  check_no_sr_extension closed a b;
+  check_no_sr_extension graph closed a b;
   (Graph.add_arc graph a b, closed)
 
 let update sr ty =
@@ -109,11 +112,11 @@ let update sr ty =
   in
     aux sr (observe_ty ty)
 
-let ensure (_graph, closed) ty =
+let ensure (graph, closed) ty =
   let rec aux (Ty(args, target)) =
     List.iter aux args;
     List.iter begin fun arg ->
-      check_no_sr_extension closed (head arg) target
+      check_no_sr_extension graph closed (head arg) target
     end args
   in
   aux (observe_ty ty)

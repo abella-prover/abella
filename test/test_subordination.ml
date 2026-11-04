@@ -60,6 +60,33 @@ let tests =
            ignore (close sr [atybase "tm"])
       );
 
+    test_case "Should not subordinate between separately closed types"
+      (fun () ->
+         let a = atybase "a" in
+         let b = atybase "b" in
+         let sr = close empty [a] in
+         let sr = close sr [b] in
+           Alcotest.check_raises
+             "Type b is closed and cannot be subordinated by a"
+             (Failure "Type b is closed and cannot be subordinated by a")
+             (fun () ->
+                ignore (update sr (tyarrow [tybase a] (tybase b))))
+      );
+
+    test_case "Should allow edges between open types"
+      (fun () ->
+         let a = atybase "a" in
+         let b = atybase "b" in
+           ignore (update empty (tyarrow [tybase a] (tybase b)))
+      );
+
+    test_case "Should allow constants of closed types"
+      (fun () ->
+         let b = atybase "b" in
+         let sr = close empty [b] in
+           ignore (ensure sr (tybase b))
+      );
+
     test_case "Subordination should by transitive"
       (fun () ->
          let a = tybase (atybase "a") in

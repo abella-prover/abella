@@ -21,6 +21,13 @@ export class ScanError extends Error {
 
 const isSpace = (c: string) => c === " " || c === "\t" || c === "\r" || c === "\n";
 
+// Matches the lexer's `ichar` set, which starts a qualified-name segment.
+const isNameStart = (c: string | undefined) =>
+  c !== undefined && /[A-Za-z\-=`'?$]/.test(c);
+
+const isCommandDot = (doc: string, i: number) =>
+  doc[i] === "." && !isNameStart(doc[i + 1]);
+
 /**
  * Return complete commands from `fromOffset` to the end of the document.
  * Throws ScanError for an unclosed comment/string or a final command that
@@ -112,7 +119,7 @@ export function scanCommands(doc: string, fromOffset = 0): Command[] {
         continue;
       }
 
-      if (c === ".") {
+      if (isCommandDot(doc, i)) {
         i++;
         const text = doc.slice(from, i).trim();
         commands.push({

@@ -63,6 +63,18 @@ test("rejects unclosed comments, strings, and missing dots", () => {
   assert.throws(() => scanCommands("Kind tm type"), ScanError);
 });
 
+test("does not split qualified names at dots", () => {
+  const texts = (doc: string) => scanCommands(doc).map((c) => c.text);
+  assert.deepEqual(texts("Foo.x."), ["Foo.x."]);
+  assert.deepEqual(texts("Foo.Bar.x."), ["Foo.Bar.x."]);
+  assert.deepEqual(texts("Foo. Theorem t : true."), [
+    "Foo.",
+    "Theorem t : true.",
+  ]);
+  assert.deepEqual(texts("P.Theorem."), ["P.Theorem."]);
+  assert.throws(() => scanCommands("Foo . x"), ScanError);
+});
+
 test("converts UTF-16 offsets to UTF-8 bytes", () => {
   const doc = 'Theorem "λ".';
   assert.equal(utf8Offset(doc, doc.length), Buffer.byteLength(doc, "utf8"));

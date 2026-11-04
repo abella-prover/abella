@@ -50,7 +50,7 @@ let abella_main flags switch output compiled annotate norec _em verb infile =
         Setup.compiled := Some (module Thm) ;
         Setup.mode := if switch then `switch else `batch ;
         Setup.lexbuf := Thm.lex true ;
-        Setup.input := Filename.concat (Option.value Thm.dir ~default:"") "<dummy>.thm"
+        Setup.input := Thm.path
       end
     | None ->
         Setup.lexbuf := Lexing.from_channel ~with_positions:false stdin

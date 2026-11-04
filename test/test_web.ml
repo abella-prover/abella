@@ -206,7 +206,7 @@ let native_compile_module () =
     D.Setup.import_mode := `thc ;
     D.Setup.trust_compiled := false ;
     D.Setup.unfinished := [] ;
-    D.Setup.input := Filename.concat dir "<dummy>.thm" ;
+    D.Setup.input := path ;
     let module Thm = (val Source.read_thm ~thc path) in
     D.Setup.compiled := Some (module Thm) ;
     D.Setup.lexbuf := Thm.lex true ;
@@ -342,6 +342,19 @@ let test_source_import_cache () =
   Alcotest.check Alcotest.bool "missing import fails" true (status = `error) ;
   assert_contains "Opening: ./nope.thm" (system_messages msgs)
 
+let test_input_path_relative_imports () =
+  Source.add_virtual "nested/main.thm" "" ;
+  Source.add_virtual "nested/mod.thm" web_module ;
+  D.Setup.input := "nested/main.thm" ;
+  let module Thm = (val Source.read_thm "nested/main.thm") in
+  Alcotest.check Alcotest.string "input path" "nested/main.thm" Thm.path ;
+  Filepath.set_load_path ~wrt:!D.Setup.input "lib" ;
+  Alcotest.check Alcotest.string "load path" "nested/lib" !Filepath.load_path ;
+  let (status, _) = process_command "Import \"mod\"." in
+  assert_ok status ;
+  Alcotest.check Alcotest.bool "nested thc" true
+    (Source.virtual_exists "nested/mod.thc")
+
 let test_values_match_native () =
   let native = native_compile_module () in
   start_web_session () ;
@@ -475,6 +488,8 @@ let tests = suite "web_core" [
   test_case "output_collect" (fun () -> with_session test_output_collect) ;
   test_case "undo_back_counts" (fun () -> with_session test_undo_back_counts) ;
   test_case "source_import_cache" (fun () -> with_session test_source_import_cache) ;
+  test_case "input_path_relative_imports"
+    (fun () -> with_session test_input_path_relative_imports) ;
   test_case "values_match_native" (fun () -> with_session test_values_match_native) ;
   test_case "virtual_native_thc" (fun () -> with_session test_virtual_native_thc) ;
   test_case "nested_imports" (fun () -> with_session test_nested_imports) ;

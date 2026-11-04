@@ -11,6 +11,61 @@ let assert_umetaterm_pprint_equal s t =
 let assert_pprint_equal_parse str =
   assert_umetaterm_pprint_equal str (parse_umetaterm str)
 
+let parse_command str =
+  Parser.command_start Lexer.token (Lexing.from_string str)
+
+let assert_top_pprint expected str =
+  Alcotest.check Alcotest.string "top command printing" expected
+    (Abella_types.top_command_to_string (parse_top_command str).el)
+
+let assert_command_pprint expected str =
+  Alcotest.check Alcotest.string "command printing" expected
+    (Abella_types.command_to_string (parse_command str).el)
+
+let assert_rejected str =
+  match parse_top_command str with
+  | _ -> Alcotest.failf "%S unexpectedly parsed" str
+  | exception _ -> ()
+
+let qid_string = Abella_types.qualid_to_string
+
+let source_string = function
+  | Abella_types.QuoteSource (filename, _) -> "file:" ^ filename
+  | Abella_types.NameSource name -> "name:" ^ name
+
+let assert_module str name params =
+  match (parse_top_command str).el with
+  | Abella_types.Module (actual_name, actual_params) ->
+      Alcotest.check Alcotest.string "module name" name actual_name ;
+      Alcotest.check (Alcotest.list Alcotest.string) "parameters"
+        params actual_params
+  | _ -> Alcotest.failf "%S is not a module" str
+
+let assert_end str name =
+  match (parse_top_command str).el with
+  | Abella_types.End actual_name ->
+      Alcotest.check Alcotest.string "module name" name actual_name
+  | _ -> Alcotest.failf "%S is not an end" str
+
+let assert_import_module str alias source tyargs withs =
+  match (parse_top_command str).el with
+  | Abella_types.ImportModule mi ->
+      let actual_alias =
+        match mi.mi_alias with None -> "" | Some name -> name
+      in
+      Alcotest.check Alcotest.string "alias" alias actual_alias ;
+      Alcotest.check Alcotest.string "source" source
+        (source_string mi.mi_source) ;
+      Alcotest.check (Alcotest.list Alcotest.string) "type arguments"
+        tyargs (List.map Term.ty_to_string mi.mi_tyargs) ;
+      Alcotest.check
+        (Alcotest.list
+           (Alcotest.pair Alcotest.string Alcotest.string))
+        "with clauses" withs
+        (List.map (fun (k, v) -> (qid_string k, qid_string v))
+           mi.mi_withs)
+  | _ -> Alcotest.failf "%S is not an import module" str
+
 let tests =
   suite "Parser" [
       test_case "Empty bodied clause"
@@ -154,5 +209,185 @@ let tests =
       test_case "Complex predicate"
         (fun () ->
            assert_pprint_equal_parse "head (hyp A) (conc B)") ;
+
+      test_case "Module without parameters"
+        (fun () ->
+           assert_module "Module Foo." "Foo" []) ;
+
+      test_case "Module with one parameter"
+        (fun () ->
+           assert_module "Module Box[T]." "Box" ["T"]) ;
+
+      test_case "Module with several parameters"
+        (fun () ->
+           assert_module "Module Box[T, U]." "Box" ["T"; "U"]) ;
+
+      test_case "End"
+        (fun () ->
+           assert_end "End Foo." "Foo") ;
+
+      test_case "Empty module parameter list is rejected"
+        (fun () ->
+           assert_rejected "Module Foo[].") ;
+
+      test_case "Lowercase module parameter is rejected"
+        (fun () ->
+           assert_rejected "Module Foo[a].") ;
+
+      test_case "Duplicate module parameters are rejected"
+        (fun () ->
+           assert_rejected "Module Foo[T, T].") ;
+
+      test_case "Import module quoted without arguments"
+        (fun () ->
+           assert_import_module "Import Module \"Foo\"."
+             "" "file:Foo" [] []) ;
+
+      test_case "Import module quoted with arguments"
+        (fun () ->
+           assert_import_module "Import Module \"Foo\"[nat]."
+             "" "file:Foo" ["nat"] []) ;
+
+      test_case "Import module quoted with several arguments"
+        (fun () ->
+           assert_import_module "Import Module \"lib/Foo\"[nat, list nat]."
+             "" "file:lib/Foo" ["nat" ; "list nat"] []) ;
+
+      test_case "Import module unquoted"
+        (fun () ->
+           assert_import_module "Import Module Foo."
+             "" "name:Foo" [] []) ;
+
+      test_case "Import module with quoted alias and arguments"
+        (fun () ->
+           assert_import_module "Import Module L = \"Foo\"[nat]."
+             "L" "file:Foo" ["nat"] []) ;
+
+      test_case "Import module with unquoted alias and arguments"
+        (fun () ->
+           assert_import_module "Import Module L = Foo[nat, bool]."
+             "L" "name:Foo" ["nat" ; "bool"] []) ;
+
+      test_case "Import module with simple with clause"
+        (fun () ->
+           assert_import_module "Import Module Foo with p := q."
+             "" "name:Foo" [] [("p", "q")]) ;
+
+      test_case "Import module with qualified with clause"
+        (fun () ->
+           assert_import_module
+             "Import Module Baz = Foo[nat] with Bar.p := Baz.q, ax := thm."
+             "Baz" "name:Foo" ["nat"]
+             [("Bar.p", "Baz.q") ; ("ax", "thm")]) ;
+
+      test_case "Empty import argument list is rejected"
+        (fun () ->
+           assert_rejected "Import Module \"Foo\"[].") ;
+
+      test_case "Empty with clause is rejected"
+        (fun () ->
+           assert_rejected "Import Module Foo with.") ;
+
+      test_case "Dotted import target is rejected"
+        (fun () ->
+           assert_rejected "Import Module Foo.Bar.") ;
+
+      test_case "Alias brackets on the left are rejected"
+        (fun () ->
+           assert_rejected "Import Module Baz[nat] = Foo.") ;
+
+      test_case "Module printing"
+        (fun () ->
+           assert_top_pprint "Module Box[T, U]" "Module Box[T, U].") ;
+
+      test_case "End printing"
+        (fun () ->
+           assert_top_pprint "End Box" "End Box.") ;
+
+      test_case "Import module printing"
+        (fun () ->
+           assert_top_pprint
+             "Import Module Baz = \"lib/Foo\"[nat, list nat] with p := q"
+             "Import Module Baz = \"lib/Foo\"[nat, list nat] with p := q.") ;
+
+      test_case "Qualified term name"
+        (fun () ->
+           assert_uterm_pprint_equal "Foo.x" (parse_uterm "Foo.x")) ;
+
+      test_case "Dotted qualified term name"
+        (fun () ->
+           assert_uterm_pprint_equal "Foo.Bar.x"
+             (parse_uterm "Foo.Bar.x")) ;
+
+      test_case "Annotated qualified term name"
+        (fun () ->
+           match parse_uterm "(Foo.x : i)" with
+           | UCon (_, "Foo.x", ty) ->
+               Alcotest.check Alcotest.string "annotated type"
+                 "i" (Term.ty_to_string ty)
+           | _ -> Alcotest.fail "Not an annotated constant") ;
+
+      test_case "Qualified type name"
+        (fun () ->
+           match (parse_top_command "Type c Foo.u.").el with
+           | Abella_types.Type (ids, ty) ->
+               Alcotest.check (Alcotest.list Alcotest.string)
+                 "declared names" ["c"] ids ;
+               Alcotest.check Alcotest.string "declared type"
+                 "Foo.u" (Term.ty_to_string ty)
+           | _ -> Alcotest.fail "Not a Type command") ;
+
+      test_case "Qualified type constructor argument"
+        (fun () ->
+           match (parse_top_command "Type c list Foo.u.").el with
+           | Abella_types.Type (_, ty) ->
+               Alcotest.check Alcotest.string "declared type"
+                 "list Foo.u" (Term.ty_to_string ty)
+           | _ -> Alcotest.fail "Not a Type command") ;
+
+      test_case "Qualified name in unfold"
+        (fun () ->
+           assert_command_pprint "unfold Foo.thm"
+             "unfold Foo.thm.") ;
+
+      test_case "Qualified name in apply"
+        (fun () ->
+           assert_command_pprint "apply Foo.thm"
+             "apply Foo.thm.") ;
+
+      test_case "Qualified name in Show"
+        (fun () ->
+           assert_top_pprint "Show Foo.x" "Show Foo.x.") ;
+
+      test_case "Qualified name in Split"
+        (fun () ->
+           assert_top_pprint "Split Foo.thm" "Split Foo.thm.") ;
+
+      test_case "Qualified names are single lexical tokens"
+        (fun () ->
+           let lexbuf = Lexing.from_string "Foo.Bar.x" in
+           match Lexer.token lexbuf with
+           | Parser.QUALID ["Foo" ; "Bar" ; "x"] -> ()
+           | _ -> Alcotest.fail "Expected one qualified token") ;
+
+      test_case "A dot before a keyword is part of a qualified name"
+        (fun () ->
+           let lexbuf = Lexing.from_string "P.Theorem" in
+           match Lexer.token lexbuf with
+           | Parser.QUALID ["P" ; "Theorem"] -> ()
+           | _ -> Alcotest.fail "Expected one qualified token") ;
+
+      test_case "A command terminator is not part of a qualified name"
+        (fun () ->
+           let lexbuf = Lexing.from_string "Foo . x" in
+           let rec tokens acc =
+             match Lexer.token lexbuf with
+             | Parser.EOF -> List.rev acc
+             | token -> tokens (token :: acc)
+           in
+           match tokens [] with
+           | [Parser.STRINGID "Foo" ; Parser.DOT ;
+              Parser.STRINGID "x"] -> ()
+           | _ -> Alcotest.fail "Expected three tokens") ;
 
     ]

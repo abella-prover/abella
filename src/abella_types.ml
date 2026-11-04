@@ -45,6 +45,19 @@ type defs_table = (string, def) Hashtbl.t
 
 type id = string
 
+type qualid = string list
+
+type module_source =
+  | QuoteSource of string * pos
+  | NameSource of id
+
+type module_import = {
+  mi_alias  : id option ;
+  mi_source : module_source ;
+  mi_tyargs : ty list ;
+  mi_withs  : (qualid * qualid) list ;
+}
+
 exception Reported_parse_error
 
 type set_value =
@@ -74,6 +87,9 @@ type top_command =
   | Axiom         of id * string list * umetaterm
   | Define        of flavor * tyctx * udef_clause list
   | Import        of string * pos * (string * string) list
+  | ImportModule  of module_import
+  | Module        of id * id list
+  | End           of id
   | Specification of string * pos
   | Query         of umetaterm
   | Kind          of id list * knd
@@ -287,6 +303,40 @@ let gen_to_string tys =
 let aty_list_to_string atys =
   String.concat "," (List.map aty_to_string atys)
 
+let qualid_to_string (q : qualid) =
+  String.concat "." q
+
+let module_source_to_string = function
+  | QuoteSource (filename, _) -> sprintf "%S" filename
+  | NameSource name -> name
+
+let module_import_to_string mi =
+  let alias = match mi.mi_alias with
+    | None -> ""
+    | Some name -> name ^ " = "
+  in
+  let tyargs = match mi.mi_tyargs with
+    | [] -> ""
+    | tys ->
+        sprintf "[%s]" (String.concat ", " (List.map ty_to_string tys))
+  in
+  let withs = match mi.mi_withs with
+    | [] -> ""
+    | ws ->
+        let one (key, value) =
+          sprintf "%s := %s"
+            (qualid_to_string key) (qualid_to_string value)
+        in
+        sprintf " with %s" (String.concat ", " (List.map one ws))
+  in
+  sprintf "Import Module %s%s%s%s"
+    alias (module_source_to_string mi.mi_source) tyargs withs
+
+let module_to_string name params =
+  match params with
+  | [] -> sprintf "Module %s" name
+  | _ -> sprintf "Module %s[%s]" name (String.concat ", " params)
+
 let top_command_to_string tc =
   match tc with
     | Theorem(name, tys, body) ->
@@ -305,6 +355,12 @@ let top_command_to_string tc =
           (withs |>
            List.map (fun (a, b) -> a ^ " := " ^ b) |>
            String.concat ", ")
+    | ImportModule mi ->
+        module_import_to_string mi
+    | Module (name, params) ->
+        module_to_string name params
+    | End name ->
+        sprintf "End %s" name
     | Specification (filename, _) ->
         sprintf "Specification \"%s\"" filename
     | Query q ->

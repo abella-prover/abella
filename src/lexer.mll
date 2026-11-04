@@ -30,8 +30,10 @@
     "Close",         CLOSE ;
     "CoDefine",      CODEFINE ;
     "Define",        DEFINE ;
+    "End",           REND ;
     "Import",        IMPORT ;
     "Kind",          KKIND ;
+    "Module",        RMODULE ;
     "Query",         QUERY ;
     "Quit",          QUIT ;
     "Set",           SET ;
@@ -106,6 +108,7 @@ let ichar = ['A'-'Z' 'a'-'z' '-' '=' '`' '\'' '?' '$']
 let bchar = ['0'-'9' '_' '/' '*' '@' '+' '#' '!' '~']
 
 let name = ichar (ichar|bchar)*
+let qualid = name ('.' name)+
 let blank = ' ' | '\t' | '\r'
 
 rule token = parse
@@ -155,6 +158,7 @@ rule token = parse
 
 | "_"                { UNDERSCORE }
 | number as n        { NUM (int_of_string n) }
+| qualid as q        { QUALID (String.split_on_char '.' q) }
 | name as id         { try Hashtbl.find keyword_table id
                        with Not_found -> STRINGID id }
 

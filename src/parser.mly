@@ -121,6 +121,39 @@
     | [a ; ""] -> (a, b)
     | _ -> raise Abella_types.Reported_parse_error
 
+  let qualid_to_string (q : Abella_types.qualid) =
+    String.concat "." q
+
+  let is_module_name id =
+    String.length id > 0 &&
+    (match id.[0] with 'A'..'Z' -> true | _ -> false) &&
+    String.for_all (function
+        | 'A'..'Z' | 'a'..'z' | '0'..'9' | '_' -> true
+        | _ -> false) id
+
+  let check_module_name ~pos id =
+    if not (is_module_name id) then
+      error_report ~pos
+        "Invalid module name %S.@\n\
+         Module names must match [A-Z][A-Za-z0-9_]*." id
+
+  let check_module_param ~pos id =
+    if not (Term.is_capital_name id) then
+      error_report ~pos
+        "Invalid module parameter %S.@\n\
+         Module parameters must be type variables." id
+
+  let check_module_params params =
+    match List.find_duplicate params with
+    | None -> ()
+    | Some id -> error_report "Duplicate module parameter %s" id
+
+  let make_module_import alias source tyargs withs =
+    { Types.mi_alias = alias ;
+      Types.mi_source = source ;
+      Types.mi_tyargs = tyargs ;
+      Types.mi_withs = withs }
+
 %}
 
 %token IMP IF AMP COMMA DOT BSLASH LPAREN RPAREN TURN CONS EQ TRUE FALSE DEFEQ
@@ -133,9 +166,11 @@
 %token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND CARET
 %token LBRACE RBRACE LBRACK RBRACK
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
+%token RMODULE REND
 
 %token <int> NUM
 %token <string> STRINGID QSTRING CLAUSENAME
+%token <string list> QUALID
 %token EOF
 
 /* Lower */
@@ -180,6 +215,15 @@
 %type <Abella_types.uclause Extensions.wpos list> one_mod_body
 %type <Abella_types.udef_clause list> one_defs
 %type <(string * Abella_types.set_value) list> cmdline_flags
+%type <Abella_types.qualid> qualid
+%type <string> item_name
+%type <Abella_types.qualid Extensions.wpos> loc_qualid
+%type <string Extensions.wpos> loc_item
+%type <Abella_types.module_source> module_source
+%type <string list> module_params
+%type <Term.ty list> module_tyargs
+%type <(Abella_types.qualid * Abella_types.qualid) list> module_withs
+%type <Abella_types.qualid * Abella_types.qualid> module_with
 
 %%
 
@@ -190,11 +234,33 @@ top_command_start: com=located(top_command) { com }
 hyp:
   | x=STRINGID
     { check_legal_var x $startpos ; x }
+  | q=QUALID
+    { qualid_to_string q }
   | UNDERSCORE
     { "_" }
 
 loc_id:
   | x=located(id)
+    { x }
+
+qualid:
+  | x=id
+    { [x] }
+  | q=QUALID
+    { q }
+
+item_name:
+  | x=id
+    { x }
+  | q=QUALID
+    { qualid_to_string q }
+
+loc_qualid:
+  | x=located(QUALID)
+    { x }
+
+loc_item:
+  | x=located(item_name)
     { x }
 
 id:
@@ -254,6 +320,8 @@ paid:
     { (x, Term.fresh_tyvar ()) }
   | LPAREN; x=loc_id; COLON; ty=ty; RPAREN
     { (x, ty) }
+  | LPAREN; q=QUALID; COLON; ty=ty; RPAREN
+    { ({ el = qualid_to_string q ; pos = $loc(q) }, ty) }
   | UNDERSCORE
     { ({ el = "_" ; pos = $loc($1) }, Term.fresh_tyvar ()) }
   | LPAREN; UNDERSCORE; COLON; ty=ty; RPAREN
@@ -304,6 +372,8 @@ exp:
   | vty=paid
     { let (id, ty) = vty in
       UCon($loc, id.el, ty) }
+  | q=QUALID
+    { UCon($loc, qualid_to_string q, Term.fresh_tyvar ()) }
 
 exp_list:
   | e=exp; es=exp_list
@@ -350,12 +420,16 @@ id_list:
 pty:
   | a=id
     { Term.tybase (id_to_aty a) }
+  | q=QUALID
+    { Term.tybase (Term.atybase (qualid_to_string q)) }
   | LPAREN; a=ty; RPAREN
     {a}
 
 aty:
   | a=id
     { id_to_aty a }
+  | q=QUALID
+    { Term.atybase (qualid_to_string q) }
   | a=aty; b=pty
     {
       let open Term in
@@ -586,6 +660,8 @@ clause_sel:
   | x=STRINGID
     { check_legal_var x $startpos ;
       Types.Select_named x }
+  | q=QUALID
+    { Types.Select_named (qualid_to_string q) }
 
 sol_sel:
   | { Types.Solution_first }
@@ -684,6 +760,23 @@ pure_top_command:
   | IMPORT; im=located(QSTRING);
     ws=loption(WITH; ws=import_withs {ws}); DOT
     { Types.Import(im.el, im.pos, ws) }
+  | IMPORT; RMODULE;
+    alias=loc_id; EQ; src=module_source;
+    tys=module_tyargs; ws=loption(WITH; ws=module_withs {ws}); DOT
+    { check_module_name ~pos:$startpos(alias) alias.el ;
+      Types.ImportModule
+        (make_module_import (Some (deloc_id alias)) src tys ws) }
+  | IMPORT; RMODULE;
+    src=module_source;
+    tys=module_tyargs; ws=loption(WITH; ws=module_withs {ws}); DOT
+    { Types.ImportModule (make_module_import None src tys ws) }
+  | RMODULE; x=loc_id; ps=module_params; DOT
+    { check_module_name ~pos:$startpos(x) x.el ;
+      check_module_params ps ;
+      Types.Module(deloc_id x, ps) }
+  | REND; x=loc_id; DOT
+    { check_module_name ~pos:$startpos(x) x.el ;
+      Types.End(deloc_id x) }
   | SPECIFICATION; spec=located(QSTRING); DOT
     { Types.Specification(spec.el, spec.pos) }
   | KKIND; tys=id_list; ki=knd; DOT
@@ -692,7 +785,7 @@ pure_top_command:
     { Types.Type(List.map deloc_id cs, ty) }
   | CLOSE; tys=aty_list; DOT
     { Types.Close(tys) }
-  | SSPLIT; thm=loc_id;
+  | SSPLIT; thm=loc_item;
     cs=loption(AS; cs=id_list {cs}); DOT
     { Types.SSplit(deloc_id thm, List.map deloc_id cs) }
   | SUSPEND; head=term; DOT
@@ -705,6 +798,38 @@ import_withs:
   | ws=separated_nonempty_list(COMMA, x=id; DEFEQ; t=id {(x, t)})
     { ws }
 
+module_source:
+  | s=QSTRING
+    { Types.QuoteSource (s, $loc) }
+  | x=loc_id
+    { check_module_name ~pos:$startpos(x) x.el ;
+      Types.NameSource (deloc_id x) }
+  | x=loc_qualid
+    { error_report ~pos:$startpos(x)
+        "Invalid import target %S.@\n\
+         A dotted name is an item prefix, not a module name."
+        (qualid_to_string x.el) }
+
+module_params:
+  | { [ ] }
+  | LBRACK; ps=separated_nonempty_list(COMMA, loc_id); RBRACK
+    { List.map (fun p ->
+          check_module_param ~pos:(fst p.pos) p.el ;
+          deloc_id p) ps }
+
+module_tyargs:
+  | { [ ] }
+  | LBRACK; tys=separated_nonempty_list(COMMA, ty); RBRACK
+    { tys }
+
+module_withs:
+  | ws=separated_nonempty_list(COMMA, module_with)
+    { ws }
+
+module_with:
+  | k=qualid; DEFEQ; v=qualid
+    { (k, v) }
+
 common_command:
   | SET; a=id; b=id; DOT
     { Types.Set(a, Types.Str b) }
@@ -712,7 +837,7 @@ common_command:
     { Types.Set(a, Types.Int n) }
   | SET; a=id; s=QSTRING; DOT
     { Types.Set(a, Types.QStr s) }
-  | SHOW; l=loc_id; DOT
+  | SHOW; l=loc_item; DOT
     { Types.Show(deloc_id l) }
   | QUIT; DOT
     { Types.Quit }

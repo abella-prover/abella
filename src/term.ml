@@ -683,6 +683,8 @@ let question_tids terms =
   extract_tids is_question_name terms
 
 let is_capital_name str =
+  String.length str > 0 &&
+  not (String.contains str '.') &&
   match str.[0] with
     | 'A'..'Z' -> true
     | _ -> false

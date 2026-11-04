@@ -961,6 +961,10 @@ and process_top1 () =
   | Import(filename, pos, withs) ->
       compile (CImport (filename, withs)) ;
       import ~wrt:!Setup.input pos filename withs
+  | ImportModule _
+  | Module _
+  | End _ ->
+      failwith "Reasoning-level modules are not implemented yet"
   | Specification(filename, pos) ->
       if !can_read_specification then begin
         let filename = Filepath.normalize ~wrt:!Setup.input filename in

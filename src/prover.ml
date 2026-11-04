@@ -1206,11 +1206,17 @@ let split_theorem (tys, thm) =
 
 let create_split_theorems name names =
   let thms = split_theorem (get_generic_lemma name) in
+  let local_stem =
+    match List.rev (String.split_on_char '.' name) with
+    | stem :: _ -> stem
+    | [] -> name
+  in
   let rec loop = function
     | n::ns, t::ts, count ->
         (n, t) :: (loop (ns, ts, count+1))
     | [], t::ts, count ->
-        (name ^ (string_of_int count), t) :: (loop ([], ts, count+1))
+        (local_stem ^ (string_of_int count), t) ::
+        (loop ([], ts, count+1))
     | _ -> []
   in
   if List.length thms = 1 then

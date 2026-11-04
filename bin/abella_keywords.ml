@@ -41,7 +41,7 @@ let category (name, token) =
   | CLOSE | IMPORT | QUERY | QUIT | SET | SHOW | SPECIFICATION ->
       TopBuilt
   | CODEFINE | DEFINE | THEOREM | AXIOM | SSPLIT | SUSPEND | KKIND | TTYPE
-  | AS | BY ->
+  | AS | BY | RMODULE | REND ->
       TopCmd
   | ABBREV | ALL | APPLY | ASSERT | BACKCHAIN | CASE | CLEAR | COIND
   | COMPUTE | CUT | FROM | IND | INST | INTROS | KEEP | LEFT

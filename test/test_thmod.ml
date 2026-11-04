@@ -552,6 +552,92 @@ End Spl.
     end
   end
 
+let test_phase4_checks () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      expect_thmod_error dir "HoKey" {|
+Module HoKey.
+  Type p (prop -> prop) -> prop.
+End HoKey.
+|} "may not take an argument containing prop" ;
+      expect_thmod_error dir "Strat" {|
+Module Strat.
+  Define d : prop by
+    d := d -> d.
+End Strat.
+|} "might not be stratified" ;
+      expect_thmod_error dir "Frozen" {|
+Module Frozen[T].
+  Kind u type.
+  Type c u.
+  Type p T -> prop.
+  Theorem bad : p c.
+  intros. search.
+End Frozen.
+|} "Expression has type u but is used here with type T" ;
+      let bytes = native_compile_thmod dir "HoDefine" {|
+Module HoDefine.
+  Define h : (prop -> prop) -> prop by
+    h (x \ x).
+End HoDefine.
+|} in
+      let (_, _, content, _, _) = read_thmod_values bytes in
+      let has_ho_define =
+        List.exists begin function
+          | CDefine (_, [], [("h", _)], _) -> true
+          | _ -> false
+        end content
+      in
+      Alcotest.check Alcotest.bool "higher-order Define is allowed" true
+        has_ho_define ;
+      let bytes = native_compile_thmod dir "Poly" {|
+Module Poly.
+  Type p A -> prop.
+  Define d : prop by
+    d := p d.
+End Poly.
+|} in
+      let (_, _, content, _, _) = read_thmod_values bytes in
+      let has_poly_pred =
+        List.exists begin function
+          | CDeclPred (["p"], ["A"], _) -> true
+          | _ -> false
+        end content
+      in
+      let has_poly_use =
+        List.exists begin function
+          | CDefine (_, [], [("d", _)], _) -> true
+          | _ -> false
+        end content
+      in
+      Alcotest.check Alcotest.bool
+        "polymorphic declared predicate keeps its local parameter" true
+        has_poly_pred ;
+      Alcotest.check Alcotest.bool
+        "polymorphic declared predicate can be used at prop" true
+        has_poly_use ;
+      let bytes = native_compile_thmod dir "Rigid" {|
+Module Rigid.
+  Kind u type.
+  Type c u.
+  Type p u -> prop.
+  Theorem t : p c -> p c.
+  intros. search.
+End Rigid.
+|} in
+      let (_, _, content, _, _) = read_thmod_values bytes in
+      let has_rigid_theorem =
+        List.exists begin function
+          | CTheorem ("t", [], _, Finished) -> true
+          | _ -> false
+        end content
+      in
+      Alcotest.check Alcotest.bool
+        "internal Kind types remain rigid constants" true
+        has_rigid_theorem
+    end
+  end
+
 let tests =
   suite "thmod" [
       test_case "read_thmod defaults" test_read_thmod_defaults ;
@@ -562,4 +648,5 @@ let tests =
       test_case "key classification" test_key_classification ;
       test_case "name scoping errors" test_name_scoping_errors ;
       test_case "split names" test_split_names ;
+      test_case "phase 4 checks" test_phase4_checks ;
     ]

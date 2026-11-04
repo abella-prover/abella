@@ -102,12 +102,17 @@ let get_pred_occurrences ~is_defined mt =
     | Var _ | DB _ -> ()
     | _ -> assert false
   in
+  let declared_higher_order name occurrence_ty =
+    match List.assoc_opt name (snd !sign) with
+    | Some (Poly (_, scheme_ty)) -> contains_prop_argument scheme_ty
+    | None -> contains_prop_argument occurrence_ty
+  in
   let check_declared_head t =
     match term_head t with
     | Some (head, args) ->
         let v = term_to_var head in
         if v.tag = Constant && not (is_defined v.name) &&
-           contains_prop_argument v.ty then
+           declared_higher_order v.name v.ty then
           List.iter aux_defined_term args
     | None -> ()
   in

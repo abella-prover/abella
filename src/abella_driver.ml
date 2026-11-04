@@ -899,6 +899,11 @@ let rec process1 () =
       let msg = match e with
         | Failure msg -> msg
         | Unify.UnifyFailure fl -> Unify.explain_failure fl
+        | Unify.UnifyError (Unify.InstGenericTyvar (v, ty))
+          when List.mem v (bound_params ()) ->
+            sprintf
+              "Module parameter %s cannot be instantiated to %s."
+              v (ty_to_string ty)
         | Unify.UnifyError err -> Unify.explain_error err
         | UserInterrupt -> "Interrupted (use Ctrl-D to quit)"
         | _ -> sorry e
@@ -1081,7 +1086,10 @@ and process_top1 () =
         Setup.axioms :=
           name :: List.map fst gen_thms @ !Setup.axioms ;
   | Define _ ->
-      compile (Prover.register_definition
+      let strat_errors =
+        !Setup.file_kind = `thmod || stratification_warnings_are_errors
+      in
+      compile (Prover.register_definition ~strat_errors
                  ~bound_tyvars:(bound_params ()) input.el)
   | Suspend (head, test) ->
       let g = Compute.make_guard ~head ~test in
@@ -1122,15 +1130,27 @@ and process_top1 () =
       compile (CKind (ids,knd)) ;
   | Type(ids, ty) ->
       check_noredef ids ;
+      let is_declared_predicate =
+        match observe_ty ty with
+        | Ty (_, aty) -> aty = propaty
+      in
       let typarams =
-        List.minus (get_typaram ty) (bound_params ())
+        if !Setup.file_kind = `thmod && is_declared_predicate &&
+           contains_prop_argument ty then begin
+          let name = match ids with
+            | id :: _ -> id
+            | [] -> "<unknown>"
+          in
+          failwithf
+            "Declared predicate %s may not take an argument containing prop"
+            name
+        end else
+          List.minus (get_typaram ty) (bound_params ())
       in
       Prover.add_global_consts ~typarams
         (List.map (fun id -> (id, ty)) ids) ;
       let comp =
-        if !Setup.file_kind = `thmod &&
-           (match observe_ty ty with
-            | Ty (_, aty) -> aty = propaty)
+        if !Setup.file_kind = `thmod && is_declared_predicate
         then CDeclPred (ids, typarams, ty)
         else CType (ids, typarams, ty)
       in

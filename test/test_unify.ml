@@ -261,6 +261,13 @@ let tests =
            let t = [("x",aty)] // ( a ^^ [ db 1 ; b ] ) in
              right_unify t t) ;
 
+      test_case "Abstractions with different binder types do not unify"
+        (fun () ->
+           let t1 = [("x",ity)] // db 1 in
+           let t2 = [("x",aty)] // db 1 in
+             assert_raises_unify_failure
+               (fun () -> Unify.right_unify t1 t2)) ;
+
       (* End of Gopalan's examples *)
 
       test_case "[f a a = f X X]"

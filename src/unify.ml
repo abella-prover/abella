@@ -64,6 +64,17 @@ let explain_error = function
 
 exception UnifyError of unify_error
 
+let unifyty ty1 ty2 =
+  try
+    let _ = unify_constraints ~enable_bind:true [(ty1, ty2, def_cinfo)] in
+    true
+  with
+  | TypeInferenceFailure _ -> false
+  | InstGenericTyvar (v, ty) ->
+     raise (UnifyError (InstGenericTyvar (v, ty)))
+
+let db_type tyctx i = snd (List.nth tyctx (i - 1))
+
 (* An explicit handler is specified for how to deal with
    non-llambda conflict pairs *)
 module type Param =
@@ -636,15 +647,6 @@ let makesubst tyctx h1 t2 a1 n =
     ensure_flex_args a1 ts1 ;
     lambda (List.combine a1ids a1tys) (toplevel_subst tyctx t2 0)
 
-let unifyty ty1 ty2 =
-  try
-    let _ = unify_constraints ~enable_bind:true [(ty1, ty2, def_cinfo)] in
-    true
-  with
-  | TypeInferenceFailure _ -> false
-  | InstGenericTyvar (v, ty) ->
-     raise (UnifyError (InstGenericTyvar (v, ty)))
-
 (** Unifying the arguments of two rigid terms with the same head, these
   * arguments being given as lists. Exceptions are raised if
   * unification fails or if there are unequal numbers of arguments; the
@@ -710,6 +712,8 @@ and unify_app_term tyctx h1 a1 t1 t2 =
     | DB n1, App (h2,a2) ->
         begin match observe h2 with
           | DB n2 when n1 == n2 ->
+              if not (unifyty (db_type tyctx n1) (db_type tyctx n2)) then
+                fail (ConstClash (h1,h2)) ;
               unify_list tyctx a1 a2
           | DB _ ->
               fail (ConstClash (h1,h2))
@@ -741,6 +745,16 @@ and unify_var_term tyctx v1 t1 t2 =
 (* Unify [Lam(tys1,t1) = t2]. *)
 and unify_lam_term tyctx tys1 t1 t2 =
   let n = List.length tys1 in
+  let check_binder_types tys2 =
+    let shared = min n (List.length tys2) in
+      List.iter2
+        (fun (_, ty1) (_, ty2) -> if not (unifyty ty1 ty2) then fail Generic)
+        (List.take shared tys1) (List.take shared tys2)
+  in
+  begin match observe t2 with
+    | Lam (tys2, _) -> check_binder_types tys2
+    | _ -> ()
+  end ;
     unify (List.rev_app tys1 tyctx)
       t1 (hnorm (app (lift t2 n) (lift_args [] n)))
 
@@ -783,7 +797,10 @@ and unify tyctx t1 t2 =
     | _,App (h2,a2)                 -> unify_app_term tyctx h2 a2 t2 t1
     | Var c1,_ when constant c1.tag -> unify_const_term tyctx t1 t2
     | _,Var c2 when constant c2.tag -> unify_const_term tyctx t2 t1
-    | DB i1,DB i2                   -> if i1 <> i2 then fail (ConstClash(t1, t2))
+    | DB i1,DB i2                   ->
+        if i1 <> i2 ||
+           not (unifyty (db_type tyctx i1) (db_type tyctx i2))
+        then fail (ConstClash(t1, t2))
 
     | _ -> raise (UnifyError NotLLambda)
   with

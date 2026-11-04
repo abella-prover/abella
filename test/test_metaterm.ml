@@ -299,6 +299,43 @@ let tests =
              meta_right_unify t1 t2 ;
              assert_pprint_equal "forall B, foo (iabs B)" t2) ;
 
+      test_case "Meta right unify - lambda binder types must match"
+        (fun () ->
+           assert_raises_unify_failure
+             (fun () ->
+                assert_metaterm_unify
+                  "x:nat \\ x = x:nat \\ x"
+                  "x:i \\ x = x:i \\ x")) ;
+
+      test_case "Meta right unify - quantified binder types must match"
+        (fun () ->
+           assert_raises_unify_failure
+             (fun () ->
+                assert_metaterm_unify
+                  "forall (x:nat), poly x"
+                  "forall (x:i), poly x")) ;
+
+      test_case "Meta right unify - alpha equivalent lambdas"
+        (fun () ->
+           assert_metaterm_unify
+             "x:nat \\ x = x:nat \\ x"
+             "y:nat \\ y = y:nat \\ y") ;
+
+      test_case "Meta right unify - failed check leaves no type bindings"
+        (fun () ->
+           let tv1 = fresh_tyvar () in
+           let tv2 = fresh_tyvar () in
+           let c1 = const "c1" ity in
+           let c2 = const "c2" aty in
+           let l1 = lambda [("x", tv1)] c1 in
+           let l2 = lambda [("x", tv2)] c2 in
+           let t1 = Eq(l1, l1) in
+           let t2 = Eq(l2, l2) in
+             Alcotest.check Alcotest.bool "should fail" false
+               (try_meta_right_unify t1 t2) ;
+             Alcotest.check Alcotest.bool "type binding leaked" true
+               (eq_ty (observe_ty tv1) tv1)) ;
+
       test_case "Fresh raised alist with subordination"
         (fun () ->
            let tm = tybase (atybase "tm") in

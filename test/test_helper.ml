@@ -110,6 +110,7 @@ let process_top_command str =
     | _ -> assert false
 
 let () = process_top_command "Type   foo, bar, baz         i -> prop."
+let () = process_top_command "Type   poly                A -> prop."
 let () = process_top_command "Type   rel1, rel2, rel3      i -> i -> prop."
 let () = process_top_command "Type   ctx                   olist -> prop."
 

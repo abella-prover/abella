@@ -828,6 +828,8 @@ let rec meta_right_unify t1 t2 =
     | True, True -> ()
     | False, False -> ()
     | Eq(l1, r1), Eq(l2, r2) ->
+        if not (unifyty (tc [] l1) (tc [] l2)) then
+          raise (UnifyFailure Generic) ;
         right_unify l1 l2 ;
         right_unify r1 r2
     | Obj (o1, _), Obj (o2, _)

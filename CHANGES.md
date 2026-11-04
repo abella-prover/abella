@@ -75,6 +75,9 @@ Bugfixes
   renaming it, which could unsoundly let an earlier existential witness
   depend on it. ***SOUNDNESS BUG***
   (#171, reported by Dale Miller @ThatDaleMiller)
+* Meta-right-unification now checks binder and operand types, so
+  differently typed statements are not accepted as equal.
+  ***SOUNDNESS BUG***
 
 
 Changes in 2.0.8 from 2.0.7

@@ -412,6 +412,45 @@ Axiom foo : forall q, p q.
   Alcotest.check Alcotest.string "imported theorem captured"
     "forall q1, q q1" (Metaterm.metaterm_to_string thm)
 
+let test_split_propagates_tags () =
+  Source.add_virtual "skipmod.thm" {|
+Theorem imported_skip : true /\ true.
+skip.
+|} ;
+  let check_tag expected name =
+    Alcotest.check Alcotest.bool (name ^ " tag differs") true
+      (Prover.get_lemma_tag name = expected)
+  in
+  let check_names message expected names =
+    Alcotest.check (Alcotest.list Alcotest.string) message
+      (List.sort compare expected) (List.sort compare names)
+  in
+  assert_ok (fst (process_command "Axiom ax : true /\\ true.")) ;
+  assert_ok (fst (process_command "Split ax as ax1, ax2.")) ;
+  List.iter (check_tag Axiomatic) ["ax" ; "ax1" ; "ax2"] ;
+  check_names "axioms differ" ["ax"] !D.Setup.axioms ;
+  assert_ok (fst (process_command "Theorem skipped : true /\\ true.")) ;
+  assert_ok (fst (process_command "skip.")) ;
+  assert_ok (fst (process_command "Split skipped as sk1, sk2.")) ;
+  List.iter (check_tag Unfinished) ["skipped" ; "sk1" ; "sk2"] ;
+  check_names "unfinished differ" ["skipped" ; "sk1" ; "sk2"]
+    !D.Setup.unfinished ;
+  assert_ok (fst (process_command "Import \"skipmod\".")) ;
+  assert_ok (fst (process_command "Split imported_skip as is1, is2.")) ;
+  List.iter (check_tag Unfinished)
+    ["imported_skip" ; "is1" ; "is2"] ;
+  check_names "imported unfinished reported" ["skipped" ; "sk1" ; "sk2"]
+    !D.Setup.unfinished ;
+  assert_ok (fst (process_command "Theorem done : true /\\ true.")) ;
+  assert_ok (fst (process_command "split.")) ;
+  assert_ok (fst (process_command "search.")) ;
+  assert_ok (fst (process_command "search.")) ;
+  assert_ok (fst (process_command "Split done as done1, done2.")) ;
+  List.iter (check_tag Finished) ["done" ; "done1" ; "done2"] ;
+  check_names "unfinished changed" ["skipped" ; "sk1" ; "sk2"]
+    !D.Setup.unfinished ;
+  check_names "axioms changed" ["ax"] !D.Setup.axioms
+
 let test_import_cycle () =
   Source.add_virtual "main.thm" "" ;
   Source.add_virtual "a.thm" "Import \"b\"." ;
@@ -441,6 +480,8 @@ let tests = suite "web_core" [
   test_case "nested_imports" (fun () -> with_session test_nested_imports) ;
   test_case "import_with_capture_avoidance"
     (fun () -> with_session test_import_with_capture_avoidance) ;
+  test_case "split_propagates_tags"
+    (fun () -> with_session test_split_propagates_tags) ;
   test_case "import_cycle" (fun () -> with_session test_import_cycle) ;
   test_case "axiom_declaration" (fun () -> with_session test_axiom_declaration) ;
 ]

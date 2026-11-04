@@ -83,6 +83,9 @@ Bugfixes
   side's own binder type.
 * Case analysis now reports generic instantiations instead of dropping cases.
 * Type substitutions are now simultaneous, fixing swapped type parameters.
+* `Split` now propagates the source theorem's tag: `Finished` (ordinary
+  theorem), `Unfinished` (proofs containing `skip`), or `Axiomatic` (for
+  `Axiom`s)
 
 
 Changes in 2.0.8 from 2.0.7

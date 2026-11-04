@@ -32,6 +32,7 @@ open Unifyty
 module H = Hashtbl
 
 let lemmas : (string, string list * metaterm) H.t = State.table ()
+let lemma_tags : (string, fin) H.t = State.table ()
 
 type subgoal = unit -> unit
 let subgoals : subgoal list ref = State.rref []
@@ -590,10 +591,16 @@ let add_if_new_var (name, v) =
   if not (List.mem_assoc name sequent.vars) then
     add_var (name, v)
 
-let add_lemma name tys lemma =
+let add_lemma ?(fin=Finished) name tys lemma =
   let ovr = if H.mem lemmas name then `replace else `append in
   H.replace lemmas name (tys, lemma) ;
+  H.replace lemma_tags name fin ;
   ovr
+
+let get_lemma_tag name =
+  try H.find lemma_tags name with
+  | Not_found ->
+      failwithf "Could not find theorem named %S" name
 
 let get_hyp name =
   let hyp = List.find (fun h -> h.id = name) sequent.hyps in

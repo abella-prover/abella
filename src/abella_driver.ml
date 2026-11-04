@@ -346,8 +346,8 @@ module Replacement = struct
     | CClose _ -> comp
 end
 
-let add_lemma name tys thm =
-  match Prover.add_lemma name tys thm with
+let add_lemma ?(fin=Finished) name tys thm =
+  match Prover.add_lemma ~fin name tys thm with
   | `replace ->
       Output.msg_printf "Warning: overriding existing lemma named %S." name
   | _ -> ()
@@ -464,7 +464,7 @@ and process_decls ~repl ~modname decls =
       | CTheorem(name, tys, thm, fin) ->
           if fin = Axiomatic then
             Setup.axioms := name :: !Setup.axioms ;
-          add_lemma name tys thm ;
+          add_lemma ~fin name tys thm ;
           process_decls ~repl ~modname decls
       | CDefine(flav, tyargs, idtys, clauses) ->
           let ids = List.map fst idtys in
@@ -907,7 +907,7 @@ and process_top1 () =
       let thm_compile fin =
         sign := oldsign ;
         compile (CTheorem(name, tys, thm, fin)) ;
-        add_lemma name tys thm
+        add_lemma ~fin name tys thm
       in
       let thm_reset () =
         sign := oldsign ;
@@ -924,15 +924,22 @@ and process_top1 () =
       let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
       check_theorem tys thm ;
       compile (CTheorem(name, tys, thm, Axiomatic)) ;
-      add_lemma name tys thm ;
+      add_lemma ~fin:Axiomatic name tys thm ;
       Setup.axioms := name :: !Setup.axioms
   | SSplit(name, names) ->
+      let fin = Prover.get_lemma_tag name in
       let gen_thms = Prover.create_split_theorems name names in
       List.iter begin fun (n, (tys, t)) ->
         Output.msg_format "%t" (Prover.print_theorem n (tys, t)) ;
-        add_lemma n tys t ;
-        compile (CTheorem(n, tys, t, Finished))
+        add_lemma ~fin n tys t ;
+        compile (CTheorem(n, tys, t, fin))
       end gen_thms ;
+      if fin = Unfinished && List.mem name !Setup.unfinished then
+        Setup.unfinished :=
+          List.map fst gen_thms @ !Setup.unfinished ;
+      if fin = Axiomatic && not (List.mem name !Setup.axioms) then
+        Setup.axioms :=
+          name :: List.map fst gen_thms @ !Setup.axioms ;
   | Define _ ->
       compile (Prover.register_definition input.el)
   | Suspend (head, test) ->

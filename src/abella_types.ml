@@ -96,7 +96,8 @@ type compiled =
   | CDefine       of flavor * string list * tyctx * def_clause list
   | CImport       of string * (string * string) list
   | CKind         of id list * knd
-  | CType         of id list * ty
+  | CType         of id list * string list * ty
+  | CDeclPred     of id list * string list * ty
   | CClose        of (aty * aty list) list
   | CSuspend      of guard
 

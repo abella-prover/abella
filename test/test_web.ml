@@ -24,6 +24,7 @@
 open Abella_lib
 open Abella_types
 open Extensions
+open Term
 open Test_helper
 
 module D = Abella_driver
@@ -355,6 +356,37 @@ let test_input_path_relative_imports () =
   Alcotest.check Alcotest.bool "nested thc" true
     (Source.virtual_exists "nested/mod.thc")
 
+let test_ctype_stores_typarams () =
+  assert_ok (fst (process_command
+    "Type decl_local A -> B -> prop.")) ;
+  match !D.comp_content with
+  | [CType(["decl_local"], typarams, _)] ->
+      Alcotest.check (Alcotest.list Alcotest.string)
+        "type parameters differ" ["A" ; "B"] typarams
+  | _ -> Alcotest.fail "expected a CType declaration"
+
+let test_decl_pred_replay_preserves_typarams () =
+  let a = tybase (Tygenvar "A") in
+  let b = tybase (Tygenvar "B") in
+  let pred_ty = tyarrow [a; b] propty in
+  let const_ty = tyarrow [a] b in
+  let repl = D.Replacement.make [] in
+  D.process_decls ~repl ~modname:"test" [
+    CDeclPred(["decl_pred"], ["A"], pred_ty) ;
+    CType(["decl_const"], ["A"], const_ty) ;
+  ] ;
+  let check_scheme name expected ty =
+    match List.assoc name (snd !Typing.sign) with
+    | Poly(typarams, scheme_ty) ->
+        Alcotest.check (Alcotest.list Alcotest.string)
+          (name ^ " type parameters") expected typarams ;
+        Alcotest.check ty_testable (name ^ " type") ty scheme_ty
+    | exception Not_found ->
+        Alcotest.fail ("missing declaration " ^ name)
+  in
+  check_scheme "decl_pred" ["A"] pred_ty ;
+  check_scheme "decl_const" ["A"] const_ty
+
 let test_values_match_native () =
   let native = native_compile_module () in
   start_web_session () ;
@@ -490,6 +522,10 @@ let tests = suite "web_core" [
   test_case "source_import_cache" (fun () -> with_session test_source_import_cache) ;
   test_case "input_path_relative_imports"
     (fun () -> with_session test_input_path_relative_imports) ;
+  test_case "ctype_stores_typarams"
+    (fun () -> with_session test_ctype_stores_typarams) ;
+  test_case "decl_pred_replay_preserves_typarams"
+    (fun () -> with_session test_decl_pred_replay_preserves_typarams) ;
   test_case "values_match_native" (fun () -> with_session test_values_match_native) ;
   test_case "virtual_native_thc" (fun () -> with_session test_virtual_native_thc) ;
   test_case "nested_imports" (fun () -> with_session test_nested_imports) ;

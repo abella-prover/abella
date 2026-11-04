@@ -205,8 +205,11 @@ let get_typaram ty =
 
 let get_typarams tys = List.flatten_map get_typaram tys
 
-let add_consts sign idtys =
-  let typarams = idtys |> List.map snd |> List.map get_typaram in
+let add_consts ?typarams sign idtys =
+  let typarams = match typarams with
+    | Some typarams -> List.map (fun _ -> typarams) idtys
+    | None -> idtys |> List.map snd |> List.map get_typaram
+  in
   let idptys = List.map2
                  (fun (id, ty) pas -> (id, Poly(pas, ty))) idtys typarams in
   add_poly_consts sign idptys

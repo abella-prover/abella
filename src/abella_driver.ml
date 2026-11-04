@@ -337,7 +337,8 @@ module Replacement = struct
           ~what:"declared type"
           ~mem:(fun id -> Itab.mem id repl.map) ;
         comp
-    | CType (ids, _) ->
+    | CType (ids, _, _)
+    | CDeclPred (ids, _, _) ->
         check_no_existing ids
           ~what:"declared constant"
           ~mem:(fun id -> Itab.mem id repl.map) ;
@@ -481,7 +482,7 @@ and process_decls ~repl ~modname decls =
           check_noredef ids ;
           Prover.add_global_types ids knd;
           process_decls ~repl ~modname decls
-      | CType(ids, (Ty(_, aty) as ty)) when aty = propaty-> begin
+      | CType(ids, _, (Ty(_, aty) as ty)) when aty = propaty-> begin
           let check_types id =
             try begin
               let open Typing in
@@ -498,9 +499,11 @@ and process_decls ~repl ~modname decls =
           List.map (Replacement.compiled repl) decls |>
           process_decls ~repl ~modname
         end
-      | CType(ids,ty) ->
+      | CType(ids, typarams, ty)
+      | CDeclPred(ids, typarams, ty) ->
           check_noredef ids ;
-          Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
+          Prover.add_global_consts ~typarams
+            (List.map (fun id -> (id, ty)) ids) ;
           process_decls ~repl ~modname decls
       | CClose(ty_subords) ->
           List.iter
@@ -976,7 +979,7 @@ and process_top1 () =
   | Type(ids, ty) ->
       check_noredef ids ;
       Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
-      compile (CType(ids, ty)) ;
+      compile (CType(ids, get_typaram ty, ty)) ;
   | Close(atys) ->
       Prover.close_types !sign !Prover.clauses atys ;
       compile (CClose(List.map (fun aty -> (aty, Subordination.subordinates !sr aty)) atys))

@@ -75,4 +75,41 @@ let tests =
                    assert_term_pprint_equal "pr X1 X2" p
                | _ -> assert false
         );
+
+      test_case "Type parameters keep first-occurrence order"
+        (fun () ->
+           let a = tybase (Tygenvar "A") in
+           let b = tybase (Tygenvar "B") in
+           let ty = tyarrow [b; a; b; a] propty in
+             Alcotest.check (Alcotest.list Alcotest.string)
+               "type parameters differ" ["B"; "A"] (get_typaram ty)
+        );
+
+      test_case "Type and definition schemes agree"
+        (fun () ->
+           let a = tybase (Tygenvar "A") in
+           let ty = tyarrow [a; a] propty in
+           let scheme =
+             List.assoc "item3_eq" (snd (add_consts !sign [("item3_eq", ty)]))
+           in
+           let define_scheme =
+             Poly (List.unique (get_typarams [ty]), ty)
+           in
+             Alcotest.check Alcotest.bool "schemes differ" true
+               (eq_pty scheme define_scheme) ;
+             match scheme with
+             | Poly(ids, _) ->
+                 Alcotest.check (Alcotest.list Alcotest.string)
+                   "type parameters differ" ["A"] ids
+        );
+
+      test_case "Unused type parameters are not invented"
+        (fun () ->
+           let a = tybase (Tygenvar "A") in
+           let ty = tyarrow [a] propty in
+             Alcotest.check (Alcotest.list Alcotest.string)
+               "type parameters differ" ["A"] (get_typaram ty) ;
+             Alcotest.check Alcotest.bool "unused parameter invented" false
+               (List.mem "B" (get_typaram ty))
+        );
     ]

@@ -201,7 +201,7 @@ let get_typaram ty =
          params := v::(!params)
     | _ -> ()
     end ty;
-  !params
+  List.unique (List.rev !params)
 
 let get_typarams tys = List.flatten_map get_typaram tys
 

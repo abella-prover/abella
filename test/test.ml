@@ -7,6 +7,7 @@ let () =
       Test_graph.tests ;
       Test_subordination.tests ;
       Test_metaterm.tests ;
+      Test_replacement.tests ;
       Test_typing.tests ;
       Test_parser.tests ;
       Test_tactics.tests ;

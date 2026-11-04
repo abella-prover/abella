@@ -294,7 +294,12 @@ module Replacement = struct
       end repl.map (body, []) in
     Term.app abs args
 
-  let metaterm repl body = map_terms (term repl) body
+  let metaterm repl body =
+    let alist =
+      Itab.fold (fun decl defn alist -> (decl, defn.term) :: alist)
+        repl.map []
+    in
+    replace_metaterm_vars alist body
 
   let clause repl cl =
     let head = metaterm repl cl.head in

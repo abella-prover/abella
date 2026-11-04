@@ -397,6 +397,21 @@ intros. search.
   (* The outer progress hook fires before its sandbox compiles inner. *)
   Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["inner" ; "outer"] !hits
 
+let test_import_with_capture_avoidance () =
+  Source.add_virtual "main.thm" "" ;
+  Source.add_virtual "withmod.thm" {|
+Kind nat type.
+Type p nat -> prop.
+Axiom foo : forall q, p q.
+|} ;
+  assert_ok (fst (process_command "Kind nat type.")) ;
+  assert_ok (fst (process_command "Type p, q nat -> prop.")) ;
+  let (status, _) = process_command "Import \"withmod\" with p := q." in
+  assert_ok status ;
+  let (_, thm) = Prover.get_generic_lemma "foo" in
+  Alcotest.check Alcotest.string "imported theorem captured"
+    "forall q1, q q1" (Metaterm.metaterm_to_string thm)
+
 let test_import_cycle () =
   Source.add_virtual "main.thm" "" ;
   Source.add_virtual "a.thm" "Import \"b\"." ;
@@ -424,6 +439,8 @@ let tests = suite "web_core" [
   test_case "values_match_native" (fun () -> with_session test_values_match_native) ;
   test_case "virtual_native_thc" (fun () -> with_session test_virtual_native_thc) ;
   test_case "nested_imports" (fun () -> with_session test_nested_imports) ;
+  test_case "import_with_capture_avoidance"
+    (fun () -> with_session test_import_with_capture_avoidance) ;
   test_case "import_cycle" (fun () -> with_session test_import_cycle) ;
   test_case "axiom_declaration" (fun () -> with_session test_axiom_declaration) ;
 ]

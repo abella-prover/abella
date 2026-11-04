@@ -613,6 +613,15 @@ let get_lemma_tag name =
   | Not_found ->
       failwithf "Could not find theorem named %S" name
 
+let remove_globals names =
+  List.iter begin fun name ->
+    H.remove lemmas name ;
+    H.remove lemma_tags name ;
+    H.remove defs_table name
+  end names ;
+  clauses := List.filter (fun (_, clause) ->
+      not (List.mem (term_head_name clause) names)) !clauses
+
 let get_hyp name =
   let hyp = List.find (fun h -> h.id = name) sequent.hyps in
   hyp.term

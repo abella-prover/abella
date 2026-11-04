@@ -32,12 +32,29 @@ type item = {
   item_typarams : string list ;
 }
 
+type template = {
+  tp_name : string ;
+  tp_from : string list ;
+  tp_params : string list ;
+  tp_content : compiled list ;
+  tp_nested : string list ;
+}
+
+type instance = {
+  ins_name : string ;
+  ins_source : string ;
+  ins_prefix : string list ;
+  ins_decls : compiled list ;
+  ins_tyargs : ty list ;
+}
+
 type scope = {
   sc_name : string ;
   sc_path : string list ;
   sc_params : string list ;
   sc_items : item list ;
   sc_children : scope list ;
+  sc_instances : (string * instance) list ;
   sc_content : compiled list ;      (* reverse declaration order *)
 }
 
@@ -101,6 +118,42 @@ let current_name () =
   | Some sc -> Some sc.sc_name
   | None -> None
 
+let instance_prefix name =
+  match current_scope () with
+  | Some sc -> sc.sc_path @ [name]
+  | None -> [name]
+
+let template_of_scope sc = {
+  tp_name = sc.sc_name ;
+  tp_from = sc.sc_path ;
+  tp_params = sc.sc_params ;
+  tp_content = List.rev sc.sc_content ;
+  tp_nested = List.map (fun ch -> ch.sc_name) sc.sc_children ;
+}
+
+let find_template name =
+  match current_scope () with
+  | None -> None
+  | Some sc ->
+      List.find_some begin fun ch ->
+        if ch.sc_name = name then Some (template_of_scope ch) else None
+      end sc.sc_children
+
+let find_instance name =
+  match current_scope () with
+  | None -> None
+  | Some sc -> List.assoc_opt name sc.sc_instances
+
+let add_instance inst =
+  match !env.en_stack with
+  | [] -> failwith "Cannot import a module outside a module"
+  | sc :: rest ->
+      if List.mem_assoc inst.ins_name sc.sc_instances then
+        failwithf "Module name %s is already imported" inst.ins_name ;
+      let sc = { sc with
+                 sc_instances = sc.sc_instances @ [(inst.ins_name, inst)] } in
+      env := { !env with en_stack = sc :: rest }
+
 let top_scope () = !env.en_top
 
 let top_name () =
@@ -124,6 +177,9 @@ let all_params () =
 let all_items () =
   List.flatten_map (fun sc -> sc.sc_items) !env.en_stack
 
+let all_instances () =
+  List.flatten_map (fun sc -> List.map snd sc.sc_instances) !env.en_stack
+
 let lookup_item_in items name =
   List.find_some begin fun it ->
     if it.item_local = name then Some it else None
@@ -131,6 +187,11 @@ let lookup_item_in items name =
 
 let lookup_item name =
   lookup_item_in (all_items ()) name
+
+let lookup_item_by_name name =
+  List.find_some begin fun it ->
+    if it.item_name = name then Some it else None
+  end (all_items ())
 
 let enclosing_items () =
   List.flatten_map (fun sc -> sc.sc_items) (enclosing_scopes ())
@@ -142,7 +203,10 @@ let all_module_names () =
   let scopes = !env.en_stack in
   let names =
     List.flatten_map (fun sc ->
-        List.flatten_map (fun ch -> ch.sc_name :: descend ch) sc.sc_children)
+        let children =
+          List.flatten_map (fun ch -> ch.sc_name :: descend ch) sc.sc_children
+        in
+        children @ List.map fst sc.sc_instances)
       scopes
   in
   let stack_top =
@@ -157,7 +221,9 @@ let all_module_names () =
 let all_child_names () =
   match current_scope () with
   | None -> []
-  | Some sc -> List.map (fun ch -> ch.sc_name) sc.sc_children
+  | Some sc ->
+      List.map (fun ch -> ch.sc_name) sc.sc_children @
+      List.map fst sc.sc_instances
 
 let split_qualified name =
   String.split_on_char '.' name
@@ -181,11 +247,23 @@ let validate_qualified name =
   match split_qualified name with
   | [] | [_] -> ()
   | prefix :: _ ->
-      if not (List.mem prefix (all_child_names ())) then
-        failwithf "Unknown module %s in qualified name %s" prefix name ;
-      failwithf
-        "Module %s has not been imported; item %s is not in scope"
-        prefix name
+      if List.mem prefix (all_params ()) then
+        failwithf "Module parameter %s is not a module" prefix ;
+      if lookup_item_in (all_items ()) name <> None then ()
+      else if List.mem prefix (all_child_names ()) then
+        let is_instance =
+          match current_scope () with
+          | Some sc -> List.mem_assoc prefix sc.sc_instances
+          | None -> false
+        in
+        if is_instance then
+          failwithf "Unknown item %s in module %s" name prefix
+        else
+          failwithf
+            "Module %s has not been imported; item %s is not in scope"
+            prefix name
+      else
+        failwithf "Unknown module %s in qualified name %s" prefix name
 
 let resolve_id name =
   if is_dotted name then begin
@@ -412,18 +490,19 @@ let class_of_compiled = function
   | CTheorem _ -> Some TheoremItem
   | CImport _ | CClose _ | CSuspend _ -> None
 
-let items_of_compiled citem =
+let items_of_compiled ?(imported=false) citem =
+  let local id = if imported then id else last_segment id in
   match citem with
   | CKind (ids, _) ->
       List.map (fun id ->
-          { item_local = last_segment id ;
+          { item_local = local id ;
             item_name = id ;
             item_class = KindItem ;
             item_ty = None ;
             item_typarams = [] }) ids
   | CDeclPred (ids, typarams, ty) ->
       List.map (fun id ->
-          { item_local = last_segment id ;
+          { item_local = local id ;
             item_name = id ;
             item_class = PredicateItem ;
             item_ty = Some ty ;
@@ -431,20 +510,20 @@ let items_of_compiled citem =
   | CType (ids, typarams, ty) ->
       let cls = if is_predicate_ty ty then PredicateItem else TypeItem in
       List.map (fun id ->
-          { item_local = last_segment id ;
+          { item_local = local id ;
             item_name = id ;
             item_class = cls ;
             item_ty = Some ty ;
             item_typarams = typarams }) ids
   | CDefine (_, typarams, idtys, _) ->
       List.map (fun (id, ty) ->
-          { item_local = last_segment id ;
+          { item_local = local id ;
             item_name = id ;
             item_class = DefineItem ;
             item_ty = Some ty ;
             item_typarams = typarams }) idtys
   | CTheorem (id, typarams, _, fin) ->
-      [{ item_local = last_segment id ;
+      [{ item_local = local id ;
          item_name = id ;
          item_class =
            (if fin = Axiomatic then AxiomItem else TheoremItem) ;
@@ -464,17 +543,19 @@ let check_shadowing sc new_items =
         item.item_local
   end new_items
 
-let add_compiled citem =
+let add_compiled ?(imported=false) citem =
   match !env.en_stack with
   | [] -> failwith "Cannot add a declaration outside a module"
   | sc :: rest ->
-      let new_items = items_of_compiled citem in
+      let new_items = items_of_compiled ~imported citem in
       check_shadowing sc new_items ;
       let sc = { sc with
                  sc_items = sc.sc_items @ new_items ;
                  sc_content = citem :: sc.sc_content } in
       env := { !env with en_stack = sc :: rest } ;
       update_display ()
+
+let add_imported_compiled citem = add_compiled ~imported:true citem
 
 let check_param_shadowing params =
   if List.length params <> List.length (List.unique params) then
@@ -496,17 +577,21 @@ let enter_module name params =
                  sc_params = params ;
                  sc_items = [] ;
                  sc_children = [] ;
+                 sc_instances = [] ;
                  sc_content = [] } in
       env := { state with en_stack = [sc] } ;
       update_display ()
   | parent :: _ ->
       if List.exists (fun ch -> ch.sc_name = name) parent.sc_children then
         failwithf "Module %s is already declared in this module" name ;
+      if List.mem_assoc name parent.sc_instances then
+        failwithf "Module %s is already imported in this module" name ;
       let sc = { sc_name = name ;
                  sc_path = parent.sc_path @ [name] ;
                  sc_params = params ;
                  sc_items = [] ;
                  sc_children = [] ;
+                 sc_instances = [] ;
                  sc_content = [] } in
       env := { state with en_stack = sc :: state.en_stack } ;
       update_display ()
@@ -526,7 +611,8 @@ let leave_module name =
           in
           env := { !env with en_stack = parent :: parents }
       end ;
-      update_display ()
+      update_display () ;
+      (sc, rest = [])
 
 let check_complete () =
   let state = !env in

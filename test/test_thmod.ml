@@ -131,6 +131,43 @@ let native_compile_thmod dir name source =
   | `Ok bytes -> bytes
   | `Error msg -> Alcotest.fail msg
 
+let run_thm dir name source =
+  let path = Filename.concat dir (name ^ ".thm") in
+  write_file path source ;
+  State.reload D.initial_snapshot ;
+  Thmod.reset () ;
+  D.thm_instances := [] ;
+  D.thmod_loading := [] ;
+  State.Undo.set_enabled false ;
+  D.compiling := [] ;
+  D.Setup.mode := `batch ;
+  D.Setup.annotate := false ;
+  D.Setup.recurse := false ;
+  D.Setup.import_mode := `thc ;
+  D.Setup.trust_compiled := false ;
+  D.Setup.unfinished := [] ;
+  D.Setup.file_kind := `thm ;
+  D.Setup.input := path ;
+  D.Setup.thmod_name := None ;
+  D.Setup.thmod_params := [] ;
+  D.Setup.thmod_finished := false ;
+  let module Src = (val Source.read_thm path) in
+  D.Setup.compiled := Some (module Src) ;
+  D.Setup.lexbuf := Src.lex true ;
+  Output.collect_mode () ;
+  ignore (Output.drain ()) ;
+  let rec drive () =
+    try ignore (D.process1 ()) ; drive () with
+    | D.AbellaExit 0 -> ()
+    | D.AbellaExit n -> raise (D.AbellaExit n)
+  in
+  try
+    drive () ;
+    `Ok (read_file Src.thc_path)
+  with
+  | D.AbellaExit _ -> `Error (D.collected_messages ())
+  | e -> `Error (Printexc.to_string e)
+
 let expect_thmod_error dir name source needle =
   match run_thmod dir name source with
   | `Ok _ -> Alcotest.fail ("expected an error containing " ^ needle)
@@ -638,6 +675,426 @@ End Rigid.
     end
   end
 
+let test_import_basic () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      ignore (native_compile_thmod dir "Box" {|
+Module Box[T].
+  Kind box type.
+  Type mk T -> box.
+  Type p T -> prop.
+  Axiom ax : forall (x:T), p x.
+End Box.
+|}) ;
+      let bytes = native_compile_thmod dir "Use" {|
+Module Use.
+  Kind u type.
+  Type c u.
+  Import Module B = "Box"[u].
+  Theorem t : B.p c -> B.p c.
+  intros. search.
+End Use.
+|} in
+      let (_, _, content, _, exports) = read_thmod_values bytes in
+      let has pred =
+        List.exists pred content
+      in
+      Alcotest.check Alcotest.bool "imported kind" true
+        (has (function CKind (["B.box"], _) -> true | _ -> false)) ;
+      Alcotest.check Alcotest.bool "imported constant" true
+        (has (function CType (["B.mk"], _, _) -> true | _ -> false)) ;
+      Alcotest.check Alcotest.bool "imported predicate" true
+        (has (function CDeclPred (["B.p"], [], _) -> true | _ -> false)) ;
+      Alcotest.check Alcotest.bool "imported axiom" true
+        (has (function
+             | CTheorem ("B.ax", _, _, Axiomatic) -> true
+             | _ -> false)) ;
+      Alcotest.check (Alcotest.list Alcotest.string) "exports"
+        ["u"; "c"; "B.box"; "B.mk"; "B.p"; "B.ax"; "t"]
+        exports
+    end
+  end
+
+let test_import_with () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      ignore (native_compile_thmod dir "Eq" {|
+Module Eq[T].
+  Type eq T -> T -> prop.
+  Axiom refl : forall (x:T), eq x x.
+End Eq.
+|}) ;
+      let bytes = native_compile_thmod dir "EqUse" {|
+Module EqUse.
+  Kind u type.
+  Type c u.
+  Define eq_u : u -> u -> prop by
+    eq_u X X.
+  Theorem refl_u : forall (x:u), eq_u x x.
+  intros. search.
+  Import Module E = "Eq"[u] with eq := eq_u, refl := refl_u.
+  Theorem t : forall (x:u), eq_u x x.
+  intros. apply E.refl. search.
+End EqUse.
+|} in
+      let (_, _, content, _, _) = read_thmod_values bytes in
+      let has pred = List.exists pred content in
+      Alcotest.check Alcotest.bool "mapped predicate is removed" false
+        (has (function CDeclPred (["E.eq"], _, _) -> true | _ -> false)) ;
+      Alcotest.check Alcotest.bool "mapped axiom aliases the theorem" true
+        (has (function
+             | CTheorem ("E.refl", [], _, Finished) -> true
+             | _ -> false))
+    end
+  end
+
+let test_import_transitive_nested () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      ignore (native_compile_thmod dir "Box2" {|
+Module Box2[T].
+  Kind box type.
+  Type p T -> prop.
+End Box2.
+|}) ;
+      ignore (native_compile_thmod dir "Trans" {|
+Module Trans.
+  Kind u type.
+  Import Module Box = "Box2"[u].
+End Trans.
+|}) ;
+      let bytes = native_compile_thmod dir "UseTrans" {|
+Module UseTrans.
+  Import Module T = "Trans".
+  Type h T.Box.box -> prop.
+End UseTrans.
+|} in
+      let (_, _, content, _, _) = read_thmod_values bytes in
+      let has pred = List.exists pred content in
+      Alcotest.check Alcotest.bool "transitive kind" true
+        (has (function CKind (["T.Box.box"], _) -> true | _ -> false)) ;
+      Alcotest.check Alcotest.bool "transitive predicate" true
+        (has (function
+             | CDeclPred (["T.Box.p"], [], _) -> true
+             | _ -> false)) ;
+      ignore (native_compile_thmod dir "Outer2" {|
+Module Outer2.
+  Kind u type.
+  Type c u.
+  Module Inner[U].
+    Kind inner type.
+    Type d inner.
+    Type p U -> prop.
+  End Inner.
+  Import Module I = Inner[u].
+End Outer2.
+|}) ;
+      let bytes = native_compile_thmod dir "UseOuter2" {|
+Module UseOuter2.
+  Import Module O = "Outer2".
+  Type h O.I.inner -> prop.
+  Theorem t : O.I.p O.c -> O.I.p O.c.
+  intros. search.
+End UseOuter2.
+|} in
+      let (_, _, content, _, _) = read_thmod_values bytes in
+      let has pred = List.exists pred content in
+      Alcotest.check Alcotest.bool "nested kind" true
+        (has (function CKind (["O.I.inner"], _) -> true | _ -> false)) ;
+      Alcotest.check Alcotest.bool "nested predicate" true
+        (has (function
+             | CDeclPred (["O.I.p"], [], _) -> true
+             | _ -> false))
+    end
+  end
+
+let test_import_dotted_key () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      ignore (native_compile_thmod dir "Outer3" {|
+Module Outer3[T].
+  Module Inner.
+    Type q T -> prop.
+  End Inner.
+  Import Module I = Inner.
+End Outer3.
+|}) ;
+      begin match run_thmod dir "UseOuter3" {|
+Module UseOuter3.
+  Kind u type.
+  Type r u -> prop.
+  Import Module O = "Outer3"[u] with I.q := r.
+End UseOuter3.
+|} with
+      | `Ok _ -> ()
+      | `Error msg -> Alcotest.fail msg
+      end
+    end
+  end
+
+let test_import_nested_strict () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      ignore (native_compile_thmod dir "NestA" {|
+Module NestA.
+  Kind u type.
+  Module N.
+    Type p u -> prop.
+  End N.
+  Import Module N.
+End NestA.
+|}) ;
+      ignore (native_compile_thmod dir "NestB" {|
+Module NestB.
+  Kind u type.
+  Module N.
+    Type p u -> prop.
+  End N.
+End NestB.
+|}) ;
+      begin match run_thmod dir "UseNestA" {|
+Module UseNestA.
+  Import Module "NestA".
+  Type c NestA.u.
+  Theorem t : NestA.N.p c -> NestA.N.p c.
+  intros. search.
+End UseNestA.
+|} with
+      | `Ok _ -> ()
+      | `Error msg -> Alcotest.fail msg
+      end ;
+      expect_thmod_error dir "UseNestB" {|
+Module UseNestB.
+  Import Module "NestB".
+  Type c NestB.u.
+  Theorem t : NestB.N.p c -> NestB.N.p c.
+  intros. search.
+End UseNestB.
+|} "Unknown item NestB.N.p"
+    end
+  end
+
+let test_import_multiple_instances () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      ignore (native_compile_thmod dir "Box3" {|
+Module Box3[T].
+  Kind box type.
+  Type mk T -> box.
+End Box3.
+|}) ;
+      let bytes = native_compile_thmod dir "Multi" {|
+Module Multi.
+  Kind u type.
+  Kind v type.
+  Import Module B1 = "Box3"[u].
+  Import Module B2 = "Box3"[v].
+  Type f B1.box -> prop.
+  Type g B2.box -> prop.
+End Multi.
+|} in
+      let (_, _, content, _, _) = read_thmod_values bytes in
+      let has pred = List.exists pred content in
+      Alcotest.check Alcotest.bool "first internal type" true
+        (has (function CKind (["B1.box"], _) -> true | _ -> false)) ;
+      Alcotest.check Alcotest.bool "second internal type" true
+        (has (function CKind (["B2.box"], _) -> true | _ -> false))
+    end
+  end
+
+let test_import_thm_flattening () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      ignore (native_compile_thmod dir "Box4" {|
+Module Box4[T].
+  Type p T -> prop.
+End Box4.
+|}) ;
+      begin match run_thm dir "b" {|
+Kind w type.
+Type cw w.
+Import Module B = "Box4"[w].
+Theorem bt : B.p cw -> B.p cw.
+intros. search.
+|} with
+      | `Ok _ -> ()
+      | `Error msg -> Alcotest.fail msg
+      end ;
+      begin match run_thm dir "c" {|
+Import "b".
+Theorem ct : B.p cw -> B.p cw.
+intros. search.
+|} with
+      | `Ok _ -> ()
+      | `Error msg -> Alcotest.fail msg
+      end
+    end
+  end
+
+let test_import_errors () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      ignore (native_compile_thmod dir "Box5" {|
+Module Box5[T].
+  Kind box type.
+  Type p T -> prop.
+End Box5.
+|}) ;
+      ignore (native_compile_thmod dir "M5" {|
+Module M5[T].
+  Type p T -> prop.
+  Type q T -> prop.
+  Axiom ax : forall (x:T), p x -> p x.
+End M5.
+|}) ;
+      ignore (native_compile_thmod dir "Box6" {|
+Module Box6[T].
+  Kind box type.
+  Type p box -> prop.
+End Box6.
+|}) ;
+      ignore (native_compile_thmod dir "Unfin5" {|
+Module Unfin5[T].
+  Type p T -> prop.
+  Axiom ax : forall (x:T), p x.
+End Unfin5.
+|}) ;
+      ignore (native_compile_thmod dir "Eq5" {|
+Module Eq5[T].
+  Type eq T -> T -> prop.
+  Axiom refl : forall (x:T), eq x x.
+End Eq5.
+|}) ;
+      expect_thmod_error dir "Arity" {|
+Module Arity.
+  Import Module "Box5".
+End Arity.
+|} "expects 1 type arguments" ;
+      expect_thmod_error dir "Alias" {|
+Module Alias.
+  Kind u type.
+  Import Module B = "Box5"[u].
+  Import Module B = "Box5"[u].
+End Alias.
+|} "already imported" ;
+      expect_thmod_error dir "PropArg" {|
+Module PropArg.
+  Import Module "Box5"[prop].
+End PropArg.
+|} "may not contain prop" ;
+      expect_thmod_error dir "FreeArg" {|
+Module FreeArg.
+  Import Module "Box5"[A].
+End FreeArg.
+|} "free type variable" ;
+      expect_thmod_error dir "UnknownKey" {|
+Module UnknownKey.
+  Kind u type.
+  Import Module B = "Box5"[u] with nope := u.
+End UnknownKey.
+|} "Unknown with key" ;
+      expect_thmod_error dir "DupKey" {|
+Module DupKey.
+  Kind u type.
+  Import Module B = "Box5"[u] with p := u, p := u.
+End DupKey.
+|} "Duplicate with key" ;
+      expect_thmod_error dir "InstanceBrackets" {|
+Module InstanceBrackets.
+  Kind u type.
+  Import Module B = "Box5"[u].
+  Import Module C = B[u].
+End InstanceBrackets.
+|} "already instantiated" ;
+      expect_thmod_error dir "NonKey" {|
+Module NonKey.
+  Kind u type.
+  Import Module B = "Box5"[u] with box := u.
+End NonKey.
+|} "not a declared predicate or axiom" ;
+      expect_thmod_error dir "WrongValue" {|
+Module WrongValue.
+  Kind u type.
+  Import Module B = "Box5"[u] with p := u.
+End WrongValue.
+|} "not a predicate or axiom" ;
+      expect_thmod_error dir "Collision" {|
+Module Collision.
+  Kind u type.
+  Type p u -> prop.
+  Module Inner.
+    Type q u -> prop.
+    Axiom ax : forall (x:u), q x -> p x.
+  End Inner.
+  Import Module I = Inner with q := p.
+End Collision.
+|} "already occurs in the declarations" ;
+      expect_thmod_error dir "Staged" {|
+Module Staged.
+  Kind u type.
+  Type r u -> prop.
+  Import Module M1 = "M5"[u] with p := r.
+  Import Module M2 = M1 with q := r.
+End Staged.
+|} "already occurs in the declarations" ;
+      expect_thmod_error dir "Unfinished" {|
+Module Unfinished.
+  Kind u type.
+  Type r u -> prop.
+  Theorem skip_t : forall (x:u), r x.
+  intros. skip.
+  Import Module U = "Unfin5"[u] with p := r, ax := skip_t.
+End Unfinished.
+|} "unfinished" ;
+      expect_thmod_error dir "SchemeMismatch" {|
+Module SchemeMismatch.
+  Kind u type.
+  Type eq_u u -> u -> prop.
+  Import Module B = "Box5"[u] with p := eq_u.
+End SchemeMismatch.
+|} "same type" ;
+      expect_thmod_error dir "PairDistinct" {|
+Module PairDistinct.
+  Kind u type.
+  Type r u -> prop.
+  Import Module M = "M5"[u] with p := r, q := r.
+End PairDistinct.
+|} "pairwise distinct" ;
+      expect_thmod_error dir "AxiomMismatch" {|
+Module AxiomMismatch.
+  Kind u type.
+  Define eq_u : u -> u -> prop by
+    eq_u X X.
+  Theorem wrong : forall (x:u), eq_u x x -> eq_u x x.
+  intros. search.
+  Import Module E = "Eq5"[u] with eq := eq_u, refl := wrong.
+End AxiomMismatch.
+|} "same statement" ;
+      expect_thmod_error dir "DuplicateImport" {|
+Module DuplicateImport.
+  Kind u type.
+  Import Module "Box5"[u].
+  Import Module "Box5"[u].
+End DuplicateImport.
+|} "already been imported" ;
+      expect_thmod_error dir "EarlierInstance" {|
+Module EarlierInstance.
+  Kind u type.
+  Kind v type.
+  Import Module B = "Box5"[u].
+  Import Module C = "Box5"[v] with p := B.p.
+End EarlierInstance.
+|} "already occurs in the declarations" ;
+      expect_thmod_error dir "InternalKey" {|
+Module InternalKey.
+  Kind u type.
+  Type q u -> prop.
+  Import Module B = "Box6"[u] with p := q.
+End InternalKey.
+|} "target-local type" ;
+    end
+  end
+
 let tests =
   suite "thmod" [
       test_case "read_thmod defaults" test_read_thmod_defaults ;
@@ -649,4 +1106,12 @@ let tests =
       test_case "name scoping errors" test_name_scoping_errors ;
       test_case "split names" test_split_names ;
       test_case "phase 4 checks" test_phase4_checks ;
+      test_case "import basic" test_import_basic ;
+      test_case "import with" test_import_with ;
+      test_case "import transitive nested" test_import_transitive_nested ;
+      test_case "import nested strict" test_import_nested_strict ;
+      test_case "import dotted key" test_import_dotted_key ;
+      test_case "import multiple instances" test_import_multiple_instances ;
+      test_case "import thm flattening" test_import_thm_flattening ;
+      test_case "import errors" test_import_errors ;
     ]

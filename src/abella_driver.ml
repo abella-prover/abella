@@ -49,6 +49,9 @@ end
 
 let on_import : (string -> unit) option ref = ref None
 
+let thm_instances : Thmod.instance list ref = State.rref []
+let thmod_loading : string list ref = State.rref []
+
 let can_read_specification = State.rref true
 
 let is_interactive () =
@@ -80,6 +83,8 @@ let perform_switch_to_interactive () =
   Setup.thmod_name := None ;
   Setup.thmod_params := [] ;
   Setup.thmod_finished := false ;
+  thm_instances := [] ;
+  thmod_loading := [] ;
   Thmod.reset ()
 
 let interactive_or_exit () =
@@ -184,6 +189,24 @@ let predicates (_ktable, ctable) =
     else Some id
   end
 
+let thmod_sign content =
+  let ktable =
+    List.flatten_map (function
+        | CKind (ids, knd) -> List.map (fun id -> (id, knd)) ids
+        | _ -> []) content
+  in
+  let ctable =
+    List.flatten_map (function
+        | CType (ids, typarams, ty)
+        | CDeclPred (ids, typarams, ty) ->
+            List.map (fun id -> (id, Poly (typarams, ty))) ids
+        | CDefine (_, typarams, idtys, _) ->
+            List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys
+        | CTheorem _ | CKind _ | CImport _ | CClose _ | CSuspend _ -> [])
+      content
+  in
+  (ktable, ctable)
+
 let write_compilation () =
   match !Setup.compiled with
   | None -> ()
@@ -198,15 +221,24 @@ let write_compilation () =
         marshal name ;
         marshal (Thmod.top_params ())
       end ;
-      marshal !comp_spec_sign ;
+      let content, exported =
+        if !Setup.file_kind = `thmod then
+          (Thmod.exported_content (), Thmod.exported_names ())
+        else
+          ([], [])
+      in
+      let spec_sign =
+        if !Setup.file_kind = `thmod then thmod_sign content
+        else !comp_spec_sign
+      in
+      marshal spec_sign ;
       marshal !comp_spec_clauses ;
       if !Setup.file_kind = `thmod then begin
-        let exported = Thmod.exported_names () in
         let preds =
           predicates !sign |> List.filter (fun id -> List.mem id exported)
         in
         marshal preds ;
-        marshal (Thmod.exported_content ())
+        marshal content
       end else begin
         marshal (predicates !sign) ;
         marshal (List.rev !comp_content)
@@ -659,7 +691,682 @@ and source_compile ~modname =
         modname msg (if text = "" then "" else "\n" ^ text)
 
 
-(* Proof processing *)
+(* Reasoning-module imports *)
+
+type thmod_artifact = {
+  ta_name : string ;
+  ta_params : string list ;
+  ta_content : compiled list ;
+  ta_nested : string list ;
+  ta_exports : string list ;
+}
+
+type pred_value = {
+  pv_name : string ;
+  pv_typarams : string list ;
+  pv_ty : ty ;
+}
+
+type axiom_value = {
+  av_name : string ;
+  av_typarams : string list ;
+  av_stmt : metaterm ;
+  av_tag : fin ;
+}
+
+type import_value =
+  | PredValue of pred_value
+  | AxiomValue of axiom_value
+
+type import_target =
+  | TargetTemplate of Thmod.template
+  | TargetInstance of Thmod.instance
+
+type resolved_key = {
+  rk_source : string ;
+  rk_prefixed : string ;
+  rk_predicate : bool ;
+}
+
+let is_predicate_ty ty =
+  match observe_ty ty with
+  | Ty (_, aty) -> aty = propaty
+
+let parse_thmod_artifact bytes =
+  let read = marshal_reader bytes in
+  ignore (read () : Digest.t) ;
+  ignore (read () : string) ;
+  let name = (read () : string) in
+  let params = (read () : string list) in
+  ignore (read () : sign) ;
+  ignore (read () : clause list) ;
+  ignore (read () : string list) ;
+  let content = (read () : compiled list) in
+  let nested = (read () : string list) in
+  let exports = (read () : string list) in
+  { ta_name = name ;
+    ta_params = params ;
+    ta_content = content ;
+    ta_nested = nested ;
+    ta_exports = exports ;
+  }
+
+let recompile_thmod ~path ~out_path =
+  if not !Setup.recurse then
+    failwithf "Recursive invocation of Abella prevented (--non-recursive)" ;
+  let cmd = Printf.sprintf " %S -o %S" path out_path in
+  [%trace 1 "Running: abella%s" cmd] ;
+  if Sys.command (Sys.executable_name ^ cmd) <> 0 then
+    failwithf "Could not create the compiled form of %S" path
+
+let load_thmod_artifact ~modname =
+  let path = modname ^ ".thmod" in
+  let canonical = Source.canon path in
+  if List.mem canonical !thmod_loading then
+    failwithf "Cyclic import of %S: %s"
+      path (String.concat " -> " (List.rev (canonical :: !thmod_loading))) ;
+  let saved_loading = !thmod_loading in
+  thmod_loading := canonical :: saved_loading ;
+  Fun.protect ~finally:(fun () -> thmod_loading := saved_loading)
+    begin fun () ->
+      let module Src = (val Source.read_thmod path) in
+      let recursive_invoke () =
+        recompile_thmod ~path:Src.path ~out_path:Src.out_path
+      in
+      let use_artifact = match !Setup.import_mode with
+        | `thc -> true
+        | `source -> false
+        | `auto -> Source.is_thc_trusted Src.thc_path
+      in
+      if Source.virtual_exists path then begin
+        if not use_artifact || Src.is_stale then
+          failwithf "Cannot recompile virtual reasoning module %S" path
+      end else if not use_artifact || Src.is_stale then
+        recursive_invoke () ;
+      let bytes = Src.thc_contents () in
+      let read_digest bytes =
+        let read = marshal_reader bytes in
+        let digest = (read () : Digest.t) in
+        let version = (read () : string) in
+        (digest, version)
+      in
+      let digest, version = read_digest bytes in
+      if not !Setup.trust_compiled &&
+         digest <> Lazy.force Version.self_digest then begin
+        Output.msg_format
+          ("@[<v2>Warning: The following .thmodc file was compiled with a "
+           ^^ "different version (%s) of Abella; recompiling@,%s@]")
+          version (modname ^ ".thmodc") ;
+        recursive_invoke () ;
+        parse_thmod_artifact (Src.thc_contents ())
+      end else
+        parse_thmod_artifact bytes
+    end
+
+let find_thm_instance name =
+  List.find_some begin fun inst ->
+    if inst.Thmod.ins_name = name then Some inst else None
+  end !thm_instances
+
+let find_import_instance name =
+  match !Setup.file_kind with
+  | `thmod -> Thmod.find_instance name
+  | `thm -> find_thm_instance name
+
+let add_import_instance inst =
+  match !Setup.file_kind with
+  | `thmod -> Thmod.add_instance inst
+  | `thm ->
+      if find_thm_instance inst.Thmod.ins_name <> None then
+        failwithf "Module name %s is already imported" inst.Thmod.ins_name ;
+      thm_instances := !thm_instances @ [inst]
+
+let import_prefix name =
+  match !Setup.file_kind with
+  | `thmod -> Thmod.instance_prefix name
+  | `thm -> [name]
+
+let resolve_import_target mi =
+  match mi.mi_source with
+  | QuoteSource (file, _) ->
+      if Filename.check_suffix file ".thmod" then
+        failwith "Do not include the .thmod extension in an import" ;
+      let file = Filepath.normalize ~wrt:!Setup.input file in
+      let artifact = load_thmod_artifact ~modname:file in
+      let base = Filename.basename file in
+      if artifact.ta_name <> base then
+        failwithf "Module %s does not match the file name %s.thmod"
+          artifact.ta_name base ;
+      let template = {
+        Thmod.tp_name = artifact.ta_name ;
+        tp_from = [] ;
+        tp_params = artifact.ta_params ;
+        tp_content = artifact.ta_content ;
+        tp_nested = artifact.ta_nested ;
+      } in
+      let source = Source.canon (file ^ ".thmod") in
+      (TargetTemplate template, artifact.ta_name, source)
+  | NameSource name ->
+      let template =
+        match !Setup.file_kind with
+        | `thmod -> Thmod.find_template name
+        | `thm -> None
+      in
+      let instance = find_import_instance name in
+      if mi.mi_tyargs <> [] then
+        begin match template with
+        | Some template ->
+            let source =
+              "nested:" ^ String.concat "." template.Thmod.tp_from
+            in
+            (TargetTemplate template, name, source)
+        | None ->
+            begin match instance with
+            | Some _ ->
+                failwithf "Module %s is already instantiated" name
+            | None ->
+                failwithf "Unknown module template %s with type arguments" name
+            end
+        end
+      else
+        begin match instance with
+        | Some instance ->
+            (TargetInstance instance, name, instance.Thmod.ins_source)
+        | None ->
+            begin match template with
+            | Some template ->
+                let source =
+                  "nested:" ^ String.concat "." template.Thmod.tp_from
+                in
+                (TargetTemplate template, name, source)
+            | None -> failwithf "Unknown module %s" name
+            end
+        end
+
+let resolve_type_args args =
+  List.map begin fun ty ->
+    let ty =
+      match !Setup.file_kind with
+      | `thmod -> Thmod.resolve_ty ty
+      | `thm -> ty
+    in
+    kind_check !sign ty ;
+    if contains_prop ty then
+      failwithf "Type argument %s may not contain prop"
+        (ty_to_string ty) ;
+    let free = get_typaram ty in
+    begin match !Setup.file_kind with
+    | `thm ->
+        if free <> [] then
+          failwithf "Type argument %s contains a free type variable"
+            (ty_to_string ty)
+    | `thmod ->
+        let allowed = Thmod.all_params () in
+        begin match List.minus free allowed with
+        | [] -> ()
+        | bad :: _ ->
+            failwithf "Type argument %s contains the free type variable %s"
+              (ty_to_string ty) bad
+        end
+    end ;
+    ty
+  end args
+
+let target_index decls from =
+  List.flatten_map begin fun decl ->
+    List.filter_map begin fun id ->
+      match Thmod_import.strip_path from id with
+      | Some relative -> Some (relative, id, decl)
+      | None -> None
+    end (Thmod_import.ids_of_compiled decl)
+  end decls
+
+let find_decl_by_id id decls =
+  List.find_some begin fun decl ->
+    if List.mem id (Thmod_import.ids_of_compiled decl) then Some decl
+    else None
+  end decls
+
+let materialize_import ~decls ~from ~to_ ~params ~args ~is_instance ~avoid =
+  let renamer =
+    if is_instance then
+      Thmod_import.prefix_renamer ~from ~to_
+        ~const_ids:[] ~kind_ids:[] ~lemma_ids:[] ()
+    else
+      Thmod_import.prefix_renamer ~from ~to_
+        ~const_ids:(Thmod_import.const_ids decls)
+        ~kind_ids:(Thmod_import.kind_ids decls)
+        ~lemma_ids:(Thmod_import.lemma_ids decls) ()
+  in
+  let tysub =
+    if is_instance then [] else Thmod_import.tyvar_subst params args
+  in
+  let avoid = avoid @ List.flatten_map get_typaram args in
+  let materialized =
+    List.map
+      (Thmod_import.materialize_decl ~renamer ~avoid ~tysub)
+      decls
+  in
+  let rigid_decls =
+    if is_instance then decls
+    else List.map (Thmod_import.map_compiled renamer) decls
+  in
+  let rigid = Thmod.rigid_predicates_of_decls rigid_decls in
+  (renamer, materialized, rigid)
+
+let value_of_item item =
+  match item.Thmod.item_class with
+  | Thmod.PredicateItem | Thmod.DefineItem ->
+      begin match item.Thmod.item_ty with
+      | Some ty ->
+          PredValue {
+            pv_name = item.Thmod.item_name ;
+            pv_typarams = item.Thmod.item_typarams ;
+            pv_ty = ty ;
+          }
+      | None -> failwithf "Missing type for predicate %s"
+                  item.Thmod.item_name
+      end
+  | Thmod.AxiomItem | Thmod.TheoremItem ->
+      let (tys, stmt) = Prover.get_generic_lemma item.Thmod.item_name in
+      let tag = Prover.get_lemma_tag item.Thmod.item_name in
+      if tag = Unfinished then
+        failwithf "Theorem %s is unfinished and cannot be used as an axiom"
+          item.Thmod.item_name ;
+      AxiomValue {
+        av_name = item.Thmod.item_name ;
+        av_typarams = tys ;
+        av_stmt = stmt ;
+        av_tag = tag ;
+      }
+  | Thmod.KindItem | Thmod.TypeItem ->
+      failwithf "%s is not a predicate or axiom"
+        item.Thmod.item_name
+
+let value_of_name ~predicate name =
+  match !Setup.file_kind with
+  | `thmod ->
+      let name = Thmod.resolve_id name in
+      begin match Thmod.lookup_item_by_name name with
+      | Some item -> value_of_item item
+      | None -> failwithf "Unknown item %s in with clause" name
+      end
+  | `thm ->
+      if predicate then
+        begin match List.assoc_opt name (snd !sign) with
+        | Some (Poly (typarams, ty)) when is_predicate_ty ty ->
+            PredValue {
+              pv_name = name ;
+              pv_typarams = typarams ;
+              pv_ty = ty ;
+            }
+        | _ -> failwithf "%s is not a declared or defined predicate" name
+        end
+      else
+        begin
+          try
+            let (tys, stmt) = Prover.get_generic_lemma name in
+            let tag = Prover.get_lemma_tag name in
+            if tag = Unfinished then
+              failwithf
+                "Theorem %s is unfinished and cannot be used as an axiom"
+                name ;
+            AxiomValue {
+              av_name = name ;
+              av_typarams = tys ;
+              av_stmt = stmt ;
+              av_tag = tag ;
+            }
+          with _ -> failwithf "%s is not an axiom or theorem" name
+        end
+
+let resolve_with_keys ~materialized ~decls ~from ~renamer withs =
+  let index = target_index decls from in
+  let seen = ref [] in
+  List.map begin fun (key, value) ->
+    let key = qualid_to_string key in
+    if List.mem key !seen then
+      failwithf "Duplicate with key %s" key ;
+    seen := key :: !seen ;
+    let candidates =
+      List.filter (fun (relative, _, _) -> relative = key) index
+    in
+    match candidates with
+    | [] -> failwithf "Unknown with key %s" key
+    | (_, source_id, decl) :: rest ->
+        if List.exists (fun (_, id, _) -> id <> source_id) rest then
+          failwithf "Ambiguous with key %s" key ;
+        let predicate =
+          match Thmod.class_of_compiled decl with
+          | Some Thmod.PredicateItem -> true
+          | Some Thmod.AxiomItem -> false
+          | _ ->
+              failwithf "%s is not a declared predicate or axiom" key
+        in
+        let prefixed =
+          if predicate then renamer.Thmod_import.r_const source_id
+          else renamer.Thmod_import.r_lemma source_id
+        in
+        if predicate then begin
+          match find_decl_by_id prefixed materialized with
+          | Some (CDeclPred (_, _, ty) | CType (_, _, ty)) ->
+              if contains_prop_argument ty then
+                failwithf
+                  "Declared predicate %s is higher-order and cannot be a key"
+                  key
+          | _ -> failwithf "Cannot classify with key %s" key
+        end ;
+        ({ rk_source = source_id ;
+           rk_prefixed = prefixed ;
+           rk_predicate = predicate ;
+         }, value)
+  end withs
+
+let target_local_names ~renamer decls =
+  let consts =
+    List.flatten_map (function
+        | CType (ids, _, _) | CDeclPred (ids, _, _) -> ids
+        | CDefine (_, _, idtys, _) -> List.map fst idtys
+        | CTheorem _ | CKind _ | CImport _ | CClose _ | CSuspend _ -> [])
+      decls
+    |> List.map renamer.Thmod_import.r_const
+  in
+  let kinds =
+    List.flatten_map (function
+        | CKind (ids, _) -> ids
+        | _ -> [])
+      decls
+    |> List.map renamer.Thmod_import.r_tycons
+  in
+  (List.unique consts, List.unique kinds)
+
+let replay_imported_decls decls =
+  let update_metaterm_subordination mt =
+    ignore begin
+      Metaterm.map_on_tys (fun ty ->
+          sr := Subordination.update !sr ty ; ty)
+        mt
+    end
+  in
+  let record decl =
+    match !Setup.file_kind with
+    | `thmod -> Thmod.add_imported_compiled decl
+    | `thm -> compile decl
+  in
+  let rec replay = function
+    | [] -> ()
+    | decl :: rest ->
+        begin match decl with
+        | CTheorem (name, tys, stmt, fin) ->
+            update_metaterm_subordination stmt ;
+            if fin = Axiomatic then
+              Setup.axioms := name :: !Setup.axioms ;
+            add_lemma ~fin name tys stmt
+        | CDefine (flavor, typarams, idtys, clauses) ->
+            check_noredef (List.map fst idtys) ;
+            List.iter (fun (_, ty) -> sr := Subordination.update !sr ty)
+              idtys ;
+            List.iter begin fun cl ->
+              update_metaterm_subordination cl.head ;
+              update_metaterm_subordination cl.body
+            end clauses ;
+            Checks.ensure_no_schm_clauses typarams clauses ;
+            let (basics, consts) = !sign in
+            let consts =
+              List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys
+              @ consts
+            in
+            sign := (basics, consts) ;
+            Prover.add_defs ~strat_errors:true typarams idtys flavor clauses
+        | CKind (ids, knd) ->
+            check_noredef ids ;
+            Prover.add_global_types ids knd
+        | CType (ids, typarams, ty)
+        | CDeclPred (ids, typarams, ty) ->
+            check_noredef ids ;
+            Prover.add_global_consts ~typarams
+              (List.map (fun id -> (id, ty)) ids)
+        | CImport _ ->
+            failwith "Unexpected import in a compiled reasoning module"
+        | CClose _ | CSuspend _ ->
+            failwith "Unexpected command in a compiled reasoning module"
+        end ;
+        record decl ;
+        replay rest
+  in
+  replay decls
+
+let import_module mi =
+  let target, default_name, source = resolve_import_target mi in
+  let name = match mi.mi_alias with
+    | Some alias -> alias
+    | None -> default_name
+  in
+  begin match !Setup.file_kind with
+  | `thmod ->
+      if List.mem name (Thmod.all_params ()) then
+        failwithf "Module name %s is already used as a module parameter" name
+  | `thm -> ()
+  end ;
+  begin match mi.mi_alias with
+  | None ->
+      if find_import_instance name <> None then
+        failwithf "Module %s has already been imported" name
+  | Some alias ->
+      if find_import_instance alias <> None then
+        failwithf "Module name %s is already imported" alias ;
+      match !Setup.file_kind with
+      | `thmod ->
+          if Thmod.find_template alias <> None then
+            failwithf "Module name %s is already in use" alias
+      | `thm -> ()
+  end ;
+  let prefix = import_prefix name in
+  let source_decls, from, params, args, is_instance =
+    match target with
+    | TargetTemplate template ->
+        let args = resolve_type_args mi.mi_tyargs in
+        if List.length args <> List.length template.Thmod.tp_params then
+          failwithf "Module %s expects %d type arguments but got %d"
+            template.Thmod.tp_name
+            (List.length template.Thmod.tp_params)
+            (List.length args) ;
+        (template.Thmod.tp_content, template.Thmod.tp_from,
+         template.Thmod.tp_params, args, false)
+    | TargetInstance instance ->
+        if mi.mi_tyargs <> [] then
+          failwithf "Module %s is already instantiated"
+            instance.Thmod.ins_name ;
+        (instance.Thmod.ins_decls, instance.Thmod.ins_prefix,
+         [], [], true)
+  in
+  let args =
+    match target with
+    | TargetTemplate _ -> args
+    | TargetInstance instance -> instance.Thmod.ins_tyargs
+  in
+  let renamer, materialized, rigid =
+    materialize_import ~decls:source_decls ~from ~to_:prefix
+      ~params ~args ~is_instance ~avoid:(bound_params ())
+  in
+  let existing_instances =
+    match !Setup.file_kind with
+    | `thmod -> Thmod.all_instances ()
+    | `thm -> !thm_instances
+  in
+  let rigid =
+    List.fold_left begin fun rigid instance ->
+      if instance.Thmod.ins_source = source then
+        Iset.union rigid
+          (Thmod.rigid_predicates_of_decls instance.Thmod.ins_decls)
+      else
+        rigid
+    end rigid existing_instances
+  in
+  let keys =
+    resolve_with_keys ~materialized ~decls:source_decls ~from ~renamer
+      mi.mi_withs
+  in
+  let resolved =
+    List.map begin fun (key, value_name) ->
+      let value_name = qualid_to_string value_name in
+      let value =
+        value_of_name ~predicate:key.rk_predicate value_name
+      in
+      begin match key.rk_predicate, value with
+      | true, PredValue _ -> ()
+      | false, AxiomValue _ -> ()
+      | true, AxiomValue _ ->
+          failwithf "Predicate key %s requires a predicate value" key.rk_source
+      | false, PredValue _ ->
+          failwithf "Axiom key %s requires an axiom or theorem value"
+            key.rk_source
+      end ;
+      (key, value)
+    end keys
+  in
+  let pred_pairs =
+    List.filter_map begin fun (key, value) ->
+      match value with
+      | PredValue value -> Some (key, value)
+      | AxiomValue _ -> None
+    end resolved
+  in
+  let axiom_pairs =
+    List.filter_map begin fun (key, value) ->
+      match value with
+      | AxiomValue value -> Some (key, value)
+      | PredValue _ -> None
+    end resolved
+  in
+  let pred_names = List.map (fun (_, v) -> v.pv_name) pred_pairs in
+  if not (List.is_unique pred_names) then
+    failwith "Predicate values in with clauses must be pairwise distinct" ;
+  List.iter begin fun (key, value) ->
+    if Term.Iset.mem value.pv_name rigid then
+      failwithf
+        "Predicate value %s already occurs in the declarations of %s"
+        value.pv_name key.rk_source
+  end pred_pairs ;
+  let pred_map =
+    List.map (fun (key, value) -> (key.rk_prefixed, value.pv_name))
+      pred_pairs
+  in
+  let substitute name =
+    match List.assoc_opt name pred_map with
+    | Some name -> name
+    | None -> name
+  in
+  let target_consts, target_kinds =
+    target_local_names ~renamer source_decls
+  in
+  List.iter begin fun (key, _) ->
+    match find_decl_by_id key.rk_prefixed materialized with
+    | Some (CDeclPred (_, _, ty) | CType (_, _, ty)) ->
+        begin match
+            List.intersect (Thmod_import.tycons_of_ty ty) target_kinds
+        with
+        | [] -> ()
+        | name :: _ ->
+            failwithf
+              "Predicate key %s mentions the target-local type %s"
+              key.rk_source name
+        end
+    | _ -> failwithf "Cannot classify predicate key %s" key.rk_source
+  end pred_pairs ;
+  List.iter begin fun (key, _) ->
+    match find_decl_by_id key.rk_prefixed materialized with
+    | Some (CTheorem (_, _, stmt, _)) ->
+        let stmt = Thmod_import.map_metaterm_constants substitute stmt in
+        begin match
+            List.intersect
+              (Thmod_import.metaterm_names stmt)
+              (target_consts @ target_kinds)
+        with
+        | [] -> ()
+        | name :: _ ->
+            failwithf
+              "Axiom key %s mentions the target-local name %s"
+              key.rk_source name
+        end
+    | _ -> failwithf "Cannot classify axiom key %s" key.rk_source
+  end axiom_pairs ;
+  List.iter begin fun (key, value) ->
+    match find_decl_by_id key.rk_prefixed materialized with
+    | Some (CTheorem (_, tys, stmt, _)) ->
+        let stmt = Thmod_import.map_metaterm_constants substitute stmt in
+        if not (Thmod_import.statements_match
+                   ~key_params:tys ~key_stmt:stmt
+                   ~value_params:value.av_typarams
+                   ~value_stmt:value.av_stmt) then
+          failwithf
+            "Axiom value %s does not have the same statement as key %s"
+            value.av_name key.rk_source
+    | _ -> failwithf "Cannot classify axiom key %s" key.rk_source
+  end axiom_pairs ;
+  List.iter begin fun (key, value) ->
+    match find_decl_by_id key.rk_prefixed materialized with
+    | Some (CDeclPred (_, tps, ty) | CType (_, tps, ty)) ->
+        if not (Thmod_import.scheme_matches
+                   ~key_params:tps ~key_ty:ty
+                   ~value_params:value.pv_typarams
+                   ~value_ty:value.pv_ty) then
+          failwithf
+            "Predicate value %s does not have the same type as key %s"
+            value.pv_name key.rk_source
+    | _ -> failwithf "Cannot classify predicate key %s" key.rk_source
+  end pred_pairs ;
+  let axiom_map =
+    List.map (fun (key, value) -> (key.rk_prefixed, value.av_tag))
+      axiom_pairs
+  in
+  let final =
+    List.filter_map begin fun decl ->
+      match decl with
+      | CDeclPred (ids, typarams, ty) ->
+          let ids =
+            List.filter (fun id -> not (List.mem_assoc id pred_map)) ids
+          in
+          if ids = [] then None else Some (CDeclPred (ids, typarams, ty))
+      | CType (ids, typarams, ty) when is_predicate_ty ty ->
+          let ids =
+            List.filter (fun id -> not (List.mem_assoc id pred_map)) ids
+          in
+          if ids = [] then None else Some (CType (ids, typarams, ty))
+      | CTheorem (id, tys, stmt, fin) ->
+          let stmt = Thmod_import.map_metaterm_constants substitute stmt in
+          let fin = match List.assoc_opt id axiom_map with
+            | Some fin -> fin
+            | None -> fin
+          in
+          Some (CTheorem (id, tys, stmt, fin))
+      | CDefine (flavor, typarams, idtys, clauses) ->
+          let clauses =
+            List.map (fun cl ->
+                { head =
+                    Thmod_import.map_metaterm_constants substitute cl.head ;
+                  body =
+                    Thmod_import.map_metaterm_constants substitute cl.body ;
+                }) clauses
+          in
+          Some (CDefine (flavor, typarams, idtys, clauses))
+      | CType _ | CKind _ -> Some decl
+      | CImport _ | CClose _ | CSuspend _ ->
+          failwith "Unexpected declaration in a reasoning module"
+    end materialized
+  in
+  replay_imported_decls final ;
+  let instance = {
+    Thmod.ins_name = name ;
+    ins_source = source ;
+    ins_prefix = prefix ;
+    ins_decls = final ;
+    ins_tyargs = args ;
+  } in
+  add_import_instance instance ;
+  Output.msg_printf "Imported module %s." name
+
+
 
 let query q =
   let fv = ids_to_fresh_tyctx (umetaterm_extract_if is_capital_name q) in
@@ -813,12 +1520,23 @@ let process_module name params =
       Thmod.push_frame !sr ;
       Thmod.enter_module name params
 
+let remove_scope_declarations sc =
+  let names =
+    List.map (fun item -> item.Thmod.item_name) sc.Thmod.sc_items
+  in
+  let (ktable, ctable) = !sign in
+  sign :=
+    (List.filter (fun (id, _) -> not (List.mem id names)) ktable,
+     List.filter (fun (id, _) -> not (List.mem id names)) ctable) ;
+  Prover.remove_globals names
+
 let process_end name =
   match !Setup.file_kind with
   | `thm ->
       failwith "End is only allowed in a .thmod file"
   | `thmod ->
-      Thmod.leave_module name ;
+      let closed, is_top = Thmod.leave_module name in
+      if not is_top then remove_scope_declarations closed ;
       sr := Thmod.pop_frame () ;
       if Thmod.current_name () = None then
         Setup.thmod_finished := true
@@ -1111,8 +1829,8 @@ and process_top1 () =
       process_module name params
   | End name ->
       process_end name
-  | ImportModule _ ->
-      failwith "Reasoning-level module imports are not implemented yet"
+  | ImportModule mi ->
+      import_module mi
   | Specification(filename, pos) ->
       if !can_read_specification then begin
         let filename = Filepath.normalize ~wrt:!Setup.input filename in

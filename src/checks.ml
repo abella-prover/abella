@@ -117,8 +117,14 @@ let get_pred_occurrences ~is_defined mt =
   end mt ;
   !preds
 
-let check_theorem tys thm =
-  let tys' = metaterm_collect_gentyvar_names thm in
+let check_theorem ?(bound = []) tys thm =
+  begin match List.intersect tys bound with
+  | param :: _ ->
+      failwithf "Module parameter %s may not be listed as a \
+                 declaration-local type parameter" param
+  | [] -> ()
+  end ;
+  let tys' = List.minus (metaterm_collect_gentyvar_names thm) bound in
   if List.minus tys' tys <> [] then
     failwith "Some type variables in the theorem is not bounded";
   ensure_no_restrictions thm
@@ -198,15 +204,15 @@ let check_def
 
 (** The list of type parameters of a definition must be
     exactly those occuring in the type of the constants being defined *)
-let check_typaram tyvars ty =
-  let tyvars' = get_typaram ty in
+let check_typaram ?(bound = []) tyvars ty =
+  let tyvars' = List.minus (get_typaram ty) bound in
   let extra1 = (List.minus tyvars tyvars') in
   let extra2 = (List.minus tyvars' tyvars) in
   if (List.length extra1 <> 0 || List.length extra2 <> 0) then
     failwithf "Some type parameters do not occur in type of some constant being defined"
 
-let check_typarams tyvars tys =
-  List.iter (check_typaram tyvars) tys
+let check_typarams ?bound tyvars tys =
+  List.iter (check_typaram ?bound tyvars) tys
 
 (* Check that there is no parameterization of types at clause levels *)
 let ensure_no_schm_clause typarams cl =

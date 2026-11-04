@@ -56,6 +56,11 @@ let is_interactive () =
   | `interactive | `switch -> true
   | _ -> false
 
+let bound_params () =
+  match !Setup.file_kind with
+  | `thmod -> Thmod.all_params ()
+  | `thm -> []
+
 let witnesses = State.rref false
 
 exception UserInterrupt
@@ -74,7 +79,8 @@ let perform_switch_to_interactive () =
   Setup.file_kind := `thm ;
   Setup.thmod_name := None ;
   Setup.thmod_params := [] ;
-  Setup.thmod_finished := false
+  Setup.thmod_finished := false ;
+  Thmod.reset ()
 
 let interactive_or_exit () =
   match !Setup.mode with
@@ -166,7 +172,10 @@ let ensure_finalized_specification () =
 
 let compile citem =
   (* ensure_finalized_specification () ; *)
-  comp_content := citem :: !comp_content
+  if !Setup.file_kind = `thmod then
+    Thmod.add_compiled citem
+  else
+    comp_content := citem :: !comp_content
 
 let predicates (_ktable, ctable) =
   ctable |>
@@ -182,20 +191,29 @@ let write_compilation () =
       marshal (Lazy.force Version.self_digest) ;
       marshal Version.version ;
       if !Setup.file_kind = `thmod then begin
-        let name = match !Setup.thmod_name with
+        let name = match Thmod.top_name () with
           | Some name -> name
           | None -> failwith "Cannot write a .thmodc without a module"
         in
         marshal name ;
-        marshal !Setup.thmod_params ;
+        marshal (Thmod.top_params ())
       end ;
       marshal !comp_spec_sign ;
       marshal !comp_spec_clauses ;
-      marshal (predicates !sign) ;
-      marshal (List.rev !comp_content) ;
       if !Setup.file_kind = `thmod then begin
-        marshal ([] : string list) ;  (* nested modules *)
-        marshal ([] : string list) ;  (* exported names *)
+        let exported = Thmod.exported_names () in
+        let preds =
+          predicates !sign |> List.filter (fun id -> List.mem id exported)
+        in
+        marshal preds ;
+        marshal (Thmod.exported_content ())
+      end else begin
+        marshal (predicates !sign) ;
+        marshal (List.rev !comp_content)
+      end ;
+      if !Setup.file_kind = `thmod then begin
+        marshal (Thmod.nested_module_names ()) ;  (* nested modules *)
+        marshal (Thmod.exported_names ()) ;       (* exported names *)
       end ;
       begin match !Setup.compiled with
       | Some (module Thm) -> Thm.close ()
@@ -755,10 +773,10 @@ let check_thmod_structure cmd =
       match cmd with
       | Module _ ->
           if !Setup.thmod_finished then
-            failwith "Module after End is not allowed in a .thmod" ;
-          if !Setup.thmod_name <> None then
-            failwith "Nested modules are not implemented yet"
-      | End _ -> ()
+            failwith "Module after End is not allowed in a .thmod"
+      | End _ ->
+          if Thmod.current_name () = None then
+            failwith "End without a matching Module"
       | Import _ ->
           failwith "A .thmod may not use ordinary Import"
       | Specification _ ->
@@ -772,7 +790,7 @@ let check_thmod_structure cmd =
       | _ ->
           if !Setup.thmod_finished then
             failwith "Commands after End are not allowed in a .thmod" ;
-          if !Setup.thmod_name = None then
+          if Thmod.current_name () = None then
             failwith "A .thmod must start with a Module command"
     end
 
@@ -781,37 +799,33 @@ let process_module name params =
   | `thm ->
       failwith "Module is only allowed in a .thmod file"
   | `thmod ->
-      if !Setup.thmod_name <> None then
-        failwith "Nested modules are not implemented yet" ;
-      let base = thmod_basename () in
-      if name <> base then
-        failwithf "Module %s does not match the file name %s.thmod"
-          name base ;
-      Setup.thmod_name := Some name ;
-      Setup.thmod_params := params
+      let is_top = Thmod.current_name () = None in
+      if is_top then begin
+        if !Setup.thmod_finished then
+          failwith "Module after End is not allowed in a .thmod" ;
+        let base = thmod_basename () in
+        if name <> base then
+          failwithf "Module %s does not match the file name %s.thmod"
+            name base ;
+        Setup.thmod_name := Some name ;
+        Setup.thmod_params := params
+      end ;
+      Thmod.push_frame !sr ;
+      Thmod.enter_module name params
 
 let process_end name =
   match !Setup.file_kind with
   | `thm ->
       failwith "End is only allowed in a .thmod file"
-  | `thmod -> begin
-      match !Setup.thmod_name with
-      | None ->
-          failwith "End without a matching Module"
-      | Some current ->
-          if name <> current then
-            failwithf "End %s does not match Module %s" name current ;
-          Setup.thmod_finished := true
-    end
+  | `thmod ->
+      Thmod.leave_module name ;
+      sr := Thmod.pop_frame () ;
+      if Thmod.current_name () = None then
+        Setup.thmod_finished := true
 
 let check_thmod_complete () =
   if !Setup.file_kind = `thmod then
-    match !Setup.thmod_name with
-    | None ->
-        failwith "A .thmod must contain a top-level module"
-    | Some name ->
-        if not !Setup.thmod_finished then
-          failwithf "Missing End for module %s" name
+    Thmod.check_complete ()
 
 let rec process1 () =
   State.Undo.push () ;
@@ -902,6 +916,13 @@ and process_proof1 proc =
     Output.non_annot "%s < " proc.thm ;
   let input = Parser.command_start Lexer.token !Setup.lexbuf in
   let cmd_string = command_to_string input.el in
+  let input =
+    if !Setup.file_kind = `thmod then
+      { input with
+        el = Thmod.resolve_proof_command ~is_hyp:Prover.is_hyp input.el }
+    else
+      input
+  in
   if !Setup.mode <> `interactive then
     Output.non_annot "%s.\n" cmd_string ;
   let annot =
@@ -990,6 +1011,12 @@ and process_top1 () =
   if !Setup.mode = `interactive then Output.non_annot "Abella < " ;
   let input = Parser.top_command_start Lexer.token !Setup.lexbuf in
   let cmd_string = top_command_to_string input.el in
+  let input =
+    if !Setup.file_kind = `thmod then
+      { input with el = Thmod.resolve_top input.el }
+    else
+      input
+  in
   if !Setup.mode <> `interactive then Output.non_annot "%s.\n%!" cmd_string ;
   check_thmod_structure input.el ;
   let thm_id =
@@ -1007,7 +1034,7 @@ and process_top1 () =
       let st = get_bind_state () in
       let seq = Prover.copy_sequent () in
       let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
-      check_theorem tys thm ;
+      check_theorem ~bound:(bound_params ()) tys thm ;
       Prover.theorem thm ;
       let oldsign = !sign in
       let thm_compile fin =
@@ -1028,13 +1055,20 @@ and process_top1 () =
     end
   | Axiom(name, tys, thm) ->
       let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
-      check_theorem tys thm ;
+      check_theorem ~bound:(bound_params ()) tys thm ;
       compile (CTheorem(name, tys, thm, Axiomatic)) ;
       add_lemma ~fin:Axiomatic name tys thm ;
       Setup.axioms := name :: !Setup.axioms
   | SSplit(name, names) ->
       let fin = Prover.get_lemma_tag name in
-      let gen_thms = Prover.create_split_theorems name names in
+      let gen_thms =
+        Prover.create_split_theorems name names |>
+        List.map (fun (n, t) ->
+            if !Setup.file_kind = `thmod then
+              (Thmod.new_name n, t)
+            else
+              (n, t))
+      in
       List.iter begin fun (n, (tys, t)) ->
         Output.msg_format "%t" (Prover.print_theorem n (tys, t)) ;
         add_lemma ~fin n tys t ;
@@ -1047,7 +1081,8 @@ and process_top1 () =
         Setup.axioms :=
           name :: List.map fst gen_thms @ !Setup.axioms ;
   | Define _ ->
-      compile (Prover.register_definition input.el)
+      compile (Prover.register_definition
+                 ~bound_tyvars:(bound_params ()) input.el)
   | Suspend (head, test) ->
       let g = Compute.make_guard ~head ~test in
       Compute.add_guard g ;
@@ -1087,8 +1122,11 @@ and process_top1 () =
       compile (CKind (ids,knd)) ;
   | Type(ids, ty) ->
       check_noredef ids ;
-      Prover.add_global_consts (List.map (fun id -> (id, ty)) ids) ;
-      let typarams = get_typaram ty in
+      let typarams =
+        List.minus (get_typaram ty) (bound_params ())
+      in
+      Prover.add_global_consts ~typarams
+        (List.map (fun id -> (id, ty)) ids) ;
       let comp =
         if !Setup.file_kind = `thmod &&
            (match observe_ty ty with

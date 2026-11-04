@@ -192,10 +192,17 @@ let lookup_poly_const k =
 
 
 let register_definition
-    ?(strat_errors=stratification_warnings_are_errors) = function
+    ?(strat_errors=stratification_warnings_are_errors)
+    ?(bound_tyvars=[]) = function
   | Define (flav, idtys, udefs) ->
-      let typarams = List.unique (idtys |> List.map snd |> get_typarams) in
-      check_typarams typarams (List.map snd idtys);
+      let local_typarams ty =
+        List.minus (get_typaram ty) bound_tyvars
+      in
+      let typarams =
+        List.unique
+          (List.flatten_map (fun (_, ty) -> local_typarams ty) idtys)
+      in
+      check_typarams ~bound:bound_tyvars typarams (List.map snd idtys);
       let ids = List.map fst idtys in
       check_noredef ids;
       let (basics, consts) = !sign in
@@ -205,7 +212,7 @@ let register_definition
       let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
       let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
                     List.map (fun (head, body) -> {head ; body}) in
-      ensure_no_schm_clauses typarams clauses;
+      ensure_no_schm_clauses (typarams @ bound_tyvars) clauses;
       let (basics, consts) = !sign in
       let consts = List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys @ consts in
       sign := (basics, consts) ;
@@ -671,7 +678,7 @@ let next_subgoal () =
 
 let print_theorem name (tys, thm) fmt =
   Format.fprintf fmt "@[<hv2>Theorem %s%s :@ %a@].@."
-    name (gen_to_string tys) format_metaterm thm
+    (!display_name name) (gen_to_string tys) format_metaterm thm
 
 let show name fmt =
   print_theorem name (get_generic_lemma name) fmt

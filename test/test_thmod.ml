@@ -90,11 +90,12 @@ let with_session f =
   Fun.protect ~finally:restore f
 
 (* Compile [source] as a .thmod file named [name].thmod and return the
-   bytes written to [name.thmodc]. *)
-let native_compile_thmod dir name source =
+   bytes written to [name.thmodc], or the collected error text. *)
+let run_thmod dir name source =
   let path = Filename.concat dir (name ^ ".thmod") in
   write_file path source ;
   State.reload D.initial_snapshot ;
+  Thmod.reset () ;
   State.Undo.set_enabled false ;
   D.compiling := [] ;
   D.Setup.mode := `batch ;
@@ -105,6 +106,9 @@ let native_compile_thmod dir name source =
   D.Setup.unfinished := [] ;
   D.Setup.file_kind := `thmod ;
   D.Setup.input := path ;
+  D.Setup.thmod_name := None ;
+  D.Setup.thmod_params := [] ;
+  D.Setup.thmod_finished := false ;
   let module Src = (val Source.read_thmod path) in
   D.Setup.compiled := Some (module Src) ;
   D.Setup.lexbuf := Src.lex true ;
@@ -113,11 +117,34 @@ let native_compile_thmod dir name source =
   let rec drive () =
     try ignore (D.process1 ()) ; drive () with
     | D.AbellaExit 0 -> ()
-    | D.AbellaExit n ->
-        Alcotest.fail ("thmod compile exited " ^ string_of_int n)
+    | D.AbellaExit n -> raise (D.AbellaExit n)
   in
-  drive () ;
-  read_file Src.thc_path
+  try
+    drive () ;
+    `Ok (read_file Src.thc_path)
+  with
+  | D.AbellaExit _ -> `Error (D.collected_messages ())
+  | e -> `Error (Printexc.to_string e)
+
+let native_compile_thmod dir name source =
+  match run_thmod dir name source with
+  | `Ok bytes -> bytes
+  | `Error msg -> Alcotest.fail msg
+
+let expect_thmod_error dir name source needle =
+  match run_thmod dir name source with
+  | `Ok _ -> Alcotest.fail ("expected an error containing " ^ needle)
+  | `Error msg ->
+      let found =
+        let n = String.length needle in
+        let rec spin i =
+          i + n <= String.length msg &&
+          (String.sub msg i n = needle || spin (i + 1))
+        in
+        spin 0
+      in
+      Alcotest.check Alcotest.bool
+        ("expected error containing " ^ needle) true found
 
 let read_thmod_values bytes =
   let buf = Bytes.unsafe_of_string bytes in
@@ -178,7 +205,7 @@ End Foo.
       Alcotest.check (Alcotest.list Alcotest.string) "nested modules"
         [] nested ;
       Alcotest.check (Alcotest.list Alcotest.string) "exports"
-        [] exports ;
+        ["u"; "c"; "p"; "refl"] exports ;
       let has_decl_pred =
         List.exists begin function
           | CDeclPred (["p"], [], _) -> true
@@ -219,7 +246,13 @@ End Foo.
         ["T"] params ;
       let has_decl_pred =
         List.exists begin function
-          | CDeclPred (["p"], ["T"], _) -> true
+          | CDeclPred (["p"], [], ty) ->
+              let has_T = ref false in
+              Term.iter_ty begin function
+                | Term.Tygenvar "T" -> has_T := true
+                | _ -> ()
+              end ty ;
+              !has_T
           | _ -> false
         end content
       in
@@ -228,9 +261,305 @@ End Foo.
     end
   end
 
+let test_nested_modules () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      let bytes = native_compile_thmod dir "Outer" {|
+Module Outer[T].
+  Kind u type.
+  Type top u.
+  Module Inner[U].
+    Kind v type.
+    Type inner U.
+    Theorem id : forall (x:v), x = x.
+    intros. search.
+  End Inner.
+  Module Empty.
+  End Empty.
+End Outer.
+|} in
+      let (name, params, content, nested, exports) =
+        read_thmod_values bytes
+      in
+      Alcotest.check Alcotest.string "module name" "Outer" name ;
+      Alcotest.check (Alcotest.list Alcotest.string) "parameters"
+        ["T"] params ;
+      Alcotest.check (Alcotest.list Alcotest.string) "nested modules"
+        ["Inner"; "Empty"] nested ;
+      Alcotest.check (Alcotest.list Alcotest.string) "exports"
+        ["u"; "top"] exports ;
+      let has_top_kind =
+        List.exists (function CKind (["u"], _) -> true | _ -> false)
+          content
+      in
+      let has_top_type =
+        List.exists (function
+            | CType (["top"], _, _) -> true
+            | _ -> false) content
+      in
+      let has_nested =
+        List.exists begin function
+          | CKind ("Inner.v" :: _, _)
+          | CType ("Inner.inner" :: _, _, _)
+          | CTheorem ("Inner.id", _, _, _) -> true
+          | _ -> false
+        end content
+      in
+      Alcotest.check Alcotest.bool "top kind is exported" true has_top_kind ;
+      Alcotest.check Alcotest.bool "top type is exported" true has_top_type ;
+      Alcotest.check Alcotest.bool "nested items are not exported" false
+        has_nested
+    end
+  end
+
+let test_module_parameter_scoping () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      let bytes = native_compile_thmod dir "Param" {|
+Module Param[T].
+  Type p T -> prop.
+  Type r T -> A -> prop.
+  Define q : T -> prop by
+    q X := p X.
+  Define eq : A -> A -> prop by
+    eq X X.
+  Define mix : T -> A -> prop by
+    mix X Y := p X.
+End Param.
+|} in
+      let (_, params, content, _, _) = read_thmod_values bytes in
+      Alcotest.check (Alcotest.list Alcotest.string) "parameters"
+        ["T"] params ;
+      let decl_pred =
+        List.find_opt begin function
+          | CDeclPred (["p"], _, _) -> true
+          | _ -> false
+        end content
+      in
+      begin match decl_pred with
+      | Some (CDeclPred (_, typarams, _)) ->
+          Alcotest.check (Alcotest.list Alcotest.string)
+            "module parameter is not a local type parameter"
+            [] typarams
+      | _ -> Alcotest.fail "missing declared predicate p"
+      end ;
+      let has_define =
+        List.exists begin function
+          | CDefine (_, [], [("q", _)], _) -> true
+          | _ -> false
+        end content
+      in
+      Alcotest.check Alcotest.bool "definition has no local parameters"
+        true has_define ;
+      let has_polymorphic_define =
+        List.exists begin function
+          | CDefine (_, ["A"], [("eq", _)], _) -> true
+          | _ -> false
+        end content
+      in
+      Alcotest.check Alcotest.bool
+        "declaration-local parameter is preserved" true
+        has_polymorphic_define ;
+      let has_mixed_decl =
+        List.exists begin function
+          | CDeclPred (["r"], ["A"], _) -> true
+          | _ -> false
+        end content
+      in
+      Alcotest.check Alcotest.bool
+        "mixed declared predicate keeps only local parameters" true
+        has_mixed_decl ;
+      let has_mixed_define =
+        List.exists begin function
+          | CDefine (_, ["A"], [("mix", _)], _) -> true
+          | _ -> false
+        end content
+      in
+      Alcotest.check Alcotest.bool
+        "mixed definition keeps only local parameters" true
+        has_mixed_define
+    end
+  end
+
+let test_key_classification () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      let bytes = native_compile_thmod dir "Keys" {|
+Module Keys.
+  Kind u type.
+  Type c u.
+  Type p u -> prop.
+  Type z prop.
+  Define d : u -> prop by
+    d X := p X.
+  Theorem thm : forall (x:u), x = x.
+  intros. search.
+  Axiom ax : forall (x:u), p x -> p x.
+End Keys.
+|} in
+      let (_, _, content, _, _) = read_thmod_values bytes in
+      let check_class label decl expected =
+        Alcotest.check (Alcotest.option Alcotest.string) label
+          (Some expected)
+          (Option.map (function
+               | Thmod.KindItem -> "kind"
+               | Thmod.TypeItem -> "type"
+               | Thmod.PredicateItem -> "predicate"
+               | Thmod.DefineItem -> "define"
+               | Thmod.TheoremItem -> "theorem"
+               | Thmod.AxiomItem -> "axiom")
+             (Thmod.class_of_compiled decl))
+      in
+      let find pred =
+        try List.find pred content
+        with Not_found -> Alcotest.fail "missing declaration"
+      in
+      check_class "ordinary type is not a key"
+        (find (function CType (["c"], _, _) -> true | _ -> false))
+        "type" ;
+      check_class "declared predicate is a key"
+        (find (function CDeclPred (["p"], _, _) -> true | _ -> false))
+        "predicate" ;
+      check_class "zero-argument predicate is a key"
+        (find (function CDeclPred (["z"], _, _) -> true | _ -> false))
+        "predicate" ;
+      check_class "defined predicate is not a key"
+        (find (function
+             | CDefine (_, _, [("d", _)], _) -> true
+             | _ -> false)) "define" ;
+      check_class "theorem is not a key"
+        (find (function
+             | CTheorem ("thm", _, _, Finished) -> true
+             | _ -> false)) "theorem" ;
+      check_class "axiom is a key"
+        (find (function
+             | CTheorem ("ax", _, _, Axiomatic) -> true
+             | _ -> false)) "axiom" ;
+      let rigid =
+        Thmod.rigid_predicates_of_decls content |> Term.Iset.elements
+      in
+      Alcotest.check (Alcotest.list Alcotest.string)
+        "rigid predicate set" ["d"; "p"; "z"] rigid ;
+      let keys =
+        Thmod.keys_of_decls content
+        |> List.map (fun it -> it.Thmod.item_name)
+      in
+      Alcotest.check (Alcotest.list Alcotest.string)
+        "remaining keys" ["p"; "z"; "ax"] keys
+    end
+  end
+
+let test_name_scoping_errors () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      expect_thmod_error dir "Shadow" {|
+Module Shadow.
+  Kind u type.
+  Module Bar.
+    Kind u type.
+  End Bar.
+End Shadow.
+|} "shadows a declaration in an enclosing module" ;
+      expect_thmod_error dir "Sibling" {|
+Module Sibling.
+  Module Bar.
+    Kind v type.
+  End Bar.
+  Module Baz.
+    Kind w type.
+    Type d Bar.v.
+  End Baz.
+End Sibling.
+|} "Unknown module Bar" ;
+      expect_thmod_error dir "Parent" {|
+Module Parent.
+  Kind u type.
+  Module Bar.
+    Type d Parent.u.
+  End Bar.
+End Parent.
+|} "Unknown module Parent" ;
+      expect_thmod_error dir "ParamShadow" {|
+Module ParamShadow[T].
+  Module Bar[T].
+    Type q prop.
+  End Bar.
+End ParamShadow.
+|} "shadows an enclosing parameter" ;
+      expect_thmod_error dir "ParamList" {|
+Module ParamList[T].
+  Theorem t [T] : forall (x:prop), x -> x.
+  intros. search.
+End ParamList.
+|} "may not be listed" ;
+      expect_thmod_error dir "DupNested" {|
+Module DupNested.
+  Module Bar.
+  End Bar.
+  Module Bar.
+  End Bar.
+End DupNested.
+|} "already declared in this module" ;
+      expect_thmod_error dir "BadNestedEnd" {|
+Module BadNestedEnd.
+  Module Bar.
+  End Baz.
+End BadNestedEnd.
+|} "does not match Module Bar" ;
+      expect_thmod_error dir "ModuleFinal" {|
+Module ModuleFinal.
+  Module Bar.
+  End Bar.
+  Type c ModuleFinal.Bar.
+End ModuleFinal.
+|} "Module name Bar is not an item" ;
+      expect_thmod_error dir "ParamFinal" {|
+Module ParamFinal[T].
+  Type c ParamFinal.T.
+End ParamFinal.
+|} "Module parameter T is not an item"
+    end
+  end
+
+let test_split_names () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      let bytes = native_compile_thmod dir "Spl" {|
+Module Spl.
+  Kind u type.
+  Type p u -> prop.
+  Axiom ax : forall (x:u), p x /\ p x.
+  Split ax.
+  Module Inner.
+    Axiom inn : forall (x:u), p x /\ p x.
+    Split inn.
+  End Inner.
+End Spl.
+|} in
+      let (_, _, content, _, _) = read_thmod_values bytes in
+      let has_generated name =
+        List.exists begin function
+          | CTheorem (n, _, _, Axiomatic) -> n = name
+          | _ -> false
+        end content
+      in
+      Alcotest.check Alcotest.bool "first split name is local" true
+        (has_generated "ax1") ;
+      Alcotest.check Alcotest.bool "second split name is local" true
+        (has_generated "ax2") ;
+      Alcotest.check Alcotest.bool "nested split stays nested" false
+        (has_generated "Inner.inn1")
+    end
+  end
+
 let tests =
   suite "thmod" [
       test_case "read_thmod defaults" test_read_thmod_defaults ;
       test_case "artifact layout" test_thmod_artifact_layout ;
       test_case "parameters are recorded" test_thmod_parameters_are_recorded ;
+      test_case "nested modules" test_nested_modules ;
+      test_case "module parameter scoping" test_module_parameter_scoping ;
+      test_case "key classification" test_key_classification ;
+      test_case "name scoping errors" test_name_scoping_errors ;
+      test_case "split names" test_split_names ;
     ]

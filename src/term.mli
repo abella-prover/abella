@@ -177,6 +177,9 @@ val knd_to_string : knd -> string
 
 val var_to_string : var -> string
 
+(** Presentation-only rewriting of constant and type-constructor names. *)
+val display_name : (string -> string) ref
+
 class type term_printer = object
   method print : tyctx -> term -> Pretty.expr
 end

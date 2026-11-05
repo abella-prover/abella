@@ -62,6 +62,10 @@ let is_source path =
   List.exists (Filename.check_suffix path)
     [".thm" ; ".thmod" ; ".sig" ; ".mod"]
 
+let is_checkable_entry path =
+  Filename.check_suffix path ".thm" ||
+  Filename.check_suffix path ".thmod"
+
 let files_in_dir entry predicate =
   let dir = Filename.dirname entry in
   if Sys.file_exists dir && Sys.is_directory dir then
@@ -114,7 +118,7 @@ let dependencies entry =
       specs := path :: !specs
   in
   List.iter visit_source begin
-    if Filename.check_suffix entry ".thm" then [entry]
+    if is_checkable_entry entry then [entry]
     else source_files_for entry
   end ;
   (List.rev !thms, List.rev !thmods, List.unique !specs)

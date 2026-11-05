@@ -205,3 +205,13 @@ test("renaming the entry to another theorem keeps it", () => {
   const plan = planOrThrow(project, "main.thm", "proof.thm");
   assert.equal(plan.entry, "proof.thm");
 });
+
+test("renaming a thmod entry keeps it", () => {
+  const project = makeProject(
+    { "List.thmod": "Module List.\nEnd List.\n" },
+    "List.thmod"
+  );
+  const plan = planOrThrow(project, "List.thmod", "List2.thmod");
+  assert.equal(plan.entry, "List2.thmod");
+  assert.equal(plan.active, "List2.thmod");
+});

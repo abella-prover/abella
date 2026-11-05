@@ -87,11 +87,12 @@ cache; the hashes only protect subresources.
 Reasoning modules
 -----------------
 
-`.thmod` files are Abella sources in the editor and worker. `Import
-Module` with a quoted target compiles the virtual `.thmod` to a virtual
-`.thmodc` artifact on demand; the byte cache is bounded like the `.thc`
-cache. Unquoted targets, aliases, type arguments, and `with` clauses
-follow the native semantics. `.thm` files may also define modules
+`.thmod` files are Abella sources in the editor and worker, and they can
+be checked interactively like `.thm` files. `Import Module` with a
+quoted target compiles the virtual `.thmod` to a virtual `.thmodc`
+artifact on demand; the byte cache is bounded like the `.thc` cache.
+Unquoted targets, aliases, type arguments, and `with` clauses follow
+the native semantics. `.thm` files may also define modules
 inline and use `Show Module`; those definitions remain local to the
 file. Typed example bundles include the `.thmod` sources they need.
 

@@ -27,7 +27,7 @@ import { NotificationLog } from "./notifications";
 import {
   clearSavedProject,
   classify,
-  isExecutable,
+  isCheckable,
   loadProjectRecord,
   projectFromBundle,
   saveProject,
@@ -689,24 +689,24 @@ function updateRunControls(status: SessionStatus): void {
     status === "compiling" ||
     status === "pausing";
   const showPause = running && (session?.isRunActive ?? false);
-  const executable = isExecutable(project.active);
+  const checkable = isCheckable(project.active);
   runToggleButton.dataset.mode = showPause ? "pause" : "play";
   runToggleButton.disabled =
     status === "pausing" ||
     (running && !showPause) ||
-    (!executable && !showPause);
+    (!checkable && !showPause);
   const label = showPause
     ? "Pause after the current command"
-    : isExecutable(project.entry) && project.active === project.entry
+    : isCheckable(project.entry) && project.active === project.entry
       ? "Check the rest of the file"
       : "Check this file from the start";
-  const usable = executable || showPause;
+  const usable = checkable || showPause;
   runToggleButton.setAttribute(
     "aria-label",
-    usable ? label : "Only .thm files can be checked"
+    usable ? label : "Only .thm and .thmod files can be checked"
   );
   runToggleButton.title = !usable
-    ? "Only .thm files can be checked"
+    ? "Only .thm and .thmod files can be checked"
     : showPause
       ? label
       : `${label} (Ctrl+Shift+])`;
@@ -2389,7 +2389,7 @@ function clearEntrySession(): void {
 
 /** Switch the file the prover checks and discard the old session state. */
 function changeEntry(path: string): void {
-  if (!isExecutable(path)) return;
+  if (!isCheckable(path)) return;
   if (project.entry !== path) clearEntrySession();
   project.entry = path;
   session.setEntry(path);
@@ -3093,8 +3093,11 @@ async function startProject(
 
 function runTarget(): number | undefined {
   const path = project.active;
-  if (!path || !isExecutable(path) || !project.files.has(path)) {
-    info("Only .thm files can be checked; open a .thm file first.");
+  if (!path || !isCheckable(path) || !project.files.has(path)) {
+    info(
+      "Only .thm and .thmod files can be checked; " +
+        "open one of those files first."
+    );
     return undefined;
   }
   if (path !== project.entry) {

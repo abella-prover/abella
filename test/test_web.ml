@@ -78,6 +78,7 @@ let with_session f =
   let unfinished = !D.Setup.unfinished in
   let import_mode = !D.Setup.import_mode in
   let trust_compiled = !D.Setup.trust_compiled in
+  let file_kind = !D.Setup.file_kind in
   let thc_cache_limit = !Source.thc_cache_limit in
   let restore () =
     State.reload snap ;
@@ -94,6 +95,7 @@ let with_session f =
     D.Setup.unfinished := unfinished ;
     D.Setup.import_mode := import_mode ;
     D.Setup.trust_compiled := trust_compiled ;
+    D.Setup.file_kind := file_kind ;
     Source.clear_virtual () ;
     Source.clear_thc_trust () ;
     Source.set_thc_cache_limit thc_cache_limit ;
@@ -569,6 +571,24 @@ End Box.
   assert_ok (fst (process_command "Type c B.box.")) ;
   assert_ok (fst (process_command "Type d B.box."))
 
+let test_interactive_thmod () =
+  Source.add_virtual "List.thmod" {|
+Module List.
+  Kind lst type.
+  Type lnil lst.
+  Type lcons lst -> lst.
+End List.
+|} ;
+  D.Setup.file_kind := `thmod ;
+  D.Setup.input := "List.thmod" ;
+  assert_ok (fst (process_command "Module List.")) ;
+  assert_ok (fst (process_command "Kind lst type.")) ;
+  assert_ok (fst (process_command "Type lnil lst.")) ;
+  assert_ok (fst (process_command "Type lcons lst -> lst.")) ;
+  assert_ok (fst (process_command "End List.")) ;
+  Alcotest.check Alcotest.bool "thmod finished" true
+    !D.Setup.thmod_finished
+
 let test_inline_module () =
   assert_ok (fst (process_command "Module M.")) ;
   assert_ok (fst (process_command "Kind u type.")) ;
@@ -640,6 +660,8 @@ let tests = suite "web_core" [
   test_case "axiom_declaration" (fun () -> with_session test_axiom_declaration) ;
   test_case "thmod_virtual_import"
     (fun () -> with_session test_thmod_virtual_import) ;
+  test_case "interactive_thmod"
+    (fun () -> with_session test_interactive_thmod) ;
   test_case "inline_module" (fun () -> with_session test_inline_module) ;
   test_case "show_module" (fun () -> with_session test_show_module) ;
 ]

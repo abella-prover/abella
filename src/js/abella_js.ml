@@ -91,9 +91,13 @@ let file_list files =
   in
   collect 0 []
 
+let is_thmod_path path =
+  Filename.check_suffix path ".thmod"
+
 let re_init files root =
   let files = file_list files in
   let root = Js.to_string root in
+  let file_kind = if is_thmod_path root then `thmod else `thm in
   State.reload Abella_driver.initial_snapshot ;
   State.Undo.set_enabled true ;
   State.Undo.reset () ;
@@ -105,7 +109,7 @@ let re_init files root =
   Source.set_thc_cache_limit (64 * 1024 * 1024) ;
   List.iter (fun (path, contents) -> Source.add_virtual path contents) files ;
   Abella_driver.Setup.mode := `interactive ;
-  Abella_driver.Setup.file_kind := `thm ;
+  Abella_driver.Setup.file_kind := file_kind ;
   Abella_driver.Setup.annotate := true ;
   Abella_driver.Setup.recurse := false ;
   Abella_driver.Setup.import_mode := `auto ;

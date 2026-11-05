@@ -109,6 +109,22 @@ test("an invalid entry does not fall back to a theorem", () => {
   assert.equal(loaded.project.active, undefined);
 });
 
+test("a stored thmod entry is kept", () => {
+  storage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      version: 2,
+      entry: "List.thmod",
+      files: { "List.thmod": "Module List.\nEnd List.\n" },
+    })
+  );
+  const loaded = loadProjectRecord();
+  assert.equal(loaded.status, "loaded");
+  if (loaded.status !== "loaded") return;
+  assert.equal(loaded.project.entry, "List.thmod");
+  assert.equal(loaded.project.active, "List.thmod");
+});
+
 test("a project without a theorem has no entry", () => {
   storage.setItem(
     STORAGE_KEY,
@@ -160,6 +176,21 @@ test("example bundles may open a text entry without a prover entry", () => {
   assert.ok(loaded);
   assert.equal(loaded.entry, undefined);
   assert.equal(loaded.active, "examples/modules/README.md");
+});
+
+test("example bundles may use a thmod entry", () => {
+  const loaded = projectFromBundle(
+    {
+      examples: [{ id: "modules", entry: "examples/modules/List.thmod" }],
+      files: {
+        "examples/modules/List.thmod": "Module List[T].\nEnd List.\n",
+      },
+    },
+    "modules"
+  );
+  assert.ok(loaded);
+  assert.equal(loaded.entry, "examples/modules/List.thmod");
+  assert.equal(loaded.active, "examples/modules/List.thmod");
 });
 
 test("example bundles with a root key are rejected", () => {

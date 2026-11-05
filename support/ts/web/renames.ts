@@ -2,7 +2,12 @@
 //                     en Informatique et en Automatique)
 // See LICENSE for licensing details.
 
-import { classify, type Project, type ProjectTextFile } from "./project";
+import {
+  classify,
+  isCheckable,
+  type Project,
+  type ProjectTextFile,
+} from "./project";
 
 export interface FileRename {
   from: string;
@@ -320,7 +325,7 @@ export function planRename(
     if (entry === rename.from) entry = rename.to;
     if (active === rename.from) active = rename.to;
   }
-  if (entry !== undefined && !entry.toLowerCase().endsWith(".thm")) {
+  if (entry !== undefined && !isCheckable(entry)) {
     entry = undefined;
   }
 

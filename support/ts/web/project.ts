@@ -24,8 +24,12 @@ export function classify(path: string): FileKind {
   return /\.(thm|thmod|sig|mod)$/i.test(path) ? "abella" : "text";
 }
 
-export function isExecutable(path: string | undefined): boolean {
-  return path !== undefined && path.toLowerCase().endsWith(".thm");
+export function isCheckable(path: string | undefined): boolean {
+  return (
+    path !== undefined &&
+    (path.toLowerCase().endsWith(".thm") ||
+      path.toLowerCase().endsWith(".thmod"))
+  );
 }
 
 /**
@@ -93,7 +97,7 @@ export function projectFromBundle(
   }
   return {
     files,
-    entry: isExecutable(example.entry) ? example.entry : undefined,
+    entry: isCheckable(example.entry) ? example.entry : undefined,
     active: example.entry,
     example: id,
   };
@@ -162,7 +166,7 @@ export function explicitEntry(
   candidate: unknown
 ): string | undefined {
   return typeof candidate === "string" &&
-    isExecutable(candidate) &&
+    isCheckable(candidate) &&
     files.has(candidate)
     ? candidate
     : undefined;

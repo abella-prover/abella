@@ -837,6 +837,8 @@ common_command:
     { Types.Set(a, Types.Int n) }
   | SET; a=id; s=QSTRING; DOT
     { Types.Set(a, Types.QStr s) }
+  | SHOW; RMODULE; src=module_source; DOT
+    { Types.ShowModule src }
   | SHOW; l=loc_item; DOT
     { Types.Show(deloc_id l) }
   | QUIT; DOT

@@ -1257,6 +1257,35 @@ let read_thc_file path =
     (sign, clauses, predicates, content)
   end
 
+let test_show_module_summary () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      let bytes = native_compile_thmod dir "List" {|
+Module List[T].
+  Kind lst type.
+  Type lnil lst.
+  Type lcons T -> lst -> lst.
+  Type contains T -> lst -> prop.
+  Axiom head : forall (x:T) (xs:lst), contains x (lcons x xs).
+End List.
+|} in
+      let (name, params, content, _, _) = read_thmod_values bytes in
+      let summary =
+        Thmod.summary_to_string ~name ~params ~prefix:[] content in
+      let expected = String.concat "\n" [
+        "Module List[T]." ;
+        "  Kind lst type." ;
+        "  Type lnil lst." ;
+        "  Type lcons T -> lst -> lst." ;
+        "  Type contains T -> lst -> prop." ;
+        "  Axiom head : forall x xs, contains x (lcons x xs)." ;
+        "End List." ;
+        "" ;
+      ] in
+      Alcotest.check Alcotest.string "summary" expected summary
+    end
+  end
+
 let test_inline_thm_modules () =
   with_session begin fun () ->
     with_temp_dir begin fun dir ->
@@ -1389,6 +1418,7 @@ let tests =
       test_case "split names" test_split_names ;
       test_case "phase 4 checks" test_phase4_checks ;
       test_case "no sequents" test_no_sequents ;
+      test_case "show module summary" test_show_module_summary ;
       test_case "inline thm modules" test_inline_thm_modules ;
       test_case "inline thm errors" test_inline_thm_errors ;
       test_case "import basic" test_import_basic ;

@@ -359,6 +359,21 @@ let tests =
         (fun () ->
            assert_top_pprint "Show Foo.x" "Show Foo.x.") ;
 
+      test_case "Show Module file"
+        (fun () ->
+           assert_top_pprint "Show Module \"List\""
+             "Show Module \"List\".") ;
+
+      test_case "Show Module name"
+        (fun () ->
+           assert_top_pprint "Show Module Foo"
+             "Show Module Foo.") ;
+
+      test_case "Show Module in proof"
+        (fun () ->
+           assert_command_pprint "Show Module Foo"
+             "Show Module Foo.") ;
+
       test_case "Qualified name in Split"
         (fun () ->
            assert_top_pprint "Split Foo.thm" "Split Foo.thm.") ;

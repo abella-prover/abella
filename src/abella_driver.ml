@@ -1474,6 +1474,41 @@ let import_module mi =
 
 
 
+let show_module src =
+  let name, params, prefix, content =
+    match src with
+    | QuoteSource (file, _) ->
+        if Filename.check_suffix file ".thmod" then
+          failwith "Do not include the .thmod extension in Show Module" ;
+        let file = Filepath.normalize ~wrt:!Setup.input file in
+        let artifact = load_thmod_artifact ~modname:file in
+        let base = Filename.basename file in
+        if artifact.ta_name <> base then
+          failwithf "Module %s does not match the file name %s.thmod"
+            artifact.ta_name base ;
+        (artifact.ta_name, artifact.ta_params, [],
+         artifact.ta_content)
+    | NameSource name ->
+        begin match find_import_instance name with
+        | Some instance ->
+            (instance.Thmod.ins_name, [], instance.Thmod.ins_prefix,
+             instance.Thmod.ins_decls)
+        | None ->
+            begin match Thmod.find_template name with
+            | Some template ->
+                (template.Thmod.tp_name, template.Thmod.tp_params,
+                 template.Thmod.tp_from, template.Thmod.tp_content)
+            | None ->
+                if List.mem name (Thmod.all_params ()) then
+                  failwithf "Module parameter %s is not a module" name ;
+                failwithf "Unknown module %s" name
+            end
+        end
+  in
+  let summary =
+    Thmod.summary_to_string ~name ~params ~prefix content in
+  Output.msg_printf "%s" summary
+
 let query q =
   let fv = ids_to_fresh_tyctx (umetaterm_extract_if is_capital_name q) in
   let ctx = fresh_alist ~tag:Logic ~used:[] fv in
@@ -1833,6 +1868,10 @@ and process_proof1 proc =
         Output.msg_format "%t" (Prover.show nm) ;
         if !Setup.mode = `interactive then Output.blank_line () ;
         suppress_proof_state_display := true
+    | Common(ShowModule src) ->
+        show_module src ;
+        if !Setup.mode = `interactive then Output.blank_line () ;
+        suppress_proof_state_display := true
     | Common(Quit)           -> raise End_of_file
     end
   in
@@ -1938,6 +1977,7 @@ and process_top1 () =
       else failwith "Cannot use interactive commands in non-interactive mode"
   | TopCommon(Set(k, v)) -> set k v
   | TopCommon(Show(n)) -> Output.msg_format "%t" (Prover.show n)
+  | TopCommon(ShowModule src) -> show_module src
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, pos, withs) ->
       compile (CImport (filename, withs)) ;

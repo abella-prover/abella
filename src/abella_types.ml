@@ -80,6 +80,7 @@ type common_command =
   | Back | Reset
   | Set           of string * set_value
   | Show          of string
+  | ShowModule    of module_source
   | Quit
 
 type top_command =
@@ -292,6 +293,10 @@ let common_command_to_string cc =
       sprintf "Set %s %s" k (set_value_to_string v)
   | Show nm ->
       sprintf "Show %s" nm
+  | ShowModule (QuoteSource (filename, _)) ->
+      sprintf "Show Module %S" filename
+  | ShowModule (NameSource name) ->
+      sprintf "Show Module %s" name
   | Quit ->
       sprintf "Quit"
 

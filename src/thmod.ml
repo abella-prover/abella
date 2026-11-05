@@ -673,6 +673,68 @@ let pop_frame () =
   | sr :: rest -> frames := rest ; sr
   | [] -> failwith "No saved subordination frame"
 
+let summary_to_string ~name ~params ~prefix content =
+  let strip name =
+    match Thmod_import.strip_path prefix name with
+    | Some local -> local
+    | None -> name
+  in
+  let renamer = {
+    Thmod_import.r_const = strip ;
+    r_tycons = strip ;
+    r_lemma = strip ;
+    r_tyvar = (fun id -> id) ;
+  } in
+  let content = List.map (Thmod_import.map_compiled renamer) content in
+  let buf = Buffer.create 256 in
+  let line fmt =
+    Printf.ksprintf
+      (fun text -> Buffer.add_string buf text ; Buffer.add_char buf '\n')
+      fmt
+  in
+  let params =
+    match params with
+    | [] -> ""
+    | _ -> "[" ^ String.concat ", " params ^ "]"
+  in
+  let clause_to_string cl =
+    let head = metaterm_to_string cl.head in
+    if cl.body = True then head
+    else head ^ " := " ^ metaterm_to_string cl.body
+  in
+  line "Module %s%s." name params ;
+  List.iter begin function
+    | CKind (ids, knd) ->
+        line "  Kind %s %s." (String.concat ", " ids)
+          (String.lowercase_ascii (knd_to_string knd))
+    | CType (ids, _, ty) | CDeclPred (ids, _, ty) ->
+        line "  Type %s %s." (String.concat ", " ids) (ty_to_string ty)
+    | CDefine (flavor, _, idtys, clauses) ->
+        let keyword =
+          match flavor with
+          | Inductive -> "Define"
+          | CoInductive -> "CoDefine"
+        in
+        let idtys =
+          String.concat ", "
+            (List.map (fun (id, ty) -> id ^ " : " ^ ty_to_string ty) idtys)
+        in
+        line "  %s %s by" keyword idtys ;
+        List.iter
+          (fun cl -> line "    %s." (clause_to_string cl))
+          clauses
+    | CTheorem (id, tys, stmt, Axiomatic) ->
+        line "  Axiom %s%s : %s." id (gen_to_string tys)
+          (metaterm_to_string stmt)
+    | CTheorem (id, tys, stmt, _) ->
+        line "  Theorem %s%s : %s." id (gen_to_string tys)
+          (metaterm_to_string stmt)
+    | CImport _ | CClose _ | CSuspend _ ->
+        failwith "Unexpected declaration in module summary"
+  end content ;
+  line "End %s." name ;
+  Buffer.contents buf
+
 let exported_content () =
   match top_scope () with
   | Some sc -> List.rev sc.sc_content

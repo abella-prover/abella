@@ -548,6 +548,40 @@ let test_inline_module () =
   assert_ok (fst (process_command "search.")) ;
   ignore (Prover.get_generic_lemma "t")
 
+let test_show_module () =
+  Source.add_virtual "List.thmod" {|
+Module List[T].
+  Kind lst type.
+  Type lnil lst.
+  Axiom head : forall (xs:lst), xs = xs.
+End List.
+|} ;
+  let (status, msgs) = process_command "Show Module \"List\"." in
+  assert_ok status ;
+  let text = String.concat "\n" (system_messages msgs) in
+  assert_contains "Module List[T]." [text] ;
+  assert_contains "Kind lst type." [text] ;
+  assert_contains "End List." [text] ;
+  assert_ok (fst (process_command "Module M.")) ;
+  assert_ok (fst (process_command "Kind u type.")) ;
+  assert_ok (fst (process_command "Type c u.")) ;
+  assert_ok (fst (process_command "End M.")) ;
+  let (status, msgs) = process_command "Show Module M." in
+  assert_ok status ;
+  assert_contains "Module M." (system_messages msgs) ;
+  assert_contains "Type c u." (system_messages msgs) ;
+  assert_ok (fst (process_command "Import Module I = M.")) ;
+  let (status, msgs) = process_command "Show Module I." in
+  assert_ok status ;
+  assert_contains "Module I." (system_messages msgs) ;
+  assert_contains "Type c u." (system_messages msgs) ;
+  assert_ok (fst (process_command "Theorem t : true.")) ;
+  assert_ok (fst (process_command "intros.")) ;
+  let (status, msgs) = process_command "Show Module M." in
+  assert_ok status ;
+  assert_contains "Module M." (system_messages msgs) ;
+  assert_ok (fst (process_command "search."))
+
 let tests = suite "web_core" [
   test_case "virtual_source" (fun () -> with_session test_virtual_source) ;
   test_case "thc_cache_bound" (fun () -> with_session test_thc_cache_bound) ;
@@ -572,4 +606,5 @@ let tests = suite "web_core" [
   test_case "thmod_virtual_import"
     (fun () -> with_session test_thmod_virtual_import) ;
   test_case "inline_module" (fun () -> with_session test_inline_module) ;
+  test_case "show_module" (fun () -> with_session test_show_module) ;
 ]

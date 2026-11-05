@@ -934,6 +934,23 @@ function showOutputAtCursor(): void {
   if (output) showCommandOutput(path, output.from);
 }
 
+function isCopyShortcut(event: KeyboardEvent): boolean {
+  return (
+    (event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    !event.shiftKey &&
+    event.key.toLowerCase() === "c"
+  );
+}
+
+function hasSelectionInside(element: HTMLElement): boolean {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+    return false;
+  }
+  return element.contains(selection.getRangeAt(0).commonAncestorContainer);
+}
+
 async function copyCommandOutput(): Promise<void> {
   if (!currentCommandOutput) return;
   const text = currentCommandOutput
@@ -1010,6 +1027,13 @@ function installTabs(): void {
   commandOutputCopy.addEventListener("click", () =>
     void copyCommandOutput()
   );
+  commandOutputDialog.addEventListener("keydown", (event) => {
+    if (!isCopyShortcut(event) || hasSelectionInside(commandOutputDialog)) {
+      return;
+    }
+    event.preventDefault();
+    void copyCommandOutput();
+  });
 }
 
 function openHelp(): void {

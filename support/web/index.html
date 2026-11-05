@@ -282,6 +282,13 @@
             <dd>Show command output near the cursor</dd>
           </div>
           <div>
+            <dt>
+              <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>C</kbd> in the output
+              dialog
+            </dt>
+            <dd>Copy all command output</dd>
+          </div>
+          <div>
             <dt><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>B</kbd></dt>
             <dd>Show or hide the project panel</dd>
           </div>
@@ -467,7 +474,12 @@
         </div>
         <div id="command-output-list" class="output-dialog-list"></div>
         <div class="dialog-actions">
-          <button id="command-output-copy" type="button">Copy</button>
+          <button
+            id="command-output-copy"
+            type="button"
+            title="Copy output (Ctrl/Cmd-C)"
+            aria-keyshortcuts="Control+C Meta+C"
+          >Copy</button>
           <button id="command-output-done" type="button">Close</button>
         </div>
       </div>

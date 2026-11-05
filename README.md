@@ -17,6 +17,22 @@ To uninstall Abella using OPAM, do:
 2. Then run: `opam unpin abella`.
 
 
+Abella Web
+==========
+
+Instead of running Abella locally, you can also use [Abella
+Web](https://abella-prover.org/web/), which is a development environment for
+Abella that runs entirely in your browser. Your files never leave your browser
+and never reach the internet.
+
+It has optional Github integration if you want to load/commit your development
+using a Github-hosted repository instead of your local browser.
+
+You can also build and deploy the browser interface locally. See
+[web/README.md](web/README.md). You probably don't need to do this if you're not
+an Abella developer.
+
+
 More Information
 ================
 
@@ -27,9 +43,6 @@ Use the following walkthrough for an introduction to using Abella:
 More information on Abella is available at
 
   https://abella-prover.org/
-
-For building and deploying the browser interface, see
-[README_Web.md](README_Web.md).
 
 
 Bugs, Feature Requests, and Issues

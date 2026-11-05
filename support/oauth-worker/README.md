@@ -206,7 +206,7 @@ Until every required variable is present, `GET /github/config` returns
    `oauth.abella-prover.org` as a Worker Custom Domain. Confirm that the
    route and DNS record appear after deployment.
 6. Add that exact origin to the site's `connect-src` CSP and build the
-   frontend against it. `README_Web.md` covers the CSP, COOP, and
+   frontend against it. `web/README.md` covers the CSP, COOP, and
    callback-page headers.
 
 `make publish-web` never deploys this Worker. Deployment is an

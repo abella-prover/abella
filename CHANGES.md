@@ -9,7 +9,7 @@ Abella Web
 
   The Abella source distribution contains the source code for Abella Web and
   the full instructions for running a local Abella Web server locally.
-  See `README_Web.md` for further details.
+  See `web/README.md` for further details.
 
 Additions
 

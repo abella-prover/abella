@@ -3,7 +3,7 @@ open Term
 open Metaterm
 open Test_helper
 
-module R = Abella_driver.Replacement
+module R = Thm.Replacement
 
 let nat = tybase (atybase "nat")
 let nat_prop = tyarrow [nat] propty

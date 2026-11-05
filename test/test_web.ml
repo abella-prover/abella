@@ -19,26 +19,13 @@
 (****************************************************************************)
 
 (* Tests for the browser-facing core: virtual sources, collected output,
-   the generated .thc cache, and source imports. *)
+   the generated .thc cache, and shared driver commands. *)
 
 open Abella_lib
-open Abella_types
 open Extensions
-open Term
 open Test_helper
 
 module D = Abella_driver
-
-let web_module = {|
-Kind tm type.
-Type app tm -> tm -> tm.
-
-Define is_app : tm -> prop by
-  is_app (app A B).
-
-Theorem mod_ok : forall A B, is_app (app A B).
-intros. search.
-|}
 
 let start_web_session () =
   State.reload D.initial_snapshot ;
@@ -166,75 +153,6 @@ let assert_contains needle haystack =
   in
   Alcotest.check Alcotest.bool ("expected message containing " ^ needle) true found
 
-let read_thc_values bytes =
-  let buf = Bytes.unsafe_of_string bytes in
-  let pos = ref 0 in
-  let read () =
-    let v = Marshal.from_string bytes !pos in
-    pos := !pos + Marshal.total_size buf !pos ;
-    v
-  in
-  ignore (read () : Digest.t) ;
-  ignore (read () : string) ;
-  ( (read () : Typing.sign),
-    (read () : clause list),
-    (read () : string list),
-    (read () : compiled list) )
-
-let read_file path =
-  let ch = open_in_bin path in
-  Fun.protect ~finally:(fun () -> close_in ch) begin fun () ->
-    really_input_string ch (in_channel_length ch)
-  end
-
-let write_file path contents =
-  let ch = open_out_bin path in
-  Fun.protect ~finally:(fun () -> close_out ch) begin fun () ->
-    output_string ch contents
-  end
-
-let rec remove_tree path =
-  if Sys.is_directory path then begin
-    Array.iter (fun name -> remove_tree (Filename.concat path name))
-      (Sys.readdir path) ;
-    Unix.rmdir path
-  end else
-    Sys.remove path
-
-(* Compile [web_module] the way the native CLI does, and return the bytes
-   of the resulting .thc file. *)
-let native_compile_module () =
-  let dir = Filename.temp_file "abella-web-test" "" in
-  Sys.remove dir ;
-  Unix.mkdir dir 0o700 ;
-  Fun.protect ~finally:(fun () -> remove_tree dir) begin fun () ->
-    let path = Filename.concat dir "mod.thm" in
-    let thc = Filename.concat dir "mod.thc" in
-    write_file path web_module ;
-    State.reload D.initial_snapshot ;
-    State.Undo.set_enabled false ;
-    D.compiling := [] ;
-    D.Setup.mode := `batch ;
-    D.Setup.annotate := false ;
-    D.Setup.recurse := false ;
-    D.Setup.import_mode := `thc ;
-    D.Setup.trust_compiled := false ;
-    D.Setup.unfinished := [] ;
-    D.Setup.input := path ;
-    let module Thm = (val Thm.read ~thc path) in
-    D.Setup.compiled := Some (module Thm) ;
-    D.Setup.lexbuf := Thm.lex true ;
-    Output.collect_mode () ;
-    ignore (Output.drain ()) ;
-    let rec drive () =
-      try ignore (D.process1 ()) ; drive () with
-      | D.AbellaExit 0 -> ()
-      | D.AbellaExit n -> Alcotest.fail ("native compile exited " ^ string_of_int n)
-    in
-    drive () ;
-    read_file thc
-  end
-
 let test_virtual_source () =
   Alcotest.check Alcotest.bool "canon strip ./" true (Source.canon "./a/b.thm" = "a/b.thm") ;
   Alcotest.check Alcotest.bool "canon collapse dot" true (Source.canon "a/./b.thm" = "a/b.thm") ;
@@ -347,199 +265,6 @@ let test_undo_back_counts () =
   check "u2" 2 [true ; false ; false] ;
   check "u3" 3 [false ; false ; false]
 
-let test_source_import_cache () =
-  Source.add_virtual "main.thm" "" ;
-  Source.add_virtual "mod.thm" web_module ;
-  let hits = ref [] in
-  D.on_import := Some (fun name -> hits := name :: !hits) ;
-  let (status, msgs) = process_command "Import \"mod\"." in
-  assert_ok status ;
-  Alcotest.check Alcotest.bool "generated thc exists" true (Source.virtual_exists "mod.thc") ;
-  Alcotest.check Alcotest.bool "generated thc trusted" true (Source.is_thc_trusted "mod.thc") ;
-  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["mod"] !hits ;
-  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" [] (error_messages msgs) ;
-
-  (* Rewind over the import; the generated .thc stays in the virtual FS. *)
-  assert_ok (try State.Undo.back 1 ; `ok with Failure _ -> `error) ;
-  hits := [] ;
-  let (status, _) = process_command "Import \"mod\"." in
-  assert_ok status ;
-  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" [] !hits ;
-
-  (* The source-compiled module is actually applied. *)
-  let (status, _) = process_command
-      "Theorem root_ok : forall A B, is_app (app A B)." in
-  assert_ok status ;
-  assert_ok (fst (process_command "intros.")) ;
-  let (status, msgs) = process_command "search." in
-  assert_ok status ;
-  assert_contains "Proof completed" (system_messages msgs) ;
-
-  let (status, msgs) = process_command "Import \"nope\"." in
-  Alcotest.check Alcotest.bool "missing import fails" true (status = `error) ;
-  assert_contains "Opening: ./nope.thm" (system_messages msgs)
-
-let test_input_path_relative_imports () =
-  Source.add_virtual "nested/main.thm" "" ;
-  Source.add_virtual "nested/mod.thm" web_module ;
-  D.Setup.input := "nested/main.thm" ;
-  let module Thm = (val Thm.read "nested/main.thm") in
-  Alcotest.check Alcotest.string "input path" "nested/main.thm" Thm.path ;
-  Filepath.set_load_path ~wrt:!D.Setup.input "lib" ;
-  Alcotest.check Alcotest.string "load path" "nested/lib" !Filepath.load_path ;
-  let (status, _) = process_command "Import \"mod\"." in
-  assert_ok status ;
-  Alcotest.check Alcotest.bool "nested thc" true
-    (Source.virtual_exists "nested/mod.thc")
-
-let test_ctype_stores_typarams () =
-  assert_ok (fst (process_command
-    "Type decl_local A -> B -> prop.")) ;
-  match !D.comp_content with
-  | [CType(["decl_local"], typarams, _)] ->
-      Alcotest.check (Alcotest.list Alcotest.string)
-        "type parameters differ" ["A" ; "B"] typarams
-  | _ -> Alcotest.fail "expected a CType declaration"
-
-let test_decl_pred_replay_preserves_typarams () =
-  let a = tybase (Tygenvar "A") in
-  let b = tybase (Tygenvar "B") in
-  let pred_ty = tyarrow [a; b] propty in
-  let const_ty = tyarrow [a] b in
-  let repl = D.Replacement.make [] in
-  D.process_decls ~repl ~modname:"test" [
-    CDeclPred(["decl_pred"], ["A"], pred_ty) ;
-    CType(["decl_const"], ["A"], const_ty) ;
-  ] ;
-  let check_scheme name expected ty =
-    match List.assoc name (snd !Typing.sign) with
-    | Poly(typarams, scheme_ty) ->
-        Alcotest.check (Alcotest.list Alcotest.string)
-          (name ^ " type parameters") expected typarams ;
-        Alcotest.check ty_testable (name ^ " type") ty scheme_ty
-    | exception Not_found ->
-        Alcotest.fail ("missing declaration " ^ name)
-  in
-  check_scheme "decl_pred" ["A"] pred_ty ;
-  check_scheme "decl_const" ["A"] const_ty
-
-let test_values_match_native () =
-  let native = native_compile_module () in
-  start_web_session () ;
-  Source.add_virtual "main.thm" "" ;
-  Source.add_virtual "mod.thm" web_module ;
-  let (status, _) = process_command "Import \"mod\"." in
-  assert_ok status ;
-  let generated = Source.virtual_contents "mod.thc" in
-  let (ns, nc, np, nt) = read_thc_values native in
-  let (ws, wc, wp, wt) = read_thc_values generated in
-  Alcotest.check Alcotest.bool "spec sign differs" true (ns = ws) ;
-  Alcotest.check Alcotest.bool "spec clauses differ" true (nc = wc) ;
-  Alcotest.check Alcotest.bool "predicates differ" true (np = wp) ;
-  Alcotest.check Alcotest.bool "compiled content differs" true (nt = wt)
-
-let test_virtual_native_thc () =
-  let native = native_compile_module () in
-  start_web_session () ;
-  Source.add_virtual "main.thm" "" ;
-  Source.add_virtual "mod.thm" web_module ;
-  Source.add_virtual "mod.thc" native ;
-  Source.set_thc_trusted "mod.thc" true ;
-  let hits = ref [] in
-  D.on_import := Some (fun name -> hits := name :: !hits) ;
-  let (status, _) = process_command "Import \"mod\"." in
-  assert_ok status ;
-  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" [] !hits ;
-  let (status, _) = process_command
-      "Theorem root_ok : forall A B, is_app (app A B)." in
-  assert_ok status ;
-  assert_ok (fst (process_command "intros.")) ;
-  let (status, msgs) = process_command "search." in
-  assert_ok status ;
-  assert_contains "Proof completed" (system_messages msgs)
-
-let test_nested_imports () =
-  Source.add_virtual "main.thm" "" ;
-  Source.add_virtual "inner.thm" {|
-Kind tm type.
-Type app tm -> tm -> tm.
-Define is_inner : tm -> prop by is_inner (app A B).
-|} ;
-  Source.add_virtual "outer.thm" {|
-Import "inner".
-Theorem outer_ok : forall A B, is_inner (app A B).
-intros. search.
-|} ;
-  let hits = ref [] in
-  D.on_import := Some (fun name -> hits := name :: !hits) ;
-  assert_ok (fst (process_command "Import \"outer\".")) ;
-  Alcotest.check Alcotest.bool "inner thc" true (Source.is_thc_trusted "inner.thc") ;
-  Alcotest.check Alcotest.bool "outer thc" true (Source.is_thc_trusted "outer.thc") ;
-  (* The outer progress hook fires before its sandbox compiles inner. *)
-  Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["inner" ; "outer"] !hits
-
-let test_import_with_capture_avoidance () =
-  Source.add_virtual "main.thm" "" ;
-  Source.add_virtual "withmod.thm" {|
-Kind nat type.
-Type p nat -> prop.
-Axiom foo : forall q, p q.
-|} ;
-  assert_ok (fst (process_command "Kind nat type.")) ;
-  assert_ok (fst (process_command "Type p, q nat -> prop.")) ;
-  let (status, _) = process_command "Import \"withmod\" with p := q." in
-  assert_ok status ;
-  let (_, thm) = Prover.get_generic_lemma "foo" in
-  Alcotest.check Alcotest.string "imported theorem captured"
-    "forall q1, q q1" (Metaterm.metaterm_to_string thm)
-
-let test_split_propagates_tags () =
-  Source.add_virtual "skipmod.thm" {|
-Theorem imported_skip : true /\ true.
-skip.
-|} ;
-  let check_tag expected name =
-    Alcotest.check Alcotest.bool (name ^ " tag differs") true
-      (Prover.get_lemma_tag name = expected)
-  in
-  let check_names message expected names =
-    Alcotest.check (Alcotest.list Alcotest.string) message
-      (List.sort compare expected) (List.sort compare names)
-  in
-  assert_ok (fst (process_command "Axiom ax : true /\\ true.")) ;
-  assert_ok (fst (process_command "Split ax as ax1, ax2.")) ;
-  List.iter (check_tag Axiomatic) ["ax" ; "ax1" ; "ax2"] ;
-  check_names "axioms differ" ["ax"] !D.Setup.axioms ;
-  assert_ok (fst (process_command "Theorem skipped : true /\\ true.")) ;
-  assert_ok (fst (process_command "skip.")) ;
-  assert_ok (fst (process_command "Split skipped as sk1, sk2.")) ;
-  List.iter (check_tag Unfinished) ["skipped" ; "sk1" ; "sk2"] ;
-  check_names "unfinished differ" ["skipped" ; "sk1" ; "sk2"]
-    !D.Setup.unfinished ;
-  assert_ok (fst (process_command "Import \"skipmod\".")) ;
-  assert_ok (fst (process_command "Split imported_skip as is1, is2.")) ;
-  List.iter (check_tag Unfinished)
-    ["imported_skip" ; "is1" ; "is2"] ;
-  check_names "imported unfinished reported" ["skipped" ; "sk1" ; "sk2"]
-    !D.Setup.unfinished ;
-  assert_ok (fst (process_command "Theorem done : true /\\ true.")) ;
-  assert_ok (fst (process_command "split.")) ;
-  assert_ok (fst (process_command "search.")) ;
-  assert_ok (fst (process_command "search.")) ;
-  assert_ok (fst (process_command "Split done as done1, done2.")) ;
-  List.iter (check_tag Finished) ["done" ; "done1" ; "done2"] ;
-  check_names "unfinished changed" ["skipped" ; "sk1" ; "sk2"]
-    !D.Setup.unfinished ;
-  check_names "axioms changed" ["ax"] !D.Setup.axioms
-
-let test_import_cycle () =
-  Source.add_virtual "main.thm" "" ;
-  Source.add_virtual "a.thm" "Import \"b\"." ;
-  Source.add_virtual "b.thm" "Import \"a\"." ;
-  let (status, msgs) = process_command "Import \"a\"." in
-  Alcotest.check Alcotest.bool "cycle fails" true (status = `error) ;
-  assert_contains "Cyclic import" (system_messages msgs)
-
 let test_axiom_declaration () =
   let (status, msgs) = process_command "Axiom ax : true." in
   assert_ok status ;
@@ -589,19 +314,6 @@ End List.
   Alcotest.check Alcotest.bool "thmod finished" true
     (Thmod.is_complete ())
 
-let test_inline_module () =
-  assert_ok (fst (process_command "Module M.")) ;
-  assert_ok (fst (process_command "Kind u type.")) ;
-  assert_ok (fst (process_command "Type c u.")) ;
-  assert_ok (fst (process_command "Define p : u -> prop by p X.")) ;
-  assert_ok (fst (process_command "End M.")) ;
-  assert_ok (fst (process_command "Import Module I = M.")) ;
-  assert_ok (fst (process_command "Type d I.u.")) ;
-  assert_ok (fst (process_command "Theorem t : I.p d.")) ;
-  assert_ok (fst (process_command "intros.")) ;
-  assert_ok (fst (process_command "search.")) ;
-  ignore (Prover.get_generic_lemma "t")
-
 let test_show_module () =
   Source.add_virtual "List.thmod" {|
 Module List[T].
@@ -642,26 +354,10 @@ let tests = suite "web_core" [
   test_case "output_collect" (fun () -> with_session test_output_collect) ;
   test_case "theorem_state" (fun () -> with_session test_theorem_state) ;
   test_case "undo_back_counts" (fun () -> with_session test_undo_back_counts) ;
-  test_case "source_import_cache" (fun () -> with_session test_source_import_cache) ;
-  test_case "input_path_relative_imports"
-    (fun () -> with_session test_input_path_relative_imports) ;
-  test_case "ctype_stores_typarams"
-    (fun () -> with_session test_ctype_stores_typarams) ;
-  test_case "decl_pred_replay_preserves_typarams"
-    (fun () -> with_session test_decl_pred_replay_preserves_typarams) ;
-  test_case "values_match_native" (fun () -> with_session test_values_match_native) ;
-  test_case "virtual_native_thc" (fun () -> with_session test_virtual_native_thc) ;
-  test_case "nested_imports" (fun () -> with_session test_nested_imports) ;
-  test_case "import_with_capture_avoidance"
-    (fun () -> with_session test_import_with_capture_avoidance) ;
-  test_case "split_propagates_tags"
-    (fun () -> with_session test_split_propagates_tags) ;
-  test_case "import_cycle" (fun () -> with_session test_import_cycle) ;
   test_case "axiom_declaration" (fun () -> with_session test_axiom_declaration) ;
   test_case "thmod_virtual_import"
     (fun () -> with_session test_thmod_virtual_import) ;
   test_case "interactive_thmod"
     (fun () -> with_session test_interactive_thmod) ;
-  test_case "inline_module" (fun () -> with_session test_inline_module) ;
   test_case "show_module" (fun () -> with_session test_show_module) ;
 ]

@@ -13,6 +13,7 @@ let () =
       Test_parser.tests ;
       Test_depend.tests ;
       Test_thmod.tests ;
+      Test_thm.tests ;
       Test_tactics.tests ;
       (* TODO Test_prover.tests ; *)
       Test_web.tests ;

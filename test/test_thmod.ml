@@ -128,44 +128,6 @@ let native_compile_thmod dir name source =
   | `Ok bytes -> bytes
   | `Error msg -> Alcotest.fail msg
 
-let run_thm dir name source =
-  let path = Filename.concat dir (name ^ ".thm") in
-  write_file path source ;
-  State.reload D.initial_snapshot ;
-  Thmod.reset () ;
-  D.thm_instances := [] ;
-  D.thmod_loading := [] ;
-  State.Undo.set_enabled false ;
-  D.compiling := [] ;
-  D.Setup.mode := `batch ;
-  D.Setup.annotate := false ;
-  D.Setup.recurse := false ;
-  D.Setup.import_mode := `thc ;
-  D.Setup.trust_compiled := false ;
-  D.Setup.unfinished := [] ;
-  D.Setup.file_kind := `thm ;
-  D.Setup.input := path ;
-  let module Src = (val Thm.read path) in
-  D.Setup.compiled := Some (module Src) ;
-  D.Setup.lexbuf := Src.lex true ;
-  Output.collect_mode () ;
-  ignore (Output.drain ()) ;
-  let rec drive () =
-    try ignore (D.process1 ()) ; drive () with
-    | D.AbellaExit 0 -> ()
-    | D.AbellaExit n -> raise (D.AbellaExit n)
-  in
-  try
-    drive () ;
-    `Ok (read_file Src.thc_path)
-  with
-  | D.AbellaExit _ -> `Error (D.collected_messages ())
-  | e -> `Error (Printexc.to_string e)
-
-let native_compile_thm dir name source =
-  match run_thm dir name source with
-  | `Ok bytes -> bytes
-  | `Error msg -> Alcotest.fail msg
 
 let expect_thmod_error dir name source needle =
   match run_thmod dir name source with
@@ -182,20 +144,6 @@ let expect_thmod_error dir name source needle =
       Alcotest.check Alcotest.bool
         ("expected error containing " ^ needle) true found
 
-let contains needle msg =
-  let n = String.length needle in
-  let rec spin i =
-    i + n <= String.length msg &&
-    (String.sub msg i n = needle || spin (i + 1))
-  in
-  spin 0
-
-let expect_thm_error dir name source needle =
-  match run_thm dir name source with
-  | `Ok _ -> Alcotest.fail ("expected an error containing " ^ needle)
-  | `Error msg ->
-      Alcotest.check Alcotest.bool
-        ("expected error containing " ^ needle) true (contains needle msg)
 
 let read_thmod_values bytes =
   let buf = Bytes.unsafe_of_string bytes in
@@ -916,35 +864,6 @@ End Multi.
     end
   end
 
-let test_import_thm_flattening () =
-  with_session begin fun () ->
-    with_temp_dir begin fun dir ->
-      ignore (native_compile_thmod dir "Box4" {|
-Module Box4[T].
-  Type p T -> prop.
-End Box4.
-|}) ;
-      begin match run_thm dir "b" {|
-Kind w type.
-Type cw w.
-Import Module B = "Box4"[w].
-Theorem bt : B.p cw -> B.p cw.
-intros. search.
-|} with
-      | `Ok _ -> ()
-      | `Error msg -> Alcotest.fail msg
-      end ;
-      begin match run_thm dir "c" {|
-Import "b".
-Theorem ct : B.p cw -> B.p cw.
-intros. search.
-|} with
-      | `Ok _ -> ()
-      | `Error msg -> Alcotest.fail msg
-      end
-    end
-  end
-
 let test_import_errors () =
   with_session begin fun () ->
     with_temp_dir begin fun dir ->
@@ -1238,19 +1157,6 @@ End ObjTy.
     end
   end
 
-let read_thc_file path =
-  let ch = open_in_bin path in
-  Fun.protect ~finally:(fun () -> close_in ch) begin fun () ->
-    let digest = (Marshal.from_channel ch : Digest.t) in
-    let version = (Marshal.from_channel ch : string) in
-    let sign = (Marshal.from_channel ch : Typing.sign) in
-    let clauses = (Marshal.from_channel ch : clause list) in
-    let predicates = (Marshal.from_channel ch : string list) in
-    let content = (Marshal.from_channel ch : compiled list) in
-    ignore digest ; ignore version ;
-    (sign, clauses, predicates, content)
-  end
-
 let test_show_module_summary () =
   with_session begin fun () ->
     with_temp_dir begin fun dir ->
@@ -1280,126 +1186,6 @@ End List.
     end
   end
 
-let test_inline_thm_modules () =
-  with_session begin fun () ->
-    with_temp_dir begin fun dir ->
-      ignore (native_compile_thm dir "OnlyModule" {|
-Module M.
-  Kind u type.
-  Type c u.
-End M.
-|}) ;
-      let (_, _, _, content) =
-        read_thc_file (Filename.concat dir "OnlyModule.thc") in
-      Alcotest.check Alcotest.int "module definitions are not persisted"
-        0 (List.length content) ;
-      ignore (native_compile_thm dir "UseModule" {|
-Module M.
-  Kind u type.
-  Type c u.
-  Define p : u -> prop by
-    p X.
-End M.
-Import Module I = M.
-Type d I.u.
-Theorem t : I.p d.
-intros. search.
-|}) ;
-      let (_, _, _, content) =
-        read_thc_file (Filename.concat dir "UseModule.thc") in
-      let has_kind =
-        List.exists (function CKind (["I.u"], _) -> true | _ -> false)
-          content
-      in
-      let has_type =
-        List.exists (function CType (["d"], _, _) -> true | _ -> false)
-          content
-      in
-      let has_thm =
-        List.exists (function
-            | CTheorem ("t", [], _, Finished) -> true
-            | _ -> false) content
-      in
-      Alcotest.check Alcotest.bool "imported internal kind" true has_kind ;
-      Alcotest.check Alcotest.bool "declaration over imported kind" true
-        has_type ;
-      Alcotest.check Alcotest.bool "theorem over imported definition" true
-        has_thm ;
-      ignore (native_compile_thm dir "NestedInline" {|
-Module Outer.
-  Module Inner.
-    Kind u type.
-    Type c u.
-    Define p : u -> prop by
-      p X.
-  End Inner.
-  Import Module I = Inner.
-  Type d I.u.
-  Theorem t : I.p d.
-  intros. search.
-End Outer.
-Import Module O = Outer.
-Type e O.I.u.
-Theorem u : O.I.p e.
-intros. search.
-|}) ;
-      let (_, _, _, content) =
-        read_thc_file (Filename.concat dir "NestedInline.thc") in
-      let has_nested_kind =
-        List.exists (function CKind (["O.I.u"], _) -> true | _ -> false)
-          content
-      in
-      let has_nested_type =
-        List.exists (function CType (["e"], _, _) -> true | _ -> false)
-          content
-      in
-      Alcotest.check Alcotest.bool "nested internal kind" true
-        has_nested_kind ;
-      Alcotest.check Alcotest.bool "use of nested internal kind" true
-        has_nested_type ;
-      ignore (native_compile_thm dir "SeqInline" {|
-Module SeqInline.
-  Theorem t : forall (x:o), { x |- x }.
-  intros. search.
-End SeqInline.
-|})
-    end
-  end
-
-let test_inline_thm_errors () =
-  with_session begin fun () ->
-    with_temp_dir begin fun dir ->
-      expect_thm_error dir "BadImport" {|
-Module BadImport.
-  Kind u type.
-  Type c u.
-  Import "x".
-End BadImport.
-|} "A module may not use ordinary Import" ;
-      expect_thm_error dir "BadSpec" {|
-Module BadSpec.
-  Specification "x".
-End BadSpec.
-|} "Specification is not allowed in a module" ;
-      expect_thm_error dir "BadClose" {|
-Module BadClose.
-  Kind u type.
-  Close u.
-End BadClose.
-|} "Close is not allowed in a module" ;
-      expect_thm_error dir "DuplicateModule" {|
-Module DuplicateModule.
-End DuplicateModule.
-Module DuplicateModule.
-End DuplicateModule.
-|} "already declared" ;
-      expect_thm_error dir "BadEnd" {|
-Module BadEnd.
-End OtherEnd.
-|} "does not match Module"
-    end
-  end
-
 let tests =
   suite "thmod" [
       test_case "read_thmod defaults" test_read_thmod_defaults ;
@@ -1413,15 +1199,12 @@ let tests =
       test_case "phase 4 checks" test_phase4_checks ;
       test_case "no sequents" test_no_sequents ;
       test_case "show module summary" test_show_module_summary ;
-      test_case "inline thm modules" test_inline_thm_modules ;
-      test_case "inline thm errors" test_inline_thm_errors ;
       test_case "import basic" test_import_basic ;
       test_case "import with" test_import_with ;
       test_case "import transitive nested" test_import_transitive_nested ;
       test_case "import nested strict" test_import_nested_strict ;
       test_case "import dotted key" test_import_dotted_key ;
       test_case "import multiple instances" test_import_multiple_instances ;
-      test_case "import thm flattening" test_import_thm_flattening ;
       test_case "import errors" test_import_errors ;
       test_case "tags split and import" test_tags_split_and_import ;
       test_case "tags alias" test_tags_alias ;

@@ -38,7 +38,6 @@ let witnesses = Setup.witnesses
 let initial_snapshot_ref = Setup.initial_snapshot
 
 let thm_instances = Thm.instances
-let thmod_loading = Thmod.loading
 let comp_content = Thm.comp_content
 let can_read_specification = Thm.can_read_specification
 module Replacement = Thm.Replacement
@@ -50,10 +49,7 @@ let write_compilation () =
   | `thmod -> Thmod.write_compilation ()
   | `thm -> Thm.write_compilation ()
 
-let is_interactive () =
-  match !Setup.mode with
-  | `interactive | `switch -> true
-  | _ -> false
+let is_interactive () = !Setup.mode = `interactive
 
 let in_module () = Thmod.current_name () <> None
 
@@ -65,27 +61,9 @@ exception AbellaExit = Setup.AbellaExit
 
 (* Input *)
 
-let perform_switch_to_interactive () =
-  assert (!Setup.mode = `switch) ;
-  let from_thmod = !Setup.file_kind = `thmod in
-  Setup.input := "" ;
-  Setup.lexbuf := Lexing.from_channel ~with_positions:false stdin ;
-  Setup.mode := `interactive ;
-  Output.(dest := Channel stdout) ;
-  Output.msg_printf "Switching to interactive mode." ;
-  State.Undo.undo () ;
-  Setup.file_kind := `thm ;
-  thmod_loading := [] ;
-  if from_thmod then begin
-    Thm.reset_instances () ;
-    Thmod.reset ()
-  end
-
 let interactive_or_exit () =
-  match !Setup.mode with
-  | `interactive -> ()
-  | `switch -> perform_switch_to_interactive ()
-  | _ -> raise @@ AbellaExit 1
+  if !Setup.mode = `interactive then ()
+  else raise @@ AbellaExit 1
 
 let position_range (p1, p2) =
   let file = p1.Lexing.pos_fname in
@@ -870,25 +848,22 @@ let rec process1 () =
   | End_of_file ->
       check_thmod_complete () ;
       write_compilation () ;
-      if !Setup.mode = `switch then
-        perform_switch_to_interactive ()
-      else begin
-        match !current_state with
-        | Process_top ->
-            if not (is_interactive ()) && !Setup.unfinished <> [] then begin
-              Output.msg_printf "There were skips in these theorem(s): %s"
-                (String.concat ", " (List.unique !Setup.unfinished))
-            end ;
-            if not (is_interactive ()) && !Setup.axioms <> [] then begin
-              Output.msg_printf "The following axioms were used: %s"
-                (String.concat ", " (List.unique (List.rev !Setup.axioms)))
-            end ;
-            Output.flush () ;
-            raise @@ AbellaExit 0
-        | _ ->
-            Output.msg_printf ~severity:Error "Proof NOT Completed." ;
-            Output.flush () ;
-            raise @@ AbellaExit 1
+      begin match !current_state with
+      | Process_top ->
+          if not (is_interactive ()) && !Setup.unfinished <> [] then begin
+            Output.msg_printf "There were skips in these theorem(s): %s"
+              (String.concat ", " (List.unique !Setup.unfinished))
+          end ;
+          if not (is_interactive ()) && !Setup.axioms <> [] then begin
+            Output.msg_printf "The following axioms were used: %s"
+              (String.concat ", " (List.unique (List.rev !Setup.axioms)))
+          end ;
+          Output.flush () ;
+          raise @@ AbellaExit 0
+      | _ ->
+          Output.msg_printf ~severity:Error "Proof NOT Completed." ;
+          Output.flush () ;
+          raise @@ AbellaExit 1
       end
   | e ->
       State.Undo.undo () ;

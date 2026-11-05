@@ -66,7 +66,6 @@ let start_thm_session () =
   D.compiling := [] ;
   D.on_import := None ;
   Thmod.reset () ;
-  Thm.reset_instances () ;
   D.Setup.mode := `interactive ;
   D.Setup.file_kind := `thm ;
   D.Setup.annotate := true ;
@@ -192,7 +191,6 @@ let run_thm dir name source =
   State.reload D.initial_snapshot ;
   Thmod.reset () ;
   D.thm_instances := [] ;
-  D.thmod_loading := [] ;
   State.Undo.set_enabled false ;
   D.compiling := [] ;
   D.Setup.mode := `batch ;

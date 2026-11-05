@@ -11,7 +11,7 @@
 open Abella_types
 
 let compiled : (module Source.COMPILED) option ref = ref None
-let mode : [`batch | `interactive | `switch] ref = ref `interactive
+let mode : [`batch | `interactive] ref = ref `interactive
 let annotate : bool ref = ref true
 let recurse : bool ref = ref false
 let input : string ref = ref "" (* file name including suffix *)

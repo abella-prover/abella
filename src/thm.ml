@@ -500,8 +500,6 @@ let add_instance inst =
 
 let all_instances () = !instances
 
-let reset_instances () = instances := []
-
 (* Inline Module/End in a .thm file *)
 
 let check_module_body cmd =

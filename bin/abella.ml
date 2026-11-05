@@ -35,11 +35,10 @@ let set_or_exit k v =
       Output.msg_printf ~severity:Error "Error: %s" msg ;
       raise @@ AbellaExit 1
 
-let abella_main flags switch output compiled annotate norec _em verb infile =
+let abella_main flags _switch output compiled annotate norec _em verb infile =
   try begin
     Output.set_verbosity verb ;
     List.iter (fun (k, v) -> set_or_exit k v) flags ;
-    if switch then Setup.mode := `switch ;
     Option.iter set_output output ;
     if annotate then Output.annotation_mode () ;
     Setup.annotate := annotate ;
@@ -55,7 +54,7 @@ let abella_main flags switch output compiled annotate norec _em verb infile =
         in
         Setup.compiled := Some (module Src) ;
         Setup.file_kind := if is_thmod then `thmod else `thm ;
-        Setup.mode := if switch then `switch else `batch ;
+        Setup.mode := `batch ;
         Setup.lexbuf := Src.lex true ;
         Setup.input := Src.path
       end
@@ -111,8 +110,13 @@ let () =
   in
 
   let switch =
-    let doc = "Switch to interactive mode after processing input." in
-    Arg.(value @@ flag @@ info ["i"] ~doc)
+    let doc =
+      "Does nothing; use a frontend such as Abella Web for interactive \
+       sessions." in
+    let deprecated =
+      "The -i flag is deprecated and does nothing; use a frontend such \
+       as Abella Web for interactive sessions." in
+    Arg.(value @@ flag @@ info ["i"] ~doc ~deprecated)
   in
 
   let output =

@@ -14,7 +14,6 @@ import {
   indentOnInput,
   syntaxHighlighting,
 } from "@codemirror/language";
-import { highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
 import { searchKeymap } from "@codemirror/search";
 import {
   EditorState,
@@ -305,8 +304,6 @@ const editorTheme = EditorView.theme({
     color: "var(--muted)",
     border: "none",
   },
-  ".cm-activeLine": { backgroundColor: "var(--active-line)" },
-  ".cm-activeLineGutter": { backgroundColor: "var(--active-line)" },
   ".cm-processed": {
     backgroundColor: "var(--processed)",
     // CodeMirror lines have 6px of left padding; extend the partial
@@ -315,12 +312,6 @@ const editorTheme = EditorView.theme({
     marginLeft: "-6px",
   },
   ".cm-processed-line": { backgroundColor: "var(--processed)" },
-  ".cm-activeLine.cm-processed-line": {
-    backgroundColor: "var(--processed)",
-  },
-  ".cm-activeLine.cm-processed-partial-line": {
-    backgroundColor: "transparent",
-  },
   ".cm-error-range": {
     textDecoration: "underline wavy var(--red)",
     textUnderlineOffset: "2px",
@@ -435,11 +426,9 @@ function baseExtensions(
   const language = languageFor(path);
   return [
     lineNumbers(),
-    highlightActiveLineGutter(),
     commandOutputGutter,
     history(),
     drawSelection(),
-    highlightActiveLine(),
     bracketMatching(),
     closeBrackets(),
     indentOnInput(),

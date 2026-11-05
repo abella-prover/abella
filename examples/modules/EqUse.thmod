@@ -1,3 +1,6 @@
+% Imports Eq.thmod with a defined predicate and a proved theorem,
+% showing predicate substitution and axiom discharge.
+
 Module EqUse.
   Kind nat type.
   Type z nat.

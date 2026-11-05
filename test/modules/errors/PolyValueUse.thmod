@@ -1,6 +1,0 @@
-Module PolyValueUse.
-  Kind u type.
-  Define eq_u : u -> u -> prop by
-    eq_u X X.
-  Import Module E = "PolyValue"[u] with eq := eq_u.
-End PolyValueUse.

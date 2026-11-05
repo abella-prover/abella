@@ -1,7 +1,0 @@
-Module StatementUse.
-  Kind u type.
-  Type r u -> prop.
-  Theorem wrong : forall (x:u), r x -> r x.
-  intros. search.
-  Import Module S = "Statement"[u] with p := r, ax := wrong.
-End StatementUse.

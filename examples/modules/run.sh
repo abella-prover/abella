@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+
+# Compile the positive reasoning-module examples in order and check the
+# expected failures in test/modules. Run from the repository root:
+#   bash examples/modules/run.sh _build/default/bin/abella.exe
 set -euo pipefail
 
 abella="${1:-bin/abella.exe}"
@@ -48,16 +52,11 @@ bad test/modules/EdgeClosed.thm "closed and cannot be subordinated"
 
 bad test/modules/errors/HigherOrder.thmod \
   "may not take an argument containing prop"
-ok test/modules/errors/PolyValue.thmod
-bad test/modules/errors/PolyValueUse.thmod "same type"
-ok test/modules/errors/Unfinished.thmod
-bad test/modules/errors/UnfinishedUse.thmod "unfinished theorem"
-ok test/modules/errors/Internal.thmod
-bad test/modules/errors/InternalUse.thmod "target-local type"
+bad test/modules/errors/PolyValueMismatch.thmod "same type"
+bad test/modules/errors/UnfinishedAxiom.thmod "unfinished theorem"
+bad test/modules/errors/InternalKindKey.thmod "target-local type"
 bad test/modules/errors/Collision.thmod \
   "already occurs in the declarations"
-ok test/modules/errors/Staged.thmod
-bad test/modules/errors/StagedUse.thmod \
+bad test/modules/errors/StagedCollision.thmod \
   "already occurs in the declarations"
-ok test/modules/errors/Statement.thmod
-bad test/modules/errors/StatementUse.thmod "same statement"
+bad test/modules/errors/StatementMismatch.thmod "same statement"

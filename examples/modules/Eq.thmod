@@ -1,3 +1,7 @@
+% An abstract equality predicate with a single axiom. It is imported
+% by EqUse and EqUseDecl with concrete predicate and axiom/theorem
+% values.
+
 Module Eq[T].
   Type eq T -> T -> prop.
   Axiom refl : forall (x:T), eq x x.

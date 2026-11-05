@@ -1,3 +1,6 @@
+% A parameterized module with an internal Kind type and a declared
+% predicate. Each import instance gets a distinct internal box type.
+
 Module Box[T].
   Kind box type.
   Type mk T -> box.

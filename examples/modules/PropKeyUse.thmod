@@ -1,3 +1,6 @@
+% Imports PropKey.thmod, mapping a zero-argument predicate key and an
+% axiom key to local values.
+
 Module PropKeyUse.
   Type r prop.
   Axiom r_ax : r.

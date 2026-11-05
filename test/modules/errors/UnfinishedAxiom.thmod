@@ -1,0 +1,14 @@
+% Negative fixture: an unfinished theorem cannot discharge an axiom key.
+Module UnfinishedAxiom.
+  Kind u type.
+  Type r u -> prop.
+  Module Unfinished[T].
+    Type p T -> prop.
+    Axiom ax : forall (x:T), p x.
+  End Unfinished.
+  Theorem skip_t : forall (x:u), r x.
+  intros. skip.
+  % Fails: skip_t is tagged Unfinished.
+  % Expected: "cannot use the unfinished theorem".
+  Import Module U = Unfinished[u] with p := r, ax := skip_t.
+End UnfinishedAxiom.

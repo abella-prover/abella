@@ -1,3 +1,7 @@
+% Negative fixture: higher-order declared predicates are rejected at
+% module check.
 Module HigherOrder.
+  % Fails: p has prop in an argument position.
+  % Expected: "may not take an argument containing prop".
   Type p (prop -> prop) -> prop.
 End HigherOrder.

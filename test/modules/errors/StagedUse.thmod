@@ -1,6 +1,0 @@
-Module StagedUse.
-  Kind u type.
-  Type r u -> prop.
-  Import Module M1 = "Staged"[u] with p := r.
-  Import Module M2 = M1 with q := r.
-End StagedUse.

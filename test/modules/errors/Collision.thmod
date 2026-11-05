@@ -1,3 +1,8 @@
+% Negative fixture: rigid-predicate-set collision in a nested import.
+%
+% Inner's axiom mentions the enclosing predicate p. Mapping q to p would
+% substitute a value that already occurs freely in the target's
+% declarations, so the import must be rejected.
 Module Collision.
   Kind u type.
   Type p u -> prop.
@@ -5,5 +10,8 @@ Module Collision.
     Type q u -> prop.
     Axiom ax : forall (x:u), q x -> p x.
   End Inner.
+  % Fails: p already occurs in Inner's axiom, so q := p is not
+  % injective on the rigid predicate set.
+  % Expected: "already occurs in the declarations".
   Import Module I = Inner with q := p.
 End Collision.

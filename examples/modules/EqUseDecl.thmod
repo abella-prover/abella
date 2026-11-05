@@ -1,3 +1,6 @@
+% Imports Eq.thmod with a declared predicate and an axiom, showing
+% predicate substitution and axiom-to-axiom discharge.
+
 Module EqUseDecl.
   Kind nat type.
   Type nat_eq nat -> nat -> prop.

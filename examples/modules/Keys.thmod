@@ -1,3 +1,6 @@
+% A template with two declared predicates and an axiom mentioning only
+% q. It is used to demonstrate unmapped keys and aliased re-import.
+
 Module Keys[T].
   Type p T -> prop.
   Type q T -> prop.

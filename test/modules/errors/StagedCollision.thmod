@@ -1,0 +1,15 @@
+% Negative fixture: staged rigid-predicate collision on aliased re-import.
+Module StagedCollision.
+  Kind u type.
+  Type r u -> prop.
+  Module Staged[T].
+    Type p T -> prop.
+    Type q T -> prop.
+    Axiom ax : forall (x:T), p x -> p x.
+  End Staged.
+  % Setup: this mapping makes r occur in M1's axiom.
+  Import Module M1 = Staged[u] with p := r.
+  % Fails: r already occurs in M1's declarations, so q := r is rejected.
+  % Expected: "already occurs in the declarations".
+  Import Module M2 = M1 with q := r.
+End StagedCollision.

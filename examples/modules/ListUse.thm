@@ -1,3 +1,6 @@
+% Imports List.thmod twice, at nat and bool, showing quoted file
+% imports with aliases and positional type arguments.
+
 Kind nat type.
 Kind bool type.
 Type z nat.

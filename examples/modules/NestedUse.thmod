@@ -1,3 +1,5 @@
+% Imports Nested.thmod and uses declarations from its nested module.
+
 Module NestedUse.
   Kind u type.
   Type c u.

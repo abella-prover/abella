@@ -1,0 +1,13 @@
+% Negative fixture: strict predicate-scheme equality.
+Module PolyValueMismatch.
+  Kind u type.
+  Define eq_u : u -> u -> prop by
+    eq_u X X.
+  Module PolyValue.
+    Type eq A -> A -> prop.
+    Axiom refl [A] : forall (x:A), eq x x.
+  End PolyValue.
+  % Fails: PolyValue.eq has declaration-local A, while eq_u has none.
+  % Expected: "same type".
+  Import Module E = PolyValue with eq := eq_u.
+End PolyValueMismatch.

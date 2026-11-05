@@ -1,3 +1,6 @@
+% A parameterized module with a nested parameterized Inner module.
+% The parent imports Inner at its own parameter and exports its items.
+
 Module Nested[T].
   Type p T -> prop.
   Module Inner[U].

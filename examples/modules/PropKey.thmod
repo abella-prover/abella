@@ -1,3 +1,6 @@
+% A zero-argument declared predicate p, an axiom key p_ax, and an
+% unmapped zero-argument predicate q.
+
 Module PropKey.
   Type p prop.
   Axiom p_ax : p.

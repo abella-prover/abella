@@ -1,4 +1,8 @@
+% Negative fixture: an import that adds a subordination edge into a
+% closed type must fail.
 Kind a type.
 Kind b type.
 Close b.
+% Fails: Edge's axiom statement introduces a -> b while b is closed.
+% Expected: "Type b is closed and cannot be subordinated by a".
 Import Module E = "Edge"[a,b].

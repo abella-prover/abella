@@ -1,3 +1,6 @@
+% Imports Keys.thmod mapping p, then aliases that instance and maps
+% the remaining key q. The axiom remains a key in both instances.
+
 Module KeysUse.
   Kind u type.
   Type r u -> prop.

@@ -1,0 +1,15 @@
+% Negative fixture: axiom discharge requires equal statements after
+% predicate substitution.
+Module StatementMismatch.
+  Kind u type.
+  Type r u -> prop.
+  Module Statement[T].
+    Type p T -> prop.
+    Axiom ax : forall (x:T), p x.
+  End Statement.
+  Theorem wrong : forall (x:u), r x -> r x.
+  intros. search.
+  % Fails: key ax becomes forall x, r x, while wrong proves
+  % forall x, r x -> r x. Expected: "same statement".
+  Import Module S = Statement[u] with p := r, ax := wrong.
+End StatementMismatch.

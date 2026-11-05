@@ -1,3 +1,7 @@
+% Imports Box.thmod at two element types. The two instances have
+% distinct internal box types, while parameter occurrences are replaced
+% by the supplied arguments.
+
 Module BoxUse.
   Kind u type.
   Kind v type.

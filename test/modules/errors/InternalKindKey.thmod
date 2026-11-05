@@ -1,0 +1,13 @@
+% Negative fixture: an internal-Kind key cannot be instantiated by an
+% external predicate. The Internal template is inlined as a nested module.
+Module InternalKindKey.
+  Kind v type.
+  Type q v -> prop.
+  Module Internal.
+    Kind u type.
+    Type p u -> prop.
+  End Internal.
+  % Fails: p's type mentions the target-local type Internal.u.
+  % Expected: "target-local type".
+  Import Module I = Internal with p := q.
+End InternalKindKey.

@@ -1,3 +1,7 @@
+% A parameterized list theory with an internal lst Kind, constructors,
+% a declared predicate, and an axiom. It is imported at two element
+% types by ListUse.thm.
+
 Module List[T].
   Kind lst type.
   Type lnil lst.

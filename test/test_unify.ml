@@ -824,4 +824,12 @@ let tests =
              Alcotest.check Alcotest.bool "type binding missing" false
                (is_unbound_tyvar tv) );
 
+      test_case "De Bruijn heads should produce a unification error"
+        (fun () ->
+           let x = nominal_var "x" ity in
+           let t1 = [("R",iity); ("Q",iity)] // (db 2 ^^ [x]) in
+           let t2 = [("R",iity); ("Q",iity)] // (db 1 ^^ [x]) in
+             assert_raises_unify_failure
+               (fun () -> right_unify t1 t2)) ;
+
     ]

@@ -603,6 +603,43 @@ Axiom foo : forall q, p q.
       "forall q1, q q1" (Metaterm.metaterm_to_string thm)
   end
 
+let test_error_locations_use_input_path () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      let path = Filename.concat dir "Location.thm" in
+      expect_thm_error dir "Location" {|
+Kind u type.
+Type c u.
+Theorem bad : true.
+nonsense.
+|} path
+    end
+  end
+
+let test_import_requires_distinct_replacements () =
+  with_session begin fun () ->
+    Source.add_virtual "main.thm" "" ;
+    Source.add_virtual "dup.thm" "Type p, q prop." ;
+    assert_ok (fst (process_command "Type r prop.")) ;
+    let (status, msgs) =
+      process_command "Import \"dup\" with p := r, q := r." in
+    Alcotest.check Alcotest.bool "duplicate replacements fail" true
+      (status = `error) ;
+    assert_contains "not pairwise" (system_messages msgs)
+  end
+
+let test_import_replacements_are_simultaneous () =
+  with_session begin fun () ->
+    Source.add_virtual "main.thm" "" ;
+    Source.add_virtual "swap.thm" "Type p, q prop." ;
+    assert_ok (fst (process_command "Type p, q prop.")) ;
+    let (status, msgs) =
+      process_command "Import \"swap\" with p := q, q := p." in
+    assert_ok status ;
+    Alcotest.check (Alcotest.list Alcotest.string)
+      "string lists differ" [] (error_messages msgs)
+  end
+
 let test_split_propagates_tags () =
   with_session begin fun () ->
     Source.add_virtual "skipmod.thm" {|
@@ -860,6 +897,12 @@ let tests = suite "thm" [
     test_case "nested imports" test_nested_imports ;
     test_case "import with capture avoidance"
       test_import_with_capture_avoidance ;
+    test_case "error locations use input path"
+      test_error_locations_use_input_path ;
+    test_case "import requires distinct replacements"
+      test_import_requires_distinct_replacements ;
+    test_case "import replacements are simultaneous"
+      test_import_replacements_are_simultaneous ;
     test_case "split propagates tags" test_split_propagates_tags ;
     test_case "import cycle" test_import_cycle ;
     test_case "module already imported" test_module_already_imported ;

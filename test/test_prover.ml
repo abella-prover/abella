@@ -1064,4 +1064,75 @@ let tests =
            assert_goal "{a} -> {b}"
         ) ;
 
+      test_case "Split theorem should allow repeated binder names"
+        (fun () ->
+           let t =
+             parse_metaterm
+               ("(forall (A:i), A = A) -> " ^
+                  "(forall (A:i), A = A) /\\ " ^
+                  "(forall (A:i), A = A)")
+           in
+           match split_theorem_bodies t with
+           | [t1; t2] ->
+               assert_pprint_equal
+                 "forall A, (forall A, A = A) -> A = A" t1 ;
+               assert_pprint_equal
+                 "forall A, (forall A, A = A) -> A = A" t2
+           | ts ->
+               Alcotest.check Alcotest.int "ints differ" 2
+                 (List.length ts)
+        ) ;
+
+      test_case "Search should not lower eigenvariable timestamps"
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall (v:i), exists y, \
+                      forall u, v = r1 u -> y = u" ;
+
+           assert_search_fails ()
+        ) ;
+
+      test_case "Apply should avoid capture of sequent variables"
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall (E':i), true"
+             ~lemmas:[
+               ("foo",
+                "forall (E:i), (E = E) -> \
+                 (forall E', E = E' -> true) -> true")] ;
+
+           assert_proof
+             (fun () ->
+                start_proof () ;
+                intros [] ;
+                assert_hyp (parse_umetaterm "E' = E'") ;
+                assert_hyp (parse_umetaterm "forall Y, E' = Y -> true") ;
+                apply (keep "foo") (List.map keep ["H1"; "_"]) [] ;
+                apply (keep "foo") (List.map keep ["_"; "H2"]) [] ;
+                apply (keep "foo") (List.map keep ["H1"; "H2"]) [] ;
+                search ())
+        ) ;
+
+      test_case "Case analysis should preserve the lambda prefix"
+        (fun () ->
+           process_top_command "Kind expr155 type." ;
+           process_top_command
+             "Type mu155 ((expr155 -> expr155) -> expr155) -> \
+              expr155." ;
+           process_top_command
+             "Type foo155 expr155 -> expr155 -> prop." ;
+           setup_prover ()
+             ~goal:"forall E E', nabla (x:expr155), \
+                      foo155 (E x) (E' x) -> true" ;
+           add_defs_for ["foo155"] Abella_types.Inductive
+             (parse_defs "foo155 (mu155 k\\ E k) \
+                          (mu155 k_\\ E (o\\ o)).") ;
+           intros [] ;
+           case (keep "H1") ;
+           assert_n_subgoals 1 ;
+           assert_pprint_equal
+             "foo155 (mu155 (x1\\E1 n1 x1)) (mu155 (x1\\E1 n1 x2\\x2))"
+             (get_hyp "H1")
+        ) ;
+
     ]

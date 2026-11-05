@@ -514,6 +514,27 @@ let test_axiom_declaration () =
   assert_ok status ;
   assert_contains "Theorem ax" (system_messages msgs)
 
+let test_thmod_virtual_import () =
+  Source.add_virtual "Box.thmod" {|
+Module Box[T].
+  Kind box type.
+  Type mk T -> box.
+  Type p T -> prop.
+End Box.
+|} ;
+  assert_ok (fst (process_command "Kind nat type.")) ;
+  let (import_status, import_msgs) =
+    process_command "Import Module B = \"Box\"[nat]."
+  in
+  if import_status = `error then
+    Alcotest.fail (String.concat "\n" (system_messages import_msgs)) ;
+  Alcotest.check Alcotest.bool "box thmodc cache" true
+    (Source.virtual_exists "Box.thmodc") ;
+  Alcotest.check Alcotest.bool "box thmodc trusted" true
+    (Source.is_thc_trusted "Box.thmodc") ;
+  assert_ok (fst (process_command "Type c B.box.")) ;
+  assert_ok (fst (process_command "Type d B.box."))
+
 let tests = suite "web_core" [
   test_case "virtual_source" (fun () -> with_session test_virtual_source) ;
   test_case "thc_cache_bound" (fun () -> with_session test_thc_cache_bound) ;
@@ -535,4 +556,6 @@ let tests = suite "web_core" [
     (fun () -> with_session test_split_propagates_tags) ;
   test_case "import_cycle" (fun () -> with_session test_import_cycle) ;
   test_case "axiom_declaration" (fun () -> with_session test_axiom_declaration) ;
+  test_case "thmod_virtual_import"
+    (fun () -> with_session test_thmod_virtual_import) ;
 ]

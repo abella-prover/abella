@@ -226,6 +226,8 @@ let rec process conf file =
             failwithf "Cannot find %s.sig" base
         end else if Filename.check_suffix file ".thm" then
           process_thm conf file
+        else if Filename.check_suffix file ".thmod" then
+          process_thmod conf file
         else
           vprintf conf "IGNORE: %s" file
       end
@@ -284,10 +286,32 @@ and process_mod conf file =
 
 and process_thm conf file =
   let base = Filename.chop_suffix file ".thm" in
-  let (specs, deps) = Depend.thm_dependencies base in
-  let deps = specs @ List.rev_map (fun f -> f ^ ".thm") deps in
+  let deps = Depend.file_dependencies `thm base in
+  let deps =
+    deps.Depend.dep_specs @
+    List.rev_map (fun f -> f ^ ".thm") deps.Depend.dep_thms @
+    List.rev_map (fun f -> f ^ ".thmod") deps.Depend.dep_thmods
+  in
   Hashtbl.replace dep_tab file deps ;
   List.iter (process conf) deps
+
+and process_thmod conf file =
+  let base = Filename.chop_suffix file ".thmod" in
+  let deps = Depend.file_dependencies `thmod base in
+  let deps =
+    deps.Depend.dep_specs @
+    List.rev_map (fun f -> f ^ ".thm") deps.Depend.dep_thms @
+    List.rev_map (fun f -> f ^ ".thmod") deps.Depend.dep_thmods
+  in
+  Hashtbl.replace dep_tab file deps ;
+  List.iter (process conf) deps ;
+  let cmd = Printf.sprintf
+      "%s --non-recursive --output=%s.out %s.thmod"
+      conf.abella base base
+  in
+  vprintf conf "RUN: %s" cmd ;
+  if Sys.command cmd != 0 then
+    failwithf "ERROR running: %s" cmd
 
 and process_directory conf dir =
   let fs = Sys.readdir dir in

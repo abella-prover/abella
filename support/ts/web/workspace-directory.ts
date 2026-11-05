@@ -131,7 +131,12 @@ export function isCandidateFile(path: string): boolean {
   if (name === "" || name.startsWith(".")) return false;
   const dot = name.lastIndexOf(".");
   const extension = dot < 0 ? "" : name.slice(dot).toLowerCase();
-  if (extension === ".thm" || extension === ".sig" || extension === ".mod") {
+  if (
+    extension === ".thm" ||
+    extension === ".thmod" ||
+    extension === ".sig" ||
+    extension === ".mod"
+  ) {
     return true;
   }
   if (TEXT_EXTENSIONS.has(extension)) return true;

@@ -24,17 +24,13 @@
   (deps
     test.mk
     ../bin/abella.exe
+    ../examples/modules/run.sh
+    (source_tree ../test/modules)
     (glob_files_rec ../examples/*.thm)
+    (glob_files_rec ../examples/*.thmod)
     (glob_files_rec ../examples/*.sig)
     (glob_files_rec ../examples/*.mod))
   (action (chdir %{project_root}
-    (run make -k -j -B -f test/test.mk all))))
-
-(rule
-  (alias runtest)
-  (deps
-    ../bin/abella.exe
-    ../examples/modules/run.sh
-    (source_tree ../examples/modules))
-  (action (chdir %{project_root}
-    (run bash examples/modules/run.sh bin/abella.exe))))
+    (progn
+      (run bash examples/modules/run.sh bin/abella.exe)
+      (run make -k -j -B -f test/test.mk all)))))

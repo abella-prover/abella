@@ -15,6 +15,7 @@ test("keeps Abella and small text files", () => {
     "main.thm",
     "spec.sig",
     "spec.mod",
+    "modules/List.thmod",
     "sub/Proof.THM",
     "README",
     "LICENSE",
@@ -29,6 +30,7 @@ test("keeps Abella and small text files", () => {
 test("skips caches, binaries, manifests, and hidden files", () => {
   for (const path of [
     "main.thc",
+    "main.thmodc",
     "logo.png",
     "project.json",
     "package.json",

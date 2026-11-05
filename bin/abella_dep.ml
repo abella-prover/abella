@@ -12,6 +12,16 @@ open Extensions
 
 let dep_tab : (string, string list option) Hashtbl.t = Hashtbl.create 19
 
+let kind_of_file file =
+  if Filename.check_suffix file ".thm" then Some `thm
+  else if Filename.check_suffix file ".thmod" then Some `thmod
+  else None
+
+let source_suffix = function `thm -> ".thm" | `thmod -> ".thmod"
+let artifact_suffix = function `thm -> ".thc" | `thmod -> ".thmodc"
+
+let artifact_of_base kind base = base ^ artifact_suffix kind
+
 let rec add_input_file recursive file =
   match Unix.stat file with
   | { st_kind = S_DIR ; _ } when recursive -> begin
@@ -23,27 +33,41 @@ let rec add_input_file recursive file =
         add_input_file recursive file
       end fs
     end
-  | { st_kind = S_REG ; _ } when Filename.check_suffix file ".thm" -> begin
-      let thmfile = file in
-      match Hashtbl.find dep_tab thmfile with
+  | { st_kind = S_REG ; _ } -> begin
+      match kind_of_file file with
+      | Some kind -> add_source_file kind file
       | None ->
-          failwithf "Circular dependencies detected for %S" thmfile
-      | Some _ -> ()
-      | exception Not_found -> begin
-          let base = Filename.chop_suffix thmfile ".thm" in
-          let thcfile = base ^ ".thc" in
-          Hashtbl.replace dep_tab thcfile None ;
-          let (specs, deps) = Depend.thm_dependencies base in
-          let deps = List.map (fun f -> f ^ ".thc") deps in
-          let deps = specs @ deps in
-          Hashtbl.replace dep_tab thcfile (Some deps)
-        end
+          if not recursive then
+            failwithf
+              "Illegal file %S; input files must have suffix .thm or .thmod"
+              file
     end
-  | { st_kind = S_REG ; _ } ->
-      if not recursive then
-        failwithf "Illegal file %S; input files must have suffix .thm" file
   | _ ->
       failwithf "Cannot process: %s" file
+
+and add_source_file kind file =
+  let suffix = source_suffix kind in
+  let base = Filename.chop_suffix file suffix in
+  let target = artifact_of_base kind base in
+  match Hashtbl.find dep_tab target with
+  | None ->
+      failwithf "Circular dependencies detected for %S" target
+  | Some _ -> ()
+  | exception Not_found -> begin
+      Hashtbl.replace dep_tab target None ;
+      let deps = Depend.file_dependencies kind base in
+      List.iter (fun base -> add_source_file `thm (base ^ ".thm"))
+        deps.Depend.dep_thms ;
+      List.iter (fun base -> add_source_file `thmod (base ^ ".thmod"))
+        deps.Depend.dep_thmods ;
+      let deps =
+        deps.Depend.dep_specs @
+        List.map (artifact_of_base `thm) deps.Depend.dep_thms @
+        List.map (artifact_of_base `thmod) deps.Depend.dep_thmods
+      in
+      Hashtbl.replace dep_tab target (Some deps)
+    end
+
 
 type conf = {
   abella : string ;
@@ -77,8 +101,13 @@ let abella_dep conf files =
   Printf.fprintf out ".PHONY: all\n" ;
   Printf.fprintf out "%%.thc: %%.thm\n" ;
   Printf.fprintf out "\t%s --non-recursive --output=${<:%%.thm=%%.out} $<\n" conf.abella ;
+  Printf.fprintf out "%%.thmodc: %%.thmod\n" ;
+  Printf.fprintf out
+    "\t%s --non-recursive --output=${<:%%.thmod=%%.out} $<\n"
+    conf.abella ;
   Hashtbl.iter begin fun file deps ->
-    if not @@ Filename.check_suffix file ".thc" then () else
+    if not @@ (Filename.check_suffix file ".thc" ||
+               Filename.check_suffix file ".thmodc") then () else
     Printf.fprintf out "all: %s\n" file ;
     match deps with
     | None ->
@@ -132,7 +161,7 @@ let () =
     in
     Term.(const mk_conf $ abella $ makefile $ clobber $ recursive) in
   let files =
-    let doc = "An Abella $(b,.thm) file or a directory" in
+    let doc = "An Abella $(b,.thm) or $(b,.thmod) file or a directory" in
     Arg.(value @@ pos_all string [] @@ info [] ~docv:"SOURCE" ~doc)
   in
   let cmd =
@@ -140,7 +169,7 @@ let () =
     let man = [
       `S Manpage.s_examples ;
       `Blocks [
-        `P "To create a Makefile from a.thm, d/b.thm, and c/*.thm" ;
+        `P "To create a Makefile from a.thm, d/b.thm, and c/*.thm or *.thmod" ;
         `Pre "  \\$ $(tname) a.thm d/b.thm c/*.thm" ;
         `P "To create a Makefile recursively from all .thm files in d/" ;
         `Pre "  \\$ $(tname) -r d" ;

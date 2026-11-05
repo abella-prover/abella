@@ -5,6 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  classify,
   STORAGE_KEY,
   loadProjectRecord,
   parseProjectManifest,
@@ -175,4 +176,10 @@ test("project manifests reject old versions and missing file lists", () => {
     /missing its file list/
   );
   assert.throws(() => parseProjectManifest("not json"), /not valid JSON/);
+});
+
+test("classifies thmod files as Abella sources", () => {
+  assert.equal(classify("foo.thmod"), "abella");
+  assert.equal(classify("foo.thm"), "abella");
+  assert.equal(classify("foo.thmodc"), "text");
 });

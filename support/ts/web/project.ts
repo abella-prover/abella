@@ -21,7 +21,7 @@ export interface Project {
 export const STORAGE_KEY = "abella.web.v1.project";
 
 export function classify(path: string): FileKind {
-  return /\.(thm|sig|mod)$/i.test(path) ? "abella" : "text";
+  return /\.(thm|thmod|sig|mod)$/i.test(path) ? "abella" : "text";
 }
 
 export function isExecutable(path: string | undefined): boolean {

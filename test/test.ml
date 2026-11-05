@@ -11,6 +11,7 @@ let () =
       Test_replacement.tests ;
       Test_typing.tests ;
       Test_parser.tests ;
+      Test_depend.tests ;
       Test_thmod.tests ;
       Test_tactics.tests ;
       (* TODO Test_prover.tests ; *)

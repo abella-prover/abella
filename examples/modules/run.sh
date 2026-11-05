@@ -27,7 +27,8 @@ bad() {
 }
 
 rm -f examples/modules/*.thmodc examples/modules/*.thc
-rm -f examples/modules/errors/*.thmodc
+rm -f test/modules/*.thmodc test/modules/*.thc
+rm -f test/modules/errors/*.thmodc
 
 ok examples/modules/List.thmod
 ok examples/modules/ListUse.thm
@@ -42,21 +43,21 @@ ok examples/modules/PropKey.thmod
 ok examples/modules/PropKeyUse.thmod
 ok examples/modules/Keys.thmod
 ok examples/modules/KeysUse.thmod
-ok examples/modules/Edge.thmod
-bad examples/modules/EdgeClosed.thm "closed and cannot be subordinated"
+ok test/modules/Edge.thmod
+bad test/modules/EdgeClosed.thm "closed and cannot be subordinated"
 
-bad examples/modules/errors/HigherOrder.thmod \
+bad test/modules/errors/HigherOrder.thmod \
   "may not take an argument containing prop"
-ok examples/modules/errors/PolyValue.thmod
-bad examples/modules/errors/PolyValueUse.thmod "same type"
-ok examples/modules/errors/Unfinished.thmod
-bad examples/modules/errors/UnfinishedUse.thmod "unfinished theorem"
-ok examples/modules/errors/Internal.thmod
-bad examples/modules/errors/InternalUse.thmod "target-local type"
-bad examples/modules/errors/Collision.thmod \
+ok test/modules/errors/PolyValue.thmod
+bad test/modules/errors/PolyValueUse.thmod "same type"
+ok test/modules/errors/Unfinished.thmod
+bad test/modules/errors/UnfinishedUse.thmod "unfinished theorem"
+ok test/modules/errors/Internal.thmod
+bad test/modules/errors/InternalUse.thmod "target-local type"
+bad test/modules/errors/Collision.thmod \
   "already occurs in the declarations"
-ok examples/modules/errors/Staged.thmod
-bad examples/modules/errors/StagedUse.thmod \
+ok test/modules/errors/Staged.thmod
+bad test/modules/errors/StagedUse.thmod \
   "already occurs in the declarations"
-ok examples/modules/errors/Statement.thmod
-bad examples/modules/errors/StatementUse.thmod "same statement"
+ok test/modules/errors/Statement.thmod
+bad test/modules/errors/StatementUse.thmod "same statement"

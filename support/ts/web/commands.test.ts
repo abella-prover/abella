@@ -88,3 +88,11 @@ test("source positions are one-based and line-local", () => {
   const pos = sourcePos(doc, doc.indexOf("Type"));
   assert.deepEqual(pos, { offset: 14, line: 2, bol: 14 });
 });
+
+test("keeps import-module commands whole", () => {
+  const texts = (doc: string) => scanCommands(doc).map((c) => c.text);
+  assert.deepEqual(
+    texts('Import Module "List"[nat].\nImport Module L = List.\n'),
+    ['Import Module "List"[nat].', "Import Module L = List."]
+  );
+});

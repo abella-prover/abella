@@ -93,13 +93,14 @@ test:
 publish-doc: examples/make.stamp
 	rsync -aviz \
 	  --exclude '*.thc' \
+	  --exclude '*.thmodc' \
 	  --exclude '*.out' \
 	  --exclude '*.json' \
 	  --exclude '*.stamp' \
 	  --exclude '.gitignore' \
 	  examples abellaweb@origin.abella-prover.org:abella-prover.org/
 
-examples/make.stamp: $(wildcard examples/**/*.{sig,mod,thm})
+examples/make.stamp: $(wildcard examples/**/*.{sig,mod,thm,thmod})
 examples/make.stamp: $(wildcard _build/default/bin/abella*.exe)
 examples/make.stamp: $(wildcard $(patsubst %.thm,%.thc,$(wildcard examples/**/*.thm)))
 examples/make.stamp:

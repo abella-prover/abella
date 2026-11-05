@@ -460,6 +460,20 @@ let thc_layout sign clauses predicates content =
     Obj.repr content ;
   ]
 
+let thmodc_layout name params sign clauses predicates content nested exports =
+  marshal_bytes [
+    Obj.repr (thc_digest_placeholder ()) ;
+    Obj.repr Version.version ;
+    Obj.repr name ;
+    Obj.repr params ;
+    Obj.repr sign ;
+    Obj.repr clauses ;
+    Obj.repr predicates ;
+    Obj.repr content ;
+    Obj.repr nested ;
+    Obj.repr exports ;
+  ]
+
 let rec import ~wrt pos impfile withs =
   let filename = Filepath.normalize ~wrt impfile in
   if List.mem filename !imported then
@@ -691,7 +705,119 @@ and source_compile ~modname =
         modname msg (if text = "" then "" else "\n" ^ text)
 
 
-(* Reasoning-module imports *)
+(* Compile a virtual .thmod in a pristine sub-session and install its
+   .thmodc bytes in the virtual file system. *)
+let source_compile_thmod ~modname =
+  let thmod_path = modname ^ ".thmod" in
+  let compiling_key = modname ^ ".thmod" in
+  if List.mem compiling_key !compiling then
+    failwithf "Cyclic import of %S: %s"
+      thmod_path
+      (String.concat " -> " (List.rev (compiling_key :: !compiling))) ;
+  let saved_snapshot = State.snapshot () in
+  let saved_mode = !Setup.mode in
+  let saved_annotate = !Setup.annotate in
+  let saved_recurse = !Setup.recurse in
+  let saved_input = !Setup.input in
+  let saved_lexbuf = !Setup.lexbuf in
+  let saved_compiled = !Setup.compiled in
+  let saved_unfinished = !Setup.unfinished in
+  let saved_import_mode = !Setup.import_mode in
+  let saved_trust_compiled = !Setup.trust_compiled in
+  let saved_file_kind = !Setup.file_kind in
+  let saved_dest = !Output.dest in
+  let saved_undo = State.Undo.is_enabled () in
+  let saved_can_read = !can_read_specification in
+  let saved_witnesses = !witnesses in
+  let saved_state = !current_state in
+  let saved_compiling = !compiling in
+  let saved_clause_map = !Typing.clause_map in
+  let restore () =
+    State.reload saved_snapshot ;
+    Setup.mode := saved_mode ;
+    Setup.annotate := saved_annotate ;
+    Setup.recurse := saved_recurse ;
+    Setup.input := saved_input ;
+    Setup.lexbuf := saved_lexbuf ;
+    Setup.compiled := saved_compiled ;
+    Setup.unfinished := saved_unfinished ;
+    Setup.import_mode := saved_import_mode ;
+    Setup.trust_compiled := saved_trust_compiled ;
+    Setup.file_kind := saved_file_kind ;
+    Output.dest := saved_dest ;
+    State.Undo.set_enabled saved_undo ;
+    can_read_specification := saved_can_read ;
+    witnesses := saved_witnesses ;
+    current_state := saved_state ;
+    compiling := saved_compiling ;
+    Typing.clause_map := saved_clause_map
+  in
+  try begin
+    State.reload (Option.get !initial_snapshot_ref) ;
+    Thmod.reset () ;
+    State.Undo.set_enabled false ;
+    Setup.mode := `batch ;
+    Setup.annotate := false ;
+    Setup.recurse := false ;
+    Setup.compiled := None ;
+    Setup.unfinished := [] ;
+    Setup.input := thmod_path ;
+    Setup.file_kind := `thmod ;
+    Setup.thmod_name := None ;
+    Setup.thmod_params := [] ;
+    Setup.thmod_finished := false ;
+    let module Src = (val Source.read_thmod thmod_path) in
+    Setup.lexbuf := Src.lex true ;
+    compiling := compiling_key :: saved_compiling ;
+    Output.collect_mode () ;
+    ignore (Output.drain ()) ;
+    Option.iter (fun f -> f (Source.canon thmod_path)) !on_import ;
+    let rec drive () =
+      match !process1_hook () with
+      | `ok -> drive ()
+      | `error -> raise (AbellaExit 1)
+    in
+    drive ()
+  end with
+  | AbellaExit 0 ->
+      let name = match Thmod.top_name () with
+        | Some name -> name
+        | None -> failwith "A .thmod must contain a top-level module"
+      in
+      let params = Thmod.top_params () in
+      let content = Thmod.exported_content () in
+      let nested = Thmod.nested_module_names () in
+      let exports = Thmod.exported_names () in
+      let artifact_sign = thmod_sign content in
+      let preds =
+        predicates artifact_sign |> List.filter (fun id -> List.mem id exports)
+      in
+      let bytes =
+        thmodc_layout name params artifact_sign !comp_spec_clauses preds
+          content nested exports
+      in
+      ignore (collected_messages ()) ;
+      restore () ;
+      Source.add_virtual_thc (modname ^ ".thmodc") bytes ;
+      if Source.virtual_exists (modname ^ ".thmodc") then
+        Source.set_thc_trusted (modname ^ ".thmodc") true ;
+      bytes
+  | AbellaExit n ->
+      let text = collected_messages () in
+      restore () ;
+      failwithf "Could not compile imported module %S (exit %d)%s%s"
+        modname n (if text = "" then "" else ": ") text
+  | e ->
+      let text = collected_messages () in
+      restore () ;
+      let msg = match e with
+        | Failure msg -> msg
+        | _ -> sorry e
+      in
+      failwithf "Could not compile imported module %S: %s%s"
+        modname msg (if text = "" then "" else "\n" ^ text)
+
+
 
 type thmod_artifact = {
   ta_name : string ;
@@ -780,7 +906,7 @@ let load_thmod_artifact ~modname =
       in
       if Source.virtual_exists path then begin
         if not use_artifact || Src.is_stale then
-          failwithf "Cannot recompile virtual reasoning module %S" path
+          ignore (source_compile_thmod ~modname)
       end else if not use_artifact || Src.is_stale then
         recursive_invoke () ;
       let bytes = Src.thc_contents () in

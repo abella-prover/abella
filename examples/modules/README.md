@@ -79,10 +79,10 @@ Positive examples:
 - `PropKey.thmod` and `PropKeyUse.thmod`: zero-argument predicate keys.
 - `Keys.thmod` and `KeysUse.thmod`: unmapped keys and an aliased
   re-import.
-- `Edge.thmod` and `EdgeClosed.thm`: a closed-type subordination
-  failure during import.
+- `test/modules/Edge.thmod` and `test/modules/EdgeClosed.thm`: a
+  closed-type subordination failure during import.
 
-`errors/` contains examples that should fail: higher-order declared
+`test/modules/errors/` contains examples that should fail: higher-order declared
 predicates, polymorphic value mismatch, unfinished axiom values,
 internal-type keys, rigid collisions, staged collisions, and axiom
 statement mismatches.

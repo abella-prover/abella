@@ -64,22 +64,35 @@ let chop_thm path =
   else
     failwithf "Example entry must end in .thm: %S" path
 
-(* Transitive .thm files and spec files for one root. *)
+(* Transitive .thm/.thmod files and spec files for one root. *)
 let dependencies entry =
   let seen = Hashtbl.create 19 in
   let thms = ref [] in
+  let thmods = ref [] in
   let specs = ref [] in
-  let rec visit base =
-    if not (Hashtbl.mem seen base) then begin
-      Hashtbl.add seen base () ;
-      let (thm_specs, imports) = Depend.thm_dependencies base in
+  let rec visit_thm base =
+    let key = "thm:" ^ base in
+    if not (Hashtbl.mem seen key) then begin
+      Hashtbl.add seen key () ;
+      let deps = Depend.file_dependencies `thm base in
       thms := (base ^ ".thm") :: !thms ;
-      specs := thm_specs @ !specs ;
-      List.iter visit imports
+      specs := deps.Depend.dep_specs @ !specs ;
+      List.iter visit_thm deps.Depend.dep_thms ;
+      List.iter visit_thmod deps.Depend.dep_thmods
+    end
+  and visit_thmod base =
+    let key = "thmod:" ^ base in
+    if not (Hashtbl.mem seen key) then begin
+      Hashtbl.add seen key () ;
+      let deps = Depend.file_dependencies `thmod base in
+      thmods := (base ^ ".thmod") :: !thmods ;
+      specs := deps.Depend.dep_specs @ !specs ;
+      List.iter visit_thm deps.Depend.dep_thms ;
+      List.iter visit_thmod deps.Depend.dep_thmods
     end
   in
-  visit (chop_thm entry) ;
-  (List.rev !thms, List.unique !specs)
+  visit_thm (chop_thm entry) ;
+  (List.rev !thms, List.rev !thmods, List.unique !specs)
 
 let is_small_text path =
   Filename.check_suffix path ".md" || Filename.check_suffix path ".txt"
@@ -97,9 +110,9 @@ let text_files_for entry =
     []
 
 let build_example (files : (string, string) Hashtbl.t) example =
-  let thms, specs = dependencies example.entry in
+  let thms, thmods, specs = dependencies example.entry in
   let paths =
-    List.unique (thms @ specs @ text_files_for example.entry) |>
+    List.unique (thms @ thmods @ specs @ text_files_for example.entry) |>
     List.sort String.compare
   in
   List.iter (fun path -> Hashtbl.replace files path (read_file path)) paths ;

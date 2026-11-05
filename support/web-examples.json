@@ -47,6 +47,12 @@
       "group": "Miscellaneous",
       "name": "Unification",
       "entry": "examples/misc/umt.thm"
+    },
+    {
+      "id": "modules-list",
+      "group": "Reasoning modules",
+      "name": "Parameterized lists",
+      "entry": "examples/modules/ListUse.thm"
     }
   ]
 }

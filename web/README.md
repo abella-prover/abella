@@ -84,6 +84,16 @@ an old chunk that is no longer on the origin.
 The HTML pages must stay at a short `max-age` and out of the CDN edge
 cache; the hashes only protect subresources.
 
+Reasoning modules
+-----------------
+
+`.thmod` files are Abella sources in the editor and worker. `Import
+Module` with a quoted target compiles the virtual `.thmod` to a virtual
+`.thmodc` artifact on demand; the byte cache is bounded like the `.thc`
+cache. Unquoted targets, aliases, type arguments, and `with` clauses
+follow the native semantics. Typed example bundles include the `.thmod`
+sources they need.
+
 Documentation pages
 -------------------
 
@@ -97,7 +107,8 @@ When `--web` is set (the default is
 `https://zips.abella-prover.org/`), the theorem page gets a pencil
 button. Clicking it:
 
-1. fetches the `.thm`, `.sig`, and `.mod` files listed in the page
+1. fetches the `.thm`, `.thmod`, `.sig`, and `.mod` files listed in the
+   page
    (they must be served next to the HTML);
 2. builds `project.json` and a zip in the browser;
 3. shows an in-page confirmation with the file count, total bytes, and

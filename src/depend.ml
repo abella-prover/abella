@@ -56,26 +56,54 @@ let rec lp_dependencies (module Lp : LP) lpfile =
       Hashtbl.replace lp_depend_cache filename (Some deps) ;
       deps
 
-let thm_dependencies filename =
-  let lexbuf = lexbuf_from_file (filename ^ ".thm") in
-  let rec spin ~specs ~imports =
+type file_kind = [`thm | `thmod]
+
+type dependencies = {
+  dep_specs : string list ;
+  dep_thms : string list ;
+  dep_thmods : string list ;
+}
+
+let file_dependencies kind filename =
+  let extension = match kind with `thm -> ".thm" | `thmod -> ".thmod" in
+  let lexbuf = lexbuf_from_file (filename ^ extension) in
+  let rec spin ~specs ~thms ~thmods =
     match (Parser.any_command_start Lexer.token lexbuf).el with
     | ATopCommand (Specification (s, _)) ->
-        spin ~imports
+        spin ~thms ~thmods
           ~specs:(Filepath.normalize ~wrt:filename s :: specs)
     | ATopCommand (Import (i, _, _)) ->
-        spin ~specs
-          ~imports:(Filepath.normalize ~wrt:filename i :: imports)
+        spin ~specs ~thmods
+          ~thms:(Filepath.normalize ~wrt:filename i :: thms)
+    | ATopCommand (ImportModule mi) ->
+        let thmods =
+          match mi.mi_source with
+          | QuoteSource (s, _) ->
+              Filepath.normalize ~wrt:filename s :: thmods
+          | NameSource _ -> thmods
+        in
+        spin ~specs ~thms ~thmods
     | ACommon (Set ("load_path", QStr lp)) ->
         Filepath.set_load_path ~wrt:filename lp ;
-        spin ~specs ~imports
-    | _ -> spin ~specs ~imports
-    | exception End_of_file -> (List.rev specs |> List.unique,
-                                List.rev imports |> List.unique)
+        spin ~specs ~thms ~thmods
+    | _ -> spin ~specs ~thms ~thmods
+    | exception End_of_file ->
+        { dep_specs = List.rev specs |> List.unique ;
+          dep_thms = List.rev thms |> List.unique ;
+          dep_thmods = List.rev thmods |> List.unique ;
+        }
     | exception Parsing.Parse_error ->
         failwithf "Syntax error%s" (position lexbuf)
   in
-  let (specs, imports) = spin ~specs:[] ~imports:[] in
-  let sigfiles = List.flatten_map (lp_dependencies (module LPSig : LP)) specs in
-  let modfiles = List.flatten_map (lp_dependencies (module LPMod : LP)) specs in
-  (sigfiles @ modfiles, imports)
+  let deps = spin ~specs:[] ~thms:[] ~thmods:[] in
+  let sigfiles =
+    List.flatten_map (lp_dependencies (module LPSig : LP)) deps.dep_specs
+  in
+  let modfiles =
+    List.flatten_map (lp_dependencies (module LPMod : LP)) deps.dep_specs
+  in
+  { deps with dep_specs = List.unique (sigfiles @ modfiles) }
+
+let thm_dependencies filename =
+  let deps = file_dependencies `thm filename in
+  (deps.dep_specs, deps.dep_thms)

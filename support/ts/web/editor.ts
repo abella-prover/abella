@@ -230,7 +230,7 @@ function baseExtensions(
 }
 
 export function languageFor(path: string): Extension | null {
-  if (path.endsWith(".thm")) return abellaLanguage;
+  if (path.endsWith(".thm") || path.endsWith(".thmod")) return abellaLanguage;
   if (path.endsWith(".sig") || path.endsWith(".mod")) return lprologLanguage;
   return null;
 }

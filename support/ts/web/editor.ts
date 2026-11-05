@@ -296,7 +296,7 @@ const editorTheme = EditorView.theme({
     fontFamily: "var(--mono)",
     lineHeight: "1.5",
   },
-  ".cm-content": { padding: "10px 0", caretColor: "var(--ink)" },
+  ".cm-content": { padding: "0 0 10px", caretColor: "var(--ink)" },
   ".cm-cursor, .cm-dropCursor": {
     borderLeftColor: "var(--ink)",
   },

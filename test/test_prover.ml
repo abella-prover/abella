@@ -707,4 +707,361 @@ let tests =
              should_not_close "prop" "prop" Term.propaty ;
         );
 
+      test_case "Saturate should add consequences as hypotheses"
+        (fun () ->
+           setup_prover ()
+             ~goal:"false"
+             ~lemmas:[("p12", "forall X, foo X -> bar X")] ;
+
+           add_hyp (freshen "foo t1") ;
+           saturate ["p12"] ;
+
+           assert_n_subgoals 1 ;
+           Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
+             ["H1"; "H2"] (List.map (fun h -> h.id) sequent.hyps) ;
+           assert_pprint_equal "bar t1" (get_hyp "H2")
+        ) ;
+
+      test_case "Saturate should default depth to the number of lemmas"
+        (fun () ->
+           setup_prover ()
+             ~goal:"false"
+             ~lemmas:[
+               ("p12", "forall X, foo X -> bar X") ;
+               ("p23", "forall X, bar X -> baz X")] ;
+
+           add_hyp (freshen "foo t1") ;
+           saturate ["p12"; "p23"] ;
+
+           assert_n_subgoals 1 ;
+           Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
+             ["H1"; "H2"; "H3"] (List.map (fun h -> h.id) sequent.hyps) ;
+           assert_pprint_equal "bar t1" (get_hyp "H2") ;
+           assert_pprint_equal "baz t1" (get_hyp "H3")
+        ) ;
+
+      test_case "Saturate should respect an explicit depth"
+        (fun () ->
+           setup_prover ()
+             ~goal:"false"
+             ~lemmas:[
+               ("p12", "forall X, foo X -> bar X") ;
+               ("p23", "forall X, bar X -> baz X")] ;
+
+           add_hyp (freshen "foo t1") ;
+           saturate ~depth:1 ["p12"; "p23"] ;
+
+           assert_n_subgoals 1 ;
+           Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
+             ["H1"; "H2"] (List.map (fun h -> h.id) sequent.hyps) ;
+           assert_pprint_equal "bar t1" (get_hyp "H2")
+        ) ;
+
+      test_case "Saturate should use hypotheses as lemmas"
+        (fun () ->
+           setup_prover () ~goal:"false" ;
+
+           add_hyp (freshen "forall X, foo X -> bar X") ;
+           add_hyp (freshen "foo t1") ;
+           saturate ["H1"] ;
+
+           assert_n_subgoals 1 ;
+           Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
+             ["H1"; "H2"; "H3"] (List.map (fun h -> h.id) sequent.hyps) ;
+           assert_pprint_equal "bar t1" (get_hyp "H3")
+        ) ;
+
+      test_case "Saturate should not release non-ground formulas"
+        (fun () ->
+           setup_prover ()
+             ~goal:"false"
+             ~lemmas:[("ng", "forall X, bar X")] ;
+
+           saturate ["ng"] ;
+
+           assert_n_subgoals 1 ;
+           Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
+             [] (List.map (fun h -> h.id) sequent.hyps)
+        ) ;
+
+      test_case "Clear should remove duplicate hypotheses"
+        (fun () ->
+           setup_prover () ;
+
+           add_hyp (freshen "foo t1") ;
+           add_hyp (freshen "foo t1") ;
+           add_hyp (freshen "{a}") ;
+           add_hyp (freshen "{a}") ;
+
+           clear_duplicates () ;
+
+           Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
+             ["H1"; "H3"; "H4"] (List.map (fun h -> h.id) sequent.hyps)
+        ) ;
+
+      test_case "Skip should mark the proof as unfinished"
+        (fun () ->
+           setup_prover () ~goal:"true /\\ true" ;
+
+           split false ;
+           start_proof () ;
+           skip () ;
+
+           begin
+             try
+               search () ;
+               Alcotest.fail ("Proof not completed,\n\n" ^ get_display ())
+             with
+             | End_proof (`completed fin) ->
+                 Alcotest.check Alcotest.bool
+                   "proof should be unfinished" true (fin = Unfinished)
+           end
+        ) ;
+
+      test_case "Start proof should reset the skipped status"
+        (fun () ->
+           setup_prover () ~goal:"true" ;
+
+           start_proof () ;
+
+           begin
+             try
+               search () ;
+               Alcotest.fail ("Proof not completed,\n\n" ^ get_display ())
+             with
+             | End_proof (`completed fin) ->
+                 Alcotest.check Alcotest.bool
+                   "proof should be finished" true (fin = Finished)
+           end
+        ) ;
+
+      test_case "Lemma tags should be tracked"
+        (fun () ->
+           setup_prover ()
+             ~lemmas:[("done", "true")] ;
+
+           Alcotest.check Alcotest.bool "default tag should be finished"
+             true (get_lemma_tag "done" = Finished) ;
+
+           ignore (add_lemma ~fin:Unfinished "skipped" []
+                     (parse_metaterm "true")) ;
+           Alcotest.check Alcotest.bool "explicit tag should be kept"
+             true (get_lemma_tag "skipped" = Unfinished) ;
+
+           Alcotest.check_raises "unknown lemma should fail"
+             (Failure "Could not find theorem named \"unknown\"")
+             (fun () -> ignore (get_lemma_tag "unknown"))
+        ) ;
+
+      test_case "State JSON should describe the sequent"
+        (fun () ->
+           setup_prover () ~goal:"{a}" ;
+
+           add_hyp (freshen "{b}") ;
+           let fields =
+             match state_json () with
+             | `Assoc fields -> fields
+             | _ -> Alcotest.fail "State JSON should be an object"
+           in
+           let field name =
+             try List.assoc name fields
+             with Not_found -> Alcotest.fail ("Missing field " ^ name)
+           in
+           let string_field name =
+             match field name with
+             | `String s -> s
+             | _ -> Alcotest.fail ("Field " ^ name ^ " should be a string")
+           in
+           let int_field name =
+             match field name with
+             | `Int n -> n
+             | _ -> Alcotest.fail ("Field " ^ name ^ " should be an integer")
+           in
+           Alcotest.check Alcotest.string "goal differs" "{a}"
+             (string_field "goal") ;
+           Alcotest.check Alcotest.string "name differs" ""
+             (string_field "name") ;
+           Alcotest.check Alcotest.int "subgoal count differs" 0
+             (int_field "more") ;
+           Alcotest.check Alcotest.string "hyps differ" {|[["H1","{b}"]]|}
+             (Extensions.Json.to_string (field "hyps")) ;
+           Alcotest.check Alcotest.string "vars differ" "[]"
+             (Extensions.Json.to_string (field "vars"))
+        ) ;
+
+      test_case "State JSON should describe subgoals"
+        (fun () ->
+           setup_prover () ~goal:"{a} /\\ {b}" ;
+
+           split false ;
+
+           match state_json () with
+           | `Assoc fields ->
+               let string_field name =
+                 match List.assoc name fields with
+                 | `String s -> s
+                 | _ ->
+                     Alcotest.fail (name ^ " should be a string")
+               in
+               let int_field name =
+                 match List.assoc name fields with
+                 | `Int n -> n
+                 | _ ->
+                     Alcotest.fail (name ^ " should be an integer")
+               in
+               Alcotest.check Alcotest.string "name differs" "1"
+                 (string_field "name") ;
+               Alcotest.check Alcotest.int "subgoal count differs" 1
+                 (int_field "more") ;
+               Alcotest.check Alcotest.string "goal differs" "{a}"
+                 (string_field "goal")
+           | _ -> Alcotest.fail "State JSON should be an object"
+        ) ;
+
+      test_case "Remove globals should forget lemmas and definitions"
+        (fun () ->
+           setup_prover () ;
+
+           add_defs_for ["foo"] Abella_types.Inductive
+             (parse_defs "foo X := foo X.") ;
+           ignore (add_lemma "foo_lem" [] (parse_metaterm "foo t1")) ;
+
+           remove_globals ["foo"; "foo_lem"] ;
+
+           Alcotest.check Alcotest.bool "definition should be removed" false
+             (Hashtbl.mem defs_table "foo") ;
+           Alcotest.check_raises "lemma should be removed"
+             (Failure "Could not find theorem named \"foo_lem\"")
+             (fun () -> ignore (get_lemma_tag "foo_lem"))
+        ) ;
+
+      test_case "Backchain should discharge obligations by search"
+        (fun () ->
+           setup_prover () ~goal:"baz B" ;
+
+           add_hyp (freshen "forall A, foo A -> baz A") ;
+           add_hyp (freshen "foo B") ;
+
+           assert_proof
+             (fun () -> backchain (keep "H1") [])
+        ) ;
+
+      test_case "Backchain should leave unsolved obligations as subgoals"
+        (fun () ->
+           setup_prover () ~goal:"baz B" ;
+
+           add_hyp (freshen "forall A, foo A -> baz A") ;
+
+           backchain (keep "H1") [] ;
+
+           assert_n_subgoals 1 ;
+           assert_goal "foo B"
+        ) ;
+
+      test_case "Cut should add the cut formula as a hypothesis"
+        (fun () ->
+           setup_prover () ~goal:"{b}" ;
+
+           add_hyp (freshen "{a |- b}") ;
+           add_hyp (freshen "{a}") ;
+
+           cut (keep "H1") (keep "H2") ;
+
+           assert_pprint_equal "{b}" (get_hyp "H3")
+        ) ;
+
+      test_case "Search cut should remove provable context items"
+        (fun () ->
+           setup_prover ()
+             ~clauses:(parse_clauses "p1 t1.")
+             ~goal:"{a}" ;
+
+           add_hyp (freshen "{p1 t1, p2 t1 |- a}") ;
+           search_cut (keep "H1") ;
+
+           assert_pprint_equal "{p2 t1 |- a}" (get_hyp "H2")
+        ) ;
+
+      test_case "Cut from should replace the cut term with the context"
+        (fun () ->
+           setup_prover () ~goal:"{c}" ;
+
+           add_hyp (freshen "{a, b |- c}") ;
+           add_hyp (freshen "{d |- b}") ;
+
+           cut_from (keep "H1") (keep "H2") (parse_uterm "b") ;
+
+           assert_pprint_equal "{d, a |- c}" (get_hyp "H3")
+        ) ;
+
+      test_case "Abbrev should apply to several hypotheses"
+        (fun () ->
+           setup_prover () ;
+
+           add_hyp (freshen "{a}") ;
+           add_hyp (freshen "{b}") ;
+
+           abbrev (Term.Iset.of_list ["H1"; "H2"]) "both" ;
+           Alcotest.check Alcotest.bool "both should be abbreviated" true
+             (List.for_all
+                (fun h -> h.abbrev = Some "both") sequent.hyps) ;
+
+           unabbrev (Term.Iset.of_list ["H1"]) ;
+           match sequent.hyps with
+           | [h1; h2] ->
+               Alcotest.check Alcotest.bool "H1 should be unabbreviated"
+                 true (h1.abbrev = None) ;
+               Alcotest.check Alcotest.bool "H2 should stay abbreviated"
+                 true (h2.abbrev = Some "both")
+           | _ -> Alcotest.fail "Expected two hypotheses"
+        ) ;
+
+      test_case "Monotone should honor a hypothesis name hint"
+        (fun () ->
+           setup_prover () ;
+
+           add_hyp (freshen "{L, E |- conc A}*") ;
+
+           monotone ~name:"M" (keep "H1")
+             (parse_uterm "a :: b :: nil") ;
+
+           assert_n_subgoals 2 ;
+           skip () ;
+           assert_n_subgoals 1 ;
+           match sequent.hyps with
+           | [_; h] ->
+               Alcotest.check Alcotest.string "hypothesis name differs"
+                 "M" h.id ;
+               assert_pprint_equal "{b, a |- conc A}*" h.term
+           | _ -> Alcotest.fail "Expected two hypotheses"
+        ) ;
+
+      test_case "Apply should respect an explicit search depth"
+        (fun () ->
+           setup_prover ()
+             ~clauses:(parse_clauses "foo t1.")
+             ~goal:"bar t1" ;
+
+           add_hyp (freshen "forall X, foo X -> bar X") ;
+
+           apply ~depth:0 (keep "H1") (List.map keep ["_"])
+             [("X", parse_uterm "t1")] ;
+
+           assert_n_subgoals 2 ;
+           assert_goal "foo t1"
+        ) ;
+
+      test_case "Clear should extrude a hypothesis into the goal"
+        (fun () ->
+           setup_prover () ~goal:"{b}" ;
+
+           add_hyp (freshen "{a}") ;
+
+           clear Clear_extro ["H1"] ;
+
+           Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
+             [] (List.map (fun h -> h.id) sequent.hyps) ;
+           assert_goal "{a} -> {b}"
+        ) ;
+
     ]

@@ -45,6 +45,8 @@ export interface OutputEntry {
 export interface OutputLocation {
   /** Start of the command that produced the output. */
   from: number;
+  /** End of the command that produced the output. */
+  to: number;
   /** Prune the output once the tip moves before this offset. */
   position: number;
 }
@@ -75,6 +77,8 @@ function endState(messages: RawMessage[]): ProofState | undefined {
   for (const message of messages) {
     if (message.type === "proof_command" && message.end_state) {
       state = message.end_state;
+    } else if (message.type === "theorem_state") {
+      state = message.state;
     }
   }
   return state;
@@ -232,7 +236,7 @@ export class Session {
         break;
       }
     }
-    const start = boundary >= 0 ? boundary + 1 : 0;
+    const start = boundary >= 0 ? boundary : 0;
     let state: ProofState | undefined;
     let outcome: ProofOutcome | undefined;
     let theorem: string | undefined;
@@ -360,6 +364,7 @@ export class Session {
     const entries = outputEntries(result.messages);
     const location = {
       from: command.from,
+      to: command.to,
       position: result.status === "ok" ? command.to : command.from,
     };
     if (result.status === "error" && entries.length === 0) {
@@ -397,7 +402,7 @@ export class Session {
 
     if (beginsTheorem) {
       this.currentTheorem = undefined;
-      this.lastState = undefined;
+      this.lastState = state;
       this.lastOutcome = undefined;
     } else {
       if (theorem) this.currentTheorem = theorem;

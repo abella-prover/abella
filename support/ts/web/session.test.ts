@@ -111,7 +111,16 @@ class FakeDriver implements Driver {
     this.processed.push(command);
     const messages: RawMessage[] = [];
     const theorem = /^Theorem\s+(\S+)/.exec(command)?.[1];
-    if (theorem) this.currentTheorem = theorem;
+    if (theorem) {
+      this.currentTheorem = theorem;
+      messages.push({
+        type: "theorem_state",
+        id: 4,
+        thm_id: 1,
+        theorem,
+        state,
+      });
+    }
     if (!/^(Specification|Kind|Type|Theorem)\b/.test(command)) {
       messages.push({
         type: "proof_command",
@@ -243,6 +252,7 @@ test("reports an output location for every processed command", async () => {
   );
   assert.deepEqual(captured.outputLocations[0], {
     from: 0,
+    to: 'Specification "empty".'.length,
     position: 'Specification "empty".'.length,
   });
 });
@@ -404,6 +414,24 @@ test("records proof outcomes verbatim and clears them on rewind", async () => {
   });
   await session.rewindTo(0);
   assert.equal(session.outcome, undefined);
+});
+
+test("shows the initial goal after a Theorem command", async () => {
+  const { project, session, captured } = setup();
+  await session.init();
+  const doc = project.files.get(project.entry!)!.text;
+  await session.processTo(doc.indexOf("intros."));
+
+  assert.equal(session.stepsCount, 3);
+  assert.deepEqual(session.currentState, state);
+  assert.deepEqual(captured.goals.at(-1), state);
+
+  const theoremEnd =
+    doc.indexOf("Theorem") + "Theorem t : forall A, A = A.".length;
+  await session.processTo(doc.length);
+  await session.processTo(theoremEnd);
+  assert.equal(session.currentTip, theoremEnd);
+  assert.deepEqual(session.currentState, state);
 });
 
 test("a new theorem hides the previous outcome", async () => {

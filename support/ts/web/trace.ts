@@ -2,7 +2,6 @@
 //                     en Informatique et en Automatique)
 // See LICENSE for licensing details.
 
-import type { OutputEntry } from "./session";
 import type { ProofState } from "./types";
 
 function row(className: string, ...children: (Node | string)[]): HTMLElement {
@@ -58,55 +57,4 @@ export function renderSequent(state: ProofState): HTMLElement {
     );
   }
   return box;
-}
-
-export interface OutputLine {
-  entry: OutputEntry;
-  from?: number;
-}
-
-export function appendOutput(
-  container: HTMLElement,
-  lines: readonly OutputLine[],
-  onSelect?: (from: number) => void
-): void {
-  for (const { entry, from } of lines) {
-    const line = document.createElement("div");
-    line.className = "output-entry";
-    line.dataset.severity = entry.severity;
-    line.textContent = entry.message;
-    if (from !== undefined && onSelect) {
-      line.classList.add("output-jump");
-      line.tabIndex = 0;
-      line.setAttribute("role", "button");
-      line.title = "Jump to the command that produced this output";
-      let jumpTimer: number | undefined;
-      line.addEventListener("click", (event) => {
-        if (event.detail > 1) return;
-        const selection = window.getSelection();
-        if (
-          selection &&
-          !selection.isCollapsed &&
-          selection.anchorNode &&
-          line.contains(selection.anchorNode)
-        ) {
-          return;
-        }
-        window.clearTimeout(jumpTimer);
-        jumpTimer = window.setTimeout(() => {
-          if (line.isConnected) onSelect(from);
-        }, 180);
-      });
-      line.addEventListener("dblclick", () => {
-        window.clearTimeout(jumpTimer);
-      });
-      line.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        onSelect(from);
-      });
-    }
-    container.append(line);
-  }
-  container.scrollTop = container.scrollHeight;
 }

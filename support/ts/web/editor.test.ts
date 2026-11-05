@@ -5,7 +5,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Text } from "@codemirror/state";
-import { processedDecorations } from "./editor";
+import {
+  commandOutputDecorations,
+  processedDecorations,
+} from "./editor";
+import type { CommandOutput } from "./command-output";
 
 interface Decorated {
   from: number;
@@ -55,4 +59,29 @@ test("trailing whitespace is left outside the checked region", () => {
     found.filter((item) => item.cls === "cm-processed"),
     [{ from: 0, to: tip, cls: "cm-processed" }]
   );
+});
+
+test("command output markers sit at the end of their commands", () => {
+  const doc = "Kind nat type.\nType z nat.\n";
+  const outputs: CommandOutput[] = [
+    {
+      from: 0,
+      to: "Kind nat type.".length,
+      position: "Kind nat type.".length,
+      entries: [{ severity: "info", message: "warning" }],
+    },
+    {
+      from: doc.indexOf("Type"),
+      to: doc.indexOf("Type") + "Type z nat.".length,
+      position: doc.indexOf("Type") + "Type z nat.".length,
+      entries: [{ severity: "error", message: "failure" }],
+    },
+  ];
+
+  const set = commandOutputDecorations(doc.length, outputs);
+  const positions: number[] = [];
+  for (let iter = set.iter(); iter.value; iter.next()) {
+    positions.push(iter.from);
+  }
+  assert.deepEqual(positions, [outputs[0].to, outputs[1].to]);
 });

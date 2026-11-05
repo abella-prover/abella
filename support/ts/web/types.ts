@@ -47,6 +47,13 @@ export type RawMessage =
       range?: number[] | null;
     }
   | {
+      type: "theorem_state";
+      id: number;
+      thm_id: number;
+      theorem: string;
+      state: ProofState;
+    }
+  | {
       type: "system_message";
       id: number;
       severity: "info" | "error";

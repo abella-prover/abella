@@ -33,8 +33,10 @@ import {
   Decoration,
   EditorView,
   drawSelection,
+  hoverTooltip,
   keymap,
   lineNumbers,
+  WidgetType,
   type DecorationSet,
 } from "@codemirror/view";
 import {
@@ -42,6 +44,7 @@ import {
   abellaLanguage,
   lprologLanguage,
 } from "./abella-lang";
+import type { CommandOutput } from "./command-output";
 
 const setProcessedTipEffect = StateEffect.define<number>();
 const markdownConfiguredEffect = StateEffect.define<null>();
@@ -113,6 +116,131 @@ const processedField = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field),
 });
 
+const setCommandOutputsEffect =
+  StateEffect.define<readonly CommandOutput[]>();
+
+const commandOutputField = StateField.define<readonly CommandOutput[]>({
+  create: () => [],
+  update(outputs, transaction) {
+    let next: readonly CommandOutput[] = outputs.map((output) => ({
+      from: transaction.changes.mapPos(output.from, 1),
+      to: transaction.changes.mapPos(output.to, -1),
+      position: transaction.changes.mapPos(output.position, -1),
+      entries: output.entries,
+    }));
+    for (const effect of transaction.effects) {
+      if (effect.is(setCommandOutputsEffect)) next = effect.value;
+    }
+    return next;
+  },
+});
+
+class CommandOutputMarker extends WidgetType {
+  private output: CommandOutput;
+
+  constructor(output: CommandOutput) {
+    super();
+    this.output = output;
+  }
+
+  eq(other: CommandOutputMarker): boolean {
+    return (
+      other.output.from === this.output.from &&
+      other.output.to === this.output.to &&
+      other.output.entries === this.output.entries
+    );
+  }
+
+  toDOM(): HTMLElement {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "cm-command-output";
+    button.dataset.from = String(this.output.from);
+    const hasError = this.output.entries.some(
+      (entry) => entry.severity === "error"
+    );
+    button.dataset.severity = hasError ? "error" : "info";
+    button.textContent = hasError ? "!" : "i";
+    if (this.output.entries.length > 1) {
+      const count = document.createElement("span");
+      count.className = "cm-command-output-count";
+      count.textContent = String(this.output.entries.length);
+      button.append(count);
+    }
+    const label = `Show ${this.output.entries.length} message` +
+      `${this.output.entries.length === 1 ? "" : "s"} from this command`;
+    button.setAttribute("aria-label", label);
+    return button;
+  }
+
+  ignoreEvent(): boolean {
+    return true;
+  }
+}
+
+function commandOutputAt(
+  outputs: readonly CommandOutput[],
+  position: number
+): CommandOutput | undefined {
+  return outputs.find(
+    (output) => position >= output.from && position <= output.to + 1
+  );
+}
+
+export function commandOutputDecorations(
+  docLength: number,
+  outputs: readonly CommandOutput[]
+): DecorationSet {
+  const decorations: Range<Decoration>[] = [];
+  for (const output of outputs) {
+    if (output.entries.length === 0) continue;
+    const position = Math.max(0, Math.min(output.to, docLength));
+    decorations.push(
+      Decoration.widget({
+        widget: new CommandOutputMarker(output),
+        side: 1,
+      }).range(position)
+    );
+  }
+  return Decoration.set(decorations);
+}
+
+const commandOutputDecorationsExtension = EditorView.decorations.compute(
+  [commandOutputField],
+  (state) =>
+    commandOutputDecorations(
+      state.doc.length,
+      state.field(commandOutputField)
+    )
+);
+
+function commandOutputTooltip() {
+  return hoverTooltip((view, position) => {
+    const output = commandOutputAt(
+      view.state.field(commandOutputField),
+      position
+    );
+    if (!output || output.entries.length === 0) return null;
+    return {
+      pos: output.from,
+      end: Math.min(output.to + 1, view.state.doc.length),
+      above: true,
+      create() {
+        const dom = document.createElement("div");
+        dom.className = "cm-command-output-tooltip";
+        for (const entry of output.entries) {
+          const line = document.createElement("div");
+          line.className = "output-entry";
+          line.dataset.severity = entry.severity;
+          line.textContent = entry.message;
+          dom.append(line);
+        }
+        return { dom };
+      },
+    };
+  });
+}
+
 const editorTheme = EditorView.theme({
   "&": {
     height: "100%",
@@ -148,6 +276,40 @@ const editorTheme = EditorView.theme({
   },
   ".cm-activeLine.cm-processed-partial-line": {
     backgroundColor: "transparent",
+  },
+  ".cm-command-output": {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "0.15rem",
+    marginLeft: "0.4rem",
+    padding: "0 0.28rem",
+    border: "1px solid var(--border)",
+    borderRadius: "999px",
+    background: "var(--surface-2)",
+    color: "var(--muted)",
+    fontFamily: "var(--sans)",
+    fontSize: "0.62rem",
+    fontWeight: "700",
+    lineHeight: "1.25",
+    verticalAlign: "middle",
+    cursor: "pointer",
+  },
+  ".cm-command-output[data-severity='error']": {
+    borderColor: "var(--red)",
+    color: "var(--red)",
+  },
+  ".cm-command-output:focus-visible": {
+    outline: "2px solid var(--rose)",
+    outlineOffset: "1px",
+  },
+  ".cm-command-output-tooltip": {
+    maxWidth: "min(34rem, 80vw)",
+    maxHeight: "18rem",
+    overflow: "auto",
+    padding: "0.45rem 0.6rem",
+    fontFamily: "var(--mono)",
+    fontSize: "0.76rem",
+    lineHeight: "1.4",
   },
   ".cm-selectionBackground, &.cm-focused .cm-selectionBackground": {
     backgroundColor: "var(--selection) !important",
@@ -221,6 +383,9 @@ function baseExtensions(
     ]),
     editorTheme,
     processedField,
+    commandOutputField,
+    commandOutputDecorationsExtension,
+    commandOutputTooltip(),
     markdownConfiguredField,
     ...runLockedExtensions,
     lintGutter(),
@@ -258,6 +423,7 @@ export class EditorManager {
   private states = new Map<string, EditorState>();
   private tips = new Map<string, number>();
   private diagnostics = new Map<string, readonly Diagnostic[]>();
+  private commandOutputs = new Map<string, readonly CommandOutput[]>();
   private markdownPending = new Set<string>();
   private activePath: string | null = null;
   private runLocked = false;
@@ -266,6 +432,7 @@ export class EditorManager {
     update: import("@codemirror/view").ViewUpdate
   ) => void;
   private onProcess: EditorActions;
+  private onShowOutput: (path: string, from: number) => void;
 
   constructor(
     parent: HTMLElement,
@@ -273,12 +440,24 @@ export class EditorManager {
       path: string,
       update: import("@codemirror/view").ViewUpdate
     ) => void,
-    actions: EditorActions
+    actions: EditorActions,
+    onShowOutput: (path: string, from: number) => void
   ) {
     this.parent = parent;
     this.onChange = onChange;
     this.onProcess = actions;
+    this.onShowOutput = onShowOutput;
     this.view = new EditorView({ parent });
+    this.view.dom.addEventListener("click", (event) => {
+      const target = (event.target as HTMLElement).closest<HTMLElement>(
+        ".cm-command-output"
+      );
+      if (!target || !this.activePath) return;
+      const from = Number(target.dataset.from);
+      if (!Number.isFinite(from)) return;
+      event.preventDefault();
+      this.onShowOutput(this.activePath, from);
+    });
   }
 
   private createState(path: string, doc: string): EditorState {
@@ -319,6 +498,7 @@ export class EditorManager {
     this.view.setState(state);
     this.applyTip(path);
     this.applyDiagnostics(path);
+    this.applyCommandOutputs(path);
     this.ensureMarkdown(path);
     this.view.requestMeasure();
   }
@@ -327,6 +507,7 @@ export class EditorManager {
     this.states.delete(path);
     this.tips.delete(path);
     this.diagnostics.delete(path);
+    this.commandOutputs.delete(path);
     this.markdownPending.delete(path);
   }
 
@@ -358,6 +539,11 @@ export class EditorManager {
       this.diagnostics.delete(from);
       this.diagnostics.set(to, diagnostics);
     }
+    const outputs = this.commandOutputs.get(from);
+    if (outputs) {
+      this.commandOutputs.delete(from);
+      this.commandOutputs.set(to, outputs);
+    }
     this.markdownPending.delete(from);
     if (this.activePath === from) this.activePath = to;
     this.ensureMarkdown(to);
@@ -367,6 +553,7 @@ export class EditorManager {
     this.states.clear();
     this.tips.clear();
     this.diagnostics.clear();
+    this.commandOutputs.clear();
     this.markdownPending.clear();
     this.activePath = null;
     this.view.setState(EditorState.create({ doc: "", extensions: [] }));
@@ -404,8 +591,10 @@ export class EditorManager {
     if (this.runLocked) return;
     const state = this.states.get(path);
     if (!state || state.doc.toString() === text) return;
+    this.commandOutputs.delete(path);
     const next = state.update({
       changes: { from: 0, to: state.doc.length, insert: text },
+      effects: setCommandOutputsEffect.of([]),
     }).state;
     this.states.set(path, next);
     if (this.activePath === path) {
@@ -458,6 +647,27 @@ export class EditorManager {
 
   clearDiagnostics(path: string): void {
     this.setDiagnostics(path, []);
+  }
+
+  setCommandOutputs(
+    path: string,
+    outputs: readonly CommandOutput[]
+  ): void {
+    this.commandOutputs.set(path, outputs);
+    if (this.activePath === path) this.applyCommandOutputs(path);
+  }
+
+  clearCommandOutputs(path: string): void {
+    if (!this.commandOutputs.delete(path)) return;
+    if (this.activePath === path) this.applyCommandOutputs(path);
+  }
+
+  private applyCommandOutputs(path: string): void {
+    this.view.dispatch({
+      effects: setCommandOutputsEffect.of(
+        this.commandOutputs.get(path) ?? []
+      ),
+    });
   }
 
   focus(): void {

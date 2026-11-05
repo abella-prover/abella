@@ -128,6 +128,16 @@ let system_messages messages =
     | _ -> None
   end messages
 
+let messages_of_type kind messages =
+  List.filter_map begin function
+    | `Assoc fields -> begin
+        match List.assoc_opt "type" fields with
+        | Some (`String k) when k = kind -> Some fields
+        | _ -> None
+      end
+    | _ -> None
+  end messages
+
 let error_messages messages =
   List.filter_map begin function
     | `Assoc fields -> begin
@@ -286,6 +296,29 @@ let test_output_collect () =
     end msgs in
   Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["info" ; "error"] severities ;
   Alcotest.check Alcotest.int "ints differ" 0 (List.length (Output.drain ()))
+
+let test_theorem_state () =
+  let (status, msgs) = process_command "Theorem t : true." in
+  assert_ok status ;
+  let states = messages_of_type "theorem_state" msgs in
+  Alcotest.check Alcotest.int "one theorem state" 1 (List.length states) ;
+  let fields = List.hd states in
+  let state =
+    match List.assoc_opt "state" fields with
+    | Some (`Assoc fields) -> fields
+    | _ -> failwith "missing theorem state"
+  in
+  let goal =
+    match List.assoc_opt "goal" state with
+    | Some (`String goal) -> goal
+    | _ -> failwith "missing theorem goal"
+  in
+  Alcotest.check Alcotest.string "initial goal" "true" goal ;
+  start_web_session () ;
+  let (status, msgs) = process_command "Axiom ax : true." in
+  assert_ok status ;
+  Alcotest.check Alcotest.int "axiom has no theorem state" 0
+    (List.length (messages_of_type "theorem_state" msgs))
 
 let has_kind name =
   List.exists (fun (id, _) -> id = name) (fst !Typing.sign)
@@ -587,6 +620,7 @@ let tests = suite "web_core" [
   test_case "virtual_source" (fun () -> with_session test_virtual_source) ;
   test_case "thc_cache_bound" (fun () -> with_session test_thc_cache_bound) ;
   test_case "output_collect" (fun () -> with_session test_output_collect) ;
+  test_case "theorem_state" (fun () -> with_session test_theorem_state) ;
   test_case "undo_back_counts" (fun () -> with_session test_undo_back_counts) ;
   test_case "source_import_cache" (fun () -> with_session test_source_import_cache) ;
   test_case "input_path_relative_imports"

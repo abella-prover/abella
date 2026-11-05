@@ -19,7 +19,8 @@ import {
   type TreeEdit,
   type TreeHandlers,
 } from "./files";
-import { OutputLog } from "./output-log";
+import { CommandOutputStore } from "./command-output";
+import { NotificationLog } from "./notifications";
 import {
   clearSavedProject,
   classify,
@@ -41,7 +42,7 @@ import {
   type SessionEvents,
   type SessionStatus,
 } from "./session";
-import { appendOutput, renderSequent } from "./trace";
+import { renderSequent } from "./trace";
 import {
   addTab,
   closeTabAt,
@@ -110,12 +111,22 @@ const statusBadge = byId<HTMLSpanElement>("status");
 const statusDetail = byId<HTMLSpanElement>("status-detail");
 const fileList = byId<HTMLDivElement>("file-list");
 const goalPanel = byId<HTMLDivElement>("goal");
-const outputPanel = byId<HTMLDivElement>("output");
-const goalTab = byId<HTMLButtonElement>("goal-tab");
-const outputTab = byId<HTMLButtonElement>("output-tab");
-const outputCountBadge = byId<HTMLElement>("output-count");
-const outputErrorBadge = byId<HTMLElement>("output-error");
-const panelTabs = document.querySelector(".panel-tabs") as HTMLElement;
+const notificationsButton = byId<HTMLButtonElement>("notifications");
+const notificationCount = byId<HTMLElement>("notification-count");
+const notificationsDialog =
+  byId<HTMLDialogElement>("notifications-dialog");
+const notificationsList = byId<HTMLDivElement>("notifications-list");
+const notificationsClear = byId<HTMLButtonElement>("notifications-clear");
+const notificationsClose = byId<HTMLButtonElement>("notifications-close");
+const notificationsDone = byId<HTMLButtonElement>("notifications-done");
+const commandOutputDialog =
+  byId<HTMLDialogElement>("command-output-dialog");
+const commandOutputTitle = byId<HTMLElement>("command-output-title");
+const commandOutputList = byId<HTMLDivElement>("command-output-list");
+const commandOutputCopy = byId<HTMLButtonElement>("command-output-copy");
+const commandOutputClose = byId<HTMLButtonElement>("command-output-close");
+const commandOutputDone = byId<HTMLButtonElement>("command-output-done");
+const toasts = byId<HTMLDivElement>("toasts");
 const exampleSelect = byId<HTMLSelectElement>("example-select");
 const zipInput = byId<HTMLInputElement>("zip-input");
 const runToggleButton = byId<HTMLButtonElement>("run-toggle");
@@ -286,10 +297,11 @@ let sidebarCollapsed = false;
 let sidebarReturnFocus: HTMLElement | undefined;
 let lastGoalState: ProofState | undefined;
 let currentOutcome: ProofOutcome | undefined;
-const outputLog = new OutputLog();
-let outputCount = 0;
-let outputHasError = false;
-let activePanel: "goal" | "output" = "goal";
+const commandOutputs = new CommandOutputStore();
+const notificationLog = new NotificationLog();
+let currentCommandOutput:
+  | { path: string; from: number; entries: OutputEntry[] }
+  | undefined;
 let panelHeight: number | undefined;
 
 interface SidebarPref {
@@ -737,9 +749,8 @@ function setStatus(status: SessionStatus, detail?: string): void {
     (status === "ok" || status === "error") &&
     window.matchMedia("(max-width: 900px)").matches
   ) {
-    const target = activePanel === "output" ? outputPanel : goalPanel;
     window.requestAnimationFrame(() =>
-      target.scrollIntoView({ block: "nearest", behavior: "smooth" })
+      goalPanel.scrollIntoView({ block: "nearest", behavior: "smooth" })
     );
   }
 }
@@ -752,7 +763,7 @@ function persistProject(project: Project, workspace: Workspace): void {
   if (error) {
     if (!saveWarningShown) {
       saveWarningShown = true;
-      appendEntries([{ severity: "error", message: `Warning: ${error}` }]);
+      notify([{ severity: "error", message: `Warning: ${error}` }]);
     }
   } else {
     saveWarningShown = false;
@@ -763,76 +774,167 @@ function scheduleSave(): void {
   workspaceSession.schedulePersist();
 }
 
-function updateOutputTab(): void {
-  outputCountBadge.textContent = String(outputCount);
-  outputCountBadge.hidden = outputCount === 0;
-  outputErrorBadge.hidden = !outputHasError;
-  outputTab.dataset.error = String(outputHasError);
+function renderNotificationBadge(): void {
+  const count = notificationLog.unread;
+  notificationsButton.hidden = notificationLog.count === 0;
+  notificationCount.textContent = String(count);
+  notificationCount.hidden = count === 0;
 }
 
-function jumpToOutput(from: number): void {
-  const entry = project.entry;
-  if (!entry) return;
-  if (editor.active !== entry) openFile(entry);
-  editor.setCursor(entry, from, true);
-  editor.focus();
+function notificationListElement(): HTMLElement {
+  const list = document.createElement("div");
+  const records = [...notificationLog.entries].reverse();
+  if (records.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "goal-empty";
+    empty.textContent = "No notifications.";
+    list.append(empty);
+    return list;
+  }
+  for (const record of records) {
+    const line = document.createElement("div");
+    line.className = "output-entry";
+    line.dataset.severity = record.entry.severity;
+    line.textContent = record.entry.message;
+    list.append(line);
+  }
+  return list;
 }
 
-function renderOutput(): void {
-  outputPanel.replaceChildren();
-  appendOutput(
-    outputPanel,
-    outputLog.ordered.map((record) => ({
-      entry: record.entry,
-      from: record.location?.from,
-    })),
-    jumpToOutput
-  );
-  outputCount = outputLog.count;
-  updateOutputTab();
+function renderNotifications(): void {
+  renderNotificationBadge();
+  if (!notificationsDialog.open) return;
+  notificationsList.replaceChildren(notificationListElement());
+}
+
+function dismissToast(toast: HTMLElement): void {
+  toast.remove();
+}
+
+function showToast(entry: OutputEntry): void {
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.dataset.severity = entry.severity;
+  const message = document.createElement("span");
+  message.className = "toast-message";
+  message.textContent = entry.message;
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "toast-close";
+  close.textContent = "×";
+  close.setAttribute("aria-label", "Dismiss notification");
+  close.addEventListener("click", () => dismissToast(toast));
+  toast.append(message, close);
+  toast.addEventListener("click", (event) => {
+    if ((event.target as HTMLElement).closest(".toast-close")) return;
+    openNotifications();
+  });
+  while (toasts.children.length >= 4) toasts.firstElementChild?.remove();
+  toasts.append(toast);
+  if (entry.severity === "info") {
+    window.setTimeout(() => dismissToast(toast), 6000);
+  }
+}
+
+function notify(entries: readonly OutputEntry[]): void {
+  if (entries.length === 0) return;
+  notificationLog.add(entries);
+  renderNotificationBadge();
+  if (notificationsDialog.open) renderNotifications();
+  for (const entry of entries) showToast(entry);
+}
+
+function openNotifications(): void {
+  notificationLog.markRead();
+  renderNotificationBadge();
+  notificationsList.replaceChildren(notificationListElement());
+  if (notificationsDialog.open) return;
+  if (document.querySelector("dialog[open]")) return;
+  notificationsDialog.showModal();
 }
 
 function pruneOutput(tip: number): void {
-  if (outputLog.prune(tip) === 0) return;
-  if (!outputLog.hasError) outputHasError = false;
-  renderOutput();
+  if (!commandOutputs.prune(tip)) return;
+  const entry = project.entry;
+  if (entry) editor.setCommandOutputs(entry, commandOutputs.values());
 }
 
-function selectPanel(panel: "goal" | "output", focus = false): void {
-  activePanel = panel;
-  const goalActive = panel === "goal";
-  goalTab.setAttribute("aria-selected", String(goalActive));
-  outputTab.setAttribute("aria-selected", String(!goalActive));
-  goalTab.tabIndex = goalActive ? 0 : -1;
-  outputTab.tabIndex = goalActive ? -1 : 0;
-  goalPanel.hidden = !goalActive;
-  outputPanel.hidden = goalActive;
-  if (!goalActive) outputHasError = false;
-  updateOutputTab();
-  if (focus) (goalActive ? goalTab : outputTab).focus();
+function remapOutputs(changes: ChangeSet): void {
+  if (!commandOutputs.remap(changes)) return;
+  const entry = project.entry;
+  if (entry) editor.setCommandOutputs(entry, commandOutputs.values());
 }
 
 function clearOutput(): void {
-  outputLog.clear();
-  outputCount = 0;
-  outputHasError = false;
-  outputPanel.replaceChildren();
-  selectPanel("goal");
+  commandOutputs.clear();
+  currentCommandOutput = undefined;
+  const entry = project.entry;
+  if (entry) editor.clearCommandOutputs(entry);
+  if (commandOutputDialog.open) commandOutputDialog.close();
 }
 
-function appendEntries(
-  entries: OutputEntry[],
+function routeOutput(
+  entries: readonly OutputEntry[],
   location?: OutputLocation
 ): void {
-  if (!location && entries.length === 0) return;
-  outputLog.append(entries, location);
-  const hasError = entries.some((entry) => entry.severity === "error");
-  if (hasError && activePanel !== "output") {
-    outputHasError = true;
-  } else if (!outputLog.hasError) {
-    outputHasError = false;
+  const entry = project.entry;
+  if (location && entry) {
+    commandOutputs.set(location, entries);
+    editor.setCommandOutputs(entry, commandOutputs.values());
+    return;
   }
-  renderOutput();
+  notify(entries);
+}
+
+function lineNumberAt(text: string, offset: number): number {
+  let line = 1;
+  for (let i = 0; i < offset && i < text.length; i++) {
+    if (text[i] === "\n") line++;
+  }
+  return line;
+}
+
+function showCommandOutput(path: string, from: number): void {
+  const output = commandOutputs.get(from);
+  if (!output) return;
+  currentCommandOutput = {
+    path,
+    from,
+    entries: [...output.entries],
+  };
+  const text = project.files.get(path)?.text ?? "";
+  commandOutputTitle.textContent =
+    `Output from line ${lineNumberAt(text, from)}`;
+  commandOutputList.replaceChildren();
+  for (const entry of output.entries) {
+    const line = document.createElement("div");
+    line.className = "output-entry";
+    line.dataset.severity = entry.severity;
+    line.textContent = entry.message;
+    commandOutputList.append(line);
+  }
+  if (commandOutputDialog.open) return;
+  if (document.querySelector("dialog[open]")) return;
+  commandOutputDialog.showModal();
+}
+
+async function copyCommandOutput(): Promise<void> {
+  if (!currentCommandOutput) return;
+  const text = currentCommandOutput.entries
+    .map((entry) => entry.message)
+    .join("\n");
+  try {
+    await navigator.clipboard.writeText(text);
+    commandOutputCopy.textContent = "Copied";
+    window.setTimeout(() => {
+      commandOutputCopy.textContent = "Copy";
+    }, 1500);
+  } catch {
+    commandOutputCopy.textContent = "Copy failed";
+    window.setTimeout(() => {
+      commandOutputCopy.textContent = "Copy";
+    }, 1500);
+  }
 }
 
 function closeMenus(): void {
@@ -871,25 +973,27 @@ function installMenus(): void {
 }
 
 function installTabs(): void {
-  goalTab.addEventListener("click", () => selectPanel("goal"));
-  outputTab.addEventListener("click", () => selectPanel("output"));
-  panelTabs.addEventListener("keydown", (event) => {
-    switch (event.key) {
-      case "ArrowLeft":
-      case "ArrowRight":
-        event.preventDefault();
-        selectPanel(activePanel === "goal" ? "output" : "goal", true);
-        break;
-      case "Home":
-        event.preventDefault();
-        selectPanel("goal", true);
-        break;
-      case "End":
-        event.preventDefault();
-        selectPanel("output", true);
-        break;
-    }
+  notificationsButton.addEventListener("click", openNotifications);
+  notificationsClose.addEventListener("click", () =>
+    notificationsDialog.close()
+  );
+  notificationsDone.addEventListener("click", () =>
+    notificationsDialog.close()
+  );
+  notificationsClear.addEventListener("click", () => {
+    notificationLog.clear();
+    notificationsList.replaceChildren();
+    renderNotificationBadge();
   });
+  commandOutputClose.addEventListener("click", () =>
+    commandOutputDialog.close()
+  );
+  commandOutputDone.addEventListener("click", () =>
+    commandOutputDialog.close()
+  );
+  commandOutputCopy.addEventListener("click", () =>
+    void copyCommandOutput()
+  );
 }
 
 function openHelp(): void {
@@ -900,7 +1004,7 @@ function openHelp(): void {
 }
 
 function info(message: string): void {
-  appendEntries([{ severity: "info", message }]);
+  notify([{ severity: "info", message }]);
 }
 
 function workspaceLabel(session: WorkspaceSession): string {
@@ -1035,7 +1139,7 @@ async function savePath(path: string): Promise<void> {
       info(`Save cancelled for ${path}.`);
     }
   } catch (error) {
-    appendEntries([
+    notify([
       {
         severity: "error",
         message: `Could not save ${path}: ${workspaceMessage(error)}`,
@@ -1067,7 +1171,7 @@ async function saveAll(): Promise<void> {
       (path) => project.files.get(path)?.text
     );
     for (const failure of report.failures) {
-      appendEntries([
+      notify([
         {
           severity: "error",
           message: `Could not save ${failure.path}: ${failure.message}`,
@@ -1120,7 +1224,7 @@ async function openFolder(): Promise<void> {
       );
     }
     if (opened.truncated) {
-      appendEntries([
+      notify([
         {
           severity: "info",
           message:
@@ -1130,7 +1234,7 @@ async function openFolder(): Promise<void> {
       ]);
     }
     if (opened.listingTruncated) {
-      appendEntries([
+      notify([
         {
           severity: "info",
           message:
@@ -1140,7 +1244,7 @@ async function openFolder(): Promise<void> {
       ]);
     }
     if (opened.skipped > 0) {
-      appendEntries([
+      notify([
         {
           severity: "info",
           message:
@@ -1151,7 +1255,7 @@ async function openFolder(): Promise<void> {
       ]);
     }
   } catch (error) {
-    appendEntries([
+    notify([
       {
         severity: "error",
         message: `Could not open the folder: ${workspaceMessage(error)}`,
@@ -1181,7 +1285,7 @@ async function openReadOnlyFolder(): Promise<void> {
         `(${opened.project.files.size} files).`
     );
     if (opened.skipped > 0) {
-      appendEntries([
+      notify([
         {
           severity: "info",
           message:
@@ -1192,7 +1296,7 @@ async function openReadOnlyFolder(): Promise<void> {
       ]);
     }
   } catch (error) {
-    appendEntries([
+    notify([
       {
         severity: "error",
         message: `Could not open the folder: ${workspaceMessage(error)}`,
@@ -1205,7 +1309,7 @@ async function reconnectFolder(): Promise<void> {
   if (runBusy) return;
   if (!workspaceSession.isDetachedDirectory) return;
   if (!lastDirectoryHandle) {
-    appendEntries([
+    notify([
       {
         severity: "error",
         message:
@@ -1230,7 +1334,7 @@ async function reconnectFolder(): Promise<void> {
     info(`Reconnected to ${opened.workspace.name}.`);
   } catch (error) {
     if (error instanceof WorkspaceError && error.code === "cancelled") return;
-    appendEntries([
+    notify([
       {
         severity: "error",
         message: `Could not reconnect the folder: ${workspaceMessage(error)}`,
@@ -1458,7 +1562,7 @@ async function loadGitHubConnect(
       `${account ? ` as ${account}` : ""}.`
   );
   if (opened.truncated) {
-    appendEntries([
+    notify([
       {
         severity: "info",
         message:
@@ -1468,7 +1572,7 @@ async function loadGitHubConnect(
     ]);
   }
   if (opened.listingTruncated) {
-    appendEntries([
+    notify([
       {
         severity: "info",
         message:
@@ -1478,7 +1582,7 @@ async function loadGitHubConnect(
     ]);
   }
   if (opened.skipped > 0) {
-    appendEntries([
+    notify([
       {
         severity: "info",
         message:
@@ -1750,7 +1854,7 @@ async function completeOAuth(
       pending.requestedScope === "repo" &&
       !githubScopeIncludesPrivate(token.scope)
     ) {
-      appendEntries([
+      notify([
         {
           severity: "info",
           message:
@@ -1906,7 +2010,7 @@ function openCommitDialog(): void {
 
 async function performCommit(message: string): Promise<void> {
   if (runBusy) {
-    appendEntries([
+    notify([
       {
         severity: "error",
         message: "Finish or pause the current run before committing.",
@@ -1921,13 +2025,13 @@ async function performCommit(message: string): Promise<void> {
     if (result.status === "committed") {
       info(`Committed ${result.revision.slice(0, 7)}.`);
     } else {
-      appendEntries([{ severity: "error", message: result.message }]);
+      notify([{ severity: "error", message: result.message }]);
     }
   } catch (error) {
     if (error instanceof WorkspaceError && error.status === 401) {
       clearGitHubAuth();
     }
-    appendEntries([
+    notify([
       {
         severity: "error",
         message: `Could not commit: ${workspaceMessage(error)}`,
@@ -2375,7 +2479,7 @@ async function commitCreate(folder: string, value: string): Promise<void> {
   try {
     await workspaceSession.createFile(path, text);
   } catch (error) {
-    appendEntries([
+    notify([
       {
         severity: "error",
         message: `Could not create ${path}: ${workspaceMessage(error)}`,
@@ -2488,14 +2592,14 @@ async function commitRename(from: string, value: string): Promise<void> {
       }))
     );
   } catch (error) {
-    appendEntries([
+    notify([
       { severity: "error", message: workspaceMessage(error) },
     ]);
   }
   try {
     await workspaceSession.applyChangedFiles(plan.changed);
   } catch (error) {
-    appendEntries([
+    notify([
       {
         severity: "error",
         message: `Could not update renamed references: ` +
@@ -2536,7 +2640,7 @@ async function deleteRow(path: string): Promise<void> {
   try {
     await workspaceSession.removeFile(path);
   } catch (error) {
-    appendEntries([
+    notify([
       {
         severity: "error",
         message: `Could not delete ${path}: ${workspaceMessage(error)}`,
@@ -2901,7 +3005,7 @@ const events: SessionEvents = {
   },
   onGoal: goal,
   onOutcome: outcome,
-  onOutput: appendEntries,
+  onOutput: routeOutput,
   onCursor(offset) {
     const entry = project.entry;
     if (!entry) return;
@@ -2929,8 +3033,9 @@ const events: SessionEvents = {
     }
   },
   onError(message, from, to) {
-    appendEntries([{ severity: "error", message }], {
+    routeOutput([{ severity: "error", message }], {
       from,
+      to,
       position: from,
     });
     errorDiagnostic(message, from, to);
@@ -3053,6 +3158,7 @@ async function main(): Promise<void> {
       project.active = path;
       scheduleSave();
       editor.clearDiagnostics(path);
+      if (path === project.entry) remapOutputs(update.changes);
       let minFrom = Number.POSITIVE_INFINITY;
       update.changes.iterChangedRanges((fromA, _toA, fromB) => {
         minFrom = Math.min(minFrom, fromA, fromB);
@@ -3070,7 +3176,8 @@ async function main(): Promise<void> {
       stepForward: () => void stepForward(),
       stepBackward: () => void stepBackward(),
       help: openHelp,
-    }
+    },
+    (path, from) => showCommandOutput(path, from)
   );
 
   const driver = new WorkerDriver((module) =>
@@ -3092,7 +3199,11 @@ async function main(): Promise<void> {
   installMenus();
   installTabs();
   installTabStrip();
-  selectPanel("goal");
+  for (const dialog of [notificationsDialog, commandOutputDialog]) {
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+  }
   byId<HTMLButtonElement>("sidebar-mobile-toggle").addEventListener(
     "click",
     toggleSidebar
@@ -3229,10 +3340,10 @@ async function main(): Promise<void> {
   updateEntryLabel();
   if (firstTab) openFile(firstTab);
   if (savedProjectWarning) {
-    appendEntries([{ severity: "error", message: savedProjectWarning }]);
+    notify([{ severity: "error", message: savedProjectWarning }]);
   }
   if (shareProjectWarning) {
-    appendEntries([{ severity: "error", message: shareProjectWarning }]);
+    notify([{ severity: "error", message: shareProjectWarning }]);
   }
   workspaceSession.schedulePersist();
   setStatus("idle");
@@ -3325,7 +3436,7 @@ async function main(): Promise<void> {
     }
     const next = projectFromBundle(bundle, id);
     if (!next) {
-      appendEntries([
+      notify([
         { severity: "error", message: `Could not load example ${id}.` },
       ]);
       return;
@@ -3377,7 +3488,7 @@ async function main(): Promise<void> {
         );
       }
     } catch (error) {
-      appendEntries([
+      notify([
         {
           severity: "error",
           message: `Could not import the archive: ${workspaceMessage(error)}`,

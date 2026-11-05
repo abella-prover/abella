@@ -1926,6 +1926,14 @@ and process_top1 () =
         Prover.reset_prover st seq ()
       in
       Prover.start_proof () ;
+      if !Setup.annotate then
+        Output.commit_message begin
+          Output.message "theorem_state" ~fields:[
+            "thm_id", `Int thm_id ;
+            "theorem", `String name ;
+            "state", Prover.state_json ()
+          ]
+        end ;
       current_state := Process_proof {
           thm_id ; thm = name ;
           compile = thm_compile ;

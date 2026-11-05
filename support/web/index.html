@@ -143,7 +143,7 @@
         class="splitter horizontal"
         role="separator"
         aria-orientation="horizontal"
-        aria-label="Resize the goal and output panel"
+        aria-label="Resize the goal panel"
         aria-valuemin="128"
         aria-valuenow="200"
         tabindex="0"
@@ -193,33 +193,7 @@
                 ><path d="M3.2 7.8a4.8 4.8 0 1 0 1.4-3.4"/><path d="M3.2 2.8v3.6h3.6"/></svg>
               </button>
             </div>
-            <div class="panel-tabs" role="tablist" aria-label="Proof panels">
-              <button
-                id="goal-tab"
-                class="panel-tab"
-                type="button"
-                role="tab"
-                aria-selected="true"
-                aria-controls="goal"
-              >Goal</button>
-              <button
-                id="output-tab"
-                class="panel-tab"
-                type="button"
-                role="tab"
-                aria-selected="false"
-                aria-controls="output"
-              >Warnings and output<span
-                id="output-count"
-                class="output-count"
-                hidden
-              ></span><span
-                id="output-error"
-                class="output-error"
-                aria-label="Output contains an error"
-                hidden
-              >!</span></button>
-            </div>
+            <span class="panel-title">Goal</span>
             <span
               id="entry-file"
               class="entry-file"
@@ -240,16 +214,8 @@
           <div
             id="goal"
             class="goal-panel"
-            role="tabpanel"
-            aria-labelledby="goal-tab"
-          ></div>
-          <div
-            id="output"
-            class="output-panel"
-            role="tabpanel"
-            aria-labelledby="output-tab"
-            aria-live="polite"
-            hidden
+            role="region"
+            aria-label="Proof goal"
           ></div>
         </section>
       </section>
@@ -257,6 +223,17 @@
 
     <footer class="footer">
       <span class="footer-help">
+        <button
+          id="notifications"
+          class="link-button notification-button"
+          type="button"
+          hidden
+        >
+          Notifications<span
+            id="notification-count"
+            class="notification-count"
+          ></span>
+        </button>
         <button id="help" class="link-button" type="button">
           Help <kbd>Ctrl</kbd>+<kbd>?</kbd>
         </button>
@@ -343,6 +320,11 @@
           The play and step controls check the active <code>.thm</code> tab.
           Switching tabs does not reset the prover; checking a different
           theorem does.
+        </p>
+        <p class="setting-note">
+          Warnings and other command output appear next to the checked
+          command. Hover the command to read it, or click its marker for
+          the full text.
         </p>
         <p class="setting-note">
           On macOS, use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd> for the
@@ -469,6 +451,63 @@
         </div>
       </form>
     </dialog>
+
+    <dialog
+      id="command-output-dialog"
+      class="settings-dialog output-dialog"
+      aria-labelledby="command-output-title"
+    >
+      <div class="settings-form">
+        <div class="settings-head">
+          <h2 id="command-output-title">Command output</h2>
+          <button
+            class="icon-button"
+            type="button"
+            id="command-output-close"
+            aria-label="Close command output"
+          >×</button>
+        </div>
+        <div id="command-output-list" class="output-dialog-list"></div>
+        <div class="dialog-actions">
+          <button id="command-output-copy" type="button">Copy</button>
+          <button id="command-output-done" type="button">Close</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog
+      id="notifications-dialog"
+      class="settings-dialog"
+      aria-labelledby="notifications-title"
+    >
+      <div class="settings-form">
+        <div class="settings-head">
+          <h2 id="notifications-title">Notifications</h2>
+          <button
+            class="icon-button"
+            type="button"
+            id="notifications-close"
+            aria-label="Close notifications"
+          >×</button>
+        </div>
+        <div
+          id="notifications-list"
+          class="output-dialog-list"
+          aria-live="polite"
+        ></div>
+        <div class="dialog-actions">
+          <button id="notifications-clear" type="button">Clear</button>
+          <button id="notifications-done" type="button">Close</button>
+        </div>
+      </div>
+    </dialog>
+
+    <div
+      id="toasts"
+      class="toasts"
+      aria-live="polite"
+      aria-atomic="false"
+    ></div>
 
     <script type="module" src="abella_web.js"></script>
   </body>

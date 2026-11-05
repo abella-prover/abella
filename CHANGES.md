@@ -15,6 +15,8 @@ Reasoning-level modules
   proofs.
 * `.thmod` files reject specification-logic sequents (`{ ... }`); inline
   modules in `.thm` files may use them.
+* `abella_doc` now generates pages for `.thmod` files, highlights module
+  commands, and links quoted `Import Module` targets to their pages.
 * See `examples/modules/` for examples, and `examples/modules/README.md` for
   more documentation.
 

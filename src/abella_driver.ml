@@ -1987,6 +1987,14 @@ and process_top1 () =
   | End name ->
       process_end name
   | ImportModule mi ->
+      begin match mi.mi_source with
+      | QuoteSource (file, pos) ->
+          if !Setup.annotate then begin
+            let file = Filepath.normalize ~wrt:!Setup.input file in
+            Output.link_message ~pos ~url:(file ^ ".html")
+          end
+      | NameSource _ -> ()
+      end ;
       import_module mi
   | Specification(filename, pos) ->
       if !can_read_specification then begin

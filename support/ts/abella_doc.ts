@@ -175,6 +175,7 @@ const termRex = keywordRex([
   "sigma",
 ]);
 const topBuiltRex = keywordRex(abellaKeywords.topBuilt);
+const modulePhraseRex = /\b(?:Import|Show)\s+Module\b/g;
 const topCmdRex = keywordRex(abellaKeywords.topCmd);
 const proofCmdRex = keywordRex(abellaKeywords.proofCmd);
 const proofSpecRex = keywordRex(abellaKeywords.proofSpec);
@@ -263,9 +264,11 @@ async function loadModule(boxId: string, thmContents: string, thmJson: any[]) {
       thmText.fontify(start, stop, termRex, "s-tm");
       if (elm.type === "top_command") {
         thmText.fontify(start, stop, topBuiltRex, "s-tb");
+        thmText.fontify(start, stop, modulePhraseRex, "s-tb");
         thmText.fontify(start, stop, topCmdRex, "s-tc");
       }
       if (elm.type === "proof_command") {
+        thmText.fontify(start, stop, modulePhraseRex, "s-tb");
         thmText.fontify(start, stop, proofCmdRex, "s-pc");
         thmText.fontify(start, stop, proofSpecRex, "s-ps");
       }

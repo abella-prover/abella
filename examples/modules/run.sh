@@ -31,8 +31,10 @@ bad() {
 }
 
 rm -f examples/modules/*.thmodc examples/modules/*.thc
+rm -f examples/modules/*.out
 rm -f test/modules/*.thmodc test/modules/*.thc
-rm -f test/modules/errors/*.thmodc
+rm -f test/modules/*.out
+rm -f test/modules/errors/*.thmodc test/modules/errors/*.out
 
 ok examples/modules/List.thmod
 ok examples/modules/ListUse.thm

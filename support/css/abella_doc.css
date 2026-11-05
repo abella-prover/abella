@@ -569,6 +569,7 @@ span.s-ty { color: var(--syn-ty); }
 span.s-tm { color: var(--syn-tm); }
 span.s-tb { color: var(--syn-tb); }
 span.s-tc { color: var(--syn-tc); font-weight: 700; }
+span.s-tb span.s-tc { color: inherit; font-weight: inherit; }
 span.s-pc { color: var(--syn-op); font-style: italic; }
 
 span.s-ps {

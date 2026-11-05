@@ -5,7 +5,7 @@
  * See LICENSE for licensing details.
  *)
 
-(* Generate documentation for a collection of Abella .thm files *)
+(* Generate documentation for Abella .thm and .thmod files *)
 
 open Abella_lib
 open Extensions
@@ -50,35 +50,41 @@ let theme_init = {|
   </script>
 |}
 
-let thm_template edit base =
+let source_template ~suffix ~edit base =
   let root = Filename.basename base in
-  let thm_contents = file_contents (base ^ ".thm") in
-  let thm_json = Json.from_file (base ^ ".json") in
+  let source = file_contents (base ^ suffix) in
+  let annotations = Json.from_file (base ^ ".json") in
   {|<!DOCTYPE html>
 <html lang="en"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="light dark">
 |} ^ theme_init ^ {|
-  <title>|} ^ root ^ {|.thm [Abella trace]</title>
+  <title>|} ^ root ^ suffix ^ {| [Abella trace]</title>
   <style>|} ^ Dist.css ^ {|</style>
 </head><body>
   <div id="logobox">
     <a href="https://abella-prover.org/index.html"><img src="https://abella-prover.org/images/logo-small.png" alt="Abella logo (small)"></a>
-    <h1 id="thmname">|} ^ root ^ {|.thm</h1>
+    <h1 id="thmname">|} ^ root ^ suffix ^ {|</h1>
 |} ^ edit ^ {|  </div>
   <div id="outer-container">
     <div id="container">
-      <div id="thmbox"><div class="default-contents">|} ^ html_escape thm_contents ^ {|</div></div>
+      <div id="thmbox"><div class="default-contents">|} ^ html_escape source ^ {|</div></div>
     </div>
   </div>
   <script type="module">
 |} ^ Dist.js ^ {|
-    const thmContent = |} ^ Json.to_string (`String thm_contents) ^ {|;
-    const thmJson = |} ^ Json.to_string thm_json ^ {|;
+    const thmContent = |} ^ Json.to_string (`String source) ^ {|;
+    const thmJson = |} ^ Json.to_string annotations ^ {|;
     await loadModule("thmbox", thmContent, thmJson);
   </script>
 </body></html>|} ;;
+
+let thm_template edit base =
+  source_template ~suffix:".thm" ~edit base
+
+let thmod_template base =
+  source_template ~suffix:".thmod" ~edit:"" base
 
 let lp_template root =
   let base = Filename.basename root in
@@ -306,12 +312,17 @@ and process_thmod conf file =
   Hashtbl.replace dep_tab file deps ;
   List.iter (process conf) deps ;
   let cmd = Printf.sprintf
-      "%s --non-recursive --output=%s.out %s.thmod"
-      conf.abella base base
+      "%s --non-recursive --annotate --output=%s.json --verbosity=%d %s.thmod"
+      conf.abella base !Ppx_abella_lib.verbosity base
   in
   vprintf conf "RUN: %s" cmd ;
   if Sys.command cmd != 0 then
-    failwithf "ERROR running: %s" cmd
+    failwithf "ERROR running: %s" cmd ;
+  let htmlfile = base ^ ".html" in
+  let ch = open_out_bin htmlfile in
+  output_string ch (thmod_template base) ;
+  close_out ch ;
+  vprintf conf "CREATE: %s" htmlfile
 
 and process_directory conf dir =
   let fs = Sys.readdir dir in
@@ -404,7 +415,7 @@ let () =
           web $ share)
   in
   let files =
-    let doc = "An Abella $(b,.thm) file or a directory" in
+    let doc = "An Abella $(b,.thm) or $(b,.thmod) file or a directory" in
     Arg.(value @@ pos_all string [] @@ info [] ~docv:"SOURCE" ~doc)
   in
   let cmd =
@@ -414,7 +425,7 @@ let () =
       `Blocks [
         `P "To create HTML documents from a.thm, d/b.thm, and c/*.thm" ;
         `Pre "  \\$ $(tname) a.thm d/b.thm c/*.thm" ;
-        `P "To create HTML documentation recursively from all .thm files in d/" ;
+        `P "To create HTML documentation recursively from all Abella sources in d/" ;
         `Pre "  \\$ $(tname) -r d" ;
       ] ;
       `S Manpage.s_see_also ;

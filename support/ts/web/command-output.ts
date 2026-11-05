@@ -12,6 +12,48 @@ export interface CommandOutput {
   entries: readonly OutputEntry[];
 }
 
+/**
+ * Find output attached to the command at `position`, or to a nearby
+ * command on the same or an adjacent line.
+ */
+export function nearestCommandOutput(
+  outputs: readonly CommandOutput[],
+  position: number,
+  lineOf: (offset: number) => number,
+  maxLineDistance = 1
+): CommandOutput | undefined {
+  const positionLine = lineOf(position);
+  let best: CommandOutput | undefined;
+  let bestLineDistance = Number.POSITIVE_INFINITY;
+  let bestCharDistance = Number.POSITIVE_INFINITY;
+  for (const output of outputs) {
+    if (position >= output.from && position <= output.to) return output;
+    const startLine = lineOf(output.from);
+    const endLine = lineOf(output.to);
+    const lineDistance =
+      positionLine < startLine
+        ? startLine - positionLine
+        : positionLine > endLine
+          ? positionLine - endLine
+          : 0;
+    if (lineDistance > maxLineDistance) continue;
+    const charDistance = Math.min(
+      Math.abs(position - output.from),
+      Math.abs(position - output.to)
+    );
+    if (
+      lineDistance < bestLineDistance ||
+      (lineDistance === bestLineDistance &&
+        charDistance < bestCharDistance)
+    ) {
+      best = output;
+      bestLineDistance = lineDistance;
+      bestCharDistance = charDistance;
+    }
+  }
+  return best;
+}
+
 export class CommandOutputStore {
   private outputs = new Map<number, CommandOutput>();
 

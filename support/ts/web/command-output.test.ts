@@ -5,7 +5,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ChangeSet } from "@codemirror/state";
-import { CommandOutputStore } from "./command-output";
+import {
+  CommandOutputStore,
+  nearestCommandOutput,
+} from "./command-output";
 import type { OutputEntry } from "./session";
 
 const info = (message: string): OutputEntry => ({
@@ -70,6 +73,27 @@ test("edits inside a command drop its stale output", () => {
 
   assert.equal(store.remap(changes), true);
   assert.equal(store.values().length, 0);
+});
+
+test("finds output inside a command or on a nearby line", () => {
+  const store = new CommandOutputStore();
+  store.set({ from: 10, to: 15, position: 15 }, [info("near")]);
+  store.set({ from: 40, to: 45, position: 45 }, [info("far")]);
+  const lineOf = (offset: number) => Math.floor(offset / 10) + 1;
+
+  assert.equal(
+    nearestCommandOutput(store.values(), 12, lineOf)?.entries[0].message,
+    "near"
+  );
+  assert.equal(
+    nearestCommandOutput(store.values(), 18, lineOf)?.entries[0].message,
+    "near"
+  );
+  assert.equal(
+    nearestCommandOutput(store.values(), 25, lineOf)?.entries[0].message,
+    "near"
+  );
+  assert.equal(nearestCommandOutput(store.values(), 60, lineOf), undefined);
 });
 
 test("edits after a command leave its output in place", () => {

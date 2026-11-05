@@ -19,7 +19,10 @@ import {
   type TreeEdit,
   type TreeHandlers,
 } from "./files";
-import { CommandOutputStore } from "./command-output";
+import {
+  CommandOutputStore,
+  nearestCommandOutput,
+} from "./command-output";
 import { NotificationLog } from "./notifications";
 import {
   clearSavedProject,
@@ -916,6 +919,18 @@ function showCommandOutput(path: string, from: number): void {
   if (commandOutputDialog.open) return;
   if (document.querySelector("dialog[open]")) return;
   commandOutputDialog.showModal();
+}
+
+function showOutputAtCursor(): void {
+  const path = editor.active;
+  if (!path || path !== project.entry) return;
+  const text = project.files.get(path)?.text ?? "";
+  const output = nearestCommandOutput(
+    commandOutputs.values(),
+    editor.cursorFor(path),
+    (offset) => lineNumberAt(text, offset)
+  );
+  if (output) showCommandOutput(path, output.from);
 }
 
 async function copyCommandOutput(): Promise<void> {
@@ -3175,6 +3190,7 @@ async function main(): Promise<void> {
       process: () => void processToCursor(),
       stepForward: () => void stepForward(),
       stepBackward: () => void stepBackward(),
+      showOutput: showOutputAtCursor,
       help: openHelp,
     },
     (path, from) => showCommandOutput(path, from)

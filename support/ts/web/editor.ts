@@ -320,6 +320,7 @@ export interface EditorActions {
   process(): void;
   stepForward(): void;
   stepBackward(): void;
+  showOutput(): void;
   help(): void;
 }
 
@@ -350,6 +351,20 @@ function baseExtensions(
       key: "Ctrl-[",
       run: () => {
         actions.stepBackward();
+        return true;
+      },
+    },
+    {
+      key: "Ctrl-Space",
+      run: () => {
+        actions.showOutput();
+        return true;
+      },
+    },
+    {
+      key: "Ctrl-Alt-o",
+      run: () => {
+        actions.showOutput();
         return true;
       },
     },

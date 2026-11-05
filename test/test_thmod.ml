@@ -1200,6 +1200,30 @@ End UseEq6.
     end
   end
 
+let test_no_sequents () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      expect_thmod_error dir "SeqTheorem" {|
+Module SeqTheorem.
+  Theorem bad : forall (x:o), { x |- x }.
+  intros. search.
+End SeqTheorem.
+|} "Specification logic sequents are not allowed" ;
+      expect_thmod_error dir "SeqDefine" {|
+Module SeqDefine.
+  Define q : o -> prop by
+    q X := { X |- X }.
+End SeqDefine.
+|} "Specification logic sequents are not allowed" ;
+      ignore (native_compile_thmod dir "ObjTy" {|
+Module ObjTy.
+  Type f o -> o.
+  Type p o -> prop.
+End ObjTy.
+|})
+    end
+  end
+
 let tests =
   suite "thmod" [
       test_case "read_thmod defaults" test_read_thmod_defaults ;
@@ -1211,6 +1235,7 @@ let tests =
       test_case "name scoping errors" test_name_scoping_errors ;
       test_case "split names" test_split_names ;
       test_case "phase 4 checks" test_phase4_checks ;
+      test_case "no sequents" test_no_sequents ;
       test_case "import basic" test_import_basic ;
       test_case "import with" test_import_with ;
       test_case "import transitive nested" test_import_transitive_nested ;

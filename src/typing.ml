@@ -732,7 +732,27 @@ let metaterm_ensure_subordination sr t =
   in
   aux t
 
+let file_kind : [`thm | `thmod] ref = ref `thm
+
+let reject_objseq t =
+  if !file_kind = `thmod then begin
+    let rec aux t =
+      match t with
+      | UAsyncObj _ | USyncObj _ ->
+          failwith
+            "Specification logic sequents are not allowed in a .thmod."
+      | UTrue | UFalse -> ()
+      | UEq _ -> ()
+      | UArrow (a, b) | UOr (a, b) | UAnd (a, b) ->
+          aux a ; aux b
+      | UBinding (_, _, body) -> aux body
+      | UPred _ -> ()
+    in
+    aux t
+  end
+
 let type_umetaterm ~sr ~sign ?(ctx=[]) t =
+  reject_objseq t ;
   let nominal_tyctx = umetaterm_nominals_to_tyctx t in
   let tyctx =
     (List.map (fun (id, t) -> (id, tc [] t)) ctx)
@@ -747,6 +767,8 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   result
 
 let type_udef ~sr ~sign (head, body) =
+  reject_objseq head ;
+  reject_objseq body ;
   let cids = umetaterm_extract_if is_capital_name head in
   let tyctx = ids_to_fresh_tyctx cids in
   let eqns1 = infer_constraints ~sign ~tyctx head in

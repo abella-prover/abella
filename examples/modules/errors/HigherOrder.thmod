@@ -1,0 +1,3 @@
+Module HigherOrder.
+  Type p (prop -> prop) -> prop.
+End HigherOrder.

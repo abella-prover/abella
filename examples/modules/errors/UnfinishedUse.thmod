@@ -1,0 +1,7 @@
+Module UnfinishedUse.
+  Kind u type.
+  Type r u -> prop.
+  Theorem skip_t : forall (x:u), r x.
+  intros. skip.
+  Import Module U = "Unfinished"[u] with p := r, ax := skip_t.
+End UnfinishedUse.

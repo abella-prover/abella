@@ -1,0 +1,4 @@
+Module Edge[A,B].
+  Type p A -> prop.
+  Axiom ax : forall (f:A -> B) (x:A), p x -> p x.
+End Edge.

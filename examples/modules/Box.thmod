@@ -1,0 +1,5 @@
+Module Box[T].
+  Kind box type.
+  Type mk T -> box.
+  Type p T -> prop.
+End Box.

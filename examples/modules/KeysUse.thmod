@@ -1,0 +1,6 @@
+Module KeysUse.
+  Kind u type.
+  Type r u -> prop.
+  Import Module K1 = "Keys"[u] with p := r.
+  Import Module K2 = K1 with q := r.
+End KeysUse.

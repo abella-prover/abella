@@ -1,0 +1,4 @@
+Module Unfinished[T].
+  Type p T -> prop.
+  Axiom ax : forall (x:T), p x.
+End Unfinished.

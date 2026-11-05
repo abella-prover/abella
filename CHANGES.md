@@ -1,6 +1,25 @@
 Changes in 2.1.0-dev from 2.0.8
 -------------------------------
 
+Reasoning-level modules
+
+* Added `.thmod` files with one top-level `Module`/`End` block and
+  optionally nested parameterized modules. Declarations are scoped by
+  module and stored in `.thmodc` artifacts.
+* Added `Import Module` with quoted files or in-scope modules/instances,
+  aliases, positional type arguments, and `with` clauses for declared
+  predicates and axiom items.
+* Module parameters are schematic type variables. Internal `Kind` types
+  are generative and distinct for every import instance.
+* Imports are flattened into the importing artifact. Unmapped declared
+  predicates and axioms remain keys for a later aliased re-import;
+  mapped axioms keep the value's `Finished`/`Axiomatic` tag.
+* A `.thmod` rejects ordinary `Import`, `Specification`, `Close`,
+  `Suspend`, `Quit`, `Abort`, declared predicates with `prop` in an
+  argument position, and non-stratified definitions.
+* Added `examples/modules/` and documentation for module syntax, type
+  arguments, `with` keys and values, artifacts, and restrictions.
+
 Abella Web
 
 * Abella now has a web interface at:

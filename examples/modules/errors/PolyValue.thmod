@@ -1,0 +1,4 @@
+Module PolyValue[T].
+  Type eq A -> A -> prop.
+  Axiom refl [A] : forall (x:A), eq x x.
+End PolyValue.

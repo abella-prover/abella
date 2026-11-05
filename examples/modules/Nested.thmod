@@ -1,0 +1,9 @@
+Module Nested[T].
+  Type p T -> prop.
+  Module Inner[U].
+    Kind inner type.
+    Type mk U -> inner.
+    Type q U -> prop.
+  End Inner.
+  Import Module I = Inner[T].
+End Nested.

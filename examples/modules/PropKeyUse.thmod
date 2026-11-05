@@ -1,0 +1,7 @@
+Module PropKeyUse.
+  Type r prop.
+  Axiom r_ax : r.
+  Import Module P = "PropKey" with p := r, p_ax := r_ax.
+  Theorem t : r.
+  apply P.p_ax. search.
+End PropKeyUse.

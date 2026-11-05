@@ -1,0 +1,5 @@
+Module InternalUse.
+  Kind v type.
+  Type q v -> prop.
+  Import Module I = "Internal"[v] with p := q.
+End InternalUse.

@@ -1,0 +1,5 @@
+Module Staged[T].
+  Type p T -> prop.
+  Type q T -> prop.
+  Axiom ax : forall (x:T), p x -> p x.
+End Staged.

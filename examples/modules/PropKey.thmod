@@ -1,0 +1,5 @@
+Module PropKey.
+  Type p prop.
+  Axiom p_ax : p.
+  Type q prop.
+End PropKey.

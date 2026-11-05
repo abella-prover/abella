@@ -1,0 +1,4 @@
+Module Internal[T].
+  Kind u type.
+  Type p u -> prop.
+End Internal.

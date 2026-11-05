@@ -1,0 +1,8 @@
+Module NestedUse.
+  Kind u type.
+  Type c u.
+  Import Module N = "Nested"[u].
+  Type h N.I.inner -> prop.
+  Theorem t : N.I.q c -> N.I.q c.
+  intros. search.
+End NestedUse.

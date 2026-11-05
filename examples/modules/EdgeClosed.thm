@@ -1,0 +1,4 @@
+Kind a type.
+Kind b type.
+Close b.
+Import Module E = "Edge"[a,b].

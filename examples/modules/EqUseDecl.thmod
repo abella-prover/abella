@@ -1,0 +1,6 @@
+Module EqUseDecl.
+  Kind nat type.
+  Type nat_eq nat -> nat -> prop.
+  Axiom nat_eq_refl : forall (x:nat), nat_eq x x.
+  Import Module E = "Eq"[nat] with eq := nat_eq, refl := nat_eq_refl.
+End EqUseDecl.

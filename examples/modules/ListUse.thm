@@ -1,0 +1,15 @@
+Kind nat type.
+Kind bool type.
+Type z nat.
+Type s nat -> nat.
+Type t bool.
+Type f bool.
+
+Import Module N = "List"[nat].
+Import Module B = "List"[bool].
+
+Theorem nat_ok : forall (xs:N.lst), N.contains z xs -> N.contains z xs.
+intros. search.
+
+Theorem bool_ok : forall (xs:B.lst), B.contains t xs -> B.contains t xs.
+intros. search.

@@ -1,0 +1,8 @@
+Module BoxUse.
+  Kind u type.
+  Kind v type.
+  Import Module B1 = "Box"[u].
+  Import Module B2 = "Box"[v].
+  Type f B1.box -> prop.
+  Type g B2.box -> prop.
+End BoxUse.

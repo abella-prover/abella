@@ -1,0 +1,7 @@
+Module List[T].
+  Kind lst type.
+  Type lnil lst.
+  Type lcons T -> lst -> lst.
+  Type contains T -> lst -> prop.
+  Axiom head : forall (x:T) (xs:lst), contains x (lcons x xs).
+End List.

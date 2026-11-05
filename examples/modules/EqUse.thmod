@@ -1,0 +1,11 @@
+Module EqUse.
+  Kind nat type.
+  Type z nat.
+  Define nat_eq : nat -> nat -> prop by
+    nat_eq X X.
+  Theorem nat_eq_refl : forall (x:nat), nat_eq x x.
+  intros. search.
+  Import Module E = "Eq"[nat] with eq := nat_eq, refl := nat_eq_refl.
+  Theorem t : forall (x:nat), nat_eq x x.
+  intros. apply E.refl. search.
+End EqUse.

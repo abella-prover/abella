@@ -1,0 +1,9 @@
+Module Collision.
+  Kind u type.
+  Type p u -> prop.
+  Module Inner.
+    Type q u -> prop.
+    Axiom ax : forall (x:u), q x -> p x.
+  End Inner.
+  Import Module I = Inner with q := p.
+End Collision.

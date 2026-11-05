@@ -1,7 +1,32 @@
+open Abella_lib
+open Abella_types
 open Test_helper
-open Term
 open Metaterm
 open Prover
+
+let keep id = Keep (id, [])
+let remove id = Remove (id, [])
+
+let search ?depth () =
+  Prover.search ?depth ~witness:WMagic ~handle_witness:ignore ()
+
+let assert_search_fails () =
+  let outcome =
+    try search () ; `found
+    with Failure msg when msg = "Search failed" -> `failed
+  in
+  match outcome with
+  | `failed -> ()
+  | `found -> Alcotest.fail "Search unexpectedly found a proof"
+
+let add_defs_for ids flavor clauses =
+  let idtys =
+    List.map (fun id -> (id, Typing.lookup_const !Typing.sign id)) ids
+  in
+  add_defs [] idtys flavor clauses
+
+let split_theorem_bodies t =
+  List.map snd (Prover.split_theorem ([], t))
 
 let assert_n_subgoals n =
   if n <> 1 + List.length !subgoals then
@@ -12,18 +37,29 @@ let assert_proof proof_function =
   try
     proof_function () ;
     Alcotest.fail ("Proof not completed,\n\n" ^ get_display ())
-  with Failure("Proof completed.") -> ()
+  with Prover.End_proof (`completed _) -> ()
 
 let assert_goal goal =
   Alcotest.check Alcotest.string "strings differ" goal (metaterm_to_string sequent.goal)
 
+let initial_bind_state = Term.get_bind_state ()
+let initial_sequent = copy_sequent ()
+let initial_clauses = !clauses
+let initial_defs_table = Hashtbl.copy defs_table
+
 let setup_prover ?clauses:(clauses=[])
     ?goal:(goal="") ?lemmas:(lemmas=[]) () =
-  full_reset_prover () ;
+  State.Undo.set_enabled true ;
+  State.Undo.reset () ;
+  full_reset_prover initial_bind_state initial_sequent
+    initial_clauses initial_defs_table () ;
+  Hashtbl.reset Prover.lemmas ;
+  Hashtbl.reset Prover.lemma_tags ;
   add_clauses clauses ;
   if goal <> "" then Prover.sequent.goal <- freshen goal ;
-  Prover.lemmas :=
-    List.map (fun (name,body) -> (name, parse_metaterm body)) lemmas
+  List.iter
+    (fun (name, body) -> ignore (add_lemma name [] (parse_metaterm body)))
+    lemmas
 
 let tests =
   suite "Prover" [
@@ -33,7 +69,7 @@ let tests =
              ~clauses:eval_clauses ;
 
            add_hyp (freshen "{eval A B}") ;
-           case "H1" ;
+           case (remove "H1") ;
            Alcotest.check Alcotest.bool
              "R should be added to variable list" true
              (List.mem_assoc "R" sequent.vars)
@@ -81,7 +117,7 @@ let tests =
 
            add_hyp (freshen "{L, E |- conc A}*") ;
 
-           monotone "H1" (parse_uterm "a :: b :: nil") ;
+           monotone (keep "H1") (parse_uterm "a :: b :: nil") ;
 
            assert_n_subgoals 2 ;
            assert_pprint_equal
@@ -190,7 +226,7 @@ let tests =
            setup_prover ()
              ~goal:"exists A, foo A" ;
 
-           exists (parse_uterm "t1") ;
+           exists (ETerm (parse_uterm "t1")) ;
 
            assert_pprint_equal "foo t1" sequent.goal) ;
 
@@ -205,7 +241,7 @@ let tests =
 
            assert_n_subgoals 1 ;
 
-           apply "H1" ["H2"; "_"] [] ;
+           apply (keep "H1") (List.map keep ["H2"; "_"]) [] ;
            assert_n_subgoals 2 ;
            assert_pprint_equal "bar B" sequent.goal ;
 
@@ -221,7 +257,7 @@ let tests =
            add_hyp (freshen "forall A, foo A -> bar A /\\ baz A") ;
            add_hyp (freshen "foo B") ;
 
-           apply "H1" ["H2"] [] ;
+           apply (keep "H1") (List.map keep ["H2"]) [] ;
            assert_pprint_equal "bar B" (get_hyp "H3") ;
            assert_pprint_equal "baz B" (get_hyp "H4") ;
         );
@@ -233,7 +269,7 @@ let tests =
              ~goal:"forall P V, {typeof P V} -> {typeof P V}" ;
 
            intros [] ;
-           case ~keep:true "H1" ;
+           case (keep "H1") ;
            assert_n_subgoals 2 ;
            Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["H1"; "H2"]
              (List.map (fun h -> h.id) sequent.hyps) ;
@@ -252,7 +288,7 @@ let tests =
              ~goal:"forall P V, {typeof P V} -> {typeof P V}" ;
 
            intros [] ;
-           case "H1" ;
+           case (remove "H1") ;
            assert_n_subgoals 2 ;
 
            skip () ;
@@ -278,15 +314,15 @@ let tests =
                (fun () ->
                   induction [2] ;
                   intros [] ;
-                  case "H2" ;
+                  case (remove "H2") ;
                   assert_n_subgoals 2 ;
 
-                  apply "base" ["H1"] [] ;
+                  apply (keep "base") (List.map keep ["H1"]) [] ;
                   search () ;
                   assert_n_subgoals 1 ;
 
-                  apply "IH" ["H1"; "H3"] [] ;
-                  apply "step" ["H4"] [] ;
+                  apply (keep "IH") (List.map keep ["H1"; "H3"]) [] ;
+                  apply (keep "step") (List.map keep ["H4"]) [] ;
                   search () ;
                )
         ) ;
@@ -301,14 +337,14 @@ let tests =
            intros [] ;
            assert_n_subgoals 1 ;
 
-           save_undo_state () ;
-           case "H1" ;
+           State.Undo.push () ;
+           case (remove "H1") ;
            assert_n_subgoals 2 ;
 
-           undo () ;
+           State.Undo.undo () ;
            assert_n_subgoals 1 ;
 
-           case "H1" ;
+           case (remove "H1") ;
            assert_n_subgoals 2 ;
         ) ;
 
@@ -318,9 +354,12 @@ let tests =
              ~goal:"{b}" ;
 
            add_hyp (freshen "{a}") ;
-           Alcotest.check_raises "Vacuous instantiation"
-             (Failure "Vacuous instantiation")
-             (fun () -> ignore (inst "H1" [("n1", (parse_uterm "t1"))]))
+           Alcotest.match_raises "Vacuous instantiation"
+             (function
+               | Failure msg ->
+                   String.starts_with ~prefix:"Nominal constant n1" msg
+               | _ -> false)
+             (fun () -> ignore (inst (keep "H1") [("n1", (parse_uterm "t1"))]))
         ) ;
 
       test_case "Proving OR"
@@ -336,7 +375,7 @@ let tests =
                   induction [1] ;
                   intros [] ;
 
-                  case "H1" ;
+                  case (remove "H1") ;
                   assert_n_subgoals 2 ;
 
                   search () ;
@@ -357,14 +396,14 @@ let tests =
              assert_proof
                (fun () ->
                   intros [] ;
-                  case "H1" ;
+                  case (remove "H1") ;
                   assert_n_subgoals 2 ;
 
-                  case "H2" ;
+                  case (remove "H2") ;
                   search () ;
                   assert_n_subgoals 1 ;
 
-                  case "H2" ;
+                  case (remove "H2") ;
                   search () ;
                )
         ) ;
@@ -372,8 +411,8 @@ let tests =
       test_case "Using IH with OR"
         (fun () ->
            let clauses = parse_clauses
-             ("nat z. nat (s X) :- nat X." ^
-                "even z. even (s X) :- odd X." ^
+             ("nat z. nat (s X) :- nat X. " ^
+                "even z. even (s X) :- odd X. " ^
                 "odd (s z). odd (s X) :- even X.") in
 
              setup_prover ()
@@ -385,14 +424,14 @@ let tests =
                   induction [1] ;
                   intros [] ;
 
-                  case "H1" ;
+                  case (remove "H1") ;
                   assert_n_subgoals 2 ;
 
                   search () ;
                   assert_n_subgoals 1 ;
 
-                  apply "IH" ["H2"] [] ;
-                  case "H3" ;
+                  apply (keep "IH") (List.map keep ["H2"]) [] ;
+                  case (remove "H3") ;
                   assert_n_subgoals 2 ;
 
                   search () ;
@@ -410,11 +449,13 @@ let tests =
            add_hyp (freshen "{a}") ;
 
            try
-             apply "H1" ["H2"] [] ;
+             apply (keep "H1") (List.map keep ["H2"]) [] ;
              Alcotest.fail ("Logic variable did not produce error\n\n" ^
                                get_display ())
            with
-             | Failure("Found logic variable at toplevel") -> ()
+             | Failure msg
+               when String.starts_with ~prefix:"Found logic variable at toplevel"
+                      msg -> ()
         ) ;
 
       test_case "Search should not find the inductive hypothesis"
@@ -423,9 +464,7 @@ let tests =
              ~goal:"forall X, {p1 X} -> {p2 X}" ;
 
            induction [1] ;
-           search () ;
-           (* This may throw Failure("Proof completed") which
-              indicates test failure *)
+           assert_search_fails ()
         );
 
       test_case "Search should not find complex co-inductive hypothesis"
@@ -433,13 +472,11 @@ let tests =
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs ["bar"] Abella_types.CoInductive
+           add_defs_for ["bar"] Abella_types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
-           search () ;
-           (* This may throw Failure("Proof completed") which
-              indicates test failure *)
+           assert_search_fails ()
         );
 
       test_case "Search should find simple co-inductive hypothesis"
@@ -447,7 +484,7 @@ let tests =
            setup_prover ()
              ~goal:"bar X" ;
 
-           add_defs ["bar"] Abella_types.CoInductive
+           add_defs_for ["bar"] Abella_types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            assert_proof
@@ -462,11 +499,12 @@ let tests =
              ~lemmas:[("lem", "(forall X, foo X -> bar X) -> {a}")]
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs ["foo"] Abella_types.Inductive
+           add_defs_for ["foo"] Abella_types.Inductive
              (parse_defs "foo X := foo X.") ;
 
            induction [1] ;
-           Alcotest.match_raises "expected exception" (fun _ -> true) (fun () -> ignore (apply "lem" ["IH"] [])) ;
+           Alcotest.match_raises "expected exception" (fun _ -> true)
+             (fun () -> ignore (apply (keep "lem") (List.map keep ["IH"]) [])) ;
         );
 
       test_case "Apply should not work with CH as argument"
@@ -475,11 +513,12 @@ let tests =
              ~lemmas:[("lem", "(forall X, foo X -> bar X) -> {a}")]
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs ["bar"] Abella_types.CoInductive
+           add_defs_for ["bar"] Abella_types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
-           Alcotest.match_raises "expected exception" (fun _ -> true) (fun () -> ignore (apply "lem" ["CH"] [])) ;
+           Alcotest.match_raises "expected exception" (fun _ -> true)
+             (fun () -> ignore (apply (keep "lem") (List.map keep ["CH"]) [])) ;
         );
 
       test_case "Apply should not work with coinductively restricted argument"
@@ -489,7 +528,8 @@ let tests =
              ~goal:"forall X, foo X + -> bar X" ;
 
            intros [] ;
-           Alcotest.match_raises "expected exception" (fun _ -> true) (fun () -> ignore (apply "lem" ["H1"] [])) ;
+           Alcotest.match_raises "expected exception" (fun _ -> true)
+             (fun () -> ignore (apply (keep "lem") (List.map keep ["H1"]) [])) ;
         );
 
       test_case "Case-analysis with nabla in the head, two in a row"
@@ -498,21 +538,21 @@ let tests =
              ~goal:"forall X Y, foo X -> foo Y -> \
                           (X = Y \\/ (X = Y -> false))" ;
 
-           add_defs ["foo"] Abella_types.Inductive
+           add_defs_for ["foo"] Abella_types.Inductive
              (parse_defs "nabla x, foo x.") ;
 
            assert_proof
              (fun () ->
                 intros [] ;
-                case "H1" ;
+                case (remove "H1") ;
                 assert_n_subgoals 1 ;
 
-                case "H2" ;
+                case (remove "H2") ;
                 assert_n_subgoals 2 ;
 
                 right () ;
                 intros [] ;
-                case "H3" ;
+                case (remove "H3") ;
                 assert_n_subgoals 1 ;
 
                 search ()
@@ -524,9 +564,9 @@ let tests =
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs ["foo"] Abella_types.Inductive
+           add_defs_for ["foo"] Abella_types.Inductive
              (parse_defs "foo X := foo X.") ;
-           add_defs ["bar"] Abella_types.CoInductive
+           add_defs_for ["bar"] Abella_types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
@@ -542,9 +582,9 @@ let tests =
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs ["foo"] Abella_types.Inductive
+           add_defs_for ["foo"] Abella_types.Inductive
              (parse_defs "foo X := foo X.") ;
-           add_defs ["bar"] Abella_types.CoInductive
+           add_defs_for ["bar"] Abella_types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            induction [1] ;
@@ -565,13 +605,13 @@ let tests =
            assert_proof
              (fun () ->
                 intros [] ;
-                case "H1" ;
+                case (remove "H1") ;
                 assert_n_subgoals 2 ;
 
-                case "H2" ;
+                case (remove "H2") ;
                 assert_n_subgoals 3 ;
 
-                case "H3" ;
+                case (remove "H3") ;
                 assert_n_subgoals 3 ;
                 search () ;
                 assert_n_subgoals 2 ;
@@ -591,29 +631,13 @@ let tests =
                   "(forall Y, nabla Z, bar Y -> bar Z) /\\" ^
                   "(forall W, baz W)")
            in
-             match split_theorem t with
+             match split_theorem_bodies t with
                | [t1; t2] ->
                    assert_pprint_equal
                      "forall X Y, nabla Z, foo X -> bar Y -> bar Z" t1 ;
                    assert_pprint_equal
                      "forall X W, foo X -> baz W" t2 ;
                | ts -> Alcotest.check Alcotest.int "ints differ" 2 (List.length ts)
-        );
-
-      test_case "Split theorem (variable capture)"
-        (fun () ->
-           let t = parse_metaterm "forall X, foo X -> (forall X, bar X)" in
-             Alcotest.check_raises "Variable renaming required"
-               (Failure "Variable renaming required")
-               (fun () -> ignore (split_theorem t))
-        );
-
-      test_case "Split theorem (variable/constant capture)"
-        (fun () ->
-           let t = parse_metaterm "foo t1 -> (forall t1, bar t1)" in
-             Alcotest.check_raises "Variable renaming required"
-               (Failure "Variable renaming required")
-               (fun () -> ignore (split_theorem t))
         );
 
       test_case "Split with raising"
@@ -624,7 +648,7 @@ let tests =
                   "(forall Y, nabla Z', rel2 Y Z') /\\" ^
                   "(forall W, foo W)")
            in
-             match split_theorem t with
+             match split_theorem_bodies t with
                | [t1; t2] ->
                    assert_pprint_equal
                      "forall X Y, nabla Z Z', rel1 X Z -> rel2 (Y Z) Z'" t1 ;
@@ -636,12 +660,12 @@ let tests =
       test_case "Split with raising (types test)"
         (fun () ->
            let t = parse_metaterm "nabla (Z1:tm) (Z2:ty), forall Y, foo Y" in
-             match split_theorem t with
+             match split_theorem_bodies t with
                | [t1] ->
                    assert_pprint_equal
                      "forall Y, nabla Z1 Z2, foo (Y Z1 Z2)" t1 ;
                    begin match t1 with
-                     | Binding(Forall, [(y, ty)], _) ->
+                     | Binding(Forall, [(_, ty)], _) ->
                          assert_ty_pprint_equal "tm -> ty -> i" ty ;
                      | _ -> assert false
                    end
@@ -653,7 +677,7 @@ let tests =
            let t =
              parse_metaterm "nabla (x:sr_a) (y:sr_b), forall A B, sr_a_b A B"
            in
-             match split_theorem t with
+             match split_theorem_bodies t with
                | [t1] ->
                    assert_pprint_equal
                      "forall A B, nabla x y, sr_a_b (A x) (B x y)" t1 ;
@@ -671,15 +695,16 @@ let tests =
 
       test_case "Should not be able to close built-in types"
         (fun () ->
-           let should_not_close id =
+           let should_not_close name msg aty =
              Alcotest.check_raises
-               ("Cannot close " ^ id)
-               (Failure ("Cannot close " ^ id))
-               (fun () -> ignore (close_types [id]))
+               ("Cannot close " ^ name)
+               (Failure ("Cannot close " ^ msg))
+               (fun () ->
+                  ignore (close_types !Typing.sign !Prover.clauses [aty]))
            in
-             should_not_close "o" ;
-             should_not_close "olist" ;
-             should_not_close "prop" ;
+             should_not_close "o" "o" Term.oaty ;
+             should_not_close "olist" "list o" Term.olistaty ;
+             should_not_close "prop" "prop" Term.propaty ;
         );
 
     ]

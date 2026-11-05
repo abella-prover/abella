@@ -15,6 +15,6 @@ let () =
       Test_thmod.tests ;
       Test_thm.tests ;
       Test_tactics.tests ;
-      (* TODO Test_prover.tests ; *)
+      Test_prover.tests ;
       Test_web.tests ;
     ]

@@ -110,13 +110,10 @@ let () =
   in
 
   let switch =
-    let doc =
-      "Does nothing; use a frontend such as Abella Web for interactive \
-       sessions." in
     let deprecated =
       "The -i flag is deprecated and does nothing; use a frontend such \
        as Abella Web for interactive sessions." in
-    Arg.(value @@ flag @@ info ["i"] ~doc ~deprecated)
+    Arg.(value @@ flag @@ info ["i"] ~deprecated)
   in
 
   let output =
@@ -147,9 +144,9 @@ let () =
   in
 
   let em =
-    let doc = "Does nothing; use abella_dep instead." in
-    let deprecated = "The -M flag is deprecated and does nothing; use abella_dep instead" in
-    Arg.(value @@ flag @@ info ["M"] ~doc ~deprecated)
+    let deprecated =
+      "The -M flag is deprecated and does nothing; use abella_dep instead." in
+    Arg.(value @@ flag @@ info ["M"] ~deprecated)
   in
 
   let verb =

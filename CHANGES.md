@@ -9,16 +9,8 @@ Reasoning-level modules
 * Added `Import Module` with quoted files or in-scope modules/instances,
   aliases, positional type arguments, and `with` clauses for declared
   predicates and axiom items.
-* Module parameters are schematic type variables. Internal `Kind` types
-  are generative and distinct for every import instance.
-* Imports are flattened into the importing artifact. Unmapped declared
-  predicates and axioms remain keys for a later aliased re-import;
-  mapped axioms keep the value's `Finished`/`Axiomatic` tag.
-* A `.thmod` rejects ordinary `Import`, `Specification`, `Close`,
-  `Suspend`, `Quit`, `Abort`, declared predicates with `prop` in an
-  argument position, and non-stratified definitions.
-* Added `examples/modules/` and documentation for module syntax, type
-  arguments, `with` keys and values, artifacts, and restrictions.
+* See `examples/modules/` for examples, and `examples/modules/README.md` for
+  more documentation.
 
 Abella Web
 

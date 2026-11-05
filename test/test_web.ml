@@ -221,7 +221,7 @@ let native_compile_module () =
     D.Setup.trust_compiled := false ;
     D.Setup.unfinished := [] ;
     D.Setup.input := path ;
-    let module Thm = (val Source.read_thm ~thc path) in
+    let module Thm = (val Thm.read ~thc path) in
     D.Setup.compiled := Some (module Thm) ;
     D.Setup.lexbuf := Thm.lex true ;
     Output.collect_mode () ;
@@ -383,7 +383,7 @@ let test_input_path_relative_imports () =
   Source.add_virtual "nested/main.thm" "" ;
   Source.add_virtual "nested/mod.thm" web_module ;
   D.Setup.input := "nested/main.thm" ;
-  let module Thm = (val Source.read_thm "nested/main.thm") in
+  let module Thm = (val Thm.read "nested/main.thm") in
   Alcotest.check Alcotest.string "input path" "nested/main.thm" Thm.path ;
   Filepath.set_load_path ~wrt:!D.Setup.input "lib" ;
   Alcotest.check Alcotest.string "load path" "nested/lib" !Filepath.load_path ;
@@ -587,7 +587,7 @@ End List.
   assert_ok (fst (process_command "Type lcons lst -> lst.")) ;
   assert_ok (fst (process_command "End List.")) ;
   Alcotest.check Alcotest.bool "thmod finished" true
-    !D.Setup.thmod_finished
+    (Thmod.is_complete ())
 
 let test_inline_module () =
   assert_ok (fst (process_command "Module M.")) ;

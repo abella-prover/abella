@@ -106,10 +106,7 @@ let run_thmod dir name source =
   D.Setup.unfinished := [] ;
   D.Setup.file_kind := `thmod ;
   D.Setup.input := path ;
-  D.Setup.thmod_name := None ;
-  D.Setup.thmod_params := [] ;
-  D.Setup.thmod_finished := false ;
-  let module Src = (val Source.read_thmod path) in
+  let module Src = (val Thmod.read path) in
   D.Setup.compiled := Some (module Src) ;
   D.Setup.lexbuf := Src.lex true ;
   Output.collect_mode () ;
@@ -148,10 +145,7 @@ let run_thm dir name source =
   D.Setup.unfinished := [] ;
   D.Setup.file_kind := `thm ;
   D.Setup.input := path ;
-  D.Setup.thmod_name := None ;
-  D.Setup.thmod_params := [] ;
-  D.Setup.thmod_finished := false ;
-  let module Src = (val Source.read_thm path) in
+  let module Src = (val Thm.read path) in
   D.Setup.compiled := Some (module Src) ;
   D.Setup.lexbuf := Src.lex true ;
   Output.collect_mode () ;
@@ -228,14 +222,14 @@ let test_read_thmod_defaults () =
     Source.clear_virtual () ;
     Source.clear_thc_trust () ;
     Source.add_virtual "mods/Foo.thmod" "Module Foo.\nEnd Foo.\n" ;
-    let module Src = (val Source.read_thmod "mods/Foo.thmod") in
+    let module Src = (val Thmod.read "mods/Foo.thmod") in
     Alcotest.check Alcotest.string "path" "mods/Foo.thmod" Src.path ;
     Alcotest.check Alcotest.string "artifact path"
       "mods/Foo.thmodc" Src.thc_path ;
     Alcotest.check Alcotest.bool "is stale" true Src.is_stale ;
     Source.add_virtual "mods/Foo.thmodc" "artifact" ;
     Source.set_thc_trusted "mods/Foo.thmodc" true ;
-    let module Src = (val Source.read_thmod "mods/Foo.thmod") in
+    let module Src = (val Thmod.read "mods/Foo.thmod") in
     Alcotest.check Alcotest.bool "is stale after trust" false Src.is_stale ;
     Alcotest.check Alcotest.string "artifact contents"
       "artifact" (Src.thc_contents ())

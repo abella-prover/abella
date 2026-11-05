@@ -16,6 +16,12 @@ open Metaterm
 open Abella_types
 open Extensions
 
+module Setup = Driver_setup
+
+let read ?thmodc source =
+  Source.read_compiled ~suffix:".thmod" ~compiled_suffix:".thmodc"
+    ?compiled:thmodc source
+
 type item_class =
   | KindItem
   | TypeItem
@@ -826,3 +832,312 @@ let rigid_predicates_of_decls decls =
   let candidates = List.unique (declared @ occurring) in
   let predicates = List.find_all (is_predicate_name decls) candidates in
   Iset.of_list predicates
+
+(* .thmod artifacts, file structure, and source compilation *)
+
+type artifact = {
+  ta_name : string ;
+  ta_params : string list ;
+  ta_content : compiled list ;
+  ta_nested : string list ;
+  ta_exports : string list ;
+}
+
+let parse_artifact bytes =
+  let read = Artifact.marshal_reader bytes in
+  ignore (read () : Digest.t) ;
+  ignore (read () : string) ;
+  let name = (read () : string) in
+  let params = (read () : string list) in
+  ignore (read () : sign) ;
+  ignore (read () : clause list) ;
+  ignore (read () : string list) ;
+  let content = (read () : compiled list) in
+  let nested = (read () : string list) in
+  let exports = (read () : string list) in
+  { ta_name = name ;
+    ta_params = params ;
+    ta_content = content ;
+    ta_nested = nested ;
+    ta_exports = exports ;
+  }
+
+let loading : string list ref = State.rref []
+
+let recompile ~path ~out_path =
+  if not !Setup.recurse then
+    failwithf "Recursive invocation of Abella prevented (--non-recursive)" ;
+  let cmd = Printf.sprintf " %S -o %S" path out_path in
+  [%trace 1 "Running: abella%s" cmd] ;
+  if Sys.command (Sys.executable_name ^ cmd) <> 0 then
+    failwithf "Could not create the compiled form of %S" path
+
+let rec load_artifact ~modname =
+  let path = modname ^ ".thmod" in
+  let canonical = Source.canon path in
+  if List.mem canonical !loading then
+    failwithf "Cyclic import of %S: %s"
+      path (String.concat " -> " (List.rev (canonical :: !loading))) ;
+  let saved_loading = !loading in
+  loading := canonical :: saved_loading ;
+  Fun.protect ~finally:(fun () -> loading := saved_loading)
+    begin fun () ->
+      let module Src = (val read path) in
+      let recursive_invoke () =
+        recompile ~path:Src.path ~out_path:Src.out_path
+      in
+      let use_artifact = match !Setup.import_mode with
+        | `thc -> true
+        | `source -> false
+        | `auto -> Source.is_thc_trusted Src.thc_path
+      in
+      if Source.virtual_exists path then begin
+        if not use_artifact || Src.is_stale then
+          ignore (source_compile ~modname)
+      end else if not use_artifact || Src.is_stale then
+        recursive_invoke () ;
+      let bytes = Src.thc_contents () in
+      let read_digest bytes =
+        let read = Artifact.marshal_reader bytes in
+        let digest = (read () : Digest.t) in
+        let version = (read () : string) in
+        (digest, version)
+      in
+      let digest, version = read_digest bytes in
+      if not !Setup.trust_compiled &&
+         digest <> Lazy.force Version.self_digest then begin
+        Output.msg_format
+          ("@[<v2>Warning: The following .thmodc file was compiled with a "
+           ^^ "different version (%s) of Abella; recompiling@,%s@]")
+          version (modname ^ ".thmodc") ;
+        recursive_invoke () ;
+        parse_artifact (Src.thc_contents ())
+      end else
+        parse_artifact bytes
+    end
+
+and source_compile ~modname =
+  let thmod_path = modname ^ ".thmod" in
+  let compiling_key = modname ^ ".thmod" in
+  if List.mem compiling_key !Setup.compiling then
+    failwithf "Cyclic import of %S: %s"
+      thmod_path
+      (String.concat " -> " (List.rev (compiling_key :: !Setup.compiling))) ;
+  let saved_snapshot = State.snapshot () in
+  let saved_mode = !Setup.mode in
+  let saved_annotate = !Setup.annotate in
+  let saved_recurse = !Setup.recurse in
+  let saved_input = !Setup.input in
+  let saved_lexbuf = !Setup.lexbuf in
+  let saved_compiled = !Setup.compiled in
+  let saved_unfinished = !Setup.unfinished in
+  let saved_import_mode = !Setup.import_mode in
+  let saved_trust_compiled = !Setup.trust_compiled in
+  let saved_file_kind = !Setup.file_kind in
+  let saved_dest = !Output.dest in
+  let saved_undo = State.Undo.is_enabled () in
+  let saved_witnesses = !Setup.witnesses in
+  let saved_state = !Setup.current_state in
+  let saved_compiling = !Setup.compiling in
+  let saved_clause_map = !Typing.clause_map in
+  let restore () =
+    State.reload saved_snapshot ;
+    Setup.mode := saved_mode ;
+    Setup.annotate := saved_annotate ;
+    Setup.recurse := saved_recurse ;
+    Setup.input := saved_input ;
+    Setup.lexbuf := saved_lexbuf ;
+    Setup.compiled := saved_compiled ;
+    Setup.unfinished := saved_unfinished ;
+    Setup.import_mode := saved_import_mode ;
+    Setup.trust_compiled := saved_trust_compiled ;
+    Setup.file_kind := saved_file_kind ;
+    Output.dest := saved_dest ;
+    State.Undo.set_enabled saved_undo ;
+    Setup.witnesses := saved_witnesses ;
+    Setup.current_state := saved_state ;
+    Setup.compiling := saved_compiling ;
+    Typing.clause_map := saved_clause_map
+  in
+  try begin
+    State.reload (Option.get !Setup.initial_snapshot) ;
+    reset () ;
+    State.Undo.set_enabled false ;
+    Setup.mode := `batch ;
+    Setup.annotate := false ;
+    Setup.recurse := false ;
+    Setup.compiled := None ;
+    Setup.unfinished := [] ;
+    Setup.input := thmod_path ;
+    Setup.file_kind := `thmod ;
+    let module Src = (val read thmod_path) in
+    Setup.lexbuf := Src.lex true ;
+    Setup.compiling := compiling_key :: saved_compiling ;
+    Output.collect_mode () ;
+    ignore (Output.drain ()) ;
+    Option.iter (fun f -> f (Source.canon thmod_path)) !Setup.on_import ;
+    let rec drive () =
+      match !Setup.process1 () with
+      | `ok -> drive ()
+      | `error -> raise (Setup.AbellaExit 1)
+    in
+    drive ()
+  end with
+  | Setup.AbellaExit 0 ->
+      let name = match top_name () with
+        | Some name -> name
+        | None -> failwith "A .thmod must contain a top-level module"
+      in
+      let params = top_params () in
+      let content = exported_content () in
+      let nested = nested_module_names () in
+      let exports = exported_names () in
+      let artifact_sign = sign_of_content content in
+      let preds =
+        Artifact.predicates artifact_sign |>
+        List.filter (fun id -> List.mem id exports)
+      in
+      let bytes =
+        thmodc_layout name params artifact_sign !Setup.spec_clauses preds
+          content nested exports
+      in
+      ignore (Output.collected_messages ()) ;
+      restore () ;
+      Source.add_virtual_thc (modname ^ ".thmodc") bytes ;
+      if Source.virtual_exists (modname ^ ".thmodc") then
+        Source.set_thc_trusted (modname ^ ".thmodc") true ;
+      bytes
+  | Setup.AbellaExit n ->
+      let text = Output.collected_messages () in
+      restore () ;
+      failwithf "Could not compile imported module %S (exit %d)%s%s"
+        modname n (if text = "" then "" else ": ") text
+  | e ->
+      let text = Output.collected_messages () in
+      restore () ;
+      let msg = match e with
+        | Failure msg -> msg
+        | _ -> sorry e
+      in
+      failwithf "Could not compile imported module %S: %s%s"
+        modname msg (if text = "" then "" else "\n" ^ text)
+
+and sign_of_content content =
+  let ktable =
+    List.flatten_map (function
+        | CKind (ids, knd) -> List.map (fun id -> (id, knd)) ids
+        | _ -> []) content
+  in
+  let ctable =
+    List.flatten_map (function
+        | CType (ids, typarams, ty)
+        | CDeclPred (ids, typarams, ty) ->
+            List.map (fun id -> (id, Poly (typarams, ty))) ids
+        | CDefine (_, typarams, idtys, _) ->
+            List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys
+        | CTheorem _ | CKind _ | CImport _ | CClose _ | CSuspend _ -> [])
+      content
+  in
+  (ktable, ctable)
+
+and thmodc_layout name params sign clauses predicates content nested exports =
+  Artifact.marshal_bytes [
+    Obj.repr (Artifact.digest_placeholder ()) ;
+    Obj.repr Version.version ;
+    Obj.repr name ;
+    Obj.repr params ;
+    Obj.repr sign ;
+    Obj.repr clauses ;
+    Obj.repr predicates ;
+    Obj.repr content ;
+    Obj.repr nested ;
+    Obj.repr exports ;
+  ]
+
+and write_compilation () =
+  match !Setup.compiled with
+  | None -> ()
+  | Some (module Compiled) ->
+      let name = match top_name () with
+        | Some name -> name
+        | None -> failwith "Cannot write a .thmodc without a module"
+      in
+      let content = exported_content () in
+      let exports = exported_names () in
+      let preds =
+        Artifact.predicates !sign |>
+        List.filter (fun id -> List.mem id exports)
+      in
+      Compiled.marshal (Lazy.force Version.self_digest) ;
+      Compiled.marshal Version.version ;
+      Compiled.marshal name ;
+      Compiled.marshal (top_params ()) ;
+      Compiled.marshal (sign_of_content content) ;
+      Compiled.marshal !Setup.spec_clauses ;
+      Compiled.marshal preds ;
+      Compiled.marshal content ;
+      Compiled.marshal (nested_module_names ()) ;
+      Compiled.marshal exports ;
+      Compiled.close ()
+
+(* File structure *)
+
+let is_complete () = (!env).en_complete
+
+let basename () =
+  let base = Filename.basename !Setup.input in
+  if Filename.check_suffix base ".thmod" then
+    Filename.chop_suffix base ".thmod"
+  else base
+
+let check_structure cmd =
+  match cmd with
+  | Module _ ->
+      if is_complete () then
+        failwith "Module after End is not allowed in a .thmod"
+  | End _ ->
+      if current_name () = None then
+        failwith "End without a matching Module"
+  | Import _ ->
+      failwith "A .thmod may not use ordinary Import"
+  | Specification _ ->
+      failwith "Specification is not allowed in a .thmod"
+  | Close _ ->
+      failwith "Close is not allowed in a .thmod"
+  | Suspend _ ->
+      failwith "Suspend is not allowed in a .thmod"
+  | TopCommon Quit ->
+      failwith "Quit is not allowed in a .thmod"
+  | _ ->
+      if is_complete () then
+        failwith "Commands after End are not allowed in a .thmod" ;
+      if current_name () = None then
+        failwith "A .thmod must start with a Module command"
+
+let remove_scope_declarations sc =
+  let names =
+    List.map (fun item -> item.item_name) sc.sc_items
+  in
+  let (ktable, ctable) = !sign in
+  sign :=
+    (List.filter (fun (id, _) -> not (List.mem id names)) ktable,
+     List.filter (fun (id, _) -> not (List.mem id names)) ctable) ;
+  Prover.remove_globals names
+
+let process_module name params =
+  let is_top = current_name () = None in
+  if is_top then begin
+    if is_complete () then
+      failwith "Module after End is not allowed in a .thmod" ;
+    let base = basename () in
+    if name <> base then
+      failwithf "Module %s does not match the file name %s.thmod"
+        name base
+  end ;
+  push_frame !sr ;
+  enter_module name params
+
+let process_end name =
+  let closed, is_top = leave_module ~retain_top:false name in
+  if not is_top then remove_scope_declarations closed ;
+  sr := pop_frame ()

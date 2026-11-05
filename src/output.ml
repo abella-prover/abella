@@ -59,6 +59,23 @@ let drain () =
       out
   | _ -> []
 
+let json_field name = function
+  | `Assoc fields -> begin
+      match List.assoc_opt name fields with
+      | Some (`String s) -> s
+      | _ -> ""
+    end
+  | _ -> ""
+
+let collected_messages () =
+  drain () |>
+  List.filter_map begin fun msg ->
+    if json_field "type" msg = "system_message" then
+      Some (json_field "message" msg)
+    else None
+  end |>
+  String.concat "\n"
+
 type severity = Info | Error
 
 let msg_printfk k ?(post = fun x -> x) ?(severity = Info) fmt =

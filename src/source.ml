@@ -21,7 +21,7 @@ module type SOURCE = sig
   val lex  : bool -> Lexing.lexbuf
 end
 
-module type THM = sig
+module type COMPILED = sig
   include SOURCE
 
   val out_path : string
@@ -31,7 +31,7 @@ module type THM = sig
   val marshal : 'a -> unit
   val close : unit -> unit
 
-  (** the bytes of the (possibly generated) .thc file *)
+  (** the bytes of the (possibly generated) compiled artifact *)
   val thc_contents : unit -> string
 end
 
@@ -72,7 +72,7 @@ let virtual_contents path =
   Hashtbl.find virtual_files (canon path)
 
 (* Cache bookkeeping lives beside the virtual files so clearing the virtual
-   filesystem also releases the generated .thc entries. *)
+   filesystem also releases the generated compiled artifacts. *)
 let thc_cache_limit = ref 0
 let thc_cache_bytes = ref 0
 let thc_cache_sizes : (string, int) Hashtbl.t = Hashtbl.create 19
@@ -84,7 +84,7 @@ let clear_virtual () =
   thc_cache_order := [] ;
   thc_cache_bytes := 0
 
-(* Set when a browser-generated .thc file is ready. *)
+(* Set when a browser-generated compiled artifact is ready. *)
 let thc_trusted : (string, bool) Hashtbl.t = Hashtbl.create 19
 
 let set_thc_trusted path trusted =
@@ -96,9 +96,10 @@ let is_thc_trusted path =
 let clear_thc_trust () =
   Hashtbl.clear thc_trusted
 
-(* Generated .thc files are kept for the session so repeated imports do not
-   recompile.  Bound their total size so an import-heavy project cannot grow
-   the worker heap without limit.  A limit of 0 disables eviction. *)
+(* Generated compiled artifacts are kept for the session so repeated
+   imports do not recompile.  Bound their total size so an import-heavy
+   project cannot grow the worker heap without limit.  A limit of 0
+   disables eviction. *)
 let thc_cache_size () = !thc_cache_bytes
 
 let set_thc_cache_limit limit =
@@ -203,7 +204,7 @@ let read_file_bytes path =
 let read_compiled ?(suffix = ".thm") ?(compiled_suffix = ".thc")
     ?compiled source =
   let is_virtual = virtual_exists source in
-  let module Thm = struct
+  let module Compiled = struct
     include (val read source : SOURCE)
 
     let base =
@@ -258,11 +259,4 @@ let read_compiled ?(suffix = ".thm") ?(compiled_suffix = ".thc")
       else read_file_bytes thc_path
 
   end in
-  (module Thm : THM)
-
-let read_thm ?thc source =
-  read_compiled ~suffix:".thm" ~compiled_suffix:".thc" ?compiled:thc source
-
-let read_thmod ?thmodc source =
-  read_compiled ~suffix:".thmod" ~compiled_suffix:".thmodc"
-    ?compiled:thmodc source
+  (module Compiled : COMPILED)

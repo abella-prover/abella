@@ -49,9 +49,9 @@ let abella_main flags switch output compiled annotate norec _em verb infile =
         let is_thmod = Filename.check_suffix file ".thmod" in
         let module Src =
           (val if is_thmod then
-                 Source.read_thmod ?thmodc:compiled file
+                 Thmod.read ?thmodc:compiled file
                else
-                 Source.read_thm ?thc:compiled file)
+                 Thm.read ?thc:compiled file)
         in
         Setup.compiled := Some (module Src) ;
         Setup.file_kind := if is_thmod then `thmod else `thm ;

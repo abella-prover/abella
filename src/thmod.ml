@@ -35,6 +35,7 @@ type item = {
 type template = {
   tp_name : string ;
   tp_from : string list ;
+  tp_source : string ;
   tp_params : string list ;
   tp_content : compiled list ;
   tp_nested : string list ;
@@ -50,6 +51,8 @@ type instance = {
 
 type scope = {
   sc_name : string ;
+  sc_root : string ;
+  sc_source : string ;
   sc_path : string list ;
   sc_params : string list ;
   sc_items : item list ;
@@ -61,12 +64,14 @@ type scope = {
 type env = {
   en_stack : scope list ;           (* innermost first *)
   en_top : scope option ;
+  en_templates : scope list ;       (* completed top-level .thm modules *)
   en_complete : bool ;
 }
 
 let initial_env = {
   en_stack = [] ;
   en_top = None ;
+  en_templates = [] ;
   en_complete = false ;
 }
 
@@ -126,18 +131,27 @@ let instance_prefix name =
 let template_of_scope sc = {
   tp_name = sc.sc_name ;
   tp_from = sc.sc_path ;
+  tp_source = sc.sc_source ;
   tp_params = sc.sc_params ;
   tp_content = List.rev sc.sc_content ;
   tp_nested = List.map (fun ch -> ch.sc_name) sc.sc_children ;
 }
 
 let find_template name =
-  match current_scope () with
-  | None -> None
-  | Some sc ->
-      List.find_some begin fun ch ->
-        if ch.sc_name = name then Some (template_of_scope ch) else None
-      end sc.sc_children
+  let in_current =
+    match current_scope () with
+    | None -> None
+    | Some sc ->
+        List.find_some begin fun ch ->
+          if ch.sc_name = name then Some (template_of_scope ch) else None
+        end sc.sc_children
+  in
+  match in_current with
+  | Some _ as template -> template
+  | None ->
+      List.find_some begin fun sc ->
+        if sc.sc_name = name then Some (template_of_scope sc) else None
+      end !env.en_templates
 
 let find_instance name =
   match current_scope () with
@@ -209,14 +223,18 @@ let all_module_names () =
         children @ List.map fst sc.sc_instances)
       scopes
   in
+  let templates = List.map (fun sc -> sc.sc_name) !env.en_templates in
   let stack_top =
     match List.rev scopes with
     | sc :: _ -> [sc.sc_name]
     | [] -> []
   in
-  match !env.en_top with
-  | Some sc -> sc.sc_name :: names
-  | None -> stack_top @ names
+  let names =
+    match !env.en_top with
+    | Some sc -> sc.sc_name :: names
+    | None -> stack_top @ names
+  in
+  List.unique (templates @ names)
 
 let all_child_names () =
   match current_scope () with
@@ -265,21 +283,23 @@ let validate_qualified name =
       else
         failwithf "Unknown module %s in qualified name %s" prefix name
 
+let resolve_dotted name =
+  validate_qualified name ;
+  match lookup_item_in (all_items ()) name with
+  | Some it -> it.item_name
+  | None -> name
+
 let resolve_id name =
-  if is_dotted name then begin
-    validate_qualified name ;
-    name
-  end else begin
+  if is_dotted name then resolve_dotted name
+  else begin
     match lookup_item name with
     | Some it -> it.item_name
     | None -> name
   end
 
 let resolve_type_name name =
-  if is_dotted name then begin
-    validate_qualified name ;
-    name
-  end else begin
+  if is_dotted name then resolve_dotted name
+  else begin
     match lookup_item name with
     | Some it -> it.item_name
     | None -> name
@@ -466,11 +486,11 @@ let resolve_command ~is_hyp cmd =
   | Common (Show name) ->
       Common (Show (resolve_hyp_or_item ~is_hyp name))
   | Common Quit ->
-      failwith "Quit is not allowed in a .thmod"
+      failwith "Quit is not allowed in a module"
   | ComputeAll _ | Split | SplitStar | Left | Right | Undo
   | Common _ -> cmd
   | Abort ->
-      failwith "Abort is not allowed in a .thmod"
+      failwith "Abort is not allowed in a module"
 
 let resolve_proof_command = resolve_command
 
@@ -490,8 +510,7 @@ let class_of_compiled = function
   | CTheorem _ -> Some TheoremItem
   | CImport _ | CClose _ | CSuspend _ -> None
 
-let items_of_compiled ?(imported=false) citem =
-  let local id = if imported then id else last_segment id in
+let items_of_compiled ?(local=last_segment) citem =
   match citem with
   | CKind (ids, _) ->
       List.map (fun id ->
@@ -543,11 +562,25 @@ let check_shadowing sc new_items =
         item.item_local
   end new_items
 
+let relative_to_current_scope id =
+  match current_scope () with
+  | None -> id
+  | Some sc ->
+      match sc.sc_path with
+      | [] -> id
+      | _ ->
+          let prefix = String.concat "." sc.sc_path in
+          if starts_with (prefix ^ ".") id then strip_prefix prefix id
+          else id
+
 let add_compiled ?(imported=false) citem =
   match !env.en_stack with
   | [] -> failwith "Cannot add a declaration outside a module"
   | sc :: rest ->
-      let new_items = items_of_compiled ~imported citem in
+      let local =
+        if imported then relative_to_current_scope else last_segment
+      in
+      let new_items = items_of_compiled ~local citem in
       check_shadowing sc new_items ;
       let sc = { sc with
                  sc_items = sc.sc_items @ new_items ;
@@ -565,15 +598,19 @@ let check_param_shadowing params =
       failwithf "Module parameter %s shadows an enclosing parameter" param
   end params
 
-let enter_module name params =
+let enter_module ?(top_path=[]) name params =
   let state = !env in
   if state.en_complete then
     failwith "Module after End is not allowed in a .thmod" ;
   check_param_shadowing params ;
   match state.en_stack with
   | [] ->
+      if List.exists (fun sc -> sc.sc_name = name) state.en_templates then
+        failwithf "Module %s is already declared" name ;
       let sc = { sc_name = name ;
-                 sc_path = [] ;
+                 sc_root = name ;
+                 sc_source = "inline:" ^ name ;
+                 sc_path = top_path ;
                  sc_params = params ;
                  sc_items = [] ;
                  sc_children = [] ;
@@ -587,6 +624,8 @@ let enter_module name params =
       if List.mem_assoc name parent.sc_instances then
         failwithf "Module %s is already imported in this module" name ;
       let sc = { sc_name = name ;
+                 sc_root = parent.sc_root ;
+                 sc_source = parent.sc_source ^ "." ^ name ;
                  sc_path = parent.sc_path @ [name] ;
                  sc_params = params ;
                  sc_items = [] ;
@@ -596,15 +635,20 @@ let enter_module name params =
       env := { state with en_stack = sc :: state.en_stack } ;
       update_display ()
 
-let leave_module name =
+let leave_module ?(retain_top=false) name =
   match !env.en_stack with
   | [] -> failwith "End without a matching Module"
   | sc :: rest ->
       if sc.sc_name <> name then
         failwithf "End %s does not match Module %s" name sc.sc_name ;
       begin match rest with
+      | [] when retain_top ->
+          env := { !env with
+                   en_stack = [] ;
+                   en_templates = sc :: !env.en_templates }
       | [] ->
-          env := { en_stack = [] ; en_top = Some sc ; en_complete = true }
+          env := { !env with
+                   en_stack = [] ; en_top = Some sc ; en_complete = true }
       | parent :: parents ->
           let parent =
             { parent with sc_children = parent.sc_children @ [sc] }

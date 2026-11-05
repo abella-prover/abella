@@ -59,10 +59,10 @@ let is_interactive () =
   | `interactive | `switch -> true
   | _ -> false
 
+let in_module () = Thmod.current_name () <> None
+
 let bound_params () =
-  match !Setup.file_kind with
-  | `thmod -> Thmod.all_params ()
-  | `thm -> []
+  if in_module () then Thmod.all_params () else []
 
 let witnesses = State.rref false
 
@@ -73,6 +73,7 @@ exception AbellaExit of int
 
 let perform_switch_to_interactive () =
   assert (!Setup.mode = `switch) ;
+  let from_thmod = !Setup.file_kind = `thmod in
   Setup.input := "" ;
   Setup.lexbuf := Lexing.from_channel ~with_positions:false stdin ;
   Setup.mode := `interactive ;
@@ -83,9 +84,11 @@ let perform_switch_to_interactive () =
   Setup.thmod_name := None ;
   Setup.thmod_params := [] ;
   Setup.thmod_finished := false ;
-  thm_instances := [] ;
   thmod_loading := [] ;
-  Thmod.reset ()
+  if from_thmod then begin
+    thm_instances := [] ;
+    Thmod.reset ()
+  end
 
 let interactive_or_exit () =
   match !Setup.mode with
@@ -177,7 +180,7 @@ let ensure_finalized_specification () =
 
 let compile citem =
   (* ensure_finalized_specification () ; *)
-  if !Setup.file_kind = `thmod then
+  if !Setup.file_kind = `thmod || in_module () then
     Thmod.add_compiled citem
   else
     comp_content := citem :: !comp_content
@@ -935,22 +938,19 @@ let find_thm_instance name =
   end !thm_instances
 
 let find_import_instance name =
-  match !Setup.file_kind with
-  | `thmod -> Thmod.find_instance name
-  | `thm -> find_thm_instance name
+  if in_module () then Thmod.find_instance name
+  else find_thm_instance name
 
 let add_import_instance inst =
-  match !Setup.file_kind with
-  | `thmod -> Thmod.add_instance inst
-  | `thm ->
-      if find_thm_instance inst.Thmod.ins_name <> None then
-        failwithf "Module name %s is already imported" inst.Thmod.ins_name ;
-      thm_instances := !thm_instances @ [inst]
+  if in_module () then Thmod.add_instance inst
+  else begin
+    if find_thm_instance inst.Thmod.ins_name <> None then
+      failwithf "Module name %s is already imported" inst.Thmod.ins_name ;
+    thm_instances := !thm_instances @ [inst]
+  end
 
 let import_prefix name =
-  match !Setup.file_kind with
-  | `thmod -> Thmod.instance_prefix name
-  | `thm -> [name]
+  if in_module () then Thmod.instance_prefix name else [name]
 
 let resolve_import_target mi =
   match mi.mi_source with
@@ -963,29 +963,23 @@ let resolve_import_target mi =
       if artifact.ta_name <> base then
         failwithf "Module %s does not match the file name %s.thmod"
           artifact.ta_name base ;
+      let source = Source.canon (file ^ ".thmod") in
       let template = {
         Thmod.tp_name = artifact.ta_name ;
         tp_from = [] ;
+        tp_source = source ;
         tp_params = artifact.ta_params ;
         tp_content = artifact.ta_content ;
         tp_nested = artifact.ta_nested ;
       } in
-      let source = Source.canon (file ^ ".thmod") in
       (TargetTemplate template, artifact.ta_name, source)
   | NameSource name ->
-      let template =
-        match !Setup.file_kind with
-        | `thmod -> Thmod.find_template name
-        | `thm -> None
-      in
+      let template = Thmod.find_template name in
       let instance = find_import_instance name in
       if mi.mi_tyargs <> [] then
         begin match template with
         | Some template ->
-            let source =
-              "nested:" ^ String.concat "." template.Thmod.tp_from
-            in
-            (TargetTemplate template, name, source)
+            (TargetTemplate template, name, template.Thmod.tp_source)
         | None ->
             begin match instance with
             | Some _ ->
@@ -1001,40 +995,29 @@ let resolve_import_target mi =
         | None ->
             begin match template with
             | Some template ->
-                let source =
-                  "nested:" ^ String.concat "." template.Thmod.tp_from
-                in
-                (TargetTemplate template, name, source)
+                (TargetTemplate template, name, template.Thmod.tp_source)
             | None -> failwithf "Unknown module %s" name
             end
         end
 
 let resolve_type_args args =
   List.map begin fun ty ->
-    let ty =
-      match !Setup.file_kind with
-      | `thmod -> Thmod.resolve_ty ty
-      | `thm -> ty
-    in
+    let ty = if in_module () then Thmod.resolve_ty ty else ty in
     kind_check !sign ty ;
     if contains_prop ty then
       failwithf "Type argument %s may not contain prop"
         (ty_to_string ty) ;
     let free = get_typaram ty in
-    begin match !Setup.file_kind with
-    | `thm ->
-        if free <> [] then
-          failwithf "Type argument %s contains a free type variable"
-            (ty_to_string ty)
-    | `thmod ->
-        let allowed = Thmod.all_params () in
-        begin match List.minus free allowed with
-        | [] -> ()
-        | bad :: _ ->
-            failwithf "Type argument %s contains the free type variable %s"
-              (ty_to_string ty) bad
-        end
-    end ;
+    if in_module () then begin
+      let allowed = Thmod.all_params () in
+      match List.minus free allowed with
+      | [] -> ()
+      | bad :: _ ->
+          failwithf "Type argument %s contains the free type variable %s"
+            (ty_to_string ty) bad
+    end else if free <> [] then
+      failwithf "Type argument %s contains a free type variable"
+        (ty_to_string ty) ;
     ty
   end args
 
@@ -1107,14 +1090,22 @@ let value_of_item item =
         item.Thmod.item_name
 
 let value_of_name ~predicate name =
-  match !Setup.file_kind with
-  | `thmod ->
-      let name = Thmod.resolve_id name in
-      begin match Thmod.lookup_item_by_name name with
-      | Some item -> value_of_item item
-      | None -> failwithf "Unknown item %s in with clause" name
-      end
-  | `thm ->
+  let local_name () =
+    let name = Thmod.resolve_id name in
+    match Thmod.lookup_item_by_name name with
+    | Some item -> Some (name, value_of_item item)
+    | None -> None
+  in
+  let value =
+    if in_module () then
+      match local_name () with
+      | Some (_, value) -> Some value
+      | None -> None
+    else None
+  in
+  match value with
+  | Some value -> value
+  | None ->
       if predicate then
         begin match List.assoc_opt name (snd !sign) with
         | Some (Poly (typarams, ty)) when is_predicate_ty ty ->
@@ -1208,9 +1199,10 @@ let replay_imported_decls decls =
     end
   in
   let record decl =
-    match !Setup.file_kind with
-    | `thmod -> Thmod.add_imported_compiled decl
-    | `thm -> compile decl
+    if !Setup.file_kind = `thmod || in_module () then
+      Thmod.add_imported_compiled decl
+    else
+      compile decl
   in
   let rec replay = function
     | [] -> ()
@@ -1261,12 +1253,8 @@ let import_module mi =
     | Some alias -> alias
     | None -> default_name
   in
-  begin match !Setup.file_kind with
-  | `thmod ->
-      if List.mem name (Thmod.all_params ()) then
-        failwithf "Module name %s is already used as a module parameter" name
-  | `thm -> ()
-  end ;
+  if List.mem name (Thmod.all_params ()) then
+    failwithf "Module name %s is already used as a module parameter" name ;
   begin match mi.mi_alias with
   | None ->
       if find_import_instance name <> None then
@@ -1274,11 +1262,8 @@ let import_module mi =
   | Some alias ->
       if find_import_instance alias <> None then
         failwithf "Module name %s is already imported" alias ;
-      match !Setup.file_kind with
-      | `thmod ->
-          if Thmod.find_template alias <> None then
-            failwithf "Module name %s is already in use" alias
-      | `thm -> ()
+      if Thmod.find_template alias <> None then
+        failwithf "Module name %s is already in use" alias
   end ;
   let prefix = import_prefix name in
   let source_decls, from, params, args, is_instance =
@@ -1309,9 +1294,7 @@ let import_module mi =
       ~params ~args ~is_instance ~avoid:(bound_params ())
   in
   let existing_instances =
-    match !Setup.file_kind with
-    | `thmod -> Thmod.all_instances ()
-    | `thm -> !thm_instances
+    if in_module () then Thmod.all_instances () else !thm_instances
   in
   let rigid =
     List.fold_left begin fun rigid instance ->
@@ -1589,16 +1572,24 @@ let thmod_basename () =
     Filename.chop_suffix base ".thmod"
   else base
 
+let check_module_body cmd =
+  match cmd with
+  | Import _ ->
+      failwith "A module may not use ordinary Import"
+  | Specification _ ->
+      failwith "Specification is not allowed in a module"
+  | Close _ ->
+      failwith "Close is not allowed in a module"
+  | Suspend _ ->
+      failwith "Suspend is not allowed in a module"
+  | TopCommon Quit ->
+      failwith "Quit is not allowed in a module"
+  | _ -> ()
+
 let check_thmod_structure cmd =
   match !Setup.file_kind with
-  | `thm -> begin
-      match cmd with
-      | Module _ ->
-          failwith "Module is only allowed in a .thmod file"
-      | End _ ->
-          failwith "End is only allowed in a .thmod file"
-      | _ -> ()
-    end
+  | `thm ->
+      if in_module () then check_module_body cmd
   | `thmod -> begin
       match cmd with
       | Module _ ->
@@ -1627,7 +1618,12 @@ let check_thmod_structure cmd =
 let process_module name params =
   match !Setup.file_kind with
   | `thm ->
-      failwith "Module is only allowed in a .thmod file"
+      if Thmod.current_name () = None &&
+         List.exists (fun inst -> inst.Thmod.ins_name = name)
+           !thm_instances then
+        failwithf "Module name %s is already imported" name ;
+      Thmod.push_frame !sr ;
+      Thmod.enter_module ~top_path:[name] name params
   | `thmod ->
       let is_top = Thmod.current_name () = None in
       if is_top then begin
@@ -1654,15 +1650,13 @@ let remove_scope_declarations sc =
   Prover.remove_globals names
 
 let process_end name =
-  match !Setup.file_kind with
-  | `thm ->
-      failwith "End is only allowed in a .thmod file"
-  | `thmod ->
-      let closed, is_top = Thmod.leave_module name in
-      if not is_top then remove_scope_declarations closed ;
-      sr := Thmod.pop_frame () ;
-      if Thmod.current_name () = None then
-        Setup.thmod_finished := true
+  let retain_top = !Setup.file_kind = `thm in
+  let closed, is_top = Thmod.leave_module ~retain_top name in
+  if not (!Setup.file_kind = `thmod && is_top) then
+    remove_scope_declarations closed ;
+  sr := Thmod.pop_frame () ;
+  if !Setup.file_kind = `thmod && Thmod.current_name () = None then
+    Setup.thmod_finished := true
 
 let check_thmod_complete () =
   if !Setup.file_kind = `thmod then
@@ -1763,7 +1757,7 @@ and process_proof1 proc =
   let input = Parser.command_start Lexer.token !Setup.lexbuf in
   let cmd_string = command_to_string input.el in
   let input =
-    if !Setup.file_kind = `thmod then
+    if in_module () then
       { input with
         el = Thmod.resolve_proof_command ~is_hyp:Prover.is_hyp input.el }
     else
@@ -1858,7 +1852,7 @@ and process_top1 () =
   let input = Parser.top_command_start Lexer.token !Setup.lexbuf in
   let cmd_string = top_command_to_string input.el in
   let input =
-    if !Setup.file_kind = `thmod then
+    if in_module () then
       { input with el = Thmod.resolve_top input.el }
     else
       input
@@ -1910,7 +1904,7 @@ and process_top1 () =
       let gen_thms =
         Prover.create_split_theorems name names |>
         List.map (fun (n, t) ->
-            if !Setup.file_kind = `thmod then
+            if in_module () then
               (Thmod.new_name n, t)
             else
               (n, t))
@@ -1928,7 +1922,7 @@ and process_top1 () =
           name :: List.map fst gen_thms @ !Setup.axioms ;
   | Define _ ->
       let strat_errors =
-        !Setup.file_kind = `thmod || stratification_warnings_are_errors
+        in_module () || stratification_warnings_are_errors
       in
       compile (Prover.register_definition ~strat_errors
                  ~bound_tyvars:(bound_params ()) input.el)
@@ -1976,7 +1970,7 @@ and process_top1 () =
         | Ty (_, aty) -> aty = propaty
       in
       let typarams =
-        if !Setup.file_kind = `thmod && is_declared_predicate &&
+        if in_module () && is_declared_predicate &&
            contains_prop_argument ty then begin
           let name = match ids with
             | id :: _ -> id
@@ -1991,7 +1985,7 @@ and process_top1 () =
       Prover.add_global_consts ~typarams
         (List.map (fun id -> (id, ty)) ids) ;
       let comp =
-        if !Setup.file_kind = `thmod && is_declared_predicate
+        if in_module () && is_declared_predicate
         then CDeclPred (ids, typarams, ty)
         else CType (ids, typarams, ty)
       in

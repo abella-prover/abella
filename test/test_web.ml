@@ -535,6 +535,19 @@ End Box.
   assert_ok (fst (process_command "Type c B.box.")) ;
   assert_ok (fst (process_command "Type d B.box."))
 
+let test_inline_module () =
+  assert_ok (fst (process_command "Module M.")) ;
+  assert_ok (fst (process_command "Kind u type.")) ;
+  assert_ok (fst (process_command "Type c u.")) ;
+  assert_ok (fst (process_command "Define p : u -> prop by p X.")) ;
+  assert_ok (fst (process_command "End M.")) ;
+  assert_ok (fst (process_command "Import Module I = M.")) ;
+  assert_ok (fst (process_command "Type d I.u.")) ;
+  assert_ok (fst (process_command "Theorem t : I.p d.")) ;
+  assert_ok (fst (process_command "intros.")) ;
+  assert_ok (fst (process_command "search.")) ;
+  ignore (Prover.get_generic_lemma "t")
+
 let tests = suite "web_core" [
   test_case "virtual_source" (fun () -> with_session test_virtual_source) ;
   test_case "thc_cache_bound" (fun () -> with_session test_thc_cache_bound) ;
@@ -558,4 +571,5 @@ let tests = suite "web_core" [
   test_case "axiom_declaration" (fun () -> with_session test_axiom_declaration) ;
   test_case "thmod_virtual_import"
     (fun () -> with_session test_thmod_virtual_import) ;
+  test_case "inline_module" (fun () -> with_session test_inline_module) ;
 ]

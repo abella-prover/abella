@@ -14,15 +14,11 @@ import {
   indentOnInput,
   syntaxHighlighting,
 } from "@codemirror/language";
-import {
-  setDiagnostics,
-  lintGutter,
-  type Diagnostic,
-} from "@codemirror/lint";
 import { highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
 import { searchKeymap } from "@codemirror/search";
 import {
   EditorState,
+  RangeSet,
   StateEffect,
   StateField,
   type Extension,
@@ -32,11 +28,12 @@ import {
 import {
   Decoration,
   EditorView,
+  GutterMarker,
   drawSelection,
+  gutter,
   hoverTooltip,
   keymap,
   lineNumbers,
-  WidgetType,
   type DecorationSet,
 } from "@codemirror/view";
 import {
@@ -135,48 +132,122 @@ const commandOutputField = StateField.define<readonly CommandOutput[]>({
   },
 });
 
-class CommandOutputMarker extends WidgetType {
-  private output: CommandOutput;
+function commandOutputGroups(
+  doc: Text,
+  outputs: readonly CommandOutput[]
+): Map<number, CommandOutput[]> {
+  const groups = new Map<number, CommandOutput[]>();
+  for (const output of outputs) {
+    if (output.entries.length === 0) continue;
+    const position = Math.min(output.to, doc.length);
+    const line = doc.lineAt(position).number;
+    const group = groups.get(line);
+    if (group) group.push(output);
+    else groups.set(line, [output]);
+  }
+  return groups;
+}
 
-  constructor(output: CommandOutput) {
+export function commandOutputLines(
+  doc: Text,
+  outputs: readonly CommandOutput[]
+): number[] {
+  return [...commandOutputGroups(doc, outputs).keys()].sort((a, b) => a - b);
+}
+
+class CommandOutputGutterMarker extends GutterMarker {
+  private line: number;
+  private outputs: readonly CommandOutput[];
+
+  constructor(line: number, outputs: readonly CommandOutput[]) {
     super();
-    this.output = output;
+    this.line = line;
+    this.outputs = outputs;
   }
 
-  eq(other: CommandOutputMarker): boolean {
-    return (
-      other.output.from === this.output.from &&
-      other.output.to === this.output.to &&
-      other.output.entries === this.output.entries
-    );
+  eq(other: CommandOutputGutterMarker): boolean {
+    if (this.line !== other.line) return false;
+    if (this.outputs.length !== other.outputs.length) return false;
+    return this.outputs.every((output, index) => {
+      const peer = other.outputs[index];
+      return (
+        output.from === peer.from &&
+        output.to === peer.to &&
+        output.entries === peer.entries
+      );
+    });
   }
 
   toDOM(): HTMLElement {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "cm-command-output";
-    button.dataset.from = String(this.output.from);
-    const hasError = this.output.entries.some(
-      (entry) => entry.severity === "error"
+    button.className = "cm-command-output-gutter-marker";
+    button.dataset.line = String(this.line);
+    const messages = this.outputs.reduce(
+      (count, output) => count + output.entries.length,
+      0
+    );
+    const hasError = this.outputs.some((output) =>
+      output.entries.some((entry) => entry.severity === "error")
     );
     button.dataset.severity = hasError ? "error" : "info";
     button.textContent = hasError ? "!" : "i";
-    if (this.output.entries.length > 1) {
+    if (messages > 1) {
       const count = document.createElement("span");
-      count.className = "cm-command-output-count";
-      count.textContent = String(this.output.entries.length);
+      count.className = "cm-command-output-gutter-count";
+      count.textContent = String(messages);
       button.append(count);
     }
-    const label = `Show ${this.output.entries.length} message` +
-      `${this.output.entries.length === 1 ? "" : "s"} from this command`;
+    const label = `Show ${messages} message` +
+      `${messages === 1 ? "" : "s"} from line ${this.line}`;
     button.setAttribute("aria-label", label);
     return button;
   }
-
-  ignoreEvent(): boolean {
-    return true;
-  }
 }
+
+function commandOutputGutterMarkers(
+  state: EditorState
+): RangeSet<GutterMarker> {
+  const ranges: Range<GutterMarker>[] = [];
+  for (const [line, outputs] of commandOutputGroups(
+    state.doc,
+    state.field(commandOutputField)
+  )) {
+    ranges.push(
+      new CommandOutputGutterMarker(line, outputs).range(
+        state.doc.line(line).from
+      )
+    );
+  }
+  return RangeSet.of(ranges);
+}
+
+const commandOutputGutter = gutter({
+  class: "cm-command-output-gutter",
+  markers: (view) => commandOutputGutterMarkers(view.state),
+});
+
+const setErrorRangeEffect =
+  StateEffect.define<{ from: number; to: number } | null>();
+
+const errorRangeMark = Decoration.mark({ class: "cm-error-range" });
+
+const errorRangeField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(decorations, transaction) {
+    let next = decorations.map(transaction.changes);
+    for (const effect of transaction.effects) {
+      if (!effect.is(setErrorRangeEffect)) continue;
+      next = effect.value
+        ? Decoration.set([
+            errorRangeMark.range(effect.value.from, effect.value.to),
+          ])
+        : Decoration.none;
+    }
+    return next;
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
 
 function commandOutputAt(
   outputs: readonly CommandOutput[],
@@ -186,33 +257,6 @@ function commandOutputAt(
     (output) => position >= output.from && position <= output.to + 1
   );
 }
-
-export function commandOutputDecorations(
-  docLength: number,
-  outputs: readonly CommandOutput[]
-): DecorationSet {
-  const decorations: Range<Decoration>[] = [];
-  for (const output of outputs) {
-    if (output.entries.length === 0) continue;
-    const position = Math.max(0, Math.min(output.to, docLength));
-    decorations.push(
-      Decoration.widget({
-        widget: new CommandOutputMarker(output),
-        side: 1,
-      }).range(position)
-    );
-  }
-  return Decoration.set(decorations);
-}
-
-const commandOutputDecorationsExtension = EditorView.decorations.compute(
-  [commandOutputField],
-  (state) =>
-    commandOutputDecorations(
-      state.doc.length,
-      state.field(commandOutputField)
-    )
-);
 
 function commandOutputTooltip() {
   return hoverTooltip((view, position) => {
@@ -277,30 +321,42 @@ const editorTheme = EditorView.theme({
   ".cm-activeLine.cm-processed-partial-line": {
     backgroundColor: "transparent",
   },
-  ".cm-command-output": {
+  ".cm-error-range": {
+    textDecoration: "underline wavy var(--red)",
+    textUnderlineOffset: "2px",
+  },
+  ".cm-command-output-gutter": {
+    width: "1.2rem",
+  },
+  ".cm-command-output-gutter-marker": {
     display: "inline-flex",
     alignItems: "center",
-    gap: "0.15rem",
-    marginLeft: "0.4rem",
-    padding: "0 0.28rem",
+    justifyContent: "center",
+    gap: "0.05rem",
+    width: "1.05rem",
+    height: "1rem",
+    margin: "1px auto",
+    padding: "0",
     border: "1px solid var(--border)",
     borderRadius: "999px",
     background: "var(--surface-2)",
     color: "var(--muted)",
     fontFamily: "var(--sans)",
-    fontSize: "0.62rem",
+    fontSize: "0.58rem",
     fontWeight: "700",
-    lineHeight: "1.25",
-    verticalAlign: "middle",
+    lineHeight: "1",
     cursor: "pointer",
   },
-  ".cm-command-output[data-severity='error']": {
+  ".cm-command-output-gutter-marker[data-severity='error']": {
     borderColor: "var(--red)",
     color: "var(--red)",
   },
-  ".cm-command-output:focus-visible": {
+  ".cm-command-output-gutter-marker:focus-visible": {
     outline: "2px solid var(--rose)",
     outlineOffset: "1px",
+  },
+  ".cm-command-output-gutter-count": {
+    fontSize: "0.52rem",
   },
   ".cm-command-output-tooltip": {
     maxWidth: "min(34rem, 80vw)",
@@ -380,6 +436,7 @@ function baseExtensions(
   return [
     lineNumbers(),
     highlightActiveLineGutter(),
+    commandOutputGutter,
     history(),
     drawSelection(),
     highlightActiveLine(),
@@ -399,11 +456,10 @@ function baseExtensions(
     editorTheme,
     processedField,
     commandOutputField,
-    commandOutputDecorationsExtension,
+    errorRangeField,
     commandOutputTooltip(),
     markdownConfiguredField,
     ...runLockedExtensions,
-    lintGutter(),
     ...(language ? [language] : []),
     listener,
   ];
@@ -437,7 +493,7 @@ export class EditorManager {
   private view: EditorView;
   private states = new Map<string, EditorState>();
   private tips = new Map<string, number>();
-  private diagnostics = new Map<string, readonly Diagnostic[]>();
+  private errors = new Map<string, { from: number; to: number }>();
   private commandOutputs = new Map<string, readonly CommandOutput[]>();
   private markdownPending = new Set<string>();
   private activePath: string | null = null;
@@ -447,7 +503,7 @@ export class EditorManager {
     update: import("@codemirror/view").ViewUpdate
   ) => void;
   private onProcess: EditorActions;
-  private onShowOutput: (path: string, from: number) => void;
+  private onShowLineOutput: (path: string, line: number) => void;
 
   constructor(
     parent: HTMLElement,
@@ -456,22 +512,22 @@ export class EditorManager {
       update: import("@codemirror/view").ViewUpdate
     ) => void,
     actions: EditorActions,
-    onShowOutput: (path: string, from: number) => void
+    onShowLineOutput: (path: string, line: number) => void
   ) {
     this.parent = parent;
     this.onChange = onChange;
     this.onProcess = actions;
-    this.onShowOutput = onShowOutput;
+    this.onShowLineOutput = onShowLineOutput;
     this.view = new EditorView({ parent });
     this.view.dom.addEventListener("click", (event) => {
       const target = (event.target as HTMLElement).closest<HTMLElement>(
-        ".cm-command-output"
+        ".cm-command-output-gutter-marker"
       );
       if (!target || !this.activePath) return;
-      const from = Number(target.dataset.from);
-      if (!Number.isFinite(from)) return;
+      const line = Number(target.dataset.line);
+      if (!Number.isFinite(line)) return;
       event.preventDefault();
-      this.onShowOutput(this.activePath, from);
+      this.onShowLineOutput(this.activePath, line);
     });
   }
 
@@ -512,7 +568,7 @@ export class EditorManager {
     this.activePath = path;
     this.view.setState(state);
     this.applyTip(path);
-    this.applyDiagnostics(path);
+    this.applyError(path);
     this.applyCommandOutputs(path);
     this.ensureMarkdown(path);
     this.view.requestMeasure();
@@ -521,7 +577,7 @@ export class EditorManager {
   remove(path: string): void {
     this.states.delete(path);
     this.tips.delete(path);
-    this.diagnostics.delete(path);
+    this.errors.delete(path);
     this.commandOutputs.delete(path);
     this.markdownPending.delete(path);
   }
@@ -549,10 +605,10 @@ export class EditorManager {
       this.tips.delete(from);
       this.tips.set(to, tip);
     }
-    const diagnostics = this.diagnostics.get(from);
-    if (diagnostics) {
-      this.diagnostics.delete(from);
-      this.diagnostics.set(to, diagnostics);
+    const error = this.errors.get(from);
+    if (error) {
+      this.errors.delete(from);
+      this.errors.set(to, error);
     }
     const outputs = this.commandOutputs.get(from);
     if (outputs) {
@@ -567,7 +623,7 @@ export class EditorManager {
   reset(): void {
     this.states.clear();
     this.tips.clear();
-    this.diagnostics.clear();
+    this.errors.clear();
     this.commandOutputs.clear();
     this.markdownPending.clear();
     this.activePath = null;
@@ -607,9 +663,13 @@ export class EditorManager {
     const state = this.states.get(path);
     if (!state || state.doc.toString() === text) return;
     this.commandOutputs.delete(path);
+    this.errors.delete(path);
     const next = state.update({
       changes: { from: 0, to: state.doc.length, insert: text },
-      effects: setCommandOutputsEffect.of([]),
+      effects: [
+        setCommandOutputsEffect.of([]),
+        setErrorRangeEffect.of(null),
+      ],
     }).state;
     this.states.set(path, next);
     if (this.activePath === path) {
@@ -650,18 +710,23 @@ export class EditorManager {
     this.view.dispatch({ effects: setProcessedTipEffect.of(tip) });
   }
 
-  setDiagnostics(path: string, diagnostics: readonly Diagnostic[]): void {
-    this.diagnostics.set(path, diagnostics);
-    if (this.activePath === path) this.applyDiagnostics(path);
+  setError(path: string, from: number, to: number): void {
+    this.errors.set(path, { from, to });
+    if (this.activePath === path) this.applyError(path);
   }
 
-  private applyDiagnostics(path: string): void {
-    const diagnostics = this.diagnostics.get(path) ?? [];
-    this.view.dispatch(setDiagnostics(this.view.state, diagnostics));
+  private applyError(path: string): void {
+    const error = this.errors.get(path);
+    this.view.dispatch({
+      effects: setErrorRangeEffect.of(
+        error && error.from < error.to ? error : null
+      ),
+    });
   }
 
-  clearDiagnostics(path: string): void {
-    this.setDiagnostics(path, []);
+  clearError(path: string): void {
+    if (!this.errors.delete(path)) return;
+    if (this.activePath === path) this.applyError(path);
   }
 
   setCommandOutputs(

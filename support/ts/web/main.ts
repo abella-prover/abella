@@ -53,7 +53,7 @@ import {
   remapTabs,
   tabLabels,
 } from "./tabs";
-import type { ProofState, RawMessage } from "./types";
+import type { ProofState } from "./types";
 import {
   WorkspaceError,
   WorkspaceSession,
@@ -301,9 +301,7 @@ let lastGoalState: ProofState | undefined;
 let currentOutcome: ProofOutcome | undefined;
 const commandOutputs = new CommandOutputStore();
 const notificationLog = new NotificationLog();
-let currentCommandOutput:
-  | { path: string; from: number; entries: OutputEntry[] }
-  | undefined;
+let currentCommandOutput: OutputEntry[] | undefined;
 let panelHeight: number | undefined;
 
 interface SidebarPref {
@@ -883,19 +881,14 @@ function lineNumberAt(text: string, offset: number): number {
   return line;
 }
 
-function showCommandOutput(path: string, from: number): void {
-  const output = commandOutputs.get(from);
-  if (!output) return;
-  currentCommandOutput = {
-    path,
-    from,
-    entries: [...output.entries],
-  };
-  const text = project.files.get(path)?.text ?? "";
-  commandOutputTitle.textContent =
-    `Output from line ${lineNumberAt(text, from)}`;
+function openCommandOutput(
+  title: string,
+  entries: readonly OutputEntry[]
+): void {
+  currentCommandOutput = [...entries];
+  commandOutputTitle.textContent = title;
   commandOutputList.replaceChildren();
-  for (const entry of output.entries) {
+  for (const entry of entries) {
     const line = document.createElement("div");
     line.className = "output-entry";
     line.dataset.severity = entry.severity;
@@ -905,6 +898,28 @@ function showCommandOutput(path: string, from: number): void {
   if (commandOutputDialog.open) return;
   if (document.querySelector("dialog[open]")) return;
   commandOutputDialog.showModal();
+}
+
+function showCommandOutput(path: string, from: number): void {
+  const output = commandOutputs.get(from);
+  if (!output) return;
+  const text = project.files.get(path)?.text ?? "";
+  openCommandOutput(
+    `Output from line ${lineNumberAt(text, from)}`,
+    output.entries
+  );
+}
+
+function showLineOutput(path: string, line: number): void {
+  const text = project.files.get(path)?.text ?? "";
+  const outputs = commandOutputs
+    .values()
+    .filter((output) => lineNumberAt(text, output.to) === line);
+  if (outputs.length === 0) return;
+  openCommandOutput(
+    `Output from line ${line}`,
+    outputs.flatMap((output) => output.entries)
+  );
 }
 
 function showOutputAtCursor(): void {
@@ -921,7 +936,7 @@ function showOutputAtCursor(): void {
 
 async function copyCommandOutput(): Promise<void> {
   if (!currentCommandOutput) return;
-  const text = currentCommandOutput.entries
+  const text = currentCommandOutput
     .map((entry) => entry.message)
     .join("\n");
   try {
@@ -2356,7 +2371,7 @@ function projectStructureChanged(): void {
   currentOutcome = undefined;
   renderGoal();
   session.setProject(project);
-  if (project.entry) editor.clearDiagnostics(project.entry);
+  if (project.entry) editor.clearError(project.entry);
   setStatus(project.entry ? "ready" : "idle");
 }
 
@@ -2364,7 +2379,7 @@ function clearEntrySession(): void {
   const entry = project.entry;
   if (entry) {
     editor.setProcessedTip(entry, 0);
-    editor.clearDiagnostics(entry);
+    editor.clearError(entry);
   }
   clearOutput();
   lastGoalState = undefined;
@@ -2511,7 +2526,7 @@ function revertFile(path: string): void {
   if (previous !== saved) {
     file.text = saved;
     editor.replaceText(path, saved);
-    editor.clearDiagnostics(path);
+    editor.clearError(path);
     void session.notifyEdit(
       path,
       ChangeSet.of(
@@ -2574,7 +2589,7 @@ async function commitRename(from: string, value: string): Promise<void> {
   }
   for (const [path, text] of plan.changed) {
     editor.replaceText(path, text);
-    editor.clearDiagnostics(path);
+    editor.clearError(path);
   }
 
   const remap = new Map(plan.renames.map((rename) => [rename.from, rename.to]));
@@ -2607,7 +2622,7 @@ async function commitRename(from: string, value: string): Promise<void> {
 
   if (entryChanged && hadEntry) {
     editor.setProcessedTip(hadEntry, 0);
-    editor.clearDiagnostics(hadEntry);
+    editor.clearError(hadEntry);
   }
   if (
     renamedKinds.some(
@@ -2981,15 +2996,13 @@ function outcome(value: ProofOutcome | undefined): void {
   renderGoal();
 }
 
-function errorDiagnostic(message: string, from: number, to: number): void {
+function errorRange(from: number, to: number): void {
   const entry = project.entry;
   if (!entry) return;
   const doc = project.files.get(entry)?.text ?? "";
   const end = Math.max(0, Math.min(to, doc.length));
   const start = Math.max(0, Math.min(from, end));
-  editor.setDiagnostics(entry, [
-    { from: start, to: end, severity: "error", message },
-  ]);
+  editor.setError(entry, start, end);
 }
 
 const events: SessionEvents = {
@@ -3013,20 +3026,9 @@ const events: SessionEvents = {
     const entry = project.entry;
     if (!entry) return;
     if (result.status === "ok") {
-      editor.clearDiagnostics(entry);
+      editor.clearError(entry);
     } else if (command) {
-      errorDiagnostic(
-        result.messages
-          .filter(
-            (message): message is Extract<RawMessage, { type: "system_message" }> =>
-              message.type === "system_message" &&
-              message.severity === "error"
-          )
-          .map((message) => message.message)
-          .join("\n") || "Abella reported an error.",
-        command.from,
-        command.to
-      );
+      errorRange(command.from, command.to);
     }
   },
   onError(message, from, to) {
@@ -3035,7 +3037,7 @@ const events: SessionEvents = {
       to,
       position: from,
     });
-    errorDiagnostic(message, from, to);
+    errorRange(from, to);
   },
 };
 
@@ -3141,7 +3143,7 @@ function continueRun(): void {
 
 function resetSession(): void {
   clearOutput();
-  if (project.entry) editor.clearDiagnostics(project.entry);
+  if (project.entry) editor.clearError(project.entry);
   void session.reset();
 }
 
@@ -3153,7 +3155,7 @@ async function main(): Promise<void> {
       workspaceSession.markDirty(path);
       project.active = path;
       scheduleSave();
-      editor.clearDiagnostics(path);
+      editor.clearError(path);
       if (path === project.entry) remapOutputs(update.changes);
       let minFrom = Number.POSITIVE_INFINITY;
       update.changes.iterChangedRanges((fromA, _toA, fromB) => {
@@ -3174,7 +3176,7 @@ async function main(): Promise<void> {
       showOutput: showOutputAtCursor,
       help: openHelp,
     },
-    (path, from) => showCommandOutput(path, from)
+    (path, line) => showLineOutput(path, line)
   );
 
   const driver = new WorkerDriver(() => setStatus("compiling"));

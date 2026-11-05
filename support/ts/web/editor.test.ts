@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Text } from "@codemirror/state";
 import {
-  commandOutputDecorations,
+  commandOutputLines,
   processedDecorations,
 } from "./editor";
 import type { CommandOutput } from "./command-output";
@@ -61,8 +61,10 @@ test("trailing whitespace is left outside the checked region", () => {
   );
 });
 
-test("command output markers sit at the end of their commands", () => {
-  const doc = "Kind nat type.\nType z nat.\n";
+test("command output markers group by command end line", () => {
+  const doc = "Kind nat type.\nType z nat. Type y nat.\n";
+  const first = doc.indexOf("Type");
+  const second = doc.indexOf("Type y");
   const outputs: CommandOutput[] = [
     {
       from: 0,
@@ -71,17 +73,21 @@ test("command output markers sit at the end of their commands", () => {
       entries: [{ severity: "info", message: "warning" }],
     },
     {
-      from: doc.indexOf("Type"),
-      to: doc.indexOf("Type") + "Type z nat.".length,
-      position: doc.indexOf("Type") + "Type z nat.".length,
+      from: first,
+      to: first + "Type z nat.".length,
+      position: first + "Type z nat.".length,
       entries: [{ severity: "error", message: "failure" }],
+    },
+    {
+      from: second,
+      to: second + "Type y nat.".length,
+      position: second + "Type y nat.".length,
+      entries: [{ severity: "info", message: "note" }],
     },
   ];
 
-  const set = commandOutputDecorations(doc.length, outputs);
-  const positions: number[] = [];
-  for (let iter = set.iter(); iter.value; iter.next()) {
-    positions.push(iter.from);
-  }
-  assert.deepEqual(positions, [outputs[0].to, outputs[1].to]);
+  assert.deepEqual(
+    commandOutputLines(Text.of(doc.split("\n")), outputs),
+    [1, 2]
+  );
 });

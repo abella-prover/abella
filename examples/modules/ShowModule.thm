@@ -1,0 +1,19 @@
+% Defines a module inline in a .thm, shows it, imports it, and shows
+% the resulting instance. Also shows a module loaded from a .thmod file.
+
+Module Counter.
+  Kind counter type.
+  Type zero counter.
+  Type succ counter -> counter.
+  Type positive counter -> prop.
+  Axiom one_pos : positive (succ zero).
+End Counter.
+
+Show Module Counter.
+
+Import Module C = Counter.
+Show Module C.
+
+Type one C.counter.
+
+Show Module "List".

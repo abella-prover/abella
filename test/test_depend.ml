@@ -45,12 +45,14 @@ let test_thm_dependencies () =
     write_file (base ^ ".thm") {|
 Import "Lib".
 Import Module "Box"[nat] with p := q.
+Show Module "Shown".
 |} ;
     let deps = Depend.file_dependencies `thm base in
     Alcotest.check (Alcotest.list Alcotest.string) "thm deps"
       [Filename.concat dir "Lib"] deps.Depend.dep_thms ;
     Alcotest.check (Alcotest.list Alcotest.string) "thmod deps"
-      [Filename.concat dir "Box"] deps.Depend.dep_thmods
+      [Filename.concat dir "Box" ; Filename.concat dir "Shown"]
+      deps.Depend.dep_thmods
   end
 
 let test_thmod_dependencies () =

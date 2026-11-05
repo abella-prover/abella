@@ -1,6 +1,0 @@
-% Supporting fixture: an axiom statement that introduces the
-% subordination edge A -> B. EdgeClosed closes b before importing it.
-Module Edge[A,B].
-  Type p A -> prop.
-  Axiom ax : forall (f:A -> B) (x:A), p x -> p x.
-End Edge.

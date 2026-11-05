@@ -91,8 +91,9 @@ Reasoning modules
 Module` with a quoted target compiles the virtual `.thmod` to a virtual
 `.thmodc` artifact on demand; the byte cache is bounded like the `.thc`
 cache. Unquoted targets, aliases, type arguments, and `with` clauses
-follow the native semantics. Typed example bundles include the `.thmod`
-sources they need.
+follow the native semantics. `.thm` files may also define modules
+inline and use `Show Module`; those definitions remain local to the
+file. Typed example bundles include the `.thmod` sources they need.
 
 Documentation pages
 -------------------

@@ -83,6 +83,11 @@ let file_dependencies kind filename =
           | NameSource _ -> thmods
         in
         spin ~specs ~thms ~thmods
+    | ACommon (ShowModule (QuoteSource (s, _))) ->
+        spin ~specs ~thms
+          ~thmods:(Filepath.normalize ~wrt:filename s :: thmods)
+    | ACommon (ShowModule _) ->
+        spin ~specs ~thms ~thmods
     | ACommon (Set ("load_path", QStr lp)) ->
         Filepath.set_load_path ~wrt:filename lp ;
         spin ~specs ~thms ~thmods

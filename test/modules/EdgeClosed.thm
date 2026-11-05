@@ -1,8 +1,13 @@
 % Negative fixture: an import that adds a subordination edge into a
-% closed type must fail.
+% closed type must fail. The Edge template is defined inline now that
+% .thm files accept module definitions.
 Kind a type.
 Kind b type.
+Module Edge[A,B].
+  Type p A -> prop.
+  Axiom ax : forall (f:A -> B) (x:A), p x -> p x.
+End Edge.
 Close b.
 % Fails: Edge's axiom statement introduces a -> b while b is closed.
 % Expected: "Type b is closed and cannot be subordinated by a".
-Import Module E = "Edge"[a,b].
+Import Module E = Edge[a,b].

@@ -1,9 +1,9 @@
 Reasoning-Level Modules
 =======================
 
-Abella supports reasoning-level modules in `.thmod` files. A module
-declares a parameterized namespace of kinds, constants, predicates,
-definitions, and theorems:
+Abella supports reasoning-level modules in `.thmod` files and inline
+in `.thm` files. A module declares a parameterized namespace of kinds,
+constants, predicates, definitions, and theorems:
 
 ```text
 Module List[T].
@@ -19,6 +19,33 @@ The top-level module name must match the file basename. Nested modules
 use the same `Module`/`End` form and may have their own type parameters.
 Module parameters are schematic type variables and are not exported as
 items; internal `Kind` types are generative and fresh in every instance.
+
+A `.thm` file, or interactive input, may also define modules directly.
+Such modules are local to that file or session and are not exported by
+the `.thc` artifact:
+
+```text
+Module Counter.
+  Kind counter type.
+  Type zero counter.
+  Type succ counter -> counter.
+  Type positive counter -> prop.
+  Axiom one_pos : positive (succ zero).
+End Counter.
+```
+
+Use `Show Module` to print a module summary:
+
+```text
+Show Module Counter.
+Show Module C.
+Show Module "List".
+```
+
+The first form shows an in-scope module, the second an imported
+instance, and the third a module loaded from a `.thmod` file. The
+summary prints kinds, types, definitions, axioms, and theorem
+statements without proofs.
 
 A `.thm` file imports a reasoning module with `Import Module`:
 
@@ -57,10 +84,11 @@ distinct internal `Kind` types, while parameter occurrences are replaced
 by the supplied type arguments. Compiled artifacts are written to
 `.thmodc`; `-c` selects a different output path.
 
-Inside a `.thmod`, `Specification`, ordinary `Import`, `Close`,
-`Suspend`, `Quit`, and `Abort` are not allowed. Declared predicates may
-not have `prop` in an argument position, and stratification findings are
-hard errors.
+Inside a module, `Specification`, ordinary `Import`, `Close`, `Suspend`,
+`Quit`, and `Abort` are not allowed. Declared predicates may not have
+`prop` in an argument position, and stratification findings are hard
+errors. A `.thmod` may not use specification-logic sequents (`{ ... }`);
+a module defined inline in a `.thm` may use them.
 
 Reasoning-module examples
 =========================
@@ -78,13 +106,15 @@ Positive examples:
 - `PropKey.thmod` and `PropKeyUse.thmod`: zero-argument predicate keys.
 - `Keys.thmod` and `KeysUse.thmod`: unmapped keys and an aliased
   re-import.
-- `test/modules/Edge.thmod` and `test/modules/EdgeClosed.thm`: a
-  closed-type subordination failure during import.
+- `ShowModule.thm`: inline and imported module summaries, plus a
+  summary loaded from a `.thmod` file.
+- `test/modules/EdgeClosed.thm`: a closed-type subordination failure
+  during an import of an inline module.
 
-`test/modules/errors/` contains examples that should fail: higher-order declared
-predicates, polymorphic value mismatch, unfinished axiom values,
-internal-type keys, rigid collisions, staged collisions, and axiom
-statement mismatches.
+`test/modules/errors/` contains examples that should fail: higher-order
+declared predicates, polymorphic value mismatch, unfinished axiom
+values, internal-type keys, rigid collisions, staged collisions, and
+axiom statement mismatches.
 
 Run everything from the repository root:
 

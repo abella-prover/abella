@@ -36,6 +36,7 @@ rm -f test/modules/errors/*.thmodc
 
 ok examples/modules/List.thmod
 ok examples/modules/ListUse.thm
+ok examples/modules/ShowModule.thm
 ok examples/modules/Box.thmod
 ok examples/modules/BoxUse.thmod
 ok examples/modules/Nested.thmod
@@ -47,7 +48,6 @@ ok examples/modules/PropKey.thmod
 ok examples/modules/PropKeyUse.thmod
 ok examples/modules/Keys.thmod
 ok examples/modules/KeysUse.thmod
-ok test/modules/Edge.thmod
 bad test/modules/EdgeClosed.thm "closed and cannot be subordinated"
 
 bad test/modules/errors/HigherOrder.thmod \

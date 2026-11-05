@@ -53,6 +53,12 @@
       "group": "Reasoning modules",
       "name": "Parameterized lists",
       "entry": "examples/modules/ListUse.thm"
+    },
+    {
+      "id": "modules-show",
+      "group": "Reasoning modules",
+      "name": "Show module",
+      "entry": "examples/modules/ShowModule.thm"
     }
   ]
 }

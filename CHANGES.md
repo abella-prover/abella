@@ -9,6 +9,12 @@ Reasoning-level modules
 * Added `Import Module` with quoted files or in-scope modules/instances,
   aliases, positional type arguments, and `with` clauses for declared
   predicates and axiom items.
+* `.thm` files and interactive input may define modules inline. These
+  are local to the file or session and are not exported by `.thc`.
+* Added `Show Module` to print module summaries at top level or inside
+  proofs.
+* `.thmod` files reject specification-logic sequents (`{ ... }`); inline
+  modules in `.thm` files may use them.
 * See `examples/modules/` for examples, and `examples/modules/README.md` for
   more documentation.
 

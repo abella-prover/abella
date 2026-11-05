@@ -58,13 +58,26 @@ let read_manifest path =
     end
   | _ -> failwithf "Manifest must be a JSON object"
 
-let chop_thm path =
-  if Filename.check_suffix path ".thm" then
-    Filename.chop_suffix path ".thm"
-  else
-    failwithf "Example entry must end in .thm: %S" path
+let is_source path =
+  List.exists (Filename.check_suffix path)
+    [".thm" ; ".thmod" ; ".sig" ; ".mod"]
 
-(* Transitive .thm/.thmod files and spec files for one root. *)
+let files_in_dir entry predicate =
+  let dir = Filename.dirname entry in
+  if Sys.file_exists dir && Sys.is_directory dir then
+    Sys.readdir dir |>
+    Array.to_list |>
+    List.filter predicate |>
+    List.map (Filename.concat dir)
+  else
+    []
+
+let source_files_for entry =
+  files_in_dir entry is_source
+
+(* Transitive .thm/.thmod files and spec files for one root.  A source
+   entry pulls in its dependency closure; a text entry pulls in every
+   source file beside it. *)
 let dependencies entry =
   let seen = Hashtbl.create 19 in
   let thms = ref [] in
@@ -91,23 +104,28 @@ let dependencies entry =
       List.iter visit_thmod deps.Depend.dep_thmods
     end
   in
-  visit_thm (chop_thm entry) ;
+  let visit_source path =
+    if Filename.check_suffix path ".thm" then
+      visit_thm (Filename.chop_suffix path ".thm")
+    else if Filename.check_suffix path ".thmod" then
+      visit_thmod (Filename.chop_suffix path ".thmod")
+    else if Filename.check_suffix path ".sig" ||
+            Filename.check_suffix path ".mod" then
+      specs := path :: !specs
+  in
+  List.iter visit_source begin
+    if Filename.check_suffix entry ".thm" then [entry]
+    else source_files_for entry
+  end ;
   (List.rev !thms, List.rev !thmods, List.unique !specs)
 
 let is_small_text path =
   Filename.check_suffix path ".md" || Filename.check_suffix path ".txt"
 
 let text_files_for entry =
-  let dir = Filename.dirname entry in
-  if Sys.file_exists dir && Sys.is_directory dir then
-    Sys.readdir dir |>
-    Array.to_list |>
-    List.filter is_small_text |>
-    List.map (Filename.concat dir) |>
-    List.filter (fun path ->
-        (Unix.stat path).Unix.st_size <= 64 * 1024)
-  else
-    []
+  files_in_dir entry is_small_text |>
+  List.filter (fun path ->
+      (Unix.stat path).Unix.st_size <= 64 * 1024)
 
 let build_example (files : (string, string) Hashtbl.t) example =
   let thms, thmods, specs = dependencies example.entry in
@@ -116,18 +134,24 @@ let build_example (files : (string, string) Hashtbl.t) example =
     List.sort String.compare
   in
   List.iter (fun path -> Hashtbl.replace files path (read_file path)) paths ;
-  let base = chop_thm example.entry in
-  let has_suffix suffix =
-    let path = base ^ suffix in
-    List.mem path specs
+  let base =
+    if Filename.check_suffix example.entry ".thm" then
+      Some (Filename.chop_suffix example.entry ".thm")
+    else
+      None
+  in
+  let suffix_path suffix =
+    match base with
+    | Some base when List.mem (base ^ suffix) specs -> `String (base ^ suffix)
+    | _ -> `Null
   in
   `Assoc [
     "id", `String example.id ;
     "group", `String example.group ;
     "name", `String example.name ;
     "entry", `String example.entry ;
-    "sig", (if has_suffix ".sig" then `String (base ^ ".sig") else `Null) ;
-    "mod", (if has_suffix ".mod" then `String (base ^ ".mod") else `Null) ;
+    "sig", suffix_path ".sig" ;
+    "mod", suffix_path ".mod" ;
     "files", `List (List.map (fun path -> `String path) paths) ;
   ]
 

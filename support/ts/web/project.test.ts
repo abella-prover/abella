@@ -146,6 +146,22 @@ test("example bundles are read from entry", () => {
   assert.equal(loaded.active, "demo/main.thm");
 });
 
+test("example bundles may open a text entry without a prover entry", () => {
+  const loaded = projectFromBundle(
+    {
+      examples: [{ id: "modules", entry: "examples/modules/README.md" }],
+      files: {
+        "examples/modules/README.md": "# Modules\n",
+        "examples/modules/ListUse.thm": "Specification \"demo\".\n",
+      },
+    },
+    "modules"
+  );
+  assert.ok(loaded);
+  assert.equal(loaded.entry, undefined);
+  assert.equal(loaded.active, "examples/modules/README.md");
+});
+
 test("example bundles with a root key are rejected", () => {
   const loaded = projectFromBundle(
     {

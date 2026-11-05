@@ -88,12 +88,12 @@ export function projectFromBundle(
       });
     }
   }
-  if (!isExecutable(example.entry) || !files.has(example.entry)) {
+  if (typeof example.entry !== "string" || !files.has(example.entry)) {
     return undefined;
   }
   return {
     files,
-    entry: example.entry,
+    entry: isExecutable(example.entry) ? example.entry : undefined,
     active: example.entry,
     example: id,
   };

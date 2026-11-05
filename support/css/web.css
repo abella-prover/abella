@@ -735,16 +735,6 @@ body.resizing-row {
   display: none;
 }
 
-.entry-file {
-  max-width: 12rem;
-  overflow: hidden;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .editor-pane {
   grid-column: 3;
   grid-row: 1;

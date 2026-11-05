@@ -178,7 +178,6 @@ const commitSubmitButton = byId<HTMLButtonElement>("commit-submit");
 const commitCancelButton = byId<HTMLButtonElement>("commit-cancel");
 const commitCloseButton = byId<HTMLButtonElement>("commit-close");
 const sidebarTitle = byId<HTMLElement>("sidebar-title");
-const entryFile = byId<HTMLElement>("entry-file");
 const tabStrip = byId<HTMLDivElement>("tab-strip");
 const emptyEditor = byId<HTMLDivElement>("empty-editor");
 const helpButton = byId<HTMLButtonElement>("help");
@@ -714,19 +713,6 @@ function updateRunControls(status: SessionStatus): void {
       ? label
       : `${label} (Ctrl+Shift+])`;
   resetButton.disabled = false;
-}
-
-function updateEntryLabel(): void {
-  const entry = project.entry;
-  if (!entry) {
-    entryFile.hidden = true;
-    entryFile.textContent = "";
-    entryFile.removeAttribute("title");
-    return;
-  }
-  entryFile.hidden = false;
-  entryFile.textContent = entry.slice(entry.lastIndexOf("/") + 1);
-  entryFile.title = `Prover file: ${entry}`;
 }
 
 function setStatus(status: SessionStatus, detail?: string): void {
@@ -2172,7 +2158,6 @@ function refreshFiles(
   const hasDirectories = allDirectories(entries).size > 0;
   collapseAllButton.hidden = !hasDirectories;
   collapseAllButton.disabled = !hasDirectories;
-  updateEntryLabel();
   renderTabs();
   updateRunControls(statusBadge.dataset.status as SessionStatus);
   updateWorkspaceUi();
@@ -2372,7 +2357,6 @@ function projectStructureChanged(): void {
   renderGoal();
   session.setProject(project);
   if (project.entry) editor.clearDiagnostics(project.entry);
-  updateEntryLabel();
   setStatus(project.entry ? "ready" : "idle");
 }
 
@@ -2386,7 +2370,6 @@ function clearEntrySession(): void {
   lastGoalState = undefined;
   currentOutcome = undefined;
   renderGoal();
-  updateEntryLabel();
 }
 
 /** Switch the file the prover checks and discard the old session state. */
@@ -2395,7 +2378,6 @@ function changeEntry(path: string): void {
   if (project.entry !== path) clearEntrySession();
   project.entry = path;
   session.setEntry(path);
-  updateEntryLabel();
   scheduleSave();
   setStatus("idle");
 }
@@ -3098,7 +3080,6 @@ async function startProject(
   resetTreeState();
   refreshFiles();
   if (first) openFile(first);
-  updateEntryLabel();
   session.setProject(project);
   workspaceSession.schedulePersist();
   try {
@@ -3196,9 +3177,7 @@ async function main(): Promise<void> {
     (path, from) => showCommandOutput(path, from)
   );
 
-  const driver = new WorkerDriver((module) =>
-    setStatus("compiling", module)
-  );
+  const driver = new WorkerDriver(() => setStatus("compiling"));
   session = new Session(driver, project, events);
   if (workspaceSession.isDetachedDirectory) {
     try {
@@ -3353,7 +3332,6 @@ async function main(): Promise<void> {
   await workspaceSession.loadEntries();
   resetTreeState();
   refreshFiles();
-  updateEntryLabel();
   if (firstTab) openFile(firstTab);
   if (savedProjectWarning) {
     notify([{ severity: "error", message: savedProjectWarning }]);

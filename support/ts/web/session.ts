@@ -185,11 +185,8 @@ export class Session {
     this.driver = driver;
     this.project = project;
     this.events = events;
-    driver.onProgress = (module) => {
-      this.events.onStatus(
-        this.pauseRequested ? "pausing" : "compiling",
-        module
-      );
+    driver.onProgress = () => {
+      this.events.onStatus(this.pauseRequested ? "pausing" : "compiling");
     };
   }
 

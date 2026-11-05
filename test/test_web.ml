@@ -50,6 +50,7 @@ let start_web_session () =
   Source.clear_thc_trust () ;
   D.compiling := [] ;
   D.Setup.mode := `interactive ;
+  D.Setup.file_kind := `thm ;
   D.Setup.annotate := true ;
   D.Setup.recurse := false ;
   D.Setup.import_mode := `auto ;

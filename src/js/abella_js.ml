@@ -105,6 +105,7 @@ let re_init files root =
   Source.set_thc_cache_limit (64 * 1024 * 1024) ;
   List.iter (fun (path, contents) -> Source.add_virtual path contents) files ;
   Abella_driver.Setup.mode := `interactive ;
+  Abella_driver.Setup.file_kind := `thm ;
   Abella_driver.Setup.annotate := true ;
   Abella_driver.Setup.recurse := false ;
   Abella_driver.Setup.import_mode := `auto ;

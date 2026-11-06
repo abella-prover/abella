@@ -27,7 +27,7 @@ open Test_helper
 
 module D = Abella_driver
 
-let processing_state = ref D.Process_top
+let processing_state = State.rref D.Process_top
 
 let start_web_session () =
   State.reload D.initial_snapshot ;
@@ -296,6 +296,47 @@ End List.
   Alcotest.check Alcotest.bool "thmod finished" true
     (Thmod.is_complete ())
 
+let test_back_across_proof_boundary () =
+  Source.add_virtual "Eq.thmod" {|
+Module Eq[T].
+  Type eq T -> T -> prop.
+  Axiom refl : forall (x:T), eq x x.
+End Eq.
+|} ;
+  Source.add_virtual "EqUse.thmod" {|
+Module EqUse.
+  Kind nat type.
+  Type z nat.
+  Define nat_eq : nat -> nat -> prop by
+    nat_eq X X.
+  Theorem nat_eq_refl : forall (x:nat), nat_eq x x.
+  intros. search.
+  Import Module E = "Eq"[nat] with eq := nat_eq, refl := nat_eq_refl.
+  Theorem t : forall (x:nat), nat_eq x x.
+  intros. backchain E.refl.
+End EqUse.
+|} ;
+  D.Setup.file_kind := `thmod ;
+  D.Setup.input := "EqUse.thmod" ;
+  List.iter (fun command -> assert_ok (fst (process_command command))) [
+    "Module EqUse." ;
+    "Kind nat type." ;
+    "Type z nat." ;
+    "Define nat_eq : nat -> nat -> prop by nat_eq X X." ;
+    "Theorem nat_eq_refl : forall (x:nat), nat_eq x x." ;
+    "intros." ;
+    "search." ;
+    "Import Module E = \"Eq\"[nat] with \
+     eq := nat_eq, refl := nat_eq_refl." ;
+    "Theorem t : forall (x:nat), nat_eq x x." ;
+    "intros." ;
+    "backchain E.refl." ;
+  ] ;
+  State.Undo.back 1 ;
+  let (status, msgs) = process_command "backchain E.refl." in
+  if Result.is_error status then
+    Alcotest.fail (String.concat "\n" (system_messages msgs))
+
 let test_show_module () =
   Source.add_virtual "List.thmod" {|
 Module List[T].
@@ -342,4 +383,6 @@ let tests = suite "web_core" [
   test_case "interactive_thmod"
     (fun () -> with_session test_interactive_thmod) ;
   test_case "show_module" (fun () -> with_session test_show_module) ;
+  test_case "back_across_proof_boundary"
+    (fun () -> with_session test_back_across_proof_boundary) ;
 ]

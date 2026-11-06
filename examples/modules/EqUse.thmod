@@ -10,5 +10,5 @@ Module EqUse.
   intros. search.
   Import Module E = "Eq"[nat] with eq := nat_eq, refl := nat_eq_refl.
   Theorem t : forall (x:nat), nat_eq x x.
-  intros. apply E.refl. search.
+  intros. backchain E.refl.
 End EqUse.

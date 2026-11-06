@@ -69,7 +69,7 @@ let run_thmod dir name source =
   State.reload D.initial_snapshot ;
   Thmod.reset () ;
   State.Undo.set_enabled false ;
-  D.compiling := [] ;
+  D.Setup.compiling := [] ;
   D.Setup.mode := `batch ;
   D.Setup.annotate := false ;
   D.Setup.recurse := false ;
@@ -89,14 +89,14 @@ let run_thmod dir name source =
       | Ok state -> drive state
       | Error _ -> drive state
     with
-    | D.AbellaExit 0 -> ()
-    | D.AbellaExit n -> raise (D.AbellaExit n)
+    | D.Setup.AbellaExit 0 -> ()
+    | D.Setup.AbellaExit n -> raise (D.Setup.AbellaExit n)
   in
   try
     drive D.Process_top ;
     `Ok (read_file Src.thc_path)
   with
-  | D.AbellaExit _ -> `Error (D.collected_messages ())
+  | D.Setup.AbellaExit _ -> `Error (Output.collected_messages ())
   | e -> `Error (Printexc.to_string e)
 
 let native_compile_thmod dir name source =

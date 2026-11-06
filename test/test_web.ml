@@ -37,7 +37,7 @@ let start_web_session () =
   Accumulate.clear_specification_cache () ;
   Source.clear_virtual () ;
   Source.clear_thc_trust () ;
-  D.compiling := [] ;
+  D.Setup.compiling := [] ;
   D.Setup.mode := `interactive ;
   D.Setup.file_kind := `thm ;
   D.Setup.annotate := true ;
@@ -82,8 +82,8 @@ let process_command command =
           Ok ()
       | Error _ as status -> status
     with
-    | D.AbellaExit 0 -> Ok ()
-    | D.AbellaExit _ ->
+    | D.Setup.AbellaExit 0 -> Ok ()
+    | D.Setup.AbellaExit _ ->
         Error (D.Runtime_error "process aborted")
   in
   (status, Output.drain ())

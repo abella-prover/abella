@@ -31,16 +31,6 @@ open Accumulate
 
 module Setup = Driver_setup
 
-let on_import = Setup.on_import
-let compiling = Setup.compiling
-let witnesses = Setup.witnesses
-
-let comp_content = Thm.comp_content
-let can_read_specification = Thm.can_read_specification
-module Replacement = Thm.Replacement
-let process_decls = Thm.process_decls
-let collected_messages = Output.collected_messages
-
 let write_compilation () =
   match !Setup.file_kind with
   | `thmod -> Thmod.write_compilation ()
@@ -52,9 +42,6 @@ let in_module () = Thmod.current_name () <> None
 
 let bound_params () =
   if in_module () then Thmod.all_params () else []
-
-exception UserInterrupt = Setup.UserInterrupt
-exception AbellaExit = Setup.AbellaExit
 
 type type_error = {
   pos : Extensions.pos ;
@@ -127,7 +114,7 @@ let processing_error_to_string error =
 
 let interactive_or_exit () =
   if !Setup.mode = `interactive then ()
-  else raise @@ AbellaExit 1
+  else raise @@ Setup.AbellaExit 1
 
 let position_range (p1, p2) =
   let file = p1.Lexing.pos_fname in
@@ -158,13 +145,13 @@ let compile citem =
   if !Setup.file_kind = `thmod || in_module () then
     Thmod.add_compiled citem
   else
-    comp_content := citem :: !comp_content
+    Thm.comp_content := citem :: !Thm.comp_content
 
 let record_imported citem =
   if !Setup.file_kind = `thmod || in_module () then
     Thmod.add_imported_compiled citem
   else
-    comp_content := citem :: !comp_content
+    Thm.comp_content := citem :: !Thm.comp_content
 
 let query q =
   let fv = ids_to_fresh_tyctx (umetaterm_extract_if is_capital_name q) in
@@ -239,8 +226,8 @@ let set k v =
   | "search_depth", _ -> set_fail v
                            ~key:"search_depth"
 
-  | "witnesses", Str "on" -> witnesses := true
-  | "witnesses", Str "off" -> witnesses := false
+  | "witnesses", Str "on" -> Setup.witnesses := true
+  | "witnesses", Str "off" -> Setup.witnesses := false
   | "witnesses", _ -> set_fail v
                         ~key:"witnesses"
 
@@ -249,18 +236,14 @@ let set k v =
   | _, _ -> failwithf "Unknown key '%s'" k
 
 let handle_search_witness w =
-  if !witnesses then
+  if !Setup.witnesses then
     Output.msg_printf "Witness: %s." (witness_to_string w)
 
 let term_witness (_t, w) =
-  if !witnesses then
+  if !Setup.witnesses then
     Output.msg_printf "Witness: %s." (witness_to_string w)
 
 let suppress_proof_state_display = State.rref false
-
-let check_structure = Thmod.check_structure
-let process_module = Thmod.process_module
-let process_end = Thmod.process_end
 
 let check_thmod_complete () =
   if !Setup.file_kind = `thmod then
@@ -300,7 +283,7 @@ let handle_process_exception e =
             Module_parameter_error { parameter = v ; ty }
         | Unify.UnifyError err ->
             Unification_error (Unify.explain_error err)
-        | UserInterrupt -> User_interrupt
+        | Setup.UserInterrupt -> User_interrupt
         | _ -> Runtime_error (sorry e)
       in
       Output.msg_printf ~severity:Error "Error: %s"
@@ -329,11 +312,11 @@ let rec process1 state =
               (String.concat ", " (List.unique (List.rev !Setup.axioms)))
           end ;
           Output.flush () ;
-          raise @@ AbellaExit 0
+          raise @@ Setup.AbellaExit 0
       | _ ->
           Output.msg_printf ~severity:Error "Proof NOT Completed." ;
           Output.flush () ;
-          raise @@ AbellaExit 1
+          raise @@ Setup.AbellaExit 1
       end
 
 and process_proof1 state =
@@ -488,7 +471,7 @@ and process_top1_body () =
       input
   in
   if !Setup.mode <> `interactive then Output.non_annot "%s.\n%!" cmd_string ;
-  check_structure input.el ;
+  Thmod.check_structure input.el ;
   let thm_id =
     if not !Setup.annotate then -1 else
     let annot = Output.message "top_command" ~fields:begin
@@ -510,7 +493,7 @@ and process_top1_body () =
       let thm_compile fin =
         sign := oldsign ;
         compile (CTheorem(name, tys, thm, fin)) ;
-        Thm.add_lemma ~fin name tys thm
+        Artifact.add_lemma ~fin name tys thm
       in
       let thm_reset () =
         sign := oldsign ;
@@ -535,7 +518,7 @@ and process_top1_body () =
       let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
       check_theorem ~bound:(bound_params ()) tys thm ;
       compile (CTheorem(name, tys, thm, Axiomatic)) ;
-      Thm.add_lemma ~fin:Axiomatic name tys thm ;
+      Artifact.add_lemma ~fin:Axiomatic name tys thm ;
       Setup.axioms := name :: !Setup.axioms ;
       Process_top
   | SSplit(name, names) ->
@@ -550,7 +533,7 @@ and process_top1_body () =
       in
       List.iter begin fun (n, (tys, t)) ->
         Output.msg_format "%t" (Prover.print_theorem n (tys, t)) ;
-        Thm.add_lemma ~fin n tys t ;
+        Artifact.add_lemma ~fin n tys t ;
         compile (CTheorem(n, tys, t, fin))
       end gen_thms ;
       if fin = Unfinished && List.mem name !Setup.unfinished then
@@ -598,10 +581,10 @@ and process_top1_body () =
         ~wrt:!Setup.input pos filename withs ;
       Process_top
   | Module (name, params) ->
-      process_module name params ;
+      Thmod.process_module name params ;
       Process_top
   | End name ->
-      process_end name ;
+      Thmod.process_end name ;
       Process_top
   | ImportModule mi ->
       begin match mi.mi_source with
@@ -617,7 +600,7 @@ and process_top1_body () =
         ~record:record_imported mi ;
       Process_top
   | Specification(filename, pos) ->
-      (if !can_read_specification then begin
+      (if !Thm.can_read_specification then begin
          let filename = Filepath.normalize ~wrt:!Setup.input filename in
          Thm.read_specification filename ;
          Thm.ensure_finalized_specification () ;

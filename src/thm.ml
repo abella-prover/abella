@@ -71,8 +71,6 @@ let add_compiled citem =
 
 let compiled_content () = List.rev !comp_content
 
-let add_lemma = Artifact.add_lemma
-
 module Replacement = struct
   type target = {
     name : id ;

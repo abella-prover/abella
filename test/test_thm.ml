@@ -65,8 +65,8 @@ let start_thm_session () =
   Accumulate.clear_specification_cache () ;
   Source.clear_virtual () ;
   Source.clear_thc_trust () ;
-  D.compiling := [] ;
-  D.on_import := None ;
+  D.Setup.compiling := [] ;
+  D.Setup.on_import := None ;
   Thmod.reset () ;
   D.Setup.mode := `interactive ;
   D.Setup.file_kind := `thm ;
@@ -110,8 +110,8 @@ let process_command command =
           Ok ()
       | Error _ as status -> status
     with
-    | D.AbellaExit 0 -> Ok ()
-    | D.AbellaExit _ ->
+    | D.Setup.AbellaExit 0 -> Ok ()
+    | D.Setup.AbellaExit _ ->
         Error (D.Runtime_error "process aborted")
   in
   (status, Output.drain ())
@@ -173,7 +173,7 @@ let run_thm dir name source =
   State.reload D.initial_snapshot ;
   Thmod.reset () ;
   State.Undo.set_enabled false ;
-  D.compiling := [] ;
+  D.Setup.compiling := [] ;
   D.Setup.mode := `batch ;
   D.Setup.annotate := false ;
   D.Setup.recurse := false ;
@@ -193,14 +193,14 @@ let run_thm dir name source =
       | Ok state -> drive state
       | Error _ -> drive state
     with
-    | D.AbellaExit 0 -> ()
-    | D.AbellaExit n -> raise (D.AbellaExit n)
+    | D.Setup.AbellaExit 0 -> ()
+    | D.Setup.AbellaExit n -> raise (D.Setup.AbellaExit n)
   in
   try
     drive D.Process_top ;
     `Ok (read_file Src.thc_path)
   with
-  | D.AbellaExit _ -> `Error (D.collected_messages ())
+  | D.Setup.AbellaExit _ -> `Error (Output.collected_messages ())
   | e -> `Error (Printexc.to_string e)
 
 let native_compile_thm dir name source =
@@ -227,7 +227,7 @@ let run_thmod dir name source =
   State.reload D.initial_snapshot ;
   Thmod.reset () ;
   State.Undo.set_enabled false ;
-  D.compiling := [] ;
+  D.Setup.compiling := [] ;
   D.Setup.mode := `batch ;
   D.Setup.annotate := false ;
   D.Setup.recurse := false ;
@@ -247,14 +247,14 @@ let run_thmod dir name source =
       | Ok state -> drive state
       | Error _ -> drive state
     with
-    | D.AbellaExit 0 -> ()
-    | D.AbellaExit n -> raise (D.AbellaExit n)
+    | D.Setup.AbellaExit 0 -> ()
+    | D.Setup.AbellaExit n -> raise (D.Setup.AbellaExit n)
   in
   try
     drive D.Process_top ;
     `Ok (read_file Src.thc_path)
   with
-  | D.AbellaExit _ -> `Error (D.collected_messages ())
+  | D.Setup.AbellaExit _ -> `Error (Output.collected_messages ())
   | e -> `Error (Printexc.to_string e)
 
 let native_compile_thmod dir name source =
@@ -403,7 +403,7 @@ let test_source_import_cache () =
     Source.add_virtual "main.thm" "" ;
     Source.add_virtual "mod.thm" thm_module ;
     let hits = ref [] in
-    D.on_import := Some (fun name -> hits := name :: !hits) ;
+    D.Setup.on_import := Some (fun name -> hits := name :: !hits) ;
     let (status, msgs) = process_command "Import \"mod\"." in
     assert_ok status ;
     Alcotest.check Alcotest.bool "generated thc exists" true
@@ -473,7 +473,7 @@ let test_ctype_stores_typarams () =
   with_session begin fun () ->
     assert_ok (fst (process_command
       "Type decl_local A -> B -> prop.")) ;
-    match !D.comp_content with
+    match !Thm.comp_content with
     | [CType(["decl_local"], typarams, _)] ->
         Alcotest.check (Alcotest.list Alcotest.string)
           "type parameters differ" ["A" ; "B"] typarams
@@ -535,7 +535,7 @@ let test_virtual_native_thc () =
       Source.add_virtual "mod.thc" native ;
       Source.set_thc_trusted "mod.thc" true ;
       let hits = ref [] in
-      D.on_import := Some (fun name -> hits := name :: !hits) ;
+      D.Setup.on_import := Some (fun name -> hits := name :: !hits) ;
       let (status, _) = process_command "Import \"mod\"." in
       assert_ok status ;
       Alcotest.check (Alcotest.list Alcotest.string)
@@ -564,7 +564,7 @@ Theorem outer_ok : forall A B, is_inner (app A B).
 intros. search.
 |} ;
     let hits = ref [] in
-    D.on_import := Some (fun name -> hits := name :: !hits) ;
+    D.Setup.on_import := Some (fun name -> hits := name :: !hits) ;
     assert_ok (fst (process_command "Import \"outer\".")) ;
     Alcotest.check Alcotest.bool "inner thc" true
       (Source.is_thc_trusted "inner.thc") ;

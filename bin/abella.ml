@@ -33,7 +33,7 @@ let set_or_exit k v =
   try set k v with
   | Failure msg ->
       Output.msg_printf ~severity:Error "Error: %s" msg ;
-      raise @@ AbellaExit 1
+      raise @@ Setup.AbellaExit 1
 
 let abella_main
     flags _switch output compiled annotate norec strict_stratification
@@ -74,7 +74,7 @@ let abella_main
       | Error _ -> ()
     done ; 0
   end with
-  | AbellaExit n -> n
+  | Setup.AbellaExit n -> n
   | e ->
       let msg = match e with
         | Failure msg -> "Failure: " ^ msg
@@ -88,7 +88,7 @@ let abella_main
 
 let () =
   Sys.set_signal Sys.sigint
-    (Sys.Signal_handle (fun _ -> raise UserInterrupt)) ;
+    (Sys.Signal_handle (fun _ -> raise Setup.UserInterrupt)) ;
 
   let open Cmdliner in
 

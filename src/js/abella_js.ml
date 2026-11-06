@@ -105,7 +105,7 @@ let re_init files root strict =
   processing_state := Abella_driver.Process_top ;
   State.Undo.set_enabled true ;
   State.Undo.reset () ;
-  Abella_driver.compiling := [] ;
+  Abella_driver.Setup.compiling := [] ;
   Accumulate.clear_specification_cache () ;
   Source.clear_virtual () ;
   Source.clear_thc_trust () ;
@@ -156,8 +156,8 @@ let process command start =
             true
         | Error _ -> false
       with
-      | Abella_driver.AbellaExit 0 -> true
-      | Abella_driver.AbellaExit _ -> false
+      | Abella_driver.Setup.AbellaExit 0 -> true
+      | Abella_driver.Setup.AbellaExit _ -> false
       | e ->
           Output.msg_printf ~severity:Error "Error: %s" (sorry e) ;
           false
@@ -188,7 +188,7 @@ let thc path =
 
 (* Install the progress callback used by the worker. *)
 let set_on_import callback =
-  Abella_driver.on_import := Some (fun name ->
+  Abella_driver.Setup.on_import := Some (fun name ->
       ignore (Js.Unsafe.fun_call callback
                 [| Js.Unsafe.inject (Js.string name) |]))
 

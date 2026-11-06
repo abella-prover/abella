@@ -8,7 +8,7 @@ import {
   StreamLanguage,
   type StreamParser,
 } from "@codemirror/language";
-import { tags as t } from "@lezer/highlight";
+import { Tag, tags as t } from "@lezer/highlight";
 import { abellaKeywords, allAbellaKeywords } from "../keywords.generated";
 
 // λProlog syntax that Abella parses without reserving it in its lexer.
@@ -42,9 +42,20 @@ interface TokenState {
 const identifierStart = /[A-Za-z_$?='`-]/;
 const identifierPart = /[A-Za-z0-9_\/@+!#~*'`?=$-]/;
 
-function makeParser(keywords: readonly string[]): StreamParser<TokenState> {
+const proofCommands = new Set([
+  ...abellaKeywords.proofCmd,
+  ...abellaKeywords.proofSpec,
+]);
+
+const proofCommandTag = Tag.define(t.keyword);
+
+function makeParser(
+  keywords: readonly string[],
+  proofKeywords: ReadonlySet<string> = new Set()
+): StreamParser<TokenState> {
   const keywordSet = new Set(keywords);
   return {
+    tokenTable: { proofCommand: proofCommandTag },
     startState: () => ({ commentDepth: 0 }),
     token(stream, state) {
       if (state.commentDepth > 0) {
@@ -95,7 +106,9 @@ function makeParser(keywords: readonly string[]): StreamParser<TokenState> {
           if (!identifierPart.test(c)) break;
           word += stream.next();
         }
-        if (keywordSet.has(word)) return "keyword";
+        if (keywordSet.has(word)) {
+          return proofKeywords.has(word) ? "proofCommand" : "keyword";
+        }
         if (/^[A-Z]/.test(word)) return "typeName";
         return "variableName";
       }
@@ -113,7 +126,7 @@ function makeParser(keywords: readonly string[]): StreamParser<TokenState> {
 }
 
 export const abellaLanguage = new LanguageSupport(
-  StreamLanguage.define(makeParser(allAbellaKeywords))
+  StreamLanguage.define(makeParser(allAbellaKeywords, proofCommands))
 );
 
 export const lprologLanguage = new LanguageSupport(
@@ -123,6 +136,7 @@ export const lprologLanguage = new LanguageSupport(
 export const abellaHighlightStyle = HighlightStyle.define([
   { tag: t.comment, color: "var(--cm-comment)" },
   { tag: t.keyword, color: "var(--cm-keyword)", fontWeight: "600" },
+  { tag: proofCommandTag, color: "var(--cm-proof)" },
   { tag: t.typeName, color: "var(--cm-type)" },
   { tag: t.variableName, color: "var(--cm-variable)" },
   { tag: t.string, color: "var(--cm-string)" },

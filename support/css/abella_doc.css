@@ -52,6 +52,7 @@
   --syn-tm: #cf222e;
   --syn-tb: #0550ae;
   --syn-tc: #8250df;
+  --syn-pc: #762c00;
   --syn-ps-bg: #0969da;
   --syn-ps-fg: #ffffff;
 }
@@ -93,6 +94,7 @@
   --syn-tm: #fb4934;
   --syn-tb: #8ec07c;
   --syn-tc: #d3869b;
+  --syn-pc: #fabd2f;
   --syn-ps-bg: #fabd2f;
   --syn-ps-fg: #1d2021;
 }
@@ -570,7 +572,7 @@ span.s-tm { color: var(--syn-tm); }
 span.s-tb { color: var(--syn-tb); }
 span.s-tc { color: var(--syn-tc); font-weight: 700; }
 span.s-tb span.s-tc { color: inherit; font-weight: inherit; }
-span.s-pc { color: var(--syn-op); font-style: italic; }
+span.s-pc { color: var(--syn-pc); font-style: italic; }
 
 span.s-ps {
   border-radius: .15rem;

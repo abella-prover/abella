@@ -125,6 +125,11 @@ let current_scope () =
   | sc :: _ -> Some sc
   | [] -> None
 
+let in_module () =
+  match !env.en_stack with
+  | [] -> false
+  | _ -> true
+
 let current_name () =
   match current_scope () with
   | Some sc -> Some sc.sc_name
@@ -1383,8 +1388,6 @@ let summary_to_string ~name ~params ~prefix content =
   end content ;
   line "End %s." name ;
   Buffer.contents buf
-
-let in_module () = current_name () <> None
 
 type pred_value = {
   pv_name : string ;

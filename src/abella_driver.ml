@@ -38,10 +38,10 @@ let write_compilation () =
 
 let is_interactive () = !Setup.mode = `interactive
 
-let in_module () = Thmod.current_name () <> None
-
 let bound_params () =
-  if in_module () then Thmod.all_params () else []
+  if Thmod.in_module () then
+    Thmod.all_params ()
+  else []
 
 type type_error = {
   pos : Extensions.pos ;
@@ -142,13 +142,13 @@ let type_inference_error (pos, ct) exp act =
         "Expression is applied to too many arguments"
 
 let compile citem =
-  if !Setup.file_kind = `thmod || in_module () then
+  if !Setup.file_kind = `thmod || Thmod.in_module () then
     Thmod.add_compiled citem
   else
     Thm.comp_content := citem :: !Thm.comp_content
 
 let record_imported citem =
-  if !Setup.file_kind = `thmod || in_module () then
+  if !Setup.file_kind = `thmod || Thmod.in_module () then
     Thmod.add_imported_compiled citem
   else
     Thm.comp_content := citem :: !Thm.comp_content
@@ -357,7 +357,7 @@ and process_proof1_body proc =
   let input = Parser.command_start Lexer.token !Setup.lexbuf in
   let cmd_string = command_to_string input.el in
   let input =
-    if in_module () then
+    if Thmod.in_module () then
       { input with
         el = Thmod.resolve_proof_command ~is_hyp:Prover.is_hyp input.el }
     else
@@ -465,7 +465,7 @@ and process_top1_body () =
   let input = Parser.top_command_start Lexer.token !Setup.lexbuf in
   let cmd_string = top_command_to_string input.el in
   let input =
-    if in_module () then
+    if Thmod.in_module () then
       { input with el = Thmod.resolve_top input.el }
     else
       input
@@ -526,7 +526,7 @@ and process_top1_body () =
       let gen_thms =
         Prover.create_split_theorems name names |>
         List.map (fun (n, t) ->
-            if in_module () then
+            if Thmod.in_module () then
               (Thmod.new_name n, t)
             else
               (n, t))
@@ -545,7 +545,7 @@ and process_top1_body () =
       Process_top
   | Define _ ->
       let strat_errors =
-        in_module () || !stratification_warnings_are_errors
+        Thmod.in_module () || !stratification_warnings_are_errors
       in
       compile (Prover.register_definition ~strat_errors
                  ~bound_tyvars:(bound_params ()) input.el) ;
@@ -623,7 +623,7 @@ and process_top1_body () =
         | Ty (_, aty) -> aty = propaty
       in
       let typarams =
-        if in_module () && is_declared_predicate &&
+        if Thmod.in_module () && is_declared_predicate &&
            contains_prop_argument ty then begin
           let name = match ids with
             | id :: _ -> id
@@ -638,7 +638,7 @@ and process_top1_body () =
       Prover.add_global_consts ~typarams
         (List.map (fun id -> (id, ty)) ids) ;
       let comp =
-        if in_module () && is_declared_predicate
+        if Thmod.in_module () && is_declared_predicate
         then CDeclPred (ids, typarams, ty)
         else CType (ids, typarams, ty)
       in

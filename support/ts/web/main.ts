@@ -182,7 +182,11 @@ const tabStrip = byId<HTMLDivElement>("tab-strip");
 const emptyEditor = byId<HTMLDivElement>("empty-editor");
 const helpButton = byId<HTMLButtonElement>("help");
 const helpDialog = byId<HTMLDialogElement>("help-dialog");
+const preferencesButton = byId<HTMLButtonElement>("preferences");
+const preferencesDialog = byId<HTMLDialogElement>("preferences-dialog");
+const strictToggle = byId<HTMLInputElement>("strict-mode");
 const THEME_KEY = "abella.web.v1.theme";
+const STRICT_KEY = "abella.web.v1.strict";
 const layout = document.querySelector(".layout") as HTMLElement;
 const panelsElement = document.querySelector(".panels") as HTMLElement;
 const sidebar = byId<HTMLElement>("sidebar");
@@ -569,6 +573,22 @@ function savePanelHeight(): void {
   if (panelHeight === undefined) return;
   try {
     localStorage.setItem(PANEL_KEY, String(Math.round(panelHeight)));
+  } catch {
+    // Persistence is optional.
+  }
+}
+
+function loadStrictMode(): boolean {
+  try {
+    return localStorage.getItem(STRICT_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
+function saveStrictMode(strict: boolean): void {
+  try {
+    localStorage.setItem(STRICT_KEY, strict ? "on" : "off");
   } catch {
     // Persistence is optional.
   }
@@ -3207,7 +3227,8 @@ async function main(): Promise<void> {
   );
 
   const driver = new WorkerDriver(() => setStatus("compiling"));
-  session = new Session(driver, project, events);
+  let strictMode = loadStrictMode();
+  session = new Session(driver, project, events, strictMode);
   if (workspaceSession.isDetachedDirectory) {
     try {
       lastDirectoryHandle = await loadDirectoryHandle();
@@ -3235,6 +3256,21 @@ async function main(): Promise<void> {
   helpButton.addEventListener("click", openHelp);
   helpDialog.addEventListener("click", (event) => {
     if (event.target === helpDialog) helpDialog.close();
+  });
+  preferencesButton.addEventListener("click", () => {
+    strictToggle.checked = strictMode;
+    preferencesDialog.showModal();
+  });
+  preferencesDialog.addEventListener("click", (event) => {
+    if (event.target === preferencesDialog) preferencesDialog.close();
+  });
+  strictToggle.addEventListener("change", () => {
+    strictMode = strictToggle.checked;
+    saveStrictMode(strictMode);
+    session.setStrict(strictMode);
+    clearOutput();
+    if (project.entry) editor.clearError(project.entry);
+    void session.init();
   });
   document.addEventListener("keydown", (event) => {
     if (
@@ -3522,5 +3558,5 @@ async function main(): Promise<void> {
 }
 const themeToggle = createThemeToggle(THEME_KEY);
 themeToggle.setTheme(loadTheme(THEME_KEY), false);
-zipInput.before(themeToggle.element);
+preferencesButton.before(themeToggle.element);
 void main();

@@ -96,9 +96,10 @@ let file_list files =
 let is_thmod_path path =
   Filename.check_suffix path ".thmod"
 
-let re_init files root =
+let re_init files root strict =
   let files = file_list files in
   let root = Js.to_string root in
+  Checks.stratification_warnings_are_errors := Js.to_bool strict ;
   let file_kind = if is_thmod_path root then `thmod else `thm in
   State.reload Abella_driver.initial_snapshot ;
   processing_state := Abella_driver.Process_top ;
@@ -124,8 +125,8 @@ let re_init files root =
   Output.msg_printf "%s" Abella_driver.welcome_msg ;
   result "ok" (Output.drain ())
 
-let init files root =
-  try re_init files root with
+let init files root strict =
+  try re_init files root strict with
   | e -> error_result (Printexc.to_string e)
 
 let reset = init

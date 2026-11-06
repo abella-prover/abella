@@ -135,14 +135,17 @@ open Extensions
 type conf = {
   abella : string ;
   recursive : bool ;
+  strict : bool ;
   web : string ;
   share : string ;
 }
 
-let mk_conf abella recursive verbosity verbose web share =
+let mk_conf abella recursive verbosity verbose strict_stratification web share =
   let verbosity = if verbose then max verbosity 2 else verbosity in
   Ppx_abella_lib.verbosity := verbosity ;
-  { abella ; recursive ; web ; share }
+  { abella ; recursive ; strict = strict_stratification ; web ; share }
+
+let strict_flag conf = if conf.strict then " --strict-stratification" else ""
 
 let vprintf _conf =
   if !Ppx_abella_lib.verbosity >= 1
@@ -312,8 +315,8 @@ and process_thmod conf file =
   Hashtbl.replace dep_tab file deps ;
   List.iter (process conf) deps ;
   let cmd = Printf.sprintf
-      "%s --non-recursive --annotate --output=%s.json --verbosity=%d %s.thmod"
-      conf.abella base !Ppx_abella_lib.verbosity base
+      "%s --non-recursive%s --annotate --output=%s.json --verbosity=%d %s.thmod"
+      conf.abella (strict_flag conf) base !Ppx_abella_lib.verbosity base
   in
   vprintf conf "RUN: %s" cmd ;
   if Sys.command cmd != 0 then
@@ -345,8 +348,8 @@ let main conf files =
     if not @@ Filename.check_suffix file ".thm" then () else
     let root = Filename.chop_suffix file ".thm" in
     let cmd = Printf.sprintf
-        "%s --non-recursive --annotate --output=%s.json --verbosity=%d %s.thm"
-        conf.abella root !Ppx_abella_lib.verbosity root in
+        "%s --non-recursive%s --annotate --output=%s.json --verbosity=%d %s.thm"
+        conf.abella (strict_flag conf) root !Ppx_abella_lib.verbosity root in
     vprintf conf "RUN: %s" cmd ;
     if Sys.command cmd != 0 then
       failwithf "ERROR running: %s" cmd ;
@@ -395,6 +398,10 @@ let () =
       let doc = "Process directories recursively" in
       Arg.(value @@ flag @@ info ["r"] ~doc)
     in
+    let strict_stratification =
+      let doc = "Stratification failures are errors." in
+      Arg.(value @@ flag @@ info ["strict-stratification"] ~doc)
+    in
     let web =
       let doc =
         "Link theorem pages to the Abella Web app at $(docv). \
@@ -412,7 +419,7 @@ let () =
            info ["share"] ~doc ~docv:"URL")
     in
     Term.(const mk_conf $ abella $ recursive $ verbosity $ verbose $
-          web $ share)
+          strict_stratification $ web $ share)
   in
   let files =
     let doc = "An Abella $(b,.thm) or $(b,.thmod) file or a directory" in

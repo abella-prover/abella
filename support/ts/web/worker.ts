@@ -37,6 +37,7 @@ scope.onmessage = async (event: MessageEvent) => {
     type: "init" | "reset" | "process" | "back";
     files?: Parameters<typeof Abellajs.init>[0];
     root?: string;
+    strict?: boolean;
     command?: string;
     start?: Parameters<typeof Abellajs.process>[1];
     count?: number;
@@ -45,10 +46,18 @@ scope.onmessage = async (event: MessageEvent) => {
     let result;
     switch (message.type) {
       case "init":
-        result = Abellajs.init(message.files ?? [], message.root ?? "");
+        result = Abellajs.init(
+          message.files ?? [],
+          message.root ?? "",
+          message.strict ?? false
+        );
         break;
       case "reset":
-        result = Abellajs.reset(message.files ?? [], message.root ?? "");
+        result = Abellajs.reset(
+          message.files ?? [],
+          message.root ?? "",
+          message.strict ?? false
+        );
         break;
       case "process":
         result = Abellajs.process(

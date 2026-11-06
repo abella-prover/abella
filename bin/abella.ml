@@ -35,9 +35,12 @@ let set_or_exit k v =
       Output.msg_printf ~severity:Error "Error: %s" msg ;
       raise @@ AbellaExit 1
 
-let abella_main flags _switch output compiled annotate norec _em verb infile =
+let abella_main
+    flags _switch output compiled annotate norec strict_stratification
+    _em verb infile =
   try begin
     Output.set_verbosity verb ;
+    Checks.stratification_warnings_are_errors := strict_stratification ;
     List.iter (fun (k, v) -> set_or_exit k v) flags ;
     Option.iter set_output output ;
     if annotate then Output.annotation_mode () ;
@@ -148,6 +151,11 @@ let () =
     Arg.(value @@ flag @@ info ["N" ; "non-recursive"] ~doc)
   in
 
+  let strict_stratification =
+    let doc = "Stratification failures are errors." in
+    Arg.(value @@ flag @@ info ["strict-stratification"] ~doc)
+  in
+
   let em =
     let deprecated =
       "The -M flag is deprecated and does nothing; use abella_dep instead." in
@@ -178,7 +186,9 @@ let () =
       `P "File bug reports at <$(b,https://github.com/abella-prover/abella/issues)>" ;
     ] in
     let info = Cmd.info "abella" ~doc ~man ~exits:[] ~version:Version.version in
-    Cmd.v info @@ Term.(const abella_main $ flags $ switch $ output $ compiled $ annotate $ norec $ em $ verb $ file)
+    Cmd.v info @@
+    Term.(const abella_main $ flags $ switch $ output $ compiled $
+          annotate $ norec $ strict_stratification $ em $ verb $ file)
   in
 
   Stdlib.exit (Cmd.eval' cmd)

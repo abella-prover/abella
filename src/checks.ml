@@ -5,12 +5,8 @@
  * See LICENSE for licensing details.
  *)
 
-(* BEGIN global Abella configuration *)
-
-let stratification_warnings_are_errors = false
+let stratification_warnings_are_errors = ref false
   (** Any stratification violation warnings are treated as errors *)
-
-(* END global Abella configuration *)
 
 open Term
 open Metaterm
@@ -156,7 +152,7 @@ let ensure_wellformed_head t =
         (metaterm_to_string t)
 
 let check_well_formed
-    ?(errors=stratification_warnings_are_errors) ~def ~is_defined () =
+    ?(errors = !stratification_warnings_are_errors) ~def ~is_defined () =
   let check_clause clauseno {head ; body} =
     let clauseno = clauseno + 1 in
     let nonposities = get_pred_occurrences ~is_defined body in
@@ -195,7 +191,7 @@ let check_well_formed
   List.iteri check_clause def.clauses
 
 let check_def
-    ?(errors=stratification_warnings_are_errors) ~def ~is_defined () =
+    ?(errors = !stratification_warnings_are_errors) ~def ~is_defined () =
   Itab.iter (fun nm _ -> ensure_not_capital nm) def.mutual ;
   List.iter begin fun {head ; body} ->
     let head_pred = def_head_name head in

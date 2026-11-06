@@ -32,6 +32,10 @@ Abella Web
 
 Additions
 
+* Added `--strict-stratification` to `abella` and `abella_doc` to treat
+  stratification failures as errors. Abella Web exposes the same option as
+  a saved preference.
+
 * Added the `Axiom` command, which declares a theorem without requiring a
   proof. In batch mode, the axioms used are listed at the end of the run.
 

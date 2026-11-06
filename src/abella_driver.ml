@@ -562,7 +562,7 @@ and process_top1_body () =
       Process_top
   | Define _ ->
       let strat_errors =
-        in_module () || stratification_warnings_are_errors
+        in_module () || !stratification_warnings_are_errors
       in
       compile (Prover.register_definition ~strat_errors
                  ~bound_tyvars:(bound_params ()) input.el) ;

@@ -165,6 +165,7 @@ export class Session {
   private project: Project;
   private driver: Driver;
   private events: SessionEvents;
+  private strict: boolean;
   private steps: Step[] = [];
   private tip = 0;
   private dirty = true;
@@ -181,10 +182,16 @@ export class Session {
   private pendingEdits: ChangeSet[] = [];
   private editTask?: Promise<void>;
 
-  constructor(driver: Driver, project: Project, events: SessionEvents) {
+  constructor(
+    driver: Driver,
+    project: Project,
+    events: SessionEvents,
+    strict = false
+  ) {
     this.driver = driver;
     this.project = project;
     this.events = events;
+    this.strict = strict;
     driver.onProgress = () => {
       this.events.onStatus(this.pauseRequested ? "pausing" : "compiling");
     };
@@ -271,7 +278,11 @@ export class Session {
     }
     let result: RunResult;
     try {
-      result = await this.driver.init(abellaFiles(this.project), entry);
+      result = await this.driver.init(
+        abellaFiles(this.project),
+        entry,
+        this.strict
+      );
     } catch (error) {
       if (generation !== this.generation) return false;
       this.events.onStatus("error");
@@ -639,6 +650,13 @@ export class Session {
     this.dirty = true;
     this.initialized = false;
     this.events.onStatus("idle");
+  }
+
+  /** Discard the current run so the next check uses the new mode. */
+  setStrict(strict: boolean): void {
+    if (this.strict === strict) return;
+    this.strict = strict;
+    this.abortRun();
   }
 
   /** Abort the current run and check `path` on the next execution. */

@@ -40,6 +40,7 @@ class FakeDriver implements Driver {
   inits = 0;
   resets = 0;
   restarts = 0;
+  strictArgs: boolean[] = [];
   processed: string[] = [];
   started: string[] = [];
   backs: number[] = [];
@@ -78,8 +79,9 @@ class FakeDriver implements Driver {
     });
   }
 
-  async init(): Promise<RunResult> {
+  async init(...args: unknown[]): Promise<RunResult> {
     this.inits++;
+    this.strictArgs.push(Boolean(args[2]));
     return ok();
   }
 
@@ -727,6 +729,18 @@ test("a project without an entry stays idle and does not initialize", async () =
   await session.init();
   assert.equal(driver.inits, 0);
   assert.equal(captured.statuses.at(-1), "idle");
+});
+
+test("strict mode is forwarded to the driver on every initialization", async () => {
+  const driver = new FakeDriver();
+  const { events } = capture();
+  const session = new Session(driver, makeProject(), events, true);
+  await session.init();
+  assert.deepEqual(driver.strictArgs, [true]);
+
+  session.setStrict(false);
+  await session.init();
+  assert.deepEqual(driver.strictArgs, [true, false]);
 });
 
 test("setEntry aborts the session and checks the new file on the next run", async () => {

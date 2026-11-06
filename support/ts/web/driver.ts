@@ -7,8 +7,16 @@ import type { ProjectFile, RunResult, SourcePos } from "./types";
 declare const __WORKER_HASH__: string;
 
 export interface Driver {
-  init(files: ProjectFile[], root: string): Promise<RunResult>;
-  reset(files: ProjectFile[], root: string): Promise<RunResult>;
+  init(
+    files: ProjectFile[],
+    root: string,
+    strict?: boolean
+  ): Promise<RunResult>;
+  reset(
+    files: ProjectFile[],
+    root: string,
+    strict?: boolean
+  ): Promise<RunResult>;
   process(command: string, start: SourcePos): Promise<RunResult>;
   back(count: number): Promise<RunResult>;
   terminate(): void;
@@ -100,12 +108,16 @@ export class WorkerDriver implements Driver {
     });
   }
 
-  init(files: ProjectFile[], root: string): Promise<RunResult> {
-    return this.call("init", { files, root });
+  init(files: ProjectFile[], root: string, strict = false): Promise<RunResult> {
+    return this.call("init", { files, root, strict });
   }
 
-  reset(files: ProjectFile[], root: string): Promise<RunResult> {
-    return this.call("reset", { files, root });
+  reset(
+    files: ProjectFile[],
+    root: string,
+    strict = false
+  ): Promise<RunResult> {
+    return this.call("reset", { files, root, strict });
   }
 
   process(command: string, start: SourcePos): Promise<RunResult> {

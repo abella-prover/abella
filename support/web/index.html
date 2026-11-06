@@ -65,6 +65,15 @@
             </div>
           </details>
         </nav>
+        <button
+          id="preferences"
+          class="icon-button"
+          type="button"
+          aria-label="Preferences"
+          title="Preferences"
+          aria-haspopup="dialog"
+          aria-controls="preferences-dialog"
+        ><span aria-hidden="true">⚙</span></button>
         <input id="zip-input" type="file" accept=".zip" hidden>
         <input
           id="folder-input"
@@ -335,6 +344,31 @@
           On macOS, use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd> for the
           <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> shortcuts. The bracket and dot
           shortcuts use <kbd>Ctrl</kbd> on every platform.
+        </p>
+      </form>
+    </dialog>
+
+    <dialog
+      id="preferences-dialog"
+      class="settings-dialog"
+      aria-labelledby="preferences-title"
+    >
+      <form method="dialog" class="settings-form">
+        <div class="settings-head">
+          <h2 id="preferences-title">Preferences</h2>
+          <button
+            class="icon-button"
+            type="submit"
+            aria-label="Close preferences"
+          >×</button>
+        </div>
+        <label class="setting">
+          <span>Strict mode</span>
+          <input id="strict-mode" type="checkbox" role="switch">
+        </label>
+        <p class="setting-note">
+          Treat stratification warnings as errors. Preferences are saved in
+          this browser.
         </p>
       </form>
     </dialog>

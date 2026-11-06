@@ -169,7 +169,7 @@ let defs_table : defs_table = State.table ()
 let built_ins_done = ref false
 
 let add_defs
-    ?(strat_errors=stratification_warnings_are_errors)
+    ?(strat_errors = !stratification_warnings_are_errors)
     typarams preds flavor clauses =
   List.iter begin fun (id, _) ->
     if H.mem defs_table id then
@@ -192,7 +192,7 @@ let lookup_poly_const k =
 
 
 let register_definition
-    ?(strat_errors=stratification_warnings_are_errors)
+    ?(strat_errors = !stratification_warnings_are_errors)
     ?(bound_tyvars=[]) = function
   | Define (flav, idtys, udefs) ->
       let local_typarams ty =

@@ -62,8 +62,8 @@ export type RawMessage =
   | { type: "link"; id: number; source: number[] | null; url: string };
 
 export interface Abellajs {
-  init(files: ProjectFile[], root: string): RunResult;
-  reset(files: ProjectFile[], root: string): RunResult;
+  init(files: ProjectFile[], root: string, strict: boolean): RunResult;
+  reset(files: ProjectFile[], root: string, strict: boolean): RunResult;
   process(command: string, start: SourcePos): RunResult;
   back(count: number): RunResult;
   thc(path: string): string | null;

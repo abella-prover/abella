@@ -44,7 +44,8 @@ let occurs v ty =
          | Typtr {contents=TV v'} -> v = v'
          | Tycons (_c,args) ->
             List.exists aux args
-         | Typtr {contents=TT _} -> assert false
+         | Typtr {contents=TT _} ->
+             [%bug] "occurs: unexpected bound type pointer"
        in
        ocr || List.exists aux tys
   in aux ty
@@ -65,7 +66,7 @@ let unify_constraints ?(enable_bind=false) eqns =
     else
       (fun aty ty -> match aty with
                      | Typtr t -> t := TT (observe_ty ty)
-                     | _ -> assert false)
+                     | _ -> [%bug] "bind_ty: expected a type pointer")
   in
   let rec aux (ty1, ty2) fail =
     let ty1 = observe_ty ty1 in
@@ -84,7 +85,7 @@ let unify_constraints ?(enable_bind=false) eqns =
          bind_ty aty ty1
     | Ty([], (Typtr {contents=TT _})), _
     | _, Ty([], (Typtr {contents=TT _}))
-      -> assert false
+      -> [%bug] "unify_constraints: unexpected bound type pointer"
     | Ty([], Tygenvar v), _ ->
        if enable_bind then
          raise (InstGenericTyvar (v, ty2))

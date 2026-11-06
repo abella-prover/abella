@@ -79,7 +79,7 @@ let is_cons t =
 let extract_cons t =
   match observe (hnorm t) with
     | App(_, [a; b]) -> (a, b)
-    | _ -> assert false
+    | _ -> [%bug] "extract_cons: expected an application with two arguments"
 
 let normalize ctx =
   let remove_dups ctx = List.unique ~cmp:eq ctx in

@@ -75,7 +75,7 @@ let uterm_head_name t =
   let rec aux = function
     | UCon(_, id, _) -> id
     | UApp(_, h, _) -> aux h
-    | ULam _ -> assert false
+    | ULam _ -> [%bug] "uterm_head_name: unexpected lambda"
   in
   aux t
 
@@ -155,7 +155,8 @@ let kind_check sign ty =
           if not (nargs = arity) then
             failwithf "%s expects %i arguments but has %i" cty arity nargs ;
           List.iter aux args
-       | Typtr {contents = TT _} -> assert false
+       | Typtr {contents = TT _} ->
+           [%bug] "kind_check: unexpected bound type pointer"
   in aux (observe_ty ty)
 
 let kind_check_poly (ktable,ctable) (Poly(_ids, ty)) =
@@ -234,7 +235,7 @@ let rec desugar_aty aty =
        let tys = List.map desugar_ty tys in
        Tycons (v,tys)
   | Typtr {contents=TT _t} ->
-     assert false
+     [%bug] "desugar_aty: unexpected bound type pointer"
   | _ -> aty
 
 and desugar_ty ty =
@@ -340,7 +341,8 @@ let contains_tyvar ty =
          | Typtr {contents=TV _} -> true
          | Tycons (_c,args) ->
             List.exists aux args
-         | Typtr {contents=TT _} -> assert false
+         | Typtr {contents=TT _} ->
+             [%bug] "contains_tyvar: unexpected bound type pointer"
        in
        cv || List.exists aux tys
   in aux (observe_ty ty)
@@ -357,7 +359,7 @@ let term_ensure_fully_inferred ~sign t =
     | DB _i -> ()
     | App(h, args) -> aux h ; List.iter aux args
     | Lam(_tys, body) -> aux body
-    | _ -> assert false
+    | _ -> [%bug] "term_ensure_fully_inferred: unexpected term form"
   in
   aux t
 
@@ -459,7 +461,7 @@ let term_ensure_subordination sr t =
     | Lam(idtys, b) ->
         Subordination.ensure sr (tc tyctx t) ;
         aux (List.rev_app idtys tyctx) b
-    | _ -> assert false
+    | _ -> [%bug] "term_ensure_subordination: unexpected term form"
   in
   aux [] t
 
@@ -488,7 +490,7 @@ let check_pi_quantification ts =
             match observe_ty v.ty with
             | Ty([Ty([tau], _)], _) ->
                 check_spec_logic_quantification_type tau
-            | _ -> assert false)
+            | _ -> [%bug] "check_pi_quantification: unexpected type for pi")
        ts)
 
 let type_uterm ?partial_infer ?expected_ty ~sr ~sign ~ctx t =
@@ -538,7 +540,7 @@ let replace_underscores head body =
   in
   match List.map aux (head::body) with
   | h::b -> (h, b)
-  | [] -> assert false
+  | [] -> [%bug] "replace_underscores: empty term list"
 
 let clause_map : (string list * term) Itab.t ref = ref Itab.empty
 let seen_name cname = Itab.mem cname !clause_map

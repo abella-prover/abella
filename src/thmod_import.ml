@@ -51,7 +51,7 @@ let rec map_term r t =
         (map_term r body)
   | App (head, args) ->
       app (map_term r head) (List.map (map_term r) args)
-  | Ptr _ | Susp _ -> assert false
+  | Ptr _ | Susp _ -> [%bug] "map_term: unexpected pointer or suspension"
 
 let map_obj r obj =
   let context = Context.map (map_term r) obj.context in
@@ -135,7 +135,8 @@ let rec map_term_constants f t =
   | App (head, args) ->
       app (map_term_constants f head)
         (List.map (map_term_constants f) args)
-  | Ptr _ | Susp _ -> assert false
+  | Ptr _ | Susp _ ->
+      [%bug] "map_term_constants: unexpected pointer or suspension"
 
 let rec map_metaterm_constants f mt =
   match mt with

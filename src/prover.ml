@@ -250,7 +250,7 @@ let () = built_ins_done := true
 let term_spine t =
   match term_head t with
   | Some (_, spine) -> spine
-  | None -> assert false
+  | None -> [%bug] "term_spine: term has no head"
 
 let clause_head_name cl =
   match cl.head with

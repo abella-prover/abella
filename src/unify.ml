@@ -144,7 +144,7 @@ let closing_depth t =
       | DB i -> i
       | Lam(idtys, t) -> max (aux t - List.length idtys) 0
       | App(h, ts) -> List.max (List.map aux (h :: ts))
-      | _ -> assert false
+      | _ -> [%bug] "closing_depth: unexpected term form"
   in
     aux t
 
@@ -298,7 +298,7 @@ let raise_and_invert ts1 ts2 a1 a2 lev =
                 if c.ts<=ts2
                 then (true,(db (n+lev))::inds,t::consts)
                 else (raised,inds,consts)
-          | _ -> assert false
+          | _ -> [%bug] "raise_and_invert: unexpected argument in raise_var"
         end
   in
 
@@ -335,9 +335,9 @@ let raise_and_invert ts1 ts2 a1 a2 lev =
                   (pruned,
                    (db (j+lev))::inds1,
                    (db n)::inds2)
-          | _ -> assert false
+          | _ -> [%bug] "raise_and_invert: unexpected argument in prune"
         end
-    | _ -> assert false
+    | _ -> [%bug] "raise_and_invert: mismatched argument lists in prune"
   in
 
   (* Relevant to the case when [ts1 > ts2]. In this case,
@@ -376,9 +376,11 @@ let raise_and_invert ts1 ts2 a1 a2 lev =
                       (pruned,
                        (db (i+lev))::inds1,
                        (db n)::inds2)
-          | _ -> assert false
+          | _ ->
+              [%bug] "raise_and_invert: unexpected argument in prune_and_raise"
         end
-    | _ -> assert false
+    | _ ->
+        [%bug] "raise_and_invert: mismatched argument lists in prune_and_raise"
   in
 
     if ts1<ts2 then
@@ -418,7 +420,7 @@ let rec prune_same_var l1 l2 j bl = match l1,l2 with
             (db bl)::(prune_same_var a1 a2 j (bl-1))
         | _ -> prune_same_var a1 a2 j (bl-1)
       end
-  | _ -> assert false
+  | _ -> [%bug] "prune_same_var: mismatched argument lists"
 
 (* Given a variable [v1] which has access to the terms [a11 ... a1n] via
  * de Bruijn indices,
@@ -468,7 +470,7 @@ let rigid_path_check v1 t2 =
       | DB i -> i <= n
       | Lam(idtys, t) -> aux (n + List.length idtys) t
       | App(h, ts) -> List.for_all (aux n) (h::ts)
-      | _ -> assert false
+      | _ -> [%bug] "rigid_path_check: unexpected term form"
   in
     aux 0 t2
 
@@ -525,7 +527,7 @@ let makesubst tyctx h1 t2 a1 n =
   (* Check that h1 is a variable, get its timestamp *)
   let hv1 = match observe h1 with
     | Var v -> assert (variable v.tag) ; v
-    | _ -> assert false
+    | _ -> [%bug] "makesubst: expected a variable head"
   in
   let ts1 = hv1.ts in
   let a1 = List.map hnorm a1 in
@@ -613,10 +615,10 @@ let makesubst tyctx h1 t2 a1 n =
                   else
                     make_non_llambda_subst lev hv1 a1 c
             | Var _ -> raise (UnifyError NotLLambda)
-            | _ -> assert false
+            | _ -> [%bug] "nested_subst: unexpected application head"
           end
       | Var _ -> raise (UnifyError NotLLambda)
-      | _ -> assert false
+      | _ -> [%bug] "nested_subst: unexpected term form"
   in
 
   (* Processing toplevel structure in generating a substitution.
@@ -639,7 +641,8 @@ let makesubst tyctx h1 t2 a1 n =
             (toplevel_subst (List.rev_app idtys tyctx) t2 (lev + List.length idtys))
       | Var v2 when variable v2.tag ->
           if h1=t2 then
-            if n=0 && lev=0 then h1 else assert false (* fail TypesMismatch *)
+            if n=0 && lev=0 then h1 else
+              [%bug] "toplevel_subst: self-unification at nonzero depth"
           else begin
             if ts1 < v2.ts then
               Term.bind t2 (named_fresh v2.name ts1 v2.ty) ;
@@ -665,15 +668,17 @@ let makesubst tyctx h1 t2 a1 n =
                         let h1' = named_fresh hv1.name ts1 ty in
                           app h1' args
                       else
-                        assert false (* fail TypesMismatch *)
+                        [%bug]
+                          "toplevel_subst: flexible head arity mismatch"
                   else
                     make_non_llambda_subst lev hv1 a1 t2
             | App _ | Lam _
             | Var _ | DB _ ->
                 nested_subst tyctx t2 lev
-            | Susp _ | Ptr _ -> assert false
+            | Susp _ | Ptr _ ->
+                [%bug] "toplevel_subst: unexpected suspension or pointer head"
           end
-      | Ptr _ -> assert false
+      | Ptr _ -> [%bug] "toplevel_subst: unexpected pointer term"
       | _ ->
           nested_subst tyctx t2 lev
   in
@@ -690,7 +695,8 @@ let rec unify_list (tyctx:(Term.id*Term.ty) list) l1 l2 =
   try
     List.iter2 (fun a1 a2 -> unify tyctx (hnorm a1) (hnorm a2)) l1 l2
   with
-    | Invalid_argument _ -> assert false (* fail TypesMismatch *)
+    | Invalid_argument _ ->
+        [%bug] "unify_list: unequal argument list lengths"
 
 (* Unify [cst=t2], assuming [cst] is a constant.
  * Fail if [t2] is a variable or an application.
@@ -742,7 +748,7 @@ and unify_app_term tyctx h1 a1 t1 t2 =
                 bind h2 (makesubst tyctx h2 t1 a2 m)
           | Var v when not (variable v.tag || constant v.tag) ->
               raise (UnifyError NotLLambda)
-          | _ -> assert false
+          | _ -> [%bug] "unify_app_term: unexpected application head"
         end
     | DB n1, App (h2,a2) ->
         begin match observe h2 with
@@ -758,11 +764,12 @@ and unify_app_term tyctx h1 a1 t1 t2 =
           | Var v when constant v.tag -> fail (ConstClash (h1,h2))
           | Var v when not (variable v.tag || constant v.tag) ->
               raise (UnifyError NotLLambda)
-          | _ -> assert false
+          | _ -> [%bug] "unify_app_term: unexpected application head"
         end
     | Lam _, _ | _, Lam _
     | Ptr _, _ | _, Ptr _
-    | Susp _, _ | _, Susp _ -> assert false
+    | Susp _, _ | _, Susp _ ->
+        [%bug] "unify_app_term: unexpected lambda, pointer, or suspension"
     | Var v, _ when not (variable v.tag || constant v.tag) ->
         raise (UnifyError NotLLambda)
     | _ -> fail (ConstClash (h1,t2))
@@ -885,7 +892,7 @@ let flexible_heads ~used ~sr (tys1, h1, a1) (tys2, h2, a2) =
     match observe (hnorm h2) with
       | Var v when constant v.tag -> true
       | DB i -> i <= n2 - n1
-      | _ -> assert false
+      | _ -> [%bug] "flexible_heads: unexpected rigid head"
   in
   let imitation =
     if imitable then

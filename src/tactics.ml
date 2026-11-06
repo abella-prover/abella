@@ -181,7 +181,7 @@ let object_cut_from obj1 obj2 term =
             then Some (Obj ({obj1 with context = ctx}, Irrelevant))
             else None
           else None
-      | _ -> assert false
+      | _ -> [%bug] "cut: expected an object formula"
     end in
   match cut_objs with
   | [] -> failwith "Cannot merge contexts"
@@ -305,7 +305,7 @@ let rec is_left_flexible t =
   | DB _ -> false
   | Lam(_, b) -> is_left_flexible b
   | App(h, _) -> is_left_flexible h
-  | _ -> assert false
+  | _ -> [%bug] "is_left_flexible: unexpected term form"
 
 let rec is_left_rigid t =
   match observe (hnorm t) with
@@ -313,7 +313,7 @@ let rec is_left_rigid t =
   | DB _ -> true
   | Lam(_, b) -> is_left_rigid b
   | App(h, _) -> is_left_rigid h
-  | _ -> assert false
+  | _ -> [%bug] "is_left_rigid: unexpected term form"
 
 let one_step_huet ~used ~sr a b =
   let flex_rigid flex rigid =
@@ -565,7 +565,7 @@ let case_aux ~used ~sr ~clauses ~mutual ~defs ~global_support term =
     let f, fvar =
       match raise_result with
       | ([(_, f)], [fvar]) -> f, fvar
-      | _ -> assert false
+      | _ -> [%bug] "create_sync: unexpected raised alist shape"
     in
     let sync_obj = {async_obj with mode = Sync f} in
     let mem = member f (Context.context_to_term sync_obj.context) in
@@ -769,7 +769,7 @@ let unfold_defs ~sr ~mdefs clause_sel ~ts goal r =
     match head with
     | Pred(h, _) -> ([], h, body)
     | Binding(Nabla, tids, Pred(h, _)) -> (tids, h, body)
-    | _ -> assert false
+    | _ -> [%bug] "backchain: unexpected definition clause head"
   end |>
   List.number |>
   maybe_select clause_sel |>
@@ -1557,4 +1557,4 @@ let permute_nominals perm term =
           perm perm'
       in
       replace_metaterm_vars alist term
-  | _ -> assert false
+  | _ -> [%bug] "permute_nominals: empty permutation"

@@ -776,7 +776,7 @@ let query q =
               Output.blank_line ())
       in
       Output.msg_printf "No more solutions."
-  | _ -> assert false
+  | _ -> [%bug] "query: expected an existential binding"
 
 let on_or_off = {|"on" or "off"|}
 

@@ -89,7 +89,7 @@ let get_pred_occurrences ~is_defined mt =
     | Lam (_, t) ->
         aux_term t
     | Var _ | DB _ -> ()
-    | _ -> assert false
+    | _ -> [%bug] "aux_term: unexpected term form"
   in
   let rec aux_defined_term t =
     match observe (hnorm t) with
@@ -100,7 +100,7 @@ let get_pred_occurrences ~is_defined mt =
     | Lam (_, t) ->
         aux_defined_term t
     | Var _ | DB _ -> ()
-    | _ -> assert false
+    | _ -> [%bug] "aux_defined_term: unexpected term form"
   in
   let declared_higher_order name occurrence_ty =
     match List.assoc_opt name (snd !sign) with

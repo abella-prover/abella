@@ -381,7 +381,7 @@ let map_on_tys f mt =
     | DB _ as t -> t
     | Lam (cx, t) -> lambda (List.map baux cx) (taux t)
     | App (f, ts) -> app (taux f) (List.map taux ts)
-    | Ptr _ | Susp _ -> assert false
+    | Ptr _ | Susp _ -> [%bug] "map_on_tys: unexpected pointer or suspension"
   and oaux o =
     let context = Context.map taux o.context in
     let right = taux o.right in
@@ -537,8 +537,8 @@ let replace_term_vars ?tag alist t =
       | DB _ -> t
       | Lam(i, t) -> lambda i (aux t)
       | App(t, ts) -> app (aux t) (List.map aux ts)
-      | Susp _ -> assert false
-      | Ptr _ -> assert false
+      | Susp _ -> [%bug] "replace_term_vars: unexpected suspension"
+      | Ptr _ -> [%bug] "replace_term_vars: unexpected pointer"
   in
     aux t
 
@@ -692,7 +692,7 @@ let fresh_nominals tys t =
 let fresh_nominal ty t =
   match fresh_nominals [ty] t with
     | [n] -> n
-    | _ -> assert false
+    | _ -> [%bug] "fresh_nominal: expected exactly one nominal"
 
 let replace_pi_with_nominal obj =
   (* let ctx,term = Async.get async_obj in *)
@@ -701,7 +701,7 @@ let replace_pi_with_nominal obj =
   | Ty(ty::_, _) ->
       let nominal = fresh_nominal ty (Obj(obj, Irrelevant)) in
       { obj with right = app abs [nominal] }
-  | _ -> assert false
+  | _ -> [%bug] "replace_pi_with_nominal: unexpected pi type"
 
 let normalize_obj ~parity:_ ~bindstack obj =
   let rec aux obj =
@@ -766,8 +766,8 @@ let replace_term_typed_nominals alist t =
       | DB _ -> t
       | Lam(i, t) -> lambda i (aux t)
       | App(t, ts) -> app (aux t) (List.map aux ts)
-      | Susp _ -> assert false
-      | Ptr _ -> assert false
+      | Susp _ -> [%bug] "replace_term_typed_nominals: unexpected suspension"
+      | Ptr _ -> [%bug] "replace_term_typed_nominals: unexpected pointer"
   in
     aux t
 
@@ -999,7 +999,7 @@ let def_head_args head =
         | None -> [%bug] "Cannot find arguments!"
       end
     | Binding (_, _, t) -> aux t
-    | _ -> assert false
+    | _ -> [%bug] "def_head_args: definitional clause head not atomic"
   in
   aux head
 

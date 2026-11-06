@@ -73,7 +73,8 @@ let iter_ty f ty =
        f bty;
        match bty with
        | Tycons (_c,args) -> List.iter aux args
-       | Typtr {contents=TT _} -> assert false
+       | Typtr {contents=TT _} ->
+           [%bug] "iter_ty: unexpected bound type pointer"
        | _ -> ()
   in
   aux (observe_ty ty)
@@ -216,10 +217,10 @@ let rec hnorm term =
             | App(t,args) ->
                 let wrap x = susp x ol nl e in
                   hnorm (app (wrap t) (List.map wrap args))
-            | Susp _ -> assert false
-            | Ptr _ -> assert false
+            | Susp _ -> [%bug] "hnorm: unexpected suspension"
+            | Ptr _ -> [%bug] "hnorm: unexpected pointer"
           end
-    | Ptr _ -> assert false
+    | Ptr _ -> [%bug] "hnorm: unexpected pointer term"
 
 let rec eq t1 t2 =
   match observe (hnorm t1), observe (hnorm t2) with
@@ -250,7 +251,7 @@ let rec deref = function
 
 let getref = function
   | Ptr t -> t
-  | _ -> assert false
+  | _ -> [%bug] "getref: expected a pointer"
 
 let bind v t =
   let dv = getref (deref v) in
@@ -267,7 +268,7 @@ let bind_state_ty : bind_state_ty ref = ref []
 
 let getref_ty = function
   | Typtr t -> t
-  | _ -> assert false
+  | _ -> [%bug] "getref_ty: expected a type pointer"
 
 let bind_ty v t =
   let dv = getref_ty v in
@@ -312,7 +313,7 @@ let set_scoped_bind_state_var state =
       | (v, ov, _nv)::rest ->
           v := ov ;
           bind_state_var := rest ;
-      | [] -> assert false
+      | [] -> [%bug] "set_scoped_bind_state_var: bind state shrank"
   done
 
 let set_scoped_bind_state_ty state =
@@ -321,7 +322,7 @@ let set_scoped_bind_state_ty state =
       | (v, ov, _nv)::rest ->
           v := ov ;
           bind_state_ty := rest ;
-      | [] -> assert false
+      | [] -> [%bug] "set_scoped_bind_state_ty: bind state shrank"
   done
 
 let set_scoped_bind_state (sv, st) =
@@ -344,8 +345,8 @@ let abstract test =
     | Lam(idtys,s) -> Lam (idtys, aux (n + List.length idtys) s)
     | Ptr {contents=T t} -> Ptr (ref (T (aux n t)))
     | Ptr {contents=V v} -> if test t v.name then DB n else t
-    | Var _ -> assert false
-    | Susp _ -> assert false
+    | Var _ -> [%bug] "abstract: unexpected variable reference"
+    | Susp _ -> [%bug] "abstract: unexpected suspension"
   in aux
 
 (** Abstract [t] over constant or variable named [id]. *)
@@ -425,7 +426,7 @@ let fresh_wrt ~ts tag name ty used =
 let term_to_var t =
   match observe (hnorm t) with
     | Var v -> v
-    | _ -> assert false
+    | _ -> [%bug] "term_to_var: expected a variable"
 
 (* Select all variable references which satisfy f *)
 let select_var_refs f ts =
@@ -436,8 +437,8 @@ let select_var_refs f ts =
         | App (h, ts) -> List.fold_left fv (fv acc h) ts
         | Lam (_idtys, t') -> fv acc t'
         | DB _ -> acc
-        | Susp _ -> assert false
-        | Ptr _ -> assert false
+        | Susp _ -> [%bug] "select_var_refs: unexpected suspension"
+        | Ptr _ -> [%bug] "select_var_refs: unexpected pointer"
   in
     List.fold_left fv [] ts
 
@@ -490,7 +491,7 @@ and pretty_aty aty =
   | Tygenvar v
   | Typtr {contents=TV v} ->
      Atom (STR v)
-  | Typtr {contents=TT _} -> assert false
+  | Typtr {contents=TT _} -> [%bug] "pretty_aty: unexpected bound type pointer"
   | Tycons (c,args) ->
      let cty = Atom (STR (!display_name c)) in
      let cargs = List.map pretty_ty args in
@@ -612,7 +613,7 @@ class term_printer = object (self)
         | _ ->
             print_app (self#print cx t) (List.map (self#print cx) ts)
       end
-    | _ -> assert false
+    | _ -> [%bug] "term_printer#print: unexpected term form"
 end
 
 let core_printer = new term_printer
@@ -640,7 +641,7 @@ let is_free t =
   match t with
     | Ptr {contents=V _} -> true
     | Ptr {contents=T _} -> false
-    | _ -> assert false
+    | _ -> [%bug] "is_free: expected a pointer"
 
 let is_nominal t =
   match observe (hnorm t) with
@@ -659,13 +660,13 @@ let term_head t =
 
 let term_head_ty t =
   match term_head t with
-  | None -> assert false
+  | None -> [%bug] "term_head_ty: term has no head"
   | Some (h, _args) -> (term_to_var h).ty
 
 let term_head_name t =
   match term_head t with
     | Some (t, _) -> term_to_name t
-    | None -> assert false
+    | None -> [%bug] "term_head_name: term has no head"
 
 let is_head_name name t =
   match term_head t with
@@ -735,7 +736,7 @@ let atybase tyc = Tycons (tyc,[])
 let atyapp aty ty =
   match aty with
   | Tycons (c,tys) -> Tycons (c, tys@[ty])
-  | _ -> assert false
+  | _ -> [%bug] "atyapp: expected a type constructor"
 
 let tyarrow tys ty =
   match observe_ty ty with
@@ -768,7 +769,7 @@ let rec tc (tyctx:tyctx) t =
        Ty(List.drop n tys, bty)
     | Lam(idtys,t) ->
        tyarrow (get_ctx_tys idtys) (tc (List.rev_app idtys tyctx) t)
-    | _ -> assert false
+    | _ -> [%bug] "tc: unexpected term form"
   in observe_ty ty
 
 let is_tyvar str =
@@ -813,7 +814,8 @@ let term_map_on_tys f t =
     | Lam (cx, t) ->
        lambda (List.map (fun (id,ty) -> (id, f ty)) cx) (taux t)
     | App (f, ts) -> app (taux f) (List.map taux ts)
-    | Ptr _ | Susp _ -> assert false
+    | Ptr _ | Susp _ ->
+        [%bug] "term_map_on_tys: unexpected pointer or suspension"
   in
   taux t
 
@@ -879,7 +881,8 @@ let rec apply_bind_aty ~btyvar v ty aty =
   | Tycons (c,args) ->
      let args' = (List.map (apply_bind_ty ~btyvar v ty) args) in
      Ty ([], Tycons(c,args'))
-  | Typtr {contents=TT _} -> assert false
+  | Typtr {contents=TT _} ->
+      [%bug] "apply_bind_aty: unexpected bound type pointer"
 
 and apply_bind_ty ~btyvar v ty t =
   match (observe_ty t) with
@@ -905,7 +908,8 @@ let rec apply_sub_aty ~btyvar s aty =
   | Tycons (c,args) ->
      let args' = List.map (apply_sub_ty_gen ~btyvar s) args in
      Ty ([], Tycons(c,args'))
-  | Typtr {contents=TT _} -> assert false
+  | Typtr {contents=TT _} ->
+      [%bug] "apply_sub_aty: unexpected bound type pointer"
 
 and apply_sub_ty_gen ~btyvar s t =
   match observe_ty t with

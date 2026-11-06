@@ -17,9 +17,8 @@ open Accumulate
 
 module Setup = Driver_setup
 
-let read ?thc source =
-  Source.read_compiled ~suffix:".thm" ~compiled_suffix:".thc"
-    ?compiled:thc source
+let read source =
+  Source.read_compiled ~suffix:".thm" ~compiled_suffix:".thc" source
 
 (* Specifications *)
 

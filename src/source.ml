@@ -201,8 +201,7 @@ let read_file_bytes path =
     really_input_string ch len
   end
 
-let read_compiled ?(suffix = ".thm") ?(compiled_suffix = ".thc")
-    ?compiled source =
+let read_compiled ?(suffix = ".thm") ?(compiled_suffix = ".thc") source =
   let is_virtual = virtual_exists source in
   let module Compiled = struct
     include (val read source : SOURCE)
@@ -220,8 +219,7 @@ let read_compiled ?(suffix = ".thm") ?(compiled_suffix = ".thc")
         Filename.chop_suffix path suffix
 
     let out_path = base ^ ".out"
-    let thc_path = Option.value compiled
-        ~default:(base ^ compiled_suffix)
+    let thc_path = base ^ compiled_suffix
 
     let thc_mtime =
       if not is_virtual && Sys.file_exists thc_path then

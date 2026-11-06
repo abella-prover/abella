@@ -36,7 +36,7 @@ let set_or_exit k v =
       raise @@ Setup.AbellaExit 1
 
 let abella_main
-    flags _switch output compiled annotate norec strict_stratification
+    flags _switch output _compiled annotate norec strict_stratification
     _em verb infile =
   try begin
     Output.set_verbosity verb ;
@@ -51,9 +51,9 @@ let abella_main
         let is_thmod = Filename.check_suffix file ".thmod" in
         let module Src =
           (val if is_thmod then
-                 Thmod.read ?thmodc:compiled file
+                 Thmod.read file
                else
-                 Thm.read ?thc:compiled file)
+                 Thm.read file)
         in
         Setup.compiled := Some (module Src) ;
         Setup.file_kind := if is_thmod then `thmod else `thm ;
@@ -131,14 +131,10 @@ let () =
   in
 
   let compiled =
-    let doc = "Save compiled Abella development to $(docv) instead of the \
-               default location. By default, in batch mode, the compiled version \
-               of $(i,file.thm) is saved to $(i,file.thc) and the compiled \
-               version of $(i,file.thmod) is saved to $(i,file.thmodc), while \
-               in interactive mode the compiled development is not saved \
-               anywhere." in
+    let deprecated =
+      "Choosing the compiled location is no longer allowed." in
     Arg.(value @@ opt (some string) None @@
-         info ["c" ; "compile"] ~doc ~docv:"FILE")
+         info ["c" ; "compile"] ~docv:"FILE" ~deprecated)
   in
 
   let annotate =

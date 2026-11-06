@@ -64,6 +64,10 @@ Changes
 
 * The `-i` flag is deprecated and does nothing; use a frontend such as
   Abella Web for interactive sessions.
+* The `-c`/`--compile` option is deprecated and its argument is ignored; the
+  compiled artifact is always placed in its default location. Abella has
+  recursively invoked itself for multiple versions and this no longer makes
+  sense.
 * Abella now requires Dune version 3.20 or later.
 * Abella is no longer supported on ppc32 and ppc64. Please use Abella Web.
 * `abella_doc` modernized with light/dark mode support.

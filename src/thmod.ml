@@ -18,9 +18,8 @@ open Extensions
 
 module Setup = Driver_setup
 
-let read ?thmodc source =
-  Source.read_compiled ~suffix:".thmod" ~compiled_suffix:".thmodc"
-    ?compiled:thmodc source
+let read source =
+  Source.read_compiled ~suffix:".thmod" ~compiled_suffix:".thmodc" source
 
 type item_class =
   | KindItem

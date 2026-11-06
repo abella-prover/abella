@@ -1147,7 +1147,7 @@ End List.
 |} in
       let (name, params, content, _, _) = read_thmod_values bytes in
       let summary =
-        Thmod_import.summary_to_string ~name ~params ~prefix:[] content in
+        Thmod.summary_to_string ~name ~params ~prefix:[] content in
       let expected = String.concat "\n" [
         "Module List[T]." ;
         "  Kind lst type." ;

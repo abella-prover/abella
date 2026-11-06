@@ -166,35 +166,42 @@ type artifact = {
   thc_content : compiled list ;
 }
 
-let artifact_spec = {
-  Artifact.file_kind = `thm ;
-  suffix = ".thm" ;
-  compiled_suffix = ".thc" ;
-  compiling_key = (fun ~modname -> modname) ;
-  extract = (fun () -> {
+module Spec : Artifact.SPEC with type t = artifact = struct
+  type t = artifact
+
+  let file_kind = `thm
+  let suffix = ".thm"
+  let compiled_suffix = ".thc"
+  let compiling_key ~modname = modname
+
+  let extract () = {
     thc_spec_sign = !Setup.spec_sign ;
     thc_spec_clauses = !Setup.spec_clauses ;
     thc_predicates = Artifact.predicates !sign ;
     thc_content = compiled_content () ;
-  }) ;
-  encode = (fun art -> [
+  }
+
+  let encode art = [
     Obj.repr art.thc_spec_sign ;
     Obj.repr art.thc_spec_clauses ;
     Obj.repr art.thc_predicates ;
     Obj.repr art.thc_content ;
-  ]) ;
-  decode = (fun read ->
+  ]
+
+  let decode read =
     let thc_spec_sign = (Obj.obj (read ()) : Typing.sign) in
     let thc_spec_clauses = (Obj.obj (read ()) : clause list) in
     let thc_predicates = (Obj.obj (read ()) : string list) in
     let thc_content = (Obj.obj (read ()) : compiled list) in
-    { thc_spec_sign ; thc_spec_clauses ; thc_predicates ; thc_content }) ;
-}
+    { thc_spec_sign ; thc_spec_clauses ; thc_predicates ; thc_content }
+end
+
+module Codec = Artifact.Make (Spec)
 
 let write_compilation () =
   match !Setup.compiled with
   | None -> ()
-  | Some compiled -> Artifact.write_compiled artifact_spec compiled
+  | Some compiled -> Codec.write_compiled compiled
 
 (* Importing .thm files *)
 

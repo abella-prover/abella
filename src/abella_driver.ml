@@ -434,8 +434,8 @@ and process_proof1_body proc =
         if !Setup.mode = `interactive then Output.blank_line () ;
         suppress_proof_state_display := true
     | Common(ShowModule src) ->
-        Thmod_import.show_module
-          ~load:(load_artifact Thmod.artifact_spec) src ;
+        Thmod.show_module
+          ~load:load_thmod_artifact src ;
         if !Setup.mode = `interactive then Output.blank_line () ;
         suppress_proof_state_display := true
     | Common(Quit)           -> raise End_of_file
@@ -571,13 +571,13 @@ and process_top1_body () =
   | TopCommon(Show(n)) ->
       Output.msg_format "%t" (Prover.show n) ; Process_top
   | TopCommon(ShowModule src) ->
-      Thmod_import.show_module
-        ~load:(load_artifact Thmod.artifact_spec) src ;
+      Thmod.show_module
+        ~load:load_thmod_artifact src ;
       Process_top
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, pos, withs) ->
       compile (CImport (filename, withs)) ;
-      Thm.import ~load:(load_artifact Thm.artifact_spec)
+      Thm.import ~load:load_thm_artifact
         ~wrt:!Setup.input pos filename withs ;
       Process_top
   | Module (name, params) ->
@@ -595,8 +595,8 @@ and process_top1_body () =
           end
       | NameSource _ -> ()
       end ;
-      Thmod_import.import_module
-        ~load:(load_artifact Thmod.artifact_spec)
+      Thmod.import_module
+        ~load:load_thmod_artifact
         ~record:record_imported mi ;
       Process_top
   | Specification(filename, pos) ->
@@ -654,71 +654,11 @@ and process_top1_body () =
   if not !Setup.annotate then Output.blank_line () ;
   next_state
 
-and source_compile : type a. a Artifact.spec -> modname:string -> string =
-  fun spec ~modname ->
-    let key = spec.compiling_key ~modname in
-    let path = modname ^ spec.suffix in
-    if List.mem key !Setup.compiling then
-      failwithf "Cyclic import of %S: %s"
-        path (String.concat " -> " (List.rev (key :: !Setup.compiling))) ;
-    let saved_compiling = !Setup.compiling in
-    Setup.with_saved begin fun () ->
-      let outcome =
-        try begin
-          State.reset () ;
-          State.Undo.set_enabled false ;
-          Setup.mode := `batch ;
-          Setup.annotate := false ;
-          Setup.recurse := false ;
-          Setup.compiled := None ;
-          Setup.unfinished := [] ;
-          Setup.input := path ;
-          Setup.file_kind := spec.file_kind ;
-          let module Src = (val Source.read path) in
-          Setup.lexbuf := Src.lex true ;
-          Setup.compiling := key :: saved_compiling ;
-          Output.collect_mode () ;
-          ignore (Output.drain ()) ;
-          Option.iter (fun f -> f (Source.canon key)) !Setup.on_import ;
-          let rec drive (state : processing_state) : unit =
-            match process1 state with
-            | Ok state -> drive state
-            | Error _ -> raise (Setup.AbellaExit 1)
-          in
-          drive Process_top ;
-          Ok ()
-        end with
-        | Setup.AbellaExit 0 -> Ok ()
-        | Setup.AbellaExit n ->
-            Error (`Exit (n, Output.collected_messages ()))
-        | e ->
-            Error (`Exn (e, Output.collected_messages ()))
-      in
-      match outcome with
-      | Ok () ->
-          let art = spec.extract () in
-          let bytes = Artifact.to_bytes spec art in
-          ignore (Output.collected_messages ()) ;
-          let artifact_path = modname ^ spec.compiled_suffix in
-          Source.add_virtual_thc artifact_path bytes ;
-          if Source.virtual_exists artifact_path then
-            Source.set_thc_trusted artifact_path true ;
-          bytes
-      | Error (`Exit (n, text)) ->
-          failwithf "Could not compile imported module %S (exit %d)%s%s"
-            modname n (if text = "" then "" else ": ") text
-      | Error (`Exn (e, text)) ->
-          let msg = match e with
-            | Failure msg -> msg
-            | _ -> sorry e
-          in
-          failwithf "Could not compile imported module %S: %s%s"
-            modname msg (if text = "" then "" else "\n" ^ text)
-    end
+and[@inline] load_thm_artifact ~modname =
+  Thm.Codec.load ~process:process1 ~init:Process_top ~modname
 
-and load_artifact : type a. a Artifact.spec -> modname:string -> a =
-  fun spec ~modname ->
-    Artifact.load ~compile_source:source_compile spec ~modname
+and[@inline] load_thmod_artifact ~modname =
+  Thmod.Codec.load ~process:process1 ~init:Process_top ~modname
 
 let initial_snapshot = State.snapshot ()
 

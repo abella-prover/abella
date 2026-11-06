@@ -73,6 +73,10 @@ and proof_processor = {
   reset : unit -> unit ;
 }
 
+(* Undo must restore this alongside the prover state, since [back] can
+   cross a proof boundary. *)
+let processing_state = State.rref Process_top
+
 let pp_type_error ppf { pos ; actual ; expected ; kind } =
   match kind with
   | CArg ->
@@ -292,11 +296,19 @@ let handle_process_exception e =
       error
 
 let rec process1 state =
+  processing_state := state ;
   State.Undo.push () ;
   try
-    match state with
-    | Process_top -> process_top1 state
-    | Process_proof _ -> process_proof1 state
+    let result =
+      match state with
+      | Process_top -> process_top1 state
+      | Process_proof _ -> process_proof1 state
+    in
+    begin match result with
+    | Ok next -> processing_state := next
+    | Error _ -> ()
+    end ;
+    result
   with
   | End_of_file ->
       check_thmod_complete () ;
@@ -326,7 +338,7 @@ and process_proof1 state =
   | Process_proof proc ->
       try
         process_proof1_body proc ;
-        Ok (Process_proof proc)
+        Ok !processing_state
       with
       | Prover.End_proof reason -> begin
           Output.msg_printf "Proof %s" begin
@@ -560,7 +572,7 @@ and process_top1_body () =
        else
          failwith
            "Cannot use interactive commands in non-interactive mode") ;
-      Process_top
+      !processing_state
   | TopCommon(Reset) ->
       (if !Setup.mode = `interactive then State.Undo.reset ()
        else

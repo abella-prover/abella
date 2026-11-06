@@ -27,7 +27,7 @@ open Test_helper
 
 module D = Abella_driver
 
-let processing_state = State.rref D.Process_top
+let processing_state = D.processing_state
 
 let start_web_session () =
   State.reload D.initial_snapshot ;
@@ -337,6 +337,16 @@ End EqUse.
   if Result.is_error status then
     Alcotest.fail (String.concat "\n" (system_messages msgs))
 
+let test_back_command_across_proof_boundary () =
+  List.iter (fun command -> assert_ok (fst (process_command command))) [
+    "Theorem t : true." ;
+    "search." ;
+    "#back." ;
+  ] ;
+  let (status, msgs) = process_command "search." in
+  if Result.is_error status then
+    Alcotest.fail (String.concat "\n" (system_messages msgs))
+
 let test_show_module () =
   Source.add_virtual "List.thmod" {|
 Module List[T].
@@ -385,4 +395,6 @@ let tests = suite "web_core" [
   test_case "show_module" (fun () -> with_session test_show_module) ;
   test_case "back_across_proof_boundary"
     (fun () -> with_session test_back_across_proof_boundary) ;
+  test_case "back_command_across_proof_boundary"
+    (fun () -> with_session test_back_command_across_proof_boundary) ;
 ]

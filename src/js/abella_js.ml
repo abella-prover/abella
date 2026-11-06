@@ -24,10 +24,7 @@ open Js_of_ocaml
 open Abella_lib
 open Extensions
 
-(* Registered with State so that [back] restores the processing state along
-   with the prover state; otherwise stepping back over a proof's last
-   command leaves the next proof command parsed at top level. *)
-let processing_state = State.rref Abella_driver.Process_top
+let processing_state = Abella_driver.processing_state
 
 let js_string s = Js.Unsafe.inject (Js.string s)
 let js_int i = Js.Unsafe.inject (Js.float (float_of_int i))

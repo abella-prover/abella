@@ -24,6 +24,8 @@ open Js_of_ocaml
 open Abella_lib
 open Extensions
 
+let processing_state = ref Abella_driver.Process_top
+
 let js_string s = Js.Unsafe.inject (Js.string s)
 let js_int i = Js.Unsafe.inject (Js.float (float_of_int i))
 let js_bool b = Js.Unsafe.inject (Js.bool b)
@@ -99,6 +101,7 @@ let re_init files root =
   let root = Js.to_string root in
   let file_kind = if is_thmod_path root then `thmod else `thm in
   State.reload Abella_driver.initial_snapshot ;
+  processing_state := Abella_driver.Process_top ;
   State.Undo.set_enabled true ;
   State.Undo.reset () ;
   Abella_driver.compiling := [] ;
@@ -145,16 +148,22 @@ let process command start =
        command-relative offset after every token. *)
     lb.Lexing.lex_abs_pos <- offset ;
     Abella_driver.Setup.lexbuf := lb ;
-    let status =
-      try Abella_driver.process1 () with
-      | Abella_driver.AbellaExit 0 -> `ok
-      | Abella_driver.AbellaExit _ -> `error
+    let succeeded =
+      try
+        match Abella_driver.process1 !processing_state with
+        | Ok state ->
+            processing_state := state ;
+            true
+        | Error _ -> false
+      with
+      | Abella_driver.AbellaExit 0 -> true
+      | Abella_driver.AbellaExit _ -> false
       | e ->
           Output.msg_printf ~severity:Error "Error: %s" (sorry e) ;
-          `error
+          false
     in
     let messages = Output.drain () in
-    result (match status with `ok -> "ok" | `error -> "error") messages
+    result (if succeeded then "ok" else "error") messages
   end with
   | e ->
       let messages = Output.drain () in

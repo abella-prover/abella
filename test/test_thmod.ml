@@ -111,13 +111,17 @@ let run_thmod dir name source =
   D.Setup.lexbuf := Src.lex true ;
   Output.collect_mode () ;
   ignore (Output.drain ()) ;
-  let rec drive () =
-    try ignore (D.process1 ()) ; drive () with
+  let rec drive state =
+    try
+      match D.process1 state with
+      | Ok state -> drive state
+      | Error _ -> drive state
+    with
     | D.AbellaExit 0 -> ()
     | D.AbellaExit n -> raise (D.AbellaExit n)
   in
   try
-    drive () ;
+    drive D.Process_top ;
     `Ok (read_file Src.thc_path)
   with
   | D.AbellaExit _ -> `Error (D.collected_messages ())

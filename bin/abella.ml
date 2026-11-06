@@ -64,7 +64,12 @@ let abella_main flags _switch output compiled annotate norec _em verb infile =
     if !Setup.mode = `interactive then
       Output.msg_printf "%s" welcome_msg ;
     State.Undo.set_enabled (!Setup.mode <> `batch) ;
-    while true do ignore (process1 ()) done ; 0
+    let state = ref Setup.Process_top in
+    while true do
+      match process1 !state with
+      | Ok next -> state := next
+      | Error _ -> ()
+    done ; 0
   end with
   | AbellaExit n -> n
   | e ->

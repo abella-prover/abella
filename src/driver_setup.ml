@@ -40,9 +40,24 @@ let compiling : string list ref = ref []
 
 let initial_snapshot : State.snap option ref = ref None
 
-(* The driver loop is installed here to avoid a dependency cycle between
-   the driver and the file-kind-specific modules. *)
-let process1 : (unit -> [`ok | `error]) ref = ref (fun () -> `ok)
+type type_error = {
+  pos : Extensions.pos ;
+  actual : Term.ty ;
+  expected : Term.ty ;
+  kind : Unifyty.constraint_type ;
+}
+
+type processing_error =
+  | Parse_error of Extensions.pos
+  | Syntax_error of Extensions.pos
+  | Type_error of type_error
+  | Module_parameter_error of {
+      parameter : string ;
+      ty : Term.ty ;
+    }
+  | Unification_error of string
+  | User_interrupt
+  | Runtime_error of string
 
 type processing_state =
   | Process_top
@@ -55,4 +70,9 @@ and proof_processor = {
   reset : (unit -> unit) ;
 }
 
-let current_state = State.rref Process_top
+(* The driver loop is installed here to avoid a dependency cycle between
+   the driver and the file-kind-specific modules. *)
+let process1 :
+    (processing_state ->
+     (processing_state, processing_error) Result.t) ref =
+  ref (fun state -> Ok state)

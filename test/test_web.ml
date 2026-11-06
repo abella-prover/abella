@@ -27,8 +27,11 @@ open Test_helper
 
 module D = Abella_driver
 
+let processing_state = ref D.Process_top
+
 let start_web_session () =
   State.reload D.initial_snapshot ;
+  processing_state := D.Process_top ;
   State.Undo.set_enabled true ;
   State.Undo.reset () ;
   Accumulate.clear_specification_cache () ;
@@ -67,6 +70,7 @@ let with_session f =
   let trust_compiled = !D.Setup.trust_compiled in
   let file_kind = !D.Setup.file_kind in
   let thc_cache_limit = !Source.thc_cache_limit in
+  let saved_processing_state = !processing_state in
   let restore () =
     State.reload snap ;
     Output.dest := dest ;
@@ -86,7 +90,8 @@ let with_session f =
     Source.clear_virtual () ;
     Source.clear_thc_trust () ;
     Source.set_thc_cache_limit thc_cache_limit ;
-    Accumulate.clear_specification_cache ()
+    Accumulate.clear_specification_cache () ;
+    processing_state := saved_processing_state
   in
   Fun.protect ~finally:restore (fun () ->
     start_web_session () ;
@@ -100,9 +105,16 @@ let process_command command =
   } ;
   D.Setup.lexbuf := lb ;
   let status =
-    try D.process1 () with
-    | D.AbellaExit 0 -> `ok
-    | D.AbellaExit _ -> `error
+    try
+      match D.process1 !processing_state with
+      | Ok state ->
+          processing_state := state ;
+          Ok ()
+      | Error _ as status -> status
+    with
+    | D.AbellaExit 0 -> Ok ()
+    | D.AbellaExit _ ->
+        Error (D.Runtime_error "process aborted")
   in
   (status, Output.drain ())
 
@@ -138,9 +150,9 @@ let error_messages messages =
     | _ -> None
   end messages
 
-let assert_ok = function
-  | `ok -> ()
-  | `error -> Alcotest.fail "command failed"
+let assert_ok : ('a, 'b) Result.t -> unit = function
+  | Ok _ -> ()
+  | Error _ -> Alcotest.fail "command failed"
 
 let assert_contains needle haystack =
   let found = List.exists begin fun text ->
@@ -287,7 +299,7 @@ End Box.
   let (import_status, import_msgs) =
     process_command "Import Module B = \"Box\"[nat]."
   in
-  if import_status = `error then
+  if Result.is_error import_status then
     Alcotest.fail (String.concat "\n" (system_messages import_msgs)) ;
   Alcotest.check Alcotest.bool "box thmodc cache" true
     (Source.virtual_exists "Box.thmodc") ;

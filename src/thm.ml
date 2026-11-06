@@ -411,7 +411,6 @@ and source_compile ~modname =
   let saved_undo = State.Undo.is_enabled () in
   let saved_can_read = !can_read_specification in
   let saved_witnesses = !Setup.witnesses in
-  let saved_state = !Setup.current_state in
   let saved_compiling = !Setup.compiling in
   let saved_clause_map = !Typing.clause_map in
   let restore () =
@@ -430,7 +429,6 @@ and source_compile ~modname =
     State.Undo.set_enabled saved_undo ;
     can_read_specification := saved_can_read ;
     Setup.witnesses := saved_witnesses ;
-    Setup.current_state := saved_state ;
     Setup.compiling := saved_compiling ;
     Typing.clause_map := saved_clause_map
   in
@@ -450,12 +448,12 @@ and source_compile ~modname =
     Output.collect_mode () ;
     ignore (Output.drain ()) ;
     Option.iter (fun f -> f (Source.canon modname)) !Setup.on_import ;
-    let rec drive () =
-      match !Setup.process1 () with
-      | `ok -> drive ()
-      | `error -> raise (Setup.AbellaExit 1)
+    let rec drive state =
+      match !Setup.process1 state with
+      | Ok state -> drive state
+      | Error _ -> raise (Setup.AbellaExit 1)
     in
-    drive ()
+    drive Setup.Process_top
   end with
   | Setup.AbellaExit 0 ->
       let spec_sign = !Setup.spec_sign in

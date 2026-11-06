@@ -937,7 +937,6 @@ and source_compile ~modname =
   let saved_dest = !Output.dest in
   let saved_undo = State.Undo.is_enabled () in
   let saved_witnesses = !Setup.witnesses in
-  let saved_state = !Setup.current_state in
   let saved_compiling = !Setup.compiling in
   let saved_clause_map = !Typing.clause_map in
   let restore () =
@@ -955,7 +954,6 @@ and source_compile ~modname =
     Output.dest := saved_dest ;
     State.Undo.set_enabled saved_undo ;
     Setup.witnesses := saved_witnesses ;
-    Setup.current_state := saved_state ;
     Setup.compiling := saved_compiling ;
     Typing.clause_map := saved_clause_map
   in
@@ -976,12 +974,12 @@ and source_compile ~modname =
     Output.collect_mode () ;
     ignore (Output.drain ()) ;
     Option.iter (fun f -> f (Source.canon thmod_path)) !Setup.on_import ;
-    let rec drive () =
-      match !Setup.process1 () with
-      | `ok -> drive ()
-      | `error -> raise (Setup.AbellaExit 1)
+    let rec drive state =
+      match !Setup.process1 state with
+      | Ok state -> drive state
+      | Error _ -> raise (Setup.AbellaExit 1)
     in
-    drive ()
+    drive Setup.Process_top
   end with
   | Setup.AbellaExit 0 ->
       let name = match top_name () with

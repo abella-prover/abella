@@ -35,7 +35,6 @@ open Setup
 let on_import = Setup.on_import
 let compiling = Setup.compiling
 let witnesses = Setup.witnesses
-let initial_snapshot_ref = Setup.initial_snapshot
 
 let thm_instances = Thm.instances
 let comp_content = Thm.comp_content
@@ -59,6 +58,66 @@ let bound_params () =
 exception UserInterrupt = Setup.UserInterrupt
 exception AbellaExit = Setup.AbellaExit
 
+type type_error = Setup.type_error = {
+  pos : Extensions.pos ;
+  actual : Term.ty ;
+  expected : Term.ty ;
+  kind : Unifyty.constraint_type ;
+}
+
+type processing_error = Setup.processing_error =
+  | Parse_error of Extensions.pos
+  | Syntax_error of Extensions.pos
+  | Type_error of type_error
+  | Module_parameter_error of {
+      parameter : string ;
+      ty : Term.ty ;
+    }
+  | Unification_error of string
+  | User_interrupt
+  | Runtime_error of string
+
+type processing_state = Setup.processing_state =
+  | Process_top
+  | Process_proof of Setup.proof_processor
+
+let pp_type_error ppf { pos ; actual ; expected ; kind } =
+  match kind with
+  | CArg ->
+      Format.fprintf ppf
+        "Typing error at %s: expression has type %s but is used \
+         here with type %s."
+        (Extensions.string_of_position pos)
+        (ty_to_string actual) (ty_to_string expected)
+  | CFun ->
+      Format.fprintf ppf
+        "Typing error at %s: expression is applied to too many \
+         arguments."
+        (Extensions.string_of_position pos)
+
+let pp_parse_error ppf kind pos =
+  Format.fprintf ppf "%s at %s."
+    kind (Extensions.string_of_position pos)
+
+let pp_module_parameter_error ppf parameter ty =
+  Format.fprintf ppf
+    "Module parameter %s cannot be instantiated to %s."
+    parameter (ty_to_string ty)
+
+let pp_processing_error ppf = function
+  | Parse_error pos -> pp_parse_error ppf "Parse error" pos
+  | Syntax_error pos -> pp_parse_error ppf "Syntax error" pos
+  | Type_error err -> pp_type_error ppf err
+  | Module_parameter_error { parameter ; ty } ->
+      pp_module_parameter_error ppf parameter ty
+  | Unification_error msg -> Format.fprintf ppf "%s" msg
+  | User_interrupt ->
+      Format.fprintf ppf "Interrupted (use Ctrl-D to quit)"
+  | Runtime_error msg -> Format.fprintf ppf "%s" msg
+
+let processing_error_to_string error =
+  Format.asprintf "%a" pp_processing_error error
+
 (* Input *)
 
 let interactive_or_exit () =
@@ -74,6 +133,10 @@ let position_range (p1, p2) =
     ""
   else
     sprintf ": file %s, line %d, characters %d-%d" file line char1 char2
+
+let lexbuf_pos () =
+  let lexbuf = !Setup.lexbuf in
+  (lexbuf.Lexing.lex_start_p, lexbuf.Lexing.lex_curr_p)
 
 let type_inference_error (pos, ct) exp act =
   Output.msg_printf "Typing error%s." (position_range pos) ;
@@ -801,54 +864,59 @@ let check_thmod_complete () =
   if !Setup.file_kind = `thmod then
     Thmod.check_complete ()
 
-let rec process1 () =
-  State.Undo.push () ;
-  let outcome = ref `ok in
-  (try begin match !current_state with
-    | Process_top -> process_top1 ()
-    | Process_proof proc -> begin
-        try process_proof1 proc with
-        | Prover.End_proof reason -> begin
-            Output.msg_printf "Proof %s" begin
-              match reason with
-              | `completed fin -> begin
-                  proc.compile fin ;
-                  if fin = Unfinished then
-                    Setup.unfinished := proc.thm :: !Setup.unfinished ;
-                  Printf.sprintf "completed%s"
-                    (match fin with
-                     | Finished | Axiomatic -> ""
-                     | Unfinished -> " *** USING skip ***")
-                end
-              | `aborted -> "ABORTED"
-            end ;
-            proc.reset () ;
-            (* print_clauses () ; *)
-            current_state := Process_top
-          end
-      end
-  end with
+let handle_process_exception e =
+  match e with
   | Abella_types.Reported_parse_error ->
-      outcome := `error ;
+      let pos = lexbuf_pos () in
       State.Undo.undo () ;
       Lexing.flush_input !Setup.lexbuf ;
-      interactive_or_exit ()
+      interactive_or_exit () ;
+      Parse_error pos
   | Parser.Error ->
-      outcome := `error ;
+      let pos = lexbuf_pos () in
       State.Undo.undo () ;
       Output.msg_printf ~severity:Error
         "Syntax error%s." (position !Setup.lexbuf) ;
       Lexing.flush_input !Setup.lexbuf ;
-      interactive_or_exit ()
+      interactive_or_exit () ;
+      Syntax_error pos
   | TypeInferenceFailure(exp, act, ci) ->
-      outcome := `error ;
+      let (pos, kind) = ci in
       State.Undo.undo () ;
       type_inference_error ci exp act ;
-      interactive_or_exit ()
+      interactive_or_exit () ;
+      Type_error { pos ; actual = act ; expected = exp ; kind }
+  | End_of_file -> raise End_of_file
+  | e ->
+      State.Undo.undo () ;
+      let error = match e with
+        | Failure msg -> Runtime_error msg
+        | Unify.UnifyFailure fl ->
+            Unification_error (Unify.explain_failure fl)
+        | Unify.UnifyError (Unify.InstGenericTyvar (v, ty))
+          when List.mem v (bound_params ()) ->
+            Module_parameter_error { parameter = v ; ty }
+        | Unify.UnifyError err ->
+            Unification_error (Unify.explain_error err)
+        | UserInterrupt -> User_interrupt
+        | _ -> Runtime_error (sorry e)
+      in
+      Output.msg_printf ~severity:Error "Error: %s"
+        (processing_error_to_string error) ;
+      interactive_or_exit () ;
+      error
+
+let rec process1 state =
+  State.Undo.push () ;
+  try
+    match state with
+    | Process_top -> process_top1 state
+    | Process_proof _ -> process_proof1 state
+  with
   | End_of_file ->
       check_thmod_complete () ;
       write_compilation () ;
-      begin match !current_state with
+      begin match state with
       | Process_top ->
           if not (is_interactive ()) && !Setup.unfinished <> [] then begin
             Output.msg_printf "There were skips in these theorem(s): %s"
@@ -865,26 +933,37 @@ let rec process1 () =
           Output.flush () ;
           raise @@ AbellaExit 1
       end
-  | e ->
-      State.Undo.undo () ;
-      let msg = match e with
-        | Failure msg -> msg
-        | Unify.UnifyFailure fl -> Unify.explain_failure fl
-        | Unify.UnifyError (Unify.InstGenericTyvar (v, ty))
-          when List.mem v (bound_params ()) ->
-            sprintf
-              "Module parameter %s cannot be instantiated to %s."
-              v (ty_to_string ty)
-        | Unify.UnifyError err -> Unify.explain_error err
-        | UserInterrupt -> "Interrupted (use Ctrl-D to quit)"
-        | _ -> sorry e
-      in
-      Output.msg_printf ~severity:Error "Error: %s" msg ;
-      outcome := `error ;
-      interactive_or_exit ()) ;
-  !outcome
 
-and process_proof1 proc =
+and process_proof1 state =
+  match state with
+  | Process_top ->
+      [%bug] "process_proof1 called in top-level state"
+  | Process_proof proc ->
+      try
+        process_proof1_body proc ;
+        Ok (Process_proof proc)
+      with
+      | Prover.End_proof reason -> begin
+          Output.msg_printf "Proof %s" begin
+            match reason with
+            | `completed fin -> begin
+                proc.compile fin ;
+                if fin = Unfinished then
+                  Setup.unfinished := proc.thm :: !Setup.unfinished ;
+                Printf.sprintf "completed%s"
+                  (match fin with
+                   | Finished | Axiomatic -> ""
+                   | Unfinished -> " *** USING skip ***")
+              end
+            | `aborted -> "ABORTED"
+          end ;
+          proc.reset () ;
+          (* print_clauses () ; *)
+          Ok Process_top
+        end
+      | e -> Error (handle_process_exception e)
+
+and process_proof1_body proc =
   if !Setup.mode = `interactive && not !suppress_proof_state_display then
     Output.non_annot "%s" @@ Prover.get_display () ;
   suppress_proof_state_display := false ;
@@ -987,7 +1066,15 @@ and process_proof1 proc =
       Option.iter Output.commit_message annot ;
       raise e
 
-and process_top1 () =
+and process_top1 state =
+  match state with
+  | Process_proof _ ->
+      [%bug] "process_top1 called in proof state"
+  | Process_top ->
+      try Ok (process_top1_body ()) with
+      | e -> Error (handle_process_exception e)
+
+and process_top1_body () =
   if !Setup.mode = `interactive then Output.non_annot "Abella < " ;
   let input = Parser.top_command_start Lexer.token !Setup.lexbuf in
   let cmd_string = top_command_to_string input.el in
@@ -1009,8 +1096,8 @@ and process_top1 () =
     Output.commit_message annot ;
     annot.id
   in
-  begin match input.el with
-  | Theorem(name, tys, thm) -> begin
+  let next_state = begin match input.el with
+    | Theorem(name, tys, thm) -> begin
       let st = get_bind_state () in
       let seq = Prover.copy_sequent () in
       let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
@@ -1035,7 +1122,7 @@ and process_top1 () =
             "state", Prover.state_json ()
           ]
         end ;
-      current_state := Process_proof {
+      Process_proof {
           thm_id ; thm = name ;
           compile = thm_compile ;
           reset = thm_reset
@@ -1046,7 +1133,8 @@ and process_top1 () =
       check_theorem ~bound:(bound_params ()) tys thm ;
       compile (CTheorem(name, tys, thm, Axiomatic)) ;
       Thm.add_lemma ~fin:Axiomatic name tys thm ;
-      Setup.axioms := name :: !Setup.axioms
+      Setup.axioms := name :: !Setup.axioms ;
+      Process_top
   | SSplit(name, names) ->
       let fin = Prover.get_lemma_tag name in
       let gen_thms =
@@ -1068,33 +1156,46 @@ and process_top1 () =
       if fin = Axiomatic && not (List.mem name !Setup.axioms) then
         Setup.axioms :=
           name :: List.map fst gen_thms @ !Setup.axioms ;
+      Process_top
   | Define _ ->
       let strat_errors =
         in_module () || stratification_warnings_are_errors
       in
       compile (Prover.register_definition ~strat_errors
-                 ~bound_tyvars:(bound_params ()) input.el)
+                 ~bound_tyvars:(bound_params ()) input.el) ;
+      Process_top
   | Suspend (head, test) ->
       let g = Compute.make_guard ~head ~test in
       Compute.add_guard g ;
-      compile @@ CSuspend g
+      (compile @@ CSuspend g) ;
+      Process_top
   | TopCommon(Back) ->
-      if !Setup.mode = `interactive then State.Undo.back 2
-      else failwith "Cannot use interactive commands in non-interactive mode"
+      (if !Setup.mode = `interactive then State.Undo.back 2
+       else
+         failwith
+           "Cannot use interactive commands in non-interactive mode") ;
+      Process_top
   | TopCommon(Reset) ->
-      if !Setup.mode = `interactive then State.Undo.reset ()
-      else failwith "Cannot use interactive commands in non-interactive mode"
-  | TopCommon(Set(k, v)) -> set k v
-  | TopCommon(Show(n)) -> Output.msg_format "%t" (Prover.show n)
-  | TopCommon(ShowModule src) -> show_module src
+      (if !Setup.mode = `interactive then State.Undo.reset ()
+       else
+         failwith
+           "Cannot use interactive commands in non-interactive mode") ;
+      Process_top
+  | TopCommon(Set(k, v)) -> set k v ; Process_top
+  | TopCommon(Show(n)) ->
+      Output.msg_format "%t" (Prover.show n) ; Process_top
+  | TopCommon(ShowModule src) -> show_module src ; Process_top
   | TopCommon(Quit) -> raise End_of_file
   | Import(filename, pos, withs) ->
       compile (CImport (filename, withs)) ;
-      Thm.import ~wrt:!Setup.input pos filename withs
+      Thm.import ~wrt:!Setup.input pos filename withs ;
+      Process_top
   | Module (name, params) ->
-      process_module name params
+      process_module name params ;
+      Process_top
   | End name ->
-      process_end name
+      process_end name ;
+      Process_top
   | ImportModule mi ->
       begin match mi.mi_source with
       | QuoteSource (file, pos) ->
@@ -1104,22 +1205,25 @@ and process_top1 () =
           end
       | NameSource _ -> ()
       end ;
-      import_module mi
+      import_module mi ;
+      Process_top
   | Specification(filename, pos) ->
-      if !can_read_specification then begin
-        let filename = Filepath.normalize ~wrt:!Setup.input filename in
-        Thm.read_specification filename ;
-        Thm.ensure_finalized_specification () ;
-        if !Setup.annotate then
-          Output.link_message ~pos ~url:(filename ^ ".lp.html") ;
-      end else
-        failwith "Specification can only be read \
-                 \ at the begining of a development."
-  | Query(q) -> query q
+      (if !can_read_specification then begin
+         let filename = Filepath.normalize ~wrt:!Setup.input filename in
+         Thm.read_specification filename ;
+         Thm.ensure_finalized_specification () ;
+         if !Setup.annotate then
+           Output.link_message ~pos ~url:(filename ^ ".lp.html") ;
+       end else
+         failwith "Specification can only be read \
+                  \ at the begining of a development.") ;
+      Process_top
+  | Query(q) -> query q ; Process_top
   | Kind(ids,knd) ->
       check_noredef ids;
       Prover.add_global_types ids knd;
       compile (CKind (ids,knd)) ;
+      Process_top
   | Type(ids, ty) ->
       check_noredef ids ;
       let is_declared_predicate =
@@ -1147,15 +1251,20 @@ and process_top1 () =
         else CType (ids, typarams, ty)
       in
       compile comp ;
+      Process_top
   | Close(atys) ->
       Prover.close_types !sign !Prover.clauses atys ;
-      compile (CClose(List.map (fun aty -> (aty, Subordination.subordinates !sr aty)) atys))
-  end ;
-  if not !Setup.annotate then Output.blank_line ()
+      compile (CClose(List.map (fun aty ->
+        (aty, Subordination.subordinates !sr aty)) atys)) ;
+      Process_top
+  end
+  in
+  if not !Setup.annotate then Output.blank_line () ;
+  next_state
 
 let () = Setup.process1 := process1
 
 let initial_snapshot = State.snapshot ()
-let () = initial_snapshot_ref := Some initial_snapshot
+let () = Setup.initial_snapshot := Some initial_snapshot
 
 let welcome_msg = sprintf "Welcome to Abella %s.\n" Version.version

@@ -11,6 +11,8 @@ declare function importScripts(...urls: string[]): void;
 declare const Abellajs: import("./types").Abellajs;
 declare const __WASM_LAUNCHER_HASH__: string;
 
+import type { NameMode } from "./types";
+
 importScripts(`abella_js.bc.wasm.js?v=${__WASM_LAUNCHER_HASH__}`);
 
 const scope = self as unknown as {
@@ -38,7 +40,7 @@ scope.onmessage = async (event: MessageEvent) => {
     files?: Parameters<typeof Abellajs.init>[0];
     root?: string;
     strict?: boolean;
-    warnNames?: boolean;
+    nameMode?: NameMode;
     command?: string;
     start?: Parameters<typeof Abellajs.process>[1];
     count?: number;
@@ -51,7 +53,7 @@ scope.onmessage = async (event: MessageEvent) => {
           message.files ?? [],
           message.root ?? "",
           message.strict ?? false,
-          message.warnNames ?? false
+          message.nameMode ?? "relaxed"
         );
         break;
       case "reset":
@@ -59,7 +61,7 @@ scope.onmessage = async (event: MessageEvent) => {
           message.files ?? [],
           message.root ?? "",
           message.strict ?? false,
-          message.warnNames ?? false
+          message.nameMode ?? "relaxed"
         );
         break;
       case "process":

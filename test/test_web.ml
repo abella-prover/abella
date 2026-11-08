@@ -353,8 +353,8 @@ let test_back_command_across_proof_boundary () =
     Alcotest.fail (String.concat "\n" (system_messages msgs))
 
 let test_warn_names () =
-  let saved = !Prover.warn_names in
-  Fun.protect ~finally:(fun () -> Prover.warn_names := saved) begin fun () ->
+  let saved = !Prover.strict_names in
+  Fun.protect ~finally:(fun () -> Prover.strict_names := saved) begin fun () ->
     assert_ok (fst (process_command "Kind w_i type.")) ;
     assert_ok (fst (process_command "Type w_p w_i -> prop.")) ;
 
@@ -370,18 +370,18 @@ let test_warn_names () =
     assert_not_contains "Warning:" (system_messages msgs) ;
     assert_ok (fst (process_command "search.")) ;
 
-    Prover.warn_names := true ;
+    Prover.strict_names := `warn ;
     assert_ok (fst (process_command
       "Theorem w_warn : forall (x y : w_i), \
        w_p x -> w_p y -> w_p x.")) ;
     assert_ok (fst (process_command "intros.")) ;
     let (status, msgs) = process_command "rename x to z." in
     assert_ok status ;
-    assert_contains "Warning: variable x was not named by the user."
+    assert_contains "Warning: variable name x is system-generated"
       (system_messages msgs) ;
     let (status, msgs) = process_command "clear H2." in
     assert_ok status ;
-    assert_contains "Warning: hypothesis H2 was not named by the user."
+    assert_contains "Warning: hypothesis name H2 is system-generated"
       (system_messages msgs) ;
     assert_ok (fst (process_command "search.")) ;
 
@@ -414,7 +414,7 @@ let test_warn_names () =
     assert_ok (fst (process_command "intros.")) ;
     let (status, msgs) = process_command "exists x." in
     assert_ok status ;
-    assert_contains "Warning: variable x was not named by the user."
+    assert_contains "Warning: variable name x is system-generated"
       (system_messages msgs) ;
     let (status, msgs) = process_command "abort." in
     if Result.is_error status then
@@ -428,6 +428,40 @@ let test_warn_names () =
     assert_ok status ;
     assert_not_contains "Warning:" (system_messages msgs) ;
     assert_ok (fst (process_command "abort."))
+  end
+
+let test_strict_names () =
+  let saved = !Prover.strict_names in
+  Fun.protect ~finally:(fun () -> Prover.strict_names := saved)
+  begin fun () ->
+    assert_ok (fst (process_command "Kind s_i type.")) ;
+    assert_ok (fst (process_command "Type s_p s_i -> prop.")) ;
+    assert_ok (fst (process_command
+      "Theorem s_auto : forall (x y : s_i), \
+       s_p x -> s_p y -> s_p x.")) ;
+    assert_ok (fst (process_command "intros.")) ;
+
+    Prover.strict_names := `warn ;
+    Prover.strict_names := `strict ;
+    let (status, msgs) = process_command "clear H2." in
+    assert_ok (match status with
+        | Error _ -> Ok ()
+        | Ok _ -> Error ()) ;
+    assert_contains "Error: hypothesis name H2 is system-generated"
+      (system_messages msgs) ;
+    let (status, msgs) = process_command "rename x to z." in
+    assert_ok (match status with
+        | Error _ -> Ok ()
+        | Ok _ -> Error ()) ;
+    assert_contains "Error: variable name x is system-generated"
+      (system_messages msgs) ;
+
+    Prover.strict_names := `warn ;
+    let (status, msgs) = process_command "clear H2." in
+    assert_ok status ;
+    assert_contains "Warning: hypothesis name H2 is system-generated"
+      (system_messages msgs) ;
+    assert_ok (fst (process_command "search."))
   end
 
 let test_show_module () =
@@ -477,6 +511,7 @@ let tests = suite "web_core" [
     (fun () -> with_session test_interactive_thmod) ;
   test_case "show_module" (fun () -> with_session test_show_module) ;
   test_case "warn_names" (fun () -> with_session test_warn_names) ;
+  test_case "strict_names" (fun () -> with_session test_strict_names) ;
   test_case "back_across_proof_boundary"
     (fun () -> with_session test_back_across_proof_boundary) ;
   test_case "back_command_across_proof_boundary"

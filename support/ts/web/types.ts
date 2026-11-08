@@ -16,6 +16,8 @@ export interface SourcePos {
   bol: number;
 }
 
+export type NameMode = "relaxed" | "warn" | "strict";
+
 export interface RunResult {
   status: "ok" | "error";
   messages: RawMessage[];
@@ -66,13 +68,13 @@ export interface Abellajs {
     files: ProjectFile[],
     root: string,
     strict: boolean,
-    warnNames: boolean
+    nameMode: NameMode
   ): RunResult;
   reset(
     files: ProjectFile[],
     root: string,
     strict: boolean,
-    warnNames: boolean
+    nameMode: NameMode
   ): RunResult;
   process(command: string, start: SourcePos): RunResult;
   back(count: number): RunResult;

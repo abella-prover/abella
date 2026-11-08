@@ -363,19 +363,26 @@
           >×</button>
         </div>
         <label class="setting">
-          <span>Strict mode</span>
+          <span>Enforce strict stratification</span>
           <input id="strict-mode" type="checkbox" role="switch">
         </label>
         <p class="setting-note">
           Treat stratification warnings as errors.
         </p>
         <label class="setting">
-          <span>Warn about system names</span>
-          <input id="warn-names" type="checkbox" role="switch">
+          <span>Using system-generated names</span>
+          <select id="name-mode">
+            <option value="relaxed">allow</option>
+            <option value="warn">warn</option>
+            <option value="strict">forbid</option>
+          </select>
         </label>
         <p class="setting-note">
-          Warn when a proof refers to a hypothesis whose name was not supplied
-          by the user. Preferences are saved in this browser.
+          Allow, warn about, or forbid references to a hypothesis or variable
+          whose name was not supplied by the user.
+        </p>
+        <p class="setting-note">
+          Preferences are saved in this browser.
         </p>
       </form>
     </dialog>

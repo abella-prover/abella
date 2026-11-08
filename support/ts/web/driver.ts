@@ -2,7 +2,7 @@
 //                     en Informatique et en Automatique)
 // See LICENSE for licensing details.
 
-import type { ProjectFile, RunResult, SourcePos } from "./types";
+import type { NameMode, ProjectFile, RunResult, SourcePos } from "./types";
 
 declare const __WORKER_HASH__: string;
 
@@ -11,13 +11,13 @@ export interface Driver {
     files: ProjectFile[],
     root: string,
     strict?: boolean,
-    warnNames?: boolean
+    nameMode?: NameMode
   ): Promise<RunResult>;
   reset(
     files: ProjectFile[],
     root: string,
     strict?: boolean,
-    warnNames?: boolean
+    nameMode?: NameMode
   ): Promise<RunResult>;
   process(command: string, start: SourcePos): Promise<RunResult>;
   back(count: number): Promise<RunResult>;
@@ -114,18 +114,18 @@ export class WorkerDriver implements Driver {
     files: ProjectFile[],
     root: string,
     strict = false,
-    warnNames = false
+    nameMode: NameMode = "relaxed"
   ): Promise<RunResult> {
-    return this.call("init", { files, root, strict, warnNames });
+    return this.call("init", { files, root, strict, nameMode });
   }
 
   reset(
     files: ProjectFile[],
     root: string,
     strict = false,
-    warnNames = false
+    nameMode: NameMode = "relaxed"
   ): Promise<RunResult> {
-    return this.call("reset", { files, root, strict, warnNames });
+    return this.call("reset", { files, root, strict, nameMode });
   }
 
   process(command: string, start: SourcePos): Promise<RunResult> {

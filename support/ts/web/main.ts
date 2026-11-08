@@ -53,7 +53,7 @@ import {
   remapTabs,
   tabLabels,
 } from "./tabs";
-import type { ProofState } from "./types";
+import type { NameMode, ProofState } from "./types";
 import {
   WorkspaceError,
   WorkspaceSession,
@@ -185,10 +185,11 @@ const helpDialog = byId<HTMLDialogElement>("help-dialog");
 const preferencesButton = byId<HTMLButtonElement>("preferences");
 const preferencesDialog = byId<HTMLDialogElement>("preferences-dialog");
 const strictToggle = byId<HTMLInputElement>("strict-mode");
-const warnNamesToggle = byId<HTMLInputElement>("warn-names");
+const nameModeSelect = byId<HTMLSelectElement>("name-mode");
 const THEME_KEY = "abella.web.v1.theme";
 const STRICT_KEY = "abella.web.v1.strict";
-const WARN_NAMES_KEY = "abella.web.v1.warn-names";
+const NAME_MODE_KEY = "abella.web.v1.name-mode";
+const LEGACY_WARN_NAMES_KEY = "abella.web.v1.warn-names";
 const layout = document.querySelector(".layout") as HTMLElement;
 const panelsElement = document.querySelector(".panels") as HTMLElement;
 const sidebar = byId<HTMLElement>("sidebar");
@@ -596,17 +597,25 @@ function saveStrictMode(strict: boolean): void {
   }
 }
 
-function loadWarnNames(): boolean {
+function loadNameMode(): NameMode {
   try {
-    return localStorage.getItem(WARN_NAMES_KEY) === "on";
+    const stored = localStorage.getItem(NAME_MODE_KEY);
+    if (stored === "relaxed" || stored === "warn" || stored === "strict") {
+      return stored;
+    }
+    if (localStorage.getItem(LEGACY_WARN_NAMES_KEY) === "on") {
+      return "warn";
+    }
   } catch {
-    return false;
+    // Persistence is optional.
   }
+  return "relaxed";
 }
 
-function saveWarnNames(warnNames: boolean): void {
+function saveNameMode(nameMode: NameMode): void {
   try {
-    localStorage.setItem(WARN_NAMES_KEY, warnNames ? "on" : "off");
+    localStorage.setItem(NAME_MODE_KEY, nameMode);
+    localStorage.removeItem(LEGACY_WARN_NAMES_KEY);
   } catch {
     // Persistence is optional.
   }
@@ -3246,8 +3255,8 @@ async function main(): Promise<void> {
 
   const driver = new WorkerDriver(() => setStatus("compiling"));
   let strictMode = loadStrictMode();
-  let warnNamesMode = loadWarnNames();
-  session = new Session(driver, project, events, strictMode, warnNamesMode);
+  let nameMode = loadNameMode();
+  session = new Session(driver, project, events, strictMode, nameMode);
   const restartForPreferences = () => {
     clearOutput();
     if (project.entry) editor.clearError(project.entry);
@@ -3283,7 +3292,7 @@ async function main(): Promise<void> {
   });
   preferencesButton.addEventListener("click", () => {
     strictToggle.checked = strictMode;
-    warnNamesToggle.checked = warnNamesMode;
+    nameModeSelect.value = nameMode;
     preferencesDialog.showModal();
   });
   preferencesDialog.addEventListener("click", (event) => {
@@ -3295,10 +3304,14 @@ async function main(): Promise<void> {
     session.setStrict(strictMode);
     restartForPreferences();
   });
-  warnNamesToggle.addEventListener("change", () => {
-    warnNamesMode = warnNamesToggle.checked;
-    saveWarnNames(warnNamesMode);
-    session.setWarnNames(warnNamesMode);
+  nameModeSelect.addEventListener("change", () => {
+    const selected = nameModeSelect.value;
+    if (selected !== "relaxed" && selected !== "warn" && selected !== "strict") {
+      return;
+    }
+    nameMode = selected;
+    saveNameMode(nameMode);
+    session.setNameMode(nameMode);
     restartForPreferences();
   });
   document.addEventListener("keydown", (event) => {

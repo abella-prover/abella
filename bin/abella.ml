@@ -37,11 +37,15 @@ let set_or_exit k v =
 
 let abella_main
     flags _switch output _compiled annotate norec strict_stratification
-    warn_names _em verb infile =
+    warn_names strict_names strict _em verb infile =
   try begin
     Output.set_verbosity verb ;
-    Checks.stratification_warnings_are_errors := strict_stratification ;
-    Prover.warn_names := warn_names ;
+    Checks.stratification_warnings_are_errors :=
+      strict_stratification || strict ;
+    Prover.strict_names :=
+      if strict_names || strict then `strict
+      else if warn_names then `warn
+      else `relaxed ;
     List.iter (fun (k, v) -> set_or_exit k v) flags ;
     Option.iter set_output output ;
     if annotate then Output.annotation_mode () ;
@@ -154,9 +158,19 @@ let () =
   in
 
   let warn_names =
-    let doc = "Warn when a proof refers to a hypothesis whose name was \
-               not supplied by the user." in
+    let doc = "Warn when a proof refers to a hypothesis or variable whose \
+               name was not supplied by the user." in
     Arg.(value @@ flag @@ info ["warn-names"] ~doc)
+  in
+
+  let strict_names =
+    let doc = "Treat references to system-generated names as errors." in
+    Arg.(value @@ flag @@ info ["strict-names"] ~doc)
+  in
+
+  let strict =
+    let doc = "Synonym for --strict-names --strict-stratification." in
+    Arg.(value @@ flag @@ info ["strict"] ~doc)
   in
 
   let em =
@@ -191,8 +205,8 @@ let () =
     let info = Cmd.info "abella" ~doc ~man ~exits:[] ~version:Version.version in
     Cmd.v info @@
     Term.(const abella_main $ flags $ switch $ output $ compiled $
-          annotate $ norec $ strict_stratification $ warn_names $ em $
-          verb $ file)
+          annotate $ norec $ strict_stratification $ warn_names $
+          strict_names $ strict $ em $ verb $ file)
   in
 
   Stdlib.exit (Cmd.eval' cmd)

@@ -6,7 +6,7 @@ import type { ChangeSet } from "@codemirror/state";
 import type { Command } from "./commands";
 import { ScanError, scanCommands, sourcePos } from "./commands";
 import type { Driver } from "./driver";
-import type { ProofState, RawMessage, RunResult } from "./types";
+import type { NameMode, ProofState, RawMessage, RunResult } from "./types";
 import {
   abellaFiles,
   classify,
@@ -166,7 +166,7 @@ export class Session {
   private driver: Driver;
   private events: SessionEvents;
   private strict: boolean;
-  private warnNames: boolean;
+  private nameMode: NameMode;
   private steps: Step[] = [];
   private tip = 0;
   private dirty = true;
@@ -188,13 +188,13 @@ export class Session {
     project: Project,
     events: SessionEvents,
     strict = false,
-    warnNames = false
+    nameMode: NameMode = "relaxed"
   ) {
     this.driver = driver;
     this.project = project;
     this.events = events;
     this.strict = strict;
-    this.warnNames = warnNames;
+    this.nameMode = nameMode;
     driver.onProgress = () => {
       this.events.onStatus(this.pauseRequested ? "pausing" : "compiling");
     };
@@ -285,7 +285,7 @@ export class Session {
         abellaFiles(this.project),
         entry,
         this.strict,
-        this.warnNames
+        this.nameMode
       );
     } catch (error) {
       if (generation !== this.generation) return false;
@@ -664,9 +664,9 @@ export class Session {
   }
 
   /** Discard the current run so the next check uses the new mode. */
-  setWarnNames(warnNames: boolean): void {
-    if (this.warnNames === warnNames) return;
-    this.warnNames = warnNames;
+  setNameMode(nameMode: NameMode): void {
+    if (this.nameMode === nameMode) return;
+    this.nameMode = nameMode;
     this.abortRun();
   }
 

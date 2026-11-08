@@ -41,7 +41,7 @@ class FakeDriver implements Driver {
   resets = 0;
   restarts = 0;
   strictArgs: boolean[] = [];
-  warnNamesArgs: boolean[] = [];
+  nameModeArgs: string[] = [];
   processed: string[] = [];
   started: string[] = [];
   backs: number[] = [];
@@ -83,7 +83,7 @@ class FakeDriver implements Driver {
   async init(...args: unknown[]): Promise<RunResult> {
     this.inits++;
     this.strictArgs.push(Boolean(args[2]));
-    this.warnNamesArgs.push(Boolean(args[3]));
+    this.nameModeArgs.push(String(args[3]));
     return ok();
   }
 
@@ -745,16 +745,20 @@ test("strict mode is forwarded to the driver on every initialization", async () 
   assert.deepEqual(driver.strictArgs, [true, false]);
 });
 
-test("name warnings are forwarded to the driver on every initialization", async () => {
+test("name modes are forwarded to the driver on every initialization", async () => {
   const driver = new FakeDriver();
   const { events } = capture();
-  const session = new Session(driver, makeProject(), events, false, true);
+  const session = new Session(driver, makeProject(), events, false, "warn");
   await session.init();
-  assert.deepEqual(driver.warnNamesArgs, [true]);
+  assert.deepEqual(driver.nameModeArgs, ["warn"]);
 
-  session.setWarnNames(false);
+  session.setNameMode("strict");
   await session.init();
-  assert.deepEqual(driver.warnNamesArgs, [true, false]);
+  assert.deepEqual(driver.nameModeArgs, ["warn", "strict"]);
+
+  session.setNameMode("relaxed");
+  await session.init();
+  assert.deepEqual(driver.nameModeArgs, ["warn", "strict", "relaxed"]);
 });
 
 test("setEntry aborts the session and checks the new file on the next run", async () => {

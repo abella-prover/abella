@@ -31,7 +31,7 @@ open Unifyty
 
 module H = Hashtbl
 
-let warn_names : bool ref = ref false
+let strict_names : [`relaxed | `warn | `strict] ref = ref `relaxed
 
 let nth_or_last xs i =
   let rec aux n = function
@@ -799,21 +799,35 @@ let get_hyp name =
 let is_hyp name =
   List.exists (fun h -> h.id = name) sequent.hyps
 
+let user_name_message kind name =
+  Printf.sprintf "%s name %s is system-generated" kind name
+
+let report_user_name kind name =
+  match !strict_names with
+  | `relaxed -> ()
+  | `warn ->
+      Output.msg_printf "Warning: %s" (user_name_message kind name)
+  | `strict ->
+      failwith (user_name_message kind name)
+
 let warn_hyp_name name =
-  if !warn_names then
-    match List.find_opt (fun h -> h.id = name) sequent.hyps with
-    | Some h when not h.user_named ->
-        Output.msg_printf
-          "Warning: hypothesis %s was not named by the user." name
-    | _ -> ()
+  match !strict_names with
+  | `relaxed -> ()
+  | `warn | `strict ->
+      begin match List.find_opt (fun h -> h.id = name) sequent.hyps with
+      | Some h when not h.user_named ->
+          report_user_name "hypothesis" name
+      | _ -> ()
+      end
 
 let warn_var_name name =
-  if !warn_names && not (is_nominal_name name) &&
-     List.mem_assoc name sequent.vars &&
-     not (Iset.mem name sequent.user_vars)
-  then
-    Output.msg_printf
-      "Warning: variable %s was not named by the user." name
+  match !strict_names with
+  | `relaxed -> ()
+  | `warn | `strict ->
+      if not (is_nominal_name name) &&
+         List.mem_assoc name sequent.vars &&
+         not (Iset.mem name sequent.user_vars)
+      then report_user_name "variable" name
 
 let warn_label_name name =
   if is_hyp name then warn_hyp_name name

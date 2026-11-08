@@ -1204,6 +1204,13 @@ body.resizing-row {
   font-size: 0.8rem;
 }
 
+.setting select {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  padding: 0.4rem 0.5rem;
+}
+
 .setting code,
 .setting-note code {
   font-family: var(--mono);

@@ -155,6 +155,8 @@ rule token = parse
 | "}"                { RBRACE }
 | "["                { LBRACK }
 | "]"                { RBRACK }
+| "!"                { BANG }
+| "|"                { BAR }
 
 | "_"                { UNDERSCORE }
 | number as n        { NUM (int_of_string n) }

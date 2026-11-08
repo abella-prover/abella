@@ -362,6 +362,9 @@ let test_warn_names () =
       "Theorem w_auto : forall (x y : w_i), \
        w_p x -> w_p y -> w_p x.")) ;
     assert_ok (fst (process_command "intros.")) ;
+    let (status, msgs) = process_command "rename x to z." in
+    assert_ok status ;
+    assert_not_contains "Warning:" (system_messages msgs) ;
     let (status, msgs) = process_command "clear H2." in
     assert_ok status ;
     assert_not_contains "Warning:" (system_messages msgs) ;
@@ -372,6 +375,10 @@ let test_warn_names () =
       "Theorem w_warn : forall (x y : w_i), \
        w_p x -> w_p y -> w_p x.")) ;
     assert_ok (fst (process_command "intros.")) ;
+    let (status, msgs) = process_command "rename x to z." in
+    assert_ok status ;
+    assert_contains "Warning: variable x was not named by the user."
+      (system_messages msgs) ;
     let (status, msgs) = process_command "clear H2." in
     assert_ok status ;
     assert_contains "Warning: hypothesis H2 was not named by the user."
@@ -381,7 +388,10 @@ let test_warn_names () =
     assert_ok (fst (process_command
       "Theorem w_user : forall (x y : w_i), \
        w_p x -> w_p y -> w_p x.")) ;
-    assert_ok (fst (process_command "intros Hx Hy.")) ;
+    assert_ok (fst (process_command "intros !U !V Hx Hy.")) ;
+    let (status, msgs) = process_command "rename U to Z." in
+    assert_ok status ;
+    assert_not_contains "Warning:" (system_messages msgs) ;
     let (status, msgs) = process_command "clear Hy." in
     assert_ok status ;
     assert_not_contains "Warning:" (system_messages msgs) ;
@@ -397,7 +407,27 @@ let test_warn_names () =
     let (status, msgs) = process_command "clear H2." in
     assert_ok status ;
     assert_not_contains "Warning:" (system_messages msgs) ;
-    assert_ok (fst (process_command "search."))
+    assert_ok (fst (process_command "search.")) ;
+
+    assert_ok (fst (process_command
+      "Theorem w_term : forall (x : w_i), exists (y : w_i), w_p y.")) ;
+    assert_ok (fst (process_command "intros.")) ;
+    let (status, msgs) = process_command "exists x." in
+    assert_ok status ;
+    assert_contains "Warning: variable x was not named by the user."
+      (system_messages msgs) ;
+    let (status, msgs) = process_command "abort." in
+    if Result.is_error status then
+      Alcotest.fail (String.concat "\n" (system_messages msgs)) ;
+
+    assert_ok (fst (process_command
+      "Theorem w_term_user : forall (x : w_i), \
+       exists (y : w_i), w_p y.")) ;
+    assert_ok (fst (process_command "intros !U.")) ;
+    let (status, msgs) = process_command "exists U." in
+    assert_ok status ;
+    assert_not_contains "Warning:" (system_messages msgs) ;
+    assert_ok (fst (process_command "abort."))
   end
 
 let test_show_module () =

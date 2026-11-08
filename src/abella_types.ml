@@ -169,11 +169,22 @@ type clear_mode =
   | Clear_delete
   | Clear_extro
 
-type hhint = id option
+type name_hint =
+  | User_name of id
+  | Dont_care
+
+type hspec_alt = {
+  hspec_vars : name_hint list ;
+  hspec_hyps : name_hint list ;
+}
+
+type hspec = hspec_alt list
+
+type hhint = hspec option
 
 type command =
   | Induction    of int list * hhint
-  | CoInduction  of id option
+  | CoInduction  of hhint
   | Apply        of depth_bound option * clearable
                     * clearable list * (id * uterm) list * hhint
   | Backchain    of depth_bound option * clearable * (id * uterm) list
@@ -198,7 +209,7 @@ type command =
   | SplitStar
   | Left
   | Right
-  | Intros       of id list
+  | Intros       of hspec_alt
   | Unfold       of clause_selector * solution_selector
   | Saturate     of { depth : int option ; lemmas : id list ; hint : hhint }
   | Skip
@@ -394,9 +405,28 @@ let withs_to_string ws =
   String.concat ", "
     (List.map (fun (x,t) -> x ^ " = " ^ (uterm_to_string t)) ws)
 
+let name_hint_to_string = function
+  | User_name name -> name
+  | Dont_care -> "_"
+
+let hspec_alt_to_string alt =
+  let vars =
+    List.map (fun hint -> "!" ^ name_hint_to_string hint) alt.hspec_vars
+  in
+  let hyps = List.map name_hint_to_string alt.hspec_hyps in
+  String.concat " " (vars @ hyps)
+
+let hspec_to_string = function
+  | [] -> ""
+  | [alt] -> hspec_alt_to_string alt
+  | alts ->
+      "[" ^
+      (String.concat " | " (List.map hspec_alt_to_string alts)) ^
+      "]"
+
 let hn_to_string = function
   | None -> ""
-  | Some hn -> sprintf "%s : " hn
+  | Some hint -> sprintf "%s : " (hspec_to_string hint)
 
 let clearables_to_string cls =
   List.map clearable_to_string cls |> String.concat " "
@@ -414,8 +444,8 @@ let command_to_string c =
     | Induction(is, hn) ->
         sprintf "%sinduction on %s" (hn_to_string hn)
           (String.concat " " (List.map string_of_int is))
-    | CoInduction None -> "coinduction"
-    | CoInduction (Some hn) -> "coinduction " ^ hn
+    | CoInduction hn ->
+        sprintf "%scoinduction" (hn_to_string hn)
     | Apply(dbound, h, hs, ws, hn) -> begin
         let buf = Buffer.create 10 in
         Buffer.add_string buf (hn_to_string hn) ;
@@ -530,8 +560,9 @@ let command_to_string c =
         sprintf "%sfchain%s %s" (hn_to_string hn) dp
           (String.concat " " lemmas)
       end
-    | Intros [] -> "intros"
-    | Intros ids -> sprintf "intros %s" (String.concat " " ids)
+    | Intros alt ->
+        let hint = hspec_alt_to_string alt in
+        if hint = "" then "intros" else "intros " ^ hint
     | Skip -> "skip"
     | Abort -> "abort"
     | Undo -> "undo"

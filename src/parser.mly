@@ -164,7 +164,7 @@
 %token SUSPEND PERMUTE BACKCHAIN COMPUTE QUIT UNDERSCORE AS SSPLIT RENAME
 %token BACK RESET SATURATE
 %token COLON RARROW FORALL NABLA EXISTS WITNESS STAR AT HASH OR AND CARET
-%token LBRACE RBRACE LBRACK RBRACK
+%token LBRACE RBRACE LBRACK RBRACK BANG BAR
 %token KIND TYPE KKIND TTYPE SIG MODULE ACCUMSIG ACCUM END CLOSE
 %token RMODULE REND
 
@@ -596,8 +596,8 @@ pure_command:
     { Types.Left }
   | RIGHT; DOT
     { Types.Right }
-  | INTROS; hs=loption(hyp_list); DOT
-    { Types.Intros hs }
+  | INTROS; alt=hspec_alt; DOT
+    { Types.Intros alt }
   | SKIP; DOT
     { Types.Skip }
   | ABORT; DOT
@@ -625,10 +625,47 @@ pure_command:
 
 %inline
 hhint:
-  | x=STRINGID; COLON
-    { check_legal_var x $startpos(x) ; Some x }
+  | hs=hspec; COLON
+    { match hs with
+      | [alt] when alt.Types.hspec_vars = [] && alt.Types.hspec_hyps = []
+        -> None
+      | _ -> Some hs }
   |
     { None }
+
+hspec:
+  | LBRACK; alts=separated_nonempty_list(BAR, hspec_alt); RBRACK
+    { alts }
+  | alt=hspec_alt
+    { [alt] }
+
+hspec_alt:
+  | vs=banged_names; hs=plain_names
+    { Types.{ hspec_vars = vs ; hspec_hyps = hs } }
+
+banged_names:
+  | { [] }
+  | BANG; h=var_name_hint; hs=banged_names
+    { h :: hs }
+
+plain_names:
+  | { [] }
+  | h=hyp_name_hint; hs=plain_names
+    { h :: hs }
+
+%inline
+var_name_hint:
+  | x=STRINGID
+    { Types.User_name x }
+  | UNDERSCORE
+    { Types.Dont_care }
+
+%inline
+hyp_name_hint:
+  | x=STRINGID
+    { check_legal_var x $startpos(x) ; Types.User_name x }
+  | UNDERSCORE
+    { Types.Dont_care }
 
 %inline
 hyp_list:

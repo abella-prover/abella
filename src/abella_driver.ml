@@ -390,21 +390,21 @@ and process_proof1_body proc =
   in
   let perform () =
     begin match input.el with
-    | Induction(args, hn)           -> Prover.induction ?name:hn args
-    | CoInduction hn                -> Prover.coinduction ?name:hn ()
-    | Apply(depth, h, args, ws, hn) -> Prover.apply ?depth ?name:hn h args ws ~term_witness
+    | Induction(args, hn)           -> Prover.induction ?hint:hn args
+    | CoInduction hn                -> Prover.coinduction ?hint:hn ()
+    | Apply(depth, h, args, ws, hn) -> Prover.apply ?depth ?hint:hn h args ws ~term_witness
     | Backchain(depth, h, ws)       -> Prover.backchain ?depth h ws ~term_witness
-    | Compute (hs, gas, hn)         -> Compute.compute ?name:hn ?gas hs
-    | ComputeAll (gas, hn, clr)     -> Compute.compute_all ?name:hn ?gas clr
-    | Cut(h, arg, hn)               -> Prover.cut ?name:hn h arg
-    | CutFrom(h, arg, t, hn)        -> Prover.cut_from ?name:hn h arg t
-    | SearchCut(h, hn)              -> Prover.search_cut ?name:hn h
-    | Inst(h, ws, hn)               -> Prover.inst ?name:hn h ws
-    | Case(str, hn)                 -> Prover.case ?name:hn str
+    | Compute (hs, gas, hn)         -> Compute.compute ?hint:hn ?gas hs
+    | ComputeAll (gas, hn, clr)     -> Compute.compute_all ?hint:hn ?gas clr
+    | Cut(h, arg, hn)               -> Prover.cut ?hint:hn h arg
+    | CutFrom(h, arg, t, hn)        -> Prover.cut_from ?hint:hn h arg t
+    | SearchCut(h, hn)              -> Prover.search_cut ?hint:hn h
+    | Inst(h, ws, hn)               -> Prover.inst ?hint:hn h ws
+    | Case(str, hn)                 -> Prover.case ?hint:hn str
     | Assert(t, dp, hn)             ->
         untyped_ensure_no_restrictions t ;
-        Prover.assert_hyp ?name:hn ?depth:dp t
-    | Monotone(h, t, hn)            -> Prover.monotone ?name:hn h t
+        Prover.assert_hyp ?hint:hn ?depth:dp t
+    | Monotone(h, t, hn)            -> Prover.monotone ?hint:hn h t
     | Exists(_, ts)                 -> List.iter Prover.exists ts
     | Clear(cm, hs)                 -> Prover.clear cm hs
     | ClearDups                     -> Prover.clear_duplicates ()
@@ -423,7 +423,7 @@ and process_proof1_body proc =
         Prover.search ?depth ~witness ~handle_witness:handle_search_witness ()
       end
     | Saturate sat           -> Prover.saturate sat.lemmas
-                                  ?name:sat.hint ?depth:sat.depth
+                                  ?hint:sat.hint ?depth:sat.depth
     | Permute(ids, h)        -> Prover.permute_nominals ids h
     | Split                  -> Prover.split false
     | SplitStar              -> Prover.split true

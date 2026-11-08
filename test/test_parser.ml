@@ -405,4 +405,57 @@ let tests =
               Parser.STRINGID "x"] -> ()
            | _ -> Alcotest.fail "Expected three tokens") ;
 
+      test_case "Old single-name hint"
+        (fun () ->
+           assert_command_pprint "H : case H1" "H : case H1.") ;
+
+      test_case "Single hspec alternative"
+        (fun () ->
+           assert_command_pprint "!U H : case H1" "!U H : case H1.") ;
+
+      test_case "Multiple hspec alternatives"
+        (fun () ->
+           assert_command_pprint
+             "[!U !V H1 | !U H1 H2] : case H1"
+             "[ !U !V H1 | !U H1 H2 ] : case H1.") ;
+
+      test_case "Don't-care hspec hints"
+        (fun () ->
+           assert_command_pprint
+             "!U !_ H _ : case H1"
+             "[ !U !_ H _ ] : case H1.") ;
+
+      test_case "Empty hspec in brackets"
+        (fun () ->
+           assert_command_pprint "[ | H] : case H1"
+             "[ | H ] : case H1.") ;
+
+      test_case "Empty hspec normalizes away"
+        (fun () ->
+           assert_command_pprint "case H1" ": case H1.") ;
+
+      test_case "Intros with no hints"
+        (fun () ->
+           assert_command_pprint "intros" "intros.") ;
+
+      test_case "Intros with hypothesis hints"
+        (fun () ->
+           assert_command_pprint "intros H1 H2" "intros H1 H2.") ;
+
+      test_case "Intros with variable hints"
+        (fun () ->
+           assert_command_pprint "intros !X H" "intros !X H.") ;
+
+      test_case "Intros with don't-care hints"
+        (fun () ->
+           assert_command_pprint "intros !_ _ H" "intros !_ _ H.") ;
+
+      test_case "Intros with a nominal variable hint"
+        (fun () ->
+           assert_command_pprint "intros !n34 H" "intros !n34 H.") ;
+
+      test_case "Coinduction with a hint"
+        (fun () ->
+           assert_command_pprint "CH : coinduction" "CH : coinduction.") ;
+
     ]

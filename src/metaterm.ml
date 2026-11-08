@@ -594,8 +594,8 @@ let get_metaterm_used_nominals t =
   t |> metaterm_support
     |> List.map term_to_pair
 
-let replace_metaterm_vars alist t =
-  let term_aux alist = replace_term_vars alist in
+let replace_metaterm_vars ?tag alist t =
+  let term_aux alist = replace_term_vars ?tag alist in
   (* Compute (possibly) free variables at the top-level *)
   let top_free_vars = List.unique ~cmp:eq_idterm (get_metaterm_used t
                                    @ get_metaterm_used_nominals t

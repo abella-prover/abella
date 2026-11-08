@@ -33,6 +33,24 @@ module H = Hashtbl
 
 let warn_names : bool ref = ref false
 
+let nth_or_last xs i =
+  let rec aux n = function
+    | [] -> None
+    | [x] -> Some x
+    | x :: rest -> if n = 0 then Some x else aux (n - 1) rest
+  in
+  aux i xs
+
+let alt_for_subgoal (hint : hhint) i =
+  match hint with
+  | None -> None
+  | Some alts -> nth_or_last alts i
+
+let name_hint_at hints i =
+  match nth_or_last hints i with
+  | Some (User_name name) -> Some name
+  | Some Dont_care | None -> None
+
 let lemmas : (string, string list * metaterm) H.t = State.table ()
 let lemma_tags : (string, fin) H.t = State.table ()
 
@@ -51,6 +69,7 @@ type hyp = {
 
 type sequent = {
   mutable vars : (id * term) list ;
+  mutable user_vars : Iset.t ;
   mutable hyps : hyp list ;
   mutable goal : metaterm ;
   mutable count : int ;
@@ -62,6 +81,7 @@ type sequent = {
 let cp_sequent sq = {sq with vars = sq.vars}
 let assign_sequent sq1 sq2 =
   sq1.vars <- sq2.vars ;
+  sq1.user_vars <- sq2.user_vars ;
   sq1.hyps <- sq2.hyps ;
   sq1.goal <- sq2.goal ;
   sq1.count <- sq2.count ;
@@ -71,6 +91,7 @@ let assign_sequent sq1 sq2 =
 let sequent =
   State.make ~copy:cp_sequent ~assign:assign_sequent {
     vars = [] ;
+    user_vars = Iset.empty ;
     hyps = [] ;
     goal = termobj (const "placeholder" propty) ;
     count = 0 ;
@@ -575,10 +596,24 @@ let add_hyp ?name term =
       update_hyp_count name ;
       ignore (unsafe_add_hyp ~user_named:true name term)
 
-let add_hyps ?name ~base hyps =
-  match name with
-  | None -> List.iter (add_auto_hyp ~base) hyps
-  | Some name -> List.iter (add_hyp ~name) hyps
+let add_named_hyp base term =
+  let used =
+    List.map (fun (x, _) -> (x, ())) sequent.vars @
+    List.map (fun h -> (h.id, ())) sequent.hyps
+  in
+  let name = fresh_name base used in
+  update_hyp_count name ;
+  ignore (unsafe_add_hyp ~user_named:true name term)
+
+let add_hyps_with_hint ?(auto_base="") alt hyps =
+  List.iteri begin fun i hyp ->
+    let hint = Option.bind alt (fun a -> name_hint_at a.hspec_hyps i) in
+    match hint with
+    | Some base -> add_named_hyp base hyp
+    | None -> add_auto_hyp ~base:auto_base hyp
+  end hyps
+
+let add_hyp_with_hint alt term = add_hyps_with_hint alt [term]
 
 let remove_hyp cm name =
   let removed_h = ref None in
@@ -605,12 +640,137 @@ let replace_hyp name t =
   in
   sequent.hyps <- aux sequent.hyps
 
-let add_var v =
-  sequent.vars <- List.append sequent.vars [v]
+let add_var ?(user=false) ((name, _) as v) =
+  sequent.vars <- List.append sequent.vars [v] ;
+  if user then
+    sequent.user_vars <- Iset.add name sequent.user_vars
 
-let add_if_new_var (name, v) =
+let add_if_new_var ?(user=false) ((name, _) as v) =
   if not (List.mem_assoc name sequent.vars) then
-    add_var (name, v)
+    add_var ~user v
+
+let nominal_vars_of_sequent sq =
+  let terms =
+    collect_terms sq.goal @
+    List.flatten_map (fun h -> collect_terms h.term) sq.hyps
+  in
+  find_var_refs Nominal terms |> List.map term_to_var
+
+let rename_described ~hints ~base vars =
+  let used =
+    ref (List.map (fun (name, _) -> (name, ())) base.vars @
+         List.map (fun h -> (h.id, ())) sequent.hyps @
+         List.map (fun (v : var) -> (v.name, ()))
+           (nominal_vars_of_sequent sequent))
+  in
+  let renames =
+    List.mapi begin fun i ((old_var : var), in_sequent) ->
+      match name_hint_at hints i with
+      | None ->
+          used := (old_var.name, ()) :: !used ;
+          None
+      | Some base_name ->
+          let new_name =
+            if old_var.tag = Nominal then begin
+              if not (is_nominal_name base_name) then
+                failwithf
+                  "Hint %S is not a valid nominal constant name; use n<number>"
+                  base_name ;
+              let used_for_hint = List.remove_assoc old_var.name !used in
+              if List.mem_assoc base_name used_for_hint then
+                failwithf
+                  "Nominal hint %S is already free in the subgoal"
+                  base_name ;
+              base_name
+            end else begin
+              if is_nominal_name base_name then
+                failwithf
+                  "Hint %S is reserved for nominal constants" base_name ;
+              fresh_name base_name !used
+            end
+          in
+          used := (new_name, ()) :: !used ;
+          let new_var = var old_var.tag new_name old_var.ts old_var.ty in
+          Some (old_var.tag, old_var.name, new_name, new_var, in_sequent)
+    end vars
+    |> List.filter_map (fun x -> x)
+  in
+  match renames with
+  | [] -> ()
+  | _ ->
+      let tag_groups =
+        List.fold_left begin fun groups (tag, old_name, _, new_var, _) ->
+          let old =
+            try List.assoc tag groups with Not_found -> []
+          in
+          (tag, (old_name, new_var) :: old) ::
+          List.remove_assoc tag groups
+        end [] renames
+      in
+      let rewrite_term term =
+        List.fold_left
+          (fun term (tag, alist) -> replace_term_vars ~tag alist term)
+          term tag_groups
+      in
+      let rewrite_metaterm metaterm =
+        List.fold_left
+          (fun metaterm (tag, alist) ->
+             replace_metaterm_vars ~tag alist metaterm)
+          metaterm tag_groups
+      in
+      sequent.goal <- rewrite_metaterm sequent.goal ;
+      sequent.hyps <-
+        List.map (fun h -> { h with term = rewrite_metaterm h.term })
+          sequent.hyps ;
+      sequent.vars <-
+        List.map begin fun (name, term) ->
+          let name =
+            match List.find_opt
+                    (fun (_, old_name, _, _, in_sequent) ->
+                       in_sequent && old_name = name)
+                    renames
+            with
+            | Some (_, _, new_name, _, _) -> new_name
+            | None -> name
+          in
+          (name, rewrite_term term)
+        end sequent.vars ;
+      sequent.user_vars <-
+        List.fold_left begin fun user_vars
+          (_, old_name, new_name, _, in_sequent) ->
+          if in_sequent then
+            Iset.add new_name (Iset.remove old_name user_vars)
+          else user_vars
+        end sequent.user_vars renames
+
+let rename_new_vars ?alt ~base () =
+  let hints = match alt with None -> [] | Some a -> a.hspec_vars in
+  if hints = [] then () else begin
+    let new_eigen =
+      List.filter
+        (fun (name, term) ->
+           not (List.mem_assoc name base.vars) && is_free term)
+        sequent.vars
+    in
+    let new_eigen_names = List.map fst new_eigen in
+    let base_nominals =
+      List.map (fun (v : var) -> v.name) (nominal_vars_of_sequent base)
+    in
+    let new_nominals =
+      nominal_vars_of_sequent sequent |>
+      List.filter (fun (v : var) ->
+          not (List.mem v.name base_nominals) &&
+          not (List.mem v.name new_eigen_names))
+    in
+    let described =
+      List.map (fun (_, term) -> (term_to_var term, true)) new_eigen @
+      List.map (fun (v : var) -> (v, false)) new_nominals
+    in
+    rename_described ~hints ~base described
+  end
+
+let rename_intro_vars ~alt ~base vars =
+  rename_described ~hints:alt.hspec_vars ~base vars
 
 let add_lemma ?(fin=Finished) name tys lemma =
   let ovr = if H.mem lemmas name then `replace else `append in
@@ -647,6 +807,34 @@ let warn_hyp_name name =
           "Warning: hypothesis %s was not named by the user." name
     | _ -> ()
 
+let warn_var_name name =
+  if !warn_names && not (is_nominal_name name) &&
+     List.mem_assoc name sequent.vars &&
+     not (Iset.mem name sequent.user_vars)
+  then
+    Output.msg_printf
+      "Warning: variable %s was not named by the user." name
+
+let warn_label_name name =
+  if is_hyp name then warn_hyp_name name
+  else if List.mem_assoc name sequent.vars then warn_var_name name
+
+let warn_term_vars term =
+  let names =
+    List.map fst (term_vars_alist Eigen [term]) @
+    List.map fst (term_vars_alist Nominal [term]) @
+    List.map fst (term_vars_alist Logic [term])
+  in
+  List.iter warn_var_name (List.unique names)
+
+let warn_metaterm_vars term =
+  let names =
+    List.map fst (metaterm_vars_alist Eigen term) @
+    List.map fst (metaterm_vars_alist Nominal term) @
+    List.map fst (metaterm_vars_alist Logic term)
+  in
+  List.iter warn_var_name (List.unique names)
+
 let warn_clearable = function
   | Keep (h, _) -> warn_hyp_name h
   | Remove (h, []) -> warn_hyp_name h
@@ -656,7 +844,10 @@ let rec warn_witness = function
   | WHyp h -> warn_hyp_name h
   | WLeft w | WRight w -> warn_witness w
   | WSplit (w1, w2) -> warn_witness w1 ; warn_witness w2
-  | WForall (_, w) | WIntros (_, w) | WExists (_, w) -> warn_witness w
+  | WForall (_, w) | WIntros (_, w) -> warn_witness w
+  | WExists (bs, w) ->
+      List.iter (fun (_, term) -> warn_term_vars term) bs ;
+      warn_witness w
   | WUnfold (_, _, ws) -> List.iter warn_witness ws
   | WTrue | WReflexive | WMagic -> ()
 
@@ -725,13 +916,13 @@ let show name fmt =
 
 (* Object level instantiation *)
 
-let inst ?name h ws =
+let inst ?hint h ws =
   warn_clearable h ;
   let ht = get_stmt_clearly h in
   match ht with
   | Obj _ ->
       let rec aux ws ht = match ws with
-        | [] -> add_hyp ?name ht
+        | [] -> add_hyp_with_hint (alt_for_subgoal hint 0) ht
         | (n, t) :: ws ->
             let ntids = metaterm_nominal_tids ht in
             let nty = try List.assoc n ntids with
@@ -740,6 +931,7 @@ let inst ?name h ws =
                       (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
             in
             let t = type_uterm ~expected_ty:nty ~sr:!sr ~sign:!sign ~ctx t in
+            warn_term_vars t ;
             aux ws (object_inst ht n t)
       in
       aux ws ht
@@ -750,13 +942,14 @@ let inst ?name h ws =
 
 (* Object level cut *)
 
-let cut ?name h arg =
+let cut ?hint h arg =
   warn_clearable h ; warn_clearable arg ;
   let h = get_stmt_clearly h in
   let arg = get_stmt_clearly arg in
   match h, arg with
   | Obj(obj_h, _), Obj(obj_arg, _) ->
-      add_hyp ?name (object_cut obj_h obj_arg)
+      add_hyp_with_hint (alt_for_subgoal hint 0)
+        (object_cut obj_h obj_arg)
   | _ -> failwith "Cut can only be used on hypotheses of the form {...}"
 
 (* Search *)
@@ -825,11 +1018,12 @@ let search ?depth ~witness ~handle_witness () =
 
 (* Search cut *)
 
-let search_cut ?name h =
+let search_cut ?hint h =
   warn_clearable h ;
   match get_stmt_clearly h with
   | Obj(obj, _) ->
-      add_hyp ?name (Obj(Tactics.search_cut ~search_goal obj, Irrelevant))
+      add_hyp_with_hint (alt_for_subgoal hint 0)
+        (Obj(Tactics.search_cut ~search_goal obj, Irrelevant))
   | _ ->
       failwith "Cut can only be used on hypotheses of the form {... |- ...}"
 
@@ -883,7 +1077,12 @@ let type_apply_withs stmt ws =
     (fun (id, t) ->
        try
          let ty = List.assoc id bindings in
-         (id, type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx:sequent.vars t)
+         let t =
+           type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign
+             ~ctx:sequent.vars t
+         in
+         warn_term_vars t ;
+         (id, t)
        with
        | Not_found -> failwithf "Unknown variable %s" id)
     ws
@@ -905,7 +1104,7 @@ let partition_obligations ?depth obligations =
         Either.Right (g, w)
   end obligations
 
-let apply ?depth ?name ?(term_witness=ignore) h args ws =
+let apply ?depth ?hint ?(term_witness=ignore) h args ws =
   warn_clearable h ;
   List.iter warn_clearable args ;
   let stmt = get_stmt_clearly h in
@@ -923,15 +1122,20 @@ let apply ?depth ?name ?(term_witness=ignore) h args ws =
   let () = List.iter term_witness term_witnesses in
   let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
   let resulting_case = recursive_metaterm_case ~used:sequent.vars ~sr:!sr result in
+  let mainline_hint =
+    alt_for_subgoal hint (List.length remaining_obligations)
+  in
   begin match resulting_case with
   | None -> add_subgoals obligation_subgoals
   | Some case ->
+      let base = copy_sequent () in
       let resulting_subgoal =
         let restore = goal_to_subgoal sequent.goal in
         fun () ->
           restore () ;
           List.iter add_if_new_var case.stateless_new_vars ;
-          List.iter (add_hyp ?name) case.stateless_new_hyps
+          add_hyps_with_hint mainline_hint case.stateless_new_hyps ;
+          rename_new_vars ?alt:mainline_hint ~base ()
       in
       add_subgoals ~mainline:resulting_subgoal obligation_subgoals
   end ;
@@ -946,8 +1150,12 @@ let type_backchain_withs stmt ws =
     (fun (id, t) ->
        try
          let ty = List.assoc id bindings in
-         (id, type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign
-            ~ctx:(nctx @ sequent.vars) t)
+         let t =
+           type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign
+             ~ctx:(nctx @ sequent.vars) t
+         in
+         warn_term_vars t ;
+         (id, t)
        with
        | Not_found -> failwithf "Unknown variable %s" id)
     ws
@@ -978,12 +1186,13 @@ let update_self_bound_vars () =
              (id, v)
          | _ -> (id, term))
 
-let case_to_subgoal ?name case =
+let case_to_subgoal ?alt case =
   let saved_sequent = copy_sequent () in
   fun () ->
     set_sequent saved_sequent ;
     List.iter add_if_new_var case.new_vars ;
-    List.iter (add_hyp ?name) case.new_hyps ;
+    add_hyps_with_hint alt case.new_hyps ;
+    rename_new_vars ?alt ~base:saved_sequent () ;
     Term.set_bind_state case.bind_state ;
     update_self_bound_vars ()
 
@@ -1003,11 +1212,16 @@ let case_subgoals str =
     set_scoped_bind_state state;
     raise e
 
-let case ?name h =
+let case ?hint h =
   warn_clearable h ;
   let cases = case_subgoals h in
   (* Output.msg_printf "case: there were %d new subgoals" (List.length cases) ; *)
-  add_subgoals (List.map (case_to_subgoal ?name) cases) ;
+  let subgoals =
+    List.mapi (fun i case ->
+        case_to_subgoal ?alt:(alt_for_subgoal hint i) case)
+      cases
+  in
+  add_subgoals subgoals ;
   next_subgoal ()
 
 (* Induction *)
@@ -1047,7 +1261,7 @@ let ensure_is_inductive term =
 let add_ih h =
   add_auto_hyp ~base:"IH" h
 
-let induction ?name ind_args =
+let induction ?hint ind_args =
   if has_coinductive_restriction sequent.goal then
     failwith "Induction within coinduction is not allowed" ;
   let stmts = and_to_list sequent.goal in
@@ -1059,7 +1273,8 @@ let induction ?name ind_args =
     (List.combine ind_args stmts) ;
   let res_num = next_restriction () in
   let (ihs, new_goal) = Tactics.induction ind_args res_num sequent.goal in
-  add_hyps ?name ~base:"IH" ihs ;
+  add_hyps_with_hint ~auto_base:"IH"
+    (alt_for_subgoal hint 0) ihs ;
   sequent.goal <- new_goal
 
 
@@ -1085,24 +1300,25 @@ let ensure_is_coinductive p =
   with Not_found ->
     failwithf "Cannot coinduct on %s since it has not been defined" pname
 
-let coinduction ?name () =
+let coinduction ?hint () =
   ensure_is_coinductive (conclusion sequent.goal) ;
   if has_inductive_restriction sequent.goal then
     failwith "Coinduction within induction is not allowed" ;
   let res_num = next_restriction () in
   let (ch, new_goal) = Tactics.coinduction res_num sequent.goal in
-  add_hyps ?name ~base:"CH" [ch] ;
+  add_hyps_with_hint ~auto_base:"CH"
+    (alt_for_subgoal hint 0) [ch] ;
   sequent.goal <- new_goal
 
 
 (* Assert *)
 
-let delay_mainline ?name ?depth new_hyp detour_goal =
+let delay_mainline ?hint ?depth new_hyp detour_goal =
   if depth <> Some 0 && search_goal ?depth detour_goal then
-    add_hyp ?name new_hyp
+    add_hyp_with_hint (alt_for_subgoal hint 0) new_hyp
   else
   let mainline =
-    case_to_subgoal ?name
+    case_to_subgoal ?alt:(alt_for_subgoal hint 1)
       { bind_state = get_bind_state () ;
         new_vars = [] ;
         new_hyps = [new_hyp] }
@@ -1112,13 +1328,14 @@ let delay_mainline ?name ?depth new_hyp detour_goal =
   add_subgoals ~mainline [detour] ;
   next_subgoal ()
 
-let assert_hyp ?name ?depth term =
+let assert_hyp ?hint ?depth term =
   let term = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
-  delay_mainline ?name ?depth term term
+  warn_metaterm_vars term ;
+  delay_mainline ?hint ?depth term term
 
 (* Object logic monotone *)
 
-let monotone ?name h t =
+let monotone ?hint h t =
   warn_clearable h ;
   let ht = get_stmt_clearly h in
   match ht with
@@ -1128,8 +1345,9 @@ let monotone ?name h t =
                 (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
       in
       let t = type_uterm ~expected_ty:olistty ~sr:!sr ~sign:!sign ~ctx t in
+      warn_term_vars t ;
       let new_obj = {obj with context = Context.normalize [t]} in
-      delay_mainline ?name
+      delay_mainline ?hint
         (Obj (new_obj, r))
         (Binding(Forall, [("X", oty)],
                  Arrow(member (Term.const "X" oty)
@@ -1148,8 +1366,11 @@ let theorem thm =
 
 (* Introduction of forall variables *)
 
-let intros hs =
-  let rec aux hs term =
+let intros alt =
+  let base = copy_sequent () in
+  let hyp_index = ref 0 in
+  let intro_vars = ref [] in
+  let rec aux term =
     match term with
     | Binding(Forall, bindings, body) ->
         let support = metaterm_support body in
@@ -1157,29 +1378,35 @@ let intros hs =
           fresh_raised_alist ~sr:!sr ~tag:Eigen ~used:sequent.vars
             ~support bindings
         in
-        List.iter add_var (List.map term_to_pair vars) ;
-        aux hs (replace_metaterm_vars alist body)
+        intro_vars := !intro_vars @
+          List.map (fun var -> (term_to_var var, true)) vars ;
+        List.iter (fun var -> add_var (term_to_pair var)) vars ;
+        aux (replace_metaterm_vars alist body)
     | Binding(Nabla, bindings, body) ->
         let (ids, tys) = List.split bindings in
-        aux hs (replace_metaterm_vars
-                  (List.combine ids (fresh_nominals tys body))
-                  body)
+        let nominals = fresh_nominals tys body in
+        intro_vars := !intro_vars @
+          List.map (fun term -> (term_to_var term, false)) nominals ;
+        aux (replace_metaterm_vars
+               (List.combine ids nominals)
+               body)
     | Arrow(left, right) -> begin
-        let (name, hs) = match hs with
-          | [] -> (None, [])
-          | "_" :: hs -> (None, hs)
-          | h :: hs -> (Some h, hs)
-        in
-        add_hyp ?name (normalize left) ;
-        aux hs right
+        let hint = name_hint_at alt.hspec_hyps !hyp_index in
+        incr hyp_index ;
+        begin match hint with
+        | Some base -> add_named_hyp base (normalize left)
+        | None -> add_auto_hyp (normalize left)
+        end ;
+        aux right
       end
     | _ -> term
   in
-  sequent.goal <- aux hs sequent.goal
+  sequent.goal <- aux sequent.goal ;
+  rename_intro_vars ~alt ~base !intro_vars
 
 (* Split *)
 
-let split ?name propogate_result =
+let split propogate_result =
   let rec accum_goals conjs prev =
     match conjs with
     | [] -> []
@@ -1188,7 +1415,7 @@ let split ?name propogate_result =
         let subgoal () =
           saved () ;
           if propogate_result then
-            List.iter (add_hyp ?name) (List.rev prev)
+            List.iter add_auto_hyp (List.rev prev)
         in
         subgoal :: (accum_goals rest (g :: prev))
   in
@@ -1316,6 +1543,7 @@ let exists ew =
                 (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
       in
       let t = type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx t in
+      warn_term_vars t ;
       let goal = replace_metaterm_vars [(id, t)] (exists tids body) in
       sequent.goal <- goal ;
       normalize_sequent ()
@@ -1334,6 +1562,7 @@ let skip () =
 let remove_var cm h =
   let v = term_to_var (List.assoc h sequent.vars) in
   sequent.vars <- List.filter (fun xv -> fst xv <> h) sequent.vars ;
+  sequent.user_vars <- Iset.remove h sequent.user_vars ;
   match cm with
   | Clear_extro ->
       let goal = replace_metaterm_vars [h, var Constant v.Term.name v.ts v.ty] sequent.goal in
@@ -1361,7 +1590,7 @@ let check_removable h =
       failwithf "Unknown hypothesis or variable %s" h
 
 let clear cm hs =
-  List.iter warn_hyp_name hs ;
+  List.iter warn_label_name hs ;
   List.iter begin fun h ->
     check_removable h ;
     remove_thing cm h ;
@@ -1412,6 +1641,8 @@ let rename_var vfr xto =
       else if x = xto then None
       else Some v
     end sequent.vars ;
+  sequent.user_vars <-
+    Iset.add xto (Iset.remove vfr sequent.user_vars) ;
   sequent.goal <- rewrite sequent.goal
 
 let var_unavailable x =
@@ -1419,7 +1650,7 @@ let var_unavailable x =
   with Not_found -> false
 
 let rename xfr xto =
-  warn_hyp_name xfr ;
+  warn_label_name xfr ;
   if H.mem lemmas xto then
     failwithf "%S already refers to a lemma" xto ;
   if List.exists (fun h -> h.id = xto) sequent.hyps then
@@ -1437,6 +1668,7 @@ let rename xfr xto =
 
 let permute_nominals ids form =
   Option.iter warn_hyp_name form ;
+  List.iter warn_var_name ids ;
   if not (List.is_unique ids) then failwith "Not a permutation" ;
   let term =
     match form with
@@ -1459,14 +1691,16 @@ let permute_nominals ids form =
 
 (* Object level cut with explicit cut formula*)
 
-let cut_from ?name h arg term =
+let cut_from ?hint h arg term =
   warn_clearable h ; warn_clearable arg ;
   let term = type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
+  warn_term_vars term ;
   let h = get_stmt_clearly h in
   let arg = get_stmt_clearly arg in
   match h, arg with
   | Obj(obj_h1, _),Obj(obj_h2, _) ->
-      add_hyp ?name (object_cut_from obj_h1 obj_h2 term)
+      add_hyp_with_hint (alt_for_subgoal hint 0)
+        (object_cut_from obj_h1 obj_h2 term)
   | _,_ -> failwith "The cut command can only be used on \
                    \ hypotheses of the form {...}"
 
@@ -1494,7 +1728,7 @@ let clear_duplicates () =
 
 exception SaturateSuccess
 let is_ground f = metaterm_vars_alist Logic f = []
-let saturate ?name ?depth lemmas =
+let saturate ?hint ?depth lemmas =
   List.iter warn_hyp_name lemmas ;
   let focus_lemmas = List.map get_hyp_or_lemma lemmas in
   let initial_focus () =
@@ -1509,6 +1743,13 @@ let saturate ?name ?depth lemmas =
     (List.flatten_map (fun h -> metaterm_support h.term) sequent.hyps @
      metaterm_support sequent.goal)
     |> List.unique ~cmp:eq
+  in
+  let next_subgoal_index =
+    let index = ref 0 in
+    fun () ->
+      let i = !index in
+      incr index ;
+      i
   in
   let rec loop ~ts ~depth =
     clear_duplicates () ;
@@ -1633,7 +1874,10 @@ let saturate ?name ?depth lemmas =
                     new_vars = nvs ;
                     new_hyps = nhs } in
         (* List.iter (fun h -> [%trace 2 "release hyp: %a"] format_metaterm h) nhs ; *)
-        let setup_subgoal = case_to_subgoal ?name case in
+        let setup_subgoal =
+          let alt = alt_for_subgoal hint (next_subgoal_index ()) in
+          case_to_subgoal ?alt case
+        in
         let recur () =
           setup_subgoal () ;
           succ ts

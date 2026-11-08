@@ -163,7 +163,7 @@ let is_unchanged wait =
 exception Out_of_gas
 exception Suspended
 
-let compute ?name ?(gas = 1_000) ?(warn = true) hs =
+let compute ?hint ?(gas = 1_000) ?(warn = true) hs =
   if warn then List.iter Prover.warn_clearable hs ;
   let total_gas = gas in
   let gas = ref total_gas in
@@ -172,6 +172,7 @@ let compute ?name ?(gas = 1_000) ?(warn = true) hs =
     fun () -> incr count ; "<#" ^ string_of_int !count ^ ">"
   in
   let subgoals = ref [] in
+  let base = Prover.copy_sequent () in
   let rec compute_all ~chs ~wait ~todo =
     [%trace 2 "compute_all ~chs:[%s] ~wait:[%s] ~todo:[%s]"
         (List.map ch_to_string chs |> String.concat ",")
@@ -180,11 +181,13 @@ let compute ?name ?(gas = 1_000) ?(warn = true) hs =
     match todo with
     | [] ->
         let sg =
+          let alt = Prover.alt_for_subgoal hint (List.length !subgoals) in
           List.iter begin fun ch ->
             [%trace 2 "Renaming: %s" (ch_to_string ch)] ;
             let stmt = Prover.get_stmt_clearly ch.clr in
-            Prover.add_hyp ?name stmt
+            Prover.add_hyp_with_hint alt stmt
           end chs ;
+          Prover.rename_new_vars ?alt ~base () ;
           let state = Term.get_bind_state () in
           let current_seq = Prover.copy_sequent () in
           fun () ->
@@ -254,8 +257,8 @@ let compute ?name ?(gas = 1_000) ?(warn = true) hs =
       Prover.add_subgoals @@ List.rev !subgoals ;
       Prover.next_subgoal ()
 
-let compute_all ?name ?gas clr =
+let compute_all ?hint ?gas clr =
   let hs = List.map begin fun (h : Prover.hyp) ->
       if clr = `CLEAR then Remove (h.id, []) else Keep (h.id, [])
     end Prover.sequent.hyps in
-  compute ~warn:false ?name ?gas hs
+  compute ~warn:false ?hint ?gas hs

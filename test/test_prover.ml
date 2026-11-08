@@ -6,6 +6,12 @@ open Prover
 
 let keep id = Keep (id, [])
 let remove id = Remove (id, [])
+let no_hints = { hspec_vars = [] ; hspec_hyps = [] }
+let hyp_hint name =
+  Some [{ hspec_vars = [] ; hspec_hyps = [User_name name] }]
+let user_alt vars hyps =
+  { hspec_vars = List.map (fun name -> User_name name) vars ;
+    hspec_hyps = List.map (fun name -> User_name name) hyps }
 
 let search ?depth () =
   Prover.search ?depth ~witness:WMagic ~handle_witness:ignore ()
@@ -80,7 +86,7 @@ let tests =
            setup_prover ()
              ~goal:"forall L, rel1 n1 L" ;
 
-           intros [] ;
+           intros no_hints ;
            assert_goal "rel1 n1 (L n1)"
         ) ;
 
@@ -89,7 +95,7 @@ let tests =
            setup_prover ()
              ~goal:"nabla (x:i) y, x = y" ;
 
-           intros [] ;
+           intros no_hints ;
            assert_goal "n1 = n2"
         ) ;
 
@@ -268,7 +274,7 @@ let tests =
              ~clauses:eval_clauses
              ~goal:"forall P V, {typeof P V} -> {typeof P V}" ;
 
-           intros [] ;
+           intros no_hints ;
            case (keep "H1") ;
            assert_n_subgoals 2 ;
            Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["H1"; "H2"]
@@ -287,7 +293,7 @@ let tests =
              ~clauses:eval_clauses
              ~goal:"forall P V, {typeof P V} -> {typeof P V}" ;
 
-           intros [] ;
+           intros no_hints ;
            case (remove "H1") ;
            assert_n_subgoals 2 ;
 
@@ -313,7 +319,7 @@ let tests =
              assert_proof
                (fun () ->
                   induction [2] ;
-                  intros [] ;
+                  intros no_hints ;
                   case (remove "H2") ;
                   assert_n_subgoals 2 ;
 
@@ -334,7 +340,7 @@ let tests =
              ~goal:"forall P V T, {eval P V} -> {typeof P T} -> {typeof V T}" ;
 
            induction [1] ;
-           intros [] ;
+           intros no_hints ;
            assert_n_subgoals 1 ;
 
            State.Undo.push () ;
@@ -373,7 +379,7 @@ let tests =
              assert_proof
                (fun () ->
                   induction [1] ;
-                  intros [] ;
+                  intros no_hints ;
 
                   case (remove "H1") ;
                   assert_n_subgoals 2 ;
@@ -395,7 +401,7 @@ let tests =
 
              assert_proof
                (fun () ->
-                  intros [] ;
+                  intros no_hints ;
                   case (remove "H1") ;
                   assert_n_subgoals 2 ;
 
@@ -422,7 +428,7 @@ let tests =
              assert_proof
                (fun () ->
                   induction [1] ;
-                  intros [] ;
+                  intros no_hints ;
 
                   case (remove "H1") ;
                   assert_n_subgoals 2 ;
@@ -527,7 +533,7 @@ let tests =
              ~lemmas:[("lem", "forall X, foo X -> bar X")]
              ~goal:"forall X, foo X + -> bar X" ;
 
-           intros [] ;
+           intros no_hints ;
            Alcotest.match_raises "expected exception" (fun _ -> true)
              (fun () -> ignore (apply (keep "lem") (List.map keep ["H1"]) [])) ;
         );
@@ -543,7 +549,7 @@ let tests =
 
            assert_proof
              (fun () ->
-                intros [] ;
+                intros no_hints ;
                 case (remove "H1") ;
                 assert_n_subgoals 1 ;
 
@@ -551,7 +557,7 @@ let tests =
                 assert_n_subgoals 2 ;
 
                 right () ;
-                intros [] ;
+                intros no_hints ;
                 case (remove "H3") ;
                 assert_n_subgoals 1 ;
 
@@ -604,7 +610,7 @@ let tests =
 
            assert_proof
              (fun () ->
-                intros [] ;
+                intros no_hints ;
                 case (remove "H1") ;
                 assert_n_subgoals 2 ;
 
@@ -689,7 +695,7 @@ let tests =
              setup_prover ()
                ~goal:"nabla x y, forall X Y, sr_a_b x y -> sr_a_b X Y" ;
 
-             intros [] ;
+             intros no_hints ;
              assert_goal "sr_a_b (X n1) (Y n2 n1)" ;
         );
 
@@ -1022,7 +1028,7 @@ let tests =
 
            add_hyp (freshen "{L, E |- conc A}*") ;
 
-           monotone ~name:"M" (keep "H1")
+           monotone ?hint:(hyp_hint "M") (keep "H1")
              (parse_uterm "a :: b :: nil") ;
 
            assert_n_subgoals 2 ;
@@ -1104,7 +1110,7 @@ let tests =
            assert_proof
              (fun () ->
                 start_proof () ;
-                intros [] ;
+                intros no_hints ;
                 assert_hyp (parse_umetaterm "E' = E'") ;
                 assert_hyp (parse_umetaterm "forall Y, E' = Y -> true") ;
                 apply (keep "foo") (List.map keep ["H1"; "_"]) [] ;
@@ -1127,12 +1133,127 @@ let tests =
            add_defs_for ["foo155"] Abella_types.Inductive
              (parse_defs "foo155 (mu155 k\\ E k) \
                           (mu155 k_\\ E (o\\ o)).") ;
-           intros [] ;
+           intros no_hints ;
            case (keep "H1") ;
            assert_n_subgoals 1 ;
            assert_pprint_equal
              "foo155 (mu155 (x1\\E1 n1 x1)) (mu155 (x1\\E1 n1 x2\\x2))"
              (get_hyp "H1")
+        ) ;
+
+      test_case "Case hspec names variables and hypotheses per subgoal"
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall (X:i), \
+                    (exists (Y:i), rel1 X Y) \\/ \
+                    (exists (Z:i), rel1 X Z) -> false" ;
+           intros no_hints ;
+           let hint =
+             Some [ user_alt ["U"] ["H1"] ;
+                    user_alt ["V"] ["H2"] ]
+           in
+           case ?hint (remove "H1") ;
+           assert_n_subgoals 2 ;
+           Alcotest.check Alcotest.bool "first variable" true
+             (List.mem_assoc "U" sequent.vars) ;
+           Alcotest.check Alcotest.bool "first hypothesis" true
+             (List.exists (fun h -> h.id = "H1") sequent.hyps) ;
+           skip () ;
+           Alcotest.check Alcotest.bool "second variable" true
+             (List.mem_assoc "V" sequent.vars) ;
+           Alcotest.check Alcotest.bool "second hypothesis" true
+             (List.exists (fun h -> h.id = "H2") sequent.hyps)
+        ) ;
+
+      test_case "A single hspec alternative applies to every subgoal"
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall (X:i), \
+                    (exists (Y:i), rel1 X Y) \\/ \
+                    (exists (Z:i), rel1 X Z) -> false" ;
+           intros no_hints ;
+           let hint = Some [ user_alt ["U"] ["H"] ] in
+           case ?hint (remove "H1") ;
+           assert_n_subgoals 2 ;
+           Alcotest.check Alcotest.bool "first variable" true
+             (List.mem_assoc "U" sequent.vars) ;
+           Alcotest.check Alcotest.bool "first hypothesis" true
+             (List.exists (fun h -> h.id = "H") sequent.hyps) ;
+           skip () ;
+           Alcotest.check Alcotest.bool "second variable" true
+             (List.mem_assoc "U" sequent.vars) ;
+           Alcotest.check Alcotest.bool "second hypothesis" true
+             (List.exists (fun h -> h.id = "H") sequent.hyps)
+        ) ;
+
+      test_case "Intros hspec names variables and hypotheses"
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall (X:i) (Y:i), rel1 X Y -> rel1 X Y" ;
+           intros (user_alt ["U"; "V"] ["H"]) ;
+           Alcotest.check Alcotest.bool "first variable" true
+             (List.mem_assoc "U" sequent.vars) ;
+           Alcotest.check Alcotest.bool "second variable" true
+             (List.mem_assoc "V" sequent.vars) ;
+           Alcotest.check Alcotest.bool "hypothesis" true
+             (List.exists (fun h -> h.id = "H") sequent.hyps)
+        ) ;
+
+      test_case "Intros hspec repeats the last hint and honors don't-care"
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall (X:i) (Y:i), \
+                    rel1 X Y -> rel1 X Y -> rel1 X Y" ;
+           intros { hspec_vars = [User_name "U"; Dont_care] ;
+                    hspec_hyps = [User_name "H"] } ;
+           Alcotest.check Alcotest.bool "first variable" true
+             (List.mem_assoc "U" sequent.vars) ;
+           Alcotest.check Alcotest.bool "second variable was not hinted"
+             false (List.mem_assoc "U1" sequent.vars) ;
+           Alcotest.check Alcotest.bool "first hypothesis" true
+             (List.exists (fun h -> h.id = "H") sequent.hyps) ;
+           Alcotest.check Alcotest.bool "repeated hypothesis" true
+             (List.exists (fun h -> h.id = "H1") sequent.hyps)
+        ) ;
+
+      test_case "Intros names a nabla variable with a nominal hint"
+        (fun () ->
+           setup_prover ~goal:"nabla (x:i), x = x" () ;
+           intros { hspec_vars = [User_name "n34"] ; hspec_hyps = [] } ;
+           assert_pprint_equal "n34 = n34" sequent.goal
+        ) ;
+
+      test_case "A nominal hint already free in the body is an error"
+        (fun () ->
+           setup_prover ~goal:"nabla (x:i), x = n34" () ;
+           Alcotest.check_raises
+             "free nominal hint"
+             (Failure "Nominal hint \"n34\" is already free in the subgoal")
+             (fun () ->
+                intros { hspec_vars = [User_name "n34"] ;
+                         hspec_hyps = [] })
+        ) ;
+
+      test_case "An eigenvariable hint cannot be a nominal name"
+        (fun () ->
+           setup_prover ~goal:"forall (X:i), X = X" () ;
+           Alcotest.check_raises
+             "reserved nominal hint"
+             (Failure "Hint \"n34\" is reserved for nominal constants")
+             (fun () ->
+                intros { hspec_vars = [User_name "n34"] ; hspec_hyps = [] })
+        ) ;
+
+      test_case "A nabla hint must be a nominal name"
+        (fun () ->
+           setup_prover ~goal:"nabla (x:i), x = x" () ;
+           Alcotest.check_raises
+             "non-nominal nabla hint"
+             (Failure
+                "Hint \"u\" is not a valid nominal constant name; \
+                 use n<number>")
+             (fun () ->
+                intros { hspec_vars = [User_name "u"] ; hspec_hyps = [] })
         ) ;
 
     ]

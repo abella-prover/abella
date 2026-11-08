@@ -36,6 +36,10 @@ Additions
   stratification failures as errors. Abella Web exposes the same option as
   a saved preference.
 
+* Added `--warn-names` to `abella` to warn when a proof refers to a
+  hypothesis whose name came from the system rather than a user-supplied
+  name hint. Abella Web exposes the same option as a saved preference.
+
 * Added the `Axiom` command, which declares a theorem without requiring a
   proof. In batch mode, the axioms used are listed at the end of the run.
 

@@ -31,6 +31,8 @@ open Unifyty
 
 module H = Hashtbl
 
+let warn_names : bool ref = ref false
+
 let lemmas : (string, string list * metaterm) H.t = State.table ()
 let lemma_tags : (string, fin) H.t = State.table ()
 
@@ -44,6 +46,7 @@ type hyp = {
   id : id ;
   term : metaterm ;
   abbrev : string option ;
+  user_named : bool ;
 }
 
 type sequent = {
@@ -554,21 +557,28 @@ let update_hyp_count name =
   | n -> sequent.count <- max sequent.count n
   | exception _ -> ()
 
-let unsafe_add_hyp name term =
-  let h = { id = name ; term = term ; abbrev = None } in
+let unsafe_add_hyp ?(user_named=false) name term =
+  let h = { id = name ; term ; abbrev = None ; user_named } in
   sequent.hyps <- List.append sequent.hyps [h] ;
   h
 
-let add_hyp_ ?name term =
-  let name = fresh_hyp_name begin
-      match name with
-      | None -> ""
-      | Some name -> name
-    end in
+let add_auto_hyp ?(base="") term =
+  let name = fresh_hyp_name base in
   update_hyp_count name ;
-  unsafe_add_hyp name term
+  ignore (unsafe_add_hyp name term)
 
-let add_hyp ?name term = ignore (add_hyp_ ?name term)
+let add_hyp ?name term =
+  match name with
+  | None -> ignore (add_auto_hyp term)
+  | Some name ->
+      let name = fresh_hyp_name name in
+      update_hyp_count name ;
+      ignore (unsafe_add_hyp ~user_named:true name term)
+
+let add_hyps ?name ~base hyps =
+  match name with
+  | None -> List.iter (add_auto_hyp ~base) hyps
+  | Some name -> List.iter (add_hyp ~name) hyps
 
 let remove_hyp cm name =
   let removed_h = ref None in
@@ -628,6 +638,27 @@ let get_hyp name =
 
 let is_hyp name =
   List.exists (fun h -> h.id = name) sequent.hyps
+
+let warn_hyp_name name =
+  if !warn_names then
+    match List.find_opt (fun h -> h.id = name) sequent.hyps with
+    | Some h when not h.user_named ->
+        Output.msg_printf
+          "Warning: hypothesis %s was not named by the user." name
+    | _ -> ()
+
+let warn_clearable = function
+  | Keep (h, _) -> warn_hyp_name h
+  | Remove (h, []) -> warn_hyp_name h
+  | Remove (_, _ :: _) -> ()
+
+let rec warn_witness = function
+  | WHyp h -> warn_hyp_name h
+  | WLeft w | WRight w -> warn_witness w
+  | WSplit (w1, w2) -> warn_witness w1 ; warn_witness w2
+  | WForall (_, w) | WIntros (_, w) | WExists (_, w) -> warn_witness w
+  | WUnfold (_, _, ws) -> List.iter warn_witness ws
+  | WTrue | WReflexive | WMagic -> ()
 
 let get_generic_lemma name =
   try H.find lemmas name with
@@ -695,6 +726,7 @@ let show name fmt =
 (* Object level instantiation *)
 
 let inst ?name h ws =
+  warn_clearable h ;
   let ht = get_stmt_clearly h in
   match ht with
   | Obj _ ->
@@ -719,6 +751,7 @@ let inst ?name h ws =
 (* Object level cut *)
 
 let cut ?name h arg =
+  warn_clearable h ; warn_clearable arg ;
   let h = get_stmt_clearly h in
   let arg = get_stmt_clearly arg in
   match h, arg with
@@ -784,6 +817,7 @@ let search_goal ?depth goal =
   with Failure _ -> false
 
 let search ?depth ~witness ~handle_witness () =
+  warn_witness witness ;
   let search_result = search_goal_witness ?depth sequent.goal witness in
   match search_result with
   | None -> failwith "Search failed"
@@ -792,6 +826,7 @@ let search ?depth ~witness ~handle_witness () =
 (* Search cut *)
 
 let search_cut ?name h =
+  warn_clearable h ;
   match get_stmt_clearly h with
   | Obj(obj, _) ->
       add_hyp ?name (Obj(Tactics.search_cut ~search_goal obj, Irrelevant))
@@ -871,6 +906,8 @@ let partition_obligations ?depth obligations =
   end obligations
 
 let apply ?depth ?name ?(term_witness=ignore) h args ws =
+  warn_clearable h ;
+  List.iter warn_clearable args ;
   let stmt = get_stmt_clearly h in
   let args = List.map get_arg_clearly args in
   let () = List.iter (Option.fold ~some:ensure_no_restrictions ~none:()) args in
@@ -916,6 +953,7 @@ let type_backchain_withs stmt ws =
     ws
 
 let backchain ?depth ?(term_witness=ignore) h ws =
+  warn_clearable h ;
   let stmt = get_stmt_clearly h in
   let ws = type_backchain_withs stmt ws in
   let obligations = Tactics.backchain_with ~sr:!sr stmt ws sequent.goal in
@@ -966,6 +1004,7 @@ let case_subgoals str =
     raise e
 
 let case ?name h =
+  warn_clearable h ;
   let cases = case_subgoals h in
   (* Output.msg_printf "case: there were %d new subgoals" (List.length cases) ; *)
   add_subgoals (List.map (case_to_subgoal ?name) cases) ;
@@ -1006,7 +1045,7 @@ let ensure_is_inductive term =
   | _ -> failwith "Can only induct on predicates and judgments"
 
 let add_ih h =
-  add_hyp ~name:(fresh_hyp_name "IH") h
+  add_auto_hyp ~base:"IH" h
 
 let induction ?name ind_args =
   if has_coinductive_restriction sequent.goal then
@@ -1020,11 +1059,7 @@ let induction ?name ind_args =
     (List.combine ind_args stmts) ;
   let res_num = next_restriction () in
   let (ihs, new_goal) = Tactics.induction ind_args res_num sequent.goal in
-  let name = match name with
-    | None -> fresh_hyp_name "IH"
-    | Some name -> name
-  in
-  List.iter (add_hyp ~name) ihs ;
+  add_hyps ?name ~base:"IH" ihs ;
   sequent.goal <- new_goal
 
 
@@ -1056,11 +1091,7 @@ let coinduction ?name () =
     failwith "Coinduction within induction is not allowed" ;
   let res_num = next_restriction () in
   let (ch, new_goal) = Tactics.coinduction res_num sequent.goal in
-  let name = match name with
-    | None -> fresh_hyp_name "CH"
-    | Some name -> name
-  in
-  add_hyp ~name ch ;
+  add_hyps ?name ~base:"CH" [ch] ;
   sequent.goal <- new_goal
 
 
@@ -1088,6 +1119,7 @@ let assert_hyp ?name ?depth term =
 (* Object logic monotone *)
 
 let monotone ?name h t =
+  warn_clearable h ;
   let ht = get_stmt_clearly h in
   match ht with
   | Obj (obj, r) ->
@@ -1329,6 +1361,7 @@ let check_removable h =
       failwithf "Unknown hypothesis or variable %s" h
 
 let clear cm hs =
+  List.iter warn_hyp_name hs ;
   List.iter begin fun h ->
     check_removable h ;
     remove_thing cm h ;
@@ -1337,6 +1370,7 @@ let clear cm hs =
 (* Abbrev *)
 
 let abbrev ids str =
+  Iset.iter warn_hyp_name ids ;
   sequent.hyps <-
     List.map begin fun h ->
       if Iset.mem h.id ids then
@@ -1345,6 +1379,7 @@ let abbrev ids str =
     end sequent.hyps
 
 let unabbrev ids =
+  Iset.iter warn_hyp_name ids ;
   sequent.hyps <-
     List.map begin fun h ->
       if Iset.mem h.id ids then
@@ -1358,7 +1393,7 @@ let rename_hyp hfr hto =
   let hyps = List.map begin
       fun h ->
         if h.id = hfr then
-          { h with id = hto }
+          { h with id = hto ; user_named = true }
         else h
     end sequent.hyps
   in sequent.hyps <- hyps
@@ -1384,6 +1419,7 @@ let var_unavailable x =
   with Not_found -> false
 
 let rename xfr xto =
+  warn_hyp_name xfr ;
   if H.mem lemmas xto then
     failwithf "%S already refers to a lemma" xto ;
   if List.exists (fun h -> h.id = xto) sequent.hyps then
@@ -1400,6 +1436,7 @@ let rename xfr xto =
 (* Permute *)
 
 let permute_nominals ids form =
+  Option.iter warn_hyp_name form ;
   if not (List.is_unique ids) then failwith "Not a permutation" ;
   let term =
     match form with
@@ -1423,6 +1460,7 @@ let permute_nominals ids form =
 (* Object level cut with explicit cut formula*)
 
 let cut_from ?name h arg term =
+  warn_clearable h ; warn_clearable arg ;
   let term = type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
   let h = get_stmt_clearly h in
   let arg = get_stmt_clearly arg in
@@ -1457,6 +1495,7 @@ let clear_duplicates () =
 exception SaturateSuccess
 let is_ground f = metaterm_vars_alist Logic f = []
 let saturate ?name ?depth lemmas =
+  List.iter warn_hyp_name lemmas ;
   let focus_lemmas = List.map get_hyp_or_lemma lemmas in
   let initial_focus () =
     List.map (normalize ~used:sequent.vars) focus_lemmas

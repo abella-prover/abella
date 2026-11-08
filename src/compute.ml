@@ -163,7 +163,8 @@ let is_unchanged wait =
 exception Out_of_gas
 exception Suspended
 
-let compute ?name ?(gas = 1_000) hs =
+let compute ?name ?(gas = 1_000) ?(warn = true) hs =
+  if warn then List.iter Prover.warn_clearable hs ;
   let total_gas = gas in
   let gas = ref total_gas in
   let fresh_compute_hyp =
@@ -257,4 +258,4 @@ let compute_all ?name ?gas clr =
   let hs = List.map begin fun (h : Prover.hyp) ->
       if clr = `CLEAR then Remove (h.id, []) else Keep (h.id, [])
     end Prover.sequent.hyps in
-  compute ?name ?gas hs
+  compute ~warn:false ?name ?gas hs

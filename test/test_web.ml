@@ -124,16 +124,21 @@ let assert_ok : ('a, 'b) Result.t -> unit = function
   | Ok _ -> ()
   | Error _ -> Alcotest.fail "command failed"
 
-let assert_contains needle haystack =
-  let found = List.exists begin fun text ->
-      let n = String.length needle and h = String.length text in
-      let rec spin i =
-        i + n <= h && (String.sub text i n = needle || spin (i + 1))
-      in
-      spin 0
-    end haystack
+let contains_text needle text =
+  let n = String.length needle and h = String.length text in
+  let rec spin i =
+    i + n <= h && (String.sub text i n = needle || spin (i + 1))
   in
+  spin 0
+
+let assert_contains needle haystack =
+  let found = List.exists (contains_text needle) haystack in
   Alcotest.check Alcotest.bool ("expected message containing " ^ needle) true found
+
+let assert_not_contains needle haystack =
+  let found = List.exists (contains_text needle) haystack in
+  Alcotest.check Alcotest.bool ("unexpected message containing " ^ needle)
+    false found
 
 let test_virtual_source () =
   Alcotest.check Alcotest.bool "canon strip ./" true (Source.canon "./a/b.thm" = "a/b.thm") ;
@@ -347,6 +352,54 @@ let test_back_command_across_proof_boundary () =
   if Result.is_error status then
     Alcotest.fail (String.concat "\n" (system_messages msgs))
 
+let test_warn_names () =
+  let saved = !Prover.warn_names in
+  Fun.protect ~finally:(fun () -> Prover.warn_names := saved) begin fun () ->
+    assert_ok (fst (process_command "Kind w_i type.")) ;
+    assert_ok (fst (process_command "Type w_p w_i -> prop.")) ;
+
+    assert_ok (fst (process_command
+      "Theorem w_auto : forall (x y : w_i), \
+       w_p x -> w_p y -> w_p x.")) ;
+    assert_ok (fst (process_command "intros.")) ;
+    let (status, msgs) = process_command "clear H2." in
+    assert_ok status ;
+    assert_not_contains "Warning:" (system_messages msgs) ;
+    assert_ok (fst (process_command "search.")) ;
+
+    Prover.warn_names := true ;
+    assert_ok (fst (process_command
+      "Theorem w_warn : forall (x y : w_i), \
+       w_p x -> w_p y -> w_p x.")) ;
+    assert_ok (fst (process_command "intros.")) ;
+    let (status, msgs) = process_command "clear H2." in
+    assert_ok status ;
+    assert_contains "Warning: hypothesis H2 was not named by the user."
+      (system_messages msgs) ;
+    assert_ok (fst (process_command "search.")) ;
+
+    assert_ok (fst (process_command
+      "Theorem w_user : forall (x y : w_i), \
+       w_p x -> w_p y -> w_p x.")) ;
+    assert_ok (fst (process_command "intros Hx Hy.")) ;
+    let (status, msgs) = process_command "clear Hy." in
+    assert_ok status ;
+    assert_not_contains "Warning:" (system_messages msgs) ;
+    assert_ok (fst (process_command "search.")) ;
+
+    assert_ok (fst (process_command
+      "Theorem w_salted : forall (x y z : w_i), \
+       w_p x -> w_p y -> w_p z -> w_p x.")) ;
+    assert_ok (fst (process_command "intros H H H.")) ;
+    let (status, msgs) = process_command "clear H1." in
+    assert_ok status ;
+    assert_not_contains "Warning:" (system_messages msgs) ;
+    let (status, msgs) = process_command "clear H2." in
+    assert_ok status ;
+    assert_not_contains "Warning:" (system_messages msgs) ;
+    assert_ok (fst (process_command "search."))
+  end
+
 let test_show_module () =
   Source.add_virtual "List.thmod" {|
 Module List[T].
@@ -393,6 +446,7 @@ let tests = suite "web_core" [
   test_case "interactive_thmod"
     (fun () -> with_session test_interactive_thmod) ;
   test_case "show_module" (fun () -> with_session test_show_module) ;
+  test_case "warn_names" (fun () -> with_session test_warn_names) ;
   test_case "back_across_proof_boundary"
     (fun () -> with_session test_back_across_proof_boundary) ;
   test_case "back_command_across_proof_boundary"

@@ -10,12 +10,14 @@ export interface Driver {
   init(
     files: ProjectFile[],
     root: string,
-    strict?: boolean
+    strict?: boolean,
+    warnNames?: boolean
   ): Promise<RunResult>;
   reset(
     files: ProjectFile[],
     root: string,
-    strict?: boolean
+    strict?: boolean,
+    warnNames?: boolean
   ): Promise<RunResult>;
   process(command: string, start: SourcePos): Promise<RunResult>;
   back(count: number): Promise<RunResult>;
@@ -108,16 +110,22 @@ export class WorkerDriver implements Driver {
     });
   }
 
-  init(files: ProjectFile[], root: string, strict = false): Promise<RunResult> {
-    return this.call("init", { files, root, strict });
+  init(
+    files: ProjectFile[],
+    root: string,
+    strict = false,
+    warnNames = false
+  ): Promise<RunResult> {
+    return this.call("init", { files, root, strict, warnNames });
   }
 
   reset(
     files: ProjectFile[],
     root: string,
-    strict = false
+    strict = false,
+    warnNames = false
   ): Promise<RunResult> {
-    return this.call("reset", { files, root, strict });
+    return this.call("reset", { files, root, strict, warnNames });
   }
 
   process(command: string, start: SourcePos): Promise<RunResult> {

@@ -166,6 +166,7 @@ export class Session {
   private driver: Driver;
   private events: SessionEvents;
   private strict: boolean;
+  private warnNames: boolean;
   private steps: Step[] = [];
   private tip = 0;
   private dirty = true;
@@ -186,12 +187,14 @@ export class Session {
     driver: Driver,
     project: Project,
     events: SessionEvents,
-    strict = false
+    strict = false,
+    warnNames = false
   ) {
     this.driver = driver;
     this.project = project;
     this.events = events;
     this.strict = strict;
+    this.warnNames = warnNames;
     driver.onProgress = () => {
       this.events.onStatus(this.pauseRequested ? "pausing" : "compiling");
     };
@@ -281,7 +284,8 @@ export class Session {
       result = await this.driver.init(
         abellaFiles(this.project),
         entry,
-        this.strict
+        this.strict,
+        this.warnNames
       );
     } catch (error) {
       if (generation !== this.generation) return false;
@@ -656,6 +660,13 @@ export class Session {
   setStrict(strict: boolean): void {
     if (this.strict === strict) return;
     this.strict = strict;
+    this.abortRun();
+  }
+
+  /** Discard the current run so the next check uses the new mode. */
+  setWarnNames(warnNames: boolean): void {
+    if (this.warnNames === warnNames) return;
+    this.warnNames = warnNames;
     this.abortRun();
   }
 

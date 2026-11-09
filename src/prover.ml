@@ -1588,7 +1588,10 @@ let skip () =
 (* Clear *)
 
 let remove_var cm h =
-  let v = term_to_var (List.assoc h sequent.vars) in
+  let v =
+    try term_to_var (List.assoc h sequent.vars)
+    with Not_found -> failwithf "Unknown variable %s" h
+  in
   sequent.vars <- List.filter (fun xv -> fst xv <> h) sequent.vars ;
   sequent.user_vars <- Iset.remove h sequent.user_vars ;
   match cm with
@@ -1656,7 +1659,10 @@ let rename_hyp hfr hto =
   in sequent.hyps <- hyps
 
 let rename_var vfr xto =
-  let ty = tc [] (List.assoc vfr sequent.vars) in
+  let ty =
+    try tc [] (List.assoc vfr sequent.vars)
+    with Not_found -> failwithf "Unknown variable %S" vfr
+  in
   let vto = var Eigen xto 0 ty in
   let repl = [vfr, vto] in
   let rewrite mt = replace_metaterm_vars repl mt in

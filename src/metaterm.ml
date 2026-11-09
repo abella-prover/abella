@@ -218,7 +218,7 @@ let pp_print_tids ff tids =
             collate [x] ty ((List.rev cur_ids, cur_ty) :: res) tids
     in
     match tids with
-    | [] -> [%bug] "Empty quantified variables list"
+    | [] -> failwithf "Empty quantified variables list"
     | (x, ty) :: tids ->
         let collated_tids = collate [x] ty [] tids in
         let pp_collated ff (xs, ty) =
@@ -995,10 +995,14 @@ let def_head_args head =
     | Pred (p, _) -> begin
         match term_head p with
         | Some (_, args) -> args
-        | None -> [%bug] "Cannot find arguments!"
+        | None ->
+            failwithf "Definitional clause head has no arguments: %s"
+              (term_to_string p)
       end
     | Binding (_, _, t) -> aux t
-    | _ -> [%bug] "def_head_args: definitional clause head not atomic"
+    | t ->
+        failwithf "Definitional clause head not atomic:\n%s"
+          (metaterm_to_string t)
   in
   aux head
 
@@ -1012,7 +1016,8 @@ let rec clausify ?(vars=[]) ?(body=[]) head =
          let vars = (x, ty) :: vars in
          clausify ~vars ~body (app abs [xv])
       | tm ->
-          [%bug] "clausify: invalid pi: %s" (term_to_string tm)
+          failwithf "Invalid pi abstraction in definition head: %s"
+             (term_to_string tm)
     end
   | App (imp, [a; head]) when is_imp imp ->
       let body = a :: body in

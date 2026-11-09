@@ -139,6 +139,11 @@ let object_cut obj1 obj2 =
   else
     failwith "Needless use of cut"
 
+let combine_checked what xs ys =
+  try List.combine xs ys
+  with Invalid_argument _ ->
+    failwithf "Mismatched lengths while %s" what
+
 let object_cut_from obj1 obj2 term =
   if obj1.mode <> Async || obj2.mode <> Async then
       failwith "Cannot use the cut command on backchaining sequents" ;
@@ -156,9 +161,12 @@ let object_cut_from obj1 obj2 term =
   let tobj = normalize_obj ~parity:true ~bindstack:[]
       {context = Context.empty ; right = term ; mode = Async}
   in
-  if List.length tobj > 1 then
-    failwith "Cannot cut conjunctive formulas" ;
-  let tobj = List.hd tobj in
+  let tobj =
+    match tobj with
+    | [] -> failwith "Cannot cut with this formula"
+    | [tobj] -> tobj
+    | _ -> failwith "Cannot cut conjunctive formulas"
+  in
   let norms = obj_support tobj in
   let nids, ntys = List.split (nominal_tids norms) in
   let cut_objs =
@@ -168,7 +176,8 @@ let object_cut_from obj1 obj2 term =
     List.filter_map begin fun permuted ->
       let tobj =
         replace_metaterm_vars
-          (List.combine nids permuted)
+          (combine_checked "matching cut formula to goal"
+             nids permuted)
           (Obj(tobj, Irrelevant)) in
       match tobj with
       | Obj (tobj, _) ->
@@ -501,7 +510,10 @@ let case_aux ~used ~sr ~clauses ~mutual ~defs ~global_support term =
               else
                 let support = List.minus support permuted in
                 let head =
-                  replace_term_vars (List.combine pids permuted) head
+                  replace_term_vars
+                    (combine_checked "matching clause to goal"
+                       pids permuted)
+                    head
                 in
                 make_case ~support ~used (head, body) term
             end
@@ -663,7 +675,8 @@ let single_induction ind_arg ind_num stmt =
 
 let induction ind_args ind_num stmt =
   let ihs, goals =
-    List.combine ind_args (and_to_list stmt) |>
+    combine_checked "matching induction arguments to goal"
+      ind_args (and_to_list stmt) |>
     List.map (fun (arg, goal) -> single_induction arg ind_num goal) |>
     List.split
   in
@@ -756,7 +769,10 @@ let unfold_defs ~sr ~mdefs clause_sel ~ts goal r =
         List.for_all2 eq_ty tys (List.map (tc []) nominals)) |>
     List.flatten_map ~guard:unwind_state begin fun nominals ->
       let support = List.minus support nominals in
-      let alist = List.combine ids nominals in
+      let alist =
+        combine_checked "matching definition clause to goal"
+          ids nominals
+      in
       let head = replace_term_vars alist head in
       let head, body = freshen_nameless_def ~sr ~support ~ts head body in
       let msg = msg_cannot_fully_infer_def_clause head body in
@@ -1351,6 +1367,7 @@ let try_with_state_all ~fail f =
       | UnifyFailure _ | UnifyError _
       | TypeInferenceFailure _ | InstGenericTyvar _
         -> set_scoped_bind_state state ; fail
+      | e -> set_scoped_bind_state state ; raise e
 
 let apply ?(used_nominals=[]) ~sr term args =
   let hyp_support = metaterm_support term in
@@ -1390,7 +1407,10 @@ let apply ?(used_nominals=[]) ~sr term args =
                 let raised_body =
                   freshen_nameless_bindings ~sr ~support ~ts:0 foralls body
                 in
-                let alist = List.combine nabla_ids nominals in
+                let alist =
+                  combine_checked "instantiating nabla variables"
+                    nabla_ids nominals
+                in
                 let permuted_body =
                   replace_metaterm_vars alist raised_body in
                 Some (apply_arrow permuted_body args)
@@ -1522,7 +1542,10 @@ let backchain ~sr ?(used_nominals=[]) term goal =
             let raised_body =
               freshen_nameless_bindings ~sr ~support ~ts:0 bindings body
             in
-            let alist = List.combine nabla_ids nominals in
+            let alist =
+              combine_checked "instantiating nabla variables"
+                nabla_ids nominals
+            in
             let permuted_body =
               replace_metaterm_vars alist raised_body in
             Some (backchain_arrow permuted_body goal))

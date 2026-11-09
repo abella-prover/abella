@@ -968,6 +968,7 @@ let try_with_state ~fail f =
       f ()
     with
       | UnifyFailure _ | UnifyError _ -> set_scoped_bind_state state ; fail
+      | e -> set_scoped_bind_state state ; raise e
 
 let try_right_unify ?used:(used=[]) t1 t2 =
   try_with_state ~fail:false
@@ -997,14 +998,17 @@ let try_left_unify_cpairs ~used t1 t2 =
       Some !cpairs
     with
       | UnifyFailure _ -> set_scoped_bind_state state ; None
-      | UnifyError err -> set_scoped_bind_state state ;
-        let msg = "Unification error during case analysis: " in
-        match err with
-        | NotLLambda ->
-           failwith (msg ^ "encountered non-pattern unification problem")
-        | InstGenericTyvar (v,ty) ->
-           let msg = msg ^ (Unifyty.inst_gen_tyvar_msg v ty) in
-           failwith msg
+      | UnifyError NotLLambda ->
+          set_scoped_bind_state state ;
+          failwithf "Unification error during case analysis: \
+            encountered non-pattern unification problem"
+      | UnifyError (InstGenericTyvar (v, ty)) ->
+          set_scoped_bind_state state ;
+          failwithf "Unification error during case analysis: %s"
+            (Unifyty.inst_gen_tyvar_msg v ty)
+      | e ->
+          set_scoped_bind_state state ;
+          raise e
 
 let try_right_unify_cpairs t1 t2 =
   try_with_state ~fail:None

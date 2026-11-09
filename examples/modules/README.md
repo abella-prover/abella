@@ -113,8 +113,7 @@ Positive examples:
 
 `test/modules/errors/` contains examples that should fail: higher-order
 declared predicates, polymorphic value mismatch, unfinished axiom
-values, internal-type keys, rigid collisions, staged collisions, and
-axiom statement mismatches.
+values, internal-type keys, and axiom statement mismatches.
 
 Run everything from the repository root:
 

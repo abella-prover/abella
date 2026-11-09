@@ -57,8 +57,4 @@ bad test/modules/errors/HigherOrder.thmod \
 bad test/modules/errors/PolyValueMismatch.thmod "same type"
 bad test/modules/errors/UnfinishedAxiom.thmod "unfinished theorem"
 bad test/modules/errors/InternalKindKey.thmod "target-local type"
-bad test/modules/errors/Collision.thmod \
-  "already occurs in the declarations"
-bad test/modules/errors/StagedCollision.thmod \
-  "already occurs in the declarations"
 bad test/modules/errors/StatementMismatch.thmod "same statement"

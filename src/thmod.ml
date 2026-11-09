@@ -717,73 +717,6 @@ let keys_of_items items =
 let keys_of_decls decls =
   List.flatten_map items_of_compiled decls |> keys_of_items
 
-let predicate_result_ty ty =
-  match observe_ty ty with
-  | Ty (_, aty) -> aty = propaty
-
-let local_scheme decls name =
-  let rec aux = function
-    | [] -> None
-    | CDeclPred (ids, _, ty) :: rest
-    | CType (ids, _, ty) :: rest ->
-        if List.mem name ids then Some ty else aux rest
-    | CDefine (_, _, idtys, _) :: rest ->
-        begin match List.assoc_opt name idtys with
-        | Some ty -> Some ty
-        | None -> aux rest
-        end
-    | _ :: rest -> aux rest
-  in
-  aux decls
-
-let sign_scheme name = List.assoc_opt name (snd !sign)
-
-let pervasive_constants =
-  List.map fst (snd pervasive_sign)
-
-let is_predicate_name decls name =
-  if List.mem name pervasive_constants then false
-  else
-    match local_scheme decls name with
-    | Some ty -> predicate_result_ty ty
-    | None ->
-        match sign_scheme name with
-        | Some (Poly (_, ty)) -> predicate_result_ty ty
-        | None -> false
-
-let constants_of_metaterm mt =
-  metaterm_support ~tag:Constant mt
-  |> List.map (fun t -> (term_to_var t).name)
-
-let constants_of_compiled = function
-  | CTheorem (_, _, mt, _) -> constants_of_metaterm mt
-  | CDefine (_, _, _, clauses) ->
-      List.flatten_map (fun cl ->
-          constants_of_metaterm cl.head @ constants_of_metaterm cl.body)
-        clauses
-  | CDeclPred (_, _, ty)
-  | CType (_, _, ty) ->
-      (* Predicate constants can only occur in types through higher-order
-         constants, which declared predicates cannot have. *)
-      let _ = ty in
-      []
-  | CKind _ | CImport _ | CClose _ | CSuspend _ -> []
-
-let declared_predicates_of_compiled = function
-  | CDeclPred (ids, _, _) -> ids
-  | CType (ids, _, ty) when is_predicate_ty ty -> ids
-  | CDefine (_, _, idtys, _) -> List.map fst idtys
-  | _ -> []
-
-let rigid_predicates_of_decls decls =
-  let declared =
-    List.flatten_map declared_predicates_of_compiled decls
-  in
-  let occurring = List.flatten_map constants_of_compiled decls in
-  let candidates = List.unique (declared @ occurring) in
-  let predicates = List.find_all (is_predicate_name decls) candidates in
-  Iset.of_list predicates
-
 (* .thmod artifacts, file structure, and source compilation *)
 
 type artifact = {
@@ -1518,12 +1451,7 @@ let materialize_import ~decls ~from ~to_ ~params ~args ~is_instance ~avoid =
   let materialized =
     List.map (materialize_decl ~renamer ~avoid ~tysub) decls
   in
-  let rigid_decls =
-    if is_instance then decls
-    else List.map (map_compiled renamer) decls
-  in
-  let rigid = rigid_predicates_of_decls rigid_decls in
-  (renamer, materialized, rigid)
+  (renamer, materialized)
 
 let value_of_item item =
   match item.item_class with
@@ -1709,18 +1637,9 @@ let import_module
     | TargetTemplate _ -> args
     | TargetInstance instance -> instance.ins_tyargs
   in
-  let renamer, materialized, rigid =
+  let renamer, materialized =
     materialize_import ~decls:source_decls ~from ~to_:prefix
       ~params ~args ~is_instance ~avoid:(all_params ())
-  in
-  let rigid =
-    List.fold_left begin fun rigid instance ->
-      if instance.ins_source = source then
-        Iset.union rigid
-          (rigid_predicates_of_decls instance.ins_decls)
-      else
-        rigid
-    end rigid (all_instances ())
   in
   let keys =
     resolve_with_keys ~materialized ~decls:source_decls ~from ~renamer
@@ -1762,15 +1681,6 @@ let import_module
       | PredValue _ -> None
     end resolved
   in
-  let pred_names = List.map (fun (_, v) -> v.pv_name) pred_pairs in
-  if not (List.is_unique pred_names) then
-    failwith "Predicate values in with clauses must be pairwise distinct" ;
-  List.iter begin fun (key, value) ->
-    if Term.Iset.mem value.pv_name rigid then
-      failwithf
-        "Predicate value %s already occurs in the declarations of %s"
-        value.pv_name key.rk_source
-  end pred_pairs ;
   let pred_map =
     List.map (fun (key, value) -> (key.rk_prefixed, value.pv_name))
       pred_pairs

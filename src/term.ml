@@ -755,6 +755,15 @@ let olistty = tybase olistaty
 let propaty = (atybase "prop")
 let propty = tybase propaty
 
+exception Is_prop
+let ensure_not_prop aty =
+  if aty = propaty then raise Is_prop
+
+let contains_prop ty =
+  match iter_ty ensure_not_prop ty with
+  | () -> false
+  | exception Is_prop -> true
+
 
 let rec tc (tyctx:tyctx) t =
   let ty =

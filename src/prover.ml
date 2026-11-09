@@ -1066,6 +1066,13 @@ This usually means that the `search` tactic could not fully solve a goal.
 Note: the `search` tactic may have been invoked implicitly by `apply`,
 `backchain`, etc. with unknown arguments.|}
 
+(* Tactics such as [case] can build new equalities (e.g., by
+   decomposing an existing one) without going through elaboration;
+   audit the current proof state for them here. *)
+let ensure_no_prop_equality_state () =
+  ensure_no_prop_equality sequent.goal ;
+  List.iter (fun h -> ensure_no_prop_equality h.term) sequent.hyps
+
 let ensure_no_restrictions term =
   let rec aux t nested =
     match t with

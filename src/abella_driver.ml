@@ -455,7 +455,8 @@ and process_proof1_body proc =
   in
   let perform_audited () =
     perform () ;
-    ensure_no_prop_schematic_instantiation ()
+    ensure_no_prop_schematic_instantiation () ;
+    Prover.ensure_no_prop_equality_state ()
   in
   if not !Setup.annotate then perform_audited () else
   match perform_audited () with

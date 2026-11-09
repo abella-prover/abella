@@ -107,6 +107,36 @@ let tests =
            end
         );
 
+      test_case "Should not compare terms of type prop with equality"
+        (fun () ->
+           Alcotest.check_raises
+             "Equality over prop"
+             (Failure
+                "Equality cannot be used to compare terms of type prop")
+             (fun () -> ignore (parse_metaterm "russell_d = russell_d"))
+        );
+
+      test_case "Should not compare terms of prop-containing type"
+        (fun () ->
+           Alcotest.check_raises
+             "Equality over type containing prop"
+             (Failure "Equality cannot be used to compare terms of type \
+                       (prop -> prop) -> prop, which contains prop")
+             (fun () -> ignore (parse_metaterm "ho_decl = ho_decl"))
+        );
+
+      test_case "Should compare terms of first-order types with equality"
+        (fun () ->
+           ignore (parse_metaterm "t1 = t2") ;
+           ignore (parse_metaterm "r1 t1 = r2 t2")
+        );
+
+      test_case "Should compare terms of schematic types with equality"
+        (fun () ->
+           let x = Term.const "X" (Term.tybase (Term.Tygenvar "A")) in
+           Typing.ensure_no_prop_equality (Metaterm.Eq (x, x))
+        );
+
       test_case "Should replace underscores in clauses with fresh names"
         (fun () ->
            let uclause =

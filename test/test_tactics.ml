@@ -894,7 +894,7 @@ let case_tests = [
 
       test_case "Non-llambda equality should result in equalities"
         (fun () ->
-           let term = freshen "foo (r1 t1) = foo (A (B:i))" in
+           let term = freshen "r1 (r1 t1) = r1 (A (B:i))" in
              match case term with
                | [case1] ->
                    set_bind_state case1.bind_state ;

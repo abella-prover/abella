@@ -57,6 +57,8 @@ val oty : ty
 val olistty : ty
 val propty : ty
 
+val contains_prop : ty -> bool
+
 (* Variables *)
 
 type tag = Eigen | Constant | Logic | Nominal

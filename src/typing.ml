@@ -707,6 +707,28 @@ let check_meta_quantification t =
   in
   aux t
 
+(* Equality may not compare terms whose types contain [prop].
+   Schematic type variables are allowed here since they can never
+   be instantiated with [prop] (see [Checks]). *)
+let check_eq_operand ty =
+  if contains_prop ty then
+    if eq_ty ty propty then
+      failwith "Equality cannot be used to compare terms of type prop"
+    else
+      failwithf "Equality cannot be used to compare terms of type %s, \
+                 which contains prop"
+        (ty_to_string ty)
+
+let ensure_no_prop_equality mt =
+  let rec aux = function
+    | True | False | Pred _ | Obj _ -> ()
+    | And(a, b) | Or(a, b) | Arrow(a, b) -> aux a ; aux b
+    | Binding(_, _, body) -> aux body
+    | Eq(a, b) ->
+        check_eq_operand (tc [] a) ; check_eq_operand (tc [] b)
+  in
+  aux mt
+
 let make_async obj =
   match obj.mode with
   | Async -> obj
@@ -767,6 +789,7 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   metaterm_ensure_fully_inferred ~sign result ;
   metaterm_ensure_subordination sr result ;
   check_meta_quantification result ;
+  ensure_no_prop_equality result ;
   result
 
 let type_udef ~sr ~sign (head, body) =
@@ -787,6 +810,8 @@ let type_udef ~sr ~sign (head, body) =
   metaterm_ensure_subordination sr rhead ;
   metaterm_ensure_subordination sr rbody ;
   check_meta_quantification rbody ;
+  ensure_no_prop_equality rhead ;
+  ensure_no_prop_equality rbody ;
   (rhead, rbody)
 
 let type_udefs ~sr ~sign udefs =

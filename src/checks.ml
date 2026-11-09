@@ -51,10 +51,8 @@ exception Is_prop
 let ensure_not_prop aty =
   if aty = propaty then raise Is_prop
 
-let contains_prop ty =
-  match iter_ty ensure_not_prop ty with
-  | () -> false
-  | exception Is_prop -> true
+(* [Term.contains_prop] moved to [Term]; kept here for compatibility *)
+let contains_prop = Term.contains_prop
 
 type non_wff_reason =
   | Nonstrat of id

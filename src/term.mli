@@ -182,15 +182,11 @@ val var_to_string : var -> string
 (** Presentation-only rewriting of constant and type-constructor names. *)
 val display_name : (string -> string) ref
 
-class type term_printer = object
-  method print : tyctx -> term -> Pretty.expr
-end
-val core_printer : term_printer
-val default_printer : term_printer ref
+val pretty_term : tyctx -> term -> Pretty.expr
 
-val format_term :  ?printer:term_printer -> ?cx:tyctx ->
+val format_term :  ?cx:tyctx ->
   Format.formatter -> term -> unit
-val term_to_string : ?printer:term_printer -> ?cx:tyctx ->
+val term_to_string : ?cx:tyctx ->
   term -> string
 
 val prefix : tag -> string

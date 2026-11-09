@@ -152,30 +152,30 @@ let binder_to_string b =
   | Nabla -> "nabla"
   | Exists -> "exists"
 
-let pretty_context ~printer cx =
+let pretty_context cx =
   let open Pretty in
   let open Format in
   let format ff =
     pp_open_box ff 0 ; begin
-      Term.format_term ~printer ff (List.hd cx) ;
+      Term.format_term ff (List.hd cx) ;
       List.iter begin fun t ->
         pp_print_string ff "," ;
         pp_print_space ff () ;
-        Term.format_term ~printer ff t
+        Term.format_term ff t
       end (List.tl cx) ;
     end ; pp_close_box ff ()
   in
   Atom (FUN format)
 
-let pretty_obj ~left ~right ~printer obj =
-  let concl = printer#print [] obj.right in
+let pretty_obj ~left ~right obj =
+  let concl = pretty_term [] obj.right in
   let open Pretty in
   match obj.mode with
   | Async ->
       let inner = match obj.context with
         | [] -> concl
         | _ ->
-            Opapp (10, Infix (LEFT, pretty_context ~printer obj.context,
+            Opapp (10, Infix (LEFT, pretty_context obj.context,
                               FMT " |- ", concl))
       in
       Bracket {
@@ -184,11 +184,11 @@ let pretty_obj ~left ~right ~printer obj =
   | Sync focus ->
       let focus = Bracket {
           left = STR "[" ; right = STR "]" ; trans = OPAQUE ; indent = 3 ;
-          inner = printer#print [] focus
+          inner = pretty_term [] focus
         } in
       let hyps = match obj.context with
         | [] -> focus
-        | _ -> Opapp (10, Infix (LEFT, pretty_context ~printer obj.context,
+        | _ -> Opapp (10, Infix (LEFT, pretty_context obj.context,
                                  FMT ",@ ", focus))
       in
       let inner = Opapp (10, Infix (LEFT, hyps, FMT " |- ", concl)) in
@@ -200,7 +200,6 @@ let pretty_obj obj =
   let open Pretty in
   pretty_obj obj
     ~left:(STR "{") ~right:(STR "}")
-    ~printer:Term.core_printer
 
 
 let pp_print_tids ff tids =
@@ -244,8 +243,8 @@ let rec pretty_metaterm mt =
   | False ->
       Pretty.(Atom (STR "false"))
   | Eq(a, b) ->
-      Pretty.(Opapp (30, Infix (NON, core_printer#print [] a,
-                                FMT " =@ ", core_printer#print [] b)))
+      Pretty.(Opapp (30, Infix (NON, pretty_term [] a,
+                                FMT " =@ ", pretty_term [] b)))
   | Obj(obj, r) ->
       Pretty.(Opapp (50, Postfix (pretty_obj obj,
                                   STR (restriction_to_string r))))
@@ -269,9 +268,9 @@ let rec pretty_metaterm mt =
       let bod = pretty_metaterm a in
       Pretty.(Opapp (1, Prefix (binds, bod)))
   | Pred(p, Irrelevant) ->
-      Term.core_printer#print [] p
+      pretty_term [] p
   | Pred(p, r) ->
-      Pretty.(Opapp (60, Postfix (Term.core_printer#print [] p,
+      Pretty.(Opapp (60, Postfix (pretty_term [] p,
                                   STR (" " ^ restriction_to_string r))))
 
 let format_metaterm ff mt =

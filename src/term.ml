@@ -552,16 +552,15 @@ let print_app f ts =
         Opapp (200, Infix (LEFT, f, FMT "@ ", t))
       end f ts }
 
-class term_printer = object (self)
-  method print (cx : tyctx) (t0 : term) =
+let rec pretty_term (cx : tyctx) (t0 : term) =
     match observe (hnorm t0) with
     | Var v -> atomic (var_to_string v)
-    | DB i -> atomic (db_to_string cx i)  (* ^ "$" ^ string_of_int i ^ "$") *)
+    | DB i -> atomic (db_to_string cx i)
     | Lam (vs, t) -> begin
         let tcx = map_vars (fun v -> (v.name, v.ty)) [t] in
         let rec spin cx vs =
           match vs with
-          | [] -> self#print cx t
+          | [] -> pretty_term cx t
           | (x, ty) :: vs ->
               let x = fresh_name x tcx in
               let cx = adjoin cx (x, ty) in
@@ -578,22 +577,22 @@ class term_printer = object (self)
     | App (t, ts) -> begin
         match observe (hnorm t), ts with
         | Var {name="=>"; _}, [a; b] ->
-            Pretty.(Opapp (100, Infix (RIGHT, self#print cx a,
-                                     FMT " =>@ ", self#print cx b)))
+            Pretty.(Opapp (100, Infix (RIGHT, pretty_term cx a,
+                                     FMT " =>@ ", pretty_term cx b)))
         | Var {name="&"; _}, [a; b] ->
-            Pretty.(Opapp (120, Infix (LEFT, self#print cx a,
-                                     FMT " &@ ", self#print cx b)))
+            Pretty.(Opapp (120, Infix (LEFT, pretty_term cx a,
+                                     FMT " &@ ", pretty_term cx b)))
         | Var {name="::"; _}, [a; b] ->
-            Pretty.(Opapp (130, Infix (RIGHT, self#print cx a,
-                                       FMT " ::@ ", self#print cx b)))
+            Pretty.(Opapp (130, Infix (RIGHT, pretty_term cx a,
+                                       FMT " ::@ ", pretty_term cx b)))
         | Var {name=("pi"|"sigma" as q); _}, [a] -> begin
             match observe (hnorm a) with
             | Lam ([x, ty], t) ->
               let tys = (if show_ty then ":" ^ ty_to_string ty else "") in
                 Pretty.(Opapp (50, Prefix (STR (q ^ " " ^ x ^ tys ^ "\\"),
-                                           self#print (adjoin cx (x, ty)) t)))
+                                           pretty_term (adjoin cx (x, ty)) t)))
             | a ->
-                print_app Pretty.(Atom (STR "pi")) [self#print cx a]
+                print_app Pretty.(Atom (STR "pi")) [pretty_term cx a]
           end
         | _, [u] -> begin
             let rec get_repeat n u =
@@ -603,31 +602,27 @@ class term_printer = object (self)
               | u -> (n, u)
             in
             let (n, u) = get_repeat 1 u in
-            let t = self#print cx t in
-            let u = self#print cx u in
+            let t = pretty_term cx t in
+            let u = pretty_term cx u in
             let t = if n = 1 then t else
                 Pretty.(Opapp (210, Postfix (t, STR ("^" ^ string_of_int n))))
             in
             print_app t [u]
           end
         | _ ->
-            print_app (self#print cx t) (List.map (self#print cx) ts)
+            print_app (pretty_term cx t) (List.map (pretty_term cx) ts)
       end
-    | _ -> [%bug] "term_printer#print: unexpected term form"
-end
+    | _ -> [%bug] "pretty_term: unexpected term form"
 
-let core_printer = new term_printer
-let default_printer : term_printer ref = ref core_printer
-
-let format_term ?(printer=(!default_printer)) ?(cx=[]) ff t =
+let format_term ?(cx=[]) ff t =
   Format.pp_open_box ff 2 ; begin
-    Pretty.print ff (printer#print cx t) ;
+    Pretty.print ff (pretty_term cx t) ;
   end ; Format.pp_close_box ff ()
 
-let term_to_string ?(printer=(!default_printer)) ?(cx=[]) t =
+let term_to_string ?(cx=[]) t =
   let buf = Buffer.create 19 in
   let ff = Format.formatter_of_buffer buf in
-  format_term ~printer ~cx ff t ;
+  format_term ~cx ff t ;
   Format.pp_print_flush ff () ;
   Buffer.contents buf
 
@@ -939,7 +934,6 @@ let apply_sub_ty_tyvar s ty =
   | [(v, vty)] -> apply_bind_ty ~btyvar:true v vty ty
   | _ -> apply_sub_ty_gen ~btyvar:true s ty
 
-
 (* Schematic type variables range only over first-order types: they
    may never be instantiated with [prop]. Freshening a schematic
    ([Poly]) type creates inference variables standing for the
@@ -953,20 +947,3 @@ let schematic_instantiations : tysub ref = State.rref []
 let mark_schematic_tysub sub =
   if sub <> [] then
     schematic_instantiations := sub @ !schematic_instantiations
-
-
-module Test = struct
-
-  let p = const "p" (tyarrow [tybase (atybase "x")] oty)
-  let q = const "q" (tyarrow [tybase (atybase "x")] oty)
-  let mkpi x ty f =
-    app (const "pi" (tyarrow [tyarrow [ty] oty] oty)) [lambda [x, ty] f]
-  let mkimp f g =
-    app (const "=>" (tyarrow [oty ; oty] oty)) [f ; g]
-  let ity = tybase (atybase "i")
-  let _t1 =
-    mkpi "x" ity (mkimp (app p [db 1]) (app q [db 1]))
-  let _t2 =
-    mkimp (mkpi "x" ity (app p [db 1])) (app q [db 1])
-
-end

@@ -287,6 +287,12 @@ let handle_process_exception e =
             Module_parameter_error { parameter = v ; ty }
         | Unify.UnifyError err ->
             Unification_error (Unify.explain_error err)
+        | Unifyty.InstGenericTyvar (v, ty)
+          when List.mem v (bound_params ()) ->
+            Module_parameter_error { parameter = v ; ty }
+        | Unifyty.InstGenericTyvar (v, ty) ->
+            Unification_error
+              (Unify.explain_error (Unify.InstGenericTyvar (v, ty)))
         | Setup.UserInterrupt -> User_interrupt
         | _ -> Runtime_error (sorry e)
       in

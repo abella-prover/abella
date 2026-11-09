@@ -769,7 +769,8 @@ let rec tc (tyctx:tyctx) t =
        let arg_tys = List.map (tc tyctx) args in
        let Ty(tys, bty) = tc tyctx h in
        let n = List.length arg_tys in
-       assert (List.take n tys = arg_tys) ;
+       if List.take n tys <> arg_tys then
+         failwithf "Ill-typed application" ;
        Ty(List.drop n tys, bty)
     | Lam(idtys,t) ->
        tyarrow (get_ctx_tys idtys) (tc (List.rev_app idtys tyctx) t)

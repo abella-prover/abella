@@ -1291,8 +1291,6 @@ let some_term_to_restriction t =
   | None -> Irrelevant
   | Some t -> term_to_restriction t
 
-exception TypesNotFullyDetermined
-
 let apply_arrow term args =
   (* [%trace 2 "@[<v0>apply_arrow@,term = %a@,args = @[<v0>%a@]@]" *)
   (*     format_metaterm term *)
@@ -1341,7 +1339,7 @@ let apply_arrow term args =
                   | Some a -> a :: l) [] args in
   let tms = result :: term :: (!obligations) @ args' in
   if metaterms_contain_tyvar tms then
-    raise TypesNotFullyDetermined
+    failwith "Types of variables are not fully determined"
   else
     (result, !obligations)
 
@@ -1352,7 +1350,6 @@ let try_with_state_all ~fail f =
     with
       | UnifyFailure _ | UnifyError _
       | TypeInferenceFailure _ | InstGenericTyvar _
-      | TypesNotFullyDetermined
         -> set_scoped_bind_state state ; fail
 
 let apply ?(used_nominals=[]) ~sr term args =
@@ -1498,7 +1495,7 @@ let backchain_arrow term goal =
   end ;
   let tms = term :: goal :: obligations in
   if metaterms_contain_tyvar tms then
-    raise TypesNotFullyDetermined
+    failwith "Types of variables are not fully determined"
   else
     obligations
 

@@ -35,7 +35,8 @@ module type CODEC = sig
 
   val to_bytes : ?digest:Digest.t -> t -> string
   val write_compiled : (module Source.COMPILED) -> unit
-  val read_header_and_body : string -> Digest.t * string * t
+  val read_header_and_body :
+    what:string -> string -> Digest.t * string * t
   val load :
     process:('state -> ('state, 'err) Result.t) ->
     init:'state ->
@@ -80,11 +81,31 @@ module Make (Spec : SPEC) : CODEC with type t = Spec.t = struct
     List.iter Compiled.marshal (Spec.encode art) ;
     Compiled.close ()
 
-  let read_header_and_body bytes =
-    let read = marshal_reader bytes in
-    let digest = (read () : Digest.t) in
-    let version = (read () : string) in
-    let art = Spec.decode read in
+  let corrupt_artifact what e =
+    let detail =
+      match e with
+      | Failure msg | Invalid_argument msg -> msg
+      | _ -> Printexc.to_string e
+    in
+    failwithf "Corrupt compiled artifact %S: %s" what detail
+
+  let read_header ~what bytes =
+    try
+      let read = marshal_reader bytes in
+      let digest = (read () : Digest.t) in
+      let version = (read () : string) in
+      (digest, version, read)
+    with
+    | Failure _ | Invalid_argument _ as e -> corrupt_artifact what e
+
+  let decode_body ~what read =
+    try Spec.decode read
+    with
+    | Failure _ | Invalid_argument _ as e -> corrupt_artifact what e
+
+  let read_header_and_body ~what bytes =
+    let (digest, version, read) = read_header ~what bytes in
+    let art = decode_body ~what read in
     (digest, version, art)
 
   let source_compile ~process ~init ~modname =
@@ -163,8 +184,9 @@ module Make (Spec : SPEC) : CODEC with type t = Spec.t = struct
       | `source -> false
       | `auto -> Source.is_thc_trusted Src.thc_path
     in
+    let what = modname ^ Spec.compiled_suffix in
     let decode bytes =
-      let (_digest, _version, art) = read_header_and_body bytes in
+      let (_digest, _version, art) = read_header_and_body ~what bytes in
       art
     in
     if not use_artifact then
@@ -177,9 +199,12 @@ module Make (Spec : SPEC) : CODEC with type t = Spec.t = struct
           recursive_invoke ()
       end ;
       let bytes = Src.thc_contents () in
-      let (digest, version, _) = read_header_and_body bytes in
-      if not !Driver_setup.trust_compiled &&
-         digest <> Lazy.force Version.self_digest then begin
+      let (digest, version, read) = read_header ~what bytes in
+      let digest_ok =
+        !Driver_setup.trust_compiled
+        || digest = Lazy.force Version.self_digest
+      in
+      if version <> Version.version || not digest_ok then begin
         Output.msg_format
           ("@[<v2>Warning: The following %s file was compiled with a "
            ^^ "different version (%s) of Abella; recompiling@,%s@]")
@@ -194,7 +219,7 @@ module Make (Spec : SPEC) : CODEC with type t = Spec.t = struct
         in
         decode bytes
       end else
-        decode bytes
+        decode_body ~what read
     end
 end
 

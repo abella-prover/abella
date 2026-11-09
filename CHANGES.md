@@ -100,11 +100,6 @@ Bugfixes
   (PR #157, contributed by @wikku)
 * Incorrect lambda-prefix for non-Llambda unification problems  
   (#155, report + fix by @wikku)
-* `Import ... with` now requires the replacements for the declared
-  predicates in the importee to be pairwise distinct.  
-  (#152, discovered in discussions with Farah Al Wardani @innofarah and Dale
-  Miller @thatdalemiller)  
-  ***SOUNDNESS BUG***
 * `Import ... with` performs the replacements simultaneously. (#153)
 * Abella now compiles with OCaml 5.5 (#166)
 * Bound variable clash should be a unification error instead of failure

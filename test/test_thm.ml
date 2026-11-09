@@ -605,16 +605,31 @@ nonsense.
     end
   end
 
-let test_import_requires_distinct_replacements () =
+let test_import_allows_shared_replacements () =
   with_session begin fun () ->
     Source.add_virtual "main.thm" "" ;
-    Source.add_virtual "dup.thm" "Type p, q prop." ;
+    Source.add_virtual "dup.thm" {|
+Type p, q prop.
+Axiom foo : p -> q -> p.
+|} ;
     assert_ok (fst (process_command "Type r prop.")) ;
+    assert_ok (fst
+      (process_command "Import \"dup\" with p := r, q := r.")) ;
+    let (_, thm) = Prover.get_generic_lemma "foo" in
+    Alcotest.check Alcotest.string "shared replacements merge"
+      "r -> r -> r" (Metaterm.metaterm_to_string thm)
+  end
+
+let test_import_rejects_duplicate_replacements () =
+  with_session begin fun () ->
+    Source.add_virtual "main.thm" "" ;
+    Source.add_virtual "dupfrom.thm" "Type p prop." ;
+    assert_ok (fst (process_command "Type q, r prop.")) ;
     let (status, msgs) =
-      process_command "Import \"dup\" with p := r, q := r." in
+      process_command "Import \"dupfrom\" with p := q, p := r." in
     Alcotest.check Alcotest.bool "duplicate replacements fail" true
       (Result.is_error status) ;
-    assert_contains "not pairwise" (system_messages msgs)
+    assert_contains "Duplicate replacement" (system_messages msgs)
   end
 
 let test_import_replacements_are_simultaneous () =
@@ -889,8 +904,10 @@ let tests = suite "thm" [
       test_import_with_capture_avoidance ;
     test_case "error locations use input path"
       test_error_locations_use_input_path ;
-    test_case "import requires distinct replacements"
-      test_import_requires_distinct_replacements ;
+    test_case "import allows shared replacements"
+      test_import_allows_shared_replacements ;
+    test_case "import rejects duplicate replacements"
+      test_import_rejects_duplicate_replacements ;
     test_case "import replacements are simultaneous"
       test_import_replacements_are_simultaneous ;
     test_case "split propagates tags" test_split_propagates_tags ;

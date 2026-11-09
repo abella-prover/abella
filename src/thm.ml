@@ -86,14 +86,13 @@ module Replacement = struct
     let map = ref Itab.empty in
     let range = ref Iset.empty in
     List.iter begin fun (decl, defn) ->
+      if Itab.mem decl !map then
+        failwithf "Duplicate replacement for %s in \"with\"" decl ;
       let pred = UCon (ghost_pos, defn, Term.fresh_tyvar ()) in
       let pred = type_uterm ~sr:!sr ~sign:!sign ~ctx:[] pred in
       map := Itab.add decl { name = defn ; term = pred ; ty = tc [] pred } !map ;
       range := Iset.add defn !range
     end withs ;
-    if Itab.cardinal !map <> Iset.cardinal !range ||
-       Itab.cardinal !map <> List.length withs then
-      failwithf "Replacements for \"with\" are not pairwise distrinct" ;
     { map = !map ; range = !range }
 
   let find repl decl = Itab.find decl repl.map

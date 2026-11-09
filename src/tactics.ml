@@ -40,6 +40,7 @@ let inst_clause_types typarams clause =
   if typarams = [] then clause
   else
     let sub = List.map (fun id -> (id, Term.fresh_tyvar ())) typarams in
+    Term.mark_schematic_tysub sub ;
     term_map_on_tys (apply_sub_ty sub) clause
 
 let freshen_clause ~used ~sr ?(support=[]) clause =

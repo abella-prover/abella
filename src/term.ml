@@ -931,6 +931,21 @@ let apply_sub_ty_tyvar s ty =
   | _ -> apply_sub_ty_gen ~btyvar:true s ty
 
 
+(* Schematic type variables range only over first-order types: they
+   may never be instantiated with [prop]. Freshening a schematic
+   ([Poly]) type creates inference variables standing for the
+   schematic parameters; each entry records the parameter name and
+   its freshened type. Entries are audited (see
+   [Checks.ensure_no_prop_schematic_instantiation]) once unification
+   for the current command has completed. The list is undoable so it
+   stays consistent with the (undoable) type bindings. *)
+let schematic_instantiations : tysub ref = State.rref []
+
+let mark_schematic_tysub sub =
+  if sub <> [] then
+    schematic_instantiations := sub @ !schematic_instantiations
+
+
 module Test = struct
 
   let p = const "p" (tyarrow [tybase (atybase "x")] oty)

@@ -567,9 +567,11 @@ End HoDefine.
         has_ho_define ;
       let bytes = native_compile_thmod dir "Poly" {|
 Module Poly.
+  Kind u type.
+  Type c u.
   Type p A -> prop.
   Define d : prop by
-    d := p d.
+    d := p c.
 End Poly.
 |} in
       let (_, _, content, _, _) = read_thmod_values bytes in
@@ -589,8 +591,15 @@ End Poly.
         "polymorphic declared predicate keeps its local parameter" true
         has_poly_pred ;
       Alcotest.check Alcotest.bool
-        "polymorphic declared predicate can be used at prop" true
+        "polymorphic declared predicate can be used at non-prop" true
         has_poly_use ;
+      expect_thmod_error dir "PolyProp" {|
+Module PolyProp.
+  Type p A -> prop.
+  Define d : prop by
+    d := p d.
+End PolyProp.
+|} "Schematic type variable A cannot be instantiated" ;
       let bytes = native_compile_thmod dir "Rigid" {|
 Module Rigid.
   Kind u type.

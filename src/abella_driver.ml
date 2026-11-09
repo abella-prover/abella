@@ -453,8 +453,12 @@ and process_proof1_body proc =
     | Common(Quit)           -> raise End_of_file
     end
   in
-  if not !Setup.annotate then perform () else
-  match perform () with
+  let perform_audited () =
+    perform () ;
+    ensure_no_prop_schematic_instantiation ()
+  in
+  if not !Setup.annotate then perform_audited () else
+  match perform_audited () with
   | () ->
       Option.iter begin fun annot ->
         Output.extend annot "end_state" @@ Prover.state_json ()
@@ -469,8 +473,13 @@ and process_top1 state =
   | Process_proof _ ->
       [%bug] "process_top1 called in proof state"
   | Process_top ->
-      try Ok (process_top1_body ()) with
+      begin try
+        let next = process_top1_body () in
+        ensure_no_prop_schematic_instantiation () ;
+        Ok next
+      with
       | e -> Error (handle_process_exception e)
+      end
 
 and process_top1_body () =
   if !Setup.mode = `interactive then Output.non_annot "Abella < " ;

@@ -226,3 +226,34 @@ let ensure_no_schm_clauses typarams clauses =
   if not ns then
     failwithf "Type variables in some clause are not bound at the \
                definition level"
+
+(* Schematic type variables range only over first-order types: they
+   may never be instantiated with [prop] or a type containing [prop].
+   Freshening sites record schematic instantiations in
+   [Term.schematic_instantiations]; audit them here once unification
+   for the current command has completed. Entries that are still
+   uninstantiated, or instantiated without [prop] but still
+   containing inference variables, are kept for later audits; ground
+   entries without [prop] can never become illegal and are dropped. *)
+let ensure_no_prop_schematic_instantiation () =
+  let bad = ref None in
+  let live = ref [] in
+  List.iter begin fun (id, ty) ->
+    let ty = observe_ty ty in
+    if contains_prop ty then begin
+      if !bad = None then bad := Some (id, ty)
+    end else if ty_contains_tyvar ty then
+      live := (id, ty) :: !live
+  end !schematic_instantiations ;
+  match !bad with
+  | Some (id, ty) ->
+      if eq_ty ty propty then
+        failwithf "Schematic type variable %s cannot be instantiated \
+                   with prop"
+          id
+      else
+        failwithf "Schematic type variable %s cannot be instantiated \
+                   with %s, which contains prop"
+          id (ty_to_string ty)
+  | None ->
+      schematic_instantiations := !live

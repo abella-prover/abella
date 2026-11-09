@@ -340,6 +340,7 @@ let instantiate_clauses p def =
   let pty = term_head_ty p in
   let clauses = def.clauses in
   let tysub = List.map (fun id -> (id, Term.fresh_tyvar ())) def.typarams in
+  mark_schematic_tysub tysub ;
   let mutual = instantiate_pred_types tysub def.mutual in
   let dpty = Itab.find pn mutual in
   unify_constraints [(pty, dpty, def_cinfo)];
@@ -879,7 +880,13 @@ let get_lemma ?(tys:ty list = []) name =
       failwithf "Need to provide mappings for %d types" (List.length argtys)
     else
       tys in
+  List.iter2 begin fun _id ty ->
+    if contains_prop ty then
+      failwithf "Type argument %s may not contain prop"
+        (ty_to_string ty)
+  end argtys tys ;
   let tysub = List.map2 (fun id ty -> (id,ty)) argtys tys in
+  mark_schematic_tysub tysub ;
   map_on_tys (apply_sub_ty tysub) bod
 
 let get_hyp_or_lemma ?tys name =

@@ -217,6 +217,7 @@ let add_consts ?typarams sign idtys =
 
 let freshen_ty (Poly(ids, ty)) =
   let sub = ids_to_fresh_tyctx ids in
+  mark_schematic_tysub sub ;
   apply_sub_ty sub ty
 
 let lookup_const (_, ctable) id =

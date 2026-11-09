@@ -333,6 +333,29 @@ let tests =
                )
         ) ;
 
+      test_case "Get lemma should reject instantiation with prop"
+        (fun () ->
+           setup_prover () ;
+           Term.schematic_instantiations := [] ;
+           ignore (add_lemma "bad" ["A"]
+                     (parse_metaterm "forall (x:A), poly x")) ;
+           Alcotest.check_raises
+             "Explicit instantiation with prop"
+             (Failure "Type argument prop may not contain prop")
+             (fun () -> ignore (get_lemma ~tys:[Term.propty] "bad")) ;
+           Alcotest.check_raises
+             "Explicit instantiation with type containing prop"
+             (Failure "Type argument prop -> prop may not contain prop")
+             (fun () ->
+                ignore (get_lemma
+                          ~tys:[Term.tyarrow [Term.propty] Term.propty]
+                          "bad")) ;
+           Term.schematic_instantiations := [] ;
+           ignore (get_lemma ~tys:[ity] "bad") ;
+           Checks.ensure_no_prop_schematic_instantiation () ;
+           Term.schematic_instantiations := []
+        ) ;
+
       test_case "Undo should restore previous save state"
         (fun () ->
            setup_prover ()

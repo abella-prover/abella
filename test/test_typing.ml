@@ -62,6 +62,51 @@ let tests =
                (fun () -> ignore (type_umetaterm ~sr:!sr ~sign:!sign umetaterm))
         );
 
+      test_case "Should not instantiate schematic types with prop"
+        (fun () ->
+           let saved = !schematic_instantiations in
+           schematic_instantiations := [] ;
+           Fun.protect ~finally:(fun () ->
+             schematic_instantiations := saved) begin fun () ->
+             ignore (parse_metaterm "poly russell_d") ;
+             Alcotest.check_raises
+               "Schematic instantiation with prop"
+               (Failure "Schematic type variable A cannot be instantiated \
+                         with prop")
+               (fun () -> Checks.ensure_no_prop_schematic_instantiation ())
+           end
+        );
+
+      test_case "Should not instantiate schematic types with prop inside"
+        (fun () ->
+           let saved = !schematic_instantiations in
+           schematic_instantiations := [] ;
+           Fun.protect ~finally:(fun () ->
+             schematic_instantiations := saved) begin fun () ->
+             ignore (parse_metaterm "poly ho_decl") ;
+             Alcotest.check_raises
+               "Schematic instantiation with type containing prop"
+               (Failure "Schematic type variable A cannot be instantiated \
+                         with (prop -> prop) -> prop, which contains prop")
+               (fun () -> Checks.ensure_no_prop_schematic_instantiation ())
+           end
+        );
+
+      test_case "Should allow schematic instantiation without prop"
+        (fun () ->
+           let saved = !schematic_instantiations in
+           schematic_instantiations := [] ;
+           Fun.protect ~finally:(fun () ->
+             schematic_instantiations := saved) begin fun () ->
+             ignore (parse_metaterm "poly t1") ;
+             Checks.ensure_no_prop_schematic_instantiation () ;
+             Alcotest.check (Alcotest.list (Alcotest.pair
+               Alcotest.string ty_testable))
+               "instantiations should be pruned" []
+               !schematic_instantiations
+           end
+        );
+
       test_case "Should replace underscores in clauses with fresh names"
         (fun () ->
            let uclause =

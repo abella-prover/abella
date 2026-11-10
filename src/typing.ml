@@ -45,7 +45,9 @@ let rec forget_term ?(cx=[]) t =
       try
         let (x, xty) = List.nth cx (n - 1) in
         UCon (ghost_pos, x, xty)
-      with Failure _ -> [%bug] "forget_term called with too small a context"
+      with
+      | Failure _ | Invalid_argument _ ->
+          failwithf "Dangling variable index in term"
     end
   | _ ->
       [%bug] "forget_term called on: %s" (term_to_string t)
@@ -133,7 +135,8 @@ let add_types (ktable, ctable) ids knd =
   ((List.map (fun id -> (id, knd)) ids) @ ktable, ctable)
 
 let lookup_type (ktable, _) id =
-  List.assoc id ktable
+  try List.assoc id ktable
+  with Not_found -> failwithf "Unknown type constructor: %s" id
 
 (** Constants *)
 
@@ -145,11 +148,7 @@ let kind_check sign ty =
        | Tygenvar _
        | Typtr {contents = TV _} -> ()
        | Tycons(cty,args) ->
-          let knd =
-            try lookup_type sign cty
-            with
-            | Not_found -> failwithf "Unknown type constructor: %s" cty
-          in
+          let knd = lookup_type sign cty in
           let arity = karity knd in
           let nargs = List.length args in
           if not (nargs = arity) then

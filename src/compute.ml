@@ -220,7 +220,7 @@ let compute ?hint ?(gas = 1_000) ?(warn = true) hs =
     if !gas <= 0 then raise Out_of_gas ;
     let saved = Prover.copy_sequent () in
     match Prover.case_subgoals ch.clr with
-    | exception _ ->
+    | exception (Failure _ | Unify.UnifyFailure _) ->
         Prover.set_sequent saved ;
         compute_all ~chs ~wait:(get_wait ch.clr ch.form :: wait) ~todo
     | cases ->

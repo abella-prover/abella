@@ -696,7 +696,7 @@ let rec unify_list (tyctx:(Term.id*Term.ty) list) l1 l2 =
     List.iter2 (fun a1 a2 -> unify tyctx (hnorm a1) (hnorm a2)) l1 l2
   with
     | Invalid_argument _ ->
-        [%bug] "unify_list: unequal argument list lengths"
+        failwithf "Ill-typed application: unequal argument list lengths"
 
 (* Unify [cst=t2], assuming [cst] is a constant.
  * Fail if [t2] is a variable or an application.

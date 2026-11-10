@@ -47,10 +47,6 @@ let ensure_no_restrictions term =
 let untyped_ensure_no_restrictions term =
   ensure_no_restrictions (umetaterm_to_metaterm term)
 
-exception Is_prop
-let ensure_not_prop aty =
-  if aty = propaty then raise Is_prop
-
 (* [Term.contains_prop] moved to [Term]; kept here for compatibility *)
 let contains_prop = Term.contains_prop
 

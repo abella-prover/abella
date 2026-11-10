@@ -159,7 +159,11 @@ rule token = parse
 | "|"                { BAR }
 
 | "_"                { UNDERSCORE }
-| number as n        { NUM (int_of_string n) }
+| number as n        { NUM begin
+                         try int_of_string n with Failure _ ->
+                           Extensions.failwithf
+                             "Integer literal out of range: %s" n
+                       end }
 | qualid as q        { QUALID (String.split_on_char '.' q) }
 | name as id         { try Hashtbl.find keyword_table id
                        with Not_found -> STRINGID id }
@@ -171,13 +175,13 @@ rule token = parse
 | _                  {
     let open Lexing in
     let pos = lexeme_start_p lexbuf in
-    let msg = "Illegal character '" ^ String.escaped (lexeme lexbuf) ^ "' in input" in
-    let msg = match pos.pos_fname with
-      | "" -> msg
-      | fname -> Printf.sprintf "File %S, line %d, character %d: %s"
-                   fname pos.pos_lnum (pos.pos_cnum - pos.pos_bol) msg
-    in
-    failwith msg
+    let char = String.escaped (lexeme lexbuf) in
+    match pos.pos_fname with
+    | "" -> Extensions.failwithf "Illegal character '%s' in input" char
+    | fname ->
+        Extensions.failwithf "File %S, line %d, character %d: \
+          illegal character '%s'"
+          fname pos.pos_lnum (pos.pos_cnum - pos.pos_bol) char
   }
 
 and comment = parse

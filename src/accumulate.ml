@@ -51,6 +51,8 @@ let read_lp ext parser name =
       Output.msg_printf ~severity:Error
         "Syntax error%s." (position lexbuf) ;
       failwith "Failed while reading specification"
+  | End_of_file ->
+      failwithf "Unexpected end of file in %s" (name ^ ext)
 
 let read_lpsig = read_lp ".sig" Parser.lpsig
 let read_lpmod = read_lp ".mod" Parser.lpmod

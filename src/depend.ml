@@ -99,6 +99,9 @@ let file_dependencies kind filename =
         }
     | exception Parsing.Parse_error ->
         failwithf "Syntax error%s" (position lexbuf)
+    | exception Invalid_argument msg ->
+        failwithf "Invalid path while scanning dependencies of %s: %s"
+          filename msg
   in
   let deps = spin ~specs:[] ~thms:[] ~thmods:[] in
   let sigfiles =

@@ -102,7 +102,7 @@ let name_mode_of_js mode =
   | "strict" -> `strict
   | _ -> `relaxed
 
-let re_init files root strict name_mode =
+let re_init_inner files root strict name_mode =
   let files = file_list files in
   let root = Js.to_string root in
   Checks.stratification_warnings_are_errors := Js.to_bool strict ;
@@ -131,6 +131,10 @@ let re_init files root strict name_mode =
   ignore (Output.drain ()) ;
   Output.msg_printf "%s" Abella_driver.welcome_msg ;
   result "ok" (Output.drain ())
+
+let re_init files root strict name_mode =
+  try re_init_inner files root strict name_mode
+  with e -> error_result (Printexc.to_string e)
 
 let init files root strict name_mode =
   try re_init files root strict name_mode with
@@ -187,17 +191,24 @@ let back count =
 
 (* Phase 0 helper: the generated .thc bytes for a virtual file, base64. *)
 let thc path =
-  let path = Js.to_string path in
-  if Source.virtual_exists path then
-    Js.Unsafe.inject (Js.string (Base64.encode_exn (Source.virtual_contents path)))
-  else
-    Js.Unsafe.inject Js.null
+  try
+    let path = Js.to_string path in
+    if Source.virtual_exists path then
+      Js.Unsafe.inject
+        (Js.string (Base64.encode_exn (Source.virtual_contents path)))
+    else
+      Js.Unsafe.inject Js.null
+  with _ -> Js.Unsafe.inject Js.null
 
 (* Install the progress callback used by the worker. *)
 let set_on_import callback =
   Abella_driver.Setup.on_import := Some (fun name ->
-      ignore (Js.Unsafe.fun_call callback
-                [| Js.Unsafe.inject (Js.string name) |]))
+      try
+        ignore (Js.Unsafe.fun_call callback
+                  [| Js.Unsafe.inject (Js.string name) |])
+      with Js_error.Exn _ as e ->
+        failwithf "Import progress callback failed: %s"
+          (Printexc.to_string e))
 
 let () =
   let api = Js.Unsafe.obj [|

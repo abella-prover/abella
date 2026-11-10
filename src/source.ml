@@ -69,7 +69,8 @@ let virtual_exists path =
   Hashtbl.mem virtual_files (canon path)
 
 let virtual_contents path =
-  Hashtbl.find virtual_files (canon path)
+  try Hashtbl.find virtual_files (canon path)
+  with Not_found -> failwithf "Unknown virtual file %S" path
 
 (* Cache bookkeeping lives beside the virtual files so clearing the virtual
    filesystem also releases the generated compiled artifacts. *)
@@ -195,11 +196,15 @@ let read source =
   spin openers
 
 let read_file_bytes path =
-  let ch = Stdlib.open_in_bin path in
-  Fun.protect ~finally:(fun () -> Stdlib.close_in ch) begin fun () ->
-    let len = in_channel_length ch in
-    really_input_string ch len
-  end
+  try
+    let ch = Stdlib.open_in_bin path in
+    Fun.protect ~finally:(fun () -> Stdlib.close_in ch) begin fun () ->
+      let len = in_channel_length ch in
+      really_input_string ch len
+    end
+  with
+  | Sys_error msg -> failwithf "Cannot read file %S: %s" path msg
+  | End_of_file -> failwithf "Truncated file %S" path
 
 let read_compiled ?(suffix = ".thm") ?(compiled_suffix = ".thc") source =
   let is_virtual = virtual_exists source in
@@ -223,7 +228,8 @@ let read_compiled ?(suffix = ".thm") ?(compiled_suffix = ".thc") source =
 
     let thc_mtime =
       if not is_virtual && Sys.file_exists thc_path then
-        Unix.((stat thc_path).st_mtime)
+        try Unix.((stat thc_path).st_mtime)
+        with Unix.Unix_error _ | Sys_error _ -> 0.
       else 0.
 
     let is_stale =
@@ -237,7 +243,12 @@ let read_compiled ?(suffix = ".thm") ?(compiled_suffix = ".thc") source =
       let ch = match !channel with
         | Some ch -> ch
         | None ->
-            let ch = Stdlib.open_out_bin temp in
+            let ch =
+              try Stdlib.open_out_bin temp
+              with Sys_error msg ->
+                failwithf "Cannot write compiled artifact %S: %s"
+                  thc_path msg
+            in
             channel := Some ch ;
             ch
       in
@@ -248,7 +259,12 @@ let read_compiled ?(suffix = ".thm") ?(compiled_suffix = ".thc") source =
       | Some ch ->
           channel := None ;
           Stdlib.close_out ch ;
-          Sys.rename temp thc_path
+          begin
+            try Sys.rename temp thc_path
+            with Sys_error msg ->
+              failwithf "Cannot write compiled artifact %S: %s"
+                thc_path msg
+          end
       | None ->
           [%bug] "Repeated close() of sink for: %s" path
 

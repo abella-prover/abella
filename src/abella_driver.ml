@@ -690,4 +690,6 @@ and[@inline] load_thmod_artifact ~modname =
 
 let initial_snapshot = State.snapshot ()
 
+let () = Setup.initial_snapshot := Some initial_snapshot
+
 let welcome_msg = sprintf "Welcome to Abella %s.\n" Version.version

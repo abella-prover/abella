@@ -38,6 +38,11 @@ let on_import : (string -> unit) option ref = ref None
 (* Files currently being source-compiled, outermost first. *)
 let compiling : string list ref = ref []
 
+(* Pristine session state for sub-session compilation. The driver fills
+   this in after all modules have initialized, since State.reset would
+   revert to values from before the built-in definitions were installed. *)
+let initial_snapshot : State.snap option ref = ref None
+
 type saved = {
   snapshot : State.snap ;
   mode : [`batch | `interactive] ;

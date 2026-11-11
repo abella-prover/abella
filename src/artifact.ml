@@ -119,7 +119,9 @@ module Make (Spec : SPEC) : CODEC with type t = Spec.t = struct
     Driver_setup.with_saved begin fun () ->
       let outcome =
         try begin
-          State.reset () ;
+          (match !Driver_setup.initial_snapshot with
+           | Some snap -> State.reload snap
+           | None -> State.reset ()) ;
           State.Undo.set_enabled false ;
           Driver_setup.mode := `batch ;
           Driver_setup.annotate := false ;

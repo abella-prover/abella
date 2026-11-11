@@ -155,11 +155,11 @@ function check() {
 }
 
 function abellaVersion() {
-  const path = join(repoRoot, "src/version.ml");
+  const path = join(repoRoot, "dune-project");
   if (!existsSync(path)) fail(`missing ${path}`);
   const text = readFileSync(path, "utf8");
-  const match = text.match(/let\s+version\s*=\s*"([^"]+)"/);
-  if (!match) fail(`${path}: could not parse Version.version`);
+  const match = text.match(/\(version\s+([^\s)]+)\)/);
+  if (!match) fail(`${path}: could not parse version`);
   return match[1];
 }
 

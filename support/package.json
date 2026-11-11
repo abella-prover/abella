@@ -1,7 +1,6 @@
 {
-  "name": "abella_doc_lib",
-  "version": "2.1.0-dev",
-  "description": "Support code for abella_doc (https://abella-prover.org)",
+  "name": "abella_support",
+  "description": "Support code for abella_doc and Abella Web (https://abella-prover.org/web)",
   "private": true,
   "scripts": {
     "check": "tsc -noEmit",

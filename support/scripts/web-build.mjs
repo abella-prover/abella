@@ -154,11 +154,21 @@ function check() {
   console.log("Web asset stamps are consistent.");
 }
 
+function abellaVersion() {
+  const path = join(repoRoot, "src/version.ml");
+  if (!existsSync(path)) fail(`missing ${path}`);
+  const text = readFileSync(path, "utf8");
+  const match = text.match(/let\s+version\s*=\s*"([^"]+)"/);
+  if (!match) fail(`${path}: could not parse Version.version`);
+  return match[1];
+}
+
 async function buildAssets() {
   if (!existsSync(launcherPath)) {
     fail("missing web/abella_js/abella_js.bc.wasm.js; run make web first");
   }
 
+  const version = abellaVersion();
   mkdirSync(webRoot, { recursive: true });
   copyWebFonts();
   const fontHash = fileHash(fontPath);
@@ -211,6 +221,7 @@ async function buildAssets() {
     chunkNames: "chunks/[name]-[hash]",
     define: {
       __WORKER_HASH__: JSON.stringify(workerHash),
+      __ABELLA_VERSION__: JSON.stringify(version),
       ...(dev
         ? {
             __GITHUB_OAUTH_WORKER__: JSON.stringify(

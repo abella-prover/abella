@@ -53,7 +53,7 @@ import {
   remapTabs,
   tabLabels,
 } from "./tabs";
-import type { NameMode, ProofState } from "./types";
+import type { NameMode, ProofState, RunResult } from "./types";
 import {
   WorkspaceError,
   WorkspaceSession,
@@ -104,6 +104,8 @@ import {
   storeDirectoryHandle,
 } from "./workspace-storage";
 
+declare const __ABELLA_VERSION__: string;
+
 function byId<T extends HTMLElement>(id: string): T {
   const element = document.getElementById(id);
   if (!element) throw new Error(`Missing #${id}`);
@@ -112,6 +114,9 @@ function byId<T extends HTMLElement>(id: string): T {
 
 const statusBadge = byId<HTMLSpanElement>("status");
 const statusDetail = byId<HTMLSpanElement>("status-detail");
+const abellaVersion = byId<HTMLElement>("abella-version");
+abellaVersion.textContent = __ABELLA_VERSION__;
+abellaVersion.title = `Abella ${__ABELLA_VERSION__}`;
 const fileList = byId<HTMLDivElement>("file-list");
 const goalPanel = byId<HTMLDivElement>("goal");
 const notificationsButton = byId<HTMLButtonElement>("notifications");
@@ -758,6 +763,20 @@ function updateRunControls(status: SessionStatus): void {
       ? label
       : `${label} (Ctrl+Shift+])`;
   resetButton.disabled = false;
+}
+
+function updateAbellaVersion(messages: RunResult["messages"]): void {
+  for (const message of messages) {
+    if (message.type !== "system_message") continue;
+    const prefix = "Welcome to Abella ";
+    if (!message.message.startsWith(prefix)) continue;
+    const version = message.message.slice(prefix.length).replace(/\.\s*$/, "");
+    if (version !== "") {
+      abellaVersion.textContent = version;
+      abellaVersion.title = `Abella ${version}`;
+    }
+    return;
+  }
 }
 
 function setStatus(status: SessionStatus, detail?: string): void {
@@ -3094,6 +3113,7 @@ const events: SessionEvents = {
     editor.setCursor(entry, offset, true);
   },
   onResult(result, command) {
+    updateAbellaVersion(result.messages);
     const entry = project.entry;
     if (!entry) return;
     if (result.status === "ok") {

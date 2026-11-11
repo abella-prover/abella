@@ -251,6 +251,17 @@ summary:focus-visible,
     font-size: 1.15rem;
     letter-spacing: 0.01em;
   }
+
+  .brand-version {
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  .brand-version:empty {
+    display: none;
+  }
 }
 
 :root[data-theme="dark"] .brand img {

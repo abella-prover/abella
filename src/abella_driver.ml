@@ -640,12 +640,10 @@ and process_top1_body () =
       Process_top
   | Query(q) -> query q ; Process_top
   | Kind(ids,knd) ->
-      check_noredef ids;
       Prover.add_global_types ids knd;
       compile (CKind (ids,knd)) ;
       Process_top
   | Type(ids, ty) ->
-      check_noredef ids ;
       let is_declared_predicate =
         match observe_ty ty with
         | Ty (_, aty) -> aty = propaty

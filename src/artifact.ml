@@ -263,11 +263,9 @@ let install_compiled_decl ?strat_errors ?(subordinate=false) decl =
       sign := (basics, consts) ;
       Prover.add_defs ?strat_errors typarams idtys flavor clauses
   | CKind (ids, knd) ->
-      Checks.check_noredef ids ;
       Prover.add_global_types ids knd
   | CType (ids, typarams, ty)
   | CDeclPred (ids, typarams, ty) ->
-      Checks.check_noredef ids ;
       Prover.add_global_consts ~typarams
         (List.map (fun id -> (id, ty)) ids)
   | CImport _

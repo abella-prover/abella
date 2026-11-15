@@ -1009,6 +1009,38 @@ body.resizing-row {
   color: var(--ink) !important;
 }
 
+.cm-editor .cm-vim-panel {
+  padding: 1px 8px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* The Vim package hardcodes its block cursor pink; match the theme
+   instead, approximating reverse video so the covered character stays
+   readable in both themes. */
+.editor .cm-editor .cm-fat-cursor {
+  border: none;
+  background: var(--ink);
+  color: var(--surface) !important;
+}
+
+.editor .cm-editor:not(.cm-focused) .cm-fat-cursor {
+  background: none;
+  outline: solid 1px var(--muted);
+}
+
+/* CodeMirror's base theme draws a light border and background on panel
+   containers unless a dark theme is active; force them onto ours. */
+.editor .cm-editor .cm-panels.cm-panels-bottom {
+  border-top: none;
+  background-color: var(--surface-2);
+  color: var(--muted);
+}
+
 .cm-editor .cm-tooltip-above .cm-tooltip-arrow::before {
   border-top-color: var(--border) !important;
 }

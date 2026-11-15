@@ -11,6 +11,7 @@ import {
   indentWithTab,
   undo,
 } from "@codemirror/commands";
+import { Vim, vim } from "@replit/codemirror-vim";
 import {
   bracketMatching,
   indentOnInput,
@@ -372,9 +373,10 @@ export interface EditorActions {
   stepBackward(): void;
   showOutput(): void;
   help(): void;
+  save?(): void;
 }
 
-export type KeyBindingStyle = "cua" | "emacs";
+export type KeyBindingStyle = "cua" | "emacs" | "vim";
 
 export function helpKeyFor(style: KeyBindingStyle): "Ctrl-h" | "Ctrl-?" {
   return style === "emacs" ? "Ctrl-h" : "Ctrl-?";
@@ -400,14 +402,14 @@ export function keymapFor(
       },
     },
     {
-      key: "Ctrl-]",
+      key: "Ctrl->",
       run: () => {
         actions.stepForward();
         return true;
       },
     },
     {
-      key: "Ctrl-[",
+      key: "Ctrl-<",
       run: () => {
         actions.stepBackward();
         return true;
@@ -451,6 +453,15 @@ export function keymapFor(
           ...searchKeymap,
           indentWithTab,
         ];
+  // The step pair avoids Ctrl-[ and Ctrl-Space: the Vim extension
+  // consumes those as Escape and a word motion before keymaps run,
+  // and Ctrl-[ is Escape in Emacs tradition too. Ctrl-> and Ctrl-<
+  // are free in the CUA, Emacs, and Vim maps alike.
+  // In Vim mode the status panel stays off: it only appears
+  // transiently for `:` and `/` prompts.
+  if (style === "vim") {
+    return [vim(), keymap.of([...processKeys, ...stock])];
+  }
   return keymap.of([...processKeys, ...stock]);
 }
 
@@ -545,6 +556,11 @@ export class EditorManager {
     this.onProcess = actions;
     this.onShowLineOutput = onShowLineOutput;
     this.keyBinding = keyBinding;
+    // Route the Vim `:w` command to the workspace save action. The
+    // action itself no-ops where saving does not apply.
+    Vim.defineEx("write", "w", () => {
+      this.onProcess.save?.();
+    });
     this.view = new EditorView({ parent });
     this.view.dom.addEventListener("click", (event) => {
       const target = (event.target as HTMLElement).closest<HTMLElement>(

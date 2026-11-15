@@ -32,6 +32,7 @@
     "@codemirror/view": "6.43.15",
     "@lezer/highlight": "1.2.5",
     "@octokit/rest": "22.0.1",
+    "@replit/codemirror-vim": "^6.4.0",
     "fflate": "0.8.3"
   }
 }

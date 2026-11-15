@@ -95,12 +95,13 @@ test("command output markers group by command end line", () => {
   );
 });
 
-test("help uses Ctrl-? for CUA and Ctrl-h for Emacs", () => {
+test("help uses Ctrl-? for CUA and Vim, Ctrl-h for Emacs", () => {
   assert.equal(helpKeyFor("cua"), "Ctrl-?");
+  assert.equal(helpKeyFor("vim"), "Ctrl-?");
   assert.equal(helpKeyFor("emacs"), "Ctrl-h");
 });
 
-test("both keybinding styles build a keymap", () => {
+test("all keybinding styles build a keymap", () => {
   const noop = {
     process() {},
     stepForward() {},
@@ -110,6 +111,7 @@ test("both keybinding styles build a keymap", () => {
   };
   assert.ok(keymapFor("cua", noop));
   assert.ok(keymapFor("emacs", noop));
+  assert.ok(keymapFor("vim", noop));
 });
 
 test("Emacs undo is on Ctrl-_ and Ctrl-/", () => {

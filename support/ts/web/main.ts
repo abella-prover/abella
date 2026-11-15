@@ -632,9 +632,8 @@ function saveNameMode(nameMode: NameMode): void {
 
 function loadKeyBinding(): KeyBindingStyle {
   try {
-    return localStorage.getItem(KEYBINDING_KEY) === "emacs"
-      ? "emacs"
-      : "cua";
+    const stored = localStorage.getItem(KEYBINDING_KEY);
+    return stored === "emacs" || stored === "vim" ? stored : "cua";
   } catch {
     return "cua";
   }
@@ -3302,6 +3301,9 @@ async function main(): Promise<void> {
       stepBackward: () => void stepBackward(),
       showOutput: showOutputAtCursor,
       help: openHelp,
+      save: () => {
+        if (project.active) void savePath(project.active);
+      },
     },
     (path, line) => showLineOutput(path, line),
     keyBinding
@@ -3371,7 +3373,9 @@ async function main(): Promise<void> {
   });
   keybindingSelect.addEventListener("change", () => {
     const selected = keybindingSelect.value;
-    if (selected !== "cua" && selected !== "emacs") return;
+    if (selected !== "cua" && selected !== "emacs" && selected !== "vim") {
+      return;
+    }
     keyBinding = selected;
     saveKeyBinding(keyBinding);
     editor.setKeyBinding(keyBinding);

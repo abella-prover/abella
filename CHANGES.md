@@ -29,6 +29,8 @@ Abella Web
   The Abella source distribution contains the source code for Abella Web and
   the full instructions for running a local Abella Web server locally.
   See `web/README.md` for further details.
+* Abella Web shows the Abella version beside the logo, matching the
+  version reported in the prover's welcome message.
 
 Additions
 
@@ -81,6 +83,9 @@ Changes
   compiled artifact is always placed in its default location. Abella has
   recursively invoked itself for multiple versions and this no longer makes
   sense.
+* `Kind` and `Type` declarations may be repeated so long as the repeated
+  declarations agree; inconsistent redeclarations are still rejected.
+  (#139)
 * Abella now requires Dune version 3.20 or later.
 * Abella is no longer supported on ppc32 and ppc64. Please use Abella Web.
 * `abella_doc` modernized with light/dark mode support.
@@ -101,6 +106,10 @@ Bugfixes
 * Incorrect lambda-prefix for non-Llambda unification problems  
   (#155, report + fix by @wikku)
 * `Import ... with` performs the replacements simultaneously. (#153)
+* `Import ... with` no longer requires the replacements for declared
+  predicates to be pairwise distinct: several declared predicates may
+  be replaced by the same predicate. Replacing the same predicate
+  twice is still an error.
 * Abella now compiles with OCaml 5.5 (#166)
 * Bound variable clash should be a unification error instead of failure
   (#168, identified and fixed by Matteo Manighetti @manmatteo)
@@ -118,6 +127,9 @@ Bugfixes
 * Reasoning-level equality (`=`) can no longer compare terms whose
   types contain `prop`.
   ***SOUNDNESS BUG***
+* Schematic type variables can no longer be instantiated with `prop`
+  or a type containing `prop`.
+  ***SOUNDNESS BUG***
 * Meta-right-unification no longer leaks tentative type bindings from
   its binder compatibility check, and compares each body under that
   side's own binder type.
@@ -129,9 +141,23 @@ Bugfixes
 * Stratification checks now inspect defined predicates passed to declared
   higher-order predicates, and can be configured as hard errors.
 * Subordination checks now reject new edges between separately closed types.
+* Subordination checks now skip arcs whose target is a type variable,
+  which carry no subordination information. (#144)
 * Diagnostics and relative imports now use the real input file name.
 * Compiled declarations now store declaration-local type parameters
   explicitly; existing `.thc` files are recompiled.
+* Quantifier and abstraction binders named `n1`, `n2`, etc. are now
+  rejected with a clear error, since those identifiers are reserved
+  for nominal constants. (#120)
+* Corrupt `.thc` and `.thmodc` artifacts are now reported as errors
+  naming the file instead of crashing.
+* Ill-typed applications, undetermined types, and dangling variable
+  indices are now reported as clear errors instead of assertion
+  failures, silent backtracking failures, or internal-bug reports.
+* Unreadable inputs, failed artifact writes, and unexpected ends of
+  file are now reported as clear errors. Out-of-range integer literals
+  name the offending literal, and illegal-character diagnostics
+  consistently report file and position.
 
 
 Changes in 2.0.8 from 2.0.7

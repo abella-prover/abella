@@ -7,6 +7,9 @@ import assert from "node:assert/strict";
 import { Text } from "@codemirror/state";
 import {
   commandOutputLines,
+  emacsUndoKeymap,
+  helpKeyFor,
+  keymapFor,
   processedDecorations,
 } from "./editor";
 import type { CommandOutput } from "./command-output";
@@ -89,5 +92,29 @@ test("command output markers group by command end line", () => {
   assert.deepEqual(
     commandOutputLines(Text.of(doc.split("\n")), outputs),
     [1, 2]
+  );
+});
+
+test("help uses Ctrl-? for CUA and Ctrl-h for Emacs", () => {
+  assert.equal(helpKeyFor("cua"), "Ctrl-?");
+  assert.equal(helpKeyFor("emacs"), "Ctrl-h");
+});
+
+test("both keybinding styles build a keymap", () => {
+  const noop = {
+    process() {},
+    stepForward() {},
+    stepBackward() {},
+    showOutput() {},
+    help() {},
+  };
+  assert.ok(keymapFor("cua", noop));
+  assert.ok(keymapFor("emacs", noop));
+});
+
+test("Emacs undo is on Ctrl-_ and Ctrl-/", () => {
+  assert.deepEqual(
+    emacsUndoKeymap.map((binding) => binding.key),
+    ["Ctrl-_", "Ctrl-/"]
   );
 });

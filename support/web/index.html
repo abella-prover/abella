@@ -239,7 +239,7 @@
           ></span>
         </button>
         <button id="help" class="link-button" type="button">
-          Help <kbd>Ctrl</kbd>+<kbd>?</kbd>
+          Help <kbd>Ctrl</kbd>+<kbd id="help-shortcut-footer">?</kbd>
         </button>
       </span>
       <span class="footer-links">
@@ -327,7 +327,7 @@
             <dd>Switch between open files</dd>
           </div>
           <div>
-            <dt><kbd>Ctrl</kbd>+<kbd>?</kbd></dt>
+            <dt><kbd>Ctrl</kbd>+<kbd id="help-shortcut-dialog">?</kbd></dt>
             <dd>Open this help</dd>
           </div>
         </dl>
@@ -381,6 +381,17 @@
         <p class="setting-note">
           Allow, warn about, or forbid references to a hypothesis or variable
           whose name was not supplied by the user.
+        </p>
+        <label class="setting">
+          <span>Key bindings</span>
+          <select id="keybinding">
+            <option value="cua">CUA (default)</option>
+            <option value="emacs">Emacs</option>
+          </select>
+        </label>
+        <p class="setting-note">
+          Emacs bindings use Ctrl-a/e/b/f/n/p for movement, Ctrl-_ (or
+          Ctrl-/) for undo, and Ctrl-h for help instead of Ctrl-?.
         </p>
         <p class="setting-note">
           Preferences are saved in this browser.

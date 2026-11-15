@@ -5,7 +5,7 @@
 import { ChangeSet } from "@codemirror/state";
 import { downloadProject, importProject } from "./archive";
 import { WorkerDriver } from "./driver";
-import { EditorManager } from "./editor";
+import { EditorManager, type KeyBindingStyle } from "./editor";
 import {
   fillExampleSelect,
   loadBundle,
@@ -191,9 +191,13 @@ const preferencesButton = byId<HTMLButtonElement>("preferences");
 const preferencesDialog = byId<HTMLDialogElement>("preferences-dialog");
 const strictToggle = byId<HTMLInputElement>("strict-mode");
 const nameModeSelect = byId<HTMLSelectElement>("name-mode");
+const keybindingSelect = byId<HTMLSelectElement>("keybinding");
+const helpShortcutFooter = byId<HTMLElement>("help-shortcut-footer");
+const helpShortcutDialog = byId<HTMLElement>("help-shortcut-dialog");
 const THEME_KEY = "abella.web.v1.theme";
 const STRICT_KEY = "abella.web.v1.strict";
 const NAME_MODE_KEY = "abella.web.v1.name-mode";
+const KEYBINDING_KEY = "abella.web.v1.keybinding";
 const LEGACY_WARN_NAMES_KEY = "abella.web.v1.warn-names";
 const layout = document.querySelector(".layout") as HTMLElement;
 const panelsElement = document.querySelector(".panels") as HTMLElement;
@@ -624,6 +628,33 @@ function saveNameMode(nameMode: NameMode): void {
   } catch {
     // Persistence is optional.
   }
+}
+
+function loadKeyBinding(): KeyBindingStyle {
+  try {
+    return localStorage.getItem(KEYBINDING_KEY) === "emacs"
+      ? "emacs"
+      : "cua";
+  } catch {
+    return "cua";
+  }
+}
+
+function saveKeyBinding(style: KeyBindingStyle): void {
+  try {
+    localStorage.setItem(KEYBINDING_KEY, style);
+  } catch {
+    // Persistence is optional.
+  }
+}
+
+function helpShortcutLabel(style: KeyBindingStyle): string {
+  return style === "emacs" ? "h" : "?";
+}
+
+function renderHelpShortcut(style: KeyBindingStyle): void {
+  helpShortcutFooter.textContent = helpShortcutLabel(style);
+  helpShortcutDialog.textContent = helpShortcutLabel(style);
 }
 
 function installPanelSplitter(): void {
@@ -3242,6 +3273,8 @@ function resetSession(): void {
 }
 
 async function main(): Promise<void> {
+  let keyBinding = loadKeyBinding();
+  renderHelpShortcut(keyBinding);
   editor = new EditorManager(
     byId<HTMLDivElement>("editor"),
     (path, update) => {
@@ -3270,7 +3303,8 @@ async function main(): Promise<void> {
       showOutput: showOutputAtCursor,
       help: openHelp,
     },
-    (path, line) => showLineOutput(path, line)
+    (path, line) => showLineOutput(path, line),
+    keyBinding
   );
 
   const driver = new WorkerDriver(() => setStatus("compiling"));
@@ -3313,6 +3347,7 @@ async function main(): Promise<void> {
   preferencesButton.addEventListener("click", () => {
     strictToggle.checked = strictMode;
     nameModeSelect.value = nameMode;
+    keybindingSelect.value = keyBinding;
     preferencesDialog.showModal();
   });
   preferencesDialog.addEventListener("click", (event) => {
@@ -3334,16 +3369,28 @@ async function main(): Promise<void> {
     session.setNameMode(nameMode);
     restartForPreferences();
   });
+  keybindingSelect.addEventListener("change", () => {
+    const selected = keybindingSelect.value;
+    if (selected !== "cua" && selected !== "emacs") return;
+    keyBinding = selected;
+    saveKeyBinding(keyBinding);
+    editor.setKeyBinding(keyBinding);
+    renderHelpShortcut(keyBinding);
+  });
   document.addEventListener("keydown", (event) => {
     if (
       event.defaultPrevented ||
       !event.ctrlKey ||
       event.metaKey ||
-      event.altKey ||
-      event.key !== "?"
+      event.altKey
     ) {
       return;
     }
+    const emacs = keyBinding === "emacs";
+    const wantsHelp = emacs
+      ? event.key.toLowerCase() === "h" && !event.shiftKey
+      : event.key === "?";
+    if (!wantsHelp) return;
     event.preventDefault();
     openHelp();
   });

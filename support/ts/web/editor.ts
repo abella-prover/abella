@@ -5,9 +5,11 @@
 import { closeBrackets } from "@codemirror/autocomplete";
 import {
   defaultKeymap,
+  emacsStyleKeymap,
   history,
   historyKeymap,
   indentWithTab,
+  undo,
 } from "@codemirror/commands";
 import {
   bracketMatching,
@@ -17,6 +19,7 @@ import {
 import { searchKeymap } from "@codemirror/search";
 import {
   EditorState,
+  Compartment,
   RangeSet,
   StateEffect,
   StateField,
@@ -371,14 +374,23 @@ export interface EditorActions {
   help(): void;
 }
 
-function baseExtensions(
-  path: string,
-  onChange: (path: string, update: import("@codemirror/view").ViewUpdate) => void,
+export type KeyBindingStyle = "cua" | "emacs";
+
+export function helpKeyFor(style: KeyBindingStyle): "Ctrl-h" | "Ctrl-?" {
+  return style === "emacs" ? "Ctrl-h" : "Ctrl-?";
+}
+
+// Both are standard Emacs undo keys. Placed ahead of defaultKeymap so
+// Ctrl-/ undoes instead of toggling comments in Emacs mode.
+export const emacsUndoKeymap = [
+  { key: "Ctrl-_", run: undo },
+  { key: "Ctrl-/", run: undo },
+];
+
+export function keymapFor(
+  style: KeyBindingStyle,
   actions: EditorActions
-): Extension[] {
-  const listener = EditorView.updateListener.of((update) => {
-    if (update.docChanged) onChange(path, update);
-  });
+): Extension {
   const processKeys = [
     {
       key: "Mod-Enter",
@@ -416,13 +428,41 @@ function baseExtensions(
       },
     },
     {
-      key: "Ctrl-?",
+      key: helpKeyFor(style),
       run: () => {
         actions.help();
         return true;
       },
     },
   ];
+  const stock =
+    style === "emacs"
+      ? [
+          ...emacsUndoKeymap,
+          ...emacsStyleKeymap,
+          ...defaultKeymap,
+          ...historyKeymap,
+          ...searchKeymap,
+          indentWithTab,
+        ]
+      : [
+          ...defaultKeymap,
+          ...historyKeymap,
+          ...searchKeymap,
+          indentWithTab,
+        ];
+  return keymap.of([...processKeys, ...stock]);
+}
+
+function baseExtensions(
+  path: string,
+  onChange: (path: string, update: import("@codemirror/view").ViewUpdate) => void,
+  actions: EditorActions,
+  keymapExtension: Extension
+): Extension[] {
+  const listener = EditorView.updateListener.of((update) => {
+    if (update.docChanged) onChange(path, update);
+  });
   const language = languageFor(path);
   return [
     lineNumbers(),
@@ -435,13 +475,7 @@ function baseExtensions(
     EditorView.lineWrapping,
     EditorState.tabSize.of(2),
     syntaxHighlighting(abellaHighlightStyle),
-    keymap.of([
-      ...processKeys,
-      ...defaultKeymap,
-      ...historyKeymap,
-      ...searchKeymap,
-      indentWithTab,
-    ]),
+    keymapExtension,
     editorTheme,
     processedField,
     commandOutputField,
@@ -487,6 +521,8 @@ export class EditorManager {
   private markdownPending = new Set<string>();
   private activePath: string | null = null;
   private runLocked = false;
+  private keyBinding: KeyBindingStyle;
+  private keymapCompartment = new Compartment();
   private onChange: (
     path: string,
     update: import("@codemirror/view").ViewUpdate
@@ -501,12 +537,14 @@ export class EditorManager {
       update: import("@codemirror/view").ViewUpdate
     ) => void,
     actions: EditorActions,
-    onShowLineOutput: (path: string, line: number) => void
+    onShowLineOutput: (path: string, line: number) => void,
+    keyBinding: KeyBindingStyle = "cua"
   ) {
     this.parent = parent;
     this.onChange = onChange;
     this.onProcess = actions;
     this.onShowLineOutput = onShowLineOutput;
+    this.keyBinding = keyBinding;
     this.view = new EditorView({ parent });
     this.view.dom.addEventListener("click", (event) => {
       const target = (event.target as HTMLElement).closest<HTMLElement>(
@@ -529,10 +567,32 @@ export class EditorManager {
           this.states.set(changedPath, update.state);
           this.onChange(changedPath, update);
         },
-        this.onProcess
+        this.onProcess,
+        this.keymapCompartment.of(keymapFor(this.keyBinding, this.onProcess))
       ),
     });
     return this.applyRunLock(state);
+  }
+
+  get keyBindingStyle(): KeyBindingStyle {
+    return this.keyBinding;
+  }
+
+  setKeyBinding(style: KeyBindingStyle): void {
+    if (this.keyBinding === style) return;
+    this.keyBinding = style;
+    const content = keymapFor(style, this.onProcess);
+    for (const [path, state] of this.states) {
+      if (path === this.activePath) continue;
+      const effect = this.keymapCompartment.reconfigure(content);
+      this.states.set(path, state.update({ effects: effect }).state);
+    }
+    if (this.activePath) {
+      this.view.dispatch({
+        effects: this.keymapCompartment.reconfigure(content),
+      });
+      this.states.set(this.activePath, this.view.state);
+    }
   }
 
   private applyRunLock(state: EditorState): EditorState {

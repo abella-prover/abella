@@ -883,6 +883,19 @@ intros. search.
     end
   end
 
+let test_issue142_generic_case () =
+  with_session begin fun () ->
+    List.iter (fun cmd -> assert_ok (fst (process_command cmd))) [
+      "Kind pair type -> type -> type." ;
+      "Define map : (A -> B) -> prop by map F." ;
+      "Theorem map_destr_cons [A,B]: \
+       forall (F: (pair A B) -> A), map F -> false." ;
+      "induction on 1." ;
+      "intros." ;
+      "case H1." ;
+    ]
+  end
+
 let tests = suite "thm" [
     test_case "read thm defaults" test_read_thm_defaults ;
     test_case "artifact layout" test_thm_artifact_layout ;
@@ -917,4 +930,5 @@ let tests = suite "thm" [
     test_case "inline thm modules" test_inline_thm_modules ;
     test_case "inline thm errors" test_inline_thm_errors ;
     test_case "import thm flattening" test_import_thm_flattening ;
+    test_case "issue142 generic case" test_issue142_generic_case ;
   ]

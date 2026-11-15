@@ -22,8 +22,7 @@
 abella
 _build
 /abella.install
-smoke/
-bad-examples/
+/.scratch/
 dev-examples/
 # Abella Web generated assets
 /web/abella_web.js

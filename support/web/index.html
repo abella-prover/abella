@@ -292,39 +292,8 @@
             <dd>Show command output near the cursor</dd>
           </div>
           <div>
-            <dt>
-              <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>C</kbd> in the output
-              dialog
-            </dt>
-            <dd>Copy all command output</dd>
-          </div>
-          <div>
             <dt><kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>B</kbd></dt>
             <dd>Show or hide the project panel</dd>
-          </div>
-          <div>
-            <dt><kbd>↑</kbd>/<kbd>↓</kbd> in the project panel</dt>
-            <dd>Move through files and folders</dd>
-          </div>
-          <div>
-            <dt><kbd>→</kbd>/<kbd>←</kbd> in the project panel</dt>
-            <dd>Expand or collapse folders, or move to the parent</dd>
-          </div>
-          <div>
-            <dt><kbd>F2</kbd> in the project panel</dt>
-            <dd>Rename the selected file</dd>
-          </div>
-          <div>
-            <dt><kbd>Delete</kbd> in the project panel</dt>
-            <dd>Delete the selected file</dd>
-          </div>
-          <div>
-            <dt><kbd>Shift</kbd>+<kbd>F10</kbd></dt>
-            <dd>Open the actions menu for the selected file or folder</dd>
-          </div>
-          <div>
-            <dt><kbd>←</kbd>/<kbd>→</kbd> in the tab strip</dt>
-            <dd>Switch between open files</dd>
           </div>
           <div>
             <dt><kbd>Ctrl</kbd>+<kbd id="help-shortcut-dialog">?</kbd></dt>
@@ -332,19 +301,11 @@
           </div>
         </dl>
         <p class="setting-note">
-          The play and step controls check the active <code>.thm</code> or
-          <code>.thmod</code> tab. Switching tabs does not reset the
-          prover; checking a different file does.
-        </p>
-        <p class="setting-note">
-          Warnings and other command output appear next to the checked
-          command. Hover the command to read it, or click its marker for
-          the full text.
-        </p>
-        <p class="setting-note">
           On macOS, use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd> for the
-          <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> shortcuts. The bracket and dot
-          shortcuts use <kbd>Ctrl</kbd> on every platform.
+          <kbd>Ctrl</kbd>/<kbd>Cmd</kbd> shortcuts.
+        </p>
+        <p class="setting-note">
+          <a href="shortcuts.html">Full list of keyboard shortcuts</a>
         </p>
       </form>
     </dialog>
@@ -390,13 +351,6 @@
             <option value="vim">Vim</option>
           </select>
         </label>
-        <p class="setting-note">
-          Emacs bindings use Ctrl-a/e/b/f/n/p for movement, Ctrl-_ (or
-          Ctrl-/) for undo, and Ctrl-h for help instead of Ctrl-?.
-        </p>
-        <p class="setting-note">
-          Preferences are saved in this browser.
-        </p>
       </form>
     </dialog>
 
@@ -535,6 +489,9 @@
         </div>
         <div id="command-output-list" class="output-dialog-list"></div>
         <div class="dialog-actions">
+          <span class="dialog-hint">
+            <kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>C</kbd> copies all output
+          </span>
           <button
             id="command-output-copy"
             type="button"

@@ -22,6 +22,9 @@
 /privacy.html
   Cache-Control: public, max-age=600
 
+/shortcuts.html
+  Cache-Control: public, max-age=600
+
 /github-callback.html
   Cache-Control: no-store
   Referrer-Policy: no-referrer

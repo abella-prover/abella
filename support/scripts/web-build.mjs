@@ -51,6 +51,11 @@ const pages = [
     assets: ["abella_web.css"],
   },
   {
+    source: join(templatesRoot, "shortcuts.html"),
+    target: join(webRoot, "shortcuts.html"),
+    assets: ["abella_web.css"],
+  },
+  {
     source: join(templatesRoot, "github-callback.html"),
     target: join(webRoot, "github-callback.html"),
     assets: ["github_callback.js"],

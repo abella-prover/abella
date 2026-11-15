@@ -1295,6 +1295,13 @@ body.resizing-row {
   margin-top: 1rem;
 }
 
+.dialog-hint {
+  margin-right: auto;
+  align-self: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .dialog-error {
   color: var(--red);
 }

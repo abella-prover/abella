@@ -235,14 +235,19 @@ summary:focus-visible,
 
   .brand {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 0.7rem;
     flex: none;
+    align-self: baseline;
 
     img {
       display: block;
       height: 2.5rem;
       width: auto;
+      /* The letterforms sit on pixel 34 of the 50px-tall logo, so
+         raise the baseline point to their base:
+         (50 - 34) / 50 * 2.5rem. */
+      margin-bottom: -0.8rem;
     }
   }
 
@@ -275,6 +280,7 @@ summary:focus-visible,
   flex: 1;
   min-width: 0;
   flex-wrap: wrap;
+  align-self: baseline;
 
   .example-picker {
     flex: 0 1 22rem;

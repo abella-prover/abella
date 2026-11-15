@@ -3672,4 +3672,22 @@ async function main(): Promise<void> {
 const themeToggle = createThemeToggle(THEME_KEY);
 themeToggle.setTheme(loadTheme(THEME_KEY), false);
 preferencesButton.before(themeToggle.element);
+let themeToggleHadEditorFocus = false;
+themeToggle.element.addEventListener("pointerdown", () => {
+  const active = document.activeElement;
+  themeToggleHadEditorFocus =
+    active instanceof HTMLElement && active.closest(".cm-editor") !== null;
+});
+themeToggle.element.addEventListener("click", () => {
+  if (!themeToggleHadEditorFocus) return;
+  themeToggleHadEditorFocus = false;
+  // The label forwards focus to its checkbox after dispatch, so wait
+  // that out and hand focus back only if it landed in the toggle.
+  requestAnimationFrame(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && themeToggle.element.contains(active)) {
+      editor.focus();
+    }
+  });
+});
 void main();

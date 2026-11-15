@@ -41,6 +41,10 @@ let head ty =
   match observe_ty ty with
   | (Ty(_, a)) -> a
 
+let aty_is_var = function
+  | Tygenvar _ | Typtr _ -> true
+  | Tycons _ -> false
+
 let close (graph, closed) atys =
   List.iter check_non_poly atys;
   let closed = atys @ closed in
@@ -76,6 +80,9 @@ let query (graph, closed) a b =
 
 (* check that the arc does not extend the existing subordination relation *)
 let check_no_sr_extension graph closed a b =
+  (* A variable target carries no subordination information; skip it.
+     (A variable source is still meaningful, e.g. A -> list A.) *)
+  if aty_is_var b then () else begin
   let graph' = Graph.add_arc graph a b in
   List.iter begin fun aty ->
     let before = Graph.predecessors graph aty in
@@ -87,6 +94,7 @@ let check_no_sr_extension graph closed a b =
           (aty_to_string aty)
           (String.concat ", " (List.map aty_to_string xs))
   end closed
+  end
 
 (* let not_prop_type aty =
  *   not (aty = oaty || aty = propaty || aty = olistaty)
@@ -101,9 +109,13 @@ let check_no_sr_extension graph closed a b =
 let add (graph, closed) a b =
   check_no_tyvar a;
   check_no_tyvar b;
+  (* Arcs with a variable target carry no subordination information
+     and would only poison predecessor queries, so skip them. *)
+  if aty_is_var b then (graph, closed) else begin
   (* check_typarams a b; *)
   check_no_sr_extension graph closed a b;
   (Graph.add_arc graph a b, closed)
+  end
 
 let update sr ty =
   let rec aux sr (Ty(args, target)) =

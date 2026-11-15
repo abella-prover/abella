@@ -37,11 +37,9 @@ let add_arc arcs a b =
 
 let arc_predecessor ((s, t):(aty * aty)) a =
   assert (aty_no_tyvar a);
-  (match t with
-  | Tygenvar _ ->
-       failwith "Pre-condition of subordination check is violated:\
-                 \ target type cannot be a variable\n"
-  | _ -> ());
+  match t with
+  | Tygenvar _ | Typtr _ -> None
+  | _ -> begin
   let typarams = ty_gentyvars (tybase t) in
   let sub = List.map (fun v -> (v,fresh_tyvar ())) typarams in
   let a' = tybase a in
@@ -62,6 +60,7 @@ let arc_predecessor ((s, t):(aty * aty)) a =
   with
   | TypeInferenceFailure _ -> None
   | e -> raise e
+  end
 
 let direct_predecessors arcs a =
   assert (aty_no_tyvar a);

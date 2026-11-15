@@ -29,6 +29,7 @@ export type ProofState = {
   hyps: [string, string][];
   goal: string;
   more: number;
+  unfocused?: string;
 };
 
 export type RawMessage =

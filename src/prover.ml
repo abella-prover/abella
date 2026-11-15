@@ -57,8 +57,38 @@ let lemma_tags : (string, fin) H.t = State.table ()
 type subgoal = unit -> unit
 let subgoals : subgoal list ref = State.rref []
 
+type bullet_frame = {
+  bullet : string ;
+  siblings : subgoal list ;
+}
+
+let bullet_stack : bullet_frame list ref = State.rref []
+let subgoal_focused : bool ref = State.rref true
+
+let is_focused () = !subgoal_focused
+
+let expected_bullet () =
+  match !bullet_stack with
+  | [] -> None
+  | f :: _ -> Some f.bullet
+
+let remaining_bullet_subgoals () =
+  List.fold_left (fun acc f -> acc + List.length f.siblings) 0 !bullet_stack
+
+let ensure_focused () =
+  if not !subgoal_focused then
+    match expected_bullet () with
+    | Some b ->
+        failwithf
+          "No focused subgoal. Use bullet %s to focus the next subgoal" b
+    | None ->
+        [%bug] "unfocused subgoal with empty bullet stack"
+
 let skip_seen : bool ref = State.rref false
-let start_proof () = skip_seen := false
+let start_proof () =
+  skip_seen := false ;
+  bullet_stack := [] ;
+  subgoal_focused := true
 
 type hyp = {
   id : id ;
@@ -517,15 +547,27 @@ let format_sequent_with_goal fmt goal =
 let format_sequent fmt =
   format_sequent_with_goal fmt sequent.goal
 
+let format_unfocused () =
+  let b = Option.get (expected_bullet ()) in
+  let n = remaining_bullet_subgoals () in
+  Printf.sprintf
+    "Subgoal completed. Focus next subgoal with bullet %s (%d subgoal%s \
+     remaining)."
+    b n (if n = 1 then "" else "s")
+
 let format_display fmt =
   pp_open_box fmt 0 ;
-  if sequent.name = "" then
-    fprintf fmt "@\n"
-  else
-    fprintf fmt "Subgoal %s:@\n@\n" sequent.name;
-  format_sequent fmt ;
-  fprintf fmt "@\n@\n" ;
-  format_other_subgoals fmt ;
+  if not !subgoal_focused then
+    fprintf fmt "@\n%s@\n@\n" (format_unfocused ())
+  else begin
+    if sequent.name = "" then
+      fprintf fmt "@\n"
+    else
+      fprintf fmt "Subgoal %s:@\n@\n" sequent.name;
+    format_sequent fmt ;
+    fprintf fmt "@\n@\n" ;
+    format_other_subgoals fmt
+  end ;
   pp_close_box fmt () ;
   pp_print_flush fmt ()
 
@@ -538,6 +580,16 @@ let get_display () =
   Buffer.contents b
 
 let state_json () : Json.t =
+  if not !subgoal_focused then
+    `Assoc [
+      "more", `Int (remaining_bullet_subgoals ()) ;
+      "goal", `String "" ;
+      "hyps", `List [] ;
+      "vars", `List [] ;
+      "name", `String "" ;
+      "unfocused", `String (format_unfocused ()) ;
+    ]
+  else
   let vars = List.map begin fun ((v, t) as vt) ->
       `List [ `String v ;
               if is_uninstantiated vt then `Null else
@@ -563,7 +615,9 @@ let state_json () : Json.t =
 let reset_prover original_state original_sequent () =
   set_bind_state original_state ;
   set_sequent original_sequent ;
-  subgoals := []
+  subgoals := [] ;
+  bullet_stack := [] ;
+  subgoal_focused := true
 
 let full_reset_prover original_state original_sequent
     original_clauses original_defs_table () =
@@ -916,15 +970,49 @@ let get_arg_clearly = function
 
 exception End_proof of [`completed of fin | `aborted]
 
+let rec pop_finished_bullets () =
+  match !bullet_stack with
+  | { siblings = [] ; _ } :: rest ->
+      bullet_stack := rest ;
+      pop_finished_bullets ()
+  | _ -> ()
+
 let next_subgoal () =
   match !subgoals with
   | [] ->
-      let fin = if !skip_seen then Unfinished else Finished in
-      raise (End_proof (`completed fin))
+      pop_finished_bullets () ;
+      if !bullet_stack = [] then begin
+        let fin = if !skip_seen then Unfinished else Finished in
+        raise (End_proof (`completed fin))
+      end else
+        subgoal_focused := false
   | set_subgoal::rest ->
       set_subgoal () ;
       subgoals := rest ;
+      subgoal_focused := true ;
       normalize_sequent ()
+
+let bullet b =
+  if !subgoal_focused then begin
+    if List.exists (fun f -> f.bullet = b) !bullet_stack then
+      failwithf "Bullet %s is already active in an enclosing subgoal" b ;
+    bullet_stack := { bullet = b ; siblings = !subgoals } :: !bullet_stack ;
+    subgoals := []
+  end else begin
+    match !bullet_stack with
+    | [] ->
+        [%bug] "unfocused subgoal with empty bullet stack"
+    | { bullet = expected ; siblings = next :: rest } :: stack_rest ->
+        if b <> expected then
+          failwithf "Wrong bullet %s: expected %s" b expected ;
+        next () ;
+        normalize_sequent () ;
+        subgoals := [] ;
+        bullet_stack := { bullet = expected ; siblings = rest } :: stack_rest ;
+        subgoal_focused := true
+    | { siblings = [] ; _ } :: _ ->
+        [%bug] "unfocused subgoal with no siblings"
+  end
 
 (* Show *)
 
@@ -938,6 +1026,7 @@ let show name fmt =
 (* Object level instantiation *)
 
 let inst ?hint h ws =
+  ensure_focused () ;
   warn_clearable h ;
   let ht = get_stmt_clearly h in
   match ht with
@@ -964,6 +1053,7 @@ let inst ?hint h ws =
 (* Object level cut *)
 
 let cut ?hint h arg =
+  ensure_focused () ;
   warn_clearable h ; warn_clearable arg ;
   let h = get_stmt_clearly h in
   let arg = get_stmt_clearly arg in
@@ -1031,6 +1121,7 @@ let search_goal ?depth goal =
   with Failure _ -> false
 
 let search ?depth ~witness ~handle_witness () =
+  ensure_focused () ;
   warn_witness witness ;
   let search_result = search_goal_witness ?depth sequent.goal witness in
   match search_result with
@@ -1040,6 +1131,7 @@ let search ?depth ~witness ~handle_witness () =
 (* Search cut *)
 
 let search_cut ?hint h =
+  ensure_focused () ;
   warn_clearable h ;
   match get_stmt_clearly h with
   | Obj(obj, _) ->
@@ -1133,6 +1225,7 @@ let partition_obligations ?depth obligations =
   end obligations
 
 let apply ?depth ?hint ?(term_witness=ignore) h args ws =
+  ensure_focused () ;
   warn_clearable h ;
   List.iter warn_clearable args ;
   let stmt = get_stmt_clearly h in
@@ -1189,6 +1282,7 @@ let type_backchain_withs stmt ws =
     ws
 
 let backchain ?depth ?(term_witness=ignore) h ws =
+  ensure_focused () ;
   warn_clearable h ;
   let stmt = get_stmt_clearly h in
   let ws = type_backchain_withs stmt ws in
@@ -1241,6 +1335,7 @@ let case_subgoals str =
     raise e
 
 let case ?hint h =
+  ensure_focused () ;
   warn_clearable h ;
   let cases = case_subgoals h in
   (* Output.msg_printf "case: there were %d new subgoals" (List.length cases) ; *)
@@ -1290,6 +1385,7 @@ let add_ih h =
   add_auto_hyp ~base:"IH" h
 
 let induction ?hint ind_args =
+  ensure_focused () ;
   if has_coinductive_restriction sequent.goal then
     failwith "Induction within coinduction is not allowed" ;
   let stmts = and_to_list sequent.goal in
@@ -1329,6 +1425,7 @@ let ensure_is_coinductive p =
     failwithf "Cannot coinduct on %s since it has not been defined" pname
 
 let coinduction ?hint () =
+  ensure_focused () ;
   ensure_is_coinductive (conclusion sequent.goal) ;
   if has_inductive_restriction sequent.goal then
     failwith "Coinduction within induction is not allowed" ;
@@ -1357,6 +1454,7 @@ let delay_mainline ?hint ?depth new_hyp detour_goal =
   next_subgoal ()
 
 let assert_hyp ?hint ?depth term =
+  ensure_focused () ;
   let term = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
   warn_metaterm_vars term ;
   delay_mainline ?hint ?depth term term
@@ -1364,6 +1462,7 @@ let assert_hyp ?hint ?depth term =
 (* Object logic monotone *)
 
 let monotone ?hint h t =
+  ensure_focused () ;
   warn_clearable h ;
   let ht = get_stmt_clearly h in
   match ht with
@@ -1395,6 +1494,7 @@ let theorem thm =
 (* Introduction of forall variables *)
 
 let intros alt =
+  ensure_focused () ;
   let base = copy_sequent () in
   let hyp_index = ref 0 in
   let intro_vars = ref [] in
@@ -1435,6 +1535,7 @@ let intros alt =
 (* Split *)
 
 let split propogate_result =
+  ensure_focused () ;
   let rec accum_goals conjs prev =
     match conjs with
     | [] -> []
@@ -1529,11 +1630,13 @@ let create_split_theorems name names =
 (* Left and right side of disjunction *)
 
 let left () =
+  ensure_focused () ;
   match sequent.goal with
   | Or(left, _) -> sequent.goal <- left
   | _ -> ()
 
 let right () =
+  ensure_focused () ;
   match sequent.goal with
   | Or(_, right) -> sequent.goal <- right
   | _ -> ()
@@ -1542,6 +1645,7 @@ let right () =
 (* Unfold *)
 
 let unfold clause_sel sol_sel =
+  ensure_focused () ;
   let mdefs = def_unfold sequent.goal in
   let used = sequent.vars in
   let goal = unfold ~sr:!sr ~used ~mdefs clause_sel sol_sel sequent.goal in
@@ -1563,6 +1667,7 @@ let rec resolve_ewitness ew tids =
       failwithf "Could not resolve existential witness %s" (ewitness_to_string ew)
 
 let exists ew =
+  ensure_focused () ;
   match sequent.goal with
   | Binding (Metaterm.Exists, tids, body) ->
       let (id, ty, t, tids) = resolve_ewitness ew tids in
@@ -1582,6 +1687,7 @@ let exists ew =
 (* Skip *)
 
 let skip () =
+  ensure_focused () ;
   skip_seen := true ;
   next_subgoal ()
 
@@ -1621,6 +1727,7 @@ let check_removable h =
       failwithf "Unknown hypothesis or variable %s" h
 
 let clear cm hs =
+  ensure_focused () ;
   List.iter warn_label_name hs ;
   List.iter begin fun h ->
     check_removable h ;
@@ -1630,6 +1737,7 @@ let clear cm hs =
 (* Abbrev *)
 
 let abbrev ids str =
+  ensure_focused () ;
   Iset.iter warn_hyp_name ids ;
   sequent.hyps <-
     List.map begin fun h ->
@@ -1639,6 +1747,7 @@ let abbrev ids str =
     end sequent.hyps
 
 let unabbrev ids =
+  ensure_focused () ;
   Iset.iter warn_hyp_name ids ;
   sequent.hyps <-
     List.map begin fun h ->
@@ -1684,6 +1793,7 @@ let var_unavailable x =
   with Not_found -> false
 
 let rename xfr xto =
+  ensure_focused () ;
   warn_label_name xfr ;
   if H.mem lemmas xto then
     failwithf "%S already refers to a lemma" xto ;
@@ -1701,6 +1811,7 @@ let rename xfr xto =
 (* Permute *)
 
 let permute_nominals ids form =
+  ensure_focused () ;
   Option.iter warn_hyp_name form ;
   List.iter warn_var_name ids ;
   if not (List.is_unique ids) then failwith "Not a permutation" ;
@@ -1726,6 +1837,7 @@ let permute_nominals ids form =
 (* Object level cut with explicit cut formula*)
 
 let cut_from ?hint h arg term =
+  ensure_focused () ;
   warn_clearable h ; warn_clearable arg ;
   let term = type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
   warn_term_vars term ;
@@ -1741,6 +1853,7 @@ let cut_from ?hint h arg term =
 (* Duplicate hypothesis removal *)
 
 let clear_duplicates () =
+  ensure_focused () ;
   let new_hyps = ref [] in
   let new_preds = ref [] in
   let scan (h : hyp) =
@@ -1763,6 +1876,7 @@ let clear_duplicates () =
 exception SaturateSuccess
 let is_ground f = metaterm_vars_alist Logic f = []
 let saturate ?hint ?depth lemmas =
+  ensure_focused () ;
   List.iter warn_hyp_name lemmas ;
   let focus_lemmas = List.map get_hyp_or_lemma lemmas in
   let initial_focus () =

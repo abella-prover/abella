@@ -96,3 +96,30 @@ test("keeps import-module commands whole", () => {
     ['Import Module "List"[nat].', "Import Module L = List."]
   );
 });
+
+test("scans single and multi-character subgoal bullets", () => {
+  const texts = (doc: string) => scanCommands(doc).map((c) => c.text);
+  assert.deepEqual(texts("-\n+\n*\n--\n+++\n**\n"), [
+    "-",
+    "+",
+    "*",
+    "--",
+    "+++",
+    "**",
+  ]);
+  assert.deepEqual(texts("- search.\n+ split.\n"), [
+    "-",
+    "search.",
+    "+",
+    "split.",
+  ]);
+  assert.deepEqual(texts("/* c */ - % line\nsearch."), ["-", "search."]);
+});
+
+test("keeps *, +, and - inside normal commands whole", () => {
+  const texts = (doc: string) => scanCommands(doc).map((c) => c.text);
+  assert.deepEqual(
+    texts("apply *H1.\nsplit*.\nH-1 : case H1.\nTheorem t : A -> B.\n"),
+    ["apply *H1.", "split*.", "H-1 : case H1.", "Theorem t : A -> B."]
+  );
+});

@@ -23,7 +23,10 @@ const isSpace = (c: string) => c === " " || c === "\t" || c === "\r" || c === "\
 
 // Matches the lexer's `ichar` set, which starts a qualified-name segment.
 const isNameStart = (c: string | undefined) =>
-  c !== undefined && /[A-Za-z\-=`'?$]/.test(c);
+  c !== undefined && /[A-Za-z=`'?$]/.test(c);
+
+const isBulletChar = (c: string | undefined) =>
+  c === "-" || c === "+" || c === "*";
 
 const isCommandDot = (doc: string, i: number) =>
   doc[i] === "." && !isNameStart(doc[i + 1]);
@@ -74,6 +77,22 @@ export function scanCommands(doc: string, fromOffset = 0): Command[] {
       }
     }
     if (i >= length) break;
+
+    const ch = doc[i];
+    if (isBulletChar(ch) && !(ch === "-" && doc[i + 1] === ">")) {
+      let end = i + 1;
+      while (end < length && doc[end] === ch) end++;
+      if (!(ch === "*" && doc[end] === "/")) {
+        commands.push({
+          text: doc.slice(i, end),
+          from: i,
+          to: end,
+          endLine: lineOf(doc, end),
+        });
+        i = end;
+        continue;
+      }
+    }
 
     const from = i;
     let commentDepth = 0;

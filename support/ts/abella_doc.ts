@@ -56,6 +56,7 @@ type SequentObj = {
   goal: string;
   more: number;
   name?: string;
+  unfocused?: string;
 }
 
 function bg(count: number): string {
@@ -64,6 +65,10 @@ function bg(count: number): string {
 
 function sequentToString(obj: SequentObj, doInsts?: boolean): string {
   let repr = '<div class="rl">';
+  if (obj.unfocused) {
+    repr += `<div class="rl-more">${obj.unfocused}</div></div>`;
+    return repr;
+  }
   if (obj.name)
     repr += `<div><span class="rl-name">Subgoal ${obj.name}</span></div>`;
   let count = 0;

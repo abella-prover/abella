@@ -382,7 +382,10 @@ and process_proof1_body proc =
       input
   in
   if !Setup.mode <> `interactive then
-    Output.non_annot "%s.\n" cmd_string ;
+    begin match input.el with
+    | Bullet _ -> Output.non_annot "%s\n" cmd_string
+    | _ -> Output.non_annot "%s.\n" cmd_string
+    end ;
   let annot =
     if not !Setup.annotate then None else
     Output.message "proof_command" ~fields:begin
@@ -438,6 +441,7 @@ and process_proof1_body proc =
     | Unfold (cs, ss)        -> Prover.unfold cs ss
     | Intros hs              -> Prover.intros hs
     | Skip                   -> Prover.skip ()
+    | Bullet b               -> Prover.bullet b
     | Abort                  -> raise (Prover.End_proof `aborted)
     | Undo
     | Common(Back)           ->

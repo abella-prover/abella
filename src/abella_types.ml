@@ -213,6 +213,7 @@ type command =
   | Unfold       of clause_selector * solution_selector
   | Saturate     of { depth : int option ; lemmas : id list ; hint : hhint }
   | Skip
+  | Bullet       of string
   | Abort
   | Undo
   | Common       of common_command
@@ -564,6 +565,7 @@ let command_to_string c =
         let hint = hspec_alt_to_string alt in
         if hint = "" then "intros" else "intros " ^ hint
     | Skip -> "skip"
+    | Bullet b -> b
     | Abort -> "abort"
     | Undo -> "undo"
     | Common(cc) -> common_command_to_string cc

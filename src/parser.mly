@@ -180,7 +180,7 @@
 %token RBRACK RPAREN SEMICOLON STAR TURN UNDERSCORE
 
 %token <int> NUM
-%token <string> STRINGID QSTRING CLAUSENAME
+%token <string> STRINGID QSTRING CLAUSENAME BULLET PLUSES STARS
 %token <string list> QUALID
 %token EOF
 
@@ -611,6 +611,8 @@ pure_command:
     { Types.Intros alt }
   | SKIP; DOT
     { Types.Skip }
+  | b=bullet
+    { Types.Bullet b }
   | ABORT; DOT
     { Types.Abort }
   | UNDO; DOT
@@ -768,14 +770,29 @@ binding_vars:
   | bs=nonempty_list(x=id { check_legal_var x $startpos(x) ; x })
     { bs }
 
+%inline bullet:
+  | b=BULLET { b }
+  | PLUS { "+" }
+  | b=PLUSES { b }
+  | STAR { "*" }
+  | b=STARS { b }
+
+star_count:
+  | STAR { 1 }
+  | b=STARS { String.length b }
+
+plus_count:
+  | PLUS { 1 }
+  | b=PLUSES { String.length b }
+
 restriction:
   | { Metaterm.Irrelevant }
-  | rs=nonempty_list(STAR {()})
-    { Metaterm.Smaller (List.length rs) }
+  | ns=nonempty_list(star_count)
+    { Metaterm.Smaller (List.fold_left (+) 0 ns) }
   | rs=nonempty_list(AT {()})
     { Metaterm.Equal (List.length rs) }
-  | rs=nonempty_list(PLUS {()})
-    { Metaterm.CoSmaller (List.length rs) }
+  | ns=nonempty_list(plus_count)
+    { Metaterm.CoSmaller (List.fold_left (+) 0 ns) }
   | rs=nonempty_list(HASH {()})
     { Metaterm.CoEqual (List.length rs) }
 

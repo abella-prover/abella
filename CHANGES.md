@@ -75,6 +75,12 @@ Additions
   trying the lemmas from left to right and iterating up to the given depth.
   This is a branching tactic.
 
+* Added Rocq-style subgoal bullets: `-`, `+`, or `*` (or longer
+  runs of one of these characters) focus the next subgoal, and a
+  nested bullet may not reuse an enclosing one. Tactics issued
+  while no subgoal is focused fail with a hint naming the expected
+  bullet. (#173)
+
 Changes
 
 * The `-i` flag is deprecated and does nothing; use a frontend such as

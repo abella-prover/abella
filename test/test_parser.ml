@@ -458,4 +458,32 @@ let tests =
         (fun () ->
            assert_command_pprint "CH : coinduction" "CH : coinduction.") ;
 
+      test_case "Subgoal bullets"
+        (fun () ->
+           assert_command_pprint "-" "-" ;
+           assert_command_pprint "+" "+" ;
+           assert_command_pprint "*" "*" ;
+           assert_command_pprint "--" "--" ;
+           assert_command_pprint "+++" "+++" ;
+           assert_command_pprint "**" "**") ;
+
+      test_case "Sequential commands with bullets"
+        (fun () ->
+           let lb = Lexing.from_string "- search. ++ split." in
+           let next () =
+             Abella_types.command_to_string
+               (Parser.command_start Lexer.token lb).el
+           in
+           let c1 = next () in
+           let c2 = next () in
+           let c3 = next () in
+           let c4 = next () in
+           Alcotest.check (Alcotest.list Alcotest.string) "command sequence"
+             ["-" ; "search" ; "++" ; "split"]
+             [c1 ; c2 ; c3 ; c4]) ;
+
+      test_case "Multi-character size restrictions"
+        (fun () ->
+           assert_pprint_equal_parse "{foo X}** -> bar ++") ;
+
     ]

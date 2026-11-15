@@ -498,6 +498,62 @@ End List.
   assert_contains "Module M." (system_messages msgs) ;
   assert_ok (fst (process_command "search."))
 
+let proof_end_state msgs =
+  match messages_of_type "proof_command" msgs with
+  | [fields] -> begin
+      match List.assoc_opt "end_state" fields with
+      | Some (`Assoc st) -> st
+      | _ -> Alcotest.fail "expected end_state object"
+    end
+  | _ -> Alcotest.fail "expected single proof_command message"
+
+let assert_error status =
+  match status with
+  | Error _ -> ()
+  | Ok () -> Alcotest.fail "expected command failure"
+
+let test_bullets () =
+  assert_ok (fst (process_command "Theorem t : true /\\ true.")) ;
+  assert_ok (fst (process_command "split.")) ;
+  assert_ok (fst (process_command "-")) ;
+  let (status, msgs) = process_command "search." in
+  assert_ok status ;
+  let st = proof_end_state msgs in
+  Alcotest.check Alcotest.int "remaining" 1
+    (match List.assoc_opt "more" st with
+     | Some (`Int n) -> n
+     | _ -> Alcotest.fail "expected int more") ;
+  let unfocused =
+    match List.assoc_opt "unfocused" st with
+    | Some (`String s) -> s
+    | _ -> Alcotest.fail "expected unfocused string"
+  in
+  assert_contains
+    "Focus next subgoal with bullet - (1 subgoal remaining)." [unfocused] ;
+  let (status, msgs) = process_command "search." in
+  assert_error status ;
+  assert_contains "No focused subgoal" (error_messages msgs) ;
+  let (status, msgs) = process_command "+" in
+  assert_error status ;
+  assert_contains "Wrong bullet +: expected -" (error_messages msgs) ;
+  let (status, msgs) = process_command "-" in
+  assert_ok status ;
+  let st = proof_end_state msgs in
+  Alcotest.check Alcotest.bool "focused has no unfocused field" false
+    (List.mem_assoc "unfocused" st) ;
+  Alcotest.check Alcotest.string "focused goal" "true"
+    (match List.assoc_opt "goal" st with
+     | Some (`String g) -> g
+     | _ -> Alcotest.fail "expected goal string") ;
+  assert_ok (fst (process_command "undo.")) ;
+  let (status, msgs) = process_command "search." in
+  assert_error status ;
+  assert_contains "No focused subgoal" (error_messages msgs) ;
+  assert_ok (fst (process_command "-")) ;
+  let (status, msgs) = process_command "search." in
+  assert_ok status ;
+  assert_contains "Proof completed" (system_messages msgs)
+
 let tests = suite "web_core" [
   test_case "virtual_source" (fun () -> with_session test_virtual_source) ;
   test_case "thc_cache_bound" (fun () -> with_session test_thc_cache_bound) ;
@@ -512,6 +568,7 @@ let tests = suite "web_core" [
   test_case "show_module" (fun () -> with_session test_show_module) ;
   test_case "warn_names" (fun () -> with_session test_warn_names) ;
   test_case "strict_names" (fun () -> with_session test_strict_names) ;
+  test_case "bullets" (fun () -> with_session test_bullets) ;
   test_case "back_across_proof_boundary"
     (fun () -> with_session test_back_across_proof_boundary) ;
   test_case "back_command_across_proof_boundary"

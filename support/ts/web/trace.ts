@@ -24,6 +24,10 @@ function code(text: string): HTMLElement {
 export function renderSequent(state: ProofState): HTMLElement {
   const box = document.createElement("div");
   box.className = "sequent";
+  if (state.unfocused) {
+    box.append(row("sequent-more", state.unfocused));
+    return box;
+  }
   if (state.name) {
     box.append(row("sequent-name", `Subgoal ${state.name}`));
   }

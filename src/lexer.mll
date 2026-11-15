@@ -102,10 +102,10 @@
 let number = ['0'-'9'] +
 
 (* Initial characters for variables *)
-let ichar = ['A'-'Z' 'a'-'z' '-' '=' '`' '\'' '?' '$']
+let ichar = ['A'-'Z' 'a'-'z' '=' '`' '\'' '?' '$']
 
 (* Characters allowed only in the body of variables. *)
-let bchar = ['0'-'9' '_' '/' '*' '@' '+' '#' '!' '~']
+let bchar = ['0'-'9' '_' '-' '/' '*' '@' '+' '#' '!' '~']
 
 let name = ichar (ichar|bchar)*
 let qualid = name ('.' name)+
@@ -145,9 +145,12 @@ rule token = parse
 
 | ":"                { COLON }
 | "->"               { RARROW }
+| '-' + as b         { BULLET b }
+| "**" '*' * as b    { STARS b }
 | "*"                { STAR }
 | "@"                { AT }
 | "#"                { HASH }
+| "++" '+' * as b    { PLUSES b }
 | "+"                { PLUS }
 | "\\/"              { OR }
 | "/\\"              { AND }

@@ -166,6 +166,7 @@ exception Out_of_gas
 exception Suspended
 
 let compute ?hint ?(gas = 1_000) ?(warn = true) hs =
+  Prover.ensure_focused () ;
   if warn then List.iter Prover.warn_clearable hs ;
   let total_gas = gas in
   let gas = ref total_gas in
@@ -260,6 +261,7 @@ let compute ?hint ?(gas = 1_000) ?(warn = true) hs =
       Prover.next_subgoal ()
 
 let compute_all ?hint ?gas clr =
+  Prover.ensure_focused () ;
   let hs = List.map begin fun (h : Prover.hyp) ->
       if clr = `CLEAR then Remove (h.id, []) else Keep (h.id, [])
     end Prover.sequent.hyps in

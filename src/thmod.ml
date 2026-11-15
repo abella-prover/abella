@@ -506,7 +506,7 @@ let resolve_command ~is_hyp cmd =
       Common (Show (resolve_hyp_or_item ~is_hyp name))
   | Common Quit ->
       failwith "Quit is not allowed in a module"
-  | ComputeAll _ | Split | SplitStar | Left | Right | Undo
+  | Bullet _ | ComputeAll _ | Split | SplitStar | Left | Right | Undo
   | Common _ -> cmd
   | Abort ->
       failwith "Abort is not allowed in a module"

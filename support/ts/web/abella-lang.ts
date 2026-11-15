@@ -39,7 +39,7 @@ interface TokenState {
   commentDepth: number;
 }
 
-const identifierStart = /[A-Za-z_$?='`-]/;
+const identifierStart = /[A-Za-z_$?='`]/;
 const identifierPart = /[A-Za-z0-9_\/@+!#~*'`?=$-]/;
 
 const proofCommands = new Set([
@@ -116,7 +116,7 @@ function makeParser(
       if (stream.match(/^(=>|<=|:-|:=|\|-|->|\\\/|\/\\|::)/)) {
         return "operator";
       }
-      if (stream.match(/^[\\&*@#+]+/)) return "operator";
+      if (stream.match(/^[\\&*@#+-]+/)) return "operator";
       if (stream.match(/^[.,;:()[\]]/)) return "punctuation";
 
       stream.next();

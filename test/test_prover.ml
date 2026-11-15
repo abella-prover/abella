@@ -1279,4 +1279,129 @@ let tests =
                 intros { hspec_vars = [User_name "u"] ; hspec_hyps = [] })
         ) ;
 
+      test_case "Nested bullets and unfocused display"
+        (fun () ->
+           setup_prover
+             ~goal:"(true -> true /\\ true) /\\ \
+                    (true -> true /\\ (true -> true /\\ true))" () ;
+           start_proof () ;
+           assert_proof begin fun () ->
+             split false ;
+             bullet "-" ;
+               intros no_hints ;
+               split false ;
+               bullet "+" ; search () ;
+               Alcotest.check Alcotest.bool "unfocused at +" false
+                 (is_focused ()) ;
+               Alcotest.check (Alcotest.option Alcotest.string) "expect +"
+                 (Some "+") (expected_bullet ()) ;
+               Alcotest.check Alcotest.string "unfocused display"
+                 "\nSubgoal completed. Focus next subgoal with bullet + \
+                  (2 subgoals remaining).\n\n"
+                 (get_display ()) ;
+               bullet "+" ; search () ;
+             Alcotest.check Alcotest.bool "unfocused at -" false
+               (is_focused ()) ;
+             Alcotest.check (Alcotest.option Alcotest.string) "expect -"
+               (Some "-") (expected_bullet ()) ;
+             bullet "-" ;
+               intros no_hints ;
+               split false ;
+               bullet "+" ; search () ;
+               bullet "+" ;
+                 intros no_hints ;
+                 split false ;
+                 bullet "*" ; search () ;
+                 bullet "*" ; search ()
+           end
+        ) ;
+
+      test_case "Tactic fails while unfocused"
+        (fun () ->
+           setup_prover ~goal:"true /\\ true" () ;
+           start_proof () ;
+           split false ;
+           bullet "-" ;
+           search () ;
+           Alcotest.check Alcotest.bool "unfocused" false (is_focused ()) ;
+           Alcotest.check_raises "tactic unfocused"
+             (Failure
+                "No focused subgoal. Use bullet - to focus the next subgoal")
+             (fun () -> search ())
+        ) ;
+
+      test_case "Wrong bullet fails while unfocused"
+        (fun () ->
+           setup_prover ~goal:"true /\\ true" () ;
+           start_proof () ;
+           split false ;
+           bullet "-" ;
+           search () ;
+           Alcotest.check_raises "wrong bullet"
+             (Failure "Wrong bullet +: expected -")
+             (fun () -> bullet "+")
+        ) ;
+
+      test_case "Reusing enclosing bullet fails while focused"
+        (fun () ->
+           setup_prover ~goal:"(true -> true /\\ true) /\\ true" () ;
+           start_proof () ;
+           split false ;
+           bullet "-" ;
+           intros no_hints ;
+           split false ;
+           Alcotest.check_raises "reused enclosing bullet"
+             (Failure "Bullet - is already active in an enclosing subgoal")
+             (fun () -> bullet "-")
+        ) ;
+
+      test_case "Strict sibling bullets and inner bullet auto-close"
+        (fun () ->
+           setup_prover
+             ~goal:"(true -> true /\\ true) /\\ \
+                    (true -> true /\\ true) /\\ true" () ;
+           start_proof () ;
+           assert_proof begin fun () ->
+             split false ;
+             bullet "-" ;
+               intros no_hints ;
+               split false ;
+               bullet "+" ; search () ;
+               bullet "+" ; search () ;
+             Alcotest.check Alcotest.bool "second - unfocused" false
+               (is_focused ()) ;
+             bullet "-" ;
+               intros no_hints ;
+               split false ;
+               bullet "+" ; search () ;
+               bullet "+" ; search () ;
+             Alcotest.check Alcotest.bool "third - unfocused" false
+               (is_focused ()) ;
+             Alcotest.check (Alcotest.option Alcotest.string) "expect -"
+               (Some "-") (expected_bullet ()) ;
+             bullet "-" ;
+               search ()
+           end
+        ) ;
+
+      test_case "Undo restores bullet stack and focus"
+        (fun () ->
+           setup_prover ~goal:"true /\\ true" () ;
+           start_proof () ;
+           split false ;
+           bullet "-" ;
+           search () ;
+           Alcotest.check Alcotest.bool "unfocused before bullet" false
+             (is_focused ()) ;
+           State.Undo.push () ;
+           bullet "-" ;
+           Alcotest.check Alcotest.bool "focused after bullet" true
+             (is_focused ()) ;
+           State.Undo.undo () ;
+           Alcotest.check Alcotest.bool "unfocused after undo" false
+             (is_focused ()) ;
+           Alcotest.check (Alcotest.option Alcotest.string)
+             "expected bullet after undo" (Some "-") (expected_bullet ())
+        ) ;
+
     ]

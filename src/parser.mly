@@ -748,13 +748,13 @@ binding_list:
     { bs }
 
 binding_one:
-  | id
-    { [$1, Term.fresh_tyvar ()] }
+  | x=id
+    { check_legal_var x $startpos(x) ; [x, Term.fresh_tyvar ()] }
   | LPAREN; vs=binding_vars; COLON; ty=ty; RPAREN
     { List.fold_right (fun x tids -> binding_cons (x, ty) tids) vs [] }
 
 binding_vars:
-  | bs=nonempty_list(id)
+  | bs=nonempty_list(x=id { check_legal_var x $startpos(x) ; x })
     { bs }
 
 restriction:

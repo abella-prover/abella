@@ -34,6 +34,10 @@ dev-examples/
 /web/examples/bundle.json
 /web/.test/
 /web/chunks/
+/web/_headers
+# Abella Web deployment worker (static assets config and tooling)
+/support/web-deploy/node_modules/
+/support/web-deploy/.wrangler/
 # Abella Web OAuth worker (local secrets and build output)
 /support/oauth-worker/node_modules/
 /support/oauth-worker/.wrangler/

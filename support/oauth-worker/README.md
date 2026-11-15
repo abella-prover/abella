@@ -20,13 +20,13 @@ Returns the public configuration needed to start a flow:
 
 ```http
 GET /github/config
-Origin: https://abella-prover.org
+Origin: https://web.abella-prover.org
 ```
 
 ```json
 {
   "clientId": "Iv1.0123456789abcdef",
-  "redirectUri": "https://abella-prover.org/web/github-callback.html"
+  "redirectUri": "https://web.abella-prover.org/github-callback.html"
 }
 ```
 
@@ -40,7 +40,7 @@ Exchanges an authorization code with PKCE:
 
 ```http
 POST /github/token
-Origin: https://abella-prover.org
+Origin: https://web.abella-prover.org
 Content-Type: application/json
 
 {"code":"...","codeVerifier":"..."}
@@ -189,8 +189,8 @@ Until every required variable is present, `GET /github/config` returns
 ## Deployment
 
 1. Create the production OAuth App with homepage
-   `https://abella-prover.org/web/` and callback
-   `https://abella-prover.org/web/github-callback.html`.
+   `https://web.abella-prover.org/` and callback
+   `https://web.abella-prover.org/github-callback.html`.
 2. Record its client ID in `env.production.vars` in `wrangler.jsonc`.
 3. Set the client secret:
    ```sh

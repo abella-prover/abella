@@ -1,6 +1,6 @@
 {
   "name": "abella_support",
-  "description": "Support code for abella_doc and Abella Web (https://abella-prover.org/web)",
+  "description": "Support code for abella_doc and Abella Web (https://web.abella-prover.org)",
   "private": true,
   "scripts": {
     "check": "tsc -noEmit",

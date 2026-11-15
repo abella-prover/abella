@@ -21,7 +21,7 @@ import { WorkspaceError } from "./workspace";
 
 const CONFIG: GitHubOAuthConfig = {
   clientId: "client-id",
-  redirectUri: "https://abella-prover.org/web/github-callback.html",
+  redirectUri: "https://web.abella-prover.org/github-callback.html",
 };
 
 const realFetch = globalThis.fetch;

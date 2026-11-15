@@ -6,7 +6,7 @@ Object, no payment method. The Workers Free plan's hard KV cutoffs are
 the cost guarantee.
 
 The doc page builds the zip in the browser, uploads it here, and opens
-`https://abella-prover.org/web/?zip=<url>`. Abella Web downloads and
+`https://web.abella-prover.org/?zip=<url>`. Abella Web downloads and
 imports it.
 
 ## Routes

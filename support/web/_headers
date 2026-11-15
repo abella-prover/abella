@@ -1,0 +1,60 @@
+# Response headers for the Abella Web Workers Static Assets site.
+# This is the source of truth; `make web` copies it verbatim to
+# `web/_headers` (generated and gitignored) and `npm run web:check`
+# verifies the copy is current.
+#
+# Rules match the request path only; the `?v=` cache-busting queries
+# stamped by the build do not affect matching. A request that matches
+# several rules inherits every rule's headers, so Cache-Control is set
+# in exactly one rule per path (joining two Cache-Control values would
+# produce conflicting directives).
+
+/*
+  X-Content-Type-Options: nosniff
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://abella-prover.org; font-src 'self'; connect-src 'self' https://api.github.com https://raw.githubusercontent.com https://oauth.abella-prover.org https://zips.abella-prover.org; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+
+/
+  Cache-Control: public, max-age=600
+
+/index.html
+  Cache-Control: public, max-age=600
+
+/privacy.html
+  Cache-Control: public, max-age=600
+
+/github-callback.html
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'
+
+# Content-hashed or build-stamped assets: the URL changes whenever the
+# bytes change, so a year of immutable caching is safe.
+/abella_web.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/abella_web.css
+  Cache-Control: public, max-age=31536000, immutable
+
+/github_callback.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/abella_js/worker.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/abella_js/abella_js.bc.wasm.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/abella_js/abella_js.bc.wasm.assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/chunks/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Fetched at runtime by the app; kept short like the HTML pages.
+/examples/bundle.json
+  Cache-Control: public, max-age=600

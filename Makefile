@@ -44,14 +44,20 @@ web-dev-local:
 web-dev: web
 	( cd support && npm run web:build:dev )
 
+WEB_DEPLOY ?= npx wrangler deploy
+
 .PHONY: publish-web
 publish-web:
 	$(MAKE) --no-print-directory web
 	( cd support && npm run web:check )
-	rsync -aviz --delete \
-	  --exclude '.test/' \
-	  --exclude '*.map' \
-	  web/ abellaweb@origin.abella-prover.org:abella-prover.org/web/
+	rm -rf web/.test
+	find web -name '*.map' -delete
+	( cd support/web-deploy && npm ci && $(WEB_DEPLOY) )
+
+.PHONY: publish-web-dry-run
+publish-web-dry-run:
+	$(MAKE) --no-print-directory publish-web \
+	  WEB_DEPLOY='npx wrangler deploy --dry-run'
 
 .PHONY: oauth-worker-check
 oauth-worker-check:

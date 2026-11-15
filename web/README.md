@@ -5,7 +5,7 @@ Abella Web is the static browser interface in `web/`. Build it with:
 
 ```sh
 make web                 # build the wasm backend
-make publish-web         # build and rsync web/ to the site
+make publish-web         # build and deploy web/ to web.abella-prover.org
 ```
 
 `make web` needs Node 22+, Dune 3.20+, `wasm_of_ocaml-compiler` 6.4.x,
@@ -44,31 +44,35 @@ The GitHub backend calls `https://api.github.com` and
 `https://raw.githubusercontent.com`; a deployed CSP must allow both
 origins in `connect-src`.
 
-`make publish-web` expects SSH access to the publishing account and
-copies the whole generated `web/` tree, including lazy JavaScript
-chunks. It uses `rsync --delete`, so files that are no longer in the
-local `web/` tree are removed from the origin. Generated assets are
-gitignored.
+`make publish-web` rebuilds `web/`, verifies the stamped references
+with `npm run web:check`, and deploys the whole generated `web/` tree
+as Cloudflare Workers Static Assets on `web.abella-prover.org` (see
+`support/web-deploy/`). The publish step deletes `web/.test/` and any
+`*.map` files first, so they are never uploaded. The site Worker is
+assets-only and independent of the OAuth and ZIP Workers, which keep
+their own deployments.
 
-Cloudflare proxies the public apex, so SSH publishing cannot target the
-proxied `abella-prover.org` address. Keep a DNS-only
+Response headers come from `support/web/_headers`, copied to
+`web/_headers` by `make web`. The three HTML entry pages are cached by
+browsers for 10 minutes; hashed JavaScript, CSS, wasm, chunk, and font
+assets are immutable for a year; `github-callback.html` is never
+stored. Workers revalidates the rest with ETags, so a redeploy takes
+effect promptly.
+
+`make publish-doc` still copies the example sources to the DreamHost
+origin over SSH. Cloudflare proxies the public apex, so that step
+cannot target the proxied `abella-prover.org` address: keep a DNS-only
 `origin.abella-prover.org` A record pointing at the DreamHost Apache
-origin; `make publish-web` and `make publish-doc` connect there as
-`abellaweb`.
-
-The origin SSH host key must be current for the
-`origin.abella-prover.org` known-hosts entry. Verify it with the hosting
-provider before accepting a changed key.
-
-Cloudflare caches generated JavaScript, CSS, and wasm launchers by URL
-for 30 days and does not revalidate when the origin changes. The three
-HTML entry pages are not edge-cached and are browser-cached for 10
-minutes.
+origin and connect there as `abellaweb`. The origin SSH host key must
+be current for the `origin.abella-prover.org` known-hosts entry; verify
+it with the hosting provider before accepting a changed key.
 
 The HTML sources live in `support/web/`; `make web` writes the stamped
 copies to `web/index.html`, `web/privacy.html`, and
 `web/github-callback.html`. The copies are generated and gitignored, so
-`make web` and `make web-dev` never dirty a tracked file.
+`make web` and `make web-dev` never dirty a tracked file. The response
+headers in `support/web/_headers` are copied verbatim to
+`web/_headers` by the same build step.
 
 `make web` handles cache busting automatically. It hashes the built
 assets, appends the hash as `?v=` to the references in the generated
@@ -77,12 +81,13 @@ bundles. There is no version file to bump. `make publish-web` rebuilds,
 verifies the stamped references with `npm run web:check`, and syncs the
 tree.
 
-Obsolete chunks and wasm assets are deleted on publish. A stale browser
-tab that still holds the previous HTML may need a reload if it asks for
-an old chunk that is no longer on the origin.
+Obsolete chunks and wasm assets are deleted on rebuild, and chunk file
+names include content hashes, so a redeploy never collides with older
+bundles. A stale browser tab that still holds the previous HTML may
+need a reload if it asks for an old chunk that is no longer deployed.
 
-The HTML pages must stay at a short `max-age` and out of the CDN edge
-cache; the hashes only protect subresources.
+The HTML pages must stay at a short `max-age`; the hashes only protect
+subresources.
 
 Reasoning modules
 -----------------
@@ -105,7 +110,7 @@ theorem page and no longer writes `<theorem>.project.json`. The page's
 local server or a personal host.
 
 When `--web` is set (the default is
-`https://abella-prover.org/web/`) and `--share` is set (the default is
+`https://web.abella-prover.org/`) and `--share` is set (the default is
 `https://zips.abella-prover.org/`), the theorem page gets a pencil
 button. Clicking it:
 
@@ -240,8 +245,8 @@ Production OAuth deployment
 ---------------------------
 
 1. Create the production GitHub OAuth App with homepage
-   `https://abella-prover.org/web/` and callback
-   `https://abella-prover.org/web/github-callback.html`.
+   `https://web.abella-prover.org/` and callback
+   `https://web.abella-prover.org/github-callback.html`.
 2. Add its public client ID to `env.production.vars` in
    `support/oauth-worker/wrangler.jsonc`.
 3. Set the secret:
@@ -285,13 +290,13 @@ connect-src 'self' https://api.github.com
 If the Worker uses its `workers.dev` fallback URL instead of the custom
 domain, use that exact URL in both the CSP and the frontend build.
 
-Do not set `Cross-Origin-Opener-Policy: same-origin` on `/web/` if the
+Do not set `Cross-Origin-Opener-Policy: same-origin` on the site if the
 OAuth popup is to work. `same-origin-allow-popups` is acceptable.
 Verify the actual deployment headers on the real origin.
 
-Serve `web/github-callback.html` with `Cache-Control: no-store`,
-`Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, and
-`frame-ancestors 'none'` where per-file headers are available. The
+`support/web/_headers` serves `web/github-callback.html` with
+`Cache-Control: no-store`, `Referrer-Policy: no-referrer`,
+`X-Frame-Options: DENY`, and `frame-ancestors 'none'`. The
 callback needs no extra `script-src` permission because it loads only a
 same-origin script.
 

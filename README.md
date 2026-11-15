@@ -21,7 +21,7 @@ Abella Web
 ==========
 
 Instead of running Abella locally, you can also use [Abella
-Web](https://abella-prover.org/web/), which is a development environment for
+Web](https://web.abella-prover.org/), which is a development environment for
 Abella that runs entirely in your browser. Your files never leave your browser
 and never reach the internet.
 

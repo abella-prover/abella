@@ -407,7 +407,7 @@ let () =
         "Link theorem pages to the Abella Web app at $(docv). \
          The default is the public site; pass an empty value to omit \
          the link." in
-      Arg.(value @@ opt string "https://abella-prover.org/web/" @@
+      Arg.(value @@ opt string "https://web.abella-prover.org/" @@
            info ["web"] ~doc ~docv:"URL")
     in
     let share =

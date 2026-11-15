@@ -26,8 +26,8 @@
       ],
       "vars": {
         "GITHUB_CLIENT_ID": "Ov23lij3esU9SVP6NPzv",
-        "ALLOWED_ORIGIN": "https://abella-prover.org",
-        "REDIRECT_URI": "https://abella-prover.org/web/github-callback.html"
+        "ALLOWED_ORIGIN": "https://web.abella-prover.org",
+        "REDIRECT_URI": "https://web.abella-prover.org/github-callback.html"
       }
     }
   }

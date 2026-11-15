@@ -3,8 +3,8 @@
 // See LICENSE for licensing details.
 
 // Build the Abella Web assets and stamp content hashes into the entry
-// pages.  Cloudflare caches assets by URL for 30 days and does not
-// revalidate when the origin changes, so every changed asset needs a new
+// pages.  Hashed assets carry long immutable Cache-Control rules (see
+// support/web/_headers), so every changed asset needs a new
 // ?v= value.
 
 import { createHash } from "node:crypto";
@@ -35,6 +35,9 @@ const dev = process.argv.includes("--dev");
 const checkOnly = process.argv.includes("--check");
 
 const templatesRoot = join(supportRoot, "web");
+
+const headersSource = join(templatesRoot, "_headers");
+const headersTarget = join(webRoot, "_headers");
 
 const pages = [
   {
@@ -147,6 +150,17 @@ function check() {
     problems.push(`${cssPath}: font reference is not current`);
   }
 
+  if (!existsSync(join(templatesRoot, "_headers"))) {
+    problems.push("support/web/_headers: missing");
+  } else if (!existsSync(headersTarget)) {
+    problems.push(`${headersTarget}: missing; run make web`);
+  } else if (
+    readFileSync(headersSource, "utf8") !==
+    readFileSync(headersTarget, "utf8")
+  ) {
+    problems.push(`${headersTarget}: differs from ${headersSource}`);
+  }
+
   if (problems.length > 0) {
     for (const problem of problems) console.error(`  ${problem}`);
     fail("web asset stamps are inconsistent; run make web");
@@ -172,6 +186,10 @@ async function buildAssets() {
   mkdirSync(webRoot, { recursive: true });
   copyWebFonts();
   const fontHash = fileHash(fontPath);
+
+  if (!existsSync(headersSource)) fail(`missing ${headersSource}`);
+  writeFileSync(headersTarget, readFileSync(headersSource, "utf8"));
+  console.log(`copied ${headersTarget}`);
 
   await build({
     absWorkingDir: supportRoot,

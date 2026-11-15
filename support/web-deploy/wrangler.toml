@@ -1,0 +1,16 @@
+# Abella Web static site. Deploys the built `web/` tree as Cloudflare
+# Workers Static Assets on `web.abella-prover.org`, mirroring how
+# `docs.abella-prover.org` is set up. This Worker is assets-only and
+# independent of the OAuth and ZIP Workers, which keep their own
+# configs and deployments.
+name = "abella-web"
+compatibility_date = "2026-11-08"
+workers_dev = true
+
+[[routes]]
+pattern = "web.abella-prover.org"
+custom_domain = true
+
+[assets]
+directory = "../../web"
+not_found_handling = "404-page"

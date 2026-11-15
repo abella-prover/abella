@@ -1,0 +1,12 @@
+{
+  "name": "abella-web-deploy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deployment wrapper for the Abella Web static site (https://web.abella-prover.org)",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.155.0"
+  }
+}

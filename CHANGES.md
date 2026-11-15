@@ -24,7 +24,7 @@ Abella Web
 
 * Abella now has a web interface at:
 
-    https://abella-prover.org/web
+    https://web.abella-prover.org
 
   The Abella source distribution contains the source code for Abella Web and
   the full instructions for running a local Abella Web server locally.

@@ -20,7 +20,7 @@ const BASE = "https://docs.example/demo/";
 const DATA: ShareData = {
   entry: "demo.thm",
   files: ["demo.thm", "demo.sig", "demo.mod"],
-  web: "https://abella-prover.org/web/",
+  web: "https://web.abella-prover.org/",
   share: "https://zips.abella-prover.org/",
 };
 
@@ -147,7 +147,7 @@ test("the Abella Web target carries the encoded zip URL", () => {
   const target = shareTarget(DATA.web, url, BASE);
   assert.equal(
     target,
-    `https://abella-prover.org/web/?zip=${encodeURIComponent(url)}`
+    `https://web.abella-prover.org/?zip=${encodeURIComponent(url)}`
   );
 });
 

@@ -795,14 +795,29 @@ let type_udef ~sr ~sign (head, body) =
   reject_objseq head ;
   reject_objseq body ;
   let cids = umetaterm_extract_if is_capital_name head in
-  let tyctx = ids_to_fresh_tyctx cids in
-  let eqns1 = infer_constraints ~sign ~tyctx head in
-  let eqns2 = infer_constraints ~sign ~tyctx body in
+  let capital_tyctx = ids_to_fresh_tyctx cids in
+  let head_nominal_tyctx =
+    ids_to_fresh_tyctx (umetaterm_extract_if is_nominal_name head)
+  in
+  let body_nominal_tyctx =
+    ids_to_fresh_tyctx (umetaterm_extract_if is_nominal_name body)
+  in
+  let head_tyctx = capital_tyctx @ head_nominal_tyctx in
+  let body_tyctx = capital_tyctx @ body_nominal_tyctx in
+  let eqns1 = infer_constraints ~sign ~tyctx:head_tyctx head in
+  let eqns2 = infer_constraints ~sign ~tyctx:body_tyctx body in
   unify_constraints (eqns1 @ eqns2);
-  let ctx = tyctx_to_ctx tyctx in
+  let head_ctx =
+    (tyctx_to_ctx capital_tyctx)
+    @ (tyctx_to_nominal_ctx head_nominal_tyctx)
+  in
+  let body_ctx =
+    (tyctx_to_ctx capital_tyctx)
+    @ (tyctx_to_nominal_ctx body_nominal_tyctx)
+  in
   let (rhead, rbody) =
-    (replace_metaterm_vars ctx (umetaterm_to_metaterm ~sign head),
-     replace_metaterm_vars ctx (umetaterm_to_metaterm ~sign body))
+    (replace_metaterm_vars head_ctx (umetaterm_to_metaterm ~sign head),
+     replace_metaterm_vars body_ctx (umetaterm_to_metaterm ~sign body))
   in
   metaterm_ensure_fully_inferred ~sign rhead ;
   metaterm_ensure_fully_inferred ~sign rbody ;

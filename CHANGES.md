@@ -158,6 +158,10 @@ Bugfixes
   file are now reported as clear errors. Out-of-range integer literals
   name the offending literal, and illegal-character diagnostics
   consistently report file and position.
+* Definitional clauses now accept free nominal constants, matching
+  `Theorem`/`Query` and specification-logic clauses behavior. Nominals
+  in the head and body are elaborated as separate constants, so e.g.
+  `p2 n1 := p1 n1` may give the two `n1`s different types. (#172)
 
 
 Changes in 2.0.8 from 2.0.7

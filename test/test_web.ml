@@ -554,6 +554,16 @@ let test_bullets () =
   assert_ok status ;
   assert_contains "Proof completed" (system_messages msgs)
 
+let test_tacticals () =
+  assert_ok (fst (process_command "Theorem t1 : true.")) ;
+  assert_ok (fst (process_command "try search.")) ;
+  assert_ok (fst (process_command "Theorem t2 : true /\\ true.")) ;
+  assert_ok (fst (process_command "split ; search.")) ;
+  State.Undo.back 1 ;
+  let (status, msgs) = process_command "repeat (try split ; search)." in
+  if Result.is_error status then
+    Alcotest.fail (String.concat "\n" (system_messages msgs))
+
 let tests = suite "web_core" [
   test_case "virtual_source" (fun () -> with_session test_virtual_source) ;
   test_case "thc_cache_bound" (fun () -> with_session test_thc_cache_bound) ;
@@ -569,6 +579,7 @@ let tests = suite "web_core" [
   test_case "warn_names" (fun () -> with_session test_warn_names) ;
   test_case "strict_names" (fun () -> with_session test_strict_names) ;
   test_case "bullets" (fun () -> with_session test_bullets) ;
+  test_case "tacticals" (fun () -> with_session test_tacticals) ;
   test_case "back_across_proof_boundary"
     (fun () -> with_session test_back_across_proof_boundary) ;
   test_case "back_command_across_proof_boundary"

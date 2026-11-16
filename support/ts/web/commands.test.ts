@@ -123,3 +123,19 @@ test("keeps *, +, and - inside normal commands whole", () => {
     ["apply *H1.", "split*.", "H-1 : case H1.", "Theorem t : A -> B."]
   );
 });
+
+test("keeps tacticals in a single dot-terminated command", () => {
+  const texts = (doc: string) => scanCommands(doc).map((c) => c.text);
+  assert.deepEqual(texts("split ; search."), ["split ; search."]);
+  assert.deepEqual(texts("try search."), ["try search."]);
+  assert.deepEqual(texts("repeat 2 (split ; try search)."), [
+    "repeat 2 (split ; try search).",
+  ]);
+  assert.deepEqual(texts("try (split ; search) ; left."), [
+    "try (split ; search) ; left.",
+  ]);
+  assert.deepEqual(
+    texts("Theorem t : true /\\ true.\nsplit ; intros ; search.\n"),
+    ["Theorem t : true /\\ true.", "split ; intros ; search."]
+  );
+});

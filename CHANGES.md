@@ -20,6 +20,21 @@ Reasoning-level modules
 * See `examples/modules/` for examples, and `examples/modules/README.md` for
   more documentation.
 
+Tacticals
+
+* `tac1 ; tac2` runs `tac1` and then runs `tac2` on every subgoal it
+  produces. If any part fails, the whole combination fails and leaves
+  the proof state unchanged.
+* `try tac` runs `tac` and keeps the current goal unchanged when
+  `tac` fails, rolling back partial progress from compound tactics
+  such as `try (split ; search)`.
+* `repeat tac` (or `repeat n tac` for at most `n` iterations) runs
+  `tac` on all resulting subgoals until it fails or stops making
+  progress.
+* Parentheses group tactical expressions, and `induction` and
+  `coinduction` are not allowed inside tacticals.
+* A tactical combination counts as a single command for undo.
+
 Abella Web
 
 * Abella now has a web interface at:

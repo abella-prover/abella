@@ -824,51 +824,116 @@ let term_map_on_tys f t =
   in
   taux t
 
+let rec term_iter_tys f t =
+  match observe (hnorm t) with
+  | Var v -> f v.ty
+  | DB _ -> ()
+  | Lam (cx, t) ->
+     List.iter (fun (_, ty) -> f ty) cx;
+     term_iter_tys f t
+  | App (h, args) ->
+     term_iter_tys f h;
+     List.iter (term_iter_tys f) args
+  | Ptr _ | Susp _ ->
+     [%bug] "term_iter_tys: unexpected pointer or suspension"
+
 let ty_tyvars ty =
-  let tyvars = ref [] in
-  let record aty =
+  let seen = ref Itab.empty in
+  iter_ty begin fun aty ->
     match aty with
     | Typtr {contents=TV v} ->
-       tyvars := v::!tyvars
-    | _ -> () in
-  iter_ty record (observe_ty ty);
-  !tyvars
+       if not (Itab.mem v !seen) then
+         seen := Itab.add v () !seen
+    | _ -> ()
+  end ty;
+  List.map fst (Itab.bindings !seen)
 
 let ty_contains_tyvar ty =
-  List.length (ty_tyvars ty) > 0
+  let exception Found in
+  try
+    iter_ty begin fun aty ->
+      match aty with
+      | Typtr {contents=TV _} -> raise Found
+      | _ -> ()
+    end ty;
+    false
+  with Found -> true
 
 let term_collect_tyvar_names t =
-  let tyvars = ref [] in
-  let _ = term_map_on_tys begin fun ty ->
-            tyvars := (ty_tyvars ty)@(!tyvars); ty
-            end t in
-  List.unique (!tyvars)
+  let seen = ref Itab.empty in
+  term_iter_tys begin fun ty ->
+    iter_ty begin fun aty ->
+      match aty with
+      | Typtr {contents=TV v} ->
+         if not (Itab.mem v !seen) then
+           seen := Itab.add v () !seen
+      | _ -> ()
+    end ty
+  end t;
+  List.map fst (Itab.bindings !seen)
 
 let terms_contain_tyvar l =
-  List.exists (fun t -> List.length (term_collect_tyvar_names t) <> 0) l
+  let exception Found in
+  let check_ty ty =
+    iter_ty begin fun aty ->
+      match aty with
+      | Typtr {contents=TV _} -> raise Found
+      | _ -> ()
+    end ty
+  in
+  try
+    List.iter (term_iter_tys check_ty) l;
+    false
+  with Found -> true
 
 let ty_gentyvars ty =
-  let tyvars = ref [] in
-  let record aty =
+  let seen = ref Itab.empty in
+  iter_ty begin fun aty ->
     match aty with
     | Tygenvar v ->
-       tyvars := v::!tyvars
-    | _ -> () in
-  iter_ty record ty;
-  !tyvars
+       if not (Itab.mem v !seen) then
+         seen := Itab.add v () !seen
+    | _ -> ()
+  end ty;
+  List.map fst (Itab.bindings !seen)
 
 let ty_contains_gentyvar ty =
-  List.length (ty_gentyvars ty) > 0
+  let exception Found in
+  try
+    iter_ty begin fun aty ->
+      match aty with
+      | Tygenvar _ -> raise Found
+      | _ -> ()
+    end ty;
+    false
+  with Found -> true
 
 let term_collect_gentyvar_names t =
-  let tyvars = ref [] in
-  let _ = term_map_on_tys begin fun ty ->
-            tyvars := (ty_gentyvars ty)@(!tyvars); ty
-            end t in
-  List.unique (!tyvars)
+  let seen = ref Itab.empty in
+  term_iter_tys begin fun ty ->
+    iter_ty begin fun aty ->
+      match aty with
+      | Tygenvar v ->
+         if not (Itab.mem v !seen) then
+           seen := Itab.add v () !seen
+      | _ -> ()
+    end ty
+  end t;
+  List.map fst (Itab.bindings !seen)
 
 let terms_contain_gentyvar l =
-  List.exists (fun t -> List.length (term_collect_gentyvar_names t) <> 0) l
+  let exception Found in
+  let check_ty ty =
+    iter_ty begin fun aty ->
+      match aty with
+      | Tygenvar _ -> raise Found
+      | _ -> ()
+    end ty
+  in
+  try
+    List.iter (term_iter_tys check_ty) l;
+    false
+  with Found -> true
 
 
 (** Type substitutions *)

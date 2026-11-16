@@ -227,6 +227,7 @@ val is_pi : term -> bool
 val extract_pi : term -> term
 
 val term_map_on_tys : (ty -> ty) -> term -> term
+val term_iter_tys : (ty -> unit) -> term -> unit
 
 val ty_tyvars : ty -> string list
 val ty_contains_tyvar : ty -> bool

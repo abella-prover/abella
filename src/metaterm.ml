@@ -1027,22 +1027,66 @@ let rec clausify ?(vars=[]) ?(body=[]) head =
       clausify ~vars ~body head2
   | head -> [vars, head, List.rev body]
 
+let rec metaterm_iter_tys f mt =
+  match mt with
+  | True | False -> ()
+  | Eq (a, b) ->
+     term_iter_tys f a;
+     term_iter_tys f b
+  | Obj (o, _) ->
+     Context.iter (term_iter_tys f) o.context;
+     term_iter_tys f o.right;
+     begin match o.mode with
+     | Async -> ()
+     | Sync focus -> term_iter_tys f focus
+     end
+  | Arrow (a, b) | Or (a, b) | And (a, b) ->
+     metaterm_iter_tys f a;
+     metaterm_iter_tys f b
+  | Binding (_, tids, body) ->
+     List.iter (fun (_, ty) -> f ty) tids;
+     metaterm_iter_tys f body
+  | Pred (p, _) -> term_iter_tys f p
+
 let metaterm_collect_tyvar_names t =
-  let tyvars = ref [] in
-  let record ty =
-    tyvars := (ty_tyvars ty)@(!tyvars); ty in
-  let _ = map_on_tys record t in
-  List.unique (!tyvars)
+  let seen = ref Itab.empty in
+  metaterm_iter_tys begin fun ty ->
+    iter_ty begin fun aty ->
+      match aty with
+      | Typtr {contents=TV v} ->
+         if not (Itab.mem v !seen) then
+           seen := Itab.add v () !seen
+      | _ -> ()
+    end ty
+  end t;
+  List.map fst (Itab.bindings !seen)
 
 let metaterms_contain_tyvar l =
-  List.exists (fun t -> List.length (metaterm_collect_tyvar_names t) <> 0) l
+  let exception Found in
+  let check_ty ty =
+    iter_ty begin fun aty ->
+      match aty with
+      | Typtr {contents=TV _} -> raise Found
+      | _ -> ()
+    end ty
+  in
+  try
+    List.iter (metaterm_iter_tys check_ty) l;
+    false
+  with Found -> true
 
 let metaterm_collect_gentyvar_names t =
-  let tyvars = ref [] in
-  let record ty =
-    tyvars := (ty_gentyvars ty)@(!tyvars); ty in
-  let _ = map_on_tys record t in
-  List.unique (!tyvars)
+  let seen = ref Itab.empty in
+  metaterm_iter_tys begin fun ty ->
+    iter_ty begin fun aty ->
+      match aty with
+      | Tygenvar v ->
+         if not (Itab.mem v !seen) then
+           seen := Itab.add v () !seen
+      | _ -> ()
+    end ty
+  end t;
+  List.map fst (Itab.bindings !seen)
 
 let obj_mode_eq m1 m2 =
   match m1, m2 with

@@ -161,8 +161,8 @@
 
 /* Proof tactics */
 %token ABBREV ABORT APPLY ASSERT BACKCHAIN CASE CLEAR COIND COMPUTE CUT
-%token IND INST INTROS LEFT MONOTONE PERMUTE RENAME RIGHT SATURATE SEARCH
-%token SKIP SPLIT SPLITSTAR UNABBREV UNDO UNFOLD WITNESS
+%token IND INST INTROS LEFT MONOTONE PERMUTE RENAME REPEAT RIGHT SATURATE
+%token SEARCH SKIP SPLIT SPLITSTAR TRY UNABBREV UNDO UNFOLD WITNESS
 
 /* Tactic arguments and connectors */
 %token ALL AS BY FROM KEEP ON TO WITH
@@ -299,12 +299,14 @@ id:
   | ON            { "on" }
   | PERMUTE       { "permute" }
   | RENAME        { "rename" }
+  | REPEAT        { "repeat" }
   | RIGHT         { "right" }
   | SATURATE      { "saturate" }
   | SEARCH        { "search" }
   | SKIP          { "skip" }
   | SPLIT         { "split" }
   | TO            { "to" }
+  | TRY           { "try" }
   | UNABBREV      { "unabbrev" }
   | UNDO          { "undo" }
   | UNFOLD        { "unfold" }
@@ -559,81 +561,101 @@ pure_command:
     { Types.Induction(ns, ht) }
   | ht=hhint; COIND; DOT
     { Types.CoInduction(ht) }
-  | ht=hhint; APPLY; dep=maybe_depth; clr=clearable;
-    args=loption(TO; args=apply_args {args});
-    ws=loption(WITH; ws=withs {ws}); DOT
-    { Types.Apply(dep, clr, args, ws, ht) }
-  | ht=hhint; COMPUTE; dp=option(NUM); hs=nonempty_list(clearable); DOT
-    { Types.Compute (hs, dp, ht) }
-  | ht=hhint; COMPUTE; dp=option(NUM); LPAREN; clr=boption(STAR); ALL; RPAREN; DOT
-    { Types.ComputeAll (dp, ht, if clr then `CLEAR else `KEEP) }
-  | BACKCHAIN; dep=maybe_depth; clr=clearable;
-    ws=loption(WITH; ws=withs {ws}); DOT
-    { Types.Backchain(dep, clr, ws) }
-  | ht=hhint; CUT; LPAREN; f=term; RPAREN; FROM;
-    fa=clearable; WITH; fb=clearable; DOT
-    { Types.CutFrom(fa, fb, f, ht) }
-  | ht=hhint; CUT; fa=clearable; WITH; fb=clearable; DOT
-    { Types.Cut(fa, fb, ht) }
-  | ht=hhint; CUT; f=clearable; DOT
-    { Types.SearchCut(f, ht) }
-  | ht=hhint; INST; clr=clearable; WITH; ws=withs; DOT
-    { Types.Inst(clr, ws, ht) }
-  | ht=hhint; CASE; h=hyp;
-    kp=boption(LPAREN; KEEP; RPAREN {()}); DOT
-    { let ca = if kp then Types.Keep(h, []) else Types.Remove(h, []) in
-      Types.Case(ca, ht) }
-  | ht=hhint; ASSERT; dep=maybe_depth; f=metaterm; DOT
-    { Types.Assert(f, dep, ht) }
-  | ht=hhint; MONOTONE; clr=clearable; WITH; t=term; DOT
-    { Types.Monotone(clr, t, ht) }
-  | EXISTS; ew=ewitnesses; DOT
-    { Types.Exists(`EXISTS, ew) }
-  | WITNESS; ew=ewitnesses; DOT
-    { Types.Exists(`WITNESS, ew) }
-  | SEARCH; DOT
-    { Types.Search(`nobounds) }
-  | SEARCH; dep=NUM; DOT
-    { Types.Search(`depth dep) }
-  | SEARCH; WITH; wit=search_witness; DOT
-    { Types.Search(`witness wit) }
-  | ht=hhint; SATURATE; depth=maybe_depth; lemmas=hyp_list; DOT
-    { Types.Saturate { depth ; lemmas ; hint = ht } }
-  | SPLIT; DOT
-    { Types.Split }
-  | SPLITSTAR; DOT
-    { Types.SplitStar }
-  | LEFT; DOT
-    { Types.Left }
-  | RIGHT; DOT
-    { Types.Right }
-  | INTROS; alt=hspec_alt; DOT
-    { Types.Intros alt }
-  | SKIP; DOT
-    { Types.Skip }
+  | t=tactic; DOT
+    { t }
   | b=bullet
     { Types.Bullet b }
   | ABORT; DOT
     { Types.Abort }
   | UNDO; DOT
     { Types.Undo }
-  | UNFOLD; csel=clause_sel; ssel=sol_sel; DOT
+
+tactic:
+  | t1=prefix_tactic; SEMICOLON; t2=tactic
+    { Types.Then(t1, t2) }
+  | t=prefix_tactic
+    { t }
+
+prefix_tactic:
+  | TRY; t=prefix_tactic
+    { Types.Try(t) }
+  | REPEAT; n=option(NUM); t=prefix_tactic
+    { Types.Repeat(n, t) }
+  | LPAREN; t=tactic; RPAREN
+    { t }
+  | t=atomic_tactic
+    { t }
+
+atomic_tactic:
+  | ht=hhint; APPLY; dep=maybe_depth; clr=clearable;
+    args=loption(TO; args=apply_args {args});
+    ws=loption(WITH; ws=withs {ws})
+    { Types.Apply(dep, clr, args, ws, ht) }
+  | ht=hhint; COMPUTE; dp=option(NUM); hs=nonempty_list(clearable)
+    { Types.Compute (hs, dp, ht) }
+  | ht=hhint; COMPUTE; dp=option(NUM); LPAREN; clr=boption(STAR); ALL; RPAREN
+    { Types.ComputeAll (dp, ht, if clr then `CLEAR else `KEEP) }
+  | BACKCHAIN; dep=maybe_depth; clr=clearable;
+    ws=loption(WITH; ws=withs {ws})
+    { Types.Backchain(dep, clr, ws) }
+  | ht=hhint; CUT; LPAREN; f=term; RPAREN; FROM;
+    fa=clearable; WITH; fb=clearable
+    { Types.CutFrom(fa, fb, f, ht) }
+  | ht=hhint; CUT; fa=clearable; WITH; fb=clearable
+    { Types.Cut(fa, fb, ht) }
+  | ht=hhint; CUT; f=clearable
+    { Types.SearchCut(f, ht) }
+  | ht=hhint; INST; clr=clearable; WITH; ws=withs
+    { Types.Inst(clr, ws, ht) }
+  | ht=hhint; CASE; h=hyp;
+    kp=boption(LPAREN; KEEP; RPAREN {()})
+    { let ca = if kp then Types.Keep(h, []) else Types.Remove(h, []) in
+      Types.Case(ca, ht) }
+  | ht=hhint; ASSERT; dep=maybe_depth; f=metaterm
+    { Types.Assert(f, dep, ht) }
+  | ht=hhint; MONOTONE; clr=clearable; WITH; t=term
+    { Types.Monotone(clr, t, ht) }
+  | EXISTS; ew=ewitnesses
+    { Types.Exists(`EXISTS, ew) }
+  | WITNESS; ew=ewitnesses
+    { Types.Exists(`WITNESS, ew) }
+  | SEARCH
+    { Types.Search(`nobounds) }
+  | SEARCH; dep=NUM
+    { Types.Search(`depth dep) }
+  | SEARCH; WITH; wit=search_witness
+    { Types.Search(`witness wit) }
+  | ht=hhint; SATURATE; depth=maybe_depth; lemmas=hyp_list
+    { Types.Saturate { depth ; lemmas ; hint = ht } }
+  | SPLIT
+    { Types.Split }
+  | SPLITSTAR
+    { Types.SplitStar }
+  | LEFT
+    { Types.Left }
+  | RIGHT
+    { Types.Right }
+  | INTROS; alt=hspec_alt
+    { Types.Intros alt }
+  | SKIP
+    { Types.Skip }
+  | UNFOLD; csel=clause_sel; ssel=sol_sel
     { Types.Unfold (csel, ssel) }
-  | CLEAR; hs=hyp_list; DOT
+  | CLEAR; hs=hyp_list
     { Types.Clear(Types.Clear_delete, hs) }
-  | CLEAR; DOT
+  | CLEAR
     { Types.ClearDups }
-  | CLEAR; RARROW; hs=hyp_list; DOT
+  | CLEAR; RARROW; hs=hyp_list
     { Types.Clear(Types.Clear_extro, hs) }
-  | ABBREV; hs=hyp_list; ab=QSTRING; DOT
+  | ABBREV; hs=hyp_list; ab=QSTRING
     { Types.Abbrev(hs, ab) }
-  | UNABBREV; hs=hyp_list; DOT
+  | UNABBREV; hs=hyp_list
     { Types.Unabbrev(hs) }
-  | RENAME; f=STRINGID; TO; t=STRINGID; DOT
+  | RENAME; f=STRINGID; TO; t=STRINGID
     { check_legal_var f $startpos(f) ;
       check_legal_var t $startpos(t) ;
       Types.Rename(f, t) }
-  | PERMUTE; p=perm; h=option(hyp); DOT
+  | PERMUTE; p=perm; h=option(hyp)
     { Types.Permute(p, h) }
 
 %inline

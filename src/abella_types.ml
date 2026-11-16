@@ -213,6 +213,9 @@ type command =
   | Unfold       of clause_selector * solution_selector
   | Saturate     of { depth : int option ; lemmas : id list ; hint : hhint }
   | Skip
+  | Try          of command
+  | Then         of command * command
+  | Repeat       of int option * command
   | Bullet       of string
   | Abort
   | Undo
@@ -440,7 +443,7 @@ let ewitness_to_string = function
   | ETerm t -> uterm_to_string t
   | ESub (x, t) -> x ^ " = " ^ uterm_to_string t
 
-let command_to_string c =
+let rec command_to_string c =
   match c with
     | Induction(is, hn) ->
         sprintf "%sinduction on %s" (hn_to_string hn)
@@ -565,7 +568,22 @@ let command_to_string c =
         let hint = hspec_alt_to_string alt in
         if hint = "" then "intros" else "intros " ^ hint
     | Skip -> "skip"
+    | Try c ->
+        sprintf "try %s" (prefix_command_to_string c)
+    | Repeat (None, c) ->
+        sprintf "repeat %s" (prefix_command_to_string c)
+    | Repeat (Some n, c) ->
+        sprintf "repeat %d %s" n (prefix_command_to_string c)
+    | Then (c1, c2) ->
+        sprintf "%s ; %s"
+          (prefix_command_to_string c1)
+          (command_to_string c2)
     | Bullet b -> b
     | Abort -> "abort"
     | Undo -> "undo"
     | Common(cc) -> common_command_to_string cc
+
+and prefix_command_to_string c =
+  match c with
+  | Then _ -> "(" ^ command_to_string c ^ ")"
+  | _ -> command_to_string c

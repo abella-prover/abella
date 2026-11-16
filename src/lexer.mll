@@ -75,6 +75,7 @@
     "on",            ON ;
     "permute",       PERMUTE ;
     "rename",        RENAME ;
+    "repeat",        REPEAT ;
     "right",         RIGHT ;
     "fchain",        SATURATE ;
     "search",        SEARCH ;
@@ -84,6 +85,7 @@
     "split*",        SPLITSTAR ;
     "to",            TO ;
     "true",          TRUE ;
+    "try",           TRY ;
     "type",          TYPE ;
     "unabbrev",      UNABBREV ;
     "undo",          UNDO ;

@@ -896,6 +896,191 @@ let test_issue142_generic_case () =
     ]
   end
 
+let assert_proof_done () =
+  match !processing_state with
+  | D.Process_top -> ()
+  | D.Process_proof _ -> Alcotest.fail "expected proof to be completed"
+
+let assert_in_proof () =
+  match !processing_state with
+  | D.Process_proof _ -> ()
+  | D.Process_top -> Alcotest.fail "expected to still be in proof"
+
+let assert_command_error cmd =
+  match fst (process_command cmd) with
+  | Error _ -> ()
+  | Ok () -> Alcotest.failf "%S unexpectedly succeeded" cmd
+
+let test_try_tactical () =
+  with_session begin fun () ->
+    assert_ok (fst (process_command "Theorem t1 : true.")) ;
+    assert_ok (fst (process_command "try search.")) ;
+    assert_proof_done () ;
+
+    assert_ok (fst (process_command "Theorem t2 : true -> false.")) ;
+    assert_ok (fst (process_command "try search.")) ;
+    assert_in_proof () ;
+    Alcotest.check Alcotest.string "goal preserved on try failure"
+      "true -> false" (Metaterm.metaterm_to_string Prover.sequent.goal) ;
+    assert_ok (fst (process_command "abort.")) ;
+    assert_proof_done () ;
+
+    assert_ok
+      (fst (process_command "Theorem t3 : true /\\ (true -> false).")) ;
+    assert_ok (fst (process_command "try (split ; search).")) ;
+    assert_in_proof () ;
+    Alcotest.check Alcotest.string "compound try rolls back split"
+      "true /\\ (true -> false)"
+      (Metaterm.metaterm_to_string Prover.sequent.goal) ;
+    Alcotest.check Alcotest.int "compound try leaves 0 extra subgoals"
+      0 (List.length !Prover.subgoals) ;
+    assert_ok (fst (process_command "abort.")) ;
+    assert_proof_done () ;
+
+    assert_ok (fst (process_command "Kind k type.")) ;
+    assert_ok (fst (process_command "Type a k.")) ;
+    assert_ok (fst (process_command "Define r : k -> prop by r a.")) ;
+    assert_ok
+      (fst (process_command
+              "Theorem t4 : (exists (X:k), r X) -> true.")) ;
+    assert_ok (fst (process_command "intros H10.")) ;
+    assert_ok (fst (process_command "try [!Z H] : case H10.")) ;
+    Alcotest.check Alcotest.bool "variable hint applied" true
+      (List.mem_assoc "Z" Prover.sequent.vars) ;
+    Alcotest.check Alcotest.bool "hypothesis hint applied" true
+      (List.exists (fun (h : Prover.hyp) -> h.id = "H")
+         Prover.sequent.hyps) ;
+    assert_ok (fst (process_command "try search.")) ;
+    assert_proof_done ()
+  end
+
+let test_semicolon_tactical () =
+  with_session begin fun () ->
+    assert_ok
+      (fst (process_command
+              "Theorem s1 : (true -> true) /\\ (true -> true).")) ;
+    assert_ok (fst (process_command "split ; intros ; search.")) ;
+    assert_proof_done () ;
+
+    assert_ok
+      (fst (process_command
+              "Theorem s2 : true /\\ (true /\\ false).")) ;
+    assert_ok
+      (fst (process_command "split ; try split ; try search.")) ;
+    assert_in_proof () ;
+    Alcotest.check Alcotest.string "only unsolvable leaf remains"
+      "false" (Metaterm.metaterm_to_string Prover.sequent.goal) ;
+    Alcotest.check Alcotest.int "no other subgoals remain"
+      0 (List.length !Prover.subgoals) ;
+    assert_ok (fst (process_command "#back.")) ;
+    Alcotest.check Alcotest.string "#back restores goal before tactical"
+      "true /\\ (true /\\ false)"
+      (Metaterm.metaterm_to_string Prover.sequent.goal) ;
+    assert_command_error "split ; search." ;
+    Alcotest.check Alcotest.string "failed semicolon rolls back"
+      "true /\\ (true /\\ false)"
+      (Metaterm.metaterm_to_string Prover.sequent.goal) ;
+    Alcotest.check Alcotest.int "failed semicolon leaves 0 subgoals"
+      0 (List.length !Prover.subgoals) ;
+    assert_ok (fst (process_command "abort.")) ;
+
+    assert_ok
+      (fst (process_command
+              "Theorem b1 : (true -> (true /\\ true)) /\\ true.")) ;
+    assert_ok (fst (process_command "split.")) ;
+    assert_ok (fst (process_command "-")) ;
+    assert_ok (fst (process_command "intros ; split ; search.")) ;
+    Alcotest.check Alcotest.bool "bullet branch unfocused after tactical"
+      false (Prover.is_focused ()) ;
+    assert_ok (fst (process_command "-")) ;
+    assert_ok (fst (process_command "search.")) ;
+    assert_proof_done () ;
+
+    assert_ok (fst (process_command "Kind ty1 type.")) ;
+    assert_ok (fst (process_command "Kind ty2 type.")) ;
+    assert_ok
+      (fst (process_command "Define eqp : A -> A -> prop by eqp X X.")) ;
+    assert_ok
+      (fst (process_command
+              "Theorem poly : (forall (x:ty1), x = x -> eqp x x) /\\ \
+               (forall (x:ty2), x = x -> eqp x x).")) ;
+    assert_ok
+      (fst (process_command "split ; intros ; assert (eqp x x) ; search.")) ;
+    assert_proof_done ()
+  end
+
+let test_repeat_tactical () =
+  with_session begin fun () ->
+    assert_ok
+      (fst (process_command
+              "Theorem r1 : true -> (true /\\ (true -> (true /\\ true))).")) ;
+    assert_ok (fst (process_command "repeat (intros ; try split).")) ;
+    Alcotest.check Alcotest.int "three subgoals produced"
+      3 (1 + List.length !Prover.subgoals) ;
+    assert_ok (fst (process_command "search.")) ;
+    assert_ok (fst (process_command "search.")) ;
+    assert_ok (fst (process_command "search.")) ;
+    assert_proof_done () ;
+
+    assert_ok
+      (fst (process_command
+              "Theorem r2 : (true /\\ true) /\\ (true -> (true /\\ false)).")) ;
+    assert_ok
+      (fst (process_command "repeat (intros ; try split ; try search).")) ;
+    assert_in_proof () ;
+    Alcotest.check Alcotest.string "repeat solves provable leaves"
+      "false" (Metaterm.metaterm_to_string Prover.sequent.goal) ;
+    Alcotest.check Alcotest.int "one subgoal left"
+      0 (List.length !Prover.subgoals) ;
+    assert_ok (fst (process_command "abort.")) ;
+
+    assert_ok
+      (fst (process_command
+              "Theorem r3 : false \\/ (false \\/ (false \\/ true)).")) ;
+    assert_ok (fst (process_command "repeat 2 right.")) ;
+    Alcotest.check Alcotest.string "repeat 2 stops after two iterations"
+      "false \\/ true" (Metaterm.metaterm_to_string Prover.sequent.goal) ;
+    assert_ok (fst (process_command "right ; search.")) ;
+    assert_proof_done () ;
+
+    assert_ok
+      (fst (process_command
+              "Theorem r3b : \
+               true -> (true /\\ (true -> (true /\\ (true -> true)))).")) ;
+    assert_ok (fst (process_command "repeat 2 (intros ; split).")) ;
+    Alcotest.check Alcotest.int "repeat 2 branches stops at depth 2"
+      3 (1 + List.length !Prover.subgoals) ;
+    assert_ok (fst (process_command "search.")) ;
+    assert_ok (fst (process_command "search.")) ;
+    Alcotest.check Alcotest.string "third subgoal unexpanded after repeat 2"
+      "true -> true" (Metaterm.metaterm_to_string Prover.sequent.goal) ;
+    assert_ok (fst (process_command "search.")) ;
+    assert_proof_done () ;
+
+    assert_ok (fst (process_command "Theorem r4 : true /\\ true.")) ;
+    assert_ok (fst (process_command "repeat 0 split.")) ;
+    Alcotest.check Alcotest.int "repeat 0 is a no-op"
+      1 (1 + List.length !Prover.subgoals) ;
+    assert_ok (fst (process_command "split ; search.")) ;
+    assert_proof_done () ;
+
+    assert_ok (fst (process_command "Theorem r5 : true \\/ false.")) ;
+    assert_ok (fst (process_command "repeat left.")) ;
+    Alcotest.check Alcotest.string "repeat left stops after progress"
+      "true" (Metaterm.metaterm_to_string Prover.sequent.goal) ;
+    assert_ok (fst (process_command "search.")) ;
+    assert_proof_done () ;
+
+    assert_ok (fst (process_command "Kind ik type.")) ;
+    assert_ok
+      (fst (process_command "Theorem r6 : forall (X:ik), X = X -> X = X.")) ;
+    assert_ok (fst (process_command "repeat intros.")) ;
+    Alcotest.check Alcotest.string "repeat intros stops after progress"
+      "X = X" (Metaterm.metaterm_to_string Prover.sequent.goal) ;
+    assert_ok (fst (process_command "search.")) ;
+    assert_proof_done ()
+  end
+
 let tests = suite "thm" [
     test_case "read thm defaults" test_read_thm_defaults ;
     test_case "artifact layout" test_thm_artifact_layout ;
@@ -931,4 +1116,7 @@ let tests = suite "thm" [
     test_case "inline thm errors" test_inline_thm_errors ;
     test_case "import thm flattening" test_import_thm_flattening ;
     test_case "issue142 generic case" test_issue142_generic_case ;
+    test_case "try tactical" test_try_tactical ;
+    test_case "semicolon tactical" test_semicolon_tactical ;
+    test_case "repeat tactical" test_repeat_tactical ;
   ]

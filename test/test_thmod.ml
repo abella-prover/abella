@@ -1165,6 +1165,30 @@ End List.
     end
   end
 
+let test_tacticals_in_module () =
+  with_session begin fun () ->
+    with_temp_dir begin fun dir ->
+      match run_thmod dir "TacticalMod" {|
+Module TacticalMod.
+  Kind i type.
+  Type a, b i.
+  Define p : i -> prop by p a.
+  Define q : i -> prop by q a.
+  Theorem H : true.
+    search.
+  Theorem lem : forall X, p X -> q X.
+    intros H ; case H ; search.
+  Theorem t2 : p a /\ p b -> q a.
+    intros H ; case H ; apply lem to H1 ; search.
+  Theorem t3 : p a -> q a.
+    intros H ; case H ; search.
+End TacticalMod.
+|} with
+      | `Ok _ -> ()
+      | `Error msg -> Alcotest.fail msg
+    end
+  end
+
 let tests =
   suite "thmod" [
       test_case "read_thmod defaults" test_read_thmod_defaults ;
@@ -1187,4 +1211,5 @@ let tests =
       test_case "import errors" test_import_errors ;
       test_case "tags split and import" test_tags_split_and_import ;
       test_case "tags alias" test_tags_alias ;
+      test_case "tacticals in module" test_tacticals_in_module ;
     ]

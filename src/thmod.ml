@@ -455,7 +455,7 @@ let resolve_clause_selector = function
   | Select_named name -> Select_named (resolve_id name)
   | (Select_any | Select_num _) as sel -> sel
 
-let resolve_command ~is_hyp cmd =
+let rec resolve_command ~is_hyp cmd =
   match cmd with
   | Induction _ | CoInduction _ | Clear _ | ClearDups | Abbrev _
   | Unabbrev _ | Rename _ | Permute _ | Intros _ | Skip -> cmd
@@ -508,6 +508,12 @@ let resolve_command ~is_hyp cmd =
       failwith "Quit is not allowed in a module"
   | Bullet _ | ComputeAll _ | Split | SplitStar | Left | Right | Undo
   | Common _ -> cmd
+  | Try c ->
+      Try (resolve_command ~is_hyp c)
+  | Then (c1, c2) ->
+      Then (resolve_command ~is_hyp c1, resolve_command ~is_hyp c2)
+  | Repeat (n, c) ->
+      Repeat (n, resolve_command ~is_hyp c)
   | Abort ->
       failwith "Abort is not allowed in a module"
 

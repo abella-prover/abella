@@ -301,6 +301,82 @@ let handle_process_exception e =
       interactive_or_exit () ;
       error
 
+let resolve_proof_cmd cmd =
+  if Thmod.in_module () then
+    Thmod.resolve_proof_command ~is_hyp:Prover.is_hyp cmd
+  else
+    cmd
+
+let run_atomic_tactic cmd =
+  match cmd with
+  | Apply(depth, h, args, ws, hn) ->
+      Prover.apply ?depth ?hint:hn h args ws ~term_witness
+  | Backchain(depth, h, ws) ->
+      Prover.backchain ?depth h ws ~term_witness
+  | Compute (hs, gas, hn) ->
+      Compute.compute ?hint:hn ?gas hs
+  | ComputeAll (gas, hn, clr) ->
+      Compute.compute_all ?hint:hn ?gas clr
+  | Cut(h, arg, hn) ->
+      Prover.cut ?hint:hn h arg
+  | CutFrom(h, arg, t, hn) ->
+      Prover.cut_from ?hint:hn h arg t
+  | SearchCut(h, hn) ->
+      Prover.search_cut ?hint:hn h
+  | Inst(h, ws, hn) ->
+      Prover.inst ?hint:hn h ws
+  | Case(str, hn) ->
+      Prover.case ?hint:hn str
+  | Assert(t, dp, hn) ->
+      untyped_ensure_no_restrictions t ;
+      Prover.assert_hyp ?hint:hn ?depth:dp t
+  | Monotone(h, t, hn) ->
+      Prover.monotone ?hint:hn h t
+  | Exists(_, ts) ->
+      List.iter Prover.exists ts
+  | Clear(cm, hs) ->
+      Prover.clear cm hs
+  | ClearDups ->
+      Prover.clear_duplicates ()
+  | Abbrev(hs, s) ->
+      Prover.abbrev (Iset.of_list hs) s
+  | Unabbrev(hs) ->
+      Prover.unabbrev (Iset.of_list hs)
+  | Rename(hfr, hto) ->
+      Prover.rename hfr hto
+  | Search(bounds) -> begin
+      let depth = match bounds with
+        | `depth n -> Some n
+        | _ -> None
+      in
+      let witness = match bounds with
+        | `witness w -> w
+        | _ -> WMagic
+      in
+      Prover.search ?depth ~witness ~handle_witness:handle_search_witness ()
+    end
+  | Saturate sat ->
+      Prover.saturate sat.lemmas ?hint:sat.hint ?depth:sat.depth
+  | Permute(ids, h) ->
+      Prover.permute_nominals ids h
+  | Split ->
+      Prover.split false
+  | SplitStar ->
+      Prover.split true
+  | Left ->
+      Prover.left ()
+  | Right ->
+      Prover.right ()
+  | Unfold (cs, ss) ->
+      Prover.unfold cs ss
+  | Intros hs ->
+      Prover.intros hs
+  | Skip ->
+      Prover.skip ()
+  | Induction _ | CoInduction _ | Bullet _ | Abort | Undo | Common _
+  | Try _ | Then _ | Repeat _ ->
+      [%bug] "run_atomic_tactic: non-atomic command"
+
 let rec process1 state =
   processing_state := state ;
   State.Undo.push () ;
@@ -374,13 +450,6 @@ and process_proof1_body proc =
     Output.non_annot "%s < " proc.thm ;
   let input = Parser.command_start Lexer.token !Setup.lexbuf in
   let cmd_string = command_to_string input.el in
-  let input =
-    if Thmod.in_module () then
-      { input with
-        el = Thmod.resolve_proof_command ~is_hyp:Prover.is_hyp input.el }
-    else
-      input
-  in
   if !Setup.mode <> `interactive then
     begin match input.el with
     | Bullet _ -> Output.non_annot "%s\n" cmd_string
@@ -399,68 +468,41 @@ and process_proof1_body proc =
   in
   let perform () =
     begin match input.el with
-    | Induction(args, hn)           -> Prover.induction ?hint:hn args
-    | CoInduction hn                -> Prover.coinduction ?hint:hn ()
-    | Apply(depth, h, args, ws, hn) -> Prover.apply ?depth ?hint:hn h args ws ~term_witness
-    | Backchain(depth, h, ws)       -> Prover.backchain ?depth h ws ~term_witness
-    | Compute (hs, gas, hn)         -> Compute.compute ?hint:hn ?gas hs
-    | ComputeAll (gas, hn, clr)     -> Compute.compute_all ?hint:hn ?gas clr
-    | Cut(h, arg, hn)               -> Prover.cut ?hint:hn h arg
-    | CutFrom(h, arg, t, hn)        -> Prover.cut_from ?hint:hn h arg t
-    | SearchCut(h, hn)              -> Prover.search_cut ?hint:hn h
-    | Inst(h, ws, hn)               -> Prover.inst ?hint:hn h ws
-    | Case(str, hn)                 -> Prover.case ?hint:hn str
-    | Assert(t, dp, hn)             ->
-        untyped_ensure_no_restrictions t ;
-        Prover.assert_hyp ?hint:hn ?depth:dp t
-    | Monotone(h, t, hn)            -> Prover.monotone ?hint:hn h t
-    | Exists(_, ts)                 -> List.iter Prover.exists ts
-    | Clear(cm, hs)                 -> Prover.clear cm hs
-    | ClearDups                     -> Prover.clear_duplicates ()
-    | Abbrev(hs, s)                 -> Prover.abbrev (Iset.of_list hs) s
-    | Unabbrev(hs)                  -> Prover.unabbrev (Iset.of_list hs)
-    | Rename(hfr, hto)              -> Prover.rename hfr hto
-    | Search(bounds) -> begin
-        let depth = match bounds with
-          | `depth n -> Some n
-          | _ -> None
-        in
-        let witness = match bounds with
-          | `witness w -> w
-          | _ -> WMagic
-        in
-        Prover.search ?depth ~witness ~handle_witness:handle_search_witness ()
-      end
-    | Saturate sat           -> Prover.saturate sat.lemmas
-                                  ?hint:sat.hint ?depth:sat.depth
-    | Permute(ids, h)        -> Prover.permute_nominals ids h
-    | Split                  -> Prover.split false
-    | SplitStar              -> Prover.split true
-    | Left                   -> Prover.left ()
-    | Right                  -> Prover.right ()
-    | Unfold (cs, ss)        -> Prover.unfold cs ss
-    | Intros hs              -> Prover.intros hs
-    | Skip                   -> Prover.skip ()
-    | Bullet b               -> Prover.bullet b
-    | Abort                  -> raise (Prover.End_proof `aborted)
-    | Undo
-    | Common(Back)           ->
-        if !Setup.mode = `interactive then State.Undo.back 2
-        else failwith "Cannot use interactive commands in non-interactive mode"
-    | Common(Reset)          ->
-        if !Setup.mode = `interactive then State.Undo.reset ()
-        else failwith "Cannot use interactive commands in non-interactive mode"
-    | Common(Set(k, v))      -> set k v
-    | Common(Show nm)        ->
-        Output.msg_format "%t" (Prover.show nm) ;
-        if !Setup.mode = `interactive then Output.blank_line () ;
-        suppress_proof_state_display := true
-    | Common(ShowModule src) ->
-        Thmod.show_module
-          ~load:load_thmod_artifact src ;
-        if !Setup.mode = `interactive then Output.blank_line () ;
-        suppress_proof_state_display := true
-    | Common(Quit)           -> raise End_of_file
+    | Induction _ | CoInduction _ | Bullet _ | Abort | Undo | Common _ ->
+        begin match resolve_proof_cmd input.el with
+        | Induction(args, hn) -> Prover.induction ?hint:hn args
+        | CoInduction hn      -> Prover.coinduction ?hint:hn ()
+        | Bullet b            -> Prover.bullet b
+        | Abort               -> raise (Prover.End_proof `aborted)
+        | Undo
+        | Common(Back)        ->
+            if !Setup.mode = `interactive then State.Undo.back 2
+            else
+              failwith
+                "Cannot use interactive commands in non-interactive mode"
+        | Common(Reset)       ->
+            if !Setup.mode = `interactive then State.Undo.reset ()
+            else
+              failwith
+                "Cannot use interactive commands in non-interactive mode"
+        | Common(Set(k, v))   -> set k v
+        | Common(Show nm)     ->
+            Output.msg_format "%t" (Prover.show nm) ;
+            if !Setup.mode = `interactive then Output.blank_line () ;
+            suppress_proof_state_display := true
+        | Common(ShowModule src) ->
+            Thmod.show_module
+              ~load:load_thmod_artifact src ;
+            if !Setup.mode = `interactive then Output.blank_line () ;
+            suppress_proof_state_display := true
+        | Common(Quit)        -> raise End_of_file
+        | _                   -> [%bug] "unexpected command after resolution"
+        end
+    | _ ->
+        Prover.run_tactic
+          ~resolve:resolve_proof_cmd
+          ~run_atomic:run_atomic_tactic
+          input.el
     end
   in
   let perform_audited () =

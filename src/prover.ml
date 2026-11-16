@@ -190,6 +190,21 @@ let add_subgoals ?(mainline) new_subgoals =
 let copy_sequent () = cp_sequent sequent
 let set_sequent other = assign_sequent sequent other
 
+let hyp_eq h1 h2 =
+  h1.id = h2.id &&
+  h1.abbrev = h2.abbrev &&
+  h1.user_named = h2.user_named &&
+  Metaterm.metaterm_eq h1.term h2.term
+
+let sequent_eq s1 s2 =
+  Metaterm.metaterm_eq s1.goal s2.goal &&
+  Iset.equal s1.user_vars s2.user_vars &&
+  List.length s1.vars = List.length s2.vars &&
+  List.for_all2 (fun (x1, t1) (x2, t2) -> x1 = x2 && Term.eq t1 t2)
+    s1.vars s2.vars &&
+  List.length s1.hyps = List.length s2.hyps &&
+  List.for_all2 hyp_eq s1.hyps s2.hyps
+
 let fresh_hyp_name base =
   if base = "" then begin
     sequent.count <- sequent.count + 1 ;
@@ -2067,3 +2082,231 @@ let saturate ?hint ?depth lemmas =
       end
   in
   loop ~ts:0 ~depth:depth0
+
+(* Tacticals *)
+
+let refresh_command_tyvars cmd =
+  let cache = ref [] in
+  let fresh_typtr r =
+    match List.find_opt (fun (k, _) -> k == r) !cache with
+    | Some (_, r') -> r'
+    | None ->
+        let r' =
+          match Term.fresh_tyvar () with
+          | Ty ([], Typtr r') -> r'
+          | _ -> assert false
+        in
+        cache := (r, r') :: !cache ;
+        r'
+  in
+  let rec refresh_ty (Ty (args, aty)) =
+    let args = List.map refresh_ty args in
+    match aty with
+    | Tygenvar _ -> Ty (args, aty)
+    | Typtr ({ contents = TV _ } as r) ->
+        Ty (args, Typtr (fresh_typtr r))
+    | Typtr { contents = TT ty } ->
+        let Ty (args', aty') = refresh_ty ty in
+        Ty (args @ args', aty')
+    | Tycons (c, tys) ->
+        Ty (args, Tycons (c, List.map refresh_ty tys))
+  in
+  let refresh_clearable = function
+    | Keep (id, tys) -> Keep (id, List.map refresh_ty tys)
+    | Remove (id, tys) -> Remove (id, List.map refresh_ty tys)
+  in
+  let rec refresh_uterm = function
+    | UCon (pos, id, ty) -> UCon (pos, id, refresh_ty ty)
+    | ULam (pos, id, ty, body) ->
+        ULam (pos, id, refresh_ty ty, refresh_uterm body)
+    | UApp (pos, t1, t2) -> UApp (pos, refresh_uterm t1, refresh_uterm t2)
+  in
+  let rec refresh_umetaterm = function
+    | (UTrue | UFalse) as mt -> mt
+    | UEq (t1, t2) -> UEq (refresh_uterm t1, refresh_uterm t2)
+    | UAsyncObj (l, g, r) ->
+        UAsyncObj (refresh_uterm l, refresh_uterm g, r)
+    | USyncObj (l, f, g, r) ->
+        USyncObj (refresh_uterm l, refresh_uterm f, refresh_uterm g, r)
+    | UArrow (a, b) -> UArrow (refresh_umetaterm a, refresh_umetaterm b)
+    | UBinding (b, tids, body) ->
+        let tids = List.map (fun (id, ty) -> (id, refresh_ty ty)) tids in
+        UBinding (b, tids, refresh_umetaterm body)
+    | UOr (a, b) -> UOr (refresh_umetaterm a, refresh_umetaterm b)
+    | UAnd (a, b) -> UAnd (refresh_umetaterm a, refresh_umetaterm b)
+    | UPred (p, r) -> UPred (refresh_uterm p, r)
+  in
+  let refresh_with (x, t) = (x, refresh_uterm t) in
+  let refresh_ewitness = function
+    | ETerm t -> ETerm (refresh_uterm t)
+    | ESub (x, t) -> ESub (x, refresh_uterm t)
+  in
+  let rec refresh_witness = function
+    | (WTrue | WHyp _ | WReflexive | WMagic) as w -> w
+    | WLeft w -> WLeft (refresh_witness w)
+    | WRight w -> WRight (refresh_witness w)
+    | WSplit (w1, w2) -> WSplit (refresh_witness w1, refresh_witness w2)
+    | WForall (ids, w) -> WForall (ids, refresh_witness w)
+    | WIntros (ids, w) -> WIntros (ids, refresh_witness w)
+    | WExists (bs, w) ->
+        let bs =
+          List.map
+            (fun (id, t) -> (id, Term.term_map_on_tys refresh_ty t))
+            bs
+        in
+        WExists (bs, refresh_witness w)
+    | WUnfold (id, n, ws) ->
+        WUnfold (id, n, List.map refresh_witness ws)
+  in
+  match cmd with
+  | Apply (depth, h, args, ws, hn) ->
+      Apply (depth, refresh_clearable h, List.map refresh_clearable args,
+             List.map refresh_with ws, hn)
+  | Backchain (depth, h, ws) ->
+      Backchain (depth, refresh_clearable h, List.map refresh_with ws)
+  | Compute (hs, gas, hn) ->
+      Compute (List.map refresh_clearable hs, gas, hn)
+  | CutFrom (h, arg, t, hn) ->
+      CutFrom (refresh_clearable h, refresh_clearable arg,
+               refresh_uterm t, hn)
+  | Cut (h, arg, hn) ->
+      Cut (refresh_clearable h, refresh_clearable arg, hn)
+  | SearchCut (h, hn) ->
+      SearchCut (refresh_clearable h, hn)
+  | Inst (h, ws, hn) ->
+      Inst (refresh_clearable h, List.map refresh_with ws, hn)
+  | Case (h, hn) ->
+      Case (refresh_clearable h, hn)
+  | Assert (t, dp, hn) ->
+      Assert (refresh_umetaterm t, dp, hn)
+  | Monotone (h, t, hn) ->
+      Monotone (refresh_clearable h, refresh_uterm t, hn)
+  | Exists (how, ews) ->
+      Exists (how, List.map refresh_ewitness ews)
+  | Search (`witness w) ->
+      Search (`witness (refresh_witness w))
+  | ( Induction _ | CoInduction _ | ComputeAll _ | Clear _ | ClearDups
+    | Abbrev _ | Unabbrev _ | Rename _ | Permute _ | Search _ | Split
+    | SplitStar | Left | Right | Intros _ | Unfold _ | Saturate _
+    | Skip | Bullet _ | Abort | Undo | Common _ | Try _ | Then _
+    | Repeat _ ) as cmd -> cmd
+
+let is_tactic_failure = function
+  | Failure _
+  | Unify.UnifyFailure _
+  | Unify.UnifyError _
+  | Unifyty.InstGenericTyvar _
+  | TypeInferenceFailure _ -> true
+  | _ -> false
+
+let capture_current_subgoal () : subgoal =
+  let saved_sequent = copy_sequent () in
+  let bind_state = Term.get_bind_state () in
+  let schem = !Term.schematic_instantiations in
+  fun () ->
+    set_sequent saved_sequent ;
+    Term.set_bind_state bind_state ;
+    Term.schematic_instantiations := schem
+
+let wrap_pending_subgoal schem (g : subgoal) : subgoal =
+  fun () ->
+    Term.schematic_instantiations := schem ;
+    g () ;
+    normalize_sequent ()
+
+let activate_subgoal (g : subgoal) : subgoal list =
+  subgoals := [] ;
+  bullet_stack := [] ;
+  subgoal_focused := true ;
+  g () ;
+  ensure_no_prop_schematic_instantiation () ;
+  ensure_no_prop_equality_state () ;
+  let schem = !Term.schematic_instantiations in
+  let extra = List.map (wrap_pending_subgoal schem) !subgoals in
+  subgoals := [] ;
+  extra
+
+let rec concat_map_subgoals f = function
+  | [] -> []
+  | g :: rest ->
+      let extra = activate_subgoal g in
+      let out = f () in
+      out @ concat_map_subgoals f (extra @ rest)
+
+let rec eval_tactic ~resolve ~run_atomic cmd =
+  match cmd with
+  | Then (t1, t2) ->
+      let gs = eval_tactic ~resolve ~run_atomic t1 in
+      concat_map_subgoals (fun () -> eval_tactic ~resolve ~run_atomic t2) gs
+  | Try t ->
+      let snap = State.snapshot () in
+      begin try
+        eval_tactic ~resolve ~run_atomic t
+      with e when is_tactic_failure e ->
+        State.reload snap ;
+        [capture_current_subgoal ()]
+      end
+  | Repeat (Some n, _) when n <= 0 ->
+      [capture_current_subgoal ()]
+  | Repeat (limit, t) ->
+      let next_limit = Option.map (fun n -> n - 1) limit in
+      let before = copy_sequent () in
+      let snap = State.snapshot () in
+      begin match eval_tactic ~resolve ~run_atomic t with
+      | exception e when is_tactic_failure e ->
+          State.reload snap ;
+          [capture_current_subgoal ()]
+      | [] ->
+          []
+      | [g] ->
+          let extra = activate_subgoal g in
+          if extra = [] && sequent_eq before sequent then
+            [capture_current_subgoal ()]
+          else
+            let gs = capture_current_subgoal () :: extra in
+            concat_map_subgoals
+              (fun () ->
+                 eval_tactic ~resolve ~run_atomic (Repeat (next_limit, t)))
+              gs
+      | gs ->
+          concat_map_subgoals
+            (fun () ->
+               eval_tactic ~resolve ~run_atomic (Repeat (next_limit, t)))
+            gs
+      end
+  | _ ->
+      eval_atomic_tactic ~resolve ~run_atomic cmd
+
+and eval_atomic_tactic ~resolve ~run_atomic cmd =
+  subgoals := [] ;
+  bullet_stack := [] ;
+  subgoal_focused := true ;
+  let cmd = cmd |> refresh_command_tyvars |> resolve in
+  match run_atomic cmd with
+  | () ->
+      ensure_no_prop_schematic_instantiation () ;
+      ensure_no_prop_equality_state () ;
+      let schem = !Term.schematic_instantiations in
+      let tail = List.map (wrap_pending_subgoal schem) !subgoals in
+      subgoals := [] ;
+      capture_current_subgoal () :: tail
+  | exception End_proof (`completed _) ->
+      ensure_no_prop_schematic_instantiation () ;
+      []
+
+let run_tactic ~resolve ~run_atomic cmd =
+  ensure_focused () ;
+  let saved_subgoals = !subgoals in
+  let saved_bullet_stack = !bullet_stack in
+  subgoals := [] ;
+  bullet_stack := [] ;
+  let resulting_subgoals = eval_tactic ~resolve ~run_atomic cmd in
+  bullet_stack := saved_bullet_stack ;
+  match resulting_subgoals with
+  | [] ->
+      subgoals := saved_subgoals ;
+      next_subgoal ()
+  | first :: rest ->
+      let extra = activate_subgoal first in
+      subgoals := extra @ rest @ saved_subgoals ;
+      subgoal_focused := true

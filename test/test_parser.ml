@@ -27,6 +27,11 @@ let assert_rejected str =
   | _ -> Alcotest.failf "%S unexpectedly parsed" str
   | exception _ -> ()
 
+let assert_command_rejected str =
+  match parse_command str with
+  | _ -> Alcotest.failf "%S unexpectedly parsed" str
+  | exception _ -> ()
+
 let qid_string = Abella_types.qualid_to_string
 
 let source_string = function
@@ -485,5 +490,53 @@ let tests =
       test_case "Multi-character size restrictions"
         (fun () ->
            assert_pprint_equal_parse "{foo X}** -> bar ++") ;
+
+      test_case "Try tactical"
+        (fun () ->
+           assert_command_pprint "try search" "try search." ;
+           assert_command_pprint
+             "try !X H : case H10" "try [!X H] : case H10.") ;
+
+      test_case "Semicolon tactical and grouping"
+        (fun () ->
+           assert_command_pprint "split ; search" "split ; search." ;
+           assert_command_pprint
+             "split ; intros ; search" "split ; intros ; search." ;
+           assert_command_pprint
+             "(split ; intros) ; search" "(split ; intros) ; search." ;
+           assert_command_pprint
+             "split ; try (intros ; search)"
+             "(split ; try (intros ; search))." ;
+           assert_command_pprint
+             "try (split ; search) ; left"
+             "try (split ; search) ; left.") ;
+
+      test_case "Repeat tactical"
+        (fun () ->
+           assert_command_pprint "repeat split" "repeat split." ;
+           assert_command_pprint "repeat 3 split" "repeat 3 split." ;
+           assert_command_pprint
+             "repeat (split ; try search)"
+             "repeat (split ; try search)." ;
+           assert_command_pprint
+             "repeat 2 (split ; try search) ; left"
+             "repeat 2 (split ; try search) ; left.") ;
+
+      test_case "Try and repeat remain valid identifiers"
+        (fun () ->
+           assert_pprint_equal_parse "try repeat -> repeat try" ;
+           assert_top_pprint "Type try o" "Type try o." ;
+           assert_top_pprint "Type repeat o -> o" "Type repeat o -> o." ;
+           assert_command_pprint
+             "apply H with try = repeat" "apply H with try = repeat.") ;
+
+      test_case "Induction and coinduction rejected in tacticals"
+        (fun () ->
+           assert_command_rejected "try induction on 1." ;
+           assert_command_rejected "try coinduction." ;
+           assert_command_rejected "induction on 1 ; intros." ;
+           assert_command_rejected "intros ; coinduction." ;
+           assert_command_rejected "repeat induction on 1." ;
+           assert_command_rejected "(coinduction).") ;
 
     ]

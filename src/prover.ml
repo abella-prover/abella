@@ -291,6 +291,12 @@ let term_spine t =
   | Some (_, spine) -> spine
   | None -> [%bug] "term_spine: term has no head"
 
+let clause_head_name cl =
+  match cl.head with
+  | Binding (Nabla, _, Pred (p, _)) | Pred (p, _) ->
+      term_head_name p
+  | _ -> [%bug] "Clause head name for invalid clause: %s" (metaterm_to_string cl.head)
+
 let instantiate_pred_types tysub (tbl: ty Itab.t) : ty Itab.t =
   let res = ref Itab.empty in
   Itab.iter begin fun id ty ->

@@ -1143,10 +1143,28 @@ let search sq ?depth ~witness ~handle_witness ()
 (* Assemble named subgoals from cores paired with the bind
    state each one owns. The first stays focused and its
    binds are installed globally, mirroring the trailing
-   [Prover.next_subgoal] of branching tactics. *)
-let build_subgoals_full sq subs =
+   [Prover.next_subgoal] of branching tactics. With
+   [~mainline:n], the last [n] cores are mainline
+   continuations: like [Prover.add_subgoals ~mainline] they
+   keep the base name (bumping [next_subgoal_id]) instead of
+   being numbered. *)
+let build_subgoals_full ?(mainline = 0) sq subs =
+  let n_ob = List.length subs - mainline in
   let named =
-    name_subgoals sq (List.map (fun (core, _, _) -> core) subs)
+    List.mapi
+      (fun i (core, _, _) ->
+        if mainline = 0 && n_ob <= 1 then core
+        else if i < n_ob then
+          let idx = sq.next_subgoal_id + i in
+          let name =
+            if sq.name = "" then string_of_int idx
+            else sq.name ^ "." ^ string_of_int idx
+          in
+          { core with name ; next_subgoal_id = 1 }
+        else
+          { core with
+            next_subgoal_id = sq.next_subgoal_id + n_ob })
+      subs
   in
   let states =
     List.map (fun (_, bs, schem) -> (bs, schem)) subs
@@ -1393,7 +1411,9 @@ let apply sq ?depth ?hint ?(term_witness = ignore) h args ws
                               !Term.schematic_instantiations
                             in
                             let bs_main = Term.get_bind_state () in
-                            build_subgoals_full sq
+                            build_subgoals_full
+                              ~mainline:(List.length mainline)
+                              sq
                               ((List.map
                                   (fun core ->
                                     (core, bs_ob, schem_ob))

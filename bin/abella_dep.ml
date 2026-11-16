@@ -71,14 +71,15 @@ and add_source_file kind file =
 
 type conf = {
   abella : string ;
+  out_suffix : string ;
   makefile : string ;
   clobber : bool ;
   recursive : bool ;
   quiet : bool ;
 }
 
-let mk_conf abella makefile clobber recursive quiet =
-  { abella ; makefile ; clobber ; recursive ; quiet }
+let mk_conf abella out_suffix makefile clobber recursive quiet =
+  { abella ; out_suffix ; makefile ; clobber ; recursive ; quiet }
 
 let abella_dep conf files =
   List.iter (add_input_file conf.recursive) files ;
@@ -101,7 +102,7 @@ let abella_dep conf files =
   Printf.fprintf out "# Generated on: %s\n" time ;
   Printf.fprintf out ".PHONY: all\n" ;
   let recipe ext =
-    let target = Printf.sprintf "${<:%%.%s=%%.out}" ext in
+    let target = Printf.sprintf "${<:%%.%s=%%%s}" ext conf.out_suffix in
     if conf.quiet then
       Printf.fprintf out "\t@%s --non-recursive --output=%s $< || (cat %s; exit 1)\n"
         conf.abella target target
@@ -150,6 +151,12 @@ let () =
              ~docv:"CMD"
              ~absent:"$(b,abella[.exe])")
     in
+    let out_suffix =
+      let doc = "Save the output from Abella with suffix $(docv)" in
+      Arg.(value @@ opt string ".out" @@
+           info ["suffix"] ~doc
+             ~docv:"SUFFIX")
+    in
     let makefile =
       let doc = "Output dependencies to $(docv) as a makefile. \
                  If $(docv) is $(b,-), then send the output to \
@@ -171,7 +178,8 @@ let () =
       let doc = "Generate silent recipes that only print output on failure." in
       Arg.(value @@ flag @@ info ["q" ; "quiet"] ~doc)
     in
-    Term.(const mk_conf $ abella $ makefile $ clobber $ recursive $ quiet) in
+    Term.(const mk_conf $ abella $ out_suffix $ makefile $ clobber $
+          recursive $ quiet) in
   let files =
     let doc = "An Abella $(b,.thm) or $(b,.thmod) file or a directory" in
     Arg.(value @@ pos_all string [] @@ info [] ~docv:"SOURCE" ~doc)

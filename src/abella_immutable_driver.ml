@@ -617,6 +617,68 @@ let get_display_imm () =
   end ;
   Buffer.contents buf
 
+(* Annotation state, mirroring [Prover.state_json]. *)
+
+let remaining_imm st =
+  List.fold_left
+    (fun acc f -> acc + List.length f.P.siblings)
+    0 st.P.bullets
+
+let format_unfocused_imm st =
+  match st.P.bullets with
+  | [] ->
+      [%bug] "unfocused proof state with empty bullet stack"
+  | f :: _ ->
+      let n = remaining_imm st in
+      Printf.sprintf
+        "Subgoal completed. Focus next subgoal with bullet %s (%d subgoal%s \
+         remaining)."
+        f.P.bullet n
+        (if n = 1 then "" else "s")
+
+let state_json_imm () : Json.t =
+  match !istate with
+  | None ->
+      [%bug] "state_json_imm: no proof in progress"
+  | Some st -> begin
+      match st.P.focused with
+      | None ->
+          `Assoc
+            [ "more", `Int (remaining_imm st) ;
+              "goal", `String "" ;
+              "hyps", `List [] ;
+              "vars", `List [] ;
+              "name", `String "" ;
+              "unfocused", `String (format_unfocused_imm st) ]
+      | Some sq ->
+          let vars =
+            List.map
+              begin fun (((v, t) as vt) : id * term) ->
+                `List
+                  [ `String v ;
+                    (if Tactics.is_uninstantiated vt then `Null
+                     else `String (term_to_string t)) ]
+              end
+              sq.P.vars
+          in
+          let hyps =
+            List.map
+              begin fun (h : P.hyp) ->
+                `List
+                  [ `String h.P.id ;
+                    `String (metaterm_to_string h.P.term) ]
+              end
+              sq.P.hyps
+          in
+          let goal = metaterm_to_string sq.P.goal in
+          `Assoc
+            [ "more", `Int (List.length st.P.pending) ;
+              "goal", `String goal ;
+              "hyps", `List hyps ;
+              "vars", `List vars ;
+              "name", `String sq.P.name ]
+    end
+
 (* Proof lifecycle *)
 
 type processing_state =
@@ -736,7 +798,35 @@ let process_proof1_body_imm proc =
     | Bullet _ -> Output.non_annot "%s\n" cmd_string
     | _ -> Output.non_annot "%s.\n" cmd_string
     end ;
-  process_proof_command proc input.el
+  let annot =
+    if not !Setup.annotate then None
+    else
+      (Output.message "proof_command"
+         ~fields:
+           begin
+             [ "thm_id", `Int proc.thm_id ;
+               "theorem", `String proc.thm ;
+               "start_state", state_json_imm () ;
+               "command", `String cmd_string ;
+             ]
+             @ (if fst input.pos = Lexing.dummy_pos then []
+                else ["range", json_of_position input.pos])
+           end
+       |> Option.some)
+  in
+  if not !Setup.annotate then process_proof_command proc input.el
+  else
+    match process_proof_command proc input.el with
+    | () ->
+        Option.iter
+          begin fun annot ->
+            Output.extend annot "end_state" @@ state_json_imm ()
+            |> Output.commit_message
+          end
+          annot
+    | exception e ->
+        Option.iter Output.commit_message annot ;
+        raise e
 
 let process_proof1_imm state =
   match state with
@@ -857,6 +947,19 @@ and process_top1_body_imm () =
   if !Setup.mode <> `interactive then
     Output.non_annot "%s.\n%!" cmd_string ;
   Thmod.check_structure input.el ;
+  let thm_id =
+    if not !Setup.annotate then -1
+    else
+      let annot =
+        Output.message "top_command"
+          ~fields:
+            ((if fst input.pos = Lexing.dummy_pos then []
+              else ["range", json_of_position input.pos])
+             @ ["command", `String cmd_string])
+      in
+      Output.commit_message annot ;
+      annot.id
+  in
   let next_state =
     begin match input.el with
     | Theorem (name, tys, thm) -> begin
@@ -869,8 +972,20 @@ and process_top1_body_imm () =
           Artifact.add_lemma ~fin name tys thm
         in
         let thm_reset () = sign := oldsign in
-        begin_proof ~thm_id:0 ~thm:name ~compile:thm_compile
-          ~reset:thm_reset thm
+        let next =
+          begin_proof ~thm_id ~thm:name ~compile:thm_compile
+            ~reset:thm_reset thm
+        in
+        if !Setup.annotate then
+          Output.commit_message
+            begin
+              Output.message "theorem_state"
+                ~fields:
+                  [ "thm_id", `Int thm_id ;
+                    "theorem", `String name ;
+                    "state", state_json_imm () ]
+            end ;
+        next
       end
     | Axiom (name, tys, thm) ->
         let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in

@@ -22,7 +22,7 @@
 (* Command line and startup *)
 
 open Abella_lib
-open Abella_immutable_driver
+open Driver_imm
 open Abella_types
 open Extensions
 
@@ -32,7 +32,7 @@ let set_output filename =
   Output.dest := Channel (open_out_bin filename)
 
 let set_or_exit k v =
-  try Abella_driver.set k v with
+  try Driver.set k v with
   | Failure msg ->
       Output.msg_printf ~severity:Error "Error: %s" msg ;
       raise @@ Setup.AbellaExit 1
@@ -72,11 +72,11 @@ let abella_main
         Setup.lexbuf := Lexing.from_channel ~with_positions:false stdin
     end ;
     if !Setup.mode = `interactive then
-      Output.msg_printf "%s" Abella_driver.welcome_msg ;
+      Output.msg_printf "%s" Driver.welcome_msg ;
     State.Undo.set_enabled (!Setup.mode <> `batch) ;
     let state = ref Process_top in
     while true do
-      match process1_imm !state with
+      match process1 !state with
       | Ok next -> state := next
       | Error _ -> ()
     done ; 0

@@ -27,7 +27,7 @@ open Abella_types
 open Extensions
 
 module Setup = Driver_setup
-module P = Prover_immutable
+module P = Prover_imm
 
 (* Owned proof cursor *)
 
@@ -42,7 +42,7 @@ let set_ist st = istate := Some st
 
 (* Error printers: bespoke errors become failure strings at
    the driver boundary (surfaced as Runtime_error by
-   [Abella_driver.handle_process_exception]). *)
+   [Driver.handle_process_exception]). *)
 
 let string_of_stmt_error = function
   | P.Unknown_stmt s ->
@@ -211,13 +211,13 @@ let string_of_unfold_error = function
   | P.Unfold_tactic_failure s -> s
 
 let string_of_compute_error = function
-  | Compute_immutable.Compute_stmt e -> string_of_stmt_error e
-  | Compute_immutable.Compute_rename e ->
+  | Compute_imm.Compute_stmt e -> string_of_stmt_error e
+  | Compute_imm.Compute_rename e ->
       string_of_rename_hint_error e
-  | Compute_immutable.Compute_out_of_gas n ->
+  | Compute_imm.Compute_out_of_gas n ->
       Printf.sprintf
         "Compute ran out of gas (given %d) -- looping?" n
-  | Compute_immutable.Compute_tactic_failure s -> s
+  | Compute_imm.Compute_tactic_failure s -> s
 
 let string_of_bullet_error = function
   | P.Bullet_already_active b ->
@@ -238,11 +238,11 @@ let or_fail to_string = function
 
 (* Atomic tactics *)
 
-let term_witness_imm (_t, w) =
+let term_witness (_t, w) =
   if !Setup.witnesses then
     Output.msg_printf "Witness: %s." (witness_to_string w)
 
-let handle_search_witness_imm w =
+let handle_search_witness w =
   if !Setup.witnesses then
     Output.msg_printf "Witness: %s." (witness_to_string w)
 
@@ -254,26 +254,26 @@ let outcome_list = function
   | Updated sq -> [sq]
   | Branched gs -> gs
 
-let run_atomic_imm ~resolve sq cmd
+let run_atomic ~resolve sq cmd
     : (outcome, string) result =
   let cmd = cmd |> Prover.refresh_command_tyvars |> resolve in
   match cmd with
   | Apply (depth, h, args, ws, hn) ->
       P.apply sq ?depth ?hint:hn h args ws
-        ~term_witness:term_witness_imm
+        ~term_witness:term_witness
       |> Result.map (fun gs -> Branched gs)
       |> Result.map_error string_of_apply_error
   | Backchain (depth, h, ws) ->
       P.backchain sq ?depth h ws
-        ~term_witness:term_witness_imm
+        ~term_witness:term_witness
       |> Result.map (fun gs -> Branched gs)
       |> Result.map_error string_of_backchain_error
   | Compute (hs, gas, hn) ->
-      Compute_immutable.compute sq ?hint:hn ?gas hs
+      Compute_imm.compute sq ?hint:hn ?gas hs
       |> Result.map (fun gs -> Branched gs)
       |> Result.map_error string_of_compute_error
   | ComputeAll (gas, hn, clr) ->
-      Compute_immutable.compute_all sq ?hint:hn ?gas clr
+      Compute_imm.compute_all sq ?hint:hn ?gas clr
       |> Result.map (fun gs -> Branched gs)
       |> Result.map_error string_of_compute_error
   | Cut (h, arg, hn) ->
@@ -346,7 +346,7 @@ let run_atomic_imm ~resolve sq cmd
         | _ -> WMagic
       in
       P.search sq ?depth ~witness
-        ~handle_witness:handle_search_witness_imm ()
+        ~handle_witness:handle_search_witness ()
       |> Result.map (fun gs -> Branched gs)
       |> Result.map_error string_of_search_error
     end
@@ -393,11 +393,11 @@ let run_atomic_imm ~resolve sq cmd
       Result.ok (Branched (P.skip sq))
   | Induction _ | CoInduction _ | Bullet _ | Abort | Undo | Common _
   | Try _ | Then _ | Repeat _ ->
-      [%bug] "run_atomic_imm: non-atomic command"
+      [%bug] "run_atomic: non-atomic command"
 
 (* Tacticals over explicit sequents *)
 
-let sequent_eq_imm
+let sequent_eq
     (s1 : P.sequent) (s2 : P.sequent) =
   Metaterm.metaterm_eq s1.P.goal s2.P.goal
   && Iset.equal s1.P.user_vars s2.P.user_vars
@@ -417,20 +417,20 @@ let sequent_eq_imm
         && Metaterm.metaterm_eq h1.P.term h2.P.term)
       s1.P.hyps s2.P.hyps
 
-let rec eval_tac_imm ~resolve sq cmd
+let rec eval_tac ~resolve sq cmd
     : (outcome, string) result =
   match cmd with
   | Then (t1, t2) -> begin
-      match eval_tac_imm ~resolve sq t1 with
+      match eval_tac ~resolve sq t1 with
       | Result.Error _ as e -> e
       | Result.Ok (Updated sq') ->
-          eval_tac_imm ~resolve sq' t2
+          eval_tac ~resolve sq' t2
       | Result.Ok (Branched gs) ->
           let rec loop acc = function
             | [] -> Result.ok (Branched (List.concat (List.rev acc)))
             | g :: rest -> begin
                 match
-                  eval_tac_imm ~resolve
+                  eval_tac ~resolve
                     (P.activate_sequent g) t2
                 with
                 | Result.Error _ as e -> e
@@ -442,23 +442,23 @@ let rec eval_tac_imm ~resolve sq cmd
     end
   | Try t ->
       let snap = State.snapshot () in
-      begin match eval_tac_imm ~resolve sq t with
+      begin match eval_tac ~resolve sq t with
       | Result.Ok _ as ok -> ok
       | Result.Error _ ->
           State.reload snap ;
           Result.ok (Updated sq)
       end
-  | Repeat (limit, t) -> repeat_tac_imm ~resolve sq limit t
-  | _ -> run_atomic_imm ~resolve sq cmd
+  | Repeat (limit, t) -> repeat_tac ~resolve sq limit t
+  | _ -> run_atomic ~resolve sq cmd
 
-and repeat_tac_imm ~resolve sq limit t
+and repeat_tac ~resolve sq limit t
     : (outcome, string) result =
   match limit with
   | Some n when n <= 0 -> Result.ok (Updated sq)
   | _ ->
       let next_limit = Option.map (fun n -> n - 1) limit in
       let snap = State.snapshot () in
-      begin match eval_tac_imm ~resolve sq t with
+      begin match eval_tac ~resolve sq t with
       | Result.Error _ ->
           State.reload snap ;
           Result.ok (Updated sq)
@@ -467,21 +467,21 @@ and repeat_tac_imm ~resolve sq limit t
           | [] -> Result.ok (Branched [])
           | [g] ->
               let g = P.activate_sequent g in
-              if sequent_eq_imm sq g then Result.ok o
-              else repeat_tac_imm ~resolve g next_limit t
+              if sequent_eq sq g then Result.ok o
+              else repeat_tac ~resolve g next_limit t
           | gs ->
-              repeat_list_imm ~resolve
+              repeat_list ~resolve
                 (List.map P.activate_sequent gs)
                 next_limit t
         end
       end
 
-and repeat_list_imm ~resolve gs limit t
+and repeat_list ~resolve gs limit t
     : (outcome, string) result =
   let rec loop acc = function
     | [] -> Result.ok (Branched (List.concat (List.rev acc)))
     | g :: rest -> begin
-        match repeat_tac_imm ~resolve g limit t with
+        match repeat_tac ~resolve g limit t with
         | Result.Error _ as e -> e
         | Result.Ok o -> loop (outcome_list o :: acc) rest
       end
@@ -496,14 +496,14 @@ and repeat_list_imm ~resolve gs limit t
    siblings stay raw until they are focused. In-place
    tactics and tactical iteration do not normalize, just
    like the original. *)
-let normalize_focused_imm st =
+let normalize_focused st =
   match st.P.focused with
   | None -> st
   | Some sq ->
       let sq = P.activate_sequent sq in
       { st with P.focused = Some (P.normalize_sequent sq) }
 
-let run_tactic_imm ~resolve cmd =
+let run_tactic ~resolve cmd =
   let st = get_ist () in
   match st.P.focused with
   | None -> begin
@@ -519,7 +519,7 @@ let run_tactic_imm ~resolve cmd =
   | Some sq ->
       let sq = P.activate_sequent sq in
       let outcome =
-        or_fail (fun s -> s) (eval_tac_imm ~resolve sq cmd)
+        or_fail (fun s -> s) (eval_tac ~resolve sq cmd)
       in
       (* [Skip] may have set [skip_seen] on the cursor during
          evaluation; carry it into the installed state. *)
@@ -541,10 +541,10 @@ let run_tactic_imm ~resolve cmd =
             | Some _ -> st'
             | None -> P.next_subgoal st'
           in
-          set_ist (normalize_focused_imm st')
+          set_ist (normalize_focused st')
       end
 
-let update_focused_imm to_string f =
+let update_focused to_string f =
   let st = get_ist () in
   match st.P.focused with
   | None -> failwith "No focused subgoal"
@@ -554,7 +554,7 @@ let update_focused_imm to_string f =
 
 (* Display *)
 
-let format_imm_vars fmt (sq : P.sequent) =
+let format_vars fmt (sq : P.sequent) =
   let open Format in
   let eigen, _ =
     List.partition Tactics.is_uninstantiated sq.P.vars
@@ -572,21 +572,21 @@ let format_imm_vars fmt (sq : P.sequent) =
     pp_print_newline fmt ()
   end
 
-let format_imm_hyp fmt (h : P.hyp) =
+let format_hyp fmt (h : P.hyp) =
   Format.fprintf fmt "%s : %a" h.P.id format_metaterm h.P.term ;
   Format.pp_force_newline fmt ()
 
-let format_imm_sequent fmt (sq : P.sequent) =
+let format_sequent fmt (sq : P.sequent) =
   Format.pp_open_vbox fmt 0 ;
-  format_imm_vars fmt sq ;
+  format_vars fmt sq ;
   List.iter
-    (format_imm_hyp fmt)
+    (format_hyp fmt)
     (List.rev sq.P.hyps) ;
   Format.fprintf fmt "============================@\n " ;
   format_metaterm fmt sq.P.goal ;
   Format.pp_close_box fmt ()
 
-let get_display_imm () =
+let get_display () =
   let buf = Buffer.create 100 in
   let fmt = Format.formatter_of_buffer buf in
   begin match !istate with
@@ -606,7 +606,7 @@ let get_display_imm () =
           if sq.P.name = "" then Format.fprintf fmt "@\n"
           else
             Format.fprintf fmt "Subgoal %s:@\n@\n" sq.P.name ;
-          format_imm_sequent fmt sq ;
+          format_sequent fmt sq ;
           Format.fprintf fmt "@\n@\n" ;
           Format.fprintf fmt "%d other subgoal(s).@\n@\n"
             (List.length st.P.pending)
@@ -619,37 +619,37 @@ let get_display_imm () =
 
 (* Annotation state, mirroring [Prover.state_json]. *)
 
-let remaining_imm st =
+let remaining st =
   List.fold_left
     (fun acc f -> acc + List.length f.P.siblings)
     0 st.P.bullets
 
-let format_unfocused_imm st =
+let format_unfocused st =
   match st.P.bullets with
   | [] ->
       [%bug] "unfocused proof state with empty bullet stack"
   | f :: _ ->
-      let n = remaining_imm st in
+      let n = remaining st in
       Printf.sprintf
         "Subgoal completed. Focus next subgoal with bullet %s (%d subgoal%s \
          remaining)."
         f.P.bullet n
         (if n = 1 then "" else "s")
 
-let state_json_imm () : Json.t =
+let state_json () : Json.t =
   match !istate with
   | None ->
-      [%bug] "state_json_imm: no proof in progress"
+      [%bug] "state_json: no proof in progress"
   | Some st -> begin
       match st.P.focused with
       | None ->
           `Assoc
-            [ "more", `Int (remaining_imm st) ;
+            [ "more", `Int (remaining st) ;
               "goal", `String "" ;
               "hyps", `List [] ;
               "vars", `List [] ;
               "name", `String "" ;
-              "unfocused", `String (format_unfocused_imm st) ]
+              "unfocused", `String (format_unfocused st) ]
       | Some sq ->
           let vars =
             List.map
@@ -692,7 +692,7 @@ and proof_processor = {
   reset : unit -> unit ;
 }
 
-let imm_state : processing_state ref = State.rref Process_top
+let processing_state : processing_state ref = State.rref Process_top
 
 let placeholder_goal () =
   termobj (const "placeholder" propty)
@@ -720,10 +720,10 @@ let begin_proof ~thm_id ~thm ~compile ~reset goal
             reset ()) ;
       }
   in
-  imm_state := proc ;
+  processing_state := proc ;
   proc
 
-let audit_imm () =
+let audit () =
   ensure_no_prop_schematic_instantiation () ;
   match !istate with
   | None -> ()
@@ -744,17 +744,17 @@ let audit_imm () =
         seqs
 
 let process_proof_command proc cmd =
-  let resolve = Abella_driver.resolve_proof_cmd in
+  let resolve = Driver.resolve_proof_cmd in
   begin match resolve cmd with
   | Induction (args, hn) ->
-      update_focused_imm string_of_induction_error (fun sq ->
+      update_focused string_of_induction_error (fun sq ->
           P.induction sq ?hint:hn args)
   | CoInduction hn ->
-      update_focused_imm string_of_coinduction_error (fun sq ->
+      update_focused string_of_coinduction_error (fun sq ->
           P.coinduction sq ?hint:hn ())
   | Bullet b ->
       set_ist
-        (normalize_focused_imm
+        (normalize_focused
            (or_fail string_of_bullet_error
               (P.bullet (get_ist ()) b)))
   | Abort -> raise (Prover.End_proof `aborted)
@@ -768,7 +768,7 @@ let process_proof_command proc cmd =
       else
         failwith
           "Cannot use interactive commands in non-interactive mode"
-  | Common (Set (k, v)) -> Abella_driver.set k v
+  | Common (Set (k, v)) -> Driver.set k v
   | Common (Show nm) ->
       Output.msg_format "%t" (Prover.show nm) ;
       if !Setup.mode = `interactive then Output.blank_line ()
@@ -776,9 +776,9 @@ let process_proof_command proc cmd =
       failwith
         "Show Module is not supported by the immutable driver sketch"
   | Common Quit -> raise End_of_file
-  | _ -> run_tactic_imm ~resolve cmd
+  | _ -> run_tactic ~resolve cmd
   end ;
-  audit_imm () ;
+  audit () ;
   let st = get_ist () in
   if P.is_completed st then begin
     let fin = if st.P.skip_seen then Unfinished else Finished in
@@ -786,9 +786,9 @@ let process_proof_command proc cmd =
   end ;
   ignore proc
 
-let process_proof1_body_imm proc =
+let process_proof1_body proc =
   if !Setup.mode = `interactive then
-    Output.non_annot "%s" @@ get_display_imm () ;
+    Output.non_annot "%s" @@ get_display () ;
   if !Setup.mode = `interactive then
     Output.non_annot "%s < " proc.thm ;
   let input = Parser.command_start Lexer.token !Setup.lexbuf in
@@ -806,7 +806,7 @@ let process_proof1_body_imm proc =
            begin
              [ "thm_id", `Int proc.thm_id ;
                "theorem", `String proc.thm ;
-               "start_state", state_json_imm () ;
+               "start_state", state_json () ;
                "command", `String cmd_string ;
              ]
              @ (if fst input.pos = Lexing.dummy_pos then []
@@ -820,7 +820,7 @@ let process_proof1_body_imm proc =
     | () ->
         Option.iter
           begin fun annot ->
-            Output.extend annot "end_state" @@ state_json_imm ()
+            Output.extend annot "end_state" @@ state_json ()
             |> Output.commit_message
           end
           annot
@@ -828,14 +828,14 @@ let process_proof1_body_imm proc =
         Option.iter Output.commit_message annot ;
         raise e
 
-let process_proof1_imm state =
+let process_proof1 state =
   match state with
   | Process_top ->
-      [%bug] "process_proof1_imm called in top-level state"
+      [%bug] "process_proof1 called in top-level state"
   | Process_proof proc -> begin
       try
-        process_proof1_body_imm proc ;
-        Ok !imm_state
+        process_proof1_body proc ;
+        Ok !processing_state
       with
       | Prover.End_proof reason -> begin
           Output.msg_printf "Proof %s" begin
@@ -853,61 +853,61 @@ let process_proof1_imm state =
             | `aborted -> "ABORTED"
           end ;
           proc.reset () ;
-          imm_state := Process_top ;
+          processing_state := Process_top ;
           Ok Process_top
         end
-      | e -> Error (Abella_driver.handle_process_exception e)
+      | e -> Error (Driver.handle_process_exception e)
     end
 
-(* Top level: mirrors [Abella_driver.process_top1_body] but
+(* Top level: mirrors [Driver.process_top1_body] but
    starts proofs with [begin_proof]. Everything here only
    touches shared global tables, never the immutable
    sequent, so the bodies are unchanged apart from the
    [Theorem] case and the loaders below. *)
 
-let compile_imm citem =
+let compile citem =
   if !Setup.file_kind = `thmod || Thmod.in_module () then
     Thmod.add_compiled citem
   else
     Thm.comp_content := citem :: !Thm.comp_content
 
-let record_imported_imm citem =
+let record_imported citem =
   if !Setup.file_kind = `thmod || Thmod.in_module () then
     Thmod.add_imported_compiled citem
   else
     Thm.comp_content := citem :: !Thm.comp_content
 
-let bound_params_imm () =
+let bound_params () =
   if Thmod.in_module () then Thmod.all_params () else []
 
-let rec process1_imm state =
-  imm_state := state ;
+let rec process1 state =
+  processing_state := state ;
   State.Undo.push () ;
   try
     let result =
       match state with
-      | Process_top -> process_top1_imm state
-      | Process_proof _ -> process_proof1_imm state
+      | Process_top -> process_top1 state
+      | Process_proof _ -> process_proof1 state
     in
     begin match result with
-    | Ok next -> imm_state := next
+    | Ok next -> processing_state := next
     | Error _ -> ()
     end ;
     result
   with
   | End_of_file ->
-      Abella_driver.check_thmod_complete () ;
-      Abella_driver.write_compilation () ;
+      Driver.check_thmod_complete () ;
+      Driver.write_compilation () ;
       begin match state with
       | Process_top ->
-          if not (Abella_driver.is_interactive ())
+          if not (Driver.is_interactive ())
              && !Setup.unfinished <> []
           then begin
             Output.msg_printf
               "There were skips in these theorem(s): %s"
               (String.concat ", " (List.unique !Setup.unfinished))
           end ;
-          if not (Abella_driver.is_interactive ())
+          if not (Driver.is_interactive ())
              && !Setup.axioms <> []
           then begin
             Output.msg_printf "The following axioms were used: %s"
@@ -922,20 +922,20 @@ let rec process1_imm state =
           raise @@ Setup.AbellaExit 1
       end
 
-and process_top1_imm state =
+and process_top1 state =
   match state with
   | Process_proof _ ->
-      [%bug] "process_top1_imm called in proof state"
+      [%bug] "process_top1 called in proof state"
   | Process_top -> begin
       try
-        let next = process_top1_body_imm () in
+        let next = process_top1_body () in
         ensure_no_prop_schematic_instantiation () ;
         Ok next
       with
-      | e -> Error (Abella_driver.handle_process_exception e)
+      | e -> Error (Driver.handle_process_exception e)
     end
 
-and process_top1_body_imm () =
+and process_top1_body () =
   if !Setup.mode = `interactive then Output.non_annot "Abella < " ;
   let input = Parser.top_command_start Lexer.token !Setup.lexbuf in
   let cmd_string = top_command_to_string input.el in
@@ -964,11 +964,11 @@ and process_top1_body_imm () =
     begin match input.el with
     | Theorem (name, tys, thm) -> begin
         let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
-        check_theorem ~bound:(bound_params_imm ()) tys thm ;
+        check_theorem ~bound:(bound_params ()) tys thm ;
         let oldsign = !sign in
         let thm_compile fin =
           sign := oldsign ;
-          compile_imm (CTheorem (name, tys, thm, fin)) ;
+          compile (CTheorem (name, tys, thm, fin)) ;
           Artifact.add_lemma ~fin name tys thm
         in
         let thm_reset () = sign := oldsign in
@@ -983,14 +983,14 @@ and process_top1_body_imm () =
                 ~fields:
                   [ "thm_id", `Int thm_id ;
                     "theorem", `String name ;
-                    "state", state_json_imm () ]
+                    "state", state_json () ]
             end ;
         next
       end
     | Axiom (name, tys, thm) ->
         let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
-        check_theorem ~bound:(bound_params_imm ()) tys thm ;
-        compile_imm (CTheorem (name, tys, thm, Axiomatic)) ;
+        check_theorem ~bound:(bound_params ()) tys thm ;
+        compile (CTheorem (name, tys, thm, Axiomatic)) ;
         Artifact.add_lemma ~fin:Axiomatic name tys thm ;
         Setup.axioms := name :: !Setup.axioms ;
         Process_top
@@ -1006,7 +1006,7 @@ and process_top1_body_imm () =
           begin fun (n, (tys, t)) ->
             Output.msg_format "%t" (Prover.print_theorem n (tys, t)) ;
             Artifact.add_lemma ~fin n tys t ;
-            compile_imm (CTheorem (n, tys, t, fin))
+            compile (CTheorem (n, tys, t, fin))
           end
           gen_thms ;
         if fin = Unfinished && List.mem name !Setup.unfinished then
@@ -1021,38 +1021,38 @@ and process_top1_body_imm () =
           Thmod.in_module ()
           || !stratification_warnings_are_errors
         in
-        compile_imm
+        compile
           (Prover.register_definition ~strat_errors
-             ~bound_tyvars:(bound_params_imm ()) input.el) ;
+             ~bound_tyvars:(bound_params ()) input.el) ;
         Process_top
     | Suspend (head, test) ->
         let g = Compute.make_guard ~head ~test in
         Compute.add_guard g ;
-        compile_imm @@ CSuspend g ;
+        compile @@ CSuspend g ;
         Process_top
     | TopCommon Back ->
         (if !Setup.mode = `interactive then State.Undo.back 2
          else
            failwith
              "Cannot use interactive commands in non-interactive mode") ;
-        !imm_state
+        !processing_state
     | TopCommon Reset ->
         (if !Setup.mode = `interactive then State.Undo.reset ()
          else
            failwith
              "Cannot use interactive commands in non-interactive mode") ;
         Process_top
-    | TopCommon (Set (k, v)) -> Abella_driver.set k v ; Process_top
+    | TopCommon (Set (k, v)) -> Driver.set k v ; Process_top
     | TopCommon (Show n) ->
         Output.msg_format "%t" (Prover.show n) ;
         Process_top
     | TopCommon (ShowModule src) ->
-        Thmod.show_module ~load:load_thmod_artifact_imm src ;
+        Thmod.show_module ~load:load_thmod_artifact src ;
         Process_top
     | TopCommon Quit -> raise End_of_file
     | Import (filename, pos, withs) ->
-        compile_imm (CImport (filename, withs)) ;
-        Thm.import ~load:load_thm_artifact_imm ~wrt:!Setup.input
+        compile (CImport (filename, withs)) ;
+        Thm.import ~load:load_thm_artifact ~wrt:!Setup.input
           pos filename withs ;
         Process_top
     | Module (name, params) ->
@@ -1072,8 +1072,8 @@ and process_top1_body_imm () =
             end
         | NameSource _ -> ()
         end ;
-        Thmod.import_module ~load:load_thmod_artifact_imm
-          ~record:record_imported_imm mi ;
+        Thmod.import_module ~load:load_thmod_artifact
+          ~record:record_imported mi ;
         Process_top
       end
     | Specification (filename, pos) ->
@@ -1091,10 +1091,10 @@ and process_top1_body_imm () =
              "Specification can only be read \
               at the begining of a development.") ;
         Process_top
-    | Query q -> Abella_driver.query q ; Process_top
+    | Query q -> Driver.query q ; Process_top
     | Kind (ids, knd) ->
         Prover.add_global_types ids knd ;
-        compile_imm (CKind (ids, knd)) ;
+        compile (CKind (ids, knd)) ;
         Process_top
     | Type (ids, ty) ->
         let is_declared_predicate =
@@ -1115,7 +1115,7 @@ and process_top1_body_imm () =
                prop"
               name
           end
-          else List.minus (get_typaram ty) (bound_params_imm ())
+          else List.minus (get_typaram ty) (bound_params ())
         in
         Prover.add_global_consts ~typarams
           (List.map (fun id -> (id, ty)) ids) ;
@@ -1124,11 +1124,11 @@ and process_top1_body_imm () =
             CDeclPred (ids, typarams, ty)
           else CType (ids, typarams, ty)
         in
-        compile_imm comp ;
+        compile comp ;
         Process_top
     | Close atys ->
         Prover.close_types !sign !Prover.clauses atys ;
-        compile_imm
+        compile
           (CClose
              (List.map
                 (fun aty ->
@@ -1140,8 +1140,8 @@ and process_top1_body_imm () =
   if not !Setup.annotate then Output.blank_line () ;
   next_state
 
-and load_thm_artifact_imm ~modname =
-  Thm.Codec.load ~process:process1_imm ~init:Process_top ~modname
+and load_thm_artifact ~modname =
+  Thm.Codec.load ~process:process1 ~init:Process_top ~modname
 
-and load_thmod_artifact_imm ~modname =
-  Thmod.Codec.load ~process:process1_imm ~init:Process_top ~modname
+and load_thmod_artifact ~modname =
+  Thmod.Codec.load ~process:process1 ~init:Process_top ~modname

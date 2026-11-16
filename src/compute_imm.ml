@@ -11,7 +11,7 @@ open Metaterm
 open Abella_types
 open Extensions
 
-module P = Prover_immutable
+module P = Prover_imm
 
 type compute_error =
   | Compute_stmt of P.stmt_error
@@ -48,7 +48,7 @@ let get_wait clr form =
 (* [Prover.case_subgoals] on an explicit sequent. Raises like
    the original; [compute_case] suspends on [Failure] and
    [Unify.UnifyFailure] exactly as [Compute] does. *)
-let case_subgoals_imm sq clr =
+let case_subgoals sq clr =
   let global_support =
     List.flatten_map metaterm_support
       (List.map (fun (h : P.hyp) -> h.P.term) sq.P.hyps)
@@ -109,7 +109,7 @@ let compute sq ?hint ?(gas = 1_000) hs =
     | _ -> doit ()
   and compute_case sq ~chs ~wait ~todo ch =
     if !gas <= 0 then raise Out_of_gas ;
-    match case_subgoals_imm sq ch.clr with
+    match case_subgoals sq ch.clr with
     | exception (Failure _ | Unify.UnifyFailure _) ->
         compute_all sq ~chs
           ~wait:(get_wait ch.clr ch.form :: wait)

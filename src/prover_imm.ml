@@ -1797,7 +1797,7 @@ let theorem sq thm = keep_active sq { sq with goal = thm }
 
 exception SaturateSuccess
 
-let is_ground_imm f = metaterm_vars_alist Logic f = []
+let is_ground f = metaterm_vars_alist Logic f = []
 
 type saturate_error =
   | Unknown_saturate_lemma of id
@@ -1920,7 +1920,7 @@ let saturate sq ?hint ?depth lemmas
             | [] ->
                 let to_release =
                   List.rev_filter_map begin fun form ->
-                    if not @@ is_ground_imm form then None else
+                    if not @@ is_ground form then None else
                     match
                       purepos sq ~ts
                         ~succ:(fun _ts -> raise SaturateSuccess)
@@ -1946,7 +1946,7 @@ let saturate sq ?hint ?depth lemmas
                       let f2 =
                         Metaterm.map_terms Term.deep_copy f2
                       in
-                      if is_ground_imm f1 then
+                      if is_ground f1 then
                         cases := (f1, f2) :: !cases
                     in
                     purepos sq ~ts ~succ:add_proof f1 ;

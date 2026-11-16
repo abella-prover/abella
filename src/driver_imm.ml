@@ -33,6 +33,11 @@ module P = Prover_imm
 
 let istate : P.proof_state option ref = State.rref None
 
+(* Suppress the next interactive proof-state display, after
+   [Show]/[ShowModule] which print their own output. Mirrors
+   [Driver.suppress_proof_state_display]. *)
+let suppress_proof_state_display = State.rref false
+
 let get_ist () =
   match !istate with
   | Some st -> st
@@ -235,6 +240,13 @@ let string_of_bullet_error = function
 let or_fail to_string = function
   | Result.Ok x -> x
   | Result.Error e -> failwith (to_string e)
+
+(* Failures [Try]/[Repeat] recover from: the same exception
+   set [Prover] catches, plus [Strict_name] (strict-mode name
+   warnings abort tactics like the original's [Failure]). *)
+let is_recoverable = function
+  | P.Strict_name _ -> true
+  | e -> P.tactic_failure_message e <> None
 
 (* Atomic tactics *)
 
@@ -447,6 +459,9 @@ let rec eval_tac ~resolve sq cmd
       | Result.Error _ ->
           State.reload snap ;
           Result.ok (Updated sq)
+      | exception e when is_recoverable e ->
+          State.reload snap ;
+          Result.ok (Updated sq)
       end
   | Repeat (limit, t) -> repeat_tac ~resolve sq limit t
   | _ -> run_atomic ~resolve sq cmd
@@ -460,6 +475,9 @@ and repeat_tac ~resolve sq limit t
       let snap = State.snapshot () in
       begin match eval_tac ~resolve sq t with
       | Result.Error _ ->
+          State.reload snap ;
+          Result.ok (Updated sq)
+      | exception e when is_recoverable e ->
           State.reload snap ;
           Result.ok (Updated sq)
       | Result.Ok o -> begin
@@ -519,7 +537,8 @@ let run_tactic ~resolve cmd =
   | Some sq ->
       let sq = P.activate_sequent sq in
       let outcome =
-        or_fail (fun s -> s) (eval_tac ~resolve sq cmd)
+        try or_fail (fun s -> s) (eval_tac ~resolve sq cmd)
+        with P.Strict_name msg -> failwith msg
       in
       (* [Skip] may have set [skip_seen] on the cursor during
          evaluation; carry it into the installed state. *)
@@ -554,37 +573,158 @@ let update_focused to_string f =
 
 (* Display *)
 
-let format_vars fmt (sq : P.sequent) =
+(* Display: mirrors [Prover]'s pretty-printing, including
+   [show_types]/[show_instantiations] verbosity, abbreviated
+   hypothesis groups, and the subgoal-depth display budgets
+   ([Set subgoals ...] is honored through [Prover]'s
+   table). *)
+
+let separate_strings_imm xs =
+  let __max_len = 30 in
+  let result = ref [] in
+  let emit xs =
+    result := String.concat "," (List.rev xs) :: !result
+  in
+  let rec spin nxs pos = function
+    | [] -> emit nxs
+    | x :: xs ->
+        if pos + String.length x + 1 < __max_len then
+          spin (x :: nxs) (pos + String.length x + 1) xs
+        else begin
+          emit nxs ;
+          spin [x] (String.length x) xs
+        end
+  in
+  spin [] 0 xs ;
+  List.rev !result
+
+let format_typed_vars_imm ff (ty, xs) =
   let open Format in
-  let eigen, _ =
+  List.iter
+    begin fun xs ->
+      pp_print_string ff "  " ;
+      pp_print_string ff xs ;
+      pp_print_string ff " : " ;
+      pp_open_box ff 0 ;
+      Term.format_ty ff ty ;
+      pp_close_box ff () ;
+      pp_print_newline ff ()
+    end
+    (separate_strings_imm xs)
+
+let format_vars_imm fmt (sq : P.sequent) =
+  let open Format in
+  let eigen_vars, inst_vars =
     List.partition Tactics.is_uninstantiated sq.P.vars
   in
-  if eigen <> [] then begin
+  if eigen_vars <> [] then begin
     pp_print_string fmt "Variables: " ;
-    pp_open_hovbox fmt 0 ;
-    pp_print_string fmt (fst (List.hd eigen)) ;
+    if !Metaterm.show_types then begin
+      pp_print_newline fmt () ;
+      eigen_vars
+      |> List.map (fun (x, xtm) -> (Term.tc [] xtm, x))
+      |> List.sort (fun (ty1, _) (ty2, _) -> compare ty1 ty2)
+      |> List.collate_assoc
+      |> List.iter (format_typed_vars_imm fmt)
+    end else begin
+      pp_open_hovbox fmt 0 ;
+      pp_print_string fmt (fst (List.hd eigen_vars)) ;
+      List.iter
+        (fun v ->
+          pp_print_space fmt () ;
+          pp_print_string fmt (fst v))
+        (List.tl eigen_vars) ;
+      pp_close_box fmt () ;
+      pp_print_newline fmt ()
+    end
+  end ;
+  if inst_vars <> [] && !Prover.show_instantiations then
     List.iter
-      (fun v ->
-        pp_print_space fmt () ;
-        pp_print_string fmt (fst v))
-      (List.tl eigen) ;
-    pp_close_box fmt () ;
-    pp_print_newline fmt ()
-  end
+      begin fun (v, vtm) ->
+        pp_print_string fmt v ;
+        pp_print_string fmt " <-- " ;
+        Term.format_term fmt vtm ;
+        pp_print_newline fmt ()
+      end
+      inst_vars
 
-let format_hyp fmt (h : P.hyp) =
-  Format.fprintf fmt "%s : %a" h.P.id format_metaterm h.P.term ;
+let format_hyp_imm fmt (h : P.hyp) =
+  Format.fprintf fmt "%s : " h.P.id ;
+  begin match h.P.abbrev with
+  | None -> format_metaterm fmt h.P.term
+  | Some s -> Format.fprintf fmt "%s" s
+  end ;
   Format.pp_force_newline fmt ()
 
-let format_sequent fmt (sq : P.sequent) =
+let format_hyps_imm fmt (sq : P.sequent) =
+  let am, hyps =
+    List.fold_left
+      begin fun (am, hs) (h : P.hyp) ->
+        match h.P.abbrev with
+        | None -> (am, h :: hs)
+        | Some ab ->
+            let am =
+              match Itab.find ab am with
+              | hs -> Itab.add ab (h.P.id :: hs) am
+              | exception Not_found -> Itab.add ab [h.P.id] am
+            in
+            (am, hs)
+      end
+      (Itab.empty, []) sq.P.hyps
+  in
+  Itab.iter
+    begin fun ab hs ->
+      Format.fprintf fmt "%s : %s@\n"
+        (String.concat "," (List.rev hs)) ab
+    end
+    am ;
+  List.iter (format_hyp_imm fmt) (List.rev hyps)
+
+let format_sequent_imm fmt (sq : P.sequent) =
   Format.pp_open_vbox fmt 0 ;
-  format_vars fmt sq ;
-  List.iter
-    (format_hyp fmt)
-    (List.rev sq.P.hyps) ;
+  format_vars_imm fmt sq ;
+  format_hyps_imm fmt sq ;
   Format.fprintf fmt "============================@\n " ;
   format_metaterm fmt sq.P.goal ;
   Format.pp_close_box fmt ()
+
+let format_count_other_subgoals_imm fmt n =
+  match n with
+  | 0 -> ()
+  | 1 -> Format.fprintf fmt "1 other subgoal.@\n@\n"
+  | n -> Format.fprintf fmt "%d other subgoals.@\n@\n" n
+
+let format_other_subgoals_imm fmt st =
+  let pristine = State.snapshot () in
+  let budgets = Hashtbl.create 7 in
+  let count = ref 0 in
+  List.iter
+    begin fun (sq : P.sequent) ->
+      sq.P.activate () ;
+      let depth = String.count sq.P.name '.' in
+      let max_goals =
+        match Hashtbl.find_opt budgets depth with
+        | Some n -> n
+        | None ->
+            let n =
+              match Prover.subgoal_max_at depth with
+              | Some n -> n
+              | None -> Prover.subgoal_max_default ()
+            in
+            Hashtbl.add budgets depth n ;
+            n
+      in
+      if max_goals > 0 then begin
+        Hashtbl.replace budgets depth (max_goals - 1) ;
+        Format.fprintf fmt "@[<1>Subgoal %s%sis:@\n%a@]@\n@\n"
+          sq.P.name
+          (if sq.P.name = "" then "" else " ")
+          format_metaterm (Metaterm.normalize sq.P.goal)
+      end else incr count
+    end
+    st.P.pending ;
+  format_count_other_subgoals_imm fmt !count ;
+  State.reload pristine
 
 let get_display () =
   let buf = Buffer.create 100 in
@@ -606,10 +746,9 @@ let get_display () =
           if sq.P.name = "" then Format.fprintf fmt "@\n"
           else
             Format.fprintf fmt "Subgoal %s:@\n@\n" sq.P.name ;
-          format_sequent fmt sq ;
+          format_sequent_imm fmt sq ;
           Format.fprintf fmt "@\n@\n" ;
-          Format.fprintf fmt "%d other subgoal(s).@\n@\n"
-            (List.length st.P.pending)
+          format_other_subgoals_imm fmt st
       end ;
       Format.pp_close_box fmt () ;
       Format.pp_print_flush fmt ()
@@ -743,7 +882,7 @@ let audit () =
             sq.P.hyps)
         seqs
 
-let process_proof_command proc cmd =
+let rec process_proof_command proc cmd =
   let resolve = Driver.resolve_proof_cmd in
   begin match resolve cmd with
   | Induction (args, hn) ->
@@ -771,10 +910,12 @@ let process_proof_command proc cmd =
   | Common (Set (k, v)) -> Driver.set k v
   | Common (Show nm) ->
       Output.msg_format "%t" (Prover.show nm) ;
-      if !Setup.mode = `interactive then Output.blank_line ()
-  | Common (ShowModule _) ->
-      failwith
-        "Show Module is not supported by the immutable driver sketch"
+      if !Setup.mode = `interactive then Output.blank_line () ;
+      suppress_proof_state_display := true
+  | Common (ShowModule src) ->
+      Thmod.show_module ~load:load_thmod_artifact src ;
+      if !Setup.mode = `interactive then Output.blank_line () ;
+      suppress_proof_state_display := true
   | Common Quit -> raise End_of_file
   | _ -> run_tactic ~resolve cmd
   end ;
@@ -786,9 +927,12 @@ let process_proof_command proc cmd =
   end ;
   ignore proc
 
-let process_proof1_body proc =
-  if !Setup.mode = `interactive then
+and process_proof1_body proc =
+  if !Setup.mode = `interactive
+     && not !suppress_proof_state_display
+  then
     Output.non_annot "%s" @@ get_display () ;
+  suppress_proof_state_display := false ;
   if !Setup.mode = `interactive then
     Output.non_annot "%s < " proc.thm ;
   let input = Parser.command_start Lexer.token !Setup.lexbuf in
@@ -828,7 +972,7 @@ let process_proof1_body proc =
         Option.iter Output.commit_message annot ;
         raise e
 
-let process_proof1 state =
+and process_proof1 state =
   match state with
   | Process_top ->
       [%bug] "process_proof1 called in top-level state"
@@ -865,22 +1009,22 @@ let process_proof1 state =
    sequent, so the bodies are unchanged apart from the
    [Theorem] case and the loaders below. *)
 
-let compile citem =
+and compile citem =
   if !Setup.file_kind = `thmod || Thmod.in_module () then
     Thmod.add_compiled citem
   else
     Thm.comp_content := citem :: !Thm.comp_content
 
-let record_imported citem =
+and record_imported citem =
   if !Setup.file_kind = `thmod || Thmod.in_module () then
     Thmod.add_imported_compiled citem
   else
     Thm.comp_content := citem :: !Thm.comp_content
 
-let bound_params () =
+and bound_params () =
   if Thmod.in_module () then Thmod.all_params () else []
 
-let rec process1 state =
+and process1 state =
   processing_state := state ;
   State.Undo.push () ;
   try

@@ -459,6 +459,14 @@ let set_subgoal_max ndps =
     end smax.smax_map ndps in
   subgoal_max := { smax with smax_map }
 
+(* Read access for the immutable driver, which keeps its own
+   pending subgoals but honors the same display budgets. *)
+let subgoal_max_default () = !subgoal_max.smax_default
+
+let subgoal_max_at dp =
+  try Some (IntMap.find dp !subgoal_max.smax_map)
+  with Not_found -> None
+
 let format_other_subgoals fmt =
   let pristine = State.snapshot () in
   let smax = !subgoal_max in

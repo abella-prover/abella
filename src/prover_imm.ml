@@ -409,6 +409,78 @@ let map_tactic_failure mk f =
     | None -> raise e
   end
 
+(* Name warnings, mirroring [Prover]: silent unless
+   [Prover.strict_names] is [`warn] (print) or [`strict]
+   (abort). Raised as [Strict_name] rather than [Failure] so
+   [map_tactic_failure] lets them through: like the original,
+   they abort the whole tactic rather than becoming tactic
+   errors. The driver converts them back to [Failure]. *)
+exception Strict_name of string
+
+let report_user_name kind name =
+  match !Prover.strict_names with
+  | `relaxed -> ()
+  | `warn ->
+      Output.msg_printf "Warning: %s"
+        (Prover.user_name_message kind name)
+  | `strict ->
+      raise (Strict_name (Prover.user_name_message kind name))
+
+let warn_hyp_name sq name =
+  match !Prover.strict_names with
+  | `relaxed -> ()
+  | `warn | `strict -> begin
+      match List.find_opt (fun (h : hyp) -> h.id = name) sq.hyps with
+      | Some h when not h.user_named ->
+          report_user_name "hypothesis" name
+      | _ -> ()
+    end
+
+let warn_var_name sq name =
+  match !Prover.strict_names with
+  | `relaxed -> ()
+  | `warn | `strict ->
+      if not (is_nominal_name name)
+         && List.mem_assoc name sq.vars
+         && not (Iset.mem name sq.user_vars)
+      then report_user_name "variable" name
+
+let warn_label_name sq name =
+  if is_hyp sq name then warn_hyp_name sq name
+  else if List.mem_assoc name sq.vars then warn_var_name sq name
+
+let warn_term_vars sq term =
+  let names =
+    List.map fst (term_vars_alist Eigen [term])
+    @ List.map fst (term_vars_alist Nominal [term])
+    @ List.map fst (term_vars_alist Logic [term])
+  in
+  List.iter (warn_var_name sq) (List.unique names)
+
+let warn_metaterm_vars sq term =
+  let names =
+    List.map fst (metaterm_vars_alist Eigen term)
+    @ List.map fst (metaterm_vars_alist Nominal term)
+    @ List.map fst (metaterm_vars_alist Logic term)
+  in
+  List.iter (warn_var_name sq) (List.unique names)
+
+let warn_clearable sq = function
+  | Keep (h, _) -> warn_hyp_name sq h
+  | Remove (h, []) -> warn_hyp_name sq h
+  | Remove (_, _ :: _) -> ()
+
+let rec warn_witness sq = function
+  | WHyp h -> warn_hyp_name sq h
+  | WLeft w | WRight w -> warn_witness sq w
+  | WSplit (w1, w2) -> warn_witness sq w1 ; warn_witness sq w2
+  | WForall (_, w) | WIntros (_, w) -> warn_witness sq w
+  | WExists (bs, w) ->
+      List.iter (fun (_, term) -> warn_term_vars sq term) bs ;
+      warn_witness sq w
+  | WUnfold (_, _, ws) -> List.iter (warn_witness sq) ws
+  | WTrue | WReflexive | WMagic -> ()
+
 let next_restriction sq =
   1
   + (sq.hyps |> List.map (fun h -> h.term)
@@ -682,17 +754,20 @@ let split sq propagate_result
 (* Left / right. The mutable versions are silent no-ops off
    disjunction; here that is a bespoke error. *)
 
+(* [left]/[right] on a non-disjunction are silent no-ops,
+   mirroring [Prover]. *)
+
 type disjunction_error = Not_disjunction
 
 let left sq : (sequent, disjunction_error) result =
   match sq.goal with
   | Or (l, _) -> Result.ok (keep_active sq { sq with goal = l })
-  | _ -> Result.error Not_disjunction
+  | _ -> Result.ok sq
 
 let right sq : (sequent, disjunction_error) result =
   match sq.goal with
   | Or (_, r) -> Result.ok (keep_active sq { sq with goal = r })
-  | _ -> Result.error Not_disjunction
+  | _ -> Result.ok sq
 
 (* Existential witness *)
 
@@ -727,26 +802,31 @@ let exists_tac sq ew : (sequent, exists_error) result =
                 (fun (id, ty) -> (id, nominal_var id ty))
                 ntids
           in
-          begin try
-            let t =
-              type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx t
-            in
-            let goal =
-              replace_metaterm_vars [(id, t)]
-                (Metaterm.exists tids body)
-            in
-            Result.ok
-              (normalize_sequent (keep_active sq { sq with goal }))
-          with
-          | TypeInferenceFailure (exp, act, _) ->
-              Result.error
-                (Exists_type_error
-                   (Printf.sprintf "expected %s but got %s"
-                      (ty_to_string exp) (ty_to_string act)))
-          | Failure msg -> Result.error (Exists_type_error msg)
+          let tres =
+            try Result.ok
+              (type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx t)
+            with
+            | TypeInferenceFailure (exp, act, _) ->
+                Result.error
+                  (Exists_type_error
+                     (Printf.sprintf "expected %s but got %s"
+                        (ty_to_string exp) (ty_to_string act)))
+            | Failure msg -> Result.error (Exists_type_error msg)
+          in
+          begin match tres with
+          | Result.Error _ as e -> e
+          | Result.Ok t ->
+              warn_term_vars sq t ;
+              let goal =
+                replace_metaterm_vars [(id, t)]
+                  (Metaterm.exists tids body)
+              in
+              Result.ok
+                (normalize_sequent
+                   (keep_active sq { sq with goal }))
           end
     end
-  | _ -> Result.error Not_existential
+  | _ -> Result.ok sq
 
 (* Clear *)
 
@@ -811,6 +891,7 @@ let remove_thing sq cm h =
   if is_hyp sq h then remove_hyp sq cm h else remove_var sq cm h
 
 let clear sq cm hs : (sequent, clear_error) result =
+  List.iter (warn_label_name sq) hs ;
   List.fold_left
     (fun acc h ->
       match acc with
@@ -826,6 +907,7 @@ let clear sq cm hs : (sequent, clear_error) result =
 (* Abbrev (infallible: no error type needed) *)
 
 let abbrev sq ids str =
+  Iset.iter (warn_hyp_name sq) ids ;
   keep_active sq
     { sq with
       hyps = List.map
@@ -835,6 +917,7 @@ let abbrev sq ids str =
           sq.hyps }
 
 let unabbrev sq ids =
+  Iset.iter (warn_hyp_name sq) ids ;
   keep_active sq
     { sq with
       hyps = List.map
@@ -900,6 +983,7 @@ let rename_var sq vfr xto : (sequent, rename_error) result =
           goal = rewrite sq.goal }
 
 let rename sq xfr xto : (sequent, rename_error) result =
+  warn_label_name sq xfr ;
   if Hashtbl.mem Prover.lemmas xto then
     Result.error (Lemma_clash xto)
   else if List.exists (fun h -> h.id = xto) sq.hyps then
@@ -924,6 +1008,8 @@ type permute_error =
 
 let permute sq ids form
     : (sequent, permute_error) result =
+  Option.iter (warn_hyp_name sq) form ;
+  List.iter (warn_var_name sq) ids ;
   if not (List.is_unique ids) then
     Result.error Not_a_permutation
   else
@@ -972,6 +1058,7 @@ type inst_error =
   | Inst_tactic_failure of string
 
 let inst sq ?hint h ws : (sequent, inst_error) result =
+  warn_clearable sq h ;
   match get_stmt_clearly sq h with
   | Result.Error e -> Result.error (Inst_stmt e)
   | Result.Ok (sq, ht) -> begin
@@ -996,21 +1083,26 @@ let inst sq ?hint h ws : (sequent, inst_error) result =
                             (id, nominal_var id ty))
                           ntids
                     in
-                    begin try
-                      let t =
-                        type_uterm ~expected_ty:nty ~sr:!sr
-                          ~sign:!sign ~ctx t
-                      in
-                      aux sq (object_inst ht n t) ws
-                    with
-                    | TypeInferenceFailure (exp, act, _) ->
-                        Result.error
-                          (Inst_type_error
-                             (Printf.sprintf "expected %s but got %s"
-                                (ty_to_string exp)
-                                (ty_to_string act)))
-                    | Failure msg ->
-                        Result.error (Inst_type_error msg)
+                    let tres =
+                      try Result.ok
+                        (type_uterm ~expected_ty:nty ~sr:!sr
+                           ~sign:!sign ~ctx t)
+                      with
+                      | TypeInferenceFailure (exp, act, _) ->
+                          Result.error
+                            (Inst_type_error
+                               (Printf.sprintf
+                                  "expected %s but got %s"
+                                  (ty_to_string exp)
+                                  (ty_to_string act)))
+                      | Failure msg ->
+                          Result.error (Inst_type_error msg)
+                    in
+                    begin match tres with
+                    | Result.Error _ as e -> e
+                    | Result.Ok t ->
+                        warn_term_vars sq t ;
+                        aux sq (object_inst ht n t) ws
                     end
                 end
           in
@@ -1028,6 +1120,8 @@ type cut_error =
   | Cut_tactic_failure of string
 
 let cut sq ?hint h arg : (sequent, cut_error) result =
+  warn_clearable sq h ;
+  warn_clearable sq arg ;
   match get_stmt_clearly sq h with
   | Result.Error e -> Result.error (Cut_stmt e)
   | Result.Ok (sq, hstmt) -> begin
@@ -1056,6 +1150,8 @@ type cut_from_error =
 
 let cut_from sq ?hint h arg term
     : (sequent, cut_from_error) result =
+  warn_clearable sq h ;
+  warn_clearable sq arg ;
   let term =
     try
       Result.ok
@@ -1071,6 +1167,7 @@ let cut_from sq ?hint h arg term
   match term with
   | Result.Error _ as e -> e
   | Result.Ok term -> begin
+      warn_term_vars sq term ;
       match get_stmt_clearly sq h with
       | Result.Error e -> Result.error (Cut_from_stmt e)
       | Result.Ok (sq, hstmt) -> begin
@@ -1102,6 +1199,7 @@ type search_cut_error =
 
 let search_cut sq ?hint h
     : (sequent, search_cut_error) result =
+  warn_clearable sq h ;
   match get_stmt_clearly sq h with
   | Result.Error e -> Result.error (Search_cut_stmt e)
   | Result.Ok (sq, ht) -> begin
@@ -1129,6 +1227,7 @@ type search_error =
 
 let search sq ?depth ~witness ~handle_witness ()
     : (sequent list, search_error) result =
+  warn_witness sq witness ;
   match
     (try Result.ok (search_goal_witness sq ?depth sq.goal witness)
      with Failure msg ->
@@ -1233,6 +1332,7 @@ let type_apply_withs sq stmt ws =
                   type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign
                     ~ctx:sq.vars t
                 in
+                warn_term_vars sq t ;
                 Result.ok (typed @ [(id, t)])
               with
               | TypeInferenceFailure (exp, act, _) ->
@@ -1293,6 +1393,8 @@ let partition_obligations sq ?depth obligations =
 
 let apply sq ?depth ?hint ?(term_witness = ignore) h args ws
     : (sequent list, apply_error) result =
+  warn_clearable sq h ;
+  List.iter (warn_clearable sq) args ;
   match get_stmt_clearly sq h with
   | Result.Error e -> Result.error (Apply_stmt e)
   | Result.Ok (sq, stmt) ->
@@ -1457,6 +1559,7 @@ let type_backchain_withs sq stmt ws =
                   type_uterm ~expected_ty:ty ~sr:!sr
                     ~sign:!sign ~ctx:(nctx @ sq.vars) t
                 in
+                warn_term_vars sq t ;
                 Result.ok (typed @ [(id, t)])
               with
               | TypeInferenceFailure (exp, act, _) ->
@@ -1473,6 +1576,7 @@ let type_backchain_withs sq stmt ws =
 
 let backchain sq ?depth ?(term_witness = ignore) h ws
     : (sequent list, backchain_error) result =
+  warn_clearable sq h ;
   match get_stmt_clearly sq h with
   | Result.Error e -> Result.error (Backchain_stmt e)
   | Result.Ok (sq, stmt) -> begin
@@ -1551,6 +1655,7 @@ let case_raw sq h
       end
 
 let case sq ?hint h : (sequent list, case_error) result =
+  warn_clearable sq h ;
   match case_raw sq h with
   | Result.Error _ as e -> e
   | Result.Ok (sq, cases) -> begin
@@ -1696,6 +1801,7 @@ let assert_hyp sq ?hint ?depth term
   match typed with
   | Result.Error _ as e -> e
   | Result.Ok t ->
+      warn_metaterm_vars sq t ;
       delay_mainline sq ?hint ?depth t t
       |> Result.map_error (fun e -> Assert_rename e)
 
@@ -1708,6 +1814,7 @@ type monotone_error =
 
 let monotone sq ?hint h t
     : (delayed, monotone_error) result =
+  warn_clearable sq h ;
   match get_stmt_clearly sq h with
   | Result.Error e -> Result.error (Monotone_stmt e)
   | Result.Ok (sq, ht) -> begin
@@ -1737,6 +1844,7 @@ let monotone sq ?hint h t
           begin match typed with
           | Result.Error _ as e -> e
           | Result.Ok t ->
+              warn_term_vars sq t ;
               map_tactic_failure
                 (fun msg -> Monotone_tactic_failure msg)
                 (fun () ->
@@ -1819,6 +1927,7 @@ type focus_outcome =
 
 let saturate sq ?hint ?depth lemmas
     : (sequent list, saturate_error) result =
+  List.iter (warn_hyp_name sq) lemmas ;
   let focus_lemmas =
     List.fold_left
       (fun acc name ->

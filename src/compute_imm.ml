@@ -71,10 +71,11 @@ let case_subgoals sq clr =
     Term.set_scoped_bind_state state ;
     raise e
 
-let compute sq ?hint ?(gas = 1_000) hs =
+let compute sq ?hint ?(gas = 1_000) ?(warn = true) hs =
   let total_gas = gas in
   let gas = ref total_gas in
   let leaf_count = ref 0 in
+  if warn then List.iter (P.warn_clearable sq) hs ;
   let fresh_compute_hyp =
     let count = ref @@ -1 in
     fun () ->
@@ -228,4 +229,4 @@ let compute_all sq ?hint ?gas clr =
         else Keep (h.P.id, []))
       sq.P.hyps
   in
-  compute sq ?hint ?gas hs
+  compute sq ?hint ?gas ~warn:false hs

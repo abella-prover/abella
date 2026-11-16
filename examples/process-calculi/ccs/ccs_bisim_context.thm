@@ -109,7 +109,7 @@ unfold. coinduction. intros. case H1. unfold.
      case H22. backchain Lem.
    assert bisim_up_to refl_t Q7 Q6.
      apply bisim_symmetric_ to H24. backchain bisim_transitive_.
-   backchain CH.
+   clear H10. backchain CH.
   % from Q
   intros.
    case H4. apply H7 to H5. case H3. apply H12 to H8. case H2. apply H17 to H13.
@@ -123,7 +123,7 @@ unfold. coinduction. intros. case H1. unfold.
      case H22. backchain Lem.
    assert bisim_up_to refl_t Q2 Q3.
      apply bisim_symmetric_ to H24. backchain bisim_transitive_.
-   backchain CH.
+   clear H20. backchain CH.
 
 Theorem bisim_context_sound_snd : is_sound_snd bisim_context_t.
 unfold. intros.

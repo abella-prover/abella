@@ -53,9 +53,15 @@
  (modules abella_keywords)
  (libraries abella_lib cmdliner))
 
+(executable
+ (name abella_imm)
+ (modules abella_imm)
+ (libraries abella_lib unix cmdliner ppx_abella_lib)
+ (preprocess (pps ppx_abella)))
+
 (alias
  (name default)
- (deps abella.exe abella_doc.exe abella_dep.exe))
+ (deps abella.exe abella_doc.exe abella_dep.exe abella_imm.exe))
 
 (rule
  (targets abella.1 abella_doc.1 abella_dep.1)

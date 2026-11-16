@@ -1768,18 +1768,291 @@ let skip _sq = []
 
 let theorem sq thm = keep_active sq { sq with goal = thm }
 
-(* Saturate: skeleton. A full port would thread the sequent
-   through the loop / multifocus / purepos / release
-   recursion purely, collecting released hypotheses as
-   subgoal cores instead of mutating the global sequent.
-   The returned list follows the same convention as the
-   other branching tactics. *)
+(* Saturate: fchain-style forward reasoning. Like the other
+   branching tactics, the result is a subgoal list in driver
+   order, except Or-splits in [release] are expanded eagerly
+   (depth-first, as if focused immediately) since subgoals
+   here are plain values without continuations. A branch that
+   derives [False] contributes nothing, closing its subgoal. *)
 
-type saturate_error = Saturate_failed of string
+exception SaturateSuccess
 
-let saturate sq ?hint:_ ?depth:_ _lemmas
+let is_ground_imm f = metaterm_vars_alist Logic f = []
+
+type saturate_error =
+  | Unknown_saturate_lemma of id
+  | Saturate_rename of rename_hint_error
+  | Saturate_tactic_failure of string
+
+type saturate_case = {
+  sc_binds : Term.bind_state ;
+  sc_schem : Term.tysub ;
+  sc_vars : (id * term) list ;
+  sc_hyps : metaterm list ;
+  sc_ts : int ;
+  sc_index : int ;
+}
+
+type focus_outcome =
+  | NoRelease
+  | Released of saturate_case list
+
+let saturate sq ?hint ?depth lemmas
     : (sequent list, saturate_error) result =
-  Result.ok [sq]
+  let focus_lemmas =
+    List.fold_left
+      (fun acc name ->
+        match acc with
+        | Result.Error _ as e -> e
+        | Result.Ok l -> begin
+            match get_hyp_or_lemma sq name with
+            | Result.Error _ ->
+                (* Only [Unknown_stmt] is reachable here:
+                   [tys] default to fresh variables. *)
+                Result.error (Unknown_saturate_lemma name)
+            | Result.Ok form -> Result.ok (l @ [form])
+          end)
+      (Result.ok []) lemmas
+  in
+  match focus_lemmas with
+  | Result.Error _ as e -> e
+  | Result.Ok focus_lemmas ->
+      map_tactic_failure
+        (fun msg -> Saturate_tactic_failure msg)
+        (fun () ->
+          let depth0 =
+            match depth with
+            | None -> List.length lemmas
+            | Some depth -> depth
+          in
+          (* Saturate does not handle nabla, so everything is
+             raised over the global support, computed once. *)
+          let global_support =
+            (List.flatten_map
+               (fun (h : hyp) -> metaterm_support h.term)
+               sq.hyps @
+             metaterm_support sq.goal)
+            |> List.unique ~cmp:eq
+          in
+          let next_index =
+            let index = ref 0 in
+            fun () ->
+              let i = !index in
+              incr index ;
+              i
+          in
+          let rec loop sq depth ts =
+            let sq = clear_duplicates sq in
+            if depth <= 0 then
+              let bs = Term.get_bind_state () in
+              let schem = !Term.schematic_instantiations in
+              Ok [(sq, bs, schem)]
+            else
+              let foci =
+                List.map (normalize ~used:sq.vars) focus_lemmas
+              in
+              try_foci sq foci depth ts
+          and try_foci sq foci depth ts =
+            match foci with
+            | [] ->
+                let bs = Term.get_bind_state () in
+                let schem = !Term.schematic_instantiations in
+                Ok [(sq, bs, schem)]
+            | focus :: rest ->
+                let state = Term.get_scoped_bind_state () in
+                begin match multifocus sq ~ts [] [focus] with
+                | NoRelease ->
+                    Term.set_scoped_bind_state state ;
+                    try_foci sq rest depth ts
+                | Released cases ->
+                    expand_cases sq cases depth
+                end
+          and expand_cases sq cases depth =
+            match cases with
+            | [] -> Ok []
+            | c :: rest ->
+                Term.set_bind_state c.sc_binds ;
+                Term.schematic_instantiations := c.sc_schem ;
+                let alt = Prover.alt_for_subgoal hint c.sc_index in
+                let core =
+                  List.fold_left
+                    (fun sq v -> add_if_new_var sq v)
+                    sq c.sc_vars
+                in
+                let core = add_hyps_with_hint core alt c.sc_hyps in
+                begin match rename_new_vars core ?alt ~base:sq () with
+                | Result.Error e ->
+                    Result.error (Saturate_rename e)
+                | Result.Ok core ->
+                    let core = update_self_bound_vars core in
+                    begin match loop core (depth - 1) c.sc_ts with
+                    | Result.Error _ as e -> e
+                    | Result.Ok done1 ->
+                        begin match expand_cases sq rest depth with
+                        | Result.Error _ as e -> e
+                        | Result.Ok donerest ->
+                            Result.ok (done1 @ donerest)
+                        end
+                    end
+                end
+          and multifocus sq ~ts:ts dead live =
+            match live with
+            | [] ->
+                let to_release =
+                  List.rev_filter_map begin fun form ->
+                    if not @@ is_ground_imm form then None else
+                    match
+                      purepos sq ~ts
+                        ~succ:(fun _ts -> raise SaturateSuccess)
+                        form
+                    with
+                    | _ -> Some form
+                    | exception SaturateSuccess -> None
+                  end dead in
+                let num_released = List.length to_release in
+                if num_released = 0 then NoRelease
+                else
+                  Released
+                    (release sq ~ts ~nvs:[] ~nhs:[] to_release)
+            | form :: live -> begin
+                match form with
+                | True -> multifocus sq ~ts:ts dead live
+                | Arrow (f1, f2) ->
+                    let cases = ref [] in
+                    let add_proof _ts =
+                      let f1 =
+                        Metaterm.map_terms Term.deep_copy f1
+                      in
+                      let f2 =
+                        Metaterm.map_terms Term.deep_copy f2
+                      in
+                      if is_ground_imm f1 then
+                        cases := (f1, f2) :: !cases
+                    in
+                    purepos sq ~ts ~succ:add_proof f1 ;
+                    let live =
+                      List.rev_map (fun (_, f2) -> f2) !cases
+                      @ live
+                    in
+                    multifocus sq ~ts:ts dead live
+                | Binding (Forall, vs, form) ->
+                    let ts = ts + 1 in
+                    let alist =
+                      fresh_nameless_alist ~sr:!sr
+                        ~support:global_support ~tag:Logic ~ts vs
+                    in
+                    let form =
+                      replace_metaterm_vars alist form
+                    in
+                    multifocus sq ~ts:ts dead (form :: live)
+                | (False | Eq _ | Binding (Exists, _, _)
+                  | And _ | Or _ | Pred _) ->
+                    multifocus sq ~ts:ts (form :: dead) live
+                | _ ->
+                    multifocus sq ~ts:ts dead live
+              end
+          and purepos sq ~ts ~succ form =
+            match form with
+            | True -> succ ts
+            | False -> ()
+            | Or (f1, f2) ->
+                purepos sq ~ts ~succ f1 ;
+                purepos sq ~ts ~succ f2
+            | And (f1, f2) ->
+                purepos sq ~ts f1
+                  ~succ:(fun ts -> purepos sq ~ts ~succ f2)
+            | Binding (Exists, vs, form) ->
+                let alist =
+                  fresh_nameless_alist ~sr:!sr
+                    ~support:global_support ~tag:Logic ~ts vs
+                in
+                let form = replace_metaterm_vars alist form in
+                purepos sq ~ts ~succ form
+            | Eq (t1, t2) ->
+                unwind_state begin fun () ->
+                  if Unify.try_right_unify t1 t2 then succ ts
+                end ()
+            | Pred (_, cr) ->
+                List.iter ~guard:unwind_state begin fun h ->
+                  match (h : hyp).term with
+                  | Pred (_, hr) ->
+                      if satisfies hr cr then
+                        all_meta_right_permute_unify
+                          ~sc:(fun _ -> succ ts) form h.term
+                  | _ -> ()
+                end
+                  (List.unique
+                     ~cmp:(fun (h1 : hyp) (h2 : hyp) ->
+                       h1.term = h2.term)
+                     sq.hyps)
+            | Arrow _ | Binding _ | Obj _ -> ()
+          and release sq ~ts ~nvs ~nhs forms =
+            match forms with
+            | [] ->
+                let nvs = List.rev nvs in
+                let nhs = List.rev nhs in
+                [{ sc_binds = Term.get_bind_state () ;
+                   sc_schem = !Term.schematic_instantiations ;
+                   sc_vars = nvs ;
+                   sc_hyps = nhs ;
+                   sc_ts = ts ;
+                   sc_index = next_index () }]
+            | form :: forms -> begin
+                match form with
+                | True -> release sq ~ts ~nvs ~nhs forms
+                | False -> []
+                | Or (f1, f2) ->
+                    let state = Term.get_scoped_bind_state () in
+                    let cs1 =
+                      release sq ~ts ~nvs ~nhs (f1 :: forms)
+                    in
+                    Term.set_scoped_bind_state state ;
+                    let cs2 =
+                      release sq ~ts ~nvs ~nhs (f2 :: forms)
+                    in
+                    cs1 @ cs2
+                | And (f1, f2) ->
+                    release sq ~ts ~nvs ~nhs (f1 :: f2 :: forms)
+                | Binding (Exists, vs, form) ->
+                    let (alist, vars) =
+                      fresh_raised_alist ~sr:!sr
+                        ~support:global_support
+                        ~used:(nvs @ sq.vars) ~tag:Eigen vs
+                    in
+                    let nvs =
+                      List.rev_map term_to_pair vars @ nvs
+                    in
+                    let form =
+                      replace_metaterm_vars alist form
+                    in
+                    release sq ~ts ~nvs ~nhs (form :: forms)
+                | Eq (t1, t2) -> begin
+                    match
+                      Unify.try_left_unify_cpairs
+                        ~used:(nvs @ sq.vars) t1 t2
+                    with
+                    | Some cpairs ->
+                        let nhs =
+                          List.map
+                            (fun (t1, t2) -> Eq (t1, t2))
+                            cpairs @ nhs
+                        in
+                        release sq ~ts ~nvs ~nhs forms
+                    | None -> []
+                  end
+                | _ ->
+                    let nhs =
+                      if List.mem form nhs then nhs
+                      else form :: nhs
+                    in
+                    release sq ~ts ~nvs ~nhs forms
+              end
+          in
+          begin match loop sq depth0 0 with
+          | Result.Error _ as e -> e
+          | Result.Ok triples ->
+              Result.ok (build_subgoals_full sq triples)
+          end)
 
 (* Proof state: explicit version of [Prover.subgoals],
    [Prover.bullet_stack] and [Prover.subgoal_focused].

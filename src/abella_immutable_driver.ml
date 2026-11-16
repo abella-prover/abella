@@ -201,6 +201,12 @@ let string_of_monotone_error = function
   | P.Monotone_rename e -> string_of_rename_hint_error e
   | P.Monotone_tactic_failure s -> s
 
+let string_of_saturate_error = function
+  | P.Unknown_saturate_lemma h ->
+      Printf.sprintf "Could not find hypothesis or lemma %s" h
+  | P.Saturate_rename e -> string_of_rename_hint_error e
+  | P.Saturate_tactic_failure s -> s
+
 let string_of_unfold_error = function
   | P.Unfold_tactic_failure s -> s
 
@@ -344,7 +350,10 @@ let run_atomic_imm ~resolve sq cmd
       |> Result.map (fun gs -> Branched gs)
       |> Result.map_error string_of_search_error
     end
-  | Saturate _ -> [%bug] "unimplemented"
+  | Saturate sat ->
+      P.saturate sq ?hint:sat.hint ?depth:sat.depth sat.lemmas
+      |> Result.map (fun gs -> Branched gs)
+      |> Result.map_error string_of_saturate_error
   | Permute (ids, h) ->
       P.permute sq ids h
       |> Result.map (fun sq -> Updated sq)

@@ -1489,7 +1489,12 @@ type case_error =
   | Case_rename of rename_hint_error
   | Case_tactic_failure of string
 
-let case sq ?hint h : (sequent list, case_error) result =
+(* Raw case split: resolve (and possibly delete) the
+   statement, then run [Tactics.case], returning the updated
+   sequent alongside the raw cases. Used by [case] and by
+   compute, which manages naming and bind states itself. *)
+let case_raw sq h
+    : ((sequent * Tactics.case list), case_error) result =
   (* NB: support is computed before resolving (and possibly
      deleting) the cased statement, mirroring [Prover]. *)
   let global_support =
@@ -1511,90 +1516,86 @@ let case sq ?hint h : (sequent list, case_error) result =
       | Result.Error _ as e -> e
       | Result.Ok (mutual, defs) ->
           let state = Term.get_scoped_bind_state () in
-          let cases =
-            try
-              Result.ok
-                (Tactics.case ~used:sq.vars ~sr:!sr
-                   ~clauses:!Prover.clauses ~mutual ~defs
-                   ~global_support term)
-            with e -> begin
-              Term.set_scoped_bind_state state ;
-              match tactic_failure_message e with
-              | Some msg ->
-                  Result.error (Case_tactic_failure msg)
-              | None -> raise e
-            end
-          in
-          begin match cases with
-          | Result.Error _ as e -> e
-          | Result.Ok cases ->
-              let rec build i acc = function
-                | [] -> Result.ok (List.rev acc)
-                | (c : Tactics.case) :: rest ->
-                    (* Build each core under its own bind state:
-                       helpers like [rename_new_vars] dereference
-                       variables, so the leftover global state
-                       from another branch would give wrong
-                       answers. *)
-                    Term.set_bind_state c.bind_state ;
-                    let core =
-                      List.fold_left
-                        (fun sq v -> add_if_new_var sq v)
-                        sq c.new_vars
-                    in
-                    let core =
-                      add_hyps_with_hint core
-                        (Prover.alt_for_subgoal hint i)
-                        c.new_hyps
-                    in
-                    begin match
-                      rename_new_vars core
-                        ?alt:(Prover.alt_for_subgoal hint i)
-                        ~base:sq ()
-                    with
-                    | Result.Error e ->
-                        Result.error (Case_rename e)
-                    | Result.Ok core ->
-                        let core = update_self_bound_vars core in
-                        build (i + 1) ((core, c.bind_state) :: acc)
-                          rest
-                    end
-              in
-              begin match build 0 [] cases with
-              | Result.Error _ as e -> e
-              | Result.Ok cores ->
-                  let schem = !Term.schematic_instantiations in
-                  let named =
-                    name_subgoals sq (List.map fst cores)
-                  in
-                  let bss = List.map snd cores in
-                  List.mapi
-                    (fun i core ->
-                      if i = 0 then
-                        { core with
-                          active = true ; activate = noop }
-                      else
-                        let bs = List.nth bss i in
-                        { core with
-                          active = false ;
-                          activate =
-                            (fun () ->
-                              Term.set_bind_state bs ;
-                              Term.schematic_instantiations
-                              := schem) })
-                    named
-                  |> Result.ok
-                  |> fun r ->
-                  begin match cores with
-                  | [] -> r
-                  | (_, first_bs) :: _ ->
-                      Term.set_bind_state first_bs ;
-                      Term.schematic_instantiations := schem ;
-                      r
-                  end
-              end
+          try
+            Result.ok
+              ( sq,
+                Tactics.case ~used:sq.vars ~sr:!sr
+                  ~clauses:!Prover.clauses ~mutual ~defs
+                  ~global_support term )
+          with e -> begin
+            Term.set_scoped_bind_state state ;
+            match tactic_failure_message e with
+            | Some msg -> Result.error (Case_tactic_failure msg)
+            | None -> raise e
           end
       end
+
+let case sq ?hint h : (sequent list, case_error) result =
+  match case_raw sq h with
+  | Result.Error _ as e -> e
+  | Result.Ok (sq, cases) -> begin
+      let rec build i acc = function
+        | [] -> Result.ok (List.rev acc)
+        | (c : Tactics.case) :: rest ->
+            let core =
+              List.fold_left
+                (fun sq v -> add_if_new_var sq v)
+                sq c.new_vars
+            in
+            let core =
+              add_hyps_with_hint core
+                (Prover.alt_for_subgoal hint i)
+                c.new_hyps
+            in
+            begin match
+              rename_new_vars core
+                ?alt:(Prover.alt_for_subgoal hint i)
+                ~base:sq ()
+            with
+            | Result.Error e ->
+                Result.error (Case_rename e)
+            | Result.Ok core ->
+                (* Install the case binds for the
+                   dereference-sensitive update below,
+                   mirroring [Prover]. *)
+                Term.set_bind_state c.bind_state ;
+                let core = update_self_bound_vars core in
+                build (i + 1) ((core, c.bind_state) :: acc)
+                  rest
+            end
+      in
+      begin match build 0 [] cases with
+      | Result.Error _ as e -> e
+      | Result.Ok cores ->
+          let schem = !Term.schematic_instantiations in
+          let named =
+            name_subgoals sq (List.map fst cores)
+          in
+          let bss = List.map snd cores in
+          List.mapi
+            (fun i core ->
+              if i = 0 then
+                { core with active = true ; activate = noop }
+              else
+                let bs = List.nth bss i in
+                { core with
+                  active = false ;
+                  activate =
+                    (fun () ->
+                      Term.set_bind_state bs ;
+                      Term.schematic_instantiations := schem) })
+            named
+          |> Result.ok
+          |> fun r ->
+          begin match cores with
+          | [] -> r
+          | (_, first_bs) :: _ ->
+              Term.set_bind_state first_bs ;
+              Term.schematic_instantiations := schem ;
+              r
+          end
+      end
+    end
 
 (* Assert / monotone share [delay_mainline]: either the
    detour is searched away (one subgoal) or it is stacked

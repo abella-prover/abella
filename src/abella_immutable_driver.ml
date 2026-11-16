@@ -204,6 +204,15 @@ let string_of_monotone_error = function
 let string_of_unfold_error = function
   | P.Unfold_tactic_failure s -> s
 
+let string_of_compute_error = function
+  | Compute_immutable.Compute_stmt e -> string_of_stmt_error e
+  | Compute_immutable.Compute_rename e ->
+      string_of_rename_hint_error e
+  | Compute_immutable.Compute_out_of_gas n ->
+      Printf.sprintf
+        "Compute ran out of gas (given %d) -- looping?" n
+  | Compute_immutable.Compute_tactic_failure s -> s
+
 let string_of_bullet_error = function
   | P.Bullet_already_active b ->
       Printf.sprintf
@@ -253,8 +262,14 @@ let run_atomic_imm ~resolve sq cmd
         ~term_witness:term_witness_imm
       |> Result.map (fun gs -> Branched gs)
       |> Result.map_error string_of_backchain_error
-  | Compute _ -> [%bug] "unimplemented"
-  | ComputeAll _ -> [%bug] "unimplemented"
+  | Compute (hs, gas, hn) ->
+      Compute_immutable.compute sq ?hint:hn ?gas hs
+      |> Result.map (fun gs -> Branched gs)
+      |> Result.map_error string_of_compute_error
+  | ComputeAll (gas, hn, clr) ->
+      Compute_immutable.compute_all sq ?hint:hn ?gas clr
+      |> Result.map (fun gs -> Branched gs)
+      |> Result.map_error string_of_compute_error
   | Cut (h, arg, hn) ->
       P.cut sq ?hint:hn h arg
       |> Result.map (fun sq -> Updated sq)

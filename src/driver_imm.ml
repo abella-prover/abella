@@ -26,6 +26,8 @@ open Checks
 open Abella_types
 open Extensions
 
+open Result.Syntax
+
 module Setup = Driver_setup
 module P = Prover_imm
 
@@ -271,81 +273,105 @@ let run_atomic ~resolve sq cmd
   let cmd = cmd |> Prover.refresh_command_tyvars |> resolve in
   match cmd with
   | Apply (depth, h, args, ws, hn) ->
-      P.apply sq ?depth ?hint:hn h args ws
-        ~term_witness:term_witness
-      |> Result.map (fun gs -> Branched gs)
-      |> Result.map_error string_of_apply_error
+      let+ gs =
+        P.apply sq ?depth ?hint:hn h args ws
+          ~term_witness:term_witness
+        |> Result.map_error string_of_apply_error
+      in
+      Branched gs
   | Backchain (depth, h, ws) ->
-      P.backchain sq ?depth h ws
-        ~term_witness:term_witness
-      |> Result.map (fun gs -> Branched gs)
-      |> Result.map_error string_of_backchain_error
+      let+ gs =
+        P.backchain sq ?depth h ws
+          ~term_witness:term_witness
+        |> Result.map_error string_of_backchain_error
+      in
+      Branched gs
   | Compute (hs, gas, hn) ->
-      Compute_imm.compute sq ?hint:hn ?gas hs
-      |> Result.map (fun gs -> Branched gs)
-      |> Result.map_error string_of_compute_error
+      let+ gs =
+        Compute_imm.compute sq ?hint:hn ?gas hs
+        |> Result.map_error string_of_compute_error
+      in
+      Branched gs
   | ComputeAll (gas, hn, clr) ->
-      Compute_imm.compute_all sq ?hint:hn ?gas clr
-      |> Result.map (fun gs -> Branched gs)
-      |> Result.map_error string_of_compute_error
+      let+ gs =
+        Compute_imm.compute_all sq ?hint:hn ?gas clr
+        |> Result.map_error string_of_compute_error
+      in
+      Branched gs
   | Cut (h, arg, hn) ->
-      P.cut sq ?hint:hn h arg
-      |> Result.map (fun sq -> Updated sq)
-      |> Result.map_error string_of_cut_error
+      let+ sq' =
+        P.cut sq ?hint:hn h arg
+        |> Result.map_error string_of_cut_error
+      in
+      Updated sq'
   | CutFrom (h, arg, t, hn) ->
-      P.cut_from sq ?hint:hn h arg t
-      |> Result.map (fun sq -> Updated sq)
-      |> Result.map_error string_of_cut_from_error
+      let+ sq' =
+        P.cut_from sq ?hint:hn h arg t
+        |> Result.map_error string_of_cut_from_error
+      in
+      Updated sq'
   | SearchCut (h, hn) ->
-      P.search_cut sq ?hint:hn h
-      |> Result.map (fun sq -> Updated sq)
-      |> Result.map_error string_of_search_cut_error
+      let+ sq' =
+        P.search_cut sq ?hint:hn h
+        |> Result.map_error string_of_search_cut_error
+      in
+      Updated sq'
   | Inst (h, ws, hn) ->
-      P.inst sq ?hint:hn h ws
-      |> Result.map (fun sq -> Updated sq)
-      |> Result.map_error string_of_inst_error
+      let+ sq' =
+        P.inst sq ?hint:hn h ws
+        |> Result.map_error string_of_inst_error
+      in
+      Updated sq'
   | Case (str, hn) ->
-      P.case sq ?hint:hn str
-      |> Result.map (fun gs -> Branched gs)
-      |> Result.map_error string_of_case_error
+      let+ gs =
+        P.case sq ?hint:hn str
+        |> Result.map_error string_of_case_error
+      in
+      Branched gs
   | Assert (t, dp, hn) ->
       untyped_ensure_no_restrictions t ;
-      P.assert_hyp sq ?hint:hn ?depth:dp t
-      |> Result.map
-          (function
-           | P.Solved sq -> Updated sq
-           | P.Delayed gs -> Branched gs)
-      |> Result.map_error string_of_assert_error
+      let+ delayed =
+        P.assert_hyp sq ?hint:hn ?depth:dp t
+        |> Result.map_error string_of_assert_error
+      in
+      (match delayed with
+       | P.Solved sq -> Updated sq
+       | P.Delayed gs -> Branched gs)
   | Monotone (h, t, hn) ->
-      P.monotone sq ?hint:hn h t
-      |> Result.map
-          (function
-           | P.Solved sq -> Updated sq
-           | P.Delayed gs -> Branched gs)
-      |> Result.map_error string_of_monotone_error
+      let+ delayed =
+        P.monotone sq ?hint:hn h t
+        |> Result.map_error string_of_monotone_error
+      in
+      (match delayed with
+       | P.Solved sq -> Updated sq
+       | P.Delayed gs -> Branched gs)
   | Exists (_, ews) ->
-      List.fold_left
-        (fun acc ew ->
-          match acc with
-          | Result.Error _ as e -> e
-          | Result.Ok sq ->
-              P.exists_tac sq ew
-              |> Result.map_error string_of_exists_error)
-        (Result.ok sq) ews
-      |> Result.map (fun sq -> Updated sq)
+      let+ sq' =
+        List.fold_left
+          (fun acc ew ->
+            let* sq = acc in
+            P.exists_tac sq ew
+            |> Result.map_error string_of_exists_error)
+          (Result.ok sq) ews
+      in
+      Updated sq'
   | Clear (cm, hs) ->
-      P.clear sq cm hs
-      |> Result.map (fun sq -> Updated sq)
-      |> Result.map_error string_of_clear_error
+      let+ sq' =
+        P.clear sq cm hs
+        |> Result.map_error string_of_clear_error
+      in
+      Updated sq'
   | ClearDups -> Result.ok (Updated (P.clear_duplicates sq))
   | Abbrev (hs, s) ->
       Result.ok (Updated (P.abbrev sq (Iset.of_list hs) s))
   | Unabbrev hs ->
       Result.ok (Updated (P.unabbrev sq (Iset.of_list hs)))
   | Rename (hfr, hto) ->
-      P.rename sq hfr hto
-      |> Result.map (fun sq -> Updated sq)
-      |> Result.map_error string_of_rename_error
+      let+ sq' =
+        P.rename sq hfr hto
+        |> Result.map_error string_of_rename_error
+      in
+      Updated sq'
   | Search bounds -> begin
       let depth =
         match bounds with
@@ -357,48 +383,66 @@ let run_atomic ~resolve sq cmd
         | `witness w -> w
         | _ -> WMagic
       in
-      P.search sq ?depth ~witness
-        ~handle_witness:handle_search_witness ()
-      |> Result.map (fun gs -> Branched gs)
-      |> Result.map_error string_of_search_error
+      let+ gs =
+        P.search sq ?depth ~witness
+          ~handle_witness:handle_search_witness ()
+        |> Result.map_error string_of_search_error
+      in
+      Branched gs
     end
   | Saturate sat ->
-      P.saturate sq ?hint:sat.hint ?depth:sat.depth sat.lemmas
-      |> Result.map (fun gs -> Branched gs)
-      |> Result.map_error string_of_saturate_error
+      let+ gs =
+        P.saturate sq ?hint:sat.hint ?depth:sat.depth sat.lemmas
+        |> Result.map_error string_of_saturate_error
+      in
+      Branched gs
   | Permute (ids, h) ->
-      P.permute sq ids h
-      |> Result.map (fun sq -> Updated sq)
-      |> Result.map_error string_of_permute_error
+      let+ sq' =
+        P.permute sq ids h
+        |> Result.map_error string_of_permute_error
+      in
+      Updated sq'
   | Split ->
-      P.split sq false
-      |> Result.map (fun gs -> Branched gs)
-      |> Result.map_error string_of_split_error
+      let+ gs =
+        P.split sq false
+        |> Result.map_error string_of_split_error
+      in
+      Branched gs
   | SplitStar ->
-      P.split sq true
-      |> Result.map (fun gs -> Branched gs)
-      |> Result.map_error string_of_split_error
+      let+ gs =
+        P.split sq true
+        |> Result.map_error string_of_split_error
+      in
+      Branched gs
   | Left ->
-      P.left sq
-      |> Result.map (fun sq -> Updated sq)
-      |> Result.map_error (fun (e : P.disjunction_error) ->
-          match e with
-          | P.Not_disjunction -> "Goal is not a disjunction")
+      let+ sq' =
+        P.left sq
+        |> Result.map_error (fun (e : P.disjunction_error) ->
+            match e with
+            | P.Not_disjunction -> "Goal is not a disjunction")
+      in
+      Updated sq'
   | Right ->
-      P.right sq
-      |> Result.map (fun sq -> Updated sq)
-      |> Result.map_error (fun (e : P.disjunction_error) ->
-          match e with
-          | P.Not_disjunction -> "Goal is not a disjunction")
+      let+ sq' =
+        P.right sq
+        |> Result.map_error (fun (e : P.disjunction_error) ->
+            match e with
+            | P.Not_disjunction -> "Goal is not a disjunction")
+      in
+      Updated sq'
   | Unfold (cs, ss) ->
-      P.unfold sq cs ss
-      |> Result.map (fun gs -> Branched gs)
-      |> Result.map_error string_of_unfold_error
+      let+ gs =
+        P.unfold sq cs ss
+        |> Result.map_error string_of_unfold_error
+      in
+      Branched gs
   | Intros hs ->
-      P.intros sq hs
-      |> Result.map (fun sq -> Updated sq)
-      |> Result.map_error (fun (P.Intros_rename e) ->
-          string_of_rename_hint_error e)
+      let+ sq' =
+        P.intros sq hs
+        |> Result.map_error (fun (P.Intros_rename e) ->
+            string_of_rename_hint_error e)
+      in
+      Updated sq'
   | Skip ->
       istate :=
         Some { (get_ist ()) with P.skip_seen = true } ;

@@ -11,6 +11,8 @@ open Metaterm
 open Abella_types
 open Extensions
 
+open Result.Syntax
+
 module P = Prover_imm
 
 type compute_error =
@@ -190,21 +192,18 @@ let compute sq ?hint ?(gas = 1_000) ?(warn = true) hs =
       end
   in
   let todo =
-    List.fold_left
-      (fun acc h ->
-        match acc with
-        | Result.Error _ as e -> e
-        | Result.Ok l -> begin
-            match
-              P.get_hyp_or_lemma sq (Prover.stmt_name h)
-            with
-            | Result.Error e ->
-                Result.error (Compute_stmt e)
-            | Result.Ok form ->
-                Result.ok ({ clr = h ; form } :: l)
-          end)
-      (Result.ok []) hs
-    |> Result.map List.rev
+    let+ rev_todo =
+      List.fold_left
+        (fun acc h ->
+          let* l = acc in
+          let+ form =
+            P.get_hyp_or_lemma sq (Prover.stmt_name h)
+            |> Result.map_error (fun e -> Compute_stmt e)
+          in
+          ({ clr = h ; form } :: l))
+        (Result.ok []) hs
+    in
+    List.rev rev_todo
   in
   try
     P.map_tactic_failure

@@ -28,6 +28,8 @@ open Abella_types
 open Extensions
 open Unifyty
 
+open Result.Syntax
+
 (* Sequent *)
 
 type hyp = {
@@ -234,20 +236,23 @@ let get_stmt_clearly sq h
     : ((sequent * metaterm), stmt_error) result =
   match h with
   | Keep (h, tys) ->
-      get_hyp_or_lemma sq ~tys h |> Result.map (fun t -> (sq, t))
+      let+ t = get_hyp_or_lemma sq ~tys h in
+      (sq, t)
   | Remove (h, []) when is_hyp sq h ->
       let stmt = Option.get (get_hyp sq h) in
       let sq =
         { sq with hyps = List.filter (fun hh -> hh.id <> h) sq.hyps }
       in
       Result.ok (sq, stmt)
-  | Remove (h, tys) -> get_lemma ~tys h |> Result.map (fun t -> (sq, t))
+  | Remove (h, tys) ->
+      let+ t = get_lemma ~tys h in
+      (sq, t)
 
 let get_arg_clearly sq = function
   | Keep ("_", _) -> Result.ok (sq, None)
   | arg ->
-      get_stmt_clearly sq arg
-      |> Result.map (fun (sq, t) -> (sq, Some t))
+      let+ sq, t = get_stmt_clearly sq arg in
+      (sq, Some t)
 
 (* Renaming (pure) *)
 
@@ -782,9 +787,8 @@ let rec resolve_ewitness ew tids =
   | ESub (x, t), (id, ty) :: tids ->
       if x = id then Result.ok (x, ty, t, tids)
       else
-        resolve_ewitness ew tids
-        |> Result.map (fun (_, xty, _, rest) ->
-            (x, xty, t, (id, ty) :: rest))
+        let+ _, xty, _, rest = resolve_ewitness ew tids in
+        (x, xty, t, (id, ty) :: rest)
   | _, [] ->
       Result.error
         (Unresolvable_witness (ewitness_to_string ew))
@@ -892,17 +896,19 @@ let remove_thing sq cm h =
 
 let clear sq cm hs : (sequent, clear_error) result =
   List.iter (warn_label_name sq) hs ;
-  List.fold_left
-    (fun acc h ->
-      match acc with
-      | Result.Error _ as e -> e
-      | Result.Ok sq -> begin
-          match check_removable sq h with
-          | Result.Error _ as e -> e
-          | Result.Ok () -> remove_thing sq cm h
-        end)
-    (Result.ok sq) hs
-  |> Result.map (keep_active sq)
+  let+ cleared =
+    List.fold_left
+      (fun acc h ->
+        match acc with
+        | Result.Error _ as e -> e
+        | Result.Ok sq -> begin
+            match check_removable sq h with
+            | Result.Error _ as e -> e
+            | Result.Ok () -> remove_thing sq cm h
+          end)
+      (Result.ok sq) hs
+  in
+  keep_active sq cleared
 
 (* Abbrev (infallible: no error type needed) *)
 
@@ -996,7 +1002,8 @@ let rename sq xfr xto : (sequent, rename_error) result =
   else if List.exists (fun h -> h.id = xfr) sq.hyps then
     Result.ok (keep_active sq (rename_hyp sq xfr xto))
   else if List.mem_assoc xfr sq.vars then
-    rename_var sq xfr xto |> Result.map (keep_active sq)
+    let+ renamed = rename_var sq xfr xto in
+    keep_active sq renamed
   else Result.error (Unknown_rename_label xfr)
 
 (* Permute *)
@@ -1108,7 +1115,9 @@ let inst sq ?hint h ws : (sequent, inst_error) result =
           in
           map_tactic_failure
             (fun msg -> Inst_tactic_failure msg)
-            (fun () -> aux sq ht ws |> Result.map (keep_active sq))
+            (fun () ->
+              let+ instd = aux sq ht ws in
+              keep_active sq instd)
       | _ -> Result.error Inst_not_object
     end
 

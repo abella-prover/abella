@@ -42,24 +42,24 @@ and in_typtr = TV of tyvar | TT of ty
 
 (* Utilities for constructing and deconstructing terms *)
 
-let rec observe_ty = function
-  | Ty (args, aty) ->
-     let args' = List.map observe_ty args in
-     let targ =
-       match aty with
+let rec observe_ty ty =
+  match ty with
+  | Ty (args, aty) as ty0 ->
+      (match aty with
+       | Typtr {contents=TT t} ->
+           let args' = List.map_ident observe_ty args in
+           (match observe_ty t with
+            | Ty (targs, taty) as tob ->
+                if args' == [] then tob
+                else Ty (args' @ targs, taty))
        | Tycons (c, tys) ->
-          let aargs = List.map observe_ty tys in
-          Ty ([], Tycons (c, aargs))
-       | Typtr {contents=TV _}
-       | Tygenvar _ ->
-          Ty ([], aty)
-       | Typtr {contents=TT t} -> observe_ty t
-     in
-     let tyspine args t =
-       match t with
-       | Ty (args', targ) -> Ty (args@args', targ)
-     in
-     tyspine args' targ
+           let args' = List.map_ident observe_ty args in
+           let tys' = List.map_ident observe_ty tys in
+           if args' == args && tys' == tys then ty0
+           else Ty (args', Tycons (c, tys'))
+       | (Tygenvar _ | Typtr _) as aty0 ->
+           let args' = List.map_ident observe_ty args in
+           if args' == args then ty0 else Ty (args', aty0))
 
 let eq_ty ty1 ty2 = (observe_ty ty1 = observe_ty ty2)
 
@@ -116,7 +116,9 @@ and envitem = Dum of int | Binding of term * int
 
 (* Utilities for constructing and deconstructing terms *)
 
-let observe_var_ty v = {v with ty = observe_ty v.ty}
+let observe_var_ty v =
+  let ty = observe_ty v.ty in
+  if ty == v.ty then v else {v with ty}
 
 let rec observe = function
   | Ptr {contents=T d} -> observe d

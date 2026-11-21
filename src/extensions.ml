@@ -101,7 +101,7 @@ module List = struct
     aux list
 
   let remove ?(cmp=(=)) elt list =
-    let rec aux list =
+    let[@tail_mod_cons] rec aux list =
       match list with
       | [] -> []
       | head::tail when cmp elt head -> aux tail
@@ -110,7 +110,7 @@ module List = struct
     aux list
 
   let unique ?(cmp=(=)) list =
-    let rec aux list =
+    let[@tail_mod_cons] rec aux list =
       match list with
       | [] -> []
       | head::tail -> head::(aux (remove ~cmp:cmp head tail))
@@ -135,6 +135,17 @@ module List = struct
     aux list
 
   let map ?guard f list = map (maybe_guard ?guard f) list
+
+  (* Like map, but returns the original list (physically) when [f]
+     leaves every element unchanged. Note: this cannot use
+     [@tail_mod_cons] because the physical-identity test on the
+     recursive result is outside the TMC fragment. *)
+  let rec map_ident f = function
+    | [] -> []
+    | x :: xs as l ->
+        let y = f x in
+        let ys = map_ident f xs in
+        if y == x && ys == xs then l else y :: ys
 
   let iter ?guard f list = iter (maybe_guard ?guard f) list
 
@@ -203,14 +214,14 @@ module List = struct
   let intersect ?(cmp=(=)) list1 list2 =
     find_all (fun e -> mem ~cmp e list2) list1
 
-  let rec take n list =
+  let[@tail_mod_cons] rec take n list =
     match list, n with
     | [], _ -> []
     | _, n when n <= 0 -> []
     | x::xs, n -> x::(take (n-1) xs)
 
   let remove_assocs to_remove alist =
-    let rec aux alist =
+    let[@tail_mod_cons] rec aux alist =
       match alist with
       | (a, b)::rest ->
           if mem a to_remove
@@ -221,7 +232,7 @@ module List = struct
     aux alist
 
   let assoc_all ?(cmp=(=)) x list =
-    let rec aux list =
+    let[@tail_mod_cons] rec aux list =
       match list with
       | [] -> []
       | (a, b)::tail when cmp x a -> b::(aux tail)
@@ -230,7 +241,7 @@ module List = struct
     aux list
 
   let remove_all_assoc ?(cmp=(=)) x list =
-    let rec aux list =
+    let[@tail_mod_cons] rec aux list =
       match list with
       | [] -> []
       | (a, _b)::tail when cmp x a -> aux tail
@@ -286,14 +297,14 @@ module List = struct
         (map (fun t -> head::t) (choose (n-1) tail))
         @ (choose n tail)
 
-  let rec range a b =
+  let[@tail_mod_cons] rec range a b =
     if a > b then
       []
     else
       a :: range (a+1) b
 
   let number list =
-    let rec aux i list =
+    let[@tail_mod_cons] rec aux i list =
       match list with
       | [] -> []
       | head::tail -> (i, head) :: (aux (i+1) tail)
@@ -332,7 +343,7 @@ module List = struct
     | x::xs -> rev_app xs (x::ys)
 
   let replicate n x =
-    let rec aux = function
+    let[@tail_mod_cons] rec aux = function
       | 0 -> []
       | i -> x :: aux (i-1)
     in
@@ -344,7 +355,7 @@ module List = struct
   let map_snd f list =
     map (fun (x,y) -> (x, f y)) list
 
-  let rec combine3 l1 l2 l3 =
+  let[@tail_mod_cons] rec combine3 l1 l2 l3 =
     match l1, l2, l3 with
     | [], [], [] -> []
     | x::xs, y::ys, z::zs -> (x, y, z) :: (combine3 xs ys zs)

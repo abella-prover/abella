@@ -92,6 +92,13 @@ let abella_main
       Output.flush () ; 1
 
 let () =
+  if Sys.getenv_opt "ABELLA_GC_STATS" <> None then
+    at_exit (fun () ->
+        let s = Gc.stat () in
+        Printf.eprintf
+          "gc-stats: minor_words=%.0f major_words=%.0f minor_collections=%d major_collections=%d compactions=%d\n%!"
+          s.Gc.minor_words s.Gc.major_words
+          s.Gc.minor_collections s.Gc.major_collections s.Gc.compactions) ;
   Sys.set_signal Sys.sigint
     (Sys.Signal_handle (fun _ -> raise Setup.UserInterrupt)) ;
 

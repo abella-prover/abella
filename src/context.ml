@@ -107,7 +107,7 @@ let union ctx1 ctx2 =
   match ctx2 with
     | [] -> ctx1
     | c::cs ->
-        if tc [] c = olistty then
+        if eq_ty (tc [] c) olistty then
           c :: ctx1 @ cs
         else
           ctx1 @ ctx2
@@ -135,7 +135,7 @@ let context_to_term ctx =
   let rec aux ctx =
     match ctx with
       | [] -> nil
-      | [last] when tc [] last = olistty -> last
+      | [last] when eq_ty (tc [] last) olistty -> last
       | head::tail -> app cons [head; aux tail]
   in
     aux (List.rev ctx)
@@ -145,7 +145,7 @@ let wellformed ctx =
     | [] -> true
     | head::tail ->
         let ty = tc [] head in
-          (ty = oty && aux tail) || (ty = olistty && tail = [])
+          (eq_ty ty oty && aux tail) || (eq_ty ty olistty && tail = [])
   in
     aux (List.rev ctx)
 

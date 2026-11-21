@@ -36,7 +36,8 @@ let type_inference_error (pos, ct) exp act =
         "Expression is applied to too many arguments\n%!"
 
 let occurs v ty =
-  let rec aux = function
+  let rec aux ty =
+    match observe_ty ty with
     | Ty(tys, aty) ->
        let ocr =
          match aty with

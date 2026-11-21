@@ -965,7 +965,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     let foci = List.map (fun (tyvars,cl) -> inst_clause_types tyvars cl) foci in
     foci |>
     (* ignore the elements in the context of type olist *)
-    List.find_all (fun cls -> not (tc [] cls = olistty)) |>
+    List.find_all (fun cls -> not (eq_ty (tc [] cls) olistty)) |>
     List.map clausify |>
     List.concat |>
     List.find_all (fun (_, h, _) -> term_head_name h = p) |>
@@ -1015,7 +1015,7 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
           if n > 0 then clause_aux n goal.context (gctx @ clauses) goal.right r ts ~sc ~witness ;
           (* Also backchain the goal G in '{.. L ..|- G}' on clauses F
              occurring in hypotheses of the form 'member F L' *)
-          let ctxs = List.find_all (fun cls -> tc [] cls = olistty) goal.context in
+          let ctxs = List.find_all (fun cls -> eq_ty (tc [] cls) olistty) goal.context in
           let get_member_foci hyp =
             if is_member hyp then
               let e, ctx = extract_member hyp in

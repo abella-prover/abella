@@ -759,8 +759,12 @@ let normalize_binders ?(used = []) form =
 let replace_term_typed_nominals alist t =
   let rec aux t =
     match observe (hnorm t) with
-      | Var v when v.tag = Nominal && List.mem_assoc (v.name, v.ty) alist ->
-          List.assoc (v.name, v.ty) alist
+      | Var v when v.tag = Nominal ->
+          (match List.find_opt
+                   (fun ((n, t), _) -> n = v.name && eq_ty t v.ty)
+                   alist with
+           | Some (_, replacement) -> replacement
+           | None -> t)
       | Var _
       | DB _ -> t
       | Lam(i, t) -> lambda i (aux t)

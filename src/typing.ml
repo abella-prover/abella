@@ -141,7 +141,8 @@ let lookup_type (ktable, _) id =
 (** Constants *)
 
 let kind_check sign ty =
-  let rec aux = function
+  let rec aux ty =
+    match observe_ty ty with
     | Ty(tys, aty) ->
        List.iter aux tys;
        match aty with
@@ -333,7 +334,8 @@ let constraints_to_string eqns =
  *   aux ty *)
 
 let contains_tyvar ty =
-  let rec aux = function
+  let rec aux ty =
+    match observe_ty ty with
     | Ty (tys,aty) ->
        let cv =
          match aty with
@@ -345,7 +347,7 @@ let contains_tyvar ty =
              [%bug] "contains_tyvar: unexpected bound type pointer"
        in
        cv || List.exists aux tys
-  in aux (observe_ty ty)
+  in aux ty
 
 let tid_ensure_fully_inferred ~sign (_id, ty) =
   if contains_tyvar ty then
@@ -470,7 +472,7 @@ let check_spec_logic_type ty =
     (fun bty ->
        if bty = propaty then
          failwith "Cannot mention type 'prop' in the specification logic" ;
-       if bty = olistaty then
+       if eq_ty (tybase bty) olistty then
          failwith "Cannot mention type 'list o' in the specification logic")
     ty
 

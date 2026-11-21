@@ -148,7 +148,7 @@ let add_global_consts ?typarams cs =
 let close_types sign clauses atys =
   List.iter (kind_check sign) (List.map tybase atys);
   let tys = List.map tybase atys in
-  begin match List.intersect [oty; olistty; propty] tys with
+  begin match List.intersect ~cmp:eq_ty [oty; olistty; propty] tys with
   | [] -> ()
   | xs -> failwithf "Cannot close %s"
             (String.concat ", " (List.map ty_to_string xs))

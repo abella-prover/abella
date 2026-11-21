@@ -50,7 +50,7 @@ let close (graph, closed) atys =
   let closed = atys @ closed in
     List.iter
       (fun aty ->
-         match List.minus (Graph.predecessors graph aty) closed with
+         match List.minus ~cmp:eq_aty (Graph.predecessors graph aty) closed with
            | [] -> ()
            | xs -> failwith
                (Printf.sprintf "Cannot close %s without closing %s"
@@ -61,7 +61,7 @@ let close (graph, closed) atys =
 
 let query (graph, closed) a b =
   not (ty_no_tyvar a) || not (ty_no_tyvar b) ||
-  not (List.mem (head b) closed) || Graph.is_path graph (head a) (head b)
+  not (List.mem ~cmp:eq_aty (head b) closed) || Graph.is_path graph (head a) (head b)
 
 (* let replace_tyvars_for_params ty =
  *   let typarams = get_tycstr (fun s -> is_capital_name s || is_gen_tyvar s) ty in
@@ -87,7 +87,7 @@ let check_no_sr_extension graph closed a b =
   List.iter begin fun aty ->
     let before = Graph.predecessors graph aty in
     let after = Graph.predecessors graph' aty in
-    match List.minus after before with
+    match List.minus ~cmp:eq_aty after before with
     | [] -> ()
     | xs ->
         failwithf "Type %s is closed and cannot be subordinated by %s"
@@ -118,20 +118,24 @@ let add (graph, closed) a b =
   end
 
 let update sr ty =
-  let rec aux sr (Ty(args, target)) =
-    let sr = List.fold_left aux sr args in
-      List.fold_left (fun sr ty -> add sr (head ty) target) sr args
+  let rec aux sr ty =
+    match observe_ty ty with
+    | Ty(args, target) ->
+        let sr = List.fold_left aux sr args in
+        List.fold_left (fun sr ty -> add sr (head ty) target) sr args
   in
-    aux sr (observe_ty ty)
+  aux sr ty
 
 let ensure (graph, closed) ty =
-  let rec aux (Ty(args, target)) =
-    List.iter aux args;
-    List.iter begin fun arg ->
-      check_no_sr_extension graph closed (head arg) target
-    end args
+  let rec aux ty =
+    match observe_ty ty with
+    | Ty(args, target) ->
+        List.iter aux args;
+        List.iter begin fun arg ->
+          check_no_sr_extension graph closed (head arg) target
+        end args
   in
-  aux (observe_ty ty)
+  aux ty
 
 let subordinates (graph, _closed) a =
   check_non_poly a;

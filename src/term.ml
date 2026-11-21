@@ -47,27 +47,35 @@ let rec observe_ty ty =
   | Ty (args, aty) as ty0 ->
       (match aty with
        | Typtr {contents=TT t} ->
-           let args' = List.map_ident observe_ty args in
            (match observe_ty t with
             | Ty (targs, taty) as tob ->
-                if args' == [] then tob
-                else Ty (args' @ targs, taty))
-       | Tycons (c, tys) ->
-           let args' = List.map_ident observe_ty args in
-           let tys' = List.map_ident observe_ty tys in
-           if args' == args && tys' == tys then ty0
-           else Ty (args', Tycons (c, tys'))
-       | (Tygenvar _ | Typtr _) as aty0 ->
-           let args' = List.map_ident observe_ty args in
-           if args' == args then ty0 else Ty (args', aty0))
+                if args == [] then tob
+                else Ty (args @ targs, taty))
+       | (Tycons _ | Tygenvar _ | Typtr _) -> ty0)
 
-let eq_ty ty1 ty2 = (observe_ty ty1 = observe_ty ty2)
+let rec eq_ty ty1 ty2 =
+  match observe_ty ty1, observe_ty ty2 with
+  | Ty (args1, aty1), Ty (args2, aty2) ->
+      eq_aty aty1 aty2 && eq_tys args1 args2
+and eq_aty aty1 aty2 =
+  match aty1, aty2 with
+  | Tygenvar v1, Tygenvar v2 -> v1 = v2
+  | Typtr {contents=TV v1}, Typtr {contents=TV v2} -> v1 = v2
+  | Tycons (c1, tys1), Tycons (c2, tys2) ->
+      c1 = c2 && eq_tys tys1 tys2
+  | _, _ -> false
+and eq_tys tys1 tys2 =
+  match tys1, tys2 with
+  | [], [] -> true
+  | ty1 :: tys1, ty2 :: tys2 -> eq_ty ty1 ty2 && eq_tys tys1 tys2
+  | _, _ -> false
 
 let eq_tid (id1,ty1) (id2,ty2) =
   id1 = id2 && eq_ty ty1 ty2
 
 let iter_ty f ty =
-  let rec aux = function
+  let rec aux ty =
+    match observe_ty ty with
     | Ty(tys, bty) ->
        List.iter aux tys;
        f bty;
@@ -77,7 +85,7 @@ let iter_ty f ty =
            [%bug] "iter_ty: unexpected bound type pointer"
        | _ -> ()
   in
-  aux (observe_ty ty)
+  aux ty
 
 type tag = Eigen | Constant | Logic | Nominal
 
@@ -478,7 +486,9 @@ let space_op = Pretty.FMT " "
 
 let display_name : (string -> string) ref = State.rref (fun s -> s)
 
-let rec pretty_ty (Ty (args, targ)) =
+let rec pretty_ty ty =
+  match observe_ty ty with
+  | Ty (args, targ) ->
   let open Pretty in
   let args = List.map pretty_ty args in
   (* Pretty print format for atomic types *)
@@ -493,7 +503,7 @@ and pretty_aty aty =
   | Tygenvar v
   | Typtr {contents=TV v} ->
      Atom (STR v)
-  | Typtr {contents=TT _} -> [%bug] "pretty_aty: unexpected bound type pointer"
+  | Typtr {contents=TT t} -> pretty_ty t
   | Tycons (c,args) ->
      let cty = Atom (STR (!display_name c)) in
      let cargs = List.map pretty_ty args in
@@ -771,7 +781,14 @@ let rec tc (tyctx:tyctx) t =
        let arg_tys = List.map (tc tyctx) args in
        let Ty(tys, bty) = tc tyctx h in
        let n = List.length arg_tys in
-       if List.take n tys <> arg_tys then
+       let rec prefix_eq tys arg_tys =
+         match tys, arg_tys with
+         | _, [] -> true
+         | ty :: tys, arg_ty :: arg_tys ->
+             eq_ty ty arg_ty && prefix_eq tys arg_tys
+         | [], _ :: _ -> false
+       in
+       if not (prefix_eq tys arg_tys) then
          failwithf "Ill-typed application" ;
        Ty(List.drop n tys, bty)
     | Lam(idtys,t) ->

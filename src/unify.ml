@@ -859,7 +859,8 @@ let pattern_unify ~used t1 t2 =
    where h1 is flexible, h2 is rigid, and len(tys1) <= len(tys2),
    return a complete list of possible bindings for h1 *)
 let flexible_heads ~used ~sr (tys1, h1, a1) (tys2, h2, a2) =
-  assert (tc [] (lambda tys1 (app h1 a1)) = tc [] (lambda tys2 (app h2 a2))) ;
+  assert (eq_ty (tc [] (lambda tys1 (app h1 a1)))
+                  (tc [] (lambda tys2 (app h2 a2)))) ;
   let n1 = List.length tys1 in
   let n2 = List.length tys2 in
   let () = assert (n2 >= n1) in

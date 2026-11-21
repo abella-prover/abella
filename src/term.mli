@@ -43,6 +43,7 @@ and typtr = in_typtr ref
 and in_typtr = TV of tyvar | TT of ty
 
 val eq_ty : ty -> ty -> bool
+val eq_aty : aty -> aty -> bool
 val eq_tid : (id * ty) -> (id * ty) -> bool
 val observe_ty : ty -> ty
 val iter_ty : (aty -> unit) -> ty -> unit

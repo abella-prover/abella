@@ -136,17 +136,6 @@ module List = struct
 
   let map ?guard f list = map (maybe_guard ?guard f) list
 
-  (* Like map, but returns the original list (physically) when [f]
-     leaves every element unchanged. Note: this cannot use
-     [@tail_mod_cons] because the physical-identity test on the
-     recursive result is outside the TMC fragment. *)
-  let rec map_ident f = function
-    | [] -> []
-    | x :: xs as l ->
-        let y = f x in
-        let ys = map_ident f xs in
-        if y == x && ys == xs then l else y :: ys
-
   let iter ?guard f list = iter (maybe_guard ?guard f) list
 
   let iteri ?guard f list =

@@ -33,7 +33,9 @@ let aty_no_tyvar aty =
 
 
 let add_arc arcs a b =
-  if List.mem (a, b) arcs then arcs else (a, b)::arcs
+  if List.mem ~cmp:(fun (a1,b1) (a2,b2) -> eq_aty a1 a2 && eq_aty b1 b2)
+      (a, b) arcs
+  then arcs else (a, b)::arcs
 
 let arc_predecessor ((s, t):(aty * aty)) a =
   assert (aty_no_tyvar a);
@@ -79,7 +81,7 @@ let predecessors arcs a =
   (* aux accumulates pairs of nodes (atomic types) and paths from the
      root to the nodes by performing depth first search *)
   let rec aux acc (a,path) =
-    if List.mem a (List.map fst acc) then
+    if List.mem ~cmp:eq_aty a (List.map fst acc) then
       acc
     else
       let dpreds = (direct_predecessors arcs a) in
@@ -96,4 +98,4 @@ let predecessors arcs a =
 let is_path arcs a b =
   assert (aty_no_tyvar a);
   assert (aty_no_tyvar b);
-  List.mem a (predecessors arcs b)
+  List.mem ~cmp:eq_aty a (predecessors arcs b)

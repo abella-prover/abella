@@ -231,7 +231,11 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   in
 
   (* 2. Imported ctable must be a subset of ctable *)
-  let missing_consts = List.minus imp_ctable ctable in
+  let missing_consts =
+    List.minus
+      ~cmp:(fun (id1, Typing.Poly (ids1, t1)) (id2, Typing.Poly (ids2, t2)) ->
+        id1 = id2 && ids1 = ids2 && eq_ty t1 t2)
+      imp_ctable ctable in
   let () = if missing_consts <> [] then
       failwithf "Imported file makes reference to unknown constants: %s"
         (String.concat ", " (List.map fst missing_consts))
@@ -286,7 +290,7 @@ let rec process_decls
               let open Typing in
               let pred = Replacement.find repl id in
               tid_ensure_fully_inferred ~sign:!sign (pred.name, pred.ty) ;
-              if ty <> pred.ty then
+              if not (eq_ty ty pred.ty) then
                 failwithf "Expected type %s:%s, got %s:%s"
                   id (ty_to_string ty)
                   pred.name (ty_to_string pred.ty)
@@ -301,7 +305,7 @@ let rec process_decls
           List.iter
             (fun (ty, prev) ->
                let curr = Subordination.subordinates !sr ty in
-               match List.minus curr prev with
+               match List.minus ~cmp:eq_aty curr prev with
                | [] -> ()
                | xs ->
                    failwithf

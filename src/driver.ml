@@ -22,7 +22,7 @@
 open Term
 open Metaterm
 open Checks
-open Abella_types
+open Types
 open Typing
 open Unifyty
 open Extensions
@@ -195,7 +195,7 @@ let set_subgoal_max_spec spec =
     let spec = Parser.depth_spec Lexer.token buf in
     Prover.set_subgoal_max spec
   with
-  | Abella_types.Reported_parse_error
+  | Types.Reported_parse_error
   | Parser.Error ->
       failwithf "Invalid subgoal depth specification: %S" spec
 
@@ -255,7 +255,7 @@ let check_thmod_complete () =
 
 let handle_process_exception e =
   match e with
-  | Abella_types.Reported_parse_error ->
+  | Types.Reported_parse_error ->
       let pos = lexbuf_pos () in
       State.Undo.undo () ;
       Lexing.flush_input !Setup.lexbuf ;

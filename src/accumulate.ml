@@ -19,7 +19,7 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
-open Abella_types
+open Types
 open Typing
 open Extensions
 open Format

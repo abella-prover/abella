@@ -8,7 +8,7 @@
 open Extensions
 open Term
 open Metaterm
-open Abella_types
+open Types
 
 let format_guard ff guard =
   let format_term ff t = Term.format_term ff t in

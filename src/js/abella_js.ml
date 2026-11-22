@@ -24,7 +24,7 @@ open Js_of_ocaml
 open Abella_lib
 open Extensions
 
-let processing_state = Abella_driver.processing_state
+let processing_state = Driver.processing_state
 
 let js_string s = Js.Unsafe.inject (Js.string s)
 let js_int i = Js.Unsafe.inject (Js.float (float_of_int i))
@@ -108,28 +108,28 @@ let re_init_inner files root strict name_mode =
   Checks.stratification_warnings_are_errors := Js.to_bool strict ;
   Prover.strict_names := name_mode_of_js name_mode ;
   let file_kind = if is_thmod_path root then `thmod else `thm in
-  State.reload Abella_driver.initial_snapshot ;
-  processing_state := Abella_driver.Process_top ;
+  State.reload Driver.initial_snapshot ;
+  processing_state := Driver.Process_top ;
   State.Undo.set_enabled true ;
   State.Undo.reset () ;
-  Abella_driver.Setup.compiling := [] ;
+  Driver.Setup.compiling := [] ;
   Accumulate.clear_specification_cache () ;
   Source.clear_virtual () ;
   Source.clear_thc_trust () ;
   Source.set_thc_cache_limit (64 * 1024 * 1024) ;
   List.iter (fun (path, contents) -> Source.add_virtual path contents) files ;
-  Abella_driver.Setup.mode := `interactive ;
-  Abella_driver.Setup.file_kind := file_kind ;
-  Abella_driver.Setup.annotate := true ;
-  Abella_driver.Setup.recurse := false ;
-  Abella_driver.Setup.import_mode := `auto ;
-  Abella_driver.Setup.trust_compiled := true ;
-  Abella_driver.Setup.input := root ;
-  Abella_driver.Setup.compiled := None ;
-  Abella_driver.Setup.unfinished := [] ;
+  Driver.Setup.mode := `interactive ;
+  Driver.Setup.file_kind := file_kind ;
+  Driver.Setup.annotate := true ;
+  Driver.Setup.recurse := false ;
+  Driver.Setup.import_mode := `auto ;
+  Driver.Setup.trust_compiled := true ;
+  Driver.Setup.input := root ;
+  Driver.Setup.compiled := None ;
+  Driver.Setup.unfinished := [] ;
   Output.collect_mode () ;
   ignore (Output.drain ()) ;
-  Output.msg_printf "%s" Abella_driver.welcome_msg ;
+  Output.msg_printf "%s" Driver.welcome_msg ;
   result "ok" (Output.drain ())
 
 let re_init files root strict name_mode =
@@ -150,7 +150,7 @@ let process command start =
     let bol = int_field start "bol" in
     let lb = Lexing.from_string command in
     lb.Lexing.lex_curr_p <- {
-      Lexing.pos_fname = !Abella_driver.Setup.input ;
+      Lexing.pos_fname = !Driver.Setup.input ;
       pos_lnum = line ;
       pos_bol = bol ;
       pos_cnum = offset ;
@@ -158,17 +158,17 @@ let process command start =
     (* The lexer engine recomputes pos_cnum as lex_abs_pos + the
        command-relative offset after every token. *)
     lb.Lexing.lex_abs_pos <- offset ;
-    Abella_driver.Setup.lexbuf := lb ;
+    Driver.Setup.lexbuf := lb ;
     let succeeded =
       try
-        match Abella_driver.process1 !processing_state with
+        match Driver.process1 !processing_state with
         | Ok state ->
             processing_state := state ;
             true
         | Error _ -> false
       with
-      | Abella_driver.Setup.AbellaExit 0 -> true
-      | Abella_driver.Setup.AbellaExit _ -> false
+      | Driver.Setup.AbellaExit 0 -> true
+      | Driver.Setup.AbellaExit _ -> false
       | e ->
           Output.msg_printf ~severity:Error "Error: %s" (sorry e) ;
           false
@@ -202,7 +202,7 @@ let thc path =
 
 (* Install the progress callback used by the worker. *)
 let set_on_import callback =
-  Abella_driver.Setup.on_import := Some (fun name ->
+  Driver.Setup.on_import := Some (fun name ->
       try
         ignore (Js.Unsafe.fun_call callback
                   [| Js.Unsafe.inject (Js.string name) |])

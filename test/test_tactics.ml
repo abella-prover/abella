@@ -1068,7 +1068,7 @@ let case_tests = [
            let foo = const "foo" (tyarrow [ity; ity] propty) in
            let args = List.map (fun (id, ty) -> const id ty) tids in
            let head = Binding(Nabla, tids, Pred(foo ^^ args, Irrelevant)) in
-           let defs = [Abella_types.{head = head; body = True}] in
+           let defs = [Types.{head = head; body = True}] in
            let n1 = nominal_var "n1" ity in
            let n2 = nominal_var "n2" ity in
            let term = Pred(foo ^^ [n1; n2], Irrelevant) in
@@ -1093,7 +1093,7 @@ let case_tests = [
            let foo = const "foo" (tyarrow [aty; bty] propty) in
            let args = List.map (fun (id, ty) -> const id ty) tids in
            let head = Binding(Nabla, tids, Pred(foo ^^ args, Irrelevant)) in
-           let defs = [Abella_types.{head = head; body = True}] in
+           let defs = [Types.{head = head; body = True}] in
            let n1 = nominal_var "n1" aty in
            let n2 = nominal_var "n2" bty in
            let term = Pred(foo ^^ [n1; n2], Irrelevant) in
@@ -1202,7 +1202,7 @@ let assert_search ?(clauses="") ?(defs="")
   let clauses = parse_clauses clauses in
   let defs = if defs = "" then [] else parse_defs defs in
   let mutual =
-    List.map (fun {Abella_types.head; _} -> def_head_name head) defs |>
+    List.map (fun {Types.head; _} -> def_head_name head) defs |>
     List.fold_left add_to_itab Itab.empty
   in
   let def_unfold _ = (mutual, defs) in (*TODO*)
@@ -1695,10 +1695,10 @@ let search_tests = [
 
 let unfold ~defs goal =
   let mutual =
-    List.map (fun {Abella_types.head; _} -> def_head_name head) defs |>
+    List.map (fun {Types.head; _} -> def_head_name head) defs |>
     List.fold_left add_to_itab Itab.empty in
   let mdefs = (mutual, defs) in
-    unfold ~mdefs ~used:[] Abella_types.Select_any Abella_types.Solution_first
+    unfold ~mdefs ~used:[] Types.Select_any Types.Solution_first
       goal (*TODO*)
 
 let unfold_tests =

@@ -10,7 +10,7 @@ let stratification_warnings_are_errors = ref false
 
 open Term
 open Metaterm
-open Abella_types
+open Types
 open Typing
 
 open Extensions

@@ -21,13 +21,13 @@
 (* Tests for .thm sources, specifications, imports, and .thc artifacts. *)
 
 open Abella_lib
-open Abella_types
+open Types
 open Extensions
 open Term
 open Typing
 open Test_helper
 
-module D = Abella_driver
+module D = Driver
 
 let processing_state = ref D.Process_top
 

@@ -13,7 +13,7 @@
 open Term
 open Typing
 open Metaterm
-open Abella_types
+open Types
 open Extensions
 
 module Setup = Driver_setup

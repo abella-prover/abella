@@ -1,5 +1,5 @@
 open Abella_lib
-open Abella_types
+open Types
 open Term
 open Test_helper
 

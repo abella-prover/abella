@@ -1,5 +1,5 @@
 open Abella_lib
-open Abella_types
+open Types
 open Test_helper
 open Metaterm
 open Prover
@@ -501,7 +501,7 @@ let tests =
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs_for ["bar"] Abella_types.CoInductive
+           add_defs_for ["bar"] Types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
@@ -513,7 +513,7 @@ let tests =
            setup_prover ()
              ~goal:"bar X" ;
 
-           add_defs_for ["bar"] Abella_types.CoInductive
+           add_defs_for ["bar"] Types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            assert_proof
@@ -528,7 +528,7 @@ let tests =
              ~lemmas:[("lem", "(forall X, foo X -> bar X) -> {a}")]
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs_for ["foo"] Abella_types.Inductive
+           add_defs_for ["foo"] Types.Inductive
              (parse_defs "foo X := foo X.") ;
 
            induction [1] ;
@@ -542,7 +542,7 @@ let tests =
              ~lemmas:[("lem", "(forall X, foo X -> bar X) -> {a}")]
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs_for ["bar"] Abella_types.CoInductive
+           add_defs_for ["bar"] Types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
@@ -567,7 +567,7 @@ let tests =
              ~goal:"forall X Y, foo X -> foo Y -> \
                           (X = Y \\/ (X = Y -> false))" ;
 
-           add_defs_for ["foo"] Abella_types.Inductive
+           add_defs_for ["foo"] Types.Inductive
              (parse_defs "nabla x, foo x.") ;
 
            assert_proof
@@ -593,9 +593,9 @@ let tests =
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs_for ["foo"] Abella_types.Inductive
+           add_defs_for ["foo"] Types.Inductive
              (parse_defs "foo X := foo X.") ;
-           add_defs_for ["bar"] Abella_types.CoInductive
+           add_defs_for ["bar"] Types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            coinduction () ;
@@ -611,9 +611,9 @@ let tests =
            setup_prover ()
              ~goal:"forall X, foo X -> bar X" ;
 
-           add_defs_for ["foo"] Abella_types.Inductive
+           add_defs_for ["foo"] Types.Inductive
              (parse_defs "foo X := foo X.") ;
-           add_defs_for ["bar"] Abella_types.CoInductive
+           add_defs_for ["bar"] Types.CoInductive
              (parse_defs "bar X := bar X.") ;
 
            induction [1] ;
@@ -951,7 +951,7 @@ let tests =
         (fun () ->
            setup_prover () ;
 
-           add_defs_for ["foo"] Abella_types.Inductive
+           add_defs_for ["foo"] Types.Inductive
              (parse_defs "foo X := foo X.") ;
            ignore (add_lemma "foo_lem" [] (parse_metaterm "foo t1")) ;
 
@@ -1153,7 +1153,7 @@ let tests =
            setup_prover ()
              ~goal:"forall E E', nabla (x:expr155), \
                       foo155 (E x) (E' x) -> true" ;
-           add_defs_for ["foo155"] Abella_types.Inductive
+           add_defs_for ["foo155"] Types.Inductive
              (parse_defs "foo155 (mu155 k\\ E k) \
                           (mu155 k_\\ E (o\\ o)).") ;
            intros no_hints ;

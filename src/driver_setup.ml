@@ -8,7 +8,7 @@
 (* Session configuration shared by the driver and the
    file-kind-specific modules, with save/restore for sub-sessions. *)
 
-open Abella_types
+open Types
 
 let compiled : (module Source.COMPILED) option ref = ref None
 let mode : [`batch | `interactive] ref = ref `interactive

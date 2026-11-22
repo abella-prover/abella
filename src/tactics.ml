@@ -22,7 +22,7 @@
 open Term
 open Metaterm
 open Unify
-open Abella_types
+open Types
 open Unifyty
 
 open Extensions
@@ -735,12 +735,12 @@ let coinductive_wrapper r names t =
   aux t
 
 let maybe_select sel l = match sel with
-  | Abella_types.Select_any -> l
-  | Abella_types.Select_num n ->
+  | Types.Select_any -> l
+  | Types.Select_num n ->
       if n < 1 || n > List.length l then
         failwithf "Given clause number (%d) not in range (1..%d)" n (List.length l) ;
       [List.nth l (n - 1)]
-  | Abella_types.Select_named _n ->
+  | Types.Select_named _n ->
       failwith "Cannot select named clauses for inductive predicates"
 
 let unfold_defs ~sr ~mdefs clause_sel ~ts goal r =
@@ -829,13 +829,13 @@ let unfold ~sr ~mdefs ~used clause_sel sol_sel goal0 =
       | cases -> begin
           let cases = List.rev cases in
           match sol_sel with
-          | Abella_types.Solution_first -> [List.hd cases]
-          | Abella_types.Solution_all -> [disjoin cases]
+          | Types.Solution_first -> [List.hd cases]
+          | Types.Solution_all -> [disjoin cases]
         end
       end
   | Obj ({mode = Async ; _} as goal, sz) -> begin
       match clause_sel with
-      | Abella_types.Select_named nm -> begin
+      | Types.Select_named nm -> begin
           match Typing.lookup_clause nm with
           | Some (tyvars,cl) ->
               normalize_obj ~parity:true ~bindstack:[] goal |>
@@ -887,7 +887,7 @@ let unfold ~sr ~mdefs ~used clause_sel sol_sel goal0 =
 
 (* Search *)
 
-exception SearchSuccess of Abella_types.witness
+exception SearchSuccess of Types.witness
 
 let decompose_arrow term =
   let rec aux acc term =
@@ -1232,8 +1232,8 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     try begin
       let mdefs = def_unfold (Pred (goal, r)) in
       let (csel, witness, subn) = match witness with
-        | WMagic -> (Abella_types.Select_any, WMagic, n - 1)
-        | WUnfold (wp, wn, [w]) when wp = p -> (Abella_types.Select_num wn, w, n)
+        | WMagic -> (Types.Select_any, WMagic, n - 1)
+        | WUnfold (wp, wn, [w]) when wp = p -> (Types.Select_num wn, w, n)
         | _ -> bad_witness ()
       in
       let doit () =

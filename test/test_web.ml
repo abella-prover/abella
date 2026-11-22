@@ -25,7 +25,7 @@ open Abella_lib
 open Extensions
 open Test_helper
 
-module D = Abella_driver
+module D = Driver
 
 let processing_state = D.processing_state
 

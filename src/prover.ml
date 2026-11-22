@@ -25,7 +25,7 @@ open Metaterm
 open Format
 open Tactics
 open Checks
-open Abella_types
+open Types
 open Extensions
 open Unifyty
 

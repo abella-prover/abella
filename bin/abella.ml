@@ -22,8 +22,8 @@
 (* Command line and startup *)
 
 open Abella_lib
-open Abella_driver
-open Abella_types
+open Driver
+open Types
 open Extensions
 
 let set_output filename =
@@ -72,7 +72,7 @@ let abella_main
     if !Setup.mode = `interactive then
       Output.msg_printf "%s" welcome_msg ;
     State.Undo.set_enabled (!Setup.mode <> `batch) ;
-    let state = ref Abella_driver.Process_top in
+    let state = ref Driver.Process_top in
     while true do
       match process1 !state with
       | Ok next -> state := next
@@ -111,7 +111,7 @@ let () =
         Parser.cmdline_flags Lexer.token |>
         Result.ok
       with
-      | Abella_types.Reported_parse_error
+      | Types.Reported_parse_error
       | Parser.Error ->
           Printf.ksprintf (fun s -> `Msg s)
             "Could not parse argument: %S" str

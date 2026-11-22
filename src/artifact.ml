@@ -10,7 +10,7 @@
 
 open Term
 open Typing
-open Abella_types
+open Types
 open Extensions
 
 module type SPEC = sig

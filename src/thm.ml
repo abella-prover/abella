@@ -10,7 +10,7 @@
 
 open Term
 open Metaterm
-open Abella_types
+open Types
 open Typing
 open Extensions
 open Accumulate

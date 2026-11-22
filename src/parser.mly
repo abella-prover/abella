@@ -24,8 +24,6 @@
   open Extensions
   open Typing
 
-  open struct module Types = Abella_types end
-
   let error_report ?(pos=Parsing.symbol_start_pos ()) fmt =
     let open Lexing in
     let parse_fmt = "@.%s:@\nError: @[" ^^ fmt ^^ "@]@." in
@@ -84,8 +82,8 @@
     let badconsts = ref [] in
     let collect_bad_decl decl =
       match decl.el with
-      | Abella_types.SKind _ -> ()
-      | Abella_types.SType (ids, _) ->
+      | Types.SKind _ -> ()
+      | Types.SType (ids, _) ->
          List.iter begin fun k ->
            if is_illegal_constant k.el then
              badconsts := k.el :: !badconsts
@@ -93,7 +91,7 @@
     in
     List.iter collect_bad_decl sigdecls ;
     match List.rev !badconsts with
-    | [] -> Abella_types.Sig { name = sigid ;
+    | [] -> Types.Sig { name = sigid ;
                                accum_sig = sigpre ;
                                decls = sigdecls }
     | (_k :: _) as ks ->
@@ -111,17 +109,17 @@
     match String.split_on_char '=' a with
     | [a ; b] -> begin
         match int_of_string_opt b with
-        | Some n -> (a, Abella_types.Int n)
-        | None -> (a, Abella_types.Str b)
+        | Some n -> (a, Types.Int n)
+        | None -> (a, Types.Str b)
       end
-    | _ -> raise Abella_types.Reported_parse_error
+    | _ -> raise Types.Reported_parse_error
 
   let cmdline_arg_two a b =
     match String.split_on_char '=' a with
     | [a ; ""] -> (a, b)
-    | _ -> raise Abella_types.Reported_parse_error
+    | _ -> raise Types.Reported_parse_error
 
-  let qualid_to_string (q : Abella_types.qualid) =
+  let qualid_to_string (q : Types.qualid) =
     String.concat "." q
 
   let is_module_name id =
@@ -209,32 +207,32 @@
 
 %type <Typing.uterm> term
 %type <Typing.umetaterm> metaterm
-%type <Abella_types.lpsig> lpsig
-%type <Abella_types.lpmod> lpmod
-%type <Abella_types.sig_decl> sig_decl
-%type <Abella_types.uclause Extensions.wpos> mod_clause
-%type <Abella_types.udef_clause list> defs
-%type <Abella_types.command Extensions.wpos> command_start
-%type <Abella_types.top_command Extensions.wpos> top_command_start
-%type <Abella_types.any_command Extensions.wpos> any_command_start
-%type <Abella_types.witness> search_witness
+%type <Types.lpsig> lpsig
+%type <Types.lpmod> lpmod
+%type <Types.sig_decl> sig_decl
+%type <Types.uclause Extensions.wpos> mod_clause
+%type <Types.udef_clause list> defs
+%type <Types.command Extensions.wpos> command_start
+%type <Types.top_command Extensions.wpos> top_command_start
+%type <Types.any_command Extensions.wpos> any_command_start
+%type <Types.witness> search_witness
 %type <(int * int option) list> depth_spec
 
 %type <Typing.uterm> one_term
 %type <Typing.umetaterm> one_metaterm
-%type <Abella_types.sig_decl list> one_sig_body
-%type <Abella_types.uclause Extensions.wpos list> one_mod_body
-%type <Abella_types.udef_clause list> one_defs
-%type <(string * Abella_types.set_value) list> cmdline_flags
-%type <Abella_types.qualid> qualid
+%type <Types.sig_decl list> one_sig_body
+%type <Types.uclause Extensions.wpos list> one_mod_body
+%type <Types.udef_clause list> one_defs
+%type <(string * Types.set_value) list> cmdline_flags
+%type <Types.qualid> qualid
 %type <string> item_name
-%type <Abella_types.qualid Extensions.wpos> loc_qualid
+%type <Types.qualid Extensions.wpos> loc_qualid
 %type <string Extensions.wpos> loc_item
-%type <Abella_types.module_source> module_source
+%type <Types.module_source> module_source
 %type <string list> module_params
 %type <Term.ty list> module_tyargs
-%type <(Abella_types.qualid * Abella_types.qualid) list> module_withs
-%type <Abella_types.qualid * Abella_types.qualid> module_with
+%type <(Types.qualid * Types.qualid) list> module_withs
+%type <Types.qualid * Types.qualid> module_with
 
 %%
 
@@ -997,7 +995,7 @@ cmdline_flags:
 
 cmdline_flag:
   | a=id            { cmdline_arg_one a }
-  | a=id; q=QSTRING { cmdline_arg_two a @@ Abella_types.QStr q }
+  | a=id; q=QSTRING { cmdline_arg_two a @@ Types.QStr q }
 
 %inline
 located(X):

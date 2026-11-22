@@ -3,7 +3,7 @@ open Metaterm
 open Extensions
 open Typing
 open Accumulate
-open Abella_types
+open Types
 
 (* We make use of the global prover signature 'sign' to simply testing *)
 open Prover
@@ -62,7 +62,7 @@ let process_decls decls =
   sign := List.fold_left add_decl !sign decls ;
   sr := List.fold_left Subordination.update !sr
       (List.filter_map
-         (function { el = Abella_types.SType(_, ty) ; _ } -> Some ty.el | _ -> None)
+         (function { el = Types.SType(_, ty) ; _ } -> Some ty.el | _ -> None)
          decls)
 
 let () = process_decls (parse_decls eval_sig_string)
@@ -101,11 +101,11 @@ let () = process_decls (parse_decls nat_sig_string)
 
 let process_top_command str =
   match (parse_top_command str).el with
-    | Abella_types.Kind(ids, knd) ->
+    | Types.Kind(ids, knd) ->
         add_global_types ids knd ;
-    | Abella_types.Type(ids, ty) ->
+    | Types.Type(ids, ty) ->
         add_global_consts (List.map (fun id -> (id, ty)) ids)
-    | Abella_types.Close(ids) ->
+    | Types.Close(ids) ->
         close_types !sign !clauses ids
     | _ -> assert false
 

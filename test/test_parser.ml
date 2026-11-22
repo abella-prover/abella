@@ -16,11 +16,11 @@ let parse_command str =
 
 let assert_top_pprint expected str =
   Alcotest.check Alcotest.string "top command printing" expected
-    (Abella_types.top_command_to_string (parse_top_command str).el)
+    (Types.top_command_to_string (parse_top_command str).el)
 
 let assert_command_pprint expected str =
   Alcotest.check Alcotest.string "command printing" expected
-    (Abella_types.command_to_string (parse_command str).el)
+    (Types.command_to_string (parse_command str).el)
 
 let assert_rejected str =
   match parse_top_command str with
@@ -32,15 +32,15 @@ let assert_command_rejected str =
   | _ -> Alcotest.failf "%S unexpectedly parsed" str
   | exception _ -> ()
 
-let qid_string = Abella_types.qualid_to_string
+let qid_string = Types.qualid_to_string
 
 let source_string = function
-  | Abella_types.QuoteSource (filename, _) -> "file:" ^ filename
-  | Abella_types.NameSource name -> "name:" ^ name
+  | Types.QuoteSource (filename, _) -> "file:" ^ filename
+  | Types.NameSource name -> "name:" ^ name
 
 let assert_module str name params =
   match (parse_top_command str).el with
-  | Abella_types.Module (actual_name, actual_params) ->
+  | Types.Module (actual_name, actual_params) ->
       Alcotest.check Alcotest.string "module name" name actual_name ;
       Alcotest.check (Alcotest.list Alcotest.string) "parameters"
         params actual_params
@@ -48,13 +48,13 @@ let assert_module str name params =
 
 let assert_end str name =
   match (parse_top_command str).el with
-  | Abella_types.End actual_name ->
+  | Types.End actual_name ->
       Alcotest.check Alcotest.string "module name" name actual_name
   | _ -> Alcotest.failf "%S is not an end" str
 
 let assert_import_module str alias source tyargs withs =
   match (parse_top_command str).el with
-  | Abella_types.ImportModule mi ->
+  | Types.ImportModule mi ->
       let actual_alias =
         match mi.mi_alias with None -> "" | Some name -> name
       in
@@ -335,7 +335,7 @@ let tests =
       test_case "Qualified type name"
         (fun () ->
            match (parse_top_command "Type c Foo.u.").el with
-           | Abella_types.Type (ids, ty) ->
+           | Types.Type (ids, ty) ->
                Alcotest.check (Alcotest.list Alcotest.string)
                  "declared names" ["c"] ids ;
                Alcotest.check Alcotest.string "declared type"
@@ -345,7 +345,7 @@ let tests =
       test_case "Qualified type constructor argument"
         (fun () ->
            match (parse_top_command "Type c list Foo.u.").el with
-           | Abella_types.Type (_, ty) ->
+           | Types.Type (_, ty) ->
                Alcotest.check Alcotest.string "declared type"
                  "list Foo.u" (Term.ty_to_string ty)
            | _ -> Alcotest.fail "Not a Type command") ;
@@ -476,7 +476,7 @@ let tests =
         (fun () ->
            let lb = Lexing.from_string "- search. ++ split." in
            let next () =
-             Abella_types.command_to_string
+             Types.command_to_string
                (Parser.command_start Lexer.token lb).el
            in
            let c1 = next () in

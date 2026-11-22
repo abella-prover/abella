@@ -143,9 +143,6 @@ let restriction_to_string r =
   | CoEqual i -> String.make i '#'
   | Irrelevant -> ""
 
-let bindings_to_string ts =
-  String.concat " " (List.map fst ts)
-
 let binder_to_string b =
   match b with
   | Forall -> "forall"
@@ -417,25 +414,6 @@ let iter_preds ?(parity=EVEN) ?(posity=POS) f term =
   in
   aux parity posity term
 
-let map_preds ?(parity=EVEN) ?(posity=POS) f term =
-  let rec aux parity posity term =
-    match term with
-    | True | False | Eq _ | Obj _ -> []
-    | Arrow(a, b) ->
-        aux (change_parity parity) (relax_posity posity) a @
-        aux parity posity b
-    | Binding(_, _, body) ->
-        aux parity posity body
-    | Or(a, b) ->
-        aux parity posity a @
-        aux parity posity b
-    | And(a, b) ->
-        aux parity posity a @
-        aux parity posity b
-    | Pred(pred, _) -> [f ~parity ~posity pred]
-  in
-  aux parity posity term
-
 let is_member = function
   | Pred (t,_) -> is_head_name "member" t
   | _ -> false
@@ -493,12 +471,6 @@ let reduce_coinductive_restriction r =
   match r with
     | CoEqual i -> CoSmaller i
     | _ -> r
-
-let add_to_context elt obj =
-  let context = Context.add elt obj.context in
-  { obj with context }
-
-let sig_to_string (name, arity) = name ^ "/" ^ (string_of_int arity)
 
 (* Variable Renaming *)
 
@@ -636,8 +608,6 @@ let replace_metaterm_vars ?tag alist t =
       | Pred(p, r) -> Pred(term_aux alist p, r)
   in
     aux top_free_unchanged_vars alist t
-
-let map_term_list f t = List.map f (collect_terms t)
 
 let fresh_nominals_by_list tys used_names =
   let p = prefix Nominal in
@@ -939,9 +909,6 @@ let metaterm_extract_tids aux_term t =
   in
   List.unique ~cmp:eq_tid (aux t)
 
-let metaterm_capital_tids t =
-  metaterm_extract_tids capital_tids t
-
 let metaterm_nominal_tids t =
   metaterm_extract_tids nominal_tids t
 
@@ -1013,19 +980,6 @@ let rec metaterm_iter_tys f mt =
      List.iter (fun (_, ty) -> f ty) tids;
      metaterm_iter_tys f body
   | Pred (p, _) -> term_iter_tys f p
-
-let metaterm_collect_tyvar_names t =
-  let seen = ref Itab.empty in
-  metaterm_iter_tys begin fun ty ->
-    iter_ty begin fun aty ->
-      match aty with
-      | Typtr {contents=TV v} ->
-         if not (Itab.mem v !seen) then
-           seen := Itab.add v () !seen
-      | _ -> ()
-    end ty
-  end t;
-  List.map fst (Itab.bindings !seen)
 
 let metaterms_contain_tyvar l =
   let exception Found in

@@ -39,9 +39,6 @@ and opapp =
   | Postfix of expr * atom
   | Infix   of assoc * expr * atom * expr
 
-val bracket : ?left:atom -> ?right:atom -> ?trans:trans -> ?indent:int -> expr -> expr
-
 type 'a printer = ?left:atom -> ?right:atom -> expr -> 'a
 
 val print        : formatter -> unit printer
-val print_string : string printer

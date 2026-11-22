@@ -34,8 +34,6 @@ let is_uninstantiated (x, vtm) =
   | Var {Term.name=n; Term.tag=Eigen; _} when n = x -> true
   | _ -> false
 
-let alist_to_used (_, t) = term_to_pair t
-
 let inst_clause_types typarams clause =
   if typarams = [] then clause
   else
@@ -417,9 +415,6 @@ let spec_view t =
       | _ -> [%bug] "Cannot view pi body: %s" (term_to_string abs)
     end
   | t -> Spec_atom t
-
-let terms_tyvars l =
-  List.unique (List.fold_left (fun vs t -> (term_collect_tyvar_names t)@vs) [] l)
 
 let extract_terms_from_cpairs cpairs =
   match cpairs with

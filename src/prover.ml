@@ -132,15 +132,6 @@ let sequent =
 let add_global_types tys knd =
   sign := add_types !sign tys knd
 
-let locally_add_global_consts cs =
-  let local_sr = List.fold_left Subordination.update !sr (List.map snd cs)
-  and local_sign = add_consts !sign cs
-  in (local_sr, local_sign)
-
-let commit_global_consts local_sr local_sign =
-  sr := local_sr ;
-  sign := local_sign
-
 let add_global_consts ?typarams cs =
   sr := List.fold_left Subordination.update !sr (List.map snd cs) ;
   sign := add_consts ?typarams !sign cs
@@ -226,8 +217,6 @@ let add_clauses new_clauses =
 
 let defs_table : defs_table = State.table ()
 
-let built_ins_done = ref false
-
 let add_defs
     ?(strat_errors = !stratification_warnings_are_errors)
     typarams preds flavor clauses =
@@ -242,10 +231,6 @@ let add_defs
   let is_defined id = Itab.mem id mutual || H.mem defs_table id in
   Checks.check_def ~errors:strat_errors ~def ~is_defined () ;
   List.iter (fun (id, _) -> H.add defs_table id def) preds
-
-let lookup_poly_const k =
-  try let {vars = typarams ; ty} = (lookup_pty !sign k) in (typarams, ty) with
-  | Not_found -> failwithf "Unknown constant: %S" k
 
 
 let register_definition
@@ -277,7 +262,6 @@ let register_definition
       CDefine (flav, typarams, idtys, clauses)
   | _ -> [%bug] "Not a definition!"
 
-let k_member = "member"
 let member_def =
   let ty_a = tybase @@ Tygenvar "A" in
   let ty_list_a = tybase @@ Tycons ("list", [ty_a]) in
@@ -289,31 +273,23 @@ let member_def =
     | t :: ts -> app (UApp (ghost_pos, f, t)) ts
   in
   let clause_nil : udef_clause =
-    let head = app (const "member") [const "A" ;
+    let head = app (const k_member) [const "A" ;
                                      app (const k_cons) [const "A" ;
                                                          const "L"]] in
     (UPred (head, Irrelevant), UTrue) in
   let clause_cons : udef_clause =
-    let head = app (const "member") [const "A" ;
+    let head = app (const k_member) [const "A" ;
                                      app (const k_cons) [const "B" ;
                                                          const "L"]] in
-    let body = app (const "member") [const "A" ; const "L"] in
+    let body = app (const k_member) [const "A" ; const "L"] in
     (UPred (head, Irrelevant), UPred (body, Irrelevant)) in
-  Define (Inductive, ["member", ty_member], [clause_nil ; clause_cons])
+  Define (Inductive, [(k_member, ty_member)], [clause_nil ; clause_cons])
   |> register_definition
-
-let () = built_ins_done := true
 
 let term_spine t =
   match term_head t with
   | Some (_, spine) -> spine
   | None -> [%bug] "term_spine: term has no head"
-
-let clause_head_name cl =
-  match cl.head with
-  | Binding (Nabla, _, Pred (p, _)) | Pred (p, _) ->
-      term_head_name p
-  | _ -> [%bug] "Clause head name for invalid clause: %s" (metaterm_to_string cl.head)
 
 let instantiate_pred_types tysub (tbl: ty Itab.t) : ty Itab.t =
   let res = ref Itab.empty in
@@ -1335,9 +1311,6 @@ let ensure_is_inductive term =
         failwithf "Cannot induct on %s since it has not been defined" pname
       end
   | _ -> failwith "Can only induct on predicates and judgments"
-
-let add_ih h =
-  add_auto_hyp ~base:"IH" h
 
 let induction ?hint ind_args =
   ensure_focused () ;

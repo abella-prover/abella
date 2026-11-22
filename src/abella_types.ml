@@ -263,11 +263,6 @@ let udef_to_string (head, body) =
 let udef_clauses_to_string cls =
   String.concat ";\n" (List.map udef_to_string cls)
 
-let flavor_to_string dtype =
-  match dtype with
-    | Inductive -> "inductive"
-    | CoInductive -> "coinductive"
-
 let set_value_to_string v =
   match v with
     | Str s -> s
@@ -290,13 +285,6 @@ let clearable_to_string cl =
   match cl with
   | Keep (h, tys) -> h ^ inst_to_string tys
   | Remove (h, tys) -> "*" ^ h ^ inst_to_string tys
-
-let suspension_to_string susp =
-  let args = List.init susp.arity (fun n -> "X" ^ string_of_int (n + 1))
-             |> String.concat " " in
-  let flex = List.map (fun n -> "X" ^ string_of_int (n + 1)) susp.flex
-             |> String.concat ", " in
-  sprintf "%s %s := %s" susp.predicate.el args flex
 
 let common_command_to_string cc =
   match cc with

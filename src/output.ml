@@ -152,9 +152,6 @@ let non_annot fmt =
       | Json _ | Collect _ | Null -> ()
   end fmt
 
-let non_annot_format fmt =
-  Format.kasprintf (non_annot "%s") fmt
-
 let json thing =
   match !dest with
   | Json js ->

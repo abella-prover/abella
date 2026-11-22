@@ -55,15 +55,6 @@ type non_wff_reason =
   | Ho_args of (id * ty) list
 exception Non_wff of non_wff_reason
 
-let add_sgn preds p posity =
-  let old_posity =
-    try Itab.find p preds with Not_found -> posity in
-  let posity =
-    if old_posity = posity then posity
-    else NONPOS
-  in
-  Itab.add p posity preds
-
 let contains_prop_argument ty =
   let Ty(tys, _) = observe_ty ty in
   List.exists contains_prop tys

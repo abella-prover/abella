@@ -17,13 +17,6 @@ let format_guard ff guard =
     (Format.pp_print_list format_term
        ~pp_sep:Format.pp_print_commaspace) guard.condition
 
-let guard_to_string guard =
-  let buf = Buffer.create 19 in
-  let ff = Format.formatter_of_buffer buf in
-  format_guard ff guard ;
-  Format.pp_print_flush ff () ;
-  Buffer.contents buf
-
 let standardize_predicate (ut : Typing.uterm) =
   let rec get_predicate = function
     | Typing.UCon (_, pred, _) -> pred

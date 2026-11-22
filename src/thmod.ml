@@ -208,10 +208,6 @@ let all_params () =
 let all_items () =
   List.flatten_map (fun sc -> sc.sc_items) !env.en_stack
 
-let all_instances () =
-  List.flatten_map (fun sc -> List.map snd sc.sc_instances) !env.en_stack @
-  List.map snd !env.en_instances
-
 let lookup_item_in items name =
   List.find_some begin fun it ->
     if it.item_local = name then Some it else None
@@ -1067,28 +1063,11 @@ let rec map_metaterm_constants f mt =
   | Pred (p, restriction) ->
       Pred (map_term_constants f p, restriction)
 
-let replace_constants f comp =
-  match comp with
-  | CTheorem (id, tys, stmt, fin) ->
-      CTheorem (id, tys, map_metaterm_constants f stmt, fin)
-  | CDefine (flavor, typarams, idtys, clauses) ->
-      let clauses =
-        List.map (fun cl ->
-            { head = map_metaterm_constants f cl.head ;
-              body = map_metaterm_constants f cl.body ; })
-          clauses
-      in
-      CDefine (flavor, typarams, idtys, clauses)
-  | CType _ | CDeclPred _ | CKind _ | CImport _ | CClose _
-  | CSuspend _ -> comp
-
 let ids_of_compiled = function
   | CTheorem (id, _, _, _) -> [id]
   | CDefine (_, _, idtys, _) -> List.map fst idtys
   | CType (ids, _, _) | CDeclPred (ids, _, _) | CKind (ids, _) -> ids
   | CImport _ | CClose _ | CSuspend _ -> []
-
-let local_ids decls = List.unique (List.flatten_map ids_of_compiled decls)
 
 let const_ids decls =
   List.unique (List.flatten_map (function

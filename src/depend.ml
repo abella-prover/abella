@@ -111,7 +111,3 @@ let file_dependencies kind filename =
     List.flatten_map (lp_dependencies (module LPMod : LP)) deps.dep_specs
   in
   { deps with dep_specs = List.unique (sigfiles @ modfiles) }
-
-let thm_dependencies filename =
-  let deps = file_dependencies `thm filename in
-  (deps.dep_specs, deps.dep_thms)

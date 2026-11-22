@@ -686,12 +686,6 @@ let extract_tids test terms =
   |> List.find_all (fun (id, _ty) -> test id)
   |> List.unique ~cmp:eq_tid
 
-let is_question_name str =
-  str.[0] = '?'
-
-let question_tids terms =
-  extract_tids is_question_name terms
-
 let is_capital_name str =
   String.length str > 0 &&
   not (String.contains str '.') &&
@@ -713,9 +707,6 @@ let is_nominal_name str =
 
 let nominal_tids terms =
   extract_tids is_nominal_name terms
-
-let all_tids terms =
-  extract_tids (fun _ -> true) terms
 
 let has_head test t =
   let rec aux t =
@@ -795,9 +786,6 @@ let rec tc (tyctx:tyctx) t =
        tyarrow (get_ctx_tys idtys) (tc (List.rev_app idtys tyctx) t)
     | _ -> [%bug] "tc: unexpected term form"
   in observe_ty ty
-
-let is_tyvar str =
-  str.[0] = '?'
 
 let tyvar str =
   Ty ([], atyvar ("?"^str))
@@ -926,19 +914,6 @@ let ty_contains_gentyvar ty =
     end ty;
     false
   with Found -> true
-
-let term_collect_gentyvar_names t =
-  let seen = ref Itab.empty in
-  term_iter_tys begin fun ty ->
-    iter_ty begin fun aty ->
-      match aty with
-      | Tygenvar v ->
-         if not (Itab.mem v !seen) then
-           seen := Itab.add v () !seen
-      | _ -> ()
-    end ty
-  end t;
-  List.map fst (Itab.bindings !seen)
 
 let terms_contain_gentyvar l =
   let exception Found in

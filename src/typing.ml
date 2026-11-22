@@ -96,9 +96,6 @@ type umetaterm =
   | UPred of uterm * restriction
 
 
-let apply_sub_tyctx s tyctx =
-  List.map (fun (id, ty) -> (id, apply_sub_ty s ty)) tyctx
-
 let ids_to_fresh_tyctx ids =
   List.map (fun id -> (id, fresh_tyvar ())) ids
 
@@ -338,12 +335,6 @@ let infer_type_and_constraints ~sign tyctx t =
   (ty, List.rev !eqns)
 
 
-let constraints_to_string eqns =
-  let aux (ty1, ty2, _) =
-    (ty_to_string ty1) ^ " = " ^ (ty_to_string ty2)
-  in
-  String.concat "\n" (List.map aux eqns)
-
 let contains_tyvar ty =
   let rec aux ty =
     match observe_ty ty with
@@ -529,12 +520,6 @@ let generalize_tyvars t =
   let t' = term_map_on_tys (apply_sub_ty_tyvar tysub) t in
   (tyvars, t')
 
-let print_clause cl =
-  let (vars, clause) = cl in
-  let vstr = String.concat "," vars in
-  let cstr = term_to_string clause in
-  Output.msg_printf "Typed clause: [%s] %s\n" vstr cstr
-
 let type_uclause ~sr ~sign (cname, head, body) =
   if has_capital_head head then
     failwith "Clause has flexible (i.e., non-atomic) head" ;
@@ -556,7 +541,6 @@ let type_uclause ~sr ~sign (cname, head, body) =
   let pi_form = get_pi_form cids imp_form in
   let result = type_uterm ~partial_infer:true ~sr ~sign ~ctx:[] pi_form in
   let result = generalize_tyvars result in
-  (* print_clause result; *)
   let _ = check_pi_quantification [snd result] in
   begin match cname with
   | None -> ()

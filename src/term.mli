@@ -205,9 +205,7 @@ val term_head_ty : term -> ty
 
 val is_capital_name : string -> bool
 val capital_tids : term list -> (id * ty) list
-val question_tids : term list -> (id * ty) list
 val nominal_tids : term list -> (id * ty) list
-val all_tids : term list -> (id * ty) list
 
 val tc : tyctx -> term -> ty
 
@@ -215,7 +213,6 @@ val atyvar : string -> aty
 val atybase : string -> aty
 val atyapp : aty -> ty -> aty
 val tyvar : string -> ty
-val is_tyvar : string -> bool
 val fresh_tyvar : unit -> ty
 
 val is_imp : term -> bool
@@ -237,7 +234,6 @@ val terms_contain_tyvar : term list -> bool
 
 val ty_gentyvars : ty -> string list
 val ty_contains_gentyvar : ty -> bool
-val term_collect_gentyvar_names : term -> string list
 val terms_contain_gentyvar : term list -> bool
 
 (* Type substitutions *)

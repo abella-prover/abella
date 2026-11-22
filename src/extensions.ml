@@ -377,7 +377,6 @@ module Json = Yojson.Safe
 type pos = Lexing.position * Lexing.position
 let ghost_pos : pos = (Lexing.dummy_pos, Lexing.dummy_pos)
 type 'a wpos = { el : 'a ; pos : pos }
-let ghost e = { el = e ; pos = ghost_pos }
 let get_el (wp : _ wpos) = wp.el
 
 let string_of_position ((start, stop) : pos) =

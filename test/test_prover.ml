@@ -13,8 +13,62 @@ let user_alt vars hyps =
   { hspec_vars = List.map (fun name -> User_name name) vars ;
     hspec_hyps = List.map (fun name -> User_name name) hyps }
 
+
+(* Explicit proof-state harness over the immutable engine *)
+
+let placeholder_goal = Metaterm.termobj (Term.const "placeholder" Term.propty)
+
+let st : proof_state ref =
+  State.rref (start_proof (empty_sequent placeholder_goal))
+
+let or_fail to_string = function
+  | Result.Ok x -> x
+  | Result.Error e -> failwith (to_string e)
+
+let focused () =
+  match (!st).focused with
+  | Some sq -> activate_sequent sq
+  | None -> begin
+      match (!st).bullets with
+      | [] -> Alcotest.fail "expected a focused subgoal"
+      | f :: _ ->
+          failwith (string_of_bullet_error (No_focused_subgoal f.bullet))
+    end
+
+let normalize_focused_state s =
+  match s.focused with
+  | None -> s
+  | Some sq ->
+      { s with focused = Some (normalize_sequent (activate_sequent sq)) }
+
+let install_updated sq' = st := { !st with focused = Some sq' }
+
+let install_branched sq subs =
+  let s = push_subgoals { !st with focused = Some sq } subs in
+  let s =
+    match s.focused with
+    | Some _ -> s
+    | None -> next_subgoal s
+  in
+  st := normalize_focused_state s
+
+let run_updated f = install_updated (f (focused ()))
+
+let run_branched f =
+  let sq = focused () in
+  install_branched sq (f sq)
+
+let run_delayed f =
+  let sq = focused () in
+  begin match f sq with
+  | Solved sq' -> install_updated sq'
+  | Delayed gs -> install_branched sq gs
+  end
+
 let search ?depth () =
-  Prover.search ?depth ~witness:WMagic ~handle_witness:ignore ()
+  run_branched (fun sq ->
+      or_fail string_of_search_error
+        (Prover.search sq ?depth ~witness:WMagic ~handle_witness:ignore ()))
 
 let assert_search_fails () =
   let outcome =
@@ -29,27 +83,143 @@ let add_defs_for ids flavor clauses =
   let idtys =
     List.map (fun id -> (id, Typing.lookup_const !Typing.sign id)) ids
   in
-  add_defs [] idtys flavor clauses
+  Prover.add_defs [] idtys flavor clauses
 
 let split_theorem_bodies t =
   List.map snd (Prover.split_theorem ([], t))
 
 let assert_n_subgoals n =
-  if n <> 1 + List.length !subgoals then
+  let s = !st in
+  let m =
+    (match s.focused with None -> 0 | Some _ -> 1)
+    + List.length s.pending
+  in
+  if n <> m then
     Alcotest.fail ("Expected " ^ (string_of_int n) ^ " subgoal(s), " ^
-                      "but current proof state is,\n\n" ^ get_display ())
+                      "but current proof state is,\n\n" ^
+                        Prover.get_display s)
 
 let assert_proof proof_function =
-  try
-    proof_function () ;
-    Alcotest.fail ("Proof not completed,\n\n" ^ get_display ())
-  with Prover.End_proof (`completed _) -> ()
+  proof_function () ;
+  if not (is_completed !st) then
+    Alcotest.fail ("Proof not completed,\n\n" ^ Prover.get_display !st)
 
 let assert_goal goal =
-  Alcotest.check Alcotest.string "strings differ" goal (metaterm_to_string sequent.goal)
+  Alcotest.check Alcotest.string "strings differ" goal
+    (metaterm_to_string (focused ()).goal)
+
+let get_display () = Prover.get_display !st
+let state_json () = Prover.state_json !st
+let is_focused () = Option.is_some (!st).focused
+let expected_bullet () =
+  match (!st).bullets with
+  | [] -> None
+  | f :: _ -> Some f.bullet
+
+let get_hyp name =
+  match Prover.get_hyp (focused ()) name with
+  | Some t -> t
+  | None -> Alcotest.fail ("no such hypothesis: " ^ name)
+
+let add_hyp ?name term =
+  install_updated (Prover.add_hyp (focused ()) ?name term)
+let case ?hint h =
+  run_branched (fun sq ->
+      or_fail string_of_case_error (Prover.case sq ?hint h))
+let intros alt =
+  run_updated (fun sq ->
+      match Prover.intros sq alt with
+      | Result.Ok sq' -> sq'
+      | Result.Error (Intros_rename e) ->
+          failwith (string_of_rename_hint_error e))
+let split propagate =
+  run_branched (fun sq ->
+      or_fail string_of_split_error (Prover.split sq propagate))
+let left () =
+  run_updated (fun sq ->
+      or_fail
+        (function Not_disjunction -> "Goal is not a disjunction")
+        (Prover.left sq))
+let right () =
+  run_updated (fun sq ->
+      or_fail
+        (function Not_disjunction -> "Goal is not a disjunction")
+        (Prover.right sq))
+let exists ew =
+  run_updated (fun sq ->
+      or_fail string_of_exists_error (Prover.exists_tac sq ew))
+let apply ?depth ?hint ?(term_witness = ignore) h args ws =
+  run_branched (fun sq ->
+      or_fail string_of_apply_error
+        (Prover.apply sq ?depth ?hint ~term_witness h args ws))
+let backchain ?depth ?(term_witness = ignore) h ws =
+  run_branched (fun sq ->
+      or_fail string_of_backchain_error
+        (Prover.backchain sq ?depth ~term_witness h ws))
+let induction ?hint ind_args =
+  run_updated (fun sq ->
+      or_fail string_of_induction_error
+        (Prover.induction sq ?hint ind_args))
+let coinduction ?hint () =
+  run_updated (fun sq ->
+      or_fail string_of_coinduction_error (Prover.coinduction sq ?hint ()))
+let assert_hyp ?hint ?depth term =
+  run_delayed (fun sq ->
+      or_fail string_of_assert_error
+        (Prover.assert_hyp sq ?hint ?depth term))
+let monotone ?hint h t =
+  run_delayed (fun sq ->
+      or_fail string_of_monotone_error (Prover.monotone sq ?hint h t))
+let cut ?hint h arg =
+  run_updated (fun sq ->
+      or_fail string_of_cut_error (Prover.cut sq ?hint h arg))
+let cut_from ?hint h arg term =
+  run_updated (fun sq ->
+      or_fail string_of_cut_from_error
+        (Prover.cut_from sq ?hint h arg term))
+let search_cut ?hint h =
+  run_updated (fun sq ->
+      or_fail string_of_search_cut_error (Prover.search_cut sq ?hint h))
+let inst ?hint h ws =
+  run_updated (fun sq ->
+      or_fail string_of_inst_error (Prover.inst sq ?hint h ws))
+let clear cm hs =
+  run_updated (fun sq ->
+      or_fail string_of_clear_error (Prover.clear sq cm hs))
+let clear_duplicates () =
+  install_updated (Prover.clear_duplicates (focused ()))
+let abbrev ids str =
+  install_updated (Prover.abbrev (focused ()) ids str)
+let unabbrev ids =
+  install_updated (Prover.unabbrev (focused ()) ids)
+let rename xfr xto =
+  run_updated (fun sq ->
+      or_fail string_of_rename_error (Prover.rename sq xfr xto))
+let unfold clause_sel sol_sel =
+  run_branched (fun sq ->
+      or_fail string_of_unfold_error
+        (Prover.unfold sq clause_sel sol_sel))
+let permute_nominals ids form =
+  run_updated (fun sq ->
+      or_fail string_of_permute_error (Prover.permute sq ids form))
+let saturate ?hint ?depth lemmas =
+  run_branched (fun sq ->
+      or_fail string_of_saturate_error
+        (Prover.saturate sq ?hint ?depth lemmas))
+let skip () =
+  let s = !st in
+  match s.focused with
+  | None -> ignore (focused ())
+  | Some sq ->
+      st := { s with skip_seen = true } ;
+      install_branched sq (Prover.skip sq)
+let bullet b =
+  st :=
+    normalize_focused_state
+      (or_fail string_of_bullet_error (Prover.bullet !st b))
+let start_proof () = st := { !st with skip_seen = false ; bullets = [] }
 
 let initial_bind_state = Term.get_bind_state ()
-let initial_sequent = copy_sequent ()
 let initial_clauses = !clauses
 let initial_defs_table = Hashtbl.copy defs_table
 
@@ -57,12 +227,17 @@ let setup_prover ?clauses:(clauses=[])
     ?goal:(goal="") ?lemmas:(lemmas=[]) () =
   State.Undo.set_enabled true ;
   State.Undo.reset () ;
-  full_reset_prover initial_bind_state initial_sequent
-    initial_clauses initial_defs_table () ;
+  Term.set_bind_state initial_bind_state ;
+  Prover.clauses := initial_clauses ;
+  Extensions.Hashtbl.assign defs_table initial_defs_table ;
   Hashtbl.reset Prover.lemmas ;
   Hashtbl.reset Prover.lemma_tags ;
-  add_clauses clauses ;
-  if goal <> "" then Prover.sequent.goal <- freshen goal ;
+  Prover.add_clauses clauses ;
+  let goal =
+    if goal = "" then parse_metaterm "true" else freshen goal
+  in
+  st := Prover.start_proof
+      (theorem (empty_sequent placeholder_goal) goal) ;
   List.iter
     (fun (name, body) -> ignore (add_lemma name [] (parse_metaterm body)))
     lemmas
@@ -78,7 +253,7 @@ let tests =
            case (remove "H1") ;
            Alcotest.check Alcotest.bool
              "R should be added to variable list" true
-             (List.mem_assoc "R" sequent.vars)
+             (List.mem_assoc "R" (focused ()).vars)
         ) ;
 
       test_case "Intros should raise over support"
@@ -107,12 +282,12 @@ let tests =
            assert_hyp (parse_umetaterm "{b}") ;
            assert_n_subgoals 2 ;
 
-           assert_pprint_equal "{b}" sequent.goal ;
+           assert_pprint_equal "{b}" (focused ()).goal ;
            skip () ;
            assert_n_subgoals 1 ;
 
-           assert_pprint_equal "{a}" sequent.goal ;
-           match sequent.hyps with
+           assert_pprint_equal "{a}" (focused ()).goal ;
+           match (focused ()).hyps with
              | [h] -> assert_pprint_equal "{b}" h.term
              | _ -> Alcotest.fail "Expected one hypothesis"
         ) ;
@@ -128,11 +303,11 @@ let tests =
            assert_n_subgoals 2 ;
            assert_pprint_equal
              "forall X, member X (E :: L) -> member X (a :: b :: nil)"
-             sequent.goal ;
+             (focused ()).goal ;
 
            skip () ;
            assert_n_subgoals 1 ;
-           match sequent.hyps with
+           match (focused ()).hyps with
              | [_; h] ->
                  assert_pprint_equal "{b, a |- conc A}*" h.term
              | _ -> Alcotest.fail "Expected two hypotheses"
@@ -146,11 +321,11 @@ let tests =
            split false ;
            assert_n_subgoals 2 ;
 
-           assert_pprint_equal "{A}" sequent.goal ;
+           assert_pprint_equal "{A}" (focused ()).goal ;
 
            skip () ;
-           match sequent.hyps with
-             | [] -> assert_pprint_equal "{B}" sequent.goal
+           match (focused ()).hyps with
+             | [] -> assert_pprint_equal "{B}" (focused ()).goal
              | _ -> Alcotest.fail "Expected no hypotheses"
         ) ;
 
@@ -162,13 +337,13 @@ let tests =
            split true ;
            assert_n_subgoals 2 ;
 
-           assert_pprint_equal "{A}" sequent.goal ;
+           assert_pprint_equal "{A}" (focused ()).goal ;
 
            skip () ;
-           match sequent.hyps with
+           match (focused ()).hyps with
              | [h] ->
                  assert_pprint_equal "{A}" h.term ;
-                 assert_pprint_equal "{B}" sequent.goal
+                 assert_pprint_equal "{B}" (focused ()).goal
              | _ -> Alcotest.fail "Expected one hypothesis"
         ) ;
 
@@ -180,13 +355,13 @@ let tests =
            split false ;
            assert_n_subgoals 4 ;
 
-           assert_pprint_equal "{A}" sequent.goal ;
+           assert_pprint_equal "{A}" (focused ()).goal ;
            skip () ;
-           assert_pprint_equal "{B}" sequent.goal ;
+           assert_pprint_equal "{B}" (focused ()).goal ;
            skip () ;
-           assert_pprint_equal "{C}" sequent.goal ;
+           assert_pprint_equal "{C}" (focused ()).goal ;
            skip () ;
-           assert_pprint_equal "{D}" sequent.goal
+           assert_pprint_equal "{D}" (focused ()).goal
         ) ;
 
       test_case "SplitStar many test"
@@ -197,22 +372,22 @@ let tests =
            split true ;
            assert_n_subgoals 3 ;
 
-           assert_pprint_equal "{A}" sequent.goal ;
+           assert_pprint_equal "{A}" (focused ()).goal ;
 
            skip () ;
-           begin match sequent.hyps with
+           begin match (focused ()).hyps with
              | [h] ->
                  assert_pprint_equal "{A}" h.term ;
-                 assert_pprint_equal "{B}" sequent.goal
+                 assert_pprint_equal "{B}" (focused ()).goal
              | _ -> Alcotest.fail "Expected one hypothesis"
            end ;
 
            skip () ;
-           begin match sequent.hyps with
+           begin match (focused ()).hyps with
              | [h1; h2] ->
                  assert_pprint_equal "{A}" h1.term ;
                  assert_pprint_equal "{B}" h2.term ;
-                 assert_pprint_equal "{C}" sequent.goal
+                 assert_pprint_equal "{C}" (focused ()).goal
              | _ -> Alcotest.fail "Expected two hypotheses"
            end
         ) ;
@@ -234,7 +409,7 @@ let tests =
 
            exists (ETerm (parse_uterm "t1")) ;
 
-           assert_pprint_equal "foo t1" sequent.goal) ;
+           assert_pprint_equal "foo t1" (focused ()).goal) ;
 
       test_case "Obligations from apply should be added as subgoals"
         (fun () ->
@@ -249,11 +424,11 @@ let tests =
 
            apply (keep "H1") (List.map keep ["H2"; "_"]) [] ;
            assert_n_subgoals 2 ;
-           assert_pprint_equal "bar B" sequent.goal ;
+           assert_pprint_equal "bar B" (focused ()).goal ;
 
            skip () ;
            assert_n_subgoals 1 ;
-           assert_pprint_equal "baz B" sequent.goal ;
+           assert_pprint_equal "baz B" (focused ()).goal ;
         );
 
       test_case "Apply should trigger case analysis"
@@ -278,13 +453,13 @@ let tests =
            case (keep "H1") ;
            assert_n_subgoals 2 ;
            Alcotest.check (Alcotest.list Alcotest.string) "string lists differ" ["H1"; "H2"]
-             (List.map (fun h -> h.id) sequent.hyps) ;
+             (List.map (fun h -> h.id) (focused ()).hyps) ;
 
            search () ;
            assert_n_subgoals 1 ;
 
            Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
-             ["H1"; "H2"; "H3"] (List.map (fun h -> h.id) sequent.hyps)
+             ["H1"; "H2"; "H3"] (List.map (fun h -> h.id) (focused ()).hyps)
         ) ;
 
       test_case "Skip should remove current subcase"
@@ -341,17 +516,21 @@ let tests =
                      (parse_metaterm "forall (x:A), poly x")) ;
            Alcotest.check_raises
              "Explicit instantiation with prop"
-             (Failure "Type argument prop may not contain prop")
-             (fun () -> ignore (get_lemma ~tys:[Term.propty] "bad")) ;
+             (Failure "Type argument bad may not contain prop")
+             (fun () ->
+                ignore (or_fail string_of_stmt_error
+                          (get_lemma ~tys:[Term.propty] "bad"))) ;
            Alcotest.check_raises
              "Explicit instantiation with type containing prop"
-             (Failure "Type argument prop -> prop may not contain prop")
+             (Failure "Type argument bad may not contain prop")
              (fun () ->
-                ignore (get_lemma
-                          ~tys:[Term.tyarrow [Term.propty] Term.propty]
-                          "bad")) ;
+                ignore (or_fail string_of_stmt_error
+                          (get_lemma
+                             ~tys:[Term.tyarrow [Term.propty] Term.propty]
+                             "bad"))) ;
            Term.schematic_instantiations := [] ;
-           ignore (get_lemma ~tys:[ity] "bad") ;
+           ignore (or_fail string_of_stmt_error
+                     (get_lemma ~tys:[ity] "bad")) ;
            Checks.ensure_no_prop_schematic_instantiation () ;
            Term.schematic_instantiations := []
         ) ;
@@ -747,7 +926,7 @@ let tests =
 
            assert_n_subgoals 1 ;
            Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
-             ["H1"; "H2"] (List.map (fun h -> h.id) sequent.hyps) ;
+             ["H1"; "H2"] (List.map (fun h -> h.id) (focused ()).hyps) ;
            assert_pprint_equal "bar t1" (get_hyp "H2")
         ) ;
 
@@ -764,7 +943,7 @@ let tests =
 
            assert_n_subgoals 1 ;
            Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
-             ["H1"; "H2"; "H3"] (List.map (fun h -> h.id) sequent.hyps) ;
+             ["H1"; "H2"; "H3"] (List.map (fun h -> h.id) (focused ()).hyps) ;
            assert_pprint_equal "bar t1" (get_hyp "H2") ;
            assert_pprint_equal "baz t1" (get_hyp "H3")
         ) ;
@@ -782,7 +961,7 @@ let tests =
 
            assert_n_subgoals 1 ;
            Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
-             ["H1"; "H2"] (List.map (fun h -> h.id) sequent.hyps) ;
+             ["H1"; "H2"] (List.map (fun h -> h.id) (focused ()).hyps) ;
            assert_pprint_equal "bar t1" (get_hyp "H2")
         ) ;
 
@@ -796,7 +975,7 @@ let tests =
 
            assert_n_subgoals 1 ;
            Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
-             ["H1"; "H2"; "H3"] (List.map (fun h -> h.id) sequent.hyps) ;
+             ["H1"; "H2"; "H3"] (List.map (fun h -> h.id) (focused ()).hyps) ;
            assert_pprint_equal "bar t1" (get_hyp "H3")
         ) ;
 
@@ -810,7 +989,7 @@ let tests =
 
            assert_n_subgoals 1 ;
            Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
-             [] (List.map (fun h -> h.id) sequent.hyps)
+             [] (List.map (fun h -> h.id) (focused ()).hyps)
         ) ;
 
       test_case "Clear should remove duplicate hypotheses"
@@ -825,7 +1004,7 @@ let tests =
            clear_duplicates () ;
 
            Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
-             ["H1"; "H3"; "H4"] (List.map (fun h -> h.id) sequent.hyps)
+             ["H1"; "H3"; "H4"] (List.map (fun h -> h.id) (focused ()).hyps)
         ) ;
 
       test_case "Skip should mark the proof as unfinished"
@@ -835,16 +1014,10 @@ let tests =
            split false ;
            start_proof () ;
            skip () ;
-
-           begin
-             try
-               search () ;
-               Alcotest.fail ("Proof not completed,\n\n" ^ get_display ())
-             with
-             | End_proof (`completed fin) ->
-                 Alcotest.check Alcotest.bool
-                   "proof should be unfinished" true (fin = Unfinished)
-           end
+           search () ;
+           Alcotest.check Alcotest.bool
+             "proof should be unfinished" true
+             (is_completed !st && (!st).skip_seen)
         ) ;
 
       test_case "Start proof should reset the skipped status"
@@ -852,16 +1025,10 @@ let tests =
            setup_prover () ~goal:"true" ;
 
            start_proof () ;
-
-           begin
-             try
-               search () ;
-               Alcotest.fail ("Proof not completed,\n\n" ^ get_display ())
-             with
-             | End_proof (`completed fin) ->
-                 Alcotest.check Alcotest.bool
-                   "proof should be finished" true (fin = Finished)
-           end
+           search () ;
+           Alcotest.check Alcotest.bool
+             "proof should be finished" true
+             (is_completed !st && not (!st).skip_seen)
         ) ;
 
       test_case "Lemma tags should be tracked"
@@ -1033,10 +1200,10 @@ let tests =
            abbrev (Term.Iset.of_list ["H1"; "H2"]) "both" ;
            Alcotest.check Alcotest.bool "both should be abbreviated" true
              (List.for_all
-                (fun h -> h.abbrev = Some "both") sequent.hyps) ;
+                (fun h -> h.abbrev = Some "both") (focused ()).hyps) ;
 
            unabbrev (Term.Iset.of_list ["H1"]) ;
-           match sequent.hyps with
+           match (focused ()).hyps with
            | [h1; h2] ->
                Alcotest.check Alcotest.bool "H1 should be unabbreviated"
                  true (h1.abbrev = None) ;
@@ -1057,7 +1224,7 @@ let tests =
            assert_n_subgoals 2 ;
            skip () ;
            assert_n_subgoals 1 ;
-           match sequent.hyps with
+           match (focused ()).hyps with
            | [_; h] ->
                Alcotest.check Alcotest.string "hypothesis name differs"
                  "M" h.id ;
@@ -1089,7 +1256,7 @@ let tests =
            clear Clear_extro ["H1"] ;
 
            Alcotest.check (Alcotest.list Alcotest.string) "hypotheses"
-             [] (List.map (fun h -> h.id) sequent.hyps) ;
+             [] (List.map (fun h -> h.id) (focused ()).hyps) ;
            assert_goal "{a} -> {b}"
         ) ;
 
@@ -1178,14 +1345,14 @@ let tests =
            case ?hint (remove "H1") ;
            assert_n_subgoals 2 ;
            Alcotest.check Alcotest.bool "first variable" true
-             (List.mem_assoc "U" sequent.vars) ;
+             (List.mem_assoc "U" (focused ()).vars) ;
            Alcotest.check Alcotest.bool "first hypothesis" true
-             (List.exists (fun h -> h.id = "H1") sequent.hyps) ;
+             (List.exists (fun h -> h.id = "H1") (focused ()).hyps) ;
            skip () ;
            Alcotest.check Alcotest.bool "second variable" true
-             (List.mem_assoc "V" sequent.vars) ;
+             (List.mem_assoc "V" (focused ()).vars) ;
            Alcotest.check Alcotest.bool "second hypothesis" true
-             (List.exists (fun h -> h.id = "H2") sequent.hyps)
+             (List.exists (fun h -> h.id = "H2") (focused ()).hyps)
         ) ;
 
       test_case "A single hspec alternative applies to every subgoal"
@@ -1199,14 +1366,14 @@ let tests =
            case ?hint (remove "H1") ;
            assert_n_subgoals 2 ;
            Alcotest.check Alcotest.bool "first variable" true
-             (List.mem_assoc "U" sequent.vars) ;
+             (List.mem_assoc "U" (focused ()).vars) ;
            Alcotest.check Alcotest.bool "first hypothesis" true
-             (List.exists (fun h -> h.id = "H") sequent.hyps) ;
+             (List.exists (fun h -> h.id = "H") (focused ()).hyps) ;
            skip () ;
            Alcotest.check Alcotest.bool "second variable" true
-             (List.mem_assoc "U" sequent.vars) ;
+             (List.mem_assoc "U" (focused ()).vars) ;
            Alcotest.check Alcotest.bool "second hypothesis" true
-             (List.exists (fun h -> h.id = "H") sequent.hyps)
+             (List.exists (fun h -> h.id = "H") (focused ()).hyps)
         ) ;
 
       test_case "Intros hspec names variables and hypotheses"
@@ -1215,11 +1382,11 @@ let tests =
              ~goal:"forall (X:i) (Y:i), rel1 X Y -> rel1 X Y" ;
            intros (user_alt ["U"; "V"] ["H"]) ;
            Alcotest.check Alcotest.bool "first variable" true
-             (List.mem_assoc "U" sequent.vars) ;
+             (List.mem_assoc "U" (focused ()).vars) ;
            Alcotest.check Alcotest.bool "second variable" true
-             (List.mem_assoc "V" sequent.vars) ;
+             (List.mem_assoc "V" (focused ()).vars) ;
            Alcotest.check Alcotest.bool "hypothesis" true
-             (List.exists (fun h -> h.id = "H") sequent.hyps)
+             (List.exists (fun h -> h.id = "H") (focused ()).hyps)
         ) ;
 
       test_case "Intros hspec repeats the last hint and honors don't-care"
@@ -1230,20 +1397,20 @@ let tests =
            intros { hspec_vars = [User_name "U"; Dont_care] ;
                     hspec_hyps = [User_name "H"] } ;
            Alcotest.check Alcotest.bool "first variable" true
-             (List.mem_assoc "U" sequent.vars) ;
+             (List.mem_assoc "U" (focused ()).vars) ;
            Alcotest.check Alcotest.bool "second variable was not hinted"
-             false (List.mem_assoc "U1" sequent.vars) ;
+             false (List.mem_assoc "U1" (focused ()).vars) ;
            Alcotest.check Alcotest.bool "first hypothesis" true
-             (List.exists (fun h -> h.id = "H") sequent.hyps) ;
+             (List.exists (fun h -> h.id = "H") (focused ()).hyps) ;
            Alcotest.check Alcotest.bool "repeated hypothesis" true
-             (List.exists (fun h -> h.id = "H1") sequent.hyps)
+             (List.exists (fun h -> h.id = "H1") (focused ()).hyps)
         ) ;
 
       test_case "Intros names a nabla variable with a nominal hint"
         (fun () ->
            setup_prover ~goal:"nabla (x:i), x = x" () ;
            intros { hspec_vars = [User_name "n34"] ; hspec_hyps = [] } ;
-           assert_pprint_equal "n34 = n34" sequent.goal
+           assert_pprint_equal "n34 = n34" (focused ()).goal
         ) ;
 
       test_case "A nominal hint already free in the body is an error"
@@ -1403,5 +1570,6 @@ let tests =
            Alcotest.check (Alcotest.option Alcotest.string)
              "expected bullet after undo" (Some "-") (expected_bullet ())
         ) ;
+
 
     ]

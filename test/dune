@@ -21,20 +21,10 @@
       -o test/test.mk examples))))
 
 (rule
-  (target test_imm.mk)
-  (deps
-    (source_tree ../examples))
-  (action (chdir %{project_root}
-    (run %{exe:../bin/abella_dep.exe} -r -c -q --suffix "_imm.out"
-      -a "bin/abella_imm.exe -a" -o test/test_imm.mk examples))))
-
-(rule
   (alias runtest)
   (deps
     test.mk
     ../bin/abella.exe
-    test_imm.mk
-    ../bin/abella_imm.exe
     ../examples/modules/run.sh
     (source_tree ../test/modules)
     (glob_files_rec ../examples/*.thm)
@@ -44,6 +34,4 @@
   (action (chdir %{project_root}
     (progn
       (run bash examples/modules/run.sh bin/abella.exe)
-      (run make -k -j -B -f test/test.mk all)
-      (run bash examples/modules/run.sh bin/abella_imm.exe)
-      (run make -k -j -B -f test/test_imm.mk all)))))
+      (run make -k -j -B -f test/test.mk all)))))

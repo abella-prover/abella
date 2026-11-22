@@ -19,17 +19,21 @@
 (* along with Abella.  If not, see <http://www.gnu.org/licenses/>.          *)
 (****************************************************************************)
 
+
 open Term
 open Typing
 open Metaterm
-open Format
 open Tactics
 open Checks
 open Types
 open Extensions
 open Unifyty
 
+open Result.Syntax
+
 module H = Hashtbl
+
+(* Global flags, tables and helpers shared by the tactics *)
 
 let strict_names : [`relaxed | `warn | `strict] ref = ref `relaxed
 
@@ -54,84 +58,13 @@ let name_hint_at hints i =
 let lemmas : (string, string list * metaterm) H.t = State.table ()
 let lemma_tags : (string, fin) H.t = State.table ()
 
-type subgoal = unit -> unit
-let subgoals : subgoal list ref = State.rref []
+let show_instantiations = State.rref false
+let search_depth = State.rref 5
 
-type bullet_frame = {
-  bullet : string ;
-  siblings : subgoal list ;
-}
-
-let bullet_stack : bullet_frame list ref = State.rref []
-let subgoal_focused : bool ref = State.rref true
-
-let is_focused () = !subgoal_focused
-
-let expected_bullet () =
-  match !bullet_stack with
-  | [] -> None
-  | f :: _ -> Some f.bullet
-
-let remaining_bullet_subgoals () =
-  List.fold_left (fun acc f -> acc + List.length f.siblings) 0 !bullet_stack
-
-let ensure_focused () =
-  if not !subgoal_focused then
-    match expected_bullet () with
-    | Some b ->
-        failwithf
-          "No focused subgoal. Use bullet %s to focus the next subgoal" b
-    | None ->
-        [%bug] "unfocused subgoal with empty bullet stack"
-
-let skip_seen : bool ref = State.rref false
-let start_proof () =
-  skip_seen := false ;
-  bullet_stack := [] ;
-  subgoal_focused := true
-
-type hyp = {
-  id : id ;
-  term : metaterm ;
-  abbrev : string option ;
-  user_named : bool ;
-}
-
-type sequent = {
-  mutable vars : (id * term) list ;
-  mutable user_vars : Iset.t ;
-  mutable hyps : hyp list ;
-  mutable goal : metaterm ;
-  mutable count : int ;
-  mutable name : string ;
-  mutable next_subgoal_id : int ;
-}
-
-(* The vars = sq.vars is superfluous, but forces the copy *)
-let cp_sequent sq = {sq with vars = sq.vars}
-let assign_sequent sq1 sq2 =
-  sq1.vars <- sq2.vars ;
-  sq1.user_vars <- sq2.user_vars ;
-  sq1.hyps <- sq2.hyps ;
-  sq1.goal <- sq2.goal ;
-  sq1.count <- sq2.count ;
-  sq1.name <- sq2.name ;
-  sq1.next_subgoal_id <- sq2.next_subgoal_id
-
-let sequent =
-  State.make ~copy:cp_sequent ~assign:assign_sequent {
-    vars = [] ;
-    user_vars = Iset.empty ;
-    hyps = [] ;
-    goal = termobj (const "placeholder" propty) ;
-    count = 0 ;
-    name = "" ;
-    next_subgoal_id = 1 ;
-  }
+(* Global signature and specification clauses *)
 
 let add_global_types tys knd =
   sign := add_types !sign tys knd
-
 let add_global_consts ?typarams cs =
   sr := List.fold_left Subordination.update !sr (List.map snd cs) ;
   sign := add_consts ?typarams !sign cs
@@ -147,68 +80,7 @@ let close_types sign clauses atys =
   sr := Subordination.close !sr atys;
   List.iter (Typing.term_ensure_subordination !sr) (List.map snd clauses)
 
-let add_subgoals ?(mainline) new_subgoals =
-  let extend_name i =
-    if sequent.name = "" then
-      sequent.name <- string_of_int i
-    else
-      sequent.name <- sequent.name ^ "." ^ (string_of_int i)
-  in
-  let rec annotate i gs =
-    match gs with
-    | [] -> []
-    | g::rest ->
-        (fun () -> g (); extend_name i; sequent.next_subgoal_id <- 1) ::
-        annotate (i+1) rest
-  in
-  let n = List.length new_subgoals in
-  let annotated_subgoals =
-    match mainline with
-    | None ->
-        if n > 1 then
-          annotate sequent.next_subgoal_id new_subgoals
-        else
-          new_subgoals
-    | Some mainline ->
-        let new_mainline () =
-          mainline () ;
-          sequent.next_subgoal_id <- sequent.next_subgoal_id + n
-        in
-        annotate sequent.next_subgoal_id new_subgoals @ [new_mainline]
-  in
-  subgoals := annotated_subgoals @ !subgoals
-
-let copy_sequent () = cp_sequent sequent
-let set_sequent other = assign_sequent sequent other
-
-let hyp_eq h1 h2 =
-  h1.id = h2.id &&
-  h1.abbrev = h2.abbrev &&
-  h1.user_named = h2.user_named &&
-  Metaterm.metaterm_eq h1.term h2.term
-
-let sequent_eq s1 s2 =
-  Metaterm.metaterm_eq s1.goal s2.goal &&
-  Iset.equal s1.user_vars s2.user_vars &&
-  List.length s1.vars = List.length s2.vars &&
-  List.for_all2 (fun (x1, t1) (x2, t2) -> x1 = x2 && Term.eq t1 t2)
-    s1.vars s2.vars &&
-  List.length s1.hyps = List.length s2.hyps &&
-  List.for_all2 hyp_eq s1.hyps s2.hyps
-
-let fresh_hyp_name base =
-  if base = "" then begin
-    sequent.count <- sequent.count + 1 ;
-    "H" ^ (string_of_int sequent.count)
-  end else
-    fresh_name base (List.map (fun h -> (h.id, ())) sequent.hyps)
-
-let normalize_sequent () =
-  sequent.goal <- normalize sequent.goal ;
-  sequent.hyps <-
-    sequent.hyps |> List.map (fun h -> { h with term = normalize h.term })
-
-(* Clauses *)
+(* Clauses and definitions *)
 
 let clauses : clause list ref = State.rref []
 
@@ -231,7 +103,6 @@ let add_defs
   let is_defined id = Itab.mem id mutual || H.mem defs_table id in
   Checks.check_def ~errors:strat_errors ~def ~is_defined () ;
   List.iter (fun (id, _) -> H.add defs_table id def) preds
-
 
 let register_definition
     ?(strat_errors = !stratification_warnings_are_errors)
@@ -286,16 +157,7 @@ let member_def =
   Define (Inductive, [(k_member, ty_member)], [clause_nil ; clause_cons])
   |> register_definition
 
-let term_spine t =
-  match term_head t with
-  | Some (_, spine) -> spine
-  | None -> [%bug] "term_spine: term has no head"
-
-let clause_head_name cl =
-  match cl.head with
-  | Binding (Nabla, _, Pred (p, _)) | Pred (p, _) ->
-      term_head_name p
-  | _ -> [%bug] "Clause head name for invalid clause: %s" (metaterm_to_string cl.head)
+(* Definition unfolding *)
 
 let instantiate_pred_types tysub (tbl: ty Itab.t) : ty Itab.t =
   let res = ref Itab.empty in
@@ -339,104 +201,7 @@ let def_unfold term =
         failwith "Cannot perform case-analysis on undefined atom"
   | _ -> (Itab.empty, [])
 
-
-(* Pretty print *)
-
-let sequent_var_to_string (x, _xt) =
-  x (* ^ "(=" ^ term_to_string xt ^ ")" *)
-
-let show_instantiations = State.rref false
-
-let separate_strings xs =
-  let __max_len = 30 in
-  let result = ref [] in
-  let emit xs = result := String.concat "," (List.rev xs) :: !result in
-  let rec spin nxs pos = function
-    | [] -> emit nxs
-    | x :: xs ->
-        if pos + String.length x + 1 < __max_len then
-          spin (x :: nxs) (pos + String.length x + 1) xs
-        else begin
-          emit nxs ;
-          spin [x] (String.length x) xs
-        end
-  in
-  spin [] 0 xs ;
-  List.rev !result
-
-let format_typed_vars ff (ty, xs) =
-  let open Format in
-  List.iter begin fun xs ->
-    pp_print_string ff "  " ;
-    pp_print_string ff xs ;
-    pp_print_string ff " : " ;
-    pp_open_box ff 0 ; Term.format_ty ff ty ; pp_close_box ff () ;
-    pp_print_newline ff () ;
-  end (separate_strings xs)
-
-let format_vars ff =
-  let open Format in
-  let (eigen_vars, inst_vars) =
-    List.partition is_uninstantiated sequent.vars in
-  if eigen_vars <> [] then begin
-    pp_print_string ff "Variables: " ;
-    if !show_types then begin
-      pp_print_newline ff () ;
-      eigen_vars
-      |> List.map (fun (x, xtm) -> (Term.tc [] xtm, x))
-      |> List.sort (fun (ty1, _) (ty2, _) -> compare ty1 ty2)
-      |> List.collate_assoc
-      |> List.iter (format_typed_vars ff) ;
-    end else begin
-      pp_open_hovbox ff 0 ; begin
-        pp_print_string ff (sequent_var_to_string (List.hd eigen_vars)) ;
-        List.iter begin
-          fun v ->
-            pp_print_space ff () ;
-            pp_print_string ff (sequent_var_to_string v)
-        end (List.tl eigen_vars) ;
-      end ; pp_close_box ff () ;
-      pp_print_newline ff ()
-    end
-  end ;
-  if inst_vars <> [] && !show_instantiations then
-    List.iter begin fun (v, vtm) ->
-      pp_print_string ff v ;
-      pp_print_string ff " <-- " ;
-      Term.format_term ff vtm ;
-      pp_print_newline ff () ;
-    end inst_vars
-
-let format_hyp fmt hyp =
-  fprintf fmt "%s : " hyp.id ;
-  begin match hyp.abbrev with
-  | None -> format_metaterm fmt hyp.term
-  | Some s -> fprintf fmt "%s" s
-  end;
-  pp_force_newline fmt ()
-
-let format_hyps fmt =
-  let (am, hyps) = List.fold_left begin fun (am, hs) h ->
-      match h.abbrev with
-      | None -> (am, h :: hs)
-      | Some ab ->
-          let am = match Itab.find ab am with
-            | hs -> Itab.add ab (h.id :: hs) am
-            | exception Not_found -> Itab.add ab [h.id] am
-          in
-          (am, hs)
-    end (Itab.empty, []) sequent.hyps
-  in
-  Itab.iter begin fun ab hs ->
-    fprintf fmt "%s : %s@\n" (String.concat "," (List.rev hs)) ab
-  end am ;
-  List.iter (format_hyp fmt) (List.rev hyps)
-
-let format_count_subgoals fmt n =
-  match n with
-  | 0 -> ()
-  | 1 -> fprintf fmt "1 other subgoal.@\n@\n"
-  | n -> fprintf fmt "%d other subgoals.@\n@\n" n
+(* Subgoal display budgets *)
 
 type subgoal_max = {
   smax_default : int ;
@@ -459,7 +224,7 @@ let set_subgoal_max ndps =
     end smax.smax_map ndps in
   subgoal_max := { smax with smax_map }
 
-(* Read access for the immutable driver, which keeps its own
+(* Read access for the driver, which keeps its own
    pending subgoals but honors the same display budgets. *)
 let subgoal_max_default () = !subgoal_max.smax_default
 
@@ -467,328 +232,17 @@ let subgoal_max_at dp =
   try Some (IntMap.find dp !subgoal_max.smax_map)
   with Not_found -> None
 
-let format_other_subgoals fmt =
-  let pristine = State.snapshot () in
-  let smax = !subgoal_max in
-  let smax_map = ref smax.smax_map in
-  let count = ref 0 in
-  List.iter begin fun set_state ->
-    set_state () ;
-    let goal_depth = String.count sequent.name '.' in
-    let max_goals =  try IntMap.find goal_depth !smax_map with Not_found -> smax.smax_default in
-    if max_goals > 0 then begin
-      smax_map := IntMap.add goal_depth (max_goals - 1) !smax_map ;
-      fprintf fmt "@[<1>Subgoal %s%sis:@\n%a@]@\n@\n"
-        sequent.name
-        (if sequent.name = "" then "" else " ")
-        format_metaterm (normalize sequent.goal)
-    end else incr count
-  end !subgoals ;
-  format_count_subgoals fmt !count ;
-  State.reload pristine
-
-let format_sequent_with_goal fmt goal =
-  pp_open_vbox fmt 0 ; begin
-    format_vars fmt ;
-    format_hyps fmt ;
-    fprintf fmt "============================@\n " ;
-    format_metaterm fmt goal
-  end ; pp_close_box fmt ()
-
-let format_sequent fmt =
-  format_sequent_with_goal fmt sequent.goal
-
-let format_unfocused () =
-  let b = Option.get (expected_bullet ()) in
-  let n = remaining_bullet_subgoals () in
-  Printf.sprintf
-    "Subgoal completed. Focus next subgoal with bullet %s (%d subgoal%s \
-     remaining)."
-    b n (if n = 1 then "" else "s")
-
-let format_display fmt =
-  pp_open_box fmt 0 ;
-  if not !subgoal_focused then
-    fprintf fmt "@\n%s@\n@\n" (format_unfocused ())
-  else begin
-    if sequent.name = "" then
-      fprintf fmt "@\n"
-    else
-      fprintf fmt "Subgoal %s:@\n@\n" sequent.name;
-    format_sequent fmt ;
-    fprintf fmt "@\n@\n" ;
-    format_other_subgoals fmt
-  end ;
-  pp_close_box fmt () ;
-  pp_print_flush fmt ()
-
-let display out =
-  format_display (formatter_of_out_channel out)
-
-let get_display () =
-  let b = Buffer.create 100 in
-  format_display (formatter_of_buffer b) ;
-  Buffer.contents b
-
-let state_json () : Json.t =
-  if not !subgoal_focused then
-    `Assoc [
-      "more", `Int (remaining_bullet_subgoals ()) ;
-      "goal", `String "" ;
-      "hyps", `List [] ;
-      "vars", `List [] ;
-      "name", `String "" ;
-      "unfocused", `String (format_unfocused ()) ;
-    ]
-  else
-  let vars = List.map begin fun ((v, t) as vt) ->
-      `List [ `String v ;
-              if is_uninstantiated vt then `Null else
-                `String (term_to_string t) ]
-    end sequent.vars in
-  let hyps = List.map begin fun h ->
-      `List [
-        `String h.id ;
-        `String (metaterm_to_string h.term) ;
-      ]
-    end sequent.hyps in
-  let goal = metaterm_to_string sequent.goal in
-  `Assoc [
-    "more", `Int (List.length !subgoals) ;
-    "goal", `String goal ;
-    "hyps", `List hyps ;
-    "vars", `List vars ;
-    "name", `String sequent.name ;
-  ]
-
-(* Proof state manipulation utilities *)
-
-let reset_prover original_state original_sequent () =
-  set_bind_state original_state ;
-  set_sequent original_sequent ;
-  subgoals := [] ;
-  bullet_stack := [] ;
-  subgoal_focused := true
-
-let full_reset_prover original_state original_sequent
-    original_clauses original_defs_table () =
-  reset_prover original_state original_sequent () ;
-  clauses := original_clauses ;
-  H.assign defs_table original_defs_table
-
-(** Update sequent.count based on whether name is of the form
-    H<num> *)
-let update_hyp_count name =
-  if name.[0] <> 'H' then () else
-  match int_of_string (String.sub name 1 (String.length name - 1)) with
-  | n -> sequent.count <- max sequent.count n
-  | exception _ -> ()
-
-let unsafe_add_hyp ?(user_named=false) name term =
-  let h = { id = name ; term ; abbrev = None ; user_named } in
-  sequent.hyps <- List.append sequent.hyps [h] ;
-  h
-
-let add_auto_hyp ?(base="") term =
-  let name = fresh_hyp_name base in
-  update_hyp_count name ;
-  ignore (unsafe_add_hyp name term)
-
-let add_hyp ?name term =
-  match name with
-  | None -> ignore (add_auto_hyp term)
-  | Some name ->
-      let name = fresh_hyp_name name in
-      update_hyp_count name ;
-      ignore (unsafe_add_hyp ~user_named:true name term)
-
-let add_named_hyp base term =
-  let used =
-    List.map (fun (x, _) -> (x, ())) sequent.vars @
-    List.map (fun h -> (h.id, ())) sequent.hyps
-  in
-  let name = fresh_name base used in
-  update_hyp_count name ;
-  ignore (unsafe_add_hyp ~user_named:true name term)
-
-let add_hyps_with_hint ?(auto_base="") alt hyps =
-  List.iteri begin fun i hyp ->
-    let hint = Option.bind alt (fun a -> name_hint_at a.hspec_hyps i) in
-    match hint with
-    | Some base -> add_named_hyp base hyp
-    | None -> add_auto_hyp ~base:auto_base hyp
-  end hyps
-
-let add_hyp_with_hint alt term = add_hyps_with_hint alt [term]
-
-let remove_hyp cm name =
-  let removed_h = ref None in
-  let hyps = List.filter begin fun h ->
-      h.id <> name || begin
-        removed_h := Some h ;
-        false
-      end
-    end sequent.hyps in
-  sequent.hyps <- hyps ;
-  match cm, !removed_h with
-  | Clear_extro, Some h ->
-      sequent.goal <- Arrow (h.term, sequent.goal)
-  | Clear_extro, None ->
-      failwithf "Cannot extrude unknown hypothesis %s" name
-  | _ -> ()
-
-let replace_hyp name t =
-  let rec aux hyplist =
-    match hyplist with
-    | [] -> []
-    | hyp::rest when hyp.id = name -> {hyp with term = t} :: rest
-    | hyp::rest -> hyp :: (aux rest)
-  in
-  sequent.hyps <- aux sequent.hyps
-
-let add_var ?(user=false) ((name, _) as v) =
-  sequent.vars <- List.append sequent.vars [v] ;
-  if user then
-    sequent.user_vars <- Iset.add name sequent.user_vars
-
-let add_if_new_var ?(user=false) ((name, _) as v) =
-  if not (List.mem_assoc name sequent.vars) then
-    add_var ~user v
-
-let nominal_vars_of_sequent sq =
-  let terms =
-    collect_terms sq.goal @
-    List.flatten_map (fun h -> collect_terms h.term) sq.hyps
-  in
-  find_var_refs Nominal terms |> List.map term_to_var
-
-let rename_described ~hints ~base vars =
-  let used =
-    ref (List.map (fun (name, _) -> (name, ())) base.vars @
-         List.map (fun h -> (h.id, ())) sequent.hyps @
-         List.map (fun (v : var) -> (v.name, ()))
-           (nominal_vars_of_sequent sequent))
-  in
-  let renames =
-    List.mapi begin fun i ((old_var : var), in_sequent) ->
-      match name_hint_at hints i with
-      | None ->
-          used := (old_var.name, ()) :: !used ;
-          None
-      | Some base_name ->
-          let new_name =
-            if old_var.tag = Nominal then begin
-              if not (is_nominal_name base_name) then
-                failwithf
-                  "Hint %S is not a valid nominal constant name; use n<number>"
-                  base_name ;
-              let used_for_hint = List.remove_assoc old_var.name !used in
-              if List.mem_assoc base_name used_for_hint then
-                failwithf
-                  "Nominal hint %S is already free in the subgoal"
-                  base_name ;
-              base_name
-            end else begin
-              if is_nominal_name base_name then
-                failwithf
-                  "Hint %S is reserved for nominal constants" base_name ;
-              fresh_name base_name !used
-            end
-          in
-          used := (new_name, ()) :: !used ;
-          let new_var = var old_var.tag new_name old_var.ts old_var.ty in
-          Some (old_var.tag, old_var.name, new_name, new_var, in_sequent)
-    end vars
-    |> List.filter_map (fun x -> x)
-  in
-  match renames with
-  | [] -> ()
-  | _ ->
-      let tag_groups =
-        List.fold_left begin fun groups (tag, old_name, _, new_var, _) ->
-          let old =
-            try List.assoc tag groups with Not_found -> []
-          in
-          (tag, (old_name, new_var) :: old) ::
-          List.remove_assoc tag groups
-        end [] renames
-      in
-      let rewrite_term term =
-        List.fold_left
-          (fun term (tag, alist) -> replace_term_vars ~tag alist term)
-          term tag_groups
-      in
-      let rewrite_metaterm metaterm =
-        List.fold_left
-          (fun metaterm (tag, alist) ->
-             replace_metaterm_vars ~tag alist metaterm)
-          metaterm tag_groups
-      in
-      sequent.goal <- rewrite_metaterm sequent.goal ;
-      sequent.hyps <-
-        List.map (fun h -> { h with term = rewrite_metaterm h.term })
-          sequent.hyps ;
-      sequent.vars <-
-        List.map begin fun (name, term) ->
-          let name =
-            match List.find_opt
-                    (fun (_, old_name, _, _, in_sequent) ->
-                       in_sequent && old_name = name)
-                    renames
-            with
-            | Some (_, _, new_name, _, _) -> new_name
-            | None -> name
-          in
-          (name, rewrite_term term)
-        end sequent.vars ;
-      sequent.user_vars <-
-        List.fold_left begin fun user_vars
-          (_, old_name, new_name, _, in_sequent) ->
-          if in_sequent then
-            Iset.add new_name (Iset.remove old_name user_vars)
-          else user_vars
-        end sequent.user_vars renames
-
-let rename_new_vars ?alt ~base () =
-  let hints = match alt with None -> [] | Some a -> a.hspec_vars in
-  if hints = [] then () else begin
-    let new_eigen =
-      List.filter
-        (fun (name, term) ->
-           not (List.mem_assoc name base.vars) && is_free term)
-        sequent.vars
-    in
-    let new_eigen_names = List.map fst new_eigen in
-    let base_nominals =
-      List.map (fun (v : var) -> v.name) (nominal_vars_of_sequent base)
-    in
-    let new_nominals =
-      nominal_vars_of_sequent sequent |>
-      List.filter (fun (v : var) ->
-          not (List.mem v.name base_nominals) &&
-          not (List.mem v.name new_eigen_names))
-    in
-    let described =
-      List.map (fun (_, term) -> (term_to_var term, true)) new_eigen @
-      List.map (fun (v : var) -> (v, false)) new_nominals
-    in
-    rename_described ~hints ~base described
-  end
-
-let rename_intro_vars ~alt ~base vars =
-  rename_described ~hints:alt.hspec_vars ~base vars
+(* Lemmas *)
 
 let add_lemma ?(fin=Finished) name tys lemma =
   let ovr = if H.mem lemmas name then `replace else `append in
   H.replace lemmas name (tys, lemma) ;
   H.replace lemma_tags name fin ;
   ovr
-
 let get_lemma_tag name =
   try H.find lemma_tags name with
   | Not_found ->
       failwithf "Could not find theorem named %S" name
-
 let remove_globals names =
   List.iter begin fun name ->
     H.remove lemmas name ;
@@ -797,175 +251,17 @@ let remove_globals names =
   end names ;
   clauses := List.filter (fun (_, clause) ->
       not (List.mem (term_head_name clause) names)) !clauses
-
-let get_hyp name =
-  let hyp = List.find (fun h -> h.id = name) sequent.hyps in
-  hyp.term
-
-let is_hyp name =
-  List.exists (fun h -> h.id = name) sequent.hyps
-
 let user_name_message kind name =
   Printf.sprintf "%s name %s is system-generated" kind name
-
-let report_user_name kind name =
-  match !strict_names with
-  | `relaxed -> ()
-  | `warn ->
-      Output.msg_printf "Warning: %s" (user_name_message kind name)
-  | `strict ->
-      failwith (user_name_message kind name)
-
-let warn_hyp_name name =
-  match !strict_names with
-  | `relaxed -> ()
-  | `warn | `strict ->
-      begin match List.find_opt (fun h -> h.id = name) sequent.hyps with
-      | Some h when not h.user_named ->
-          report_user_name "hypothesis" name
-      | _ -> ()
-      end
-
-let warn_var_name name =
-  match !strict_names with
-  | `relaxed -> ()
-  | `warn | `strict ->
-      if not (is_nominal_name name) &&
-         List.mem_assoc name sequent.vars &&
-         not (Iset.mem name sequent.user_vars)
-      then report_user_name "variable" name
-
-let warn_label_name name =
-  if is_hyp name then warn_hyp_name name
-  else if List.mem_assoc name sequent.vars then warn_var_name name
-
-let warn_term_vars term =
-  let names =
-    List.map fst (term_vars_alist Eigen [term]) @
-    List.map fst (term_vars_alist Nominal [term]) @
-    List.map fst (term_vars_alist Logic [term])
-  in
-  List.iter warn_var_name (List.unique names)
-
-let warn_metaterm_vars term =
-  let names =
-    List.map fst (metaterm_vars_alist Eigen term) @
-    List.map fst (metaterm_vars_alist Nominal term) @
-    List.map fst (metaterm_vars_alist Logic term)
-  in
-  List.iter warn_var_name (List.unique names)
-
-let warn_clearable = function
-  | Keep (h, _) -> warn_hyp_name h
-  | Remove (h, []) -> warn_hyp_name h
-  | Remove (_, _ :: _) -> ()
-
-let rec warn_witness = function
-  | WHyp h -> warn_hyp_name h
-  | WLeft w | WRight w -> warn_witness w
-  | WSplit (w1, w2) -> warn_witness w1 ; warn_witness w2
-  | WForall (_, w) | WIntros (_, w) -> warn_witness w
-  | WExists (bs, w) ->
-      List.iter (fun (_, term) -> warn_term_vars term) bs ;
-      warn_witness w
-  | WUnfold (_, _, ws) -> List.iter warn_witness ws
-  | WTrue | WReflexive | WMagic -> ()
-
 let get_generic_lemma name =
   try H.find lemmas name with
   | Not_found ->
       failwithf "Could not find theorem named %S" name
-
-let get_lemma ?(tys:ty list = []) name =
-  let (argtys, bod) = H.find lemmas name in
-  let tys =
-    if (List.length argtys > 0 && List.length tys = 0) then
-      List.map (fun _t -> fresh_tyvar ()) argtys
-    else if List.length tys <> List.length argtys then
-      failwithf "Need to provide mappings for %d types" (List.length argtys)
-    else
-      tys in
-  List.iter2 begin fun _id ty ->
-    if contains_prop ty then
-      failwithf "Type argument %s may not contain prop"
-        (ty_to_string ty)
-  end argtys tys ;
-  let tysub = List.map2 (fun id ty -> (id,ty)) argtys tys in
-  mark_schematic_tysub tysub ;
-  map_on_tys (apply_sub_ty tysub) bod
-
-let get_hyp_or_lemma ?tys name =
-  try get_hyp name with
-  | Not_found -> get_lemma ?tys name
-
 let stmt_name = function
   | Keep (h, _) | Remove (h, _) -> h
-
-let get_stmt_clearly h =
-  try begin
-    match h with
-    | Keep (h, tys) ->
-        get_hyp_or_lemma ~tys h
-    | Remove (h, []) when is_hyp h ->
-        let stmt = get_hyp h in
-        remove_hyp Clear_delete h ; stmt
-    | Remove (h, tys) ->
-        get_lemma ~tys h
-  end
-  with Not_found ->
-    failwithf "Could not find hypothesis or lemma %s" (stmt_name h)
-
-let get_arg_clearly = function
-  | Keep ("_", _) -> None
-  | arg -> Some (get_stmt_clearly arg)
-
 exception End_proof of [`completed of fin | `aborted]
 
-let rec pop_finished_bullets () =
-  match !bullet_stack with
-  | { siblings = [] ; _ } :: rest ->
-      bullet_stack := rest ;
-      pop_finished_bullets ()
-  | _ -> ()
-
-let next_subgoal () =
-  match !subgoals with
-  | [] ->
-      pop_finished_bullets () ;
-      if !bullet_stack = [] then begin
-        let fin = if !skip_seen then Unfinished else Finished in
-        raise (End_proof (`completed fin))
-      end else
-        subgoal_focused := false
-  | set_subgoal::rest ->
-      set_subgoal () ;
-      subgoals := rest ;
-      subgoal_focused := true ;
-      normalize_sequent ()
-
-let bullet b =
-  if !subgoal_focused then begin
-    if List.exists (fun f -> f.bullet = b) !bullet_stack then
-      failwithf "Bullet %s is already active in an enclosing subgoal" b ;
-    bullet_stack := { bullet = b ; siblings = !subgoals } :: !bullet_stack ;
-    subgoals := []
-  end else begin
-    match !bullet_stack with
-    | [] ->
-        [%bug] "unfocused subgoal with empty bullet stack"
-    | { bullet = expected ; siblings = next :: rest } :: stack_rest ->
-        if b <> expected then
-          failwithf "Wrong bullet %s: expected %s" b expected ;
-        next () ;
-        normalize_sequent () ;
-        subgoals := [] ;
-        bullet_stack := { bullet = expected ; siblings = rest } :: stack_rest ;
-        subgoal_focused := true
-    | { siblings = [] ; _ } :: _ ->
-        [%bug] "unfocused subgoal with no siblings"
-  end
-
-(* Show *)
+(* Showing theorems *)
 
 let print_theorem name (tys, thm) fmt =
   Format.fprintf fmt "@[<hv2>Theorem %s%s :@ %a@].@."
@@ -974,528 +270,7 @@ let print_theorem name (tys, thm) fmt =
 let show name fmt =
   print_theorem name (get_generic_lemma name) fmt
 
-(* Object level instantiation *)
-
-let inst ?hint h ws =
-  ensure_focused () ;
-  warn_clearable h ;
-  let ht = get_stmt_clearly h in
-  match ht with
-  | Obj _ ->
-      let rec aux ws ht = match ws with
-        | [] -> add_hyp_with_hint (alt_for_subgoal hint 0) ht
-        | (n, t) :: ws ->
-            let ntids = metaterm_nominal_tids ht in
-            let nty = try List.assoc n ntids with
-              | Not_found -> failwithf "Nominal constant %s not in support" n in
-            let ctx = sequent.vars @
-                      (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
-            in
-            let t = type_uterm ~expected_ty:nty ~sr:!sr ~sign:!sign ~ctx t in
-            warn_term_vars t ;
-            aux ws (object_inst ht n t)
-      in
-      aux ws ht
-  | _ ->
-      failwith "Cannot instantiate this hypothesis\n\
-              \ Instantiation can only be used on hypotheses of the form {...}"
-
-
-(* Object level cut *)
-
-let cut ?hint h arg =
-  ensure_focused () ;
-  warn_clearable h ; warn_clearable arg ;
-  let h = get_stmt_clearly h in
-  let arg = get_stmt_clearly arg in
-  match h, arg with
-  | Obj(obj_h, _), Obj(obj_arg, _) ->
-      add_hyp_with_hint (alt_for_subgoal hint 0)
-        (object_cut obj_h obj_arg)
-  | _ -> failwith "Cut can only be used on hypotheses of the form {...}"
-
-(* Search *)
-
-let retype t = type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars t
-
-let has_inductive_hyps hyp =
-  let rec aux term =
-    match term with
-    | Binding(Forall, _, body) -> aux body
-    | Binding(Nabla, _, body) -> aux body
-    | Arrow(Obj(_, Smaller _i), _) -> true
-    | Arrow(Pred(_, Smaller _i), _) -> true
-    | Arrow(_left, right) -> aux right
-    | _ -> false
-  in
-  aux hyp.term
-
-let remove_inductive_hypotheses hyps =
-  List.remove_all has_inductive_hyps hyps
-
-let has_coinductive_result hyp =
-  let rec aux term nested =
-    match term with
-    | Binding(Forall, _, body) -> aux body true
-    | Binding(Nabla, _, body) -> aux body true
-    | Arrow(_left, right) -> aux right true
-    | Pred(_, CoSmaller _) -> nested
-    | Pred(_, CoEqual _) -> nested
-    | _ -> false
-  in
-  aux hyp.term false
-
-let remove_coinductive_hypotheses hyps =
-  List.remove_all has_coinductive_result hyps
-
-let search_depth = State.rref 5
-
-let search_goal_witness ?depth goal witness =
-  let hyps = sequent.hyps
-             |> remove_inductive_hypotheses
-             |> remove_coinductive_hypotheses
-             |> List.map (fun h -> (h.id, h.term))
-  in
-  let depth = Option.value ~default:!search_depth depth in
-  Tactics.search
-    ~depth
-    ~hyps
-    ~clauses:!clauses
-    ~def_unfold
-    ~sr:!sr
-    ~retype
-    ~witness
-    goal
-
-let search_goal ?depth goal =
-  try Option.is_some (search_goal_witness ?depth goal WMagic)
-  with Failure _ -> false
-
-let search ?depth ~witness ~handle_witness () =
-  ensure_focused () ;
-  warn_witness witness ;
-  let search_result = search_goal_witness ?depth sequent.goal witness in
-  match search_result with
-  | None -> failwith "Search failed"
-  | Some w -> handle_witness w ; next_subgoal ()
-
-(* Search cut *)
-
-let search_cut ?hint h =
-  ensure_focused () ;
-  warn_clearable h ;
-  match get_stmt_clearly h with
-  | Obj(obj, _) ->
-      add_hyp_with_hint (alt_for_subgoal hint 0)
-        (Obj(Tactics.search_cut ~search_goal obj, Irrelevant))
-  | _ ->
-      failwith "Cut can only be used on hypotheses of the form {... |- ...}"
-
-(* Apply *)
-
-let goal_to_subgoal g =
-  let saved_sequent = copy_sequent () in
-  let bind_state = Term.get_bind_state () in
-  fun () ->
-    set_sequent saved_sequent ;
-    Term.set_bind_state bind_state ;
-    sequent.goal <- g
-
-let ensure_no_logic_variable term =
-  let logic_vars = metaterm_vars_alist Logic term in
-  if logic_vars <> [] then
-    failwithf {|Found logic variable at toplevel.
-This usually means that the `search` tactic could not fully solve a goal.
-Note: the `search` tactic may have been invoked implicitly by `apply`,
-`backchain`, etc. with unknown arguments.|}
-
-(* Tactics such as [case] can build new equalities (e.g., by
-   decomposing an existing one) without going through elaboration;
-   audit the current proof state for them here. *)
-let ensure_no_prop_equality_state () =
-  ensure_no_prop_equality sequent.goal ;
-  List.iter (fun h -> ensure_no_prop_equality h.term) sequent.hyps
-
-let ensure_no_restrictions term =
-  let rec aux t nested =
-    match t with
-    | Binding(Forall, _, body) -> aux body true
-    | Binding(Nabla, _, body) -> aux body true
-    | Arrow(left, right) -> aux left true; aux right true
-    | Obj(_, Smaller _i) | Obj(_, Equal _i)
-    | Pred(_, Smaller _i) | Pred(_, Equal _i) ->
-        if nested then
-          failwithf "Inductive restrictions must not occur in strict subterms:\n%s"
-            (metaterm_to_string term)
-    | Pred(_, CoSmaller _i) | Pred(_, CoEqual _i) ->
-        failwithf "Co-Inductive restrictions must not be present:\n%s"
-          (metaterm_to_string term)
-    | _ -> ()
-  in
-  aux term false
-
-let toplevel_bindings stmt =
-  let rec aux = function
-    | Binding(Forall, tids, t) -> tids @ (aux t)
-    | Binding(Nabla, tids, t) -> tids @ (aux t)
-    | _ -> []
-  in
-  aux stmt
-
-let type_apply_withs stmt ws =
-  let bindings = toplevel_bindings stmt in
-  List.map
-    (fun (id, t) ->
-       try
-         let ty = List.assoc id bindings in
-         let t =
-           type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign
-             ~ctx:sequent.vars t
-         in
-         warn_term_vars t ;
-         (id, t)
-       with
-       | Not_found -> failwithf "Unknown variable %s" id)
-    ws
-
-let partition_obligations ?depth obligations =
-  List.partition_map begin fun g ->
-    let wit = search_goal_witness ?depth g WMagic in
-    ensure_no_logic_variable g ;
-    match wit with
-    | None ->
-        Either.Left g
-    | Some w ->
-        Either.Right (g, w)
-  end obligations
-
-let apply ?depth ?hint ?(term_witness=ignore) h args ws =
-  ensure_focused () ;
-  warn_clearable h ;
-  List.iter warn_clearable args ;
-  let stmt = get_stmt_clearly h in
-  let args = List.map get_arg_clearly args in
-  let () = List.iter (Option.fold ~some:ensure_no_restrictions ~none:()) args in
-  let ws = type_apply_withs stmt ws in
-  let result, obligations =
-    Tactics.apply_with ~sr:!sr stmt args ws
-      ~used:(List.filter is_uninstantiated sequent.vars)
-  in
-  let remaining_obligations, term_witnesses =
-    partition_obligations ?depth obligations
-  in
-  let () = ensure_no_logic_variable result in
-  let () = List.iter term_witness term_witnesses in
-  let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
-  let resulting_case = recursive_metaterm_case ~used:sequent.vars ~sr:!sr result in
-  let mainline_hint =
-    alt_for_subgoal hint (List.length remaining_obligations)
-  in
-  begin match resulting_case with
-  | None -> add_subgoals obligation_subgoals
-  | Some case ->
-      let base = copy_sequent () in
-      let resulting_subgoal =
-        let restore = goal_to_subgoal sequent.goal in
-        fun () ->
-          restore () ;
-          List.iter add_if_new_var case.stateless_new_vars ;
-          add_hyps_with_hint mainline_hint case.stateless_new_hyps ;
-          rename_new_vars ?alt:mainline_hint ~base ()
-      in
-      add_subgoals ~mainline:resulting_subgoal obligation_subgoals
-  end ;
-  next_subgoal ()
-
-(* Bachchain *)
-
-let type_backchain_withs stmt ws =
-  let bindings = toplevel_bindings stmt in
-  let nctx = List.map term_to_pair (metaterm_support sequent.goal) in
-  List.map
-    (fun (id, t) ->
-       try
-         let ty = List.assoc id bindings in
-         let t =
-           type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign
-             ~ctx:(nctx @ sequent.vars) t
-         in
-         warn_term_vars t ;
-         (id, t)
-       with
-       | Not_found -> failwithf "Unknown variable %s" id)
-    ws
-
-let backchain ?depth ?(term_witness=ignore) h ws =
-  ensure_focused () ;
-  warn_clearable h ;
-  let stmt = get_stmt_clearly h in
-  let ws = type_backchain_withs stmt ws in
-  let obligations = Tactics.backchain_with ~sr:!sr stmt ws sequent.goal in
-  let remaining_obligations, term_witnesses =
-    partition_obligations ?depth obligations
-  in
-  let () = List.iter term_witness term_witnesses in
-  let obligation_subgoals = List.map goal_to_subgoal remaining_obligations in
-  add_subgoals obligation_subgoals ;
-  next_subgoal ()
-
-(* Case analysis *)
-
-(* Lifting during case analysis may cause some variables to be bound to
-   themselves. We need to update sequent.vars to reflect this. *)
-let update_self_bound_vars () =
-  sequent.vars <-
-    sequent.vars |> List.map
-      (fun (id, term) ->
-         match term_head term with
-         | Some (v, _) when term_to_name v = id ->
-             (id, v)
-         | _ -> (id, term))
-
-let case_to_subgoal ?alt case =
-  let saved_sequent = copy_sequent () in
-  fun () ->
-    set_sequent saved_sequent ;
-    List.iter add_if_new_var case.new_vars ;
-    add_hyps_with_hint alt case.new_hyps ;
-    rename_new_vars ?alt ~base:saved_sequent () ;
-    Term.set_bind_state case.bind_state ;
-    update_self_bound_vars ()
-
-let case_subgoals str =
-  let global_support =
-    (List.flatten_map metaterm_support
-       (List.map (fun h -> h.term) sequent.hyps)) @
-    (metaterm_support sequent.goal)
-  in
-  let term = get_stmt_clearly str in
-  let (mutual, defs) = def_unfold term in
-  let state = get_scoped_bind_state () in
-  try
-    Tactics.case ~used:sequent.vars ~sr:!sr ~clauses:!clauses
-      ~mutual ~defs ~global_support term
-  with e ->
-    set_scoped_bind_state state;
-    raise e
-
-let case ?hint h =
-  ensure_focused () ;
-  warn_clearable h ;
-  let cases = case_subgoals h in
-  (* Output.msg_printf "case: there were %d new subgoals" (List.length cases) ; *)
-  let subgoals =
-    List.mapi (fun i case ->
-        case_to_subgoal ?alt:(alt_for_subgoal hint i) case)
-      cases
-  in
-  add_subgoals subgoals ;
-  next_subgoal ()
-
-(* Induction *)
-
-let next_restriction () =
-  1 + (sequent.hyps |> List.map (fun h -> h.term) |>
-       List.map get_max_restriction |> List.max)
-
-let rec nth_product n term =
-  match term with
-  | Binding(Forall, _, body) -> nth_product n body
-  | Binding(Nabla, _, body) -> nth_product n body
-  | Arrow(left, right) ->
-      if n = 1 then
-        left
-      else
-        nth_product (n-1) right
-  | _ -> failwith "Can only induct on predicates and judgments"
-
-let ensure_is_inductive term =
-  match term with
-  | Obj _ -> ()
-  | Pred(p, _) ->
-      let pname = term_head_name p in
-      begin try
-        match (H.find defs_table pname).flavor with
-        | Inductive -> ()
-        | CoInductive ->
-            failwithf "Cannot induct on %s since it has\
-                     \ been coinductively defined"
-              pname
-      with Not_found ->
-        failwithf "Cannot induct on %s since it has not been defined" pname
-      end
-  | _ -> failwith "Can only induct on predicates and judgments"
-
-let induction ?hint ind_args =
-  ensure_focused () ;
-  if has_coinductive_restriction sequent.goal then
-    failwith "Induction within coinduction is not allowed" ;
-  let stmts = and_to_list sequent.goal in
-  if List.length ind_args != List.length stmts then
-    failwithf "Expecting %d induction arguments but got %d"
-      (List.length stmts) (List.length ind_args) ;
-  List.iter
-    (fun (arg, goal) -> ensure_is_inductive (nth_product arg goal))
-    (List.combine ind_args stmts) ;
-  let res_num = next_restriction () in
-  let (ihs, new_goal) = Tactics.induction ind_args res_num sequent.goal in
-  add_hyps_with_hint ~auto_base:"IH"
-    (alt_for_subgoal hint 0) ihs ;
-  sequent.goal <- new_goal
-
-
-(* CoInduction *)
-
-let rec conclusion term =
-  match term with
-  | Binding(Forall, _, body) -> conclusion body
-  | Binding(Nabla, _, body) -> conclusion body
-  | Arrow(_left, right) -> conclusion right
-  | Pred(p, _) -> p
-  | _ -> failwith "Cannot coinduct on a goal of this form"
-
-let ensure_is_coinductive p =
-  let pname = term_head_name p in
-  try
-    match (H.find defs_table pname).flavor with
-    | CoInductive -> ()
-    | Inductive ->
-        failwithf "Cannot coinduct on %s since it has\
-                 \ been inductively defined"
-          pname
-  with Not_found ->
-    failwithf "Cannot coinduct on %s since it has not been defined" pname
-
-let coinduction ?hint () =
-  ensure_focused () ;
-  ensure_is_coinductive (conclusion sequent.goal) ;
-  if has_inductive_restriction sequent.goal then
-    failwith "Coinduction within induction is not allowed" ;
-  let res_num = next_restriction () in
-  let (ch, new_goal) = Tactics.coinduction res_num sequent.goal in
-  add_hyps_with_hint ~auto_base:"CH"
-    (alt_for_subgoal hint 0) [ch] ;
-  sequent.goal <- new_goal
-
-
-(* Assert *)
-
-let delay_mainline ?hint ?depth new_hyp detour_goal =
-  if depth <> Some 0 && search_goal ?depth detour_goal then
-    add_hyp_with_hint (alt_for_subgoal hint 0) new_hyp
-  else
-  let mainline =
-    case_to_subgoal ?alt:(alt_for_subgoal hint 1)
-      { bind_state = get_bind_state () ;
-        new_vars = [] ;
-        new_hyps = [new_hyp] }
-  in
-  let detour = goal_to_subgoal detour_goal in
-  (* Using add_subgoals to take care of annotations *)
-  add_subgoals ~mainline [detour] ;
-  next_subgoal ()
-
-let assert_hyp ?hint ?depth term =
-  ensure_focused () ;
-  let term = type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
-  warn_metaterm_vars term ;
-  delay_mainline ?hint ?depth term term
-
-(* Object logic monotone *)
-
-let monotone ?hint h t =
-  ensure_focused () ;
-  warn_clearable h ;
-  let ht = get_stmt_clearly h in
-  match ht with
-  | Obj (obj, r) ->
-      let ntids = metaterm_nominal_tids ht in
-      let ctx = sequent.vars @
-                (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
-      in
-      let t = type_uterm ~expected_ty:olistty ~sr:!sr ~sign:!sign ~ctx t in
-      warn_term_vars t ;
-      let new_obj = {obj with context = Context.normalize [t]} in
-      delay_mainline ?hint
-        (Obj (new_obj, r))
-        (Binding(Forall, [("X", oty)],
-                 Arrow(member (Term.const "X" oty)
-                         (Context.context_to_term obj.context),
-                       member (Term.const "X" oty)
-                         t))) ;
-  | _ ->
-      failwith "The monotone command can only be used on hypotheses of the form {...}"
-
-
-(* Theorem *)
-
-let theorem thm =
-  sequent.goal <- thm
-
-
-(* Introduction of forall variables *)
-
-let intros alt =
-  ensure_focused () ;
-  let base = copy_sequent () in
-  let hyp_index = ref 0 in
-  let intro_vars = ref [] in
-  let rec aux term =
-    match term with
-    | Binding(Forall, bindings, body) ->
-        let support = metaterm_support body in
-        let (alist, vars) =
-          fresh_raised_alist ~sr:!sr ~tag:Eigen ~used:sequent.vars
-            ~support bindings
-        in
-        intro_vars := !intro_vars @
-          List.map (fun var -> (term_to_var var, true)) vars ;
-        List.iter (fun var -> add_var (term_to_pair var)) vars ;
-        aux (replace_metaterm_vars alist body)
-    | Binding(Nabla, bindings, body) ->
-        let (ids, tys) = List.split bindings in
-        let nominals = fresh_nominals tys body in
-        intro_vars := !intro_vars @
-          List.map (fun term -> (term_to_var term, false)) nominals ;
-        aux (replace_metaterm_vars
-               (List.combine ids nominals)
-               body)
-    | Arrow(left, right) -> begin
-        let hint = name_hint_at alt.hspec_hyps !hyp_index in
-        incr hyp_index ;
-        begin match hint with
-        | Some base -> add_named_hyp base (normalize left)
-        | None -> add_auto_hyp (normalize left)
-        end ;
-        aux right
-      end
-    | _ -> term
-  in
-  sequent.goal <- aux sequent.goal ;
-  rename_intro_vars ~alt ~base !intro_vars
-
-(* Split *)
-
-let split propogate_result =
-  ensure_focused () ;
-  let rec accum_goals conjs prev =
-    match conjs with
-    | [] -> []
-    | g::rest ->
-        let saved = goal_to_subgoal g in
-        let subgoal () =
-          saved () ;
-          if propogate_result then
-            List.iter add_auto_hyp (List.rev prev)
-        in
-        subgoal :: (accum_goals rest (g :: prev))
-  in
-  let conjs = and_to_list sequent.goal in
-  if List.length conjs = 1 then failwith "Needless use of split" ;
-  add_subgoals (accum_goals conjs []) ;
-  next_subgoal ()
-
-(* Split theorem *)
+(* Splitting theorems *)
 
 let decompose_forall_nabla t =
   match t with
@@ -1514,7 +289,6 @@ let multiarrow arrows body =
     | [] -> body
   in
   aux arrows
-
 let split_theorem (tys, thm) =
   let foralls, nablas, body = decompose_forall_nabla thm in
   let arrows, conj = decompose_arrow body in
@@ -1556,446 +330,8 @@ let create_split_theorems name names =
 
 (* Left and right side of disjunction *)
 
-let left () =
-  ensure_focused () ;
-  match sequent.goal with
-  | Or(left, _) -> sequent.goal <- left
-  | _ -> ()
 
-let right () =
-  ensure_focused () ;
-  match sequent.goal with
-  | Or(_, right) -> sequent.goal <- right
-  | _ -> ()
-
-
-(* Unfold *)
-
-let unfold clause_sel sol_sel =
-  ensure_focused () ;
-  let mdefs = def_unfold sequent.goal in
-  let used = sequent.vars in
-  let goal = unfold ~sr:!sr ~used ~mdefs clause_sel sol_sel sequent.goal in
-  let goals = List.concat (List.map and_to_list goal) in
-  add_subgoals (List.map goal_to_subgoal goals) ;
-  next_subgoal ()
-
-(* Exists *)
-
-let rec resolve_ewitness ew tids =
-  match ew, tids with
-  | ETerm t, ((id, ty) :: tids) ->
-      (id, ty, t, tids)
-  | ESub (x, t), ((id, ty) :: tids) ->
-      if x = id then (x, ty, t, tids) else
-      let (_, xty, _, tids) = resolve_ewitness ew tids in
-      (x, xty, t, (id, ty) :: tids)
-  | _, [] ->
-      failwithf "Could not resolve existential witness %s" (ewitness_to_string ew)
-
-let exists ew =
-  ensure_focused () ;
-  match sequent.goal with
-  | Binding (Metaterm.Exists, tids, body) ->
-      let (id, ty, t, tids) = resolve_ewitness ew tids in
-      let ntids = metaterm_nominal_tids body in
-      let ctx = sequent.vars @
-                (List.map (fun (id, ty) -> (id, nominal_var id ty)) ntids)
-      in
-      let t = type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx t in
-      warn_term_vars t ;
-      let goal = replace_metaterm_vars [(id, t)] (exists tids body) in
-      sequent.goal <- goal ;
-      normalize_sequent ()
-  | _ -> ()
-
-(* Compute: see compute.ml *)
-
-(* Skip *)
-
-let skip () =
-  ensure_focused () ;
-  skip_seen := true ;
-  next_subgoal ()
-
-(* Clear *)
-
-let remove_var cm h =
-  let v =
-    try term_to_var (List.assoc h sequent.vars)
-    with Not_found -> failwithf "Unknown variable %s" h
-  in
-  sequent.vars <- List.filter (fun xv -> fst xv <> h) sequent.vars ;
-  sequent.user_vars <- Iset.remove h sequent.user_vars ;
-  match cm with
-  | Clear_extro ->
-      let goal = replace_metaterm_vars [h, var Constant v.Term.name v.ts v.ty] sequent.goal in
-      sequent.goal <- forall [v.Term.name, v.ty] goal
-  | _ -> ()
-
-let remove_thing cm h =
-  if is_hyp h
-  then remove_hyp cm h
-  else remove_var cm h
-
-let is_used v =
-  List.exists begin fun h ->
-    get_metaterm_used h.term |>
-    List.exists (fun xv -> fst xv = v)
-  end sequent.hyps
-
-let check_removable h =
-  if not (is_hyp h) then
-    try
-      let v = List.assoc h sequent.vars in
-      if is_uninstantiated (h, v) && is_used h then
-        failwithf "Cannot clear strict uninstantiated variable %s" h
-    with Not_found ->
-      failwithf "Unknown hypothesis or variable %s" h
-
-let clear cm hs =
-  ensure_focused () ;
-  List.iter warn_label_name hs ;
-  List.iter begin fun h ->
-    check_removable h ;
-    remove_thing cm h ;
-  end hs
-
-(* Abbrev *)
-
-let abbrev ids str =
-  ensure_focused () ;
-  Iset.iter warn_hyp_name ids ;
-  sequent.hyps <-
-    List.map begin fun h ->
-      if Iset.mem h.id ids then
-        {h with abbrev = Some str}
-      else h
-    end sequent.hyps
-
-let unabbrev ids =
-  ensure_focused () ;
-  Iset.iter warn_hyp_name ids ;
-  sequent.hyps <-
-    List.map begin fun h ->
-      if Iset.mem h.id ids then
-        {h with abbrev = None}
-      else h
-    end sequent.hyps
-
-(* Rename *)
-
-let rename_hyp hfr hto =
-  let hyps = List.map begin
-      fun h ->
-        if h.id = hfr then
-          { h with id = hto ; user_named = true }
-        else h
-    end sequent.hyps
-  in sequent.hyps <- hyps
-
-let rename_var vfr xto =
-  let ty =
-    try tc [] (List.assoc vfr sequent.vars)
-    with Not_found -> failwithf "Unknown variable %S" vfr
-  in
-  let vto = var Eigen xto 0 ty in
-  let repl = [vfr, vto] in
-  let rewrite mt = replace_metaterm_vars repl mt in
-  sequent.hyps <-
-    List.map (fun h -> { h with term = rewrite h.term }) sequent.hyps ;
-  sequent.vars <-
-    List.filter_map begin fun v ->
-      let (x, _) = v in
-      if x = vfr then Some (xto, vto)
-      else if x = xto then None
-      else Some v
-    end sequent.vars ;
-  sequent.user_vars <-
-    Iset.add xto (Iset.remove vfr sequent.user_vars) ;
-  sequent.goal <- rewrite sequent.goal
-
-let var_unavailable x =
-  try is_uninstantiated (x, List.assoc x sequent.vars)
-  with Not_found -> false
-
-let rename xfr xto =
-  ensure_focused () ;
-  warn_label_name xfr ;
-  if H.mem lemmas xto then
-    failwithf "%S already refers to a lemma" xto ;
-  if List.exists (fun h -> h.id = xto) sequent.hyps then
-    failwithf "%S already refers to an existing hypothesis" xto ;
-  if var_unavailable xto then
-    failwithf "%S already refers to an existing variable" xto ;
-  if List.exists (fun h -> h.id = xfr) sequent.hyps then
-    rename_hyp xfr xto
-  else if List.mem_assoc xfr sequent.vars then
-    rename_var xfr xto
-  else
-    failwithf "Unknown variable or hypothesis label %S" xfr
-
-(* Permute *)
-
-let permute_nominals ids form =
-  ensure_focused () ;
-  Option.iter warn_hyp_name form ;
-  List.iter warn_var_name ids ;
-  if not (List.is_unique ids) then failwith "Not a permutation" ;
-  let term =
-    match form with
-    | None -> sequent.goal
-    | Some h ->
-        try get_hyp h
-        with _ -> failwithf "Unknown hypothesis %s" h
-  in
-  let support_alist =
-    List.map (fun t -> (term_to_name t, t)) (metaterm_support term)
-  in
-  let perm = List.map begin fun id ->
-      try List.assoc id support_alist
-      with Not_found -> nominal_var id (tybase (atybase ""))
-    end ids in
-  let result = Tactics.permute_nominals perm term in
-  match form with
-  | None -> sequent.goal <- result
-  | Some hyp -> replace_hyp hyp result
-
-(* Object level cut with explicit cut formula*)
-
-let cut_from ?hint h arg term =
-  ensure_focused () ;
-  warn_clearable h ; warn_clearable arg ;
-  let term = type_uterm ~sr:!sr ~sign:!sign ~ctx:sequent.vars term in
-  warn_term_vars term ;
-  let h = get_stmt_clearly h in
-  let arg = get_stmt_clearly arg in
-  match h, arg with
-  | Obj(obj_h1, _),Obj(obj_h2, _) ->
-      add_hyp_with_hint (alt_for_subgoal hint 0)
-        (object_cut_from obj_h1 obj_h2 term)
-  | _,_ -> failwith "The cut command can only be used on \
-                   \ hypotheses of the form {...}"
-
-(* Duplicate hypothesis removal *)
-
-let clear_duplicates () =
-  ensure_focused () ;
-  let new_hyps = ref [] in
-  let new_preds = ref [] in
-  let scan (h : hyp) =
-    match h.term with
-    | Pred (a, res) ->
-        if List.exists (fun (oa, ores) -> res = ores && Term.eq a oa) !new_preds
-        then ()
-        else begin
-          new_preds := (a, res) :: !new_preds ;
-          new_hyps := h :: !new_hyps
-        end
-    | _ ->
-        new_hyps := h :: !new_hyps
-  in
-  List.iter scan sequent.hyps ;
-  sequent.hyps <- List.rev !new_hyps
-
-(* Saturate *)
-
-exception SaturateSuccess
-let is_ground f = metaterm_vars_alist Logic f = []
-let saturate ?hint ?depth lemmas =
-  ensure_focused () ;
-  List.iter warn_hyp_name lemmas ;
-  let focus_lemmas = List.map get_hyp_or_lemma lemmas in
-  let initial_focus () =
-    List.map (normalize ~used:sequent.vars) focus_lemmas
-  in
-  let depth0 = match depth with
-    | None -> List.length lemmas
-    | Some depth -> depth
-  in
-  (* saturate does not handle nabla, so we always raise over the global support *)
-  let global_support =
-    (List.flatten_map (fun h -> metaterm_support h.term) sequent.hyps @
-     metaterm_support sequent.goal)
-    |> List.unique ~cmp:eq
-  in
-  let next_subgoal_index =
-    let index = ref 0 in
-    fun () ->
-      let i = !index in
-      incr index ;
-      i
-  in
-  let rec loop ~ts ~depth =
-    clear_duplicates () ;
-    if depth <= 0 then () else begin
-      let rec try_lemmas = function
-        | [] ->
-            [%trace 2 "Saturated at depth %d"] (depth0 - depth) ;
-            ()
-        | focus :: rest ->
-            let state = get_scoped_bind_state () in
-            let num_released, subgoals =
-              multifocus [] [focus]
-                ~ts
-                ~succ:(fun ts -> loop ~ts ~depth:(depth - 1))
-            in
-            if num_released = 0 then begin
-              set_scoped_bind_state state ;
-              try_lemmas rest
-            end else begin
-              add_subgoals subgoals ;
-              next_subgoal ()
-            end
-      in
-      try_lemmas (initial_focus ())
-    end
-  and multifocus ~ts ~succ dead live =
-    (* [%trace 2 "@[<v2>multifoc:@,dead = @[<v0>%a@]@,live = @[<v0>%a@]@]"] *)
-    (*   Format.(pp_print_list ~pp_sep:pp_print_cut format_metaterm) dead *)
-    (*   Format.(pp_print_list ~pp_sep:pp_print_cut format_metaterm) live ; *)
-    match live with
-    | [] ->
-        let to_release =
-          List.rev_filter_map begin fun form ->
-            if not @@ is_ground form then None else
-            match purepos ~ts ~succ:(fun _ts -> raise SaturateSuccess) form with
-            | _ ->
-                (* [%trace 2 "NEW: %a"] format_metaterm form ; *)
-                Some form
-            | exception SaturateSuccess ->
-                (* [%trace 2 "OLD: %a"] format_metaterm form ; *)
-                None
-          end dead in
-        (* [%trace 2 "release: @[<v0>%t@]"] begin fun ff -> *)
-        (*   List.iter (fun r -> Format.fprintf ff "%a@," format_metaterm r) *)
-        (*     to_release *)
-        (* end ; *)
-        let num_released = List.length to_release in
-        (num_released, release ~ts ~succ ~nvs:[] ~nhs:[] to_release)
-    | form :: live -> begin
-        (* [%trace 2 "multifoc %d:@ %a"] depth format_metaterm form ; *)
-        match form with
-        | True -> multifocus ~ts ~succ dead live
-        | Arrow (f1, f2) ->
-            let cases = ref [] in
-            let add_proof _ts =
-              let f1 = Metaterm.map_terms Term.deep_copy f1 in
-              let f2 = Metaterm.map_terms Term.deep_copy f2 in
-              (* [%trace 2 "Found @[<b2>%a ->@ %a@]"] *)
-              (*   format_metaterm f1 *)
-              (*   format_metaterm f2 ; *)
-              if is_ground f1 then cases := (f1, f2) :: !cases
-              (* else [%trace 2 "Not adding since not ground"] *)
-            in
-            purepos ~ts ~succ:add_proof f1 ;
-            let live = List.rev_map (fun (_, f2) -> f2) !cases @ live in
-            multifocus ~ts ~succ dead live
-        | Binding (Forall, vs, form) ->
-            let ts = ts + 1 in
-            let alist =
-              fresh_nameless_alist ~sr:!sr ~support:global_support
-                ~tag:Logic ~ts vs
-            in
-            let form = replace_metaterm_vars alist form in
-            multifocus ~ts ~succ dead (form :: live)
-        | (False | Eq _ | Binding (Exists, _, _) | And _ | Or _ | Pred _) ->
-            (* [%trace 2 "multifocus done with: %a"] *)
-            (*   format_metaterm form ; *)
-            multifocus ~ts ~succ (form :: dead) live
-        | _ ->
-            [%trace 2 "deleting %a"] format_metaterm form ;
-            multifocus ~ts ~succ dead live
-      end
-  and purepos ~ts ~succ form =
-    (* [%trace 2 "purepos: %a"] format_metaterm form ; *)
-    match form with
-    | True -> succ ts
-    | False -> ()
-    | Or (f1, f2) ->
-        purepos ~ts ~succ f1 ;
-        purepos ~ts ~succ f2
-    | And (f1, f2) ->
-        purepos ~ts f1 ~succ:(fun ts -> purepos ~ts ~succ f2)
-    | Binding (Exists, vs, form) ->
-        let alist =
-          fresh_nameless_alist ~sr:!sr ~support:global_support
-            ~tag:Logic ~ts vs
-        in
-        let form = replace_metaterm_vars alist form in
-        purepos ~ts ~succ form
-    | Eq (t1, t2) ->
-        unwind_state begin fun () ->
-          if Unify.try_right_unify t1 t2 then succ ts
-        end ()
-    | Pred (_, cr) ->
-        List.iter ~guard:unwind_state begin fun h ->
-          match h.term with
-          | Pred (_, hr) ->
-              if satisfies hr cr then
-                all_meta_right_permute_unify ~sc:(fun _ -> succ ts) form h.term
-          | _ -> ()
-        end (List.unique ~cmp:(fun h1 h2 -> h1.term = h2.term) sequent.hyps)
-    | Arrow _ | Binding _ | Obj _ ->
-        [%trace 2 "purpos found negative: %a"]
-          format_metaterm form
-  and release ~ts ~succ ~nvs ~nhs forms =
-    match forms with
-    | [] ->
-        let nvs = List.rev nvs in
-        let nhs = List.rev nhs in
-        let case =
-          Tactics.{ bind_state = get_bind_state () ;
-                    new_vars = nvs ;
-                    new_hyps = nhs } in
-        (* List.iter (fun h -> [%trace 2 "release hyp: %a"] format_metaterm h) nhs ; *)
-        let setup_subgoal =
-          let alt = alt_for_subgoal hint (next_subgoal_index ()) in
-          case_to_subgoal ?alt case
-        in
-        let recur () =
-          setup_subgoal () ;
-          succ ts
-        in
-        [ recur ]
-    | form :: forms -> begin
-        (* [%trace 2 "release_loop: %a"] format_metaterm form ; *)
-        match form with
-        | True -> release ~ts ~succ ~nvs ~nhs forms
-        | False -> []
-        | Or (f1, f2) ->
-            let state = get_scoped_bind_state () in
-            let cs1 = release ~ts ~succ ~nvs ~nhs (f1 :: forms) in
-            set_scoped_bind_state state ;
-            let cs2 = release ~ts ~succ ~nvs ~nhs (f2 :: forms) in
-            cs1 @ cs2
-        | And (f1, f2) ->
-            release ~ts ~succ ~nvs ~nhs (f1 :: f2 :: forms)
-        | Binding (Exists, vs, form) ->
-            let (alist, vars) =
-              fresh_raised_alist ~sr:!sr ~support:global_support
-                ~used:(nvs @ sequent.vars) ~tag:Eigen vs
-            in
-            let nvs = List.rev_map term_to_pair vars @ nvs in
-            let form = replace_metaterm_vars alist form in
-            release ~ts ~succ ~nvs ~nhs (form :: forms)
-        | Eq (t1, t2) -> begin
-            match Unify.try_left_unify_cpairs ~used:(nvs @ sequent.vars) t1 t2 with
-            | Some cpairs ->
-                let nhs = List.map (fun (t1, t2) -> Eq (t1, t2)) cpairs @ nhs in
-                release ~ts ~succ ~nvs ~nhs forms
-            | None ->
-                []
-          end
-        | _ ->
-            (* [%trace 2 "store: %a"] format_metaterm form ; *)
-            let nhs = if List.mem form nhs then nhs else form :: nhs in
-            release ~ts ~succ ~nvs ~nhs forms
-      end
-  in
-  loop ~ts:0 ~depth:depth0
-
-(* Tacticals *)
+(* Refreshing tactic type variables *)
 
 let refresh_command_tyvars cmd =
   let cache = ref [] in
@@ -2103,123 +439,2657 @@ let refresh_command_tyvars cmd =
     | Skip | Bullet _ | Abort | Undo | Common _ | Try _ | Then _
     | Repeat _ ) as cmd -> cmd
 
-let is_tactic_failure = function
-  | Failure _
-  | Unify.UnifyFailure _
-  | Unify.UnifyError _
-  | Unifyty.InstGenericTyvar _
-  | TypeInferenceFailure _ -> true
-  | _ -> false
+(* Immutable sequents and tactics *)
 
-let capture_current_subgoal () : subgoal =
-  let saved_sequent = copy_sequent () in
-  let bind_state = Term.get_bind_state () in
-  let schem = !Term.schematic_instantiations in
-  fun () ->
-    set_sequent saved_sequent ;
-    Term.set_bind_state bind_state ;
-    Term.schematic_instantiations := schem
+(* Sequent *)
 
-let wrap_pending_subgoal schem (g : subgoal) : subgoal =
-  fun () ->
-    Term.schematic_instantiations := schem ;
-    g () ;
-    normalize_sequent ()
+type hyp = {
+  id : id ;
+  term : metaterm ;
+  abbrev : string option ;
+  user_named : bool ;
+}
 
-let activate_subgoal (g : subgoal) : subgoal list =
-  subgoals := [] ;
-  bullet_stack := [] ;
-  subgoal_focused := true ;
-  g () ;
-  ensure_no_prop_schematic_instantiation () ;
-  ensure_no_prop_equality_state () ;
-  let schem = !Term.schematic_instantiations in
-  let extra = List.map (wrap_pending_subgoal schem) !subgoals in
-  subgoals := [] ;
-  extra
+(* [activate] restores the global [Term] bind state (plus the
+   schematic instantiations) captured for this subgoal. The
+   input to every tactic is assumed activated; of the
+   returned subgoals the first is active ([activate] is a
+   no-op) and the rest are inactive. The scheduler calls
+   [activate_sequent] before focusing an inactive subgoal. *)
+type sequent = {
+  vars : (id * term) list ;
+  user_vars : Iset.t ;
+  hyps : hyp list ;
+  goal : metaterm ;
+  count : int ;
+  name : string ;
+  next_subgoal_id : int ;
+  active : bool ;
+  activate : unit -> unit ;
+}
 
-let rec concat_map_subgoals f = function
-  | [] -> []
-  | g :: rest ->
-      let extra = activate_subgoal g in
-      let out = f () in
-      out @ concat_map_subgoals f (extra @ rest)
+let noop () = ()
 
-let rec eval_tactic ~resolve ~run_atomic cmd =
-  match cmd with
-  | Then (t1, t2) ->
-      let gs = eval_tactic ~resolve ~run_atomic t1 in
-      concat_map_subgoals (fun () -> eval_tactic ~resolve ~run_atomic t2) gs
-  | Try t ->
-      let snap = State.snapshot () in
-      begin try
-        eval_tactic ~resolve ~run_atomic t
-      with e when is_tactic_failure e ->
-        State.reload snap ;
-        [capture_current_subgoal ()]
-      end
-  | Repeat (Some n, _) when n <= 0 ->
-      [capture_current_subgoal ()]
-  | Repeat (limit, t) ->
-      let next_limit = Option.map (fun n -> n - 1) limit in
-      let before = copy_sequent () in
-      let snap = State.snapshot () in
-      begin match eval_tactic ~resolve ~run_atomic t with
-      | exception e when is_tactic_failure e ->
-          State.reload snap ;
-          [capture_current_subgoal ()]
-      | [] ->
-          []
-      | [g] ->
-          let extra = activate_subgoal g in
-          if extra = [] && sequent_eq before sequent then
-            [capture_current_subgoal ()]
-          else
-            let gs = capture_current_subgoal () :: extra in
-            concat_map_subgoals
-              (fun () ->
-                 eval_tactic ~resolve ~run_atomic (Repeat (next_limit, t)))
-              gs
-      | gs ->
-          concat_map_subgoals
-            (fun () ->
-               eval_tactic ~resolve ~run_atomic (Repeat (next_limit, t)))
-            gs
-      end
+let empty_sequent goal =
+  { vars = [] ; user_vars = Iset.empty ; hyps = [] ; goal ;
+    count = 0 ; name = "" ; next_subgoal_id = 1 ;
+    active = true ; activate = noop }
+
+(* [keep_active sq sq'] preserves activation for tactics with
+   a single outcome: the result stays focused, so the global
+   bind state already corresponds to it. *)
+let keep_active sq sq' =
+  { sq' with active = sq.active ; activate = sq.activate }
+
+let activate_sequent sq =
+  if sq.active then sq
+  else begin
+    sq.activate () ;
+    { sq with active = true ; activate = noop }
+  end
+
+(* Several subgoals are numbered from [next_subgoal_id];
+   a single subgoal keeps its name. *)
+let name_subgoals base subs =
+  match subs with
+  | [] | [_] -> subs
   | _ ->
-      eval_atomic_tactic ~resolve ~run_atomic cmd
+      List.mapi
+        (fun i sq ->
+          let idx = base.next_subgoal_id + i in
+          let name =
+            if base.name = "" then string_of_int idx
+            else base.name ^ "." ^ string_of_int idx
+          in
+          { sq with name ; next_subgoal_id = 1 })
+        subs
 
-and eval_atomic_tactic ~resolve ~run_atomic cmd =
-  subgoals := [] ;
-  bullet_stack := [] ;
-  subgoal_focused := true ;
-  let cmd = cmd |> refresh_command_tyvars |> resolve in
-  match run_atomic cmd with
-  | () ->
-      ensure_no_prop_schematic_instantiation () ;
-      ensure_no_prop_equality_state () ;
+let normalize_sequent sq =
+  { sq with
+    goal = normalize sq.goal ;
+    hyps = List.map (fun h -> { h with term = normalize h.term })
+        sq.hyps }
+
+(* Pure sequent helpers *)
+
+let fresh_hyp_name sq base =
+  if base = "" then ({ sq with count = sq.count + 1 },
+                     "H" ^ string_of_int (sq.count + 1))
+  else (sq, fresh_name base
+              (List.map (fun h -> (h.id, ())) sq.hyps))
+
+let update_hyp_count sq name =
+  if name = "" || name.[0] <> 'H' then sq
+  else match int_of_string (String.sub name 1 (String.length name - 1)) with
+  | n -> { sq with count = max sq.count n }
+  | exception _ -> sq
+
+let unsafe_add_hyp sq ?(user_named = false) name term =
+  { sq with
+    hyps = sq.hyps
+           @ [{ id = name ; term ; abbrev = None ; user_named }] }
+
+let add_auto_hyp sq ?(base = "") term =
+  let sq, name = fresh_hyp_name sq base in
+  unsafe_add_hyp (update_hyp_count sq name) name term
+
+let add_hyp sq ?name term =
+  match name with
+  | None -> add_auto_hyp sq term
+  | Some name ->
+      let sq, name = fresh_hyp_name sq name in
+      unsafe_add_hyp (update_hyp_count sq name)
+        ~user_named:true name term
+
+let add_named_hyp sq base term =
+  let used =
+    List.map (fun (x, _) -> (x, ())) sq.vars
+    @ List.map (fun h -> (h.id, ())) sq.hyps
+  in
+  let name = fresh_name base used in
+  unsafe_add_hyp (update_hyp_count sq name)
+    ~user_named:true name term
+
+let add_hyps_with_hint sq ?(auto_base = "") alt hyps =
+  let _, sq =
+    List.fold_left
+      (fun (i, sq) hyp ->
+        let hint =
+          Option.bind alt (fun a -> name_hint_at a.hspec_hyps i)
+        in
+        let sq =
+          match hint with
+          | Some base -> add_named_hyp sq base hyp
+          | None -> add_auto_hyp sq ~base:auto_base hyp
+        in
+        (i + 1, sq))
+      (0, sq) hyps
+  in
+  sq
+
+let add_hyp_with_hint sq alt term = add_hyps_with_hint sq alt [term]
+
+let add_var sq ?(user = false) ((name, _) as v) =
+  let sq = { sq with vars = sq.vars @ [v] } in
+  if user then { sq with user_vars = Iset.add name sq.user_vars }
+  else sq
+
+let add_if_new_var sq ?(user = false) ((name, _) as v) =
+  if List.mem_assoc name sq.vars then sq else add_var sq ~user v
+
+let replace_hyp sq name t =
+  { sq with
+    hyps = List.map
+        (fun h -> if h.id = name then { h with term = t } else h)
+        sq.hyps }
+
+let nominal_vars_of_sequent sq =
+  let terms =
+    collect_terms sq.goal
+    @ List.flatten_map (fun h -> collect_terms h.term) sq.hyps
+  in
+  find_var_refs Nominal terms |> List.map term_to_var
+
+let update_self_bound_vars sq =
+  { sq with
+    vars = List.map
+        (fun (id, term) ->
+          match term_head term with
+          | Some (v, _) when term_to_name v = id -> (id, v)
+          | _ -> (id, term))
+        sq.vars }
+
+(* Statement resolution (pure variant of [get_stmt_clearly]) *)
+
+type stmt_error =
+  | Unknown_stmt of string
+  | Extrude_unknown of id
+  | Lemma_arity of { name : string ; expected : int ; got : int }
+  | Lemma_prop_arg of string
+
+let get_hyp sq name =
+  List.find_opt (fun h -> h.id = name) sq.hyps
+  |> Option.map (fun h -> h.term)
+
+let is_hyp sq name = Option.is_some (get_hyp sq name)
+
+let get_lemma ?(tys : ty list = []) name
+    : (metaterm, stmt_error) result =
+  match Hashtbl.find_opt lemmas name with
+  | None -> Result.error (Unknown_stmt name)
+  | Some (argtys, bod) ->
+      let tys =
+        if List.length argtys > 0 && List.length tys = 0 then
+          List.map (fun _ -> fresh_tyvar ()) argtys
+        else tys
+      in
+      if List.length tys <> List.length argtys then
+        Result.error
+          (Lemma_arity
+             { name ; expected = List.length argtys ;
+               got = List.length tys })
+      else if List.exists contains_prop tys then
+        Result.error (Lemma_prop_arg name)
+      else
+        let tysub = List.map2 (fun id ty -> (id, ty)) argtys tys in
+        mark_schematic_tysub tysub ;
+        Result.ok (map_on_tys (apply_sub_ty tysub) bod)
+
+let get_hyp_or_lemma sq ?(tys : ty list = []) name =
+  match get_hyp sq name with
+  | Some t -> Result.ok t
+  | None -> get_lemma ~tys name
+
+(* [Remove (h, [])] on a hypothesis deletes it and returns
+   the updated sequent alongside the statement. *)
+let get_stmt_clearly sq h
+    : ((sequent * metaterm), stmt_error) result =
+  match h with
+  | Keep (h, tys) ->
+      let+ t = get_hyp_or_lemma sq ~tys h in
+      (sq, t)
+  | Remove (h, []) when is_hyp sq h ->
+      let stmt = Option.get (get_hyp sq h) in
+      let sq =
+        { sq with hyps = List.filter (fun hh -> hh.id <> h) sq.hyps }
+      in
+      Result.ok (sq, stmt)
+  | Remove (h, tys) ->
+      let+ t = get_lemma ~tys h in
+      (sq, t)
+
+let get_arg_clearly sq = function
+  | Keep ("_", _) -> Result.ok (sq, None)
+  | arg ->
+      let+ sq, t = get_stmt_clearly sq arg in
+      (sq, Some t)
+
+(* Renaming (pure) *)
+
+type rename_hint_error =
+  | Bad_nominal_hint of string
+  | Nominal_in_use of string
+  | Reserved_nominal_hint of string
+
+let rename_described sq ~hints ~base vars
+    : (sequent, rename_hint_error) result =
+  let used =
+    ref (List.map (fun (name, _) -> (name, ())) base.vars
+         @ List.map (fun h -> (h.id, ())) sq.hyps
+         @ List.map (fun (v : var) -> (v.name, ()))
+             (nominal_vars_of_sequent sq))
+  in
+  let rec collect i acc = function
+    | [] -> Result.ok (List.rev acc)
+    | ((old_var : var), in_sequent) :: rest -> begin
+        match name_hint_at hints i with
+        | None ->
+            used := (old_var.name, ()) :: !used ;
+            collect (i + 1) acc rest
+        | Some base_name ->
+            let new_name =
+              if old_var.tag = Nominal then
+                if not (is_nominal_name base_name) then
+                  Result.error (Bad_nominal_hint base_name)
+                else
+                  let used_for_hint =
+                    List.remove_assoc old_var.name !used
+                  in
+                  if List.mem_assoc base_name used_for_hint then
+                    Result.error (Nominal_in_use base_name)
+                  else Result.ok base_name
+              else if is_nominal_name base_name then
+                Result.error (Reserved_nominal_hint base_name)
+              else Result.ok (fresh_name base_name !used)
+            in
+            begin match new_name with
+            | Result.Error _ as e -> e
+            | Result.Ok new_name ->
+                used := (new_name, ()) :: !used ;
+                let new_var =
+                  var old_var.tag new_name old_var.ts old_var.ty
+                in
+                collect (i + 1)
+                  ((old_var.tag, old_var.name, new_name, new_var,
+                    in_sequent)
+                   :: acc)
+                  rest
+            end
+      end
+  in
+  match collect 0 [] vars with
+  | Result.Error _ as e -> e
+  | Result.Ok [] -> Result.ok sq
+  | Result.Ok renames ->
+      let tag_groups =
+        List.fold_left
+          (fun groups (tag, old_name, _, new_var, _) ->
+            let old =
+              try List.assoc tag groups with Not_found -> []
+            in
+            (tag, (old_name, new_var) :: old)
+            :: List.remove_assoc tag groups)
+          [] renames
+      in
+      let rewrite_term term =
+        List.fold_left
+          (fun term (tag, alist) -> replace_term_vars ~tag alist term)
+          term tag_groups
+      in
+      let rewrite_metaterm mt =
+        List.fold_left
+          (fun mt (tag, alist) -> replace_metaterm_vars ~tag alist mt)
+          mt tag_groups
+      in
+      Result.ok
+        { sq with
+          goal = rewrite_metaterm sq.goal ;
+          hyps = List.map
+              (fun h -> { h with term = rewrite_metaterm h.term })
+              sq.hyps ;
+          vars = List.map
+              (fun (name, term) ->
+                let name =
+                  match List.find_opt
+                      (fun (_, old_name, _, _, in_sequent) ->
+                        in_sequent && old_name = name)
+                      renames with
+                  | Some (_, _, new_name, _, _) -> new_name
+                  | None -> name
+                in
+                (name, rewrite_term term))
+              sq.vars ;
+          user_vars = List.fold_left
+              (fun user_vars
+                (_, old_name, new_name, _, in_sequent) ->
+                if in_sequent then
+                  Iset.add new_name (Iset.remove old_name user_vars)
+                else user_vars)
+              sq.user_vars renames }
+
+let rename_new_vars sq ?alt ~base ()
+    : (sequent, rename_hint_error) result =
+  let hints =
+    match alt with None -> [] | Some a -> a.hspec_vars
+  in
+  if hints = [] then Result.ok sq
+  else
+    let new_eigen =
+      List.filter
+        (fun (name, term) ->
+          (not (List.mem_assoc name base.vars)) && is_free term)
+        sq.vars
+    in
+    let new_eigen_names = List.map fst new_eigen in
+    let base_nominals =
+      List.map (fun (v : var) -> v.name)
+        (nominal_vars_of_sequent base)
+    in
+    let new_nominals =
+      nominal_vars_of_sequent sq
+      |> List.filter (fun (v : var) ->
+          (not (List.mem v.name base_nominals))
+          && not (List.mem v.name new_eigen_names))
+    in
+    let described =
+      List.map (fun (_, term) -> (term_to_var term, true)) new_eigen
+      @ List.map (fun (v : var) -> (v, false)) new_nominals
+    in
+    rename_described sq ~hints ~base described
+
+(* Shared guards *)
+
+(* Map the [is_tactic_failure] exception set to a bespoke
+   error at the tactic boundary; anything else (bugs,
+   interrupts) keeps propagating. *)
+let tactic_failure_message = function
+  | Failure msg -> Some msg
+  | Unify.UnifyFailure fl ->
+      Some (Unify.explain_failure fl)
+  | Unify.UnifyError err -> Some (Unify.explain_error err)
+  | Unifyty.InstGenericTyvar (v, ty) ->
+      Some
+        (Unify.explain_error (Unify.InstGenericTyvar (v, ty)))
+  | TypeInferenceFailure (exp, act, _) ->
+      Some
+        (Printf.sprintf "expected %s but got %s"
+           (ty_to_string exp) (ty_to_string act))
+  | _ -> None
+
+let map_tactic_failure mk f =
+  try f ()
+  with e -> begin
+    match tactic_failure_message e with
+    | Some msg -> Result.error (mk msg)
+    | None -> raise e
+  end
+
+(* Name warnings: silent unless
+   [strict_names] is [`warn] (print) or [`strict]
+   (abort). Raised as [Strict_name] rather than [Failure] so
+   [map_tactic_failure] lets them through: like the original,
+   they abort the whole tactic rather than becoming tactic
+   errors. The driver converts them back to [Failure]. *)
+exception Strict_name of string
+
+let report_user_name kind name =
+  match !strict_names with
+  | `relaxed -> ()
+  | `warn ->
+      Output.msg_printf "Warning: %s"
+        (user_name_message kind name)
+  | `strict ->
+      raise (Strict_name (user_name_message kind name))
+
+let warn_hyp_name sq name =
+  match !strict_names with
+  | `relaxed -> ()
+  | `warn | `strict -> begin
+      match List.find_opt (fun (h : hyp) -> h.id = name) sq.hyps with
+      | Some h when not h.user_named ->
+          report_user_name "hypothesis" name
+      | _ -> ()
+    end
+
+let warn_var_name sq name =
+  match !strict_names with
+  | `relaxed -> ()
+  | `warn | `strict ->
+      if not (is_nominal_name name)
+         && List.mem_assoc name sq.vars
+         && not (Iset.mem name sq.user_vars)
+      then report_user_name "variable" name
+
+let warn_label_name sq name =
+  if is_hyp sq name then warn_hyp_name sq name
+  else if List.mem_assoc name sq.vars then warn_var_name sq name
+
+let warn_term_vars sq term =
+  let names =
+    List.map fst (term_vars_alist Eigen [term])
+    @ List.map fst (term_vars_alist Nominal [term])
+    @ List.map fst (term_vars_alist Logic [term])
+  in
+  List.iter (warn_var_name sq) (List.unique names)
+
+let warn_metaterm_vars sq term =
+  let names =
+    List.map fst (metaterm_vars_alist Eigen term)
+    @ List.map fst (metaterm_vars_alist Nominal term)
+    @ List.map fst (metaterm_vars_alist Logic term)
+  in
+  List.iter (warn_var_name sq) (List.unique names)
+
+let warn_clearable sq = function
+  | Keep (h, _) -> warn_hyp_name sq h
+  | Remove (h, []) -> warn_hyp_name sq h
+  | Remove (_, _ :: _) -> ()
+
+let rec warn_witness sq = function
+  | WHyp h -> warn_hyp_name sq h
+  | WLeft w | WRight w -> warn_witness sq w
+  | WSplit (w1, w2) -> warn_witness sq w1 ; warn_witness sq w2
+  | WForall (_, w) | WIntros (_, w) -> warn_witness sq w
+  | WExists (bs, w) ->
+      List.iter (fun (_, term) -> warn_term_vars sq term) bs ;
+      warn_witness sq w
+  | WUnfold (_, _, ws) -> List.iter (warn_witness sq) ws
+  | WTrue | WReflexive | WMagic -> ()
+
+let next_restriction sq =
+  1
+  + (sq.hyps |> List.map (fun h -> h.term)
+     |> List.map get_max_restriction |> List.max)
+
+let rec nth_product n term =
+  match term with
+  | Binding (Forall, _, body) -> nth_product n body
+  | Binding (Nabla, _, body) -> nth_product n body
+  | Arrow (left, right) ->
+      if n = 1 then Result.ok left else nth_product (n - 1) right
+  | _ -> Result.error "Can only induct on predicates and judgments"
+
+(* Induction *)
+
+type induction_error =
+  | Coinductive_goal
+  | Arity_mismatch of { expected : int ; got : int }
+  | Not_inductive of string
+  | Bad_induction_target of string
+  | Induction_tactic_failure of string
+
+let ensure_is_inductive term =
+  match term with
+  | Obj _ -> Result.ok ()
+  | Pred (p, _) ->
+      let pname = term_head_name p in
+      begin match Hashtbl.find_opt defs_table pname with
+      | Some { flavor = Inductive ; _ } -> Result.ok ()
+      | Some { flavor = CoInductive ; _ } ->
+          Result.error (Not_inductive
+                          ("Cannot induct on " ^ pname
+                           ^ " since it has been coinductively defined"))
+      | None ->
+          Result.error (Not_inductive
+                          ("Cannot induct on " ^ pname
+                           ^ " since it has not been defined"))
+      end
+  | _ -> Result.error (Bad_induction_target
+                         "Can only induct on predicates and judgments")
+
+let induction sq ?hint ind_args
+    : (sequent, induction_error) result =
+  if has_coinductive_restriction sq.goal then
+    Result.error Coinductive_goal
+  else
+    let stmts = and_to_list sq.goal in
+    if List.length ind_args <> List.length stmts then
+      Result.error
+        (Arity_mismatch
+           { expected = List.length stmts ; got = List.length ind_args })
+    else
+      let check =
+        List.combine ind_args stmts
+        |> List.fold_left
+          (fun acc (arg, goal) ->
+            match acc with
+            | Result.Error _ as e -> e
+            | Result.Ok () -> begin
+                match nth_product arg goal with
+                | Result.Error msg ->
+                    Result.error (Bad_induction_target msg)
+                | Result.Ok t -> ensure_is_inductive t
+              end)
+          (Result.ok ())
+      in
+      begin match check with
+      | Result.Error _ as e -> e
+      | Result.Ok () ->
+          map_tactic_failure
+            (fun msg -> Induction_tactic_failure msg)
+            (fun () ->
+              let res_num = next_restriction sq in
+              let ihs, new_goal =
+                Tactics.induction ind_args res_num sq.goal
+              in
+              let sq =
+                add_hyps_with_hint sq ~auto_base:"IH"
+                  (alt_for_subgoal hint 0) ihs
+              in
+              Result.ok (keep_active sq { sq with goal = new_goal }))
+      end
+
+(* Coinduction *)
+
+type coinduction_error =
+  | Inductive_inside
+  | Not_coinductive of string
+  | Bad_coinduction_target of string
+  | Coinduction_tactic_failure of string
+
+let rec conclusion term =
+  match term with
+  | Binding (Forall, _, body) -> conclusion body
+  | Binding (Nabla, _, body) -> conclusion body
+  | Arrow (_left, right) -> conclusion right
+  | Pred (p, _) -> Result.ok p
+  | _ -> Result.error "Cannot coinduct on a goal of this form"
+
+let ensure_is_coinductive p =
+  let pname = term_head_name p in
+  match Hashtbl.find_opt defs_table pname with
+  | Some { flavor = CoInductive ; _ } -> Result.ok ()
+  | Some { flavor = Inductive ; _ } ->
+      Result.error (Not_coinductive
+                      ("Cannot coinduct on " ^ pname
+                       ^ " since it has been inductively defined"))
+  | None ->
+      Result.error (Not_coinductive
+                      ("Cannot coinduct on " ^ pname
+                       ^ " since it has not been defined"))
+
+let coinduction sq ?hint ()
+    : (sequent, coinduction_error) result =
+  match conclusion sq.goal with
+  | Result.Error msg -> Result.error (Bad_coinduction_target msg)
+  | Result.Ok p -> begin
+      match ensure_is_coinductive p with
+      | Result.Error _ as e -> e
+      | Result.Ok () ->
+          if has_inductive_restriction sq.goal then
+            Result.error Inductive_inside
+          else
+            map_tactic_failure
+              (fun msg -> Coinduction_tactic_failure msg)
+              (fun () ->
+                let res_num = next_restriction sq in
+                let ch, new_goal =
+                  Tactics.coinduction res_num sq.goal
+                in
+                let sq =
+                  add_hyps_with_hint sq ~auto_base:"CH"
+                    (alt_for_subgoal hint 0) [ch]
+                in
+                Result.ok (keep_active sq { sq with goal = new_goal }))
+    end
+
+(* Intros *)
+
+type intros_error = Intros_rename of rename_hint_error
+
+let intros sq alt : (sequent, intros_error) result =
+  let base = sq in
+  let rec aux sq intro_vars hyp_index term =
+    match term with
+    | Binding (Forall, bindings, body) ->
+        let support = metaterm_support body in
+        let alist, vars =
+          fresh_raised_alist ~sr:!sr ~tag:Eigen ~used:sq.vars
+            ~support bindings
+        in
+        let intro_vars =
+          intro_vars
+          @ List.map (fun v -> (term_to_var v, true)) vars
+        in
+        let sq =
+          List.fold_left
+            (fun sq v -> add_var sq (term_to_pair v))
+            sq vars
+        in
+        aux sq intro_vars hyp_index
+          (replace_metaterm_vars alist body)
+    | Binding (Nabla, bindings, body) ->
+        let ids, tys = List.split bindings in
+        let nominals = fresh_nominals tys body in
+        let intro_vars =
+          intro_vars
+          @ List.map (fun t -> (term_to_var t, false)) nominals
+        in
+        aux sq intro_vars hyp_index
+          (replace_metaterm_vars (List.combine ids nominals) body)
+    | Arrow (left, right) ->
+        let hint = name_hint_at alt.hspec_hyps hyp_index in
+        let sq =
+          match hint with
+          | Some b -> add_named_hyp sq b (normalize left)
+          | None -> add_auto_hyp sq (normalize left)
+        in
+        aux sq intro_vars (hyp_index + 1) right
+    | _ -> (sq, intro_vars, term)
+  in
+  let sq, intro_vars, goal = aux sq [] 0 sq.goal in
+  let sq = keep_active sq { sq with goal } in
+  rename_described sq ~hints:alt.hspec_vars ~base intro_vars
+  |> Result.map_error (fun e -> Intros_rename e)
+
+(* Search helpers (pure variants operating on an explicit sequent) *)
+
+let has_inductive_hyps hyp =
+  let rec aux term =
+    match term with
+    | Binding (Forall, _, body) -> aux body
+    | Binding (Nabla, _, body) -> aux body
+    | Arrow (Obj (_, Smaller _), _) -> true
+    | Arrow (Pred (_, Smaller _), _) -> true
+    | Arrow (_left, right) -> aux right
+    | _ -> false
+  in
+  aux hyp.term
+
+let remove_inductive_hypotheses hyps =
+  List.remove_all has_inductive_hyps hyps
+
+let has_coinductive_result hyp =
+  let rec aux term nested =
+    match term with
+    | Binding (Forall, _, body) -> aux body true
+    | Binding (Nabla, _, body) -> aux body true
+    | Arrow (_left, right) -> aux right true
+    | Pred (_, CoSmaller _) -> nested
+    | Pred (_, CoEqual _) -> nested
+    | _ -> false
+  in
+  aux hyp.term false
+
+let remove_coinductive_hypotheses hyps =
+  List.remove_all has_coinductive_result hyps
+
+let retype sq t = type_uterm ~sr:!sr ~sign:!sign ~ctx:sq.vars t
+
+let search_goal_witness sq ?depth goal witness =
+  let hyps =
+    sq.hyps |> remove_inductive_hypotheses
+    |> remove_coinductive_hypotheses
+    |> List.map (fun h -> (h.id, h.term))
+  in
+  let depth = Option.value ~default:!search_depth depth in
+  Tactics.search ~depth ~hyps ~clauses:!clauses
+    ~def_unfold:def_unfold ~sr:!sr ~retype:(retype sq)
+    ~witness goal
+
+let search_goal sq ?depth goal =
+  try Option.is_some (search_goal_witness sq ?depth goal WMagic)
+  with Failure _ -> false
+
+(* Split *)
+
+type split_error = Needless_split
+
+let split sq propagate_result
+    : (sequent list, split_error) result =
+  let conjs = and_to_list sq.goal in
+  if List.length conjs = 1 then Result.error Needless_split
+  else
+    let rec build prev acc = function
+      | [] -> List.rev acc
+      | g :: rest ->
+          let core =
+            if propagate_result then
+              List.fold_left
+                (fun sq h -> add_auto_hyp sq h)
+                { sq with goal = g } (List.rev prev)
+            else { sq with goal = g }
+          in
+          build (g :: prev) (core :: acc) rest
+    in
+    let schem = !Term.schematic_instantiations in
+    let bs = Term.get_bind_state () in
+    build [] [] conjs |> name_subgoals sq
+    |> List.mapi (fun i core ->
+        if i = 0 then { core with active = true ; activate = noop }
+        else
+          { core with
+            active = false ;
+            activate =
+              (fun () ->
+                Term.set_bind_state bs ;
+                Term.schematic_instantiations := schem) })
+    |> Result.ok
+
+(* Left / right. The mutable versions are silent no-ops off
+   disjunction; here that is a bespoke error. *)
+
+(* [left]/[right] on a non-disjunction are silent no-ops. *)
+
+type disjunction_error = Not_disjunction
+
+let left sq : (sequent, disjunction_error) result =
+  match sq.goal with
+  | Or (l, _) -> Result.ok (keep_active sq { sq with goal = l })
+  | _ -> Result.ok sq
+
+let right sq : (sequent, disjunction_error) result =
+  match sq.goal with
+  | Or (_, r) -> Result.ok (keep_active sq { sq with goal = r })
+  | _ -> Result.ok sq
+
+(* Existential witness *)
+
+type exists_error =
+  | Not_existential
+  | Unresolvable_witness of string
+  | Exists_type_error of string
+
+let rec resolve_ewitness ew tids =
+  match ew, tids with
+  | ETerm t, (id, ty) :: tids -> Result.ok (id, ty, t, tids)
+  | ESub (x, t), (id, ty) :: tids ->
+      if x = id then Result.ok (x, ty, t, tids)
+      else
+        let+ _, xty, _, rest = resolve_ewitness ew tids in
+        (x, xty, t, (id, ty) :: rest)
+  | _, [] ->
+      Result.error
+        (Unresolvable_witness (ewitness_to_string ew))
+
+let exists_tac sq ew : (sequent, exists_error) result =
+  match sq.goal with
+  | Binding (Metaterm.Exists, tids, body) -> begin
+      match resolve_ewitness ew tids with
+      | Result.Error _ as e -> e
+      | Result.Ok (id, ty, t, tids) ->
+          let ntids = metaterm_nominal_tids body in
+          let ctx =
+            sq.vars
+            @ List.map
+                (fun (id, ty) -> (id, nominal_var id ty))
+                ntids
+          in
+          let tres =
+            try Result.ok
+              (type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign ~ctx t)
+            with
+            | TypeInferenceFailure (exp, act, _) ->
+                Result.error
+                  (Exists_type_error
+                     (Printf.sprintf "expected %s but got %s"
+                        (ty_to_string exp) (ty_to_string act)))
+            | Failure msg -> Result.error (Exists_type_error msg)
+          in
+          begin match tres with
+          | Result.Error _ as e -> e
+          | Result.Ok t ->
+              warn_term_vars sq t ;
+              let goal =
+                replace_metaterm_vars [(id, t)]
+                  (Metaterm.exists tids body)
+              in
+              Result.ok
+                (normalize_sequent
+                   (keep_active sq { sq with goal }))
+          end
+    end
+  | _ -> Result.ok sq
+
+(* Clear *)
+
+type clear_error =
+  | Unknown_label of id
+  | Strict_var_in_use of id
+  | Extrude_unknown of id
+
+let is_used sq v =
+  List.exists
+    (fun h ->
+      get_metaterm_used h.term
+      |> List.exists (fun xv -> fst xv = v))
+    sq.hyps
+
+let check_removable sq h =
+  if is_hyp sq h then Result.ok ()
+  else begin
+    match List.assoc_opt h sq.vars with
+    | None -> Result.error (Unknown_label h)
+    | Some v ->
+        if is_uninstantiated (h, v) && is_used sq h then
+          Result.error (Strict_var_in_use h)
+        else Result.ok ()
+  end
+
+let remove_hyp sq cm name
+    : (sequent, clear_error) result =
+  let removed = List.find_opt (fun h -> h.id = name) sq.hyps in
+  let sq =
+    { sq with hyps = List.filter (fun h -> h.id <> name) sq.hyps }
+  in
+  match cm, removed with
+  | Clear_extro, Some h ->
+      Result.ok { sq with goal = Arrow (h.term, sq.goal) }
+  | Clear_extro, None -> Result.error (Extrude_unknown name)
+  | _ -> Result.ok sq
+
+let remove_var sq cm h : (sequent, clear_error) result =
+  match List.assoc_opt h sq.vars with
+  | None -> Result.error (Unknown_label h)
+  | Some tm ->
+      let v = term_to_var tm in
+      let sq =
+        { sq with
+          vars = List.filter (fun xv -> fst xv <> h) sq.vars ;
+          user_vars = Iset.remove h sq.user_vars }
+      in
+      begin match cm with
+      | Clear_extro ->
+          let goal =
+            replace_metaterm_vars
+              [h, var Constant v.Term.name v.ts v.ty]
+              sq.goal
+          in
+          Result.ok
+            { sq with goal = forall [v.Term.name, v.ty] goal }
+      | _ -> Result.ok sq
+      end
+
+let remove_thing sq cm h =
+  if is_hyp sq h then remove_hyp sq cm h else remove_var sq cm h
+
+let clear sq cm hs : (sequent, clear_error) result =
+  List.iter (warn_label_name sq) hs ;
+  let+ cleared =
+    List.fold_left
+      (fun acc h ->
+        match acc with
+        | Result.Error _ as e -> e
+        | Result.Ok sq -> begin
+            match check_removable sq h with
+            | Result.Error _ as e -> e
+            | Result.Ok () -> remove_thing sq cm h
+          end)
+      (Result.ok sq) hs
+  in
+  keep_active sq cleared
+
+(* Abbrev (infallible: no error type needed) *)
+
+let abbrev sq ids str =
+  Iset.iter (warn_hyp_name sq) ids ;
+  keep_active sq
+    { sq with
+      hyps = List.map
+          (fun h ->
+            if Iset.mem h.id ids then { h with abbrev = Some str }
+            else h)
+          sq.hyps }
+
+let unabbrev sq ids =
+  Iset.iter (warn_hyp_name sq) ids ;
+  keep_active sq
+    { sq with
+      hyps = List.map
+          (fun h ->
+            if Iset.mem h.id ids then { h with abbrev = None }
+            else h)
+          sq.hyps }
+
+(* Duplicate hypothesis removal (infallible) *)
+
+let clear_duplicates sq =
+  let rec scan seen_preds acc = function
+    | [] -> List.rev acc
+    | (h : hyp) :: rest -> begin
+        match h.term with
+        | Pred (a, res) ->
+            if List.exists
+                (fun (oa, ores) -> res = ores && Term.eq a oa)
+                seen_preds
+            then scan seen_preds acc rest
+            else scan ((a, res) :: seen_preds) (h :: acc) rest
+        | _ -> scan seen_preds (h :: acc) rest
+      end
+  in
+  keep_active sq { sq with hyps = scan [] [] sq.hyps }
+
+(* Rename *)
+
+type rename_error =
+  | Lemma_clash of id
+  | Hyp_clash of id
+  | Var_clash of id
+  | Unknown_rename_label of id
+
+let rename_hyp sq hfr hto =
+  { sq with
+    hyps = List.map
+        (fun h ->
+          if h.id = hfr then { h with id = hto ; user_named = true }
+          else h)
+        sq.hyps }
+
+let rename_var sq vfr xto : (sequent, rename_error) result =
+  match List.assoc_opt vfr sq.vars with
+  | None -> Result.error (Unknown_rename_label vfr)
+  | Some tm ->
+      let ty = tc [] tm in
+      let vto = var Eigen xto 0 ty in
+      let repl = [vfr, vto] in
+      let rewrite mt = replace_metaterm_vars repl mt in
+      Result.ok
+        { sq with
+          hyps = List.map
+              (fun h -> { h with term = rewrite h.term })
+              sq.hyps ;
+          vars = List.filter_map
+              (fun ((x, _) as v) ->
+                if x = vfr then Some (xto, vto)
+                else if x = xto then None
+                else Some v)
+              sq.vars ;
+          user_vars = Iset.add xto (Iset.remove vfr sq.user_vars) ;
+          goal = rewrite sq.goal }
+
+let rename sq xfr xto : (sequent, rename_error) result =
+  warn_label_name sq xfr ;
+  if Hashtbl.mem lemmas xto then
+    Result.error (Lemma_clash xto)
+  else if List.exists (fun h -> h.id = xto) sq.hyps then
+    Result.error (Hyp_clash xto)
+  else if
+    match List.assoc_opt xto sq.vars with
+    | Some t -> is_uninstantiated (xto, t)
+    | None -> false
+  then Result.error (Var_clash xto)
+  else if List.exists (fun h -> h.id = xfr) sq.hyps then
+    Result.ok (keep_active sq (rename_hyp sq xfr xto))
+  else if List.mem_assoc xfr sq.vars then
+    let+ renamed = rename_var sq xfr xto in
+    keep_active sq renamed
+  else Result.error (Unknown_rename_label xfr)
+
+(* Permute *)
+
+type permute_error =
+  | Not_a_permutation
+  | Unknown_permute_hyp of id
+  | Permute_tactic_failure of string
+
+let permute sq ids form
+    : (sequent, permute_error) result =
+  Option.iter (warn_hyp_name sq) form ;
+  List.iter (warn_var_name sq) ids ;
+  if not (List.is_unique ids) then
+    Result.error Not_a_permutation
+  else
+    let term =
+      match form with
+      | None -> Result.ok sq.goal
+      | Some h -> begin
+          match get_hyp sq h with
+          | Some t -> Result.ok t
+          | None -> Result.error (Unknown_permute_hyp h)
+        end
+    in
+    match term with
+    | Result.Error _ as e -> e
+    | Result.Ok term ->
+        map_tactic_failure
+          (fun msg -> Permute_tactic_failure msg)
+          (fun () ->
+            let support_alist =
+              List.map
+                (fun t -> (term_to_name t, t))
+                (metaterm_support term)
+            in
+            let perm =
+              List.map
+                (fun id ->
+                  try List.assoc id support_alist
+                  with Not_found ->
+                    nominal_var id (tybase (atybase "")))
+                ids
+            in
+            let result = Tactics.permute_nominals perm term in
+            Result.ok
+              (keep_active sq
+                 (match form with
+                  | None -> { sq with goal = result }
+                  | Some hyp -> replace_hyp sq hyp result)))
+
+(* Object-level instantiation *)
+
+type inst_error =
+  | Inst_stmt of stmt_error
+  | Inst_not_object
+  | Inst_nominal_not_in_support of id
+  | Inst_type_error of string
+  | Inst_tactic_failure of string
+
+let inst sq ?hint h ws : (sequent, inst_error) result =
+  warn_clearable sq h ;
+  match get_stmt_clearly sq h with
+  | Result.Error e -> Result.error (Inst_stmt e)
+  | Result.Ok (sq, ht) -> begin
+      match ht with
+      | Obj _ ->
+          let rec aux sq ht = function
+            | [] ->
+                Result.ok
+                  (add_hyp_with_hint sq
+                     (alt_for_subgoal hint 0) ht)
+            | (n, t) :: ws ->
+                let ntids = metaterm_nominal_tids ht in
+                begin match List.assoc_opt n ntids with
+                | None ->
+                    Result.error
+                      (Inst_nominal_not_in_support n)
+                | Some nty ->
+                    let ctx =
+                      sq.vars
+                      @ List.map
+                          (fun (id, ty) ->
+                            (id, nominal_var id ty))
+                          ntids
+                    in
+                    let tres =
+                      try Result.ok
+                        (type_uterm ~expected_ty:nty ~sr:!sr
+                           ~sign:!sign ~ctx t)
+                      with
+                      | TypeInferenceFailure (exp, act, _) ->
+                          Result.error
+                            (Inst_type_error
+                               (Printf.sprintf
+                                  "expected %s but got %s"
+                                  (ty_to_string exp)
+                                  (ty_to_string act)))
+                      | Failure msg ->
+                          Result.error (Inst_type_error msg)
+                    in
+                    begin match tres with
+                    | Result.Error _ as e -> e
+                    | Result.Ok t ->
+                        warn_term_vars sq t ;
+                        aux sq (object_inst ht n t) ws
+                    end
+                end
+          in
+          map_tactic_failure
+            (fun msg -> Inst_tactic_failure msg)
+            (fun () ->
+              let+ instd = aux sq ht ws in
+              keep_active sq instd)
+      | _ -> Result.error Inst_not_object
+    end
+
+(* Object-level cut *)
+
+type cut_error =
+  | Cut_stmt of stmt_error
+  | Cut_not_object
+  | Cut_tactic_failure of string
+
+let cut sq ?hint h arg : (sequent, cut_error) result =
+  warn_clearable sq h ;
+  warn_clearable sq arg ;
+  match get_stmt_clearly sq h with
+  | Result.Error e -> Result.error (Cut_stmt e)
+  | Result.Ok (sq, hstmt) -> begin
+      match get_stmt_clearly sq arg with
+      | Result.Error e -> Result.error (Cut_stmt e)
+      | Result.Ok (sq, argstmt) -> begin
+          match hstmt, argstmt with
+          | Obj (obj_h, _), Obj (obj_arg, _) ->
+              map_tactic_failure
+                (fun msg -> Cut_tactic_failure msg)
+                (fun () ->
+                  Result.ok
+                    (keep_active sq
+                       (add_hyp_with_hint sq
+                          (alt_for_subgoal hint 0)
+                          (object_cut obj_h obj_arg))))
+          | _ -> Result.error Cut_not_object
+        end
+    end
+
+type cut_from_error =
+  | Cut_from_stmt of stmt_error
+  | Cut_from_not_object
+  | Cut_from_type_error of string
+  | Cut_from_tactic_failure of string
+
+let cut_from sq ?hint h arg term
+    : (sequent, cut_from_error) result =
+  warn_clearable sq h ;
+  warn_clearable sq arg ;
+  let term =
+    try
+      Result.ok
+        (type_uterm ~sr:!sr ~sign:!sign ~ctx:sq.vars term)
+    with
+    | TypeInferenceFailure (exp, act, _) ->
+        Result.error
+          (Cut_from_type_error
+             (Printf.sprintf "expected %s but got %s"
+                (ty_to_string exp) (ty_to_string act)))
+    | Failure msg -> Result.error (Cut_from_type_error msg)
+  in
+  match term with
+  | Result.Error _ as e -> e
+  | Result.Ok term -> begin
+      warn_term_vars sq term ;
+      match get_stmt_clearly sq h with
+      | Result.Error e -> Result.error (Cut_from_stmt e)
+      | Result.Ok (sq, hstmt) -> begin
+          match get_stmt_clearly sq arg with
+          | Result.Error e -> Result.error (Cut_from_stmt e)
+          | Result.Ok (sq, argstmt) -> begin
+              match hstmt, argstmt with
+              | Obj (obj_h1, _), Obj (obj_h2, _) ->
+                  map_tactic_failure
+                    (fun msg -> Cut_from_tactic_failure msg)
+                    (fun () ->
+                      Result.ok
+                        (keep_active sq
+                           (add_hyp_with_hint sq
+                              (alt_for_subgoal hint 0)
+                              (object_cut_from obj_h1 obj_h2
+                                 term))))
+              | _, _ -> Result.error Cut_from_not_object
+            end
+        end
+    end
+
+(* Search cut *)
+
+type search_cut_error =
+  | Search_cut_stmt of stmt_error
+  | Search_cut_not_object
+  | Search_cut_tactic_failure of string
+
+let search_cut sq ?hint h
+    : (sequent, search_cut_error) result =
+  warn_clearable sq h ;
+  match get_stmt_clearly sq h with
+  | Result.Error e -> Result.error (Search_cut_stmt e)
+  | Result.Ok (sq, ht) -> begin
+      match ht with
+      | Obj (obj, _) ->
+          map_tactic_failure
+            (fun msg -> Search_cut_tactic_failure msg)
+            (fun () ->
+              Result.ok
+                (keep_active sq
+                   (add_hyp_with_hint sq
+                      (alt_for_subgoal hint 0)
+                      (Obj
+                         (Tactics.search_cut
+                            ~search_goal:(search_goal sq) obj,
+                          Irrelevant)))))
+      | _ -> Result.error Search_cut_not_object
+    end
+
+(* Search: closing tactic, so the result is a subgoal list *)
+
+type search_error =
+  | Search_failed
+  | Search_tactic_failure of string
+
+let search sq ?depth ~witness ~handle_witness ()
+    : (sequent list, search_error) result =
+  warn_witness sq witness ;
+  match
+    (try Result.ok (search_goal_witness sq ?depth sq.goal witness)
+     with Failure msg ->
+       Result.error (Search_tactic_failure msg))
+  with
+  | Result.Error _ as e -> e
+  | Result.Ok None -> Result.error Search_failed
+  | Result.Ok (Some w) ->
+      handle_witness w ;
+      Result.ok []
+
+(* Assemble named subgoals from cores paired with the bind
+   state each one owns. The first stays focused and its
+   binds are installed globally. With
+   [~mainline:n], the last [n] cores are mainline
+   continuations: like [add_subgoals ~mainline] they
+   keep the base name (bumping [next_subgoal_id]) instead of
+   being numbered. *)
+let build_subgoals_full ?(mainline = 0) sq subs =
+  let n_ob = List.length subs - mainline in
+  let named =
+    List.mapi
+      (fun i (core, _, _) ->
+        if mainline = 0 && n_ob <= 1 then core
+        else if i < n_ob then
+          let idx = sq.next_subgoal_id + i in
+          let name =
+            if sq.name = "" then string_of_int idx
+            else sq.name ^ "." ^ string_of_int idx
+          in
+          { core with name ; next_subgoal_id = 1 }
+        else
+          { core with
+            next_subgoal_id = sq.next_subgoal_id + n_ob })
+      subs
+  in
+  let states =
+    List.map (fun (_, bs, schem) -> (bs, schem)) subs
+  in
+  let result =
+    List.mapi
+      (fun i core ->
+        if i = 0 then
+          { core with active = true ; activate = noop }
+        else
+          let bs, schem = List.nth states i in
+          { core with
+            active = false ;
+            activate =
+              (fun () ->
+                Term.set_bind_state bs ;
+                Term.schematic_instantiations := schem) })
+      named
+  in
+  begin match states with
+  | [] -> result
+  | (bs, schem) :: _ ->
+      Term.set_bind_state bs ;
+      Term.schematic_instantiations := schem ;
+      result
+  end
+
+(* Attach activations to subgoal cores built under one bind
+   state: the first stays focused, the rest go inactive.
+   [name_subgoals] keeps driver order. *)
+let build_subgoals sq schem bs cores =
+  build_subgoals_full sq
+    (List.map (fun core -> (core, bs, schem)) cores)
+
+(* Apply *)
+
+type apply_error =
+  | Apply_stmt of stmt_error
+  | Apply_unknown_with_var of id
+  | Apply_type_error of string
+  | Apply_restriction of string
+  | Apply_logic_variable
+  | Apply_rename of rename_hint_error
+  | Apply_tactic_failure of string
+
+let toplevel_bindings stmt =
+  let rec aux = function
+    | Binding (Forall, tids, t) -> tids @ aux t
+    | Binding (Nabla, tids, t) -> tids @ aux t
+    | _ -> []
+  in
+  aux stmt
+
+let type_apply_withs sq stmt ws =
+  List.fold_left
+    (fun acc (id, t) ->
+      match acc with
+      | Result.Error _ as e -> e
+      | Result.Ok typed -> begin
+          match List.assoc_opt id (toplevel_bindings stmt) with
+          | None ->
+              Result.error (Apply_unknown_with_var id)
+          | Some ty -> begin
+              try
+                let t =
+                  type_uterm ~expected_ty:ty ~sr:!sr ~sign:!sign
+                    ~ctx:sq.vars t
+                in
+                warn_term_vars sq t ;
+                Result.ok (typed @ [(id, t)])
+              with
+              | TypeInferenceFailure (exp, act, _) ->
+                  Result.error
+                    (Apply_type_error
+                       (Printf.sprintf "expected %s but got %s"
+                          (ty_to_string exp) (ty_to_string act)))
+              | Failure msg ->
+                  Result.error (Apply_type_error msg)
+            end
+        end)
+    (Result.ok []) ws
+
+let check_no_restrictions term =
+  let rec aux t nested =
+    match t with
+    | Binding (Forall, _, body) -> aux body true
+    | Binding (Nabla, _, body) -> aux body true
+    | Arrow (left, right) ->
+        begin match aux left true with
+        | Result.Error _ as e -> e
+        | Result.Ok () -> aux right true
+        end
+    | Obj (_, Smaller _)
+    | Obj (_, Equal _)
+    | Pred (_, Smaller _)
+    | Pred (_, Equal _) ->
+        if nested then
+          Result.error
+            (Printf.sprintf
+               "Inductive restrictions must not occur \
+                in strict subterms:\n%s"
+               (metaterm_to_string term))
+        else Result.ok ()
+    | Pred (_, CoSmaller _)
+    | Pred (_, CoEqual _) ->
+        Result.error
+          "Co-Inductive restrictions must not be present"
+    | _ -> Result.ok ()
+  in
+  aux term false
+
+let has_logic_variable term =
+  metaterm_vars_alist Logic term <> []
+
+(* Partition obligations into those still needing proof and
+   those discharged by search. Successful searches leave no
+   bindings behind, so all remaining obligations share one
+   bind state. *)
+let partition_obligations sq ?depth obligations =
+  List.fold_left
+    (fun (left, right) g ->
+      match search_goal_witness sq ?depth g WMagic with
+      | Some w -> (left, (g, w) :: right)
+      | None -> (g :: left, right))
+    ([], []) obligations
+  |> fun (left, right) -> (List.rev left, List.rev right)
+
+let apply sq ?depth ?hint ?(term_witness = ignore) h args ws
+    : (sequent list, apply_error) result =
+  warn_clearable sq h ;
+  List.iter (warn_clearable sq) args ;
+  match get_stmt_clearly sq h with
+  | Result.Error e -> Result.error (Apply_stmt e)
+  | Result.Ok (sq, stmt) ->
+      let rec resolve_args sq acc = function
+        | [] -> Result.ok (sq, List.rev acc)
+        | arg :: rest -> begin
+            match get_arg_clearly sq arg with
+            | Result.Error e -> Result.error (Apply_stmt e)
+            | Result.Ok (sq, a) -> resolve_args sq (a :: acc) rest
+          end
+      in
+      begin match resolve_args sq [] args with
+      | Result.Error _ as e -> e
+      | Result.Ok (sq, args) ->
+          let restriction =
+            List.fold_left
+              (fun acc arg ->
+                match acc with
+                | Result.Error _ as e -> e
+                | Result.Ok () -> begin
+                    match arg with
+                    | None -> Result.ok ()
+                    | Some t -> begin
+                        match check_no_restrictions t with
+                        | Result.Error msg ->
+                            Result.error
+                              (Apply_restriction msg)
+                        | Result.Ok () -> Result.ok ()
+                      end
+                  end)
+              (Result.ok ()) args
+          in
+          begin match restriction with
+          | Result.Error _ as e -> e
+          | Result.Ok () -> begin
+              match type_apply_withs sq stmt ws with
+              | Result.Error _ as e -> e
+              | Result.Ok ws ->
+                  map_tactic_failure
+                    (fun msg -> Apply_tactic_failure msg)
+                    (fun () ->
+                      let result, obligations =
+                        Tactics.apply_with ~sr:!sr stmt args ws
+                          ~used:(List.filter is_uninstantiated
+                                   sq.vars)
+                      in
+                      let remaining, witnessed =
+                        partition_obligations sq ?depth
+                          obligations
+                      in
+                      if
+                        List.exists has_logic_variable
+                          obligations
+                      then Result.error Apply_logic_variable
+                      else if has_logic_variable result then
+                        Result.error Apply_logic_variable
+                      else begin
+                        List.iter term_witness witnessed ;
+                        (* Obligation subgoals own the binds from
+                           before [recursive_metaterm_case]:
+                           focusing one restores them, rolling back
+                           any bindings the case analysis performed
+                           (as do [Prover]'s subgoal closures). The
+                           mainline owns the state from after. *)
+                        let schem_ob =
+                          !Term.schematic_instantiations
+                        in
+                        let bs_ob = Term.get_bind_state () in
+                        let subgoal_of_goal g =
+                          { sq with goal = g }
+                        in
+                        let ob_cores =
+                          List.map subgoal_of_goal remaining
+                        in
+                        let mainline =
+                          match
+                            recursive_metaterm_case
+                              ~used:sq.vars ~sr:!sr result
+                          with
+                          | None -> Result.ok []
+                          | Some c ->
+                              let core =
+                                { sq with goal = sq.goal }
+                              in
+                              let core =
+                                List.fold_left
+                                  (fun sq v ->
+                                    add_if_new_var sq v)
+                                  core
+                                  c.stateless_new_vars
+                              in
+                              let core =
+                                add_hyps_with_hint core
+                                  (alt_for_subgoal hint
+                                     (List.length remaining))
+                                  c.stateless_new_hyps
+                              in
+                              begin match
+                                rename_new_vars core
+                                  ?alt:(alt_for_subgoal
+                                          hint
+                                          (List.length
+                                             remaining))
+                                  ~base:sq ()
+                              with
+                              | Result.Error e ->
+                                  Result.error (Apply_rename e)
+                              | Result.Ok core ->
+                                  Result.ok [core]
+                            end
+                        in
+                        begin match mainline with
+                        | Result.Error _ as e -> e
+                        | Result.Ok mainline ->
+                            let schem_main =
+                              !Term.schematic_instantiations
+                            in
+                            let bs_main = Term.get_bind_state () in
+                            build_subgoals_full
+                              ~mainline:(List.length mainline)
+                              sq
+                              ((List.map
+                                  (fun core ->
+                                    (core, bs_ob, schem_ob))
+                                  ob_cores)
+                               @ (List.map
+                                    (fun core ->
+                                      (core, bs_main, schem_main))
+                                    mainline))
+                            |> Result.ok
+                        end
+                      end)
+            end
+          end
+      end
+
+(* Backchain *)
+
+type backchain_error =
+  | Backchain_stmt of stmt_error
+  | Backchain_unknown_with_var of id
+  | Backchain_type_error of string
+  | Backchain_logic_variable
+  | Backchain_tactic_failure of string
+
+let type_backchain_withs sq stmt ws =
+  let bindings = toplevel_bindings stmt in
+  let nctx =
+    List.map term_to_pair (metaterm_support sq.goal)
+  in
+  List.fold_left
+    (fun acc (id, t) ->
+      match acc with
+      | Result.Error _ as e -> e
+      | Result.Ok typed -> begin
+          match List.assoc_opt id bindings with
+          | None ->
+              Result.error (Backchain_unknown_with_var id)
+          | Some ty -> begin
+              try
+                let t =
+                  type_uterm ~expected_ty:ty ~sr:!sr
+                    ~sign:!sign ~ctx:(nctx @ sq.vars) t
+                in
+                warn_term_vars sq t ;
+                Result.ok (typed @ [(id, t)])
+              with
+              | TypeInferenceFailure (exp, act, _) ->
+                  Result.error
+                    (Backchain_type_error
+                       (Printf.sprintf "expected %s but got %s"
+                          (ty_to_string exp)
+                          (ty_to_string act)))
+              | Failure msg ->
+                  Result.error (Backchain_type_error msg)
+            end
+        end)
+    (Result.ok []) ws
+
+let backchain sq ?depth ?(term_witness = ignore) h ws
+    : (sequent list, backchain_error) result =
+  warn_clearable sq h ;
+  match get_stmt_clearly sq h with
+  | Result.Error e -> Result.error (Backchain_stmt e)
+  | Result.Ok (sq, stmt) -> begin
+      match type_backchain_withs sq stmt ws with
+      | Result.Error _ as e -> e
+      | Result.Ok ws ->
+          map_tactic_failure
+            (fun msg -> Backchain_tactic_failure msg)
+            (fun () ->
+              let obligations =
+                Tactics.backchain_with ~sr:!sr stmt ws sq.goal
+              in
+              let remaining, witnessed =
+                partition_obligations sq ?depth obligations
+              in
+              if List.exists has_logic_variable obligations then
+                Result.error Backchain_logic_variable
+              else begin
+                List.iter term_witness witnessed ;
+                let schem = !Term.schematic_instantiations in
+                let bs = Term.get_bind_state () in
+                build_subgoals sq schem bs
+                  (List.map (fun g -> { sq with goal = g })
+                     remaining)
+                |> Result.ok
+              end)
+    end
+
+(* Case analysis *)
+
+type case_error =
+  | Case_stmt of stmt_error
+  | Case_undefined_atom
+  | Case_rename of rename_hint_error
+  | Case_tactic_failure of string
+
+(* Raw case split: resolve (and possibly delete) the
+   statement, then run [Tactics.case], returning the updated
+   sequent alongside the raw cases. Used by [case] and by
+   compute, which manages naming and bind states itself. *)
+let case_raw sq h
+    : ((sequent * Tactics.case list), case_error) result =
+  (* NB: support is computed before resolving (and possibly
+     deleting) the cased statement. *)
+  let global_support =
+    List.flatten_map metaterm_support
+      (List.map (fun h -> h.term) sq.hyps)
+    @ metaterm_support sq.goal
+  in
+  match get_stmt_clearly sq h with
+  | Result.Error e -> Result.error (Case_stmt e)
+  | Result.Ok (sq, term) ->
+      let defs =
+        try Result.ok (def_unfold term)
+        with Failure msg ->
+          if msg = "Cannot perform case-analysis on undefined atom"
+          then Result.error Case_undefined_atom
+          else Result.error (Case_tactic_failure msg)
+      in
+      begin match defs with
+      | Result.Error _ as e -> e
+      | Result.Ok (mutual, defs) ->
+          let state = Term.get_scoped_bind_state () in
+          try
+            Result.ok
+              ( sq,
+                Tactics.case ~used:sq.vars ~sr:!sr
+                  ~clauses:!clauses ~mutual ~defs
+                  ~global_support term )
+          with e -> begin
+            Term.set_scoped_bind_state state ;
+            match tactic_failure_message e with
+            | Some msg -> Result.error (Case_tactic_failure msg)
+            | None -> raise e
+          end
+      end
+
+let case sq ?hint h : (sequent list, case_error) result =
+  warn_clearable sq h ;
+  match case_raw sq h with
+  | Result.Error _ as e -> e
+  | Result.Ok (sq, cases) -> begin
+      let rec build i acc = function
+        | [] -> Result.ok (List.rev acc)
+        | (c : Tactics.case) :: rest ->
+            let core =
+              List.fold_left
+                (fun sq v -> add_if_new_var sq v)
+                sq c.new_vars
+            in
+            let core =
+              add_hyps_with_hint core
+                (alt_for_subgoal hint i)
+                c.new_hyps
+            in
+            begin match
+              rename_new_vars core
+                ?alt:(alt_for_subgoal hint i)
+                ~base:sq ()
+            with
+            | Result.Error e ->
+                Result.error (Case_rename e)
+            | Result.Ok core ->
+                (* Install the case binds for the
+                   dereference-sensitive update below. *)
+                Term.set_bind_state c.bind_state ;
+                let core = update_self_bound_vars core in
+                build (i + 1) ((core, c.bind_state) :: acc)
+                  rest
+            end
+      in
+      begin match build 0 [] cases with
+      | Result.Error _ as e -> e
+      | Result.Ok cores ->
+          let schem = !Term.schematic_instantiations in
+          let named =
+            name_subgoals sq (List.map fst cores)
+          in
+          let bss = List.map snd cores in
+          List.mapi
+            (fun i core ->
+              if i = 0 then
+                { core with active = true ; activate = noop }
+              else
+                let bs = List.nth bss i in
+                { core with
+                  active = false ;
+                  activate =
+                    (fun () ->
+                      Term.set_bind_state bs ;
+                      Term.schematic_instantiations := schem) })
+            named
+          |> Result.ok
+          |> fun r ->
+          begin match cores with
+          | [] -> r
+          | (_, first_bs) :: _ ->
+              Term.set_bind_state first_bs ;
+              Term.schematic_instantiations := schem ;
+              r
+          end
+      end
+    end
+
+(* Assert / monotone share [delay_mainline]: either the
+   detour is searched away (one subgoal) or it is stacked
+   behind the mainline (two subgoals, detour first). *)
+
+(* [delay_mainline] either discharges the detour immediately
+   ([Solved]: an in-place hypothesis addition like other
+   single-result tactics, with no normalization) or stacks
+   the detour in front of the mainline ([Delayed]:
+   branching, normalized on focus). *)
+
+type delayed =
+  | Solved of sequent
+  | Delayed of sequent list
+
+let delay_mainline sq ?hint ?depth new_hyp detour_goal
+    : (delayed, rename_hint_error) result =
+  if depth <> Some 0 && search_goal sq ?depth detour_goal then
+    Result.ok
+      (Solved
+         (keep_active sq
+            (add_hyp_with_hint sq
+               (alt_for_subgoal hint 0) new_hyp)))
+  else
+    let mainline_core =
+      add_hyps_with_hint sq
+        (alt_for_subgoal hint 1) [new_hyp]
+    in
+    begin match
+      rename_new_vars mainline_core
+        ?alt:(alt_for_subgoal hint 1) ~base:sq ()
+    with
+    | Result.Error _ as e -> e
+    | Result.Ok mainline_core ->
+        let idx = sq.next_subgoal_id in
+        let detour_name =
+          if sq.name = "" then string_of_int idx
+          else sq.name ^ "." ^ string_of_int idx
+        in
+        let detour =
+          { { sq with goal = detour_goal } with
+            name = detour_name ; next_subgoal_id = 1 }
+        in
+        let mainline =
+          { mainline_core with next_subgoal_id = idx + 1 }
+        in
+        let schem = !Term.schematic_instantiations in
+        let bs = Term.get_bind_state () in
+        Result.ok
+          (Delayed
+             [{ detour with active = true ; activate = noop } ;
+              { mainline with
+                active = false ;
+                activate =
+                  (fun () ->
+                    Term.set_bind_state bs ;
+                    Term.schematic_instantiations := schem) }])
+    end
+
+type assert_error =
+  | Assert_type_error of string
+  | Assert_rename of rename_hint_error
+
+let assert_hyp sq ?hint ?depth term
+    : (delayed, assert_error) result =
+  let typed =
+    try
+      Result.ok
+        (type_umetaterm ~sr:!sr ~sign:!sign ~ctx:sq.vars term)
+    with
+    | TypeInferenceFailure (exp, act, _) ->
+        Result.error
+          (Assert_type_error
+             (Printf.sprintf "expected %s but got %s"
+                (ty_to_string exp) (ty_to_string act)))
+    | Failure msg -> Result.error (Assert_type_error msg)
+  in
+  match typed with
+  | Result.Error _ as e -> e
+  | Result.Ok t ->
+      warn_metaterm_vars sq t ;
+      delay_mainline sq ?hint ?depth t t
+      |> Result.map_error (fun e -> Assert_rename e)
+
+type monotone_error =
+  | Monotone_stmt of stmt_error
+  | Monotone_not_object
+  | Monotone_type_error of string
+  | Monotone_rename of rename_hint_error
+  | Monotone_tactic_failure of string
+
+let monotone sq ?hint h t
+    : (delayed, monotone_error) result =
+  warn_clearable sq h ;
+  match get_stmt_clearly sq h with
+  | Result.Error e -> Result.error (Monotone_stmt e)
+  | Result.Ok (sq, ht) -> begin
+      match ht with
+      | Obj (obj, r) ->
+          let ntids = metaterm_nominal_tids ht in
+          let ctx =
+            sq.vars
+            @ List.map
+                (fun (id, ty) -> (id, nominal_var id ty))
+                ntids
+          in
+          let typed =
+            try
+              Result.ok
+                (type_uterm ~expected_ty:olistty ~sr:!sr
+                   ~sign:!sign ~ctx t)
+            with
+            | TypeInferenceFailure (exp, act, _) ->
+                Result.error
+                  (Monotone_type_error
+                     (Printf.sprintf "expected %s but got %s"
+                        (ty_to_string exp) (ty_to_string act)))
+            | Failure msg ->
+                Result.error (Monotone_type_error msg)
+          in
+          begin match typed with
+          | Result.Error _ as e -> e
+          | Result.Ok t ->
+              warn_term_vars sq t ;
+              map_tactic_failure
+                (fun msg -> Monotone_tactic_failure msg)
+                (fun () ->
+                  let new_obj =
+                    { obj with context = Context.normalize [t] }
+                  in
+                  delay_mainline sq ?hint
+                    (Obj (new_obj, r))
+                    (Binding
+                       ( Forall,
+                         [("X", oty)],
+                         Arrow
+                           ( member (Term.const "X" oty)
+                               (Context.context_to_term
+                                  obj.context),
+                             member (Term.const "X" oty) t ) ))
+                  |> Result.map_error (fun e ->
+                      Monotone_rename e))
+        end
+      | _ -> Result.error Monotone_not_object
+    end
+
+(* Unfold *)
+
+type unfold_error =
+  | Unfold_tactic_failure of string
+
+let unfold sq clause_sel sol_sel
+    : (sequent list, unfold_error) result =
+  map_tactic_failure
+    (fun msg -> Unfold_tactic_failure msg)
+    (fun () ->
+      let mdefs = def_unfold sq.goal in
+      let goals =
+        Tactics.unfold ~sr:!sr ~used:sq.vars ~mdefs clause_sel
+          sol_sel sq.goal
+        |> List.flatten_map and_to_list
+      in
       let schem = !Term.schematic_instantiations in
-      let tail = List.map (wrap_pending_subgoal schem) !subgoals in
-      subgoals := [] ;
-      capture_current_subgoal () :: tail
-  | exception End_proof (`completed _) ->
-      ensure_no_prop_schematic_instantiation () ;
-      []
+      let bs = Term.get_bind_state () in
+      build_subgoals sq schem bs
+        (List.map (fun g -> { sq with goal = g }) goals)
+      |> Result.ok)
 
-let run_tactic ~resolve ~run_atomic cmd =
-  ensure_focused () ;
-  let saved_subgoals = !subgoals in
-  let saved_bullet_stack = !bullet_stack in
-  subgoals := [] ;
-  bullet_stack := [] ;
-  let resulting_subgoals = eval_tactic ~resolve ~run_atomic cmd in
-  bullet_stack := saved_bullet_stack ;
-  match resulting_subgoals with
-  | [] ->
-      subgoals := saved_subgoals ;
-      next_subgoal ()
+(* Skip (infallible, closes the goal). The [skip_seen] flag
+   lives in [proof_state]; the scheduler sets it when
+   installing this result. *)
+let skip _sq = []
+
+let theorem sq thm = keep_active sq { sq with goal = thm }
+
+(* Saturate: fchain-style forward reasoning. Like the other
+   branching tactics, the result is a subgoal list in driver
+   order, except Or-splits in [release] are expanded eagerly
+   (depth-first, as if focused immediately) since subgoals
+   here are plain values without continuations. A branch that
+   derives [False] contributes nothing, closing its subgoal. *)
+
+exception SaturateSuccess
+
+let is_ground f = metaterm_vars_alist Logic f = []
+
+type saturate_error =
+  | Unknown_saturate_lemma of id
+  | Saturate_rename of rename_hint_error
+  | Saturate_tactic_failure of string
+
+type saturate_case = {
+  sc_binds : Term.bind_state ;
+  sc_schem : Term.tysub ;
+  sc_vars : (id * term) list ;
+  sc_hyps : metaterm list ;
+  sc_ts : int ;
+  sc_index : int ;
+}
+
+type focus_outcome =
+  | NoRelease
+  | Released of saturate_case list
+
+let saturate sq ?hint ?depth lemmas
+    : (sequent list, saturate_error) result =
+  List.iter (warn_hyp_name sq) lemmas ;
+  let focus_lemmas =
+    List.fold_left
+      (fun acc name ->
+        match acc with
+        | Result.Error _ as e -> e
+        | Result.Ok l -> begin
+            match get_hyp_or_lemma sq name with
+            | Result.Error _ ->
+                (* Only [Unknown_stmt] is reachable here:
+                   [tys] default to fresh variables. *)
+                Result.error (Unknown_saturate_lemma name)
+            | Result.Ok form -> Result.ok (l @ [form])
+          end)
+      (Result.ok []) lemmas
+  in
+  match focus_lemmas with
+  | Result.Error _ as e -> e
+  | Result.Ok focus_lemmas ->
+      map_tactic_failure
+        (fun msg -> Saturate_tactic_failure msg)
+        (fun () ->
+          let depth0 =
+            match depth with
+            | None -> List.length lemmas
+            | Some depth -> depth
+          in
+          (* Saturate does not handle nabla, so everything is
+             raised over the global support, computed once. *)
+          let global_support =
+            (List.flatten_map
+               (fun (h : hyp) -> metaterm_support h.term)
+               sq.hyps @
+             metaterm_support sq.goal)
+            |> List.unique ~cmp:eq
+          in
+          let next_index =
+            let index = ref 0 in
+            fun () ->
+              let i = !index in
+              incr index ;
+              i
+          in
+          let rec loop sq depth ts =
+            let sq = clear_duplicates sq in
+            if depth <= 0 then
+              let bs = Term.get_bind_state () in
+              let schem = !Term.schematic_instantiations in
+              Ok [(sq, bs, schem)]
+            else
+              let foci =
+                List.map (normalize ~used:sq.vars) focus_lemmas
+              in
+              try_foci sq foci depth ts
+          and try_foci sq foci depth ts =
+            match foci with
+            | [] ->
+                let bs = Term.get_bind_state () in
+                let schem = !Term.schematic_instantiations in
+                Ok [(sq, bs, schem)]
+            | focus :: rest ->
+                let state = Term.get_scoped_bind_state () in
+                begin match multifocus sq ~ts [] [focus] with
+                | NoRelease ->
+                    Term.set_scoped_bind_state state ;
+                    try_foci sq rest depth ts
+                | Released cases ->
+                    expand_cases sq cases depth
+                end
+          and expand_cases sq cases depth =
+            match cases with
+            | [] -> Ok []
+            | c :: rest ->
+                Term.set_bind_state c.sc_binds ;
+                Term.schematic_instantiations := c.sc_schem ;
+                let alt = alt_for_subgoal hint c.sc_index in
+                let core =
+                  List.fold_left
+                    (fun sq v -> add_if_new_var sq v)
+                    sq c.sc_vars
+                in
+                let core = add_hyps_with_hint core alt c.sc_hyps in
+                begin match rename_new_vars core ?alt ~base:sq () with
+                | Result.Error e ->
+                    Result.error (Saturate_rename e)
+                | Result.Ok core ->
+                    let core = update_self_bound_vars core in
+                    begin match loop core (depth - 1) c.sc_ts with
+                    | Result.Error _ as e -> e
+                    | Result.Ok done1 ->
+                        begin match expand_cases sq rest depth with
+                        | Result.Error _ as e -> e
+                        | Result.Ok donerest ->
+                            Result.ok (done1 @ donerest)
+                        end
+                    end
+                end
+          and multifocus sq ~ts:ts dead live =
+            match live with
+            | [] ->
+                let to_release =
+                  List.rev_filter_map begin fun form ->
+                    if not @@ is_ground form then None else
+                    match
+                      purepos sq ~ts
+                        ~succ:(fun _ts -> raise SaturateSuccess)
+                        form
+                    with
+                    | _ -> Some form
+                    | exception SaturateSuccess -> None
+                  end dead in
+                let num_released = List.length to_release in
+                if num_released = 0 then NoRelease
+                else
+                  Released
+                    (release sq ~ts ~nvs:[] ~nhs:[] to_release)
+            | form :: live -> begin
+                match form with
+                | True -> multifocus sq ~ts:ts dead live
+                | Arrow (f1, f2) ->
+                    let cases = ref [] in
+                    let add_proof _ts =
+                      let f1 =
+                        Metaterm.map_terms Term.deep_copy f1
+                      in
+                      let f2 =
+                        Metaterm.map_terms Term.deep_copy f2
+                      in
+                      if is_ground f1 then
+                        cases := (f1, f2) :: !cases
+                    in
+                    purepos sq ~ts ~succ:add_proof f1 ;
+                    let live =
+                      List.rev_map (fun (_, f2) -> f2) !cases
+                      @ live
+                    in
+                    multifocus sq ~ts:ts dead live
+                | Binding (Forall, vs, form) ->
+                    let ts = ts + 1 in
+                    let alist =
+                      fresh_nameless_alist ~sr:!sr
+                        ~support:global_support ~tag:Logic ~ts vs
+                    in
+                    let form =
+                      replace_metaterm_vars alist form
+                    in
+                    multifocus sq ~ts:ts dead (form :: live)
+                | (False | Eq _ | Binding (Exists, _, _)
+                  | And _ | Or _ | Pred _) ->
+                    multifocus sq ~ts:ts (form :: dead) live
+                | _ ->
+                    multifocus sq ~ts:ts dead live
+              end
+          and purepos sq ~ts ~succ form =
+            match form with
+            | True -> succ ts
+            | False -> ()
+            | Or (f1, f2) ->
+                purepos sq ~ts ~succ f1 ;
+                purepos sq ~ts ~succ f2
+            | And (f1, f2) ->
+                purepos sq ~ts f1
+                  ~succ:(fun ts -> purepos sq ~ts ~succ f2)
+            | Binding (Exists, vs, form) ->
+                let alist =
+                  fresh_nameless_alist ~sr:!sr
+                    ~support:global_support ~tag:Logic ~ts vs
+                in
+                let form = replace_metaterm_vars alist form in
+                purepos sq ~ts ~succ form
+            | Eq (t1, t2) ->
+                unwind_state begin fun () ->
+                  if Unify.try_right_unify t1 t2 then succ ts
+                end ()
+            | Pred (_, cr) ->
+                List.iter ~guard:unwind_state begin fun h ->
+                  match (h : hyp).term with
+                  | Pred (_, hr) ->
+                      if satisfies hr cr then
+                        all_meta_right_permute_unify
+                          ~sc:(fun _ -> succ ts) form h.term
+                  | _ -> ()
+                end
+                  (List.unique
+                     ~cmp:(fun (h1 : hyp) (h2 : hyp) ->
+                       h1.term = h2.term)
+                     sq.hyps)
+            | Arrow _ | Binding _ | Obj _ -> ()
+          and release sq ~ts ~nvs ~nhs forms =
+            match forms with
+            | [] ->
+                let nvs = List.rev nvs in
+                let nhs = List.rev nhs in
+                [{ sc_binds = Term.get_bind_state () ;
+                   sc_schem = !Term.schematic_instantiations ;
+                   sc_vars = nvs ;
+                   sc_hyps = nhs ;
+                   sc_ts = ts ;
+                   sc_index = next_index () }]
+            | form :: forms -> begin
+                match form with
+                | True -> release sq ~ts ~nvs ~nhs forms
+                | False -> []
+                | Or (f1, f2) ->
+                    let state = Term.get_scoped_bind_state () in
+                    let cs1 =
+                      release sq ~ts ~nvs ~nhs (f1 :: forms)
+                    in
+                    Term.set_scoped_bind_state state ;
+                    let cs2 =
+                      release sq ~ts ~nvs ~nhs (f2 :: forms)
+                    in
+                    cs1 @ cs2
+                | And (f1, f2) ->
+                    release sq ~ts ~nvs ~nhs (f1 :: f2 :: forms)
+                | Binding (Exists, vs, form) ->
+                    let (alist, vars) =
+                      fresh_raised_alist ~sr:!sr
+                        ~support:global_support
+                        ~used:(nvs @ sq.vars) ~tag:Eigen vs
+                    in
+                    let nvs =
+                      List.rev_map term_to_pair vars @ nvs
+                    in
+                    let form =
+                      replace_metaterm_vars alist form
+                    in
+                    release sq ~ts ~nvs ~nhs (form :: forms)
+                | Eq (t1, t2) -> begin
+                    match
+                      Unify.try_left_unify_cpairs
+                        ~used:(nvs @ sq.vars) t1 t2
+                    with
+                    | Some cpairs ->
+                        let nhs =
+                          List.map
+                            (fun (t1, t2) -> Eq (t1, t2))
+                            cpairs @ nhs
+                        in
+                        release sq ~ts ~nvs ~nhs forms
+                    | None -> []
+                  end
+                | _ ->
+                    let nhs =
+                      if List.mem form nhs then nhs
+                      else form :: nhs
+                    in
+                    release sq ~ts ~nvs ~nhs forms
+              end
+          in
+          begin match loop sq depth0 0 with
+          | Result.Error _ as e -> e
+          | Result.Ok triples ->
+              Result.ok (build_subgoals_full sq triples)
+          end)
+
+(* Proof state: explicit version of [subgoals],
+   [bullet_stack] and [subgoal_focused].
+   Branching tactics above produce subgoal lists; the
+   scheduler installs them here. *)
+
+type bullet_frame = {
+  bullet : string ;
+  siblings : sequent list ;
+}
+
+type proof_state = {
+  focused : sequent option ;
+  pending : sequent list ;
+  bullets : bullet_frame list ;
+  skip_seen : bool ;
+}
+
+type bullet_error =
+  | Bullet_already_active of string
+  | Wrong_bullet of { expected : string ; got : string }
+  | Unfocused_no_bullets
+  | No_focused_subgoal of string
+
+let start_proof sq =
+  { focused = Some sq ; pending = [] ; bullets = [] ;
+    skip_seen = false }
+
+(* Install tactic results: the first subgoal stays focused,
+   the rest wait behind it (driver order preserved). *)
+let push_subgoals st subs =
+  match subs with
+  | [] -> { st with focused = None }
   | first :: rest ->
-      let extra = activate_subgoal first in
-      bullet_stack := saved_bullet_stack ;
-      subgoals := extra @ rest @ saved_subgoals ;
-      subgoal_focused := true
+      { st with
+        focused = Some (activate_sequent first) ;
+        pending = rest @ st.pending }
+
+let rec next_subgoal st =
+  match st.pending with
+  | [] -> begin
+      match st.bullets with
+      | { siblings = [] ; _ } :: rest ->
+          next_subgoal { st with bullets = rest }
+      | _ :: _ -> { st with focused = None }
+      | [] -> { st with focused = None }
+    end
+  | sq :: rest ->
+      { st with
+        focused = Some (activate_sequent sq) ;
+        pending = rest }
+
+let is_completed st =
+  Option.is_none st.focused
+  && st.pending = []
+  && st.bullets = []
+
+let bullet st b : (proof_state, bullet_error) result =
+  match st.focused with
+  | Some _ ->
+      if List.exists (fun f -> f.bullet = b) st.bullets then
+        Result.error (Bullet_already_active b)
+      else
+        Result.ok
+          { st with
+            bullets = { bullet = b ; siblings = st.pending } :: st.bullets ;
+            pending = [] }
+  | None -> begin
+      match st.bullets with
+      | [] -> Result.error Unfocused_no_bullets
+      | { bullet = expected ; siblings = next :: rest }
+        :: stack_rest ->
+          if b <> expected then
+            Result.error (Wrong_bullet { expected ; got = b })
+          else
+            Result.ok
+              { st with
+                focused = Some (activate_sequent next) ;
+                pending = [] ;
+                bullets =
+                  { bullet = expected ; siblings = rest }
+                  :: stack_rest }
+      | { siblings = [] ; _ } :: _ ->
+          Result.error Unfocused_no_bullets
+    end
+
+(* Error printers *)
+
+let string_of_stmt_error = function
+  | Unknown_stmt s ->
+      Printf.sprintf "Could not find hypothesis or lemma %s" s
+  | Extrude_unknown h ->
+      Printf.sprintf "Cannot extrude unknown hypothesis %s" h
+  | Lemma_arity { name ; expected ; got } ->
+      Printf.sprintf
+        "Lemma %s needs mappings for %d types but got %d"
+        name expected got
+  | Lemma_prop_arg s ->
+      Printf.sprintf "Type argument %s may not contain prop" s
+
+let string_of_rename_hint_error = function
+  | Bad_nominal_hint s ->
+      Printf.sprintf
+        "Hint %S is not a valid nominal constant name; use n<number>"
+        s
+  | Nominal_in_use s ->
+      Printf.sprintf
+        "Nominal hint %S is already free in the subgoal" s
+  | Reserved_nominal_hint s ->
+      Printf.sprintf "Hint %S is reserved for nominal constants" s
+
+let string_of_induction_error = function
+  | Coinductive_goal ->
+      "Induction within coinduction is not allowed"
+  | Arity_mismatch { expected ; got } ->
+      Printf.sprintf "Expecting %d induction arguments but got %d"
+        expected got
+  | Not_inductive s -> s
+  | Bad_induction_target s -> s
+  | Induction_tactic_failure s -> s
+
+let string_of_coinduction_error = function
+  | Inductive_inside ->
+      "Coinduction within induction is not allowed"
+  | Not_coinductive s -> s
+  | Bad_coinduction_target s -> s
+  | Coinduction_tactic_failure s -> s
+
+let string_of_split_error = function
+  | Needless_split -> "Needless use of split"
+
+let string_of_exists_error = function
+  | Not_existential ->
+      "Witness can only be given for an existential goal"
+  | Unresolvable_witness s ->
+      Printf.sprintf "Could not resolve existential witness %s" s
+  | Exists_type_error s -> s
+
+let string_of_clear_error = function
+  | Unknown_label h ->
+      Printf.sprintf "Unknown hypothesis or variable %s" h
+  | Strict_var_in_use h ->
+      Printf.sprintf
+        "Cannot clear strict uninstantiated variable %s" h
+  | Extrude_unknown h ->
+      Printf.sprintf "Cannot extrude unknown hypothesis %s" h
+
+let string_of_rename_error = function
+  | Lemma_clash s ->
+      Printf.sprintf "%S already refers to a lemma" s
+  | Hyp_clash s ->
+      Printf.sprintf
+        "%S already refers to an existing hypothesis" s
+  | Var_clash s ->
+      Printf.sprintf
+        "%S already refers to an existing variable" s
+  | Unknown_rename_label s ->
+      Printf.sprintf "Unknown variable or hypothesis label %S" s
+
+let string_of_permute_error = function
+  | Not_a_permutation -> "Not a permutation"
+  | Unknown_permute_hyp h ->
+      Printf.sprintf "Unknown hypothesis %s" h
+  | Permute_tactic_failure s -> s
+
+let string_of_inst_error = function
+  | Inst_stmt e -> string_of_stmt_error e
+  | Inst_not_object ->
+      "Cannot instantiate this hypothesis\n\
+      \ Instantiation can only be used on hypotheses of the form {...}"
+  | Inst_nominal_not_in_support n ->
+      Printf.sprintf "Nominal constant %s not in support" n
+  | Inst_type_error s -> s
+  | Inst_tactic_failure s -> s
+
+let string_of_cut_error = function
+  | Cut_stmt e -> string_of_stmt_error e
+  | Cut_not_object ->
+      "Cut can only be used on hypotheses of the form {...}"
+  | Cut_tactic_failure s -> s
+
+let string_of_cut_from_error = function
+  | Cut_from_stmt e -> string_of_stmt_error e
+  | Cut_from_not_object ->
+      "The cut command can only be used on \
+       hypotheses of the form {...}"
+  | Cut_from_type_error s -> s
+  | Cut_from_tactic_failure s -> s
+
+let string_of_search_cut_error = function
+  | Search_cut_stmt e -> string_of_stmt_error e
+  | Search_cut_not_object ->
+      "Cut can only be used on hypotheses of the form {... |- ...}"
+  | Search_cut_tactic_failure s -> s
+
+let string_of_search_error = function
+  | Search_failed -> "Search failed"
+  | Search_tactic_failure s -> s
+
+let string_of_apply_error = function
+  | Apply_stmt e -> string_of_stmt_error e
+  | Apply_unknown_with_var id ->
+      Printf.sprintf "Unknown variable %s" id
+  | Apply_type_error s -> s
+  | Apply_restriction s -> s
+  | Apply_logic_variable ->
+      {|Found logic variable at toplevel.
+This usually means that the `search` tactic could not fully solve a goal.
+Note: the `search` tactic may have been invoked implicitly by `apply`,
+`backchain`, etc. with unknown arguments.|}
+  | Apply_rename e -> string_of_rename_hint_error e
+  | Apply_tactic_failure s -> s
+
+let string_of_backchain_error = function
+  | Backchain_stmt e -> string_of_stmt_error e
+  | Backchain_unknown_with_var id ->
+      Printf.sprintf "Unknown variable %s" id
+  | Backchain_type_error s -> s
+  | Backchain_logic_variable ->
+      {|Found logic variable at toplevel.
+This usually means that the `search` tactic could not fully solve a goal.
+Note: the `search` tactic may have been invoked implicitly by `apply`,
+`backchain`, etc. with unknown arguments.|}
+  | Backchain_tactic_failure s -> s
+
+let string_of_case_error = function
+  | Case_stmt e -> string_of_stmt_error e
+  | Case_undefined_atom ->
+      "Cannot perform case-analysis on undefined atom"
+  | Case_rename e -> string_of_rename_hint_error e
+  | Case_tactic_failure s -> s
+
+let string_of_assert_error = function
+  | Assert_type_error s -> s
+  | Assert_rename e -> string_of_rename_hint_error e
+
+let string_of_monotone_error = function
+  | Monotone_stmt e -> string_of_stmt_error e
+  | Monotone_not_object ->
+      "The monotone command can only be used on hypotheses \
+       of the form {...}"
+  | Monotone_type_error s -> s
+  | Monotone_rename e -> string_of_rename_hint_error e
+  | Monotone_tactic_failure s -> s
+
+let string_of_saturate_error = function
+  | Unknown_saturate_lemma h ->
+      Printf.sprintf "Could not find hypothesis or lemma %s" h
+  | Saturate_rename e -> string_of_rename_hint_error e
+  | Saturate_tactic_failure s -> s
+
+let string_of_unfold_error = function
+  | Unfold_tactic_failure s -> s
+let string_of_bullet_error = function
+  | Bullet_already_active b ->
+      Printf.sprintf
+        "Bullet %s is already active in an enclosing subgoal" b
+  | Wrong_bullet { expected ; got } ->
+      Printf.sprintf "Wrong bullet %s: expected %s" got expected
+  | Unfocused_no_bullets ->
+      [%bug] "unfocused subgoal with empty bullet stack"
+  | No_focused_subgoal b ->
+      Printf.sprintf
+        "No focused subgoal. Use bullet %s to focus the next subgoal"
+        b
+
+(* Display and annotations over explicit proof states *)
+
+let separate_strings xs =
+  let __max_len = 30 in
+  let result = ref [] in
+  let emit xs =
+    result := String.concat "," (List.rev xs) :: !result
+  in
+  let rec spin nxs pos = function
+    | [] -> emit nxs
+    | x :: xs ->
+        if pos + String.length x + 1 < __max_len then
+          spin (x :: nxs) (pos + String.length x + 1) xs
+        else begin
+          emit nxs ;
+          spin [x] (String.length x) xs
+        end
+  in
+  spin [] 0 xs ;
+  List.rev !result
+
+let format_typed_vars ff (ty, xs) =
+  let open Format in
+  List.iter
+    begin fun xs ->
+      pp_print_string ff "  " ;
+      pp_print_string ff xs ;
+      pp_print_string ff " : " ;
+      pp_open_box ff 0 ;
+      Term.format_ty ff ty ;
+      pp_close_box ff () ;
+      pp_print_newline ff ()
+    end
+    (separate_strings xs)
+
+let format_vars fmt (sq : sequent) =
+  let open Format in
+  let eigen_vars, inst_vars =
+    List.partition Tactics.is_uninstantiated sq.vars
+  in
+  if eigen_vars <> [] then begin
+    pp_print_string fmt "Variables: " ;
+    if !Metaterm.show_types then begin
+      pp_print_newline fmt () ;
+      eigen_vars
+      |> List.map (fun (x, xtm) -> (Term.tc [] xtm, x))
+      |> List.sort (fun (ty1, _) (ty2, _) -> compare ty1 ty2)
+      |> List.collate_assoc
+      |> List.iter (format_typed_vars fmt)
+    end else begin
+      pp_open_hovbox fmt 0 ;
+      pp_print_string fmt (fst (List.hd eigen_vars)) ;
+      List.iter
+        (fun v ->
+          pp_print_space fmt () ;
+          pp_print_string fmt (fst v))
+        (List.tl eigen_vars) ;
+      pp_close_box fmt () ;
+      pp_print_newline fmt ()
+    end
+  end ;
+  if inst_vars <> [] && !show_instantiations then
+    List.iter
+      begin fun (v, vtm) ->
+        pp_print_string fmt v ;
+        pp_print_string fmt " <-- " ;
+        Term.format_term fmt vtm ;
+        pp_print_newline fmt ()
+      end
+      inst_vars
+
+let format_hyp fmt (h : hyp) =
+  Format.fprintf fmt "%s : " h.id ;
+  begin match h.abbrev with
+  | None -> format_metaterm fmt h.term
+  | Some s -> Format.fprintf fmt "%s" s
+  end ;
+  Format.pp_force_newline fmt ()
+
+let format_hyps fmt (sq : sequent) =
+  let am, hyps =
+    List.fold_left
+      begin fun (am, hs) (h : hyp) ->
+        match h.abbrev with
+        | None -> (am, h :: hs)
+        | Some ab ->
+            let am =
+              match Itab.find ab am with
+              | hs -> Itab.add ab (h.id :: hs) am
+              | exception Not_found -> Itab.add ab [h.id] am
+            in
+            (am, hs)
+      end
+      (Itab.empty, []) sq.hyps
+  in
+  Itab.iter
+    begin fun ab hs ->
+      Format.fprintf fmt "%s : %s@\n"
+        (String.concat "," (List.rev hs)) ab
+    end
+    am ;
+  List.iter (format_hyp fmt) (List.rev hyps)
+
+let format_sequent fmt (sq : sequent) =
+  Format.pp_open_vbox fmt 0 ;
+  format_vars fmt sq ;
+  format_hyps fmt sq ;
+  Format.fprintf fmt "============================@\n " ;
+  format_metaterm fmt sq.goal ;
+  Format.pp_close_box fmt ()
+
+let format_count_other_subgoals fmt n =
+  match n with
+  | 0 -> ()
+  | 1 -> Format.fprintf fmt "1 other subgoal.@\n@\n"
+  | n -> Format.fprintf fmt "%d other subgoals.@\n@\n" n
+
+let format_other_subgoals fmt st =
+  let pristine = State.snapshot () in
+  let budgets = Hashtbl.create 7 in
+  let count = ref 0 in
+  List.iter
+    begin fun (sq : sequent) ->
+      sq.activate () ;
+      let depth = String.count sq.name '.' in
+      let max_goals =
+        match Hashtbl.find_opt budgets depth with
+        | Some n -> n
+        | None ->
+            let n =
+              match subgoal_max_at depth with
+              | Some n -> n
+              | None -> subgoal_max_default ()
+            in
+            Hashtbl.add budgets depth n ;
+            n
+      in
+      if max_goals > 0 then begin
+        Hashtbl.replace budgets depth (max_goals - 1) ;
+        Format.fprintf fmt "@[<1>Subgoal %s%sis:@\n%a@]@\n@\n"
+          sq.name
+          (if sq.name = "" then "" else " ")
+          format_metaterm (Metaterm.normalize sq.goal)
+      end else incr count
+    end
+    st.pending ;
+  format_count_other_subgoals fmt !count ;
+  State.reload pristine
+
+let remaining st =
+  List.fold_left
+    (fun acc f -> acc + List.length f.siblings)
+    0 st.bullets
+
+let format_unfocused st =
+  match st.bullets with
+  | [] ->
+      [%bug] "unfocused proof state with empty bullet stack"
+  | f :: _ ->
+      let n = remaining st in
+      Printf.sprintf
+        "Subgoal completed. Focus next subgoal with bullet %s (%d subgoal%s \
+         remaining)."
+        f.bullet n
+        (if n = 1 then "" else "s")
+
+let get_display st =
+  let buf = Buffer.create 100 in
+  let fmt = Format.formatter_of_buffer buf in
+  begin
+    Format.pp_open_box fmt 0 ;
+    begin match st.focused with
+    | None -> begin
+        match st.bullets with
+        | [] -> Format.fprintf fmt "@\nProof completed.@\n@\n"
+        | _ :: _ -> Format.fprintf fmt "@\n%s@\n@\n" (format_unfocused st)
+      end
+    | Some sq ->
+        if sq.name = "" then Format.fprintf fmt "@\n"
+        else
+          Format.fprintf fmt "Subgoal %s:@\n@\n" sq.name ;
+        format_sequent fmt sq ;
+        Format.fprintf fmt "@\n@\n" ;
+        format_other_subgoals fmt st
+    end ;
+    Format.pp_close_box fmt () ;
+    Format.pp_print_flush fmt ()
+  end ;
+  Buffer.contents buf
+
+let state_json st : Json.t =
+  begin
+    match st.focused with
+    | None ->
+        `Assoc
+          [ "more", `Int (remaining st) ;
+            "goal", `String "" ;
+            "hyps", `List [] ;
+            "vars", `List [] ;
+            "name", `String "" ;
+            "unfocused", `String (format_unfocused st) ]
+    | Some sq ->
+        let vars =
+          List.map
+            begin fun (((v, t) as vt) : id * term) ->
+              `List
+                [ `String v ;
+                  (if Tactics.is_uninstantiated vt then `Null
+                   else `String (term_to_string t)) ]
+            end
+            sq.vars
+        in
+        let hyps =
+          List.map
+            begin fun (h : hyp) ->
+              `List
+                [ `String h.id ;
+                  `String (metaterm_to_string h.term) ]
+            end
+            sq.hyps
+        in
+        let goal = metaterm_to_string sq.goal in
+        `Assoc
+          [ "more", `Int (List.length st.pending) ;
+            "goal", `String goal ;
+            "hyps", `List hyps ;
+            "vars", `List vars ;
+            "name", `String sq.name ]
+  end

@@ -7,8 +7,11 @@
 
 open Extensions
 open Term
+open Typing
 open Metaterm
 open Types
+
+open Result.Syntax
 
 let format_guard ff guard =
   let format_term ff t = Term.format_term ff t in
@@ -120,6 +123,20 @@ let () =
   let test = None in
   make_guard ~head ~test |> add_guard
 
+(* Compute engine over explicit sequents *)
+
+module P = Prover
+
+type compute_error =
+  | Compute_stmt of P.stmt_error
+  | Compute_rename of P.rename_hint_error
+  | Compute_out_of_gas of int
+  | Compute_tactic_failure of string
+
+(* Internal fuel exhaustion; mapped to [Compute_out_of_gas]
+   at the boundary. *)
+exception Out_of_gas
+
 type compute_hyp = {
   clr : clearable ;
   form : metaterm ;
@@ -130,23 +147,6 @@ type compute_wait = {
   chyp : compute_hyp ;
 }
 
-let ch_to_string (ch : compute_hyp) = clearable_to_string ch.clr
-
-let format_ch ff (ch : compute_hyp) =
-  Format.fprintf ff "%s : %a" (clearable_to_string ch.clr) format_metaterm ch.form
-
-let cw_to_string w =
-  Printf.sprintf "<%s>%s"
-    (List.map fst w.vars |> String.concat ", ")
-    (ch_to_string w.chyp)
-
-let pp_print_wait_var ff (v, t) =
-  Format.fprintf ff "%s <- %s" v (term_to_string t)
-
-let get_wait clr form =
-  let vars = get_metaterm_used form in
-  { vars ; chyp = { clr ; form } }
-
 let is_free t =
   match Term.observe t with
   | Var { tag = Eigen ; _ } -> true
@@ -155,47 +155,59 @@ let is_free t =
 let is_unchanged wait =
   List.for_all (fun (_, t) -> is_free t) wait.vars
 
-exception Out_of_gas
-exception Suspended
+let get_wait clr form =
+  let vars = get_metaterm_used form in
+  { vars ; chyp = { clr ; form } }
 
-let compute ?hint ?(gas = 1_000) ?(warn = true) hs =
-  Prover.ensure_focused () ;
-  if warn then List.iter Prover.warn_clearable hs ;
+(* [Prover.case_subgoals] on an explicit sequent. Raises like
+   the original; [compute_case] suspends on [Failure] and
+   [Unify.UnifyFailure] exactly as [Compute] does. *)
+let case_subgoals sq clr =
+  let global_support =
+    List.flatten_map metaterm_support
+      (List.map (fun (h : P.hyp) -> h.P.term) sq.P.hyps)
+    @ metaterm_support sq.P.goal
+  in
+  let sq, term =
+    match P.get_stmt_clearly sq clr with
+    | Ok x -> x
+    | Error _ ->
+        failwith "compute: cannot resolve case statement"
+  in
+  let mutual, defs = Prover.def_unfold term in
+  let state = Term.get_scoped_bind_state () in
+  try
+    ( sq,
+      Tactics.case ~used:sq.P.vars ~sr:!sr
+        ~clauses:!Prover.clauses ~mutual ~defs
+        ~global_support term )
+  with e ->
+    Term.set_scoped_bind_state state ;
+    raise e
+
+let compute sq ?hint ?(gas = 1_000) ?(warn = true) hs =
   let total_gas = gas in
   let gas = ref total_gas in
+  let leaf_count = ref 0 in
+  if warn then List.iter (P.warn_clearable sq) hs ;
   let fresh_compute_hyp =
     let count = ref @@ -1 in
-    fun () -> incr count ; "<#" ^ string_of_int !count ^ ">"
+    fun () ->
+      incr count ;
+      "<#" ^ string_of_int !count ^ ">"
   in
-  let subgoals = ref [] in
-  let base = Prover.copy_sequent () in
-  let rec compute_all ~chs ~wait ~todo =
-    [%trace 2 "compute_all ~chs:[%s] ~wait:[%s] ~todo:[%s]"
-        (List.map ch_to_string chs |> String.concat ",")
-        (List.map cw_to_string wait |> String.concat ",")
-        (List.map ch_to_string todo |> String.concat ",")] ;
+  let base = sq in
+  let rec compute_all sq ~chs ~wait ~todo =
     match todo with
-    | [] ->
-        let sg =
-          let alt = Prover.alt_for_subgoal hint (List.length !subgoals) in
-          List.iter begin fun ch ->
-            [%trace 2 "Renaming: %s" (ch_to_string ch)] ;
-            let stmt = Prover.get_stmt_clearly ch.clr in
-            Prover.add_hyp_with_hint alt stmt
-          end chs ;
-          Prover.rename_new_vars ?alt ~base () ;
-          let state = Term.get_bind_state () in
-          let current_seq = Prover.copy_sequent () in
-          fun () ->
-            Term.set_bind_state state ;
-            Prover.set_sequent current_seq
-        in
-        subgoals := sg :: !subgoals ;
-    | h :: todo ->
-        compute_one ~chs ~wait ~todo h
-  and compute_one ~chs ~wait ~todo (ch : compute_hyp) =
-    let suspend () = compute_all ~chs ~wait:(get_wait ch.clr ch.form :: wait) ~todo in
-    let doit () = compute_case ~chs ~wait ~todo ch in
+    | [] -> finish_branch sq chs
+    | h :: todo -> compute_one sq ~chs ~wait ~todo h
+  and compute_one sq ~chs ~wait ~todo ch =
+    let suspend () =
+      compute_all sq ~chs
+        ~wait:(get_wait ch.clr ch.form :: wait)
+        ~todo
+    in
+    let doit () = compute_case sq ~chs ~wait ~todo ch in
     match ch.form with
     | Binding (Forall, _, _)
     | Arrow _ ->
@@ -210,52 +222,122 @@ let compute ?hint ?(gas = 1_000) ?(warn = true) hs =
         | _ -> doit ()
       end
     | _ -> doit ()
-  and compute_case ~chs ~wait ~todo (ch : compute_hyp) =
+  and compute_case sq ~chs ~wait ~todo ch =
     if !gas <= 0 then raise Out_of_gas ;
-    let saved = Prover.copy_sequent () in
-    match Prover.case_subgoals ch.clr with
+    match case_subgoals sq ch.clr with
     | exception (Failure _ | Unify.UnifyFailure _) ->
-        Prover.set_sequent saved ;
-        compute_all ~chs ~wait:(get_wait ch.clr ch.form :: wait) ~todo
-    | cases ->
-        let chs = List.filter (fun oldch -> oldch.clr <> ch.clr) chs in
-        let saved = Prover.copy_sequent () in
-        List.iter begin fun case ->
-          Prover.set_sequent saved ;
-          [%trace 2 "Case %a" format_ch ch] ;
-          List.iter Prover.add_if_new_var case.Tactics.new_vars ;
-          let hs = List.map (fun h -> Prover.unsafe_add_hyp (fresh_compute_hyp ()) h) case.new_hyps in
-          Term.set_bind_state case.bind_state ;
-          Prover.update_self_bound_vars () ;
-          List.iter begin fun h ->
-            [%trace 2 "Adding: %s : %a" h.Prover.id format_metaterm h.term]
-          end hs ;
-          decr gas ;
-          let (wait, newly_active) = List.partition is_unchanged wait in
-          List.iter begin fun w ->
-            [%trace 2 "Reactivated %s: %a cuz @[<hov0>%a@]"
-                (clearable_to_string w.chyp.clr) format_metaterm w.chyp.form
-                (Format.pp_print_list ~pp_sep:Format.pp_print_commaspace pp_print_wait_var) w.vars]
-          end newly_active ;
-          let new_chs = List.map (fun h -> { clr = Remove (h.Prover.id, []) ; form = h.term }) hs in
-          let chs = List.rev_append new_chs chs in
-          let todo =
-            List.rev_map (fun w -> w.chyp) newly_active
-            @ new_chs @ todo in
-          compute_all ~chs ~wait ~todo
-        end cases
+        compute_all sq ~chs
+          ~wait:(get_wait ch.clr ch.form :: wait)
+          ~todo
+    | sq, cases ->
+        let chs =
+          List.filter (fun oldch -> oldch.clr <> ch.clr) chs
+        in
+        List.fold_left
+          (fun acc case ->
+            match acc with
+            | Result.Error _ as e -> e
+            | Result.Ok subs -> begin
+                match branch sq ch case ~chs ~wait ~todo with
+                | Result.Error _ as e -> e
+                | Result.Ok branch_subs ->
+                    Result.ok (subs @ branch_subs)
+              end)
+          (Result.ok []) cases
+  and branch sq _ch case ~chs ~wait ~todo =
+    let sq, new_chs =
+      List.fold_left
+        (fun (sq, chs) h ->
+          let name = fresh_compute_hyp () in
+          let sq = P.unsafe_add_hyp sq name h in
+          let ch = { clr = Remove (name, []) ; form = h } in
+          (sq, ch :: chs))
+        (sq, []) case.Tactics.new_hyps
+    in
+    let new_chs = List.rev new_chs in
+    let sq =
+      List.fold_left
+        (fun sq v -> P.add_if_new_var sq v)
+        sq case.Tactics.new_vars
+    in
+    (* Install the case bind state before the
+       dereference-sensitive update. *)
+    Term.set_bind_state case.Tactics.bind_state ;
+    let sq = P.update_self_bound_vars sq in
+    decr gas ;
+    let wait, newly_active =
+      List.partition is_unchanged wait
+    in
+    let chs = List.rev_append new_chs chs in
+    let todo =
+      List.rev_map (fun w -> w.chyp) newly_active
+      @ new_chs @ todo
+    in
+    compute_all sq ~chs ~wait ~todo
+  and finish_branch sq chs =
+    let idx = !leaf_count in
+    incr leaf_count ;
+    let alt = Prover.alt_for_subgoal hint idx in
+    let res =
+      List.fold_left
+        (fun acc ch ->
+          match acc with
+          | Result.Error _ as e -> e
+          | Result.Ok sq -> begin
+              match P.get_stmt_clearly sq ch.clr with
+              | Result.Error e ->
+                  Result.error (Compute_stmt e)
+              | Result.Ok (sq, stmt) ->
+                  Result.ok (P.add_hyp_with_hint sq alt stmt)
+            end)
+        (Result.ok sq) chs
+    in
+    match res with
+    | Result.Error _ as e -> e
+    | Result.Ok sq -> begin
+        match P.rename_new_vars sq ?alt ~base () with
+        | Result.Error e -> Result.error (Compute_rename e)
+        | Result.Ok sq ->
+            let bs = Term.get_bind_state () in
+            let schem = !Term.schematic_instantiations in
+            Result.ok [(sq, bs, schem)]
+      end
   in
-  let todo = List.map (fun h -> { clr = h ; form = Prover.get_hyp_or_lemma (Prover.stmt_name h) }) hs in
-  match compute_all ~chs:[] ~wait:[] ~todo with
-  | exception Out_of_gas ->
-      failwithf "Compute ran out of gas (given %d) -- looping?" total_gas
-  | _ ->
-      Prover.add_subgoals @@ List.rev !subgoals ;
-      Prover.next_subgoal ()
+  let todo =
+    let+ rev_todo =
+      List.fold_left
+        (fun acc h ->
+          let* l = acc in
+          let+ form =
+            P.get_hyp_or_lemma sq (Prover.stmt_name h)
+            |> Result.map_error (fun e -> Compute_stmt e)
+          in
+          ({ clr = h ; form } :: l))
+        (Result.ok []) hs
+    in
+    List.rev rev_todo
+  in
+  try
+    P.map_tactic_failure
+      (fun msg -> Compute_tactic_failure msg)
+      (fun () ->
+        match todo with
+        | Result.Error _ as e -> e
+        | Result.Ok todo -> begin
+            match compute_all sq ~chs:[] ~wait:[] ~todo with
+            | Result.Error _ as e -> e
+            | Result.Ok triples ->
+                Result.ok (P.build_subgoals_full base triples)
+          end)
+  with Out_of_gas ->
+    Result.error (Compute_out_of_gas total_gas)
 
-let compute_all ?hint ?gas clr =
-  Prover.ensure_focused () ;
-  let hs = List.map begin fun (h : Prover.hyp) ->
-      if clr = `CLEAR then Remove (h.id, []) else Keep (h.id, [])
-    end Prover.sequent.hyps in
-  compute ~warn:false ?hint ?gas hs
+let compute_all sq ?hint ?gas clr =
+  let hs =
+    List.map
+      (fun (h : P.hyp) ->
+        if clr = `CLEAR then Remove (h.P.id, [])
+        else Keep (h.P.id, []))
+      sq.P.hyps
+  in
+  compute sq ?hint ?gas ~warn:false hs

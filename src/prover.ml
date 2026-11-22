@@ -2206,5 +2206,6 @@ let run_tactic ~resolve ~run_atomic cmd =
       next_subgoal ()
   | first :: rest ->
       let extra = activate_subgoal first in
+      bullet_stack := saved_bullet_stack ;
       subgoals := extra @ rest @ saved_subgoals ;
       subgoal_focused := true

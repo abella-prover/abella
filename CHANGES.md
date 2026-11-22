@@ -183,6 +183,10 @@ Bugfixes
   `Theorem`/`Query` and specification-logic clauses behavior. Nominals
   in the head and body are elaborated as separate constants, so e.g.
   `p2 n1 := p1 n1` may give the two `n1`s different types. (#172)
+* Splitting a bullet's tactics across `.` commands no longer drops
+  pending bullet siblings, which could falsely complete a proof.
+  ***SOUNDNESS BUG***
+  (#174)
 
 
 Changes in 2.0.8 from 2.0.7

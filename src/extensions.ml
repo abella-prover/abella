@@ -69,15 +69,18 @@ module Result = struct
     try Ok (fn x y z) with exn -> Error exn
   let wrap4 fn x y z w =
     try Ok (fn x y z w) with exn -> Error exn
-  let return = ok
-  exception UnknownError
-  let fail = error UnknownError
-  let ( let* ) = bind
-  let ( and* ) r1 r2 =
-    match r1, r2 with
-    | Ok x, Ok y -> Ok (x, y)
-    | Error e, _
-    | _, Error e -> Error e
+  module Syntax = struct
+    (* This module is already present in OCaml 5.4.0+, so
+     * remove this shim when the ocaml minimum changes for Abella. *)
+    let ( let* ) x f = bind x f
+    let ( let+ ) x f = map f x
+    let ( and* ) r1 r2 =
+      match r1, r2 with
+      | Ok x, Ok y -> Ok (x, y)
+      | Error e, _
+      | _, Error e -> Error e
+    let ( and+ ) = ( and* )
+  end
 end
 
 module String = struct

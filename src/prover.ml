@@ -212,16 +212,7 @@ let fresh_hyp_name base =
   end else
     fresh_name base (List.map (fun h -> (h.id, ())) sequent.hyps)
 
-(* let normalize mt = *)
-(*   let before = metaterm_to_string mt in *)
-(*   Printf.fprintf stderr "normalizing\n%s\n%!" before ; *)
-(*   let mt = normalize mt in *)
-(*   let after = metaterm_to_string mt in *)
-(*   Printf.fprintf stderr "normalized form\n%s\n%!" after ; *)
-(*   mt *)
-
 let normalize_sequent () =
-  (* Printf.fprintf stderr "Normalizing Sequent %s\n%!" sequent.name ; *)
   sequent.goal <- normalize sequent.goal ;
   sequent.hyps <-
     sequent.hyps |> List.map (fun h -> { h with term = normalize h.term })
@@ -244,9 +235,6 @@ let add_defs
     if H.mem defs_table id then
       failwithf "Predicate %s has already been defined" id ;
   end preds ;
-  (* List.iter begin fun (head, body) -> *)
-  (*   Format.eprintf "%a := %a@." format_metaterm head format_metaterm body *)
-  (* end defs ; *)
   let mutual = List.fold_left begin fun mutual (id, ty) ->
       Itab.add id ty mutual
     end Itab.empty preds in
@@ -326,46 +314,6 @@ let clause_head_name cl =
   | Binding (Nabla, _, Pred (p, _)) | Pred (p, _) ->
       term_head_name p
   | _ -> [%bug] "Clause head name for invalid clause: %s" (metaterm_to_string cl.head)
-
-(* let rec app_ty tymap = function
- *   | Ty (args, res) ->
- *       let args = List.map (app_ty tymap) args in
- *       let res = try Itab.find res tymap with Not_found -> tybase res in
- *       tyarrow args res *)
-
-(* let instantiate_clauses_aux =
- *   let fn (pn, ty_acts) def =
- *     let Ty (ty_exps, _) = Itab.find pn def.mutual in
- *     let ty_fresh = List.fold_left begin fun fresh_sub tyvar ->
- *         let tv = Term.fresh_tyvar () in
- *         Itab.add tyvar tv fresh_sub
- *       end Itab.empty def.typarams in
- *     let ty_exps = List.map (app_ty ty_fresh) ty_exps in
- *     let eqns = List.map2 begin fun ty_exp ty_act ->
- *         (ty_exp, ty_act, (ghost, CArg))
- *       end ty_exps ty_acts in
- *     let tysol = unify_constraints eqns in
- *     let tymap = List.fold_left begin fun tymap tyv ->
- *         try begin
- *           let Ty (_, tyf) = Itab.find tyv ty_fresh in
- *           Itab.add tyv (List.assoc tyf tysol) tymap
- *         end with Not_found -> tymap
- *       end Itab.empty def.typarams in
- *     (\* Itab.iter begin fun v ty -> *\)
- *     (\*   Format.eprintf "instantiating: %s <- %s@." v (ty_to_string ty) *\)
- *     (\* end tymap ; *\)
- *     List.map begin fun cl ->
- *       if clause_head_name cl = pn then
- *         {head = map_on_tys (app_ty tymap) cl.head ;
- *          body = map_on_tys (app_ty tymap) cl.body}
- *       else cl
- *     end def.clauses
- *   in
- *   memoize fn *)
-
-(* let instantiate_clauses pn def args =
- *   let ty_acts = List.map (tc []) args in
- *   instantiate_clauses_aux (pn, ty_acts) def *)
 
 let instantiate_pred_types tysub (tbl: ty Itab.t) : ty Itab.t =
   let res = ref Itab.empty in
@@ -525,7 +473,6 @@ let set_subgoal_max ndps =
   let smax_map = List.fold_left begin
       fun smax_map (dp, n) ->
         let n = Option.value ~default:max_int n in
-        (* Printf.printf "Max subgoals at depth %d: %d\n%!" dp n ; *)
         IntMap.add dp n smax_map
     end smax.smax_map ndps in
   subgoal_max := { smax with smax_map }
@@ -539,7 +486,6 @@ let format_other_subgoals fmt =
     set_state () ;
     let goal_depth = String.count sequent.name '.' in
     let max_goals =  try IntMap.find goal_depth !smax_map with Not_found -> smax.smax_default in
-    (* Printf.printf "Showing %d goals at depth %d\n%!" max_goals goal_depth ; *)
     if max_goals > 0 then begin
       smax_map := IntMap.add goal_depth (max_goals - 1) !smax_map ;
       fprintf fmt "@[<1>Subgoal %s%sis:@\n%a@]@\n@\n"
@@ -1224,18 +1170,12 @@ let type_apply_withs stmt ws =
 
 let partition_obligations ?depth obligations =
   List.partition_map begin fun g ->
-    (* Format.eprintf "before search:@.%a@." *)
-    (*   format_sequent_with_goal g ; *)
     let wit = search_goal_witness ?depth g WMagic in
     ensure_no_logic_variable g ;
     match wit with
     | None ->
-        (* Format.eprintf "after search/failure:@.%a@." *)
-        (*   format_sequent_with_goal g ; *)
         Either.Left g
     | Some w ->
-        (* Format.eprintf "after search/success:@.%a@." *)
-        (*   format_sequent_with_goal g ; *)
         Either.Right (g, w)
   end obligations
 
@@ -1588,18 +1528,6 @@ let multiarrow arrows body =
   in
   aux arrows
 
-(*
-(* [#161] This check does not appear to be logically justified *)
-let ensure_no_renaming vars terms =
-  let conflicts =
-    List.intersect
-      vars
-      (List.map fst (all_tids (List.flatten_map collect_terms terms)))
-  in
-  if conflicts <> [] then
-    bugf "Variable renaming required"
-*)
-
 let split_theorem (tys, thm) =
   let foralls, nablas, body = decompose_forall_nabla thm in
   let arrows, conj = decompose_arrow body in
@@ -1613,9 +1541,6 @@ let split_theorem (tys, thm) =
     in
     let iforalls = List.map (fun x -> (term_to_name x, tc [] x)) iforall_vars in
     let ibody = replace_metaterm_vars alist ibody in
-    (* [#161] This prevents things like: forall x, (forall x, p x) -> p x *)
-    (*        even though they can be manually stated as new theorems *)
-    (* ensure_no_renaming (List.map fst (iforalls @ inablas)) arrows ; *)
     let thm = forall (foralls @ iforalls)
         (nabla (nablas @ inablas)
            (multiarrow arrows ibody)) in

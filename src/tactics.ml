@@ -69,9 +69,7 @@ let fresh_nameless_alist ~sr ~support ~tag ~ts tids =
   (* let ntys = List.map (tc []) support in *)
   List.map
     (fun (x, ty) ->
-       (* Format.eprintf "unraised_ty(%s): %s@." x (ty_to_string ty) ; *)
        let (ty, args) = raise_type ~sr support ty in
-       (* Format.eprintf "raised_ty(%s): %s@." x (ty_to_string ty) ; *)
        (x, app (fresh ~tag ts ty) args))
     tids
 
@@ -946,7 +944,6 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
   in
 
   let rec clause_aux n context foci goal r ts ~sc ~witness =
-    (* Printf.eprintf "clause_aux: %s\n%!" (witness_to_string witness) ; *)
     let support = term_list_support (goal :: context) in
     let freshen_clause (i, cl) =
       let (vars, head, body) = freshen_nameless_clause ~sr ~support ~ts cl in
@@ -993,9 +990,6 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     end
 
   and async_obj_aux n hyps goal r ts ~sc ~witness =
-    (* Printf.eprintf "async_obj_aux[%d]: %s\n%s\n%!" n *)
-    (*   (Pretty.print_string (Metaterm.pretty_obj goal)) *)
-    (*   (witness_to_string witness) ; *)
     normalize_obj ~parity:true ~bindstack:[] goal |>
     List.iter begin fun goal ->
       (* Check hyps for derivability *)
@@ -1030,9 +1024,6 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     end
 
   and sync_obj_aux n hyps goal r ts ~sc ~witness =
-    (* Printf.eprintf "sync_obj_aux[%d]: %s\n%s\n%!" n *)
-    (*   (Pretty.print_string (Metaterm.pretty_obj goal)) *)
-    (*   (witness_to_string witness) ; *)
     normalize_obj ~parity:true ~bindstack:[] goal |>
     List.iter begin fun goal ->
       let focus = match goal.mode with
@@ -1079,8 +1070,6 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
       end
 
   and metaterm_aux n hyps goal ts ~sc ~witness =
-    (* Printf.eprintf "metaterm_aux[%d]: %s\n%!  -- %s\n%!" n *)
-    (*   (witness_to_string witness) (metaterm_to_string goal) ; *)
     let goal = normalize goal in
     let () =
       hyps |>
@@ -1158,23 +1147,16 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
             end
         in
         let rec walk_args ~vars ~hyps ~witness ~istriv f =
-          (* Printf.eprintf " walk_args:\n%!  -- %s |-- %s\n%!" *)
-          (*   (hyps |> *)
-          (*    List.map (fun (hn, f) -> Printf.sprintf "%s: %s" hn (metaterm_to_string f)) |> *)
-          (*    String.concat " ; ") *)
-          (*   (metaterm_to_string f) ; *)
           match f with
           | Arrow (f, g) -> begin
               match recursive_metaterm_case ~used:vars ~sr f with
               | Some case ->
-                  (* Printf.eprintf "   Some\n%!" ; *)
                   let (hargs, witness) = peel_witness case.stateless_new_hyps witness in
                   walk_args g
                     ~vars:(case.stateless_new_vars @ vars)
                     ~hyps:(List.rev_append hargs hyps)
                     ~istriv ~witness
               | None ->
-                  (* Printf.eprintf "   None\n%!" ; *)
                   let (hargs, witness) = peel_witness [False] witness in
                   walk_args g
                     ~vars
@@ -1251,7 +1233,6 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
     | Pred(p, r)  -> if n > 0 then def_aux n hyps p r ts ~sc ~witness
 
   and def_aux n hyps goal r ts ~sc ~witness =
-    (* Printf.eprintf "def_aux: %s\n%!" (witness_to_string witness) ; *)
     let p = term_head_name goal in
     try begin
       let mdefs = def_unfold (Pred (goal, r)) in
@@ -1308,9 +1289,6 @@ let some_term_to_restriction t =
   | Some t -> term_to_restriction t
 
 let apply_arrow term args =
-  (* [%trace 2 "@[<v0>apply_arrow@,term = %a@,args = @[<v0>%a@]@]" *)
-  (*     format_metaterm term *)
-  (*     Format.(pp_print_list (pp_print_option format_metaterm)) args ] ; *)
   let () = check_restrictions
       (map_args term_to_restriction term)
       (List.map some_term_to_restriction args)

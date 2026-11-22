@@ -101,7 +101,6 @@ module Undo = struct
   let enabled = ref true
 
   let set_enabled en =
-    (* Printf.eprintf "Undos are %senabled.\n%!" (if en then "" else "NOT ") ; *)
     enabled := en
 
   let is_enabled () = !enabled
@@ -109,7 +108,6 @@ module Undo = struct
   let stack : snap list ref = ref []
 
   let describe _msg =
-    (* Printf.eprintf "AFTER(%s) : %d\n%!" msg (List.length !stack) ; *)
     ()
 
   let reset () =

@@ -637,35 +637,6 @@ let replace_metaterm_vars ?tag alist t =
   in
     aux top_free_unchanged_vars alist t
 
-(* let rec replace_metaterm_vars alist t = *)
-(*   let top_used = get_metaterm_used t *)
-(*                  @ get_metaterm_used_nominals t *)
-(*                  @ find_free_constants t *)
-(*   in *)
-(*   let term_aux alist = replace_term_vars alist in *)
-(*   let rec aux alist t = *)
-(*     match t with *)
-(*       | True | False -> t *)
-(*       | Eq(a, b) -> Eq(term_aux alist a, term_aux alist b) *)
-(*       | Obj(obj, r) -> Obj(map_obj (term_aux alist) obj, r) *)
-(*       | Arrow(a, b) -> Arrow(aux alist a, aux alist b) *)
-(*       | Binding(binder, bindings, body) -> *)
-(*           let alist = List.remove_assocs (List.map fst bindings) alist in *)
-(*           let used = (get_used (List.map snd alist)) @ top_used in *)
-(*           let bindings_alist = fresh_alist ~tag:Constant ~used bindings in *)
-(*           let bindings' = *)
-(*             List.map (fun (_, t) -> let v = term_to_var t in (v.name, v.ty)) *)
-(*               bindings_alist *)
-(*           in *)
-(*             Binding(binder, *)
-(*                     bindings', *)
-(*                     aux (alist @ bindings_alist) body) *)
-(*       | Or(a, b) -> Or(aux alist a, aux alist b) *)
-(*       | And(a, b) -> And(aux alist a, aux alist b) *)
-(*       | Pred(p, r) -> Pred(term_aux alist p, r) *)
-(*   in *)
-(*     aux alist t *)
-
 let map_term_list f t = List.map f (collect_terms t)
 
 let fresh_nominals_by_list tys used_names =
@@ -732,9 +703,6 @@ let normalize_binders ?(used = []) form =
               if List.mem_assoc v used then begin
                 let (fv, used) = fresh_wrt ~ts:0 Constant v ty used in
                 let rens = (v, fv) :: rens in
-                (* Printf.fprintf stderr "Freshened %s to %s [used = %s]\n%!" *)
-                (*   v (term_to_name fv) *)
-                (*   (String.concat "," (List.map fst used)) ; *)
                 let bvars = (term_to_name fv, ty) :: bvars in
                 (rens, used, bvars)
               end else begin
@@ -745,9 +713,6 @@ let normalize_binders ?(used = []) form =
           end (rens, used, []) bvars
         in
         let bvars = List.rev rev_bvars in
-        (* Printf.fprintf stderr "Descended under: %s; used = %s\n%!" *)
-        (*   (String.concat "," (List.map fst bvars)) *)
-        (*   (String.concat "," (List.map fst used)) ; *)
         binding binder bvars (aux rens used body)
   in
   let used = get_metaterm_used form
@@ -824,9 +789,6 @@ let make_nabla_alist tids body =
 open Unify
 
 let rec meta_right_unify t1 t2 =
-  (* [%trace 2 "@[<v0>meta_right_unify@,t1 = %a@,t2 = %a@]" *)
-  (*     format_metaterm t1 *)
-  (*     format_metaterm t2] ; *)
   match t1, t2 with
     | True, True -> ()
     | False, False -> ()

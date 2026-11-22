@@ -63,21 +63,6 @@ let query (graph, closed) a b =
   not (ty_no_tyvar a) || not (ty_no_tyvar b) ||
   not (List.mem ~cmp:eq_aty (head b) closed) || Graph.is_path graph (head a) (head b)
 
-(* let replace_tyvars_for_params ty =
- *   let typarams = get_tycstr (fun s -> is_capital_name s || is_gen_tyvar s) ty in
- *   let tysub = List.map (fun p -> (p, fresh_tyvar ())) typarams in
- *   apply_sub_ty tysub ty *)
-
-(* let rec mark_gen_tyvar gen_tyvars ty =
- *   let aux = mark_gen_tyvar gen_tyvars in
- *   match ty with
- *   | Ty (tys, AtmTy(cty, args)) ->
- *      let tys' = List.map aux tys in
- *      let args' = List.map aux args in
- *      let cty' = if List.mem cty gen_tyvars
- *        then tag_gen_tyvar cty else cty in
- *      Ty (tys', AtmTy(cty', args')) *)
-
 (* check that the arc does not extend the existing subordination relation *)
 let check_no_sr_extension graph closed a b =
   (* A variable target carries no subordination information; skip it.
@@ -96,23 +81,12 @@ let check_no_sr_extension graph closed a b =
   end closed
   end
 
-(* let not_prop_type aty =
- *   not (aty = oaty || aty = propaty || aty = olistaty)
- *
- * let check_typarams a b =
- *   if not (List.minus (ty_gentyvars (tybase a))
- *                      (ty_gentyvars (tybase b)) = [])
- *      && not_prop_type b then
- *    failwithf "Some type variable in the source type %s does not occur in the \
- *               target type %s" (aty_to_string a) (aty_to_string b) *)
-
 let add (graph, closed) a b =
   check_no_tyvar a;
   check_no_tyvar b;
   (* Arcs with a variable target carry no subordination information
      and would only poison predecessor queries, so skip them. *)
   if aty_is_var b then (graph, closed) else begin
-  (* check_typarams a b; *)
   check_no_sr_extension graph closed a b;
   (Graph.add_arc graph a b, closed)
   end

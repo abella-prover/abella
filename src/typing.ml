@@ -299,14 +299,6 @@ let pervasive_sr =
 
 (** Typing for terms *)
 
-(* type expected = ty
- * type actual = ty
- * (\* A constraint contains the position of the 'actual' type *\)
- * type constraint_type = CFun | CArg
- * type constraint_info = pos * constraint_type
- * type constraints = (expected * actual * constraint_info) list
- * exception TypeInferenceFailure of constraint_info * expected * actual *)
-
 let infer_type_and_constraints ~sign tyctx t =
   let eqns = ref [] in
   let add_constraint expected actual pos =
@@ -351,13 +343,6 @@ let constraints_to_string eqns =
     (ty_to_string ty1) ^ " = " ^ (ty_to_string ty2)
   in
   String.concat "\n" (List.map aux eqns)
-
-(* let occurs v ty =
- *   let rec aux = function
- *     | Ty(tys, bty) when bty = v -> true
- *     | Ty(tys, _) -> List.exists aux tys
- *   in
- *   aux ty *)
 
 let contains_tyvar ty =
   let rec aux ty =
@@ -414,47 +399,6 @@ let metaterm_ensure_fully_inferred ~sign t =
         term_ensure_fully_inferred ~sign p
   in
   aux t
-
-(* let apply_bind_constraints v ty eqns =
- *   List.map (fun (x,y) -> (apply_bind_ty v ty x, apply_bind_ty v ty y)) eqns
- *
- * let apply_bind_sub v ty sub =
- *   List.map (fun (x,y) -> (x, apply_bind_ty v ty y)) sub
- *
- * let unify_constraints eqns =
- *   let add_sub v vty s =
- *     (v, vty) :: (apply_bind_sub v vty s)
- *   in
- *
- *   (\* Unify a single constraint and call fail on failure *\)
- *   let rec aux s (ty1, ty2) fail =
- *     let ty1 = apply_sub_ty s ty1 in
- *     let ty2 = apply_sub_ty s ty2 in
- *     match ty1, ty2 with
- *     | _, _ when ty1 = ty2 -> s
- *     | Ty([], bty1), _ when is_tyvar bty1 ->
- *         if occurs bty1 ty2 then
- *           fail s
- *         else
- *           add_sub bty1 ty2 s
- *     | _, Ty([], bty2) when is_tyvar bty2 ->
- *         if occurs bty2 ty1 then
- *           fail s
- *         else
- *           add_sub bty2 ty1 s
- *     | Ty(ty1::tys1, bty1), Ty(ty2::tys2, bty2) ->
- *         let s = aux s (ty1, ty2) fail in
- *         aux s (Ty(tys1, bty1), Ty(tys2, bty2)) fail
- *     | ty1, ty2 -> fail s
- *   in
- *
- *   let unify_single_constraint s (ty1, ty2, p) =
- *     aux s (ty1, ty2)
- *       (fun s -> raise (TypeInferenceFailure(p, apply_sub_ty s ty1,
- *                                             apply_sub_ty s ty2)))
- *   in
- *
- *   List.fold_left unify_single_constraint [] eqns *)
 
 let uterms_extract_if test ts =
   let rec aux t =
@@ -573,8 +517,6 @@ let replace_underscores head body =
 let clause_map : (string list * term) Itab.t ref = State.rref Itab.empty
 let seen_name cname = Itab.mem cname !clause_map
 let register_clause name clause =
-  (* Printf.printf "Note: registered %S : %s\n%!" name *)
-  (*   (Term.term_to_string clause) ; *)
   clause_map := Itab.add name clause !clause_map
 let lookup_clause cname =
   if seen_name cname

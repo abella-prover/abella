@@ -196,6 +196,13 @@
 
 %right CONS
 
+/* RPAREN level exists only to silence the benign overlap between
+   term-level `( t )` and metaterm-level `( m )`: every term is also
+   a metaterm via `term restriction` with empty restriction, so
+   `( t )` shifts RPAREN (term parens) instead of reducing the empty
+   restriction first; both parses build the same AST. */
+%right RPAREN
+
 /* Higher */
 
 
@@ -806,7 +813,7 @@ plus_count:
   | b=PLUSES { String.length b }
 
 restriction:
-  | { Metaterm.Irrelevant }
+  | { Metaterm.Irrelevant } %prec RPAREN
   | ns=nonempty_list(star_count)
     { Metaterm.Smaller (List.fold_left (+) 0 ns) }
   | rs=nonempty_list(AT {()})

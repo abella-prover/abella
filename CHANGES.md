@@ -28,6 +28,12 @@ Tacticals
 * `try tac` runs `tac` and keeps the current goal unchanged when
   `tac` fails, rolling back partial progress from compound tactics
   such as `try (split ; search)`.
+* `tac1 || tac2` runs `tac1` and, only if it fails, runs `tac2`
+  instead, rolling back anything `tac1` did.
+  As in Rocq, `||` binds tighter than `;` and also tighter than
+  the `try`/`repeat` prefixes, so `try tac1 || tac2` means
+  `try (tac1 || tac2)`. Write `(try tac1) || tac2` for the
+  other grouping.
 * `repeat tac` (or `repeat n tac` for at most `n` iterations) runs
   `tac` on all resulting subgoals until it fails or stops making
   progress.

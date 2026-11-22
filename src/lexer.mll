@@ -130,6 +130,7 @@ rule token = parse
 
 | "=>"               { IMP }
 | "<="               { IF }
+| "||"               { OROR }
 | "&"                { AMP }
 | ":-"               { CLAUSEEQ }
 | ":="               { DEFEQ }

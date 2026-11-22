@@ -508,6 +508,8 @@ let rec resolve_command ~is_hyp cmd =
       Try (resolve_command ~is_hyp c)
   | Then (c1, c2) ->
       Then (resolve_command ~is_hyp c1, resolve_command ~is_hyp c2)
+  | Alt (c1, c2) ->
+      Alt (resolve_command ~is_hyp c1, resolve_command ~is_hyp c2)
   | Repeat (n, c) ->
       Repeat (n, resolve_command ~is_hyp c)
   | Abort ->

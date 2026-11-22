@@ -215,6 +215,7 @@ type command =
   | Skip
   | Try          of command
   | Then         of command * command
+  | Alt          of command * command
   | Repeat       of int option * command
   | Bullet       of string
   | Abort
@@ -557,21 +558,35 @@ let rec command_to_string c =
         if hint = "" then "intros" else "intros " ^ hint
     | Skip -> "skip"
     | Try c ->
-        sprintf "try %s" (prefix_command_to_string c)
+        sprintf "try %s" (alt_command_to_string c)
     | Repeat (None, c) ->
-        sprintf "repeat %s" (prefix_command_to_string c)
+        sprintf "repeat %s" (alt_command_to_string c)
     | Repeat (Some n, c) ->
-        sprintf "repeat %d %s" n (prefix_command_to_string c)
+        sprintf "repeat %d %s" n (alt_command_to_string c)
     | Then (c1, c2) ->
         sprintf "%s ; %s"
-          (prefix_command_to_string c1)
+          (alt_command_to_string c1)
           (command_to_string c2)
+    | Alt (c1, c2) ->
+        sprintf "%s || %s"
+          (prefix_command_to_string c1)
+          (alt_command_to_string c2)
     | Bullet b -> b
     | Abort -> "abort"
     | Undo -> "undo"
     | Common(cc) -> common_command_to_string cc
 
-and prefix_command_to_string c =
+and alt_command_to_string c =
   match c with
   | Then _ -> "(" ^ command_to_string c ^ ")"
+  | Alt (c1, c2) ->
+      sprintf "%s || %s"
+        (prefix_command_to_string c1)
+        (alt_command_to_string c2)
+  | _ -> command_to_string c
+
+and prefix_command_to_string c =
+  match c with
+  | Then _ | Alt _ | Try _ | Repeat _ ->
+      "(" ^ command_to_string c ^ ")"
   | _ -> command_to_string c

@@ -437,7 +437,7 @@ let refresh_command_tyvars cmd =
     | Abbrev _ | Unabbrev _ | Rename _ | Permute _ | Search _ | Split
     | SplitStar | Left | Right | Intros _ | Unfold _ | Saturate _
     | Skip | Bullet _ | Abort | Undo | Common _ | Try _ | Then _
-    | Repeat _ ) as cmd -> cmd
+    | Alt _ | Repeat _ ) as cmd -> cmd
 
 (* Immutable sequents and tactics *)
 

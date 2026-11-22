@@ -174,7 +174,7 @@
 
 /* Symbols, operators, and punctuation */
 %token AMP AND AT BANG BAR BSLASH CARET CLAUSEEQ COLON COMMA CONS DEFEQ
-%token DOT EQ HASH IF IMP LBRACE LBRACK LPAREN OR PLUS RARROW RBRACE
+%token DOT EQ HASH IF IMP LBRACE LBRACK LPAREN OR OROR PLUS RARROW RBRACE
 %token RBRACK RPAREN SEMICOLON STAR TURN UNDERSCORE
 
 %token <int> NUM
@@ -576,16 +576,26 @@ pure_command:
     { Types.Undo }
 
 tactic:
-  | t1=prefix_tactic; SEMICOLON; t2=tactic
+  | t1=stage_tactic; SEMICOLON; t2=tactic
     { Types.Then(t1, t2) }
+  | t=stage_tactic
+    { t }
+
+stage_tactic:
+  | TRY; t=stage_tactic
+    { Types.Try(t) }
+  | REPEAT; n=option(NUM); t=stage_tactic
+    { Types.Repeat(n, t) }
+  | t=or_tactic
+    { t }
+
+or_tactic:
+  | t1=prefix_tactic; OROR; t2=or_tactic
+    { Types.Alt(t1, t2) }
   | t=prefix_tactic
     { t }
 
 prefix_tactic:
-  | TRY; t=prefix_tactic
-    { Types.Try(t) }
-  | REPEAT; n=option(NUM); t=prefix_tactic
-    { Types.Repeat(n, t) }
   | LPAREN; t=tactic; RPAREN
     { t }
   | t=atomic_tactic

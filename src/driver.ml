@@ -63,7 +63,7 @@ let or_fail to_string = function
   | Result.Ok x -> x
   | Result.Error e -> failwith (to_string e)
 
-(* Failures [Try]/[Repeat] recover from: the same exception
+(* Failures [Try]/[Alt]/[Repeat] recover from: the same exception
    set [Prover] catches, plus [Strict_name] (strict-mode name
    warnings abort tactics like the original's [Failure]). *)
 let is_recoverable = function
@@ -519,7 +519,7 @@ let run_atomic ~resolve sq cmd
         Some { (get_ist ()) with P.skip_seen = true } ;
       Result.ok (Branched (P.skip sq))
   | Induction _ | CoInduction _ | Bullet _ | Abort | Undo | Common _
-  | Try _ | Then _ | Repeat _ ->
+  | Try _ | Then _ | Alt _ | Repeat _ ->
       [%bug] "run_atomic: non-atomic command"
 
 (* Tacticals over explicit sequents *)
@@ -577,6 +577,17 @@ let rec eval_tac ~resolve sq cmd
       | exception e when is_recoverable e ->
           State.reload snap ;
           Result.ok (Updated sq)
+      end
+  | Alt (t1, t2) ->
+      let snap = State.snapshot () in
+      begin match eval_tac ~resolve sq t1 with
+      | Result.Ok _ as ok -> ok
+      | Result.Error _ ->
+          State.reload snap ;
+          eval_tac ~resolve sq t2
+      | exception e when is_recoverable e ->
+          State.reload snap ;
+          eval_tac ~resolve sq t2
       end
   | Repeat (limit, t) -> repeat_tac ~resolve sq limit t
   | _ -> run_atomic ~resolve sq cmd

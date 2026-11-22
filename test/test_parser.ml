@@ -522,6 +522,31 @@ let tests =
              "repeat 2 (split ; try search) ; left"
              "repeat 2 (split ; try search) ; left.") ;
 
+      test_case "Or tactical"
+        (fun () ->
+           assert_command_pprint "search || skip" "search || skip." ;
+           assert_command_pprint
+             "search || skip || left" "search || skip || left." ;
+           assert_command_pprint
+             "(search ; skip) || left" "(search ; skip) || left." ;
+           assert_command_pprint
+             "(search || skip) || left" "(search || skip) || left." ;
+           assert_command_pprint
+             "split ; search || skip" "split ; search || skip." ;
+           assert_command_pprint
+             "try search || skip" "try search || skip." ;
+           assert_command_pprint
+             "try search || skip" "try (search || skip)." ;
+           assert_command_pprint
+             "(try search) || skip" "(try search) || skip." ;
+           assert_command_pprint
+             "repeat search || skip" "repeat (search || skip)." ;
+           assert_command_pprint
+             "(repeat search) || skip" "(repeat search) || skip." ;
+           assert_command_pprint
+             "repeat 2 search || skip ; left"
+             "repeat 2 (search || skip) ; left.") ;
+
       test_case "Try and repeat remain valid identifiers"
         (fun () ->
            assert_pprint_equal_parse "try repeat -> repeat try" ;
@@ -536,6 +561,9 @@ let tests =
            assert_command_rejected "try coinduction." ;
            assert_command_rejected "induction on 1 ; intros." ;
            assert_command_rejected "intros ; coinduction." ;
+           assert_command_rejected "search || induction on 1." ;
+           assert_command_rejected "coinduction || search." ;
+           assert_command_rejected "search || intros || coinduction." ;
            assert_command_rejected "repeat induction on 1." ;
            assert_command_rejected "(coinduction).") ;
 

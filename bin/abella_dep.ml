@@ -74,10 +74,11 @@ type conf = {
   makefile : string ;
   clobber : bool ;
   recursive : bool ;
+  quiet : bool ;
 }
 
-let mk_conf abella makefile clobber recursive =
-  { abella ; makefile ; clobber ; recursive }
+let mk_conf abella makefile clobber recursive quiet =
+  { abella ; makefile ; clobber ; recursive ; quiet }
 
 let abella_dep conf files =
   List.iter (add_input_file conf.recursive) files ;
@@ -99,12 +100,19 @@ let abella_dep conf files =
       tm.tm_hour tm.tm_min tm.tm_sec in
   Printf.fprintf out "# Generated on: %s\n" time ;
   Printf.fprintf out ".PHONY: all\n" ;
+  let recipe ext =
+    let target = Printf.sprintf "${<:%%.%s=%%.out}" ext in
+    if conf.quiet then
+      Printf.fprintf out "\t@%s --non-recursive --output=%s $< || (cat %s; exit 1)\n"
+        conf.abella target target
+    else
+      Printf.fprintf out "\t%s --non-recursive --output=%s $<\n"
+        conf.abella target
+  in
   Printf.fprintf out "%%.thc: %%.thm\n" ;
-  Printf.fprintf out "\t%s --non-recursive --output=${<:%%.thm=%%.out} $<\n" conf.abella ;
+  recipe "thm" ;
   Printf.fprintf out "%%.thmodc: %%.thmod\n" ;
-  Printf.fprintf out
-    "\t%s --non-recursive --output=${<:%%.thmod=%%.out} $<\n"
-    conf.abella ;
+  recipe "thmod" ;
   Hashtbl.iter begin fun file deps ->
     if not @@ (Filename.check_suffix file ".thc" ||
                Filename.check_suffix file ".thmodc") then () else
@@ -159,7 +167,11 @@ let () =
       let doc = "Process directories recursively." in
       Arg.(value @@ flag @@ info ["r"] ~doc)
     in
-    Term.(const mk_conf $ abella $ makefile $ clobber $ recursive) in
+    let quiet =
+      let doc = "Generate silent recipes that only print output on failure." in
+      Arg.(value @@ flag @@ info ["q" ; "quiet"] ~doc)
+    in
+    Term.(const mk_conf $ abella $ makefile $ clobber $ recursive $ quiet) in
   let files =
     let doc = "An Abella $(b,.thm) or $(b,.thmod) file or a directory" in
     Arg.(value @@ pos_all string [] @@ info [] ~docv:"SOURCE" ~doc)

@@ -1,0 +1,79 @@
+% Bullets torture test: nesting, `.` vs `;`, and `try`/`repeat`.
+% No Specification needed: pure reasoning logic only.
+
+% Gotcha: `.` steps keep the bullet focus until the subgoal is
+% solved, so `tac1 ; tac2` and `tac1. tac2.` prove the same (#174).
+Theorem t_dot : (true -> true) /\ (true -> true).
+split.
+- intros. search.
+- intros ; search.
+
+Theorem t_semi : (true -> true) /\ (true -> true).
+split.
+- intros ; search.
+- intros ; search.
+
+% Gotcha: `split ; search` needs no bullets; `split.` does.
+Theorem t_nobullets : true /\ true.
+split ; search.
+
+% Deep nesting must switch bullets at each level.
+Theorem t_nest : (true -> (true /\ (true -> (true /\ true)))) /\ true.
+split.
+- intros. split.
+  + search.
+  + intros. split.
+    * search.
+    * search.
+- search.
+
+% Longer runs such as `--` are distinct bullets.
+Theorem t_long : (true -> (true /\ true)) /\ true.
+split.
+- intros. split.
+  -- search.
+  -- search.
+- search.
+
+% `left`/`right` behave like any tactic under `.` vs `;`.
+Theorem t_or_dot : (true \/ false) /\ true.
+split.
+- left. search.
+- search.
+
+Theorem t_or_semi : (true \/ false) /\ true.
+split.
+- left ; search.
+- search.
+
+% Gotcha: a failing `try` is a no-op and keeps the bullet focus.
+Theorem t_try_noop : (true -> true) /\ true.
+split.
+- try split. intros. search.
+- search.
+
+% Gotcha: `try (tac1 ; tac2)` rolls everything back on failure.
+Theorem t_try_rollback : ((true /\ true) -> (true /\ true)) /\ true.
+split.
+- try (split ; search). intros. split.
+  + search.
+  + search.
+- search.
+
+% A tactical can close a whole bullet branch at once.
+Theorem t_tactical_branch : (true -> (true /\ true)) /\ true.
+split.
+- intros ; split ; search.
+- search.
+
+% `repeat` with `try` mops up whatever it can.
+Theorem t_repeat : true -> (true /\ (true -> (true /\ true))).
+repeat (intros ; try split).
+search.
+search.
+search.
+
+% Bounded `repeat` stops after n iterations.
+Theorem t_repeat_bound : false \/ (false \/ (false \/ true)).
+repeat 2 right.
+right ; search.

@@ -206,6 +206,42 @@ let saturate ?hint ?depth lemmas =
   run_branched (fun sq ->
       or_fail string_of_saturate_error
         (Prover.saturate sq ?hint ?depth lemmas))
+
+let string_of_compute_error = function
+  | Compute.Compute_stmt e -> string_of_stmt_error e
+  | Compute.Compute_rename e -> string_of_rename_hint_error e
+  | Compute.Compute_out_of_gas n ->
+      Printf.sprintf "Compute ran out of gas (given %d) -- looping?" n
+  | Compute.Compute_tactic_failure s -> s
+
+let compute ?hint ?gas hs =
+  run_branched (fun sq ->
+      or_fail string_of_compute_error
+        (Compute.compute sq ?hint ?gas hs))
+
+(* Mirror [Driver.eval_tac] on [Try]: recover to a no-op on [Error]. *)
+let try_compute ?hint ?gas hs =
+  let sq = focused () in
+  let snap = State.snapshot () in
+  begin match Compute.compute sq ?hint ?gas hs with
+  | Ok subs -> install_branched sq subs
+  | Error _ -> State.reload snap
+  end
+
+(* Mirror [Driver.repeat_tac]: iterate until the first [Error]. *)
+let repeat_compute ?(limit = 5) hs =
+  let rec loop n =
+    if n <= 0 then Alcotest.fail "repeat_compute exceeded limit"
+    else
+      let snap = State.snapshot () in
+      begin match Compute.compute (focused ()) hs with
+      | Error _ -> State.reload snap
+      | Ok subs ->
+          install_branched (focused ()) subs ;
+          loop (n - 1)
+      end
+  in
+  loop limit
 let skip () =
   let s = !st in
   match s.focused with
@@ -1569,6 +1605,71 @@ let tests =
              (is_focused ()) ;
            Alcotest.check (Alcotest.option Alcotest.string)
              "expected bullet after undo" (Some "-") (expected_bullet ())
+        ) ;
+
+      test_case "Nested bullet pushes rather than replaces outer frame"
+        (fun () ->
+           setup_prover ~goal:"(true -> true /\\ true) /\\ true" () ;
+           start_proof () ;
+           split false ;
+           bullet "-" ;
+           intros no_hints ;
+           split false ;
+           bullet "+" ;
+           Alcotest.check Alcotest.int "bullet depth" 2
+             (List.length (!st).bullets) ;
+           Alcotest.check Alcotest.int "outer siblings kept" 1
+             (match (!st).bullets with
+              | _ :: outer :: _ -> List.length outer.siblings
+              | _ -> Alcotest.fail "expected nested bullet frames") ;
+           search () ;
+           Alcotest.check Alcotest.bool "unfocused at +" false
+             (is_focused ()) ;
+           bullet "+" ;
+           search () ;
+           Alcotest.check Alcotest.bool "unfocused at -" false
+             (is_focused ()) ;
+           Alcotest.check (Alcotest.option Alcotest.string) "expect -"
+             (Some "-") (expected_bullet ()) ;
+           bullet "-" ;
+           search () ;
+           Alcotest.check Alcotest.bool "proof completed" true
+             (is_completed !st)
+        ) ;
+
+      test_case "Try compute recovers from failure"
+        (fun () ->
+           setup_prover ~goal:"{a}" () ;
+           add_hyp (freshen "{b}") ;
+           let goal_before = metaterm_to_string (focused ()).goal in
+           begin match Compute.compute (focused ()) [remove "H9"] with
+           | Ok _ -> Alcotest.fail "compute with unknown hyp should fail"
+           | Error (Compute.Compute_stmt _) -> ()
+           | Error e ->
+               Alcotest.fail ("unexpected compute error: " ^
+                                string_of_compute_error e)
+           end ;
+           try_compute [remove "H9"] ;
+           assert_n_subgoals 1 ;
+           Alcotest.check Alcotest.string "goal unchanged" goal_before
+             (metaterm_to_string (focused ()).goal) ;
+           compute [] ;
+           assert_n_subgoals 1 ;
+           Alcotest.check Alcotest.string "error string"
+             "Could not find hypothesis or lemma H9"
+             (string_of_compute_error
+                (Compute.Compute_stmt (Unknown_stmt "H9")))
+        ) ;
+
+      test_case "Repeat compute stops on failure"
+        (fun () ->
+           setup_prover ~goal:"{a}" () ;
+           add_hyp (freshen "{b}") ;
+           let goal_before = metaterm_to_string (focused ()).goal in
+           repeat_compute [remove "H9"] ;
+           assert_n_subgoals 1 ;
+           Alcotest.check Alcotest.string "goal unchanged" goal_before
+             (metaterm_to_string (focused ()).goal)
         ) ;
 
 

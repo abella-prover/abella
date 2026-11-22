@@ -319,13 +319,17 @@ Axiom ax : forall (x:u), d x.
       let (sign, clauses, predicates, content) =
         read_thc_file (Filename.concat dir "layout.thc") in
       Alcotest.check Alcotest.bool "no specification kinds" true
-        (fst sign = []) ;
+        (Itab.is_empty (fst sign)) ;
       Alcotest.check Alcotest.bool "no specification constants" true
-        (snd sign = []) ;
+        (Itab.is_empty (snd sign)) ;
       Alcotest.check Alcotest.bool "no specification clauses" true
         (clauses = []) ;
       Alcotest.check Alcotest.bool "predicate recorded" true
-        (List.mem "d" predicates) ;
+        (List.mem "p" predicates) ;
+      Alcotest.check Alcotest.bool "defined constant is not a predicate" true
+        (not (List.mem "d" predicates)) ;
+      Alcotest.check Alcotest.bool "non-prop constant is not a predicate" true
+        (not (List.mem "c" predicates)) ;
       let has pred = List.exists pred content in
       Alcotest.check Alcotest.bool "kind declaration" true
         (has (function CKind (["u"], _) -> true | _ -> false)) ;
@@ -353,7 +357,7 @@ let test_specification_state () =
     Alcotest.check Alcotest.bool "specification consumed" false
       !Thm.can_read_specification ;
     Alcotest.check Alcotest.bool "specification kind recorded" true
-      (List.mem_assoc "tm" (fst !D.Setup.spec_sign)) ;
+      (Term.Itab.mem "tm" (fst !D.Setup.spec_sign)) ;
     Alcotest.check Alcotest.bool "specification clauses recorded" true
       (!D.Setup.spec_clauses <> []) ;
     let (status, msgs) = process_command "Specification \"spec\"." in
@@ -376,7 +380,7 @@ intros. search.
       let (sign, clauses, _, content) =
         read_thc_file (Filename.concat dir "withspec.thc") in
       Alcotest.check Alcotest.bool "specification kind in artifact" true
-        (List.mem_assoc "tm" (fst sign)) ;
+        (Term.Itab.mem "tm" (fst sign)) ;
       Alcotest.check Alcotest.bool "specification clauses in artifact" true
         (clauses <> []) ;
       Alcotest.check Alcotest.bool "theorem after specification" true
@@ -492,12 +496,12 @@ let test_decl_pred_replay_preserves_typarams () =
       CType(["decl_const"], ["A"], const_ty) ;
     ] ;
     let check_scheme name expected ty =
-      match List.assoc name (snd !Typing.sign) with
-      | Poly(typarams, scheme_ty) ->
+      match Term.Itab.find_opt name (snd !Typing.sign) with
+      | Some {pty = {vars = typarams ; ty = scheme_ty} ; _} ->
           Alcotest.check (Alcotest.list Alcotest.string)
             (name ^ " type parameters") expected typarams ;
           Alcotest.check ty_testable (name ^ " type") ty scheme_ty
-      | exception Not_found ->
+      | None ->
           Alcotest.fail ("missing declaration " ^ name)
     in
     check_scheme "decl_pred" ["A"] pred_ty ;

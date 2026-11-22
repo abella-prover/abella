@@ -111,9 +111,21 @@ let tyctx_to_nominal_ctx tyctx =
 
 (** Tables / Signatures *)
 
-type ktable = (string * knd) list
-type pty = Poly of string list * ty
-type ctable = (string * pty) list
+type pty = {
+  vars : string list ;
+  ty : ty ;
+}
+
+type ktable = knd Itab.t
+
+type centry = {
+  pty : pty ;
+  (* `declared: introduced with Type/type
+     `defined: introduced with Define/CoDefine *)
+  how : [`declared | `defined] ;
+}
+
+type ctable = centry Itab.t
 type sign = ktable * ctable
 
 (** Kinds *)
@@ -121,21 +133,21 @@ type sign = ktable * ctable
 let add_types (ktable, ctable) ids knd =
   List.iter begin fun id ->
     begin
-      try
-        let knd' = List.assoc id ktable in
-        if knd <> knd' then
-          failwithf "Type constructor %s has inconsistent kind declarations" id
-      with
-      | Not_found -> ()
+      match Itab.find_opt id ktable with
+      | Some knd' ->
+          if knd <> knd' then
+            failwithf "Type constructor %s has inconsistent kind declarations" id
+      | None -> ()
     end ;
 
     if is_capital_name id then
       failwithf "Types may not begin with a capital letter: %s" id;
   end ids ;
-  ((List.map (fun id -> (id, knd)) ids) @ ktable, ctable)
+  (List.fold_left (fun ktable id -> Itab.add id knd ktable) ktable ids,
+   ctable)
 
 let lookup_type (ktable, _) id =
-  try List.assoc id ktable
+  try Itab.find id ktable
   with Not_found -> failwithf "Unknown type constructor: %s" id
 
 (** Constants *)
@@ -159,29 +171,28 @@ let kind_check sign ty =
            [%bug] "kind_check: unexpected bound type pointer"
   in aux (observe_ty ty)
 
-let kind_check_poly (ktable,ctable) (Poly(_ids, ty)) =
+let kind_check_poly (ktable,ctable) {ty ; _} =
   kind_check (ktable,ctable) ty
 
 let eq_pty pty1 pty2 =
-  match pty1,pty2 with
-  | Poly(ids1, ty1), Poly(ids2,ty2) ->
-     List.length ids1 = List.length ids2 &&
-     begin
-       let tyvars = List.map (fun _ -> Term.fresh_tyvar ()) ids1 in
-       let sub1 = List.map2 (fun id ty -> (id,ty)) ids1 tyvars in
-       let sub2 = List.map2 (fun id ty -> (id,ty)) ids2 tyvars in
-       let ty1' = apply_sub_ty sub1 ty1 in
-       let ty2' = apply_sub_ty sub2 ty2 in
-       eq_ty ty1' ty2'
-     end
+  let ids1, ty1 = pty1.vars, pty1.ty in
+  let ids2, ty2 = pty2.vars, pty2.ty in
+  List.length ids1 = List.length ids2 &&
+  begin
+    let tyvars = List.map (fun _ -> Term.fresh_tyvar ()) ids1 in
+    let sub1 = List.map2 (fun id ty -> (id,ty)) ids1 tyvars in
+    let sub2 = List.map2 (fun id ty -> (id,ty)) ids2 tyvars in
+    let ty1' = apply_sub_ty sub1 ty1 in
+    let ty2' = apply_sub_ty sub2 ty2 in
+    eq_ty ty1' ty2'
+  end
 
 let check_const (ktable, ctable) (id, pty) =
-  begin try
-    let pty' = List.assoc id ctable in
-    if not (eq_pty pty pty') then
-      failwithf "Constant %s has inconsistent type declarations" id
-  with
-  | Not_found -> ()
+  begin match Itab.find_opt id ctable with
+  | Some centry ->
+      if not (eq_pty pty centry.pty) then
+        failwithf "Constant %s has inconsistent type declarations" id
+  | None -> ()
   end ;
 
   if is_capital_name id then
@@ -189,9 +200,12 @@ let check_const (ktable, ctable) (id, pty) =
 
   kind_check_poly (ktable, ctable) pty
 
-let add_poly_consts (ktable, ctable) idptys =
+let add_poly_consts ?(how=`declared) (ktable, ctable) idptys =
   List.iter (check_const (ktable, ctable)) idptys ;
-  (ktable, idptys @ ctable)
+  (ktable,
+   List.fold_left
+     (fun ctable (id, pty) -> Itab.add id {pty ; how} ctable)
+     ctable idptys)
 
 let get_typaram ty =
   let params = ref [] in
@@ -206,25 +220,30 @@ let get_typaram ty =
 
 let get_typarams tys = List.flatten_map get_typaram tys
 
-let add_consts ?typarams sign idtys =
+let add_consts ?typarams ?(how=`declared) sign idtys =
   let typarams = match typarams with
     | Some typarams -> List.map (fun _ -> typarams) idtys
     | None -> idtys |> List.map snd |> List.map get_typaram
   in
   let idptys = List.map2
-                 (fun (id, ty) pas -> (id, Poly(pas, ty))) idtys typarams in
-  add_poly_consts sign idptys
+                 (fun (id, ty) pas -> (id, {vars = pas ; ty})) idtys typarams in
+  add_poly_consts ~how sign idptys
 
-let freshen_ty (Poly(ids, ty)) =
+let freshen_ty {vars = ids ; ty} =
   let sub = ids_to_fresh_tyctx ids in
   mark_schematic_tysub sub ;
   apply_sub_ty sub ty
 
-let lookup_const (_, ctable) id =
-  try
-    freshen_ty (List.assoc id ctable)
+let lookup_centry (_, ctable) id =
+  try Itab.find id ctable
   with
   | Not_found -> failwithf "Unknown constant: %s" id
+
+let lookup_const sign id =
+  freshen_ty (lookup_centry sign id).pty
+
+let lookup_pty sign id =
+  (lookup_centry sign id).pty
 
 (** Desugar types *)
 let rec desugar_aty aty =
@@ -255,17 +274,24 @@ let k_nil = "nil"
 let pervasive_sign =
   let aty = tybase (Tygenvar "A") in
   let alistty = tybase (atyapp (atybase "list") aty) in
-  ([("o", Knd 0); ("list", Knd 1); ("prop", Knd 0)],
-   [("pi",     Poly(["A"], tyarrow [tyarrow [aty] oty] oty)) ;
-    ("=>",     Poly([],    tyarrow [oty; oty] oty)) ;
-    ("&",      Poly([],    tyarrow [oty; oty] oty)) ;
-    (k_cons,   Poly(["A"], tyarrow [aty; alistty] alistty)) ;
-    (k_nil,    Poly(["A"], alistty)) ])
+  let ktable =
+    List.fold_left (fun ktable (id, knd) -> Itab.add id knd ktable)
+      Itab.empty
+      [("o", Knd 0); ("list", Knd 1); ("prop", Knd 0)]
+  in
+  let ctable =
+    List.fold_left (fun ctable (id, pty) -> Itab.add id {pty ; how=`declared} ctable)
+      Itab.empty
+      [("pi",     {vars=["A"]; ty=tyarrow [tyarrow [aty] oty] oty}) ;
+       ("=>",     {vars=[];    ty=tyarrow [oty; oty] oty}) ;
+       ("&",      {vars=[];    ty=tyarrow [oty; oty] oty}) ;
+       (k_cons,   {vars=["A"]; ty=tyarrow [aty; alistty] alistty}) ;
+       (k_nil,    {vars=["A"]; ty=alistty}) ]
+  in
+  (ktable, ctable)
 
 let sign_to_tys sign =
-  List.map
-    (function (_, Poly(_ids, ty)) -> ty)
-    (snd sign)
+  Itab.fold (fun _ centry acc -> centry.pty.ty :: acc) (snd sign) []
 
 let pervasive_sr =
   List.fold_left Subordination.update Subordination.empty

@@ -30,7 +30,11 @@ let teyjus_only_keywords =
    "use_sig"; "useonly"; "sigma"]
 
 let warn_on_teyjus_only_keywords (ktable, ctable) =
-  let tokens = List.unique (List.map fst ktable @ List.map fst ctable) in
+  let tokens =
+    List.unique
+      (List.map fst (Itab.bindings ktable)
+       @ List.map fst (Itab.bindings ctable))
+  in
   let used_keywords = List.intersect tokens teyjus_only_keywords in
   if used_keywords <> [] then
     Output.msg_printf
@@ -216,15 +220,20 @@ let clauses_to_predicates clauses =
 let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
   let (ktable, ctable) = !sign in
   let (imp_ktable, imp_ctable) = imp_spec_sign in
-  let imp_ctable = List.filter begin
-      fun (_id, ty) ->
-        match ty with
-        | Typing.Poly (_, Ty (_, aty)) when aty = propaty -> false
-        | _ -> true
+  let imp_ctable = Itab.filter begin fun _id centry ->
+      match centry.pty.ty with
+      | Ty (_, aty) when aty = propaty -> false
+      | _ -> true
     end imp_ctable in
 
   (* 1. Imported ktable must be a subset of ktable *)
-  let missing_types = List.minus imp_ktable ktable in
+  let missing_types =
+    Itab.fold begin fun id knd acc ->
+      match Itab.find_opt id ktable with
+      | Some knd' when knd = knd' -> acc
+      | _ -> (id, knd) :: acc
+    end imp_ktable []
+  in
   let () = if missing_types <> [] then
       failwithf "Imported file makes reference to unknown types: %s"
         (String.concat ", " (List.map fst missing_types))
@@ -232,10 +241,12 @@ let ensure_valid_import imp_spec_sign imp_spec_clauses imp_predicates =
 
   (* 2. Imported ctable must be a subset of ctable *)
   let missing_consts =
-    List.minus
-      ~cmp:(fun (id1, Typing.Poly (ids1, t1)) (id2, Typing.Poly (ids2, t2)) ->
-        id1 = id2 && ids1 = ids2 && eq_ty t1 t2)
-      imp_ctable ctable in
+    Itab.fold begin fun id imp_centry acc ->
+      match Itab.find_opt id ctable with
+      | Some centry when eq_pty imp_centry.pty centry.pty -> acc
+      | _ -> (id, imp_centry.pty) :: acc
+    end imp_ctable []
+  in
   let () = if missing_consts <> [] then
       failwithf "Imported file makes reference to unknown constants: %s"
         (String.concat ", " (List.map fst missing_consts))

@@ -59,8 +59,30 @@ let read_lpmod = read_lp ".mod" Parser.lpmod
 
 let merge_signs signs =
   let (ktables, ctables) = List.split signs in
-  let ktable = List.flatten ktables in
-    List.fold_left add_poly_consts (ktable, []) ctables
+  let ktable =
+    List.fold_left
+      (fun acc ktable ->
+         Term.Itab.fold
+           (fun id knd acc ->
+              match Term.Itab.find_opt id acc with
+              | Some knd' ->
+                  if knd <> knd' then
+                    failwithf "Type constructor %s has inconsistent kind declarations" id
+                  else acc
+              | None -> Term.Itab.add id knd acc)
+           ktable acc)
+      Term.Itab.empty ktables
+  in
+  let ctable =
+    List.fold_left
+      (fun acc ctable ->
+         Term.Itab.fold (fun id centry acc -> Term.Itab.add id centry acc) ctable acc)
+      Term.Itab.empty ctables
+  in
+  (* Re-check consistency of merged constants against merged kinds *)
+  let sign = (ktable, ctable) in
+  Term.Itab.iter (fun id centry -> check_const sign (id, centry.pty)) ctable ;
+  sign
 
 let add_decl sign decl =
   match decl.el with

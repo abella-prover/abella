@@ -30,7 +30,8 @@ exception AbellaExit of int
 (* Specification clauses stored in both .thc and .thmodc artifacts.  Only
    .thm developments can read a specification, so this is normally empty
    for .thmod files. *)
-let spec_sign : Typing.sign ref = State.rref ([], [])
+let spec_sign : Typing.sign ref =
+  State.rref (Term.Itab.empty, Term.Itab.empty)
 let spec_clauses : clause list ref = State.rref []
 
 let on_import : (string -> unit) option ref = ref None

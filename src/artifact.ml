@@ -233,9 +233,8 @@ let update_subordination_ty ty =
   sr := Subordination.update !sr ty
 
 let update_subordination_metaterm mt =
-  ignore begin
-    Metaterm.map_on_tys (fun ty -> update_subordination_ty ty ; ty) mt
-  end
+  ignore @@
+  Metaterm.map_on_tys (fun ty -> update_subordination_ty ty ; ty) mt
 
 let install_compiled_decl ?strat_errors ?(subordinate=false) decl =
   match decl with
@@ -254,11 +253,10 @@ let install_compiled_decl ?strat_errors ?(subordinate=false) decl =
         end clauses ;
         Checks.ensure_no_schm_clauses typarams clauses
       end ;
-      let (basics, consts) = !sign in
-      let consts =
-        List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys @ consts
+      let idptys =
+        List.map (fun (id, ty) -> (id, {vars = typarams ; ty})) idtys
       in
-      sign := (basics, consts) ;
+      sign := add_poly_consts ~how:`defined !sign idptys ;
       Prover.add_defs ?strat_errors typarams idtys flavor clauses
   | CKind (ids, knd) ->
       Prover.add_global_types ids knd
@@ -271,11 +269,15 @@ let install_compiled_decl ?strat_errors ?(subordinate=false) decl =
   | CSuspend _ ->
       failwith "Unexpected declaration in compiled content"
 
-(* Constants that can have reasoning clauses: the pervasive member
-   predicate and specification-level (o-valued) constants are excluded. *)
+(* Declared reasoning predicates: declared constants with target type prop.
+   In particular, specification-level (o-valued) constants and defined
+   constants (such as the pervasive [member]) are excluded. *)
 let predicates (_ktable, ctable) =
-  ctable |>
-  List.filter_map begin fun (id, Poly (_, Ty (_, targty))) ->
-    if List.mem id [k_member] || targty = oaty then None
-    else Some id
-  end
+  Itab.fold
+    (fun id centry acc ->
+       match centry with
+       | {how = `declared ; pty = {ty = Ty (_, targty) ; _}}
+         when targty = propaty ->
+           id :: acc
+       | _ -> acc)
+    ctable []

@@ -165,17 +165,15 @@ let tests =
            let a = tybase (Tygenvar "A") in
            let ty = tyarrow [a; a] propty in
            let scheme =
-             List.assoc "item3_eq" (snd (add_consts !sign [("item3_eq", ty)]))
+             (Itab.find "item3_eq" (snd (add_consts !sign [("item3_eq", ty)]))).pty
            in
            let define_scheme =
-             Poly (List.unique (get_typarams [ty]), ty)
+             {vars = List.unique (get_typarams [ty]) ; ty}
            in
              Alcotest.check Alcotest.bool "schemes differ" true
                (eq_pty scheme define_scheme) ;
-             match scheme with
-             | Poly(ids, _) ->
-                 Alcotest.check (Alcotest.list Alcotest.string)
-                   "type parameters differ" ["A"] ids
+             Alcotest.check (Alcotest.list Alcotest.string)
+               "type parameters differ" ["A"] scheme.vars
         );
 
       test_case "Unused type parameters are not invented"

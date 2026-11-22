@@ -504,11 +504,7 @@ let assert_expected_cases n cases =
                     n (List.length cases))
 
 let add_to_itab itab id =
-  let ty =
-    snd !Typing.sign |>
-    List.assoc id |>
-    (function Typing.Poly(_, ty) -> ty)
-  in
+  let ty = (Typing.lookup_pty !Typing.sign id).Typing.ty in
   Itab.add id ty itab
 
 let case ?used ?(sr=Subordination.empty) ?(clauses=[]) ?(defs=[])

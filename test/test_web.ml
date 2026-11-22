@@ -228,7 +228,7 @@ let test_theorem_state () =
     (List.length (messages_of_type "theorem_state" msgs))
 
 let has_kind name =
-  List.exists (fun (id, _) -> id = name) (fst !Typing.sign)
+  Term.Itab.mem name (fst !Typing.sign)
 
 let test_undo_back_counts () =
   let process_three prefix =

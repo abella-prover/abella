@@ -256,7 +256,7 @@ let add_defs
   List.iter (fun (id, _) -> H.add defs_table id def) preds
 
 let lookup_poly_const k =
-  try let Poly (typarams, ty) = List.assoc k (snd !sign) in (typarams, ty) with
+  try let {vars = typarams ; ty} = (lookup_pty !sign k) in (typarams, ty) with
   | Not_found -> failwithf "Unknown constant: %S" k
 
 
@@ -278,13 +278,13 @@ let register_definition
       (* Note that in order to type check the definitions, the types
          of predicates being defined are fixed to their most generic
          form by fixing the type variables in them to generic ones *)
-      let consts = List.map (fun (id, ty) -> (id, Poly ([], ty))) idtys @ consts in
-      let clauses = type_udefs ~sr:!sr ~sign:(basics, consts) udefs |>
+      let idptys = List.map (fun (id, ty) -> (id, {vars = [] ; ty})) idtys in
+      let consts_sign = add_poly_consts ~how:`defined (basics, consts) idptys in
+      let clauses = type_udefs ~sr:!sr ~sign:consts_sign udefs |>
                     List.map (fun (head, body) -> {head ; body}) in
       ensure_no_schm_clauses (typarams @ bound_tyvars) clauses;
-      let (basics, consts) = !sign in
-      let consts = List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys @ consts in
-      sign := (basics, consts) ;
+      let idptys = List.map (fun (id, ty) -> (id, {vars = typarams ; ty})) idtys in
+      sign := add_poly_consts ~how:`defined !sign idptys ;
       add_defs ~strat_errors typarams idtys flav clauses ;
       CDefine (flav, typarams, idtys, clauses)
   | _ -> [%bug] "Not a definition!"

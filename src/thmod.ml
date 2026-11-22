@@ -735,19 +735,29 @@ type artifact = {
 
 let sign_of_content content =
   let ktable =
-    List.flatten_map (function
-        | CKind (ids, knd) -> List.map (fun id -> (id, knd)) ids
-        | _ -> []) content
+    List.fold_left
+      (fun ktable -> function
+        | CKind (ids, knd) ->
+            List.fold_left (fun ktable id -> Itab.add id knd ktable) ktable ids
+        | _ -> ktable)
+      Itab.empty content
   in
   let ctable =
-    List.flatten_map (function
+    List.fold_left
+      (fun ctable -> function
         | CType (ids, typarams, ty)
         | CDeclPred (ids, typarams, ty) ->
-            List.map (fun id -> (id, Poly (typarams, ty))) ids
+            List.fold_left
+              (fun ctable id ->
+                 Itab.add id {pty = {vars = typarams ; ty} ; how = `declared} ctable)
+              ctable ids
         | CDefine (_, typarams, idtys, _) ->
-            List.map (fun (id, ty) -> (id, Poly (typarams, ty))) idtys
-        | CTheorem _ | CKind _ | CImport _ | CClose _ | CSuspend _ -> [])
-      content
+            List.fold_left
+              (fun ctable (id, ty) ->
+                 Itab.add id {pty = {vars = typarams ; ty} ; how = `defined} ctable)
+              ctable idtys
+        | CTheorem _ | CKind _ | CImport _ | CClose _ | CSuspend _ -> ctable)
+      Itab.empty content
   in
   (ktable, ctable)
 
@@ -874,8 +884,8 @@ let remove_scope_declarations sc =
   in
   let (ktable, ctable) = !sign in
   sign :=
-    (List.filter (fun (id, _) -> not (List.mem id names)) ktable,
-     List.filter (fun (id, _) -> not (List.mem id names)) ctable) ;
+    (List.fold_left (fun ktable id -> Itab.remove id ktable) ktable names,
+     List.fold_left (fun ctable id -> Itab.remove id ctable) ctable names) ;
   Prover.remove_globals names
 
 let process_module name params =
@@ -1503,8 +1513,8 @@ let value_of_name ~predicate name =
   | Some value -> value
   | None ->
       if predicate then
-        begin match List.assoc_opt name (snd !sign) with
-        | Some (Poly (typarams, ty)) when is_predicate_ty ty ->
+        begin match Itab.find_opt name (snd !sign) with
+        | Some {pty = {vars = typarams ; ty} ; _} when is_predicate_ty ty ->
             PredValue {
               pv_name = name ;
               pv_typarams = typarams ;

@@ -93,8 +93,8 @@ let get_pred_occurrences ~is_defined mt =
     | _ -> [%bug] "aux_defined_term: unexpected term form"
   in
   let declared_higher_order name occurrence_ty =
-    match List.assoc_opt name (snd !sign) with
-    | Some (Poly (_, scheme_ty)) -> contains_prop_argument scheme_ty
+    match Itab.find_opt name (snd !sign) with
+    | Some centry -> contains_prop_argument centry.pty.ty
     | None -> contains_prop_argument occurrence_ty
   in
   let check_declared_head t =
@@ -127,7 +127,7 @@ let check_theorem ?(bound = []) tys thm =
 let check_noredef ids =
   let (_, ctable) = !sign in
   List.iter begin fun id ->
-    if List.mem id (List.map fst ctable) then
+    if Itab.mem id ctable then
       failwithf "Predicate or constant %s already exists" id
   end ids
 

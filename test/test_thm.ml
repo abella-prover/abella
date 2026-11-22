@@ -157,7 +157,7 @@ let assert_contains needle haystack =
 let read_thc_file path =
   let ch = open_in_bin path in
   Fun.protect ~finally:(fun () -> close_in ch) begin fun () ->
-    let digest = (Marshal.from_channel ch : Digest.t) in
+    let digest = (Marshal.from_channel ch : string) in
     let version = (Marshal.from_channel ch : string) in
     let sign = (Marshal.from_channel ch : Typing.sign) in
     let clauses = (Marshal.from_channel ch : clause list) in

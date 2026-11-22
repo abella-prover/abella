@@ -33,17 +33,15 @@ module type CODEC = sig
     init:'state ->
     modname:string -> string
 
-  val to_bytes : ?digest:Digest.t -> t -> string
+  val to_bytes : ?digest:string -> t -> string
   val write_compiled : (module Source.COMPILED) -> unit
   val read_header_and_body :
-    what:string -> string -> Digest.t * string * t
+    what:string -> string -> string * string * t
   val load :
     process:('state -> ('state, 'err) Result.t) ->
     init:'state ->
     modname:string -> t
 end
-
-let digest_placeholder () = Digest.string Version.version
 
 let marshal_bytes (values : Obj.t list) =
   let buf = Buffer.create 4096 in
@@ -70,13 +68,13 @@ module Make (Spec : SPEC) : CODEC with type t = Spec.t = struct
   include Spec
 
   let to_bytes ?digest art =
-    let digest = Option.value digest ~default:(digest_placeholder ()) in
+    let digest = Option.value digest ~default:Version.source_digest in
     marshal_bytes
       (Obj.repr digest :: Obj.repr Version.version :: Spec.encode art)
 
   let write_compiled (module Compiled : Source.COMPILED) =
     let art = Spec.extract () in
-    Compiled.marshal (Lazy.force Version.self_digest) ;
+    Compiled.marshal Version.source_digest ;
     Compiled.marshal Version.version ;
     List.iter Compiled.marshal (Spec.encode art) ;
     Compiled.close ()
@@ -92,7 +90,7 @@ module Make (Spec : SPEC) : CODEC with type t = Spec.t = struct
   let read_header ~what bytes =
     try
       let read = marshal_reader bytes in
-      let digest = (read () : Digest.t) in
+      let digest = (read () : string) in
       let version = (read () : string) in
       (digest, version, read)
     with
@@ -204,7 +202,7 @@ module Make (Spec : SPEC) : CODEC with type t = Spec.t = struct
       let (digest, version, read) = read_header ~what bytes in
       let digest_ok =
         !Driver_setup.trust_compiled
-        || digest = Lazy.force Version.self_digest
+        || digest = Version.source_digest
       in
       if version <> Version.version || not digest_ok then begin
         Output.msg_format

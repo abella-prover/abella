@@ -129,7 +129,7 @@ let read_thmod_values bytes =
     pos := !pos + Marshal.total_size buf !pos ;
     v
   in
-  ignore (read () : Digest.t) ;
+  ignore (read () : string) ;
   ignore (read () : string) ;
   let name = (read () : string) in
   let params = (read () : string list) in

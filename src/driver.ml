@@ -1065,14 +1065,12 @@ and process_top1_body () =
             ~reset:thm_reset thm
         in
         if !Setup.annotate then
-          Output.commit_message
-            begin
-              Output.message "theorem_state"
-                ~fields:
-                  [ "thm_id", `Int thm_id ;
-                    "theorem", `String name ;
-                    "state", state_json () ]
-            end ;
+          Output.message "theorem_state"
+            ~fields:
+              [ "thm_id", `Int thm_id ;
+                "theorem", `String name ;
+                "state", state_json () ]
+          |> Output.commit_message ;
         next
       end
     | Axiom (name, tys, thm) ->
@@ -1105,13 +1103,11 @@ and process_top1_body () =
             name :: List.map fst gen_thms @ !Setup.axioms ;
         Process_top
     | Define _ ->
-        let strat_errors =
-          Thmod.in_module ()
-          || !stratification_warnings_are_errors
-        in
-        compile
-          (Prover.register_definition ~strat_errors
-             ~bound_tyvars:(bound_params ()) input.el) ;
+        let strat_errors = Thmod.in_module ()
+                           || !stratification_warnings_are_errors in
+        Prover.register_definition ~strat_errors
+          ~bound_tyvars:(bound_params ()) input.el
+        |> compile ;
         Process_top
     | Suspend (head, test) ->
         let g = Compute.make_guard ~head ~test in
@@ -1150,35 +1146,29 @@ and process_top1_body () =
         Thmod.process_end name ;
         Process_top
     | ImportModule mi -> begin
-        begin match mi.source with
-        | QuoteSource (file, pos) ->
-            if !Setup.annotate then begin
-              let file =
-                Filepath.normalize ~wrt:!Setup.input file
-              in
-              Output.link_message ~pos ~url:(file ^ ".html")
-            end
-        | NameSource _ -> ()
-        end ;
+        let () = match mi.source with
+          | QuoteSource (file, pos) ->
+              if !Setup.annotate then
+                let file = Filepath.normalize ~wrt:!Setup.input file in
+                Output.link_message ~pos ~url:(file ^ ".html")
+          | NameSource _ -> () in
         Thmod.import_module ~load:load_thmod_artifact
           ~record:record_imported mi ;
         Process_top
       end
-    | Specification (filename, pos) ->
-        (if !Thm.can_read_specification then begin
-           let filename =
-             Filepath.normalize ~wrt:!Setup.input filename
-           in
-           Thm.read_specification filename ;
-           Thm.ensure_finalized_specification () ;
-           if !Setup.annotate then
-             Output.link_message ~pos ~url:(filename ^ ".lp.html")
-         end
-         else
-           failwith
-             "Specification can only be read \
-              at the begining of a development.") ;
+    | Specification (filename, pos) -> begin
+        if !Thm.can_read_specification then begin
+          let filename = Filepath.normalize ~wrt:!Setup.input filename in
+          Thm.read_specification filename ;
+          Thm.ensure_finalized_specification () ;
+          if !Setup.annotate then
+            Output.link_message ~pos ~url:(filename ^ ".lp.html")
+        end else
+          failwith
+            "Specification can only be read \
+             at the begining of a development." ;
         Process_top
+      end
     | Query q -> query q ; Process_top
     | Kind (ids, knd) ->
         Prover.add_global_types ids knd ;
@@ -1186,8 +1176,7 @@ and process_top1_body () =
         Process_top
     | Type (ids, ty) ->
         let is_declared_predicate =
-          match observe_ty ty with
-          | Ty (_, aty) -> aty = propaty
+          match observe_ty ty with Ty (_, aty) -> aty = propaty
         in
         let typarams =
           if Thmod.in_module () && is_declared_predicate

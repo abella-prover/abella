@@ -31,11 +31,10 @@ open Extensions
 open Result.Syntax
 
 module Setup = Driver_setup
-module P = Prover
 
 (* Owned proof cursor *)
 
-let istate : P.proof_state option ref = State.rref None
+let istate : Prover.proof_state option ref = State.rref None
 
 (* Suppress the next interactive proof-state display, after
    [Show]/[ShowModule] which print their own output. Mirrors
@@ -67,8 +66,8 @@ let or_fail to_string = function
    set [Prover] catches, plus [Strict_name] (strict-mode name
    warnings abort tactics like the original's [Failure]). *)
 let is_recoverable = function
-  | P.Strict_name _ -> true
-  | e -> P.tactic_failure_message e <> None
+  | Prover.Strict_name _ -> true
+  | e -> Prover.tactic_failure_message e <> None
 
 (* Processing errors *)
 
@@ -227,7 +226,7 @@ let resolve_proof_cmd cmd =
       match !istate with
       | None -> (fun _ -> false)
       | Some st ->
-          begin match st.P.focused with
+          begin match st.Prover.focused with
           | None -> (fun _ -> false)
           | Some sq -> Prover.is_hyp sq
           end
@@ -332,13 +331,20 @@ let handle_search_witness w =
   if !Setup.witnesses then
     Output.msg_printf "Witness: %s." (witness_to_string w)
 
-type outcome =
-  | Updated of P.sequent
-  | Branched of P.sequent list
+type outcome = {
+  next : continuation ;
+  progressed : bool ; (* did the tactic make progress? *)
+}
 
-let outcome_list = function
+and continuation =
+  | Updated of Prover.sequent
+  | Branched of Prover.sequent list
+
+let continuation_list = function
   | Updated sq -> [sq]
   | Branched gs -> gs
+
+let outcome_list o = continuation_list o.next
 
 let run_atomic ~resolve sq cmd
     : (outcome, string) result =
@@ -346,104 +352,124 @@ let run_atomic ~resolve sq cmd
   match cmd with
   | Apply (depth, h, args, ws, hint) ->
       let+ gs =
-        P.apply sq ?depth ~hint h args ws
+        Prover.apply sq ?depth ~hint h args ws
           ~term_witness:term_witness
         |> Result.map_error Prover.string_of_apply_error
       in
-      Branched gs
+      { next = Branched gs ; progressed = true }
   | Backchain (depth, h, ws) ->
       let+ gs =
-        P.backchain sq ?depth h ws
+        Prover.backchain sq ?depth h ws
           ~term_witness:term_witness
         |> Result.map_error Prover.string_of_backchain_error
       in
-      Branched gs
+      { next = Branched gs ; progressed = true }
   | Compute (hs, gas, hint) ->
       let+ gs =
         Compute.compute sq ~hint ?gas hs
         |> Result.map_error string_of_compute_error
       in
-      Branched gs
+      { next = Branched gs ; progressed = true }
   | ComputeAll (gas, hint, clr) ->
       let+ gs =
         Compute.compute_all sq ~hint ?gas clr
         |> Result.map_error string_of_compute_error
       in
-      Branched gs
+      { next = Branched gs ; progressed = true }
   | Cut (h, arg, hint) ->
-      let+ sq' =
-        P.cut sq ~hint h arg
+      let+ sq =
+        Prover.cut sq ~hint h arg
         |> Result.map_error Prover.string_of_cut_error
       in
-      Updated sq'
+      { next = Updated sq ; progressed = true }
   | CutFrom (h, arg, t, hint) ->
-      let+ sq' =
-        P.cut_from sq ~hint h arg t
+      let+ sq =
+        Prover.cut_from sq ~hint h arg t
         |> Result.map_error Prover.string_of_cut_from_error
       in
-      Updated sq'
+      { next = Updated sq ; progressed = true }
   | SearchCut (h, hint) ->
-      let+ sq' =
-        P.search_cut sq ~hint h
+      let+ sq =
+        Prover.search_cut sq ~hint h
         |> Result.map_error Prover.string_of_search_cut_error
       in
-      Updated sq'
+      { next = Updated sq ; progressed = true }
   | Inst (h, ws, hint) ->
-      let+ sq' =
-        P.inst sq ~hint h ws
+      let+ sq =
+        Prover.inst sq ~hint h ws
         |> Result.map_error Prover.string_of_inst_error
       in
-      Updated sq'
+      { next = Updated sq ; progressed = true }
   | Case (str, hint) ->
       let+ gs =
-        P.case sq ~hint str
+        Prover.case sq ~hint str
         |> Result.map_error Prover.string_of_case_error
       in
-      Branched gs
+      { next = Branched gs ; progressed = true }
   | Assert (t, dp, hint) ->
       untyped_ensure_no_restrictions t ;
       let+ delayed =
-        P.assert_hyp sq ~hint ?depth:dp t
+        Prover.assert_hyp sq ~hint ?depth:dp t
         |> Result.map_error Prover.string_of_assert_error
       in
       (match delayed with
-       | P.Solved sq -> Updated sq
-       | P.Delayed gs -> Branched gs)
+       | Prover.Solved sq -> { next = Updated sq ; progressed = true }
+       | Prover.Delayed gs -> { next = Branched gs ; progressed = true })
   | Monotone (h, t, hint) ->
       let+ delayed =
-        P.monotone sq ~hint h t
+        Prover.monotone sq ~hint h t
         |> Result.map_error Prover.string_of_monotone_error
       in
       (match delayed with
-       | P.Solved sq -> Updated sq
-       | P.Delayed gs -> Branched gs)
+       | Prover.Solved sq -> { next = Updated sq ; progressed = true }
+       | Prover.Delayed gs -> { next = Branched gs ; progressed = true })
   | Exists (_, ews) ->
-      let+ sq' =
+      let+ sq =
         List.fold_left
           (fun acc ew ->
             let* sq = acc in
-            P.exists_tac sq ew
+            Prover.exists_tac sq ew
             |> Result.map_error Prover.string_of_exists_error)
           (Result.ok sq) ews
       in
-      Updated sq'
+      { next = Updated sq ; progressed = (ews <> []) }
   | Clear (cm, hs) ->
-      let+ sq' =
-        P.clear sq cm hs
+      let+ sq =
+        Prover.clear sq cm hs
         |> Result.map_error Prover.string_of_clear_error
       in
-      Updated sq'
-  | ClearDups -> Result.ok (Updated (P.clear_duplicates sq))
+      { next = Updated sq ; progressed = (hs <> []) }
+  | ClearDups ->
+      let len = List.length sq.Prover.hyps in
+      let sq = Prover.clear_duplicates sq in
+      let progressed = List.length sq.Prover.hyps <> len in
+      Result.ok { next = Updated sq ; progressed }
   | Abbrev (hs, s) ->
-      Result.ok (Updated (P.abbrev sq (Iset.of_list hs) s))
+      let ids = Iset.of_list hs in
+      let progressed =
+        List.exists
+          (fun (h : Prover.hyp) ->
+            Iset.mem h.Prover.id ids && h.Prover.abbrev <> Some s)
+          sq.Prover.hyps
+      in
+      Result.ok
+        { next = Updated (Prover.abbrev sq ids s) ; progressed }
   | Unabbrev hs ->
-      Result.ok (Updated (P.unabbrev sq (Iset.of_list hs)))
+      let ids = Iset.of_list hs in
+      let progressed =
+        List.exists
+          (fun (h : Prover.hyp) ->
+            Iset.mem h.Prover.id ids && h.Prover.abbrev <> None)
+          sq.Prover.hyps
+      in
+      Result.ok
+        { next = Updated (Prover.unabbrev sq ids) ; progressed }
   | Rename (hfr, hto) ->
-      let+ sq' =
-        P.rename sq hfr hto
+      let+ sq =
+        Prover.rename sq hfr hto
         |> Result.map_error Prover.string_of_rename_error
       in
-      Updated sq'
+      { next = Updated sq ; progressed = (hfr <> hto) }
   | Search bounds -> begin
       let depth =
         match bounds with
@@ -456,94 +482,97 @@ let run_atomic ~resolve sq cmd
         | _ -> WMagic
       in
       let+ gs =
-        P.search sq ?depth ~witness
+        Prover.search sq ?depth ~witness
           ~handle_witness:handle_search_witness ()
         |> Result.map_error Prover.string_of_search_error
       in
-      Branched gs
+      { next = Branched gs ; progressed = true }
     end
   | Saturate sat ->
       let+ gs =
-        P.saturate sq ~hint:sat.hint ?depth:sat.depth sat.lemmas
+        Prover.saturate sq ~hint:sat.hint ?depth:sat.depth sat.lemmas
         |> Result.map_error Prover.string_of_saturate_error
       in
-      Branched gs
+      let progressed =
+        List.exists
+          (fun (g : Prover.sequent) ->
+            List.length g.Prover.hyps > List.length sq.Prover.hyps)
+          gs
+      in
+      { next = Branched gs ; progressed }
   | Permute (ids, h) ->
-      let+ sq' =
-        P.permute sq ids h
+      let+ sq =
+        Prover.permute sq ids h
         |> Result.map_error Prover.string_of_permute_error
       in
-      Updated sq'
+      { next = Updated sq ; progressed = (ids <> [] || h <> None) }
   | Split ->
       let+ gs =
-        P.split sq false
+        Prover.split sq false
         |> Result.map_error Prover.string_of_split_error
       in
-      Branched gs
+      { next = Branched gs ; progressed = true }
   | SplitStar ->
       let+ gs =
-        P.split sq true
+        Prover.split sq true
         |> Result.map_error Prover.string_of_split_error
       in
-      Branched gs
+      { next = Branched gs ; progressed = true }
   | Left ->
-      let+ sq' =
-        P.left sq
-        |> Result.map_error (fun (e : P.disjunction_error) ->
-            match e with
-            | P.Not_disjunction -> "Goal is not a disjunction")
+      let progressed =
+        match sq.Prover.goal with
+        | Or _ -> true
+        | _ -> false
       in
-      Updated sq'
+      let+ sq =
+        Prover.left sq
+        |> Result.map_error (fun (e : Prover.disjunction_error) ->
+            match e with
+            | Prover.Not_disjunction -> "Goal is not a disjunction")
+      in
+      { next = Updated sq ; progressed }
   | Right ->
-      let+ sq' =
-        P.right sq
-        |> Result.map_error (fun (e : P.disjunction_error) ->
-            match e with
-            | P.Not_disjunction -> "Goal is not a disjunction")
+      let progressed =
+        match sq.Prover.goal with
+        | Or _ -> true
+        | _ -> false
       in
-      Updated sq'
+      let+ sq =
+        Prover.right sq
+        |> Result.map_error (fun (e : Prover.disjunction_error) ->
+            match e with
+            | Prover.Not_disjunction -> "Goal is not a disjunction")
+      in
+      { next = Updated sq ; progressed }
   | Unfold (cs, ss) ->
       let+ gs =
-        P.unfold sq cs ss
+        Prover.unfold sq cs ss
         |> Result.map_error Prover.string_of_unfold_error
       in
-      Branched gs
+      { next = Branched gs ; progressed = true }
   | Intros hs ->
-      let+ sq' =
-        P.intros sq hs
-        |> Result.map_error (fun (P.Intros_rename e) ->
+      let progressed =
+        match sq.Prover.goal with
+        | Arrow _ -> true
+        | Binding (Forall, _, _) -> true
+        | Binding (Nabla, _, _) -> true
+        | _ -> false
+      in
+      let+ sq =
+        Prover.intros sq hs
+        |> Result.map_error (fun (Prover.Intros_rename e) ->
             Prover.string_of_rename_hint_error e)
       in
-      Updated sq'
+      { next = Updated sq ; progressed }
   | Skip ->
       istate :=
-        Some { (get_ist ()) with P.skip_seen = true } ;
-      Result.ok (Branched (P.skip sq))
+        Some { (get_ist ()) with Prover.skip_seen = true } ;
+      Result.ok { next = Branched (Prover.skip sq) ; progressed = true }
   | Induction _ | CoInduction _ | Bullet _ | Abort | Undo | Common _
   | Try _ | Then _ | Alt _ | Repeat _ ->
       [%bug] "run_atomic: non-atomic command"
 
 (* Tacticals over explicit sequents *)
-
-let sequent_eq
-    (s1 : P.sequent) (s2 : P.sequent) =
-  Metaterm.metaterm_eq s1.P.goal s2.P.goal
-  && Iset.equal s1.P.user_vars s2.P.user_vars
-  && List.length s1.P.vars = List.length s2.P.vars
-  && List.for_all2
-      (fun (x1, t1) (x2, t2) ->
-        x1 = x2 && Term.eq t1 t2)
-      s1.P.vars s2.P.vars
-  && List.length s1.P.hyps = List.length s2.P.hyps
-  && List.for_all2
-      (fun
-        (h1 : P.hyp)
-        (h2 : P.hyp) ->
-        h1.P.id = h2.P.id
-        && h1.P.abbrev = h2.P.abbrev
-        && h1.P.user_named = h2.P.user_named
-        && Metaterm.metaterm_eq h1.P.term h2.P.term)
-      s1.P.hyps s2.P.hyps
 
 let rec eval_tac ~resolve sq cmd
     : (outcome, string) result =
@@ -551,22 +580,35 @@ let rec eval_tac ~resolve sq cmd
   | Then (t1, t2) -> begin
       match eval_tac ~resolve sq t1 with
       | Result.Error _ as e -> e
-      | Result.Ok (Updated sq') ->
-          eval_tac ~resolve sq' t2
-      | Result.Ok (Branched gs) ->
-          let rec loop acc = function
-            | [] -> Result.ok (Branched (List.concat (List.rev acc)))
+      | Result.Ok { next = Updated sq ; progressed = p1 } -> begin
+          match eval_tac ~resolve sq t2 with
+          | Result.Error _ as e -> e
+          | Result.Ok { next ; progressed = p2 } ->
+              Result.ok { next ; progressed = (p1 || p2) }
+        end
+      | Result.Ok { next = Branched gs ; progressed = p1 } ->
+          let rec loop acc prog = function
+            | [] ->
+                let p2 =
+                  match gs with
+                  | [] -> true
+                  | _ -> prog
+                in
+                Result.ok
+                  { next = Branched (List.concat (List.rev acc))
+                  ; progressed = (p1 || p2) }
             | g :: rest -> begin
                 match
                   eval_tac ~resolve
-                    (P.activate_sequent g) t2
+                    (Prover.activate_sequent g) t2
                 with
                 | Result.Error _ as e -> e
                 | Result.Ok o ->
-                    loop (outcome_list o :: acc) rest
+                    loop (outcome_list o :: acc) (prog || o.progressed)
+                      rest
               end
           in
-          loop [] gs
+          loop [] false gs
     end
   | Try t ->
       let snap = State.snapshot () in
@@ -574,10 +616,10 @@ let rec eval_tac ~resolve sq cmd
       | Result.Ok _ as ok -> ok
       | Result.Error _ ->
           State.reload snap ;
-          Result.ok (Updated sq)
+          Result.ok { next = Updated sq ; progressed = false }
       | exception e when is_recoverable e ->
           State.reload snap ;
-          Result.ok (Updated sq)
+          Result.ok { next = Updated sq ; progressed = false }
       end
   | Alt (t1, t2) ->
       let snap = State.snapshot () in
@@ -593,45 +635,59 @@ let rec eval_tac ~resolve sq cmd
   | Repeat (limit, t) -> repeat_tac ~resolve sq limit t
   | _ -> run_atomic ~resolve sq cmd
 
-and repeat_tac ~resolve sq limit t
+and repeat_tac ~resolve ?(progressed = false) sq limit t
     : (outcome, string) result =
   match limit with
-  | Some n when n <= 0 -> Result.ok (Updated sq)
+  | Some n when n <= 0 -> Result.ok { next = Updated sq ; progressed }
   | _ ->
       let next_limit = Option.map (fun n -> n - 1) limit in
       let snap = State.snapshot () in
       begin match eval_tac ~resolve sq t with
       | Result.Error _ ->
           State.reload snap ;
-          Result.ok (Updated sq)
+          Result.ok { next = Updated sq ; progressed }
       | exception e when is_recoverable e ->
           State.reload snap ;
-          Result.ok (Updated sq)
+          Result.ok { next = Updated sq ; progressed }
       | Result.Ok o -> begin
-          match outcome_list o with
-          | [] -> Result.ok (Branched [])
-          | [g] ->
-              let g = P.activate_sequent g in
-              if sequent_eq sq g then Result.ok o
-              else repeat_tac ~resolve g next_limit t
-          | gs ->
-              repeat_list ~resolve
-                (List.map P.activate_sequent gs)
-                next_limit t
+          if not o.progressed then
+            Result.ok { next = o.next ; progressed }
+          else
+            let progressed = true in
+            match outcome_list o with
+            | [] -> Result.ok { next = Branched [] ; progressed }
+            | [g] ->
+                repeat_tac ~resolve ~progressed
+                  (Prover.activate_sequent g) next_limit t
+            | gs ->
+                begin match
+                  repeat_list ~resolve
+                    (List.map Prover.activate_sequent gs)
+                    next_limit t
+                with
+                | Result.Error _ as e -> e
+                | Result.Ok { next ; progressed = p } ->
+                    Result.ok
+                      { next ; progressed = (progressed || p) }
+                end
         end
       end
 
 and repeat_list ~resolve gs limit t
     : (outcome, string) result =
-  let rec loop acc = function
-    | [] -> Result.ok (Branched (List.concat (List.rev acc)))
+  let rec loop acc prog = function
+    | [] ->
+        Result.ok
+          { next = Branched (List.concat (List.rev acc))
+          ; progressed = prog }
     | g :: rest -> begin
         match repeat_tac ~resolve g limit t with
         | Result.Error _ as e -> e
-        | Result.Ok o -> loop (outcome_list o :: acc) rest
+        | Result.Ok o ->
+            loop (outcome_list o :: acc) (prog || o.progressed) rest
       end
   in
-  loop [] gs
+  loop [] false gs
 
 (* Install tactic results in the owned cursor *)
 
@@ -642,60 +698,60 @@ and repeat_list ~resolve gs limit t
    tactics and tactical iteration do not normalize, just
    like the original. *)
 let normalize_focused st =
-  match st.P.focused with
+  match st.Prover.focused with
   | None -> st
   | Some sq ->
-      let sq = P.activate_sequent sq in
-      { st with P.focused = Some (P.normalize_sequent sq) }
+      let sq = Prover.activate_sequent sq in
+      { st with Prover.focused = Some (Prover.normalize_sequent sq) }
 
 let run_tactic ~resolve cmd =
   let st = get_ist () in
-  match st.P.focused with
+  match st.Prover.focused with
   | None -> begin
-      match st.P.bullets with
+      match st.Prover.bullets with
       | [] ->
           [%bug] "unfocused proof with empty bullet stack"
       | f :: _ ->
           failwith
             (Prover.string_of_bullet_error
-               (P.No_focused_subgoal f.P.bullet))
+               (Prover.No_focused_subgoal f.Prover.bullet))
     end
   | Some sq ->
-      let sq = P.activate_sequent sq in
+      let sq = Prover.activate_sequent sq in
       let outcome =
         try or_fail (fun s -> s) (eval_tac ~resolve sq cmd)
-        with P.Strict_name msg -> failwith msg
+        with Prover.Strict_name msg -> failwith msg
       in
       (* [Skip] may have set [skip_seen] on the cursor during
          evaluation; carry it into the installed state. *)
-      let st = { st with P.skip_seen = (get_ist ()).P.skip_seen } in
-      begin match outcome with
-      | Updated sq' ->
+      let st = { st with Prover.skip_seen = (get_ist ()).Prover.skip_seen } in
+      begin match outcome.next with
+      | Updated sq ->
           (* In-place: focus is unchanged and, like the
              original, not renormalized. *)
-          set_ist { st with P.focused = Some sq' }
+          set_ist { st with Prover.focused = Some sq }
       | Branched subs ->
-          let st' =
-            P.push_subgoals { st with P.focused = Some sq } subs
+          let st =
+            Prover.push_subgoals { st with Prover.focused = Some sq } subs
           in
           (* A closing tactic leaves no focus; advance to the
              next pending subgoal, mirroring
              [Prover.run_tactic]. *)
-          let st' =
-            match st'.P.focused with
-            | Some _ -> st'
-            | None -> P.next_subgoal st'
+          let st =
+            match st.Prover.focused with
+            | Some _ -> st
+            | None -> Prover.next_subgoal st
           in
-          set_ist (normalize_focused st')
+          set_ist (normalize_focused st)
       end
 
 let update_focused to_string f =
   let st = get_ist () in
-  match st.P.focused with
+  match st.Prover.focused with
   | None -> failwith "No focused subgoal"
   | Some sq ->
-      let sq' = or_fail to_string (f (P.activate_sequent sq)) in
-      set_ist { st with P.focused = Some sq' }
+      let sq = or_fail to_string (f (Prover.activate_sequent sq)) in
+      set_ist { st with Prover.focused = Some sq }
 
 (* Proof-state display *)
 
@@ -734,9 +790,9 @@ let begin_proof ~thm_id ~thm ~compile ~reset goal
   let bind = Term.get_bind_state () in
   let schem = !Term.schematic_instantiations in
   let sq =
-    P.(theorem (empty_sequent (placeholder_goal ())) goal)
+    Prover.(theorem (empty_sequent (placeholder_goal ())) goal)
   in
-  let init = P.start_proof sq in
+  let init = Prover.start_proof sq in
   istate := Some init ;
   let proc =
     Process_proof
@@ -761,18 +817,18 @@ let audit () =
   | None -> ()
   | Some st ->
       let seqs =
-        (match st.P.focused with
+        (match st.Prover.focused with
          | None -> []
          | Some sq -> [sq])
-        @ st.P.pending
+        @ st.Prover.pending
       in
       List.iter
-        (fun (sq : P.sequent) ->
-          ensure_no_prop_equality sq.P.goal ;
+        (fun (sq : Prover.sequent) ->
+          ensure_no_prop_equality sq.Prover.goal ;
           List.iter
-            (fun (h : P.hyp) ->
-              ensure_no_prop_equality h.P.term)
-            sq.P.hyps)
+            (fun (h : Prover.hyp) ->
+              ensure_no_prop_equality h.Prover.term)
+            sq.Prover.hyps)
         seqs
 
 let rec process_proof_command proc cmd =
@@ -780,15 +836,15 @@ let rec process_proof_command proc cmd =
   begin match resolve cmd with
   | Induction (args, hint) ->
       update_focused Prover.string_of_induction_error (fun sq ->
-          P.induction sq ~hint args)
+          Prover.induction sq ~hint args)
   | CoInduction hint ->
       update_focused Prover.string_of_coinduction_error (fun sq ->
-          P.coinduction sq ~hint ())
+          Prover.coinduction sq ~hint ())
   | Bullet b ->
       set_ist
         (normalize_focused
            (or_fail Prover.string_of_bullet_error
-              (P.bullet (get_ist ()) b)))
+              (Prover.bullet (get_ist ()) b)))
   | Abort -> raise (Prover.End_proof `aborted)
   | Undo | Common Back ->
       if !Setup.mode = `interactive then State.Undo.back 2
@@ -814,8 +870,8 @@ let rec process_proof_command proc cmd =
   end ;
   audit () ;
   let st = get_ist () in
-  if P.is_completed st then begin
-    let fin = if st.P.skip_seen then Unfinished else Finished in
+  if Prover.is_completed st then begin
+    let fin = if st.Prover.skip_seen then Unfinished else Finished in
     raise (Prover.End_proof (`completed fin))
   end ;
   ignore proc

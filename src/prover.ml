@@ -320,9 +320,6 @@ let create_split_theorems name names =
     failwith "Cannot split this type of theorem" ;
   loop (names, thms, 1)
 
-(* Left and right side of disjunction *)
-
-
 (* Immutable sequents and tactics *)
 
 (* Sequent *)
@@ -1055,10 +1052,7 @@ let split sq propagate_result
                 Term.schematic_instantiations := schem) })
     |> Result.ok
 
-(* Left / right. The mutable versions are silent no-ops off
-   disjunction; here that is a bespoke error. *)
-
-(* [left]/[right] on a non-disjunction are silent no-ops. *)
+(* Left and right side of disjunction *)
 
 type disjunction_error = Not_disjunction
 

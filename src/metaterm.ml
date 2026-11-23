@@ -1021,24 +1021,3 @@ let obj_eq o1 o2 =
   List.for_all2 Term.eq c1 c2 &&
   Term.eq o1.right o2.right &&
   obj_mode_eq o1.mode o2.mode
-
-let rec metaterm_eq m1 m2 =
-  match m1, m2 with
-  | True, True -> true
-  | False, False -> true
-  | Eq (a1, b1), Eq (a2, b2) ->
-      Term.eq a1 a2 && Term.eq b1 b2
-  | Obj (o1, r1), Obj (o2, r2) ->
-      r1 = r2 && obj_eq o1 o2
-  | Arrow (a1, b1), Arrow (a2, b2)
-  | Or (a1, b1), Or (a2, b2)
-  | And (a1, b1), And (a2, b2) ->
-      metaterm_eq a1 a2 && metaterm_eq b1 b2
-  | Binding (b1, tids1, body1), Binding (b2, tids2, body2) ->
-      b1 = b2 &&
-      List.length tids1 = List.length tids2 &&
-      List.for_all2 eq_tid tids1 tids2 &&
-      metaterm_eq body1 body2
-  | Pred (p1, r1), Pred (p2, r2) ->
-      r1 = r2 && Term.eq p1 p2
-  | _ -> false

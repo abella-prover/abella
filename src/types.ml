@@ -170,17 +170,15 @@ type clear_mode =
 
 module Hint = struct
   type name =
-    | User_name of id
-    | Dont_care
+    | User of id
+    | System
 
   type alt = {
     vars : name list ;
     hyps : name list ;
   }
 
-  type hspec = alt list
-
-  type t = hspec option
+  type t = alt list
 end
 
 type command =
@@ -400,27 +398,21 @@ let withs_to_string ws =
     (List.map (fun (x,t) -> x ^ " = " ^ (uterm_to_string t)) ws)
 
 let name_hint_to_string = function
-  | Hint.User_name name -> name
-  | Dont_care -> "_"
+  | Hint.User name -> name
+  | System -> "_"
 
-let hspec_alt_to_string alt =
-  let vars =
-    List.map (fun hint -> "!" ^ name_hint_to_string hint) alt.Hint.vars
-  in
-  let hyps = List.map name_hint_to_string alt.hyps in
+let alt_to_string Hint.{vars ; hyps} =
+  let vars = List.map (fun hint -> "!" ^ name_hint_to_string hint) vars in
+  let hyps = List.map name_hint_to_string hyps in
   String.concat " " (vars @ hyps)
 
-let hspec_to_string = function
+let hint_to_string = function
   | [] -> ""
-  | [alt] -> hspec_alt_to_string alt
+  | [alt] -> sprintf "%s : " (alt_to_string alt)
   | alts ->
-      "[" ^
-      (String.concat " | " (List.map hspec_alt_to_string alts)) ^
-      "]"
-
-let hn_to_string = function
-  | None -> ""
-  | Some hint -> sprintf "%s : " (hspec_to_string hint)
+      List.map alt_to_string alts
+      |> String.concat " | "
+      |> sprintf "[%s] : "
 
 let clearables_to_string cls =
   List.map clearable_to_string cls |> String.concat " "
@@ -436,23 +428,24 @@ let ewitness_to_string = function
 let rec command_to_string c =
   match c with
     | Induction(is, hn) ->
-        sprintf "%sinduction on %s" (hn_to_string hn)
+        sprintf "%sinduction on %s" (hint_to_string hn)
           (String.concat " " (List.map string_of_int is))
     | CoInduction hn ->
-        sprintf "%scoinduction" (hn_to_string hn)
+        sprintf "%scoinduction" (hint_to_string hn)
     | Apply(dbound, h, hs, ws, hn) -> begin
-        let buf = Buffer.create 10 in
-        Buffer.add_string buf (hn_to_string hn) ;
-        Buffer.add_string buf "apply" ;
-        Buffer.add_string buf (dbound_to_string dbound) ;
-        Buffer.add_string buf (" " ^ clearable_to_string h) ;
+        let open Buffer in
+        let buf = create 10 in
+        add_string buf (hint_to_string hn) ;
+        add_string buf "apply" ;
+        add_string buf (dbound_to_string dbound) ;
+        add_string buf (" " ^ clearable_to_string h) ;
         if hs <> [] then
-          (Buffer.add_string buf " to " ;
-           Buffer.add_string buf (clearables_to_string hs)) ;
+          (add_string buf " to " ;
+           add_string buf (clearables_to_string hs)) ;
         if ws <> [] then
-          (Buffer.add_string buf " with " ;
-           Buffer.add_string buf (withs_to_string ws)) ;
-        Buffer.contents buf
+          (add_string buf " with " ;
+           add_string buf (withs_to_string ws)) ;
+        contents buf
       end
     | Backchain(dbound, h, []) ->
         sprintf "backchain%s %s"
@@ -465,45 +458,45 @@ let rec command_to_string c =
           (withs_to_string ws)
     | Compute (hs, dp, hn) ->
         sprintf "%scompute%s %s"
-          (hn_to_string hn)
+          (hint_to_string hn)
           (match dp with Some dp -> " " ^ string_of_int dp | None -> "")
           (clearables_to_string hs)
     | ComputeAll (dp, hn, clr) ->
         sprintf "%scompute%s (%sall)"
-          (hn_to_string hn)
+          (hint_to_string hn)
           (match dp with Some dp -> " " ^ string_of_int dp | None -> "")
           (if clr = `CLEAR then "*" else "")
     | Cut(h1, h2, hn) ->
         sprintf "%scut %s with %s"
-          (hn_to_string hn)
+          (hint_to_string hn)
           (clearable_to_string h1)
           (clearable_to_string h2)
     | CutFrom(h, arg, t, hn) ->
         sprintf "%scut %s from %s with %s"
-          (hn_to_string hn) (uterm_to_string t)
+          (hint_to_string hn) (uterm_to_string t)
           (clearable_to_string h)
           (clearable_to_string arg)
     | SearchCut(h, hn) ->
-        sprintf "%s cut %s" (hn_to_string hn)
+        sprintf "%s cut %s" (hint_to_string hn)
           (clearable_to_string h)
     | Inst(h, ws, hn) ->
-        sprintf "%s inst %s with %s" (hn_to_string hn)
+        sprintf "%s inst %s with %s" (hint_to_string hn)
           (clearable_to_string h)
           (withs_to_string ws)
     | Case(Keep (h, _), hn) ->
-        sprintf "%scase %s (keep)" (hn_to_string hn) h
+        sprintf "%scase %s (keep)" (hint_to_string hn) h
     | Case(Remove (h, _), hn) ->
-        sprintf "%scase %s" (hn_to_string hn) h
+        sprintf "%scase %s" (hint_to_string hn) h
     | Assert(t, dp, hn) ->
         sprintf "%sassert %s%s"
-          (hn_to_string hn)
+          (hint_to_string hn)
           (match dp with
            | Some dp -> string_of_int dp ^ " "
            | None -> "")
           (umetaterm_to_formatted_string t)
     | Monotone(h, t, hn) ->
         sprintf "%smonotone %s with %s"
-          (hn_to_string hn)
+          (hint_to_string hn)
           (clearable_to_string h)
           (uterm_to_string t)
     | Exists (how, ews) ->
@@ -551,11 +544,11 @@ let rec command_to_string c =
           | None -> ""
           | Some n -> " " ^ string_of_int n
         in
-        sprintf "%sfchain%s %s" (hn_to_string hn) dp
+        sprintf "%sfchain%s %s" (hint_to_string hn) dp
           (String.concat " " lemmas)
       end
     | Intros alt ->
-        let hint = hspec_alt_to_string alt in
+        let hint = alt_to_string alt in
         if hint = "" then "intros" else "intros " ^ hint
     | Skip -> "skip"
     | Try c ->

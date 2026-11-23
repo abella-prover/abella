@@ -676,12 +676,9 @@ atomic_tactic:
 %inline
 hhint:
   | hs=hspec; COLON
-    { match hs with
-      | [(alt : Types.Hint.alt)] when alt.vars = [] && alt.hyps = []
-        -> None
-      | _ -> Some hs }
+    { hs }
   |
-    { None }
+    { [] }
 
 hspec:
   | LBRACK; alts=separated_nonempty_list(BAR, hspec_alt); RBRACK
@@ -706,16 +703,16 @@ plain_names:
 %inline
 var_name_hint:
   | x=STRINGID
-    { Types.Hint.User_name x }
+    { Types.Hint.User x }
   | UNDERSCORE
-    { Types.Hint.Dont_care }
+    { Types.Hint.System }
 
 %inline
 hyp_name_hint:
   | x=STRINGID
-    { check_legal_var x $startpos(x) ; Types.Hint.User_name x }
+    { check_legal_var x $startpos(x) ; Types.Hint.User x }
   | UNDERSCORE
-    { Types.Hint.Dont_care }
+    { Types.Hint.System }
 
 %inline
 hyp_list:

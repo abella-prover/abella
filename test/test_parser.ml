@@ -430,14 +430,10 @@ let tests =
              "!U !_ H _ : case H1"
              "[ !U !_ H _ ] : case H1.") ;
 
-      test_case "Empty hspec in brackets"
+      test_case "Empty hint alt in brackets"
         (fun () ->
            assert_command_pprint "[ | H] : case H1"
              "[ | H ] : case H1.") ;
-
-      test_case "Empty hspec normalizes away"
-        (fun () ->
-           assert_command_pprint "case H1" ": case H1.") ;
 
       test_case "Intros with no hints"
         (fun () ->

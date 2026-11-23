@@ -343,9 +343,9 @@ let run_atomic ~resolve sq cmd
     : (outcome, string) result =
   let cmd = cmd |> Prover.refresh_command_tyvars |> resolve in
   match cmd with
-  | Apply (depth, h, args, ws, hn) ->
+  | Apply (depth, h, args, ws, hint) ->
       let+ gs =
-        P.apply sq ?depth ?hint:hn h args ws
+        P.apply sq ?depth ~hint h args ws
           ~term_witness:term_witness
         |> Result.map_error Prover.string_of_apply_error
       in
@@ -357,60 +357,60 @@ let run_atomic ~resolve sq cmd
         |> Result.map_error Prover.string_of_backchain_error
       in
       Branched gs
-  | Compute (hs, gas, hn) ->
+  | Compute (hs, gas, hint) ->
       let+ gs =
-        Compute.compute sq ?hint:hn ?gas hs
+        Compute.compute sq ~hint ?gas hs
         |> Result.map_error string_of_compute_error
       in
       Branched gs
-  | ComputeAll (gas, hn, clr) ->
+  | ComputeAll (gas, hint, clr) ->
       let+ gs =
-        Compute.compute_all sq ?hint:hn ?gas clr
+        Compute.compute_all sq ~hint ?gas clr
         |> Result.map_error string_of_compute_error
       in
       Branched gs
-  | Cut (h, arg, hn) ->
+  | Cut (h, arg, hint) ->
       let+ sq' =
-        P.cut sq ?hint:hn h arg
+        P.cut sq ~hint h arg
         |> Result.map_error Prover.string_of_cut_error
       in
       Updated sq'
-  | CutFrom (h, arg, t, hn) ->
+  | CutFrom (h, arg, t, hint) ->
       let+ sq' =
-        P.cut_from sq ?hint:hn h arg t
+        P.cut_from sq ~hint h arg t
         |> Result.map_error Prover.string_of_cut_from_error
       in
       Updated sq'
-  | SearchCut (h, hn) ->
+  | SearchCut (h, hint) ->
       let+ sq' =
-        P.search_cut sq ?hint:hn h
+        P.search_cut sq ~hint h
         |> Result.map_error Prover.string_of_search_cut_error
       in
       Updated sq'
-  | Inst (h, ws, hn) ->
+  | Inst (h, ws, hint) ->
       let+ sq' =
-        P.inst sq ?hint:hn h ws
+        P.inst sq ~hint h ws
         |> Result.map_error Prover.string_of_inst_error
       in
       Updated sq'
-  | Case (str, hn) ->
+  | Case (str, hint) ->
       let+ gs =
-        P.case sq ?hint:hn str
+        P.case sq ~hint str
         |> Result.map_error Prover.string_of_case_error
       in
       Branched gs
-  | Assert (t, dp, hn) ->
+  | Assert (t, dp, hint) ->
       untyped_ensure_no_restrictions t ;
       let+ delayed =
-        P.assert_hyp sq ?hint:hn ?depth:dp t
+        P.assert_hyp sq ~hint ?depth:dp t
         |> Result.map_error Prover.string_of_assert_error
       in
       (match delayed with
        | P.Solved sq -> Updated sq
        | P.Delayed gs -> Branched gs)
-  | Monotone (h, t, hn) ->
+  | Monotone (h, t, hint) ->
       let+ delayed =
-        P.monotone sq ?hint:hn h t
+        P.monotone sq ~hint h t
         |> Result.map_error Prover.string_of_monotone_error
       in
       (match delayed with
@@ -463,7 +463,7 @@ let run_atomic ~resolve sq cmd
     end
   | Saturate sat ->
       let+ gs =
-        P.saturate sq ?hint:sat.hint ?depth:sat.depth sat.lemmas
+        P.saturate sq ~hint:sat.hint ?depth:sat.depth sat.lemmas
         |> Result.map_error Prover.string_of_saturate_error
       in
       Branched gs
@@ -777,12 +777,12 @@ let audit () =
 let rec process_proof_command proc cmd =
   let resolve = resolve_proof_cmd in
   begin match resolve cmd with
-  | Induction (args, hn) ->
+  | Induction (args, hint) ->
       update_focused Prover.string_of_induction_error (fun sq ->
-          P.induction sq ?hint:hn args)
-  | CoInduction hn ->
+          P.induction sq ~hint args)
+  | CoInduction hint ->
       update_focused Prover.string_of_coinduction_error (fun sq ->
-          P.coinduction sq ?hint:hn ())
+          P.coinduction sq ~hint ())
   | Bullet b ->
       set_ist
         (normalize_focused

@@ -37,23 +37,15 @@ module H = Hashtbl
 
 let strict_names : [`relaxed | `warn | `strict] ref = ref `relaxed
 
-let nth_or_last xs i =
-  let rec aux n = function
-    | [] -> None
-    | [x] -> Some x
-    | x :: rest -> if n = 0 then Some x else aux (n - 1) rest
-  in
-  aux i xs
-
-let alt_for_subgoal (hint : Hint.t) i =
+let alt_for_subgoal ?hint i =
   match hint with
+  | Some hint -> List.nth_or_last hint i
   | None -> None
-  | Some alts -> nth_or_last alts i
 
 let name_hint_at hints i =
-  match nth_or_last hints i with
-  | Some (Hint.User_name name) -> Some name
-  | Some Dont_care | None -> None
+  match List.nth_or_last hints i with
+  | Some (Hint.User name) -> Some name
+  | Some System | None -> None
 
 let lemmas : (string, string list * metaterm) H.t = State.table ()
 let lemma_tags : (string, fin) H.t = State.table ()
@@ -974,7 +966,7 @@ let induction sq ?hint ind_args
               in
               let sq =
                 add_hyps_with_hint sq ~auto_base:"IH"
-                  (alt_for_subgoal hint 0) ihs
+                  (alt_for_subgoal ?hint 0) ihs
               in
               Result.ok (keep_active sq { sq with goal = new_goal }))
       end
@@ -1028,7 +1020,7 @@ let coinduction sq ?hint ()
                 in
                 let sq =
                   add_hyps_with_hint sq ~auto_base:"CH"
-                    (alt_for_subgoal hint 0) [ch]
+                    (alt_for_subgoal ?hint 0) [ch]
                 in
                 Result.ok (keep_active sq { sq with goal = new_goal }))
     end
@@ -1484,7 +1476,7 @@ let inst sq ?hint h ws : (sequent, inst_error) result =
             | [] ->
                 Result.ok
                   (add_hyp_with_hint sq
-                     (alt_for_subgoal hint 0) ht)
+                     (alt_for_subgoal ?hint 0) ht)
             | (n, t) :: ws ->
                 let ntids = metaterm_nominal_tids ht in
                 begin match List.assoc_opt n ntids with
@@ -1554,7 +1546,7 @@ let cut sq ?hint h arg : (sequent, cut_error) result =
                   Result.ok
                     (keep_active sq
                        (add_hyp_with_hint sq
-                          (alt_for_subgoal hint 0)
+                          (alt_for_subgoal ?hint 0)
                           (object_cut obj_h obj_arg))))
           | _ -> Result.error Cut_not_object
         end
@@ -1600,7 +1592,7 @@ let cut_from sq ?hint h arg term
                       Result.ok
                         (keep_active sq
                            (add_hyp_with_hint sq
-                              (alt_for_subgoal hint 0)
+                              (alt_for_subgoal ?hint 0)
                               (object_cut_from obj_h1 obj_h2
                                  term))))
               | _, _ -> Result.error Cut_from_not_object
@@ -1629,7 +1621,7 @@ let search_cut sq ?hint h
               Result.ok
                 (keep_active sq
                    (add_hyp_with_hint sq
-                      (alt_for_subgoal hint 0)
+                      (alt_for_subgoal ?hint 0)
                       (Obj
                          (Tactics.search_cut
                             ~search_goal:(search_goal sq) obj,
@@ -1905,16 +1897,15 @@ let apply sq ?depth ?hint ?(term_witness = ignore) h args ws
                               in
                               let core =
                                 add_hyps_with_hint core
-                                  (alt_for_subgoal hint
+                                  (alt_for_subgoal ?hint
                                      (List.length remaining))
                                   c.stateless_new_hyps
                               in
                               begin match
                                 rename_new_vars core
                                   ?alt:(alt_for_subgoal
-                                          hint
-                                          (List.length
-                                             remaining))
+                                          ?hint
+                                          (List.length remaining))
                                   ~base:sq ()
                               with
                               | Result.Error e ->
@@ -2086,12 +2077,12 @@ let case sq ?hint h : (sequent list, case_error) result =
             in
             let core =
               add_hyps_with_hint core
-                (alt_for_subgoal hint i)
+                (alt_for_subgoal ?hint i)
                 c.new_hyps
             in
             begin match
               rename_new_vars core
-                ?alt:(alt_for_subgoal hint i)
+                ?alt:(alt_for_subgoal ?hint i)
                 ~base:sq ()
             with
             | Result.Error e ->
@@ -2159,15 +2150,15 @@ let delay_mainline sq ?hint ?depth new_hyp detour_goal
       (Solved
          (keep_active sq
             (add_hyp_with_hint sq
-               (alt_for_subgoal hint 0) new_hyp)))
+               (alt_for_subgoal ?hint 0) new_hyp)))
   else
     let mainline_core =
       add_hyps_with_hint sq
-        (alt_for_subgoal hint 1) [new_hyp]
+        (alt_for_subgoal ?hint 1) [new_hyp]
     in
     begin match
       rename_new_vars mainline_core
-        ?alt:(alt_for_subgoal hint 1) ~base:sq ()
+        ?alt:(alt_for_subgoal ?hint 1) ~base:sq ()
     with
     | Result.Error _ as e -> e
     | Result.Ok mainline_core ->
@@ -2418,7 +2409,7 @@ let saturate sq ?hint ?depth lemmas
             | c :: rest ->
                 Term.set_bind_state c.binds ;
                 Term.schematic_instantiations := c.schem ;
-                let alt = alt_for_subgoal hint c.index in
+                let alt = alt_for_subgoal ?hint c.index in
                 let core =
                   List.fold_left
                     (fun sq v -> add_if_new_var sq v)

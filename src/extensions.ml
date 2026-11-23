@@ -200,6 +200,14 @@ module List = struct
     let f = maybe_guard ?guard f in
     find_all (fun x -> not (f x)) list
 
+  let rec nth_or_last l i =
+    match l with
+    | [] -> None
+    | [x] -> Some x
+    | x :: rest ->
+        if i = 0 then Some x else
+        nth_or_last rest (i - 1)
+
   let minus ?(cmp=(=)) list1 list2 =
     remove_all (fun e -> mem ~cmp e list2) list1
 

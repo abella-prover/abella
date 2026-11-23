@@ -277,7 +277,7 @@ let compute sq ?hint ?(gas = 1_000) ?(warn = true) hs =
   and finish_branch sq chs =
     let idx = !leaf_count in
     incr leaf_count ;
-    let alt = Prover.alt_for_subgoal hint idx in
+    let alt = Prover.alt_for_subgoal ?hint idx in
     let res =
       List.fold_left
         (fun acc ch ->

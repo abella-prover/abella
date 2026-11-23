@@ -46,10 +46,13 @@ let rec observe_ty ty =
   match ty with
   | Ty (args, aty) as ty0 ->
       (match aty with
-       | Typtr {contents=TT t} ->
+       | Typtr ({contents=TT t} as r) ->
            (match observe_ty t with
             | Ty (targs, taty) as tob ->
+                (* Path compression: shorten TT chains *)
+                if t != tob then r := TT tob ;
                 if args == [] then tob
+                else if targs == [] then Ty (args, taty)
                 else Ty (args @ targs, taty))
        | (Tycons _ | Tygenvar _ | Typtr _) -> ty0)
 
@@ -123,6 +126,22 @@ and env = envitem list
 and envitem = Dum of int | Binding of term * int
 
 (* Utilities for constructing and deconstructing terms *)
+
+(* bind_state for variables is a list of (var, old_value, new_value).
+   It is defined early so that [deref] path compression can be trailed
+   and thus undone on backtracking. *)
+type bind_state_var = (ptr * in_ptr * term) list
+let bind_state_var : bind_state_var ref = ref []
+
+let rec deref = function
+  | Ptr ({contents=T t} as r) ->
+      let tob = deref t in
+      if t != tob then begin
+        bind_state_var := (r, !r, tob) :: !bind_state_var ;
+        r := T tob
+      end ;
+      tob
+  | t -> t
 
 let observe_var_ty v =
   let ty = observe_ty v.ty in
@@ -251,14 +270,6 @@ let eq_idterm (id1,t1) (id2,t2) =
  * variable is a reference which must be updated. Also the variable must
  * not be made a reference to itself. *)
 
-(* bind_state for variables is a list of (var, old_value, new_value) *)
-type bind_state_var = (ptr * in_ptr * term) list
-let bind_state_var : bind_state_var ref = ref []
-
-let rec deref = function
-  | Ptr {contents=T t} -> deref t
-  | t -> t
-
 let getref = function
   | Ptr t -> t
   | _ -> [%bug] "getref: expected a pointer"
@@ -301,8 +312,16 @@ let clear_bind_state () =
 
 let set_bind_state (state_var, state_ty) =
   clear_bind_state () ;
-  List.iter (fun (v, _ov, nv) -> bind (Ptr v) nv) (List.rev state_var) ;
-  List.iter (fun (tv, _tov, tnv) -> bind_ty (Typtr tv) tnv) (List.rev state_ty)
+  (* Replay only real bindings (old = V / TV); drop path-compression
+     entries (old = T / TT) which are semantically redundant. *)
+  List.iter (fun (v, ov, nv) ->
+      match ov with
+      | V _ -> bind (Ptr v) nv
+      | T _ -> ()) (List.rev state_var) ;
+  List.iter (fun (tv, tov, tnv) ->
+      match tov with
+      | TV _ -> bind_ty (Typtr tv) tnv
+      | TT _ -> ()) (List.rev state_ty)
 
 (* make state undoable *)
 let () = State.make () ~copy:get_bind_state ~assign:(fun () st -> set_bind_state st)

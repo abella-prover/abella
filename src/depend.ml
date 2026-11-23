@@ -59,9 +59,9 @@ let rec lp_dependencies (module Lp : LP) lpfile =
 type file_kind = [`thm | `thmod]
 
 type dependencies = {
-  dep_specs : string list ;
-  dep_thms : string list ;
-  dep_thmods : string list ;
+  specs : string list ;
+  thms : string list ;
+  thmods : string list ;
 }
 
 let file_dependencies kind filename =
@@ -77,7 +77,7 @@ let file_dependencies kind filename =
           ~thms:(Filepath.normalize ~wrt:filename i :: thms)
     | ATopCommand (ImportModule mi) ->
         let thmods =
-          match mi.mi_source with
+          match mi.source with
           | QuoteSource (s, _) ->
               Filepath.normalize ~wrt:filename s :: thmods
           | NameSource _ -> thmods
@@ -93,9 +93,9 @@ let file_dependencies kind filename =
         spin ~specs ~thms ~thmods
     | _ -> spin ~specs ~thms ~thmods
     | exception End_of_file ->
-        { dep_specs = List.rev specs |> List.unique ;
-          dep_thms = List.rev thms |> List.unique ;
-          dep_thmods = List.rev thmods |> List.unique ;
+        { specs = List.rev specs |> List.unique ;
+          thms = List.rev thms |> List.unique ;
+          thmods = List.rev thmods |> List.unique ;
         }
     | exception Parsing.Parse_error ->
         failwithf "Syntax error%s" (position lexbuf)
@@ -105,9 +105,9 @@ let file_dependencies kind filename =
   in
   let deps = spin ~specs:[] ~thms:[] ~thmods:[] in
   let sigfiles =
-    List.flatten_map (lp_dependencies (module LPSig : LP)) deps.dep_specs
+    List.flatten_map (lp_dependencies (module LPSig : LP)) deps.specs
   in
   let modfiles =
-    List.flatten_map (lp_dependencies (module LPMod : LP)) deps.dep_specs
+    List.flatten_map (lp_dependencies (module LPMod : LP)) deps.specs
   in
-  { deps with dep_specs = List.unique (sigfiles @ modfiles) }
+  { deps with specs = List.unique (sigfiles @ modfiles) }

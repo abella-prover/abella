@@ -52,10 +52,10 @@ type module_source =
   | NameSource of id
 
 type module_import = {
-  mi_alias  : id option ;
-  mi_source : module_source ;
-  mi_tyargs : ty list ;
-  mi_withs  : (qualid * qualid) list ;
+  alias  : id option ;
+  source : module_source ;
+  tyargs : ty list ;
+  withs  : (qualid * qualid) list ;
 }
 
 exception Reported_parse_error
@@ -114,7 +114,6 @@ type compiled =
   | CImport       of string * (string * string) list
   | CKind         of id list * knd
   | CType         of id list * string list * ty
-  | CDeclPred     of id list * string list * ty
   | CClose        of (aty * aty list) list
   | CSuspend      of guard
 
@@ -169,34 +168,36 @@ type clear_mode =
   | Clear_delete
   | Clear_extro
 
-type name_hint =
-  | User_name of id
-  | Dont_care
+module Hint = struct
+  type name =
+    | User_name of id
+    | Dont_care
 
-type hspec_alt = {
-  hspec_vars : name_hint list ;
-  hspec_hyps : name_hint list ;
-}
+  type alt = {
+    vars : name list ;
+    hyps : name list ;
+  }
 
-type hspec = hspec_alt list
+  type hspec = alt list
 
-type hhint = hspec option
+  type t = hspec option
+end
 
 type command =
-  | Induction    of int list * hhint
-  | CoInduction  of hhint
+  | Induction    of int list * Hint.t
+  | CoInduction  of Hint.t
   | Apply        of depth_bound option * clearable
-                    * clearable list * (id * uterm) list * hhint
+                    * clearable list * (id * uterm) list * Hint.t
   | Backchain    of depth_bound option * clearable * (id * uterm) list
-  | Compute      of clearable list * int option * hhint
-  | ComputeAll   of int option * hhint * [`CLEAR | `KEEP]
-  | CutFrom      of clearable * clearable * uterm * hhint
-  | Cut          of clearable * clearable * hhint
-  | SearchCut    of clearable * hhint
-  | Inst         of clearable * (id * uterm) list * hhint
-  | Case         of clearable * hhint
-  | Assert       of umetaterm * int option * hhint
-  | Monotone     of clearable * uterm * hhint
+  | Compute      of clearable list * int option * Hint.t
+  | ComputeAll   of int option * Hint.t * [`CLEAR | `KEEP]
+  | CutFrom      of clearable * clearable * uterm * Hint.t
+  | Cut          of clearable * clearable * Hint.t
+  | SearchCut    of clearable * Hint.t
+  | Inst         of clearable * (id * uterm) list * Hint.t
+  | Case         of clearable * Hint.t
+  | Assert       of umetaterm * int option * Hint.t
+  | Monotone     of clearable * uterm * Hint.t
   | Exists       of [`EXISTS | `WITNESS] * ewitness list
   | Clear        of clear_mode * id list
   | ClearDups
@@ -209,9 +210,9 @@ type command =
   | SplitStar
   | Left
   | Right
-  | Intros       of hspec_alt
+  | Intros       of Hint.alt
   | Unfold       of clause_selector * solution_selector
-  | Saturate     of { depth : int option ; lemmas : id list ; hint : hhint }
+  | Saturate     of { depth : int option ; lemmas : id list ; hint : Hint.t }
   | Skip
   | Try          of command
   | Then         of command * command
@@ -320,16 +321,16 @@ let module_source_to_string = function
   | NameSource name -> name
 
 let module_import_to_string mi =
-  let alias = match mi.mi_alias with
+  let alias = match mi.alias with
     | None -> ""
     | Some name -> name ^ " = "
   in
-  let tyargs = match mi.mi_tyargs with
+  let tyargs = match mi.tyargs with
     | [] -> ""
     | tys ->
         sprintf "[%s]" (String.concat ", " (List.map ty_to_string tys))
   in
-  let withs = match mi.mi_withs with
+  let withs = match mi.withs with
     | [] -> ""
     | ws ->
         let one (key, value) =
@@ -339,7 +340,7 @@ let module_import_to_string mi =
         sprintf " with %s" (String.concat ", " (List.map one ws))
   in
   sprintf "Import Module %s%s%s%s"
-    alias (module_source_to_string mi.mi_source) tyargs withs
+    alias (module_source_to_string mi.source) tyargs withs
 
 let module_to_string name params =
   match params with
@@ -399,14 +400,14 @@ let withs_to_string ws =
     (List.map (fun (x,t) -> x ^ " = " ^ (uterm_to_string t)) ws)
 
 let name_hint_to_string = function
-  | User_name name -> name
+  | Hint.User_name name -> name
   | Dont_care -> "_"
 
 let hspec_alt_to_string alt =
   let vars =
-    List.map (fun hint -> "!" ^ name_hint_to_string hint) alt.hspec_vars
+    List.map (fun hint -> "!" ^ name_hint_to_string hint) alt.Hint.vars
   in
-  let hyps = List.map name_hint_to_string alt.hspec_hyps in
+  let hyps = List.map name_hint_to_string alt.hyps in
   String.concat " " (vars @ hyps)
 
 let hspec_to_string = function

@@ -1093,7 +1093,7 @@ and process_top1_body () =
         Thmod.process_end name ;
         Process_top
     | ImportModule mi -> begin
-        begin match mi.mi_source with
+        begin match mi.source with
         | QuoteSource (file, pos) ->
             if !Setup.annotate then begin
               let file =
@@ -1150,12 +1150,7 @@ and process_top1_body () =
         in
         Prover.add_global_consts ~typarams
           (List.map (fun id -> (id, ty)) ids) ;
-        let comp =
-          if Thmod.in_module () && is_declared_predicate then
-            CDeclPred (ids, typarams, ty)
-          else CType (ids, typarams, ty)
-        in
-        compile comp ;
+        compile @@ CType (ids, typarams, ty) ;
         Process_top
     | Close atys ->
         Prover.close_types !sign !Prover.clauses atys ;

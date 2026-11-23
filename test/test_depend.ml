@@ -49,10 +49,10 @@ Show Module "Shown".
 |} ;
     let deps = Depend.file_dependencies `thm base in
     Alcotest.check (Alcotest.list Alcotest.string) "thm deps"
-      [Filename.concat dir "Lib"] deps.Depend.dep_thms ;
+      [Filename.concat dir "Lib"] deps.Depend.thms ;
     Alcotest.check (Alcotest.list Alcotest.string) "thmod deps"
       [Filename.concat dir "Box" ; Filename.concat dir "Shown"]
-      deps.Depend.dep_thmods
+      deps.Depend.thmods
   end
 
 let test_thmod_dependencies () =
@@ -66,9 +66,9 @@ End Main.
 |} ;
     let deps = Depend.file_dependencies `thmod base in
     Alcotest.check (Alcotest.list Alcotest.string) "thm deps" []
-      deps.Depend.dep_thms ;
+      deps.Depend.thms ;
     Alcotest.check (Alcotest.list Alcotest.string) "thmod deps"
-      [Filename.concat dir "Box"] deps.Depend.dep_thmods
+      [Filename.concat dir "Box"] deps.Depend.thmods
   end
 
 let tests = suite "Depend" [

@@ -45,14 +45,14 @@ let nth_or_last xs i =
   in
   aux i xs
 
-let alt_for_subgoal (hint : hhint) i =
+let alt_for_subgoal (hint : Hint.t) i =
   match hint with
   | None -> None
   | Some alts -> nth_or_last alts i
 
 let name_hint_at hints i =
   match nth_or_last hints i with
-  | Some (User_name name) -> Some name
+  | Some (Hint.User_name name) -> Some name
   | Some Dont_care | None -> None
 
 let lemmas : (string, string list * metaterm) H.t = State.table ()
@@ -204,32 +204,32 @@ let def_unfold term =
 (* Subgoal display budgets *)
 
 type subgoal_max = {
-  smax_default : int ;
-  smax_map : int IntMap.t ;
+  default : int ;
+  map : int IntMap.t ;
 }
-let subgoal_max_init = { smax_default = max_int ;
-                         smax_map = IntMap.empty }
+let subgoal_max_init = { default = max_int ;
+                         map = IntMap.empty }
 let subgoal_max : subgoal_max ref = State.rref subgoal_max_init
 let reset_subgoal_max () =
   subgoal_max := subgoal_max_init
-let set_subgoal_max_default smax_default =
+let set_subgoal_max_default default =
   let smax = !subgoal_max in
-  subgoal_max := { smax with smax_default }
+  subgoal_max := { smax with default }
 let set_subgoal_max ndps =
   let smax = !subgoal_max in
-  let smax_map = List.fold_left begin
-      fun smax_map (dp, n) ->
+  let map = List.fold_left begin
+      fun map (dp, n) ->
         let n = Option.value ~default:max_int n in
-        IntMap.add dp n smax_map
-    end smax.smax_map ndps in
-  subgoal_max := { smax with smax_map }
+        IntMap.add dp n map
+    end smax.map ndps in
+  subgoal_max := { smax with map }
 
 (* Read access for the driver, which keeps its own
    pending subgoals but honors the same display budgets. *)
-let subgoal_max_default () = !subgoal_max.smax_default
+let subgoal_max_default () = !subgoal_max.default
 
 let subgoal_max_at dp =
-  try Some (IntMap.find dp !subgoal_max.smax_map)
+  try Some (IntMap.find dp !subgoal_max.map)
   with Not_found -> None
 
 (* Lemmas *)
@@ -550,12 +550,12 @@ let add_named_hyp sq base term =
   unsafe_add_hyp (update_hyp_count sq name)
     ~user_named:true name term
 
-let add_hyps_with_hint sq ?(auto_base = "") alt hyps =
+let add_hyps_with_hint sq ?(auto_base = "") (alt : Hint.alt option) hyps =
   let _, sq =
     List.fold_left
       (fun (i, sq) hyp ->
         let hint =
-          Option.bind alt (fun a -> name_hint_at a.hspec_hyps i)
+          Option.bind alt (fun a -> name_hint_at a.hyps i)
         in
         let sq =
           match hint with
@@ -767,10 +767,10 @@ let rename_described sq ~hints ~base vars
                 else user_vars)
               sq.user_vars renames }
 
-let rename_new_vars sq ?alt ~base ()
+let rename_new_vars sq ?(alt : Hint.alt option) ~base ()
     : (sequent, rename_hint_error) result =
   let hints =
-    match alt with None -> [] | Some a -> a.hspec_vars
+    match alt with None -> [] | Some a -> a.vars
   in
   if hints = [] then Result.ok sq
   else
@@ -1037,7 +1037,7 @@ let coinduction sq ?hint ()
 
 type intros_error = Intros_rename of rename_hint_error
 
-let intros sq alt : (sequent, intros_error) result =
+let intros sq (alt : Hint.alt) : (sequent, intros_error) result =
   let base = sq in
   let rec aux sq intro_vars hyp_index term =
     match term with
@@ -1068,7 +1068,7 @@ let intros sq alt : (sequent, intros_error) result =
         aux sq intro_vars hyp_index
           (replace_metaterm_vars (List.combine ids nominals) body)
     | Arrow (left, right) ->
-        let hint = name_hint_at alt.hspec_hyps hyp_index in
+        let hint = name_hint_at alt.hyps hyp_index in
         let sq =
           match hint with
           | Some b -> add_named_hyp sq b (normalize left)
@@ -1079,7 +1079,7 @@ let intros sq alt : (sequent, intros_error) result =
   in
   let sq, intro_vars, goal = aux sq [] 0 sq.goal in
   let sq = keep_active sq { sq with goal } in
-  rename_described sq ~hints:alt.hspec_vars ~base intro_vars
+  rename_described sq ~hints:alt.vars ~base intro_vars
   |> Result.map_error (fun e -> Intros_rename e)
 
 (* Search helpers (pure variants operating on an explicit sequent) *)
@@ -2329,12 +2329,12 @@ type saturate_error =
   | Saturate_tactic_failure of string
 
 type saturate_case = {
-  sc_binds : Term.bind_state ;
-  sc_schem : Term.tysub ;
-  sc_vars : (id * term) list ;
-  sc_hyps : metaterm list ;
-  sc_ts : int ;
-  sc_index : int ;
+  binds : Term.bind_state ;
+  schem : Term.tysub ;
+  vars : (id * term) list ;
+  hyps : metaterm list ;
+  ts : int ;
+  index : int ;
 }
 
 type focus_outcome =
@@ -2416,21 +2416,21 @@ let saturate sq ?hint ?depth lemmas
             match cases with
             | [] -> Ok []
             | c :: rest ->
-                Term.set_bind_state c.sc_binds ;
-                Term.schematic_instantiations := c.sc_schem ;
-                let alt = alt_for_subgoal hint c.sc_index in
+                Term.set_bind_state c.binds ;
+                Term.schematic_instantiations := c.schem ;
+                let alt = alt_for_subgoal hint c.index in
                 let core =
                   List.fold_left
                     (fun sq v -> add_if_new_var sq v)
-                    sq c.sc_vars
+                    sq c.vars
                 in
-                let core = add_hyps_with_hint core alt c.sc_hyps in
+                let core = add_hyps_with_hint core alt c.hyps in
                 begin match rename_new_vars core ?alt ~base:sq () with
                 | Result.Error e ->
                     Result.error (Saturate_rename e)
                 | Result.Ok core ->
                     let core = update_self_bound_vars core in
-                    begin match loop core (depth - 1) c.sc_ts with
+                    begin match loop core (depth - 1) c.ts with
                     | Result.Error _ as e -> e
                     | Result.Ok done1 ->
                         begin match expand_cases sq rest depth with
@@ -2536,12 +2536,12 @@ let saturate sq ?hint ?depth lemmas
             | [] ->
                 let nvs = List.rev nvs in
                 let nhs = List.rev nhs in
-                [{ sc_binds = Term.get_bind_state () ;
-                   sc_schem = !Term.schematic_instantiations ;
-                   sc_vars = nvs ;
-                   sc_hyps = nhs ;
-                   sc_ts = ts ;
-                   sc_index = next_index () }]
+                [{ binds = Term.get_bind_state () ;
+                   schem = !Term.schematic_instantiations ;
+                   vars = nvs ;
+                   hyps = nhs ;
+                   ts = ts ;
+                   index = next_index () }]
             | form :: forms -> begin
                 match form with
                 | True -> release sq ~ts ~nvs ~nhs forms

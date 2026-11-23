@@ -57,13 +57,13 @@ and add_source_file kind file =
       Hashtbl.replace dep_tab target None ;
       let deps = Depend.file_dependencies kind base in
       List.iter (fun base -> add_source_file `thm (base ^ ".thm"))
-        deps.Depend.dep_thms ;
+        deps.Depend.thms ;
       List.iter (fun base -> add_source_file `thmod (base ^ ".thmod"))
-        deps.Depend.dep_thmods ;
+        deps.Depend.thmods ;
       let deps =
-        deps.Depend.dep_specs @
-        List.map (artifact_of_base `thm) deps.Depend.dep_thms @
-        List.map (artifact_of_base `thmod) deps.Depend.dep_thmods
+        deps.Depend.specs @
+        List.map (artifact_of_base `thm) deps.Depend.thms @
+        List.map (artifact_of_base `thmod) deps.Depend.thmods
       in
       Hashtbl.replace dep_tab target (Some deps)
     end

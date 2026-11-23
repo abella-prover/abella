@@ -21,74 +21,84 @@ module Setup = Driver_setup
 let read source =
   Source.read_compiled ~suffix:".thmod" ~compiled_suffix:".thmodc" source
 
-type item_class =
-  | KindItem
-  | TypeItem
-  | PredicateItem
-  | DefineItem
-  | TheoremItem
-  | AxiomItem
+module Item = struct
+  type sort =
+    | Kind
+    | Type
+    | Predicate
+    | Define
+    | Theorem
+    | Axiom
 
-type item = {
-  item_local : string ;
-  item_name : string ;
-  item_class : item_class ;
-  item_ty : ty option ;
-  item_typarams : string list ;
-}
+  type t = {
+    local : string ;
+    name : string ;
+    sort : sort ;
+    ty : ty option ;
+    typarams : string list ;
+  }
+end
 
-type template = {
-  tp_name : string ;
-  tp_from : string list ;
-  tp_source : string ;
-  tp_params : string list ;
-  tp_content : compiled list ;
-  tp_nested : string list ;
-}
+module Template = struct
+  type t = {
+    name : string ;
+    from : string list ;
+    source : string ;
+    params : string list ;
+    content : compiled list ;
+    nested : string list ;
+  }
+end
 
-type instance = {
-  ins_name : string ;
-  ins_source : string ;
-  ins_prefix : string list ;
-  ins_decls : compiled list ;
-  ins_tyargs : ty list ;
-}
+module Instance = struct
+  type t = {
+    name : string ;
+    source : string ;
+    prefix : string list ;
+    decls : compiled list ;
+    tyargs : ty list ;
+  }
+end
 
-type scope = {
-  sc_name : string ;
-  sc_root : string ;
-  sc_source : string ;
-  sc_path : string list ;
-  sc_params : string list ;
-  sc_items : item list ;
-  sc_children : scope list ;
-  sc_instances : (string * instance) list ;
-  sc_content : compiled list ;      (* reverse declaration order *)
-}
+module Scope = struct
+  type t = {
+    name : string ;
+    root : string ;
+    source : string ;
+    path : string list ;
+    params : string list ;
+    items : Item.t list ;
+    children : t list ;
+    instances : (string * Instance.t) list ;
+    content : compiled list ;      (* reverse declaration order *)
+  }
+end
 
-type env = {
-  en_stack : scope list ;           (* innermost first *)
-  en_top : scope option ;
-  en_templates : scope list ;       (* completed top-level .thm modules *)
-  en_instances : (string * instance) list ; (* top-level .thm imports *)
-  en_complete : bool ;
-}
+module Env = struct
+  type t = {
+    stack : Scope.t list ;           (* innermost first *)
+    top : Scope.t option ;
+    templates : Scope.t list ;       (* completed top-level .thm modules *)
+    instances : (string * Instance.t) list ; (* top-level .thm imports *)
+    complete : bool ;
+  }
 
-let initial_env = {
-  en_stack = [] ;
-  en_top = None ;
-  en_templates = [] ;
-  en_instances = [] ;
-  en_complete = false ;
-}
+  let initial = {
+    stack = [] ;
+    top = None ;
+    templates = [] ;
+    instances = [] ;
+    complete = false ;
+  }
+end
 
-let env = State.rref initial_env
+let env = State.rref Env.initial
 let frames : Subordination.sr list ref = State.rref []
 
 let identity_display name = name
 
 let reset () =
-  env := initial_env ;
+  env := Env.initial ;
   frames := [] ;
   Term.display_name := identity_display
 
@@ -112,41 +122,41 @@ let rec display_name_for prefixes name =
         display_name_for rest name
 
 let update_display () =
-  match !env.en_stack with
+  match !env.stack with
   | [] -> Term.display_name := identity_display
   | sc :: rest ->
       let prefixes =
-        List.map (fun sc -> sc.sc_path) (sc :: rest)
+        List.map (fun sc -> sc.Scope.path) (sc :: rest)
       in
       Term.display_name := fun name -> display_name_for prefixes name
 
 let current_scope () =
-  match !env.en_stack with
+  match !env.stack with
   | sc :: _ -> Some sc
   | [] -> None
 
 let in_module () =
-  match !env.en_stack with
+  match !env.stack with
   | [] -> false
   | _ -> true
 
 let current_name () =
   match current_scope () with
-  | Some sc -> Some sc.sc_name
+  | Some sc -> Some sc.Scope.name
   | None -> None
 
 let instance_prefix name =
   match current_scope () with
-  | Some sc -> sc.sc_path @ [name]
+  | Some sc -> sc.Scope.path @ [name]
   | None -> [name]
 
-let template_of_scope sc = {
-  tp_name = sc.sc_name ;
-  tp_from = sc.sc_path ;
-  tp_source = sc.sc_source ;
-  tp_params = sc.sc_params ;
-  tp_content = List.rev sc.sc_content ;
-  tp_nested = List.map (fun ch -> ch.sc_name) sc.sc_children ;
+let template_of_scope sc = Template.{
+  name = sc.Scope.name ;
+  from = sc.path ;
+  source = sc.source ;
+  params = sc.params ;
+  content = List.rev sc.content ;
+  nested = List.map (fun ch -> ch.Scope.name) sc.children ;
 }
 
 let find_template name =
@@ -155,62 +165,62 @@ let find_template name =
     | None -> None
     | Some sc ->
         List.find_some begin fun ch ->
-          if ch.sc_name = name then Some (template_of_scope ch) else None
-        end sc.sc_children
+          if ch.Scope.name = name then Some (template_of_scope ch) else None
+        end sc.children
   in
   match in_current with
   | Some _ as template -> template
   | None ->
       List.find_some begin fun sc ->
-        if sc.sc_name = name then Some (template_of_scope sc) else None
-      end !env.en_templates
+        if sc.Scope.name = name then Some (template_of_scope sc) else None
+      end !env.templates
 
 let find_instance name =
   match current_scope () with
-  | None -> List.assoc_opt name !env.en_instances
-  | Some sc -> List.assoc_opt name sc.sc_instances
+  | None -> List.assoc_opt name !env.instances
+  | Some sc -> List.assoc_opt name sc.instances
 
 let add_instance inst =
-  match !env.en_stack with
+  match !env.stack with
   | [] ->
-      if List.mem_assoc inst.ins_name !env.en_instances then
-        failwithf "Module name %s is already imported" inst.ins_name ;
+      if List.mem_assoc inst.Instance.name !env.instances then
+        failwithf "Module name %s is already imported" inst.name ;
       env := { !env with
-               en_instances =
-                 !env.en_instances @ [(inst.ins_name, inst)] }
+               instances =
+                 !env.instances @ [(inst.name, inst)] }
   | sc :: rest ->
-      if List.mem_assoc inst.ins_name sc.sc_instances then
-        failwithf "Module name %s is already imported" inst.ins_name ;
-      let sc = { sc with
-                 sc_instances = sc.sc_instances @ [(inst.ins_name, inst)] } in
-      env := { !env with en_stack = sc :: rest }
+      if List.mem_assoc inst.name sc.instances then
+        failwithf "Module name %s is already imported" inst.name ;
+      let sc = Scope.{ sc with
+                       instances = sc.instances @ [(inst.name, inst)] } in
+      env := { !env with stack = sc :: rest }
 
-let top_scope () = !env.en_top
+let top_scope () = !env.top
 
 let top_name () =
   match top_scope () with
-  | Some sc -> Some sc.sc_name
+  | Some sc -> Some sc.name
   | None -> None
 
 let top_params () =
   match top_scope () with
-  | Some sc -> sc.sc_params
+  | Some sc -> sc.params
   | None -> []
 
 let enclosing_scopes () =
-  match !env.en_stack with
+  match !env.stack with
   | [] -> []
   | _ :: rest -> rest
 
 let all_params () =
-  List.flatten_map (fun sc -> sc.sc_params) (List.rev !env.en_stack)
+  List.flatten_map (fun sc -> sc.Scope.params) (List.rev !env.stack)
 
 let all_items () =
-  List.flatten_map (fun sc -> sc.sc_items) !env.en_stack
+  List.flatten_map (fun sc -> sc.Scope.items) !env.stack
 
 let lookup_item_in items name =
   List.find_some begin fun it ->
-    if it.item_local = name then Some it else None
+    if it.Item.local = name then Some it else None
   end items
 
 let lookup_item name =
@@ -218,45 +228,45 @@ let lookup_item name =
 
 let lookup_item_by_name name =
   List.find_some begin fun it ->
-    if it.item_name = name then Some it else None
+    if it.Item.name = name then Some it else None
   end (all_items ())
 
 let enclosing_items () =
-  List.flatten_map (fun sc -> sc.sc_items) (enclosing_scopes ())
+  List.flatten_map (fun sc -> sc.Scope.items) (enclosing_scopes ())
 
 let all_module_names () =
   let rec descend sc =
-    List.flatten_map descend sc.sc_children
+    List.flatten_map descend sc.Scope.children
   in
-  let scopes = !env.en_stack in
+  let scopes = !env.stack in
   let names =
-    List.flatten_map (fun sc ->
+    List.flatten_map (fun (sc : Scope.t) ->
         let children =
-          List.flatten_map (fun ch -> ch.sc_name :: descend ch) sc.sc_children
+          List.flatten_map (fun ch -> ch.Scope.name :: descend ch) sc.children
         in
-        children @ List.map fst sc.sc_instances)
+        children @ List.map fst sc.instances)
       scopes
   in
-  let templates = List.map (fun sc -> sc.sc_name) !env.en_templates in
-  let instances = List.map fst !env.en_instances in
+  let templates = List.map (fun sc -> sc.Scope.name) !env.templates in
+  let instances = List.map fst !env.instances in
   let stack_top =
     match List.rev scopes with
-    | sc :: _ -> [sc.sc_name]
+    | sc :: _ -> [sc.name]
     | [] -> []
   in
   let names =
-    match !env.en_top with
-    | Some sc -> sc.sc_name :: names
+    match !env.top with
+    | Some sc -> sc.name :: names
     | None -> stack_top @ names
   in
   List.unique (templates @ instances @ names)
 
 let all_child_names () =
   match current_scope () with
-  | None -> List.map fst !env.en_instances
+  | None -> List.map fst !env.instances
   | Some sc ->
-      List.map (fun ch -> ch.sc_name) sc.sc_children @
-      List.map fst sc.sc_instances
+      List.map (fun ch -> ch.Scope.name) sc.Scope.children @
+      List.map fst sc.instances
 
 let split_qualified name =
   String.split_on_char '.' name
@@ -286,7 +296,7 @@ let validate_qualified name =
       else if List.mem prefix (all_child_names ()) then
         let is_instance =
           match current_scope () with
-          | Some sc -> List.mem_assoc prefix sc.sc_instances
+          | Some sc -> List.mem_assoc prefix sc.instances
           | None -> false
         in
         if is_instance then
@@ -301,14 +311,14 @@ let validate_qualified name =
 let resolve_dotted name =
   validate_qualified name ;
   match lookup_item_in (all_items ()) name with
-  | Some it -> it.item_name
+  | Some it -> it.name
   | None -> name
 
 let resolve_id name =
   if is_dotted name then resolve_dotted name
   else begin
     match lookup_item name with
-    | Some it -> it.item_name
+    | Some it -> it.name
     | None -> name
   end
 
@@ -316,14 +326,14 @@ let resolve_type_name name =
   if is_dotted name then resolve_dotted name
   else begin
     match lookup_item name with
-    | Some it -> it.item_name
+    | Some it -> it.name
     | None -> name
   end
 
 let new_name name =
-  match !env.en_stack with
+  match !env.stack with
   | [] -> name
-  | sc :: _ -> String.concat "." (sc.sc_path @ [name])
+  | sc :: _ -> String.concat "." (sc.path @ [name])
 
 let resolve_locals locals name =
   match List.assoc_opt name locals with
@@ -523,81 +533,72 @@ let is_predicate_ty ty =
   match observe_ty ty with
   | Ty (_, aty) -> aty = propaty
 
-let class_of_compiled = function
-  | CKind _ -> Some KindItem
-  | CDeclPred _ -> Some PredicateItem
+let sort_of_compiled = function
+  | CKind _ -> Some Item.Kind
   | CType (_, _, ty) ->
-      Some (if is_predicate_ty ty then PredicateItem else TypeItem)
-  | CDefine _ -> Some DefineItem
-  | CTheorem (_, _, _, Axiomatic) -> Some AxiomItem
-  | CTheorem _ -> Some TheoremItem
+      Some (if is_predicate_ty ty then Predicate else Type)
+  | CDefine _ -> Some Define
+  | CTheorem (_, _, _, Axiomatic) -> Some Axiom
+  | CTheorem _ -> Some Theorem
   | CImport _ | CClose _ | CSuspend _ -> None
 
 let items_of_compiled ?(local=last_segment) citem =
   match citem with
   | CKind (ids, _) ->
       List.map (fun id ->
-          { item_local = local id ;
-            item_name = id ;
-            item_class = KindItem ;
-            item_ty = None ;
-            item_typarams = [] }) ids
-  | CDeclPred (ids, typarams, ty) ->
-      List.map (fun id ->
-          { item_local = local id ;
-            item_name = id ;
-            item_class = PredicateItem ;
-            item_ty = Some ty ;
-            item_typarams = typarams }) ids
+          Item.{ local = local id ;
+                 name = id ;
+                 sort = Kind ;
+                 ty = None ;
+                 typarams = [] }) ids
   | CType (ids, typarams, ty) ->
-      let cls = if is_predicate_ty ty then PredicateItem else TypeItem in
+      let cls = if is_predicate_ty ty then Item.Predicate else Type in
       List.map (fun id ->
-          { item_local = local id ;
-            item_name = id ;
-            item_class = cls ;
-            item_ty = Some ty ;
-            item_typarams = typarams }) ids
+          Item.{ local = local id ;
+                 name = id ;
+                 sort = cls ;
+                 ty = Some ty ;
+                 typarams = typarams }) ids
   | CDefine (_, typarams, idtys, _) ->
       List.map (fun (id, ty) ->
-          { item_local = local id ;
-            item_name = id ;
-            item_class = DefineItem ;
-            item_ty = Some ty ;
-            item_typarams = typarams }) idtys
+          Item.{ local = local id ;
+                 name = id ;
+                 sort = Define ;
+                 ty = Some ty ;
+                 typarams = typarams }) idtys
   | CTheorem (id, typarams, _, fin) ->
-      [{ item_local = local id ;
-         item_name = id ;
-         item_class =
-           (if fin = Axiomatic then AxiomItem else TheoremItem) ;
-         item_ty = None ;
-         item_typarams = typarams }]
+      [Item.{ local = local id ;
+              name = id ;
+              sort = (if fin = Axiomatic then Axiom else Theorem) ;
+              ty = None ;
+              typarams = typarams }]
   | CImport _ | CClose _ | CSuspend _ -> []
 
 let check_shadowing sc new_items =
   let enclosing = enclosing_items () in
   List.iter begin fun item ->
-    if lookup_item_in enclosing item.item_local <> None then
+    if lookup_item_in enclosing item.Item.local <> None then
       failwithf
         "Declaration %s shadows a declaration in an enclosing module"
-        item.item_local ;
-    if lookup_item_in sc.sc_items item.item_local <> None then
+        item.local ;
+    if lookup_item_in sc.Scope.items item.local <> None then
       failwithf "Declaration %s already exists in this module"
-        item.item_local
+        item.local
   end new_items
 
 let relative_to_current_scope id =
   match current_scope () with
   | None -> id
   | Some sc ->
-      match sc.sc_path with
+      match sc.path with
       | [] -> id
       | _ ->
-          let prefix = String.concat "." sc.sc_path in
+          let prefix = String.concat "." sc.path in
           if starts_with (prefix ^ ".") id then strip_prefix prefix id
           else id
 
 let add_compiled ?(imported=false) citem =
-  match !env.en_stack with
+  match !env.stack with
   | [] -> failwith "Cannot add a declaration outside a module"
   | sc :: rest ->
       let local =
@@ -605,10 +606,10 @@ let add_compiled ?(imported=false) citem =
       in
       let new_items = items_of_compiled ~local citem in
       check_shadowing sc new_items ;
-      let sc = { sc with
-                 sc_items = sc.sc_items @ new_items ;
-                 sc_content = citem :: sc.sc_content } in
-      env := { !env with en_stack = sc :: rest } ;
+      let sc = Scope.{ sc with
+                       items = sc.items @ new_items ;
+                       content = citem :: sc.content } in
+      env := { !env with stack = sc :: rest } ;
       update_display ()
 
 let add_imported_compiled citem = add_compiled ~imported:true citem
@@ -623,70 +624,70 @@ let check_param_shadowing params =
 
 let enter_module ?(top_path=[]) name params =
   let state = !env in
-  if state.en_complete then
+  if state.complete then
     failwith "Module after End is not allowed in a .thmod" ;
   check_param_shadowing params ;
-  match state.en_stack with
+  match state.stack with
   | [] ->
-      if List.exists (fun sc -> sc.sc_name = name) state.en_templates then
+      if List.exists (fun sc -> sc.Scope.name = name) state.templates then
         failwithf "Module %s is already declared" name ;
-      let sc = { sc_name = name ;
-                 sc_root = name ;
-                 sc_source = "inline:" ^ name ;
-                 sc_path = top_path ;
-                 sc_params = params ;
-                 sc_items = [] ;
-                 sc_children = [] ;
-                 sc_instances = [] ;
-                 sc_content = [] } in
-      env := { state with en_stack = [sc] } ;
+      let sc = Scope.{ name = name ;
+                       root = name ;
+                       source = "inline:" ^ name ;
+                       path = top_path ;
+                       params = params ;
+                       items = [] ;
+                       children = [] ;
+                       instances = [] ;
+                       content = [] } in
+      env := { state with stack = [sc] } ;
       update_display ()
   | parent :: _ ->
-      if List.exists (fun ch -> ch.sc_name = name) parent.sc_children then
+      if List.exists (fun ch -> ch.Scope.name = name) parent.Scope.children then
         failwithf "Module %s is already declared in this module" name ;
-      if List.mem_assoc name parent.sc_instances then
+      if List.mem_assoc name parent.instances then
         failwithf "Module %s is already imported in this module" name ;
-      let sc = { sc_name = name ;
-                 sc_root = parent.sc_root ;
-                 sc_source = parent.sc_source ^ "." ^ name ;
-                 sc_path = parent.sc_path @ [name] ;
-                 sc_params = params ;
-                 sc_items = [] ;
-                 sc_children = [] ;
-                 sc_instances = [] ;
-                 sc_content = [] } in
-      env := { state with en_stack = sc :: state.en_stack } ;
+      let sc = Scope.{ name = name ;
+                       root = parent.root ;
+                       source = parent.source ^ "." ^ name ;
+                       path = parent.path @ [name] ;
+                       params = params ;
+                       items = [] ;
+                       children = [] ;
+                       instances = [] ;
+                       content = [] } in
+      env := { state with stack = sc :: state.stack } ;
       update_display ()
 
 let leave_module ?(retain_top=false) name =
-  match !env.en_stack with
+  match !env.stack with
   | [] -> failwith "End without a matching Module"
   | sc :: rest ->
-      if sc.sc_name <> name then
-        failwithf "End %s does not match Module %s" name sc.sc_name ;
+      if sc.name <> name then
+        failwithf "End %s does not match Module %s" name sc.name ;
       begin match rest with
       | [] when retain_top ->
           env := { !env with
-                   en_stack = [] ;
-                   en_templates = sc :: !env.en_templates }
+                   stack = [] ;
+                   templates = sc :: !env.templates }
       | [] ->
           env := { !env with
-                   en_stack = [] ; en_top = Some sc ; en_complete = true }
+                   stack = [] ; top = Some sc ; complete = true }
       | parent :: parents ->
           let parent =
-            { parent with sc_children = parent.sc_children @ [sc] }
+            Scope.{ parent with children = parent.children @ [sc] }
           in
-          env := { !env with en_stack = parent :: parents }
+          env := { !env with stack = parent :: parents }
       end ;
       update_display () ;
       (sc, rest = [])
 
 let check_complete () =
   let state = !env in
-  if state.en_top = None then
+  if state.top = None then
     failwith "A .thmod must contain a top-level module" ;
-  match state.en_stack with
-  | sc :: _ -> failwithf "Missing End for module %s" sc.sc_name
+  match state.stack with
+  | sc :: _ -> failwithf "Missing End for module %s" sc.name
   | [] -> ()
 
 let push_frame sr = frames := sr :: !frames
@@ -698,25 +699,25 @@ let pop_frame () =
 
 let exported_content () =
   match top_scope () with
-  | Some sc -> List.rev sc.sc_content
+  | Some sc -> List.rev sc.content
   | None -> []
 
 let exported_names () =
   match top_scope () with
-  | Some sc -> List.map (fun it -> it.item_name) sc.sc_items
+  | Some sc -> List.map (fun it -> it.Item.name) sc.items
   | None -> []
 
 let nested_module_names () =
   match top_scope () with
-  | Some sc -> List.map (fun ch -> ch.sc_name) sc.sc_children
+  | Some sc -> List.map (fun ch -> ch.Scope.name) sc.Scope.children
   | None -> []
 
 let is_key = function
-  | PredicateItem | AxiomItem -> true
-  | KindItem | TypeItem | DefineItem | TheoremItem -> false
+  | Item.Predicate | Axiom -> true
+  | Kind | Type | Define | Theorem -> false
 
 let keys_of_items items =
-  List.filter (fun it -> is_key it.item_class) items
+  List.filter (fun it -> is_key it.Item.sort) items
 
 let keys_of_decls decls =
   List.flatten_map items_of_compiled decls |> keys_of_items
@@ -724,11 +725,11 @@ let keys_of_decls decls =
 (* .thmod artifacts, file structure, and source compilation *)
 
 type artifact = {
-  ta_name : string ;
-  ta_params : string list ;
-  ta_content : compiled list ;
-  ta_nested : string list ;
-  ta_exports : string list ;
+  name : string ;
+  params : string list ;
+  content : compiled list ;
+  nested : string list ;
+  exports : string list ;
 }
 
 let sign_of_content content =
@@ -743,8 +744,7 @@ let sign_of_content content =
   let ctable =
     List.fold_left
       (fun ctable -> function
-        | CType (ids, typarams, ty)
-        | CDeclPred (ids, typarams, ty) ->
+        | CType (ids, typarams, ty) ->
             List.fold_left
               (fun ctable id ->
                  Itab.add id {pty = {vars = typarams ; ty} ; how = `declared} ctable)
@@ -773,28 +773,28 @@ module Spec : Artifact.SPEC with type t = artifact = struct
       | None -> failwith "Cannot write a .thmodc without a module"
     in
     let content = exported_content () in
-    { ta_name = name ;
-      ta_params = top_params () ;
-      ta_content = content ;
-      ta_nested = nested_module_names () ;
-      ta_exports = exported_names () ;
+    { name = name ;
+      params = top_params () ;
+      content = content ;
+      nested = nested_module_names () ;
+      exports = exported_names () ;
     }
 
   let encode art =
-    let sign = sign_of_content art.ta_content in
+    let sign = sign_of_content art.content in
     let predicates =
       Artifact.predicates sign |>
-      List.filter (fun id -> List.mem id art.ta_exports)
+      List.filter (fun id -> List.mem id art.exports)
     in
     [
-      Obj.repr art.ta_name ;
-      Obj.repr art.ta_params ;
+      Obj.repr art.name ;
+      Obj.repr art.params ;
       Obj.repr sign ;
       Obj.repr !Setup.spec_clauses ;
       Obj.repr predicates ;
-      Obj.repr art.ta_content ;
-      Obj.repr art.ta_nested ;
-      Obj.repr art.ta_exports ;
+      Obj.repr art.content ;
+      Obj.repr art.nested ;
+      Obj.repr art.exports ;
     ]
 
   let decode read =
@@ -806,11 +806,11 @@ module Spec : Artifact.SPEC with type t = artifact = struct
     let content = (Obj.obj (read ()) : compiled list) in
     let nested = (Obj.obj (read ()) : string list) in
     let exports = (Obj.obj (read ()) : string list) in
-    { ta_name = name ;
-      ta_params = params ;
-      ta_content = content ;
-      ta_nested = nested ;
-      ta_exports = exports ;
+    { name = name ;
+      params = params ;
+      content = content ;
+      nested = nested ;
+      exports = exports ;
     }
 end
 
@@ -823,7 +823,7 @@ let write_compilation () =
 
 (* File structure *)
 
-let is_complete () = (!env).en_complete
+let is_complete () = (!env).complete
 
 let basename () =
   let base = Filename.basename !Setup.input in
@@ -878,7 +878,7 @@ let check_structure cmd =
 
 let remove_scope_declarations sc =
   let names =
-    List.map (fun item -> item.item_name) sc.sc_items
+    List.map (fun item -> item.Item.name) sc.Scope.items
   in
   let (ktable, ctable) = !sign in
   sign :=
@@ -916,35 +916,37 @@ let process_end name =
    transformations used when instantiating an imported reasoning
    module. *)
 
-type renamer = {
-  r_const : string -> string ;
-  r_tycons : string -> string ;
-  r_lemma : string -> string ;
-  r_tyvar : string -> string ;
-}
+module Ren = struct
+  type t = {
+    const : string -> string ;
+    tycons : string -> string ;
+    lemma : string -> string ;
+    tyvar : string -> string ;
+  }
 
-let identity = {
-  r_const = (fun name -> name) ;
-  r_tycons = (fun name -> name) ;
-  r_lemma = (fun name -> name) ;
-  r_tyvar = (fun name -> name) ;
-}
+  let identity = {
+    const = (fun name -> name) ;
+    tycons = (fun name -> name) ;
+    lemma = (fun name -> name) ;
+    tyvar = (fun name -> name) ;
+  }
+end
 
 let rec map_ty r (Ty (args, aty)) =
   Ty (List.map (map_ty r) args, map_aty r aty)
 
 and map_aty r = function
-  | Tygenvar v -> Tygenvar (r.r_tyvar v)
+  | Tygenvar v -> Tygenvar (r.Ren.tyvar v)
   | Typtr {contents=TT ty} -> Typtr (ref (TT (map_ty r ty)))
-  | Typtr {contents=TV v} -> Typtr (ref (TV (r.r_tyvar v)))
+  | Typtr {contents=TV v} -> Typtr (ref (TV (r.tyvar v)))
   | Tycons (name, args) ->
-      Tycons (r.r_tycons name, List.map (map_ty r) args)
+      Tycons (r.tycons name, List.map (map_ty r) args)
 
 let rec map_term r t =
   match observe (hnorm t) with
   | Var v ->
       let name =
-        if v.tag = Constant then r.r_const v.name else v.name
+        if v.tag = Constant then r.Ren.const v.name else v.name
       in
       var v.tag name v.ts (map_ty r v.ty)
   | DB i -> db i
@@ -987,22 +989,19 @@ let map_compiled r comp =
   match comp with
   | CTheorem (id, tys, stmt, fin) ->
       CTheorem
-        (r.r_lemma id, List.map r.r_tyvar tys, map_metaterm r stmt, fin)
+        (r.Ren.lemma id, List.map r.tyvar tys, map_metaterm r stmt, fin)
   | CDefine (flavor, typarams, idtys, clauses) ->
       let idtys =
-        List.map (fun (id, ty) -> (r.r_const id, map_ty r ty)) idtys
+        List.map (fun (id, ty) -> (r.const id, map_ty r ty)) idtys
       in
       CDefine
-        (flavor, List.map r.r_tyvar typarams, idtys,
+        (flavor, List.map r.tyvar typarams, idtys,
          List.map (map_clause r) clauses)
   | CType (ids, typarams, ty) ->
       CType
-        (List.map r.r_const ids, List.map r.r_tyvar typarams, map_ty r ty)
-  | CDeclPred (ids, typarams, ty) ->
-      CDeclPred
-        (List.map r.r_const ids, List.map r.r_tyvar typarams, map_ty r ty)
+        (List.map r.const ids, List.map r.tyvar typarams, map_ty r ty)
   | CKind (ids, knd) ->
-      CKind (List.map r.r_tycons ids, knd)
+      CKind (List.map r.tycons ids, knd)
   | CImport _ | CClose _ | CSuspend _ -> comp
 
 let map_compiled_types f comp =
@@ -1021,8 +1020,6 @@ let map_compiled_types f comp =
          List.map map_clause clauses)
   | CType (ids, typarams, ty) ->
       CType (ids, typarams, f ty)
-  | CDeclPred (ids, typarams, ty) ->
-      CDeclPred (ids, typarams, f ty)
   | CKind _ | CImport _ | CClose _ | CSuspend _ -> comp
 
 let rec map_term_constants f t =
@@ -1068,12 +1065,12 @@ let rec map_metaterm_constants f mt =
 let ids_of_compiled = function
   | CTheorem (id, _, _, _) -> [id]
   | CDefine (_, _, idtys, _) -> List.map fst idtys
-  | CType (ids, _, _) | CDeclPred (ids, _, _) | CKind (ids, _) -> ids
+  | CType (ids, _, _) | CKind (ids, _) -> ids
   | CImport _ | CClose _ | CSuspend _ -> []
 
 let const_ids decls =
   List.unique (List.flatten_map (function
-      | CType (ids, _, _) | CDeclPred (ids, _, _) -> ids
+      | CType (ids, _, _) -> ids
       | CDefine (_, _, idtys, _) -> List.map fst idtys
       | CTheorem _ | CKind _ | CImport _ | CClose _ | CSuspend _ -> [])
     decls)
@@ -1091,7 +1088,7 @@ let lemma_ids decls =
 let typarams_of_compiled = function
   | CTheorem (_, tys, _, _) -> tys
   | CDefine (_, typarams, _, _) -> typarams
-  | CType (_, typarams, _) | CDeclPred (_, typarams, _) -> typarams
+  | CType (_, typarams, _) -> typarams
   | CKind _ | CImport _ | CClose _ | CSuspend _ -> []
 
 let tyvars_of_compiled comp =
@@ -1137,17 +1134,17 @@ let prefix_renamer ~from ~to_ ~const_ids ~kind_ids ~lemma_ids () =
   let file_rename ids name =
     if List.mem name ids then prefix_name name to_ else name
   in
-  {
-    r_const = (fun name ->
+  Ren.{
+    const = (fun name ->
         if from = [] then file_rename const_ids name
         else rename_path ~from ~to_ name) ;
-    r_tycons = (fun name ->
+    tycons = (fun name ->
         if from = [] then file_rename kind_ids name
         else rename_path ~from ~to_ name) ;
-    r_lemma = (fun name ->
+    lemma = (fun name ->
         if from = [] then file_rename lemma_ids name
         else rename_path ~from ~to_ name) ;
-    r_tyvar = (fun name -> name) ;
+    tyvar = (fun name -> name) ;
   }
 
 let fresh_tyvar_names count used =
@@ -1174,7 +1171,7 @@ let alpha_rename_decl ~avoid comp =
         | Some name -> name
         | None -> name
       in
-      map_compiled { identity with r_tyvar = rename } comp
+      map_compiled { Ren.identity with tyvar = rename } comp
 
 let materialize_decl ~renamer ~avoid ~tysub comp =
   comp
@@ -1263,11 +1260,11 @@ let summary_to_string ~name ~params ~prefix content =
     | Some local -> local
     | None -> name
   in
-  let renamer = {
-    r_const = strip ;
-    r_tycons = strip ;
-    r_lemma = strip ;
-    r_tyvar = (fun id -> id) ;
+  let renamer = Ren.{
+    const = strip ;
+    tycons = strip ;
+    lemma = strip ;
+    tyvar = (fun id -> id) ;
   } in
   let content = List.map (map_compiled renamer) content in
   let buf = Buffer.create 256 in
@@ -1291,7 +1288,7 @@ let summary_to_string ~name ~params ~prefix content =
     | CKind (ids, knd) ->
         line "  Kind %s %s." (String.concat ", " ids)
           (String.lowercase_ascii (knd_to_string knd))
-    | CType (ids, _, ty) | CDeclPred (ids, _, ty) ->
+    | CType (ids, _, ty) ->
         line "  Type %s %s." (String.concat ", " ids) (ty_to_string ty)
     | CDefine (flavor, _, idtys, clauses) ->
         let keyword =
@@ -1319,61 +1316,65 @@ let summary_to_string ~name ~params ~prefix content =
   line "End %s." name ;
   Buffer.contents buf
 
-type pred_value = {
-  pv_name : string ;
-  pv_typarams : string list ;
-  pv_ty : ty ;
-}
+module Values = struct
+  type pred = {
+    name : string ;
+    typarams : string list ;
+    ty : ty ;
+  }
 
-type axiom_value = {
-  av_name : string ;
-  av_typarams : string list ;
-  av_stmt : metaterm ;
-  av_tag : fin ;
-}
+  type axiom = {
+    name : string ;
+    typarams : string list ;
+    stmt : metaterm ;
+    tag : fin ;
+  }
 
-type import_value =
-  | PredValue of pred_value
-  | AxiomValue of axiom_value
+  type import =
+    | Pred of pred
+    | Axiom of axiom
+end
 
-type import_target =
-  | TargetTemplate of template
-  | TargetInstance of instance
+module Target = struct
+  type target =
+    | Template of Template.t
+    | Instance of Instance.t
 
-type resolved_key = {
-  rk_source : string ;
-  rk_prefixed : string ;
-  rk_predicate : bool ;
-}
+  type key = {
+    source : string ;
+    prefixed : string ;
+    predicate : bool ;
+  }
+end
 
 let resolve_import_target ~(load : modname:string -> artifact) mi =
-  match mi.mi_source with
+  match mi.source with
   | QuoteSource (file, _) ->
       if Filename.check_suffix file ".thmod" then
         failwith "Do not include the .thmod extension in an import" ;
       let file = Filepath.normalize ~wrt:!Setup.input file in
       let artifact = load ~modname:file in
       let base = Filename.basename file in
-      if artifact.ta_name <> base then
+      if artifact.name <> base then
         failwithf "Module %s does not match the file name %s.thmod"
-          artifact.ta_name base ;
+          artifact.name base ;
       let source = Source.canon (file ^ ".thmod") in
-      let template = {
-        tp_name = artifact.ta_name ;
-        tp_from = [] ;
-        tp_source = source ;
-        tp_params = artifact.ta_params ;
-        tp_content = artifact.ta_content ;
-        tp_nested = artifact.ta_nested ;
+      let template = Template.{
+        name = artifact.name ;
+        from = [] ;
+        source = source ;
+        params = artifact.params ;
+        content = artifact.content ;
+        nested = artifact.nested ;
       } in
-      (TargetTemplate template, artifact.ta_name, source)
+      (Target.Template template, artifact.name, source)
   | NameSource name ->
       let template = find_template name in
       let instance = find_instance name in
-      if mi.mi_tyargs <> [] then
+      if mi.tyargs <> [] then
         begin match template with
         | Some template ->
-            (TargetTemplate template, name, template.tp_source)
+            (Target.Template template, name, template.source)
         | None ->
             begin match instance with
             | Some _ ->
@@ -1385,11 +1386,11 @@ let resolve_import_target ~(load : modname:string -> artifact) mi =
       else
         begin match instance with
         | Some instance ->
-            (TargetInstance instance, name, instance.ins_source)
+            (Target.Instance instance, name, instance.source)
         | None ->
             begin match template with
             | Some template ->
-                (TargetTemplate template, name, template.tp_source)
+                (Target.Template template, name, template.source)
             | None -> failwithf "Unknown module %s" name
             end
         end
@@ -1451,30 +1452,30 @@ let materialize_import ~decls ~from ~to_ ~params ~args ~is_instance ~avoid =
   (renamer, materialized)
 
 let value_of_item item =
-  match item.item_class with
-  | PredicateItem | DefineItem ->
-      begin match item.item_ty with
+  match item.Item.sort with
+  | Predicate | Define ->
+      begin match item.ty with
       | Some ty ->
-          PredValue {
-            pv_name = item.item_name ;
-            pv_typarams = item.item_typarams ;
-            pv_ty = ty ;
+          Values.Pred {
+            name = item.name ;
+            typarams = item.typarams ;
+            ty = ty ;
           }
       | None -> failwithf "Missing type for predicate %s"
-                  item.item_name
+                  item.name
       end
-  | AxiomItem | TheoremItem ->
-      let (tys, stmt) = Prover.get_generic_lemma item.item_name in
-      let tag = Prover.get_lemma_tag item.item_name in
-      AxiomValue {
-        av_name = item.item_name ;
-        av_typarams = tys ;
-        av_stmt = stmt ;
-        av_tag = tag ;
+  | Axiom | Theorem ->
+      let (tys, stmt) = Prover.get_generic_lemma item.name in
+      let tag = Prover.get_lemma_tag item.name in
+      Values.Axiom {
+        name = item.name ;
+        typarams = tys ;
+        stmt = stmt ;
+        tag = tag ;
       }
-  | KindItem | TypeItem ->
+  | Kind | Type ->
       failwithf "%s is not a predicate or axiom"
-        item.item_name
+        item.name
 
 let value_of_name ~predicate name =
   let local_name () =
@@ -1496,10 +1497,10 @@ let value_of_name ~predicate name =
       if predicate then
         begin match Itab.find_opt name (snd !sign) with
         | Some {pty = {vars = typarams ; ty} ; _} when is_predicate_ty ty ->
-            PredValue {
-              pv_name = name ;
-              pv_typarams = typarams ;
-              pv_ty = ty ;
+            Values.Pred {
+              name = name ;
+              typarams = typarams ;
+              ty = ty ;
             }
         | _ -> failwithf "%s is not a declared or defined predicate" name
         end
@@ -1508,11 +1509,11 @@ let value_of_name ~predicate name =
           try
             let (tys, stmt) = Prover.get_generic_lemma name in
             let tag = Prover.get_lemma_tag name in
-            AxiomValue {
-              av_name = name ;
-              av_typarams = tys ;
-              av_stmt = stmt ;
-              av_tag = tag ;
+            Values.Axiom {
+              name = name ;
+              typarams = tys ;
+              stmt = stmt ;
+              tag = tag ;
             }
           with _ -> failwithf "%s is not an axiom or theorem" name
         end
@@ -1534,46 +1535,47 @@ let resolve_with_keys ~materialized ~decls ~from ~renamer withs =
         if List.exists (fun (_, id, _) -> id <> source_id) rest then
           failwithf "Ambiguous with key %s" key ;
         let predicate =
-          match class_of_compiled decl with
-          | Some PredicateItem -> true
-          | Some AxiomItem -> false
+          match sort_of_compiled decl with
+          | Some Predicate -> true
+          | Some Axiom -> false
           | _ ->
               failwithf "%s is not a declared predicate or axiom" key
         in
         let prefixed =
-          if predicate then renamer.r_const source_id
-          else renamer.r_lemma source_id
+          if predicate then renamer.Ren.const source_id
+          else renamer.lemma source_id
         in
         if predicate then begin
           match find_decl_by_id prefixed materialized with
-          | Some (CDeclPred (_, _, ty) | CType (_, _, ty)) ->
+          | Some (CType (_, _, ty)) ->
               if Checks.contains_prop_argument ty then
                 failwithf
                   "Declared predicate %s is higher-order and cannot be a key"
                   key
           | _ -> failwithf "Cannot classify with key %s" key
         end ;
-        ({ rk_source = source_id ;
-           rk_prefixed = prefixed ;
-           rk_predicate = predicate ;
-         }, value)
+        (Target.{ source = source_id ;
+                  prefixed = prefixed ;
+                  predicate = predicate ;
+                },
+         value)
   end withs
 
 let target_local_names ~renamer decls =
   let consts =
     List.flatten_map (function
-        | CType (ids, _, _) | CDeclPred (ids, _, _) -> ids
+        | CType (ids, _, _) -> ids
         | CDefine (_, _, idtys, _) -> List.map fst idtys
         | CTheorem _ | CKind _ | CImport _ | CClose _ | CSuspend _ -> [])
       decls
-    |> List.map renamer.r_const
+    |> List.map renamer.Ren.const
   in
   let kinds =
     List.flatten_map (function
         | CKind (ids, _) -> ids
         | _ -> [])
       decls
-    |> List.map renamer.r_tycons
+    |> List.map renamer.tycons
   in
   (List.unique consts, List.unique kinds)
 
@@ -1594,13 +1596,13 @@ let replay_imported_decls ~record decls =
 let import_module
     ~(load : modname:string -> artifact) ~record mi =
   let target, default_name, source = resolve_import_target ~load mi in
-  let name = match mi.mi_alias with
+  let name = match mi.alias with
     | Some alias -> alias
     | None -> default_name
   in
   if List.mem name (all_params ()) then
     failwithf "Module name %s is already used as a module parameter" name ;
-  begin match mi.mi_alias with
+  begin match mi.alias with
   | None ->
       if find_instance name <> None then
         failwithf "Module %s has already been imported" name
@@ -1613,26 +1615,26 @@ let import_module
   let prefix = instance_prefix name in
   let source_decls, from, params, args, is_instance =
     match target with
-    | TargetTemplate template ->
-        let args = resolve_type_args mi.mi_tyargs in
-        if List.length args <> List.length template.tp_params then
+    | Target.Template template ->
+        let args = resolve_type_args mi.tyargs in
+        if List.length args <> List.length template.params then
           failwithf "Module %s expects %d type arguments but got %d"
-            template.tp_name
-            (List.length template.tp_params)
+            template.name
+            (List.length template.params)
             (List.length args) ;
-        (template.tp_content, template.tp_from,
-         template.tp_params, args, false)
-    | TargetInstance instance ->
-        if mi.mi_tyargs <> [] then
+        (template.content, template.from,
+         template.params, args, false)
+    | Target.Instance instance ->
+        if mi.tyargs <> [] then
           failwithf "Module %s is already instantiated"
-            instance.ins_name ;
-        (instance.ins_decls, instance.ins_prefix,
+            instance.name ;
+        (instance.decls, instance.prefix,
          [], [], true)
   in
   let args =
     match target with
-    | TargetTemplate _ -> args
-    | TargetInstance instance -> instance.ins_tyargs
+    | Target.Template _ -> args
+    | Target.Instance instance -> instance.tyargs
   in
   let renamer, materialized =
     materialize_import ~decls:source_decls ~from ~to_:prefix
@@ -1640,26 +1642,26 @@ let import_module
   in
   let keys =
     resolve_with_keys ~materialized ~decls:source_decls ~from ~renamer
-      mi.mi_withs
+      mi.withs
   in
   let resolved =
     List.map begin fun (key, value_name) ->
       let value_name = qualid_to_string value_name in
       let value =
-        value_of_name ~predicate:key.rk_predicate value_name
+        value_of_name ~predicate:key.Target.predicate value_name
       in
-      begin match key.rk_predicate, value with
-      | true, PredValue _ -> ()
-      | false, AxiomValue axiom when axiom.av_tag = Unfinished ->
+      begin match key.predicate, value with
+      | true, Values.Pred _ -> ()
+      | false, Values.Axiom axiom when axiom.tag = Unfinished ->
           failwithf
             "Axiom key %s cannot use the unfinished theorem %s"
-            key.rk_source axiom.av_name
-      | false, AxiomValue _ -> ()
-      | true, AxiomValue _ ->
-          failwithf "Predicate key %s requires a predicate value" key.rk_source
-      | false, PredValue _ ->
+            key.source axiom.name
+      | false, Values.Axiom _ -> ()
+      | true, Values.Axiom _ ->
+          failwithf "Predicate key %s requires a predicate value" key.source
+      | false, Values.Pred _ ->
           failwithf "Axiom key %s requires an axiom or theorem value"
-            key.rk_source
+            key.source
       end ;
       (key, value)
     end keys
@@ -1667,19 +1669,20 @@ let import_module
   let pred_pairs =
     List.filter_map begin fun (key, value) ->
       match value with
-      | PredValue value -> Some (key, value)
-      | AxiomValue _ -> None
+      | Values.Pred value -> Some (key, value)
+      | Values.Axiom _ -> None
     end resolved
   in
   let axiom_pairs =
     List.filter_map begin fun (key, value) ->
       match value with
-      | AxiomValue value -> Some (key, value)
-      | PredValue _ -> None
+      | Values.Axiom value -> Some (key, value)
+      | Values.Pred _ -> None
     end resolved
   in
   let pred_map =
-    List.map (fun (key, value) -> (key.rk_prefixed, value.pv_name))
+    List.map (fun (key, (value : Values.pred)) ->
+        (key.Target.prefixed, value.name))
       pred_pairs
   in
   let substitute name =
@@ -1691,8 +1694,8 @@ let import_module
     target_local_names ~renamer source_decls
   in
   List.iter begin fun (key, _) ->
-    match find_decl_by_id key.rk_prefixed materialized with
-    | Some (CDeclPred (_, _, ty) | CType (_, _, ty)) ->
+    match find_decl_by_id key.Target.prefixed materialized with
+    | Some (CType (_, _, ty)) ->
         begin match
             List.intersect (tycons_of_ty ty) target_kinds
         with
@@ -1700,12 +1703,12 @@ let import_module
         | name :: _ ->
             failwithf
               "Predicate key %s mentions the target-local type %s"
-              key.rk_source name
+              key.source name
         end
-    | _ -> failwithf "Cannot classify predicate key %s" key.rk_source
+    | _ -> failwithf "Cannot classify predicate key %s" key.source
   end pred_pairs ;
   List.iter begin fun (key, _) ->
-    match find_decl_by_id key.rk_prefixed materialized with
+    match find_decl_by_id key.Target.prefixed materialized with
     | Some (CTheorem (_, _, stmt, _)) ->
         let stmt = map_metaterm_constants substitute stmt in
         begin match
@@ -1717,47 +1720,42 @@ let import_module
         | name :: _ ->
             failwithf
               "Axiom key %s mentions the target-local name %s"
-              key.rk_source name
+              key.source name
         end
-    | _ -> failwithf "Cannot classify axiom key %s" key.rk_source
+    | _ -> failwithf "Cannot classify axiom key %s" key.Target.source
   end axiom_pairs ;
   List.iter begin fun (key, value) ->
-    match find_decl_by_id key.rk_prefixed materialized with
+    match find_decl_by_id key.Target.prefixed materialized with
     | Some (CTheorem (_, tys, stmt, _)) ->
         let stmt = map_metaterm_constants substitute stmt in
         if not (statements_match
                    ~key_params:tys ~key_stmt:stmt
-                   ~value_params:value.av_typarams
-                   ~value_stmt:value.av_stmt) then
+                   ~value_params:value.Values.typarams
+                   ~value_stmt:value.Values.stmt) then
           failwithf
             "Axiom value %s does not have the same statement as key %s"
-            value.av_name key.rk_source
-    | _ -> failwithf "Cannot classify axiom key %s" key.rk_source
+            value.Values.name key.source
+    | _ -> failwithf "Cannot classify axiom key %s" key.source
   end axiom_pairs ;
-  List.iter begin fun (key, value) ->
-    match find_decl_by_id key.rk_prefixed materialized with
-    | Some (CDeclPred (_, tps, ty) | CType (_, tps, ty)) ->
+  List.iter begin fun (key, (value : Values.pred)) ->
+    match find_decl_by_id key.Target.prefixed materialized with
+    | Some (CType (_, tps, ty)) ->
         if not (scheme_matches
                    ~key_params:tps ~key_ty:ty
-                   ~value_params:value.pv_typarams
-                   ~value_ty:value.pv_ty) then
+                   ~value_params:value.typarams
+                   ~value_ty:value.ty) then
           failwithf
             "Predicate value %s does not have the same type as key %s"
-            value.pv_name key.rk_source
-    | _ -> failwithf "Cannot classify predicate key %s" key.rk_source
+            value.Values.name key.source
+    | _ -> failwithf "Cannot classify predicate key %s" key.source
   end pred_pairs ;
   let axiom_map =
-    List.map (fun (key, value) -> (key.rk_prefixed, value.av_tag))
+    List.map (fun (key, value) -> (key.Target.prefixed, value.Values.tag))
       axiom_pairs
   in
   let final =
     List.filter_map begin fun decl ->
       match decl with
-      | CDeclPred (ids, typarams, ty) ->
-          let ids =
-            List.filter (fun id -> not (List.mem_assoc id pred_map)) ids
-          in
-          if ids = [] then None else Some (CDeclPred (ids, typarams, ty))
       | CType (ids, typarams, ty) when is_predicate_ty ty ->
           let ids =
             List.filter (fun id -> not (List.mem_assoc id pred_map)) ids
@@ -1784,12 +1782,12 @@ let import_module
     end materialized
   in
   replay_imported_decls ~record final ;
-  let instance = {
-    ins_name = name ;
-    ins_source = source ;
-    ins_prefix = prefix ;
-    ins_decls = final ;
-    ins_tyargs = args ;
+  let instance = Instance.{
+    name = name ;
+    source = source ;
+    prefix = prefix ;
+    decls = final ;
+    tyargs = args ;
   } in
   add_instance instance ;
   Output.msg_printf "Imported module %s." name
@@ -1803,21 +1801,20 @@ let show_module ~(load : modname:string -> artifact) src =
         let file = Filepath.normalize ~wrt:!Setup.input file in
         let artifact = load ~modname:file in
         let base = Filename.basename file in
-        if artifact.ta_name <> base then
+        if artifact.name <> base then
           failwithf "Module %s does not match the file name %s.thmod"
-            artifact.ta_name base ;
-        (artifact.ta_name, artifact.ta_params, [],
-         artifact.ta_content)
+            artifact.name base ;
+        (artifact.name, artifact.params, [],
+         artifact.content)
     | NameSource name ->
         begin match find_instance name with
         | Some instance ->
-            (instance.ins_name, [], instance.ins_prefix,
-             instance.ins_decls)
+            (instance.name, [], instance.prefix, instance.decls)
         | None ->
             begin match find_template name with
             | Some template ->
-                (template.tp_name, template.tp_params,
-                 template.tp_from, template.tp_content)
+                (template.name, template.params,
+                 template.from, template.content)
             | None ->
                 if List.mem name (all_params ()) then
                   failwithf "Module parameter %s is not a module" name ;

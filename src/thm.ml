@@ -100,7 +100,7 @@ module Replacement = struct
     { map = !map ; range = !range }
 
   let find repl decl = Itab.find decl repl.map
-  (* let find_opt repl decl = Itab.find_opt decl repl.map *)
+  let mem repl decl = Itab.mem decl repl.map
 
   let term (repl : t) body =
     let (abs, args) = Itab.fold begin fun decl defn (abs, args) ->
@@ -151,8 +151,7 @@ module Replacement = struct
           ~what:"declared type"
           ~mem:(fun id -> Itab.mem id repl.map) ;
         comp
-    | CType (ids, _, _)
-    | CDeclPred (ids, _, _) ->
+    | CType (ids, _, _) ->
         check_no_existing ids
           ~what:"declared constant"
           ~mem:(fun id -> Itab.mem id repl.map) ;
@@ -162,10 +161,10 @@ module Replacement = struct
 end
 
 type artifact = {
-  thc_spec_sign : Typing.sign ;
-  thc_spec_clauses : clause list ;
-  thc_predicates : string list ;
-  thc_content : compiled list ;
+  spec_sign : Typing.sign ;
+  spec_clauses : clause list ;
+  predicates : string list ;
+  content : compiled list ;
 }
 
 module Spec : Artifact.SPEC with type t = artifact = struct
@@ -177,25 +176,25 @@ module Spec : Artifact.SPEC with type t = artifact = struct
   let compiling_key ~modname = modname
 
   let extract () = {
-    thc_spec_sign = !Setup.spec_sign ;
-    thc_spec_clauses = !Setup.spec_clauses ;
-    thc_predicates = Artifact.predicates !sign ;
-    thc_content = compiled_content () ;
+    spec_sign = !Setup.spec_sign ;
+    spec_clauses = !Setup.spec_clauses ;
+    predicates = Artifact.predicates !sign ;
+    content = compiled_content () ;
   }
 
   let encode art = [
-    Obj.repr art.thc_spec_sign ;
-    Obj.repr art.thc_spec_clauses ;
-    Obj.repr art.thc_predicates ;
-    Obj.repr art.thc_content ;
+    Obj.repr art.spec_sign ;
+    Obj.repr art.spec_clauses ;
+    Obj.repr art.predicates ;
+    Obj.repr art.content ;
   ]
 
   let decode read =
-    let thc_spec_sign = (Obj.obj (read ()) : Typing.sign) in
-    let thc_spec_clauses = (Obj.obj (read ()) : clause list) in
-    let thc_predicates = (Obj.obj (read ()) : string list) in
-    let thc_content = (Obj.obj (read ()) : compiled list) in
-    { thc_spec_sign ; thc_spec_clauses ; thc_predicates ; thc_content }
+    let spec_sign = (Obj.obj (read ()) : Typing.sign) in
+    let spec_clauses = (Obj.obj (read ()) : clause list) in
+    let predicates = (Obj.obj (read ()) : string list) in
+    let content = (Obj.obj (read ()) : compiled list) in
+    { spec_sign ; spec_clauses ; predicates ; content }
 end
 
 module Codec = Artifact.Make (Spec)
@@ -295,20 +294,27 @@ let rec process_decls
               failwith "Unexpected import in compiled content"
           end ;
           process_decls ?import ~repl ~modname decls
-      | CType(ids, _, (Ty(_, aty) as ty)) when aty = propaty -> begin
+      | CType(ids, typarams, (Ty(_, aty) as ty)) when aty = propaty -> begin
           let check_types id =
-            try begin
-              let open Typing in
-              let pred = Replacement.find repl id in
-              tid_ensure_fully_inferred ~sign:!sign (pred.name, pred.ty) ;
-              if not (eq_ty ty pred.ty) then
-                failwithf "Expected type %s:%s, got %s:%s"
-                  id (ty_to_string ty)
-                  pred.name (ty_to_string pred.ty)
-            end with Not_found ->
-              failwithf "Missing instantiation for %s" id
+            let open Typing in
+            let pred = Replacement.find repl id in
+            tid_ensure_fully_inferred ~sign:!sign (pred.name, pred.ty) ;
+            if not (eq_ty ty pred.ty) then
+              failwithf "Expected type %s:%s, got %s:%s"
+                id (ty_to_string ty)
+                pred.name (ty_to_string pred.ty)
           in
-          List.iter check_types ids ;
+          let (replaced, unreplaced) =
+            List.partition (Replacement.mem repl) ids
+          in
+          List.iter check_types replaced ;
+          begin match unreplaced with
+          | [] -> ()
+          | _ ->
+              CType (unreplaced, typarams, ty)
+              |> Replacement.compiled repl
+              |> Artifact.install_compiled_decl
+          end ;
           List.map (Replacement.compiled repl) decls |>
           process_decls ?import ~repl ~modname
         end
@@ -350,7 +356,7 @@ and import_load ~load modname withs =
     imported := modname :: !imported ;
     let art = load ~modname in
     ensure_valid_import
-      art.thc_spec_sign art.thc_spec_clauses art.thc_predicates ;
+      art.spec_sign art.spec_clauses art.predicates ;
     process_decls ~import:(import_load ~load)
-      ~repl ~modname art.thc_content
+      ~repl ~modname art.content
   end

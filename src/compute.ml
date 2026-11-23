@@ -162,7 +162,7 @@ let get_wait clr form =
 (* [Prover.case_subgoals] on an explicit sequent. Raises like
    the original; [compute_case] suspends on [Failure] and
    [Unify.UnifyFailure] exactly as [Compute] does. *)
-let case_subgoals sq clr =
+let case_subgoals (sq : P.sequent) clr =
   let global_support =
     List.flatten_map metaterm_support
       (List.map (fun (h : P.hyp) -> h.P.term) sq.P.hyps)
@@ -332,7 +332,7 @@ let compute sq ?hint ?(gas = 1_000) ?(warn = true) hs =
   with Out_of_gas ->
     Result.error (Compute_out_of_gas total_gas)
 
-let compute_all sq ?hint ?gas clr =
+let compute_all (sq : P.sequent) ?hint ?gas clr =
   let hs =
     List.map
       (fun (h : P.hyp) ->

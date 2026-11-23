@@ -93,9 +93,9 @@ let dependencies entry =
       Hashtbl.add seen key () ;
       let deps = Depend.file_dependencies `thm base in
       thms := (base ^ ".thm") :: !thms ;
-      specs := deps.Depend.dep_specs @ !specs ;
-      List.iter visit_thm deps.Depend.dep_thms ;
-      List.iter visit_thmod deps.Depend.dep_thmods
+      specs := deps.Depend.specs @ !specs ;
+      List.iter visit_thm deps.Depend.thms ;
+      List.iter visit_thmod deps.Depend.thmods
     end
   and visit_thmod base =
     let key = "thmod:" ^ base in
@@ -103,9 +103,9 @@ let dependencies entry =
       Hashtbl.add seen key () ;
       let deps = Depend.file_dependencies `thmod base in
       thmods := (base ^ ".thmod") :: !thmods ;
-      specs := deps.Depend.dep_specs @ !specs ;
-      List.iter visit_thm deps.Depend.dep_thms ;
-      List.iter visit_thmod deps.Depend.dep_thmods
+      specs := deps.Depend.specs @ !specs ;
+      List.iter visit_thm deps.Depend.thms ;
+      List.iter visit_thmod deps.Depend.thmods
     end
   in
   let visit_source path =

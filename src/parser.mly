@@ -147,10 +147,10 @@
     | Some id -> error_report "Duplicate module parameter %s" id
 
   let make_module_import alias source tyargs withs =
-    { Types.mi_alias = alias ;
-      Types.mi_source = source ;
-      Types.mi_tyargs = tyargs ;
-      Types.mi_withs = withs }
+    Types.{ alias = alias ;
+            source = source ;
+            tyargs = tyargs ;
+            withs = withs }
 
 %}
 
@@ -677,7 +677,7 @@ atomic_tactic:
 hhint:
   | hs=hspec; COLON
     { match hs with
-      | [alt] when alt.Types.hspec_vars = [] && alt.Types.hspec_hyps = []
+      | [(alt : Types.Hint.alt)] when alt.vars = [] && alt.hyps = []
         -> None
       | _ -> Some hs }
   |
@@ -691,7 +691,7 @@ hspec:
 
 hspec_alt:
   | vs=banged_names; hs=plain_names
-    { Types.{ hspec_vars = vs ; hspec_hyps = hs } }
+    { Types.Hint.{ vars = vs ; hyps = hs } }
 
 banged_names:
   | { [] }
@@ -706,16 +706,16 @@ plain_names:
 %inline
 var_name_hint:
   | x=STRINGID
-    { Types.User_name x }
+    { Types.Hint.User_name x }
   | UNDERSCORE
-    { Types.Dont_care }
+    { Types.Hint.Dont_care }
 
 %inline
 hyp_name_hint:
   | x=STRINGID
-    { check_legal_var x $startpos(x) ; Types.User_name x }
+    { check_legal_var x $startpos(x) ; Types.Hint.User_name x }
   | UNDERSCORE
-    { Types.Dont_care }
+    { Types.Hint.Dont_care }
 
 %inline
 hyp_list:

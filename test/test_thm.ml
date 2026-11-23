@@ -492,7 +492,7 @@ let test_decl_pred_replay_preserves_typarams () =
     let const_ty = tyarrow [a] b in
     let repl = Thm.Replacement.make [] in
     Thm.process_decls ~repl ~modname:"test" [
-      CDeclPred(["decl_pred"], ["A"], pred_ty) ;
+      CType(["decl_pred"], ["A"], pred_ty) ;
       CType(["decl_const"], ["A"], const_ty) ;
     ] ;
     let check_scheme name expected ty =

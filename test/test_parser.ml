@@ -56,19 +56,19 @@ let assert_import_module str alias source tyargs withs =
   match (parse_top_command str).el with
   | Types.ImportModule mi ->
       let actual_alias =
-        match mi.mi_alias with None -> "" | Some name -> name
+        match mi.alias with None -> "" | Some name -> name
       in
       Alcotest.check Alcotest.string "alias" alias actual_alias ;
       Alcotest.check Alcotest.string "source" source
-        (source_string mi.mi_source) ;
+        (source_string mi.source) ;
       Alcotest.check (Alcotest.list Alcotest.string) "type arguments"
-        tyargs (List.map Term.ty_to_string mi.mi_tyargs) ;
+        tyargs (List.map Term.ty_to_string mi.tyargs) ;
       Alcotest.check
         (Alcotest.list
            (Alcotest.pair Alcotest.string Alcotest.string))
         "with clauses" withs
         (List.map (fun (k, v) -> (qid_string k, qid_string v))
-           mi.mi_withs)
+           mi.withs)
   | _ -> Alcotest.failf "%S is not an import module" str
 
 let tests =

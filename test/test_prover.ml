@@ -6,12 +6,12 @@ open Prover
 
 let keep id = Keep (id, [])
 let remove id = Remove (id, [])
-let no_hints = { hspec_vars = [] ; hspec_hyps = [] }
+let no_hints = Hint.{ vars = [] ; hyps = [] }
 let hyp_hint name =
-  Some [{ hspec_vars = [] ; hspec_hyps = [User_name name] }]
+  Some Hint.[{ vars = [] ; hyps = [User_name name] }]
 let user_alt vars hyps =
-  { hspec_vars = List.map (fun name -> User_name name) vars ;
-    hspec_hyps = List.map (fun name -> User_name name) hyps }
+  Hint.{ vars = List.map (fun name -> User_name name) vars ;
+         hyps = List.map (fun name -> User_name name) hyps }
 
 
 (* Explicit proof-state harness over the immutable engine *)
@@ -1430,8 +1430,8 @@ let tests =
            setup_prover ()
              ~goal:"forall (X:i) (Y:i), \
                     rel1 X Y -> rel1 X Y -> rel1 X Y" ;
-           intros { hspec_vars = [User_name "U"; Dont_care] ;
-                    hspec_hyps = [User_name "H"] } ;
+           intros Hint.{ vars = [User_name "U"; Dont_care] ;
+                         hyps = [User_name "H"] } ;
            Alcotest.check Alcotest.bool "first variable" true
              (List.mem_assoc "U" (focused ()).vars) ;
            Alcotest.check Alcotest.bool "second variable was not hinted"
@@ -1445,7 +1445,7 @@ let tests =
       test_case "Intros names a nabla variable with a nominal hint"
         (fun () ->
            setup_prover ~goal:"nabla (x:i), x = x" () ;
-           intros { hspec_vars = [User_name "n34"] ; hspec_hyps = [] } ;
+           intros { vars = [User_name "n34"] ; hyps = [] } ;
            assert_pprint_equal "n34 = n34" (focused ()).goal
         ) ;
 
@@ -1456,8 +1456,8 @@ let tests =
              "free nominal hint"
              (Failure "Nominal hint \"n34\" is already free in the subgoal")
              (fun () ->
-                intros { hspec_vars = [User_name "n34"] ;
-                         hspec_hyps = [] })
+                intros { vars = [User_name "n34"] ;
+                         hyps = [] })
         ) ;
 
       test_case "An eigenvariable hint cannot be a nominal name"
@@ -1467,7 +1467,7 @@ let tests =
              "reserved nominal hint"
              (Failure "Hint \"n34\" is reserved for nominal constants")
              (fun () ->
-                intros { hspec_vars = [User_name "n34"] ; hspec_hyps = [] })
+                intros { vars = [User_name "n34"] ; hyps = [] })
         ) ;
 
       test_case "A nabla hint must be a nominal name"
@@ -1479,7 +1479,7 @@ let tests =
                 "Hint \"u\" is not a valid nominal constant name; \
                  use n<number>")
              (fun () ->
-                intros { hspec_vars = [User_name "u"] ; hspec_hyps = [] })
+                intros { vars = [User_name "u"] ; hyps = [] })
         ) ;
 
       test_case "Nested bullets and unfocused display"

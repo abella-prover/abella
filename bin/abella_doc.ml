@@ -297,9 +297,9 @@ and process_thm conf file =
   let base = Filename.chop_suffix file ".thm" in
   let deps = Depend.file_dependencies `thm base in
   let deps =
-    deps.Depend.dep_specs @
-    List.rev_map (fun f -> f ^ ".thm") deps.Depend.dep_thms @
-    List.rev_map (fun f -> f ^ ".thmod") deps.Depend.dep_thmods
+    deps.Depend.specs @
+    List.rev_map (fun f -> f ^ ".thm") deps.Depend.thms @
+    List.rev_map (fun f -> f ^ ".thmod") deps.Depend.thmods
   in
   Hashtbl.replace dep_tab file deps ;
   List.iter (process conf) deps
@@ -308,9 +308,9 @@ and process_thmod conf file =
   let base = Filename.chop_suffix file ".thmod" in
   let deps = Depend.file_dependencies `thmod base in
   let deps =
-    deps.Depend.dep_specs @
-    List.rev_map (fun f -> f ^ ".thm") deps.Depend.dep_thms @
-    List.rev_map (fun f -> f ^ ".thmod") deps.Depend.dep_thmods
+    deps.Depend.specs @
+    List.rev_map (fun f -> f ^ ".thm") deps.Depend.thms @
+    List.rev_map (fun f -> f ^ ".thmod") deps.Depend.thmods
   in
   Hashtbl.replace dep_tab file deps ;
   List.iter (process conf) deps ;

@@ -183,7 +183,7 @@ End Foo.
         ["u"; "c"; "p"; "refl"] exports ;
       let has_decl_pred =
         List.exists begin function
-          | CDeclPred (["p"], [], _) -> true
+          | CType (["p"], [], _) -> true
           | _ -> false
         end content
       in
@@ -221,7 +221,7 @@ End Foo.
         ["T"] params ;
       let has_decl_pred =
         List.exists begin function
-          | CDeclPred (["p"], [], ty) ->
+          | CType (["p"], [], ty) ->
               let has_T = ref false in
               Term.iter_ty begin function
                 | Term.Tygenvar "T" -> has_T := true
@@ -307,12 +307,12 @@ End Param.
         ["T"] params ;
       let decl_pred =
         List.find_opt begin function
-          | CDeclPred (["p"], _, _) -> true
+          | CType (["p"], _, _) -> true
           | _ -> false
         end content
       in
       begin match decl_pred with
-      | Some (CDeclPred (_, typarams, _)) ->
+      | Some (CType (_, typarams, _)) ->
           Alcotest.check (Alcotest.list Alcotest.string)
             "module parameter is not a local type parameter"
             [] typarams
@@ -337,7 +337,7 @@ End Param.
         has_polymorphic_define ;
       let has_mixed_decl =
         List.exists begin function
-          | CDeclPred (["r"], ["A"], _) -> true
+          | CType (["r"], ["A"], _) -> true
           | _ -> false
         end content
       in
@@ -377,13 +377,13 @@ End Keys.
         Alcotest.check (Alcotest.option Alcotest.string) label
           (Some expected)
           (Option.map (function
-               | Thmod.KindItem -> "kind"
-               | Thmod.TypeItem -> "type"
-               | Thmod.PredicateItem -> "predicate"
-               | Thmod.DefineItem -> "define"
-               | Thmod.TheoremItem -> "theorem"
-               | Thmod.AxiomItem -> "axiom")
-             (Thmod.class_of_compiled decl))
+               | Thmod.Item.Kind -> "kind"
+               | Type -> "type"
+               | Predicate -> "predicate"
+               | Define -> "define"
+               | Theorem -> "theorem"
+               | Axiom -> "axiom")
+             (Thmod.sort_of_compiled decl))
       in
       let find pred =
         try List.find pred content
@@ -393,10 +393,10 @@ End Keys.
         (find (function CType (["c"], _, _) -> true | _ -> false))
         "type" ;
       check_class "declared predicate is a key"
-        (find (function CDeclPred (["p"], _, _) -> true | _ -> false))
+        (find (function CType (["p"], _, _) -> true | _ -> false))
         "predicate" ;
       check_class "zero-argument predicate is a key"
-        (find (function CDeclPred (["z"], _, _) -> true | _ -> false))
+        (find (function CType (["z"], _, _) -> true | _ -> false))
         "predicate" ;
       check_class "defined predicate is not a key"
         (find (function
@@ -412,7 +412,7 @@ End Keys.
              | _ -> false)) "axiom" ;
       let keys =
         Thmod.keys_of_decls content
-        |> List.map (fun it -> it.Thmod.item_name)
+        |> List.map (fun it -> it.Thmod.Item.name)
       in
       Alcotest.check (Alcotest.list Alcotest.string)
         "remaining keys" ["p"; "z"; "ax"] keys
@@ -572,7 +572,7 @@ End Poly.
       let (_, _, content, _, _) = read_thmod_values bytes in
       let has_poly_pred =
         List.exists begin function
-          | CDeclPred (["p"], ["A"], _) -> true
+          | CType (["p"], ["A"], _) -> true
           | _ -> false
         end content
       in
@@ -646,7 +646,7 @@ End Use.
       Alcotest.check Alcotest.bool "imported constant" true
         (has (function CType (["B.mk"], _, _) -> true | _ -> false)) ;
       Alcotest.check Alcotest.bool "imported predicate" true
-        (has (function CDeclPred (["B.p"], [], _) -> true | _ -> false)) ;
+        (has (function CType (["B.p"], [], _) -> true | _ -> false)) ;
       Alcotest.check Alcotest.bool "imported axiom" true
         (has (function
              | CTheorem ("B.ax", _, _, Axiomatic) -> true
@@ -682,7 +682,7 @@ End EqUse.
       let (_, _, content, _, _) = read_thmod_values bytes in
       let has pred = List.exists pred content in
       Alcotest.check Alcotest.bool "mapped predicate is removed" false
-        (has (function CDeclPred (["E.eq"], _, _) -> true | _ -> false)) ;
+        (has (function CType (["E.eq"], _, _) -> true | _ -> false)) ;
       Alcotest.check Alcotest.bool "mapped axiom aliases the theorem" true
         (has (function
              | CTheorem ("E.refl", [], _, Finished) -> true
@@ -717,7 +717,7 @@ End UseTrans.
         (has (function CKind (["T.Box.box"], _) -> true | _ -> false)) ;
       Alcotest.check Alcotest.bool "transitive predicate" true
         (has (function
-             | CDeclPred (["T.Box.p"], [], _) -> true
+             | CType (["T.Box.p"], [], _) -> true
              | _ -> false)) ;
       ignore (native_compile_thmod dir "Outer2" {|
 Module Outer2.
@@ -745,7 +745,7 @@ End UseOuter2.
         (has (function CKind (["O.I.inner"], _) -> true | _ -> false)) ;
       Alcotest.check Alcotest.bool "nested predicate" true
         (has (function
-             | CDeclPred (["O.I.p"], [], _) -> true
+             | CType (["O.I.p"], [], _) -> true
              | _ -> false))
     end
   end

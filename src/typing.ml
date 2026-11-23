@@ -27,16 +27,16 @@ open Unifyty
 (** Untyped terms *)
 
 type uterm =
-  | UCon of pos * string * ty
-  | ULam of pos * string * ty * uterm
+  | UCon of pos * string * ty option
+  | ULam of pos * string * ty option * uterm
   | UApp of pos * uterm * uterm
 
 let rec forget_term ?(cx=[]) t =
   match observe (hnorm t) with
-  | Var v -> UCon (ghost_pos, v.name, v.ty)
+  | Var v -> UCon (ghost_pos, v.name, Some v.ty)
   | Lam ([], t) -> forget_term ~cx t
   | Lam ((x, xty) :: cx, t) ->
-      ULam (ghost_pos, x, xty, forget_term ~cx:((x, xty) :: cx) t)
+      ULam (ghost_pos, x, Some xty, forget_term ~cx:((x, xty) :: cx) t)
   | App (f, ts) ->
       List.fold_left begin fun f t ->
         UApp (ghost_pos, f, forget_term ~cx t)
@@ -44,7 +44,7 @@ let rec forget_term ?(cx=[]) t =
   | DB n -> begin
       try
         let (x, xty) = List.nth cx (n - 1) in
-        UCon (ghost_pos, x, xty)
+        UCon (ghost_pos, x, Some xty)
       with
       | Failure _ | Invalid_argument _ ->
           failwithf "Dangling variable index in term"
@@ -66,7 +66,7 @@ let change_pos p t =
 
 
 let predefined id pos =
-  UCon(pos, id, Term.fresh_tyvar ())
+  UCon(pos, id, None)
 
 let binop id t1 t2 =
   let pos = (fst (get_pos t1), snd (get_pos t2)) in
@@ -90,7 +90,7 @@ type umetaterm =
   | UAsyncObj of uterm * uterm * restriction
   | USyncObj of uterm * uterm * uterm * restriction
   | UArrow of umetaterm * umetaterm
-  | UBinding of binder * (id * ty) list * umetaterm
+  | UBinding of binder * (id * ty option) list * umetaterm
   | UOr of umetaterm * umetaterm
   | UAnd of umetaterm * umetaterm
   | UPred of uterm * restriction
@@ -303,7 +303,12 @@ let infer_type_and_constraints ~sign tyctx t =
   in
   let rec aux tyctx t =
     match t with
-    | UCon(p, id, ty) ->
+    | UCon(p, id, tyo) ->
+        let ty =
+          match tyo with
+          | Some ty -> ty
+          | None -> fresh_tyvar ()
+        in
         let ty' =
           begin try
             List.assoc id tyctx
@@ -312,12 +317,18 @@ let infer_type_and_constraints ~sign tyctx t =
           end
         in
         add_constraint ty ty' (p, CArg) ;
-        ty
-    | ULam(_, id, ty, t) ->
-        tyarrow [ty] (aux ((id, ty) :: tyctx) t)
-    | UApp(_, t1, t2) ->
-        let ty1 = aux tyctx t1 in
-        let ty2 = aux tyctx t2 in
+        (UCon(p, id, Some ty), ty)
+    | ULam(p, id, tyo, t) ->
+        let ty =
+          match tyo with
+          | Some ty -> ty
+          | None -> fresh_tyvar ()
+        in
+        let (t, body_ty) = aux ((id, ty) :: tyctx) t in
+        (ULam(p, id, Some ty, t), tyarrow [ty] body_ty)
+    | UApp(p, t1, t2) ->
+        let (t1, ty1) = aux tyctx t1 in
+        let (t2, ty2) = aux tyctx t2 in
         let (aty, rty) =
           match ty1 with
           | Ty([], _) ->
@@ -329,10 +340,10 @@ let infer_type_and_constraints ~sign tyctx t =
               (aty, Ty(atys, bty))
         in
         add_constraint aty ty2 (get_pos t2, CArg) ;
-        rty
+        (UApp(p, t1, t2), rty)
   in
-  let ty = aux tyctx t in
-  (ty, List.rev !eqns)
+  let (t, ty) = aux tyctx t in
+  (t, ty, List.rev !eqns)
 
 
 let contains_tyvar ty =
@@ -406,8 +417,10 @@ let uterm_nominals_to_tyctx t =
 let uterm_to_term t =
   let rec aux t =
     match t with
-    | UCon(_, id, ty) -> const id ty
-    | ULam(_, id, ty, t) -> abstract id ty (aux t)
+    | UCon(_, id, Some ty) -> const id ty
+    | UCon(_, id, None) -> const id (fresh_tyvar ())
+    | ULam(_, id, Some ty, t) -> abstract id ty (aux t)
+    | ULam(_, id, None, t) -> abstract id (fresh_tyvar ()) (aux t)
     | UApp(_, t1, t2) -> app (aux t1) [aux t2]
   in
   aux t
@@ -462,7 +475,7 @@ let type_uterm ?partial_infer ?expected_ty ~sr ~sign ~ctx t =
     (List.map (fun (id, t) -> (id, tc [] t)) ctx)
     @ nominal_tyctx
   in
-  let (ty, eqns) = infer_type_and_constraints ~sign tyctx t in
+  let (t, ty, eqns) = infer_type_and_constraints ~sign tyctx t in
   let eqns =
     match expected_ty with
     | None -> eqns
@@ -489,17 +502,17 @@ let replace_underscores head body =
   let rec aux t =
     match t with
     | UCon(p, id, ty) when id = "_" ->
-        let id' = fresh_name "X" !used in
-        used := (id', ()) :: !used ;
-        UCon(p, id', ty)
+        let id = fresh_name "X" !used in
+        used := (id, ()) :: !used ;
+        UCon(p, id, ty)
     | UCon _ -> t
     | ULam(p, id, ty, t) ->
         used := (id, ()) :: !used ;
         ULam(p, id, ty, aux t)
     | UApp(p, t1, t2) ->
-        let t1' = aux t1 in
-        let t2' = aux t2 in
-        UApp(p, t1', t2')
+        let t1 = aux t1 in
+        let t2 = aux t2 in
+        UApp(p, t1, t2)
   in
   match List.map aux (head::body) with
   | h::b -> (h, b)
@@ -517,8 +530,8 @@ let lookup_clause cname =
 let generalize_tyvars t =
   let tyvars = term_collect_tyvar_names t in
   let tysub = List.map (fun id -> (id, tybase (Tygenvar id))) tyvars in
-  let t' = term_map_on_tys (apply_sub_ty_tyvar tysub) t in
-  (tyvars, t')
+  let t = term_map_on_tys (apply_sub_ty_tyvar tysub) t in
+  (tyvars, t)
 
 let type_uclause ~sr ~sign (cname, head, body) =
   if has_capital_head head then
@@ -533,7 +546,7 @@ let type_uclause ~sr ~sign (cname, head, body) =
   let get_pi_form ids body =
     (let pify id pi =
        let pos = get_pos pi in
-       let abs = ULam (pos, id, Term.fresh_tyvar (), pi) in
+       let abs = ULam (pos, id, None, pi) in
        UApp (pos, predefined "pi" pos, abs)
      in
      List.fold_right pify ids body)
@@ -556,31 +569,54 @@ let type_uclause ~sr ~sign (cname, head, body) =
 let infer_constraints ~sign ~tyctx t =
   let rec aux tyctx t =
     match t with
-    | UTrue | UFalse -> []
+    | UTrue | UFalse -> (t, [])
     | UEq(a, b) ->
-        let (aty, aeqns) = infer_type_and_constraints ~sign tyctx a in
-        let (bty, beqns) = infer_type_and_constraints ~sign tyctx b in
-        aeqns @ beqns @ [(aty, bty, (get_pos b, CArg))]
-    | UAsyncObj(l, g, _) ->
-        let (lty, leqns) = infer_type_and_constraints ~sign tyctx l in
-        let (gty, geqns) = infer_type_and_constraints ~sign tyctx g in
-        leqns @ geqns @ [(olistty, lty, (get_pos l, CArg));
-                         (oty, gty, (get_pos g, CArg))]
-    | USyncObj(l, f, g, _) ->
-        let (lty, leqns) = infer_type_and_constraints ~sign tyctx l in
-        let (fty, feqns) = infer_type_and_constraints ~sign tyctx f in
-        let (gty, geqns) = infer_type_and_constraints ~sign tyctx g in
-        leqns @ feqns @ geqns @
-        [(olistty, lty, (get_pos l, CArg));
-         (oty, fty, (get_pos f, CArg));
-         (oty, gty, (get_pos g, CArg))]
+        let (a, aty, aeqns) = infer_type_and_constraints ~sign tyctx a in
+        let (b, bty, beqns) = infer_type_and_constraints ~sign tyctx b in
+        (UEq(a, b),
+         aeqns @ beqns @ [(aty, bty, (get_pos b, CArg))])
+    | UAsyncObj(l, g, r) ->
+        let (l, lty, leqns) = infer_type_and_constraints ~sign tyctx l in
+        let (g, gty, geqns) = infer_type_and_constraints ~sign tyctx g in
+        (UAsyncObj(l, g, r),
+         leqns @ geqns @ [(olistty, lty, (get_pos l, CArg));
+                          (oty, gty, (get_pos g, CArg))])
+    | USyncObj(l, f, g, r) ->
+        let (l, lty, leqns) = infer_type_and_constraints ~sign tyctx l in
+        let (f, fty, feqns) = infer_type_and_constraints ~sign tyctx f in
+        let (g, gty, geqns) = infer_type_and_constraints ~sign tyctx g in
+        (USyncObj(l, f, g, r),
+         leqns @ feqns @ geqns @
+         [(olistty, lty, (get_pos l, CArg));
+          (oty, fty, (get_pos f, CArg));
+          (oty, gty, (get_pos g, CArg))])
     | UArrow(a, b) | UOr(a, b) | UAnd(a, b) ->
-        (aux tyctx a) @ (aux tyctx b)
-    | UBinding(_, tids, body) ->
-        aux (List.rev_app tids tyctx) body
-    | UPred(p, _) ->
-        let (pty, peqns) = infer_type_and_constraints ~sign tyctx p in
-        peqns @ [(propty, pty, (get_pos p, CArg))]
+        let (a, aeqns) = aux tyctx a in
+        let (b, beqns) = aux tyctx b in
+        let t =
+          match t with
+          | UArrow _ -> UArrow(a, b)
+          | UOr _ -> UOr(a, b)
+          | _ -> UAnd(a, b)
+        in
+        (t, aeqns @ beqns)
+    | UBinding(b, tids, body) ->
+        let tids_concrete =
+          List.map
+            (fun (id, tyo) ->
+              (id, match tyo with
+                | Some ty -> ty
+                | None -> fresh_tyvar ()))
+            tids
+        in
+        let tids = List.map (fun (id, ty) -> (id, Some ty)) tids_concrete in
+        let (body, beqns) =
+          aux (List.rev_app tids_concrete tyctx) body
+        in
+        (UBinding(b, tids, body), beqns)
+    | UPred(p, r) ->
+        let (p, pty, peqns) = infer_type_and_constraints ~sign tyctx p in
+        (UPred(p, r), peqns @ [(propty, pty, (get_pos p, CArg))])
   in
   aux tyctx t
 
@@ -627,6 +663,14 @@ let umetaterm_to_metaterm ?sign:_ t =
         (*   | Some sign -> List.iter (fun (_, ty) -> kind_check_poly sign [] ty) tids *)
         (*   | None -> () *)
         (* in *)
+        let tids =
+          List.map
+            (fun (id, tyo) ->
+              (id, match tyo with
+                | Some ty -> ty
+                | None -> fresh_tyvar ()))
+            tids
+        in
         Binding(binder, tids, aux body)
     | UOr(a, b) -> Or(aux a, aux b)
     | UAnd(a, b) -> And(aux a, aux b)
@@ -735,7 +779,7 @@ let type_umetaterm ~sr ~sign ?(ctx=[]) t =
   let tyctx =
     (List.map (fun (id, t) -> (id, tc [] t)) ctx)
     @ nominal_tyctx in
-  let eqns = infer_constraints ~sign ~tyctx t in
+  let (t, eqns) = infer_constraints ~sign ~tyctx t in
   unify_constraints eqns;
   let ctx = ctx @ (tyctx_to_nominal_ctx nominal_tyctx) in
   let result = replace_metaterm_vars ctx (umetaterm_to_metaterm ~sign t) in
@@ -758,8 +802,8 @@ let type_udef ~sr ~sign (head, body) =
   in
   let head_tyctx = capital_tyctx @ head_nominal_tyctx in
   let body_tyctx = capital_tyctx @ body_nominal_tyctx in
-  let eqns1 = infer_constraints ~sign ~tyctx:head_tyctx head in
-  let eqns2 = infer_constraints ~sign ~tyctx:body_tyctx body in
+  let (head, eqns1) = infer_constraints ~sign ~tyctx:head_tyctx head in
+  let (body, eqns2) = infer_constraints ~sign ~tyctx:body_tyctx body in
   unify_constraints (eqns1 @ eqns2);
   let head_ctx =
     (tyctx_to_ctx capital_tyctx)

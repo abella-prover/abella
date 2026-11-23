@@ -7,10 +7,10 @@ open Metaterm
 
 let dummy_pos = (Lexing.dummy_pos, Lexing.dummy_pos)
 
-let ucon ?(ty=fresh_tyvar ()) v =
+let ucon ?(ty=None) v =
   UCon(dummy_pos, v, ty)
 
-let ulam v ?(ty=fresh_tyvar ()) t =
+let ulam v ?(ty=None) t =
   ULam(dummy_pos, v, ty, t)
 
 let uapp t1 t2 =
@@ -19,18 +19,13 @@ let uapp t1 t2 =
 let upred t =
   UPred(t, Irrelevant)
 
-type uterm =
-  | UCon of pos * string * ty
-  | ULam of pos * string * ty * uterm
-  | UApp of pos * uterm * uterm
-
 
 let tests =
   suite "Typing" [
       test_case "Should not allow pi quantification over o in clause"
         (fun () ->
            let uclause =
-             (None, ucon "a", [uapp (ucon "pi") (ulam "x" ~ty:oty (ucon "x"))])
+             (None, ucon "a", [uapp (ucon "pi") (ulam "x" ~ty:(Some oty) (ucon "x"))])
            in
              Alcotest.check_raises
                "Cannot quantify over type o in the specification logic"
@@ -43,7 +38,7 @@ let tests =
       test_case "Should not allow quantification over prop in definition"
         (fun () ->
            let udef =
-             (UTrue, UBinding(Forall, [("x", propty)], upred (ucon "x")))
+             (UTrue, UBinding(Forall, [("x", Some propty)], upred (ucon "x")))
            in
              Alcotest.check_raises
                "Cannot quantify over type prop"
@@ -54,7 +49,7 @@ let tests =
       test_case "Should not allow quantification over prop in metaterm"
         (fun () ->
            let umetaterm =
-             UBinding(Forall, [("x", propty)], upred (ucon "x"))
+             UBinding(Forall, [("x", Some propty)], upred (ucon "x"))
            in
              Alcotest.check_raises
                "Cannot quantify over type prop"

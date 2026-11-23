@@ -92,7 +92,7 @@ module Replacement = struct
     List.iter begin fun (decl, defn) ->
       if Itab.mem decl !map then
         failwithf "Duplicate replacement for %s in \"with\"" decl ;
-      let pred = UCon (ghost_pos, defn, Term.fresh_tyvar ()) in
+      let pred = UCon (ghost_pos, defn, None) in
       let pred = type_uterm ~sr:!sr ~sign:!sign ~ctx:[] pred in
       map := Itab.add decl { name = defn ; term = pred ; ty = tc [] pred } !map ;
       range := Iset.add defn !range

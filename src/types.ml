@@ -67,8 +67,8 @@ type set_value =
 
 (** The type of appeals to usable things (e.g., hypotheses, lemmas) *)
 type clearable =
-  | Keep          of id * ty list
-  | Remove        of id * ty list
+  | Keep          of id * ty option list
+  | Remove        of id * ty option list
 
 type suspension = {
   predicate : id wpos ;
@@ -125,14 +125,14 @@ type witness =
   | WSplit        of witness * witness
   | WForall       of id list * witness
   | WIntros       of id list * witness
-  | WExists       of (id * term) list * witness
+  | WExists       of (id * uterm) list * witness
   | WReflexive
   | WUnfold       of id * int * witness list
   | WMagic
 
 let witness_to_string =
   let bind_to_string (id, t) =
-    id ^ " = " ^ term_to_string t
+    id ^ " = " ^ uterm_to_string t
   in
 
   let rec aux = function
@@ -277,9 +277,13 @@ let idtys_to_string idtys =
     (List.map (fun (id, ty) -> id ^ " : " ^ (ty_to_string ty)) idtys)
 
 let inst_to_string tys =
+  let tyo_to_string = function
+    | Some ty -> ty_to_string ty
+    | None -> "_"
+  in
   match tys with
   | [] -> ""
-  | _ -> "[" ^ (List.map ty_to_string tys |> String.concat ",") ^ "]"
+  | _ -> "[" ^ (List.map tyo_to_string tys |> String.concat ",") ^ "]"
 
 let clearable_to_string cl =
   match cl with

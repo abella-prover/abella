@@ -40,7 +40,7 @@
       ~severity:Error parse_fmt pos_string
 
   let predefined ~pos id =
-    UCon(pos, id, Term.fresh_tyvar ())
+    UCon(pos, id, None)
 
   let binop ~pos id t1 t2 =
     UApp(pos, UApp(pos, predefined ~pos id, t1), t2)
@@ -328,22 +328,22 @@ knd:
 /* Annotated ID */
 aid:
   | x=loc_id
-    { (x, Term.fresh_tyvar ()) }
+    { (x, None) }
   | x=loc_id; COLON; ty=ty
-    { (x, ty) }
+    { (x, Some ty) }
 
 /* Parenthesized annotated ID */
 paid:
   | x=loc_id
-    { (x, Term.fresh_tyvar ()) }
+    { (x, None) }
   | LPAREN; x=loc_id; COLON; ty=ty; RPAREN
-    { (x, ty) }
+    { (x, Some ty) }
   | LPAREN; q=QUALID; COLON; ty=ty; RPAREN
-    { ({ el = qualid_to_string q ; pos = $loc(q) }, ty) }
+    { ({ el = qualid_to_string q ; pos = $loc(q) }, Some ty) }
   | UNDERSCORE
-    { ({ el = "_" ; pos = $loc($1) }, Term.fresh_tyvar ()) }
+    { ({ el = "_" ; pos = $loc($1) }, None) }
   | LPAREN; UNDERSCORE; COLON; ty=ty; RPAREN
-    { ({ el = "_" ; pos = $loc($2) }, ty) }
+    { ({ el = "_" ; pos = $loc($2) }, Some ty) }
 
 contexted_term:
   | cx=context; TURN; gl=term
@@ -391,7 +391,7 @@ exp:
     { let (id, ty) = vty in
       UCon($loc, id.el, ty) }
   | q=QUALID
-    { UCon($loc, qualid_to_string q, Term.fresh_tyvar ()) }
+    { UCon($loc, qualid_to_string q, None) }
 
 exp_list:
   | e=exp; es=exp_list
@@ -537,9 +537,9 @@ maybe_inst:
 
 uty:
   | a=ty
-    { a }
+    { Some a }
   | UNDERSCORE
-    { Term.fresh_tyvar () }
+    { None }
 
 %inline
 aty_list:
@@ -796,9 +796,9 @@ binding_list:
 
 binding_one:
   | x=id
-    { check_legal_var x $startpos(x) ; [x, Term.fresh_tyvar ()] }
+    { check_legal_var x $startpos(x) ; [x, None] }
   | LPAREN; vs=binding_vars; COLON; ty=ty; RPAREN
-    { List.fold_right (fun x tids -> binding_cons (x, ty) tids) vs [] }
+    { List.fold_right (fun x tids -> binding_cons (x, Some ty) tids) vs [] }
 
 binding_vars:
   | bs=nonempty_list(x=id { check_legal_var x $startpos(x) ; x })
@@ -980,7 +980,7 @@ search_witness:
 exists_binds:
   | { [] }
   | withs
-    { List.map (fun (id, t) -> (id, uterm_to_term t)) $1 }
+    { $1 }
 
 depth_spec:
   | ds=separated_nonempty_list(SEMICOLON, depth_spec_one) EOF

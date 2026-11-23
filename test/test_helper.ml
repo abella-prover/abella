@@ -139,9 +139,10 @@ let freshen str =
     ids_to_fresh_tyctx (umetaterm_extract_if Term.is_capital_name uterm)
   in
   let ctx = fresh_alist ~tag:Term.Eigen ~used:[] fv in
+  let fv_opt = List.map (fun (id, ty) -> (id, Some ty)) fv in
   match
     type_umetaterm ~sr:!sr ~sign:!sign ~ctx
-      (UBinding(Metaterm.Forall, fv, uterm))
+      (UBinding(Metaterm.Forall, fv_opt, uterm))
   with
     | Binding(Metaterm.Forall, fv, body) ->
         let ctx = fresh_alist ~tag:Term.Eigen ~used:[] fv in

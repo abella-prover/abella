@@ -129,7 +129,7 @@ let member_def =
   let ty_a = tybase @@ Tygenvar "A" in
   let ty_list_a = tybase @@ Tycons ("list", [ty_a]) in
   let ty_member = tyarrow [ty_a ; ty_list_a] propty in
-  let const k = UCon (ghost_pos, k, fresh_tyvar ()) in
+  let const k = UCon (ghost_pos, k, None) in
   let rec app f ts =
     match ts with
     | [] -> f
@@ -323,114 +323,6 @@ let create_split_theorems name names =
 (* Left and right side of disjunction *)
 
 
-(* Refreshing tactic type variables *)
-
-let refresh_command_tyvars cmd =
-  let cache = ref [] in
-  let fresh_typtr r =
-    match List.find_opt (fun (k, _) -> k == r) !cache with
-    | Some (_, r') -> r'
-    | None ->
-        let r' =
-          match Term.fresh_tyvar () with
-          | Ty ([], Typtr r') -> r'
-          | _ -> assert false
-        in
-        cache := (r, r') :: !cache ;
-        r'
-  in
-  let rec refresh_ty (Ty (args, aty)) =
-    let args = List.map refresh_ty args in
-    match aty with
-    | Tygenvar _ -> Ty (args, aty)
-    | Typtr ({ contents = TV _ } as r) ->
-        Ty (args, Typtr (fresh_typtr r))
-    | Typtr { contents = TT ty } ->
-        let Ty (args', aty') = refresh_ty ty in
-        Ty (args @ args', aty')
-    | Tycons (c, tys) ->
-        Ty (args, Tycons (c, List.map refresh_ty tys))
-  in
-  let refresh_clearable = function
-    | Keep (id, tys) -> Keep (id, List.map refresh_ty tys)
-    | Remove (id, tys) -> Remove (id, List.map refresh_ty tys)
-  in
-  let rec refresh_uterm = function
-    | UCon (pos, id, ty) -> UCon (pos, id, refresh_ty ty)
-    | ULam (pos, id, ty, body) ->
-        ULam (pos, id, refresh_ty ty, refresh_uterm body)
-    | UApp (pos, t1, t2) -> UApp (pos, refresh_uterm t1, refresh_uterm t2)
-  in
-  let rec refresh_umetaterm = function
-    | (UTrue | UFalse) as mt -> mt
-    | UEq (t1, t2) -> UEq (refresh_uterm t1, refresh_uterm t2)
-    | UAsyncObj (l, g, r) ->
-        UAsyncObj (refresh_uterm l, refresh_uterm g, r)
-    | USyncObj (l, f, g, r) ->
-        USyncObj (refresh_uterm l, refresh_uterm f, refresh_uterm g, r)
-    | UArrow (a, b) -> UArrow (refresh_umetaterm a, refresh_umetaterm b)
-    | UBinding (b, tids, body) ->
-        let tids = List.map (fun (id, ty) -> (id, refresh_ty ty)) tids in
-        UBinding (b, tids, refresh_umetaterm body)
-    | UOr (a, b) -> UOr (refresh_umetaterm a, refresh_umetaterm b)
-    | UAnd (a, b) -> UAnd (refresh_umetaterm a, refresh_umetaterm b)
-    | UPred (p, r) -> UPred (refresh_uterm p, r)
-  in
-  let refresh_with (x, t) = (x, refresh_uterm t) in
-  let refresh_ewitness = function
-    | ETerm t -> ETerm (refresh_uterm t)
-    | ESub (x, t) -> ESub (x, refresh_uterm t)
-  in
-  let rec refresh_witness = function
-    | (WTrue | WHyp _ | WReflexive | WMagic) as w -> w
-    | WLeft w -> WLeft (refresh_witness w)
-    | WRight w -> WRight (refresh_witness w)
-    | WSplit (w1, w2) -> WSplit (refresh_witness w1, refresh_witness w2)
-    | WForall (ids, w) -> WForall (ids, refresh_witness w)
-    | WIntros (ids, w) -> WIntros (ids, refresh_witness w)
-    | WExists (bs, w) ->
-        let bs =
-          List.map
-            (fun (id, t) -> (id, Term.term_map_on_tys refresh_ty t))
-            bs
-        in
-        WExists (bs, refresh_witness w)
-    | WUnfold (id, n, ws) ->
-        WUnfold (id, n, List.map refresh_witness ws)
-  in
-  match cmd with
-  | Apply (depth, h, args, ws, hn) ->
-      Apply (depth, refresh_clearable h, List.map refresh_clearable args,
-             List.map refresh_with ws, hn)
-  | Backchain (depth, h, ws) ->
-      Backchain (depth, refresh_clearable h, List.map refresh_with ws)
-  | Compute (hs, gas, hn) ->
-      Compute (List.map refresh_clearable hs, gas, hn)
-  | CutFrom (h, arg, t, hn) ->
-      CutFrom (refresh_clearable h, refresh_clearable arg,
-               refresh_uterm t, hn)
-  | Cut (h, arg, hn) ->
-      Cut (refresh_clearable h, refresh_clearable arg, hn)
-  | SearchCut (h, hn) ->
-      SearchCut (refresh_clearable h, hn)
-  | Inst (h, ws, hn) ->
-      Inst (refresh_clearable h, List.map refresh_with ws, hn)
-  | Case (h, hn) ->
-      Case (refresh_clearable h, hn)
-  | Assert (t, dp, hn) ->
-      Assert (refresh_umetaterm t, dp, hn)
-  | Monotone (h, t, hn) ->
-      Monotone (refresh_clearable h, refresh_uterm t, hn)
-  | Exists (how, ews) ->
-      Exists (how, List.map refresh_ewitness ews)
-  | Search (`witness w) ->
-      Search (`witness (refresh_witness w))
-  | ( Induction _ | CoInduction _ | ComputeAll _ | Clear _ | ClearDups
-    | Abbrev _ | Unabbrev _ | Rename _ | Permute _ | Search _ | Split
-    | SplitStar | Left | Right | Intros _ | Unfold _ | Saturate _
-    | Skip | Bullet _ | Abort | Undo | Common _ | Try _ | Then _
-    | Alt _ | Repeat _ ) as cmd -> cmd
-
 (* Immutable sequents and tactics *)
 
 (* Sequent *)
@@ -605,7 +497,7 @@ let get_hyp sq name =
 
 let is_hyp sq name = Option.is_some (get_hyp sq name)
 
-let get_lemma ?(tys : ty list = []) name
+let get_lemma ?(tys : ty option list = []) name
     : (metaterm, stmt_error) result =
   match Hashtbl.find_opt lemmas name with
   | None -> Result.error (Unknown_stmt name)
@@ -613,7 +505,12 @@ let get_lemma ?(tys : ty list = []) name
       let tys =
         if List.length argtys > 0 && List.length tys = 0 then
           List.map (fun _ -> fresh_tyvar ()) argtys
-        else tys
+        else
+          List.map
+            (function
+              | Some ty -> ty
+              | None -> fresh_tyvar ())
+            tys
       in
       if List.length tys <> List.length argtys then
         Result.error
@@ -627,7 +524,7 @@ let get_lemma ?(tys : ty list = []) name
         mark_schematic_tysub tysub ;
         Result.ok (map_on_tys (apply_sub_ty tysub) bod)
 
-let get_hyp_or_lemma sq ?(tys : ty list = []) name =
+let get_hyp_or_lemma sq ?(tys : ty option list = []) name =
   match get_hyp sq name with
   | Some t -> Result.ok t
   | None -> get_lemma ~tys name
@@ -883,7 +780,7 @@ let rec warn_witness sq = function
   | WSplit (w1, w2) -> warn_witness sq w1 ; warn_witness sq w2
   | WForall (_, w) | WIntros (_, w) -> warn_witness sq w
   | WExists (bs, w) ->
-      List.iter (fun (_, term) -> warn_term_vars sq term) bs ;
+      List.iter (fun (_, ut) -> warn_term_vars sq (uterm_to_term ut)) bs ;
       warn_witness sq w
   | WUnfold (_, _, ws) -> List.iter (warn_witness sq) ws
   | WTrue | WReflexive | WMagic -> ()

@@ -33,28 +33,28 @@ let standardize_predicate (ut : Typing.uterm) =
         let id = Term.fresh_name "#" ctx in
         let ty = fresh_tyvar () in
         let ctx = (id, ty) :: ctx in
-        (ctx, Typing.UCon (pos, id, ty))
+        (ctx, Typing.UCon (pos, id, Some ty))
     | UCon (pos, id, _) when is_capital_name id ->
         if List.mem_assoc id ctx then
           failwithf_at ~pos "Repeated variable %s" id ;
         let ty = fresh_tyvar () in
         let ctx = (id, ty) :: ctx in
-        (ctx, UCon (pos, id, ty))
+        (ctx, UCon (pos, id, Some ty))
     | UCon _ as ut -> (ctx, ut)
     | UApp (pos, ut1, ut2) ->
         let (ctx, ut1) = get_vars ctx ut1 in
         let (ctx, ut2) = get_vars ctx ut2 in
         (ctx, UApp (pos, ut1, ut2))
-    | ULam (pos, id, ty, ut) ->
+    | ULam (pos, id, tyo, ut) ->
         let (ctx, ut) = get_vars ctx ut in
-        (ctx, ULam (pos, id, ty, ut))
+        (ctx, ULam (pos, id, tyo, ut))
   in
   let (ctx, ut) = get_vars [] ut in
   (ctx, pred, ut)
 
 let make_guard ~head ~test =
   let (tyctx, predicate, pattern) = standardize_predicate head in
-  let (ty, eqns) = Typing.(infer_type_and_constraints ~sign:!sign tyctx pattern) in
+  let (pattern, ty, eqns) = Typing.(infer_type_and_constraints ~sign:!sign tyctx pattern) in
   Unifyty.unify_constraints eqns ;
   let vars = List.map (fun (id, ty) -> (id, Term.fresh ~tag:Eigen 0 ty)) tyctx in
   let pattern = Typing.(uterm_to_term pattern |> replace_term_vars vars) in
@@ -113,11 +113,11 @@ let is_guarded atm =
 
 let () =
   let open Typing in
-  let e = UCon (ghost_pos, "_", fresh_tyvar ()) in
-  let l = UCon (ghost_pos, "L", fresh_tyvar ()) in
+  let e = UCon (ghost_pos, "_", None) in
+  let l = UCon (ghost_pos, "L", None) in
   let head = UApp (ghost_pos,
                    UApp (ghost_pos,
-                         UCon (ghost_pos, "member", fresh_tyvar ()),
+                         UCon (ghost_pos, "member", None),
                          e),
                    l) in
   let test = None in

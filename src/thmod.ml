@@ -353,12 +353,21 @@ and resolve_ty (Ty (args, aty)) =
 
 let rec resolve_uterm ?(locals=[]) t =
   match t with
-  | UCon (pos, name, ty) ->
-      UCon (pos, resolve_locals locals name, resolve_ty ty)
-  | ULam (pos, name, ty, body) ->
-      ULam (pos, name, resolve_ty ty, resolve_uterm ~locals body)
+  | UCon (pos, name, None) ->
+      UCon (pos, resolve_locals locals name, None)
+  | UCon (pos, name, Some ty) ->
+      UCon (pos, resolve_locals locals name, Some (resolve_ty ty))
+  | ULam (pos, name, None, body) ->
+      ULam (pos, name, None, resolve_uterm ~locals body)
+  | ULam (pos, name, Some ty, body) ->
+      ULam (pos, name, Some (resolve_ty ty), resolve_uterm ~locals body)
   | UApp (pos, t1, t2) ->
       UApp (pos, resolve_uterm ~locals t1, resolve_uterm ~locals t2)
+
+let resolve_tyo tyo =
+  match tyo with
+  | None -> None
+  | Some ty -> Some (resolve_ty ty)
 
 let rec resolve_umetaterm ?(locals=[]) mt =
   match mt with
@@ -376,7 +385,7 @@ let rec resolve_umetaterm ?(locals=[]) mt =
       UArrow (resolve_umetaterm ~locals a, resolve_umetaterm ~locals b)
   | UBinding (binder, tids, body) ->
       let tids =
-        List.map (fun (id, ty) -> (id, resolve_ty ty)) tids
+        List.map (fun (id, tyo) -> (id, resolve_tyo tyo)) tids
       in
       UBinding (binder, tids, resolve_umetaterm ~locals body)
   | UOr (a, b) ->
@@ -433,8 +442,10 @@ let resolve_hyp_or_item ~is_hyp name =
   else resolve_id name
 
 let resolve_clearable ~is_hyp = function
-  | Keep (name, tys) -> Keep (resolve_hyp_or_item ~is_hyp name, tys)
-  | Remove (name, tys) -> Remove (resolve_hyp_or_item ~is_hyp name, tys)
+  | Keep (name, tys) ->
+      Keep (resolve_hyp_or_item ~is_hyp name, List.map resolve_tyo tys)
+  | Remove (name, tys) ->
+      Remove (resolve_hyp_or_item ~is_hyp name, List.map resolve_tyo tys)
 
 let rec resolve_witness ~is_hyp w =
   match w with
@@ -447,6 +458,7 @@ let rec resolve_witness ~is_hyp w =
   | WForall (ids, w) -> WForall (ids, resolve_witness ~is_hyp w)
   | WIntros (ids, w) -> WIntros (ids, resolve_witness ~is_hyp w)
   | WExists (bs, w) ->
+      let bs = List.map (fun (id, ut) -> (id, resolve_uterm ut)) bs in
       WExists (bs, resolve_witness ~is_hyp w)
   | WUnfold (name, n, ws) ->
       WUnfold (resolve_id name, n,

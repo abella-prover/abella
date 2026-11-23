@@ -1175,8 +1175,8 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
         in
         let (alist, w) = match witness with
           | WExists (alist, w) ->
-              let alist = List.map begin fun (x, t) ->
-                  (x, retype (Typing.forget_term t))
+              let alist = List.map begin fun (x, ut) ->
+                  (x, retype ut)
                 end alist in
               (alist, w)
           | WMagic ->
@@ -1185,7 +1185,8 @@ let search ~depth:n ~hyps ~clauses ~def_unfold ~sr ~retype
           | _ -> bad_witness ()
         in
         let body = replace_metaterm_vars alist body in
-        metaterm_aux n hyps body ts ~sc:(fun w -> sc (WExists(alist, w))) ~witness:w
+        let alist_ut = List.map (fun (x, t) -> (x, Typing.forget_term t)) alist in
+        metaterm_aux n hyps body ts ~sc:(fun w -> sc (WExists(alist_ut, w))) ~witness:w
     | Binding(Nabla, tids, body) ->
         let (alist, w) = match witness with
           | WIntros (ids, w) ->

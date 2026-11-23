@@ -241,7 +241,8 @@ let resolve_proof_cmd cmd =
 let query q =
   let fv = ids_to_fresh_tyctx (umetaterm_extract_if is_capital_name q) in
   let ctx = fresh_alist ~tag:Logic ~used:[] fv in
-  match type_umetaterm ~sr:!sr ~sign:!sign ~ctx (UBinding(Metaterm.Exists, fv, q)) with
+  let fv_opt = List.map (fun (id, ty) -> (id, Some ty)) fv in
+  match type_umetaterm ~sr:!sr ~sign:!sign ~ctx (UBinding(Metaterm.Exists, fv_opt, q)) with
   | Binding(Metaterm.Exists, fv, q) ->
       let support = metaterm_support q in
       let ctx = Tactics.fresh_nameless_alist ~sr:!sr ~support ~ts:0 ~tag:Logic fv in
@@ -341,7 +342,7 @@ let outcome_list = function
 
 let run_atomic ~resolve sq cmd
     : (outcome, string) result =
-  let cmd = cmd |> Prover.refresh_command_tyvars |> resolve in
+  let cmd = cmd |> resolve in
   match cmd with
   | Apply (depth, h, args, ws, hint) ->
       let+ gs =

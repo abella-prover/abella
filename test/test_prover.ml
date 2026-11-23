@@ -555,18 +555,18 @@ let tests =
              (Failure "Type argument bad may not contain prop")
              (fun () ->
                 ignore (or_fail string_of_stmt_error
-                          (get_lemma ~tys:[Term.propty] "bad"))) ;
+                          (get_lemma ~tys:[Some Term.propty] "bad"))) ;
            Alcotest.check_raises
              "Explicit instantiation with type containing prop"
              (Failure "Type argument bad may not contain prop")
              (fun () ->
                 ignore (or_fail string_of_stmt_error
                           (get_lemma
-                             ~tys:[Term.tyarrow [Term.propty] Term.propty]
+                             ~tys:[Some (Term.tyarrow [Term.propty] Term.propty)]
                              "bad"))) ;
            Term.schematic_instantiations := [] ;
            ignore (or_fail string_of_stmt_error
-                     (get_lemma ~tys:[ity] "bad")) ;
+                     (get_lemma ~tys:[Some ity] "bad")) ;
            Checks.ensure_no_prop_schematic_instantiation () ;
            Term.schematic_instantiations := []
         ) ;

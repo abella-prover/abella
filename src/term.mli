@@ -131,6 +131,7 @@ val bind_ty : aty -> ty -> unit
 type bind_state
 val get_bind_state : unit -> bind_state
 val set_bind_state : bind_state -> unit
+val map_bind_state_terms : (term -> term) -> bind_state -> bind_state
 
 (* Scoped bind state is more efficient than regular bind state, but it
    must always be used in a lexically scoped fashion. The unwind_state

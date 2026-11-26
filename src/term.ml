@@ -323,6 +323,14 @@ let set_bind_state (state_var, state_ty) =
       | TV _ -> bind_ty (Typtr tv) tnv
       | TT _ -> ()) (List.rev state_ty)
 
+(* Rewrite the new values in a bind state. Used to keep stored bind
+   states consistent after eigenvariables are renamed: renamed
+   variables are always free, hence never occur as bound keys, so
+   only new values need rewriting. *)
+let map_bind_state_terms f (state_var, state_ty) =
+  (List.map (fun (v, ov, nv) -> (v, ov, f nv)) state_var, state_ty)
+
+
 (* make state undoable *)
 let () = State.make () ~copy:get_bind_state ~assign:(fun () st -> set_bind_state st)
 

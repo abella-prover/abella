@@ -297,8 +297,11 @@ let compute sq ?hint ?(gas = 1_000) ?(warn = true) hs =
     | Result.Ok sq -> begin
         match P.rename_new_vars sq ?alt ~base () with
         | Result.Error e -> Result.error (Compute_rename e)
-        | Result.Ok sq ->
-            let bs = Term.get_bind_state () in
+        | Result.Ok (sq, renames) ->
+            let bs =
+              P.rename_bind_state renames (Term.get_bind_state ())
+            in
+            Term.set_bind_state bs ;
             let schem = !Term.schematic_instantiations in
             Result.ok [(sq, bs, schem)]
       end

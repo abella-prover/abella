@@ -558,7 +558,8 @@ type rename_hint_error =
   | Reserved_nominal_hint of string
 
 let rename_described sq ~hints ~base vars
-    : (sequent, rename_hint_error) result =
+    : (sequent * (tag * (string * term) list) list,
+       rename_hint_error) result =
   let used =
     ref (List.map (fun (name, _) -> (name, ())) base.vars
          @ List.map (fun h -> (h.id, ())) sq.hyps
@@ -605,7 +606,7 @@ let rename_described sq ~hints ~base vars
   in
   match collect 0 [] vars with
   | Result.Error _ as e -> e
-  | Result.Ok [] -> Result.ok sq
+  | Result.Ok [] -> Result.ok (sq, [])
   | Result.Ok renames ->
       let tag_groups =
         List.fold_left
@@ -628,7 +629,7 @@ let rename_described sq ~hints ~base vars
           mt tag_groups
       in
       Result.ok
-        { sq with
+        ({ sq with
           goal = rewrite_metaterm sq.goal ;
           hyps = List.map
               (fun h -> { h with term = rewrite_metaterm h.term })
@@ -651,14 +652,16 @@ let rename_described sq ~hints ~base vars
                 if in_sequent then
                   Iset.add new_name (Iset.remove old_name user_vars)
                 else user_vars)
-              sq.user_vars renames }
+              sq.user_vars renames },
+         tag_groups)
 
 let rename_new_vars sq ?(alt : Hint.alt option) ~base ()
-    : (sequent, rename_hint_error) result =
+    : (sequent * (tag * (string * term) list) list,
+       rename_hint_error) result =
   let hints =
     match alt with None -> [] | Some a -> a.vars
   in
-  if hints = [] then Result.ok sq
+  if hints = [] then Result.ok (sq, [])
   else
     let new_eigen =
       List.filter
@@ -682,6 +685,21 @@ let rename_new_vars sq ?(alt : Hint.alt option) ~base ()
       @ List.map (fun (v : var) -> (v, false)) new_nominals
     in
     rename_described sq ~hints ~base described
+
+(* Rewrite the terms in a bind state according to renames produced
+   by [rename_described]. This keeps stored bind states consistent
+   with renamed sequents: without it, focusing such a subgoal
+   restores bindings that mention pre-rename variables absent from
+   the sequent's variable list. Only new values are rewritten;
+   keys are untouched since renamed variables are always free
+   (and hence never bound). *)
+let rename_bind_state groups (bs : Term.bind_state) : Term.bind_state =
+  let rename t =
+    List.fold_left
+      (fun t (tag, alist) -> Metaterm.replace_term_vars ~tag alist t)
+      t groups
+  in
+  Term.map_bind_state_terms rename bs
 
 (* Shared guards *)
 
@@ -966,6 +984,11 @@ let intros sq (alt : Hint.alt) : (sequent, intros_error) result =
   let sq, intro_vars, goal = aux sq [] 0 sq.goal in
   let sq = keep_active sq { sq with goal } in
   rename_described sq ~hints:alt.vars ~base intro_vars
+  |> Result.map
+       (fun (sq, renames) ->
+         Term.set_bind_state
+           (rename_bind_state renames (Term.get_bind_state ())) ;
+         sq)
   |> Result.map_error (fun e -> Intros_rename e)
 
 (* Search helpers (pure variants operating on an explicit sequent) *)
@@ -1801,7 +1824,14 @@ let apply sq ?depth ?hint ?(term_witness = ignore) h args ws
                               with
                               | Result.Error e ->
                                   Result.error (Apply_rename e)
-                              | Result.Ok core ->
+                              | Result.Ok (core, renames) ->
+                                  (* Rewrite the current binds with
+                                     the renames so that the global
+                                     bind state stays consistent
+                                     with the renamed mainline. *)
+                                  Term.set_bind_state
+                                    (rename_bind_state renames
+                                       (Term.get_bind_state ())) ;
                                   Result.ok [core]
                             end
                         in
@@ -1972,18 +2002,29 @@ let case sq ?hint h : (sequent list, case_error) result =
                 c.new_hyps
             in
             begin match
+              (* Install this case's binds first so that
+                 dereferencing during renaming below uses
+                 this subgoal's own bindings. *)
+              Term.set_bind_state c.bind_state ;
               rename_new_vars core
                 ?alt:(alt_for_subgoal ?hint i)
                 ~base:sq ()
             with
             | Result.Error e ->
                 Result.error (Case_rename e)
-            | Result.Ok core ->
-                (* Install the case binds for the
+            | Result.Ok (core, renames) ->
+                (* Rewrite the stored binds with the renames so
+                   that focusing this subgoal later restores
+                   bindings consistent with the renamed sequent.
+                   Without this, dereferencing mentions
+                   pre-rename variables absent from the
+                   sequent's variable list. *)
+                let binds = rename_bind_state renames c.bind_state in
+                (* Install the (renamed) case binds for the
                    dereference-sensitive update below. *)
-                Term.set_bind_state c.bind_state ;
+                Term.set_bind_state binds ;
                 let core = update_self_bound_vars core in
-                build (i + 1) ((core, c.bind_state) :: acc)
+                build (i + 1) ((core, binds) :: acc)
                   rest
             end
       in
@@ -2052,7 +2093,7 @@ let delay_mainline sq ?hint ?depth new_hyp detour_goal
         ?alt:(alt_for_subgoal ?hint 1) ~base:sq ()
     with
     | Result.Error _ as e -> e
-    | Result.Ok mainline_core ->
+    | Result.Ok (mainline_core, renames) ->
         let idx = sq.next_subgoal_id in
         let detour_name =
           if sq.name = "" then string_of_int idx
@@ -2066,7 +2107,12 @@ let delay_mainline sq ?hint ?depth new_hyp detour_goal
           { mainline_core with next_subgoal_id = idx + 1 }
         in
         let schem = !Term.schematic_instantiations in
-        let bs = Term.get_bind_state () in
+        (* Rewrite the stored binds with the renames so that
+           focusing the mainline later restores bindings
+           consistent with the renamed sequent. *)
+        let bs =
+          rename_bind_state renames (Term.get_bind_state ())
+        in
         Result.ok
           (Delayed
              [{ detour with active = true ; activate = noop } ;
@@ -2310,7 +2356,13 @@ let saturate sq ?hint ?depth lemmas
                 begin match rename_new_vars core ?alt ~base:sq () with
                 | Result.Error e ->
                     Result.error (Saturate_rename e)
-                | Result.Ok core ->
+                | Result.Ok (core, renames) ->
+                    (* Rewrite the installed binds with the renames
+                       to keep them consistent with the renamed
+                       sequent. *)
+                    Term.set_bind_state
+                      (rename_bind_state renames
+                         (Term.get_bind_state ())) ;
                     let core = update_self_bound_vars core in
                     begin match loop core (depth - 1) c.ts with
                     | Result.Error _ as e -> e

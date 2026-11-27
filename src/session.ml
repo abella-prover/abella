@@ -160,14 +160,21 @@ let try_command ?start command =
       State.Undo.set_enabled false ;
       process ?start command)
 
+let in_proof () =
+  match !Driver.processing_state with
+  | Driver.Process_top -> false
+  | Driver.Process_proof _ -> true
+
 let current_state () =
-  match !Driver.istate with
-  | None -> None
-  | Some st -> Some (Prover.state_json st)
+  if not (in_proof ()) then None
+  else
+    match !Driver.istate with
+    | None -> None
+    | Some st -> Some (Prover.state_json st)
 
-let current_display () = Driver.get_display ()
-
-let in_proof () = !Driver.istate <> None
+let current_display () =
+  if not (in_proof ()) then "\nNo proof in progress.\n\n"
+  else Driver.get_display ()
 
 let split_commands ?(filename = "") content =
   let len = String.length content in

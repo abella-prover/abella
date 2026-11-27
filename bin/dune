@@ -53,9 +53,17 @@
  (modules abella_keywords)
  (libraries abella_lib cmdliner))
 
+(executable
+ (name abella_mcp)
+ (public_name abella_mcp)
+ (package abella)
+ (modes byte exe)
+ (modules abella_mcp)
+ (libraries abella_lib unix yojson cmdliner))
+
 (alias
  (name default)
- (deps abella.exe abella_doc.exe abella_dep.exe))
+ (deps abella.exe abella_doc.exe abella_dep.exe abella_mcp.exe))
 
 (rule
  (targets abella.1 abella_doc.1 abella_dep.1)

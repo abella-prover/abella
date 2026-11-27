@@ -563,4 +563,23 @@ let tests =
            assert_command_rejected "repeat induction on 1." ;
            assert_command_rejected "(coinduction).") ;
 
+      test_case "Subgoal naming hints (hspec =>)"
+        (fun () ->
+           assert_command_pprint "Hhyp1 =>" "Hhyp1 =>" ;
+           assert_command_pprint "!X H1 H2 =>" "!X H1 H2 =>" ;
+           assert_command_pprint "HhypAnd HseqAnd =>" "[ HhypAnd HseqAnd ] =>" ;
+           assert_command_pprint "!X !_ H1 _ =>" "[ !X !_ H1 _ ] =>" ;
+           assert_command_pprint "[] =>" "[ ] =>") ;
+
+      test_case "Invalid subgoal naming hints rejected"
+        (fun () ->
+           assert_command_rejected "[ H1 | H2 ] =>" ;
+           assert_command_rejected "=>" ;
+           assert_command_rejected "try (H => search)." ;
+           let lb = Lexing.from_string "H => ; search." in
+           ignore (Parser.command_start Lexer.token lb) ;
+           match Parser.command_start Lexer.token lb with
+           | _ -> Alcotest.fail "expected trailing '; search.' to be rejected"
+           | exception _ -> ()) ;
+
     ]

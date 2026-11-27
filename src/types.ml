@@ -217,6 +217,7 @@ type command =
   | Alt          of command * command
   | Repeat       of int option * command
   | Bullet       of string
+  | SubgoalSpec  of Hint.alt
   | Abort
   | Undo
   | Common       of common_command
@@ -570,6 +571,9 @@ let rec command_to_string c =
           (prefix_command_to_string c1)
           (alt_command_to_string c2)
     | Bullet b -> b
+    | SubgoalSpec alt ->
+        let s = alt_to_string alt in
+        if s = "" then "[] =>" else sprintf "%s =>" s
     | Abort -> "abort"
     | Undo -> "undo"
     | Common(cc) -> common_command_to_string cc

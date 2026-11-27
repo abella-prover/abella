@@ -5,6 +5,10 @@
 // Scanner for Abella commands.  Offsets are JavaScript/CodeMirror offsets
 // (UTF-16 code units), not Abella's UTF-8 byte offsets.
 
+import { allAbellaKeywords } from "../keywords.generated";
+
+const keywordSet = new Set<string>(allAbellaKeywords);
+
 export interface Command {
   text: string;
   from: number;
@@ -25,11 +29,123 @@ const isSpace = (c: string) => c === " " || c === "\t" || c === "\r" || c === "\
 const isNameStart = (c: string | undefined) =>
   c !== undefined && /[A-Za-z=`'?$]/.test(c);
 
+// Matches the lexer's `ichar | bchar` set.
+const isNameBody = (c: string | undefined) =>
+  c !== undefined && /[A-Za-z=`'?$0-9_\-/*@+#!~]/.test(c);
+
 const isBulletChar = (c: string | undefined) =>
   c === "-" || c === "+" || c === "*";
 
 const isCommandDot = (doc: string, i: number) =>
   doc[i] === "." && !isNameStart(doc[i + 1]);
+
+function skipTrivia(doc: string, i: number): number {
+  const length = doc.length;
+  let advanced = true;
+  while (advanced && i < length) {
+    advanced = false;
+    while (i < length && isSpace(doc[i])) {
+      i++;
+      advanced = true;
+    }
+    if (doc[i] === "/" && doc[i + 1] === "*") {
+      let depth = 1;
+      i += 2;
+      while (i < length && depth > 0) {
+        if (doc[i] === "/" && doc[i + 1] === "*") {
+          depth++;
+          i += 2;
+        } else if (doc[i] === "*" && doc[i + 1] === "/") {
+          depth--;
+          i += 2;
+        } else {
+          i++;
+        }
+      }
+      if (depth > 0) return -1;
+      advanced = true;
+    } else if (doc[i] === "%") {
+      while (i < length && doc[i] !== "\n") i++;
+      advanced = true;
+    }
+  }
+  return i;
+}
+
+function tryScanSubgoalSpec(doc: string, from: number): number | null {
+  const length = doc.length;
+  let p = skipTrivia(doc, from);
+  if (p < 0 || p >= length) return null;
+
+  if (doc[p] === "[") {
+    p++;
+    while (true) {
+      p = skipTrivia(doc, p);
+      if (p < 0 || p >= length) return null;
+      if (doc[p] === "]") {
+        p++;
+        break;
+      }
+      if (doc[p] === "|" || doc[p] === "!" || doc[p] === "_") {
+        p++;
+        continue;
+      }
+      if (isNameStart(doc[p])) {
+        const start = p;
+        while (p < length && isNameBody(doc[p])) p++;
+        if (doc[p] === ".") return null;
+        if (keywordSet.has(doc.slice(start, p))) return null;
+        continue;
+      }
+      return null;
+    }
+    p = skipTrivia(doc, p);
+    if (p < 0 || p + 1 >= length) return null;
+    return doc[p] === "=" && doc[p + 1] === ">" ? p + 2 : null;
+  }
+
+  let hasHint = false;
+  while (true) {
+    p = skipTrivia(doc, p);
+    if (p < 0 || p >= length) return null;
+    if (doc[p] === "=" && doc[p + 1] === ">") {
+      return hasHint ? p + 2 : null;
+    }
+    if (doc[p] === "!") {
+      p++;
+      p = skipTrivia(doc, p);
+      if (p < 0 || p >= length) return null;
+      if (doc[p] === "_") {
+        p++;
+        hasHint = true;
+        continue;
+      }
+      if (isNameStart(doc[p]) && !(doc[p] === "=" && doc[p + 1] === ">")) {
+        const start = p;
+        while (p < length && isNameBody(doc[p])) p++;
+        if (doc[p] === ".") return null;
+        if (keywordSet.has(doc.slice(start, p))) return null;
+        hasHint = true;
+        continue;
+      }
+      return null;
+    }
+    if (doc[p] === "_") {
+      p++;
+      hasHint = true;
+      continue;
+    }
+    if (isNameStart(doc[p])) {
+      const start = p;
+      while (p < length && isNameBody(doc[p])) p++;
+      if (doc[p] === ".") return null;
+      if (keywordSet.has(doc.slice(start, p))) return null;
+      hasHint = true;
+      continue;
+    }
+    return null;
+  }
+}
 
 /**
  * Return complete commands from `fromOffset` to the end of the document.
@@ -92,6 +208,18 @@ export function scanCommands(doc: string, fromOffset = 0): Command[] {
         i = end;
         continue;
       }
+    }
+
+    const specEnd = tryScanSubgoalSpec(doc, i);
+    if (specEnd !== null) {
+      commands.push({
+        text: doc.slice(i, specEnd).trim(),
+        from: i,
+        to: specEnd,
+        endLine: lineOf(doc, specEnd),
+      });
+      i = specEnd;
+      continue;
     }
 
     const from = i;

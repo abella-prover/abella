@@ -524,8 +524,8 @@ let rec resolve_command ~is_hyp cmd =
       Common (Show (resolve_hyp_or_item ~is_hyp name))
   | Common Quit ->
       failwith "Quit is not allowed in a module"
-  | Bullet _ | ComputeAll _ | Split | SplitStar | Left | Right | Undo
-  | Common _ -> cmd
+  | Bullet _ | SubgoalSpec _ | ComputeAll _ | Split | SplitStar | Left
+  | Right | Undo | Common _ -> cmd
   | Try c ->
       Try (resolve_command ~is_hyp c)
   | Then (c1, c2) ->

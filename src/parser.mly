@@ -566,6 +566,12 @@ pure_command:
     { Types.Induction(ns, ht) }
   | ht=hhint; COIND; DOT
     { Types.CoInduction(ht) }
+  | hs=hspec; IMP
+    { match hs with
+      | [alt] -> Types.SubgoalSpec alt
+      | _ ->
+          error_report ~pos:$startpos(hs)
+            "Subgoal naming hint (=>) cannot have multiple alternatives" }
   | t=tactic; DOT
     { t }
   | b=bullet
@@ -683,8 +689,14 @@ hhint:
 hspec:
   | LBRACK; alts=separated_nonempty_list(BAR, hspec_alt); RBRACK
     { alts }
-  | alt=hspec_alt
+  | alt=nonempty_hspec_alt
     { [alt] }
+
+nonempty_hspec_alt:
+  | BANG; h=var_name_hint; hs=banged_names; ps=plain_names
+    { Types.Hint.{ vars = h :: hs ; hyps = ps } }
+  | h=hyp_name_hint; hs=plain_names
+    { Types.Hint.{ vars = [] ; hyps = h :: hs } }
 
 hspec_alt:
   | vs=banged_names; hs=plain_names

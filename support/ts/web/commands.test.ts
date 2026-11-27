@@ -139,3 +139,28 @@ test("keeps tacticals in a single dot-terminated command", () => {
     ["Theorem t : true /\\ true.", "split ; intros ; search."]
   );
 });
+
+test("scans subgoal naming hints (hspec =>)", () => {
+  const texts = (doc: string) => scanCommands(doc).map((c) => c.text);
+  assert.deepEqual(texts("- Hhyp1 => search."), [
+    "-",
+    "Hhyp1 =>",
+    "search.",
+  ]);
+  assert.deepEqual(
+    texts("- [ HhypAnd HseqAnd ] =>\n  HseqC : apply IH to HseqAnd."),
+    ["-", "[ HhypAnd HseqAnd ] =>", "HseqC : apply IH to HseqAnd."]
+  );
+  assert.deepEqual(texts("[ ] => search."), ["[ ] =>", "search."]);
+  assert.deepEqual(
+    texts(
+      "Theorem t : {A => B}.\nassert {A => B}.\nQuery A => B.\nassert A => B."
+    ),
+    [
+      "Theorem t : {A => B}.",
+      "assert {A => B}.",
+      "Query A => B.",
+      "assert A => B.",
+    ]
+  );
+});

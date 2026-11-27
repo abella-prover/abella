@@ -331,6 +331,19 @@ type hyp = {
   user_named : bool ;
 }
 
+type subgoal_origin = {
+  base_vars : (id * term) list ;
+  base_user_vars : Iset.t ;
+  base_hyps : hyp list ;
+  base_goal : metaterm ;
+  base_count : int ;
+  new_vars : (id * term) list ;
+  new_hyps : metaterm list ;
+  raw_bind_state : Term.bind_state ;
+  tactic_alt : Hint.alt option ;
+  spec_applied : bool ;
+}
+
 (* [activate] restores the global [Term] bind state (plus the
    schematic instantiations) captured for this subgoal. The
    input to every tactic is assumed activated; of the
@@ -347,6 +360,7 @@ type sequent = {
   next_subgoal_id : int ;
   active : bool ;
   activate : unit -> unit ;
+  origin : subgoal_origin option ;
 }
 
 let noop () = ()
@@ -354,13 +368,30 @@ let noop () = ()
 let empty_sequent goal =
   { vars = [] ; user_vars = Iset.empty ; hyps = [] ; goal ;
     count = 0 ; name = "" ; next_subgoal_id = 1 ;
-    active = true ; activate = noop }
+    active = true ; activate = noop ; origin = None }
+
+let make_origin ~base ?(base_goal = base.goal)
+    ?(new_vars = []) ?(new_hyps = [])
+    ~raw_bind_state ?tactic_alt () =
+  Some {
+    base_vars = base.vars ;
+    base_user_vars = base.user_vars ;
+    base_hyps = base.hyps ;
+    base_goal ;
+    base_count = base.count ;
+    new_vars ;
+    new_hyps ;
+    raw_bind_state ;
+    tactic_alt ;
+    spec_applied = false ;
+  }
 
 (* [keep_active sq sq'] preserves activation for tactics with
    a single outcome: the result stays focused, so the global
-   bind state already corresponds to it. *)
+   bind state already corresponds to it. In-place tactics clear
+   [origin]. *)
 let keep_active sq sq' =
-  { sq' with active = sq.active ; activate = sq.activate }
+  { sq' with active = sq.active ; activate = sq.activate ; origin = None }
 
 let activate_sequent sq =
   if sq.active then sq
@@ -1049,20 +1080,28 @@ let split sq propagate_result
   let conjs = and_to_list sq.goal in
   if List.length conjs = 1 then Result.error Needless_split
   else
+    let schem = !Term.schematic_instantiations in
+    let bs = Term.get_bind_state () in
     let rec build prev acc = function
       | [] -> List.rev acc
       | g :: rest ->
+          let intro_hyps =
+            if propagate_result then List.rev prev else []
+          in
           let core =
             if propagate_result then
               List.fold_left
                 (fun sq h -> add_auto_hyp sq h)
-                { sq with goal = g } (List.rev prev)
+                { sq with goal = g } intro_hyps
             else { sq with goal = g }
+          in
+          let core =
+            { core with
+              origin = make_origin ~base:sq ~base_goal:g
+                  ~new_hyps:intro_hyps ~raw_bind_state:bs () }
           in
           build (g :: prev) (core :: acc) rest
     in
-    let schem = !Term.schematic_instantiations in
-    let bs = Term.get_bind_state () in
     build [] [] conjs |> name_subgoals sq
     |> List.mapi (fun i core ->
         if i = 0 then { core with active = true ; activate = noop }
@@ -1082,12 +1121,12 @@ type disjunction_error = Not_disjunction
 let left sq : (sequent, disjunction_error) result =
   match sq.goal with
   | Or (l, _) -> Result.ok (keep_active sq { sq with goal = l })
-  | _ -> Result.ok sq
+  | _ -> Result.ok (keep_active sq sq)
 
 let right sq : (sequent, disjunction_error) result =
   match sq.goal with
   | Or (_, r) -> Result.ok (keep_active sq { sq with goal = r })
-  | _ -> Result.ok sq
+  | _ -> Result.ok (keep_active sq sq)
 
 (* Existential witness *)
 
@@ -1203,7 +1242,7 @@ let remove_var sq cm h : (sequent, clear_error) result =
           in
           Result.ok
             { sq with goal = forall [v.Term.name, v.ty] goal }
-      | _ -> Result.ok sq
+      | _ -> Result.ok (keep_active sq sq)
       end
 
 let remove_thing sq cm h =
@@ -1787,7 +1826,10 @@ let apply sq ?depth ?hint ?(term_witness = ignore) h args ws
                         in
                         let bs_ob = Term.get_bind_state () in
                         let subgoal_of_goal g =
-                          { sq with goal = g }
+                          { sq with
+                            goal = g ;
+                            origin = make_origin ~base:sq ~base_goal:g
+                                ~raw_bind_state:bs_ob () }
                         in
                         let ob_cores =
                           List.map subgoal_of_goal remaining
@@ -1799,6 +1841,11 @@ let apply sq ?depth ?hint ?(term_witness = ignore) h args ws
                           with
                           | None -> Result.ok []
                           | Some c ->
+                              let raw_bs = Term.get_bind_state () in
+                              let tactic_alt =
+                                alt_for_subgoal ?hint
+                                  (List.length remaining)
+                              in
                               let core =
                                 { sq with goal = sq.goal }
                               in
@@ -1810,16 +1857,11 @@ let apply sq ?depth ?hint ?(term_witness = ignore) h args ws
                                   c.stateless_new_vars
                               in
                               let core =
-                                add_hyps_with_hint core
-                                  (alt_for_subgoal ?hint
-                                     (List.length remaining))
+                                add_hyps_with_hint core tactic_alt
                                   c.stateless_new_hyps
                               in
                               begin match
-                                rename_new_vars core
-                                  ?alt:(alt_for_subgoal
-                                          ?hint
-                                          (List.length remaining))
+                                rename_new_vars core ?alt:tactic_alt
                                   ~base:sq ()
                               with
                               | Result.Error e ->
@@ -1830,9 +1872,15 @@ let apply sq ?depth ?hint ?(term_witness = ignore) h args ws
                                      bind state stays consistent
                                      with the renamed mainline. *)
                                   Term.set_bind_state
-                                    (rename_bind_state renames
-                                       (Term.get_bind_state ())) ;
-                                  Result.ok [core]
+                                    (rename_bind_state renames raw_bs) ;
+                                  let origin =
+                                    make_origin ~base:sq
+                                      ~new_vars:c.stateless_new_vars
+                                      ~new_hyps:c.stateless_new_hyps
+                                      ~raw_bind_state:raw_bs
+                                      ?tactic_alt ()
+                                  in
+                                  Result.ok [{ core with origin }]
                             end
                         in
                         begin match mainline with
@@ -1928,7 +1976,12 @@ let backchain sq ?depth ?(term_witness = ignore) h ws
                 let schem = !Term.schematic_instantiations in
                 let bs = Term.get_bind_state () in
                 build_subgoals sq schem bs
-                  (List.map (fun g -> { sq with goal = g })
+                  (List.map
+                     (fun g ->
+                       { sq with
+                         goal = g ;
+                         origin = make_origin ~base:sq ~base_goal:g
+                             ~raw_bind_state:bs () })
                      remaining)
                 |> Result.ok
               end)
@@ -2024,7 +2077,13 @@ let case sq ?hint h : (sequent list, case_error) result =
                    dereference-sensitive update below. *)
                 Term.set_bind_state binds ;
                 let core = update_self_bound_vars core in
-                build (i + 1) ((core, binds) :: acc)
+                let origin =
+                  make_origin ~base:sq
+                    ~new_vars:c.new_vars ~new_hyps:c.new_hyps
+                    ~raw_bind_state:c.bind_state
+                    ?tactic_alt:(alt_for_subgoal ?hint i) ()
+                in
+                build (i + 1) (({ core with origin }, binds) :: acc)
                   rest
             end
       in
@@ -2084,13 +2143,14 @@ let delay_mainline sq ?hint ?depth new_hyp detour_goal
             (add_hyp_with_hint sq
                (alt_for_subgoal ?hint 0) new_hyp)))
   else
+    let raw_bs = Term.get_bind_state () in
+    let tactic_alt = alt_for_subgoal ?hint 1 in
     let mainline_core =
-      add_hyps_with_hint sq
-        (alt_for_subgoal ?hint 1) [new_hyp]
+      add_hyps_with_hint sq tactic_alt [new_hyp]
     in
     begin match
       rename_new_vars mainline_core
-        ?alt:(alt_for_subgoal ?hint 1) ~base:sq ()
+        ?alt:tactic_alt ~base:sq ()
     with
     | Result.Error _ as e -> e
     | Result.Ok (mainline_core, renames) ->
@@ -2101,17 +2161,22 @@ let delay_mainline sq ?hint ?depth new_hyp detour_goal
         in
         let detour =
           { { sq with goal = detour_goal } with
-            name = detour_name ; next_subgoal_id = 1 }
+            name = detour_name ; next_subgoal_id = 1 ;
+            origin = make_origin ~base:sq ~base_goal:detour_goal
+                ~raw_bind_state:raw_bs () }
         in
         let mainline =
-          { mainline_core with next_subgoal_id = idx + 1 }
+          { mainline_core with
+            next_subgoal_id = idx + 1 ;
+            origin = make_origin ~base:sq ~new_hyps:[new_hyp]
+                ~raw_bind_state:raw_bs ?tactic_alt () }
         in
         let schem = !Term.schematic_instantiations in
         (* Rewrite the stored binds with the renames so that
            focusing the mainline later restores bindings
            consistent with the renamed sequent. *)
         let bs =
-          rename_bind_state renames (Term.get_bind_state ())
+          rename_bind_state renames raw_bs
         in
         Result.ok
           (Delayed
@@ -2230,7 +2295,13 @@ let unfold sq clause_sel sol_sel
       let schem = !Term.schematic_instantiations in
       let bs = Term.get_bind_state () in
       build_subgoals sq schem bs
-        (List.map (fun g -> { sq with goal = g }) goals)
+        (List.map
+           (fun g ->
+             { sq with
+               goal = g ;
+               origin = make_origin ~base:sq ~base_goal:g
+                   ~raw_bind_state:bs () })
+           goals)
       |> Result.ok)
 
 (* Skip (infallible, closes the goal). The [skip_seen] flag
@@ -2314,12 +2385,23 @@ let saturate sq ?hint ?depth lemmas
               incr index ;
               i
           in
+          let leaf_with_origin sq bs schem =
+            let sq =
+              match sq.origin with
+              | Some _ -> sq
+              | None ->
+                  { sq with
+                    origin = make_origin ~base:sq ~raw_bind_state:bs () }
+            in
+            Ok [(sq, bs, schem)]
+          in
           let rec loop sq depth ts =
-            let sq = clear_duplicates sq in
+            let orig = sq.origin in
+            let sq = { (clear_duplicates sq) with origin = orig } in
             if depth <= 0 then
               let bs = Term.get_bind_state () in
               let schem = !Term.schematic_instantiations in
-              Ok [(sq, bs, schem)]
+              leaf_with_origin sq bs schem
             else
               let foci =
                 List.map (normalize ~used:sq.vars) focus_lemmas
@@ -2330,7 +2412,7 @@ let saturate sq ?hint ?depth lemmas
             | [] ->
                 let bs = Term.get_bind_state () in
                 let schem = !Term.schematic_instantiations in
-                Ok [(sq, bs, schem)]
+                leaf_with_origin sq bs schem
             | focus :: rest ->
                 let state = Term.get_scoped_bind_state () in
                 begin match multifocus sq ~ts [] [focus] with
@@ -2364,7 +2446,11 @@ let saturate sq ?hint ?depth lemmas
                       (rename_bind_state renames
                          (Term.get_bind_state ())) ;
                     let core = update_self_bound_vars core in
-                    begin match loop core (depth - 1) c.ts with
+                    let origin =
+                      make_origin ~base:sq ~new_vars:c.vars ~new_hyps:c.hyps
+                        ~raw_bind_state:c.binds ?tactic_alt:alt ()
+                    in
+                    begin match loop { core with origin } (depth - 1) c.ts with
                     | Result.Error _ as e -> e
                     | Result.Ok done1 ->
                         begin match expand_cases sq rest depth with
@@ -2527,7 +2613,7 @@ let saturate sq ?hint ?depth lemmas
                     release sq ~ts ~nvs ~nhs forms
               end
           in
-          begin match loop sq depth0 0 with
+          begin match loop { sq with origin = None } depth0 0 with
           | Result.Error _ as e -> e
           | Result.Ok triples ->
               Result.ok (build_subgoals_full sq triples)
@@ -2559,6 +2645,64 @@ type bullet_error =
 let start_proof sq =
   { focused = Some sq ; pending = [] ; bullets = [] ;
     skip_seen = false }
+
+(* Subgoal naming hints (hspec =>) *)
+
+type subgoal_spec_error =
+  | Not_at_subgoal_start
+  | Subgoal_spec_already_applied
+  | Subgoal_spec_rename of rename_hint_error
+
+let merge_alt ~(tactic_alt : Hint.alt option) (subgoal_alt : Hint.alt) =
+  match tactic_alt with
+  | None -> subgoal_alt
+  | Some t ->
+      Hint.{
+        vars =
+          (if subgoal_alt.vars <> [] then subgoal_alt.vars else t.vars) ;
+        hyps =
+          (if subgoal_alt.hyps <> [] then subgoal_alt.hyps else t.hyps) ;
+      }
+
+let subgoal_spec sq (subgoal_alt : Hint.alt)
+    : (sequent, subgoal_spec_error) result =
+  match sq.origin with
+  | None -> Result.error Not_at_subgoal_start
+  | Some { spec_applied = true ; _ } ->
+      Result.error Subgoal_spec_already_applied
+  | Some orig ->
+      let alt = merge_alt ~tactic_alt:orig.tactic_alt subgoal_alt in
+      let saved_bs = Term.get_bind_state () in
+      Term.set_bind_state orig.raw_bind_state ;
+      let base_sq =
+        { sq with
+          vars = orig.base_vars ;
+          user_vars = orig.base_user_vars ;
+          hyps = orig.base_hyps ;
+          goal = orig.base_goal ;
+          count = orig.base_count ;
+          origin = None }
+      in
+      let core =
+        List.fold_left
+          (fun sq v -> add_if_new_var sq v)
+          base_sq orig.new_vars
+      in
+      let core = add_hyps_with_hint core (Some alt) orig.new_hyps in
+      begin match rename_new_vars core ~alt ~base:base_sq () with
+      | Result.Error e ->
+          Term.set_bind_state saved_bs ;
+          Result.error (Subgoal_spec_rename e)
+      | Result.Ok (core, renames) ->
+          Term.set_bind_state
+            (rename_bind_state renames orig.raw_bind_state) ;
+          let core = update_self_bound_vars core |> normalize_sequent in
+          Result.ok
+            { core with
+              active = true ;
+              activate = noop ;
+              origin = Some { orig with spec_applied = true } }
+      end
 
 (* Install tactic results: the first subgoal stays focused,
    the rest wait behind it (driver order preserved). *)
@@ -2797,6 +2941,13 @@ let string_of_bullet_error = function
       Printf.sprintf
         "No focused subgoal. Use bullet %s to focus the next subgoal"
         b
+
+let string_of_subgoal_spec_error = function
+  | Not_at_subgoal_start ->
+      "Subgoal naming hint (=>) can only be used at the start of a subgoal"
+  | Subgoal_spec_already_applied ->
+      "Subgoal naming hint (=>) has already been given for this subgoal"
+  | Subgoal_spec_rename e -> string_of_rename_hint_error e
 
 (* Display and annotations over explicit proof states *)
 

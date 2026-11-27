@@ -283,27 +283,44 @@ let compute sq ?hint ?(gas = 1_000) ?(warn = true) hs =
         (fun acc ch ->
           match acc with
           | Result.Error _ as e -> e
-          | Result.Ok sq -> begin
+          | Result.Ok (sq, rev_stmts) -> begin
               match P.get_stmt_clearly sq ch.clr with
               | Result.Error e ->
                   Result.error (Compute_stmt e)
               | Result.Ok (sq, stmt) ->
-                  Result.ok (P.add_hyp_with_hint sq alt stmt)
+                  Result.ok (sq, stmt :: rev_stmts)
             end)
-        (Result.ok sq) chs
+        (Result.ok (sq, [])) chs
     in
     match res with
     | Result.Error _ as e -> e
-    | Result.Ok sq -> begin
+    | Result.Ok (sq_cleared, rev_stmts) -> begin
+        let stmts = List.rev rev_stmts in
+        let raw_bs = Term.get_bind_state () in
+        let branch_new_vars =
+          List.filter
+            (fun (name, _) -> not (List.mem_assoc name base.P.vars))
+            sq_cleared.P.vars
+        in
+        let sq = P.add_hyps_with_hint sq_cleared alt stmts in
         match P.rename_new_vars sq ?alt ~base () with
         | Result.Error e -> Result.error (Compute_rename e)
         | Result.Ok (sq, renames) ->
-            let bs =
-              P.rename_bind_state renames (Term.get_bind_state ())
+            let origin =
+              P.make_origin
+                ~base:{ base with
+                        P.hyps = sq_cleared.P.hyps ;
+                        goal = sq_cleared.P.goal ;
+                        count = sq_cleared.P.count }
+                ~new_vars:branch_new_vars
+                ~new_hyps:stmts
+                ~raw_bind_state:raw_bs
+                ?tactic_alt:alt ()
             in
+            let bs = P.rename_bind_state renames raw_bs in
             Term.set_bind_state bs ;
             let schem = !Term.schematic_instantiations in
-            Result.ok [(sq, bs, schem)]
+            Result.ok [({ sq with origin }, bs, schem)]
       end
   in
   let todo =

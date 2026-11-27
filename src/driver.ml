@@ -639,8 +639,8 @@ let run_atomic ~resolve sq cmd
       istate :=
         Some { (get_ist ()) with Prover.skip_seen = true } ;
       Result.ok { next = Branched (Prover.skip sq) ; progressed = true }
-  | Induction _ | CoInduction _ | Bullet _ | Abort | Undo | Common _
-  | Try _ | Then _ | Alt _ | Repeat _ ->
+  | Induction _ | CoInduction _ | Bullet _ | SubgoalSpec _ | Abort | Undo
+  | Common _ | Try _ | Then _ | Alt _ | Repeat _ ->
       [%bug] "run_atomic: non-atomic command"
 
 (* Tacticals over explicit sequents *)
@@ -924,6 +924,9 @@ let rec process_proof_command proc cmd =
         (normalize_focused
            (or_fail Prover.string_of_bullet_error
               (Prover.bullet (get_ist ()) b)))
+  | SubgoalSpec alt ->
+      update_focused Prover.string_of_subgoal_spec_error (fun sq ->
+          Prover.subgoal_spec sq alt)
   | Abort -> raise (Prover.End_proof `aborted)
   | Undo | Common Back ->
       if !Setup.mode = `interactive then State.Undo.back 2
@@ -948,10 +951,11 @@ let rec process_proof_command proc cmd =
   | _ -> run_tactic ~resolve cmd
   end ;
   audit () ;
-  let st = get_ist () in
-  if Prover.is_completed st then begin
-    let fin = if st.Prover.skip_seen then Unfinished else Finished in
-    raise (Prover.End_proof (`completed fin))
+  begin match !istate with
+  | Some st when Prover.is_completed st ->
+      let fin = if st.Prover.skip_seen then Unfinished else Finished in
+      raise (Prover.End_proof (`completed fin))
+  | _ -> ()
   end ;
   ignore proc
 
@@ -972,7 +976,7 @@ and process_proof1_body proc =
   let cmd_string = command_to_string input.el in
   if !Setup.mode <> `interactive && not !Setup.quiet then
     begin match input.el with
-    | Bullet _ -> Output.non_annot "%s\n" cmd_string
+    | Bullet _ | SubgoalSpec _ -> Output.non_annot "%s\n" cmd_string
     | _ -> Output.non_annot "%s.\n" cmd_string
     end ;
   let annot =

@@ -253,6 +253,9 @@ let bullet b =
   st :=
     normalize_focused_state
       (or_fail string_of_bullet_error (Prover.bullet !st b))
+let subgoal_spec alt =
+  run_updated (fun sq ->
+      or_fail string_of_subgoal_spec_error (Prover.subgoal_spec sq alt))
 let start_proof () = st := { !st with skip_seen = false ; bullets = [] }
 
 let initial_bind_state = Term.get_bind_state ()
@@ -1672,5 +1675,182 @@ let tests =
              (metaterm_to_string (focused ()).goal)
         ) ;
 
+      test_case "SubgoalSpec with case (bulleted and unbulleted single-branch)"
+        (fun () ->
+           let clauses =
+             parse_clauses "nat z. nat (s X) :- nat X. even (s z)."
+           in
+           setup_prover ~clauses ~goal:"forall X, {nat X} -> {nat X}" () ;
+           start_proof () ;
+           assert_proof begin fun () ->
+             intros (user_alt ["X"] ["Hnat"]) ;
+             case (remove "Hnat") ;
+             bullet "-" ;
+             subgoal_spec no_hints ;
+             search () ;
+             bullet "-" ;
+             subgoal_spec Hint.{ vars = [User "N"] ; hyps = [User "Hsub"] } ;
+             Alcotest.check Alcotest.bool "N in vars" true
+               (List.mem_assoc "N" (focused ()).vars) ;
+             Alcotest.check Alcotest.bool "Hsub exists" true
+               (Prover.is_hyp (focused ()) "Hsub") ;
+             search ()
+           end ;
+           setup_prover ~clauses ~goal:"forall X, {even X} -> {nat X}" () ;
+           start_proof () ;
+           assert_proof begin fun () ->
+             intros (user_alt ["X"] ["Heven"]) ;
+             case (remove "Heven") ;
+             subgoal_spec no_hints ;
+             search ()
+           end
+        ) ;
+
+      test_case "SubgoalSpec category-wise override and strict names"
+        (fun () ->
+           let clauses =
+             parse_clauses "nat z. nat (s N) :- nat N."
+           in
+           setup_prover ~clauses ~goal:"forall X, {nat X} -> {nat X}" () ;
+           start_proof () ;
+           intros (user_alt ["X"] ["Hnat"]) ;
+           let hint =
+             Hint.[
+               { vars = [] ; hyps = [] } ;
+               { vars = [User "Y"] ; hyps = [User "H2"] }
+             ]
+           in
+           case ~hint (remove "Hnat") ;
+           bullet "-" ;
+           search () ;
+           bullet "-" ;
+           subgoal_spec Hint.{ vars = [] ; hyps = [User "H2_override"] } ;
+           let sq = focused () in
+           Alcotest.check Alcotest.bool "Y preserved in vars" true
+             (List.mem_assoc "Y" sq.vars) ;
+           Alcotest.check Alcotest.bool "H2_override present" true
+             (Prover.is_hyp sq "H2_override") ;
+           Alcotest.check Alcotest.bool "H2 replaced" false
+             (Prover.is_hyp sq "H2") ;
+           Fun.protect
+             ~finally:(fun () -> Prover.strict_names := `relaxed)
+             (fun () ->
+               Prover.strict_names := `strict ;
+               Alcotest.check_raises "H2 rejected"
+                 (Failure "Unknown hypothesis or variable H2")
+                 (fun () ->
+                   ignore (or_fail string_of_clear_error
+                             (Prover.clear sq Clear_delete ["H2"]))) ;
+               ignore (or_fail string_of_clear_error
+                         (Prover.clear sq Clear_delete ["H2_override" ; "Y"])))
+        ) ;
+
+      test_case "SubgoalSpec explicit discard with !_"
+        (fun () ->
+           let clauses =
+             parse_clauses "nat z. nat (s N) :- nat N."
+           in
+           setup_prover ~clauses ~goal:"forall X, {nat X} -> {nat X}" () ;
+           start_proof () ;
+           intros (user_alt ["X"] ["Hnat"]) ;
+           let hint =
+             Hint.[
+               { vars = [] ; hyps = [] } ;
+               { vars = [User "Y"] ; hyps = [User "H2"] }
+             ]
+           in
+           case ~hint (remove "Hnat") ;
+           bullet "-" ;
+           search () ;
+           bullet "-" ;
+           subgoal_spec Hint.{ vars = [System] ; hyps = [User "H2_override"] } ;
+           let sq = focused () in
+           Alcotest.check Alcotest.bool "Y not in vars" false
+             (List.mem_assoc "Y" sq.vars) ;
+           Alcotest.check Alcotest.bool "H2_override present" true
+             (Prover.is_hyp sq "H2_override") ;
+           let sys_var =
+             sq.vars
+             |> List.find Tactics.is_uninstantiated
+             |> fst
+           in
+           Fun.protect
+             ~finally:(fun () -> Prover.strict_names := `relaxed)
+             (fun () ->
+               Prover.strict_names := `strict ;
+               Alcotest.check_raises "system var rejected under strict-names"
+                 (Prover.Strict_name
+                    ("variable name " ^ sys_var ^ " is system-generated"))
+                 (fun () ->
+                   ignore (Prover.clear sq Clear_delete [sys_var])))
+        ) ;
+
+      test_case "SubgoalSpec bind-state consistency across sibling branches"
+        (fun () ->
+           let clauses =
+             parse_clauses "nat z. nat (s X) :- nat X."
+           in
+           setup_prover ~clauses ~goal:"forall X, {nat X} -> {nat X}" () ;
+           start_proof () ;
+           assert_proof begin fun () ->
+             intros (user_alt ["X"] ["Hp"]) ;
+             let hint =
+               Hint.[
+                 { vars = [] ; hyps = [] } ;
+                 { vars = [User "Z"] ; hyps = [User "Hz"] }
+               ]
+             in
+             case ~hint (remove "Hp") ;
+             bullet "-" ;
+             search () ;
+             bullet "-" ;
+             subgoal_spec Hint.{ vars = [User "W"] ; hyps = [User "Hw"] } ;
+             Alcotest.check Alcotest.bool "W in vars" true
+               (List.mem_assoc "W" (focused ()).vars) ;
+             Alcotest.check Alcotest.bool "Z not in vars" false
+               (List.mem_assoc "Z" (focused ()).vars) ;
+             assert_goal "{nat (s W)}" ;
+             search ()
+           end
+        ) ;
+
+      test_case "SubgoalSpec position errors"
+        (fun () ->
+           setup_prover ~goal:"true -> true /\\ true" () ;
+           start_proof () ;
+           Alcotest.check_raises "at theorem start"
+             (Failure
+                "Subgoal naming hint (=>) can only be used at the start of a \
+                 subgoal")
+             (fun () -> subgoal_spec (user_alt [] ["H"])) ;
+           intros (user_alt [] ["H1"]) ;
+           Alcotest.check_raises "after intros"
+             (Failure
+                "Subgoal naming hint (=>) can only be used at the start of a \
+                 subgoal")
+             (fun () -> subgoal_spec (user_alt [] ["H"])) ;
+           split false ;
+           subgoal_spec no_hints ;
+           Alcotest.check_raises "twice in same subgoal"
+             (Failure
+                "Subgoal naming hint (=>) has already been given for this \
+                 subgoal")
+             (fun () -> subgoal_spec no_hints)
+        ) ;
+
+      test_case "SubgoalSpec with split*"
+        (fun () ->
+           setup_prover ~goal:"true /\\ {b}" () ;
+           start_proof () ;
+           split true ;
+           search () ;
+           subgoal_spec (user_alt [] ["Hprev"]) ;
+           let sq = focused () in
+           Alcotest.check Alcotest.bool "Hprev in hyps" true
+             (Prover.is_hyp sq "Hprev") ;
+           let h = List.find (fun h -> h.id = "Hprev") sq.hyps in
+           Alcotest.check Alcotest.bool "Hprev user_named" true h.user_named ;
+           assert_pprint_equal "true" h.term
+        ) ;
 
     ]

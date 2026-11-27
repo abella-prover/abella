@@ -69,6 +69,12 @@ Changes in 2.1.0-dev from 2.0.8
   hypotheses per subgoal, support `!_`/`_` for system-generated names,
   and extend `intros` with variable hints. Nabla variable hints must use
   nominal constants such as `!n34`.
+* Added dotless per-subgoal naming hints of the form `hspec =>`, such as
+  `Hmem Hbch =>`, which rename the new variables and hypotheses of the
+  current subgoal. They appear at the start of a subgoal (after any
+  bullet) and override an outer per-subgoal (`[...] :`) hint. As in
+  hints, `!_` and `_` leave a variable or hypothesis with a
+  system-generated name.
 * Added the `Axiom` command, which declares a theorem without requiring a
   proof. In batch mode, the axioms used are listed at the end of the run.
 * Added the `compute` tactic for performing asynchronous computation on

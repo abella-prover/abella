@@ -760,6 +760,10 @@ let get_display () =
   | None -> "@\nNo proof in progress.@\n@\n"
   | Some st -> Prover.get_display st
 
+let maybe_print_interactions () =
+  if !Setup.print_interactions && !Setup.mode = `batch then
+    Output.non_annot "%s" @@ get_display ()
+
 let state_json () : Json.t =
   match !istate with
   | None -> [%bug] "state_json: no proof in progress"
@@ -907,10 +911,13 @@ and process_proof1_body proc =
            end
        |> Option.some)
   in
-  if not !Setup.annotate then process_proof_command proc input.el
-  else
+  if not !Setup.annotate then begin
+    process_proof_command proc input.el ;
+    maybe_print_interactions ()
+  end else
     match process_proof_command proc input.el with
     | () ->
+        maybe_print_interactions () ;
         Option.iter
           begin fun annot ->
             Output.extend annot "end_state" @@ state_json ()

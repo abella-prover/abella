@@ -37,7 +37,7 @@ let set_or_exit k v =
 
 let abella_main
     flags _switch output _compiled annotate norec strict_stratification
-    warn_names strict_names strict _em verb infile =
+    warn_names strict_names strict _em verb print_inter infile =
   try begin
     Output.set_verbosity verb ;
     Checks.stratification_warnings_are_errors :=
@@ -51,6 +51,7 @@ let abella_main
     if annotate then Output.annotation_mode () ;
     Setup.annotate := annotate ;
     Setup.recurse := not norec ;
+    Setup.print_interactions := print_inter ;
     begin match infile with
     | Some file -> begin
         let is_thmod = Filename.check_suffix file ".thmod" in
@@ -192,6 +193,12 @@ let () =
          info ["verbosity"] ~doc ~docv:"NUM")
   in
 
+  let print_inter =
+    let doc = "In batch mode, print the sequents after every proof tactic, \
+               like in interactive mode." in
+    Arg.(value @@ flag @@ info ["print-interactions"] ~doc)
+  in
+
   let file =
     let doc = "An Abella development to process in batch mode. \
                The $(docv) must end with the extension $(b,.thm) or \
@@ -213,7 +220,7 @@ let () =
     Cmd.v info @@
     Term.(const abella_main $ flags $ switch $ output $ compiled $
           annotate $ norec $ strict_stratification $ warn_names $
-          strict_names $ strict $ em $ verb $ file)
+          strict_names $ strict $ em $ verb $ print_inter $ file)
   in
 
   Stdlib.exit (Cmd.eval' cmd)

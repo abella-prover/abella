@@ -24,6 +24,8 @@ let file_kind : [`thm | `thmod] ref = Typing.file_kind
 
 let witnesses = State.rref false
 
+let print_interactions : bool ref = ref false
+
 exception UserInterrupt
 exception AbellaExit of int
 
@@ -59,6 +61,7 @@ type saved = {
   compiling : string list ;
   dest : Output.t ;
   undo : bool ;
+  print_interactions : bool ;
 }
 
 let save () = {
@@ -76,6 +79,7 @@ let save () = {
   compiling = !compiling ;
   dest = !Output.dest ;
   undo = State.Undo.is_enabled () ;
+  print_interactions = !print_interactions ;
 }
 
 let restore saved =
@@ -92,7 +96,8 @@ let restore saved =
   on_import := saved.on_import ;
   compiling := saved.compiling ;
   Output.dest := saved.dest ;
-  State.Undo.set_enabled saved.undo
+  State.Undo.set_enabled saved.undo ;
+  print_interactions := saved.print_interactions
 
 let with_saved f =
   let saved = save () in

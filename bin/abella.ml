@@ -37,7 +37,7 @@ let set_or_exit k v =
 
 let abella_main
     flags _switch output _compiled annotate norec strict_stratification
-    warn_names strict_names strict _em verb print_inter infile =
+    warn_names strict_names strict _em verb print_inter skip infile =
   try begin
     Output.set_verbosity verb ;
     Checks.stratification_warnings_are_errors :=
@@ -52,6 +52,16 @@ let abella_main
     Setup.annotate := annotate ;
     Setup.recurse := not norec ;
     Setup.print_interactions := print_inter ;
+    begin match skip with
+    | None -> Setup.skip_to := None
+    | Some n ->
+        if n < 1 then begin
+          Output.msg_printf ~severity:Error
+            "Error: --skip argument must be >= 1" ;
+          raise @@ Setup.AbellaExit 1
+        end ;
+        Setup.skip_to := Some n
+    end ;
     begin match infile with
     | Some file -> begin
         let is_thmod = Filename.check_suffix file ".thmod" in
@@ -199,6 +209,15 @@ let () =
     Arg.(value @@ flag @@ info ["print-interactions"] ~doc)
   in
 
+  let skip =
+    let doc = "Start processing proof commands from line $(docv) onwards. \
+               Earlier proof commands are accepted as no-ops and earlier \
+               theorems are accepted as true. It is an error if $(docv) is \
+               in the middle of a proof." in
+    Arg.(value @@ opt (some int) None @@
+         info ["skip"] ~doc ~docv:"NUM")
+  in
+
   let file =
     let doc = "An Abella development to process in batch mode. \
                The $(docv) must end with the extension $(b,.thm) or \
@@ -220,7 +239,7 @@ let () =
     Cmd.v info @@
     Term.(const abella_main $ flags $ switch $ output $ compiled $
           annotate $ norec $ strict_stratification $ warn_names $
-          strict_names $ strict $ em $ verb $ print_inter $ file)
+          strict_names $ strict $ em $ verb $ print_inter $ skip $ file)
   in
 
   Stdlib.exit (Cmd.eval' cmd)

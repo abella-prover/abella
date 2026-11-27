@@ -127,6 +127,7 @@ module Make (Spec : SPEC) : CODEC with type t = Spec.t = struct
           Driver_setup.compiled := None ;
           Driver_setup.unfinished := [] ;
           Driver_setup.print_interactions := false ;
+          Driver_setup.skip_to := None ;
           Driver_setup.input := path ;
           Driver_setup.file_kind := file_kind ;
           let module Src = (val Source.read path) in

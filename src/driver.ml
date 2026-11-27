@@ -346,6 +346,8 @@ let continuation_list = function
 
 let outcome_list o = continuation_list o.next
 
+(* Called by [eval_tac] for non-tactical commands. *)
+(* Runs one atomic tactic on an explicit sequent. *)
 let run_atomic ~resolve sq cmd
     : (outcome, string) result =
   let cmd = cmd |> resolve in
@@ -704,6 +706,8 @@ let normalize_focused st =
       let sq = Prover.activate_sequent sq in
       { st with Prover.focused = Some (Prover.normalize_sequent sq) }
 
+(* Called by [process_proof_command] on the owned cursor. *)
+(* Evaluates tacticals and installs the resulting subgoals. *)
 let run_tactic ~resolve cmd =
   let st = get_ist () in
   match st.Prover.focused with
@@ -835,6 +839,8 @@ let audit () =
             sq.Prover.hyps)
         seqs
 
+(* Called by [process_proof1_body] for each proof command. *)
+(* Dispatches built-ins or runs tactics; raises [End_proof]. *)
 let rec process_proof_command proc cmd =
   let resolve = resolve_proof_cmd in
   begin match resolve cmd with
@@ -880,6 +886,8 @@ let rec process_proof_command proc cmd =
   end ;
   ignore proc
 
+(* Called by [process_proof1] for a single proof step. *)
+(* Parses, echoes, and executes the next proof command. *)
 and process_proof1_body proc =
   if !Setup.mode = `interactive
      && not !suppress_proof_state_display
@@ -928,6 +936,8 @@ and process_proof1_body proc =
         Option.iter Output.commit_message annot ;
         raise e
 
+(* Called by [process1] while inside a proof. *)
+(* Catches [End_proof]/errors and returns the next state. *)
 and process_proof1 state =
   match state with
   | Process_top ->
@@ -975,6 +985,8 @@ and record_imported citem =
   else
     Thm.comp_content := citem :: !Thm.comp_content
 
+(* Called by the main loop and by artifact loading. *)
+(* Dispatches top/proof steps and handles [End_of_file]. *)
 and process1 state =
   processing_state := state ;
   State.Undo.push () ;
@@ -1017,6 +1029,8 @@ and process1 state =
           raise @@ Setup.AbellaExit 1
       end
 
+(* Called by [process1] in top-level state. *)
+(* Runs [process_top1_body] and normalizes exceptions. *)
 and process_top1 state =
   match state with
   | Process_proof _ ->
@@ -1030,31 +1044,17 @@ and process_top1 state =
       | e -> Error (handle_process_exception e)
     end
 
-and process_top1_body () =
+(* Called by [process_top1_body] when skipping is off. *)
+(* Parses one top command and delegates to [run_top_command]. *)
+and process_top1_body_normal () =
   if !Setup.mode = `interactive then Output.non_annot "Abella < " ;
   let input = Parser.top_command_start Lexer.token !Setup.lexbuf in
   let cmd_string = top_command_to_string input.el in
-  let input =
-    if Thmod.in_module () then
-      { input with el = Thmod.resolve_top input.el }
-    else input
-  in
-  if !Setup.mode <> `interactive then
-    Output.non_annot "%s.\n%!" cmd_string ;
-  Thmod.check_structure input.el ;
-  let thm_id =
-    if not !Setup.annotate then -1
-    else
-      let annot =
-        Output.message "top_command"
-          ~fields:
-            ((if fst input.pos = Lexing.dummy_pos then []
-              else ["range", json_of_position input.pos])
-             @ ["command", `String cmd_string])
-      in
-      Output.commit_message annot ;
-      annot.id
-  in
+  run_top_command input.el input.pos cmd_string
+
+(* Called by [run_top_command] once setup is done. *)
+(* Executes the top-command match; single copy of it. *)
+and exec_resolved_top input thm_id =
   let next_state =
     begin match input.el with
     | Theorem (name, tys, thm) -> begin
@@ -1218,6 +1218,109 @@ and process_top1_body () =
   in
   if not !Setup.annotate then Output.blank_line () ;
   next_state
+
+(* Called by normal and skip paths with a parsed command. *)
+(* Resolves, echoes, annotates, then calls [exec_resolved_top]. *)
+and run_top_command tc pos cmd_string =
+  let input =
+    if Thmod.in_module () then
+      { el = Thmod.resolve_top tc ; pos }
+    else
+      { el = tc ; pos }
+  in
+  if !Setup.mode <> `interactive then
+    Output.non_annot "%s.\n%!" cmd_string ;
+  Thmod.check_structure input.el ;
+  let thm_id =
+    if not !Setup.annotate then -1
+    else
+      let annot =
+        Output.message "top_command"
+          ~fields:
+            ((if fst input.pos = Lexing.dummy_pos then []
+              else ["range", json_of_position input.pos])
+             @ ["command", `String cmd_string])
+      in
+      Output.commit_message annot ;
+      annot.id
+  in
+  exec_resolved_top input thm_id
+
+and admit_theorem tc pos cmd_string =
+  let tc =
+    if Thmod.in_module () then Thmod.resolve_top tc else tc
+  in
+  let input = { el = tc ; pos } in
+  if !Setup.mode <> `interactive then
+    Output.non_annot "%s.\n%!" cmd_string ;
+  Thmod.check_structure input.el ;
+  let thm_id =
+    if not !Setup.annotate then -1
+    else
+      let annot =
+        Output.message "top_command"
+          ~fields:
+            ((if fst input.pos = Lexing.dummy_pos then []
+              else ["range", json_of_position input.pos])
+             @ ["command", `String cmd_string])
+      in
+      Output.commit_message annot ;
+      annot.id
+  in
+  begin match input.el with
+  | Theorem (name, tys, thm) ->
+      let thm = type_umetaterm ~sr:!sr ~sign:!sign thm in
+      check_theorem ~bound:(bound_params ()) tys thm ;
+      compile (CTheorem (name, tys, thm, Finished)) ;
+      Artifact.add_lemma ~fin:Finished name tys thm
+  | _ -> [%bug] "admit_theorem called on non-theorem"
+  end ;
+  ignore thm_id ;
+  if not !Setup.annotate then Output.blank_line () ;
+  Process_top
+
+(* Called by [process_top1_body] when [--skip] applies. *)
+(* Admits/ignores pre-skip commands, else resumes normally. *)
+and process_top1_body_skip skip_line =
+  let pre_lnum = (!Setup.lexbuf).Lexing.lex_curr_p.Lexing.pos_lnum in
+  let any_input =
+    Parser.any_command_start Lexer.token !Setup.lexbuf
+  in
+  let start_line =
+    let (p1, _) = any_input.pos in
+    if p1 == Lexing.dummy_pos then pre_lnum
+    else p1.Lexing.pos_lnum
+  in
+  let is_before = start_line < skip_line in
+  begin match any_input.el with
+  | Types.ATopCommand tc ->
+      let cmd_string = top_command_to_string tc in
+      if is_before then
+        begin match tc with
+        | Theorem _ -> admit_theorem tc any_input.pos cmd_string
+        | _ -> run_top_command tc any_input.pos cmd_string
+        end
+      else
+        run_top_command tc any_input.pos cmd_string
+  | Types.ACommon cc ->
+      let tc = Types.TopCommon cc in
+      let cmd_string = top_command_to_string tc in
+      run_top_command tc any_input.pos cmd_string
+  | Types.ACommand _ ->
+      if is_before then Process_top
+      else
+        failwithf
+          "Cannot skip to line %d: inside proof" skip_line
+  end
+
+(* Called by [process_top1] as the top-level step. *)
+(* Dispatches to normal or skip handling via [Setup.skip_to]. *)
+and process_top1_body () =
+  match !Setup.skip_to with
+  | None -> process_top1_body_normal ()
+  | Some n ->
+      if !Setup.mode = `interactive then process_top1_body_normal ()
+      else process_top1_body_skip n
 
 and load_thm_artifact ~modname =
   Thm.Codec.load ~process:process1 ~init:Process_top ~modname

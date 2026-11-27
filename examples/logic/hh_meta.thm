@@ -11,25 +11,25 @@ Define remove : list T -> T -> list T -> prop by
 % If G is an extension of D, then all members of D are also members of G.
 Theorem remove_incl[T] :
   forall G D (A : T) B, remove G A D -> member B D -> member B G.
-induction on 1. intros. case H1.
-  search.
-  case H2.
-    search.
-    apply IH to H3 H4. search.
+IH : induction on 1. intros !G !D !A !B Hrem Hmem. Hsub : case Hrem.
+- search.
+- Hmem1 : case Hmem.
+  + search.
+  + HmemG : apply IH to Hsub Hmem1. search.
 
 % If G is D extended with A, then any member of G is either A or a
 % member of D.
 Theorem remove_charac[T] :
   forall G (A : T) D B, remove G A D -> member B G -> A = B \/ member B D.
-induction on 1. intros. case H1 (keep).
-  case H2.
-    search.
-    search.
-  case H2.
-    search.
-    apply IH to H3 H4. case H5.
-      search.
-      search.
+IH : induction on 1. intros !G !A !D !B Hrem Hmem. Hsub : case Hrem (keep).
+- Hmem1 : case Hmem.
+  + search.
+  + search.
+- Hmem1 : case Hmem.
+  + search.
+  + Hdisj : apply IH to Hsub Hmem1. Hdisj1 : case Hdisj.
+    * search.
+    * search.
 
 % Types of formulas and terms
 Kind fm, tm type.
@@ -86,23 +86,31 @@ by
 Theorem $monotone :
     (forall L L' C, (forall E, member E L -> member E L') -> seq L C -> seq L' C)
 /\  (forall L L' F A, (forall E, member E L -> member E L') -> bch L F A -> bch L' F A).
-induction on 2 2. split.
-  intros. case H2 (keep).
-    apply IH1 to H1 H4. apply H1 to H3. search.
-    apply IH1 to H1 H4. search.
-    apply IH to H1 H3. apply IH to H1 H4. search.
-    search.
-    assert forall E, member E (F :: L) -> member E (F :: L').
-      intros. case H4. search. apply H1 to H5. search.
-     apply IH to H4 H3. search.
-    apply IH to H1 H3. search.
-  intros. case H2 (keep).
-    search.
-    case H3.
-      apply IH1 to H1 H4. search.
-      apply IH1 to H1 H4. search.
-    apply IH to H1 H3. apply IH1 to H1 H4. search.
-    apply IH1 to H1 H3. search.
+IHseq IHbch : induction on 2 2. split.
+- intros !L !L' !C Hsub Hseq.
+  [Hmem Hbch1 | Hprog Hbch2 | Hseq1 Hseq2 | |
+   !G !F HseqImp | !A !n1 HseqAll] : case Hseq (keep).
+  + Hbch1a : apply IHbch to Hsub Hbch1. Hmem1 : apply Hsub to Hmem. search.
+  + Hbch2a : apply IHbch to Hsub Hbch2. search.
+  + Hseq1a : apply IHseq to Hsub Hseq1.
+    Hseq2a : apply IHseq to Hsub Hseq2. search.
+  + search.
+  + HsubExt : assert forall E, member E (F :: L) -> member E (F :: L').
+    * intros !E Hmem2.
+      [ | Htail] : case Hmem2.
+      ** search.
+      ** Htail1 : apply Hsub to Htail. search.
+    * HseqImp1 : apply IHseq to HsubExt HseqImp. search.
+  + HseqAlla : apply IHseq to Hsub HseqAll. search.
+- intros !L !L' !F !A Hsub Hbch.
+  [ | Hdisj | HseqG Hbch3 | Hbch4] : case Hbch (keep).
+  + search.
+  + [HbchA | HbchB] : case Hdisj.
+    * HbchAa : apply IHbch to Hsub HbchA. search.
+    * HbchBa : apply IHbch to Hsub HbchB. search.
+  + HseqGa : apply IHseq to Hsub HseqG.
+    Hbch3a : apply IHbch to Hsub Hbch3. search.
+  + Hbch4a : apply IHbch to Hsub Hbch4. search.
 
 Split $monotone as monotone_seq, monotone_bch.
 
@@ -110,47 +118,84 @@ Theorem $weakening :
    (forall L L' B G, remove L' B L -> seq L G -> seq L' G)
 /\ (forall L L' B F A, remove L' B L -> bch L F A -> bch L' F A).
 split.
-  intros.
-   assert forall E, member E L -> member E L'. intros. backchain remove_incl.
-   backchain monotone_seq.
-  intros.
-   assert forall E, member E L -> member E L'. intros. backchain remove_incl.
-   backchain monotone_bch.
+- intros !L !L' !B !G H1 H2.
+  H3 : assert forall E, member E L -> member E L'.
+  + intros !E H4.
+    backchain remove_incl.
+  + backchain monotone_seq.
+- intros !L !L' !B !F !A H1 H2.
+  H3 : assert forall E, member E L -> member E L'.
+  + intros !E H4.
+    backchain remove_incl.
+  + backchain monotone_bch.
 
 Split $weakening as weakening_seq, weakening_bch.
 
 Theorem member_inst :
    forall F (L:tm -> list fm), nabla (n:tm), member (F n) (L n) -> forall t, member (F t) (L t).
-induction on 1. intros. case H1.
+IH : induction on 1.
+intros !F !L !n1 !t H1.
+[H2 | H3] : case H1.
+- search.
+- H4 : apply IH to H3.
+  H5 : apply H4 with t1 = t.
   search.
-  apply IH to H2. apply H3 with t1 = t. search.
 
 % The instantiation lemma
 Theorem $inst :
    (forall L G, nabla (n:tm), seq (L n) (G n) -> forall t, seq (L t) (G t))
 /\ (forall L F A, nabla (n:tm), bch (L n) (F n) (A n) -> forall t, bch (L t) (F t) (A t)).
-induction on 1 1. split.
-  intros. case H1.
-    apply IH1 to H3. apply member_inst to H2.
-     apply H4 with t1 = t. apply H5 with t1 = t. search.
-    apply IH1 to H3. apply prog_has_no_nablas to H2. apply H4 with t1 = t. search.
-    apply IH to H2. apply IH to H3.
-     apply H4 with t1 = t. apply H5 with t1 = t. search.
+IH IH1 : induction on 1 1. split.
+- intros !L !G !n1 !t Hseq.
+  [Hmem Hbch | Hprog HbchP | Hseq1 Hseq2 | _ | HseqImp | HseqAll] : case Hseq.
+  + HbchI : apply IH1 to Hbch.
+    HmemI : apply member_inst to Hmem.
+    apply HbchI with t1 = t.
+    apply HmemI with t1 = t.
     search.
-    apply IH to H2. apply H3 with t1 = t. search.
-    apply IH to H2. apply H3 with t1 = t. search.
-  intros. case H1.
+  + HbchI2 : apply IH1 to HbchP.
+    apply prog_has_no_nablas to Hprog.
+    apply HbchI2 with t1 = t.
     search.
-    case H2.
-      apply IH1 to H3. apply H4 with t1 = t. search.
-      apply IH1 to H3. apply H4 with t1 = t. search.
-    apply IH to H2. apply IH1 to H3.
-     apply H4 with t1 = t. apply H5 with t1 = t. search.
-    apply IH1 to H2. apply H3 with t2 = t. search.
+  + HseqI1 : apply IH to Hseq1.
+    HseqI2 : apply IH to Hseq2.
+    apply HseqI1 with t1 = t.
+    apply HseqI2 with t1 = t.
+    search.
+  + search.
+  + HseqImpI : apply IH to HseqImp.
+    apply HseqImpI with t1 = t.
+    search.
+  + HseqAllI : apply IH to HseqAll.
+    apply HseqAllI with t1 = t.
+    search.
+- intros !L !F !A !n1 !t Hbch.
+  [_ | Hdisj | HseqB HbchB | HbchAll] : case Hbch.
+  + search.
+  + [Hdisj1 | Hdisj2] : case Hdisj.
+    * HbchI1 : apply IH1 to Hdisj1.
+      apply HbchI1 with t1 = t.
+      search.
+    * HbchI2b : apply IH1 to Hdisj2.
+      apply HbchI2b with t1 = t.
+      search.
+  + HseqBI : apply IH to HseqB.
+    HbchBI : apply IH1 to HbchB.
+    apply HseqBI with t1 = t.
+    apply HbchBI with t1 = t.
+    search.
+  + HbchAllI2 : apply IH1 to HbchAll.
+    apply HbchAllI2 with t2 = t.
+    search.
 
 Split $inst as inst_seq, inst_bch.
 
 % The main cut-admissibility theorem.
+% We proceed by nested induction on:
+%
+%  - the structure of the cut-formula, then
+%  - the structure of the container derivation (i.e., the derivation
+%     that contains the cut-formula as a hypothesis).
 Theorem $cut :
    (forall L K F G, is_fm F ->
      seq K F -> remove L F K -> seq L G  -> seq K G)
@@ -158,62 +203,78 @@ Theorem $cut :
      seq K F -> remove L F K -> bch L F' A -> bch K F' A)
 /\ (forall L F A, is_fm F ->
      seq L F ->                       bch L F A -> seq L (atm A)).
-% We proceed by nested induction on:
-%
-%  - the structure of the cut-formula, then
-%  - the structure of the container derivation (i.e., the derivation
-%     that contains the cut-formula as a hypothesis).
-induction on 1 1 1.
-induction on 4 4 3. split.
-  intros. case H4 (keep).
-    apply remove_charac to H3 H5. case H7.
-      case H1 (keep).
-        case H6. search.
-        case H6 (keep). case H10.
-          apply IH4 to H1 H2 H3 H11.
-           case H2. apply IH2 to H8 H13 H12. search.
-          apply IH4 to H1 H2 H3 H11.
-           case H2. apply IH2 to H9 H14 H12. search.
-        case H6.
-        case H6.
-         apply IH3 to H1 H2 H3 H10.
-         apply IH4 to H1 H2 H3 H11.
-         case H2 (keep).
-         apply IH to H8 H12 _ H14.
-         apply IH2 to H9 H15 H13. search.
-        case H6.
-         apply IH4 to H1 H2 H3 H9.
-         case H2. apply inst_seq to H11. apply H12 with t1 = t.
-          apply H8 with x = t.
-          apply IH2 to H14 H13 H10. search.
-      apply IH4 to H1 H2 H3 H6. search.
-    apply IH4 to H1 H2 H3 H6. search.
-    apply IH3 to H1 H2 H3 H5.
-     apply IH3 to H1 H2 H3 H6. search.
-    search.
-    assert remove (F1 :: L) F (F1 :: K).
-     assert seq (F1 :: K) F. backchain weakening_seq.
-     apply IH3 to H1 H7 H6 H5. search.
-    apply IH3 to H1 H2 H3 H5. search.
-  intros. case H4 (keep).
-    search.
-    case H5.
-      apply IH4 to H1 H2 H3 H6. search.
-      apply IH4 to H1 H2 H3 H6. search.
-    apply IH3 to H1 H2 H3 H5.
-     apply IH4 to H1 H2 H3 H6. search.
-    apply IH4 to H1 H2 H3 H5. search.
-  intros. case H3 (keep).
-    search.
-    case H4.
-      case H1 (keep). case H2 (keep). apply IH2 to H6 H8 H5. search.
-      case H1 (keep). case H2 (keep). apply IH2 to H7 H9 H5. search.
-    case H1 (keep). case H2 (keep).
-     apply IH to H6 H4 _ H8.
-     apply IH2 to H7 H9 H5. search.
-    case H1 (keep). case H2 (keep).
-     apply H5 with x = t.
-     apply inst_seq to H6. apply H8 with t1 = t.
-     apply IH2 to H7 H9 H4. search.
-
+IHcut IHcutBch IHcutPrin : induction on 1 1 1.
+IHseq IHbch IHprin : induction on 4 4 3.
+split.
+- intros !L !K !F !G HisFm HseqK Hrem HseqL.
+  [!F1 !A HmemL HbchL | !F1 !A Hprog HbchL2 | !G1 !G2 HseqL1 HseqL2 |
+   | !G1 !F1 HseqImp | !A !n1 HseqAll] : case HseqL (keep).
+  + HremDisj : apply remove_charac to Hrem HmemL.
+    [ | HmemK] : case HremDisj.
+    * [!A1 | !A1 !B HisFm1 HisFm2 | | !A1 !B HisFm1 HisFm2 | !A1 HisFmAll]
+      : case HisFm (keep).
+      -- case HbchL. search.
+      -- HbchDisj : case HbchL (keep).
+         [HbchL1 | HbchL1] : case HbchDisj.
+         ++ HbchK1 : apply IHbch to HisFm HseqK Hrem HbchL1.
+            HseqK1 HseqK2 : case HseqK.
+            HcutPrin1 : apply IHcutPrin to HisFm1 HseqK1 HbchK1. search.
+         ++ HbchK1 : apply IHbch to HisFm HseqK Hrem HbchL1.
+            HseqK1 HseqK2 : case HseqK.
+            HcutPrin1 : apply IHcutPrin to HisFm2 HseqK2 HbchK1. search.
+      -- case HbchL.
+      -- HseqLImp HbchLImp : case HbchL.
+         HseqKImp : apply IHseq to HisFm HseqK Hrem HseqLImp.
+         HbchKImp : apply IHbch to HisFm HseqK Hrem HbchLImp.
+         HseqKImp2 : case HseqK (keep).
+         HcutTmp : apply IHcut to HisFm1 HseqKImp _ HseqKImp2.
+         HcutPrin1 : apply IHcutPrin to HisFm2 HcutTmp HbchKImp. search.
+      -- !t HbchAll : case HbchL.
+         HbchKAll : apply IHbch to HisFm HseqK Hrem HbchAll.
+         !n1 HseqKNabla : case HseqK.
+         HseqKInst : apply inst_seq to HseqKNabla.
+         HseqKInstT : apply HseqKInst with t1 = t.
+         HinstApp : apply HisFmAll with x = t.
+         HcutPrin1 : apply IHcutPrin to HinstApp HseqKInstT HbchKAll. search.
+    * HbchK2 : apply IHbch to HisFm HseqK Hrem HbchL. search.
+  + HbchK3 : apply IHbch to HisFm HseqK Hrem HbchL2. search.
+  + HseqK1 : apply IHseq to HisFm HseqK Hrem HseqL1.
+    HseqK2 : apply IHseq to HisFm HseqK Hrem HseqL2. search.
+  + search.
+  + HremExt : assert remove (F1 :: L) F (F1 :: K).
+    HseqKExt : assert seq (F1 :: K) F.
+    backchain weakening_seq.
+    HseqKExt2 : apply IHseq to HisFm HseqKExt HremExt HseqImp. search.
+  + HseqKAll : apply IHseq to HisFm HseqK Hrem HseqAll. search.
+- intros !L !K !F !F' !A HisFm HseqK Hrem HbchL.
+  [ | !F1 !F2 HbchDisj | !F1 !G1 HseqLImp HbchLImp | !F1 !t HbchEx]
+    : case HbchL (keep).
+  + search.
+  + [HbchL1 | HbchL1] : case HbchDisj.
+    * HbchK1 : apply IHbch to HisFm HseqK Hrem HbchL1. search.
+    * HbchK1 : apply IHbch to HisFm HseqK Hrem HbchL1. search.
+  + HseqKImp : apply IHseq to HisFm HseqK Hrem HseqLImp.
+    HbchKImp : apply IHbch to HisFm HseqK Hrem HbchLImp. search.
+  + HbchKEx : apply IHbch to HisFm HseqK Hrem HbchEx. search.
+- intros !L !F !A HisFm HseqL HbchL.
+  [ | !F1 !F2 HbchDisj2 | !G !F1 HseqLImp2 HbchLImp2 | !t !F1 HbchEx2]
+    : case HbchL (keep).
+  + search.
+  + [HbchL1 | HbchL1] : case HbchDisj2.
+    * HisFm1 HisFm2 : case HisFm (keep).
+      HseqL1 HseqL2 : case HseqL (keep).
+      HcutPrin1 : apply IHcutPrin to HisFm1 HseqL1 HbchL1. search.
+    * HisFm1 HisFm2 : case HisFm (keep).
+      HseqL1 HseqL2 : case HseqL (keep).
+      HcutPrin1 : apply IHcutPrin to HisFm2 HseqL2 HbchL1. search.
+  + HisFm1 HisFm2 : case HisFm (keep).
+    HseqLExt : case HseqL (keep).
+    HcutMid : apply IHcut to HisFm1 HseqLImp2 _ HseqLExt.
+    HcutPrin1 : apply IHcutPrin to HisFm2 HcutMid HbchLImp2. search.
+  + HisFmAll : case HisFm (keep).
+    !n1 HseqLNabla : case HseqL (keep).
+    HinstApp : apply HisFmAll with x = t.
+    HseqLInst : apply inst_seq to HseqLNabla.
+    HseqLInstT : apply HseqLInst with t1 = t.
+    HcutPrin1 : apply IHcutPrin to HinstApp HseqLInstT HbchEx2. search.
 Split $cut as cut, cut_commutative, cut_principal.

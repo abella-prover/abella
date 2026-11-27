@@ -20,37 +20,45 @@ Define is_sound_snd : (proc -> proc -> proc -> proc -> prop) -> prop by
     exists R S, bisim_up_to refl_t P R /\ bisim_up_to Tech R S /\ bisim_up_to refl_t S Q.
 
 Theorem bisim_t_reflexive : forall P, bisim_t P P P P.
-intros. unfold. backchain bisim_reflexive. backchain bisim_reflexive.
+intros. unfold.
+- backchain bisim_reflexive.
+- backchain bisim_reflexive.
 
 Theorem bisim_sound_fst : is_sound_fst bisim_t.
 unfold. coinduction. intros. case H1.
 rename H2 to Left. rename H3 to Middle. rename H4 to Right.
 unfold.
-  intros Pstep.
+- intros Pstep.
   Left1 : case Left. Rstep : apply Left1 to *Pstep.
-   clear Left1 Left2 Left3 Left4 Left5 Left6.
+  clear Left1 Left2 Left3 Left4 Left5 Left6.
   Middle1 : case Middle. Sstep : apply Middle1 to *Rstep.
-   clear Middle1 Middle2 Middle3 Middle4 Middle5 Middle6.
+  clear Middle1 Middle2 Middle3 Middle4 Middle5 Middle6.
   Right1 : case Right. Qstep : apply Right1 to *Sstep.
-   clear Right1 Right2 Right3 Right4 Right5 Right6.
-  witness Q5. split. search. clear Qstep.
-    witness P1. witness Q5. split. search.
-      case Rstep1. case Qstep1. Sstep1 : case Sstep1.
+  clear Right1 Right2 Right3 Right4 Right5 Right6.
+  witness Q5. split.
+  + search.
+  + clear Qstep.
+    witness P1. witness Q5. split.
+    * search.
+    * case Rstep1. case Qstep1. Sstep1 : case Sstep1.
       Link1 : apply bisim_transitive to *Rstep2 *Sstep1.
       Link1 : apply bisim_symmetric to *Sstep3.
       Link1 : apply bisim_transitive to *Link2 *Qstep2.
       backchain CH.
 
-  intros Pstep.
+- intros Pstep.
   Left1 : case Left. Rstep : apply Left2 to *Pstep.
-   clear Left1 Left2 Left3 Left4 Left5 Left6.
+  clear Left1 Left2 Left3 Left4 Left5 Left6.
   Middle1 : case Middle. Sstep : apply Middle2 to *Rstep.
-   clear Middle1 Middle2 Middle3 Middle4 Middle5 Middle6.
+  clear Middle1 Middle2 Middle3 Middle4 Middle5 Middle6.
   Right1 : case Right. Qstep : apply Right2 to *Sstep.
-   clear Right1 Right2 Right3 Right4 Right5 Right6.
-  witness Q5. split. search. clear Qstep.
-    witness P1. witness Q5. intros. split. search.
-      Before : apply *Rstep1 with N = N. Eq1 : case Before.
+  clear Right1 Right2 Right3 Right4 Right5 Right6.
+  witness Q5. split.
+  + search.
+  + clear Qstep.
+    witness P1. witness Q5. intros. split.
+    * search.
+    * Before : apply *Rstep1 with N = N. Eq1 : case Before.
       Tech : apply *Sstep1 with N = N. Bis1 : case Tech.
       After : apply *Qstep1 with N = N. Eq1 : case After.
       Before : apply bisim_eq_1R to *Before1 *Eq2.
@@ -62,46 +70,55 @@ unfold.
       After : apply bisim_transitive to *Link *After.
       backchain CH.
 
-  intros Pstep.
+- intros Pstep.
   Left1 : case Left. Rstep : apply Left3 to *Pstep.
-   clear Left1 Left2 Left3 Left4 Left5 Left6.
+  clear Left1 Left2 Left3 Left4 Left5 Left6.
   Middle1 : case Middle. Sstep : apply Middle3 to *Rstep.
-   clear Middle1 Middle2 Middle3 Middle4 Middle5 Middle6.
+  clear Middle1 Middle2 Middle3 Middle4 Middle5 Middle6.
   Right1 : case Right. Qstep : apply Right3 to *Sstep.
-   clear Right1 Right2 Right3 Right4 Right5 Right6.
-  witness Q5. split. search. clear Qstep.
-    witness P1. witness Q5. intros. split. search.
-      case Rstep1. case Qstep1. Tech1 : case Sstep1.
+  clear Right1 Right2 Right3 Right4 Right5 Right6.
+  witness Q5. split.
+  + search.
+  + clear Qstep.
+    witness P1. witness Q5. intros. split.
+    * search.
+    * case Rstep1. case Qstep1. Tech1 : case Sstep1.
       Before : apply bisim_transitive to *Rstep2 *Tech1.
       After : apply bisim_symmetric to *Tech2.
       After : apply bisim_transitive to *After *Qstep2.
       backchain CH.
 
-  intros Qstep.
+- intros Qstep.
   Right1 : case Right. Sstep : apply Right4 to *Qstep.
-   clear Right1 Right2 Right3 Right4 Right5 Right6.
+  clear Right1 Right2 Right3 Right4 Right5 Right6.
   Middle1 : case Middle. Rstep : apply Middle4 to *Sstep.
-   clear Middle1 Middle2 Middle3 Middle4 Middle5 Middle6.
+  clear Middle1 Middle2 Middle3 Middle4 Middle5 Middle6.
   Left1 : case Left. Pstep : apply Left4 to *Rstep.
-   clear Left1 Left2 Left3 Left4 Left5 Left6.
-  witness P5. split. search. clear Pstep.
-    witness P5. witness Q1. split. search.
-      case Sstep1. case Pstep1. Tech1 : case Rstep1.
+  clear Left1 Left2 Left3 Left4 Left5 Left6.
+  witness P5. split.
+  + search.
+  + clear Pstep.
+    witness P5. witness Q1. split.
+    * search.
+    * case Sstep1. case Pstep1. Tech1 : case Rstep1.
       Before : apply bisim_transitive to *Pstep2 *Tech1.
       Link : apply bisim_symmetric to *Tech2.
       After : apply bisim_transitive to *Link *Sstep2.
       backchain CH.
 
-  intros Qstep.
+- intros Qstep.
   Right1 : case Right. Sstep : apply Right5 to *Qstep.
-   clear Right1 Right2 Right3 Right4 Right5 Right6.
+  clear Right1 Right2 Right3 Right4 Right5 Right6.
   Middle1 : case Middle. Rstep : apply Middle5 to *Sstep.
-   clear Middle1 Middle2 Middle3 Middle4 Middle5 Middle6.
+  clear Middle1 Middle2 Middle3 Middle4 Middle5 Middle6.
   Left1 : case Left. Pstep : apply Left5 to *Rstep.
-   clear Left1 Left2 Left3 Left4 Left5 Left6.
-  witness P5. split. search. clear Pstep.
-    witness P5. witness Q1. intros. split. search.
-      After : apply *Sstep1 with N = N. Eq1 : case After.
+  clear Left1 Left2 Left3 Left4 Left5 Left6.
+  witness P5. split.
+  + search.
+  + clear Pstep.
+    witness P5. witness Q1. intros. split.
+    * search.
+    * After : apply *Sstep1 with N = N. Eq1 : case After.
       Link : apply *Rstep1 with N = N. Bis1 : case Link.
       Before : apply *Pstep1 with N = N. Eq1 : case Before.
       Before : apply bisim_eq_1R to *Before1 *Eq4.
@@ -113,16 +130,19 @@ unfold.
       After : apply bisim_transitive to *Bis2 *After.
       backchain CH.
 
-  intros Qstep.
+- intros Qstep.
   Right1 : case Right. Sstep : apply Right6 to *Qstep.
-   clear Right1 Right2 Right3 Right4 Right5 Right6.
+  clear Right1 Right2 Right3 Right4 Right5 Right6.
   Middle1 : case Middle. Rstep : apply Middle6 to *Sstep.
-   clear Middle1 Middle2 Middle3 Middle4 Middle5 Middle6.
+  clear Middle1 Middle2 Middle3 Middle4 Middle5 Middle6.
   Left1 : case Left. Pstep : apply Left6 to *Rstep.
-   clear Left1 Left2 Left3 Left4 Left5 Left6.
-  witness P5. split. search. clear Pstep.
-    witness P5. witness Q1. intros. split. search.
-      case Sstep1. case Pstep1. Tech1 : case Rstep1.
+  clear Left1 Left2 Left3 Left4 Left5 Left6.
+  witness P5. split.
+  + search.
+  + clear Pstep.
+    witness P5. witness Q1. intros. split.
+    * search.
+    * case Sstep1. case Pstep1. Tech1 : case Rstep1.
       Before : apply bisim_transitive to *Pstep2 *Tech1.
       Tech2 : apply bisim_symmetric to *Tech2.
       After : apply bisim_transitive to *Tech2 *Sstep2.
@@ -131,9 +151,9 @@ unfold.
 Theorem bisim_sound_snd : is_sound_snd bisim_t.
 unfold. intros.
 witness P. witness Q. split.
-  backchain bisim_reflexive.
-  search.
-  backchain bisim_reflexive.
+- backchain bisim_reflexive.
+- search.
+- backchain bisim_reflexive.
 
 Theorem bisim_sound : is_sound bisim_t.
 Fst : apply bisim_sound_fst. Fst : case Fst.

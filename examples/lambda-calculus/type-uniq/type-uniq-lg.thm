@@ -4,9 +4,12 @@ Specification "type-uniq".
 
 Theorem member_prune : forall E (L:olist), nabla (x:tm),
   member (E x) L -> exists F, E = y\F.
-induction on 1. intros. case H1.
+induction on 1.
+intros.
+case H1.
+- search.
+- apply IH to H2.
   search.
-  apply IH to H2. search.
 
 % Since LG-omega does not allow nabla in the head of a definition, we must
 % explicitly restrict structure and occurences of the variable X
@@ -23,62 +26,86 @@ Theorem ctx_member :
   exists X T, (E = of X T)
            /\ (forall M N, X = app M N -> false)
            /\ (forall T R, X = abs T R -> false).
-induction on 1.  intros. case H1.
-  case H2.
-  case H2.
+induction on 1.
+intros.
+case H1.
+- case H2.
+- case H2.
+  + search.
+  + apply IH to H6 H7.
     search.
-    apply IH to H6 H7. search.
 
 Theorem ctx_app_absurd : forall L M N T,
   ctx L -> member (of (app M N) T) L -> false.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    apply H3 to _.
-    apply IH to H6 H7.
+induction on 1.
+intros.
+case H1.
+- case H2.
+- case H2.
+  + apply H3 to _.
+  + apply IH to H6 H7.
 
 Theorem ctx_abs_absurd : forall L R T S,
   ctx L -> member (of (abs S R) T) L -> false.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    apply H4 to _.
-    apply IH to H6 H7.
+induction on 1.
+intros.
+case H1.
+- case H2.
+- case H2.
+  + apply H4 to _.
+  + apply IH to H6 H7.
 
 Theorem uniq : forall L E T1 T2,
   ctx L -> member (of E T1) L -> member (of E T2) L -> T1 = T2.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    case H3.
+induction on 1.
+intros.
+case H1.
+- case H2.
+- case H2.
+  + case H3.
+    * search.
+    * apply H6 to H8.
+  + case H3.
+    * apply H6 to H8.
+    * apply IH to H7 H8 H9.
       search.
-      apply H6 to H8.
-    case H3.
-      apply H6 to H8.
-      apply IH to H7 H8 H9. search.
 
 Theorem ctx_extend : forall T L, nabla x,
   ctx L -> ctx (of x T :: L).
-intros. unfold.
-  intros. case H2.
-  intros. case H2.
-  intros. apply member_prune to H2.
-  search.
+intros.
+unfold.
+- intros.
+  case H2.
+- intros.
+  case H2.
+- intros.
+  apply member_prune to H2.
+- search.
 
 Theorem det_of : forall L E T1 T2,
   ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
-induction on 2. intros. case H2.
+induction on 2.
+intros.
+case H2.
+- case H3.
+  + apply IH to _ H4 H5.
+    * backchain ctx_extend.
+    * search.
+  + apply ctx_member to H1 H6.
+    case H5.
+    apply H8 to _ with T1 = T, R1 = R.
+- case H3.
+  + apply IH to _ H4 H6.
+    search.
+  + apply ctx_member to H1 H7.
+    case H6.
+    apply H8 to _ with M1 = M, N1 = N.
+- apply ctx_member to H1 H5.
+  case H4.
   case H3.
-    apply IH to _ H4 H5. backchain ctx_extend. search.
-    apply ctx_member to H1 H6. case H5.
-     apply H8 to _ with T1 = T, R1 = R.
-  case H3.
-    apply IH to _ H4 H6. search.
-    apply ctx_member to H1 H7. case H6.
-     apply H8 to _ with M1 = M, N1 = N.
-  apply ctx_member to H1 H5. case H4.
-   case H3.
-     apply H7 to _ with T1 = T3, R1 = R.
-     apply H6 to _ with M1 = M, N1 = N.
-     apply ctx_member to H1 H9. case H8.
-     apply uniq to H1 H5 H9. search.
+  + apply H7 to _ with T1 = T3, R1 = R.
+  + apply H6 to _ with M1 = M, N1 = N.
+  + apply ctx_member to H1 H9.
+    case H8.
+    apply uniq to H1 H5 H9.
+    search.

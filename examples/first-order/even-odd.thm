@@ -22,12 +22,12 @@ Define odd : nat -> prop by
 
 Theorem even_or_odd : forall N, nat N -> even N \/ odd N.
 induction on 1. intros. case H1.
-  search.
-  case H2.
-    search.
-    apply IH to H3. case H4.
-      search.
-      search.
+- search.
+- case H2.
+  + search.
+  + apply IH to H3. case H4.
+    * search.
+    * search.
 
 
 %% An example of mutual induction
@@ -42,12 +42,11 @@ by
 
 Theorem even'_nat : forall N, even' N -> nat N.
 induction on 1. intros. case H1.
-  search.
-  case H2. apply IH to H3. search.
+- search.
+- case H2. apply IH to H3. search.
 
 Theorem odd'_nat : forall N, odd' N -> nat N.
-induction on 1. intros. case H1.
-  case H2.
-    search.
-    apply IH to H3. search.
+induction on 1. intros. case H1. case H2.
+- search.
+- apply IH to H3. search.
 

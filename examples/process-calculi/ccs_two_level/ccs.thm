@@ -7,7 +7,7 @@ Specification "ccs".
 Theorem mu_id_step_absurd : forall A Q,
   {step (mu x\ x) A Q} -> false.
 induction on 1. intros. case H1.
-  apply IH to H2.
+apply IH to H2.
 
 CoDefine sim : proc -> proc -> prop by
   sim P Q :=
@@ -48,19 +48,19 @@ Theorem bisim_refl : forall P,
   bisim P P.
 coinduction. intros.
 unfold.
-  intros. apply CH with P = P1. search.
-  intros. apply CH with P = Q1. search.
+- intros. apply CH with P = P1. search.
+- intros. apply CH with P = Q1. search.
 
 Theorem bisim_sym : forall P Q,
   bisim P Q -> bisim Q P.
 coinduction. intros. case H1. unfold.
-  intros. apply H3 to H4. apply CH to H6. search.
-  intros. apply H2 to H4. apply CH to H6. search.
+- intros. apply H3 to H4. apply CH to H6. search.
+- intros. apply H2 to H4. apply CH to H6. search.
 
 Theorem bisim_trans : forall P Q R,
   bisim P Q -> bisim Q R -> bisim P R.
 coinduction. intros. case H1. case H2. unfold.
-  intros. apply H3 to H7. apply H5 to H8.
-    apply CH to H9 H11. search.
-  intros. apply H6 to H7. apply H4 to H8.
-    apply CH to H11 H9. search.
+- intros. apply H3 to H7. apply H5 to H8.
+  apply CH to H9 H11. search.
+- intros. apply H6 to H7. apply H4 to H8.
+  apply CH to H11 H9. search.

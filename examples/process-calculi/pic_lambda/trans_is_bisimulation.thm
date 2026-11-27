@@ -14,24 +14,26 @@ Theorem lemma_red_tensor_simulates_red_db : forall U V W P Q R2,
      /\ str_eq (nu (y\R1 y z)) (R2 z).
 
 induction on 1. intros. case H1.
-   case H2. case H4. apply trans_fonc to *H3 *H7. apply trans_fonc to *H5 *H6.
-      search.
-   case H2. case H4. apply trans_fonc to *H7 *H9. apply IH to *H5 *H6 *H3 *H8.
-      exists y\z\nu (x\par (R1 x y z) (in x Q2)). intros. split. search.
-         unfold 20. exists nu (x\nu (y\par (R1 x y n3) (in x Q2))). search.
+- case H2. case H4. apply trans_fonc to *H3 *H7. apply trans_fonc to *H5 *H6.
+  search.
+- case H2. case H4. apply trans_fonc to *H7 *H9. apply IH to *H5 *H6 *H3 *H8.
+  exists y\z\nu (x\par (R1 x y z) (in x Q2)). intros. split.
+  + search.
+  + unfold 20. exists nu (x\nu (y\par (R1 x y n3) (in x Q2))). search.
 
 Theorem red_tensor_simulates_evc_red_db: forall U V P Q2,
    evc_cl red_db U V -> trans U P -> trans V Q2
    -> exists Q1, nabla a, red_tensor (P a) (Q1 a) /\ str_eq (Q2 a) (Q1 a).
 
 induction on 1. intros. case H1.
-   case H4. case H2. apply lemma_red_tensor_simulates_red_db to H5 H6 H7 H3.
-      exists a\nu b\nu x\R1 x a. intros. split. search.
-         unfold 20. exists nu (y\R1 y n1). split.
-            backchain str_eq_sym.
-            backchain nu_gen.
-   case H2. case H3. apply trans_fonc to H6 *H8. apply IH to H4 H5 H7. search.
-   case H2. case H3. apply trans_fonc to H6 *H8. apply IH to H4 H5 H7. search.
+- case H4. case H2. apply lemma_red_tensor_simulates_red_db to H5 H6 H7 H3.
+  exists a\nu b\nu x\R1 x a. intros. split.
+  + search.
+  + unfold 20. exists nu (y\R1 y n1). split.
+    * backchain str_eq_sym.
+    * backchain nu_gen.
+- case H2. case H3. apply trans_fonc to H6 *H8. apply IH to H4 H5 H7. search.
+- case H2. case H3. apply trans_fonc to H6 *H8. apply IH to H4 H5 H7. search.
 
 /*** 2. simulation of linear substitution by exponential reduction***/
 
@@ -41,46 +43,57 @@ Theorem lemma_red_exp_simulates_red_ls : forall U W V P R Q2, nabla y,
       /\ str_eq (Q1 y a)(par (Q2 y a) (in y R)).
 
 induction on 1. intros. case H1.
-   case H3. apply trans_fonc to H2 H4. search.
-   case H3. case H4. apply trans_fonc to H7 H9. apply IH to H5 H2 H6 H8.
-      exists y\a\nu (b\nu (x\par (Q3 y b) (par (out2 b x a) (in x (Q1 y))))).
-         intros. split. search.
-            backchain 0 str_eq_sym.
-            unfold 20. exists nu (b\par (nu (x\par (P2 n2 b) (par (out2 b x n1)
-               (in x (Q1 n2))))) (in n2 R)). split. search.
-            unfold 20. exists nu (b\nu (x\par (par (P2 n2 b) (par (out2 b x n1)
-               (in x (Q1 n2)))) (in n2 R))). split. search.
-            unfold 17. intros. unfold 17. intros.
-            unfold 20. exists par (P2 n2 n3) (par (par (out2 n3 n4 n1)
-               (in n4 (Q1 n2))) (in n2 R)). split. search.
-            unfold 20. exists par (P2 n2 n3) (par (in n2 R)
-               (par (out2 n3 n4 n1) (in n4 (Q1 n2)))). split. search.
-            unfold 20. exists par (par (P2 n2 n3) (in n2 R))
-               (par (out2 n3 n4 n1) (in n4 (Q1 n2))). split. search.
-            unfold 18. backchain str_eq_sym.
-   case H3. case H4. apply trans_fonc to H7 H9. apply IH to H5 _ _ _.
-      exists y\a\nu (x\par (Q3 x y a) (in x (Q1 y))). intros. split. search.
-         backchain 0 str_eq_sym.
-         unfold 20. exists nu (x\par (par (P2 n2 x n1) (in x (Q1 n2)))
-            (in n2 R)). split. search.
-         unfold 17. intros.
-         unfold 20. exists par (P2 n2 n3 n1) (par (in n3 (Q1 n2)) (in n2 R)).
-            split. search.
-         unfold 20. exists par (P2 n2 n3 n1) (par (in n2 R) (in n3 (Q1 n2))).
-            split. search.
-         unfold 20. exists par (par (P2 n2 n3 n1) (in n2 R)) (in n3 (Q1 n2)).
-            split. search.
-         unfold 18. backchain str_eq_sym.
+- case H3. apply trans_fonc to H2 H4. search.
+- case H3. case H4. apply trans_fonc to H7 H9. apply IH to H5 H2 H6 H8.
+  exists y\a\nu (b\nu (x\par (Q3 y b) (par (out2 b x a) (in x (Q1 y))))).
+  intros. split.
+  + search.
+  + backchain 0 str_eq_sym.
+    unfold 20. exists nu (b\par (nu (x\par (P2 n2 b) (par (out2 b x n1)
+    (in x (Q1 n2))))) (in n2 R)). split.
+    * search.
+    * unfold 20. exists nu (b\nu (x\par (par (P2 n2 b) (par (out2 b x n1)
+      (in x (Q1 n2)))) (in n2 R))). split.
+      -- search.
+      -- unfold 17. intros. unfold 17. intros.
+        unfold 20. exists par (P2 n2 n3) (par (par (out2 n3 n4 n1)
+        (in n4 (Q1 n2))) (in n2 R)). split.
+        ++ search.
+        ++ unfold 20. exists par (P2 n2 n3) (par (in n2 R)
+          (par (out2 n3 n4 n1) (in n4 (Q1 n2)))). split.
+          ** search.
+          ** unfold 20. exists par (par (P2 n2 n3) (in n2 R))
+            (par (out2 n3 n4 n1) (in n4 (Q1 n2))). split.
+            --- search.
+            --- unfold 18. backchain str_eq_sym.
+- case H3. case H4. apply trans_fonc to H7 H9. apply IH to H5 _ _ _.
+  exists y\a\nu (x\par (Q3 x y a) (in x (Q1 y))). intros. split.
+  + search.
+  + backchain 0 str_eq_sym.
+    unfold 20. exists nu (x\par (par (P2 n2 x n1) (in x (Q1 n2)))
+    (in n2 R)). split.
+    * search.
+    * unfold 17. intros.
+      unfold 20. exists par (P2 n2 n3 n1) (par (in n3 (Q1 n2)) (in n2 R)).
+      split.
+      -- search.
+      -- unfold 20. exists par (P2 n2 n3 n1) (par (in n2 R) (in n3 (Q1 n2))).
+        split.
+        ++ search.
+        ++ unfold 20. exists par (par (P2 n2 n3 n1) (in n2 R)) (in n3 (Q1 n2)).
+          split.
+          ** search.
+          ** unfold 18. backchain str_eq_sym.
 
 Theorem red_exp_simulates_red_ls : forall U V P Q2,
    evc_cl red_ls U V -> trans U P -> trans V Q2
    -> exists Q1, nabla a, red_exp (P a) (Q1 a) /\ str_eq (Q1 a) (Q2 a).
 
 induction on 1. intros. case H1.
-   case H4. case H2. case H3. apply trans_fonc to H7 *H9.
-      apply lemma_red_exp_simulates_red_ls to H5 H7 H6 H8. search.
-   case H2. case H3. apply trans_fonc to H6 H8. apply IH to H4 H5 H7. search.
-   case H2. case H3. apply trans_fonc to H6 H8. apply IH to H4 H5 H7. search.
+- case H4. case H2. case H3. apply trans_fonc to H7 *H9.
+  apply lemma_red_exp_simulates_red_ls to H5 H7 H6 H8. search.
+- case H2. case H3. apply trans_fonc to H6 H8. apply IH to H4 H5 H7. search.
+- case H2. case H3. apply trans_fonc to H6 H8. apply IH to H4 H5 H7. search.
 
 /*** 3. converse simulation of beta at a distance ***/
 
@@ -91,41 +104,55 @@ Theorem lemma_red_db_simulates_red_tensor : forall U V P Q R Q1, nabla a b c,
       /\ trans W Q2 /\ str_eq (nu (z2\ nu (Q1 z2 a))) (Q2 a).
 
 induction on 1. intros. case H1.
-   case H3.
-   case H3. case H7. case H8.
-      apply red_ker_tensor_out2_no_com_case to H9.
-      case H9. case H10. case H10.
-   case H3. exists subex U1 V. exists a\nu (x\par (P3 a x) (in x R)).
-      intros. split. search. search.
-         unfold 20. exists nu (z1\nu (z2\Q1 z2 n1 z1)). split. search.
-         unfold 17. intros.
-         unfold 20. exists nu (z2\par (P3 n1 n2) (in n2 R)). split.
-            backchain str_eq_sym.
-            backchain 0 str_eq_sym. backchain nu_gen.
-   case H3. case H7.
-      permute (n1 n4) H5. apply IH to *H5 *H2 *H8 _. exists subex W V1.
-         exists a\nu (x\par (Q4 x a) (in x Q2)). intros. split. search. search.
-            unfold 20. exists nu (z2\nu (z3\par (nu (z4\par (S z4 z2 n1 z3)
-               (in z4 Q2))) (in z3 R))). split. backchain str_eq_sym.
-            unfold 20. exists nu (z2\nu (z3\nu (z4\par (par (S z4 z2 n1 z3)
-               (in z4 Q2)) (in z3 R)))). split. search.
-            unfold 20. exists nu (z2\nu (z4\nu (z3\par (par (S z4 z2 n1 z3)
-               (in z4 Q2)) (in z3 R)))). split. search.
-            unfold 20. exists nu (z4\nu (z2\nu (z3\par (par (S z4 z2 n1 z3)
-               (in z4 Q2)) (in z3 R)))). split. search.
-            unfold 17. intros.
-            unfold 20. exists nu (z2\nu (z3\par (S n2 z2 n1 z3) (par
-               (in n2 Q2) (in z3 R)))). split. search.
-            unfold 20. exists nu (z2\nu (z3\par (S n2 z2 n1 z3) (par
-               (in z3 R) (in n2 Q2)))). split. search.
-            unfold 20. exists nu (z2\nu (z3\par (par (S n2 z2 n1 z3)
-               (in z3 R)) (in n2 Q2))). split. search.
-            unfold 20. exists nu (z2\par (nu (z3\par (S n2 z2 n1 z3)
-               (in z3 R))) (in n2 Q2)). split. search.
-            unfold 20. exists par (nu (z2\nu (z3\par (S n2 z2 n1 z3)
-               (in z3 R)))) (in n2 Q2). split. search.
-            unfold 18. intros. search.
-      case H8.
+- case H3.
+- case H3. case H7. case H8.
+  + apply red_ker_tensor_out2_no_com_case to H9.
+  + case H9.
+    * case H10.
+    * case H10.
+- case H3. exists subex U1 V. exists a\nu (x\par (P3 a x) (in x R)).
+  intros. split.
+  + search.
+  + search.
+  + unfold 20. exists nu (z1\nu (z2\Q1 z2 n1 z1)). split.
+    * search.
+    * unfold 17. intros.
+      unfold 20. exists nu (z2\par (P3 n1 n2) (in n2 R)). split.
+      -- backchain str_eq_sym.
+      -- backchain 0 str_eq_sym. backchain nu_gen.
+- case H3. case H7.
+  + permute (n1 n4) H5. apply IH to *H5 *H2 *H8 _. exists subex W V1.
+    exists a\nu (x\par (Q4 x a) (in x Q2)). intros. split.
+    * search.
+    * search.
+    * unfold 20. exists nu (z2\nu (z3\par (nu (z4\par (S z4 z2 n1 z3)
+      (in z4 Q2))) (in z3 R))). split.
+      -- backchain str_eq_sym.
+      -- unfold 20. exists nu (z2\nu (z3\nu (z4\par (par (S z4 z2 n1 z3)
+        (in z4 Q2)) (in z3 R)))). split.
+        ++ search.
+        ++ unfold 20. exists nu (z2\nu (z4\nu (z3\par (par (S z4 z2 n1 z3)
+          (in z4 Q2)) (in z3 R)))). split.
+          ** search.
+          ** unfold 20. exists nu (z4\nu (z2\nu (z3\par (par (S z4 z2 n1 z3)
+            (in z4 Q2)) (in z3 R)))). split.
+            --- search.
+            --- unfold 17. intros.
+              unfold 20. exists nu (z2\nu (z3\par (S n2 z2 n1 z3) (par
+              (in n2 Q2) (in z3 R)))). split.
+              +++ search.
+              +++ unfold 20. exists nu (z2\nu (z3\par (S n2 z2 n1 z3) (par
+                (in z3 R) (in n2 Q2)))). split.
+                *** search.
+                *** unfold 20. exists nu (z2\nu (z3\par (par (S n2 z2 n1 z3)
+                  (in z3 R)) (in n2 Q2))). split. ---- search.
+                  ---- unfold 20. exists nu (z2\par (nu (z3\par (S n2 z2 n1 z3)
+                    (in z3 R))) (in n2 Q2)). split. ++++ search.
+                    ++++ unfold 20.
+                      exists par (nu (z2\nu (z3\par (S n2 z2 n1 z3)
+                      (in z3 R)))) (in n2 Q2). split. **** search.
+                      **** unfold 18. intros. search.
+  + case H8.
 
 Theorem red_db_simulates_red_tensor : forall U P Q1, nabla a, trans U P
    -> red_tensor (P a) (Q1 a)
@@ -133,23 +160,26 @@ Theorem red_db_simulates_red_tensor : forall U P Q1, nabla a, trans U P
       /\ str_eq (Q1 a) (Q2 a).
 
 induction on 1. intros. case H1.
-   case H2.
-   case H2. case H5. case H6.
-      apply red_ker_tensor_par_sym to *H7.
-         apply red_ker_tensor_par_cases to *H8. case H9.
-            apply str_eq_sym to H11.
-            apply lemma_red_db_simulates_red_tensor to H3 H4 H10 H12. search.
-            apply red_ker_tensor_in_case to H10.
-      apply red_tensor_no_new_names to H7.
-         apply red_tensor_no_new_names to H7.
-            apply IH to H3 H7. search.
-      case H7. case H8. case H8. case H8.
-   case H2.
-   case H2. case H5.
-      apply red_ker_tensor_par_sym to *H6.
-         apply red_ker_tensor_in_case to H7.
-      apply IH to H3 _. search.
-      case H6.
+- case H2.
+- case H2. case H5. case H6.
+  + apply red_ker_tensor_par_sym to *H7.
+    apply red_ker_tensor_par_cases to *H8. case H9.
+    * apply str_eq_sym to H11.
+      apply lemma_red_db_simulates_red_tensor to H3 H4 H10 H12. search.
+    * apply red_ker_tensor_in_case to H10.
+  + apply red_tensor_no_new_names to H7.
+    apply red_tensor_no_new_names to H7.
+    apply IH to H3 H7. search.
+  + case H7.
+    * case H8.
+    * case H8.
+    * case H8.
+- case H2.
+- case H2. case H5.
+  + apply red_ker_tensor_par_sym to *H6.
+    apply red_ker_tensor_in_case to H7.
+  + apply IH to H3 _. search.
+  + case H6.
 
 /*** 4. convere simulation of linear substitution ***/
 
@@ -159,44 +189,60 @@ Theorem lemma_red_ls_simulates_red_exp : forall P Q R1 U V, nabla x y,
       /\ str_eq (R1 y x) (par (R2 y x) (in y Q)).
 
 induction on 1. intros. case H1.
-   case H3.
-   case H3. search.
-   case H3. case H6. case H7.
-      apply red_ker_exp_no_new_names to H8.
-         apply red_ker_exp_no_new_names to H8. apply IH to H4 H2 _.
-            exists z1\app (W z1) (V1 z1). exists y\a\nu (b\nu (x1\
-               par (R3 y b) (par (out2 b x1 a) (in x1 (Q1 y))))).
-                  intros. split. search. search.
-                     clear IH H2 H4 H5 H8 H9 H10.
-                     unfold 20. exists nu (b\par (nu (x1\par (R3 n2 b) (par
-                        (out2 b x1 n1) (in x1 (Q1 n2))))) (in n2 Q)). split.
-                     unfold 20. exists nu (b\nu (x1\par (par (R3 n2 b) (par
-                        (out2 b x1 n1) (in x1 (Q1 n2)))) (in n2 Q))). split.
-                     unfold 17. intros. unfold 17. intros.
-                     unfold 20. exists par (R3 n2 n3) (par (par (out2 n3 n4 n1)
-                        (in n4 (Q1 n2))) (in n2 Q)). split.
-                     unfold 20. exists par (R3 n2 n3) (par (in n2 Q) (par
-                        (out2 n3 n4 n1) (in n4 (Q1 n2)))). split.
-                     unfold 20. exists par (par (R3 n2 n3) (in n2 Q))
-                        (par (out2 n3 n4 n1) (in n4 (Q1 n2))). split.
-                     unfold 18. search. search. search. search. search. search.
-      case H8. case H9. case H9.
-   case H3.
-   case H3. case H6.
-      apply IH to H4 H2 _. exists z1\subex (z2\W z2 z1) (V1 z1). exists y\a\nu
-         (x\par (R2 x y a) (in x (Q1 y))). intros. split. search. search.
-            clear IH H2 H4 H5 H7 H8 H9.
-            unfold 20. exists nu (x\par (par (R2 x n2 n1) (in x (Q1 n2)))
-               (in n2 Q)). split.
-            unfold 17. intros.
-            unfold 20. exists par (R2 n3 n2 n1) (par (in n3 (Q1 n2)) (in n2 Q)).
-               split.
-            unfold 20. exists par (R2 n3 n2 n1) (par (in n2 Q) (in n3 (Q1 n2))).
-               split.
-            unfold 20. exists par (par (R2 n3 n2 n1) (in n2 Q)) (in n3 (Q1 n2)).
-               split.
-            unfold 18. search. search. search. search. search.
-      case H7.
+- case H3.
+- case H3. search.
+- case H3. case H6. case H7.
+  + apply red_ker_exp_no_new_names to H8.
+    apply red_ker_exp_no_new_names to H8. apply IH to H4 H2 _.
+    exists z1\app (W z1) (V1 z1). exists y\a\nu (b\nu (x1\
+       par (R3 y b) (par (out2 b x1 a) (in x1 (Q1 y))))).
+    intros. split.
+    * search.
+    * search.
+    * clear IH H2 H4 H5 H8 H9 H10.
+      unfold 20. exists nu (b\par (nu (x1\par (R3 n2 b) (par
+      (out2 b x1 n1) (in x1 (Q1 n2))))) (in n2 Q)). split.
+      -- unfold 20. exists nu (b\nu (x1\par (par (R3 n2 b) (par
+        (out2 b x1 n1) (in x1 (Q1 n2)))) (in n2 Q))). split.
+        ++ unfold 17. intros. unfold 17. intros.
+          unfold 20. exists par (R3 n2 n3) (par (par (out2 n3 n4 n1)
+          (in n4 (Q1 n2))) (in n2 Q)). split.
+          ** unfold 20. exists par (R3 n2 n3) (par (in n2 Q) (par
+            (out2 n3 n4 n1) (in n4 (Q1 n2)))). split.
+            --- unfold 20. exists par (par (R3 n2 n3) (in n2 Q))
+              (par (out2 n3 n4 n1) (in n4 (Q1 n2))). split.
+              +++ unfold 18. search.
+              +++ search.
+            --- search.
+          ** search.
+        ++ search.
+      -- search.
+  + case H8.
+    * case H9.
+    * case H9.
+- case H3.
+- case H3. case H6.
+  + apply IH to H4 H2 _. exists z1\subex (z2\W z2 z1) (V1 z1). exists y\a\nu
+    (x\par (R2 x y a) (in x (Q1 y))). intros. split.
+    * search.
+    * search.
+    * clear IH H2 H4 H5 H7 H8 H9.
+      unfold 20. exists nu (x\par (par (R2 x n2 n1) (in x (Q1 n2)))
+      (in n2 Q)). split.
+      -- unfold 17. intros.
+        unfold 20. exists par (R2 n3 n2 n1) (par (in n3 (Q1 n2)) (in n2 Q)).
+        split.
+        ++ unfold 20. exists par (R2 n3 n2 n1) (par (in n2 Q) (in n3 (Q1 n2))).
+          split.
+          ** unfold 20.
+            exists par (par (R2 n3 n2 n1) (in n2 Q)) (in n3 (Q1 n2)).
+            split.
+            --- unfold 18. search.
+            --- search.
+              ** search.
+                ++ search.
+                  -- search.
+  + case H7.
 
 Theorem red_ls_simulates_red_exp : forall U P Q1, nabla a, trans U P
    -> red_exp (P a) (Q1 a)
@@ -204,18 +250,21 @@ Theorem red_ls_simulates_red_exp : forall U P Q1, nabla a, trans U P
       /\ str_eq (Q1 a) (Q2 a).
 
 induction on 1. intros. case H1.
-   case H2.
-   case H2. case H5. case H6.
-      apply red_ker_exp_par_sym to *H7.
-         apply red_ker_exp_par_cases to *H8. case H9.
-            apply red_ker_exp_out2_case to H10.
-            apply red_ker_exp_in_no_com_case to H10.
-      apply red_exp_no_new_names to H7.
-         apply red_exp_no_new_names to H7.
-            apply IH to H3 H7. search.
-      case H7. case H8. case H8. case H8.
-   case H2.
-   case H2. case H5.
-      apply lemma_red_ls_simulates_red_exp to H3 H4 H6. search.
-      apply IH to H3 _. search.
-      case H6.
+- case H2.
+- case H2. case H5. case H6.
+  + apply red_ker_exp_par_sym to *H7.
+    apply red_ker_exp_par_cases to *H8. case H9.
+    * apply red_ker_exp_out2_case to H10.
+    * apply red_ker_exp_in_no_com_case to H10.
+  + apply red_exp_no_new_names to H7.
+    apply red_exp_no_new_names to H7.
+    apply IH to H3 H7. search.
+  + case H7.
+    * case H8.
+    * case H8.
+    * case H8.
+- case H2.
+- case H2. case H5.
+  + apply lemma_red_ls_simulates_red_exp to H3 H4 H6. search.
+  + apply IH to H3 _. search.
+  + case H6.

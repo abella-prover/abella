@@ -84,14 +84,14 @@ hasty  (clo c\ (closure (cons c K) (abs M))) T:=
 Theorem consistency: forall Ks M W TE T,
   reval Ks M W -> hasty_env Ks TE -> has TE M T -> hasty W T.
 induction on 1. intros. case H1.
-  % one
+- % one
   case H3. case H2. search.
-  % fix
+- % fix
   coinduction. case H3. search.
-  % shift
+- % shift
   case H3. case H2. apply IH to H4 H6 H5. search.
-  % lam
+- % lam
   case H3. unfold. search.
-  % app
+- % app
   case H3. apply IH to H4 H2 H7. apply IH to H5 H2 H8.
-    case H9. case H11. apply IH to H6 _ H13. search.
+  case H9. case H11. apply IH to H6 _ H13. search.

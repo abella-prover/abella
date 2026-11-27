@@ -53,34 +53,34 @@ intros. compute (all). search.
 
 Theorem plus_invert : forall M N K, plus M N K -> $nat M /\ $nat N /\ $nat K.
 induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+- search.
+- apply IH to H2. search.
 
 Theorem plus_zero : forall N, $nat N -> plus N z N.
 induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+- search.
+- apply IH to H2. search.
 
 Theorem plus_succ : forall M N K, plus M N K -> plus M (s N) (s K).
 induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+- search.
+- apply IH to H2. search.
 
 Theorem plus_comm : forall M N K, $nat K -> plus M N K -> plus N M K.
 induction on 2. intros. case H2.
-  apply plus_zero to H1. search.
-  compute *H1. apply IH to H4 H3. apply plus_succ to H5. search.
+- apply plus_zero to H1. search.
+- compute *H1. apply IH to H4 H3. apply plus_succ to H5. search.
 
 Theorem plus_assoc : forall A B C AB ABC,
   plus A B AB -> plus AB C ABC -> exists BC, plus B C BC /\ plus A BC ABC.
 induction on 1. intros. case H1.
-  apply plus_invert to H2. search.
-  compute *H2. apply IH to H3 H4. search.
+- apply plus_invert to H2. search.
+- compute *H2. apply IH to H3 H4. search.
 
 Theorem plus_det : forall M N J K, plus M N J -> plus M N K -> J = K.
 induction on 1. intros. case H1.
-  case H2. search.
-  case H2. apply IH to H3 H4. search.
+- case H2. search.
+- case H2. apply IH to H3 H4. search.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Fibonacci
@@ -112,11 +112,11 @@ intros. compute *H1. search.
 
 Theorem fib_det : forall A B C, fib A B -> fib A C -> B = C.
 induction on 1. intros. case H1.
-  compute *H2. search.
-  compute *H2. search.
-  compute *H2.
-   apply IH to H4 H7. apply IH to H3 H8.
-   apply plus_det to H5 H6. search.
+- compute *H2. search.
+- compute *H2. search.
+- compute *H2.
+  apply IH to H4 H7. apply IH to H3 H8.
+  apply plus_det to H5 H6. search.
 
 Theorem three_solutions : forall N, (N = z \/ N = s z \/ N = s^5 z) -> fib N N.
 intros. compute H1. search. search. search 10.

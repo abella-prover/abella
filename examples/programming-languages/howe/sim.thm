@@ -8,17 +8,19 @@ Import "subst".
 Theorem subjred : forall M T V,
   {of M T} -> {eval M V} -> {of V T}.
 induction on 2. intros. case H2.
-  search.
-  case H1 (keep). inst *H4 with n1 = fix R. cut *H5 with *H1.
-    apply IH to *H6 *H3. search.
-  case H1. apply IH to *H6 *H3. case H8. inst *H9 with n1 = N. cut *H10 with *H7.
-    apply IH to *H11 *H4. search.
-  case H1. apply IH to *H7 *H4. search.
-  case H1. apply IH to *H6 *H3. case H9. inst *H8 with n1 = H, n2 = K.
-    cut *H12 with *H10. cut *H13 with *H11. apply IH to *H14 *H4. search.
-  case H1. apply IH to *H6 *H4. search.
-  case H1. apply IH to *H5 *H3. case H8. inst *H7 with n1 = K. cut *H10 with *H9.
-    apply IH to *H11 *H4. search.
+- search.
+- case H1 (keep). inst *H4 with n1 = fix R. cut *H5 with *H1.
+  apply IH to *H6 *H3. search.
+- case H1. apply IH to *H6 *H3. case H8.
+  inst *H9 with n1 = N. cut *H10 with *H7.
+  apply IH to *H11 *H4. search.
+- case H1. apply IH to *H7 *H4. search.
+- case H1. apply IH to *H6 *H3. case H9. inst *H8 with n1 = H, n2 = K.
+  cut *H12 with *H10. cut *H13 with *H11. apply IH to *H14 *H4. search.
+- case H1. apply IH to *H6 *H4. search.
+- case H1. apply IH to *H5 *H3. case H8.
+  inst *H7 with n1 = K. cut *H10 with *H9.
+  apply IH to *H11 *H4. search.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -43,33 +45,35 @@ CoDefine sim : tm -> tm -> ty -> prop by
 
 Theorem sim_refl : forall T M, {ty T} -> {of M T} -> sim M M T.
 coinduction. intros. case H1.
-  unfold. search.
-  unfold.
-    search.
-    intros. apply subjred to H2 H3. case H4. apply CH to _ H5. search.
-  unfold.
-    search.
-    intros. apply subjred to H2 H4. case H5.
-      apply CH to _ *H6. apply CH to _ *H7. search.
-  unfold. intros.
-    apply subjred to H2 H5. case H6. witness MR. split. search.
-    intros. inst *H7 with n1 = x. cut *H9 with *H8. backchain CH.
+- unfold. search.
+- unfold.
+  search.
+  intros. apply subjred to H2 H3. case H4. apply CH to _ H5. search.
+- unfold.
+  search.
+  intros. apply subjred to H2 H4. case H5.
+  apply CH to _ *H6. apply CH to _ *H7. search.
+- unfold. intros.
+  apply subjred to H2 H5. case H6. witness MR. split.
+  + search.
+  + intros. inst *H7 with n1 = x. cut *H9 with *H8. backchain CH.
 
 Theorem sim_trans : forall T M N K, sim M N T -> sim N K T -> sim M K T.
 coinduction. intros. case H1.
-  case H2. unfold. intros.
-    backchain H4. backchain H3.
-  case H2. unfold.
-    intros. backchain H5. backchain H3.
-    intros. apply *H4 to *H7. apply *H6 to *H8.
-      apply CH to *H9 *H11. search.
-  case H2. unfold. intros.
-    apply *H3 to *H5. apply *H4 to *H6. witness NR1. split. search.
-    intros. apply *H7 to H10. apply *H9 to *H10. backchain CH.
-  case H2. unfold.
-    intros. backchain H5. backchain H3.
-    intros. apply *H4 to *H7. apply *H6 to *H8.
-      apply CH to *H9 *H12. apply CH to *H10 *H13. search.
+- case H2. unfold. intros.
+  backchain H4. backchain H3.
+- case H2. unfold.
+  intros. backchain H5. backchain H3.
+  intros. apply *H4 to *H7. apply *H6 to *H8.
+  apply CH to *H9 *H11. search.
+- case H2. unfold. intros.
+  apply *H3 to *H5. apply *H4 to *H6. witness NR1. split.
+  + search.
+  + intros. apply *H7 to H10. apply *H9 to *H10. backchain CH.
+- case H2. unfold.
+  intros. backchain H5. backchain H3.
+  intros. apply *H4 to *H7. apply *H6 to *H8.
+  apply CH to *H9 *H12. apply CH to *H10 *H13. search.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -82,7 +86,8 @@ osim G M N T :=
     {SS |- cp N SN} ->
     sim SM SN T.
 
-Theorem osim_refl : forall G T M, {ty T} -> ctx G -> {G |- of M T} -> osim G M M T.
+Theorem osim_refl : forall G T M, {ty T} -> ctx G ->
+  {G |- of M T} -> osim G M M T.
 intros. unfold. search. search. search. intros.
   apply subst to H4 H3. apply cp_det to H4 *H7 H5.
     apply cp_det to H4 *H6 H5. backchain sim_refl.

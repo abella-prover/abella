@@ -89,10 +89,16 @@ Define symmetric_rel : (proc -> proc -> prop) -> prop by
 
 Theorem bisim_symmetric : symmetric_rel (bisim_up_to refl_t).
 unfold. coinduction. intros. case H1. unfold.
-  intros. apply H3 to H4. case H6. exists P3. split. search.
-    witness Q3. witness P3. split. search. backchain CH.
-  intros. apply H2 to H4. case H6. exists Q3. split. search.
-    witness Q3. witness P3. split. search. backchain CH.
+- intros. apply H3 to H4. case H6. exists P3. split.
+  + search.
+  + witness Q3. witness P3. split.
+    * search.
+    * backchain CH.
+- intros. apply H2 to H4. case H6. exists Q3. split.
+  + search.
+  + witness Q3. witness P3. split.
+    * search.
+    * backchain CH.
 
 Theorem bisim_symmetric_ : forall P Q, bisim_up_to refl_t P Q -> bisim_up_to refl_t Q P.
 apply bisim_symmetric. case H1. search.
@@ -102,12 +108,18 @@ Define transitive_rel : (proc -> proc -> prop) -> prop by
 
 Theorem bisim_transitive : transitive_rel (bisim_up_to refl_t).
 unfold. coinduction. intros. case H1. case H2. unfold.
-  intros. apply H3 to H7. apply H5 to H8. case H9. case H12.
-   exists Q4. split. search. witness P3. witness Q4. split. search.
-   backchain CH.
-  intros. apply H6 to H7. apply H4 to H8. case H9. case H12.
-   exists P4. split. search. witness P4. witness Q3. split. search.
-   backchain CH.
+- intros. apply H3 to H7. apply H5 to H8. case H9. case H12.
+  exists Q4. split.
+  + search.
+  + witness P3. witness Q4. split.
+    * search.
+    * backchain CH.
+- intros. apply H6 to H7. apply H4 to H8. case H9. case H12.
+  exists P4. split.
+  + search.
+  + witness P4. witness Q3. split.
+    * search.
+    * backchain CH.
 
 Theorem bisim_transitive_ : forall P Q R,
   bisim_up_to refl_t P Q ->
@@ -120,10 +132,16 @@ Define reflexive_rel : (proc -> proc -> prop) -> prop by
 
 Theorem bisim_reflexive : reflexive_rel (bisim_up_to refl_t).
 unfold. coinduction. intros. unfold.
-  intros. witness P1. split. search.
-   witness P1. witness P1. split. search. backchain CH.
-  intros. witness Q1. split. search.
-   witness Q1. witness Q1. split. search. backchain CH.
+- intros. witness P1. split.
+  + search.
+  + witness P1. witness P1. split.
+    * search.
+    * backchain CH.
+- intros. witness Q1. split.
+  + search.
+  + witness Q1. witness Q1. split.
+    * search.
+    * backchain CH.
 
 Theorem bisim_reflexive_ : forall P, bisim_up_to refl_t P P.
 apply bisim_reflexive. case H1. search.
@@ -133,6 +151,6 @@ Define equiv_rel : (proc -> proc -> prop) -> prop by
 
 Theorem bisim_equiv : equiv_rel (bisim_up_to refl_t).
 unfold.
-  backchain bisim_reflexive.
-  backchain bisim_symmetric.
-  backchain bisim_transitive.
+- backchain bisim_reflexive.
+- backchain bisim_symmetric.
+- backchain bisim_transitive.

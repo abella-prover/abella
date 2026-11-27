@@ -17,8 +17,8 @@ Theorem member_prune : forall (G:olist) E, nabla (x:exp),
   member (E x) G ->
     exists E', E = y\E'.
 induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+- search.
+- apply IH to H2. search.
 
 
 % List operations
@@ -31,21 +31,21 @@ Theorem member_insert : forall E1 E2 L L',
   insert E1 L L' -> member E2 L' ->
     E1 = E2 \/ member E2 L.
 induction on 1. intros. case H1.
-  case H2.
-    search.
-    search.
-  case H2.
-    search.
-    apply IH to H3 H4. case H5.
-      search.
-      search.
+- case H2.
+  + search.
+  + search.
+- case H2.
+  + search.
+  + apply IH to H3 H4. case H5.
+    * search.
+    * search.
 
 Theorem insert_prune : forall E L1 L2, nabla (x:exp),
   insert (E x) (L1 x) L2 ->
     exists E' L1', E = x\E' /\ L1 = x\L1'.
 induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+- search.
+- apply IH to H2. search.
 
 
 % Basic lemmas for L_{+,->}
@@ -54,8 +54,8 @@ Theorem sum_type : forall N1 N2 N,
   {sum N1 N2 N} ->
     {natural N1} /\ {natural N2} /\ {natural N}.
 induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+- search.
+- apply IH to H2. search.
 
 
 % The definitions of sexp and force below are given wrt an unordered
@@ -67,8 +67,8 @@ Define vals : olist -> prop by
 
 Theorem insert_vals : forall E H H', insert E H H' -> vals H' -> vals H.
 induction on 1. intros. case H1.
-  case H2. search.
-  case H2. apply insert_prune to H3. apply IH to H3 H4. search.
+- case H2. search.
+- case H2. apply insert_prune to H3. apply IH to H3 H4. search.
 
 
 % Substituted expressions (sexp), substitutions (sub), and extended
@@ -109,46 +109,46 @@ Theorem sexp_type : forall H E',
   sexp H E' ->
     exists S E, E' = sb S E /\ vals H /\ sub S.
 induction on 1. intros. case H1.
-  search.
-  search.
-  search.
-  apply IH to H2. search.
-  apply IH to H3. case H4. search.
-  apply IH to H2. search.
+- search.
+- search.
+- search.
+- apply IH to H2. search.
+- apply IH to H3. case H4. search.
+- apply IH to H2. search.
 
 Theorem sexp_abs : forall H H' S E V, nabla x,
   insert (val x) H' (H x) -> sexp (H x) (sb S (E x)) -> xval V ->
     sexp H' (sb (rep x V :: S) (E x)).
 induction on 2. intros. case H2.
-  apply member_insert to H1 H6. case H7. apply insert_vals to H1 H4. search.
-  apply insert_vals to H1 H4. search.
-  apply insert_vals to H1 H4. search.
-  apply member_prune to H6.
-  apply insert_vals to H1 H4. search.
-  apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
-  apply IH to _ H5 H3. search.
-  apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
+- apply member_insert to H1 H6. case H7. apply insert_vals to H1 H4. search.
+- apply insert_vals to H1 H4. search.
+- apply insert_vals to H1 H4. search.
+- apply member_prune to H6.
+- apply insert_vals to H1 H4. search.
+- apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
+- apply IH to _ H5 H3. search.
+- apply IH to H1 H4 H3. apply IH to H1 H5 H3. search.
 
 Theorem sub_xval : forall S X V, sub S -> member (rep X V) S -> xval V.
 induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    search.
-    apply IH to H4 H5. search.
+- case H2.
+- case H2.
+  + search.
+  + apply IH to H4 H5. search.
 
 Theorem sub_uniq : forall S V1 V2, nabla x,
   sub (S x) -> member (rep x V1) (S x) -> member (rep x V2) (S x) ->
     V1 = V2.
 induction on 1. intros. case H1.
-  case H2.
-  case H2. case H3. apply IH to H5 H6 H7. search.
-  case H2.
-    case H3.
-      search.
-      apply member_prune to H6.
-    case H3.
-      apply member_prune to H6.
-      apply member_prune to H6.
+- case H2.
+- case H2. case H3. apply IH to H5 H6 H7. search.
+- case H2.
+  + case H3.
+    * search.
+    * apply member_prune to H6.
+  + case H3.
+    * apply member_prune to H6.
+    * apply member_prune to H6.
 
 
 % Evaluation by explicit subsitution (environment semantics).  Note
@@ -172,12 +172,12 @@ Define ees : sexp -> sexp -> prop by
 
 Theorem ees_type : forall E V, sexp nil E -> ees E V -> xval V.
 induction on 2. intros. case H2.
-  apply sexp_type to H1. apply sub_xval to H5 H3. search.
-  search.
-  apply sum_type to H5. search.
-  search.
-  case H1. apply IH to H6 H3. case H8. apply IH to H7 H4. case H9. %\
-     apply sexp_abs to _ H12 H10. apply IH to H13 H5. search.
+- apply sexp_type to H1. apply sub_xval to H5 H3. search.
+- search.
+- apply sum_type to H5. search.
+- search.
+- case H1. apply IH to H6 H3. case H8. apply IH to H7 H4. case H9.
+  apply sexp_abs to _ H12 H10. apply IH to H13 H5. search.
 
 
 % Forcing of an explicit/delayed substitution, defined structurally
@@ -199,34 +199,34 @@ Theorem force_prune : forall H E E', nabla (x:exp),
   force (H x) E (E' x) ->
     exists E'', E' = x\E''.
 induction on 1. intros. case H1.
-  search.
-  apply member_prune to H2. apply IH to H3. search.
-  search.
-  apply IH to H2. apply IH to H3. search.
-  apply IH to H2. search.
-  apply IH to H2. apply IH to H3. search.
+- search.
+- apply member_prune to H2. apply IH to H3. search.
+- search.
+- apply IH to H2. apply IH to H3. search.
+- apply IH to H2. search.
+- apply IH to H2. apply IH to H3. search.
 
 Theorem force_abs : forall H H' S E E' V V', nabla x,
   insert (val x) H' (H x) -> sexp (H x) (sb S (E x)) ->
   force (H x) (sb S (E x)) (E' x)  -> xval V -> force nil V V' ->
     force H' (sb (rep x V :: S) (E x)) (E' V').
 induction on 3. intros. case H3.
-  apply member_insert to H1 H6. case H7. search.
-  search.
-  apply member_prune to H6. apply force_prune to H7. search.
-  search.
-  case H2. search.
-  case H2. apply IH to H1 H8 H6 H4 H5. apply IH to H1 H9 H7 H4 H5. search.
-  case H2. apply IH to _ H8 H6 H4 H5. search.
-  case H2. apply IH to H1 H8 H6 H4 H5. apply IH to H1 H9 H7 H4 H5. search.
+- apply member_insert to H1 H6. case H7. search.
+- search.
+- apply member_prune to H6. apply force_prune to H7. search.
+- search.
+- case H2. search.
+- case H2. apply IH to H1 H8 H6 H4 H5. apply IH to H1 H9 H7 H4 H5. search.
+- case H2. apply IH to _ H8 H6 H4 H5. search.
+- case H2. apply IH to H1 H8 H6 H4 H5. apply IH to H1 H9 H7 H4 H5. search.
 
 Theorem force_inv : forall V V',
   force nil V V' -> xval V ->
     (exists N, V = sb nil (num N) /\ V' = num N /\ {natural N}) \/
     (exists S T E E', V = sb S (lam T E) /\ V' = lam T E').
 intros. case H2.
-  case H1. search.
-  case H1. search.
+- case H1. search.
+- case H1. search.
 
 
 
@@ -242,21 +242,21 @@ Theorem ees_eval : forall E V E',
   sexp nil E -> force nil E E' -> ees E V ->
     exists V', force nil V V' /\ {eval E' V'}.
 induction on 3. intros. case H3.
-  case H2.
-    case H5.
-    apply sexp_type to H1. apply sub_uniq to H8 H4 H5. %\
-       apply sub_xval to H8 H4. apply force_inv to H6 H9. case H10.
-      search.
-      search.
-  case H2. search.
-  case H2. case H1. apply IH to H9 H7 H4. case H11. apply IH to H10 H8 H5. %\
-     case H13. search.
-  case H2. search.
-  case H2. case H1. apply force_prune to H7. apply force_prune to H8.
-     apply IH to H9 H7 H4. case H11. apply IH to H10 H8 H5. %\
-     apply ees_type to H9 H4. case H16. case H17. apply ees_type to H10 H5. %\
-     apply sexp_abs to _ H19 H20. apply force_abs to _ H19 H13 H20 H14.
-     apply IH to H21 H22 H6. search.
+- case H2.
+  + case H5.
+  + apply sexp_type to H1. apply sub_uniq to H8 H4 H5.
+    apply sub_xval to H8 H4. apply force_inv to H6 H9. case H10.
+    * search.
+    * search.
+- case H2. search.
+- case H2. case H1. apply IH to H9 H7 H4. case H11. apply IH to H10 H8 H5.
+  case H13. search.
+- case H2. search.
+- case H2. case H1. apply force_prune to H7. apply force_prune to H8.
+  apply IH to H9 H7 H4. case H11. apply IH to H10 H8 H5.
+  apply ees_type to H9 H4. case H16. case H17. apply ees_type to H10 H5.
+  apply sexp_abs to _ H19 H20. apply force_abs to _ H19 H13 H20 H14.
+  apply IH to H21 H22 H6. search.
 
 
 % If direction
@@ -265,24 +265,24 @@ Theorem eval_ees : forall E E' V',
   sexp nil E -> force nil E E' -> {eval E' V'} ->
     exists V, force nil V V' /\ ees E V.
 induction on 3. intros. apply sexp_type to H1. case H3.
-  case H2.
-    search.
-    search.
-  case H2.
-    apply sub_xval to H5 H9. apply force_inv to H10 H11. case H12.
-    case H1. apply IH to H11 H9 H6. apply ees_type to H11 H14. %\
-       apply force_inv to H13 H15. case H16. apply IH to H12 H10 H7. %\
-       apply ees_type to H12 H19. apply force_inv to H18 H20. case H21. search.
-  case H2.
-    search.
-    search.
-  case H2.
-    apply sub_xval to H5 H9. apply force_inv to H10 H11. case H12.
-    case H1. apply IH to H11 H9 H6. apply ees_type to H11 H14. %\
-       apply force_inv to H13 H15. case H16. case H13. case H15. case H18. %\
-       apply IH to H12 H10 H7. apply ees_type to H12 H22. %\
-       apply sexp_abs to _ H20 H23. apply force_abs to _ H20 H17 H23 H21. %\
-       apply IH to H24 H25 H8. search.
+- case H2.
+  search.
+  search.
+- case H2.
+  apply sub_xval to H5 H9. apply force_inv to H10 H11. case H12.
+  case H1. apply IH to H11 H9 H6. apply ees_type to H11 H14.
+  apply force_inv to H13 H15. case H16. apply IH to H12 H10 H7.
+  apply ees_type to H12 H19. apply force_inv to H18 H20. case H21. search.
+- case H2.
+  search.
+  search.
+- case H2.
+  apply sub_xval to H5 H9. apply force_inv to H10 H11. case H12.
+  case H1. apply IH to H11 H9 H6. apply ees_type to H11 H14.
+  apply force_inv to H13 H15. case H16. case H13. case H15. case H18.
+  apply IH to H12 H10 H7. apply ees_type to H12 H22.
+  apply sexp_abs to _ H20 H23. apply force_abs to _ H20 H17 H23 H21.
+  apply IH to H24 H25 H8. search.
 
 
 % Consider the subsets X(H) of sexp and E(H) of exp defined by
@@ -294,43 +294,43 @@ induction on 3. intros. apply sexp_type to H1. case H3.
 
 Theorem force_bij_exst : forall H E, sexp H (sb nil E) -> force H (sb nil E) E.
 induction on 1. intros. case H1.
-  search.
-  case H4.
-  search.
-  apply IH to H2. apply IH to H3. search.
-  apply IH to H3. search.
-  apply IH to H2. apply IH to H3. search.
+- search.
+- case H4.
+- search.
+- apply IH to H2. apply IH to H3. search.
+- apply IH to H3. search.
+- apply IH to H2. apply IH to H3. search.
 
 Theorem force_bij_uniq : forall H E E1 E2,
   sexp H (sb nil E) -> force H (sb nil E) E1 -> force H (sb nil E) E2 ->
     E1 = E2.
 induction on 2. intros. case H2.
-  case H3.
-    search.
-    case H5.
-  case H4.
-  case H3. search.
-  case H3. case H1. apply IH to H8 H4 H6. apply IH to H9 H5 H7. search.
-  case H3. case H1. apply IH to H7 H4 H5. search.
-  case H3. case H1. apply IH to H8 H4 H6. apply IH to H9 H5 H7. search.
+- case H3.
+  + search.
+  + case H5.
+- case H4.
+- case H3. search.
+- case H3. case H1. apply IH to H8 H4 H6. apply IH to H9 H5 H7. search.
+- case H3. case H1. apply IH to H7 H4 H5. search.
+- case H3. case H1. apply IH to H8 H4 H6. apply IH to H9 H5 H7. search.
 
 Theorem force_bij_uniq' : forall H E E1 E2,
   sexp H (sb nil E) -> force H (sb nil E1) E -> force H (sb nil E2) E ->
     E1 = E2.
 induction on 2. intros. case H2.
-  case H3.
-    search.
-    case H5.
-  case H4.
-  case H3.
-    case H4.
-    search.
-  case H3.
-    case H6.
-    case H1. apply IH to H8 H4 H6. apply IH to H9 H5 H7. search.
-  case H3.
-    case H5.
-    case H1. apply IH to H7 H4 H5. search.
-  case H3.
-    case H6.
-    case H1. apply IH to H8 H4 H6. apply IH to H9 H5 H7. search.
+- case H3.
+  + search.
+  + case H5.
+- case H4.
+- case H3.
+  + case H4.
+  + search.
+- case H3.
+  + case H6.
+  + case H1. apply IH to H8 H4 H6. apply IH to H9 H5 H7. search.
+- case H3.
+  + case H5.
+  + case H1. apply IH to H7 H4 H5. search.
+- case H3.
+  + case H6.
+  + case H1. apply IH to H8 H4 H6. apply IH to H9 H5 H7. search.

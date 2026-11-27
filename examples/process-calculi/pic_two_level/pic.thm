@@ -80,11 +80,13 @@ Theorem inv-sym:
 forall P Q, inv P Q -> inv Q P.
 induction on 1.
 intros.
-case H1. search. search.
-apply IH to H2. search.
-apply IH to H2. search.
-apply IH to H2. search.
-apply IH to H2. search.
+case H1.
+- search.
+- search.
+- apply IH to H2. search.
+- apply IH to H2. search.
+- apply IH to H2. search.
+- apply IH to H2. search.
 
 
 % Two simInvs make a bisimInv.
@@ -92,13 +94,13 @@ Theorem sim-bisim:
 forall P Q, simInv P Q -> simInv Q P -> bisimInv P Q.
 intros.
 case H1. case H2. unfold.
-intros. apply H3 to H9. exists Q2. search.
-intros. apply H4 to H9. exists N. search.
-intros. apply H5 to H9. exists (w\ N w). search.
+- intros. apply H3 to H9. exists Q2. search.
+- intros. apply H4 to H9. exists N. search.
+- intros. apply H5 to H9. exists (w\ N w). search.
 
-intros. apply H6 to H9. exists Q2. search.
-intros. apply H7 to H9. exists N1. search.
-intros. apply H8 to H9. exists N1. search.
+- intros. apply H6 to H9. exists Q2. search.
+- intros. apply H7 to H9. exists N1. search.
+- intros. apply H8 to H9. exists N1. search.
 
 Set subgoals off.
 
@@ -106,166 +108,269 @@ Theorem inv-sim:
 forall P Q, inv P Q -> simInv P Q.
 induction on 1.
 intros.
-case H1. case H2. case H3.
-unfold.
-intros.
-case H4. case H5. case H6. case H7. case H7. case H7. case H7. case H7.
-case H7. case H8. case H9.
-exists (par (out x a null) (bang (taup (out x a null)))). search.
+case H1.
+- case H2. case H3.
+  unfold.
+  + intros.
+    case H4.
+    * case H5. case H6.
+      -- case H7.
+      -- case H7.
+      -- case H7.
+      -- case H7.
+      -- case H7.
+      -- case H7. case H8. case H9.
+        exists (par (out x a null) (bang (taup (out x a null)))). search.
 
-case H5. case H6. case H7. case H8. case H9.
-case H10. case H10. case H9. case H10. case H10.
+    * case H5. case H6. case H7. case H8.
+      -- case H9.
+        ++ case H10.
+        ++ case H10.
+          -- case H9.
+        ++ case H10.
+        ++ case H10.
 
-case H5. case H6. case H7. case H8. case H9.
-case H9. case H8. case H9. case H9. case H6.
-case H7. case H8. case H9. case H9. case H8.
-case H9. case H9.
+    * case H5.
+      -- case H6. case H7.
+        ++ case H8.
+          ** case H9.
+          ** case H9.
+            ++ case H8.
+          ** case H9.
+          ** case H9.
+              -- case H6.
+        case H7.
+        ++ case H8.
+          ** case H9.
+          ** case H9.
+        ++ case H8.
+          ** case H9.
+          ** case H9.
 
-intros. case H4.
-case H5. case H6. case H7. case H7.
+  + intros. case H4.
+    case H5. case H6.
+    * case H7.
+    * case H7.
 
-intros. case H4.
-case H5. case H6. case H7. case H7.
-case H6. case H7. case H7.
+  + intros. case H4.
+    case H5.
+    * case H6.
+      -- case H7.
+      -- case H7.
+    * case H6.
+      -- case H7.
+      -- case H7.
 
 
-case H2. case H3.
-unfold.
-intros.
-case H4. case H5.
-exists (par (nu z\ par null (out x a null)) (bang (nu z\ par (out z a null) (in z (y\ out x y null))))).
-search.
+- case H2. case H3.
+  unfold.
+  + intros.
+    case H4.
+    * case H5.
+      exists (par (nu z\ par null (out x a null))
+        (bang (nu z\ par (out z a null) (in z (y\ out x y null))))).
+      search.
 
-case H5. case H5.
-intros. case H4. case H5.
-intros. case H4. case H5.
+    * case H5.
+    * case H5.
+  + intros. case H4. case H5.
+  + intros. case H4. case H5.
 
 % inductive cases
 
-unfold.
-intros.
-case H3. case H4. case H5. case H6. case H6.
-case H6. case H6. case H6. case H6.
-apply IH to H2.
-case H5.
-apply H6 to H4.
-exists (par null Q2).
-search.
+- unfold.
+  + intros.
+    case H3.
+    * case H4. case H5.
+      -- case H6.
+      -- case H6.
+      -- case H6.
+      -- case H6.
+      -- case H6.
+      -- case H6.
+    * apply IH to H2.
+      case H5.
+      apply H6 to H4.
+      exists (par null Q2).
+      search.
 
-case H4. case H6. case H7. case H7.
-case H4. case H6. case H7. case H7.
-case H6. case H7. case H7.
-case H4. case H7. case H8. case H8.
-case H5. case H7. case H8. case H8.
-
-
-intros.
-case H3. case H4. case H5. case H6. case H6.
-apply IH to H2.
-case H5.
-apply H7 to H4.
-exists (w\ par null (N2 w)).
-split. search.
-intros.
-apply H10 with w = w.
-search.
-
-intros.
-case H3.
-case H4. case H5. case H6. case H6. case H5. case H6. case H6.
-apply IH to H2. case H5.
-apply H8 to H4.
-exists (w\ par null (N2 w)).
-search.
-
-unfold.
-intros. case H3. case H4.
-apply IH to H2. case H5.
-apply H6 to H4.
-exists (par (nu z\ par null null) Q2).
-search.
-case H4. case H4. case H4. case H5.
-
-intros. case H3. case H4.
-apply IH to H2. case H5.
-apply H7 to H4.
-exists (w\ par (nu z\ par null null) (N2 w)).
-split. search. intros. apply H10 with w = w. search.
-
-intros.
-case H3. case H4.
-apply IH to H2. case H5.
-apply H8 to H4.
-exists (w\ par (nu z\ par null null) (N2 w)).
-search.
-
-apply IH to H2.
-unfold.
-intros.
-case H4. case H5. case H6. case H7.
-case H7.
-exists (par null N). search.
-case H7. case H7. case H7. case H8.
-
-case H3.
-apply H6 to H5.
-exists (par (out x a null) Q2).
-search.
-case H5. case H7. case H8. case H8.
-case H5. case H7. case H8. case H8.
-case H7. case H8. case H8.
-case H5. case H8. case H9.
-
-case H9. case H6. case H8. case H9.
-case H9. case H7.
-
-case H3.
-apply H11 to H5.
-exists (par null (N1 a)).
-split. search.
-apply H14 with w = a. search.
-
-intros.
-case H4. case H5. case H6. case H7. case H7.
-case H3.
-apply H7 to H5.
-exists (w\ par (out x a null) (N2 w)).
-split. search.
-intros. apply H10 with w = w. search.
-
-intros. case H4. case H5. case H6. case H7. case H7. case H6. case H7.
-case H7.
-case H3.
-apply H8 to H5.
-exists (w\ par (out x a null) (N2 w)). search.
-
-unfold.
-intros. case H3. case H4.
-exists (par (nu z\ par null null) M). search.
-
-apply IH to H2. case H5.
-apply H6 to H4.
-exists (par (nu z\ par null (out x a null)) Q2). search.
-case H4. case H4. case H4. case H5. case H6.
-apply IH to H2.
-case H7. apply H9 to H4.
-exists (par (nu z\ par null null) (N1 a)).
-apply H12 with w = a. search.
+    * case H4. case H6.
+      -- case H7.
+      -- case H7.
+    * case H4.
+      -- case H6.
+        ++ case H7.
+        ++ case H7.
+      -- case H6.
+        ++ case H7.
+        ++ case H7.
+    * case H4. case H7.
+      -- case H8.
+      -- case H8.
+    * case H5. case H7.
+      -- case H8.
+      -- case H8.
 
 
-intros. case H3. case H4.
-apply IH to H2.
-case H5.
-apply H7 to H4.
-exists (w\ par (nu z\ par null (out x a null)) (N2 w)).
-split. search. intros. apply H10 with w = w. search.
+  + intros.
+    case H3.
+    * case H4. case H5.
+      -- case H6.
+      -- case H6.
+    * apply IH to H2.
+      case H5.
+      apply H7 to H4.
+      exists (w\ par null (N2 w)).
+      split.
+      -- search.
+      -- intros.
+        apply H10 with w = w.
+        search.
+
+  + intros.
+    case H3.
+    * case H4.
+      -- case H5.
+        ++ case H6.
+        ++ case H6.
+      -- case H5.
+        ++ case H6.
+        ++ case H6.
+    * apply IH to H2. case H5.
+      apply H8 to H4.
+      exists (w\ par null (N2 w)).
+      search.
+
+- unfold.
+  + intros. case H3.
+    * case H4.
+    * apply IH to H2. case H5.
+      apply H6 to H4.
+      exists (par (nu z\ par null null) Q2).
+      search.
+    * case H4.
+    * case H4.
+    * case H4.
+    * case H5.
+
+  + intros. case H3.
+    * case H4.
+    * apply IH to H2. case H5.
+      apply H7 to H4.
+      exists (w\ par (nu z\ par null null) (N2 w)).
+      split.
+      -- search.
+      -- intros. apply H10 with w = w. search.
+
+  + intros.
+    case H3.
+    * case H4.
+    * apply IH to H2. case H5.
+      apply H8 to H4.
+      exists (w\ par (nu z\ par null null) (N2 w)).
+      search.
+
+- apply IH to H2.
+  unfold.
+  + intros.
+    case H4.
+    * case H5. case H6.
+      -- case H7.
+      -- case H7.
+        exists (par null N). search.
+      -- case H7.
+      -- case H7.
+      -- case H7.
+      -- case H8.
+
+    * case H3.
+      apply H6 to H5.
+      exists (par (out x a null) Q2).
+      search.
+    * case H5. case H7.
+      -- case H8.
+      -- case H8.
+    * case H5.
+      -- case H7.
+        ++ case H8.
+        ++ case H8.
+      -- case H7.
+        ++ case H8.
+        ++ case H8.
+    * case H5. case H8.
+      -- case H9.
+
+      -- case H9.
+        * case H6. case H8.
+      -- case H9.
+      -- case H9. case H7.
+
+        case H3.
+        apply H11 to H5.
+        exists (par null (N1 a)).
+        split.
+        ++ search.
+        ++ apply H14 with w = a. search.
+
+  + intros.
+    case H4.
+    * case H5. case H6.
+      -- case H7.
+      -- case H7.
+    * case H3.
+      apply H7 to H5.
+      exists (w\ par (out x a null) (N2 w)).
+      split.
+      -- search.
+      -- intros. apply H10 with w = w. search.
+
+  + intros. case H4.
+    * case H5.
+      -- case H6.
+        ++ case H7.
+        ++ case H7.
+      -- case H6.
+        ++ case H7.
+        ++ case H7.
+    * case H3.
+      apply H8 to H5.
+      exists (w\ par (out x a null) (N2 w)). search.
+
+- unfold.
+  + intros. case H3.
+    * case H4.
+      exists (par (nu z\ par null null) M). search.
+
+    * apply IH to H2. case H5.
+      apply H6 to H4.
+      exists (par (nu z\ par null (out x a null)) Q2). search.
+    * case H4.
+    * case H4.
+    * case H4.
+    * case H5. case H6.
+      apply IH to H2.
+      case H7. apply H9 to H4.
+      exists (par (nu z\ par null null) (N1 a)).
+      apply H12 with w = a. search.
 
 
-intros. case H3. case H4.
-apply IH to H2. case H5.
-apply H8 to H4.
-exists (w\ par (nu z\ par null (out x a null)) (N2 w)).
-search.
+  + intros. case H3.
+    * case H4.
+    * apply IH to H2.
+      case H5.
+      apply H7 to H4.
+      exists (w\ par (nu z\ par null (out x a null)) (N2 w)).
+      split.
+      -- search.
+      -- intros. apply H10 with w = w. search.
+
+
+  + intros. case H3.
+    * case H4.
+    * apply IH to H2. case H5.
+      apply H8 to H4.
+      exists (w\ par (nu z\ par null (out x a null)) (N2 w)).
+      search.
 
 %%%%%
 
@@ -277,11 +382,11 @@ Theorem inv-bisim:
 forall R T, inv R T -> bisimInv R T.
 intros.
 assert simInv R T.
-  apply inv-sim to H1. search.
-assert simInv T R.
-  apply inv-sym to H1.
-  apply inv-sim to H3. search.
-apply sim-bisim to H2 H3. search.
+- apply inv-sim to H1. search.
+- assert simInv T R.
+  + apply inv-sym to H1.
+    apply inv-sim to H3. search.
+  + apply sim-bisim to H2 H3. search.
 
 
 % The set defined by inv is included in the greatest bisimulation.
@@ -292,40 +397,43 @@ coinduction.
 intros.
 apply inv-bisim to H1.
 unfold.
-intros.
-case H2.
-apply H4 to H3.
-exists Q2.
-apply CH to H11. search.
+- intros.
+  case H2.
+  apply H4 to H3.
+  exists Q2.
+  apply CH to H11. search.
 
-intros.
-case H2. apply H5 to H3.
-exists N. split. search.
-intros. apply H11 with w = w.
-apply CH to H12. search.
+- intros.
+  case H2. apply H5 to H3.
+  exists N. split.
+  + search.
+  + intros. apply H11 with w = w.
+    apply CH to H12. search.
 
-intros.
-case H2. apply H6 to H3.
-exists N.
-apply CH to H11. search.
+- intros.
+  case H2. apply H6 to H3.
+  exists N.
+  apply CH to H11. search.
 
-intros.
-case H2. apply H7 to H3.
-exists P2.
-apply CH to H11. search.
+- intros.
+  case H2. apply H7 to H3.
+  exists P2.
+  apply CH to H11. search.
 
-intros.
-case H2. apply H8 to H3.
-exists M.
-split. search. intros.
-apply H11 with w = w.
-apply CH to H12. search.
+- intros.
+  case H2. apply H8 to H3.
+  exists M.
+  split.
+  + search.
+  + intros.
+    apply H11 with w = w.
+    apply CH to H12. search.
 
-intros.
-case H2. apply H9 to H3.
-exists M.
-apply CH to H11.
-search.
+- intros.
+  case H2. apply H9 to H3.
+  exists M.
+  apply CH to H11.
+  search.
 
 % p and q are bisimilar
 
@@ -341,31 +449,33 @@ Theorem bisim-sym:
 forall P Q, bisim P Q -> bisim Q P.
 intros.
 unfold.
-case H1.
-intros. apply H5 to H8. search.
+- case H1.
+  intros. apply H5 to H8. search.
 
-intros.
-case H1.
-apply H7 to H2.
-exists M1. split. search. search.
+- intros.
+  case H1.
+  apply H7 to H2.
+  exists M1. split.
+  + search.
+  + search.
 
-intros.
-case H1.
-apply H8 to H2.
-search.
+- intros.
+  case H1.
+  apply H8 to H2.
+  search.
 
-case H1.
-intros.
-apply H2 to H8. search.
+- case H1.
+  intros.
+  apply H2 to H8. search.
 
-case H1.
-intros.
-apply H3 to H8. search.
+- case H1.
+  intros.
+  apply H3 to H8. search.
 
-case H1.
-intros.
-apply H4 to H8.
-search.
+- case H1.
+  intros.
+  apply H4 to H8.
+  search.
 
 % bisim is reflexive
 Theorem bisim-refl:
@@ -373,23 +483,27 @@ forall P, bisim P P.
 coinduction.
 intros.
 unfold.
-intros.
-apply CH with P = P1. search.
-intros.
-exists M.
-split. search.
-intros.
-apply CH with P = (M w). search.
+- intros.
+  apply CH with P = P1. search.
+- intros.
+  exists M.
+  split.
+  + search.
+  + intros.
+    apply CH with P = (M w). search.
 
-intros.
-exists M. split. search.
-intros. apply CH with P = (M n1). search.
+- intros.
+  exists M. split.
+  + search.
+  + intros. apply CH with P = (M n1). search.
 
-intros. apply CH with P = Q1. search.
+- intros. apply CH with P = Q1. search.
 
-intros. exists N. split. search.
-intros. apply CH with P = (N w). search.
+- intros. exists N. split.
+  + search.
+  + intros. apply CH with P = (N w). search.
 
-intros. exists N. split. search.
-intros. apply CH with P = (N n1).
-search.
+- intros. exists N. split.
+  + search.
+  + intros. apply CH with P = (N n1).
+    search.

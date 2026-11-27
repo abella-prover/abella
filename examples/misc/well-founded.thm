@@ -30,23 +30,23 @@ Define lt_acc : nat -> prop by
 
 Theorem nat_acc : forall N, nat N -> lt_acc N.
 induction on 1. intros. case H1.
-  unfold. intros. case H2.
-  apply IH to H2. unfold. intros. case H4.
-    search.
-    case H3. apply H6 to H5. search.
+- unfold. intros. case H2.
+- apply IH to H2. unfold. intros. case H4.
+  + search.
+  + case H3. apply H6 to H5. search.
 
 
 %%%% Some properties of lt
 
 Theorem lt_z : forall N, nat N -> lt z (s N).
 induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+- search.
+- apply IH to H2. search.
 
 Theorem lt_s : forall N1 N2, lt N1 N2 -> lt (s N1) (s N2).
 induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+- search.
+- apply IH to H2. search.
 
 
 %%%% Algorithms
@@ -74,22 +74,22 @@ Theorem sub_total : forall N1 N2,
   nat N1 -> nat N2 ->
     lt N1 N2 \/ exists N3, nat N3 /\ sub N1 N2 N3.
 induction on 1. intros. case H1.
-  case H2.
-    search.
-    apply lt_z to H3. search.
-  case H2.
-    search.
-    apply IH to H3 H4. case H5.
-      apply lt_s to H6. search.
-      search.
+- case H2.
+  + search.
+  + apply lt_z to H3. search.
+- case H2.
+  + search.
+  + apply IH to H3 H4. case H5.
+    * apply lt_s to H6. search.
+    * search.
 
 % Non-zero subtraction gets smaller
 Theorem sub_lt : forall N1 N2 N3,
   nat N2 -> sub N1 (s N2) N3 ->
     lt N3 N1.
 induction on 1. intros. case H1.
-  case H2. case H3. search.
-  case H2. apply IH to H3 H4. search.
+- case H2. case H3. search.
+- case H2. apply IH to H3 H4. search.
 
 
 % Totality of mod N (s M) R, by strong induction on N
@@ -97,8 +97,8 @@ Theorem mod_total_strong : forall N M,
   nat N -> lt_acc N -> nat M ->
     exists R, nat R /\ mod N (s M) R.
 induction on 2. intros. case H2. apply sub_total to H1 _ with N2 = s M. case H5.
-  search.
-  apply sub_lt to H3 H7. apply H4 to H8. apply IH to H6 H9 H3. search.
+- search.
+- apply sub_lt to H3 H7. apply H4 to H8. apply IH to H6 H9 H3. search.
 
 Theorem mod_total : forall N M,
   nat N -> nat M ->
@@ -109,8 +109,8 @@ intros. apply nat_acc to H1. apply mod_total_strong to H1 H3 H2. search.
 % Remainder smaller than divisor
 Theorem mod_lt : forall N M R, mod N M R -> lt R M.
 induction on 1. intros. case H1.
-  search.
-  apply IH to H3. search.
+- search.
+- apply IH to H3. search.
 
 
 % Totality of gcd N M D, by strong induction on m
@@ -119,9 +119,9 @@ Theorem gcd_total_strong : forall N M,
     exists D, nat D /\ gcd N M D.
 induction on 3. intros. case H3.
   case H2.
-    search.
-    apply mod_total to H1 H5. apply mod_lt to H7. apply H4 to H8. %\
-       apply IH to _ H6 H9 with N = s N1. search.
+  - search.
+  - apply mod_total to H1 H5. apply mod_lt to H7. apply H4 to H8. %\
+    apply IH to _ H6 H9 with N = s N1. search.
 
 Theorem gcd_total : forall N M,
   nat N -> nat M ->

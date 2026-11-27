@@ -62,78 +62,78 @@ Define seq : nat -> atmlist -> o -> prop by
 Theorem seq_subset : forall L1 L2 G N,
   seq N L1 G -> (forall X, mem X L1 -> mem X L2) -> seq N L2 G.
 induction on 1. intros. case H1.
-  search.
-  apply H2 to H3. search.
-  apply IH to H3 H2. search.
-  apply IH to H3 H2. search.
-  apply IH to H3 H2. apply IH to H4 H2. search.
-  assert forall X, mem X (cons A L1) -> mem X (cons A L2).
-    intros. case H4.
-      search.
-      apply H2 to H5. search.
-    apply IH to H3 H4. search.
-  apply IH to H3 H2. search.
-  apply IH to H3 H2. search.
-  apply IH to H4 H2. search.
+- search.
+- apply H2 to H3. search.
+- apply IH to H3 H2. search.
+- apply IH to H3 H2. search.
+- apply IH to H3 H2. apply IH to H4 H2. search.
+- assert forall X, mem X (cons A L1) -> mem X (cons A L2).
+  + intros. case H4.
+    * search.
+    * apply H2 to H5. search.
+  + apply IH to H3 H4. search.
+- apply IH to H3 H2. search.
+- apply IH to H3 H2. search.
+- apply IH to H4 H2. search.
 
 Theorem seq_lt : forall L G N M,
   lt M N -> seq M L G -> seq N L G.
 induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    search.
-    search.
-    apply IH to H3 H4. search.
-    apply IH to H3 H4. search.
-    apply IH to H3 H4. apply IH to H3 H5. search.
-    apply IH to H3 H4. search.
-    apply IH to H3 H4. search.
-    apply IH to H3 H4. search.
-    apply IH to H3 H5. search.
+- case H2.
+- case H2.
+  + search.
+  + search.
+  + apply IH to H3 H4. search.
+  + apply IH to H3 H4. search.
+  + apply IH to H3 H4. apply IH to H3 H5. search.
+  + apply IH to H3 H4. search.
+  + apply IH to H3 H4. search.
+  + apply IH to H3 H4. search.
+  + apply IH to H3 H5. search.
 
 Theorem nat_lt : forall A B,
   nat A -> nat B -> lt A B \/ A = B \/ lt B A.
 induction on 1. intros. case H1.
-  case H2.
-    search.
-    search.
-  case H2.
-    search.
-    apply IH to H3 H4. case H5.
-      search.
-      search.
-      search.
+- case H2.
+  + search.
+  + search.
+- case H2.
+  + search.
+  + apply IH to H3 H4. case H5.
+    * search.
+    * search.
+    * search.
 
 Theorem seq_cut : forall K L G N M,
   nat N -> seq N (cons K L) G -> nat M -> seq M L (atom K) ->
     exists P, nat P /\ seq P L G.
 induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    search.
-    case H6.
-      search.  % Key case: G=K
-      search.
-    apply IH to H5 H6 H3 H4. search.
-    apply IH to H5 H6 H3 H4. search.
-    apply IH to H5 H6 H3 H4. apply IH to H5 H7 H3 H4.
-      apply nat_lt to H8 H10. case H12.
-        apply seq_lt to H13 H9. search.
-        search.
-        apply seq_lt to H13 H11. search.
-    assert forall X, mem X (cons A (cons K L)) -> mem X (cons K (cons A L)).
-      intros. case H7.
-        search.
-        case H8.
-          search.
-          search.
-      apply seq_subset to H6 H7.
-        assert forall X, mem X L -> mem X (cons A L).
-        apply seq_subset to H4 H9.
-          apply IH to H5 H8 H3 H10. search.
-    apply IH to H5 H6 H3 H4. search.
-    apply IH to H5 H6 H3 H4. search.
-    apply IH to H5 H7 H3 H4. search.
+- case H2.
+- case H2.
+  + search.
+  + case H6.
+    * search.  % Key case: G=K
+    * search.
+  + apply IH to H5 H6 H3 H4. search.
+  + apply IH to H5 H6 H3 H4. search.
+  + apply IH to H5 H6 H3 H4. apply IH to H5 H7 H3 H4.
+    apply nat_lt to H8 H10. case H12.
+    * apply seq_lt to H13 H9. search.
+    * search.
+    * apply seq_lt to H13 H11. search.
+  + assert forall X, mem X (cons A (cons K L)) -> mem X (cons K (cons A L)).
+    * intros. case H7.
+      ** search.
+      ** case H8.
+        *** search.
+        *** search.
+    * apply seq_subset to H6 H7.
+      assert forall X, mem X L -> mem X (cons A L).
+      apply seq_subset to H4 H9.
+      apply IH to H5 H8 H3 H10. search.
+  + apply IH to H5 H6 H3 H4. search.
+  + apply IH to H5 H6 H3 H4. search.
+  + apply IH to H5 H7 H3 H4. search.
 
 %% Another important result is that nabla variablts can be treated as
 %% universally quantified inside of seq. That is, we can always
@@ -143,52 +143,59 @@ induction on 1. intros. case H1.
 Theorem mem_inst : forall L A T, nabla (x:tm),
   mem (A x) (L x) -> mem (A T) (L T).
 induction on 1. intros. case H1.
-  search.
-  apply IH to H2 with T = T. search.
+- search.
+- apply IH to H2 with T = T. search.
 
 Theorem prog_inst : forall A B T, nabla (x:tm),
   prog (A x) (B x) -> prog (A T) (B T).
 intros. case H1.
-  search.
-  search.
-  search.
-  search.
+- search.
+- search.
+- search.
+- search.
 
 Theorem seq_inst : forall N L G T, nabla (x:tm),
   seq N (L x) (G x) -> seq N (L T) (G T).
 induction on 1. intros. case H1.
-  search.
-  apply mem_inst to H2 with T = T. search.
-  apply IH to H2 with T = T. search.
-  apply IH to H2 with T = T. search.
-  apply IH to H2 with T = T. apply IH to H3 with T = T. search.
-  apply IH to H2 with T = T. search.
-  apply IH to H2 with T = T. search.
-  apply IH to H2 with T = T. search.
-  apply prog_inst to H2 with T = T. apply IH to H3 with T = T. search.
+- search.
+- apply mem_inst to H2 with T = T. search.
+- apply IH to H2 with T = T. search.
+- apply IH to H2 with T = T. search.
+- apply IH to H2 with T = T. apply IH to H3 with T = T. search.
+- apply IH to H2 with T = T. search.
+- apply IH to H2 with T = T. search.
+- apply IH to H2 with T = T. search.
+- apply prog_inst to H2 with T = T. apply IH to H3 with T = T. search.
 
 Theorem lt_s : forall A B,
   lt A B -> lt A (s B).
 induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+- search.
+- apply IH to H2. search.
 
 Theorem sr : forall E V A M N N',
   nat N' -> lt N N' -> seq N nl (atom (eval E V)) ->
   nat M -> seq M nl (atom (of E A)) ->
   exists P, nat P /\ seq P nl (atom (of V A)).
 induction on 1. intros. case H1.
-case H2.
-case H3. case H7. case H7.
-search.
-case H8. case H5. case H11. case H11. case H12.
-case H2. apply lt_s to H15. case H16.
-case H4. case H18.
-apply IH to H6 H17 H9 H19 H13. case H21. case H22. case H22. case H23.
-case H24. apply seq_inst to H25 with T = Q. case H20. case H27. case H28.
-apply seq_cut to H29 H26 H19 H14.
-apply IH to H6 H17 H10 H30 H31.
-search.
+- case H2.
+- case H3.
+  + case H7.
+  + case H7.
+    * search.
+    * case H8. case H5.
+      ** case H11.
+      ** case H11. case H12.
+        case H2. apply lt_s to H15. case H16.
+        case H4. case H18.
+        apply IH to H6 H17 H9 H19 H13. case H21.
+        *** case H22.
+        *** case H22. case H23.
+          case H24. apply seq_inst to H25 with T = Q. case H20. case H27.
+          case H28.
+          apply seq_cut to H29 H26 H19 H14.
+          apply IH to H6 H17 H10 H30 H31.
+          search.
 
 Define tridot : atmlist -> o -> prop by
   tridot L G := exists N, nat N /\ seq N L G.
@@ -209,10 +216,10 @@ intros. case H1. search.
 Theorem lem4 :
   forall L G1 G2, tridot L G1 -> tridot L G2 -> tridot L (and G1 G2).
 intros. case H1. case H2.
-  apply nat_lt to H3 H5. case H7.
-    apply seq_lt to H8 H4. search.
-    search.
-    apply seq_lt to H8 H6. search.
+apply nat_lt to H3 H5. case H7.
+- apply seq_lt to H8 H4. search.
+- search.
+- apply seq_lt to H8 H6. search.
 
 Theorem lem5 :
   forall L A G, tridot (cons A L) G -> tridot L (imp A G).

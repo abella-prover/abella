@@ -27,15 +27,15 @@ Define eqf : olist -> olist -> prop by
 Theorem eqi_take : forall L R S N,
   eqi L R -> tk N L S -> tk N R S.
 induction on 2. intros. case H2.
-  search.
-  case H1. search.
-  case H1. apply IH to H4 H3. search.
+- search.
+- case H1. search.
+- case H1. apply IH to H4 H3. search.
 
 Theorem eqi_sym : forall L R,
   eqi L R -> eqi R L.
 coinduction. intros. case H1.
-  search.
-  apply CH to H2. search.
+- search.
+- apply CH to H2. search.
 
 Theorem eqi_eqf : forall L R,
   eqi L R -> eqf L R.
@@ -71,9 +71,9 @@ intros. case H1. unfold.
 Theorem eqf_eqi : forall L R,
   colist L -> eqf L R -> eqi L R.
 coinduction. intros. case H1.
-  apply eqf_nil to H2. search.
-  apply eqf_cons to H2. apply eqf_downward to H2.
-    apply CH to H3 H4. search.
+- apply eqf_nil to H2. search.
+- apply eqf_cons to H2. apply eqf_downward to H2.
+  apply CH to H3 H4. search.
 
 
 % We define co-inductive append and show it is associative
@@ -86,8 +86,8 @@ CoDefine coapp : olist -> olist -> olist -> prop by
 Theorem coapp_assoc : forall A B C AB ABC BC,
   coapp A B AB -> coapp AB C ABC -> coapp B C BC -> coapp A BC ABC.
 coinduction. intros. case H1.
-  case H2. apply CH to H4 H5 H3. search.
-  case H2. case H3. apply CH to H4 H5 H6. search.
-  case H2.
-    case H3. apply CH to _ H4 H5. search.
-    case H3. search.
+- case H2. apply CH to H4 H5 H3. search.
+- case H2. case H3. apply CH to H4 H5 H6. search.
+- case H2.
+  + case H3. apply CH to _ H4 H5. search.
+  + case H3. search.

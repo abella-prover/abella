@@ -18,11 +18,11 @@ Define subst : olist -> tm -> tm -> prop by
 Theorem subst_app : forall L T R S,
   subst L (app T R) S -> exists U V, S = app U V /\ subst L T U /\ subst L R V.
 induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+- search.
+- apply IH to H2. search.
 
 Theorem subst_abs : forall L T R,
   subst L (abs T) R -> exists S, R = abs S /\ nabla z, subst L (T z) (S z).
 induction on 1. intros. case H1.
-  search.
-  apply IH to H2. search.
+- search.
+- apply IH to H2. search.

@@ -16,11 +16,16 @@ Define freshlist : tm -> olist -> prop by
 
 Theorem member_fresh : forall X L E,
   member E L -> freshlist X L -> fresh X E.
-induction on 1. intros. case H1.
-  case H2. search.
-  assert freshlist X L1.
-    case H2. search.
-    apply IH to H3 H4. search.
+induction on 1.
+intros.
+case H1.
+- case H2.
+  search.
+- assert freshlist X L1.
+  + case H2.
+    search.
+  + apply IH to H3 H4.
+    search.
 
 Define ctx : olist -> prop by
   ctx nil ;
@@ -36,34 +41,57 @@ Theorem of_name :
   forall L E,
   ctx L -> member E L ->
   exists X T, E = of X T /\ name X.
-induction on 1. intros. case H1.
+induction on 1.
+intros.
+case H1.
+- case H2.
+- case H3.
   case H2.
-  case H3. case H2.
+  + search.
+  + apply IH to H4 H5.
     search.
-    apply IH to H4 H5. search.
 
 Theorem ctx_uniq : forall L E T1 T2,
   ctx L -> member (of E T1) L -> member (of E T2) L -> T1 = T2.
-induction on 1. intros. case H1.
-  case H2.
-  case H2.
-    case H3.
+induction on 1.
+intros.
+case H1.
+- case H2.
+- case H2.
+  + case H3.
+    * search.
+    * apply member_fresh to H6 H4.
+      case H7.
+  + case H3.
+    * apply member_fresh to H6 H4.
+      case H7.
+    * apply IH to H5 H6 H7.
       search.
-      apply member_fresh to H6 H4. case H7.
-    case H3.
-      apply member_fresh to H6 H4. case H7.
-      apply IH to H5 H6 H7. search.
 
 Theorem type_uniq : forall L E T1 T2,
   ctx L -> {L |- of E T1} -> {L |- of E T2} -> T1 = T2.
-induction on 2. intros. case H2.
+induction on 2.
+intros.
+case H2.
+- case H3.
+  + apply IH to _ H4 H5.
+    search.
+  + apply of_name to H1 H6.
+    case H7.
+    case H5.
+- case H3.
+  + apply IH to H1 H4 H6.
+    search.
+  + apply of_name to H1 H7.
+    case H8.
+    case H6.
+- apply of_name to H1 H5.
+  case H6.
   case H3.
-    apply IH to _ H4 H5. search.
-    apply of_name to H1 H6. case H7. case H5.
-  case H3.
-    apply IH to H1 H4 H6. search.
-    apply of_name to H1 H7. case H8. case H6.
-  apply of_name to H1 H5. case H6.
-   case H3. case H4. case H4.
-   apply of_name to H1 H8. case H7. case H4.
-   apply ctx_uniq to H1 H5 H8. search.
+  + case H4.
+  + case H4.
+  + apply of_name to H1 H8.
+    case H7.
+    case H4.
+    apply ctx_uniq to H1 H5 H8.
+    search.

@@ -174,18 +174,22 @@ let blank_line () =
 let flush () =
   match !dest with
   | Channel out ->
-      close_out out
+      close_out out ;
+      dest := Null
   | Buffer { out ; err ; base } ->
       output_string base @@ Buffer.contents out ;
       output_string base "\n################################################################################\n" ;
       output_string base @@ Buffer.contents err ;
-      close_out base
+      close_out base ;
+      dest := Null
   | Json { out ; base } -> begin
-      match base with
+      begin match base with
       | Some base ->
           Json.to_channel base @@ `List (List.rev out) ;
           close_out base
       | None -> ()
+      end ;
+      dest := Null
     end
   | Collect _ | Null -> ()
 

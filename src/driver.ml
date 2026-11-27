@@ -130,7 +130,10 @@ let processing_error_to_string error =
 
 let interactive_or_exit () =
   if !Setup.mode = `interactive then ()
-  else raise @@ Setup.AbellaExit 1
+  else begin
+    Output.flush () ;
+    raise @@ Setup.AbellaExit 1
+  end
 
 let position_range (p1, p2) =
   let file = p1.Lexing.pos_fname in

@@ -103,7 +103,7 @@ let abella_main
       | Error _ -> ()
     done ; 0
   end with
-  | Setup.AbellaExit n -> n
+  | Setup.AbellaExit n -> Output.flush () ; n
   | e ->
       let msg = match e with
         | Failure msg -> "Failure: " ^ msg

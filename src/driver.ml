@@ -148,6 +148,16 @@ let position_range (p1, p2) =
 let lexbuf_pos () =
   let lexbuf = !Setup.lexbuf in
   (lexbuf.Lexing.lex_start_p, lexbuf.Lexing.lex_curr_p)
+
+let last_pos : Extensions.pos ref = ref Extensions.ghost_pos
+
+let is_interactive () = !Setup.mode = `interactive
+
+let maybe_print_error_state () =
+  if not (is_interactive ()) && not !Setup.annotate then
+    match !istate with
+    | None -> ()
+    | Some st -> Output.non_annot "%s" (Prover.get_display st)
 let type_inference_error (pos, ct) exp act =
   Output.msg_printf "Typing error%s." (position_range pos) ;
   match ct with
@@ -172,8 +182,6 @@ let write_compilation () =
   match !Setup.file_kind with
   | `thmod -> Thmod.write_compilation ()
   | `thm -> Thm.write_compilation ()
-
-let is_interactive () = !Setup.mode = `interactive
 
 let bound_params () =
   if Thmod.in_module () then
@@ -204,6 +212,7 @@ let handle_process_exception e =
       let (pos, kind) = ci in
       State.Undo.undo () ;
       type_inference_error ci exp act ;
+      maybe_print_error_state () ;
       interactive_or_exit () ;
       Type_error { pos ; actual = act ; expected = exp ; kind }
   | End_of_file -> raise End_of_file
@@ -227,8 +236,18 @@ let handle_process_exception e =
         | Setup.UserInterrupt -> User_interrupt
         | _ -> Runtime_error (sorry e)
       in
-      Output.msg_printf ~severity:Error "Error: %s"
-        (processing_error_to_string error) ;
+      let pos = !last_pos in
+      if not (is_interactive ())
+         && pos <> Extensions.ghost_pos
+         && fst pos <> Lexing.dummy_pos
+      then
+        Output.msg_printf ~severity:Error "%s:\nError: %s"
+          (Extensions.string_of_position pos)
+          (processing_error_to_string error)
+      else
+        Output.msg_printf ~severity:Error "Error: %s"
+          (processing_error_to_string error) ;
+      if e <> Setup.UserInterrupt then maybe_print_error_state () ;
       interactive_or_exit () ;
       error
 
@@ -901,6 +920,7 @@ let rec process_proof_command proc cmd =
 (* Called by [process_proof1] for a single proof step. *)
 (* Parses, echoes, and executes the next proof command. *)
 and process_proof1_body proc =
+  last_pos := Extensions.ghost_pos ;
   if !Setup.mode = `interactive
      && not !suppress_proof_state_display
   then
@@ -909,6 +929,7 @@ and process_proof1_body proc =
   if !Setup.mode = `interactive then
     Output.non_annot "%s < " proc.thm ;
   let input = Parser.command_start Lexer.token !Setup.lexbuf in
+  last_pos := input.pos ;
   let cmd_string = command_to_string input.el in
   if !Setup.mode <> `interactive then
     begin match input.el with
@@ -1068,8 +1089,10 @@ and process_top1 state =
 (* Called by [process_top1_body] when skipping is off. *)
 (* Parses one top command and delegates to [run_top_command]. *)
 and process_top1_body_normal () =
+  last_pos := Extensions.ghost_pos ;
   if !Setup.mode = `interactive then Output.non_annot "Abella < " ;
   let input = Parser.top_command_start Lexer.token !Setup.lexbuf in
+  last_pos := input.pos ;
   let cmd_string = top_command_to_string input.el in
   run_top_command input.el input.pos cmd_string
 
@@ -1243,6 +1266,7 @@ and exec_resolved_top input thm_id =
 (* Called by normal and skip paths with a parsed command. *)
 (* Resolves, echoes, annotates, then calls [exec_resolved_top]. *)
 and run_top_command tc pos cmd_string =
+  last_pos := pos ;
   let input =
     if Thmod.in_module () then
       { el = Thmod.resolve_top tc ; pos }
@@ -1268,6 +1292,7 @@ and run_top_command tc pos cmd_string =
   exec_resolved_top input thm_id
 
 and admit_theorem tc pos cmd_string =
+  last_pos := pos ;
   let tc =
     if Thmod.in_module () then Thmod.resolve_top tc else tc
   in
@@ -1303,10 +1328,12 @@ and admit_theorem tc pos cmd_string =
 (* Called by [process_top1_body] when [--skip] applies. *)
 (* Admits/ignores pre-target commands, else resumes normally. *)
 and process_top1_body_skip () =
+  last_pos := Extensions.ghost_pos ;
   let pre_lnum = (!Setup.lexbuf).Lexing.lex_curr_p.Lexing.pos_lnum in
   let any_input =
     Parser.any_command_start Lexer.token !Setup.lexbuf
   in
+  last_pos := any_input.pos ;
   let start_line =
     let (p1, _) = any_input.pos in
     if p1 == Lexing.dummy_pos then pre_lnum

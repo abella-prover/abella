@@ -29,6 +29,7 @@ type skip_target =
   | Skip_theorem of string
 
 let print_interactions : bool ref = ref false
+let quiet : bool ref = ref false
 let skip_to : skip_target option ref = ref None
 let skip_reached : bool ref = ref false
 
@@ -68,6 +69,7 @@ type saved = {
   dest : Output.t ;
   undo : bool ;
   print_interactions : bool ;
+  quiet : bool ;
   skip_to : skip_target option ;
   skip_reached : bool ;
 }
@@ -88,6 +90,7 @@ let save () = {
   dest = !Output.dest ;
   undo = State.Undo.is_enabled () ;
   print_interactions = !print_interactions ;
+  quiet = !quiet ;
   skip_to = !skip_to ;
   skip_reached = !skip_reached ;
 }
@@ -108,6 +111,7 @@ let restore saved =
   Output.dest := saved.dest ;
   State.Undo.set_enabled saved.undo ;
   print_interactions := saved.print_interactions ;
+  quiet := saved.quiet ;
   skip_to := saved.skip_to ;
   skip_reached := saved.skip_reached
 

@@ -37,7 +37,7 @@ let set_or_exit k v =
 
 let abella_main
     flags _switch output _compiled annotate norec strict_stratification
-    warn_names strict_names strict _em verb print_inter skip infile =
+    warn_names strict_names strict _em verb print_inter quiet skip infile =
   try begin
     Output.set_verbosity verb ;
     Checks.stratification_warnings_are_errors :=
@@ -52,6 +52,7 @@ let abella_main
     Setup.annotate := annotate ;
     Setup.recurse := not norec ;
     Setup.print_interactions := print_inter ;
+    Setup.quiet := quiet ;
     Setup.skip_reached := false ;
     begin match skip with
     | None -> Setup.skip_to := None
@@ -222,6 +223,11 @@ let () =
     Arg.(value @@ flag @@ info ["print-interactions"] ~doc)
   in
 
+  let quiet =
+    let doc = "In batch mode, suppress echoing commands and progress messages." in
+    Arg.(value @@ flag @@ info ["q" ; "quiet"] ~doc)
+  in
+
   let skip =
     let doc = "Start processing proof commands from $(docv) onwards. If \
                $(docv) is a number, it is the line to start from: earlier \
@@ -255,7 +261,8 @@ let () =
     Cmd.v info @@
     Term.(const abella_main $ flags $ switch $ output $ compiled $
           annotate $ norec $ strict_stratification $ warn_names $
-          strict_names $ strict $ em $ verb $ print_inter $ skip $ file)
+          strict_names $ strict $ em $ verb $ print_inter $ quiet $
+          skip $ file)
   in
 
   Stdlib.exit (Cmd.eval' cmd)

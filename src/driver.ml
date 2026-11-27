@@ -931,7 +931,7 @@ and process_proof1_body proc =
   let input = Parser.command_start Lexer.token !Setup.lexbuf in
   last_pos := input.pos ;
   let cmd_string = command_to_string input.el in
-  if !Setup.mode <> `interactive then
+  if !Setup.mode <> `interactive && not !Setup.quiet then
     begin match input.el with
     | Bullet _ -> Output.non_annot "%s\n" cmd_string
     | _ -> Output.non_annot "%s.\n" cmd_string
@@ -981,7 +981,7 @@ and process_proof1 state =
         Ok !processing_state
       with
       | Prover.End_proof reason -> begin
-          Output.msg_printf "Proof %s" begin
+          let msg =
             match reason with
             | `completed fin -> begin
                 proc.compile fin ;
@@ -994,7 +994,8 @@ and process_proof1 state =
                    | Unfinished -> " *** USING skip ***")
               end
             | `aborted -> "ABORTED"
-          end ;
+          in
+          if not !Setup.quiet then Output.msg_printf "Proof %s" msg ;
           proc.reset () ;
           processing_state := Process_top ;
           Ok Process_top
@@ -1260,7 +1261,7 @@ and exec_resolved_top input thm_id =
         Process_top
     end
   in
-  if not !Setup.annotate then Output.blank_line () ;
+  if not !Setup.annotate && not !Setup.quiet then Output.blank_line () ;
   next_state
 
 (* Called by normal and skip paths with a parsed command. *)
@@ -1273,7 +1274,7 @@ and run_top_command tc pos cmd_string =
     else
       { el = tc ; pos }
   in
-  if !Setup.mode <> `interactive then
+  if !Setup.mode <> `interactive && not !Setup.quiet then
     Output.non_annot "%s.\n%!" cmd_string ;
   Thmod.check_structure input.el ;
   let thm_id =
@@ -1297,7 +1298,7 @@ and admit_theorem tc pos cmd_string =
     if Thmod.in_module () then Thmod.resolve_top tc else tc
   in
   let input = { el = tc ; pos } in
-  if !Setup.mode <> `interactive then
+  if !Setup.mode <> `interactive && not !Setup.quiet then
     Output.non_annot "%s.\n%!" cmd_string ;
   Thmod.check_structure input.el ;
   let thm_id =
@@ -1322,7 +1323,7 @@ and admit_theorem tc pos cmd_string =
   | _ -> [%bug] "admit_theorem called on non-theorem"
   end ;
   ignore thm_id ;
-  if not !Setup.annotate then Output.blank_line () ;
+  if not !Setup.annotate && not !Setup.quiet then Output.blank_line () ;
   Process_top
 
 (* Called by [process_top1_body] when [--skip] applies. *)

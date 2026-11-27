@@ -157,6 +157,15 @@ let type_inference_error (pos, ct) exp act =
         "Expression is applied to too many arguments"
 
 let write_compilation () =
+  (* Skipped runs admit theorems without checking them, so they must
+     not produce a trusted artifact. Recursive imports reset
+     [skip_to] and still compile normally. *)
+  if !Setup.skip_to <> None then begin
+    match !Setup.compiled with
+    | None -> ()
+    | Some (module C) ->
+        (try Sys.remove C.thc_path with Sys_error _ -> ())
+  end else
   match !Setup.file_kind with
   | `thmod -> Thmod.write_compilation ()
   | `thm -> Thm.write_compilation ()

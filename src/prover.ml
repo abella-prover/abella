@@ -47,6 +47,13 @@ let name_hint_at hints i =
   | Some (Hint.User name) -> Some name
   | Some System | None -> None
 
+(* Hyp hints repeat the last hint indefinitely (2.0.8 compatible),
+   while var hints fall back to system names past the list. *)
+let var_hint_at hints i =
+  match List.nth_opt hints i with
+  | Some (Hint.User name) -> Some name
+  | Some System | None -> None
+
 let lemmas : (string, string list * metaterm) H.t = State.table ()
 let lemma_tags : (string, fin) H.t = State.table ()
 
@@ -600,7 +607,7 @@ let rename_described sq ~hints ~base vars
   let rec collect i acc = function
     | [] -> Result.ok (List.rev acc)
     | ((old_var : var), in_sequent) :: rest -> begin
-        match name_hint_at hints i with
+        match var_hint_at hints i with
         | None ->
             used := (old_var.name, ()) :: !used ;
             collect (i + 1) acc rest

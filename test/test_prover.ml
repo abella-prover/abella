@@ -1428,21 +1428,39 @@ let tests =
              (List.exists (fun h -> h.id = "H") (focused ()).hyps)
         ) ;
 
-      test_case "Intros hspec repeats the last hint and honors don't-care"
+      test_case "Intros hspec repeats last hyp but not last var"
         (fun () ->
            setup_prover ()
              ~goal:"forall (X:i) (Y:i), \
                     rel1 X Y -> rel1 X Y -> rel1 X Y" ;
-           intros Hint.{ vars = [User "U"; System] ;
-                         hyps = [User "H"] } ;
+           intros Hint.{ vars = [User "U"] ;
+                         hyps = [User "Foo"] } ;
            Alcotest.check Alcotest.bool "first variable" true
              (List.mem_assoc "U" (focused ()).vars) ;
            Alcotest.check Alcotest.bool "second variable was not hinted"
              false (List.mem_assoc "U1" (focused ()).vars) ;
            Alcotest.check Alcotest.bool "first hypothesis" true
-             (List.exists (fun h -> h.id = "H") (focused ()).hyps) ;
+             (List.exists (fun h -> h.id = "Foo") (focused ()).hyps) ;
            Alcotest.check Alcotest.bool "repeated hypothesis" true
-             (List.exists (fun h -> h.id = "H1") (focused ()).hyps)
+             (List.exists (fun h -> h.id = "Foo1") (focused ()).hyps)
+        ) ;
+
+      test_case "Intros hspec honors don't-care"
+        (fun () ->
+           setup_prover ()
+             ~goal:"forall (X:i) (Y:i), \
+                    rel1 X Y -> rel1 X Y -> rel1 X Y" ;
+           intros Hint.{ vars = [User "U"; System] ;
+                         hyps = [User "Foo"; System] } ;
+           Alcotest.check Alcotest.bool "first variable" true
+             (List.mem_assoc "U" (focused ()).vars) ;
+           Alcotest.check Alcotest.bool "second variable was not hinted"
+             false (List.mem_assoc "U1" (focused ()).vars) ;
+           Alcotest.check Alcotest.bool "first hypothesis" true
+             (List.exists (fun h -> h.id = "Foo") (focused ()).hyps) ;
+           Alcotest.check Alcotest.bool "second hypothesis was not hinted"
+             false
+             (List.exists (fun h -> h.id = "Foo1") (focused ()).hyps)
         ) ;
 
       test_case "Intros names a nabla variable with a nominal hint"

@@ -170,10 +170,10 @@ let type_inference_error (pos, ct) exp act =
         "Expression is applied to too many arguments"
 
 let write_compilation () =
-  (* Skipped runs admit theorems without checking them, so they must
+  (* Skipped/partial runs admit theorems or stop early, so they must
      not produce a trusted artifact. Recursive imports reset
-     [skip_to] and still compile normally. *)
-  if !Setup.skip_to <> None then begin
+     [skip_to]/[state_at] and still compile normally. *)
+  if !Setup.skip_to <> None || !Setup.state_at <> None then begin
     match !Setup.compiled with
     | None -> ()
     | Some (module C) ->
@@ -182,6 +182,43 @@ let write_compilation () =
   match !Setup.file_kind with
   | `thmod -> Thmod.write_compilation ()
   | `thm -> Thm.write_compilation ()
+
+let emit_state_at target =
+  write_compilation () ;
+  let display =
+    match !istate with
+    | None -> "@\nNo proof in progress.@\n@\n"
+    | Some st -> Prover.get_display st
+  in
+  if !Setup.annotate then
+    Output.message "state_at"
+      ~fields:[
+        "line", `Int target ;
+        "state", (match !istate with
+          | None -> `Null
+          | Some st -> Prover.state_json st) ;
+      ]
+    |> Output.commit_message
+  else
+    Output.non_annot "%s" display ;
+  Output.flush () ;
+  raise @@ Setup.AbellaExit 0
+
+let check_state_at_before pos =
+  match !Setup.state_at with
+  | Some target when not (is_interactive ()) ->
+      let (p1, _) = pos in
+      if p1 <> Lexing.dummy_pos && p1.Lexing.pos_lnum > target then
+        emit_state_at target
+  | _ -> ()
+
+let check_state_at_after pos =
+  match !Setup.state_at with
+  | Some target when not (is_interactive ()) ->
+      let (_, p2) = pos in
+      if p2 <> Lexing.dummy_pos && p2.Lexing.pos_lnum >= target then
+        emit_state_at target
+  | _ -> ()
 
 let bound_params () =
   if Thmod.in_module () then
@@ -216,6 +253,7 @@ let handle_process_exception e =
       interactive_or_exit () ;
       Type_error { pos ; actual = act ; expected = exp ; kind }
   | End_of_file -> raise End_of_file
+  | Setup.AbellaExit _ as e -> raise e
   | e ->
       State.Undo.undo () ;
       let error = match e with
@@ -930,6 +968,7 @@ and process_proof1_body proc =
     Output.non_annot "%s < " proc.thm ;
   let input = Parser.command_start Lexer.token !Setup.lexbuf in
   last_pos := input.pos ;
+  check_state_at_before input.pos ;
   let cmd_string = command_to_string input.el in
   if !Setup.mode <> `interactive && not !Setup.quiet then
     begin match input.el with
@@ -954,7 +993,8 @@ and process_proof1_body proc =
   in
   if not !Setup.annotate then begin
     process_proof_command proc input.el ;
-    maybe_print_interactions ()
+    maybe_print_interactions () ;
+    check_state_at_after input.pos
   end else
     match process_proof_command proc input.el with
     | () ->
@@ -964,7 +1004,8 @@ and process_proof1_body proc =
             Output.extend annot "end_state" @@ state_json ()
             |> Output.commit_message
           end
-          annot
+          annot ;
+        check_state_at_after input.pos
     | exception e ->
         Option.iter Output.commit_message annot ;
         raise e
@@ -998,6 +1039,18 @@ and process_proof1 state =
           if not !Setup.quiet then Output.msg_printf "Proof %s" msg ;
           proc.reset () ;
           processing_state := Process_top ;
+          begin match !Setup.state_at with
+          | Some target when not (is_interactive ()) ->
+              let (_, p2) = !last_pos in
+              if p2 <> Lexing.dummy_pos && p2.Lexing.pos_lnum >= target then
+                emit_state_at target
+          | _ -> ()
+          end ;
+          if !Setup.stop_after_target && !Setup.skip_reached then begin
+            write_compilation () ;
+            Output.flush () ;
+            raise @@ Setup.AbellaExit 0
+          end ;
           Ok Process_top
         end
       | e -> Error (handle_process_exception e)
@@ -1042,8 +1095,9 @@ and process1 state =
       begin match !Setup.skip_to with
       | Some (Setup.Skip_theorem name)
           when not !Setup.skip_reached && not (is_interactive ()) ->
+          let flag = if !Setup.stop_after_target then "--only" else "--skip" in
           Output.msg_printf ~severity:Error
-            "Error: theorem %S not found (--skip target)" name ;
+            "Error: theorem %S not found (%s target)" name flag ;
           Output.flush () ;
           raise @@ Setup.AbellaExit 1
       | _ -> ()
@@ -1094,6 +1148,7 @@ and process_top1_body_normal () =
   if !Setup.mode = `interactive then Output.non_annot "Abella < " ;
   let input = Parser.top_command_start Lexer.token !Setup.lexbuf in
   last_pos := input.pos ;
+  check_state_at_before input.pos ;
   let cmd_string = top_command_to_string input.el in
   run_top_command input.el input.pos cmd_string
 
@@ -1290,7 +1345,9 @@ and run_top_command tc pos cmd_string =
       Output.commit_message annot ;
       annot.id
   in
-  exec_resolved_top input thm_id
+  let next_state = exec_resolved_top input thm_id in
+  check_state_at_after pos ;
+  next_state
 
 and admit_theorem tc pos cmd_string =
   last_pos := pos ;
@@ -1366,11 +1423,14 @@ and process_top1_body_skip () =
         | Theorem _ -> admit_theorem tc any_input.pos cmd_string
         | _ -> run_top_command tc any_input.pos cmd_string
         end
-      else
+      else begin
+        check_state_at_before any_input.pos ;
         run_top_command tc any_input.pos cmd_string
+      end
   | Types.ACommon cc ->
       let tc = Types.TopCommon cc in
       let cmd_string = top_command_to_string tc in
+      if not is_before then check_state_at_before any_input.pos ;
       run_top_command tc any_input.pos cmd_string
   | Types.ACommand _ ->
       if is_before then Process_top

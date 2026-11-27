@@ -32,6 +32,8 @@ let print_interactions : bool ref = ref false
 let quiet : bool ref = ref false
 let skip_to : skip_target option ref = ref None
 let skip_reached : bool ref = ref false
+let stop_after_target : bool ref = ref false
+let state_at : int option ref = ref None
 
 exception UserInterrupt
 exception AbellaExit of int
@@ -72,6 +74,8 @@ type saved = {
   quiet : bool ;
   skip_to : skip_target option ;
   skip_reached : bool ;
+  stop_after_target : bool ;
+  state_at : int option ;
 }
 
 let save () = {
@@ -93,6 +97,8 @@ let save () = {
   quiet = !quiet ;
   skip_to = !skip_to ;
   skip_reached = !skip_reached ;
+  stop_after_target = !stop_after_target ;
+  state_at = !state_at ;
 }
 
 let restore saved =
@@ -113,7 +119,9 @@ let restore saved =
   print_interactions := saved.print_interactions ;
   quiet := saved.quiet ;
   skip_to := saved.skip_to ;
-  skip_reached := saved.skip_reached
+  skip_reached := saved.skip_reached ;
+  stop_after_target := saved.stop_after_target ;
+  state_at := saved.state_at
 
 let with_saved f =
   let saved = save () in

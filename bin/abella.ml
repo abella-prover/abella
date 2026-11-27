@@ -37,7 +37,8 @@ let set_or_exit k v =
 
 let abella_main
     flags _switch output _compiled annotate norec strict_stratification
-    warn_names strict_names strict _em verb print_inter quiet skip infile =
+    warn_names strict_names strict _em verb print_inter quiet skip only
+    state_at infile =
   try begin
     Output.set_verbosity verb ;
     Checks.stratification_warnings_are_errors :=
@@ -54,9 +55,14 @@ let abella_main
     Setup.print_interactions := print_inter ;
     Setup.quiet := quiet ;
     Setup.skip_reached := false ;
-    begin match skip with
-    | None -> Setup.skip_to := None
-    | Some s -> begin
+    Setup.stop_after_target := false ;
+    Setup.state_at := None ;
+    begin match skip, only with
+    | Some _, Some _ ->
+        Output.msg_printf ~severity:Error
+          "Error: --skip and --only cannot be used together" ;
+        raise @@ Setup.AbellaExit 1
+    | Some s, None -> begin
         let s = String.trim s in
         match int_of_string_opt s with
         | Some n ->
@@ -75,6 +81,27 @@ let abella_main
             end ;
             Setup.skip_to := Some (Setup.Skip_theorem s)
       end
+    | None, Some s ->
+        let s = String.trim s in
+        if s = "" then begin
+          Output.msg_printf ~severity:Error
+            "Error: --only argument must be a theorem name" ;
+          raise @@ Setup.AbellaExit 1
+        end ;
+        Setup.skip_to := Some (Setup.Skip_theorem s) ;
+        Setup.stop_after_target := true
+    | None, None ->
+        Setup.skip_to := None
+    end ;
+    begin match state_at with
+    | None -> ()
+    | Some n ->
+        if n < 1 then begin
+          Output.msg_printf ~severity:Error
+            "Error: --state-at argument must be >= 1" ;
+          raise @@ Setup.AbellaExit 1
+        end ;
+        Setup.state_at := Some n
     end ;
     begin match infile with
     | Some file -> begin
@@ -240,6 +267,19 @@ let () =
          info ["skip"] ~doc ~docv:"WHERE")
   in
 
+  let only =
+    let doc = "Like $(b,--skip)=$(docv), but stop and exit after checking \
+               the named theorem." in
+    Arg.(value @@ opt (some string) None @@
+         info ["only"] ~doc ~docv:"THEOREM")
+  in
+
+  let state_at =
+    let doc = "In batch mode, print the proof state at line $(docv) and exit." in
+    Arg.(value @@ opt (some int) None @@
+         info ["state-at"] ~doc ~docv:"LINE")
+  in
+
   let file =
     let doc = "An Abella development to process in batch mode. \
                The $(docv) must end with the extension $(b,.thm) or \
@@ -262,7 +302,7 @@ let () =
     Term.(const abella_main $ flags $ switch $ output $ compiled $
           annotate $ norec $ strict_stratification $ warn_names $
           strict_names $ strict $ em $ verb $ print_inter $ quiet $
-          skip $ file)
+          skip $ only $ state_at $ file)
   in
 
   Stdlib.exit (Cmd.eval' cmd)

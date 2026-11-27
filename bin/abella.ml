@@ -52,15 +52,28 @@ let abella_main
     Setup.annotate := annotate ;
     Setup.recurse := not norec ;
     Setup.print_interactions := print_inter ;
+    Setup.skip_reached := false ;
     begin match skip with
     | None -> Setup.skip_to := None
-    | Some n ->
-        if n < 1 then begin
-          Output.msg_printf ~severity:Error
-            "Error: --skip argument must be >= 1" ;
-          raise @@ Setup.AbellaExit 1
-        end ;
-        Setup.skip_to := Some n
+    | Some s -> begin
+        let s = String.trim s in
+        match int_of_string_opt s with
+        | Some n ->
+            if n < 1 then begin
+              Output.msg_printf ~severity:Error
+                "Error: --skip argument must be >= 1" ;
+              raise @@ Setup.AbellaExit 1
+            end ;
+            Setup.skip_to := Some (Setup.Skip_line n)
+        | None ->
+            if s = "" then begin
+              Output.msg_printf ~severity:Error
+                "Error: --skip argument must be a line number \
+                 or a theorem name" ;
+              raise @@ Setup.AbellaExit 1
+            end ;
+            Setup.skip_to := Some (Setup.Skip_theorem s)
+      end
     end ;
     begin match infile with
     | Some file -> begin
@@ -210,12 +223,15 @@ let () =
   in
 
   let skip =
-    let doc = "Start processing proof commands from line $(docv) onwards. \
-               Earlier proof commands are accepted as no-ops and earlier \
-               theorems are accepted as true. It is an error if $(docv) is \
-               in the middle of a proof." in
-    Arg.(value @@ opt (some int) None @@
-         info ["skip"] ~doc ~docv:"NUM")
+    let doc = "Start processing proof commands from $(docv) onwards. If \
+               $(docv) is a number, it is the line to start from: earlier \
+               proof commands are accepted as no-ops and earlier theorems \
+               are accepted as true, and it is an error if the line is in \
+               the middle of a proof. If $(docv) is the name of a theorem, \
+               checking starts from the first theorem with that name; it \
+               is an error if no such theorem exists." in
+    Arg.(value @@ opt (some string) None @@
+         info ["skip"] ~doc ~docv:"WHERE")
   in
 
   let file =

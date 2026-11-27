@@ -1014,6 +1014,15 @@ and process1 state =
   | End_of_file ->
       check_thmod_complete () ;
       write_compilation () ;
+      begin match !Setup.skip_to with
+      | Some (Setup.Skip_theorem name)
+          when not !Setup.skip_reached && not (is_interactive ()) ->
+          Output.msg_printf ~severity:Error
+            "Error: theorem %S not found (--skip target)" name ;
+          Output.flush () ;
+          raise @@ Setup.AbellaExit 1
+      | _ -> ()
+      end ;
       begin match state with
       | Process_top ->
           if not (is_interactive ())
@@ -1289,8 +1298,8 @@ and admit_theorem tc pos cmd_string =
   Process_top
 
 (* Called by [process_top1_body] when [--skip] applies. *)
-(* Admits/ignores pre-skip commands, else resumes normally. *)
-and process_top1_body_skip skip_line =
+(* Admits/ignores pre-target commands, else resumes normally. *)
+and process_top1_body_skip () =
   let pre_lnum = (!Setup.lexbuf).Lexing.lex_curr_p.Lexing.pos_lnum in
   let any_input =
     Parser.any_command_start Lexer.token !Setup.lexbuf
@@ -1300,11 +1309,28 @@ and process_top1_body_skip skip_line =
     if p1 == Lexing.dummy_pos then pre_lnum
     else p1.Lexing.pos_lnum
   in
-  let is_before = start_line < skip_line in
+  let is_before =
+    match !Setup.skip_to with
+    | Some (Setup.Skip_line n) -> start_line < n
+    | Some (Setup.Skip_theorem _) -> not !Setup.skip_reached
+    | None -> false
+  in
+  let is_target tc =
+    match !Setup.skip_to, tc with
+    | Some (Setup.Skip_theorem target), Theorem (nm, _, _) ->
+        nm = target ||
+        (Thmod.in_module () &&
+         begin match Thmod.resolve_top tc with
+         | Theorem (rn, _, _) -> rn = target
+         | _ -> false
+         end)
+    | _ -> false
+  in
   begin match any_input.el with
   | Types.ATopCommand tc ->
       let cmd_string = top_command_to_string tc in
-      if is_before then
+      if is_target tc then Setup.skip_reached := true ;
+      if is_before && not (is_target tc) then
         begin match tc with
         | Theorem _ -> admit_theorem tc any_input.pos cmd_string
         | _ -> run_top_command tc any_input.pos cmd_string
@@ -1318,8 +1344,12 @@ and process_top1_body_skip skip_line =
   | Types.ACommand _ ->
       if is_before then Process_top
       else
-        failwithf
-          "Cannot skip to line %d: inside proof" skip_line
+        begin match !Setup.skip_to with
+        | Some (Setup.Skip_line n) ->
+            failwithf
+              "Cannot skip to line %d: inside proof" n
+        | _ -> failwith "Stray proof command outside proof"
+        end
   end
 
 (* Called by [process_top1] as the top-level step. *)
@@ -1327,9 +1357,9 @@ and process_top1_body_skip skip_line =
 and process_top1_body () =
   match !Setup.skip_to with
   | None -> process_top1_body_normal ()
-  | Some n ->
+  | Some _ ->
       if !Setup.mode = `interactive then process_top1_body_normal ()
-      else process_top1_body_skip n
+      else process_top1_body_skip ()
 
 and load_thm_artifact ~modname =
   Thm.Codec.load ~process:process1 ~init:Process_top ~modname

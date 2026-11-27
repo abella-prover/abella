@@ -15,215 +15,334 @@ Define ctx : olist -> prop by
   ctx (hyp A :: L) := ctx L.
 
 Theorem ctx_lemma :
-  forall E L, ctx L ->  member E L -> exists A, E = hyp A.
-induction on 1. intros. case H1.
-  case H2.
-  case H2. search. apply IH to H3 H4. search.
-
-%% We can independently prove inversion lemmas for 'bot', 'and', 'imp',
-%% and 'all'.
-%%
-%% For 'or' and 'ex' the inversion lemmas depend on the cut admissibility
-%% result and thus we prove those inversions during the cut proof.
+  forall E L, ctx L -> member E L -> exists A, E = hyp A.
+IH : induction on 1.
+intros !E !L Hctx Hmem. case Hctx.
+- case Hmem.
+- HctxSub _ =>
+  case Hmem.
+  + search.
+  + HmemSub =>
+    apply IH to HctxSub HmemSub.
+    search.
 
 Theorem bot_inv : forall L C,
   ctx L -> {L |- conc bot} -> {L |- conc C}.
-induction on 2. intros. case H2.
+IH : induction on 2.
+intros !L !C Hctx Hseq. case Hseq.
+- search.
+- search.
+- _ HseqAnd =>
+  apply IH to _ HseqAnd with C = C.
   search.
+- _ HseqOr1 HseqOr2 =>
+  apply IH to _ HseqOr1 with C = C.
+  apply IH to _ HseqOr2 with C = C.
   search.
-  apply IH to _ H4 with C = C. search.
-  apply IH to _ H4 with C = C. apply IH to _ H5 with C = C. search.
-  apply IH to _ H5 with C = C. search.
-  apply IH to _ H4 with C = C. search.
-  apply IH to _ H4 with C = C. search.
-  apply ctx_lemma to H1 H4. case H3.
+- _ _ HseqImp =>
+  apply IH to _ HseqImp with C = C.
+  search.
+- _ HseqAll =>
+  apply IH to _ HseqAll with C = C.
+  search.
+- _ HseqEx =>
+  apply IH to _ HseqEx with C = C.
+  search.
+- HseqMem HmemF =>
+  apply ctx_lemma to Hctx HmemF.
+  case HseqMem.
 
 Theorem and_left_inv : forall L C1 C2,
   ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C1}.
-induction on 2. intros. case H2.
+IH : induction on 2.
+intros !L !C1 !C2 Hctx Hseq. case Hseq.
+- search.
+- search.
+- search.
+- _ HseqAnd =>
+  apply IH to _ HseqAnd.
   search.
+- _ HseqOr1 HseqOr2 =>
+  apply IH to _ HseqOr1.
+  apply IH to _ HseqOr2.
   search.
+- _ _ HseqImp =>
+  apply IH to _ HseqImp.
   search.
-  apply IH to _ H4. search.
-  apply IH to _ H4. apply IH to _ H5. search.
-  apply IH to _ H5. search.
-  apply IH to _ H4. search.
-  apply IH to _ H4. search.
-  apply ctx_lemma to H1 H4. case H3.
+- _ HseqAll =>
+  apply IH to _ HseqAll.
+  search.
+- _ HseqEx =>
+  apply IH to _ HseqEx.
+  search.
+- HseqMem HmemF =>
+  apply ctx_lemma to Hctx HmemF.
+  case HseqMem.
 
 Theorem and_right_inv : forall L C1 C2,
   ctx L -> {L |- conc (and C1 C2)} -> {L |- conc C2}.
-induction on 2. intros. case H2.
+IH : induction on 2.
+intros !L !C1 !C2 Hctx Hseq. case Hseq.
+- search.
+- search.
+- search.
+- _ HseqAnd =>
+  apply IH to _ HseqAnd.
   search.
+- _ HseqOr1 HseqOr2 =>
+  apply IH to _ HseqOr1.
+  apply IH to _ HseqOr2.
   search.
+- _ _ HseqImp =>
+  apply IH to _ HseqImp.
   search.
-  apply IH to _ H4. search.
-  apply IH to _ H4. apply IH to _ H5. search.
-  apply IH to _ H5. search.
-  apply IH to _ H4. search.
-  apply IH to _ H4. search.
-  apply ctx_lemma to H1 H4. case H3.
+- _ HseqAll =>
+  apply IH to _ HseqAll.
+  search.
+- _ HseqEx =>
+  apply IH to _ HseqEx.
+  search.
+- HseqMem HmemF =>
+  apply ctx_lemma to Hctx HmemF.
+  case HseqMem.
 
 Theorem imp_inv : forall L C1 C2,
   ctx L -> {L |- conc (imp C1 C2)} -> {L, hyp C1 |- conc C2}.
-induction on 2. intros. case H2.
+IH : induction on 2.
+intros !L !C1 !C2 Hctx Hseq. case Hseq.
+- search.
+- search.
+- _ HseqAnd =>
+  apply IH to _ HseqAnd.
   search.
+- _ HseqOr1 HseqOr2 =>
+  apply IH to _ HseqOr1.
+  apply IH to _ HseqOr2.
   search.
-  apply IH to _ H4. search.
-  apply IH to _ H4. apply IH to _ H5. search.
+- search.
+- _ _ HseqImpL =>
+  apply IH to _ HseqImpL.
   search.
-  apply IH to _ H5. search.
-  apply IH to _ H4. search.
-  apply IH to _ H4. search.
-  apply ctx_lemma to H1 H4. case H3.
+- _ HseqAll =>
+  apply IH to _ HseqAll.
+  search.
+- _ HseqEx =>
+  apply IH to _ HseqEx.
+  search.
+- HseqMem HmemF =>
+  apply ctx_lemma to Hctx HmemF.
+  case HseqMem.
 
 Theorem all_inv : forall L C,
   ctx L -> {L |- conc (all C)} -> nabla x, {L |- conc (C x)}.
-induction on 2. intros. case H2.
+IH : induction on 2.
+intros !L !C !n1 Hctx Hseq. case Hseq.
+- search.
+- search.
+- _ HseqAnd =>
+  apply IH to _ HseqAnd.
   search.
+- _ HseqOr1 HseqOr2 =>
+  apply IH to _ HseqOr1.
+  apply IH to _ HseqOr2.
   search.
-  apply IH to _ H4. search.
-  apply IH to _ H4. apply IH to _ H5. search.
-  apply IH to _ H5. search.
+- _ _ HseqImp =>
+  apply IH to _ HseqImp.
   search.
-  apply IH to _ H4. search.
-  apply IH to _ H4. search.
-  apply ctx_lemma to H1 H4. case H3.
+- search.
+- _ HseqAllL =>
+  apply IH to _ HseqAllL.
+  search.
+- _ HseqEx =>
+  apply IH to _ HseqEx.
+  search.
+- HseqMem HmemF =>
+  apply ctx_lemma to Hctx HmemF.
+  case HseqMem.
 
 Theorem cut_admissibility : forall L K C,
   {form K} -> ctx L ->
     {L |- conc K} -> {L, hyp K |- conc C} -> {L |- conc C}.
-
-% The proof is by nested induction on
-%  1) The size of the cut formula K
-%  2) The height of {L, hyp K |- conc C}
-
-induction on 1. induction on 4. intros. case H4.
-  % Case analysis on {L, hyp K |- conc C}
-
-  % conc C in context - impossible
-  % apply ctx_lemma to _ H5.
-
-  % init rule
-  case H5. case H7.
-    case H6. search.
-    apply ctx_lemma to H2 H8. case H6. search.
-
-  % topR - C = top
+IHform : induction on 1.
+IHheight : induction on 4.
+intros !L !K !C HformK Hctx HseqK HseqCut. case HseqCut.
+- HhypC =>
+  Hfocus HmemHK : case HhypC.
+  case HmemHK.
+  + case Hfocus.
+    search.
+  + HmemL =>
+    apply ctx_lemma to Hctx HmemL.
+    case Hfocus.
+    search.
+- search.
+- HhypBot =>
+  HfocusBot HmemHKBot : case HhypBot.
+  case HmemHKBot.
+  + case HfocusBot.
+    apply bot_inv to Hctx HseqK with C = C.
+    search.
+  + HmemLBot =>
+    apply ctx_lemma to Hctx HmemLBot.
+    case HfocusBot.
+    search.
+- HseqAnd1 HseqAnd2 =>
+  apply IHheight to HformK _ HseqK HseqAnd1.
+  apply IHheight to HformK _ HseqK HseqAnd2.
   search.
-
-  % botL
-  case H5. case H7.
-    % essential case - K = bot
-    case H6. apply bot_inv to H2 H3 with C = C. search.
-    % commutative case
-    apply ctx_lemma to H2 H8. case H6. search.
-
-  % andR - C = and A B
-  apply IH1 to H1 _ H3 H5. apply IH1 to H1 _ H3 H6.
+- HhypAnd HseqAndL =>
+  HseqCutAB : apply IHheight to HformK _ HseqK HseqAndL.
+  HfocusAnd HmemAnd : case HhypAnd.
+  case HmemAnd.
+  + case HfocusAnd.
+    HseqAAnd : apply and_left_inv to _ HseqK.
+    HseqBAnd : apply and_right_inv to _ HseqK.
+    HformA HformB : case HformK.
+    HseqCutB : apply IHform to HformA _ HseqAAnd HseqCutAB.
+    apply IHform to HformB _ HseqBAnd HseqCutB.
     search.
-
-  % andL
-  apply IH1 to H1 _ H3 H6. case H5. case H9.
-    case H8.
-    % essential case - K = and A B
-    apply and_left_inv to _ H3. apply and_right_inv to _ H3. case H1.
-      apply IH to H12 _ H10 H7. apply IH to H13 _ H11 H14. search.
-
-    % commutative case
-    apply ctx_lemma to H2 H10. case H8.
+  + HmemLAnd =>
+    apply ctx_lemma to Hctx HmemLAnd.
+    case HfocusAnd.
     search.
-
-  % orR_1 - C = or A B
-  apply IH1 to H1 H2 H3 H5. search.
-
-  % orR_2 - C = or A B
-  apply IH1 to H1 H2 H3 H5. search.
-
-  % orL
-  apply IH1 to H1 _ H3 H6. apply IH1 to H1 _ H3 H7. case H5. case H11.
-    case H10.
-    % essential case - K = or A B
-    % A nested inversion lemma for 'or'
-    assert (forall L D, ctx L -> {L |- conc (or A B)} ->
-                          {L, hyp A |- conc D} -> {L, hyp B |- conc D} ->
-                          {L |- conc D}).
-      induction on 2. intros. case H13.
+- HseqOr1 =>
+  apply IHheight to HformK Hctx HseqK HseqOr1.
+  search.
+- HseqOr2 =>
+  apply IHheight to HformK Hctx HseqK HseqOr2.
+  search.
+- !B !A HhypOr HseqOrA HseqOrB =>
+  HseqCutAOr : apply IHheight to HformK _ HseqK HseqOrA.
+  HseqCutBOr2 : apply IHheight to HformK _ HseqK HseqOrB.
+  HfocusOr HmemOr : case HhypOr.
+  case HmemOr.
+  + case HfocusOr.
+    HinvOr : assert forall L1 D, ctx L1 ->
+      {L1 |- conc (or A B)} -> {L1, hyp A |- conc D} ->
+      {L1, hyp B |- conc D} -> {L1 |- conc D}.
+    -- IHor : induction on 2.
+      intros !L1 !D HctxOr HseqOr HseqAOr HseqBOr. case HseqOr.
+      * search.
+      * search.
+      * _ HseqAndOr =>
+        apply IHor to _ HseqAndOr HseqAOr HseqBOr.
         search.
+      * HseqAOr1 =>
+        HformA _ : case HformK.
+        apply IHform to HformA _ HseqAOr1 HseqAOr.
         search.
-        apply IH2 to _ H17 H14 H15. search.
-        case H1. apply IH to H17 H12 H16 H14. search.
-        case H1. apply IH to H18 H12 H16 H15. search.
-        apply IH2 to _ H17 H14 H15. apply IH2 to _ H18 H14 H15. search.
-        apply IH2 to _ H18 H14 H15. search.
-        apply IH2 to _ H17 H14 H15. search.
-        apply IH2 to _ H17 H14 H15. search.
-        apply ctx_lemma to H12 H17. case H16.
-
-    apply H12 to H2 H3 H8 H9. search.
-
-    % commutative case
-    apply ctx_lemma to H2 H12. case H10.
-    search.
-
-  % impR - C = imp A B.
-  apply IH1 to H1 _ H3 H5. search.
-
-  % impL
-  apply IH1 to H1 _ H3 H6. apply IH1 to H1 _ H3 H7. case H5. case H11.
-    case H10.
-    % essential case - K = imp A B
-    apply imp_inv to _ H3. case H1.
-      apply IH to H13 _ H8 H12. apply IH to H14 _ H15 H9. search.
-
-    % commutative case
-    apply ctx_lemma to H2 H12. case H10.
-    search.
-
-  % allR - C = all A
-  apply IH1 to H1 _ H3 H5. search.
-
-  % allL
-  apply IH1 to H1 _ H3 H6. case H5. case H9.
-    case H8.
-    % essential case - K = all A
-    apply all_inv to _ H3. case H1.
-      inst H10 with n1 = T. inst H11 with n1 = T.
-        apply IH to H13 _ H12 H7. search.
-
-    % commutative case
-    apply ctx_lemma to H2 H10. case H8.
-    search.
-
-  % exR - C = ex A
-  apply IH1 to H1 H2 H3 H5. search.
-
-  % exL
-  apply IH1 to H1 _ H3 H6. case H5. case H9. case H8.
-    % essential case - K = ex A
-    % A nested inversion lemma for 'ex'
-    assert (forall L D, nabla x, ctx L -> {L |- conc (ex A)} ->
-                                   {L, hyp (A x) |- conc D} ->
-                                   {L |- conc D}).
-      induction on 2. intros. case H11.
+      * HseqBOr1 =>
+        _ HformB2 : case HformK.
+        apply IHform to HformB2 _ HseqBOr1 HseqBOr.
         search.
+      * _ HseqOrL1 HseqOrL2 =>
+        apply IHor to _ HseqOrL1 HseqAOr HseqBOr.
+        apply IHor to _ HseqOrL2 HseqAOr HseqBOr.
         search.
-        apply IH2 to _ H14 H12. search.
-        apply IH2 to _ H14 H12. apply IH2 to _ H15 H12. search.
-        apply IH2 to _ H15 H12. search.
-        apply IH2 to _ H14 H12. search.
-        case H1. inst H14 with n1 = T. inst H12 with n1 = T.
-          apply IH to H15 H10 H13 H16. search.
+      * _ _ HseqImpOr =>
+        apply IHor to _ HseqImpOr HseqAOr HseqBOr.
+        search.
+      * _ HseqAllOr =>
+        apply IHor to _ HseqAllOr HseqAOr HseqBOr.
+        search.
+      * _ HseqExOr =>
+        apply IHor to _ HseqExOr HseqAOr HseqBOr.
+        search.
+      * HseqMemOr HmemOr1 =>
+        apply ctx_lemma to HctxOr HmemOr1.
+        case HseqMemOr.
+    -- apply HinvOr to Hctx HseqK HseqCutAOr HseqCutBOr2.
+      search.
+  + HmemLOr =>
+    apply ctx_lemma to Hctx HmemLOr.
+    case HfocusOr.
+    search.
+- HseqImpR =>
+  apply IHheight to HformK _ HseqK HseqImpR.
+  search.
+- HhypImp HseqImpA HseqImpB =>
+  HseqCutImpA : apply IHheight to HformK _ HseqK HseqImpA.
+  HseqCutImpB : apply IHheight to HformK _ HseqK HseqImpB.
+  HfocusImp HmemImp : case HhypImp.
+  case HmemImp.
+  + case HfocusImp.
+    HseqAImp : apply imp_inv to _ HseqK.
+    HformImpA HformImpB : case HformK.
+    HseqCutMid : apply IHform to HformImpA _ HseqCutImpA HseqAImp.
+    apply IHform to HformImpB _ HseqCutMid HseqCutImpB.
+    search.
+  + HmemLImp =>
+    apply ctx_lemma to Hctx HmemLImp.
+    case HfocusImp.
+    search.
+- HseqAllR =>
+  apply IHheight to HformK _ HseqK HseqAllR.
+  search.
+- !T !_ HhypAll HseqAllL =>
+  HseqCutAllL : apply IHheight to HformK _ HseqK HseqAllL.
+  HfocusAll HmemAll : case HhypAll.
+  case HmemAll.
+  + case HfocusAll.
+    HseqAAll : apply all_inv to _ HseqK.
+    HformAll : case HformK.
+    HinstAll : inst HseqAAll with n1 = T.
+    HinstAll2 : inst HformAll with n1 = T.
+    apply IHform to HinstAll2 _ HinstAll HseqCutAllL.
+    search.
+  + HmemLAll =>
+    apply ctx_lemma to Hctx HmemLAll.
+    case HfocusAll.
+    search.
+- HseqExR =>
+  apply IHheight to HformK Hctx HseqK HseqExR.
+  search.
+- !A !_ HhypEx HseqExL =>
+  HseqCutExA : apply IHheight to HformK _ HseqK HseqExL.
+  HfocusEx HmemEx : case HhypEx.
+  case HmemEx.
+  + case HfocusEx.
+    HinvEx : assert forall L1 D, nabla x, ctx L1 ->
+      {L1 |- conc (ex A)} -> {L1, hyp (A x) |- conc D} ->
+      {L1 |- conc D}.
+    -- IHex : induction on 2.
+      intros !L1 !D !n1 HctxEx HseqEx HseqAEx. case HseqEx.
+      * search.
+      * search.
+      * _ HseqAndEx =>
+        apply IHex to _ HseqAndEx HseqAEx.
+        search.
+      * _ HseqOr1Ex HseqOr2Ex =>
+        apply IHex to _ HseqOr1Ex HseqAEx.
+        apply IHex to _ HseqOr2Ex HseqAEx.
+        search.
+      * _ _ HseqImpEx =>
+        apply IHex to _ HseqImpEx HseqAEx.
+        search.
+      * _ HseqAllEx =>
+        apply IHex to _ HseqAllEx HseqAEx.
+        search.
+      * !T HseqExR =>
+        HformAEx : case HformK.
+        HinstEx1 : inst HformAEx with n1 = T.
+        HinstEx2 : inst HseqAEx with n1 = T.
+        apply IHform to HinstEx1 _ HseqExR HinstEx2.
+        search.
+      * _ HseqExEx =>
         assert {L1, hyp (A n2) |- conc D}.
-          apply IH2 to _ H14 H15. search.
-        apply ctx_lemma to H10 H14. case H13.
-
-    apply H10 to H2 H3 H7. search.
-
-    % commutative case
-    apply ctx_lemma to H2 H10. case H8.
+        apply IHex to _ HseqExEx _.
+        search.
+      * HseqMemEx HmemEx1 =>
+        apply ctx_lemma to HctxEx HmemEx1.
+        case HseqMemEx.
+    -- apply HinvEx to Hctx HseqK HseqCutExA.
+      search.
+  + HmemLEx =>
+    apply ctx_lemma to Hctx HmemLEx.
+    case HfocusEx.
     search.
-
-  case H6.
-    case H5.
-    apply ctx_lemma to H2 H7. case H5.
+- HseqMem HmemF =>
+  case HmemF.
+  + case HseqMem.
+  + HmemF =>
+    apply ctx_lemma to Hctx HmemF.
+    case HseqMem.

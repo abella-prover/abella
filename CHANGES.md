@@ -1,7 +1,7 @@
 Changes in 2.1.0-dev from 2.0.8
 -------------------------------
 
-Reasoning-level modules
+### Reasoning-level modules
 
 * Added `.thmod` files with one top-level `Module`/`End` block and
   optionally nested parameterized modules. Declarations are scoped by
@@ -20,7 +20,7 @@ Reasoning-level modules
 * See `examples/modules/` for examples, and `examples/modules/README.md` for
   more documentation.
 
-Tacticals
+### Tacticals
 
 * `tac1 ; tac2` runs `tac1` and then runs `tac2` on every subgoal it
   produces. If any part fails, the whole combination fails and leaves
@@ -41,7 +41,7 @@ Tacticals
   `coinduction` are not allowed inside tacticals.
 * A tactical combination counts as a single command for undo.
 
-Abella Web
+### Abella Web
 
 * Abella now has a web interface at:
 
@@ -53,36 +53,30 @@ Abella Web
 * Abella Web shows the Abella version beside the logo, matching the
   version reported in the prover's welcome message.
 
-Additions
+### Additions
 
 * Added `--strict-stratification` to `abella` and `abella_doc` to treat
   stratification failures as errors. Abella Web exposes the same option as
   a saved preference.
-
 * Added `--warn-names` to `abella` to warn when a proof refers to a
   hypothesis or variable whose name came from the system rather than a
   user-supplied name hint. Added `--strict-names` to make those
   references errors, and `--strict` as a synonym for
   `--strict-names --strict-stratification`. Abella Web exposes the
   off/warn/error name mode as a saved preference.
-
 * Naming hints now accept hint specifications such as
   `[!U !V H1 | !U H1 H2] : case H1`. Hints name variables and
   hypotheses per subgoal, support `!_`/`_` for system-generated names,
   and extend `intros` with variable hints. Nabla variable hints must use
   nominal constants such as `!n34`.
-
 * Added the `Axiom` command, which declares a theorem without requiring a
   proof. In batch mode, the axioms used are listed at the end of the run.
-
 * Added the `compute` tactic for performing asynchronous computation on
   hypotheses. Detailed examples can be found in the `examples/compute/`
   subdirectory.
-
 * Added the no argument form of the `clear` tactic that merely deduplicates
   the context, deleting later hypotheses that are the same as earlier
   hypotheses.
-
 * Added the `fchain` tactic for performing forward-chaining using a given
   list of lemmas. The general form of the command is:
 
@@ -95,14 +89,27 @@ Additions
   the *immediate* consequences of the lemmas from the hypotheses in scope,
   trying the lemmas from left to right and iterating up to the given depth.
   This is a branching tactic.
-
 * Added Rocq-style subgoal bullets: `-`, `+`, or `*` (or longer
   runs of one of these characters) focus the next subgoal, and a
   nested bullet may not reuse an enclosing one. Tactics issued
   while no subgoal is focused fail with a hint naming the expected
   bullet. (#173)
+* Added batch-mode debugging aids: `-q`/`--quiet` suppresses command
+  echoing and progress messages; `--print-interactions` prints the
+  sequents after every proof tactic as in interactive mode; `--skip`
+  starts checking from a line number or theorem name, admitting
+  earlier theorems and skipping earlier tactics (it is an error to
+  start in the middle of a proof or to name an unknown theorem);
+  `--only` behaves like `--skip` with a theorem name but stops after
+  that theorem; and `--state-at` prints the proof state at a given
+  line and exits. Skipped or partial runs never write `.thc`/`.thmodc`
+  artifacts, though recursive imports still compile normally.
+* Added the `abella_mcp` stdio MCP (Model Context Protocol) server
+  with `check_file`, `get_state`, `try_tactic`, `search_lemmas`,
+  `show`, and `reset` tools for incremental checking with
+  prefix-undo caching and speculative tactic probing.
 
-Changes
+### Changes
 
 * The `-i` flag is deprecated and does nothing; use a frontend such as
   Abella Web for interactive sessions.
@@ -120,7 +127,7 @@ Changes
   runs, so diagnostic messages can appear in the generated HTML.
   `--verbose` now sets verbosity to at least 2.
 
-Bugfixes
+### Bugfixes
 
 * `apply` now prevents capture on instantiation of `forall`-quantified
   variables in the lemma. ***BREAKING CHANGE*** (this changes the

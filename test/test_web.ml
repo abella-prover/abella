@@ -564,6 +564,46 @@ let test_tacticals () =
   if Result.is_error status then
     Alcotest.fail (String.concat "\n" (system_messages msgs))
 
+let test_session_split_commands () =
+  let src =
+    "% comment with dot.\n\
+     Theorem t : true /\\ true.\n\
+     /* block comment. */\n\
+     split.\n\
+     - search.\n\
+     + search.\n"
+  in
+  let chunks = Session.split_commands ~filename:"foo.thm" src in
+  let texts = List.map (fun (c : Session.command_chunk) -> c.text) chunks in
+  Alcotest.check (Alcotest.list Alcotest.string) "split chunks"
+    [ "Theorem t : true /\\ true." ;
+      "split." ;
+      "-" ;
+      "search." ;
+      "+" ;
+      "search." ]
+    texts ;
+  let first = List.hd chunks in
+  Alcotest.check Alcotest.int "first line" 2 first.start.line
+
+let test_session_try_command_and_back_zero () =
+  let init_out = Session.init ~root:"main.thm" ~welcome:false () in
+  Alcotest.check Alcotest.bool "init ok" true init_out.ok ;
+  Alcotest.check Alcotest.bool "back 0 ok" true (Session.back 0).ok ;
+  Alcotest.check Alcotest.bool "thm ok" true
+    (Session.process "Theorem t : true /\\ true.").ok ;
+  Alcotest.check Alcotest.bool "split ok" true
+    (Session.process "split.").ok ;
+  let before_display = Session.current_display () in
+  let try_ok = Session.try_command "search." in
+  Alcotest.check Alcotest.bool "try search ok" true try_ok.ok ;
+  Alcotest.check Alcotest.string "state unchanged after ok try"
+    before_display (Session.current_display ()) ;
+  let try_err = Session.try_command "apply Hmissing." in
+  Alcotest.check Alcotest.bool "try bad tactic fails" false try_err.ok ;
+  Alcotest.check Alcotest.string "state unchanged after failed try"
+    before_display (Session.current_display ())
+
 let tests = suite "web_core" [
   test_case "virtual_source" (fun () -> with_session test_virtual_source) ;
   test_case "thc_cache_bound" (fun () -> with_session test_thc_cache_bound) ;
@@ -580,6 +620,10 @@ let tests = suite "web_core" [
   test_case "strict_names" (fun () -> with_session test_strict_names) ;
   test_case "bullets" (fun () -> with_session test_bullets) ;
   test_case "tacticals" (fun () -> with_session test_tacticals) ;
+  test_case "session_split_commands"
+    (fun () -> with_session test_session_split_commands) ;
+  test_case "session_try_command_and_back_zero"
+    (fun () -> with_session test_session_try_command_and_back_zero) ;
   test_case "back_across_proof_boundary"
     (fun () -> with_session test_back_across_proof_boundary) ;
   test_case "back_command_across_proof_boundary"

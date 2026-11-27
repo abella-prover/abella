@@ -24,8 +24,6 @@ open Js_of_ocaml
 open Abella_lib
 open Extensions
 
-let processing_state = Driver.processing_state
-
 let js_string s = Js.Unsafe.inject (Js.string s)
 let js_int i = Js.Unsafe.inject (Js.float (float_of_int i))
 let js_bool b = Js.Unsafe.inject (Js.bool b)
@@ -48,14 +46,6 @@ let rec json_to_js (j : Extensions.Json.t) : Js.Unsafe.any =
       in
       Js.Unsafe.inject (Js.Unsafe.obj fields)
 
-let system_message ~severity message : Extensions.Json.t =
-  `Assoc [
-    "type", `String "system_message" ;
-    "id", `Int (-1) ;
-    "severity", `String severity ;
-    "message", `String message ;
-  ]
-
 let result status messages =
   Js.Unsafe.obj [|
     "status", js_string status ;
@@ -64,8 +54,11 @@ let result status messages =
     end ;
   |]
 
+let outcome_to_js (out : Session.outcome) =
+  result (if out.ok then "ok" else "error") out.messages
+
 let error_result message =
-  result "error" [system_message ~severity:"error" message]
+  result "error" [Session.system_message ~severity:"error" message]
 
 let field obj name : 'a = Js.Unsafe.get obj (Js.string name)
 let int_field obj name = int_of_float (Js.to_float (field obj name))
@@ -93,101 +86,37 @@ let file_list files =
   in
   collect 0 []
 
-let is_thmod_path path =
-  Filename.check_suffix path ".thmod"
-
-let name_mode_of_js mode =
+let name_mode_of_js mode : Session.name_mode =
   match Js.to_string mode with
   | "warn" -> `warn
   | "strict" -> `strict
   | _ -> `relaxed
 
-let re_init_inner files root strict name_mode =
-  let files = file_list files in
-  let root = Js.to_string root in
-  Checks.stratification_warnings_are_errors := Js.to_bool strict ;
-  Prover.strict_names := name_mode_of_js name_mode ;
-  let file_kind = if is_thmod_path root then `thmod else `thm in
-  State.reload Driver.initial_snapshot ;
-  processing_state := Driver.Process_top ;
-  State.Undo.set_enabled true ;
-  State.Undo.reset () ;
-  Driver.Setup.compiling := [] ;
-  Accumulate.clear_specification_cache () ;
-  Source.clear_virtual () ;
-  Source.clear_thc_trust () ;
-  Source.set_thc_cache_limit (64 * 1024 * 1024) ;
-  List.iter (fun (path, contents) -> Source.add_virtual path contents) files ;
-  Driver.Setup.mode := `interactive ;
-  Driver.Setup.file_kind := file_kind ;
-  Driver.Setup.annotate := true ;
-  Driver.Setup.recurse := false ;
-  Driver.Setup.import_mode := `auto ;
-  Driver.Setup.trust_compiled := true ;
-  Driver.Setup.input := root ;
-  Driver.Setup.compiled := None ;
-  Driver.Setup.unfinished := [] ;
-  Output.collect_mode () ;
-  ignore (Output.drain ()) ;
-  Output.msg_printf "%s" Driver.welcome_msg ;
-  result "ok" (Output.drain ())
-
-let re_init files root strict name_mode =
-  try re_init_inner files root strict name_mode
-  with e -> error_result (Printexc.to_string e)
-
 let init files root strict name_mode =
-  try re_init files root strict name_mode with
-  | e -> error_result (Printexc.to_string e)
+  try
+    let files = file_list files in
+    let root = Js.to_string root in
+    let strict = Js.to_bool strict in
+    let name_mode = name_mode_of_js name_mode in
+    outcome_to_js (Session.init ~files ~strict ~name_mode ~root ())
+  with e -> error_result (Printexc.to_string e)
 
 let reset = init
 
 let process command start =
-  try begin
+  try
     let command = Js.to_string command in
-    let offset = int_field start "offset" in
-    let line = int_field start "line" in
-    let bol = int_field start "bol" in
-    let lb = Lexing.from_string command in
-    lb.Lexing.lex_curr_p <- {
-      Lexing.pos_fname = !Driver.Setup.input ;
-      pos_lnum = line ;
-      pos_bol = bol ;
-      pos_cnum = offset ;
-    } ;
-    (* The lexer engine recomputes pos_cnum as lex_abs_pos + the
-       command-relative offset after every token. *)
-    lb.Lexing.lex_abs_pos <- offset ;
-    Driver.Setup.lexbuf := lb ;
-    let succeeded =
-      try
-        match Driver.process1 !processing_state with
-        | Ok state ->
-            processing_state := state ;
-            true
-        | Error _ -> false
-      with
-      | Driver.Setup.AbellaExit 0 -> true
-      | Driver.Setup.AbellaExit _ -> false
-      | e ->
-          Output.msg_printf ~severity:Error "Error: %s" (sorry e) ;
-          false
-    in
-    let messages = Output.drain () in
-    result (if succeeded then "ok" else "error") messages
-  end with
-  | e ->
-      let messages = Output.drain () in
-      result "error" (messages @ [system_message ~severity:"error" (sorry e)])
+    let start : Session.start_pos = {
+      offset = int_field start "offset" ;
+      line = int_field start "line" ;
+      bol = int_field start "bol" ;
+    } in
+    outcome_to_js (Session.process ~start command)
+  with e ->
+    error_result (sorry e)
 
 let back count =
-  try begin
-    State.Undo.back count ;
-    result "ok" (Output.drain ())
-  end with
-  | e ->
-      let messages = Output.drain () in
-      result "error" (messages @ [system_message ~severity:"error" (sorry e)])
+  outcome_to_js (Session.back count)
 
 (* Phase 0 helper: the generated .thc bytes for a virtual file, base64. *)
 let thc path =
